@@ -186,8 +186,16 @@ function renderLeads(leads, filtered){
   all.forEach(l=>{
     const v=parseFloat(l.jobValue||0);
     const sk = l._stageKey || l.stage || 'new';
-    if(!_lostKeys.includes(sk)) pipeVal+=v;
-    if(_closedKeys.includes(sk)) closedRev+=v;
+    // Role-aware buckets so CUSTOM/freeform won/lost stages count correctly.
+    // The built-in key lists still match built-in stages exactly (no behavior
+    // change there); the role check only ADDS custom stages, which no built-in
+    // list knows about — otherwise a custom Lost stage inflated pipeline value
+    // and a custom Won stage was excluded from closed revenue.
+    const role = l._stageRole || (typeof window.stageRole === 'function' ? window.stageRole(sk) : 'active');
+    const isLost = _lostKeys.includes(sk) || role === 'lost';
+    const isClosed = _closedKeys.includes(sk) || role === 'won' || role === 'job';
+    if(!isLost) pipeVal+=v;
+    if(isClosed) closedRev+=v;
     if(_approvedKeys.includes(sk)) approvedCount++;
   });
   // Count prospects (hidden from kanban when toggle is off)
@@ -268,8 +276,21 @@ function renderLeads(leads, filtered){
   };
   all.forEach(l => {
     const sk = l._stageKey || _normalize(l.stage || 'new');
+    let matched = false;
     for (const [bucket, keys] of Object.entries(_stageMap)) {
-      if (keys.includes(sk) || keys.includes(l.stage || '')) { _stageCounts[bucket]++; break; }
+      if (keys.includes(sk) || keys.includes(l.stage || '')) { _stageCounts[bucket]++; matched = true; break; }
+    }
+    // Custom/freeform WON/LOST stage not in the built-in display map — count it
+    // in the closed/lost tile so it doesn't vanish. Only won/lost: built-in
+    // mid-pipeline stages (inspected, scope_received, estimate_submitted, …)
+    // are ALSO absent from _stageMap and were never counted in a tile — a
+    // catch-all 'else' would newly pile them into Negotiating, a built-in
+    // behavior change. Custom ACTIVE stages stay uncounted too, consistent with
+    // the built-in mid-stages.
+    if (!matched) {
+      const role = l._stageRole || (typeof window.stageRole === 'function' ? window.stageRole(sk) : 'active');
+      if (role === 'won') _stageCounts.closed++;
+      else if (role === 'lost') _stageCounts.lost++;
     }
   });
   setEl('dp-new', _stageCounts.new);
@@ -480,6 +501,11 @@ function renderLeads(leads, filtered){
       // _dragId if dataTransfer is empty (some legacy browsers).
       const dropHandler = e => {
         e.preventDefault();
+        // Stop the drop from bubbling to the board-level delegated drop handler
+        // (#kanbanBoard) — without this BOTH fire and moveCard runs twice for
+        // one drop (double timeline note / double stageStartedAt churn, and a
+        // race window on the second move).
+        e.stopPropagation();
         body.classList.remove('drag-over');
         const draggedId = (e.dataTransfer && e.dataTransfer.getData('text/plain')) || _dragId;
         if (!draggedId) return;
@@ -1783,9 +1809,25 @@ async function moveCard(id, newStage){
         const snap = await tx.get(leadRef);
         if (!snap.exists()) throw new Error('Lead not found');
         const cur = snap.data() || {};
-        // Stage already matches — another tab won. No-op write but
-        // throw so the catch path can restore our optimistic state.
-        if (cur.stage === newStage) {
+        // NOOP guards — throw so the catch restores our optimistic state:
+        //  (a) the stage already IS newStage (another tab won), OR
+        //  (b) the card's CURRENT stage already resolves to the SAME visible
+        //      column as the drop target. In collapsed views (Simple/insurance)
+        //      several real stages share one column — e.g. crew_scheduled shows
+        //      in the 'Installing' column. Dropping the card back onto its own
+        //      column fires moveCard(id, columnKey); without this guard it would
+        //      rewrite the real stage to the column's canonical key, silently
+        //      DOWNGRADING role (WON→JOB), resetting stageStartedAt and logging
+        //      a misleading move. Compare by resolved column, not raw stage.
+        // resolveColumn(stageKey, viewStages) takes the STAGES ARRAY as arg2
+        // (window._stageKeys), NOT the view-key string — passing a string makes
+        // .includes() a substring test that returns garbage (blocks legit moves
+        // AND misses the target downgrade). Only apply the column-collapse NOOP
+        // when we actually have the current view's stage array.
+        const _mcKeys = window._stageKeys;
+        const _mcCurCol = (typeof window.resolveColumn === 'function' && Array.isArray(_mcKeys) && _mcKeys.length)
+          ? window.resolveColumn(cur.stage, _mcKeys) : cur.stage;
+        if (cur.stage === newStage || _mcCurCol === newStage) {
           throw new Error('STAGE_RACE_NOOP');
         }
         // Only enforce the from-stage check when we actually have one

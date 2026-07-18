@@ -183,6 +183,18 @@ async function saveLead(){
   const origText=saveBtn.textContent;
   saveBtn.textContent='Saving...';
   const intelData = window._modalIntel || {};
+  // Keep the denormalized stageRole in sync with the edited stage. moveCard
+  // stamps stageRole on drags, but the Edit-modal save path only wrote `stage`
+  // — leaving a STALE persisted stageRole that the server's won/lost classifier
+  // trusts (missed referral payouts + review nudges; wrong role-keyed KPIs).
+  // Tenant-aware via window.stageRole (custom-pipeline roleOf); normalize the
+  // dropdown value to an internal key first.
+  const _editStageVal = document.getElementById('lStage')?.value || '';
+  const _editStageRole = _editStageVal
+    ? (typeof window.stageRole === 'function'
+        ? window.stageRole(typeof window.normalizeStage === 'function' ? window.normalizeStage(_editStageVal) : _editStageVal)
+        : undefined)
+    : undefined;
   // saveLead: proceed with save
   try {
     // Field reads below all use optional chaining; the 6 that previously
@@ -198,7 +210,9 @@ async function saveLead(){
       address: addr,
       phone: document.getElementById('lPhone')?.value?.trim() || '',
       email: document.getElementById('lEmail')?.value?.trim() || '',
-      stage: document.getElementById('lStage')?.value || '',
+      stage: _editStageVal,
+      // Sync the denormalized role with the stage (see _editStageRole above).
+      ...(_editStageRole ? { stageRole: _editStageRole } : {}),
       jobType: document.getElementById('lJobType')?.value || '',
       subType: document.getElementById('lSubType')?.value || '',
       trades: (typeof window.getSelectedTrades === 'function') ? window.getSelectedTrades() : [],

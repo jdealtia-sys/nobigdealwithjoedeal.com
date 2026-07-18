@@ -7,6 +7,7 @@
 
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js';
 import { getAuth, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
+import { getFirestore, doc, getDoc } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
 import { connectEmulatorsIfLocal } from './nbd-emulator-connect.js'; // Audit #3: localhost-only, no-op in prod
 
 const app = initializeApp({
@@ -15,12 +16,14 @@ const app = initializeApp({
   projectId: "nobigdeal-pro"
 });
 const auth = getAuth(app);
-await connectEmulatorsIfLocal({ auth }); // Audit #3: localhost-only, no-op in prod
+const db = getFirestore(app);
+await connectEmulatorsIfLocal({ auth, db }); // Audit #3: localhost-only, no-op in prod
 
 // Stripe Checkout's cancel_url lands here with ?cancelled=true — acknowledge
 // it so the user knows nothing was charged (previously the flag was ignored
 // and the page rendered as if they'd never left).
-if (new URLSearchParams(location.search).get('cancelled') === 'true') {
+const checkoutCancelled = new URLSearchParams(location.search).get('cancelled') === 'true';
+if (checkoutCancelled) {
   const note = document.createElement('div');
   note.setAttribute('role', 'status');
   note.style.cssText = 'position:fixed;top:16px;left:50%;transform:translateX(-50%);z-index:9999;background:#1e3a6e;color:#fff;border:1px solid #e8720c;border-radius:8px;padding:10px 18px;font-size:13px;box-shadow:0 4px 16px rgba(0,0,0,.35);';
@@ -40,8 +43,16 @@ window.subscribe = async function(plan, evt) {
   // Check if user is signed in
   const user = auth.currentUser;
   if (!user) {
-    if (confirm('You need to sign in first. Go to login page?')) {
-      window.location.href = '/pro/login.html?redirect=pricing&plan=' + plan;
+    // A signed-out visitor on the pricing page is almost always a NEW stranger,
+    // not a returning user — send them to REGISTER (which stashes ?plan as
+    // nbd_plan_intent and, post-signup, routes to checkout), not the login
+    // wall they'd have no account for. Returning users use register's prominent
+    // "Sign in here" link; the intent register.js stashed survives the
+    // register→login→pricing bounce in sessionStorage, so their checkout still
+    // resumes. Only pass a validated plan into the URL.
+    const safePlan = (plan === 'starter' || plan === 'team' || plan === 'growth') ? plan : '';
+    if (confirm('Create your account to continue to checkout?')) {
+      window.location.href = '/pro/register.html' + (safePlan ? '?plan=' + safePlan : '');
     }
     return;
   }
@@ -116,7 +127,24 @@ onAuthStateChanged(auth, function(user) {
     plan = sessionStorage.getItem('nbd_plan_intent');
     if (plan) sessionStorage.removeItem('nbd_plan_intent');
   } catch (_) {}
-  if (plan !== 'starter' && plan !== 'team' && plan !== 'growth') return;
+  if (plan !== 'starter' && plan !== 'team' && plan !== 'growth') {
+    // No pending checkout to resume. Recover the pay-before-onboarding
+    // reorder's one gap: a new owner routed here to pay who then CANCELS at
+    // Stripe (cancel_url ?cancelled=true) would otherwise sit un-onboarded
+    // (no brand / no reserved doc prefix), since the wizard now runs after
+    // checkout. Send an un-onboarded owner to finish setup so they're never
+    // worse off than the pre-reorder flow. Best-effort; onboarding self-heals
+    // a missing company. Only on the cancel return — never interrupts a user
+    // who navigated to pricing deliberately.
+    if (checkoutCancelled) {
+      getDoc(doc(db, 'users', user.uid)).then((snap) => {
+        if (snap.exists() && snap.data().onboarded === false) {
+          window.location.replace('/pro/onboarding.html');
+        }
+      }).catch(() => { /* leave them on pricing */ });
+    }
+    return;
+  }
   planIntentResumed = true;
   const btn = document.querySelector('[data-pr-action="subscribe"][data-plan="' + plan + '"]');
   window.subscribe(plan, btn ? { target: btn } : undefined);

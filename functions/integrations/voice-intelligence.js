@@ -42,6 +42,10 @@ const ANTHROPIC_API_KEY_FOR_VOICE = defineSecret('ANTHROPIC_API_KEY');
 // in functions/index.js. Starter = 20 hr/month ≈ 2400s/day soft cap
 // (burstable — budget is per-day, users can backload).
 const VOICE_COMPANY_BUDGET_SEC = {
+  free:         3600,      // canonical free tier (gap #6 seeds plan:'free');
+                           // matches the legacy 'lite' default explicitly so a
+                           // seeded free doc caps identically to the old absent
+                           // doc, not by coincidence with the DEFAULT below.
   lite:         3600,      // 1 hr/mo ≈ 120s/day
   foundation:   72000,     // 20 hr/mo ≈ 2400s/day
   starter:      72000,

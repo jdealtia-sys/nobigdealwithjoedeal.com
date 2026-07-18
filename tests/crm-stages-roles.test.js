@@ -170,5 +170,52 @@ ok('board: unknown key falls back to New',
 sandbox.window.STAGE_META = undefined;
 sandbox.window.KANBAN_VIEWS = undefined;
 
+// ── #981 follow-up: Simple-view collapse of advanced insurance sub-stages ───
+// The Simple 7-column view hides the fine-grained adjuster/supplement columns.
+// Those sub-stages must collapse LEFT to a sensible mid-pipeline column — NOT
+// fall through to New. Pre-fix, adjuster_inspection_done / supplement_requested
+// / supplement_approved all bucketed into New: their PARENT column (Adjuster /
+// Supplement) is ALSO hidden in Simple, and the old single-hop group map gave
+// up instead of walking on to the next visible ancestor.
+const SIMPLE = KANBAN_VIEWS.simple.stages;
+const scol = (k) => resolveColumn(k, SIMPLE);
+
+// (a) the regression itself: no insurance sub-stage may land on New.
+['claim_filed', 'adjuster_meeting_scheduled', 'adjuster_inspection_done',
+ 'scope_received', 'supplement_requested', 'supplement_approved'].forEach(k => {
+  ok('simple: insurance sub-stage ' + k + ' does NOT fall through to New', scol(k) !== S.NEW);
+});
+// (b) the exact target columns — adjuster phase → Inspected, scope/supplement → Estimate.
+ok('simple: adjuster_inspection_done → Inspected (was New)', scol('adjuster_inspection_done') === S.INSPECTED);
+ok('simple: claim_filed → Inspected (unchanged)',           scol('claim_filed') === S.INSPECTED);
+ok('simple: adjuster_meeting_scheduled → Inspected (unchanged)', scol('adjuster_meeting_scheduled') === S.INSPECTED);
+ok('simple: scope_received → Estimate Sent (unchanged)',    scol('scope_received') === S.ESTIMATE_SUBMITTED);
+ok('simple: supplement_requested → Estimate Sent (was New)', scol('supplement_requested') === S.ESTIMATE_SUBMITTED);
+ok('simple: supplement_approved → Estimate Sent (was New)',  scol('supplement_approved') === S.ESTIMATE_SUBMITTED);
+
+// ── #981 follow-up: the revived Closed-grouping branch ──────────────────────
+// Won/completed job stages collapse to Closed; in-production job stages to
+// Installing. Before the reorder the Installing branch grabbed EVERY job stage
+// first, so the Closed branch was dead and won deals (install_complete …
+// final_payment) were mislabeled "Installing" in the Simple view.
+['install_complete', 'final_photos', 'deductible_collected', 'final_payment'].forEach(k => {
+  ok('simple: won job stage ' + k + ' → Closed (revived branch)', scol(k) === S.CLOSED);
+});
+['job_created', 'permit_pulled', 'materials_ordered', 'crew_scheduled', 'install_in_progress'].forEach(k => {
+  ok('simple: in-production job stage ' + k + ' → Installing', scol(k) === S.INSTALL_IN_PROGRESS);
+});
+
+// ── Preservation guards (no drift in the primary views) ─────────────────────
+// Full Insurance view: every stage is its own column — collapse never fires.
+KANBAN_VIEWS.insurance.stages.forEach(k => {
+  ok('insurance-full: ' + k + ' buckets to itself', resolveColumn(k, KANBAN_VIEWS.insurance.stages) === k);
+});
+// Warranty has Closed but no Installing → won-job stages still route to Closed
+// (proves the branch reorder didn't kill the path that view actually relied on).
+ok('warranty: install_complete → Closed (branch stays live)',
+  resolveColumn('install_complete', KANBAN_VIEWS.warranty.stages) === S.CLOSED);
+ok('warranty: in-production job_created → last non-Lost column (Closed)',
+  resolveColumn('job_created', KANBAN_VIEWS.warranty.stages) === S.CLOSED);
+
 console.log('\n' + (failed === 0 ? '✓' : '✗') + ' crm-stages roles: ' + passed + ' passed, ' + failed + ' failed');
 if (failed) { console.log('FAILURES:\n  ' + fails.join('\n  ')); process.exit(1); }

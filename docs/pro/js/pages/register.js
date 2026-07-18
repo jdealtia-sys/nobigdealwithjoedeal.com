@@ -47,18 +47,64 @@ const validateAccessCodeFn = httpsCallable(functions, 'validateAccessCode');
 const createCompanyFn = httpsCallable(functions, 'createCompany');
 
 // ─────────────────────────────────────────────────
-// PLAN INTENT (?plan=starter|growth)
+// PLAN INTENT (?plan=starter|team|growth)
 // Landing/pricing CTAs link here with the plan the visitor clicked. Stash it
 // so the intent survives register → onboarding → pricing, where
 // pricing-page.module.js auto-resumes checkout. Without this the "Start with
 // Growth" click dies at signup and the visitor lands on a free dashboard with
 // no path back to paying (product audit 2026-07, funnel break).
+// 'team' MUST be here: it's a live sellable plan ($149) and pricing-page's
+// resume already accepts it — omitting it silently dropped every signed-out
+// Team checkout at signup.
 // ─────────────────────────────────────────────────
-const PLAN_INTENTS = ['starter', 'growth'];
+const PLAN_INTENTS = ['starter', 'team', 'growth'];
 try {
   const planParam = new URLSearchParams(window.location.search).get('plan');
   if (PLAN_INTENTS.includes(planParam)) sessionStorage.setItem('nbd_plan_intent', planParam);
 } catch (_) { /* sessionStorage unavailable — intent is best-effort */ }
+
+// Display metadata for the selected plan — kept in sync with pricing.html /
+// billing-gate.js PLANS. Shown on the register form so a visitor who clicked a
+// paid CTA sees "you selected Team — $149/mo · continue to checkout" instead of
+// a form that looks like a plain free signup (funnel: buying intent made visible).
+const PLAN_DISPLAY = {
+  starter: { label: 'Starter', price: '$99/mo' },
+  team:    { label: 'Team',    price: '$149/mo' },
+  growth:  { label: 'Growth',  price: '$299/mo' },
+};
+
+// The freshly-provisioned owner's next stop. Paid intent → pricing FIRST so
+// checkout happens before the brand-setup wizard (the buying moment isn't
+// deferred behind onboarding); stripe-success routes them into onboarding
+// after the subscription activates. No intent → straight to the wizard.
+// Access-code and invited flows never call this (they route explicitly).
+function ownerDest() {
+  let hasIntent = false;
+  try { hasIntent = PLAN_INTENTS.includes(sessionStorage.getItem('nbd_plan_intent')); } catch (_) {}
+  return hasIntent ? '/pro/pricing.html' : '/pro/onboarding.html';
+}
+
+// Populate the selected-plan banner on the register form, if a paid plan was
+// carried in. Reads ?plan first (deep link), then the stashed intent.
+function renderPlanBanner() {
+  const host = document.getElementById('regPlanBanner');
+  if (!host) return;
+  // An invitee (?invite=1) is joining a team, not buying a plan — never show
+  // them a "you selected the X plan" banner, even if a stale intent lingers in
+  // sessionStorage from an earlier visit. (inviteIntent is module-scoped and
+  // set before this runs from wireRegisterDom.)
+  if (inviteIntent) { host.style.display = 'none'; return; }
+  let plan = null;
+  try {
+    plan = new URLSearchParams(window.location.search).get('plan');
+    if (!PLAN_INTENTS.includes(plan)) plan = sessionStorage.getItem('nbd_plan_intent');
+  } catch (_) {}
+  const meta = plan && PLAN_DISPLAY[plan];
+  if (!meta) { host.style.display = 'none'; return; }
+  host.textContent = 'You selected the ' + meta.label + ' plan (' + meta.price
+    + ') — create your account and we’ll take you straight to checkout.';
+  host.style.display = 'block';
+}
 
 // ─────────────────────────────────────────────────
 // INVITE INTENT (?invite=1)
@@ -171,9 +217,16 @@ async function register(e) {
       } catch (provisionErr) {
         console.warn('createCompany failed (account still usable):', provisionErr);
       }
-      // PILLAR1 Phase 4: new owners land on the setup wizard, which writes
-      // their brand/companyProfile and then hands off to the dashboard.
-      window.location.replace('/pro/onboarding.html');
+      // New owners: paid intent → pricing (checkout first, ownerDest), else
+      // the setup wizard. A brief note so the redirect isn't a blank flash.
+      const dest = ownerDest();
+      const okEl = document.getElementById('regOk');
+      if (okEl) {
+        okEl.textContent = dest === '/pro/pricing.html'
+          ? 'Account created — taking you to checkout…'
+          : 'Account created — setting up your workspace…';
+      }
+      window.location.replace(dest);
       return;
     } catch (e2) {
       errEl.textContent = e2.code === 'auth/email-already-in-use'
@@ -344,10 +397,14 @@ async function googleRegister() {
       }
     }
 
-    // New free owners go to the setup wizard (Phase 4); code-holders,
-    // invitees, and returning users go straight to the dashboard.
-    const dest = (!code && isNewUser && !inviteIntent) ? '/pro/onboarding.html' : '/pro/dashboard.html';
-    document.getElementById('regOk').textContent = 'Signed in! Taking you to your dashboard...';
+    // New free owners route via ownerDest (paid intent → pricing/checkout
+    // first, else the setup wizard); code-holders, invitees, and returning
+    // users go straight to the dashboard.
+    const isNewOwner = !code && isNewUser && !inviteIntent;
+    const dest = isNewOwner ? ownerDest() : '/pro/dashboard.html';
+    document.getElementById('regOk').textContent = (isNewOwner && dest === '/pro/pricing.html')
+      ? 'Signed in! Taking you to checkout…'
+      : 'Signed in! Taking you to your workspace…';
     setTimeout(() => { window.location.href = dest; }, 1200);
   } catch (err) {
     errEl.textContent = err.code === 'auth/popup-closed-by-user'
@@ -368,6 +425,8 @@ async function googleRegister() {
 // signup-funnel E2E journey, 2026-07-05). Prod won the race only because
 // the connect is a no-op there. Same pattern as tpl-view-draw's bootstrap.
 function wireRegisterDom() {
+  renderPlanBanner();
+
   const form = document.getElementById('regForm');
   if (form) form.addEventListener('submit', register);
 

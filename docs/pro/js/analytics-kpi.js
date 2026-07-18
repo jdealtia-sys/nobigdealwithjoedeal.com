@@ -75,6 +75,24 @@
     return den > 0 ? Math.round((num / den) * 100) : 0;
   }
 
+  // ── Invoice cash-collected helpers (cash basis) ──
+  // Mirror money-dashboard.js so #/analytics agrees with the #/money Collected
+  // card. Cash actually received on an invoice = total − balanceDue, so a
+  // partial deposit (status still 'sent', paidAt null, balanceDue reduced) and a
+  // paid invoice with a residual write-off both count real cash, not face value.
+  function collectedDollarsOf(inv) {
+    var total = parseFloat(inv.total) || 0;
+    var bal = (inv.balanceDue != null) ? (parseFloat(inv.balanceDue) || 0) : 0;
+    return Math.round(Math.max(0, total - bal) * 100) / 100;
+  }
+  // Receipt date of the latest payment. lastPaymentAt is stamped on EVERY
+  // payment (incl. partials) by the invoice pipeline + Stripe webhook; paidAt
+  // only fires on full payoff, so paidAt alone hid deposit cash. Null = no
+  // payment received yet (excludes never-paid invoices from collected totals).
+  function paymentDateOf(inv) {
+    return inv.lastPaymentAt != null ? inv.lastPaymentAt : inv.paidAt;
+  }
+
   // ════════════════════════════════════════════
   // HOME KPI ROW (existing functionality)
   // ════════════════════════════════════════════
@@ -312,13 +330,25 @@
     var thisMonth = now.getMonth();
     var thisYear = now.getFullYear();
 
-    // ── Revenue from paid invoices ──
-    var paidInvoices = invoices.filter(function (inv) {
-      return inv.status === 'paid' && inv.paidAt;
+    // ── Revenue collected (cash basis) ──
+    // Cash actually received across all invoices, NOT the face value of
+    // fully-paid ones. A partial deposit leaves status 'sent' + paidAt null but
+    // stamps lastPaymentAt and reduces balanceDue; gating on status==='paid' &&
+    // paidAt (the old logic) hid every open job's deposit, understating
+    // collected cash and disagreeing with the #/money Collected card by exactly
+    // that amount. Mirror money-dashboard: sum total−balanceDue for any invoice
+    // that has received a payment (see collectedDollarsOf / paymentDateOf).
+    var collectedInvoices = invoices.filter(function (inv) {
+      return paymentDateOf(inv) != null;
     });
-    var totalRevenue = paidInvoices.reduce(function (sum, inv) {
-      return sum + (parseFloat(inv.total) || 0);
+    var totalRevenue = collectedInvoices.reduce(function (sum, inv) {
+      return sum + collectedDollarsOf(inv);
     }, 0);
+    // Count of FULLY-paid invoices, for the "N paid invoices" sub-label (a
+    // partial deposit is still outstanding and is counted below, not here).
+    var paidInvoices = invoices.filter(function (inv) {
+      return inv.status === 'paid';
+    });
 
     var unpaidInvoices = invoices.filter(function (inv) {
       return inv.status !== 'paid';
@@ -411,11 +441,17 @@
       ? (totalPhotos / nonDeleted.length).toFixed(1)
       : '0';
 
-    // ── This month revenue ──
-    var monthRevenue = paidInvoices.filter(function (inv) {
-      var pd = toJSDate(inv.paidAt);
-      return pd && pd.getMonth() === thisMonth && pd.getFullYear() === thisYear;
-    }).reduce(function (sum, inv) { return sum + (parseFloat(inv.total) || 0); }, 0);
+    // ── This month's collected cash ──
+    // Same cash basis: attribute each invoice's collected cash to its receipt
+    // date (lastPaymentAt, falling back to paidAt for legacy full payoffs), so a
+    // deposit taken this month shows even while the invoice is still open.
+    var monthRevenue = collectedInvoices.reduce(function (sum, inv) {
+      var pd = toJSDate(paymentDateOf(inv));
+      if (pd && pd.getMonth() === thisMonth && pd.getFullYear() === thisYear) {
+        return sum + collectedDollarsOf(inv);
+      }
+      return sum;
+    }, 0);
 
     // ── Expense / supplier-spend metrics ──
     // costType is denormalized on each expense doc, so no ExpenseConfig needed.

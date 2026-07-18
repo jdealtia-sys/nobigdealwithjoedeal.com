@@ -520,12 +520,37 @@ exports.createTeamInvite = onCall(
         tx.delete(memberRef);
       });
     }
-    await memberRef.set({
-      email,
-      role,
-      status: 'invited',
-      invitedAt: FieldValue.serverTimestamp(),
-      invitedBy: uid,
+    // Atomic seat-cap re-check + invite write. The pre-check above (line ~478)
+    // is a fast fail; this transaction is the AUTHORITATIVE guard that closes
+    // the TOCTOU where N concurrent invites for DIFFERENT emails each read the
+    // same stale roster, all pass, and overshoot the paid cap. For a resend of a
+    // LIVE invite (reusesSeat) the seat is already counted, so we skip the
+    // re-check — otherwise a concurrent add in the delete→recreate window could
+    // strand the resend. tx.set always CREATES here (the doc was deleted above
+    // for a re-invite, or never existed), so teamInviteEmail's onDocumentCreated
+    // still fires.
+    await db.runTransaction(async (tx) => {
+      if (!reusesSeat && seats !== Infinity) {
+        const rosterSnap = await tx.get(db.collection(`companies/${companyId}/members`));
+        const occ = rosterSnap.docs.filter((m) => {
+          const md = m.data() || {};
+          if (md.status === 'invited') return !isInviteExpired(md);
+          return md.status === 'active';
+        }).length;
+        if (occ + 1 > seats) {
+          throw new HttpsError('resource-exhausted',
+            seats === 0
+              ? 'Team invites need the Growth plan — your current plan is solo. Upgrade at /pro/landing.html#pricing.'
+              : `Your plan includes ${seats} team seat${seats === 1 ? '' : 's'} and they're all taken. Remove a member or upgrade to add more.`);
+        }
+      }
+      tx.set(memberRef, {
+        email,
+        role,
+        status: 'invited',
+        invitedAt: FieldValue.serverTimestamp(),
+        invitedBy: uid,
+      });
     });
 
     logger.info('createTeamInvite: invited', { companyId, role, plan, seatsAfter });
@@ -646,3 +671,10 @@ exports.assignSeats = onCall(
 );
 
 exports._test = { resolveInviteRole, inviteEmailHtml, inviteEmailText, seatLimitForPlan, isInviteExpired, INVITE_TTL_DAYS };
+
+// Single source of truth for the plan→seat helpers so the parallel member-add
+// path (handlers/admin.js createTeamMember) enforces the IDENTICAL cap instead
+// of a drifting copy. index.js cherry-picks the callable exports, so these
+// extra named exports never register as functions.
+exports.seatLimitForPlan = seatLimitForPlan;
+exports.isInviteExpired = isInviteExpired;

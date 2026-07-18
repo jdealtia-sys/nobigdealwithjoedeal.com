@@ -893,16 +893,22 @@ async function loadCustomerActivity(leadId) {
       document_view:  'Viewed document',
       photo_upload:   'Uploaded photo',
     };
+    // Render-safety: escape every dynamic field before innerHTML. The local
+    // fallback MUST also escape — an identity fallback (s => String(s)) is a
+    // stored-XSS footgun if dom-safe.js ever fails to define window.nbdEsc first.
+    // e.type/e.resourceId are server-written audit fields today, but this render
+    // path is homeowner-activity data, so it stays on the escape-everything rule.
+    const esc = window.nbdEsc || (s => String(s == null ? '' : s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])));
     listEl.innerHTML = events.map(e => {
       const t = e.createdAt && e.createdAt.toDate ? e.createdAt.toDate() : null;
       const when = t ? t.toLocaleString() : '';
       const icon = ICON[e.type] || '•';
-      const label = LABEL[e.type] || e.type;
-      const detail = e.resourceId ? ' · <span style="color:var(--m);font-size:11px;">' + (window.nbdEsc || (s => String(s)))(e.resourceId.slice(0, 32)) + '</span>' : '';
+      const label = LABEL[e.type] || esc(e.type);
+      const detail = e.resourceId ? ' · <span style="color:var(--m);font-size:11px;">' + esc(e.resourceId.slice(0, 32)) + '</span>' : '';
       return '<div style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-bottom:1px solid var(--br);font-size:13px;">' +
         '<span style="font-size:18px;line-height:1;">' + icon + '</span>' +
         '<span style="flex:1;color:var(--t);">' + label + detail + '</span>' +
-        '<span style="color:var(--m);font-size:11px;white-space:nowrap;">' + (window.nbdEsc || (s => String(s)))(when) + '</span>' +
+        '<span style="color:var(--m);font-size:11px;white-space:nowrap;">' + esc(when) + '</span>' +
         '</div>';
     }).join('');
   } catch (e) {
@@ -1516,6 +1522,21 @@ window.exportCustomerEstimate = function(estId) {
   if (!est) { alert('Estimate not found'); return; }
   const fmt = n => '$' + parseFloat(n).toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2});
   const tierNames = { good:'Standard Reroof', better:'Reroof Plus', best:'Full Redeck' };
+  // Customer-facing rows at RETAIL. est.rows on V2/insurance docs saved before
+  // the 2026-07-18 money-math sweep hold the internal COST basis in rate/total,
+  // so printing them verbatim exposed the margin to the homeowner. The retail
+  // derivation (rows[].retailTotal → material×(1+markup)+labor → face value,
+  // + the O&P line that makes lines foot to the subtotal, per-SQ → no rows)
+  // lives in customer-estimate-rows.js — pure, unit-tested. If that script
+  // failed to load, fail CLOSED for margin data: docs with V2 cost pricing
+  // render no per-line rows (the grand total still shows); classic docs keep
+  // their rows, which are all-in customer prices by construction.
+  const _rowsApi = window.NBDCustomerEstimateRows;
+  const _hasV2Cost = Number.isFinite(Number(est.materialMarkupPct))
+    || est.priceMode === 'per-sq' || est.prices != null;
+  const rows = (_rowsApi && typeof _rowsApi.buildDisplayRows === 'function')
+    ? _rowsApi.buildDisplayRows(est)
+    : (_hasV2Cost ? [] : (est.rows || []));
   const _b = (window._brand && window._brand()) || {};
   const _isNbd = !_b.legalName || _b.legalName === 'No Big Deal Home Solutions';
   const _esc = s => String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
@@ -1575,7 +1596,7 @@ window.exportCustomerEstimate = function(estId) {
   <h2>Package — ${est.tierName||tierNames[est.tier]||est.tier||'Standard'}</h2>
   <table><thead><tr><th>Code</th><th>Description</th><th>Qty</th><th>Rate</th><th>Total</th></tr></thead>
   <tbody>
-    ${(est.rows||[]).map(r=>`<tr><td class="code">${r.code}</td><td>${r.desc}</td><td>${r.qty}</td><td>${r.rate}</td><td>${fmt(r.total)}</td></tr>`).join('')}
+    ${rows.map(r=>`<tr><td class="code">${_esc(r.code)}</td><td>${_esc(r.desc)}</td><td>${_esc(r.qty)}</td><td>${_esc(r.rate)}</td><td>${fmt(r.total)}</td></tr>`).join('')}
     <tr class="grand-row"><td colspan="4">ESTIMATE TOTAL — ${est.tierName||tierNames[est.tier]||''}</td><td>${fmt(est.grandTotal||est.amount||0)}</td></tr>
   </tbody></table>
   <div class="footer">

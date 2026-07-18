@@ -141,10 +141,15 @@
   //   tier 1 (Sent)      →  8
   //   tier 0 (New)       →  0
   function _scoreEngagement(lead, ctx) {
-    if (typeof window.computeTier !== 'function') return 0;
+    // The engagement-tier fn lives at window.CustomerEngagementScore.computeTier
+    // (customer-engagement-score.js) — window.computeTier was never assigned, so
+    // this signal (0-30, the single largest weight in the lead score) silently
+    // returned 0 for EVERY lead. Call the real fn (same as crm-pipeline.js does).
+    var _ces = window.CustomerEngagementScore;
+    if (!_ces || typeof _ces.computeTier !== 'function') return 0;
     let tier;
     try {
-      tier = window.computeTier(lead, ctx && ctx.estimates) || { tier: 0 };
+      tier = _ces.computeTier(lead, ctx && ctx.estimates) || { tier: 0 };
     } catch (_) {
       return 0;
     }

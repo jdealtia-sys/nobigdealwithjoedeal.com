@@ -53,6 +53,10 @@ const COST_OUTPUT_PER_TOKEN = 4.00 / 1_000_000;
 // Per-user monthly vision spend cap — shared with photo-vision (same budget).
 const PER_USER_MONTHLY_USD_CAP = 50.00;
 const PER_USER_MONTHLY_USD_CAP_BY_PLAN = {
+  // 'free' explicit (gap #6 seeds plan:'free') = $25, same as the Math.min
+  // fallback below already gives it — pinned so it stays $25 even if the cap
+  // set changes.
+  free: 25.00,
   lite: 25.00, foundation: 25.00, starter: 25.00,
   blueprint: 40.00, growth: 75.00, professional: 150.00,
 };

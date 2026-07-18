@@ -65,6 +65,17 @@ console.log('\nTeam plan ($149, 2 seats) — wired server + client + stripe + pr
   const pp = read('docs/pro/js/pricing-page.module.js');
   assert('pricing-page resume-checkout allows team',
     /plan !== 'starter' && plan !== 'team' && plan !== 'growth'/.test(pp));
+  // Funnel intent: a signed-out Team click must survive register + login so
+  // pricing-page can resume checkout. Both allowlists dropped 'team' — a live
+  // sellable plan — silently killing every signed-out Team purchase at signup.
+  const reg = read('docs/pro/js/pages/register.js');
+  assert('register.js plan-intent allowlist includes team',
+    /PLAN_INTENTS = \['starter', 'team', 'growth'\]/.test(reg),
+    'a signed-out Team CTA click must stash nbd_plan_intent, not drop it');
+  const lg = read('docs/pro/js/pages/login.js');
+  assert('login.js pricing-redirect allowlist includes team',
+    /plan === 'starter' \|\| plan === 'team' \|\| plan === 'growth'/.test(lg),
+    'login?redirect=pricing&plan=team must carry the intent through');
 }
 
 // ── Part B: source-contract guards ────────────────────────────────────
@@ -213,9 +224,11 @@ console.log('\nInvitee register bypass (?invite=1)');
     /get\('invite'\) === '1'/.test(reg));
   assert('email path: invitees skip solo provisioning + owner wizard',
     /if \(inviteIntent\) \{\s*window\.location\.replace\('\/pro\/dashboard\.html'\);/.test(reg));
-  assert('google path: invitees not provisioned, routed to dashboard',
+  assert('google path: invitees not provisioned, routed to dashboard (via ownerDest reorder)',
     /isNewUser && !inviteIntent/.test(reg)
-    && /\(!code && isNewUser && !inviteIntent\) \? '\/pro\/onboarding\.html'/.test(reg));
+    && /isNewOwner = !code && isNewUser && !inviteIntent/.test(reg)
+    && /dest = isNewOwner \? ownerDest\(\) : '\/pro\/dashboard\.html'/.test(reg),
+    'invitees (inviteIntent) are excluded from isNewOwner so they still go to dashboard, not the funnel');
   assert('google + access-code path provisions a tenant (#945 parity)',
     /signInWithCustomToken\(auth, result\.data\.customToken\);[\s\S]{0,700}createCompanyFn\(/.test(reg),
     'paid code-holders on the Google branch landed with no companies doc/claims');
@@ -581,6 +594,299 @@ console.log('\nPer-seat charging — webhook event-ordering guard (out-of-order 
     /lastSubEventAt: eventCreated \|\| lastApplied \|\| FieldValue\.delete\(\)/.test(st));
   assert('checkout seeds the ordering watermark so a stale updated cannot clobber activation',
     /lastSubEventAt: typeof event\.created === 'number' \? event\.created : FieldValue\.delete\(\)/.test(st));
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// ROUTE 3 (2026-07-17): self-serve funnel — pay-before-onboarding
+// reorder + safe polish (plan banner, token refresh, buy-first tenant).
+// ═══════════════════════════════════════════════════════════════════
+
+console.log('\nRoute 3 — funnel reorder + polish');
+{
+  const reg = read('docs/pro/js/pages/register.js');
+  assert('ownerDest routes paid intent → pricing (checkout first), else onboarding',
+    /function ownerDest\(\)[\s\S]{0,260}hasIntent \? '\/pro\/pricing\.html' : '\/pro\/onboarding\.html'/.test(reg),
+    'paid intent must hit Stripe before the setup wizard');
+  assert('both register branches route new owners via ownerDest (not hardcoded onboarding)',
+    (reg.match(/ownerDest\(\)/g) || []).length >= 2,
+    'email + Google new-owner paths must both use the reorder helper');
+  assert('renderPlanBanner + PLAN_DISPLAY (team included) surface the selected plan',
+    /function renderPlanBanner\(\)/.test(reg)
+    && /PLAN_DISPLAY = \{[\s\S]{0,160}team:\s*\{ label: 'Team',\s*price: '\$149\/mo' \}/.test(reg)
+    && /renderPlanBanner\(\)/.test(reg.split('function wireRegisterDom')[1] || ''),
+    'a paid-CTA visitor must see their selected plan, wired in wireRegisterDom');
+  const regHtml = read('docs/pro/register.html');
+  assert('register.html has the (default-hidden) plan banner element',
+    /id="regPlanBanner"[\s\S]{0,120}display:none/.test(regHtml));
+
+  const ss = read('docs/pro/js/pages/stripe-success.js');
+  assert('post-activation token refresh (fresh plan claim for rules/callables)',
+    /await waitForSubscriptionActive\(billingKey\);[\s\S]{0,600}getIdToken\(true\)/.test(ss),
+    'token.plan must be fresh this session, not stale ~1h after purchase');
+  assert('un-onboarded payer routed to onboarding after activation (reorder)',
+    /function wireDoneDestination/.test(ss)
+    && /onboarded = !\(snap\.exists\(\) && snap\.data\(\)\.onboarded === false\)/.test(ss)
+    && /setAttribute\('href', '\/pro\/onboarding\.html'\)/.test(ss),
+    'a buyer who paid before the wizard still needs onboarding; returning subs go to dashboard');
+  assert('buy-first path provisions a real tenant (createCompany) — closes the #945-class hole',
+    /createCompanyFn = httpsCallable\(functions, 'createCompany'\)/.test(ss)
+    && /await setDoc\(doc\(db, 'users'[\s\S]{0,900}createCompanyFn\(\{ name:/.test(ss),
+    'a direct-to-checkout account must get a company/companyId, not a tenant-less paid doc');
+  assert('stripe-success imports getDoc + getFunctions for the new reads/provisioning',
+    /getFirestore, doc, getDoc, setDoc/.test(ss) && /getFunctions, httpsCallable/.test(ss));
+  // Review finding (3 lenses): createCompany is enforceAppCheck:true; without
+  // App Check init on stripe-success the buy-first provisioning call is
+  // REJECTED in prod and the #945 hole stays open. Must set up App Check like
+  // register.js does.
+  assert('stripe-success initializes App Check so the createCompany call is not rejected in prod',
+    /initializeAppCheck, ReCaptchaEnterpriseProvider/.test(ss)
+    && /emulatorAppCheckIfLocal\(app\)/.test(ss)
+    && /initializeAppCheck\(app, \{/.test(ss),
+    'the buy-first createCompany would 401 on App Check without this — the fix would be dead code');
+  const ssHtml = read('docs/pro/stripe-success.html');
+  assert('stripe-success done button is addressable for onboarding routing',
+    /id="doneContinueBtn"/.test(ssHtml));
+  assert('stripe-success.html loads the App Check key config script',
+    /dashboard-appcheck-config\.js/.test(ssHtml));
+
+  assert('plan banner is suppressed for invitees (?invite=1)',
+    /function renderPlanBanner[\s\S]{0,600}if \(inviteIntent\) \{ host\.style\.display = 'none'; return; \}/.test(reg),
+    'an invitee is joining a team, not buying a plan — a stale intent must not show them a plan banner');
+
+  const pp = read('docs/pro/js/pricing-page.module.js');
+  assert('cancel-recovery: an un-onboarded owner who cancels checkout is routed to onboarding',
+    /checkoutCancelled = new URLSearchParams/.test(pp)
+    && /if \(checkoutCancelled\) \{[\s\S]{0,260}snap\.data\(\)\.onboarded === false[\s\S]{0,80}onboarding\.html/.test(pp),
+    'the reorder must not leave an abandoned paid signup un-onboarded/un-branded (worse than pre-reorder)');
+}
+
+console.log('\nRoute 3 gap #4 — one-click in-dashboard upgrade');
+{
+  const bt = read('docs/pro/js/dashboard-billing-tab.js');
+  assert('billing-tab renders a one-click checkout button + delegate → createCheckoutSession',
+    /data-billing-action="checkout"/.test(bt)
+    && /startBillingCheckout/.test(bt)
+    && /createCheckoutSession/.test(bt),
+    'a free/cancelled owner should reach Stripe in one click, not bounce to pricing.html');
+  assert('DOUBLE-BILL GUARD: checkout offered only when there is NO live Stripe sub',
+    /hasLiveSub = !!\(info\.status && LIVE_SUB_STATUS\[info\.status\]\)/.test(bt)
+    && /PAID\[key\] && !hasLiveSub[\s\S]{0,120}data-billing-action="checkout"/.test(bt)
+    && /PAID\[key\] && hasLiveSub[\s\S]{0,120}data-billing-action="managePortal"/.test(bt),
+    'createCheckoutSession mints a NEW subscription — anyone who already has a Stripe sub must use the portal, never a fresh checkout');
+  assert('DOUBLE-BILL GUARD covers dunning statuses (past_due/unpaid/incomplete), not just active/trialing',
+    /LIVE_SUB_STATUS = \{ active: 1, trialing: 1, past_due: 1, unpaid: 1, incomplete: 1 \}/.test(bt),
+    'a past_due/unpaid/incomplete tenant STILL has a live chargeable Stripe sub — offering them checkout double-bills + orphans the original');
+  assert('checkout callable is plan-allowlisted + owner sees no per-card action',
+    /plan !== 'starter' && plan !== 'team' && plan !== 'growth'\) return/.test(bt)
+    && /isOwner = !!\(window\._userClaims && window\._userClaims\.owner === true\)/.test(bt),
+    'guard the callable to real paid plans; owners are uncapped and never self-checkout');
+  assert('checkout delegate is guarded against template re-hydration double-wiring',
+    /_NBD_BILLING_CHECKOUT_DELEGATE/.test(bt));
+}
+
+console.log('\nRoute 3 gap #3 — signed-out Subscribe → register (not the login wall)');
+{
+  const pp = read('docs/pro/js/pricing-page.module.js');
+  assert('signed-out subscribe routes to register.html?plan= (carrying a validated plan)',
+    /window\.location\.href = '\/pro\/register\.html' \+ \(safePlan \? '\?plan=' \+ safePlan/.test(pp)
+    && /safePlan = \(plan === 'starter' \|\| plan === 'team' \|\| plan === 'growth'\)/.test(pp),
+    'a stranger on pricing has no account — sending them to the login wall is a conversion leak');
+  assert('signed-out subscribe no longer dead-ends at login.html',
+    !/window\.location\.href = '\/pro\/login\.html\?redirect=pricing/.test(pp),
+    'the old login-wall redirect must be gone');
+}
+
+console.log('\nRoute 3 gap #6 — canonical free-tenant subscriptions doc');
+{
+  const prov = read('functions/handlers/provisioning.js');
+  assert('createCompany seeds a free subscriptions doc (plan:free, status:none)',
+    /db\.doc\(`subscriptions\/\$\{uid\}`\)\.create\(\{[\s\S]{0,120}plan: 'free',\s*status: 'none'/.test(prov),
+    'status:none + plan:free reads identically to an absent doc everywhere');
+  assert('free-doc seed is a NO-CLOBBER atomic create() (never downgrades a paid/comp doc)',
+    /\.create\(\{/.test(prov)
+    && /e\.code === 6 \|\| \/already exists\/i\.test/.test(prov),
+    'a buy-first checkout or access-code grant can write a PAID doc first — create() must fail-safe, not overwrite');
+  const st = read('functions/stripe.js');
+  assert('portal folds customer-less free doc into the same 404 as an absent doc (no 400 regression)',
+    /customerId = subscriptionSnap\.exists \? subscriptionSnap\.data\(\)\.stripeCustomerId : null/.test(st)
+    && /if \(!customerId\) \{\s*res\.status\(404\)/.test(st),
+    'seeding the free doc must not flip free users from 404→pricing to a 400 error toast');
+  // Review CONFIRMED (3/3): the seeded plan:'free' doc made photo-vision fall
+  // through its 'lite'-keyed cap map to the $50 default — DOUBLING the free-tier
+  // AI-vision spend cap ($25→$50). All three vision cost-cap maps must key
+  // 'free' explicitly so a seeded free doc caps identically to the old absent
+  // default, not by coincidence.
+  const pv = read('functions/photo-vision.js');
+  assert('photo-vision cost cap keys free = $25 (no $50 doubling from the seeded doc)',
+    /PER_USER_MONTHLY_USD_CAP_BY_PLAN = \{[\s\S]{0,400}free:\s*25\.00/.test(pv),
+    'gap #6 seeds plan:free; without a free key it falls through to the $50 default and doubles the cap');
+  const rv = read('functions/receipt-vision.js');
+  assert('receipt-vision cost cap keys free = $25 explicitly',
+    /PER_USER_MONTHLY_USD_CAP_BY_PLAN = \{[\s\S]{0,200}free:\s*25\.00/.test(rv));
+  const vi = read('functions/integrations/voice-intelligence.js');
+  assert('voice-intelligence budget keys free = 3600s explicitly',
+    /VOICE_COMPANY_BUDGET_SEC = \{[\s\S]{0,200}free:\s*3600/.test(vi));
+}
+
+console.log('\nDeposit / partial-payment money correctness (money-out sweep)');
+{
+  const st = read('functions/stripe.js');
+  assert('payment link charges the OUTSTANDING BALANCE, not the full face value',
+    /balanceDueCents = expectedTotalCents - amountPaidCents/.test(st)
+    && /balanceDueCents < MIN_CENTS[\s\S]{0,120}already paid in full/.test(st),
+    'charging invoice.total after a deposit overcharges the homeowner by the deposit');
+  assert('payment link is single-use (completed_sessions limit 1)',
+    /restrictions: \{ completed_sessions: \{ limit: 1 \} \}/.test(st),
+    'a reusable link can be paid repeatedly, each a fresh un-deduped payment_intent');
+  assert('webhook credits ACTUAL amount_received cumulatively (never hard-sets to total)',
+    /paymentIntent\.amount_received/.test(st)
+    && /newPaid = Math\.round\(\(priorPaid \+ received\)/.test(st)
+    && !/amountPaid: Number\(inv\.total\) \|\| 0/.test(st),
+    'hard-setting amountPaid=inv.total erases a prior deposit and assumes full payment');
+  assert('webhook flips paid/paidAt only when fully paid + stamps lastPaymentAt',
+    /status: fullyPaid \? 'paid' : \(inv\.status/.test(st)
+    && /lastPaymentAt: FieldValue\.serverTimestamp\(\)/.test(st));
+  assert('kanban auto-advance gated on fullyPaid (a deposit must not advance to final_payment)',
+    /if \(creditResult\.fullyPaid && creditResult\.leadId\)/.test(st));
+  const ip = read('docs/pro/js/invoice-pipeline.js');
+  assert('markPaid stamps lastPaymentAt on every payment (incl. partials)',
+    /lastPaymentAt: new Date\(\)/.test(ip));
+  const md = read('docs/pro/js/money-dashboard.js');
+  assert('money dashboard attributes Collected by lastPaymentAt||paidAt (counts deposits)',
+    /payDate = inv\.lastPaymentAt != null \? inv\.lastPaymentAt : inv\.paidAt/.test(md)
+    && /etYear\(toJSDate\(payDate\)\) === year/.test(md),
+    'paidAt-only gate hid every partial deposit from Collected/Net Cash');
+  const mdt = read('tests/money-dashboard.test.js');
+  assert('money-dashboard test uses the REAL partial shape (no fabricated status:partial+paidAt)',
+    !/status: 'partial', paidAt:/.test(mdt)
+    && /status: 'sent', total: 1000, balanceDue: 400, amountPaid: 600, lastPaymentAt:/.test(mdt),
+    'the old fixture false-greened the paidAt-gated Collected bug');
+  // Review follow-ups: the link is minted at invoice-CREATION (amountPaid=0),
+  // so the common overcharge is "deposit recorded AFTER the link exists". The
+  // link must be regenerated to the new balance + the stale one deactivated,
+  // and the webhook must recover the idempotency marker on a transient failure.
+  assert('createStripePaymentLink deactivates a prior link before minting a new one',
+    /priorLinkId = invoice\.stripeInvoiceId/.test(st)
+    && /stripe\.paymentLinks\.update\(priorLinkId, \{ active: false \}\)/.test(st),
+    'a regenerated link must kill the stale full-amount link or it overcharges/double-collects');
+  assert('markPaid regenerates the payment link to the new balance on a partial payment',
+    /invoice\.stripePaymentLink && newBalanceDue > 0[\s\S]{0,120}generateStripePaymentLink\(invoiceId\)/.test(ip),
+    'the link minted at invoice creation is stale after a deposit — regenerate to (total − amountPaid)');
+  assert('invoiceWebhook deletes the idempotency marker on failure so a retry re-processes',
+    /invoiceWebhook error[\s\S]{0,1200}getFirestore\(\)\.doc\(`stripe_events\/\$\{event\.id\}`\)\.delete\(\)/.test(st),
+    'a transient write failure after the marker was written would otherwise silently drop the captured payment');
+  assert('invoiceWebhook credit is idempotent at the DATA level — txn keyed on paymentIntent.id (no double-credit)',
+    /const creditResult = await db\.runTransaction/.test(st)
+    && /applied\.includes\(paymentIntent\.id\)[\s\S]{0,80}already_applied/.test(st)
+    && /paidIntentIds: FieldValue\.arrayUnion\(paymentIntent\.id\)/.test(st),
+    'additive credit (prior+received) is NOT re-run-safe; without a PI-id ledger the marker-delete recovery double-credits a committed-but-unacked write');
+}
+
+console.log('\nSeat-cap enforcement — both member-add paths + no TOCTOU (billing sweep 2026-07-18)');
+{
+  const adm = read('functions/handlers/admin.js');
+  // CRITICAL: createTeamMember was the parallel path with NO cap check.
+  assert('createTeamMember enforces the plan seat cap (imports seatLimitForPlan from the single source)',
+    /require\('\.\/invites'\)/.test(adm)
+    && /seatLimitForPlan, isInviteExpired/.test(adm)
+    && /const seatLimit = seatLimitForPlan\(plan\) \+ purchasedSeats/.test(adm),
+    'without a cap check a Free/solo owner could mint unlimited active team seats for $0');
+  assert('createTeamMember re-checks the cap INSIDE the member-write transaction (no TOCTOU) + rolls back a new member on failure',
+    /runTransaction\(async \(tx\) =>[\s\S]{0,400}!reuses && occupied \+ 1 > seatLimit\) throw overCapError/.test(adm)
+    && /if \(created\) \{[\s\S]{0,200}memberRef\.delete\(\)[\s\S]{0,200}deleteUser\(userRecord\.uid\)/.test(adm),
+    'a non-atomic count-then-write lets concurrent adds overshoot; a rejected/failed new-user add must not leave an orphan account or claimless row');
+  assert('createTeamMember skips the cap for a re-add of an existing seat-holder (matches createTeamInvite; no over-cap-downgrade false reject)',
+    /if \(!reuses && occupied \+ 1 > seatLimit\) throw overCapError/.test(adm),
+    'counting an already-active target as a new seat wrongly blocks a no-delta edit while a tenant is temporarily over cap');
+  assert('createTeamMember exempts only platform admin / NBD founder from the cap',
+    /if \(isGlobalAdmin \|\| isOwnerCaller\(request\.auth\.token\)\) \{\s*plan = 'enterprise'/.test(adm),
+    'the enterprise (uncapped) bypass must be narrow — tenant owners are capped by their plan');
+  const inv = read('functions/handlers/invites.js');
+  // MAJOR: createTeamInvite cap check was a non-atomic read-check-write.
+  assert('createTeamInvite re-checks the cap INSIDE the invite-write transaction (closes concurrent-overshoot TOCTOU)',
+    /await db\.runTransaction\(async \(tx\) => \{\s*if \(!reusesSeat && seats !== Infinity\)[\s\S]{0,400}occ \+ 1 > seats\)/.test(inv),
+    'the roster read + cap check + invite write must be atomic or N concurrent invites each read a stale count and overshoot');
+  assert('createTeamInvite still writes via tx.set so teamInviteEmail onDocumentCreated fires (resend preserved)',
+    /tx\.set\(memberRef, \{\s*email,\s*role,\s*status: 'invited'/.test(inv));
+  assert('seat helpers are single-source (exported from invites.js, not re-copied in admin.js)',
+    /exports\.seatLimitForPlan = seatLimitForPlan/.test(inv)
+    && !/function seatLimitForPlan/.test(adm),
+    'a duplicated plan→seat table drifts — admin.js must import the one createTeamInvite uses');
+}
+
+console.log('\nCRM custom-pipeline + kanban correctness (lead-lifecycle sweep)');
+{
+  const ls = read('docs/pro/js/lead-score.js');
+  assert('lead-score engagement calls window.CustomerEngagementScore.computeTier (not the undefined window.computeTier)',
+    /window\.CustomerEngagementScore/.test(ls) && /_ces\.computeTier\(lead/.test(ls)
+    && !/typeof window\.computeTier !== 'function'/.test(ls),
+    'window.computeTier was never assigned — the 0-30 engagement signal (largest weight) always returned 0');
+  const boot = read('docs/pro/js/dashboard-bootstrap.module.js');
+  assert('loadLeads stamps _stageRole via TENANT-AWARE window.stageRole (not the built-in module import)',
+    /l\._stageRole = \(window\.stageRole \|\| stageRole\)\(l\._stageKey\)/.test(boot),
+    'the module-local built-in returns active for custom stages, clobbering won/lost roles on every refresh');
+  const cp = read('docs/pro/js/crm-pipeline.js');
+  assert('moveCard NOOPs a same-COLUMN re-drop using the stages ARRAY (window._stageKeys, not the view-key string)',
+    /window\.resolveColumn\(cur\.stage, _mcKeys\)/.test(cp)
+    && /Array\.isArray\(_mcKeys\) && _mcKeys\.length/.test(cp)
+    && /cur\.stage === newStage \|\| _mcCurCol === newStage/.test(cp),
+    'resolveColumn arg2 is the stages array; a view-key string makes .includes() a substring test → blocks legit moves');
+  assert('per-column drop handler stopPropagation (no double moveCard via the board handler)',
+    /const dropHandler = e => \{[\s\S]{0,400}e\.stopPropagation\(\)/.test(cp));
+  assert('CRM revenue buckets are ROLE-aware (custom won/lost stages count correctly)',
+    /isLost = _lostKeys\.includes\(sk\) \|\| role === 'lost'/.test(cp)
+    && /isClosed = _closedKeys\.includes\(sk\) \|\| role === 'won' \|\| role === 'job'/.test(cp),
+    'hardcoded key lists excluded custom won from closed revenue and let custom lost inflate pipeline');
+  assert('dashboard stage counts add custom WON/LOST by role only (no else-catch-all rebucketing built-ins)',
+    /if \(!matched\) \{[\s\S]{0,260}role === 'won'\) _stageCounts\.closed\+\+;\s*else if \(role === 'lost'\) _stageCounts\.lost\+\+;\s*\}/.test(cp),
+    'a catch-all else would newly pile built-in mid-stages (inspected/scope_received/…) into Negotiating — a built-in behavior change');
+  const cl = read('docs/pro/js/crm-leads.js');
+  assert('Edit-modal save syncs stageRole with the edited stage (no stale denormalized role)',
+    /_editStageRole = _editStageVal[\s\S]{0,200}window\.stageRole\(/.test(cl)
+    && /\(_editStageRole \? \{ stageRole: _editStageRole \} : \{\}\)/.test(cl),
+    'the modal wrote stage without stageRole → server won/lost classification stayed stale (missed referral payouts)');
+}
+
+console.log('\nHomeowner surface — post-payment landing + render-safety sweep (2026-07-17)');
+{
+  // (1) Post-payment 404 fix: createStripePaymentLink redirects the paying
+  // homeowner to /pro/invoice-success.html — that file was ABSENT in prod, so a
+  // homeowner who paid an invoice via the Stripe link landed on a 404.
+  assert('invoice-success.html exists (Stripe payment-link after_completion redirect target)',
+    fs.existsSync(path.join(ROOT, 'docs/pro/invoice-success.html')),
+    'createStripePaymentLink redirects to /pro/invoice-success.html — a missing file 404s the homeowner right after they pay');
+  const st = read('functions/stripe.js');
+  assert('createStripePaymentLink redirects to the invoice-success page',
+    /invoice-success\.html\?invoiceId=/.test(st));
+
+  // (2) IDOR-safety: the landing page must NOT fetch invoice data by the
+  // client-supplied invoiceId — an unauthenticated read-by-id would leak another
+  // customer's invoice. The URL param is display-only.
+  const invJs = read('docs/pro/js/pages/invoice-success.js');
+  assert('invoice-success.js fetches NOTHING (no client-trusted invoiceId lookup → no IDOR)',
+    !/\bfetch\s*\(/.test(invJs) && !/httpsCallable|getFirestore|firestore|getDoc|collection\s*\(/.test(invJs),
+    'the invoiceId in the URL must stay display-only; fetching invoice details by it would expose other customers invoices');
+  assert('invoice-success.js echoes the reference via textContent + charset guard (no reflected XSS)',
+    /\.textContent\s*=/.test(invJs) && /\[A-Za-z0-9_-\]\{1,64\}/.test(invJs) && !/\.innerHTML\s*=/.test(invJs),
+    'the URL param is attacker-influenced; it must be charset-validated and set via textContent, never innerHTML');
+
+  // (3) Render-safety sweep: every `window.nbdEsc || (fallback)` MUST escape. An
+  // identity fallback (s => String(s)) is a stored-XSS sink if dom-safe.js ever
+  // fails to define window.nbdEsc before a widget renders homeowner-authored data.
+  const escFiles = [
+    'docs/pro/js/customer-bootstrap.module.js',
+    'docs/pro/js/dashboard-widgets.js',
+    'docs/pro/js/dashboard-actions.js',
+    'docs/pro/js/dashboard-ui.js',
+    'docs/pro/js/dashboard-bootstrap.module.js',
+  ];
+  for (const f of escFiles) {
+    const idFallbacks = read(f).split('\n')
+      .filter((l) => /nbdEsc\s*\|\|\s*\(s\s*=>/.test(l) && !/\.replace\(/.test(l));
+    assert(`no identity nbdEsc fallback in ${path.basename(f)} (every fallback HTML-escapes)`,
+      idFallbacks.length === 0,
+      'an escape-function fallback that returns the raw string is a stored-XSS sink when window.nbdEsc is absent');
+  }
 }
 
 console.log('\n──────────────────────────────────────────────────');

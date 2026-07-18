@@ -100,6 +100,53 @@ ok('topSource = referral (3 non-deleted)', k.topSource === 'referral' && k.topSo
   ok('timeToSignDays captured for sent→signed', a.timeToSignDays.length === 1 && Math.round(a.timeToSignDays[0]) === 5);
 }
 
+// ── Invoice cash-collected metrics (computeFullAnalytics) ──
+// Regression guard for the deposit-visibility bug: "Total Revenue" and the
+// "this month" figure must count cash ACTUALLY collected (total − balanceDue,
+// dated by lastPaymentAt||paidAt), so a partial deposit — status stays 'sent',
+// paidAt null, balanceDue reduced, lastPaymentAt stamped — is not invisible.
+// Mirrors money-dashboard.js's Collected card so #/analytics and #/money agree.
+{
+  console.log('\nANALYTICS REVENUE — computeFullAnalytics (invoice cash basis)');
+  const CFA = win.AnalyticsKPI && win.AnalyticsKPI._test && win.AnalyticsKPI._test.computeFullAnalytics;
+  ok('exposes _test.computeFullAnalytics', typeof CFA === 'function');
+
+  const N = new Date();
+  const inMonth = new Date(N.getFullYear(), N.getMonth(), 15);       // this month
+  const prevMonth = new Date(N.getFullYear(), N.getMonth() - 1, 15); // earlier (not this month)
+
+  const data = {
+    leads: [], knocks: [], photos: [], estimates: [], expenses: [],
+    invoices: [
+      { status: 'paid', paidAt: inMonth,   total: 12000, balanceDue: 0 },                           // full payoff, this month
+      { status: 'paid', paidAt: prevMonth, total: 5000,  balanceDue: 0 },                           // full payoff, earlier month
+      { status: 'sent', total: 10000, balanceDue: 6000, amountPaid: 4000, lastPaymentAt: inMonth }, // PARTIAL deposit this month: $4k in, $6k due
+      { status: 'sent', total: 8000,  balanceDue: 8000 },                                           // never paid: $0 collected, $8k due
+      { status: 'paid', paidAt: prevMonth, total: 3000 },                                           // legacy full payoff, no balanceDue field
+    ],
+  };
+  const a = CFA(data);
+
+  ok('totalRevenue = collected cash incl. partial deposit (12k+5k+4k+3k = 24000)', a.totalRevenue === 24000);
+  ok('monthRevenue = this-month cash incl. deposit (12k+4k = 16000)', a.monthRevenue === 16000);
+  ok('unpaidAmount = outstanding balances (6k+8k = 14000)', a.unpaidAmount === 14000);
+  ok('paidCount = fully-paid invoices only (3)', a.paidCount === 3);
+  ok('unpaidCount = not-fully-paid invoices (2)', a.unpaidCount === 2);
+  // The partial-deposit invoice's $4k is invisible under the old status==='paid'
+  // && paidAt gate; asserting it's INCLUDED is the core regression check.
+  ok('partial deposit is counted, not dropped (totalRevenue > paid-only 20000)', a.totalRevenue === 24000 && a.totalRevenue !== 20000);
+  // Reconciliation: collected + outstanding == total invoiced — no cash lost or
+  // double-counted (the deposit's $4k collected + $6k due == its $10k face).
+  const totalInvoiced = data.invoices.reduce((s, i) => s + i.total, 0);
+  ok('collected + outstanding reconciles to total invoiced (38000)', a.totalRevenue + a.unpaidAmount === totalInvoiced);
+
+  // Empty invoices → zeros, no NaN/crash.
+  const z = CFA({ leads: [], invoices: [], knocks: [], photos: [], estimates: [], expenses: [] });
+  ok('no invoices → totalRevenue 0', z.totalRevenue === 0);
+  ok('no invoices → monthRevenue 0', z.monthRevenue === 0);
+  ok('no invoices → unpaidAmount 0', z.unpaidAmount === 0);
+}
+
 console.log('\n──────────────────────────────────────────────────');
 console.log(`${passed} passed, ${failed} failed`);
 if (failed) { console.log('\nFailures:'); fails.forEach(f => console.log('  - ' + f)); process.exit(1); }

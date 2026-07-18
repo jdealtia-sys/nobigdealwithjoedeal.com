@@ -867,12 +867,19 @@
     // Resolve each line
     const resolved = (lineItems || []).map(item => resolveLineItem(item, context, { tier, mode }));
 
-    // Roll up totals
+    // Roll up totals — and stamp each line's RETAIL price alongside its cost
+    // basis. Material carries the shop markup; labor is priced as-is (its
+    // margin comes through O&P), so Σ retailTotal == retailBeforeOHP exactly.
+    // Customer-facing consumers (invoice items, server-rendered quote, saved
+    // rows) must read retailTotal/retailPerUnit — lineTotal is the INTERNAL
+    // cost and printing it exposes the margin (money-math sweep 2026-07-18).
     let materialCost = 0;
     let laborCost = 0;
     resolved.forEach(line => {
       materialCost += line.materialTotal;
       laborCost    += line.laborTotal;
+      line.retailPerUnit = line.materialCostPerUnit * (1 + materialMarkupPct) + line.laborCostPerUnit;
+      line.retailTotal   = line.materialTotal * (1 + materialMarkupPct) + line.laborTotal;
     });
 
     const materialRetail = materialCost * (1 + materialMarkupPct);
