@@ -682,6 +682,48 @@ console.log('\nCRM custom-pipeline + kanban correctness (lead-lifecycle sweep)')
     'the modal wrote stage without stageRole → server won/lost classification stayed stale (missed referral payouts)');
 }
 
+console.log('\nHomeowner surface — post-payment landing + render-safety sweep (2026-07-17)');
+{
+  // (1) Post-payment 404 fix: createStripePaymentLink redirects the paying
+  // homeowner to /pro/invoice-success.html — that file was ABSENT in prod, so a
+  // homeowner who paid an invoice via the Stripe link landed on a 404.
+  assert('invoice-success.html exists (Stripe payment-link after_completion redirect target)',
+    fs.existsSync(path.join(ROOT, 'docs/pro/invoice-success.html')),
+    'createStripePaymentLink redirects to /pro/invoice-success.html — a missing file 404s the homeowner right after they pay');
+  const st = read('functions/stripe.js');
+  assert('createStripePaymentLink redirects to the invoice-success page',
+    /invoice-success\.html\?invoiceId=/.test(st));
+
+  // (2) IDOR-safety: the landing page must NOT fetch invoice data by the
+  // client-supplied invoiceId — an unauthenticated read-by-id would leak another
+  // customer's invoice. The URL param is display-only.
+  const invJs = read('docs/pro/js/pages/invoice-success.js');
+  assert('invoice-success.js fetches NOTHING (no client-trusted invoiceId lookup → no IDOR)',
+    !/\bfetch\s*\(/.test(invJs) && !/httpsCallable|getFirestore|firestore|getDoc|collection\s*\(/.test(invJs),
+    'the invoiceId in the URL must stay display-only; fetching invoice details by it would expose other customers invoices');
+  assert('invoice-success.js echoes the reference via textContent + charset guard (no reflected XSS)',
+    /\.textContent\s*=/.test(invJs) && /\[A-Za-z0-9_-\]\{1,64\}/.test(invJs) && !/\.innerHTML\s*=/.test(invJs),
+    'the URL param is attacker-influenced; it must be charset-validated and set via textContent, never innerHTML');
+
+  // (3) Render-safety sweep: every `window.nbdEsc || (fallback)` MUST escape. An
+  // identity fallback (s => String(s)) is a stored-XSS sink if dom-safe.js ever
+  // fails to define window.nbdEsc before a widget renders homeowner-authored data.
+  const escFiles = [
+    'docs/pro/js/customer-bootstrap.module.js',
+    'docs/pro/js/dashboard-widgets.js',
+    'docs/pro/js/dashboard-actions.js',
+    'docs/pro/js/dashboard-ui.js',
+    'docs/pro/js/dashboard-bootstrap.module.js',
+  ];
+  for (const f of escFiles) {
+    const idFallbacks = read(f).split('\n')
+      .filter((l) => /nbdEsc\s*\|\|\s*\(s\s*=>/.test(l) && !/\.replace\(/.test(l));
+    assert(`no identity nbdEsc fallback in ${path.basename(f)} (every fallback HTML-escapes)`,
+      idFallbacks.length === 0,
+      'an escape-function fallback that returns the raw string is a stored-XSS sink when window.nbdEsc is absent');
+  }
+}
+
 console.log('\n──────────────────────────────────────────────────');
 console.log(`${passed} passed, ${failed} failed`);
 if (failed) { console.log('\nFailures:'); fails.forEach((f) => console.log('  - ' + f)); process.exit(1); }

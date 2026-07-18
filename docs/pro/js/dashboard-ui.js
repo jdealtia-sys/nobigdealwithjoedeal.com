@@ -979,7 +979,7 @@ function renderAcDrop(inputId, results, onSelect) {
 
   if(!results.length) { drop.style.display='none'; return; }
 
-  const esc = window.nbdEsc || (s => String(s == null ? '' : s));
+  const esc = window.nbdEsc || (s => String(s == null ? '' : s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])));
   drop.innerHTML = results.map((r,i) => {
     // Wave 141: render the proper USPS mailing address as the
     // primary line. Sub-line shows county (where applicable) — the

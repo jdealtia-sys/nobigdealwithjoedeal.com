@@ -35,7 +35,7 @@ function renderEstimatesList(ests) {
   const statVal = document.getElementById('statVal');
   if (statVal) statVal.textContent = '$' + Math.round(totalVal/1000) + 'K';
 
-  const esc = window.nbdEsc || (s => String(s == null ? '' : s));
+  const esc = window.nbdEsc || (s => String(s == null ? '' : s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])));
   const wrap=document.getElementById('estListWrap');
   if (!wrap) return; // Page has no estimates list — analytics-only call.
   if(!ests||!ests.length){
@@ -428,7 +428,9 @@ async function renderPhotoLeads(){
   const withPhotos = ranked.filter(l => (counts[l.id] || 0) > 0);
   const withoutPhotos = ranked.filter(l => !counts[l.id]);
 
-  const e = window.nbdEsc || (s => String(s == null ? '' : s));
+  // Escape-everything: the local fallback MUST escape (identity fallback = stored-XSS
+  // footgun if dom-safe.js ever fails to define window.nbdEsc before this runs).
+  const e = window.nbdEsc || (s => String(s == null ? '' : s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])));
   const cardHTML = (l) => {
     const name = ((l.firstName||'')+ ' ' + (l.lastName||'')).trim() || l.name || 'Unknown';
     const addr = l.address || 'No address';
@@ -495,7 +497,9 @@ function renderPhotoGrid(photos){
   if(!photos.length){grid.innerHTML='<p style="font-size:11px;color:var(--m);text-align:center;padding:10px;">No photos yet. Upload above.</p>';return;}
   // Build via DOM so user-controlled `p.url` and `p.name` cannot inject markup.
   grid.textContent='';
-  const e = window.nbdEsc || (s => String(s == null ? '' : s));
+  // Escape-everything: the local fallback MUST escape (identity fallback = stored-XSS
+  // footgun if dom-safe.js ever fails to define window.nbdEsc before this runs).
+  const e = window.nbdEsc || (s => String(s == null ? '' : s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])));
   photos.forEach(p => {
     const wrap = document.createElement('div');
     wrap.className = 'photo-thumb';
@@ -673,7 +677,7 @@ function renderIntelCard(targetElId, intel, county, address) {
   // Store intel globally for pre-fill
   window._lastIntel = intel;
 
-  const esc = window.nbdEsc || (s => String(s == null ? '' : s));
+  const esc = window.nbdEsc || (s => String(s == null ? '' : s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])));
   const yr = intel.yearBuilt ? parseInt(intel.yearBuilt) : null;
   const age = yr ? (new Date().getFullYear() - yr) : null;
   const roofAge = intel.roofAge || age;
@@ -810,7 +814,7 @@ async function fetchPropertyIntelModal(geo, addr) {
     else roofColor = 'var(--purple)';
   }
 
-  const esc = window.nbdEsc || (s => String(s == null ? '' : s));
+  const esc = window.nbdEsc || (s => String(s == null ? '' : s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])));
   resultEl.innerHTML = `
     <div class="mir-owner">${esc(intel.ownerName||'Unknown Owner')}${intel.isLLC?'&nbsp;<span style="font-size:9px;color:var(--blue);font-weight:700;">LLC</span>':''}</div>
     <div class="mir-grid">
@@ -832,7 +836,7 @@ function renderZoneList() {
   const el = document.getElementById('zoneList');
   if(!el) return;
   if(!zones.length) { el.innerHTML=''; return; }
-  const esc = window.nbdEsc || (s => String(s == null ? '' : s));
+  const esc = window.nbdEsc || (s => String(s == null ? '' : s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])));
   // Only accept hex colors; reject anything else to block style-attr injection.
   const safeColor = c => /^#[0-9a-f]{3,8}$/i.test(String(c || '')) ? c : 'var(--blue)';
   el.innerHTML = zones.map(z => `
