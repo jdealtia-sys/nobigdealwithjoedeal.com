@@ -1813,8 +1813,8 @@ async function moveCard(id, newStage){
         //  (a) the stage already IS newStage (another tab won), OR
         //  (b) the card's CURRENT stage already resolves to the SAME visible
         //      column as the drop target. In collapsed views (Simple/insurance)
-        //      several real stages share one column — e.g. final_payment shows
-        //      in the 'In Progress' column. Dropping the card back onto its own
+        //      several real stages share one column — e.g. crew_scheduled shows
+        //      in the 'Installing' column. Dropping the card back onto its own
         //      column fires moveCard(id, columnKey); without this guard it would
         //      rewrite the real stage to the column's canonical key, silently
         //      DOWNGRADING role (WON→JOB), resetting stageStartedAt and logging
