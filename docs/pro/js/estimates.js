@@ -552,6 +552,10 @@ function buildReview() {
   const yr = val('estYear');
   const roofType = val('estRoofType');
   const tierNames = { 'good': 'Standard Reroof', 'better': 'Reroof Plus', 'best': 'Full Redeck' };
+  // Classic-builder rows only — always recomputed from retail TIER_RATES
+  // (getLineItems), never a saved doc's rows[]. Safe to print rate/total
+  // verbatim; the V2 cost-basis retail derivation (customer-estimate-rows.js)
+  // does not apply here.
   const rows = getLineItems();
   // Grand total is the LOCKED tier price from calcTierPrices(), NOT the
   // sum of display line items. This matters because the individual rows
@@ -902,6 +906,9 @@ function exportEstimate() {
   if(!estData.grandTotal){showToast('Build estimate first','error');return;}
   const d=estData;
   const fmt=n=>'$'+n.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+  // estData.rows is only ever set by this classic builder (buildReview →
+  // getLineItems, retail tier rates) — saved V2 docs never flow into estData,
+  // so rate/total here are customer prices and print verbatim safely.
   const rows=d.rows||getLineItems();
   const tierNames={'good':'Standard Reroof','better':'Reroof Plus','best':'Full Redeck'};
   const dateStr=new Date().toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'});
