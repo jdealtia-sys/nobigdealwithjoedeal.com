@@ -893,16 +893,22 @@ async function loadCustomerActivity(leadId) {
       document_view:  'Viewed document',
       photo_upload:   'Uploaded photo',
     };
+    // Render-safety: escape every dynamic field before innerHTML. The local
+    // fallback MUST also escape — an identity fallback (s => String(s)) is a
+    // stored-XSS footgun if dom-safe.js ever fails to define window.nbdEsc first.
+    // e.type/e.resourceId are server-written audit fields today, but this render
+    // path is homeowner-activity data, so it stays on the escape-everything rule.
+    const esc = window.nbdEsc || (s => String(s == null ? '' : s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])));
     listEl.innerHTML = events.map(e => {
       const t = e.createdAt && e.createdAt.toDate ? e.createdAt.toDate() : null;
       const when = t ? t.toLocaleString() : '';
       const icon = ICON[e.type] || '•';
-      const label = LABEL[e.type] || e.type;
-      const detail = e.resourceId ? ' · <span style="color:var(--m);font-size:11px;">' + (window.nbdEsc || (s => String(s)))(e.resourceId.slice(0, 32)) + '</span>' : '';
+      const label = LABEL[e.type] || esc(e.type);
+      const detail = e.resourceId ? ' · <span style="color:var(--m);font-size:11px;">' + esc(e.resourceId.slice(0, 32)) + '</span>' : '';
       return '<div style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-bottom:1px solid var(--br);font-size:13px;">' +
         '<span style="font-size:18px;line-height:1;">' + icon + '</span>' +
         '<span style="flex:1;color:var(--t);">' + label + detail + '</span>' +
-        '<span style="color:var(--m);font-size:11px;white-space:nowrap;">' + (window.nbdEsc || (s => String(s)))(when) + '</span>' +
+        '<span style="color:var(--m);font-size:11px;white-space:nowrap;">' + esc(when) + '</span>' +
         '</div>';
     }).join('');
   } catch (e) {

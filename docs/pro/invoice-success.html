@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="nbd-original">
+<head>
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/pro/img/nbd-icon-192.png">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>Payment Received — Thank You</title>
+<meta name="robots" content="noindex">
+<style>
+:root{--bg:#0A0C0F;--s:#111418;--s2:#181C22;--orange:#e8720c;--text:#E8EAF0;--muted:#6B7280;--border:rgba(255,255,255,.07);--green:#22c55e;}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:'Barlow',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;min-height:100dvh;display:flex;align-items:center;justify-content:center;padding:20px;}
+.container{max-width:480px;width:100%;background:var(--s);border:1px solid var(--border);border-radius:14px;padding:48px 40px;text-align:center;}
+.success-icon{width:72px;height:72px;background:rgba(34,197,94,.1);border:2px solid var(--green);border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 24px;font-size:38px;color:var(--green);}
+h1{font-family:'Barlow Condensed',sans-serif;font-size:34px;font-weight:800;letter-spacing:1px;text-transform:uppercase;margin-bottom:12px;color:var(--green);}
+.sub{color:#c8d3e0;font-size:14px;line-height:1.7;margin-bottom:24px;}
+.receipt-note{display:flex;align-items:center;justify-content:center;gap:10px;padding:14px;background:rgba(255,255,255,.03);border:1px solid var(--border);border-radius:8px;margin-bottom:20px;font-size:13px;color:var(--muted);line-height:1.6;}
+.ref{font-size:11px;color:var(--muted);letter-spacing:.04em;margin-top:8px;}
+.ref b{color:#9aa3b0;font-family:'Barlow Condensed',monospace;letter-spacing:.06em;}
+.close-note{font-size:12px;color:var(--muted);margin-top:22px;line-height:1.6;}
+</style>
+<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=Barlow+Condensed:wght@400;600;700;800&display=swap" rel="stylesheet">
+<meta property="og:url" content="https://nobigdealwithjoedeal.com/pro/invoice-success">
+<link rel="stylesheet" href="/assets/css/nbd-mobile.css">
+</head>
+<body>
+<div class="container">
+  <div class="success-icon">✓</div>
+  <h1>Payment Received</h1>
+  <p class="sub">Thank you! Your payment has been received and your invoice has been marked paid.</p>
+
+  <div class="receipt-note">
+    <span>📧</span>
+    <span>A payment receipt has been emailed to you by our payment processor. No further action is needed.</span>
+  </div>
+
+  <p class="ref" id="refLine" style="display:none;">Reference: <b id="refValue"></b></p>
+
+  <p class="close-note">You can safely close this window. If you have any questions about this payment, reply to the invoice email or contact your rep.</p>
+</div>
+
+<script type="module" src="js/pages/invoice-success.js"></script>
+</body>
+</html>

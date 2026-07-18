@@ -1737,7 +1737,7 @@
         return;
       }
       const leads = window._leads || [];
-      const e = window.nbdEsc || (s => String(s == null ? '' : s));
+      const e = window.nbdEsc || (s => String(s == null ? '' : s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])));
 
       // Wave 53: inline reshare buttons. Last priority-ish surface
       // to get the share trio. Recent dropdown rows already navigate

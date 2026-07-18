@@ -656,7 +656,7 @@ async function saveZone() {
   }
   const repColor = repKey && repOpt ? (repOpt.getAttribute('data-color') || zoneColor) : '';
   const fillColor = repColor || zoneColor;
-  const _esc = window.nbdEsc || (s => String(s == null ? '' : s));
+  const _esc = window.nbdEsc || (s => String(s == null ? '' : s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])));
   // Serialize points to plain {lat,lng} for Firestore (L.LatLng isn't storable).
   const pts = zonePoints.map(p => ({ lat: p.lat, lng: p.lng }));
 
@@ -762,7 +762,7 @@ function _zoneRepLabel(zoneData) {
   return zoneData.repLabel || '';
 }
 function _zonePopupHTML(zone) {
-  const esc = window.nbdEsc || (s => String(s == null ? '' : s));
+  const esc = window.nbdEsc || (s => String(s == null ? '' : s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])));
   const s = _zoneInsights(zone);
   const money = '$' + Math.round(s.total).toLocaleString();
   const repLbl = _zoneRepLabel(zone);
@@ -784,7 +784,7 @@ function _bindZoneInsights(layer, zoneData) {
 // first — so it's safe to call on map init AND after loadZones resolves.
 function renderSavedZones() {
   if (!mainMap || !Array.isArray(window._zones)) return;
-  const _esc = window.nbdEsc || (s => String(s == null ? '' : s));
+  const _esc = window.nbdEsc || (s => String(s == null ? '' : s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])));
   const safeColor = c => /^#[0-9a-f]{3,8}$/i.test(String(c || '')) ? c : '#4A9EFF';
   zones.forEach(z => { if (z.layer && mainMap) { try { mainMap.removeLayer(z.layer); } catch (_) {} } });
   zones.length = 0;
