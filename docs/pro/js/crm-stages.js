@@ -357,38 +357,57 @@ export const KANBAN_VIEWS = {
  */
 export function resolveColumn(stageKey, viewStages) {
   const normalized = normalizeStage(stageKey);
-  // Direct match
+  // Direct match — the stage has its own visible column (incl. the full
+  // Insurance view, where every sub-stage below is present).
   if (viewStages.includes(normalized)) return normalized;
 
-  // For insurance view: group sub-stages into visible columns
-  const INSURANCE_GROUPS = {
-    [S.ADJUSTER_DONE]:      S.ADJUSTER_SCHEDULED,  // group with adjuster
-    [S.SUPPLEMENT_APPROVED]: S.SUPPLEMENT_REQ,       // group with supplement
+  // ── Insurance sub-stages → nearest visible "parent" column ──────────────
+  // A coarse view (Simple) hides the fine-grained adjuster/supplement columns.
+  // Each insurance sub-stage collapses LEFT toward an earlier column; the chain
+  // is WALKED (not a single hop) so that when a sub-stage's immediate parent is
+  // ALSO hidden — the Simple view has neither an Adjuster nor a Supplement
+  // column — the lead still lands on a sensible mid-pipeline column instead of
+  // falling through to New. (#981 follow-up: adjuster_inspection_done /
+  // supplement_requested / supplement_approved all bucketed into New because
+  // the old single-hop group map gave up when the parent column was missing.)
+  const INSURANCE_COLLAPSE = {
+    [S.CLAIM_FILED]:         S.INSPECTED,
+    [S.ADJUSTER_SCHEDULED]:  S.INSPECTED,
+    [S.ADJUSTER_DONE]:       S.ADJUSTER_SCHEDULED,   // group with the Adjuster column
+    [S.SCOPE_RECEIVED]:      S.ESTIMATE_SUBMITTED,
+    [S.SUPPLEMENT_REQ]:      S.ESTIMATE_SUBMITTED,
+    [S.SUPPLEMENT_APPROVED]: S.SUPPLEMENT_REQ,        // group with the Supplement column
   };
-  if (INSURANCE_GROUPS[normalized] && viewStages.includes(INSURANCE_GROUPS[normalized])) {
-    return INSURANCE_GROUPS[normalized];
+  if (INSURANCE_COLLAPSE[normalized]) {
+    let hop = normalized;
+    const seen = new Set();
+    while (INSURANCE_COLLAPSE[hop] && !seen.has(hop)) {
+      seen.add(hop);
+      hop = INSURANCE_COLLAPSE[hop];
+      if (viewStages.includes(hop)) return hop;
+    }
+    // whole chain hidden → fall through to the generic logic below
   }
 
-  // Job stages → show in Jobs view or map to "In Progress" for simple
-  const jobStages = VIEW_JOBS;
-  if (jobStages.includes(normalized)) {
-    // In simple view, all job stages go to "In Progress" equivalent
+  // ── Job stages → Closed (won/completed) or Installing (in-production) ────
+  // Check Closed FIRST: the Simple view shows BOTH the Installing and Closed
+  // columns, and if the Installing branch ran first it would greedily grab
+  // EVERY job stage — mislabeling won deals (install_complete … final_payment)
+  // as "Installing". _ROLE_WON is exactly the completion set. (Before this
+  // reorder the Closed branch sat after the Installing branch and was dead in
+  // every view that has an Installing column.)
+  if (VIEW_JOBS.includes(normalized)) {
+    if (_ROLE_WON.includes(normalized) && viewStages.includes(S.CLOSED)) return S.CLOSED;
     if (viewStages.includes(S.INSTALL_IN_PROGRESS)) return S.INSTALL_IN_PROGRESS;
-    if (viewStages.includes(S.CLOSED) && [S.INSTALL_COMPLETE, S.FINAL_PHOTOS, S.DEDUCTIBLE_COLLECTED, S.FINAL_PAYMENT, S.CLOSED].includes(normalized)) {
-      return S.CLOSED;
-    }
     return viewStages[viewStages.length - 2] || viewStages[0]; // second to last (before Lost)
   }
 
-  // Cross-track mapping for simple view
+  // ── Cross-track collapse for the cash / finance tracks ──────────────────
   if (normalized === S.CONTACTED && !viewStages.includes(S.CONTACTED)) return S.NEW;
   if (normalized === S.ESTIMATE_SENT_CASH && viewStages.includes(S.ESTIMATE_SUBMITTED)) return S.ESTIMATE_SUBMITTED;
   if (normalized === S.NEGOTIATING && viewStages.includes(S.ESTIMATE_SUBMITTED)) return S.ESTIMATE_SUBMITTED;
   if (normalized === S.PREQUAL_SENT && viewStages.includes(S.ESTIMATE_SUBMITTED)) return S.ESTIMATE_SUBMITTED;
   if (normalized === S.LOAN_APPROVED && viewStages.includes(S.CONTRACT_SIGNED)) return S.CONTRACT_SIGNED;
-  if (normalized === S.CLAIM_FILED && !viewStages.includes(S.CLAIM_FILED)) return S.INSPECTED;
-  if (normalized === S.ADJUSTER_SCHEDULED && !viewStages.includes(S.ADJUSTER_SCHEDULED)) return S.INSPECTED;
-  if (normalized === S.SCOPE_RECEIVED && !viewStages.includes(S.SCOPE_RECEIVED)) return S.ESTIMATE_SUBMITTED;
 
   // Fallback: first column
   return viewStages[0];
