@@ -358,7 +358,17 @@ let _NBD_IP_DELEGATE_BOUND; // module-local (globals Tranche 1 — was window.*)
           // recompute would drop, making the invoice disagree with the quote.
           total = savedGrand;
           const savedSub = Number(est.subtotal);
-          const savedTax = Number(est.taxAmount);
+          // Classic builder saves `taxAmount`; V2 (estimate-v2-ui.js) saves the
+          // SAME value under `tax` instead — a field-naming mismatch, not a
+          // missing value. Reading only `taxAmount` made every V2 doc read NaN
+          // here and fall through to `total - subtotal`, which is real tax ONLY
+          // for a non-insurance job; for insurance (taxRate 0, true tax exactly
+          // $0) that fallback instead measures the nearest-$25 ROUNDING NOISE
+          // baked into `total` — negative about half the time (round-down),
+          // and a fabricated positive "tax" on a tax-exempt invoice the other
+          // half (round-up). `??` (not `||`) so an explicit 0 is trusted, not
+          // treated as missing.
+          const savedTax = Number(est.taxAmount ?? est.tax);
           subtotal = Number.isFinite(savedSub) ? savedSub : (taxRate > 0 ? total / (1 + taxRate) : total);
           tax = Number.isFinite(savedTax) ? savedTax : (total - subtotal);
           subtotal = Math.round(subtotal * 100) / 100;
@@ -713,6 +723,16 @@ let _NBD_IP_DELEGATE_BOUND; // module-local (globals Tranche 1 — was window.*)
       if (newBalanceDue === 0 && invoice.leadId) {
         await window.updateDoc(window.doc(db, 'leads', invoice.leadId), {
           stage: 'contract_signed',
+          // Stamp stageRole alongside stage, same as every other stage-mutation
+          // path (#981's persisted-stageRole-wins contract — the server's
+          // functions/stage-roles.js roleFor() prefers this over deriving from
+          // the raw key). 'contract_signed' resolves to role 'active' either
+          // way, so this write is consequence-neutral TODAY — but an unstamped
+          // write silently violates the invariant every other stage change
+          // upholds, and would go live-wrong the moment this stage's
+          // classification ever changes. window.stageRole (not a frozen ES
+          // import) so a tenant-customized role map is honored.
+          ...(window.stageRole ? { stageRole: window.stageRole('contract_signed') } : {}),
           updatedAt: new Date()
         });
       }

@@ -172,6 +172,48 @@ function loadIIFE(file) {
   ok('per-SQ invoice subtotal+tax foots to grandTotal (21500)', near(captured.subtotal + captured.tax, 21500));
   ok('per-SQ invoice honors saved numeric deposit (10750)', near(captured.depositAmount, 10750));
 
+  // 2026-07-18 post-sprint certification: V2 (estimate-v2-ui.js) persists the
+  // estimate's tax under the key `tax`, never `taxAmount` — only the CLASSIC
+  // builder writes `taxAmount`. Reading only est.taxAmount made every V2
+  // line-item/insurance doc read NaN there and fall through to
+  // `total - subtotal`. For a real (non-insurance) rate that's still correct
+  // tax; for insurance (taxRate 0, true tax exactly $0) it instead measured
+  // pure nearest-$25 ROUNDING NOISE — negative half the time (round-down),
+  // a fabricated positive "tax" on a tax-exempt invoice the other half
+  // (round-up). Fix: read est.taxAmount ?? est.tax.
+  delete EST.priceMode; delete EST.prices; delete EST.selectedTier; delete EST.deposit;
+  EST.taxRate = 0; EST.taxAmount = undefined;
+
+  // Round-DOWN case: unrounded subtotal 10012.50 → grandTotal rounds to 10000.
+  // Old fallback: tax = 10000 - 10012.50 = -12.50 (negative → Stripe 400s).
+  EST.subtotal = 10012.5; EST.grandTotal = 10000; EST.tax = 0;
+  await IP.createInvoiceFromEstimate('est1');
+  ok('V2 insurance (round-DOWN): reads est.tax (0), not a negative rounding-noise fallback',
+    captured.tax === 0);
+  ok('V2 insurance (round-DOWN): total stays the locked/rounded grandTotal (10000)',
+    near(captured.total, 10000));
+
+  // Round-UP case: unrounded subtotal 9990 → grandTotal rounds to 10000.
+  // Old fallback: tax = 10000 - 9990 = +10 (a fabricated tax line on a
+  // tax-exempt insurance invoice).
+  EST.subtotal = 9990; EST.grandTotal = 10000; EST.tax = 0;
+  await IP.createInvoiceFromEstimate('est1');
+  ok('V2 insurance (round-UP): reads est.tax (0), not a fabricated positive tax',
+    captured.tax === 0);
+
+  // Classic path unaffected: taxAmount present must still win over tax, even
+  // when both are set to different values (?? short-circuits on the first
+  // non-null/undefined operand — taxAmount, not tax).
+  EST.taxAmount = 37.5; EST.tax = 999;
+  await IP.createInvoiceFromEstimate('est1');
+  ok('classic taxAmount still wins over a coexisting tax field', near(captured.tax, 37.5));
+
+  // An explicit taxAmount of 0 must be trusted, not treated as "missing" —
+  // proves ?? (nullish) semantics, not || (which would wrongly skip a falsy 0).
+  EST.taxAmount = 0; EST.tax = 999;
+  await IP.createInvoiceFromEstimate('est1');
+  ok('explicit taxAmount 0 is trusted, not overridden by a coexisting tax field', captured.tax === 0);
+
   console.log('\n──────────────────────────────────────────────────');
   console.log(`${passed} passed, ${failed} failed`);
   if (failed) { console.log('\nFailures:'); fails.forEach(f => console.log('  - ' + f)); process.exit(1); }

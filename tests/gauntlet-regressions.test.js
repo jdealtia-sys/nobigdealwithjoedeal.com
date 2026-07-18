@@ -748,9 +748,26 @@ console.log('\nDeposit / partial-payment money correctness (money-out sweep)');
     && /lastPaymentAt: FieldValue\.serverTimestamp\(\)/.test(st));
   assert('kanban auto-advance gated on fullyPaid (a deposit must not advance to final_payment)',
     /if \(creditResult\.fullyPaid && creditResult\.leadId\)/.test(st));
+  // 2026-07-18 post-sprint certification (pre-existing, not sprint-caused):
+  // invoiceWebhook's auto-advance stamped stage:'final_payment' with NO
+  // stageRole. functions/stage-roles.js's roleFor() prefers the PERSISTED
+  // stageRole over deriving it from the stage key (#981's contract, so a
+  // tenant's custom stages classify correctly) — so a custom-pipeline lead
+  // kept its STALE pre-payoff role (e.g. 'active') after a Stripe payoff,
+  // and review-request-nudge.js + referral-rewards.js both key off roleFor(),
+  // silently skipping the review ask and the $200 referral payout on every
+  // automated Stripe-payoff loop.
+  assert('invoiceWebhook stamps stageRole alongside the final_payment auto-advance',
+    /stage: 'final_payment',\s*\r?\n\s*_stageKey: 'final_payment',[\s\S]{0,1200}stageRole: stageRoles\.roleFromKey\('final_payment'\)/.test(st),
+    "an unstamped write leaves roleFor() returning the STALE persisted role (persisted wins over the key map), so a custom-pipeline tenant's Stripe-paid job never classifies as won");
+  assert('stripe.js requires functions/stage-roles.js',
+    /const stageRoles = require\('\.\/stage-roles'\)/.test(st));
   const ip = read('docs/pro/js/invoice-pipeline.js');
   assert('markPaid stamps lastPaymentAt on every payment (incl. partials)',
     /lastPaymentAt: new Date\(\)/.test(ip));
+  assert('markPaid stamps stageRole alongside the contract_signed full-payoff advance (client, window.stageRole)',
+    /stage: 'contract_signed',[\s\S]{0,900}window\.stageRole \? \{ stageRole: window\.stageRole\('contract_signed'\) \} : \{\}/.test(ip),
+    'consequence-neutral today (contract_signed already derives to role active) but keeps this write conforming to the persisted-stageRole-wins invariant every other stage-change path upholds');
   const md = read('docs/pro/js/money-dashboard.js');
   assert('money dashboard attributes Collected by lastPaymentAt||paidAt (counts deposits)',
     /payDate = inv\.lastPaymentAt != null \? inv\.lastPaymentAt : inv\.paidAt/.test(md)

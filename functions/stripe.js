@@ -35,6 +35,7 @@ const STRIPE_API_VERSION = '2023-10-16';
 // Shared helpers (B2).
 const { requireAuth } = require('./shared');
 const { httpRateLimit } = require('./integrations/upstash-ratelimit');
+const stageRoles = require('./stage-roles');
 
 // setCustomUserClaims REPLACES the entire claim set. Writing a bare billing
 // patch ({ plan, subscriptionStatus, stripeCustomerId }) therefore WIPES a
@@ -1397,6 +1398,18 @@ exports.invoiceWebhook = onRequest(
                     await leadRef.update({
                       stage: 'final_payment',
                       _stageKey: 'final_payment',
+                      // Stamp stageRole alongside stage, same as every client
+                      // stage-mutation path (#981's persisted-stageRole-wins
+                      // rule — functions/stage-roles.js roleFor()). Without
+                      // this, a custom-pipeline tenant's lead keeps its STALE
+                      // pre-payoff role (e.g. 'active') because persisted
+                      // always wins over derived: review-request-nudge.js and
+                      // the $200 referral-reward system both read roleFor()
+                      // and silently never fire for a Stripe-paid job.
+                      // 'final_payment' is a hardcoded built-in key here (not
+                      // the lead's arbitrary custom stage), so its role is
+                      // unambiguous — no client-side derivation needed.
+                      stageRole: stageRoles.roleFromKey('final_payment'),
                       stageStartedAt: FieldValue.serverTimestamp(),
                       autoAdvancedFromInvoiceId: invoiceId,
                       autoAdvancedAt: FieldValue.serverTimestamp(),
