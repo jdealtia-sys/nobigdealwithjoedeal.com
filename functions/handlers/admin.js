@@ -31,7 +31,12 @@ const {
   callerMayManageTarget,
   normalizeRole,
   normalizeEmail,
+  isOwnerCaller,
 } = require('./_shared');
+// Seat-cap helpers — imported from the invite handler so createTeamMember
+// enforces the SAME plan→seat limit as createTeamInvite (single source of
+// truth; invites.js does not require admin.js, so this edge is one-way/safe).
+const { seatLimitForPlan, isInviteExpired } = require('./invites');
 
 // ═══════════════════════════════════════════════════════════════
 // getAdminAnalytics — C3: ops dashboard numbers for the Team Manager.
@@ -545,6 +550,61 @@ exports.createTeamMember = onCall(
       }, { merge: true });
     }
 
+    // ── Seat-cap enforcement (mirrors createTeamInvite) ─────────────────
+    // createTeamMember is the admin-UI parallel to createTeamInvite and MUST
+    // enforce the same plan seat cap — without this a Free/solo owner (whose
+    // invite-seat cap is 0) could call this repeatedly to mint unlimited active
+    // team seats for $0, bypassing the seat-billing model the three enforcing
+    // sites (createTeamInvite, assignSeats, reactivateLapsedSeats) protect.
+    const isGlobalAdmin = request.auth.token.role === 'admin';
+    let plan = 'free';
+    let purchasedSeats = 0;
+    if (isGlobalAdmin || isOwnerCaller(request.auth.token)) {
+      plan = 'enterprise'; // platform admin / NBD founder — deliberately uncapped
+    } else {
+      const subSnap = await db.doc(`subscriptions/${companyId}`).get();
+      const subData = subSnap.exists ? (subSnap.data() || {}) : {};
+      // past_due stays entitled (Stripe is still dunning) — matches createTeamInvite.
+      const subActive = subData.status === 'active' || subData.status === 'trialing'
+        || subData.status === 'past_due';
+      if (subActive && subData.plan) {
+        plan = subData.plan;
+        purchasedSeats = Math.max(0, Number(subData.purchasedSeats) || 0);
+      } else {
+        plan = (companySnap.exists && (companySnap.data() || {}).plan) || 'free';
+      }
+    }
+    const seatLimit = seatLimitForPlan(plan) + purchasedSeats; // Infinity + n === Infinity
+
+    // Occupancy + whether THIS email already holds a seat (a re-add is not a new
+    // seat). Shared by the cheap pre-check and the authoritative txn re-check.
+    const countSeats = (docs) => {
+      const occupied = docs.filter((m) => {
+        const md = m.data() || {};
+        if (md.status === 'invited') return !isInviteExpired(md);
+        return md.status === 'active';
+      }).length;
+      const mine = docs.find((m) => m.id === email);
+      const mineStatus = mine ? (mine.data() || {}).status : null;
+      const reuses = mineStatus === 'active' || (mineStatus === 'invited' && !isInviteExpired(mine.data()));
+      return { occupied, reuses };
+    };
+    const overCapError = () => new HttpsError('resource-exhausted', seatLimit === 0
+      ? 'Team seats need a paid plan — your current plan is solo. Upgrade at /pro/landing.html#pricing.'
+      : `Your plan includes ${seatLimit} team seat${seatLimit === 1 ? '' : 's'} and they're all taken. Remove a member or upgrade to add more.`);
+
+    // Fast pre-check BEFORE creating an Auth user so an over-cap add fails cheap
+    // and never leaves an orphan account. (Authoritative re-check is in the txn.)
+    // Only a NEW seat is capped: re-adding someone who already holds a seat
+    // (reuses) is never over-cap — mirrors createTeamInvite's !reusesSeat gate so
+    // an over-capacity downgrade window can't block a no-delta touch of an
+    // existing member.
+    if (seatLimit !== Infinity) {
+      const preDocs = (await db.collection(`companies/${companyId}/members`).get()).docs;
+      const { occupied, reuses } = countSeats(preDocs);
+      if (!reuses && occupied + 1 > seatLimit) throw overCapError();
+    }
+
     let userRecord;
     let created = false;
     try {
@@ -575,25 +635,54 @@ exports.createTeamMember = onCall(
         : 'This email already has a standalone account; it must sign up via an invite link or be migrated by an admin.');
     }
 
-    // Merge claims — preserve plan/subscriptionStatus if present.
-    const newClaims = {
-      ...existingClaims,
-      companyId,
-      role
-    };
-    await getAuth().setCustomUserClaims(userRecord.uid, newClaims);
-
     const memberRef = db.doc(`companies/${companyId}/members/${email}`);
-    await memberRef.set({
-      email,
-      role,
-      displayName: displayName || userRecord.displayName || email.split('@')[0],
-      uid: userRecord.uid,
-      status: created ? 'invited' : 'active',
-      invitedAt: FieldValue.serverTimestamp(),
-      invitedBy: callerUid,
-      active: true
-    }, { merge: true });
+    // Authoritative, ATOMIC seat-cap enforcement + member write in ONE txn so
+    // concurrent adds can't each read a stale count and overshoot the paid cap
+    // (the same TOCTOU class fixed in createTeamInvite). The claim stamp lives in
+    // the SAME try so ANY failure — cap reject OR a transient Auth error on
+    // setCustomUserClaims — rolls back cleanly rather than stranding a claimless,
+    // unremovable member row.
+    try {
+      await db.runTransaction(async (tx) => {
+        if (seatLimit !== Infinity) {
+          const snap = await tx.get(db.collection(`companies/${companyId}/members`));
+          const { occupied, reuses } = countSeats(snap.docs);
+          // Only a NEW seat is capped (see pre-check) — re-adding an existing
+          // seat-holder is never over-cap.
+          if (!reuses && occupied + 1 > seatLimit) throw overCapError();
+        }
+        tx.set(memberRef, {
+          email,
+          role,
+          displayName: displayName || userRecord.displayName || email.split('@')[0],
+          uid: userRecord.uid,
+          status: created ? 'invited' : 'active',
+          invitedAt: FieldValue.serverTimestamp(),
+          invitedBy: callerUid,
+          active: true
+        }, { merge: true });
+      });
+
+      // Merge claims — preserve plan/subscriptionStatus if present. Stamped only
+      // once the member's seat is committed.
+      await getAuth().setCustomUserClaims(userRecord.uid, {
+        ...existingClaims,
+        companyId,
+        role
+      });
+    } catch (addErr) {
+      // Roll back a BRAND-NEW add so a rejected cap or a transient claim-stamp
+      // failure leaves no ghost: delete the member row we may have written and
+      // the Auth account we created. Guarded on `created` — an existing member's
+      // row and claims predate this call and must never be destroyed here.
+      if (created) {
+        try { await memberRef.delete(); } catch (_) { /* best-effort */ }
+        if (userRecord && userRecord.uid) {
+          try { await getAuth().deleteUser(userRecord.uid); } catch (_) { /* best-effort */ }
+        }
+      }
+      throw addErr;
+    }
 
     // Seed user profile doc so the user list query has a name to show.
     await db.doc(`users/${userRecord.uid}`).set({

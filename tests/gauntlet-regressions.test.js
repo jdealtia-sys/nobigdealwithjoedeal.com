@@ -619,7 +619,7 @@ console.log('\nDeposit / partial-payment money correctness (money-out sweep)');
     /status: fullyPaid \? 'paid' : \(inv\.status/.test(st)
     && /lastPaymentAt: FieldValue\.serverTimestamp\(\)/.test(st));
   assert('kanban auto-advance gated on fullyPaid (a deposit must not advance to final_payment)',
-    /if \(fullyPaid && inv\.leadId\)/.test(st));
+    /if \(creditResult\.fullyPaid && creditResult\.leadId\)/.test(st));
   const ip = read('docs/pro/js/invoice-pipeline.js');
   assert('markPaid stamps lastPaymentAt on every payment (incl. partials)',
     /lastPaymentAt: new Date\(\)/.test(ip));
@@ -647,6 +647,43 @@ console.log('\nDeposit / partial-payment money correctness (money-out sweep)');
   assert('invoiceWebhook deletes the idempotency marker on failure so a retry re-processes',
     /invoiceWebhook error[\s\S]{0,1200}getFirestore\(\)\.doc\(`stripe_events\/\$\{event\.id\}`\)\.delete\(\)/.test(st),
     'a transient write failure after the marker was written would otherwise silently drop the captured payment');
+  assert('invoiceWebhook credit is idempotent at the DATA level — txn keyed on paymentIntent.id (no double-credit)',
+    /const creditResult = await db\.runTransaction/.test(st)
+    && /applied\.includes\(paymentIntent\.id\)[\s\S]{0,80}already_applied/.test(st)
+    && /paidIntentIds: FieldValue\.arrayUnion\(paymentIntent\.id\)/.test(st),
+    'additive credit (prior+received) is NOT re-run-safe; without a PI-id ledger the marker-delete recovery double-credits a committed-but-unacked write');
+}
+
+console.log('\nSeat-cap enforcement — both member-add paths + no TOCTOU (billing sweep 2026-07-18)');
+{
+  const adm = read('functions/handlers/admin.js');
+  // CRITICAL: createTeamMember was the parallel path with NO cap check.
+  assert('createTeamMember enforces the plan seat cap (imports seatLimitForPlan from the single source)',
+    /require\('\.\/invites'\)/.test(adm)
+    && /seatLimitForPlan, isInviteExpired/.test(adm)
+    && /const seatLimit = seatLimitForPlan\(plan\) \+ purchasedSeats/.test(adm),
+    'without a cap check a Free/solo owner could mint unlimited active team seats for $0');
+  assert('createTeamMember re-checks the cap INSIDE the member-write transaction (no TOCTOU) + rolls back a new member on failure',
+    /runTransaction\(async \(tx\) =>[\s\S]{0,400}!reuses && occupied \+ 1 > seatLimit\) throw overCapError/.test(adm)
+    && /if \(created\) \{[\s\S]{0,200}memberRef\.delete\(\)[\s\S]{0,200}deleteUser\(userRecord\.uid\)/.test(adm),
+    'a non-atomic count-then-write lets concurrent adds overshoot; a rejected/failed new-user add must not leave an orphan account or claimless row');
+  assert('createTeamMember skips the cap for a re-add of an existing seat-holder (matches createTeamInvite; no over-cap-downgrade false reject)',
+    /if \(!reuses && occupied \+ 1 > seatLimit\) throw overCapError/.test(adm),
+    'counting an already-active target as a new seat wrongly blocks a no-delta edit while a tenant is temporarily over cap');
+  assert('createTeamMember exempts only platform admin / NBD founder from the cap',
+    /if \(isGlobalAdmin \|\| isOwnerCaller\(request\.auth\.token\)\) \{\s*plan = 'enterprise'/.test(adm),
+    'the enterprise (uncapped) bypass must be narrow — tenant owners are capped by their plan');
+  const inv = read('functions/handlers/invites.js');
+  // MAJOR: createTeamInvite cap check was a non-atomic read-check-write.
+  assert('createTeamInvite re-checks the cap INSIDE the invite-write transaction (closes concurrent-overshoot TOCTOU)',
+    /await db\.runTransaction\(async \(tx\) => \{\s*if \(!reusesSeat && seats !== Infinity\)[\s\S]{0,400}occ \+ 1 > seats\)/.test(inv),
+    'the roster read + cap check + invite write must be atomic or N concurrent invites each read a stale count and overshoot');
+  assert('createTeamInvite still writes via tx.set so teamInviteEmail onDocumentCreated fires (resend preserved)',
+    /tx\.set\(memberRef, \{\s*email,\s*role,\s*status: 'invited'/.test(inv));
+  assert('seat helpers are single-source (exported from invites.js, not re-copied in admin.js)',
+    /exports\.seatLimitForPlan = seatLimitForPlan/.test(inv)
+    && !/function seatLimitForPlan/.test(adm),
+    'a duplicated plan→seat table drifts — admin.js must import the one createTeamInvite uses');
 }
 
 console.log('\nCRM custom-pipeline + kanban correctness (lead-lifecycle sweep)');

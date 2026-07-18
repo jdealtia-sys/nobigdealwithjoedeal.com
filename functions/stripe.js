@@ -1215,24 +1215,32 @@ exports.invoiceWebhook = onRequest(
 
         if (invoiceId) {
           const invRef = db.collection('invoices').doc(invoiceId);
-          const invSnap = await invRef.get();
-          if (!invSnap.exists) {
-            logger.warn('invoiceWebhook: invoice not found', { invoiceId });
-          } else if (claimedUserId && invSnap.data().createdBy !== claimedUserId) {
-            // Metadata tampering — record the event but do not mark paid.
-            logger.error('invoiceWebhook: metadata userId mismatch', {
-              invoiceId,
-              claimedUserId,
-              actualCreatedBy: invSnap.data().createdBy,
-            });
-          } else {
+
+          // Credit inside a transaction keyed on the paymentIntent id so the
+          // credit is IDEMPOTENT AT THE DATA LEVEL — not dependent on the event
+          // marker. The additive math (newPaid = priorPaid + received) is NOT
+          // safe to re-run: if invRef.update commits server-side but the ack is
+          // lost, the outer catch deletes the stripe_events marker and Stripe
+          // retries the same event; without this guard the retry re-reads an
+          // invoice whose amountPaid ALREADY includes this payment and adds it a
+          // SECOND time (double-credit, invoice over-paid, partial wrongly
+          // flipped 'paid'). Recording paymentIntent.id in paidIntentIds and
+          // skipping when it's already present makes the retry a true no-op.
+          const creditResult = await db.runTransaction(async (tx) => {
+            const invSnap = await tx.get(invRef);
+            if (!invSnap.exists) return { skipped: 'not_found' };
             const inv = invSnap.data();
+            if (claimedUserId && inv.createdBy !== claimedUserId) {
+              return { skipped: 'owner_mismatch', actualCreatedBy: inv.createdBy };
+            }
+            // Idempotency ledger: this exact payment was already credited.
+            const applied = Array.isArray(inv.paidIntentIds) ? inv.paidIntentIds : [];
+            if (applied.includes(paymentIntent.id)) return { skipped: 'already_applied' };
+
             // Credit the ACTUAL amount Stripe collected (amount_received, in
-            // cents) cumulatively onto any prior payment — the link now charges
-            // only the outstanding balance, and a rep may have recorded a cash
-            // deposit first. Hard-setting amountPaid=total (the old code)
-            // overcharged the ledger's view and ERASED that deposit. Mirrors
-            // the client markPaid() cumulative math so both paths converge.
+            // cents) cumulatively onto any prior payment — the link charges only
+            // the outstanding balance, and a rep may have recorded a cash deposit
+            // first. Mirrors the client markPaid() cumulative math.
             const total = Number(inv.total) || 0;
             const receivedCents = Number(paymentIntent.amount_received);
             const received = Number.isFinite(receivedCents) && receivedCents > 0
@@ -1241,7 +1249,7 @@ exports.invoiceWebhook = onRequest(
             const newPaid = Math.round((priorPaid + received) * 100) / 100;
             const newBalanceDue = Math.max(0, Math.round((total - newPaid) * 100) / 100);
             const fullyPaid = newBalanceDue === 0;
-            await invRef.update({
+            tx.update(invRef, {
               // status/paidAt flip to 'paid' ONLY when the balance reaches zero
               // — a deposit-sized online payment leaves the invoice open.
               status: fullyPaid ? 'paid' : (inv.status || 'sent'),
@@ -1251,27 +1259,48 @@ exports.invoiceWebhook = onRequest(
               // only once the invoice is fully settled.
               lastPaymentAt: FieldValue.serverTimestamp(),
               stripePaymentIntentId: paymentIntent.id,
+              // Append-only idempotency ledger (arrayUnion dedupes) — the
+              // authoritative guard against a re-run double-credit.
+              paidIntentIds: FieldValue.arrayUnion(paymentIntent.id),
               balanceDue: newBalanceDue,
               depositPaid: newPaid >= (Number(inv.depositAmount) || 0),
               amountPaid: newPaid,
               updatedAt: FieldValue.serverTimestamp(),
             });
-            logger.info('invoice_payment_recorded', { invoiceId, received, newPaid, newBalanceDue, fullyPaid });
+            return { credited: true, fullyPaid, received, newPaid, newBalanceDue, leadId: inv.leadId };
+          });
+
+          if (creditResult.skipped === 'not_found') {
+            logger.warn('invoiceWebhook: invoice not found', { invoiceId });
+          } else if (creditResult.skipped === 'owner_mismatch') {
+            // Metadata tampering — event recorded, but not marked paid.
+            logger.error('invoiceWebhook: metadata userId mismatch', {
+              invoiceId, claimedUserId, actualCreatedBy: creditResult.actualCreatedBy,
+            });
+          } else if (creditResult.skipped === 'already_applied') {
+            logger.info('invoiceWebhook: paymentIntent already credited — idempotent skip',
+              { invoiceId, paymentIntentId: paymentIntent.id });
+          } else if (creditResult.credited) {
+            logger.info('invoice_payment_recorded', {
+              invoiceId, received: creditResult.received, newPaid: creditResult.newPaid,
+              newBalanceDue: creditResult.newBalanceDue, fullyPaid: creditResult.fullyPaid,
+            });
 
             // ── Auto-advance kanban stage on FULL payment ─────────────
             // Close the loop: when the homeowner pays the invoice OFF via
             // Stripe, bump the card to 'final_payment'. Gate on fullyPaid —
             // a deposit-sized online payment must NOT advance the lead to
-            // final payment (the balance is still open).
+            // final payment (the balance is still open). Runs only when the
+            // credit was actually applied (never on an idempotent replay).
             // The CRM's `STAGE_META` treats final_payment/closed as
             // won-revenue stages.
             //
             // Idempotency: only auto-advance if the lead is currently
             // pre-final-payment AND not already lost. Never overwrite
             // a manually-set 'closed' or 'lost' state.
-            if (fullyPaid && inv.leadId) {
+            if (creditResult.fullyPaid && creditResult.leadId) {
               try {
-                const leadRef = db.collection('leads').doc(inv.leadId);
+                const leadRef = db.collection('leads').doc(creditResult.leadId);
                 const leadSnap = await leadRef.get();
                 if (leadSnap.exists) {
                   const lead = leadSnap.data();
@@ -1288,14 +1317,14 @@ exports.invoiceWebhook = onRequest(
                       updatedAt: FieldValue.serverTimestamp(),
                     });
                     logger.info('lead_auto_advanced_on_payment', {
-                      invoiceId, leadId: inv.leadId, fromStage: curStage
+                      invoiceId, leadId: creditResult.leadId, fromStage: curStage
                     });
                   }
                 }
               } catch (advanceErr) {
                 // Non-fatal — invoice is already marked paid, just log.
                 logger.warn('lead_auto_advance_failed', {
-                  invoiceId, leadId: inv.leadId, err: advanceErr.message
+                  invoiceId, leadId: creditResult.leadId, err: advanceErr.message
                 });
               }
             }
@@ -1313,10 +1342,12 @@ exports.invoiceWebhook = onRequest(
       // the delivery, the retry's create() sees ALREADY_EXISTS and short-
       // circuits as a duplicate doing ZERO work, so the captured money is never
       // credited to the invoice (permanent A/R discrepancy). Delete the marker
-      // so the retry re-processes from scratch — the credit is idempotent
-      // (amountPaid is recomputed from the same paymentIntent, and a genuine
-      // duplicate delivery is still caught because the FIRST success re-created
-      // the marker). Mirrors the sibling stripeWebhook recovery.
+      // so the retry re-processes from scratch. Re-processing is safe because
+      // the credit is now idempotent AT THE DATA LEVEL: the transaction skips
+      // when paymentIntent.id is already in the invoice's paidIntentIds ledger,
+      // so a retry after a committed-but-unacked write is a no-op (no double-
+      // credit) while a retry after a genuinely-failed write still credits once.
+      // Mirrors the sibling stripeWebhook recovery.
       if (event && event.id) {
         try {
           await getFirestore().doc(`stripe_events/${event.id}`).delete();
