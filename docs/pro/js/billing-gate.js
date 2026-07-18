@@ -60,6 +60,10 @@ let _NBD_BG_DELEGATE; // module-local (globals Tranche 1 — was window.*)
   // stamped on the sub doc by the Stripe webhook. UI mirror only — the server
   // cap sites (createTeamInvite/assignSeats/lapse) are the enforced truth.
   let _purchasedSeats = 0;
+  // Sub doc `source` ('checkout' = card-billed Stripe sub, 'access_code' =
+  // comp, etc.). Exposed so the team tab hides the buy-seats stepper for
+  // tenants the seat-charging callable would refuse (non-card-billed).
+  let _source = null;
   let _loaded = false;
 
   // Owner bypass — claim-ONLY since the OWNER_EMAILS retirement
@@ -182,10 +186,12 @@ let _NBD_BG_DELEGATE; // module-local (globals Tranche 1 — was window.*)
           || _status === 'past_due';
         _purchasedSeats = entitledForSeats
           ? Math.max(0, Number(data.purchasedSeats) || 0) : 0;
+        _source = typeof data.source === 'string' ? data.source : null;
       } else {
         _plan = 'free';
         _status = 'none';
         _purchasedSeats = 0;
+        _source = null;
       }
       _loaded = true;
     } catch (e) {
@@ -384,6 +390,7 @@ let _NBD_BG_DELEGATE; // module-local (globals Tranche 1 — was window.*)
       usage: { ..._usage },
       limits: PLANS[_plan] || PLANS.free,
       purchasedSeats: _purchasedSeats,
+      source: _source,
       trialEndsAt: _trialEndsAt,
       isTrialing: _status === 'trialing',
       isPastDue: _status === 'past_due',
