@@ -509,7 +509,7 @@ function renderLeads(leads, filtered){
         body.classList.remove('drag-over');
         const draggedId = (e.dataTransfer && e.dataTransfer.getData('text/plain')) || _dragId;
         if (!draggedId) return;
-        moveCard(draggedId, stageKey);
+        moveCard(draggedId, stageKey, { isDrag: true });
         _dragId = null;
       };
       body.addEventListener('dragover', overHandler);
@@ -569,7 +569,7 @@ function renderLeads(leads, filtered){
         body.classList.remove('drag-over');
         const draggedId = (e.dataTransfer && e.dataTransfer.getData('text/plain')) || _dragId;
         if (!draggedId) return;
-        moveCard(draggedId, stage);
+        moveCard(draggedId, stage, { isDrag: true });
         _dragId = null;
       };
       body.addEventListener('dragover', overH);
@@ -1656,7 +1656,22 @@ function _openLeadModalWithMissingFieldsBanner(lead, targetStage, missingFields)
   }, 30);
 }
 
-async function moveCard(id, newStage){
+async function moveCard(id, newStage, opts){
+  // isDrag: true ONLY for the 3 genuine drag-and-drop call sites, where
+  // `newStage` is a COLUMN key the card was physically dropped on — several
+  // real stages can collapse into that one column (Simple/Service views), so
+  // "dropped back on its own column" must NOOP even though it's not an exact
+  // stage match. Every OTHER caller (Close-Job / prev-next arrows, the
+  // right-click "Move to stage…" submenu, the card-detail stage chip, the
+  // list-view dropdown, bulk-move, portal-driven advances) passes a SPECIFIC
+  // real stage the user explicitly chose — those must NOT be coerced through
+  // the column-collapse comparison, or an explicit distinct-stage change gets
+  // silently discarded whenever it happens to land in the same visible
+  // column as the lead's current stage (2026-07-18 post-sprint certification:
+  // #985 made install_complete…final_payment render in the "Closed" column
+  // in Simple/Service views, so "Close Job" — a genuine install_complete →
+  // closed transition — was hitting the drag-NOOP guard and no-opping).
+  const isDrag = !!(opts && opts.isDrag);
   const lead = (window._leads||[]).find(l=>l.id===id);
   if(!lead) return;
   // Prevent concurrent moves on the same card
@@ -1811,21 +1826,27 @@ async function moveCard(id, newStage){
         const cur = snap.data() || {};
         // NOOP guards — throw so the catch restores our optimistic state:
         //  (a) the stage already IS newStage (another tab won), OR
-        //  (b) the card's CURRENT stage already resolves to the SAME visible
-        //      column as the drop target. In collapsed views (Simple/insurance)
-        //      several real stages share one column — e.g. crew_scheduled shows
-        //      in the 'Installing' column. Dropping the card back onto its own
-        //      column fires moveCard(id, columnKey); without this guard it would
-        //      rewrite the real stage to the column's canonical key, silently
-        //      DOWNGRADING role (WON→JOB), resetting stageStartedAt and logging
-        //      a misleading move. Compare by resolved column, not raw stage.
+        //  (b) DRAG ONLY: the card's CURRENT stage already resolves to the
+        //      SAME visible column as the drop target. In collapsed views
+        //      (Simple/insurance) several real stages share one column — e.g.
+        //      crew_scheduled shows in the 'Installing' column. Dropping the
+        //      card back onto its own column fires moveCard(id, columnKey, {isDrag:true});
+        //      without this guard it would rewrite the real stage to the
+        //      column's canonical key, silently DOWNGRADING role (WON→JOB),
+        //      resetting stageStartedAt and logging a misleading move.
+        //      Gated on isDrag — an EXPLICIT distinct-stage action (Close Job,
+        //      stage picker, list view, bulk move) must compare by exact
+        //      stage, not by column: those pass a real target stage that may
+        //      legitimately share a column with the current one (#985's
+        //      install_complete→closed collapse in Simple view is exactly
+        //      that case) and must NOT be coerced into a no-op.
         // resolveColumn(stageKey, viewStages) takes the STAGES ARRAY as arg2
         // (window._stageKeys), NOT the view-key string — passing a string makes
         // .includes() a substring test that returns garbage (blocks legit moves
         // AND misses the target downgrade). Only apply the column-collapse NOOP
         // when we actually have the current view's stage array.
         const _mcKeys = window._stageKeys;
-        const _mcCurCol = (typeof window.resolveColumn === 'function' && Array.isArray(_mcKeys) && _mcKeys.length)
+        const _mcCurCol = (isDrag && typeof window.resolveColumn === 'function' && Array.isArray(_mcKeys) && _mcKeys.length)
           ? window.resolveColumn(cur.stage, _mcKeys) : cur.stage;
         if (cur.stage === newStage || _mcCurCol === newStage) {
           throw new Error('STAGE_RACE_NOOP');
@@ -1956,8 +1977,10 @@ async function moveCard(id, newStage){
         type: 'error',
         duration: 5000,
         undoAction: () => {
-          // Retry the move
-          moveCard(id, newStage);
+          // Retry the move — carry the original isDrag flag forward so a
+          // retried drag stays column-NOOP-safe and a retried explicit move
+          // stays exact-match (see moveCard's opts.isDrag doc comment).
+          moveCard(id, newStage, { isDrag });
         },
         undoText: 'Retry'
       });
