@@ -592,8 +592,8 @@ console.log('\nPer-seat charging — webhook event-ordering guard (out-of-order 
     'out-of-order seat updates would otherwise persist a stale purchasedSeats');
   assert('the high-water mark advances (and is preserved on malformed events)',
     /lastSubEventAt: eventCreated \|\| lastApplied \|\| FieldValue\.delete\(\)/.test(st));
-  assert('checkout seeds the ordering watermark so a stale updated cannot clobber activation',
-    /lastSubEventAt: typeof event\.created === 'number' \? event\.created : FieldValue\.delete\(\)/.test(st));
+  assert('checkout seeds the ordering watermark so a stale updated cannot clobber activation (non-rewinding — see below)',
+    /subData\.lastSubEventAt = Math\.max\(priorLastEvent, thisEventCreated\) \|\| FieldValue\.delete\(\)/.test(st));
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -913,6 +913,76 @@ console.log('\nCheckout — server-side live-sub guard (double-bill)');
   const pp = read('docs/pro/js/pricing-page.module.js');
   assert('pricing page handles already_subscribed (portal message, no checkout retry)',
     /data\.error === 'already_subscribed'/.test(pp) && /dashboard\.html/.test(pp));
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// WEBHOOK ORDERING HARDENING (2026-07-18, post-sprint cross-PR certification):
+// #974's lastSubEventAt ordering protocol only covered subscription.updated.
+// Two gaps: (1) subscription.deleted sat outside the protocol entirely — a
+// late-retried stale .updated could resurrect a cancelled sub; (2)
+// checkout.session.completed wrote its own event.created unconditionally,
+// which could REWIND the watermark below an already-applied later .updated.
+// ═══════════════════════════════════════════════════════════════════
+
+console.log('\nWebhook — subscription.deleted joins the event-ordering protocol');
+{
+  const st = read('functions/stripe.js');
+  const del = (st.match(/case 'customer\.subscription\.deleted': \{[\s\S]*?break;\r?\n {8}\}/) || [''])[0];
+  assert('subscription.deleted found and non-trivial', del.length > 200);
+  assert('deleted case skips events older than the applied high-water mark (same guard as updated)',
+    /eventCreated < lastApplied/.test(del) && /stale_event_skipped/.test(del),
+    'a stale .updated retry after cancellation would otherwise resurrect the cancelled plan/status/purchasedSeats');
+  assert('deleted case ADVANCES lastSubEventAt (closes the ordering gap for subsequent stale retries)',
+    /lastSubEventAt: eventCreated \|\| lastApplied \|\| FieldValue\.delete\(\)/.test(del),
+    'without stamping the mark here, deletion sat outside the protocol entirely');
+}
+
+console.log('\nWebhook — checkout.session.completed cannot rewind the ordering watermark');
+{
+  const st = read('functions/stripe.js');
+  const chk = (st.match(/case 'checkout\.session\.completed': \{[\s\S]*?\r?\n {8}\}(?=\r?\n\r?\n {8}case 'customer\.subscription\.updated')/) || [''])[0];
+  assert('checkout case found and non-trivial', chk.length > 500);
+  assert('checkout reads the PRIOR stored lastSubEventAt before writing',
+    /priorSnap = await db\.doc\(`subscriptions\/\$\{uid\}`\)\.get\(\)/.test(chk)
+    && /priorLastEvent = typeof priorSnap\.get\('lastSubEventAt'\) === 'number'/.test(chk));
+  assert('checkout takes Math.max(prior, this event) — never writes backwards',
+    /Math\.max\(priorLastEvent, thisEventCreated\)/.test(chk),
+    'a retried checkout event delivered after a later subscription.updated must not rewind the watermark and reopen the stale-clobber race #974 closed');
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// SEAT PRICE ROTATION SAFETY (2026-07-18): buildSeatItemsUpdate identifies
+// seat line items BY EXCLUSION (anything not a known plan price). If a plan
+// price is rotated (STRIPE_PRICE_TEAM etc. repointed), an existing sub's
+// plan item still carries the OLD id — invisible to the current
+// planPriceIds set — and would be misclassified as a stray seat item and
+// DELETED, silently converting the tenant to seat-only billing.
+// ═══════════════════════════════════════════════════════════════════
+
+console.log('\nPer-seat charging — rotated-plan-price guard (setCompanySeatCount)');
+{
+  const seats = read('functions/handlers/seats.js');
+  assert('setCompanySeatCount requires a recognized CURRENT plan item before reconciling seats',
+    /hasRecognizedPlanItem = items\.some\(\(it\) => it && it\.price && it\.price\.id && planPriceIds\.has\(it\.price\.id\)\)/.test(seats));
+  assert('refuses (not act on ambiguous data) when no line item matches a current plan price',
+    /if \(!hasRecognizedPlanItem\)[\s\S]{0,300}no_recognized_plan_item[\s\S]{0,200}could not be verified/.test(seats),
+    'without this, a rotated plan price item gets misclassified as a stray seat item and deleted from the live subscription');
+  assert('the guard runs BEFORE buildSeatItemsUpdate is called',
+    seats.indexOf('hasRecognizedPlanItem') < seats.indexOf('buildSeatItemsUpdate(sub.items'));
+}
+
+console.log('\nPer-seat charging — buy-seats stepper reachable during past_due (reduction escape hatch)');
+{
+  const tab = read('docs/pro/js/dashboard-team-tab.js');
+  assert('stepper treats past_due as entitled-to-render (server allows past_due REDUCTIONS)',
+    /isPastDue = !!pl && pl\.status === 'past_due'/.test(tab)
+    && /entitled = !!pl && \(pl\.status === 'active' \|\| pl\.status === 'trialing' \|\| isPastDue\)/.test(tab),
+    "excluding past_due made setCompanySeatCount's pastDueReduction allowance unreachable — no UI ever showed the stepper to use it");
+  assert('the "+" control is disabled (not the whole panel hidden) while past_due',
+    /plusAttrs = isPastDue \? \('disabled/.test(tab),
+    'past_due may only reduce seats server-side; a live "+" would let the owner submit an increase the server just rejects');
+  assert('click handler honors the disabled "+"/"-" buttons (no client-side bypass of the past_due cap)',
+    /if \(t\.disabled\) return;/.test(tab));
 }
 
 console.log('\n──────────────────────────────────────────────────');

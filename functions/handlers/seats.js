@@ -234,6 +234,25 @@ exports.setCompanySeatCount = onCall(
         'Your subscription has a billing issue — fix it in Manage billing, then adjust seats.');
     }
 
+    // Rotation safety (mirrors the webhook read path's F-08 fallback): if a
+    // plan price gets rotated (STRIPE_PRICE_TEAM etc. repointed to a new
+    // price id), an EXISTING subscription's plan line item still carries the
+    // OLD id, which is absent from the current `planPriceIds` set.
+    // buildSeatItemsUpdate identifies seat items BY EXCLUSION ("not a known
+    // plan price") — without this guard, the old plan item would be
+    // misclassified as a stray seat item and DELETED from the live Stripe
+    // subscription, silently converting the tenant to seat-only billing. Only
+    // proceed when at least one line item is a price we currently recognize
+    // as a plan; otherwise refuse rather than reconcile against ambiguous
+    // data (same "don't act on what you can't identify" rule as the webhook).
+    const items = sub.items && Array.isArray(sub.items.data) ? sub.items.data : [];
+    const hasRecognizedPlanItem = items.some((it) => it && it.price && it.price.id && planPriceIds.has(it.price.id));
+    if (!hasRecognizedPlanItem) {
+      logger.error('setCompanySeatCount.no_recognized_plan_item', { companyId, subscriptionId: sub.id });
+      throw new HttpsError('failed-precondition',
+        'Your subscription price could not be verified — contact support before changing seats.');
+    }
+
     const itemsUpdate = buildSeatItemsUpdate(sub.items, seatPriceId, extraSeats, planPriceIds);
     if (!itemsUpdate) {
       // Still sync the mirror: if subscriptions/{companyId}.purchasedSeats
