@@ -96,7 +96,21 @@
   // column and stageRole() returns 'active', silently losing any won/lost role
   // (and dropping them from role-keyed KPIs / revenue / the portal). Blocking
   // is the safe minimal fix: move the leads elsewhere on the board first.
+  //
+  // FAIL CLOSED on an unhydrated cache (2026-07-18 post-sprint certification):
+  // window._leads defaults to [] before loadLeads() finishes (a slow/flaky
+  // load can leave it empty for seconds), and leadsOnStage() has no way to
+  // tell "confirmed zero" from "haven't loaded yet" — it would report 0
+  // occupants for a stage that actually holds leads, letting a real deletion
+  // through and reintroducing the exact orphaning this guard exists to
+  // block. window._leadsLoaded is the same hydration flag dashboard-
+  // bootstrap.module.js's other stale-cache guards already key off; refuse
+  // rather than reconcile against unknown data, same "don't act on
+  // ambiguous data" pattern as the seat-rotation guard in seats.js.
   function canDeleteStage(key) {
+    if (typeof window !== 'undefined' && !window._leadsLoaded) {
+      return { ok: false, count: null, unhydrated: true };
+    }
     var count = leadsOnStage(key).length;
     return { ok: count === 0, count: count };
   }
@@ -230,6 +244,10 @@
       var verdict = canDeleteStage(key);
       if (!verdict.ok) {
         var nm = (res.stageMeta[key] || {}).label || key;
+        if (verdict.unhydrated) {
+          toast('Still loading your leads — wait a moment and try deleting "' + nm + '" again.', 'error');
+          return;
+        }
         var n = verdict.count;
         toast(n + ' lead' + (n === 1 ? ' is' : 's are') + ' still on "' + nm + '." Move '
           + (n === 1 ? 'it' : 'them') + ' to another stage on the board first, then delete this stage.', 'error');

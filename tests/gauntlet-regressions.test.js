@@ -833,6 +833,37 @@ console.log('\nCRM custom-pipeline + kanban correctness (lead-lifecycle sweep)')
     'resolveColumn arg2 is the stages array; a view-key string makes .includes() a substring test → blocks legit moves');
   assert('per-column drop handler stopPropagation (no double moveCard via the board handler)',
     /const dropHandler = e => \{[\s\S]{0,400}e\.stopPropagation\(\)/.test(cp));
+  // 2026-07-18 post-sprint certification: the column-collapse NOOP guard
+  // above is correct ONLY for drag-and-drop (newStage = an ambiguous column
+  // key). #985 made install_complete…final_payment render in the "Closed"
+  // column in Simple/Service views, so an EXPLICIT distinct-stage action
+  // (Close Job, stage picker, list view, bulk move) landing on a stage that
+  // shares a column with the current one was being silently discarded as a
+  // false NOOP. Fixed via an opts.isDrag flag, true ONLY at the 3 genuine
+  // drag-drop call sites.
+  assert('moveCard only applies the column-collapse comparison when isDrag is true',
+    /const isDrag = !!\(opts && opts\.isDrag\)/.test(cp)
+    && /const _mcCurCol = \(isDrag && typeof window\.resolveColumn/.test(cp),
+    'without the isDrag gate, an explicit Close-Job/stage-picker/list-view/bulk-move to a stage sharing a column with the current stage silently no-ops instead of actually changing stage');
+  assert('both kanban drop handlers (new-system + legacy) pass isDrag:true',
+    (cp.match(/moveCard\(draggedId,\s*\w+,\s*\{\s*isDrag:\s*true\s*\}\)/g) || []).length === 2,
+    'a drag call site missing isDrag:true would wrongly apply exact-match comparison and rewrite the real stage on a same-column re-drop');
+  const dbm = read('docs/pro/js/dashboard-bootstrap.module.js');
+  assert('global window.drop (board-level delegated drop) passes isDrag:true',
+    /moveCard\(dragId, stageKey, \{ isDrag: true \}\)/.test(dbm));
+  assert('the retry closure carries the original isDrag flag forward (not a bare re-call)',
+    /moveCard\(id, newStage, \{ isDrag \}\)/.test(cp),
+    'a retried drag must stay column-NOOP-safe and a retried explicit move must stay exact-match');
+  // Explicit-stage call sites must NOT pass isDrag — verify the delegate,
+  // list-view select, context-menu submenu, and Close-Job chip all default.
+  assert('the move-card delegate (prev/next arrows) does not pass isDrag',
+    /'move-card':\s*\(el\)\s*=>\s*typeof moveCard === 'function' && moveCard\(el\.dataset\.id, el\.dataset\.targetStage\)/.test(cp));
+  const clv = read('docs/pro/js/crm-list-view.js');
+  assert('list-view stage-select does not pass isDrag',
+    /window\.moveCard\(sel\.dataset\.id, sel\.value\)/.test(clv));
+  const kcm = read('docs/pro/js/kanban-context-menu.js');
+  assert('right-click "Move to stage…" submenu does not pass isDrag',
+    /window\.moveCard\(lead\.id, opt\.value\)/.test(kcm));
   assert('CRM revenue buckets are ROLE-aware (custom won/lost stages count correctly)',
     /isLost = _lostKeys\.includes\(sk\) \|\| role === 'lost'/.test(cp)
     && /isClosed = _closedKeys\.includes\(sk\) \|\| role === 'won' \|\| role === 'job'/.test(cp),

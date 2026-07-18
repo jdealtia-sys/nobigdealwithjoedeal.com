@@ -818,7 +818,7 @@
     if (el) el.classList.remove('drag-over');
     const dragId = window._dragId || event.dataTransfer?.getData('text/plain');
     if (!dragId) return;
-    if (typeof moveCard === 'function') moveCard(dragId, stageKey);
+    if (typeof moveCard === 'function') moveCard(dragId, stageKey, { isDrag: true });
     window._dragId = null;
   };
 

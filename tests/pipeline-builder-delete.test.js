@@ -19,7 +19,15 @@
  * key straight there) and its board-bucket key on `lead._stageKey`; the guard
  * matches EITHER, so an occupant is caught even if the denormalized field is
  * missing or diverged. This test covers both match paths, the empty-stage
- * (deletable) path, and the missing-_leads path.
+ * (deletable) path, and the unhydrated-cache path.
+ *
+ * 2026-07-18 post-sprint certification: canDeleteStage() used to treat a
+ * missing/unloaded window._leads the SAME as a confirmed-empty stage —
+ * `[]` and "haven't loaded yet" both read as 0 occupants, so a real
+ * deletion could sail through on a slow/flaky connection before loadLeads()
+ * finished, reintroducing the exact orphaning this guard exists to block.
+ * Fixed to FAIL CLOSED on window._leadsLoaded !== true (the same hydration
+ * flag dashboard-bootstrap.module.js's other stale-cache guards key off).
  *
  * Zero deps. Run: node tests/pipeline-builder-delete.test.js
  */
@@ -39,7 +47,11 @@ function assert(name, cond) { if (cond) { passed++; console.log('  ✓ ' + name)
 // bootstrap (injectCss + a switchSettingsTab hook); a minimal window/document
 // stub lets it initialize and expose window.PipelineBuilder without a real DOM.
 // window.switchSettingsTab stays undefined so installHook() returns early.
-function loadBuilder(leads) {
+// leadsLoaded defaults to true — every pre-existing test case below exercises
+// a CONFIRMED (hydrated) lead cache; the dedicated unhydrated-cache section
+// passes leadsLoaded: false / omits it explicitly.
+function loadBuilder(leads, opts) {
+  const leadsLoaded = !opts || opts.leadsLoaded !== false;
   const noopEl = () => ({ style: {}, appendChild() {}, addEventListener() {}, remove() {}, dataset: {}, id: '', textContent: '' });
   const documentStub = {
     addEventListener() {}, removeEventListener() {},
@@ -48,7 +60,7 @@ function loadBuilder(leads) {
     head: noopEl(),
     body: noopEl(),
   };
-  const windowStub = { _leads: leads };
+  const windowStub = { _leads: leads, _leadsLoaded: leadsLoaded };
   windowStub.window = windowStub;
   const sandbox = { window: windowStub, document: documentStub, console: { log() {}, warn() {}, error() {} } };
   vm.runInNewContext(SRC, sandbox, { filename: 'pipeline-builder.js' });
@@ -120,13 +132,17 @@ console.log('PIPELINE BUILDER — delete-custom-stage guard');
   assert('counts every occupant (2), skips null entry', v.ok === false && v.count === 2);
 }
 
-// ── 6. missing / non-array window._leads → deletable, no throw ──
+// ── 6. missing / non-array window._leads (but a CONFIRMED-loaded cache) →
+//      deletable, no throw. This is a hydrated boot that genuinely has zero
+//      leads (a brand-new tenant) or a page where _leads never got
+//      initialized to an array — distinct from case 8 below, where the
+//      cache simply hasn't hydrated YET.
 {
   const { PB } = loadBuilder(undefined);
   let threw = false, v;
   try { v = PB.canDeleteStage('custom_paid'); } catch (_) { threw = true; }
   assert('no throw when window._leads is absent', threw === false);
-  assert('absent _leads → ok (deletable), count 0', v && v.ok === true && v.count === 0);
+  assert('absent _leads (but loaded) → ok (deletable), count 0', v && v.ok === true && v.count === 0);
 }
 
 // ── 7. defensive: falsy key → empty, deletable ──
@@ -134,6 +150,38 @@ console.log('PIPELINE BUILDER — delete-custom-stage guard');
   const { PB } = loadBuilder([{ id: 'k', stage: 'custom_paid' }]);
   assert('empty key → no occupants', PB.leadsOnStage('').length === 0);
   assert('empty key → deletable (nothing to orphan)', PB.canDeleteStage('').ok === true);
+}
+
+// ── 8. UNHYDRATED cache (window._leadsLoaded falsy) → FAIL CLOSED, never
+//      deletable, regardless of what window._leads currently holds.
+//      Regression guard for the certification finding: on a slow/flaky
+//      connection, loadLeads() can leave window._leads === [] for seconds
+//      before the real (occupied) list arrives — without the hydration
+//      check, canDeleteStage saw 0 occupants and let a real deletion
+//      through, orphaning the leads still in flight to the cache.
+{
+  const emptyUnhydrated = loadBuilder([], { leadsLoaded: false });
+  const v1 = emptyUnhydrated.PB.canDeleteStage('custom_paid');
+  assert('unhydrated + empty array → still blocked (not confirmed empty)', v1.ok === false);
+  assert('unhydrated verdict is flagged distinctly (not a fake occupant count)', v1.unhydrated === true && v1.count === null);
+
+  const occupiedUnhydrated = loadBuilder([{ id: 'z', stage: 'custom_paid' }], { leadsLoaded: false });
+  assert('unhydrated + actually-occupied → blocked (same verdict either way)',
+    occupiedUnhydrated.PB.canDeleteStage('custom_paid').ok === false);
+
+  const undefinedUnhydrated = loadBuilder(undefined, { leadsLoaded: false });
+  let threw2 = false;
+  try { undefinedUnhydrated.PB.canDeleteStage('custom_paid'); } catch (_) { threw2 = true; }
+  assert('unhydrated + absent _leads → still blocked, no throw', threw2 === false);
+  assert('unhydrated + absent _leads verdict', undefinedUnhydrated.PB.canDeleteStage('custom_paid').ok === false);
+}
+
+// ── 9. a CONFIRMED-loaded but genuinely empty stage stays deletable ──
+//      (the hydration gate must not over-block the legitimate case).
+{
+  const { PB } = loadBuilder([{ id: 'm', stage: 'new' }], { leadsLoaded: true });
+  const v = PB.canDeleteStage('custom_paid');
+  assert('hydrated + genuinely empty stage → still deletable', v.ok === true && v.count === 0);
 }
 
 // ── summary ──
