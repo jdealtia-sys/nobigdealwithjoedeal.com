@@ -78,6 +78,29 @@
     _dirty = true;
   }
 
+  // Leads currently sitting on a stage. A lead carries its raw stage key on
+  // `lead.stage` (moveCard writes the custom key straight there) and its
+  // board-bucket key on `lead._stageKey` (= normalizeStage(stage)); for a
+  // custom stage both equal the config key, so matching either finds occupants
+  // even if the denormalized field is missing. Reads the COMPLETE book in
+  // window._leads (not the filtered view) so the count covers every lead.
+  function leadsOnStage(key) {
+    if (!key) return [];
+    var leads = (typeof window !== 'undefined' && Array.isArray(window._leads)) ? window._leads : [];
+    return leads.filter(function (l) { return l && (l.stage === key || l._stageKey === key); });
+  }
+
+  // Delete guard the handler enforces: a custom stage may only be deleted when
+  // NO lead sits on it. Deleting an occupied stage would orphan its leads —
+  // their stage renders in no column, so resolveColumn snaps them into the New
+  // column and stageRole() returns 'active', silently losing any won/lost role
+  // (and dropping them from role-keyed KPIs / revenue / the portal). Blocking
+  // is the safe minimal fix: move the leads elsewhere on the board first.
+  function canDeleteStage(key) {
+    var count = leadsOnStage(key).length;
+    return { ok: count === 0, count: count };
+  }
+
   // ── render ──────────────────────────────────────────────
   function render() {
     var root = document.getElementById(ROOT_ID);
@@ -204,7 +227,15 @@
       setStageField(key, 'hidden', !cur); // resolver only hides on === true; false ⇒ shown
       render();
     } else if (action === 'delete') {
-      if (typeof confirm === 'function' && !confirm('Delete this custom stage from every pipeline? Leads already in it keep their stage value.')) return;
+      var verdict = canDeleteStage(key);
+      if (!verdict.ok) {
+        var nm = (res.stageMeta[key] || {}).label || key;
+        var n = verdict.count;
+        toast(n + ' lead' + (n === 1 ? ' is' : 's are') + ' still on "' + nm + '." Move '
+          + (n === 1 ? 'it' : 'them') + ' to another stage on the board first, then delete this stage.', 'error');
+        return;
+      }
+      if (typeof confirm === 'function' && !confirm('Delete this custom stage from every pipeline?')) return;
       delete _cfg.stages[key];
       Object.keys(_cfg.views || {}).forEach(function (v) {
         if (_cfg.views[v] && Array.isArray(_cfg.views[v].stages)) {
@@ -370,6 +401,11 @@
     wrapped._pbWrapped = true;
     window.switchSettingsTab = wrapped;
   }
+
+  // Public surface: the pure delete-guard decision (occupied stages can't be
+  // deleted) so it's unit-testable off the DOM. Mirrors the billing-gate
+  // window.NBDBilling idiom.
+  window.PipelineBuilder = { leadsOnStage: leadsOnStage, canDeleteStage: canDeleteStage };
 
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', installHook);
