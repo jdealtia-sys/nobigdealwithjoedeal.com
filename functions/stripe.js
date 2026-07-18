@@ -481,13 +481,26 @@ exports.stripeWebhook = onRequest(
             cancelledAt: FieldValue.delete(),
             createdAt: FieldValue.serverTimestamp(),
             updatedAt: FieldValue.serverTimestamp(),
-            // Seed the subscription.updated ordering high-water mark so a
-            // stale updated event created before this checkout can't clobber
-            // the fresh activation.
-            lastSubEventAt: typeof event.created === 'number' ? event.created : FieldValue.delete(),
             // Usage counters — reset on subscription start
             usage: { leads: 0, reports: 0, aiCalls: 0, cycleStart: new Date().toISOString() }
           };
+
+          // Seed/advance the subscription.updated ordering high-water mark
+          // (see the customer.subscription.updated case below for the full
+          // rationale). checkout.session.completed and subscription.updated
+          // deliveries for the SAME subscription race independently — Stripe
+          // retries a transiently-failed checkout event on its own schedule,
+          // which can arrive AFTER a later subscription.updated already
+          // advanced the watermark past this event's created time. Writing
+          // this event's timestamp unconditionally would then REWIND the
+          // watermark, letting a still-later stale event slip through the
+          // updated-case guard. Take the max of what's already stored and
+          // this event's timestamp, never overwrite backwards.
+          const priorSnap = await db.doc(`subscriptions/${uid}`).get();
+          const priorLastEvent = typeof priorSnap.get('lastSubEventAt') === 'number'
+            ? priorSnap.get('lastSubEventAt') : 0;
+          const thisEventCreated = typeof event.created === 'number' ? event.created : 0;
+          subData.lastSubEventAt = Math.max(priorLastEvent, thisEventCreated) || FieldValue.delete();
 
           await db.doc(`subscriptions/${uid}`).set(subData, { merge: true });
 
@@ -633,6 +646,25 @@ exports.stripeWebhook = onRequest(
 
           const subDoc = snapshot.docs[0];
           const uid = subDoc.id;
+          const stored = subDoc.data() || {};
+
+          // Same event-ordering guard as customer.subscription.updated (Route
+          // 1b). Without it, deletion sat OUTSIDE the ordering protocol: a
+          // subscription.updated delivery that transiently fails (marker
+          // deleted, Stripe retries later) can arrive AFTER a subsequent
+          // .deleted has already cancelled the sub — the stale .updated retry
+          // would resurrect the cancelled plan/status/purchasedSeats and wipe
+          // lapse enforcement. Skip any delete event older than the newest
+          // event already applied to this doc; a genuinely out-of-order
+          // delete (rare — deletion is terminal) simply waits for Stripe's
+          // retry, which redelivers the same terminal state.
+          const eventCreated = typeof event.created === 'number' ? event.created : 0;
+          const lastApplied = typeof stored.lastSubEventAt === 'number' ? stored.lastSubEventAt : 0;
+          if (eventCreated && eventCreated < lastApplied) {
+            logger.info('stripeWebhook.subscription_deleted stale_event_skipped',
+              { uid, eventCreated, lastApplied });
+            break;
+          }
 
           await subDoc.ref.update({
             plan: 'free',
@@ -646,6 +678,9 @@ exports.stripeWebhook = onRequest(
             // after this stamp; lapseEnforced is cleared on reactivation.
             cancelledAt: FieldValue.serverTimestamp(),
             lapseEnforced: false,
+            // Advance the watermark so a still-later stale .updated retry is
+            // caught by the guard above (this event IS the newest applied).
+            lastSubEventAt: eventCreated || lastApplied || FieldValue.delete(),
             updatedAt: FieldValue.serverTimestamp(),
           });
 

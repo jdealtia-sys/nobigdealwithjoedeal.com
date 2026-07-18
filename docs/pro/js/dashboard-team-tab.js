@@ -247,6 +247,7 @@
             if (!t) return;
             var act = t.getAttribute('data-team-action');
             if (act === 'seatBuyMinus' || act === 'seatBuyPlus') {
+              if (t.disabled) return;
               var el = host.querySelector('#seatBuyCount');
               var v = Math.max(0, Math.min(50, (parseInt(el && el.textContent, 10) || 0) + (act === 'seatBuyPlus' ? 1 : -1)));
               if (el) el.textContent = String(v);
@@ -258,7 +259,13 @@
         }
         var pl = (window.NBDBilling && window.NBDBilling.getPlan) ? window.NBDBilling.getPlan() : null;
         var reps = pl && pl.limits ? pl.limits.reps : null;
-        var entitled = !!pl && (pl.status === 'active' || pl.status === 'trialing');
+        // past_due is entitled to RENDER the stepper — the server allows a
+        // past_due sub to REDUCE seats (undo a failed proration invoice) even
+        // though it refuses new charges. Excluding past_due here made the
+        // reduction path setCompanySeatCount was explicitly built for
+        // unreachable: the only UI for it simply never appeared.
+        var isPastDue = !!pl && pl.status === 'past_due';
+        var entitled = !!pl && (pl.status === 'active' || pl.status === 'trialing' || isPastDue);
         // Only card-billed Stripe subs can carry a seat line item. An
         // access-code comp shows 'active' + a paid plan but would get a
         // failed-precondition from setCompanySeatCount, so don't offer the
@@ -272,12 +279,21 @@
         host.style.display = '';
         var purchased = pl.purchasedSeats > 0 ? pl.purchasedSeats : 0;
         var stepBtn = 'background:var(--s2);border:1px solid var(--br);color:var(--t);border-radius:6px;width:26px;height:26px;font-size:14px;font-weight:700;cursor:pointer;';
+        var stepBtnDisabled = 'background:var(--s2);border:1px solid var(--br);color:var(--t);border-radius:6px;width:26px;height:26px;font-size:14px;font-weight:700;opacity:.4;cursor:not-allowed;';
+        // past_due may only go down from here — mirrors the server's
+        // pastDueReduction gate (extraSeats < storedSeats). Disable "+"
+        // rather than hide the whole control, so the reduction path stays
+        // reachable and the reason is visible instead of a silent vanish.
+        var plusAttrs = isPastDue ? ('disabled style="' + stepBtnDisabled + '" title="Fix your billing issue in Manage billing to add seats"') : ('style="' + stepBtn + '"');
+        var note = isPastDue
+          ? 'Your subscription has a billing issue — you can still remove extra seats to lower your bill. Fix billing in Manage billing to add more.'
+          : ('Add rep seats beyond your plan’s included ' + (_seatCap() - purchased) + '. Billed monthly to your card, prorated.');
         host.innerHTML = '<div style="margin-top:10px;padding:12px 14px;background:var(--s);border:1px solid var(--br);border-radius:8px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">'
           + '<div class="f1" style="min-width:180px;"><div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--t);">Extra seats</div>'
-          + '<div class="meta-10" style="line-height:1.5;">Add rep seats beyond your plan’s included ' + (_seatCap() - purchased) + '. Billed monthly to your card, prorated.</div></div>'
+          + '<div class="meta-10" style="line-height:1.5;">' + note + '</div></div>'
           + '<button data-team-action="seatBuyMinus" style="' + stepBtn + '">−</button>'
           + '<span id="seatBuyCount" style="min-width:22px;text-align:center;font-size:14px;font-weight:700;color:var(--t);">' + purchased + '</span>'
-          + '<button data-team-action="seatBuyPlus" style="' + stepBtn + '">+</button>'
+          + '<button data-team-action="seatBuyPlus" ' + plusAttrs + '>+</button>'
           + '<button data-team-action="seatBuyApply" disabled style="background:var(--orange,#e8720c);border:none;color:#fff;padding:7px 14px;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer;opacity:.5;">Update seats</button>'
           + '</div>';
         _syncSeatBuy(host);
