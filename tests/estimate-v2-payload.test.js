@@ -104,10 +104,27 @@ ok('single-quote: lines=[] (Scope table suppressed)', Array.isArray(sq.lines) &&
 ok('single-quote: headline total preserved (2820)', sq.total === 2820);
 ok('single-quote: cover/summary copy is single-quote flavored (no "three tiers")', !/three tiers|Good \/ Better \/ Best/i.test(JSON.stringify(sq.summary) + sq.coverSub));
 
-// A non-single format keeps its line items (regression guard).
+// A non-single format keeps its line items (regression guard) — now at RETAIL
+// plus an explicit O&P row (money-math sweep 2026-07-18: the server-rendered
+// proposal printed the internal COST basis with $0.00 unit prices).
 const ins = T.buildEstimatePayload('insurance-scope', est, metaNoTiers);
-ok('insurance-scope: lines preserved (not zeroed)', Array.isArray(ins.lines) && ins.lines.length === 2);
+ok('insurance-scope: lines preserved (2 scope + O&P row)', Array.isArray(ins.lines) && ins.lines.length === 3);
 ok('insurance-scope: tiers=false (no meta.tiers)', ins.tiers === false);
+ok('server lines: line A at retail w/ persisted 40% markup (1900, not cost 1500)',
+  ins.lines[0].lineTotal === 1900 && ins.lines[0].unitPrice === 190);
+ok('server lines: labor-only line B stays 450 (margin via O&P)', ins.lines[1].lineTotal === 450);
+ok('server lines: O&P row labeled + priced (20% → 470)',
+  /Overhead & Profit \(20%\)/.test(ins.lines[2].description) && ins.lines[2].lineTotal === 470);
+ok('server lines: Σ lineTotal == subtotal (2820)',
+  Math.abs(ins.lines.reduce((s, l) => s + l.lineTotal, 0) - ins.subtotal) < 0.01);
+ok('server lines: stats card counts scope lines only (2, not the O&P row)',
+  (ins.stats.find(s => s.label === 'Line Items') || {}).value === '2');
+// Per-SQ estimates: lines are the internal cost basis while subtotal/total are
+// the selected TIER price — the payload must suppress the table entirely.
+const perSqEst = Object.assign(estimateFixtureFixed(), { priceMode: 'per-sq' });
+const perSq = T.buildEstimatePayload('retail-quote', perSqEst, metaNoTiers);
+ok('per-sq retail-quote: lines suppressed (cost basis can never foot to tier price)',
+  Array.isArray(perSq.lines) && perSq.lines.length === 0);
 
 // R6: single-quote stays one-number even if meta.tiers is somehow populated —
 // the format must always win (no GBB cards, no line table).
@@ -131,7 +148,14 @@ ok('save: retailBeforeOHP persisted', saved.retailBeforeOHP === 2350);
 ok('save: overhead/profit + pcts persisted', saved.overhead === 235 && saved.overheadPct === 0.10 && saved.profit === 235 && saved.profitPct === 0.10);
 ok('save: rows carry per-line materialTotal', saved.rows[0].materialTotal === 1000 && saved.rows[1].materialTotal === 0);
 ok('save: rows carry per-line laborTotal', saved.rows[0].laborTotal === 500 && saved.rows[1].laborTotal === 450);
-ok('save: rows keep classic shape (code/desc/qty/rate/total)', saved.rows[0].code === 'A' && /^\$/.test(saved.rows[0].rate) && saved.rows[0].total === 1500);
+// rate/total are CUSTOMER-facing (portal, classic views, invoice items print
+// them verbatim) → RETAIL at the persisted 40% markup, never the cost basis
+// (money-math sweep 2026-07-18). Cost stays in the split fields above.
+ok('save: rows keep classic shape (code/desc/qty/rate/total)', saved.rows[0].code === 'A' && /^\$/.test(saved.rows[0].rate) && saved.rows[0].total === 1900);
+ok('save: row A rate/total at RETAIL (190/SQ, 1900 — not cost 150/1500)',
+  saved.rows[0].rate === '$190.00' && saved.rows[0].total === 1900 && saved.rows[0].retailTotal === 1900);
+ok('save: labor-only row B at 450 (labor margin comes via O&P)',
+  saved.rows[1].rate === '$45.00' && saved.rows[1].total === 450 && saved.rows[1].retailTotal === 450);
 ok('save: grandTotal = canonical total', saved.grandTotal === 2820);
 // FU-1: insurance claim info persists (was dropped before → reopened scope
 // showed "—" for carrier/deductible).
@@ -155,6 +179,12 @@ const reFrom3A = T.reconstructEstimateFromSaved(saved);
 ok('3B: reconstructs a non-null estimate from a 3A doc', reFrom3A && Array.isArray(reFrom3A.lines));
 ok('3B: markup preserved (0.40)', reFrom3A && reFrom3A.materialMarkupPct === 0.40);
 ok('3B: per-line splits carried', reFrom3A && reFrom3A.lines[0].materialTotal === 1000 && reFrom3A.lines[0].laborTotal === 500);
+// r.total now persists the RETAIL price (1900); the reconstructed line's
+// lineTotal is the engine's COST invariant, rebuilt from the split (1500).
+ok('3B: lineTotal rebuilt as COST from the split (1500, not retail 1900)',
+  reFrom3A && reFrom3A.lines[0].lineTotal === 1500);
+ok('3B: retailTotal carried for retail consumers (1900)',
+  reFrom3A && reFrom3A.lines[0].retailTotal === 1900);
 ok('3B: total = saved grandTotal (2820)', reFrom3A && reFrom3A.total === 2820);
 ok('3B: context echoes saved measurements (for re-save)', reFrom3A && reFrom3A.context && reFrom3A.context.eaveLf === 100);
 // BLK-2: internal-view reads top-level hardCost (= materialCost + laborCost).

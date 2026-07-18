@@ -180,6 +180,87 @@ let _NBD_IP_DELEGATE_BOUND; // module-local (globals Tranche 1 — was window.*)
   }
 
   /**
+   * First numeric token out of a value. Classic-builder rows store qty/rate as
+   * DISPLAY STRINGS ('20.00 SQ', '$595/SQ', '1 EA'), so a bare
+   * parseFloat('$595/SQ') is NaN and dropped unit prices to $0 on the invoice.
+   */
+  function numFrom(v) {
+    if (typeof v === 'number') return v;
+    const m = String(v == null ? '' : v).match(/-?\d[\d,]*\.?\d*/);
+    return m ? parseFloat(m[0].replace(/,/g, '')) : NaN;
+  }
+
+  /**
+   * Map a saved estimate's rows to invoice line items — at the CUSTOMER price.
+   *
+   * Post-sweep V2 saves persist the retail price in rows[].retailTotal (and in
+   * rate/total). OLDER V2 saves wrote the raw COST basis (material+labor, no
+   * markup, no O&P) into rate/total, so invoices printed the contractor's cost
+   * under a retail subtotal — the line items summed to ~55-65% of the subtotal
+   * and exposed the margin to the homeowner/adjuster (money-math sweep
+   * 2026-07-18). For those docs, derive retail from the persisted split:
+   * materialTotal×(1+markup) + laborTotal; rows with no cost basis
+   * (pass-through fees) stay at face value. Classic rows (no markup persisted)
+   * are already all-in customer prices and map exactly as before.
+   *
+   * When the estimate carries an O&P ladder (V2 line-item / insurance),
+   * Overhead & Profit is appended as its own line — the same presentation as
+   * the signed scope ("Line Item Total → +O&P") — so Σ items == subtotal.
+   * The invoice's charged total is NOT computed here; the locked saved
+   * grandTotal/subtotal stay authoritative in createInvoiceFromEstimate.
+   */
+  function buildRowItems(est) {
+    const markup = Number(est && est.materialMarkupPct);
+    const hasV2Pricing = Number.isFinite(markup);
+    const items = ((est && est.rows) || []).map(function (row) {
+      const quantity = numFrom(row.qty);
+      const explicitRetail = (row.retailTotal != null && Number.isFinite(Number(row.retailTotal)))
+        ? Number(row.retailTotal) : null;
+      const hasSplit = hasV2Pricing && (row.materialTotal != null || row.laborTotal != null);
+      let lineTotal, unitPrice;
+      if (explicitRetail != null) {
+        lineTotal = explicitRetail;
+      } else if (hasSplit) {
+        const mat = Number(row.materialTotal) || 0;
+        const lab = Number(row.laborTotal) || 0;
+        lineTotal = (mat === 0 && lab === 0) ? numFrom(row.total) : mat * (1 + markup) + lab;
+      } else {
+        lineTotal = numFrom(row.total);
+      }
+      if (explicitRetail != null || hasSplit) {
+        // Retail-priced row: derive the unit price from the retail total (the
+        // saved rate string on old docs is the COST rate — never print it).
+        unitPrice = (Number.isFinite(quantity) && quantity !== 0 && Number.isFinite(lineTotal))
+          ? lineTotal / quantity : (Number.isFinite(lineTotal) ? lineTotal : 0);
+      } else {
+        unitPrice = numFrom(row.rate);
+        if (!Number.isFinite(unitPrice) || unitPrice === 0) {
+          unitPrice = (Number.isFinite(quantity) && quantity !== 0 && Number.isFinite(lineTotal))
+            ? lineTotal / quantity : 0;
+        }
+      }
+      return {
+        description: row.desc || row.description || '',
+        quantity: Number.isFinite(quantity) ? quantity : 1,
+        unitPrice: Math.round((unitPrice || 0) * 100) / 100,
+        total: Number.isFinite(lineTotal) ? Math.round(lineTotal * 100) / 100 : 0
+      };
+    });
+    const ohp = (Number(est && est.overhead) || 0) + (Number(est && est.profit) || 0);
+    if (hasV2Pricing && ohp > 0 && items.length) {
+      const pct = Math.round(((Number(est.overheadPct) || 0) + (Number(est.profitPct) || 0)) * 100);
+      const amt = Math.round(ohp * 100) / 100;
+      items.push({
+        description: 'Overhead & Profit' + (pct ? ' (' + pct + '%)' : ''),
+        quantity: 1,
+        unitPrice: amt,
+        total: amt
+      });
+    }
+    return items;
+  }
+
+  /**
    * Load this user's supplements for a parent estimate.
    *
    * Query: where('parentEstimateId','==',id) + where('userId','==',uid) on the
@@ -244,15 +325,6 @@ let _NBD_IP_DELEGATE_BOUND; // module-local (globals Tranche 1 — was window.*)
       // scope skips tax → 0 honored; fall back to 7.5% only when no rate saved).
       const taxRate = (typeof est.taxRate === 'number') ? est.taxRate : 0.075;
 
-      // Classic-builder rows store qty/rate as DISPLAY STRINGS ('20.00 SQ',
-      // '$595/SQ', '1 EA'), so a bare parseFloat('$595/SQ') is NaN and dropped
-      // unit prices to $0 on the invoice. Pull the first numeric token instead.
-      const numFrom = (v) => {
-        if (typeof v === 'number') return v;
-        const m = String(v == null ? '' : v).match(/-?\d[\d,]*\.?\d*/);
-        return m ? parseFloat(m[0].replace(/,/g, '')) : NaN;
-      };
-
       const savedGrand = Number(est.grandTotal);
       const hasLockedTotal = Number.isFinite(savedGrand) && savedGrand > 0;
       const isPerSq = (est.priceMode === 'per-sq') || (est.prices != null);
@@ -275,22 +347,11 @@ let _NBD_IP_DELEGATE_BOUND; // module-local (globals Tranche 1 — was window.*)
           total: subtotal
         }];
       } else {
-        // Row-based (classic builder). Keep the estimate's real line items.
-        items = (est.rows || []).map(row => {
-          const quantity = numFrom(row.qty);
-          const lineTotal = numFrom(row.total);
-          let unitPrice = numFrom(row.rate);
-          if (!Number.isFinite(unitPrice) || unitPrice === 0) {
-            unitPrice = (Number.isFinite(quantity) && quantity !== 0 && Number.isFinite(lineTotal))
-              ? lineTotal / quantity : 0;
-          }
-          return {
-            description: row.desc || row.description || '',
-            quantity: Number.isFinite(quantity) ? quantity : 1,
-            unitPrice: Math.round((unitPrice || 0) * 100) / 100,
-            total: Number.isFinite(lineTotal) ? lineTotal : 0
-          };
-        });
+        // Row-based (classic builder + V2 line-item/insurance). Line items map
+        // at the CUSTOMER price — incl. the retail derivation for older V2 docs
+        // that persisted the cost basis, and the O&P line that makes the items
+        // foot to the subtotal — in buildRowItems (pure, unit-tested).
+        items = buildRowItems(est);
         if (hasLockedTotal) {
           // Trust the estimate's saved locked totals — the signed quote bakes in
           // the job-minimum floor + nearest-$25 rounding that a naive row-sum
@@ -1236,11 +1297,12 @@ let _NBD_IP_DELEGATE_BOUND; // module-local (globals Tranche 1 — was window.*)
     createInvoiceUI,
     sendInvoiceUI,
     showInvoiceDetailModal,
-    // Pure supplement-folding helpers, exported for unit tests
+    // Pure helpers, exported for unit tests
     // (tests/invoice-pipeline.test.js) — no DOM/Firestore dependency.
     supplementBillableAmount,
     selectBillableSupplements,
-    applySupplementsToTotals
+    applySupplementsToTotals,
+    buildRowItems
   };
 
   if (typeof window !== 'undefined') {
