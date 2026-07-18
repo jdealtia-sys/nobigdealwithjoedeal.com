@@ -2004,6 +2004,10 @@ body.nbd-photo-selecting .nbd-photo-checkbox,
 <script defer src="js/script-loader.js?v=1"></script>
 <script defer src="js/icons.js"></script>
 <script defer src="js/customer-photo-report-generator.js?v=1"></script>
+<!-- Retail line-item derivation for the portal estimate export — pre-sweep V2
+     docs persist the internal COST basis in rows[].rate/total; this maps them
+     to customer prices (exportCustomerEstimate fails closed without it). -->
+<script defer src="js/customer-estimate-rows.js?v=1"></script>
 <script type="module" src="js/customer-bootstrap.module.js?v=1"></script>
 
 

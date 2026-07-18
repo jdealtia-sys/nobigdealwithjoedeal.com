@@ -1522,6 +1522,21 @@ window.exportCustomerEstimate = function(estId) {
   if (!est) { alert('Estimate not found'); return; }
   const fmt = n => '$' + parseFloat(n).toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2});
   const tierNames = { good:'Standard Reroof', better:'Reroof Plus', best:'Full Redeck' };
+  // Customer-facing rows at RETAIL. est.rows on V2/insurance docs saved before
+  // the 2026-07-18 money-math sweep hold the internal COST basis in rate/total,
+  // so printing them verbatim exposed the margin to the homeowner. The retail
+  // derivation (rows[].retailTotal → material×(1+markup)+labor → face value,
+  // + the O&P line that makes lines foot to the subtotal, per-SQ → no rows)
+  // lives in customer-estimate-rows.js — pure, unit-tested. If that script
+  // failed to load, fail CLOSED for margin data: docs with V2 cost pricing
+  // render no per-line rows (the grand total still shows); classic docs keep
+  // their rows, which are all-in customer prices by construction.
+  const _rowsApi = window.NBDCustomerEstimateRows;
+  const _hasV2Cost = Number.isFinite(Number(est.materialMarkupPct))
+    || est.priceMode === 'per-sq' || est.prices != null;
+  const rows = (_rowsApi && typeof _rowsApi.buildDisplayRows === 'function')
+    ? _rowsApi.buildDisplayRows(est)
+    : (_hasV2Cost ? [] : (est.rows || []));
   const _b = (window._brand && window._brand()) || {};
   const _isNbd = !_b.legalName || _b.legalName === 'No Big Deal Home Solutions';
   const _esc = s => String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
@@ -1581,7 +1596,7 @@ window.exportCustomerEstimate = function(estId) {
   <h2>Package — ${est.tierName||tierNames[est.tier]||est.tier||'Standard'}</h2>
   <table><thead><tr><th>Code</th><th>Description</th><th>Qty</th><th>Rate</th><th>Total</th></tr></thead>
   <tbody>
-    ${(est.rows||[]).map(r=>`<tr><td class="code">${r.code}</td><td>${r.desc}</td><td>${r.qty}</td><td>${r.rate}</td><td>${fmt(r.total)}</td></tr>`).join('')}
+    ${rows.map(r=>`<tr><td class="code">${_esc(r.code)}</td><td>${_esc(r.desc)}</td><td>${_esc(r.qty)}</td><td>${_esc(r.rate)}</td><td>${fmt(r.total)}</td></tr>`).join('')}
     <tr class="grand-row"><td colspan="4">ESTIMATE TOTAL — ${est.tierName||tierNames[est.tier]||''}</td><td>${fmt(est.grandTotal||est.amount||0)}</td></tr>
   </tbody></table>
   <div class="footer">

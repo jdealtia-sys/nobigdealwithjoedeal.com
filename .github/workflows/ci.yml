@@ -56,6 +56,12 @@ jobs:
       # require() of docs/pro/js/invoice-pipeline.js pure helpers.
       - name: Run invoice-pipeline supplement folding tests
         run: node tests/invoice-pipeline.test.js
+      # Money-path gate: the customer-portal estimate export must map pre-sweep
+      # V2 rows (rate/total = internal COST basis) to retail prices — never
+      # print the contractor's cost/margin to the homeowner. Dependency-free
+      # require() of docs/pro/js/customer-estimate-rows.js.
+      - name: Run customer-portal retail line-item tests
+        run: node tests/customer-estimate-rows.test.js
       # Theme legibility + completeness gate (audit Phase 3): every theme in both
       # registries must define the required vars and clear the WCAG contrast floor
       # as rendered. Dependency-free; extracts the real engine colour helpers.
