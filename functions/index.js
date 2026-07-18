@@ -373,8 +373,9 @@ exports.monthlyMarketingReport = require('./marketing-report').monthlyMarketingR
 // (non-NBD tenant leads are skipped); idempotent via a transactional
 // estimateEmailedAt claim.
 //
-// Ships DRY-RUN by default. Set ESTIMATE_EMAIL_ENABLED=true on the
-// estimateEmail Cloud Run revision to go live.
+// LIVE by default (2026-07-18, after the #987 global daily cap).
+// ESTIMATE_EMAIL_ENABLED=false forces DRY-RUN (emergency stop only —
+// env vars on the revision are wiped by the next deploy).
 const estimateEmailFn = require('./estimate-email');
 exports.estimateEmail = estimateEmailFn.estimateEmail;
 

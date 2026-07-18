@@ -28,14 +28,15 @@
  *   - Reuses the existing Resend provider + secrets (RESEND_API_KEY, EMAIL_FROM).
  *
  * Safety:
- *   GATED by the ESTIMATE_EMAIL_ENABLED env var, same pattern as
- *   funnel-recovery.js. When unset OR not === "true", the trigger runs in
- *   DRY-RUN mode — it logs the email it *would* have sent but does not
- *   actually send (and does not claim the doc). Enable production sending
- *   via gcloud:
- *     gcloud run services update estimateemail \
- *       --region=us-central1 \
- *       --update-env-vars=ESTIMATE_EMAIL_ENABLED=true
+ *   LIVE by default since 2026-07-18 (Jo authorized go-live once the #987
+ *   global daily cap landed). ESTIMATE_EMAIL_ENABLED=false forces DRY-RUN —
+ *   logs the would-be send without sending (and without claiming the doc).
+ *   NOTE the env var is deploy-volatile: firebase deploy rebuilds the service
+ *   env, so a gcloud `--update-env-vars=ESTIMATE_EMAIL_ENABLED=false` is only
+ *   an EMERGENCY stop that lasts until the next push to main (~same day).
+ *   The durable kill-switch is reverting this default in code. (functions/.env
+ *   is emulator-only and never deploys — the old "enable via gcloud" note
+ *   documented a flag that silently un-set itself on every deploy.)
  */
 
 const { onDocumentCreated } = require('firebase-functions/v2/firestore');
@@ -157,8 +158,8 @@ function buildEstimateEmailText({ firstName, estimateSummary }) {
 //   - the lead is NBD's (no companyId, or NBD's own tenant id)
 //   - the lead carries a plausible email + non-empty estimateSummary
 //
-// GATED by ESTIMATE_EMAIL_ENABLED env var. When disabled, runs in
-// DRY-RUN mode — logs the would-be send but does not send.
+// LIVE by default; ESTIMATE_EMAIL_ENABLED=false forces DRY-RUN mode —
+// logs the would-be send but does not send.
 
 exports.estimateEmail = onDocumentCreated(
   {
@@ -170,7 +171,7 @@ exports.estimateEmail = onDocumentCreated(
     timeoutSeconds: 30,
   },
   async (event) => {
-    const enabled = process.env.ESTIMATE_EMAIL_ENABLED === 'true';
+    const enabled = process.env.ESTIMATE_EMAIL_ENABLED !== 'false';
     const snap = event.data;
     if (!snap) return;
     const data = snap.data() || {};
