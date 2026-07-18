@@ -1408,6 +1408,11 @@
         unit:      'ea',
         unitPrice: amt,
         lineTotal: amt,
+        // Pass-through fees are charged at FACE — no markup, no O&P — so
+        // retail == cost here. Set explicitly so retail-reading consumers
+        // (invoice items, server quote, saved rows) don't re-derive it.
+        retailPerUnit: amt,
+        retailTotal:   amt,
         category:  'Services',
         source:    p.source || 'passthru',
         qtyOverridden: false
@@ -1907,29 +1912,66 @@
       ].filter(Boolean);
     }
 
-    // Line items mapped to the template shape.
-    const lines = (estimate.lines || []).map((l) => ({
-      code:        l.code || '',
-      description: l.name || l.description || '',
-      category:    l.category || '',
-      quantity:    l.quantity || l.qty || 1,
-      unit:        l.unit || 'ea',
-      unitPrice:   Number(l.unitPrice || l.price || 0),
-      lineTotal:   Number(l.lineTotal || l.total || ((l.quantity || 1) * (l.unitPrice || 0))),
-    }));
+    // Line items mapped to the template shape — priced at RETAIL. The old map
+    // read l.unitPrice/l.price (absent on engine lines → $0.00) and l.lineTotal
+    // (the INTERNAL cost basis), so the rendered proposal printed the
+    // contractor's cost under a retail subtotal and leaked the margin
+    // (money-math sweep 2026-07-18). retailTotal comes from resolveEstimate /
+    // _reconstructEstimateFromSaved; derive from the material/labor split for
+    // docs that predate it. Pass-throughs (no cost basis) stay at face.
+    const _mkp = Number(estimate.materialMarkupPct);
+    const _lineRetail = (l) => {
+      if (l.retailTotal != null && isFinite(Number(l.retailTotal))) return Number(l.retailTotal);
+      const mat = Number(l.materialTotal) || 0;
+      const lab = Number(l.laborTotal) || 0;
+      if (mat === 0 && lab === 0) {
+        return Number(l.lineTotal || l.total || ((l.quantity || 1) * (l.unitPrice || 0))) || 0;
+      }
+      return mat * (1 + (isFinite(_mkp) ? _mkp : 0.25)) + lab;
+    };
+    const lines = (estimate.lines || []).map((l) => {
+      const qty = Number(l.quantity || l.qty || 1) || 1;
+      const retail = Math.round(_lineRetail(l) * 100) / 100;
+      return {
+        code:        l.code || '',
+        description: l.name || l.description || '',
+        category:    l.category || '',
+        quantity:    l.quantity || l.qty || 1,
+        unit:        l.unit || 'ea',
+        unitPrice:   Math.round((retail / qty) * 100) / 100,
+        lineTotal:   retail,
+      };
+    });
+    // Overhead & Profit as its own row, so the visible lines foot to the
+    // subtotal — the same Line Item Total → +O&P → Subtotal ladder the signed
+    // insurance scope shows (Σ retail lines == retailBeforeOHP by identity).
+    const scopeLineCount = lines.length;   // stats card counts SCOPE lines, not the O&P row
+    const _ohp = (Number(estimate.overhead) || 0) + (Number(estimate.profit) || 0);
+    if (lines.length && _ohp > 0) {
+      const _ohpPct = Math.round(((Number(estimate.overheadPct) || 0) + (Number(estimate.profitPct) || 0)) * 100);
+      lines.push({
+        code: '', category: '',
+        description: 'Overhead & Profit' + (_ohpPct ? ' (' + _ohpPct + '%)' : ''),
+        quantity: 1, unit: 'ea',
+        unitPrice: Math.round(_ohp * 100) / 100,
+        lineTotal: Math.round(_ohp * 100) / 100,
+      });
+    }
 
     // Stats card row — surface the headline numbers above the table.
     const stats = [
-      { label: 'Line Items',  value: String(lines.length),  sub: 'in scope' },
+      { label: 'Line Items',  value: String(scopeLineCount),  sub: 'in scope' },
       { label: 'Material',    value: estimate.materialType || meta.materialType || 'GAF Timberline', sub: '' },
       { label: 'Estimate',    value: '$' + (Number(estimate.total || 0).toLocaleString('en-US', { maximumFractionDigits: 0 })), sub: 'incl. tax' },
     ];
 
     // (isSingleQuote defined above, before the tier block.) Zeroing the lines
     // below makes estimate.hbs suppress the Scope & Pricing section
-    // ({{#if lines.length}}) and render just the headline total — avoiding the
-    // per-SQ foot-vs-headline mismatch (line items are the internal cost basis
-    // while `total` is the selected tier price).
+    // ({{#if lines.length}}) and render just the headline total. Same for
+    // per-SQ estimates: their line items are the internal cost basis while
+    // subtotal/total are the selected TIER price, so no per-line rendering
+    // (retail or otherwise) can foot to the headline — the tier cards carry
+    // the pricing instead.
     const summary = {
       headline: tierList
         ? 'Three ways to do this. Same crew, same workmanship.'
@@ -1963,7 +2005,7 @@
       stats,
       tierList,
       tiers: tierList ? true : false, // template gates on truthy
-      lines: isSingleQuote ? [] : lines,
+      lines: (isSingleQuote || estimate.priceMode === 'per-sq') ? [] : lines,
       subtotal: Number(estimate.subtotal || 0),
       tax:      Number(estimate.tax || 0),
       total:    Number(estimate.total || 0),
@@ -2054,12 +2096,30 @@
       // PLUS the per-line material/labor split + units so a reopened estimate
       // can reconstruct B-8 retail line pricing without re-resolving the
       // catalog. The extra fields are additive — classic reopen ignores them.
-      rows: (estimate.lines || []).map(line => ({
+      // rate/total carry the RETAIL price — the classic-row contract is
+      // customer-facing (portal, classic views, and invoice items all print
+      // these verbatim). Writing the raw cost basis here leaked the margin to
+      // the homeowner/adjuster (money-math sweep 2026-07-18); the cost lives
+      // only in the *CostPerUnit/*Total split fields below.
+      rows: (estimate.lines || []).map(line => {
+        const mk = (num(estimate.materialMarkupPct) != null ? num(estimate.materialMarkupPct) : 0.25);
+        const matT = Number(line.materialTotal) || 0;
+        const labT = Number(line.laborTotal) || 0;
+        const retailTotal = Math.round(((line.retailTotal != null)
+          ? Number(line.retailTotal)
+          : ((matT === 0 && labT === 0)
+              ? (Number(line.lineTotal) || 0)              // pass-through: face value
+              : matT * (1 + mk) + labT)) * 100) / 100;
+        const retailPerUnit = (line.retailPerUnit != null)
+          ? Number(line.retailPerUnit)
+          : (Number(line.materialCostPerUnit) || 0) * (1 + mk) + (Number(line.laborCostPerUnit) || 0);
+        return {
         code:   line.code,
         desc:   line.name,
         qty:    (line.quantity || 0).toFixed(2) + (line.unit || ''),
-        rate:   '$' + ((line.materialCostPerUnit || 0) + (line.laborCostPerUnit || 0)).toFixed(2),
-        total:  line.lineTotal || 0,
+        rate:   '$' + retailPerUnit.toFixed(2),
+        total:  retailTotal,
+        retailTotal: retailTotal,
         // B-8 reconstruction fields:
         quantity:            num(line.quantity),
         unit:                line.unit || '',
@@ -2073,7 +2133,8 @@
         // override lives in state.scope[].overrides.qty; without this the saved
         // qty re-resolves from measurements on the first post-reopen edit).
         qtyOverride:         ((state.scope || []).find(s => s.code === line.code)?.overrides?.qty ?? null),
-      })),
+        };
+      }),
       // Totals — grandTotal is the canonical customer total: the selected
       // per-SQ tier price for per-SQ estimates, the scope total for line-item.
       grandTotal:       estimate.total,
@@ -2117,7 +2178,14 @@
       laborCostPerUnit: Number(r.laborCostPerUnit) || 0,
       materialTotal: n(r.materialTotal), laborTotal: n(r.laborTotal),
       unitPrice: n(r.unitPrice),
-      lineTotal: Number(r.total) || 0,
+      // lineTotal is the engine's COST basis. Rebuild it from the persisted
+      // split — post-sweep docs store the RETAIL price in r.total (customer-
+      // facing classic-row contract), so reading r.total here would inflate
+      // the cost on new docs. Pass-through rows (no split) keep face value.
+      lineTotal: (r.materialTotal != null || r.laborTotal != null)
+        ? (Number(r.materialTotal) || 0) + (Number(r.laborTotal) || 0)
+        : Number(r.total) || 0,
+      retailTotal: n(r.retailTotal),
       codeRefs: {},
     }));
     return {

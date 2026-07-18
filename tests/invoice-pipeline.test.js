@@ -271,6 +271,111 @@ test('end-to-end fold: one approved + one partial supplement land on the invoice
   eq(r.supplementCount, 2, 'two billable lines');
 });
 
+// ════════════════════════════════════════════════════════════════════
+// buildRowItems — invoice line items at the CUSTOMER price (money-math
+// sweep 2026-07-18: V2 line-item + insurance invoices printed each line at
+// the contractor's internal COST — no material markup, no O&P — so the
+// items summed to ~55-65% of the subtotal and exposed the margin).
+// Contract: for a V2 estimate, Σ item totals == est.subtotal (retail lines
+// + an explicit Overhead & Profit line, mirroring the signed scope ladder).
+// ════════════════════════════════════════════════════════════════════
+console.log('\nbuildRowItems — retail line items foot to the subtotal');
+console.log('──────────────────────────────────────────────────');
+
+// Engine identities for both V2 fixtures (markup 25%, O&P 10%+10%):
+//   line A: mat 1000 + lab 500 → cost 1500, retail 1000×1.25+500 = 1750
+//   line B: mat 0 + lab 450    → cost 450,  retail 450
+//   passthru SVC: face 75 (no markup, no O&P)
+//   retailBeforeOHP = 2200 ; O&P = 440 ; subtotal = 2200+440+75 = 2715
+const sumItems = (items) => items.reduce((s, i) => s + i.total, 0);
+
+// Post-sweep save: rows carry explicit retailTotal (and retail rate/total).
+const v2New = {
+  materialMarkupPct: 0.25, overhead: 220, overheadPct: 0.10, profit: 220, profitPct: 0.10,
+  subtotal: 2715, grandTotal: 2715, taxRate: 0,
+  rows: [
+    { code: 'A', desc: 'Shingles', qty: '10.00SQ', rate: '$175.00', total: 1750, retailTotal: 1750,
+      quantity: 10, materialTotal: 1000, laborTotal: 500, materialCostPerUnit: 100, laborCostPerUnit: 50 },
+    { code: 'B', desc: 'Tear-off', qty: '10.00SQ', rate: '$45.00', total: 450, retailTotal: 450,
+      quantity: 10, materialTotal: 0, laborTotal: 450, materialCostPerUnit: 0, laborCostPerUnit: 45 },
+    { code: 'SVC RPT', desc: 'Aerial report', qty: '1.00ea', rate: '$75.00', total: 75, retailTotal: 75,
+      quantity: 1, materialTotal: null, laborTotal: null, source: 'passthru' },
+  ],
+};
+
+// Pre-sweep save: rate/total hold the raw COST basis, no retailTotal.
+const v2Old = {
+  materialMarkupPct: 0.25, overhead: 220, overheadPct: 0.10, profit: 220, profitPct: 0.10,
+  subtotal: 2715, grandTotal: 2715, taxRate: 0,
+  rows: [
+    { code: 'A', desc: 'Shingles', qty: '10.00SQ', rate: '$150.00', total: 1500,
+      quantity: 10, materialTotal: 1000, laborTotal: 500, materialCostPerUnit: 100, laborCostPerUnit: 50 },
+    { code: 'B', desc: 'Tear-off', qty: '10.00SQ', rate: '$45.00', total: 450,
+      quantity: 10, materialTotal: 0, laborTotal: 450, materialCostPerUnit: 0, laborCostPerUnit: 45 },
+    { code: 'SVC RPT', desc: 'Aerial report', qty: '1.00ea', rate: '$75.00', total: 75,
+      quantity: 1, materialTotal: null, laborTotal: null, source: 'passthru' },
+  ],
+};
+
+test('post-sweep V2 rows: items at explicit retailTotal + O&P line', () => {
+  const items = IP.buildRowItems(v2New);
+  eq(items.length, 4, '3 rows + O&P line');
+  eq(items[0].total, 1750, 'line A at retail');
+  eq(items[0].unitPrice, 175, 'line A unit at retail');
+  eq(items[1].total, 450, 'line B (labor-only) unchanged');
+  eq(items[2].total, 75, 'pass-through at face');
+  eq(items[3].description, 'Overhead & Profit (20%)', 'O&P line labeled with pct');
+  eq(items[3].total, 440, 'O&P = overhead + profit');
+});
+
+test('post-sweep V2 rows: Σ item totals == subtotal', () => {
+  near(sumItems(IP.buildRowItems(v2New)), v2New.subtotal, 0.01, 'items foot to subtotal');
+});
+
+test('PRE-sweep V2 rows (cost basis persisted): retail derived from the split', () => {
+  const items = IP.buildRowItems(v2Old);
+  eq(items.length, 4, '3 rows + O&P line');
+  eq(items[0].total, 1750, 'line A derived retail (NOT the stored 1500 cost)');
+  eq(items[0].unitPrice, 175, 'line A unit derived from retail (NOT the $150 cost rate)');
+  eq(items[1].total, 450, 'labor-only line: margin comes through O&P, shown as-is');
+  eq(items[2].total, 75, 'pass-through (no split) at face');
+  near(sumItems(items), v2Old.subtotal, 0.01, 'items foot to subtotal');
+});
+
+test('PRE-sweep V2 rows: no item leaks the internal cost basis', () => {
+  const items = IP.buildRowItems(v2Old);
+  eq(items.some(i => i.total === 1500), false, 'cost-basis 1500 never rendered');
+  eq(items.some(i => i.unitPrice === 150), false, 'cost rate $150 never rendered');
+});
+
+test('classic rows (no markup persisted): mapping unchanged, no O&P line', () => {
+  const classic = {
+    grandTotal: 3500, subtotal: 3500, taxRate: 0,
+    rows: [
+      { desc: 'Tear-off + disposal', qty: 20, rate: 100, total: 2000 },
+      { desc: 'Shingles (architectural)', qty: '1 EA', rate: '$1,500.00', total: 1500 },
+    ],
+  };
+  const items = IP.buildRowItems(classic);
+  eq(items.length, 2, 'no O&P line appended for classic rows');
+  eq(items[0].total, 2000, 'classic row total passes through');
+  eq(items[0].unitPrice, 100, 'classic rate honored');
+  eq(items[1].unitPrice, 1500, 'display-string rate parsed ($1,500.00)');
+  eq(sumItems(items), classic.subtotal, 'classic items still foot to subtotal');
+});
+
+test('V2 rows with zero O&P (free/comp job): no phantom O&P line', () => {
+  const noOhp = Object.assign({}, v2New, { overhead: 0, profit: 0, subtotal: 2275 });
+  const items = IP.buildRowItems(noOhp);
+  eq(items.length, 3, 'no O&P line when overhead+profit is 0');
+  near(sumItems(items), 2275, 0.01, 'still foots (retailBeforeOHP + passthru)');
+});
+
+test('empty / missing rows → []', () => {
+  eq(IP.buildRowItems({}).length, 0, 'no rows');
+  eq(IP.buildRowItems(null).length, 0, 'null estimate');
+});
+
 console.log('──────────────────────────────────────────────────');
 console.log(passed + ' passed, ' + failed + ' failed');
 process.exit(failed > 0 ? 1 : 0);
