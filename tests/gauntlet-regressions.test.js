@@ -889,6 +889,32 @@ console.log('\nHomeowner surface — post-payment landing + render-safety sweep 
   }
 }
 
+// ═══════════════════════════════════════════════════════════════════
+// CHECKOUT DOUBLE-BILL GUARD (2026-07-18 post-sprint certification): the
+// #977 guard is client-side in the billing tab only; the pricing-page
+// plan-intent auto-resume reaches createCheckoutSession without it. The
+// server chokepoint must refuse a fresh Checkout for any tenant holding a
+// live Stripe sub, or the webhook merge-set orphans the first sub.
+// ═══════════════════════════════════════════════════════════════════
+
+console.log('\nCheckout — server-side live-sub guard (double-bill)');
+{
+  const st = read('functions/stripe.js');
+  const cc = (st.match(/exports\.createCheckoutSession = onRequest\([\s\S]*?\n\);/) || [''])[0];
+  assert('createCheckoutSession declares the LIVE_SUB_STATUS set (dunning included)',
+    /LIVE_SUB_STATUS = \{ active: 1, trialing: 1, past_due: 1, unpaid: 1, incomplete: 1 \}/.test(cc),
+    'past_due/unpaid/incomplete still hold a chargeable sub — a fresh Checkout double-bills');
+  assert('guard reads subscriptions/{billingKey} and 409s BEFORE sessions.create',
+    /'subscriptions\/' \+ billingKey[\s\S]{0,900}status\(409\)[\s\S]{0,200}already_subscribed[\s\S]{0,2500}sessions\.create/.test(cc),
+    'the refusal must precede session creation or the orphaned-sub overwrite still happens');
+  assert('guard requires BOTH a stripeSubscriptionId and a live status',
+    /guardSub\.stripeSubscriptionId && LIVE_SUB_STATUS\[String\(guardSub\.status\)\]/.test(cc),
+    "free-seed {status:'none'} docs and access-code comps have no Stripe sub id — buying is their legitimate path in and must stay open");
+  const pp = read('docs/pro/js/pricing-page.module.js');
+  assert('pricing page handles already_subscribed (portal message, no checkout retry)',
+    /data\.error === 'already_subscribed'/.test(pp) && /dashboard\.html/.test(pp));
+}
+
 console.log('\n──────────────────────────────────────────────────');
 console.log(`${passed} passed, ${failed} failed`);
 if (failed) { console.log('\nFailures:'); fails.forEach((f) => console.log('  - ' + f)); process.exit(1); }

@@ -76,6 +76,14 @@ window.subscribe = async function(plan, evt) {
     if (data.url) {
       // Redirect to Stripe Checkout
       window.location.href = data.url;
+    } else if (data.error === 'already_subscribed') {
+      // Server-side double-bill guard (409): this company already holds a
+      // live Stripe sub — plan changes go through the portal via the
+      // dashboard Billing tab, never a second Checkout. Reached mainly by a
+      // stale plan-intent auto-resume; the intent was already cleared above,
+      // so this won't re-fire on the next visit.
+      alert(data.message || 'This company already has an active subscription. Manage or change your plan from Dashboard → Settings → Billing.');
+      window.location.href = '/pro/dashboard.html';
     } else {
       alert('Error: ' + (data.error || 'Could not create checkout session. Try again.'));
       if (btn) { btn.textContent = originalLabel || 'Subscribe'; btn.disabled = false; }

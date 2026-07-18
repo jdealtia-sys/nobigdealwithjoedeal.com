@@ -218,6 +218,30 @@ exports.createCheckoutSession = onRequest(
       // instead of stranding it under the admin's own uid.
       const billingKey = decoded.companyId || decoded.uid;
 
+      // DOUBLE-BILL GUARD (server chokepoint). #977 gates the billing-tab
+      // client-side, but the pricing-page plan-intent auto-resume
+      // (#975/#976/#978) reaches this endpoint without that guard: a tenant
+      // with a live Stripe sub who completes a second Checkout mints a SECOND
+      // subscription, and the webhook's merge-set then overwrites
+      // stripeCustomerId/stripeSubscriptionId on subscriptions/{billingKey} —
+      // orphaning the first sub (still charging, unreachable via the portal).
+      // Same statuses as the client rule: dunning states still hold a
+      // chargeable sub, so they must use the portal, never a fresh Checkout.
+      // Docs without a stripeSubscriptionId (free seed {status:'none'},
+      // access-code comps, cancelled-and-cleared) pass — buying is their
+      // legitimate path in.
+      const LIVE_SUB_STATUS = { active: 1, trialing: 1, past_due: 1, unpaid: 1, incomplete: 1 };
+      const guardSnap = await getFirestore().doc('subscriptions/' + billingKey).get();
+      const guardSub = guardSnap.exists ? (guardSnap.data() || {}) : {};
+      if (guardSub.stripeSubscriptionId && LIVE_SUB_STATUS[String(guardSub.status)]) {
+        logger.info('checkout_blocked_live_sub', { uid: decoded.uid, billingKey, status: guardSub.status });
+        res.status(409).json({
+          error: 'already_subscribed',
+          message: 'This company already has an active subscription. Manage or change your plan from Dashboard → Settings → Billing.',
+        });
+        return;
+      }
+
       // Initialize Stripe
       const stripe = getStripe();
 
