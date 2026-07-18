@@ -264,6 +264,51 @@ exports.estimateEmail = onDocumentCreated(
       logger.warn('estimate_email_throttle_failed', { leadId, err: e && e.message });
     }
 
+    // Global daily send cap (backstop). The per-recipient cap above only bounds
+    // repeated sends to ONE address — but the public estimate funnel lets a caller
+    // rotate through DISTINCT victim addresses (each of which sails past the
+    // per-recipient cap) to fan Joe-branded, domain-authenticated mail out to
+    // thousands of third parties: a domain-reputation / phishing-laundering
+    // amplifier. This caps the WHOLE trigger at a fixed volume/day no matter how
+    // many distinct addresses are targeted, so turning ESTIMATE_EMAIL_ENABLED on
+    // can never turn the funnel into an open relay. Default 100/day; override with
+    // the ESTIMATE_EMAIL_GLOBAL_CAP env var (same gcloud update-env-vars path as
+    // the enable flag). Fails OPEN on a throttle-store error, same as the
+    // per-recipient cap — a transient blip must never drop a legitimate estimate.
+    //
+    // The sentinel doc id is 'GLOBAL_DAILY', NOT '__global__': Firestore reserves
+    // ids matching /__.*__/ and rejects them (INVALID_ARGUMENT "reserved"), which
+    // — because we fail open — would silently disable this cap entirely. Uppercase
+    // also guarantees it can't collide with a per-recipient key, which the emailKey
+    // sanitizer above always lowercases to [a-z0-9_].
+    try {
+      const dbG = getFirestore();
+      const allowed = await dbG.runTransaction(async (tx) => {
+        const ref = dbG.doc('estimate_email_throttle/GLOBAL_DAILY');
+        const cur = await tx.get(ref);
+        const now = Date.now();
+        const DAY = 86400000;
+        const parsedCap = Number(process.env.ESTIMATE_EMAIL_GLOBAL_CAP);
+        const CAP = Number.isFinite(parsedCap) && parsedCap > 0 ? Math.floor(parsedCap) : 100;
+        let count = 0, windowStartMs = now;
+        if (cur.exists) {
+          const d = cur.data() || {};
+          windowStartMs = Number(d.windowStartMs) || now;
+          if (now - windowStartMs < DAY) count = Number(d.count) || 0;
+          else windowStartMs = now;
+        }
+        if (count >= CAP) return false;
+        tx.set(ref, { count: count + 1, windowStartMs, updatedAt: FieldValue.serverTimestamp() }, { merge: true });
+        return true;
+      });
+      if (!allowed) {
+        logger.warn('estimate_email_global_throttled', { leadId });
+        return;
+      }
+    } catch (e) {
+      logger.warn('estimate_email_global_throttle_failed', { leadId, err: e && e.message });
+    }
+
     const resend = new Resend(apiKey);
     let fromAddress = 'Joe Deal <jd@nobigdealwithjoedeal.com>';
     if (process.env.EMAIL_FROM) fromAddress = process.env.EMAIL_FROM;
