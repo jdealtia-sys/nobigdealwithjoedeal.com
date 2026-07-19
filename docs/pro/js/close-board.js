@@ -326,21 +326,47 @@
   // SHAREABLE DEAL PAGE GENERATOR
   // ============================================================================
 
+  // Full white-label (2026-07-19): the deal room is generated REP-side, so
+  // the tenant brand is baked at generation time via window._brand() (same
+  // lazy-gate pattern as photo-report.js). NBD (or unconfigured) keeps every
+  // literal byte-identical — incl. the legal authorization sentence, which
+  // previously named No Big Deal for EVERY tenant's homeowner.
+  function _dealBrand() {
+    let b = {};
+    try { if (typeof window._brand === 'function') b = window._brand() || {}; } catch (_) {}
+    const isNbd = !b.legalName || b.legalName === 'No Big Deal Home Solutions';
+    const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    const logo = (!isNbd && typeof b.logoUrl === 'string' && /^https:\/\//i.test(b.logoUrl)) ? b.logoUrl : '';
+    const accent = (!isNbd && b.colors && /^#[0-9a-f]{3,8}$/i.test(b.colors.accent || '')) ? b.colors.accent : '#e8720c';
+    return {
+      isNbd,
+      name: isNbd ? 'No Big Deal Home Solutions' : b.legalName,
+      nameEsc: isNbd ? 'No Big Deal Home Solutions' : esc(b.legalName),
+      logoHtml: isNbd
+        ? 'NO BIG DEAL <span>HOME SOLUTIONS</span>'
+        : (logo
+          ? '<img src="' + esc(logo) + '" alt="' + esc(b.legalName) + '" style="max-height:48px;max-width:240px;display:inline-block;">'
+          : esc(b.legalName)),
+      accent,
+    };
+  }
+
   function generateDealPageHTML(deal) {
     const goodPay = calcMonthlyPayment(deal.tiers.good.price, 7.99, 60);
     const betterPay = calcMonthlyPayment(deal.tiers.better.price, 7.99, 60);
     const bestPay = calcMonthlyPayment(deal.tiers.best.price, 7.99, 60);
+    const BRAND = _dealBrand();
 
     return `<!DOCTYPE html>
 <html lang="en"><head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Your Roof Estimate — No Big Deal Home Solutions</title>
+<title>Your Roof Estimate — ${BRAND.nameEsc}</title>
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800&family=Barlow:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
 /* Standalone generated page: define the token locally so the color-mix
    glow below resolves (visual audit 2026-07-19 — var(--orange) was
    undefined here, the declaration was invalid, glow never rendered). */
-:root{--orange:#e8720c;}
+:root{--orange:${BRAND.accent};}
 *{margin:0;padding:0;box-sizing:border-box;}
 body{font-family:'Barlow',sans-serif;background:#0d0f14;color:#e5e7eb;min-height:100vh;}
 .hero{background:linear-gradient(135deg,#1a1d23 0%,#0d0f14 100%);padding:40px 20px 30px;text-align:center;border-bottom:2px solid #e8720c;}
@@ -366,12 +392,12 @@ body{font-family:'Barlow',sans-serif;background:#0d0f14;color:#e5e7eb;min-height
 .tier-item{display:flex;justify-content:space-between;padding:4px 0;font-size:12px;color:#8b8e96;border-bottom:1px solid #1a1d2310;}
 .finance-section{margin-top:20px;}
 .finance-opt{display:flex;align-items:center;gap:10px;padding:12px;background:#1e2028;border:2px solid #2a2d35;border-radius:10px;margin-bottom:8px;cursor:pointer;transition:all .2s;}
-.finance-opt:hover{border-color:#4A9EFF40;}
-.finance-opt.selected{border-color:#4A9EFF;background:#4A9EFF10;}
+.finance-opt:hover{border-color:var(--orange)40;}
+.finance-opt.selected{border-color:var(--orange);background:var(--orange)10;}
 .finance-label{font-size:13px;font-weight:600;flex:1;}
-.finance-payment{font-size:14px;font-weight:700;color:#4A9EFF;}
+.finance-payment{font-size:14px;font-weight:700;color:var(--orange);}
 .insurance-box{background:#1e2028;border:1px solid #2a2d35;border-radius:10px;padding:16px;margin-top:16px;}
-.ins-label{font-size:11px;font-weight:700;color:#4A9EFF;text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px;}
+.ins-label{font-size:11px;font-weight:700;color:var(--orange);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px;}
 .ins-detail{font-size:13px;color:#e5e7eb;}
 .sign-section{margin-top:24px;text-align:center;}
 .sign-canvas-wrap{background:#fff;border-radius:10px;margin:12px auto;max-width:400px;height:120px;position:relative;}
@@ -394,7 +420,7 @@ body{font-family:'Barlow',sans-serif;background:#0d0f14;color:#e5e7eb;min-height
 </head><body>
 
 <div class="hero">
-  <div class="logo">NO BIG DEAL <span>HOME SOLUTIONS</span></div>
+  <div class="logo">${BRAND.logoHtml}</div>
   <div class="customer">${esc(deal.customerName) || 'Homeowner'}</div>
   <div class="addr">${esc(deal.address)}</div>
   <div class="rep-bar">
@@ -444,7 +470,7 @@ body{font-family:'Barlow',sans-serif;background:#0d0f14;color:#e5e7eb;min-height
 
   <div class="section-title">Sign & Schedule</div>
   <div class="sign-section">
-    <p style="font-size:13px;color:#8b8e96;margin-bottom:8px;">By signing below, you authorize No Big Deal Home Solutions to proceed with the selected roof package.</p>
+    <p style="font-size:13px;color:#8b8e96;margin-bottom:8px;">By signing below, you authorize ${BRAND.nameEsc} to proceed with the selected roof package.</p>
     <div class="sign-canvas-wrap">
       <canvas id="sigCanvas" class="sign-canvas"></canvas>
       <button class="sign-clear" data-deal-action="clearSig">Clear</button>
@@ -457,7 +483,7 @@ body{font-family:'Barlow',sans-serif;background:#0d0f14;color:#e5e7eb;min-height
   </div>
 
   <div class="footer">
-    <div>No Big Deal Home Solutions · Licensed & Insured</div>
+    <div>${BRAND.nameEsc} · Licensed & Insured</div>
     <div style="margin-top:4px;">This estimate is valid until ${fmtDate(deal.expiresAt)}</div>
   </div>
 </div>
@@ -822,7 +848,7 @@ body{font-family:'Barlow',sans-serif;background:#0d0f14;color:#e5e7eb;min-height
             </div>
           </div>
           <div style="display:flex;flex-direction:column;gap:4px;flex-shrink:0;">
-            <button data-cb-action="preview" data-cb-id="${esc(d.id)}" style="padding:5px 10px;background:var(--blue,#4A9EFF);color:white;border:none;border-radius:5px;font-size:10px;font-weight:600;cursor:pointer;">👁 Preview</button>
+            <button data-cb-action="preview" data-cb-id="${esc(d.id)}" style="padding:5px 10px;background:var(--blue,var(--orange));color:white;border:none;border-radius:5px;font-size:10px;font-weight:600;cursor:pointer;">👁 Preview</button>
             <button data-cb-action="sendSMS" data-cb-id="${esc(d.id)}" style="padding:5px 10px;background:var(--green,#2ECC8A);color:white;border:none;border-radius:5px;font-size:10px;font-weight:600;cursor:pointer;">📱 Text</button>
             <button data-cb-action="sendEmail" data-cb-id="${esc(d.id)}" style="padding:5px 10px;background:var(--orange,#e8720c);color:white;border:none;border-radius:5px;font-size:10px;font-weight:600;cursor:pointer;">📧 Email</button>
             <button data-cb-action="copyLink" data-cb-id="${esc(d.id)}" style="padding:5px 10px;background:var(--s);border:1px solid var(--br);color:var(--t);border-radius:5px;font-size:10px;font-weight:600;cursor:pointer;">🔗 Copy</button>

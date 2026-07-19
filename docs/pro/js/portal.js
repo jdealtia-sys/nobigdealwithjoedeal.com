@@ -307,6 +307,29 @@
     // byte-identical, a tenant gets a companyName-derived label instead.
     const isNbdCompany = !(view.company && view.company.name) || view.company.name === 'No Big Deal Home Solutions';
 
+    // Full white-label (2026-07-19): tenant portals get the tenant's title,
+    // logo (server-guarded https, tenant-set only), footer, and accent —
+    // NBD keeps every literal byte-identical.
+    if (!isNbdCompany) {
+      try {
+        document.title = 'Your Project · ' + companyName;
+        var _logo = document.querySelector('.hero-logo');
+        if (_logo) {
+          if (view.company.logoUrl) { _logo.src = view.company.logoUrl; _logo.alt = companyName; }
+          else { _logo.style.display = 'none'; }
+        }
+        var _foot = document.getElementById('portalFooterBrand');
+        if (_foot) _foot.textContent = '© 2026 ' + companyName;
+        var _footSite = document.getElementById('portalFooterSite');
+        if (_footSite) _footSite.style.display = 'none';
+        var _cols = view.company.colors || null;
+        if (_cols && _cols.accent) {
+          document.documentElement.style.setProperty('--nbd-orange', _cols.accent);
+          document.documentElement.style.setProperty('--accent', _cols.accent);
+        }
+      } catch (e) { /* brand chrome is best-effort; portal content still renders */ }
+    }
+
     // Hero
     document.getElementById('heroWrap').style.display = '';
     document.getElementById('heroCompany').textContent = companyName;
@@ -496,7 +519,7 @@
     // for an inspection. Single drag-drop or tap-to-upload, with
     // a caption + immediate confirmation.
     parts.push(
-      '<div class="card" id="cuh-card" style="border:1px dashed var(--accent, #c8541a);background:rgba(200,84,26,0.04);">' +
+      '<div class="card" id="cuh-card" style="border:1px dashed var(--accent, #c8541a);background:rgba(232,114,12,0.04);">' +
         '<div class="card-label">📸 Show Us What You See</div>' +
         '<div class="card-title">Upload a photo</div>' +
         '<p style="color:var(--muted);margin:0 0 14px;font-size:14px;line-height:1.5;">Spotted storm damage? Mid-job concern? Want to show us the finished work? Snap a photo — your rep gets it in seconds.</p>' +
@@ -528,7 +551,7 @@
     const ratingInfo = view.rating || {};
     if (ratingInfo.canRate && !ratingInfo.submitted) {
       parts.push(
-        '<div class="card" id="cr-card" style="border:1px solid var(--accent, #c8541a);background:rgba(200,84,26,0.05);">' +
+        '<div class="card" id="cr-card" style="border:1px solid var(--accent, #c8541a);background:rgba(232,114,12,0.05);">' +
           '<div class="card-label">⭐ How did we do?</div>' +
           '<div class="card-title">Rate your experience</div>' +
           '<p style="color:var(--muted);margin:0 0 14px;font-size:14px;line-height:1.5;">Your rep would love to hear how the project went. It only takes a tap.</p>' +
@@ -649,17 +672,17 @@
           (w.tierDesc ? '<p style="color:var(--text);margin:0 0 14px;font-size:13px;line-height:1.55;">' + esc(w.tierDesc) + '</p>' : '') +
 
           '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px;">' +
-            '<div style="background:rgba(255,255,255,.04);border:1px solid var(--br,#2a3344);border-radius:7px;padding:10px 12px;">' +
+            '<div style="background:var(--nbd-bg-tint);border:1px solid var(--br,#2a3344);border-radius:7px;padding:10px 12px;">' +
               '<div style="font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:3px;">Installed</div>' +
               '<div style="font-size:13px;font-weight:700;color:var(--text);">' + esc(installLabel) + '</div>' +
             '</div>' +
-            '<div style="background:rgba(255,255,255,.04);border:1px solid var(--br,#2a3344);border-radius:7px;padding:10px 12px;">' +
+            '<div style="background:var(--nbd-bg-tint);border:1px solid var(--br,#2a3344);border-radius:7px;padding:10px 12px;">' +
               '<div style="font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:3px;">Cert No.</div>' +
-              '<div style="font-size:13px;font-weight:700;color:var(--text);font-family:\'DM Mono\',monospace;">' + esc(w.certNumber || '—') + '</div>' +
+              '<div style="font-size:13px;font-weight:700;color:var(--text);font-family:\'Barlow\',sans-serif;font-variant-numeric:tabular-nums;">' + esc(w.certNumber || '—') + '</div>' +
             '</div>' +
           '</div>' +
 
-          (w.work ? '<div style="background:rgba(255,255,255,.04);border:1px solid var(--br,#2a3344);border-radius:7px;padding:10px 12px;margin-bottom:14px;">' +
+          (w.work ? '<div style="background:var(--nbd-bg-tint);border:1px solid var(--br,#2a3344);border-radius:7px;padding:10px 12px;margin-bottom:14px;">' +
             '<div style="font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:3px;">Work Performed</div>' +
             '<div style="font-size:13px;color:var(--text);">' + esc(w.work) + '</div>' +
           '</div>' : '') +
@@ -682,10 +705,10 @@
       // Safe Browsing has flagged (a friend tapping the texted link in
       // Chrome would hit a red interstitial). Every other homeowner-facing
       // link in the app uses nobigdealwithjoedeal.com.
-      const referLink = 'https://nobigdealwithjoedeal.com/pro/refer.html?ref=' + encodeURIComponent(customerId);
+      const referLink = 'https://nobigdealwithjoedeal.com/pro/refer.html?ref=' + encodeURIComponent(customerId) + (isNbdCompany ? '' : ('&co=' + encodeURIComponent(companyName)));
       const sent = (view.referralStats && view.referralStats.sent) || 0;
       const statPill = sent > 0
-        ? '<span style="background:rgba(46,204,138,.16);color:#a7f3d0;border:1px solid rgba(46,204,138,.4);font-size:11px;font-weight:700;padding:3px 10px;border-radius:999px;letter-spacing:.04em;">✓ ' + sent + ' sent your way</span>'
+        ? '<span style="background:rgba(46,204,138,.16);color:var(--nbd-success);border:1px solid rgba(46,204,138,.4);font-size:11px;font-weight:700;padding:3px 10px;border-radius:999px;letter-spacing:.04em;">✓ ' + sent + ' sent your way</span>'
         : '';
       const smsBody = encodeURIComponent(
         "Hey — wanted to share my roofing guys (" + companyName + "). They did a great job for me. " + referLink
@@ -708,7 +731,7 @@
             '<a href="sms:?&body=' + smsBody + '" style="flex:1;min-width:120px;text-align:center;padding:10px;background:var(--accent, #c8541a);color:#fff;border-radius:8px;text-decoration:none;font-weight:700;font-size:13px;letter-spacing:.04em;">💬 Text it</a>' +
             '<a href="mailto:?subject=' + emailSubject + '&body=' + emailBody + '" style="flex:1;min-width:120px;text-align:center;padding:10px;background:var(--surface-2,#13243d);color:var(--text);border:1px solid var(--br, #2a3344);border-radius:8px;text-decoration:none;font-weight:700;font-size:13px;letter-spacing:.04em;">✉️ Email it</a>' +
           '</div>' +
-          '<div id="rf-status" style="display:none;margin-top:10px;padding:8px 10px;border-radius:6px;font-size:12px;background:rgba(46,204,138,.12);color:#a7f3d0;border:1px solid rgba(46,204,138,.4);text-align:center;"></div>' +
+          '<div id="rf-status" style="display:none;margin-top:10px;padding:8px 10px;border-radius:6px;font-size:12px;background:rgba(46,204,138,.12);color:var(--nbd-success);border:1px solid rgba(46,204,138,.4);text-align:center;"></div>' +
         '</div>'
       );
     }
@@ -800,7 +823,7 @@
         statusEl.textContent = ok ? '✓ Link copied — paste it anywhere' : 'Copy failed — long-press the link to copy manually.';
         statusEl.style.display = 'block';
         statusEl.style.background = ok ? 'rgba(46,204,138,.12)' : 'rgba(220,38,38,.12)';
-        statusEl.style.color = ok ? '#a7f3d0' : '#fca5a5';
+        statusEl.style.color = ok ? 'var(--nbd-success)' : 'var(--nbd-danger)';
         statusEl.style.borderColor = ok ? 'rgba(46,204,138,.4)' : 'rgba(220,38,38,.4)';
         clearTimeout(wireReferralCard._t);
         wireReferralCard._t = setTimeout(() => { statusEl.style.display = 'none'; }, 3000);
@@ -914,7 +937,7 @@
       const n = textEl.value.length;
       counterEl.textContent = n + ' / ' + MAX_CHARS;
       counterEl.style.color = n >= WARN_AT
-        ? (n >= MAX_CHARS ? '#fca5a5' : '#fbbf24')
+        ? (n >= MAX_CHARS ? 'var(--nbd-danger)' : 'var(--nbd-warn)')
         : 'var(--muted, #888)';
     }
 
@@ -938,8 +961,8 @@
       if (!msg) { statusEl.style.display = 'none'; return; }
       statusEl.style.display = 'block';
       statusEl.textContent = msg;
-      statusEl.style.background = kind === 'error' ? 'rgba(239,68,68,0.12)' : 'rgba(255,255,255,0.06)';
-      statusEl.style.color = kind === 'error' ? '#fca5a5' : 'var(--muted, #888)';
+      statusEl.style.background = kind === 'error' ? 'rgba(239,68,68,0.12)' : 'var(--nbd-bg-tint)';
+      statusEl.style.color = kind === 'error' ? 'var(--nbd-danger)' : 'var(--muted, #888)';
       statusEl.style.border = kind === 'error' ? '1px solid rgba(239,68,68,0.45)' : '1px solid var(--br, #2a3344)';
     }
 
@@ -951,7 +974,7 @@
       const time = escMsg(fmtTime(m.createdAt || (m._pending ? Date.now() : 0)));
       if (!isYou) return time;
       if (m._pending && !m._failed) return '<span style="opacity:.7;">Sending…</span>';
-      if (m._failed)                 return '<span style="color:#fca5a5;">Tap to retry</span>';
+      if (m._failed)                 return '<span style="color:var(--nbd-danger);">Tap to retry</span>';
       const readMark = m.readByRecipient
         ? '<span style="color:#fff;letter-spacing:-3px;">✓✓</span>'
         : '<span style="opacity:.7;">✓</span>';
@@ -1007,7 +1030,7 @@
         bubble.style.cssText =
           'max-width:80%;padding:9px 12px;border-radius:12px;font-size:14px;line-height:1.4;' +
           'word-wrap:break-word;align-self:' + (isYou ? 'flex-end' : 'flex-start') + ';' +
-          'background:' + (isYou ? accent : 'rgba(255,255,255,0.08)') + ';' +
+          'background:' + (isYou ? accent : 'var(--nbd-bg-tint)') + ';' +
           'color:' + (isYou ? '#fff' : 'inherit') + ';' +
           'opacity:' + dim + ';' +
           'border-bottom-' + (isYou ? 'right' : 'left') + '-radius:4px;';
@@ -1216,8 +1239,8 @@
         const n = Number(b.dataset.stars) || 0;
         const isFilled = n <= filled;
         b.textContent = isFilled ? '★' : '☆';
-        b.style.color = isFilled ? '#fbbf24' : '#888';
-        b.style.borderColor = isFilled ? '#fbbf24' : 'var(--br, #2a3344)';
+        b.style.color = isFilled ? 'var(--nbd-warn)' : '#888';
+        b.style.borderColor = isFilled ? 'var(--nbd-warn)' : 'var(--br, #2a3344)';
         b.style.background = isFilled ? 'rgba(251,191,36,0.08)' : 'var(--bg, #0a1424)';
       });
     }
@@ -1250,10 +1273,10 @@
       statusEl.textContent = msg;
       if (kind === 'error') {
         statusEl.style.background = 'rgba(239,68,68,0.12)';
-        statusEl.style.color = '#fca5a5';
+        statusEl.style.color = 'var(--nbd-danger)';
         statusEl.style.border = '1px solid rgba(239,68,68,0.45)';
       } else {
-        statusEl.style.background = 'rgba(255,255,255,0.06)';
+        statusEl.style.background = 'var(--nbd-bg-tint)';
         statusEl.style.color = 'var(--muted, #888)';
         statusEl.style.border = '1px solid var(--br, #2a3344)';
       }
@@ -1304,7 +1327,7 @@
             const reviewUrl = (typeof _rawUrl === 'string'
               && /^https?:\/\//i.test(_rawUrl.trim())) ? _rawUrl.trim() : null;
             thanksEl.innerHTML =
-              '<div style="font-size:15px;font-weight:600;color:#5eead4;margin-bottom:8px;">🎉 Thank you!</div>' +
+              '<div style="font-size:15px;font-weight:600;color:var(--nbd-success);margin-bottom:8px;">🎉 Thank you!</div>' +
               '<div style="color:var(--muted);font-size:13px;line-height:1.5;margin-bottom:' + (reviewUrl ? '12px' : '0') + ';">' +
               'It means the world that we earned ' + chosenStars + ' stars. ' +
               (reviewUrl ? 'A public Google review helps other homeowners find us — tap below if you have a sec.' : '&mdash; ' + esc(repName.split(' ')[0]) + ' will be in touch.') +
@@ -1372,14 +1395,14 @@
       statusEl.textContent = msg;
       if (kind === 'error') {
         statusEl.style.background = 'rgba(239,68,68,0.12)';
-        statusEl.style.color = '#fca5a5';
+        statusEl.style.color = 'var(--nbd-danger)';
         statusEl.style.border = '1px solid rgba(239,68,68,0.45)';
       } else if (kind === 'success') {
         statusEl.style.background = 'rgba(46,204,138,0.12)';
-        statusEl.style.color = '#5eead4';
+        statusEl.style.color = 'var(--nbd-success)';
         statusEl.style.border = '1px solid rgba(46,204,138,0.45)';
       } else {
-        statusEl.style.background = 'rgba(255,255,255,0.06)';
+        statusEl.style.background = 'var(--nbd-bg-tint)';
         statusEl.style.color = 'var(--muted, #888)';
         statusEl.style.border = '1px solid var(--br, #2a3344)';
       }
@@ -1448,14 +1471,14 @@
       status.textContent = msg;
       if (kind === 'error') {
         status.style.background = 'rgba(239,68,68,0.12)';
-        status.style.color = '#fca5a5';
+        status.style.color = 'var(--nbd-danger)';
         status.style.border = '1px solid rgba(239,68,68,0.45)';
       } else if (kind === 'success') {
         status.style.background = 'rgba(46,204,138,0.12)';
-        status.style.color = '#5eead4';
+        status.style.color = 'var(--nbd-success)';
         status.style.border = '1px solid rgba(46,204,138,0.45)';
       } else {
-        status.style.background = 'rgba(255,255,255,0.06)';
+        status.style.background = 'var(--nbd-bg-tint)';
         status.style.color = 'var(--muted, #888)';
         status.style.border = '1px solid var(--br, #2a3344)';
       }

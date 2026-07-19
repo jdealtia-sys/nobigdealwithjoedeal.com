@@ -112,26 +112,13 @@ exports.createSignRequest = onCall(
     const expiresAt = Timestamp.fromMillis(now + ttlDays * 86_400_000);
     const token = mintSignToken();
 
-    await db.doc(`doc_sign_tokens/${token}`).set({
-      leadId,
-      docId,
-      ownerUid: lead.userId,
-      mintedBy: uid,
-      htmlPath,
-      docTypeName: docMeta.typeName || docMeta.type || 'Document',
-      signerName: signerName || (lead.firstName ? `${lead.firstName} ${lead.lastName || ''}`.trim() : ''),
-      signerEmail,
-      status: 'pending',
-      mintedAt: FieldValue.serverTimestamp(),
-      expiresAt,
-    });
-
     // Multi-tenant branding: resolve the tenant's legal name so the signing
-    // email announces THEIR company, not NBD. Keyed by the lead's companyId
-    // (falls back to the lead owner's uid for solo tenants). One best-effort
-    // read on the already-async path; NBD (profile brand.legalName is NBD's,
-    // or absent) leaves tenantName '' → the exact lead.repName || NBD fallback
-    // below stands → byte-identical.
+    // email AND the sign-page chrome announce THEIR company, not NBD. Keyed
+    // by the lead's companyId (falls back to the lead owner's uid for solo
+    // tenants). Resolved BEFORE the mint (2026-07-19 white-label) so it can
+    // be stamped on the token for getSignDocument. NBD (profile brand
+    // legalName is NBD's, or absent) leaves tenantName '' → the exact
+    // lead.repName || NBD fallback below stands → byte-identical.
     let tenantName = '';
     const tenantKey = lead.companyId || lead.userId;
     if (tenantKey) {
@@ -142,6 +129,22 @@ exports.createSignRequest = onCall(
         logger.warn('[createSignRequest] tenant resolve failed', { leadId, err: e.message });
       }
     }
+
+    await db.doc(`doc_sign_tokens/${token}`).set({
+      leadId,
+      docId,
+      ownerUid: lead.userId,
+      mintedBy: uid,
+      htmlPath,
+      docTypeName: docMeta.typeName || docMeta.type || 'Document',
+      signerName: signerName || (lead.firstName ? `${lead.firstName} ${lead.lastName || ''}`.trim() : ''),
+      signerEmail,
+      // '' for NBD → sign.html keeps its NBD literals byte-identical.
+      companyName: tenantName || '',
+      status: 'pending',
+      mintedAt: FieldValue.serverTimestamp(),
+      expiresAt,
+    });
 
     // PR5: email the homeowner the signing link via Resend (same provider
     // as email-functions.js). Best-effort — the token is already minted,
@@ -231,6 +234,8 @@ exports.getSignDocument = onRequest(
       html,
       docTypeName: tok.docTypeName || 'Document',
       signerName: tok.signerName || '',
+      // '' for NBD (page keeps its NBD chrome); tenant name for white-label.
+      companyName: tok.companyName || '',
     });
   }
 );

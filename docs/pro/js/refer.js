@@ -13,6 +13,18 @@
   function hide(el) { el.style.display = 'none'; }
 
   const ref = getRef();
+  // White-label (2026-07-19): portal.js appends &co=<tenant name> for non-NBD
+  // tenants so this landing page brands itself. textContent only (never HTML),
+  // length-capped; absent param -> NBD literals untouched.
+  try {
+    let _co = new URLSearchParams(location.search).get('co');
+    if (_co) {
+      _co = String(_co).slice(0, 80);
+      document.title = 'Send a referral · ' + _co;
+      const _heroP = document.querySelector('.hero p');
+      if (_heroP) _heroP.textContent = 'Quick form below — ' + _co + ' will be in touch about your roof. No pressure, no spam.';
+    }
+  } catch (e) { /* branding is best-effort */ }
   const form = document.getElementById('referForm');
   const empty = document.getElementById('emptyState');
   const done = document.getElementById('doneState');
