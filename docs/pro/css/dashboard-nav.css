@@ -317,11 +317,17 @@
 
 /* ── PRINT STYLESHEET ─────────────────────────────── */
 @media print {
-  /* Hide navigation, toolbars, modals, FAB */
-  #nbd-pro-nav, .crm-secondary-toolbar, .fab-container,
-  .modal-bg, .toast-container, .mobile-more-menu,
-  .cmd-palette-overlay, .nav-bottom-mobile,
+  /* Hide the app chrome. 2026-07-19 consolidation: the old selector set
+     targeted the RETIRED nav's class names (#nbd-pro-nav is permanently
+     display:none anyway; .crm-secondary-toolbar/.fab-container/
+     .cmd-palette-overlay/.nav-bottom-mobile/.mobile-more-menu never existed
+     in the live DOM) — so printing any view printed the dark sidebar and
+     header on page 1. These are the live selectors. */
+  header, .sidebar, #mobile-nav, #mobile-more-menu,
+  .crm-header, .crm-secondary-header, .cmd-palette,
+  #addLeadFab, #nbd-fab-dial, .modal-bg, .toast-container,
   button, .btn, .upload-zone { display: none !important; }
+  .app-body { display: block !important; }
 
   /* Full width content */
   body { background: #fff !important; color: #000 !important; }
@@ -335,9 +341,11 @@
   .panel-title { color: #000 !important; }
   .panel-label { color: #666 !important; }
 
-  /* Kanban cards print as list */
-  .k-col { display: block !important; width: 100% !important; float: none !important; }
-  .k-card { border: 1px solid #ddd !important; margin-bottom: 8px !important;
+  /* Kanban prints as a stacked list (live classes: .kanban-col/.kc —
+     the old .k-col/.k-card never matched). */
+  #kanbanBoard { display: block !important; overflow: visible !important; }
+  .kanban-col { display: block !important; width: 100% !important; min-width: 0 !important; float: none !important; }
+  .kc, .k-card { border: 1px solid #ddd !important; margin-bottom: 8px !important;
     background: #fff !important; color: #000 !important; break-inside: avoid; }
 
   /* Links show URL */
@@ -346,7 +354,7 @@
 
   /* Page breaks */
   h1, h2, h3 { page-break-after: avoid; }
-  .panel, .k-card { page-break-inside: avoid; }
+  .panel, .kc, .k-card { page-break-inside: avoid; }
 
   /* Footer */
   @page { margin: 0.75in; }

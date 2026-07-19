@@ -1662,7 +1662,7 @@ body[data-nbd-size="comfortable"] .crm-icon-btn { width: calc(32px * var(--nbd-s
 .page-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;}
 .page-title{font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;}
 .page-sub{font-size:12px;color:var(--m);margin-top:2px;}
-.btn{display:inline-flex;align-items:center;gap:6px;padding:9px 16px;border-radius:7px;font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;cursor:pointer;border:1px solid transparent;transition:all .2s;}
+.btn{display:inline-flex;align-items:center;gap:6px;padding:9px 16px;border-radius:7px;font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;cursor:pointer;border:1px solid transparent;transition:background .2s,color .2s,border-color .2s,transform .15s,box-shadow .2s;}
 .btn-orange{background:var(--orange);color:var(--accent-fg);border-color:var(--orange);box-shadow:0 3px 12px var(--og);}
 .btn-orange:hover{background:var(--ob);}
 .btn-ghost{background:var(--s2);color:var(--t);border-color:var(--br);}
@@ -4593,3 +4593,18 @@ body {
 :where(.btn,.crm-sec-btn,.kview-btn,.crm-icon-btn,.crm-hdr-btn,.kc-btn,.m-jd-tab,.modal-close,.m-modal-bar-x,.stab-btn,.ni,.upill):focus-visible{outline:2px solid var(--orange,#e8720c);outline-offset:2px}
 .toggle-switch input:focus-visible + .toggle-slider{box-shadow:0 0 0 3px var(--og,rgba(232,114,12,.25));border-color:var(--orange,#e8720c)}
 :where(.btn,.hdr-tool,.kview-btn,.crm-icon-btn,.crm-hdr-btn,.kc-btn,.crm-sec-btn,.stab-btn):active{transform:scale(.97)}
+
+/* ── consolidation batch (visual audit 2026-07-19) ────────────────────────
+   Shared primitives the JS-rendered views converge onto. */
+/* Empty-state standard (talk-tank pattern): icon / message / next-step. */
+.nbd-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:40px 20px;color:var(--m)}
+.nbd-empty .ne-icon{font-size:42px;margin-bottom:10px;opacity:.85}
+.nbd-empty .ne-msg{font-size:14px;font-weight:700;color:var(--t);margin-bottom:4px}
+.nbd-empty .ne-sub{font-size:12px;color:var(--m);max-width:340px;line-height:1.5}
+/* Compact button modifier so JS views stop hand-rolling small buttons. */
+.btn-sm{padding:5px 10px;font-size:11px;border-radius:6px}
+/* Modal close animation: .modal-bg used display:none↔flex — open animated,
+   close SNAPPED. Visibility-gating animates both directions with no JS
+   change (open/close still toggle the .open class). */
+.modal-bg{display:flex;opacity:0;visibility:hidden;pointer-events:none;transition:opacity .2s ease,visibility .2s ease}
+.modal-bg.open{opacity:1;visibility:visible;pointer-events:auto}

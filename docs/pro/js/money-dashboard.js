@@ -276,7 +276,7 @@
     html += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px;">';
     html += '<div style="background:var(--s,#1a1a2e);border:1px solid var(--br,rgba(255,255,255,.08));border-radius:12px;padding:16px;">' +
       '<h3 style="margin:0 0 12px;font-size:14px;color:var(--h,#fff);">Top Suppliers — ' + m.year + '</h3>';
-    if (!m.topSuppliers.length) html += '<div style="font-size:12px;color:var(--m,#9ca3af);">No spend logged yet.</div>';
+    if (!m.topSuppliers.length) html += '<div class="nbd-empty" style="padding:14px"><div class="ne-icon">🧾</div><div class="ne-msg">No spend logged yet</div><div class="ne-sub">Log expenses in the Expenses view and they roll up here.</div></div>';
     else {
       var max = m.topSuppliers[0].cents || 1;
       m.topSuppliers.forEach(function (s) {

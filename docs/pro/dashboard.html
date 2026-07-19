@@ -315,7 +315,7 @@
       <button class="hdr-tool" data-action="toggle" data-target="recentDropdown" title="Recent Customers" aria-label="Recent customers" id="recentBtn">
         <svg class="nbd-icon" aria-hidden="true"><use href="#nbd-icon-clock"/></svg>
       </button>
-      <div id="recentDropdown" style="display:none;position:absolute;top:100%;right:0;background:var(--s);border:1px solid var(--br);border-radius:8px;padding:8px;min-width:220px;margin-top:4px;box-shadow:0 4px 12px rgba(0,0,0,0.3);z-index:9999;">
+      <div id="recentDropdown" style="display:none;position:absolute;top:100%;right:0;background:var(--s);border:1px solid var(--br);border-radius:8px;padding:8px;min-width:220px;margin-top:4px;box-shadow:0 4px 12px rgba(0,0,0,0.3);z-index:2600;">
         <div style="font-size:10px;color:var(--m);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;">Recent Customers</div>
         <div id="recentList"></div>
       </div>
@@ -325,7 +325,7 @@
         <svg class="nbd-icon" aria-hidden="true"><use href="#nbd-icon-bell"/></svg>
         <span id="notifBadge" class="hdr-tool-badge dn">0</span>
       </button>
-      <div id="notifDropdown" style="display:none;position:absolute;top:100%;right:0;background:var(--s);border:1px solid var(--br);border-radius:8px;padding:0;min-width:320px;max-width:400px;margin-top:4px;box-shadow:0 4px 12px rgba(0,0,0,0.3);z-index:9999;max-height:400px;overflow:hidden;flex-direction:column;">
+      <div id="notifDropdown" style="display:none;position:absolute;top:100%;right:0;background:var(--s);border:1px solid var(--br);border-radius:8px;padding:0;min-width:320px;max-width:400px;margin-top:4px;box-shadow:0 4px 12px rgba(0,0,0,0.3);z-index:2600;max-height:400px;overflow:hidden;flex-direction:column;">
         <div style="font-size:11px;color:var(--t);font-weight:600;padding:12px 14px;border-bottom:1px solid var(--br);display:flex;justify-content:space-between;align-items:center;">
           <span>Notifications</span>
           <div style="display:flex;gap:8px;align-items:center;">
@@ -703,10 +703,10 @@
   
   <!-- TIER 1: PRIMARY WORKFLOW -->
   <div class="ni active" data-action="goTo" data-target="home" id="nav-home"><span class="ni-icon">🏠</span>Home</div>
-  <div class="ni" data-action="goTo" data-target="dash" id="nav-dash"><span class="ni-icon">📊</span>Dashboard</div>
-  <div class="ni" data-action="goTo" data-target="crm"  id="nav-crm"><span class="ni-icon">👥</span>Pipeline <span class="nbadge" id="leadBadge">0</span><span class="health-indicator" id="crmHealthBadge" title="CRM connection status"></span></div>
-  <div class="ni" data-action="goTo" data-target="prospects" id="nav-prospects"><span class="ni-icon">👀</span>Prospects <span class="nbadge dn" id="prospectsNavBadge">0</span></div>
-  <div class="ni" data-action="goTo" data-target="est"  id="nav-est"><span class="ni-icon">📋</span>Estimates</div>
+  <div class="ni" role="button" tabindex="0" data-action="goTo" data-target="dash" id="nav-dash"><span class="ni-icon">📊</span>Dashboard</div>
+  <div class="ni" role="button" tabindex="0" data-action="goTo" data-target="crm"  id="nav-crm"><span class="ni-icon">👥</span>Pipeline <span class="nbadge" id="leadBadge">0</span><span class="health-indicator" id="crmHealthBadge" title="CRM connection status"></span></div>
+  <div class="ni" role="button" tabindex="0" data-action="goTo" data-target="prospects" id="nav-prospects"><span class="ni-icon">👀</span>Prospects <span class="nbadge dn" id="prospectsNavBadge">0</span></div>
+  <div class="ni" role="button" tabindex="0" data-action="goTo" data-target="est"  id="nav-est"><span class="ni-icon">📋</span>Estimates</div>
 
   <div class="nav-divider"></div>
 
@@ -717,14 +717,14 @@
       <span class="nav-section-toggle open" id="toggle-tools">▶</span>
     </div>
     <div class="nav-section-content open" id="section-tools">
-      <div class="ni" data-action="goTo" data-target="d2d" id="nav-d2d"><span class="ni-icon">🚪</span>Door-to-Door</div>
+      <div class="ni" role="button" tabindex="0" data-action="goTo" data-target="d2d" id="nav-d2d"><span class="ni-icon">🚪</span>Door-to-Door</div>
       <div class="ni" data-action="call" data-fn="goToD2DFromMaps" id="nav-map"><span class="ni-icon">🗺️</span>Maps & Pins</div>
-      <div class="ni" data-action="goTo" data-target="photos" id="nav-photos"><span class="ni-icon">📸</span>Photos</div>
-      <div class="ni" data-action="goTo" data-target="docs" id="nav-docs"><span class="ni-icon">📁</span>Templates</div>
-      <div class="ni" data-action="goTo" data-target="products" id="nav-products"><span class="ni-icon">📦</span>Products</div>
-      <div class="ni" data-action="goTo" data-target="draw" id="nav-draw"><span class="ni-icon">✏️</span>Drawing</div>
-      <div class="ni" data-action="goTo" data-target="training" id="nav-training"><span class="ni-icon">🎯</span>Sales Training</div>
-      <div class="ni" data-action="goTo" data-target="academy" id="nav-academy"><span class="ni-icon">🎓</span>Real Deal Academy</div>
+      <div class="ni" role="button" tabindex="0" data-action="goTo" data-target="photos" id="nav-photos"><span class="ni-icon">📸</span>Photos</div>
+      <div class="ni" role="button" tabindex="0" data-action="goTo" data-target="docs" id="nav-docs"><span class="ni-icon">📁</span>Templates</div>
+      <div class="ni" role="button" tabindex="0" data-action="goTo" data-target="products" id="nav-products"><span class="ni-icon">📦</span>Products</div>
+      <div class="ni" role="button" tabindex="0" data-action="goTo" data-target="draw" id="nav-draw"><span class="ni-icon">✏️</span>Drawing</div>
+      <div class="ni" role="button" tabindex="0" data-action="goTo" data-target="training" id="nav-training"><span class="ni-icon">🎯</span>Sales Training</div>
+      <div class="ni" role="button" tabindex="0" data-action="goTo" data-target="academy" id="nav-academy"><span class="ni-icon">🎓</span>Real Deal Academy</div>
     </div>
   </div>
 
@@ -735,23 +735,23 @@
       <span class="nav-section-toggle open" id="toggle-insights">▶</span>
     </div>
     <div class="nav-section-content open" id="section-insights">
-      <div class="ni" data-action="goTo" data-target="board" id="nav-board"><span class="ni-icon">🏆</span>Leaderboard</div>
-      <div class="ni" data-action="goTo" data-target="reports" id="nav-reports"><span class="ni-icon">📈</span>Reports</div>
-      <div class="ni" data-action="goTo" data-target="expenses" id="nav-expenses"><span class="ni-icon">🧾</span>Expenses</div>
-      <div class="ni" data-action="goTo" data-target="money" id="nav-money"><span class="ni-icon">💵</span>Money</div>
-      <div class="ni" data-action="goTo" data-target="refrewards" id="nav-refrewards"><span class="ni-icon">🎁</span>Referrals</div>
+      <div class="ni" role="button" tabindex="0" data-action="goTo" data-target="board" id="nav-board"><span class="ni-icon">🏆</span>Leaderboard</div>
+      <div class="ni" role="button" tabindex="0" data-action="goTo" data-target="reports" id="nav-reports"><span class="ni-icon">📈</span>Reports</div>
+      <div class="ni" role="button" tabindex="0" data-action="goTo" data-target="expenses" id="nav-expenses"><span class="ni-icon">🧾</span>Expenses</div>
+      <div class="ni" role="button" tabindex="0" data-action="goTo" data-target="money" id="nav-money"><span class="ni-icon">💵</span>Money</div>
+      <div class="ni" role="button" tabindex="0" data-action="goTo" data-target="refrewards" id="nav-refrewards"><span class="ni-icon">🎁</span>Referrals</div>
       <div class="ni" data-action="windowOpen" data-target="/pro/daily-success/" id="nav-daily"><span class="ni-icon">📅</span>Success Tracker</div>
-      <div class="ni" data-action="goTo" data-target="storm" id="nav-storm"><span class="ni-icon">⛈️</span>Storm Watch</div>
-      <div class="ni" data-action="goTo" data-target="closeboard" id="nav-closeboard"><span class="ni-icon">📋</span>Close Board</div>
-      <div class="ni" data-action="goTo" data-target="repos" id="nav-repos"><span class="ni-icon">🧠</span>Rep OS</div>
-      <div class="ni" data-action="goTo" data-target="talk-tank" id="nav-talk-tank"><span class="ni-icon">🎙️</span>Talk Tank</div>
+      <div class="ni" role="button" tabindex="0" data-action="goTo" data-target="storm" id="nav-storm"><span class="ni-icon">⛈️</span>Storm Watch</div>
+      <div class="ni" role="button" tabindex="0" data-action="goTo" data-target="closeboard" id="nav-closeboard"><span class="ni-icon">📋</span>Close Board</div>
+      <div class="ni" role="button" tabindex="0" data-action="goTo" data-target="repos" id="nav-repos"><span class="ni-icon">🧠</span>Rep OS</div>
+      <div class="ni" role="button" tabindex="0" data-action="goTo" data-target="talk-tank" id="nav-talk-tank"><span class="ni-icon">🎙️</span>Talk Tank</div>
     </div>
   </div>
 
   <div class="nav-divider"></div>
 
   <!-- TIER 4: SYSTEM (Always Visible) -->
-  <div class="ni" data-action="goTo" data-target="joe" id="nav-joe"><span class="ni-icon">🤖</span>Ask Joe AI <span class="nbadge" style="background:var(--green);margin-left:auto;font-size:8px;padding:1px 5px;">AI</span></div>
+  <div class="ni" role="button" tabindex="0" data-action="goTo" data-target="joe" id="nav-joe"><span class="ni-icon">🤖</span>Ask Joe AI <span class="nbadge" style="background:var(--green);margin-left:auto;font-size:8px;padding:1px 5px;">AI</span></div>
 
   <!-- AI TOOLS (Collapsible — matches TOOLS + INSIGHTS pattern) -->
   <div class="nav-section" style="margin-top:4px;">
@@ -760,15 +760,15 @@
       <span class="nav-section-toggle open" id="toggle-ai-tools">▶</span>
     </div>
     <div class="nav-section-content open" id="section-ai-tools">
-      <div class="ni" data-action="goTo" data-target="aitree" id="nav-aitree"><span class="ni-icon">⚡</span>Decision Engine</div>
-      <div class="ni" data-action="goTo" data-target="understand" id="nav-understand"><span class="ni-icon">🔬</span>Deep Dive</div>
-      <div class="ni" data-action="goTo" data-target="projectcodex" id="nav-projectcodex"><span class="ni-icon">📋</span>Project Intel</div>
-      <div class="ni" data-action="goTo" data-target="aiusage" id="nav-aiusage"><span class="ni-icon">📊</span>AI Usage</div>
+      <div class="ni" role="button" tabindex="0" data-action="goTo" data-target="aitree" id="nav-aitree"><span class="ni-icon">⚡</span>Decision Engine</div>
+      <div class="ni" role="button" tabindex="0" data-action="goTo" data-target="understand" id="nav-understand"><span class="ni-icon">🔬</span>Deep Dive</div>
+      <div class="ni" role="button" tabindex="0" data-action="goTo" data-target="projectcodex" id="nav-projectcodex"><span class="ni-icon">📋</span>Project Intel</div>
+      <div class="ni" role="button" tabindex="0" data-action="goTo" data-target="aiusage" id="nav-aiusage"><span class="ni-icon">📊</span>AI Usage</div>
     </div>
   </div>
 
   <div class="ni" data-action="windowOpen" data-target="how-to.html" id="nav-howto" title="Step-by-step instructions"><span class="ni-icon">📖</span>How To</div>
-  <div class="ni" data-action="goTo" data-target="settings" id="nav-settings"><span class="ni-icon">⚙️</span>Settings</div>
+  <div class="ni" role="button" tabindex="0" data-action="goTo" data-target="settings" id="nav-settings"><span class="ni-icon">⚙️</span>Settings</div>
   <div class="ni dn" data-action="goTo" data-target="admin" id="nav-admin"><span class="ni-icon">🛡️</span>Team Manager</div>
 
 </nav>
@@ -4449,7 +4449,7 @@
   </template>
 
   <!-- ══ ADMIN — Create User Modal ══ -->
-  <div id="adminCreateModal" class="modal-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px);z-index:9999;align-items:center;justify-content:center;">
+  <div id="adminCreateModal" class="modal-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px);z-index:2600;align-items:center;justify-content:center;">
     <div style="background:var(--s1);border:1px solid var(--br);border-radius:10px;padding:24px;width:min(480px,92vw);">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
         <div>
@@ -4489,7 +4489,7 @@
   </div>
 
   <!-- ══ ADMIN — Edit User Modal ══ -->
-  <div id="adminEditModal" class="modal-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px);z-index:9999;align-items:center;justify-content:center;">
+  <div id="adminEditModal" class="modal-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px);z-index:2600;align-items:center;justify-content:center;">
     <div style="background:var(--s1);border:1px solid var(--br);border-radius:10px;padding:24px;width:min(520px,92vw);">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
         <div>

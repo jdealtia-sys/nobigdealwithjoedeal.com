@@ -133,7 +133,7 @@
     const labelFor = (k) => (typeof window.stageLabel === 'function' ? window.stageLabel(k) : k);
 
     if (!_lastList.length) {
-      wrap.innerHTML = '<div class="crm-list-empty">No leads match the current view and filters.</div>';
+      wrap.innerHTML = '<div class="crm-list-empty nbd-empty"><div class="ne-icon">🔍</div><div class="ne-msg">No leads match</div><div class="ne-sub">Adjust the view or filters above, or add a lead with + ADD LEAD.</div></div>';
       return;
     }
 
