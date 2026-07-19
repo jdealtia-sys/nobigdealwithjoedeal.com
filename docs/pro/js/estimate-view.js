@@ -46,10 +46,24 @@
       }
       return res.json();
     })
-    .then(function (data) { renderEstimate(data.estimate || {}); })
+    .then(function (data) { renderEstimate(data.estimate || {}, data.company || null); })
     .catch(function (err) { showError(err.message || 'Could not load estimate. The link may have expired.'); });
 
-  function renderEstimate(est) {
+  function renderEstimate(est, company) {
+    // Full white-label (2026-07-19): tenant estimates rendered under NBD's
+    // identity. company comes from getEstimateForView (server-guarded:
+    // tenant-set https logo / hex colors only; null-ish name for NBD).
+    var coName = (company && company.name) || 'No Big Deal Home Solutions';
+    var isNbd = coName === 'No Big Deal Home Solutions';
+    if (!isNbd) {
+      try {
+        document.title = 'Your Estimate — ' + coName;
+        if (company.colors && company.colors.accent) {
+          document.documentElement.style.setProperty('--nbd-orange', company.colors.accent);
+        }
+      } catch (e) { /* chrome is best-effort */ }
+    }
+
     const tierName = est.tierName ||
       (est.tier === 'best' ? 'Best — Lifetime' :
        est.tier === 'better' ? 'Better — 30-Year Architectural' :
@@ -61,8 +75,14 @@
     let html = '';
     html += '<div class="ev-header">';
     html +=   '<div>';
-    html +=     '<div class="ev-brand"><span>NBD</span> · No Big Deal</div>';
-    html +=     '<div class="ev-badge">Roofing &amp; Restoration</div>';
+    if (isNbd) {
+      html +=   '<div class="ev-brand"><span>NBD</span> · No Big Deal</div>';
+      html +=   '<div class="ev-badge">Roofing &amp; Restoration</div>';
+    } else if (company && company.logoUrl) {
+      html +=   '<img class="ev-brand-logo" src="' + escHtml(company.logoUrl) + '" alt="' + escHtml(coName) + '" style="max-height:44px;max-width:220px;display:block;">';
+    } else {
+      html +=   '<div class="ev-brand">' + escHtml(coName) + '</div>';
+    }
     html +=   '</div>';
     html +=   '<div>';
     html +=     '<div class="ev-doc-title">Estimate</div>';
@@ -106,7 +126,7 @@
         });
         html += '</ul>';
       } else {
-        html += '<p style="color:#666;font-style:italic;">Detailed line items will be reviewed in person.</p>';
+        html += '<p style="color:var(--nbd-ink-muted);font-style:italic;">Detailed line items will be reviewed in person.</p>';
       }
     }
 

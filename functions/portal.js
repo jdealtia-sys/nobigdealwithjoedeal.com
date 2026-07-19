@@ -446,11 +446,31 @@ exports.getHomeownerPortalView = onRequest(
     // 'No Big Deal Home Solutions', or profile absent) keeps the exact
     // rep.companyName || rep.company || NBD fallback below → byte-identical.
     let tenantName = '';
+    // Full white-label (2026-07-19): expose the tenant's OWN logo + accent to
+    // the portal renderer. Only tenant-set values leak out (never NBD's
+    // defaults — same identity rule as client _resolveBrand), the logo must
+    // be https, and NBD itself keeps {name only} so the client's hardcoded
+    // NBD logo/footer stay byte-identical.
+    let tenantLogoUrl = '';
+    let tenantColors = null;
     const tenantKey = lead.companyId || tok.ownerUid;
     if (tenantKey) {
       try {
         const cpSnap = await db.doc(`companyProfile/${tenantKey}`).get();
-        if (cpSnap.exists) { const _ln = ((cpSnap.data() || {}).brand || {}).legalName || ''; tenantName = (_ln && _ln !== 'No Big Deal Home Solutions') ? _ln : ''; }  // NBD-name guard: NBD's own companyProfile carries the NBD legalName — keep tenantName '' so the prior rep.* fallback stays byte-identical (mirrors render-pdf.js/sms-functions.js)
+        if (cpSnap.exists) {
+          const _b = (cpSnap.data() || {}).brand || {};
+          const _ln = _b.legalName || '';
+          const _isTenant = _ln && _ln !== 'No Big Deal Home Solutions';
+          tenantName = _isTenant ? _ln : '';  // NBD-name guard (byte-identical; mirrors render-pdf.js/sms-functions.js)
+          if (_isTenant) {
+            if (typeof _b.logoUrl === 'string' && /^https:\/\//i.test(_b.logoUrl)) tenantLogoUrl = _b.logoUrl;
+            const _c = _b.colors || {};
+            const HEX = /^#[0-9a-f]{3,8}$/i;
+            const accent = HEX.test(_c.accent || '') ? _c.accent : null;
+            const primary = HEX.test(_c.primary || '') ? _c.primary : null;
+            if (accent || primary) tenantColors = { accent, primary };
+          }
+        }
       } catch (e) {
         logger.warn('[portal] tenant resolve failed', { err: e.message });
       }
@@ -606,7 +626,11 @@ exports.getHomeownerPortalView = onRequest(
         // wrong-tenant branding for a non-NBD rep. Read both. Per-tenant
         // companyProfile (tenantName, from brand.legalName) is the canonical
         // source and wins when present; the rep.* reads cover pre-profile data.
-        name: tenantName || rep.companyName || rep.company || 'No Big Deal Home Solutions'
+        name: tenantName || rep.companyName || rep.company || 'No Big Deal Home Solutions',
+        // Tenant-set only (server-guarded https/hex); null/absent for NBD so
+        // the client keeps its hardcoded NBD logo + footer byte-identical.
+        logoUrl: tenantLogoUrl || null,
+        colors: tenantColors
       },
       progress,
       estimate: latest ? {
@@ -1814,6 +1838,36 @@ exports.getEstimateForView = onRequest(
       tiers:       est.tiers || null,
     };
 
-    res.status(200).json({ estimate: safeEstimate });
+    // Full white-label (2026-07-19): the renderer hardcoded "NBD · No Big
+    // Deal" for every tenant. Resolve the tenant brand (companyProfile keyed
+    // by the lead's companyId — team reps' estimates belong to the company,
+    // not the rep uid) with the same guards as portalView: tenant-set values
+    // only, https logo, hex colors; NBD → {name} so the client renders its
+    // NBD literals byte-identical.
+    let company = { name: 'No Big Deal Home Solutions', logoUrl: null, colors: null };
+    try {
+      const leadSnap = await db.doc(`leads/${tok.leadId}`).get();
+      const tenantKey = (leadSnap.exists && (leadSnap.data() || {}).companyId) || tok.ownerUid;
+      if (tenantKey) {
+        const cpSnap = await db.doc(`companyProfile/${tenantKey}`).get();
+        if (cpSnap.exists) {
+          const _b = (cpSnap.data() || {}).brand || {};
+          const _ln = _b.legalName || '';
+          if (_ln && _ln !== 'No Big Deal Home Solutions') {
+            company.name = _ln;
+            if (typeof _b.logoUrl === 'string' && /^https:\/\//i.test(_b.logoUrl)) company.logoUrl = _b.logoUrl;
+            const _c = _b.colors || {};
+            const HEX = /^#[0-9a-f]{3,8}$/i;
+            const accent = HEX.test(_c.accent || '') ? _c.accent : null;
+            const primary = HEX.test(_c.primary || '') ? _c.primary : null;
+            if (accent || primary) company.colors = { accent, primary };
+          }
+        }
+      }
+    } catch (e) {
+      logger.warn('[getEstimateForView] tenant resolve failed', { msg: e.message });
+    }
+
+    res.status(200).json({ estimate: safeEstimate, company });
   }
 );

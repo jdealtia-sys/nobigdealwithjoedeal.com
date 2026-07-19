@@ -71,6 +71,13 @@
     }
 
     if (docName) docName.textContent = r.data.docTypeName ? '· ' + r.data.docTypeName : '';
+    // White-label (2026-07-19): tenant signing sessions brand the chrome with
+    // the tenant's name (server-resolved, '' for NBD -> literals untouched).
+    if (r.data.companyName) {
+      var brandEl = document.getElementById('spBrand');
+      if (brandEl) brandEl.textContent = r.data.companyName;
+      try { document.title = 'Review & Sign · ' + r.data.companyName; } catch (e) {}
+    }
     frame.srcdoc = r.data.html || '';
     frame.style.display = 'block';
     frame.addEventListener('load', function () {
