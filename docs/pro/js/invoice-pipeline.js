@@ -686,6 +686,17 @@ let _NBD_IP_DELEGATE_BOUND; // module-local (globals Tranche 1 — was window.*)
       const total = Number(invoice.total) || 0;
       const newPaid = Math.round(((Number(invoice.amountPaid) || 0) + (Number(amount) || 0)) * 100) / 100;
       const newBalanceDue = Math.max(0, Math.round((total - newPaid) * 100) / 100);
+      const paidAtNow = new Date();
+      // Append-only cash ledger: each credit keeps its own date so Money +
+      // Analytics can attribute multi-payment invoices by receipt period
+      // (deposit in May ≠ balance payoff in July). lastPaymentAt stays as the
+      // latest-receipt pointer for UI/"has any payment" checks.
+      const priorPayments = Array.isArray(invoice.payments) ? invoice.payments.slice() : [];
+      priorPayments.push({
+        amount: Math.round(amount * 100) / 100,
+        at: paidAtNow,
+        method: method || 'manual',
+      });
 
       // Update invoice
       await window.updateDoc(invRef, {
@@ -693,12 +704,13 @@ let _NBD_IP_DELEGATE_BOUND; // module-local (globals Tranche 1 — was window.*)
         depositPaid: newPaid >= (Number(invoice.depositAmount) || 0),
         balanceDue: newBalanceDue,
         status: newBalanceDue === 0 ? 'paid' : invoice.status,
-        paidAt: newBalanceDue === 0 ? new Date() : invoice.paidAt,
+        paidAt: newBalanceDue === 0 ? paidAtNow : invoice.paidAt,
         // Stamped on EVERY payment (incl. partial deposits) so the money
         // dashboard attributes collected cash to the year it was received.
         // paidAt only fires on full payoff, so it alone hid deposit cash.
-        lastPaymentAt: new Date(),
-        updatedAt: new Date()
+        lastPaymentAt: paidAtNow,
+        payments: priorPayments,
+        updatedAt: paidAtNow
       });
 
       // Regenerate the online payment link to the NEW outstanding balance.

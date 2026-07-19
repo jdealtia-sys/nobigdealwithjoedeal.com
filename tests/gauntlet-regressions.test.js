@@ -764,15 +764,20 @@ console.log('\nDeposit / partial-payment money correctness (money-out sweep)');
     /const stageRoles = require\('\.\/stage-roles'\)/.test(st));
   const ip = read('docs/pro/js/invoice-pipeline.js');
   assert('markPaid stamps lastPaymentAt on every payment (incl. partials)',
-    /lastPaymentAt: new Date\(\)/.test(ip));
+    /lastPaymentAt:\s*paidAtNow/.test(ip) || /lastPaymentAt:\s*new Date\(\)/.test(ip));
   assert('markPaid stamps stageRole alongside the contract_signed full-payoff advance (client, window.stageRole)',
     /stage: 'contract_signed',[\s\S]{0,900}window\.stageRole \? \{ stageRole: window\.stageRole\('contract_signed'\) \} : \{\}/.test(ip),
     'consequence-neutral today (contract_signed already derives to role active) but keeps this write conforming to the persisted-stageRole-wins invariant every other stage-change path upholds');
   const md = read('docs/pro/js/money-dashboard.js');
-  assert('money dashboard attributes Collected by lastPaymentAt||paidAt (counts deposits)',
-    /payDate = inv\.lastPaymentAt != null \? inv\.lastPaymentAt : inv\.paidAt/.test(md)
-    && /etYear\(toJSDate\(payDate\)\) === year/.test(md),
-    'paidAt-only gate hid every partial deposit from Collected/Net Cash');
+  assert('money dashboard attributes Collected per payment date (payments[] ledger + legacy lastPaymentAt lump)',
+    /function paymentsOf\(inv\)/.test(md)
+    && /paymentsOf\(inv\)\.forEach/.test(md)
+    && /inv\.lastPaymentAt != null \? inv\.lastPaymentAt : inv\.paidAt/.test(md),
+    'paidAt-only / lastPaymentAt-overwrite hid deposits or moved them to later periods');
+  assert('markPaid + invoiceWebhook append payments[] ledger entries',
+    /payments: priorPayments/.test(ip)
+    && /payments: priorPayments/.test(st),
+    'without payments[] multi-payment cash dating cannot split deposit vs balance months');
   const mdt = read('tests/money-dashboard.test.js');
   assert('money-dashboard test uses the REAL partial shape (no fabricated status:partial+paidAt)',
     !/status: 'partial', paidAt:/.test(mdt)

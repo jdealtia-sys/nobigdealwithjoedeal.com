@@ -136,5 +136,51 @@ const roleData = MD.computePnL({
 eq('custom won-role stage is counted (wonJobs incl CU + LG, not RM)', roleData.wonJobs, 2);
 eq('custom won lead contributes contract value', roleData.wonContractCents >= 1000000, true);
 
+// ── Multi-payment cash ledger (post-sprint residual of #980/#990) ──
+// A deposit in year Y and a balance payoff in year Y+1 must keep the deposit
+// in Y's Collected — lastPaymentAt alone moves the whole invoice's cash to Y+1.
+console.log('  multi-payment cash-basis dating:');
+const multi = MD.computePnL({
+  year: 2026, leads: [], expenses: [], suppliers: [],
+  invoices: [
+    {
+      status: 'paid', total: 10000, balanceDue: 0, amountPaid: 10000,
+      // lastPaymentAt is the LATER payoff — must NOT pull the May deposit into 2027
+      lastPaymentAt: new Date(2027, 6, 1),
+      paidAt: new Date(2027, 6, 1),
+      payments: [
+        { amount: 4000, at: new Date(2026, 4, 15) }, // May 2026 deposit
+        { amount: 6000, at: new Date(2027, 6, 1) },  // July 2027 balance
+      ],
+    },
+  ],
+});
+eq('2026 collected = May deposit only ($4,000), not full invoice', multi.collectedCents, 400000);
+
+const multi27 = MD.computePnL({
+  year: 2027, leads: [], expenses: [], suppliers: [],
+  invoices: [
+    {
+      status: 'paid', total: 10000, balanceDue: 0, amountPaid: 10000,
+      lastPaymentAt: new Date(2027, 6, 1),
+      paidAt: new Date(2027, 6, 1),
+      payments: [
+        { amount: 4000, at: new Date(2026, 4, 15) },
+        { amount: 6000, at: new Date(2027, 6, 1) },
+      ],
+    },
+  ],
+});
+eq('2027 collected = July balance only ($6,000)', multi27.collectedCents, 600000);
+
+// Legacy single-lump still works when payments[] is absent.
+const legacy = MD.computePnL({
+  year: 2026, leads: [], expenses: [], suppliers: [],
+  invoices: [
+    { status: 'sent', total: 1000, balanceDue: 400, amountPaid: 600, lastPaymentAt: new Date(2026, 3, 1) },
+  ],
+});
+eq('legacy partial (no payments[]) still counts $600 in 2026', legacy.collectedCents, 60000);
+
 console.log('\n' + (failed === 0 ? '✓' : '✗') + ' money dashboard: ' + passed + ' passed, ' + failed + ' failed');
 if (failed > 0) { console.error('FAILED: ' + fails.join(', ')); process.exit(1); }
