@@ -889,7 +889,9 @@
     // decodable App Check JWT even in the Functions emulator. Sync init (no
     // dynamic import) so no callable can race ahead of the shim.
     try {
-      initializeAppCheck(app, {
+      // Keep the AppCheck instance on window so raw-fetch callers
+      // (NBDComms, claude-proxy) can mint X-Firebase-AppCheck headers.
+      window.__NBD_APP_CHECK = initializeAppCheck(app, {
         provider: new CustomProvider({ getToken: async () => emulatorAppCheckFakeToken() }),
         isTokenAutoRefreshEnabled: false
       });
@@ -899,7 +901,7 @@
     }
   } else if (APP_CHECK_KEY && !window.__NBD_APP_CHECK_INITIALIZED) {
     try {
-      initializeAppCheck(app, {
+      window.__NBD_APP_CHECK = initializeAppCheck(app, {
         provider: new ReCaptchaEnterpriseProvider(APP_CHECK_KEY),
         isTokenAutoRefreshEnabled: true
       });

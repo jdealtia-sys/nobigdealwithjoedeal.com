@@ -137,16 +137,30 @@ async function _callViaProxy(params) {
 
   const idToken = await user.getIdToken();
 
+  const headers = {
+    'Content-Type': 'application/json',
+    'Authorization': `Bearer ${idToken}`,
+  };
+  // claudeProxy declares enforceAppCheck:true — attach token when available
+  // (window.__NBD_APP_CHECK set by dashboard/nbd-auth/customer bootstrap).
+  try {
+    const ac = window.__NBD_APP_CHECK;
+    if (ac) {
+      const mod = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-app-check.js');
+      if (mod && typeof mod.getToken === 'function') {
+        const tok = await mod.getToken(ac, false);
+        if (tok && tok.token) headers['X-Firebase-AppCheck'] = tok.token;
+      }
+    }
+  } catch (_) { /* best-effort; missing token surfaces as 401 from the proxy */ }
+
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 30000); // 30s timeout
 
   try {
     const response = await fetch(CLOUD_FUNCTION_URL, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${idToken}`,
-      },
+      headers: headers,
       body: JSON.stringify(params),
       signal: controller.signal,
     });

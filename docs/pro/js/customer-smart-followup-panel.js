@@ -176,9 +176,9 @@
     const draftHtml = draft ? `
       <div style="margin-top:12px; padding:11px 13px; background:rgba(255,255,255,0.02); border:1px solid var(--br,#2a3344); border-radius:8px;">
         <div style="font-size:10px; font-weight:600; color:var(--m,#9aa3b2); text-transform:uppercase; letter-spacing:0.05em; margin-bottom:6px;">
-          Suggested ${escapeHtml(channel === 'email' ? 'email' : 'SMS')}
+          Suggested ${escapeHtml(channel === 'email' ? 'email' : 'SMS')} · SMS/Email buttons send this draft
         </div>
-        <div style="font-size:13px; color:var(--t,#e8eaf0); line-height:1.5; white-space:pre-wrap;">${escapeHtml(draft)}</div>
+        <div data-csf-draft style="font-size:13px; color:var(--t,#e8eaf0); line-height:1.5; white-space:pre-wrap;">${escapeHtml(draft)}</div>
       </div>` : '';
 
     host.innerHTML = `
@@ -209,29 +209,55 @@
 
   function wireActions(host, lead) {
     host.querySelectorAll('[data-csf-action]').forEach(btn => {
-      btn.addEventListener('click', (ev) => {
+      btn.addEventListener('click', async (ev) => {
         ev.stopPropagation();
         const action = btn.getAttribute('data-csf-action');
-        // W116: track outcome before firing so we capture even if
-        // the action navigates away. Use the live suggestion (not
-        // cached) so the signals match what the rep actually saw.
-        const sug = (window.SmartFollowup && typeof window.SmartFollowup.computeSuggestion === 'function')
+        // Prefer the AI-enriched suggestion when the panel already has one
+        // (draft text the rep is looking at). Fall back to fresh heuristic.
+        const liveSug = (window.SmartFollowup && typeof window.SmartFollowup.computeSuggestion === 'function')
           ? window.SmartFollowup.computeSuggestion(lead) : null;
-        if (action === 'sms' && window.PortalLinkHelpers
-            && typeof window.PortalLinkHelpers.smsForLead === 'function') {
-          if (window.SmartFollowup && window.SmartFollowup.recordOutcome) {
-            window.SmartFollowup.recordOutcome(lead.id, 'acted', sug);
+        // Draft currently rendered in the panel (escape-safe textContent).
+        const draftEl = host.querySelector('[data-csf-draft]');
+        const draftText = draftEl ? (draftEl.textContent || '').trim() : (liveSug && liveSug.draft) || '';
+
+        if (action === 'sms' || action === 'email') {
+          btn.disabled = true;
+          try {
+            if (window.SmartFollowup && typeof window.SmartFollowup.executeSuggestion === 'function') {
+              const channel = action === 'email' ? 'email' : 'sms';
+              const result = await window.SmartFollowup.executeSuggestion(lead, liveSug, {
+                channel: channel,
+                draft: draftText || null,
+              });
+              if (!result || result.success === false) {
+                // Fallback: portal-link helpers (prefilled native client).
+                if (action === 'sms' && window.PortalLinkHelpers
+                    && typeof window.PortalLinkHelpers.smsForLead === 'function') {
+                  window.PortalLinkHelpers.smsForLead(lead);
+                } else if (action === 'email' && window.PortalLinkHelpers
+                    && typeof window.PortalLinkHelpers.emailForLead === 'function') {
+                  window.PortalLinkHelpers.emailForLead(lead);
+                }
+              }
+            } else if (action === 'sms' && window.PortalLinkHelpers
+                && typeof window.PortalLinkHelpers.smsForLead === 'function') {
+              if (window.SmartFollowup && window.SmartFollowup.recordOutcome) {
+                window.SmartFollowup.recordOutcome(lead.id, 'acted', liveSug);
+              }
+              window.PortalLinkHelpers.smsForLead(lead);
+            } else if (action === 'email' && window.PortalLinkHelpers
+                && typeof window.PortalLinkHelpers.emailForLead === 'function') {
+              if (window.SmartFollowup && window.SmartFollowup.recordOutcome) {
+                window.SmartFollowup.recordOutcome(lead.id, 'acted', liveSug);
+              }
+              window.PortalLinkHelpers.emailForLead(lead);
+            }
+          } finally {
+            btn.disabled = false;
           }
-          window.PortalLinkHelpers.smsForLead(lead);
-        } else if (action === 'email' && window.PortalLinkHelpers
-            && typeof window.PortalLinkHelpers.emailForLead === 'function') {
-          if (window.SmartFollowup && window.SmartFollowup.recordOutcome) {
-            window.SmartFollowup.recordOutcome(lead.id, 'acted', sug);
-          }
-          window.PortalLinkHelpers.emailForLead(lead);
         } else if (action === 'dismiss') {
           if (window.SmartFollowup && window.SmartFollowup.recordOutcome) {
-            window.SmartFollowup.recordOutcome(lead.id, 'dismissed', sug);
+            window.SmartFollowup.recordOutcome(lead.id, 'dismissed', liveSug);
           }
           _dismissedThisSession.add(lead.id);
           update();

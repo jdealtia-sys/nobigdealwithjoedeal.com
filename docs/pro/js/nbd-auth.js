@@ -315,13 +315,14 @@ export const NBDAuth = {
           // Emulator rig: enforced callables still demand a decodable App
           // Check JWT; reCAPTCHA can't mint one off the registered origin.
           // Sync init so no callable races ahead of the shim.
-          initializeAppCheck(_app, {
+          // Expose instance so NBDComms / claude-proxy can attach App Check headers.
+          window.__NBD_APP_CHECK = initializeAppCheck(_app, {
             provider: new CustomProvider({ getToken: async () => emulatorAppCheckFakeToken() }),
             isTokenAutoRefreshEnabled: false
           });
           window.__NBD_APP_CHECK_INITIALIZED = true;
         } else if (appCheckKey && !window.__NBD_APP_CHECK_INITIALIZED) {
-          initializeAppCheck(_app, {
+          window.__NBD_APP_CHECK = initializeAppCheck(_app, {
             provider: new ReCaptchaEnterpriseProvider(appCheckKey),
             isTokenAutoRefreshEnabled: true
           });
