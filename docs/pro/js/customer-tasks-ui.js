@@ -1053,14 +1053,45 @@ window.loadSharedDocuments = async function(leadId) {
 };
 
 // ── Communication Log ──────────────────────────
+// Team thread: company_admin / manager / viewer with a companyId claim
+// query by leadId+companyId (all tenant sends). Sales reps (and anyone
+// without a companyId) still query leadId+uid (own sends only) — matches
+// firestore.rules. New platform sends stamp companyId for the team path.
 window.loadCommunicationLog = async function(leadId) {
   try {
-    // Load emails and SMS
+    const uid = window.auth?.currentUser?.uid || window._user?.uid;
+    if (!uid || !window.db) {
+      document.getElementById('communicationLog').innerHTML = '<div class="empty"><div class="empty-icon">💬</div>Sign in to view messages</div>';
+      return;
+    }
+    const claims = window._userClaims || {};
+    const role = claims.role || '';
+    const companyId = claims.companyId || null;
+    const teamThread = !!(companyId && (role === 'company_admin' || role === 'manager' || role === 'viewer' || claims.owner === true));
+
     const emailRef = window.collection(window.db, 'email_log');
     const smsRef = window.collection(window.db, 'sms_log');
 
-    const emailQ = window.query(emailRef, window.where('leadId', '==', leadId), window.where('uid', '==', window.auth?.currentUser?.uid), window.orderBy('date', 'desc'), window.limit(20));
-    const smsQ = window.query(smsRef, window.where('leadId', '==', leadId), window.where('uid', '==', window.auth?.currentUser?.uid), window.orderBy('date', 'desc'), window.limit(20));
+    let emailQ, smsQ;
+    if (teamThread) {
+      emailQ = window.query(emailRef,
+        window.where('leadId', '==', leadId),
+        window.where('companyId', '==', companyId),
+        window.orderBy('date', 'desc'), window.limit(30));
+      smsQ = window.query(smsRef,
+        window.where('leadId', '==', leadId),
+        window.where('companyId', '==', companyId),
+        window.orderBy('date', 'desc'), window.limit(30));
+    } else {
+      emailQ = window.query(emailRef,
+        window.where('leadId', '==', leadId),
+        window.where('uid', '==', uid),
+        window.orderBy('date', 'desc'), window.limit(20));
+      smsQ = window.query(smsRef,
+        window.where('leadId', '==', leadId),
+        window.where('uid', '==', uid),
+        window.orderBy('date', 'desc'), window.limit(20));
+    }
 
     const emailSnap = await window.getDocs(emailQ);
     const smsSnap = await window.getDocs(smsQ);
@@ -1074,7 +1105,8 @@ window.loadCommunicationLog = async function(leadId) {
         date: data.date?.toDate ? data.date.toDate() : new Date(data.date),
         subject: data.subject || 'Email',
         preview: data.body?.substring(0, 100) || '',
-        status: data.status || 'sent'
+        status: data.status || 'sent',
+        fromUid: data.uid || null,
       });
     });
 
@@ -1088,16 +1120,20 @@ window.loadCommunicationLog = async function(leadId) {
         date: data.date?.toDate ? data.date.toDate() : new Date(data.date),
         subject: smsText || 'Text Message',
         preview: smsText.substring(0, 100),
-        status: data.status || 'sent'
+        status: data.status || 'sent',
+        fromUid: data.uid || null,
       });
     });
 
     // Sort by date descending
     comms.sort((a, b) => b.date - a.date);
-    comms = comms.slice(0, 20);
+    comms = comms.slice(0, 30);
 
     if (comms.length === 0) {
-      document.getElementById('communicationLog').innerHTML = '<div class="empty"><div class="empty-icon">💬</div>No messages yet</div>';
+      const hint = teamThread
+        ? 'No platform messages yet for this lead (team view).'
+        : 'No messages yet — platform email/SMS will appear here.';
+      document.getElementById('communicationLog').innerHTML = '<div class="empty"><div class="empty-icon">💬</div>' + hint + '</div>';
       return;
     }
 
@@ -1105,15 +1141,21 @@ window.loadCommunicationLog = async function(leadId) {
     // incoming webhook or outbound send). Escape everything before innerHTML.
     const esc = window.nbdEsc || (s => String(s == null ? '' : s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])));
     let html = '';
+    if (teamThread) {
+      html += '<div style="font-size:10px;color:var(--m,#9aa3b2);margin-bottom:8px;">Team thread · all company sends for this lead</div>';
+    }
     comms.forEach(comm => {
       const dateStr = comm.date.toLocaleDateString() + ' ' + comm.date.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
       const safeType = comm.type === 'sms' ? 'sms' : 'email';
+      const who = (teamThread && comm.fromUid && comm.fromUid !== uid)
+        ? '<span style="font-size:10px;color:var(--m);margin-left:6px;">· teammate</span>'
+        : '';
       html += `
         <div class="comm-item">
           <div class="comm-header">
             <div class="comm-type ${safeType}">${safeType.toUpperCase()}</div>
             <div class="comm-status">${esc(comm.status)}</div>
-            <div class="comm-date">${esc(dateStr)}</div>
+            <div class="comm-date">${esc(dateStr)}</div>${who}
           </div>
           <div class="comm-subject">${esc(comm.subject)}</div>
           ${comm.preview ? `<div class="comm-preview">${esc(comm.preview)}${comm.preview.length > 100 ? '...' : ''}</div>` : ''}

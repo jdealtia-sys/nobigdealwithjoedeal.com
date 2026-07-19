@@ -667,25 +667,27 @@ Let me know if you have any questions about the financing options.
 };
 
 /**
- * Smart email — auto-selects template based on lead's current stage
+ * Build stage-aware subject/body without opening the modal.
+ * Used by EmailDrip "Send now" (platform path) and emailByStage.
  */
-window.emailByStage = async function(leadId) {
+window.emailSystem.buildStageEmail = async function(leadId) {
   const lead = await getLeadData(leadId);
-  if (!lead) { if(typeof showToast==='function') showToast('Lead not found','error'); else alert('Lead not found'); return; }
+  if (!lead) return null;
 
-  const stage = lead.stage || 'new';
+  const stage = lead._stageKey || lead.stage || 'new';
   const customerName = `${lead.firstName || ''} ${lead.lastName || ''}`.trim() || 'Customer';
   const email = lead.email || '';
+  if (!email) return { to: '', subject: '', body: '', stage, leadId };
 
-  // Find the right template
-  const template = window.emailSystem.stageTemplates[stage];
+  let template = window.emailSystem.stageTemplates[stage];
   if (!template) {
-    // Fallback to generic follow-up
-    emailFollowUp(leadId);
-    return;
+    // Generic follow-up body when no stage-specific template exists.
+    template = {
+      subject: 'Following up — {companyNameShort}',
+      body: `Hi {customerName},\n\nWanted to check in on your project at {address}. Any questions I can help with?\n\n{repName}\n{companyName}\n{companyPhone}`,
+    };
   }
 
-  // Populate template
   const data = {
     customerName,
     address: lead.address || 'your property',
@@ -698,8 +700,6 @@ window.emailByStage = async function(leadId) {
     preQualLink: lead.preQualLink || '[link will be sent separately]',
     repName: window.emailSystem._repName(),
   };
-  // Resolve the tenant brand fields ({company*}) the same way populateTemplate
-  // does, so stage-template signatures/subjects carry the tenant's identity.
   Object.assign(data, window.emailSystem._brandFields());
 
   let subject = template.subject;
@@ -709,12 +709,23 @@ window.emailByStage = async function(leadId) {
     body = body.replace(new RegExp(`\\{${key}\\}`, 'g'), data[key]);
   });
 
+  return { to: email, subject, body, stage, leadId, customerName };
+};
+
+/**
+ * Smart email — auto-selects template based on lead's current stage
+ */
+window.emailByStage = async function(leadId) {
+  const built = await window.emailSystem.buildStageEmail(leadId);
+  if (!built) { if(typeof showToast==='function') showToast('Lead not found','error'); else alert('Lead not found'); return; }
+  if (!built.to) { if(typeof showToast==='function') showToast('No email on this lead','error'); return; }
+
   openEmailModal({
-    to: email,
-    subject,
-    body,
+    to: built.to,
+    subject: built.subject,
+    body: built.body,
     leadId,
-    context: `stage_${stage}`
+    context: `stage_${built.stage}`
   });
 };
 

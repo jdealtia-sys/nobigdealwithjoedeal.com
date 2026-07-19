@@ -118,10 +118,10 @@ function formatPhoneNumber(phone) {
 /**
  * Log SMS to Firestore
  */
-async function logSMSToFirestore(db, to, body, uid, leadId = null, status = 'sent', twilioSid = null) {
+async function logSMSToFirestore(db, to, body, uid, leadId = null, status = 'sent', twilioSid = null, companyId = null) {
   try {
     const ts = FieldValue.serverTimestamp();
-    await db.collection('sms_log').add({
+    const row = {
       to,
       body,
       uid,
@@ -133,7 +133,9 @@ async function logSMSToFirestore(db, to, body, uid, leadId = null, status = 'sen
       sentAt: ts,
       status,
       twilioSid: twilioSid || null
-    });
+    };
+    if (companyId) row.companyId = companyId;
+    await db.collection('sms_log').add(row);
   } catch (e) {
     logger.warn('sms_log_write_failed', { err: e.message });
   }
@@ -284,7 +286,8 @@ exports.sendSMS = onRequest(
 
       // Log to Firestore
       const db = getFirestore();
-      await logSMSToFirestore(db, to, body, decoded.uid, leadId || null, 'sent', message.sid);
+      const companyId = decoded.companyId || null;
+      await logSMSToFirestore(db, to, body, decoded.uid, leadId || null, 'sent', message.sid, companyId);
 
       res.json({
         success: true,
@@ -296,7 +299,8 @@ exports.sendSMS = onRequest(
 
       // Log failure
       const db = getFirestore();
-      await logSMSToFirestore(db, to, body, decoded.uid, leadId || null, 'failed');
+      const companyId = decoded.companyId || null;
+      await logSMSToFirestore(db, to, body, decoded.uid, leadId || null, 'failed', null, companyId);
 
       res.status(500).json({
         error: 'Failed to send SMS'

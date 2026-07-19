@@ -274,8 +274,19 @@ let _NBD_NC_DELEGATE; // module-local (globals Tranche 1 — was window.*)
         if (plat.status === 429 && window.showToast) {
           window.showToast((plat.error || 'SMS limit reached') + ' — opening Messages instead.', 'warning');
         } else if (plat.error && window.showToast) {
-          // Paid-gate / Twilio trial / network — hand off so field work continues.
-          window.showToast('Platform SMS unavailable — opening Messages.', 'warning');
+          // Paid-gate / Twilio trial / A2P / network — hand off so field work continues.
+          const err = String(plat.error || '');
+          const a2p = /30034|A2P|unverified|trial|subscription|paid/i.test(err);
+          window.showToast(
+            a2p
+              ? 'Platform SMS blocked (plan/Twilio/A2P) — opening Messages. Finish Twilio setup for business-line texts.'
+              : 'Platform SMS unavailable — opening Messages.',
+            'warning'
+          );
+          try {
+            window.__NBD_SMS_PLATFORM_LAST_ERROR = { at: Date.now(), status: plat.status, error: err };
+            window.dispatchEvent(new CustomEvent('nbd:sms-platform-error', { detail: window.__NBD_SMS_PLATFORM_LAST_ERROR }));
+          } catch (_) {}
         }
       }
 
@@ -286,6 +297,8 @@ let _NBD_NC_DELEGATE; // module-local (globals Tranche 1 — was window.*)
   };
 
   // ── EmailDrip ──────────────────────────────────────────────────
+  // Stage-change toast: Review opens the modal; Send now builds the
+  // stage template and posts via platform NBDComms (no auto-send on move).
   window.EmailDrip = {
     async onStageChange(leadId, oldStageKey, newStageKey) {
       if (!leadId || !newStageKey) return;
@@ -306,21 +319,57 @@ let _NBD_NC_DELEGATE; // module-local (globals Tranche 1 — was window.*)
         const name = ((lead.firstName || '') + ' ' + (lead.lastName || '')).trim() || 'this customer';
         const safeId = String(leadId).replace(/[^a-zA-Z0-9_-]/g, '');
         const safeName = escHtml(name);
-        const ncAction = (typeof window.emailByStage === 'function') ? 'emailByStage' : 'gotoCustomerEmail';
+        const reviewAction = (typeof window.emailByStage === 'function') ? 'emailByStage' : 'gotoCustomerEmail';
         const msg = `📧 Stage email ready for <strong>${safeName}</strong>`
-          + ` <button data-nc-action="${ncAction}" data-nc-id="${safeId}" style="margin-left:8px;padding:3px 10px;`
+          + ` <button data-nc-action="sendStageNow" data-nc-id="${safeId}" style="margin-left:8px;padding:3px 10px;`
           + `border:1px solid var(--orange);background:var(--orange);color:#fff;`
           + `border-radius:4px;font-size:11px;font-weight:700;cursor:pointer;">`
-          + `Review &amp; send</button>`;
+          + `Send now</button>`
+          + ` <button data-nc-action="${reviewAction}" data-nc-id="${safeId}" style="margin-left:4px;padding:3px 10px;`
+          + `border:1px solid var(--br,#444);background:transparent;color:var(--t,#eee);`
+          + `border-radius:4px;font-size:11px;font-weight:600;cursor:pointer;">`
+          + `Review</button>`;
         if (typeof window.showToast === 'function') {
           window.showToast(msg, hasTemplate ? 'success' : 'info');
         }
       } catch (e) {
         console.warn('EmailDrip.onStageChange failed:', e && e.message);
       }
-    }
+    },
+
+    /**
+     * Build the stage template for a lead and send via NBDComms.
+     * Used by the toast "Send now" button and email_system hooks.
+     */
+    async sendStageEmail(leadId) {
+      if (!leadId) return { success: false, error: 'no-lead' };
+      if (typeof window.emailByStage === 'function' && typeof window.emailSystem?.buildStageEmail === 'function') {
+        const built = await window.emailSystem.buildStageEmail(leadId);
+        if (!built || !built.to) {
+          if (window.showToast) window.showToast('No customer email for this lead', 'error');
+          return { success: false, error: 'no-email' };
+        }
+        if (!window.NBDComms || typeof window.NBDComms.sendEmail !== 'function') {
+          // Fall back to review modal.
+          if (typeof window.emailByStage === 'function') window.emailByStage(leadId);
+          return { success: false, error: 'comms-unavailable' };
+        }
+        return window.NBDComms.sendEmail({
+          to: built.to,
+          subject: built.subject,
+          body: built.body,
+          leadId: leadId,
+        });
+      }
+      // buildStageEmail missing — open review modal instead.
+      if (typeof window.emailByStage === 'function') {
+        window.emailByStage(leadId);
+        return { success: true, mode: 'review' };
+      }
+      return { success: false, error: 'no-emailByStage' };
+    },
   };
 })();
 
 
-(function(){if(_NBD_NC_DELEGATE)return;_NBD_NC_DELEGATE=true;document.addEventListener('click',function(ev){var t=ev.target.closest&&ev.target.closest('[data-nc-action]');if(!t)return;var a=t.dataset.ncAction;var id=t.dataset.ncId;if(a==='emailByStage'&&typeof window.emailByStage==='function')window.emailByStage(id);else if(a==='gotoCustomerEmail')window.location.href='/pro/customer.html?id='+id+'&action=email-stage';});})();
+(function(){if(_NBD_NC_DELEGATE)return;_NBD_NC_DELEGATE=true;document.addEventListener('click',function(ev){var t=ev.target.closest&&ev.target.closest('[data-nc-action]');if(!t)return;var a=t.dataset.ncAction;var id=t.dataset.ncId;if(a==='sendStageNow'&&window.EmailDrip&&typeof window.EmailDrip.sendStageEmail==='function'){t.disabled=true;window.EmailDrip.sendStageEmail(id).finally(function(){try{t.disabled=false;}catch(_){}});}else if(a==='emailByStage'&&typeof window.emailByStage==='function')window.emailByStage(id);else if(a==='gotoCustomerEmail')window.location.href='/pro/customer.html?id='+id+'&action=email-stage';});})();

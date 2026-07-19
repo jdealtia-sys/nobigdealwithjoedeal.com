@@ -1184,13 +1184,20 @@ service cloud.firestore {
       allow write: if false;
     }
 
-    // ── EMAIL / SMS LOG (admin-SDK write, owner read) ─
+    // ── EMAIL / SMS LOG (admin-SDK write only) ─
+    // Owner always reads own rows. Company staff/readers with matching
+    // companyId see the full tenant thread for a lead (team Comm Log).
+    // Legacy rows without companyId stay owner-only.
     match /email_log/{docId} {
-      allow read: if isOwner(resource.data.uid) || isAdmin();
+      allow read: if isOwner(resource.data.uid)
+        || isAdmin()
+        || (isCompanyReader() && sameCompanyAsResource());
       allow write: if false;
     }
     match /sms_log/{docId} {
-      allow read: if isOwner(resource.data.uid) || isAdmin();
+      allow read: if isOwner(resource.data.uid)
+        || isAdmin()
+        || (isCompanyReader() && sameCompanyAsResource());
       allow write: if false;
     }
 
