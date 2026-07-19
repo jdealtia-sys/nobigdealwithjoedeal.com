@@ -150,6 +150,21 @@ ok('estimate.html footer has no doubled separator',
   ok('no empty-src <img> on marketing pages', bad.length === 0, bad.slice(0, 3).join(', '));
 }
 
+// 10. Audit-response (2026-07-19 external audit): review markup + funnel link
+{
+  const s = read(path.join(DOCS, 'review.html'));
+  const m = s.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/);
+  let j = null;
+  try { j = JSON.parse(m[1]); } catch (_) {}
+  ok('review.html LocalBusiness carries review[] from on-page cards',
+    !!(j && Array.isArray(j.review) && j.review.length >= 3 && j.review[0].author));
+  // Deliberate: no fabricated aggregateRating (no truthful count on page).
+  ok('review.html schema has NO aggregateRating (honest-count rule)', !(j && j.aggregateRating));
+}
+ok('free-guide funnel link present in consumer footers (index)',
+  /data-nbd-freeguide/.test(read(path.join(DOCS, 'index.html'))));
+ok('free-roof page has JSON-LD', /application\/ld\+json/.test(read(path.join(DOCS, 'free-roof/index.html'))));
+
 console.log('\n──────────────────────────────────────────────────');
 console.log(`${passed} passed, ${failed} failed`);
 if (failed) {
