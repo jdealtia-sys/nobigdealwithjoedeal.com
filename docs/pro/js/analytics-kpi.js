@@ -86,17 +86,38 @@
     var bal = (inv.balanceDue != null) ? (parseFloat(inv.balanceDue) || 0) : 0;
     return Math.round(Math.max(0, total - bal) * 100) / 100;
   }
+  // TRANSITION RECONCILIATION (mirrors money-dashboard.paymentsOf): a
+  // pre-ledger partial (before the 2026-07-19 deploy) never got a payments[]
+  // entry, so a post-deploy credit leaves the ledger summing SHORT of the
+  // invoice's actual collected cash — trusting the ledger alone silently
+  // drops the earlier cash. Append one synthetic remainder entry (dated at
+  // the EARLIEST ledger entry — tightest upper bound; lastPaymentAt is the
+  // newest credit, strictly later) so totals stay exact.
   function paymentsOf(inv) {
     if (Array.isArray(inv.payments) && inv.payments.length > 0) {
       var out = [];
+      var ledgerCents = 0;
+      var earliestAt = null, earliestMs = Infinity;
       for (var i = 0; i < inv.payments.length; i++) {
         var p = inv.payments[i] || {};
         var amt = parseFloat(p.amount);
         var at = p.at != null ? p.at : p.date;
         if (!(amt > 0) || at == null) continue;
         out.push({ amount: amt, at: at });
+        ledgerCents += Math.round(amt * 100);
+        var d = toJSDate(at);
+        if (d && d.getTime() < earliestMs) { earliestMs = d.getTime(); earliestAt = at; }
       }
-      if (out.length) return out;
+      if (out.length) {
+        var actualCents = Math.round(collectedDollarsOf(inv) * 100);
+        var remainderCents = actualCents - ledgerCents;
+        if (remainderCents >= 1) {
+          var remAt = earliestAt != null ? earliestAt
+            : (inv.lastPaymentAt != null ? inv.lastPaymentAt : inv.paidAt);
+          if (remAt != null) out.push({ amount: remainderCents / 100, at: remAt, synthetic: true });
+        }
+        return out;
+      }
     }
     var collected = collectedDollarsOf(inv);
     if (collected <= 0) return [];

@@ -48,17 +48,41 @@
   // payoff in July land in their own months/years. Legacy docs without the
   // array fall back to a single lump of total−balanceDue dated by
   // lastPaymentAt||paidAt (pre-#980/#990 multi-payment residual).
+  //
+  // TRANSITION RECONCILIATION: an invoice whose first partial predates the
+  // ledger (pre-2026-07-19 deploy) gets payments[] entries only for credits
+  // AFTER the deploy — trusting the ledger alone would silently drop the
+  // earlier cash from Collected. When the ledger sums short of the invoice's
+  // actual collected cash (total−balanceDue), append one synthetic remainder
+  // entry so totals stay exact. Its date is the EARLIEST ledger entry (the
+  // tightest upper bound we have for pre-ledger cash — lastPaymentAt is the
+  // NEWEST credit, strictly later), falling back to lastPaymentAt||paidAt.
+  // That dating degrades to the pre-ledger behavior at worst; totals never do.
   function paymentsOf(inv) {
     if (Array.isArray(inv.payments) && inv.payments.length > 0) {
       var out = [];
+      var ledgerCents = 0;
+      var earliestAt = null, earliestMs = Infinity;
       for (var i = 0; i < inv.payments.length; i++) {
         var p = inv.payments[i] || {};
         var amt = parseFloat(p.amount);
         var at = p.at != null ? p.at : p.date;
         if (!(amt > 0) || at == null) continue;
         out.push({ amount: amt, at: at });
+        ledgerCents += Math.round(amt * 100);
+        var d = toJSDate(at);
+        if (d && d.getTime() < earliestMs) { earliestMs = d.getTime(); earliestAt = at; }
       }
-      if (out.length) return out;
+      if (out.length) {
+        var actualCents = collectedCentsOf(inv);
+        var remainderCents = actualCents - ledgerCents;
+        if (remainderCents >= 1) {
+          var remAt = earliestAt != null ? earliestAt
+            : (inv.lastPaymentAt != null ? inv.lastPaymentAt : inv.paidAt);
+          if (remAt != null) out.push({ amount: remainderCents / 100, at: remAt, synthetic: true });
+        }
+        return out;
+      }
     }
     var cents = collectedCentsOf(inv);
     if (cents <= 0) return [];
