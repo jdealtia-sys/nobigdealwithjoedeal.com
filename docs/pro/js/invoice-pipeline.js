@@ -584,11 +584,15 @@ let _NBD_IP_DELEGATE_BOUND; // module-local (globals Tranche 1 — was window.*)
 
         // Send via NBDComms
         if (window.NBDComms?.sendEmail) {
-          await window.NBDComms.sendEmail({
+          const emailResult = await window.NBDComms.sendEmail({
             to: invoice.customerEmail || '',
             subject: `Invoice ${invoiceId} from NBD Roofing`,
-            html: invoiceHtml
+            html: invoiceHtml,
+            leadId: invoice.leadId || null,
           });
+          if (!emailResult || emailResult.success === false) {
+            throw new Error((emailResult && emailResult.error) || 'Email send failed');
+          }
         } else {
           throw new Error('Email service not available');
         }
@@ -598,10 +602,14 @@ let _NBD_IP_DELEGATE_BOUND; // module-local (globals Tranche 1 — was window.*)
         const message = `Your NBD Roofing invoice is ready. Payment link: ${link}`;
 
         if (window.NBDComms?.sendSMS) {
-          await window.NBDComms.sendSMS({
+          const smsResult = await window.NBDComms.sendSMS({
             to: invoice.customerPhone || '',
-            message: message
+            message: message,
+            leadId: invoice.leadId || null,
           });
+          if (!smsResult || smsResult.success === false) {
+            throw new Error((smsResult && smsResult.error) || 'SMS send failed');
+          }
         } else {
           throw new Error('SMS service not available');
         }
@@ -754,7 +762,8 @@ let _NBD_IP_DELEGATE_BOUND; // module-local (globals Tranche 1 — was window.*)
         await window.NBDComms.sendEmail({
           to: invoice.customerEmail,
           subject: `Payment Received - NBD Roofing Invoice ${invoiceId}`,
-          html: `<p>Thank you! We received your payment of ${formatCurrency(amount)}.</p><p>Your invoice is now ${newBalanceDue === 0 ? 'fully paid' : 'partially paid'}.</p>`
+          html: `<p>Thank you! We received your payment of ${formatCurrency(amount)}.</p><p>Your invoice is now ${newBalanceDue === 0 ? 'fully paid' : 'partially paid'}.</p>`,
+          leadId: invoice.leadId || null,
         });
       }
 

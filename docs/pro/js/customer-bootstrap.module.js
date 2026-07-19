@@ -25,7 +25,8 @@ const app = initializeApp(firebaseConfig);
 const __APP_CHECK_KEY = (window.__NBD_APP_CHECK_KEY || '').trim();
 if (__APP_CHECK_KEY && !window.__NBD_APP_CHECK_INITIALIZED) {
   try {
-    initializeAppCheck(app, {
+    // Expose instance so NBDComms / claude-proxy can attach App Check headers.
+    window.__NBD_APP_CHECK = initializeAppCheck(app, {
       provider: new ReCaptchaEnterpriseProvider(__APP_CHECK_KEY),
       isTokenAutoRefreshEnabled: true
     });

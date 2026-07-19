@@ -430,21 +430,22 @@
   }
 
   const AI_SYSTEM_PROMPT =
-`You are a sales coach embedded in a CRM for a residential roofing/exterior contractor (No Big Deal Home Solutions). You read a lead's full context and write the next-best-action recommendation a sales rep should take.
+`You are a sales coach embedded in a CRM for a residential roofing/exterior contractor. You read a lead's full context and write the next-best-action recommendation a field sales rep should take.
 
 Output STRICT JSON only — no prose, no markdown, no code fences. Schema:
 {
   "headline": "ONE short imperative sentence (max 90 chars). Example: 'Call Sarah today — she opened the estimate twice yesterday.'",
-  "reasoning": "ONE specific sentence explaining WHY this action wins (max 220 chars). Cite the actual signal — view count, time since share, etc.",
-  "draft": "Personalized message body, plain text. 2-4 sentences for SMS, 4-7 for email. Use the customer's first name. End with a soft ask. Match the channel."
+  "reasoning": "ONE specific sentence explaining WHY this action wins (max 220 chars). Cite the actual signal — view count, time since share, stage, carrier.",
+  "draft": "Personalized message body, plain text. SMS: 1-3 short sentences, under 320 chars when possible. Email: 3-6 sentences. Use the customer's first name. End with a soft ask. Match the channel. Ready to send as-is via Twilio/Resend."
 }
 
 Rules:
 - Be concrete. "Call Sarah today" beats "follow up soon".
-- Personalize from the actual context. If they viewed 3x, say so. If insurance carrier is State Farm, mention it if relevant.
+- Personalize from the actual context. If they viewed 3x, say so. If insurance carrier is present, mention it only when useful.
 - Match the rep's voice: friendly, direct, no salesy fluff, no exclamation marks unless natural.
-- The "draft" must be ready-to-send. The rep will copy and send it as-is.
-- Never invent details not in the context. If you don't know, leave it generic.`;
+- Never invent dollar amounts, dates, adjuster names, or claims numbers not in CONTEXT.
+- Prefer SMS-length drafts when channel is sms — long SMS get split and feel spammy.
+- If action is send-portal, the draft may include the token {portalUrl} (the app expands it).`;
 
   function _buildAIUserPrompt(lead, sug, ctxPayload) {
     const sugForAI = {
@@ -620,11 +621,93 @@ Rules:
     try { localStorage.removeItem(STATS_KEY); } catch (_) {}
   }
 
+  // ─── Execute suggestion (platform send when possible) ────────────
+  // One-tap path for the customer panel / briefing: send the draft via
+  // NBDComms (platform Resend/Twilio first, mailto/sms handoff fallback).
+  // Call actions stay tel: — no platform "call" yet.
+  async function executeSuggestion(lead, sug, opts) {
+    opts = opts || {};
+    if (!lead) return { success: false, error: 'no-lead' };
+    const s = sug || computeSuggestion(lead);
+    if (!s) return { success: false, error: 'no-suggestion' };
+
+    const channel = opts.channel || s.channel;
+    const draft = (opts.draft != null ? opts.draft : s.draft) || '';
+    const first = (lead.firstName || '').trim();
+    const name = leadName(lead);
+
+    if (s.action === 'call' || channel === 'call') {
+      const phone = String(lead.phone || '').trim();
+      if (!phone) return { success: false, error: 'no-phone' };
+      try {
+        const a = document.createElement('a');
+        a.href = 'tel:' + phone.replace(/[^\d+]/g, '');
+        a.style.display = 'none';
+        document.body.appendChild(a);
+        a.click();
+        setTimeout(() => { try { a.remove(); } catch (_) {} }, 0);
+      } catch (_) {
+        try { window.location.href = 'tel:' + phone; } catch (__) {}
+      }
+      recordOutcome(lead.id, 'acted', s);
+      return { success: true, mode: 'tel' };
+    }
+
+    if (channel === 'email' || s.action === 'email') {
+      const to = String(lead.email || '').trim();
+      if (!to) return { success: false, error: 'no-email' };
+      if (!window.NBDComms || typeof window.NBDComms.sendEmail !== 'function') {
+        return { success: false, error: 'comms-unavailable' };
+      }
+      const subject = opts.subject
+        || (s.action === 'send-portal'
+          ? ('Your project portal — ' + name)
+          : ('Quick note about your roof project' + (first ? ', ' + first : '')));
+      const result = await window.NBDComms.sendEmail({
+        to: to,
+        subject: subject,
+        body: draft || ('Hi' + (first ? ' ' + first : '') + ',\n\nWanted to check in on your project. When is a good time to connect?\n'),
+        leadId: lead.id,
+        forceHandoff: !!opts.forceHandoff,
+      });
+      if (result && result.success) recordOutcome(lead.id, 'acted', s);
+      return result || { success: false, error: 'send-failed' };
+    }
+
+    // Default: SMS (text / follow-up / send-portal / etc.)
+    const phone = String(lead.phone || '').trim();
+    if (!phone) return { success: false, error: 'no-phone' };
+    if (!window.NBDComms || typeof window.NBDComms.sendSMS !== 'function') {
+      return { success: false, error: 'comms-unavailable' };
+    }
+    let body = draft;
+    // Expand {portalUrl} if still a placeholder and helpers can resolve.
+    if (body && body.indexOf('{portalUrl}') !== -1 && window.PortalLinkHelpers
+        && typeof window.PortalLinkHelpers.resolveUrl === 'function') {
+      try {
+        const url = await window.PortalLinkHelpers.resolveUrl(lead.id || lead);
+        if (url) body = body.split('{portalUrl}').join(url);
+      } catch (_) { /* leave placeholder */ }
+    }
+    if (!body) {
+      body = 'Hi' + (first ? ' ' + first : '') + ', checking in on your project — any questions?';
+    }
+    const result = await window.NBDComms.sendSMS({
+      to: phone,
+      message: body,
+      leadId: lead.id,
+      forceHandoff: !!opts.forceHandoff,
+    });
+    if (result && result.success) recordOutcome(lead.id, 'acted', s);
+    return result || { success: false, error: 'send-failed' };
+  }
+
   // ─── Public API ──────────────────────────────────────────────────
   window.SmartFollowup = {
     __sentinel: 'nbd-smart-followup-v1',
     computeSuggestion,
     enrichSuggestionAI,         // W114
+    executeSuggestion,          // platform one-tap send (uses NBDComms)
     recordOutcome,              // W116
     getPersonalAdjustment,      // W116
     getRepStats,                // W116
