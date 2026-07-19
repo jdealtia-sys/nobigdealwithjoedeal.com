@@ -85,6 +85,12 @@ ok('theme-system defines --h (heading dialect alias)',
   ok('goTo() does not wrap initMainMap/initDrawMap in requestAnimationFrame',
     !/requestAnimationFrame\(\(\)=>\{ initMainMap\(\)/.test(s)
     && !/requestAnimationFrame\(\(\)=>\{ initDrawMap\(\)/.test(s));
+  // Hotfix regression guard: the RAF removal once left a parenthesized
+  // arrow function that PARSED but was never invoked — map/draw views never
+  // initialized. The inits must be immediately-invoked.
+  ok('map/draw view-inits are actually INVOKED (trailing () present)',
+    /\(\(\)=>\{ initMainMap\(\); mapInited\.map=true;[^}]*\}\)\(\);/.test(s)
+    && /\(\(\)=>\{ initDrawMap\(\); mapInited\.draw=true;[^}]*\}\)\(\);/.test(s));
 }
 
 // 5. invoice modals
