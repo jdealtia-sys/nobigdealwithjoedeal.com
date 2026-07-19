@@ -510,15 +510,15 @@ const pullIntelForModal = async function() {
   updatePropertyIntelCost();
   
   // Show selection modal
-  document.getElementById('propertyIntelModal').style.display = 'flex';
+  (function(){var m=document.getElementById('propertyIntelModal');m.style.display='flex';m.classList.add('open');})();
 };
 
 function closePropertyIntelModal() {
-  document.getElementById('propertyIntelModal').style.display = 'none';
+  (function(){var m=document.getElementById('propertyIntelModal');m.style.display='none';m.classList.remove('open');})();
 }
 
 function closePropertyIntelConfirmModal() {
-  document.getElementById('propertyIntelConfirmModal').style.display = 'none';
+  (function(){var m=document.getElementById('propertyIntelConfirmModal');m.style.display='none';m.classList.remove('open');})();
 }
 
 const updatePropertyIntelCost = function() {
@@ -576,8 +576,8 @@ const confirmPropertyIntelPull = function() {
   listEl.innerHTML = selected.map(name => `<li>${name}</li>`).join('');
   
   // Hide selection modal, show confirmation
-  document.getElementById('propertyIntelModal').style.display = 'none';
-  document.getElementById('propertyIntelConfirmModal').style.display = 'flex';
+  (function(){var m=document.getElementById('propertyIntelModal');m.style.display='none';m.classList.remove('open');})();
+  (function(){var m=document.getElementById('propertyIntelConfirmModal');m.style.display='flex';m.classList.add('open');})();
 };
 
 const executePullPropertyIntel = async function() {

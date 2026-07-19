@@ -315,7 +315,14 @@
         document.title = 'Your Project · ' + companyName;
         var _logo = document.querySelector('.hero-logo');
         if (_logo) {
-          if (view.company.logoUrl) { _logo.src = view.company.logoUrl; _logo.alt = companyName; }
+          if (view.company.logoUrl) {
+            // If the logo host is blocked by CSP img-src or 404s, hide the
+            // element instead of painting the broken-image icon (drill
+            // finding). Realistic tenant logos live in Firebase Storage,
+            // which the CSP whitelists.
+            _logo.addEventListener('error', function () { _logo.style.display = 'none'; });
+            _logo.src = view.company.logoUrl; _logo.alt = companyName;
+          }
           else { _logo.style.display = 'none'; }
         }
         var _foot = document.getElementById('portalFooterBrand');
@@ -324,8 +331,28 @@
         if (_footSite) _footSite.style.display = 'none';
         var _cols = view.company.colors || null;
         if (_cols && _cols.accent) {
-          document.documentElement.style.setProperty('--nbd-orange', _cols.accent);
-          document.documentElement.style.setProperty('--accent', _cols.accent);
+          // Override the whole orange RAMP, not just the base token — the
+          // tenant drill showed mixed blue/orange (progress dots, eyebrow,
+          // totals use the -deep/-medium/-soft/-glow variants). color-mix
+          // derives each from the tenant accent.
+          // nbd-brand.css also scopes the token set onto .nbd-brand (body
+          // carries that class), which SHADOWS an html-level override for
+          // everything inside body — set the vars on BOTH roots.
+          var _apply = function (st) {
+            st.setProperty('--nbd-orange', _cols.accent);
+            st.setProperty('--accent', _cols.accent);
+            st.setProperty('--nbd-orange-deep', 'color-mix(in srgb, ' + _cols.accent + ' 78%, #000)');
+            st.setProperty('--nbd-orange-medium', 'color-mix(in srgb, ' + _cols.accent + ' 88%, #000)');
+            st.setProperty('--nbd-orange-ink', 'color-mix(in srgb, ' + _cols.accent + ' 60%, #000)');
+            st.setProperty('--nbd-orange-soft', 'color-mix(in srgb, ' + _cols.accent + ' 12%, transparent)');
+            st.setProperty('--nbd-orange-glow', 'color-mix(in srgb, ' + _cols.accent + ' 30%, transparent)');
+            st.setProperty('--nbd-ink-on-orange', _fg);
+          };
+
+          var _lum=(function(h){h=h.replace('#','');if(h.length===3)h=h.split('').map(function(c){return c+c}).join('');var r=parseInt(h.slice(0,2),16)/255,g=parseInt(h.slice(2,4),16)/255,b=parseInt(h.slice(4,6),16)/255;var f=function(v){return v<=0.03928?v/12.92:Math.pow((v+0.055)/1.055,2.4)};return 0.2126*f(r)+0.7152*f(g)+0.0722*f(b)})(_cols.accent);
+          var _fg=_lum>0.45?'#1a1a2e':'#ffffff';
+          _apply(document.documentElement.style);
+          if (document.body) _apply(document.body.style);
         }
       } catch (e) { /* brand chrome is best-effort; portal content still renders */ }
     }

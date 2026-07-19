@@ -139,6 +139,35 @@ ok('search placeholder uses the muted token',
 ok('collapsed sidebar rail is scrollable',
   /body\.sidebar-collapsed \.sidebar\{[^}]*overflow-y:auto/.test(read('docs/pro/css/kanban-force.css').replace(/\n/g, '')));
 
+// ── certification 2026-07-19 (post-ship interaction fixes) ──
+{
+  const pi = read('docs/pro/js/property-intel.js');
+  ok('property-intel modals toggle the .open class (always-flex .modal-bg contract)',
+    (pi.match(/classList\.add\('open'\)/g) || []).length >= 2
+    && (pi.match(/classList\.remove\('open'\)/g) || []).length >= 2);
+  const css = read('docs/pro/css/dashboard-app.css');
+  ok('modal card entrance is scoped to the open state',
+    /\.modal-bg\.open \.modal\{animation:modalSlideIn/.test(css)
+    && !/\.modal \{\s*animation: modalSlideIn/.test(css));
+  const cb = read('docs/pro/js/close-board.js');
+  ok('deal-room send flows use the same brand resolver as the page',
+    (cb.match(/const brand = _dealBrand\(\)\.name;/g) || []).length === 2);
+  ok('deal-room generated style block is accent-tokenized (no bare #e8720c rules)',
+    !/color:#e8720c|background:#e8720c|solid #e8720c/.test(cb.slice(cb.indexOf('<style>'), cb.indexOf('</style>'))));
+  ok('ann-bar honors prefers-reduced-motion',
+    /prefers-reduced-motion/.test(read('docs/assets/js/ann-bar.js')));
+  ok('collapsed-rail badges skip .dn and the health dot yields the corner',
+    /\.nbadge:not\(\.dn\)/.test(read('docs/pro/css/kanban-force.css'))
+    && /collapsed health dot yields the corner/.test(read('docs/pro/css/kanban-force.css')));
+  ok('photos skeleton targets the real container id',
+    /getElementById\('photoLeadsList'\)/.test(read('docs/pro/js/ui.js')));
+  ok('every sidebar .ni item is keyboard-focusable',
+    !/<div class="ni( active)?" data-action=/.test(read('docs/pro/dashboard.html')));
+  ok('portal + estimate-view derive a readable foreground for tenant accents',
+    /--nbd-ink-on-orange/.test(read('docs/pro/js/portal.js'))
+    && /--nbd-ink-on-orange/.test(read('docs/pro/js/estimate-view.js')));
+}
+
 console.log('\n──────────────────────────────────────────────────');
 console.log(`${passed} passed, ${failed} failed`);
 if (failed) {

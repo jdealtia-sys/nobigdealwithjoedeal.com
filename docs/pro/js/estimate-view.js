@@ -59,7 +59,30 @@
       try {
         document.title = 'Your Estimate — ' + coName;
         if (company.colors && company.colors.accent) {
-          document.documentElement.style.setProperty('--nbd-orange', company.colors.accent);
+          // Certification: body carries .nbd-brand, whose token block SHADOWS
+          // an html-only override — set on BOTH roots, override the derived
+          // ramp, and pick a readable foreground for accent fills (a light
+          // tenant accent would render white-on-light otherwise).
+          var acc = company.colors.accent;
+          var lum = (function (h) {
+            h = h.replace('#', '');
+            if (h.length === 3) h = h.split('').map(function (c) { return c + c; }).join('');
+            var r = parseInt(h.slice(0, 2), 16) / 255, g = parseInt(h.slice(2, 4), 16) / 255, b = parseInt(h.slice(4, 6), 16) / 255;
+            var f = function (v) { return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); };
+            return 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(b);
+          })(acc);
+          var fg = lum > 0.45 ? '#1a1a2e' : '#ffffff';
+          var applyAccent = function (st) {
+            st.setProperty('--nbd-orange', acc);
+            st.setProperty('--nbd-orange-deep', 'color-mix(in srgb, ' + acc + ' 78%, #000)');
+            st.setProperty('--nbd-orange-medium', 'color-mix(in srgb, ' + acc + ' 88%, #000)');
+            st.setProperty('--nbd-orange-ink', 'color-mix(in srgb, ' + acc + ' 60%, #000)');
+            st.setProperty('--nbd-orange-soft', 'color-mix(in srgb, ' + acc + ' 12%, transparent)');
+            st.setProperty('--nbd-orange-glow', 'color-mix(in srgb, ' + acc + ' 30%, transparent)');
+            st.setProperty('--nbd-ink-on-orange', fg);
+          };
+          applyAccent(document.documentElement.style);
+          if (document.body) applyAccent(document.body.style);
         }
       } catch (e) { /* chrome is best-effort */ }
     }
@@ -146,6 +169,11 @@
     html += '</div>';
 
     root.innerHTML = html;
+
+    // ev-brand-logo error → hide (CSP-blocked/404 tenant logos must not
+    // paint the broken-image icon). Property listener, not inline attr (CSP).
+    var _bl = root.querySelector('.ev-brand-logo');
+    if (_bl) _bl.addEventListener('error', function () { _bl.style.display = 'none'; });
 
     // Wave 28: button delegates (replaces inline onclick="window.print()" etc.)
     root.addEventListener('click', function(ev){
