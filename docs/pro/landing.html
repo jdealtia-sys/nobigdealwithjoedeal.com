@@ -14,17 +14,19 @@
   <meta name="description" content="The all-in-one roofing CRM: estimates, door-to-door tracking, and sales training — built by a roofer, for roofers, at one-third the big guys' price.">
   <meta name="keywords" content="roofing CRM, contractor software, estimate builder, insurance restoration">
   <title>NBD Pro — Roofing Business Management Platform</title>
-  <link rel="canonical" href="https://nobigdealwithjoedeal.com/pro/landing">
+  <link rel="canonical" href="https://nobigdealwithjoedeal.com/pro">
   <meta property="og:type" content="website">
   <meta property="og:title" content="NBD Pro — CRM & Business Platform Built by a Roofer, for Roofers">
   <meta property="og:description" content="All-in-one CRM, estimates, D2D tracking, and training. Close more deals. Run your business like Joe runs his.">
-  <meta property="og:url" content="https://nobigdealwithjoedeal.com/pro/landing">
+  <meta property="og:url" content="https://nobigdealwithjoedeal.com/pro">
   <meta property="og:image" content="https://nobigdealwithjoedeal.com/assets/images/joe-hero.jpg">
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="NBD Pro — Roofing CRM & Business Platform">
   <meta name="twitter:description" content="Built by a roofer for roofers. CRM, estimates, D2D tracking, training — all in one.">
   <meta name="twitter:image" content="https://nobigdealwithjoedeal.com/assets/images/joe-hero.jpg">
-  <script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"NBD Pro","applicationCategory":"BusinessApplication","description":"All-in-one roofing CRM, estimate builder, D2D tracking, and sales training platform built by a roofer for roofers.","operatingSystem":"Web","offers":{"@type":"AggregateOffer","lowPrice":"0","highPrice":"299","priceCurrency":"USD","offerCount":"3"},"author":{"@type":"Person","name":"Joe Deal","url":"https://nobigdealwithjoedeal.com/about"}}</script>
+  <script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"NBD Pro","applicationCategory":"BusinessApplication","description":"All-in-one roofing CRM, estimate builder, D2D tracking, and sales training platform built by a roofer for roofers.","operatingSystem":"Web","offers":{"@type":"AggregateOffer","lowPrice":"0","highPrice":"299","priceCurrency":"USD","offerCount":"5"},"author":{"@type":"Person","name":"Joe Deal","url":"https://nobigdealwithjoedeal.com/about"}}</script>
+
+  <script type="module" src="/pro/js/pro-index-auth-redirect.module.js"></script>
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -752,9 +754,9 @@
 
     .pricing-cards {
       display: grid;
-      grid-template-columns: repeat(4, 1fr);
+      grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
       gap: 24px;
-      max-width: 1200px;
+      max-width: 1280px;
       margin: 0 auto 40px;
     }
 
@@ -1061,12 +1063,14 @@
   <!-- STICKY NAV -->
   <nav>
     <div class="nav-container">
-      <a href="/pro/landing.html" class="nav-logo">NBD <span>PRO</span></a>
+      <a href="/pro/" class="nav-logo">NBD <span>PRO</span></a>
       <ul class="nav-links">
         <li><a href="#features">Features</a></li>
         <li><a href="#academy">Academy</a></li>
+        <li><a href="/pro/demo.html">Live Demo</a></li>
         <li><a href="#pricing">Pricing</a></li>
         <li><a href="#faq">FAQ</a></li>
+        <li><a href="/pro/login.html">Log In</a></li>
         <li><a href="#" class="btn nav-cta" data-pl-action="goRegister">Start Free Trial</a></li>
       </ul>
       <a href="#" class="btn nav-cta" style="display: none;" data-pl-action="goRegister">Sign Up</a>
@@ -1088,11 +1092,7 @@
         <button class="btn btn-primary" data-pl-action="goRegister">
           Start Free Trial
         </button>
-        <!-- Audit #26: was a blocking alert() ("Demo video coming soon!") —
-             a hard bounce on the primary hero. Replaced with a scroll-to-
-             mockup anchor so the button does something useful right now,
-             and clearly labels the destination. -->
-        <a class="btn btn-ghost" href="#see-it-live">
+        <a class="btn btn-ghost" href="/pro/demo.html">
           See It Live
         </a>
       </div>
@@ -1458,6 +1458,26 @@
           </button>
         </div>
 
+        <!-- Team Plan — must match /pro/pricing.html and functions/billing.js
+             PLAN_LIMITS (team: 150 leads, 2 reps, 100 AI calls). This tier
+             was previously advertised ONLY on pricing.html. -->
+        <div class="pricing-card">
+          <h3>Team</h3>
+          <div class="pricing-price">$149<span>/mo</span></div>
+          <p class="pricing-description">Your first crew. Two reps, one pipeline, and the leaderboard running.</p>
+          <ul class="pricing-features">
+            <li>150 leads per month</li>
+            <li>Up to 2 team reps</li>
+            <li>Rep leaderboard + coaching</li>
+            <li>Unlimited reports</li>
+            <li>100 AI calls per month</li>
+            <li>Territory management + portals</li>
+          </ul>
+          <button class="btn btn-primary btn-block" data-pl-action="goRegister" data-plan="team">
+            Start 14-Day Free Trial
+          </button>
+        </div>
+
         <!-- Growth Plan (Popular) -->
         <div class="pricing-card popular">
           <div class="pricing-badge">MOST POPULAR</div>
@@ -1476,10 +1496,28 @@
             Start 14-Day Free Trial
           </button>
         </div>
+
+        <!-- Enterprise — custom pricing, mirrors /pro/pricing.html -->
+        <div class="pricing-card">
+          <h3>Enterprise</h3>
+          <div class="pricing-price">Custom</div>
+          <p class="pricing-description">Multi-location, white-label, or enterprise rollout. Call me directly.</p>
+          <ul class="pricing-features">
+            <li>Unlimited leads, reports + AI</li>
+            <li>Unlimited reps</li>
+            <li>Custom branding / white-label</li>
+            <li>Multi-tenant architecture</li>
+            <li>Dedicated support</li>
+            <li>Custom integrations</li>
+          </ul>
+          <a href="mailto:jd@nobigdealwithjoedeal.com?subject=Enterprise%20Inquiry" class="btn btn-primary btn-block" style="background:transparent;border:2px solid var(--orange);color:var(--orange);">
+            Contact Sales
+          </a>
+        </div>
       </div>
 
       <div class="pricing-footer">
-        <strong>Every plan:</strong> Free tier forever, no card needed • 14-day free trial on Growth • Cancel anytime
+        <strong>Every plan:</strong> Free tier forever, no card needed • 14-day free trial on Team &amp; Growth • Cancel anytime
       </div>
     </div>
   </section>
