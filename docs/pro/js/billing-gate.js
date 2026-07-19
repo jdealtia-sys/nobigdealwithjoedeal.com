@@ -196,9 +196,16 @@ let _NBD_BG_DELEGATE; // module-local (globals Tranche 1 — was window.*)
       _loaded = true;
     } catch (e) {
       console.warn('[Billing] loadSubscription failed:', e.message);
-      _plan = 'free';
+      // Do NOT force plan='free' + _loaded=true here. That made a paid tenant
+      // flash as Free with Upgrade buttons whenever the sub doc read failed
+      // (network blip, rules race, SDK hiccup). Leave _loaded=false so
+      // softGate/enforceGate fail OPEN (plan unknown) and the billing UI can
+      // render a neutral "Loading…" / "Unavailable" state instead of a false
+      // Free tier. Server createCheckoutSession already double-bill-guards
+      // (#992); this only fixes the scary-but-harmless client flash.
       _purchasedSeats = 0;
-      _loaded = true;
+      _source = null;
+      _loaded = false;
     }
   }
 
@@ -385,6 +392,10 @@ let _NBD_BG_DELEGATE; // module-local (globals Tranche 1 — was window.*)
   function getPlan() {
     return {
       plan: _plan,
+      // false until a successful loadSubscription() (or owner short-circuit).
+      // Billing UI MUST check this before rendering Free + Upgrade — an
+      // unloaded plan still defaults _plan to 'free' for fail-open gates.
+      loaded: _loaded,
       label: (PLANS[_plan] || PLANS.free).label,
       status: _status,
       usage: { ..._usage },

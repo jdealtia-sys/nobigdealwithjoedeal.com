@@ -6,6 +6,30 @@
         const info = window.NBDBilling.getPlan();
         const limits = info.limits;
 
+        // Plan unknown (load still in flight, or loadSubscription failed).
+        // Never paint Free + Upgrade from the default _plan='free' seed — that
+        // was the post-sprint "scary Free flash" for paid tenants on a blip.
+        if (!info.loaded) {
+          var titleEl = document.getElementById('billingPlanTitle');
+          if (titleEl) titleEl.textContent = 'NBD Pro · Loading…';
+          var badgeEl = document.getElementById('billingPlanBadge');
+          if (badgeEl) badgeEl.textContent = '…';
+          var nameEl = document.getElementById('billingPlanName');
+          if (nameEl) nameEl.textContent = 'Loading plan…';
+          var descEl = document.getElementById('billingPlanDesc');
+          if (descEl) descEl.textContent = 'Checking your subscription…';
+          var statusEl = document.getElementById('billingStatusBadge');
+          if (statusEl) {
+            statusEl.textContent = 'LOADING';
+            statusEl.style.background = '#666';
+          }
+          var cardsLoading = document.getElementById('billingPlanCards');
+          if (cardsLoading) {
+            cardsLoading.innerHTML = '<div style="grid-column:1/-1;padding:18px;text-align:center;color:var(--m);font-size:12px;">Loading plan details…</div>';
+          }
+          return;
+        }
+
         // Plan status
         document.getElementById('billingPlanTitle').textContent = 'NBD Pro · ' + info.label;
         document.getElementById('billingPlanBadge').textContent = info.isTrialing ? 'TRIAL' : info.label.toUpperCase();
