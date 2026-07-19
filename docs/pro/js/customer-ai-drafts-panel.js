@@ -303,12 +303,10 @@
           if (window.showToast) window.showToast('Reply sent ✅', 'success');
           hideHostIfEmpty();
           // Handshake: refresh Comm Log + smart-followup (same lead thread).
+          // Smart-followup panel listens for nbd:data-refreshed (no window export).
           try {
             if (typeof window.loadCommunicationLog === 'function' && window._customerId) {
               window.loadCommunicationLog(window._customerId);
-            }
-            if (window.CustomerSmartFollowupPanel && typeof window.CustomerSmartFollowupPanel.update === 'function') {
-              window.CustomerSmartFollowupPanel.update();
             }
             window.dispatchEvent(new CustomEvent('nbd:data-refreshed', {
               detail: { source: 'ai-draft-sent', leadId: window._customerId || null },

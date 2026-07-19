@@ -126,8 +126,9 @@ ok('morning briefing injects SmartFollowup actions',
   /smart_followup/.test(AJP) && /SmartFollowup\.computeSuggestion/.test(AJP)
   && /enrichSuggestionAI/.test(AJP));
 
-ok('AI draft send refreshes Comm Log + smart-followup',
-  /loadCommunicationLog/.test(AID) && /CustomerSmartFollowupPanel/.test(AID));
+ok('AI draft send refreshes Comm Log + fires nbd:data-refreshed (smart-followup listens)',
+  /loadCommunicationLog/.test(AID) && /nbd:data-refreshed/.test(AID)
+  && /ai-draft-sent/.test(AID));
 
 ok('SMS platform errors surface A2P/Twilio guidance',
   /A2P|Twilio/.test(SRC) && /nbd:sms-platform-error/.test(SRC));
