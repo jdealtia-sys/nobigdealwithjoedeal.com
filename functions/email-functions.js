@@ -276,10 +276,10 @@ function populateTemplate(template, variables) {
 /**
  * Log email to Firestore
  */
-async function logEmailToFirestore(db, to, subject, uid, status = 'sent', leadId = null) {
+async function logEmailToFirestore(db, to, subject, uid, status = 'sent', leadId = null, companyId = null) {
   try {
     const ts = FieldValue.serverTimestamp();
-    await db.collection('email_log').add({
+    const row = {
       to,
       subject,
       uid,
@@ -292,7 +292,10 @@ async function logEmailToFirestore(db, to, subject, uid, status = 'sent', leadId
       date: ts,
       sentAt: ts,
       status
-    });
+    };
+    // companyId enables team-wide Comm Log for managers (same-tenant read).
+    if (companyId) row.companyId = companyId;
+    await db.collection('email_log').add(row);
   } catch (e) {
     logger.warn('email_log_write_failed', { err: e.message });
   }
@@ -398,7 +401,8 @@ exports.sendEmail = onRequest(
 
       // Log to Firestore
       const db = getFirestore();
-      await logEmailToFirestore(db, to, subject, decoded.uid, 'sent', leadId || null);
+      const companyId = decoded.companyId || null;
+      await logEmailToFirestore(db, to, subject, decoded.uid, 'sent', leadId || null, companyId);
 
       res.json({
         success: true,
@@ -410,7 +414,8 @@ exports.sendEmail = onRequest(
 
       // Log failure
       const db = getFirestore();
-      await logEmailToFirestore(db, to, subject, decoded.uid, 'failed', leadId || null);
+      const companyId = decoded.companyId || null;
+      await logEmailToFirestore(db, to, subject, decoded.uid, 'failed', leadId || null, companyId);
 
       res.status(500).json({
         error: 'Failed to send email'
@@ -540,7 +545,7 @@ exports.sendEstimateEmail = onRequest(
       });
 
       // Log to Firestore
-      await logEmailToFirestore(db, to, subject || 'Estimate', decoded.uid, 'sent', leadId);
+      await logEmailToFirestore(db, to, subject || 'Estimate', decoded.uid, 'sent', leadId, decoded.companyId || null);
 
       res.json({
         success: true,

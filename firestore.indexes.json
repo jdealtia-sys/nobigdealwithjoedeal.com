@@ -542,6 +542,15 @@
       ]
     },
     {
+      "collectionGroup": "email_log",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "leadId", "order": "ASCENDING" },
+        { "fieldPath": "companyId", "order": "ASCENDING" },
+        { "fieldPath": "date", "order": "DESCENDING" }
+      ]
+    },
+    {
       "collectionGroup": "sms_log",
       "queryScope": "COLLECTION",
       "fields": [
@@ -557,6 +566,15 @@
           "fieldPath": "date",
           "order": "DESCENDING"
         }
+      ]
+    },
+    {
+      "collectionGroup": "sms_log",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "leadId", "order": "ASCENDING" },
+        { "fieldPath": "companyId", "order": "ASCENDING" },
+        { "fieldPath": "date", "order": "DESCENDING" }
       ]
     },
     {

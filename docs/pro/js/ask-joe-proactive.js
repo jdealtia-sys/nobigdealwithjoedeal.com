@@ -391,9 +391,58 @@
       });
     });
 
+    // ── Smart follow-up top actions (heuristic; AI enrich top 5 async) ──
+    // Prepend highest-leverage SmartFollowup suggestions so the morning
+    // digest answers "what do I do first?" with the same engine as the
+    // kanban pills / customer panel.
+    briefing.smartFollowups = [];
+    if (window.SmartFollowup && typeof window.SmartFollowup.computeSuggestion === 'function'
+        && typeof window.SmartFollowup.score === 'function') {
+      try {
+        const scored = leads
+          .filter(l => l && l.id && !_isTerminal(l))
+          .map(l => {
+            const sug = window.SmartFollowup.computeSuggestion(l);
+            return sug ? { lead: l, sug, score: window.SmartFollowup.score(sug) } : null;
+          })
+          .filter(x => x && x.score >= 200) // today / urgent / this-week only
+          .sort((a, b) => b.score - a.score)
+          .slice(0, 8);
+        scored.forEach(({ lead, sug }) => {
+          const name = lead.name || [lead.firstName, lead.lastName].filter(Boolean).join(' ') || 'Lead';
+          const item = {
+            type: 'smart_followup',
+            priority: sug.priority === 'urgent' ? 'high' : (sug.priority === 'today' ? 'high' : 'medium'),
+            icon: sug.channel === 'email' ? '📧' : (sug.channel === 'sms' || sug.action === 'text' ? '💬' : '📞'),
+            title: sug.headline || `Follow up: ${name}`,
+            body: sug.reasoning || '',
+            leadId: lead.id,
+            action: 'smart_followup',
+            channel: sug.channel,
+            draft: sug.draft || null,
+            confidence: sug.confidence,
+            _aiEnriched: !!sug._aiEnriched,
+          };
+          briefing.actions.unshift(item);
+          briefing.smartFollowups.push(item);
+        });
+        // Async: enrich top 5 with Claude (bounded spend). Callers that
+        // re-render on nbd:data-refreshed will pick up _aiEnriched text.
+        if (typeof window.SmartFollowup.enrichSuggestionAI === 'function') {
+          scored.slice(0, 5).forEach(({ lead }) => {
+            window.SmartFollowup.enrichSuggestionAI(lead).catch(() => {});
+          });
+        }
+      } catch (e) {
+        console.warn('[AskJoeProactive] smart followup slice failed', e && e.message);
+      }
+    }
+
     // ── Sort actions by priority ──
     const priorityOrder = { high: 0, medium: 1, low: 2 };
     briefing.actions.sort((a, b) => priorityOrder[a.priority] - priorityOrder[b.priority]);
+    // Cap action list so the digest stays scannable.
+    briefing.actions = briefing.actions.slice(0, 12);
 
     // ── Top-line summary sentence ──
     briefing.summary = buildSummarySentence(briefing);

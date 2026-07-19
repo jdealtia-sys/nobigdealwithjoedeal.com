@@ -302,11 +302,25 @@
           card.remove();
           if (window.showToast) window.showToast('Reply sent ✅', 'success');
           hideHostIfEmpty();
+          // Handshake: refresh Comm Log + smart-followup (same lead thread).
+          // Smart-followup panel listens for nbd:data-refreshed (no window export).
+          try {
+            if (typeof window.loadCommunicationLog === 'function' && window._customerId) {
+              window.loadCommunicationLog(window._customerId);
+            }
+            window.dispatchEvent(new CustomEvent('nbd:data-refreshed', {
+              detail: { source: 'ai-draft-sent', leadId: window._customerId || null },
+            }));
+          } catch (_) {}
         } else if (st === 'failed') {
           settled = true;
           setBusy(false);
           const reason = d.failureReason || 'unknown error';
-          setStatus('⚠️ Did NOT send (' + reason + ') — edit and try again.');
+          // Surface Twilio/A2P-ish failures clearly (ops dependency).
+          const a2pHint = /30034|A2P|unverified|trial/i.test(String(reason))
+            ? ' — Twilio/A2P may need setup (Settings or Twilio console).'
+            : '';
+          setStatus('⚠️ Did NOT send (' + reason + ')' + a2pHint + ' — edit and try again.');
           // Revert to pending so the rep can re-approve after editing.
           try { await window.updateDoc(ref, { status: 'pending' }); } catch (_) {}
           if (window.showToast) window.showToast('AI reply did NOT send: ' + reason, 'error');

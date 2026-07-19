@@ -555,10 +555,29 @@ body{font-family:'Barlow',sans-serif;background:#0d0f14;color:#e5e7eb;min-height
     const shareUrl = await getDealAcceptLink(deal);
 
     if (shareUrl) {
-      // Open SMS with pre-filled message
-      const msg = encodeURIComponent(`Hi ${deal.customerName || 'there'}! Here's your roof estimate from No Big Deal Home Solutions. View your options, compare packages, and sign digitally: ${shareUrl}`);
-      window.open(`sms:${deal.customerPhone.replace(/\D/g, '')}?body=${msg}`, '_self');
-      updateDeal(dealId, { status: DEAL_STATUS.SENT, sentAt: new Date().toISOString(), sentVia: 'sms' });
+      let brand = 'No Big Deal Home Solutions';
+      try {
+        if (window._companyProfile && window._companyProfile.name) brand = window._companyProfile.name;
+        else if (window.emailSystem && typeof window.emailSystem._brandFields === 'function') {
+          const bf = window.emailSystem._brandFields() || {};
+          brand = bf.companyName || brand;
+        }
+      } catch (_) {}
+      const msg = `Hi ${deal.customerName || 'there'}! Here's your roof estimate from ${brand}. View your options, compare packages, and sign digitally: ${shareUrl}`;
+      if (window.NBDComms && typeof window.NBDComms.sendSMS === 'function') {
+        const result = await window.NBDComms.sendSMS({
+          to: deal.customerPhone,
+          message: msg,
+          leadId: deal.leadId || null,
+        });
+        if (result && result.success) {
+          updateDeal(dealId, { status: DEAL_STATUS.SENT, sentAt: new Date().toISOString(), sentVia: 'sms' });
+          return;
+        }
+      } else {
+        window.open(`sms:${deal.customerPhone.replace(/\D/g, '')}?body=${encodeURIComponent(msg)}`, '_self');
+        updateDeal(dealId, { status: DEAL_STATUS.SENT, sentAt: new Date().toISOString(), sentVia: 'sms' });
+      }
     } else {
       // Fallback: copy link
       if (window.showToast) window.showToast('Upload failed — preview the deal and share manually', 'warning');
@@ -574,11 +593,32 @@ body{font-family:'Barlow',sans-serif;background:#0d0f14;color:#e5e7eb;min-height
 
     const shareUrl = await getDealAcceptLink(deal);
 
-    const subject = encodeURIComponent('Your Roof Estimate — No Big Deal Home Solutions');
-    const body = encodeURIComponent(`Hi ${deal.customerName || 'there'},\n\nThank you for giving us the opportunity to earn your business! I've put together your personalized roof estimate.\n\nView your options here: ${shareUrl || '[Link will be available shortly]'}\n\nYou can compare packages, see financing options, and digitally sign — all from your phone.\n\nBest,\n${deal.repName}\nNo Big Deal Home Solutions\n${deal.repPhone}`);
+    let brand = 'No Big Deal Home Solutions';
+    try {
+      if (window._companyProfile && window._companyProfile.name) brand = window._companyProfile.name;
+      else if (window.emailSystem && typeof window.emailSystem._brandFields === 'function') {
+        const bf = window.emailSystem._brandFields() || {};
+        brand = bf.companyName || brand;
+      }
+    } catch (_) {}
+    const subject = `Your Roof Estimate — ${brand}`;
+    const body = `Hi ${deal.customerName || 'there'},\n\nThank you for giving us the opportunity to earn your business! I've put together your personalized roof estimate.\n\nView your options here: ${shareUrl || '[Link will be available shortly]'}\n\nYou can compare packages, see financing options, and digitally sign — all from your phone.\n\nBest,\n${deal.repName || ''}\n${brand}\n${deal.repPhone || ''}`;
 
-    window.open(`mailto:${deal.customerEmail}?subject=${subject}&body=${body}`, '_self');
-    updateDeal(dealId, { status: DEAL_STATUS.SENT, sentAt: new Date().toISOString(), sentVia: 'email' });
+    if (window.NBDComms && typeof window.NBDComms.sendEmail === 'function') {
+      const result = await window.NBDComms.sendEmail({
+        to: deal.customerEmail,
+        subject: subject,
+        body: body,
+        leadId: deal.leadId || null,
+      });
+      if (result && result.success) {
+        updateDeal(dealId, { status: DEAL_STATUS.SENT, sentAt: new Date().toISOString(), sentVia: 'email' });
+        return;
+      }
+    } else {
+      window.open(`mailto:${deal.customerEmail}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`, '_self');
+      updateDeal(dealId, { status: DEAL_STATUS.SENT, sentAt: new Date().toISOString(), sentVia: 'email' });
+    }
   }
 
   // Build the first-party ACCEPT link for a deal: upload the interactive HTML

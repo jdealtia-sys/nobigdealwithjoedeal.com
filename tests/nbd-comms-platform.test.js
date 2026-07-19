@@ -85,6 +85,54 @@ ok('customer smart-followup panel uses executeSuggestion for SMS/email',
   /executeSuggestion/.test(PANEL)
   && /data-csf-draft/.test(PANEL));
 
+// Wave: CRM loop complete (items 3–5, 9–10)
+const PLH = fs.readFileSync(path.join(__dirname, '..', 'docs/pro/js/portal-link-helpers.js'), 'utf8');
+const CB = fs.readFileSync(path.join(__dirname, '..', 'docs/pro/js/close-board.js'), 'utf8');
+const AJP = fs.readFileSync(path.join(__dirname, '..', 'docs/pro/js/ask-joe-proactive.js'), 'utf8');
+const CTL = fs.readFileSync(path.join(__dirname, '..', 'docs/pro/js/customer-tasks-ui.js'), 'utf8');
+const ES = fs.readFileSync(path.join(__dirname, '..', 'docs/pro/js/email_system.js'), 'utf8');
+const RULES = fs.readFileSync(path.join(__dirname, '..', 'firestore.rules'), 'utf8');
+const IDX = fs.readFileSync(path.join(__dirname, '..', 'firestore.indexes.json'), 'utf8');
+const SMSF = fs.readFileSync(path.join(__dirname, '..', 'functions/sms-functions.js'), 'utf8');
+const EMF = fs.readFileSync(path.join(__dirname, '..', 'functions/email-functions.js'), 'utf8');
+const AID = fs.readFileSync(path.join(__dirname, '..', 'docs/pro/js/customer-ai-drafts-panel.js'), 'utf8');
+
+ok('PortalLinkHelpers SMS/email use NBDComms platform path',
+  /NBDComms\.sendSMS/.test(PLH) && /NBDComms\.sendEmail/.test(PLH)
+  && /nbd-portal-link-helpers-v2/.test(PLH));
+
+ok('close-board deal send uses NBDComms',
+  /NBDComms\.sendSMS/.test(CB) && /NBDComms\.sendEmail/.test(CB));
+
+ok('EmailDrip Send now + buildStageEmail exist',
+  /sendStageEmail/.test(SRC) && /buildStageEmail/.test(ES) && /sendStageNow/.test(SRC));
+
+ok('Comm Log supports team companyId query for staff',
+  /teamThread/.test(CTL) && /companyId/.test(CTL));
+
+ok('email_log/sms_log rules allow company readers with same companyId',
+  /match \/email_log/.test(RULES)
+  && /isCompanyReader\(\) && sameCompanyAsResource\(\)/.test(RULES));
+
+ok('indexes include leadId+companyId+date for both logs',
+  /"collectionGroup": "email_log"[\s\S]{0,200}"companyId"/.test(IDX)
+  && /"collectionGroup": "sms_log"[\s\S]{0,200}"companyId"/.test(IDX));
+
+ok('server log writers stamp companyId',
+  /companyId/.test(EMF) && /row\.companyId = companyId/.test(EMF)
+  && /companyId/.test(SMSF));
+
+ok('morning briefing injects SmartFollowup actions',
+  /smart_followup/.test(AJP) && /SmartFollowup\.computeSuggestion/.test(AJP)
+  && /enrichSuggestionAI/.test(AJP));
+
+ok('AI draft send refreshes Comm Log + fires nbd:data-refreshed (smart-followup listens)',
+  /loadCommunicationLog/.test(AID) && /nbd:data-refreshed/.test(AID)
+  && /ai-draft-sent/.test(AID));
+
+ok('SMS platform errors surface A2P/Twilio guidance',
+  /A2P|Twilio/.test(SRC) && /nbd:sms-platform-error/.test(SRC));
+
 console.log('\n──────────────────────────────────────────────────');
 console.log(`${passed} passed, ${failed} failed`);
 if (failed) {

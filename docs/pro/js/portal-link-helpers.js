@@ -15,13 +15,14 @@
  * Exposes: window.PortalLinkHelpers
  *   .resolveUrl(leadId)         → Promise<string>
  *   .copyForLead(lead)          → Promise<void>  (toast on success/fail)
- *   .smsForLead(lead)           → Promise<void>  (toast + sms: handoff)
+ *   .smsForLead(lead)           → Promise<void>  (platform SMS, handoff fallback)
+ *   .emailForLead(lead)         → Promise<void>  (platform email, handoff fallback)
  */
 (function () {
   'use strict';
 
   if (window.PortalLinkHelpers
-      && window.PortalLinkHelpers.__sentinel === 'nbd-portal-link-helpers-v1') return;
+      && window.PortalLinkHelpers.__sentinel === 'nbd-portal-link-helpers-v2') return;
 
   // ─── Helpers ─────────────────────────────────────────────────────
   function _toast(msg, type) {
@@ -206,10 +207,27 @@
         body = `${greeting}here's your project portal — photos, status updates, and what's coming next: ${url}`;
       }
 
-      const smsUrl = `sms:${phone}?body=${encodeURIComponent(body)}`;
-      window.location.href = smsUrl;
-      _toast(firstName ? `Opening SMS to ${firstName}…` : 'Opening SMS…', 'success');
-      _recordShare(lead.id, 'sms');
+      // Platform-first (NBDComms → Twilio); falls back to sms: handoff.
+      if (window.NBDComms && typeof window.NBDComms.sendSMS === 'function') {
+        const result = await window.NBDComms.sendSMS({
+          to: lead.phone || phone,
+          message: body,
+          leadId: lead.id,
+        });
+        if (result && result.success) {
+          _recordShare(lead.id, 'sms');
+          return;
+        }
+        // Hard failure (opt-out / auth) — NBDComms already toasted.
+        if (result && result.success === false && result.mode === 'platform') {
+          return;
+        }
+      } else {
+        const smsUrl = `sms:${phone}?body=${encodeURIComponent(body)}`;
+        window.location.href = smsUrl;
+        _toast(firstName ? `Opening SMS to ${firstName}…` : 'Opening SMS…', 'success');
+        _recordShare(lead.id, 'sms');
+      }
     } catch (e) {
       console.warn('[PortalLinkHelpers.smsForLead] failed', e);
       _toast('Couldn\'t prepare SMS: ' + (e.message || 'unknown'), 'error');
@@ -255,6 +273,16 @@
         }
       }
       if (!subject) subject = 'Your project portal — photos, status, and next steps';
+      // Brand signature: prefer tenant company name when available.
+      let brand = 'your contractor';
+      try {
+        if (window.emailSystem && typeof window.emailSystem._brandFields === 'function') {
+          const bf = window.emailSystem._brandFields() || {};
+          brand = bf.companyName || bf.companyNameShort || brand;
+        } else if (window._companyProfile && window._companyProfile.name) {
+          brand = window._companyProfile.name;
+        }
+      } catch (_) {}
       if (!body) body =
 `${greeting}
 
@@ -264,14 +292,31 @@ ${url}
 
 Bookmark it; the link stays live as we work through the project.
 
-— No Big Deal Home Solutions`;
-      const mailUrl =
-        'mailto:' + encodeURIComponent(email) +
-        '?subject=' + encodeURIComponent(subject) +
-        '&body=' + encodeURIComponent(body);
-      window.location.href = mailUrl;
-      _toast(firstName ? `Opening email to ${firstName}…` : 'Opening email…', 'success');
-      _recordShare(lead.id, 'email');
+— ${brand}`;
+
+      if (window.NBDComms && typeof window.NBDComms.sendEmail === 'function') {
+        const result = await window.NBDComms.sendEmail({
+          to: email,
+          subject: subject,
+          body: body,
+          leadId: lead.id,
+        });
+        if (result && result.success) {
+          _recordShare(lead.id, 'email');
+          return;
+        }
+        if (result && result.success === false && result.mode === 'platform') {
+          return;
+        }
+      } else {
+        const mailUrl =
+          'mailto:' + encodeURIComponent(email) +
+          '?subject=' + encodeURIComponent(subject) +
+          '&body=' + encodeURIComponent(body);
+        window.location.href = mailUrl;
+        _toast(firstName ? `Opening email to ${firstName}…` : 'Opening email…', 'success');
+        _recordShare(lead.id, 'email');
+      }
     } catch (e) {
       console.warn('[PortalLinkHelpers.emailForLead] failed', e);
       _toast('Couldn\'t prepare email: ' + (e.message || 'unknown'), 'error');
@@ -504,7 +549,7 @@ Bookmark it; the link stays live as we work through the project.
   function escapeAttr(s) { return escapeText(s); }
 
   window.PortalLinkHelpers = {
-    __sentinel: 'nbd-portal-link-helpers-v1',
+    __sentinel: 'nbd-portal-link-helpers-v2',
     resolveUrl,
     copyForLead,
     smsForLead,
