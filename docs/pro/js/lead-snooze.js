@@ -276,7 +276,7 @@
     overlay.setAttribute('aria-modal', 'true');
     overlay.setAttribute('aria-labelledby', 'nbd-snooze-title');
     overlay.style.cssText = `
-      position:fixed; inset:0; background:rgba(0,0,0,0.55); z-index:2400;
+      position:fixed; inset:0; background:rgba(0,0,0,0.55); z-index:10000;
       display:flex; align-items:center; justify-content:center; padding:20px;
       font-family:'Barlow',-apple-system,system-ui,sans-serif;`;
 
@@ -519,7 +519,7 @@
     overlay.setAttribute('aria-modal', 'true');
     overlay.setAttribute('aria-labelledby', 'nbd-bulk-snooze-title');
     overlay.style.cssText = `
-      position:fixed; inset:0; background:rgba(0,0,0,0.55); z-index:2400;
+      position:fixed; inset:0; background:rgba(0,0,0,0.55); z-index:10000;
       display:flex; align-items:center; justify-content:center; padding:20px;
       font-family:'Barlow',-apple-system,system-ui,sans-serif;`;
 

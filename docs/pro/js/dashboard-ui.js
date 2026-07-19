@@ -925,11 +925,11 @@ document.getElementById('tipsModal').addEventListener('click',e=>{if(e.target===
 // stay here (separate handlers, not part of the dedup).
 
 function closePropertyIntelModal() {
-  document.getElementById('propertyIntelModal').style.display = 'none';
+  (function(){var m=document.getElementById('propertyIntelModal');m.style.display='none';m.classList.remove('open');})();
 }
 
 function closePropertyIntelConfirmModal() {
-  document.getElementById('propertyIntelConfirmModal').style.display = 'none';
+  (function(){var m=document.getElementById('propertyIntelConfirmModal');m.style.display='none';m.classList.remove('open');})();
 }
 
 // ══════════════════════════════════════════════

@@ -22,7 +22,7 @@
   var slides = document.querySelectorAll('.ann-slide');
   if (slides.length < 2) return;
   var current = 0;
-  setInterval(function(){
+  (window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches)?null:setInterval(function(){
     slides[current].classList.remove('active');
     slides[current].classList.add('exit');
     var prev = current;

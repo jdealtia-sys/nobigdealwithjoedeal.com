@@ -1741,4 +1741,6 @@
      hides every non-icon child, which silently dropped the live lead/prospect
      counts. Corner pills mirror the health-indicator treatment. */
   body.sidebar-collapsed .sidebar .ni{position:relative;}
-  body.sidebar-collapsed .sidebar .ni .nbadge{display:block!important;position:absolute;top:2px;right:4px;font-size:8px!important;line-height:1;padding:2px 4px!important;min-width:14px;text-align:center;border-radius:8px;}
+  /* collapsed health dot yields the corner to the count pill */
+  body.sidebar-collapsed .sidebar .ni .health-indicator{top:auto!important;bottom:2px;right:4px;}
+  body.sidebar-collapsed .sidebar .ni .nbadge:not(.dn){display:block!important;position:absolute;top:2px;right:4px;font-size:8px!important;line-height:1;padding:2px 4px!important;min-width:14px;text-align:center;border-radius:8px;}

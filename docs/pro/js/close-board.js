@@ -369,23 +369,23 @@
 :root{--orange:${BRAND.accent};}
 *{margin:0;padding:0;box-sizing:border-box;}
 body{font-family:'Barlow',sans-serif;background:#0d0f14;color:#e5e7eb;min-height:100vh;}
-.hero{background:linear-gradient(135deg,#1a1d23 0%,#0d0f14 100%);padding:40px 20px 30px;text-align:center;border-bottom:2px solid #e8720c;}
+.hero{background:linear-gradient(135deg,#1a1d23 0%,#0d0f14 100%);padding:40px 20px 30px;text-align:center;border-bottom:2px solid var(--orange);}
 .logo{font-family:'Barlow Condensed',sans-serif;font-size:28px;font-weight:800;letter-spacing:.04em;}
-.logo span{color:#e8720c;}
+.logo span{color:var(--orange);}
 .addr{font-size:14px;color:#8b8e96;margin-top:8px;}
 .customer{font-size:18px;font-weight:600;margin-top:12px;}
 .rep-bar{display:flex;align-items:center;justify-content:center;gap:12px;margin-top:16px;padding:12px 20px;background:#1e2028;border-radius:10px;max-width:400px;margin-left:auto;margin-right:auto;}
 .rep-name{font-size:13px;font-weight:600;}
 .rep-contact{font-size:11px;color:#8b8e96;}
 .container{max-width:600px;margin:0 auto;padding:20px;}
-.section-title{font-family:'Barlow Condensed',sans-serif;font-size:15px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#e8720c;margin:24px 0 12px;}
+.section-title{font-family:'Barlow Condensed',sans-serif;font-size:15px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--orange);margin:24px 0 12px;}
 .tier-cards{display:flex;flex-direction:column;gap:12px;}
 .tier{background:#1e2028;border:2px solid #2a2d35;border-radius:14px;padding:20px;cursor:pointer;transition:all .2s;position:relative;overflow:hidden;}
-.tier:hover{border-color:#e8720c40;}
-.tier.selected{border-color:#e8720c;box-shadow:0 0 20px color-mix(in srgb, var(--orange) 20%, transparent);}
-.tier.recommended::before{content:'RECOMMENDED';position:absolute;top:10px;right:-28px;background:#e8720c;color:white;font-size:9px;font-weight:700;padding:2px 30px;transform:rotate(45deg);letter-spacing:.08em;}
+.tier:hover{border-color:color-mix(in srgb, var(--orange) 25%, transparent);}
+.tier.selected{border-color:var(--orange);box-shadow:0 0 20px color-mix(in srgb, var(--orange) 20%, transparent);}
+.tier.recommended::before{content:'RECOMMENDED';position:absolute;top:10px;right:-28px;background:var(--orange);color:white;font-size:9px;font-weight:700;padding:2px 30px;transform:rotate(45deg);letter-spacing:.08em;}
 .tier-name{font-family:'Barlow Condensed',sans-serif;font-size:20px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;}
-.tier-price{font-size:28px;font-weight:700;color:#e8720c;margin:8px 0;}
+.tier-price{font-size:28px;font-weight:700;color:var(--orange);margin:8px 0;}
 .tier-monthly{font-size:12px;color:#8b8e96;}
 .tier-desc{font-size:13px;color:#8b8e96;margin-top:8px;line-height:1.5;}
 .tier-items{margin-top:12px;border-top:1px solid #2a2d35;padding-top:10px;}
@@ -403,7 +403,7 @@ body{font-family:'Barlow',sans-serif;background:#0d0f14;color:#e5e7eb;min-height
 .sign-canvas-wrap{background:#fff;border-radius:10px;margin:12px auto;max-width:400px;height:120px;position:relative;}
 .sign-canvas{width:100%;height:100%;border-radius:10px;cursor:crosshair;}
 .sign-clear{position:absolute;top:4px;right:8px;background:none;border:none;color:#999;font-size:11px;cursor:pointer;}
-.sign-btn{padding:16px 40px;background:#e8720c;color:white;border:none;border-radius:12px;font-size:16px;font-weight:700;font-family:'Barlow Condensed',sans-serif;letter-spacing:.06em;text-transform:uppercase;cursor:pointer;margin-top:12px;transition:all .2s;}
+.sign-btn{padding:16px 40px;background:var(--orange);color:white;border:none;border-radius:12px;font-size:16px;font-weight:700;font-family:'Barlow Condensed',sans-serif;letter-spacing:.06em;text-transform:uppercase;cursor:pointer;margin-top:12px;transition:all .2s;}
 .sign-btn:hover{filter:brightness(1.15);}
 .sign-btn:disabled{opacity:.4;cursor:not-allowed;}
 .schedule-section{margin-top:20px;text-align:center;}
@@ -414,7 +414,7 @@ body{font-family:'Barlow',sans-serif;background:#0d0f14;color:#e5e7eb;min-height
 .success-icon{font-size:60px;}
 .success-text{font-size:22px;font-weight:700;font-family:'Barlow Condensed',sans-serif;}
 .success-sub{font-size:13px;color:#8b8e96;max-width:300px;text-align:center;}
-.warranty-badge{display:inline-block;background:linear-gradient(135deg,#e8720c,#ff8c42);color:white;padding:8px 20px;border-radius:20px;font-size:12px;font-weight:700;font-family:'Barlow Condensed',sans-serif;letter-spacing:.04em;margin-top:12px;}
+.warranty-badge{display:inline-block;background:linear-gradient(135deg,var(--orange),#ff8c42);color:white;padding:8px 20px;border-radius:20px;font-size:12px;font-weight:700;font-family:'Barlow Condensed',sans-serif;letter-spacing:.04em;margin-top:12px;}
 @media(max-width:500px){.tier-price{font-size:22px;}.tier-name{font-size:17px;}}
 </style>
 </head><body>
@@ -585,14 +585,10 @@ body{font-family:'Barlow',sans-serif;background:#0d0f14;color:#e5e7eb;min-height
     const shareUrl = await getDealAcceptLink(deal);
 
     if (shareUrl) {
-      let brand = 'No Big Deal Home Solutions';
-      try {
-        if (window._companyProfile && window._companyProfile.name) brand = window._companyProfile.name;
-        else if (window.emailSystem && typeof window.emailSystem._brandFields === 'function') {
-          const bf = window.emailSystem._brandFields() || {};
-          brand = bf.companyName || brand;
-        }
-      } catch (_) {}
+      // Certification finding: outbound SMS/email named NBD while the linked
+      // page was tenant-branded (dead fallback chain on dashboard). Use the
+      // same resolver as the generated page.
+      const brand = _dealBrand().name;
       const msg = `Hi ${deal.customerName || 'there'}! Here's your roof estimate from ${brand}. View your options, compare packages, and sign digitally: ${shareUrl}`;
       if (window.NBDComms && typeof window.NBDComms.sendSMS === 'function') {
         const result = await window.NBDComms.sendSMS({
@@ -623,14 +619,13 @@ body{font-family:'Barlow',sans-serif;background:#0d0f14;color:#e5e7eb;min-height
 
     const shareUrl = await getDealAcceptLink(deal);
 
-    let brand = 'No Big Deal Home Solutions';
-    try {
-      if (window._companyProfile && window._companyProfile.name) brand = window._companyProfile.name;
-      else if (window.emailSystem && typeof window.emailSystem._brandFields === 'function') {
-        const bf = window.emailSystem._brandFields() || {};
-        brand = bf.companyName || brand;
-      }
-    } catch (_) {}
+    // Certification finding: outbound SMS/email named NBD while the linked
+
+    // page was tenant-branded (dead fallback chain on dashboard). Use the
+
+    // same resolver as the generated page.
+
+    const brand = _dealBrand().name;
     const subject = `Your Roof Estimate — ${brand}`;
     const body = `Hi ${deal.customerName || 'there'},\n\nThank you for giving us the opportunity to earn your business! I've put together your personalized roof estimate.\n\nView your options here: ${shareUrl || '[Link will be available shortly]'}\n\nYou can compare packages, see financing options, and digitally sign — all from your phone.\n\nBest,\n${deal.repName || ''}\n${brand}\n${deal.repPhone || ''}`;
 

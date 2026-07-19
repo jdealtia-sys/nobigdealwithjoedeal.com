@@ -142,7 +142,7 @@ function showSlowLoadHint() {
   if (document.getElementById('slow-load-hint')) return;
   const overlay = document.createElement('div');
   overlay.id = 'slow-load-hint';
-  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(15,18,25,0.94);z-index:2400;display:flex;align-items:center;justify-content:center;padding:24px;opacity:1;';
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(15,18,25,0.94);z-index:10000;display:flex;align-items:center;justify-content:center;padding:24px;opacity:1;';
   overlay.innerHTML = `
     <div style="max-width:380px;text-align:center;color:#e8eaf0;font-family:'Barlow',-apple-system,system-ui,sans-serif;">
       <div style="font-size:32px;margin-bottom:12px;">⏳</div>

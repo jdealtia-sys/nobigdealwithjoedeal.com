@@ -644,7 +644,7 @@ function showKanbanSkeleton() {
 
 // Show skeleton loading state for photos grid
 function showPhotosSkeleton() {
-  const photosContainer = document.getElementById('photoLeadsContainer');
+  const photosContainer = document.getElementById('photoLeadsList');
   if (!photosContainer) return;
   
   const skeletonHTML = `
