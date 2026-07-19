@@ -359,7 +359,7 @@ function _injectCustPanelCss() {
     + 'box-shadow:0 4px 16px rgba(0,0,0,.5);backdrop-filter:blur(4px);width:186px;max-height:60vh;overflow:auto;}'
     + '.nbd-cust-panel .ncp-row{display:flex;align-items:center;gap:6px;margin-bottom:7px;}'
     + '.nbd-cust-panel .ncp-lbl{font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:#9aa4b2;font-weight:700;}'
-    + '.nbd-cust-panel select{flex:1;background:#171b21;color:#e7ebf0;border:1px solid rgba(255,255,255,.16);border-radius:6px;font-size:12px;padding:3px 5px;}'
+    + '.nbd-cust-panel select{flex:1;background:var(--s2,#171b21);color:var(--t,#e7ebf0);border:1px solid var(--br,rgba(255,255,255,.16));border-radius:6px;font-size:12px;padding:3px 5px;}'
     + '.nbd-cust-panel .ncp-chip{display:flex;align-items:center;gap:7px;width:100%;background:none;border:none;padding:3px 4px;border-radius:6px;cursor:pointer;color:#e7ebf0;font-size:12px;text-align:left;}'
     + '.nbd-cust-panel .ncp-chip:hover{background:rgba(255,255,255,.07);}'
     + '.nbd-cust-panel .ncp-chip.off{opacity:.38;}'

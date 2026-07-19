@@ -581,14 +581,14 @@
     .ak-card.orange::before { background: var(--orange, #e8720c); }
     .ak-card.green::before { background: var(--green, #2ECC8A); }
     .ak-card.red::before { background: #E05252; }
-    .ak-card.cyan::before { background: #00d4ff; }
+    .ak-card.cyan::before { background: var(--blue,#3b82f6); }
     .ak-lbl { font-size: 10px; text-transform: uppercase; letter-spacing: .08em; color: var(--m, #8892A4); margin-bottom: 6px; font-weight: 600; }
     .ak-val { font-family: 'Barlow Condensed', sans-serif; font-size: 28px; font-weight: 900; line-height: 1.1; }
     .ak-val.blue { color: var(--blue, #4E9BF5); }
     .ak-val.orange { color: var(--orange, #e8720c); }
     .ak-val.green { color: var(--green, #2ECC8A); }
     .ak-val.red { color: #E05252; }
-    .ak-val.cyan { color: #00d4ff; }
+    .ak-val.cyan { color: var(--blue,#3b82f6); }
     .ak-sub { font-size: 10px; color: var(--m, #8892A4); margin-top: 4px; opacity: .7; }
     .ak-panel { background: var(--s2, #1a1d23); border: 1px solid var(--br, #2a2d35); border-radius: 10px; margin-bottom: 16px; overflow: hidden; }
     .ak-panel-hdr { padding: 14px 16px; border-bottom: 1px solid var(--br, #2a2d35); font-family: 'Barlow Condensed', sans-serif; font-size: 13px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--t, #fff); display: flex; align-items: center; gap: 8px; }

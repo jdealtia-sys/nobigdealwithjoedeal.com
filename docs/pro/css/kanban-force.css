@@ -1218,7 +1218,9 @@
      and connection indicators inside .ni also get explicitly restored. */
   body.sidebar-collapsed .sidebar{
     width:60px!important; min-width:60px!important;
-    overflow:hidden;
+    /* visual audit 2026-07-19: hidden rail couldn't scroll — Settings/Team
+       Manager were unreachable on short viewports with sections open. */
+    overflow-y:auto; overflow-x:hidden;
   }
   body.sidebar-collapsed .sidebar .ni{
     padding:8px 0!important;

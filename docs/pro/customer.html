@@ -152,7 +152,7 @@ header {
 .stage-badge.stage-install-in-progress, .stage-badge.stage-in-progress { background:#142a22; color:var(--green); border-color:#166534; }
 .stage-badge.stage-install-complete { background:#0f2a1a; color:#4ade80; border-color:var(--green); }
 .stage-badge.stage-final-photos { background:#0a2a20; color:#6ee7b7; border-color:#10b981; }
-.stage-badge.stage-deductible-collected { background:#0a2a28; color:#5eead4; border-color:#14b8a6; }
+.stage-badge.stage-deductible-collected { background:#0a2a28; color:var(--green,#16a34a); border-color:#14b8a6; }
 .stage-badge.stage-final-payment { background:#0a2a28; color:#2dd4bf; border-color:#0d9488; }
 .stage-badge.stage-closed, .stage-badge.stage-complete, .stage-badge.stage-done { background:#0f2a1a; color:#4ade80; border-color:#16a34a; }
 .stage-badge.stage-lost { background:#2a1414; color:var(--red); border-color:#7f1d1d; }
@@ -303,7 +303,7 @@ header {
   transition:all .15s; user-select:none;
 }
 .tl-pill:hover { border-color:var(--orange); color:var(--t); }
-.tl-pill.active { background:var(--orange); border-color:var(--orange); color:#fff; }
+.tl-pill.active { background:var(--orange); border-color:var(--orange); color:var(--accent-fg,#fff); }
 
 /* TIMELINE COLLAPSE TOGGLE */
 .tl-show-all {
@@ -412,7 +412,7 @@ body.nbd-photo-reorder .nbd-photo-item.drop-after {
 .preview-remove {
   position:absolute; top:4px; right:4px;
   width:24px; height:24px; border-radius:50%;
-  background:var(--red); color:#fff; border:none;
+  background:var(--red); color:var(--accent-fg,#fff); border:none;
   cursor:pointer; display:flex; align-items:center;
   justify-content:center; font-size:16px; line-height:1;
   opacity:.9; transition:opacity .2s;
@@ -845,7 +845,7 @@ body.nbd-photo-selecting .nbd-photo-checkbox,
   display:flex; gap:6px; flex-shrink:0;
 }
 .doc-btn {
-  padding:6px 10px; background:var(--orange); color:#fff;
+  padding:6px 10px; background:var(--orange); color:var(--accent-fg,#fff);
   border:none; border-radius:4px; font-size:11px;
   font-weight:600; cursor:pointer; transition:all .15s;
 }
@@ -1018,12 +1018,12 @@ body.nbd-photo-selecting .nbd-photo-checkbox,
              so the rep sees the same "📤 SMS 3d ago" cue on
              both surfaces. Hidden until lastSharedAt is set; the
              module updates it on data refresh + after each share. -->
-        <span id="lastSharedChip" style="display:none;font-size:11px;font-weight:600;padding:3px 9px;border-radius:12px;letter-spacing:.02em;background:rgba(155,109,255,0.14);color:#cab8ff;border:1px solid rgba(155,109,255,0.45);"></span>
+        <span id="lastSharedChip" style="display:none;font-size:11px;font-weight:600;padding:3px 9px;border-radius:12px;letter-spacing:.02em;background:color-mix(in srgb, var(--purple,#a78bfa) 14%, transparent);color:var(--purple,#a78bfa);border:1px solid rgba(155,109,255,0.45);"></span>
         <!-- Wave 59: viewed chip mirrors the W58 kanban "👁 viewed
              today" pill so reps see the same customer-engagement
              cue on both kanban + customer page. Hidden until any
              non-responded estimate has viewedAt set. -->
-        <span id="viewedChip" style="display:none;font-size:11px;font-weight:600;padding:3px 9px;border-radius:12px;letter-spacing:.02em;background:rgba(46,204,138,0.14);color:#5eead4;border:1px solid rgba(46,204,138,0.45);"></span>
+        <span id="viewedChip" style="display:none;font-size:11px;font-weight:600;padding:3px 9px;border-radius:12px;letter-spacing:.02em;background:rgba(46,204,138,0.14);color:var(--green,#16a34a);border:1px solid rgba(46,204,138,0.45);"></span>
         <!-- Wave 91: engagement score chip. Productizes the W44
              share, W58 viewed, and respondedAt signals into a
              single tier so the rep can prioritize at a glance.
@@ -1050,7 +1050,7 @@ body.nbd-photo-selecting .nbd-photo-checkbox,
            is set (incoming referral from another customer's portal share). -->
       <div class="meta-item" id="referredByBadge" style="display:none;">
         <a href="#" id="referredByLink" title="Open the referring customer"
-           style="font-size:11px;font-weight:600;background:rgba(46,204,138,.14);color:#5eead4;border:1px solid rgba(46,204,138,.45);padding:3px 9px;border-radius:12px;letter-spacing:.02em;text-decoration:none;">
+           style="font-size:11px;font-weight:600;background:rgba(46,204,138,.14);color:var(--green,#16a34a);border:1px solid rgba(46,204,138,.45);padding:3px 9px;border-radius:12px;letter-spacing:.02em;text-decoration:none;">
           📨 Referred by <span id="referredByName">—</span>
         </a>
       </div>

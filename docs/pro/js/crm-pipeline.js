@@ -898,7 +898,7 @@ function buildCard(l){
     const ageMs = Date.now() - ms;
     const isFresh = ageMs >= 0 && ageMs < 24 * 60 * 60 * 1000;
     const freshClass = isFresh ? ' kc-shared-fresh' : '';
-    lastSharedBadge = `<span class="kc-tag${freshClass}" style="background:rgba(155,109,255,0.14);color:#cab8ff;border-color:rgba(155,109,255,0.45);" title="Portal link last shared via ${escHtml(via)} — ${escHtml(label)}">📤 ${escHtml(via)} ${escHtml(label)}</span>`;
+    lastSharedBadge = `<span class="kc-tag${freshClass}" style="background:color-mix(in srgb, var(--purple,#a78bfa) 14%, transparent);color:var(--purple,#a78bfa);border-color:rgba(155,109,255,0.45);" title="Portal link last shared via ${escHtml(via)} — ${escHtml(label)}">📤 ${escHtml(via)} ${escHtml(label)}</span>`;
   })();
 
   // ── Wave 58: customer-engagement indicator ──
@@ -944,7 +944,7 @@ function buildCard(l){
     const ageMs2 = Date.now() - latestViewMs;
     const isFreshView = ageMs2 >= 0 && ageMs2 < 24 * 60 * 60 * 1000;
     const freshClass2 = isFreshView ? ' kc-viewed-fresh' : '';
-    viewedBadge = `<span class="kc-tag${freshClass2}" style="background:rgba(46,204,138,0.14);color:#5eead4;border-color:rgba(46,204,138,0.45);" title="Customer opened the portal — ${escHtml(label)}">👁 viewed ${escHtml(label)}</span>`;
+    viewedBadge = `<span class="kc-tag${freshClass2}" style="background:rgba(46,204,138,0.14);color:var(--green,#16a34a);border-color:rgba(46,204,138,0.45);" title="Customer opened the portal — ${escHtml(label)}">👁 viewed ${escHtml(label)}</span>`;
   })();
 
   // ── Wave 112: smart-follow-up suggestion pill ──
@@ -1102,12 +1102,12 @@ function buildCard(l){
       ? l.snoozedReason.trim()
       : '';
     const reasonTail = reason ? ` · ${reason}` : '';
-    snoozeBadge = `<span class="kc-tag" style="background:rgba(155,109,255,0.14);color:#cab8ff;border-color:rgba(155,109,255,0.45);" title="Snoozed until ${escHtml(dateLabel)}${reasonTail ? ' — ' + escHtml(reason) : ''}">💤 ${escHtml(dateLabel)}${escHtml(reasonTail)}</span>`;
+    snoozeBadge = `<span class="kc-tag" style="background:color-mix(in srgb, var(--purple,#a78bfa) 14%, transparent);color:var(--purple,#a78bfa);border-color:rgba(155,109,255,0.45);" title="Snoozed until ${escHtml(dateLabel)}${reasonTail ? ' — ' + escHtml(reason) : ''}">💤 ${escHtml(dateLabel)}${escHtml(reasonTail)}</span>`;
 
     if (typeof window.LeadSnooze.isStaleSnooze === 'function'
         && window.LeadSnooze.isStaleSnooze(l)) {
       const n = l.snoozeCount || 0;
-      staleSnoozeBadge = `<span class="kc-tag" style="background:rgba(245,158,11,0.18);color:#fcd34d;border-color:rgba(245,158,11,0.45);" title="This lead has been snoozed ${n}+ times — consider a different action.">⚠️ Snoozed ${escHtml(String(n))}×</span>`;
+      staleSnoozeBadge = `<span class="kc-tag" style="background:color-mix(in srgb, var(--gold,#eab308) 18%, transparent);color:var(--gold,#eab308);border-color:rgba(245,158,11,0.45);" title="This lead has been snoozed ${n}+ times — consider a different action.">⚠️ Snoozed ${escHtml(String(n))}×</span>`;
     }
   })();
 
@@ -1298,7 +1298,7 @@ function buildCard(l){
       ${overdue      ? `<span class="kc-tag kct-due"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:11px;height:11px;vertical-align:middle;"><path d="M10 3L2 17h16L10 3z"/><path d="M10 8v4M10 14.5v.5"/></svg> Due</span>` : ''}
       ${needsBadge}
       ${roofBadge}
-      ${l.hailHit && l.hailHit.sizeInches ? `<span class="kc-tag kct-dmg" style="background:rgba(255,59,59,.18);color:#ff6b6b;border-color:#ff6b6b;" title="Recent hail near this property">⛈ ${Number(l.hailHit.sizeInches).toFixed(1)}&quot; hail</span>` : ''}
+      ${l.hailHit && l.hailHit.sizeInches ? `<span class="kc-tag kct-dmg" style="background:rgba(255,59,59,.18);color:var(--red,#ef4444);border-color:var(--red,#ef4444);" title="Recent hail near this property">⛈ ${Number(l.hailHit.sizeInches).toFixed(1)}&quot; hail</span>` : ''}
       ${l.measurementReady ? `<span class="kc-tag" style="background:rgba(46,204,138,.14);color:var(--green,#2ecc8a);border-color:var(--green,#2ecc8a);" title="Aerial measurement report is ready">📐 Measurement</span>` : ''}
       ${smartFollowupBadge}
       ${lastSharedBadge}

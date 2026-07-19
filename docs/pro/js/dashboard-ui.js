@@ -2421,7 +2421,7 @@ const _origInitMainMap = window.initMainMap;
 // ── Zone tooltip CSS ─────────────────────────────────────────
 (function injectZoneCSS(){
   const s = document.createElement('style');
-  s.textContent = `.zone-tooltip{background:rgba(10,12,15,.85)!important;border:1px solid rgba(255,255,255,.1)!important;color:var(--t)!important;border-radius:4px!important;padding:2px 8px!important;font-size:11px!important;box-shadow:0 2px 8px rgba(0,0,0,.4)!important;}
+  s.textContent = `.zone-tooltip{background:rgba(10,12,15,.85)!important;border:1px solid rgba(255,255,255,.1)!important;color:#e8eaf0!important;border-radius:4px!important;padding:2px 8px!important;font-size:11px!important;box-shadow:0 2px 8px rgba(0,0,0,.4)!important;}
   .zone-tooltip::before{display:none!important;}`;
   document.head.appendChild(s);
 })();

@@ -337,6 +337,10 @@
 <title>Your Roof Estimate — No Big Deal Home Solutions</title>
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800&family=Barlow:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
+/* Standalone generated page: define the token locally so the color-mix
+   glow below resolves (visual audit 2026-07-19 — var(--orange) was
+   undefined here, the declaration was invalid, glow never rendered). */
+:root{--orange:#e8720c;}
 *{margin:0;padding:0;box-sizing:border-box;}
 body{font-family:'Barlow',sans-serif;background:#0d0f14;color:#e5e7eb;min-height:100vh;}
 .hero{background:linear-gradient(135deg,#1a1d23 0%,#0d0f14 100%);padding:40px 20px 30px;text-align:center;border-bottom:2px solid #e8720c;}

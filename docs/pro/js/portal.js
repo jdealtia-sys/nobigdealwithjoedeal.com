@@ -425,7 +425,7 @@
     if (view.bookingUrl) {
       const cuser = view.rep && view.rep.calcomUsername;
       const cslug = (view.rep && view.rep.calcomEventSlug) || 'roof-inspection';
-      const embedSrc = 'https://cal.com/' + encodeURIComponent(cuser) + '/' + encodeURIComponent(cslug) + '?embed=true&theme=dark';
+      const embedSrc = 'https://cal.com/' + encodeURIComponent(cuser) + '/' + encodeURIComponent(cslug) + '?embed=true&theme=light';
       const title = signedNow ? 'Book your inspection' : 'Book a Time';
       const subtitle = signedNow
         ? 'Pick a time for our crew to inspect your roof and confirm next steps.'

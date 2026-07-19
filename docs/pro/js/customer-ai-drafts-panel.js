@@ -158,7 +158,7 @@
                border-radius:10px; padding:14px 16px; margin:12px 0;">
         <div style="display:flex; align-items:center; gap:8px; margin-bottom:6px;">
           <span aria-hidden="true" style="font-size:17px;">🤖</span>
-          <span style="font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.06em; color:#a5b4fc;">AI reply draft</span>
+          <span style="font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.06em; color:var(--purple,#a78bfa);">AI reply draft</span>
           ${when ? `<span style="font-size:11px; color:var(--m,#9aa3b2); font-weight:500;">· ${escapeHtml(when)}</span>` : ''}
           ${personaLabel(draft) ? `<span style="font-size:11px; color:var(--m,#9aa3b2); font-weight:500;" title="The AI persona that drafted this reply">· via ${escapeHtml(personaLabel(draft))}</span>` : ''}
         </div>

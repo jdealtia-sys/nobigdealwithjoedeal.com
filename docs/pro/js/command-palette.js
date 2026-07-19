@@ -321,23 +321,23 @@
       'padding:80px 20px 20px;overflow-y:auto;';
 
     wrap.innerHTML =
-      '<div style="background:#0f1729;border:1px solid #2a3344;border-radius:12px;' +
+      '<div style="background:var(--s,#0f1729);border:1px solid var(--br,#2a3344);border-radius:12px;' +
         'width:100%;max-width:600px;color:#e2e8f0;font:inherit;' +
         'box-shadow:0 24px 60px rgba(0,0,0,0.55);' +
         'display:flex;flex-direction:column;max-height:calc(100vh - 100px);' +
         'overflow:hidden;">' +
-        '<div style="padding:14px 16px;border-bottom:1px solid #2a3344;display:flex;align-items:center;gap:10px;">' +
-          '<span style="color:#94a3b8;font-size:14px;">⌘</span>' +
+        '<div style="padding:14px 16px;border-bottom:1px solid var(--br,#2a3344);display:flex;align-items:center;gap:10px;">' +
+          '<span style="color:var(--m,#94a3b8);font-size:14px;">⌘</span>' +
           '<input type="text" id="nbd-cmd-input" autocomplete="off" spellcheck="false" ' +
             'placeholder="Search actions, leads, or pages…" ' +
-            'style="flex:1;background:transparent;border:none;outline:none;color:#fff;font:inherit;font-size:15px;padding:4px 0;">' +
-          '<kbd style="font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:10px;padding:2px 5px;border:1px solid #2a3344;border-radius:4px;color:#94a3b8;">esc</kbd>' +
+            'style="flex:1;background:transparent;border:none;outline:none;color:var(--t,#fff);font:inherit;font-size:15px;padding:4px 0;">' +
+          '<kbd style="font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:10px;padding:2px 5px;border:1px solid var(--br,#2a3344);border-radius:4px;color:var(--m,#94a3b8);">esc</kbd>' +
         '</div>' +
         '<div id="nbd-cmd-results" style="overflow-y:auto;padding:6px;flex:1;"></div>' +
-        '<div style="padding:8px 14px;border-top:1px solid #2a3344;font-size:11px;color:#64748b;display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;">' +
-          '<span><kbd style="font-family:ui-monospace,SFMono-Regular,Menlo,monospace;padding:1px 5px;border:1px solid #2a3344;border-radius:3px;">↑↓</kbd> navigate</span>' +
-          '<span><kbd style="font-family:ui-monospace,SFMono-Regular,Menlo,monospace;padding:1px 5px;border:1px solid #2a3344;border-radius:3px;">↵</kbd> open</span>' +
-          '<span><kbd style="font-family:ui-monospace,SFMono-Regular,Menlo,monospace;padding:1px 5px;border:1px solid #2a3344;border-radius:3px;">esc</kbd> close</span>' +
+        '<div style="padding:8px 14px;border-top:1px solid var(--br,#2a3344);font-size:11px;color:var(--m,#64748b);display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;">' +
+          '<span><kbd style="font-family:ui-monospace,SFMono-Regular,Menlo,monospace;padding:1px 5px;border:1px solid var(--br,#2a3344);border-radius:3px;">↑↓</kbd> navigate</span>' +
+          '<span><kbd style="font-family:ui-monospace,SFMono-Regular,Menlo,monospace;padding:1px 5px;border:1px solid var(--br,#2a3344);border-radius:3px;">↵</kbd> open</span>' +
+          '<span><kbd style="font-family:ui-monospace,SFMono-Regular,Menlo,monospace;padding:1px 5px;border:1px solid var(--br,#2a3344);border-radius:3px;">esc</kbd> close</span>' +
         '</div>' +
       '</div>';
 
@@ -385,7 +385,7 @@
     _currentResults = _computeResults(query);
     if (_currentResults.length === 0) {
       list.innerHTML =
-        '<div style="padding:40px 16px;text-align:center;color:#94a3b8;font-size:13px;">' +
+        '<div style="padding:40px 16px;text-align:center;color:var(--m,#94a3b8);font-size:13px;">' +
         'No results. Try a different search.</div>';
       return;
     }
@@ -396,7 +396,7 @@
     _currentResults.forEach((item, idx) => {
       if (item.group !== lastGroup) {
         html.push(
-          '<div style="padding:10px 14px 4px;font-size:10px;color:#64748b;letter-spacing:0.08em;font-weight:600;text-transform:uppercase;">' +
+          '<div style="padding:10px 14px 4px;font-size:10px;color:var(--m,#64748b);letter-spacing:0.08em;font-weight:600;text-transform:uppercase;">' +
           escHtml(item.group || 'Other') + '</div>'
         );
         lastGroup = item.group;
@@ -429,7 +429,7 @@
       '<div style="flex:1;min-width:0;">' +
         '<div style="font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + escHtml(item.label) + '</div>' +
         (item.sublabel
-          ? '<div style="font-size:11px;color:#94a3b8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + escHtml(item.sublabel) + '</div>'
+          ? '<div style="font-size:11px;color:var(--m,#94a3b8);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + escHtml(item.sublabel) + '</div>'
           : '') +
       '</div>' +
       '</div>';
