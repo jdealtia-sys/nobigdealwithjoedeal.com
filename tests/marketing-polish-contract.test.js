@@ -165,6 +165,42 @@ ok('free-guide funnel link present in consumer footers (index)',
   /data-nbd-freeguide/.test(read(path.join(DOCS, 'index.html'))));
 ok('free-roof page has JSON-LD', /application\/ld\+json/.test(read(path.join(DOCS, 'free-roof/index.html'))));
 
+// 11. Chrome batch 2 (Jo's calls, 2026-07-19)
+{
+  // Differentiated nav CTAs: no marketing page pairs "Free Estimate" nav
+  // button with the Instant Estimate link anymore.
+  const bad = marketing.filter((f) => /class="nav-cta">Free Estimate/.test(read(f))).map(rel);
+  ok('nav CTA button is "Book Inspection" site-wide (no Free Estimate dupes)', bad.length === 0, bad.slice(0, 3).join(', '));
+}
+{
+  // Cert badges on every city service page.
+  const bad = marketing.filter((f) => /^services\/[a-z-]+-(oh|ky)\.html$/.test(rel(f))
+    && !read(f).includes('gaf-certified-badge')).map(rel);
+  ok('every city service page carries the GAF/TAMKO badge row', bad.length === 0, bad.slice(0, 3).join(', '));
+}
+{
+  // Timberline in the dropdown wherever LumaNail is listed.
+  const bad = marketing.filter((f) => {
+    const s = read(f);
+    return s.includes('/services/lumanail') && !s.includes('/services/gaf-timberline');
+  }).map(rel);
+  ok('GAF Timberline dropdown link everywhere LumaNail is listed', bad.length === 0, bad.slice(0, 3).join(', '));
+}
+{
+  // Hub closers on the site-majority navy.
+  const bad = marketing.filter((f) => /^services\/[a-z-]+\.html$/.test(rel(f))
+    && /\.final-cta\s*\{\s*background:#B85400/.test(read(f))).map(rel);
+  ok('no hub keeps the solid-orange closing band', bad.length === 0, bad.join(', '));
+}
+{
+  // Reviews widget on all 12 hubs.
+  const hubs = ['roof-replacement', 'roof-repair', 'roof-inspection', 'hail-damage-insurance-claim',
+    'storm-damage', 'gutter-replacement', 'siding-repair', 'siding-replacement',
+    'financing', 'fire-water-smoke-damage', 'roof-care-plan', 'roof-cleaning-soft-wash'];
+  const bad = hubs.filter((h) => !fs.readFileSync(path.join(DOCS, 'services', h + '.html'), 'utf8').includes('google-reviews-widget'));
+  ok('google-reviews widget on all 12 service hubs', bad.length === 0, bad.join(', '));
+}
+
 console.log('\n──────────────────────────────────────────────────');
 console.log(`${passed} passed, ${failed} failed`);
 if (failed) {
