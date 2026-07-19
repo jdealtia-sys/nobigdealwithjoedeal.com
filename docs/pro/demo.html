@@ -299,7 +299,10 @@ body{background:var(--bg);color:var(--white);font-family:'Barlow',sans-serif;lin
 @media(max-width:900px){
   .tool-card{grid-template-columns:1fr}
   .tool-card.reverse{direction:ltr}
-  .tc-mockup{display:none}
+  /* Mockups stay visible on mobile — they ARE the demo. Stacked under the
+     copy at full width instead of hidden (was display:none, which left
+     phone visitors with a text wall). */
+  .tc-mockup{margin-top:8px}
   .demo-section{padding:60px 24px}
   .demo-hero{padding:56px 24px 40px}
   .demo-cta{padding:72px 24px}
@@ -333,7 +336,7 @@ body{background:var(--bg);color:var(--white);font-family:'Barlow',sans-serif;lin
 </head>
 <body>
 
-<!-- NAV PLACEHOLDER — replaced by inject script -->
+<!-- Static marketing nav (no inject script on this page) -->
 <nav id="nbd-pro-nav" style="position:sticky;top:0;z-index:1000;height:52px;background:rgba(10,12,15,0.97);-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);border-bottom:1px solid rgba(255,255,255,.07);display:flex;align-items:center;padding:0 20px;gap:12px;font-family:'DM Mono',monospace;">
   <a href="/pro/" style="display:flex;align-items:center;gap:9px;text-decoration:none;">
     <div style="width:32px;height:32px;background:#e8720c;border-radius:5px;display:flex;align-items:center;justify-content:center;font-family:'Barlow Condensed',sans-serif;font-size:16px;color:#fff;">NBD</div>
@@ -657,7 +660,7 @@ body{background:var(--bg);color:var(--white);font-family:'Barlow',sans-serif;lin
   <div class="demo-footer-brand"><span style="color:#E8EAF0;">NBD</span> <span style="color:#e8720c;">PRO</span></div>
   <div class="demo-footer-links">
     <a href="/pro/">← Pro Home</a>
-    <a href="/pro/landing.html#pricing">Pricing</a>
+    <a href="/pro/pricing.html">Pricing</a>
     <a href="/pro/login.html">Member Login</a>
     <a href="/">Main Site</a>
   </div>
