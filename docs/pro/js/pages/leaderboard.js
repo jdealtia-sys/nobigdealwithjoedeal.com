@@ -100,17 +100,70 @@ async function loadData() {
   renderAll();
 }
 
+// Per-payment cash ledger (mirrors money-dashboard.js/analytics-kpi.js
+// paymentsOf, inlined dependency-free per house style; guarded by
+// tests/money-field-contract.test.js). Prefer inv.payments[] so each credit
+// lands in its own period; legacy docs fall back to a total−balanceDue lump
+// dated lastPaymentAt||paidAt. TRANSITION RECONCILIATION: when the ledger
+// sums short of total−balanceDue (pre-ledger partial), append a synthetic
+// remainder dated at the EARLIEST ledger entry so totals stay exact.
+function paymentsOf(inv) {
+  const collected = Math.max(0,
+    (parseFloat(inv.total) || 0)
+    - ((inv.balanceDue != null) ? (parseFloat(inv.balanceDue) || 0) : 0));
+  if (Array.isArray(inv.payments) && inv.payments.length > 0) {
+    const out = [];
+    let ledgerCents = 0;
+    let earliestAt = null, earliestMs = Infinity;
+    for (let i = 0; i < inv.payments.length; i++) {
+      const p = inv.payments[i] || {};
+      const amt = parseFloat(p.amount);
+      const at = p.at != null ? p.at : p.date;
+      if (!(amt > 0) || at == null) continue;
+      out.push({ amount: amt, at: at });
+      ledgerCents += Math.round(amt * 100);
+      const d = toDate(at);
+      if (d && d.getTime() < earliestMs) { earliestMs = d.getTime(); earliestAt = at; }
+    }
+    if (out.length) {
+      const remainderCents = Math.round(collected * 100) - ledgerCents;
+      if (remainderCents >= 1) {
+        const remAt = earliestAt != null ? earliestAt
+          : (inv.lastPaymentAt != null ? inv.lastPaymentAt : inv.paidAt);
+        if (remAt != null) out.push({ amount: remainderCents / 100, at: remAt, synthetic: true });
+      }
+      return out;
+    }
+  }
+  if (collected <= 0) return [];
+  const payDate = inv.lastPaymentAt != null ? inv.lastPaymentAt : inv.paidAt;
+  if (payDate == null) return [];
+  return [{ amount: collected, at: payDate }];
+}
+
 // ── Compute metrics for the selected period ──
 function computeMetrics() {
   const leads = rawData.leads.filter(l => isInPeriod(l.createdAt));
   const knocks = rawData.knocks.filter(k => isInPeriod(k.createdAt));
+  // Kept for metrics consumers ("N paid" style displays); revenue no longer
+  // gates on it — a deposit is real cash the rep collected this period even
+  // while the invoice is still open, and gating on status==='paid' both hid
+  // deposits until payoff AND then dumped the full total into the payoff
+  // period (disagreeing with Money/Analytics Collected).
   const paidInvoices = rawData.invoices.filter(inv => inv.status === 'paid' && isInPeriod(inv.paidAt));
   const wonLeads = rawData.leads.filter(l => (l._stageRole ? l._stageRole === 'won' : WON_STAGES.includes(l._stageKey || l.stage || '')) && isInPeriod(l.updatedAt));
 
   const totalKnocks = knocks.length;
   const totalDeals = wonLeads.length;
-  const totalRevenue = paidInvoices.reduce((s, inv) => s + (parseFloat(inv.total) || 0), 0);
-  // If no paid invoices, fall back to job value from won leads
+  // Cash basis, per payment date — same attribution as the Money dashboard.
+  let totalRevenue = 0;
+  rawData.invoices.forEach(inv => {
+    paymentsOf(inv).forEach(p => {
+      if (isInPeriod(p.at)) totalRevenue += parseFloat(p.amount) || 0;
+    });
+  });
+  totalRevenue = Math.round(totalRevenue * 100) / 100;
+  // If no invoice cash, fall back to job value from won leads
   const revenueFallback = totalRevenue > 0 ? totalRevenue : wonLeads.reduce((s, l) => s + (parseFloat(l.jobValue) || 0), 0);
   const closeRate = (totalDeals + leads.filter(l => ['lost','Lost'].includes(l._stageKey || l.stage || '')).length) > 0
     ? Math.round(totalDeals / (totalDeals + leads.filter(l => ['lost','Lost'].includes(l._stageKey || l.stage || '')).length) * 100)
