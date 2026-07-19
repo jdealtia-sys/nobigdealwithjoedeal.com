@@ -364,7 +364,7 @@ function goTo(name, params = {}) {
   if(name==='map') {
     if (!mapInited.map) {
       waitForLeaflet(()=>{ waitForMapFn('initMainMap', ()=>{
-        (()=>{ initMainMap(); mapInited.map=true; ensureMapSize(mainMap); });
+        (()=>{ initMainMap(); mapInited.map=true; ensureMapSize(mainMap); })();
       }); });
     } else if (typeof mainMap !== 'undefined' && mainMap) {
       ensureMapSize(mainMap);
@@ -373,7 +373,7 @@ function goTo(name, params = {}) {
   if(name==='draw') {
     if (!mapInited.draw) {
       waitForLeaflet(()=>{ waitForMapFn('initDrawMap', ()=>{
-        (()=>{ initDrawMap(); mapInited.draw=true; ensureMapSize(drawMap); });
+        (()=>{ initDrawMap(); mapInited.draw=true; ensureMapSize(drawMap); })();
       }); });
     } else if (typeof drawMap !== 'undefined' && drawMap) {
       // Re-entry: map already created, just refresh the size
