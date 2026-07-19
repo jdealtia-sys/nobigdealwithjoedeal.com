@@ -27,7 +27,7 @@ img { max-width: 100%; }
 .t-brand { display: flex; align-items: center; gap: 10px; color: #fff; text-decoration: none; font-family: 'Barlow Condensed', sans-serif; font-weight: 800; font-size: 20px; letter-spacing: .02em; min-width: 0; }
 .t-brand img { height: 34px; width: auto; }
 .t-brand span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.t-nav-phone { color: #fff; text-decoration: none; font-weight: 700; font-size: 15px; background: var(--accent); padding: 8px 14px; border-radius: 7px; white-space: nowrap; }
+.t-nav-phone { color: #fff; text-decoration: none; font-weight: 700; font-size: 15px; background: var(--accent); padding: 8px 14px; border-radius:8px; white-space: nowrap; }
 
 /* ── Hero ── */
 .t-hero { background: linear-gradient(160deg, var(--primary), color-mix(in srgb, var(--primary) 75%, black)); color: #fff; text-align: center; padding: 72px 20px 84px; }
@@ -59,14 +59,14 @@ img { max-width: 100%; }
 #quoteForm label { display: block; font-size: 13px; font-weight: 600; color: var(--muted); margin-bottom: 14px; }
 #quoteForm input, #quoteForm select, #quoteForm textarea {
   display: block; width: 100%; margin-top: 5px;
-  border: 1px solid var(--line); border-radius: 7px;
+  border: 1px solid var(--line); border-radius:8px;
   padding: 11px 12px; font: inherit; font-size: 15px; color: var(--ink); background: var(--paper);
 }
 #quoteForm input:focus, #quoteForm select:focus, #quoteForm textarea:focus { outline: 2px solid var(--accent); outline-offset: 0; border-color: transparent; }
 .t-row { display: flex; gap: 14px; }
 .t-row label { flex: 1; }
 .t-hp { position: absolute !important; left: -9999px !important; height: 1px; width: 1px; opacity: 0; }
-.t-err, .t-ok { display: none; border-radius: 7px; padding: 10px 12px; font-size: 14px; margin-bottom: 14px; }
+.t-err, .t-ok { display: none; border-radius:8px; padding: 10px 12px; font-size: 14px; margin-bottom: 14px; }
 .t-err:not(:empty) { display: block; background: #fdeaea; color: #9d2727; }
 .t-ok:not(:empty) { display: block; background: #e8f7ee; color: #1c6b3c; }
 

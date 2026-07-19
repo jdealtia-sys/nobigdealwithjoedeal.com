@@ -266,6 +266,7 @@ footer.foot .nbd-social a,.review-footer .nbd-social a{background:rgba(255,255,2
 .footer-badges{display:flex;flex-wrap:wrap;gap:8px}
 .footer-badge{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:100px;padding:4px 12px;font-size:.64rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:rgba(255,255,255,.7)}
 </style>
+<style>/* nav-collapse normalize (visual audit 2026-07-19): hamburger threshold is 1024px site-wide */@media(max-width:1024px){.nav-links{display:none!important}.hamburger{display:flex!important}}</style>
 </head>
 <body><a class="nbd-skip" href="#main">Skip to content</a>
 
@@ -332,7 +333,7 @@ footer.foot .nbd-social a,.review-footer .nbd-social a{background:rgba(255,255,2
       </div>
     </div>
     <div class="hero-visual">
-      <img src="/assets/gaf/gaf-certified-badge-320.png" alt="GAF Certified Residential Roofing Contractor" width="160" height="160">
+      <img src="/assets/gaf/gaf-certified-badge-320.png" alt="GAF Certified Residential Roofing Contractor" width="160" height="160" loading="lazy" decoding="async">
       <div class="verify">Verify status on <a href="https://www.gaf.com/en-us/roofing-contractors/residential" target="_blank" rel="noopener">GAF.com</a></div>
     </div>
   </div>
@@ -342,7 +343,7 @@ footer.foot .nbd-social a,.review-footer .nbd-social a{background:rgba(255,255,2
 <section class="why-cert">
   <div class="why-cert-inner">
     <div class="badge-block">
-      <img src="/assets/gaf/gaf-certified-badge-320.png" alt="GAF Certified Contractor seal" width="140" height="140">
+      <img src="/assets/gaf/gaf-certified-badge-320.png" alt="GAF Certified Contractor seal" width="140" height="140" loading="lazy" decoding="async">
       <div class="label">GAF Certified™<br>Contractor</div>
       <a class="verify-link" href="https://www.gaf.com/en-us/roofing-contractors/residential" target="_blank" rel="noopener">Verify on GAF.com →</a>
     </div>
@@ -666,7 +667,7 @@ footer.foot .nbd-social a,.review-footer .nbd-social a{background:rgba(255,255,2
 <div class="modal" id="colorModal" role="dialog" aria-modal="true" aria-labelledby="modalName">
   <div class="modal-card">
     <button class="modal-close" id="modalClose" aria-label="Close">×</button>
-    <div class="modal-image" id="modalImg"><img id="modalImgEl" src="" alt=""></div>
+    <div class="modal-image" id="modalImg"><img id="modalImgEl" src="data:," alt=""></div>
     <div class="modal-body">
       <h3 id="modalName">—</h3>
       <div class="meta" id="modalMeta"></div>

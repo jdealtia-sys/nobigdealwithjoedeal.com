@@ -18,7 +18,7 @@
 .qlf-btn:disabled{opacity:.65;cursor:default}
 .qlf-alt{text-align:center;font-size:.82rem;color:#5b6572;margin-top:12px}
 .qlf-alt a{color:#A64B00;font-weight:700;text-decoration:none}
-.qlf-msg{display:none;border-radius:7px;padding:9px 12px;font-size:.84rem;margin-bottom:12px}
+.qlf-msg{display:none;border-radius:8px;padding:9px 12px;font-size:.84rem;margin-bottom:12px}
 .qlf-msg.qlf-err:not(:empty){display:block;background:#fdeaea;color:#9d2727}
 .qlf-msg.qlf-ok:not(:empty){display:block;background:#e8f7ee;color:#1c6b3c}
 @media(max-width:560px){.qlf-row{flex-direction:column;gap:0}}
