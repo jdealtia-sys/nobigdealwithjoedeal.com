@@ -1336,6 +1336,20 @@ exports.invoiceWebhook = onRequest(
             const newPaid = Math.round((priorPaid + received) * 100) / 100;
             const newBalanceDue = Math.max(0, Math.round((total - newPaid) * 100) / 100);
             const fullyPaid = newBalanceDue === 0;
+            // Append-only cash ledger (read-modify-write inside the txn so a
+            // retry that already applied this paymentIntent never double-pushes).
+            // Each entry keeps its own receipt date — multi-payment invoices
+            // must attribute deposits and balance payoffs to different periods
+            // in Money/Analytics (lastPaymentAt alone is overwritten every credit).
+            const priorPayments = Array.isArray(inv.payments) ? inv.payments.slice() : [];
+            if (received > 0) {
+              priorPayments.push({
+                amount: received,
+                at: new Date(),
+                method: 'stripe',
+                paymentIntentId: paymentIntent.id,
+              });
+            }
             tx.update(invRef, {
               // status/paidAt flip to 'paid' ONLY when the balance reaches zero
               // — a deposit-sized online payment leaves the invoice open.
@@ -1345,6 +1359,7 @@ exports.invoiceWebhook = onRequest(
               // can attribute collected cash to the year it was received, not
               // only once the invoice is fully settled.
               lastPaymentAt: FieldValue.serverTimestamp(),
+              payments: priorPayments,
               stripePaymentIntentId: paymentIntent.id,
               // Append-only idempotency ledger (arrayUnion dedupes) — the
               // authoritative guard against a re-run double-credit.

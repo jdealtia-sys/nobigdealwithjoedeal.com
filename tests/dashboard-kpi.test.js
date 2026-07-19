@@ -145,6 +145,24 @@ ok('topSource = referral (3 non-deleted)', k.topSource === 'referral' && k.topSo
   ok('no invoices → totalRevenue 0', z.totalRevenue === 0);
   ok('no invoices → monthRevenue 0', z.monthRevenue === 0);
   ok('no invoices → unpaidAmount 0', z.unpaidAmount === 0);
+
+  // Multi-payment ledger: deposit this month + balance next month must not
+  // move the deposit out of this month when lastPaymentAt is the later date.
+  const nextMonth = new Date(N.getFullYear(), N.getMonth() + 1, 15);
+  const multi = CFA({
+    leads: [], knocks: [], photos: [], estimates: [], expenses: [],
+    invoices: [{
+      status: 'paid', total: 10000, balanceDue: 0, amountPaid: 10000,
+      lastPaymentAt: nextMonth,
+      paidAt: nextMonth,
+      payments: [
+        { amount: 4000, at: inMonth },
+        { amount: 6000, at: nextMonth },
+      ],
+    }],
+  });
+  ok('multi-pay totalRevenue = 10000 (both payments)', multi.totalRevenue === 10000);
+  ok('multi-pay monthRevenue = this-month deposit only (4000)', multi.monthRevenue === 4000);
 }
 
 console.log('\n──────────────────────────────────────────────────');

@@ -9,8 +9,10 @@
  * Exposes: window.MoneyDashboard
  *
  * Two clearly-labelled lenses to avoid the revenue-basis trap:
- *   - CASH (this year): collected (paid invoices, by paidAt) vs spent (expenses
- *     by date) -> net cash. Date-reliable, cash basis.
+ *   - CASH (this year): collected (each payment by its own date via
+ *     inv.payments[], legacy lastPaymentAt||paidAt lump) vs spent (expenses
+ *     by date) -> net cash. Multi-payment invoices attribute deposits and
+ *     balance payoffs to the periods they were received.
  *   - JOB PROFITABILITY: won-job contract value (jobValue) vs direct costs ->
  *     gross margin. Same basis as the Expenses view's per-job margin.
  *
@@ -34,11 +36,35 @@
   function invoiceCents(inv) { return Math.round((parseFloat(inv.total) || 0) * 100); }
   // Cash actually collected on an invoice = total - balanceDue (so a paid
   // invoice with a residual write-off, or a partial payment, counts the real
-  // cash, not the full face value). QA finding.
+  // cash, not the full face value). QA finding. Used for legacy single-lump
+  // fallback when inv.payments[] is absent.
   function collectedCentsOf(inv) {
     var total = parseFloat(inv.total) || 0;
     var bal = (inv.balanceDue != null) ? (parseFloat(inv.balanceDue) || 0) : 0;
     return Math.round(Math.max(0, total - bal) * 100);
+  }
+  // Per-payment cash ledger. Prefer inv.payments[] (stamped by markPaid + the
+  // Stripe invoiceWebhook on every credit) so a deposit in May and a balance
+  // payoff in July land in their own months/years. Legacy docs without the
+  // array fall back to a single lump of total−balanceDue dated by
+  // lastPaymentAt||paidAt (pre-#980/#990 multi-payment residual).
+  function paymentsOf(inv) {
+    if (Array.isArray(inv.payments) && inv.payments.length > 0) {
+      var out = [];
+      for (var i = 0; i < inv.payments.length; i++) {
+        var p = inv.payments[i] || {};
+        var amt = parseFloat(p.amount);
+        var at = p.at != null ? p.at : p.date;
+        if (!(amt > 0) || at == null) continue;
+        out.push({ amount: amt, at: at });
+      }
+      if (out.length) return out;
+    }
+    var cents = collectedCentsOf(inv);
+    if (cents <= 0) return [];
+    var payDate = inv.lastPaymentAt != null ? inv.lastPaymentAt : inv.paidAt;
+    if (payDate == null) return [];
+    return [{ amount: cents / 100, at: payDate }];
   }
   // Canonicalize a vendor name for 1099 matching (mirrors ExpenseConfig.normVendor;
   // inlined to keep this a dependency-free single-module bundle).
@@ -78,14 +104,17 @@
     // + 1099 buckets below, so nothing straddles the boundary inconsistently.
     var collectedCents = 0;
     invoices.forEach(function (inv) {
-      // Attribute collected cash by the DATE it was received. paidAt is only
-      // stamped on full payoff, so a partial deposit (real cash in hand, with
-      // balanceDue reduced) was invisible here — understating Collected/Net
-      // Cash by every open job's deposit. lastPaymentAt (stamped on every
-      // payment incl. partials by markPaid + the Stripe webhook) is the real
-      // receipt date; fall back to paidAt for legacy docs.
-      var payDate = inv.lastPaymentAt != null ? inv.lastPaymentAt : inv.paidAt;
-      if (etYear(toJSDate(payDate)) === year) collectedCents += collectedCentsOf(inv);
+      // Attribute EACH payment by the date it was received. A single
+      // lastPaymentAt field is overwritten on every credit, so a deposit
+      // taken in year Y would vanish from Y's Collected once the balance
+      // paid in year Y+1 (multi-payment cash-basis residual of #980/#990).
+      // paymentsOf() prefers inv.payments[] entries; legacy docs still use
+      // the lastPaymentAt||paidAt lump of total−balanceDue.
+      paymentsOf(inv).forEach(function (p) {
+        if (etYear(toJSDate(p.at)) === year) {
+          collectedCents += Math.round((parseFloat(p.amount) || 0) * 100);
+        }
+      });
     });
     var outstandingCents = 0;
     invoices.forEach(function (inv) {
