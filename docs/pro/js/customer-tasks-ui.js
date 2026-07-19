@@ -299,11 +299,18 @@ window.loadInvoices = async function(leadId) {
 
     snap.forEach(doc => {
       const inv = doc.data();
-      const amount = parseFloat(inv.amount || 0);
-      const isPaid = inv.status === 'paid';
+      // invoice-pipeline writes `total` (never `amount` — that legacy key
+      // rendered every pipeline invoice as $0.00 here). Paid cash = the
+      // invoice's own collected math (total − balanceDue), NOT a
+      // status==='paid' gate: a deposit on an open invoice is real money
+      // and must agree with the invoice's balanceDue and the Money
+      // dashboard, not show Total Paid $0.00 until full payoff.
+      const amount = parseFloat(inv.total != null ? inv.total : inv.amount) || 0;
+      const bal = (inv.balanceDue != null) ? (parseFloat(inv.balanceDue) || 0) : (inv.status === 'paid' ? 0 : amount);
+      const paidCash = Math.max(0, amount - bal);
 
       totalAmount += amount;
-      if (isPaid) totalPaid += amount;
+      totalPaid += paidCash;
 
       const safeStatus = ALLOWED_STATUSES.has(inv.status) ? inv.status : 'draft';
       const safePayUrl = /^https?:/i.test(String(inv.paymentUrl || '')) ? inv.paymentUrl : null;

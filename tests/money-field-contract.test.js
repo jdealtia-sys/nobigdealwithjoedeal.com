@@ -77,12 +77,15 @@ const ak = read('docs/pro/js/analytics-kpi.js');
 ok('money + analytics both define paymentsOf for multi-payment cash dating',
   /function paymentsOf\(inv\)/.test(md) && /function paymentsOf\(inv\)/.test(ak));
 
-// Transition reconciliation: both paymentsOf copies must append a synthetic
+// Transition reconciliation: every paymentsOf copy must append a synthetic
 // remainder when the ledger sums short of total−balanceDue (pre-ledger
 // partials would otherwise vanish from Collected — 2026-07-19 residual).
-ok('money + analytics paymentsOf reconcile ledger shortfall (synthetic remainder)',
+// Copies live in money-dashboard, analytics-kpi, and pages/leaderboard.
+const lb = read('docs/pro/js/pages/leaderboard.js');
+ok('money + analytics + leaderboard paymentsOf reconcile ledger shortfall (synthetic remainder)',
   /remainderCents/.test(md) && /synthetic: true/.test(md)
-  && /remainderCents/.test(ak) && /synthetic: true/.test(ak));
+  && /remainderCents/.test(ak) && /synthetic: true/.test(ak)
+  && /remainderCents/.test(lb) && /synthetic: true/.test(lb));
 
 console.log('\n──────────────────────────────────────────────────');
 console.log(`${passed} passed, ${failed} failed`);
