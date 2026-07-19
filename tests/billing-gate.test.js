@@ -189,6 +189,44 @@ function makeBilling({ user, subDoc, subExists = true, claims, claimsError } = {
     assert('stripe sub with stale trialEndsAt: untouched (Stripe owns lifecycle)', stripe.getPlan().plan === 'growth');
   }
 
+  // 6. loadSubscription failure must NOT paint a known Free tier.
+  //    Post-sprint chip: a paid tenant on a Firestore blip used to flash Free
+  //    + Upgrade because the catch path forced plan=free and loaded=true.
+  //    Gates must fail open (_loaded=false) until a successful read.
+  {
+    const noopEl = () => ({ style: {}, appendChild() {}, addEventListener() {}, remove() {}, dataset: {} });
+    const documentStub = {
+      addEventListener() {}, removeEventListener() {},
+      getElementById() { return null; },
+      createElement() { return noopEl(); },
+      body: noopEl(),
+    };
+    const windowStub = {
+      _user: { uid: 'paid-blip', email: 'paid@demo.test' },
+      db: {},
+      doc: (_db, coll, id) => ({ coll, id }),
+      getDoc: async () => { throw new Error('simulated firestore blip'); },
+    };
+    windowStub.window = windowStub;
+    const sandbox = { window: windowStub, document: documentStub, console: { log() {}, error() {}, warn() {} }, setTimeout, Date };
+    vm.runInNewContext(SRC, sandbox, { filename: 'billing-gate.js' });
+    const B = windowStub.NBDBilling;
+    await B.loadSubscription();
+    const p = B.getPlan();
+    assert('load failure: getPlan().loaded === false (plan unknown)', p.loaded === false);
+    assert('load failure: enforceGate fails open (never blocks on unknown plan)', B.enforceGate('leads', 'leads') === true);
+    assert('load failure: softGate fails open', B.softGate('leads', 'leads') === true);
+  }
+
+  // 7. Successful load exposes loaded:true so billing UI can trust Free.
+  {
+    const B = makeBilling({ user: { uid: 'u9', email: 'ok@demo.test' }, subDoc: { plan: 'team', status: 'trialing' } });
+    assert('before load: loaded === false', B.getPlan().loaded === false);
+    await B.loadSubscription();
+    assert('after load: loaded === true', B.getPlan().loaded === true);
+    assert('after load: plan === team', B.getPlan().plan === 'team');
+  }
+
   console.log('\n──────────────────────────────────────────────────');
   console.log(`${passed} passed, ${failed} failed`);
   if (failed) { console.log('\nFailures:'); fails.forEach(f => console.log('  - ' + f)); process.exit(1); }

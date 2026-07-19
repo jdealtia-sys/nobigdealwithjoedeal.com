@@ -10,16 +10,25 @@
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="/pro/img/nbd-icon-192.png">
 <meta name="robots" content="noindex, nofollow">
-<!-- Sentry must register before any other script that might throw. -->
-<script src="js/sentry-config.js?v=1"></script>
-<script src="js/sentry-init.js?v=2"></script>
-<script src="js/standalone-compat.js"></script>
+<!-- Sentry must register before any other script that might throw.
+     `defer` (not a classic blocking script): defer'd classes scripts and
+     `type="module"` scripts (register.js below) share the SAME in-order,
+     after-parsing execution queue per spec — defer here still guarantees
+     this runs before register.js's module body, without blocking the
+     parser from reaching the inline <style> below. The 4 blocking scripts
+     that used to sit here (unnecessarily, per the App Check comment's own
+     now-outdated reasoning) added ~650-950ms of white-screen-before-paint
+     on this page — measured live via the Resource Timing API. -->
+<script defer src="js/sentry-config.js?v=1"></script>
+<script defer src="js/sentry-init.js?v=2"></script>
+<script defer src="js/standalone-compat.js"></script>
 <!-- App Check site key MUST be set before the register module runs —
      createCompany (PILLAR1 Phase 2) declares enforceAppCheck:true, so
      without this the provisioning call is rejected in production and the
      new account never becomes a tenant. Same key/pattern as dashboard.html
-     and customer.html. -->
-<script src="js/dashboard-appcheck-config.js?v=1"></script>
+     and customer.html. `defer` (see note above) preserves this ordering
+     without parser-blocking. -->
+<script defer src="js/dashboard-appcheck-config.js?v=1"></script>
 <title>Join NBD Pro — Start Your Free Trial</title>
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800;900&family=Barlow:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <script type="module" src="js/pages/register.js"></script>

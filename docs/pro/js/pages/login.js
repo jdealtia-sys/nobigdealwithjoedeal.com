@@ -33,21 +33,34 @@ const validateAccessCodeFn = httpsCallable(functions, 'validateAccessCode');
 // ─────────────────────────────────────────────────
 // POST-LOGIN DESTINATION
 // pricing-page.module.js sends signed-out subscribers here with
-// ?redirect=pricing&plan=starter|growth. Honor it: stash the plan so pricing
-// resumes checkout (same sessionStorage contract as pages/register.js) and
-// land back on pricing instead of silently dropping the purchase on the
+// ?redirect=pricing&plan=starter|growth|team. Honor it: stash the plan so
+// pricing resumes checkout (same sessionStorage contract as pages/register.js)
+// and land back on pricing instead of silently dropping the purchase on the
 // dashboard.
+//
+// Also honor a bare ?plan=… query and any nbd_plan_intent already stashed
+// earlier in the funnel (landing → register → abandon → login). Register +
+// onboarding already resume intent; login used to only check redirect=pricing
+// and otherwise dumped the user on the dashboard — losing the upsell.
 // ─────────────────────────────────────────────────
+const PLAN_INTENTS = ['starter', 'team', 'growth'];
 const POST_LOGIN_DEST = (() => {
   try {
     const params = new URLSearchParams(window.location.search);
+    const qPlan = params.get('plan');
+    if (PLAN_INTENTS.includes(qPlan)) {
+      sessionStorage.setItem('nbd_plan_intent', qPlan);
+    }
     if (params.get('redirect') === 'pricing') {
-      const plan = params.get('plan');
-      // 'team' included — a live sellable plan; pricing-page resume accepts it.
-      // Omitting it dropped the checkout intent for signed-out Team clicks.
-      if (plan === 'starter' || plan === 'team' || plan === 'growth') {
-        sessionStorage.setItem('nbd_plan_intent', plan);
-      }
+      return '/pro/pricing.html';
+    }
+    // Bare ?plan= on login (shared link / recovery) → resume checkout.
+    if (PLAN_INTENTS.includes(qPlan)) {
+      return '/pro/pricing.html';
+    }
+    // Returning visitor: intent already set from register/landing this tab.
+    const existing = sessionStorage.getItem('nbd_plan_intent');
+    if (PLAN_INTENTS.includes(existing)) {
       return '/pro/pricing.html';
     }
   } catch (_) {}

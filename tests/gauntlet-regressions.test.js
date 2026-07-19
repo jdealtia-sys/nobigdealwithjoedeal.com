@@ -74,8 +74,13 @@ console.log('\nTeam plan ($149, 2 seats) — wired server + client + stripe + pr
     'a signed-out Team CTA click must stash nbd_plan_intent, not drop it');
   const lg = read('docs/pro/js/pages/login.js');
   assert('login.js pricing-redirect allowlist includes team',
-    /plan === 'starter' \|\| plan === 'team' \|\| plan === 'growth'/.test(lg),
+    /PLAN_INTENTS\s*=\s*\[[^\]]*['"]team['"]/.test(lg)
+      || /plan === 'starter' \|\| plan === 'team' \|\| plan === 'growth'/.test(lg),
     'login?redirect=pricing&plan=team must carry the intent through');
+  assert('login.js resumes nbd_plan_intent after login (not only redirect=pricing)',
+    /sessionStorage\.getItem\(\s*['"]nbd_plan_intent['"]\s*\)/.test(lg)
+    && /\/pro\/pricing\.html/.test(lg),
+    'returning visitors with a stashed plan intent must not land on dashboard and drop the upsell');
 }
 
 // ── Part B: source-contract guards ────────────────────────────────────
