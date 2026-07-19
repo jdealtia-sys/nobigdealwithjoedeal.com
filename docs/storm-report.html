@@ -39,7 +39,7 @@ a{color:inherit}
 .sr-intro h1 span{color:#DA6A05}
 .sr-intro p{color:rgba(255,255,255,.75);font-size:.92rem;max-width:580px;margin:12px auto 0}
 .sr-intro .badges{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-top:16px}
-.sr-intro .badges span{font-size:.68rem;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:rgba(255,255,255,.85);background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);border-radius:99px;padding:5px 11px}
+.sr-intro .badges span{font-size:.68rem;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:rgba(255,255,255,.85);background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);border-radius:100px;padding:5px 11px}
 .sr-shell{max-width:640px;margin:-18px auto 0;padding:0 16px 60px}
 .sr-card{background:#fff;border-radius:16px;box-shadow:0 12px 40px rgba(20,42,82,.12);padding:26px 22px;border:1px solid var(--light-gray)}
 .sr-panel{display:none;animation:srFade .4s ease}
@@ -64,7 +64,7 @@ a{color:inherit}
 @keyframes srSpin{to{transform:rotate(360deg)}}
 /* teaser */
 .sr-chips{display:flex;flex-wrap:wrap;gap:8px;margin:16px 0 4px}
-.sr-chip{background:var(--off-white);border:1px solid var(--light-gray);border-radius:99px;padding:7px 13px;font-size:.82rem;font-weight:700;color:var(--navy-dark)}
+.sr-chip{background:var(--off-white);border:1px solid var(--light-gray);border-radius:100px;padding:7px 13px;font-size:.82rem;font-weight:700;color:var(--navy-dark)}
 .sr-gatebox{margin-top:20px;padding-top:18px;border-top:1px dashed var(--light-gray)}
 .sr-gatebox .sr-lead{font-weight:700;color:var(--navy-dark);margin-bottom:2px}
 /* report */
@@ -81,7 +81,7 @@ a{color:inherit}
 table.sr-table{width:100%;border-collapse:collapse;font-size:.84rem}
 .sr-table th{background:var(--off-white);text-align:left;padding:10px 12px;font-size:.68rem;text-transform:uppercase;letter-spacing:.05em;color:var(--gray-sub)}
 .sr-table td{padding:9px 12px;border-top:1px solid var(--off-white)}
-.sr-tag{font-size:.68rem;font-weight:800;text-transform:uppercase;padding:2px 7px;border-radius:5px;color:#fff}
+.sr-tag{font-size:.68rem;font-weight:800;text-transform:uppercase;padding:2px 7px;border-radius:4px;color:#fff}
 .sr-hail{background:#2563eb}.sr-wind{background:#16a34a}.sr-tornado{background:#dc2626}
 .sr-source{font-size:.72rem;color:var(--gray);margin:8px 0 20px;line-height:1.5}
 .sr-cta{display:block;text-align:center;text-decoration:none;font-weight:800;border-radius:10px;padding:15px;margin-bottom:10px}
@@ -95,10 +95,24 @@ table.sr-table{width:100%;border-collapse:collapse;font-size:.84rem}
 @media(max-width:480px){.sr-intro h1{font-size:1.7rem}.sr-card{padding:22px 16px}}
 @media print{.sr-head,.sr-intro,.sr-foot,.sr-cta,.sr-cta-row,.sr-disc{display:none!important}.sr-shell{margin:0;max-width:100%}.sr-card{box-shadow:none;border:none}#sr-map{height:340px}}
 </style>
-<link rel="stylesheet" href="/assets/css/mobile-cta.css">
+<link rel="stylesheet" href="/assets/css/nbd-mobile.css"><link rel="stylesheet" href="/assets/css/mobile-cta.css">
 <style>/* iOS-zoom fix (conversion audit): 16px inputs prevent Safari auto-zoom on focus */@media(max-width:600px){input,select,textarea{font-size:16px!important}}</style>
 <style>.nbd-skip{position:absolute;left:-9999px;top:0;z-index:100000;background:#B85400;color:#fff;padding:10px 16px;font-weight:700;text-decoration:none;border-radius:0 0 6px 0}.nbd-skip:focus{left:0}</style>
 <style>/* a11y (audit 2026-07): visible focus ring + reduced-motion */:focus-visible{outline:3px solid #e8720c;outline-offset:2px}@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.001ms!important;animation-iteration-count:1!important;transition-duration:.001ms!important;scroll-behavior:auto!important}}</style>
+<style>
+/* typography normalize (injected) */
+body{font-family:'Montserrat','Segoe UI',-apple-system,sans-serif;color:#1a1a1a;-webkit-font-smoothing:antialiased}
+h1,h2,h3{font-family:'Bebas Neue','Montserrat',sans-serif;letter-spacing:.03em;line-height:1.1}
+h1{font-size:clamp(2.5rem,4.8vw,4.5rem);line-height:1.04;letter-spacing:.02em}
+h2{font-size:clamp(1.8rem,3.1vw,2.75rem)}
+h3{font-size:clamp(1.05rem,1.4vw,1.3rem);line-height:1.25}
+p{font-size:.95rem;line-height:1.72;color:#4a4a4a}
+.prose p,.post-body p,article p{font-size:.95rem;line-height:1.72}
+.nav-links > li > a,.nav-links a{font-size:.8rem;letter-spacing:.08em;font-weight:600}
+a.nav-cta,nav .nav-cta{font-size:.8rem!important;letter-spacing:.05em;font-weight:700!important;white-space:nowrap!important;display:inline-flex!important;align-items:center;gap:6px}
+nav{gap:clamp(18px,2.2vw,40px)}
+nav .nav-logo{margin-right:clamp(12px,1.5vw,28px)}
+</style>
 </head>
 <body><a class="nbd-skip" href="#main">Skip to content</a>
 <header class="sr-head">

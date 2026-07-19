@@ -78,7 +78,7 @@ nav { position: sticky; top: 0; z-index: 1000; background: var(--navy-dark); bor
 #blog-posts-grid .post-card.featured .post-tag { background: rgba(232,114,12,.2); color: var(--orange); }
 #blog-posts-grid .post-card.featured .post-meta, #blog-posts-grid .post-card.featured .post-meta * { color: rgba(255,255,255,0.6); }
 #blog-posts-grid .post-card.featured .read-more { color: var(--orange); font-weight: 700; }
-#blog-posts-grid .post-card.featured::before { content: 'FEATURED'; display: inline-block; font-size: .7rem; font-weight: 800; letter-spacing: .18em; color: var(--orange); background: rgba(232,114,12,.15); padding: 4px 12px; border-radius: 999px; margin-bottom: 8px; }
+#blog-posts-grid .post-card.featured::before { content: 'FEATURED'; display: inline-block; font-size: .7rem; font-weight: 800; letter-spacing: .18em; color: var(--orange); background: rgba(232,114,12,.15); padding: 4px 12px; border-radius:100px; margin-bottom: 8px; }
 @media(max-width:768px){ #blog-posts-grid .post-card.featured { padding: 10px 16px; } #blog-posts-grid .post-card.featured h2 { font-size: 1.5rem; } }
 
 .post-card { background: var(--white); border: 1px solid var(--light-gray); border-radius: 14px; overflow: hidden; transition: box-shadow 0.2s, transform 0.15s; }
@@ -327,6 +327,17 @@ nav .nav-logo-text .sub{white-space:nowrap}
   nav .nav-logo-text .brand{font-size:.9rem!important}
   nav .nav-logo-text .sub{font-size:.62rem!important}
 }
+</style>
+<style>
+/* Non-hero heading caps — keep hero h1s untouched */
+main h2,section h2,article h2{font-size:clamp(1.8rem,3vw,2.6rem)!important;line-height:1.1!important}
+main h3,section h3,article h3{font-size:clamp(1.05rem,1.35vw,1.3rem)!important;line-height:1.3!important}
+
+/* Footer readability + contrast */
+footer .footer-desc,footer .footer-links a,footer .footer-col ul li a,footer p,footer li{font-size:.92rem!important;line-height:1.65!important}
+footer .footer-desc{color:rgba(255,255,255,.82)!important}
+footer .footer-col-title,footer h4,footer .label{font-size:.72rem!important;letter-spacing:.14em!important;text-transform:uppercase!important;color:rgba(255,255,255,.95)!important;font-weight:800!important;margin-bottom:14px!important}
+footer .footer-bottom,footer .footer-bottom p,footer .footer-bottom a,footer .pro-door{font-size:.82rem!important;line-height:1.6!important}
 </style>
 </head>
 <body><a class="nbd-skip" href="#main">Skip to content</a>

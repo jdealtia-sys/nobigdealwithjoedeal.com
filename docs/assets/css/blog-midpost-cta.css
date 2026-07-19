@@ -12,4 +12,4 @@
 @media(min-width:992px){.blog-midpost-cta{display:none}}
 /* Byline credential strip (injected by JS) */
 .author-credentials{display:flex;flex-wrap:wrap;gap:.5rem;margin-top:.85rem}
-.author-credentials .author-cred{display:inline-block;font-size:.7rem;font-weight:700;letter-spacing:.04em;color:var(--navy,#1e3a6e);background:rgba(232,114,12,.08);border:1px solid rgba(232,114,12,.25);border-radius:999px;padding:4px 10px}
+.author-credentials .author-cred{display:inline-block;font-size:.7rem;font-weight:700;letter-spacing:.04em;color:var(--navy,#1e3a6e);background:rgba(232,114,12,.08);border:1px solid rgba(232,114,12,.25);border-radius:100px;padding:4px 10px}

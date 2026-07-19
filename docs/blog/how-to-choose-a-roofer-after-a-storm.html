@@ -84,7 +84,7 @@ nav{position:sticky;top:0;z-index:1000;background:var(--navy-dark);border-bottom
 .callout strong,.prose .callout p strong,.prose .callout li strong{color:#fff}
 .callout h3{font-family:'Bebas Neue',sans-serif;font-size:1.4rem;color:var(--orange);letter-spacing:.04em;margin-bottom:10px;}
 .callout p{font-size:.88rem;color:rgba(255,255,255,.82);line-height:1.65;margin:0 0 14px;}
-.callout a{display:inline-block;background:#B85400;color:var(--white);padding:11px 22px;border-radius:7px;font-weight:800;font-size:.85rem;transition:background .2s;}
+.callout a{display:inline-block;background:#B85400;color:var(--white);padding:11px 22px;border-radius:8px;font-weight:800;font-size:.85rem;transition:background .2s;}
 .callout a:hover{background:var(--orange-dark);}
 .fact-box{background:var(--off-white);border:1px solid var(--light-gray);border-radius:12px;padding:24px 28px;margin:28px 0;}
 .fact-box h3{font-size:.72rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:#A64B00;margin-bottom:14px;}
@@ -309,6 +309,17 @@ nav .nav-logo-text .sub{white-space:nowrap}
   nav .nav-logo-text .brand{font-size:.9rem!important}
   nav .nav-logo-text .sub{font-size:.62rem!important}
 }
+</style>
+<style>
+/* Non-hero heading caps — keep hero h1s untouched */
+main h2,section h2,article h2{font-size:clamp(1.8rem,3vw,2.6rem)!important;line-height:1.1!important}
+main h3,section h3,article h3{font-size:clamp(1.05rem,1.35vw,1.3rem)!important;line-height:1.3!important}
+
+/* Footer readability + contrast */
+footer .footer-desc,footer .footer-links a,footer .footer-col ul li a,footer p,footer li{font-size:.92rem!important;line-height:1.65!important}
+footer .footer-desc{color:rgba(255,255,255,.82)!important}
+footer .footer-col-title,footer h4,footer .label{font-size:.72rem!important;letter-spacing:.14em!important;text-transform:uppercase!important;color:rgba(255,255,255,.95)!important;font-weight:800!important;margin-bottom:14px!important}
+footer .footer-bottom,footer .footer-bottom p,footer .footer-bottom a,footer .pro-door{font-size:.82rem!important;line-height:1.6!important}
 </style>
 </head>
 <body><a class="nbd-skip" href="#main">Skip to content</a>

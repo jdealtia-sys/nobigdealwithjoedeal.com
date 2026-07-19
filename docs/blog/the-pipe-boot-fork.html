@@ -92,7 +92,7 @@ nav{position:sticky;top:0;z-index:1000;background:var(--navy-dark);border-bottom
 .callout strong,.prose .callout p strong,.prose .callout li strong{color:#fff}
 .callout h3{font-family:'Bebas Neue',sans-serif;font-size:1.4rem;color:var(--orange);letter-spacing:.04em;margin-bottom:10px}
 .callout p{font-size:.88rem;color:rgba(255,255,255,.82);line-height:1.65;margin:0 0 14px}
-.callout a{display:inline-block;background:#B85400;color:#fff;padding:11px 22px;border-radius:7px;font-weight:800;font-size:.85rem}
+.callout a{display:inline-block;background:#B85400;color:#fff;padding:11px 22px;border-radius:8px;font-weight:800;font-size:.85rem}
 .callout a:hover{background:var(--orange-dark)}
 .author-box{display:flex;gap:20px;align-items:flex-start;background:var(--off-white);border-radius:12px;padding:28px;margin-top:48px;border:1px solid var(--light-gray)}
 .author-avatar{width:56px;height:56px;background:var(--navy);border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:'Bebas Neue',sans-serif;font-size:1.4rem;color:#fff;flex-shrink:0}
@@ -153,6 +153,32 @@ nav .nav-logo-text .sub{white-space:nowrap}
   nav .nav-logo-text .brand{font-size:.9rem!important}
   nav .nav-logo-text .sub{font-size:.62rem!important}
 }
+</style>
+<style>/* nav-collapse normalize (visual audit 2026-07-19): hamburger threshold is 1024px site-wide */@media(max-width:1024px){.nav-links{display:none!important}.hamburger{display:flex!important}}</style>
+<style>
+/* typography normalize (injected) */
+body{font-family:'Montserrat','Segoe UI',-apple-system,sans-serif;color:#1a1a1a;-webkit-font-smoothing:antialiased}
+h1,h2,h3{font-family:'Bebas Neue','Montserrat',sans-serif;letter-spacing:.03em;line-height:1.1}
+h1{font-size:clamp(2.5rem,4.8vw,4.5rem);line-height:1.04;letter-spacing:.02em}
+h2{font-size:clamp(1.8rem,3.1vw,2.75rem)}
+h3{font-size:clamp(1.05rem,1.4vw,1.3rem);line-height:1.25}
+p{font-size:.95rem;line-height:1.72;color:#4a4a4a}
+.prose p,.post-body p,article p{font-size:.95rem;line-height:1.72}
+.nav-links > li > a,.nav-links a{font-size:.8rem;letter-spacing:.08em;font-weight:600}
+a.nav-cta,nav .nav-cta{font-size:.8rem!important;letter-spacing:.05em;font-weight:700!important;white-space:nowrap!important;display:inline-flex!important;align-items:center;gap:6px}
+nav{gap:clamp(18px,2.2vw,40px)}
+nav .nav-logo{margin-right:clamp(12px,1.5vw,28px)}
+</style>
+<style>
+/* Non-hero heading caps — keep hero h1s untouched */
+main h2,section h2,article h2{font-size:clamp(1.8rem,3vw,2.6rem)!important;line-height:1.1!important}
+main h3,section h3,article h3{font-size:clamp(1.05rem,1.35vw,1.3rem)!important;line-height:1.3!important}
+
+/* Footer readability + contrast */
+footer .footer-desc,footer .footer-links a,footer .footer-col ul li a,footer p,footer li{font-size:.92rem!important;line-height:1.65!important}
+footer .footer-desc{color:rgba(255,255,255,.82)!important}
+footer .footer-col-title,footer h4,footer .label{font-size:.72rem!important;letter-spacing:.14em!important;text-transform:uppercase!important;color:rgba(255,255,255,.95)!important;font-weight:800!important;margin-bottom:14px!important}
+footer .footer-bottom,footer .footer-bottom p,footer .footer-bottom a,footer .pro-door{font-size:.82rem!important;line-height:1.6!important}
 </style>
 </head>
 <body><a class="nbd-skip" href="#main">Skip to content</a>
