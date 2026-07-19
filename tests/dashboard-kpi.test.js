@@ -163,6 +163,55 @@ ok('topSource = referral (3 non-deleted)', k.topSource === 'referral' && k.topSo
   });
   ok('multi-pay totalRevenue = 10000 (both payments)', multi.totalRevenue === 10000);
   ok('multi-pay monthRevenue = this-month deposit only (4000)', multi.monthRevenue === 4000);
+
+  // Transition reconciliation: a pre-ledger deposit (no payments[] entry)
+  // followed by a ledger-tracked payoff must NOT vanish from totals — a
+  // synthetic remainder (dated at the earliest ledger entry) keeps the sum
+  // at total−balanceDue.
+  const mixed = CFA({
+    leads: [], knocks: [], photos: [], estimates: [], expenses: [],
+    invoices: [{
+      status: 'paid', total: 10000, balanceDue: 0, amountPaid: 10000,
+      lastPaymentAt: inMonth,
+      paidAt: inMonth,
+      // Only the payoff is in the ledger; the $4,000 deposit predates it.
+      payments: [{ amount: 6000, at: inMonth }],
+    }],
+  });
+  ok('mixed shape totalRevenue = 10000 (ledger 6000 + synthetic 4000 remainder)',
+    mixed.totalRevenue === 10000);
+  ok('mixed shape monthRevenue = 10000 (remainder dated at earliest ledger entry)',
+    mixed.monthRevenue === 10000);
+
+  // Discriminator: the synthetic remainder must date at the EARLIEST ledger
+  // entry, NOT lastPaymentAt. Ledger entry last month, lastPaymentAt this
+  // month → this month's revenue must be 0 (a lastPaymentAt-dated regression
+  // would show 4000 here).
+  const priorMonth = new Date(N.getFullYear(), N.getMonth() - 1, 15);
+  const disc = CFA({
+    leads: [], knocks: [], photos: [], estimates: [], expenses: [],
+    invoices: [{
+      status: 'paid', total: 10000, balanceDue: 0, amountPaid: 10000,
+      lastPaymentAt: inMonth, paidAt: inMonth,
+      payments: [{ amount: 6000, at: priorMonth }],
+    }],
+  });
+  ok('synthetic remainder dated at earliest ledger entry, NOT lastPaymentAt (totalRevenue 10000)',
+    disc.totalRevenue === 10000);
+  ok('synthetic remainder dated at earliest ledger entry, NOT lastPaymentAt (monthRevenue 0)',
+    disc.monthRevenue === 0);
+
+  // Over-collected ledger in the analytics copy: no negative synthetic.
+  const overA = CFA({
+    leads: [], knocks: [], photos: [], estimates: [], expenses: [],
+    invoices: [{
+      status: 'paid', total: 1000, balanceDue: 0, amountPaid: 1100,
+      lastPaymentAt: inMonth, paidAt: inMonth,
+      payments: [{ amount: 1100, at: inMonth }],
+    }],
+  });
+  ok('analytics over-collected ledger: no negative synthetic (1100 stands)',
+    overA.totalRevenue === 1100);
 }
 
 console.log('\n──────────────────────────────────────────────────');

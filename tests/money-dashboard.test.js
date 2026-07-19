@@ -182,5 +182,138 @@ const legacy = MD.computePnL({
 });
 eq('legacy partial (no payments[]) still counts $600 in 2026', legacy.collectedCents, 60000);
 
+// ── Transition reconciliation (mixed shape: pre-ledger partial + ledger) ──
+// An invoice whose deposit predates the payments[] deploy has a ledger that
+// sums SHORT of total−balanceDue. The missing cash must NOT vanish — a
+// synthetic remainder entry (dated at the earliest ledger entry) keeps
+// totals exact.
+console.log('  transition reconciliation (pre-ledger partial + ledger entry):');
+const mixedInvoice = {
+  status: 'paid', total: 10000, balanceDue: 0, amountPaid: 10000,
+  lastPaymentAt: new Date(2027, 6, 1),
+  paidAt: new Date(2027, 6, 1),
+  // Only the post-deploy payoff made it into the ledger; the $4,000
+  // pre-ledger deposit has no entry.
+  payments: [{ amount: 6000, at: new Date(2027, 6, 1) }],
+};
+const mixed27 = MD.computePnL({
+  year: 2027, leads: [], expenses: [], suppliers: [], invoices: [mixedInvoice],
+});
+eq('mixed shape: 2027 collected = $10,000 (ledger $6,000 + synthetic $4,000 remainder)',
+  mixed27.collectedCents, 1000000);
+
+// 3-payment variant: the remainder dates at the EARLIEST ledger entry
+// (tightest upper bound for pre-ledger cash), not lastPaymentAt.
+const mixed3 = {
+  status: 'paid', total: 10000, balanceDue: 0, amountPaid: 10000,
+  lastPaymentAt: new Date(2027, 6, 1),
+  paidAt: new Date(2027, 6, 1),
+  payments: [
+    { amount: 3000, at: new Date(2026, 5, 10) }, // June 2026 progress draw
+    { amount: 6000, at: new Date(2027, 6, 1) },  // July 2027 payoff
+  ],
+  // $1,000 pre-ledger deposit missing from the ledger.
+};
+const mixed3y26 = MD.computePnL({
+  year: 2026, leads: [], expenses: [], suppliers: [], invoices: [mixed3],
+});
+eq('mixed 3-pay: 2026 = $4,000 ($3,000 ledger + $1,000 remainder dated at earliest ledger entry)',
+  mixed3y26.collectedCents, 400000);
+const mixed3y27 = MD.computePnL({
+  year: 2027, leads: [], expenses: [], suppliers: [], invoices: [mixed3],
+});
+eq('mixed 3-pay: 2027 = $6,000 payoff only (remainder did not leak into 2027)',
+  mixed3y27.collectedCents, 600000);
+
+// Complete ledger: sums exactly to total−balanceDue → NO synthetic entry.
+const complete = MD.computePnL({
+  year: 2026, leads: [], expenses: [], suppliers: [],
+  invoices: [{
+    status: 'paid', total: 5000, balanceDue: 0, amountPaid: 5000,
+    lastPaymentAt: new Date(2026, 8, 1), paidAt: new Date(2026, 8, 1),
+    payments: [
+      { amount: 2000, at: new Date(2026, 2, 1) },
+      { amount: 3000, at: new Date(2026, 8, 1) },
+    ],
+  }],
+});
+eq('complete ledger: no synthetic double-count ($5,000 exactly)', complete.collectedCents, 500000);
+
+// Ledger OVER total−balanceDue (write-off / overpay row): no negative
+// synthetic entry — the ledger stands as-is.
+const over = MD.computePnL({
+  year: 2026, leads: [], expenses: [], suppliers: [],
+  invoices: [{
+    status: 'paid', total: 1000, balanceDue: 0, amountPaid: 1100,
+    lastPaymentAt: new Date(2026, 2, 1), paidAt: new Date(2026, 2, 1),
+    payments: [{ amount: 1100, at: new Date(2026, 2, 1) }],
+  }],
+});
+eq('ledger over collected: no negative synthetic (ledger $1,100 stands)', over.collectedCents, 110000);
+
+// A non-empty payments[] whose entries are ALL invalid (null date / bad
+// amount) must fall through to the legacy lump — a refactor returning the
+// (empty) filtered ledger unconditionally would zero this invoice's cash.
+const nullLedger = MD.computePnL({
+  year: 2026, leads: [], expenses: [], suppliers: [],
+  invoices: [{
+    status: 'sent', total: 1000, balanceDue: 400, amountPaid: 600,
+    lastPaymentAt: new Date(2026, 3, 1),
+    payments: [{ amount: 600, at: null }],
+  }],
+});
+eq('all-invalid ledger entries fall back to legacy lump ($600)', nullLedger.collectedCents, 60000);
+const emptyLedger = MD.computePnL({
+  year: 2026, leads: [], expenses: [], suppliers: [],
+  invoices: [{
+    status: 'sent', total: 1000, balanceDue: 400, amountPaid: 600,
+    lastPaymentAt: new Date(2026, 3, 1), payments: [],
+  }],
+});
+eq('empty payments[] falls back to legacy lump ($600)', emptyLedger.collectedCents, 60000);
+
+// Firestore-Timestamp-shaped 'at' ({seconds}) — the shape the Stripe
+// webhook's entries deserialize to on the client. Exercises toJSDate in
+// both the earliest-entry tracking and the year bucketing.
+const ts = (y, m, d) => ({ seconds: Date.UTC(y, m, d, 12) / 1000 });
+const tsMixed = MD.computePnL({
+  year: 2026, leads: [], expenses: [], suppliers: [],
+  invoices: [{
+    status: 'paid', total: 10000, balanceDue: 0, amountPaid: 10000,
+    lastPaymentAt: ts(2027, 6, 1), paidAt: ts(2027, 6, 1),
+    payments: [
+      { amount: 3000, at: ts(2026, 5, 10) },
+      { amount: 6000, at: ts(2027, 6, 1) },
+    ],
+  }],
+});
+eq('Timestamp-shaped mixed ledger: 2026 = $3,000 ledger + $1,000 remainder', tsMixed.collectedCents, 400000);
+
+// Threshold boundary: a remainder of exactly 1 cent still reconciles
+// (guard is >= 1 cent — an off-by-one or dollar-threshold would drop it).
+const cent = MD.computePnL({
+  year: 2026, leads: [], expenses: [], suppliers: [],
+  invoices: [{
+    status: 'paid', total: 100, balanceDue: 0,
+    lastPaymentAt: new Date(2026, 2, 1),
+    payments: [{ amount: 99.99, at: new Date(2026, 2, 1) }],
+  }],
+});
+eq('remainder of exactly 1 cent still reconciles ($100.00 total)', cent.collectedCents, 10000);
+
+// Unparseable ledger date: entry keeps its cash in the ledger sum (so the
+// synthetic stays $4,000, dated via the lastPaymentAt fallback since no
+// entry parsed) but the $6,000 itself has no bucket in a dated P&L.
+const garbled = MD.computePnL({
+  year: 2026, leads: [], expenses: [], suppliers: [],
+  invoices: [{
+    status: 'paid', total: 10000, balanceDue: 0,
+    lastPaymentAt: new Date(2026, 2, 1), paidAt: new Date(2026, 2, 1),
+    payments: [{ amount: 6000, at: 'not-a-date' }],
+  }],
+});
+eq('unparseable ledger date: synthetic $4,000 via lastPaymentAt fallback (undated $6,000 unbucketed)',
+  garbled.collectedCents, 400000);
+
 console.log('\n' + (failed === 0 ? '✓' : '✗') + ' money dashboard: ' + passed + ' passed, ' + failed + ' failed');
 if (failed > 0) { console.error('FAILED: ' + fails.join(', ')); process.exit(1); }
