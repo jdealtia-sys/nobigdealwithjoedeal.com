@@ -363,8 +363,8 @@ body{background:var(--bg);color:var(--white);font-family:'Barlow',sans-serif;lin
 <div style="padding:0 48px">
   <div class="demo-stats reveal">
     <div class="ds-stat"><div class="ds-stat-val" style="color:var(--orange)">6</div><div class="ds-stat-label">Pro Tools</div></div>
-    <div class="ds-stat"><div class="ds-stat-val" style="color:var(--orange)">100+</div><div class="ds-stat-label">Themes</div></div>
-    <div class="ds-stat"><div class="ds-stat-val" style="color:#3fb950">45+</div><div class="ds-stat-label">AI Tools Mapped</div></div>
+    <div class="ds-stat"><div class="ds-stat-val" style="color:var(--orange)">186</div><div class="ds-stat-label">Themes</div></div>
+    <div class="ds-stat"><div class="ds-stat-val" style="color:#3fb950">25</div><div class="ds-stat-label">Document Types</div></div>
     <div class="ds-stat"><div class="ds-stat-val" style="color:#d29922">$0</div><div class="ds-stat-label">To Start</div></div>
   </div>
 </div>
@@ -380,7 +380,7 @@ body{background:var(--bg);color:var(--white);font-family:'Barlow',sans-serif;lin
       <div class="tc-title">CRM DASHBOARD</div>
       <div class="tc-desc">Most contractors track leads in a notebook or their phone. Jobs fall through the cracks. NBD Pro's CRM gives you a live pipeline view of every lead, job, and dollar — so nothing gets lost.</div>
       <ul class="tc-features">
-        <li>7-stage drag-and-drop pipeline — from first knock to final check</li>
+        <li>7 pipelines, 31 stages — drag-and-drop from first knock to final check</li>
         <li>Per-lead task management, notes, and job history</li>
         <li>Revenue dashboard with MTD and pipeline value</li>
         <li>Storm intel map overlay with NOAA radar + heatmap</li>
@@ -507,19 +507,20 @@ body{background:var(--bg);color:var(--white);font-family:'Barlow',sans-serif;lin
 
   <div class="demo-divider"></div>
 
-  <!-- 4. AI Selection Codex -->
+  <!-- 4. AI Texting (replaced AI Selection Codex — internal tool, and its
+       "45+ AI tools" figure was unsupported) -->
   <div class="tool-card reverse reveal" style="margin-top:80px">
     <div class="tc-info">
       <div class="tc-badge purple">NBD Pro · AI-Powered</div>
-      <div class="tc-problem">Problem: You don't know which AI tool to use for what</div>
-      <div class="tc-title">AI SELECTION CODEX</div>
-      <div class="tc-desc">AI is everywhere and most contractors have no idea how to use it. The Codex is a decision engine that maps your use case to the right tool, grades your current setup, and tells you what to actually buy.</div>
+      <div class="tc-problem">Problem: Texting customers back eats your whole evening</div>
+      <div class="tc-title">AI TEXTING — DRAFTS, YOU APPROVE</div>
+      <div class="tc-desc">A homeowner texts in and NBD Pro drafts the reply for you — grounded in that lead's actual history, stage, and last conversation. You edit, tap approve, and move on. Nothing ever sends without you.</div>
       <ul class="tc-features">
-        <li>45+ AI tools mapped to contractor use cases</li>
-        <li>4-step wizard: use case → budget → engagement → recommendation</li>
-        <li>Grade badge with letter score and verdict on your selection</li>
-        <li>Browse & Learn mode — research any AI tool in depth</li>
-        <li>7-day AI cache so answers load instantly</li>
+        <li>AI drafts from real lead context — name, stage, thread history</li>
+        <li>One-tap Approve & Send, or edit the draft first</li>
+        <li>4 persona presets + 6 voice sliders to sound like you</li>
+        <li>Locked guardrails: never quotes a price, never commits a date</li>
+        <li>STOP/HELP compliance and opt-out handling built in</li>
       </ul>
       <a href="/pro/register.html" class="tc-launch" style="background:#8b5cf6">Sign Up to Access →</a>
     </div>
@@ -528,22 +529,20 @@ body{background:var(--bg);color:var(--white);font-family:'Barlow',sans-serif;lin
         <div class="mock-dot" style="background:#f85149"></div>
         <div class="mock-dot" style="background:#d29922"></div>
         <div class="mock-dot" style="background:#3fb950"></div>
-        <div class="mock-title">AI Selection Codex</div>
+        <div class="mock-title">AI Draft Queue</div>
       </div>
       <div class="mock-body">
-        <div class="mock-input">Use case: Generating follow-up emails after inspections</div>
-        <div class="mock-input">Budget: $20–50/month · Daily use</div>
+        <div class="mock-input">Sandra Kim · Storm Damage · Inspection Set</div>
+        <div class="mock-input">"Hey — can we move the inspection to Tuesday instead?"</div>
         <div class="mock-result-row">
-          <div class="mock-grade-badge" style="background:rgba(232,114,12,.12);color:#e8720c;border:1px solid rgba(232,114,12,.25)">A</div>
-          <div><div class="mock-result-text">Claude by Anthropic</div><div class="mock-result-sub">Best match · 94% relevance</div></div>
-          <div style="margin-left:auto;font-size:9px;color:#3fb950;font-weight:700">$20/mo</div>
+          <div class="mock-grade-badge" style="background:rgba(139,92,246,.12);color:#a78bfa;border:1px solid rgba(139,92,246,.25);font-size:16px">AI</div>
+          <div><div class="mock-result-text">Draft ready — awaiting your approval</div><div class="mock-result-sub">"Tuesday works on my end, Sandra. I'll confirm the exact time Monday — sound good?"</div></div>
         </div>
-        <div class="mock-result-row" style="opacity:.6">
-          <div class="mock-grade-badge" style="background:rgba(212,160,10,.1);color:#d4a00a;border:1px solid rgba(212,160,10,.2);font-size:20px">B+</div>
-          <div><div class="mock-result-text">ChatGPT Plus</div><div class="mock-result-sub">Strong alternative · 81% match</div></div>
-          <div style="margin-left:auto;font-size:9px;color:#8b9bb4">$20/mo</div>
+        <div style="display:flex;gap:8px;margin:10px 0">
+          <span style="background:#e8720c;color:#fff;padding:5px 12px;border-radius:4px;font-size:9px;font-weight:700;letter-spacing:.5px">APPROVE &amp; SEND</span>
+          <span style="border:1px solid rgba(255,255,255,.25);padding:5px 12px;border-radius:4px;font-size:9px;letter-spacing:.5px">EDIT</span>
         </div>
-        <div style="background:rgba(139,92,246,.07);border:1px solid rgba(139,92,246,.18);border-radius:6px;padding:9px 12px;font-size:9px;color:#a78bfa;letter-spacing:.5px">⚡ Claude handles contractor tone better than GPT-4. Use it for email drafts.</div>
+        <div style="background:rgba(139,92,246,.07);border:1px solid rgba(139,92,246,.18);border-radius:6px;padding:9px 12px;font-size:9px;color:#a78bfa;letter-spacing:.5px">⚡ You approve every message. SMS delivery activates with one-time carrier (A2P) registration.</div>
       </div>
     </div>
   </div>
@@ -562,7 +561,7 @@ body{background:var(--bg);color:var(--white);font-family:'Barlow',sans-serif;lin
         <li>Pricing breakdown, learning curve, who it's built for</li>
         <li>1–5 star personal rating + notes per tool</li>
         <li>Reading List to save tools for later research</li>
-        <li>Browse & Learn mode with 45+ tools pre-loaded</li>
+        <li>Browse & Learn mode — deep-dive any software you're considering</li>
       </ul>
       <a href="/pro/register.html" class="tc-launch" style="background:#d4a00a;color:#000">Sign Up to Access →</a>
     </div>
@@ -601,19 +600,20 @@ body{background:var(--bg);color:var(--white);font-family:'Barlow',sans-serif;lin
 
   <div class="demo-divider"></div>
 
-  <!-- 6. Project Codex -->
+  <!-- 6. Documents & E-Sign (replaced Project Codex — internal dev build-log,
+       not a customer feature) -->
   <div class="tool-card reverse reveal" style="margin-top:80px">
     <div class="tc-info">
       <div class="tc-badge orange">NBD Pro</div>
-      <div class="tc-problem">Problem: You have no system to track what you've built</div>
-      <div class="tc-title">PROJECT CODEX</div>
-      <div class="tc-desc">Your business runs on systems — but which version is live? What changed last week? The Project Codex is a living record of every build session, every decision, every directive. It's your operating system's operating system.</div>
+      <div class="tc-problem">Problem: Paperwork kills deals that were already closed</div>
+      <div class="tc-title">DOCUMENTS &amp; E-SIGN</div>
+      <div class="tc-desc">The handshake isn't the finish line — the signature is. NBD Pro generates 25 branded document types and gets them signed on the homeowner's phone with a secure link. No printer, no login, no third-party e-sign bill.</div>
       <ul class="tc-features">
-        <li>Session-based build log with full input/output/delta tracking</li>
-        <li>Priority task queue with origin tracking back to each session</li>
-        <li>AI-powered synthesis — auto-generates briefings and DNA snapshots</li>
-        <li>Directive system — standing orders that persist across sessions</li>
-        <li>Firestore cloud sync so your record follows you everywhere</li>
+        <li>25 branded document types — contracts, AOBs, change orders, warranties</li>
+        <li>9 e-sign ready with homeowner + representative signer blocks</li>
+        <li>Single-use signing links that expire after 7 days</li>
+        <li>Deal Room: customer picks Good/Better/Best and signs remotely</li>
+        <li>White-labeled to your company on every customer-facing page</li>
       </ul>
       <a href="/pro/register.html" class="tc-launch">Sign Up to Access →</a>
     </div>
@@ -622,23 +622,22 @@ body{background:var(--bg);color:var(--white);font-family:'Barlow',sans-serif;lin
         <div class="mock-dot" style="background:#f85149"></div>
         <div class="mock-dot" style="background:#d29922"></div>
         <div class="mock-dot" style="background:#3fb950"></div>
-        <div class="mock-title">Project Codex · v12.0</div>
+        <div class="mock-title">Document Generator</div>
       </div>
       <div class="mock-body">
-        <div class="mock-row">
-          <div class="mock-stat"><div class="mock-stat-label">Sessions</div><div class="mock-stat-val" style="color:var(--orange)">12</div></div>
-          <div class="mock-stat"><div class="mock-stat-label">Tasks</div><div class="mock-stat-val" style="color:#f85149">13</div></div>
-          <div class="mock-stat"><div class="mock-stat-label">Version</div><div class="mock-stat-val" style="color:#3fb950">12.0</div></div>
+        <div class="mock-item">
+          <div class="mock-item-left"><div class="mock-dot-sm" style="background:#3fb950"></div><div><div class="mock-item-name">Roofing Contract</div><div class="mock-item-sub">Dave Torres · Full Exterior</div></div></div>
+          <div class="mock-pill" style="background:rgba(63,185,80,.15);color:#3fb950">Signed ✓</div>
         </div>
         <div class="mock-item">
-          <div class="mock-item-left"><div class="mock-dot-sm" style="background:#f85149"></div><div><div class="mock-item-name">Wire Stripe payments</div><div class="mock-item-sub">Critical · From S6 · 2-3 hrs</div></div></div>
-          <div class="mock-pill" style="background:rgba(248,81,73,.15);color:#f85149">Critical</div>
+          <div class="mock-item-left"><div class="mock-dot-sm" style="background:#d29922"></div><div><div class="mock-item-name">Change Order #2</div><div class="mock-item-sub">Sandra Kim · Decking</div></div></div>
+          <div class="mock-pill" style="background:rgba(210,153,34,.15);color:#d29922">Awaiting</div>
         </div>
         <div class="mock-item">
-          <div class="mock-item-left"><div class="mock-dot-sm" style="background:#d29922"></div><div><div class="mock-item-name">Deploy AI proxy to production</div><div class="mock-item-sub">Critical · From S12 · 5 min</div></div></div>
-          <div class="mock-pill" style="background:rgba(210,153,34,.15);color:#d29922">High</div>
+          <div class="mock-item-left"><div class="mock-dot-sm" style="background:#e8720c"></div><div><div class="mock-item-name">Warranty Certificate</div><div class="mock-item-sub">Marcus Williams · GAF</div></div></div>
+          <div class="mock-pill" style="background:rgba(232,114,12,.15);color:#e8720c">Generated</div>
         </div>
-        <div style="background:rgba(232,114,12,.06);border:1px solid rgba(232,114,12,.15);border-radius:6px;padding:9px 12px;font-size:9px;color:var(--orange);letter-spacing:.5px">⚡ AI Synthesis: 12 sessions tracked. 4 critical tasks. Next: Stripe wiring.</div>
+        <div style="background:rgba(232,114,12,.06);border:1px solid rgba(232,114,12,.15);border-radius:6px;padding:9px 12px;font-size:9px;color:var(--orange);letter-spacing:.5px">⚡ Signed on her phone in 40 seconds — no login, no app, no printer.</div>
       </div>
     </div>
   </div>
@@ -648,7 +647,7 @@ body{background:var(--bg);color:var(--white);font-family:'Barlow',sans-serif;lin
 <!-- CTA -->
 <section class="demo-cta reveal">
   <h2>READY TO STOP<br><span>WINGING IT?</span></h2>
-  <p>Every tool above is live and working right now. Start free with Daily Success and 10 leads a month — or upgrade and get everything.</p>
+  <p>Every tool above ships with NBD Pro today. Start free with Daily Success and 10 leads a month — or upgrade and get everything.</p>
   <div class="demo-cta-btns">
     <a href="/pro/register.html" class="btn-orange-lg">Get Started Free →</a>
     <a href="/pro/pricing.html" class="btn-infused">See Plans — Starter $99/mo ⚡</a>
