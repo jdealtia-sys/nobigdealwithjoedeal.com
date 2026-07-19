@@ -256,7 +256,7 @@ Bookmark it; the link stays live as we work through the project.
     overlay.setAttribute('aria-modal', 'true');
     overlay.setAttribute('aria-labelledby', 'nbd-templates-title');
     overlay.style.cssText = `
-      position:fixed; inset:0; background:rgba(0,0,0,0.55); z-index:99996;
+      position:fixed; inset:0; background:rgba(0,0,0,0.55); z-index:2400;
       display:flex; align-items:center; justify-content:center; padding:20px;
       font-family:'Barlow',-apple-system,system-ui,sans-serif;`;
 
@@ -516,7 +516,7 @@ Bookmark it; the link stays live as we work through the project.
       overlay.setAttribute('aria-modal', 'true');
       overlay.setAttribute('aria-labelledby', 'nbd-templates-picker-title');
       overlay.style.cssText = `
-        position:fixed; inset:0; background:rgba(0,0,0,0.55); z-index:99996;
+        position:fixed; inset:0; background:rgba(0,0,0,0.55); z-index:2400;
         display:flex; align-items:center; justify-content:center; padding:20px;
         font-family:'Barlow',-apple-system,system-ui,sans-serif;`;
 

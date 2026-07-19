@@ -144,48 +144,47 @@ window.toggleTask = async function(taskId, newDoneState) {
 };
 
 // Toast notification system
+// Toast — same visual + behavioral contract as the dashboard's ui.js system
+// (2026-07-19 consolidation: this page had hardcoded Bootstrap colors on a
+// themed app, no stacking — concurrent toasts overlapped at one point — no
+// close button, and a flat 3s lifetime even for errors vs the dashboard's
+// 9s). Themed surface, type left-borders, bottom-right stacking container,
+// per-type durations, dismissible.
 window.showToast = function(message, type = 'info') {
+  const DURATIONS = { success: 4000, info: 5000, warning: 7000, error: 9000 };
+  let container = document.getElementById('toastContainer');
+  if (!container) {
+    container = document.createElement('div');
+    container.id = 'toastContainer';
+    container.style.cssText = 'position:fixed;bottom:20px;right:20px;z-index:10002;display:flex;flex-direction:column;gap:8px;align-items:flex-end;';
+    document.body.appendChild(container);
+  }
+  while (container.children.length >= 5) container.firstChild.remove();
+  const BORDER = { success: 'var(--green,#2ECC8A)', error: 'var(--red,#E05252)', warning: 'var(--gold,#eab308)', info: 'var(--blue,#3b82f6)' };
   const toast = document.createElement('div');
-  toast.style.cssText = `
-    position:fixed;
-    top:80px;
-    right:20px;
-    background:${type === 'success' ? '#28a745' : type === 'error' ? '#dc3545' : '#0ea5e9'};
-    color:white;
-    padding:15px 20px;
-    border-radius:8px;
-    box-shadow:0 4px 12px rgba(0,0,0,0.15);
-    z-index:10000;
-    font-size:14px;
-    font-weight:500;
-    animation:slideIn 0.3s ease-out;
-    pointer-events:auto;
-  `;
-  toast.textContent = message;
-  
-  document.body.appendChild(toast);
-  
+  toast.style.cssText = 'display:flex;align-items:center;gap:10px;background:var(--s,#1a1d23);color:var(--t,#e8eaf0);border:1px solid var(--br,rgba(255,255,255,.1));border-left:3px solid ' + (BORDER[type] || BORDER.info) + ';border-radius:8px;padding:10px 14px;font-size:13px;font-weight:500;box-shadow:0 6px 20px rgba(0,0,0,.25);max-width:340px;pointer-events:auto;animation:ctToastIn .25s ease-out;';
+  const msg = document.createElement('span');
+  msg.textContent = message;
+  const close = document.createElement('button');
+  close.type = 'button';
+  close.setAttribute('aria-label', 'Dismiss');
+  close.textContent = '✕';
+  close.style.cssText = 'background:none;border:none;color:var(--m,#8a93a8);cursor:pointer;font-size:12px;padding:2px 4px;flex-shrink:0;';
+  close.addEventListener('click', () => toast.remove());
+  toast.appendChild(msg);
+  toast.appendChild(close);
+  container.appendChild(toast);
   setTimeout(() => {
-    toast.style.animation = 'slideOut 0.3s ease-in';
-    toast.style.pointerEvents = 'none';
-    setTimeout(() => {
-      if (toast.parentNode) toast.remove();
-    }, 300);
-  }, 3000);
+    toast.style.transition = 'opacity .25s, transform .25s';
+    toast.style.opacity = '0';
+    toast.style.transform = 'translateX(30px)';
+    setTimeout(() => { if (toast.parentNode) toast.remove(); }, 260);
+  }, DURATIONS[type] || 5000);
 };
 
-// Add CSS animations
+// Entry animation keyframes
 const style = document.createElement('style');
-style.textContent = `
-  @keyframes slideIn {
-    from { transform: translateX(400px); opacity: 0; }
-    to { transform: translateX(0); opacity: 1; }
-  }
-  @keyframes slideOut {
-    from { transform: translateX(0); opacity: 1; }
-    to { transform: translateX(400px); opacity: 0; }
-  }
-`;
+style.textContent = '@keyframes ctToastIn{from{transform:translateX(40px);opacity:0}to{transform:none;opacity:1}}';
 document.head.appendChild(style);
 
 // ── Booking Link Copy ─────────────────────────────
@@ -2014,3 +2013,33 @@ window.closeLightbox = function() {
 
 console.log('✓ Customer page enhancements loaded');
 
+
+// ── nbd jump-nav scroll-spy (consolidation 2026-07-19) ─────────────────
+// The single-page customer record replaced tabs with a sticky jump-nav but
+// nothing indicated the current section. IntersectionObserver toggles
+// .active on the matching link. CSP-safe: no inline handlers.
+(function () {
+  function initSpy() {
+    var nav = document.querySelector('.jump-nav');
+    if (!nav || !('IntersectionObserver' in window)) return;
+    var links = Array.prototype.slice.call(nav.querySelectorAll('a[href^="#"]'));
+    if (!links.length) return;
+    var map = {};
+    links.forEach(function (a) {
+      var id = a.getAttribute('href').slice(1);
+      var sec = document.getElementById(id);
+      if (sec) map[id] = a;
+    });
+    var io = new IntersectionObserver(function (entries) {
+      entries.forEach(function (en) {
+        if (!en.isIntersecting) return;
+        links.forEach(function (a) { a.classList.remove('active'); });
+        var a = map[en.target.id];
+        if (a) a.classList.add('active');
+      });
+    }, { rootMargin: '-20% 0px -70% 0px' });
+    Object.keys(map).forEach(function (id) { io.observe(document.getElementById(id)); });
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', initSpy);
+  else initSpy();
+})();

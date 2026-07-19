@@ -1736,3 +1736,9 @@
 .k-show-all:hover {
   background: color-mix(in srgb, var(--orange) 16%, transparent);
 }
+
+  /* collapsed-rail count badges (visual audit 2026-07-19): the collapse mode
+     hides every non-icon child, which silently dropped the live lead/prospect
+     counts. Corner pills mirror the health-indicator treatment. */
+  body.sidebar-collapsed .sidebar .ni{position:relative;}
+  body.sidebar-collapsed .sidebar .ni .nbadge{display:block!important;position:absolute;top:2px;right:4px;font-size:8px!important;line-height:1;padding:2px 4px!important;min-width:14px;text-align:center;border-radius:8px;}

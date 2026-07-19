@@ -75,6 +75,16 @@
   margin-bottom:8px;
 }
 /* Add more themes as needed - for now just using default */
+
+/* consolidation 2026-07-19: scrollbars — this page shipped default OS
+   scrollbars while the dashboard it opens from themes them. Same spec. */
+::-webkit-scrollbar{width:6px;height:6px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--br);border-radius:3px}
+::-webkit-scrollbar-thumb:hover{background:var(--m)}
+html{scrollbar-width:thin;scrollbar-color:var(--br) transparent}
+/* jump-nav: current-section state (scroll-spy in customer-tasks-ui.js). */
+.jump-nav a.active{color:var(--orange);border-color:var(--orange)!important;background:color-mix(in srgb, var(--orange) 10%, transparent)}
 </style>
 <style>
 * { margin:0; padding:0; box-sizing:border-box; }

@@ -402,6 +402,9 @@ function goTo(name, params = {}) {
   if(name==='talk-tank')  { if (window.TalkTank)  window.TalkTank.init();  }
   if(name==='board') { if(window.AnalyticsKPI) window.AnalyticsKPI.render('analyticsContainer'); if(window.AiTextingStatsCard) window.AiTextingStatsCard.render(); renderLeaderboard(); }
   if(name==='photos') {
+    // Consolidation 2026-07-19: the skeleton system existed with zero
+    // callers — the view booted on whatever was previously painted.
+    if (typeof window.showPhotosSkeleton === 'function') { try { window.showPhotosSkeleton(); } catch (_) {} }
     renderPhotoLeads();
     // Populate lead selector for photo engine
     const sel = document.getElementById('photoLeadSelect');

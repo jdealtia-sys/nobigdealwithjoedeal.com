@@ -109,3 +109,14 @@ window.addEventListener('DOMContentLoaded', () => {
 });
 
 // ══ DEMO SEEDER (extracted to js/demo.js) ════════════════════
+
+// ── sidebar keyboard nav (consolidation 2026-07-19) ─────────────────────
+// .ni items are divs with a click delegate — unreachable by keyboard until
+// the markup sweep added tabindex. Enter/Space activates like a click.
+document.addEventListener('keydown', (e) => {
+  if (e.key !== 'Enter' && e.key !== ' ') return;
+  const ni = e.target && e.target.closest && e.target.closest('.ni[data-action]');
+  if (!ni) return;
+  e.preventDefault();
+  ni.click();
+});

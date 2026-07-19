@@ -117,8 +117,12 @@ ok('command palette surfaces are tokenized',
 ok('portal.html aliases --green/--orange to nbd-brand tokens',
   /--green: var\(--nbd-success\)/.test(read('docs/pro/portal.html'))
   && /--orange: var\(--nbd-orange\)/.test(read('docs/pro/portal.html')));
+// #1005 upgraded the literal to the tenant-brand accent (NBD default kept
+// as the _dealBrand fallback) — the invariant is that the generated page
+// still DEFINES --orange so its color-mix glow resolves.
 ok('close-board generated page defines --orange for its color-mix glow',
-  /:root\{--orange:#e8720c;\}/.test(read('docs/pro/js/close-board.js')));
+  /:root\{--orange:\$\{BRAND\.accent\};\}/.test(read('docs/pro/js/close-board.js'))
+  && /accent = [^;]*'#e8720c'/.test(read('docs/pro/js/close-board.js')));
 ok('portal Cal.com embed uses light theme', /embed=true&theme=light/.test(read('docs/pro/js/portal.js')));
 
 // 9. misc regressions

@@ -85,7 +85,7 @@
       overlay.style.zIndex = '10005';
       overlay.setAttribute('role', 'dialog');
       overlay.setAttribute('aria-modal', 'true');
-      const okColor = danger ? '#E05252' : 'var(--accent, #2ECC8A)';
+      const okColor = danger ? '#E05252' : 'var(--green, #2ECC8A)';
       overlay.innerHTML = `
         <div class="d2d-modal" style="padding:20px;max-width:360px;width:92%;">
           <div style="font-size:15px;line-height:1.45;margin-bottom:18px;color:var(--text, #111);white-space:pre-wrap;">${escapeHtml(message)}</div>
