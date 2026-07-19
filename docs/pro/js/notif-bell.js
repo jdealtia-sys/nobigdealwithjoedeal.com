@@ -662,7 +662,7 @@
                 style="
                   display:flex; align-items:center; justify-content:center;
                   width:26px; height:26px; border-radius:5px;
-                  background:rgba(155,109,255,0.14); color:#cab8ff;
+                  background:rgba(155,109,255,0.14); color:var(--purple,#a78bfa);
                   border:none; font-size:12px; cursor:pointer;
                   -webkit-tap-highlight-color:transparent;
                   transition:transform .12s;"
@@ -675,7 +675,7 @@
                 style="
                   display:flex; align-items:center; justify-content:center;
                   width:26px; height:26px; border-radius:5px;
-                  background:rgba(155,109,255,0.10); color:#a890e8;
+                  background:rgba(155,109,255,0.10); color:var(--purple,#a78bfa);
                   border:none; font-size:12px; cursor:pointer;
                   -webkit-tap-highlight-color:transparent;
                   transition:transform .12s;"

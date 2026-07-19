@@ -91,7 +91,7 @@
       }
       #estV2Modal.open { display:flex; flex-direction:column; }
       .v2-hdr {
-        background:#111418; border-bottom:2px solid #e8720c;
+        background:var(--s,#111418); border-bottom:2px solid var(--orange,#e8720c);
         padding:12px 20px;
         display:flex; justify-content:space-between; align-items:center;
         flex-shrink:0;
@@ -102,16 +102,16 @@
         font-weight:800; color:#fff; text-transform:uppercase;
         letter-spacing:.06em;
       }
-      .v2-title .pro { color:#e8720c; }
+      .v2-title .pro { color:var(--orange,#e8720c); }
       .v2-beta {
-        font-size:9px; background:#e8720c; color:#fff;
+        font-size:9px; background:var(--orange,#e8720c); color:#fff;
         padding:2px 8px; border-radius:2px; letter-spacing:.15em;
         margin-left:10px;
       }
       /* Close button: iOS HIG minimum 44x44 tap target, clearly
          visible, orange-filled on mobile so it's impossible to miss. */
       .v2-close {
-        background:#e8720c; border:1px solid #e8720c; color:#fff;
+        background:var(--orange,#e8720c); border:1px solid var(--orange,#e8720c); color:#fff;
         padding:10px 18px; cursor:pointer; font-weight:700;
         border-radius:6px; font-size:13px;
         min-height:44px; min-width:44px;
@@ -132,11 +132,11 @@
         min-height:0;
       }
       .v2-pane {
-        background:#181c22; border-right:1px solid #2a2f35;
-        padding:16px; overflow-y:auto; color:#e8eaf0;
+        background:var(--s2,#181c22); border-right:1px solid var(--br,#2a2f35);
+        padding:16px; overflow-y:auto; color:var(--t,#e8eaf0);
         min-height:0;
       }
-      .v2-pane.right { border-right:none; border-left:1px solid #2a2f35; background:#111418; }
+      .v2-pane.right { border-right:none; border-left:1px solid var(--br,#2a2f35); background:var(--s,#111418); }
 
       /* ── Mobile responsive ── Stack the 3 panes vertically
          under 1000px so the modal stays usable on tablets in
@@ -149,12 +149,12 @@
         }
         .v2-pane {
           border-right: none;
-          border-bottom: 1px solid #2a2f35;
+          border-bottom: 1px solid var(--br,#2a2f35);
           max-height: none;
         }
         .v2-pane.right {
           border-left: none;
-          border-top: 1px solid #2a2f35;
+          border-top: 1px solid var(--br,#2a2f35);
         }
       }
       @media (max-width: 600px) {
@@ -178,8 +178,8 @@
       .v2-section {
         font-family:'Barlow Condensed',sans-serif; font-size:11px;
         font-weight:700; text-transform:uppercase; letter-spacing:.15em;
-        color:#e8720c; margin:16px 0 8px; padding:6px 8px 6px 4px;
-        border-bottom:1px solid #2a2f35;
+        color:var(--orange,#e8720c); margin:16px 0 8px; padding:6px 8px 6px 4px;
+        border-bottom:1px solid var(--br,#2a2f35);
         cursor:pointer; user-select:none;
         display:flex; align-items:center; justify-content:space-between;
         -webkit-tap-highlight-color:transparent; touch-action:manipulation;
@@ -188,7 +188,7 @@
       .v2-section:first-child { margin-top:0; }
       .v2-section::after {
         content:'−';
-        font-size:16px; line-height:1; color:#e8720c;
+        font-size:16px; line-height:1; color:var(--orange,#e8720c);
         margin-left:8px; transition:transform .15s;
       }
       .v2-section.collapsed::after { content:'+'; }
@@ -223,12 +223,12 @@
         letter-spacing:.1em; color:#888; margin-bottom:3px;
       }
       .v2-field input, .v2-field select {
-        width:100%; background:#0a0c0f; border:1px solid #2a2f35;
-        color:#e8eaf0; padding:8px 10px; border-radius:3px;
+        width:100%; background:var(--bg,#0a0c0f); border:1px solid var(--br,#2a2f35);
+        color:var(--t,#e8eaf0); padding:8px 10px; border-radius:3px;
         font-size:13px; font-family:inherit;
       }
       .v2-field input:focus, .v2-field select:focus {
-        outline:none; border-color:#e8720c;
+        outline:none; border-color:var(--orange,#e8720c);
       }
       .v2-field.inline {
         display:flex; align-items:center; gap:8px;
@@ -241,73 +241,73 @@
       }
       .v2-tabs {
         display:flex; gap:0; margin-bottom:12px;
-        border:1px solid #2a2f35; border-radius:4px; overflow:hidden;
+        border:1px solid var(--br,#2a2f35); border-radius:4px; overflow:hidden;
       }
       .v2-tabs button {
-        flex:1; background:#0a0c0f; border:none; color:#888;
+        flex:1; background:var(--bg,#0a0c0f); border:none; color:#888;
         padding:10px; font-size:11px; font-weight:700;
         letter-spacing:.1em; text-transform:uppercase; cursor:pointer;
         font-family:inherit;
       }
       .v2-tabs button.active {
-        background:#e8720c; color:#fff;
+        background:var(--orange,#e8720c); color:#fff;
       }
       .v2-cat-tabs {
         display:flex; gap:4px; margin-bottom:10px; flex-wrap:wrap;
       }
       .v2-cat-tabs button {
-        background:#0a0c0f; border:1px solid #2a2f35; color:#888;
+        background:var(--bg,#0a0c0f); border:1px solid var(--br,#2a2f35); color:#888;
         padding:4px 9px; font-size:10px; cursor:pointer; border-radius:3px;
         font-family:inherit;
       }
       .v2-cat-tabs button.active {
-        background:#e8720c; color:#fff; border-color:#e8720c;
+        background:var(--orange,#e8720c); color:#fff; border-color:var(--orange,#e8720c);
       }
       .v2-search {
-        width:100%; background:#0a0c0f; border:1px solid #2a2f35;
-        color:#e8eaf0; padding:10px 12px; border-radius:4px;
+        width:100%; background:var(--bg,#0a0c0f); border:1px solid var(--br,#2a2f35);
+        color:var(--t,#e8eaf0); padding:10px 12px; border-radius:4px;
         font-size:13px; margin-bottom:10px; font-family:inherit;
       }
       .v2-item-list {
         display:flex; flex-direction:column; gap:4px;
       }
       .v2-item {
-        background:#0a0c0f; border:1px solid #2a2f35;
+        background:var(--bg,#0a0c0f); border:1px solid var(--br,#2a2f35);
         padding:10px 12px; border-radius:3px; cursor:pointer;
         display:flex; justify-content:space-between; align-items:flex-start;
         transition:all 0.15s;
       }
       .v2-item:hover {
-        border-color:#e8720c; transform:translateX(2px);
+        border-color:var(--orange,#e8720c); transform:translateX(2px);
       }
       .v2-item .code {
         font-family:'Barlow Condensed',sans-serif; font-size:10px;
-        color:#e8720c; font-weight:700; letter-spacing:.05em;
+        color:var(--orange,#e8720c); font-weight:700; letter-spacing:.05em;
       }
-      .v2-item .name { font-size:12px; color:#e8eaf0; margin-top:2px; }
+      .v2-item .name { font-size:12px; color:var(--t,#e8eaf0); margin-top:2px; }
       .v2-item .cost {
         font-size:11px; color:#888; text-align:right;
         font-variant-numeric:tabular-nums; flex-shrink:0; margin-left:12px;
       }
       .v2-item .add-btn {
-        background:#e8720c; border:none; color:#fff;
+        background:var(--orange,#e8720c); border:none; color:#fff;
         padding:4px 10px; font-size:10px; font-weight:700;
         cursor:pointer; border-radius:3px; letter-spacing:.05em;
       }
       .v2-scope-item {
-        background:#0a0c0f; border-left:3px solid #e8720c;
+        background:var(--bg,#0a0c0f); border-left:3px solid var(--orange,#e8720c);
         padding:10px 12px; margin-bottom:6px; border-radius:3px;
         font-size:12px;
       }
       .v2-scope-item.overridden { border-left-color:#22d3ee; }
-      .v2-scope-item .name { color:#e8eaf0; font-weight:600; }
+      .v2-scope-item .name { color:var(--t,#e8eaf0); font-weight:600; }
       .v2-scope-item .qty {
         color:#888; font-size:10px; margin-top:2px;
         font-variant-numeric:tabular-nums;
       }
       .v2-scope-item.overridden .qty { color:#22d3ee; }
       .v2-scope-item .total {
-        color:#e8720c; font-weight:700; font-size:13px; float:right;
+        color:var(--orange,#e8720c); font-weight:700; font-size:13px; float:right;
         font-variant-numeric:tabular-nums;
       }
       .v2-scope-item .actions {
@@ -332,7 +332,7 @@
       .v2-scope-item .edit-qty:hover { color:#22d3ee; background:rgba(34,211,238,.08); }
       .v2-scope-item .rm:hover { color:#c53030; background:rgba(197,48,48,.08); }
       .v2-total-card {
-        background:#0a0c0f; border:2px solid #e8720c;
+        background:var(--bg,#0a0c0f); border:2px solid var(--orange,#e8720c);
         border-radius:6px; padding:16px; margin-top:16px;
         text-align:center;
       }
@@ -342,13 +342,13 @@
       }
       .v2-total-val {
         font-family:'Barlow Condensed',sans-serif; font-size:42px;
-        font-weight:800; color:#e8720c; line-height:1;
+        font-weight:800; color:var(--orange,#e8720c); line-height:1;
       }
       .v2-rollup {
         font-size:11px; color:#888; margin-top:10px;
         line-height:1.6;
       }
-      .v2-rollup strong { color:#e8eaf0; }
+      .v2-rollup strong { color:var(--t,#e8eaf0); }
       .v2-export-btns {
         display:grid; grid-template-columns:1fr 1fr 1fr;
         gap:8px; margin-top:14px;
@@ -359,29 +359,29 @@
         .v2-export-btns { grid-template-columns:1fr; }
       }
       .v2-export-btns button {
-        background:#0a0c0f; border:1px solid #2a2f35; color:#e8eaf0;
+        background:var(--bg,#0a0c0f); border:1px solid var(--br,#2a2f35); color:var(--t,#e8eaf0);
         padding:12px 6px; font-size:10px; font-weight:700;
         letter-spacing:.08em; text-transform:uppercase; cursor:pointer;
         border-radius:4px; font-family:inherit;
       }
       .v2-export-btns button.primary {
-        background:#e8720c; border-color:#e8720c; color:#fff;
+        background:var(--orange,#e8720c); border-color:var(--orange,#e8720c); color:#fff;
       }
       .v2-export-btns button:hover {
-        border-color:#e8720c;
+        border-color:var(--orange,#e8720c);
       }
       .v2-preset-btns {
         display:grid; grid-template-columns:1fr 1fr;
         gap:6px; margin-top:6px;
       }
       .v2-preset-btns button {
-        background:#0a0c0f; border:1px solid #2a2f35; color:#888;
+        background:var(--bg,#0a0c0f); border:1px solid var(--br,#2a2f35); color:#888;
         padding:8px 6px; font-size:10px; font-weight:600;
         cursor:pointer; border-radius:3px; font-family:inherit;
         text-align:center;
       }
       .v2-preset-btns button:hover {
-        border-color:#e8720c; color:#e8720c;
+        border-color:var(--orange,#e8720c); color:var(--orange,#e8720c);
       }
       .v2-empty {
         text-align:center; color:#666; padding:24px 8px;
@@ -446,9 +446,9 @@
                provider isn't configured server-side. -->
           <div class="v2-field" style="display:flex;gap:6px;align-items:stretch;">
             <input type="text" id="v2measureAddr" placeholder="Property address for auto-measure"
-                   style="flex:1;background:#181c22;color:#e8eaf0;border:1px solid #2a2f35;padding:10px 12px;border-radius:4px;font-size:13px;font-family:inherit;"/>
+                   style="flex:1;background:var(--s2,#181c22);color:var(--t,#e8eaf0);border:1px solid var(--br,#2a2f35);padding:10px 12px;border-radius:4px;font-size:13px;font-family:inherit;"/>
             <button type="button" id="v2measureBtn" data-action="auto-measure"
-                    style="background:#e8720c;border:none;color:#fff;padding:10px 16px;font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;cursor:pointer;border-radius:4px;font-family:inherit;min-height:44px;white-space:nowrap;">
+                    style="background:var(--orange,#e8720c);border:none;color:#fff;padding:10px 16px;font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;cursor:pointer;border-radius:4px;font-family:inherit;min-height:44px;white-space:nowrap;">
               📐 Auto-measure
             </button>
           </div>
@@ -658,20 +658,20 @@
 
           <div class="v2-section">Close Board</div>
           <button type="button" data-action="create-deal-room"
-            style="width:100%;background:#181c22;border:1px solid #4A9EFF;color:#4A9EFF;padding:12px;font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;cursor:pointer;border-radius:4px;font-family:inherit;margin-bottom:6px;">
+            style="width:100%;background:var(--s2,#181c22);border:1px solid #4A9EFF;color:#4A9EFF;padding:12px;font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;cursor:pointer;border-radius:4px;font-family:inherit;margin-bottom:6px;">
             🏠 Create Deal Room
           </button>
 
           <div class="v2-section">Save</div>
           <button id="v2saveBtn" type="button" data-action="save"
-            style="width:100%;background:#e8720c;border:none;color:#fff;padding:14px;font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;cursor:pointer;border-radius:4px;font-family:inherit;">
+            style="width:100%;background:var(--orange,#e8720c);border:none;color:#fff;padding:14px;font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;cursor:pointer;border-radius:4px;font-family:inherit;">
             💾 Save Estimate to Customer
           </button>
           <div id="v2saveStatus" style="font-size:10px;color:#888;margin-top:6px;text-align:center;"></div>
 
           <div class="v2-section">E-Signature</div>
           <button id="v2signBtn" type="button" data-action="send-for-signature"
-            style="width:100%;background:#181c22;border:1px solid #e8720c;color:#e8720c;padding:12px;font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;cursor:pointer;border-radius:4px;font-family:inherit;margin-bottom:6px;">
+            style="width:100%;background:var(--s2,#181c22);border:1px solid var(--orange,#e8720c);color:var(--orange,#e8720c);padding:12px;font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;cursor:pointer;border-radius:4px;font-family:inherit;margin-bottom:6px;">
             ✍️ Send for Signature
           </button>
           <div id="v2signStatus" style="font-size:10px;color:#888;text-align:center;"></div>
@@ -1060,7 +1060,7 @@
     // immediately via the jobId's Firestore doc. Poll once, then
     // roll into the polling loop for async providers.
     const jobId = result.jobId;
-    setStatus('Job ' + jobId.slice(0, 8) + '... (~' + (result.estimatedMinutes || 30) + ' min to ready)', '#e8720c');
+    setStatus('Job ' + jobId.slice(0, 8) + '... (~' + (result.estimatedMinutes || 30) + ' min to ready)', 'var(--orange,#e8720c)');
 
     clearInterval(_measurePollTimer);
     let tries = 0;
@@ -1548,7 +1548,7 @@
             <div class="name">${esc((item.name || '').substring(0, 60))}${(item.name || '').length > 60 ? '…' : ''}</div>
           </div>
           <div class="cost">
-            <div style="color:#e8eaf0;font-weight:700;">$${unitCost.toFixed(0)}</div>
+            <div style="color:var(--t,#e8eaf0);font-weight:700;">$${unitCost.toFixed(0)}</div>
             <div style="font-size:9px;">/${esc(item.unit)}</div>
             ${inScope ? '<div style="color:#065f46;font-size:9px;margin-top:2px;">✓ IN SCOPE</div>' : ''}
           </div>
@@ -2677,9 +2677,9 @@ html,body{margin:0;padding:0;height:100%;width:100%;background:#fff;font-family:
 .nbd-wrap{position:relative;width:100vw;height:100vh;}
 .nbd-frame{position:absolute;inset:0;width:100%;height:100%;border:0;background:#fff;}
 .nbd-overlay{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:24px;background:#f7f8fb;color:#1a1f2a;text-align:center;z-index:1;}
-.nbd-spin{width:36px;height:36px;border-radius:50%;border:3px solid #e1e5ec;border-top-color:#e8720c;animation:nbdEsignSpin .9s linear infinite;}
+.nbd-spin{width:36px;height:36px;border-radius:50%;border:3px solid #e1e5ec;border-top-color:var(--orange,#e8720c);animation:nbdEsignSpin .9s linear infinite;}
 @keyframes nbdEsignSpin{to{transform:rotate(360deg);}}
-.nbd-cta{display:inline-flex;align-items:center;gap:6px;padding:10px 18px;border-radius:7px;background:#e8720c;color:#fff;text-decoration:none;font-size:13px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;}
+.nbd-cta{display:inline-flex;align-items:center;gap:6px;padding:10px 18px;border-radius:7px;background:var(--orange,#e8720c);color:#fff;text-decoration:none;font-size:13px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;}
 .nbd-pin{position:absolute;right:12px;bottom:12px;z-index:2;background:rgba(255,255,255,.92);color:#1a1f2a;border:1px solid #d8dde6;padding:6px 12px;border-radius:6px;font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;text-decoration:none;box-shadow:0 2px 6px rgba(0,0,0,.08);font-family:inherit;}
 </style></head><body>
 <div class="nbd-wrap">

@@ -1152,14 +1152,14 @@ let _NBD_IP_DELEGATE_BOUND; // module-local (globals Tranche 1 — was window.*)
 
     const overlay = document.createElement('div');
     overlay.id = 'nbd-invoice-modal';
-    overlay.style.cssText = 'position:fixed;top:0;right:0;bottom:0;left:0;background:rgba(10,12,15,.85);z-index:100000;display:flex;align-items:center;justify-content:center;-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);';
+    overlay.style.cssText = 'position:fixed;top:0;right:0;bottom:0;left:0;background:rgba(10,12,15,.85);z-index:2400;display:flex;align-items:center;justify-content:center;-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);';
     overlay.innerHTML = `
-      <div style="background:#14161a;border:1px solid rgba(255,255,255,.1);border-radius:16px;max-width:420px;width:92%;padding:28px;color:#fff;">
+      <div style="background:var(--s,#14161a);border:1px solid var(--br,rgba(255,255,255,.1));border-radius:16px;max-width:420px;width:92%;padding:28px;color:#fff;">
         <div style="font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:700;margin-bottom:16px;">Create Invoice from Estimate</div>
         <label style="font-size:10px;font-weight:600;color:rgba(255,255,255,.5);text-transform:uppercase;letter-spacing:.08em;">Estimate ID</label>
-        <input id="nbd-inv-est-id" type="text" placeholder="Select or enter estimate ID..." style="width:100%;padding:12px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);border-radius:8px;color:#fff;font-size:14px;margin-top:6px;box-sizing:border-box;">
+        <input id="nbd-inv-est-id" type="text" placeholder="Select or enter estimate ID..." style="width:100%;padding:12px;background:var(--s2,rgba(255,255,255,.06));border:1px solid var(--br,rgba(255,255,255,.12));border-radius:8px;color:var(--t,#fff);font-size:14px;margin-top:6px;box-sizing:border-box;">
         <div style="display:flex;gap:8px;margin-top:20px;">
-          <button id="nbd-inv-cancel" style="flex:1;padding:12px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);border-radius:8px;color:#fff;cursor:pointer;font-weight:600;">Cancel</button>
+          <button id="nbd-inv-cancel" style="flex:1;padding:12px;background:var(--s2,rgba(255,255,255,.06));border:1px solid var(--br,rgba(255,255,255,.12));border-radius:8px;color:var(--t,#fff);cursor:pointer;font-weight:600;">Cancel</button>
           <button id="nbd-inv-create" style="flex:1;padding:12px;background:#e8720c;border:none;border-radius:8px;color:#fff;cursor:pointer;font-weight:700;">Create Invoice</button>
         </div>
       </div>
@@ -1204,15 +1204,15 @@ let _NBD_IP_DELEGATE_BOUND; // module-local (globals Tranche 1 — was window.*)
 
     const overlay = document.createElement('div');
     overlay.id = 'nbd-send-invoice-modal';
-    overlay.style.cssText = 'position:fixed;top:0;right:0;bottom:0;left:0;background:rgba(10,12,15,.85);z-index:100000;display:flex;align-items:center;justify-content:center;-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);';
+    overlay.style.cssText = 'position:fixed;top:0;right:0;bottom:0;left:0;background:rgba(10,12,15,.85);z-index:2400;display:flex;align-items:center;justify-content:center;-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);';
     overlay.innerHTML = `
-      <div style="background:#14161a;border:1px solid rgba(255,255,255,.1);border-radius:16px;max-width:380px;width:92%;padding:28px;color:#fff;">
+      <div style="background:var(--s,#14161a);border:1px solid var(--br,rgba(255,255,255,.1));border-radius:16px;max-width:380px;width:92%;padding:28px;color:#fff;">
         <div style="font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:700;margin-bottom:16px;">Send Invoice</div>
         <div style="font-size:12px;color:rgba(255,255,255,.5);margin-bottom:16px;">How would you like to send this invoice?</div>
         <div style="display:flex;flex-direction:column;gap:8px;">
-          <button class="nbd-send-method" data-method="email" style="padding:14px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);border-radius:8px;color:#fff;cursor:pointer;font-weight:600;text-align:left;font-size:14px;">📧 Send via Email</button>
-          <button class="nbd-send-method" data-method="sms" style="padding:14px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);border-radius:8px;color:#fff;cursor:pointer;font-weight:600;text-align:left;font-size:14px;">💬 Send via SMS</button>
-          <button class="nbd-send-method" data-method="portal" style="padding:14px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);border-radius:8px;color:#fff;cursor:pointer;font-weight:600;text-align:left;font-size:14px;">🌐 Share Customer Portal Link</button>
+          <button class="nbd-send-method" data-method="email" style="padding:14px;background:var(--s2,rgba(255,255,255,.06));border:1px solid var(--br,rgba(255,255,255,.12));border-radius:8px;color:var(--t,#fff);cursor:pointer;font-weight:600;text-align:left;font-size:14px;">📧 Send via Email</button>
+          <button class="nbd-send-method" data-method="sms" style="padding:14px;background:var(--s2,rgba(255,255,255,.06));border:1px solid var(--br,rgba(255,255,255,.12));border-radius:8px;color:var(--t,#fff);cursor:pointer;font-weight:600;text-align:left;font-size:14px;">💬 Send via SMS</button>
+          <button class="nbd-send-method" data-method="portal" style="padding:14px;background:var(--s2,rgba(255,255,255,.06));border:1px solid var(--br,rgba(255,255,255,.12));border-radius:8px;color:var(--t,#fff);cursor:pointer;font-weight:600;text-align:left;font-size:14px;">🌐 Share Customer Portal Link</button>
         </div>
         <button id="nbd-send-cancel" style="width:100%;padding:12px;background:none;border:1px solid rgba(255,255,255,.12);border-radius:8px;color:rgba(255,255,255,.5);cursor:pointer;margin-top:12px;font-size:12px;">Cancel</button>
       </div>
@@ -1251,7 +1251,7 @@ let _NBD_IP_DELEGATE_BOUND; // module-local (globals Tranche 1 — was window.*)
     if (existing) existing.remove();
     const overlay = document.createElement('div');
     overlay.id = 'nbd-invoice-detail-modal';
-    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(10,12,15,.85);z-index:100000;display:flex;align-items:flex-start;justify-content:center;overflow:auto;padding:24px;-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);';
+    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(10,12,15,.85);z-index:2400;display:flex;align-items:flex-start;justify-content:center;overflow:auto;padding:24px;-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);';
     overlay.innerHTML = `
       <div style="max-width:920px;width:100%;">
         <div style="display:flex;justify-content:flex-end;margin-bottom:8px;">
@@ -1285,15 +1285,15 @@ let _NBD_IP_DELEGATE_BOUND; // module-local (globals Tranche 1 — was window.*)
     if (existing) existing.remove();
     const overlay = document.createElement('div');
     overlay.id = 'nbd-markpaid-modal';
-    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(10,12,15,.85);z-index:100001;display:flex;align-items:center;justify-content:center;-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);';
+    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(10,12,15,.85);z-index:2401;display:flex;align-items:center;justify-content:center;-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);';
     overlay.innerHTML = `
-      <div style="background:#14161a;border:1px solid rgba(255,255,255,.1);border-radius:16px;max-width:380px;width:92%;padding:28px;color:#fff;">
+      <div style="background:var(--s,#14161a);border:1px solid var(--br,rgba(255,255,255,.1));border-radius:16px;max-width:380px;width:92%;padding:28px;color:#fff;">
         <div style="font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:700;margin-bottom:16px;">Record Payment</div>
         <label style="font-size:10px;font-weight:600;color:rgba(255,255,255,.5);text-transform:uppercase;letter-spacing:.08em;">Amount</label>
-        <input id="nbd-mp-amount" type="number" step="0.01" min="0" value="${balanceDefault}" style="width:100%;padding:12px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);border-radius:8px;color:#fff;font-size:14px;margin:6px 0 14px;box-sizing:border-box;">
+        <input id="nbd-mp-amount" type="number" step="0.01" min="0" value="${balanceDefault}" style="width:100%;padding:12px;background:var(--s2,rgba(255,255,255,.06));border:1px solid var(--br,rgba(255,255,255,.12));border-radius:8px;color:var(--t,#fff);font-size:14px;margin:6px 0 14px;box-sizing:border-box;">
         <div style="display:flex;gap:8px;">
-          <button class="nbd-mp-method" data-method="cash" style="flex:1;padding:12px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);border-radius:8px;color:#fff;cursor:pointer;font-weight:600;">💵 Cash</button>
-          <button class="nbd-mp-method" data-method="check" style="flex:1;padding:12px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);border-radius:8px;color:#fff;cursor:pointer;font-weight:600;">🧾 Check</button>
+          <button class="nbd-mp-method" data-method="cash" style="flex:1;padding:12px;background:var(--s2,rgba(255,255,255,.06));border:1px solid var(--br,rgba(255,255,255,.12));border-radius:8px;color:var(--t,#fff);cursor:pointer;font-weight:600;">💵 Cash</button>
+          <button class="nbd-mp-method" data-method="check" style="flex:1;padding:12px;background:var(--s2,rgba(255,255,255,.06));border:1px solid var(--br,rgba(255,255,255,.12));border-radius:8px;color:var(--t,#fff);cursor:pointer;font-weight:600;">🧾 Check</button>
         </div>
         <button id="nbd-mp-cancel" style="width:100%;padding:12px;background:none;border:1px solid rgba(255,255,255,.12);border-radius:8px;color:rgba(255,255,255,.5);cursor:pointer;margin-top:12px;font-size:12px;">Cancel</button>
       </div>

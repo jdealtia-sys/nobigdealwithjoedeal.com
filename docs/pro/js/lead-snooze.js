@@ -362,9 +362,9 @@
               flex:1; background:var(--s2,#0f1419); color:var(--t,#e8eaf0);
               border:1px solid var(--br,#2a3344); border-radius:6px;
               padding:8px 10px; font: inherit; font-size:13px;
-              color-scheme:dark;">
+              ">
             <button id="nbd-snooze-custom-go" type="button" style="
-              background:linear-gradient(135deg,#c8541a 0%,#a64516 100%);
+              background:var(--orange,#c8541a);
               color:#fff; border:none; padding:8px 16px; border-radius:6px;
               font: inherit; font-size:12px; font-weight:700;
               cursor:pointer; -webkit-tap-highlight-color:transparent;">Go</button>
@@ -606,9 +606,9 @@
               flex:1; background:var(--s2,#0f1419); color:var(--t,#e8eaf0);
               border:1px solid var(--br,#2a3344); border-radius:6px;
               padding:8px 10px; font: inherit; font-size:13px;
-              color-scheme:dark;">
+              ">
             <button id="nbd-bulk-snooze-custom-go" type="button" style="
-              background:linear-gradient(135deg,#c8541a 0%,#a64516 100%);
+              background:var(--orange,#c8541a);
               color:#fff; border:none; padding:8px 16px; border-radius:6px;
               font: inherit; font-size:12px; font-weight:700;
               cursor:pointer; -webkit-tap-highlight-color:transparent;">Go</button>

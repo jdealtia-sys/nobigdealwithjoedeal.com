@@ -1403,14 +1403,14 @@
       const _peSort = container.querySelector('#sort-by');
       if (_peSort) _peSort.addEventListener('change', function () { window.PhotoEngine._sortGallery(leadId); });
     } catch (err) {
-      container.innerHTML = `<div class="pe-empty-state"><div class="pe-empty-icon">Camera</div><p>No photos yet</p></div>`;
+      container.innerHTML = `<div class="pe-empty-state"><div class="pe-empty-icon">📷</div><p>No photos yet</p></div>`;
       console.error('Gallery error:', err);
     }
   }
 
   function renderGalleryGrid(container, photos, leadId) {
     if (photos.length === 0) {
-      container.innerHTML = `<div class="pe-empty-state"><div class="pe-empty-icon">Camera</div><p>No photos found</p></div>`;
+      container.innerHTML = `<div class="pe-empty-state"><div class="pe-empty-icon">📷</div><p>No photos found</p></div>`;
       return;
     }
 

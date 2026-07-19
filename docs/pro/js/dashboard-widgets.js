@@ -85,7 +85,7 @@ function renderEstimatesList(ests) {
     } else if (e.signatureStatus === 'sent' || e.signatureStatus === 'viewed') {
       sigTag = '<span class="est-src-chip" style="background:color-mix(in srgb, var(--orange) 12%, transparent);color:var(--orange);border-color:var(--orange);">✍ AWAITING</span>';
     } else if (e.signatureStatus === 'declined') {
-      sigTag = '<span class="est-src-chip" style="background:rgba(197,48,48,.15);color:#ff6b6b;border-color:#ff6b6b;">✗ DECLINED</span>';
+      sigTag = '<span class="est-src-chip" style="background:color-mix(in srgb, var(--red,#ef4444) 15%, transparent);color:var(--red,#ef4444);border-color:#ff6b6b;">✗ DECLINED</span>';
     } else if (e.signatureStatus === 'expired') {
       sigTag = '<span class="est-src-chip" style="opacity:.6;">⧗ EXPIRED</span>';
     }

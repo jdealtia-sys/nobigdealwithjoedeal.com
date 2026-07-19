@@ -317,4 +317,8 @@
   --pur: var(--purple);
   /* admin project-codex (cyan) */
   --cyan: var(--blue);
+  /* money/expenses/profit-tracker heading dialect (visual audit 2026-07-19:
+     47 uses of var(--h,#fff) rendered white-on-white in light mode — the
+     --h token was never defined anywhere). */
+  --h: var(--t);
 }
