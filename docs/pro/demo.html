@@ -16,9 +16,9 @@
 *,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
 :root{
   --bg:#0A0C0F;--s:#111418;--s2:#181C22;--s3:#1E2229;
-  --orange:#e8720c;--orange-d:#f08030;--orange-l:#f59240;
+  --orange:#e8720c;--orange-d:#f08030;--orange-l:#f59240;--orange-btn:#B85400; /* AA-compliant button orange — matches landing .btn-primary */
   --navy:#0A0C0F;--navy-l:#111418;
-  --white:#E8EAF0;--muted:#6B7280;--dimmed:#4A5568;
+  --white:#E8EAF0;--muted:#7C8694;--dimmed:#4A5568;
   --border:rgba(255,255,255,.07);
 }
 html{scroll-behavior:smooth}
@@ -59,7 +59,7 @@ body{background:var(--bg);color:var(--white);font-family:'Barlow',sans-serif;lin
 }
 .demo-hero-btns{display:flex;gap:14px;justify-content:center;flex-wrap:wrap}
 .btn-orange{
-  padding:13px 28px;background:var(--orange);color:#fff;
+  padding:13px 28px;background:var(--orange-btn);color:#fff;
   border-radius:4px;font-weight:800;font-size:12px;
   letter-spacing:1.5px;text-transform:uppercase;
   text-decoration:none;transition:.2s;
@@ -144,7 +144,7 @@ body{background:var(--bg);color:var(--white);font-family:'Barlow',sans-serif;lin
   text-decoration:none;transition:.2s;
 }
 .tc-launch:hover{background:var(--orange-d);transform:translateY(-1px)}
-.tc-launch{background:var(--orange);color:#fff}
+.tc-launch{background:var(--orange-btn);color:#fff}
 .tc-launch:hover{background:var(--orange-d)}
 
 /* MOCKUP SCREEN */
@@ -266,7 +266,7 @@ body{background:var(--bg);color:var(--white);font-family:'Barlow',sans-serif;lin
   position:relative;z-index:1;
 }
 .btn-orange-lg{
-  padding:16px 36px;background:var(--orange);color:#fff;
+  padding:16px 36px;background:var(--orange-btn);color:#fff;
   border-radius:4px;font-weight:800;font-size:13px;
   letter-spacing:1.5px;text-transform:uppercase;
   text-decoration:none;transition:.2s;
@@ -354,8 +354,8 @@ body{background:var(--bg);color:var(--white);font-family:'Barlow',sans-serif;lin
   <h1>THE TOOLS YOUR<br><span>COMPETITORS DON'T HAVE.</span></h1>
   <p>Every tool in NBD Pro is built by a contractor, for contractors. Not adapted from generic software. Built from scratch for restoration and roofing sales operators.</p>
   <div class="demo-hero-btns">
-    <a href="/pro/register.html" class="btn-orange">Get Started Free →</a>
-    <a href="/pro/pricing.html" class="btn-outline">See Plans — Starter $99/mo</a>
+    <a href="/pro/sandbox.html" class="btn-orange">▶ Try the Live Sandbox</a>
+    <a href="/pro/register.html" class="btn-outline">Get Started Free →</a>
   </div>
 </section>
 
@@ -522,7 +522,7 @@ body{background:var(--bg);color:var(--white);font-family:'Barlow',sans-serif;lin
         <li>Locked guardrails: never quotes a price, never commits a date</li>
         <li>STOP/HELP compliance and opt-out handling built in</li>
       </ul>
-      <a href="/pro/register.html" class="tc-launch" style="background:#8b5cf6">Sign Up to Access →</a>
+      <a href="/pro/register.html" class="tc-launch" style="background:#7c3aed">Sign Up to Access →</a>
     </div>
     <div class="tc-mockup">
       <div class="mock-bar">
