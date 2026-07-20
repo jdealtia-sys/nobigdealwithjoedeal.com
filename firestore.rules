@@ -741,6 +741,23 @@ service cloud.firestore {
         && didNotChange(['role','plan','accessCode','isAdmin','companyId']);
       allow delete: if isAdmin();
 
+      // ── Template sync subcollections (feat/template-sync) ──
+      // job-templates.js write-through-mirrors CUSTOM job templates (plus
+      // the single '_usage' rollup doc) at users/{uid}/jobTemplates/{tplId}
+      // and hydrates them back at boot; users/{uid}/templates/{tplId} held
+      // the retired NBDTemplateSuite mirror (#1017) — kept writable so any
+      // legacy docs stay readable. The generic /{subcol}/{docId}
+      // wildcard below already grants owner access — these explicit
+      // matches PIN the sync contract (covered by
+      // tests/firestore-rules.test.js §29) so a future tightening of the
+      // wildcard can't silently kill template sync again.
+      match /jobTemplates/{tplId} {
+        allow read, write: if isOwner(uid) || isAdmin();
+      }
+      match /templates/{tplId} {
+        allow read, write: if isOwner(uid) || isAdmin();
+      }
+
       match /{subcol}/{docId} {
         allow read, write: if isOwner(uid) || isAdmin();
       }

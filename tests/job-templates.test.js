@@ -49,6 +49,17 @@
  *  11. PAYLOAD COUNTY/META — county defaults to 'hamilton-oh' (V2 parity)
  *      and persists; meta.owner/addr pass through; minJobApplied surfaced
  *      in totals + payload when the floor binds.
+ *  12. USAGE TRACKING  — createEstimate (fake _saveEstimate) and
+ *      insertIntoV2 stamp {n, last} into 'nbd_jt_usage_v1'; list()
+ *      overlays useCount/lastUsedAt (defaults 0/null); a FAILED save does
+ *      not stamp; persisted customs never carry the overlay fields.
+ *  13. CLOUD HYDRATION — hydrateFromCloud() pull-once LWW merge of
+ *      users/{uid}/jobTemplates (fake getDocs): strictly-newer cloud doc
+ *      wins, newer local wins AND mirrors back up (fake writeBatch),
+ *      cloud-only doc lands (new device), the '_usage' doc id is routed
+ *      to the usage map (per-entry LWW by .last, local-newer mirrors up
+ *      via fake setDoc) and NEVER into the template list; JT codes of
+ *      cloud-pulled custom items re-register.
  *
  * SOFT-SKIP: while either job-templates file is missing (parallel
  * buildout), prints 'SKIP (files not present yet)' and exits 0 so CI
@@ -959,14 +970,205 @@ if (floorTpl) {
 }
 
 // ════════════════════════════════════════════════════════════════════
-// Summary — per-section counts + grand total; non-zero exit on failure.
+// Sections 12-13 are async (createEstimate awaits _saveEstimate;
+// hydrateFromCloud awaits getDocs) — the tail runs in one async IIFE
+// that also owns the summary + exit code.
 // ════════════════════════════════════════════════════════════════════
-flushSection();
-console.log('\n──────────────────────────────────────────────────');
-sectionResults.forEach(function (s) {
-  console.log((s.failed ? 'FAIL' : 'PASS') + '  ' + s.name + '  (' + s.passed + ' passed, ' + s.failed + ' failed)');
+(async function () {
+
+  // ══════════════════════════════════════════════════════════════════
+  // 12. USAGE TRACKING — stickiness stamps {n, last} per template on
+  //     successful createEstimate / insertIntoV2; list() overlays
+  //     useCount / lastUsedAt; failed saves don't stamp; persisted
+  //     customs never carry the overlay fields.
+  // ══════════════════════════════════════════════════════════════════
+  section('USAGE TRACKING — createEstimate/insertIntoV2 stamp; list() overlays');
+
+  const USAGE_KEY = 'nbd_jt_usage_v1';
+  ok("engine exports USAGE_KEY 'nbd_jt_usage_v1'", JT.USAGE_KEY === USAGE_KEY, 'got ' + JT.USAGE_KEY);
+  // Earlier sections exercised insertIntoV2 (which now stamps usage) —
+  // reset the map so the default-exposure check below is well-posed.
+  win.localStorage.removeItem(USAGE_KEY);
+
+  const preList = JT.list();
+  ok('list() overlays useCount=0 / lastUsedAt=null on every template by default',
+    preList.length > 0 && preList.every(function (t) { return t.useCount === 0 && t.lastUsedAt === null; }));
+
+  const useTpl = repairA || TPLS[0];
+  const savedPayloads = [];
+  win._saveEstimate = async function (p) { savedPayloads.push(p); return 'est-fake-1'; };
+
+  await JT.createEstimate([{ templateId: useTpl.id }], smokeOpts(useTpl, { name: 'Usage probe 1' }));
+  let uEntry = JT.list().find(function (t) { return t.id === useTpl.id; });
+  ok('createEstimate stamps useCount=1 on the used template (' + useTpl.id + ')',
+    uEntry && uEntry.useCount === 1, 'got ' + (uEntry && uEntry.useCount));
+  ok('createEstimate stamps a finite recent lastUsedAt',
+    uEntry && Number.isFinite(Number(uEntry.lastUsedAt)) &&
+    Math.abs(Date.now() - Number(uEntry.lastUsedAt)) < 60000,
+    'got ' + (uEntry && uEntry.lastUsedAt));
+  ok('the estimate actually saved through _saveEstimate', savedPayloads.length === 1 &&
+    savedPayloads[0] && savedPayloads[0].builder === 'template');
+
+  await JT.createEstimate([{ templateId: useTpl.id }], smokeOpts(useTpl, { name: 'Usage probe 2' }));
+  uEntry = JT.list().find(function (t) { return t.id === useTpl.id; });
+  ok('second createEstimate increments useCount to 2', uEntry && uEntry.useCount === 2,
+    'got ' + (uEntry && uEntry.useCount));
+
+  // Raw persistence contract: localStorage map {templateId: {n, last}}.
+  let rawUsage = null;
+  try { rawUsage = JSON.parse(win.localStorage.getItem(USAGE_KEY)); } catch (e) { rawUsage = null; }
+  ok("usage persists under 'nbd_jt_usage_v1' as {templateId:{n,last}}",
+    rawUsage && rawUsage[useTpl.id] && rawUsage[useTpl.id].n === 2 &&
+    Number.isFinite(Number(rawUsage[useTpl.id].last)),
+    'got ' + JSON.stringify(rawUsage && rawUsage[useTpl.id]));
+
+  // insertIntoV2 stamps too (raw-result path — no EstimateV2UI here).
+  JT.insertIntoV2([{ templateId: useTpl.id }], {});
+  uEntry = JT.list().find(function (t) { return t.id === useTpl.id; });
+  ok('insertIntoV2 stamps usage as well (2 → 3)', uEntry && uEntry.useCount === 3,
+    'got ' + (uEntry && uEntry.useCount));
+
+  // A FAILED save must NOT stamp (stickiness only counts real estimates).
+  win._saveEstimate = async function () { throw new Error('save exploded'); };
+  let threw = false;
+  try { await JT.createEstimate([{ templateId: useTpl.id }], smokeOpts(useTpl)); }
+  catch (e) { threw = true; }
+  uEntry = JT.list().find(function (t) { return t.id === useTpl.id; });
+  ok('failed _saveEstimate propagates AND does not stamp usage',
+    threw && uEntry && uEntry.useCount === 3, 'threw=' + threw + ' n=' + (uEntry && uEntry.useCount));
+  win._saveEstimate = async function (p) { savedPayloads.push(p); return 'est-fake-2'; };
+
+  // Overlay fields never leak into persisted customs: duplicate() passes a
+  // list() copy (carrying useCount/lastUsedAt) into saveCustom, which must
+  // strip them before persisting.
+  const dupSaved = JT.duplicate(useTpl.id);
+  let storedCustoms = [];
+  try { storedCustoms = JSON.parse(win.localStorage.getItem(JT.STORAGE_KEY)).items || []; }
+  catch (e) { storedCustoms = []; }
+  const dupStored = dupSaved && storedCustoms.find(function (t) { return t && t.id === dupSaved.id; });
+  ok('duplicate() persists a custom WITHOUT the useCount/lastUsedAt overlay fields',
+    dupStored && !('useCount' in dupStored) && !('lastUsedAt' in dupStored),
+    dupStored ? 'keys: ' + Object.keys(dupStored).join(',') : 'duplicate not stored');
+  if (dupSaved) JT.remove(dupSaved.id); // leave storage clean for section 13
+
+  // ══════════════════════════════════════════════════════════════════
+  // 13. CLOUD HYDRATION — pull-once LWW merge from users/{uid}/jobTemplates
+  // ══════════════════════════════════════════════════════════════════
+  section('CLOUD HYDRATION — hydrateFromCloud() LWW merge + _usage routing');
+
+  ok('engine exports hydrateFromCloud()', typeof JT.hydrateFromCloud === 'function');
+  ok('hydrateFromCloud resolves false when the SDK is not ready',
+    (await JT.hydrateFromCloud()) === false);
+
+  const NOW = Date.now();
+  const oldIso = new Date(NOW - 100000).toISOString();
+  const newIso = new Date(NOW - 1000).toISOString();
+
+  // Local fixture: A stale (cloud must win), B fresh (local must win + upload).
+  const localA = { id: 'jt_custom_hydra_a', name: 'Local A (stale)', custom: true, updatedAt: oldIso,
+    items: [] };
+  const localB = { id: 'jt_custom_hydra_b', name: 'Local B (fresh)', custom: true, updatedAt: newIso,
+    items: [] };
+  win.localStorage.setItem(JT.STORAGE_KEY, JSON.stringify({ _v: 1, items: [localA, localB] }));
+  win.localStorage.setItem(USAGE_KEY, JSON.stringify({
+    jt_custom_hydra_a: { n: 3, last: NOW - 50000 },   // cloud entry is NEWER → cloud wins
+    jt_local_only:     { n: 7, last: NOW - 10 }       // cloud lacks it → local wins + mirrors up
+  }));
+
+  // Cloud fixture: A fresh (wins), B stale (loses), C cloud-only (lands),
+  // plus the '_usage' rollup doc (routed, never a template).
+  const cloudA = { id: 'jt_custom_hydra_a', name: 'Cloud A (fresh)', custom: true, updatedAt: newIso,
+    items: [{ custom: { name: 'Hydra widget', unit: 'EA', qty: 2, materialCost: 10, laborCost: 5 } }] };
+  const cloudB = { id: 'jt_custom_hydra_b', name: 'Cloud B (stale)', custom: true, updatedAt: oldIso, items: [] };
+  const cloudC = { name: 'Cloud C (new device)', custom: true, updatedAt: newIso, items: [] }; // no id field → doc id fills it
+  const cloudUsageDoc = { kind: 'usage', usage: {
+    jt_custom_hydra_a: { n: 5, last: NOW - 20000 },
+    jt_cloud_only:     { n: 2, last: NOW - 500 }
+  }, updatedAt: newIso };
+
+  const batchSets = [];
+  const usageSets = [];
+  win._db = { fake: true };
+  win._user = { uid: 'test-uid' };
+  win.doc = function () { return { fakeRef: Array.prototype.slice.call(arguments, 1) }; };
+  win.collection = function () { return { fakeCol: Array.prototype.slice.call(arguments, 1) }; };
+  win.getDocs = function () {
+    const docs = [
+      { id: 'jt_custom_hydra_a', data: function () { return JSON.parse(JSON.stringify(cloudA)); } },
+      { id: 'jt_custom_hydra_b', data: function () { return JSON.parse(JSON.stringify(cloudB)); } },
+      { id: 'jt_custom_hydra_c', data: function () { return JSON.parse(JSON.stringify(cloudC)); } },
+      { id: '_usage',            data: function () { return JSON.parse(JSON.stringify(cloudUsageDoc)); } }
+    ];
+    return Promise.resolve({ forEach: function (cb) { docs.forEach(cb); } });
+  };
+  win.writeBatch = function () {
+    return { set: function (ref, tpl) { batchSets.push(tpl); }, commit: function () { return Promise.resolve(); } };
+  };
+  win.setDoc = function (ref, payload) { usageSets.push(payload); return Promise.resolve(); };
+
+  const hydrated = await JT.hydrateFromCloud();
+  ok('hydrateFromCloud resolves true when the pull succeeds', hydrated === true);
+
+  const afterA = JT.get('jt_custom_hydra_a');
+  const afterB = JT.get('jt_custom_hydra_b');
+  const afterC = JT.get('jt_custom_hydra_c');
+  ok('LWW: strictly-newer CLOUD doc replaces the stale local (A)',
+    afterA && afterA.name === 'Cloud A (fresh)', 'got ' + (afterA && afterA.name));
+  ok('LWW: newer LOCAL custom survives a stale cloud echo (B)',
+    afterB && afterB.name === 'Local B (fresh)', 'got ' + (afterB && afterB.name));
+  ok('cloud-only template lands locally (new-device first run, doc id fills missing .id)',
+    afterC && afterC.name === 'Cloud C (new device)', 'got ' + (afterC && afterC.name));
+  ok("'_usage' doc id NEVER hydrates as a template (skip guard)",
+    !JT.get('_usage') && !JT.list().some(function (t) { return t.id === '_usage'; }));
+
+  // Local winners mirror back up — B only (A lost, C is cloud's own).
+  const uploadedIds = batchSets.map(function (t) { return t && t.id; });
+  ok('local-winner B mirrors back up; cloud winners are NOT re-uploaded',
+    uploadedIds.length === 1 && uploadedIds[0] === 'jt_custom_hydra_b',
+    'uploaded: [' + uploadedIds.join(', ') + ']');
+
+  // Usage map: per-entry LWW by .last.
+  let mergedUsage = null;
+  try { mergedUsage = JSON.parse(win.localStorage.getItem(USAGE_KEY)); } catch (e) { mergedUsage = null; }
+  ok('usage LWW: newer CLOUD entry wins per-key (hydra_a n 3→5)',
+    mergedUsage && mergedUsage.jt_custom_hydra_a && mergedUsage.jt_custom_hydra_a.n === 5,
+    'got ' + JSON.stringify(mergedUsage && mergedUsage.jt_custom_hydra_a));
+  ok('usage LWW: local-only entry survives (jt_local_only n=7)',
+    mergedUsage && mergedUsage.jt_local_only && mergedUsage.jt_local_only.n === 7);
+  ok('usage LWW: cloud-only entry lands (jt_cloud_only n=2)',
+    mergedUsage && mergedUsage.jt_cloud_only && mergedUsage.jt_cloud_only.n === 2);
+  ok('list() overlays the hydrated usage (hydra_a useCount=5)',
+    (JT.list().find(function (t) { return t.id === 'jt_custom_hydra_a'; }) || {}).useCount === 5);
+  ok('local-newer usage mirrors back up as ONE _usage doc payload',
+    usageSets.length >= 1 && usageSets[0] && usageSets[0].usage &&
+    usageSets[0].usage.jt_local_only && usageSets[0].usage.jt_local_only.n === 7,
+    'setDoc payloads: ' + usageSets.length);
+
+  // Custom-item JT codes of cloud-pulled templates re-register (saved
+  // estimates from the OTHER device resolve their 'JT *' rows here).
+  const hydraCode = 'JT ' + jtSlug('jt_custom_hydra_a').toUpperCase() + '-0';
+  const hydraEntry = XACT && typeof XACT.find === 'function' ? XACT.find(hydraCode) : null;
+  ok('cloud-pulled custom item registered into NBD_XACT_CATALOG (' + hydraCode + ')',
+    !!hydraEntry && Number(hydraEntry.materialCost) === 10 && Number(hydraEntry.laborCost) === 5,
+    hydraEntry ? 'm=' + hydraEntry.materialCost + '/l=' + hydraEntry.laborCost : 'not found');
+
+  // Teardown: drop the fake SDK so nothing else mirrors.
+  delete win._db; delete win._user; delete win.doc; delete win.collection;
+  delete win.getDocs; delete win.writeBatch; delete win.setDoc;
+
+  // ══════════════════════════════════════════════════════════════════
+  // Summary — per-section counts + grand total; non-zero exit on failure.
+  // ══════════════════════════════════════════════════════════════════
+  flushSection();
+  console.log('\n──────────────────────────────────────────────────');
+  sectionResults.forEach(function (s) {
+    console.log((s.failed ? 'FAIL' : 'PASS') + '  ' + s.name + '  (' + s.passed + ' passed, ' + s.failed + ' failed)');
+  });
+  console.log('──────────────────────────────────────────────────');
+  console.log(passed + ' passed, ' + failed + ' failed');
+  if (failed) { console.log('FAILED: ' + fails.join(' | ')); process.exit(1); }
+  process.exit(0);
+})().catch(function (e) {
+  console.error('FATAL: async test tail threw —', e);
+  process.exit(1);
 });
-console.log('──────────────────────────────────────────────────');
-console.log(passed + ' passed, ' + failed + ' failed');
-if (failed) { console.log('FAILED: ' + fails.join(' | ')); process.exit(1); }
-process.exit(0);

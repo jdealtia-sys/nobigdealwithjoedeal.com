@@ -859,6 +859,50 @@ async function run() {
   await assertFails(setDoc(doc(mgrA, 'leads/leadA2/activity/mgr-webhook-forge'),
     { userId: 'mia', type: 'note', source: 'rep', note: 'x', stripeInvoiceId: 'in_123' }));
 
+  // 29. USER TEMPLATE-SYNC SUBCOLLECTIONS (feat/template-sync).
+  //     job-templates.js mirrors + hydrates custom job templates at
+  //     users/{uid}/jobTemplates/{tplId} — including the single '_usage'
+  //     rollup doc — and template-suite.js mirrors at
+  //     users/{uid}/templates/{tplId}. Contract: owner full read/write
+  //     (create/update/delete — remove() deletes the mirror doc), platform
+  //     admin may read (support context), stranger + anon fully denied.
+  //     These pin the EXPLICIT subcollection matches added under
+  //     /users/{uid} so the sync can't silently 403 again.
+  const jtTpl = { id: 'jt_custom_deck_x1', name: 'Deck repair custom', custom: true,
+    updatedAt: new Date().toISOString(), items: [] };
+  // ✅ owner create / read / update
+  await assertSucceeds(setDoc(doc(alice, 'users/alice/jobTemplates/jt_custom_deck_x1'), jtTpl));
+  await assertSucceeds(getDoc(doc(alice, 'users/alice/jobTemplates/jt_custom_deck_x1')));
+  await assertSucceeds(updateDoc(doc(alice, 'users/alice/jobTemplates/jt_custom_deck_x1'),
+    { name: 'Deck repair custom v2', updatedAt: new Date().toISOString() }));
+  // ✅ the '_usage' rollup doc rides the same rule (owner read/write)
+  await assertSucceeds(setDoc(doc(alice, 'users/alice/jobTemplates/_usage'),
+    { kind: 'usage', usage: { jt_custom_deck_x1: { n: 2, last: 1752900000000 } },
+      updatedAt: new Date().toISOString() }));
+  await assertSucceeds(getDoc(doc(alice, 'users/alice/jobTemplates/_usage')));
+  // ❌ stranger read/write denied; anon denied
+  await assertFails(getDoc(doc(bob, 'users/alice/jobTemplates/jt_custom_deck_x1')));
+  await assertFails(setDoc(doc(bob, 'users/alice/jobTemplates/forged'), { id: 'forged', name: 'x' }));
+  await assertFails(updateDoc(doc(bob, 'users/alice/jobTemplates/jt_custom_deck_x1'), { name: 'hijack' }));
+  await assertFails(deleteDoc(doc(bob, 'users/alice/jobTemplates/jt_custom_deck_x1')));
+  await assertFails(getDoc(doc(anon, 'users/alice/jobTemplates/jt_custom_deck_x1')));
+  await assertFails(getDoc(doc(bob, 'users/alice/jobTemplates/_usage')));
+  // ✅ platform admin reads (support context)
+  await assertSucceeds(getDoc(doc(admin, 'users/alice/jobTemplates/jt_custom_deck_x1')));
+  // ✅ owner delete (JobTemplates.remove() cloud cleanup path)
+  await assertSucceeds(deleteDoc(doc(alice, 'users/alice/jobTemplates/jt_custom_deck_x1')));
+  // …and the /templates twin (template-suite mirror — writes there were
+  // silently denied by the same missing-match class of bug):
+  await assertSucceeds(setDoc(doc(alice, 'users/alice/templates/tpl1'),
+    { name: 'Email template', updatedAt: new Date().toISOString() }));
+  await assertSucceeds(getDoc(doc(alice, 'users/alice/templates/tpl1')));
+  await assertSucceeds(updateDoc(doc(alice, 'users/alice/templates/tpl1'), { name: 'Email template v2' }));
+  await assertFails(getDoc(doc(bob, 'users/alice/templates/tpl1')));
+  await assertFails(setDoc(doc(bob, 'users/alice/templates/forged'), { name: 'x' }));
+  await assertFails(getDoc(doc(anon, 'users/alice/templates/tpl1')));
+  await assertSucceeds(getDoc(doc(admin, 'users/alice/templates/tpl1')));
+  await assertSucceeds(deleteDoc(doc(alice, 'users/alice/templates/tpl1')));
+
   console.log('✓ All firestore rules tests passed');
   await env.cleanup();
 }
