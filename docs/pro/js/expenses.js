@@ -625,11 +625,12 @@
       '</div>' +
       '</div>';
 
-    // Summary cards
-    html += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:20px;">';
-    html += card('Total Spend', money(agg.totalCents), agg.supplierCount + ' suppliers', accent);
-    html += card('Direct / Job Costs', money(agg.directCents), 'COGS — feeds margin', '#16a34a');
-    html += card('Overhead', money(agg.overheadCents), 'Operating costs', '#3b82f6');
+    // Summary cards — .sgrid is fixed 4-up; keep auto-fit inline for this
+    // 3-card row so it fills the width (inline wins over the .sgrid rule).
+    html += '<div class="sgrid" style="grid-template-columns:repeat(auto-fit,minmax(150px,1fr));">';
+    html += card('Total Spend', money(agg.totalCents), agg.supplierCount + ' suppliers', 'orange');
+    html += card('Direct / Job Costs', money(agg.directCents), 'COGS — feeds margin', 'green');
+    html += card('Overhead', money(agg.overheadCents), 'Operating costs', 'blue');
     html += '</div>';
 
     if (_expenses.length === 0) {
@@ -778,11 +779,15 @@
     scroll.innerHTML = html;
   }
 
+  // Canonical KPI tile (.stat-card in dashboard-app.css, vertical --kpi form).
+  // `color` is a token name (green/red/blue/gold/orange/purple) mapped to a
+  // stat-val--<color> modifier; falsy = default gradient value.
   function card(label, value, sub, color) {
-    return '<div style="background:var(--s,#1a1a2e);border:1px solid var(--br,rgba(255,255,255,.08));border-radius:12px;padding:16px;border-top:2px solid ' + color + ';">' +
-      '<div style="font-size:11px;color:var(--m,#9ca3af);text-transform:uppercase;letter-spacing:.05em;">' + esc(label) + '</div>' +
-      '<div style="font-family:\'Barlow Condensed\',sans-serif;font-size:26px;font-weight:800;color:' + color + ';margin:2px 0;">' + value + '</div>' +
-      '<div style="font-size:10px;color:var(--m,#9ca3af);">' + esc(sub) + '</div></div>';
+    var valCls = color ? ' stat-val--accent stat-val--' + color : '';
+    return '<div class="stat-card stat-card--kpi">' +
+      '<div class="stat-lbl">' + esc(label) + '</div>' +
+      '<div class="stat-val' + valCls + '">' + value + '</div>' +
+      '<div class="stat-sub">' + esc(sub) + '</div></div>';
   }
 
   // ── entry form (modal) ──────────────────────────────────────────────

@@ -134,38 +134,84 @@ header {
   display:flex; align-items:center; gap:6px;
   font-size:13px; color:var(--m);
 }
+/* Stage badge: hue lives in `color`; bg/border derive from it via
+   color-mix over the theme surface (mirrors the kanban .kcol-header
+   pattern, css/kanban-force.css:86-88). Was 27 rules of hardcoded dark
+   backgrounds that stayed dark chips on light surfaces. */
 .stage-badge {
-  padding:4px 12px; background:var(--s2); border:1px solid var(--br);
+  padding:4px 12px;
+  background: color-mix(in srgb, currentColor 14%, var(--s2));
+  border:1px solid color-mix(in srgb, currentColor 40%, var(--br));
   border-radius:12px; font-size:11px; font-weight:600;
   font-family:'Barlow Condensed',sans-serif; letter-spacing:.06em;
 }
-.stage-badge.stage-new, .stage-badge.stage-new-lead { background:#1e2a3a; color:#9CA3AF; border-color:#374151; }
-.stage-badge.stage-contacted { background:#1a2440; color:#60a5fa; border-color:#2563eb; }
-.stage-badge.stage-inspected, .stage-badge.stage-inspection { background:#1a2e4a; color:var(--blue); border-color:#2d5a8e; }
-.stage-badge.stage-claim-filed { background:#221a3a; color:#a78bfa; border-color:#7c3aed; }
-.stage-badge.stage-adjuster-meeting-scheduled { background:#2a1a3a; color:#c084fc; border-color:#a855f7; }
-.stage-badge.stage-adjuster-inspection-done { background:#251a38; color:#a78bfa; border-color:#8b5cf6; }
-.stage-badge.stage-scope-received { background:#2a2010; color:#fbbf24; border-color:#d97706; }
-.stage-badge.stage-estimate-submitted, .stage-badge.stage-estimate, .stage-badge.stage-estimate-sent { background:#2a2414; color:#D4A017; border-color:#6b5010; }
-.stage-badge.stage-supplement-requested { background:#2a1a10; color:#fb923c; border-color:#ea580c; }
-.stage-badge.stage-supplement-approved { background:#142a22; color:#4ade80; border-color:#16a34a; }
-.stage-badge.stage-estimate-sent-cash { background:#2a2414; color:#D4A017; border-color:#6b5010; }
-.stage-badge.stage-negotiating { background:#2a1a10; color:#fb923c; border-color:#ea580c; }
-.stage-badge.stage-prequal-sent { background:#0a2a2a; color:#22d3ee; border-color:#0891b2; }
-.stage-badge.stage-loan-approved { background:#142a22; color:#4ade80; border-color:#16a34a; }
-.stage-badge.stage-contract-signed, .stage-badge.stage-approved { background:#0f2a1a; color:var(--green); border-color:#16a34a; }
-.stage-badge.stage-job-created { background:#0a1e3a; color:#38bdf8; border-color:#0369a1; }
-.stage-badge.stage-permit-pulled { background:#1a1a3a; color:#818cf8; border-color:#4338ca; }
-.stage-badge.stage-materials-ordered { background:#2a1e10; color:#fbbf24; border-color:#b45309; }
-.stage-badge.stage-materials-delivered { background:#2a2010; color:#facc15; border-color:#a16207; }
-.stage-badge.stage-crew-scheduled { background:#0a2a28; color:#2dd4bf; border-color:#0d9488; }
-.stage-badge.stage-install-in-progress, .stage-badge.stage-in-progress { background:#142a22; color:var(--green); border-color:#166534; }
-.stage-badge.stage-install-complete { background:#0f2a1a; color:#4ade80; border-color:var(--green); }
-.stage-badge.stage-final-photos { background:#0a2a20; color:#6ee7b7; border-color:#10b981; }
-.stage-badge.stage-deductible-collected { background:#0a2a28; color:var(--green,#16a34a); border-color:#14b8a6; }
-.stage-badge.stage-final-payment { background:#0a2a28; color:#2dd4bf; border-color:#0d9488; }
-.stage-badge.stage-closed, .stage-badge.stage-complete, .stage-badge.stage-done { background:#0f2a1a; color:#4ade80; border-color:#16a34a; }
-.stage-badge.stage-lost { background:#2a1414; color:var(--red); border-color:#7f1d1d; }
+.stage-badge.stage-new, .stage-badge.stage-new-lead { color:#9CA3AF; }
+.stage-badge.stage-contacted { color:#60a5fa; }
+.stage-badge.stage-inspected, .stage-badge.stage-inspection { color:var(--blue); }
+.stage-badge.stage-claim-filed { color:#a78bfa; }
+.stage-badge.stage-adjuster-meeting-scheduled { color:#c084fc; }
+.stage-badge.stage-adjuster-inspection-done { color:#a78bfa; }
+.stage-badge.stage-scope-received { color:#fbbf24; }
+.stage-badge.stage-estimate-submitted, .stage-badge.stage-estimate, .stage-badge.stage-estimate-sent { color:#D4A017; }
+.stage-badge.stage-supplement-requested { color:#fb923c; }
+.stage-badge.stage-supplement-approved { color:#4ade80; }
+.stage-badge.stage-estimate-sent-cash { color:#D4A017; }
+.stage-badge.stage-negotiating { color:#fb923c; }
+.stage-badge.stage-prequal-sent { color:#22d3ee; }
+.stage-badge.stage-loan-approved { color:#4ade80; }
+.stage-badge.stage-contract-signed, .stage-badge.stage-approved { color:var(--green); }
+.stage-badge.stage-job-created { color:#38bdf8; }
+.stage-badge.stage-permit-pulled { color:#818cf8; }
+.stage-badge.stage-materials-ordered { color:#fbbf24; }
+.stage-badge.stage-materials-delivered { color:#facc15; }
+.stage-badge.stage-crew-scheduled { color:#2dd4bf; }
+.stage-badge.stage-install-in-progress, .stage-badge.stage-in-progress { color:var(--green); }
+.stage-badge.stage-install-complete { color:#4ade80; }
+.stage-badge.stage-final-photos { color:#6ee7b7; }
+.stage-badge.stage-deductible-collected { color:var(--green,#16a34a); }
+.stage-badge.stage-final-payment { color:#2dd4bf; }
+.stage-badge.stage-closed, .stage-badge.stage-complete, .stage-badge.stage-done { color:#4ade80; }
+.stage-badge.stage-lost { color:var(--red); }
+/* Light-surface legibility: deepen the pastel hues on the one light theme
+   this page can actually reach (Presentation Mode toggles
+   data-theme="presentation"; customer.html never sets data-mode, so the
+   kanban's :root[data-mode="light"] selector would be dead here).
+   Values mirror css/kanban-force.css:120-149. */
+:root[data-theme="presentation"] .stage-badge.stage-new,
+:root[data-theme="presentation"] .stage-badge.stage-new-lead { color:#475569; }
+:root[data-theme="presentation"] .stage-badge.stage-contacted { color:#1d4ed8; }
+:root[data-theme="presentation"] .stage-badge.stage-inspected,
+:root[data-theme="presentation"] .stage-badge.stage-inspection { color:#0369a1; }
+:root[data-theme="presentation"] .stage-badge.stage-claim-filed,
+:root[data-theme="presentation"] .stage-badge.stage-adjuster-inspection-done { color:#6d28d9; }
+:root[data-theme="presentation"] .stage-badge.stage-adjuster-meeting-scheduled { color:#7e22ce; }
+:root[data-theme="presentation"] .stage-badge.stage-scope-received,
+:root[data-theme="presentation"] .stage-badge.stage-materials-ordered { color:#b45309; }
+:root[data-theme="presentation"] .stage-badge.stage-estimate-submitted,
+:root[data-theme="presentation"] .stage-badge.stage-estimate,
+:root[data-theme="presentation"] .stage-badge.stage-estimate-sent,
+:root[data-theme="presentation"] .stage-badge.stage-estimate-sent-cash,
+:root[data-theme="presentation"] .stage-badge.stage-materials-delivered { color:#a16207; }
+:root[data-theme="presentation"] .stage-badge.stage-supplement-requested,
+:root[data-theme="presentation"] .stage-badge.stage-negotiating { color:#c2410c; }
+:root[data-theme="presentation"] .stage-badge.stage-supplement-approved,
+:root[data-theme="presentation"] .stage-badge.stage-loan-approved,
+:root[data-theme="presentation"] .stage-badge.stage-contract-signed,
+:root[data-theme="presentation"] .stage-badge.stage-approved,
+:root[data-theme="presentation"] .stage-badge.stage-install-complete,
+:root[data-theme="presentation"] .stage-badge.stage-closed,
+:root[data-theme="presentation"] .stage-badge.stage-complete,
+:root[data-theme="presentation"] .stage-badge.stage-done { color:#15803d; }
+:root[data-theme="presentation"] .stage-badge.stage-prequal-sent,
+:root[data-theme="presentation"] .stage-badge.stage-crew-scheduled,
+:root[data-theme="presentation"] .stage-badge.stage-deductible-collected,
+:root[data-theme="presentation"] .stage-badge.stage-final-payment { color:#0f766e; }
+:root[data-theme="presentation"] .stage-badge.stage-job-created { color:#0369a1; }
+:root[data-theme="presentation"] .stage-badge.stage-permit-pulled { color:#4338ca; }
+:root[data-theme="presentation"] .stage-badge.stage-install-in-progress,
+:root[data-theme="presentation"] .stage-badge.stage-in-progress,
+:root[data-theme="presentation"] .stage-badge.stage-final-photos { color:#047857; }
+:root[data-theme="presentation"] .stage-badge.stage-lost { color:#b91c1c; }
 .quick-actions {
   display:flex; gap:8px; margin-top:16px; flex-wrap:wrap;
   /* Sticky action bar — keeps Call/Email/Move-Stage reachable while

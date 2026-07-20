@@ -913,7 +913,7 @@
     const overlay = document.createElement('div');
     overlay.id = 'nbd-decision-modal';
     overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.7);' +
-      'z-index:var(--z-modal,9000);display:flex;align-items:center;justify-content:center;padding:20px;-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);';
+      'z-index:var(--z-dialog,9000);display:flex;align-items:center;justify-content:center;padding:20px;-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);';
     overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
     return overlay;
   }

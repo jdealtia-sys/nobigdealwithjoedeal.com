@@ -34,7 +34,7 @@ if (typeof window.showToast !== 'function') {
     var bg = 'var(--s,#1a1d23)'; var edge = type === 'success' ? 'var(--green,#2ECC8A)' : type === 'error' ? 'var(--red,#E05252)' : 'var(--blue,#3b82f6)';
     var toast = document.createElement('div');
     toast.className = 'nbd-showtoast';
-    toast.style.cssText = 'position:fixed;bottom:20px;right:20px;background:' + bg + ';color:var(--t,#e8eaf0);border:1px solid var(--br,rgba(255,255,255,.1));border-left:3px solid ' + edge + ';padding:11px 14px;border-radius:8px;box-shadow:0 6px 20px rgba(0,0,0,.25);z-index:10002;font-size:13px;font-weight:500;max-width:340px;animation:nbdToastIn .25s ease-out;pointer-events:auto;';
+    toast.style.cssText = 'position:fixed;bottom:20px;right:20px;background:' + bg + ';color:var(--t,#e8eaf0);border:1px solid var(--br,rgba(255,255,255,.1));border-left:3px solid ' + edge + ';padding:11px 14px;border-radius:8px;box-shadow:0 6px 20px rgba(0,0,0,.25);z-index:var(--z-toast,10002);font-size:13px;font-weight:500;max-width:340px;animation:nbdToastIn .25s ease-out;pointer-events:auto;';
     toast.textContent = message;
     document.body.appendChild(toast);
     setTimeout(function() {

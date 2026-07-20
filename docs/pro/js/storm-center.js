@@ -784,9 +784,12 @@
 
     const scroll = container.querySelector('.view-scroll') || container;
 
+    // Canonical underline tabs (.stab-btn, dashboard-app.css) — active
+    // class is recomputed each render because setTab re-renders the view.
+    // data-storm-action/data-storm-id are load-bearing (CSP delegate).
     const tabBtn = (id, label, icon) => {
       const active = currentTab === id;
-      return `<button data-storm-action="setTab" data-storm-id="${id}" style="padding:8px 16px;border:none;border-radius:8px;background:${active ? 'var(--orange,#e8720c)' : 'var(--s2,#1e2028)'};color:${active ? '#fff' : 'var(--m,#8b8e96)'};font-size:12px;font-weight:${active ? '700' : '500'};font-family:'Barlow Condensed',sans-serif;cursor:pointer;letter-spacing:.03em;transition:all .15s;">${icon} ${label}</button>`;
+      return `<button class="stab-btn${active ? ' stab-active' : ''}" data-storm-action="setTab" data-storm-id="${id}">${icon} ${label}</button>`;
     };
 
     // Stats bar
@@ -830,7 +833,7 @@
         </div>
 
         <!-- Tabs -->
-        <div style="display:flex;gap:6px;margin-bottom:14px;overflow-x:auto;padding-bottom:2px;">
+        <div style="display:flex;gap:0;border-bottom:2px solid var(--br);margin-bottom:14px;overflow-x:auto;">
           ${tabBtn('alerts', 'Live Alerts', '📡')}
           ${tabBtn('zones', 'Storm Zones', '🗺️')}
           ${tabBtn('canvass', 'Canvass Plans', '🚪')}

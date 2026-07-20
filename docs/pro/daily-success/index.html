@@ -364,9 +364,8 @@ canvas{max-width:100%;display:block;}
 .ob-dot{width:8px;height:8px;border-radius:50%;background:var(--rule);transition:background .2s;}
 .ob-dot.active{background:var(--ac);}
 
-/* TOAST / FOOTER */
-.toast{position:fixed;bottom:16px;right:16px;z-index:700;background:var(--grn);color:#fff;font-family:'Barlow Condensed',sans-serif;font-size:11px;letter-spacing:.1em;text-transform:uppercase;padding:8px 14px;border-radius:3px;opacity:0;transform:translateY(6px);transition:all .22s;pointer-events:none;}
-.toast.show{opacity:1;transform:translateY(0);}
+/* FOOTER (toasts: shared /pro/js/toast.js module — local .toast singleton
+   CSS removed in the 2026-07-19 consolidation) */
 .footer{width:100%;max-width:760px;text-align:center;font-family:'Barlow Condensed',sans-serif;font-size:10px;color:#2d3f55;letter-spacing:.12em;padding:8px 0 16px;}
 
 @media(max-width:560px){
@@ -1197,7 +1196,7 @@ canvas{max-width:100%;display:block;}
   </div>
 </div>
 
-<div class="toast" id="toast"></div>
+<script src="/pro/js/toast.js?v=1"></script>
 <script src="/pro/daily-success/js/app.js"></script>
 
 

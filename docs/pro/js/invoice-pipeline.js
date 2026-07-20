@@ -1152,7 +1152,7 @@ let _NBD_IP_DELEGATE_BOUND; // module-local (globals Tranche 1 — was window.*)
 
     const overlay = document.createElement('div');
     overlay.id = 'nbd-invoice-modal';
-    overlay.style.cssText = 'position:fixed;top:0;right:0;bottom:0;left:0;background:rgba(10,12,15,.85);z-index:10000;display:flex;align-items:center;justify-content:center;-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);';
+    overlay.style.cssText = 'position:fixed;top:0;right:0;bottom:0;left:0;background:rgba(10,12,15,.85);z-index:var(--z-overlay-top,10000);display:flex;align-items:center;justify-content:center;-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);';
     overlay.innerHTML = `
       <div style="background:var(--s,#14161a);border:1px solid var(--br,rgba(255,255,255,.1));border-radius:16px;max-width:420px;width:92%;padding:28px;color:#fff;">
         <div style="font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:700;margin-bottom:16px;">Create Invoice from Estimate</div>
@@ -1204,7 +1204,7 @@ let _NBD_IP_DELEGATE_BOUND; // module-local (globals Tranche 1 — was window.*)
 
     const overlay = document.createElement('div');
     overlay.id = 'nbd-send-invoice-modal';
-    overlay.style.cssText = 'position:fixed;top:0;right:0;bottom:0;left:0;background:rgba(10,12,15,.85);z-index:10000;display:flex;align-items:center;justify-content:center;-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);';
+    overlay.style.cssText = 'position:fixed;top:0;right:0;bottom:0;left:0;background:rgba(10,12,15,.85);z-index:var(--z-overlay-top,10000);display:flex;align-items:center;justify-content:center;-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);';
     overlay.innerHTML = `
       <div style="background:var(--s,#14161a);border:1px solid var(--br,rgba(255,255,255,.1));border-radius:16px;max-width:380px;width:92%;padding:28px;color:#fff;">
         <div style="font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:700;margin-bottom:16px;">Send Invoice</div>
@@ -1251,7 +1251,7 @@ let _NBD_IP_DELEGATE_BOUND; // module-local (globals Tranche 1 — was window.*)
     if (existing) existing.remove();
     const overlay = document.createElement('div');
     overlay.id = 'nbd-invoice-detail-modal';
-    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(10,12,15,.85);z-index:10000;display:flex;align-items:flex-start;justify-content:center;overflow:auto;padding:24px;-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);';
+    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(10,12,15,.85);z-index:var(--z-overlay-top,10000);display:flex;align-items:flex-start;justify-content:center;overflow:auto;padding:24px;-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);';
     overlay.innerHTML = `
       <div style="max-width:920px;width:100%;">
         <div style="display:flex;justify-content:flex-end;margin-bottom:8px;">
@@ -1285,7 +1285,7 @@ let _NBD_IP_DELEGATE_BOUND; // module-local (globals Tranche 1 — was window.*)
     if (existing) existing.remove();
     const overlay = document.createElement('div');
     overlay.id = 'nbd-markpaid-modal';
-    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(10,12,15,.85);z-index:10001;display:flex;align-items:center;justify-content:center;-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);';
+    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(10,12,15,.85);z-index:var(--z-overlay-top2,10001);display:flex;align-items:center;justify-content:center;-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);';
     overlay.innerHTML = `
       <div style="background:var(--s,#14161a);border:1px solid var(--br,rgba(255,255,255,.1));border-radius:16px;max-width:380px;width:92%;padding:28px;color:#fff;">
         <div style="font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:700;margin-bottom:16px;">Record Payment</div>

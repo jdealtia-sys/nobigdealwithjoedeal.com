@@ -223,48 +223,43 @@
     // dispatched by the delegate at the bottom of this file). These cards
     // shipped with no click handler at all — on mobile they're the primary
     // dashboard surface, and tapping them silently did nothing.
+    // Cards use the canonical .stat-card (dashboard-app.css) in its vertical
+    // --kpi form. The kpi-primary/kpi-green/kpi-warning modifiers (and the
+    // inline <style> block in dashboard.html that defines their border-left
+    // accents) are kept — tests/e2e/dashboard-actions-audit.spec.js selects
+    // #kpiRow .kpi-primary/.kpi-green/.kpi-warning.
     container.innerHTML =
       '<div class="kpi-grid">' +
-        '<div class="kpi-card kpi-primary" data-ak-action="goTo" data-ak-target="crm" role="button" title="Open pipeline" style="cursor:pointer;">' +
+        '<div class="stat-card stat-card--kpi kpi-primary" data-ak-action="goTo" data-ak-target="crm" role="button" title="Open pipeline" style="cursor:pointer;">' +
           '<div class="kpi-icon">💰</div>' +
-          '<div class="kpi-data">' +
-            '<div class="kpi-value">$' + formatNum(k.pipelineValue) + '</div>' +
-            '<div class="kpi-label">Active Pipeline</div>' +
-            '<div class="kpi-sub">' + k.activeLeadCount + ' active leads</div>' +
-          '</div>' +
+          '<div class="stat-val">$' + formatNum(k.pipelineValue) + '</div>' +
+          '<div class="stat-lbl">Active Pipeline</div>' +
+          '<div class="stat-sub">' + k.activeLeadCount + ' active leads</div>' +
         '</div>' +
-        '<div class="kpi-card kpi-green" data-ak-action="goTo" data-ak-target="money" role="button" title="Open Money dashboard" style="cursor:pointer;">' +
+        '<div class="stat-card stat-card--kpi kpi-green" data-ak-action="goTo" data-ak-target="money" role="button" title="Open Money dashboard" style="cursor:pointer;">' +
           '<div class="kpi-icon">📈</div>' +
-          '<div class="kpi-data">' +
-            '<div class="kpi-value">$' + formatNum(k.monthlyRevenue) + '</div>' +
-            '<div class="kpi-label">Revenue This Month</div>' +
-            '<div class="kpi-sub">' + k.closedThisMonthCount + ' closed</div>' +
-          '</div>' +
+          '<div class="stat-val">$' + formatNum(k.monthlyRevenue) + '</div>' +
+          '<div class="stat-lbl">Revenue This Month</div>' +
+          '<div class="stat-sub">' + k.closedThisMonthCount + ' closed</div>' +
         '</div>' +
-        '<div class="kpi-card" data-ak-action="goTo" data-ak-target="board" role="button" title="Open analytics" style="cursor:pointer;">' +
+        '<div class="stat-card stat-card--kpi" data-ak-action="goTo" data-ak-target="board" role="button" title="Open analytics" style="cursor:pointer;">' +
           '<div class="kpi-icon">🎯</div>' +
-          '<div class="kpi-data">' +
-            '<div class="kpi-value">' + k.closeRate + '%</div>' +
-            '<div class="kpi-label">Close Rate</div>' +
-            '<div class="kpi-sub">Avg deal $' + formatNum(k.avgDealSize) + '</div>' +
-          '</div>' +
+          '<div class="stat-val">' + k.closeRate + '%</div>' +
+          '<div class="stat-lbl">Close Rate</div>' +
+          '<div class="stat-sub">Avg deal $' + formatNum(k.avgDealSize) + '</div>' +
         '</div>' +
-        '<div class="kpi-card" data-ak-action="goTo" data-ak-target="crm" role="button" title="Open pipeline" style="cursor:pointer;">' +
+        '<div class="stat-card stat-card--kpi" data-ak-action="goTo" data-ak-target="crm" role="button" title="Open pipeline" style="cursor:pointer;">' +
           '<div class="kpi-icon">🆕</div>' +
-          '<div class="kpi-data">' +
-            '<div class="kpi-value">' + k.leadsThisMonth + '</div>' +
-            '<div class="kpi-label">New Leads</div>' +
-            '<div class="kpi-sub">Top: ' + esc(k.topSource) + '</div>' +
-          '</div>' +
+          '<div class="stat-val">' + k.leadsThisMonth + '</div>' +
+          '<div class="stat-lbl">New Leads</div>' +
+          '<div class="stat-sub">Top: ' + esc(k.topSource) + '</div>' +
         '</div>' +
         (k.overdueFollowUps > 0
-          ? '<div class="kpi-card kpi-warning" data-ak-action="scrollToFollowUps" style="cursor:pointer;">' +
+          ? '<div class="stat-card stat-card--kpi kpi-warning" data-ak-action="scrollToFollowUps" style="cursor:pointer;">' +
               '<div class="kpi-icon">⚠️</div>' +
-              '<div class="kpi-data">' +
-                '<div class="kpi-value">' + k.overdueFollowUps + '</div>' +
-                '<div class="kpi-label">Overdue Follow-Ups</div>' +
-                '<div class="kpi-sub">Click to view</div>' +
-              '</div>' +
+              '<div class="stat-val">' + k.overdueFollowUps + '</div>' +
+              '<div class="stat-lbl">Overdue Follow-Ups</div>' +
+              '<div class="stat-sub">Click to view</div>' +
             '</div>'
           : '') +
       '</div>';
@@ -571,25 +566,12 @@
   }
 
   // ── CSS for the full analytics dashboard ──
+  // KPI tiles now use the canonical .stat-card/.stat-lbl/.stat-val/.stat-sub
+  // + .sgrid from dashboard-app.css (2026-07-19 CRM audit convergence); the
+  // old .ak-grid/.ak-card/.ak-lbl/.ak-val/.ak-sub rules were removed. The
+  // .ak-panel/.ak-bar/.ak-chart rules below still drive the bar/trend charts.
   var ANALYTICS_CSS = `
     .ak-wrap { max-width: 960px; margin: 0 auto; }
-    .ak-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px; margin-bottom: 20px; }
-    .ak-card { background: var(--s2, #1a1d23); border: 1px solid var(--br, #2a2d35); border-radius: 10px; padding: 18px 16px; position: relative; overflow: hidden; transition: border-color .15s; }
-    .ak-card:hover { border-color: var(--orange, #e8720c); }
-    .ak-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px; }
-    .ak-card.blue::before { background: var(--blue, #4E9BF5); }
-    .ak-card.orange::before { background: var(--orange, #e8720c); }
-    .ak-card.green::before { background: var(--green, #2ECC8A); }
-    .ak-card.red::before { background: #E05252; }
-    .ak-card.cyan::before { background: var(--blue,#3b82f6); }
-    .ak-lbl { font-size: 10px; text-transform: uppercase; letter-spacing: .08em; color: var(--m, #8892A4); margin-bottom: 6px; font-weight: 600; }
-    .ak-val { font-family: 'Barlow Condensed', sans-serif; font-size: 28px; font-weight: 900; line-height: 1.1; }
-    .ak-val.blue { color: var(--blue, #4E9BF5); }
-    .ak-val.orange { color: var(--orange, #e8720c); }
-    .ak-val.green { color: var(--green, #2ECC8A); }
-    .ak-val.red { color: #E05252; }
-    .ak-val.cyan { color: var(--blue,#3b82f6); }
-    .ak-sub { font-size: 10px; color: var(--m, #8892A4); margin-top: 4px; opacity: .7; }
     .ak-panel { background: var(--s2, #1a1d23); border: 1px solid var(--br, #2a2d35); border-radius: 10px; margin-bottom: 16px; overflow: hidden; }
     .ak-panel-hdr { padding: 14px 16px; border-bottom: 1px solid var(--br, #2a2d35); font-family: 'Barlow Condensed', sans-serif; font-size: 13px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--t, #fff); display: flex; align-items: center; gap: 8px; }
     .ak-panel-body { padding: 16px; }
@@ -605,7 +587,7 @@
     .ak-chart-bar { width: 100%; border-radius: 3px 3px 0 0; transition: height .5s cubic-bezier(.22,1,.36,1); min-height: 2px; }
     .ak-chart-lbl { font-size: 9px; color: var(--m, #8892A4); white-space: nowrap; }
     .ak-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
-    @media (max-width: 640px) { .ak-cols { grid-template-columns: 1fr; } .ak-grid { grid-template-columns: repeat(2, 1fr); gap: 8px; } .ak-card { padding: 12px; } .ak-val { font-size: 22px; } .ak-bar-label { min-width: 70px; font-size: 10px; } }
+    @media (max-width: 640px) { .ak-cols { grid-template-columns: 1fr; } .ak-bar-label { min-width: 70px; font-size: 10px; } }
     .ak-empty { text-align: center; padding: 40px 16px; color: var(--m, #8892A4); font-size: 13px; }
     .ak-empty-icon { font-size: 32px; margin-bottom: 8px; }
     .ak-loading { text-align: center; padding: 60px 16px; color: var(--m, #8892A4); }
@@ -756,9 +738,11 @@
     }
 
     // ── Expense / supplier-spend section (only when expenses exist) ──
-    var marginColor = m.expGrossMargin == null ? 'var(--t,#fff)'
-      : m.expGrossMargin >= 40 ? 'var(--green,#2ECC8A)'
-      : m.expGrossMargin >= 25 ? 'var(--orange,#e8720c)' : 'var(--red,#E5484D)';
+    // Colored values need stat-val--accent to defeat the canonical .stat-val
+    // gradient text-fill (dashboard-app.css); null margin stays gradient.
+    var marginCls = m.expGrossMargin == null ? ''
+      : m.expGrossMargin >= 40 ? ' stat-val--accent stat-val--green'
+      : m.expGrossMargin >= 25 ? ' stat-val--accent stat-val--orange' : ' stat-val--accent stat-val--red';
     var supplierBarsHTML = '';
     var maxSup = (m.expSupplierLeaderboard[0] && m.expSupplierLeaderboard[0].cents) || 1;
     m.expSupplierLeaderboard.forEach(function (s) {
@@ -772,26 +756,26 @@
         '</div>';
     });
     var expenseSectionHTML = m.expTotalDollars > 0 ? (
-      '<div class="ak-grid">' +
-        '<div class="ak-card blue">' +
-          '<div class="ak-lbl">Total COGS</div>' +
-          '<div class="ak-val blue">' + formatCurrency(m.expDirectDollars) + '</div>' +
-          '<div class="ak-sub">direct job costs · ' + formatCurrency(m.expTotalDollars) + ' all spend</div>' +
+      '<div class="sgrid">' +
+        '<div class="stat-card stat-card--kpi">' +
+          '<div class="stat-lbl">Total COGS</div>' +
+          '<div class="stat-val stat-val--accent stat-val--blue">' + formatCurrency(m.expDirectDollars) + '</div>' +
+          '<div class="stat-sub">direct job costs · ' + formatCurrency(m.expTotalDollars) + ' all spend</div>' +
         '</div>' +
-        '<div class="ak-card">' +
-          '<div class="ak-lbl">Gross Margin <span style="opacity:.55;font-weight:normal;">(won jobs)</span></div>' +
-          '<div class="ak-val" style="color:' + marginColor + '">' + (m.expGrossMargin == null ? '—' : m.expGrossMargin + '%') + '</div>' +
-          '<div class="ak-sub">' + m.expCostedJobs + ' of ' + m.expWonJobs + ' won jobs costed · before overhead</div>' +
+        '<div class="stat-card stat-card--kpi">' +
+          '<div class="stat-lbl">Gross Margin <span style="opacity:.55;font-weight:normal;">(won jobs)</span></div>' +
+          '<div class="stat-val' + marginCls + '">' + (m.expGrossMargin == null ? '—' : m.expGrossMargin + '%') + '</div>' +
+          '<div class="stat-sub">' + m.expCostedJobs + ' of ' + m.expWonJobs + ' won jobs costed · before overhead</div>' +
         '</div>' +
-        '<div class="ak-card orange">' +
-          '<div class="ak-lbl">Spend This Month</div>' +
-          '<div class="ak-val orange">' + formatCurrency(m.expMonthDollars) + '</div>' +
-          '<div class="ak-sub">materials, subs, overhead</div>' +
+        '<div class="stat-card stat-card--kpi">' +
+          '<div class="stat-lbl">Spend This Month</div>' +
+          '<div class="stat-val stat-val--accent stat-val--orange">' + formatCurrency(m.expMonthDollars) + '</div>' +
+          '<div class="stat-sub">materials, subs, overhead</div>' +
         '</div>' +
-        '<div class="ak-card">' +
-          '<div class="ak-lbl">Overhead</div>' +
-          '<div class="ak-val" style="color:var(--t,#fff)">' + formatCurrency(m.expOverheadDollars) + '</div>' +
-          '<div class="ak-sub">operating costs (not per-job)</div>' +
+        '<div class="stat-card stat-card--kpi">' +
+          '<div class="stat-lbl">Overhead</div>' +
+          '<div class="stat-val">' + formatCurrency(m.expOverheadDollars) + '</div>' +
+          '<div class="stat-sub">operating costs (not per-job)</div>' +
         '</div>' +
       '</div>' +
       '<div class="ak-panel">' +
@@ -804,50 +788,50 @@
       '<div class="ak-wrap">' +
 
         // ── Top KPI cards ──
-        '<div class="ak-grid">' +
-          '<div class="ak-card green">' +
-            '<div class="ak-lbl">Total Revenue</div>' +
-            '<div class="ak-val green">' + formatCurrency(m.totalRevenue) + '</div>' +
-            '<div class="ak-sub">' + m.paidCount + ' paid invoices' + (m.monthRevenue > 0 ? ' · ' + formatCurrency(m.monthRevenue) + ' this month' : '') + '</div>' +
+        '<div class="sgrid">' +
+          '<div class="stat-card stat-card--kpi">' +
+            '<div class="stat-lbl">Total Revenue</div>' +
+            '<div class="stat-val stat-val--accent stat-val--green">' + formatCurrency(m.totalRevenue) + '</div>' +
+            '<div class="stat-sub">' + m.paidCount + ' paid invoices' + (m.monthRevenue > 0 ? ' · ' + formatCurrency(m.monthRevenue) + ' this month' : '') + '</div>' +
           '</div>' +
-          '<div class="ak-card blue">' +
-            '<div class="ak-lbl">Pipeline Value</div>' +
-            '<div class="ak-val blue">' + formatCurrency(m.pipelineValue) + '</div>' +
-            '<div class="ak-sub">' + m.activeLeadCount + ' active leads</div>' +
+          '<div class="stat-card stat-card--kpi">' +
+            '<div class="stat-lbl">Pipeline Value</div>' +
+            '<div class="stat-val stat-val--accent stat-val--blue">' + formatCurrency(m.pipelineValue) + '</div>' +
+            '<div class="stat-sub">' + m.activeLeadCount + ' active leads</div>' +
           '</div>' +
-          '<div class="ak-card orange">' +
-            '<div class="ak-lbl">Conversion Rate <span style="opacity:.55;font-weight:normal;">(all-time)</span></div>' +
-            '<div class="ak-val orange">' + m.conversionRate + '%</div>' +
-            '<div class="ak-sub">' + m.wonCount + ' won / ' + (m.wonCount + m.lostCount) + ' decided</div>' +
+          '<div class="stat-card stat-card--kpi">' +
+            '<div class="stat-lbl">Conversion Rate <span style="opacity:.55;font-weight:normal;">(all-time)</span></div>' +
+            '<div class="stat-val stat-val--accent stat-val--orange">' + m.conversionRate + '%</div>' +
+            '<div class="stat-sub">' + m.wonCount + ' won / ' + (m.wonCount + m.lostCount) + ' decided</div>' +
           '</div>' +
-          '<div class="ak-card cyan">' +
-            '<div class="ak-lbl">Avg Deal Size</div>' +
-            '<div class="ak-val cyan">' + formatCurrency(m.avgDealSize) + '</div>' +
-            '<div class="ak-sub">' + m.wonCount + ' closed deals</div>' +
+          '<div class="stat-card stat-card--kpi">' +
+            '<div class="stat-lbl">Avg Deal Size</div>' +
+            '<div class="stat-val stat-val--accent stat-val--blue">' + formatCurrency(m.avgDealSize) + '</div>' +
+            '<div class="stat-sub">' + m.wonCount + ' closed deals</div>' +
           '</div>' +
         '</div>' +
 
         // ── Secondary KPIs ──
-        '<div class="ak-grid">' +
-          '<div class="ak-card">' +
-            '<div class="ak-lbl">Estimates</div>' +
-            '<div class="ak-val" style="color:var(--t,#fff)">' + m.totalEstimates + '</div>' +
-            '<div class="ak-sub">Avg value ' + formatCurrency(m.avgEstimateValue) + '</div>' +
+        '<div class="sgrid">' +
+          '<div class="stat-card stat-card--kpi">' +
+            '<div class="stat-lbl">Estimates</div>' +
+            '<div class="stat-val">' + m.totalEstimates + '</div>' +
+            '<div class="stat-sub">Avg value ' + formatCurrency(m.avgEstimateValue) + '</div>' +
           '</div>' +
-          '<div class="ak-card">' +
-            '<div class="ak-lbl">D2D Knocks</div>' +
-            '<div class="ak-val" style="color:var(--t,#fff)">' + formatNum(m.totalKnocks) + '</div>' +
-            '<div class="ak-sub">' + m.appointments + ' appointments · ' + m.knockToAppt + '% set rate</div>' +
+          '<div class="stat-card stat-card--kpi">' +
+            '<div class="stat-lbl">D2D Knocks</div>' +
+            '<div class="stat-val">' + formatNum(m.totalKnocks) + '</div>' +
+            '<div class="stat-sub">' + m.appointments + ' appointments · ' + m.knockToAppt + '% set rate</div>' +
           '</div>' +
-          '<div class="ak-card">' +
-            '<div class="ak-lbl">Photos</div>' +
-            '<div class="ak-val" style="color:var(--t,#fff)">' + formatNum(m.totalPhotos) + '</div>' +
-            '<div class="ak-sub">' + m.photoPerLead + ' per lead · ' + m.leadsWithPhotos + ' leads documented</div>' +
+          '<div class="stat-card stat-card--kpi">' +
+            '<div class="stat-lbl">Photos</div>' +
+            '<div class="stat-val">' + formatNum(m.totalPhotos) + '</div>' +
+            '<div class="stat-sub">' + m.photoPerLead + ' per lead · ' + m.leadsWithPhotos + ' leads documented</div>' +
           '</div>' +
-          '<div class="ak-card red">' +
-            '<div class="ak-lbl">Unpaid Invoices</div>' +
-            '<div class="ak-val red">' + formatCurrency(m.unpaidAmount) + '</div>' +
-            '<div class="ak-sub">' + m.unpaidCount + ' outstanding</div>' +
+          '<div class="stat-card stat-card--kpi">' +
+            '<div class="stat-lbl">Unpaid Invoices</div>' +
+            '<div class="stat-val stat-val--accent stat-val--red">' + formatCurrency(m.unpaidAmount) + '</div>' +
+            '<div class="stat-sub">' + m.unpaidCount + ' outstanding</div>' +
           '</div>' +
         '</div>' +
 

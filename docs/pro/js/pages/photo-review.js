@@ -611,13 +611,11 @@ document.addEventListener('keydown', (e) => {
 });
 
 // ── Toast ──
-let toastTimer = null;
-function showToast(msg) {
-  const t = document.getElementById('prToast');
-  t.textContent = msg;
-  t.dataset.open = 'true';
-  clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => { t.dataset.open = 'false'; }, 2400);
+// 2026-07-19 consolidation: delegates to the shared /pro/js/toast.js module
+// (dashboard contract, bottom-right stack, loaded by photo-review.html
+// before this module). Replaces the old #prToast bottom-center pill.
+function showToast(msg, type) {
+  window.showToast(msg, type);
 }
 
 // ── AI cap awareness ──

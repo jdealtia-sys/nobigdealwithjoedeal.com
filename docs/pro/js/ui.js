@@ -658,18 +658,10 @@ function showPhotosSkeleton() {
   photosContainer.innerHTML = skeletonHTML;
 }
 
-// Hide all skeletons (will be replaced by actual content)
-function hideSkeleton() {
-  document.querySelectorAll('.skeleton-card, .skeleton-grid').forEach(el => {
-    el.style.opacity = '0';
-    setTimeout(() => el.remove(), 300);
-  });
-}
-
-// Expose functions
-window.showKanbanSkeleton = showKanbanSkeleton;
-window.showPhotosSkeleton = showPhotosSkeleton;
-window.hideSkeleton = hideSkeleton;
+// (hideSkeleton removed 2026-07-20: zero callers, and it queried
+// .skeleton-card/.skeleton-grid — classes the CSS no longer defines.
+// The kanban/photos skeletons are replaced wholesale by their render
+// paths, not hidden. window exports live in the block at the bottom.)
 
 
 // ══════════════════════════════════════════════
@@ -1143,7 +1135,6 @@ window.toggleShortcutsPanel = toggleShortcutsPanel;
 window.scrollToColumn = scrollToColumn;
 window.showKanbanSkeleton = showKanbanSkeleton;
 window.showPhotosSkeleton = showPhotosSkeleton;
-window.hideSkeleton = hideSkeleton;
 window.showToast = showToast;
 window.closeToast = closeToast;
 window.toggleNavSection = toggleNavSection;

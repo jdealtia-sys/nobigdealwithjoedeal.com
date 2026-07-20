@@ -189,7 +189,7 @@ body.theme-frosted {
 .d2d-funnel-count { font-size:16px; font-weight:900; color:var(--t); font-family:'Barlow Condensed',sans-serif; }
 .d2d-funnel-label { font-size:9px; color:rgba(255,255,255,.8); font-weight:600; text-transform:uppercase; letter-spacing:.05em; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .d2d-action-bar { display:flex; gap:10px; align-items:center; margin-bottom:14px; padding-top:14px; }
-.d2d-big-btn { display:flex; align-items:center; gap:8px; padding:12px 18px; background:var(--orange); color:var(--accent-fg); border:none; border-radius:10px; font-size:14px; font-weight:700; font-family:'Barlow Condensed',sans-serif; cursor:pointer; letter-spacing:.03em; text-transform:uppercase; transition:all .15s; white-space:nowrap; }
+.d2d-big-btn { display:flex; align-items:center; gap:8px; padding:12px 18px; background:var(--orange); color:var(--accent-fg); border:none; border-radius:10px; font-size:14px; font-weight:700; font-family:'Barlow Condensed',sans-serif; cursor:pointer; letter-spacing:.03em; text-transform:uppercase; transition:filter var(--t-fast),transform var(--t-fast); white-space:nowrap; }
 .d2d-big-btn:hover { filter:brightness(1.1); }
 .d2d-big-btn-sec { background:var(--s2); color:var(--t); border:1px solid var(--br); }
 .d2d-big-btn-sec:hover { background:var(--br); }

@@ -156,7 +156,7 @@ window.showToast = function(message, type = 'info') {
   if (!container) {
     container = document.createElement('div');
     container.id = 'toastContainer';
-    container.style.cssText = 'position:fixed;bottom:20px;right:20px;z-index:10002;display:flex;flex-direction:column;gap:8px;align-items:flex-end;';
+    container.style.cssText = 'position:fixed;bottom:20px;right:20px;z-index:var(--z-toast,10002);display:flex;flex-direction:column;gap:8px;align-items:flex-end;';
     document.body.appendChild(container);
   }
   while (container.children.length >= 5) container.firstChild.remove();

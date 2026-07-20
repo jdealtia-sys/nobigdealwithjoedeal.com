@@ -582,63 +582,9 @@ body::after {
   text-transform: uppercase;
 }
 
-/* ═══════════════════════════════════════════════════════════════════════════
-   TOAST NOTIFICATIONS
-   ═══════════════════════════════════════════════════════════════════════════ */
-
-.toast-container {
-  position: fixed;
-  bottom: 24px;
-  right: 24px;
-  z-index: 9999;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  pointer-events: none;
-}
-
-.toast {
-  background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: var(--r);
-  padding: 14px 18px;
-  font-family: 'DM Mono', monospace;
-  font-size: 11px;
-  color: var(--text);
-  box-shadow: 0 6px 24px rgba(0,0,0,0.4);
-  pointer-events: all;
-  animation: toastSlideIn 0.3s var(--ease) both;
-  max-width: 400px;
-}
-
-.toast.success {
-  border-color: var(--green);
-  background: var(--green-dim);
-  color: var(--green);
-}
-
-.toast.error {
-  border-color: var(--red);
-  background: var(--red-dim);
-  color: var(--red);
-}
-
-.toast.info {
-  border-color: var(--blue);
-  background: var(--blue-dim);
-  color: var(--blue);
-}
-
-@keyframes toastSlideIn {
-  from {
-    opacity: 0;
-    transform: translateX(100px);
-  }
-  to {
-    opacity: 1;
-    transform: translateX(0);
-  }
-}
+/* Toasts: shared /pro/js/toast.js module (dashboard contract, token inline
+   styles) — the local .toast-container/.toast CSS block was removed in the
+   2026-07-19 satellite-toast consolidation. */
 
 /* ═══════════════════════════════════════════════════════════════════════════
    SESSION CARDS
@@ -896,13 +842,11 @@ body::after {
   </div>
 </div>
 
-<!-- Toast Container -->
-<div class="toast-container" id="toastContainer"></div>
-
 <!-- Continue in Part 2... -->
 </body>
 </html>
 
 <!-- ETERNAL VAULT V2 — PART 2: JAVASCRIPT CORE -->
+<script src="/pro/js/toast.js?v=1"></script>
 <script src="js/vault-page.js?v=1"></script>
 </body></html>

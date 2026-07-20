@@ -400,18 +400,11 @@ function viewSession(num) {
    TOAST SYSTEM
    ═══════════════════════════════════════════════════════════════════════════ */
 
+// 2026-07-19 consolidation: local toast builder replaced by the shared
+// dashboard-contract module (/pro/js/toast.js, loaded by vault.html before
+// this script). Local name kept so every call site below stays untouched.
 function toast(message, type = 'info') {
-  const container = document.getElementById('toastContainer');
-  const toast = document.createElement('div');
-  toast.className = `toast ${type}`;
-  toast.textContent = message;
-  
-  container.appendChild(toast);
-  
-  setTimeout(() => {
-    toast.style.animation = 'toastSlideIn 0.3s var(--ease) reverse both';
-    setTimeout(() => toast.remove(), 300);
-  }, 3000);
+  window.showToast(message, type);
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════

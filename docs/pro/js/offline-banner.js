@@ -35,7 +35,7 @@
     banner.setAttribute('role', 'status');
     banner.setAttribute('aria-live', 'polite');
     banner.style.cssText =
-      'position:fixed;top:0;left:0;right:0;z-index:10006;' +
+      'position:fixed;top:0;left:0;right:0;z-index:var(--z-banner,10006);' +
       'background:#fbbf24;color:#1a1a1a;font:inherit;font-size:13px;' +
       'font-weight:600;padding:8px 14px;text-align:center;' +
       'box-shadow:0 2px 8px rgba(0,0,0,0.18);' +

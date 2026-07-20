@@ -235,21 +235,25 @@
   }
 
   // ── Render ──────────────────────────────────────────────────────────
+  // Canonical KPI tile (.stat-card in dashboard-app.css, vertical --kpi form).
+  // `color` is a token name (green/red/blue/gold/orange/purple) mapped to a
+  // stat-val--<color> modifier; falsy = default gradient value.
   function card(label, value, sub, color) {
-    return '<div style="background:var(--s,#1a1a2e);border:1px solid var(--br,rgba(255,255,255,.08));border-radius:12px;padding:16px;border-top:2px solid ' + color + ';">' +
-      '<div style="font-size:11px;color:var(--m,#9ca3af);text-transform:uppercase;letter-spacing:.05em;">' + esc(label) + '</div>' +
-      '<div style="font-family:\'Barlow Condensed\',sans-serif;font-size:26px;font-weight:800;color:' + color + ';margin:2px 0;">' + value + '</div>' +
-      '<div style="font-size:10px;color:var(--m,#9ca3af);">' + esc(sub) + '</div></div>';
+    var valCls = color ? ' stat-val--accent stat-val--' + color : '';
+    return '<div class="stat-card stat-card--kpi">' +
+      '<div class="stat-lbl">' + esc(label) + '</div>' +
+      '<div class="stat-val' + valCls + '">' + value + '</div>' +
+      '<div class="stat-sub">' + esc(sub) + '</div></div>';
   }
   function grid(cards) {
-    return '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:20px;">' + cards.join('') + '</div>';
+    return '<div class="sgrid">' + cards.join('') + '</div>';
   }
 
   function render(m) {
     var scroll = document.querySelector('#view-money .view-scroll');
     if (!scroll) return;
-    var netColor = m.netCashCents >= 0 ? '#16a34a' : '#dc2626';
-    var marginColor = m.grossMargin == null ? 'var(--h,#fff)' : m.grossMargin >= 40 ? '#16a34a' : m.grossMargin >= 25 ? '#eab308' : '#dc2626';
+    var netColor = m.netCashCents >= 0 ? 'green' : 'red';
+    var marginColor = m.grossMargin == null ? '' : m.grossMargin >= 40 ? 'green' : m.grossMargin >= 25 ? 'gold' : 'red';
     var html = '';
     html += '<div style="margin-bottom:18px;"><h2 style="margin:0;font-family:\'Barlow Condensed\',sans-serif;font-size:26px;font-weight:800;color:var(--h,#fff);">💵 Money — ' + m.year + '</h2>' +
       '<div style="font-size:12px;color:var(--m,#9ca3af);margin-top:2px;">' + (isStaff() && claims().companyId ? 'Team-wide' : 'Your books') + ' · live snapshot</div></div>';
@@ -257,19 +261,19 @@
     // Cash (this year)
     html += '<div style="font-size:12px;font-weight:700;color:var(--m,#9ca3af);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px;">Cash — ' + m.year + ' (collected vs spent)</div>';
     html += grid([
-      card('Collected', fmt(m.collectedCents), 'paid invoices', '#16a34a'),
-      card('Spent', fmt(m.spentCents), 'COGS + overhead', '#e8720c'),
+      card('Collected', fmt(m.collectedCents), 'paid invoices', 'green'),
+      card('Spent', fmt(m.spentCents), 'COGS + overhead', 'orange'),
       card('Net Cash', fmt(m.netCashCents), m.netCashCents >= 0 ? 'in the black' : 'in the red', netColor),
-      card('Outstanding A/R', fmt(m.outstandingCents), 'unpaid invoices', '#3b82f6'),
+      card('Outstanding A/R', fmt(m.outstandingCents), 'unpaid invoices', 'blue'),
     ]);
 
     // Job profitability
     html += '<div style="font-size:12px;font-weight:700;color:var(--m,#9ca3af);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px;">Job profitability (won jobs)</div>';
     html += grid([
-      card('Contract Value', fmt(m.wonContractCents), m.costedJobs + ' of ' + m.wonJobs + ' won jobs costed', '#3b82f6'),
-      card('Direct Costs', fmt(m.wonDirectCents), 'materials, labor, subs', '#e8720c'),
+      card('Contract Value', fmt(m.wonContractCents), m.costedJobs + ' of ' + m.wonJobs + ' won jobs costed', 'blue'),
+      card('Direct Costs', fmt(m.wonDirectCents), 'materials, labor, subs', 'orange'),
       card('Gross Margin', m.grossMargin == null ? '—' : m.grossMargin + '%', 'before overhead & commission', marginColor),
-      card('Overhead', fmt(m.overheadCents), 'operating costs YTD', '#8b5cf6'),
+      card('Overhead', fmt(m.overheadCents), 'operating costs YTD', 'purple'),
     ]);
 
     // Two-column: top suppliers + 1099

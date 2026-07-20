@@ -499,7 +499,7 @@
     const overlay = document.createElement('div');
     overlay.className = 'd2d-modal-overlay open';
     overlay.id = 'd2d-convert-prompt';
-    overlay.style.zIndex = '10002';
+    overlay.style.zIndex = 'var(--z-toast,10002)';
     overlay.onclick = (e) => { if (e.target === overlay) overlay.remove(); };
 
     const modal = document.createElement('div');

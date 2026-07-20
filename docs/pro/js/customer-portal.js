@@ -43,35 +43,6 @@ let _NBD_CP_DELEGATE; // module-local (globals Tranche 1 — was window.*)
     dark: '#1a1a2e'
   };
 
-  // Stage display config — maps internal stage keys to customer-friendly labels
-  const STAGE_DISPLAY = {
-    new:                        { label: 'Getting Started', progress: 5, icon: '📋' },
-    contacted:                  { label: 'In Contact', progress: 10, icon: '📞' },
-    inspected:                  { label: 'Inspection Complete', progress: 20, icon: '🔍' },
-    claim_filed:                { label: 'Claim Filed', progress: 25, icon: '📄' },
-    adjuster_meeting_scheduled: { label: 'Adjuster Meeting Scheduled', progress: 30, icon: '📅' },
-    adjuster_inspection_done:   { label: 'Adjuster Inspection Done', progress: 35, icon: '✅' },
-    scope_received:             { label: 'Scope Received', progress: 40, icon: '📋' },
-    estimate_submitted:         { label: 'Estimate Submitted', progress: 45, icon: '💰' },
-    supplement_requested:       { label: 'Supplement in Review', progress: 50, icon: '📝' },
-    supplement_approved:        { label: 'Supplement Approved', progress: 55, icon: '✅' },
-    estimate_sent_cash:         { label: 'Estimate Sent', progress: 45, icon: '💰' },
-    negotiating:                { label: 'Finalizing Details', progress: 55, icon: '🤝' },
-    prequal_sent:               { label: 'Financing in Progress', progress: 50, icon: '🏦' },
-    loan_approved:              { label: 'Financing Approved', progress: 55, icon: '✅' },
-    contract_signed:            { label: 'Contract Signed', progress: 60, icon: '✍️' },
-    job_created:                { label: 'Job Created', progress: 65, icon: '🔨' },
-    permit_pulled:              { label: 'Permits Secured', progress: 70, icon: '📋' },
-    materials_ordered:          { label: 'Materials Ordered', progress: 75, icon: '📦' },
-    materials_delivered:        { label: 'Materials Delivered', progress: 80, icon: '🚛' },
-    crew_scheduled:             { label: 'Crew Scheduled', progress: 85, icon: '👷' },
-    install_in_progress:        { label: 'Installation in Progress', progress: 90, icon: '🏗️' },
-    install_complete:           { label: 'Installation Complete', progress: 95, icon: '🏠' },
-    final_photos:               { label: 'Final Inspection', progress: 97, icon: '📸' },
-    deductible_collected:       { label: 'Wrapping Up', progress: 98, icon: '💳' },
-    final_payment:              { label: 'Final Payment', progress: 99, icon: '💰' },
-    closed:                     { label: 'Project Complete!', progress: 100, icon: '🎉' }
-  };
 
   // ─── Token-based portal URL (the secure, revocable path) ──────────────
   // DEPRECATION: this module used to bake a lead's data into a static HTML
@@ -80,9 +51,9 @@ let _NBD_CP_DELEGATE; // module-local (globals Tranche 1 — was window.*)
   // it). The live portal is now token-based: mint a short-lived, revocable
   // token (createPortalToken) and share /pro/portal.html?token=…, which the
   // getHomeownerPortalView Cloud Function resolves to a redacted homeowner view
-  // server-side. Every entry point below now mints a token URL; the legacy
-  // buildPortalHTML builder + per-portal data loads are retained only as dead
-  // reference and can be pruned in a follow-up.
+  // server-side. Every entry point below mints a token URL. (The legacy
+  // buildPortalHTML builder, STAGE_DISPLAY config, and per-portal Firestore
+  // loads were pruned 2026-07-20 — ~285 LOC of dead reference.)
   async function mintTokenUrl(leadId) {
     if (!leadId) throw new Error('leadId required');
     const mod = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-functions.js');
@@ -107,63 +78,14 @@ let _NBD_CP_DELEGATE; // module-local (globals Tranche 1 — was window.*)
     if (typeof showToast === 'function') showToast('Generating customer portal...', 'ok');
 
     try {
-      // Gather all lead data
+      // Guard: only mint tokens for leads the rep actually has loaded.
       const lead = (window._leads || []).find(l => l.id === leadId);
       if (!lead) throw new Error('Lead not found');
 
-      // Load photos
-      let photos = [];
-      try {
-        const photoSnap = await window.getDocs(window.query(
-          window.collection(window.db, "photos"),
-          window.where('leadId', '==', leadId),
-          window.where('userId', '==', window._user.uid)
-        ));
-        photos = photoSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-      } catch(e) { console.warn('Portal: photos load failed', e.message); }
-
-      // Load estimates
-      let estimates = [];
-      try {
-        const estSnap = await window.getDocs(window.query(
-          window.collection(window.db, 'estimates'),
-          window.where('userId', '==', window._user.uid)
-        ));
-        estimates = estSnap.docs.map(d => ({ id: d.id, ...d.data() }))
-          .filter(e => e.leadId === leadId || e.customerId === leadId);
-      } catch(e) { console.warn('Portal: estimates load failed', e.message); }
-
-      // Load notes/activity
-      // Wave 89: scope to current user. Subcollection ownership is
-      // implicit via parent-doc Firestore rules, but in a multi-rep
-      // company a single lead can have notes/tasks from different
-      // writers (manager handoff notes, adjuster strategy notes,
-      // rep-internal reminders, etc.). Without the userId filter
-      // the portal generator would aggregate all of them. Notes
-      // aren't currently rendered to the homeowner but tasks are
-      // (pendingTasks + milestones), and a future feature might
-      // surface notes — defense-in-depth keeps the data narrow.
-      let notes = [];
-      try {
-        const noteSnap = await window.getDocs(window.query(
-          window.collection(window.db, 'leads', leadId, 'notes'),
-          window.where('userId', '==', window._user.uid)
-        ));
-        notes = noteSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-      } catch(e) { /* subcollection may not exist or have no userId field on legacy docs */ }
-
-      // Load tasks
-      let tasks = [];
-      try {
-        const taskSnap = await window.getDocs(window.query(
-          window.collection(window.db, 'leads', leadId, 'tasks'),
-          window.where('userId', '==', window._user.uid)
-        ));
-        tasks = taskSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-      } catch(e) { /* subcollection may not exist or have no userId field on legacy docs */ }
-
-      // Generate the portal HTML
-      const html = buildPortalHTML(lead, photos, estimates, tasks, notes);
+      // (2026-07-20) The four Firestore loads (photos/estimates/notes/tasks)
+      // and the client-side buildPortalHTML that consumed them are gone —
+      // the portal renders server-side from functions/portal.js, so they
+      // were four wasted reads per share click feeding an unused string.
 
       // ── Versioned upload ──
       // The previous implementation always wrote `portals/{uid}/{leadId}.html`
@@ -254,262 +176,6 @@ let _NBD_CP_DELEGATE; // module-local (globals Tranche 1 — was window.*)
     window.location.href = `mailto:${lead.email || ''}?subject=${subject}&body=${body}`;
   }
 
-  /**
-   * Build the standalone HTML page for the customer portal
-   */
-  function buildPortalHTML(lead, photos, estimates, tasks, notes) {
-    // Wave 86: CRITICAL XSS fix. Every interpolated rep-controlled
-    // field below was previously unescaped. The portal HTML this
-    // function builds is uploaded to Firebase Storage and served
-    // to homeowners — a malicious or compromised rep, or an
-    // injection from data import / OCR / direct Firestore write,
-    // could ship arbitrary <script>/<img onerror=...>/etc into
-    // the homeowner's browser. Sister function generatePhotoPortal
-    // already used esc(); this was the asymmetric oversight.
-    //
-    // Same shape as generatePhotoPortal:esc + escapeHtml in the
-    // rep dashboard modules. Escapes &, <, >, ", '.
-    const esc = (s) => String(s == null ? '' : s)
-      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;').replace(/'/g, '&#039;');
-
-    const name = esc(((lead.firstName || '') + ' ' + (lead.lastName || '')).trim() || 'Homeowner');
-    const stageKey = lead._stageKey || lead.stage || 'new';
-    // W86: stageInfo.label may fall through to lead.stage when the
-    // key isn't in STAGE_DISPLAY — escape at construction so every
-    // downstream interpolation is already-safe.
-    const rawStageInfo = STAGE_DISPLAY[stageKey] || { label: lead.stage || 'In Progress', progress: 50, icon: '🔨' };
-    const stageInfo = { label: esc(rawStageInfo.label), progress: rawStageInfo.progress, icon: rawStageInfo.icon };
-    const addr = esc(lead.address || '');
-    const now = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
-
-    // Build photo gallery
-    // W86: photo url + name escaped against XSS (alt/src boundary
-    // escape prevention).
-    // W88: replaced the per-img inline-style toggle hack with a
-    // proper overlay lightbox at the bottom of the body. The
-    // previous approach had three real bugs reported on mobile:
-    //   - no way to dismiss the lightbox without re-tapping the
-    //     photo (homeowners got stuck on the image)
-    //   - image clipped under the iOS notch (no safe-area padding)
-    //   - state drift: tapping a 2nd photo while the 1st was
-    //     still expanded left both partially toggled
-    // The new lightbox is a single shared overlay with a close
-    // button + backdrop dismiss + Esc key + safe-area padding.
-    const photoHTML = photos.length > 0 ? photos.map((p) => `
-      <div style="border-radius:8px;overflow:hidden;aspect-ratio:1;background:#f0f0f0;">
-        <img src="${esc(p.url)}" alt="${esc(p.name || 'Project photo')}"
-             data-lb-src="${esc(p.url)}"
-             style="width:100%;height:100%;object-fit:cover;cursor:pointer;">
-      </div>
-    `).join('') : '<div style="text-align:center;padding:30px;color:#888;">Photos will appear here as your project progresses</div>';
-
-    // Build completed tasks list
-    const completedTasks = tasks.filter(t => t.done);
-    const pendingTasks = tasks.filter(t => !t.done);
-
-    // Build milestone timeline
-    // W86: pre-escape labels at construction time. formatTimestamp
-    // returns a date string (safe) but task titles are rep-controlled.
-    const milestones = [];
-    if (lead.createdAt) milestones.push({ date: formatTimestamp(lead.createdAt), label: 'Project started', icon: '🚀' });
-    completedTasks.forEach(t => {
-      milestones.push({ date: formatTimestamp(t.completedAt || t.createdAt), label: esc(t.title || t.text || 'Task completed'), icon: '✅' });
-    });
-    if (stageInfo.progress >= 60) milestones.push({ date: '', label: 'Contract signed', icon: '✍️' });
-    if (stageInfo.progress >= 85) milestones.push({ date: '', label: 'Crew scheduled', icon: '👷' });
-    if (stageInfo.progress >= 95) milestones.push({ date: '', label: 'Installation complete', icon: '🏠' });
-
-    // Estimate info
-    const latestEst = estimates.sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0))[0];
-    const estAmount = latestEst ? (latestEst.total || latestEst.grandTotal || latestEst.amount || 0) : (lead.jobValue || 0);
-
-    return `<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Your Project — ${BRAND.name}</title>
-<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
-<style>
-*{margin:0;padding:0;box-sizing:border-box;}
-body{font-family:'Inter',sans-serif;background:#f8f9fa;color:#1a1a2e;line-height:1.6;}
-.hero{background:linear-gradient(135deg,${BRAND.navy} 0%,${BRAND.dark} 100%);color:white;padding:40px 20px 50px;text-align:center;position:relative;overflow:hidden;}
-.hero::after{content:'';position:absolute;bottom:-20px;left:0;right:0;height:40px;background:#f8f9fa;border-radius:50% 50% 0 0;}
-.brand{font-family:'Barlow Condensed',sans-serif;font-size:13px;letter-spacing:.12em;text-transform:uppercase;opacity:.7;margin-bottom:16px;}
-.hero h1{font-family:'Barlow Condensed',sans-serif;font-size:32px;font-weight:800;margin-bottom:6px;}
-.hero .addr{font-size:14px;opacity:.8;margin-bottom:24px;}
-.status-card{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.2);border-radius:16px;padding:24px;max-width:500px;margin:0 auto;-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);}
-.status-label{font-size:11px;text-transform:uppercase;letter-spacing:.1em;opacity:.7;margin-bottom:8px;}
-.status-stage{font-size:22px;font-weight:700;margin-bottom:16px;}
-.progress-track{background:rgba(255,255,255,.15);border-radius:20px;height:12px;overflow:hidden;}
-.progress-fill{height:100%;border-radius:20px;background:linear-gradient(90deg,${BRAND.orange},#ff8c42);transition:width .8s ease;}
-.progress-pct{font-size:13px;font-weight:600;margin-top:8px;text-align:right;color:${BRAND.orange};}
-.container{max-width:800px;margin:0 auto;padding:20px;}
-.section{background:white;border-radius:16px;padding:24px;margin-bottom:20px;box-shadow:0 2px 12px rgba(0,0,0,.06);}
-.section-title{font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:700;color:${BRAND.navy};margin-bottom:16px;display:flex;align-items:center;gap:8px;}
-.photo-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px;}
-.timeline-item{display:flex;gap:12px;padding:12px 0;border-bottom:1px solid #eee;}
-.timeline-item:last-child{border-bottom:none;}
-.tl-icon{width:36px;height:36px;border-radius:50%;background:${BRAND.navy}11;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;}
-.tl-content{flex:1;}
-.tl-label{font-weight:600;font-size:14px;color:#1a1a2e;}
-.tl-date{font-size:12px;color:#888;margin-top:2px;}
-.info-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
-.info-item{padding:14px;background:#f8f9fa;border-radius:10px;}
-.info-label{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:#888;margin-bottom:4px;}
-.info-value{font-size:15px;font-weight:600;color:${BRAND.navy};}
-.next-steps{background:linear-gradient(135deg,${BRAND.navy}08,${BRAND.orange}08);border:1px solid ${BRAND.navy}20;}
-.step{display:flex;align-items:center;gap:10px;padding:10px 0;font-size:14px;}
-.step-dot{width:8px;height:8px;border-radius:50%;background:${BRAND.orange};}
-.step-done{background:#2ECC8A;}
-.cta{display:block;text-align:center;padding:16px;background:${BRAND.orange};color:white;border-radius:12px;font-family:'Barlow Condensed',sans-serif;font-size:16px;font-weight:700;text-decoration:none;letter-spacing:.04em;text-transform:uppercase;margin-top:20px;transition:transform .15s;}
-.cta:hover{transform:scale(1.02);}
-.footer{text-align:center;padding:30px 20px;color:#888;font-size:12px;}
-.footer a{color:${BRAND.navy};text-decoration:none;font-weight:600;}
-@media(max-width:600px){.info-grid{grid-template-columns:1fr;}.hero h1{font-size:26px;}.photo-grid{grid-template-columns:repeat(auto-fill,minmax(100px,1fr));}}
-</style>
-</head>
-<body>
-<div class="hero">
-  <div class="brand">${BRAND.name}</div>
-  <h1>${stageInfo.icon} ${name}'s Project</h1>
-  <div class="addr">${addr}</div>
-  <div class="status-card">
-    <div class="status-label">Current Status</div>
-    <div class="status-stage">${stageInfo.label}</div>
-    <div class="progress-track"><div class="progress-fill" style="width:${stageInfo.progress}%"></div></div>
-    <div class="progress-pct">${stageInfo.progress}% Complete</div>
-  </div>
-</div>
-
-<div class="container">
-
-  ${estAmount > 0 ? `
-  <div class="section">
-    <div class="section-title">💰 Project Details</div>
-    <div class="info-grid">
-      <div class="info-item">
-        <div class="info-label">Project Value</div>
-        <div class="info-value">$${parseFloat(estAmount).toLocaleString()}</div>
-      </div>
-      <div class="info-item">
-        <div class="info-label">Project Type</div>
-        <div class="info-value">${esc((lead.jobType || 'Exterior').charAt(0).toUpperCase() + (lead.jobType || 'exterior').slice(1))}</div>
-      </div>
-      ${lead.damageType ? `<div class="info-item"><div class="info-label">Damage Type</div><div class="info-value">${esc(lead.damageType)}</div></div>` : ''}
-      ${lead.insCarrier ? `<div class="info-item"><div class="info-label">Insurance</div><div class="info-value">${esc(lead.insCarrier)}</div></div>` : ''}
-      ${lead.scheduledDate ? `<div class="info-item"><div class="info-label">Scheduled Date</div><div class="info-value">${esc(lead.scheduledDate)}</div></div>` : ''}
-      ${lead.crew ? `<div class="info-item"><div class="info-label">Crew</div><div class="info-value">${esc(lead.crew)}</div></div>` : ''}
-    </div>
-  </div>` : ''}
-
-  <div class="section next-steps">
-    <div class="section-title">📋 What's Next</div>
-    ${buildNextSteps(stageKey, lead)}
-  </div>
-
-  ${photos.length > 0 ? `
-  <div class="section">
-    <div class="section-title">📸 Project Photos (${photos.length})</div>
-    <div class="photo-grid">${photoHTML}</div>
-  </div>` : ''}
-
-  ${milestones.length > 0 ? `
-  <div class="section">
-    <div class="section-title">📅 Project Timeline</div>
-    ${milestones.map(m => `
-      <div class="timeline-item">
-        <div class="tl-icon">${m.icon}</div>
-        <div class="tl-content">
-          <div class="tl-label">${m.label}</div>
-          ${m.date ? `<div class="tl-date">${m.date}</div>` : ''}
-        </div>
-      </div>
-    `).join('')}
-  </div>` : ''}
-
-  ${pendingTasks.length > 0 ? `
-  <div class="section">
-    <div class="section-title">☑️ Upcoming Steps</div>
-    ${pendingTasks.map(t => `
-      <div class="step">
-        <div class="step-dot"></div>
-        <span>${esc(t.title || t.text || 'Pending task')}</span>
-      </div>
-    `).join('')}
-  </div>` : ''}
-
-  <a href="tel:${BRAND.phone}" class="cta">📞 Call Us: ${BRAND.phone}</a>
-</div>
-
-<div class="footer">
-  <p>Last updated: ${now}</p>
-  <p style="margin-top:8px;"><a href="https://${BRAND.website}">${BRAND.website}</a></p>
-  <p style="margin-top:4px;">${BRAND.tagline}</p>
-</div>
-
-<!-- W88: shared photo lightbox overlay. Hidden by default; opened
-     by clicking any photo with a data-lb-src. Tap backdrop, the
-     × button, or Esc to close. Padding uses env(safe-area-inset-*)
-     so the image doesn't clip under the iOS notch / home indicator. -->
-<div id="lb" role="dialog" aria-modal="true" aria-label="Photo viewer" style="display:none;position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,0.92);align-items:center;justify-content:center;padding:env(safe-area-inset-top,16px) env(safe-area-inset-right,16px) env(safe-area-inset-bottom,16px) env(safe-area-inset-left,16px);">
-  <button id="lb-close" type="button" aria-label="Close photo"
-    style="position:absolute;top:calc(env(safe-area-inset-top,16px) + 8px);right:calc(env(safe-area-inset-right,16px) + 8px);width:44px;height:44px;border-radius:22px;background:rgba(255,255,255,0.18);color:#fff;border:none;font-size:22px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;-webkit-tap-highlight-color:transparent;">×</button>
-  <img id="lb-img" alt="" style="max-width:100%;max-height:100%;object-fit:contain;border-radius:6px;">
-</div>
-
-<script>
-(function(){
-  var lb = document.getElementById('lb');
-  var lbImg = document.getElementById('lb-img');
-  var lbClose = document.getElementById('lb-close');
-  function open(src){ lbImg.src = src; lb.style.display = 'flex'; document.body.style.overflow = 'hidden'; }
-  function close(){ lb.style.display = 'none'; lbImg.src = ''; document.body.style.overflow = ''; }
-  document.querySelectorAll('img[data-lb-src]').forEach(function(img){
-    img.addEventListener('click', function(){ open(img.getAttribute('data-lb-src')); });
-  });
-  lbClose.addEventListener('click', close);
-  lb.addEventListener('click', function(e){ if (e.target === lb) close(); });
-  document.addEventListener('keydown', function(e){
-    if (e.key === 'Escape' && lb.style.display === 'flex') close();
-  });
-})();
-</script>
-</body>
-</html>`;
-  }
-
-  function buildNextSteps(stageKey, lead) {
-    const steps = {
-      new: ['We\'ll be reaching out to schedule your free inspection', 'Have your insurance policy number ready if applicable'],
-      contacted: ['Your inspection is being scheduled', 'We\'ll confirm the date and time with you'],
-      inspected: ['Our team is reviewing the inspection findings', 'We\'ll prepare a detailed scope of work'],
-      claim_filed: ['Your insurance claim has been filed', 'An adjuster will be assigned to your case'],
-      adjuster_meeting_scheduled: ['The adjuster meeting is scheduled — we\'ll be there with you', 'Have any relevant documentation ready'],
-      adjuster_inspection_done: ['Waiting for the adjuster\'s scope and pricing', 'We\'ll review everything when it arrives'],
-      scope_received: ['We\'re reviewing the adjuster\'s scope', 'We\'ll prepare and submit our estimate'],
-      estimate_submitted: ['Your estimate is under review', 'We\'ll follow up on approval status'],
-      supplement_requested: ['A supplement has been submitted for additional items', 'This typically takes 5-10 business days'],
-      supplement_approved: ['Supplement approved — your project scope is finalized', 'We\'ll prepare the contract for your review'],
-      contract_signed: ['Your contract is signed — let\'s get to work!', 'Materials will be ordered shortly'],
-      materials_ordered: ['Your materials are on order', 'Delivery is typically 3-7 business days'],
-      materials_delivered: ['Materials are on site and ready', 'Crew scheduling is next'],
-      crew_scheduled: ['Your crew is scheduled', 'Weather permitting, installation will begin on schedule'],
-      install_in_progress: ['Installation is underway!', 'Our crew is on-site working on your project'],
-      install_complete: ['Installation is complete!', 'Final inspection and photos are next'],
-      closed: ['Your project is complete! 🎉', 'Your warranty is now active — we\'ve got you covered']
-    };
-
-    const list = steps[stageKey] || ['Your project is being actively managed', 'We\'ll keep you updated on next steps'];
-    return list.map(s => `<div class="step"><div class="step-dot${stageKey === 'closed' ? ' step-done' : ''}"></div><span>${s}</span></div>`).join('');
-  }
-
-  function formatTimestamp(ts) {
-    if (!ts) return '';
-    const d = ts.toDate ? ts.toDate() : new Date(ts.seconds ? ts.seconds * 1000 : ts);
-    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-  }
 
   // ════════════════════════════════════════════════════════
   // Photo-Only Portal (April 2026)

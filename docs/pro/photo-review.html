@@ -402,21 +402,9 @@
     font-size: 18px; cursor: pointer;
   }
 
-  /* ── Toast ─────────────────────────────────────────────────── */
-  .pr-toast {
-    position: fixed; left: 50%; transform: translateX(-50%) translateY(20px);
-    bottom: 80px;
-    background: var(--s); border: 1px solid var(--br);
-    color: var(--t); padding: 10px 18px; border-radius: 24px;
-    font-size: 13px; font-weight: 600; white-space: nowrap;
-    box-shadow: 0 10px 28px rgba(0,0,0,.5);
-    opacity: 0; pointer-events: none;
-    z-index: 300;
-    transition: opacity .18s, transform .18s;
-  }
-  .pr-toast[data-open="true"] {
-    opacity: 1; transform: translateX(-50%) translateY(0);
-  }
+  /* ── Toast: shared /pro/js/toast.js module (dashboard contract) —
+     the local #prToast pill markup/CSS was removed in the 2026-07-19
+     consolidation ── */
 
   /* ── Loading state ─────────────────────────────────────────── */
   .pr-loading {
@@ -489,13 +477,13 @@
 </div>
 
 <div class="pr-lasso" id="prLasso"></div>
-<div class="pr-toast" id="prToast"></div>
 
 <!-- Phase 5: portal-link helpers power the "Share" bulk action so a
      rep can mark selected photos shared + open the SMS/copy/email
      share flow with one click. -->
 <script src="js/portal-link-helpers.js?v=1"></script>
 
+<script src="/pro/js/toast.js?v=1"></script>
 <script type="module" src="js/pages/photo-review.js?v=1"></script>
 </body>
 </html>

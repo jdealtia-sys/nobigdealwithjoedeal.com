@@ -301,7 +301,7 @@
     }
     const overlay = document.createElement('div');
     overlay.style.cssText =
-      'position:fixed;inset:0;background:rgba(10,20,36,0.96);z-index:10020;' +
+      'position:fixed;inset:0;background:rgba(10,20,36,0.96);z-index:var(--z-emergency,10020);' +
       'display:flex;align-items:center;justify-content:center;padding:20px;';
     overlay.innerHTML =
       '<div style="background:#0f1729;border:1px solid #2a3344;border-radius:12px;width:100%;max-width:480px;padding:18px;color:#e2e8f0;">' +

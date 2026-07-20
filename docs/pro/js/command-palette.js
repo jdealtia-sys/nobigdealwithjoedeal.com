@@ -315,7 +315,7 @@
     const wrap = document.createElement('div');
     wrap.id = MODAL_ID;
     wrap.style.cssText =
-      'position:fixed;inset:0;z-index:10020;background:rgba(10,20,36,0.78);' +
+      'position:fixed;inset:0;z-index:var(--z-emergency,10020);background:rgba(10,20,36,0.78);' +
       'backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);' +
       'display:flex;align-items:flex-start;justify-content:center;' +
       'padding:80px 20px 20px;overflow-y:auto;';
