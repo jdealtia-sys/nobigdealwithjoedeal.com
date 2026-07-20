@@ -105,6 +105,9 @@ h1 span{color:#DA6A05}
 /* a11y (T4d): links distinguishable from text + >=24px tap target */
 .mini-footer a{text-decoration:underline;display:inline-block;padding:6px 4px}
 .mini-footer a:hover{color:var(--orange)}
+/* phone-first footer (chrome-gap fix 2026-07-20): match storm-check/storm-report/roof-score */
+.mini-footer .ph{display:block;font-family:'Bebas Neue',sans-serif;font-size:1.5rem;letter-spacing:.03em;margin-bottom:4px}
+.mini-footer .ph a{color:#fff;text-decoration:none}
 
 @media(max-width:880px){
   .hero{padding:32px 5% 40px}
@@ -237,7 +240,8 @@ nav .nav-logo{margin-right:clamp(12px,1.5vw,28px)}
 </main>
 
 <footer class="mini-footer">
-  <p>&copy; 2026 No Big Deal Home Solutions &middot; <a href="/">Home</a> &middot; <a href="/about">About Joe</a> &middot; <a href="/privacy">Privacy</a></p>
+  <p><span class="ph"><a href="tel:+18594207382">(859) 420-7382</a></span>
+  &copy; 2026 No Big Deal Home Solutions &middot; <a href="/">Home</a> &middot; <a href="/about">About Joe</a> &middot; <a href="/privacy">Privacy</a></p>
 </footer>
 
 <script src="/assets/js/public-lead-submit.js" defer></script>

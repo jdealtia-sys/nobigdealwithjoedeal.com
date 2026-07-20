@@ -85,6 +85,16 @@ nav{position:sticky;top:0;z-index:1000;background:var(--navy-dark);border-bottom
 .author-avatar{width:56px;height:56px;background:var(--navy);border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:'Bebas Neue',sans-serif;font-size:1.4rem;color:#fff;flex-shrink:0}
 .author-info h3{font-size:.9rem;font-weight:800;color:var(--navy);margin-bottom:4px}
 .author-info p{font-size:.83rem;color:var(--gray-sub);line-height:1.6}
+/* standard blog template port (blog-ports 2026-07-20): related-grid copied from
+   the canonical full-post blocks (see /blog/architectural-shingles-vs-3-tab). */
+.related-section{margin-top:52px;padding-top:40px;border-top:2px solid var(--light-gray)}
+.related-section h3{font-family:'Bebas Neue',sans-serif;font-size:1.6rem;color:var(--navy);margin-bottom:24px}
+.related-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:16px}
+.related-card{background:var(--off-white);border:1px solid var(--light-gray);border-radius:10px;padding:20px;transition:border-color .2s}
+.related-card:hover{border-color:var(--orange)}
+.related-card .rtag{font-size:.68rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#A64B00;margin-bottom:7px}
+.related-card h4{font-size:.88rem;font-weight:700;color:var(--navy);line-height:1.4}
+.related-card:hover h4{color:var(--orange)}
 
 .sidebar{display:flex;flex-direction:column;gap:28px}
 .sidebar-card{background:var(--off-white);border-radius:14px;padding:28px;border:1px solid var(--light-gray)}
@@ -110,7 +120,7 @@ footer{background:var(--navy-dark);color:rgba(255,255,255,.75);padding:56px 5% 2
 .footer-col ul li a:hover{color:var(--orange)}
 .footer-bottom{max-width:1200px;margin:0 auto;border-top:1px solid rgba(255,255,255,.1);padding-top:20px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;font-size:.75rem;color:rgba(255,255,255,.62)}
 .footer-bottom a{color:rgba(255,255,255,.7)}
-@media(max-width:900px){.article-wrap{grid-template-columns:1fr;gap:40px}.footer-grid{grid-template-columns:1fr 1fr;gap:28px}}
+@media(max-width:900px){.article-wrap{grid-template-columns:1fr;gap:40px}.related-grid{grid-template-columns:1fr}.footer-grid{grid-template-columns:1fr 1fr;gap:28px}}
 @media(max-width:600px){.footer-grid{grid-template-columns:1fr}}
 </style>
 <link rel="stylesheet" href="/assets/css/blog-midpost-cta.css"><script src="/assets/js/blog-midpost-cta.js" defer></script><link rel="stylesheet" href="/assets/css/nbd-mobile.css">
@@ -302,6 +312,28 @@ footer .footer-bottom,footer .footer-bottom p,footer .footer-bottom a,footer .pr
       <div class="author-info">
         <h3>Joe Deal</h3>
         <p>Owner &amp; Operator, No Big Deal Home Solutions. Cincinnati-area roofer specializing in insurance restoration, premium component systems, and not bullshitting homeowners. Reach Joe at (859) 420-7382 or jd&#64;nobigdealwithjoedeal&#46;com.</p>
+      </div>
+    </div>
+
+    <div class="related-section">
+      <h3>Keep Reading</h3>
+      <div class="related-grid">
+        <a href="/blog/the-pipe-boot-fork" class="related-card">
+          <div class="rtag">Components</div>
+          <h4>The Pipe Boot Fork: Pivot vs. Replaceable Gasket</h4>
+        </a>
+        <a href="/blog/why-roofivent-is-on-my-roofs" class="related-card">
+          <div class="rtag">Components</div>
+          <h4>Why Roofivent Is on My Roofs</h4>
+        </a>
+        <a href="/blog/gaf-timberline-vs-tamko-storm-series" class="related-card">
+          <div class="rtag">Shingles</div>
+          <h4>GAF Timberline vs. TAMKO Storm Series: Which Roof for Hail Country?</h4>
+        </a>
+        <a href="/blog" class="related-card">
+          <div class="rtag">Blog</div>
+          <h4>More Straight Talk from Joe → Back to Blog</h4>
+        </a>
       </div>
     </div>
 

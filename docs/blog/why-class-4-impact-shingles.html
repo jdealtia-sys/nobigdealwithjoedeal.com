@@ -72,15 +72,23 @@ nav{position:sticky;top:0;z-index:1000;background:var(--navy-dark);border-bottom
 .callout-cta a:hover{transform:translateY(-1px);text-decoration:none}
 .disclosure{font-size:.82rem;color:var(--gray);background:var(--off-white);padding:16px 18px;border-radius:8px;margin-top:28px;line-height:1.6}
 .disclosure strong{color:var(--navy-dark)}
-.related{background:var(--off-white);padding:36px 5%;margin-top:32px}
-.related-inner{max-width:760px;margin:0 auto}
-.related h3{font-family:'Bebas Neue',sans-serif;color:var(--navy-dark);font-size:1.3rem;letter-spacing:.5px;margin-bottom:14px}
-.related ul{list-style:none;padding:0;display:flex;flex-direction:column;gap:8px}
-.related li{margin:0}
-.related a{color:var(--navy);font-weight:700}
-.related a:hover{color:var(--orange);text-decoration:none}
+/* standard blog template port (blog-ports 2026-07-20): author-box + related-grid
+   copied from the canonical full-post blocks (see /blog/architectural-shingles-vs-3-tab). */
+.author-box{display:flex;gap:20px;align-items:flex-start;background:var(--off-white);border-radius:12px;padding:28px;margin-top:48px;border:1px solid var(--light-gray)}
+.author-avatar{width:56px;height:56px;background:var(--navy);border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:'Bebas Neue',sans-serif;font-size:1.4rem;color:#fff;flex-shrink:0}
+.author-info h3{font-size:.9rem;font-weight:800;color:var(--navy);margin-bottom:4px}
+.author-info p{font-size:.83rem;color:var(--gray-sub);line-height:1.6}
+.related-section{margin-top:52px;padding-top:40px;border-top:2px solid var(--light-gray)}
+.related-section h3{font-family:'Bebas Neue',sans-serif;font-size:1.6rem;color:var(--navy);margin-bottom:24px}
+.related-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:16px}
+.related-card{background:var(--off-white);border:1px solid var(--light-gray);border-radius:10px;padding:20px;transition:border-color .2s}
+.related-card:hover{border-color:var(--orange);text-decoration:none}
+.related-card .rtag{font-size:.68rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#A64B00;margin-bottom:7px}
+.related-card h4{font-size:.88rem;font-weight:700;color:var(--navy);line-height:1.4}
+.related-card:hover h4{color:var(--orange)}
+@media(max-width:680px){.related-grid{grid-template-columns:1fr}}
 </style>
-<link rel="stylesheet" href="/assets/css/nbd-mobile.css">
+<link rel="stylesheet" href="/assets/css/blog-midpost-cta.css"><script src="/assets/js/blog-midpost-cta.js" defer></script><link rel="stylesheet" href="/assets/css/nbd-mobile.css">
 <link rel="stylesheet" href="/assets/css/mobile-cta.css">
 <style>.nbd-skip{position:absolute;left:-9999px;top:0;z-index:100000;background:#B85400;color:#fff;padding:10px 16px;font-weight:700;text-decoration:none;border-radius:0 0 6px 0}.nbd-skip:focus{left:0}</style>
 <style id="nbd-chrome-std">
@@ -231,7 +239,7 @@ footer .footer-bottom,footer .footer-bottom p,footer .footer-bottom a,footer .pr
   </div>
 </section>
 
-<article class="article">
+<article class="article prose">
 
   <p>If you live in Ohio, Northern Kentucky, or anywhere along the Midwest hail belt, your roof is going to take a beating eventually. The question isn't <em>if</em> hail hits — it's whether the shingles on your roof can shrug it off without cracking. That's where the <strong>UL 2218 Class 4 impact rating</strong> comes in, and why most major insurance carriers offer a premium discount when you put Class 4 on your house.</p>
 
@@ -350,21 +358,37 @@ footer .footer-bottom,footer .footer-bottom p,footer .footer-bottom a,footer .pr
     <p><strong>Disclosure:</strong> I'm Joe Deal, owner of No Big Deal Home Solutions. I install GAF Timberline UHDZ as my Class 4 pick. I am not an insurance agent, do not sell insurance, and cannot guarantee any specific discount from any specific carrier. The discount amounts above are based on what homeowners I've worked with have actually received — your situation will vary based on your carrier, ZIP code, claim history, and policy. Confirm the discount amount with your insurance agent in writing before you commit to a Class 4 upgrade.</p>
   </div>
 
-</article>
-
-<section class="related">
-  <div class="related-inner">
-    <h3>Keep Reading</h3>
-    <ul>
-      <li><a href="/services/gaf-timberline">GAF Timberline NS · HDZ · UHDZ — Every Color &amp; Spec →</a></li>
-      <li><a href="/services/tamko-storm-series">TAMKO Storm Series — Class 4 + the First Hail Warranty →</a></li>
-      <li><a href="/blog/tamko-hailguard-first-shingle-with-hail-warranty">HailGuard: The First Asphalt Shingle With a Hail Warranty →</a></li>
-      <li><a href="/blog/cincinnati-hail-season-2026">Cincinnati Hail Season 2026 — What Homeowners Need to Know →</a></li>
-      <li><a href="/blog/state-farm-allstate-roof-claims-ohio">State Farm vs. Allstate Roof Claims in Ohio →</a></li>
-      <li><a href="/blog/how-to-file-storm-damage-insurance-claim-ohio">How to File a Storm Damage Insurance Claim in Ohio →</a></li>
-    </ul>
+  <div class="author-box">
+    <div class="author-avatar">JD</div>
+    <div class="author-info">
+      <h3>Joe Deal</h3>
+      <p>Owner &amp; Operator, No Big Deal Home Solutions. Cincinnati-area roofer specializing in insurance restoration, premium component systems, and not bullshitting homeowners. Reach Joe at (859) 420-7382 or jd&#64;nobigdealwithjoedeal&#46;com.</p>
+    </div>
   </div>
-</section>
+
+  <div class="related-section">
+    <h3>Keep Reading</h3>
+    <div class="related-grid">
+      <a href="/blog/tamko-hailguard-first-shingle-with-hail-warranty" class="related-card">
+        <div class="rtag">Shingles</div>
+        <h4>HailGuard: The First Asphalt Shingle With a Hail Warranty</h4>
+      </a>
+      <a href="/blog/gaf-timberline-vs-tamko-storm-series" class="related-card">
+        <div class="rtag">Shingles</div>
+        <h4>GAF Timberline vs. TAMKO Storm Series: Which Roof for Hail Country?</h4>
+      </a>
+      <a href="/blog/state-farm-allstate-roof-claims-ohio" class="related-card">
+        <div class="rtag">Insurance</div>
+        <h4>State Farm vs. Allstate Roof Claims in Ohio</h4>
+      </a>
+      <a href="/blog" class="related-card">
+        <div class="rtag">Blog</div>
+        <h4>More Straight Talk from Joe → Back to Blog</h4>
+      </a>
+    </div>
+  </div>
+
+</article>
 
 </main>
 <footer>
