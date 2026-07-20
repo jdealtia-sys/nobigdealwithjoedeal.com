@@ -72,15 +72,23 @@ nav{position:sticky;top:0;z-index:1000;background:var(--navy-dark);border-bottom
 .callout-cta a:hover{transform:translateY(-1px);text-decoration:none}
 .disclosure{font-size:.82rem;color:var(--gray);background:var(--off-white);padding:16px 18px;border-radius:8px;margin-top:28px;line-height:1.6}
 .disclosure strong{color:var(--navy-dark)}
-.related{background:var(--off-white);padding:36px 5%;margin-top:32px}
-.related-inner{max-width:760px;margin:0 auto}
-.related h3{font-family:'Bebas Neue',sans-serif;color:var(--navy-dark);font-size:1.3rem;letter-spacing:.5px;margin-bottom:14px}
-.related ul{list-style:none;padding:0;display:flex;flex-direction:column;gap:8px}
-.related li{margin:0}
-.related a{color:var(--navy);font-weight:700}
-.related a:hover{color:var(--orange);text-decoration:none}
+/* standard blog template port (blog-ports 2026-07-20): author-box + related-grid
+   copied from the canonical full-post blocks (see /blog/architectural-shingles-vs-3-tab). */
+.author-box{display:flex;gap:20px;align-items:flex-start;background:var(--off-white);border-radius:12px;padding:28px;margin-top:48px;border:1px solid var(--light-gray)}
+.author-avatar{width:56px;height:56px;background:var(--navy);border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:'Bebas Neue',sans-serif;font-size:1.4rem;color:#fff;flex-shrink:0}
+.author-info h3{font-size:.9rem;font-weight:800;color:var(--navy);margin-bottom:4px}
+.author-info p{font-size:.83rem;color:var(--gray-sub);line-height:1.6}
+.related-section{margin-top:52px;padding-top:40px;border-top:2px solid var(--light-gray)}
+.related-section h3{font-family:'Bebas Neue',sans-serif;font-size:1.6rem;color:var(--navy);margin-bottom:24px}
+.related-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:16px}
+.related-card{background:var(--off-white);border:1px solid var(--light-gray);border-radius:10px;padding:20px;transition:border-color .2s}
+.related-card:hover{border-color:var(--orange);text-decoration:none}
+.related-card .rtag{font-size:.68rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#A64B00;margin-bottom:7px}
+.related-card h4{font-size:.88rem;font-weight:700;color:var(--navy);line-height:1.4}
+.related-card:hover h4{color:var(--orange)}
+@media(max-width:680px){.related-grid{grid-template-columns:1fr}}
 </style>
-<link rel="stylesheet" href="/assets/css/nbd-mobile.css">
+<link rel="stylesheet" href="/assets/css/blog-midpost-cta.css"><script src="/assets/js/blog-midpost-cta.js" defer></script><link rel="stylesheet" href="/assets/css/nbd-mobile.css">
 <link rel="stylesheet" href="/assets/css/mobile-cta.css">
 <style>.nbd-skip{position:absolute;left:-9999px;top:0;z-index:100000;background:#B85400;color:#fff;padding:10px 16px;font-weight:700;text-decoration:none;border-radius:0 0 6px 0}.nbd-skip:focus{left:0}</style>
 <style id="nbd-chrome-std">
@@ -231,7 +239,7 @@ footer .footer-bottom,footer .footer-bottom p,footer .footer-bottom a,footer .pr
   </div>
 </section>
 
-<article class="article">
+<article class="article prose">
 
   <p>When you call me for a roof, one of the first real decisions we make together is the shingle. I install two lanes, and they're built for two different priorities. <strong>GAF Timberline</strong> is my default — the classic, proven lineup most homeowners go with. The <strong>TAMKO Storm Series</strong> is the hail-and-impact lane I reach for when storms are the thing you're actually worried about.</p>
 
@@ -314,19 +322,37 @@ footer .footer-bottom,footer .footer-bottom p,footer .footer-bottom a,footer .pr
     <p><strong>Disclosure:</strong> I'm Joe Deal, owner of No Big Deal Home Solutions. I'm a GAF Certified™ Contractor and a TAMKO Pro Gold™ certified contractor, and I install both GAF Timberline and TAMKO shingles. Warranty terms and coverage are set by the manufacturers, vary by product and installation, and include conditions; I'll review the actual documents with you before you sign. I'm an independent contractor, not an employee or agent of either manufacturer. GAF® and Timberline® are trademarks of GAF Materials LLC. TAMKO®, TAMKO Pro™, Heritage®, Titan XT®, StormFighter®, and HailGuard™ are trademarks of TAMKO Building Products LLC.</p>
   </div>
 
-</article>
-
-<section class="related">
-  <div class="related-inner">
-    <h3>Keep Reading</h3>
-    <ul>
-      <li><a href="/services/the-nbd-guarantee">The NBD Guarantee — Standard · Preferred · Elite Tiers →</a></li>
-      <li><a href="/blog/tamko-hailguard-first-shingle-with-hail-warranty">HailGuard: The First Asphalt Shingle With a Hail Warranty →</a></li>
-      <li><a href="/blog/why-class-4-impact-shingles">Why Class 4 Impact Shingles (And Your Insurance Discount) →</a></li>
-      <li><a href="/services/gaf-timberline">GAF Timberline NS · HDZ · UHDZ — Every Color &amp; Spec →</a></li>
-    </ul>
+  <div class="author-box">
+    <div class="author-avatar">JD</div>
+    <div class="author-info">
+      <h3>Joe Deal</h3>
+      <p>Owner &amp; Operator, No Big Deal Home Solutions. Cincinnati-area roofer specializing in insurance restoration, premium component systems, and not bullshitting homeowners. Reach Joe at (859) 420-7382 or jd&#64;nobigdealwithjoedeal&#46;com.</p>
+    </div>
   </div>
-</section>
+
+  <div class="related-section">
+    <h3>Keep Reading</h3>
+    <div class="related-grid">
+      <a href="/blog/tamko-hailguard-first-shingle-with-hail-warranty" class="related-card">
+        <div class="rtag">Shingles</div>
+        <h4>HailGuard: The First Asphalt Shingle With a Hail Warranty</h4>
+      </a>
+      <a href="/blog/why-class-4-impact-shingles" class="related-card">
+        <div class="rtag">Insurance</div>
+        <h4>Why Class 4 Impact Shingles (And Your Insurance Discount)</h4>
+      </a>
+      <a href="/blog/architectural-shingles-vs-3-tab" class="related-card">
+        <div class="rtag">Shingles</div>
+        <h4>Architectural Shingles vs. 3-Tab: What's Actually Different</h4>
+      </a>
+      <a href="/blog" class="related-card">
+        <div class="rtag">Blog</div>
+        <h4>More Straight Talk from Joe → Back to Blog</h4>
+      </a>
+    </div>
+  </div>
+
+</article>
 
 </main>
 <footer>
