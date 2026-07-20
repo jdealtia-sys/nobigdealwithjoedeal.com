@@ -90,10 +90,11 @@
     category: 'all',
     jobType: 'all',
     selected: [],            // ordered template ids
-    choices: {},             // templateId -> [{included, qty, code, price}]
+    choices: {},             // templateId -> [{included, qty, brandCode, unitPriceOverride}]
     collapsed: {},           // templateId -> bool (preconfirm sections)
     tier: 'better',
     jobMode: 'cash',
+    county: 'hamilton-oh',   // tax jurisdiction — same default as estimate-v2-ui.js:27
     measurements: Object.assign({}, MEAS_DEFAULTS),
     measSeedKey: '',
     measOpen: false,
@@ -264,9 +265,28 @@
   }
   function itemUnit(it, choice) {
     if (it && it.custom) return it.custom.unit || 'EA';
-    var code = (choice && choice.code) || (it && it.code);
+    var code = (choice && choice.brandCode) || (it && it.code);
     var info = codeMap()[code];
     return (info && info.unit) ? info.unit : '';
+  }
+
+  // County options for the preconfirm tax selector — sourced from the engine
+  // tax map (estimate-config.js COUNTY_TAX, the same table the V2 builder
+  // reads), so preview tax == saved tax == V2 tax. Fallback: hamilton-oh only.
+  function countyOptions() {
+    var cfg = window.NBD_ESTIMATE_CONFIG;
+    var map = cfg && cfg.COUNTY_TAX;
+    if (map && typeof map === 'object' && Object.keys(map).length) {
+      return Object.keys(map).map(function (slug) {
+        var entry = map[slug] || {};
+        var st = String(slug).split('-').pop();
+        var label = entry.name
+          ? entry.name + ' County, ' + String(st || '').toUpperCase()
+          : slug;
+        return { value: slug, label: label };
+      });
+    }
+    return [{ value: 'hamilton-oh', label: 'Hamilton County, OH' }];
   }
 
   // ══════════════════════════════════════════════════════════════════════
@@ -291,8 +311,8 @@
       return {
         included: true,
         qty: q,                              // null → engine measurement formula
-        code: (it && it.code) || null,       // brand choice (defaults to own code)
-        price: null                          // retail unit-price override
+        brandCode: (it && it.code) || null,  // brand choice (defaults to own code)
+        unitPriceOverride: null              // rep-typed customer retail $/unit
       };
     });
   }
@@ -348,12 +368,14 @@
       return {
         templateId: tid,
         itemChoices: ch.map(function (c, i) {
+          // Canonical UI↔engine contract: brandCode + unitPriceOverride —
+          // the engine reads EXACTLY these keys (never the legacy names).
           return {
             index: i,
             include: c.included !== false,
             qty: (c.qty === null || c.qty === undefined || c.qty === '') ? null : Number(c.qty),
-            code: c.code || null,
-            priceOverride: (c.price === null || c.price === undefined || c.price === '') ? null : Number(c.price)
+            brandCode: c.brandCode || null,
+            unitPriceOverride: (c.unitPriceOverride === null || c.unitPriceOverride === undefined || c.unitPriceOverride === '') ? null : Number(c.unitPriceOverride)
           };
         })
       };
@@ -364,6 +386,7 @@
     return {
       tier: state.tier,
       jobMode: state.jobMode,
+      county: state.county || 'hamilton-oh',
       measurements: Object.assign({}, state.measurements)
     };
   }
@@ -383,8 +406,13 @@
     var total = num(t.total); if (total == null) total = num(t.grandTotal);
     var sub = num(t.subtotal); if (sub == null) sub = num(t.retailSubtotal);
     var tax = num(t.tax); if (tax == null) tax = num(t.taxAmount); if (tax == null) tax = num(t.salesTax);
-    var minApplied = !!(t.minimumApplied || t.minJobChargeApplied);
-    return { total: total, subtotal: sub, tax: tax, minApplied: minApplied };
+    // Engine flag is minJobApplied (estimate-logic-engine.js resolveEstimate).
+    var minApplied = !!t.minJobApplied;
+    // O&P bridge (customer-estimate-rows house pattern): lines sum to
+    // retailBeforeOHP; the O&P row makes them foot to Subtotal.
+    var ohp = (Number(t.overhead) || 0) + (Number(t.profit) || 0);
+    var ohpPct = Math.round(((Number(t.overheadPct) || 0) + (Number(t.profitPct) || 0)) * 100);
+    return { total: total, subtotal: sub, tax: tax, minApplied: minApplied, ohp: ohp, ohpPct: ohpPct };
   }
 
   function readLines(res) {
@@ -433,7 +461,7 @@
       var nm = String(it.custom.name || '').trim().toLowerCase();
       return map['name:' + nm] || null;
     }
-    var code = (choice && choice.code) || it.code;
+    var code = (choice && choice.brandCode) || it.code;
     return map[String(code)] || null;
   }
 
@@ -447,7 +475,7 @@
     try {
       var meas = Object.assign({}, MEAS_DEFAULTS, tpl.measurements || {});
       var sel = [{ templateId: tpl.id, itemChoices: (tpl.items || []).map(function (it, i) {
-        return { index: i, include: true, qty: (it && it.qty != null) ? it.qty : null, code: (it && it.code) || null, priceOverride: null };
+        return { index: i, include: true, qty: (it && it.qty != null) ? it.qty : null, brandCode: (it && it.code) || null, unitPriceOverride: null };
       }) }];
       var lo = readTotals(JT.resolveSelection(sel, { tier: 'good', jobMode: 'cash', measurements: meas }));
       var hi = readTotals(JT.resolveSelection(sel, { tier: 'best', jobMode: 'cash', measurements: meas }));
@@ -873,11 +901,19 @@
         return '<button type="button" class="' + (state.jobMode === m ? 'on' : '') + '" data-jt-action="set-jobmode" data-id="' + m + '">' + (m === 'cash' ? 'Cash' : 'Insurance') + '</button>';
       }).join('') + '</div></div>';
 
+    // County/tax jurisdiction — same tax map + default as the V2 builder, so
+    // preview tax == saved tax == V2 tax (never the 7% no-county fallback).
+    var countySel = '<div><span class="jt-ctl-lbl">County / Tax</span>' +
+      '<select class="jt-in" data-jt-action="set-county" style="min-width:180px;">' +
+      countyOptions().map(function (o) {
+        return '<option value="' + esc(o.value) + '"' + (state.county === o.value ? ' selected' : '') + '>' + esc(o.label) + '</option>';
+      }).join('') + '</select></div>';
+
     var measBtn = '<div style="margin-left:auto;"><span class="jt-ctl-lbl">&nbsp;</span>' +
       '<button type="button" class="jt-btn" data-jt-action="toggle-meas">📐 Measurements ' + (state.measOpen ? '▾' : '▸') + '</button></div>';
 
     var html = '<div class="jt-col">' +
-      '<div class="jt-topctl">' + tierSeg + modeSeg + measBtn + '</div>' +
+      '<div class="jt-topctl">' + tierSeg + modeSeg + countySel + measBtn + '</div>' +
       (state.measOpen ? renderMeasPanel() : '');
 
     state.selected.forEach(function (tid) {
@@ -940,13 +976,13 @@
     var name = itemLabel(it);
     var desc = itemDesc(it);
     var qtyVal = (choice.qty === null || choice.qty === undefined) ? '' : choice.qty;
-    var priceVal = (choice.price === null || choice.price === undefined) ? '' : choice.price;
+    var priceVal = (choice.unitPriceOverride === null || choice.unitPriceOverride === undefined) ? '' : choice.unitPriceOverride;
 
     var brandSel = '';
     if (Array.isArray(it.brandOptions) && it.brandOptions.length) {
       brandSel = '<select class="jt-in jt-brand" data-jt-action="item-brand" data-tid="' + esc(tid) + '" data-idx="' + idx + '">' +
         it.brandOptions.map(function (o) {
-          var on = (choice.code || it.code) === o.code;
+          var on = (choice.brandCode || it.code) === o.code;
           return '<option value="' + esc(o.code) + '"' + (on ? ' selected' : '') + '>' + esc(o.label) + '</option>';
         }).join('') + '</select>';
     }
@@ -1105,6 +1141,14 @@
 
     var totsHtml = '';
     if (totals) {
+      // House pattern (customer-estimate-rows.js): retail lines sum to
+      // retailBeforeOHP — the O&P bridge row is mandatory so the printed
+      // lines foot to the Subtotal, matching the portal/invoice rendering.
+      if (totals.ohp > 0) {
+        totsHtml += '<div class="r"><span>Overhead &amp; Profit' +
+          (totals.ohpPct ? ' (' + esc(totals.ohpPct) + '%)' : '') + '</span><span>' +
+          esc(money(totals.ohp)) + '</span></div>';
+      }
       if (totals.subtotal != null) totsHtml += '<div class="r"><span>Subtotal</span><span>' + esc(money(totals.subtotal)) + '</span></div>';
       if (totals.tax != null && totals.tax > 0) totsHtml += '<div class="r"><span>Tax</span><span>' + esc(money(totals.tax)) + '</span></div>';
       totsHtml += '<div class="r g"><span>Total</span><span>' + esc(totals.total != null ? money(totals.total) : '—') + '</span></div>';
@@ -1342,8 +1386,22 @@
     if (!JT || typeof JT.insertIntoV2 !== 'function') { toast('Template engine not ready', 'error'); return; }
     try {
       var sel = buildSelection();
-      JT.insertIntoV2(sel, resolveOpts());
-      toast('Templates inserted into estimate scope', 'success');
+      var result = JT.insertIntoV2(sel, resolveOpts()) || {};
+      // Surface added/skipped counts + engine warnings (truncated ~3 lines).
+      var msgs = [];
+      if (typeof result.added === 'number' || typeof result.skipped === 'number') {
+        var added = Number(result.added) || 0;
+        var skipped = Number(result.skipped) || 0;
+        msgs.push(added + ' line' + (added === 1 ? '' : 's') + ' added' +
+          (skipped ? ', ' + skipped + ' skipped (already in scope)' : ''));
+      } else {
+        msgs.push('Templates inserted into estimate scope');
+      }
+      var warns = Array.isArray(result.warnings) ? result.warnings : [];
+      var room = Math.max(0, 3 - msgs.length);
+      warns.slice(0, room).forEach(function (w) { msgs.push(String(w)); });
+      if (warns.length > room) msgs.push('+' + (warns.length - room) + ' more warning' + (warns.length - room === 1 ? '' : 's'));
+      toast(msgs.slice(0, 4).join('\n'), warns.length ? 'info' : 'success');
       var cb = state.scopeCb;
       closeModal();
       if (typeof cb === 'function') { try { cb(sel); } catch (e) { /* caller's problem */ } }
@@ -1368,7 +1426,23 @@
 
     var opts = resolveOpts();
     opts.name = name;
-    if (leadId) opts.leadId = leadId;
+    if (leadId) {
+      opts.leadId = leadId;
+      // Stamp owner/addr from the selected lead so the saved payload carries
+      // the customer block (V2 prefillFromLead parity — reopen shows customer).
+      var leads = Array.isArray(window._leads) ? window._leads : [];
+      var lead = null;
+      for (var li = 0; li < leads.length; li++) {
+        if (leads[li] && String(leads[li].id) === String(leadId)) { lead = leads[li]; break; }
+      }
+      if (lead) {
+        var ownerName = lead.name || lead.customerName ||
+          ((lead.firstName || '') + ' ' + (lead.lastName || '')).trim();
+        if (ownerName) opts.owner = ownerName;
+        var leadAddr = lead.address || lead.addr || '';
+        if (leadAddr) opts.addr = leadAddr;
+      }
+    }
 
     Promise.resolve()
       .then(function () { return JT.createEstimate(buildSelection(), opts); })
@@ -1392,14 +1466,12 @@
     var id = state.createdId;
     closeModal();
     if (!id) { toast('Estimate saved — open it from the Estimates view', 'info'); return; }
-    var v2 = window.EstimateV2UI;
-    var fns = ['openSaved', 'reopen', 'openEstimate', 'edit'];
-    if (v2) {
-      for (var i = 0; i < fns.length; i++) {
-        if (typeof v2[fns[i]] === 'function') { v2[fns[i]](id); return; }
-      }
+    // Canonical reopen entry (dashboard-widgets.js viewEstimate pattern):
+    // window.openEstimateV2Builder({ estimateId }) — estimate-v2-ui.js open().
+    if (typeof window.openEstimateV2Builder === 'function') {
+      window.openEstimateV2Builder({ estimateId: id });
+      return;
     }
-    if (typeof window._editEstimate === 'function') { window._editEstimate(id); return; }
     toast('Estimate saved — open it from the Estimates view', 'info');
   }
 
@@ -1600,6 +1672,13 @@
         return;
       }
 
+      // ── Preconfirm global county/tax jurisdiction ──
+      if (action === 'set-county') {
+        state.county = el.value || 'hamilton-oh';
+        scheduleResolve();
+        return;
+      }
+
       // ── Preconfirm per-item edits ──
       var tid = el.dataset.tid;
       var idx = Number(el.dataset.idx);
@@ -1615,10 +1694,10 @@
         ch.qty = (el.value === '') ? null : num(el.value);
         scheduleResolve();
       } else if (action === 'item-price') {
-        ch.price = (el.value === '') ? null : num(el.value);
+        ch.unitPriceOverride = (el.value === '') ? null : num(el.value);
         scheduleResolve();
       } else if (action === 'item-brand') {
-        ch.code = el.value || null;
+        ch.brandCode = el.value || null;
         scheduleResolve();
       }
     } catch (e) {

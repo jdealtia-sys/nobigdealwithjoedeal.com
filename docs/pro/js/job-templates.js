@@ -31,10 +31,24 @@
   };
 
   // Overhead codes that make sense once per job, no matter how many
-  // templates are merged into one estimate — keep the FIRST occurrence.
+  // templates are merged into one estimate — merged down to ONE line whose
+  // fixed qty is the MAX across occurrences (see resolveSelection).
   const SINGLETON_CODES = {
     'LAB MOB': 1, 'LAB DEMOB': 1, 'LAB CLN-M': 1, 'DSP HAUL': 1,
     'PRM RES-OH': 1, 'LAB PHOTO': 1, 'LAB WALK': 1
+  };
+
+  // Typical-house measurement context — the BASE of the resolveSelection
+  // overlay: DEFAULT_MEASUREMENTS ← each selected template's (possibly
+  // PARTIAL) measurements object, in selection order ← opts.measurements
+  // last (user always wins). A template's partial object (e.g.
+  // {deckReplacePct: 1}) is an overlay, NEVER the whole context — using it
+  // wholesale zeroed every formula-driven line (rawSqft/eaveLf/... all 0).
+  const DEFAULT_MEASUREMENTS = {
+    rawSqft: 2000, pitch: 6, waste: 1.12, ridgeLf: 40, eaveLf: 120,
+    rakeLf: 60, hipLf: 0, valleyLf: 20, wallLf: 0, pipes: 3, chimneys: 1,
+    skylights: 0, stories: 1, tearOffLayers: 1, deckReplacePct: 0.15,
+    cutUpRoof: false
   };
 
   // ═════════════════════════════════════════════════════════
@@ -182,6 +196,9 @@
       customs.push(clean);
     }
     persistCustoms(customs);
+    // Re-bridge immediately (last-write-wins) so edited custom-item costs/
+    // names resolve at the NEW values in this session's catalogs.
+    registerCustomItems(clean);
     return clean;
   }
 
@@ -196,12 +213,26 @@
   }
 
   // Removes a CUSTOM entry only. Removing a shadow restores the default.
+  // Best-effort cloud cleanup: the one-way mirror (persistCustoms) never
+  // deletes, so without this the removed doc lives in Firestore forever and
+  // any future sync/read path resurrects it. Guarded + never throws.
   function remove(id) {
     const customs = loadCustoms();
     const idx = customs.findIndex(t => t && t.id === id);
     if (idx === -1) return false;
     customs.splice(idx, 1);
     persistCustoms(customs);
+    try {
+      if (window._db && window._user && window._user.uid
+          && typeof window.deleteDoc === 'function' && typeof window.doc === 'function') {
+        const p = window.deleteDoc(window.doc(window._db, 'users', window._user.uid, 'jobTemplates', id));
+        if (p && typeof p.catch === 'function') {
+          p.catch(e => console.error('[JobTemplates] Firestore delete failed:', e));
+        }
+      }
+    } catch (e) {
+      console.error('[JobTemplates] Firestore delete failed:', e);
+    }
     return true;
   }
 
@@ -215,16 +246,21 @@
       .replace(/\s+/g, '-').replace(/[^a-z0-9\-]/g, '').replace(/\-+/g, '-');
   }
 
-  function customCode(custom) {
-    return 'JT ' + slugify(custom.name).toUpperCase();
+  // Deterministic synthetic code — keyed by TEMPLATE ID + ITEM INDEX (not
+  // the item name) so (a) same-named custom items in different templates
+  // never collide onto one catalog entry, and (b) the code derives
+  // identically in every session, letting saved estimates resolve their
+  // 'JT *' rows on reopen.
+  function customCode(templateId, itemIndex) {
+    return 'JT ' + slugify(templateId).toUpperCase() + '-' + itemIndex;
   }
 
   // Line-item shape resolveLineItem expects. Costs are CONTRACTOR COST —
   // explicit materialCost/laborCost win inside the engine, which then
   // stamps retail (+25% material markup, 10/10 OH&P at rollup).
-  function customLineItem(custom) {
+  function customLineItem(custom, templateId, itemIndex) {
     return {
-      code:         customCode(custom),
+      code:         customCode(templateId, itemIndex),
       name:         custom.name || 'Custom item',
       description:  custom.desc || '',
       category:     custom.category || 'custom',
@@ -237,15 +273,16 @@
   }
 
   function registerCustomItems(tpl) {
-    if (!tpl || !Array.isArray(tpl.items)) return [];
+    if (!tpl || !tpl.id || !Array.isArray(tpl.items)) return [];
     const registered = [];
-    tpl.items.forEach(item => {
+    tpl.items.forEach((item, i) => {
       if (!item || !item.custom || !item.custom.name) return;
-      const line = customLineItem(item.custom);
-      const key = 'jt-' + slugify(item.custom.name);
-      // V2 catalog bridge — idempotent; first registration wins.
-      if (window.EstimateBuilderV2 && window.EstimateBuilderV2.CATALOG
-          && !window.EstimateBuilderV2.CATALOG[key]) {
+      const line = customLineItem(item.custom, tpl.id, i);
+      const key = 'jt-' + slugify(tpl.id) + '-' + i;
+      // V2 catalog bridge — LAST write wins: saveCustom edits (new costs,
+      // renamed items) must take effect immediately; first-registration-wins
+      // kept resolving inserts at stale pre-edit prices.
+      if (window.EstimateBuilderV2 && window.EstimateBuilderV2.CATALOG) {
         window.EstimateBuilderV2.CATALOG[key] = {
           code:     line.code,
           name:     line.name,
@@ -259,12 +296,20 @@
       // code must be findable there or insertIntoV2 scope entries silently
       // drop at getCurrentEstimate. byCode only; the xact search stays clean.
       const xact = window.NBD_XACT_CATALOG;
-      if (xact && xact.byCode && !xact.byCode[line.code]) {
+      if (xact && xact.byCode) {
         xact.byCode[line.code] = line;
       }
       registered.push(key);
     });
     return registered;
+  }
+
+  // Load-time bridge: register EVERY template's custom items (defaults +
+  // stored customs) so 'JT *' codes inside previously-saved estimates
+  // resolve on REOPEN in any session that loads this bundle — not just the
+  // session that happened to run insertIntoV2. Re-run after saveCustom.
+  function registerAllCustomItems() {
+    list().forEach(registerCustomItems);
   }
 
   // ═════════════════════════════════════════════════════════
@@ -291,12 +336,29 @@
   }
 
   /**
-   * resolveSelection(selection, opts)
-   *   selection: [{templateId, tier?, itemChoices?: {itemIndex: {include, qty, brandCode, unitPriceOverride}}}]
-   *   opts:      {tier, measurements, jobMode}
-   * Merges items across templates (singleton overhead codes dedupe, first
-   * wins), applies brand/qty/price choices, resolves through EstimateLogic.
-   * Returns {lines, totals, measurements, minJobCharge, sourceTemplates, warnings}.
+   * resolveSelection(selection, opts) — canonical UI↔engine contract:
+   *   selection: [{ templateId, itemChoices?: { <itemIndex>: {
+   *     include: boolean,              // default true
+   *     qty: number|null,              // fixed-qty override (0 is valid and honored)
+   *     brandCode: string|null,        // the PICKED brandOptions code
+   *     unitPriceOverride: number|null // rep-typed CUSTOMER retail $/unit
+   *   } } }]
+   *   opts: { tier, jobMode, measurements, county }
+   *
+   * Measurements context = DEFAULT_MEASUREMENTS ← each selected template's
+   * (possibly partial) measurements, in selection order ← opts.measurements
+   * LAST (user always wins).
+   * Singleton overhead codes merge to ONE line whose fixed qty is the MAX
+   * across occurrences (formula-driven occurrence counts as qty 1).
+   * unitPriceOverride: the typed value IS the customer's per-unit retail
+   * (pre-OH&P, same plane as every other line's retailPerUnit) — the line
+   * resolves with materialCost=0, laborCost=<typed> since labor passes
+   * through markup untouched, so retailPerUnit === typed exactly; OH&P/tax
+   * still apply on top. Cost-split on such a line reads cost==retail
+   * (rep-negotiated) by design. Pushes 'Priced manually: <name>'.
+   * county → engine tax map; defaults 'hamilton-oh' (estimate-v2-ui parity).
+   * Returns {lines, totals, measurements, minJobCharge, county,
+   *          sourceTemplates, warnings}.
    */
   function resolveSelection(selection, opts) {
     opts = opts || {};
@@ -304,8 +366,8 @@
     const warnings = [];
     const lineItems = [];
     const sourceTemplates = [];
-    const seenSingleton = {};
-    let measurements = null;
+    const seenSingleton = {};   // code → { line, qty: effective fixed qty }
+    const measurements = Object.assign({}, DEFAULT_MEASUREMENTS);
     let minJobCharge = null;
 
     const xact = window.NBD_XACT_CATALOG;
@@ -318,10 +380,10 @@
       }
       sourceTemplates.push(tpl.id);
 
-      // Measurements precedence: opts > FIRST selected template that has
-      // them > engine defaults (null → buildContext defaults).
-      if (!measurements && tpl.measurements && typeof tpl.measurements === 'object') {
-        measurements = tpl.measurements;
+      // Overlay, never wholesale: a template's PARTIAL measurements object
+      // (e.g. {deckReplacePct: 1}) merges over the typical-house defaults.
+      if (tpl.measurements && typeof tpl.measurements === 'object') {
+        Object.assign(measurements, tpl.measurements);
       }
       // Floor: MAX across selected templates — merging a repair into a
       // full job must never lower the job's trip-charge floor.
@@ -338,15 +400,16 @@
         if (item.custom) {
           const c = item.custom;
           if (!c.name) return;
-          const line = customLineItem(c);
+          const line = customLineItem(c, tpl.id, i);
           const qty = (choice && choice.qty != null) ? Number(choice.qty)
             : (c.qty != null ? Number(c.qty) : 1);
           line.qtyOverride = qty;
           if (choice && choice.unitPriceOverride != null) {
-            // Override = customer per-unit price. Priced as labor (no
+            // Override = customer per-unit retail. Priced as labor (no
             // material markup) so retailPerUnit lands exactly on it.
             line.materialCost = 0;
             line.laborCost = Number(choice.unitPriceOverride) || 0;
+            warnings.push('Priced manually: ' + line.name);
           }
           lineItems.push(line);
           return;
@@ -354,10 +417,25 @@
 
         if (!item.code) return;
         const code = pickBrandCode(item, choice);
-        if (SINGLETON_CODES[code]) {
-          if (seenSingleton[code]) return;
-          seenSingleton[code] = true;
+        const rawQty = (choice && choice.qty != null) ? choice.qty
+          : (item.qty != null ? item.qty : null);
+        const fixedQty = (rawQty !== null && rawQty !== '' && isFinite(Number(rawQty)))
+          ? Number(rawQty) : null;
+
+        if (SINGLETON_CODES[code] && seenSingleton[code]) {
+          // Once-per-job code collision: keep ONE line at the MAX fixed qty
+          // (formula-driven occurrence counts as qty 1) — mirrors the
+          // minJobCharge 'never lower the floor' rule. First-wins was an
+          // order-dependent undercharge (DSP HAUL 1 vs 2).
+          const eff = fixedQty != null ? fixedQty : 1;
+          const prev = seenSingleton[code];
+          if (eff > prev.qty) {
+            prev.qty = eff;
+            prev.line.qtyOverride = eff;
+          }
+          return;
         }
+
         const base = xact && typeof xact.find === 'function' ? xact.find(code) : null;
         if (!base) {
           warnings.push('Unknown catalog code: ' + code + ' (template ' + tpl.id + ')');
@@ -366,33 +444,38 @@
         // Non-destructive — spread a fresh object so the catalog's
         // original stays untouched (matches getCurrentEstimate).
         const line = Object.assign({}, base);
-        const qty = (choice && choice.qty != null) ? choice.qty
-          : (item.qty != null ? item.qty : null);
-        if (qty !== null && qty !== '' && isFinite(Number(qty))) {
-          line.qtyOverride = Number(qty);
+        if (fixedQty != null) {
+          line.qtyOverride = fixedQty;
         }
         if (choice && choice.unitPriceOverride != null) {
+          // Same semantics as the custom-item path above.
           line.materialCost = 0;
           line.laborCost = Number(choice.unitPriceOverride) || 0;
+          warnings.push('Priced manually: ' + (line.name || code));
+        }
+        if (SINGLETON_CODES[code]) {
+          seenSingleton[code] = { line, qty: fixedQty != null ? fixedQty : 1 };
         }
         lineItems.push(line);
       });
     });
 
     if (opts.measurements && typeof opts.measurements === 'object') {
-      measurements = opts.measurements;
+      Object.assign(measurements, opts.measurements);
     }
+
+    const county = opts.county || 'hamilton-oh'; // estimate-v2-ui.js default parity
 
     if (!window.EstimateLogic || typeof window.EstimateLogic.resolveEstimate !== 'function') {
       warnings.push('EstimateLogic not loaded — cannot resolve');
-      return { lines: [], totals: null, measurements, minJobCharge, sourceTemplates, warnings };
+      return { lines: [], totals: null, measurements, minJobCharge, county, sourceTemplates, warnings };
     }
 
     const settings = {
       tier: opts.tier || (sel[0] && sel[0].tier) || 'better',
-      mode: opts.jobMode || 'cash'
+      mode: opts.jobMode || 'cash',
+      county: county
     };
-    if (opts.county) settings.county = opts.county;
     if (minJobCharge != null) settings.minJobCharge = minJobCharge;
 
     const totals = window.EstimateLogic.resolveEstimate(lineItems, measurements, settings);
@@ -401,6 +484,7 @@
       totals,
       measurements,
       minJobCharge,
+      county,
       sourceTemplates,
       warnings
     };
@@ -414,7 +498,10 @@
   /**
    * buildEstimatePayload(resolved, meta)
    *   resolved: resolveSelection() result (totals required)
-   *   meta:     {name, leadId, addr, owner, deposit}
+   *   meta:     {name, leadId, addr, owner, deposit, county?}
+   * county persists (V2 _buildSavePayload parity — estimate-v2-ui.js:2120)
+   * so reopen doesn't silently re-tax at a different rate; meta.owner/addr
+   * pass through (blank default stays '').
    * rows[].rate/total carry the RETAIL price — the classic-row contract is
    * customer-facing (portal, classic views, invoice items print these
    * verbatim). Cost basis lives ONLY in the *CostPerUnit/*Total split
@@ -443,6 +530,9 @@
       leadId:          meta.leadId || null,
       addr:            meta.addr || '',
       owner:           meta.owner || '',
+      // Tax jurisdiction — must round-trip or the V2 reopen path re-taxes
+      // at ITS default and the saved grandTotal shifts on first edit.
+      county:          resolved.county || meta.county || 'hamilton-oh',
       // Measurements (echoed so the estimate list can show them)
       raw:             Math.round(ctx.rawSqft || 0),
       adj:             Math.round(ctx.adjustedSqft || 0),
@@ -541,22 +631,41 @@
     return id;
   }
 
-  // Push the selection into the open V2 builder as additive scope entries.
-  // Custom items are bridged first so their JT codes resolve in scope.
+  /**
+   * insertIntoV2(selection, opts) — push the selection into the open V2
+   * builder as additive scope entries. Custom items are bridged first so
+   * their JT codes resolve in scope. Scope candidates GROUP by final code
+   * (after brand swap) — the old blanket first-wins dedupe silently dropped
+   * the second template's quantities:
+   *   - singleton codes → one entry, fixed qty = MAX across occurrences
+   *     (a formula-driven occurrence counts as qty 1);
+   *   - non-singletons where ALL occurrences carry fixed qty → one entry,
+   *     qty = SUM;
+   *   - non-singleton collisions involving a formula-driven occurrence →
+   *     one entry, NO qty override + a verify-qty warning.
+   * unitPriceOverride never carries into the builder (warned).
+   * Returns { entries, measurements, minJobCharge, warnings } — merged over
+   * the addScopeEntries result (added/skipped) when the V2 UI is open.
+   */
   function insertIntoV2(selection, opts) {
     opts = opts || {};
     const sel = normalizeSelection(selection);
-    const entries = [];
-    const seen = {};
+    const warnings = [];
+    const groups = {};        // code → [fixedQty|null, ...]
+    const groupOrder = [];
     let measurements = null;
     let minJobCharge = null;
+    let anyPriceOverride = false;
 
     sel.forEach(entry => {
       const tpl = get(entry.templateId);
       if (!tpl) return;
       registerCustomItems(tpl);
-      if (!measurements && tpl.measurements && typeof tpl.measurements === 'object') {
-        measurements = tpl.measurements;
+      // Partial template measurements overlay in selection order; the
+      // caller's opts.measurements merge LAST below. No defaults base here —
+      // the open builder's own context must not be clobbered by ours.
+      if (tpl.measurements && typeof tpl.measurements === 'object') {
+        measurements = Object.assign(measurements || {}, tpl.measurements);
       }
       if (tpl.minJobCharge != null) {
         minJobCharge = Math.max(minJobCharge != null ? minJobCharge : 0, Number(tpl.minJobCharge));
@@ -565,10 +674,11 @@
         if (!item) return;
         const choice = itemChoice(entry.itemChoices, i);
         if (choice && choice.include === false) return;
+        if (choice && choice.unitPriceOverride != null) anyPriceOverride = true;
         let code, qty;
         if (item.custom) {
           if (!item.custom.name) return;
-          code = customCode(item.custom);
+          code = customCode(tpl.id, i);
           qty = (choice && choice.qty != null) ? choice.qty
             : (item.custom.qty != null ? item.custom.qty : 1);
         } else {
@@ -577,22 +687,49 @@
           qty = (choice && choice.qty != null) ? choice.qty
             : (item.qty != null ? item.qty : null);
         }
-        if (seen[code]) return;   // addScopeEntries dedupes too; parity here
-        seen[code] = true;
-        const overrides = {};
-        if (qty !== null && qty !== '' && isFinite(Number(qty))) overrides.qty = Number(qty);
-        entries.push({ code, overrides });
+        const fixedQty = (qty !== null && qty !== '' && isFinite(Number(qty)))
+          ? Number(qty) : null;
+        if (!groups[code]) { groups[code] = []; groupOrder.push(code); }
+        groups[code].push(fixedQty);
       });
     });
 
+    const entries = groupOrder.map(code => {
+      const occ = groups[code];
+      const overrides = {};
+      if (SINGLETON_CODES[code]) {
+        // Once-per-job: MAX fixed qty wins (formula-driven counts as 1) —
+        // same rule as resolveSelection, so preview === inserted scope.
+        if (occ.some(q => q != null)) {
+          overrides.qty = Math.max.apply(null, occ.map(q => (q != null ? q : 1)));
+        }
+      } else if (occ.every(q => q != null)) {
+        // Every occurrence fixed → quantities SUM (matches the preview,
+        // where each occurrence is its own line).
+        overrides.qty = occ.reduce((s, q) => s + q, 0);
+      } else if (occ.length > 1) {
+        // Collision with a measurement-driven occurrence: can't sum a
+        // formula — leave the builder's formula in charge and flag it.
+        warnings.push(code + ': measurement-driven; verify qty after insert');
+      }
+      return { code, overrides };
+    });
+
+    if (anyPriceOverride) {
+      warnings.push('price overrides do not carry into the builder — adjust there');
+    }
+
     if (opts.measurements && typeof opts.measurements === 'object') {
-      measurements = opts.measurements;
+      measurements = Object.assign(measurements || {}, opts.measurements);
     }
 
     if (window.EstimateV2UI && typeof window.EstimateV2UI.addScopeEntries === 'function') {
-      return window.EstimateV2UI.addScopeEntries(entries, measurements, { minJobCharge });
+      const result = window.EstimateV2UI.addScopeEntries(entries, measurements, { minJobCharge }) || {};
+      return Object.assign({}, result, {
+        warnings: warnings.concat(Array.isArray(result.warnings) ? result.warnings : [])
+      });
     }
-    return { entries, measurements, minJobCharge };
+    return { entries, measurements, minJobCharge, warnings };
   }
 
   // UI passthrough — the engine loads before (or without) the UI file.
@@ -623,6 +760,7 @@
     remove,
 
     registerCustomItems,
+    registerAllCustomItems,
     resolveSelection,
     buildEstimatePayload,
     createEstimate,
@@ -633,6 +771,17 @@
   window.JobTemplates = JobTemplates;
   if (typeof module !== 'undefined' && module.exports) {
     module.exports = JobTemplates;
+  }
+
+  // Load-time custom-item bridge (defaults + stored customs) — saved
+  // estimates carry 'JT *' codes and must resolve on reopen in EVERY
+  // session, not just the one that ran insertIntoV2. Best-effort: the
+  // engine loads after the catalogs in the estimates bundle; if a catalog
+  // is absent (standalone load) registerCustomItems guards internally.
+  try {
+    registerAllCustomItems();
+  } catch (e) {
+    console.error('[JobTemplates] custom-item bridge failed:', e);
   }
 
   console.log('[JobTemplates] engine ready (' + defaults().length + ' default templates).');

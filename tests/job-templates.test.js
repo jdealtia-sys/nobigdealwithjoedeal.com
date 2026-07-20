@@ -7,7 +7,7 @@
  *   docs/pro/js/job-templates.js       → window.JobTemplates engine
  *     (resolveSelection / buildEstimatePayload per the v1 spec)
  *
- * Four sections:
+ * Sections:
  *   1. DATA VALIDATION  — schema rules over every template (ids, taxonomy,
  *      jobType enum, tags, item shapes, catalog code resolution incl.
  *      brandOptions, custom-item cost sanity, measurement-key whitelist,
@@ -25,6 +25,30 @@
  *   4. OVERHEAD DEDUPE  — a two-repair selection merges shared overhead
  *      codes (LAB MOB / LAB DEMOB / LAB CLN-M / DSP HAUL / PRM RES-OH)
  *      down to at most one each; exactly one LAB MOB.
+ *   5. CHOICE CONTRACT — canonical itemChoices keys: brandCode swaps the
+ *      resolved line to the PICKED catalog item (default code absent);
+ *      unitPriceOverride IS the customer's per-unit retail (retailPerUnit
+ *      === typed, retailTotal === qty × typed) on coded AND custom items.
+ *   6. UI KEY GUARD    — static scan of job-templates-ui.js: emits
+ *      'brandCode' + 'unitPriceOverride', never legacy 'priceOverride'
+ *      (the key-drift class of bug, review 2026-07-19).
+ *   7. SINGLETON MAX-QTY — colliding singleton codes (DSP HAUL 1 vs 2)
+ *      keep ONE line at the MAX fixed qty, in either selection order.
+ *   8. MEASUREMENTS OVERLAY — context = engine defaults ← template
+ *      partials ← opts.measurements (user wins). Partial-measurement
+ *      reroofs resolve real scope with NO opts; every formula/partial
+ *      template clears a scale floor (kills the zero-scope class).
+ *   9. CUSTOM-ITEM REGISTRATION — 'JT <template-slug>-<index>' codes are
+ *      registered at module load (NOT insertIntoV2) so saved estimates
+ *      resolve on reopen in any session; same-named customs in different
+ *      templates get distinct codes. MUST run before section 10.
+ *  10. INSERT-INTO-V2 MERGE — colliding non-singleton fixed qtys SUM into
+ *      one entry; fixed+formula collisions carry NO qty override + a
+ *      'measurement-driven' warning; price overrides warn they don't
+ *      carry; result exposes warnings[].
+ *  11. PAYLOAD COUNTY/META — county defaults to 'hamilton-oh' (V2 parity)
+ *      and persists; meta.owner/addr pass through; minJobApplied surfaced
+ *      in totals + payload when the floor binds.
  *
  * SOFT-SKIP: while either job-templates file is missing (parallel
  * buildout), prints 'SKIP (files not present yet)' and exits 0 so CI
@@ -519,6 +543,419 @@ if (repairsWithMob.length >= 2) {
   }
 } else {
   ok('multi-select dedupe exercised', false, 'fewer than 2 repair templates with LAB MOB — cannot pose the check');
+}
+
+// ════════════════════════════════════════════════════════════════════
+// 5. CHOICE CONTRACT — canonical itemChoices keys (review 2026-07-19).
+//    selection = [{templateId, itemChoices: {<i>: {include, qty,
+//    brandCode, unitPriceOverride}}}]. brandCode swaps the resolved line
+//    to the PICKED catalog item; unitPriceOverride is the customer's
+//    per-unit retail (engine prices it as labor so retailPerUnit lands
+//    exactly on the typed value; OH&P/tax still apply at rollup).
+// ════════════════════════════════════════════════════════════════════
+section('CHOICE CONTRACT — brandCode / unitPriceOverride (resolveSelection)');
+
+function nearly(a, b, eps) {
+  return Number.isFinite(Number(a)) && Math.abs(Number(a) - Number(b)) <= (eps != null ? eps : 0.005);
+}
+function smokeOpts(t, extra) {
+  const opts = Object.assign({ tier: 'better' }, extra || {});
+  if (t && t.measurements == null && !opts.measurements) opts.measurements = SMOKE_MEASUREMENTS;
+  return opts;
+}
+
+// (a) brand swap — picked code replaces the default, priced as the picked item.
+const brandPick = (function () {
+  for (const t of TPLS) {
+    if (!t || !Array.isArray(t.items)) continue;
+    for (let i = 0; i < t.items.length; i++) {
+      const it = t.items[i];
+      if (it && it.code && Array.isArray(it.brandOptions) && it.brandOptions.length > 1 &&
+          t.items.filter(function (x) { return x && x.code === it.code; }).length === 1) {
+        const alt = it.brandOptions.find(function (o) { return o && o.code && o.code !== it.code; });
+        if (alt && XACT.find(alt.code)) return { t: t, i: i, it: it, alt: alt };
+      }
+    }
+  }
+  return null;
+})();
+ok('found a template item with a non-default brand option', !!brandPick);
+if (brandPick) {
+  const bt = brandPick.t, bit = brandPick.it, alt = brandPick.alt;
+  const altItem = XACT.find(alt.code);
+  const bChoices = {}; bChoices[brandPick.i] = { brandCode: alt.code };
+  const bRes = JT.resolveSelection([{ templateId: bt.id, itemChoices: bChoices }], smokeOpts(bt));
+  const bLines = bRes.lines || [];
+  const picked = bLines.filter(function (l) { return l && l.code === alt.code; });
+  const bLabel = 'brand swap (' + bt.id + ' ' + bit.code + ' → ' + alt.code + ')';
+  ok(bLabel + ': resolved lines contain the PICKED code exactly once', picked.length === 1, 'got ' + picked.length);
+  ok(bLabel + ': default code absent from resolved lines',
+    !bLines.some(function (l) { return l && l.code === bit.code; }));
+  const pl = picked[0];
+  ok(bLabel + ": line carries the picked item's material cost/unit",
+    pl && nearly(pl.materialCostPerUnit, altItem.materialCost),
+    pl && ('got ' + pl.materialCostPerUnit + ' want ' + altItem.materialCost));
+  const bMk = Number(bRes.totals && bRes.totals.materialMarkupPct != null ? bRes.totals.materialMarkupPct : 0.25);
+  ok(bLabel + ': retailPerUnit = picked mat×(1+mk)+labor',
+    pl && nearly(pl.retailPerUnit, Number(altItem.materialCost) * (1 + bMk) + Number(altItem.laborCost), 0.01),
+    pl && ('got ' + pl.retailPerUnit));
+  if (bit.qty != null) {
+    ok(bLabel + ': fixed qty survives the swap', pl && nearly(pl.quantity, bit.qty, 1e-9),
+      pl && ('got ' + pl.quantity + ' want ' + bit.qty));
+  }
+}
+
+// (b) unitPriceOverride on a CODED item — retail lands exactly on the typed $.
+const ovPick = (function () {
+  for (const t of TPLS) {
+    if (!t || !Array.isArray(t.items)) continue;
+    for (let i = 0; i < t.items.length; i++) {
+      const it = t.items[i];
+      if (it && it.code && it.qty != null && Number(it.qty) > 0 &&
+          !JT.SINGLETON_CODES[it.code] &&
+          t.items.filter(function (x) { return x && x.code === it.code; }).length === 1) {
+        return { t: t, i: i, it: it };
+      }
+    }
+  }
+  return null;
+})();
+ok('found a coded fixed-qty item for the $/unit override check', !!ovPick);
+if (ovPick) {
+  const ot = ovPick.t, oit = ovPick.it;
+  const typed = 95;
+  const oChoices = {}; oChoices[ovPick.i] = { unitPriceOverride: typed };
+  const oRes = JT.resolveSelection([{ templateId: ot.id, itemChoices: oChoices }], smokeOpts(ot));
+  const oLine = (oRes.lines || []).find(function (l) { return l && l.code === oit.code; });
+  const oLabel = 'unitPriceOverride (' + ot.id + ' ' + oit.code + ' @ $' + typed + ')';
+  ok(oLabel + ': overridden line present', !!oLine);
+  ok(oLabel + ': retailPerUnit === typed value', oLine && nearly(oLine.retailPerUnit, typed),
+    oLine && ('got ' + oLine.retailPerUnit));
+  ok(oLabel + ': retailTotal === qty × typed', oLine && nearly(oLine.retailTotal, Number(oit.qty) * typed, 0.01),
+    oLine && ('got ' + oLine.retailTotal + ' want ' + Number(oit.qty) * typed));
+}
+
+// (c) unitPriceOverride on a CUSTOM item — same plane, custom-item path.
+const customPick = (function () {
+  for (const t of TPLS) {
+    if (!t || !Array.isArray(t.items)) continue;
+    for (let i = 0; i < t.items.length; i++) {
+      const it = t.items[i];
+      if (it && it.custom && it.custom.name && Number(it.custom.qty) > 0) return { t: t, i: i, it: it };
+    }
+  }
+  return null;
+})();
+ok('found a custom item for the $/unit override check', !!customPick);
+if (customPick) {
+  const ct = customPick.t, cc = customPick.it.custom;
+  const typedC = 50;
+  const cChoices = {}; cChoices[customPick.i] = { unitPriceOverride: typedC };
+  const cRes = JT.resolveSelection([{ templateId: ct.id, itemChoices: cChoices }], smokeOpts(ct));
+  const cLine = (cRes.lines || []).find(function (l) {
+    return l && /^JT /.test(String(l.code)) && l.name === cc.name;
+  });
+  const cLabel = 'custom unitPriceOverride (' + ct.id + ' "' + cc.name + '" @ $' + typedC + ')';
+  ok(cLabel + ': custom line present', !!cLine);
+  ok(cLabel + ': retailPerUnit === typed value', cLine && nearly(cLine.retailPerUnit, typedC),
+    cLine && ('got ' + cLine.retailPerUnit));
+  ok(cLabel + ': retailTotal === qty × typed', cLine && nearly(cLine.retailTotal, Number(cc.qty) * typedC, 0.01),
+    cLine && ('got ' + cLine.retailTotal + ' want ' + Number(cc.qty) * typedC));
+}
+
+// ════════════════════════════════════════════════════════════════════
+// 6. UI KEY GUARD — static source scan. The 2026-07-19 review found the
+//    UI emitting {code, priceOverride} while the engine read {brandCode,
+//    unitPriceOverride}: every brand pick and $/unit override silently
+//    dropped. Guard the canonical keys so the drift cannot recur.
+// ════════════════════════════════════════════════════════════════════
+section('UI KEY GUARD — job-templates-ui.js emits canonical choice keys (static)');
+const UI_PATH = path.join(PRO_JS, 'job-templates-ui.js');
+const uiExists = fs.existsSync(UI_PATH);
+ok('job-templates-ui.js present', uiExists);
+if (uiExists) {
+  // Scan CODE only — the guard is against EMITTING the legacy key, and a
+  // comment documenting "never priceOverride" must not trip it. Stripping
+  // comments also strengthens the positive checks (canonical keys must
+  // appear in actual code, not just prose).
+  const uiCode = fs.readFileSync(UI_PATH, 'utf8')
+    .replace(/\/\*[\s\S]*?\*\//g, '')      // block comments
+    .replace(/(^|[^:])\/\/.*$/gm, '$1');   // line comments ('//' not preceded by ':' — keeps URLs)
+  ok("UI code contains 'brandCode' (canonical brand key)", /\bbrandCode\b/.test(uiCode));
+  ok("UI code contains 'unitPriceOverride' (canonical price key)", /\bunitPriceOverride\b/.test(uiCode));
+  ok("UI code never emits legacy 'priceOverride' key", !/\bpriceOverride\b/.test(uiCode),
+    "found /\\bpriceOverride\\b/ outside comments — the engine only reads 'unitPriceOverride'");
+}
+
+// ════════════════════════════════════════════════════════════════════
+// 7. SINGLETON MAX-QTY — on a singleton-code collision keep ONE line at
+//    the MAX of the colliding fixed qtys (mirrors the minJobCharge
+//    'never lower the floor' rule) — NOT first-wins, in either order.
+// ════════════════════════════════════════════════════════════════════
+section('SINGLETON MAX-QTY — DSP HAUL 1 vs 2 merges to qty 2 (both orders)');
+function haulQty(t) {
+  const it = (t.items || []).find(function (x) { return x && x.code === 'DSP HAUL'; });
+  return it && it.qty != null ? Number(it.qty) : null;
+}
+const haul1 = TPLS.find(function (t) { return t && haulQty(t) === 1; });
+const haul2 = TPLS.find(function (t) { return t && haulQty(t) === 2; });
+ok('found templates with DSP HAUL fixed qty 1 and qty 2',
+  !!(haul1 && haul2), 'qty1=' + (haul1 && haul1.id) + ' qty2=' + (haul2 && haul2.id));
+if (haul1 && haul2) {
+  [[haul1, haul2], [haul2, haul1]].forEach(function (order) {
+    const hLabel = 'order [' + order[0].id + ' → ' + order[1].id + ']';
+    const hRes = JT.resolveSelection(
+      [{ templateId: order[0].id }, { templateId: order[1].id }], { tier: 'better' });
+    const hauls = (hRes.lines || []).filter(function (l) { return l && l.code === 'DSP HAUL'; });
+    ok(hLabel + ': exactly one DSP HAUL line', hauls.length === 1, 'got ' + hauls.length);
+    ok(hLabel + ': merged DSP HAUL qty = max(1, 2) = 2',
+      hauls[0] && nearly(hauls[0].quantity, 2, 1e-9), 'got ' + (hauls[0] && hauls[0].quantity));
+  });
+}
+
+// ════════════════════════════════════════════════════════════════════
+// 8. MEASUREMENTS OVERLAY — resolution context = engine defaults
+//    ← template partial measurements (selection order) ← opts.measurements
+//    LAST (user always wins). A template's partial object must NEVER be
+//    used as the whole context (the $2,500 zero-scope reroof class).
+// ════════════════════════════════════════════════════════════════════
+section('MEASUREMENTS OVERLAY — defaults ← template partials ← user');
+
+const redeck = TPLS.find(function (t) { return t && t.id === 'jt_fr_full_redeck'; });
+ok('jt_fr_full_redeck present', !!redeck);
+if (redeck) {
+  // Deliberately NO opts.measurements — the overlay must supply scale.
+  const rdRes = JT.resolveSelection([{ templateId: redeck.id }], { tier: 'better' });
+  const posLines = (rdRes.lines || []).filter(function (l) { return l && Number(l.quantity) > 0; });
+  ok('redeck w/o opts.measurements: >= 5 lines with quantity > 0',
+    posLines.length >= 5, 'got ' + posLines.length);
+  ok('redeck w/o opts.measurements: total > $6,000',
+    rdRes.totals && Number(rdRes.totals.total) > 6000, 'got ' + (rdRes.totals && rdRes.totals.total));
+  // User measurements merge LAST but the template's partial keys survive.
+  const rdRes2 = JT.resolveSelection([{ templateId: redeck.id }],
+    { tier: 'better', measurements: { rawSqft: 1000 } });
+  const rdCtx = (rdRes2.totals && rdRes2.totals.context) || {};
+  ok('redeck + user {rawSqft:1000}: context.rawSqft === 1000 (user wins)',
+    Number(rdCtx.rawSqft) === 1000, 'got ' + rdCtx.rawSqft);
+  const osb = (rdRes2.lines || []).find(function (l) { return l && l.code === 'RFG OSB716'; });
+  ok('redeck + user {rawSqft:1000}: template deckReplacePct:1 survives merge (OSB qty > 0)',
+    osb && Number(osb.quantity) > 0, 'OSB qty=' + (osb && osb.quantity));
+}
+
+// Scale floor over the whole formula/partial population: measurements
+// null (measurement-driven) OR partial (no rawSqft key). At the default
+// context each must resolve real scope — CI-guards the zero-scope class.
+const formulaPop = TPLS.filter(function (t) {
+  return t && (t.measurements == null ||
+    (typeof t.measurements === 'object' && !Array.isArray(t.measurements) &&
+     !Object.prototype.hasOwnProperty.call(t.measurements, 'rawSqft')));
+});
+ok('formula/partial population non-empty (got ' + formulaPop.length + ')', formulaPop.length > 0);
+const scaleErrs = [];
+formulaPop.forEach(function (t) {
+  let sRes;
+  try { sRes = JT.resolveSelection([{ templateId: t.id }], { tier: 'better' }); } // NO measurements
+  catch (e) { scaleErrs.push(t.id + ': resolveSelection THREW — ' + e.message); return; }
+  const qsum = (sRes.lines || []).reduce(function (s, l) { return s + (Number(l && l.quantity) || 0); }, 0);
+  const scaleFloor = 1.5 * (Number(t.minJobCharge) || 2500);
+  const sTotal = sRes.totals && Number(sRes.totals.total);
+  if (!(qsum > 0)) scaleErrs.push(t.id + ': sum of line quantities is 0 at default context');
+  if (!(sTotal > scaleFloor)) scaleErrs.push(t.id + ': total ' + sTotal + ' <= scale floor ' + scaleFloor);
+});
+ok('every formula/partial template resolves real scope at default context (qty sum > 0, total > 1.5 × (minJobCharge || 2500))',
+  scaleErrs.length === 0, scaleErrs.length + ' failure(s)');
+listOffenders(scaleErrs, 20);
+
+// ════════════════════════════════════════════════════════════════════
+// 9. CUSTOM-ITEM REGISTRATION — 'JT ' + slug(templateId) + '-' + index
+//    codes registered into NBD_XACT_CATALOG at MODULE LOAD, so 'JT *'
+//    codes in saved estimates resolve on reopen in ANY session.
+//    ⚠ MUST run BEFORE section 10 — no insertIntoV2 call may precede it,
+//    or this would prove insert-time (session-local) registration only.
+// ════════════════════════════════════════════════════════════════════
+section('CUSTOM-ITEM REGISTRATION — JT codes resolve at load (no insertIntoV2)');
+function jtSlug(s) {
+  return String(s || '').toLowerCase().trim()
+    .replace(/\s+/g, '-').replace(/[^a-z0-9\-]/g, '').replace(/\-+/g, '-');
+}
+if (customPick) {
+  const rt = customPick.t, ri = customPick.i, rc = customPick.it.custom;
+  const slugVariants = [];
+  [jtSlug(rt.id), rt.id.toLowerCase().replace(/_/g, '-')].forEach(function (s) {
+    if (s && slugVariants.indexOf(s) === -1) slugVariants.push(s);
+  });
+  const keyCandidates = [];
+  slugVariants.forEach(function (s) {
+    keyCandidates.push('JT ' + s.toUpperCase() + '-' + ri);
+    keyCandidates.push('JT ' + s + '-' + ri);
+  });
+  const rRes = JT.resolveSelection([{ templateId: rt.id }], smokeOpts(rt));
+  const rLine = (rRes.lines || []).find(function (l) {
+    return l && /^JT /.test(String(l.code)) && l.name === rc.name;
+  });
+  const rLabel = 'load-time registration (' + rt.id + ' items[' + ri + '] "' + rc.name + '")';
+  ok(rLabel + ': resolved custom line present', !!rLine);
+  ok(rLabel + ": code follows the deterministic 'JT <template-slug>-<index>' scheme",
+    !!rLine && keyCandidates.indexOf(rLine.code) !== -1,
+    'code=' + (rLine && rLine.code) + ' expected one of [' + keyCandidates.join(', ') + ']');
+  const rFound = rLine && XACT && typeof XACT.find === 'function' ? XACT.find(rLine.code) : null;
+  ok(rLabel + ': NBD_XACT_CATALOG.find(code) resolves WITHOUT insertIntoV2 ever running', !!rFound);
+  ok(rLabel + ': registered entry carries the custom costs',
+    !!rFound && nearly(rFound.materialCost, Number(rc.materialCost) || 0) &&
+    nearly(rFound.laborCost, Number(rc.laborCost) || 0),
+    rFound && ('got m=' + rFound.materialCost + '/l=' + rFound.laborCost +
+      ' want m=' + rc.materialCost + '/l=' + rc.laborCost));
+} else {
+  ok('custom-item registration exercised', false, 'no default template with a custom item found');
+}
+
+// Same-named custom items in DIFFERENT templates must get DISTINCT codes
+// (per-template keys kill the name-slug collision → wrong-price class).
+const customByName = {};
+TPLS.forEach(function (t) {
+  ((t && t.items) || []).forEach(function (it, i) {
+    if (it && it.custom && it.custom.name) {
+      const k = it.custom.name.toLowerCase().trim();
+      (customByName[k] = customByName[k] || []).push({ t: t, i: i, name: it.custom.name });
+    }
+  });
+});
+const dupPair = Object.keys(customByName).map(function (k) {
+  const seenT = {}; const out = [];
+  customByName[k].forEach(function (e) { if (!seenT[e.t.id]) { seenT[e.t.id] = 1; out.push(e); } });
+  return out;
+}).find(function (v) { return v.length >= 2; });
+if (dupPair) {
+  const dupCodes = dupPair.slice(0, 2).map(function (e) {
+    const dRes = JT.resolveSelection([{ templateId: e.t.id }], smokeOpts(e.t));
+    const dLine = (dRes.lines || []).find(function (x) {
+      return x && /^JT /.test(String(x.code)) && x.name === e.name;
+    });
+    return dLine && dLine.code;
+  });
+  ok("same-named custom items ('" + dupPair[0].name + "' in " + dupPair[0].t.id + ' vs ' +
+     dupPair[1].t.id + ') get DISTINCT codes',
+    !!dupCodes[0] && !!dupCodes[1] && dupCodes[0] !== dupCodes[1], 'codes: ' + dupCodes.join(' vs '));
+} else {
+  ok('same-named custom collision check (vacuous — no same-named pair in data)', true);
+}
+
+// ════════════════════════════════════════════════════════════════════
+// 10. INSERT-INTO-V2 MERGE — group scope candidates by final code:
+//     non-singletons with ALL-fixed qtys → one entry, qty = SUM;
+//     any formula-driven occurrence → one entry, NO qty override + a
+//     'measurement-driven' warning; price overrides don't carry (warned).
+//     EstimateV2UI is absent in this sandbox, so insertIntoV2 returns
+//     its raw { entries, measurements, minJobCharge, warnings } result.
+// ════════════════════════════════════════════════════════════════════
+section('INSERT-INTO-V2 MERGE — qty summing + warnings');
+const HDZ = 'RFG 240-GAF-HDZ';
+function fixedQtyOf(t, code) {
+  const it = t && (t.items || []).find(function (x) { return x && x.code === code; });
+  return it && it.qty != null ? Number(it.qty) : null;
+}
+const t5a = TPLS.find(function (t) { return t && t.id === 'jt_rr_shingle_5'; });
+const t5b = TPLS.find(function (t) { return t && t.id === 'jt_rr_pipe_boot_1'; });
+const qa = fixedQtyOf(t5a, HDZ), qb = fixedQtyOf(t5b, HDZ);
+ok('jt_rr_shingle_5 + jt_rr_pipe_boot_1 both carry fixed-qty ' + HDZ,
+  qa != null && qb != null, 'qa=' + qa + ' qb=' + qb);
+if (qa != null && qb != null) {
+  const iRes = JT.insertIntoV2([{ templateId: t5a.id }, { templateId: t5b.id }], {});
+  ok('insert result has entries[]', iRes && Array.isArray(iRes.entries));
+  ok('insert result has warnings[] (merge contract)', iRes && Array.isArray(iRes.warnings));
+  const iEntries = (iRes && iRes.entries) || [];
+  const iHdz = iEntries.filter(function (e) { return e && e.code === HDZ; });
+  ok('single merged ' + HDZ + ' entry', iHdz.length === 1, 'got ' + iHdz.length);
+  ok('merged qty = SUM of fixed qtys (' + qa + ' + ' + qb + ')',
+    iHdz[0] && iHdz[0].overrides && nearly(iHdz[0].overrides.qty, qa + qb, 1e-6),
+    'got ' + (iHdz[0] && iHdz[0].overrides && iHdz[0].overrides.qty));
+  const iCodes = iEntries.map(function (e) { return e && e.code; });
+  ok('no duplicate codes in inserted entries', new Set(iCodes).size === iCodes.length);
+}
+// Fixed + formula-driven occurrences of the same code → no qty override.
+const t5c = TPLS.find(function (t) { return t && t.id === 'jt_fr_two_layer_tearoff'; });
+const hasFormulaHdz = !!(t5c && (t5c.items || []).some(function (x) { return x && x.code === HDZ && x.qty == null; }));
+ok('jt_fr_two_layer_tearoff carries formula-driven ' + HDZ, hasFormulaHdz);
+if (hasFormulaHdz && t5a) {
+  const mRes = JT.insertIntoV2([{ templateId: t5c.id }, { templateId: t5a.id }], {});
+  const mEntries = (mRes && mRes.entries) || [];
+  const mHdz = mEntries.filter(function (e) { return e && e.code === HDZ; });
+  ok('fixed+formula collision: single ' + HDZ + ' entry', mHdz.length === 1, 'got ' + mHdz.length);
+  ok('fixed+formula collision: NO qty override (measurement-driven wins)',
+    mHdz[0] && (!mHdz[0].overrides || mHdz[0].overrides.qty == null),
+    'got qty=' + (mHdz[0] && mHdz[0].overrides && mHdz[0].overrides.qty));
+  ok("fixed+formula collision: 'measurement-driven' warning pushed",
+    mRes && Array.isArray(mRes.warnings) &&
+    mRes.warnings.some(function (w) { return /measurement-driven/i.test(String(w)); }),
+    'warnings: ' + JSON.stringify(mRes && mRes.warnings));
+}
+// unitPriceOverride in the selection cannot carry into the builder — warn.
+if (ovPick) {
+  const wChoices = {}; wChoices[ovPick.i] = { unitPriceOverride: 95 };
+  const wRes = JT.insertIntoV2([{ templateId: ovPick.t.id, itemChoices: wChoices }], {});
+  ok("price override in selection: 'do not carry into the builder' warning pushed",
+    wRes && Array.isArray(wRes.warnings) &&
+    wRes.warnings.some(function (w) { return /price overrides? do(es)? not carry/i.test(String(w)); }),
+    'warnings: ' + JSON.stringify(wRes && wRes.warnings));
+}
+
+// ════════════════════════════════════════════════════════════════════
+// 11. PAYLOAD COUNTY/META — resolveSelection defaults county to
+//     'hamilton-oh' (V2 builder parity — estimate-v2-ui.js:27) and the
+//     payload persists it; meta.owner/addr pass through; minJobApplied
+//     surfaced in totals + payload when the floor binds.
+// ════════════════════════════════════════════════════════════════════
+section('PAYLOAD — county default + owner/addr passthrough + min-floor flag');
+const ctyMap = (V2 && typeof V2.loadSettings === 'function' && V2.loadSettings().countyTax) || {};
+const hamRate = Number(ctyMap['hamilton-oh']);
+ok("county tax map carries 'hamilton-oh'", Number.isFinite(hamRate) && hamRate > 0, 'got ' + hamRate);
+const t7 = repairA || TPLS[0];
+const r7 = JT.resolveSelection([{ templateId: t7.id }], smokeOpts(t7));
+ok("resolve without opts.county taxes at the 'hamilton-oh' rate (" + hamRate + '), not the 7% fallback',
+  r7.totals && nearly(r7.totals.taxRate, hamRate, 1e-9), 'got ' + (r7.totals && r7.totals.taxRate));
+const p7 = JT.buildEstimatePayload(r7, { name: 'County default' });
+ok("payload stamps county 'hamilton-oh' by default (V2 _buildSavePayload parity)",
+  p7 && p7.county === 'hamilton-oh', 'got ' + (p7 && p7.county));
+ok('payload owner/addr default to blank strings', p7 && p7.owner === '' && p7.addr === '');
+const altCounty = Object.keys(ctyMap).find(function (k) {
+  return k !== 'hamilton-oh' && Number(ctyMap[k]) > 0 && Number(ctyMap[k]) !== hamRate;
+});
+ok('county tax map offers a second county at a different rate', !!altCounty);
+if (altCounty) {
+  const rAlt = JT.resolveSelection([{ templateId: t7.id }], smokeOpts(t7, { county: altCounty }));
+  ok('explicit opts.county (' + altCounty + ') taxes at ' + ctyMap[altCounty],
+    rAlt.totals && nearly(rAlt.totals.taxRate, Number(ctyMap[altCounty]), 1e-9),
+    'got ' + (rAlt.totals && rAlt.totals.taxRate));
+  const pAlt = JT.buildEstimatePayload(rAlt, { name: 'County explicit' });
+  ok('payload persists the explicit county', pAlt && pAlt.county === altCounty, 'got ' + (pAlt && pAlt.county));
+}
+const pMeta = JT.buildEstimatePayload(r7, { name: 'Lead meta', owner: 'Jane Smith', addr: '12 Oak St' });
+ok('payload stamps meta.owner', pMeta && pMeta.owner === 'Jane Smith', 'got ' + (pMeta && pMeta.owner));
+ok('payload stamps meta.addr', pMeta && pMeta.addr === '12 Oak St', 'got ' + (pMeta && pMeta.addr));
+// Min-floor binding: shrink a floored template to one near-zero line so
+// minJobCharge binds, then check the flag surfaces end-to-end.
+const floorTpl = TPLS.find(function (t) {
+  return t && Number(t.minJobCharge) > 0 && t.measurements != null &&
+    Array.isArray(t.items) && t.items.some(function (it) { return it && it.code; });
+});
+ok('found a floored template for the min-charge binding check', !!floorTpl);
+if (floorTpl) {
+  const keepIdx = floorTpl.items.findIndex(function (it) { return it && it.code; });
+  const fChoices = {};
+  floorTpl.items.forEach(function (it, i) {
+    fChoices[i] = (i === keepIdx) ? { qty: 0.01 } : { include: false };
+  });
+  const rF = JT.resolveSelection([{ templateId: floorTpl.id, itemChoices: fChoices }], { tier: 'better' });
+  const fFloor = Number(floorTpl.minJobCharge);
+  ok('floor binds (' + floorTpl.id + '): totals.minJobApplied === true',
+    rF.totals && rF.totals.minJobApplied === true,
+    'minJobApplied=' + (rF.totals && rF.totals.minJobApplied) + ' total=' + (rF.totals && rF.totals.total));
+  ok('floor binds: totals.total === minJobCharge (' + fFloor + ')',
+    rF.totals && nearly(rF.totals.total, fFloor, 0.01), 'got ' + (rF.totals && rF.totals.total));
+  const pF = JT.buildEstimatePayload(rF, { name: 'Floor' });
+  ok('payload surfaces minJobApplied === true', pF && pF.minJobApplied === true);
+  ok('payload grandTotal === floor', pF && nearly(pF.grandTotal, fFloor, 0.01),
+    'got ' + (pF && pF.grandTotal));
 }
 
 // ════════════════════════════════════════════════════════════════════

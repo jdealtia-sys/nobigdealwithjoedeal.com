@@ -240,6 +240,68 @@ test('matching-version store is used as-is (no reseed at _v 4)', () => {
   eq(s.items.length, 1, 'v4 store must not be reseeded');
 });
 
+// ── 4. Archive / hard-delete survive migration (P1-P3) ──
+
+console.log('\nproduct-library.js archive + tombstone survival');
+console.log('──────────────────────────────────────────────────');
+
+test('archived default (pre-P1 store: isActive=false, updatedAt===createdAt) survives migration as archived', () => {
+  const archived = Object.assign(JSON.parse(JSON.stringify(PRODUCTS.find(p => p.id === 'shingle_003'))), {
+    name: 'ARCHIVED PRE-P1 COPY',
+    isActive: false,
+    createdAt: '2026-01-01T00:00:00.000Z',
+    updatedAt: '2026-01-01T00:00:00.000Z' // == createdAt: timestamps say untouched, archive flag says user intent
+  });
+  const store = JSON.stringify({ _v: 3, items: [archived] });
+  const res = loadLibraryWith({ nbd_product_library: store });
+  const s = JSON.parse(res.localStorage.getItem('nbd_product_library'));
+  const p = s.items.find(x => x.id === 'shingle_003');
+  ok(p, 'shingle_003 missing after migration');
+  eq(p.isActive, false, 'archive flag must survive (default must NOT be resurrected active)');
+  eq(p.name, 'ARCHIVED PRE-P1 COPY', 'stored archived copy must be kept verbatim');
+});
+
+test('tombstoned default (_deleted) stays gone through migration and _deleted is preserved', () => {
+  const store = JSON.stringify({ _v: 3, items: [customProduct], _deleted: ['shingle_004'] });
+  const res = loadLibraryWith({ nbd_product_library: store });
+  const s = JSON.parse(res.localStorage.getItem('nbd_product_library'));
+  ok(!s.items.some(x => x.id === 'shingle_004'), 'hard-deleted default resurrected by migration');
+  ok(Array.isArray(s._deleted) && s._deleted.includes('shingle_004'), '_deleted tombstone not preserved by saveAll');
+  ok(s.items.some(x => x.id === 'prod_1700000000_joecap'), 'custom product lost');
+});
+
+test('deleteProduct() stamps updatedAt (archive counts as an edit)', () => {
+  const item = Object.assign(JSON.parse(JSON.stringify(PRODUCTS.find(p => p.id === 'shingle_001'))), {
+    createdAt: '2026-01-01T00:00:00.000Z',
+    updatedAt: '2026-01-01T00:00:00.000Z'
+  });
+  const store = JSON.stringify({ _v: 4, items: [item] });
+  const res = loadLibraryWith({ nbd_product_library: store });
+  res.win._productLib.delete('shingle_001');
+  const s = JSON.parse(res.localStorage.getItem('nbd_product_library'));
+  const p = s.items.find(x => x.id === 'shingle_001');
+  ok(p, 'shingle_001 missing after archive');
+  eq(p.isActive, false, 'isActive');
+  ok(p.updatedAt !== p.createdAt, 'updatedAt must be bumped on archive so migration keeps it');
+});
+
+test('end-to-end: hardDelete writes tombstone, next migration does not resurrect', () => {
+  // Fresh seed at v4, hard-delete a default, then replay the resulting store
+  // through a version-mismatch migration (as a future v5 bump would).
+  const first = loadLibraryWith({});
+  first.win._productLib.hardDelete('shingle_003');
+  const afterDelete = JSON.parse(first.localStorage.getItem('nbd_product_library'));
+  ok(!afterDelete.items.some(x => x.id === 'shingle_003'), 'item not removed by hardDelete');
+  ok(Array.isArray(afterDelete._deleted) && afterDelete._deleted.includes('shingle_003'), 'tombstone not recorded');
+
+  afterDelete._v = 3; // simulate a stale store hitting the current DATA_VERSION
+  const second = loadLibraryWith({ nbd_product_library: JSON.stringify(afterDelete) });
+  const s = JSON.parse(second.localStorage.getItem('nbd_product_library'));
+  ok(!s.items.some(x => x.id === 'shingle_003'), 'tombstoned default resurrected on migration');
+  ok(s._deleted.includes('shingle_003'), 'tombstone dropped after migration');
+  eq(s.items.length, DEFAULTS_COUNT - 1, 'migrated count should be all defaults minus the tombstoned one');
+});
+
 console.log('──────────────────────────────────────────────────');
 console.log(passed + ' passed, ' + failed + ' failed');
 if (failed > 0) process.exitCode = 1;
