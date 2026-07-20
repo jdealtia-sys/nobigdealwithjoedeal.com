@@ -786,7 +786,7 @@ function renderPhotoGrid() {
     html += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;padding-bottom:6px;border-bottom:2px solid ' + color + ';">';
     html += '<div style="width:10px;height:10px;border-radius:50%;background:' + color + ';"></div>';
     html += '<div class="photo-phase-title" style="margin:0;font-size:15px;font-weight:700;">' + esc(phase) + ' Phase</div>';
-    html += '<span style="font-size:12px;color:var(--muted);">(' + fullList.length + (hidden ? ' • showing ' + visible.length : '') + ')</span>';
+    html += '<span style="font-size:12px;color:var(--m);">(' + fullList.length + (hidden ? ' • showing ' + visible.length : '') + ')</span>';
     html += '</div>';
     html += '<div class="photo-grid-phase" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px;">';
     for (var i = 0; i < visible.length; i++) {
@@ -923,7 +923,7 @@ function updatePhotoStats() {
   var after = photos.filter(function(p){return p.phase==='After';}).length;
   var annotated = photos.filter(function(p){return p.isAnnotated;}).length;
   
-  var html = '<span style="font-weight:700;color:var(--text);">' + photos.length + ' Photos</span>';
+  var html = '<span style="font-weight:700;color:var(--t);">' + photos.length + ' Photos</span>';
   if (before) html += '<span style="color:#3b82f6;">&#9679; ' + before + ' Before</span>';
   if (during) html += '<span style="color:var(--orange);">&#9679; ' + during + ' During</span>';
   if (after) html += '<span style="color:var(--green);">&#9679; ' + after + ' After</span>';
@@ -1938,8 +1938,8 @@ function logGeneratedDoc(type, data) {
   var item = document.createElement('div');
   item.style.cssText = 'display:flex;justify-content:space-between;align-items:center;padding:10px 14px;border-bottom:1px solid var(--br);';
   item.innerHTML = '<div>' +
-    '<div style="font-size:13px;font-weight:600;color:var(--text);">' + esc(typeName) + '</div>' +
-    '<div style="font-size:11px;color:var(--muted);">' + esc(data.homeownerName || 'Customer') + ' &middot; ' + esc(new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})) + '</div>' +
+    '<div style="font-size:13px;font-weight:600;color:var(--t);">' + esc(typeName) + '</div>' +
+    '<div style="font-size:11px;color:var(--m);">' + esc(data.homeownerName || 'Customer') + ' &middot; ' + esc(new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})) + '</div>' +
     '</div>' +
     '<button type="button" class="btn nbd-regen-doc" data-doc-type="' + esc(type) + '" style="font-size:11px;padding:4px 10px;">Regenerate</button>';
   item.querySelector('.nbd-regen-doc').addEventListener('click', function(){ generateCustomerDoc(type); });
