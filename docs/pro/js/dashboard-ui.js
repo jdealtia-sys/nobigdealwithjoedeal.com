@@ -829,17 +829,19 @@ const shareCalViaEmail = function() {
 // TOAST
 // ══════════════════════════════════════════════
 function showToast(msg, type='success') {
-  // Batch-2 consolidation: the ui.js toast CONTAINER system (loaded after
-  // this file; it overwrites window.showToast) is the single toast owner.
-  // This top-level declaration also becomes window.showToast at parse time,
-  // so bare calls made before ui.js boots land here — delegate forward when
-  // the container system is up, else fall back to the legacy #toast
-  // singleton so early-boot toasts still render.
-  const impl = window.showToast;
-  if (typeof impl === 'function' && impl !== showToast) {
-    impl(msg, type === 'ok' ? 'success' : type);
-    return;
-  }
+  // Batch-2 consolidation note (do NOT re-add a "delegate to ui.js" guard
+  // here): this file and js/ui.js are BOTH classic non-module scripts, so
+  // each top-level `function showToast` declaration binds the same global
+  // object property. Inside this function the identifier `showToast` and
+  // `window.showToast` are therefore one and the same binding — a
+  // `window.showToast !== showToast` check can never be true, and any such
+  // block is unreachable.
+  //
+  // ui.js is the single toast owner in practice: it is `defer`red AFTER
+  // this file (dashboard.html), so its hoisted declaration wins the global
+  // and every bare `showToast(...)` call site resolves to the container
+  // system. This legacy #toast singleton queue survives only for surfaces
+  // that load dashboard-ui.js without ui.js.
   toastQueue.push({ msg, type });
   if (!toastActive) processToastQueue();
 }
