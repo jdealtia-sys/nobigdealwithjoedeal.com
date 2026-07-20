@@ -137,4 +137,66 @@ section('V2 preview titleMap alignment');
     /formatEstimate\s*\(estimate,\s*format,\s*meta\);[\s\S]{0,200}catch/.test(src));
 }
 
+// ════════════════════════════════════════════════════════════════════
+// JOB TEMPLATES — existence + CSP wiring smoke (appended 2026-07-19,
+// job-templates harness buildout; deep data/engine coverage lives in
+// tests/job-templates.test.js).
+//
+// The trio is authored in PARALLEL sessions and lands in arbitrary
+// order, so every check is per-file soft-skip: absent → note + skip,
+// present → locked in. No cross-file dependency asserts (they'd redline
+// CI between landings). Durable existence protection after buildout:
+// each landed file must be wired into the script-loader estimates
+// bundle (smoke-tests-assert-existence RULE — grep tests/ before
+// deleting code; this block is that tripwire).
+// ════════════════════════════════════════════════════════════════════
+section('Job Templates: existence + CSP wiring');
+{
+  const fs = require('fs');
+  const JT_FILES = ['job-templates-data.js', 'job-templates.js', 'job-templates-ui.js'];
+  const present = JT_FILES.filter(f => fs.existsSync(path.join(PRO_JS, f)));
+  if (present.length === 0) {
+    console.log('  (skip — job-templates files not present yet)');
+  } else {
+    for (const f of JT_FILES) {
+      if (!present.includes(f)) { console.log('  (skip — ' + f + ' not present yet)'); continue; }
+      assert('docs/pro/js/' + f + ' exists on disk', fs.existsSync(path.join(PRO_JS, f)));
+    }
+    // Wiring: every LANDED file must ride the estimates bundle in
+    // script-loader.js (a landed-but-unwired file is dead code; checked
+    // only for present files so parallel landing order never reds CI).
+    const loaderPath = path.join(PRO_JS, 'script-loader.js');
+    if (fs.existsSync(loaderPath)) {
+      const loader = read(loaderPath);
+      for (const f of present) {
+        assert(f + ' is wired into the script-loader estimates bundle',
+          new RegExp('js/' + f.replace(/[.]/g, '\\.')).test(loader));
+      }
+    }
+
+    // CSP: /pro ships script-src WITHOUT 'unsafe-inline' — zero inline
+    // on*= handler strings allowed, even inside JS-generated markup
+    // (csp-onclick sweep RULE). Named-event match avoids false hits on
+    // identifiers like "online".
+    const INLINE_HANDLER_RE = /\son(?:click|dblclick|change|input|submit|reset|load|error|focus|blur|keydown|keyup|keypress|mouseover|mouseout|mouseenter|mouseleave|mousedown|mouseup|touchstart|touchend|contextmenu|scroll|wheel|dragstart|dragover|drop|paste|copy)\s*=\s*["'`]/gi;
+    for (const f of present) {
+      const src = read(path.join(PRO_JS, f));
+      const hits = (src.match(INLINE_HANDLER_RE) || []).length;
+      assert(f + ' has zero inline on*= handler strings', hits === 0,
+        'found ' + hits + ' inline handler attribute(s)');
+    }
+
+    // UI delegate: ONE delegated listener keyed on data-jt-action (the
+    // delegate must load on the page that renders the markup).
+    if (present.includes('job-templates-ui.js')) {
+      const ui = read(path.join(PRO_JS, 'job-templates-ui.js'));
+      assert('job-templates-ui.js uses data-jt-action attributes', /data-jt-action/.test(ui));
+      assert('job-templates-ui.js binds its delegated listener (addEventListener + data-jt-action)',
+        /addEventListener\(\s*['"](?:click|change|input)['"]/.test(ui) && /data-jt-action|jtAction/.test(ui));
+    } else {
+      console.log('  (skip — job-templates-ui.js delegate check awaits the file)');
+    }
+  }
+}
+
 };

@@ -8,11 +8,12 @@
   'use strict';
 
   const STORAGE_KEY = 'nbd_product_library';
-  // DATA_VERSION bumped 2→3 (2026-04-10) to invalidate stale caches
-  // that still hold only the 134 base products. When users reload
-  // with this version, seedDefaults() re-reads window.NBD_PRODUCTS
-  // which now includes the 88 RoofIVent products (total: 222).
-  const DATA_VERSION = 3;
+  // DATA_VERSION 4 (2026-07-19): catalog expanded with repair-scale,
+  // chimney, skylight, gutter-guard, maintenance, and exterior SKUs
+  // (188 base + 88 RoofIVent = 276). v4 also replaces the old
+  // wipe-on-mismatch reseed with migrateStore(), which merges fresh
+  // defaults with the user's created/edited products.
+  const DATA_VERSION = 4;
 
   // Pull from product-data.js globals
   const CATEGORIES = window.NBD_CATEGORIES || {};
@@ -28,6 +29,9 @@
   // ============================================================================
 
   let products = [];
+  // Store-level tombstones: ids the user HARD-deleted. Persisted as _deleted
+  // in the store so migrateStore never resurrects them from fresh defaults.
+  let deletedIds = [];
   let editingProduct = null;
   let currentFilter = { search: '', category: null, tier: null };
   let collapsedCategories = {}; // track which categories are collapsed
@@ -41,10 +45,11 @@
       const stored = localStorage.getItem(STORAGE_KEY);
       if (stored) {
         const parsed = JSON.parse(stored);
+        deletedIds = Array.isArray(parsed._deleted) ? parsed._deleted : [];
         if (parsed._v === DATA_VERSION) {
           products = parsed.items || [];
         } else {
-          seedDefaults();
+          migrateStore(Array.isArray(parsed.items) ? parsed.items : []);
         }
       } else {
         seedDefaults();
@@ -59,12 +64,40 @@
   function seedDefaults() {
     const now = new Date().toISOString();
     products = DEFAULT_PRODUCTS.map(p => ({ ...p, createdAt: now, updatedAt: now }));
+    deletedIds = []; // explicit reset restores everything, tombstones included
+    saveAll();
+  }
+
+  // Version-mismatch migration. Constraints (MUST NOT wipe user data —
+  // the pre-v4 reseed did):
+  //  - ids in _deleted tombstones = user hard-deleted → never resurrect
+  //  - stored ids NOT in fresh defaults = user-created → keep verbatim
+  //  - stored default ids with updatedAt !== createdAt = user-edited
+  //    (seedDefaults stamps them equal; only saveProduct/deleteProduct bump
+  //    updatedAt) → stored copy wins over the fresh default
+  //  - stored default ids with isActive === false = user-archived → keep
+  //    verbatim even if timestamps are equal (covers stores archived before
+  //    deleteProduct stamped updatedAt)
+  //  - everything else → fresh default, so new SKUs and data fixes land
+  function migrateStore(storedItems) {
+    const now = new Date().toISOString();
+    const tombstoned = new Set(deletedIds);
+    const byId = new Map();
+    DEFAULT_PRODUCTS.forEach(p => {
+      if (tombstoned.has(p.id)) return;
+      byId.set(p.id, { ...p, createdAt: now, updatedAt: now });
+    });
+    storedItems.forEach(p => {
+      if (!p || !p.id || tombstoned.has(p.id)) return;
+      if (!byId.has(p.id) || (p.updatedAt && p.updatedAt !== p.createdAt) || p.isActive === false) byId.set(p.id, p);
+    });
+    products = Array.from(byId.values());
     saveAll();
   }
 
   function saveAll() {
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify({ _v: DATA_VERSION, items: products }));
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({ _v: DATA_VERSION, items: products, _deleted: deletedIds }));
     } catch (e) {
       console.error('Product library save error:', e);
       showToast('Error saving products', 'error');
@@ -87,11 +120,20 @@
 
   function deleteProduct(id) {
     const idx = products.findIndex(p => p.id === id);
-    if (idx >= 0) { products[idx].isActive = false; saveAll(); }
+    if (idx >= 0) {
+      products[idx].isActive = false;
+      // Archiving IS an edit — stamp updatedAt so migrateStore treats the
+      // archived copy as user-touched and never resurrects the default.
+      products[idx].updatedAt = new Date().toISOString();
+      saveAll();
+    }
   }
 
   function hardDeleteProduct(id) {
     products = products.filter(p => p.id !== id);
+    // Tombstone the id so a future DATA_VERSION migration can't re-add it
+    // from fresh defaults.
+    if (deletedIds.indexOf(id) === -1) deletedIds.push(id);
     saveAll();
   }
 

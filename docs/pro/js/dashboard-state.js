@@ -51,6 +51,7 @@ const routeConfig = {
   'joe': { label: 'Ask Joe', parent: null },
   'board': { label: 'Leaderboard', parent: null },
   'products': { label: 'Products', parent: null },
+  'job-templates': { label: 'Job Templates', parent: null },
   'training': { label: 'Sales Training', parent: null },
   'settings': { label: 'Settings', parent: null },
   // W160: missing routes that left direct URLs / hard-refresh broken.
