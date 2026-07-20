@@ -389,13 +389,11 @@ function closeSavedInsights() {
 }
 
 /* ── Toast ── */
+// 2026-07-19 consolidation: delegates to the shared /pro/js/toast.js module
+// (dashboard contract, loaded by understand.html before this script).
+// Legacy local types map through: ok→success, err→error.
 function toast(msg, type) {
-  const wrap = document.getElementById('toastWrap');
-  const t = document.createElement('div');
-  t.className = 'toast ' + (type || '');
-  t.textContent = msg;
-  wrap.appendChild(t);
-  setTimeout(() => { t.style.opacity = '0'; t.style.transform = 'translateX(20px)'; setTimeout(() => t.remove(), 300); }, 3500);
+  window.showToast(msg, type === 'ok' ? 'success' : type === 'err' ? 'error' : (type || 'info'));
 }
 
 /* ── Helpers ── */

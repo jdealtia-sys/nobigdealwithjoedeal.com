@@ -82,13 +82,13 @@ window.loadData = async function() {
 
     render();
     document.getElementById('lastRefresh').textContent = 'Updated ' + new Date().toLocaleTimeString();
-    showToast('✓ Analytics refreshed · ' + allDocs.length + ' records');
+    showToast('✓ Analytics refreshed · ' + allDocs.length + ' records', 'success');
   } catch(e) {
     console.error('Analytics load error:', e);
     if (e.message?.includes('index')) {
-      showToast('⚠ Firestore index needed — check console');
+      showToast('⚠ Firestore index needed — check console', 'warning');
     } else {
-      showToast('⚠ ' + e.message);
+      showToast('⚠ ' + e.message, 'error');
     }
     renderEmpty();
   } finally {
@@ -257,12 +257,12 @@ function renderEmpty() {
   document.getElementById('chart').innerHTML = '<div class="empty"><div class="empty-icon">📈</div><div class="empty-title">No Data Yet</div><div class="empty-desc">API requests will appear here once the Cloud Function proxy is deployed and in use.<br><br>Deploy with: <code style="font-family:\'JetBrains Mono\',monospace;font-size:11px;color:var(--orange)">firebase deploy --only functions</code></div></div>';
 }
 
-function showToast(msg) {
-  const t = document.createElement('div');
-  t.className = 'toast';
-  t.textContent = msg;
-  document.body.appendChild(t);
-  setTimeout(() => { t.style.opacity = '0'; t.style.transition = 'opacity .3s'; setTimeout(() => t.remove(), 300); }, 3000);
+// 2026-07-19 consolidation: delegates to the shared /pro/js/toast.js module
+// (dashboard contract, loaded by analytics.html before this script). The old
+// local builder ignored type entirely; it now passes through
+// (success/error/warning/info, default info).
+function showToast(msg, type) {
+  window.showToast(msg, type);
 }
 
 // Cleanup

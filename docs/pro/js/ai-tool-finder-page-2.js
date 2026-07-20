@@ -100,12 +100,13 @@ document.addEventListener('click', (e) => {
 });
 
 // ── TOAST ──
+// 2026-07-19 consolidation: delegates to the shared /pro/js/toast.js module
+// (dashboard contract, loaded by ai-tool-finder.html before this script).
+// Legacy local types map through: green→success, red→error, blue→info.
+// Also fixes the stored-XSS bug here — the old builder interpolated ${msg}
+// into innerHTML; the shared module renders messages via textContent only.
 function toast(msg,type=''){
-  const c=g('tcon'),t=document.createElement('div');
-  t.className='toast'+(type?' '+type:'');
-  t.innerHTML=`<span>${type==='green'?'✓':type==='red'?'✕':type==='blue'?'◈':'◆'}</span><span>${msg}</span>`;
-  c.appendChild(t);
-  setTimeout(()=>{t.style.transition='.2s';t.style.opacity='0';t.style.transform='translateX(20px)';setTimeout(()=>t.remove(),200)},3200);
+  window.showToast(msg,{green:'success',red:'error',blue:'info'}[type]||'info');
 }
 
 // ── HEADER ──
