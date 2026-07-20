@@ -660,7 +660,10 @@ function closeWelcome(){document.getElementById('welcomeModal').style.display='n
 // (confirmed live 2026-06-10: class added, computed display stayed none).
 // Set the inline display to match the close path.
 function openWelcomeGuide(){const m=document.getElementById('welcomeModal');m.style.display='flex';openM('welcomeModal');}
-function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2400);}
+// 2026-07-19 consolidation: delegates to the shared /pro/js/toast.js module
+// (dashboard contract, loaded by index.html before this script). The old
+// #toast singleton here was always-green, so calls map to 'success'.
+function toast(msg){window.showToast(msg,'success');}
 
 // ═══════════════════════════════════════════
 // WIDGET BRIDGE — sync DS data → Home widget keys

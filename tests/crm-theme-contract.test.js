@@ -62,6 +62,41 @@ ok('theme-system defines --h (heading dialect alias)',
     /\.toast-container, #toast\.toast \{ bottom:calc\(72px/.test(s));
 }
 
+// 2b. Shared satellite toast module — stored-XSS contract.
+// Toast text routinely carries lead-supplied data (names, addresses,
+// error strings echoing a field value), and public-lead fields are
+// stored-XSS sources in this repo. The shared module MUST set the
+// message via textContent and MUST NOT build the toast body with
+// innerHTML. The satellite pages that used to ship divergent local
+// builders (one of which interpolated ${msg} straight into innerHTML)
+// must delegate here rather than re-growing their own.
+{
+  const t = read('docs/pro/js/toast.js');
+  ok('shared toast module sets the message via textContent',
+    /msg\.textContent\s*=\s*message/.test(t));
+  ok('shared toast module never assigns innerHTML',
+    !/\.innerHTML\s*=/.test(t));
+  ok('shared toast module registers dismiss via addEventListener (no inline on*=)',
+    /close\.addEventListener\('click'/.test(t) && !/\son[a-z]+\s*=\s*["']/.test(t));
+  ok('shared toast module yields to a page that already owns window.showToast',
+    /if\s*\(window\.showToast\)\s*return;/.test(t));
+
+  // The satellite pages must load the shared module...
+  const SATELLITES = [
+    'docs/pro/ai-tool-finder.html', 'docs/pro/analytics.html',
+    'docs/pro/understand.html', 'docs/pro/photo-review.html',
+    'docs/pro/vault.html', 'docs/pro/daily-success/index.html',
+  ];
+  for (const rel of SATELLITES) {
+    ok(rel + ' loads the shared toast module',
+      /<script src="\/pro\/js\/toast\.js/.test(read(rel)));
+  }
+
+  // ...and must not rebuild a local innerHTML toast body.
+  ok('ai-tool-finder toast no longer interpolates the message into innerHTML',
+    !/innerHTML\s*=\s*`[^`]*\$\{msg\}/.test(read('docs/pro/js/ai-tool-finder-page-2.js')));
+}
+
 // 3. pastel literals gone from the themed CRM surfaces
 {
   const surfaces = [

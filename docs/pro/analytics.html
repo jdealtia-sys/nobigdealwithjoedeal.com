@@ -124,9 +124,8 @@ body::before{content:'';position:fixed;top:0;right:0;bottom:0;left:0;background-
 .grid-2{display:grid;grid-template-columns:1fr 1fr;gap:20px}
 @media(max-width:900px){.grid-2{grid-template-columns:1fr}}
 
-/* TOAST */
-.toast{position:fixed;bottom:24px;right:24px;background:var(--s2);border:1px solid var(--border);border-radius:var(--r);padding:12px 20px;font-size:12px;color:var(--text);z-index:9999;animation:toastIn .3s var(--ease);box-shadow:0 8px 32px rgba(0,0,0,.4)}
-@keyframes toastIn{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+/* TOAST: shared /pro/js/toast.js module (dashboard contract) — local .toast
+   CSS removed in the 2026-07-19 consolidation */
 </style>
   <meta property="og:url" content="https://nobigdealwithjoedeal.com/pro/analytics">
 <link rel="stylesheet" href="/assets/css/nbd-mobile.css">
@@ -242,6 +241,7 @@ body::before{content:'';position:fixed;top:0;right:0;bottom:0;left:0;background-
 </div><!-- /container -->
 </div><!-- /app -->
 
+<script src="/pro/js/toast.js?v=1"></script>
 <script type="module" src="js/pages/pro-analytics.js"></script>
 </body>
 </html>

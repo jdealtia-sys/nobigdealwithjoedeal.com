@@ -237,13 +237,8 @@ body::after{content:'';position:fixed;top:-300px;right:-200px;width:800px;height
 .guide-desc{font-size:14px;color:var(--text2);line-height:1.6}
 .guide-nav-ref{font-family:'DM Mono',monospace;font-size:10px;color:var(--orange);margin-top:4px}
 
-/* ── TOAST ── */
-.tcon{position:fixed;bottom:20px;right:20px;z-index:500;display:flex;flex-direction:column;gap:6px}
-.toast{background:var(--card);border:1px solid var(--border);border-left:3px solid var(--orange);border-radius:var(--r);padding:10px 14px;display:flex;align-items:center;gap:10px;font-family:'DM Mono',monospace;font-size:11px;color:var(--text);box-shadow:0 8px 32px rgba(0,0,0,.5);animation:toastIn .25s var(--ease);min-width:220px}
-@keyframes toastIn{from{opacity:0;transform:translateX(20px)}to{opacity:1;transform:translateX(0)}}
-.toast.red{border-left-color:var(--red)}
-.toast.green{border-left-color:var(--green)}
-.toast.blue{border-left-color:var(--blue)}
+/* ── TOAST: shared /pro/js/toast.js module (dashboard contract) — local
+   .tcon/.toast CSS removed in the 2026-07-19 consolidation ── */
 
 /* ── MOBILE NAV ── */
 .mobile-nav-btn{display:none;background:none;border:1px solid var(--border2);color:var(--text2);width:34px;height:34px;border-radius:var(--r);cursor:pointer;font-size:16px;align-items:center;justify-content:center;flex-shrink:0}
@@ -1011,8 +1006,7 @@ body::after{content:'';position:fixed;top:-300px;right:-200px;width:800px;height
   </div>
 </div>
 
-<div class="tcon" id="tcon"></div>
-
+<script src="/pro/js/toast.js?v=1"></script>
 <script src="js/ai-tool-finder-page-2.js?v=1"></script>
 </body>
 </html>

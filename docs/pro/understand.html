@@ -134,12 +134,8 @@ body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellips
 .si-clear{background:none;border:1px solid var(--bdr2);color:var(--tx3);font-size:11px;padding:5px 12px;border-radius:var(--r);cursor:pointer;transition:all .15s;margin-top:12px}
 .si-clear:hover{color:var(--red);border-color:var(--red)}
 
-/* ── TOAST ── */
-.toast-wrap{position:fixed;bottom:20px;right:20px;z-index:600;display:flex;flex-direction:column;gap:6px}
-.toast{background:var(--s1);border:1px solid var(--bdr);border-left:3px solid var(--or);border-radius:var(--r);padding:10px 14px;font-size:12px;color:var(--tx);box-shadow:0 8px 24px rgba(0,0,0,0.5);animation:toastIn .25s var(--ease);max-width:320px}
-@keyframes toastIn{from{opacity:0;transform:translateX(20px)}to{opacity:1;transform:none}}
-.toast.ok{border-left-color:var(--grn)}
-.toast.err{border-left-color:var(--red)}
+/* ── TOAST: shared /pro/js/toast.js module (dashboard contract) — local
+   .toast-wrap/.toast CSS removed in the 2026-07-19 consolidation ── */
 
 /* ── MOBILE ── */
 @media(max-width:640px){
@@ -239,10 +235,8 @@ body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellips
   <button type="button" class="si-clear" id="siClearBtn" style="display:none" data-action="clear-insights">Clear All</button>
 </div>
 
-<!-- TOAST -->
-<div class="toast-wrap" id="toastWrap"></div>
-
 <script src="js/claude-proxy.js?v=3"></script>
+<script src="/pro/js/toast.js?v=1"></script>
 <script src="js/pages/understand.js"></script>
 </body>
 </html>
