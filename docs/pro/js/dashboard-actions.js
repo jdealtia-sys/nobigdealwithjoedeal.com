@@ -519,16 +519,6 @@ function goTo(name, params = {}) {
       else if (jc && typeof window.renderJobTemplatesLibrary === 'function') { jc.innerHTML = window.renderJobTemplatesLibrary(); }
     });
   }
-  if(name==='docs') {
-    // Upgrade docs view with template suite if available
-    if (typeof window.NBDTemplateSuite !== 'undefined' && window.NBDTemplateSuite.render) {
-      const docsView = document.querySelector('#view-docs .view-scroll');
-      if (docsView && !docsView.dataset.suiteLoaded) {
-        docsView.innerHTML = window.NBDTemplateSuite.render();
-        docsView.dataset.suiteLoaded = '1';
-      }
-    }
-  }
   if(name==='reports') {
     // rep-report-generator is lazy-loaded via ScriptLoader.preloadForView.
     // Chain init so it runs once the module has registered NBDReports.
