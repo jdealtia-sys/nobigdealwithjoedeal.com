@@ -5928,9 +5928,12 @@
       </div>
     </div>
 
-    <!-- Single 6-button action grid — uniform sizing, ghost styling.
-         Three rows of 2 on mobile, two rows of 3 on tablet+, one row of 6
-         on wide screens. Driven by .cd-actions auto-fill. -->
+    <!-- Single 7-button action grid — uniform sizing, ghost styling.
+         Wraps by .cd-actions auto-fill (2-up mobile → full row wide).
+         "Template Quote" = Job Templates lead-context entry: opens the
+         template picker with this lead pre-selected in the create step
+         (openJobTemplatesForLead, dashboard-widgets.js — load-then-run
+         over the lazy estimates bundle). -->
     <div class="cd-actions">
       <button class="cd-action-btn" data-action="call" data-fn="openPhotosForLead">
         <span class="cd-action-icon">📸</span><span>Photos</span>
@@ -5943,6 +5946,9 @@
       </button>
       <button class="cd-action-btn" data-action="call" data-fn="cdaPhotos">
         <span class="cd-action-icon">📷</span><span>Camera</span>
+      </button>
+      <button class="cd-action-btn" data-action="call" data-fn="openJobTemplatesForLead" title="Quote from a job template — pre-built scope, this customer pre-selected">
+        <span class="cd-action-icon">🧾</span><span>Template Quote</span>
       </button>
       <button class="cd-action-btn" data-action="call" data-fn="cdaInvoice">
         <span class="cd-action-icon">💰</span><span>Invoice</span>

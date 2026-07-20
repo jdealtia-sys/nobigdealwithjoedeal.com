@@ -102,6 +102,7 @@
     host: 'view',            // 'view' (dashboard container) | 'modal' (picker)
     forScope: false,
     scopeCb: null,
+    leadId: null,            // lead-context entry (openPicker({leadId})) — pre-selects the lead in the create step
     createdId: null,
     createdName: '',
     lastResolved: null,
@@ -515,6 +516,18 @@
       '.jt-pill{padding:6px 12px;border-radius:20px;border:2px solid var(--br,#2a2f35);background:transparent;color:var(--t,#e8eaf0);cursor:pointer;font-size:12px;font-weight:500;font-family:inherit;white-space:nowrap;-webkit-tap-highlight-color:transparent;}',
       '.jt-pill .ct{background:var(--br,#2a2f35);color:var(--m,#9aa3ad);border-radius:10px;padding:1px 7px;font-size:11px;margin-left:4px;}',
       '.jt-pill.on{font-weight:700;}',
+      // ── Recently-used strip (compact horizontal cards above the grid) ──
+      '.jt-recent{margin-bottom:16px;}',
+      '.jt-recent-hdr{font-size:11px;font-weight:700;color:var(--m,#9aa3ad);text-transform:uppercase;letter-spacing:.12em;margin-bottom:8px;}',
+      '.jt-recent-row{display:flex;gap:8px;overflow-x:auto;padding-bottom:4px;-webkit-overflow-scrolling:touch;}',
+      '.jt-recent-card{flex:0 0 auto;display:flex;align-items:center;gap:9px;background:var(--s,#111418);border:1px solid var(--br,#2a2f35);border-left-width:3px;border-radius:8px;padding:8px 12px;cursor:pointer;color:var(--t,#e8eaf0);font-family:inherit;text-align:left;max-width:240px;-webkit-tap-highlight-color:transparent;touch-action:manipulation;}',
+      '.jt-recent-card:hover{border-color:var(--orange,#e8720c);}',
+      '.jt-recent-card.sel{outline:2px solid var(--orange,#e8720c);outline-offset:-1px;}',
+      '.jt-recent-ic{font-size:16px;}',
+      '.jt-recent-name{display:block;font-size:12.5px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:170px;}',
+      '.jt-recent-meta{display:block;font-size:10px;color:var(--m,#9aa3ad);margin-top:1px;}',
+      '.jt-recent-check{color:var(--orange,#e8720c);font-weight:800;font-size:13px;}',
+      '.jt-used-chip{opacity:.85;}',
       '.jt-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px;padding-bottom:96px;}',
       '@media (max-width:640px){.jt-grid{grid-template-columns:1fr;}.jt-wrap{padding:12px;}}',
       '.jt-card{position:relative;background:var(--s,#111418);border:1px solid var(--br,#2a2f35);border-left-width:4px;border-radius:10px;padding:14px;display:flex;flex-direction:column;gap:8px;transition:box-shadow .15s;}',
@@ -674,6 +687,7 @@
     if (e) e.classList.remove('open');
     state.step = 'library';
     state.creating = false;
+    state.leadId = null; // lead context is per-open, never sticky
     if (state.host === 'modal') {
       state.host = 'view';
       state.forScope = false;
@@ -769,6 +783,8 @@
       '<div class="jt-chips">' +
         '<span class="jt-chip">' + items + ' item' + (items === 1 ? '' : 's') + '</span>' +
         (t.durationHint ? '<span class="jt-chip">⏱ ' + esc(t.durationHint) + '</span>' : '') +
+        // Subtle stickiness signal — list() stamps useCount from the usage map.
+        (Number(t.useCount) > 0 ? '<span class="jt-chip jt-used-chip">used ' + Number(t.useCount) + '×</span>' : '') +
         tags +
       '</div>' +
       '<div class="jt-card-foot">' +
@@ -779,6 +795,35 @@
           (custom ? '<button type="button" class="jt-btn jt-btn-sm jt-btn-danger" data-jt-action="delete-template" data-id="' + esc(t.id) + '">Delete</button>' : '') +
         '</div>' +
       '</div>' +
+      '</div>';
+  }
+
+  // "Recently used" strip — top 6 by lastUsedAt (list() overlays the usage
+  // map), compact cards, hidden entirely when nothing has been used yet.
+  // Tapping a card toggles selection (same effect as the grid checkbox).
+  function renderRecentStrip() {
+    var recent = allTemplates()
+      .filter(function (t) { return t && Number(t.useCount) > 0 && t.lastUsedAt != null; })
+      .sort(function (a, b) { return Number(b.lastUsedAt || 0) - Number(a.lastUsedAt || 0); })
+      .slice(0, 6);
+    if (!recent.length) return '';
+    var cards = recent.map(function (t) {
+      var col = catColor(t.category);
+      var sel = isSelected(t.id);
+      return '<button type="button" class="jt-recent-card' + (sel ? ' sel' : '') + '" ' +
+        'data-jt-action="quick-select" data-id="' + esc(t.id) + '" ' +
+        'style="border-left-color:' + esc(col) + ';" aria-label="Select ' + esc(t.name) + '">' +
+        '<span class="jt-recent-ic">' + esc(catIcon(t.category)) + '</span>' +
+        '<span style="min-width:0;">' +
+          '<span class="jt-recent-name">' + esc(t.name) + '</span>' +
+          '<span class="jt-recent-meta">used ' + Number(t.useCount) + '×</span>' +
+        '</span>' +
+        (sel ? '<span class="jt-recent-check">✓</span>' : '') +
+        '</button>';
+    }).join('');
+    return '<div class="jt-recent">' +
+      '<div class="jt-recent-hdr">🕘 Recently used</div>' +
+      '<div class="jt-recent-row">' + cards + '</div>' +
       '</div>';
   }
 
@@ -818,6 +863,7 @@
       '</div>' + hdrBtns + '</div>' +
       renderStats(list) +
       renderPills() +
+      renderRecentStrip() +
       (cards ? '<div class="jt-grid">' + cards + '</div>'
              : '<div class="jt-empty">No templates match your filters.</div>') +
       renderStickyBar() +
@@ -1165,7 +1211,12 @@
       ? '<div class="fld"><span class="jt-mini-lbl">Lead (optional)</span>' +
         '<select class="jt-in" id="jtLeadSel" style="width:100%;">' +
         '<option value="">— No lead —</option>' +
-        leads.map(function (l) { return '<option value="' + esc(l.id) + '">' + esc(l.label) + '</option>'; }).join('') +
+        leads.map(function (l) {
+          // Lead-context flow: openPicker/openPreconfirm({leadId}) staged
+          // the lead — pre-select it so "create" links without re-picking.
+          var on = state.leadId !== null && String(state.leadId) === l.id;
+          return '<option value="' + esc(l.id) + '"' + (on ? ' selected' : '') + '>' + esc(l.label) + '</option>';
+        }).join('') +
         '</select></div>'
       : '';
 
@@ -1349,7 +1400,12 @@
   // Flow actions
   // ══════════════════════════════════════════════════════════════════════
 
-  function openPreconfirm() {
+  // Both entries accept an optional { leadId } (lead-context flow — the
+  // dashboard card-detail "Template Quote" action): the create step's lead
+  // select pre-selects that lead. Plain calls (no opts) keep any leadId
+  // already staged by openPicker.
+  function openPreconfirm(opts) {
+    if (opts && opts.leadId) state.leadId = String(opts.leadId);
     if (!state.selected.length) { toast('Select at least one template first', 'error'); return; }
     ensureChoices();
     seedMeasurements();
@@ -1358,10 +1414,11 @@
     paintModal();
   }
 
-  function openPicker() {
+  function openPicker(opts) {
     state.host = 'modal';
     state.forScope = false;
     state.scopeCb = null;
+    state.leadId = (opts && opts.leadId) ? String(opts.leadId) : null;
     state.step = 'library';
     showModal();
     paintModal();
@@ -1535,6 +1592,10 @@
           state.selected = [];
           state.choices = {};
           reRender();
+          break;
+        // Recently-used compact card — toggles selection like the checkbox.
+        case 'quick-select':
+          if (id) { toggleSelect(id, !isSelected(id)); reRender(); }
           break;
         case 'open-preconfirm': openPreconfirm(); break;
         case 'new-template': openEditor(null); break;

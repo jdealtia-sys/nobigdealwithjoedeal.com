@@ -1021,6 +1021,41 @@ function closeCardDetailModal() {
 }
 window.closeCardDetailModal = closeCardDetailModal;
 
+// ── "Template Quote" card-detail action (Job Templates lead-context entry) ──
+// The templates engine/UI ride the LAZY 'estimates' bundle (script-loader.js),
+// so this action can fire before the bundle exists. Same load-then-run shape
+// as the startNewEstimate / openEstimateV2Builder stubs in
+// dashboard-actions.js: load the bundle, then run the real entry, else toast.
+// Passes { leadId } so JobTemplatesUI.openPicker pre-selects the lead in the
+// create step. leadId falls back to the open card-detail's lead.
+function openJobTemplatesForLead(leadId) {
+  const id = (typeof leadId === 'string' && leadId)
+    ? leadId
+    : (window._cardDetailLeadId || null);
+  const run = () => {
+    if (window.JobTemplatesUI && typeof window.JobTemplatesUI.openPicker === 'function') {
+      window.JobTemplatesUI.openPicker(id ? { leadId: id } : {});
+    } else if (typeof showToast === 'function') {
+      showToast('Templates are still loading — try again in a moment', 'warning');
+    }
+  };
+  if (window.JobTemplatesUI && typeof window.JobTemplatesUI.openPicker === 'function') {
+    run();
+    return;
+  }
+  if (window.ScriptLoader && typeof window.ScriptLoader.loadBundle === 'function') {
+    window.ScriptLoader.loadBundle('estimates').then(run);
+  } else {
+    run(); // no loader yet → degrades to the still-loading toast
+  }
+}
+// Markup-only entry → registry, off window (Tranche 2c pattern; the
+// Object.assign block shape is what the smoke wiring audit recognizes).
+window.__NBD_CALL_REGISTRY = window.__NBD_CALL_REGISTRY || Object.create(null);
+Object.assign(window.__NBD_CALL_REGISTRY, {
+  openJobTemplatesForLead: openJobTemplatesForLead
+});
+
 // ══════════════════════════════════════════════════════════════════════
 // Wave 2B — Mobile job-detail screen
 //

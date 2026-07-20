@@ -12,6 +12,11 @@
   if (typeof window === 'undefined') return;
 
   const STORAGE_KEY = 'nbd_job_templates_v1';
+  const USAGE_KEY = 'nbd_jt_usage_v1';
+  // Usage rollup lives as ONE sibling doc in the same subcollection as the
+  // template mirror docs. Hydration MUST skip this id when loading
+  // templates (it is not a template) and route it to the usage map.
+  const USAGE_DOC_ID = '_usage';
   const DATA_VERSION = 1;
 
   // Fallback taxonomy — job-templates-data.js may not be loaded yet (lazy
@@ -108,6 +113,78 @@
   }
 
   // ═════════════════════════════════════════════════════════
+  // Usage tracking — {templateId: {n, last}} in localStorage,
+  // mirrored as ONE doc users/{uid}/jobTemplates/_usage.
+  // Stamped on every successful createEstimate / insertIntoV2;
+  // surfaced through list() as useCount / lastUsedAt.
+  // ═════════════════════════════════════════════════════════
+
+  function loadUsage() {
+    const ls = storage();
+    if (!ls) return {};
+    try {
+      const stored = ls.getItem(USAGE_KEY);
+      if (!stored) return {};
+      const parsed = JSON.parse(stored);
+      return (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) ? parsed : {};
+    } catch (e) {
+      return {};
+    }
+  }
+
+  function persistUsage(usage) {
+    const ls = storage();
+    if (ls) {
+      try { ls.setItem(USAGE_KEY, JSON.stringify(usage)); }
+      catch (e) { console.error('[JobTemplates] usage save error:', e); }
+    }
+    mirrorUsage(usage);
+  }
+
+  // Best-effort one-way usage mirror — plain set (NOT merge): the local map
+  // is the post-LWW merged truth, so overwriting keeps pruned entries dead.
+  function mirrorUsage(usage) {
+    if (!window._db || !window._user || !window._user.uid) return;
+    if (typeof window.doc !== 'function') return;
+    try {
+      const ref = window.doc(window._db, 'users', window._user.uid, 'jobTemplates', USAGE_DOC_ID);
+      const payload = { kind: 'usage', usage: usage, updatedAt: new Date().toISOString() };
+      let p = null;
+      if (typeof window.setDoc === 'function') {
+        p = window.setDoc(ref, payload);
+      } else if (typeof window.writeBatch === 'function') {
+        const batch = window.writeBatch(window._db);
+        batch.set(ref, payload);
+        p = batch.commit();
+      }
+      if (p && typeof p.catch === 'function') {
+        p.catch(e => console.error('[JobTemplates] usage mirror failed:', e));
+      }
+    } catch (e) {
+      console.error('[JobTemplates] usage mirror failed:', e);
+    }
+  }
+
+  // Stamp {n++, last: now} for each involved template. Never throws —
+  // usage is telemetry and must not fail the estimate that triggered it.
+  function markUsed(templateIds) {
+    try {
+      const ids = (Array.isArray(templateIds) ? templateIds : [templateIds]).filter(Boolean);
+      if (!ids.length) return;
+      const usage = loadUsage();
+      const now = Date.now();
+      ids.forEach(id => {
+        const prev = usage[id];
+        const n = prev && isFinite(Number(prev.n)) && Number(prev.n) > 0 ? Number(prev.n) : 0;
+        usage[id] = { n: n + 1, last: now };
+      });
+      persistUsage(usage);
+    } catch (e) {
+      console.error('[JobTemplates] markUsed failed:', e);
+    }
+  }
+
+  // ═════════════════════════════════════════════════════════
   // Merged read model — defaults + customs, customs win on id.
   // ═════════════════════════════════════════════════════════
 
@@ -117,6 +194,17 @@
 
   function list() {
     const customs = loadCustoms();
+    const usage = loadUsage();
+    // SHALLOW COPY per entry: usage fields are a read-model overlay, never
+    // mutated onto the shared default objects or the stored customs
+    // (saveCustom strips them so persisted data stays canonical).
+    const withUsage = (t) => {
+      const u = t && t.id ? usage[t.id] : null;
+      return Object.assign({}, t, {
+        useCount: u && isFinite(Number(u.n)) && Number(u.n) > 0 ? Number(u.n) : 0,
+        lastUsedAt: u && u.last != null && isFinite(Number(u.last)) ? Number(u.last) : null
+      });
+    };
     const customById = {};
     customs.forEach(t => { if (t && t.id) customById[t.id] = t; });
     const merged = [];
@@ -124,10 +212,10 @@
     defaults().forEach(t => {
       if (!t || !t.id) return;
       seen[t.id] = true;
-      merged.push(customById[t.id] || t);
+      merged.push(withUsage(customById[t.id] || t));
     });
     customs.forEach(t => {
-      if (t && t.id && !seen[t.id]) merged.push(t);
+      if (t && t.id && !seen[t.id]) merged.push(withUsage(t));
     });
     return merged;
   }
@@ -182,6 +270,11 @@
     const customs = loadCustoms();
     const now = new Date().toISOString();
     const clean = JSON.parse(JSON.stringify(tpl)); // detach from caller/defaults
+    // Usage fields are a list()-time overlay (localStorage map) — never
+    // persist them into the stored template (duplicate()/edit flows pass
+    // list() copies that carry them).
+    delete clean.useCount;
+    delete clean.lastUsedAt;
     if (!clean.id) clean.id = genId(clean.name);
     const isDefaultId = defaults().some(d => d && d.id === clean.id);
     if (isDefaultId && !clean.basedOn) clean.basedOn = clean.id;
@@ -222,6 +315,15 @@
     if (idx === -1) return false;
     customs.splice(idx, 1);
     persistCustoms(customs);
+    // Drop the usage entry too — but ONLY for template ids that vanish
+    // entirely. Removing a shadow restores the default under the same id,
+    // and its usage history still belongs to that template.
+    try {
+      if (!defaults().some(d => d && d.id === id)) {
+        const usage = loadUsage();
+        if (usage[id]) { delete usage[id]; persistUsage(usage); }
+      }
+    } catch (e) { /* usage cleanup is best-effort */ }
     try {
       if (window._db && window._user && window._user.uid
           && typeof window.deleteDoc === 'function' && typeof window.doc === 'function') {
@@ -310,6 +412,138 @@
   // session that happened to run insertIntoV2. Re-run after saveCustom.
   function registerAllCustomItems() {
     list().forEach(registerCustomItems);
+  }
+
+  // ═════════════════════════════════════════════════════════
+  // Cloud hydration — Firestore-first sync for custom templates.
+  // ═════════════════════════════════════════════════════════
+
+  function tplTime(t) {
+    const v = t && t.updatedAt;
+    if (!v) return 0;
+    const ms = Date.parse(v);
+    return isFinite(ms) ? ms : 0;
+  }
+
+  /**
+   * hydrateFromCloud() — pull users/{uid}/jobTemplates ONCE at init (no
+   * listeners) and merge into local storage:
+   *   - custom templates: last-write-wins by updatedAt (ISO). Cloud must be
+   *     STRICTLY newer to replace local; ties keep local (they're the same
+   *     write echoed back). Cloud-only docs land locally (new device);
+   *     local-side winners (offline edits / never-mirrored customs) are
+   *     mirrored back up. Write-through stays on saveCustom/remove.
+   *   - the _usage doc id is NEVER a template: it routes into the usage
+   *     map with per-entry LWW by .last, and mirrors back up only when the
+   *     local side had newer entries.
+   *   - offline / logged out / SDK not ready: resolves false, local state
+   *     untouched.
+   * Custom-item JT codes re-register after the merge so estimates saved on
+   * ANOTHER device resolve their 'JT *' rows in this session.
+   * Returns Promise<boolean> (true = a cloud merge ran).
+   */
+  function hydrateFromCloud() {
+    if (!window._db || !window._user || !window._user.uid) return Promise.resolve(false);
+    if (typeof window.getDocs !== 'function' || typeof window.collection !== 'function') {
+      return Promise.resolve(false);
+    }
+    let pull;
+    try {
+      pull = window.getDocs(window.collection(window._db, 'users', window._user.uid, 'jobTemplates'));
+    } catch (e) {
+      console.error('[JobTemplates] cloud hydrate failed:', e);
+      return Promise.resolve(false);
+    }
+    return Promise.resolve(pull).then(snap => {
+      const cloudTpls = [];
+      let cloudUsage = null;
+      const eachDoc = (d) => {
+        if (!d) return;
+        let data = null;
+        try { data = typeof d.data === 'function' ? d.data() : null; } catch (e) { data = null; }
+        if (!data || typeof data !== 'object') return;
+        if (d.id === USAGE_DOC_ID) {
+          // Usage rollup doc — route to the usage map, never the template list.
+          cloudUsage = (data.usage && typeof data.usage === 'object') ? data.usage : {};
+          return;
+        }
+        if (!data.id) data.id = d.id;
+        cloudTpls.push(data);
+      };
+      if (snap && typeof snap.forEach === 'function') snap.forEach(eachDoc);
+      else if (snap && Array.isArray(snap.docs)) snap.docs.forEach(eachDoc);
+
+      // ── Custom templates: LWW by updatedAt ──
+      const locals = loadCustoms();
+      const byId = {};
+      const order = [];
+      locals.forEach(t => {
+        if (t && t.id) { byId[t.id] = { tpl: t, src: 'local' }; order.push(t.id); }
+      });
+      const cloudTime = {};
+      cloudTpls.forEach(t => {
+        if (!t || !t.id) return;
+        cloudTime[t.id] = tplTime(t);
+        const cur = byId[t.id];
+        if (!cur) { byId[t.id] = { tpl: t, src: 'cloud' }; order.push(t.id); return; }
+        if (tplTime(t) > tplTime(cur.tpl)) byId[t.id] = { tpl: t, src: 'cloud' };
+      });
+      const merged = order.map(id => byId[id].tpl);
+      // Local winners the cloud is missing (or holds stale) — push back up.
+      const toUpload = merged.filter(t => byId[t.id].src === 'local'
+        && (cloudTime[t.id] === undefined || tplTime(t) > cloudTime[t.id]));
+
+      // Persist the merged view locally WITHOUT persistCustoms (its blanket
+      // mirror would rewrite every cloud doc on every boot) …
+      const ls = storage();
+      if (ls) {
+        try { ls.setItem(STORAGE_KEY, JSON.stringify({ _v: DATA_VERSION, items: merged })); }
+        catch (e) { console.error('[JobTemplates] hydrate save error:', e); }
+      }
+      // … then mirror ONLY the local-side winners.
+      if (toUpload.length) mirrorToFirestore(toUpload);
+
+      // ── Usage map: per-entry LWW by .last ──
+      if (cloudUsage) {
+        const localUsage = loadUsage();
+        const mergedUsage = {};
+        let localNewer = false;
+        const keys = {};
+        Object.keys(localUsage).forEach(k => { keys[k] = 1; });
+        Object.keys(cloudUsage).forEach(k => { keys[k] = 1; });
+        Object.keys(keys).forEach(k => {
+          const l = localUsage[k], c = cloudUsage[k];
+          const lLast = l && isFinite(Number(l.last)) ? Number(l.last) : 0;
+          const cLast = c && isFinite(Number(c.last)) ? Number(c.last) : 0;
+          const win = (lLast >= cLast) ? (l || c) : c;
+          if (!win) return;
+          mergedUsage[k] = {
+            n: isFinite(Number(win.n)) && Number(win.n) > 0 ? Number(win.n) : 0,
+            last: isFinite(Number(win.last)) ? Number(win.last) : null
+          };
+          if (l && (lLast > cLast || !c)) localNewer = true;
+        });
+        if (ls) {
+          try { ls.setItem(USAGE_KEY, JSON.stringify(mergedUsage)); }
+          catch (e) { /* usage save is best-effort */ }
+        }
+        if (localNewer) mirrorUsage(mergedUsage);
+      }
+
+      // Re-bridge JT codes for every (possibly just-pulled) custom item so
+      // saved estimates from other devices resolve on reopen HERE.
+      registerAllCustomItems();
+      // Repaint the library if the UI is live (guarded — the engine may
+      // load standalone; reRender only repaints hosts that exist).
+      if (window.JobTemplatesUI && typeof window.JobTemplatesUI.reRender === 'function') {
+        try { window.JobTemplatesUI.reRender(); } catch (e) { /* UI's problem */ }
+      }
+      return true;
+    }).catch(e => {
+      // Offline / rules denial / transient — keep local state untouched.
+      console.error('[JobTemplates] cloud hydrate failed:', e);
+      return false;
+    });
   }
 
   // ═════════════════════════════════════════════════════════
@@ -628,6 +862,9 @@
     }
     window._editingEstimateId = null;
     const id = await window._saveEstimate(payload);
+    // Stickiness: only AFTER the save resolves — a failed save must not
+    // inflate useCount. markUsed never throws (usage is telemetry).
+    markUsed(resolved.sourceTemplates);
     return id;
   }
 
@@ -657,9 +894,11 @@
     let minJobCharge = null;
     let anyPriceOverride = false;
 
+    const usedIds = [];
     sel.forEach(entry => {
       const tpl = get(entry.templateId);
       if (!tpl) return;
+      usedIds.push(tpl.id);
       registerCustomItems(tpl);
       // Partial template measurements overlay in selection order; the
       // caller's opts.measurements merge LAST below. No defaults base here —
@@ -723,6 +962,10 @@
       measurements = Object.assign(measurements || {}, opts.measurements);
     }
 
+    // Stickiness: entries were built for these templates — stamp usage
+    // whether the V2 UI consumes them or the caller gets the raw result.
+    if (usedIds.length) markUsed(usedIds);
+
     if (window.EstimateV2UI && typeof window.EstimateV2UI.addScopeEntries === 'function') {
       const result = window.EstimateV2UI.addScopeEntries(entries, measurements, { minJobCharge }) || {};
       return Object.assign({}, result, {
@@ -747,6 +990,8 @@
 
   const JobTemplates = {
     STORAGE_KEY,
+    USAGE_KEY,
+    USAGE_DOC_ID,
     DATA_VERSION,
     SINGLETON_CODES,
 
@@ -761,6 +1006,7 @@
 
     registerCustomItems,
     registerAllCustomItems,
+    hydrateFromCloud,
     resolveSelection,
     buildEstimatePayload,
     createEstimate,
@@ -782,6 +1028,15 @@
     registerAllCustomItems();
   } catch (e) {
     console.error('[JobTemplates] custom-item bridge failed:', e);
+  }
+
+  // Firestore-first sync: one-shot cloud pull at init (fire-and-forget —
+  // hydrateFromCloud guards _db/_user/getDocs itself and resolves false
+  // when the SDK isn't ready, so a standalone/offline load is a no-op).
+  try {
+    hydrateFromCloud();
+  } catch (e) {
+    console.error('[JobTemplates] cloud hydrate failed:', e);
   }
 
   console.log('[JobTemplates] engine ready (' + defaults().length + ' default templates).');
