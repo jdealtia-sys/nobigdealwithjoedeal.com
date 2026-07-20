@@ -10,11 +10,12 @@ function openEditCustomerModal() {
   document.getElementById('editDamageType').value = lead.damageType || lead.serviceType || '';
   document.getElementById('editJobValue').value = lead.jobValue || lead.estimatedValue || '';
   const modal = document.getElementById('editCustomerModal');
-  modal.style.display = 'flex';
+  // Cert-round rule: modal open/close is class-toggled, never inline display.
+  modal.classList.add('active');
 }
 
 function closeEditCustomerModal() {
-  document.getElementById('editCustomerModal').style.display = 'none';
+  document.getElementById('editCustomerModal').classList.remove('active');
 }
 
 async function saveCustomerEdits() {

@@ -741,7 +741,7 @@ const updateCalEmbed = function() {
         'border-radius:0 0 10px 10px;">' +
         '<div data-state-loading style="display:flex;flex-direction:column;align-items:center;gap:14px;">' +
           '<div style="width:36px;height:36px;border-radius:50%;' +
-            'border:3px solid #2a3344;border-top-color:#e8720c;' +
+            'border:3px solid var(--br);border-top-color:var(--orange);' +
             'animation:nbdCalEmbedSpin 0.9s linear infinite;"></div>' +
           '<div style="font-size:13px;color:var(--m,#9aa3b2);">Loading calendar…</div>' +
         '</div>' +
@@ -755,7 +755,7 @@ const updateCalEmbed = function() {
           '<a href="' + src + '" target="_blank" rel="noopener" style="' +
             'display:inline-flex;align-items:center;gap:6px;' +
             'padding:8px 14px;border-radius:7px;' +
-            'background:var(--orange,#e8720c);color:#fff;' +
+            'background:var(--orange);color:var(--accent-fg,#fff);' +
             'text-decoration:none;font-size:12px;font-weight:700;' +
             'letter-spacing:.04em;text-transform:uppercase;' +
             '-webkit-tap-highlight-color:transparent;">Open in new tab ↗</a>' +
@@ -829,6 +829,19 @@ const shareCalViaEmail = function() {
 // TOAST
 // ══════════════════════════════════════════════
 function showToast(msg, type='success') {
+  // Batch-2 consolidation note (do NOT re-add a "delegate to ui.js" guard
+  // here): this file and js/ui.js are BOTH classic non-module scripts, so
+  // each top-level `function showToast` declaration binds the same global
+  // object property. Inside this function the identifier `showToast` and
+  // `window.showToast` are therefore one and the same binding — a
+  // `window.showToast !== showToast` check can never be true, and any such
+  // block is unreachable.
+  //
+  // ui.js is the single toast owner in practice: it is `defer`red AFTER
+  // this file (dashboard.html), so its hoisted declaration wins the global
+  // and every bare `showToast(...)` call site resolves to the container
+  // system. This legacy #toast singleton queue survives only for surfaces
+  // that load dashboard-ui.js without ui.js.
   toastQueue.push({ msg, type });
   if (!toastActive) processToastQueue();
 }
@@ -1371,7 +1384,7 @@ const openUploadDoc = function(){
     var btn = document.createElement('button');
     btn.textContent = 'Blank';
     btn.title = 'Print a blank copy to fill by hand';
-    btn.style.cssText = 'background:var(--s2);border:1px solid var(--br);color:var(--m);padding:4px 10px;border-radius:4px;font-size:10px;font-weight:600;cursor:pointer;white-space:nowrap;flex-shrink:0;transition:all .15s;';
+    btn.style.cssText = 'background:var(--s2);border:1px solid var(--br);color:var(--m);padding:4px 10px;border-radius:4px;font-size:10px;font-weight:600;cursor:pointer;white-space:nowrap;flex-shrink:0;transition:background var(--t-fast),color var(--t-fast),border-color var(--t-fast);';
     btn.addEventListener('mouseenter', function() { btn.style.borderColor = 'var(--orange)'; btn.style.color = 'var(--orange)'; });
     btn.addEventListener('mouseleave', function() { btn.style.borderColor = 'var(--br)'; btn.style.color = 'var(--m)'; });
     btn.addEventListener('click', function(e) {
@@ -1459,7 +1472,7 @@ function setKanbanDensity(d) {
   document.querySelectorAll('.kdens-btn').forEach(b => {
     const active = b.dataset.density === d;
     b.style.background = active ? 'var(--orange)' : 'var(--s)';
-    b.style.color = active ? '#fff' : 'var(--m)';
+    b.style.color = active ? 'var(--accent-fg,#fff)' : 'var(--m)';
     b.style.borderColor = active ? 'var(--orange)' : 'var(--br)';
   });
 }
@@ -1630,7 +1643,7 @@ function nbdComfortRefresh() {
     else if (kind === 'size') active = (val === size);
     if (active) {
       b.style.background = 'var(--orange)';
-      b.style.color = '#fff';
+      b.style.color = 'var(--accent-fg,#fff)';
       b.style.borderColor = 'var(--orange)';
     } else {
       b.style.background = 'var(--s)';
@@ -2086,7 +2099,7 @@ function dsRenderFloors() {
 
     const rm = document.createElement('button');
     rm.textContent = '×';
-    rm.style.cssText = 'background:transparent;border:none;cursor:pointer;color:#c04040;font-size:17px;line-height:1;padding:0;width:28px;text-align:center;';
+    rm.style.cssText = 'background:transparent;border:none;cursor:pointer;color:var(--red);font-size:17px;line-height:1;padding:0;width:28px;text-align:center;';
     rm.addEventListener('click', () => dsRemoveFloor(i));
 
     row.append(label, target, unit, rm);
@@ -2102,7 +2115,7 @@ function dsBuildThemeGrid() {
       cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:5px;
       padding:10px 6px;border-radius:6px;border:2px solid ${t.key===dsSelectedTheme?'var(--orange)':'var(--br)'};
       background:${t.key===dsSelectedTheme?'color-mix(in srgb, var(--orange) 8%, transparent)':'var(--s2)'};
-      transition:all .15s;
+      transition:border-color var(--t-fast),background var(--t-fast);
     ">
       <span style="width:18px;height:18px;border-radius:50%;background:${t.dot};display:block;flex-shrink:0;"></span>
       <span style="font-size:10px;font-family:'Barlow Condensed',sans-serif;letter-spacing:.04em;color:var(--t);text-align:center;white-space:nowrap;">${t.label}</span>
@@ -2421,7 +2434,11 @@ const _origInitMainMap = window.initMainMap;
 // ── Zone tooltip CSS ─────────────────────────────────────────
 (function injectZoneCSS(){
   const s = document.createElement('style');
-  s.textContent = `.zone-tooltip{background:rgba(10,12,15,.85)!important;border:1px solid rgba(255,255,255,.1)!important;color:#e8eaf0!important;border-radius:4px!important;padding:2px 8px!important;font-size:11px!important;box-shadow:0 2px 8px rgba(0,0,0,.4)!important;}
+  // Batch-2 tokenization: the tooltip used a hardcoded near-black surface +
+  // light text, which was unreadable-on-arrival in the light themes (paper/
+  // ghost). Tokens follow the active theme; the translucency is kept via
+  // color-mix so map detail still reads through.
+  s.textContent = `.zone-tooltip{background:color-mix(in srgb, var(--s) 88%, transparent)!important;border:1px solid var(--br)!important;color:var(--t)!important;border-radius:4px!important;padding:2px 8px!important;font-size:11px!important;box-shadow:0 2px 8px rgba(0,0,0,.4)!important;}
   .zone-tooltip::before{display:none!important;}`;
   document.head.appendChild(s);
 })();

@@ -78,6 +78,64 @@ let _NBD_IP_DELEGATE_BOUND; // module-local (globals Tranche 1 — was window.*)
   }
 
   /**
+   * Overlay lifecycle for this pipeline's dynamically-built modals.
+   * Canonical .modal-bg/.modal markup (dashboard-app.css ~:2187); open and
+   * close are ONLY classList 'open' toggles — the .modal-bg is always flex
+   * and visibility gates on .open (cert-round rule, never inline display).
+   * Prefers the nbdModal helper (dashboard.html loads js/nbd-modal.js, which
+   * owns Esc + backdrop-click for managed modals); falls back to a local
+   * .open toggle + its own backdrop/Esc close on pages that don't load it
+   * (dashboard.legacy.html). Returns a close() function; `onClose` fires
+   * exactly once however the modal is dismissed (button, backdrop, Esc).
+   */
+  function openOverlay(el, onClose) {
+    let done = false;
+    const finish = () => {
+      if (done) return;
+      done = true;
+      el.remove();
+      if (typeof onClose === 'function') onClose();
+    };
+    document.body.appendChild(el);
+    if (window.nbdModal && typeof window.nbdModal.open === 'function') {
+      window.nbdModal.open(el, { onClose: finish });
+      return () => window.nbdModal.close(el);
+    }
+    const onBackdrop = (e) => { if (e.target === el) closeNow(); };
+    const onKey = (e) => {
+      if (e.key !== 'Escape') return;
+      // Only the top-most open modal closes on Esc (mirrors nbdModal).
+      const opens = document.querySelectorAll('.modal-bg.open');
+      if (opens.length && opens[opens.length - 1] !== el) return;
+      closeNow();
+    };
+    function closeNow() {
+      el.classList.remove('open');
+      el.removeEventListener('click', onBackdrop);
+      document.removeEventListener('keydown', onKey);
+      finish();
+    }
+    el.classList.add('open');
+    el.addEventListener('click', onBackdrop);
+    document.addEventListener('keydown', onKey);
+    return closeNow;
+  }
+
+  /**
+   * Tear down a leftover modal instance (double-open guard). Routes through
+   * nbdModal.close when available so the helper's managed-modal bookkeeping
+   * (Esc stack, focus restore) stays consistent before the element goes away.
+   */
+  function destroyExisting(id) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    if (window.nbdModal && typeof window.nbdModal.close === 'function') {
+      window.nbdModal.close(el);
+    }
+    el.remove();
+  }
+
+  /**
    * Get Firestore db reference (v9 modular SDK instance exposed on window._db).
    * Throws if Firestore SDK not loaded or window globals not exposed.
    */
@@ -798,15 +856,20 @@ let _NBD_IP_DELEGATE_BOUND; // module-local (globals Tranche 1 — was window.*)
       const invoices = snap.docs.map(d => ({ id: d.id, ...d.data() }));
 
       let html = `
-        <div class="invoice-panel" style="padding:16px;background:var(--s1);border-radius:8px;border:1px solid var(--br);">
+        <div class="invoice-panel" style="padding:16px;background:var(--s);border-radius:8px;border:1px solid var(--br);">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
             <h3 style="margin:0;font-size:14px;font-weight:700;">Invoices</h3>
-            <button data-ip-action="createInvoiceUI" data-ip-id="${leadId}" style="padding:6px 12px;background:var(--orange);color:#fff;border:none;border-radius:5px;font-size:11px;font-weight:700;cursor:pointer;">+ New Invoice</button>
+            <button type="button" class="btn btn-orange btn-sm" data-ip-action="createInvoiceUI" data-ip-id="${leadId}">+ New Invoice</button>
           </div>
       `;
 
       if (invoices.length === 0) {
-        html += `<div style="color:var(--m);font-size:12px;padding:12px;text-align:center;">No invoices yet</div>`;
+        html += `
+          <div class="nbd-empty" style="padding:20px 12px;">
+            <div class="ne-icon">🧾</div>
+            <div class="ne-msg">No invoices yet</div>
+            <div class="ne-sub">Create one from this lead's estimate.</div>
+          </div>`;
       } else {
         html += `<div style="display:grid;gap:8px;">`;
         invoices.forEach(inv => {
@@ -820,8 +883,8 @@ let _NBD_IP_DELEGATE_BOUND; // module-local (globals Tranche 1 — was window.*)
                 <div style="font-size:11px;color:var(--m);">${statusTxt}</div>
               </div>
               <div style="display:flex;gap:6px;">
-                <button data-ip-action="renderDetail" data-ip-id="${inv.id}" data-ip-target="inv-detail" style="padding:4px 10px;font-size:10px;background:var(--blue);color:#fff;border:none;border-radius:3px;cursor:pointer;">View</button>
-                <button data-ip-action="sendInvoice" data-ip-id="${inv.id}" style="padding:4px 10px;font-size:10px;background:var(--orange);color:#fff;border:none;border-radius:3px;cursor:pointer;">Send</button>
+                <button type="button" class="btn btn-ghost btn-sm" data-ip-action="renderDetail" data-ip-id="${inv.id}" data-ip-target="inv-detail">View</button>
+                <button type="button" class="btn btn-orange btn-sm" data-ip-action="sendInvoice" data-ip-id="${inv.id}">Send</button>
               </div>
             </div>
           `;
@@ -860,7 +923,7 @@ let _NBD_IP_DELEGATE_BOUND; // module-local (globals Tranche 1 — was window.*)
         .replace(/</g,'\\x3c').replace(/>/g,'\\x3e').replace(/\n/g,'\\n');
 
       let html = `
-        <div class="invoice-detail" style="padding:20px;background:#fff;border-radius:8px;max-width:900px;margin:0 auto;">
+        <div class="invoice-detail" style="padding:20px;background:var(--paper,#fff);color:var(--ink,#1a1612);border-radius:8px;max-width:900px;margin:0 auto;">
           <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px;">
             <div>
               <div style="font-family:'Barlow Condensed',sans-serif;font-size:24px;font-weight:700;color:var(--orange);">NBD ROOFING</div>
@@ -944,10 +1007,10 @@ let _NBD_IP_DELEGATE_BOUND; // module-local (globals Tranche 1 — was window.*)
           </div>
 
           <div style="display:flex;gap:8px;margin-bottom:20px;flex-wrap:wrap;">
-            <button data-ip-action="print" style="padding:8px 16px;background:var(--s2);border:1px solid var(--br);border-radius:5px;cursor:pointer;font-weight:700;">Print Invoice</button>
-            <button data-ip-action="sendInvoice" data-ip-id="${_escJs(invoiceId)}" style="padding:8px 16px;background:var(--orange);color:#fff;border:none;border-radius:5px;cursor:pointer;font-weight:700;">Send to Customer</button>
-            ${inv.status !== 'paid' ? `<button data-ip-action="markPaid" data-ip-id="${_escJs(invoiceId)}" style="padding:8px 16px;background:var(--green,#2e7d32);color:#fff;border:none;border-radius:5px;cursor:pointer;font-weight:700;">Mark Paid (Cash/Check)</button>` : ''}
-            ${inv.stripePaymentLink ? `<button data-ip-action="copyStripeLink" data-ip-id="${_escJs(inv.stripePaymentLink)}" style="padding:8px 16px;background:var(--blue);color:#fff;border:none;border-radius:5px;cursor:pointer;font-weight:700;">Copy Payment Link</button>` : ''}
+            <button type="button" class="btn btn-ghost" data-ip-action="print">Print Invoice</button>
+            <button type="button" class="btn btn-orange" data-ip-action="sendInvoice" data-ip-id="${_escJs(invoiceId)}">Send to Customer</button>
+            ${inv.status !== 'paid' ? `<button type="button" class="btn btn-green" data-ip-action="markPaid" data-ip-id="${_escJs(invoiceId)}">Mark Paid (Cash/Check)</button>` : ''}
+            ${inv.stripePaymentLink ? `<button type="button" class="btn btn-ghost" data-ip-action="copyStripeLink" data-ip-id="${_escJs(inv.stripePaymentLink)}">Copy Payment Link</button>` : ''}
           </div>
 
           <div style="background:var(--s2);padding:12px;border-radius:5px;font-size:11px;color:var(--m);">
@@ -993,9 +1056,12 @@ let _NBD_IP_DELEGATE_BOUND; // module-local (globals Tranche 1 — was window.*)
 
       let html = `
         <div class="invoice-list" style="padding:16px;">
-          <div style="background:var(--s2);padding:12px;border-radius:8px;margin-bottom:16px;">
-            <div style="font-size:12px;color:var(--m);">Total Outstanding</div>
-            <div style="font-size:28px;font-weight:700;color:var(--orange);">${formatCurrency(totalOutstanding)}</div>
+          <div class="stat-card" style="margin-bottom:16px;">
+            <div class="stat-icon si-o">💰</div>
+            <div>
+              <div class="stat-val" style="color:var(--orange);">${formatCurrency(totalOutstanding)}</div>
+              <div class="stat-lbl">Total Outstanding</div>
+            </div>
           </div>
 
           <div style="overflow-x:auto;">
@@ -1028,7 +1094,7 @@ let _NBD_IP_DELEGATE_BOUND; // module-local (globals Tranche 1 — was window.*)
               <span style="background:${statusBg};color:#fff;padding:3px 8px;border-radius:3px;font-size:10px;font-weight:700;text-transform:uppercase;">${escHtml(inv.status)}</span>
             </td>
             <td style="padding:10px;">
-              <button data-ip-action="renderDetail" data-ip-id="${inv.id}" data-ip-target="inv-detail-modal" style="padding:4px 10px;font-size:10px;background:var(--blue);color:#fff;border:none;border-radius:3px;cursor:pointer;">View</button>
+              <button type="button" class="btn btn-ghost btn-sm" data-ip-action="renderDetail" data-ip-id="${inv.id}" data-ip-target="inv-detail-modal">View</button>
             </td>
           </tr>
         `;
@@ -1147,96 +1213,97 @@ let _NBD_IP_DELEGATE_BOUND; // module-local (globals Tranche 1 — was window.*)
    */
   async function createInvoiceUI(leadId) {
     // Build inline modal instead of using prompt()
-    const existing = document.getElementById('nbd-invoice-modal');
-    if (existing) existing.remove();
+    destroyExisting('nbd-invoice-modal');
 
     const overlay = document.createElement('div');
     overlay.id = 'nbd-invoice-modal';
-    overlay.style.cssText = 'position:fixed;top:0;right:0;bottom:0;left:0;background:rgba(10,12,15,.85);z-index:10000;display:flex;align-items:center;justify-content:center;-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);';
+    overlay.className = 'modal-bg';
     overlay.innerHTML = `
-      <div style="background:var(--s,#14161a);border:1px solid var(--br,rgba(255,255,255,.1));border-radius:16px;max-width:420px;width:92%;padding:28px;color:#fff;">
+      <div class="modal" style="max-width:420px;">
         <div style="font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:700;margin-bottom:16px;">Create Invoice from Estimate</div>
-        <label style="font-size:10px;font-weight:600;color:rgba(255,255,255,.5);text-transform:uppercase;letter-spacing:.08em;">Estimate ID</label>
-        <input id="nbd-inv-est-id" type="text" placeholder="Select or enter estimate ID..." style="width:100%;padding:12px;background:var(--s2,rgba(255,255,255,.06));border:1px solid var(--br,rgba(255,255,255,.12));border-radius:8px;color:var(--t,#fff);font-size:14px;margin-top:6px;box-sizing:border-box;">
+        <label style="font-size:10px;font-weight:600;color:var(--m);text-transform:uppercase;letter-spacing:.08em;">Estimate ID</label>
+        <input id="nbd-inv-est-id" type="text" class="fi" autofocus placeholder="Select or enter estimate ID..." style="margin-top:6px;">
         <div style="display:flex;gap:8px;margin-top:20px;">
-          <button id="nbd-inv-cancel" style="flex:1;padding:12px;background:var(--s2,rgba(255,255,255,.06));border:1px solid var(--br,rgba(255,255,255,.12));border-radius:8px;color:var(--t,#fff);cursor:pointer;font-weight:600;">Cancel</button>
-          <button id="nbd-inv-create" style="flex:1;padding:12px;background:#e8720c;border:none;border-radius:8px;color:#fff;cursor:pointer;font-weight:700;">Create Invoice</button>
+          <button id="nbd-inv-cancel" type="button" class="btn btn-ghost" style="flex:1;justify-content:center;">Cancel</button>
+          <button id="nbd-inv-create" type="button" class="btn btn-orange" style="flex:1;justify-content:center;">Create Invoice</button>
         </div>
       </div>
     `;
-    document.body.appendChild(overlay);
+
+    let resolveP;
+    const done = new Promise((resolve) => { resolveP = resolve; });
+    const closeModal = openOverlay(overlay, () => resolveP());
 
     // Populate estimate dropdown if leads have estimates
-    const input = document.getElementById('nbd-inv-est-id');
+    const input = overlay.querySelector('#nbd-inv-est-id');
     if (leadId && window._leads) {
       const lead = window._leads.find(l => l.id === leadId);
       if (lead?.estimateId) input.value = lead.estimateId;
     }
-    input.focus();
+    // The canonical .modal-bg fades in via a visibility transition, so a
+    // synchronous focus() no-ops — retry after the first transition frame
+    // (covers the legacy-page fallback; nbdModal does its own retry).
+    setTimeout(() => { if (document.contains(input)) input.focus(); }, 80);
 
-    return new Promise((resolve) => {
-      document.getElementById('nbd-inv-cancel').onclick = () => { overlay.remove(); resolve(); };
-      overlay.onclick = (e) => { if (e.target === overlay) { overlay.remove(); resolve(); } };
-      document.getElementById('nbd-inv-create').onclick = async () => {
-        const estimateId = input.value.trim();
-        if (!estimateId) { if (typeof showToast === 'function') showToast('Enter an estimate ID', 'error'); return; }
-        overlay.remove();
-        try {
-          showToast('Creating invoice...', 'info');
-          const invoiceId = await createInvoiceFromEstimate(estimateId);
-          await generateStripePaymentLink(invoiceId);
-          showToast('Invoice created successfully', 'success');
-          showInvoiceDetailModal(invoiceId);
-        } catch (error) {
-          showToast(`Error: ${error.message}`, 'error');
-        }
-        resolve();
-      };
-    });
+    overlay.querySelector('#nbd-inv-cancel').onclick = () => closeModal();
+    overlay.querySelector('#nbd-inv-create').onclick = async () => {
+      const estimateId = input.value.trim();
+      if (!estimateId) { if (typeof showToast === 'function') showToast('Enter an estimate ID', 'error'); return; }
+      closeModal();
+      try {
+        showToast('Creating invoice...', 'info');
+        const invoiceId = await createInvoiceFromEstimate(estimateId);
+        await generateStripePaymentLink(invoiceId);
+        showToast('Invoice created successfully', 'success');
+        showInvoiceDetailModal(invoiceId);
+      } catch (error) {
+        showToast(`Error: ${error.message}`, 'error');
+      }
+    };
+    return done;
   }
 
   /**
    * UI: Send invoice dialog (modal instead of prompt for Safari compat)
    */
   async function sendInvoiceUI(invoiceId) {
-    const existing = document.getElementById('nbd-send-invoice-modal');
-    if (existing) existing.remove();
+    destroyExisting('nbd-send-invoice-modal');
 
     const overlay = document.createElement('div');
     overlay.id = 'nbd-send-invoice-modal';
-    overlay.style.cssText = 'position:fixed;top:0;right:0;bottom:0;left:0;background:rgba(10,12,15,.85);z-index:10000;display:flex;align-items:center;justify-content:center;-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);';
+    overlay.className = 'modal-bg';
     overlay.innerHTML = `
-      <div style="background:var(--s,#14161a);border:1px solid var(--br,rgba(255,255,255,.1));border-radius:16px;max-width:380px;width:92%;padding:28px;color:#fff;">
+      <div class="modal" style="max-width:380px;">
         <div style="font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:700;margin-bottom:16px;">Send Invoice</div>
-        <div style="font-size:12px;color:rgba(255,255,255,.5);margin-bottom:16px;">How would you like to send this invoice?</div>
+        <div style="font-size:12px;color:var(--m);margin-bottom:16px;">How would you like to send this invoice?</div>
         <div style="display:flex;flex-direction:column;gap:8px;">
-          <button class="nbd-send-method" data-method="email" style="padding:14px;background:var(--s2,rgba(255,255,255,.06));border:1px solid var(--br,rgba(255,255,255,.12));border-radius:8px;color:var(--t,#fff);cursor:pointer;font-weight:600;text-align:left;font-size:14px;">📧 Send via Email</button>
-          <button class="nbd-send-method" data-method="sms" style="padding:14px;background:var(--s2,rgba(255,255,255,.06));border:1px solid var(--br,rgba(255,255,255,.12));border-radius:8px;color:var(--t,#fff);cursor:pointer;font-weight:600;text-align:left;font-size:14px;">💬 Send via SMS</button>
-          <button class="nbd-send-method" data-method="portal" style="padding:14px;background:var(--s2,rgba(255,255,255,.06));border:1px solid var(--br,rgba(255,255,255,.12));border-radius:8px;color:var(--t,#fff);cursor:pointer;font-weight:600;text-align:left;font-size:14px;">🌐 Share Customer Portal Link</button>
+          <button type="button" class="nbd-send-method btn btn-ghost" data-method="email" style="width:100%;justify-content:flex-start;padding:14px;">📧 Send via Email</button>
+          <button type="button" class="nbd-send-method btn btn-ghost" data-method="sms" style="width:100%;justify-content:flex-start;padding:14px;">💬 Send via SMS</button>
+          <button type="button" class="nbd-send-method btn btn-ghost" data-method="portal" style="width:100%;justify-content:flex-start;padding:14px;">🌐 Share Customer Portal Link</button>
         </div>
-        <button id="nbd-send-cancel" style="width:100%;padding:12px;background:none;border:1px solid rgba(255,255,255,.12);border-radius:8px;color:rgba(255,255,255,.5);cursor:pointer;margin-top:12px;font-size:12px;">Cancel</button>
+        <button id="nbd-send-cancel" type="button" class="btn btn-ghost" style="width:100%;justify-content:center;margin-top:12px;">Cancel</button>
       </div>
     `;
-    document.body.appendChild(overlay);
 
-    return new Promise((resolve) => {
-      document.getElementById('nbd-send-cancel').onclick = () => { overlay.remove(); resolve(); };
-      overlay.onclick = (e) => { if (e.target === overlay) { overlay.remove(); resolve(); } };
-      overlay.querySelectorAll('.nbd-send-method').forEach(btn => {
-        btn.onclick = async () => {
-          const method = btn.dataset.method;
-          overlay.remove();
-          try {
-            showToast(`Sending invoice via ${method}...`, 'info');
-            await sendInvoice(invoiceId, method);
-            showToast('Invoice sent successfully', 'success');
-          } catch (error) {
-            showToast(`Error: ${error.message}`, 'error');
-          }
-          resolve();
-        };
-      });
+    let resolveP;
+    const done = new Promise((resolve) => { resolveP = resolve; });
+    const closeModal = openOverlay(overlay, () => resolveP());
+
+    overlay.querySelector('#nbd-send-cancel').onclick = () => closeModal();
+    overlay.querySelectorAll('.nbd-send-method').forEach(btn => {
+      btn.onclick = async () => {
+        const method = btn.dataset.method;
+        closeModal();
+        try {
+          showToast(`Sending invoice via ${method}...`, 'info');
+          await sendInvoice(invoiceId, method);
+          showToast('Invoice sent successfully', 'success');
+        } catch (error) {
+          showToast(`Error: ${error.message}`, 'error');
+        }
+      };
     });
+    return done;
   }
 
   /**
@@ -1247,22 +1314,23 @@ let _NBD_IP_DELEGATE_BOUND; // module-local (globals Tranche 1 — was window.*)
    * (which carries those buttons) into a real overlay.
    */
   function showInvoiceDetailModal(invoiceId) {
-    const existing = document.getElementById('nbd-invoice-detail-modal');
-    if (existing) existing.remove();
+    destroyExisting('nbd-invoice-detail-modal');
     const overlay = document.createElement('div');
     overlay.id = 'nbd-invoice-detail-modal';
-    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(10,12,15,.85);z-index:10000;display:flex;align-items:flex-start;justify-content:center;overflow:auto;padding:24px;-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);';
+    overlay.className = 'modal-bg';
+    // Wide document view: top-aligned + scrollable, unlike the centered
+    // default. Layout-only overrides — chrome/z-index come from .modal-bg.
+    overlay.style.cssText = 'align-items:flex-start;overflow:auto;padding:24px;';
     overlay.innerHTML = `
       <div style="max-width:920px;width:100%;">
         <div style="display:flex;justify-content:flex-end;margin-bottom:8px;">
-          <button id="nbd-inv-detail-close" style="padding:8px 16px;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);border-radius:8px;color:#fff;cursor:pointer;font-weight:700;">✕ Close</button>
+          <button id="nbd-inv-detail-close" type="button" class="btn btn-ghost">✕ Close</button>
         </div>
         <div id="nbd-inv-detail-host"></div>
       </div>
     `;
-    document.body.appendChild(overlay);
-    document.getElementById('nbd-inv-detail-close').onclick = () => overlay.remove();
-    overlay.onclick = (e) => { if (e.target === overlay) overlay.remove(); };
+    const closeModal = openOverlay(overlay);
+    overlay.querySelector('#nbd-inv-detail-close').onclick = () => closeModal();
     renderInvoiceDetail('nbd-inv-detail-host', invoiceId);
   }
 
@@ -1281,35 +1349,35 @@ let _NBD_IP_DELEGATE_BOUND; // module-local (globals Tranche 1 — was window.*)
       }
     } catch (_) { /* default to blank */ }
 
-    const existing = document.getElementById('nbd-markpaid-modal');
-    if (existing) existing.remove();
+    destroyExisting('nbd-markpaid-modal');
     const overlay = document.createElement('div');
     overlay.id = 'nbd-markpaid-modal';
-    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(10,12,15,.85);z-index:10001;display:flex;align-items:center;justify-content:center;-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);';
+    overlay.className = 'modal-bg';
+    // Stacks above the (also-open) invoice detail overlay.
+    overlay.style.cssText = 'z-index:var(--z-overlay-top,10001);';
     overlay.innerHTML = `
-      <div style="background:var(--s,#14161a);border:1px solid var(--br,rgba(255,255,255,.1));border-radius:16px;max-width:380px;width:92%;padding:28px;color:#fff;">
+      <div class="modal" style="max-width:380px;">
         <div style="font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:700;margin-bottom:16px;">Record Payment</div>
-        <label style="font-size:10px;font-weight:600;color:rgba(255,255,255,.5);text-transform:uppercase;letter-spacing:.08em;">Amount</label>
-        <input id="nbd-mp-amount" type="number" step="0.01" min="0" value="${balanceDefault}" style="width:100%;padding:12px;background:var(--s2,rgba(255,255,255,.06));border:1px solid var(--br,rgba(255,255,255,.12));border-radius:8px;color:var(--t,#fff);font-size:14px;margin:6px 0 14px;box-sizing:border-box;">
+        <label style="font-size:10px;font-weight:600;color:var(--m);text-transform:uppercase;letter-spacing:.08em;">Amount</label>
+        <input id="nbd-mp-amount" type="number" class="fi" autofocus step="0.01" min="0" value="${balanceDefault}" style="margin:6px 0 14px;">
         <div style="display:flex;gap:8px;">
-          <button class="nbd-mp-method" data-method="cash" style="flex:1;padding:12px;background:var(--s2,rgba(255,255,255,.06));border:1px solid var(--br,rgba(255,255,255,.12));border-radius:8px;color:var(--t,#fff);cursor:pointer;font-weight:600;">💵 Cash</button>
-          <button class="nbd-mp-method" data-method="check" style="flex:1;padding:12px;background:var(--s2,rgba(255,255,255,.06));border:1px solid var(--br,rgba(255,255,255,.12));border-radius:8px;color:var(--t,#fff);cursor:pointer;font-weight:600;">🧾 Check</button>
+          <button type="button" class="nbd-mp-method btn btn-ghost" data-method="cash" style="flex:1;justify-content:center;">💵 Cash</button>
+          <button type="button" class="nbd-mp-method btn btn-ghost" data-method="check" style="flex:1;justify-content:center;">🧾 Check</button>
         </div>
-        <button id="nbd-mp-cancel" style="width:100%;padding:12px;background:none;border:1px solid rgba(255,255,255,.12);border-radius:8px;color:rgba(255,255,255,.5);cursor:pointer;margin-top:12px;font-size:12px;">Cancel</button>
+        <button id="nbd-mp-cancel" type="button" class="btn btn-ghost" style="width:100%;justify-content:center;margin-top:12px;">Cancel</button>
       </div>
     `;
-    document.body.appendChild(overlay);
-    document.getElementById('nbd-mp-cancel').onclick = () => overlay.remove();
-    overlay.onclick = (e) => { if (e.target === overlay) overlay.remove(); };
+    const closeModal = openOverlay(overlay);
+    overlay.querySelector('#nbd-mp-cancel').onclick = () => closeModal();
     overlay.querySelectorAll('.nbd-mp-method').forEach(btn => {
       btn.onclick = async () => {
-        const amount = parseFloat(document.getElementById('nbd-mp-amount').value);
+        const amount = parseFloat(overlay.querySelector('#nbd-mp-amount').value);
         if (!Number.isFinite(amount) || amount <= 0) {
           if (typeof showToast === 'function') showToast('Enter a valid amount', 'error');
           return;
         }
         const method = btn.dataset.method;
-        overlay.remove();
+        closeModal();
         try {
           if (typeof showToast === 'function') showToast('Recording payment...', 'info');
           await markPaid(invoiceId, amount, method);

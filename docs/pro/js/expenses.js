@@ -478,7 +478,7 @@
     var el = document.getElementById('expScanStatus');
     if (!el) return;
     el.textContent = msg || '';
-    el.style.color = kind === 'warn' ? '#eab308' : kind === 'error' ? '#dc2626' : kind === 'ok' ? '#16a34a' : 'var(--m,#9ca3af)';
+    el.style.color = kind === 'warn' ? 'var(--gold,#eab308)' : kind === 'error' ? 'var(--red,#dc2626)' : kind === 'ok' ? 'var(--green,#16a34a)' : 'var(--m,#9ca3af)';
   }
 
   function applyExtraction(d) {
@@ -612,31 +612,31 @@
     var scroll = document.querySelector('#view-expenses .view-scroll');
     if (!scroll) return;
     var agg = aggregate(_expenses);
-    var accent = '#e8720c';
+    var accent = 'var(--orange,#e8720c)';
 
     var html = '';
     // Header
     html += '<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:18px;">' +
-      '<div><h2 style="margin:0;font-family:\'Barlow Condensed\',sans-serif;font-size:26px;font-weight:800;color:var(--h,#fff);">🧾 Expenses &amp; Supplier Spend</h2>' +
+      '<div><h2 style="margin:0;font-family:\'Barlow Condensed\',sans-serif;font-size:26px;font-weight:800;color:var(--t,#fff);">🧾 Expenses &amp; Supplier Spend</h2>' +
       '<div style="font-size:12px;color:var(--m,#9ca3af);margin-top:2px;">' + (isStaff() && claims().companyId ? 'Team-wide (all reps)' : 'Your expenses') + ' · ' + _expenses.length + ' logged</div></div>' +
       '<div style="display:flex;gap:8px;">' +
-        (_expenses.length ? '<button data-exp-action="export-csv" title="Download CSV for your accountant" style="padding:10px 14px;background:var(--s2,rgba(255,255,255,.06));color:var(--h,#fff);border:1px solid var(--br,rgba(255,255,255,.15));border-radius:8px;font-weight:700;font-size:14px;cursor:pointer;">⬇ Export CSV</button>' : '') +
-        '<button data-exp-action="open-form" style="padding:10px 18px;background:' + accent + ';color:#fff;border:none;border-radius:8px;font-weight:700;font-size:14px;cursor:pointer;">+ Log Expense</button>' +
+        (_expenses.length ? '<button type="button" class="btn btn-ghost" data-exp-action="export-csv" title="Download CSV for your accountant">⬇ Export CSV</button>' : '') +
+        '<button type="button" class="btn btn-orange" data-exp-action="open-form">+ Log Expense</button>' +
       '</div>' +
       '</div>';
 
     // Summary cards
     html += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:20px;">';
     html += card('Total Spend', money(agg.totalCents), agg.supplierCount + ' suppliers', accent);
-    html += card('Direct / Job Costs', money(agg.directCents), 'COGS — feeds margin', '#16a34a');
-    html += card('Overhead', money(agg.overheadCents), 'Operating costs', '#3b82f6');
+    html += card('Direct / Job Costs', money(agg.directCents), 'COGS — feeds margin', 'var(--green,#16a34a)');
+    html += card('Overhead', money(agg.overheadCents), 'Operating costs', 'var(--blue,#3b82f6)');
     html += '</div>';
 
     if (_expenses.length === 0) {
-      html += '<div style="text-align:center;padding:48px 20px;color:var(--m,#9ca3af);border:1px dashed var(--br,rgba(255,255,255,.12));border-radius:12px;">' +
-        '<div style="font-size:40px;margin-bottom:10px;">🧾</div>' +
-        '<div style="font-size:15px;color:var(--h,#fff);font-weight:700;margin-bottom:4px;">No expenses yet</div>' +
-        '<div style="font-size:13px;">Log your first material or supplier cost to start tracking spend and job margin. You can also add suppliers below.</div></div>';
+      html += '<div style="border:1px dashed var(--br,rgba(255,255,255,.12));border-radius:12px;">' +
+        '<div class="nbd-empty"><div class="ne-icon">🧾</div>' +
+        '<div class="ne-msg">No expenses yet</div>' +
+        '<div class="ne-sub">Log your first material or supplier cost to start tracking spend and job margin. You can also add suppliers below.</div></div></div>';
     }
 
     // Expense-only analytics (spend report + per-job rollup) — only when there
@@ -647,10 +647,10 @@
     html += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px;margin-bottom:20px;">';
     // Supplier spend (the explicit ask)
     html += '<div style="background:var(--s,#1a1a2e);border:1px solid var(--br,rgba(255,255,255,.08));border-radius:12px;padding:16px;">' +
-      '<h3 style="margin:0 0 12px;font-size:14px;color:var(--h,#fff);">Spend by Supplier</h3>';
+      '<h3 style="margin:0 0 12px;font-size:14px;color:var(--t,#fff);">Spend by Supplier</h3>';
     agg.suppliers.slice(0, 8).forEach(function (s) {
       html += '<div style="margin-bottom:10px;">' +
-        '<div style="display:flex;justify-content:space-between;font-size:13px;color:var(--h,#fff);">' +
+        '<div style="display:flex;justify-content:space-between;font-size:13px;color:var(--t,#fff);">' +
         '<span>' + esc(s.supplier) + '</span><span style="font-weight:700;">' + money(s.cents) + '</span></div>' +
         '<div style="font-size:11px;color:var(--m,#9ca3af);">' + s.pct.toFixed(0) + '% of total</div>' +
         bar(s.pct, accent) + '</div>';
@@ -658,12 +658,12 @@
     html += '</div>';
     // Category breakdown
     html += '<div style="background:var(--s,#1a1a2e);border:1px solid var(--br,rgba(255,255,255,.08));border-radius:12px;padding:16px;">' +
-      '<h3 style="margin:0 0 12px;font-size:14px;color:var(--h,#fff);">Spend by Category</h3>';
+      '<h3 style="margin:0 0 12px;font-size:14px;color:var(--t,#fff);">Spend by Category</h3>';
     agg.categories.forEach(function (cat) {
       html += '<div style="margin-bottom:10px;">' +
-        '<div style="display:flex;justify-content:space-between;font-size:13px;color:var(--h,#fff);">' +
+        '<div style="display:flex;justify-content:space-between;font-size:13px;color:var(--t,#fff);">' +
         '<span>' + esc(cat.label) + '</span><span style="font-weight:700;">' + money(cat.cents) + '</span></div>' +
-        bar(cat.pct, '#3b82f6') + '</div>';
+        bar(cat.pct, 'var(--blue,#3b82f6)') + '</div>';
     });
     html += '</div>';
     html += '</div>';
@@ -672,7 +672,7 @@
     var jobIds = Object.keys(agg.byJob).filter(function (k) { return k !== '__unassigned__'; });
     if (jobIds.length) {
       html += '<div style="background:var(--s,#1a1a2e);border:1px solid var(--br,rgba(255,255,255,.08));border-radius:12px;padding:16px;margin-bottom:20px;">' +
-        '<h3 style="margin:0 0 12px;font-size:14px;color:var(--h,#fff);">Cost &amp; Margin by Job</h3>';
+        '<h3 style="margin:0 0 12px;font-size:14px;color:var(--t,#fff);">Cost &amp; Margin by Job</h3>';
       jobIds.map(function (jid) {
         var jb = agg.byJob[jid];
         var lead = leadById(jid);
@@ -680,28 +680,28 @@
         var pl = jobMargin(lead, jobExp);
         return { jid: jid, jb: jb, lead: lead, pl: pl };
       }).sort(function (a, b) { return b.jb.cents - a.jb.cents; }).forEach(function (row) {
-        var mColor = !row.pl ? 'var(--m,#9ca3af)' : row.pl.grossMargin >= 40 ? '#16a34a' : row.pl.grossMargin >= 25 ? '#eab308' : '#dc2626';
+        var mColor = !row.pl ? 'var(--m,#9ca3af)' : row.pl.grossMargin >= 40 ? 'var(--green,#16a34a)' : row.pl.grossMargin >= 25 ? 'var(--gold,#eab308)' : 'var(--red,#dc2626)';
         var marginTxt = row.pl ? (row.pl.grossMargin + '% margin') : (row.lead ? 'set Job Value' : 'job not found');
         // A4: budget / margin-floor flag (direct cost vs contract value)
         var ecB = EC();
         var rev = (ecB && row.lead) ? ecB.getJobRevenue(row.lead) : 0;
         var bDefaults = (window._companyProfile && window._companyProfile.budgetDefaults) || null;
         var bStatus = ecB && ecB.budgetStatus ? ecB.budgetStatus(rev, row.jb.directCents / 100, bDefaults) : null;
-        var budgetBadge = bStatus === 'breach' ? '<span title="Over budget / margin below floor" style="color:#dc2626;">⚠ </span>'
-          : bStatus === 'warn' ? '<span title="Approaching cost budget" style="color:#eab308;">⚠ </span>' : '';
+        var budgetBadge = bStatus === 'breach' ? '<span title="Over budget / margin below floor" style="color:var(--red,#dc2626);">⚠ </span>'
+          : bStatus === 'warn' ? '<span title="Approaching cost budget" style="color:var(--gold,#eab308);">⚠ </span>' : '';
         // Estimated-vs-actual (V2 estimates only)
         var va = estVsActual(row.jid, row.jb.directCents);
         var vaTxt = '';
         if (va) {
           var over = va.varianceCents > 0;
-          var vColor = over ? '#dc2626' : '#16a34a';
+          var vColor = over ? 'var(--red,#dc2626)' : 'var(--green,#16a34a)';
           vaTxt = '<div style="font-size:11px;color:var(--m,#9ca3af);">est ' + money(va.estCents) + ' · ' +
             '<span style="color:' + vColor + ';font-weight:700;">' + (over ? '+' : '') + money(Math.abs(va.varianceCents)) + (over ? ' over' : ' under') + '</span></div>';
         }
         html += '<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-top:1px solid var(--br,rgba(255,255,255,.06));">' +
-          '<div style="min-width:0;"><div style="font-size:13px;color:var(--h,#fff);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + esc(leadName(row.lead)) + '</div>' +
+          '<div style="min-width:0;"><div style="font-size:13px;color:var(--t,#fff);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + esc(leadName(row.lead)) + '</div>' +
           '<div style="font-size:11px;color:var(--m,#9ca3af);">' + row.jb.count + ' expenses · ' + money(row.jb.directCents) + ' direct</div>' + vaTxt + '</div>' +
-          '<div style="text-align:right;white-space:nowrap;"><div style="font-size:14px;font-weight:700;color:var(--h,#fff);">' + money(row.jb.cents) + '</div>' +
+          '<div style="text-align:right;white-space:nowrap;"><div style="font-size:14px;font-weight:700;color:var(--t,#fff);">' + money(row.jb.cents) + '</div>' +
           '<div style="font-size:11px;font-weight:700;color:' + mColor + ';">' + budgetBadge + marginTxt + '</div></div></div>';
       });
       html += '<div style="font-size:10px;color:var(--m,#9ca3af);margin-top:10px;">Gross margin = Job Value − direct job costs (before overhead &amp; commission). "est" = budgeted cost from the job\'s estimate (V2 builder only).</div>';
@@ -712,15 +712,15 @@
     // A1b: Recurring templates + one-tap "Due" chips
     if (_recurring.length) {
       html += '<div style="background:var(--s,#1a1a2e);border:1px solid var(--br,rgba(255,255,255,.08));border-radius:12px;padding:16px;margin-bottom:20px;">' +
-        '<h3 style="margin:0 0 12px;font-size:14px;color:var(--h,#fff);">🔁 Recurring</h3>';
+        '<h3 style="margin:0 0 12px;font-size:14px;color:var(--t,#fff);">🔁 Recurring</h3>';
       _recurring.slice().sort(function (a, b) { return (toDate(a.nextDueDate) || 0) - (toDate(b.nextDueDate) || 0); }).forEach(function (t) {
         var due = isDue(t);
         html += '<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:8px 0;border-top:1px solid var(--br,rgba(255,255,255,.06));">' +
-          '<div style="min-width:0;"><div style="font-size:13px;color:var(--h,#fff);">' + esc(t.name || 'Recurring') + ' · ' + money(t.amountCents) + '</div>' +
+          '<div style="min-width:0;"><div style="font-size:13px;color:var(--t,#fff);">' + esc(t.name || 'Recurring') + ' · ' + money(t.amountCents) + '</div>' +
           '<div style="font-size:11px;color:var(--m,#9ca3af);">' + esc(t.frequency || 'monthly') + ' · ' + (t.status !== 'active' ? 'paused' : 'next ' + esc(fmtDate(t.nextDueDate))) + '</div></div>' +
           '<div style="white-space:nowrap;">' +
-            (due ? '<button data-exp-action="add-recurring" data-rec-id="' + esc(t.id) + '" style="padding:6px 10px;background:' + accent + ';color:#fff;border:none;border-radius:6px;font-weight:700;font-size:12px;cursor:pointer;">Due — Add</button> ' : '') +
-            '<button data-exp-action="del-recurring" data-rec-id="' + esc(t.id) + '" title="Delete template" style="background:none;border:none;color:#dc2626;cursor:pointer;font-size:13px;">✕</button>' +
+            (due ? '<button type="button" class="btn btn-orange btn-sm" data-exp-action="add-recurring" data-rec-id="' + esc(t.id) + '">Due — Add</button> ' : '') +
+            '<button data-exp-action="del-recurring" data-rec-id="' + esc(t.id) + '" title="Delete template" style="background:none;border:none;color:var(--red,#dc2626);cursor:pointer;font-size:13px;">✕</button>' +
           '</div></div>';
       });
       html += '</div>';
@@ -730,10 +730,10 @@
     var taxYear = new Date().getFullYear();
     html += '<div style="background:var(--s,#1a1a2e);border:1px solid var(--br,rgba(255,255,255,.08));border-radius:12px;padding:16px;margin-bottom:20px;">' +
       '<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:12px;">' +
-        '<h3 style="margin:0;font-size:14px;color:var(--h,#fff);">🧑‍🔧 Suppliers &amp; 1099 (' + taxYear + ')</h3>' +
+        '<h3 style="margin:0;font-size:14px;color:var(--t,#fff);">🧑‍🔧 Suppliers &amp; 1099 (' + taxYear + ')</h3>' +
         '<div style="display:flex;gap:8px;">' +
-          (_suppliers.length ? '<button data-exp-action="export-1099" title="Year-end 1099 worklist CSV" style="padding:8px 12px;background:var(--s2,rgba(255,255,255,.06));color:var(--h,#fff);border:1px solid var(--br,rgba(255,255,255,.15));border-radius:8px;font-weight:700;font-size:13px;cursor:pointer;">⬇ 1099 CSV</button>' : '') +
-          '<button data-exp-action="open-supplier" style="padding:8px 14px;background:' + accent + ';color:#fff;border:none;border-radius:8px;font-weight:700;font-size:13px;cursor:pointer;">+ Supplier</button>' +
+          (_suppliers.length ? '<button type="button" class="btn btn-ghost btn-sm" data-exp-action="export-1099" title="Year-end 1099 worklist CSV">⬇ 1099 CSV</button>' : '') +
+          '<button type="button" class="btn btn-orange btn-sm" data-exp-action="open-supplier">+ Supplier</button>' +
         '</div></div>';
     if (!_suppliers.length) {
       html += '<div style="font-size:12px;color:var(--m,#9ca3af);">No suppliers yet. Add subcontractors/vendors to track who needs a 1099-NEC at year-end (services ≥ ' + money(thresholdCents(taxYear)) + ' in ' + taxYear + ').</div>';
@@ -743,12 +743,12 @@
         var flag = needs1099(s, taxYear, _expenses);
         var tc = TAX_CLASS_BY_KEY[s.taxClassification];
         html += '<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:8px 0;border-top:1px solid var(--br,rgba(255,255,255,.06));">' +
-          '<div style="min-width:0;"><div style="font-size:13px;color:var(--h,#fff);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + esc(s.displayName) + '</div>' +
+          '<div style="min-width:0;"><div style="font-size:13px;color:var(--t,#fff);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + esc(s.displayName) + '</div>' +
           '<div style="font-size:11px;color:var(--m,#9ca3af);">' + esc(tc ? tc.label : s.taxClassification || '') + ' · W-9: ' + esc(s.w9Status || 'not_requested') + (s.is1099Eligible ? ' · 1099-eligible' : ' · exempt') + '</div></div>' +
-          '<div style="text-align:right;white-space:nowrap;"><div style="font-size:13px;font-weight:700;color:var(--h,#fff);">' + money(ytd) + ' YTD</div>' +
-          (flag ? '<div style="font-size:11px;font-weight:700;color:#e8720c;">⚑ 1099 due</div>' : '') +
+          '<div style="text-align:right;white-space:nowrap;"><div style="font-size:13px;font-weight:700;color:var(--t,#fff);">' + money(ytd) + ' YTD</div>' +
+          (flag ? '<div style="font-size:11px;font-weight:700;color:var(--orange,#e8720c);">⚑ 1099 due</div>' : '') +
           '</div>' +
-          '<button data-exp-action="del-supplier" data-sup-id="' + esc(s.id) + '" title="Delete" style="background:none;border:none;color:#dc2626;cursor:pointer;font-size:13px;">✕</button>' +
+          '<button data-exp-action="del-supplier" data-sup-id="' + esc(s.id) + '" title="Delete" style="background:none;border:none;color:var(--red,#dc2626);cursor:pointer;font-size:13px;">✕</button>' +
           '</div>';
       });
       html += '<div style="font-size:10px;color:var(--m,#9ca3af);margin-top:10px;">YTD = subcontractor/labor payments matched by name, this year. 1099 due = eligible class + W-9 on file + YTD ≥ ' + money(thresholdCents(taxYear)) + '. No tax IDs are stored.</div>';
@@ -758,18 +758,18 @@
     // Recent expense list (only when there are expenses)
     if (_expenses.length) {
     html += '<div style="background:var(--s,#1a1a2e);border:1px solid var(--br,rgba(255,255,255,.08));border-radius:12px;padding:16px;">' +
-      '<h3 style="margin:0 0 12px;font-size:14px;color:var(--h,#fff);">Recent Expenses</h3>';
+      '<h3 style="margin:0 0 12px;font-size:14px;color:var(--t,#fff);">Recent Expenses</h3>';
     _expenses.slice(0, 60).forEach(function (e) {
       var lead = e.leadId ? leadById(e.leadId) : null;
       html += '<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:8px 0;border-top:1px solid var(--br,rgba(255,255,255,.06));">' +
         '<div style="min-width:0;flex:1;">' +
-        '<div style="font-size:13px;color:var(--h,#fff);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + esc(e.supplier || 'Unknown') +
+        '<div style="font-size:13px;color:var(--t,#fff);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + esc(e.supplier || 'Unknown') +
         ' <span style="font-size:10px;color:var(--m,#9ca3af);">· ' + esc(EC() ? EC().labelFor(e.category) : e.category) + '</span></div>' +
         '<div style="font-size:11px;color:var(--m,#9ca3af);">' + esc(fmtDate(e.date)) + (lead ? ' · ' + esc(leadName(lead)) : '') + (e.note ? ' · ' + esc(e.note) : '') + (e.source === 'ocr' ? ' · scanned' : '') + '</div></div>' +
-        (e.needsReview ? '<span title="AI scan — review the amount/vendor" style="color:#eab308;font-size:13px;">⚠</span>' : '') +
+        (e.needsReview ? '<span title="AI scan — review the amount/vendor" style="color:var(--gold,#eab308);font-size:13px;">⚠</span>' : '') +
         (e.receiptStoragePath ? '<button data-exp-action="receipt" data-exp-path="' + esc(e.receiptStoragePath) + '" title="View receipt" style="background:none;border:none;cursor:pointer;font-size:15px;">📎</button>' : '') +
-        '<div style="font-size:14px;font-weight:700;color:var(--h,#fff);white-space:nowrap;">' + money(e.amountCents) + '</div>' +
-        '<button data-exp-action="delete" data-exp-id="' + esc(e.id) + '" title="Delete" style="background:none;border:none;color:#dc2626;cursor:pointer;font-size:14px;">✕</button>' +
+        '<div style="font-size:14px;font-weight:700;color:var(--t,#fff);white-space:nowrap;">' + money(e.amountCents) + '</div>' +
+        '<button data-exp-action="delete" data-exp-id="' + esc(e.id) + '" title="Delete" style="background:none;border:none;color:var(--red,#dc2626);cursor:pointer;font-size:14px;">✕</button>' +
         '</div>';
     });
     html += '</div>';
@@ -778,10 +778,15 @@
     scroll.innerHTML = html;
   }
 
+  // KPI tile on the canonical .stat-card spec (dashboard-app.css). Column
+  // layout + top accent are per-tile layout, not chrome. The colored value
+  // sets -webkit-text-fill-color too because the polished .stat-val paints
+  // via a background-clip gradient (fill-color transparent) — inline color
+  // alone would be invisible.
   function card(label, value, sub, color) {
-    return '<div style="background:var(--s,#1a1a2e);border:1px solid var(--br,rgba(255,255,255,.08));border-radius:12px;padding:16px;border-top:2px solid ' + color + ';">' +
-      '<div style="font-size:11px;color:var(--m,#9ca3af);text-transform:uppercase;letter-spacing:.05em;">' + esc(label) + '</div>' +
-      '<div style="font-family:\'Barlow Condensed\',sans-serif;font-size:26px;font-weight:800;color:' + color + ';margin:2px 0;">' + value + '</div>' +
+    return '<div class="stat-card" style="flex-direction:column;align-items:flex-start;gap:2px;border-top:2px solid ' + color + ';">' +
+      '<div class="stat-lbl" style="margin-top:0;text-transform:uppercase;letter-spacing:.05em;">' + esc(label) + '</div>' +
+      '<div class="stat-val" style="font-weight:800;color:' + color + ';-webkit-text-fill-color:' + color + ';margin:2px 0;">' + value + '</div>' +
       '<div style="font-size:10px;color:var(--m,#9ca3af);">' + esc(sub) + '</div></div>';
   }
 
@@ -796,18 +801,21 @@
       return '<option value="' + esc(l.id) + '">' + esc(leadName(l)) + '</option>';
     }).join('');
     var today = ymdLocal(new Date());
-    var fld = 'width:100%;padding:10px;background:var(--s2,rgba(255,255,255,.04));border:1px solid var(--br,rgba(255,255,255,.1));border-radius:8px;color:var(--h,#fff);font-size:14px;box-sizing:border-box;';
+    var fld = 'width:100%;padding:10px;background:var(--s2,rgba(255,255,255,.04));border:1px solid var(--br,rgba(255,255,255,.1));border-radius:8px;color:var(--t,#fff);font-size:14px;box-sizing:border-box;';
     var lbl = 'font-size:11px;color:var(--m,#9ca3af);text-transform:uppercase;letter-spacing:.05em;display:block;margin-bottom:4px;';
 
+    // Canonical modal pair (dashboard-app.css): .modal-bg backdrop at
+    // var(--z-overlay) + .modal card; open/close is ONLY the .open class
+    // (cert-round rule), driven through nbdModal below.
     var ov = document.createElement('div');
     ov.id = 'expFormOverlay';
-    ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px;';
+    ov.className = 'modal-bg';
     ov.innerHTML =
-      '<div style="background:var(--s,#1a1a2e);border:1px solid var(--br,rgba(255,255,255,.12));border-radius:14px;padding:22px;max-width:440px;width:100%;max-height:90vh;overflow:auto;">' +
-        '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;"><h3 style="margin:0;color:var(--h,#fff);font-size:18px;">Log Expense</h3>' +
-        '<button data-exp-action="close-form" style="background:none;border:none;color:var(--m,#9ca3af);font-size:20px;cursor:pointer;">✕</button></div>' +
+      '<div class="modal" style="max-width:440px;">' +
+        '<button type="button" class="modal-close" data-exp-action="close-form" title="Close">✕</button>' +
+        '<h3 style="margin:0 0 16px;color:var(--t,#fff);font-size:18px;">Log Expense</h3>' +
         '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">' +
-          '<div><label style="' + lbl + '">Amount ($)</label><input id="expAmount" type="number" step="0.01" min="0" inputmode="decimal" style="' + fld + '"></div>' +
+          '<div><label style="' + lbl + '">Amount ($)</label><input id="expAmount" type="number" step="0.01" min="0" inputmode="decimal" autofocus style="' + fld + '"></div>' +
           '<div><label style="' + lbl + '">Date</label><input id="expDate" type="date" value="' + today + '" style="' + fld + '"></div>' +
           '<div><label style="' + lbl + '">Sales Tax ($)</label><input id="expTax" type="number" step="0.01" min="0" inputmode="decimal" style="' + fld + '"></div>' +
           '<div><label style="' + lbl + '">Category</label><select id="expCategory" style="' + fld + '">' + cats + '</select></div>' +
@@ -826,14 +834,22 @@
         '<div style="margin-top:12px;"><label style="' + lbl + '">Receipt (image / PDF, optional)</label>' +
           '<div style="display:flex;gap:8px;align-items:center;">' +
             '<input id="expFile" type="file" accept="image/*,application/pdf" style="' + fld + 'flex:1;">' +
-            '<button data-exp-action="scan" type="button" style="white-space:nowrap;padding:10px 12px;background:var(--s2,rgba(255,255,255,.06));color:var(--h,#fff);border:1px solid var(--br,rgba(255,255,255,.15));border-radius:8px;font-weight:700;font-size:13px;cursor:pointer;">📷 Scan with AI</button>' +
+            '<button data-exp-action="scan" type="button" class="btn btn-ghost" style="white-space:nowrap;">📷 Scan with AI</button>' +
           '</div>' +
           '<div id="expScanStatus" style="font-size:11px;color:var(--m,#9ca3af);margin-top:6px;min-height:14px;"></div>' +
         '</div>' +
-        '<button data-exp-action="save" style="width:100%;margin-top:18px;padding:12px;background:#e8720c;color:#fff;border:none;border-radius:8px;font-weight:700;font-size:14px;cursor:pointer;">Save Expense</button>' +
+        '<button type="button" class="btn btn-orange" data-exp-action="save" style="width:100%;margin-top:18px;justify-content:center;">Save Expense</button>' +
       '</div>';
     document.body.appendChild(ov);
-    ov.addEventListener('click', function (ev) { if (ev.target === ov) closeForm(); });
+    // nbdModal owns backdrop-click + Esc; its onClose hook runs the teardown
+    // no matter which path closed the modal. Fallback keeps the old behavior
+    // if the helper is somehow absent — still class-toggled, never inline display.
+    if (window.nbdModal) {
+      window.nbdModal.open(ov, { onClose: teardownForm });
+    } else {
+      ov.classList.add('open');
+      ov.addEventListener('click', function (ev) { if (ev.target === ov) closeForm(); });
+    }
 
     // Mileage + marketing-source conditional fields, driven by the category.
     var catSel = document.getElementById('expCategory');
@@ -878,11 +894,18 @@
     var amt = document.getElementById('expAmount');
     if (amt) amt.focus();
   }
-  function closeForm() {
+  // Idempotent teardown — reached via nbdModal's onClose (backdrop/Esc/close
+  // button) or directly when the helper is absent.
+  function teardownForm() {
     var ov = document.getElementById('expFormOverlay');
     if (ov) ov.remove();
     _scannedPath = null;
     _scanExtraction = null;
+  }
+  function closeForm() {
+    var ov = document.getElementById('expFormOverlay');
+    if (ov && window.nbdModal) window.nbdModal.close(ov); // -> onClose -> teardownForm
+    teardownForm();
   }
   async function saveFromForm(btn) {
     var v = function (id) { var el = document.getElementById(id); return el ? el.value : ''; };
@@ -1004,19 +1027,20 @@
   // A5: add-supplier modal (NO tax-ID field — tracking only).
   function openSupplierForm() {
     if (document.getElementById('supFormOverlay')) return;
-    var fld = 'width:100%;padding:10px;background:var(--s2,rgba(255,255,255,.04));border:1px solid var(--br,rgba(255,255,255,.1));border-radius:8px;color:var(--h,#fff);font-size:14px;box-sizing:border-box;';
+    var fld = 'width:100%;padding:10px;background:var(--s2,rgba(255,255,255,.04));border:1px solid var(--br,rgba(255,255,255,.1));border-radius:8px;color:var(--t,#fff);font-size:14px;box-sizing:border-box;';
     var lbl = 'font-size:11px;color:var(--m,#9ca3af);text-transform:uppercase;letter-spacing:.05em;display:block;margin-bottom:4px;';
     var classOpts = TAX_CLASSES.map(function (t) { return '<option value="' + t.key + '">' + esc(t.label) + (t.eligible ? '' : ' — exempt') + '</option>'; }).join('');
     var w9Opts = [['not_requested', 'Not requested'], ['requested', 'Requested'], ['received', 'Received'], ['verified', 'Verified']]
       .map(function (o) { return '<option value="' + o[0] + '">' + o[1] + '</option>'; }).join('');
+    // Canonical modal pair — same contract as openForm above.
     var ov = document.createElement('div');
     ov.id = 'supFormOverlay';
-    ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px;';
+    ov.className = 'modal-bg';
     ov.innerHTML =
-      '<div style="background:var(--s,#1a1a2e);border:1px solid var(--br,rgba(255,255,255,.12));border-radius:14px;padding:22px;max-width:440px;width:100%;max-height:90vh;overflow:auto;">' +
-        '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;"><h3 style="margin:0;color:var(--h,#fff);font-size:18px;">Add Supplier</h3>' +
-        '<button data-exp-action="close-supplier" style="background:none;border:none;color:var(--m,#9ca3af);font-size:20px;cursor:pointer;">✕</button></div>' +
-        '<div style="margin-bottom:12px;"><label style="' + lbl + '">Supplier / Vendor name</label><input id="supName" type="text" maxlength="120" placeholder="e.g. Crew Co" style="' + fld + '"></div>' +
+      '<div class="modal" style="max-width:440px;">' +
+        '<button type="button" class="modal-close" data-exp-action="close-supplier" title="Close">✕</button>' +
+        '<h3 style="margin:0 0 16px;color:var(--t,#fff);font-size:18px;">Add Supplier</h3>' +
+        '<div style="margin-bottom:12px;"><label style="' + lbl + '">Supplier / Vendor name</label><input id="supName" type="text" maxlength="120" placeholder="e.g. Crew Co" autofocus style="' + fld + '"></div>' +
         '<div style="margin-bottom:12px;"><label style="' + lbl + '">Legal name (for the 1099)</label><input id="supLegal" type="text" maxlength="120" style="' + fld + '"></div>' +
         '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">' +
           '<div><label style="' + lbl + '">Tax classification (from W-9)</label><select id="supClass" style="' + fld + '">' + classOpts + '</select></div>' +
@@ -1027,13 +1051,23 @@
           '<div><label style="' + lbl + '">Email</label><input id="supEmail" type="email" maxlength="120" style="' + fld + '"></div>' +
         '</div>' +
         '<div style="font-size:11px;color:var(--m,#9ca3af);margin-top:10px;">1099-eligibility is derived from the tax classification. No SSN/EIN is stored — keep tax IDs in your tax software.</div>' +
-        '<button data-exp-action="save-supplier" style="width:100%;margin-top:16px;padding:12px;background:#e8720c;color:#fff;border:none;border-radius:8px;font-weight:700;font-size:14px;cursor:pointer;">Save Supplier</button>' +
+        '<button type="button" class="btn btn-orange" data-exp-action="save-supplier" style="width:100%;margin-top:16px;justify-content:center;">Save Supplier</button>' +
       '</div>';
     document.body.appendChild(ov);
-    ov.addEventListener('click', function (ev) { if (ev.target === ov) closeSupplierForm(); });
+    if (window.nbdModal) {
+      window.nbdModal.open(ov, { onClose: teardownSupplierForm });
+    } else {
+      ov.classList.add('open');
+      ov.addEventListener('click', function (ev) { if (ev.target === ov) closeSupplierForm(); });
+    }
     var n = document.getElementById('supName'); if (n) n.focus();
   }
-  function closeSupplierForm() { var ov = document.getElementById('supFormOverlay'); if (ov) ov.remove(); }
+  function teardownSupplierForm() { var ov = document.getElementById('supFormOverlay'); if (ov) ov.remove(); }
+  function closeSupplierForm() {
+    var ov = document.getElementById('supFormOverlay');
+    if (ov && window.nbdModal) window.nbdModal.close(ov); // -> onClose -> teardownSupplierForm
+    teardownSupplierForm();
+  }
   async function saveSupplierFromForm(btn) {
     var v = function (id) { var el = document.getElementById(id); return el ? el.value : ''; };
     if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; }

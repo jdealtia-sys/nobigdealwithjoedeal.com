@@ -151,6 +151,12 @@
     // The ⛈ Hail button dispatches toggleHail (ui module helper that flips
     // between showHail/hideHail based on the current overlay state).
     toggleHail: state.toggleHail,
+    // iOS-safe DOM confirm/prompt. dashboard-actions.js (uiConfirmShared),
+    // crm-pipeline.js and estimates.js all guard-call window.D2D.uiConfirm —
+    // but it was never exported here, so every one of those calls silently
+    // fell through to native confirm() (blocked in iOS PWA standalone).
+    uiConfirm: state.uiConfirm,
+    uiPrompt: state.uiPrompt,
     DISPOSITIONS: state.DISPOSITIONS,
     DISPO_ORDER: state.DISPO_ORDER,
     CARRIERS: state.CARRIERS

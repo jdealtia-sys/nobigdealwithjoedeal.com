@@ -136,7 +136,8 @@
     modal.appendChild(hdr);
 
     const body = document.createElement('div');
-    body.style.padding = 'var(--s2)';
+    // (Former `padding:var(--s2)` dropped — --s2 is a COLOR token, so the
+    // declaration always computed to 0. The .d2d-modal card already pads.)
     body.innerHTML = '<p style="color:var(--m);font-size:12px;margin-bottom:12px;">Choose a template:</p>';
 
     // Per-template option button. Click handler is attached
@@ -148,7 +149,7 @@
     };
     Object.entries(state.SMS_TEMPLATES).forEach(([key, tmpl]) => {
       const opt = document.createElement('div');
-      opt.style.cssText = 'padding:10px;background:var(--s2);border:1px solid var(--br);border-radius:6px;margin-bottom:8px;cursor:pointer;transition:border-color .15s;';
+      opt.style.cssText = 'padding:10px;background:var(--s2);border:1px solid var(--br);border-radius:6px;margin-bottom:8px;cursor:pointer;transition:border-color var(--t-mid);';
       opt.innerHTML = '<div style="font-weight:600;font-size:13px;color:var(--t);">' + tmpl.label + '</div>'
         + '<div style="font-size:11px;color:var(--m);margin-top:4px;">' + tmpl.body.substring(0, 80) + '...</div>';
       opt.addEventListener('mouseenter', () => { opt.style.borderColor = 'var(--blue)'; });
@@ -165,7 +166,8 @@
       sep.style.cssText = 'margin-top:12px;padding-top:12px;border-top:1px solid var(--br);';
       const btn = document.createElement('button');
       btn.type = 'button';
-      btn.style.cssText = 'width:100%;padding:10px;background:var(--blue, #4A9EFF);color:white;border:none;border-radius:6px;cursor:pointer;font-weight:600;';
+      btn.className = 'btn btn-ghost';
+      btn.style.cssText = 'width:100%;justify-content:center;padding:10px;';
       btn.textContent = '📧 Send Email Instead';
       const emailArgs = {
         email: knock.email, homeowner: knock.homeowner,
@@ -499,7 +501,9 @@
     const overlay = document.createElement('div');
     overlay.className = 'd2d-modal-overlay open';
     overlay.id = 'd2d-convert-prompt';
-    overlay.style.zIndex = '10002';
+    // Above the (already-closed) knock modal tier, below toasts — the old
+    // inline 10002 sat ON the toast layer and covered save confirmations.
+    overlay.style.zIndex = 'var(--z-overlay-top)';
     overlay.onclick = (e) => { if (e.target === overlay) overlay.remove(); };
 
     const modal = document.createElement('div');
@@ -511,10 +515,10 @@
         <div style="font-size:15px;font-weight:700;color:var(--t);margin-bottom:6px;">Hot Lead Detected</div>
         <div style="font-size:13px;color:var(--m);margin-bottom:20px;">"${esc(dispoLabel)}" — convert this knock into a CRM lead so it shows up in your pipeline?</div>
         <div style="display:flex;gap:10px;">
-          <button style="flex:1;padding:12px;border:none;border-radius:8px;background:#2ECC8A;color:white;font-weight:700;font-size:14px;cursor:pointer;" data-d2d-action="convertToLeadAndDismissPrompt" data-d2d-id="${knockId}">
+          <button class="btn btn-green" style="flex:1;justify-content:center;padding:12px;" data-d2d-action="convertToLeadAndDismissPrompt" data-d2d-id="${knockId}">
             ✅ Convert Now
           </button>
-          <button style="flex:1;padding:12px;border:none;border-radius:8px;background:var(--s2);color:var(--t);font-weight:600;font-size:14px;cursor:pointer;border:1px solid var(--br);" data-d2d-action="convertToLeadWithEditAndDismissPrompt" data-d2d-id="${knockId}">
+          <button class="btn btn-ghost" style="flex:1;justify-content:center;padding:12px;" data-d2d-action="convertToLeadWithEditAndDismissPrompt" data-d2d-id="${knockId}">
             ✏️ Edit First
           </button>
         </div>
@@ -614,13 +618,13 @@
 
         <div class="d2d-detail-actions">
           ${!knock.convertedToLead ? `
-            <button class="d2d-action-btn" style="background:#2ECC8A;" data-d2d-action="convertToLead" data-d2d-id="${safeId}" aria-label="Convert knock to lead">✓ Convert to Lead</button>
+            <button class="d2d-action-btn" style="background:var(--green,#2ECC8A);" data-d2d-action="convertToLead" data-d2d-id="${safeId}" aria-label="Convert knock to lead">✓ Convert to Lead</button>
           ` : `
             <button class="d2d-action-btn" disabled style="background:var(--br);color:var(--m);" aria-label="Already converted to lead">✓ Lead Created</button>
           `}
           <button class="d2d-action-btn" style="background:var(--orange);" data-d2d-action="openQuickKnock" data-d2d-args='{"address":"${esc(knock.address)}","lat":${Number(knock.lat) || 'null'},"lng":${Number(knock.lng) || 'null'}}' aria-label="Re-knock this address">↻ Re-Knock</button>
           ${knock.phone ? `<button class="d2d-action-btn" style="background:var(--blue);" data-d2d-action="openSMSChooser" data-d2d-id="${safeId}" aria-label="Send SMS follow-up">📱 Follow Up</button>` : ''}
-          <button class="d2d-action-btn" style="background:#E05252;" data-d2d-action="deleteKnock" data-d2d-id="${safeId}" aria-label="Delete this knock">🗑️ Delete</button>
+          <button class="d2d-action-btn" style="background:var(--red,#E05252);" data-d2d-action="deleteKnock" data-d2d-id="${safeId}" aria-label="Delete this knock">🗑️ Delete</button>
         </div>
       </div>
     `;
@@ -678,7 +682,9 @@
     let revenuePerDoorText = '$' + revenue.revenuePerDoor;
     if (revenue.totalClosed === 0) revenuePerDoorText = '~$12.50 (industry avg)';
 
-    const tabBtn = (id, label, icon) => `<button data-d2d-action="setTab" data-d2d-id="${id}" style="flex:1;padding:12px 8px;border:none;border-bottom:3px solid ${currentTab === id ? 'var(--orange)' : 'transparent'};background:none;color:${currentTab === id ? 'var(--t)' : 'var(--m)'};cursor:pointer;font-size:13px;font-weight:700;font-family:'Barlow Condensed',sans-serif;letter-spacing:.03em;min-height:44px;-webkit-tap-highlight-color:transparent;">${icon} ${label}</button>`;
+    // .stab-btn = the design-system underline tab (settings/storm vocabulary).
+    // flex:1 + 44px tap target kept inline (layout, not button chrome).
+    const tabBtn = (id, label, icon) => `<button class="stab-btn${currentTab === id ? ' stab-active' : ''}" data-d2d-action="setTab" data-d2d-id="${id}" style="flex:1;min-height:44px;-webkit-tap-highlight-color:transparent;">${icon} ${label}</button>`;
 
     let html = `
       <div style="padding:12px 14px;">
@@ -731,7 +737,7 @@
           <div class="d2d-followups-banner">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
               <div class="d2d-followups-title">📋 ${metrics.followUpsDue.length} Follow-up${metrics.followUpsDue.length !== 1 ? 's' : ''} Due</div>
-              <button style="background:none;border:1px solid var(--br);color:var(--m);padding:4px 10px;border-radius:4px;font-size:10px;cursor:pointer;" data-d2d-action="dismissFollowupsBanner">Dismiss</button>
+              <button class="btn btn-ghost btn-sm" data-d2d-action="dismissFollowupsBanner">Dismiss</button>
             </div>
             <div class="d2d-followups-list" style="max-height:300px;overflow-y:auto;">
               ${metrics.followUpsDue.map(k => {
@@ -745,8 +751,8 @@
                     <div style="font-size:10px;color:var(--m);margin-top:2px;">${dispo?.label || ''} ${fDate ? '· Due ' + fDate : ''} ${k.homeowner ? '· ' + esc(k.homeowner) : ''}</div>
                   </div>
                   <div style="display:flex;gap:4px;flex-shrink:0;">
-                    ${k.phone ? `<button style="background:var(--blue);color:#fff;border:none;border-radius:4px;padding:4px 8px;font-size:10px;cursor:pointer;" data-d2d-action="callPhone" data-d2d-id="${esc(k.phone)}" data-d2d-stop="1">📞</button>` : ''}
-                    <button style="background:var(--orange);color:#fff;border:none;border-radius:4px;padding:4px 8px;font-size:10px;cursor:pointer;" data-d2d-action="openQuickKnock" data-d2d-args='{"address":"${esc(k.address || '')}","lat":${Number(k.lat) || 'null'},"lng":${Number(k.lng) || 'null'}}' data-d2d-stop="1">↻</button>
+                    ${k.phone ? `<button class="btn btn-ghost btn-sm" data-d2d-action="callPhone" data-d2d-id="${esc(k.phone)}" data-d2d-stop="1">📞</button>` : ''}
+                    <button class="btn btn-orange btn-sm" data-d2d-action="openQuickKnock" data-d2d-args='{"address":"${esc(k.address || '')}","lat":${Number(k.lat) || 'null'},"lng":${Number(k.lng) || 'null'}}' data-d2d-stop="1">↻</button>
                   </div>
                 </div>`;
               }).join('')}
@@ -777,30 +783,30 @@
             <div class="d2d-metric-lbl">Rev/Door</div>
           </div>
           <div class="d2d-metric-card">
-            <div class="d2d-metric-val" style="color:#9B6DFF;">$${revenue.avgDealSize || 0}</div>
+            <div class="d2d-metric-val" style="color:var(--purple,#9B6DFF);">$${revenue.avgDealSize || 0}</div>
             <div class="d2d-metric-lbl">Avg Deal</div>
           </div>
         </div>
 
         <!-- Conversion Funnel -->
         <div class="d2d-funnel">
-          <div class="d2d-funnel-step" style="flex:${funnel.doors / maxFunnelVal};background:#6B7280;">
+          <div class="d2d-funnel-step" style="flex:${funnel.doors / maxFunnelVal};background:var(--m,#6B7280);">
             <div class="d2d-funnel-count">${funnel.doors}</div>
             <div class="d2d-funnel-label">Doors</div>
           </div>
-          <div class="d2d-funnel-step" style="flex:${funnel.conversations / maxFunnelVal};background:#EAB308;color:#1a1a1a;">
+          <div class="d2d-funnel-step" style="flex:${funnel.conversations / maxFunnelVal};background:var(--gold,#EAB308);color:#1a1a1a;">
             <div class="d2d-funnel-count">${funnel.conversations}</div>
             <div class="d2d-funnel-label">Convos</div>
           </div>
-          <div class="d2d-funnel-step" style="flex:${funnel.appointments / maxFunnelVal};background:#4A9EFF;">
+          <div class="d2d-funnel-step" style="flex:${funnel.appointments / maxFunnelVal};background:var(--blue,#4A9EFF);">
             <div class="d2d-funnel-count">${funnel.appointments}</div>
             <div class="d2d-funnel-label">Apts</div>
           </div>
-          <div class="d2d-funnel-step" style="flex:${funnel.estimates / maxFunnelVal};background:#2ECC8A;">
+          <div class="d2d-funnel-step" style="flex:${funnel.estimates / maxFunnelVal};background:var(--green,#2ECC8A);">
             <div class="d2d-funnel-count">${funnel.estimates}</div>
             <div class="d2d-funnel-label">Ests</div>
           </div>
-          <div class="d2d-funnel-step" style="flex:${funnel.closed / maxFunnelVal};background:#e8720c;">
+          <div class="d2d-funnel-step" style="flex:${funnel.closed / maxFunnelVal};background:var(--orange,#e8720c);">
             <div class="d2d-funnel-count">${funnel.closed}</div>
             <div class="d2d-funnel-label">Closed</div>
           </div>
@@ -842,10 +848,10 @@
         <!-- Knock Feed -->
         <div class="d2d-knock-feed">
           ${filtered.length === 0 ? `
-            <div class="d2d-empty">
-              <div style="font-size:32px;margin-bottom:8px;">📍</div>
-              <div>No knocks yet for this filter</div>
-              <div style="font-size:12px;margin-top:4px;">Tap the map or press "Knock" to start</div>
+            <div class="nbd-empty">
+              <div class="ne-icon">📍</div>
+              <div class="ne-msg">No knocks yet for this filter</div>
+              <div class="ne-sub">Tap the map or press "Knock" to start</div>
             </div>
           ` : filtered.slice(0, PAGE_SIZE).map(knock => {
             const dispo = DISPOSITIONS[knock.disposition];
@@ -874,11 +880,11 @@
                 ${knock.notes ? `<div style="font-size:12px;color:var(--m);margin-top:6px;padding-top:6px;border-top:1px solid var(--br);">${esc(knock.notes.substring(0, 80))}</div>` : ''}
                 ${!knock.convertedToLead && HOT_DISPOSITIONS.includes(knock.disposition) ? `
                   <div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--br);display:flex;gap:6px;" data-d2d-stop-self="1">
-                    <button style="flex:1;padding:8px;border:none;border-radius:6px;background:#2ECC8A;color:white;font-size:12px;font-weight:700;cursor:pointer;" data-d2d-action="convertToLead" data-d2d-id="${knock.id}" data-d2d-stop="1">✅ Convert to Lead</button>
-                    <button style="padding:8px 12px;border:none;border-radius:6px;background:var(--s2);color:var(--t);font-size:12px;font-weight:600;cursor:pointer;border:1px solid var(--br);" data-d2d-action="convertToLeadWithEdit" data-d2d-id="${knock.id}" data-d2d-stop="1">✏️</button>
+                    <button class="btn btn-green btn-sm" style="flex:1;justify-content:center;" data-d2d-action="convertToLead" data-d2d-id="${knock.id}" data-d2d-stop="1">✅ Convert to Lead</button>
+                    <button class="btn btn-ghost btn-sm" data-d2d-action="convertToLeadWithEdit" data-d2d-id="${knock.id}" data-d2d-stop="1">✏️</button>
                   </div>
                 ` : ''}
-                ${knock.convertedToLead ? `<div style="margin-top:6px;font-size:11px;color:#2ECC8A;font-weight:600;">✓ In CRM Pipeline</div>` : ''}
+                ${knock.convertedToLead ? `<div style="margin-top:6px;font-size:11px;color:var(--green,#2ECC8A);font-weight:600;">✓ In CRM Pipeline</div>` : ''}
               </div>
             `;
           }).join('')}
@@ -901,17 +907,17 @@
             <div class="d2d-section-title">Optimized Route (${route.length} stops)</div>
             ${route._stats && route._stats.totalMiles > 0 ? `
               <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:10px;">
-                <div style="background:var(--s2);border:1px solid var(--br);border-radius:7px;padding:8px 10px;">
-                  <div style="font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:var(--m);">Stops</div>
-                  <div style="font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:700;color:var(--t);">${route._stats.stopCount}</div>
+                <div class="d2d-metric-card">
+                  <div class="d2d-metric-val">${route._stats.stopCount}</div>
+                  <div class="d2d-metric-lbl">Stops</div>
                 </div>
-                <div style="background:var(--s2);border:1px solid var(--br);border-radius:7px;padding:8px 10px;">
-                  <div style="font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:var(--m);">Distance</div>
-                  <div style="font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:700;color:var(--t);">${route._stats.totalMiles.toFixed(2)} mi</div>
+                <div class="d2d-metric-card">
+                  <div class="d2d-metric-val">${route._stats.totalMiles.toFixed(2)} mi</div>
+                  <div class="d2d-metric-lbl">Distance</div>
                 </div>
-                <div style="background:var(--s2);border:1px solid var(--br);border-radius:7px;padding:8px 10px;">
-                  <div style="font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:var(--m);">Walk Time</div>
-                  <div style="font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:700;color:var(--t);">${Math.round(route._stats.walkMinutes)} min</div>
+                <div class="d2d-metric-card">
+                  <div class="d2d-metric-val">${Math.round(route._stats.walkMinutes)} min</div>
+                  <div class="d2d-metric-lbl">Walk Time</div>
                 </div>
               </div>
             ` : ''}
@@ -924,12 +930,12 @@
                 </div>
               `).join('')}
             </div>
-          ` : `<div class="d2d-empty" style="padding:20px;">Hit "Calculate" to find the best route through your unvisited doors (Not Home / Come Back)</div>`}
+          ` : `<div class="nbd-empty" style="padding:20px;"><div class="ne-sub">Hit "Calculate" to find the best route through your unvisited doors (Not Home / Come Back)</div></div>`}
         </div>
 
         <div class="d2d-streets-section">
           <div class="d2d-section-title">🏘️ Street Sequences</div>
-          ${streets.length === 0 ? '<div class="d2d-empty">No streets with enough data yet</div>' : streets.map(([street, doors]) => {
+          ${streets.length === 0 ? '<div class="nbd-empty" style="padding:20px;"><div class="ne-sub">No streets with enough data yet</div></div>' : streets.map(([street, doors]) => {
             const knocked = doors.filter(d => d.knocked).length;
             const total = doors.length;
             const pct = Math.round(knocked / total * 100);

@@ -39,12 +39,12 @@ function renderEstimatesList(ests) {
   const wrap=document.getElementById('estListWrap');
   if (!wrap) return; // Page has no estimates list — analytics-only call.
   if(!ests||!ests.length){
-    // Empty state — the 2 builder options are already visible
-    // above this wrap in the page header, so we just invite the
-    // user to start one.
-    wrap.innerHTML='<div class="empty"><div class="empty-icon">📋</div>'
-      + 'No estimates yet.<br><span style="font-size:11px;color:var(--m);">'
-      + 'Click <strong>Classic</strong> or <strong>V2 Builder</strong> above to create one.</span></div>';
+    // Empty state — canonical .nbd-empty pattern (batch-2 consolidation).
+    // The builder button is already visible above this wrap in the page
+    // header, so we just invite the user to start one.
+    wrap.innerHTML='<div class="nbd-empty"><div class="ne-icon">📋</div>'
+      + '<div class="ne-msg">No estimates yet</div>'
+      + '<div class="ne-sub">Click <strong>＋ New Estimate</strong> above to create your first one.</div></div>';
     return;
   }
 
@@ -81,11 +81,11 @@ function renderEstimatesList(ests) {
     // so reps can eyeball the pipeline without clicking into each.
     let sigTag = '';
     if (e.signatureStatus === 'signed') {
-      sigTag = '<span class="est-src-chip" style="background:rgba(46,204,138,.15);color:var(--green,#2ecc8a);border-color:var(--green,#2ecc8a);">✓ SIGNED</span>';
+      sigTag = '<span class="est-src-chip" style="background:color-mix(in srgb, var(--green) 15%, transparent);color:var(--green);border-color:var(--green);">✓ SIGNED</span>';
     } else if (e.signatureStatus === 'sent' || e.signatureStatus === 'viewed') {
       sigTag = '<span class="est-src-chip" style="background:color-mix(in srgb, var(--orange) 12%, transparent);color:var(--orange);border-color:var(--orange);">✍ AWAITING</span>';
     } else if (e.signatureStatus === 'declined') {
-      sigTag = '<span class="est-src-chip" style="background:color-mix(in srgb, var(--red,#ef4444) 15%, transparent);color:var(--red,#ef4444);border-color:#ff6b6b;">✗ DECLINED</span>';
+      sigTag = '<span class="est-src-chip" style="background:color-mix(in srgb, var(--red) 15%, transparent);color:var(--red);border-color:var(--red);">✗ DECLINED</span>';
     } else if (e.signatureStatus === 'expired') {
       sigTag = '<span class="est-src-chip" style="opacity:.6;">⧗ EXPIRED</span>';
     }
@@ -387,7 +387,7 @@ async function renderPhotoLeads(){
   // can put photos-first. First open shows a loading state; later
   // opens are instant because the counts cache hits.
   if (!window._photoCountsLoaded) {
-    wrap.innerHTML='<div class="empty"><div class="empty-icon">📸</div>Loading photo counts...</div>';
+    wrap.innerHTML='<div class="nbd-empty"><div class="ne-icon">📸</div><div class="ne-msg">Loading photo counts...</div></div>';
     await loadPhotoCounts();
   }
 
@@ -410,7 +410,7 @@ async function renderPhotoLeads(){
   }
 
   if(!realLeads.length){
-    wrap.innerHTML='<div class="empty"><div class="empty-icon">📸</div>No customers yet. Add a lead or promote a prospect to attach photos.</div>';
+    wrap.innerHTML='<div class="nbd-empty"><div class="ne-icon">📸</div><div class="ne-msg">No customers yet</div><div class="ne-sub">Add a lead or promote a prospect to attach photos.</div></div>';
     return;
   }
 
@@ -437,8 +437,8 @@ async function renderPhotoLeads(){
     const stage = l.stage || 'new';
     const stageLabel = {'new':'New','contacted':'Contacted','inspected':'Inspected','claim_filed':'Claim Filed','contract_signed':'Signed','closed':'Closed'}[stage] || stage.replace(/_/g,' ');
     const count = counts[l.id] || 0;
-    const badgeBg = count > 0 ? '#22c55e' : 'var(--s3)';
-    const badgeColor = count > 0 ? '#fff' : 'var(--m)';
+    const badgeBg = count > 0 ? 'var(--green)' : 'var(--s3)';
+    const badgeColor = count > 0 ? '#fff' : 'var(--m)'; // #fff intentional: on-green badge text
     return `
     <div class="panel" style="margin:0;">
       <div class="panel-hdr nbd-photo-lead" style="cursor:pointer;" data-lead-id="${e(l.id)}" data-addr="${e(addr)}">
@@ -451,14 +451,14 @@ async function renderPhotoLeads(){
           <div class="panel-title" style="font-size:14px;">${e(name)}</div>
           <div style="font-size:11px;color:var(--m);margin-top:2px;">📍 ${e(addr)}</div>
         </div>
-        <button class="btn btn-orange" style="font-size:11px;padding:7px 14px;">${count > 0 ? '📷 View / Add' : '📷 Upload'}</button>
+        <button class="btn btn-orange btn-sm">${count > 0 ? '📷 View / Add' : '📷 Upload'}</button>
       </div>
     </div>`;
   };
 
   let html = '<div style="display:flex;flex-direction:column;gap:10px;">';
   if (withPhotos.length) {
-    html += '<div style="font-size:10px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--green, #22c55e);padding:6px 2px 0;">📸 Jobs with Photos (' + withPhotos.length + ')</div>';
+    html += '<div style="font-size:10px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--green);padding:6px 2px 0;">📸 Jobs with Photos (' + withPhotos.length + ')</div>';
     html += withPhotos.map(cardHTML).join('');
   }
   if (withoutPhotos.length) {
@@ -582,14 +582,14 @@ async function renderRecentPhotoFeed() {
   if (!container) return;
   const uid = window._user && window._user.uid;
   if (!uid) {
-    container.innerHTML = '<div class="empty"><div class="empty-icon">🔒</div>Sign in to see your photos.</div>';
+    container.innerHTML = '<div class="nbd-empty"><div class="ne-icon">🔒</div><div class="ne-msg">Sign in to see your photos.</div></div>';
     return;
   }
   if (!window.db || typeof window.collection !== 'function') {
-    container.innerHTML = '<div class="empty"><div class="empty-icon">⚠️</div>Photo library still loading — try again in a moment.</div>';
+    container.innerHTML = '<div class="nbd-empty"><div class="ne-icon">⚠️</div><div class="ne-msg">Photo library still loading</div><div class="ne-sub">Try again in a moment.</div></div>';
     return;
   }
-  container.innerHTML = '<div class="empty"><div class="empty-icon">📷</div>Loading recent photos…</div>';
+  container.innerHTML = '<div class="nbd-empty"><div class="ne-icon">📷</div><div class="ne-msg">Loading recent photos…</div></div>';
 
   let docs;
   try {
@@ -603,12 +603,12 @@ async function renderRecentPhotoFeed() {
     docs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
   } catch (e) {
     console.warn('[D.2] recent feed query failed:', e && e.message);
-    container.innerHTML = '<div class="empty"><div class="empty-icon">⚠️</div>Could not load recent photos. Refresh to retry.</div>';
+    container.innerHTML = '<div class="nbd-empty"><div class="ne-icon">⚠️</div><div class="ne-msg">Could not load recent photos</div><div class="ne-sub">Refresh to retry.</div></div>';
     return;
   }
 
   if (!docs.length) {
-    container.innerHTML = '<div class="empty"><div class="empty-icon">📷</div>No photos yet — capture one from any property to populate this feed.</div>';
+    container.innerHTML = '<div class="nbd-empty"><div class="ne-icon">📷</div><div class="ne-msg">No photos yet</div><div class="ne-sub">Capture one from any property to populate this feed.</div></div>';
     return;
   }
 
@@ -1247,24 +1247,16 @@ function populateProspectQuickActions(lead) {
   // email) never enter the HTML attribute parser.
   wrap.innerHTML = '';
   const make = (icon, label, opts) => {
+    // Batch-2 consolidation: canonical .btn chrome instead of hand-rolled
+    // inline button styles. Only non-chrome layout tweaks stay inline.
     const b = document.createElement('button');
     b.type = 'button';
+    b.className = 'btn btn-sm ' + (opts.danger ? 'btn-red' : 'btn-ghost');
     b.textContent = `${icon} ${label}`;
     b.disabled = !!opts.disabled;
-    const danger = !!opts.danger;
-    const color = danger ? 'var(--red)' : 'var(--t)';
-    const border = danger ? 'rgba(224,82,82,.35)' : 'var(--br)';
-    b.style.cssText = `
-      display:inline-flex;align-items:center;gap:5px;
-      padding:6px 11px;border-radius:6px;
-      background:${opts.disabled ? 'transparent' : 'var(--s2)'};
-      border:1px solid ${border};
-      color:${opts.disabled ? 'var(--m)' : color};
-      font-family:inherit;font-size:11px;font-weight:600;
-      cursor:${opts.disabled ? 'not-allowed' : 'pointer'};
-      opacity:${opts.disabled ? '.45' : '1'};
-      transition:all .15s;
-    `;
+    if (opts.disabled) {
+      b.style.cssText = 'opacity:.45;cursor:not-allowed;color:var(--m);';
+    }
     if (!opts.disabled && typeof opts.onClick === 'function') {
       b.addEventListener('click', opts.onClick);
     }

@@ -315,15 +315,17 @@
   function _buildModal() {
     const wrap = document.createElement('div');
     wrap.id = MODAL_ID;
+    // z: --z-overlay (cert-round scale — cmd palette is a full-screen
+    // overlay, same layer as .modal-bg; toasts at --z-toast stay above).
     wrap.style.cssText =
-      'position:fixed;inset:0;z-index:10020;background:rgba(10,20,36,0.78);' +
+      'position:fixed;inset:0;z-index:var(--z-overlay,10000);background:rgba(0,0,0,.7);' +
       'backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);' +
       'display:flex;align-items:flex-start;justify-content:center;' +
       'padding:80px 20px 20px;overflow-y:auto;';
 
     wrap.innerHTML =
       '<div style="background:var(--s,#0f1729);border:1px solid var(--br,#2a3344);border-radius:12px;' +
-        'width:100%;max-width:600px;color:#e2e8f0;font:inherit;' +
+        'width:100%;max-width:600px;color:var(--t,#e2e8f0);font:inherit;' +
         'box-shadow:0 24px 60px rgba(0,0,0,0.55);' +
         'display:flex;flex-direction:column;max-height:calc(100vh - 100px);' +
         'overflow:hidden;">' +
@@ -442,7 +444,7 @@
     const rows = Array.from(list.querySelectorAll('.nbd-cmd-row'));
     rows.forEach((r, i) => {
       if (i === _selectedIndex) {
-        r.style.background = 'rgba(200,84,26,0.15)';
+        r.style.background = 'var(--og,rgba(232,114,12,.12))';
         r.style.outline = '1px solid var(--orange, #c8541a)';
         // Scroll into view if needed.
         try { r.scrollIntoView({ block: 'nearest' }); } catch (_) {}

@@ -276,37 +276,37 @@
     overlay.setAttribute('aria-modal', 'true');
     overlay.setAttribute('aria-labelledby', 'nbd-snooze-title');
     overlay.style.cssText = `
-      position:fixed; inset:0; background:rgba(0,0,0,0.55); z-index:10000;
+      position:fixed; inset:0; background:rgba(0,0,0,0.55); z-index:var(--z-overlay,10000);
       display:flex; align-items:center; justify-content:center; padding:20px;
       font-family:'Barlow',-apple-system,system-ui,sans-serif;`;
 
     const presets = buildPresets();
     overlay.innerHTML = `
       <div style="
-        background:var(--s,#1a1f2a); color:var(--t,#e8eaf0);
-        border:1px solid var(--br,#2a3344); border-radius:12px;
+        background:var(--s); color:var(--t);
+        border:1px solid var(--br); border-radius:12px;
         padding:22px; max-width:380px; width:100%;
         box-shadow:0 12px 40px rgba(0,0,0,0.5);">
         <div style="display:flex; align-items:center; gap:10px; margin-bottom:10px;">
           <span style="font-size:24px;" aria-hidden="true">💤</span>
           <h2 id="nbd-snooze-title" style="font-size:17px; margin:0;">Snooze lead</h2>
         </div>
-        <p style="font-size:12px; color:var(--m,#9aa3b2); margin:0 0 14px; line-height:1.5;">
+        <p style="font-size:12px; color:var(--m); margin:0 0 14px; line-height:1.5;">
           ${leadNameHint ? escapeHtml(leadNameHint) + ' ' : ''}will hide from the kanban + Hot Leads + Needs Attention until the snooze expires.
         </p>
         <!-- W73: reason picker. Optional. Single-select chips. -->
         <div style="margin-bottom:14px;">
-          <label style="display:block; font-size:11px; color:var(--m,#9aa3b2); margin-bottom:6px; font-weight:600; text-transform:uppercase; letter-spacing:0.4px;">
+          <label style="display:block; font-size:11px; color:var(--m); margin-bottom:6px; font-weight:600; text-transform:uppercase; letter-spacing:0.4px;">
             Why? <span style="text-transform:none; font-weight:500; opacity:0.7;">(optional)</span>
           </label>
           <div id="nbd-snooze-reasons" style="display:flex; flex-wrap:wrap; gap:5px;">
             ${SNOOZE_REASONS.map((r) => `
               <button data-reason="${escapeHtml(r)}" type="button" style="
-                background:var(--s2,#0f1419); color:var(--m,#9aa3b2);
-                border:1px solid var(--br,#2a3344); border-radius:14px;
+                background:var(--s2); color:var(--m);
+                border:1px solid var(--br); border-radius:14px;
                 padding:4px 11px; font: inherit; font-size:11px; font-weight:600;
                 cursor:pointer; -webkit-tap-highlight-color:transparent;
-                transition:background .12s, color .12s, border-color .12s;">
+                transition:background var(--t-fast,.12s), color var(--t-fast,.12s), border-color var(--t-fast,.12s);">
                 ${escapeHtml(r)}
               </button>
             `).join('')}
@@ -319,20 +319,20 @@
             // top via buildPresets(). Click ⭐ to pin; click
             // pinned preset's ⭐ again to unpin.
             const isDefault = p.label === getDefaultPresetLabel();
-            const presetBorder = isDefault ? '#9b6dff' : 'var(--br,#2a3344)';
+            const presetBorder = isDefault ? 'var(--purple)' : 'var(--br)';
             const star = isDefault ? '⭐' : '☆';
-            const starColor = isDefault ? '#cab8ff' : 'var(--m,#9aa3b2)';
+            const starColor = isDefault ? 'var(--purple)' : 'var(--m)';
             return `
             <div style="display:flex; gap:6px; align-items:stretch;">
               <button data-snooze-i="${i}" type="button" style="
                 flex:1; text-align:left; padding:10px 13px; border-radius:8px;
-                background:var(--s2,#0f1419); color:var(--t,#e8eaf0);
+                background:var(--s2); color:var(--t);
                 border:1px solid ${presetBorder};
                 font: inherit; font-size:13px; font-weight:600;
                 cursor:pointer; -webkit-tap-highlight-color:transparent;
                 display:flex; justify-content:space-between; align-items:center;">
                 <span>${escapeHtml(p.label)}</span>
-                <span style="font-size:10px; color:var(--m,#9aa3b2); font-weight:500;">
+                <span style="font-size:10px; color:var(--m); font-weight:500;">
                   ${escapeHtml(p.date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }))}
                 </span>
               </button>
@@ -343,37 +343,37 @@
                 style="
                   width:36px; flex-shrink:0;
                   background:transparent; color:${starColor};
-                  border:1px solid var(--br,#2a3344); border-radius:8px;
+                  border:1px solid var(--br); border-radius:8px;
                   font: inherit; font-size:14px; cursor:pointer;
                   -webkit-tap-highlight-color:transparent;
                   display:flex; align-items:center; justify-content:center;
-                  transition:color .12s, border-color .12s;">
+                  transition:color var(--t-fast,.12s), border-color var(--t-fast,.12s);">
                 <span aria-hidden="true">${star}</span>
               </button>
             </div>`;
           }).join('')}
         </div>
-        <div style="border-top:1px solid var(--br,#2a3344); padding-top:12px; margin-bottom:14px;">
-          <label style="display:block; font-size:11px; color:var(--m,#9aa3b2); margin-bottom:6px; font-weight:600; text-transform:uppercase; letter-spacing:0.4px;">
+        <div style="border-top:1px solid var(--br); padding-top:12px; margin-bottom:14px;">
+          <label style="display:block; font-size:11px; color:var(--m); margin-bottom:6px; font-weight:600; text-transform:uppercase; letter-spacing:0.4px;">
             Or pick a date
           </label>
           <div style="display:flex; gap:8px;">
             <input type="date" id="nbd-snooze-custom" style="
-              flex:1; background:var(--s2,#0f1419); color:var(--t,#e8eaf0);
-              border:1px solid var(--br,#2a3344); border-radius:6px;
+              flex:1; background:var(--s2); color:var(--t);
+              border:1px solid var(--br); border-radius:6px;
               padding:8px 10px; font: inherit; font-size:13px;
               ">
             <button id="nbd-snooze-custom-go" type="button" style="
-              background:var(--orange,#c8541a);
-              color:#fff; border:none; padding:8px 16px; border-radius:6px;
+              background:var(--orange);
+              color:var(--accent-fg,#fff); border:none; padding:8px 16px; border-radius:6px;
               font: inherit; font-size:12px; font-weight:700;
               cursor:pointer; -webkit-tap-highlight-color:transparent;">Go</button>
           </div>
         </div>
         <div style="display:flex; justify-content:flex-end;">
           <button id="nbd-snooze-cancel" type="button" style="
-            background:transparent; color:var(--m,#9aa3b2);
-            border:1px solid var(--br,#2a3344); padding:8px 16px;
+            background:transparent; color:var(--m);
+            border:1px solid var(--br); padding:8px 16px;
             border-radius:7px; font: inherit; font-size:12px; font-weight:600;
             cursor:pointer; -webkit-tap-highlight-color:transparent;">Cancel</button>
         </div>
@@ -399,9 +399,9 @@
     function refreshReasonChips() {
       overlay.querySelectorAll('[data-reason]').forEach(c => {
         const isSel = c.getAttribute('data-reason') === selectedReason;
-        c.style.background = isSel ? 'rgba(155,109,255,0.18)' : 'var(--s2,#0f1419)';
-        c.style.color = isSel ? '#cab8ff' : 'var(--m,#9aa3b2)';
-        c.style.borderColor = isSel ? '#9b6dff' : 'var(--br,#2a3344)';
+        c.style.background = isSel ? 'color-mix(in srgb, var(--purple) 18%, transparent)' : 'var(--s2)';
+        c.style.color = isSel ? 'var(--purple)' : 'var(--m)';
+        c.style.borderColor = isSel ? 'var(--purple)' : 'var(--br)';
       });
     }
     // Apply initial styling so a preselected reason starts highlighted.
@@ -421,8 +421,8 @@
         if (!p) return;
         await _doSnooze(leadId, p.date, p.label, selectedReason);
       });
-      btn.addEventListener('mouseover', () => { btn.style.background = 'var(--s,#1a1f2a)'; });
-      btn.addEventListener('mouseout',  () => { btn.style.background = 'var(--s2,#0f1419)'; });
+      btn.addEventListener('mouseover', () => { btn.style.background = 'var(--s)'; });
+      btn.addEventListener('mouseout',  () => { btn.style.background = 'var(--s2)'; });
     });
     // W78: ⭐ pin handlers. Click toggles default state + re-renders
     // the modal so the pinned preset moves to the top + visual
@@ -519,38 +519,38 @@
     overlay.setAttribute('aria-modal', 'true');
     overlay.setAttribute('aria-labelledby', 'nbd-bulk-snooze-title');
     overlay.style.cssText = `
-      position:fixed; inset:0; background:rgba(0,0,0,0.55); z-index:10000;
+      position:fixed; inset:0; background:rgba(0,0,0,0.55); z-index:var(--z-overlay,10000);
       display:flex; align-items:center; justify-content:center; padding:20px;
       font-family:'Barlow',-apple-system,system-ui,sans-serif;`;
 
     const presets = buildPresets();
     overlay.innerHTML = `
       <div style="
-        background:var(--s,#1a1f2a); color:var(--t,#e8eaf0);
-        border:1px solid var(--br,#2a3344); border-radius:12px;
+        background:var(--s); color:var(--t);
+        border:1px solid var(--br); border-radius:12px;
         padding:22px; max-width:380px; width:100%;
         box-shadow:0 12px 40px rgba(0,0,0,0.5);">
         <div style="display:flex; align-items:center; gap:10px; margin-bottom:10px;">
           <span style="font-size:24px;" aria-hidden="true">💤</span>
           <h2 id="nbd-bulk-snooze-title" style="font-size:17px; margin:0;">Snooze ${leadIds.length} lead${leadIds.length === 1 ? '' : 's'}</h2>
         </div>
-        <p style="font-size:12px; color:var(--m,#9aa3b2); margin:0 0 14px; line-height:1.5;">
+        <p style="font-size:12px; color:var(--m); margin:0 0 14px; line-height:1.5;">
           All selected leads will hide from the kanban + Hot Leads + Needs Attention until the snooze date.
         </p>
         <!-- W73: reason picker for bulk snooze. Same chips as the
              single-lead modal — applies to ALL selected leads. -->
         <div style="margin-bottom:14px;">
-          <label style="display:block; font-size:11px; color:var(--m,#9aa3b2); margin-bottom:6px; font-weight:600; text-transform:uppercase; letter-spacing:0.4px;">
+          <label style="display:block; font-size:11px; color:var(--m); margin-bottom:6px; font-weight:600; text-transform:uppercase; letter-spacing:0.4px;">
             Why? <span style="text-transform:none; font-weight:500; opacity:0.7;">(optional · applies to all)</span>
           </label>
           <div id="nbd-bulk-snooze-reasons" style="display:flex; flex-wrap:wrap; gap:5px;">
             ${SNOOZE_REASONS.map((r) => `
               <button data-reason="${escapeHtml(r)}" type="button" style="
-                background:var(--s2,#0f1419); color:var(--m,#9aa3b2);
-                border:1px solid var(--br,#2a3344); border-radius:14px;
+                background:var(--s2); color:var(--m);
+                border:1px solid var(--br); border-radius:14px;
                 padding:4px 11px; font: inherit; font-size:11px; font-weight:600;
                 cursor:pointer; -webkit-tap-highlight-color:transparent;
-                transition:background .12s, color .12s, border-color .12s;">
+                transition:background var(--t-fast,.12s), color var(--t-fast,.12s), border-color var(--t-fast,.12s);">
                 ${escapeHtml(r)}
               </button>
             `).join('')}
@@ -563,20 +563,20 @@
             // so pinning in either modal reflects in the other.
             // Reorder to top is automatic via buildPresets().
             const isDefault = p.label === getDefaultPresetLabel();
-            const presetBorder = isDefault ? '#9b6dff' : 'var(--br,#2a3344)';
+            const presetBorder = isDefault ? 'var(--purple)' : 'var(--br)';
             const star = isDefault ? '⭐' : '☆';
-            const starColor = isDefault ? '#cab8ff' : 'var(--m,#9aa3b2)';
+            const starColor = isDefault ? 'var(--purple)' : 'var(--m)';
             return `
             <div style="display:flex; gap:6px; align-items:stretch;">
               <button data-bsnooze-i="${i}" type="button" style="
                 flex:1; text-align:left; padding:10px 13px; border-radius:8px;
-                background:var(--s2,#0f1419); color:var(--t,#e8eaf0);
+                background:var(--s2); color:var(--t);
                 border:1px solid ${presetBorder};
                 font: inherit; font-size:13px; font-weight:600;
                 cursor:pointer; -webkit-tap-highlight-color:transparent;
                 display:flex; justify-content:space-between; align-items:center;">
                 <span>${escapeHtml(p.label)}</span>
-                <span style="font-size:10px; color:var(--m,#9aa3b2); font-weight:500;">
+                <span style="font-size:10px; color:var(--m); font-weight:500;">
                   ${escapeHtml(p.date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }))}
                 </span>
               </button>
@@ -587,37 +587,37 @@
                 style="
                   width:36px; flex-shrink:0;
                   background:transparent; color:${starColor};
-                  border:1px solid var(--br,#2a3344); border-radius:8px;
+                  border:1px solid var(--br); border-radius:8px;
                   font: inherit; font-size:14px; cursor:pointer;
                   -webkit-tap-highlight-color:transparent;
                   display:flex; align-items:center; justify-content:center;
-                  transition:color .12s, border-color .12s;">
+                  transition:color var(--t-fast,.12s), border-color var(--t-fast,.12s);">
                 <span aria-hidden="true">${star}</span>
               </button>
             </div>`;
           }).join('')}
         </div>
-        <div style="border-top:1px solid var(--br,#2a3344); padding-top:12px; margin-bottom:14px;">
-          <label style="display:block; font-size:11px; color:var(--m,#9aa3b2); margin-bottom:6px; font-weight:600; text-transform:uppercase; letter-spacing:0.4px;">
+        <div style="border-top:1px solid var(--br); padding-top:12px; margin-bottom:14px;">
+          <label style="display:block; font-size:11px; color:var(--m); margin-bottom:6px; font-weight:600; text-transform:uppercase; letter-spacing:0.4px;">
             Or pick a date
           </label>
           <div style="display:flex; gap:8px;">
             <input type="date" id="nbd-bulk-snooze-custom" style="
-              flex:1; background:var(--s2,#0f1419); color:var(--t,#e8eaf0);
-              border:1px solid var(--br,#2a3344); border-radius:6px;
+              flex:1; background:var(--s2); color:var(--t);
+              border:1px solid var(--br); border-radius:6px;
               padding:8px 10px; font: inherit; font-size:13px;
               ">
             <button id="nbd-bulk-snooze-custom-go" type="button" style="
-              background:var(--orange,#c8541a);
-              color:#fff; border:none; padding:8px 16px; border-radius:6px;
+              background:var(--orange);
+              color:var(--accent-fg,#fff); border:none; padding:8px 16px; border-radius:6px;
               font: inherit; font-size:12px; font-weight:700;
               cursor:pointer; -webkit-tap-highlight-color:transparent;">Go</button>
           </div>
         </div>
         <div style="display:flex; justify-content:flex-end;">
           <button id="nbd-bulk-snooze-cancel" type="button" style="
-            background:transparent; color:var(--m,#9aa3b2);
-            border:1px solid var(--br,#2a3344); padding:8px 16px;
+            background:transparent; color:var(--m);
+            border:1px solid var(--br); padding:8px 16px;
             border-radius:7px; font: inherit; font-size:12px; font-weight:600;
             cursor:pointer; -webkit-tap-highlight-color:transparent;">Cancel</button>
         </div>
@@ -639,9 +639,9 @@
     function refreshBulkReasonChips() {
       overlay.querySelectorAll('[data-reason]').forEach(c => {
         const isSel = c.getAttribute('data-reason') === bulkSelectedReason;
-        c.style.background = isSel ? 'rgba(155,109,255,0.18)' : 'var(--s2,#0f1419)';
-        c.style.color = isSel ? '#cab8ff' : 'var(--m,#9aa3b2)';
-        c.style.borderColor = isSel ? '#9b6dff' : 'var(--br,#2a3344)';
+        c.style.background = isSel ? 'color-mix(in srgb, var(--purple) 18%, transparent)' : 'var(--s2)';
+        c.style.color = isSel ? 'var(--purple)' : 'var(--m)';
+        c.style.borderColor = isSel ? 'var(--purple)' : 'var(--br)';
       });
     }
     if (bulkSelectedReason) refreshBulkReasonChips();
@@ -660,8 +660,8 @@
         if (!p) return;
         await _doBulkSnooze(leadIds, p.date, p.label, bulkSelectedReason);
       });
-      btn.addEventListener('mouseover', () => { btn.style.background = 'var(--s,#1a1f2a)'; });
-      btn.addEventListener('mouseout',  () => { btn.style.background = 'var(--s2,#0f1419)'; });
+      btn.addEventListener('mouseover', () => { btn.style.background = 'var(--s)'; });
+      btn.addEventListener('mouseout',  () => { btn.style.background = 'var(--s2)'; });
     });
     // W79: ⭐ pin handlers for the bulk modal. Mirror of the W78
     // per-lead handler — shared DEFAULT_PRESET_KEY so pinning in
@@ -811,9 +811,9 @@
       badge.style.display = count > 0 ? 'inline-block' : 'none';
     }
     if (showing) {
-      btn.style.background  = 'rgba(155,109,255,0.18)';
-      btn.style.borderColor = '#9b6dff';
-      btn.style.color       = '#cab8ff';
+      btn.style.background  = 'color-mix(in srgb, var(--purple) 18%, transparent)';
+      btn.style.borderColor = 'var(--purple)';
+      btn.style.color       = 'var(--purple)';
     } else {
       btn.style.background  = '';
       btn.style.borderColor = '';

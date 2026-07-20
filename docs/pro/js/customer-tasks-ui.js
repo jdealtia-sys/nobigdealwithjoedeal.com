@@ -5,28 +5,28 @@
 
 // Task Modal HTML (to be injected)
 const taskModalHTML = `
-<div id="taskModal" class="modal" style="display:none;">
+<div id="taskModal" class="modal">
   <div class="modal-content" style="max-width:500px;">
     <div class="modal-header">
       <h3 style="margin:0;">Add Task</h3>
-      <button data-action="closeTaskModal" style="background:none;border:none;font-size:24px;cursor:pointer;color:#666;">&times;</button>
+      <button data-action="closeTaskModal" style="background:none;border:none;font-size:24px;cursor:pointer;color:var(--m);">&times;</button>
     </div>
     <div class="modal-body">
       <div style="margin-bottom:15px;">
         <label style="display:block;font-weight:600;margin-bottom:6px;">Task Title *</label>
         <input type="text" id="taskTitle" placeholder="e.g., Schedule roof inspection" aria-label="Task title"
-               style="width:100%;padding:10px;border:1px solid #ddd;border-radius:6px;">
+               style="width:100%;padding:10px;background:var(--s2);color:var(--t);border:1px solid var(--br);border-radius:6px;">
       </div>
       
       <div style="margin-bottom:15px;">
         <label style="display:block;font-weight:600;margin-bottom:6px;">Due Date</label>
         <input type="date" id="taskDueDate" 
-               style="width:100%;padding:10px;border:1px solid #ddd;border-radius:6px;">
+               style="width:100%;padding:10px;background:var(--s2);color:var(--t);border:1px solid var(--br);border-radius:6px;">
       </div>
       
       <div style="margin-bottom:15px;">
         <label style="display:block;font-weight:600;margin-bottom:6px;">Priority</label>
-        <select id="taskPriority" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:6px;">
+        <select id="taskPriority" style="width:100%;padding:10px;background:var(--s2);color:var(--t);border:1px solid var(--br);border-radius:6px;">
           <option value="low">Low</option>
           <option value="medium" selected>Medium</option>
           <option value="high">High</option>
@@ -36,11 +36,11 @@ const taskModalHTML = `
       <div style="margin-bottom:15px;">
         <label style="display:block;font-weight:600;margin-bottom:6px;">Notes (Optional)</label>
         <textarea id="taskNotes" rows="3" placeholder="Additional details..." 
-                  style="width:100%;padding:10px;border:1px solid #ddd;border-radius:6px;resize:vertical;"></textarea>
+                  style="width:100%;padding:10px;background:var(--s2);color:var(--t);border:1px solid var(--br);border-radius:6px;resize:vertical;"></textarea>
       </div>
     </div>
     <div class="modal-footer">
-      <button data-action="closeTaskModal" class="btn" style="background:#6c757d;border-color:#6c757d;color:#fff;">
+      <button data-action="closeTaskModal" class="btn">
         Cancel
       </button>
       <button data-action="saveTask" class="btn btn-orange">
@@ -60,7 +60,7 @@ window.addEventListener('DOMContentLoaded', () => {
 
 // Task Management Functions
 window.openTaskModal = function() {
-  document.getElementById('taskModal').style.display = 'flex';
+  document.getElementById('taskModal').classList.add('active');
   document.getElementById('taskTitle').value = '';
   document.getElementById('taskDueDate').value = '';
   document.getElementById('taskPriority').value = 'medium';
@@ -69,7 +69,7 @@ window.openTaskModal = function() {
 };
 
 window.closeTaskModal = function() {
-  document.getElementById('taskModal').style.display = 'none';
+  document.getElementById('taskModal').classList.remove('active');
 };
 
 window.saveTask = async function() {
@@ -786,7 +786,7 @@ function renderPhotoGrid() {
     html += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;padding-bottom:6px;border-bottom:2px solid ' + color + ';">';
     html += '<div style="width:10px;height:10px;border-radius:50%;background:' + color + ';"></div>';
     html += '<div class="photo-phase-title" style="margin:0;font-size:15px;font-weight:700;">' + esc(phase) + ' Phase</div>';
-    html += '<span style="font-size:12px;color:var(--muted);">(' + fullList.length + (hidden ? ' • showing ' + visible.length : '') + ')</span>';
+    html += '<span style="font-size:12px;color:var(--m);">(' + fullList.length + (hidden ? ' • showing ' + visible.length : '') + ')</span>';
     html += '</div>';
     html += '<div class="photo-grid-phase" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px;">';
     for (var i = 0; i < visible.length; i++) {
@@ -923,7 +923,7 @@ function updatePhotoStats() {
   var after = photos.filter(function(p){return p.phase==='After';}).length;
   var annotated = photos.filter(function(p){return p.isAnnotated;}).length;
   
-  var html = '<span style="font-weight:700;color:var(--text);">' + photos.length + ' Photos</span>';
+  var html = '<span style="font-weight:700;color:var(--t);">' + photos.length + ' Photos</span>';
   if (before) html += '<span style="color:#3b82f6;">&#9679; ' + before + ' Before</span>';
   if (during) html += '<span style="color:var(--orange);">&#9679; ' + during + ' During</span>';
   if (after) html += '<span style="color:var(--green);">&#9679; ' + after + ' After</span>';
@@ -1676,7 +1676,7 @@ function _renderDocCreateGrid(filter) {
 window.openDocCreateModal = function() {
   var modal = document.getElementById('docCreateModal');
   if (!modal) return;
-  modal.style.display = 'flex';
+  modal.classList.add('active');
   modal.setAttribute('aria-hidden', 'false');
   var search = document.getElementById('docCreateSearch');
   if (search) search.value = '';
@@ -1687,7 +1687,7 @@ window.openDocCreateModal = function() {
 window.closeDocCreateModal = function() {
   var modal = document.getElementById('docCreateModal');
   if (!modal) return;
-  modal.style.display = 'none';
+  modal.classList.remove('active');
   modal.setAttribute('aria-hidden', 'true');
 };
 
@@ -1717,7 +1717,7 @@ document.addEventListener('click', function _docCreateBackdropListener(e) {
 document.addEventListener('keydown', function _docCreateEscListener(e) {
   if (e.key !== 'Escape') return;
   var modal = document.getElementById('docCreateModal');
-  if (modal && modal.style.display === 'flex') window.closeDocCreateModal();
+  if (modal && modal.classList.contains('active')) window.closeDocCreateModal();
 });
 
 window.generateCustomerDoc = function(type) {
@@ -1938,8 +1938,8 @@ function logGeneratedDoc(type, data) {
   var item = document.createElement('div');
   item.style.cssText = 'display:flex;justify-content:space-between;align-items:center;padding:10px 14px;border-bottom:1px solid var(--br);';
   item.innerHTML = '<div>' +
-    '<div style="font-size:13px;font-weight:600;color:var(--text);">' + esc(typeName) + '</div>' +
-    '<div style="font-size:11px;color:var(--muted);">' + esc(data.homeownerName || 'Customer') + ' &middot; ' + esc(new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})) + '</div>' +
+    '<div style="font-size:13px;font-weight:600;color:var(--t);">' + esc(typeName) + '</div>' +
+    '<div style="font-size:11px;color:var(--m);">' + esc(data.homeownerName || 'Customer') + ' &middot; ' + esc(new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})) + '</div>' +
     '</div>' +
     '<button type="button" class="btn nbd-regen-doc" data-doc-type="' + esc(type) + '" style="font-size:11px;padding:4px 10px;">Regenerate</button>';
   item.querySelector('.nbd-regen-doc').addEventListener('click', function(){ generateCustomerDoc(type); });
@@ -1949,12 +1949,12 @@ function logGeneratedDoc(type, data) {
 
 window.openDocUploadModal = function() {
   var modal = document.getElementById('docUploadModal');
-  if (modal) modal.style.display = 'flex';
+  if (modal) modal.classList.add('active');
 };
 
 window.closeDocUploadModal = function() {
   var modal = document.getElementById('docUploadModal');
-  if (modal) modal.style.display = 'none';
+  if (modal) modal.classList.remove('active');
 };
 
 // ── Load all new sections when customer loads ───

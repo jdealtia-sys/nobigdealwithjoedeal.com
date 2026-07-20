@@ -5,11 +5,11 @@
       return;
     }
     var pk = document.getElementById('photoReportPicker');
-    if (pk) pk.style.display = 'flex';
+    if (pk) pk.classList.add('active');
   };
   window.closePhotoReportPicker = function() {
     var pk = document.getElementById('photoReportPicker');
-    if (pk) pk.style.display = 'none';
+    if (pk) pk.classList.remove('active');
   };
   window.pickPhotoReport = function(mode) {
     closePhotoReportPicker();
@@ -26,7 +26,7 @@
   document.addEventListener('keydown', function(e) {
     if (e.key !== 'Escape') return;
     var pk = document.getElementById('photoReportPicker');
-    if (pk && pk.style.display !== 'none') closePhotoReportPicker();
+    if (pk && pk.classList.contains('active')) closePhotoReportPicker();
   });
   // Phase 5: auto-open the picker when arriving from photo-review.html
   // with a #photo-report hash. Defer until _customerId is populated.

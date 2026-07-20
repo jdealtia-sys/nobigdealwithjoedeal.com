@@ -540,13 +540,13 @@
       badge.style.display = 'none';
     }
 
-    // Active list
+    // Active list — canonical empty-state pattern (.nbd-empty).
     if (active.length === 0) {
       list.innerHTML = `
-        <div style="padding:32px 20px;text-align:center;color:var(--m,#9aa3b2);font-size:12px;">
-          <div style="font-size:28px;margin-bottom:8px;">✓</div>
-          <div style="font-weight:600;color:var(--t,#e8eaf0);margin-bottom:4px;">All caught up</div>
-          <div>No pending alerts.</div>
+        <div class="nbd-empty" style="padding:32px 20px;">
+          <div class="ne-icon">✓</div>
+          <div class="ne-msg">All caught up</div>
+          <div class="ne-sub">No pending alerts.</div>
         </div>`;
     } else {
       list.innerHTML = active.map(n => renderItem(n)).join('');
@@ -566,9 +566,9 @@
   }
 
   function renderItem(n, isDismissedView) {
-    const sevColor = n.severity === 'high'   ? '#ef4444'
-                   : n.severity === 'medium' ? '#f59e0b'
-                                             : '#9ca3af';
+    const sevColor = n.severity === 'high'   ? 'var(--red)'
+                   : n.severity === 'medium' ? 'var(--gold)'
+                                             : 'var(--m)';
     const opacity = (isDismissedView || itemIsRead(n)) ? '0.55' : '1';
 
     // Wave 48: inline reshare buttons. Mirrors the W46/W47 pattern
@@ -592,10 +592,10 @@
               style="
                 display:flex; align-items:center; justify-content:center;
                 width:26px; height:26px; border-radius:5px;
-                background:rgba(16,185,129,0.14); color:#10b981;
+                background:color-mix(in srgb, var(--green) 14%, transparent); color:var(--green);
                 text-decoration:none; font-size:12px;
                 -webkit-tap-highlight-color:transparent;
-                transition:transform .12s;"
+                transition:transform var(--t-fast);"
               data-nb-stop-self="1"
             >📞</a>`);
           buttons.push(`
@@ -604,10 +604,10 @@
               style="
                 display:flex; align-items:center; justify-content:center;
                 width:26px; height:26px; border-radius:5px;
-                background:rgba(59,130,246,0.14); color:#3b82f6;
+                background:color-mix(in srgb, var(--blue) 14%, transparent); color:var(--blue);
                 border:none; font-size:12px; cursor:pointer;
                 -webkit-tap-highlight-color:transparent;
-                transition:transform .12s;"
+                transition:transform var(--t-fast);"
               data-nb-action="actionSms" data-nb-id="${escapeHtml(lead.id)}" data-nb-stop="1"
             >💬</button>`);
         }
@@ -618,10 +618,10 @@
               style="
                 display:flex; align-items:center; justify-content:center;
                 width:26px; height:26px; border-radius:5px;
-                background:rgba(139,92,246,0.14); color:#8b5cf6;
+                background:color-mix(in srgb, var(--purple) 14%, transparent); color:var(--purple);
                 border:none; font-size:12px; cursor:pointer;
                 -webkit-tap-highlight-color:transparent;
-                transition:transform .12s;"
+                transition:transform var(--t-fast);"
               data-nb-action="actionEmail" data-nb-id="${escapeHtml(lead.id)}" data-nb-stop="1"
             >📧</button>`);
         }
@@ -639,10 +639,10 @@
               style="
                 display:flex; align-items:center; justify-content:center;
                 width:26px; height:26px; border-radius:5px;
-                background:rgba(245,158,11,0.14); color:#f59e0b;
+                background:color-mix(in srgb, var(--gold) 14%, transparent); color:var(--gold);
                 border:none; font-size:12px; cursor:pointer;
                 -webkit-tap-highlight-color:transparent;
-                transition:transform .12s;"
+                transition:transform var(--t-fast);"
               data-nb-action="actionPreview" data-nb-id="${escapeHtml(lead.id)}" data-nb-stop="1"
             >🔍</button>`);
         }
@@ -662,10 +662,10 @@
                 style="
                   display:flex; align-items:center; justify-content:center;
                   width:26px; height:26px; border-radius:5px;
-                  background:rgba(155,109,255,0.14); color:var(--purple,#a78bfa);
+                  background:color-mix(in srgb, var(--purple) 14%, transparent); color:var(--purple);
                   border:none; font-size:12px; cursor:pointer;
                   -webkit-tap-highlight-color:transparent;
-                  transition:transform .12s;"
+                  transition:transform var(--t-fast);"
                 data-nb-action="actionUnsnooze" data-nb-id="${escapeHtml(lead.id)}" data-nb-stop="1"
               >⏰</button>`);
           } else {
@@ -675,10 +675,10 @@
                 style="
                   display:flex; align-items:center; justify-content:center;
                   width:26px; height:26px; border-radius:5px;
-                  background:rgba(155,109,255,0.10); color:var(--purple,#a78bfa);
+                  background:color-mix(in srgb, var(--purple) 10%, transparent); color:var(--purple);
                   border:none; font-size:12px; cursor:pointer;
                   -webkit-tap-highlight-color:transparent;
-                  transition:transform .12s;"
+                  transition:transform var(--t-fast);"
                 data-nb-action="actionSnooze" data-nb-id="${escapeHtml(lead.id)}" data-nb-stop="1"
               >💤</button>`);
           }
@@ -695,20 +695,20 @@
     return `
       <div class="notif-item" data-notif-id="${escapeHtml(n.id)}"
         style="
-          padding:10px 14px; border-bottom:1px solid var(--br,#1e2530);
+          padding:10px 14px; border-bottom:1px solid var(--br);
           display:flex; gap:10px; cursor:pointer; opacity:${opacity};
-          transition:background .15s;"
+          transition:background var(--t-mid);"
         data-nb-action="handleClick" data-nb-id="${escapeHtml(n.id)}">
         <div style="font-size:16px; flex-shrink:0; line-height:1.2;">${n.icon}</div>
         <div style="flex:1; min-width:0;">
-          <div style="font-size:12px; font-weight:600; color:var(--t,#e8eaf0); margin-bottom:2px;">
+          <div style="font-size:12px; font-weight:600; color:var(--t); margin-bottom:2px;">
             <span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:${sevColor};margin-right:6px;vertical-align:middle;"></span>
             ${escapeHtml(n.title)}
           </div>
-          <div style="font-size:11px; color:var(--t,#e8eaf0); margin-bottom:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
+          <div style="font-size:11px; color:var(--t); margin-bottom:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
             ${escapeHtml(n.text)}
           </div>
-          <div style="font-size:10px; color:var(--m,#9aa3b2);">
+          <div style="font-size:10px; color:var(--m);">
             ${escapeHtml(n.sub)}
           </div>
         </div>
@@ -716,7 +716,7 @@
         ${isDismissedView ? `
         <button title="Restore"
           style="
-            background:transparent; border:none; color:var(--m,#9aa3b2);
+            background:transparent; border:none; color:var(--m);
             cursor:pointer; padding:4px 8px; font-size:13px; line-height:1;
             opacity:0.7; align-self:flex-start;"
           data-nb-action="restore" data-nb-id="${escapeHtml(n.id)}" data-nb-stop="1">
@@ -724,7 +724,7 @@
         </button>` : `
         <button title="Dismiss"
           style="
-            background:transparent; border:none; color:var(--m,#9aa3b2);
+            background:transparent; border:none; color:var(--m);
             cursor:pointer; padding:4px 8px; font-size:14px; line-height:1;
             opacity:0.6; align-self:flex-start;"
           data-nb-action="dismiss" data-nb-id="${escapeHtml(n.id)}" data-nb-stop="1">

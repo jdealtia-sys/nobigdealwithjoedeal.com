@@ -183,7 +183,7 @@
         background: #000;
         display: flex;
         flex-direction: column;
-        z-index: 9999;
+        z-index: var(--z-overlay,10000);
         font-family: 'Barlow Condensed', 'Barlow', -apple-system, sans-serif;
         color: #fff;
         -webkit-user-select: none;
@@ -227,10 +227,10 @@
         border: none; border-radius: 50%;
         color: #fff; cursor: pointer;
         display: flex; align-items: center; justify-content: center;
-        transition: all .2s;
+        transition: background var(--t-mid), transform var(--t-fast);
       }
       .pe-cam-tool:active { transform: scale(.9); }
-      .pe-cam-tool.active { background: var(--orange, #e8720c); }
+      .pe-cam-tool.active { background: var(--orange); }
       .pe-cam-tool svg { width: 20px; height: 20px; }
       .pe-preset-badge {
         padding: 4px 10px;
@@ -290,15 +290,15 @@
         border: 4px solid rgba(255,255,255,.8);
         cursor: pointer;
         position: relative;
-        transition: all .15s;
+        transition: transform var(--t-fast), border-color var(--t-mid);
       }
       .pe-cam-capture::after {
         content: '';
         position: absolute;
         inset: 4px;
         border-radius: 50%;
-        background: var(--orange, #e8720c);
-        transition: all .15s;
+        background: var(--orange);
+        transition: background var(--t-fast);
       }
       .pe-cam-capture:active { transform: scale(.92); }
       .pe-cam-capture:active::after { background: #fff; }
@@ -336,7 +336,7 @@
       }
       .pe-queue-progress {
         height: 100%;
-        background: var(--orange, #e8720c);
+        background: var(--orange);
         transition: width .3s;
         border-radius: 0 2px 2px 0;
       }
@@ -344,7 +344,7 @@
         position: absolute;
         top: 6px; right: 16px;
         font-size: 10px; font-weight: 600;
-        color: var(--orange, #e8720c);
+        color: var(--orange);
         letter-spacing: .06em;
         z-index: 15;
       }
@@ -354,34 +354,34 @@
         display: flex; align-items: center;
         padding: 14px 16px;
         padding-top: max(14px, env(safe-area-inset-top));
-        background: var(--s, #111418);
-        border-bottom: 1px solid var(--br, rgba(255,255,255,.07));
+        background: var(--s);
+        border-bottom: 1px solid var(--br);
         gap: 12px;
       }
       .pe-modal-back {
         width: 36px; height: 36px;
         background: none; border: none;
-        color: var(--t, #E8EAF0); cursor: pointer;
+        color: var(--t); cursor: pointer;
         display: flex; align-items: center; justify-content: center;
       }
       .pe-modal-back svg { width: 20px; height: 20px; }
       .pe-modal-title {
         font-size: 16px; font-weight: 700;
         letter-spacing: .04em; text-transform: uppercase;
-        color: var(--t, #E8EAF0);
+        color: var(--t);
       }
 
       .pe-preview-container {
         flex: 1; overflow-y: auto;
         padding: 16px;
         padding-bottom: max(16px, env(safe-area-inset-bottom));
-        background: var(--bg, #0A0C0F);
+        background: var(--bg);
       }
       .pe-preview-image {
         width: 100%; max-height: 320px;
         object-fit: contain;
         border-radius: 12px;
-        background: var(--s, #111418);
+        background: var(--s);
         margin-bottom: 20px;
       }
       .pe-section {
@@ -391,7 +391,7 @@
         display: flex; align-items: center; gap: 8px;
         font-size: 11px; font-weight: 700;
         letter-spacing: .12em; text-transform: uppercase;
-        color: var(--m, #6B7280);
+        color: var(--m);
         margin-bottom: 10px;
       }
       .pe-section-title svg { width: 14px; height: 14px; opacity: .6; }
@@ -405,38 +405,38 @@
       .pe-tag-pill {
         padding: 8px 16px;
         border-radius: 999px;
-        border: 1.5px solid rgba(255,255,255,.15);
-        background: var(--s2, #181C22);
-        color: var(--t, #E8EAF0);
+        border: 1.5px solid var(--br);
+        background: var(--s2);
+        color: var(--t);
         cursor: pointer;
         font-size: 13px; font-weight: 500;
         white-space: nowrap;
-        transition: all .15s;
+        transition: background var(--t-mid), color var(--t-mid), border-color var(--t-mid), transform var(--t-fast);
         flex-shrink: 0;
       }
       .pe-tag-pill:active { transform: scale(.95); }
       .pe-tag-pill.selected {
-        background: var(--orange, #e8720c);
-        border-color: var(--orange, #e8720c);
-        color: #fff; font-weight: 600;
+        background: var(--orange);
+        border-color: var(--orange);
+        color: var(--accent-fg); font-weight: 600;
       }
-      .pe-tag-pill.cat-damage.selected { background: #EF4444; border-color: #EF4444; }
-      .pe-tag-pill.cat-location.selected { background: #3B82F6; border-color: #3B82F6; }
-      .pe-tag-pill.cat-type.selected { background: #8B5CF6; border-color: #8B5CF6; }
+      .pe-tag-pill.cat-damage.selected { background: var(--red); border-color: var(--red); }
+      .pe-tag-pill.cat-location.selected { background: var(--blue); border-color: var(--blue); }
+      .pe-tag-pill.cat-type.selected { background: var(--purple); border-color: var(--purple); }
 
       .pe-textarea, .pe-input {
         width: 100%; padding: 12px 14px;
-        background: var(--s2, #181C22);
-        border: 1px solid var(--br, rgba(255,255,255,.07));
+        background: var(--s2);
+        border: 1px solid var(--br);
         border-radius: 10px;
-        color: var(--t, #E8EAF0);
+        color: var(--t);
         font-family: 'Barlow', sans-serif;
         font-size: 14px;
         box-sizing: border-box;
       }
       .pe-textarea:focus, .pe-input:focus {
         outline: none;
-        border-color: var(--orange, #e8720c);
+        border-color: var(--orange);
         box-shadow: 0 0 0 3px color-mix(in srgb, var(--orange) 12%, transparent);
       }
       .pe-textarea { resize: none; min-height: 64px; }
@@ -452,23 +452,24 @@
         border: none; border-radius: 12px;
         font-weight: 700; font-size: 14px;
         letter-spacing: .04em; text-transform: uppercase;
-        cursor: pointer; transition: all .15s;
+        cursor: pointer;
+        transition: background var(--t-mid), color var(--t-mid), transform var(--t-fast);
         font-family: 'Barlow Condensed', sans-serif;
       }
       .pe-btn:active { transform: scale(.97); }
       .pe-btn-primary {
-        background: var(--orange, #e8720c);
-        color: #fff;
+        background: var(--orange);
+        color: var(--accent-fg);
       }
       .pe-btn-secondary {
-        background: var(--s2, #181C22);
-        color: var(--t, #E8EAF0);
-        border: 1px solid var(--br, rgba(255,255,255,.07));
+        background: var(--s2);
+        color: var(--t);
+        border: 1px solid var(--br);
       }
 
       .pe-close-btn {
         background: none; border: none;
-        color: var(--t, #E8EAF0); cursor: pointer;
+        color: var(--t); cursor: pointer;
         font-size: 1.5rem; padding: .5rem;
         display: flex; align-items: center; justify-content: center;
       }
@@ -514,7 +515,7 @@
         overflow: hidden;
         cursor: pointer;
         border: 2px solid transparent;
-        transition: all 0.2s;
+        transition: border-color var(--t-mid), transform var(--t-mid), box-shadow var(--t-mid);
       }
 
       .pe-gallery-item:hover {
@@ -616,7 +617,9 @@
         display: flex;
         align-items: center;
         justify-content: center;
-        z-index: 10000;
+        /* Must beat an open .pe-modal / .modal-bg (both at --z-overlay);
+           toasts stay above at --z-toast. */
+        z-index: var(--z-overlay-top,10001);
       }
 
       .pe-lightbox-content {
@@ -677,7 +680,7 @@
         align-items: center;
         justify-content: center;
         font-size: 1.5rem;
-        transition: all 0.2s;
+        transition: background var(--t-mid);
       }
 
       .pe-nav-btn:hover {
@@ -728,17 +731,9 @@
         gap: 0.5rem;
       }
 
-      /* Empty State */
-      .pe-empty-state {
-        text-align: center;
-        padding: 2rem;
-        color: var(--m);
-      }
-
-      .pe-empty-icon {
-        font-size: 3rem;
-        margin-bottom: 1rem;
-      }
+      /* Empty states now use the shared .nbd-empty pattern from
+         dashboard-app.css (batch-2 consolidation) — the local
+         .pe-empty-state/.pe-empty-icon rules were deleted with it. */
 
       /* Staging Badge */
       .pe-staged-badge {
@@ -746,7 +741,7 @@
         top: 0.5rem;
         right: 0.5rem;
         background: var(--orange);
-        color: white;
+        color: var(--accent-fg);
         width: 28px;
         height: 28px;
         border-radius: 50%;
@@ -1377,14 +1372,9 @@
               <option value="grid">Grid View</option>
               <option value="list">List View</option>
             </select>
-            <button id="pe-bulk-ai-btn" type="button"
+            <button id="pe-bulk-ai-btn" type="button" class="btn btn-orange btn-sm"
               data-action="peBulkAnalyze" data-lead-id="${leadId}"
-              style="
-                margin-left:auto;
-                padding:8px 14px; border-radius:6px; border:1px solid #c8541a;
-                background:linear-gradient(135deg,#c8541a 0%,#a64516 100%);
-                color:#fff; font-weight:600; font-size:12px;
-                cursor:pointer; -webkit-tap-highlight-color:transparent;">
+              style="margin-left:auto;">
               ✨ Analyze All with AI
             </button>
           </div>
@@ -1403,14 +1393,14 @@
       const _peSort = container.querySelector('#sort-by');
       if (_peSort) _peSort.addEventListener('change', function () { window.PhotoEngine._sortGallery(leadId); });
     } catch (err) {
-      container.innerHTML = `<div class="pe-empty-state"><div class="pe-empty-icon">📷</div><p>No photos yet</p></div>`;
+      container.innerHTML = `<div class="nbd-empty"><div class="ne-icon">📷</div><div class="ne-msg">No photos yet</div></div>`;
       console.error('Gallery error:', err);
     }
   }
 
   function renderGalleryGrid(container, photos, leadId) {
     if (photos.length === 0) {
-      container.innerHTML = `<div class="pe-empty-state"><div class="pe-empty-icon">📷</div><p>No photos found</p></div>`;
+      container.innerHTML = `<div class="nbd-empty"><div class="ne-icon">📷</div><div class="ne-msg">No photos found</div></div>`;
       return;
     }
 
@@ -1496,7 +1486,7 @@
               <div class="pe-metadata-row">
                 <div class="pe-metadata-label">Tags</div>
                 <div style="display: flex; flex-wrap: wrap; gap: 0.5rem;">
-                  ${photo.tags.map(tag => `<span style="background: var(--orange); color: white; padding: 0.2rem 0.5rem; border-radius: 0.25rem; font-size: 0.8rem;">${escHtml(tag)}</span>`).join('')}
+                  ${photo.tags.map(tag => `<span style="background: var(--orange); color: var(--accent-fg); padding: 0.2rem 0.5rem; border-radius: 0.25rem; font-size: 0.8rem;">${escHtml(tag)}</span>`).join('')}
                 </div>
               </div>
             ` : ''}
