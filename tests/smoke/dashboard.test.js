@@ -44,7 +44,6 @@ const syntaxFiles = [
   path.join(PRO_JS, 'estimate-v2-ui.js'),
   path.join(PRO_JS, 'estimate-finalization.js'),
   path.join(PRO_JS, 'nbd-doc-viewer.js'),
-  path.join(PRO_JS, 'template-suite.js'),
   // Boot-path prefs (de-moji, sizing, fonts, sidebar hidden-prefs) — a
   // parse error here silently kills every boot-applied UI pref at once.
   path.join(PRO_JS, 'dashboard-ui-prefs-boot.js'),
@@ -108,17 +107,56 @@ section('FCM push registration');
     /collection\(\s*['"]fcmTokens['"]\s*\)/.test(pushFns));
 }
 
-// ── QA sweep regression guards (Audit #4: F1/F4/F5) ──────────
-section('QA sweep fixes (F1/F4/F5)');
+// ── QA sweep regression guards (Audit #4: F4/F5) ──────────
+section('QA sweep fixes (F4/F5)');
 {
-  const ts = read(path.join(PRO_JS, 'template-suite.js'));
-  assert('F1: template-suite uses modular writeBatch (not db.batch)', /window\.writeBatch\(/.test(ts) && !/=\s*db\.batch\(/.test(ts));
+  // F1 (template-suite writeBatch) retired — template-suite.js was removed
+  // entirely (dead code: its UI was only reachable via a guard on a method
+  // that never existed, and nothing consumed its API or synced data).
   const auth = read(path.join(PRO_JS, 'nbd-auth.js'));
   assert('F4: nbd-auth falls back client role to the custom claim', /_claimRole/.test(auth) && /userData\.role\s*\|\|\s*_claimRole/.test(auth));
   for (const s of ['seed-access-codes.js', 'grant-admin-claim.js', 'grant-demo-claim.js']) {
     const src = read(path.join(ROOT, 'scripts', s));
     assert('F5: ' + s + ' resolves firebase-admin from functions/', /require\.resolve\(['"]firebase-admin['"]/.test(src));
   }
+}
+
+// ── Template-suite removal + Message Templates wiring ──────────
+// template-suite.js (NBDTemplateSuite) was deleted as dead code: its UI was
+// gated on window.NBDTemplateSuite.render, a method it never exposed (the
+// real name was renderTemplateLibrary), so the branch never fired — and had
+// it fired it would have clobbered the curated docgen docs view. Nothing
+// consumed its API, localStorage seed, or Firestore sync. The live snippet
+// engine is templates-library.js (TemplatesLibrary), which IS consumed
+// (portal-link-helpers pickAndRender, smart-followup apply) and whose
+// manager UI is now reachable from the docs view header.
+section('Template-suite removal + TemplatesLibrary manager wiring');
+{
+  const dash = readDashboard();
+  const dashHtml = read(path.join(ROOT, 'docs/pro/dashboard.html'));
+  const legacyHtml = read(path.join(ROOT, 'docs/pro/dashboard.legacy.html'));
+  const tl = read(path.join(PRO_JS, 'templates-library.js'));
+
+  // 1. The dead module stays dead — no file, no script tag, no guard branch.
+  assert('template-suite.js stays deleted',
+    !fs.existsSync(path.join(PRO_JS, 'template-suite.js')),
+    'template-suite.js came back — its UI was unreachable dead code, see PR');
+  assert('dashboard.html does not load template-suite.js', !/template-suite\.js/.test(dashHtml));
+  assert('dashboard.legacy.html does not load template-suite.js (deleted file would 404 the rollback snapshot)',
+    !/template-suite\.js/.test(legacyHtml));
+  assert('no NBDTemplateSuite references remain in dashboard shards', !/NBDTemplateSuite/.test(dash));
+
+  // 2. The docs view header wires the TemplatesLibrary manager via the
+  //    CSP-safe module dispatch (no inline handlers, no registry entry —
+  //    module dispatch resolves window.TemplatesLibrary.openManager).
+  assert('docs view header opens TemplatesLibrary.openManager via module dispatch',
+    /data-action="module"\s+data-target="TemplatesLibrary\.openManager"/.test(dashHtml),
+    'expected a Message Templates button in tpl-view-docs using data-action="module"');
+  assert('templates-library.js exports openManager on window.TemplatesLibrary',
+    /window\.TemplatesLibrary\s*=\s*\{[\s\S]{0,600}openManager/.test(tl),
+    'module dispatch target must exist or the button silently no-ops');
+  assert('dashboard.html loads templates-library.js (manager must load on the page that dispatches it)',
+    /src="js\/templates-library\.js/.test(dashHtml));
 }
 
 // ── QA sweep behavior guards (F2/F3/F6/F8: verified working-as-intended) ──

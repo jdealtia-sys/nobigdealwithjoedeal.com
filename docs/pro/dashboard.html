@@ -2339,7 +2339,12 @@
           <div class="page-title">Template Library</div>
           <div class="page-sub">24 NBD-branded documents — ready to generate, print, and present</div>
         </div>
-        <button class="btn btn-orange" data-action="call" data-fn="openUploadDoc">＋ Upload</button>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+          <button class="btn btn-ghost" title="Saved SMS / email snippets that auto-fill the composer when you share a portal link"
+                  data-action="module" data-target="TemplatesLibrary.openManager"
+                  data-fallback-toast="Message templates are still loading — try again in a moment">📝 Message Templates</button>
+          <button class="btn btn-orange" data-action="call" data-fn="openUploadDoc">＋ Upload</button>
+        </div>
       </div>
       <div style="font-size:11px;color:var(--m);padding:0 0 10px;display:flex;gap:12px;align-items:center;">
         <span>Click a template to fill & generate. Use the <strong>Blank</strong> button to print an empty copy for hand-fill.</span>
@@ -6163,7 +6168,6 @@
 <script defer src="js/theme-sounds.js?v=1"></script>
 <script defer src="js/theme-achievements.js?v=1"></script>
 <script defer src="js/theme-gx.js?v=1"></script>
-<script defer src="js/template-suite.js?v=1"></script>
 <script src="js/dashboard-sw-bootstrap.js?v=1"></script>
 <script defer src="js/mobile-nav-customizer.js?v=1"></script>
 <script defer src="js/connection-status-btn.js?v=2"></script>

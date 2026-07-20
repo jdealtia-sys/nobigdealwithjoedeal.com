@@ -86,7 +86,7 @@
     mirrorToFirestore(customs);
   }
 
-  // Best-effort one-way Firestore mirror (template-suite.js pattern).
+  // Best-effort one-way Firestore mirror.
   // window._db is the MODULAR v10 instance — no db.batch()/db.collection();
   // use window.writeBatch + window.doc exposed by the dashboard bootstrap,
   // and guard if they aren't ready yet. Failure is non-fatal by design.
