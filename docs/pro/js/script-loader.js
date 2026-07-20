@@ -144,7 +144,14 @@
       'js/estimate-finalization.js?v=2',
       'js/estimate-v2-ui.js?v=12',
       'js/estimate-supplement.js?v=1',
-      'js/supplement-ui.js?v=1'
+      'js/supplement-ui.js?v=1',
+      // Job templates ride the estimates bundle: data is inert, the engine
+      // resolves through EstimateLogic + registers custom items into
+      // EstimateBuilderV2.CATALOG (so it must load after both), and the UI
+      // inserts into the V2 builder — end-of-bundle satisfies all three.
+      'js/job-templates-data.js?v=1',
+      'js/job-templates.js?v=1',
+      'js/job-templates-ui.js?v=1'
     ],
     // Photo + inspection engine (PR 2d). Camera capture / gallery / lightbox /
     // bulk-analyze (photo-engine), the photo-report doc (photo-report), and the
@@ -190,6 +197,7 @@
     documents:   ['warranty', 'docgen'],
     est:         ['estimates'],
     products:    ['estimates'],
+    'job-templates': ['estimates'],
     photos:      ['photos'],
     d2d:         ['d2d'],
     academy:     ['academy'],

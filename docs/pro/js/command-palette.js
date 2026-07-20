@@ -49,6 +49,7 @@
     { id: 'go-closeboard', label: 'Close Board',          icon: '💰', group: 'Navigation', keywords: 'goals revenue commission close', run: () => _goTo('closeboard') },
     { id: 'go-reports',    label: 'Reports',              icon: '📊', group: 'Navigation', keywords: 'analytics metrics kpi', run: () => _goTo('reports') },
     { id: 'go-products',   label: 'Products',             icon: '🏗️',  group: 'Navigation', keywords: 'catalog pricing materials', run: () => _goTo('products') },
+    { id: 'go-job-templates', label: 'Job Templates',     icon: '🧰', group: 'Navigation', keywords: 'quote job template repair estimate prebuilt library', run: () => _goTo('job-templates') },
     { id: 'go-docs',       label: 'Docs',                 icon: '📑', group: 'Navigation', keywords: 'documents contracts certificates warranties', run: () => _goTo('docs') },
     { id: 'go-academy',    label: 'Academy',              icon: '🎓', group: 'Navigation', keywords: 'training education courses', run: () => _goTo('academy') },
     { id: 'go-training',   label: 'Sales Training',       icon: '🥋', group: 'Navigation', keywords: 'sales practice scenarios', run: () => _goTo('training') },

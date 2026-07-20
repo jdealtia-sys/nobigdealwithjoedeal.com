@@ -8,11 +8,12 @@
   'use strict';
 
   const STORAGE_KEY = 'nbd_product_library';
-  // DATA_VERSION bumped 2→3 (2026-04-10) to invalidate stale caches
-  // that still hold only the 134 base products. When users reload
-  // with this version, seedDefaults() re-reads window.NBD_PRODUCTS
-  // which now includes the 88 RoofIVent products (total: 222).
-  const DATA_VERSION = 3;
+  // DATA_VERSION 4 (2026-07-19): catalog expanded with repair-scale,
+  // chimney, skylight, gutter-guard, maintenance, and exterior SKUs
+  // (188 base + 88 RoofIVent = 276). v4 also replaces the old
+  // wipe-on-mismatch reseed with migrateStore(), which merges fresh
+  // defaults with the user's created/edited products.
+  const DATA_VERSION = 4;
 
   // Pull from product-data.js globals
   const CATEGORIES = window.NBD_CATEGORIES || {};
@@ -44,7 +45,7 @@
         if (parsed._v === DATA_VERSION) {
           products = parsed.items || [];
         } else {
-          seedDefaults();
+          migrateStore(Array.isArray(parsed.items) ? parsed.items : []);
         }
       } else {
         seedDefaults();
@@ -59,6 +60,25 @@
   function seedDefaults() {
     const now = new Date().toISOString();
     products = DEFAULT_PRODUCTS.map(p => ({ ...p, createdAt: now, updatedAt: now }));
+    saveAll();
+  }
+
+  // Version-mismatch migration. Constraints (MUST NOT wipe user data —
+  // the pre-v4 reseed did):
+  //  - stored ids NOT in fresh defaults = user-created → keep verbatim
+  //  - stored default ids with updatedAt !== createdAt = user-edited
+  //    (seedDefaults stamps them equal; only saveProduct bumps updatedAt)
+  //    → stored copy wins over the fresh default
+  //  - everything else → fresh default, so new SKUs and data fixes land
+  function migrateStore(storedItems) {
+    const now = new Date().toISOString();
+    const byId = new Map();
+    DEFAULT_PRODUCTS.forEach(p => byId.set(p.id, { ...p, createdAt: now, updatedAt: now }));
+    storedItems.forEach(p => {
+      if (!p || !p.id) return;
+      if (!byId.has(p.id) || (p.updatedAt && p.updatedAt !== p.createdAt)) byId.set(p.id, p);
+    });
+    products = Array.from(byId.values());
     saveAll();
   }
 

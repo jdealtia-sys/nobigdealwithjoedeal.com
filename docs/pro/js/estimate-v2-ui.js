@@ -572,6 +572,7 @@
             <button type="button" data-action="load-preset" data-arg="full-redeck">Full Redeck</button>
             <button type="button" data-action="load-preset" data-arg="hail-damage-insurance" style="grid-column:span 2;">Hail Damage Insurance</button>
             <button type="button" data-action="load-preset" data-arg="tamko-storm-hailguard" style="grid-column:span 2;">TAMKO Storm — HailGuard</button>
+            <button type="button" data-action="open-job-templates" style="grid-column:span 2;">🧰 Job Templates…</button>
           </div>
         </div>
 
@@ -772,6 +773,13 @@
           break;
         case 'load-preset':
           if (arg) loadPreset(arg);
+          break;
+        case 'open-job-templates':
+          // Job-template picker (job-templates-ui.js, same bundle). Inserts
+          // its selection back through addScopeEntries below.
+          if (window.JobTemplatesUI && typeof window.JobTemplatesUI.openPickerForScope === 'function') {
+            window.JobTemplatesUI.openPickerForScope();
+          }
           break;
         case 'finalize':
           if (arg) finalize(arg);
@@ -1319,6 +1327,38 @@
     (preset.codes || []).forEach(c => state.scope.push({ code: c, overrides: {} }));
     state._reopenedClean = false;   // 3B: loading a preset is an edit
     render();
+  }
+
+  // Additive scope insertion for the job-template picker (job-templates.js
+  // insertIntoV2). Unlike loadPreset this does NOT clearScope. Measurements
+  // and the min-job floor only apply when the scope was empty — inserting a
+  // repair template into a mid-build full-roof estimate must not clobber the
+  // rep's typed measurements or lower the job floor.
+  function addScopeEntries(entries, measurements, opts) {
+    opts = opts || {};
+    const wasEmpty = !(state.scope && state.scope.length);
+    const existing = {};
+    (state.scope || []).forEach(s => { existing[s.code] = true; });
+    let added = 0, skipped = 0;
+    (entries || []).forEach(e => {
+      if (!e || !e.code) return;
+      if (existing[e.code]) { skipped++; return; }   // no double LAB MOB etc.
+      existing[e.code] = true;
+      state.scope.push({ code: e.code, overrides: Object.assign({}, e.overrides) });
+      added++;
+    });
+    if (wasEmpty) {
+      if (measurements) {
+        state.measurements = Object.assign({}, state.measurements, measurements);
+        syncMeasurementInputs();
+      }
+      if (opts.minJobCharge != null) state.minJobCharge = opts.minJobCharge;
+    }
+    if (added || skipped) {
+      state._reopenedClean = false;
+      render();
+    }
+    return { added: added, skipped: skipped };
   }
 
   // ═════════════════════════════════════════════════════════
@@ -2960,6 +3000,7 @@ html,body{margin:0;padding:0;height:100%;width:100%;background:#fff;font-family:
     removeFromScope,
     clearScope,
     loadPreset,
+    addScopeEntries,
     finalize,
     save,
     getState: () => state,

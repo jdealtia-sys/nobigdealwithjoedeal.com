@@ -510,6 +510,15 @@ function goTo(name, params = {}) {
       else if (pc && typeof window.renderProductLibrary === 'function') { pc.innerHTML = window.renderProductLibrary(); }
     });
   }
+  if(name==='job-templates') {
+    // Job-template library rides the same lazy 'estimates' bundle as the
+    // products view (it resolves pricing through EstimateLogic).
+    _lazyPreload.then(function () {
+      const jc = document.getElementById('jobTemplatesContainer');
+      if (jc && window.JobTemplatesUI) { jc.innerHTML = window.JobTemplatesUI.render(); }
+      else if (jc && typeof window.renderJobTemplatesLibrary === 'function') { jc.innerHTML = window.renderJobTemplatesLibrary(); }
+    });
+  }
   if(name==='docs') {
     // Upgrade docs view with template suite if available
     if (typeof window.NBDTemplateSuite !== 'undefined' && window.NBDTemplateSuite.render) {

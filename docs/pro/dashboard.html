@@ -722,6 +722,7 @@
       <div class="ni" role="button" tabindex="0" data-action="goTo" data-target="photos" id="nav-photos"><span class="ni-icon">📸</span>Photos</div>
       <div class="ni" role="button" tabindex="0" data-action="goTo" data-target="docs" id="nav-docs"><span class="ni-icon">📁</span>Templates</div>
       <div class="ni" role="button" tabindex="0" data-action="goTo" data-target="products" id="nav-products"><span class="ni-icon">📦</span>Products</div>
+      <div class="ni" role="button" tabindex="0" data-action="goTo" data-target="job-templates" id="nav-job-templates"><span class="ni-icon">🧰</span>Job Templates</div>
       <div class="ni" role="button" tabindex="0" data-action="goTo" data-target="draw" id="nav-draw"><span class="ni-icon">✏️</span>Drawing</div>
       <div class="ni" role="button" tabindex="0" data-action="goTo" data-target="training" id="nav-training"><span class="ni-icon">🎯</span>Sales Training</div>
       <div class="ni" role="button" tabindex="0" data-action="goTo" data-target="academy" id="nav-academy"><span class="ni-icon">🎓</span>Real Deal Academy</div>
@@ -4525,6 +4526,7 @@
 
   <!-- Phase C.1: PRODUCTS / D2D / TRAINING / ACADEMY — empty mounts. -->
   <div class="view" id="view-products" data-view-template="tpl-view-products"></div>
+  <div class="view" id="view-job-templates" data-view-template="tpl-view-job-templates"></div>
   <div class="view" id="view-d2d"      data-view-template="tpl-view-d2d"></div>
   <div class="view" id="view-training" data-view-template="tpl-view-training"></div>
   <div class="view" id="view-academy"  data-view-template="tpl-view-academy"></div>
@@ -4542,6 +4544,22 @@
       </div>
       <div id="productLibraryContainer">
         <div class="empty"><div class="empty-icon">📦</div>Loading product library...</div>
+      </div>
+    </div>
+  </template>
+  <template id="tpl-view-job-templates">
+    <div class="view-scroll">
+      <div class="page-hdr">
+        <div>
+          <div class="row-tight">
+            <span class="bc-meta-cp" data-action="goTo" data-target="dash">← Back to Dashboard</span>
+          </div>
+          <div class="page-title">Job Templates</div>
+          <div class="page-sub">Pre-built quotes for every job — pick, customize, and generate an estimate</div>
+        </div>
+      </div>
+      <div id="jobTemplatesContainer">
+        <div class="empty"><div class="empty-icon">🧰</div>Loading job templates...</div>
       </div>
     </div>
   </template>
@@ -5431,6 +5449,9 @@
   </div>
   <div class="mm-item" data-action="mobileNav" data-target="products" data-close-more>
     <span class="mm-item-icon">📦</span>Products
+  </div>
+  <div class="mm-item" data-action="mobileNav" data-target="job-templates" data-close-more>
+    <span class="mm-item-icon">🧰</span>Job Templates
   </div>
   <div class="mm-item" data-action="mobileNav" data-target="draw" data-close-more>
     <span class="mm-item-icon">✏️</span>Drawing Tool
