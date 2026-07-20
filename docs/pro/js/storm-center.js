@@ -416,7 +416,13 @@
   function confirmDeleteZone(zoneId) {
     const zone = stormZones.find(z => z.id === zoneId);
     const name = (zone && zone.name) || 'this storm zone';
-    if (window.confirm('Delete ' + name + '?\nThis removes the zone and its canvass plan from this device.')) {
+    const body = 'This removes the zone and its canvass plan from this device.';
+    // nbdModal.confirm renders strings via textContent (no escaping needed) and
+    // works in iOS PWA standalone where native confirm() silently no-ops.
+    if (window.nbdModal && typeof window.nbdModal.confirm === 'function') {
+      window.nbdModal.confirm({ title: 'Delete ' + name + '?', body, okLabel: 'Delete', danger: true })
+        .then(ok => { if (ok) deleteStormZone(zoneId); });
+    } else if (window.confirm('Delete ' + name + '?\n' + body)) {
       deleteStormZone(zoneId);
     }
   }
@@ -736,7 +742,7 @@
             ${alert.hailSize ? `<div style="margin-top:4px;font-size:12px;">🧊 ${alert.hailSize}" hail</div>` : ''}
             ${alert.windSpeed ? `<div style="margin-top:2px;font-size:12px;">💨 ${alert.windSpeed} mph</div>` : ''}
             <div style="margin-top:6px;font-size:11px;">Damage probability: <strong>${Math.round(alert.damageProb * 100)}%</strong></div>
-            <button data-storm-action="createZone" data-storm-id="${alert.id}" style="margin-top:8px;padding:6px 12px;background:#e8720c;color:white;border:none;border-radius:6px;cursor:pointer;font-size:11px;font-weight:700;">Create Storm Zone</button>
+            <button class="btn btn-orange btn-sm" data-storm-action="createZone" data-storm-id="${alert.id}" style="margin-top:8px;">Create Storm Zone</button>
           </div>
         `);
       }
@@ -760,8 +766,8 @@
             <div style="font-size:11px;margin-top:4px;">Status: <strong>${esc(String(zone.status || 'active')).toUpperCase()}</strong></div>
             <div style="font-size:11px;">Est. roofs: ${zone.estimatedRoofs} · ${Math.round((zone.damageProb || 0) * 100)}% damage</div>
             <div style="margin-top:6px;display:flex;gap:6px;">
-              <button data-storm-action="openZone" data-storm-id="${zone.id}" style="padding:5px 10px;background:var(--blue,#4A9EFF);color:white;border:none;border-radius:4px;cursor:pointer;font-size:10px;">View</button>
-              <button data-storm-action="pushToD2D" data-storm-id="${zone.id}" style="padding:5px 10px;background:#e8720c;color:white;border:none;border-radius:4px;cursor:pointer;font-size:10px;">Start Knocking</button>
+              <button class="btn btn-ghost btn-sm" data-storm-action="openZone" data-storm-id="${zone.id}">View</button>
+              <button class="btn btn-orange btn-sm" data-storm-action="pushToD2D" data-storm-id="${zone.id}">Start Knocking</button>
             </div>
           </div>
         `);
@@ -784,10 +790,10 @@
 
     const scroll = container.querySelector('.view-scroll') || container;
 
-    const tabBtn = (id, label, icon) => {
-      const active = currentTab === id;
-      return `<button data-storm-action="setTab" data-storm-id="${id}" style="padding:8px 16px;border:none;border-radius:8px;background:${active ? 'var(--orange,#e8720c)' : 'var(--s2,#1e2028)'};color:${active ? '#fff' : 'var(--m,#8b8e96)'};font-size:12px;font-weight:${active ? '700' : '500'};font-family:'Barlow Condensed',sans-serif;cursor:pointer;letter-spacing:.03em;transition:all .15s;">${icon} ${label}</button>`;
-    };
+    // Design-system underline tabs (.stab-btn — same vocabulary as Settings),
+    // replacing the ad-hoc pill buttons (2026-07-19 CRM visual audit batch 2).
+    const tabBtn = (id, label, icon) =>
+      `<button class="stab-btn${currentTab === id ? ' stab-active' : ''}" data-storm-action="setTab" data-storm-id="${id}">${icon} ${label}</button>`;
 
     // Stats bar
     const activeAlerts = alerts.length;
@@ -804,33 +810,33 @@
             <div style="font-size:22px;font-weight:800;font-family:'Barlow Condensed',sans-serif;color:var(--t);letter-spacing:.02em;">⛈️ STORM CENTER</div>
             <div style="font-size:12px;color:var(--m);margin-top:2px;">Weather intelligence → Revenue pipeline</div>
           </div>
-          <button data-storm-action="refresh" style="padding:8px 16px;background:var(--orange,#e8720c);color:white;border:none;border-radius:8px;font-size:12px;font-weight:700;font-family:'Barlow Condensed',sans-serif;cursor:pointer;letter-spacing:.04em;text-transform:uppercase;">
+          <button class="btn btn-orange" data-storm-action="refresh">
             ${isLoading ? '⏳ Loading...' : '🔄 Refresh Alerts'}
           </button>
         </div>
 
-        <!-- Stats Strip -->
+        <!-- Stats Strip (.stat-card design-system tiles) -->
         <div style="display:flex;gap:10px;margin-bottom:14px;overflow-x:auto;">
-          <div style="flex:1;min-width:120px;background:var(--s2);border:1px solid var(--br);border-radius:10px;padding:12px;text-align:center;">
-            <div style="font-size:22px;font-weight:700;color:${activeAlerts > 0 ? '#ff6d00' : 'var(--t)'};">${activeAlerts}</div>
-            <div style="font-size:10px;color:var(--m);text-transform:uppercase;letter-spacing:.06em;">Active Alerts</div>
+          <div class="stat-card" style="flex:1;min-width:120px;">
+            <div class="stat-icon">📡</div>
+            <div><div class="stat-val" style="color:${activeAlerts > 0 ? '#ff6d00' : 'var(--t)'};font-size:22px;">${activeAlerts}</div><div class="stat-lbl">Active Alerts</div></div>
           </div>
-          <div style="flex:1;min-width:120px;background:var(--s2);border:1px solid var(--br);border-radius:10px;padding:12px;text-align:center;">
-            <div style="font-size:22px;font-weight:700;color:var(--blue);">${activeZones}</div>
-            <div style="font-size:10px;color:var(--m);text-transform:uppercase;letter-spacing:.06em;">Storm Zones</div>
+          <div class="stat-card" style="flex:1;min-width:120px;">
+            <div class="stat-icon">🗺️</div>
+            <div><div class="stat-val" style="color:var(--blue);font-size:22px;">${activeZones}</div><div class="stat-lbl">Storm Zones</div></div>
           </div>
-          <div style="flex:1;min-width:120px;background:var(--s2);border:1px solid var(--br);border-radius:10px;padding:12px;text-align:center;">
-            <div style="font-size:22px;font-weight:700;color:var(--green);">$${Math.round(totalRevenue/1000)}k</div>
-            <div style="font-size:10px;color:var(--m);text-transform:uppercase;letter-spacing:.06em;">Pipeline Value</div>
+          <div class="stat-card" style="flex:1;min-width:120px;">
+            <div class="stat-icon">💰</div>
+            <div><div class="stat-val" style="color:var(--green);font-size:22px;">$${Math.round(totalRevenue/1000)}k</div><div class="stat-lbl">Pipeline Value</div></div>
           </div>
-          <div style="flex:1;min-width:120px;background:var(--s2);border:1px solid var(--br);border-radius:10px;padding:12px;text-align:center;">
-            <div style="font-size:22px;font-weight:700;color:var(--orange);">${stormZones.reduce((s, z) => s + (Number(z.knockCount) || 0), 0)}</div>
-            <div style="font-size:10px;color:var(--m);text-transform:uppercase;letter-spacing:.06em;">Storm Knocks</div>
+          <div class="stat-card" style="flex:1;min-width:120px;">
+            <div class="stat-icon">🚪</div>
+            <div><div class="stat-val" style="color:var(--orange);font-size:22px;">${stormZones.reduce((s, z) => s + (Number(z.knockCount) || 0), 0)}</div><div class="stat-lbl">Storm Knocks</div></div>
           </div>
         </div>
 
-        <!-- Tabs -->
-        <div style="display:flex;gap:6px;margin-bottom:14px;overflow-x:auto;padding-bottom:2px;">
+        <!-- Tabs (.stab-btn underline vocabulary) -->
+        <div style="display:flex;gap:0;margin-bottom:14px;overflow-x:auto;border-bottom:2px solid var(--br);">
           ${tabBtn('alerts', 'Live Alerts', '📡')}
           ${tabBtn('zones', 'Storm Zones', '🗺️')}
           ${tabBtn('canvass', 'Canvass Plans', '🚪')}
@@ -892,15 +898,15 @@
 
   function renderAlertsTab() {
     if (isLoading) {
-      return '<div style="text-align:center;padding:40px;color:var(--m);font-size:13px;">⏳ Fetching NWS alerts...</div>';
+      return '<div class="nbd-empty"><div class="ne-sub">⏳ Fetching NWS alerts...</div></div>';
     }
 
     if (alerts.length === 0) {
       return `
-        <div style="text-align:center;padding:40px;">
-          <div style="font-size:40px;margin-bottom:12px;">☀️</div>
-          <div style="font-size:15px;font-weight:600;color:var(--t);">No Active Alerts</div>
-          <div style="font-size:12px;color:var(--m);margin-top:4px;">All clear in your area. Click Refresh to check again.</div>
+        <div class="nbd-empty">
+          <div class="ne-icon">☀️</div>
+          <div class="ne-msg">No Active Alerts</div>
+          <div class="ne-sub">All clear in your area. Click Refresh to check again.</div>
         </div>
       `;
     }
@@ -919,10 +925,10 @@
                 </div>
                 <div style="font-size:11px;color:var(--m);margin-top:3px;">${esc(a.areaDesc?.split(';').slice(0, 3).join(', ') || 'Unknown area')}</div>
                 <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap;">
-                  <span style="font-size:10px;padding:2px 8px;border-radius:10px;background:${severityColor(a.severity)}20;color:${severityColor(a.severity)};font-weight:600;">${a.severity}</span>
-                  ${a.hailSize ? `<span style="font-size:10px;padding:2px 8px;border-radius:10px;background:#4A9EFF20;color:#4A9EFF;font-weight:600;">🧊 ${a.hailSize}" Hail</span>` : ''}
-                  ${a.windSpeed ? `<span style="font-size:10px;padding:2px 8px;border-radius:10px;background:#ff6d0020;color:#ff6d00;font-weight:600;">💨 ${a.windSpeed}mph</span>` : ''}
-                  <span style="font-size:10px;padding:2px 8px;border-radius:10px;background:${a.damageProb > 0.6 ? '#ff174420' : '#ffab0020'};color:${a.damageProb > 0.6 ? '#ff1744' : '#ffab00'};font-weight:600;">
+                  <span style="font-size:10px;padding:2px 8px;border-radius:10px;background:color-mix(in srgb, ${severityColor(a.severity)} 13%, transparent);color:${severityColor(a.severity)};font-weight:600;">${a.severity}</span>
+                  ${a.hailSize ? `<span style="font-size:10px;padding:2px 8px;border-radius:10px;background:color-mix(in srgb, var(--blue) 13%, transparent);color:var(--blue);font-weight:600;">🧊 ${a.hailSize}" Hail</span>` : ''}
+                  ${a.windSpeed ? `<span style="font-size:10px;padding:2px 8px;border-radius:10px;background:color-mix(in srgb, #ff6d00 13%, transparent);color:#ff6d00;font-weight:600;">💨 ${a.windSpeed}mph</span>` : ''}
+                  <span style="font-size:10px;padding:2px 8px;border-radius:10px;background:color-mix(in srgb, ${a.damageProb > 0.6 ? '#ff1744' : '#ffab00'} 13%, transparent);color:${a.damageProb > 0.6 ? '#ff1744' : '#ffab00'};font-weight:600;">
                     ${Math.round(a.damageProb * 100)}% damage prob
                   </span>
                 </div>
@@ -930,8 +936,8 @@
               <div style="text-align:right;flex-shrink:0;">
                 <div style="font-size:10px;color:var(--m);">${timeAgo(a.sent)}</div>
                 <div style="font-size:10px;color:var(--m);margin-top:2px;">Expires ${fmtDate(a.expires)}</div>
-                <button data-storm-action="createZone" data-storm-id="${a.id}" style="margin-top:8px;padding:6px 14px;background:var(--orange,#e8720c);color:white;border:none;border-radius:6px;font-size:11px;font-weight:700;font-family:'Barlow Condensed',sans-serif;cursor:pointer;letter-spacing:.03em;">
-                  CREATE ZONE
+                <button class="btn btn-orange btn-sm" data-storm-action="createZone" data-storm-id="${a.id}" style="margin-top:8px;">
+                  Create Zone
                 </button>
               </div>
             </div>
@@ -944,10 +950,10 @@
   function renderZonesTab() {
     if (stormZones.length === 0) {
       return `
-        <div style="text-align:center;padding:40px;">
-          <div style="font-size:40px;margin-bottom:12px;">🗺️</div>
-          <div style="font-size:15px;font-weight:600;color:var(--t);">No Storm Zones Yet</div>
-          <div style="font-size:12px;color:var(--m);margin-top:4px;">Create zones from active alerts to start building canvass plans.</div>
+        <div class="nbd-empty">
+          <div class="ne-icon">🗺️</div>
+          <div class="ne-msg">No Storm Zones Yet</div>
+          <div class="ne-sub">Create zones from active alerts to start building canvass plans.</div>
         </div>
       `;
     }
@@ -963,16 +969,16 @@
                   <div style="font-size:14px;font-weight:700;color:var(--t);">🌩️ ${esc(z.name)}</div>
                   <div style="font-size:11px;color:var(--m);margin-top:3px;">Created ${timeAgo(z.createdAt)}</div>
                   <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap;">
-                    <span style="font-size:10px;padding:2px 8px;border-radius:10px;background:${z.status === 'active' ? '#ff6d00' : z.status === 'canvassing' ? '#e8720c' : '#2ECC8A'}20;color:${z.status === 'active' ? '#ff6d00' : z.status === 'canvassing' ? '#e8720c' : '#2ECC8A'};font-weight:600;text-transform:uppercase;">${esc(z.status)}</span>
+                    <span style="font-size:10px;padding:2px 8px;border-radius:10px;background:color-mix(in srgb, ${z.status === 'active' ? '#ff6d00' : z.status === 'canvassing' ? 'var(--orange)' : 'var(--green)'} 13%, transparent);color:${z.status === 'active' ? '#ff6d00' : z.status === 'canvassing' ? 'var(--orange)' : 'var(--green)'};font-weight:600;text-transform:uppercase;">${esc(z.status)}</span>
                     <span style="font-size:10px;padding:2px 8px;border-radius:10px;background:var(--s);border:1px solid var(--br);color:var(--t);">🏠 ${z.estimatedRoofs} roofs</span>
                     <span style="font-size:10px;padding:2px 8px;border-radius:10px;background:var(--s);border:1px solid var(--br);color:var(--t);">🚪 ${Number(z.knockCount) || 0} knocks</span>
                     <span style="font-size:10px;padding:2px 8px;border-radius:10px;background:color-mix(in srgb, var(--green) 13%, transparent);color:var(--green);font-weight:600;">${rev.revenueFormatted} pipeline</span>
                   </div>
                 </div>
                 <div style="display:flex;flex-direction:column;gap:4px;flex-shrink:0;">
-                  <button data-storm-action="generatePlan" data-storm-id="${z.id}" data-storm-stop="1" style="padding:5px 12px;background:var(--blue,#4A9EFF);color:white;border:none;border-radius:5px;font-size:10px;font-weight:600;cursor:pointer;">📋 Plan</button>
-                  <button data-storm-action="pushToD2D" data-storm-id="${z.id}" data-storm-stop="1" style="padding:5px 12px;background:var(--orange,#e8720c);color:white;border:none;border-radius:5px;font-size:10px;font-weight:600;cursor:pointer;">🚪 Knock</button>
-                  <button data-storm-action="remove" data-storm-id="${z.id}" data-storm-stop="1" style="padding:5px 12px;background:transparent;border:1px solid var(--br);color:var(--m);border-radius:5px;font-size:10px;font-weight:600;cursor:pointer;">🗑 Delete</button>
+                  <button class="btn btn-ghost btn-sm" data-storm-action="generatePlan" data-storm-id="${z.id}" data-storm-stop="1">📋 Plan</button>
+                  <button class="btn btn-orange btn-sm" data-storm-action="pushToD2D" data-storm-id="${z.id}" data-storm-stop="1">🚪 Knock</button>
+                  <button class="btn btn-red btn-sm" data-storm-action="remove" data-storm-id="${z.id}" data-storm-stop="1">🗑 Delete</button>
                 </div>
               </div>
             </div>
@@ -986,10 +992,10 @@
     const zonesWithPlans = stormZones.filter(z => z.canvassPlan);
     if (zonesWithPlans.length === 0) {
       return `
-        <div style="text-align:center;padding:40px;">
-          <div style="font-size:40px;margin-bottom:12px;">📋</div>
-          <div style="font-size:15px;font-weight:600;color:var(--t);">No Canvass Plans Yet</div>
-          <div style="font-size:12px;color:var(--m);margin-top:4px;">Generate a plan from any storm zone to get step-by-step canvassing instructions.</div>
+        <div class="nbd-empty">
+          <div class="ne-icon">📋</div>
+          <div class="ne-msg">No Canvass Plans Yet</div>
+          <div class="ne-sub">Generate a plan from any storm zone to get step-by-step canvassing instructions.</div>
         </div>
       `;
     }
@@ -1001,7 +1007,7 @@
         <div style="background:var(--s2);border:1px solid var(--br);border-radius:10px;padding:16px;margin-top:14px;">
           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
             <div style="font-size:15px;font-weight:700;color:var(--t);">📋 ${esc(z.name)}</div>
-            <span style="font-size:10px;padding:3px 10px;border-radius:10px;background:${plan.priority === 'CRITICAL' ? '#ff1744' : plan.priority === 'HIGH' ? '#ff6d00' : '#4A9EFF'}20;color:${plan.priority === 'CRITICAL' ? '#ff1744' : plan.priority === 'HIGH' ? '#ff6d00' : '#4A9EFF'};font-weight:700;">${plan.priority} PRIORITY</span>
+            <span style="font-size:10px;padding:3px 10px;border-radius:10px;background:color-mix(in srgb, ${plan.priority === 'CRITICAL' ? '#ff1744' : plan.priority === 'HIGH' ? '#ff6d00' : 'var(--blue)'} 13%, transparent);color:${plan.priority === 'CRITICAL' ? '#ff1744' : plan.priority === 'HIGH' ? '#ff6d00' : 'var(--blue)'};font-weight:700;">${plan.priority} PRIORITY</span>
           </div>
 
           <!-- Optimal Window -->
@@ -1012,23 +1018,19 @@
             <div style="font-size:11px;color:var(--green);margin-top:2px;">${plan.optimalWindow.note}</div>
           </div>
 
-          <!-- Revenue Projection -->
+          <!-- Revenue Projection (.stat-card tiles) -->
           <div style="display:flex;gap:8px;margin-bottom:10px;">
-            <div style="flex:1;background:var(--s);border:1px solid var(--br);border-radius:8px;padding:10px;text-align:center;">
-              <div style="font-size:18px;font-weight:700;color:var(--t);">${rev.estimatedRoofs}</div>
-              <div style="font-size:9px;color:var(--m);text-transform:uppercase;">Est. Roofs</div>
+            <div class="stat-card" style="flex:1;padding:10px 12px;">
+              <div><div class="stat-val" style="font-size:18px;">${rev.estimatedRoofs}</div><div class="stat-lbl">Est. Roofs</div></div>
             </div>
-            <div style="flex:1;background:var(--s);border:1px solid var(--br);border-radius:8px;padding:10px;text-align:center;">
-              <div style="font-size:18px;font-weight:700;color:var(--orange);">${rev.damagedRoofs}</div>
-              <div style="font-size:9px;color:var(--m);text-transform:uppercase;">Likely Damaged</div>
+            <div class="stat-card" style="flex:1;padding:10px 12px;">
+              <div><div class="stat-val" style="font-size:18px;color:var(--orange);">${rev.damagedRoofs}</div><div class="stat-lbl">Likely Damaged</div></div>
             </div>
-            <div style="flex:1;background:var(--s);border:1px solid var(--br);border-radius:8px;padding:10px;text-align:center;">
-              <div style="font-size:18px;font-weight:700;color:var(--green);">${rev.expectedJobs}</div>
-              <div style="font-size:9px;color:var(--m);text-transform:uppercase;">Expected Jobs</div>
+            <div class="stat-card" style="flex:1;padding:10px 12px;">
+              <div><div class="stat-val" style="font-size:18px;color:var(--green);">${rev.expectedJobs}</div><div class="stat-lbl">Expected Jobs</div></div>
             </div>
-            <div style="flex:1;background:var(--s);border:1px solid var(--br);border-radius:8px;padding:10px;text-align:center;">
-              <div style="font-size:18px;font-weight:700;color:var(--green);">${rev.revenueFormatted}</div>
-              <div style="font-size:9px;color:var(--m);text-transform:uppercase;">Revenue</div>
+            <div class="stat-card" style="flex:1;padding:10px 12px;">
+              <div><div class="stat-val" style="font-size:18px;color:var(--green);">${rev.revenueFormatted}</div><div class="stat-lbl">Revenue</div></div>
             </div>
           </div>
 
@@ -1059,8 +1061,8 @@
             <div style="font-size:11px;color:var(--m);">📅 Est. completion: <strong style="color:var(--t);">${plan.daysToComplete} day${plan.daysToComplete > 1 ? 's' : ''}</strong></div>
           </div>
 
-          <button data-storm-action="pushToD2D" data-storm-id="${z.id}" style="width:100%;margin-top:12px;padding:12px;background:var(--orange,#e8720c);color:white;border:none;border-radius:8px;font-size:13px;font-weight:700;font-family:'Barlow Condensed',sans-serif;cursor:pointer;letter-spacing:.04em;text-transform:uppercase;">
-            🚪 START KNOCKING THIS ZONE
+          <button class="btn btn-orange" data-storm-action="pushToD2D" data-storm-id="${z.id}" style="width:100%;justify-content:center;margin-top:12px;padding:12px;">
+            🚪 Start Knocking This Zone
           </button>
         </div>
       `;
@@ -1079,27 +1081,27 @@
         <div style="font-size:13px;font-weight:700;color:var(--t);margin-bottom:10px;font-family:'Barlow Condensed',sans-serif;text-transform:uppercase;letter-spacing:.06em;">📊 Storm Performance</div>
 
         <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:16px;">
-          <div style="background:var(--s2);border:1px solid var(--br);border-radius:10px;padding:14px;text-align:center;">
-            <div style="font-size:28px;font-weight:700;color:var(--t);">${stormZones.length}</div>
-            <div style="font-size:10px;color:var(--m);text-transform:uppercase;">Total Zones</div>
+          <div class="stat-card">
+            <div class="stat-icon">🗺️</div>
+            <div><div class="stat-val">${stormZones.length}</div><div class="stat-lbl">Total Zones</div></div>
           </div>
-          <div style="background:var(--s2);border:1px solid var(--br);border-radius:10px;padding:14px;text-align:center;">
-            <div style="font-size:28px;font-weight:700;color:var(--orange);">${totalKnocks}</div>
-            <div style="font-size:10px;color:var(--m);text-transform:uppercase;">Storm Knocks</div>
+          <div class="stat-card">
+            <div class="stat-icon">🚪</div>
+            <div><div class="stat-val" style="color:var(--orange);">${totalKnocks}</div><div class="stat-lbl">Storm Knocks</div></div>
           </div>
-          <div style="background:var(--s2);border:1px solid var(--br);border-radius:10px;padding:14px;text-align:center;">
-            <div style="font-size:28px;font-weight:700;color:var(--blue);">${totalLeads}</div>
-            <div style="font-size:10px;color:var(--m);text-transform:uppercase;">Leads Generated</div>
+          <div class="stat-card">
+            <div class="stat-icon">👥</div>
+            <div><div class="stat-val" style="color:var(--blue);">${totalLeads}</div><div class="stat-lbl">Leads Generated</div></div>
           </div>
-          <div style="background:var(--s2);border:1px solid var(--br);border-radius:10px;padding:14px;text-align:center;">
-            <div style="font-size:28px;font-weight:700;color:var(--green);">${convRate}%</div>
-            <div style="font-size:10px;color:var(--m);text-transform:uppercase;">Conversion Rate</div>
+          <div class="stat-card">
+            <div class="stat-icon">📈</div>
+            <div><div class="stat-val" style="color:var(--green);">${convRate}%</div><div class="stat-lbl">Conversion Rate</div></div>
           </div>
         </div>
 
         <!-- Zone History -->
         <div style="font-size:11px;font-weight:700;color:var(--t);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;">Zone History</div>
-        ${stormZones.length === 0 ? '<div style="text-align:center;padding:20px;color:var(--m);font-size:12px;">No zone history yet</div>' :
+        ${stormZones.length === 0 ? '<div class="nbd-empty" style="padding:20px;"><div class="ne-sub">No zone history yet</div></div>' :
           stormZones.map(z => {
             const rev = estimateZoneRevenue(z);
             return `

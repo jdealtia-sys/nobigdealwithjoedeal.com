@@ -574,20 +574,22 @@
   var ANALYTICS_CSS = `
     .ak-wrap { max-width: 960px; margin: 0 auto; }
     .ak-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px; margin-bottom: 20px; }
-    .ak-card { background: var(--s2, #1a1d23); border: 1px solid var(--br, #2a2d35); border-radius: 10px; padding: 18px 16px; position: relative; overflow: hidden; transition: border-color .15s; }
-    .ak-card:hover { border-color: var(--orange, #e8720c); }
+    /* .ak-card follows the canonical .stat-card tile spec (dashboard-app.css)
+       — same surface/border/radius/padding/hover — plus a colored top accent. */
+    .ak-card { background: var(--s); border: 1px solid var(--br); border-radius: 9px; padding: 16px 18px; position: relative; overflow: hidden; transition: border-color var(--t-mid, .18s); }
+    .ak-card:hover { border-color: color-mix(in srgb, var(--t) 14%, transparent); }
     .ak-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px; }
     .ak-card.blue::before { background: var(--blue, #4E9BF5); }
     .ak-card.orange::before { background: var(--orange, #e8720c); }
     .ak-card.green::before { background: var(--green, #2ECC8A); }
-    .ak-card.red::before { background: #E05252; }
+    .ak-card.red::before { background: var(--red); }
     .ak-card.cyan::before { background: var(--blue,#3b82f6); }
     .ak-lbl { font-size: 10px; text-transform: uppercase; letter-spacing: .08em; color: var(--m, #8892A4); margin-bottom: 6px; font-weight: 600; }
     .ak-val { font-family: 'Barlow Condensed', sans-serif; font-size: 28px; font-weight: 900; line-height: 1.1; }
     .ak-val.blue { color: var(--blue, #4E9BF5); }
     .ak-val.orange { color: var(--orange, #e8720c); }
     .ak-val.green { color: var(--green, #2ECC8A); }
-    .ak-val.red { color: #E05252; }
+    .ak-val.red { color: var(--red); }
     .ak-val.cyan { color: var(--blue,#3b82f6); }
     .ak-sub { font-size: 10px; color: var(--m, #8892A4); margin-top: 4px; opacity: .7; }
     .ak-panel { background: var(--s2, #1a1d23); border: 1px solid var(--br, #2a2d35); border-radius: 10px; margin-bottom: 16px; overflow: hidden; }
@@ -606,8 +608,6 @@
     .ak-chart-lbl { font-size: 9px; color: var(--m, #8892A4); white-space: nowrap; }
     .ak-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
     @media (max-width: 640px) { .ak-cols { grid-template-columns: 1fr; } .ak-grid { grid-template-columns: repeat(2, 1fr); gap: 8px; } .ak-card { padding: 12px; } .ak-val { font-size: 22px; } .ak-bar-label { min-width: 70px; font-size: 10px; } }
-    .ak-empty { text-align: center; padding: 40px 16px; color: var(--m, #8892A4); font-size: 13px; }
-    .ak-empty-icon { font-size: 32px; margin-bottom: 8px; }
     .ak-loading { text-align: center; padding: 60px 16px; color: var(--m, #8892A4); }
     .ak-loading-spinner { display: inline-block; width: 28px; height: 28px; border: 3px solid var(--br, #2a2d35); border-top-color: var(--orange, #e8720c); border-radius: 50%; animation: ak-spin .8s linear infinite; margin-bottom: 12px; }
     @keyframes ak-spin { to { transform: rotate(360deg); } }
@@ -647,9 +647,10 @@
     }).catch(function (err) {
       console.error('Analytics fetch error:', err);
       el.innerHTML =
-        '<div class="ak-empty">' +
-          '<div class="ak-empty-icon">⚠️</div>' +
-          '<div>Could not load analytics. Please try again.</div>' +
+        '<div class="nbd-empty">' +
+          '<div class="ne-icon">⚠️</div>' +
+          '<div class="ne-msg">Could not load analytics</div>' +
+          '<div class="ne-sub">Please try again.</div>' +
         '</div>';
       if (window.AiTextingStatsCard && typeof window.AiTextingStatsCard.render === 'function') {
         window.AiTextingStatsCard.render();
@@ -674,13 +675,13 @@
 
     // Stage colors
     var stageColors = {
-      new: '#4E9BF5', contacted: '#00d4ff', inspection_scheduled: '#8B5CF6',
-      inspection_complete: '#A855F7', estimate_sent: '#EC4899', negotiation: '#F97316',
-      signed: '#2ECC8A', install_scheduled: '#10B981', install_complete: '#059669',
-      closed: '#2ECC8A', Complete: '#2ECC8A', lost: '#E05252', Lost: '#E05252'
+      new: 'var(--blue)', contacted: '#00d4ff', inspection_scheduled: '#8B5CF6',
+      inspection_complete: '#A855F7', estimate_sent: '#EC4899', negotiation: 'var(--orange)',
+      signed: 'var(--green)', install_scheduled: '#10B981', install_complete: '#059669',
+      closed: 'var(--green)', Complete: 'var(--green)', lost: 'var(--red)', Lost: 'var(--red)'
     };
 
-    function stageColor(s) { return stageColors[s] || 'var(--orange, #e8720c)'; }
+    function stageColor(s) { return stageColors[s] || 'var(--orange)'; }
 
     // Friendly stage names
     var stageLabels = {
@@ -695,7 +696,7 @@
     // Build stage bars
     var stageBarsHTML = '';
     if (stageEntries.length === 0) {
-      stageBarsHTML = '<div class="ak-empty"><div class="ak-empty-icon">📊</div>No lead data yet</div>';
+      stageBarsHTML = '<div class="nbd-empty"><div class="ne-icon">📊</div><div class="ne-msg">No lead data yet</div></div>';
     } else {
       stageEntries.forEach(function (entry) {
         var label = stageLabels[entry[0]] || entry[0].replace(/_/g, ' ');
@@ -716,7 +717,7 @@
     // Build source bars
     var sourceBarsHTML = '';
     if (sourceEntries.length === 0) {
-      sourceBarsHTML = '<div class="ak-empty"><div class="ak-empty-icon">📊</div>No source data yet</div>';
+      sourceBarsHTML = '<div class="nbd-empty"><div class="ne-icon">📊</div><div class="ne-msg">No source data yet</div></div>';
     } else {
       sourceEntries.slice(0, 8).forEach(function (entry) {
         var label = entry[0];
@@ -736,7 +737,7 @@
     // Build monthly trend chart
     var trendChartHTML = '';
     if (trendEntries.length === 0) {
-      trendChartHTML = '<div class="ak-empty">No trend data yet</div>';
+      trendChartHTML = '<div class="nbd-empty"><div class="ne-msg">No trend data yet</div></div>';
     } else {
       trendEntries.forEach(function (entry) {
         var mk = entry[0];

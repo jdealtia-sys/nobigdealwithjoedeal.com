@@ -240,11 +240,13 @@
     const events = collectEvents();
 
     if (events.length === 0) {
+      // Canonical empty-state pattern (.nbd-empty, dashboard-app.css).
       container.innerHTML = `
-        <div style="padding:28px 20px; text-align:center; color:var(--m,#9aa3b2); font-size:12px;">
-          <div style="font-size:24px; margin-bottom:8px; opacity:0.6;">📜</div>
-          Nothing yet. Add a lead or send an estimate — recent activity
-          will show up here.
+        <div class="nbd-empty" style="padding:28px 20px;">
+          <div class="ne-icon">📜</div>
+          <div class="ne-msg">Nothing yet</div>
+          <div class="ne-sub">Add a lead or send an estimate — recent activity
+          will show up here.</div>
         </div>`;
       return;
     }
@@ -278,10 +280,10 @@
             style="
               display:flex; align-items:center; justify-content:center;
               width:26px; height:26px; border-radius:5px;
-              background:rgba(16,185,129,0.14); color:#10b981;
+              background:color-mix(in srgb, var(--green) 14%, transparent); color:var(--green);
               text-decoration:none; font-size:12px;
               -webkit-tap-highlight-color:transparent;
-              transition:transform .12s;"
+              transition:transform var(--t-fast);"
             data-af-stop-self="1"
           >📞</a>`);
         buttons.push(`
@@ -291,10 +293,10 @@
             style="
               display:flex; align-items:center; justify-content:center;
               width:26px; height:26px; border-radius:5px;
-              background:rgba(59,130,246,0.14); color:#3b82f6;
+              background:color-mix(in srgb, var(--blue) 14%, transparent); color:var(--blue);
               border:none; font-size:12px; cursor:pointer;
               -webkit-tap-highlight-color:transparent;
-              transition:transform .12s;"
+              transition:transform var(--t-fast);"
           >💬</button>`);
       }
       if (email) {
@@ -305,10 +307,10 @@
             style="
               display:flex; align-items:center; justify-content:center;
               width:26px; height:26px; border-radius:5px;
-              background:rgba(139,92,246,0.14); color:#8b5cf6;
+              background:color-mix(in srgb, var(--purple) 14%, transparent); color:var(--purple);
               border:none; font-size:12px; cursor:pointer;
               -webkit-tap-highlight-color:transparent;
-              transition:transform .12s;"
+              transition:transform var(--t-fast);"
           >📧</button>`);
       }
       // Wave 69: portal preview action — always available, no
@@ -326,10 +328,10 @@
             style="
               display:flex; align-items:center; justify-content:center;
               width:26px; height:26px; border-radius:5px;
-              background:rgba(245,158,11,0.14); color:#f59e0b;
+              background:color-mix(in srgb, var(--gold) 14%, transparent); color:var(--gold);
               border:none; font-size:12px; cursor:pointer;
               -webkit-tap-highlight-color:transparent;
-              transition:transform .12s;"
+              transition:transform var(--t-fast);"
           >🔍</button>`);
       }
       // Wave 69: state-aware snooze/unsnooze. Same reasoning as
@@ -349,10 +351,10 @@
               style="
                 display:flex; align-items:center; justify-content:center;
                 width:26px; height:26px; border-radius:5px;
-                background:rgba(155,109,255,0.14); color:var(--purple,#a78bfa);
+                background:color-mix(in srgb, var(--purple) 14%, transparent); color:var(--purple);
                 border:none; font-size:12px; cursor:pointer;
                 -webkit-tap-highlight-color:transparent;
-                transition:transform .12s;"
+                transition:transform var(--t-fast);"
             >⏰</button>`);
         } else {
           buttons.push(`
@@ -362,10 +364,10 @@
               style="
                 display:flex; align-items:center; justify-content:center;
                 width:26px; height:26px; border-radius:5px;
-                background:rgba(155,109,255,0.10); color:var(--purple,#a78bfa);
+                background:color-mix(in srgb, var(--purple) 10%, transparent); color:var(--purple);
                 border:none; font-size:12px; cursor:pointer;
                 -webkit-tap-highlight-color:transparent;
-                transition:transform .12s;"
+                transition:transform var(--t-fast);"
             >💤</button>`);
         }
       }
@@ -377,20 +379,20 @@
       <div class="activity-row" data-lead-id="${escapeHtml(ev.leadId || '')}" data-est-id="${escapeHtml(ev.estId || '')}"
         style="
           display:flex; align-items:center; gap:10px;
-          padding:10px 12px; border-bottom:1px solid var(--br,#1e2530);
-          cursor:pointer; transition:background .15s;
+          padding:10px 12px; border-bottom:1px solid var(--br);
+          cursor:pointer; transition:background var(--t-mid);
           -webkit-tap-highlight-color:transparent;">
         <div style="font-size:16px; flex-shrink:0; width:28px; text-align:center;">${ev.icon}</div>
         <div style="flex:1; min-width:0;">
-          <div style="font-size:12px; font-weight:600; color:var(--t,#e8eaf0); margin-bottom:1px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
+          <div style="font-size:12px; font-weight:600; color:var(--t); margin-bottom:1px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
             ${escapeHtml(ev.title)}
           </div>
-          <div style="font-size:11px; color:var(--m,#9aa3b2); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
+          <div style="font-size:11px; color:var(--m); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
             ${escapeHtml(ev.sub)}
           </div>
         </div>
         ${_resharBtnsForEvent(ev)}
-        <div style="font-size:10px; color:var(--m,#9aa3b2); flex-shrink:0; white-space:nowrap;">${escapeHtml(relativeTime(ev.ts))}</div>
+        <div style="font-size:10px; color:var(--m); flex-shrink:0; white-space:nowrap;">${escapeHtml(relativeTime(ev.ts))}</div>
       </div>
     `).join('');
 
@@ -452,7 +454,7 @@
           window.location.href = `/pro/customer.html?id=${encodeURIComponent(leadId)}`;
         }
       });
-      row.addEventListener('mouseover', () => { row.style.background = 'var(--s2,#0f1419)'; });
+      row.addEventListener('mouseover', () => { row.style.background = 'var(--s2)'; });
       row.addEventListener('mouseout',  () => { row.style.background = ''; });
     });
   }

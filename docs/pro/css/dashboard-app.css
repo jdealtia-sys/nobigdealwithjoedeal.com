@@ -19,12 +19,19 @@
   --z-base:1;
   --z-sticky:50;        /* sticky headers, kanban column tops, action bars */
   --z-dropdown:200;     /* dropdowns, popovers, autocomplete */
-  --z-overlay:1000;     /* drag-shields, scroll-locks */
-  --z-modal:9000;       /* dialogs and bottom sheets */
-  --z-toast:9100;       /* toasts above modals */
+  --z-modal:9000;       /* legacy alias (decision-engine) — new code uses --z-overlay */
   --z-banner:9500;      /* trial banner, offline banner */
   --z-loader:9900;      /* full-screen loaders */
-  --z-emergency:9999;   /* truly above everything */
+  --z-emergency:9999;   /* truly above everything below the overlay layer */
+  /* ── Cert-round 2026-07-19 truth (top of the stack, in order):
+     FAB (9900) < overlays (10000 cmd-palette / modal-bg, 10001
+     shortcuts-panel / confirm-on-top-of-modal) < toasts (10002).
+     --z-overlay/--z-toast were re-pointed here from their old 1000/9100
+     values (no var() consumers existed at either old value). */
+  --z-fab:9900;         /* floating action buttons — always UNDER overlays */
+  --z-overlay:10000;    /* .modal-bg, cmd palette, full-screen overlays */
+  --z-overlay-top:10001;/* must beat an open overlay: shortcuts panel, nested confirms */
+  --z-toast:10002;      /* toasts above everything */
 }
 /* ══ DESIGN TOKENS (Wave 4 2026-05-14) ════════════════════════════════
    Typography, spacing, radius, and tap-target scales. New components
@@ -749,7 +756,7 @@ body:has(#view-prospects.active) .breadcrumb-container{
   left:0;
   right:0;
   bottom:0;
-  z-index:10000;
+  z-index:var(--z-overlay);
   display:none;
   align-items:flex-start;
   justify-content:center;
@@ -967,7 +974,7 @@ body:has(#view-prospects.active) .breadcrumb-container{
   left:0;
   right:0;
   bottom:0;
-  z-index:10001;
+  z-index:var(--z-overlay-top);
   display:none;
   align-items:center;
   justify-content:center;
@@ -1258,7 +1265,7 @@ body:has(#view-prospects.active) .breadcrumb-container{
   position:fixed;
   bottom:20px;
   right:20px;
-  z-index:10002;
+  z-index:var(--z-toast);
   display:flex;
   flex-direction:column;
   gap:12px;
@@ -1662,7 +1669,7 @@ body[data-nbd-size="comfortable"] .crm-icon-btn { width: calc(32px * var(--nbd-s
 .page-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;}
 .page-title{font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;}
 .page-sub{font-size:12px;color:var(--m);margin-top:2px;}
-.btn{display:inline-flex;align-items:center;gap:6px;padding:9px 16px;border-radius:7px;font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;cursor:pointer;border:1px solid transparent;transition:background .2s,color .2s,border-color .2s,transform .15s,box-shadow .2s;}
+.btn{display:inline-flex;align-items:center;gap:6px;padding:9px 16px;border-radius:7px;font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;cursor:pointer;border:1px solid transparent;transition:background var(--t-mid),color var(--t-mid),border-color var(--t-mid),transform var(--t-fast),box-shadow var(--t-mid);}
 .btn-orange{background:var(--orange);color:var(--accent-fg);border-color:var(--orange);box-shadow:0 3px 12px var(--og);}
 .btn-orange:hover{background:var(--ob);}
 .btn-ghost{background:var(--s2);color:var(--t);border-color:var(--br);}
@@ -1732,7 +1739,7 @@ body[data-nbd-size="comfortable"] .crm-icon-btn { width: calc(32px * var(--nbd-s
 .overlay-toggle::after{content:'';position:absolute;top:2px;left:2px;width:14px;height:14px;border-radius:50%;background:#fff;transition:transform .2s;}
 .overlay-toggle.on::after{transform:translateX(16px);}
 /* Pin confirm dialog */
-.pin-confirm-overlay{position:fixed;top:0;right:0;bottom:0;left:0;z-index:2050;background:rgba(0,0,0,.7);display:none;align-items:center;justify-content:center;}
+.pin-confirm-overlay{position:fixed;top:0;right:0;bottom:0;left:0;z-index:var(--z-overlay-top);background:rgba(0,0,0,.7);display:none;align-items:center;justify-content:center;}
 .pin-confirm-overlay.open{display:flex;}
 .pin-confirm-box{background:var(--s);border:1px solid var(--br);border-radius:10px;padding:20px;width:280px;box-shadow:0 20px 60px rgba(0,0,0,.6);}
 .pin-confirm-title{font-family:'Barlow Condensed',sans-serif;font-size:16px;font-weight:700;color:var(--t);margin-bottom:6px;}
@@ -1777,7 +1784,7 @@ body[data-nbd-size="comfortable"] .crm-icon-btn { width: calc(32px * var(--nbd-s
 .plp-btn-del{display:flex;align-items:center;justify-content:center;gap:6px;background:transparent;color:var(--red);border:1px solid rgba(224,82,82,.3);border-radius:6px;padding:7px;font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;cursor:pointer;width:100%;transition:all .15s;}
 .plp-btn-del:hover{background:rgba(224,82,82,.1);}
 /* ── DELETE CONFIRM MODAL ── */
-.del-confirm-overlay{position:fixed;top:0;right:0;bottom:0;left:0;z-index:2150;background:rgba(0,0,0,.75);display:none;align-items:center;justify-content:center;}
+.del-confirm-overlay{position:fixed;top:0;right:0;bottom:0;left:0;z-index:var(--z-overlay-top);background:rgba(0,0,0,.75);display:none;align-items:center;justify-content:center;}
 .del-confirm-overlay.open{display:flex;}
 .del-confirm-box{background:var(--s);border:1px solid var(--br);border-radius:10px;padding:22px;width:300px;max-width:calc(100vw - 32px);box-shadow:0 20px 60px rgba(0,0,0,.7);}
 .del-confirm-icon{font-size:28px;margin-bottom:8px;}
@@ -2081,7 +2088,7 @@ body[data-nbd-size="comfortable"] .crm-icon-btn { width: calc(32px * var(--nbd-s
 .settings-section{margin-bottom:24px;}
 
 /* ── SETTINGS TABS ─────────────────────────────────────────────────── */
-.stab-btn{background:transparent;border:none;border-bottom:2px solid transparent;padding:10px 18px;font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--m);cursor:pointer;transition:all .15s;white-space:nowrap;margin-bottom:-2px;}
+.stab-btn{background:transparent;border:none;border-bottom:2px solid transparent;padding:10px 18px;font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--m);cursor:pointer;transition:color var(--t-mid),border-color var(--t-mid),background var(--t-mid);white-space:nowrap;margin-bottom:-2px;}
 .stab-btn:hover{color:var(--t);}
 .stab-btn.stab-active{color:var(--orange);border-bottom-color:var(--orange);}
 .stab-panel{animation:fadeIn .15s ease;}
@@ -2175,7 +2182,9 @@ body[data-nbd-size="comfortable"] .crm-icon-btn { width: calc(32px * var(--nbd-s
 .sf input:focus{border-color:var(--orange);}
 
 /* MODAL */
-.modal-bg{display:none;position:fixed;top:0;right:0;bottom:0;left:0;background:rgba(0,0,0,.7);-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px);z-index:2000;align-items:center;justify-content:center;}
+/* z: --z-overlay (cert-round scale). Things that must beat an open modal
+   (#taskModal, pin/del confirms, shortcuts panel) use --z-overlay-top. */
+.modal-bg{display:none;position:fixed;top:0;right:0;bottom:0;left:0;background:rgba(0,0,0,.7);-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px);z-index:var(--z-overlay);align-items:center;justify-content:center;}
 .modal-bg.open{display:flex;}
 .modal{background:var(--s);border:1px solid var(--br);border-radius:12px;padding:28px;width:100%;max-width:500px;position:relative;max-height:90vh;overflow-y:auto;}
 .modal::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,var(--orange),transparent);}
@@ -2425,7 +2434,7 @@ body[data-nbd-size="comfortable"] .crm-icon-btn { width: calc(32px * var(--nbd-s
 .tip-text{font-size:12px;color:var(--t);line-height:1.5;}
 
 /* TOAST */
-#toast.toast{position:fixed;bottom:20px;right:20px;background:var(--s);border:1px solid var(--br);border-radius:8px;padding:10px 16px;font-size:13px;z-index:3000;transform:translateY(60px);opacity:0;transition:all .3s;pointer-events:none;display:flex;flex-direction:column;gap:8px;min-width:200px;}
+#toast.toast{position:fixed;bottom:20px;right:20px;background:var(--s);border:1px solid var(--br);border-radius:8px;padding:10px 16px;font-size:13px;z-index:var(--z-toast);transform:translateY(60px);opacity:0;transition:transform var(--t-slow),opacity var(--t-slow);pointer-events:none;display:flex;flex-direction:column;gap:8px;min-width:200px;}
 #toast.toast.show{transform:translateY(0);opacity:1;}
 .toast.success,.toast.ok{border-color:var(--green);color:var(--green);}
 #toast.toast.error{border-color:var(--red);color:var(--red);}
@@ -2647,7 +2656,7 @@ body[data-nbd-size="comfortable"] .crm-icon-btn { width: calc(32px * var(--nbd-s
 .w-add-card:hover{border-color:var(--orange);}
 
 /* Widget picker modal */
-.w-picker-overlay{position:fixed;top:0;right:0;bottom:0;left:0;background:rgba(0,0,0,.7);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);z-index:9000;display:flex;align-items:center;justify-content:center;padding:16px;}
+.w-picker-overlay{position:fixed;top:0;right:0;bottom:0;left:0;background:rgba(0,0,0,.7);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);z-index:var(--z-overlay);display:flex;align-items:center;justify-content:center;padding:16px;}
 .w-picker{background:var(--s);border:1px solid var(--br);border-radius:14px;width:100%;max-width:520px;max-height:80vh;display:flex;flex-direction:column;overflow:hidden;}
 .w-picker-hdr{display:flex;justify-content:space-between;align-items:center;padding:16px 20px;border-bottom:1px solid var(--br);}
 .w-picker-body{flex:1;overflow-y:auto;padding:12px 20px;}
@@ -2673,7 +2682,10 @@ input:focus, select:focus, textarea:focus {
 }
 
 /* ── ENHANCED BUTTON STATES ── */
-.btn { transition: all .2s cubic-bezier(.4,0,.2,1); }
+/* transition:all retired (audit 2026-07-19): explicit properties on the
+   token durations — the catchall animated every incidental change (see
+   the .k-card hover-jiggle post-mortem below). */
+.btn { transition: background var(--t-mid) cubic-bezier(.4,0,.2,1), color var(--t-mid) cubic-bezier(.4,0,.2,1), border-color var(--t-mid) cubic-bezier(.4,0,.2,1), box-shadow var(--t-mid) cubic-bezier(.4,0,.2,1), transform var(--t-mid) cubic-bezier(.4,0,.2,1); }
 .btn:active { transform: scale(.97); transition-duration: .08s; }
 /* Wave 5b: flat solid fill replaces the 135deg gradient. Live mirror
    showed that on themes where --orange and --ob have similar
@@ -2701,7 +2713,7 @@ input:focus, select:focus, textarea:focus {
 }
 .btn-orange:active { transform: translateY(0) scale(.98); }
 .btn-ghost {
-  transition: all .2s cubic-bezier(.4,0,.2,1);
+  transition: background var(--t-mid) cubic-bezier(.4,0,.2,1), color var(--t-mid) cubic-bezier(.4,0,.2,1), border-color var(--t-mid) cubic-bezier(.4,0,.2,1), box-shadow var(--t-mid) cubic-bezier(.4,0,.2,1);
 }
 .btn-ghost:hover {
   border-color: var(--orange);
@@ -2733,7 +2745,7 @@ input:focus, select:focus, textarea:focus {
   width: 28px; height: 28px;
   display: flex; align-items: center; justify-content: center;
   border-radius: 6px;
-  transition: all .15s;
+  transition: background var(--t-mid), color var(--t-mid), transform var(--t-mid);
 }
 .modal-close:hover {
   background: var(--s2);
@@ -2745,7 +2757,7 @@ input:focus, select:focus, textarea:focus {
 .msave {
   background: linear-gradient(135deg, var(--orange), var(--ob));
   box-shadow: 0 4px 16px var(--og);
-  transition: all .25s cubic-bezier(.4,0,.2,1);
+  transition: background var(--t-slow) cubic-bezier(.4,0,.2,1), box-shadow var(--t-slow) cubic-bezier(.4,0,.2,1), transform var(--t-slow) cubic-bezier(.4,0,.2,1);
   position: relative;
   overflow: hidden;
 }
@@ -3034,7 +3046,7 @@ input:focus, select:focus, textarea:focus {
   display: flex;
   align-items: center;
   gap: 14px;
-  transition: all .25s cubic-bezier(.4,0,.2,1);
+  transition: border-color var(--t-slow) cubic-bezier(.4,0,.2,1), transform var(--t-slow) cubic-bezier(.4,0,.2,1), box-shadow var(--t-slow) cubic-bezier(.4,0,.2,1);
   position: relative;
   overflow: hidden;
 }
@@ -3980,7 +3992,7 @@ body {
   .step-item{flex-shrink:0;}
   .doc-grid{grid-template-columns:1fr!important;}
   .lb-row{flex-wrap:wrap;gap:4px;}
-  /* z-index:1900 so modals (2000) render ABOVE the bottom nav */
+  /* z-index:1900 so modals (var(--z-overlay)) render ABOVE the bottom nav */
   #mobile-nav{display:flex!important;position:fixed;bottom:0;left:0;right:0;z-index:1900;height:62px;background:rgba(10,12,15,.96);border-top:1px solid var(--br);justify-content:space-around;align-items:center;padding:0 4px 2px;-webkit-backdrop-filter:blur(20px);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);}
   .mn-item{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;padding:6px 8px 4px;cursor:pointer;border-radius:12px;flex:1;transition:all .18s ease;position:relative;-webkit-tap-highlight-color:transparent;min-width:0;}
   .mn-item::before{content:'';position:absolute;top:0;left:50%;transform:translateX(-50%);width:0;height:2px;background:var(--orange);border-radius:0 0 3px 3px;transition:width .2s ease;}
@@ -4267,7 +4279,7 @@ body {
   bottom:18px;
   left:50%;
   transform:translateX(-50%);
-  z-index:900;
+  z-index:var(--z-fab);
   display:flex;
   gap:6px;
   background:rgba(10,12,15,.92);
@@ -4473,7 +4485,9 @@ body {
   font-weight: 500;
   opacity: 0.72;
 }
-#taskModal{z-index:2500!important;}
+/* Task modal opens ON TOP of other modals (e.g. from the lead modal) —
+   keep it one layer above the .modal-bg base (was 2500 over 2000). */
+#taskModal{z-index:var(--z-overlay-top)!important;}
 #taskModal .modal{max-width:480px;}
 .task-modal-header{margin-bottom:16px;}
 .task-lead-name{font-family:'Barlow Condensed',sans-serif;font-size:20px;font-weight:700;text-transform:uppercase;color:var(--t);letter-spacing:.04em;}
@@ -4602,6 +4616,12 @@ body {
 .nbd-empty .ne-sub{font-size:12px;color:var(--m);max-width:340px;line-height:1.5}
 /* Compact button modifier so JS views stop hand-rolling small buttons. */
 .btn-sm{padding:5px 10px;font-size:11px;border-radius:6px}
+/* Form input standard (login.html's .fi, retuned to app tokens) so JS
+   views stop hand-rolling inputs/selects/textareas. Focus ring comes
+   from the global input:focus rule in the premium-polish block. */
+.fi{width:100%;background:var(--s2);border:1px solid var(--br);border-radius:7px;padding:10px 12px;font-family:'Barlow',sans-serif;font-size:13px;color:var(--t);outline:none;transition:border-color var(--t-mid),background var(--t-mid)}
+.fi:focus{border-color:var(--orange)}
+.fi::placeholder{color:var(--m)}
 /* Modal close animation: .modal-bg used display:none↔flex — open animated,
    close SNAPPED. Visibility-gating animates both directions with no JS
    change (open/close still toggle the .open class). */

@@ -354,26 +354,26 @@ function _injectCustPanelCss() {
   const s = document.createElement('style');
   s.id = 'cust-panel-style';
   s.textContent =
-    '.nbd-cust-panel{position:absolute;left:12px;bottom:22px;z-index:600;background:rgba(10,12,15,.88);'
-    + 'border:1px solid rgba(255,255,255,.14);border-radius:10px;padding:9px 10px;font-family:sans-serif;'
+    '.nbd-cust-panel{position:absolute;left:12px;bottom:22px;z-index:600;background:color-mix(in srgb, var(--s) 90%, transparent);'
+    + 'border:1px solid var(--br);border-radius:10px;padding:9px 10px;font-family:sans-serif;'
     + 'box-shadow:0 4px 16px rgba(0,0,0,.5);backdrop-filter:blur(4px);width:186px;max-height:60vh;overflow:auto;}'
     + '.nbd-cust-panel .ncp-row{display:flex;align-items:center;gap:6px;margin-bottom:7px;}'
-    + '.nbd-cust-panel .ncp-lbl{font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:#9aa4b2;font-weight:700;}'
-    + '.nbd-cust-panel select{flex:1;background:var(--s2,#171b21);color:var(--t,#e7ebf0);border:1px solid var(--br,rgba(255,255,255,.16));border-radius:6px;font-size:12px;padding:3px 5px;}'
-    + '.nbd-cust-panel .ncp-chip{display:flex;align-items:center;gap:7px;width:100%;background:none;border:none;padding:3px 4px;border-radius:6px;cursor:pointer;color:#e7ebf0;font-size:12px;text-align:left;}'
-    + '.nbd-cust-panel .ncp-chip:hover{background:rgba(255,255,255,.07);}'
+    + '.nbd-cust-panel .ncp-lbl{font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--m);font-weight:700;}'
+    + '.nbd-cust-panel select{flex:1;background:var(--s2);color:var(--t);border:1px solid var(--br);border-radius:6px;font-size:12px;padding:3px 5px;}'
+    + '.nbd-cust-panel .ncp-chip{display:flex;align-items:center;gap:7px;width:100%;background:none;border:none;padding:3px 4px;border-radius:6px;cursor:pointer;color:var(--t);font-size:12px;text-align:left;}'
+    + '.nbd-cust-panel .ncp-chip:hover{background:color-mix(in srgb, var(--t) 7%, transparent);}'
     + '.nbd-cust-panel .ncp-chip.off{opacity:.38;}'
-    + '.nbd-cust-panel .ncp-dot{width:11px;height:11px;border-radius:50%;flex:0 0 auto;border:1px solid rgba(255,255,255,.5);}'
+    + '.nbd-cust-panel .ncp-dot{width:11px;height:11px;border-radius:50%;flex:0 0 auto;border:1px solid color-mix(in srgb, var(--t) 50%, transparent);}'
     + '.nbd-cust-panel .ncp-name{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}'
-    + '.nbd-cust-panel .ncp-cnt{color:#9aa4b2;font-variant-numeric:tabular-nums;}'
-    + '.nbd-cust-panel .ncp-more{width:100%;background:none;border:none;border-top:1px solid rgba(255,255,255,.12);margin-top:6px;padding-top:6px;'
-    + 'color:#9aa4b2;font-size:11px;cursor:pointer;text-align:left;}'
-    + '.nbd-cust-panel .ncp-group-lbl{font-size:10px;letter-spacing:.05em;text-transform:uppercase;color:#7f8894;margin:6px 2px 3px;font-weight:700;}'
+    + '.nbd-cust-panel .ncp-cnt{color:var(--m);font-variant-numeric:tabular-nums;}'
+    + '.nbd-cust-panel .ncp-more{width:100%;background:none;border:none;border-top:1px solid var(--br);margin-top:6px;padding-top:6px;'
+    + 'color:var(--m);font-size:11px;cursor:pointer;text-align:left;}'
+    + '.nbd-cust-panel .ncp-group-lbl{font-size:10px;letter-spacing:.05em;text-transform:uppercase;color:var(--m);margin:6px 2px 3px;font-weight:700;}'
     + '.nbd-cust-panel .ncp-vr{padding:2px 2px 4px;}'
-    + '.nbd-cust-panel .ncp-vr input[type=range]{width:100%;margin:2px 0;accent-color:#e8720c;height:14px;}'
-    + '.nbd-cust-panel .ncp-vr-read{font-size:11px;color:#cdd4dc;font-variant-numeric:tabular-nums;text-align:center;margin-top:2px;}'
-    + '.nbd-cust-panel .ncp-iconbtn{background:#171b21;color:#cdd4dc;border:1px solid rgba(255,255,255,.16);border-radius:6px;font-size:12px;line-height:1;padding:3px 6px;cursor:pointer;flex:0 0 auto;}'
-    + '.nbd-cust-panel .ncp-iconbtn:hover{background:#22272f;}'
+    + '.nbd-cust-panel .ncp-vr input[type=range]{width:100%;margin:2px 0;accent-color:var(--orange);height:14px;}'
+    + '.nbd-cust-panel .ncp-vr-read{font-size:11px;color:var(--t);font-variant-numeric:tabular-nums;text-align:center;margin-top:2px;}'
+    + '.nbd-cust-panel .ncp-iconbtn{background:var(--s2);color:var(--t);border:1px solid var(--br);border-radius:6px;font-size:12px;line-height:1;padding:3px 6px;cursor:pointer;flex:0 0 auto;}'
+    + '.nbd-cust-panel .ncp-iconbtn:hover{background:var(--s3);}'
     // Phone viewports: narrow + cap height so the panel doesn't cover the map;
     // sits bottom-left alongside the bottom-right pins panel (≈46vw each).
     + '@media (max-width:640px){'
@@ -599,7 +599,7 @@ function _custNnOrder(start, pts) {
 }
 function _custNumIcon(n) {
   return L.divIcon({
-    html: '<div style="width:20px;height:20px;border-radius:50%;background:#e8720c;color:#0A0C0F;font-family:sans-serif;font-size:11px;font-weight:800;'
+    html: '<div style="width:20px;height:20px;border-radius:50%;background:var(--orange,#e8720c);color:var(--accent-fg,#0A0C0F);font-family:sans-serif;font-size:11px;font-weight:800;'
       + 'display:flex;align-items:center;justify-content:center;border:2px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,.55);">' + n + '</div>',
     iconSize: [20, 20], iconAnchor: [10, 10], className: '',
   });

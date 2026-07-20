@@ -1665,8 +1665,9 @@ document.addEventListener('keydown', (e) => {
   for (const id of MODAL_IDS) {
     const el = document.getElementById(id);
     if (!el) continue;
-    const d = el.style.display;
-    if (d !== 'flex' && d !== 'block') continue;
+    // Class-toggled modals (2026-07-20 consolidation): .active is the
+    // single open signal — inline display is never set anymore.
+    if (!el.classList.contains('active')) continue;
     const closer = window['close' + id.charAt(0).toUpperCase() + id.slice(1)];
     if (typeof closer === 'function') {
       closer();
@@ -2460,7 +2461,6 @@ window.viewEstimate = function(estimateId) {
   // tried to render into a non-existent #estimateModalContent inside it.
   const viewer = document.getElementById('estimateViewerModal');
   if (viewer) {
-    viewer.style.display = 'flex';
     viewer.classList.add('active');
   }
 };
@@ -2469,7 +2469,6 @@ window.closeEstimateModal = function() {
   // Backwards-compat: keep the old name so any external callers still
   // dismiss the create modal as before.
   document.getElementById('estimateModal').classList.remove('active');
-  document.getElementById('estimateModal').style.display = 'none';
   window._currentEstimateId = null;
 };
 
@@ -2477,7 +2476,6 @@ window.closeEstimateViewerModal = function() {
   const viewer = document.getElementById('estimateViewerModal');
   if (viewer) {
     viewer.classList.remove('active');
-    viewer.style.display = 'none';
   }
   window._currentEstimateId = null;
 };
@@ -2903,13 +2901,13 @@ async function _gatherNotesForReport(leadId) {
 window._docUploadQueue = [];
 
 window.openDocUploadModal = function() {
-  document.getElementById('docUploadModal').style.display = 'flex';
+  document.getElementById('docUploadModal').classList.add('active');
   window._docUploadQueue = [];
   updateDocUploadPreview();
 };
 
 window.closeDocUploadModal = function() {
-  document.getElementById('docUploadModal').style.display = 'none';
+  document.getElementById('docUploadModal').classList.remove('active');
   window._docUploadQueue = [];
   updateDocUploadPreview();
 };

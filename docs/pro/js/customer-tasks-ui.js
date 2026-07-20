@@ -5,28 +5,28 @@
 
 // Task Modal HTML (to be injected)
 const taskModalHTML = `
-<div id="taskModal" class="modal" style="display:none;">
+<div id="taskModal" class="modal">
   <div class="modal-content" style="max-width:500px;">
     <div class="modal-header">
       <h3 style="margin:0;">Add Task</h3>
-      <button data-action="closeTaskModal" style="background:none;border:none;font-size:24px;cursor:pointer;color:#666;">&times;</button>
+      <button data-action="closeTaskModal" style="background:none;border:none;font-size:24px;cursor:pointer;color:var(--m);">&times;</button>
     </div>
     <div class="modal-body">
       <div style="margin-bottom:15px;">
         <label style="display:block;font-weight:600;margin-bottom:6px;">Task Title *</label>
         <input type="text" id="taskTitle" placeholder="e.g., Schedule roof inspection" aria-label="Task title"
-               style="width:100%;padding:10px;border:1px solid #ddd;border-radius:6px;">
+               style="width:100%;padding:10px;background:var(--s2);color:var(--t);border:1px solid var(--br);border-radius:6px;">
       </div>
       
       <div style="margin-bottom:15px;">
         <label style="display:block;font-weight:600;margin-bottom:6px;">Due Date</label>
         <input type="date" id="taskDueDate" 
-               style="width:100%;padding:10px;border:1px solid #ddd;border-radius:6px;">
+               style="width:100%;padding:10px;background:var(--s2);color:var(--t);border:1px solid var(--br);border-radius:6px;">
       </div>
       
       <div style="margin-bottom:15px;">
         <label style="display:block;font-weight:600;margin-bottom:6px;">Priority</label>
-        <select id="taskPriority" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:6px;">
+        <select id="taskPriority" style="width:100%;padding:10px;background:var(--s2);color:var(--t);border:1px solid var(--br);border-radius:6px;">
           <option value="low">Low</option>
           <option value="medium" selected>Medium</option>
           <option value="high">High</option>
@@ -36,11 +36,11 @@ const taskModalHTML = `
       <div style="margin-bottom:15px;">
         <label style="display:block;font-weight:600;margin-bottom:6px;">Notes (Optional)</label>
         <textarea id="taskNotes" rows="3" placeholder="Additional details..." 
-                  style="width:100%;padding:10px;border:1px solid #ddd;border-radius:6px;resize:vertical;"></textarea>
+                  style="width:100%;padding:10px;background:var(--s2);color:var(--t);border:1px solid var(--br);border-radius:6px;resize:vertical;"></textarea>
       </div>
     </div>
     <div class="modal-footer">
-      <button data-action="closeTaskModal" class="btn" style="background:#6c757d;border-color:#6c757d;color:#fff;">
+      <button data-action="closeTaskModal" class="btn">
         Cancel
       </button>
       <button data-action="saveTask" class="btn btn-orange">
@@ -60,7 +60,7 @@ window.addEventListener('DOMContentLoaded', () => {
 
 // Task Management Functions
 window.openTaskModal = function() {
-  document.getElementById('taskModal').style.display = 'flex';
+  document.getElementById('taskModal').classList.add('active');
   document.getElementById('taskTitle').value = '';
   document.getElementById('taskDueDate').value = '';
   document.getElementById('taskPriority').value = 'medium';
@@ -69,7 +69,7 @@ window.openTaskModal = function() {
 };
 
 window.closeTaskModal = function() {
-  document.getElementById('taskModal').style.display = 'none';
+  document.getElementById('taskModal').classList.remove('active');
 };
 
 window.saveTask = async function() {
@@ -1676,7 +1676,7 @@ function _renderDocCreateGrid(filter) {
 window.openDocCreateModal = function() {
   var modal = document.getElementById('docCreateModal');
   if (!modal) return;
-  modal.style.display = 'flex';
+  modal.classList.add('active');
   modal.setAttribute('aria-hidden', 'false');
   var search = document.getElementById('docCreateSearch');
   if (search) search.value = '';
@@ -1687,7 +1687,7 @@ window.openDocCreateModal = function() {
 window.closeDocCreateModal = function() {
   var modal = document.getElementById('docCreateModal');
   if (!modal) return;
-  modal.style.display = 'none';
+  modal.classList.remove('active');
   modal.setAttribute('aria-hidden', 'true');
 };
 
@@ -1717,7 +1717,7 @@ document.addEventListener('click', function _docCreateBackdropListener(e) {
 document.addEventListener('keydown', function _docCreateEscListener(e) {
   if (e.key !== 'Escape') return;
   var modal = document.getElementById('docCreateModal');
-  if (modal && modal.style.display === 'flex') window.closeDocCreateModal();
+  if (modal && modal.classList.contains('active')) window.closeDocCreateModal();
 });
 
 window.generateCustomerDoc = function(type) {
@@ -1949,12 +1949,12 @@ function logGeneratedDoc(type, data) {
 
 window.openDocUploadModal = function() {
   var modal = document.getElementById('docUploadModal');
-  if (modal) modal.style.display = 'flex';
+  if (modal) modal.classList.add('active');
 };
 
 window.closeDocUploadModal = function() {
   var modal = document.getElementById('docUploadModal');
-  if (modal) modal.style.display = 'none';
+  if (modal) modal.classList.remove('active');
 };
 
 // ── Load all new sections when customer loads ───

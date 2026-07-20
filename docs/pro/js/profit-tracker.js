@@ -39,11 +39,11 @@ let _NBD_PT_DELEGATE; // module-local (globals Tranche 1 — was window.*)
       const lead = (window._leads || []).find(l => l.id === leadId);
       if (lead) Object.assign(lead, data);
 
-      if (typeof showToast === 'function') showToast('Job costs saved', 'ok');
+      if (typeof window.showToast === 'function') window.showToast('Job costs saved', 'ok');
       return true;
     } catch(e) {
       console.error('Save job costs failed:', e);
-      if (typeof showToast === 'function') showToast('Failed to save costs', 'error');
+      if (typeof window.showToast === 'function') window.showToast('Failed to save costs', 'error');
       return false;
     }
   }
@@ -215,47 +215,47 @@ let _NBD_PT_DELEGATE; // module-local (globals Tranche 1 — was window.*)
     // (computeJobPLWithExpenses); otherwise fall back to the manual cost fields.
     const expFed = !!(expenses && expenses.length);
     const pl = expFed ? computeJobPLWithExpenses(lead, expenses) : computeJobPL(lead);
-    const marginColor = pl.grossMargin >= 40 ? '#16a34a' : pl.grossMargin >= 25 ? '#eab308' : '#dc2626';
+    const marginColor = pl.grossMargin >= 40 ? 'var(--green,#16a34a)' : pl.grossMargin >= 25 ? 'var(--gold,#eab308)' : 'var(--red,#dc2626)';
 
     el.innerHTML = `
       <div style="background:var(--s,#1a1a2e);border:1px solid var(--br,rgba(255,255,255,.08));border-radius:12px;padding:20px;">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
-          <h4 style="margin:0;font-family:'Barlow Condensed',sans-serif;font-size:16px;font-weight:700;color:var(--h,#fff);">💲 Job Costs & Profit</h4>
-          ${pl.revenue > 0 ? `<span style="background:${marginColor}22;color:${marginColor};padding:4px 12px;border-radius:20px;font-size:13px;font-weight:700;">${pl.grossMargin}% margin</span>` : ''}
+          <h4 style="margin:0;font-family:'Barlow Condensed',sans-serif;font-size:16px;font-weight:700;color:var(--t,#fff);">💲 Job Costs & Profit</h4>
+          ${pl.revenue > 0 ? `<span style="background:color-mix(in srgb, ${marginColor} 13%, transparent);color:${marginColor};padding:4px 12px;border-radius:20px;font-size:13px;font-weight:700;">${pl.grossMargin}% margin</span>` : ''}
         </div>
-        ${expFed ? `<div style="font-size:10px;color:#16a34a;margin:-10px 0 14px;">✓ Margin reflects ${expenses.length} logged expense${expenses.length > 1 ? 's' : ''} — $${formatPT(pl.materialCost + pl.laborCost + pl.miscCosts)} direct cost from the Expenses ledger.</div>` : ''}
+        ${expFed ? `<div style="font-size:10px;color:var(--green,#16a34a);margin:-10px 0 14px;">✓ Margin reflects ${expenses.length} logged expense${expenses.length > 1 ? 's' : ''} — $${formatPT(pl.materialCost + pl.laborCost + pl.miscCosts)} direct cost from the Expenses ledger.</div>` : ''}
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;">
           <div>
             <label style="font-size:11px;color:var(--m,#9ca3af);text-transform:uppercase;letter-spacing:.05em;">Material Cost</label>
             <input id="ptMaterial" type="number" step="0.01" value="${lead.materialCost || ''}"
-              style="width:100%;padding:10px;background:var(--s2,rgba(255,255,255,.04));border:1px solid var(--br,rgba(255,255,255,.1));border-radius:8px;color:var(--h,#fff);font-size:14px;margin-top:4px;box-sizing:border-box;">
+              style="width:100%;padding:10px;background:var(--s2,rgba(255,255,255,.04));border:1px solid var(--br,rgba(255,255,255,.1));border-radius:8px;color:var(--t,#fff);font-size:14px;margin-top:4px;box-sizing:border-box;">
           </div>
           <div>
             <label style="font-size:11px;color:var(--m,#9ca3af);text-transform:uppercase;letter-spacing:.05em;">Labor Cost</label>
             <input id="ptLabor" type="number" step="0.01" value="${lead.laborCost || ''}"
-              style="width:100%;padding:10px;background:var(--s2,rgba(255,255,255,.04));border:1px solid var(--br,rgba(255,255,255,.1));border-radius:8px;color:var(--h,#fff);font-size:14px;margin-top:4px;box-sizing:border-box;">
+              style="width:100%;padding:10px;background:var(--s2,rgba(255,255,255,.04));border:1px solid var(--br,rgba(255,255,255,.1));border-radius:8px;color:var(--t,#fff);font-size:14px;margin-top:4px;box-sizing:border-box;">
           </div>
           <div>
             <label style="font-size:11px;color:var(--m,#9ca3af);text-transform:uppercase;letter-spacing:.05em;">Misc / Other</label>
             <input id="ptMisc" type="number" step="0.01" value="${lead.miscCosts || ''}"
-              style="width:100%;padding:10px;background:var(--s2,rgba(255,255,255,.04));border:1px solid var(--br,rgba(255,255,255,.1));border-radius:8px;color:var(--h,#fff);font-size:14px;margin-top:4px;box-sizing:border-box;">
+              style="width:100%;padding:10px;background:var(--s2,rgba(255,255,255,.04));border:1px solid var(--br,rgba(255,255,255,.1));border-radius:8px;color:var(--t,#fff);font-size:14px;margin-top:4px;box-sizing:border-box;">
           </div>
           <div>
             <label style="font-size:11px;color:var(--m,#9ca3af);text-transform:uppercase;letter-spacing:.05em;">Overhead %</label>
             <input id="ptOverhead" type="number" step="1" value="${lead.overheadPct || DEFAULT_OVERHEAD_PCT}"
-              style="width:100%;padding:10px;background:var(--s2,rgba(255,255,255,.04));border:1px solid var(--br,rgba(255,255,255,.1));border-radius:8px;color:var(--h,#fff);font-size:14px;margin-top:4px;box-sizing:border-box;">
+              style="width:100%;padding:10px;background:var(--s2,rgba(255,255,255,.04));border:1px solid var(--br,rgba(255,255,255,.1));border-radius:8px;color:var(--t,#fff);font-size:14px;margin-top:4px;box-sizing:border-box;">
           </div>
         </div>
         <div style="margin-bottom:16px;">
           <label style="font-size:11px;color:var(--m,#9ca3af);text-transform:uppercase;letter-spacing:.05em;">Cost Notes</label>
-          <textarea id="ptNotes" rows="2" style="width:100%;padding:10px;background:var(--s2,rgba(255,255,255,.04));border:1px solid var(--br,rgba(255,255,255,.1));border-radius:8px;color:var(--h,#fff);font-size:13px;margin-top:4px;resize:vertical;box-sizing:border-box;">${lead.costNotes || ''}</textarea>
+          <textarea id="ptNotes" rows="2" style="width:100%;padding:10px;background:var(--s2,rgba(255,255,255,.04));border:1px solid var(--br,rgba(255,255,255,.1));border-radius:8px;color:var(--t,#fff);font-size:13px;margin-top:4px;resize:vertical;box-sizing:border-box;">${lead.costNotes || ''}</textarea>
         </div>
 
         ${pl.revenue > 0 ? `
         <div style="background:var(--s2,rgba(255,255,255,.03));border-radius:8px;padding:14px;margin-bottom:16px;">
           <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;text-align:center;">
             <div>
-              <div style="font-size:18px;font-weight:800;color:#16a34a;">$${formatPT(pl.grossProfit)}</div>
+              <div style="font-size:18px;font-weight:800;color:var(--green,#16a34a);">$${formatPT(pl.grossProfit)}</div>
               <div style="font-size:10px;color:var(--m,#9ca3af);">GROSS PROFIT</div>
             </div>
             <div>
@@ -263,14 +263,14 @@ let _NBD_PT_DELEGATE; // module-local (globals Tranche 1 — was window.*)
               <div style="font-size:10px;color:var(--m,#9ca3af);">GROSS MARGIN</div>
             </div>
             <div>
-              <div style="font-size:18px;font-weight:800;color:#e8720c;">$${formatPT(pl.totalCost)}</div>
+              <div style="font-size:18px;font-weight:800;color:var(--orange,#e8720c);">$${formatPT(pl.totalCost)}</div>
               <div style="font-size:10px;color:var(--m,#9ca3af);">TOTAL COST</div>
             </div>
           </div>
         </div>` : '<div style="color:var(--m,#9ca3af);font-size:12px;text-align:center;padding:12px;">Set a Job Value on this lead to see margin calculations</div>'}
 
-        <button data-pt-action="save" data-pt-id="${leadId}"
-          style="width:100%;padding:10px;background:#e8720c;color:#fff;border:none;border-radius:8px;font-weight:700;font-size:13px;cursor:pointer;">
+        <button type="button" class="btn btn-orange" data-pt-action="save" data-pt-id="${leadId}"
+          style="width:100%;justify-content:center;">
           Save Costs
         </button>
       </div>
@@ -338,7 +338,7 @@ let _NBD_PT_DELEGATE; // module-local (globals Tranche 1 — was window.*)
     const m = computeMarginAnalytics();
     if (m.jobsTracked === 0) return '';
 
-    const marginColor = m.avgGrossMargin >= 40 ? '#16a34a' : m.avgGrossMargin >= 25 ? '#eab308' : '#dc2626';
+    const marginColor = m.avgGrossMargin >= 40 ? 'var(--green,#16a34a)' : m.avgGrossMargin >= 25 ? 'var(--gold,#eab308)' : 'var(--red,#dc2626)';
 
     return `
       <div class="kpi-card" style="border-left:3px solid ${marginColor};">

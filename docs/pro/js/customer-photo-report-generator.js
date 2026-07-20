@@ -243,13 +243,13 @@ async function fetchImageAsBase64(url) {
 window._docUploadQueue = [];
 
 window.openDocUploadModal = function() {
-  document.getElementById('docUploadModal').style.display = 'flex';
+  document.getElementById('docUploadModal').classList.add('active');
   window._docUploadQueue = [];
   updateDocUploadPreview();
 };
 
 window.closeDocUploadModal = function() {
-  document.getElementById('docUploadModal').style.display = 'none';
+  document.getElementById('docUploadModal').classList.remove('active');
   window._docUploadQueue = [];
   updateDocUploadPreview();
 };
@@ -518,13 +518,13 @@ async function loadDocuments(leadId) {
 // ============================================
 
 window.openNotesModal = function() {
-  document.getElementById('notesModal').style.display = 'flex';
+  document.getElementById('notesModal').classList.add('active');
   document.getElementById('noteText').value = '';
   document.getElementById('noteText').focus();
 };
 
 window.closeNotesModal = function() {
-  document.getElementById('notesModal').style.display = 'none';
+  document.getElementById('notesModal').classList.remove('active');
 };
 
 window.saveNote = async function() {
@@ -731,13 +731,13 @@ function getTimeAgo(date) {
 // ============================================
 
 window.openEstimateModal = function() {
-  document.getElementById('estimateModal').style.display = 'flex';
+  document.getElementById('estimateModal').classList.add('active');
   document.getElementById('estimateAmount').value = '';
   document.getElementById('estimateNotes').value = '';
 };
 
 window.closeEstimateModal = function() {
-  document.getElementById('estimateModal').style.display = 'none';
+  document.getElementById('estimateModal').classList.remove('active');
 };
 
 window.saveEstimate = async function() {

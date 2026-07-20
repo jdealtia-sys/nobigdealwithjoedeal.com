@@ -82,16 +82,16 @@
     return new Promise((resolve) => {
       const overlay = document.createElement('div');
       overlay.className = 'd2d-modal-overlay open';
-      overlay.style.zIndex = '10005';
+      // Must beat an open d2d-modal-overlay (nested confirm) — overlay-top tier.
+      overlay.style.zIndex = 'var(--z-overlay-top)';
       overlay.setAttribute('role', 'dialog');
       overlay.setAttribute('aria-modal', 'true');
-      const okColor = danger ? '#E05252' : 'var(--green, #2ECC8A)';
       overlay.innerHTML = `
         <div class="d2d-modal" style="padding:20px;max-width:360px;width:92%;">
-          <div style="font-size:15px;line-height:1.45;margin-bottom:18px;color:var(--text, #111);white-space:pre-wrap;">${escapeHtml(message)}</div>
+          <div style="font-size:15px;line-height:1.45;margin-bottom:18px;color:var(--t);white-space:pre-wrap;">${escapeHtml(message)}</div>
           <div style="display:flex;gap:10px;justify-content:flex-end;">
-            <button type="button" data-act="cancel" style="padding:10px 16px;border-radius:10px;border:1px solid var(--border,#D1D5DB);background:transparent;color:var(--text,#111);font-weight:600;cursor:pointer;">${escapeHtml(cancelLabel)}</button>
-            <button type="button" data-act="ok" style="padding:10px 16px;border-radius:10px;border:none;background:${okColor};color:#fff;font-weight:700;cursor:pointer;">${escapeHtml(okLabel)}</button>
+            <button type="button" class="btn btn-ghost" data-act="cancel">${escapeHtml(cancelLabel)}</button>
+            <button type="button" class="btn ${danger ? 'btn-red' : 'btn-green'}" data-act="ok">${escapeHtml(okLabel)}</button>
           </div>
         </div>`;
       function close(result) {
@@ -114,16 +114,16 @@
     return new Promise((resolve) => {
       const overlay = document.createElement('div');
       overlay.className = 'd2d-modal-overlay open';
-      overlay.style.zIndex = '10005';
+      overlay.style.zIndex = 'var(--z-overlay-top)';
       overlay.setAttribute('role', 'dialog');
       overlay.setAttribute('aria-modal', 'true');
       overlay.innerHTML = `
         <div class="d2d-modal" style="padding:20px;max-width:380px;width:92%;">
-          <div style="font-size:15px;line-height:1.45;margin-bottom:12px;color:var(--text, #111);">${escapeHtml(message)}</div>
-          <input type="text" data-role="input" maxlength="${Number(maxLength)}" style="width:100%;padding:11px 12px;border-radius:10px;border:1px solid var(--border,#D1D5DB);background:var(--surface,#fff);color:var(--text,#111);font-size:15px;margin-bottom:16px;box-sizing:border-box;" />
+          <div style="font-size:15px;line-height:1.45;margin-bottom:12px;color:var(--t);">${escapeHtml(message)}</div>
+          <input type="text" data-role="input" maxlength="${Number(maxLength)}" style="width:100%;padding:11px 12px;border-radius:10px;border:1px solid var(--br);background:var(--s2);color:var(--t);font-size:15px;margin-bottom:16px;box-sizing:border-box;" />
           <div style="display:flex;gap:10px;justify-content:flex-end;">
-            <button type="button" data-act="cancel" style="padding:10px 16px;border-radius:10px;border:1px solid var(--border,#D1D5DB);background:transparent;color:var(--text,#111);font-weight:600;cursor:pointer;">${escapeHtml(cancelLabel)}</button>
-            <button type="button" data-act="ok" style="padding:10px 16px;border-radius:10px;border:none;background:var(--accent,#2ECC8A);color:#fff;font-weight:700;cursor:pointer;">${escapeHtml(okLabel)}</button>
+            <button type="button" class="btn btn-ghost" data-act="cancel">${escapeHtml(cancelLabel)}</button>
+            <button type="button" class="btn btn-green" data-act="ok">${escapeHtml(okLabel)}</button>
           </div>
         </div>`;
       const input = overlay.querySelector('input[data-role="input"]');
@@ -606,13 +606,18 @@
 
         if (allMatches.length === 0) { dropdown.style.display = 'none'; return; }
 
+        // No inline on*= handlers — prod CSP `script-src-attr 'none'` silently
+        // kills them even in JS-generated markup. Hover is bound below with
+        // addEventListener alongside the click handler.
         dropdown.innerHTML = allMatches.map((r, i) => {
           const label = r.local ? '📍 ' + esc(r.display_name) : esc(r.display_name);
-          return `<div class="d2d-ac-item" data-idx="${i}" style="padding:8px 12px;cursor:pointer;font-size:12px;color:var(--t);border-bottom:1px solid var(--br);transition:background .1s;" onmouseenter="this.style.background='var(--s2)'" onmouseleave="this.style.background='var(--s)'">${label}</div>`;
+          return `<div class="d2d-ac-item" data-idx="${i}" style="padding:8px 12px;cursor:pointer;font-size:12px;color:var(--t);border-bottom:1px solid var(--br);transition:background var(--t-fast);">${label}</div>`;
         }).join('');
         dropdown.style.display = 'block';
 
         dropdown.querySelectorAll('.d2d-ac-item').forEach((el, i) => {
+          el.addEventListener('mouseenter', () => { el.style.background = 'var(--s2)'; });
+          el.addEventListener('mouseleave', () => { el.style.background = 'var(--s)'; });
           el.onclick = () => {
             const match = allMatches[i];
             input.value = match.display_name?.split(',').slice(0, 3).join(',').trim() || match.display_name;
@@ -913,7 +918,7 @@
     // Number markers
     state.walkingRoute.forEach((p, i) => {
       const numIcon = L.divIcon({
-        html: `<div style="background:#4A9EFF;color:white;width:20px;height:20px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;border:2px solid white;">${i + 1}</div>`,
+        html: `<div style="background:var(--blue,#4A9EFF);color:white;width:20px;height:20px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;border:2px solid white;">${i + 1}</div>`,
         iconSize: [20, 20],
         className: ''
       });
@@ -1978,7 +1983,7 @@
     const panel = document.createElement('div');
     panel.id = 'd2d-layer-panel';
     panel.style.cssText = 'position:absolute;top:10px;right:10px;z-index:1000;'
-      + 'background:rgba(10,12,15,.92);border:1px solid color-mix(in srgb, var(--orange) 30%, transparent);'
+      + 'background:color-mix(in srgb, var(--s) 92%, transparent);border:1px solid color-mix(in srgb, var(--orange) 30%, transparent);'
       + 'border-radius:10px;padding:8px;display:flex;gap:4px;'
       + '-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);'
       + 'box-shadow:0 4px 20px rgba(0,0,0,.5);';
@@ -1997,12 +2002,12 @@
       btn.id = 'd2d-layer-' + ly.key;
       btn.title = ly.label;
       btn.style.cssText = 'background:' + (d2dLayerState[ly.key] ? 'color-mix(in srgb, var(--orange) 20%, transparent)' : 'transparent') + ';'
-        + 'border:1px solid ' + (d2dLayerState[ly.key] ? '#e8720c' : 'rgba(255,255,255,.12)') + ';'
-        + 'color:' + (d2dLayerState[ly.key] ? '#fff' : '#8b8e96') + ';'
+        + 'border:1px solid ' + (d2dLayerState[ly.key] ? 'var(--orange)' : 'var(--br)') + ';'
+        + 'color:' + (d2dLayerState[ly.key] ? 'var(--t)' : 'var(--m)') + ';'
         + 'padding:6px 10px;border-radius:6px;cursor:pointer;'
         + "font-family:'Barlow Condensed',sans-serif;font-size:11px;"
         + 'font-weight:700;letter-spacing:.04em;display:flex;align-items:center;'
-        + 'gap:4px;transition:all .15s;-webkit-tap-highlight-color:transparent;'
+        + 'gap:4px;transition:background var(--t-fast),border-color var(--t-fast),color var(--t-fast);-webkit-tap-highlight-color:transparent;'
         + 'min-height:36px;';
       btn.innerHTML = ly.icon + ' ' + ly.label;
       btn.addEventListener('click', (e) => {
@@ -2026,8 +2031,8 @@
       if (!btn) return;
       const on = d2dLayerState[key];
       btn.style.background = on ? 'color-mix(in srgb, var(--orange) 20%, transparent)' : 'transparent';
-      btn.style.borderColor = on ? '#e8720c' : 'rgba(255,255,255,.12)';
-      btn.style.color = on ? '#fff' : '#8b8e96';
+      btn.style.borderColor = on ? 'var(--orange)' : 'var(--br)';
+      btn.style.color = on ? 'var(--t)' : 'var(--m)';
     });
   }
 
@@ -2140,8 +2145,9 @@
       const val = parseFloat(lead.jobValue || lead.contractValue || lead.value || 0);
       const label = val > 0 ? '$' + val.toLocaleString() : (lead.stage || 'Job');
       const stageLower = (lead._stageKey || lead.stage || '').toLowerCase();
-      const color = stageLower.includes('complete') || stageLower === 'closed' ? '#34D399'
-        : stageLower.includes('install') ? '#4A9EFF' : '#EAB308';
+      // divIcon/popup HTML lives in the page DOM, so theme tokens resolve.
+      const color = stageLower.includes('complete') || stageLower === 'closed' ? 'var(--green,#34D399)'
+        : stageLower.includes('install') ? 'var(--blue,#4A9EFF)' : 'var(--gold,#EAB308)';
       const name = esc([lead.firstName, lead.lastName].filter(Boolean).join(' ') || lead.address || 'Lead');
 
       const icon = L.divIcon({

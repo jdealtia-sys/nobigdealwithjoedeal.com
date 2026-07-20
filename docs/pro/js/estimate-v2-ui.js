@@ -78,7 +78,7 @@
     modal.innerHTML = `
       <style>
       #estV2Modal {
-        position:fixed; inset:0; z-index:9999;
+        position:fixed; inset:0; z-index:var(--z-overlay,10000);
         background:rgba(10,12,15,0.95);
         display:none; overflow:hidden;
         font-family:'Barlow','Helvetica Neue',sans-serif;
@@ -99,19 +99,19 @@
       }
       .v2-title {
         font-family:'Barlow Condensed',sans-serif; font-size:22px;
-        font-weight:800; color:#fff; text-transform:uppercase;
+        font-weight:800; color:var(--t,#fff); text-transform:uppercase;
         letter-spacing:.06em;
       }
       .v2-title .pro { color:var(--orange,#e8720c); }
       .v2-beta {
-        font-size:9px; background:var(--orange,#e8720c); color:#fff;
+        font-size:9px; background:var(--orange,#e8720c); color:var(--accent-fg,#fff);
         padding:2px 8px; border-radius:2px; letter-spacing:.15em;
         margin-left:10px;
       }
       /* Close button: iOS HIG minimum 44x44 tap target, clearly
          visible, orange-filled on mobile so it's impossible to miss. */
       .v2-close {
-        background:var(--orange,#e8720c); border:1px solid var(--orange,#e8720c); color:#fff;
+        background:var(--orange,#e8720c); border:1px solid var(--orange,#e8720c); color:var(--accent-fg,#fff);
         padding:10px 18px; cursor:pointer; font-weight:700;
         border-radius:6px; font-size:13px;
         min-height:44px; min-width:44px;
@@ -119,11 +119,11 @@
         flex-shrink:0;
         font-family:inherit;
         letter-spacing:.04em;
-        transition:background .15s, transform .12s;
+        transition:background var(--t-mid,.18s), transform var(--t-fast,.12s);
         -webkit-tap-highlight-color:transparent;
         touch-action:manipulation;
       }
-      .v2-close:hover { background:#ff8420; border-color:#ff8420; }
+      .v2-close:hover { background:var(--ob,#ff8420); border-color:var(--ob,#ff8420); }
       .v2-close:active { transform:scale(.95); }
       .v2-body {
         flex:1; display:grid;
@@ -189,12 +189,12 @@
       .v2-section::after {
         content:'−';
         font-size:16px; line-height:1; color:var(--orange,#e8720c);
-        margin-left:8px; transition:transform .15s;
+        margin-left:8px; transition:transform var(--t-fast,.12s);
       }
       .v2-section.collapsed::after { content:'+'; }
       .v2-section-content {
         overflow:hidden;
-        transition:max-height .2s ease, opacity .2s ease, margin .2s ease;
+        transition:max-height var(--t-mid,.18s) ease, opacity var(--t-mid,.18s) ease, margin var(--t-mid,.18s) ease;
         max-height:5000px; /* large enough for any content */
         opacity:1;
       }
@@ -220,7 +220,7 @@
       .v2-field { margin-bottom:10px; }
       .v2-field label {
         display:block; font-size:9px; text-transform:uppercase;
-        letter-spacing:.1em; color:#888; margin-bottom:3px;
+        letter-spacing:.1em; color:var(--m,#888); margin-bottom:3px;
       }
       .v2-field input, .v2-field select {
         width:100%; background:var(--bg,#0a0c0f); border:1px solid var(--br,#2a2f35);
@@ -244,24 +244,24 @@
         border:1px solid var(--br,#2a2f35); border-radius:4px; overflow:hidden;
       }
       .v2-tabs button {
-        flex:1; background:var(--bg,#0a0c0f); border:none; color:#888;
+        flex:1; background:var(--bg,#0a0c0f); border:none; color:var(--m,#888);
         padding:10px; font-size:11px; font-weight:700;
         letter-spacing:.1em; text-transform:uppercase; cursor:pointer;
         font-family:inherit;
       }
       .v2-tabs button.active {
-        background:var(--orange,#e8720c); color:#fff;
+        background:var(--orange,#e8720c); color:var(--accent-fg,#fff);
       }
       .v2-cat-tabs {
         display:flex; gap:4px; margin-bottom:10px; flex-wrap:wrap;
       }
       .v2-cat-tabs button {
-        background:var(--bg,#0a0c0f); border:1px solid var(--br,#2a2f35); color:#888;
+        background:var(--bg,#0a0c0f); border:1px solid var(--br,#2a2f35); color:var(--m,#888);
         padding:4px 9px; font-size:10px; cursor:pointer; border-radius:3px;
         font-family:inherit;
       }
       .v2-cat-tabs button.active {
-        background:var(--orange,#e8720c); color:#fff; border-color:var(--orange,#e8720c);
+        background:var(--orange,#e8720c); color:var(--accent-fg,#fff); border-color:var(--orange,#e8720c);
       }
       .v2-search {
         width:100%; background:var(--bg,#0a0c0f); border:1px solid var(--br,#2a2f35);
@@ -275,7 +275,7 @@
         background:var(--bg,#0a0c0f); border:1px solid var(--br,#2a2f35);
         padding:10px 12px; border-radius:3px; cursor:pointer;
         display:flex; justify-content:space-between; align-items:flex-start;
-        transition:all 0.15s;
+        transition:border-color var(--t-fast,.12s), transform var(--t-fast,.12s), background var(--t-fast,.12s);
       }
       .v2-item:hover {
         border-color:var(--orange,#e8720c); transform:translateX(2px);
@@ -286,11 +286,11 @@
       }
       .v2-item .name { font-size:12px; color:var(--t,#e8eaf0); margin-top:2px; }
       .v2-item .cost {
-        font-size:11px; color:#888; text-align:right;
+        font-size:11px; color:var(--m,#888); text-align:right;
         font-variant-numeric:tabular-nums; flex-shrink:0; margin-left:12px;
       }
       .v2-item .add-btn {
-        background:var(--orange,#e8720c); border:none; color:#fff;
+        background:var(--orange,#e8720c); border:none; color:var(--accent-fg,#fff);
         padding:4px 10px; font-size:10px; font-weight:700;
         cursor:pointer; border-radius:3px; letter-spacing:.05em;
       }
@@ -299,13 +299,13 @@
         padding:10px 12px; margin-bottom:6px; border-radius:3px;
         font-size:12px;
       }
-      .v2-scope-item.overridden { border-left-color:#22d3ee; }
+      .v2-scope-item.overridden { border-left-color:var(--blue,#22d3ee); }
       .v2-scope-item .name { color:var(--t,#e8eaf0); font-weight:600; }
       .v2-scope-item .qty {
-        color:#888; font-size:10px; margin-top:2px;
+        color:var(--m,#888); font-size:10px; margin-top:2px;
         font-variant-numeric:tabular-nums;
       }
-      .v2-scope-item.overridden .qty { color:#22d3ee; }
+      .v2-scope-item.overridden .qty { color:var(--blue,#22d3ee); }
       .v2-scope-item .total {
         color:var(--orange,#e8720c); font-weight:700; font-size:13px; float:right;
         font-variant-numeric:tabular-nums;
@@ -315,11 +315,11 @@
       }
       .v2-scope-item .rm,
       .v2-scope-item .edit-qty {
-        background:none; border:none; color:#666; cursor:pointer;
+        background:none; border:none; color:var(--m,#666); cursor:pointer;
         font-size:14px; padding:2px 6px; border-radius:3px;
         min-width:28px; min-height:28px;
         display:inline-flex; align-items:center; justify-content:center;
-        transition:color .15s, background .15s;
+        transition:color var(--t-fast,.12s), background var(--t-fast,.12s);
       }
       /* Wave 28: bump touch targets to 40px on coarse pointers (touch
          screens) so fat-fingering doesn't accidentally hit the wrong
@@ -329,15 +329,15 @@
         .v2-scope-item .edit-qty { min-width:40px; min-height:40px; }
       }
       .v2-scope-item .edit-qty { font-size:12px; }
-      .v2-scope-item .edit-qty:hover { color:#22d3ee; background:rgba(34,211,238,.08); }
-      .v2-scope-item .rm:hover { color:#c53030; background:rgba(197,48,48,.08); }
+      .v2-scope-item .edit-qty:hover { color:var(--blue,#22d3ee); background:color-mix(in srgb, var(--blue,#22d3ee) 8%, transparent); }
+      .v2-scope-item .rm:hover { color:var(--red,#c53030); background:color-mix(in srgb, var(--red,#c53030) 8%, transparent); }
       .v2-total-card {
         background:var(--bg,#0a0c0f); border:2px solid var(--orange,#e8720c);
         border-radius:6px; padding:16px; margin-top:16px;
         text-align:center;
       }
       .v2-total-lbl {
-        font-size:10px; color:#888; text-transform:uppercase;
+        font-size:10px; color:var(--m,#888); text-transform:uppercase;
         letter-spacing:.15em;
       }
       .v2-total-val {
@@ -345,7 +345,7 @@
         font-weight:800; color:var(--orange,#e8720c); line-height:1;
       }
       .v2-rollup {
-        font-size:11px; color:#888; margin-top:10px;
+        font-size:11px; color:var(--m,#888); margin-top:10px;
         line-height:1.6;
       }
       .v2-rollup strong { color:var(--t,#e8eaf0); }
@@ -365,7 +365,7 @@
         border-radius:4px; font-family:inherit;
       }
       .v2-export-btns button.primary {
-        background:var(--orange,#e8720c); border-color:var(--orange,#e8720c); color:#fff;
+        background:var(--orange,#e8720c); border-color:var(--orange,#e8720c); color:var(--accent-fg,#fff);
       }
       .v2-export-btns button:hover {
         border-color:var(--orange,#e8720c);
@@ -375,7 +375,7 @@
         gap:6px; margin-top:6px;
       }
       .v2-preset-btns button {
-        background:var(--bg,#0a0c0f); border:1px solid var(--br,#2a2f35); color:#888;
+        background:var(--bg,#0a0c0f); border:1px solid var(--br,#2a2f35); color:var(--m,#888);
         padding:8px 6px; font-size:10px; font-weight:600;
         cursor:pointer; border-radius:3px; font-family:inherit;
         text-align:center;
@@ -384,7 +384,7 @@
         border-color:var(--orange,#e8720c); color:var(--orange,#e8720c);
       }
       .v2-empty {
-        text-align:center; color:#666; padding:24px 8px;
+        text-align:center; color:var(--m,#666); padding:24px 8px;
         font-size:12px; font-style:italic;
       }
       </style>
@@ -447,12 +447,12 @@
           <div class="v2-field" style="display:flex;gap:6px;align-items:stretch;">
             <input type="text" id="v2measureAddr" placeholder="Property address for auto-measure"
                    style="flex:1;background:var(--s2,#181c22);color:var(--t,#e8eaf0);border:1px solid var(--br,#2a2f35);padding:10px 12px;border-radius:4px;font-size:13px;font-family:inherit;"/>
-            <button type="button" id="v2measureBtn" data-action="auto-measure"
-                    style="background:var(--orange,#e8720c);border:none;color:#fff;padding:10px 16px;font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;cursor:pointer;border-radius:4px;font-family:inherit;min-height:44px;white-space:nowrap;">
+            <button type="button" id="v2measureBtn" class="btn btn-orange" data-action="auto-measure"
+                    style="min-height:44px;white-space:nowrap;justify-content:center;">
               📐 Auto-measure
             </button>
           </div>
-          <div id="v2measureStatus" style="font-size:11px;color:#8b8e96;min-height:14px;margin-top:-6px;"></div>
+          <div id="v2measureStatus" style="font-size:11px;color:var(--m,#8b8e96);min-height:14px;margin-top:-6px;"></div>
 
           <div class="v2-field">
             <label>Raw Roof Area (SF)</label>
@@ -640,7 +640,7 @@
 
           <div class="v2-section">Selected Scope</div>
           <div id="v2scopeList">
-            <div class="v2-empty">No items selected yet.<br>Pick from catalog or use a preset.</div>
+            <div class="nbd-empty" style="padding:24px 8px;"><div class="ne-icon">🧾</div><div class="ne-msg">No items selected yet</div><div class="ne-sub">Pick from the catalog or load a preset.</div></div>
           </div>
 
           <div class="v2-total-card">
@@ -658,24 +658,24 @@
           </div>
 
           <div class="v2-section">Close Board</div>
-          <button type="button" data-action="create-deal-room"
-            style="width:100%;background:var(--s2,#181c22);border:1px solid #4A9EFF;color:#4A9EFF;padding:12px;font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;cursor:pointer;border-radius:4px;font-family:inherit;margin-bottom:6px;">
+          <button type="button" class="btn btn-ghost" data-action="create-deal-room"
+            style="width:100%;justify-content:center;padding:12px;margin-bottom:6px;border-color:var(--blue,#4A9EFF);color:var(--blue,#4A9EFF);">
             🏠 Create Deal Room
           </button>
 
           <div class="v2-section">Save</div>
-          <button id="v2saveBtn" type="button" data-action="save"
-            style="width:100%;background:var(--orange,#e8720c);border:none;color:#fff;padding:14px;font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;cursor:pointer;border-radius:4px;font-family:inherit;">
+          <button id="v2saveBtn" type="button" class="btn btn-orange" data-action="save"
+            style="width:100%;justify-content:center;padding:14px;">
             💾 Save Estimate to Customer
           </button>
-          <div id="v2saveStatus" style="font-size:10px;color:#888;margin-top:6px;text-align:center;"></div>
+          <div id="v2saveStatus" style="font-size:10px;color:var(--m,#888);margin-top:6px;text-align:center;"></div>
 
           <div class="v2-section">E-Signature</div>
-          <button id="v2signBtn" type="button" data-action="send-for-signature"
-            style="width:100%;background:var(--s2,#181c22);border:1px solid var(--orange,#e8720c);color:var(--orange,#e8720c);padding:12px;font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;cursor:pointer;border-radius:4px;font-family:inherit;margin-bottom:6px;">
+          <button id="v2signBtn" type="button" class="btn btn-ghost" data-action="send-for-signature"
+            style="width:100%;justify-content:center;padding:12px;margin-bottom:6px;border-color:var(--orange,#e8720c);color:var(--orange,#e8720c);">
             ✍️ Send for Signature
           </button>
-          <div id="v2signStatus" style="font-size:10px;color:#888;text-align:center;"></div>
+          <div id="v2signStatus" style="font-size:10px;color:var(--m,#888);text-align:center;"></div>
         </div>
       </div>
     `;
@@ -1035,17 +1035,17 @@
     const setStatus = (msg, color) => {
       if (statusEl) {
         statusEl.textContent = msg || '';
-        statusEl.style.color = color || '#8b8e96';
+        statusEl.style.color = color || 'var(--m,#8b8e96)';
       }
     };
 
     if (!window.NBDIntegrations || typeof window.NBDIntegrations.requestMeasurement !== 'function') {
-      setStatus('Integrations client not loaded yet — try again.', '#ff6b6b');
+      setStatus('Integrations client not loaded yet — try again.', 'var(--red,#ff6b6b)');
       return;
     }
     const address = (addrEl && addrEl.value || state.customer.address || '').trim();
     if (!address || address.length < 5) {
-      setStatus('Enter a property address first.', '#ff6b6b');
+      setStatus('Enter a property address first.', 'var(--red,#ff6b6b)');
       return;
     }
 
@@ -1060,7 +1060,7 @@
     if (btn) { btn.disabled = false; btn.textContent = '📐 Auto-measure'; }
 
     if (!result || !result.ok) {
-      setStatus(result && result.error ? result.error : 'Auto-measure failed.', '#ff6b6b');
+      setStatus(result && result.error ? result.error : 'Auto-measure failed.', 'var(--red,#ff6b6b)');
       return;
     }
 
@@ -1078,7 +1078,7 @@
       tries++;
       if (tries > MAX_TRIES) {
         clearInterval(_measurePollTimer);
-        setStatus('Still processing — refresh later to pick up the result.', '#8b8e96');
+        setStatus('Still processing — refresh later to pick up the result.', 'var(--m,#8b8e96)');
         return;
       }
       if (!window.db || !window.doc || !window.getDoc) return; // SDK not ready
@@ -1092,7 +1092,7 @@
           setStatus('✓ Measurements loaded (' + (d.provider || 'provider') + ')', 'var(--green, #2ecc8a)');
         } else if (d.status === 'failed') {
           clearInterval(_measurePollTimer);
-          setStatus('Provider reported failure. Measure manually.', '#ff6b6b');
+          setStatus('Provider reported failure. Measure manually.', 'var(--red,#ff6b6b)');
         }
       } catch (e) { /* transient — keep polling */ }
     }, POLL_MS);
@@ -1582,7 +1582,7 @@
       // on #v2items in ensureModal(). No inline onclick attribute so
       // this stays clean under the Report-Only CSP (script-src-attr 'none').
       return `
-        <div class="v2-item" data-action="add-to-scope" data-code="${esc(item.code)}" ${inScope ? 'style="border-color:#065f46;background:#0f1d15;"' : ''}>
+        <div class="v2-item" data-action="add-to-scope" data-code="${esc(item.code)}" ${inScope ? 'style="border-color:var(--green,#065f46);background:color-mix(in srgb, var(--green,#065f46) 12%, var(--bg,#0a0c0f));"' : ''}>
           <div style="flex:1;min-width:0;">
             <div class="code">${esc(item.code)}</div>
             <div class="name">${esc((item.name || '').substring(0, 60))}${(item.name || '').length > 60 ? '…' : ''}</div>
@@ -1590,7 +1590,7 @@
           <div class="cost">
             <div style="color:var(--t,#e8eaf0);font-weight:700;">$${unitCost.toFixed(0)}</div>
             <div style="font-size:9px;">/${esc(item.unit)}</div>
-            ${inScope ? '<div style="color:#065f46;font-size:9px;margin-top:2px;">✓ IN SCOPE</div>' : ''}
+            ${inScope ? '<div style="color:var(--green,#065f46);font-size:9px;margin-top:2px;">✓ IN SCOPE</div>' : ''}
           </div>
         </div>
       `;
@@ -1600,7 +1600,7 @@
       catDiv.innerHTML += `<div class="v2-empty">Showing ${limited.length} of ${totalCount}. Type to refine search.</div>`;
     }
     if (!items.length) {
-      catDiv.innerHTML = '<div class="v2-empty">No items match your search.</div>';
+      catDiv.innerHTML = '<div class="nbd-empty" style="padding:24px 8px;"><div class="ne-icon">🔍</div><div class="ne-msg">No items match your search</div><div class="ne-sub">Try a different code, name, or tag.</div></div>';
     }
   }
 
@@ -1614,7 +1614,7 @@
     // the pass-through list are empty. A standalone "$75 measurement
     // report" quote is valid.
     if (!state.scope.length && !(state.passThru && state.passThru.length)) {
-      listDiv.innerHTML = '<div class="v2-empty">No items selected yet.<br>Pick from catalog or use a preset.</div>';
+      listDiv.innerHTML = '<div class="nbd-empty" style="padding:24px 8px;"><div class="ne-icon">🧾</div><div class="ne-msg">No items selected yet</div><div class="ne-sub">Pick from the catalog or load a preset.</div></div>';
       totalEl.textContent = '$0';
       rollupEl.innerHTML = '';
       return;
@@ -1669,7 +1669,7 @@
           </div>
           <div class="total">$${Math.round(Number(line.lineTotal) || 0).toLocaleString()}</div>
           <div class="name">${escLocal((line.name || '').substring(0, 38))}</div>
-          <div class="qty">${safeQty} ${escLocal(line.unit)} · ${escLocal(line.code)}${overridden ? ' · <span style="color:#22d3ee;">manual</span>' : ''}</div>
+          <div class="qty">${safeQty} ${escLocal(line.unit)} · ${escLocal(line.code)}${overridden ? ' · <span style="color:var(--blue,#22d3ee);">manual</span>' : ''}</div>
         </div>
       `;
     }).join('');
@@ -1685,7 +1685,7 @@
       Labor: <strong>$${Math.round(estimate.laborCost).toLocaleString()}</strong><br>
       OH+Profit: <strong>$${Math.round(estimate.overhead + estimate.profit).toLocaleString()}</strong>
       ${taxDisplay}
-      <br><span style="color:#065f46;">Margin: <strong>${estimate.internal.marginPct.toFixed(1)}%</strong> ($${Math.round(estimate.internal.margin).toLocaleString()})</span>
+      <br><span style="color:var(--green,#065f46);">Margin: <strong>${estimate.internal.marginPct.toFixed(1)}%</strong> ($${Math.round(estimate.internal.margin).toLocaleString()})</span>
     `;
   }
 
@@ -2521,31 +2521,31 @@
     const statusEl = document.getElementById('v2saveStatus');
     const btn = document.getElementById('v2saveBtn');
     const setStatus = (msg, color) => {
-      if (statusEl) { statusEl.textContent = msg; statusEl.style.color = color || '#888'; }
+      if (statusEl) { statusEl.textContent = msg; statusEl.style.color = color || 'var(--m,#888)'; }
     };
 
     // Guard: no scope. 3B: a clean reopen re-saves the faithful replay so the
     // persisted numbers (and markup) survive a reopen→save round-trip.
     const estimate = effectiveEstimate();
     if (!estimate) {
-      setStatus('Add line items to the scope first.', '#c53030');
+      setStatus('Add line items to the scope first.', 'var(--red,#c53030)');
       return;
     }
 
     // Guard: save function missing (e.g., dashboard not loaded)
     if (typeof window._saveEstimate !== 'function') {
-      setStatus('Save failed: _saveEstimate not loaded.', '#c53030');
+      setStatus('Save failed: _saveEstimate not loaded.', 'var(--red,#c53030)');
       return;
     }
 
     // Guard: user not signed in
     if (!window._user?.uid) {
-      setStatus('Save failed: not signed in.', '#c53030');
+      setStatus('Save failed: not signed in.', 'var(--red,#c53030)');
       return;
     }
 
     if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; }
-    setStatus('Saving to Firestore…', '#888');
+    setStatus('Saving to Firestore…', 'var(--m,#888)');
 
     try {
       const payload = _buildSavePayload(estimate, state);
@@ -2558,7 +2558,7 @@
         window._v2SavedEstimateId = savedId;
         // F7: saved estimate → draft is obsolete.
         clearDraft();
-        setStatus('✓ Saved — estimate #' + savedId.substring(0, 8) + '…', '#2ECC8A');
+        setStatus('✓ Saved — estimate #' + savedId.substring(0, 8) + '…', 'var(--green,#2ECC8A)');
         if (typeof window.showToast === 'function') {
           window.showToast('✓ Estimate saved to Firestore', 'success');
         }
@@ -2568,12 +2568,12 @@
           if (btn) { btn.disabled = false; btn.textContent = '💾 Save Estimate to Customer'; }
         }, 2000);
       } else {
-        setStatus('Save failed — check console.', '#c53030');
+        setStatus('Save failed — check console.', 'var(--red,#c53030)');
         if (btn) { btn.disabled = false; btn.textContent = '💾 Save Estimate to Customer'; }
       }
     } catch (e) {
       console.error('[EstimateV2UI] Save failed:', e);
-      setStatus('Save error: ' + e.message, '#c53030');
+      setStatus('Save error: ' + e.message, 'var(--red,#c53030)');
       if (btn) { btn.disabled = false; btn.textContent = '💾 Save Estimate to Customer'; }
     }
   }
@@ -2599,12 +2599,12 @@
     const setStatus = (msg, color) => {
       if (statusEl) {
         statusEl.textContent = msg || '';
-        statusEl.style.color = color || '#8b8e96';
+        statusEl.style.color = color || 'var(--m,#8b8e96)';
       }
     };
 
     if (!window.NBDIntegrations || typeof window.NBDIntegrations.sendForSignature !== 'function') {
-      setStatus('Integrations client not ready. Refresh and retry.', '#ff6b6b');
+      setStatus('Integrations client not ready. Refresh and retry.', 'var(--red,#ff6b6b)');
       return;
     }
 
@@ -2617,14 +2617,14 @@
     const signerName  = (customer.name || '').trim();
     const signerEmail = (customer.email || '').trim().toLowerCase();
     if (!signerName || !signerEmail || !signerEmail.includes('@')) {
-      setStatus('Customer name + email required — link this estimate to a lead with an email on file, or type them into the Customer panel.', '#ff6b6b');
+      setStatus('Customer name + email required — link this estimate to a lead with an email on file, or type them into the Customer panel.', 'var(--red,#ff6b6b)');
       return;
     }
 
     // Make sure there's an estimate scope.
     const estimate = getCurrentEstimate();
     if (!estimate) {
-      setStatus('Add line items to the scope first.', '#ff6b6b');
+      setStatus('Add line items to the scope first.', 'var(--red,#ff6b6b)');
       return;
     }
 
@@ -2641,14 +2641,14 @@
     }
     if (!estimateId) {
       if (btn) { btn.disabled = false; btn.textContent = '✍️ Send for Signature'; }
-      setStatus('Could not save estimate — resolve errors above.', '#ff6b6b');
+      setStatus('Could not save estimate — resolve errors above.', 'var(--red,#ff6b6b)');
       return;
     }
 
     // Render a retail-quote PDF body. This is what the homeowner sees.
     if (!window.EstimateFinalization) {
       if (btn) { btn.disabled = false; btn.textContent = '✍️ Send for Signature'; }
-      setStatus('Preview engine still loading — try again.', '#ff6b6b');
+      setStatus('Preview engine still loading — try again.', 'var(--red,#ff6b6b)');
       return;
     }
     let result;
@@ -2660,12 +2660,12 @@
       });
     } catch (e) {
       if (btn) { btn.disabled = false; btn.textContent = '✍️ Send for Signature'; }
-      setStatus('Preview render failed: ' + e.message, '#ff6b6b');
+      setStatus('Preview render failed: ' + e.message, 'var(--red,#ff6b6b)');
       return;
     }
     if (!result || typeof result.html !== 'string' || !result.html.length) {
       if (btn) { btn.disabled = false; btn.textContent = '✍️ Send for Signature'; }
-      setStatus('Empty estimate body — nothing to sign.', '#ff6b6b');
+      setStatus('Empty estimate body — nothing to sign.', 'var(--red,#ff6b6b)');
       return;
     }
 
@@ -2681,7 +2681,7 @@
     if (btn) { btn.disabled = false; btn.textContent = '✍️ Send for Signature'; }
 
     if (!send || !send.ok) {
-      setStatus(send && send.error ? send.error : 'Send failed.', '#ff6b6b');
+      setStatus(send && send.error ? send.error : 'Send failed.', 'var(--red,#ff6b6b)');
       return;
     }
 

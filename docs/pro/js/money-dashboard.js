@@ -235,10 +235,15 @@
   }
 
   // ── Render ──────────────────────────────────────────────────────────
+  // KPI tile on the canonical .stat-card spec (dashboard-app.css). Column
+  // layout + top accent are per-tile layout, not chrome. The colored value
+  // sets -webkit-text-fill-color too because the polished .stat-val paints
+  // via a background-clip gradient (fill-color transparent) — inline color
+  // alone would be invisible.
   function card(label, value, sub, color) {
-    return '<div style="background:var(--s,#1a1a2e);border:1px solid var(--br,rgba(255,255,255,.08));border-radius:12px;padding:16px;border-top:2px solid ' + color + ';">' +
-      '<div style="font-size:11px;color:var(--m,#9ca3af);text-transform:uppercase;letter-spacing:.05em;">' + esc(label) + '</div>' +
-      '<div style="font-family:\'Barlow Condensed\',sans-serif;font-size:26px;font-weight:800;color:' + color + ';margin:2px 0;">' + value + '</div>' +
+    return '<div class="stat-card" style="flex-direction:column;align-items:flex-start;gap:2px;border-top:2px solid ' + color + ';">' +
+      '<div class="stat-lbl" style="margin-top:0;text-transform:uppercase;letter-spacing:.05em;">' + esc(label) + '</div>' +
+      '<div class="stat-val" style="font-weight:800;color:' + color + ';-webkit-text-fill-color:' + color + ';margin:2px 0;">' + value + '</div>' +
       '<div style="font-size:10px;color:var(--m,#9ca3af);">' + esc(sub) + '</div></div>';
   }
   function grid(cards) {
@@ -248,47 +253,47 @@
   function render(m) {
     var scroll = document.querySelector('#view-money .view-scroll');
     if (!scroll) return;
-    var netColor = m.netCashCents >= 0 ? '#16a34a' : '#dc2626';
-    var marginColor = m.grossMargin == null ? 'var(--h,#fff)' : m.grossMargin >= 40 ? '#16a34a' : m.grossMargin >= 25 ? '#eab308' : '#dc2626';
+    var netColor = m.netCashCents >= 0 ? 'var(--green,#16a34a)' : 'var(--red,#dc2626)';
+    var marginColor = m.grossMargin == null ? 'var(--t,#fff)' : m.grossMargin >= 40 ? 'var(--green,#16a34a)' : m.grossMargin >= 25 ? 'var(--gold,#eab308)' : 'var(--red,#dc2626)';
     var html = '';
-    html += '<div style="margin-bottom:18px;"><h2 style="margin:0;font-family:\'Barlow Condensed\',sans-serif;font-size:26px;font-weight:800;color:var(--h,#fff);">💵 Money — ' + m.year + '</h2>' +
+    html += '<div style="margin-bottom:18px;"><h2 style="margin:0;font-family:\'Barlow Condensed\',sans-serif;font-size:26px;font-weight:800;color:var(--t,#fff);">💵 Money — ' + m.year + '</h2>' +
       '<div style="font-size:12px;color:var(--m,#9ca3af);margin-top:2px;">' + (isStaff() && claims().companyId ? 'Team-wide' : 'Your books') + ' · live snapshot</div></div>';
 
     // Cash (this year)
     html += '<div style="font-size:12px;font-weight:700;color:var(--m,#9ca3af);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px;">Cash — ' + m.year + ' (collected vs spent)</div>';
     html += grid([
-      card('Collected', fmt(m.collectedCents), 'paid invoices', '#16a34a'),
-      card('Spent', fmt(m.spentCents), 'COGS + overhead', '#e8720c'),
+      card('Collected', fmt(m.collectedCents), 'paid invoices', 'var(--green,#16a34a)'),
+      card('Spent', fmt(m.spentCents), 'COGS + overhead', 'var(--orange,#e8720c)'),
       card('Net Cash', fmt(m.netCashCents), m.netCashCents >= 0 ? 'in the black' : 'in the red', netColor),
-      card('Outstanding A/R', fmt(m.outstandingCents), 'unpaid invoices', '#3b82f6'),
+      card('Outstanding A/R', fmt(m.outstandingCents), 'unpaid invoices', 'var(--blue,#3b82f6)'),
     ]);
 
     // Job profitability
     html += '<div style="font-size:12px;font-weight:700;color:var(--m,#9ca3af);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px;">Job profitability (won jobs)</div>';
     html += grid([
-      card('Contract Value', fmt(m.wonContractCents), m.costedJobs + ' of ' + m.wonJobs + ' won jobs costed', '#3b82f6'),
-      card('Direct Costs', fmt(m.wonDirectCents), 'materials, labor, subs', '#e8720c'),
+      card('Contract Value', fmt(m.wonContractCents), m.costedJobs + ' of ' + m.wonJobs + ' won jobs costed', 'var(--blue,#3b82f6)'),
+      card('Direct Costs', fmt(m.wonDirectCents), 'materials, labor, subs', 'var(--orange,#e8720c)'),
       card('Gross Margin', m.grossMargin == null ? '—' : m.grossMargin + '%', 'before overhead & commission', marginColor),
-      card('Overhead', fmt(m.overheadCents), 'operating costs YTD', '#8b5cf6'),
+      card('Overhead', fmt(m.overheadCents), 'operating costs YTD', 'var(--purple,#8b5cf6)'),
     ]);
 
     // Two-column: top suppliers + 1099
     html += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px;">';
     html += '<div style="background:var(--s,#1a1a2e);border:1px solid var(--br,rgba(255,255,255,.08));border-radius:12px;padding:16px;">' +
-      '<h3 style="margin:0 0 12px;font-size:14px;color:var(--h,#fff);">Top Suppliers — ' + m.year + '</h3>';
+      '<h3 style="margin:0 0 12px;font-size:14px;color:var(--t,#fff);">Top Suppliers — ' + m.year + '</h3>';
     if (!m.topSuppliers.length) html += '<div class="nbd-empty" style="padding:14px"><div class="ne-icon">🧾</div><div class="ne-msg">No spend logged yet</div><div class="ne-sub">Log expenses in the Expenses view and they roll up here.</div></div>';
     else {
       var max = m.topSuppliers[0].cents || 1;
       m.topSuppliers.forEach(function (s) {
         var w = Math.max(4, Math.round(s.cents / max * 100));
-        html += '<div style="margin-bottom:10px;"><div style="display:flex;justify-content:space-between;font-size:13px;color:var(--h,#fff);"><span>' + esc(s.supplier) + '</span><span style="font-weight:700;">' + fmt(s.cents) + '</span></div>' +
-          '<div style="height:6px;background:var(--s2,rgba(255,255,255,.06));border-radius:4px;overflow:hidden;margin-top:4px;"><div style="height:100%;width:' + w + '%;background:#e8720c;"></div></div></div>';
+        html += '<div style="margin-bottom:10px;"><div style="display:flex;justify-content:space-between;font-size:13px;color:var(--t,#fff);"><span>' + esc(s.supplier) + '</span><span style="font-weight:700;">' + fmt(s.cents) + '</span></div>' +
+          '<div style="height:6px;background:var(--s2,rgba(255,255,255,.06));border-radius:4px;overflow:hidden;margin-top:4px;"><div style="height:100%;width:' + w + '%;background:var(--orange,#e8720c);"></div></div></div>';
       });
     }
     html += '</div>';
     html += '<div style="background:var(--s,#1a1a2e);border:1px solid var(--br,rgba(255,255,255,.08));border-radius:12px;padding:16px;">' +
-      '<h3 style="margin:0 0 12px;font-size:14px;color:var(--h,#fff);">1099 Worklist — ' + m.year + '</h3>' +
-      '<div style="font-family:\'Barlow Condensed\',sans-serif;font-size:40px;font-weight:800;color:' + (m.due1099 ? '#e8720c' : 'var(--h,#fff)') + ';">' + m.due1099 + '</div>' +
+      '<h3 style="margin:0 0 12px;font-size:14px;color:var(--t,#fff);">1099 Worklist — ' + m.year + '</h3>' +
+      '<div style="font-family:\'Barlow Condensed\',sans-serif;font-size:40px;font-weight:800;color:' + (m.due1099 ? 'var(--orange,#e8720c)' : 'var(--t,#fff)') + ';">' + m.due1099 + '</div>' +
       '<div style="font-size:12px;color:var(--m,#9ca3af);">supplier(s) need a 1099-NEC · ' + fmt(m.due1099Cents) + ' in service payments</div>' +
       '<div style="font-size:10px;color:var(--m,#9ca3af);margin-top:8px;">Eligible + W-9 on file + ≥ ' + fmt(m.thresholdCents) + ' (' + m.year + ' threshold). Manage in Expenses → Suppliers.</div>' +
       '</div>';
