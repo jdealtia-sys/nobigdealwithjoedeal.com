@@ -41,6 +41,7 @@
     runCoach: state.runCoach,
     getAddressQuality: state.getAddressQuality,
     loadPropertyIntel: state.loadPropertyIntel,
+    orderRoofReport: state.orderRoofReport,
     openKnockDetail: state.openKnockDetail,
     closeKnockDetail: state.closeKnockDetail,
     // These have data-d2d-action triggers in the UI (photo thumbnails in the

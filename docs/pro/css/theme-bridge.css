@@ -473,6 +473,12 @@ body.theme-frosted {
 .d2d-pi-k { color:var(--m); font-weight:600; }
 .d2d-pi-v { color:var(--t); font-weight:600; text-align:right; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .d2d-pi-empty { font-size:12px; color:var(--m); padding:8px 2px; }
+.d2d-pi-order { margin-top:8px; width:100%; padding:9px; background:var(--s2); color:var(--t); border:1px solid var(--br); border-radius:8px; font:700 12px 'Barlow Condensed',sans-serif; text-transform:uppercase; letter-spacing:.04em; cursor:pointer; transition:all .15s; -webkit-tap-highlight-color:transparent; }
+.d2d-pi-order:hover { border-color:var(--blue); color:var(--blue); }
+.d2d-pi-order:disabled { opacity:.6; cursor:default; }
+.d2d-pi-measurebox:empty { display:none; }
+.d2d-pi-measurebox { margin-top:8px; padding:12px; background:color-mix(in srgb, var(--blue) 8%, var(--s2)); border:1px solid color-mix(in srgb, var(--blue) 25%, var(--br)); border-radius:10px; }
+.d2d-pi-measure-hd { font:800 11px 'Barlow Condensed',sans-serif; text-transform:uppercase; letter-spacing:.06em; color:var(--blue); margin-bottom:6px; }
 /* ── D2D Routes ──────────────────────────────── */
 .d2d-routes-section { margin-bottom:14px; }
 .d2d-route-actions { display:flex; gap:8px; margin-bottom:12px; }
