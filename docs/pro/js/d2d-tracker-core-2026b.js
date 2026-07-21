@@ -2222,59 +2222,95 @@
     return clean;
   }
 
+  // Shoelace area of a closed [lng,lat] ring — a degenerate/collinear ring
+  // (e.g. a provider swath that is really a line or a single repeated point)
+  // comes out ~0, so callers can reject it and fall back to the point hull.
+  function _ringArea(ring) {
+    if (!Array.isArray(ring) || ring.length < 4) return 0;
+    let a = 0;
+    for (let i = 0; i < ring.length - 1; i++) a += ring[i][0] * ring[i + 1][1] - ring[i + 1][0] * ring[i][1];
+    return Math.abs(a) / 2;
+  }
+
+  // A coordinate is usable only if it's a genuinely finite number. Rejects
+  // null, '', whitespace and non-numeric strings — note Number('')===0 would
+  // otherwise pass a bare isFinite() check and silently drag geometry to [0,0].
+  function _finiteCoord(v) {
+    if (v == null || (typeof v === 'string' && v.trim() === '')) return NaN;
+    const n = Number(v);
+    return isFinite(n) ? n : NaN;
+  }
+
+  let _stormZoneBusy = false;
+
   async function createStormTerritory(opts) {
     opts = opts || {};
+    // In-flight lock: a double-tap on 🌩️ Zone (common on mobile) would otherwise
+    // fire two lookups and persist two near-identical territories.
+    if (_stormZoneBusy) { window.showToast?.('Storm zone already generating…', 'info'); return null; }
     if (!state.d2dMap) { window.showToast?.('Open the D2D map first', 'info'); return null; }
     if (!window.NBDIntegrations || typeof window.NBDIntegrations.getHailHistory !== 'function') { window.showToast?.('Hail data unavailable', 'error'); return null; }
-    const minSize = Number(opts.minSizeInches) || 1.0;
-    const center = state.d2dMap.getCenter();
-    window.showToast?.('Finding recent hail…', 'info');
-    let res;
-    try { res = await window.NBDIntegrations.getHailHistory(center.lat, center.lng, { radiusMi: Number(opts.radiusMi) || 15, daysBack: Number(opts.daysBack) || 365 }); }
-    catch (e) { window.showToast?.('Hail lookup failed', 'error'); return null; }
-    if (!res || !res.ok || !Array.isArray(res.hits)) { window.showToast?.('Hail lookup failed', 'error'); return null; }
-    const sig = res.hits.filter(h => h.lat != null && h.lng != null && (Number(h.sizeInches) || 0) >= minSize);
-    if (!sig.length) { window.showToast?.('No hail ≥ ' + minSize + '" nearby in the last year', 'info'); return null; }
-
-    // Prefer a provider swath polygon (HailTrace) — but only if it validates to
-    // a real closed ring; otherwise fall back to hulling ALL the points (so a
-    // malformed/MultiPolygon/empty swath never discards the hits or saves broken
-    // geometry).
-    let ring = null;
-    const polyHits = sig.filter(h => h.polygon && Array.isArray(h.polygon.coordinates));
-    // A SINGLE provider swath is the authoritative footprint — use it directly.
-    if (polyHits.length === 1) ring = _outerRing(polyHits[0].polygon.coordinates);
-    if (!ring) {
-      // Otherwise hull EVERY available point — all swath vertices (so several
-      // storms in range are all covered, not just the first) plus every hit
-      // centroid (NOAA has no swaths). Falls back to a box for 1–2 points.
-      const pts = [];
-      polyHits.forEach(h => { const r = _outerRing(h.polygon.coordinates); if (r) r.forEach(p => pts.push(p)); });
-      sig.forEach(h => { const x = Number(h.lng), y = Number(h.lat); if (isFinite(x) && isFinite(y)) pts.push([x, y]); });
-      ring = _convexHull(pts);
-      if (!ring) { // 1–2 points → box around the cluster
-        const c = [Number(sig[0].lng), Number(sig[0].lat)], d = 0.004;
-        ring = [[c[0] - d, c[1] - d], [c[0] + d, c[1] - d], [c[0] + d, c[1] + d], [c[0] - d, c[1] + d], [c[0] - d, c[1] - d]];
-      }
-    }
-    const maxSize = Math.max.apply(null, sig.map(h => Number(h.sizeInches) || 0));
-    const lats = ring.map(pp => pp[1]), lngs = ring.map(pp => pp[0]);
-    const bounds = { north: Math.max.apply(null, lats), south: Math.min.apply(null, lats), east: Math.max.apply(null, lngs), west: Math.min.apply(null, lngs) };
-    const geoJSON = { type: 'Feature', geometry: { type: 'Polygon', coordinates: [ring] }, properties: {} };
-    const id = await saveTerritory({
-      name: '🌩️ Storm ' + maxSize.toFixed(2) + '"', assignedRep: null, type: 'polygon',
-      geoJSON, bounds, priority: maxSize >= 1.5 ? 'CRITICAL' : 'HIGH',
-      stormHail: { maxSizeInches: maxSize, hits: sig.length }
-    });
-    if (!id) { window.showToast?.('Could not save the storm territory', 'error'); return null; }
-    // Immediate highlight + focus (the saved territory also shows via the Zone layer).
+    _stormZoneBusy = true;
     try {
-      if (window._d2dStormPreview) { state.d2dMap.removeLayer(window._d2dStormPreview); }
-      window._d2dStormPreview = L.geoJSON(geoJSON, { style: { color: '#e8720c', weight: 2, fillColor: '#e8720c', fillOpacity: 0.14, dashArray: '5 5' }, interactive: false }).addTo(state.d2dMap);
-      state.d2dMap.fitBounds([[bounds.south, bounds.west], [bounds.north, bounds.east]], { padding: [40, 40], maxZoom: 15 });
-    } catch (e) {}
-    window.showToast?.('Storm zone created — ' + sig.length + ' hail hit' + (sig.length !== 1 ? 's' : '') + ' up to ' + maxSize.toFixed(2) + '"', 'success');
-    return id;
+      const minSize = Number(opts.minSizeInches) || 1.0;
+      const center = state.d2dMap.getCenter();
+      window.showToast?.('Finding recent hail…', 'info');
+      let res;
+      try { res = await window.NBDIntegrations.getHailHistory(center.lat, center.lng, { radiusMi: Number(opts.radiusMi) || 15, daysBack: Number(opts.daysBack) || 365 }); }
+      catch (e) { window.showToast?.('Hail lookup failed', 'error'); return null; }
+      if (!res || !res.ok || !Array.isArray(res.hits)) { window.showToast?.('Hail lookup failed', 'error'); return null; }
+      // Only hits with genuinely finite coordinates survive — a present-but-non-
+      // numeric lat/lng ('N/A', '') would otherwise pass a bare null check and
+      // poison the hull or the box fallback with NaN / [0,0] geometry.
+      const sig = res.hits.filter(h => isFinite(_finiteCoord(h.lat)) && isFinite(_finiteCoord(h.lng)) && (Number(h.sizeInches) || 0) >= minSize);
+      if (!sig.length) { window.showToast?.('No hail ≥ ' + minSize + '" nearby in the last year', 'info'); return null; }
+
+      // Prefer a provider swath polygon (HailTrace) — but only if it validates to
+      // a real closed ring WITH ACTUAL AREA; otherwise fall back to hulling ALL
+      // the points (so a malformed/degenerate/MultiPolygon/empty swath never
+      // discards the hits or saves broken geometry).
+      let ring = null;
+      const polyHits = sig.filter(h => h.polygon && Array.isArray(h.polygon.coordinates));
+      // A SINGLE provider swath is the authoritative footprint — use it directly,
+      // unless it's degenerate (zero-area / collinear), then fall through to hull.
+      if (polyHits.length === 1) {
+        const r = _outerRing(polyHits[0].polygon.coordinates);
+        if (r && _ringArea(r) > 1e-10) ring = r;
+      }
+      if (!ring) {
+        // Otherwise hull EVERY available point — all swath vertices (so several
+        // storms in range are all covered, not just the first) plus every hit
+        // centroid (NOAA has no swaths). Falls back to a box for 1–2 points.
+        const pts = [];
+        polyHits.forEach(h => { const r = _outerRing(h.polygon.coordinates); if (r) r.forEach(p => pts.push(p)); });
+        sig.forEach(h => { const x = _finiteCoord(h.lng), y = _finiteCoord(h.lat); if (isFinite(x) && isFinite(y)) pts.push([x, y]); });
+        ring = _convexHull(pts);
+        if (!ring) { // 1–2 points → box around the cluster (sig[0] is finite by the filter above)
+          const c = [_finiteCoord(sig[0].lng), _finiteCoord(sig[0].lat)], d = 0.004;
+          ring = [[c[0] - d, c[1] - d], [c[0] + d, c[1] - d], [c[0] + d, c[1] + d], [c[0] - d, c[1] + d], [c[0] - d, c[1] - d]];
+        }
+      }
+      const maxSize = Math.max.apply(null, sig.map(h => Number(h.sizeInches) || 0));
+      const lats = ring.map(pp => pp[1]), lngs = ring.map(pp => pp[0]);
+      const bounds = { north: Math.max.apply(null, lats), south: Math.min.apply(null, lats), east: Math.max.apply(null, lngs), west: Math.min.apply(null, lngs) };
+      const geoJSON = { type: 'Feature', geometry: { type: 'Polygon', coordinates: [ring] }, properties: {} };
+      const id = await saveTerritory({
+        name: '🌩️ Storm ' + maxSize.toFixed(2) + '"', assignedRep: null, type: 'polygon',
+        geoJSON, bounds, priority: maxSize >= 1.5 ? 'CRITICAL' : 'HIGH',
+        stormHail: { maxSizeInches: maxSize, hits: sig.length }
+      });
+      if (!id) { window.showToast?.('Could not save the storm territory', 'error'); return null; }
+      // Immediate highlight + focus (the saved territory also shows via the Zone layer).
+      try {
+        if (window._d2dStormPreview) { state.d2dMap.removeLayer(window._d2dStormPreview); }
+        window._d2dStormPreview = L.geoJSON(geoJSON, { style: { color: '#e8720c', weight: 2, fillColor: '#e8720c', fillOpacity: 0.14, dashArray: '5 5' }, interactive: false }).addTo(state.d2dMap);
+        state.d2dMap.fitBounds([[bounds.south, bounds.west], [bounds.north, bounds.east]], { padding: [40, 40], maxZoom: 15 });
+      } catch (e) {}
+      window.showToast?.('Storm zone created — ' + sig.length + ' hail hit' + (sig.length !== 1 ? 's' : '') + ' up to ' + maxSize.toFixed(2) + '"', 'success');
+      return id;
+    } finally {
+      _stormZoneBusy = false;
+    }
   }
 
   async function deleteTerritory(id) {
