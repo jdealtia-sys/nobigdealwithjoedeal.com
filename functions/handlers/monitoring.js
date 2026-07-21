@@ -35,7 +35,15 @@ exports.cspReport = onRequest(
     maxInstances: 5,
     concurrency: 80,
     timeoutSeconds: 5,
-    memory: '128MiB'
+    // 256MiB (was 128MiB): every Gen2 container cold-loads the entire
+    // index.js module graph (~175 fns + firebase-admin), and at 128MiB
+    // the throttled CPU made that load intermittently miss the container
+    // startup healthcheck — "Container Healthcheck failed … failed to
+    // start and listen on PORT=8080" — failing THIS function's deploy
+    // (turning the whole deploy job RED) while every 256MiB fn succeeded.
+    // 256MiB is the codebase default and is proven for this exact
+    // full-graph cold start across ~97 other functions.
+    memory: '256MiB'
   },
   async (req, res) => {
     if (req.method !== 'POST') { res.status(405).end(); return; }

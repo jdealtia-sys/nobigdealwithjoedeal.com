@@ -42,7 +42,7 @@ exports.integrationStatus = onCall(
     cors: CORS_ORIGINS,
     enforceAppCheck: true,
     timeoutSeconds: 10,
-    memory: '128MiB',
+    memory: '256MiB', // was 128MiB — 128MiB intermittently misses the Gen2 startup healthcheck loading the full index.js graph (see cspReport in handlers/monitoring.js)
     secrets: Object.values(_intSecrets)
   },
   async (request) => {
