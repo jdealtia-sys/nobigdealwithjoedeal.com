@@ -393,6 +393,68 @@
     return zone;
   }
 
+  // D2D "🌩️ Zone" button origin: build a storm zone directly from observed hail
+  // the rep pulled on the D2D map (createStormTerritory), rather than from an NWS
+  // alert (createZoneFromAlert). Registering it here — and returning the id so
+  // D2D can stamp stormZoneId onto its territory — is what lets knocks logged
+  // inside that territory attribute back via recordZoneKnock; without it a
+  // rep-drawn zone never reaches Storm Center's per-zone analytics. Note these
+  // zones (like all storm zones) are localStorage-only, so the counts are
+  // per-device — self-consistent on the rep's phone, not a team rollup.
+  //   params.ring          GeoJSON [lng,lat] outer ring (D2D order)
+  //   params.bounds        { north, south, east, west }
+  //   params.maxSizeInches, params.hits
+  // Returns the new zone id, or null if the ring is unusable. Does not render()
+  // (called from the D2D view; Storm re-reads localStorage on its next open).
+  function registerHailZone(params) {
+    params = params || {};
+    const ring = Array.isArray(params.ring) ? params.ring : null;
+    if (!ring || ring.length < 3) return null;
+    const maxSize = Number(params.maxSizeInches) || 0;
+    const hits = Number(params.hits) || 0;
+    const b = params.bounds || null;
+    // Storm Center zones store polygon as [lat,lng]; D2D's ring is [lng,lat].
+    const polygon = ring.map(p => [p[1], p[0]]);
+    // Observed hail already fell — no forecast uncertainty to discount — so score
+    // straight off measured size, aligned with the D2D territory's own
+    // CRITICAL-at-1.5" threshold so the two systems agree on priority.
+    const score = maxSize >= 2 ? 100 : maxSize >= 1.5 ? 80 : maxSize >= 1.25 ? 65 : maxSize >= 1 ? 50 : 35;
+    const center = b && isFinite(b.north) && isFinite(b.south) && isFinite(b.east) && isFinite(b.west)
+      ? [(b.north + b.south) / 2, (b.east + b.west) / 2]
+      : (polygon.length ? polygon[0].slice() : null);
+    const zone = {
+      id: 'sz_' + Date.now(),
+      alertId: null,
+      name: '🌩️ Storm ' + maxSize.toFixed(2) + '"',
+      event: 'Observed Hail',
+      severity: score >= 100 ? 'Extreme' : score >= 80 ? 'Severe' : score >= 50 ? 'Moderate' : 'Minor',
+      score,
+      damageProb: estimateDamageProb(maxSize, 0),
+      hailSize: maxSize,
+      windSpeed: null,
+      polygon,
+      center,
+      areaDesc: hits + ' hail hit' + (hits !== 1 ? 's' : '') + ' up to ' + maxSize.toFixed(2) + '" (rep-mapped)',
+      createdAt: new Date().toISOString(),
+      alertExpires: null,
+      status: 'canvassing', // rep is already working it in D2D
+      knockCount: 0,
+      leadCount: 0,
+      estimatedRoofs: 0,
+      assignedReps: [],
+      canvassPlan: null,
+      notes: '',
+      source: 'd2d-rep' // ad-hoc rep zone — distinguish from vetted NWS-alert zones
+    };
+    if (polygon.length > 2) {
+      const areaSqMiles = calculatePolygonArea(polygon);
+      zone.estimatedRoofs = Math.min(Math.round(areaSqMiles * 200), 5000);
+    }
+    stormZones.unshift(zone);
+    saveStormZones();
+    return zone.id;
+  }
+
   function calculatePolygonArea(coords) {
     // Shoelace formula with lat/lng → sq miles approximation
     if (!coords || coords.length < 3) return 0;
@@ -1193,6 +1255,7 @@
     refresh,
     setTab,
     createZone: createZoneFromAlert,
+    registerHailZone: registerHailZone,
     openZone: openZoneDetail,
     generatePlan: generatePlanForZone,
     pushToD2D: pushZoneToD2DById,

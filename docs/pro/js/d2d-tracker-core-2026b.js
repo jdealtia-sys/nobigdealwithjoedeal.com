@@ -2294,9 +2294,21 @@
       const lats = ring.map(pp => pp[1]), lngs = ring.map(pp => pp[0]);
       const bounds = { north: Math.max.apply(null, lats), south: Math.min.apply(null, lats), east: Math.max.apply(null, lngs), west: Math.min.apply(null, lngs) };
       const geoJSON = { type: 'Feature', geometry: { type: 'Polygon', coordinates: [ring] }, properties: {} };
+      // Register a matching Storm Center zone so knocks logged inside this
+      // territory attribute to Storm Center's per-zone analytics via
+      // attributeKnockToStormZone → recordKnock. Without a stormZoneId + backing
+      // zone that path skips this territory. Degrades gracefully (stormZoneId
+      // stays null, exactly today's behavior) when the Storm module isn't loaded.
+      let stormZoneId = null;
+      try {
+        if (window.StormCenter && typeof window.StormCenter.registerHailZone === 'function') {
+          stormZoneId = window.StormCenter.registerHailZone({ ring, bounds, maxSizeInches: maxSize, hits: sig.length }) || null;
+        }
+      } catch (_) {}
       const id = await saveTerritory({
         name: '🌩️ Storm ' + maxSize.toFixed(2) + '"', assignedRep: null, type: 'polygon',
         geoJSON, bounds, priority: maxSize >= 1.5 ? 'CRITICAL' : 'HIGH',
+        stormZoneId,
         stormHail: { maxSizeInches: maxSize, hits: sig.length }
       });
       if (!id) { window.showToast?.('Could not save the storm territory', 'error'); return null; }
