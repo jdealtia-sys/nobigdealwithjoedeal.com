@@ -172,6 +172,8 @@
     // The ⛈ Hail button dispatches toggleHail (ui module helper that flips
     // between showHail/hideHail based on the current overlay state).
     toggleHail: state.toggleHail,
+    // Turn recent significant hail into a canvassing territory
+    stormZone: () => state.createStormTerritory({ minSizeInches: 1.0, radiusMi: 15, daysBack: 365 }),
     // iOS-safe DOM confirm/prompt. dashboard-actions.js (uiConfirmShared),
     // crm-pipeline.js and estimates.js all guard-call window.D2D.uiConfirm —
     // but it was never exported here, so every one of those calls silently

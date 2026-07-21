@@ -2181,6 +2181,95 @@
     } catch (e) { console.error('saveTerritory failed:', e); return null; }
   }
 
+  // ── Storm → canvassing territory ────────────────────────────────────
+  // Turn recent significant hail into a canvassing zone: NOAA (the default
+  // provider) returns hail POINTS not a swath, so we hull the qualifying points
+  // into a polygon (HailTrace's swath is used directly when present), save it as
+  // a real territory, and focus the map on it.
+  function _convexHull(pts) {
+    if (pts.length < 3) return null;
+    const p = pts.slice().sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+    const cross = (o, a, b) => (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0]);
+    const lower = [];
+    for (const q of p) { while (lower.length >= 2 && cross(lower[lower.length - 2], lower[lower.length - 1], q) <= 0) lower.pop(); lower.push(q); }
+    const upper = [];
+    for (let i = p.length - 1; i >= 0; i--) { const q = p[i]; while (upper.length >= 2 && cross(upper[upper.length - 2], upper[upper.length - 1], q) <= 0) upper.pop(); upper.push(q); }
+    lower.pop(); upper.pop();
+    const hull = lower.concat(upper);
+    if (hull.length < 3) return null;
+    // Small outward buffer from the centroid so a tight cluster still has area.
+    let cx = 0, cy = 0; hull.forEach(h => { cx += h[0]; cy += h[1]; }); cx /= hull.length; cy /= hull.length;
+    const buffered = hull.map(h => { const dx = h[0] - cx, dy = h[1] - cy, len = Math.hypot(dx, dy) || 1; return [h[0] + dx / len * 0.0015, h[1] + dy / len * 0.0015]; });
+    buffered.push(buffered[0]); // close the ring
+    return buffered;
+  }
+
+  // Normalize a provider swath's coordinates into a valid, closed [lng,lat]
+  // outer ring. Handles Polygon (coords[0] = ring) and MultiPolygon (coords[0]
+  // = a polygon), drops non-finite points, requires ≥3 points, closes the ring.
+  // Returns null if unusable so callers can fall back to the point hull.
+  function _outerRing(coords) {
+    if (!Array.isArray(coords) || !Array.isArray(coords[0])) return null;
+    const c0 = coords[0];
+    let ring;
+    if (Array.isArray(c0[0]) && typeof c0[0][0] === 'number') ring = c0;              // Polygon → outer ring
+    else if (Array.isArray(c0[0]) && Array.isArray(c0[0][0])) ring = c0[0];           // MultiPolygon → first polygon's outer ring
+    else return null;
+    const clean = (ring || []).filter(p => Array.isArray(p) && isFinite(p[0]) && isFinite(p[1])).map(p => [Number(p[0]), Number(p[1])]);
+    if (clean.length < 3) return null;
+    const f = clean[0], l = clean[clean.length - 1];
+    if (f[0] !== l[0] || f[1] !== l[1]) clean.push([f[0], f[1]]);
+    return clean;
+  }
+
+  async function createStormTerritory(opts) {
+    opts = opts || {};
+    if (!state.d2dMap) { window.showToast?.('Open the D2D map first', 'info'); return null; }
+    if (!window.NBDIntegrations || typeof window.NBDIntegrations.getHailHistory !== 'function') { window.showToast?.('Hail data unavailable', 'error'); return null; }
+    const minSize = Number(opts.minSizeInches) || 1.0;
+    const center = state.d2dMap.getCenter();
+    window.showToast?.('Finding recent hail…', 'info');
+    let res;
+    try { res = await window.NBDIntegrations.getHailHistory(center.lat, center.lng, { radiusMi: Number(opts.radiusMi) || 15, daysBack: Number(opts.daysBack) || 365 }); }
+    catch (e) { window.showToast?.('Hail lookup failed', 'error'); return null; }
+    if (!res || !res.ok || !Array.isArray(res.hits)) { window.showToast?.('Hail lookup failed', 'error'); return null; }
+    const sig = res.hits.filter(h => h.lat != null && h.lng != null && (Number(h.sizeInches) || 0) >= minSize);
+    if (!sig.length) { window.showToast?.('No hail ≥ ' + minSize + '" nearby in the last year', 'info'); return null; }
+
+    // Prefer a provider swath polygon (HailTrace) — but only if it validates to
+    // a real closed ring; otherwise fall back to hulling ALL the points (so a
+    // malformed/MultiPolygon/empty swath never discards the hits or saves broken
+    // geometry).
+    let ring = null;
+    const withPoly = sig.find(h => h.polygon && Array.isArray(h.polygon.coordinates));
+    if (withPoly) ring = _outerRing(withPoly.polygon.coordinates);
+    if (!ring) {
+      ring = _convexHull(sig.map(h => [Number(h.lng), Number(h.lat)]).filter(p => isFinite(p[0]) && isFinite(p[1])));
+      if (!ring) { // 1–2 points → box around the cluster
+        const c = [Number(sig[0].lng), Number(sig[0].lat)], d = 0.004;
+        ring = [[c[0] - d, c[1] - d], [c[0] + d, c[1] - d], [c[0] + d, c[1] + d], [c[0] - d, c[1] + d], [c[0] - d, c[1] - d]];
+      }
+    }
+    const maxSize = Math.max.apply(null, sig.map(h => Number(h.sizeInches) || 0));
+    const lats = ring.map(pp => pp[1]), lngs = ring.map(pp => pp[0]);
+    const bounds = { north: Math.max.apply(null, lats), south: Math.min.apply(null, lats), east: Math.max.apply(null, lngs), west: Math.min.apply(null, lngs) };
+    const geoJSON = { type: 'Feature', geometry: { type: 'Polygon', coordinates: [ring] }, properties: {} };
+    const id = await saveTerritory({
+      name: '🌩️ Storm ' + maxSize.toFixed(2) + '"', assignedRep: null, type: 'polygon',
+      geoJSON, bounds, priority: maxSize >= 1.5 ? 'CRITICAL' : 'HIGH',
+      stormHail: { maxSizeInches: maxSize, hits: sig.length }
+    });
+    if (!id) { window.showToast?.('Could not save the storm territory', 'error'); return null; }
+    // Immediate highlight + focus (the saved territory also shows via the Zone layer).
+    try {
+      if (window._d2dStormPreview) { state.d2dMap.removeLayer(window._d2dStormPreview); }
+      window._d2dStormPreview = L.geoJSON(geoJSON, { style: { color: '#e8720c', weight: 2, fillColor: '#e8720c', fillOpacity: 0.14, dashArray: '5 5' }, interactive: false }).addTo(state.d2dMap);
+      state.d2dMap.fitBounds([[bounds.south, bounds.west], [bounds.north, bounds.east]], { padding: [40, 40], maxZoom: 15 });
+    } catch (e) {}
+    window.showToast?.('Storm zone created — ' + sig.length + ' hail hit' + (sig.length !== 1 ? 's' : '') + ' up to ' + maxSize.toFixed(2) + '"', 'success');
+    return id;
+  }
+
   async function deleteTerritory(id) {
     if (!id) return false;
     try {
@@ -3538,6 +3627,7 @@
   state.getTeamActivity = getTeamActivity;
   state.loadTerritories = loadTerritories;
   state.saveTerritory = saveTerritory;
+  state.createStormTerritory = createStormTerritory;
   state.deleteTerritory = deleteTerritory;
   state.updateNavBadge = updateNavBadge;
   state.applyFilters = applyFilters;

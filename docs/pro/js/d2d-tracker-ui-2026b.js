@@ -886,6 +886,7 @@
           <button data-d2d-action="openQuickKnock" class="d2d-big-btn">🚪 Knock</button>
           <button data-d2d-action="toggleHeatMap" class="d2d-big-btn d2d-big-btn-sec">${state.showHeat ? '🔥' : '❄️'} Heat</button>
           <button data-d2d-action="toggleHail" class="d2d-big-btn d2d-big-btn-sec" title="Recent hail reports">⛈ Hail</button>
+          <button data-d2d-action="stormZone" class="d2d-big-btn d2d-big-btn-sec" title="Create a canvassing territory from recent hail">🌩️ Zone</button>
           <button data-d2d-action="centerOnMe" class="d2d-big-btn d2d-big-btn-sec">📍 Me</button>
           <button data-d2d-action="toggleTeamMode" class="d2d-big-btn d2d-big-btn-sec${state.teamMode ? ' d2d-big-btn-on' : ''}" title="Live team activity">${state.teamMode ? '👥' : '👤'} Team</button>
           <button data-d2d-action="exportCSV" class="d2d-big-btn d2d-big-btn-sec">📥 CSV</button>
