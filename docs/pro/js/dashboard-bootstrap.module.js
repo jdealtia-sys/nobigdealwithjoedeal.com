@@ -2336,6 +2336,9 @@
           if (marginHTML) kpiGrid.insertAdjacentHTML('beforeend', marginHTML);
         }
       }
+      // Append the D2D "Doors Verified" data-quality card (async, self-fetching;
+      // only renders when the rep has knocks).
+      if (typeof window.renderDoorsVerifiedCard === 'function') window.renderDoorsVerifiedCard();
     }, 200);
     // Auto-check for review requests on recently closed jobs
     if (window.ReviewEngine?.checkAutoReviews) setTimeout(() => window.ReviewEngine.checkAutoReviews(), 3000);

@@ -90,6 +90,10 @@ exports.analyzeRoofPhoto = photoHandlers.analyzeRoofPhoto;
 const geocodeHandlers = require('./handlers/geocode');
 exports.resolveAddress = geocodeHandlers.resolveAddress;
 
+// Team-scale bulk re-verify — owner/admin re-scores the whole company's knocks
+const reverifyKnocksHandlers = require('./handlers/reverify-knocks');
+exports.reverifyCompanyKnocks = reverifyKnocksHandlers.reverifyCompanyKnocks;
+
 // Admin / team-management callables
 const adminHandlers = require('./handlers/admin');
 exports.getAdminAnalytics          = adminHandlers.getAdminAnalytics;

@@ -34,30 +34,41 @@
   // ============================================================================
   // CONSTANTS & DISPOSITIONS
   // ============================================================================
+  // Each disposition is explicitly categorized so metrics are accurate and reps
+  // aren't guessing what a button means:
+  //   contact  — was an actual conversation with a person had? (drives the
+  //              conversation %; a "no answer / revisit" note is NOT a convo)
+  //   category — bucket for grouping + reporting
+  //   desc     — one-line meaning shown as a tooltip in the picker
   const DISPOSITIONS = {
-    not_home:       { label: 'Not Home',                color: '#6B7280', icon: '🏠', short: 'NH',   autoFollowUp: 1 },
-    not_interested: { label: 'Not Interested',          color: '#E05252', icon: '✋', short: 'NI',   autoFollowUp: null },
-    interested:     { label: 'Interested',              color: '#EAB308', icon: '👍', short: 'INT',  autoFollowUp: 3 },
-    appointment:    { label: 'Appointment Set',         color: '#2ECC8A', icon: '📅', short: 'APT',  autoFollowUp: null },
-    come_back:      { label: 'Come Back Later',         color: '#4A9EFF', icon: '🔄', short: 'CBL',  autoFollowUp: null },
-    storm_damage:   { label: 'Storm Damage Noted',      color: '#e8720c', icon: '⛈️', short: 'DMG', autoFollowUp: 1 },
-    ins_has_claim:  { label: 'Insurance - Has Claim',   color: '#9B6DFF', icon: '📋', short: 'CLM',  autoFollowUp: 2 },
-    ins_needs_file: { label: 'Insurance - Needs Filing', color: '#D946EF', icon: '📝', short: 'FIL', autoFollowUp: 1 },
-    ins_denied:     { label: 'Insurance - Denied',      color: '#78350F', icon: '❌', short: 'DEN',  autoFollowUp: 3 },
-    do_not_knock:   { label: 'Do Not Knock',            color: '#1F2937', icon: '🚫', short: 'DNK',  autoFollowUp: null },
-    cold_dead:      { label: 'Cold / Dead Lead',        color: '#374151', icon: '💀', short: 'DEAD', autoFollowUp: null },
-    // ── New dispositions (April 2026) ──
-    left_material:  { label: 'Left Material',           color: '#0EA5E9', icon: '📬', short: 'MAT',  autoFollowUp: 3 },
-    callback:       { label: 'Callback Requested',      color: '#14B8A6', icon: '📞', short: 'CBR',  autoFollowUp: 1 },
-    tenant:         { label: 'Tenant (Not Owner)',       color: '#94A3B8', icon: '🔑', short: 'TNT',  autoFollowUp: null },
-    vacant:         { label: 'Vacant Property',          color: '#475569', icon: '🏚️', short: 'VAC', autoFollowUp: 7 }
+    appointment:    { label: 'Appointment Set',          color: '#2ECC8A', icon: '📅', short: 'APT',  autoFollowUp: null, contact: true,  category: 'hot',      desc: 'Booked a specific time to meet.' },
+    ins_has_claim:  { label: 'Insurance - Has Claim',    color: '#9B6DFF', icon: '📋', short: 'CLM',  autoFollowUp: 2,    contact: true,  category: 'hot',      desc: 'Already has an active insurance claim.' },
+    ins_needs_file: { label: 'Insurance - Needs Filing', color: '#D946EF', icon: '📝', short: 'FIL',  autoFollowUp: 1,    contact: true,  category: 'hot',      desc: 'Damage found — needs to file a claim.' },
+    storm_damage:   { label: 'Storm Damage Noted',       color: '#e8720c', icon: '⛈️', short: 'DMG', autoFollowUp: 1,    contact: true,  category: 'hot',      desc: 'Talked and noted visible storm damage.' },
+    interested:     { label: 'Interested',               color: '#EAB308', icon: '👍', short: 'INT',  autoFollowUp: 3,    contact: true,  category: 'warm',     desc: 'Talked — showed genuine interest.' },
+    come_back:      { label: 'Come Back — They Asked',   color: '#4A9EFF', icon: '🔁', short: 'CBA',  autoFollowUp: 2,    contact: true,  category: 'warm',     desc: 'Prospect asked you to return in person.' },
+    callback:       { label: 'Callback Requested',       color: '#14B8A6', icon: '📞', short: 'CBR',  autoFollowUp: 1,    contact: true,  category: 'warm',     desc: 'Prospect asked for a phone call back.' },
+    revisit:        { label: 'Revisit — No Answer',      color: '#38BDF8', icon: '🔄', short: 'REV',  autoFollowUp: 1,    contact: false, category: 'followup', desc: 'Good door, nobody home — try again. Not a conversation.' },
+    not_home:       { label: 'Not Home',                 color: '#6B7280', icon: '🏠', short: 'NH',   autoFollowUp: 1,    contact: false, category: 'followup', desc: 'Nobody answered.' },
+    left_material:  { label: 'Left Material',            color: '#0EA5E9', icon: '📬', short: 'MAT',  autoFollowUp: 3,    contact: false, category: 'followup', desc: 'Left a door hanger / flyer — no answer.' },
+    tenant:         { label: 'Tenant (Not Owner)',       color: '#94A3B8', icon: '🔑', short: 'TNT',  autoFollowUp: null, contact: true,  category: 'no_owner', desc: 'Talked — but they rent, not the owner.' },
+    not_interested: { label: 'Not Interested',           color: '#E05252', icon: '✋', short: 'NI',   autoFollowUp: null, contact: true,  category: 'lost',     desc: 'Talked — they said no.' },
+    ins_denied:     { label: 'Insurance - Denied',       color: '#78350F', icon: '❌', short: 'DEN',  autoFollowUp: 3,    contact: true,  category: 'lost',     desc: 'Talked — their claim was denied.' },
+    vacant:         { label: 'Vacant Property',          color: '#475569', icon: '🏚️', short: 'VAC', autoFollowUp: 7,    contact: false, category: 'skip',     desc: 'Property looks vacant.' },
+    do_not_knock:   { label: 'Do Not Knock',             color: '#1F2937', icon: '🚫', short: 'DNK',  autoFollowUp: null, contact: false, category: 'skip',     desc: 'Do not return to this address.' },
+    cold_dead:      { label: 'Cold / Dead Lead',         color: '#374151', icon: '💀', short: 'DEAD', autoFollowUp: null, contact: false, category: 'dead',     desc: 'No potential — dead.' }
   };
 
+  // Display order (also the report order). Grouped hot → warm → follow-up → cold.
   const DISPO_ORDER = [
-    'appointment','interested','storm_damage','come_back','callback',
-    'left_material','ins_has_claim','ins_needs_file','ins_denied',
-    'not_home','tenant','vacant','not_interested','do_not_knock','cold_dead'
+    'appointment','ins_has_claim','ins_needs_file','storm_damage',
+    'interested','come_back','callback',
+    'revisit','not_home','left_material',
+    'tenant','not_interested','ins_denied','vacant','do_not_knock','cold_dead'
   ];
+
+  // A knock is a "conversation" only when a real person was engaged.
+  function isConversation(dispo) { return !!(DISPOSITIONS[dispo] && DISPOSITIONS[dispo].contact); }
 
   const INS_DISPOSITIONS = ['ins_has_claim','ins_needs_file','ins_denied'];
 
@@ -1030,6 +1041,99 @@
     return { done, verified };
   }
 
+  // Owner/admin: re-verify the WHOLE company's back catalog server-side (the
+  // reverifyCompanyKnocks callable runs with admin privileges so it can write
+  // teammates' knocks, which the client owner-scoped path can't).
+  async function reverifyTeam(max) {
+    if (!state.isOnline) { window.showToast?.('Re-verify needs a connection', 'info'); return null; }
+    window.showToast?.('Re-verifying the whole team… this can take a minute', 'info');
+    try {
+      if (!window._functions || !window._httpsCallable) {
+        const mod = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-functions.js');
+        window._functions = window._functions || mod.getFunctions();
+        window._httpsCallable = window._httpsCallable || mod.httpsCallable;
+      }
+      const fn = window._httpsCallable(window._functions, 'reverifyCompanyKnocks');
+      const res = await fn({ max: max || 300 });
+      const s = (res && res.data) || {};
+      await loadKnocks();
+      if (window.D2D && typeof window.D2D.renderD2D === 'function') window.D2D.renderD2D();
+      window.showToast?.(`Team re-verify: ${s.processed || 0} checked · ${s.verified || 0} verified · ${s.conflict || 0} conflict`, 'success');
+      return s;
+    } catch (e) {
+      const code = (e && e.code) || '';
+      const msg = /permission-denied/.test(code) ? 'Owner or admin access required'
+        : /resource-exhausted/.test(code) ? 'Please wait before re-running the team re-verify'
+        : 'Team re-verify failed';
+      window.showToast?.(msg, 'error');
+      return null;
+    }
+  }
+
+  // ── Property intel on the knock card (owner + roof age + roof score) ─
+  // Lazy: fires only on the rep's tap in the knock-detail modal because each
+  // uncached address bills Regrid (~$0.01; server caches 90 days). Calls the
+  // lookupParcel callable DIRECTLY — NBDIntegrations.lookupParcel is admin-gated
+  // client-side and dead for reps, but the callable itself is any-authed-uid.
+  const _piCache = new Map(); // address → intel, per session
+  function _roofScore(roofAge, yearBuilt) {
+    let score = 100;
+    const age = roofAge != null ? roofAge : (yearBuilt ? new Date().getFullYear() - yearBuilt : 0);
+    if (age >= 30) score -= 50; else if (age >= 25) score -= 40; else if (age >= 20) score -= 30;
+    else if (age >= 15) score -= 15; else if (age >= 10) score -= 5;
+    return Math.max(0, Math.min(100, score));
+  }
+  function renderPropertyIntel(target, intel) {
+    if (!target) return;
+    if (!intel) { target.innerHTML = '<div class="d2d-pi-empty">No county record found for this address.</div>'; return; }
+    const s = intel.roofScore;
+    const col = s == null ? '#6B7280' : (s <= 40 ? '#E05252' : s <= 70 ? '#EAB308' : '#2ECC8A');
+    const rows = [];
+    if (intel.owner) rows.push(['Owner', esc(intel.owner)]);
+    if (intel.yearBuilt) rows.push(['Built', intel.yearBuilt + (intel.roofAge != null ? ' · ~' + intel.roofAge + 'yr roof' : '')]);
+    if (intel.assessedValue) rows.push(['Assessed', '$' + Number(intel.assessedValue).toLocaleString()]);
+    if (intel.sqft) rows.push(['Size', Number(intel.sqft).toLocaleString() + ' sqft']);
+    if (!rows.length) { target.innerHTML = '<div class="d2d-pi-empty">County record found, but no owner/build detail.</div>'; return; }
+    target.innerHTML =
+      '<div class="d2d-pi-card">' +
+        (s != null ? '<div class="d2d-pi-score" style="background:' + col + ';">' + s + '<span>ROOF</span></div>' : '') +
+        '<div class="d2d-pi-rows">' + rows.map(r => '<div class="d2d-pi-row"><span class="d2d-pi-k">' + r[0] + '</span><span class="d2d-pi-v">' + r[1] + '</span></div>').join('') + '</div>' +
+      '</div>';
+  }
+  async function loadPropertyIntel(knockId, btnEl) {
+    const knock = state.knocks.find(k => k.id === knockId);
+    const target = document.getElementById('d2d-pi-' + knockId);
+    if (!knock || !knock.address || !target) return;
+    const key = normalizeAddress(knock.address);
+    if (_piCache.has(key)) { renderPropertyIntel(target, _piCache.get(key)); return; }
+    if (btnEl) { btnEl.disabled = true; btnEl.textContent = '⏳ Loading…'; }
+    try {
+      if (!window._functions || !window._httpsCallable) {
+        const mod = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-functions.js');
+        window._functions = window._functions || mod.getFunctions();
+        window._httpsCallable = window._httpsCallable || mod.httpsCallable;
+      }
+      const fn = window._httpsCallable(window._functions, 'lookupParcel');
+      const res = await fn({ address: knock.address });
+      const p = (res && res.data && res.data.parcel) || null;
+      if (!p) { _piCache.set(key, null); renderPropertyIntel(target, null); return; }
+      const yr = Number(p.yearBuilt) || null;
+      const roofAge = yr ? Math.max(0, new Date().getFullYear() - yr) : null;
+      const intel = {
+        owner: p.owner || null, yearBuilt: yr, roofAge,
+        roofScore: (yr ? _roofScore(roofAge, yr) : null),
+        assessedValue: p.assessedValue || null, sqft: p.sqft || null,
+        county: p.county || null
+      };
+      _piCache.set(key, intel);
+      renderPropertyIntel(target, intel);
+    } catch (e) {
+      const rl = e && (e.code === 'resource-exhausted' || e.code === 'functions/resource-exhausted');
+      window.showToast?.(rl ? 'Too many lookups — try again in an hour' : 'Property lookup unavailable', rl ? 'warning' : 'error');
+      if (btnEl) { btnEl.disabled = false; btnEl.textContent = '🏠 Load owner & roof intel'; }
+    }
+  }
+
   // ============================================================================
   // WEATHER INTEGRATION
   // ============================================================================
@@ -1078,7 +1182,7 @@
       grid[key].knocks.push(k);
       if (k.disposition === 'appointment') grid[key].appointments++;
       if (k.disposition === 'storm_damage') grid[key].stormDmg++;
-      if (!['not_home', 'do_not_knock', 'cold_dead'].includes(k.disposition)) grid[key].conversations++;
+      if (isConversation(k.disposition)) grid[key].conversations++;
     });
 
     const scores = {};
@@ -1247,7 +1351,10 @@
     // Filter to "not home" / "come back" that haven't been fully resolved
     addrMap.forEach(k => {
       if (blocked.has(normalizeAddress(k.address))) return;
-      if (['not_home', 'come_back'].includes(k.disposition) && getAttemptCount(k.address) < MAX_ATTEMPTS) {
+      // Re-visit candidates: no-answer doors worth another try. 'revisit' is the
+      // new primary no-answer flag; 'come_back' now means the prospect asked you
+      // to return in person — both are doors to route back to.
+      if (['not_home', 'revisit', 'come_back'].includes(k.disposition) && getAttemptCount(k.address) < MAX_ATTEMPTS) {
         unvisited.push({ lat: k.lat, lng: k.lng, address: k.address, disposition: k.disposition });
       }
     });
@@ -1987,8 +2094,8 @@
     const appointmentsWeek = week.filter(k => k.disposition === 'appointment');
     const appointmentsToday = today.filter(k => k.disposition === 'appointment');
     const insuranceToday = today.filter(k => INS_DISPOSITIONS.includes(k.disposition));
-    const conversations = state.knocks.filter(k => !['not_home', 'do_not_knock', 'cold_dead'].includes(k.disposition));
-    const conversationsToday = today.filter(k => !['not_home', 'do_not_knock', 'cold_dead'].includes(k.disposition));
+    const conversations = state.knocks.filter(k => isConversation(k.disposition));
+    const conversationsToday = today.filter(k => isConversation(k.disposition));
 
     let streak = 0;
     const checkDate = new Date();
@@ -2057,7 +2164,7 @@
 
   function getRevenueMetrics() {
     const doorsKnocked = new Set(state.knocks.map(k => normalizeAddress(k.address))).size;
-    const conversations = state.knocks.filter(k => !['not_home', 'do_not_knock', 'cold_dead'].includes(k.disposition)).length;
+    const conversations = state.knocks.filter(k => isConversation(k.disposition)).length;
     const appointments = state.knocks.filter(k => k.disposition === 'appointment').length;
     const estimates = state.knocks.filter(k => k.estimateValue > 0).length;
     const closed = state.knocks.filter(k => k.closedDealValue > 0).length;
@@ -3261,6 +3368,8 @@
   state.getAddressQuality = getAddressQuality;
   state.reverifyKnock = reverifyKnock;
   state.reverifyPending = reverifyPending;
+  state.reverifyTeam = reverifyTeam;
+  state.loadPropertyIntel = loadPropertyIntel;
   state.loadWeather = loadWeather;
   state.getWeatherAlerts = getWeatherAlerts;
   state.calculateWalkingRoute = calculateWalkingRoute;

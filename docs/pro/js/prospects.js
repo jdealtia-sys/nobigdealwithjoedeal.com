@@ -32,7 +32,8 @@
     { key: 'ins_has_claim',  label: 'Insurance - Has Claim',     bucket: 'warm', color: '#9B6DFF' },
     { key: 'ins_needs_file', label: 'Insurance - Needs Filing',  bucket: 'warm', color: '#D946EF' },
     { key: 'ins_denied',     label: 'Insurance - Denied',        bucket: 'warm', color: '#78350F' },
-    { key: 'come_back',      label: 'Come Back Later',           bucket: 'warm', color: '#4A9EFF' },
+    { key: 'come_back',      label: 'Come Back — They Asked',    bucket: 'warm', color: '#4A9EFF' },
+    { key: 'revisit',        label: 'Revisit — No Answer',       bucket: 'warm', color: '#38BDF8' },
     { key: 'left_material',  label: 'Left Material',             bucket: 'warm', color: '#0EA5E9' },
     // Cold — low intent / unreachable
     { key: 'not_home',       label: 'Not Home',                  bucket: 'cold', color: '#6B7280' },
@@ -115,6 +116,11 @@
       const sorted = [...DISPOSITIONS].sort((a, b) => b.label.length - a.label.length);
       const sub = sorted.find(d => labelLine.includes(d.label.toLowerCase()));
       if (sub) return sub.key;
+      // Legacy relabeled dispositions — old "D2D Knock #N: <old label>" notes on
+      // pre-structured leads (e.g. come_back was "Come Back Later" before it
+      // became "Come Back — They Asked"). Keep them bucketing correctly.
+      const LEGACY_LABELS = { 'come back later': 'come_back' };
+      if (LEGACY_LABELS[labelLine]) return LEGACY_LABELS[labelLine];
     }
     return 'other';
   }
