@@ -13,7 +13,7 @@
       if (!btn) return;
       btn.setAttribute('aria-pressed', isOn() ? 'true' : 'false');
       btn.style.background = isOn() ? 'var(--orange)' : '';
-      btn.style.color = isOn() ? '#fff' : '';
+      btn.style.color = isOn() ? 'var(--accent-fg)' : '';
       btn.textContent = isOn() ? '✓ Presentation On' : '🎤 Presentation';
     }
     window.togglePresentationMode = function () {

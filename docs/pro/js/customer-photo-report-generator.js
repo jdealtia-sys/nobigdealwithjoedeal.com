@@ -619,7 +619,7 @@ window.quickAddNote = async function () {
     input.value = '';
     if (status) {
       status.textContent = 'Saved ✓';
-      status.style.color = '#10b981';
+      status.style.color = 'var(--green)';
       setTimeout(() => { if (status.textContent === 'Saved ✓') status.textContent = ''; }, 1800);
     }
 
@@ -645,7 +645,7 @@ window.quickAddNote = async function () {
     input.value = text;
     if (status) {
       status.textContent = 'Save failed — try again';
-      status.style.color = '#ef4444';
+      status.style.color = 'var(--red)';
     }
     if (typeof window.showToast === 'function') {
       window.showToast('Note save failed: ' + (e.message || 'unknown'), 'error');

@@ -156,7 +156,7 @@ window.showToast = function(message, type = 'info') {
   if (!container) {
     container = document.createElement('div');
     container.id = 'toastContainer';
-    container.style.cssText = 'position:fixed;bottom:20px;right:20px;z-index:10002;display:flex;flex-direction:column;gap:8px;align-items:flex-end;';
+    container.style.cssText = 'position:fixed;bottom:20px;right:20px;z-index:var(--z-toast);display:flex;flex-direction:column;gap:8px;align-items:flex-end;';
     document.body.appendChild(container);
   }
   while (container.children.length >= 5) container.firstChild.remove();
@@ -402,8 +402,8 @@ function buildPhotoBadges(photo, esc) {
   var badges = '';
   if (photo.damageType) badges += '<span class="nbd-photo-badge" style="font-size:9px;padding:1px 5px;border-radius:4px;background:color-mix(in srgb, var(--orange) 20%, transparent);color:var(--orange);">' + esc(photo.damageType) + '</span>';
   if (photo.severity) {
-    var sc = photo.severity === 'severe' ? '#ef4444' : photo.severity === 'moderate' ? '#f97316' : '#eab308';
-    badges += '<span class="nbd-photo-badge" style="font-size:9px;padding:1px 5px;border-radius:4px;background:' + sc + '22;color:' + sc + ';text-transform:capitalize;">' + esc(photo.severity) + '</span>';
+    var sc = photo.severity === 'severe' ? 'var(--red)' : photo.severity === 'moderate' ? 'var(--orange)' : 'var(--gold)';
+    badges += '<span class="nbd-photo-badge" style="font-size:9px;padding:1px 5px;border-radius:4px;background:color-mix(in srgb, ' + sc + ' 20%, transparent);color:' + sc + ';text-transform:capitalize;">' + esc(photo.severity) + '</span>';
   }
   if (photo.isAnnotated) badges += '<span class="nbd-photo-badge" style="font-size:9px;padding:1px 5px;border-radius:4px;background:rgba(168,85,247,.15);color:#a855f7;">Annotated</span>';
   // Homeowner-share badge — clickable. data-action triggers the
@@ -1206,7 +1206,7 @@ window.showPhotoActions = function(idx, event) {
   popup.onclick = function(e) { if (e.target === popup) popup.remove(); };
   
   var phaseColors = { 'Before': '#3b82f6', 'During': 'var(--orange)', 'After': 'var(--green)' };
-  var sevColors = { 'minor': '#eab308', 'moderate': '#f97316', 'severe': '#ef4444' };
+  var sevColors = { 'minor': 'var(--gold)', 'moderate': 'var(--orange)', 'severe': 'var(--red)' };
   
   var card = document.createElement('div');
   card.style.cssText = 'background:var(--bg,#0f172a);border:1px solid var(--br,#2a2a4e);border-radius:16px;padding:24px;max-width:420px;width:90%;color:var(--text,#fff);font-family:system-ui,sans-serif;';
@@ -1298,12 +1298,12 @@ window.quickSetSeverity = function(sev, btn) {
     btn.style.color = btn.style.borderColor;
   } else {
     photo.severity = sev;
-    var sevColors = { 'minor': '#eab308', 'moderate': '#f97316', 'severe': '#ef4444' };
+    var sevColors = { 'minor': 'var(--gold)', 'moderate': 'var(--orange)', 'severe': 'var(--red)' };
     document.querySelectorAll('#qeSeverityButtons button').forEach(function(b) {
       b.style.background = 'transparent';
       b.style.color = b.style.borderColor;
     });
-    btn.style.background = sevColors[sev] || '#f97316';
+    btn.style.background = sevColors[sev] || 'var(--orange)';
     btn.style.color = '#fff';
   }
   
@@ -1738,17 +1738,17 @@ window.generateCustomerDoc = function(type) {
     const esc = window.nbdEsc || (s => String(s == null ? '' : s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])));
     const label = check.label || type;
     const modal = document.createElement('div');
-    modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;z-index:9999;background:rgba(0,0,0,.8);display:flex;align-items:center;justify-content:center;';
+    modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;z-index:var(--z-overlay);background:rgba(0,0,0,.8);display:flex;align-items:center;justify-content:center;';
     modal.innerHTML = `
-      <div style="background:var(--card,#111);border:1px solid var(--border,#333);border-radius:14px;padding:32px;max-width:460px;width:90%;text-align:center;">
+      <div style="background:var(--s2);border:1px solid var(--br);border-radius:14px;padding:32px;max-width:460px;width:90%;text-align:center;">
         <div style="font-size:32px;margin-bottom:12px;">⚠️</div>
-        <div style="font-family:'Barlow Condensed',sans-serif;font-size:20px;font-weight:700;color:var(--text,#fff);margin-bottom:8px;">Can't Generate ${esc(label)}</div>
+        <div style="font-family:'Barlow Condensed',sans-serif;font-size:20px;font-weight:700;color:var(--t);margin-bottom:8px;">Can't Generate ${esc(label)}</div>
         <div style="font-size:13px;color:var(--muted,#888);margin-bottom:16px;">This document requires data that hasn't been added yet:</div>
         <div style="text-align:left;background:var(--surface,#1a1a2e);border-radius:8px;padding:14px;margin-bottom:20px;">
           ${check.missing.map(m => '<div style="font-size:13px;color:var(--orange);padding:4px 0;">• ' + esc(m) + '</div>').join('')}
         </div>
         <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;">
-          <button class="nbd-preq-preview" style="padding:12px 22px;background:rgba(255,255,255,.08);color:var(--text,#fff);border:1px solid var(--border,#333);border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;">👁 Preview blank template</button>
+          <button class="nbd-preq-preview" style="padding:12px 22px;background:rgba(255,255,255,.08);color:var(--t);border:1px solid var(--br);border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;">👁 Preview blank template</button>
           <button class="nbd-preq-close" style="padding:12px 28px;background:var(--orange);color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;">Got It</button>
         </div>
       </div>`;

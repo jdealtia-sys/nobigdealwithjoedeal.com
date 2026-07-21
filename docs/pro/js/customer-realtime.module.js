@@ -71,7 +71,7 @@
         'max-width:80%;padding:10px 14px;border-radius:14px;font-size:14px;line-height:1.45;' +
         'word-wrap:break-word;align-self:' + (isRep ? 'flex-end' : 'flex-start') + ';' +
         'background:' + (isRep ? 'var(--orange, #c8541a)' : 'rgba(255,255,255,0.08)') + ';' +
-        'color:' + (isRep ? '#fff' : 'inherit') + ';' +
+        'color:' + (isRep ? 'var(--accent-fg)' : 'inherit') + ';' +
         'border-bottom-' + (isRep ? 'right' : 'left') + '-radius:4px;';
       const senderLabel = isRep ? 'You' : 'Homeowner';
       bubble.innerHTML =

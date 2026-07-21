@@ -21,7 +21,7 @@
           var statusEl = document.getElementById('billingStatusBadge');
           if (statusEl) {
             statusEl.textContent = 'LOADING';
-            statusEl.style.background = '#666';
+            statusEl.style.background = 'var(--m)';
           }
           var cardsLoading = document.getElementById('billingPlanCards');
           if (cardsLoading) {
@@ -38,7 +38,7 @@
           ? (limits.leads === Infinity ? 'Unlimited everything' : limits.leads + ' leads/mo · ' + (limits.reports === Infinity ? '∞' : limits.reports) + ' reports · ' + (limits.aiCalls === Infinity ? '∞' : limits.aiCalls) + ' AI calls')
           : (info.isCancelled ? 'Subscription cancelled — downgraded to Free' : 'No active subscription');
         document.getElementById('billingStatusBadge').textContent = info.isPastDue ? 'PAST DUE' : (info.isActive ? 'ACTIVE' : 'INACTIVE');
-        document.getElementById('billingStatusBadge').style.background = info.isPastDue ? '#c53030' : (info.isActive ? 'var(--orange)' : '#666');
+        document.getElementById('billingStatusBadge').style.background = info.isPastDue ? 'var(--red)' : (info.isActive ? 'var(--orange)' : 'var(--m)');
 
         // Usage meters
         var leadsLim = limits.leads === Infinity ? '∞' : limits.leads;
@@ -100,7 +100,7 @@
               if (key === 'enterprise') {
                 action = '<a href="mailto:jd@nobigdealwithjoedeal.com?subject=NBD%20Pro%20Enterprise" style="' + btnCss + 'display:block;background:var(--s3);color:var(--t);text-decoration:none;box-sizing:border-box;">Contact sales</a>';
               } else if (PAID[key] && !hasLiveSub) {
-                action = '<button type="button" data-billing-action="checkout" data-plan="' + key + '" style="' + btnCss + 'background:var(--orange);color:#fff;">Upgrade</button>';
+                action = '<button type="button" data-billing-action="checkout" data-plan="' + key + '" style="' + btnCss + 'background:var(--orange);color:var(--accent-fg);">Upgrade</button>';
               } else if (PAID[key] && hasLiveSub) {
                 action = '<button type="button" data-billing-action="managePortal" style="' + btnCss + 'background:var(--s3);color:var(--t);">Change plan</button>';
               } else if (key === 'free' && hasLiveSub) {

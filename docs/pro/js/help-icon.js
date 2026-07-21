@@ -27,7 +27,7 @@
         margin-left: 8px;
         background: color-mix(in srgb, var(--orange) 8%, transparent);
         border: 1px solid color-mix(in srgb, var(--orange) 30%, transparent);
-        color: #e8720c;
+        color: var(--orange);
         border-radius: 50%;
         font-size: 11px; font-weight: 700; font-family: 'Barlow', sans-serif;
         text-decoration: none;
@@ -43,12 +43,12 @@
         content: ''; position: absolute; inset: -13px; /* expands hit area to 44x44 */
       }
       .nbd-help-icon:hover {
-        background: #e8720c;
-        color: #fff;
+        background: var(--orange);
+        color: var(--accent-fg);
         transform: scale(1.1);
       }
       .nbd-help-icon:focus-visible {
-        outline: 2px solid #e8720c;
+        outline: 2px solid var(--orange);
         outline-offset: 2px;
       }
       /* On touch-only devices, drop the hover transform so the icon doesn't

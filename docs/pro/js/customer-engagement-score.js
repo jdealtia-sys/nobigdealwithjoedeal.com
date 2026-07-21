@@ -67,7 +67,7 @@
     if (ests.some(e => e.respondedAt)) {
       return {
         tier: 4, label: 'Responded', icon: '✅',
-        bg: 'rgba(251,191,36,0.18)', color: '#fbbf24',
+        bg: 'rgba(251,191,36,0.18)', color: 'var(--gold)',
         border: 'rgba(251,191,36,0.45)',
         title: 'Customer has responded to an estimate.',
       };
@@ -92,7 +92,7 @@
     if (viewCount > 0 && (isFreshShare || viewCount >= 2)) {
       return {
         tier: 3, label: 'Hot', icon: '🔥',
-        bg: 'rgba(251,146,60,0.18)', color: '#fb923c',
+        bg: 'rgba(251,146,60,0.18)', color: 'var(--orange)',
         border: 'rgba(251,146,60,0.45)',
         title: viewCount >= 2
           ? `Customer viewed ${viewCount}× — strong signal.`
@@ -114,7 +114,7 @@
     if (sharedMs > 0) {
       return {
         tier: 1, label: 'Sent', icon: '📨',
-        bg: 'rgba(155,109,255,0.14)', color: '#cab8ff',
+        bg: 'rgba(155,109,255,0.14)', color: 'var(--purple)',
         border: 'rgba(155,109,255,0.45)',
         title: 'Portal link sent — waiting for the customer to open it.',
       };

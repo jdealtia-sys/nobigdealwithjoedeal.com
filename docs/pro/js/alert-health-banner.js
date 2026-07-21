@@ -51,7 +51,7 @@
       // --z-banner-status so a delivery outage still reads when the rep is
       // also offline. Literal fallback mirrors the token's value.
       'position:fixed;top:0;left:0;right:0;z-index:var(--z-banner-alert,10007);' +
-      'background:#dc2626;color:#fff;font-size:13px;font-weight:600;' +
+      'background:var(--red);color:var(--accent-fg);font-size:13px;font-weight:600;' +
       'padding:8px 40px 8px 14px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.25);';
     banner.textContent =
       '⚠ ' + failCount + ' lead-alert deliver' + (failCount === 1 ? 'y' : 'ies') +
@@ -63,7 +63,7 @@
     close.textContent = '✕';
     close.style.cssText =
       'position:absolute;right:8px;top:50%;transform:translateY(-50%);' +
-      'background:none;border:none;color:#fff;font-size:15px;cursor:pointer;padding:4px 8px;';
+      'background:none;border:none;color:var(--accent-fg);font-size:15px;cursor:pointer;padding:4px 8px;';
     close.addEventListener('click', function () {
       try { localStorage.setItem(DISMISS_KEY, new Date().toISOString().slice(0, 10)); } catch (e) {}
       banner.remove();

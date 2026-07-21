@@ -142,23 +142,23 @@ function showSlowLoadHint() {
   if (document.getElementById('slow-load-hint')) return;
   const overlay = document.createElement('div');
   overlay.id = 'slow-load-hint';
-  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(15,18,25,0.94);z-index:10000;display:flex;align-items:center;justify-content:center;padding:24px;opacity:1;';
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(15,18,25,0.94);z-index:var(--z-overlay);display:flex;align-items:center;justify-content:center;padding:24px;opacity:1;';
   overlay.innerHTML = `
-    <div style="max-width:380px;text-align:center;color:#e8eaf0;font-family:'Barlow',-apple-system,system-ui,sans-serif;">
+    <div style="max-width:380px;text-align:center;color:var(--t);font-family:'Barlow',-apple-system,system-ui,sans-serif;">
       <div style="font-size:32px;margin-bottom:12px;">⏳</div>
       <div style="font-size:18px;font-weight:600;margin-bottom:8px;">Loading is taking a while</div>
-      <div style="font-size:14px;color:#9aa3b2;line-height:1.5;margin-bottom:20px;">
+      <div style="font-size:14px;color:var(--m);line-height:1.5;margin-bottom:20px;">
         This usually means the connection went stale (common on iOS after switching apps). Tap below to refresh — your data is safe.
       </div>
       <button id="slow-load-retry" style="
-        background:linear-gradient(135deg,#c8541a 0%,#a64516 100%);
+        background:var(--orange);
         color:#fff;border:none;padding:14px 28px;border-radius:8px;
         font-size:15px;font-weight:600;cursor:pointer;
         box-shadow:0 4px 12px rgba(200,84,26,0.3);
         -webkit-tap-highlight-color:transparent;">Refresh now</button>
       <div style="margin-top:14px;">
         <button id="slow-load-back" style="
-          background:transparent;color:#9aa3b2;border:1px solid #2a3344;
+          background:transparent;color:var(--m);border:1px solid var(--br);
           padding:10px 22px;border-radius:8px;font-size:13px;cursor:pointer;
           -webkit-tap-highlight-color:transparent;">← Back to dashboard</button>
       </div>
@@ -297,10 +297,10 @@ function _showRefreshedIndicator() {
   pill.textContent = '↻ Refreshed with latest data';
   pill.style.cssText = `
     position:fixed; top:12px; left:50%; transform:translateX(-50%);
-    background:#1f2937; color:#fff; font-family:'Barlow',-apple-system,system-ui,sans-serif;
+    background:var(--s2); color:var(--t); font-family:'Barlow',-apple-system,system-ui,sans-serif;
     font-size:12px; font-weight:600; padding:8px 14px; border-radius:999px;
     box-shadow:0 4px 12px rgba(0,0,0,0.25);
-    z-index:99998; opacity:0; transition:opacity .3s ease;
+    z-index:var(--z-toast); opacity:0; transition:opacity .3s ease;
     pointer-events:none;`;
   document.body.appendChild(pill);
   // Trigger fade-in on next frame.

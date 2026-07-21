@@ -105,10 +105,10 @@
         #nbd-quick-action-bar .qab-icon {
           font-size:22px; line-height:1;
         }
-        #nbd-quick-action-bar .qab-btn.qab-call .qab-icon { color:#10b981; }
-        #nbd-quick-action-bar .qab-btn.qab-sms  .qab-icon { color:#3b82f6; }
-        #nbd-quick-action-bar .qab-btn.qab-email .qab-icon { color:#8b5cf6; }
-        #nbd-quick-action-bar .qab-btn.qab-task .qab-icon { color:#f59e0b; }
+        #nbd-quick-action-bar .qab-btn.qab-call .qab-icon { color:var(--green); }
+        #nbd-quick-action-bar .qab-btn.qab-sms  .qab-icon { color:var(--blue); }
+        #nbd-quick-action-bar .qab-btn.qab-email .qab-icon { color:var(--purple); }
+        #nbd-quick-action-bar .qab-btn.qab-task .qab-icon { color:var(--gold); }
         /* The bar pushes pinned page content up; we add bottom
            padding to <main> equivalent via body so floating share
            buttons / footers don't get covered. Defensive — the page

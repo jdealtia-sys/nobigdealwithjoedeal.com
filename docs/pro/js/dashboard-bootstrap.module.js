@@ -262,7 +262,7 @@
       btn.style.borderColor = 'var(--br)';
     } else {
       btn.style.background = 'var(--orange)';
-      btn.style.color = '#fff';
+      btn.style.color = 'var(--accent-fg)';
       btn.style.borderColor = 'var(--orange)';
     }
   };
@@ -284,7 +284,7 @@
       const on = set.has(b.dataset.value);
       b.dataset.selected = on ? '1' : '0';
       b.style.background = on ? 'var(--orange)' : 'var(--s2)';
-      b.style.color = on ? '#fff' : 'var(--m)';
+      b.style.color = on ? 'var(--accent-fg)' : 'var(--m)';
       b.style.borderColor = on ? 'var(--orange)' : 'var(--br)';
     });
   };
@@ -586,7 +586,7 @@
   function _showPrereqModal(check) {
     const escFn = window.nbdEsc || (s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])));
     const modal = document.createElement('div');
-    modal.style.cssText = 'position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.8);display:flex;align-items:center;justify-content:center;';
+    modal.style.cssText = 'position:fixed;inset:0;z-index:var(--z-overlay,10000);background:rgba(0,0,0,.8);display:flex;align-items:center;justify-content:center;';
     modal.innerHTML = `
       <div style="background:var(--s,#111);border:1px solid var(--br,#333);border-radius:14px;padding:32px;max-width:440px;width:90%;text-align:center;">
         <div style="font-size:32px;margin-bottom:12px;">⚠️</div>
@@ -595,7 +595,7 @@
         <div style="text-align:left;background:var(--s2,#1a1a2e);border-radius:8px;padding:14px;margin-bottom:20px;">
           ${check.missing.map(m => '<div style="font-size:13px;color:var(--orange,#e8720c);padding:4px 0;">• ' + escFn(m) + '</div>').join('')}
         </div>
-        <button class="nbd-preq-close" style="padding:12px 28px;background:var(--orange,#e8720c);color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;">Got it</button>
+        <button class="nbd-preq-close" style="padding:12px 28px;background:var(--orange,#e8720c);color:var(--accent-fg,#fff);border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;">Got it</button>
       </div>`;
     modal.querySelector('.nbd-preq-close').addEventListener('click', () => modal.remove());
     modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
@@ -768,7 +768,7 @@
       if (!warn) {
         warn = document.createElement('div');
         warn.id = 'lStageWarning';
-        warn.style.cssText = 'font-size:10px;color:#ea580c;margin-top:4px;padding:4px 8px;background:rgba(234,88,12,.08);border-left:2px solid #ea580c;border-radius:3px;';
+        warn.style.cssText = 'font-size:10px;color:var(--orange);margin-top:4px;padding:4px 8px;background:rgba(234,88,12,.08);border-left:2px solid var(--orange);border-radius:3px;';
         sel.parentElement.appendChild(warn);
       }
       warn.textContent = '⚠ Current stage is from a different track. Change stage to match the new job type.';
@@ -4150,7 +4150,7 @@
       _renderSiteLink(out.slug);
       if (msg) {
         msg.textContent = out.slug ? '✓ Address saved — your site is live at the link above' : '✓ Custom address cleared — the account-id link still works';
-        msg.style.color = '#4caf82';
+        msg.style.color = 'var(--green)';
         msg.style.display = 'block';
         setTimeout(() => { msg.style.display = 'none'; }, 4000);
       }
