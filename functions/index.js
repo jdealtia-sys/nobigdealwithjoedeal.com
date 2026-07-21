@@ -86,6 +86,10 @@ exports.signImageUrl    = photoHandlers.signImageUrl;
 exports.imageProxy      = photoHandlers.imageProxy;
 exports.analyzeRoofPhoto = photoHandlers.analyzeRoofPhoto;
 
+// D2D door-number resolver — Google (ROOFTOP) + Regrid (parcel) cross-check
+const geocodeHandlers = require('./handlers/geocode');
+exports.resolveAddress = geocodeHandlers.resolveAddress;
+
 // Admin / team-management callables
 const adminHandlers = require('./handlers/admin');
 exports.getAdminAnalytics          = adminHandlers.getAdminAnalytics;

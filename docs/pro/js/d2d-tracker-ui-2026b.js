@@ -234,7 +234,8 @@
       homeowner: '', phone: '', email: '', notes: '',
       disposition: null, photoFiles: [],
       insCarrier: '', claimNumber: '',
-      followUpDate: '', followUpTime: ''
+      followUpDate: '', followUpTime: '',
+      gpsAccuracy: (typeof state.gpsAccuracy === 'number') ? Math.round(state.gpsAccuracy) : null
     };
 
     // Pre-populate from history
@@ -246,21 +247,6 @@
         if (last.phone) state.currentKnockEntry.phone = last.phone;
         if (last.email) state.currentKnockEntry.email = last.email;
       }
-    }
-
-    // Reverse geocode if no address
-    if (!address && opts.lat && opts.lng) {
-      // W159 HIGH #8: same .catch() fix as d2d-tracker.js — see
-      // sister comment there for rationale.
-      state.reverseGeocode(opts.lat, opts.lng).then(addr => {
-        if (addr) {
-          state.currentKnockEntry.address = addr;
-          const addrInput = document.getElementById('d2d-qk-address');
-          if (addrInput) addrInput.value = addr;
-        }
-      }).catch(err => {
-        console.warn('[D2D] reverseGeocode failed:', err && err.message || err);
-      });
     }
 
     const attemptNum = address ? state.getAttemptCount(address) + 1 : 1;
@@ -280,20 +266,34 @@
       </div>
       <div class="d2d-modal-body">
         <div class="d2d-field">
-          <label class="d2d-field-label">Address *</label>
-          <input type="text" id="d2d-qk-address" class="d2d-input" value="${esc(address)}" placeholder="123 Main St, Cincinnati, OH">
+          <label class="d2d-field-label">Address * <span id="d2d-addr-badge" class="d2d-addr-badge"></span></label>
+          <div class="d2d-addr-row">
+            <input type="text" id="d2d-qk-address" class="d2d-input" value="${esc(address)}" placeholder="123 Main St, Cincinnati, OH">
+            <button type="button" class="d2d-verify-btn" data-d2d-action="verifyKnockAddress" title="Re-check the door number against Google + county records">✓ Verify</button>
+          </div>
+          <div id="d2d-addr-note" class="d2d-addr-note"></div>
+          <div id="d2d-addr-confirm" class="d2d-addr-confirm" style="display:none;">
+            <label class="d2d-addr-confirm-lbl"><input type="checkbox" id="d2d-addr-confirm-chk"> I've confirmed this door number is correct</label>
+          </div>
         </div>
 
         <div class="d2d-field-label" style="margin-top:12px;">Select Disposition:</div>
-        <div class="d2d-dispo-grid">
-          ${DISPO_ORDER.map(key => {
-            const d = DISPOSITIONS[key];
-            return `<button class="d2d-dispo-btn" data-dispo="${key}" data-d2d-action="selectDispo" data-d2d-id="${key}" style="--dc:${d.color};">
-              <span class="d2d-dispo-icon">${d.icon}</span>
-              <span class="d2d-dispo-label">${d.label}</span>
-            </button>`;
-          }).join('')}
-        </div>
+        ${[
+          { title: 'Hot', icon: '🔥', keys: ['appointment', 'ins_has_claim', 'ins_needs_file', 'storm_damage', 'interested', 'callback'] },
+          { title: 'Follow-up', icon: '🔁', keys: ['come_back', 'left_material', 'not_home'] },
+          { title: 'Cold', icon: '❄️', keys: ['not_interested', 'ins_denied', 'tenant', 'vacant', 'do_not_knock', 'cold_dead'] }
+        ].map(g => `
+          <div class="d2d-dispo-group-label">${g.icon} ${g.title}</div>
+          <div class="d2d-dispo-grid">
+            ${g.keys.map(key => {
+              const d = DISPOSITIONS[key];
+              return `<button class="d2d-dispo-btn" data-dispo="${key}" data-d2d-action="selectDispo" data-d2d-id="${key}" style="--dc:${d.color};">
+                <span class="d2d-dispo-icon">${d.icon}</span>
+                <span class="d2d-dispo-label">${d.label}</span>
+              </button>`;
+            }).join('')}
+          </div>
+        `).join('')}
 
         <!-- Insurance carrier -->
         <div id="d2d-ins-section" class="d2d-ins-section">
@@ -354,6 +354,131 @@
 
     // Setup autocomplete after DOM insertion
     setTimeout(() => state.setupAddressAutocomplete('d2d-qk-address'), 100);
+
+    // Invalidate a verdict the moment the rep edits the address away from what
+    // was verified — otherwise the save gate would pass a stale 'verified' for
+    // a different address than what's now in the box.
+    setTimeout(() => {
+      const input = document.getElementById('d2d-qk-address');
+      if (!input) return;
+      input.addEventListener('input', () => {
+        const e = state.currentKnockEntry;
+        if (!e) return;
+        if (input.value.trim() === (e.addrVerifiedFor || '')) return;
+        if (e.addrConfidence || e.addrConfirmed) {
+          e.addrConfidence = undefined; e.addrConfirmed = false; e.addrVerifiedFor = '';
+        }
+        setAddrBadge('');
+        const note = document.getElementById('d2d-addr-note');
+        if (note) note.innerHTML = '<span class="d2d-addr-reasons">Address edited — tap ✓ Verify to re-check the door number.</span>';
+        const cw = document.getElementById('d2d-addr-confirm');
+        if (cw) cw.style.display = 'none';
+      });
+      // Bind the confirm checkbox once (CSP-safe JS property). Confirming
+      // applies to the exact text in the box at tick time.
+      const chk = document.getElementById('d2d-addr-confirm-chk');
+      if (chk) chk.onchange = () => {
+        const e = state.currentKnockEntry;
+        if (!e) return;
+        e.addrConfirmed = chk.checked;
+        if (chk.checked) e.addrVerifiedFor = (input.value || '').trim();
+      };
+    }, 130);
+
+    // Kick off door-number verification: reverse-resolve a bare map tap, or
+    // forward-verify a pre-filled (re-knock / history) address. The result
+    // drives the confidence badge + confirm gate.
+    setTimeout(() => {
+      // Guard: a slow network result must not land on a NEWER knock if the rep
+      // closed/reopened the modal while it was in flight.
+      const myEntry = state.currentKnockEntry;
+      setAddrBadge('resolving');
+      const hasCoords = opts.lat != null && opts.lng != null;
+      const p = (!address && hasCoords)
+        ? state.resolveDoorAt(opts.lat, opts.lng)
+        : (address ? state.verifyAddressString(address, opts.lat, opts.lng) : null);
+      if (!p) { setAddrBadge(''); return; }
+      p.then(res => { if (state.currentKnockEntry !== myEntry) return; if (res) applyResolution(res, { fromTap: !address }); else setAddrBadge(''); })
+       .catch(err => { if (state.currentKnockEntry !== myEntry) return; console.warn('[D2D] address verify failed:', err && err.message || err); setAddrBadge('error'); });
+    }, 120);
+  }
+
+  // ── Address-confidence UI (badge + note + confirm gate) ─────────────
+  const ADDR_BADGE = {
+    resolving:  { t: '⏳ Verifying…',   c: 'var(--m)' },
+    verified:   { t: '🟢 Verified',      c: 'var(--green)' },
+    likely:     { t: '🟡 Confirm',       c: 'var(--gold)' },
+    conflict:   { t: '🟠 Mismatch',      c: 'var(--orange)' },
+    unverified: { t: '🔴 No door #',     c: 'var(--red)' },
+    error:      { t: '⚠️ Check failed',  c: 'var(--m)' }
+  };
+  function setAddrBadge(kind) {
+    const badge = document.getElementById('d2d-addr-badge');
+    if (!badge) return;
+    const m = ADDR_BADGE[kind];
+    badge.textContent = m ? m.t : '';
+    badge.style.color = m ? m.c : 'var(--m)';
+    badge.dataset.state = kind || '';
+  }
+
+  function renderAddrConfidence(res) {
+    const esc = state.esc, escAttr = state.escapeHtml;
+    setAddrBadge(res.confidence);
+    const note = document.getElementById('d2d-addr-note');
+    const confirmWrap = document.getElementById('d2d-addr-confirm');
+    const chk = document.getElementById('d2d-addr-confirm-chk');
+    if (note) {
+      let html = '<span class="d2d-addr-reasons">' + res.reasons.map(r => esc(r)).join(' ') + '</span>';
+      // On a conflict, offer each source's door number as a one-tap pick.
+      if (res.confidence === 'conflict' && res.sources.length > 1) {
+        html += '<div class="d2d-addr-alts">' + res.sources.map(s => {
+          const args = escAttr(JSON.stringify({ address: s.formatted, houseNumber: s.houseNumber, lat: s.lat, lng: s.lng }));
+          return `<button type="button" class="d2d-addr-alt" data-d2d-action="pickAddrSource" data-d2d-args='${args}'>${esc(s.label)}: <b>#${esc(s.houseNumber)}</b></button>`;
+        }).join('') + '</div>';
+      }
+      note.innerHTML = html;
+    }
+    if (confirmWrap && chk) {
+      const needsConfirm = res.confidence !== 'verified';
+      confirmWrap.style.display = needsConfirm ? 'block' : 'none';
+      chk.checked = needsConfirm ? !!(state.currentKnockEntry && state.currentKnockEntry.addrConfirmed) : true;
+      // onchange is bound once at modal setup (see openQuickKnock).
+    }
+  }
+
+  function applyResolution(res, opts) {
+    opts = opts || {};
+    const e = state.currentKnockEntry;
+    if (!e || !res) return;
+    const input = document.getElementById('d2d-qk-address');
+    // Adopt the resolved address on a fresh map tap; on manual verify keep the
+    // rep's typed text but still adopt coords + confidence.
+    if (opts.fromTap && res.address && input) { input.value = res.address; e.address = res.address; }
+    if (res.lat != null) e.lat = res.lat;
+    if (res.lng != null) e.lng = res.lng;
+    e.addrConfidence = res.confidence;
+    e.addrHouseNumber = res.houseNumber;
+    e.addrConfirmed = (res.confidence === 'verified'); // verified needs no manual tick
+    // Provenance stamped onto the saved knock (data-quality reporting + re-verify).
+    e.addrSources = (res.sources || []).map(s => ({ src: s.label, hn: s.houseNumber }));
+    e.addrRoundTripMeters = (typeof res.roundTripMeters === 'number') ? res.roundTripMeters : null;
+    e.addrNeedsReverify = !!res.needsReverify; // saved offline / unresolved → re-verify queue picks it up
+    // Remember exactly which address string this verdict applies to, so an
+    // edit to the field afterwards invalidates it (see the input listener).
+    e.addrVerifiedFor = ((input && input.value) || res.address || '').trim();
+    renderAddrConfidence(res);
+  }
+
+  // Re-run verification against whatever's in the address box (✓ Verify button).
+  function verifyKnockAddress() {
+    const input = document.getElementById('d2d-qk-address');
+    const val = (input && input.value || '').trim();
+    if (val.length < 5) { window.showToast?.('Enter an address first', 'info'); return; }
+    setAddrBadge('resolving');
+    const e = state.currentKnockEntry;
+    state.verifyAddressString(val, e && e.lat, e && e.lng)
+      .then(res => { if (state.currentKnockEntry !== e) return; applyResolution(res, { fromTap: false }); })
+      .catch(err => { if (state.currentKnockEntry !== e) return; console.warn('[D2D] verify failed:', err && err.message || err); setAddrBadge('error'); });
   }
 
   function selectDispo(key, btn) {
@@ -393,6 +518,8 @@
     if (overlay) { overlay.classList.remove('open'); setTimeout(() => overlay.remove(), 300); }
     state.currentKnockEntry = null;
     state.voiceBlob = null;
+    // Remove the tapped-parcel outline once the knock is done with.
+    if (typeof state.clearTapParcel === 'function') state.clearTapParcel();
   }
 
   let _knockSubmitInFlight = false;
@@ -415,6 +542,36 @@
     const address = (document.getElementById('d2d-qk-address')?.value || '').trim();
     if (!address) { window.showToast?.('Address required', 'error'); return; }
     if (!state.currentKnockEntry?.disposition) { window.showToast?.('Disposition required', 'error'); return; }
+
+    // ── Door-number accuracy gate ──────────────────────────────────
+    // Every knock must carry a house number, and unless it was machine-
+    // VERIFIED (≥2 sources agree) the rep must tick the confirm box. This is
+    // what makes "100% accurate door numbers" enforceable rather than a hope.
+    const houseNum = state.extractHouseNumber(address);
+    if (!houseNum) {
+      window.showToast?.('Add the door number to this address', 'error');
+      document.getElementById('d2d-qk-address')?.focus();
+      return;
+    }
+    const entry = state.currentKnockEntry || {};
+    const addrConf = entry.addrConfidence;
+    // The verdict must apply to the address STILL in the box. Editing the text,
+    // or picking a different autocomplete suggestion (which sets .value without
+    // firing 'input'), moves it out of sync with addrVerifiedFor — so a
+    // swapped-in address can never ride a prior verify/confirm.
+    const verdictAppliesToText = (entry.addrVerifiedFor || '') === address;
+    const addrOk = verdictAppliesToText && (addrConf === 'verified' || entry.addrConfirmed);
+    if (!addrOk) {
+      window.showToast?.('Confirm the door number is correct (check the box)', 'error');
+      const wrap = document.getElementById('d2d-addr-confirm');
+      if (wrap) {
+        wrap.style.display = 'block';
+        wrap.classList.remove('d2d-addr-confirm-flash');
+        void wrap.offsetWidth;              // restart the flash animation
+        wrap.classList.add('d2d-addr-confirm-flash');
+      }
+      return;
+    }
 
     state.currentKnockEntry.address = address;
     state.currentKnockEntry.homeowner = document.getElementById('d2d-qk-homeowner')?.value || '';
@@ -679,8 +836,11 @@
     const funnel = revenue.conversionFunnel;
     const maxFunnelVal = Math.max(funnel.doors, funnel.conversations, funnel.appointments, funnel.estimates, funnel.closed, 1);
 
-    let revenuePerDoorText = '$' + revenue.revenuePerDoor;
-    if (revenue.totalClosed === 0) revenuePerDoorText = '~$12.50 (industry avg)';
+    // Headline "Value Per Door" is now the LIVE expected pipeline value
+    // (Σ close-probability × deal size ÷ doors) so it moves the instant a rep
+    // logs an appointment / claim / storm hit — instead of freezing on a
+    // static "industry avg" until a deal literally closes.
+    const perDoorText = revenue.totalDoorsKnocked > 0 ? '$' + revenue.expectedPerDoor.toLocaleString() : '—';
 
     // .stab-btn = the design-system underline tab (settings/storm vocabulary).
     // flex:1 + 44px tap target kept inline (layout, not button chrome).
@@ -695,19 +855,22 @@
 
         <!-- Revenue Banner -->
         <div class="d2d-revenue-banner">
-          <div style="display:flex;justify-content:space-between;align-items:center;">
-            <div>
+          <div class="d2d-rev-main">
+            <div class="d2d-rev-primary">
               <div class="d2d-revenue-label">Value Per Door</div>
-              <div class="d2d-revenue-amount">${revenuePerDoorText}</div>
+              <div class="d2d-revenue-amount">${perDoorText}</div>
+              <div class="d2d-rev-tag">◉ Live pipeline value</div>
             </div>
             <div class="d2d-streak">
+              <div class="d2d-streak-badge-sm">${gamify.currentMilestone ? gamify.currentMilestone.badge : '🔥'}</div>
               <div class="d2d-streak-num">${gamify.streak}</div>
-              <div class="d2d-streak-lbl">Day Streak ${gamify.currentMilestone ? gamify.currentMilestone.badge : ''}</div>
+              <div class="d2d-streak-lbl">Day Streak</div>
             </div>
           </div>
-          <div style="font-size:10px;opacity:0.7;margin-top:4px;color:var(--m,#9ca3af);">
-            ${revenue.totalClosed > 0 ? `${revenue.totalClosed} closed · $${revenue.avgDealSize} avg` : 'Track deals to see projections'}
-            ${gamify.projectedRevenue > 0 ? ` · $${gamify.projectedRevenue.toLocaleString()}/mo` : ''}
+          <div class="d2d-rev-foot">
+            <span class="d2d-rev-chip"><span class="d2d-rev-chip-k">Pipeline</span> $${revenue.pipelineValue.toLocaleString()}</span>
+            <span class="d2d-rev-chip"><span class="d2d-rev-chip-k">Closed</span> ${revenue.totalClosed > 0 ? '$' + revenue.totalRevenue.toLocaleString() + ' · ' + revenue.totalClosed : '—'}</span>
+            ${gamify.projectedRevenue > 0 ? `<span class="d2d-rev-chip"><span class="d2d-rev-chip-k">Proj/mo</span> $${gamify.projectedRevenue.toLocaleString()}</span>` : ''}
           </div>
         </div>
 
@@ -717,6 +880,7 @@
           <button data-d2d-action="toggleHeatMap" class="d2d-big-btn d2d-big-btn-sec">${state.showHeat ? '🔥' : '❄️'} Heat</button>
           <button data-d2d-action="toggleHail" class="d2d-big-btn d2d-big-btn-sec" title="Recent hail reports">⛈ Hail</button>
           <button data-d2d-action="centerOnMe" class="d2d-big-btn d2d-big-btn-sec">📍 Me</button>
+          <button data-d2d-action="toggleTeamMode" class="d2d-big-btn d2d-big-btn-sec${state.teamMode ? ' d2d-big-btn-on' : ''}" title="Live team activity">${state.teamMode ? '👥' : '👤'} Team</button>
           <button data-d2d-action="exportCSV" class="d2d-big-btn d2d-big-btn-sec">📥 CSV</button>
         </div>
 
@@ -731,7 +895,33 @@
 
     // ─── FEED TAB ───
     if (currentTab === 'feed') {
+      // Live Team panel — real-time teammate activity (onSnapshot-driven).
+      let teamPanel = '';
+      if (state.teamMode) {
+        const ta = state.getTeamActivity();
+        teamPanel = `
+          <div class="d2d-team-panel">
+            <div class="d2d-team-hd">
+              <span class="d2d-team-live"><span class="d2d-live-dot"></span> Live Team</span>
+              <span class="d2d-team-stat">${ta.activeNow} active · ${ta.totalToday} today</span>
+            </div>
+            ${ta.reps.length ? `<div class="d2d-team-reps">
+              ${ta.reps.slice(0, 6).map(r => {
+                const isLive = (Date.now() - r.lastMs) < 3600e3;
+                const mins = Math.round((Date.now() - r.lastMs) / 60000);
+                const nm = r.name || 'Rep';
+                return `<div class="d2d-team-rep">
+                  <span class="d2d-team-avatar${isLive ? ' live' : ''}">${esc(nm.slice(0, 1).toUpperCase())}</span>
+                  <span class="d2d-team-name">${esc(nm)}</span>
+                  <span class="d2d-team-count">${r.knocksToday} today · ${r.appts} apt</span>
+                  <span class="d2d-team-ago">${isLive ? (mins < 1 ? 'now' : mins + 'm') : ''}</span>
+                </div>`;
+              }).join('')}
+            </div>` : '<div class="d2d-aq-sub" style="margin-top:6px;">No team knocks yet today.</div>'}
+          </div>`;
+      }
       html += `
+        ${teamPanel}
         <!-- Follow-ups Due — Full Interactive List -->
         ${metrics.followUpsDue.length > 0 ? `
           <div class="d2d-followups-banner">
@@ -779,53 +969,67 @@
             <div class="d2d-metric-lbl">Conv</div>
           </div>
           <div class="d2d-metric-card">
-            <div class="d2d-metric-val" style="color:var(--orange, #e8720c);">${revenue.revenuePerDoor > 0 ? '$' + revenue.revenuePerDoor : '—'}</div>
-            <div class="d2d-metric-lbl">Rev/Door</div>
+            <div class="d2d-metric-val" style="color:var(--orange, #e8720c);">${revenue.totalDoorsKnocked > 0 ? '$' + revenue.expectedPerDoor.toLocaleString() : '—'}</div>
+            <div class="d2d-metric-lbl">Val/Door</div>
           </div>
           <div class="d2d-metric-card">
-            <div class="d2d-metric-val" style="color:var(--purple,#9B6DFF);">$${revenue.avgDealSize || 0}</div>
+            <div class="d2d-metric-val" style="color:var(--purple,#9B6DFF);">${revenue.avgDealSize > 0 ? '$' + revenue.avgDealSize.toLocaleString() : '—'}</div>
             <div class="d2d-metric-lbl">Avg Deal</div>
           </div>
         </div>
 
-        <!-- Conversion Funnel -->
-        <div class="d2d-funnel">
-          <div class="d2d-funnel-step" style="flex:${funnel.doors / maxFunnelVal};background:var(--m,#6B7280);">
-            <div class="d2d-funnel-count">${funnel.doors}</div>
-            <div class="d2d-funnel-label">Doors</div>
-          </div>
-          <div class="d2d-funnel-step" style="flex:${funnel.conversations / maxFunnelVal};background:var(--gold,#EAB308);color:#1a1a1a;">
-            <div class="d2d-funnel-count">${funnel.conversations}</div>
-            <div class="d2d-funnel-label">Convos</div>
-          </div>
-          <div class="d2d-funnel-step" style="flex:${funnel.appointments / maxFunnelVal};background:var(--blue,#4A9EFF);">
-            <div class="d2d-funnel-count">${funnel.appointments}</div>
-            <div class="d2d-funnel-label">Apts</div>
-          </div>
-          <div class="d2d-funnel-step" style="flex:${funnel.estimates / maxFunnelVal};background:var(--green,#2ECC8A);">
-            <div class="d2d-funnel-count">${funnel.estimates}</div>
-            <div class="d2d-funnel-label">Ests</div>
-          </div>
-          <div class="d2d-funnel-step" style="flex:${funnel.closed / maxFunnelVal};background:var(--orange,#e8720c);">
-            <div class="d2d-funnel-count">${funnel.closed}</div>
-            <div class="d2d-funnel-label">Closed</div>
+        <!-- Conversion Funnel — full-width stage rows so labels never truncate -->
+        <div class="d2d-block">
+          <div class="d2d-block-title">Conversion Funnel</div>
+          <div class="d2d-funnel">
+            ${[
+              { label: 'Doors',         icon: '🚪', val: funnel.doors,         color: 'var(--m,#6B7280)' },
+              { label: 'Conversations', icon: '💬', val: funnel.conversations, color: 'var(--gold,#EAB308)' },
+              { label: 'Appointments',  icon: '📅', val: funnel.appointments,  color: 'var(--blue,#4A9EFF)' },
+              { label: 'Estimates',     icon: '📐', val: funnel.estimates,     color: 'var(--green,#2ECC8A)' },
+              { label: 'Closed',        icon: '🤝', val: funnel.closed,        color: 'var(--orange,#e8720c)' }
+            ].map((s, i, arr) => {
+              const w = s.val > 0 ? Math.max(s.val / maxFunnelVal * 100, 8) : 0;
+              const prev = i > 0 ? arr[i - 1].val : null;
+              // Clamp to 100%: "Doors" counts UNIQUE addresses while the later
+              // stages count knock rows, so a re-knocked door can make
+              // conversations > doors and yield a nonsensical >100% readout.
+              const conv = (prev && prev > 0) ? Math.min(100, Math.round(s.val / prev * 100)) : null;
+              return `<div class="d2d-funnel-row">
+                <div class="d2d-funnel-icon">${s.icon}</div>
+                <div class="d2d-funnel-track">
+                  <div class="d2d-funnel-fill" style="width:${w}%;background:${s.color};"></div>
+                  <span class="d2d-funnel-name">${s.label}</span>
+                  <span class="d2d-funnel-val">${s.val}</span>
+                </div>
+                <div class="d2d-funnel-conv">${conv !== null ? conv + '%' : ''}</div>
+              </div>`;
+            }).join('')}
           </div>
         </div>
 
-        <!-- Disposition Bar -->
-        <div class="d2d-dispo-bar-wrap">
-          <div class="d2d-dispo-bar-header">Disposition Breakdown</div>
+        <!-- Disposition Breakdown — slim proportional bar + scannable count chips -->
+        <div class="d2d-block">
+          <div class="d2d-block-title">
+            Disposition Breakdown
+            ${filterDispo ? `<button class="d2d-clear-filter" data-d2d-action="setDispoFilter" data-d2d-id="">✕ Clear filter</button>` : ''}
+          </div>
           <div class="d2d-dispo-bar">
             ${DISPO_ORDER.filter(k => breakdown[k] > 0).map(key => {
               const d = DISPOSITIONS[key];
               const pct = filtered.length > 0 ? (breakdown[key] / filtered.length * 100) : 0;
-              return `<div style="flex:${pct};background:${d.color};" class="d2d-dispo-bar-segment" data-d2d-action="setDispoFilter" data-d2d-id="${key}" title="${d.label}: ${breakdown[key]}">${breakdown[key]}</div>`;
+              return `<div class="d2d-dispo-seg${filterDispo && filterDispo !== key ? ' dim' : ''}" style="flex:${pct};background:${d.color};" data-d2d-action="setDispoFilter" data-d2d-id="${filterDispo === key ? '' : key}" title="${d.label}: ${breakdown[key]}"></div>`;
             }).join('')}
           </div>
-          <div class="d2d-dispo-legend">
-            ${DISPO_ORDER.filter(k => breakdown[k] > 0).slice(0, 6).map(key => {
+          <div class="d2d-dispo-chips">
+            ${DISPO_ORDER.filter(k => breakdown[k] > 0).map(key => {
               const d = DISPOSITIONS[key];
-              return `<span class="d2d-legend-item" data-d2d-action="setDispoFilter" data-d2d-id="${key}"><span class="d2d-knock-dot" style="background:${d.color};"></span>${d.short}</span>`;
+              const active = filterDispo === key;
+              return `<button class="d2d-dispo-chip${active ? ' active' : ''}" style="--dc:${d.color};" data-d2d-action="setDispoFilter" data-d2d-id="${active ? '' : key}" title="${d.label}">
+                <span class="d2d-chip-dot"></span>
+                <span class="d2d-chip-lbl">${d.short}</span>
+                <span class="d2d-chip-count">${breakdown[key]}</span>
+              </button>`;
             }).join('')}
           </div>
         </div>
@@ -896,11 +1100,15 @@
     if (currentTab === 'routes') {
       const route = state.walkingRoute || [];
       const streets = Object.entries(state.streetSequences).filter(([st, doors]) => doors.length >= 2).sort((a, b) => b[1].length - a[1].length).slice(0, 10);
+      const gh = timeOfDay.bestWindow;
+      const fmtHr = (h) => (h % 12 || 12) + (h < 12 ? 'am' : 'pm');
 
       html += `
         <div class="d2d-routes-section">
+          ${gh && gh.conversions > 0 ? `<div class="d2d-golden-hours" style="margin-bottom:12px;">🕐 Best time to knock: <strong>${fmtHr(gh.start)}–${fmtHr(gh.end)}</strong> — your warmest window</div>` : ''}
           <div class="d2d-route-actions">
             <button class="d2d-action-btn" style="flex:1;background:var(--blue);" data-d2d-action="calcRoute">🗺️ Calculate Walking Route</button>
+            ${route.length > 0 ? `<button class="d2d-action-btn" style="background:var(--green);" data-d2d-action="navRoute" title="Open turn-by-turn in your map app">🧭 Navigate</button>` : ''}
             ${route.length > 0 ? `<button class="d2d-action-btn" style="background:var(--s2);color:var(--t);border:1px solid var(--br);" data-d2d-action="clearRoute">Clear</button>` : ''}
           </div>
           ${route.length > 0 ? `
@@ -1011,7 +1219,41 @@
       const tod = timeOfDay;
       const maxHour = Math.max(...tod.hourCounts, 1);
 
+      // Address data quality — verified vs. needs-review, with a re-verify queue.
+      const aq = state.getAddressQuality();
+      const aqPct = aq.totalDoors > 0 ? Math.round(aq.verified / aq.totalDoors * 100) : 0;
+      const CONF_META = {
+        verified:   { c: 'var(--green)', t: '🟢 Verified' },
+        likely:     { c: 'var(--gold)',  t: '🟡 Confirm' },
+        conflict:   { c: 'var(--orange)', t: '🟠 Mismatch' },
+        unverified: { c: 'var(--red)',   t: '🔴 Unverified' }
+      };
       html += `
+        <!-- Address Data Quality -->
+        <div class="d2d-block">
+          <div class="d2d-block-title">🔍 Address Data Quality</div>
+          <div class="d2d-aq-card">
+            <div class="d2d-aq-head">
+              <div><span class="d2d-aq-big">${aqPct}%</span> <span class="d2d-aq-sub">${aq.verified}/${aq.totalDoors} doors verified</span></div>
+              ${aq.needsReview > 0 ? `<button class="d2d-action-btn" style="background:var(--orange);" data-d2d-action="reverifyPending">🔁 Re-verify ${Math.min(aq.needsReview, 25)}</button>` : '<span class="d2d-aq-clean">✓ All clear</span>'}
+            </div>
+            <div class="d2d-aq-bar"><div class="d2d-aq-fill" style="width:${aqPct}%;"></div></div>
+            ${aq.needsReview > 0 ? `
+              <div class="d2d-aq-sub" style="margin-top:8px;">${aq.needsReview} address${aq.needsReview !== 1 ? 'es' : ''} need review${!state.isOnline ? ' · reconnect to re-verify' : ''}</div>
+              <div class="d2d-aq-list">
+                ${aq.reviewList.slice(0, 12).map(k => {
+                  const m = CONF_META[k.addrConfidence] || { c: 'var(--m)', t: '⚪ Unchecked' };
+                  return `<div class="d2d-aq-row">
+                    <span class="d2d-aq-badge" style="color:${m.c};">${m.t}</span>
+                    <span class="d2d-aq-addr" data-d2d-action="openKnockDetail" data-d2d-id="${esc(k.id)}">${esc(k.address)}</span>
+                    <button class="d2d-aq-reverify" data-d2d-action="reverifyKnock" data-d2d-id="${esc(k.id)}" title="Re-verify this address">🔁</button>
+                  </div>`;
+                }).join('')}
+              </div>
+            ` : ''}
+          </div>
+        </div>
+
         <!-- Golden Hours -->
         <div class="d2d-golden-hours">
           🕐 Golden Hours: <strong>${tod.bestWindow.start}:00 - ${tod.bestWindow.end}:00</strong> (${tod.bestWindow.conversions} conversions)
@@ -1081,6 +1323,21 @@
   state.setDispoFilter = setDispoFilter;
   state.openQuickKnock = openQuickKnock;
   state.selectDispo = selectDispo;
+  state.verifyKnockAddress = verifyKnockAddress;
+  // Conflict resolver — rep picks which source's door number is right.
+  state.pickAddrSource = function (args) {
+    args = args || {};
+    const input = document.getElementById('d2d-qk-address');
+    if (input && args.address) input.value = args.address;
+    const e = state.currentKnockEntry;
+    if (e) {
+      if (args.address) e.address = args.address;
+      if (args.lat != null) e.lat = args.lat;
+      if (args.lng != null) e.lng = args.lng;
+    }
+    // Re-verify the chosen address so the badge/confirm reflect the new pick.
+    verifyKnockAddress();
+  };
   state.closeQuickKnock = closeQuickKnock;
   state.handleSubmitKnock = handleSubmitKnock;
   state.showConversionPrompt = showConversionPrompt;

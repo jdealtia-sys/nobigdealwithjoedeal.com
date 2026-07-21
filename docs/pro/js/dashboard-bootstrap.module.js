@@ -946,6 +946,7 @@
   window.where = where;
   window.orderBy = orderBy;
   window.limit = limit;
+  window.onSnapshot = onSnapshot;  // live team activity (d2d-tracker) + realtime consumers
   window.startAfter = startAfter;  // Audit #4 / 5.1: enables cursor pagination
   window.serverTimestamp = serverTimestamp;
   window.arrayUnion = arrayUnion;

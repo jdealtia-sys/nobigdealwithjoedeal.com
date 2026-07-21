@@ -168,6 +168,18 @@
   // around for the rare case Google rate-limits a specific tile.
   const SAT_TILES_PRIMARY = 'https://mt{s}.google.com/vt/lyrs=s&x={x}&y={y}&z={z}';
   const SAT_TILES_FALLBACK = 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}';
+  // Base-map choices — all on the CSP-allowed Google tile host. Google `lyrs`:
+  // s=satellite, y=hybrid (imagery+labels), m=roadmap, p=terrain. Satellite +
+  // hybrid keep the Esri imagery fallback; streets/terrain have no imagery
+  // fallback (they'd look wrong), so they render Google-only.
+  const BASEMAPS = {
+    satellite: { label: 'Satellite', icon: '🛰️', url: 'https://mt{s}.google.com/vt/lyrs=s&x={x}&y={y}&z={z}', fallback: true },
+    hybrid:    { label: 'Hybrid',    icon: '🗺️', url: 'https://mt{s}.google.com/vt/lyrs=y&x={x}&y={y}&z={z}', fallback: true },
+    streets:   { label: 'Streets',   icon: '🛣️', url: 'https://mt{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}', fallback: false },
+    terrain:   { label: 'Terrain',   icon: '⛰️', url: 'https://mt{s}.google.com/vt/lyrs=p&x={x}&y={y}&z={z}', fallback: false }
+  };
+  const BASEMAP_ORDER = ['satellite', 'hybrid', 'streets', 'terrain'];
+  const BASEMAP_PREF = 'nbd_d2d_basemap';
   const NOMINATIM_SEARCH = 'https://nominatim.openstreetmap.org/search?format=json&countrycodes=us&limit=5&q=';
   const NOMINATIM_REVERSE = 'https://nominatim.openstreetmap.org/reverse?format=json&addressdetails=1';
   const WEATHER_KEY_STORE = 'nbd_weather_key';
@@ -626,6 +638,13 @@
               state.currentKnockEntry.lng = parseFloat(match.lon) || null;
             }
             dropdown.style.display = 'none';
+            // Picking a suggestion sets .value programmatically (no 'input'
+            // event fires), so kick off verification against Google + county
+            // parcel so the rep starts from a cross-checked door number instead
+            // of a raw Nominatim guess.
+            if (inputId === 'd2d-qk-address' && window.D2D && typeof window.D2D.verifyKnockAddress === 'function') {
+              window.D2D.verifyKnockAddress();
+            }
           };
         });
       }, 350);
@@ -634,6 +653,381 @@
     input.addEventListener('blur', () => {
       setTimeout(() => { dropdown.style.display = 'none'; }, 200);
     });
+  }
+
+  // ============================================================================
+  // ADDRESS ACCURACY — multi-source door-number verification
+  // ============================================================================
+  // A wrong door number means knocking the wrong house or filing a lead against
+  // the wrong address, so we cross-check every resolved address against as many
+  // independent sources as we can reach and score confidence by agreement:
+  //   1. Nominatim reverse (client, free, building zoom)         — always on
+  //   2. Nominatim forward round-trip (does it snap back here?)  — always on
+  //   3. resolveAddress callable → Google ROOFTOP + Regrid parcel — when logged in
+  // Only when ≥2 independent sources agree on the house number (and the pin is
+  // near the matched address) do we call it VERIFIED. Everything else is handed
+  // to the rep to confirm; a missing house number blocks the save outright.
+
+  function haversineMeters(lat1, lng1, lat2, lng2) {
+    if ([lat1, lng1, lat2, lng2].some(v => v == null || !isFinite(v))) return null;
+    const R = 6371000, toRad = d => d * Math.PI / 180;
+    const dLat = toRad(lat2 - lat1), dLng = toRad(lng2 - lng1);
+    const a = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
+    return Math.round(R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)));
+  }
+
+  // Leading house number, e.g. "2841" from "2841 Erie Ave" or "12B Main".
+  function extractHouseNumber(str) {
+    const m = String(str || '').trim().match(/^\s*(\d+[a-zA-Z]?)\b/);
+    return m ? m[1] : '';
+  }
+  function sameHouseNumber(a, b) {
+    if (!a || !b) return false;
+    return String(a).toLowerCase() === String(b).toLowerCase();
+  }
+
+  async function nominatimReverseDetailed(lat, lng) {
+    try {
+      // zoom=18 = building level (the default is coarser and snaps to streets).
+      const url = `${NOMINATIM_REVERSE}&zoom=18&lat=${lat}&lon=${lng}`;
+      const resp = await fetch(url, { signal: AbortSignal.timeout(6000) });
+      if (!resp.ok) return null;
+      const data = await resp.json();
+      const a = data.address || {};
+      const formatted = (typeof window.formatMailingAddress === 'function' && window.formatMailingAddress(data)) || '';
+      return {
+        source: 'nominatim',
+        formatted: formatted || data.display_name || '',
+        houseNumber: a.house_number || extractHouseNumber(formatted) || '',
+        road: a.road || a.street || '',
+        city: a.city || a.town || a.village || a.hamlet || '',
+        state: a.state || '',
+        zip: a.postcode || '',
+        county: a.county || '',
+        lat: data.lat != null ? Number(data.lat) : null,
+        lng: data.lon != null ? Number(data.lon) : null,
+        // 'house'/'building' = rooftop; 'road'/'residential' = street snap.
+        matchType: data.addresstype || data.type || '',
+        isRooftop: !!a.house_number || data.addresstype === 'building' || data.type === 'house'
+      };
+    } catch (e) { return null; }
+  }
+
+  async function nominatimForwardDetailed(query) {
+    try {
+      // Dedicated URL WITH addressdetails=1 — the shared NOMINATIM_SEARCH
+      // constant omits it, so its results carry no structured house_number
+      // (which is exactly the field we cross-check on).
+      const url = 'https://nominatim.openstreetmap.org/search?format=json&countrycodes=us&addressdetails=1&limit=5&q=' + encodeURIComponent(query);
+      const resp = await fetch(url, { signal: AbortSignal.timeout(6000) });
+      if (!resp.ok) return null;
+      const arr = await resp.json();
+      if (!Array.isArray(arr) || !arr.length) return null;
+      // Prefer an exact house match over a street/place centroid.
+      const best = arr.find(r => r.type === 'house' || r.addresstype === 'building') || arr[0];
+      const a = best.address || {};
+      return {
+        source: 'nominatim-fwd',
+        formatted: (typeof window.formatMailingAddress === 'function' && window.formatMailingAddress(best)) || best.display_name || '',
+        houseNumber: a.house_number || '',
+        lat: best.lat != null ? Number(best.lat) : null,
+        lng: best.lon != null ? Number(best.lon) : null,
+        matchType: best.type || best.addresstype || '',
+        isHouse: best.type === 'house' || best.addresstype === 'building'
+      };
+    } catch (e) { return null; }
+  }
+
+  // Bridge to the resolveAddress callable (Google ROOFTOP + Regrid parcel).
+  // Degrades to null on any failure / when not signed in / not deployed yet,
+  // so the client keeps working on the Nominatim-only path.
+  let _resolveAddrCallable = null;
+  async function callResolveAddress(payload) {
+    try {
+      if (!window._functions || !window._httpsCallable) {
+        const mod = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-functions.js');
+        window._functions = window._functions || mod.getFunctions();
+        window._httpsCallable = window._httpsCallable || mod.httpsCallable;
+      }
+      if (!_resolveAddrCallable) _resolveAddrCallable = window._httpsCallable(window._functions, 'resolveAddress');
+      const res = await _resolveAddrCallable(payload);
+      return (res && res.data) || null;
+    } catch (e) {
+      console.warn('[D2D] resolveAddress callable unavailable:', e && e.message || e);
+      return null;
+    }
+  }
+
+  // Small localStorage cache of resolutions so a door resolved once still
+  // resolves OFFLINE (and repeat taps skip the network + callable billing).
+  const ADDR_CACHE_KEY = 'nbd_d2d_addr_cache_v1';
+  const ADDR_CACHE_TTL = 14 * 24 * 3600 * 1000; // 14 days
+  const ADDR_CACHE_MAX = 500;
+  function _addrCacheRead() { try { return JSON.parse(localStorage.getItem(ADDR_CACHE_KEY) || '{}'); } catch (_) { return {}; } }
+  function _addrCacheGet(key) {
+    const hit = _addrCacheRead()[key];
+    return (hit && (Date.now() - hit.t) < ADDR_CACHE_TTL) ? hit.v : null;
+  }
+  function _addrCacheSet(key, val) {
+    try {
+      const c = _addrCacheRead();
+      c[key] = { t: Date.now(), v: val };
+      const keys = Object.keys(c);
+      if (keys.length > ADDR_CACHE_MAX) {
+        keys.sort((a, b) => c[a].t - c[b].t).slice(0, keys.length - ADDR_CACHE_MAX).forEach(k => delete c[k]);
+      }
+      localStorage.setItem(ADDR_CACHE_KEY, JSON.stringify(c));
+    } catch (_) {}
+  }
+  // Store only the small bits — never the (potentially large) parcel polygon.
+  function _trimForCache(res) {
+    return { confidence: res.confidence, address: res.address, houseNumber: res.houseNumber,
+             sources: res.sources, lat: res.lat, lng: res.lng, roundTripMeters: res.roundTripMeters };
+  }
+
+  // Merge every source into one verdict. Only ≥2 independent sources that AGREE
+  // on the house number (with the pin near the match) earns 'verified'.
+  function scoreDoorResolution(ctx) {
+    const { tapLat, tapLng, nomRev, nomFwd, google, regrid, gpsWarn } = ctx;
+    const cand = [];
+    const push = (label, hn, formatted, lat, lng, strong) => {
+      if (hn) cand.push({ label, houseNumber: String(hn), formatted: formatted || '', lat, lng, strong: !!strong });
+    };
+    if (google) push('Google' + (google.precision === 'ROOFTOP' ? ' (rooftop)' : ''), google.houseNumber, google.formatted, google.lat, google.lng, google.precision === 'ROOFTOP');
+    if (regrid) push('County parcel', regrid.houseNumber, regrid.address, regrid.lat, regrid.lng, true);
+    if (nomRev) push('OpenStreetMap', nomRev.houseNumber, nomRev.formatted, nomRev.lat, nomRev.lng, nomRev.isRooftop);
+
+    const nums = cand.map(c => c.houseNumber.toLowerCase());
+    const distinct = [...new Set(nums)];
+    const reasons = [];
+
+    // Round-trip: does the resolved address forward-geocode back near the pin?
+    let rtDist = null;
+    if (nomFwd && tapLat != null && nomFwd.lat != null) rtDist = haversineMeters(tapLat, tapLng, nomFwd.lat, nomFwd.lng);
+
+    let confidence, houseNumber = '', address = '';
+    // Pick the best address string: authoritative source first.
+    const primary = cand.find(c => c.label.startsWith('Google')) || cand.find(c => c.label === 'County parcel') || cand[0] || null;
+    if (primary) { houseNumber = primary.houseNumber; address = primary.formatted; }
+
+    if (cand.length === 0) {
+      confidence = 'unverified';
+      reasons.push('No house number could be resolved — type the door number.');
+    } else if (distinct.length > 1) {
+      confidence = 'conflict';
+      reasons.push('Sources disagree on the door number — pick the right one.');
+    } else if (cand.length >= 2) {
+      // ≥2 independent sources agree.
+      if (rtDist != null && rtDist > 150) {
+        confidence = 'likely';
+        reasons.push(`${cand.length} sources agree on #${distinct[0]}, but the pin is ~${rtDist}m away — confirm.`);
+      } else {
+        confidence = 'verified';
+        reasons.push(`${cand.length} sources agree: #${distinct[0]}.`);
+        if (google && google.precision === 'ROOFTOP') reasons.push('Google rooftop match.');
+        if (regrid) reasons.push('Matches the county parcel record.');
+      }
+    } else {
+      // Single source only.
+      confidence = 'likely';
+      reasons.push(`${cand[0].label} match — confirm the door number.`);
+      if (rtDist != null && rtDist > 150) reasons.push(`Pin is ~${rtDist}m from the address.`);
+    }
+
+    // GPS-quality guard: a weak device fix under this pin means the door itself
+    // is uncertain — never auto-verify, and flag it for the rep.
+    if (gpsWarn) {
+      if (confidence === 'verified') confidence = 'likely';
+      reasons.push(`Weak GPS (~${gpsWarn}m) here — eyeball the house.`);
+    }
+
+    return {
+      confidence,                 // 'verified' | 'likely' | 'conflict' | 'unverified'
+      address: address || '',
+      houseNumber,
+      reasons,
+      sources: cand,              // [{label, houseNumber, formatted, lat, lng, strong}]
+      roundTripMeters: rtDist,
+      lat: (primary && primary.lat) || (nomRev && nomRev.lat) || tapLat || null,
+      lng: (primary && primary.lng) || (nomRev && nomRev.lng) || tapLng || null
+    };
+  }
+
+  // Resolve the door under a map tap (reverse). Nominatim first (instant), then
+  // fold in Google/Regrid via the callable, then a forward round-trip check.
+  async function resolveDoorAt(lat, lng) {
+    const nomRev = await nominatimReverseDetailed(lat, lng);
+    const candidateStr = nomRev && nomRev.formatted;
+    const [callable, nomFwd] = await Promise.all([
+      callResolveAddress({ mode: 'reverse', lat, lng }),
+      candidateStr ? nominatimForwardDetailed(candidateStr) : Promise.resolve(null)
+    ]);
+    // GPS-quality guard: only fires when this pin sits within the device's own
+    // (poor) accuracy radius — i.e. the rep trusted a fuzzy blue-dot position.
+    // A deliberate satellite-map tap far from the dot is unaffected.
+    let gpsWarn = null;
+    if (typeof state.gpsAccuracy === 'number' && state.gpsAccuracy > 30 && state.currentLocation) {
+      const dToMe = haversineMeters(lat, lng, state.currentLocation[0], state.currentLocation[1]);
+      if (dToMe != null && dToMe <= Math.max(state.gpsAccuracy, 40)) gpsWarn = Math.round(state.gpsAccuracy);
+    }
+    const res = scoreDoorResolution({
+      tapLat: lat, tapLng: lng, nomRev, nomFwd, gpsWarn,
+      google: callable && callable.google, regrid: callable && callable.regrid
+    });
+    // Snap-to-parcel: if we got a county parcel polygon, draw it on the map so
+    // the rep can see the pin sits on the right house, and hand the geometry
+    // back for callers that want it.
+    const parcelGeom = callable && callable.regrid && callable.regrid.geometry;
+    if (parcelGeom) { res.parcel = { geometry: parcelGeom, lat: callable.regrid.lat, lng: callable.regrid.lng }; drawTapParcel(parcelGeom); }
+    else clearTapParcel();
+
+    const key = 'rev:' + Number(lat).toFixed(5) + ',' + Number(lng).toFixed(5);
+    if (res.confidence !== 'unverified') { _addrCacheSet(key, _trimForCache(res)); return res; }
+    // Live resolution produced nothing (offline, or every provider momentarily
+    // failed) — fall back to a saved verdict for this spot if we have one.
+    const cached = _addrCacheGet(key);
+    if (cached) { cached.reasons = ['Using your saved verification for this spot.']; cached.fromCache = true; return cached; }
+    if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+      res.reasons = ['Offline — the door number will be re-checked when you reconnect.'];
+    }
+    res.needsReverify = true;
+    return res;
+  }
+
+  // Draw / clear the tapped parcel outline (non-interactive so it never eats a
+  // follow-up map tap). Tracked on state.d2dParcelLayer, rebuilt each tap.
+  function drawTapParcel(geometry) {
+    if (!state.d2dMap || !window.L || !geometry) return;
+    try {
+      clearTapParcel();
+      const layer = L.geoJSON({ type: 'Feature', geometry: geometry, properties: {} }, {
+        style: { color: '#2ECC8A', weight: 2, fillColor: '#2ECC8A', fillOpacity: 0.12, dashArray: '4 3' },
+        interactive: false
+      });
+      layer.addTo(state.d2dMap);
+      state.d2dParcelLayer = layer;
+    } catch (e) { console.warn('[D2D] parcel draw failed:', e && e.message || e); }
+  }
+  function clearTapParcel() {
+    if (state.d2dParcelLayer && state.d2dMap) {
+      try { state.d2dMap.removeLayer(state.d2dParcelLayer); } catch (_) {}
+    }
+    state.d2dParcelLayer = null;
+  }
+
+  // Verify a typed / autocompleted address string (forward). tapLat/tapLng are
+  // the pin the rep placed (if any) so we can distance-check the match.
+  async function verifyAddressString(str, tapLat, tapLng) {
+    const q = String(str || '').trim();
+    if (q.length < 5) return { confidence: 'unverified', address: q, houseNumber: extractHouseNumber(q), reasons: ['Enter a full address.'], sources: [] };
+    const [callable, nomFwd] = await Promise.all([
+      callResolveAddress({ mode: 'forward', address: q }),
+      nominatimForwardDetailed(q)
+    ]);
+    // Treat the forward matches as the "sources"; build a synthetic nomRev from
+    // the forward result so scoreDoorResolution can reuse its agreement logic.
+    const nomRev = nomFwd ? { source: 'nominatim', houseNumber: nomFwd.houseNumber, formatted: nomFwd.formatted, lat: nomFwd.lat, lng: nomFwd.lng, isRooftop: nomFwd.isHouse } : null;
+    const anchorLat = tapLat != null ? tapLat : (callable && callable.google && callable.google.lat) || (nomFwd && nomFwd.lat);
+    const anchorLng = tapLng != null ? tapLng : (callable && callable.google && callable.google.lng) || (nomFwd && nomFwd.lng);
+    const res = scoreDoorResolution({
+      tapLat: anchorLat, tapLng: anchorLng, nomRev, nomFwd,
+      google: callable && callable.google, regrid: callable && callable.regrid
+    });
+    // If the typed string already had a house number and nothing resolved,
+    // keep the typed number rather than dropping it.
+    if (!res.houseNumber) res.houseNumber = extractHouseNumber(q);
+    if (!res.address) res.address = q;
+
+    const key = 'fwd:' + q.toLowerCase().replace(/\s+/g, ' ');
+    if (res.confidence !== 'unverified') { _addrCacheSet(key, _trimForCache(res)); return res; }
+    const cached = _addrCacheGet(key);
+    if (cached) { cached.reasons = ['Using your saved verification for this address.']; cached.fromCache = true; return cached; }
+    if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+      res.reasons = ['Offline — this address will be verified when you reconnect.'];
+    }
+    res.needsReverify = true;
+    return res;
+  }
+
+  // ── Address data-quality + bulk re-verify (the review queue) ─────────
+  const _CONF_RANK = { conflict: 0, unverified: 1, likely: 2, verified: 3 };
+  function getAddressQuality() {
+    // Scope to the rep's OWN knocks only. In manager Team mode state.knocks
+    // holds the whole company's knocks, but the knocks update rule is
+    // isOwner||isAdmin — a manager can't re-verify a teammate's doc (it would
+    // permission-deny). So the queue only surfaces what THIS rep can fix.
+    const myUid = window._user && window._user.uid;
+    // Dedupe to the most-recent knock per address — that's the door we'd fix.
+    const latest = new Map();
+    state.knocks.forEach(k => {
+      if (!k.address) return;
+      if (myUid && k.userId && k.userId !== myUid) return;
+      const norm = normalizeAddress(k.address);
+      const kMs = (toDate(k.createdAt) || new Date(0)).getTime();
+      const prev = latest.get(norm);
+      if (!prev || kMs > (toDate(prev.createdAt) || new Date(0)).getTime()) latest.set(norm, k);
+    });
+    const doors = [...latest.values()];
+    // 'verified' is the only clean state; undefined (legacy) / likely / conflict
+    // / unverified all need review.
+    const needsReview = doors.filter(k => k.addrConfidence !== 'verified');
+    return {
+      totalDoors: doors.length,
+      verified: doors.length - needsReview.length,
+      needsReview: needsReview.length,
+      reviewList: needsReview
+        .sort((a, b) => (_CONF_RANK[a.addrConfidence] ?? 1) - (_CONF_RANK[b.addrConfidence] ?? 1))
+        .slice(0, 50)
+    };
+  }
+
+  async function reverifyKnock(id, opts) {
+    const k = state.knocks.find(x => x.id === id);
+    if (!k || !k.address) return null;
+    const res = await verifyAddressString(k.address, k.lat, k.lng);
+    const update = {
+      addrConfidence: res.confidence,
+      addrHouseNumber: res.houseNumber || extractHouseNumber(k.address) || '',
+      addrSources: (res.sources || []).map(s => ({ src: s.label, hn: s.houseNumber })),
+      addrRoundTripMeters: (typeof res.roundTripMeters === 'number') ? res.roundTripMeters : null,
+      addrNeedsReverify: res.confidence !== 'verified',
+      addrVerifiedAt: window.serverTimestamp()
+    };
+    if (opts && opts.deferReload) {
+      await window.updateDoc(window.doc(window._db, 'knocks', id), { ...update, updatedAt: window.serverTimestamp() });
+    } else {
+      // Single-row path (the 🔁 button): reload, re-render the panel so the
+      // badge/percentage update, and toast the outcome — otherwise the button
+      // looks dead and reps re-click (re-billing the callable).
+      await updateKnock(id, update);
+      if (window.D2D && typeof window.D2D.renderD2D === 'function') window.D2D.renderD2D();
+      const label = res.confidence === 'verified' ? '🟢 Verified'
+        : res.confidence === 'conflict' ? '🟠 Mismatch'
+        : res.confidence === 'likely' ? '🟡 Needs confirm' : '🔴 Unverified';
+      window.showToast?.(`Re-checked ${String(k.address).split(',')[0]} — ${label}`, res.confidence === 'verified' ? 'success' : 'info');
+    }
+    return res.confidence;
+  }
+
+  // Batch re-verify the pending queue, paced for Nominatim fair-use. One reload
+  // at the end instead of per-item.
+  async function reverifyPending(max) {
+    if (!state.isOnline) { window.showToast?.('Re-verify needs a connection', 'info'); return { done: 0, verified: 0 }; }
+    const batch = getAddressQuality().reviewList.slice(0, max || 20);
+    if (!batch.length) { window.showToast?.('No addresses need review', 'info'); return { done: 0, verified: 0 }; }
+    window.showToast?.(`Re-verifying ${batch.length} address${batch.length !== 1 ? 'es' : ''}…`, 'info');
+    let done = 0, verified = 0;
+    for (const k of batch) {
+      try {
+        const conf = await reverifyKnock(k.id, { deferReload: true });
+        done++; if (conf === 'verified') verified++;
+      } catch (e) { /* skip a failed one, keep going */ }
+      await new Promise(r => setTimeout(r, 1200)); // Nominatim ≥1 req/s
+    }
+    await loadKnocks();
+    if (window.D2D && typeof window.D2D.renderD2D === 'function') window.D2D.renderD2D();
+    window.showToast?.(`Re-verified ${done} — ${verified} now verified`, 'success');
+    return { done, verified };
   }
 
   // ============================================================================
@@ -843,8 +1237,16 @@
       }
     });
 
+    // Never route to a door that was EVER flagged Do-Not-Knock or Cold/Dead —
+    // even if a later 'not_home' knock exists for the same address.
+    const blocked = new Set();
+    state.knocks.forEach(k => {
+      if (['do_not_knock', 'cold_dead'].includes(k.disposition)) blocked.add(normalizeAddress(k.address));
+    });
+
     // Filter to "not home" / "come back" that haven't been fully resolved
     addrMap.forEach(k => {
+      if (blocked.has(normalizeAddress(k.address))) return;
       if (['not_home', 'come_back'].includes(k.disposition) && getAttemptCount(k.address) < MAX_ATTEMPTS) {
         unvisited.push({ lat: k.lat, lng: k.lng, address: k.address, disposition: k.disposition });
       }
@@ -930,6 +1332,22 @@
     if (state.walkingRouteLine && state.d2dMap) state.d2dMap.removeLayer(state.walkingRouteLine);
     state.walkingRouteLine = null;
     state.walkingRoute = null;
+  }
+
+  // Hand the optimized route to the phone's native map app for turn-by-turn.
+  // Google Maps dir URL: origin + up to ~9 waypoints + destination, walking.
+  function openRouteInMaps() {
+    const route = state.walkingRoute || [];
+    const pts = route.filter(p => p.lat != null && p.lng != null);
+    if (!pts.length) { window.showToast?.('Calculate a route first', 'info'); return; }
+    const origin = state.currentLocation ? `${state.currentLocation[0]},${state.currentLocation[1]}` : '';
+    const dest = `${pts[pts.length - 1].lat},${pts[pts.length - 1].lng}`;
+    const mids = pts.slice(0, -1).slice(0, 9).map(p => `${p.lat},${p.lng}`).join('|');
+    let url = 'https://www.google.com/maps/dir/?api=1&travelmode=walking&destination=' + encodeURIComponent(dest);
+    if (origin) url += '&origin=' + encodeURIComponent(origin);
+    if (mids) url += '&waypoints=' + encodeURIComponent(mids);
+    window.open(url, '_blank');
+    if (pts.length > 10) window.showToast?.('Opened first 10 stops — maps apps cap waypoints', 'info');
   }
 
   // ============================================================================
@@ -1095,6 +1513,9 @@
       const knockDoc = {
         userId: window._user.uid,
         repId: window._user.uid,
+        // Denormalized rep display name so the live team view can label
+        // knocks without a second lookup (same-company visibility only).
+        repName: state.currentRep?.name || window._user?.displayName || '',
         companyId: state.currentRep?.companyId || window._userClaims?.companyId || window._user.uid,
         address: data.address,
         lat: data.lat || null,
@@ -1115,7 +1536,22 @@
         claimNumber: data.claimNumber || '',
         photoUrls: data.photoUrls || [],
         voiceUrl: data.voiceUrl || '',
-        followUpTime: data.followUpTime || ''
+        followUpTime: data.followUpTime || '',
+        // ── Door-number accuracy provenance ──
+        // How we know this address is right: the verdict, whether a human
+        // confirmed it, the house number we cross-checked, which sources
+        // agreed, the reverse↔forward snap distance, and the device GPS
+        // accuracy at capture. Powers the data-quality KPI + re-verify queue.
+        addrConfidence: data.addrConfidence || 'unverified',
+        addrConfirmed: !!data.addrConfirmed,
+        addrHouseNumber: data.addrHouseNumber || extractHouseNumber(data.address) || '',
+        addrSources: Array.isArray(data.addrSources) ? data.addrSources.slice(0, 6) : [],
+        addrRoundTripMeters: (typeof data.addrRoundTripMeters === 'number') ? data.addrRoundTripMeters : null,
+        gpsAccuracy: (typeof data.gpsAccuracy === 'number') ? data.gpsAccuracy : null,
+        // Saved while offline / unresolved → flagged so the re-verify queue
+        // re-checks it once back online. Also true whenever confidence < verified.
+        addrNeedsReverify: !!data.addrNeedsReverify || (data.addrConfidence && data.addrConfidence !== 'verified') || false,
+        addrVerifiedAt: window.serverTimestamp()
       };
 
       if (followUpDate) knockDoc.followUpDate = followUpDate;
@@ -1417,6 +1853,59 @@
     } catch (e) { console.error('loadTeamKnocks failed:', e); }
   }
 
+  // ── Live team activity ("who's knocking where right now") ───────────
+  // A single onSnapshot on the company's knocks streams teammates' knocks in
+  // real time. companyId-only query (mirrors loadTeamKnocks) so it needs no new
+  // composite index; the recency/today slicing is done client-side.
+  let _teamUnsub = null;
+  function subscribeTeamActivity() {
+    if (!state.currentRep || !state.currentRep.companyId) return;
+    unsubscribeTeamActivity();
+    if (typeof window.onSnapshot !== 'function') { loadTeamKnocks().then(_renderIfActive); return; }
+    try {
+      const q = window.query(window.collection(window._db, 'knocks'), window.where('companyId', '==', state.currentRep.companyId));
+      _teamUnsub = window.onSnapshot(q,
+        (snap) => { state.teamKnocks = snap.docs.map(d => ({ id: d.id, ...d.data() })); _renderIfActive(); },
+        (err) => { console.warn('[D2D] team listener error — one-shot fallback:', err && err.message || err); loadTeamKnocks().then(_renderIfActive); }
+      );
+    } catch (e) {
+      console.warn('[D2D] subscribeTeamActivity failed:', e && e.message || e);
+      loadTeamKnocks().then(_renderIfActive);
+    }
+  }
+  function unsubscribeTeamActivity() {
+    if (typeof _teamUnsub === 'function') { try { _teamUnsub(); } catch (_) {} _teamUnsub = null; }
+  }
+  function _renderIfActive() {
+    if (state.teamMode && window.D2D && typeof window.D2D.renderD2D === 'function') window.D2D.renderD2D();
+  }
+
+  function getTeamActivity() {
+    const now = Date.now(), HOUR = 3600e3;
+    const startOfDay = new Date(); startOfDay.setHours(0, 0, 0, 0);
+    const dayMs = startOfDay.getTime();
+    const knocks = state.teamKnocks || [];
+    const byRep = new Map();
+    const recent = [];
+    knocks.forEach(k => {
+      const ms = (toDate(k.createdAt) || new Date(0)).getTime();
+      const rep = k.repId || k.userId || 'unknown';
+      if (!byRep.has(rep)) byRep.set(rep, { repId: rep, name: k.repName || '', knocksToday: 0, appts: 0, lastMs: 0, lastAddress: '' });
+      const r = byRep.get(rep);
+      if (ms >= dayMs) r.knocksToday++;
+      if (k.disposition === 'appointment' && ms >= dayMs) r.appts++;
+      if (ms > r.lastMs) { r.lastMs = ms; r.lastAddress = k.address || ''; if (k.repName) r.name = k.repName; }
+      recent.push({ id: k.id, address: k.address, disposition: k.disposition, repName: k.repName || '', repId: rep, _ms: ms });
+    });
+    const reps = [...byRep.values()].sort((a, b) => b.lastMs - a.lastMs);
+    return {
+      reps,
+      activeNow: reps.filter(r => now - r.lastMs < HOUR).length,
+      totalToday: reps.reduce((s, r) => s + r.knocksToday, 0),
+      recent: recent.sort((a, b) => b._ms - a._ms).slice(0, 12)
+    };
+  }
+
   async function loadTerritories() {
     try {
       const q = window.query(window.collection(window._db, 'territories'), window.where('companyId', '==', state.currentRep?.companyId || 'default'));
@@ -1543,6 +2032,29 @@
     };
   }
 
+  // Expected pipeline contribution per disposition — the rough probability a
+  // door in that state eventually becomes a signed job. Lets "Value Per Door"
+  // move the moment a rep logs an appointment / claim / storm hit, instead of
+  // sitting frozen until a deal literally closes (closes happen in the CRM
+  // pipeline, not here, so closedDealValue was almost always 0 → the number
+  // looked permanently stuck).
+  const DISPO_PIPELINE_WEIGHT = {
+    appointment:    0.22,
+    ins_has_claim:  0.28,
+    ins_needs_file: 0.18,
+    storm_damage:   0.12,
+    interested:     0.07,
+    callback:       0.06,
+    come_back:      0.03,
+    left_material:  0.02,
+    ins_denied:     0.02
+    // everything else (not_home, not_interested, do_not_knock, cold_dead,
+    // tenant, vacant) contributes 0.
+  };
+  // Fallback job value when the rep has no closed deals yet to average from.
+  // ~$12.5k is a conservative retail roof; tune per market if needed.
+  const DEFAULT_JOB_VALUE = 12500;
+
   function getRevenueMetrics() {
     const doorsKnocked = new Set(state.knocks.map(k => normalizeAddress(k.address))).size;
     const conversations = state.knocks.filter(k => !['not_home', 'do_not_knock', 'cold_dead'].includes(k.disposition)).length;
@@ -1551,6 +2063,28 @@
     const closed = state.knocks.filter(k => k.closedDealValue > 0).length;
     const revenue = state.knocks.reduce((sum, k) => sum + (k.closedDealValue || 0), 0);
 
+    // Deal size to value the pipeline at: the rep's own realized average once
+    // they have closes, otherwise the industry-default job value.
+    const avgDealSize = closed > 0 ? Math.round(revenue / closed) : 0;
+    const dealValue = avgDealSize > 0 ? avgDealSize : DEFAULT_JOB_VALUE;
+
+    // Live expected pipeline value = Σ P(close | disposition) × dealValue,
+    // deduped to the most-recent disposition per address so re-knocks don't
+    // double-count a single door.
+    const latestByAddr = new Map();
+    state.knocks.forEach(k => {
+      const norm = normalizeAddress(k.address);
+      const kMs = (toDate(k.createdAt) || new Date(0)).getTime();
+      const prev = latestByAddr.get(norm);
+      if (!prev || kMs > prev._ms) latestByAddr.set(norm, { disposition: k.disposition, _ms: kMs });
+    });
+    let pipelineValue = 0;
+    latestByAddr.forEach(k => { pipelineValue += (DISPO_PIPELINE_WEIGHT[k.disposition] || 0) * dealValue; });
+    pipelineValue = Math.round(pipelineValue);
+
+    const realizedPerDoor = doorsKnocked > 0 ? Math.round(revenue / doorsKnocked) : 0;
+    const expectedPerDoor = doorsKnocked > 0 ? Math.round(pipelineValue / doorsKnocked) : 0;
+
     return {
       totalDoorsKnocked: doorsKnocked,
       totalConversations: conversations,
@@ -1558,8 +2092,13 @@
       totalEstimates: estimates,
       totalClosed: closed,
       totalRevenue: revenue,
-      revenuePerDoor: doorsKnocked > 0 ? Math.round(revenue / doorsKnocked) : 0,
-      avgDealSize: closed > 0 ? Math.round(revenue / closed) : 0,
+      // Realized $/door from closed deals only (kept for back-compat + the
+      // "closed" readout). Expected/pipeline $/door is the live headline.
+      revenuePerDoor: realizedPerDoor,
+      expectedPerDoor,
+      pipelineValue,
+      avgDealSize,
+      dealValueUsed: dealValue,
       conversionFunnel: { doors: doorsKnocked, conversations, appointments, estimates, closed }
     };
   }
@@ -1687,25 +2226,10 @@
       bounceAtZoomLimits: false     // smoother UX on iOS
     }).setView(CINCINNATI, 13);
 
-    const sat = L.tileLayer(SAT_TILES_PRIMARY, {
-      subdomains: '0123',
-      attribution: 'Imagery © Google',
-      maxNativeZoom: 22,
-      maxZoom: 23
-    });
-    // Per-tile fallback to Esri if Google returns an error for a given
-    // tile. Mirrors the Maps view pattern (maps-core.js initMainMap).
-    // The dataset guard ensures we only retry once — if the fallback
-    // ALSO fails, Leaflet renders nothing for that tile rather than
-    // looping forever.
-    sat.on('tileerror', function (ev) {
-      if (!ev.tile || !ev.coords || ev.tile.dataset.nbdFallbackTried === '1') return;
-      ev.tile.dataset.nbdFallbackTried = '1';
-      const c = ev.coords;
-      ev.tile.src = SAT_TILES_FALLBACK
-        .replace('{z}', c.z).replace('{x}', c.x).replace('{y}', c.y);
-    });
-    sat.addTo(state.d2dMap);
+    // Base map — restore the rep's last choice (default satellite).
+    let initialBasemap = 'satellite';
+    try { const saved = localStorage.getItem(BASEMAP_PREF); if (saved && BASEMAPS[saved]) initialBasemap = saved; } catch (_) {}
+    setBasemap(initialBasemap);
 
     // Force map to recalculate size after standalone viewport settles
     if (isStandalone) {
@@ -1725,6 +2249,7 @@
     watchLocationAndCenter();
     refreshMapMarkers();
     createLayerPanel();
+    createBasemapControl();
     // Load saved territories into state on entry so knocks can be attributed to a
     // storm zone (point-in-polygon) even before the territory layer is toggled.
     loadTerritories().catch(() => {});
@@ -1808,6 +2333,9 @@
       function(pos) {
         _gpsErrorNotified = false; // clear on first successful fix
         state.currentLocation = [pos.coords.latitude, pos.coords.longitude];
+        // Fix accuracy in metres — used to warn before trusting a door number
+        // resolved at/near the device position when the GPS fix is weak.
+        state.gpsAccuracy = (typeof pos.coords.accuracy === 'number') ? pos.coords.accuracy : null;
         if (state.locationMarker) state.d2dMap.removeLayer(state.locationMarker);
         if (state.accuracyCircle) state.d2dMap.removeLayer(state.accuracyCircle);
 
@@ -1867,6 +2395,7 @@
     // back/forward cache + iOS PWA tab close. beforeunload doesn't
     // fire in iOS Safari standalone.
     window.addEventListener('pagehide', stopLocationWatch);
+    window.addEventListener('pagehide', unsubscribeTeamActivity);
   }
 
   function centerOnMe() {
@@ -1880,6 +2409,11 @@
     if (!state.d2dMap || !state.d2dCluster) return;
     state.d2dCluster.clearLayers();
     if (state.d2dHeat) state.d2dMap.removeLayer(state.d2dHeat);
+    // The neighborhood-score overlay is a tracked layer group so it is
+    // rebuilt-from-scratch every refresh instead of piling circles onto the
+    // map forever (the old bug: circles were added straight to the map and
+    // never removed, so they multiplied and never disappeared).
+    if (state.d2dScoreLayer) { try { state.d2dMap.removeLayer(state.d2dScoreLayer); } catch (_) {} state.d2dScoreLayer = null; }
 
     // Audit #18 (same class of bug): Timestamp > Timestamp is NaN > NaN.
     // Normalize both sides through toDate() so the map pins reflect the most
@@ -1936,14 +2470,30 @@
       state.d2dHeat = L.heatLayer(heatData, { radius: 30, blur: 20, maxZoom: 17 }).addTo(state.d2dMap);
     }
 
-    // Draw neighborhood score overlay
-    if (Object.keys(state.neighborhoodScores).length > 0) {
+    // Neighborhood-score overlay — opt-in layer (toggled from the map's layer
+    // panel, OFF by default). Every shape is `interactive:false` so it NEVER
+    // swallows a map tap: reps must be able to tap a house *inside* a hot zone
+    // to log a knock. The score reads out on a small non-interactive badge at
+    // the zone centroid (the old bound-popup ate the tap).
+    if (d2dLayerState.score && Object.keys(state.neighborhoodScores).length > 0) {
+      const scoreLayer = L.layerGroup();
       Object.values(state.neighborhoodScores).forEach(n => {
         if (n.score > 30 && n.knocks.length >= 3) {
           const scoreColor = n.score >= 70 ? '#2ECC8A' : n.score >= 40 ? '#EAB308' : '#E05252';
-          L.circle([n.lat, n.lng], { radius: 250, color: scoreColor, fillColor: scoreColor, fillOpacity: 0.08, weight: 1 }).addTo(state.d2dMap).bindPopup(`<b>Neighborhood Score: ${n.score}/100</b><br>${n.knocks.length} knocks · ${n.appointments} apts · ${n.stormDmg} storm dmg`);
+          L.circle([n.lat, n.lng], {
+            radius: 250, color: scoreColor, fillColor: scoreColor,
+            fillOpacity: 0.10, weight: 1.5, dashArray: '5 5', interactive: false
+          }).addTo(scoreLayer);
+          const badge = L.divIcon({
+            className: 'd2d-score-badge-wrap',
+            html: `<div class="d2d-score-badge" style="background:${scoreColor};">${n.score}</div>`,
+            iconSize: [34, 34], iconAnchor: [17, 17]
+          });
+          L.marker([n.lat, n.lng], { icon: badge, interactive: false, keyboard: false }).addTo(scoreLayer);
         }
       });
+      scoreLayer.addTo(state.d2dMap);
+      state.d2dScoreLayer = scoreLayer;
     }
   }
 
@@ -1968,12 +2518,81 @@
   //   Weather — NOAA NEXRAD radar overlay
   //   Heat    — knock density heatmap
   // ════════════════════════════════════════════════════════════
-  let d2dLayerState = { knocks: true, jobs: false, weather: false, heat: false, territory: false };
+  let d2dLayerState = { knocks: true, jobs: false, weather: false, heat: false, territory: false, score: false };
   let d2dJobMarkers = [];
   let d2dStormLayer = null;
   let d2dWeatherLayer = null;
   let d2dDrawControl = null;
   let d2dTerritoryGroup = null;  // L.featureGroup holding drawn polygons
+
+  // ── Base-map switcher (satellite / hybrid / streets / terrain) ──────
+  function _makeBasemapLayer(key) {
+    const b = BASEMAPS[key] || BASEMAPS.satellite;
+    const layer = L.tileLayer(b.url, { subdomains: '0123', attribution: 'Imagery © Google', maxNativeZoom: 22, maxZoom: 23 });
+    if (b.fallback) {
+      // Per-tile Esri fallback (imagery basemaps only) — same one-retry guard.
+      layer.on('tileerror', function (ev) {
+        if (!ev.tile || !ev.coords || ev.tile.dataset.nbdFallbackTried === '1') return;
+        ev.tile.dataset.nbdFallbackTried = '1';
+        const c = ev.coords;
+        ev.tile.src = SAT_TILES_FALLBACK.replace('{z}', c.z).replace('{x}', c.x).replace('{y}', c.y);
+      });
+    }
+    return layer;
+  }
+
+  function setBasemap(key) {
+    if (!state.d2dMap || !BASEMAPS[key]) return;
+    if (state.d2dBaseLayer) { try { state.d2dMap.removeLayer(state.d2dBaseLayer); } catch (_) {} }
+    const layer = _makeBasemapLayer(key);
+    layer.addTo(state.d2dMap);
+    if (layer.bringToBack) layer.bringToBack(); // stay under markers/overlays
+    state.d2dBaseLayer = layer;
+    state.d2dBasemap = key;
+    try { localStorage.setItem(BASEMAP_PREF, key); } catch (_) {}
+    updateBasemapControl();
+  }
+
+  function openStreetView() {
+    const c = state.d2dMap && state.d2dMap.getCenter();
+    if (!c) { window.showToast?.('Map not ready', 'info'); return; }
+    // Google Maps Street View pano at the current map center.
+    window.open('https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=' + c.lat + ',' + c.lng, '_blank');
+  }
+
+  function createBasemapControl() {
+    if (!state.d2dMap || document.getElementById('d2d-basemap-ctrl')) return;
+    const ctrl = document.createElement('div');
+    ctrl.id = 'd2d-basemap-ctrl';
+    ctrl.className = 'd2d-basemap-ctrl';
+    BASEMAP_ORDER.forEach(key => {
+      const b = BASEMAPS[key];
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.id = 'd2d-basemap-' + key;
+      btn.className = 'd2d-basemap-btn' + (state.d2dBasemap === key ? ' active' : '');
+      btn.title = b.label;
+      btn.innerHTML = b.icon + '<span>' + b.label + '</span>';
+      // addEventListener (not inline on*=) — CSP-safe, like the layer panel.
+      btn.addEventListener('click', (e) => { e.stopPropagation(); setBasemap(key); });
+      ctrl.appendChild(btn);
+    });
+    const sv = document.createElement('button');
+    sv.type = 'button';
+    sv.className = 'd2d-basemap-btn d2d-basemap-sv';
+    sv.title = 'Open Street View at the map center';
+    sv.innerHTML = '👁️<span>Street</span>';
+    sv.addEventListener('click', (e) => { e.stopPropagation(); openStreetView(); });
+    ctrl.appendChild(sv);
+    const mapEl = document.getElementById('d2dMap');
+    if (mapEl) { mapEl.style.position = 'relative'; mapEl.appendChild(ctrl); }
+  }
+  function updateBasemapControl() {
+    BASEMAP_ORDER.forEach(key => {
+      const btn = document.getElementById('d2d-basemap-' + key);
+      if (btn) btn.classList.toggle('active', state.d2dBasemap === key);
+    });
+  }
 
   function createLayerPanel() {
     if (!state.d2dMap) return;
@@ -1984,7 +2603,7 @@
     panel.id = 'd2d-layer-panel';
     panel.style.cssText = 'position:absolute;top:10px;right:10px;z-index:1000;'
       + 'background:color-mix(in srgb, var(--s) 92%, transparent);border:1px solid color-mix(in srgb, var(--orange) 30%, transparent);'
-      + 'border-radius:10px;padding:8px;display:flex;gap:4px;'
+      + 'border-radius:10px;padding:8px;display:flex;flex-wrap:wrap;justify-content:flex-end;gap:4px;max-width:calc(100% - 20px);'
       + '-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);'
       + 'box-shadow:0 4px 20px rgba(0,0,0,.5);';
 
@@ -1993,6 +2612,7 @@
       { key: 'jobs',      icon: '💰', label: 'Jobs' },
       { key: 'weather',   icon: '⛈️', label: 'Radar' },
       { key: 'heat',      icon: '🔥', label: 'Heat' },
+      { key: 'score',     icon: '🎯', label: 'Score' },
       { key: 'territory', icon: '🗺️', label: 'Zone' }
     ];
 
@@ -2063,6 +2683,11 @@
         break;
       case 'heat':
         state.showHeat = d2dLayerState.heat;
+        refreshMapMarkers();
+        break;
+      case 'score':
+        // refreshMapMarkers reads d2dLayerState.score and (re)builds or drops
+        // the tracked score layer accordingly.
         refreshMapMarkers();
         break;
       case 'territory':
@@ -2257,16 +2882,20 @@
         d2dTerritoryGroup.addLayer(layer);
 
         // Prompt for a name (iOS-safe modal — native prompt() is blocked in iOS PWA)
-        const name = await uiPrompt('Name this territory zone:', 'Zone ' + (state.territories.length + 1), { okLabel: 'Save Zone' });
+        const name = await uiPrompt('Name this territory zone:', 'Zone ' + (state.territories.length + 1), { okLabel: 'Next' });
         if (!name) {
           d2dTerritoryGroup.removeLayer(layer);
           return;
         }
+        // Optional rep assignment (blank = unassigned). Cancel keeps it unassigned.
+        const assignedRep = await uiPrompt('Assign to a rep (optional):', '', { okLabel: 'Save Zone', cancelLabel: 'Skip' });
+        const assignedRepName = (assignedRep || '').trim().substring(0, 60) || null;
 
         // Extract GeoJSON coordinates for Firestore storage
         const geoJSON = layer.toGeoJSON();
         const newId = await saveTerritory({
           name: name.trim().substring(0, 80),
+          assignedRep: assignedRepName,
           type: e.layerType,
           geoJSON: geoJSON,
           bounds: layer.getBounds ? {
@@ -2280,10 +2909,10 @@
         // handler can actually remove it from the backend — previously the
         // save returned no id and deletions only cleared the map client-side.
         if (newId) layer._nbdTerritoryId = newId;
-        window.showToast?.('✓ Territory "' + name + '" saved', 'success');
+        window.showToast?.('✓ Territory "' + name + '" saved' + (assignedRepName ? ' → ' + assignedRepName : ''), 'success');
 
         // Add label to the polygon
-        addTerritoryLabel(layer, name);
+        addTerritoryLabel(layer, name, assignedRepName);
       });
 
       // Listen for deleted shapes
@@ -2344,7 +2973,7 @@
         // Add a label tooltip with the territory name
         layer.eachLayer(function (l) {
           if (l.getBounds) {
-            addTerritoryLabel(l, t.name || 'Zone');
+            addTerritoryLabel(l, t.name || 'Zone', t.assignedRep || null);
           }
         });
       } catch (e) {
@@ -2354,11 +2983,14 @@
   }
 
   // Add a text label at the center of a territory polygon
-  function addTerritoryLabel(layer, name) {
+  function addTerritoryLabel(layer, name, assignedRep) {
     if (!layer.getBounds) return;
     const center = layer.getBounds().getCenter();
+    const assignHtml = assignedRep
+      ? '<span style="display:block;font-size:9px;font-weight:600;opacity:.9;text-transform:none;letter-spacing:0;margin-top:1px;">👤 ' + esc(assignedRep) + '</span>'
+      : '';
     const label = L.divIcon({
-      html: '<div style="background:color-mix(in srgb, var(--orange) 85%, transparent);color:#fff;font-family:\'Barlow Condensed\',sans-serif;font-size:11px;font-weight:700;padding:2px 8px;border-radius:4px;white-space:nowrap;letter-spacing:.04em;text-transform:uppercase;">' + esc(name) + '</div>',
+      html: '<div style="background:color-mix(in srgb, var(--orange) 85%, transparent);color:#fff;font-family:\'Barlow Condensed\',sans-serif;font-size:11px;font-weight:700;padding:2px 8px;border-radius:4px;white-space:nowrap;letter-spacing:.04em;text-transform:uppercase;text-align:center;">' + esc(name) + assignHtml + '</div>',
       className: '',
       iconAnchor: [0, 0]
     });
@@ -2620,9 +3252,21 @@
   state.reverseGeocode = reverseGeocode;
   state.searchAddresses = searchAddresses;
   state.setupAddressAutocomplete = setupAddressAutocomplete;
+  // Address-accuracy resolver
+  state.resolveDoorAt = resolveDoorAt;
+  state.verifyAddressString = verifyAddressString;
+  state.extractHouseNumber = extractHouseNumber;
+  state.haversineMeters = haversineMeters;
+  state.clearTapParcel = clearTapParcel;
+  state.getAddressQuality = getAddressQuality;
+  state.reverifyKnock = reverifyKnock;
+  state.reverifyPending = reverifyPending;
   state.loadWeather = loadWeather;
   state.getWeatherAlerts = getWeatherAlerts;
   state.calculateWalkingRoute = calculateWalkingRoute;
+  state.openRouteInMaps = openRouteInMaps;
+  state.setBasemap = setBasemap;
+  state.openStreetView = openStreetView;
   state.drawWalkingRoute = drawWalkingRoute;
   state.clearWalkingRoute = clearWalkingRoute;
   state.loadRepProfile = loadRepProfile;
@@ -2633,6 +3277,9 @@
   state.convertToLead = convertToLead;
   state.convertToLeadWithEdit = convertToLeadWithEdit;
   state.loadTeamKnocks = loadTeamKnocks;
+  state.subscribeTeamActivity = subscribeTeamActivity;
+  state.unsubscribeTeamActivity = unsubscribeTeamActivity;
+  state.getTeamActivity = getTeamActivity;
   state.loadTerritories = loadTerritories;
   state.saveTerritory = saveTerritory;
   state.deleteTerritory = deleteTerritory;

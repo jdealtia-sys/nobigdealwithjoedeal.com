@@ -29,6 +29,15 @@
     closeQuickKnock: state.closeQuickKnock,
     selectDispo: state.selectDispo,
     submitKnock: state.handleSubmitKnock,
+    // Address-accuracy actions (data-d2d-action triggers in the knock modal)
+    verifyKnockAddress: state.verifyKnockAddress,
+    pickAddrSource: state.pickAddrSource,
+    resolveDoorAt: state.resolveDoorAt,
+    verifyAddressString: state.verifyAddressString,
+    // Address data-quality / re-verify queue
+    reverifyKnock: (id) => state.reverifyKnock(id),
+    reverifyPending: () => state.reverifyPending(25),
+    getAddressQuality: state.getAddressQuality,
     openKnockDetail: state.openKnockDetail,
     closeKnockDetail: state.closeKnockDetail,
     // These have data-d2d-action triggers in the UI (photo thumbnails in the
@@ -84,11 +93,19 @@
       window.showToast?.(msg, 'info');
     },
     clearRoute: () => { state.clearWalkingRoute(); state.renderD2D(); },
+    // Hand the optimized walking route to the phone's native map app.
+    navRoute: state.openRouteInMaps,
     loadRepProfile: state.loadRepProfile,
     loadTeamKnocks: state.loadTeamKnocks,
     loadTerritories: state.loadTerritories,
     saveTerritory: state.saveTerritory,
-    toggleTeamMode: () => { state.teamMode = !state.teamMode; state.loadKnocks().then(() => state.renderD2D()); },
+    toggleTeamMode: () => {
+      state.teamMode = !state.teamMode;
+      if (state.teamMode) { state.subscribeTeamActivity(); }
+      else { state.unsubscribeTeamActivity(); }
+      state.loadKnocks().then(() => state.renderD2D());
+    },
+    getTeamActivity: state.getTeamActivity,
     refreshMap: () => { if (state.d2dMap) { state.d2dMap.invalidateSize(); } },
     // Hail overlay — pulls recent hail reports for the visible map
     // center and draws circle markers sized by hail stone diameter.
