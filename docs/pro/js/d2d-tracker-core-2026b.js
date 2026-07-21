@@ -2241,10 +2241,17 @@
     // malformed/MultiPolygon/empty swath never discards the hits or saves broken
     // geometry).
     let ring = null;
-    const withPoly = sig.find(h => h.polygon && Array.isArray(h.polygon.coordinates));
-    if (withPoly) ring = _outerRing(withPoly.polygon.coordinates);
+    const polyHits = sig.filter(h => h.polygon && Array.isArray(h.polygon.coordinates));
+    // A SINGLE provider swath is the authoritative footprint — use it directly.
+    if (polyHits.length === 1) ring = _outerRing(polyHits[0].polygon.coordinates);
     if (!ring) {
-      ring = _convexHull(sig.map(h => [Number(h.lng), Number(h.lat)]).filter(p => isFinite(p[0]) && isFinite(p[1])));
+      // Otherwise hull EVERY available point — all swath vertices (so several
+      // storms in range are all covered, not just the first) plus every hit
+      // centroid (NOAA has no swaths). Falls back to a box for 1–2 points.
+      const pts = [];
+      polyHits.forEach(h => { const r = _outerRing(h.polygon.coordinates); if (r) r.forEach(p => pts.push(p)); });
+      sig.forEach(h => { const x = Number(h.lng), y = Number(h.lat); if (isFinite(x) && isFinite(y)) pts.push([x, y]); });
+      ring = _convexHull(pts);
       if (!ring) { // 1–2 points → box around the cluster
         const c = [Number(sig[0].lng), Number(sig[0].lat)], d = 0.004;
         ring = [[c[0] - d, c[1] - d], [c[0] + d, c[1] - d], [c[0] + d, c[1] + d], [c[0] - d, c[1] + d], [c[0] - d, c[1] - d]];
