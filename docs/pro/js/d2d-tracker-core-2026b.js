@@ -1070,6 +1070,54 @@
     }
   }
 
+  // ── AI rep coach — a daily game plan from the rep's own D2D data ─────
+  // Button-triggered only (each call bills Claude); Haiku tier; 30-min cache.
+  let _coachCache = null;
+  async function runCoach(btnEl) {
+    const target = document.getElementById('d2d-coach-out');
+    if (!target) return;
+    if (typeof window.callClaude !== 'function') { target.innerHTML = '<div class="d2d-coach-err">AI coach isn\'t available right now.</div>'; return; }
+    if (_coachCache && (Date.now() - _coachCache.at) < 30 * 60000) { target.innerHTML = _coachCache.html; return; }
+    if (btnEl) { btnEl.disabled = true; btnEl.textContent = '🧠 Thinking…'; }
+    target.innerHTML = '<div class="d2d-coach-err">Building your plan…</div>';
+    try {
+      const tod = getTimeOfDayStats(), m = getMetrics(), rev = getRevenueMetrics(), bd = getDispositionBreakdown();
+      const fmtHr = (h) => (h % 12 || 12) + (h < 12 ? 'am' : 'pm');
+      const hoods = Object.values(state.neighborhoodScores || {}).sort((a, b) => b.score - a.score).slice(0, 4)
+        .map(n => `score ${n.score}/100 (${n.knocks.length} knocks, ${n.appointments} appts)`);
+      let objections = [];
+      try {
+        const o = window.SalesTraining && window.SalesTraining.getObjections && window.SalesTraining.getObjections();
+        if (Array.isArray(o)) objections = o.slice(0, 6).map(x => ({ q: x.objection, a: ((x.options || []).find(op => op.correct) || {}).text })).filter(x => x.a);
+      } catch (_) {}
+      const context = {
+        golden_window: tod.bestWindow.conversions > 0 ? `${fmtHr(tod.bestWindow.start)}–${fmtHr(tod.bestWindow.end)}` : 'not enough data yet',
+        day_streak: m.streak, knocks_this_week: m.week, conversion_rate_pct: m.conversionRate,
+        conversations: m.conversations, appointments: m.appointments,
+        expected_value_per_door: rev.expectedPerDoor, pipeline_value: rev.pipelineValue,
+        top_neighborhoods: hoods, disposition_counts: bd
+      };
+      const system = 'You are an elite door-to-door roofing sales coach. From the rep\'s stats, give a SHORT, punchy, encouraging daily game plan. Use exactly these four one-line sections with emoji: "⏰ Best window:", "📍 Where to knock:", "🎯 Improve one thing:", "💬 Objection to practice:". Be specific to their numbers. Max ~140 words, plain text.';
+      const user = 'My D2D stats: ' + JSON.stringify(context) + (objections.length ? '\n\nProven objection scripts I can practice:\n' + objections.map(o => `- "${o.q}" -> ${o.a}`).join('\n') : '');
+      const resp = await window.callClaude({ model: 'claude-haiku-4-5-20251001', max_tokens: 500, temperature: 0.6, feature: 'rep-coach', system, messages: [{ role: 'user', content: user }] });
+      const text = (resp && resp.content && resp.content[0] && resp.content[0].text) || '';
+      if (text) {
+        const html = '<div class="d2d-coach-card">' + esc(text).replace(/\n/g, '<br>') + '</div>';
+        _coachCache = { at: Date.now(), html }; // cache only a real plan, never an error
+        target.innerHTML = html;
+      } else {
+        target.innerHTML = '<div class="d2d-coach-err">No plan came back — try again.</div>';
+      }
+    } catch (e) {
+      const msg = String((e && e.message) || e || '');
+      const rl = /429|resource-exhausted|rate|budget|capacity/i.test(msg);
+      const sub = /403|subscription|verified|permission/i.test(msg);
+      target.innerHTML = '<div class="d2d-coach-err">' + (rl ? 'AI limit reached — try again shortly.' : sub ? 'AI coach needs an active plan.' : 'Coach is unavailable right now.') + '</div>';
+    } finally {
+      if (btnEl) { btnEl.disabled = false; btnEl.textContent = '🧠 Get today\'s game plan'; }
+    }
+  }
+
   // ── Property intel on the knock card (owner + roof age + roof score) ─
   // Lazy: fires only on the rep's tap in the knock-detail modal because each
   // uncached address bills Regrid (~$0.01; server caches 90 days). Calls the
@@ -3369,6 +3417,7 @@
   state.reverifyKnock = reverifyKnock;
   state.reverifyPending = reverifyPending;
   state.reverifyTeam = reverifyTeam;
+  state.runCoach = runCoach;
   state.loadPropertyIntel = loadPropertyIntel;
   state.loadWeather = loadWeather;
   state.getWeatherAlerts = getWeatherAlerts;

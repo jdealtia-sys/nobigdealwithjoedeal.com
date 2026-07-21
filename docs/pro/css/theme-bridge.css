@@ -423,6 +423,10 @@ body.theme-frosted {
 .d2d-aq-card { background:var(--s2); border:1px solid var(--br); border-radius:12px; padding:14px; }
 .d2d-aq-head { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:10px; flex-wrap:wrap; }
 .d2d-aq-actions { display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
+/* ── D2D AI coach ───────────────────────────────────────────────── */
+.d2d-coach-out:empty { display:none; }
+.d2d-coach-card { margin-top:10px; padding:14px; background:linear-gradient(160deg, color-mix(in srgb, var(--purple,#9B6DFF) 12%, var(--s2)), var(--s2)); border:1px solid color-mix(in srgb, var(--purple,#9B6DFF) 30%, var(--br)); border-radius:12px; font-size:13px; line-height:1.6; color:var(--t); }
+.d2d-coach-err { margin-top:10px; padding:10px 12px; background:var(--s2); border:1px solid var(--br); border-radius:8px; font-size:12px; color:var(--m); }
 .d2d-aq-big { font:900 26px 'Barlow Condensed',sans-serif; color:var(--green); line-height:1; }
 .d2d-aq-sub { font-size:11px; color:var(--m); font-weight:600; }
 .d2d-aq-clean { font:700 12px 'Barlow Condensed',sans-serif; color:var(--green); text-transform:uppercase; letter-spacing:.05em; }

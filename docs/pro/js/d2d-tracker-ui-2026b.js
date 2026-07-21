@@ -1236,6 +1236,13 @@
         unverified: { c: 'var(--red)',   t: '🔴 Unverified' }
       };
       html += `
+        <!-- AI Sales Coach -->
+        <div class="d2d-block">
+          <div class="d2d-block-title">🧠 AI Sales Coach</div>
+          <button class="d2d-action-btn" style="background:var(--purple,#9B6DFF);width:100%;justify-content:center;" data-d2d-action="runCoach">🧠 Get today's game plan</button>
+          <div id="d2d-coach-out" class="d2d-coach-out"></div>
+        </div>
+
         <!-- Address Data Quality -->
         <div class="d2d-block">
           <div class="d2d-block-title">🔍 Address Data Quality</div>
