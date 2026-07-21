@@ -73,6 +73,13 @@
   --z-overlay:10000;    /* modal overlays, lightbox baseline */
   --z-overlay-top:10001;/* must beat an open overlay (lightbox over a modal) */
   --z-toast:10002;      /* toasts above everything */
+  /* Status strip — ABOVE --z-toast by design (see dashboard-app.css for the
+     full rationale): the offline banner annotates the save toasts, so it
+     must outrank them and stay readable over an open modal. This page loads
+     offline-banner.js but NOT alert-health-banner.js, so only the status
+     token is mirrored here — same partial-mirror convention as the rest of
+     this block. */
+  --z-banner-status:10006;
   --t-fast:.12s;
   --t-mid:.18s;
   --t-slow:.32s;

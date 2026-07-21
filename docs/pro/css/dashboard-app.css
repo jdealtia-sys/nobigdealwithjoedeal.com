@@ -20,7 +20,6 @@
   --z-sticky:50;        /* sticky headers, kanban column tops, action bars */
   --z-dropdown:200;     /* dropdowns, popovers, autocomplete */
   --z-modal:9000;       /* legacy alias (decision-engine) — new code uses --z-overlay */
-  --z-banner:9500;      /* trial banner, offline banner */
   --z-loader:9900;      /* full-screen loaders */
   --z-emergency:9999;   /* truly above everything below the overlay layer */
   /* ── Cert-round 2026-07-19 truth (top of the stack, in order):
@@ -32,6 +31,23 @@
   --z-overlay:10000;    /* .modal-bg, cmd palette, full-screen overlays */
   --z-overlay-top:10001;/* must beat an open overlay: shortcuts panel, nested confirms */
   --z-toast:10002;      /* toasts above everything */
+  /* ── Status strips (2026-07-20). Fixed, full-width, top:0. These sit
+     ABOVE --z-toast on purpose — it is a deliberate layering call, not a
+     stray literal:
+       - offline-banner exists to EXPLAIN the toasts a rep sees while
+         offline ("saves will queue"), so it must not rank below the very
+         toasts it annotates;
+       - a toast is transient and self-dismissing, the outage is not —
+         letting a 3s element occlude persistent, still-true system state
+         is the worse failure;
+       - both must stay readable over an open modal (--z-overlay), which
+         is exactly where a queued save originates.
+     A previous pass nearly wired these to a 9500 "banner" token, which
+     would have silently dropped them UNDER every modal backdrop. That
+     token had zero consumers and is now gone so the mistake can't recur.
+     10003–10005 stay free; 10005 is taken by lead-score-alert.js. */
+  --z-banner-status:10006;  /* offline / network status strip */
+  --z-banner-alert:10007;   /* lead-alert delivery health — outranks offline */
 }
 /* ══ DESIGN TOKENS (Wave 4 2026-05-14) ════════════════════════════════
    Typography, spacing, radius, and tap-target scales. New components

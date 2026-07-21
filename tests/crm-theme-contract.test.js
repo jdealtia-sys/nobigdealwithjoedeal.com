@@ -22,6 +22,11 @@
  *  6. Estimate Builder v2 + command palette follow theme tokens.
  *  7. prefers-reduced-motion blanket gate + focus-visible vocabulary +
  *     desktop pressed states exist in dashboard-app.css.
+ * 10. Banner z-index ladder: the fixed offline / delivery-health status
+ *     strips reference --z-banner-status / --z-banner-alert instead of
+ *     hardcoding 10006/10007, and those tokens stay above the toast and
+ *     overlay layers (see the block itself for the layering rationale).
+ *
  *  8. portal.html aliases --green/--orange (portal.js references were
  *     silently invalid); close-board generated page defines --orange so its
  *     color-mix glow renders.
@@ -201,6 +206,72 @@ ok('collapsed sidebar rail is scrollable',
   ok('portal + estimate-view derive a readable foreground for tenant accents',
     /--nbd-ink-on-orange/.test(read('docs/pro/js/portal.js'))
     && /--nbd-ink-on-orange/.test(read('docs/pro/js/estimate-view.js')));
+}
+
+// 10. Banner z-index contract (2026-07-20).
+// The two fixed status strips hardcoded 10006/10007 while the token scale
+// stopped at --z-toast:10002 and advertised a 9500 "--z-banner" tier that
+// had zero consumers. Runtime and documentation disagreed, and "fixing" it
+// by wiring the strips to 9500 would have dropped them under every modal
+// backdrop (--z-overlay:10000) — the silent demotion that got #1013 closed.
+// Resolution: the strips were RIGHT, the scale was incomplete. These guards
+// pin the ladder, the single source of truth, and the removed footgun.
+{
+  const css = read('docs/pro/css/dashboard-app.css');
+  // Matches a definition (`--x:123;`) but never a `var(--x)` reference.
+  const num = (src, name) => {
+    const m = new RegExp('--' + name + ':\\s*(\\d+)\\s*;').exec(src);
+    return m ? Number(m[1]) : NaN;
+  };
+
+  const LADDER = ['z-fab', 'z-overlay', 'z-overlay-top', 'z-toast',
+    'z-banner-status', 'z-banner-alert'];
+  const vals = LADDER.map((n) => num(css, n));
+  ok('every layer of the documented ladder is defined',
+    vals.every(Number.isFinite),
+    LADDER.map((n, i) => n + '=' + vals[i]).join(' '));
+  ok('ladder ascends: fab < overlay < overlay-top < toast < banner-status < banner-alert',
+    vals.every((v, i) => i === 0 || v > vals[i - 1]), vals.join(' < '));
+
+  // The deliberate layering call, asserted on its own so a future edit that
+  // "tidies" the strips below the toast layer fails loudly here.
+  ok('offline status strip sits ABOVE the toast layer (it annotates those toasts)',
+    num(css, 'z-banner-status') > num(css, 'z-toast'));
+  ok('status strips sit above the overlay layer (readable over an open modal)',
+    num(css, 'z-banner-status') > num(css, 'z-overlay-top'));
+  ok('delivery-health strip outranks the offline strip',
+    num(css, 'z-banner-alert') > num(css, 'z-banner-status'));
+  ok('no low "--z-banner" tier exists to re-demote the strips under modals',
+    !/--z-banner:\s*\d+/.test(css));
+
+  // One source of truth: the strips reference tokens, and the inline
+  // fallback literal may not drift from the token it mirrors.
+  const STRIPS = [
+    ['docs/pro/js/offline-banner.js', 'z-banner-status'],
+    ['docs/pro/js/alert-health-banner.js', 'z-banner-alert'],
+  ];
+  for (const [rel, token] of STRIPS) {
+    const s = read(rel);
+    const m = new RegExp('z-index:var\\(--' + token + ',\\s*(\\d+)\\)').exec(s);
+    ok(rel + ' references var(--' + token + ')', !!m);
+    ok(rel + ' fallback literal matches the token value',
+      !!m && Number(m[1]) === num(css, token),
+      m ? 'fallback=' + m[1] + ' token=' + num(css, token) : 'no var() reference');
+    ok(rel + ' has no bare numeric z-index left', !/z-index:\s*\d/.test(s));
+    ok(rel + ' uses no inline on*= handler', !/\son[a-z]+\s*=\s*["']/.test(s));
+  }
+  ok('alert-health dismiss is a delegated listener in the rendering file',
+    /close\.addEventListener\('click'/.test(read('docs/pro/js/alert-health-banner.js')));
+
+  // customer.html loads offline-banner.js but NOT dashboard-app.css, so its
+  // inline mirror must carry the same value or the strip silently falls back
+  // on that page alone.
+  const cust = read('docs/pro/customer.html');
+  ok('customer.html mirrors --z-banner-status at the canonical value',
+    num(cust, 'z-banner-status') === num(css, 'z-banner-status'),
+    'customer=' + num(cust, 'z-banner-status') + ' canonical=' + num(css, 'z-banner-status'));
+  ok('customer.html mirror keeps the strip above that page\'s toast layer',
+    num(cust, 'z-banner-status') > num(cust, 'z-toast'));
 }
 
 console.log('\n──────────────────────────────────────────────────');

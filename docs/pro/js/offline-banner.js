@@ -35,7 +35,13 @@
     banner.setAttribute('role', 'status');
     banner.setAttribute('aria-live', 'polite');
     banner.style.cssText =
-      'position:fixed;top:0;left:0;right:0;z-index:10006;' +
+      // z: --z-banner-status (dashboard-app.css :root; customer.html mirrors
+      // it inline since it doesn't load that sheet). Deliberately ABOVE
+      // --z-toast — this banner explains the save toasts, so it must not
+      // rank below them, and it has to stay readable over an open modal.
+      // Literal fallback kept so a page that somehow ships without the
+      // token degrades to today's value instead of z-index:auto.
+      'position:fixed;top:0;left:0;right:0;z-index:var(--z-banner-status,10006);' +
       'background:#fbbf24;color:#1a1a1a;font:inherit;font-size:13px;' +
       'font-weight:600;padding:8px 14px;text-align:center;' +
       'box-shadow:0 2px 8px rgba(0,0,0,0.18);' +

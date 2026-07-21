@@ -47,7 +47,10 @@
     banner.id = BANNER_ID;
     banner.setAttribute('role', 'alert');
     banner.style.cssText =
-      'position:fixed;top:0;left:0;right:0;z-index:10007;' +
+      // z: --z-banner-alert (dashboard-app.css :root) — one step above
+      // --z-banner-status so a delivery outage still reads when the rep is
+      // also offline. Literal fallback mirrors the token's value.
+      'position:fixed;top:0;left:0;right:0;z-index:var(--z-banner-alert,10007);' +
       'background:#dc2626;color:#fff;font-size:13px;font-weight:600;' +
       'padding:8px 40px 8px 14px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.25);';
     banner.textContent =
