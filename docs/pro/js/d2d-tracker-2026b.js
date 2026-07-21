@@ -37,7 +37,9 @@
     // Address data-quality / re-verify queue
     reverifyKnock: (id) => state.reverifyKnock(id),
     reverifyPending: () => state.reverifyPending(25),
+    reverifyTeam: () => state.reverifyTeam(300),
     getAddressQuality: state.getAddressQuality,
+    loadPropertyIntel: state.loadPropertyIntel,
     openKnockDetail: state.openKnockDetail,
     closeKnockDetail: state.closeKnockDetail,
     // These have data-d2d-action triggers in the UI (photo thumbnails in the

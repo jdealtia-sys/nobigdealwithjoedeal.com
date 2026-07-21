@@ -882,8 +882,55 @@
       '</div>';
   }
 
+  // ── Doors Verified KPI (D2D address data quality) ──
+  // Appended to the Home KPI row after renderKPIRow(). computeKPIs()/renderKPIRow()
+  // are synchronous and don't load knocks, so this fetches its own (owner-scoped,
+  // no composite index) and only shows the card when the rep actually canvasses.
+  async function renderDoorsVerifiedCard() {
+    const grid = document.querySelector('#kpiRow .kpi-grid');
+    if (!grid || document.getElementById('kpi-doors-verified')) return;
+    const db = window._db || window.db;
+    const uid = window._user && window._user.uid;
+    let knocks = Array.isArray(window._knocks) ? window._knocks : null;
+    if (!knocks && db && uid && window.getDocs && window.collection && window.query && window.where) {
+      try {
+        const snap = await window.getDocs(
+          window.query(window.collection(db, 'knocks'), window.where('userId', '==', uid)));
+        knocks = snap.docs.map(d => Object.assign({ id: d.id }, d.data()));
+        window._knocks = knocks; // cache for reports/analytics
+      } catch (e) { knocks = []; }
+    }
+    knocks = knocks || [];
+    // Dedupe to the most-recent knock per address (mirrors D2D getAddressQuality).
+    const latest = {};
+    knocks.forEach(function (k) {
+      if (!k.address) return;
+      const key = String(k.address).toLowerCase().trim().replace(/\s+/g, ' '); // match D2D normalizeAddress
+      const c = k.createdAt;
+      const ms = c && c.seconds ? c.seconds * 1000 : (c instanceof Date ? c.getTime() : (typeof c === 'number' ? c : 0));
+      if (!latest[key] || ms > latest[key]._ms) { k._ms = ms; latest[key] = k; }
+    });
+    const doors = Object.keys(latest).map(function (k) { return latest[k]; });
+    const total = doors.length;
+    if (total === 0) return; // no D2D activity → no card
+    const verified = doors.filter(function (k) { return k.addrConfidence === 'verified'; }).length;
+    const pct = Math.round((verified / total) * 100);
+    const accent = pct >= 80 ? 'var(--green,#2ECC8A)' : pct >= 50 ? 'var(--gold,#D4A017)' : 'var(--orange,#e8720c)';
+    grid.insertAdjacentHTML('beforeend',
+      '<div class="kpi-card" id="kpi-doors-verified" data-ak-action="goTo" data-ak-target="d2d" role="button" ' +
+        'title="Open Door-to-Door" style="cursor:pointer;border-left:3px solid ' + accent + ';">' +
+        '<div class="kpi-icon">📍</div>' +
+        '<div class="kpi-data">' +
+          '<div class="kpi-value">' + pct + '%</div>' +
+          '<div class="kpi-label">Doors Verified</div>' +
+          '<div class="kpi-sub">' + verified + ' of ' + total + ' addresses</div>' +
+        '</div>' +
+      '</div>');
+  }
+
   // ── Public API ──
   window.renderKPIRow = renderKPIRow;
+  window.renderDoorsVerifiedCard = renderDoorsVerifiedCard;
   window.computeKPIs = computeKPIs;
 
   window.AnalyticsKPI = {

@@ -279,15 +279,15 @@
 
         <div class="d2d-field-label" style="margin-top:12px;">Select Disposition:</div>
         ${[
-          { title: 'Hot', icon: '🔥', keys: ['appointment', 'ins_has_claim', 'ins_needs_file', 'storm_damage', 'interested', 'callback'] },
-          { title: 'Follow-up', icon: '🔁', keys: ['come_back', 'left_material', 'not_home'] },
-          { title: 'Cold', icon: '❄️', keys: ['not_interested', 'ins_denied', 'tenant', 'vacant', 'do_not_knock', 'cold_dead'] }
+          { title: 'Hot & Warm', icon: '🔥', keys: ['appointment', 'ins_has_claim', 'ins_needs_file', 'storm_damage', 'interested', 'come_back', 'callback'] },
+          { title: 'Follow-up (no answer)', icon: '🔁', keys: ['revisit', 'not_home', 'left_material'] },
+          { title: 'Cold / Skip', icon: '❄️', keys: ['tenant', 'not_interested', 'ins_denied', 'vacant', 'do_not_knock', 'cold_dead'] }
         ].map(g => `
           <div class="d2d-dispo-group-label">${g.icon} ${g.title}</div>
           <div class="d2d-dispo-grid">
             ${g.keys.map(key => {
               const d = DISPOSITIONS[key];
-              return `<button class="d2d-dispo-btn" data-dispo="${key}" data-d2d-action="selectDispo" data-d2d-id="${key}" style="--dc:${d.color};">
+              return `<button class="d2d-dispo-btn" data-dispo="${key}" data-d2d-action="selectDispo" data-d2d-id="${key}" style="--dc:${d.color};" title="${esc(d.desc || d.label)}">
                 <span class="d2d-dispo-icon">${d.icon}</span>
                 <span class="d2d-dispo-label">${d.label}</span>
               </button>`;
@@ -755,6 +755,13 @@
         ${knock.notes ? `<div class="d2d-detail-section"><label class="d2d-detail-label">Notes</label><div class="d2d-detail-notes">${esc(knock.notes)}</div></div>` : ''}
 
         ${knock.followUpDate ? `<div class="d2d-detail-section"><label class="d2d-detail-label">Follow-up</label><div class="d2d-detail-value">${state.formatDate(knock.followUpDate)}</div></div>` : ''}
+
+        <div class="d2d-detail-section">
+          <label class="d2d-detail-label">🏠 Property</label>
+          <div id="d2d-pi-${safeId}" class="d2d-pi-wrap">
+            <button class="d2d-action-btn" style="background:var(--s2);color:var(--t);border:1px solid var(--br);width:100%;justify-content:center;" data-d2d-action="loadPropertyIntel" data-d2d-id="${safeId}">🏠 Load owner &amp; roof intel</button>
+          </div>
+        </div>
 
         ${knock.photoUrls?.length ? `<div class="d2d-detail-section"><label class="d2d-detail-label">Photos (${knock.photoUrls.length})</label><div class="d2d-photo-grid">${knock.photoUrls.map(url => `<img src="${esc(url)}" class="d2d-photo-thumb" loading="lazy" data-d2d-action="openImage" data-d2d-id="${esc(url)}" data-d2d-on-error="brokenPhoto">`).join('')}</div></div>` : ''}
 
@@ -1235,7 +1242,10 @@
           <div class="d2d-aq-card">
             <div class="d2d-aq-head">
               <div><span class="d2d-aq-big">${aqPct}%</span> <span class="d2d-aq-sub">${aq.verified}/${aq.totalDoors} doors verified</span></div>
-              ${aq.needsReview > 0 ? `<button class="d2d-action-btn" style="background:var(--orange);" data-d2d-action="reverifyPending">🔁 Re-verify ${Math.min(aq.needsReview, 25)}</button>` : '<span class="d2d-aq-clean">✓ All clear</span>'}
+              <div class="d2d-aq-actions">
+                ${aq.needsReview > 0 ? `<button class="d2d-action-btn" style="background:var(--orange);" data-d2d-action="reverifyPending">🔁 Re-verify ${Math.min(aq.needsReview, 25)}</button>` : '<span class="d2d-aq-clean">✓ All clear</span>'}
+                ${(() => { const c = window._userClaims || {}; const admin = c.owner === true || c.role === 'admin' || c.role === 'company_admin' || window._role === 'admin'; return admin ? `<button class="d2d-action-btn" style="background:var(--purple,#9B6DFF);" data-d2d-action="reverifyTeam" title="Re-verify the whole team's addresses (owner/admin)">🏢 Team</button>` : ''; })()}
+              </div>
             </div>
             <div class="d2d-aq-bar"><div class="d2d-aq-fill" style="width:${aqPct}%;"></div></div>
             ${aq.needsReview > 0 ? `

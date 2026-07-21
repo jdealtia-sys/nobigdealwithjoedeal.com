@@ -234,4 +234,13 @@ exports.resolveAddress = onCall(
   }
 );
 
+// Reusable geocoder helpers — shared with handlers/reverify-knocks.js so the
+// server-side bulk re-verify scores addresses IDENTICALLY to the live path.
+exports._googleForward = googleForward;
+exports._regridAddress = regridAddress;
+exports._parseGoogleResult = parseGoogleResult;
+exports._parseRegridFeature = parseRegridFeature;
+exports._readCache = readCache;
+exports._writeCache = writeCache;
+
 module.exports = exports;
