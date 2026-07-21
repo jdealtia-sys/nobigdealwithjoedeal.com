@@ -144,8 +144,13 @@
           weight: 2
         });
         const when = h.at ? new Date(h.at).toLocaleDateString() : 'unknown date';
+        // h.source is a third-party vendor string (copied verbatim from the
+        // NOAA/IEM storm-report feed) rendered into innerHTML by bindPopup —
+        // escape it so markup in the feed can't inject into the /pro page.
+        const src = String(h.source || 'unknown').replace(/[&<>"']/g, c => (
+          { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
         m.bindPopup('<strong>' + size.toFixed(2) + '&quot; hail</strong><br>'
-          + when + '<br><small>source: ' + (h.source || 'unknown') + '</small>');
+          + when + '<br><small>source: ' + src + '</small>');
         layer.addLayer(m);
         // If the provider returned a swath polygon (HailTrace does),
         // draw it under the marker.
