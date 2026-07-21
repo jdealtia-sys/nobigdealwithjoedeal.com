@@ -38,6 +38,7 @@
     reverifyKnock: (id) => state.reverifyKnock(id),
     reverifyPending: () => state.reverifyPending(25),
     reverifyTeam: () => state.reverifyTeam(300),
+    runCoach: state.runCoach,
     getAddressQuality: state.getAddressQuality,
     loadPropertyIntel: state.loadPropertyIntel,
     openKnockDetail: state.openKnockDetail,

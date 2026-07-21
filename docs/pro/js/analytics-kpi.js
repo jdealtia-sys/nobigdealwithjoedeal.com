@@ -638,9 +638,9 @@
     fetchAllData().then(function (data) {
       var m = computeFullAnalytics(data);
       renderDashboardHTML(el, m);
-      // This el.innerHTML= wipes #analyticsContainer's children, including the
-      // AI Texting card (a child div appended by AiTextingStatsCard). Re-mount
-      // it AFTER our async render wins the race, or it silently disappears.
+      // renderDashboardHTML's el.innerHTML= wipes children, so re-append these
+      // after each render (matches the AI Texting card's re-mount pattern).
+      renderD2DCommandCenter(el);
       if (window.AiTextingStatsCard && typeof window.AiTextingStatsCard.render === 'function') {
         window.AiTextingStatsCard.render();
       }
@@ -928,9 +928,117 @@
       '</div>');
   }
 
+  // ── Owner Command Center (D2D→revenue attribution + rep leaderboard + funnel) ──
+  // Appended to the board Analytics view. Leads minted from D2D carry
+  // source:'Door-to-Door' + d2dKnockId (the link back to the knock); leads DON'T
+  // carry repName, so revenue is attributed to a rep by joining lead.d2dKnockId
+  // → knock.repName. Own-uid data for a solo owner == the whole company.
+  function _isConvo(dispo) {
+    const D = (window.D2D && window.D2D.DISPOSITIONS) || (window._D2DState && window._D2DState.DISPOSITIONS);
+    // DISPOSITIONS loaded → an unknown/blank key is NOT a conversation.
+    if (D) return !!(D[dispo] && D[dispo].contact);
+    return !!dispo && !['not_home', 'revisit', 'left_material', 'vacant', 'do_not_knock', 'cold_dead'].includes(dispo);
+  }
+  let _ccRendering = false;
+  async function renderD2DCommandCenter(el) {
+    if (!el || _ccRendering || document.getElementById('ak-d2d-cc')) return;
+    const c = window._userClaims || {};
+    const isBoss = c.owner === true || c.role === 'admin' || c.role === 'company_admin' || c.role === 'manager' || window._role === 'admin';
+    if (!isBoss) return;
+    _ccRendering = true;
+    try {
+      const leads = Array.isArray(window._leads) ? window._leads : [];
+      const d2dLeads = leads.filter(l => l.source === 'Door-to-Door' || l.d2dKnockId);
+
+      // Knocks: for a manager/admin the leads book is company-wide, but
+      // window._knocks is own-uid only — so the rep-attribution join needs every
+      // rep's knocks. Only admin/manager can read company knocks per the rules;
+      // anyone else (owner-of-own-data, viewer) uses their own set and unmatched
+      // revenue lands in an explicit 'Unattributed' bucket (keeps the leaderboard
+      // total equal to the headline). Solo owner: own == whole company.
+      let knocks = Array.isArray(window._knocks) ? window._knocks : [];
+      const canReadTeam = c.role === 'admin' || c.role === 'manager' || window._role === 'admin';
+      if (canReadTeam && c.companyId && window._db && window.getDocs && window.collection && window.query && window.where) {
+        try {
+          const snap = await window.getDocs(window.query(window.collection(window._db, 'knocks'), window.where('companyId', '==', c.companyId)));
+          knocks = snap.docs.map(d => Object.assign({ id: d.id }, d.data()));
+        } catch (e) { /* permission/network — keep own-uid knocks */ }
+      }
+      if (!knocks.length && !d2dLeads.length) return;      // no D2D activity
+      if (document.getElementById('ak-d2d-cc')) return;    // re-check after await
+
+      const knockById = {};
+      knocks.forEach(k => { knockById[k.id] = k; });
+      const wonD2D = d2dLeads.filter(_isWon);
+      const d2dRevenue = wonD2D.reduce((s, l) => s + (Number(l.jobValue) || 0), 0);
+
+      // Funnel counts are UNIQUE-DOOR based so stages stay monotonic (a door that
+      // reached a stage counts once), matching the deduped Doors denominator.
+      const norm = (a) => String(a || '').toLowerCase().trim().replace(/\s+/g, ' ');
+      const doorSet = new Set(), convoSet = new Set(), apptSet = new Set(), convertedSet = new Set();
+      knocks.forEach(k => {
+        const key = norm(k.address); if (!key) return;
+        doorSet.add(key);
+        if (_isConvo(k.disposition)) convoSet.add(key);
+        if (k.disposition === 'appointment') apptSet.add(key);
+        if (k.convertedToLead) convertedSet.add(key);
+      });
+      const uniqDoors = doorSet.size, convos = convoSet.size, appts = apptSet.size, converted = convertedSet.size, won = wonD2D.length;
+
+      const byRep = {};
+      const bump = (r) => byRep[r] || (byRep[r] = { knocks: 0, appts: 0, converted: 0, revenue: 0 });
+      knocks.forEach(k => { const s = bump(k.repName || 'You'); s.knocks++; if (k.disposition === 'appointment') s.appts++; if (k.convertedToLead) s.converted++; });
+      wonD2D.forEach(l => { const k = knockById[l.d2dKnockId]; bump((k && k.repName) || 'Unattributed').revenue += Number(l.jobValue) || 0; });
+      const reps = Object.keys(byRep).map(name => Object.assign({ name }, byRep[name])).sort((a, b) => b.revenue - a.revenue || b.appts - a.appts);
+
+      const fmt$ = (n) => '$' + Math.round(n).toLocaleString();
+      const clampPct = (n, d) => d > 0 ? Math.min(100, Math.round(n / d * 100)) : 0;
+      // Monotonic by construction: converted ⊆ conversations ⊆ doors, won ⊆
+      // converted. (Appointments live in the card row, not here — they're not a
+      // strict funnel stage between conversation and conversion.)
+      const funnel = [
+        { label: 'Doors', val: uniqDoors, color: 'var(--m,#6B7280)' },
+        { label: 'Conversations', val: convos, color: 'var(--gold,#D4A017)' },
+        { label: 'Converted to Lead', val: converted, color: 'var(--purple,#9B6DFF)' },
+        { label: 'Won', val: won, color: 'var(--green,#2ECC8A)' }
+      ];
+      const maxF = Math.max.apply(null, funnel.map(f => f.val).concat([1])); // scale to the LARGEST stage — never overflow
+      const maxRepRev = Math.max.apply(null, reps.map(r => r.revenue).concat([1]));
+
+      const html =
+        '<div id="ak-d2d-cc">' +
+          '<div class="ak-panel"><div class="ak-panel-hdr">🚪 Door-to-Door Command Center</div><div class="ak-panel-body">' +
+            '<div class="ak-grid">' +
+              '<div class="ak-card blue"><div class="ak-lbl">Doors Knocked</div><div class="ak-val">' + uniqDoors.toLocaleString() + '</div><div class="ak-sub">' + convos.toLocaleString() + ' conversations</div></div>' +
+              '<div class="ak-card cyan"><div class="ak-lbl">Appointments</div><div class="ak-val">' + appts.toLocaleString() + '</div><div class="ak-sub">' + clampPct(appts, uniqDoors) + '% of doors</div></div>' +
+              '<div class="ak-card orange"><div class="ak-lbl">D2D Leads Won</div><div class="ak-val">' + won.toLocaleString() + '</div><div class="ak-sub">' + converted.toLocaleString() + ' doors converted</div></div>' +
+              '<div class="ak-card green"><div class="ak-lbl">D2D Revenue</div><div class="ak-val">' + fmt$(d2dRevenue) + '</div><div class="ak-sub">' + (won > 0 ? fmt$(d2dRevenue / won) + ' avg' : 'from door knocks') + '</div></div>' +
+            '</div>' +
+            '<div style="font-weight:700;font-size:12px;color:var(--m);text-transform:uppercase;letter-spacing:.05em;margin:14px 0 8px;">Conversion Funnel</div>' +
+            funnel.map(f => {
+              const w = Math.max(f.val / maxF * 100, f.val > 0 ? 4 : 0);
+              return '<div class="ak-bar-row"><div class="ak-bar-label">' + f.label + '</div>' +
+                '<div class="ak-bar-track"><div class="ak-bar-fill" style="width:' + w + '%;background:' + f.color + ';"></div></div>' +
+                '<div class="ak-bar-count">' + f.val.toLocaleString() + '</div></div>';
+            }).join('') +
+          '</div></div>' +
+          '<div class="ak-panel"><div class="ak-panel-hdr">🏆 Rep Leaderboard (Door-to-Door)</div><div class="ak-panel-body">' +
+            (reps.length ? reps.slice(0, 10).map((r, i) => {
+              const w = Math.max(r.revenue / maxRepRev * 100, r.revenue > 0 ? 4 : 2);
+              return '<div class="ak-bar-row"><div class="ak-bar-label">' + (i + 1) + '. ' + esc(r.name) + '</div>' +
+                '<div class="ak-bar-track"><div class="ak-bar-fill" style="width:' + w + '%;background:var(--green,#2ECC8A);"></div></div>' +
+                '<div class="ak-bar-count" title="' + r.knocks + ' knocks · ' + r.appts + ' appts">' + fmt$(r.revenue) + '</div></div>';
+            }).join('') : '<div class="ak-sub">No rep activity yet.</div>') +
+          '</div></div>' +
+        '</div>';
+      el.insertAdjacentHTML('beforeend', html);
+    } finally { _ccRendering = false; }
+  }
+
   // ── Public API ──
   window.renderKPIRow = renderKPIRow;
   window.renderDoorsVerifiedCard = renderDoorsVerifiedCard;
+  window.renderD2DCommandCenter = renderD2DCommandCenter;
   window.computeKPIs = computeKPIs;
 
   window.AnalyticsKPI = {
