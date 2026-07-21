@@ -1131,7 +1131,16 @@
     else if (age >= 15) score -= 15; else if (age >= 10) score -= 5;
     return Math.max(0, Math.min(100, score));
   }
-  function renderPropertyIntel(target, intel) {
+  // Instant doorstep ballpark from county building sqft — the same $/living-sqft
+  // basis the estimate/property-intel views use. Rough on purpose; the precise
+  // number comes from an ordered aerial measurement.
+  function _ballpark(sqft) {
+    const a = Number(sqft) || 0;
+    if (a < 200) return null;
+    const round500 = (n) => Math.max(2500, Math.round(n / 500) * 500);
+    return { min: round500(a * 6.5), max: round500(a * 7.8) };
+  }
+  function renderPropertyIntel(target, intel, knockId) {
     if (!target) return;
     if (!intel) { target.innerHTML = '<div class="d2d-pi-empty">No county record found for this address.</div>'; return; }
     const s = intel.roofScore;
@@ -1141,19 +1150,107 @@
     if (intel.yearBuilt) rows.push(['Built', intel.yearBuilt + (intel.roofAge != null ? ' · ~' + intel.roofAge + 'yr roof' : '')]);
     if (intel.assessedValue) rows.push(['Assessed', '$' + Number(intel.assessedValue).toLocaleString()]);
     if (intel.sqft) rows.push(['Size', Number(intel.sqft).toLocaleString() + ' sqft']);
+    const bp = _ballpark(intel.sqft);
+    if (bp) rows.push(['Ballpark', '$' + bp.min.toLocaleString() + '–$' + bp.max.toLocaleString()]);
     if (!rows.length) { target.innerHTML = '<div class="d2d-pi-empty">County record found, but no owner/build detail.</div>'; return; }
     target.innerHTML =
       '<div class="d2d-pi-card">' +
         (s != null ? '<div class="d2d-pi-score" style="background:' + col + ';">' + s + '<span>ROOF</span></div>' : '') +
         '<div class="d2d-pi-rows">' + rows.map(r => '<div class="d2d-pi-row"><span class="d2d-pi-k">' + r[0] + '</span><span class="d2d-pi-v">' + r[1] + '</span></div>').join('') + '</div>' +
-      '</div>';
+      '</div>' +
+      (knockId ? '<button class="d2d-pi-order" data-d2d-action="orderRoofReport" data-d2d-id="' + esc(knockId) + '">📐 Order precise roof report</button>' : '') +
+      '<div class="d2d-pi-measurebox" id="d2d-rr-' + esc(knockId || '') + '"></div>';
+  }
+
+  // Precise roof measurement (paid aerial report) — confirm + per-address guard
+  // because each order bills a vendor $30–50 and there's no server-side dedup.
+  function _measureKey(addr) { return 'nbd_d2d_measure_' + normalizeAddress(addr); }
+  function renderMeasurement(box, meas) {
+    if (!box) return;
+    const rawSqft = Number(meas && meas.rawSqft) || 0;
+    const sq = rawSqft > 0 ? (rawSqft * 1.17 / 100) : 0; // 1.17 waste factor → squares
+    const est = sq > 0 ? Math.max(2500, Math.round((sq * 595) / 25) * 25) : null; // 595 $/SQ (better tier)
+    const rows = [];
+    if (sq > 0) rows.push(['Roof', sq.toFixed(1) + ' squares']);
+    if (meas && meas.pitch) rows.push(['Pitch', esc(String(meas.pitch))]);
+    if (est) rows.push(['Est. job', '$' + est.toLocaleString()]);
+    // Vendor-supplied URL: http(s) only (blocks javascript:) + escapeHtml (esc
+    // does NOT escape the quote that closes the href attribute).
+    if (meas && meas.reportUrl && /^https?:\/\//i.test(String(meas.reportUrl))) {
+      rows.push(['Report', '<a href="' + escapeHtml(String(meas.reportUrl)) + '" target="_blank" rel="noopener" class="d2d-detail-link">Open PDF ↗</a>']);
+    }
+    box.innerHTML = '<div class="d2d-pi-measure-hd">📐 Precise measurement</div>' +
+      rows.map(r => '<div class="d2d-pi-row"><span class="d2d-pi-k">' + r[0] + '</span><span class="d2d-pi-v">' + r[1] + '</span></div>').join('');
+  }
+  function pollMeasurement(jobId, knockId, statusEl) {
+    const box = statusEl || document.getElementById('d2d-rr-' + knockId);
+    if (!box || !window.getDoc || !window.doc || !window._db) return;
+    let tries = 0;
+    const tick = async () => {
+      tries++;
+      try {
+        const snap = await window.getDoc(window.doc(window._db, 'measurements', jobId));
+        const d = (snap && snap.exists && snap.exists()) ? snap.data() : null;
+        if (d && d.status === 'ready' && d.measurements) { renderMeasurement(box, d.measurements); return; }
+      } catch (_) {}
+      if (tries < 120) setTimeout(tick, 5000); // ~10 min
+    };
+    tick();
+  }
+  async function orderRoofReport(knockId, btnEl) {
+    const knock = state.knocks.find(k => k.id === knockId);
+    if (!knock || !knock.address) return;
+    const box = document.getElementById('d2d-rr-' + knockId);
+    const key = _measureKey(knock.address);
+    const prior = (() => { try { return localStorage.getItem(key); } catch (_) { return null; } })();
+    if (prior && prior.indexOf('pending:') === 0) {
+      // An order for this address is mid-flight (claimed before the paid call).
+      // A recent claim blocks a duplicate; a stale one (>2 min, e.g. a crash mid-
+      // order) is allowed to retry.
+      if (Date.now() - (Number(prior.slice(8)) || 0) < 120000) { window.showToast?.('An order for this address is already in progress', 'info'); return; }
+    } else if (prior) {
+      window.showToast?.('Already ordered for this address — checking status', 'info');
+      if (box) box.innerHTML = '<div class="d2d-pi-measure-hd">📐 Measurement ordered — checking…</div>';
+      pollMeasurement(prior, knockId); return;
+    }
+    // Claim the address BEFORE the confirm + paid call so a second click / re-
+    // render can't start a parallel order (each vendor order bills $30–50 with
+    // no server-side dedup). Released on cancel or failure.
+    try { localStorage.setItem(key, 'pending:' + Date.now()); } catch (_) {}
+    const ok = await uiConfirm('Order a precise aerial roof measurement for this address? This buys a paid report from our measurement provider (used to build an exact estimate).', { okLabel: 'Order report' });
+    if (!ok) { try { localStorage.removeItem(key); } catch (_) {} return; }
+    if (btnEl) { btnEl.disabled = true; btnEl.textContent = '⏳ Ordering…'; }
+    try {
+      if (!window._functions || !window._httpsCallable) {
+        const mod = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-functions.js');
+        window._functions = window._functions || mod.getFunctions();
+        window._httpsCallable = window._httpsCallable || mod.httpsCallable;
+      }
+      const fn = window._httpsCallable(window._functions, 'requestMeasurement');
+      const res = await fn({ address: knock.address });
+      const d = (res && res.data) || {};
+      if (!d.jobId) throw new Error('no-job');
+      try { localStorage.setItem(key, d.jobId); } catch (_) {}
+      const eta = Number(d.estimatedMinutes) || 30;
+      if (btnEl) btnEl.style.display = 'none';
+      if (box) box.innerHTML = '<div class="d2d-pi-measure-hd">📐 ' + (d.status === 'ready' ? 'Measurement ready' : 'Ordered — ready in ~' + eta + ' min') + '</div>';
+      window.showToast?.(d.status === 'ready' ? 'Measurement ready!' : 'Report ordered — arrives in ~' + eta + ' min', 'success');
+      pollMeasurement(d.jobId, knockId);
+    } catch (e) {
+      try { localStorage.removeItem(key); } catch (_) {} // release the claim so a retry works
+      const code = String((e && (e.code || e.message)) || '');
+      const rl = /resource-exhausted|429/i.test(code);
+      const cfg = /failed-precondition|not.?set|configured/i.test(code);
+      window.showToast?.(rl ? 'Too many orders — try again in an hour' : cfg ? 'Measurement provider not set up' : 'Could not order the report', 'error');
+      if (btnEl) { btnEl.disabled = false; btnEl.textContent = '📐 Order precise roof report'; }
+    }
   }
   async function loadPropertyIntel(knockId, btnEl) {
     const knock = state.knocks.find(k => k.id === knockId);
     const target = document.getElementById('d2d-pi-' + knockId);
     if (!knock || !knock.address || !target) return;
     const key = normalizeAddress(knock.address);
-    if (_piCache.has(key)) { renderPropertyIntel(target, _piCache.get(key)); return; }
+    if (_piCache.has(key)) { renderPropertyIntel(target, _piCache.get(key), knockId); return; }
     if (btnEl) { btnEl.disabled = true; btnEl.textContent = '⏳ Loading…'; }
     try {
       if (!window._functions || !window._httpsCallable) {
@@ -1164,7 +1261,7 @@
       const fn = window._httpsCallable(window._functions, 'lookupParcel');
       const res = await fn({ address: knock.address });
       const p = (res && res.data && res.data.parcel) || null;
-      if (!p) { _piCache.set(key, null); renderPropertyIntel(target, null); return; }
+      if (!p) { _piCache.set(key, null); renderPropertyIntel(target, null, knockId); return; }
       const yr = Number(p.yearBuilt) || null;
       const roofAge = yr ? Math.max(0, new Date().getFullYear() - yr) : null;
       const intel = {
@@ -1174,7 +1271,7 @@
         county: p.county || null
       };
       _piCache.set(key, intel);
-      renderPropertyIntel(target, intel);
+      renderPropertyIntel(target, intel, knockId);
     } catch (e) {
       const rl = e && (e.code === 'resource-exhausted' || e.code === 'functions/resource-exhausted');
       window.showToast?.(rl ? 'Too many lookups — try again in an hour' : 'Property lookup unavailable', rl ? 'warning' : 'error');
@@ -3419,6 +3516,7 @@
   state.reverifyTeam = reverifyTeam;
   state.runCoach = runCoach;
   state.loadPropertyIntel = loadPropertyIntel;
+  state.orderRoofReport = orderRoofReport;
   state.loadWeather = loadWeather;
   state.getWeatherAlerts = getWeatherAlerts;
   state.calculateWalkingRoute = calculateWalkingRoute;
