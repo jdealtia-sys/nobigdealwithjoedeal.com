@@ -93,7 +93,7 @@
         'align-items:center',
         'gap:6px',
         'background:rgba(155,109,255,0.10)',
-        'color:#a890e8',
+        'color:var(--purple)',
         'border:1px solid rgba(155,109,255,0.35)',
         'border-radius:12px',
         'padding:2px 10px',

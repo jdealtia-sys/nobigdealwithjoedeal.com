@@ -76,7 +76,7 @@
       ? lead.snoozedReason.trim()
       : '';
     const reasonPill = reason
-      ? `<span style="display:inline-flex; align-items:center; gap:3px; margin-left:8px; padding:1px 8px; background:rgba(155,109,255,0.18); color:#cab8ff; border:1px solid rgba(155,109,255,0.45); border-radius:10px; font-size:10px; font-weight:600; letter-spacing:0.02em;">${escapeHtml(reason)}</span>`
+      ? `<span style="display:inline-flex; align-items:center; gap:3px; margin-left:8px; padding:1px 8px; background:rgba(155,109,255,0.18); color:var(--purple); border:1px solid rgba(155,109,255,0.45); border-radius:10px; font-size:10px; font-weight:600; letter-spacing:0.02em;">${escapeHtml(reason)}</span>`
       : '';
     // W74: stale-snooze indicator. When this lead has been snoozed
     // 3+ times (cumulative across unsnooze/re-snooze cycles) the
@@ -86,7 +86,7 @@
       ? window.LeadSnooze.isStaleSnooze(lead)
       : false;
     const stalePill = staleSnooze
-      ? `<span title="This lead has been snoozed ${lead.snoozeCount}+ times — consider a different action." style="display:inline-flex; align-items:center; gap:3px; margin-left:6px; padding:1px 8px; background:rgba(245,158,11,0.18); color:#fcd34d; border:1px solid rgba(245,158,11,0.45); border-radius:10px; font-size:10px; font-weight:600; letter-spacing:0.02em;">⚠️ Snoozed ${escapeHtml(String(lead.snoozeCount || 0))}×</span>`
+      ? `<span title="This lead has been snoozed ${lead.snoozeCount}+ times — consider a different action." style="display:inline-flex; align-items:center; gap:3px; margin-left:6px; padding:1px 8px; background:rgba(245,158,11,0.18); color:var(--gold); border:1px solid rgba(245,158,11,0.45); border-radius:10px; font-size:10px; font-weight:600; letter-spacing:0.02em;">⚠️ Snoozed ${escapeHtml(String(lead.snoozeCount || 0))}×</span>`
       : '';
     const banner = document.createElement('div');
     banner.id = 'nbd-snooze-banner';
@@ -104,20 +104,20 @@
     banner.innerHTML = `
       <span style="font-size:18px; line-height:1;">💤</span>
       <div style="flex:1; min-width:0;">
-        <div style="font-weight:700; color:#cab8ff; margin-bottom:1px; display:flex; align-items:center; flex-wrap:wrap;">Snoozed lead${reasonPill}${stalePill}</div>
+        <div style="font-weight:700; color:var(--purple); margin-bottom:1px; display:flex; align-items:center; flex-wrap:wrap;">Snoozed lead${reasonPill}${stalePill}</div>
         <div style="font-size:11px; color:var(--m,#9aa3b2);">
           Hidden from the kanban + Hot Leads + Needs Attention until
           <strong style="color:var(--t,#e8eaf0); font-weight:600;">${escapeHtml(label)}</strong>.
         </div>
       </div>
       <button id="nbd-snooze-banner-wake" type="button" style="
-        background:linear-gradient(135deg,#9b6dff 0%,#7c3aed 100%);
+        background:linear-gradient(135deg,var(--purple) 0%,#7c3aed 100%);
         color:#fff; border:none; padding:7px 14px; border-radius:6px;
         font: inherit; font-size:12px; font-weight:700;
         cursor:pointer; -webkit-tap-highlight-color:transparent;
         white-space:nowrap;">⏰ Wake up now</button>
       <button id="nbd-snooze-banner-resched" type="button" style="
-        background:transparent; color:#cab8ff;
+        background:transparent; color:var(--purple);
         border:1px solid rgba(155,109,255,0.45);
         padding:6px 12px; border-radius:6px;
         font: inherit; font-size:11px; font-weight:600;

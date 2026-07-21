@@ -455,7 +455,7 @@ function goTo(name, params = {}) {
           clearInterval(iv);
           console.error('D2D never loaded — d2d-tracker.js may have failed to load');
           const c = document.getElementById('d2dContent');
-          if (c) c.innerHTML = '<div class="empty"><div class="empty-icon">😕</div><p style="color:var(--m);font-size:14px;margin:8px 0 16px;">D2D Tracker failed to load.<br>Check your connection and try again.</p><button data-da-action="reload" style="background:var(--orange);color:#fff;border:none;border-radius:8px;padding:10px 20px;font-size:14px;font-weight:700;cursor:pointer;">Reload</button></div>';
+          if (c) c.innerHTML = '<div class="nbd-empty"><div class="ne-icon">😕</div><div class="ne-msg">D2D Tracker failed to load.</div><div class="ne-sub">Check your connection and try again.</div><button data-da-action="reload" style="background:var(--orange);color:var(--accent-fg);border:none;border-radius:8px;padding:10px 20px;font-size:14px;font-weight:700;cursor:pointer;">Reload</button></div>';
         }
       }, 50);
     }
@@ -486,7 +486,7 @@ function goTo(name, params = {}) {
         const c = document.getElementById('d2dContent');
         if (c && c.textContent.includes('Loading Door-to-Door')) {
           console.error('[d2d-watchdog] initD2D hung — replacing spinner with retry UI');
-          c.innerHTML = '<div class="empty"><div class="empty-icon">😕</div><p style="color:var(--m);font-size:14px;margin:8px 0 16px;">D2D Tracker took too long to load.<br>Check your connection and try again.</p><button data-da-action="reload" style="background:var(--orange);color:#fff;border:none;border-radius:8px;padding:10px 20px;font-size:14px;font-weight:700;cursor:pointer;">Reload</button></div>';
+          c.innerHTML = '<div class="nbd-empty"><div class="ne-icon">😕</div><div class="ne-msg">D2D Tracker took too long to load.</div><div class="ne-sub">Check your connection and try again.</div><button data-da-action="reload" style="background:var(--orange);color:var(--accent-fg);border:none;border-radius:8px;padding:10px 20px;font-size:14px;font-weight:700;cursor:pointer;">Reload</button></div>';
         }
       }, 14000);
     });

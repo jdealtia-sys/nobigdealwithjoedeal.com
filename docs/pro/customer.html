@@ -85,17 +85,6 @@
   --t-slow:.32s;
 }
 
-/* EMPTY STATES */
-.empty {
-  text-align:center;
-  padding:40px 20px;
-  color:var(--m);
-}
-.empty-icon {
-  font-size:48px;
-  opacity:.4;
-  margin-bottom:8px;
-}
 /* Add more themes as needed - for now just using default */
 
 /* consolidation 2026-07-19: scrollbars — this page shipped default OS
@@ -450,7 +439,7 @@ body.nbd-photo-reorder .nbd-photo-item.drop-after {
 }
 .nbd-photo-reorder-btn.active {
   background: var(--orange);
-  color: #fff;
+  color: var(--accent-fg);
 }
 
 /* UPLOAD ZONE */
@@ -506,7 +495,7 @@ body.nbd-photo-reorder .nbd-photo-item.drop-after {
 .preview-progress-pct {
   position:absolute; top:50%; left:50%;
   transform:translate(-50%, -50%);
-  background:rgba(0,0,0,.65); color:#fff;
+  background:rgba(0,0,0,.65); color:var(--accent-fg);
   padding:3px 8px; border-radius:10px;
   font-size:11px; font-weight:700;
   pointer-events:none; min-width:34px; text-align:center;
@@ -569,7 +558,7 @@ body.nbd-photo-reorder .nbd-photo-item.drop-after {
 }
 .lightbox-close, .lightbox-nav {
   position:absolute; background:rgba(255,255,255,.1);
-  border:none; color:#fff; cursor:pointer;
+  border:none; color:var(--accent-fg); cursor:pointer;
   width:48px; height:48px; border-radius:50%;
   font-size:32px; display:flex; align-items:center;
   justify-content:center; transition:background var(--t-mid);
@@ -840,7 +829,7 @@ body.nbd-photo-reorder .nbd-photo-item.drop-after {
 .nbd-photo-checkbox {
   position:absolute; top:6px; left:6px; z-index:2;
   width:22px; height:22px; border-radius:50%;
-  background:rgba(0,0,0,.5); border:2px solid #fff;
+  background:rgba(0,0,0,.5); border:2px solid var(--accent-fg);
   display:none; align-items:center; justify-content:center;
   cursor:pointer; transition:background .15s;
   pointer-events:none; /* clicks bubble to the tile delegate */
@@ -851,7 +840,7 @@ body.nbd-photo-selecting .nbd-photo-checkbox,
   background:var(--orange); border-color:var(--orange);
 }
 .nbd-phase-photo.is-selected .nbd-photo-checkbox::after {
-  content:"✓"; color:#fff; font-size:13px; font-weight:900;
+  content:"✓"; color:var(--accent-fg); font-size:13px; font-weight:900;
 }
 .nbd-phase-photo.is-selected {
   outline:3px solid var(--orange); outline-offset:-3px;
@@ -963,7 +952,7 @@ body.nbd-photo-selecting .nbd-photo-checkbox,
 .company-logo {
   width:48px; height:48px; background:var(--orange);
   border-radius:8px; display:flex; align-items:center;
-  justify-content:center; color:#fff; font-weight:700;
+  justify-content:center; color:var(--accent-fg); font-weight:700;
   font-size:14px; flex-shrink:0;
 }
 .company-info { flex:1; }
@@ -980,7 +969,7 @@ body.nbd-photo-selecting .nbd-photo-checkbox,
 }
 .quick-contact-btn {
   flex:1; padding:8px 12px; background:var(--orange);
-  color:#fff; border:none; border-radius:6px;
+  color:var(--accent-fg); border:none; border-radius:6px;
   font-size:11px; font-weight:600; cursor:pointer;
   transition:background var(--t-mid); display:flex; align-items:center;
   justify-content:center; gap:4px;
@@ -1239,7 +1228,7 @@ body.nbd-photo-selecting .nbd-photo-checkbox,
     <a href="#photosTab">Photos</a>
     <a href="#documentsTab">Documents</a>
     <a href="#voiceTab">Voice Intel</a>
-    <a href="#messagesTab">Messages <span id="msgUnreadBadge" style="display:none;background:var(--orange, #c8541a);color:#fff;font-size:10px;padding:1px 6px;border-radius:8px;margin-left:4px;font-weight:700;"></span></a>
+    <a href="#messagesTab">Messages <span id="msgUnreadBadge" style="display:none;background:var(--orange, #c8541a);color:var(--accent-fg);font-size:10px;padding:1px 6px;border-radius:8px;margin-left:4px;font-weight:700;"></span></a>
     <a href="#timelineTab">Timeline</a>
     <a href="#contactTab">Contact</a>
   </div>

@@ -68,7 +68,7 @@
     if (query.length < 1) return safe;
     // Escape regex special chars in the query.
     const re = new RegExp('(' + query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + ')', 'ig');
-    return safe.replace(re, '<mark style="background:var(--orange,#c8541a);color:#fff;padding:0 2px;border-radius:2px;font-weight:600;">$1</mark>');
+    return safe.replace(re, '<mark style="background:var(--orange,#c8541a);color:var(--accent-fg);padding:0 2px;border-radius:2px;font-weight:600;">$1</mark>');
   }
 
   // ─── Search ──────────────────────────────────────────────────────

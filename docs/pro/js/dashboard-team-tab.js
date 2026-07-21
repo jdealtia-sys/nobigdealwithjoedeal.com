@@ -450,7 +450,7 @@
           if (/verify your email/i.test(msg)) {
             say('An invite is waiting — verify your email address first, then try again.', 'var(--orange)');
           } else {
-            say('Check failed: ' + msg, '#c53030');
+            say('Check failed: ' + msg, 'var(--red)');
           }
         } finally {
           if (btn) { btn.disabled = false; btn.textContent = 'Check my invite now'; }

@@ -42,7 +42,7 @@
       // Literal fallback kept so a page that somehow ships without the
       // token degrades to today's value instead of z-index:auto.
       'position:fixed;top:0;left:0;right:0;z-index:var(--z-banner-status,10006);' +
-      'background:#fbbf24;color:#1a1a1a;font:inherit;font-size:13px;' +
+      'background:var(--gold);color:#1a1a1a;font:inherit;font-size:13px;' +
       'font-weight:600;padding:8px 14px;text-align:center;' +
       'box-shadow:0 2px 8px rgba(0,0,0,0.18);' +
       'padding-top:calc(8px + env(safe-area-inset-top, 0px));' +

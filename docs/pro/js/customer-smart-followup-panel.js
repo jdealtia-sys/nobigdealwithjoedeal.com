@@ -113,11 +113,11 @@
     // priorities read identically.
     let bg, color, border, accent, icon, label;
     if (sug.priority === 'urgent') {
-      bg = 'rgba(239,68,68,0.10)'; color = '#fca5a5'; border = 'rgba(239,68,68,0.45)'; accent = '#ef4444'; icon = '⚡'; label = 'Urgent';
+      bg = 'rgba(239,68,68,0.10)'; color = '#fca5a5'; border = 'rgba(239,68,68,0.45)'; accent = 'var(--red)'; icon = '⚡'; label = 'Urgent';
     } else if (sug.priority === 'today') {
-      bg = 'rgba(245,158,11,0.10)'; color = '#fcd34d'; border = 'rgba(245,158,11,0.45)'; accent = '#f59e0b'; icon = '💡'; label = 'Today';
+      bg = 'rgba(245,158,11,0.10)'; color = '#fcd34d'; border = 'rgba(245,158,11,0.45)'; accent = 'var(--gold)'; icon = '💡'; label = 'Today';
     } else { // this-week
-      bg = 'rgba(96,165,250,0.10)'; color = '#93c5fd'; border = 'rgba(96,165,250,0.45)'; accent = '#3b82f6'; icon = '👁'; label = 'This week';
+      bg = 'rgba(96,165,250,0.10)'; color = '#93c5fd'; border = 'rgba(96,165,250,0.45)'; accent = 'var(--blue)'; icon = '👁'; label = 'This week';
     }
 
     const phone = String(lead.phone || '').replace(/\D+/g, '');
@@ -136,7 +136,7 @@
       <a class="csf-btn" href="tel:${escapeHtml(phone)}"
         title="Call ${escapeHtml(lead.phone || '')}"
         style="display:inline-flex; align-items:center; gap:6px; padding:9px 14px; border-radius:7px;
-               background:${callPrimary ? accent : 'rgba(16,185,129,0.14)'}; color:${callPrimary ? '#fff' : '#10b981'};
+               background:${callPrimary ? accent : 'rgba(16,185,129,0.14)'}; color:${callPrimary ? 'var(--accent-fg)' : '#10b981'};
                border:1px solid ${callPrimary ? accent : 'rgba(16,185,129,0.45)'};
                text-decoration:none; font:inherit; font-size:12px; font-weight:700;
                cursor:${phone ? 'pointer' : 'not-allowed'}; opacity:${phone ? 1 : 0.4};
@@ -147,7 +147,7 @@
       <button class="csf-btn" type="button" data-csf-action="sms"
         title="Send SMS with the draft below"
         style="display:inline-flex; align-items:center; gap:6px; padding:9px 14px; border-radius:7px;
-               background:${smsPrimary ? accent : 'rgba(59,130,246,0.14)'}; color:${smsPrimary ? '#fff' : '#3b82f6'};
+               background:${smsPrimary ? accent : 'rgba(59,130,246,0.14)'}; color:${smsPrimary ? 'var(--accent-fg)' : 'var(--blue)'};
                border:1px solid ${smsPrimary ? accent : 'rgba(59,130,246,0.45)'};
                font:inherit; font-size:12px; font-weight:700;
                cursor:${phone ? 'pointer' : 'not-allowed'}; opacity:${phone ? 1 : 0.4};
@@ -157,7 +157,7 @@
       <button class="csf-btn" type="button" data-csf-action="email"
         title="Compose email with the draft below"
         style="display:inline-flex; align-items:center; gap:6px; padding:9px 14px; border-radius:7px;
-               background:${emailPrimary ? accent : 'rgba(139,92,246,0.14)'}; color:${emailPrimary ? '#fff' : '#8b5cf6'};
+               background:${emailPrimary ? accent : 'rgba(139,92,246,0.14)'}; color:${emailPrimary ? 'var(--accent-fg)' : '#8b5cf6'};
                border:1px solid ${emailPrimary ? accent : 'rgba(139,92,246,0.45)'};
                font:inherit; font-size:12px; font-weight:700;
                cursor:${email ? 'pointer' : 'not-allowed'}; opacity:${email ? 1 : 0.4};

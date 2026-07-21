@@ -1254,28 +1254,6 @@ body:has(#view-prospects.active) .breadcrumb-container{
   border-radius: 8px;
 }
 
-/* Estimate Table Skeleton */
-.estimate-skeleton-table {
-  width: 100%;
-  border-collapse: collapse;
-  margin-top: 12px;
-}
-
-.estimate-skeleton-row {
-  border-bottom: 1px solid var(--br);
-}
-
-.estimate-skeleton-cell {
-  padding: 12px;
-  height: 48px;
-}
-
-.estimate-skeleton-bar {
-  height: 12px;
-  border-radius: 4px;
-}
-
-
 /* TOAST NOTIFICATIONS */
 .toast-container{
   position:fixed;
@@ -3131,11 +3109,6 @@ input:focus, select:focus, textarea:focus {
 }
 
 /* ── LOADING SKELETON ENHANCEMENTS ── */
-.skeleton-card {
-  height: 120px;
-  border-radius: 10px;
-  margin-bottom: 8px;
-}
 .skeleton-line {
   height: 10px;
   margin-bottom: 8px;

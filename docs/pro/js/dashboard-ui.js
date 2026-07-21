@@ -889,7 +889,7 @@ function processToastQueue() {
 // ══════════════════════════════════════════════
 // DAMAGE PHOTOS — modal close + photo mode toggle
 // ══════════════════════════════════════════════
-function closePhotoModal(){document.getElementById('photoModal').classList.remove('open');}
+function closePhotoModal(){if(window.nbdModal){window.nbdModal.close('photoModal');}else{document.getElementById('photoModal').classList.remove('open');}}
 document.getElementById('photoModal').addEventListener('click',e=>{if(e.target===document.getElementById('photoModal'))closePhotoModal();});
 
 // Photo search — filters the photo leads list by name/address
@@ -922,8 +922,8 @@ window.setPhotoMode = setPhotoMode;
 // ══════════════════════════════════════════════
 // TIPS modal
 // ══════════════════════════════════════════════
-function openTips(){document.getElementById('tipsModal').classList.add('open');}
-function closeTips(){document.getElementById('tipsModal').classList.remove('open');}
+function openTips(){if(window.nbdModal){window.nbdModal.open('tipsModal');}else{document.getElementById('tipsModal').classList.add('open');}}
+function closeTips(){if(window.nbdModal){window.nbdModal.close('tipsModal');}else{document.getElementById('tipsModal').classList.remove('open');}}
 document.getElementById('tipsModal').addEventListener('click',e=>{if(e.target===document.getElementById('tipsModal'))closeTips();});
 
 // ══════════════════════════════════════════════
@@ -1359,9 +1359,9 @@ function openDocTemplate(key){
   const repName = _nbdRepName();
   document.getElementById('docViewerTitle').textContent = t.title;
   document.getElementById('docViewerContent').innerHTML = t.content.split('{{REP_NAME}}').join(repName);
-  document.getElementById('docViewerModal').classList.add('open');
+  if(window.nbdModal){window.nbdModal.open('docViewerModal');}else{document.getElementById('docViewerModal').classList.add('open');}
 }
-function closeDocViewer(){ document.getElementById('docViewerModal').classList.remove('open'); }
+function closeDocViewer(){ if(window.nbdModal){window.nbdModal.close('docViewerModal');}else{document.getElementById('docViewerModal').classList.remove('open');} }
 const printDoc = function(){ window.print(); };
 const openUploadDoc = function(){
   // docUploadArea lives inside tpl-view-docs (lazy-hydrated). Guard

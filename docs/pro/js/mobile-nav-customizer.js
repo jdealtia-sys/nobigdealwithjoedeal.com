@@ -132,13 +132,16 @@ function injectCSS() {
   style.id = 'nbd-nav-customizer-css';
   style.textContent = `
 
+/* .modal-bg convention (dashboard-app.css ~:2181/:4617): the shared class
+   already supplies display:flex + opacity/visibility/pointer-events gating
+   on .open + z-index:var(--z-overlay), so this ID rule only carries the
+   layout/backdrop specifics that differ from the canonical modal. */
 #navCustomizeModal {
-  display:none; position:fixed; top:0; left:0; right:0; bottom:0;
-  z-index:10000; background:rgba(0,0,0,.85);
+  position:fixed; top:0; left:0; right:0; bottom:0;
+  background:rgba(0,0,0,.85);
   -webkit-backdrop-filter:blur(20px); backdrop-filter:blur(20px);
   align-items:flex-end; justify-content:center;
 }
-#navCustomizeModal.open { display:flex; }
 
 .ncm-sheet {
   width:100%; max-width:500px; max-height:88vh;
@@ -372,20 +375,49 @@ function openCustomizeModal() {
   if (!modal) {
     modal = document.createElement('div');
     modal.id = 'navCustomizeModal';
+    modal.className = 'modal-bg'; // required for nbdModal.open/close to resolve() it
     document.body.appendChild(modal);
   }
 
   _pendingTabs = loadTabs();
   _syncStatus = _firestoreReady() ? 'synced' : 'offline';
   renderModal(modal);
-  modal.classList.add('open');
   document.body.style.overflow = 'hidden';
+
+  // Prefers nbdModal (open/close + focus-lite/Esc/backdrop — dashboard.html
+  // loads js/nbd-modal.js eagerly before this file). Falls back to a local
+  // .open toggle + its own Esc close on pages that don't load nbd-modal.js
+  // (dashboard.legacy.html) — mirrors invoice-pipeline.js's openOverlay().
+  if (window.nbdModal && typeof window.nbdModal.open === 'function') {
+    window.nbdModal.open(modal, { onClose: function () { document.body.style.overflow = ''; } });
+  } else {
+    document.removeEventListener('keydown', _ncmEscFallback); // avoid double-bind on repeat opens
+    document.addEventListener('keydown', _ncmEscFallback);
+    modal.classList.add('open');
+  }
 }
 
 function closeCustomizeModal() {
   const modal = document.getElementById('navCustomizeModal');
-  if (modal) modal.classList.remove('open');
-  document.body.style.overflow = '';
+  if (!modal) return;
+  if (window.nbdModal && typeof window.nbdModal.close === 'function') {
+    window.nbdModal.close(modal);
+  } else {
+    modal.classList.remove('open');
+    document.removeEventListener('keydown', _ncmEscFallback);
+    document.body.style.overflow = '';
+  }
+}
+
+// Fallback-path Esc handling (no nbdModal on this page). Mirrors
+// invoice-pipeline.js's onKey: only the top-most open .modal-bg closes.
+function _ncmEscFallback(e) {
+  if (e.key !== 'Escape') return;
+  const modal = document.getElementById('navCustomizeModal');
+  if (!modal || !modal.classList.contains('open')) return;
+  const opens = document.querySelectorAll('.modal-bg.open');
+  if (opens.length && opens[opens.length - 1] !== modal) return;
+  closeCustomizeModal();
 }
 
 function renderModal(modal) {

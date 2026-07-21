@@ -43,16 +43,16 @@ function injectCSS() {
 
 /* States */
 .conn-dot.online {
-  background:#10b981;
+  background:var(--green);
   box-shadow:0 0 6px rgba(16,185,129,.5);
 }
 .conn-dot.loading {
-  background:#fbbf24;
+  background:var(--gold);
   box-shadow:0 0 6px rgba(251,191,36,.4);
   animation:conn-pulse 1.4s ease-in-out infinite;
 }
 .conn-dot.offline {
-  background:#ef4444;
+  background:var(--red);
   box-shadow:0 0 6px rgba(239,68,68,.4);
   animation:conn-pulse 1.4s ease-in-out infinite;
 }
@@ -91,7 +91,7 @@ function injectCSS() {
   pointer-events:none;
   opacity:0;
   transition:opacity .15s;
-  z-index:9999;
+  z-index:var(--z-overlay-top);
 }
 #nbd-conn-btn:hover::after {
   opacity:1;

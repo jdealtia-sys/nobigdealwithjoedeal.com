@@ -658,18 +658,9 @@ function showPhotosSkeleton() {
   photosContainer.innerHTML = skeletonHTML;
 }
 
-// Hide all skeletons (will be replaced by actual content)
-function hideSkeleton() {
-  document.querySelectorAll('.skeleton-card, .skeleton-grid').forEach(el => {
-    el.style.opacity = '0';
-    setTimeout(() => el.remove(), 300);
-  });
-}
-
 // Expose functions
 window.showKanbanSkeleton = showKanbanSkeleton;
 window.showPhotosSkeleton = showPhotosSkeleton;
-window.hideSkeleton = hideSkeleton;
 
 
 // ══════════════════════════════════════════════
@@ -1143,7 +1134,6 @@ window.toggleShortcutsPanel = toggleShortcutsPanel;
 window.scrollToColumn = scrollToColumn;
 window.showKanbanSkeleton = showKanbanSkeleton;
 window.showPhotosSkeleton = showPhotosSkeleton;
-window.hideSkeleton = hideSkeleton;
 window.showToast = showToast;
 window.closeToast = closeToast;
 window.toggleNavSection = toggleNavSection;
