@@ -1022,16 +1022,21 @@ async function loadTimeline(leadId, lead) {
     const COMM_ICONS = {
       call:  '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:13px;height:13px;vertical-align:middle;"><path d="M4 3h3l2 4-2.5 1.5A9 9 0 0011.5 13.5L13 11l4 2v3a1 1 0 01-1 1C8.4 17 3 11.6 3 4a1 1 0 011-1z"/></svg>',
       email: '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:13px;height:13px;vertical-align:middle;"><rect x="2" y="4" width="16" height="12" rx="1.5"/><path d="M2 6l8 5 8-5"/></svg>',
-      sms:   '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:13px;height:13px;vertical-align:middle;"><path d="M3 5h14v9h-4l-3 3-3-3H3V5z"/></svg>'
+      sms:   '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:13px;height:13px;vertical-align:middle;"><path d="M3 5h14v9h-4l-3 3-3-3H3V5z"/></svg>',
+      // 'note' = a system/audit entry (e.g. a primary-estimate switch) rather
+      // than an outbound call/email/sms; pencil icon + explicit title.
+      note:  '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:13px;height:13px;vertical-align:middle;"><path d="M4 13.5V16h2.5l7-7L11 6.5l-7 7z"/><path d="M12.5 5l2.5 2.5"/></svg>'
     };
-    const COMM_LABELS = { call: 'Called', email: 'Emailed', sms: 'Texted' };
+    const COMM_LABELS = { call: 'Called', email: 'Emailed', sms: 'Texted', note: 'Note' };
     commSnap.docs.forEach(d => {
       const c = d.data();
       const t = c.type || 'call';
       timeline.push({
         time: c.timestamp?.toDate ? c.timestamp.toDate() : new Date(c.timestamp || Date.now()),
         icon: COMM_ICONS[t] || COMM_ICONS.call,
-        title: `${COMM_LABELS[t] || 'Contacted'} ${c.direction === 'inbound' ? 'from' : ''} customer`,
+        // Honor an explicit title when the writer set one (note/audit entries);
+        // existing call/email/sms docs have no `title`, so they keep the old label.
+        title: c.title || `${COMM_LABELS[t] || 'Contacted'} ${c.direction === 'inbound' ? 'from' : ''} customer`,
         desc: c.content || c.note || '',
         type: 'communication'
       });
@@ -1331,6 +1336,71 @@ async function loadPhotos(leadId) {
 
 
 
+// Rep picks which of a lead's estimates drives the pipeline job value.
+// Writes the SAME 3-field shape #1036's revision branch uses
+// (dashboard-bootstrap.module.js:3194) — jobValue/primaryEstimateId/
+// lastEstimateAt — and deliberately does NOT touch stage: switching primary
+// on an existing lead is not a funnel event (only CREATING the first estimate
+// bumps new→contacted). Leads have no snapshot listener, so the refresh is
+// manual and mirrors customer-edit-modal.js.
+async function setPrimaryEstimate(estId) {
+  const est = (window._customerEstimates || []).find(e => e.id === estId);
+  const leadId = window._customerId;
+  if (!est || !leadId) return;
+  const current = window._currentLead || window._leadDoc || {};
+  if (String(current.primaryEstimateId || '') === String(estId)) {
+    if (typeof showToast === 'function') showToast('That estimate is already primary', 'info');
+    return;
+  }
+  const newVal = Number(est.grandTotal) || 0;
+  const oldVal = Number(current.jobValue) || 0;
+  const estName = est.title || 'Estimate';
+  // Validate: a Draft/$0 estimate would zero out the lead's job value —
+  // confirm before letting a rep silently shrink a live deal.
+  if (newVal <= 0) {
+    const ask = window.nbdConfirm || (m => Promise.resolve(window.confirm(m)));
+    const ok = await ask('This estimate has no dollar value yet — set it as primary and make the lead job value $0?');
+    if (!ok) return;
+  }
+  try {
+    await updateDoc(doc(db, 'leads', leadId), {
+      jobValue: newVal,
+      primaryEstimateId: estId,
+      lastEstimateAt: serverTimestamp(),
+    });
+    // Audit trail on the customer timeline. `communications` is the timeline's
+    // note store (see loadTimeline's comm section); a 'note'-typed entry with an
+    // explicit title renders as a proper activity row.
+    try {
+      const fmt = (n) => '$' + Number(n || 0).toLocaleString();
+      await addDoc(collection(db, 'communications'), {
+        leadId,
+        userId: auth.currentUser?.uid,
+        type: 'note',
+        title: 'Job value updated',
+        content: `Primary estimate set to "${estName}" — job value ${fmt(oldVal)} → ${fmt(newVal)}`,
+        timestamp: serverTimestamp(),
+        source: 'primary_switch',
+      });
+    } catch (logErr) { console.warn('primary-switch audit log failed:', logErr); }
+    // Live refresh — no leads snapshot listener exists, so update the in-memory
+    // lead globals + header cell + profit panel exactly like customer-edit-modal.js.
+    if (window._currentLead) Object.assign(window._currentLead, { primaryEstimateId: estId, jobValue: newVal });
+    if (window._leadDoc) Object.assign(window._leadDoc, { primaryEstimateId: estId, jobValue: newVal });
+    const jv = document.getElementById('infoJobValue');
+    if (jv) jv.textContent = newVal ? '$' + newVal.toLocaleString() : '—';
+    if (window.ProfitTracker && typeof window.ProfitTracker.renderCostPanel === 'function') {
+      try { window.ProfitTracker.renderCostPanel('profitPanel', leadId); } catch (e) {}
+    }
+    await loadEstimates(leadId);                                   // move the ★ badge
+    try { await loadTimeline(leadId, window._leadDoc); } catch (e) {}  // show the audit entry
+    if (typeof showToast === 'function') showToast('Primary estimate set — job value updated', 'success');
+  } catch (e) {
+    console.error('setPrimaryEstimate failed:', e);
+    if (typeof showToast === 'function') showToast('Failed to set primary: ' + ((e && e.message) || 'unknown error'), 'error');
+  }
+}
+
 async function loadEstimates(leadId) {
   try {
     const estSnap = await getDocs(
@@ -1358,11 +1428,20 @@ async function loadEstimates(leadId) {
     }
 
     const esc = window.nbdEsc || (s => String(s == null ? '' : s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])));
+    // Which of this lead's estimates is the primary (job-value driver)?
+    // primaryEstimateId is stamped on the lead by #1036 on estimate create;
+    // this list is the first UI that reads it. Fall back across the two lead
+    // globals the customer page keeps in sync (_currentLead / _leadDoc).
+    const primaryId = (window._currentLead || window._leadDoc || {}).primaryEstimateId || null;
     const html = window._customerEstimates.map(est => {
       const tier = String(est.tier || est.tierName || '');
       const tierColor = tier==='best'?'var(--green)':tier==='better'?'#9B6DFF':'var(--orange)';
       const tierLabel = tier ? `<span style="font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:${tierColor};border:1px solid ${tierColor};padding:1px 6px;border-radius:3px;margin-left:6px;">${esc(tier)}</span>` : '';
       const dateStr = est.createdAt?.toDate ? est.createdAt.toDate().toLocaleDateString() : '—';
+      const isPrimary = primaryId && String(est.id) === String(primaryId);
+      const primaryControl = isPrimary
+        ? '<span class="nbd-est-primary-badge" style="font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--green);border:1px solid var(--green);padding:2px 7px;border-radius:3px;white-space:nowrap;">★ Primary</span>'
+        : `<button class="nbd-est-primary" data-est-id="${esc(est.id)}" style="background:transparent;border:1px solid var(--br);border-radius:4px;padding:4px 8px;font-size:10px;color:var(--m);cursor:pointer;font-family:inherit;white-space:nowrap;" title="Make this the lead&#39;s primary estimate">☆ Make primary</button>`;
       return `
         <div class="estimate-item nbd-est-row" data-est-id="${esc(est.id)}" style="cursor:pointer;transition:all .2s;display:flex;align-items:center;justify-content:space-between;padding:12px 14px;border-bottom:1px solid var(--br);">
           <div>
@@ -1371,6 +1450,7 @@ async function loadEstimates(leadId) {
           </div>
           <div style="display:flex;align-items:center;gap:10px;">
             <div class="estimate-amount" style="font-size:15px;font-weight:700;color:var(--green);">${est.grandTotal ? '$'+parseFloat(est.grandTotal).toLocaleString() : est.amount ? '$'+parseFloat(est.amount).toLocaleString() : 'Draft'}</div>
+            ${primaryControl}
             <button class="nbd-est-export" data-est-id="${esc(est.id)}" style="background:transparent;border:1px solid var(--br);border-radius:4px;padding:4px 8px;font-size:10px;color:var(--m);cursor:pointer;font-family:inherit;" title="Export PDF">📤</button>
             <button class="nbd-est-share" data-est-id="${esc(est.id)}" style="background:transparent;border:1px solid rgba(46,204,138,0.45);border-radius:4px;padding:4px 8px;font-size:10px;color:#5eead4;cursor:pointer;font-family:inherit;" title="Copy customer view link">🔗</button>
             <button class="nbd-est-cert" data-est-id="${esc(est.id)}" style="background:transparent;border:1px solid color-mix(in srgb, var(--orange) 40%, transparent);border-radius:4px;padding:4px 8px;font-size:10px;color:var(--orange);cursor:pointer;font-family:inherit;" title="Generate Warranty Certificate">🛡️</button>
@@ -1380,9 +1460,12 @@ async function loadEstimates(leadId) {
     }).join('');
 
     const estListEl = document.getElementById('estimateList');
-    estListEl.innerHTML = html;
+    estListEl.innerHTML = '<div style="font-size:11px;color:var(--m);padding:8px 14px 2px;">Job value follows the ★ primary estimate.</div>' + html;
     estListEl.querySelectorAll('.nbd-est-row').forEach(row => {
       row.addEventListener('click', () => viewEstimate(row.dataset.estId));
+    });
+    estListEl.querySelectorAll('.nbd-est-primary').forEach(btn => {
+      btn.addEventListener('click', (ev) => { ev.stopPropagation(); setPrimaryEstimate(btn.dataset.estId); });
     });
     estListEl.querySelectorAll('.nbd-est-export').forEach(btn => {
       btn.addEventListener('click', (ev) => { ev.stopPropagation(); exportCustomerEstimate(btn.dataset.estId); });
