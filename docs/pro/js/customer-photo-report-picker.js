@@ -4,12 +4,10 @@
       if (typeof showToast === 'function') showToast('No customer loaded yet', 'error');
       return;
     }
-    var pk = document.getElementById('photoReportPicker');
-    if (pk) pk.classList.add('active');
+    window.nbdModal.open('photoReportPicker');
   };
   window.closePhotoReportPicker = function() {
-    var pk = document.getElementById('photoReportPicker');
-    if (pk) pk.classList.remove('active');
+    window.nbdModal.close('photoReportPicker');
   };
   window.pickPhotoReport = function(mode) {
     closePhotoReportPicker();
@@ -19,15 +17,7 @@
       showToast('Report module not loaded yet — try again in a moment', 'error');
     }
   };
-  // Backdrop click + Esc dismiss
-  document.addEventListener('click', function(e) {
-    if (e.target && e.target.id === 'photoReportPicker') closePhotoReportPicker();
-  });
-  document.addEventListener('keydown', function(e) {
-    if (e.key !== 'Escape') return;
-    var pk = document.getElementById('photoReportPicker');
-    if (pk && pk.classList.contains('active')) closePhotoReportPicker();
-  });
+  // Backdrop click + Esc dismiss are handled by nbdModal (batch-4 consolidation).
   // Phase 5: auto-open the picker when arriving from photo-review.html
   // with a #photo-report hash. Defer until _customerId is populated.
   function maybeAutoOpenFromHash() {

@@ -5,7 +5,7 @@
 
 // Task Modal HTML (to be injected)
 const taskModalHTML = `
-<div id="taskModal" class="modal">
+<div id="taskModal" class="modal-bg">
   <div class="modal-content" style="max-width:500px;">
     <div class="modal-header">
       <h3 style="margin:0;">Add Task</h3>
@@ -60,16 +60,16 @@ window.addEventListener('DOMContentLoaded', () => {
 
 // Task Management Functions
 window.openTaskModal = function() {
-  document.getElementById('taskModal').classList.add('active');
   document.getElementById('taskTitle').value = '';
   document.getElementById('taskDueDate').value = '';
   document.getElementById('taskPriority').value = 'medium';
   document.getElementById('taskNotes').value = '';
+  window.nbdModal.open('taskModal');
   document.getElementById('taskTitle').focus();
 };
 
 window.closeTaskModal = function() {
-  document.getElementById('taskModal').classList.remove('active');
+  window.nbdModal.close('taskModal');
 };
 
 window.saveTask = async function() {
@@ -1676,19 +1676,21 @@ function _renderDocCreateGrid(filter) {
 window.openDocCreateModal = function() {
   var modal = document.getElementById('docCreateModal');
   if (!modal) return;
-  modal.classList.add('active');
   modal.setAttribute('aria-hidden', 'false');
   var search = document.getElementById('docCreateSearch');
   if (search) search.value = '';
   _renderDocCreateGrid('');
+  // onClose restores aria-hidden on every dismiss path (button, Esc, backdrop),
+  // which nbdModal now owns — the hand-rolled backdrop/Esc listeners below were
+  // removed in the batch-4 consolidation.
+  window.nbdModal.open('docCreateModal', { onClose: function() {
+    modal.setAttribute('aria-hidden', 'true');
+  } });
   if (search) setTimeout(function() { try { search.focus(); } catch (_) {} }, 50);
 };
 
 window.closeDocCreateModal = function() {
-  var modal = document.getElementById('docCreateModal');
-  if (!modal) return;
-  modal.classList.remove('active');
-  modal.setAttribute('aria-hidden', 'true');
+  window.nbdModal.close('docCreateModal');
 };
 
 window._pickCustomerDoc = function(type) {
@@ -1709,16 +1711,7 @@ document.addEventListener('input', function _docCreateSearchListener(e) {
   }
 });
 
-// Backdrop click + ESC dismiss for the picker modal.
-document.addEventListener('click', function _docCreateBackdropListener(e) {
-  var modal = document.getElementById('docCreateModal');
-  if (modal && e.target === modal) window.closeDocCreateModal();
-});
-document.addEventListener('keydown', function _docCreateEscListener(e) {
-  if (e.key !== 'Escape') return;
-  var modal = document.getElementById('docCreateModal');
-  if (modal && modal.classList.contains('active')) window.closeDocCreateModal();
-});
+// Backdrop click + Esc dismiss are handled by nbdModal (batch-4 consolidation).
 
 window.generateCustomerDoc = function(type) {
   if (!window.NBDDocGen) {
@@ -1948,13 +1941,11 @@ function logGeneratedDoc(type, data) {
 }
 
 window.openDocUploadModal = function() {
-  var modal = document.getElementById('docUploadModal');
-  if (modal) modal.classList.add('active');
+  window.nbdModal.open('docUploadModal');
 };
 
 window.closeDocUploadModal = function() {
-  var modal = document.getElementById('docUploadModal');
-  if (modal) modal.classList.remove('active');
+  window.nbdModal.close('docUploadModal');
 };
 
 // ── Load all new sections when customer loads ───

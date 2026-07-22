@@ -9,13 +9,12 @@ function openEditCustomerModal() {
   document.getElementById('editAddress').value = lead.address || '';
   document.getElementById('editDamageType').value = lead.damageType || lead.serviceType || '';
   document.getElementById('editJobValue').value = lead.jobValue || lead.estimatedValue || '';
-  const modal = document.getElementById('editCustomerModal');
-  // Cert-round rule: modal open/close is class-toggled, never inline display.
-  modal.classList.add('active');
+  // nbdModal owns visibility + Esc/backdrop close (batch-4 consolidation).
+  window.nbdModal.open('editCustomerModal');
 }
 
 function closeEditCustomerModal() {
-  document.getElementById('editCustomerModal').classList.remove('active');
+  window.nbdModal.close('editCustomerModal');
 }
 
 async function saveCustomerEdits() {
@@ -71,7 +70,4 @@ async function saveCustomerEdits() {
   btn.textContent = 'SAVE CHANGES';
 }
 
-// Close on backdrop click
-document.getElementById('editCustomerModal').addEventListener('click', function(e) {
-  if (e.target === this) closeEditCustomerModal();
-});
+// Backdrop click + Esc dismiss are handled by nbdModal (batch-4 consolidation).
