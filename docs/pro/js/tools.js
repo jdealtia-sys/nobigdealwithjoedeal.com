@@ -272,7 +272,11 @@ function applyQMData() {
 
 // ══ QUICK ADD LEAD (mobile field tool) ════════════════════════════════
 function openQuickAddLead() {
-  document.getElementById('quickAddModal').classList.add('open');
+  // nbdModal owns Esc/backdrop/focus on dashboard.html; classList fallback on
+  // dashboard.legacy.html (no nbd-modal.js). quickAddModal has no close-side
+  // cleanup, so no onClose is needed.
+  if (window.nbdModal) { window.nbdModal.open('quickAddModal'); }
+  else { document.getElementById('quickAddModal').classList.add('open'); }
   document.getElementById('qaAddr').value = '';
   document.getElementById('qaPhone').value = '';
   document.getElementById('qaErr').style.display = 'none';
@@ -280,7 +284,8 @@ function openQuickAddLead() {
   setTimeout(() => document.getElementById('qaAddr').focus(), 120);
 }
 function closeQuickAddLead() {
-  document.getElementById('quickAddModal').classList.remove('open');
+  if (window.nbdModal) { window.nbdModal.close('quickAddModal'); }
+  else { document.getElementById('quickAddModal').classList.remove('open'); }
 }
 
 // "Use my location" — fetch device GPS and reverse-geocode to populate

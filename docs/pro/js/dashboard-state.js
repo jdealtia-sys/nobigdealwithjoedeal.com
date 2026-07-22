@@ -103,6 +103,15 @@ const _NBD_TOGGLE_FNS = {
   staleShares:             'toggleStaleShares',
 };
 
+// CSP close-button/backdrop allowlist for data-action="closeModal" (dispatched
+// at dashboard-ui.js — maps a modal-id data-target to its close fn). This is NOT
+// an Esc handler and is load-bearing: ~33 close buttons/backdrops in
+// dashboard.html route through it, so entries must stay even for
+// nbdModal-managed modals (the close BUTTON still calls closeXxx, which then
+// routes through nbdModal). nbdModal-managed today: leadModal, quickAddModal,
+// taskModal, cardDetailModal, photoModal, tipsModal, docViewerModal — their
+// closeXxx dual-paths to nbdModal.close (Esc/backdrop handled by the helper).
+// The rest are hand-rolled drawers/sheets/popovers, correctly left as-is.
 const _NBD_MODAL_CLOSE_FNS = {
   leadModal:                   'closeLeadModal',
   taskModal:                   'closeTaskModal',

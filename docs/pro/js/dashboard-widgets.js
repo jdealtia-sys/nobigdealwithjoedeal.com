@@ -955,7 +955,10 @@ function openCardDetailModal(leadId) {
   if (kindLabel) kindLabel.textContent = lead.isProspect ? 'PROSPECT' : 'CUSTOMER';
 
   // Show modal — use the cached `modal` ref from the entry-guard above.
-  modal.classList.add('open');
+  // nbdModal owns Esc/backdrop/focus on dashboard.html; classList fallback on
+  // dashboard.legacy.html. onClose clears the working lead id on every dismiss.
+  if (window.nbdModal) { window.nbdModal.open('cardDetailModal', { onClose: _cardDetailReset }); }
+  else { modal.classList.add('open'); }
 }
 window.openCardDetailModal = openCardDetailModal;
 
@@ -1014,10 +1017,14 @@ function refreshCardDetailChips(leadId) {
 }
 window.refreshCardDetailChips = refreshCardDetailChips;
 
-function closeCardDetailModal() {
-  const modal = document.getElementById('cardDetailModal');
-  if (modal) modal.classList.remove('open');
+// Close-side cleanup, run on every dismiss (button/backdrop/Esc) via nbdModal's
+// onClose on dashboard.html, and directly on the legacy classList path.
+function _cardDetailReset() {
   window._cardDetailLeadId = null;
+}
+function closeCardDetailModal() {
+  if (window.nbdModal) { window.nbdModal.close('cardDetailModal'); }
+  else { const modal = document.getElementById('cardDetailModal'); if (modal) modal.classList.remove('open'); _cardDetailReset(); }
 }
 window.closeCardDetailModal = closeCardDetailModal;
 
