@@ -1644,38 +1644,14 @@ document.addEventListener('keydown', (e) => {
   if (e.key === 'ArrowLeft') prevPhoto();
 });
 
-// Audit CG: unified Escape-key dismissal for every modal on the page.
-// The lightbox handler above returns early when no lightbox is open, so
-// this listener picks up the Escape in that case and routes it to the
-// topmost visible modal. Each modal has its own named close function;
-// we look it up by id-derived convention (close<Id>). gallerySharePanel
-// closes inline (no named close fn).
-//
-// Order matters: first match wins. If two modals are ever stacked, the
-// later-opened one wins because it sits later in DOM order — close it
-// first, leaving the underlying one for the next Escape.
+// Escape-key dismissal for the gallery share panel. Every .modal-bg modal on
+// the page is now nbdModal-managed (batch-4 consolidation) and closes via the
+// helper's own Esc handler, so this only needs to cover gallerySharePanel,
+// which opens inline (display:block via flex container) and has no named
+// close fn. The lightbox has its own handler above and returns early there.
 document.addEventListener('keydown', (e) => {
   if (e.key !== 'Escape') return;
-  // Lightbox already handled above and returned early on no-lightbox.
   if (document.getElementById('lightbox')?.classList.contains('active')) return;
-  const MODAL_IDS = [
-    'editCustomerModal', 'taskModal', 'estimateViewerModal', 'estimateModal',
-    'notesModal', 'docUploadModal', 'uploadModal'
-  ];
-  for (const id of MODAL_IDS) {
-    const el = document.getElementById(id);
-    if (!el) continue;
-    // Class-toggled modals (2026-07-20 consolidation): .active is the
-    // single open signal — inline display is never set anymore.
-    if (!el.classList.contains('active')) continue;
-    const closer = window['close' + id.charAt(0).toUpperCase() + id.slice(1)];
-    if (typeof closer === 'function') {
-      closer();
-      return;
-    }
-  }
-  // Gallery share panel: opens inline (display:block via flex container),
-  // no named close fn. Close it directly.
   const share = document.getElementById('gallerySharePanel');
   if (share && share.style.display && share.style.display !== 'none') {
     share.style.display = 'none';
@@ -1859,30 +1835,12 @@ function showError(title, message) {
 
 window._uploadQueue = [];
 
-window.openUploadModal = function() {
-  document.getElementById('uploadModal').classList.add('active');
-  // Belt-and-suspenders reset — Joe reported the prior batch's photos
-  // still showing when reopening the modal. Likely cause: iOS Safari
-  // BFCache or PWA state preservation can leave the queue + preview
-  // DOM intact across navigations, and reopening the modal didn't fully
-  // clear them. Force-reset all three sources of stale state:
-  //   1) the JS queue array
-  //   2) the preview container's innerHTML
-  //   3) the file input's selection (so the same files can be picked again)
-  window._uploadQueue = [];
-  const preview = document.getElementById('uploadPreview');
-  if (preview) preview.innerHTML = '';
-  const fileInput = document.getElementById('fileInput');
-  if (fileInput) fileInput.value = '';
-  updateUploadPreview();
-};
-
-window.closeUploadModal = function() {
-  document.getElementById('uploadModal').classList.remove('active');
-  // Background-safe close: if any item is mid-upload, hide the modal
-  // but keep the queue + uploads running. The global widget remains
-  // visible so the user can keep working. The queue clears itself in
-  // uploadPhotos()'s post-loop reload.
+// Background-safe close cleanup — runs on EVERY dismiss path (Cancel/×
+// button, Esc, backdrop) via nbdModal's onClose. If any item is mid-upload,
+// keep the queue + uploads running and just refresh the global widget (the
+// queue clears itself in uploadPhotos()'s post-loop reload); otherwise clear
+// the queue + preview + file input so the next open starts fresh.
+function _uploadModalOnClose() {
   var hasInflight = (window._uploadQueue || []).some(function(it){
     return it && it.uploading && (it.progress == null || it.progress < 100);
   });
@@ -1897,6 +1855,30 @@ window.closeUploadModal = function() {
   if (fileInput) fileInput.value = '';
   updateUploadPreview();
   updateGlobalUploadStatus();
+}
+
+window.openUploadModal = function() {
+  // Belt-and-suspenders reset — Joe reported the prior batch's photos
+  // still showing when reopening the modal. Likely cause: iOS Safari
+  // BFCache or PWA state preservation can leave the queue + preview
+  // DOM intact across navigations, and reopening the modal didn't fully
+  // clear them. Force-reset all three sources of stale state:
+  //   1) the JS queue array
+  //   2) the preview container's innerHTML
+  //   3) the file input's selection (so the same files can be picked again)
+  window._uploadQueue = [];
+  const preview = document.getElementById('uploadPreview');
+  if (preview) preview.innerHTML = '';
+  const fileInput = document.getElementById('fileInput');
+  if (fileInput) fileInput.value = '';
+  updateUploadPreview();
+  window.nbdModal.open('uploadModal', { onClose: _uploadModalOnClose });
+};
+
+window.closeUploadModal = function() {
+  // Routes through nbdModal → _uploadModalOnClose, which preserves in-flight
+  // uploads (the modal hides but the queue + widget keep running).
+  window.nbdModal.close('uploadModal');
 };
 
 // Drag and drop handlers - Initialize after DOM loads
@@ -2110,8 +2092,9 @@ function updateGlobalUploadStatus() {
   if (count) count.textContent = (done + 1 > total ? total : done + 1) + ' / ' + total + ' • ' + pct + '%';
   if (fill) fill.style.width = pct + '%';
   // Only show the "View details" button when the modal is closed.
+  // (uploadModal is nbdModal-managed now — open state is the .open class.)
   var modal = document.getElementById('uploadModal');
-  var modalOpen = modal && modal.classList.contains('active');
+  var modalOpen = modal && modal.classList.contains('open');
   if (reopen) reopen.style.display = modalOpen ? 'none' : 'block';
   widget.classList.add('active');
 }
@@ -2459,25 +2442,22 @@ window.viewEstimate = function(estimateId) {
   // Show viewer modal (NOT the same as #estimateModal, which is the
   // create-estimate form). Pre-fix this targeted #estimateModal and
   // tried to render into a non-existent #estimateModalContent inside it.
-  const viewer = document.getElementById('estimateViewerModal');
-  if (viewer) {
-    viewer.classList.add('active');
-  }
+  // onClose clears the working estimate id on any dismiss (Close button, Esc,
+  // backdrop) so a stale id can't leak into a later edit/delete action.
+  window.nbdModal.open('estimateViewerModal', { onClose: function() {
+    window._currentEstimateId = null;
+  } });
 };
 
 window.closeEstimateModal = function() {
   // Backwards-compat: keep the old name so any external callers still
-  // dismiss the create modal as before.
-  document.getElementById('estimateModal').classList.remove('active');
-  window._currentEstimateId = null;
+  // dismiss the create modal as before. (onClose in openEstimateModal
+  // nulls _currentEstimateId on every dismiss path.)
+  window.nbdModal.close('estimateModal');
 };
 
 window.closeEstimateViewerModal = function() {
-  const viewer = document.getElementById('estimateViewerModal');
-  if (viewer) {
-    viewer.classList.remove('active');
-  }
-  window._currentEstimateId = null;
+  window.nbdModal.close('estimateViewerModal');
 };
 
 
@@ -2901,15 +2881,18 @@ async function _gatherNotesForReport(leadId) {
 window._docUploadQueue = [];
 
 window.openDocUploadModal = function() {
-  document.getElementById('docUploadModal').classList.add('active');
   window._docUploadQueue = [];
   updateDocUploadPreview();
+  // nbdModal owns visibility + Esc/backdrop close; onClose resets the queue
+  // so every dismiss path (button, Esc, backdrop) clears in-progress picks.
+  window.nbdModal.open('docUploadModal', { onClose: function() {
+    window._docUploadQueue = [];
+    updateDocUploadPreview();
+  } });
 };
 
 window.closeDocUploadModal = function() {
-  document.getElementById('docUploadModal').classList.remove('active');
-  window._docUploadQueue = [];
-  updateDocUploadPreview();
+  window.nbdModal.close('docUploadModal');
 };
 
 // Document drop zone

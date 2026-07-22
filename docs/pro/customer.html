@@ -591,8 +591,10 @@ body.nbd-photo-reorder .nbd-photo-item.drop-after {
   font-size:14px; color:var(--orange); font-weight:700;
 }
 
-/* MODAL */
-.modal {
+/* MODAL — canonical .modal-bg/.open contract (nbd-modal.js manages
+   open/close + Esc/backdrop). Batch-4 rename from the private
+   .modal/.modal.active system; the interior card stays .modal-content. */
+.modal-bg {
   position:fixed; top:0; left:0; width:100%; height:100%;
   background:rgba(0,0,0,.7); display:none; align-items:center;
   justify-content:center; z-index:var(--z-overlay);
@@ -606,7 +608,7 @@ body.nbd-photo-reorder .nbd-photo-item.drop-after {
     max(20px, env(safe-area-inset-bottom))
     max(20px, env(safe-area-inset-left));
 }
-.modal.active { display:flex; }
+.modal-bg.open { display:flex; }
 .modal-content {
   background:var(--s); border:1px solid var(--br); border-radius:10px;
   max-width:500px; width:100%;
@@ -1845,7 +1847,7 @@ body.nbd-photo-selecting .nbd-photo-checkbox,
 </div>
 
 <!-- PHOTO UPLOAD MODAL -->
-<div class="modal" id="uploadModal">
+<div class="modal-bg" id="uploadModal">
   <div class="modal-content">
     <div class="modal-header">
       <div class="modal-title">Upload Photos</div>
@@ -1892,7 +1894,7 @@ body.nbd-photo-selecting .nbd-photo-checkbox,
 </div>
 
 <!-- DOCUMENT UPLOAD MODAL -->
-<div id="docUploadModal" class="modal">
+<div id="docUploadModal" class="modal-bg">
   <div class="modal-content" style="max-width:600px;">
     <h3 style="margin-bottom:20px;font-family:'Barlow Condensed',sans-serif;font-size:20px;">
       📄 Upload Documents
@@ -1919,7 +1921,7 @@ body.nbd-photo-selecting .nbd-photo-checkbox,
 </div>
 
 <!-- CREATE DOCUMENT MODAL — template picker with search + stage-aware ordering -->
-<div id="docCreateModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="docCreateModalTitle" aria-hidden="true">
+<div id="docCreateModal" class="modal-bg" role="dialog" aria-modal="true" aria-labelledby="docCreateModalTitle" aria-hidden="true">
   <div class="modal-content" style="max-width:760px;">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;gap:8px;flex-wrap:wrap;">
       <h3 id="docCreateModalTitle" style="margin:0;font-family:'Barlow Condensed',sans-serif;font-size:20px;">📝 Create Document</h3>
@@ -1936,7 +1938,7 @@ body.nbd-photo-selecting .nbd-photo-checkbox,
 </div>
 
 <!-- NOTES MODAL -->
-<div id="notesModal" class="modal">
+<div id="notesModal" class="modal-bg">
   <div class="modal-content" style="max-width:600px;">
     <h3 style="margin-bottom:20px;font-family:'Barlow Condensed',sans-serif;font-size:20px;">
       📝 Add Note
@@ -1968,7 +1970,7 @@ body.nbd-photo-selecting .nbd-photo-checkbox,
 </div>
 
 <!-- ESTIMATE MODAL -->
-<div id="estimateModal" class="modal">
+<div id="estimateModal" class="modal-bg">
   <div class="modal-content" style="max-width:700px;">
     <h3 style="margin-bottom:20px;font-family:'Barlow Condensed',sans-serif;font-size:20px;">
       📋 Create Estimate
@@ -2038,7 +2040,7 @@ body.nbd-photo-selecting .nbd-photo-checkbox,
      #deleteEstimateBtn (which were never defined anywhere), so clicking
      an estimate row to view details silently threw a TypeError. This
      modal supplies the missing DOM so the viewer flow actually works. -->
-<div id="estimateViewerModal" class="modal">
+<div id="estimateViewerModal" class="modal-bg">
   <div class="modal-content" style="max-width:760px;">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;">
       <h3 style="margin:0;font-family:'Barlow Condensed',sans-serif;font-size:20px;letter-spacing:.04em;text-transform:uppercase;">
@@ -2063,6 +2065,10 @@ body.nbd-photo-selecting .nbd-photo-checkbox,
      NBDDocViewer.handlePdf, which already load-then-runs the bundle). -->
 <script defer src="js/script-loader.js?v=1"></script>
 <script defer src="js/icons.js"></script>
+<!-- Canonical modal driver — window.nbdModal owns open/close + Esc/backdrop
+     for every .modal-bg on this page (batch-4 modal consolidation). Loaded
+     before the modal-consuming scripts below. -->
+<script defer src="js/nbd-modal.js?v=1"></script>
 <script defer src="js/customer-photo-report-generator.js?v=1"></script>
 <!-- Retail line-item derivation for the portal estimate export — pre-sweep V2
      docs persist the internal COST basis in rows[].rate/total; this maps them
@@ -2142,7 +2148,7 @@ body.nbd-photo-selecting .nbd-photo-checkbox,
      for insurance supplements) vs Homeowner (visual story, friendly
      captions). The rep picks at export time.
      ────────────────────────────────────────────────────────────── -->
-<div id="photoReportPicker" class="modal" style="background:rgba(0,0,0,.75);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);">
+<div id="photoReportPicker" class="modal-bg" style="background:rgba(0,0,0,.75);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);">
   <div style="background:var(--s,#1a1d23);border:1px solid var(--br);border-radius:14px;max-width:600px;width:100%;padding:24px;box-shadow:0 24px 60px rgba(0,0,0,.55);">
     <div style="display:flex;align-items:start;justify-content:space-between;margin-bottom:18px;">
       <div>
@@ -2172,7 +2178,7 @@ body.nbd-photo-selecting .nbd-photo-checkbox,
 <script defer src="js/customer-photo-report-picker.js?v=1"></script>
 
 <!-- Edit Customer Modal -->
-<div id="editCustomerModal" class="modal" style="background:rgba(0,0,0,.75);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);">
+<div id="editCustomerModal" class="modal-bg" style="background:rgba(0,0,0,.75);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);">
   <div style="background:var(--s2);border-radius:16px;width:90%;max-width:480px;max-height:85vh;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:24px;border:1px solid var(--br);">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;">
       <div style="font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--t);">Edit Customer</div>

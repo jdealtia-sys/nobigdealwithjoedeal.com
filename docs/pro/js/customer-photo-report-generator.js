@@ -243,15 +243,18 @@ async function fetchImageAsBase64(url) {
 window._docUploadQueue = [];
 
 window.openDocUploadModal = function() {
-  document.getElementById('docUploadModal').classList.add('active');
   window._docUploadQueue = [];
   updateDocUploadPreview();
+  // nbdModal owns visibility + Esc/backdrop close; onClose resets the queue
+  // so every dismiss path (button, Esc, backdrop) clears in-progress picks.
+  window.nbdModal.open('docUploadModal', { onClose: function() {
+    window._docUploadQueue = [];
+    updateDocUploadPreview();
+  } });
 };
 
 window.closeDocUploadModal = function() {
-  document.getElementById('docUploadModal').classList.remove('active');
-  window._docUploadQueue = [];
-  updateDocUploadPreview();
+  window.nbdModal.close('docUploadModal');
 };
 
 // Document drop zone
@@ -518,13 +521,14 @@ async function loadDocuments(leadId) {
 // ============================================
 
 window.openNotesModal = function() {
-  document.getElementById('notesModal').classList.add('active');
-  document.getElementById('noteText').value = '';
-  document.getElementById('noteText').focus();
+  var t = document.getElementById('noteText');
+  if (t) t.value = '';
+  window.nbdModal.open('notesModal');
+  if (t) t.focus();
 };
 
 window.closeNotesModal = function() {
-  document.getElementById('notesModal').classList.remove('active');
+  window.nbdModal.close('notesModal');
 };
 
 window.saveNote = async function() {
@@ -731,13 +735,17 @@ function getTimeAgo(date) {
 // ============================================
 
 window.openEstimateModal = function() {
-  document.getElementById('estimateModal').classList.add('active');
   document.getElementById('estimateAmount').value = '';
   document.getElementById('estimateNotes').value = '';
+  // onClose clears the working estimate id on any dismiss (mirrors the
+  // create-modal reset in customer-bootstrap.module.js's closeEstimateModal).
+  window.nbdModal.open('estimateModal', { onClose: function() {
+    window._currentEstimateId = null;
+  } });
 };
 
 window.closeEstimateModal = function() {
-  document.getElementById('estimateModal').classList.remove('active');
+  window.nbdModal.close('estimateModal');
 };
 
 window.saveEstimate = async function() {
