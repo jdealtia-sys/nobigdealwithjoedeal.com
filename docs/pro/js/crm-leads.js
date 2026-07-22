@@ -82,7 +82,10 @@ const _arrayUnion = window.arrayUnion;
 function openLeadModal(){
   const modal = document.getElementById('leadModal');
   if (!modal) return; // standalone compat — modal not in DOM
-  modal.classList.add('open');
+  // nbdModal owns Esc/backdrop/focus on dashboard.html; classList fallback on
+  // dashboard.legacy.html. onClose runs the full form reset on every dismiss.
+  if (window.nbdModal) { window.nbdModal.open('leadModal', { onClose: _leadModalReset }); }
+  else { modal.classList.add('open'); }
   // Auto-infer jobType from current view: when user is on Cash view and clicks Add Lead,
   // default the new lead to jobType=cash (same for Insurance/Finance).
   const jtEl = document.getElementById('lJobType');
@@ -99,13 +102,22 @@ function openLeadModal(){
   }
 }
 function closeLeadModal(){
+  // Visibility toggle is dual-path (nbdModal on dashboard.html, classList on
+  // dashboard.legacy.html). The form reset lives in _leadModalReset so it runs
+  // on EVERY dismiss — nbdModal fires it via onClose (button/backdrop/Esc), and
+  // the legacy branch calls it directly.
+  if (window.nbdModal) { window.nbdModal.close('leadModal'); return; }
+  const modal = document.getElementById('leadModal');
+  if (modal) modal.classList.remove('open');
+  _leadModalReset();
+}
+
+function _leadModalReset(){
   // Null-safe one-liner helpers — DOM elements may be absent in
   // standalone/compat mode or if the modal was removed from the view.
   const setVal = (id) => { const el = document.getElementById(id); if (el) el.value = ''; };
   const hide   = (id) => { const el = document.getElementById(id); if (el) el.style.display = 'none'; };
 
-  const modal = document.getElementById('leadModal');
-  if (modal) modal.classList.remove('open');
   hide('mErr'); hide('mOk');
 
   ['lFname','lLname','lAddr','lPhone','lEmail','lNotes',

@@ -1657,8 +1657,13 @@
     // Don't trigger if user is typing in input/textarea
     if (['INPUT', 'TEXTAREA'].includes(e.target.tagName)) return;
     
-    // ESC - Close modals
-    if (e.key === 'Escape') {
+    // ESC - Close modals. leadModal / cardDetailModal / taskModal are now
+    // nbdModal-managed on dashboard.html, so nbdModal's own Esc handler closes
+    // the top one (restoring focus) and fires its onClose cleanup — running
+    // these unconditionally here would double-fire. On dashboard.legacy.html
+    // (no nbd-modal.js) this stays the sole Esc path; each closeXxx runs the
+    // classList fallback + reset directly.
+    if (e.key === 'Escape' && !window.nbdModal) {
       closeLeadModal();
       closeCardDetailModal();
       closeTaskModal();

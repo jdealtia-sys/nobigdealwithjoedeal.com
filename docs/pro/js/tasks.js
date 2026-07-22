@@ -162,10 +162,13 @@ async function openTaskModal(leadId,event){
   document.getElementById('taskModalAddr').textContent=lead?(lead.address||'').split(',').slice(0,2).join(','):'';
   document.getElementById('taskInput').value='';
   document.getElementById('taskDue').value='';
-  var _tm=document.getElementById("taskModal");if(_tm)_tm.classList.add("open");
+  // nbdModal owns Esc/backdrop/focus on dashboard.html; classList fallback on
+  // dashboard.legacy.html. onClose runs the lead-id reset + list re-render.
+  if(window.nbdModal){window.nbdModal.open('taskModal',{onClose:_taskModalReset});}else{var _tm=document.getElementById("taskModal");if(_tm)_tm.classList.add("open");}
   renderTaskList(await _loadTasks(leadId));
 }
-function closeTaskModal(){var _tm=document.getElementById("taskModal");if(_tm)_tm.classList.remove("open");_taskModalLeadId=null;renderLeads(window._leads,window._filteredLeads);renderTodayTasks();}
+function _taskModalReset(){_taskModalLeadId=null;renderLeads(window._leads,window._filteredLeads);renderTodayTasks();}
+function closeTaskModal(){if(window.nbdModal){window.nbdModal.close('taskModal');}else{var _tm=document.getElementById("taskModal");if(_tm)_tm.classList.remove("open");_taskModalReset();}}
 function _taskDueLabel(ds){const d=new Date(ds+'T12:00:00'),t=new Date(),tm=new Date(t);t.setHours(0,0,0,0);tm.setDate(tm.getDate()+1);tm.setHours(0,0,0,0);const dd=new Date(d);dd.setHours(0,0,0,0);if(dd.getTime()===t.getTime())return'Today';if(dd.getTime()===tm.getTime())return'Tomorrow';if(dd<t)return'Overdue';return d.toLocaleDateString('en-US',{month:'short',day:'numeric'});}
 function renderTaskList(tasks){
   const el=document.getElementById('taskList');if(!el)return;

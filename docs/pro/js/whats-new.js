@@ -209,39 +209,42 @@
     const seen = _readSeen();
     const wrap = document.createElement('div');
     wrap.id = PANEL_ID;
+    // Theme-tokenized (batch-4): hex fallbacks preserve the original dark look
+    // on any page missing the token set, but the modal now adapts to light
+    // themes. z-index moves onto the --z-* scale (modal tier).
     wrap.style.cssText =
-      'position:fixed;inset:0;z-index:10012;background:rgba(10,12,15,0.88);' +
+      'position:fixed;inset:0;z-index:var(--z-overlay,10012);background:rgba(0,0,0,0.7);' +
       'backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);' +
       'display:flex;align-items:center;justify-content:center;padding:20px;overflow-y:auto;';
     wrap.innerHTML =
-      '<div style="background:#0f1729;border:1px solid #2a3344;border-radius:14px;' +
+      '<div style="background:var(--s,#0f1729);border:1px solid var(--br,#2a3344);border-radius:14px;' +
         'width:100%;max-width:600px;max-height:90vh;overflow-y:auto;' +
-        'padding:22px;color:#e2e8f0;font:inherit;' +
+        'padding:22px;color:var(--t,#e2e8f0);font:inherit;' +
         'box-shadow:0 24px 60px rgba(0,0,0,0.6);">' +
         '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">' +
           '<div>' +
-            '<div style="font-size:11px;color:#94a3b8;letter-spacing:0.08em;font-weight:600;text-transform:uppercase;margin-bottom:3px;">What\'s new</div>' +
+            '<div style="font-size:11px;color:var(--m,#94a3b8);letter-spacing:0.08em;font-weight:600;text-transform:uppercase;margin-bottom:3px;">What\'s new</div>' +
             '<div style="font-size:18px;font-weight:700;">Recently shipped in NBD Pro</div>' +
           '</div>' +
-          '<button type="button" id="nbd-wn-close" style="background:transparent;border:none;color:#94a3b8;font-size:22px;cursor:pointer;padding:4px 10px;line-height:1;">×</button>' +
+          '<button type="button" id="nbd-wn-close" style="background:transparent;border:none;color:var(--m,#94a3b8);font-size:22px;cursor:pointer;padding:4px 10px;line-height:1;">×</button>' +
         '</div>' +
         items.map(it => {
           const isUnseen = !seen[it.id];
           return (
-            '<div style="background:' + (isUnseen ? 'rgba(200,84,26,0.06)' : '#0a1424') + ';' +
-              'border:1px solid ' + (isUnseen ? 'var(--orange, #c8541a)' : '#2a3344') + ';' +
+            '<div style="background:' + (isUnseen ? 'color-mix(in srgb, var(--orange,#c8541a) 8%, transparent)' : 'var(--s2,#0a1424)') + ';' +
+              'border:1px solid ' + (isUnseen ? 'var(--orange, #c8541a)' : 'var(--br,#2a3344)') + ';' +
               'border-radius:8px;padding:12px 14px;margin-bottom:8px;' +
               'display:flex;gap:12px;align-items:flex-start;" data-item-id="' + _esc(it.id) + '">' +
               '<div style="font-size:24px;line-height:1;flex-shrink:0;">' + _esc(it.icon) + '</div>' +
               '<div style="flex:1;min-width:0;">' +
                 '<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">' +
                   '<div style="font-size:14px;font-weight:700;">' + _esc(it.title) + '</div>' +
-                  (isUnseen ? '<span style="font-size:9px;color:var(--orange, #c8541a);background:rgba(200,84,26,0.15);border:1px solid var(--orange, #c8541a);padding:1px 6px;border-radius:99px;letter-spacing:0.08em;text-transform:uppercase;font-weight:700;">New</span>' : '') +
+                  (isUnseen ? '<span style="font-size:9px;color:var(--orange, #c8541a);background:color-mix(in srgb, var(--orange,#c8541a) 15%, transparent);border:1px solid var(--orange, #c8541a);padding:1px 6px;border-radius:99px;letter-spacing:0.08em;text-transform:uppercase;font-weight:700;">New</span>' : '') +
                 '</div>' +
-                '<div style="font-size:13px;color:#cbd5e1;line-height:1.45;margin-bottom:8px;">' + _esc(it.body) + '</div>' +
+                '<div style="font-size:13px;color:var(--m,#cbd5e1);line-height:1.45;margin-bottom:8px;">' + _esc(it.body) + '</div>' +
                 (it.tryLabel ? (
                   '<button type="button" class="nbd-wn-try" data-item-id="' + _esc(it.id) + '" ' +
-                    'style="padding:5px 10px;background:var(--orange, #c8541a);color:#fff;border:none;border-radius:5px;font:inherit;font-size:11px;font-weight:600;letter-spacing:0.04em;text-transform:uppercase;cursor:pointer;">' +
+                    'style="padding:5px 10px;background:var(--orange, #c8541a);color:var(--accent-fg,#fff);border:none;border-radius:5px;font:inherit;font-size:11px;font-weight:600;letter-spacing:0.04em;text-transform:uppercase;cursor:pointer;">' +
                     _esc(it.tryLabel) +
                   '</button>'
                 ) : '') +
@@ -249,9 +252,9 @@
             '</div>'
           );
         }).join('') +
-        '<div style="margin-top:14px;padding-top:12px;border-top:1px solid #2a3344;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">' +
-          '<button type="button" id="nbd-wn-mark-all" style="background:transparent;color:#94a3b8;border:none;font:inherit;font-size:11px;cursor:pointer;text-decoration:underline;">Mark all as seen</button>' +
-          '<div style="font-size:11px;color:#64748b;">' + items.length + ' item' + (items.length === 1 ? '' : 's') + ' (last 30 days)</div>' +
+        '<div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--br,#2a3344);display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">' +
+          '<button type="button" id="nbd-wn-mark-all" style="background:transparent;color:var(--m,#94a3b8);border:none;font:inherit;font-size:11px;cursor:pointer;text-decoration:underline;">Mark all as seen</button>' +
+          '<div style="font-size:11px;color:var(--m,#64748b);">' + items.length + ' item' + (items.length === 1 ? '' : 's') + ' (last 30 days)</div>' +
         '</div>' +
       '</div>';
     wrap.addEventListener('click', (e) => { if (e.target === wrap) close(); });
