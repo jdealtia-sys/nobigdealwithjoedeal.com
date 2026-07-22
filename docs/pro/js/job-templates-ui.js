@@ -104,6 +104,7 @@
     scopeCb: null,
     leadId: null,            // lead-context entry (openPicker({leadId})) — pre-selects the lead in the create step
     createdId: null,
+    createdLeadId: null,     // lead the created estimate was attributed to — powers "Send to customer" on the success step
     createdName: '',
     lastResolved: null,
     creating: false
@@ -1362,12 +1363,23 @@
   // ══════════════════════════════════════════════════════════════════════
 
   function renderSuccess() {
+    // "Send to customer" only when the estimate was attributed to a lead —
+    // the shared estimate-view link mints a portal token whose leadId must
+    // match the estimate's leadId (getEstimateForView enforces it). When a
+    // lead is attached it's the primary action (the payoff of quoting a
+    // customer); otherwise the builder is primary.
+    var hasLead = !!state.createdLeadId;
+    var sendBtn = hasLead
+      ? '<button type="button" class="jt-btn jt-btn-primary" data-jt-action="send-to-customer">📤 Send to customer</button>'
+      : '';
     return '<div class="jt-success">' +
       '<div class="ic">✓</div>' +
       '<h2>Estimate created</h2>' +
-      '<p>' + esc(state.createdName || 'Your estimate') + ' has been saved to your estimates.</p>' +
+      '<p>' + esc(state.createdName || 'Your estimate') + ' has been saved to your estimates.' +
+        (hasLead ? ' Send the customer a private link to view it.' : '') + '</p>' +
       '<div class="btns">' +
-        '<button type="button" class="jt-btn jt-btn-primary" data-jt-action="open-in-v2">Open in Estimate Builder</button>' +
+        sendBtn +
+        '<button type="button" class="jt-btn' + (hasLead ? '' : ' jt-btn-primary') + '" data-jt-action="open-in-v2">Open in Estimate Builder</button>' +
         '<button type="button" class="jt-btn" data-jt-action="done">Done</button>' +
       '</div>' +
       '</div>';
@@ -1623,6 +1635,10 @@
       .then(function (res) {
         state.creating = false;
         state.createdId = (res && typeof res === 'object') ? (res.id || res.estimateId || null) : (res || null);
+        // Capture the attributed lead now — #jtLeadSel is destroyed on the
+        // transition to the success step, and "Send to customer" needs it to
+        // mint a portal token whose leadId matches the estimate's leadId.
+        state.createdLeadId = leadId || null;
         state.createdName = name;
         state.step = 'success';
         paintModal();
@@ -1647,6 +1663,55 @@
       return;
     }
     toast('Estimate saved — open it from the Estimates view', 'info');
+  }
+
+  // "Send to customer" — share a private, revocable link to THIS estimate's
+  // customer view. Reuses the proven token path: CustomerPortal.mintUrl mints
+  // a createPortalToken bound to the lead (loaded on both dashboard + customer
+  // pages, unlike the customer-only shareEstimateViewLink), then we point it at
+  // /pro/estimate-view.html?token=&estimateId= — the same viewer + server guard
+  // (getEstimateForView) the customer page's 🔗 button uses. Web Share on mobile,
+  // else clipboard, else prompt() so the rep always walks away with the link.
+  async function sendToCustomer() {
+    var estId = state.createdId;
+    var leadId = state.createdLeadId;
+    if (!estId) { toast('Estimate not saved yet', 'error'); return; }
+    if (!leadId) { toast('Attach a customer to this estimate to send it', 'info'); return; }
+    if (!window.CustomerPortal || typeof window.CustomerPortal.mintUrl !== 'function') {
+      toast('Portal module not loaded — open the estimate and share from there', 'error');
+      return;
+    }
+    var btn = document.querySelector('[data-jt-action="send-to-customer"]');
+    if (btn) { btn.disabled = true; btn.textContent = 'Creating link…'; }
+    try {
+      var portalUrl = await window.CustomerPortal.mintUrl(leadId);
+      var token = '';
+      try { token = new URL(portalUrl).searchParams.get('token') || ''; } catch (e) { token = ''; }
+      if (!token) throw new Error('No token');
+      var url = location.origin + '/pro/estimate-view.html?token=' +
+        encodeURIComponent(token) + '&estimateId=' + encodeURIComponent(estId);
+
+      var shared = false;
+      if (navigator.share && /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent || '')) {
+        try { await navigator.share({ title: 'Your estimate', text: 'Here’s your estimate:', url: url }); shared = true; }
+        catch (e) { /* user cancelled or unsupported — fall through to copy */ }
+      }
+      if (!shared && navigator.clipboard && navigator.clipboard.writeText) {
+        try { await navigator.clipboard.writeText(url); shared = true; toast('Customer estimate link copied ✓', 'success'); }
+        catch (e) { /* clipboard blocked — fall through to prompt */ }
+      }
+      if (!shared) { window.prompt('Copy this link to send to your customer:', url); }
+
+      // Feed the existing share-tracking widgets (last-shared chip, freshness).
+      if (window.PortalLinkHelpers && typeof window.PortalLinkHelpers.recordShare === 'function') {
+        try { window.PortalLinkHelpers.recordShare(leadId, 'copy'); } catch (e) { /* non-fatal */ }
+      }
+    } catch (e) {
+      console.error('[job-templates-ui] sendToCustomer failed:', e);
+      toast('Could not create the customer link — try again', 'error');
+    } finally {
+      if (btn) { btn.disabled = false; btn.textContent = '📤 Send to customer'; }
+    }
   }
 
   function duplicateTemplate(id) {
@@ -1740,6 +1805,7 @@
         // ── Terminal actions ──
         case 'insert-into-v2': doInsertIntoV2(); break;
         case 'create-estimate': doCreateEstimate(); break;
+        case 'send-to-customer': sendToCustomer(); break;
         case 'open-in-v2': openInV2(); break;
         case 'done': closeModal(); break;
 
