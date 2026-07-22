@@ -3150,6 +3150,59 @@
         // Create new estimate
         const ref2 = await addDoc(collection(db,'estimates'), {...data, createdAt:serverTimestamp(), userId:window._user?.uid});
         await loadEstimates();
+        // Pipeline wiring: Pipeline/dashboard-KPI/Leaderboard all read
+        // lead.jobValue, not the estimate itself — nothing wrote that back
+        // before this. Stamp it here, once, so every caller (Job Templates,
+        // classic builder, V2 builder) gets correct pipeline reflection for
+        // free instead of needing this re-applied per caller. Best-effort:
+        // a stamp-back failure must never fail the estimate save itself.
+        if (data.leadId) {
+          try {
+            const leadRef = doc(db, 'leads', data.leadId);
+            const leadSnap = await getDoc(leadRef);
+            if (leadSnap.exists()) {
+              const lead = leadSnap.data();
+              if (!lead.primaryEstimateId) {
+                // First estimate this lead has ever had — unambiguous, stamp
+                // it straight through. Only bump a stone-cold "new" lead
+                // forward (to Contacted, since a real number now exists);
+                // never regress a lead already further along the funnel.
+                const stampUpdate = {
+                  jobValue: Number(data.grandTotal) || 0,
+                  primaryEstimateId: ref2.id,
+                  lastEstimateAt: serverTimestamp(),
+                };
+                if (normalizeStage(lead.stage) === S.NEW) {
+                  stampUpdate.stage = S.CONTACTED;
+                  stampUpdate.stageRole = stageRole(S.CONTACTED);
+                }
+                await updateDoc(leadRef, stampUpdate);
+              } else if (lead.primaryEstimateId !== ref2.id) {
+                // Lead already has a primary estimate (a revision/second
+                // quote is being created) — don't silently clobber a
+                // rep-confirmed number. Same confirm helper estimates.js
+                // already uses elsewhere (nbdConfirm, falling back to the
+                // native confirm()).
+                const existingVal = Number(lead.jobValue) || 0;
+                const newVal = Number(data.grandTotal) || 0;
+                const ask = window.nbdConfirm || ((m) => Promise.resolve(window.confirm(m)));
+                const useNew = await ask(
+                  `This lead's job value is currently $${existingVal.toLocaleString()} (from an earlier estimate). ` +
+                  `Use this new estimate's $${newVal.toLocaleString()} instead?`
+                );
+                if (useNew) {
+                  await updateDoc(leadRef, {
+                    jobValue: newVal,
+                    primaryEstimateId: ref2.id,
+                    lastEstimateAt: serverTimestamp(),
+                  });
+                }
+              }
+            }
+          } catch (stampErr) {
+            console.warn('[_saveEstimate] lead stamp-back failed:', stampErr);
+          }
+        }
         return ref2.id;
       }
     } catch (e) {

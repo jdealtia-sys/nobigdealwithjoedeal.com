@@ -126,6 +126,11 @@ function _leadModalReset(){
   const editId = document.getElementById('lEditId'); if(editId) editId.value='';
   const title = document.getElementById('leadModalTitle'); if(title) title.textContent='Add Lead';
   const jt=document.getElementById('lJobType'); if(jt) jt.value='';
+  // Pre-existing gap: this reset list never touched #lStage, so a stage
+  // picked while editing one lead silently carried over as the default for
+  // the NEXT lead opened in this modal (including via
+  // EntityResolver.openQuickCreate) — reset it back to New on every dismiss.
+  const st=document.getElementById('lStage'); if(st) st.value='new';
   // Clear insurance/finance/job fields
   ['lClaimNumber','lEstimateAmount','lDeductible','lScopeOfWork','lFinanceCompany','lLoanAmount','lPreQualLink','lScheduledDate','lCrew'].forEach(id=>{ const e=document.getElementById(id); if(e) e.value=''; });
   ['lClaimFiledBy','lSupplementStatus','lLoanStatus'].forEach(id=>{ const e=document.getElementById(id); if(e) e.value=''; });
