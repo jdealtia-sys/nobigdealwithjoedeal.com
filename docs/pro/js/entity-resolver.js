@@ -109,8 +109,8 @@
     }
 
     function renderResults(query) {
-      var hits = (window.GlobalSearch && typeof window.GlobalSearch.searchLeads === 'function')
-        ? window.GlobalSearch.searchLeads(query)
+      var hits = (window.NbdGlobalSearch && typeof window.NbdGlobalSearch.searchLeads === 'function')
+        ? window.NbdGlobalSearch.searchLeads(query)
         : [];
       var rowsHtml = hits.slice(0, 8).map(function (hit) {
         var l = hit.lead;
