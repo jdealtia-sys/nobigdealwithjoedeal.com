@@ -149,11 +149,13 @@
     banner.id = 'nbd-pwa-install-banner';
     banner.setAttribute('role', 'dialog');
     banner.setAttribute('aria-label', 'Install NBD Pro');
+    // Theme-tokenized (batch-4): hex fallbacks preserve the original dark look
+    // where the token set is absent; z-index moves onto the --z-* scale.
     banner.style.cssText = `
       position:fixed; left:50%; transform:translateX(-50%) translateY(100%);
-      bottom:14px; z-index:99990;
-      background:linear-gradient(135deg,#1f2937 0%,#111827 100%);
-      color:#fff; border:1px solid rgba(255,255,255,0.08);
+      bottom:14px; z-index:var(--z-overlay, 99990);
+      background:linear-gradient(135deg,var(--s2,#1f2937) 0%,var(--s,#111827) 100%);
+      color:var(--t,#fff); border:1px solid var(--br,rgba(255,255,255,0.08));
       border-radius:14px; padding:14px 16px;
       box-shadow:0 8px 28px rgba(0,0,0,0.4);
       max-width:min(420px, calc(100vw - 28px));
@@ -165,27 +167,27 @@
       <div style="font-size:26px; flex-shrink:0;">📱</div>
       <div style="flex:1; min-width:0;">
         <div style="font-size:13px; font-weight:700; margin-bottom:2px;">Install NBD Pro</div>
-        <div style="font-size:11px; color:#cbd5e1; line-height:1.4;">
+        <div style="font-size:11px; color:var(--m,#cbd5e1); line-height:1.4;">
           Faster cold start, full-screen layout, home-screen icon. No app store needed.
         </div>
       </div>
       <div style="display:flex; flex-direction:column; gap:6px; flex-shrink:0;">
         <button id="nbd-pwa-install-action" style="
-          background:linear-gradient(135deg,#c8541a 0%,#a64516 100%);
-          color:#fff; border:none; padding:8px 14px; border-radius:7px;
+          background:linear-gradient(135deg,var(--orange,#c8541a) 0%,#a64516 100%);
+          color:var(--accent-fg,#fff); border:none; padding:8px 14px; border-radius:7px;
           font-size:12px; font-weight:700; cursor:pointer;
           -webkit-tap-highlight-color:transparent; white-space:nowrap;
           letter-spacing:0.2px;">Install</button>
         <button id="nbd-pwa-install-later" style="
-          background:transparent; color:#94a3b8;
-          border:1px solid rgba(255,255,255,0.12); padding:6px 14px;
+          background:transparent; color:var(--m,#94a3b8);
+          border:1px solid var(--br,rgba(255,255,255,0.12)); padding:6px 14px;
           border-radius:7px; font-size:11px; font-weight:600; cursor:pointer;
           -webkit-tap-highlight-color:transparent; white-space:nowrap;">Not now</button>
       </div>
       <button id="nbd-pwa-install-x" aria-label="Dismiss"
         style="
           position:absolute; top:6px; right:8px;
-          background:transparent; border:none; color:#64748b;
+          background:transparent; border:none; color:var(--m,#64748b);
           cursor:pointer; padding:4px 6px; line-height:1;
           font-size:14px; -webkit-tap-highlight-color:transparent;">×</button>`;
     // Anchor the banner ABOVE any fixed bottom bar. At bottom:14px /
@@ -227,7 +229,7 @@
     const overlay = document.createElement('div');
     overlay.id = 'nbd-pwa-ios-modal';
     overlay.style.cssText = `
-      position:fixed; inset:0; background:rgba(0,0,0,0.65); z-index:99995;
+      position:fixed; inset:0; background:rgba(0,0,0,0.65); z-index:var(--z-overlay-top, 99995);
       display:flex; align-items:center; justify-content:center; padding:20px;
       font-family:'Barlow',-apple-system,system-ui,sans-serif;`;
     overlay.innerHTML = `
@@ -272,7 +274,7 @@
     const overlay = document.createElement('div');
     overlay.id = 'nbd-pwa-and-modal';
     overlay.style.cssText = `
-      position:fixed; inset:0; background:rgba(0,0,0,0.65); z-index:99995;
+      position:fixed; inset:0; background:rgba(0,0,0,0.65); z-index:var(--z-overlay-top, 99995);
       display:flex; align-items:center; justify-content:center; padding:20px;
       font-family:'Barlow',-apple-system,system-ui,sans-serif;`;
     overlay.innerHTML = `
