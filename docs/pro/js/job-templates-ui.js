@@ -606,7 +606,10 @@
       // ── Proposal (customer-facing paper — deliberately light-on-white) ──
       '.jt-prop{max-width:820px;margin:0 auto;background:#fff;color:#1a202c;border-radius:10px;padding:34px 38px;box-shadow:0 10px 40px rgba(0,0,0,.5);}',
       '.jt-prop-co{font-family:"Barlow Condensed",sans-serif;font-size:26px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;color:#1a202c;}',
-      '.jt-prop-kind{font-size:11px;font-weight:800;letter-spacing:.22em;text-transform:uppercase;color:#e8720c;margin-top:2px;}',
+      // Compact legal-name line shown UNDER the logo (letterhead), so the name
+      // doesn\'t read as a second giant wordmark beside the logo mark.
+      '.jt-prop-co-sm{font-family:"Barlow Condensed",sans-serif;font-size:15px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin-top:7px;line-height:1.1;}',
+      '.jt-prop-kind{font-size:11px;font-weight:800;letter-spacing:.22em;text-transform:uppercase;color:#e8720c;margin-top:3px;}',
       '.jt-prop-meta{font-size:12px;color:#64748b;margin-top:6px;}',
       '.jt-prop hr{border:none;border-top:2px solid #1a202c;margin:16px 0;}',
       '.jt-prop-scope h3{margin:14px 0 3px;font-size:14px;font-weight:800;color:#1a202c;}',
@@ -1292,21 +1295,25 @@
     var colors = brandColors();
     var logo = brandLogo();
     var coName = companyName();
-    // No inline onerror — the CSP sets script-src-attr 'none' (inline handlers
-    // are dead). A broken logo just shows the browser's placeholder; for the
-    // NBD tenant the src is same-origin (docs/assets/images/nbd-logo.png) so it
-    // resolves under img-src 'self'.
-    var logoHtml = logo
+    var kind = (state.jobMode === 'insurance' ? 'Insurance Proposal' : 'Project Proposal');
+    // Letterhead. When a logo is present it is the hero brand mark and the
+    // legal name renders as a COMPACT line beneath it (a proposal becomes a
+    // contract — the legal entity name must still appear, but not as a second
+    // giant wordmark competing with the logo). With no logo (e.g. a white-label
+    // tenant that hasn't uploaded one) the legal name IS the masthead.
+    // No inline onerror — CSP sets script-src-attr 'none'; the NBD logo src is
+    // same-origin (docs/assets/images/nbd-logo.png) so it resolves under img-src 'self'.
+    var brandBlock = logo
       ? '<img src="' + esc(logo) + '" alt="' + esc(coName) + '" ' +
-        'style="max-height:48px;max-width:230px;display:block;margin-bottom:9px;object-fit:contain;">'
-      : '';
+          'style="max-height:52px;max-width:240px;display:block;object-fit:contain;">' +
+        '<div class="jt-prop-co-sm" style="color:' + esc(colors.primary) + ';">' + esc(coName) + '</div>'
+      : '<div class="jt-prop-co" style="color:' + esc(colors.primary) + ';">' + esc(coName) + '</div>';
 
     return '<div class="jt-prop">' +
       '<div style="display:flex;justify-content:space-between;gap:14px;flex-wrap:wrap;">' +
         '<div>' +
-          logoHtml +
-          '<div class="jt-prop-co" style="color:' + esc(colors.primary) + ';">' + esc(coName) + '</div>' +
-          '<div class="jt-prop-kind" style="color:' + esc(colors.accent) + ';">' + (state.jobMode === 'insurance' ? 'Insurance Proposal' : 'Project Proposal') + '</div>' +
+          brandBlock +
+          '<div class="jt-prop-kind" style="color:' + esc(colors.accent) + ';">' + kind + '</div>' +
         '</div>' +
         '<div class="jt-prop-meta" style="text-align:right;">' +
           esc(dateStr) + '<br>' +
