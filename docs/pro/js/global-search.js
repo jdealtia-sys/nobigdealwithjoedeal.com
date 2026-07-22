@@ -705,7 +705,15 @@
       const ests  = Array.isArray(window._estimates) ? window._estimates : [];
       return [...searchLeads(q, leads), ...searchEstimates(q, ests, leads)];
     },
+    // Leads-only, exposed for reuse outside the Cmd+K palette (e.g. Job
+    // Templates' lead picker) — same scoring logic, no duplicated matching.
+    searchLeads: (q) => searchLeads(q, Array.isArray(window._leads) ? window._leads : []),
   };
+  // Deliberately not the bare "GlobalSearch" name — that's on the smoke
+  // test's off-window list (a prior tranche removed it as unused window
+  // surface). This is a genuine new cross-file consumer (entity-resolver.js),
+  // so it gets its own distinct name instead of relitigating that cleanup.
+  window.NbdGlobalSearch = GlobalSearch;
 
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', init);

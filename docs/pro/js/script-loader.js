@@ -149,8 +149,11 @@
       // resolves through EstimateLogic + registers custom items into
       // EstimateBuilderV2.CATALOG (so it must load after both), and the UI
       // inserts into the V2 builder — end-of-bundle satisfies all three.
+      // entity-resolver.js (the lead search/quick-create picker) must load
+      // before job-templates-ui.js, which calls it from paintModal.
       'js/job-templates-data.js?v=1',
       'js/job-templates.js?v=1',
+      'js/entity-resolver.js?v=1',
       'js/job-templates-ui.js?v=1'
     ],
     // Photo + inspection engine (PR 2d). Camera capture / gallery / lightbox /
