@@ -1152,9 +1152,55 @@
   // PREVIEW step (customer-facing — RETAIL ONLY)
   // ══════════════════════════════════════════════════════════════════════
 
-  function companyName() {
+  // Active-tenant brand — the same source every other brand-bearing surface
+  // reads (company-profile.js window._brand(): NBD defaults deep-merged with
+  // this tenant's companyProfile.brand). Never null once company-profile.js
+  // is loaded; falls back to _companyProfile.brand, then null.
+  function brandCtx() {
+    try {
+      if (typeof window._brand === 'function') {
+        var b = window._brand();
+        if (b && typeof b === 'object') return b;
+      }
+    } catch (e) { /* fall through */ }
     var cp = window._companyProfile;
-    return (cp && (cp.companyName || cp.name)) || 'No Big Deal Roofing';
+    return (cp && cp.brand && typeof cp.brand === 'object') ? cp.brand : null;
+  }
+
+  // Company display name — the tenant's legal name (e.g. "No Big Deal Home
+  // Solutions"), NOT the old hardcoded "No Big Deal Roofing". Legacy
+  // _companyProfile.companyName/name still win if a page set them.
+  function companyName() {
+    var b = brandCtx();
+    if (b && (b.legalName || b.displayName)) return b.legalName || b.displayName;
+    var cp = window._companyProfile;
+    return (cp && (cp.companyName || cp.name)) || 'No Big Deal Home Solutions';
+  }
+
+  // Logo src for the proposal letterhead. The tenant's own brand.logoUrl
+  // wins; only the NBD tenant falls back to the NBD asset — a non-NBD tenant
+  // with no logo gets none, never NBD's (cross-tenant leak guard, mirrors
+  // document-generator.js _logoSrc / review M1).
+  function brandLogo() {
+    var b = brandCtx();
+    if (b && b.logoUrl) return String(b.logoUrl);
+    var isNbd = !b || !b.legalName || b.legalName === 'No Big Deal Home Solutions';
+    if (!isNbd) return '';
+    if (typeof window.NBD_LOGO_DATA_URI === 'string' && window.NBD_LOGO_DATA_URI) return window.NBD_LOGO_DATA_URI;
+    return 'https://nobigdealwithjoedeal.com/assets/images/nbd-logo.png';
+  }
+
+  // Brand colors for the customer-facing proposal — primary (navy) titles the
+  // company, accent (orange) tags the proposal kind. Falls back to the
+  // canonical NBD palette so the paper is never unstyled.
+  function brandColors() {
+    var b = brandCtx();
+    var c = (b && b.colors && typeof b.colors === 'object') ? b.colors : {};
+    return {
+      primary: c.primary || '#1E3A6E',
+      accent:  c.accent  || '#E8720C',
+      ink:     c.ink     || '#14181F'
+    };
   }
 
   function defaultEstimateName() {
@@ -1243,11 +1289,24 @@
       '<div id="jtLeadPickerRoot"></div>' +
       '</div>';
 
+    var colors = brandColors();
+    var logo = brandLogo();
+    var coName = companyName();
+    // No inline onerror — the CSP sets script-src-attr 'none' (inline handlers
+    // are dead). A broken logo just shows the browser's placeholder; for the
+    // NBD tenant the src is same-origin (docs/assets/images/nbd-logo.png) so it
+    // resolves under img-src 'self'.
+    var logoHtml = logo
+      ? '<img src="' + esc(logo) + '" alt="' + esc(coName) + '" ' +
+        'style="max-height:48px;max-width:230px;display:block;margin-bottom:9px;object-fit:contain;">'
+      : '';
+
     return '<div class="jt-prop">' +
       '<div style="display:flex;justify-content:space-between;gap:14px;flex-wrap:wrap;">' +
         '<div>' +
-          '<div class="jt-prop-co">' + esc(companyName()) + '</div>' +
-          '<div class="jt-prop-kind">' + (state.jobMode === 'insurance' ? 'Insurance Proposal' : 'Project Proposal') + '</div>' +
+          logoHtml +
+          '<div class="jt-prop-co" style="color:' + esc(colors.primary) + ';">' + esc(coName) + '</div>' +
+          '<div class="jt-prop-kind" style="color:' + esc(colors.accent) + ';">' + (state.jobMode === 'insurance' ? 'Insurance Proposal' : 'Project Proposal') + '</div>' +
         '</div>' +
         '<div class="jt-prop-meta" style="text-align:right;">' +
           esc(dateStr) + '<br>' +
