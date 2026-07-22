@@ -192,7 +192,12 @@ window.copyBookingLink = function() {
   const url = window._bookingUrl;
   if (!url) { showToast('No booking link configured', 'error'); return; }
   const name = window._bookingCustomerName;
-  const text = `Hey${name ? ' ' + name : ''}, this is Joe from No Big Deal Roofing! I'd love to set up a free roof inspection at your convenience. Pick a time that works for you here: ${url}`;
+  // M1 brand parity (customer-bootstrap.module.js pattern): NBD keeps
+  // 'Joe from No Big Deal Roofing'; a non-NBD tenant uses its own smsSignOff
+  // (or its legalName if unset) — never NBD's name in another company's copy.
+  const _b = (window._brand && window._brand()) || {};
+  const signOff = _b.smsSignOff || ((!_b.legalName || _b.legalName === 'No Big Deal Home Solutions') ? 'Joe from No Big Deal Roofing' : _b.legalName);
+  const text = `Hey${name ? ' ' + name : ''}, this is ${signOff}! I'd love to set up a free roof inspection at your convenience. Pick a time that works for you here: ${url}`;
   navigator.clipboard.writeText(text).then(() => {
     const btn = document.getElementById('copyBookingBtn');
     if (btn) { btn.textContent = '✅ Copied!'; setTimeout(() => btn.textContent = '📋 Copy Booking Link', 2000); }

@@ -731,7 +731,12 @@ window._repBookingUrl = function () {
 window.sendBookingSMS = function(leadId, phone, firstName) {
   const bookingUrl = window._repBookingUrl();
   const cleanPhone = (phone || '').replace(/\D/g, '');
-  const body = encodeURIComponent(`Hey${firstName ? ' ' + firstName : ''}, this is Joe from No Big Deal Roofing! I'd love to set up a free roof inspection at your convenience. Pick a time that works for you here: ${bookingUrl}`);
+  // M1 brand parity (customer-bootstrap.module.js pattern): NBD keeps
+  // 'Joe from No Big Deal Roofing'; a non-NBD tenant uses its own smsSignOff
+  // (or its legalName if unset) — never NBD's name in another company's SMS.
+  const _b = (window._brand && window._brand()) || {};
+  const signOff = _b.smsSignOff || ((!_b.legalName || _b.legalName === 'No Big Deal Home Solutions') ? 'Joe from No Big Deal Roofing' : _b.legalName);
+  const body = encodeURIComponent(`Hey${firstName ? ' ' + firstName : ''}, this is ${signOff}! I'd love to set up a free roof inspection at your convenience. Pick a time that works for you here: ${bookingUrl}`);
   window.open(`sms:${cleanPhone}?body=${body}`, '_self');
 };
 
