@@ -540,7 +540,11 @@
       '.jt-chip{display:inline-block;font-size:10.5px;font-weight:600;padding:2px 8px;border-radius:10px;background:var(--s2,#181c22);color:var(--m,#9aa3ad);border:1px solid var(--br,#2a2f35);white-space:nowrap;}',
       '.jt-chips{display:flex;flex-wrap:wrap;gap:5px;align-items:center;}',
       '.jt-band{font-size:13px;font-weight:800;color:var(--orange,#e8720c);}',
-      '.jt-card-foot{display:flex;justify-content:space-between;align-items:center;gap:8px;border-top:1px solid var(--br,#2a2f35);padding-top:9px;margin-top:auto;}',
+      // Bottom action block: primary "Use" CTA over the band + edit/dupe row.
+      // margin-top:auto pins it to the card bottom (grid cards stretch equal).
+      '.jt-card-actions{margin-top:auto;display:flex;flex-direction:column;gap:9px;border-top:1px solid var(--br,#2a2f35);padding-top:10px;}',
+      '.jt-card-use{width:100%;}',
+      '.jt-card-foot{display:flex;justify-content:space-between;align-items:center;gap:8px;}',
       '.jt-btn{padding:8px 14px;border-radius:8px;border:1px solid var(--br,#2a2f35);background:var(--s2,#181c22);color:var(--t,#e8eaf0);cursor:pointer;font-size:12px;font-weight:600;font-family:inherit;-webkit-tap-highlight-color:transparent;touch-action:manipulation;}',
       '.jt-btn:hover{border-color:var(--orange,#e8720c);}',
       '.jt-btn-sm{padding:5px 10px;font-size:11px;border-radius:6px;}',
@@ -785,6 +789,14 @@
     var tags = (t.tags || []).slice(0, 3).map(function (tg) {
       return '<span class="jt-chip">#' + esc(tg) + '</span>';
     }).join('');
+    // Primary card CTA — the always-visible entry into the use flow, so the
+    // rep never has to discover the checkbox + sticky bar to apply a
+    // template. In scope mode it inserts into the open estimate; otherwise
+    // it runs configure → preview → attribute-to-customer → create.
+    var useLabel = state.forScope ? 'Insert into estimate →' : 'Use this template →';
+    var useTitle = state.forScope
+      ? 'Add this template to the open estimate'
+      : 'Configure this template, then apply it to a customer, lead, or prospect';
 
     return '<div class="jt-card' + (sel ? ' sel' : '') + '" style="border-left-color:' + esc(col) + ';">' +
       '<div class="jt-card-top">' +
@@ -807,12 +819,15 @@
         (Number(t.useCount) > 0 ? '<span class="jt-chip jt-used-chip">used ' + Number(t.useCount) + '×</span>' : '') +
         tags +
       '</div>' +
-      '<div class="jt-card-foot">' +
-        '<span class="jt-band">' + (band ? esc(band) : '&nbsp;') + '</span>' +
-        '<div style="display:flex;gap:6px;">' +
-          '<button type="button" class="jt-btn jt-btn-sm" data-jt-action="edit-template" data-id="' + esc(t.id) + '">Edit</button>' +
-          '<button type="button" class="jt-btn jt-btn-sm" data-jt-action="duplicate-template" data-id="' + esc(t.id) + '">Duplicate</button>' +
-          (custom ? '<button type="button" class="jt-btn jt-btn-sm jt-btn-danger" data-jt-action="delete-template" data-id="' + esc(t.id) + '">Delete</button>' : '') +
+      '<div class="jt-card-actions">' +
+        '<button type="button" class="jt-btn jt-btn-primary jt-card-use" data-jt-action="quick-use" data-id="' + esc(t.id) + '" title="' + esc(useTitle) + '">' + useLabel + '</button>' +
+        '<div class="jt-card-foot">' +
+          '<span class="jt-band">' + (band ? esc(band) : '&nbsp;') + '</span>' +
+          '<div style="display:flex;gap:6px;">' +
+            '<button type="button" class="jt-btn jt-btn-sm" data-jt-action="edit-template" data-id="' + esc(t.id) + '">Edit</button>' +
+            '<button type="button" class="jt-btn jt-btn-sm" data-jt-action="duplicate-template" data-id="' + esc(t.id) + '">Duplicate</button>' +
+            (custom ? '<button type="button" class="jt-btn jt-btn-sm jt-btn-danger" data-jt-action="delete-template" data-id="' + esc(t.id) + '">Delete</button>' : '') +
+          '</div>' +
         '</div>' +
       '</div>' +
       '</div>';
@@ -1223,7 +1238,7 @@
     // contract: doCreateEstimate() reads its .value unchanged regardless
     // of whether the lead came from search, quick-create, or pre-staging.
     var leadField =
-      '<div class="fld"><span class="jt-mini-lbl">Lead (optional)</span>' +
+      '<div class="fld"><span class="jt-mini-lbl">Apply to customer / lead (optional)</span>' +
       '<input type="hidden" id="jtLeadSel" value="' + (state.leadId ? esc(state.leadId) : '') + '">' +
       '<div id="jtLeadPickerRoot"></div>' +
       '</div>';
@@ -1449,6 +1464,17 @@
     paintModal();
   }
 
+  // One-tap "Use this template" — the per-card primary CTA. Ensures the
+  // template is in the selection (additive, never clobbers an in-progress
+  // multi-select) and jumps straight into the configure step, from which
+  // the rep previews and attributes the quote to a customer/lead. Honors
+  // scope mode (openPickerForScope) via openPreconfirm's Insert primary.
+  function quickUse(id) {
+    if (!id) return;
+    toggleSelect(id, true);
+    openPreconfirm();
+  }
+
   function openPickerForScope(cb) {
     state.host = 'modal';
     state.forScope = true;
@@ -1623,6 +1649,7 @@
           if (id) { toggleSelect(id, !isSelected(id)); reRender(); }
           break;
         case 'open-preconfirm': openPreconfirm(); break;
+        case 'quick-use': if (id) quickUse(id); break;
         case 'new-template': openEditor(null); break;
         case 'edit-template': if (id) openEditor(id); break;
         case 'duplicate-template': if (id) duplicateTemplate(id); break;
