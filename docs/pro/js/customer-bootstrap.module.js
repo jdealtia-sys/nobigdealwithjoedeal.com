@@ -1445,7 +1445,7 @@ async function loadEstimates(leadId) {
       return `
         <div class="estimate-item nbd-est-row" data-est-id="${esc(est.id)}" style="cursor:pointer;transition:all .2s;display:flex;align-items:center;justify-content:space-between;padding:12px 14px;border-bottom:1px solid var(--br);">
           <div>
-            <div class="estimate-title" style="display:flex;align-items:center;">${esc(est.title || 'Estimate')}${tierLabel}</div>
+            <div class="estimate-title" style="display:flex;align-items:center;">${esc(est.title || est.name || 'Estimate')}${tierLabel}</div>
             <div style="font-size:11px;color:var(--m);margin-top:2px;">${esc(dateStr)}</div>
           </div>
           <div style="display:flex;align-items:center;gap:10px;">
