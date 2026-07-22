@@ -621,7 +621,13 @@
       '.jt-createbar .fld{flex:1;min-width:200px;}',
       // ── Lead picker (EntityResolver) ──
       '.er-picker{position:relative;}',
+      // Two-choice chooser — same flex:1 primary/secondary pair pattern as
+      // D2D's Hot Lead "Convert Now" / "Edit First" prompt, for consistency.
+      '.er-choice{display:flex;gap:10px;}',
+      '.er-choice button{flex:1;}',
+      '.er-search-wrap{position:relative;}',
       '.er-search{width:100%;}',
+      '.er-back{margin-top:8px;}',
       '.er-selected{display:flex;align-items:center;gap:8px;background:var(--s2,#181c22);border:1px solid var(--br,#2a2f35);border-radius:6px;padding:7px 8px;}',
       '.er-selected-name{font-size:13px;font-weight:700;color:var(--t,#e8eaf0);}',
       '.er-selected-sub{font-size:11px;color:var(--m,#9aa3ad);flex:1;}',
@@ -631,7 +637,8 @@
       '.er-row:hover{background:var(--s2,#181c22);}',
       '.er-row-name{display:block;font-size:12.5px;font-weight:600;color:var(--t,#e8eaf0);}',
       '.er-row-sub{display:block;font-size:11px;color:var(--m,#9aa3ad);}',
-      '.er-row-create{color:var(--orange,#e8720c);font-weight:700;font-size:12.5px;}',
+      '.er-row-empty{cursor:default;font-size:11.5px;color:var(--m,#9aa3ad);}',
+      '.er-row-empty:hover{background:transparent;}',
       // ── Success ──
       '.jt-success{max-width:520px;margin:8vh auto 0;text-align:center;background:var(--s,#111418);border:1px solid var(--br,#2a2f35);border-radius:14px;padding:38px 26px;}',
       '.jt-success .ic{width:64px;height:64px;border-radius:50%;background:rgba(16,185,129,.12);border:2px solid #10b981;color:#10b981;font-size:30px;line-height:60px;margin:0 auto 14px;}',

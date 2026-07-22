@@ -53,10 +53,12 @@
     });
   }
 
-  // Mounts a search-as-you-type lead picker into `root` (an existing DOM
-  // node). Keeps `opts.hiddenInput`'s value in sync with the resolved
-  // leadId so a caller that already reads one element's .value (e.g.
-  // job-templates-ui.js's doCreateEstimate) needs zero other changes.
+  // Mounts an explicit "Add to Existing Customer" / "+ New Customer"
+  // chooser into `root` (an existing DOM node) — browsing/configuring a
+  // template never requires this to be touched; it's a deliberate action.
+  // Keeps `opts.hiddenInput`'s value in sync with the resolved leadId so a
+  // caller that already reads one element's .value (e.g. job-templates-
+  // ui.js's doCreateEstimate) needs zero other changes.
   function mountLeadPicker(root, opts) {
     opts = opts || {};
     var hiddenInput = opts.hiddenInput || null;
@@ -65,11 +67,20 @@
 
     root.innerHTML =
       '<div class="er-picker">' +
-        '<input type="text" class="jt-in er-search" placeholder="Search leads by name, address, phone, customer ID…" autocomplete="off">' +
+        '<div class="er-choice">' +
+          '<button type="button" class="jt-btn jt-btn-primary er-choice-existing">Add to Existing Customer</button>' +
+          '<button type="button" class="jt-btn er-choice-new">+ New Customer</button>' +
+        '</div>' +
+        '<div class="er-search-wrap" style="display:none;">' +
+          '<input type="text" class="jt-in er-search" placeholder="Search by name, address, phone, customer ID…" autocomplete="off">' +
+          '<div class="er-results" style="display:none;"></div>' +
+          '<button type="button" class="jt-btn jt-btn-sm er-back">← Back</button>' +
+        '</div>' +
         '<div class="er-selected" style="display:none;"></div>' +
-        '<div class="er-results" style="display:none;"></div>' +
       '</div>';
 
+    var choiceEl = root.querySelector('.er-choice');
+    var searchWrapEl = root.querySelector('.er-search-wrap');
     var searchEl = root.querySelector('.er-search');
     var selectedEl = root.querySelector('.er-selected');
     var resultsEl = root.querySelector('.er-results');
@@ -83,9 +94,25 @@
       resultsEl.style.display = 'none';
     }
 
-    function showSelected(lead) {
+    function showChoice() {
+      selectedEl.style.display = 'none';
+      searchWrapEl.style.display = 'none';
       hideResults();
-      searchEl.style.display = 'none';
+      choiceEl.style.display = 'flex';
+    }
+
+    function showSearch() {
+      choiceEl.style.display = 'none';
+      searchWrapEl.style.display = 'block';
+      searchEl.value = '';
+      renderResults('');
+      searchEl.focus();
+    }
+
+    function showSelected(lead) {
+      choiceEl.style.display = 'none';
+      searchWrapEl.style.display = 'none';
+      hideResults();
       selectedEl.style.display = 'flex';
       selectedEl.innerHTML =
         '<span class="er-selected-name">' + escHtml(leadDisplayName(lead)) + '</span>' +
@@ -93,11 +120,8 @@
         '<button type="button" class="jt-btn jt-btn-sm er-change">Change</button>';
       selectedEl.querySelector('.er-change').addEventListener('click', function () {
         setHidden('');
-        selectedEl.style.display = 'none';
-        searchEl.style.display = '';
-        searchEl.value = '';
-        searchEl.focus();
         onSelect(null);
+        showChoice();
       });
     }
 
@@ -112,16 +136,13 @@
       var hits = (window.NbdGlobalSearch && typeof window.NbdGlobalSearch.searchLeads === 'function')
         ? window.NbdGlobalSearch.searchLeads(query)
         : [];
-      var rowsHtml = hits.slice(0, 8).map(function (hit) {
+      resultsEl.innerHTML = hits.slice(0, 8).map(function (hit) {
         var l = hit.lead;
         return '<div class="er-row" data-er-lead-id="' + escHtml(l.id) + '">' +
           '<span class="er-row-name">' + escHtml(leadDisplayName(l)) + '</span>' +
           '<span class="er-row-sub">' + escHtml(leadSubline(l)) + '</span>' +
           '</div>';
-      }).join('');
-      rowsHtml += '<div class="er-row er-row-create" data-er-create="1">+ Quick create new lead' +
-        (query ? ' “' + escHtml(query) + '”' : '') + '</div>';
-      resultsEl.innerHTML = rowsHtml;
+      }).join('') || '<div class="er-row er-row-empty">No matches — try a different search, or ← Back to create new.</div>';
       resultsEl.style.display = 'block';
 
       Array.prototype.forEach.call(resultsEl.querySelectorAll('[data-er-lead-id]'), function (row) {
@@ -131,27 +152,20 @@
           if (hit) selectLead(hit.lead);
         });
       });
-      var createRow = resultsEl.querySelector('[data-er-create]');
-      if (createRow) {
-        createRow.addEventListener('click', function () {
-          openQuickCreate().then(function (lead) {
-            if (lead) selectLead(lead);
-          });
-        });
-      }
     }
+
+    choiceEl.querySelector('.er-choice-existing').addEventListener('click', showSearch);
+    choiceEl.querySelector('.er-choice-new').addEventListener('click', function () {
+      openQuickCreate().then(function (lead) {
+        if (lead) selectLead(lead);
+      });
+    });
+    searchWrapEl.querySelector('.er-back').addEventListener('click', showChoice);
 
     searchEl.addEventListener('input', function () {
       var q = searchEl.value || '';
       clearTimeout(debounceTimer);
       debounceTimer = setTimeout(function () { renderResults(q); }, 80);
-    });
-    searchEl.addEventListener('focus', function () {
-      renderResults(searchEl.value || '');
-    });
-    searchEl.addEventListener('blur', function () {
-      // Let a click on a result register before hiding it.
-      setTimeout(hideResults, 150);
     });
 
     if (initialLead) {
@@ -159,6 +173,7 @@
       showSelected(initialLead);
     } else {
       setHidden('');
+      showChoice();
     }
   }
 
