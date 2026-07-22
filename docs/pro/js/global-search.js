@@ -705,7 +705,11 @@
       const ests  = Array.isArray(window._estimates) ? window._estimates : [];
       return [...searchLeads(q, leads), ...searchEstimates(q, ests, leads)];
     },
+    // Leads-only, exposed for reuse outside the Cmd+K palette (e.g. Job
+    // Templates' lead picker) — same scoring logic, no duplicated matching.
+    searchLeads: (q) => searchLeads(q, Array.isArray(window._leads) ? window._leads : []),
   };
+  window.GlobalSearch = GlobalSearch;
 
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', init);

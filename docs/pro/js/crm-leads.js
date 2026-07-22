@@ -215,7 +215,7 @@ async function saveLead(){
     // them. The entry guards on lines 139/143 cover the common case but
     // we make the field-level reads safe too for consistency with the
     // rest of the object literal.
-    await window._saveLead({
+    const _leadPayload = {
       id: (document.getElementById('lEditId')?.value||undefined)||undefined,
       firstName: fname,
       lastName: document.getElementById('lLname')?.value?.trim() || '',
@@ -277,7 +277,13 @@ async function saveLead(){
       } : null,
       // D2D knock linkage (set by convertToLeadWithEdit flow)
       d2dKnockId:    window._pendingD2DConvertId || null
-    });
+    };
+    // Captured before the save so quick-create listeners (EntityResolver)
+    // can tell "brand-new lead" from "edit" — _saveLead returns the same
+    // id right back on an edit, so a truthy return value alone can't
+    // distinguish the two.
+    const _wasNewLead = !_leadPayload.id;
+    const _savedId = await window._saveLead(_leadPayload);
     window._modalIntel = null;
     // If this save came from a D2D conversion (Edit First flow), mark the knock as converted.
     // The lead was already saved successfully above — only the knock-side
@@ -299,6 +305,15 @@ async function saveLead(){
         }
       }
       window._pendingD2DConvertId = null;
+    }
+    // Lets whatever opened this modal for quick-create (e.g. Job
+    // Templates' EntityResolver picker) know a new lead now exists,
+    // without this file needing to know who's listening. Skipped on
+    // edits and on the dedup-abort path (_savedId is null there).
+    if (_wasNewLead && _savedId) {
+      document.dispatchEvent(new CustomEvent('nbd:lead-created', {
+        detail: { lead: Object.assign({}, _leadPayload, { id: _savedId }) }
+      }));
     }
     mOk.textContent='Lead saved!';mOk.style.display='block';
     setTimeout(closeLeadModal,800);

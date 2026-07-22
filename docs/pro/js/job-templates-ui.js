@@ -619,6 +619,19 @@
       '@media (max-width:640px){.jt-prop{padding:20px 14px;}}',
       '.jt-createbar{max-width:820px;margin:16px auto 0;background:var(--s,#111418);border:1px solid var(--br,#2a2f35);border-radius:10px;padding:14px;display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;}',
       '.jt-createbar .fld{flex:1;min-width:200px;}',
+      // ── Lead picker (EntityResolver) ──
+      '.er-picker{position:relative;}',
+      '.er-search{width:100%;}',
+      '.er-selected{display:flex;align-items:center;gap:8px;background:var(--s2,#181c22);border:1px solid var(--br,#2a2f35);border-radius:6px;padding:7px 8px;}',
+      '.er-selected-name{font-size:13px;font-weight:700;color:var(--t,#e8eaf0);}',
+      '.er-selected-sub{font-size:11px;color:var(--m,#9aa3ad);flex:1;}',
+      '.er-results{position:absolute;left:0;right:0;top:100%;margin-top:4px;background:var(--s,#111418);border:1px solid var(--br,#2a2f35);border-radius:8px;box-shadow:0 10px 30px rgba(0,0,0,.4);max-height:240px;overflow-y:auto;z-index:5;}',
+      '.er-row{padding:8px 10px;cursor:pointer;border-bottom:1px solid var(--br,#2a2f35);}',
+      '.er-row:last-child{border-bottom:none;}',
+      '.er-row:hover{background:var(--s2,#181c22);}',
+      '.er-row-name{display:block;font-size:12.5px;font-weight:600;color:var(--t,#e8eaf0);}',
+      '.er-row-sub{display:block;font-size:11px;color:var(--m,#9aa3ad);}',
+      '.er-row-create{color:var(--orange,#e8720c);font-weight:700;font-size:12.5px;}',
       // ── Success ──
       '.jt-success{max-width:520px;margin:8vh auto 0;text-align:center;background:var(--s,#111418);border:1px solid var(--br,#2a2f35);border-radius:14px;padding:38px 26px;}',
       '.jt-success .ic{width:64px;height:64px;border-radius:50%;background:rgba(16,185,129,.12);border:2px solid #10b981;color:#10b981;font-size:30px;line-height:60px;margin:0 auto 14px;}',
@@ -911,6 +924,7 @@
       var res = resolveCurrent();
       state.lastResolved = res;
       body.innerHTML = renderPreview(res);
+      _jtWireLeadPicker();
       foot.innerHTML =
         '<button type="button" class="jt-btn" data-jt-action="back-to-preconfirm">← Back to edit</button>' +
         '<span class="jt-run" id="jtRunTotal">' + runTotalHtml(res) + '</span>';
@@ -1129,16 +1143,6 @@
     return base + extra + ' — ' + (d.getMonth() + 1) + '/' + d.getDate() + '/' + d.getFullYear();
   }
 
-  function leadOptions() {
-    var leads = Array.isArray(window._leads) ? window._leads : [];
-    return leads.map(function (l) {
-      if (!l || !l.id) return null;
-      var nm = l.name || l.customerName ||
-        ((l.firstName || '') + ' ' + (l.lastName || '')).trim() || l.email || l.id;
-      return { id: String(l.id), label: String(nm) };
-    }).filter(Boolean);
-  }
-
   function renderPreview(res) {
     var totals = readTotals(res);
     var lines = readLines(res).filter(function (l) {
@@ -1206,19 +1210,16 @@
     var d = new Date();
     var dateStr = d.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
 
-    var leads = leadOptions();
-    var leadField = leads.length
-      ? '<div class="fld"><span class="jt-mini-lbl">Lead (optional)</span>' +
-        '<select class="jt-in" id="jtLeadSel" style="width:100%;">' +
-        '<option value="">— No lead —</option>' +
-        leads.map(function (l) {
-          // Lead-context flow: openPicker/openPreconfirm({leadId}) staged
-          // the lead — pre-select it so "create" links without re-picking.
-          var on = state.leadId !== null && String(state.leadId) === l.id;
-          return '<option value="' + esc(l.id) + '"' + (on ? ' selected' : '') + '>' + esc(l.label) + '</option>';
-        }).join('') +
-        '</select></div>'
-      : '';
+    // Lead-context flow: openPicker/openPreconfirm({leadId}) staged the
+    // lead — _jtWireLeadPicker() (called from paintModal right after this
+    // HTML is inserted) preselects it. #jtLeadSel is the load-bearing
+    // contract: doCreateEstimate() reads its .value unchanged regardless
+    // of whether the lead came from search, quick-create, or pre-staging.
+    var leadField =
+      '<div class="fld"><span class="jt-mini-lbl">Lead (optional)</span>' +
+      '<input type="hidden" id="jtLeadSel" value="' + (state.leadId ? esc(state.leadId) : '') + '">' +
+      '<div id="jtLeadPickerRoot"></div>' +
+      '</div>';
 
     return '<div class="jt-prop">' +
       '<div style="display:flex;justify-content:space-between;gap:14px;flex-wrap:wrap;">' +
@@ -1249,6 +1250,23 @@
         '<button type="button" class="jt-btn jt-btn-primary" data-jt-action="create-estimate"' + (state.creating ? ' disabled' : '') + '>' +
           (state.creating ? 'Creating…' : 'Create estimate') + '</button>' +
       '</div>';
+  }
+
+  // Wires the real search/quick-create widget into the #jtLeadPickerRoot
+  // container renderPreview() just emitted. Called from paintModal AFTER
+  // body.innerHTML is set, since the container must be live in the DOM.
+  function _jtWireLeadPicker() {
+    var root = document.getElementById('jtLeadPickerRoot');
+    var hidden = document.getElementById('jtLeadSel');
+    if (!root || !hidden || !window.EntityResolver) return;
+    var leads = Array.isArray(window._leads) ? window._leads : [];
+    var initialLead = state.leadId
+      ? leads.filter(function (l) { return l && String(l.id) === String(state.leadId); })[0] || null
+      : null;
+    window.EntityResolver.mountLeadPicker(root, {
+      hiddenInput: hidden,
+      initialLead: initialLead
+    });
   }
 
   // ══════════════════════════════════════════════════════════════════════
