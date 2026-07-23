@@ -56,6 +56,14 @@ jobs:
       # require() of docs/pro/js/invoice-pipeline.js pure helpers.
       - name: Run invoice-pipeline supplement folding tests
         run: node tests/invoice-pipeline.test.js
+      # Money-path gate: the customer-invoice payment reconciliation
+      # (invoiceWebhook payment_intent.succeeded) must credit cumulatively,
+      # flip to 'paid' ONLY at zero balance, and treat a replayed paymentIntent
+      # as a no-op — a re-run double-credit over-pays the invoice / wrongly
+      # marks a partial paid. Also guards the owner-mismatch metadata defense.
+      # Dependency-free logic mirror of the runTransaction block in stripe.js.
+      - name: Run invoice-payment reconciliation tests
+        run: node tests/invoice-payment-webhook.test.js
       # Money-path gate: the customer-portal estimate export must map pre-sweep
       # V2 rows (rate/total = internal COST basis) to retail prices — never
       # print the contractor's cost/margin to the homeowner. Dependency-free
