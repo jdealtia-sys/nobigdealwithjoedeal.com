@@ -1040,6 +1040,7 @@
                 <div style="display:flex;flex-direction:column;gap:4px;flex-shrink:0;">
                   <button class="btn btn-ghost btn-sm" data-storm-action="generatePlan" data-storm-id="${z.id}" data-storm-stop="1">📋 Plan</button>
                   <button class="btn btn-orange btn-sm" data-storm-action="pushToD2D" data-storm-id="${z.id}" data-storm-stop="1">🚪 Knock</button>
+                  <button class="btn btn-ghost btn-sm" data-storm-action="attachProof" data-storm-id="${z.id}" data-storm-stop="1" title="Stamp verified storm evidence onto every lead in this zone for adjuster back-checks">🛡️ Proof</button>
                   <button class="btn btn-red btn-sm" data-storm-action="remove" data-storm-id="${z.id}" data-storm-stop="1">🗑 Delete</button>
                 </div>
               </div>
@@ -1248,6 +1249,51 @@
     }
   }
 
+  // Bulk-attach verified storm evidence to every lead inside a zone. Wires the
+  // already-written StormIntegration.attachStormProofToZone (which had zero
+  // callers) — the single highest-value insurance-claim lever in the app. Each
+  // lead gets a stormEvents[] entry + a 'storm_proof' timeline note a rep can
+  // cite when an adjuster claims "there wasn't a storm that day". Zones and
+  // lead-matching are local (findLeadsInZone reads window._leads), so this
+  // works without any server round-trip. Honest framing: NWS reports are area
+  // reports near the zone, not per-parcel certainty.
+  function attachProofForZone(zoneId) {
+    const zone = stormZones.find(z => z.id === zoneId);
+    if (!zone) return;
+    const SI = window.StormIntegration;
+    if (!SI || typeof SI.attachStormProofToZone !== 'function') {
+      if (window.showToast) window.showToast('Storm-proof engine not loaded', 'error');
+      return;
+    }
+    const affected = (typeof SI.findLeadsInZone === 'function') ? (SI.findLeadsInZone(zone) || []) : [];
+    if (!affected.length) {
+      if (window.showToast) window.showToast('No leads fall inside this storm zone yet', 'info');
+      return;
+    }
+    const name = zone.name || 'this storm zone';
+    const body = 'Stamps verified storm evidence onto ' + affected.length + ' lead' +
+      (affected.length !== 1 ? 's' : '') + ' inside "' + name + '" for adjuster back-checks.';
+    const run = async () => {
+      if (window.showToast) window.showToast('Attaching storm proof to ' + affected.length + ' lead' + (affected.length !== 1 ? 's' : '') + '…', 'info');
+      try {
+        const res = await SI.attachStormProofToZone(zone);
+        const n = (res && res.attached) ? res.attached.length : 0;
+        const f = (res && res.failed) ? res.failed.length : 0;
+        if (window.showToast) window.showToast('🛡️ Storm proof attached to ' + n + ' lead' + (n !== 1 ? 's' : '') + (f ? ' (' + f + ' failed)' : ''), n ? 'success' : 'error');
+      } catch (e) {
+        console.error('[storm-center] attachProof failed:', e);
+        if (window.showToast) window.showToast('Could not attach storm proof', 'error');
+      }
+    };
+    // Mirror confirmDeleteZone: nbdModal in iOS PWA (native confirm no-ops there).
+    if (window.nbdModal && typeof window.nbdModal.confirm === 'function') {
+      window.nbdModal.confirm({ title: 'Attach storm proof?', body, okLabel: 'Attach proof' })
+        .then(ok => { if (ok) run(); });
+    } else if (window.confirm(body)) {
+      run();
+    }
+  }
+
   // Public API
   window.StormCenter = {
     init,
@@ -1259,6 +1305,7 @@
     openZone: openZoneDetail,
     generatePlan: generatePlanForZone,
     pushToD2D: pushZoneToD2DById,
+    attachProof: attachProofForZone,
     deleteZone: deleteStormZone,
     remove: confirmDeleteZone,
     updateZone: updateStormZone,

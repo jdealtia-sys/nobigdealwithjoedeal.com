@@ -87,6 +87,20 @@ console.log('\nStorm Center — pushZoneToD2D writes a renderable geoJSON territ
   ok('no legacy polygon field + carries stormZoneId', !!(captured && captured.polygon === undefined && captured.stormZoneId === 'sz_1'));
 })();
 
+console.log('\nStorm Center — "Attach Proof" wires the dormant storm-proof engine (idea #1)');
+(() => {
+  const { ctx, sandbox } = makeSandbox({});
+  sandbox.window._db = {}; sandbox.window._user = { uid: 'u1' };
+  vm.runInContext(read('storm-center.js'), ctx, { filename: 'storm-center.js' });
+  const SC = ctx.window.StormCenter;
+  // The zone card renders <button data-storm-action="attachProof">; the delegated
+  // dispatcher resolves that to window.StormCenter.attachProof. A missing export
+  // makes the button a silent dead control — the exact class this suite guards.
+  ok('StormCenter.attachProof dispatch target exists (no dead control)', typeof SC.attachProof === 'function');
+  ok('zone card renders the attachProof button that references it',
+    read('storm-center.js').includes('data-storm-action="attachProof"'));
+})();
+
 console.log('\nStorm Center — D2D knock attributes back to the storm zone (#779)');
 (() => {
   const { ctx, sandbox, LS } = makeSandbox({});
