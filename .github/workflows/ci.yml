@@ -155,6 +155,14 @@ jobs:
       - name: Run roof-report generator tests
         run: node tests/roof-report.test.js
 
+      # Inbound-SMS convert: the builder that turns an untrusted unmatched_sms
+      # row into a lead must always stamp the converting admin's userId/companyId
+      # (never a null-tenant lead), carry phoneDigits for re-matching, clamp the
+      # attacker-controlled body into notes, and land in the canonical 'New'
+      # stage. Dependency-free require() of functions/inbound-sms-convert-logic.js.
+      - name: Run inbound-SMS convert builder tests
+        run: node tests/inbound-sms-convert.test.js
+
       # Buying-intent strike: the fresh-view predicate must fire only for a
       # live viewer (≤6h, unresponded, non-terminal lead) and never nag on a
       # closed/deleted deal — a false strike sends a rep to call a done deal.

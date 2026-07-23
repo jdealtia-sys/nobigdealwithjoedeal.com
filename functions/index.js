@@ -120,6 +120,11 @@ exports.getAiTextingStats          = aiTextingStatsHandlers.getAiTextingStats;
 const aiTextingPreviewHandlers = require('./handlers/ai-texting-preview');
 exports.previewAiPersona           = aiTextingPreviewHandlers.previewAiPersona;
 
+// Idea #7 Phase 2: convert an unmatched-SMS inbox row → lead (server dedup)
+// + auto-drafted AI reply. Admin-only (unmatched_sms is a global admin inbox).
+const inboundSmsConvertHandlers = require('./handlers/inbound-sms-convert');
+exports.convertUnmatchedSms        = inboundSmsConvertHandlers.convertUnmatchedSms;
+
 // Auth / identity triggers + callables
 // NOTE: onRepSignup is in NBD_DEPLOY_SKIP_LIST per
 // .github/workflows/firebase-deploy.yml — DO NOT remove its export.
