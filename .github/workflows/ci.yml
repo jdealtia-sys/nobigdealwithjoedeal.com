@@ -122,6 +122,14 @@ jobs:
       - name: Run sweep regression tests
         run: node tests/sweep-regression.test.js
 
+      # Voice→CRM consumer: the transform that turns a call summary into tasks /
+      # insurance backfill must NEVER overwrite a rep-entered insurance field
+      # (fills blanks only) and must turn a relative/garbage `when` into an
+      # undated task, never a wrong due date. Dependency-free require() of
+      # functions/voice-consumer-logic.js (shared verbatim by the trigger).
+      - name: Run voice-consumer transform tests
+        run: node tests/voice-consumer.test.js
+
       # AI-draft channel fork: an inbound_sms draft must NEVER be misrouted as a
       # portal draft (keeps the live Twilio send path byte-identical), and only
       # the explicit portal trigger types deliver to the portal thread. A false

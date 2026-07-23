@@ -226,6 +226,11 @@ Object.assign(exports, smsFunctions);
 const auditTriggers = require('./audit-triggers');
 Object.assign(exports, auditTriggers);
 
+// voiceConsumer — turns a completed call recording's structured summary into
+// CRM actions (tasks / insurance backfill / red-flag denormalization). Idea #2.
+const voiceConsumer = require('./voice-consumer');
+Object.assign(exports, voiceConsumer);
+
 // ═══════════════════════════════════════════════════════════════
 // INTEGRATIONS — every adapter is a no-op when its secret is unset.
 // Add more to functions/integrations/ and register them here.
