@@ -104,6 +104,7 @@
     scopeCb: null,
     leadId: null,            // lead-context entry (openPicker({leadId})) — pre-selects the lead in the create step
     createdId: null,
+    createdLeadId: null,     // lead the created estimate was attributed to — powers "Send to customer" on the success step
     createdName: '',
     lastResolved: null,
     creating: false
@@ -606,7 +607,10 @@
       // ── Proposal (customer-facing paper — deliberately light-on-white) ──
       '.jt-prop{max-width:820px;margin:0 auto;background:#fff;color:#1a202c;border-radius:10px;padding:34px 38px;box-shadow:0 10px 40px rgba(0,0,0,.5);}',
       '.jt-prop-co{font-family:"Barlow Condensed",sans-serif;font-size:26px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;color:#1a202c;}',
-      '.jt-prop-kind{font-size:11px;font-weight:800;letter-spacing:.22em;text-transform:uppercase;color:#e8720c;margin-top:2px;}',
+      // Compact legal-name line shown UNDER the logo (letterhead), so the name
+      // doesn\'t read as a second giant wordmark beside the logo mark.
+      '.jt-prop-co-sm{font-family:"Barlow Condensed",sans-serif;font-size:15px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin-top:7px;line-height:1.1;}',
+      '.jt-prop-kind{font-size:11px;font-weight:800;letter-spacing:.22em;text-transform:uppercase;color:#e8720c;margin-top:3px;}',
       '.jt-prop-meta{font-size:12px;color:#64748b;margin-top:6px;}',
       '.jt-prop hr{border:none;border-top:2px solid #1a202c;margin:16px 0;}',
       '.jt-prop-scope h3{margin:14px 0 3px;font-size:14px;font-weight:800;color:#1a202c;}',
@@ -1292,21 +1296,25 @@
     var colors = brandColors();
     var logo = brandLogo();
     var coName = companyName();
-    // No inline onerror — the CSP sets script-src-attr 'none' (inline handlers
-    // are dead). A broken logo just shows the browser's placeholder; for the
-    // NBD tenant the src is same-origin (docs/assets/images/nbd-logo.png) so it
-    // resolves under img-src 'self'.
-    var logoHtml = logo
+    var kind = (state.jobMode === 'insurance' ? 'Insurance Proposal' : 'Project Proposal');
+    // Letterhead. When a logo is present it is the hero brand mark and the
+    // legal name renders as a COMPACT line beneath it (a proposal becomes a
+    // contract — the legal entity name must still appear, but not as a second
+    // giant wordmark competing with the logo). With no logo (e.g. a white-label
+    // tenant that hasn't uploaded one) the legal name IS the masthead.
+    // No inline onerror — CSP sets script-src-attr 'none'; the NBD logo src is
+    // same-origin (docs/assets/images/nbd-logo.png) so it resolves under img-src 'self'.
+    var brandBlock = logo
       ? '<img src="' + esc(logo) + '" alt="' + esc(coName) + '" ' +
-        'style="max-height:48px;max-width:230px;display:block;margin-bottom:9px;object-fit:contain;">'
-      : '';
+          'style="max-height:52px;max-width:240px;display:block;object-fit:contain;">' +
+        '<div class="jt-prop-co-sm" style="color:' + esc(colors.primary) + ';">' + esc(coName) + '</div>'
+      : '<div class="jt-prop-co" style="color:' + esc(colors.primary) + ';">' + esc(coName) + '</div>';
 
     return '<div class="jt-prop">' +
       '<div style="display:flex;justify-content:space-between;gap:14px;flex-wrap:wrap;">' +
         '<div>' +
-          logoHtml +
-          '<div class="jt-prop-co" style="color:' + esc(colors.primary) + ';">' + esc(coName) + '</div>' +
-          '<div class="jt-prop-kind" style="color:' + esc(colors.accent) + ';">' + (state.jobMode === 'insurance' ? 'Insurance Proposal' : 'Project Proposal') + '</div>' +
+          brandBlock +
+          '<div class="jt-prop-kind" style="color:' + esc(colors.accent) + ';">' + kind + '</div>' +
         '</div>' +
         '<div class="jt-prop-meta" style="text-align:right;">' +
           esc(dateStr) + '<br>' +
@@ -1355,12 +1363,23 @@
   // ══════════════════════════════════════════════════════════════════════
 
   function renderSuccess() {
+    // "Send to customer" only when the estimate was attributed to a lead —
+    // the shared estimate-view link mints a portal token whose leadId must
+    // match the estimate's leadId (getEstimateForView enforces it). When a
+    // lead is attached it's the primary action (the payoff of quoting a
+    // customer); otherwise the builder is primary.
+    var hasLead = !!state.createdLeadId;
+    var sendBtn = hasLead
+      ? '<button type="button" class="jt-btn jt-btn-primary" data-jt-action="send-to-customer">📤 Send to customer</button>'
+      : '';
     return '<div class="jt-success">' +
       '<div class="ic">✓</div>' +
       '<h2>Estimate created</h2>' +
-      '<p>' + esc(state.createdName || 'Your estimate') + ' has been saved to your estimates.</p>' +
+      '<p>' + esc(state.createdName || 'Your estimate') + ' has been saved to your estimates.' +
+        (hasLead ? ' Send the customer a private link to view it.' : '') + '</p>' +
       '<div class="btns">' +
-        '<button type="button" class="jt-btn jt-btn-primary" data-jt-action="open-in-v2">Open in Estimate Builder</button>' +
+        sendBtn +
+        '<button type="button" class="jt-btn' + (hasLead ? '' : ' jt-btn-primary') + '" data-jt-action="open-in-v2">Open in Estimate Builder</button>' +
         '<button type="button" class="jt-btn" data-jt-action="done">Done</button>' +
       '</div>' +
       '</div>';
@@ -1616,6 +1635,10 @@
       .then(function (res) {
         state.creating = false;
         state.createdId = (res && typeof res === 'object') ? (res.id || res.estimateId || null) : (res || null);
+        // Capture the attributed lead now — #jtLeadSel is destroyed on the
+        // transition to the success step, and "Send to customer" needs it to
+        // mint a portal token whose leadId matches the estimate's leadId.
+        state.createdLeadId = leadId || null;
         state.createdName = name;
         state.step = 'success';
         paintModal();
@@ -1640,6 +1663,55 @@
       return;
     }
     toast('Estimate saved — open it from the Estimates view', 'info');
+  }
+
+  // "Send to customer" — share a private, revocable link to THIS estimate's
+  // customer view. Reuses the proven token path: CustomerPortal.mintUrl mints
+  // a createPortalToken bound to the lead (loaded on both dashboard + customer
+  // pages, unlike the customer-only shareEstimateViewLink), then we point it at
+  // /pro/estimate-view.html?token=&estimateId= — the same viewer + server guard
+  // (getEstimateForView) the customer page's 🔗 button uses. Web Share on mobile,
+  // else clipboard, else prompt() so the rep always walks away with the link.
+  async function sendToCustomer() {
+    var estId = state.createdId;
+    var leadId = state.createdLeadId;
+    if (!estId) { toast('Estimate not saved yet', 'error'); return; }
+    if (!leadId) { toast('Attach a customer to this estimate to send it', 'info'); return; }
+    if (!window.CustomerPortal || typeof window.CustomerPortal.mintUrl !== 'function') {
+      toast('Portal module not loaded — open the estimate and share from there', 'error');
+      return;
+    }
+    var btn = document.querySelector('[data-jt-action="send-to-customer"]');
+    if (btn) { btn.disabled = true; btn.textContent = 'Creating link…'; }
+    try {
+      var portalUrl = await window.CustomerPortal.mintUrl(leadId);
+      var token = '';
+      try { token = new URL(portalUrl).searchParams.get('token') || ''; } catch (e) { token = ''; }
+      if (!token) throw new Error('No token');
+      var url = location.origin + '/pro/estimate-view.html?token=' +
+        encodeURIComponent(token) + '&estimateId=' + encodeURIComponent(estId);
+
+      var shared = false;
+      if (navigator.share && /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent || '')) {
+        try { await navigator.share({ title: 'Your estimate', text: 'Here’s your estimate:', url: url }); shared = true; }
+        catch (e) { /* user cancelled or unsupported — fall through to copy */ }
+      }
+      if (!shared && navigator.clipboard && navigator.clipboard.writeText) {
+        try { await navigator.clipboard.writeText(url); shared = true; toast('Customer estimate link copied ✓', 'success'); }
+        catch (e) { /* clipboard blocked — fall through to prompt */ }
+      }
+      if (!shared) { window.prompt('Copy this link to send to your customer:', url); }
+
+      // Feed the existing share-tracking widgets (last-shared chip, freshness).
+      if (window.PortalLinkHelpers && typeof window.PortalLinkHelpers.recordShare === 'function') {
+        try { window.PortalLinkHelpers.recordShare(leadId, 'copy'); } catch (e) { /* non-fatal */ }
+      }
+    } catch (e) {
+      console.error('[job-templates-ui] sendToCustomer failed:', e);
+      toast('Could not create the customer link — try again', 'error');
+    } finally {
+      if (btn) { btn.disabled = false; btn.textContent = '📤 Send to customer'; }
+    }
   }
 
   function duplicateTemplate(id) {
@@ -1733,6 +1805,7 @@
         // ── Terminal actions ──
         case 'insert-into-v2': doInsertIntoV2(); break;
         case 'create-estimate': doCreateEstimate(); break;
+        case 'send-to-customer': sendToCustomer(); break;
         case 'open-in-v2': openInV2(); break;
         case 'done': closeModal(); break;
 
