@@ -116,6 +116,11 @@ exports.listTeamMembers            = adminHandlers.listTeamMembers;
 const aiTextingStatsHandlers = require('./handlers/ai-texting-stats');
 exports.getAiTextingStats          = aiTextingStatsHandlers.getAiTextingStats;
 
+// idea #2 follow-up: company-wide adjuster-tactic board (collectionGroup scan
+// over recordings, bucketed by carrier/adjuster from the call summaries).
+const adjusterBoardHandlers = require('./handlers/adjuster-board');
+exports.getAdjusterTacticBoard     = adjusterBoardHandlers.getAdjusterTacticBoard;
+
 // T-4: live persona preview for Settings → AI Texting.
 const aiTextingPreviewHandlers = require('./handlers/ai-texting-preview');
 exports.previewAiPersona           = aiTextingPreviewHandlers.previewAiPersona;

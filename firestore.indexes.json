@@ -71,6 +71,14 @@
       "collectionGroup": "recordings",
       "queryScope": "COLLECTION_GROUP",
       "fields": [
+        { "fieldPath": "companyId",  "order": "ASCENDING"  },
+        { "fieldPath": "recordedAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "recordings",
+      "queryScope": "COLLECTION_GROUP",
+      "fields": [
         { "fieldPath": "status",     "order": "ASCENDING" },
         { "fieldPath": "recordedAt", "order": "ASCENDING" }
       ]
