@@ -94,6 +94,12 @@ exports.resolveAddress = geocodeHandlers.resolveAddress;
 const reverifyKnocksHandlers = require('./handlers/reverify-knocks');
 exports.reverifyCompanyKnocks = reverifyKnocksHandlers.reverifyCompanyKnocks;
 
+// idea #1 Phase 2: server-verified, immutable storm proof for a lead — looks up
+// verified hail near the address and writes an adjuster-grade record to the
+// frozen leads/{id}/storm_proofs subcollection.
+const stormProofHandlers = require('./handlers/storm-proof');
+exports.attachStormProof = stormProofHandlers.attachStormProof;
+
 // Admin / team-management callables
 const adminHandlers = require('./handlers/admin');
 exports.getAdminAnalytics          = adminHandlers.getAdminAnalytics;

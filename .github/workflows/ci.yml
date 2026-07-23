@@ -122,6 +122,15 @@ jobs:
       - name: Run sweep regression tests
         run: node tests/sweep-regression.test.js
 
+      # Storm proof (idea #1 Phase 2): the verify logic must only mark a proof
+      # verified at/above the 0.75" NWS severe-hail floor (never overclaim
+      # damage the data doesn't support), carry userId/companyId so the frozen
+      # storm_proofs read rule can gate it, and the per-lead card-detail button
+      # must reference a registered dispatch target (no dead control).
+      # Dependency-free require() of functions/storm-proof-logic.js + static guard.
+      - name: Run storm-proof verify + wiring tests
+        run: node tests/storm-proof.test.js
+
       # Voice→CRM consumer: the transform that turns a call summary into tasks /
       # insurance backfill must NEVER overwrite a rep-entered insurance field
       # (fills blanks only) and must turn a relative/garbage `when` into an
