@@ -456,9 +456,12 @@
   }
 
   // Register on the CSP-safe call registry (resolved by the data-action="call"
-  // delegate; keeps it off the _NBD_CALL_ALLOWLIST bare-window path).
+  // delegate; keeps it off the _NBD_CALL_ALLOWLIST bare-window path). Uses the
+  // Object.assign form the smoke wiring-audit scans for.
   window.__NBD_CALL_REGISTRY = window.__NBD_CALL_REGISTRY || Object.create(null);
-  window.__NBD_CALL_REGISTRY.verifyStormProofForLead = verifyStormProofForLead;
+  Object.assign(window.__NBD_CALL_REGISTRY, {
+    verifyStormProofForLead: verifyStormProofForLead
+  });
 
   // ═════════════════════════════════════════════════════════
   // Public API

@@ -83,7 +83,7 @@ console.log('STORM PROOF — verify logic + wiring');
   const si = fs.readFileSync(path.join(__dirname, '..', 'docs', 'pro', 'js', 'storm-integration.js'), 'utf8');
   const html = fs.readFileSync(path.join(__dirname, '..', 'docs', 'pro', 'dashboard.html'), 'utf8');
   ok('storm-integration registers verifyStormProofForLead on the call registry',
-    /__NBD_CALL_REGISTRY\.verifyStormProofForLead\s*=/.test(si));
+    /verifyStormProofForLead\s*:\s*verifyStormProofForLead/.test(si));
   ok('the client handler calls the attachStormProof callable',
     /_httpsCallable\(window\._functions,\s*'attachStormProof'\)/.test(si));
   ok('dashboard card-detail has the Storm Proof button wired to that dispatch target',
