@@ -59,9 +59,26 @@
     worst:   0.60
   };
 
-  function probability(lead) {
+  function probability(lead, emp) {
     const key = lead._stageKey || lead.stage || 'new';
-    return STAGE_PROB[key] != null ? STAGE_PROB[key] : 0.10;
+    const prior = STAGE_PROB[key] != null ? STAGE_PROB[key] : 0.10;
+    // Blend the tenant's own stageHistory-derived win-rate toward the industry
+    // prior when the empirical engine is loaded and has samples for this stage.
+    const FE = (typeof window !== 'undefined') && window.ForecastEmpirical;
+    if (emp && FE) return FE.blendedProbability(key, emp, prior);
+    return prior;
+  }
+
+  // Build the tenant-specific empirical model once per forecast (or null when
+  // the engine isn't loaded — probability() then uses the static table).
+  function buildEmpirical(leads) {
+    const FE = (typeof window !== 'undefined') && window.ForecastEmpirical;
+    if (!FE) return null;
+    const isWon = (typeof window.isWonStage === 'function')
+      ? window.isWonStage : (k => STAGE_PROB[k] === 1.00);
+    const isLost = (typeof window.isLostStage === 'function')
+      ? window.isLostStage : (k => STAGE_PROB[k] === 0.00);
+    return FE.computeEmpiricalRates(leads, { isWon, isLost });
   }
   function toNum(v) { return parseFloat(v) || 0; }
 
@@ -78,20 +95,27 @@
   // ────────────────────────────────────────────────────────────────────
   function computeForecast() {
     const leads = (window._leads || []).filter(l => !l.isProspect && !l.deleted);
+    const emp = buildEmpirical(leads);
     let weighted = 0;
     let unweighted = 0;
     let openCount = 0;
     const ranked = [];
 
     for (const lead of leads) {
-      const prob = probability(lead);
       const value = toNum(lead.jobValue);
       const stageKey = lead._stageKey || lead.stage || 'new';
+      const prior = STAGE_PROB[stageKey] != null ? STAGE_PROB[stageKey] : 0.10;
 
-      // Skip already-closed (counted as revenue not pipeline) and lost
-      if (prob === 1.00 || prob === 0.00) continue;
+      // Skip won/job (prior 1.00) and lost (0.00) — those are revenue/dead,
+      // not open pipeline. Gate on the ROLE (static prior + stageRole), NEVER
+      // the blended value, so a 0.99 empirical win-rate on a job stage can't
+      // leak a completed job back into the open forecast.
+      if (prior === 1.00 || prior === 0.00) continue;
+      if (typeof window.isWonStage === 'function' && window.isWonStage(stageKey)) continue;
+      if (typeof window.isLostStage === 'function' && window.isLostStage(stageKey)) continue;
       if (value <= 0) continue;
 
+      const prob = probability(lead, emp);
       openCount++;
       const expected = value * prob;
       weighted += expected;
@@ -129,7 +153,12 @@
         worst:  weighted * SCENARIO_MULT.worst
       },
       topDeals,
-      atRisk
+      atRisk,
+      // How the weights were derived, for the confidence line. Empirical once
+      // the tenant has a meaningful resolved sample; industry table until then.
+      basis: (emp && emp.totalResolved >= 5)
+        ? { mode: 'empirical', resolved: emp.totalResolved, won: emp.totalWon }
+        : { mode: 'industry', resolved: emp ? emp.totalResolved : 0 }
     };
   }
 
@@ -230,6 +259,9 @@
     el.innerHTML = `
       ${scenariosHtml}
       ${breakdownHtml}
+      ${f.basis && f.basis.mode === 'empirical'
+        ? `<div class="fc-basis" style="font-size:11px;color:var(--m);padding:4px 2px 8px;">📊 Forecast tuned to your ${f.basis.resolved} closed deals (${Math.round(100 * f.basis.won / Math.max(1, f.basis.resolved))}% overall win-rate)</div>`
+        : `<div class="fc-basis" style="font-size:11px;color:var(--m);padding:4px 2px 8px;">Using industry-standard stage odds — your own win-rates take over after ~5 closed deals${f.basis && f.basis.resolved ? ` (${f.basis.resolved} logged)` : ''}.</div>`}
       <div class="fc-section">
         <div class="fc-section-title">Top 5 weighted deals</div>
         <div class="fc-deal-list">
