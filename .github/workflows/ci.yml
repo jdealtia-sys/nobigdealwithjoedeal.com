@@ -64,6 +64,13 @@ jobs:
       # Dependency-free logic mirror of the runTransaction block in stripe.js.
       - name: Run invoice-payment reconciliation tests
         run: node tests/invoice-payment-webhook.test.js
+      # Pipeline forecast gate: the empirical engine derives per-tenant
+      # P(win | reached stage) from stageHistory[] and Bayesian-shrinks it
+      # toward the industry prior. Guards the aggregation (resolved-only rates,
+      # terminal-stage exclusion), the shrinkage math, and completed-occupancy
+      # velocity — all money-facing pipeline numbers. Dependency-free require().
+      - name: Run empirical forecast engine tests
+        run: node tests/forecast-empirical.test.js
       # Anti-relay gate: the estimate-email trigger is guarded by two sliding
       # daily caps — 3/day/recipient + a 100/day (env-overridable) global
       # backstop — so the public estimate funnel can't be turned into a
