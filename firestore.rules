@@ -306,6 +306,24 @@ service cloud.firestore {
         allow write: if false;  // admin SDK only
       }
 
+      // ── STORM PROOFS (idea #1 Phase 2) ──────────────────────────
+      // Server-verified, adjuster-grade hail evidence written ONLY by the
+      // attachStormProof callable (admin SDK). Client-read-only so the record
+      // an adjuster is shown could not have been forged from the browser —
+      // that immutability is the whole point. Read gate mirrors recordings
+      // (owner OR same-company manager). Distinct from the client-writable
+      // stormEvents[] array on the lead doc (Phase 1's informal note).
+      match /storm_proofs/{proofId} {
+        allow read: if isAuth() && (
+          isAdmin()
+          || isOwner(resource.data.userId)
+          || (isManager()
+              && resource.data.companyId != null
+              && resource.data.companyId == myCompanyId())
+        );
+        allow write: if false;  // admin SDK only — immutable evidence
+      }
+
       // ── PORTAL MESSAGES (homeowner ↔ rep async chat) ──
       // Wave 123: bidirectional messaging surface. The homeowner
       // sends via the portal token-authed Cloud Function

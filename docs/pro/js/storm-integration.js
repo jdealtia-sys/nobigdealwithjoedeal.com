@@ -423,6 +423,44 @@
   }
 
   // ═════════════════════════════════════════════════════════
+  // idea #1 Phase 2 — server-verified storm proof (per-lead)
+  // ═════════════════════════════════════════════════════════
+  // The card-detail "🛡️ Storm Proof" button calls this. Unlike the Phase-1
+  // client attach (attachStormProofToLead — a client-written stormEvents[]
+  // entry), this hits the attachStormProof callable, which looks up VERIFIED
+  // hail near the address server-side and writes an immutable, server-stamped
+  // record to leads/{id}/storm_proofs — adjuster-grade evidence.
+  async function verifyStormProofForLead() {
+    var leadId = window._cardDetailLeadId;
+    if (!leadId) { if (window.showToast) window.showToast('Open a lead first', 'info'); return; }
+    try {
+      if (!window._functions || !window._httpsCallable) {
+        var mod = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-functions.js');
+        window._functions = window._functions || mod.getFunctions();
+        window._httpsCallable = window._httpsCallable || mod.httpsCallable;
+      }
+      if (window.showToast) window.showToast('Checking verified hail history…', 'info');
+      var fn = window._httpsCallable(window._functions, 'attachStormProof');
+      var res = await fn({ leadId: leadId });
+      var out = (res && res.data) || {};
+      if (out.verified) {
+        var sz = out.maxSizeInches ? (Math.round(out.maxSizeInches * 100) / 100) + '" hail' : (out.hitCount + ' reports');
+        if (window.showToast) window.showToast('✅ Verified storm proof attached — ' + sz, 'ok');
+      } else {
+        if (window.showToast) window.showToast('No qualifying hail (≥0.75") found for this address in the window' + (out.hitCount ? ' (' + out.hitCount + ' minor reports)' : '') + '.', 'info');
+      }
+    } catch (e) {
+      var msg = (e && (e.message || (e.details && e.details.message))) || 'error';
+      if (window.showToast) window.showToast('Storm check failed: ' + msg, 'error');
+    }
+  }
+
+  // Register on the CSP-safe call registry (resolved by the data-action="call"
+  // delegate; keeps it off the _NBD_CALL_ALLOWLIST bare-window path).
+  window.__NBD_CALL_REGISTRY = window.__NBD_CALL_REGISTRY || Object.create(null);
+  window.__NBD_CALL_REGISTRY.verifyStormProofForLead = verifyStormProofForLead;
+
+  // ═════════════════════════════════════════════════════════
   // Public API
   // ═════════════════════════════════════════════════════════
 
@@ -438,6 +476,7 @@
     // Historical proof
     attachStormProofToLead,
     attachStormProofToZone,
+    verifyStormProofForLead,   // idea #1 Phase 2 — server-verified, immutable
 
     // Marketing
     generateMarketingCampaign,
