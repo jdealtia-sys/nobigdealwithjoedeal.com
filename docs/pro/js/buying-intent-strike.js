@@ -67,7 +67,38 @@
     return out;
   }
 
-  var api = { detectFreshViews: detectFreshViews, FRESH_WINDOW_MS: FRESH_WINDOW_MS };
+  /**
+   * Pure: which entries on the live `notifications` feed are real-time
+   * fresh-view strikes (idea #3 Phase 2). The onEstimateViewedStrike trigger
+   * pushes a `type:'estimate_viewed'` notification onto the owner's feed the
+   * moment the homeowner opens their estimate; this maps the fresh ones (≤
+   * window) to the same match shape detectFreshViews returns, keyed by
+   * estimateId so a notif-driven strike and a cache-driven strike for the same
+   * estimate dedupe against one another. Newest-first.
+   */
+  function pickFreshViewNotifs(notifs, nowMs, windowMs) {
+    windowMs = windowMs > 0 ? windowMs : FRESH_WINDOW_MS;
+    var out = [];
+    (Array.isArray(notifs) ? notifs : []).forEach(function (n) {
+      if (!n || n.type !== 'estimate_viewed' || !n.leadId) return;
+      var v = toMs(n.createdAt);
+      if (!Number.isFinite(v)) return;
+      var age = nowMs - v;
+      if (age <= 0 || age > windowMs) return;
+      out.push({
+        estId: n.estimateId || ('lead:' + n.leadId),
+        leadId: n.leadId,
+        name: (n.customerName && String(n.customerName)) || 'A customer',
+        phone: String(n.customerPhone || ''),
+        amount: Number(n.estimateAmount || 0) || 0,
+        viewedAtMs: v,
+      });
+    });
+    out.sort(function (a, b) { return b.viewedAtMs - a.viewedAtMs; });
+    return out;
+  }
+
+  var api = { detectFreshViews: detectFreshViews, pickFreshViewNotifs: pickFreshViewNotifs, FRESH_WINDOW_MS: FRESH_WINDOW_MS };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   if (!root || typeof root !== 'object') return;
   root.BuyingIntentStrike = api;
@@ -166,9 +197,10 @@
     setTimeout(function () { dismiss(card); }, 45000);
   }
 
-  function scan() {
-    if (document.hidden) return;
-    var matches = detectFreshViews(window._estimates, window._leads, Date.now());
+  // Render a batch of strike matches, sharing the sessionStorage struck-set so
+  // the estimates-cache path and the real-time notif path never double-fire the
+  // same estimate (both key on estId = the estimate id).
+  function fire(matches) {
     if (!matches.length) return;
     var struck = struckSet();
     var fired = 0;
@@ -181,6 +213,21 @@
     if (fired) markStruck(struck);
   }
 
+  // Client-refresh path: scan the estimates cache (the pre-#3-Phase-2 cadence).
+  function scan() {
+    if (document.hidden) return;
+    fire(detectFreshViews(window._estimates, window._leads, Date.now()));
+  }
+
+  // Real-time path (idea #3 Phase 2): scan the live notifications feed. The
+  // onEstimateViewedStrike trigger pushes a strike the moment the homeowner
+  // opens the estimate; crm-snooze's onSnapshot updates window._notifications
+  // and fires 'nbd:notifs-updated', which drives this — no refresh needed.
+  function scanNotifs() {
+    if (document.hidden) return;
+    fire(pickFreshViewNotifs(window._notifications, Date.now()));
+  }
+
   if (!document.getElementById('nbd-bis-css')) {
     var st = document.createElement('style');
     st.id = 'nbd-bis-css';
@@ -190,10 +237,13 @@
   }
 
   var _t = null;
-  function scheduleScan() { clearTimeout(_t); _t = setTimeout(scan, 400); }
+  function scheduleScan() { clearTimeout(_t); _t = setTimeout(function () { scan(); scanNotifs(); }, 400); }
   window.addEventListener('nbd:data-refreshed', scheduleScan);
   window.addEventListener('focus', scheduleScan);
-  document.addEventListener('DOMContentLoaded', function () { setTimeout(scan, 3000); });
+  // Real-time: the live notifications feed pushed a new doc (idea #3 Phase 2).
+  window.addEventListener('nbd:notifs-updated', scheduleScan);
+  document.addEventListener('DOMContentLoaded', function () { setTimeout(function () { scan(); scanNotifs(); }, 3000); });
 
   root.BuyingIntentStrike.scan = scan; // exposed for manual/testing triggers
+  root.BuyingIntentStrike.scanNotifs = scanNotifs;
 })(typeof window !== 'undefined' ? window : this);

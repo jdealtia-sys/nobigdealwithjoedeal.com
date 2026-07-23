@@ -28,11 +28,13 @@
 'use strict';
 
 const { onRequest } = require('firebase-functions/v2/https');
+const { onDocumentCreated } = require('firebase-functions/v2/firestore');
 const { logger } = require('firebase-functions/v2');
 const { getFirestore } = require('firebase-admin/firestore');
 const { FieldValue } = require('firebase-admin/firestore');
 
 const { httpRateLimit } = require('./integrations/upstash-ratelimit');
+const { freshViewNotifId, shouldNotify, buildFreshViewNotif } = require('./fresh-view-logic');
 
 const CORS_ORIGINS = [
   'https://nobigdealwithjoedeal.com',
@@ -115,6 +117,75 @@ exports.recordCustomerEvent = onRequest({
   }
 
   res.status(204).end();
+});
+
+// ── idea #3 Phase 2: real-time buying-intent strike ──────────────────────
+// When a homeowner opens their estimate, recordCustomerEvent writes a
+// customerAuditEvents doc of type 'estimate_view'. This trigger turns that into
+// a real-time push: it writes a notification onto the owner's live feed (the
+// same `notifications` collection the dashboard onSnapshot-subscribes to via
+// crm-snooze.js), so the top-center strike card and the notif bell fire the
+// MOMENT they open — instead of waiting for the client's next refresh cadence.
+//
+// Idempotent + de-spammed: a deterministic per-owner+lead doc id means a
+// re-open UPDATES the same feed entry, and a 30-minute cooldown suppresses the
+// burst of estimate_view events a single page refresh emits.
+//
+// Literal `exports.x = onDocumentCreated(...)` on one line — the deploy
+// workflow's function-enumeration grep requires this form.
+const FRESH_VIEW_COOLDOWN_MS = 30 * 60 * 1000;
+
+exports.onEstimateViewedStrike = onDocumentCreated('customerAuditEvents/{eventId}', async (event) => {
+  const ev = event.data && event.data.data();
+  if (!ev || ev.type !== 'estimate_view') return;
+  const ownerUid = ev.ownerUid;
+  const leadId = ev.leadId || null;
+  if (!ownerUid || !leadId) return;
+  const estimateId = ev.resourceId || null;
+
+  const db = getFirestore();
+  const notifRef = db.collection('notifications').doc(freshViewNotifId(ownerUid, leadId));
+
+  try {
+    // Cooldown check against the last strike for this lead.
+    const prev = await notifRef.get();
+    if (prev.exists) {
+      const p = prev.data() || {};
+      const prevMs = p.createdAt && typeof p.createdAt.toMillis === 'function' ? p.createdAt.toMillis() : 0;
+      if (!shouldNotify(prevMs, Date.now(), FRESH_VIEW_COOLDOWN_MS)) return;
+    }
+
+    // Best-effort enrichment for the message (name + estimate amount). A failed
+    // lookup just yields a generic "A customer is viewing…" message.
+    let customerName = null;
+    let customerPhone = null;
+    let amount = 0;
+    try {
+      const leadSnap = await db.collection('leads').doc(leadId).get();
+      if (leadSnap.exists) {
+        const L = leadSnap.data() || {};
+        customerName = ((L.firstName || '') + ' ' + (L.lastName || '')).trim() || null;
+        customerPhone = L.phone || null;
+      }
+    } catch (_) { /* generic message */ }
+    if (estimateId) {
+      try {
+        const estSnap = await db.collection('estimates').doc(estimateId).get();
+        if (estSnap.exists) {
+          const E = estSnap.data() || {};
+          amount = Number(E.total || E.grandTotal || E.amount || 0) || 0;
+        }
+      } catch (_) { /* no amount in message */ }
+    }
+
+    const notif = buildFreshViewNotif({ ownerUid, leadId, estimateId, customerName, customerPhone, amount });
+    // set (no merge) with a fresh serverTimestamp so a re-view bumps the entry
+    // to the top of the feed and re-marks it unread.
+    await notifRef.set(Object.assign({}, notif, { createdAt: FieldValue.serverTimestamp() }));
+    logger.info('[onEstimateViewedStrike] strike pushed', { ownerUid, leadId, estimateId: estimateId || null });
+  } catch (e) {
+    logger.warn('[onEstimateViewedStrike] failed', { leadId, err: e && e.message });
+  }
 });
 
 // Test-only export for unit checks.

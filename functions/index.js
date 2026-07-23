@@ -583,6 +583,9 @@ exports.trackUsage = billing.trackUsage;
 // homeowner opened and when — useful at adjuster-dispute time.
 const customerAudit = require('./customer-audit');
 exports.recordCustomerEvent = customerAudit.recordCustomerEvent;
+// idea #3 Phase 2: estimate_view audit event → real-time buying-intent strike
+// pushed onto the owner's live notifications feed.
+exports.onEstimateViewedStrike = customerAudit.onEstimateViewedStrike;
 
 // Daily health digest email (audit batch 12). Aggregates Vision spend,
 // Stripe webhook activity, Anthropic token usage, and homeowner-portal
