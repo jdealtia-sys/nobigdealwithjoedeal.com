@@ -64,6 +64,14 @@ jobs:
       # Dependency-free logic mirror of the runTransaction block in stripe.js.
       - name: Run invoice-payment reconciliation tests
         run: node tests/invoice-payment-webhook.test.js
+      # Anti-relay gate: the estimate-email trigger is guarded by two sliding
+      # daily caps — 3/day/recipient + a 100/day (env-overridable) global
+      # backstop — so the public estimate funnel can't be turned into a
+      # domain-authenticated open relay. Both fail OPEN; the sentinel doc id
+      # must not be a Firestore-reserved /__.*__/ id (which, failing open,
+      # would silently disable the global cap). Dependency-free logic mirror.
+      - name: Run estimate-email cap tests
+        run: node tests/estimate-email-cap.test.js
       # Money-path gate: the customer-portal estimate export must map pre-sweep
       # V2 rows (rate/total = internal COST basis) to retail prices — never
       # print the contractor's cost/margin to the homeowner. Dependency-free
