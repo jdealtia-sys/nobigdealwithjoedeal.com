@@ -116,7 +116,9 @@ jobs:
     # Bumped 15 -> 30: the real (strict) functions deploy alone can run
     # ~10-13 min; with the tolerant retry now bounded below, this leaves
     # comfortable headroom so Hosting always reaches its step.
-    timeout-minutes: 30
+    # Bumped 30 -> 40 (2026-07-23): the CPU-quota straggler-retry rounds in the
+    # strict functions step add up to ~3 paused re-deploys of the failed subset.
+    timeout-minutes: 40
     permissions:
       contents: read
     env:
@@ -494,7 +496,7 @@ jobs:
         if: ${{ github.event_name == 'push' || github.event.inputs.scope == 'all' || github.event.inputs.scope == 'functions' }}
         run: node tests/smoke.test.js
 
-      - name: Deploy Cloud Functions (strict — skips IAM-blocked 9)
+      - name: Deploy Cloud Functions (strict — retries CPU-quota stragglers)
         if: ${{ github.event_name == 'push' || github.event.inputs.scope == 'all' || github.event.inputs.scope == 'functions' }}
         env:
           GOOGLE_APPLICATION_CREDENTIALS: ${{ steps.sa.outputs.sa_path }}
@@ -504,28 +506,42 @@ jobs:
           # recordingRetentionCron added 2026-04-15: scheduled fn from
           # voice-intelligence.js fails on update (same SA gap).
           NBD_DEPLOY_SKIP_LIST: "onRepSignup"
+          # Batched-retry knobs for the Cloud Run CPU-quota mitigation below.
+          NBD_DEPLOY_RETRY_ROUNDS: "3"   # extra passes over just the stragglers
+          NBD_DEPLOY_RETRY_PAUSE: "45"   # let wave-1 revisions settle + old ones tear down (frees CPU)
+          NBD_DEPLOY_BATCH_SIZE: "20"    # cap concurrent new revisions per retry chunk
+          NBD_DEPLOY_BATCH_PAUSE: "20"
         run: |
-          set -e
-          # Enumerate every function export across functions/*.js,
-          # functions/integrations/*.js, functions/handlers/*.js, and
-          # functions/migrations/runner.js. Grep for exports of the
-          # Cloud Functions factory functions so we match both 2nd-gen
-          # HTTP/callable and Firestore/Auth triggers.
-          # AUDIT #2 FIX: handlers/ + migrations/runner.js were previously
-          # omitted, so 26 functions — incl. the admin team-mgmt callables
-          # (createTeamMember/updateUserRole/deactivateUser…), claudeProxy,
-          # analyzeRoofPhoto, submitPublicLead, validateAccessCode,
-          # cspReport, runMigrations — were silently NEVER auto-deployed
-          # (a fix pushed to main looked shipped but the old revision stayed
-          # live). index.js re-exports them, so deploy-by-name works.
+          # WHY THIS STEP RETRIES (root cause, diagnosed 2026-07-23):
+          # We deploy ~160 Gen2 functions. A single bulk `firebase deploy` rolls
+          # out ALL their new Cloud Run revisions at once; during the rollout the
+          # old + new revisions both hold CPU (worst for the minInstances
+          # functions — render-pdf/stripe/claudeProxy keep warm instances), and
+          # the peak blows past the region's "Total allowable CPU per project per
+          # region" quota. A RANDOM subset of revisions then fails its Container
+          # Healthcheck ("Revision X is not ready and cannot serve traffic") —
+          # which is exactly why a different ~5-10% of functions failed to UPDATE
+          # on every deploy (runs 2026-07-23 17:26 / 19:06, and 07-23 03:24),
+          # never the changed code, never a create. Those functions kept their
+          # correct prior revision (no outage) but the job went red every time,
+          # which masks genuine failures.
+          #
+          # MITIGATION: keep the fast single bulk pass (wave 1), then re-deploy
+          # ONLY the stragglers in small batches after a pause. A handful of new
+          # revisions rolls out under quota once wave 1 has settled. If functions
+          # STILL fail after the retries, that's a REAL failure and the job fails
+          # (with the residual list) instead of hiding behind the chronic red.
+          # DURABLE FIX (not in this workflow): raise the Cloud Run CPU quota for
+          # us-central1 in the GCP console — see the step summary on failure.
+          set +e   # we manage exit codes explicitly by parsing per-pass failures
+
           ALL=$(grep -rhE "^exports\.[a-zA-Z_][a-zA-Z0-9_]* *= *(onRequest|onCall|beforeUserCreated|beforeUserSignedIn|onSchedule|onDocumentCreated|onDocumentUpdated|onDocumentWritten|onDocumentDeleted|functions\.https\.onRequest|functions\.https\.onCall|functions\.firestore|functions\.auth|functions\.pubsub)" functions/*.js functions/integrations/*.js functions/handlers/*.js functions/migrations/runner.js 2>/dev/null \
                 | sed -E 's/^exports\.([a-zA-Z_][a-zA-Z0-9_]*) *=.*/\1/' \
                 | sort -u)
-          # Build an include list = ALL minus skip-list.
           INCLUDE=""
           for fn in $ALL; do
             if echo ",${NBD_DEPLOY_SKIP_LIST}," | grep -q ",${fn},"; then
-              echo "⏭  skipping $fn (IAM-blocked; see POST_DEPLOY_CHECKLIST §16)"
+              echo "⏭  skipping $fn (IAM-blocked; skip-list)"
             else
               INCLUDE="${INCLUDE},functions:${fn}"
             fi
@@ -534,8 +550,74 @@ jobs:
           if [ -z "$INCLUDE" ]; then
             echo "::error::No functions left to deploy after skip-list"; exit 1
           fi
-          echo "Deploying $(echo "$INCLUDE" | awk -F',' '{print NF}') function(s)"
-          npx firebase-tools deploy --only "$INCLUDE" --project "$PRO_PROJECT" --non-interactive --force
+
+          FAILED_FILE=$(mktemp)
+          # _deploy_only <comma-separated functions:NAME list> — runs the deploy,
+          # echoes firebase output to the log, and appends any failed function
+          # names to FAILED_FILE. firebase prints "Failed to (create|update)
+          # function NAME in region ..." per failure; that's what we parse.
+          _deploy_only() {
+            [ -z "$1" ] && return 0
+            local out
+            out=$(npx firebase-tools deploy --only "$1" --project "$PRO_PROJECT" --non-interactive --force 2>&1)
+            echo "$out"
+            echo "$out" | grep -oE "Failed to (create|update) function [A-Za-z_][A-Za-z0-9_]*" \
+                        | sed -E 's/.*function //' >> "$FAILED_FILE"
+          }
+          # _deploy_batched <newline-separated names> — deploys in chunks of
+          # NBD_DEPLOY_BATCH_SIZE so a large straggler set never re-creates the
+          # all-at-once CPU spike.
+          _deploy_batched() {
+            local batch="" n=0 fn only
+            for fn in $1; do
+              batch="$batch $fn"; n=$((n+1))
+              if [ "$n" -ge "$NBD_DEPLOY_BATCH_SIZE" ]; then
+                only=$(echo $batch | tr ' ' '\n' | grep -v '^$' | sed 's/^/functions:/' | paste -sd, -)
+                _deploy_only "$only"; batch=""; n=0; sleep "$NBD_DEPLOY_BATCH_PAUSE"
+              fi
+            done
+            if [ -n "$(echo $batch | tr -d ' ')" ]; then
+              only=$(echo $batch | tr ' ' '\n' | grep -v '^$' | sed 's/^/functions:/' | paste -sd, -)
+              _deploy_only "$only"
+            fi
+          }
+
+          # ── wave 1: the fast single bulk deploy (unchanged behavior) ──
+          echo "Deploying $(echo "$INCLUDE" | awk -F',' '{print NF}') function(s) in one pass"
+          _deploy_only "$INCLUDE"
+          FAILED=$(sort -u "$FAILED_FILE")
+
+          # ── retry rounds: only the stragglers, batched + paused ──
+          round=0
+          while [ -n "$FAILED" ] && [ "$round" -lt "$NBD_DEPLOY_RETRY_ROUNDS" ]; do
+            round=$((round+1))
+            echo "::warning::$(echo "$FAILED" | grep -c .) function(s) failed to deploy (likely Cloud Run CPU-quota healthcheck) — retry round $round/$NBD_DEPLOY_RETRY_ROUNDS after ${NBD_DEPLOY_RETRY_PAUSE}s"
+            echo "$FAILED" | sed 's/^/    straggler: /'
+            sleep "$NBD_DEPLOY_RETRY_PAUSE"
+            : > "$FAILED_FILE"
+            _deploy_batched "$FAILED"
+            FAILED=$(sort -u "$FAILED_FILE")
+          done
+
+          if [ -n "$FAILED" ]; then
+            echo "::error::Cloud Functions still failing after $NBD_DEPLOY_RETRY_ROUNDS retries"
+            {
+              echo "### ❌ Cloud Functions deploy — unresolved after $NBD_DEPLOY_RETRY_ROUNDS retries"
+              echo ""
+              echo "These functions did NOT deploy even after batched retries:"
+              echo ""
+              echo "$FAILED" | sed 's/^/  - /'
+              echo ""
+              echo "If the per-function error is \`Container Healthcheck failed. Quota"
+              echo "exceeded for total allowable CPU per project per region\`, the batched"
+              echo "retry wasn't enough headroom — the durable fix is a **Cloud Run CPU"
+              echo "quota increase** for \`us-central1\` (GCP console → IAM & Admin →"
+              echo "Quotas → filter \"Cloud Run Admin API\" / \"Total allowable CPU\")."
+              echo "Otherwise these are a genuine deploy failure worth investigating."
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
+          echo "✓ All functions deployed$( [ "$round" -gt 0 ] && echo " (after $round straggler-retry round(s))" )."
 
       # Second pass: retry the skip-list with tolerance. If IAM has
       # since been granted, these succeed. If not, the warning is
