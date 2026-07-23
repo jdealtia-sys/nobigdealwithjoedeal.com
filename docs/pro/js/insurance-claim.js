@@ -195,7 +195,7 @@ let _NBD_IC_DELEGATE; // module-local (globals Tranche 1 — was window.*)
           <h3 style="color: var(--t); margin: 0 0 20px 0; font-size: 18px; font-weight: 600;">Insurance Claim Progress</h3>
 
           <div class="claim-progress-bar" style="background: rgba(255,255,255,.05); height: 8px; border-radius: 4px; margin-bottom: 24px; overflow: hidden;">
-            <div style="background: #e8720c; height: 100%; width: ${status.progress}%; transition: width 0.3s ease;"></div>
+            <div style="background: var(--orange,#e8720c); height: 100%; width: ${status.progress}%; transition: width 0.3s ease;"></div>
           </div>
 
           <div class="claim-stages" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; margin-bottom: 24px;">
@@ -269,7 +269,7 @@ let _NBD_IC_DELEGATE; // module-local (globals Tranche 1 — was window.*)
             <button
               data-ic-action="advance" data-ic-id="${leadId}"
               style="
-                background: #e8720c;
+                background: var(--orange,#e8720c);
                 color: white;
                 border: none;
                 border-radius: 6px;

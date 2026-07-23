@@ -429,7 +429,7 @@ Bookmark it; the link stays live as we work through the project.
             <div data-state-loading style="display:flex; flex-direction:column; align-items:center; gap:14px;">
               <div style="
                 width:36px; height:36px; border-radius:50%;
-                border:3px solid #e1e5ec; border-top-color:#e8720c;
+                border:3px solid #e1e5ec; border-top-color:var(--orange,#e8720c);
                 animation:nbdPortalPreviewSpin 0.9s linear infinite;"></div>
               <div style="font-size:13px; color:#5a6478;">Loading preview…</div>
             </div>

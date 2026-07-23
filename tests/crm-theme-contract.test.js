@@ -297,6 +297,44 @@ ok('collapsed sidebar rail is scrollable',
     offenders.length === 0, offenders.join(', '));
 }
 
+// 12. Base overlay/toast z-index tier is TOKEN-WIRED (audit "z-index wiring").
+//     The three canonical layers have exact tokens in dashboard-app.css
+//     (--z-overlay:10000, --z-overlay-top:10001, --z-toast:10002). JS-rendered
+//     overlays/toasts must reference the token (with the literal as fallback)
+//     so the ladder has more than one consumer and can be reasoned about
+//     centrally. A bare `z-index:10000/10001/10002` in JS is a regression.
+//     (The ad-hoc higher tiers 10005-10600 and the "nuclear" 99xxx/999999/
+//     maxint values are NOT asserted here — renumbering those against the
+//     never-demote banner rule is a deliberate ladder decision, not a swap.)
+{
+  const BARE = /z-index:\s*1000[0-2](?![0-9])/;
+  const jsDir = P('docs/pro/js');
+  const bare = fs.readdirSync(jsDir)
+    .filter((f) => f.endsWith('.js'))
+    .filter((f) => BARE.test(fs.readFileSync(path.join(jsDir, f), 'utf8')));
+  ok('no JS renders a bare base-tier z-index (10000/10001/10002 must use the token)',
+    bare.length === 0, bare.join(', '));
+}
+
+// 13. Orange accent bypass (audit "~219 raw hexes bypass theme accents").
+//     --orange is the THEME-ACCENT token — the 186 themes set it to blues,
+//     greens, purples, etc., and dashboard-custom-theme.js / maps.js /
+//     theme-gx.js override it at runtime. A property-value bare `#e8720c`
+//     therefore stays NBD-orange on a blue/green theme while everything on
+//     var(--orange) recolors. Property-value oranges must go through the
+//     token (keeping #e8720c as the fallback for any pre-theme surface).
+//     Gradient stops / other-token fallbacks (`,#e8720c`) are out of scope
+//     here — this guards only the clear `PROP:#e8720c` drift.
+{
+  const BAREHEX = /:\s*#e8720c\b/i;
+  const jsDir = P('docs/pro/js');
+  const bare = fs.readdirSync(jsDir)
+    .filter((f) => f.endsWith('.js'))
+    .filter((f) => BAREHEX.test(fs.readFileSync(path.join(jsDir, f), 'utf8')));
+  ok('no JS renders a bare property-value #e8720c (orange must track the theme accent)',
+    bare.length === 0, bare.join(', '));
+}
+
 console.log('\n──────────────────────────────────────────────────');
 console.log(`${passed} passed, ${failed} failed`);
 if (failed) {

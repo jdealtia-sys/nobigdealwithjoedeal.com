@@ -1054,7 +1054,7 @@
   function injectStyles() {
     if (document.getElementById(MODAL_STYLE_ID)) return;
     var css = [
-      '.dpf-overlay{position:fixed;inset:0;z-index:10000;background:rgba(0,0,0,.82);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);display:flex;align-items:center;justify-content:center;padding:20px;animation:dpf-fade .18s ease-out;}',
+      '.dpf-overlay{position:fixed;inset:0;z-index:var(--z-overlay,10000);background:rgba(0,0,0,.82);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);display:flex;align-items:center;justify-content:center;padding:20px;animation:dpf-fade .18s ease-out;}',
       '@keyframes dpf-fade{from{opacity:0}to{opacity:1}}',
       '@keyframes dpf-slide{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}',
       '.dpf-card{width:100%;max-width:720px;max-height:90vh;background:var(--s,#111418);border:1px solid var(--br,rgba(255,255,255,.09));border-radius:14px;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 30px 60px rgba(0,0,0,.6);animation:dpf-slide .22s ease-out;}',

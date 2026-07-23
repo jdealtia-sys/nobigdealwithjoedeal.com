@@ -334,7 +334,7 @@
             <p style="margin:6px 0 0;font-size:13px;color:var(--m);">Materials, labor, and pricing for your estimates — ${activeCount} products across ${categoryCount} categories</p>
           </div>
           <div style="display:flex;gap:8px;">
-            <button data-pl-action="addProduct" style="padding:8px 16px;background:#e8720c;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:600;font-size:13px;">+ Add Product</button>
+            <button data-pl-action="addProduct" style="padding:8px 16px;background:var(--orange,#e8720c);color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:600;font-size:13px;">+ Add Product</button>
             <button data-pl-action="exportCSV" style="padding:8px 14px;background:#10b981;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:500;font-size:13px;">Export CSV</button>
             <button data-pl-action="resetDefaults" style="padding:8px 14px;background:#ef4444;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:500;font-size:13px;">Reset</button>
           </div>
@@ -408,7 +408,7 @@
 
     const modal = document.createElement('div');
     modal.id = 'product-edit-modal';
-    modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.5);z-index:10000;display:flex;align-items:center;justify-content:center;';
+    modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.5);z-index:var(--z-overlay,10000);display:flex;align-items:center;justify-content:center;';
     modal.onclick = (e) => { if (e.target === modal) closeModal(); };
 
     modal.innerHTML = `
@@ -540,7 +540,7 @@
             ${p ? '<button data-pl-action="deleteFromModal" style="padding:8px 16px;background:#ef4444;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:13px;">Delete</button>' : '<div></div>'}
             <div style="display:flex;gap:8px;">
               <button data-pl-action="closeModal" style="padding:8px 16px;background:var(--s2);color:var(--t);border:none;border-radius:6px;cursor:pointer;font-size:13px;">Cancel</button>
-              <button data-pl-action="saveFromModal" style="padding:8px 20px;background:#e8720c;color:#fff;border:none;border-radius:6px;cursor:pointer;font-weight:600;font-size:13px;">${p ? 'Update' : 'Add Product'}</button>
+              <button data-pl-action="saveFromModal" style="padding:8px 20px;background:var(--orange,#e8720c);color:#fff;border:none;border-radius:6px;cursor:pointer;font-weight:600;font-size:13px;">${p ? 'Update' : 'Add Product'}</button>
             </div>
           </div>
         </div>

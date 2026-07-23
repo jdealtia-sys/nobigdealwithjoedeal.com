@@ -610,7 +610,7 @@
       // Compact legal-name line shown UNDER the logo (letterhead), so the name
       // doesn\'t read as a second giant wordmark beside the logo mark.
       '.jt-prop-co-sm{font-family:"Barlow Condensed",sans-serif;font-size:15px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin-top:7px;line-height:1.1;}',
-      '.jt-prop-kind{font-size:11px;font-weight:800;letter-spacing:.22em;text-transform:uppercase;color:#e8720c;margin-top:3px;}',
+      '.jt-prop-kind{font-size:11px;font-weight:800;letter-spacing:.22em;text-transform:uppercase;color:var(--orange,#e8720c);margin-top:3px;}',
       '.jt-prop-meta{font-size:12px;color:#64748b;margin-top:6px;}',
       '.jt-prop hr{border:none;border-top:2px solid #1a202c;margin:16px 0;}',
       '.jt-prop-scope h3{margin:14px 0 3px;font-size:14px;font-weight:800;color:#1a202c;}',

@@ -119,7 +119,7 @@
   .hm-cell { height: 22px; border-radius: 2px; }
   .terr-bar-row { display: grid; grid-template-columns: 130px 1fr 70px; gap: 12px; align-items: center; padding: 7px 0; font-size: 12px; }
   .terr-bar-city { font-family: 'Barlow Condensed', sans-serif; font-weight: 700; text-transform: uppercase; color: #111; letter-spacing: .03em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .terr-bar-rev { font-family: 'Barlow Condensed', sans-serif; font-weight: 800; color: #e8720c; text-align: right; }
+  .terr-bar-rev { font-family: 'Barlow Condensed', sans-serif; font-weight: 800; color: var(--orange,#e8720c); text-align: right; }
   .funnel-wrap { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 6px 0; }
   .funnel-bar { color: #fff; font-weight: 700; font-family: 'Barlow Condensed', sans-serif; letter-spacing: .03em; padding: 12px 16px; border-radius: 4px; text-align: center; white-space: nowrap; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   .revenue-svg { width: 100%; height: auto; display: block; }`;
@@ -531,7 +531,7 @@
               <div>
                 <label style="font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--m);display:block;margin-bottom:6px;">AI Narrative</label>
                 <label style="display:flex;align-items:center;gap:8px;padding:10px 12px;background:var(--s2);border:1px solid var(--br);border-radius:6px;cursor:pointer;">
-                  <input type="checkbox" id="reportIncludeNarrative" checked style="accent-color:#e8720c;">
+                  <input type="checkbox" id="reportIncludeNarrative" checked style="accent-color:var(--orange,#e8720c);">
                   <span style="font-size:12px;color:var(--t);">Include Claude-written insights</span>
                 </label>
               </div>
@@ -1058,7 +1058,7 @@
     font-weight: 800;
     text-transform: uppercase;
     letter-spacing: .2em;
-    color: #e8720c;
+    color: var(--orange,#e8720c);
     margin-bottom: 10px;
   }
   .report-title {
@@ -1078,7 +1078,7 @@
   .report-period {
     font-family: 'Barlow Condensed', sans-serif;
     font-size: 11px;
-    color: #e8720c;
+    color: var(--orange,#e8720c);
     text-transform: uppercase;
     letter-spacing: .15em;
   }
@@ -1113,7 +1113,7 @@
     line-height: 1;
     margin-bottom: 4px;
   }
-  .hero-value.orange { color: #e8720c; }
+  .hero-value.orange { color: var(--orange,#e8720c); }
   .hero-sub {
     font-size: 11px;
     color: #8b8e96;
@@ -1130,7 +1130,7 @@
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: .18em;
-    color: #e8720c;
+    color: var(--orange,#e8720c);
     margin-bottom: 8px;
   }
   .section-title {
@@ -1195,7 +1195,7 @@
     font-family: 'Barlow Condensed', sans-serif;
     font-size: 28px;
     font-weight: 800;
-    color: #e8720c;
+    color: var(--orange,#e8720c);
     line-height: 1;
     min-width: 36px;
   }
@@ -1243,7 +1243,7 @@
   .velocity-days {
     font-family: 'Barlow Condensed', sans-serif;
     font-weight: 700;
-    color: #e8720c;
+    color: var(--orange,#e8720c);
     text-align: right;
   }
   .velocity-count {
@@ -1267,7 +1267,7 @@
     letter-spacing: .1em;
     color: #fff;
   }
-  .report-footer-brand span { color: #e8720c; }
+  .report-footer-brand span { color: var(--orange,#e8720c); }
 
   .empty-state {
     padding: 20px;
@@ -1429,20 +1429,20 @@ ${STATIC_CHART_CSS}
   .report-page { max-width: 960px; margin: 0 auto; background: #fff; }
   .report-hdr { background: #0a0c0f; color: #fff; padding: 40px 56px 32px; position: relative; overflow: hidden; }
   .report-hdr::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 6px; background: linear-gradient(90deg, #e8720c, #ff9030); }
-  .report-brand { font-family: 'Barlow Condensed', sans-serif; font-size: 13px; font-weight: 800; text-transform: uppercase; letter-spacing: .2em; color: #e8720c; margin-bottom: 10px; }
+  .report-brand { font-family: 'Barlow Condensed', sans-serif; font-size: 13px; font-weight: 800; text-transform: uppercase; letter-spacing: .2em; color: var(--orange,#e8720c); margin-bottom: 10px; }
   .report-brand span { color: #fff; }
   .report-title { font-family: 'Barlow Condensed', sans-serif; font-size: 52px; font-weight: 800; line-height: 1; text-transform: uppercase; letter-spacing: -.01em; margin-bottom: 12px; }
   .report-subtitle { font-size: 14px; color: #c7cad1; margin-bottom: 6px; }
-  .report-period { font-family: 'Barlow Condensed', sans-serif; font-size: 11px; color: #e8720c; text-transform: uppercase; letter-spacing: .15em; }
+  .report-period { font-family: 'Barlow Condensed', sans-serif; font-size: 11px; color: var(--orange,#e8720c); text-transform: uppercase; letter-spacing: .15em; }
   .hero-grid { display: grid; grid-template-columns: repeat(4, 1fr); background: #111418; color: #fff; }
   .hero-cell { padding: 28px 20px; border-right: 1px solid #2a2f35; border-bottom: 1px solid #2a2f35; }
   .hero-cell:last-child { border-right: none; }
   .hero-label { font-family: 'Barlow Condensed', sans-serif; font-size: 10px; color: #8b8e96; text-transform: uppercase; letter-spacing: .15em; margin-bottom: 6px; }
   .hero-value { font-family: 'Barlow Condensed', sans-serif; font-size: 38px; font-weight: 800; color: #fff; line-height: 1; margin-bottom: 4px; }
-  .hero-value.orange { color: #e8720c; }
+  .hero-value.orange { color: var(--orange,#e8720c); }
   .hero-sub { font-size: 11px; color: #8b8e96; }
   .section { padding: 40px 56px; border-bottom: 1px solid #eee; }
-  .section-label { font-family: 'Barlow Condensed', sans-serif; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .18em; color: #e8720c; margin-bottom: 8px; }
+  .section-label { font-family: 'Barlow Condensed', sans-serif; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .18em; color: var(--orange,#e8720c); margin-bottom: 8px; }
   .section-title { font-family: 'Barlow Condensed', sans-serif; font-size: 28px; font-weight: 800; text-transform: uppercase; color: #111; margin-bottom: 6px; line-height: 1; }
   .section-desc { font-size: 13px; color: #666; margin-bottom: 24px; }
   .metric-row { display: grid; grid-template-columns: 1fr 1fr; gap: 30px; margin-bottom: 30px; }
@@ -1452,7 +1452,7 @@ ${STATIC_CHART_CSS}
   .metric-card-sub { font-size: 12px; color: #666; }
   .city-row { display: flex; align-items: center; gap: 16px; padding: 14px 0; border-bottom: 1px solid #eee; }
   .city-row:last-child { border-bottom: none; }
-  .city-rank { font-family: 'Barlow Condensed', sans-serif; font-size: 28px; font-weight: 800; color: #e8720c; line-height: 1; min-width: 36px; }
+  .city-rank { font-family: 'Barlow Condensed', sans-serif; font-size: 28px; font-weight: 800; color: var(--orange,#e8720c); line-height: 1; min-width: 36px; }
   .city-body { flex: 1; }
   .city-name { font-family: 'Barlow Condensed', sans-serif; font-size: 18px; font-weight: 700; color: #111; text-transform: uppercase; }
   .city-stats { font-size: 11px; color: #666; margin-top: 2px; }
@@ -1460,11 +1460,11 @@ ${STATIC_CHART_CSS}
   .velocity-stage { font-family: 'Barlow Condensed', sans-serif; font-weight: 700; text-transform: uppercase; color: #111; letter-spacing: .04em; }
   .velocity-bar-wrap { height: 10px; background: #eee; border-radius: 5px; overflow: hidden; }
   .velocity-bar { height: 100%; background: linear-gradient(90deg, #e8720c, #ff9030); border-radius: 5px; }
-  .velocity-days { font-family: 'Barlow Condensed', sans-serif; font-weight: 700; color: #e8720c; text-align: right; }
+  .velocity-days { font-family: 'Barlow Condensed', sans-serif; font-weight: 700; color: var(--orange,#e8720c); text-align: right; }
   .velocity-count { font-size: 11px; color: #999; text-align: right; }
   .report-footer { background: #0a0c0f; color: #8b8e96; padding: 24px 56px; display: flex; justify-content: space-between; font-size: 10px; }
   .report-footer-brand { font-family: 'Barlow Condensed', sans-serif; font-weight: 800; letter-spacing: .1em; color: #fff; }
-  .report-footer-brand span { color: #e8720c; }
+  .report-footer-brand span { color: var(--orange,#e8720c); }
   .empty-state { padding: 20px; text-align: center; color: #999; font-style: italic; font-size: 12px; }
   .chart-box { background: #fafaf9; padding: 20px; border-radius: 8px; border: 1px solid #eee; min-height: 300px; }
   .stuck-row { display: grid; grid-template-columns: 1fr 90px 90px 90px; gap: 12px; align-items: center; padding: 12px 0; border-bottom: 1px solid #eee; font-size: 12px; }
@@ -1472,7 +1472,7 @@ ${STATIC_CHART_CSS}
   .stuck-name { font-weight: 700; color: #111; }
   .stuck-addr { font-size: 11px; color: #666; margin-top: 2px; }
   .stuck-days { font-family: 'Barlow Condensed', sans-serif; font-weight: 800; color: #c53030; text-align: right; font-size: 16px; }
-  .stuck-value { font-family: 'Barlow Condensed', sans-serif; font-weight: 700; color: #e8720c; text-align: right; font-size: 14px; }
+  .stuck-value { font-family: 'Barlow Condensed', sans-serif; font-weight: 700; color: var(--orange,#e8720c); text-align: right; font-size: 14px; }
   .stuck-stage { font-size: 10px; color: #999; text-align: right; text-transform: uppercase; letter-spacing: .05em; }
   /* Delta chip — up/down comparison vs prior period */
   .delta-chip { display: inline-block; font-family: 'Barlow Condensed', sans-serif; font-size: 10px; font-weight: 800; letter-spacing: .04em; padding: 2px 6px; border-radius: 3px; margin-left: 6px; text-transform: uppercase; vertical-align: middle; }
@@ -1481,9 +1481,9 @@ ${STATIC_CHART_CSS}
   .delta-chip.flat { background: rgba(255,255,255,.08); color: #8b8e96; }
   /* AI narrative section (Stage 4) */
   .narrative { background: #fff8f0; border-left: 5px solid #e8720c; padding: 24px 28px; margin: 0; border-bottom: 1px solid #eee; position: relative; }
-  .narrative-label { font-family: 'Barlow Condensed', sans-serif; font-size: 10px; font-weight: 800; letter-spacing: .18em; color: #e8720c; text-transform: uppercase; margin-bottom: 8px; }
+  .narrative-label { font-family: 'Barlow Condensed', sans-serif; font-size: 10px; font-weight: 800; letter-spacing: .18em; color: var(--orange,#e8720c); text-transform: uppercase; margin-bottom: 8px; }
   .narrative-text { font-size: 16px; line-height: 1.6; color: #1a1a1a; font-weight: 500; }
-  .narrative-badge { position: absolute; top: 12px; right: 20px; font-size: 9px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: #e8720c; background: #fff; border: 1px solid rgba(232,114,12,.3); padding: 3px 8px; border-radius: 10px; }
+  .narrative-badge { position: absolute; top: 12px; right: 20px; font-size: 9px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--orange,#e8720c); background: #fff; border: 1px solid rgba(232,114,12,.3); padding: 3px 8px; border-radius: 10px; }
   @media print { body { background: #fff; } .report-page { max-width: 100%; padding: 0; } .section { page-break-inside: avoid; } @page { margin: 0.5cm; size: letter; } .narrative { background: #fff; border-left: 4px solid #e8720c; } }
 ${STATIC_CHART_CSS}
 </style>

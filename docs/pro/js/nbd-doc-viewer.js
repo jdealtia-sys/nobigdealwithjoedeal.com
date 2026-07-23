@@ -81,7 +81,7 @@
     style.id = 'nbd-doc-viewer-styles';
     style.textContent = `
       #nbd-doc-viewer-overlay {
-        position: fixed; inset: 0; z-index: 10000;
+        position: fixed; inset: 0; z-index:var(--z-overlay,10000);
         background: rgba(8, 10, 14, 0.92);
         display: none;
         flex-direction: column;
@@ -124,7 +124,7 @@
         margin-top: 2px;
       }
       .nbdv-close {
-        background: #e8720c;
+        background: var(--orange,#e8720c);
         border: 1px solid #e8720c;
         color: #fff;
         font-weight: 700;
@@ -197,9 +197,9 @@
         background: color-mix(in srgb, var(--orange) 6%, transparent);
       }
       .nbdv-action-btn.primary {
-        background: #e8720c;
+        background: var(--orange,#e8720c);
         color: #fff;
-        border-color: #e8720c;
+        border-color: var(--orange,#e8720c);
       }
       .nbdv-action-btn.primary:hover {
         background: #ff8420;
@@ -217,7 +217,7 @@
         transform: translateX(-50%);
         background: #181c22;
         border: 1px solid #e8720c;
-        color: #e8720c;
+        color: var(--orange,#e8720c);
         padding: 8px 16px;
         border-radius: 20px;
         font-size: 12px;
