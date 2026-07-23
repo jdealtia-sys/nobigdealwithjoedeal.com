@@ -67,6 +67,14 @@ jobs:
       # as rendered. Dependency-free; extracts the real engine colour helpers.
       - name: Run theme QA
         run: node tests/theme-qa.test.js
+      # CRM theme-defect invariants (2026-07-19 visual audit): the guessed-token
+      # landmines (--h/--text/--surface/--muted white-on-white in light mode),
+      # toast-collision scoping, banner z-index ladder, and the guessed-token
+      # regression guard. Dependency-free string/regex assertions over the
+      # rendered CSS/JS. Was local-only until now — gated so a revert can't
+      # silently re-open the light-mode legibility holes.
+      - name: Run CRM theme contract tests
+        run: node tests/crm-theme-contract.test.js
       # Document render + multi-tenant brand-isolation gate: every doc type renders
       # without error and never leaks one tenant's brand into another's output.
       - name: Run docgen render + tenant-isolation tests

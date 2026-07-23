@@ -401,7 +401,7 @@
       + '.pb-grip{cursor:grab;color:var(--m);font-size:14px;line-height:1;padding:0 2px;user-select:none;touch-action:none;}'
       + '.pb-grip:active{cursor:grabbing;}'
       + '.pb-stage-row{border-radius:6px;transition:background .08s;}'
-      + '.pb-stage-row.pb-dragover{background:var(--accent-weak,rgba(232,114,12,.14));box-shadow:inset 0 2px 0 var(--accent,#e8720c);}';
+      + '.pb-stage-row.pb-dragover{background:color-mix(in srgb, var(--orange) 14%, transparent);box-shadow:inset 0 2px 0 var(--orange);}';
     document.head.appendChild(s);
   }
 
