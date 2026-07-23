@@ -130,6 +130,14 @@ jobs:
       - name: Run voice-consumer transform tests
         run: node tests/voice-consumer.test.js
 
+      # Adjuster-tactic board (idea #2 follow-up): the company-wide rollup must
+      # tally objections/red-flags per carrier AND per adjuster (the association
+      # voiceConsumer drops), dedup within a call, rank carriers by call volume,
+      # count distinct adjusters, and never throw on malformed summaries.
+      # Dependency-free require() of functions/adjuster-board-logic.js.
+      - name: Run adjuster-board aggregation tests
+        run: node tests/adjuster-board.test.js
+
       # AI-draft channel fork: an inbound_sms draft must NEVER be misrouted as a
       # portal draft (keeps the live Twilio send path byte-identical), and only
       # the explicit portal trigger types deliver to the portal thread. A false
