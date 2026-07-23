@@ -130,6 +130,14 @@ jobs:
       - name: Run voice-consumer transform tests
         run: node tests/voice-consumer.test.js
 
+      # AI-draft channel fork: an inbound_sms draft must NEVER be misrouted as a
+      # portal draft (keeps the live Twilio send path byte-identical), and only
+      # the explicit portal trigger types deliver to the portal thread. A false
+      # positive silently diverts a customer SMS; a false negative texts a
+      # portal reply. Dependency-free require() of functions/ai-draft-routing.js.
+      - name: Run AI-draft routing tests
+        run: node tests/ai-draft-routing.test.js
+
       # Buying-intent strike: the fresh-view predicate must fire only for a
       # live viewer (≤6h, unresponded, non-terminal lead) and never nag on a
       # closed/deleted deal — a false strike sends a rep to call a done deal.

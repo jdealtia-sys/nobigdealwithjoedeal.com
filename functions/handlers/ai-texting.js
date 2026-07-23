@@ -289,7 +289,7 @@ async function resolvePersona(db, userId, companyId, repDisplayName) {
 //
 // Wrapped in a 12s safety timeout so a slow Claude response can't
 // blow Twilio's 15s webhook ceiling.
-async function generateAIDraft({ db, leadId, lead, incomingBody, incomingNoteId, incomingPhone }) {
+async function generateAIDraft({ db, leadId, lead, incomingBody, incomingNoteId, incomingPhone, triggerType = 'inbound_sms' }) {
   if (!leadId || !lead || !incomingBody) return null;
 
   let apiKey;
@@ -353,7 +353,7 @@ async function generateAIDraft({ db, leadId, lead, incomingBody, incomingNoteId,
       leadId,
       userId: ownerUid,
       companyId,
-      triggerType:   'inbound_sms',
+      triggerType:   triggerType || 'inbound_sms',
       incomingMsgId: incomingNoteId || null,
       incomingBody:  String(incomingBody).slice(0, 1600),
       incomingPhone: incomingPhone || null,

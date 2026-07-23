@@ -12,7 +12,7 @@
  */
 
 const { onRequest } = require('firebase-functions/v2/https');
-const { onDocumentUpdated } = require('firebase-functions/v2/firestore');
+const { onDocumentUpdated, onDocumentCreated } = require('firebase-functions/v2/firestore');
 const { defineSecret } = require('firebase-functions/params');
 const { logger } = require('firebase-functions/v2');
 const { getFirestore } = require('firebase-admin/firestore');
@@ -52,6 +52,7 @@ const TWILIO_PHONE_NUMBER = defineSecret('TWILIO_PHONE_NUMBER');
 // name, but using the re-export keeps the source-of-truth in
 // handlers/ai-texting.js).
 const { generateAIDraft, ANTHROPIC_API_KEY: AI_ANTHROPIC_KEY } = require('./handlers/ai-texting');
+const { isPortalDraft, clampPortalText } = require('./ai-draft-routing');
 
 // CORS origins
 const CORS_ORIGINS = [
@@ -1027,6 +1028,42 @@ exports.checkStormAlerts = onSchedule(
 // Idempotency: keyed on the pending→approved transition. A re-fire
 // (or a later status edit) is ignored because `before.status` is no
 // longer pending. Terminal states are 'sent' / 'failed'.
+// Producer: when a homeowner sends an inbound portal message, draft a reply
+// into leads/{id}/ai_drafts (triggerType 'portal_message_in') so it flows
+// through the same rep approve/edit/send loop as inbound SMS — persona voice,
+// approval gate, audit. generateAIDraft self-gates (no-ops when the Anthropic
+// secret is unset or persona/opt-out gates decline), so this is safe to deploy
+// dark. Fires only on source:'homeowner' — never on our own rep replies.
+exports.onPortalMessageDraft = onDocumentCreated(
+  {
+    document: 'leads/{leadId}/portal_messages/{msgId}',
+    secrets: [AI_ANTHROPIC_KEY],
+    memory: '256MiB',
+    timeoutSeconds: 30,
+    maxInstances: 10,
+  },
+  async (event) => {
+    const msg = event.data && event.data.data();
+    if (!msg || msg.source !== 'homeowner') return;
+    const text = String(msg.text || '').trim();
+    if (!text) return;
+    const { leadId, msgId } = event.params;
+    const db = getFirestore();
+    try {
+      const leadSnap = await db.doc('leads/' + leadId).get();
+      if (!leadSnap.exists) return;
+      await generateAIDraft({
+        db, leadId, lead: leadSnap.data() || {},
+        incomingBody: text,
+        incomingNoteId: msgId,
+        triggerType: 'portal_message_in',
+      });
+    } catch (e) {
+      logger.warn('[onPortalMessageDraft] draft generation threw', { leadId, err: e && e.message });
+    }
+  }
+);
+
 exports.onAiDraftApproved = onDocumentUpdated(
   {
     document: 'leads/{leadId}/ai_drafts/{draftId}',
@@ -1056,6 +1093,35 @@ exports.onAiDraftApproved = onDocumentUpdated(
       ...(detail ? { failureDetail: String(detail).slice(0, 200) } : {}),
       sentAt: FieldValue.serverTimestamp(),
     }).catch((e) => logger.warn('[ai-draft-send] fail-mark write failed', { leadId, draftId, err: e.message }));
+
+    // ── Channel fork ──────────────────────────────────────────────────────
+    // A portal-sourced draft is a homeowner reply that belongs in the portal
+    // thread, NOT an SMS. Handle it here and return; EVERYTHING BELOW (phone
+    // validation, TCPA opt-out, Twilio send) is the SMS path and stays
+    // byte-identical for the default inbound_sms draft. Portal replies also
+    // sidestep the Twilio A2P block entirely.
+    if (isPortalDraft(after)) {
+      const text = clampPortalText(after.draftText, 2000);
+      if (!text) { await fail('empty_body'); return; }
+      try {
+        // Mirror replyToPortalMessage's rep-reply write (portal.js).
+        await db.collection(`leads/${leadId}/portal_messages`).add({
+          leadId,
+          ownerUid: after.userId || null,
+          source: 'rep',
+          text,
+          aiDraftId: draftId,
+          createdAt: FieldValue.serverTimestamp(),
+          readBySender: true,
+          readByRecipient: false,
+        });
+        await draftRef.update({ status: 'sent', sentChannel: 'portal', sentAt: FieldValue.serverTimestamp() });
+        logger.info('[ai-draft-send] portal reply posted', { leadId, draftId });
+      } catch (e) {
+        await fail('portal_send_error', e && e.message);
+      }
+      return;
+    }
 
     const to   = after.customerPhone || after.incomingPhone || null;
     const body = String(after.draftText || '').trim();
