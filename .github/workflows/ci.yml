@@ -177,6 +177,17 @@ jobs:
       # Dependency-free require() of the pure detectFreshViews().
       - name: Run buying-intent strike detection tests
         run: node tests/buying-intent-strike.test.js
+
+      # Real-time fresh-view push (idea #3 Phase 2): the trigger's notification
+      # builder must always key the strike to the owner's feed + degrade to a
+      # generic message, the cooldown must suppress the estimate_view refresh
+      # burst but let a genuine later re-open re-fire, and the client predicate
+      # must fire ONLY on a fresh estimate_viewed notif with a parent lead
+      # (keyed by estimateId so it dedupes against the estimates-cache path).
+      # Dependency-free require() of functions/fresh-view-logic.js + the pure
+      # buying-intent-strike.js predicate.
+      - name: Run fresh-view strike tests
+        run: node tests/fresh-view-strike.test.js
       # Inbound-SMS triage: the classifier must UNDER-filter — a real inbound
       # lead hidden as spam is a lost deal, a shown carrier keyword is a shrug.
       # Guards that only unambiguous noise (empty / opt-out / carrier keyword)
