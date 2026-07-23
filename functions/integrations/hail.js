@@ -94,6 +94,39 @@ async function fetchHailTrace(lat, lng, radiusMi, daysBack) {
   }));
 }
 
+// ─── Shared lookup — provider selection + NOAA fallback ───
+// Extracted so both getHailHistory (below) and the server-side attachStormProof
+// callable (handlers/storm-proof.js, idea #1 Phase 2) resolve hail the same
+// way. Returns { provider, hits, count, maxSizeInches }. Throws on total
+// failure (caller maps to an HttpsError). getHailHistory keeps its own inline
+// provider block byte-identical — this is additive.
+async function lookupHail(lat, lng, radiusMi, daysBack) {
+  const preferredProvider = PROVIDERS.hail === 'hailtrace' && hasSecret('HAILTRACE_API_KEY')
+    ? 'hailtrace' : 'noaa';
+  let hits;
+  let provider = preferredProvider;
+  try {
+    hits = preferredProvider === 'hailtrace'
+      ? await fetchHailTrace(lat, lng, radiusMi, daysBack)
+      : await fetchNoaaHail(lat, lng, radiusMi, daysBack);
+  } catch (e) {
+    if (preferredProvider === 'hailtrace') {
+      hits = await fetchNoaaHail(lat, lng, radiusMi, daysBack); // fallback (may throw → caller handles)
+      provider = 'noaa-fallback';
+    } else {
+      throw e;
+    }
+  }
+  hits = Array.isArray(hits) ? hits : [];
+  return {
+    provider,
+    hits,
+    count: hits.length,
+    maxSizeInches: hits.reduce((m, h) => Math.max(m, h.sizeInches || 0), 0),
+  };
+}
+exports.lookupHail = lookupHail;
+
 // ─── Callable: getHailHistory ─────────────────────────────
 exports.getHailHistory = onCall(
   {

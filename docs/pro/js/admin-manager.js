@@ -481,7 +481,7 @@
         '</div>' +
         '<div style="display:flex;flex-direction:column;gap:4px;flex-shrink:0;">' +
           '<button class="btn btn-ghost btn-sm" data-inbound-copy="' + escapeAttr(r._digits || '') + '">📋 Copy #</button>' +
-          '<button class="btn btn-orange btn-sm" data-inbound-lead="1">➕ New Lead</button>' +
+          '<button class="btn btn-orange btn-sm" data-inbound-lead="' + escapeAttr(r.id || '') + '">➕ Convert</button>' +
         '</div>' +
       '</div>'
     ).join('');
@@ -493,9 +493,31 @@
       });
     });
     container.querySelectorAll('[data-inbound-lead]').forEach((btn) => {
-      btn.addEventListener('click', () => {
-        if (typeof window.openQuickAddLead === 'function') window.openQuickAddLead();
-        else if (typeof window.goTo === 'function') window.goTo('crm');
+      btn.addEventListener('click', async () => {
+        const smsId = btn.getAttribute('data-inbound-lead') || '';
+        if (!smsId) {
+          // No doc id (shouldn't happen) — fall back to the manual add flow.
+          if (typeof window.openQuickAddLead === 'function') window.openQuickAddLead();
+          else if (typeof window.goTo === 'function') window.goTo('crm');
+          return;
+        }
+        btn.disabled = true;
+        const orig = btn.textContent;
+        btn.textContent = '…';
+        try {
+          const fn = await callable('convertUnmatchedSms');
+          const res = await fn({ unmatchedSmsId: smsId });
+          const out = (res && res.data) || {};
+          const draftNote = out.draftId ? ' · AI reply drafted' : '';
+          toast(out.deduped ? ('Matched an existing lead' + draftNote) : ('Lead created' + draftNote), 'ok');
+          // Row is gone from the inbox server-side — refresh the panel.
+          loadInboundTexts();
+        } catch (e) {
+          console.error('convertUnmatchedSms failed:', e);
+          toast('Could not convert: ' + escapeHTML((e && e.message) || 'error'), 'error');
+          btn.disabled = false;
+          btn.textContent = orig;
+        }
       });
     });
   }

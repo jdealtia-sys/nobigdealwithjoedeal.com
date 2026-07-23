@@ -122,6 +122,15 @@ jobs:
       - name: Run sweep regression tests
         run: node tests/sweep-regression.test.js
 
+      # Storm proof (idea #1 Phase 2): the verify logic must only mark a proof
+      # verified at/above the 0.75" NWS severe-hail floor (never overclaim
+      # damage the data doesn't support), carry userId/companyId so the frozen
+      # storm_proofs read rule can gate it, and the per-lead card-detail button
+      # must reference a registered dispatch target (no dead control).
+      # Dependency-free require() of functions/storm-proof-logic.js + static guard.
+      - name: Run storm-proof verify + wiring tests
+        run: node tests/storm-proof.test.js
+
       # Voice→CRM consumer: the transform that turns a call summary into tasks /
       # insurance backfill must NEVER overwrite a rep-entered insurance field
       # (fills blanks only) and must turn a relative/garbage `when` into an
@@ -129,6 +138,14 @@ jobs:
       # functions/voice-consumer-logic.js (shared verbatim by the trigger).
       - name: Run voice-consumer transform tests
         run: node tests/voice-consumer.test.js
+
+      # Adjuster-tactic board (idea #2 follow-up): the company-wide rollup must
+      # tally objections/red-flags per carrier AND per adjuster (the association
+      # voiceConsumer drops), dedup within a call, rank carriers by call volume,
+      # count distinct adjusters, and never throw on malformed summaries.
+      # Dependency-free require() of functions/adjuster-board-logic.js.
+      - name: Run adjuster-board aggregation tests
+        run: node tests/adjuster-board.test.js
 
       # AI-draft channel fork: an inbound_sms draft must NEVER be misrouted as a
       # portal draft (keeps the live Twilio send path byte-identical), and only
@@ -145,6 +162,14 @@ jobs:
       # damage verdict. Dependency-free require() of the pure generator.
       - name: Run roof-report generator tests
         run: node tests/roof-report.test.js
+
+      # Inbound-SMS convert: the builder that turns an untrusted unmatched_sms
+      # row into a lead must always stamp the converting admin's userId/companyId
+      # (never a null-tenant lead), carry phoneDigits for re-matching, clamp the
+      # attacker-controlled body into notes, and land in the canonical 'New'
+      # stage. Dependency-free require() of functions/inbound-sms-convert-logic.js.
+      - name: Run inbound-SMS convert builder tests
+        run: node tests/inbound-sms-convert.test.js
 
       # Buying-intent strike: the fresh-view predicate must fire only for a
       # live viewer (≤6h, unresponded, non-terminal lead) and never nag on a
