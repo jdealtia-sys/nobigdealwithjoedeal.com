@@ -122,6 +122,14 @@ jobs:
       - name: Run sweep regression tests
         run: node tests/sweep-regression.test.js
 
+      # Roof Report generator: the homeowner-facing HTML is served to a
+      # logged-out homeowner, so every record/brand field MUST be escaped
+      # (stored-XSS + brand-injection source) and it must NEVER leak the rep's
+      # internal project value / owner market value / cost-margin, nor issue a
+      # damage verdict. Dependency-free require() of the pure generator.
+      - name: Run roof-report generator tests
+        run: node tests/roof-report.test.js
+
       # Buying-intent strike: the fresh-view predicate must fire only for a
       # live viewer (≤6h, unresponded, non-terminal lead) and never nag on a
       # closed/deleted deal — a false strike sends a rep to call a done deal.

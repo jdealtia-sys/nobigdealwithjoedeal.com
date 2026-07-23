@@ -463,6 +463,7 @@ function renderIntelCard(targetElId, intel, county, address) {
       <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap;">
         ${intel.auditorUrl && /^https?:\/\//i.test(intel.auditorUrl) ? `<a class="pi-link" href="${_piEsc(intel.auditorUrl)}" target="_blank" rel="noopener" style="flex:1;">↗ View County Record</a>` : ''}
         <button class="pi-lead-btn" data-pi-action="createLead" data-pi-address="${_piEsc(address)}" data-pi-owner="${_piEsc(ownerName)}" style="flex:1;padding:6px 12px;background:var(--orange);color:#fff;border:none;border-radius:5px;font-size:11px;font-weight:700;cursor:pointer;text-transform:uppercase;letter-spacing:.05em;">+ Create Lead</button>
+        <button class="pi-lead-btn" data-pi-action="roofReport" title="Build a branded, homeowner-safe Roof Health Report and copy a share link" style="flex:1;padding:6px 12px;background:var(--s2);color:var(--t);border:1px solid var(--br);border-radius:5px;font-size:11px;font-weight:700;cursor:pointer;text-transform:uppercase;letter-spacing:.05em;">📄 Roof Report</button>
       </div>
     </div>
   </div>`;
@@ -761,4 +762,42 @@ Object.assign(window.__NBD_CALL_REGISTRY, {
 });
 
 
-(function(){if(_NBD_PI_DELEGATE)return;_NBD_PI_DELEGATE=true;document.addEventListener('click',function(ev){var t=ev.target.closest&&ev.target.closest('[data-pi-action]');if(!t)return;if(t.dataset.piAction==='createLead'&&typeof createLeadFromProperty==='function')createLeadFromProperty(t.dataset.piAddress,t.dataset.piOwner);});})();
+// Build a branded, homeowner-safe Roof Health Report from the current property
+// intel and share it via the SAME reports/{id} + createReportShareToken pipeline
+// the inspection engine uses (no new Cloud Function). White-label via _brand().
+async function shareRoofReport() {
+  const intel = window._lastIntel;
+  if (!intel) { if (window.showToast) window.showToast('Look up a property first', 'info'); return; }
+  const RR = window.RoofReport;
+  const Engine = window.InspectionReportEngine;
+  if (!RR || typeof RR.buildRoofReportHtml !== 'function' || !Engine || typeof Engine.saveReport !== 'function') {
+    if (window.showToast) window.showToast('Roof Report engine not ready', 'error');
+    return;
+  }
+  try {
+    const b = (window._brand && window._brand()) || {};
+    const brand = {
+      name: b.name || b.companyName || (window.companyProfile && window.companyProfile.name) || '',
+      logoUrl: b.logo || b.logoUrl || b.logoURL || '',
+      accent: b.accent || b.primaryColor || b.color || '',
+      repName: (window._currentUser && window._currentUser.displayName) || (window._user && window._user.displayName) || '',
+      repPhone: (window.companyProfile && window.companyProfile.phone) || b.phone || '',
+    };
+    let dateStr = '';
+    try { dateStr = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }); } catch (_) {}
+    const html = RR.buildRoofReportHtml(intel, brand, { dateStr });
+    if (window.showToast) window.showToast('Building roof report…', 'info');
+    const leadId = intel.leadId || (window._currentLead && window._currentLead.id) || null;
+    const reportId = await Engine.saveReport(leadId, 'roof-health', {
+      html,
+      data: intel,
+      propertyAddress: intel.address || intel.propertyAddress || '',
+    });
+    if (reportId && typeof Engine._shareReport === 'function') await Engine._shareReport(reportId);
+  } catch (e) {
+    console.error('[property-intel] shareRoofReport failed:', e);
+    if (window.showToast) window.showToast('Could not build roof report', 'error');
+  }
+}
+
+(function(){if(_NBD_PI_DELEGATE)return;_NBD_PI_DELEGATE=true;document.addEventListener('click',function(ev){var t=ev.target.closest&&ev.target.closest('[data-pi-action]');if(!t)return;var a=t.dataset.piAction;if(a==='createLead'&&typeof createLeadFromProperty==='function')createLeadFromProperty(t.dataset.piAddress,t.dataset.piOwner);else if(a==='roofReport'&&typeof shareRoofReport==='function')shareRoofReport();});})();
