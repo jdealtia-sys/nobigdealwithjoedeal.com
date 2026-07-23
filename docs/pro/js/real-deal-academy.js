@@ -1090,7 +1090,7 @@
       container.innerHTML = `
         <div style="text-align:center;padding:60px 20px;">
           <h2 style="font-family:'Barlow Condensed',sans-serif;font-size:28px;
-                     color:#e8720c;letter-spacing:.06em;text-transform:uppercase;
+                     color:var(--orange,#e8720c);letter-spacing:.06em;text-transform:uppercase;
                      margin-bottom:12px;">Local Authority Blueprint</h2>
           <p style="color:#888;font-size:14px;margin-bottom:20px;">
             The 12-chapter SEO and local authority masterclass is loading...

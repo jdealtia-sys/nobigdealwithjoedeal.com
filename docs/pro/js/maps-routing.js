@@ -625,7 +625,7 @@ function openLineTypePicker(lineId, latlng) {
   const extraBtns = EXTRA.map(makeBtn).join('');
 
   const html = '<div style="min-width:200px;">'
-    + '<div style="font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#e8720c;margin-bottom:6px;">Change Line Type</div>'
+    + '<div style="font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--orange,#e8720c);margin-bottom:6px;">Change Line Type</div>'
     + '<div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:6px;">' + commonBtns + '</div>'
     + '<details style="margin-top:4px;"><summary style="font-size:10px;color:#888;cursor:pointer;user-select:none;">More types \u25bc</summary>'
     + '<div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:6px;">' + extraBtns + '</div></details>'
@@ -1778,16 +1778,16 @@ function generateScopeFromDrawing() {
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700;800&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
 <style>*{margin:0;padding:0;box-sizing:border-box;}body{font-family:'Barlow',sans-serif;padding:36px;max-width:860px;margin:0 auto;}
 .hdr{display:flex;justify-content:space-between;padding-bottom:18px;border-bottom:3px solid #e8720c;margin-bottom:24px;}
-.brand{font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:800;text-transform:uppercase;}.brand span{color:#e8720c;}
-.badge{font-size:9px;font-weight:700;letter-spacing:.18em;text-transform:uppercase;color:#e8720c;border:1px solid #e8720c;padding:2px 9px;border-radius:2px;display:inline-block;margin-top:5px;}
-h2{font-family:'Barlow Condensed',sans-serif;font-size:14px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:#e8720c;margin:22px 0 10px;border-bottom:1px solid #eee;padding-bottom:4px;}
+.brand{font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:800;text-transform:uppercase;}.brand span{color:var(--orange,#e8720c);}
+.badge{font-size:9px;font-weight:700;letter-spacing:.18em;text-transform:uppercase;color:var(--orange,#e8720c);border:1px solid #e8720c;padding:2px 9px;border-radius:2px;display:inline-block;margin-top:5px;}
+h2{font-family:'Barlow Condensed',sans-serif;font-size:14px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--orange,#e8720c);margin:22px 0 10px;border-bottom:1px solid #eee;padding-bottom:4px;}
 .scope-item{display:flex;align-items:flex-start;gap:10px;padding:8px 0;border-bottom:1px solid #f0f0f0;font-size:13px;}
 .scope-check{color:#22c55e;font-weight:800;font-size:16px;flex-shrink:0;margin-top:1px;}
 .scope-text{flex:1;line-height:1.5;}
 .scope-qty{font-family:'Barlow Condensed',sans-serif;font-weight:700;color:#1e3a6e;min-width:80px;text-align:right;}
 .meas-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px;}
 .meas-card{background:#f8f8f8;border:1px solid #eee;border-radius:6px;padding:12px;text-align:center;}
-.meas-val{font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:700;color:#e8720c;}
+.meas-val{font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:700;color:var(--orange,#e8720c);}
 .meas-lbl{font-size:10px;color:#666;text-transform:uppercase;letter-spacing:.05em;margin-top:3px;}
 .sig{margin-top:40px;display:grid;grid-template-columns:1fr 1fr;gap:40px;}.sig-line{border-top:1px solid #333;padding-top:6px;font-size:11px;color:#666;margin-top:50px;}
 .foot{margin-top:30px;font-size:10px;color:#999;display:flex;justify-content:space-between;}
@@ -1845,14 +1845,14 @@ function exportDrawReport() {
   <style>*{margin:0;padding:0;box-sizing:border-box;}body{font-family:'Barlow',sans-serif;padding:32px;max-width:850px;margin:0 auto;}
   .hdr{display:flex;justify-content:space-between;align-items:flex-start;padding-bottom:18px;border-bottom:3px solid #e8720c;margin-bottom:22px;}
   .brand{font-family:'Barlow Condensed',sans-serif;font-size:26px;font-weight:800;text-transform:uppercase;}
-  .brand span{color:#e8720c;}.badge{font-size:9px;font-weight:700;letter-spacing:.2em;text-transform:uppercase;color:#e8720c;border:1px solid #e8720c;padding:2px 9px;border-radius:2px;display:inline-block;margin-top:4px;}
+  .brand span{color:var(--orange,#e8720c);}.badge{font-size:9px;font-weight:700;letter-spacing:.2em;text-transform:uppercase;color:var(--orange,#e8720c);border:1px solid #e8720c;padding:2px 9px;border-radius:2px;display:inline-block;margin-top:4px;}
   .addr{font-size:15px;font-weight:600;text-align:right;}.date{font-size:11px;color:#666;text-align:right;}
-  h2{font-family:'Barlow Condensed',sans-serif;font-size:16px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#e8720c;margin:20px 0 10px;padding-bottom:4px;border-bottom:1px solid #eee;}
+  h2{font-family:'Barlow Condensed',sans-serif;font-size:16px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--orange,#e8720c);margin:20px 0 10px;padding-bottom:4px;border-bottom:1px solid #eee;}
   table{width:100%;border-collapse:collapse;}th{background:#0A0C0F;color:#fff;font-family:'Barlow Condensed',sans-serif;font-size:11px;letter-spacing:.1em;text-transform:uppercase;padding:7px 10px;text-align:left;}
   td{padding:7px 10px;border-bottom:1px solid #f0f0f0;font-size:12px;}tr:nth-child(even) td{background:#fafafa;}
   .cards{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:18px;}
   .card{background:#f8f8f8;border:1px solid #eee;border-radius:7px;padding:12px;text-align:center;}
-  .card .v{font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:700;color:#e8720c;}
+  .card .v{font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:700;color:var(--orange,#e8720c);}
   .card .k{font-size:10px;color:#666;text-transform:uppercase;letter-spacing:.05em;margin-top:3px;}
   .foot{margin-top:28px;padding-top:14px;border-top:1px solid #eee;display:flex;justify-content:space-between;font-size:10px;color:#999;}
   .total-row td{font-weight:700;border-top:2px solid #eee;}</style></head><body>
@@ -1862,7 +1862,7 @@ function exportDrawReport() {
     <div class="card"><div class="v">${document.getElementById('cr-base').textContent}</div><div class="k">Base Area</div></div>
     <div class="card"><div class="v">${document.getElementById('cr-pitched').textContent}</div><div class="k">Pitched Area</div></div>
     <div class="card"><div class="v">${document.getElementById('cr-waste').textContent}</div><div class="k">With Waste</div></div>
-    <div class="card" style="background:#e8720c;border-color:#e8720c;"><div class="v" style="color:#fff;">${document.getElementById('cr-sq').textContent}</div><div class="k" style="color:rgba(255,255,255,.8);">Squares</div></div>
+    <div class="card" style="background:var(--orange,#e8720c);border-color:var(--orange,#e8720c);"><div class="v" style="color:#fff;">${document.getElementById('cr-sq').textContent}</div><div class="k" style="color:rgba(255,255,255,.8);">Squares</div></div>
   </div>
   <h2>Line Summary</h2>
   <table><thead><tr><th>Type</th><th>Count</th><th>Total LF</th></tr></thead><tbody>
@@ -2181,15 +2181,15 @@ function showMaterialTakeoff() {
   <style>*{margin:0;padding:0;box-sizing:border-box;}body{font-family:'Barlow',sans-serif;padding:32px;max-width:850px;margin:0 auto;}
   .hdr{display:flex;justify-content:space-between;align-items:flex-start;padding-bottom:18px;border-bottom:3px solid #e8720c;margin-bottom:22px;}
   .brand{font-family:'Barlow Condensed',sans-serif;font-size:26px;font-weight:800;text-transform:uppercase;}
-  .brand span{color:#e8720c;}.badge{font-size:9px;font-weight:700;letter-spacing:.2em;text-transform:uppercase;color:#e8720c;border:1px solid #e8720c;padding:2px 9px;border-radius:2px;display:inline-block;margin-top:4px;}
+  .brand span{color:var(--orange,#e8720c);}.badge{font-size:9px;font-weight:700;letter-spacing:.2em;text-transform:uppercase;color:var(--orange,#e8720c);border:1px solid #e8720c;padding:2px 9px;border-radius:2px;display:inline-block;margin-top:4px;}
   .addr{font-size:15px;font-weight:600;text-align:right;}.date{font-size:11px;color:#666;text-align:right;}
-  h2{font-family:'Barlow Condensed',sans-serif;font-size:16px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#e8720c;margin:20px 0 10px;padding-bottom:4px;border-bottom:1px solid #eee;}
+  h2{font-family:'Barlow Condensed',sans-serif;font-size:16px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--orange,#e8720c);margin:20px 0 10px;padding-bottom:4px;border-bottom:1px solid #eee;}
   table{width:100%;border-collapse:collapse;}th{background:#0A0C0F;color:#fff;font-family:'Barlow Condensed',sans-serif;font-size:11px;letter-spacing:.1em;text-transform:uppercase;padding:7px 10px;text-align:left;}
   td{padding:8px 10px;border-bottom:1px solid #f0f0f0;font-size:13px;}tr:nth-child(even) td{background:#fafafa;}
-  .qty{font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:700;color:#e8720c;}
+  .qty{font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:700;color:var(--orange,#e8720c);}
   .note{font-size:10px;color:#888;}
   .summary{background:#f8f8f8;border:1px solid #eee;border-radius:8px;padding:16px;margin-bottom:20px;display:grid;grid-template-columns:repeat(3,1fr);gap:12px;text-align:center;}
-  .summary .v{font-family:'Barlow Condensed',sans-serif;font-size:24px;font-weight:700;color:#e8720c;}
+  .summary .v{font-family:'Barlow Condensed',sans-serif;font-size:24px;font-weight:700;color:var(--orange,#e8720c);}
   .summary .k{font-size:10px;color:#666;text-transform:uppercase;letter-spacing:.05em;}
   .warn{background:#FEF3C7;border:1px solid #FCD34D;border-radius:6px;padding:10px 14px;font-size:11px;color:#92400E;margin-top:16px;}
   .foot{margin-top:28px;padding-top:14px;border-top:1px solid #eee;display:flex;justify-content:space-between;font-size:10px;color:#999;}
@@ -3352,9 +3352,9 @@ function generateSupplementFromComparison() {
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700;800&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
 <style>*{margin:0;padding:0;box-sizing:border-box;}body{font-family:'Barlow',sans-serif;padding:36px;max-width:860px;margin:0 auto;}
 .hdr{display:flex;justify-content:space-between;padding-bottom:18px;border-bottom:3px solid #e8720c;margin-bottom:24px;}
-.brand{font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:800;text-transform:uppercase;}.brand span{color:#e8720c;}
-.badge{font-size:9px;font-weight:700;letter-spacing:.18em;text-transform:uppercase;color:#e8720c;border:1px solid #e8720c;padding:2px 9px;border-radius:2px;display:inline-block;margin-top:5px;}
-h2{font-family:'Barlow Condensed',sans-serif;font-size:14px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:#e8720c;margin:20px 0 10px;border-bottom:1px solid #eee;padding-bottom:4px;}
+.brand{font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:800;text-transform:uppercase;}.brand span{color:var(--orange,#e8720c);}
+.badge{font-size:9px;font-weight:700;letter-spacing:.18em;text-transform:uppercase;color:var(--orange,#e8720c);border:1px solid #e8720c;padding:2px 9px;border-radius:2px;display:inline-block;margin-top:5px;}
+h2{font-family:'Barlow Condensed',sans-serif;font-size:14px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--orange,#e8720c);margin:20px 0 10px;border-bottom:1px solid #eee;padding-bottom:4px;}
 table{width:100%;border-collapse:collapse;}th{background:#0a0c0f;color:#fff;font-family:'Barlow Condensed',sans-serif;font-size:11px;letter-spacing:.08em;text-transform:uppercase;padding:8px 10px;text-align:left;}
 td{font-size:12px;}.note{background:#fff8f0;border-left:4px solid #e8720c;padding:14px;margin:16px 0;font-size:13px;line-height:1.6;}
 .sig{margin-top:40px;border-top:1px solid #eee;padding-top:16px;display:grid;grid-template-columns:1fr 1fr;gap:40px;}

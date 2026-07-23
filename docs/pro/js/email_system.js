@@ -181,7 +181,7 @@ openEmailModal = function(options = {}) {
   const modal = document.createElement('div');
   modal.id = 'emailModal';
   modal.className = 'modal';
-  modal.style.cssText = 'display:flex;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.7);z-index:10000;align-items:center;justify-content:center;';
+  modal.style.cssText = 'display:flex;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.7);z-index:var(--z-overlay,10000);align-items:center;justify-content:center;';
 
   // Escape user/lead-sourced values before interpolating into innerHTML below.
   // to/subject/body originate from lead docs (which can come from PUBLIC intake),

@@ -1268,7 +1268,7 @@
           if (/verify your email/i.test(String(e.message || '')) && !document.getElementById('nbdVerifyBanner')) {
             const banner = document.createElement('div');
             banner.id = 'nbdVerifyBanner';
-            banner.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:10000;background:var(--orange,#e8720c);color:#fff;padding:10px 16px;font-size:13px;display:flex;align-items:center;justify-content:center;gap:12px;flex-wrap:wrap;';
+            banner.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:var(--z-overlay,10000);background:var(--orange,#e8720c);color:#fff;padding:10px 16px;font-size:13px;display:flex;align-items:center;justify-content:center;gap:12px;flex-wrap:wrap;';
             const msg = document.createElement('span');
             msg.textContent = 'You have a pending team invite — verify ' + (user.email || 'your email') + ' to join.';
             const resend = document.createElement('button');

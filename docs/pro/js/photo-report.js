@@ -512,7 +512,7 @@
     color:#111827; font-weight:700; font-size:13px;
     cursor:pointer; font-family:inherit;
   }
-  .top-bar-btn-primary{ background:#e8720c; border-color:#e8720c; color:#ffffff; }
+  .top-bar-btn-primary{ background:var(--orange,#e8720c); border-color:var(--orange,#e8720c); color:#ffffff; }
   .top-bar-btn-primary:hover{ background:#c8541a; }
   .top-bar-mode{ color:#6b7280; font-size:13px; }
 
@@ -528,7 +528,7 @@
     font-family:'Barlow Condensed',sans-serif;
     font-size:11px; font-weight:700;
     letter-spacing:.18em; text-transform:uppercase;
-    color:#e8720c; margin-bottom:10px;
+    color:var(--orange,#e8720c); margin-bottom:10px;
   }
   .hero-title{
     font-size:42px; font-weight:800;
@@ -599,7 +599,7 @@
   .stat-num{
     font-family:'Barlow Condensed',sans-serif;
     font-size:32px; font-weight:800;
-    color:#e8720c; line-height:1;
+    color:var(--orange,#e8720c); line-height:1;
   }
   .stat-label{
     font-family:'Barlow Condensed',sans-serif;
@@ -647,7 +647,7 @@
     font-family:'Barlow Condensed',sans-serif;
     font-size:11px; font-weight:700;
     letter-spacing:.16em; text-transform:uppercase;
-    color:#e8720c; margin-bottom:6px;
+    color:var(--orange,#e8720c); margin-bottom:6px;
   }
   .section-title{
     font-size:26px; font-weight:800;
@@ -662,7 +662,7 @@
     margin-left:8px;
   }
   .section-eyebrow.is-before{ color:#dc2626; }
-  .section-eyebrow.is-during{ color:#e8720c; }
+  .section-eyebrow.is-during{ color:var(--orange,#e8720c); }
   .section-eyebrow.is-after { color:#16a34a; }
 
   /* ── Before/After pair grid (homeowner showcase) ─────────────── */
@@ -734,7 +734,7 @@
   .ph-num{
     font-family:'Barlow Condensed',sans-serif;
     font-weight:800; font-size:11px;
-    letter-spacing:.1em; color:#e8720c;
+    letter-spacing:.1em; color:var(--orange,#e8720c);
     margin-bottom:4px;
   }
   .ph-row{ display:grid; grid-template-columns:60px 1fr; gap:6px; margin-bottom:2px; }
@@ -773,7 +773,7 @@
     font-size:14px; margin-bottom:4px;
   }
   .footer-tag{
-    font-style:italic; color:#e8720c;
+    font-style:italic; color:var(--orange,#e8720c);
     font-size:11px; margin-top:6px;
     font-family:'Barlow Condensed',sans-serif;
     letter-spacing:.06em; text-transform:uppercase;

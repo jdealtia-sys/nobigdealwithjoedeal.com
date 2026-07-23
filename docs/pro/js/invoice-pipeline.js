@@ -1158,10 +1158,10 @@ let _NBD_IP_DELEGATE_BOUND; // module-local (globals Tranche 1 — was window.*)
             body { font-family: Barlow, sans-serif; color: #333; }
             .container { max-width: 600px; margin: 0 auto; padding: 20px; }
             .header { border-bottom: 3px solid #e8720c; padding-bottom: 15px; margin-bottom: 20px; }
-            .brand { font-size: 20px; font-weight: 700; text-transform: uppercase; color: #e8720c; }
+            .brand { font-size: 20px; font-weight: 700; text-transform: uppercase; color: var(--orange,#e8720c); }
             table { width: 100%; border-collapse: collapse; margin: 20px 0; }
             .total { text-align: right; font-weight: 700; }
-            .cta { background: #e8720c; color: #fff; padding: 12px 24px; border-radius: 5px; text-decoration: none; display: inline-block; margin-top: 20px; }
+            .cta { background: var(--orange,#e8720c); color: #fff; padding: 12px 24px; border-radius: 5px; text-decoration: none; display: inline-block; margin-top: 20px; }
           </style>
         </head>
         <body>
@@ -1193,8 +1193,8 @@ let _NBD_IP_DELEGATE_BOUND; // module-local (globals Tranche 1 — was window.*)
                   <td style="text-align: right; padding: 10px;">${formatCurrency(invoice.depositAmount)}</td>
                 </tr>
                 <tr>
-                  <td colspan="3" style="text-align: right; padding: 10px; font-weight: 700; color:#e8720c;">Balance Due:</td>
-                  <td style="text-align: right; padding: 10px; font-weight: 700; color:#e8720c;">${formatCurrency(invoice.balanceDue != null ? invoice.balanceDue : (Number(invoice.total) - Number(invoice.depositAmount)))}</td>
+                  <td colspan="3" style="text-align: right; padding: 10px; font-weight: 700; color:var(--orange,#e8720c);">Balance Due:</td>
+                  <td style="text-align: right; padding: 10px; font-weight: 700; color:var(--orange,#e8720c);">${formatCurrency(invoice.balanceDue != null ? invoice.balanceDue : (Number(invoice.total) - Number(invoice.depositAmount)))}</td>
                 </tr>
                 ` : ''}
               </tbody>

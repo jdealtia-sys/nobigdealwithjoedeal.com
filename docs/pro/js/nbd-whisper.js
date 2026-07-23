@@ -387,7 +387,7 @@
       tip = document.createElement('div');
       tip.id = TOOLTIP_ID;
       tip.style.cssText =
-        'position:fixed;bottom:88px;right:20px;max-width:340px;z-index:10001;' +
+        'position:fixed;bottom:88px;right:20px;max-width:340px;z-index:var(--z-overlay-top,10001);' +
         'background:#1a1f2e;color:#e2e8f0;border:1px solid var(--orange, #c8541a);' +
         'border-radius:10px;padding:14px 16px;font-size:14px;line-height:1.5;' +
         'box-shadow:0 8px 32px rgba(0,0,0,0.5);';
@@ -423,7 +423,7 @@
       viz = document.createElement('div');
       viz.id = VISUALIZER_ID;
       viz.style.cssText =
-        'position:fixed;bottom:90px;right:20px;z-index:10000;display:flex;align-items:center;' +
+        'position:fixed;bottom:90px;right:20px;z-index:var(--z-overlay,10000);display:flex;align-items:center;' +
         'gap:10px;padding:10px 14px;background:#0a1424;border:1px solid var(--orange, #c8541a);' +
         'border-radius:999px;box-shadow:0 4px 20px rgba(0,0,0,0.4);font:inherit;font-size:13px;color:#fff;';
       viz.innerHTML =
