@@ -94,6 +94,12 @@ exports.resolveAddress = geocodeHandlers.resolveAddress;
 const reverifyKnocksHandlers = require('./handlers/reverify-knocks');
 exports.reverifyCompanyKnocks = reverifyKnocksHandlers.reverifyCompanyKnocks;
 
+// idea #1 Phase 2: server-verified, immutable storm proof for a lead — looks up
+// verified hail near the address and writes an adjuster-grade record to the
+// frozen leads/{id}/storm_proofs subcollection.
+const stormProofHandlers = require('./handlers/storm-proof');
+exports.attachStormProof = stormProofHandlers.attachStormProof;
+
 // Admin / team-management callables
 const adminHandlers = require('./handlers/admin');
 exports.getAdminAnalytics          = adminHandlers.getAdminAnalytics;
@@ -118,6 +124,11 @@ exports.getAdjusterTacticBoard     = adjusterBoardHandlers.getAdjusterTacticBoar
 // T-4: live persona preview for Settings → AI Texting.
 const aiTextingPreviewHandlers = require('./handlers/ai-texting-preview');
 exports.previewAiPersona           = aiTextingPreviewHandlers.previewAiPersona;
+
+// Idea #7 Phase 2: convert an unmatched-SMS inbox row → lead (server dedup)
+// + auto-drafted AI reply. Admin-only (unmatched_sms is a global admin inbox).
+const inboundSmsConvertHandlers = require('./handlers/inbound-sms-convert');
+exports.convertUnmatchedSms        = inboundSmsConvertHandlers.convertUnmatchedSms;
 
 // Auth / identity triggers + callables
 // NOTE: onRepSignup is in NBD_DEPLOY_SKIP_LIST per
