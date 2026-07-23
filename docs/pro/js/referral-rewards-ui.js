@@ -48,8 +48,8 @@
     .rr-stat{background:var(--s2,#1a1d23);border:1px solid var(--br,#2a2e37);border-radius:10px;padding:14px 16px;}
     .rr-stat-owed{border-left:3px solid var(--orange,#f97316);}
     .rr-stat-n{font-size:22px;font-weight:800;line-height:1.1;}
-    .rr-stat-l{font-size:11px;color:var(--muted,#8b93a1);margin-top:4px;text-transform:uppercase;letter-spacing:.03em;}
-    .rr-h{font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--muted,#8b93a1);margin:18px 0 8px;}
+    .rr-stat-l{font-size:11px;color:var(--m);margin-top:4px;text-transform:uppercase;letter-spacing:.03em;}
+    .rr-h{font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--m);margin:18px 0 8px;}
     .rr-h-muted{opacity:.75;}
     .rr-card{display:flex;align-items:center;gap:14px;justify-content:space-between;background:var(--s2,#1a1d23);border:1px solid var(--br,#2a2e37);border-radius:10px;padding:12px 16px;margin-bottom:8px;}
     .rr-card.rr-paid{opacity:.7;}
@@ -58,9 +58,9 @@
     .rr-card.rr-paid .rr-amt{color:var(--green,#22c55e);}
     .rr-who{min-width:0;}
     .rr-to{font-size:14px;font-weight:600;}
-    .rr-sub{font-size:12px;color:var(--muted,#8b93a1);margin-top:2px;overflow:hidden;text-overflow:ellipsis;}
+    .rr-sub{font-size:12px;color:var(--m);margin-top:2px;overflow:hidden;text-overflow:ellipsis;}
     .rr-card .btn{flex:none;font-size:12px;padding:8px 14px;}
-    .rr-empty{background:var(--s2,#1a1d23);border:1px dashed var(--br,#2a2e37);border-radius:10px;padding:22px 18px;color:var(--muted,#8b93a1);font-size:13px;line-height:1.5;text-align:center;}
+    .rr-empty{background:var(--s2,#1a1d23);border:1px dashed var(--br,#2a2e37);border-radius:10px;padding:22px 18px;color:var(--m);font-size:13px;line-height:1.5;text-align:center;}
   </style>`;
 
   function render() {

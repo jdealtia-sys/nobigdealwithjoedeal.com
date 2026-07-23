@@ -1214,16 +1214,16 @@ window.showPhotoActions = function(idx, event) {
   var sevColors = { 'minor': 'var(--gold)', 'moderate': 'var(--orange)', 'severe': 'var(--red)' };
   
   var card = document.createElement('div');
-  card.style.cssText = 'background:var(--bg,#0f172a);border:1px solid var(--br,#2a2a4e);border-radius:16px;padding:24px;max-width:420px;width:90%;color:var(--text,#fff);font-family:system-ui,sans-serif;';
+  card.style.cssText = 'background:var(--bg,#0f172a);border:1px solid var(--br,#2a2a4e);border-radius:16px;padding:24px;max-width:420px;width:90%;color:var(--t);font-family:system-ui,sans-serif;';
   
   card.innerHTML = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">' +
     '<div style="display:flex;align-items:center;gap:10px;">' +
     '<img src="' + photo.url + '" loading="lazy" decoding="async" style="width:48px;height:48px;border-radius:8px;object-fit:cover;">' +
     '<div style="font-size:16px;font-weight:700;">Edit Photo</div></div>' +
-    '<button data-action="_closePhotoActionPopup" style="background:none;border:none;color:var(--muted,#999);font-size:22px;cursor:pointer;">&times;</button></div>' +
+    '<button data-action="_closePhotoActionPopup" style="background:none;border:none;color:var(--m);font-size:22px;cursor:pointer;">&times;</button></div>' +
     
     '<div style="margin-bottom:14px;">' +
-    '<label style="font-size:11px;font-weight:600;color:var(--muted,#94a3b8);display:block;margin-bottom:4px;">Phase</label>' +
+    '<label style="font-size:11px;font-weight:600;color:var(--m);display:block;margin-bottom:4px;">Phase</label>' +
     '<div style="display:flex;gap:4px;" id="qePhaseButtons">' +
     ['Before','During','After'].map(function(p) {
       var active = photo.phase === p;
@@ -1234,8 +1234,8 @@ window.showPhotoActions = function(idx, event) {
     '</div></div>' +
     
     '<div style="margin-bottom:14px;">' +
-    '<label style="font-size:11px;font-weight:600;color:var(--muted,#94a3b8);display:block;margin-bottom:4px;">Damage Type</label>' +
-    '<select id="qeDamageType" data-change-action="quickSaveMeta" style="width:100%;padding:8px;background:var(--s2,#1e293b);border:1px solid var(--br,#334155);border-radius:6px;color:var(--text,#fff);font-size:13px;">' +
+    '<label style="font-size:11px;font-weight:600;color:var(--m);display:block;margin-bottom:4px;">Damage Type</label>' +
+    '<select id="qeDamageType" data-change-action="quickSaveMeta" style="width:100%;padding:8px;background:var(--s2,#1e293b);border:1px solid var(--br,#334155);border-radius:6px;color:var(--t);font-size:13px;">' +
     '<option value="">None</option>' +
     ['Hail','Wind','Leak','Missing Shingle','Cracked Tile','Flashing','Gutter','Soffit/Fascia','Tree Damage','Other'].map(function(t) {
       return '<option value="' + t + '"' + (photo.damageType === t ? ' selected' : '') + '>' + t + '</option>';
@@ -1243,7 +1243,7 @@ window.showPhotoActions = function(idx, event) {
     '</select></div>' +
     
     '<div style="margin-bottom:14px;">' +
-    '<label style="font-size:11px;font-weight:600;color:var(--muted,#94a3b8);display:block;margin-bottom:4px;">Severity</label>' +
+    '<label style="font-size:11px;font-weight:600;color:var(--m);display:block;margin-bottom:4px;">Severity</label>' +
     '<div style="display:flex;gap:4px;" id="qeSeverityButtons">' +
     ['minor','moderate','severe'].map(function(s) {
       var active = photo.severity === s;
@@ -1254,8 +1254,8 @@ window.showPhotoActions = function(idx, event) {
     '</div></div>' +
     
     '<div style="margin-bottom:14px;">' +
-    '<label style="font-size:11px;font-weight:600;color:var(--muted,#94a3b8);display:block;margin-bottom:4px;">Location</label>' +
-    '<select id="qeLocation" data-change-action="quickSaveMeta" style="width:100%;padding:8px;background:var(--s2,#1e293b);border:1px solid var(--br,#334155);border-radius:6px;color:var(--text,#fff);font-size:13px;">' +
+    '<label style="font-size:11px;font-weight:600;color:var(--m);display:block;margin-bottom:4px;">Location</label>' +
+    '<select id="qeLocation" data-change-action="quickSaveMeta" style="width:100%;padding:8px;background:var(--s2,#1e293b);border:1px solid var(--br,#334155);border-radius:6px;color:var(--t);font-size:13px;">' +
     '<option value="">None</option>' +
     ['Ridge','Hip','Valley','Field','Edge','Flashing','Vent','Chimney','Skylight','Gutter','Soffit','Fascia'].map(function(l) {
       return '<option value="' + l + '"' + (photo.location === l ? ' selected' : '') + '>' + l + '</option>';
@@ -1263,12 +1263,12 @@ window.showPhotoActions = function(idx, event) {
     '</select></div>' +
     
     '<div style="margin-bottom:20px;">' +
-    '<label style="font-size:11px;font-weight:600;color:var(--muted,#94a3b8);display:block;margin-bottom:4px;">Description</label>' +
-    '<input type="text" id="qeDescription" value="' + (photo.description || '').replace(/"/g, '&quot;') + '" placeholder="Add description..." aria-label="Photo description" data-change-action="quickSaveMeta" style="width:100%;padding:8px;background:var(--s2,#1e293b);border:1px solid var(--br,#334155);border-radius:6px;color:var(--text,#fff);font-size:13px;box-sizing:border-box;">' +
+    '<label style="font-size:11px;font-weight:600;color:var(--m);display:block;margin-bottom:4px;">Description</label>' +
+    '<input type="text" id="qeDescription" value="' + (photo.description || '').replace(/"/g, '&quot;') + '" placeholder="Add description..." aria-label="Photo description" data-change-action="quickSaveMeta" style="width:100%;padding:8px;background:var(--s2,#1e293b);border:1px solid var(--br,#334155);border-radius:6px;color:var(--t);font-size:13px;box-sizing:border-box;">' +
     '</div>' +
     
     '<div style="display:flex;gap:8px;">' +
-    '<button data-action="_previewPhotoFromPopup" data-arg="' + idx + '" style="flex:2;padding:10px;background:rgba(255,255,255,.08);color:var(--text,#fff);border:1px solid var(--br,#334155);border-radius:8px;cursor:pointer;font-weight:600;font-size:13px;">👁 Preview</button>' +
+    '<button data-action="_previewPhotoFromPopup" data-arg="' + idx + '" style="flex:2;padding:10px;background:rgba(255,255,255,.08);color:var(--t);border:1px solid var(--br,#334155);border-radius:8px;cursor:pointer;font-weight:600;font-size:13px;">👁 Preview</button>' +
     '<button data-action="_openPhotoInEditorAndClose" data-arg="' + idx + '" style="flex:2;padding:10px;background:var(--orange);color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:600;font-size:13px;">Open Editor</button>' +
     '<button data-action="deletePhoto" data-arg="' + photo.id + '" style="flex:1;padding:10px;background:rgba(239,68,68,.15);color:#ef4444;border:1px solid rgba(239,68,68,.3);border-radius:8px;cursor:pointer;font-weight:600;font-size:13px;">Delete</button>' +
     '</div>';
@@ -1741,8 +1741,8 @@ window.generateCustomerDoc = function(type) {
       <div style="background:var(--s2);border:1px solid var(--br);border-radius:14px;padding:32px;max-width:460px;width:90%;text-align:center;">
         <div style="font-size:32px;margin-bottom:12px;">⚠️</div>
         <div style="font-family:'Barlow Condensed',sans-serif;font-size:20px;font-weight:700;color:var(--t);margin-bottom:8px;">Can't Generate ${esc(label)}</div>
-        <div style="font-size:13px;color:var(--muted,#888);margin-bottom:16px;">This document requires data that hasn't been added yet:</div>
-        <div style="text-align:left;background:var(--surface,#1a1a2e);border-radius:8px;padding:14px;margin-bottom:20px;">
+        <div style="font-size:13px;color:var(--m);margin-bottom:16px;">This document requires data that hasn't been added yet:</div>
+        <div style="text-align:left;background:var(--s);border-radius:8px;padding:14px;margin-bottom:20px;">
           ${check.missing.map(m => '<div style="font-size:13px;color:var(--orange);padding:4px 0;">• ' + esc(m) + '</div>').join('')}
         </div>
         <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;">

@@ -274,6 +274,29 @@ ok('collapsed sidebar rail is scrollable',
     num(cust, 'z-banner-status') > num(cust, 'z-toast'));
 }
 
+// 11. Guessed-token landmine class (2026-07-19 audit root cause, follow-up).
+//     The audit's hard defects came from JS-rendered views naming compat
+//     tokens (--h/--text/--surface/--muted) that only exist as :root aliases,
+//     paired with dark-tuned hardcoded fallbacks. The base :root is a LIGHT
+//     theme (--t:#1a1612), so a bare `var(--h,#fff)` renders white-on-white
+//     the instant the alias is refactored away or the node renders detached.
+//     Same trap for the undefined rep-side --accent(-weak): its literal
+//     never tracks the theme/tenant accent. Canonical tokens (--t/--s/--m/
+//     --orange) carry no such fallback, so rep-side JS must use them.
+//     Allowlist: portal.js + before-after-slider.js run under portal.html's
+//     locked nbd-brand.css, where --accent is the INTENDED tenant-injected
+//     variable (portal.js:343 st.setProperty('--accent', ...)).
+{
+  const GUESSED = /var\(--(?:h|text|surface|muted|accent|accent-weak)\s*,\s*(?:#[0-9a-fA-F]{3,6}|rgba\()/;
+  const ALLOW = new Set(['portal.js', 'before-after-slider.js']);
+  const jsDir = P('docs/pro/js');
+  const offenders = fs.readdirSync(jsDir)
+    .filter((f) => f.endsWith('.js') && !ALLOW.has(f))
+    .filter((f) => GUESSED.test(fs.readFileSync(path.join(jsDir, f), 'utf8')));
+  ok('no rep-side JS renders a guessed compat token with a hardcoded color fallback',
+    offenders.length === 0, offenders.join(', '));
+}
+
 console.log('\n──────────────────────────────────────────────────');
 console.log(`${passed} passed, ${failed} failed`);
 if (failed) {

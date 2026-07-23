@@ -223,7 +223,7 @@
     el.innerHTML = `
       <div style="background:var(--s,#1a1a2e);border:1px solid var(--br,rgba(255,255,255,.08));border-radius:12px;padding:20px;">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
-          <h4 style="margin:0;font-family:'Barlow Condensed',sans-serif;font-size:16px;font-weight:700;color:var(--h,#fff);">🎯 Lead Score</h4>
+          <h4 style="margin:0;font-family:'Barlow Condensed',sans-serif;font-size:16px;font-weight:700;color:var(--t);">🎯 Lead Score</h4>
           <div style="display:flex;align-items:center;gap:8px;">
             <span style="font-size:28px;font-weight:900;color:${color};font-family:'Barlow Condensed',sans-serif;">${score}</span>
             <div>
@@ -238,7 +238,7 @@
           <div style="margin-bottom:8px;">
             <div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:3px;">
               <span style="color:var(--m,#9ca3af);text-transform:capitalize;">${key.replace(/([A-Z])/g, ' $1')}</span>
-              <span style="color:var(--h,#fff);font-weight:700;">${b.pts}/${b.max}</span>
+              <span style="color:var(--t);font-weight:700;">${b.pts}/${b.max}</span>
             </div>
             <div style="height:4px;background:var(--br,rgba(255,255,255,.08));border-radius:2px;overflow:hidden;">
               <div style="height:100%;width:${pct}%;background:${color};border-radius:2px;transition:width .3s;"></div>

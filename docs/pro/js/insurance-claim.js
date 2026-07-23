@@ -192,7 +192,7 @@ let _NBD_IC_DELEGATE; // module-local (globals Tranche 1 — was window.*)
 
       const html = `
         <div class="claim-workflow" style="background: var(--s,#1a1a2e); border: 1px solid var(--br,rgba(255,255,255,.08)); border-radius: 8px; padding: 20px;">
-          <h3 style="color: var(--h,#fff); margin: 0 0 20px 0; font-size: 18px; font-weight: 600;">Insurance Claim Progress</h3>
+          <h3 style="color: var(--t); margin: 0 0 20px 0; font-size: 18px; font-weight: 600;">Insurance Claim Progress</h3>
 
           <div class="claim-progress-bar" style="background: rgba(255,255,255,.05); height: 8px; border-radius: 4px; margin-bottom: 24px; overflow: hidden;">
             <div style="background: #e8720c; height: 100%; width: ${status.progress}%; transition: width 0.3s ease;"></div>
@@ -234,7 +234,7 @@ let _NBD_IC_DELEGATE; // module-local (globals Tranche 1 — was window.*)
 
           <div class="claim-current-stage" style="background: rgba(255,255,255,.02); border-radius: 8px; padding: 16px; margin-bottom: 16px; border: 1px solid var(--br,rgba(255,255,255,.08));">
             <div style="color: var(--m,#9ca3af); font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px;">Current Stage</div>
-            <div style="color: var(--h,#fff); font-size: 18px; font-weight: 600; margin-bottom: 12px;">${status.currentStage}</div>
+            <div style="color: var(--t); font-size: 18px; font-weight: 600; margin-bottom: 12px;">${status.currentStage}</div>
             <div style="color: var(--m,#9ca3af); font-size: 13px; line-height: 1.5;">
               ${status.nextStage !== 'Complete'
                 ? `<strong>Next:</strong> ${status.nextStage}`
@@ -243,9 +243,9 @@ let _NBD_IC_DELEGATE; // module-local (globals Tranche 1 — was window.*)
           </div>
 
           <div class="claim-details" style="background: rgba(255,255,255,.02); border-radius: 8px; padding: 16px; margin-bottom: 16px; border: 1px solid var(--br,rgba(255,255,255,.08)); font-size: 13px;">
-            ${status.claimNumber ? `<div style="color: var(--m,#9ca3af); margin-bottom: 8px;"><strong style="color: var(--h,#fff);">Claim #:</strong> ${status.claimNumber}</div>` : ''}
-            ${status.insuranceCarrier ? `<div style="color: var(--m,#9ca3af); margin-bottom: 8px;"><strong style="color: var(--h,#fff);">Carrier:</strong> ${status.insuranceCarrier}</div>` : ''}
-            ${status.approvedAmount ? `<div style="color: var(--m,#9ca3af);"><strong style="color: var(--h,#fff);">Approved:</strong> $${status.approvedAmount.toLocaleString()}</div>` : ''}
+            ${status.claimNumber ? `<div style="color: var(--m,#9ca3af); margin-bottom: 8px;"><strong style="color: var(--t);">Claim #:</strong> ${status.claimNumber}</div>` : ''}
+            ${status.insuranceCarrier ? `<div style="color: var(--m,#9ca3af); margin-bottom: 8px;"><strong style="color: var(--t);">Carrier:</strong> ${status.insuranceCarrier}</div>` : ''}
+            ${status.approvedAmount ? `<div style="color: var(--m,#9ca3af);"><strong style="color: var(--t);">Approved:</strong> $${status.approvedAmount.toLocaleString()}</div>` : ''}
           </div>
 
           <div class="claim-actions">
@@ -257,7 +257,7 @@ let _NBD_IC_DELEGATE; // module-local (globals Tranche 1 — was window.*)
                 background: rgba(255,255,255,.05);
                 border: 1px solid var(--br,rgba(255,255,255,.08));
                 border-radius: 6px;
-                color: var(--h,#fff);
+                color: var(--t);
                 padding: 10px;
                 font-size: 13px;
                 font-family: inherit;
@@ -328,7 +328,7 @@ let _NBD_IC_DELEGATE; // module-local (globals Tranche 1 — was window.*)
               data-ic-check="1" data-ic-lead="${leadId}" data-ic-stage="${currentStageId}" data-ic-item="${String(item).replace(/&/g,'&amp;').replace(/"/g,'&quot;')}"
               style="cursor: pointer; width: 16px; height: 16px;"
             >
-            <label style="flex: 1; color: ${isChecked ? 'var(--m,#9ca3af)' : 'var(--h,#fff)'}; text-decoration: ${isChecked ? 'line-through' : 'none'}; cursor: pointer;">
+            <label style="flex: 1; color: ${isChecked ? 'var(--m,#9ca3af)' : 'var(--t)'}; text-decoration: ${isChecked ? 'line-through' : 'none'}; cursor: pointer;">
               ${item}
             </label>
           </div>
@@ -338,7 +338,7 @@ let _NBD_IC_DELEGATE; // module-local (globals Tranche 1 — was window.*)
       const html = `
         <div class="claim-checklist" style="background: var(--s,#1a1a2e); border: 1px solid var(--br,rgba(255,255,255,.08)); border-radius: 8px; overflow: hidden;">
           <div style="background: rgba(255,255,255,.02); padding: 16px; border-bottom: 1px solid var(--br,rgba(255,255,255,.08));">
-            <h3 style="color: var(--h,#fff); margin: 0 0 8px 0; font-size: 16px; font-weight: 600;">
+            <h3 style="color: var(--t); margin: 0 0 8px 0; font-size: 16px; font-weight: 600;">
               ${CLAIM_STAGES.find(s => s.id === currentStageId)?.label || 'Checklist'} Documents
             </h3>
             <div style="color: var(--m,#9ca3af); font-size: 12px;">
@@ -406,7 +406,7 @@ let _NBD_IC_DELEGATE; // module-local (globals Tranche 1 — was window.*)
         font-size: 12px;
       ">
         <div style="color: var(--m,#9ca3af); margin-bottom: 4px;">Insurance Claim</div>
-        <div style="color: var(--h,#fff); font-weight: 600; margin-bottom: 4px;">${status.currentStage}</div>
+        <div style="color: var(--t); font-weight: 600; margin-bottom: 4px;">${status.currentStage}</div>
         ${status.claimNumber ? `<div style="color: var(--m,#9ca3af);">Claim #${status.claimNumber}</div>` : ''}
       </div>
     `;
