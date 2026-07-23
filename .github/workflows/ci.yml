@@ -122,6 +122,13 @@ jobs:
       - name: Run sweep regression tests
         run: node tests/sweep-regression.test.js
 
+      # Buying-intent strike: the fresh-view predicate must fire only for a
+      # live viewer (≤6h, unresponded, non-terminal lead) and never nag on a
+      # closed/deleted deal — a false strike sends a rep to call a done deal.
+      # Dependency-free require() of the pure detectFreshViews().
+      - name: Run buying-intent strike detection tests
+        run: node tests/buying-intent-strike.test.js
+
       # Semantic-role foundation (freeform-pipeline Phase 0): proves
       # stageRole()/isWonStage() reproduce the legacy WON_STAGES/LOST_STAGES
       # behaviour exactly, so the KPI/money/leaderboard consumers migrated to
