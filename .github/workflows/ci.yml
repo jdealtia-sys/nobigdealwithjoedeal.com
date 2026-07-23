@@ -128,6 +128,12 @@ jobs:
       # Dependency-free require() of the pure detectFreshViews().
       - name: Run buying-intent strike detection tests
         run: node tests/buying-intent-strike.test.js
+      # Inbound-SMS triage: the classifier must UNDER-filter — a real inbound
+      # lead hidden as spam is a lost deal, a shown carrier keyword is a shrug.
+      # Guards that only unambiguous noise (empty / opt-out / carrier keyword)
+      # is set aside and the inbox stays newest-first. Dependency-free require().
+      - name: Run inbound-SMS triage tests
+        run: node tests/inbound-sms-triage.test.js
 
       # Semantic-role foundation (freeform-pipeline Phase 0): proves
       # stageRole()/isWonStage() reproduce the legacy WON_STAGES/LOST_STAGES

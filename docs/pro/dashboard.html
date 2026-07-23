@@ -4456,6 +4456,22 @@
           <div id="adminActivityFeed" style="font-size:12px;color:var(--m);">Select a team member to view recent activity (leads, knocks, logins).</div>
         </div>
       </div>
+
+      <!-- Inbound Texts — texts from numbers with no matching lead (unmatched_sms) -->
+      <div class="panel mb-lg">
+        <div class="panel-hdr">
+          <div>
+            <div class="panel-label">Inbound</div>
+            <div class="panel-title">New Inbound Texts</div>
+          </div>
+          <div id="adminInboundCount" style="font-size:11px;color:var(--m);"></div>
+        </div>
+        <div class="panel-body" style="padding:0;">
+          <div id="adminInboundContainer">
+            <div class="empty" style="padding:24px;"><div class="empty-icon">💬</div>Texts from unknown numbers show up here to triage into leads.</div>
+          </div>
+        </div>
+      </div>
     </div><!-- /view-scroll -->
   </template>
 
@@ -6187,6 +6203,7 @@
 <!-- admin-manager must load eagerly — it gates the #nav-admin visibility
      based on the user's claims. Lazy-loading would hide the nav entry
      until the admin explicitly typed #/admin, defeating the gate UX. -->
+<script defer src="js/inbound-sms-triage.js?v=1"></script>
 <script defer src="js/admin-manager.js?v=1"></script>
 <!-- Integrations client — exposes window.NBDIntegrations for HOVER,
      BoldSign, Regrid, HailTrace, Cal.com. No-op when providers are

@@ -421,6 +421,85 @@
   }
   function escapeAttr(s) { return escapeHTML(s); }
 
+  // ── Inbound Texts (unmatched_sms) triage inbox ──────────────────────────
+  // incomingSMS logs every text from a non-matching number into unmatched_sms
+  // "for admin review" — and nothing ever surfaced it. These are frequently
+  // hot inbound interest quietly rotting in a write-only collection. Read-only
+  // Phase 1: list the actionable ones (InboundSmsTriage filters opt-outs /
+  // carrier keywords), copy the number, jump to New Lead. The dedup+auto-draft
+  // convert flow needs a callable and lands in the deploy batch.
+  // SECURITY: `body`/`from` are attacker-controlled SMS content — escapeHTML
+  // every field (stored-XSS source, same class as public-lead intake).
+  function relTimeShort(ms) {
+    if (!ms) return '';
+    const s = Math.max(0, Math.floor((Date.now() - ms) / 1000));
+    if (s < 60) return s + 's ago';
+    if (s < 3600) return Math.floor(s / 60) + 'm ago';
+    if (s < 86400) return Math.floor(s / 3600) + 'h ago';
+    return Math.floor(s / 86400) + 'd ago';
+  }
+
+  async function loadInboundTexts() {
+    const container = document.getElementById('adminInboundContainer');
+    if (!container) return; // panel not present (e.g. legacy dashboard) — no-op
+    const T = window.InboundSmsTriage;
+    if (!window.db || !window.collection || !window.getDocs || !T) {
+      container.innerHTML = '<div class="empty" style="padding:24px;"><div class="empty-icon">⚠️</div>Inbound triage not ready.</div>';
+      return;
+    }
+    container.innerHTML = '<div class="empty" style="padding:24px;"><div class="empty-icon">⏳</div>Loading inbound texts…</div>';
+    try {
+      // unmatched_sms has no companyId (an unknown number has no tenant), and
+      // firestore.rules gates it to isAdmin() — so this is a GLOBAL admin inbox.
+      const snap = await window.getDocs(window.collection(window.db, 'unmatched_sms'));
+      const docs = [];
+      snap.forEach((d) => docs.push(Object.assign({ id: d.id }, d.data())));
+      renderInboundTexts(T.triageInbound(docs));
+    } catch (e) {
+      container.innerHTML = '<div class="empty" style="padding:24px;"><div class="empty-icon">⚠️</div>Could not load inbound texts: ' + escapeHTML(e && e.message || 'error') + '</div>';
+    }
+  }
+
+  function renderInboundTexts(triage) {
+    const container = document.getElementById('adminInboundContainer');
+    const countEl = document.getElementById('adminInboundCount');
+    if (!container) return;
+    const rows = triage.actionable || [];
+    const filtered = (triage.filtered || []).length;
+    if (countEl) countEl.textContent = rows.length ? (rows.length + ' to triage' + (filtered ? ' · ' + filtered + ' filtered' : '')) : (filtered ? filtered + ' filtered' : '');
+    if (!rows.length) {
+      container.innerHTML = '<div class="empty" style="padding:24px;"><div class="empty-icon">📭</div>No new inbound texts to triage.' +
+        (filtered ? ' <span style="color:var(--m);font-size:11px;">(' + filtered + ' opt-out/keyword hidden)</span>' : '') + '</div>';
+      return;
+    }
+    container.innerHTML = rows.map((r) =>
+      '<div style="display:flex;gap:12px;align-items:flex-start;padding:12px 16px;border-bottom:1px solid var(--br);">' +
+        '<div style="flex:1;min-width:0;">' +
+          '<div style="font-weight:700;color:var(--t);font-size:13px;">' + escapeHTML(r._display || r.from) + '</div>' +
+          '<div style="font-size:12px;color:var(--m);margin-top:2px;word-break:break-word;">' + escapeHTML(r.body) + '</div>' +
+          (r._ms ? '<div style="font-size:10px;color:var(--m);margin-top:4px;">' + escapeHTML(relTimeShort(r._ms)) + '</div>' : '') +
+        '</div>' +
+        '<div style="display:flex;flex-direction:column;gap:4px;flex-shrink:0;">' +
+          '<button class="btn btn-ghost btn-sm" data-inbound-copy="' + escapeAttr(r._digits || '') + '">📋 Copy #</button>' +
+          '<button class="btn btn-orange btn-sm" data-inbound-lead="1">➕ New Lead</button>' +
+        '</div>' +
+      '</div>'
+    ).join('');
+    container.querySelectorAll('[data-inbound-copy]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const num = btn.getAttribute('data-inbound-copy') || '';
+        if (num && navigator.clipboard) { try { navigator.clipboard.writeText(num); } catch (_) {} }
+        toast(num ? 'Number copied — paste into the new lead' : 'No number to copy', num ? 'ok' : 'info');
+      });
+    });
+    container.querySelectorAll('[data-inbound-lead]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        if (typeof window.openQuickAddLead === 'function') window.openQuickAddLead();
+        else if (typeof window.goTo === 'function') window.goTo('crm');
+      });
+    });
+  }
+
   // ── Boot ─────────────────────────────────────────────────
   function wireFilter() {
     const input = document.getElementById('adminRosterFilter');
@@ -436,6 +515,7 @@
     loadMembers();
     // C3: keep analytics fresh on every refresh tap.
     loadAnalytics();
+    loadInboundTexts();
   }
 
   function init() {
@@ -465,7 +545,7 @@
           origGoTo('dash');
           return result;
         }
-        if (!state.loaded) { loadMembers(); loadAnalytics(); }
+        if (!state.loaded) { loadMembers(); loadAnalytics(); loadInboundTexts(); }
       }
       return result;
     };

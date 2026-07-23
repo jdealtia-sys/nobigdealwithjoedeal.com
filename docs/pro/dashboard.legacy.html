@@ -6041,6 +6041,7 @@
 <!-- admin-manager must load eagerly — it gates the #nav-admin visibility
      based on the user's claims. Lazy-loading would hide the nav entry
      until the admin explicitly typed #/admin, defeating the gate UX. -->
+<script defer src="js/inbound-sms-triage.js?v=1"></script>
 <script defer src="js/admin-manager.js?v=1"></script>
 <!-- Integrations client — exposes window.NBDIntegrations for HOVER,
      BoldSign, Regrid, HailTrace, Cal.com. No-op when providers are
