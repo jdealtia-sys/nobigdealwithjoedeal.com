@@ -136,7 +136,7 @@
       <a class="csf-btn" href="tel:${escapeHtml(phone)}"
         title="Call ${escapeHtml(lead.phone || '')}"
         style="display:inline-flex; align-items:center; gap:6px; padding:9px 14px; border-radius:7px;
-               background:${callPrimary ? accent : 'rgba(16,185,129,0.14)'}; color:${callPrimary ? 'var(--accent-fg)' : '#10b981'};
+               background:${callPrimary ? accent : 'rgba(16,185,129,0.14)'}; color:${callPrimary ? 'var(--accent-fg)' : 'var(--green)'};
                border:1px solid ${callPrimary ? accent : 'rgba(16,185,129,0.45)'};
                text-decoration:none; font:inherit; font-size:12px; font-weight:700;
                cursor:${phone ? 'pointer' : 'not-allowed'}; opacity:${phone ? 1 : 0.4};
@@ -157,7 +157,7 @@
       <button class="csf-btn" type="button" data-csf-action="email"
         title="Compose email with the draft below"
         style="display:inline-flex; align-items:center; gap:6px; padding:9px 14px; border-radius:7px;
-               background:${emailPrimary ? accent : 'rgba(139,92,246,0.14)'}; color:${emailPrimary ? 'var(--accent-fg)' : '#8b5cf6'};
+               background:${emailPrimary ? accent : 'rgba(139,92,246,0.14)'}; color:${emailPrimary ? 'var(--accent-fg)' : 'var(--purple)'};
                border:1px solid ${emailPrimary ? accent : 'rgba(139,92,246,0.45)'};
                font:inherit; font-size:12px; font-weight:700;
                cursor:${email ? 'pointer' : 'not-allowed'}; opacity:${email ? 1 : 0.4};
