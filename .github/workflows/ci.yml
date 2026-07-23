@@ -122,6 +122,14 @@ jobs:
       - name: Run sweep regression tests
         run: node tests/sweep-regression.test.js
 
+      # Voice→CRM consumer: the transform that turns a call summary into tasks /
+      # insurance backfill must NEVER overwrite a rep-entered insurance field
+      # (fills blanks only) and must turn a relative/garbage `when` into an
+      # undated task, never a wrong due date. Dependency-free require() of
+      # functions/voice-consumer-logic.js (shared verbatim by the trigger).
+      - name: Run voice-consumer transform tests
+        run: node tests/voice-consumer.test.js
+
       # Buying-intent strike: the fresh-view predicate must fire only for a
       # live viewer (≤6h, unresponded, non-terminal lead) and never nag on a
       # closed/deleted deal — a false strike sends a rep to call a done deal.
