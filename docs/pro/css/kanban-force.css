@@ -1199,7 +1199,26 @@
     box-shadow:0 4px 14px rgba(0,0,0,.35);
     align-items:center; justify-content:center;
     -webkit-tap-highlight-color:transparent;
-    transition:background .15s, color .15s, opacity .16s;
+    transition:background .15s, color .15s, opacity .16s, transform .16s;
+    /* fab-collision-guard.js measures what's under the launcher and sets
+       --nbd-fab-dodge to the exact lift needed to clear it. transform (not
+       bottom) because the bottom/right above are !important-ed by the
+       mobile block — transform composes with them instead of fighting. */
+    transform:translateY(var(--nbd-fab-dodge, 0px));
+  }
+  /* Last resort when clearing the control would sling the launcher
+     mid-screen: shrink + fade so it covers as little as possible while
+     staying reachable. */
+  body.nbd-fab-yield #nbd-fab-dial{
+    opacity:.3;
+    transform:translateY(var(--nbd-fab-dodge, 0px)) scale(.8);
+  }
+  body.nbd-fab-yield #nbd-fab-dial:hover,
+  body.nbd-fab-yield #nbd-fab-dial:focus{ opacity:1; }
+  @media (prefers-reduced-motion: reduce){
+    /* Keep the dodge (it's an accessibility fix, not decoration) — drop
+       only the animation of it. */
+    #nbd-fab-dial{ transition:background .15s, color .15s, opacity .16s; }
   }
   body.nbd-dial-open #nbd-fab-dial{
     background:var(--orange, #c8541a);

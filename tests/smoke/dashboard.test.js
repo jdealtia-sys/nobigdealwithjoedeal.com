@@ -1162,6 +1162,47 @@ section('Mobile FAB speed-dial (2026-07-06, Jo\'s pick) — one launcher, tools 
     /body\.show-field-tools \.map-spyglass-panel\{\s*padding-right:calc\((6[4-9]|[7-9]\d|\d{3,})px \+ env\(safe-area-inset-right, 0px\)\)!important;/.test(styles));
   assert('D2D scroll region clears the launcher when field tools are shown (≥126px)',
     /body\.show-field-tools #d2dContent \{ padding-bottom:calc\((1[3-9]\d|[2-9]\d\d)px \+ env\(safe-area-inset-bottom, 0px\)\)!important; \}/.test(styles));
+
+  // ── Collision guard ──────────────────────────────────────────────
+  // Three hand-written CSS clearances (#1058/#1059/#1061) is a pattern:
+  // the launcher can't know what a future view parks under it. The guard
+  // hit-tests its own footprint and lifts clear. These contracts pin the
+  // invariants that make it safe to leave running on every view.
+  const guard = read(path.join(PRO_JS, 'fab-collision-guard.js'));
+  assert('dashboard loads fab-collision-guard.js AFTER the speed-dial builds the launcher',
+    /<script defer src="js\/fab-speed-dial\.js\?v=\d+"><\/script>[\s\S]{0,700}<script defer src="js\/fab-collision-guard\.js\?v=\d+"><\/script>/.test(dashHtml));
+  // Must dodge via transform: kanban-force.css !important-s bottom/right in
+  // the mobile block, so writing `bottom` would silently lose to it.
+  assert('guard dodges via a transform custom property, not bottom/right',
+    /DODGE_VAR\s*=\s*'--nbd-fab-dodge'/.test(guard)
+    && /setProperty\(DODGE_VAR/.test(guard)
+    && /#nbd-fab-dial\{[\s\S]{0,1600}transform:translateY\(var\(--nbd-fab-dodge, 0px\)\);/.test(styles));
+  // The fanned-out tools park at slots anchored to the launcher's CSS
+  // position — dodging while open would desync the fan.
+  assert('guard resets to the natural slot while the dial is OPEN (fan stays anchored)',
+    /classList\.contains\(OPEN_CLASS\)\)\s*\{\s*_reset\(\);\s*return;/.test(guard));
+  // Same recording invariant fab-speed-dial's dismiss paths honor.
+  assert('guard freezes while the mic is recording',
+    /_micIsRecording[\s\S]{0,260}'⏹'/.test(guard)
+    && /if \(_micIsRecording\(\)\) return;/.test(guard));
+  // Must not treat its own stack as a blocker, or it would dodge forever.
+  assert('guard excludes the FAB stack + [data-fab-ignore] from blockers',
+    /STACK_SEL\s*=\s*\[[\s\S]{0,260}'#nbd-whisper-fab'[\s\S]{0,260}'\[data-fab-ignore\]'/.test(guard));
+  // A hidden launcher (fab-stack-coordinator's modal hide) has a zero rect;
+  // measuring it would produce a bogus dodge.
+  assert('guard bails when the coordinator has hidden the stack',
+    /_isSuppressed/.test(guard) && /style\.opacity === '0'/.test(guard));
+  assert('guard throttles hit-testing (rAF + interval budget)',
+    /requestAnimationFrame/.test(guard) && /THROTTLE_MS/.test(guard));
+  assert('guard tears down its interval + observer on pagehide (bfcache-safe)',
+    /pagehide[\s\S]{0,160}clearInterval/.test(guard)
+    && /pagehide[\s\S]{0,160}disconnect/.test(guard));
+  assert('yield fallback keeps the launcher reachable (fades, never display:none)',
+    /body\.nbd-fab-yield #nbd-fab-dial\{\s*opacity:\.3;/.test(styles)
+    && !/body\.nbd-fab-yield #nbd-fab-dial\{[^}]*display:none/.test(styles));
+  // The dodge is an accessibility fix; PRM should drop the animation only.
+  assert('reduced-motion drops the dodge animation but keeps the dodge',
+    /@media \(prefers-reduced-motion: reduce\)\{[\s\S]{0,260}#nbd-fab-dial\{ transition:[^}]*\}/.test(styles));
 }
 
 section('Pipeline one-row toolbar (2026-07-06) — three controls, ids intact');
