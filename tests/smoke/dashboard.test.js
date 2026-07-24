@@ -1129,15 +1129,23 @@ section('Mobile FAB speed-dial (2026-07-06, Jo\'s pick) — one launcher, tools 
     /body\.nbd-dial-open #nbd-whisper-fab,\s*body\.nbd-dial-open #nbd-qc-fab,\s*body\.nbd-dial-open #nbd-qci-fab\{\s*opacity:1; pointer-events:auto;/.test(styles));
   assert('＋ Add Lead floats ABOVE the launcher on mobile (138px slot)',
     /#addLeadFab\{\s*bottom:calc\(138px \+ env\(safe-area-inset-bottom, 0px\)\) !important;/.test(styles));
-  assert('launcher styled at the bottom slot, desktop-hidden, mobile-shown',
+  assert('launcher styled at the bottom slot, desktop-hidden, shown on mobile CRM only',
     /#nbd-fab-dial\{\s*display:none;\s*position:fixed;\s*bottom:calc\(78px/.test(styles)
-    && /@media \(max-width:768px\)\{\s*#nbd-fab-dial\{ display:flex; \}\s*\}/.test(styles));
-  // The launcher is shown on EVERY mobile view, so every scrollable view must
-  // reserve enough bottom padding for the last row to clear it — otherwise the
-  // card action buttons (Photos VIEW/ADD, D2D value card) sit trapped under the
-  // FAB. Clearance must exceed the launcher's ~126px top (78px bottom + 48px).
-  assert('mobile .view-scroll reserves bottom clearance for the ⋯ launcher (≥126px)',
-    /\.view-scroll \{ min-height:auto!important; padding-bottom:calc\((1[3-9]\d|[2-9]\d\d)px \+ env\(safe-area-inset-bottom, 0px\)\)!important; \}/.test(styles));
+    && /@media \(max-width:768px\)\{[\s\S]{0,400}body\.show-field-tools #nbd-fab-dial\{ display:flex; \}\s*\}/.test(styles));
+  // Field-tools cluster is CRM-context, gated to the CRM view via
+  // body.show-field-tools (dashboard-ui.js sets it next to show-add-lead-fab).
+  // Off the CRM view the mic / quick-capture / inbox FABs are display:none so
+  // the fixed bottom-right stack never floats over the Photos card VIEW/ADD
+  // buttons or the D2D streak card — the overlap Jo flagged from his phone.
+  assert('field tools hidden off the CRM view (body:not(.show-field-tools))',
+    /body:not\(\.show-field-tools\) #nbd-whisper-fab,\s*body:not\(\.show-field-tools\) #nbd-qc-fab,\s*body:not\(\.show-field-tools\) #nbd-qci-fab\{\s*display:none !important;/.test(styles));
+  assert('dashboard-ui gates show-field-tools to the CRM view',
+    /show-field-tools['"],\s*!!onCrm/.test(read(path.join(PRO_JS, 'dashboard-ui.js'))));
+  // With the launcher CRM-gated, .view-scroll views (Photos, D2D sidebar, …)
+  // host no fixed bottom-right FAB, so they only need to clear the 62px
+  // #mobile-nav (+ safe area) — not the launcher's old ~126px reach.
+  assert('mobile .view-scroll clears the mobile nav (~80px, no FAB to clear)',
+    /\.view-scroll \{ min-height:auto!important; padding-bottom:calc\(80px \+ env\(safe-area-inset-bottom, 0px\)\)!important; \}/.test(styles));
 }
 
 section('Pipeline one-row toolbar (2026-07-06) — three controls, ids intact');

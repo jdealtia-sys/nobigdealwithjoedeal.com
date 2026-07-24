@@ -1955,6 +1955,12 @@ window.syncMobileToolsMenuActive = syncMobileToolsMenuActive;
   const updateFab = () => {
     const onCrm = document.getElementById('view-crm')?.classList.contains('active');
     document.body.classList.toggle('show-add-lead-fab', !!onCrm);
+    // Field-tools cluster (⋯ launcher + W128 mic / W130 quick-capture /
+    // W132 inbox) is CRM-context, like Add Lead — gate it to the CRM view
+    // so the fixed bottom-right stack never floats over the Photos card
+    // buttons or the D2D streak card on other views (kanban-force.css
+    // keys the launcher + tool FABs off body.show-field-tools).
+    document.body.classList.toggle('show-field-tools', !!onCrm);
   };
   const install = () => {
     const _origGoTo = window.goTo;
