@@ -1154,6 +1154,12 @@ section('Mobile FAB speed-dial (2026-07-06, Jo\'s pick) — one launcher, tools 
   // …but D2D DOES host the launcher, so its scroll region must reserve the
   // launcher's full reach (≥126px) or the value/streak cards sit trapped
   // under it again. Regression guard for the exact bug in the screenshots.
+  // The map's spyglass row goes full-width static on mobile, putting its
+  // 📍 / Go buttons in the launcher's right-hand column — tap-blocked until
+  // the row reserves that column. Horizontal (not vertical) clearance,
+  // because the row is in normal flow and scrolls.
+  assert('map spyglass row clears the launcher column when field tools are shown (≥64px)',
+    /body\.show-field-tools \.map-spyglass-panel\{\s*padding-right:calc\((6[4-9]|[7-9]\d|\d{3,})px \+ env\(safe-area-inset-right, 0px\)\)!important;/.test(styles));
   assert('D2D scroll region clears the launcher when field tools are shown (≥126px)',
     /body\.show-field-tools #d2dContent \{ padding-bottom:calc\((1[3-9]\d|[2-9]\d\d)px \+ env\(safe-area-inset-bottom, 0px\)\)!important; \}/.test(styles));
 }
