@@ -79,8 +79,37 @@
     if (!stack) {
       stack = document.createElement('div');
       stack.id = stackId;
+      // Geometry, not decoration — this stack shares the bottom-right
+      // corner with the FAB column, so it obeys the bottom-edge contract
+      // documented in fab-stack-coordinator.js.
+      //   right: was a bare 20px, which parked the card ON TOP of the FAB
+      //     rail — on desktop #nbd-qc-fab sits at bottom 84 / right 23 and
+      //     #nbd-qci-fab at bottom 142 / right 25, and this container is
+      //     anchored at bottom:90px and grows UPWARD, so every card it
+      //     rendered crossed that column. At z-index 10005 over the FABs'
+      //     9999, with pointer-events:auto on the cards, it did not merely
+      //     cover them: it ate their taps for the full 12s dwell. The fix
+      //     is to leave the rail SIDEWAYS rather than to lift the stack
+      //     upward. A hot-lead alert is transient, so it must never become
+      //     a data-nbd-corner-claim claimant — the whole FAB stack would
+      //     jump every time a lead crossed 80. A horizontal partition is
+      //     permanent and jitter-free. --nbd-fab-rail is the one shared
+      //     number for that column's width (dashboard-app.css :root); the
+      //     94px fallback is its current value, so a page that somehow
+      //     renders before the token exists still clears the FABs. The
+      //     safe-area inset mirrors what every FAB already adds to its own
+      //     `right`, so card and rail stay aligned on a notched phone held
+      //     in landscape instead of drifting apart by the inset width.
+      //   z-index: was a bare 10005, squatting in the 10003-10005 band the
+      //     ladder deliberately keeps free above the toast tier for the
+      //     status strips' headroom. This card IS a toast — transient,
+      //     self-dismissing, annotating nothing — so --z-toast is its real
+      //     tier, and the offline / alert-health strips (10006/10007) keep
+      //     outranking it exactly as before. Token form (not the bare
+      //     literal) is also what crm-theme-contract.test.js requires of
+      //     any base-tier z-index rendered from docs/pro/js.
       stack.style.cssText =
-        'position:fixed;bottom:90px;right:20px;z-index:10005;' +
+        'position:fixed;bottom:90px;right:calc(var(--nbd-fab-rail, 94px) + env(safe-area-inset-right, 0px));z-index:var(--z-toast, 10002);' +
         'display:flex;flex-direction:column;gap:8px;align-items:flex-end;' +
         'pointer-events:none;';
       document.body.appendChild(stack);

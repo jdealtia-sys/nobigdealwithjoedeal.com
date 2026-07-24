@@ -2189,7 +2189,16 @@
          Camera" button in the page header is the entry point. Tapping
          this fires the same hidden file-input as the create popover's
          Photo row, so capture flow is one consistent path. -->
-    <button class="m-shutter-fab" id="mShutterFab" type="button"
+    <!-- data-nbd-corner-claim mirrors dashboard.html. This snapshot loads the
+         same mobile-polish.css (:45) and fab-stack-coordinator.js (:6067), so
+         declaring the claim here is all it takes: the coordinator measures the
+         shutter and the FAB stack translates clear of it. Without the mirror a
+         ?legacy=1 rollback would reinstate the 96% #nbd-fab-dial ∩ #mShutterFab
+         overlap — both were hard-coded to bottom:78px by two authors who never
+         met — i.e. the rollback path would be more broken than the thing it
+         rolls back to. Attribute goes AFTER id so the class/id adjacency the
+         smoke assertions match stays intact. -->
+    <button class="m-shutter-fab" id="mShutterFab" data-nbd-corner-claim type="button"
       data-action="call" data-fn="openPhotoEngineOrClickProxy" data-arg="mCreatePhotoInput"
       aria-label="Capture photo">
       <svg class="nbd-icon nbd-icon-lg" aria-hidden="true"><use href="#nbd-icon-shutter"/></svg>
@@ -2673,7 +2682,13 @@
     <div class="joe-messages dn" id="joeMessages"></div>
 
     <!-- Input area -->
-    <div class="joe-input-area dn" id="joeInputArea">
+    <!-- data-nbd-corner-claim mirrors dashboard.html: this box sits on the
+         bottom edge inside the FAB rail, so fab-stack-coordinator.js lifts the
+         stack above it. It is the fix for the mic FAB landing on #joeSendBtn —
+         the dictation button covering the send button of the thing you dictate
+         into. The claim evaporates on views that never hydrate, so nothing
+         else moves. -->
+    <div class="joe-input-area dn" id="joeInputArea" data-nbd-corner-claim>
       <div class="joe-quick-btns" id="joeQuickBtns">
         <button class="joe-quick" data-action="call" data-fn="joeQuick" data-arg="What should I focus on today?">📋 Today's priorities</button>
         <button class="joe-quick" data-action="call" data-fn="joeQuick" data-arg="Which leads are most likely to close?">🎯 Best leads to close</button>

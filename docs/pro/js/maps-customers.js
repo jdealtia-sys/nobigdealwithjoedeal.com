@@ -353,8 +353,23 @@ function _injectCustPanelCss() {
   if (document.getElementById('cust-panel-style')) return;
   const s = document.createElement('style');
   s.id = 'cust-panel-style';
+  // These offsets have to be authored HERE, in the JS, and not overridden
+  // from dashboard-app.css: this <style> is appended to document.head at
+  // runtime, i.e. after every <link> stylesheet, so an equal-specificity
+  // rule added to a linked sheet loses on source order and silently does
+  // nothing.
+  // `bottom` now reads --map-band, the map's floating-chrome band declared
+  // on .map-area (fab bar height + its padding, both ends). Reading the
+  // token instead of restating a literal means the panel keeps clearing the
+  // map FAB bar when that bar is resized — the old hard-coded 22px was a
+  // measurement of a bar this file has no knowledge of. The fallback keeps
+  // the panel sane if the token is ever dropped or the panel is reparented
+  // outside a .map-area.
+  // Horizontal position is deliberately untouched: this panel is bottom-
+  // LEFT, so unlike .nbd-pin-panel it never enters the bottom-right FAB
+  // rail and needs no --nbd-fab-rail offset. Only the vertical band matters.
   s.textContent =
-    '.nbd-cust-panel{position:absolute;left:12px;bottom:22px;z-index:600;background:color-mix(in srgb, var(--s) 90%, transparent);'
+    '.nbd-cust-panel{position:absolute;left:12px;bottom:var(--map-band, 88px);z-index:600;background:color-mix(in srgb, var(--s) 90%, transparent);'
     + 'border:1px solid var(--br);border-radius:10px;padding:9px 10px;font-family:sans-serif;'
     + 'box-shadow:0 4px 16px rgba(0,0,0,.5);backdrop-filter:blur(4px);width:186px;max-height:60vh;overflow:auto;}'
     + '.nbd-cust-panel .ncp-row{display:flex;align-items:center;gap:6px;margin-bottom:7px;}'
@@ -376,8 +391,13 @@ function _injectCustPanelCss() {
     + '.nbd-cust-panel .ncp-iconbtn:hover{background:var(--s3);}'
     // Phone viewports: narrow + cap height so the panel doesn't cover the map;
     // sits bottom-left alongside the bottom-right pins panel (≈46vw each).
+    // Same --map-band story as the desktop rule above; the mobile fallback
+    // stays 74px because .map-area redeclares the band smaller on phones.
+    // Nothing may be inserted between the @media open brace and the
+    // `.nbd-cust-panel{width:46vw` that follows it — tests/smoke/maps.test.js
+    // matches the two within a 120-character window of raw source.
     + '@media (max-width:640px){'
-    + '.nbd-cust-panel{width:46vw;max-height:46vh;padding:7px 8px;left:8px;bottom:74px;font-size:11px;}'
+    + '.nbd-cust-panel{width:46vw;max-height:46vh;padding:7px 8px;left:8px;bottom:var(--map-band, 74px);font-size:11px;}'
     + '.nbd-cust-panel .ncp-chip,.nbd-cust-panel select{font-size:11px;}'
     + '.nbd-cust-panel .ncp-dot{width:9px;height:9px;}}';
   document.head.appendChild(s);

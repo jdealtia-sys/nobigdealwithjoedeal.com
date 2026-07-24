@@ -21,7 +21,14 @@
 
 body {
   overflow-x: clip;
-  min-width: 100%;        /* never narrower than the layout viewport */
+  /* NO min-width here. body is a block-level flex container with width:auto,
+     so it already fills its containing block — the guard was redundant. Worse,
+     `min-width:100%` sizes the CONTENT box, so under content-box sizing any
+     body padding/margin is added ON TOP of the viewport width, and the
+     `overflow-x: clip` two lines above cannot contain it (a box never clips its
+     own border box). Cost: 48px of real horizontal scroll on
+     /pro/diagnostic.html, 8px on /admin/index.html. Verified: no page under
+     docs/ sets a narrower body width, so nothing depended on it. */
   min-height: 100vh;      /* fill viewport vertically so html bg doesn't bleed below the fold */
   /* Sticky footer pattern — short pages (e.g. some blog posts, 404, offline)
      used to render footer mid-viewport because content didn't fill the

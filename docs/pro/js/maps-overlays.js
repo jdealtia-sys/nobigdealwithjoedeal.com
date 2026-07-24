@@ -245,8 +245,26 @@ function _injectPinPanelCss() {
   s.id = 'pin-panel-style';
   // Self-contained (identical tokens to the Customers panel) so it works even
   // if that layer was never opened; positioned bottom-RIGHT to avoid overlap.
+  //
+  // The two offsets are shared tokens, not literals:
+  //   --nbd-fab-rail  the horizontal width the floating FAB column owns. This
+  //                   panel steps SIDEWAYS out of that rail instead of lifting
+  //                   above it, because it is a TALL panel (max-height:46vh,
+  //                   ~374px on a phone) — claiming vertical space would shove
+  //                   the whole FAB stack into the middle of the screen. That
+  //                   is also why it must never declare data-nbd-corner-claim.
+  //   --map-band      .map-area's bottom overlay band (fab-bar height + pad),
+  //                   so the panel rides on the band instead of guessing a
+  //                   clearance that goes stale the moment the bar resizes.
+  // The fallbacks are the panel's pre-token geometry, so it stays sane if the
+  // tokens are ever dropped.
+  //
+  // These MUST be edited here at source rather than overridden from a
+  // stylesheet: this <style> is appended to document.head at RUNTIME, i.e.
+  // after every <link>, so an equal-specificity rule in dashboard-app.css
+  // would lose the cascade on source order.
   s.textContent =
-    '.nbd-pin-panel{position:absolute;right:12px;bottom:22px;z-index:600;background:rgba(10,12,15,.88);'
+    '.nbd-pin-panel{position:absolute;right:calc(12px + var(--nbd-fab-rail, 94px));bottom:var(--map-band, 88px);z-index:600;background:rgba(10,12,15,.88);'
     + 'border:1px solid rgba(255,255,255,.14);border-radius:10px;padding:9px 10px;font-family:sans-serif;'
     + 'box-shadow:0 4px 16px rgba(0,0,0,.5);backdrop-filter:blur(4px);width:172px;max-height:60vh;overflow:auto;}'
     + '.nbd-pin-panel .npp-lbl{font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:#9aa4b2;font-weight:700;margin:0 2px 6px;}'
@@ -256,9 +274,14 @@ function _injectPinPanelCss() {
     + '.nbd-pin-panel .npp-dot{width:11px;height:11px;border-radius:50%;flex:0 0 auto;border:1px solid rgba(255,255,255,.5);}'
     + '.nbd-pin-panel .npp-name{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}'
     + '.nbd-pin-panel .npp-cnt{color:#9aa4b2;font-variant-numeric:tabular-nums;}'
-    // Phone viewports: mirror the customers panel — narrow + capped, bottom-right.
+    // Phone viewports: mirror the customers panel — narrow + capped, bottom-right,
+    // and out of the same FAB rail (the phone stack is the crowded one: dial +
+    // mic + capture + inbox all live in that corner under 768px).
+    // tests/smoke/maps.test.js:392-395 matches the panel's width:46vw opener
+    // within 120 chars of this media-query brace — never reorder these
+    // declarations or move the breakpoint; the token swaps land after the width.
     + '@media (max-width:640px){'
-    + '.nbd-pin-panel{width:46vw;max-height:46vh;padding:7px 8px;right:8px;bottom:74px;font-size:11px;}'
+    + '.nbd-pin-panel{width:46vw;max-height:46vh;padding:7px 8px;right:calc(8px + var(--nbd-fab-rail, 94px));bottom:var(--map-band, 74px);font-size:11px;}'
     + '.nbd-pin-panel .npp-chip{font-size:11px;}'
     + '.nbd-pin-panel .npp-dot{width:9px;height:9px;}}';
   document.head.appendChild(s);

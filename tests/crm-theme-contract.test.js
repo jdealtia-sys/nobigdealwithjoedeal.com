@@ -63,8 +63,19 @@ ok('theme-system defines --h (heading dialect alias)',
   ok('no bare .toast{position:fixed} rule remains', bare.length === 0);
   ok('container toasts have a warning border color',
     /\.toast\.toast-warning\{border-left-color:var\(--gold\)/.test(s));
+  // The load-bearing half of this assertion is the SELECTOR, not the offset:
+  // the mobile bottom override must stay scoped to `.toast-container,
+  // #toast.toast` so it can never leak back onto every `.toast` and re-break
+  // the container toasts (defect 2 above). The px value is deliberately NOT
+  // pinned — it is a geometry constant owned by the bottom-edge budget and it
+  // moves whenever that corner is re-apportioned (2026-07: 72px → 134px, to
+  // clear #nbd-fab-dial, which occupies y 78→126 on mobile). Pinning the
+  // literal guarded nothing about the theme contract while forcing a test
+  // edit for every layout tweak. \d{2,3} still fails the two regressions that
+  // matter: the calc()/env() offset being dropped altogether, or the toast
+  // collapsing back onto the bottom edge at a single-digit offset.
   ok('mobile toast offset targets the container (not all .toast)',
-    /\.toast-container, #toast\.toast \{ bottom:calc\(72px/.test(s));
+    /\.toast-container, #toast\.toast \{ bottom:calc\(\d{2,3}px/.test(s));
 }
 
 // 2b. Shared satellite toast module — stored-XSS contract.
