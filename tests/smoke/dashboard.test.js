@@ -1129,23 +1129,33 @@ section('Mobile FAB speed-dial (2026-07-06, Jo\'s pick) — one launcher, tools 
     /body\.nbd-dial-open #nbd-whisper-fab,\s*body\.nbd-dial-open #nbd-qc-fab,\s*body\.nbd-dial-open #nbd-qci-fab\{\s*opacity:1; pointer-events:auto;/.test(styles));
   assert('＋ Add Lead floats ABOVE the launcher on mobile (138px slot)',
     /#addLeadFab\{\s*bottom:calc\(138px \+ env\(safe-area-inset-bottom, 0px\)\) !important;/.test(styles));
-  assert('launcher styled at the bottom slot, desktop-hidden, shown on mobile CRM only',
+  assert('launcher styled at the bottom slot, desktop-hidden, shown on mobile gated views',
     /#nbd-fab-dial\{\s*display:none;\s*position:fixed;\s*bottom:calc\(78px/.test(styles)
     && /@media \(max-width:768px\)\{[\s\S]{0,400}body\.show-field-tools #nbd-fab-dial\{ display:flex; \}\s*\}/.test(styles));
-  // Field-tools cluster is CRM-context, gated to the CRM view via
-  // body.show-field-tools (dashboard-ui.js sets it next to show-add-lead-fab).
-  // Off the CRM view the mic / quick-capture / inbox FABs are display:none so
-  // the fixed bottom-right stack never floats over the Photos card VIEW/ADD
-  // buttons or the D2D streak card — the overlap Jo flagged from his phone.
-  assert('field tools hidden off the CRM view (body:not(.show-field-tools))',
+  // Field-tools cluster is gated to CRM + D2D via body.show-field-tools
+  // (dashboard-ui.js sets it next to show-add-lead-fab). On every OTHER view
+  // the mic / quick-capture / inbox FABs are display:none so the fixed
+  // bottom-right stack can't float over the Photos card VIEW/ADD buttons —
+  // the overlap Jo flagged from his phone.
+  assert('field tools hidden on non-gated views (body:not(.show-field-tools))',
     /body:not\(\.show-field-tools\) #nbd-whisper-fab,\s*body:not\(\.show-field-tools\) #nbd-qc-fab,\s*body:not\(\.show-field-tools\) #nbd-qci-fab\{\s*display:none !important;/.test(styles));
-  assert('dashboard-ui gates show-field-tools to the CRM view',
-    /show-field-tools['"],\s*!!onCrm/.test(read(path.join(PRO_JS, 'dashboard-ui.js'))));
-  // With the launcher CRM-gated, .view-scroll views (Photos, D2D sidebar, …)
-  // host no fixed bottom-right FAB, so they only need to clear the 62px
-  // #mobile-nav (+ safe area) — not the launcher's old ~126px reach.
+  // CRM *and* D2D (view-map): a rep dictates the note right after a knock,
+  // so the tools must be reachable on the door-knocking view too.
+  const uiSrc = read(path.join(PRO_JS, 'dashboard-ui.js'));
+  assert('dashboard-ui gates show-field-tools to the CRM + D2D views',
+    /view-map['"]\)\?\.classList\.contains\(['"]active['"]\)/.test(uiSrc)
+    && /show-field-tools['"],\s*!!\(onCrm \|\| onMap\)/.test(uiSrc));
+  assert('Add Lead FAB stays CRM-only (not widened to D2D)',
+    /show-add-lead-fab['"],\s*!!onCrm/.test(uiSrc));
+  // A .view-scroll view with no FAB over it (Photos, …) only needs the 62px
+  // #mobile-nav clearance — not the launcher's ~126px reach.
   assert('mobile .view-scroll clears the mobile nav (~80px, no FAB to clear)',
     /\.view-scroll \{ min-height:auto!important; padding-bottom:calc\(80px \+ env\(safe-area-inset-bottom, 0px\)\)!important; \}/.test(styles));
+  // …but D2D DOES host the launcher, so its scroll region must reserve the
+  // launcher's full reach (≥126px) or the value/streak cards sit trapped
+  // under it again. Regression guard for the exact bug in the screenshots.
+  assert('D2D scroll region clears the launcher when field tools are shown (≥126px)',
+    /body\.show-field-tools #d2dContent \{ padding-bottom:calc\((1[3-9]\d|[2-9]\d\d)px \+ env\(safe-area-inset-bottom, 0px\)\)!important; \}/.test(styles));
 }
 
 section('Pipeline one-row toolbar (2026-07-06) — three controls, ids intact');
