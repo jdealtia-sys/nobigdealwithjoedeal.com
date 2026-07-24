@@ -4039,6 +4039,20 @@ body {
     border:none!important;
     border-bottom:1px solid var(--br)!important;
   }
+  /* The ⋯ field-tools launcher is fixed bottom-right and IS shown on the
+     map view (enabled there deliberately in #1059 — a rep dictates right
+     after a knock). On mobile the spyglass row goes full-width static, so
+     its 📍 "go to my location" + Go buttons land in the launcher's
+     right-hand column and sit underneath it — tap-blocked.
+     Reserve that column: 48px launcher + 16px inset + 12px gap = 76px.
+     Horizontal clearance is deliberate — the panel is in normal flow, so
+     a vertical/padding-bottom fix would only hold at one scroll offset,
+     while keeping the controls out of the launcher's COLUMN holds at
+     every offset. Gated on show-field-tools so the row keeps its full
+     width on views where the launcher isn't rendered. */
+  body.show-field-tools .map-spyglass-panel{
+    padding-right:calc(76px + env(safe-area-inset-right, 0px))!important;
+  }
 
   /* Map-view: column layout with order slots */
   .map-view{ flex-direction:column!important; position:relative!important; }

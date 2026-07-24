@@ -6236,6 +6236,14 @@
      mic / quick-capture / inbox FABs behind one ⋯ launcher; ＋ Add
      Lead floats above it. Desktop keeps the classic stack. -->
 <script defer src="js/fab-speed-dial.js?v=1"></script>
+<!-- Collision guard: the ⋯ launcher is fixed bottom-right, so every view
+     that parks an interactive control there collides with it (#1058 Photos
+     VIEW/ADD, #1059 D2D streak cards, #1061 D2D spyglass 📍/Go — three
+     hand-written CSS clearances). This hit-tests what's actually under the
+     launcher and lifts it clear, so an unanticipated view degrades to a
+     nudge instead of an unreachable button. Loads AFTER the speed-dial so
+     the launcher element exists to measure. -->
+<script defer src="js/fab-collision-guard.js?v=1"></script>
 <!-- W150 pwa-install.js DELETED (2026-07-05): it and pwa-install-nudge.js
      were two complete install-prompt systems, both loaded here. They shared
      the #nbd-pwa-install-banner element id but kept separate dismissal
