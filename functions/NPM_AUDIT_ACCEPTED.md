@@ -1,14 +1,14 @@
 # Accepted npm audit advisories
 
-Last reviewed: 2026-04-23 (by CI audit triage)
+Last reviewed: 2026-07-24 (brace-expansion HIGH triage)
 
-`npm audit` currently reports 12 vulnerabilities in `functions/`
-(2 LOW, 10 MODERATE). Every one is transitive through the Google
-Cloud / Firebase Admin SDK chain — we do not depend on any of these
-packages directly, and none of the vulnerable code paths are
-reachable from our function handlers. CI therefore gates on HIGH+
-advisories, with this file documenting every accepted lower-tier
-finding.
+`npm audit` currently reports **7 MODERATE** vulnerabilities in
+`functions/` (0 LOW, 0 HIGH, 0 CRITICAL). Every one is transitive
+through the Google Cloud / Firebase Admin SDK chain — we do not
+depend on any of these packages directly, and none of the vulnerable
+code paths are reachable from our function handlers. CI therefore
+gates on HIGH+ advisories, with this file documenting every accepted
+lower-tier finding.
 
 ## Dependency chain (all transitive, all from Firebase Admin)
 
@@ -16,16 +16,70 @@ finding.
 firebase-admin
   ├── @google-cloud/firestore
   │     └── google-gax ──┬── gaxios          ← uuid (moderate)
-  │                      ├── retry-request    ← teeny-request ← http-proxy-agent ← @tootallnate/once (low)
-  │                      └── uuid (moderate)
+  │                      ├── retry-request    ← teeny-request ← uuid (moderate)
+  │                      └── rimraf → glob → minimatch → brace-expansion  (HIGH — pinned, see below)
   └── @google-cloud/storage
-        ├── fast-xml-parser (moderate)
         └── teeny-request     ← uuid (moderate)
 ```
 
+## Resolved by pin — HIGH GHSA-mh99-v99m-4gvg (brace-expansion <= 5.0.7)
+
+**Status: FIXED via `overrides`, not accepted.** Recorded here because
+the pin is non-obvious and must not be reverted casually.
+
+- DoS via unbounded brace expansion → out-of-memory process crash.
+- Reached CI on 2026-07-24 as a **HIGH**, which the gate rejects (the
+  same job passed hours earlier on an unchanged lockfile — the
+  advisory was published mid-day, not introduced by a dep change).
+- Chain: `google-gax → rimraf → glob → minimatch → brace-expansion`,
+  locked at `brace-expansion@2.1.2`.
+
+**Why the pin is a pair.** `5.0.8` is the only non-vulnerable release
+(there is no patched 2.x/3.x/4.x backport — the advisory covers every
+version `<= 5.0.7`). But `5.x` changed its CommonJS export from a bare
+function (`module.exports = expand`) to a named object
+(`{ EXPANSION_MAX, EXPANSION_MAX_LENGTH, expand }`). Pinning
+`brace-expansion` **alone** installs cleanly and passes `npm audit`,
+then throws at runtime the moment any brace pattern is evaluated:
+
+```
+TypeError: (0 , brace_expansion_1.default) is not a function
+    at braceExpand (minimatch/dist/commonjs/index.js:160)
+```
+
+`minimatch@9.0.9` expects the old shape. `minimatch@10.2.5` is the
+release built against `brace-expansion@^5`, so both are pinned
+together. `glob@10.5.0` declares `minimatch@^9.0.4` and is forced past
+its range by the override — verified working, including brace
+patterns (see below).
+
+**Do not** "simplify" this to a single `brace-expansion` override, and
+do not take `npm audit fix --force`: it offers `firebase-admin@10.3.0`,
+which regresses multi-tenant + App Check.
+
+**Verified before merge** (node 22, the functions runtime):
+
+- `npm audit --audit-level=high` → clean (7 moderate remain, all below
+  the gate and documented below).
+- `minimatch` brace/range/negation patterns → correct results.
+- `glob` incl. `{a,b}` brace patterns → correct despite the forced
+  major.
+- `rimraf`, `google-gax`, `firebase-admin`, `firebase-functions` → load.
+- All 19 `integrations/*.js` modules → load (the CI step).
+- `functions/index.js` → loads, **184 functions registered**.
+- Repo smoke suite → 2690 passed, 0 failed.
+
+**Remove this pin** once `google-gax` ships a `rimraf`/`glob` chain that
+resolves `minimatch@10` + `brace-expansion@5` natively; then re-run the
+verification list above.
+
 ## Advisories
 
-### LOW — GHSA-vpq2-c234-7xj6 (@tootallnate/once < 3.0.1)
+### ~~LOW — GHSA-vpq2-c234-7xj6 (@tootallnate/once < 3.0.1)~~ — RESOLVED UPSTREAM
+
+**No longer reported** as of the 2026-07-24 re-audit; the upstream
+`http-proxy-agent` chain described below finally propagated. Kept for
+history — delete on the next dependency-review sprint.
 
 - Incorrect Control Flow Scoping (CWE-705).
 - CVSS 3.1 `AV:L/AC:L/PR:L/UI:N/S:U/C:N/I:N/A:L` = **3.3 LOW**.
@@ -52,7 +106,11 @@ firebase-admin
   version `npm audit fix --force` offers) would regress multi-tenant
   and App Check APIs.
 
-### MODERATE — GHSA fast-xml-parser XMLBuilder injection
+### ~~MODERATE — GHSA fast-xml-parser XMLBuilder injection~~ — RESOLVED UPSTREAM
+
+**No longer reported** as of the 2026-07-24 re-audit (`@google-cloud/storage`
+picked up a patched `fast-xml-parser`). Kept for history — delete on the
+next dependency-review sprint.
 
 - XML comment / CDATA injection via unescaped delimiters in
   `fast-xml-parser`'s XMLBuilder API.
