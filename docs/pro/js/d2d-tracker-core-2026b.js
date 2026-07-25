@@ -3987,6 +3987,13 @@
             if (data && data[0]) {
               lat = parseFloat(data[0].lat); lng = parseFloat(data[0].lon);
               D2D_GEOCODE_CACHE.set(cacheKey, { lat, lng });
+              // Persist so this lead is geocoded ONCE EVER (rolling backfill,
+              // same as the old Customers map). Passive: _saveLeadCoords writes
+              // lat/lng without bumping updatedAt, and updates window._leads in
+              // memory so later renders this session skip the lookup too.
+              if (typeof window._saveLeadCoords === 'function' && lead.id && !String(lead.id).startsWith('d-')) {
+                try { window._saveLeadCoords(lead.id, lat, lng); } catch (_) {}
+              }
             } else {
               D2D_GEOCODE_CACHE.set(cacheKey, null);
             }
