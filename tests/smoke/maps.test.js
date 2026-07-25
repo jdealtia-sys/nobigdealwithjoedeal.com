@@ -659,6 +659,32 @@ section('D2D map — Customers layer (map unification, phase 2)');
     /view\.addEventListener\(\s*['"]click['"]/.test(src) && /openCardDetailModal/.test(src));
 }
 
+section('D2D map — one mark per house (map unification, phase 3)');
+{
+  const src = readD2DLive();
+
+  // Suppression set: leads that can be placed (coords required so a house
+  // never vanishes), keyed by the same normalizeAddress used for knock dedupe.
+  assert('D2D core defines _leadAddrSetWithCoords()',
+    /function _leadAddrSetWithCoords\s*\(/.test(src));
+  const setFn = src.slice(src.indexOf('function _leadAddrSetWithCoords'),
+                         src.indexOf('function _leadStageColor'));
+  assert('suppression set requires lead coordinates',
+    /Number\(l\.lat\)\s*&&\s*Number\(l\.lng\)/.test(setFn));
+  assert('suppression set keys by normalizeAddress',
+    /normalizeAddress\(l\.address/.test(setFn));
+
+  // refreshMapMarkers drops a knock mark when a coords-bearing lead shares its
+  // address AND the customers layer is on (no effect when the layer is off).
+  assert('knock render suppresses houses shown as customers (only when layer on)',
+    /const suppressAddrs = d2dLayerState\.customers \? _leadAddrSetWithCoords\(\) : null/.test(src) &&
+    /if \(suppressAddrs && suppressAddrs\.has\(norm\)\) return/.test(src));
+
+  // Toggling the customers layer re-renders knocks so suppression tracks it.
+  assert('toggling customers re-runs refreshMapMarkers (suppression stays in sync)',
+    /case\s*['"]customers['"]:[\s\S]{0,500}refreshMapMarkers\(\)/.test(src));
+}
+
 section('firestore.indexes.json — knocks [tenant, lat] viewport indexes (deploy on merge)');
 {
   const idx = JSON.parse(read(path.join(ROOT, 'firestore.indexes.json')));

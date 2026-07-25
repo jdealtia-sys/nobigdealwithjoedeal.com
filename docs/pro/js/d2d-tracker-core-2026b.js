@@ -3052,8 +3052,17 @@
       }
     });
 
+    // One mark per house (map-unification phase 3): when the Customers layer
+    // is showing, a house that is ALSO a lead/customer is drawn by that layer
+    // (coloured by pipeline stage — the house's furthest-along status), so we
+    // suppress the duplicate knock mark here. Guarded on the lead having
+    // coordinates so a house never vanishes (an address-only lead that can't
+    // be placed leaves its knock visible). No effect when the layer is off.
+    const suppressAddrs = d2dLayerState.customers ? _leadAddrSetWithCoords() : null;
+
     const heatData = [];
-    addrMap.forEach(knock => {
+    addrMap.forEach((knock, norm) => {
+      if (suppressAddrs && suppressAddrs.has(norm)) return; // shown as its customer mark
       if (!knock.lat || !knock.lng) return;
       const dispo = DISPOSITIONS[knock.disposition];
       const attempts = getAttemptCount(knock.address);
@@ -3426,6 +3435,9 @@
           d2dCustomerMarkers.forEach(m => state.d2dMap.removeLayer(m));
           d2dCustomerMarkers = [];
         }
+        // Re-render knocks so the one-mark-per-house suppression turns on/off
+        // in step with the Customers layer.
+        refreshMapMarkers();
         break;
       case 'weather':
         if (d2dLayerState.weather) {
@@ -3469,6 +3481,21 @@
   // the old jobs layer.
   const D2D_GEOCODE_CACHE = new Map(); // addr → { lat, lng } | null
   const D2D_GEOCODE_PER_BUILD_CAP = 15;
+
+  // Normalized addresses of leads that CAN be placed (have coords) — the set
+  // used by refreshMapMarkers to suppress a duplicate knock mark for a house
+  // that's already shown as a customer. Coords-required so a house never
+  // disappears when its lead is address-only.
+  function _leadAddrSetWithCoords() {
+    const set = new Set();
+    (window._leads || []).forEach(l => {
+      if (!l || l.deleted) return;
+      if (!(Number(l.lat) && Number(l.lng))) return;
+      const norm = normalizeAddress(l.address || '');
+      if (norm) set.add(norm);
+    });
+    return set;
+  }
 
   // Pipeline-stage colour for a lead, from the live stage engine (falls back
   // to the role palette, then a neutral blue) — mirrors maps-overlays' pin
