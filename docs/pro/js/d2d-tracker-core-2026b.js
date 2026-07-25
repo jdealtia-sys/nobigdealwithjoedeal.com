@@ -1721,6 +1721,89 @@
     }
   }
 
+  // Max knocks pulled by a single "Search this area" viewport query. The
+  // default first paint (loadKnocks, 500 most-recent) is unchanged — this is
+  // the OPT-IN spatial pull for whatever the map is currently showing, so a
+  // rep can pan to territory OLDER than their 500 most-recent knocks and still
+  // see it. Bounded so a dense downtown viewport can't blow mobile RAM.
+  const VIEWPORT_KNOCK_LIMIT = 1000;
+
+  // Load the knocks that fall inside the map's CURRENT viewport, regardless of
+  // recency — the fix for the "pan to old territory → zero pins" gap left by
+  // loadKnocks's `orderBy(createdAt desc) + limit(500)` (which is not spatially
+  // scoped at all).
+  //
+  // Firestore has no native geo-query and permits a range filter on only ONE
+  // field, so we range-filter `lat` server-side (needs a [userId|companyId,
+  // lat] composite index — see firestore.indexes.json) and filter `lng`
+  // client-side. Tenancy is preserved: the query is ALWAYS scoped to the rep's
+  // userId, or the company in manager team-mode — identical scoping to
+  // loadKnocks — so this NEVER widens the read surface. Results are MERGED into
+  // state.knocks (dedup by id) so the default recent set stays visible too.
+  async function loadKnocksInViewport() {
+    if (!window._user || !window._user.uid || !state.d2dMap) return { matched: 0, added: 0 };
+    const bnds = state.d2dMap.getBounds();
+    const south = bnds.getSouth(), north = bnds.getNorth();
+    const west = bnds.getWest(), east = bnds.getEast();
+    try {
+      // Same tenancy branch as loadKnocks — team managers read the company,
+      // everyone else reads their own uid.
+      const scope = (state.teamMode && state.currentRep?.role === 'manager')
+        ? window.where('companyId', '==', state.currentRep.companyId)
+        : window.where('userId', '==', window._user.uid);
+      const q = window.query(
+        window.collection(window._db, 'knocks'),
+        scope,
+        window.where('lat', '>=', south),
+        window.where('lat', '<=', north),
+        window.orderBy('lat'),
+        window.limit(VIEWPORT_KNOCK_LIMIT)
+      );
+      const snap = await window.getDocs(q);
+      const byId = new Map(state.knocks.map(k => [k.id, k]));
+      const before = byId.size;
+      let matched = 0;
+      snap.docs.forEach(d => {
+        const data = d.data();
+        // Server range only bounded latitude — filter longitude client-side.
+        const lng = (typeof data.lng === 'number') ? data.lng : parseFloat(data.lng);
+        if (!(lng >= west && lng <= east)) return;
+        matched++;
+        byId.set(d.id, {
+          id: d.id,
+          ...data,
+          createdAt: toDate(data.createdAt) || new Date(0),
+          updatedAt: toDate(data.updatedAt) || new Date(0),
+          followUpDate: toDate(data.followUpDate) || null
+        });
+      });
+      state.knocks = Array.from(byId.values()).sort((a, b) => b.createdAt - a.createdAt);
+      // Rebuild derived data (same trio as loadKnocks) now that the set grew.
+      buildStreetSequences();
+      calculateNeighborhoodScores();
+      updateNavBadge();
+      return { matched, added: byId.size - before, capped: snap.size >= VIEWPORT_KNOCK_LIMIT };
+    } catch (e) {
+      console.error('loadKnocksInViewport failed:', e);
+      // A missing composite index is the one expected first-run failure — the
+      // [userId, lat] / [companyId, lat] indexes ship in this change and BUILD
+      // asynchronously on deploy. Surface it honestly rather than falling back
+      // to an unbounded read; the whole point of viewport search is to NOT pull
+      // the world.
+      const indexBuilding = String(e.message || '').toLowerCase().includes('index');
+      return { matched: 0, added: 0, error: true, indexBuilding };
+    }
+  }
+
+  // Plain refresh — re-pull the default 500 most-recent knocks and repaint the
+  // map + feed, without a full page reload. There was previously no way to
+  // re-pull knocks short of reloading the whole app.
+  async function refreshKnocks() {
+    await loadKnocks();
+    refreshMapMarkers();
+    if (window.D2D && typeof window.D2D.renderD2D === 'function') window.D2D.renderD2D();
+  }
+
   // Wrap a Firestore promise in a timeout so iOS Safari bfcache zombies
   // (where the SDK has a dead WebSocket but never rejects) surface as
   // an error the caller can handle instead of hanging the UI forever.
@@ -2646,6 +2729,7 @@
     refreshMapMarkers();
     createLayerPanel();
     createBasemapControl();
+    createSearchAreaControl();
     // Load saved territories into state on entry so knocks can be attributed to a
     // storm zone (point-in-polygon) even before the territory layer is toggled.
     loadTerritories().catch(() => {});
@@ -2988,6 +3072,112 @@
       const btn = document.getElementById('d2d-basemap-' + key);
       if (btn) btn.classList.toggle('active', state.d2dBasemap === key);
     });
+  }
+
+  // ── "SEARCH THIS AREA" VIEWPORT CONTROL (Zillow/Redfin-style) ─────────
+  // A pill that surfaces after the rep pans/zooms the map; tapping it pulls the
+  // knocks for the CURRENT viewport (loadKnocksInViewport) instead of the
+  // global 500-most-recent default. Also carries a plain 🔄 refresh.
+  //
+  // Verification note (this handler runs on every map move): the `moveend`
+  // handler ONLY toggles this button's visibility — it performs NO map mutation
+  // (no setView / fitBounds / invalidateSize), so it can never re-trigger its
+  // own moveend and cannot oscillate. The visibility write is idempotent
+  // (skipped when already in the target state) so a burst of moveend events
+  // can't thrash layout. `_searchAreaArmed` gates the first ~2s so the init
+  // setView / invalidateSize settle doesn't flash the pill.
+  let _searchAreaArmed = false;
+  let _searchAreaBusy = false;
+
+  function createSearchAreaControl() {
+    if (!state.d2dMap || document.getElementById('d2d-search-area-wrap')) return;
+    const wrap = document.createElement('div');
+    wrap.id = 'd2d-search-area-wrap';
+    wrap.style.cssText = 'position:absolute;top:12px;left:50%;transform:translateX(-50%);'
+      + 'z-index:1000;display:none;align-items:center;gap:6px;';
+
+    const search = document.createElement('button');
+    search.type = 'button';
+    search.id = 'd2d-search-area';
+    search.textContent = '🔄 Search this area';
+    search.style.cssText = 'background:var(--orange,#e8720c);color:#0A0C0F;border:none;'
+      + 'padding:8px 14px;border-radius:20px;cursor:pointer;'
+      + "font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:800;letter-spacing:.03em;"
+      + 'box-shadow:0 3px 14px rgba(0,0,0,.5);-webkit-tap-highlight-color:transparent;min-height:38px;';
+    // addEventListener (not inline on*=) — CSP-safe, like the layer/basemap controls.
+    search.addEventListener('click', (e) => { e.stopPropagation(); runSearchThisArea(); });
+    wrap.appendChild(search);
+
+    const refresh = document.createElement('button');
+    refresh.type = 'button';
+    refresh.id = 'd2d-refresh-knocks';
+    refresh.title = 'Refresh knocks (re-pull the 500 most recent)';
+    refresh.textContent = '↻';
+    refresh.style.cssText = 'background:color-mix(in srgb, var(--s) 92%, transparent);'
+      + 'color:var(--t);border:1px solid var(--br);width:38px;height:38px;border-radius:19px;'
+      + 'cursor:pointer;font-size:16px;font-weight:700;box-shadow:0 3px 14px rgba(0,0,0,.5);'
+      + '-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);-webkit-tap-highlight-color:transparent;';
+    refresh.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      refresh.disabled = true; refresh.textContent = '⏳';
+      try { await refreshKnocks(); window.showToast?.('Knocks refreshed', 'info'); }
+      catch (_) { window.showToast?.('Refresh failed', 'error'); }
+      finally { refresh.disabled = false; refresh.textContent = '↻'; }
+    });
+    wrap.appendChild(refresh);
+
+    const mapEl = document.getElementById('d2dMap');
+    if (mapEl) { mapEl.style.position = 'relative'; mapEl.appendChild(wrap); }
+
+    // Show the pill only after a genuine pan/zoom. See the verification note
+    // above: this callback mutates no map state, so there is no feedback loop.
+    state.d2dMap.on('moveend', _onMapMoveForSearch);
+    setTimeout(() => { _searchAreaArmed = true; }, 2000);
+  }
+
+  function _onMapMoveForSearch() {
+    if (!_searchAreaArmed || _searchAreaBusy) return;
+    _setSearchAreaVisible(true);
+  }
+
+  // Idempotent visibility toggle — only writes to the DOM when the state
+  // actually changes, so a burst of moveend events can't thrash layout.
+  function _setSearchAreaVisible(show) {
+    const wrap = document.getElementById('d2d-search-area-wrap');
+    if (!wrap) return;
+    const want = show ? 'flex' : 'none';
+    if (wrap.style.display !== want) wrap.style.display = want;
+  }
+
+  async function runSearchThisArea() {
+    if (_searchAreaBusy) return;
+    const btn = document.getElementById('d2d-search-area');
+    _searchAreaBusy = true;
+    if (btn) { btn.textContent = '⏳ Searching…'; btn.disabled = true; }
+    let res;
+    try {
+      res = await loadKnocksInViewport();
+    } finally {
+      _searchAreaBusy = false;
+      if (btn) { btn.disabled = false; btn.textContent = '🔄 Search this area'; }
+    }
+    if (res && res.error) {
+      window.showToast?.(
+        res.indexBuilding
+          ? 'Area search is finishing setup — try again in a minute'
+          : "Couldn't search this area — try again",
+        'error');
+      return; // leave the pill up so the rep can retry
+    }
+    refreshMapMarkers();
+    _setSearchAreaVisible(false); // this viewport is now loaded
+    if (res && res.matched > 0) {
+      const n = res.capped ? (VIEWPORT_KNOCK_LIMIT + '+') : res.matched;
+      window.showToast?.(`📍 ${n} knock${res.matched === 1 ? '' : 's'} in this area`, 'success');
+    } else {
+      // Honest empty state — "searched, none here", distinct from "not loaded yet".
+      window.showToast?.('No knocks logged in this area yet', 'info');
+    }
   }
 
   function createLayerPanel() {
@@ -3671,6 +3861,9 @@
   state.clearWalkingRoute = clearWalkingRoute;
   state.loadRepProfile = loadRepProfile;
   state.loadKnocks = loadKnocks;
+  state.loadKnocksInViewport = loadKnocksInViewport;
+  state.refreshKnocks = refreshKnocks;
+  state.runSearchThisArea = runSearchThisArea;
   state.submitKnock = submitKnock;
   state.updateKnock = updateKnock;
   state.deleteKnock = deleteKnock;

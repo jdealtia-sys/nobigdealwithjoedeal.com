@@ -472,4 +472,83 @@ section('Map heat + pins toggle + mobile');
     'expected hideCustomersLayer to bump _custBuildToken so a running backfill build aborts before re-showing the panel');
 }
 
+section('D2D map — "Search this area" viewport knock loader (fixes the 500-recent cap)');
+{
+  const src = readD2DLive();
+
+  // The spatial loader exists and is wired into the public shim so the map
+  // control (and any future caller) can reach it.
+  assert('D2D core defines loadKnocksInViewport()',
+    /async function loadKnocksInViewport\s*\(/.test(src));
+  assert('window.D2D shim exports loadKnocksInViewport',
+    /loadKnocksInViewport:\s*state\.loadKnocksInViewport/.test(src));
+
+  // Bounding-box strategy: Firestore permits a range on ONE field, so lat is
+  // range-filtered server-side and lng is filtered client-side.
+  assert('viewport query range-filters lat server-side (>= and <=)',
+    /where\(\s*['"]lat['"]\s*,\s*['"]>=['"]/.test(src) &&
+    /where\(\s*['"]lat['"]\s*,\s*['"]<=['"]/.test(src));
+  assert('viewport query filters lng client-side',
+    /lng\s*>=\s*west\s*&&\s*lng\s*<=\s*east/.test(src));
+
+  // Tenancy: the viewport query must stay scoped to userId / companyId — it
+  // must never widen the read surface. Scope the check to the function body.
+  const vp = src.slice(src.indexOf('async function loadKnocksInViewport'));
+  const vpBody = vp.slice(0, 2200);
+  assert('viewport query keeps rep (userId) tenancy scope',
+    /where\(\s*['"]userId['"]\s*,\s*['"]==['"]/.test(vpBody));
+  assert('viewport query keeps team (companyId) tenancy scope',
+    /where\(\s*['"]companyId['"]\s*,\s*['"]==['"]/.test(vpBody));
+
+  // Default first paint is UNCHANGED — 500-most-recent is still the boot
+  // loader, so nothing regresses.
+  assert('KNOCK_PAGE_SIZE default stays 500 (no regression to first paint)',
+    /KNOCK_PAGE_SIZE\s*=\s*500/.test(src));
+
+  // The Search-this-area control is created and CSP-safe (addEventListener,
+  // not inline onclick).
+  assert('createSearchAreaControl builds the #d2d-search-area pill',
+    /function createSearchAreaControl\s*\(/.test(src) &&
+    /id\s*=\s*['"]d2d-search-area['"]/.test(src));
+  assert('search control is wired via addEventListener (CSP-safe, no inline onclick)',
+    /search\.addEventListener\(\s*['"]click['"]/.test(src));
+  assert('moveend handler is armed after init (no flash on the setView/invalidateSize settle)',
+    /_searchAreaArmed/.test(src) &&
+    /on\(\s*['"]moveend['"]\s*,\s*_onMapMoveForSearch\)/.test(src));
+
+  // Oscillation guard (the #1061/#1062 lesson): the moveend handler and its
+  // visibility toggle must NOT mutate the map — no setView/fitBounds/
+  // invalidateSize — so the handler can't re-trigger its own moveend.
+  const mh = src.slice(src.indexOf('function _onMapMoveForSearch'),
+                       src.indexOf('async function runSearchThisArea'));
+  assert('search move/visibility handlers perform no map mutation (no oscillation)',
+    !/(setView|fitBounds|invalidateSize|flyTo|panTo|panBy)/.test(mh));
+
+  // Honest feedback: loading state, result count, and an empty state that
+  // reads "searched, none here" — distinct from "not loaded yet".
+  assert('viewport search has an honest empty state',
+    /No knocks logged in this area/.test(src));
+  assert('viewport search reports a result count',
+    /\$\{n\} knock/.test(src) && /in this area/.test(src));
+
+  // Plain refresh affordance (there was previously no re-pull short of reload).
+  assert('D2D exposes a plain refreshKnocks re-pull',
+    /async function refreshKnocks\s*\(/.test(src) &&
+    /refreshKnocks:\s*state\.refreshKnocks/.test(src));
+}
+
+section('firestore.indexes.json — knocks [tenant, lat] viewport indexes (deploy on merge)');
+{
+  const idx = JSON.parse(read(path.join(ROOT, 'firestore.indexes.json')));
+  const hasKnockIndex = (fields) => idx.indexes.some(i =>
+    i.collectionGroup === 'knocks' &&
+    Array.isArray(i.fields) &&
+    i.fields.length === fields.length &&
+    i.fields.every((f, n) => f.fieldPath === fields[n]));
+  assert('knocks [userId, lat] index present (rep viewport scope)',
+    hasKnockIndex(['userId', 'lat']));
+  assert('knocks [companyId, lat] index present (team viewport scope)',
+    hasKnockIndex(['companyId', 'lat']));
+}
+
 };

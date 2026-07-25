@@ -25,6 +25,11 @@
     init: state.initD2D,
     renderD2D: state.renderD2D,
     loadKnocks: state.loadKnocks,
+    // "Search this area" — viewport-scoped knock pull + plain refresh. Fixes
+    // the loadKnocks 500-most-recent cap for reps panning to older territory.
+    loadKnocksInViewport: state.loadKnocksInViewport,
+    searchThisArea: state.runSearchThisArea,
+    refreshKnocks: state.refreshKnocks,
     openQuickKnock: state.openQuickKnock,
     closeQuickKnock: state.closeQuickKnock,
     selectDispo: state.selectDispo,

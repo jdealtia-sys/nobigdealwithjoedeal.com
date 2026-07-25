@@ -216,6 +216,36 @@
       ]
     },
     {
+      "_comment": "D2D map 'Search this area' viewport pull — loadKnocksInViewport (d2d-tracker-core-2026b.js) range-filters lat within the map bounds while equality-scoping the tenant (userId here, companyId below), then filters lng client-side. Firestore allows a range on one field only, so [tenant, lat] is the required composite. Without it the viewport query throws 'requires an index' and the pill shows the honest 'finishing setup' state.",
+      "collectionGroup": "knocks",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "userId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "lat",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "_comment": "D2D 'Search this area' — team-mode (manager) branch of loadKnocksInViewport: company-scoped viewport pull, range on lat. Mirrors the [userId, lat] index above.",
+      "collectionGroup": "knocks",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "companyId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "lat",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
       "collectionGroup": "territories",
       "queryScope": "COLLECTION",
       "fields": [
