@@ -867,6 +867,26 @@ section('D2D map — Customers layer persists geocoded coords (geocode once ever
     /lead\.id && !String\(lead\.id\)\.startsWith\(['"]d-['"]\)/.test(build));
 }
 
+section('D2D map — navigation polish (heading smoothing + "you are here" pulse)');
+{
+  const src = readD2DLive();
+
+  // Circular low-pass filter smooths the jittery compass (unit-vector average
+  // so it eases across the 0°/360° wrap) and _onHeading runs through it.
+  assert('heading is smoothed by a circular low-pass filter',
+    /function _smoothHeading\s*\(/.test(src) &&
+    /Math\.atan2\(_headingSmY, _headingSmX\)/.test(src) &&
+    /Math\.cos\(rad\)/.test(src) && /Math\.sin\(rad\)/.test(src));
+  assert('_onHeading applies the smoothing filter',
+    /function _onHeading[\s\S]{0,140}deg = _smoothHeading\(deg\)/.test(src));
+  assert('the smoothing filter resets on teardown',
+    /function _stopHeadingWatch[\s\S]{0,600}_headingSmX = null; _headingSmY = null/.test(src));
+
+  // The location marker gets the radiating "you are here" pulse back.
+  assert('location dot uses the d2d-location-pulse treatment',
+    /class="d2d-location-pulse"/.test(src));
+}
+
 section('firestore.indexes.json — knocks [tenant, lat] viewport indexes (deploy on merge)');
 {
   const idx = JSON.parse(read(path.join(ROOT, 'firestore.indexes.json')));

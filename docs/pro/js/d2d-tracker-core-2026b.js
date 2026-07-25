@@ -3035,6 +3035,21 @@
   let _compassActive = false;
   let _headingListener = null;
   let _pendingHeading = null, _headingRafId = 0, _lastAppliedHeading = null;
+  // Circular low-pass filter for the (jittery) compass heading — smooths the
+  // arrow/map so it glides instead of twitching. Averaged as a unit vector so
+  // it behaves correctly across the 0°/360° wrap (359°→1° eases through 0, not
+  // back through 180). Alpha ≈ responsiveness vs smoothness.
+  let _headingSmX = null, _headingSmY = null;
+  const HEADING_SMOOTH_ALPHA = 0.25;
+  function _smoothHeading(deg) {
+    const rad = deg * Math.PI / 180, x = Math.cos(rad), y = Math.sin(rad);
+    if (_headingSmX == null) { _headingSmX = x; _headingSmY = y; }
+    else {
+      _headingSmX += HEADING_SMOOTH_ALPHA * (x - _headingSmX);
+      _headingSmY += HEADING_SMOOTH_ALPHA * (y - _headingSmY);
+    }
+    return (Math.atan2(_headingSmY, _headingSmX) * 180 / Math.PI + 360) % 360;
+  }
 
   function _locationIcon(heading) {
     const hasH = (typeof heading === 'number' && !isNaN(heading));
@@ -3043,8 +3058,9 @@
       + 'display:' + (hasH ? 'block' : 'none') + ';">'
       + '<svg width="42" height="42" viewBox="0 0 42 42"><path d="M21 3 L29 21 L21 16 L13 21 Z" fill="#4A9EFF" stroke="#fff" stroke-width="1"/></svg>'
       + '</div>';
-    const dot = '<div style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);'
-      + 'width:16px;height:16px;border-radius:50%;background:#4A9EFF;border:3px solid #fff;box-shadow:0 0 5px rgba(0,0,0,.6);"></div>';
+    // .d2d-location-pulse (theme-bridge.css) gives the radiating "you are here"
+    // pulse + the blue dot styling; we only add positioning inline.
+    const dot = '<div class="d2d-location-pulse" style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);"></div>';
     return L.divIcon({ html: '<div style="position:relative;width:42px;height:42px;">' + arrow + dot + '</div>',
       iconSize: [42, 42], iconAnchor: [21, 21], className: '' });
   }
@@ -3085,6 +3101,7 @@
   function _onHeading(deg) {
     if (deg == null || isNaN(deg)) return;
     deg = ((deg % 360) + 360) % 360;
+    deg = _smoothHeading(deg); // low-pass the compass jitter before we act on it
     if (_lastAppliedHeading != null) {
       const d = Math.abs(deg - _lastAppliedHeading);
       if (Math.min(d, 360 - d) < 3) return; // ignore sub-3° jitter — don't churn the DOM
@@ -3133,6 +3150,7 @@
     if (_headingRafId && typeof cancelAnimationFrame === 'function') { try { cancelAnimationFrame(_headingRafId); } catch (_) {} }
     _headingRafId = 0;
     _pendingHeading = null;
+    _headingSmX = null; _headingSmY = null; _lastAppliedHeading = null; // reset the smoothing filter
   }
 
   function _recenterFollow() {
