@@ -20,7 +20,7 @@
  *   - Firestore CRUD: loadRepProfile, loadKnocks, submitKnock,
  *     updateKnock, deleteKnock, convertToLead, convertToLeadWithEdit,
  *     loadTeamKnocks, loadTerritories, saveTerritory, deleteTerritory
- *   - Map init + layer panel + jobs/weather/territory overlays
+ *   - Map init + layer panel + customers/weather/territory overlays
  *   - Photo + voice upload helpers (Firebase Storage)
  *   - Metrics, gamification, filters
  *   - initD2D entry point
@@ -191,6 +191,11 @@
   };
   const BASEMAP_ORDER = ['satellite', 'hybrid', 'streets', 'terrain'];
   const BASEMAP_PREF = 'nbd_d2d_basemap';
+  // Map mark LOOK preference (Phase 1 of the map unification). Pure display
+  // style — 'dots' = the detailed disposition-coded circles, 'pins' = simple
+  // color teardrops 📍. Colour still encodes status in BOTH styles; this only
+  // changes the shape. Persisted per device like BASEMAP_PREF.
+  const MARK_STYLE_PREF = 'nbd_d2d_mark_style';
   const NOMINATIM_SEARCH = 'https://nominatim.openstreetmap.org/search?format=json&countrycodes=us&limit=5&q=';
   const NOMINATIM_REVERSE = 'https://nominatim.openstreetmap.org/reverse?format=json&addressdetails=1';
   const WEATHER_KEY_STORE = 'nbd_weather_key';
@@ -240,6 +245,7 @@
   const state = window._D2DState = window._D2DState || {};
   state.knocks = [];
   state.lastKnockLoadError = null; // set by loadKnocks on failure; read by runMapDiagnostics
+  state.d2dMarkStyle = 'dots';     // 'dots' | 'pins' — restored from localStorage in initD2DMap
   state.d2dMap = null;
   state.d2dCluster = null;
   state.d2dHeat = null;
@@ -2802,6 +2808,9 @@
     try { const saved = localStorage.getItem(BASEMAP_PREF); if (saved && BASEMAPS[saved]) initialBasemap = saved; } catch (_) {}
     setBasemap(initialBasemap);
 
+    // Restore the rep's last mark look (dots vs pins) before the first paint.
+    try { const savedStyle = localStorage.getItem(MARK_STYLE_PREF); if (savedStyle === 'pins' || savedStyle === 'dots') state.d2dMarkStyle = savedStyle; } catch (_) {}
+
     // Force map to recalculate size after standalone viewport settles
     if (isStandalone) {
       setTimeout(() => { if (state.d2dMap) state.d2dMap.invalidateSize(); }, 500);
@@ -2977,6 +2986,48 @@
     }
   }
 
+  // Build a knock marker's icon in the current look style. Colour encodes
+  // status (the disposition colour) in BOTH styles — only the shape differs:
+  //   'dots' — detailed disposition-coded circle (the analytical D2D look)
+  //   'pins' — simple colour teardrop 📍 (the cleaner CRM-map look)
+  // The disposition colour is a whitelisted hex from DISPOSITIONS, but it is
+  // escaped before entering the SVG anyway (defence-in-depth, matches the
+  // maps-overlays pin path).
+  function _d2dMarkerIcon(dispo) {
+    const color = (dispo && dispo.color) || '#666';
+    if (state.d2dMarkStyle === 'pins') {
+      const safe = esc(color);
+      const svg = '<svg viewBox="0 0 24 32" width="22" height="30" xmlns="http://www.w3.org/2000/svg">'
+        + '<path d="M12 0C7.6 0 4 3.6 4 8c0 6 8 16 8 16s8-10 8-16c0-4.4-3.6-8-8-8z" fill="' + safe + '" stroke="white" stroke-width="1.5"/>'
+        + '<circle cx="12" cy="8" r="3" fill="white"/></svg>';
+      return L.divIcon({
+        html: '<div style="filter:drop-shadow(0 2px 4px rgba(0,0,0,.5));">' + svg + '</div>',
+        iconSize: [22, 30], iconAnchor: [11, 30], popupAnchor: [0, -30], className: ''
+      });
+    }
+    // Default: detailed dot — disposition short-code in a colour-filled circle.
+    const label = document.createElement('div');
+    label.style.cssText = `background:${color};width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;font-size:12px;font-weight:bold;border:2px solid white;`;
+    label.textContent = (dispo && dispo.short) || '?';
+    return L.divIcon({ html: label.outerHTML, iconSize: [30, 30], className: '' });
+  }
+
+  function _markStyleBtnLabel() { return state.d2dMarkStyle === 'pins' ? '📍 Pins' : '⚫ Dots'; }
+
+  // Flip the whole map between detailed dots and colour pins, persist the
+  // choice, and repaint. refreshMapMarkers() fully rebuilds the cluster, so
+  // this is a clean redraw — no per-marker mutation, no oscillation vector.
+  function toggleMarkStyle() {
+    state.d2dMarkStyle = (state.d2dMarkStyle === 'pins') ? 'dots' : 'pins';
+    try { localStorage.setItem(MARK_STYLE_PREF, state.d2dMarkStyle); } catch (_) {}
+    const btn = document.getElementById('d2d-mark-style');
+    if (btn) btn.innerHTML = _markStyleBtnLabel();
+    refreshMapMarkers();
+    // Leads honor the same look — restyle them too if the layer is showing.
+    if (d2dLayerState.customers) buildD2DCustomersLayer();
+    window.showToast?.(state.d2dMarkStyle === 'pins' ? 'Color pins' : 'Detailed dots', 'info', 1500);
+  }
+
   function refreshMapMarkers() {
     if (!state.d2dMap || !state.d2dCluster) return;
     state.d2dCluster.clearLayers();
@@ -3001,16 +3052,21 @@
       }
     });
 
+    // One mark per house (map-unification phase 3): when the Customers layer
+    // is showing, a house that is ALSO a lead/customer is drawn by that layer
+    // (coloured by pipeline stage — the house's furthest-along status), so we
+    // suppress the duplicate knock mark here. Guarded on the lead having
+    // coordinates so a house never vanishes (an address-only lead that can't
+    // be placed leaves its knock visible). No effect when the layer is off.
+    const suppressAddrs = d2dLayerState.customers ? _leadAddrSetWithCoords() : null;
+
     const heatData = [];
-    addrMap.forEach(knock => {
+    addrMap.forEach((knock, norm) => {
+      if (suppressAddrs && suppressAddrs.has(norm)) return; // shown as its customer mark
       if (!knock.lat || !knock.lng) return;
       const dispo = DISPOSITIONS[knock.disposition];
       const attempts = getAttemptCount(knock.address);
-      const label = document.createElement('div');
-      label.style.cssText = `background:${dispo?.color || '#666'};width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;font-size:12px;font-weight:bold;border:2px solid white;`;
-      label.textContent = dispo?.short || '?';
-
-      const icon = L.divIcon({ html: label.outerHTML, iconSize: [30, 30], className: '' });
+      const icon = _d2dMarkerIcon(dispo);
 
       // Build popup with data-attributes + touchend listeners instead of inline onclick
       // (iOS Safari standalone swallows inline onclick in Leaflet popups)
@@ -3090,8 +3146,8 @@
   //   Weather — NOAA NEXRAD radar overlay
   //   Heat    — knock density heatmap
   // ════════════════════════════════════════════════════════════
-  let d2dLayerState = { knocks: true, jobs: false, weather: false, heat: false, territory: false, score: false };
-  let d2dJobMarkers = [];
+  let d2dLayerState = { knocks: true, customers: false, weather: false, heat: false, territory: false, score: false };
+  let d2dCustomerMarkers = [];
   let d2dStormLayer = null;
   let d2dWeatherLayer = null;
   let d2dDrawControl = null;
@@ -3287,7 +3343,7 @@
 
     const layers = [
       { key: 'knocks',    icon: '📍', label: 'Knocks' },
-      { key: 'jobs',      icon: '💰', label: 'Jobs' },
+      { key: 'customers', icon: '👥', label: 'Customers' },
       { key: 'weather',   icon: '⛈️', label: 'Radar' },
       { key: 'heat',      icon: '🔥', label: 'Heat' },
       { key: 'score',     icon: '🎯', label: 'Score' },
@@ -3331,6 +3387,18 @@
     diag.addEventListener('click', (e) => { e.stopPropagation(); runMapDiagnostics(); });
     panel.appendChild(diag);
 
+    // Mark-look toggle (detailed dots ⇄ colour pins). A display switch, not a
+    // layer — colour still encodes status either way. Same neutral chip style
+    // as the diagnostics button; CSP-safe (addEventListener).
+    const styleBtn = document.createElement('button');
+    styleBtn.type = 'button';
+    styleBtn.id = 'd2d-mark-style';
+    styleBtn.title = 'Switch marker look: detailed dots ⇄ color pins';
+    styleBtn.style.cssText = diag.style.cssText;
+    styleBtn.innerHTML = _markStyleBtnLabel();
+    styleBtn.addEventListener('click', (e) => { e.stopPropagation(); toggleMarkStyle(); });
+    panel.appendChild(styleBtn);
+
     // Append to the map container (not the map tiles) so it floats above
     const mapEl = document.getElementById('d2dMap');
     if (mapEl) {
@@ -3360,12 +3428,16 @@
           state.d2dMap.removeLayer(state.d2dCluster);
         }
         break;
-      case 'jobs':
-        if (d2dLayerState.jobs) {
-          buildD2DJobsLayer();
+      case 'customers':
+        if (d2dLayerState.customers) {
+          buildD2DCustomersLayer();
         } else {
-          d2dJobMarkers.forEach(m => state.d2dMap.removeLayer(m));
+          d2dCustomerMarkers.forEach(m => state.d2dMap.removeLayer(m));
+          d2dCustomerMarkers = [];
         }
+        // Re-render knocks so the one-mark-per-house suppression turns on/off
+        // in step with the Customers layer.
+        refreshMapMarkers();
         break;
       case 'weather':
         if (d2dLayerState.weather) {
@@ -3396,44 +3468,73 @@
     window.showToast?.((d2dLayerState[key] ? 'Showing ' : 'Hiding ') + key, 'info');
   }
 
-  // ── Jobs layer (ported from maps.js) ──
-  // Shows active CRM leads as markers with $ value labels.
-  // Uses lead lat/lng directly if available (from D2D knock
-  // auto-convert or manual entry), falling back to Nominatim
-  // geocoding for leads that only have an address string.
+  // ── Customers layer (map-unification phase 2) ──
+  // Brings the whole CRM pipeline onto the D2D map as one mark per lead,
+  // coloured by pipeline STAGE (via the live engine — window.STAGE_META /
+  // stageRole / normalizeStage, same source the kanban + old map used) and
+  // drawn in the CURRENT look (detailed dots ⇄ colour pins) so knocks and
+  // customers share one visual language. Broadened from the old jobs-only
+  // ($-label) layer: every non-deleted lead with a location now shows.
   //
-  // Audit #20: Nominatim fair-use policy is ≥1 request/second. The prior
-  // 200ms sleep was 5× over the rate limit and would eventually get the
-  // app IP-banned. We now: (1) share a long-lived cache keyed on address
-  // so repeated toggles don't re-geocode, (2) sleep 1100ms between live
-  // requests, (3) cap a single build at 15 live geocodes to avoid pinning
-  // the user on one operation for 20+ seconds.
+  // Uses lead lat/lng if present, else Nominatim geocoding (cache-first,
+  // rate-limited ≥1 req/s, capped per build) — same fair-use discipline as
+  // the old jobs layer.
   const D2D_GEOCODE_CACHE = new Map(); // addr → { lat, lng } | null
   const D2D_GEOCODE_PER_BUILD_CAP = 15;
 
-  async function buildD2DJobsLayer() {
-    if (!state.d2dMap) return;
-    d2dJobMarkers.forEach(m => state.d2dMap.removeLayer(m));
-    d2dJobMarkers = [];
-
-    const leads = window._leads || [];
-    const JOB_STAGES = new Set([
-      'contract_signed', 'job_created', 'permit_pulled', 'materials_ordered',
-      'materials_delivered', 'crew_scheduled', 'install_in_progress',
-      'install_complete', 'final_photos', 'deductible_collected',
-      'final_payment', 'closed', 'In Progress', 'Complete', 'Finalizing'
-    ]);
-    const active = leads.filter(l => {
-      const sk = l._stageKey || l.stage || '';
-      return JOB_STAGES.has(sk);
+  // Normalized addresses of leads that CAN be placed (have coords) — the set
+  // used by refreshMapMarkers to suppress a duplicate knock mark for a house
+  // that's already shown as a customer. Coords-required so a house never
+  // disappears when its lead is address-only.
+  function _leadAddrSetWithCoords() {
+    const set = new Set();
+    (window._leads || []).forEach(l => {
+      if (!l || l.deleted) return;
+      if (!(Number(l.lat) && Number(l.lng))) return;
+      const norm = normalizeAddress(l.address || '');
+      if (norm) set.add(norm);
     });
+    return set;
+  }
+
+  // Pipeline-stage colour for a lead, from the live stage engine (falls back
+  // to the role palette, then a neutral blue) — mirrors maps-overlays' pin
+  // colouring so customers look identical wherever they render.
+  function _leadStageColor(lead) {
+    const stage = (lead && (lead._stageKey || lead.stage)) || '';
+    const key = (typeof window.normalizeStage === 'function') ? window.normalizeStage(stage) : stage;
+    const meta = (window.STAGE_META && window.STAGE_META[key]) || null;
+    if (meta && meta.color) return meta.color;
+    if (typeof window.stageRole === 'function') {
+      const roleColors = { new: '#9CA3AF', active: '#4A9EFF', job: '#0D9488', won: '#22C55E', lost: '#E05252' };
+      return roleColors[window.stageRole(key)] || '#4A9EFF';
+    }
+    return '#4A9EFF';
+  }
+
+  // 2-char code for the detailed-dot look — initials of the customer's name,
+  // else a short stage code, so a lead dot is legible next to a knock dot.
+  function _leadShortCode(lead) {
+    const nm = [lead.firstName, lead.lastName].filter(Boolean).join(' ').trim();
+    if (nm) return nm.split(/\s+/).slice(0, 2).map(w => w[0]).join('').toUpperCase();
+    const st = String((lead._stageKey || lead.stage) || '').replace(/[^a-z]/gi, '');
+    return (st.slice(0, 2) || '★').toUpperCase();
+  }
+
+  async function buildD2DCustomersLayer() {
+    if (!state.d2dMap) return;
+    d2dCustomerMarkers.forEach(m => state.d2dMap.removeLayer(m));
+    d2dCustomerMarkers = [];
+
+    // Whole pipeline, minus soft-deleted leads. (Dedupe against knocks so a
+    // knocked-and-converted house shows ONE mark is phase 3.)
+    const leads = (window._leads || []).filter(l => l && !l.deleted);
 
     let liveRequests = 0;
     let skippedDueToCap = 0;
-    for (const lead of active) {
+    for (const lead of leads) {
       let lat = Number(lead.lat);
       let lng = Number(lead.lng);
-      // If no coords, try Nominatim geocoding (cache-first, rate-limited)
       if (!lat || !lng) {
         const addr = (lead.address || '').trim();
         if (!addr) continue;
@@ -3461,32 +3562,41 @@
       }
       if (!lat || !lng) continue;
 
+      const color = _leadStageColor(lead);
+      // Same look as knocks: colour = status (stage), shape = the toggle.
+      const icon = _d2dMarkerIcon({ color: color, short: _leadShortCode(lead) });
       const val = parseFloat(lead.jobValue || lead.contractValue || lead.value || 0);
-      const label = val > 0 ? '$' + val.toLocaleString() : (lead.stage || 'Job');
-      const stageLower = (lead._stageKey || lead.stage || '').toLowerCase();
-      // divIcon/popup HTML lives in the page DOM, so theme tokens resolve.
-      const color = stageLower.includes('complete') || stageLower === 'closed' ? 'var(--green,#34D399)'
-        : stageLower.includes('install') ? 'var(--blue,#4A9EFF)' : 'var(--gold,#EAB308)';
       const name = esc([lead.firstName, lead.lastName].filter(Boolean).join(' ') || lead.address || 'Lead');
+      const safeColor = esc(color);
 
-      const icon = L.divIcon({
-        html: '<div style="background:' + color + ';color:#0A0C0F;font-family:\'Barlow Condensed\',sans-serif;font-size:11px;font-weight:800;padding:3px 7px;border-radius:5px;white-space:nowrap;box-shadow:0 2px 8px rgba(0,0,0,.5);border:1px solid rgba(255,255,255,.2);">💰 ' + label + '</div>',
-        iconAnchor: [0, 0], className: ''
-      });
-      const marker = L.marker([lat, lng], { icon })
-        .bindPopup('<div style="font-family:sans-serif;min-width:160px;">'
-          + '<b style="font-size:13px;color:' + color + ';">' + name + '</b>'
-          + '<p style="font-size:11px;color:#666;margin:4px 0;">' + esc(lead.address || '') + '</p>'
-          + '<p style="font-size:11px;margin:2px 0;"><b>Stage:</b> ' + esc(lead.stage || '') + '</p>'
-          + (val > 0 ? '<p style="font-size:12px;font-weight:700;color:' + color + ';">$' + val.toLocaleString() + '</p>' : '')
-          + '</div>');
-      d2dJobMarkers.push(marker);
+      const popup = document.createElement('div');
+      popup.style.cssText = 'font-family:sans-serif;min-width:170px;';
+      popup.innerHTML = '<b style="font-size:13px;color:' + safeColor + ';">' + name + '</b>'
+        + '<p style="font-size:11px;color:var(--m,#888);margin:4px 0;">' + esc(lead.address || '') + '</p>'
+        + '<p style="font-size:11px;margin:2px 0;"><b>Stage:</b> ' + esc(lead.stage || '—') + '</p>'
+        + (val > 0 ? '<p style="font-size:12px;font-weight:700;color:' + safeColor + ';">$' + val.toLocaleString() + '</p>' : '');
+      // CSP-safe "View lead" — navigate to CRM + open the card, both guarded.
+      if (lead.id) {
+        const view = document.createElement('button');
+        view.textContent = 'View lead →';
+        view.style.cssText = 'margin-top:6px;padding:4px 8px;background:var(--blue,#4A9EFF);color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:11px;';
+        view.addEventListener('click', function (ev) {
+          ev.stopPropagation();
+          try { window.goTo?.('crm'); } catch (_) {}
+          setTimeout(() => { try { window.openCardDetailModal?.(lead.id); } catch (_) {} }, 300);
+        });
+        popup.appendChild(view);
+      }
+
+      const marker = L.marker([lat, lng], { icon }).bindPopup(popup);
+      d2dCustomerMarkers.push(marker);
       marker.addTo(state.d2dMap);
     }
-    if (d2dJobMarkers.length === 0) {
-      window.showToast?.('No active jobs with locations to display', 'info');
+
+    if (d2dCustomerMarkers.length === 0) {
+      window.showToast?.('No customers with a map location yet', 'info');
     } else if (skippedDueToCap > 0) {
-      window.showToast?.(`${skippedDueToCap} job${skippedDueToCap > 1 ? 's' : ''} skipped — address lookup limit reached. Toggle the layer again to load more.`, 'info', 5000);
+      window.showToast?.(`${skippedDueToCap} customer${skippedDueToCap > 1 ? 's' : ''} skipped — address lookup limit reached. Toggle the layer again to load more.`, 'info', 5000);
     }
   }
 
@@ -3973,6 +4083,7 @@
   state.refreshKnocks = refreshKnocks;
   state.runSearchThisArea = runSearchThisArea;
   state.runMapDiagnostics = runMapDiagnostics;
+  state.toggleMarkStyle = toggleMarkStyle;
   state.submitKnock = submitKnock;
   state.updateKnock = updateKnock;
   state.deleteKnock = deleteKnock;

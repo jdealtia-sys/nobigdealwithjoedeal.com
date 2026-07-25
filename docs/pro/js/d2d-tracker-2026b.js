@@ -33,6 +33,8 @@
     // Map-data diagnostic — "why is my map empty?" Returns {loadedOnMap,
     // withCoordinates, totalInAccount, ...} and shows a plain-English verdict.
     mapDiagnostics: state.runMapDiagnostics,
+    // Flip the map's mark look between detailed dots and color pins.
+    toggleMarkStyle: state.toggleMarkStyle,
     openQuickKnock: state.openQuickKnock,
     closeQuickKnock: state.closeQuickKnock,
     selectDispo: state.selectDispo,

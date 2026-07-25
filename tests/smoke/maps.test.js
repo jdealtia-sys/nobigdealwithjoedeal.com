@@ -6,6 +6,7 @@
 
 'use strict';
 
+const fs = require('fs');
 const path = require('path');
 const { ROOT, PRO_JS, FUNCTIONS, read, readCrm, readD2DLive, readMaps } = require('./_shared');
 
@@ -578,6 +579,143 @@ section('D2D map — map-data diagnostic ("why is my map empty?")');
   assert('layer panel exposes a CSP-safe diagnostics button',
     /id\s*=\s*['"]d2d-map-diag['"]/.test(src) &&
     /diag\.addEventListener\(\s*['"]click['"][\s\S]*?runMapDiagnostics\(\)/.test(src));
+}
+
+section('D2D map — dots ⇄ pins look toggle (map unification, phase 1)');
+{
+  const src = readD2DLive();
+
+  // The look toggle exists, is exposed on the shim, and persists per device.
+  assert('D2D core defines toggleMarkStyle()',
+    /function toggleMarkStyle\s*\(/.test(src));
+  assert('window.D2D shim exports toggleMarkStyle',
+    /toggleMarkStyle:\s*state\.toggleMarkStyle/.test(src));
+  assert('mark style is persisted (MARK_STYLE_PREF localStorage)',
+    /MARK_STYLE_PREF\s*=/.test(src) &&
+    /localStorage\.setItem\(MARK_STYLE_PREF/.test(src) &&
+    /localStorage\.getItem\(MARK_STYLE_PREF\)/.test(src));
+
+  // Both looks are built by one icon helper, branched on the style.
+  assert('_d2dMarkerIcon branches on the pins style',
+    /function _d2dMarkerIcon\s*\(/.test(src) &&
+    /state\.d2dMarkStyle\s*===\s*['"]pins['"]/.test(src));
+  assert('pins style renders the teardrop SVG',
+    /M12 0C7\.6 0 4 3\.6 4 8/.test(src));
+  assert('dots style keeps the disposition short-code circle',
+    /\(dispo && dispo\.short\)\s*\|\|\s*['"]\?['"]/.test(src));
+
+  // Colour still encodes status in the pins style, and is escaped (XSS guard).
+  const iconFn = src.slice(src.indexOf('function _d2dMarkerIcon'),
+                          src.indexOf('function _markStyleBtnLabel'));
+  assert('pins style escapes the colour before interpolating into the SVG',
+    /const safe = esc\(color\)/.test(iconFn) && /fill="'\s*\+\s*safe/.test(iconFn));
+
+  // Surfaced via a CSP-safe button in the existing layer panel.
+  assert('layer panel exposes a CSP-safe mark-style toggle button',
+    /id\s*=\s*['"]d2d-mark-style['"]/.test(src) &&
+    /styleBtn\.addEventListener\(\s*['"]click['"][\s\S]*?toggleMarkStyle\(\)/.test(src));
+
+  // Default first paint is unchanged (dots), so nothing regresses visually.
+  assert("default mark style stays 'dots'",
+    /state\.d2dMarkStyle\s*=\s*['"]dots['"]/.test(src));
+}
+
+section('D2D map — Customers layer (map unification, phase 2)');
+{
+  const src = readD2DLive();
+
+  // The old jobs-only ($-label) layer is replaced by a full Customers layer.
+  assert('D2D layer state uses a customers layer (not the old jobs key)',
+    /d2dLayerState\s*=\s*\{[^}]*customers:\s*false/.test(src) &&
+    !/d2dLayerState\s*=\s*\{[^}]*\bjobs\b:/.test(src));
+  assert('layer panel shows a Customers entry',
+    /key:\s*['"]customers['"][\s\S]{0,40}label:\s*['"]Customers['"]/.test(src));
+  assert('toggleLayer handles the customers layer',
+    /case\s*['"]customers['"]:[\s\S]{0,160}buildD2DCustomersLayer\(\)/.test(src));
+  assert('D2D core defines buildD2DCustomersLayer()',
+    /async function buildD2DCustomersLayer\s*\(/.test(src));
+
+  // Colour = pipeline stage, from the live stage engine (same source as kanban).
+  const build = src.slice(src.indexOf('function _leadStageColor'),
+                         src.indexOf('async function buildD2DCustomersLayer') + 4000);
+  assert('customer colour comes from the live stage engine',
+    /window\.STAGE_META/.test(build) && /window\.stageRole/.test(build) && /window\.normalizeStage/.test(build));
+
+  // Customers honour the SAME dots/pins look toggle as knocks (one visual language).
+  assert('customer marks reuse _d2dMarkerIcon (shared dots/pins look)',
+    /const icon = _d2dMarkerIcon\(\{\s*color:\s*color/.test(src));
+  assert('flipping the look restyles the customers layer too',
+    /if \(d2dLayerState\.customers\) buildD2DCustomersLayer\(\)/.test(src));
+
+  // Whole pipeline minus soft-deleted (broader than the old job-stages-only filter).
+  assert('customers layer covers the whole pipeline (skips soft-deleted)',
+    /window\._leads\s*\|\|\s*\[\]\)\.filter\(l => l && !l\.deleted\)/.test(src));
+
+  // Reuses the fair-use geocode discipline (cache + per-build cap + 1.1s spacing).
+  assert('customers layer keeps the geocode cache + per-build cap',
+    /D2D_GEOCODE_CACHE/.test(build) && /D2D_GEOCODE_PER_BUILD_CAP/.test(build) && /1100/.test(build));
+
+  // CSP-safe "View lead" (addEventListener, not inline onclick).
+  assert('customer popup View-lead button is CSP-safe',
+    /view\.addEventListener\(\s*['"]click['"]/.test(src) && /openCardDetailModal/.test(src));
+}
+
+section('D2D map — one mark per house (map unification, phase 3)');
+{
+  const src = readD2DLive();
+
+  // Suppression set: leads that can be placed (coords required so a house
+  // never vanishes), keyed by the same normalizeAddress used for knock dedupe.
+  assert('D2D core defines _leadAddrSetWithCoords()',
+    /function _leadAddrSetWithCoords\s*\(/.test(src));
+  const setFn = src.slice(src.indexOf('function _leadAddrSetWithCoords'),
+                         src.indexOf('function _leadStageColor'));
+  assert('suppression set requires lead coordinates',
+    /Number\(l\.lat\)\s*&&\s*Number\(l\.lng\)/.test(setFn));
+  assert('suppression set keys by normalizeAddress',
+    /normalizeAddress\(l\.address/.test(setFn));
+
+  // refreshMapMarkers drops a knock mark when a coords-bearing lead shares its
+  // address AND the customers layer is on (no effect when the layer is off).
+  assert('knock render suppresses houses shown as customers (only when layer on)',
+    /const suppressAddrs = d2dLayerState\.customers \? _leadAddrSetWithCoords\(\) : null/.test(src) &&
+    /if \(suppressAddrs && suppressAddrs\.has\(norm\)\) return/.test(src));
+
+  // Toggling the customers layer re-renders knocks so suppression tracks it.
+  assert('toggling customers re-runs refreshMapMarkers (suppression stays in sync)',
+    /case\s*['"]customers['"]:[\s\S]{0,500}refreshMapMarkers\(\)/.test(src));
+}
+
+section('scripts/backfill-pins-to-knocks.js — legacy pin → knock migration (phase 4)');
+{
+  const p = path.join(ROOT, 'scripts', 'backfill-pins-to-knocks.js');
+  assert('migration script exists', fs.existsSync(p));
+  const mig = fs.existsSync(p) ? read(p) : '';
+
+  // Same safety discipline as the other backfills: dry-run by default,
+  // --apply needs --yes, idempotent, non-destructive.
+  assert('migration is dry-run by default (--apply needs --yes)',
+    /APPLY\s*&&\s*!YES/.test(mig) && /--apply.*--yes|--apply --yes/.test(mig));
+  assert('migration is idempotent (skips already-migrated pins)',
+    /pin\.migratedToKnock\s*===\s*true/.test(mig) && /migratedFromPinId/.test(mig));
+  assert('migration is non-destructive (never deletes the source pin)',
+    !/\.delete\(\)/.test(mig));
+
+  // Only hand-dropped door-knock pins migrate — customer/lead pins are skipped
+  // (they re-derive from /leads via the Customers layer).
+  assert('migration skips lead/customer pins',
+    /if \(p\.leadId\) return false/.test(mig) && /p\.type === ['"]customer['"]/.test(mig));
+
+  // Legacy status → disposition mapping (with the two best-effort cases).
+  assert('migration maps legacy pin statuses to knock dispositions',
+    /'not-home':\s*'not_home'/.test(mig) &&
+    /'do-not-knock':\s*'do_not_knock'/.test(mig) &&
+    /'signed':\s*'appointment'/.test(mig));
+
+  // Tenancy carried onto the knock (owner uid required; company scoped).
+  assert('migrated knock keeps userId/companyId tenancy',
+    /userId:\s*pin\.userId/.test(mig) && /companyId:\s*pin\.companyId\s*\|\|\s*pin\.userId/.test(mig) &&
+    /if \(!pin\.userId\)/.test(mig));
 }
 
 section('firestore.indexes.json — knocks [tenant, lat] viewport indexes (deploy on merge)');
