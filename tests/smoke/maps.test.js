@@ -6,6 +6,7 @@
 
 'use strict';
 
+const fs = require('fs');
 const path = require('path');
 const { ROOT, PRO_JS, FUNCTIONS, read, readCrm, readD2DLive, readMaps } = require('./_shared');
 
@@ -683,6 +684,38 @@ section('D2D map — one mark per house (map unification, phase 3)');
   // Toggling the customers layer re-renders knocks so suppression tracks it.
   assert('toggling customers re-runs refreshMapMarkers (suppression stays in sync)',
     /case\s*['"]customers['"]:[\s\S]{0,500}refreshMapMarkers\(\)/.test(src));
+}
+
+section('scripts/backfill-pins-to-knocks.js — legacy pin → knock migration (phase 4)');
+{
+  const p = path.join(ROOT, 'scripts', 'backfill-pins-to-knocks.js');
+  assert('migration script exists', fs.existsSync(p));
+  const mig = fs.existsSync(p) ? read(p) : '';
+
+  // Same safety discipline as the other backfills: dry-run by default,
+  // --apply needs --yes, idempotent, non-destructive.
+  assert('migration is dry-run by default (--apply needs --yes)',
+    /APPLY\s*&&\s*!YES/.test(mig) && /--apply.*--yes|--apply --yes/.test(mig));
+  assert('migration is idempotent (skips already-migrated pins)',
+    /pin\.migratedToKnock\s*===\s*true/.test(mig) && /migratedFromPinId/.test(mig));
+  assert('migration is non-destructive (never deletes the source pin)',
+    !/\.delete\(\)/.test(mig));
+
+  // Only hand-dropped door-knock pins migrate — customer/lead pins are skipped
+  // (they re-derive from /leads via the Customers layer).
+  assert('migration skips lead/customer pins',
+    /if \(p\.leadId\) return false/.test(mig) && /p\.type === ['"]customer['"]/.test(mig));
+
+  // Legacy status → disposition mapping (with the two best-effort cases).
+  assert('migration maps legacy pin statuses to knock dispositions',
+    /'not-home':\s*'not_home'/.test(mig) &&
+    /'do-not-knock':\s*'do_not_knock'/.test(mig) &&
+    /'signed':\s*'appointment'/.test(mig));
+
+  // Tenancy carried onto the knock (owner uid required; company scoped).
+  assert('migrated knock keeps userId/companyId tenancy',
+    /userId:\s*pin\.userId/.test(mig) && /companyId:\s*pin\.companyId\s*\|\|\s*pin\.userId/.test(mig) &&
+    /if \(!pin\.userId\)/.test(mig));
 }
 
 section('firestore.indexes.json — knocks [tenant, lat] viewport indexes (deploy on merge)');
