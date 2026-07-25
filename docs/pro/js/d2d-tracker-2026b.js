@@ -35,6 +35,8 @@
     mapDiagnostics: state.runMapDiagnostics,
     // Flip the map's mark look between detailed dots and color pins.
     toggleMarkStyle: state.toggleMarkStyle,
+    // Follow mode — keep the map centered on the rep as they move.
+    toggleFollow: state.toggleFollow,
     openQuickKnock: state.openQuickKnock,
     closeQuickKnock: state.closeQuickKnock,
     selectDispo: state.selectDispo,

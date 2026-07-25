@@ -255,6 +255,9 @@
   state.accuracyCircle = null;
   state.watchId = null;
   state.currentLocation = null;
+  state.d2dFollowMode = false;   // map tracks the rep as they move (restored from localStorage)
+  state.d2dFollowPaused = false; // a manual drag pauses follow until Recenter
+  state.d2dHeading = null;       // degrees from north (compass or GPS course), or null
   state.currentKnockEntry = null;
   state.filterDispo = null;
   state.filterDateRange = 'today';
@@ -2826,11 +2829,19 @@
       }
     });
 
+    // Restore the rep's follow preference (heading watch still needs a user
+    // gesture to start on iOS, so it engages when they next tap Follow).
+    try { state.d2dFollowMode = (localStorage.getItem(FOLLOW_PREF) === '1'); } catch (_) {}
+    state.d2dFollowPaused = false;
+
     watchLocationAndCenter();
     refreshMapMarkers();
     createLayerPanel();
     createBasemapControl();
     createSearchAreaControl();
+    _createRecenterControl();
+    // A manual drag pauses follow (see _onUserDragStart).
+    state.d2dMap.on('dragstart', _onUserDragStart);
     // Load saved territories into state on entry so knocks can be attributed to a
     // storm zone (point-in-polygon) even before the territory layer is toggled.
     loadTerritories().catch(() => {});
@@ -2917,11 +2928,16 @@
         // Fix accuracy in metres — used to warn before trusting a door number
         // resolved at/near the device position when the GPS fix is weak.
         state.gpsAccuracy = (typeof pos.coords.accuracy === 'number') ? pos.coords.accuracy : null;
-        if (state.locationMarker) state.d2dMap.removeLayer(state.locationMarker);
-        if (state.accuracyCircle) state.d2dMap.removeLayer(state.accuracyCircle);
-
-        state.accuracyCircle = L.circle(state.currentLocation, { radius: pos.coords.accuracy, color: '#4A9EFF', fillColor: '#4A9EFF', fillOpacity: 0.1, weight: 1 }).addTo(state.d2dMap);
-        state.locationMarker = L.circleMarker(state.currentLocation, { radius: 8, color: '#ffffff', weight: 3, fillColor: '#4A9EFF', fillOpacity: 1, className: 'd2d-location-pulse' }).addTo(state.d2dMap);
+        // GPS course = direction of MOVEMENT. Use it for the heading arrow only
+        // when the compass isn't the source (compass = facing, more responsive).
+        if (!_compassActive && typeof pos.coords.heading === 'number' && !isNaN(pos.coords.heading)) {
+          _onHeading(pos.coords.heading);
+        }
+        // Redraw the location marker (heading arrow + accuracy ring).
+        _updateLocationMarker();
+        // Follow mode: keep the map centered on the rep (unless they've paused
+        // it by dragging). Flagged so this move doesn't pop the search pill.
+        if (state.d2dFollowMode && !state.d2dFollowPaused) _recenterFollow();
       },
       function(err) {
         console.warn('Geolocation error:', err);
@@ -2960,6 +2976,7 @@
       try { navigator.geolocation.clearWatch(state.watchId); } catch (_) {}
       state.watchId = null;
     }
+    _stopHeadingWatch(); // release the compass listener + any pending rAF too
     if (state.locationMarker && state.d2dMap) { try { state.d2dMap.removeLayer(state.locationMarker); } catch (_) {} state.locationMarker = null; }
     if (state.accuracyCircle && state.d2dMap) { try { state.d2dMap.removeLayer(state.accuracyCircle); } catch (_) {} state.accuracyCircle = null; }
   }
@@ -2984,6 +3001,185 @@
       state.d2dMap.setView(state.currentLocation, 16);
       window.showToast?.('Centered on your location', 'info');
     }
+  }
+
+  // ══════════════════════════════════════════════════════════════════
+  // FOLLOW MODE + HEADING ARROW (field navigation, phase A)
+  // Follow recenters the map on the rep as they move; a manual drag pauses it
+  // (a Recenter button resumes). The location marker becomes a heading arrow
+  // when a heading is available — from the phone compass (facing; needs the
+  // iOS permission gesture) or GPS course (movement; no extra permission).
+  // The map stays NORTH-UP here; the opt-in "rotate map to heading" mode is a
+  // separate setting (phase B).
+  //
+  // Perf/verification note (the compass handler runs many times/second): it
+  // does NOT recreate the marker per event. It rAF-coalesces and writes ONE
+  // element's CSS rotate transform, and only when the heading moved past a 3°
+  // threshold. That write re-fires no event and touches no map state, so there
+  // is no oscillation loop. Follow's own setView is flagged so it can't make
+  // the "Search this area" pill appear on every step.
+  const FOLLOW_PREF = 'nbd_d2d_follow';
+  let _followProgrammaticMove = false; // set before a follow/recenter setView; cleared in the moveend guard
+  let _compassActive = false;
+  let _headingListener = null;
+  let _pendingHeading = null, _headingRafId = 0, _lastAppliedHeading = null;
+
+  function _locationIcon(heading) {
+    const hasH = (typeof heading === 'number' && !isNaN(heading));
+    const arrow = '<div class="d2d-loc-arrow" style="position:absolute;left:50%;top:50%;'
+      + 'transform:translate(-50%,-50%) rotate(' + (hasH ? heading : 0) + 'deg);transform-origin:center;'
+      + 'display:' + (hasH ? 'block' : 'none') + ';">'
+      + '<svg width="42" height="42" viewBox="0 0 42 42"><path d="M21 3 L29 21 L21 16 L13 21 Z" fill="#4A9EFF" stroke="#fff" stroke-width="1"/></svg>'
+      + '</div>';
+    const dot = '<div style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);'
+      + 'width:16px;height:16px;border-radius:50%;background:#4A9EFF;border:3px solid #fff;box-shadow:0 0 5px rgba(0,0,0,.6);"></div>';
+    return L.divIcon({ html: '<div style="position:relative;width:42px;height:42px;">' + arrow + dot + '</div>',
+      iconSize: [42, 42], iconAnchor: [21, 21], className: '' });
+  }
+
+  function _updateLocationMarker() {
+    if (!state.d2dMap || !state.currentLocation) return;
+    if (state.locationMarker) { try { state.d2dMap.removeLayer(state.locationMarker); } catch (_) {} }
+    if (state.accuracyCircle) { try { state.d2dMap.removeLayer(state.accuracyCircle); } catch (_) {} }
+    if (typeof state.gpsAccuracy === 'number' && state.gpsAccuracy > 0) {
+      state.accuracyCircle = L.circle(state.currentLocation, { radius: state.gpsAccuracy, color: '#4A9EFF', fillColor: '#4A9EFF', fillOpacity: 0.1, weight: 1 }).addTo(state.d2dMap);
+    }
+    state.locationMarker = L.marker(state.currentLocation, { icon: _locationIcon(state.d2dHeading), interactive: false, keyboard: false }).addTo(state.d2dMap);
+  }
+
+  // Cheap heading apply (rAF-coalesced): rotate the existing arrow element;
+  // recreate the marker only if it was placed before any heading (no arrow).
+  function _applyHeadingToMarker() {
+    _headingRafId = 0;
+    if (_pendingHeading == null) return;
+    const deg = _pendingHeading;
+    state.d2dHeading = deg;
+    const el = state.locationMarker && state.locationMarker.getElement && state.locationMarker.getElement();
+    const arrow = el && el.querySelector('.d2d-loc-arrow');
+    if (arrow) {
+      arrow.style.display = 'block';
+      arrow.style.transform = 'translate(-50%,-50%) rotate(' + deg + 'deg)';
+    } else if (state.locationMarker) {
+      _updateLocationMarker();
+    }
+  }
+
+  function _onHeading(deg) {
+    if (deg == null || isNaN(deg)) return;
+    deg = ((deg % 360) + 360) % 360;
+    if (_lastAppliedHeading != null) {
+      const d = Math.abs(deg - _lastAppliedHeading);
+      if (Math.min(d, 360 - d) < 3) return; // ignore sub-3° jitter — don't churn the DOM
+    }
+    _lastAppliedHeading = deg;
+    _pendingHeading = deg;
+    if (!_headingRafId && typeof requestAnimationFrame === 'function') _headingRafId = requestAnimationFrame(_applyHeadingToMarker);
+    else if (!_headingRafId) _applyHeadingToMarker();
+  }
+
+  function _deviceOrientationHandler(ev) {
+    let h = null;
+    if (typeof ev.webkitCompassHeading === 'number') h = ev.webkitCompassHeading;      // iOS: 0..360 from N, CW
+    else if (ev.absolute && typeof ev.alpha === 'number') h = (360 - ev.alpha) % 360;   // best-effort elsewhere
+    if (h != null) { _compassActive = true; _onHeading(h); }
+  }
+
+  function _startHeadingWatch() {
+    if (_headingListener || typeof window === 'undefined') return;
+    const attach = () => {
+      _headingListener = _deviceOrientationHandler;
+      window.addEventListener('deviceorientationabsolute', _headingListener, true);
+      window.addEventListener('deviceorientation', _headingListener, true);
+    };
+    try {
+      if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
+        // iOS 13+: requestPermission MUST be called from a user gesture — our
+        // toggle click is that gesture.
+        DeviceOrientationEvent.requestPermission().then(function (res) {
+          if (res === 'granted') attach();
+          else window.showToast?.('Compass denied — heading will use GPS while you move', 'info', 4000);
+        }).catch(function () {});
+      } else {
+        attach();
+      }
+    } catch (_) {}
+  }
+
+  function _stopHeadingWatch() {
+    if (_headingListener) {
+      try { window.removeEventListener('deviceorientationabsolute', _headingListener, true); } catch (_) {}
+      try { window.removeEventListener('deviceorientation', _headingListener, true); } catch (_) {}
+      _headingListener = null;
+    }
+    _compassActive = false;
+    if (_headingRafId && typeof cancelAnimationFrame === 'function') { try { cancelAnimationFrame(_headingRafId); } catch (_) {} }
+    _headingRafId = 0;
+    _pendingHeading = null;
+  }
+
+  function _recenterFollow() {
+    if (!state.d2dMap || !state.currentLocation) return;
+    _followProgrammaticMove = true; // suppress the "Search this area" pill for this move
+    state.d2dMap.setView(state.currentLocation, state.d2dMap.getZoom());
+  }
+
+  function toggleFollow() {
+    state.d2dFollowMode = !state.d2dFollowMode;
+    state.d2dFollowPaused = false;
+    try { localStorage.setItem(FOLLOW_PREF, state.d2dFollowMode ? '1' : '0'); } catch (_) {}
+    _updateFollowControls();
+    if (state.d2dFollowMode) {
+      _startHeadingWatch(); // called synchronously inside the click gesture → iOS permission prompt allowed
+      _recenterFollow();
+      window.showToast?.('Follow mode on — the map tracks you', 'info', 2000);
+    } else {
+      window.showToast?.('Follow mode off', 'info', 1500);
+    }
+  }
+
+  function _updateFollowControls() {
+    const btn = document.getElementById('d2d-follow');
+    if (btn) {
+      const on = state.d2dFollowMode;
+      btn.style.background = on ? 'color-mix(in srgb, var(--orange) 20%, transparent)' : 'transparent';
+      btn.style.borderColor = on ? 'var(--orange)' : 'var(--br)';
+      btn.style.color = on ? 'var(--t)' : 'var(--m)';
+      btn.innerHTML = (on && state.d2dFollowPaused) ? '🧭 Paused' : '🧭 Follow';
+    }
+    const rc = document.getElementById('d2d-recenter');
+    if (rc) rc.style.display = (state.d2dFollowMode && state.d2dFollowPaused) ? 'flex' : 'none';
+  }
+
+  // A manual drag pauses follow so the rep can look around; the Recenter
+  // button resumes. Programmatic follow moves don't fire dragstart, so this
+  // only triggers on real user drags — no feedback loop with _recenterFollow.
+  function _onUserDragStart() {
+    if (state.d2dFollowMode && !state.d2dFollowPaused) {
+      state.d2dFollowPaused = true;
+      _updateFollowControls();
+    }
+  }
+
+  function _createRecenterControl() {
+    if (!state.d2dMap || document.getElementById('d2d-recenter')) return;
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.id = 'd2d-recenter';
+    btn.title = 'Recenter on me and resume following';
+    btn.textContent = '◎ Recenter';
+    btn.style.cssText = 'position:absolute;left:50%;bottom:88px;transform:translateX(-50%);z-index:1000;display:none;'
+      + 'align-items:center;gap:6px;background:var(--orange,#e8720c);color:#0A0C0F;border:none;'
+      + 'padding:8px 14px;border-radius:20px;cursor:pointer;'
+      + "font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:800;letter-spacing:.03em;"
+      + 'box-shadow:0 3px 14px rgba(0,0,0,.5);-webkit-tap-highlight-color:transparent;min-height:38px;';
+    btn.addEventListener('click', function (e) {
+      e.stopPropagation();
+      state.d2dFollowPaused = false;
+      _recenterFollow();
+      _updateFollowControls();
+    });
+    const mapEl = document.getElementById('d2dMap');
+    if (mapEl) { mapEl.style.position = 'relative'; mapEl.appendChild(btn); }
   }
 
   // Build a knock marker's icon in the current look style. Colour encodes
@@ -3284,6 +3480,9 @@
   }
 
   function _onMapMoveForSearch() {
+    // A follow/recenter move is programmatic — don't treat it as the rep
+    // panning to new territory, or the pill would flash on every GPS step.
+    if (_followProgrammaticMove) { _followProgrammaticMove = false; return; }
     if (!_searchAreaArmed || _searchAreaBusy) return;
     _setSearchAreaVisible(true);
   }
@@ -3399,12 +3598,25 @@
     styleBtn.addEventListener('click', (e) => { e.stopPropagation(); toggleMarkStyle(); });
     panel.appendChild(styleBtn);
 
+    // Follow mode toggle — keep the map centered on the rep as they move. Same
+    // neutral chip style; CSP-safe (addEventListener). _updateFollowControls()
+    // below reflects any restored 'on' state.
+    const followBtn = document.createElement('button');
+    followBtn.type = 'button';
+    followBtn.id = 'd2d-follow';
+    followBtn.title = 'Follow mode — keep the map centered on you as you move';
+    followBtn.style.cssText = diag.style.cssText;
+    followBtn.innerHTML = '🧭 Follow';
+    followBtn.addEventListener('click', (e) => { e.stopPropagation(); toggleFollow(); });
+    panel.appendChild(followBtn);
+
     // Append to the map container (not the map tiles) so it floats above
     const mapEl = document.getElementById('d2dMap');
     if (mapEl) {
       mapEl.style.position = 'relative';
       mapEl.appendChild(panel);
     }
+    _updateFollowControls(); // reflect a restored 'follow on' state on the button
   }
 
   function updateLayerPanel() {
@@ -4084,6 +4296,7 @@
   state.runSearchThisArea = runSearchThisArea;
   state.runMapDiagnostics = runMapDiagnostics;
   state.toggleMarkStyle = toggleMarkStyle;
+  state.toggleFollow = toggleFollow;
   state.submitKnock = submitKnock;
   state.updateKnock = updateKnock;
   state.deleteKnock = deleteKnock;

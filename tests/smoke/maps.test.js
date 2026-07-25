@@ -718,6 +718,52 @@ section('scripts/backfill-pins-to-knocks.js — legacy pin → knock migration (
     /if \(!pin\.userId\)/.test(mig));
 }
 
+section('D2D map — follow mode + heading arrow (field navigation, phase A)');
+{
+  const src = readD2DLive();
+
+  // Follow toggle exists, is exposed, and persists.
+  assert('D2D core defines toggleFollow()',
+    /function toggleFollow\s*\(/.test(src));
+  assert('window.D2D shim exports toggleFollow',
+    /toggleFollow:\s*state\.toggleFollow/.test(src));
+  assert('follow preference persists (FOLLOW_PREF localStorage)',
+    /FOLLOW_PREF\s*=/.test(src) && /localStorage\.setItem\(FOLLOW_PREF/.test(src) &&
+    /localStorage\.getItem\(FOLLOW_PREF\)/.test(src));
+
+  // Pause-on-drag → Recenter resumes.
+  assert('a manual drag pauses follow',
+    /on\(\s*['"]dragstart['"]\s*,\s*_onUserDragStart\)/.test(src) &&
+    /function _onUserDragStart[\s\S]{0,180}state\.d2dFollowPaused = true/.test(src));
+  assert('Recenter control exists and resumes follow (CSP-safe)',
+    /id\s*=\s*['"]d2d-recenter['"]/.test(src) &&
+    /addEventListener\(\s*['"]click['"][\s\S]{0,120}d2dFollowPaused = false[\s\S]{0,60}_recenterFollow\(\)/.test(src));
+
+  // Follow's own setView must NOT pop the "Search this area" pill.
+  assert('follow moves are flagged so they do not trigger the search pill',
+    /_followProgrammaticMove = true/.test(src) &&
+    /function _onMapMoveForSearch[\s\S]{0,320}if \(_followProgrammaticMove\)/.test(src));
+
+  // Heading arrow: rotated location marker, driven by compass or GPS course.
+  assert('location marker becomes a rotatable heading arrow',
+    /function _locationIcon\s*\(/.test(src) && /d2d-loc-arrow/.test(src) &&
+    /rotate\('\s*\+\s*\(hasH \? heading : 0\)/.test(src));
+  assert('heading comes from the compass (iOS webkitCompassHeading) or GPS course',
+    /webkitCompassHeading/.test(src) && /pos\.coords\.heading/.test(src));
+
+  // Perf/oscillation guard: the high-frequency compass handler rAF-coalesces,
+  // thresholds sub-3° jitter, and writes ONE element's transform.
+  const oh = src.slice(src.indexOf('function _onHeading'), src.indexOf('function _deviceOrientationHandler'));
+  assert('compass updates are rAF-coalesced + 3° thresholded (no DOM churn)',
+    /requestAnimationFrame\(_applyHeadingToMarker\)/.test(oh) && /Math\.min\(d, 360 - d\) < 3/.test(oh));
+
+  // iOS 13+ permission requested from the toggle gesture; watch released on teardown.
+  assert('iOS compass permission requested from the user gesture',
+    /DeviceOrientationEvent\.requestPermission\(\)/.test(src));
+  assert('heading watch is released when the location watch stops',
+    /function stopLocationWatch[\s\S]{0,260}_stopHeadingWatch\(\)/.test(src));
+}
+
 section('firestore.indexes.json — knocks [tenant, lat] viewport indexes (deploy on merge)');
 {
   const idx = JSON.parse(read(path.join(ROOT, 'firestore.indexes.json')));
