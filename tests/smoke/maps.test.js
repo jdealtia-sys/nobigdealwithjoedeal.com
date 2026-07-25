@@ -854,6 +854,39 @@ section('Maps & Pins retired → D2D + on-map search (map unification, phase C)'
     /d2dSearchAddress[\s\S]{0,700}_followProgrammaticMove = true[\s\S]{0,160}setView/.test(src));
 }
 
+section('D2D map — Customers layer persists geocoded coords (geocode once ever)');
+{
+  const src = readD2DLive();
+  // After a live geocode, the customers layer persists lat/lng via the shared
+  // rolling-backfill helper (same as the old map), guarded against temp ids.
+  const build = src.slice(src.indexOf('async function buildD2DCustomersLayer'),
+                         src.indexOf('async function buildD2DCustomersLayer') + 3200);
+  assert('D2D customers layer persists geocoded coords via _saveLeadCoords',
+    /window\._saveLeadCoords\(lead\.id,\s*lat,\s*lng\)/.test(build));
+  assert('geocode-persist skips temp/demo lead ids',
+    /lead\.id && !String\(lead\.id\)\.startsWith\(['"]d-['"]\)/.test(build));
+}
+
+section('D2D map — navigation polish (heading smoothing + "you are here" pulse)');
+{
+  const src = readD2DLive();
+
+  // Circular low-pass filter smooths the jittery compass (unit-vector average
+  // so it eases across the 0°/360° wrap) and _onHeading runs through it.
+  assert('heading is smoothed by a circular low-pass filter',
+    /function _smoothHeading\s*\(/.test(src) &&
+    /Math\.atan2\(_headingSmY, _headingSmX\)/.test(src) &&
+    /Math\.cos\(rad\)/.test(src) && /Math\.sin\(rad\)/.test(src));
+  assert('_onHeading applies the smoothing filter',
+    /function _onHeading[\s\S]{0,140}deg = _smoothHeading\(deg\)/.test(src));
+  assert('the smoothing filter resets on teardown',
+    /function _stopHeadingWatch[\s\S]{0,600}_headingSmX = null; _headingSmY = null/.test(src));
+
+  // The location marker gets the radiating "you are here" pulse back.
+  assert('location dot uses the d2d-location-pulse treatment',
+    /class="d2d-location-pulse"/.test(src));
+}
+
 section('firestore.indexes.json — knocks [tenant, lat] viewport indexes (deploy on merge)');
 {
   const idx = JSON.parse(read(path.join(ROOT, 'firestore.indexes.json')));
