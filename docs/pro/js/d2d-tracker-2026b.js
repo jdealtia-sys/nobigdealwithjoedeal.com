@@ -30,6 +30,9 @@
     loadKnocksInViewport: state.loadKnocksInViewport,
     searchThisArea: state.runSearchThisArea,
     refreshKnocks: state.refreshKnocks,
+    // Map-data diagnostic — "why is my map empty?" Returns {loadedOnMap,
+    // withCoordinates, totalInAccount, ...} and shows a plain-English verdict.
+    mapDiagnostics: state.runMapDiagnostics,
     openQuickKnock: state.openQuickKnock,
     closeQuickKnock: state.closeQuickKnock,
     selectDispo: state.selectDispo,
