@@ -20,7 +20,7 @@
  *   - Firestore CRUD: loadRepProfile, loadKnocks, submitKnock,
  *     updateKnock, deleteKnock, convertToLead, convertToLeadWithEdit,
  *     loadTeamKnocks, loadTerritories, saveTerritory, deleteTerritory
- *   - Map init + layer panel + jobs/weather/territory overlays
+ *   - Map init + layer panel + customers/weather/territory overlays
  *   - Photo + voice upload helpers (Firebase Storage)
  *   - Metrics, gamification, filters
  *   - initD2D entry point
@@ -3023,6 +3023,8 @@
     const btn = document.getElementById('d2d-mark-style');
     if (btn) btn.innerHTML = _markStyleBtnLabel();
     refreshMapMarkers();
+    // Leads honor the same look — restyle them too if the layer is showing.
+    if (d2dLayerState.customers) buildD2DCustomersLayer();
     window.showToast?.(state.d2dMarkStyle === 'pins' ? 'Color pins' : 'Detailed dots', 'info', 1500);
   }
 
@@ -3135,8 +3137,8 @@
   //   Weather — NOAA NEXRAD radar overlay
   //   Heat    — knock density heatmap
   // ════════════════════════════════════════════════════════════
-  let d2dLayerState = { knocks: true, jobs: false, weather: false, heat: false, territory: false, score: false };
-  let d2dJobMarkers = [];
+  let d2dLayerState = { knocks: true, customers: false, weather: false, heat: false, territory: false, score: false };
+  let d2dCustomerMarkers = [];
   let d2dStormLayer = null;
   let d2dWeatherLayer = null;
   let d2dDrawControl = null;
@@ -3332,7 +3334,7 @@
 
     const layers = [
       { key: 'knocks',    icon: '📍', label: 'Knocks' },
-      { key: 'jobs',      icon: '💰', label: 'Jobs' },
+      { key: 'customers', icon: '👥', label: 'Customers' },
       { key: 'weather',   icon: '⛈️', label: 'Radar' },
       { key: 'heat',      icon: '🔥', label: 'Heat' },
       { key: 'score',     icon: '🎯', label: 'Score' },
@@ -3417,11 +3419,12 @@
           state.d2dMap.removeLayer(state.d2dCluster);
         }
         break;
-      case 'jobs':
-        if (d2dLayerState.jobs) {
-          buildD2DJobsLayer();
+      case 'customers':
+        if (d2dLayerState.customers) {
+          buildD2DCustomersLayer();
         } else {
-          d2dJobMarkers.forEach(m => state.d2dMap.removeLayer(m));
+          d2dCustomerMarkers.forEach(m => state.d2dMap.removeLayer(m));
+          d2dCustomerMarkers = [];
         }
         break;
       case 'weather':
@@ -3453,44 +3456,58 @@
     window.showToast?.((d2dLayerState[key] ? 'Showing ' : 'Hiding ') + key, 'info');
   }
 
-  // ── Jobs layer (ported from maps.js) ──
-  // Shows active CRM leads as markers with $ value labels.
-  // Uses lead lat/lng directly if available (from D2D knock
-  // auto-convert or manual entry), falling back to Nominatim
-  // geocoding for leads that only have an address string.
+  // ── Customers layer (map-unification phase 2) ──
+  // Brings the whole CRM pipeline onto the D2D map as one mark per lead,
+  // coloured by pipeline STAGE (via the live engine — window.STAGE_META /
+  // stageRole / normalizeStage, same source the kanban + old map used) and
+  // drawn in the CURRENT look (detailed dots ⇄ colour pins) so knocks and
+  // customers share one visual language. Broadened from the old jobs-only
+  // ($-label) layer: every non-deleted lead with a location now shows.
   //
-  // Audit #20: Nominatim fair-use policy is ≥1 request/second. The prior
-  // 200ms sleep was 5× over the rate limit and would eventually get the
-  // app IP-banned. We now: (1) share a long-lived cache keyed on address
-  // so repeated toggles don't re-geocode, (2) sleep 1100ms between live
-  // requests, (3) cap a single build at 15 live geocodes to avoid pinning
-  // the user on one operation for 20+ seconds.
+  // Uses lead lat/lng if present, else Nominatim geocoding (cache-first,
+  // rate-limited ≥1 req/s, capped per build) — same fair-use discipline as
+  // the old jobs layer.
   const D2D_GEOCODE_CACHE = new Map(); // addr → { lat, lng } | null
   const D2D_GEOCODE_PER_BUILD_CAP = 15;
 
-  async function buildD2DJobsLayer() {
-    if (!state.d2dMap) return;
-    d2dJobMarkers.forEach(m => state.d2dMap.removeLayer(m));
-    d2dJobMarkers = [];
+  // Pipeline-stage colour for a lead, from the live stage engine (falls back
+  // to the role palette, then a neutral blue) — mirrors maps-overlays' pin
+  // colouring so customers look identical wherever they render.
+  function _leadStageColor(lead) {
+    const stage = (lead && (lead._stageKey || lead.stage)) || '';
+    const key = (typeof window.normalizeStage === 'function') ? window.normalizeStage(stage) : stage;
+    const meta = (window.STAGE_META && window.STAGE_META[key]) || null;
+    if (meta && meta.color) return meta.color;
+    if (typeof window.stageRole === 'function') {
+      const roleColors = { new: '#9CA3AF', active: '#4A9EFF', job: '#0D9488', won: '#22C55E', lost: '#E05252' };
+      return roleColors[window.stageRole(key)] || '#4A9EFF';
+    }
+    return '#4A9EFF';
+  }
 
-    const leads = window._leads || [];
-    const JOB_STAGES = new Set([
-      'contract_signed', 'job_created', 'permit_pulled', 'materials_ordered',
-      'materials_delivered', 'crew_scheduled', 'install_in_progress',
-      'install_complete', 'final_photos', 'deductible_collected',
-      'final_payment', 'closed', 'In Progress', 'Complete', 'Finalizing'
-    ]);
-    const active = leads.filter(l => {
-      const sk = l._stageKey || l.stage || '';
-      return JOB_STAGES.has(sk);
-    });
+  // 2-char code for the detailed-dot look — initials of the customer's name,
+  // else a short stage code, so a lead dot is legible next to a knock dot.
+  function _leadShortCode(lead) {
+    const nm = [lead.firstName, lead.lastName].filter(Boolean).join(' ').trim();
+    if (nm) return nm.split(/\s+/).slice(0, 2).map(w => w[0]).join('').toUpperCase();
+    const st = String((lead._stageKey || lead.stage) || '').replace(/[^a-z]/gi, '');
+    return (st.slice(0, 2) || '★').toUpperCase();
+  }
+
+  async function buildD2DCustomersLayer() {
+    if (!state.d2dMap) return;
+    d2dCustomerMarkers.forEach(m => state.d2dMap.removeLayer(m));
+    d2dCustomerMarkers = [];
+
+    // Whole pipeline, minus soft-deleted leads. (Dedupe against knocks so a
+    // knocked-and-converted house shows ONE mark is phase 3.)
+    const leads = (window._leads || []).filter(l => l && !l.deleted);
 
     let liveRequests = 0;
     let skippedDueToCap = 0;
-    for (const lead of active) {
+    for (const lead of leads) {
       let lat = Number(lead.lat);
       let lng = Number(lead.lng);
-      // If no coords, try Nominatim geocoding (cache-first, rate-limited)
       if (!lat || !lng) {
         const addr = (lead.address || '').trim();
         if (!addr) continue;
@@ -3518,32 +3535,41 @@
       }
       if (!lat || !lng) continue;
 
+      const color = _leadStageColor(lead);
+      // Same look as knocks: colour = status (stage), shape = the toggle.
+      const icon = _d2dMarkerIcon({ color: color, short: _leadShortCode(lead) });
       const val = parseFloat(lead.jobValue || lead.contractValue || lead.value || 0);
-      const label = val > 0 ? '$' + val.toLocaleString() : (lead.stage || 'Job');
-      const stageLower = (lead._stageKey || lead.stage || '').toLowerCase();
-      // divIcon/popup HTML lives in the page DOM, so theme tokens resolve.
-      const color = stageLower.includes('complete') || stageLower === 'closed' ? 'var(--green,#34D399)'
-        : stageLower.includes('install') ? 'var(--blue,#4A9EFF)' : 'var(--gold,#EAB308)';
       const name = esc([lead.firstName, lead.lastName].filter(Boolean).join(' ') || lead.address || 'Lead');
+      const safeColor = esc(color);
 
-      const icon = L.divIcon({
-        html: '<div style="background:' + color + ';color:#0A0C0F;font-family:\'Barlow Condensed\',sans-serif;font-size:11px;font-weight:800;padding:3px 7px;border-radius:5px;white-space:nowrap;box-shadow:0 2px 8px rgba(0,0,0,.5);border:1px solid rgba(255,255,255,.2);">💰 ' + label + '</div>',
-        iconAnchor: [0, 0], className: ''
-      });
-      const marker = L.marker([lat, lng], { icon })
-        .bindPopup('<div style="font-family:sans-serif;min-width:160px;">'
-          + '<b style="font-size:13px;color:' + color + ';">' + name + '</b>'
-          + '<p style="font-size:11px;color:#666;margin:4px 0;">' + esc(lead.address || '') + '</p>'
-          + '<p style="font-size:11px;margin:2px 0;"><b>Stage:</b> ' + esc(lead.stage || '') + '</p>'
-          + (val > 0 ? '<p style="font-size:12px;font-weight:700;color:' + color + ';">$' + val.toLocaleString() + '</p>' : '')
-          + '</div>');
-      d2dJobMarkers.push(marker);
+      const popup = document.createElement('div');
+      popup.style.cssText = 'font-family:sans-serif;min-width:170px;';
+      popup.innerHTML = '<b style="font-size:13px;color:' + safeColor + ';">' + name + '</b>'
+        + '<p style="font-size:11px;color:var(--m,#888);margin:4px 0;">' + esc(lead.address || '') + '</p>'
+        + '<p style="font-size:11px;margin:2px 0;"><b>Stage:</b> ' + esc(lead.stage || '—') + '</p>'
+        + (val > 0 ? '<p style="font-size:12px;font-weight:700;color:' + safeColor + ';">$' + val.toLocaleString() + '</p>' : '');
+      // CSP-safe "View lead" — navigate to CRM + open the card, both guarded.
+      if (lead.id) {
+        const view = document.createElement('button');
+        view.textContent = 'View lead →';
+        view.style.cssText = 'margin-top:6px;padding:4px 8px;background:var(--blue,#4A9EFF);color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:11px;';
+        view.addEventListener('click', function (ev) {
+          ev.stopPropagation();
+          try { window.goTo?.('crm'); } catch (_) {}
+          setTimeout(() => { try { window.openCardDetailModal?.(lead.id); } catch (_) {} }, 300);
+        });
+        popup.appendChild(view);
+      }
+
+      const marker = L.marker([lat, lng], { icon }).bindPopup(popup);
+      d2dCustomerMarkers.push(marker);
       marker.addTo(state.d2dMap);
     }
-    if (d2dJobMarkers.length === 0) {
-      window.showToast?.('No active jobs with locations to display', 'info');
+
+    if (d2dCustomerMarkers.length === 0) {
+      window.showToast?.('No customers with a map location yet', 'info');
     } else if (skippedDueToCap > 0) {
-      window.showToast?.(`${skippedDueToCap} job${skippedDueToCap > 1 ? 's' : ''} skipped — address lookup limit reached. Toggle the layer again to load more.`, 'info', 5000);
+      window.showToast?.(`${skippedDueToCap} customer${skippedDueToCap > 1 ? 's' : ''} skipped — address lookup limit reached. Toggle the layer again to load more.`, 'info', 5000);
     }
   }
 

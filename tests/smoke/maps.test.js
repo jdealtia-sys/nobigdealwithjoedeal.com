@@ -619,6 +619,46 @@ section('D2D map — dots ⇄ pins look toggle (map unification, phase 1)');
     /state\.d2dMarkStyle\s*=\s*['"]dots['"]/.test(src));
 }
 
+section('D2D map — Customers layer (map unification, phase 2)');
+{
+  const src = readD2DLive();
+
+  // The old jobs-only ($-label) layer is replaced by a full Customers layer.
+  assert('D2D layer state uses a customers layer (not the old jobs key)',
+    /d2dLayerState\s*=\s*\{[^}]*customers:\s*false/.test(src) &&
+    !/d2dLayerState\s*=\s*\{[^}]*\bjobs\b:/.test(src));
+  assert('layer panel shows a Customers entry',
+    /key:\s*['"]customers['"][\s\S]{0,40}label:\s*['"]Customers['"]/.test(src));
+  assert('toggleLayer handles the customers layer',
+    /case\s*['"]customers['"]:[\s\S]{0,160}buildD2DCustomersLayer\(\)/.test(src));
+  assert('D2D core defines buildD2DCustomersLayer()',
+    /async function buildD2DCustomersLayer\s*\(/.test(src));
+
+  // Colour = pipeline stage, from the live stage engine (same source as kanban).
+  const build = src.slice(src.indexOf('function _leadStageColor'),
+                         src.indexOf('async function buildD2DCustomersLayer') + 4000);
+  assert('customer colour comes from the live stage engine',
+    /window\.STAGE_META/.test(build) && /window\.stageRole/.test(build) && /window\.normalizeStage/.test(build));
+
+  // Customers honour the SAME dots/pins look toggle as knocks (one visual language).
+  assert('customer marks reuse _d2dMarkerIcon (shared dots/pins look)',
+    /const icon = _d2dMarkerIcon\(\{\s*color:\s*color/.test(src));
+  assert('flipping the look restyles the customers layer too',
+    /if \(d2dLayerState\.customers\) buildD2DCustomersLayer\(\)/.test(src));
+
+  // Whole pipeline minus soft-deleted (broader than the old job-stages-only filter).
+  assert('customers layer covers the whole pipeline (skips soft-deleted)',
+    /window\._leads\s*\|\|\s*\[\]\)\.filter\(l => l && !l\.deleted\)/.test(src));
+
+  // Reuses the fair-use geocode discipline (cache + per-build cap + 1.1s spacing).
+  assert('customers layer keeps the geocode cache + per-build cap',
+    /D2D_GEOCODE_CACHE/.test(build) && /D2D_GEOCODE_PER_BUILD_CAP/.test(build) && /1100/.test(build));
+
+  // CSP-safe "View lead" (addEventListener, not inline onclick).
+  assert('customer popup View-lead button is CSP-safe',
+    /view\.addEventListener\(\s*['"]click['"]/.test(src) && /openCardDetailModal/.test(src));
+}
+
 section('firestore.indexes.json — knocks [tenant, lat] viewport indexes (deploy on merge)');
 {
   const idx = JSON.parse(read(path.join(ROOT, 'firestore.indexes.json')));
