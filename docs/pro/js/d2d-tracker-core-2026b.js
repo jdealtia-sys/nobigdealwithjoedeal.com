@@ -258,6 +258,7 @@
   state.d2dFollowMode = false;   // map tracks the rep as they move (restored from localStorage)
   state.d2dFollowPaused = false; // a manual drag pauses follow until Recenter
   state.d2dHeading = null;       // degrees from north (compass or GPS course), or null
+  state.d2dRotateEnabled = false; // OPT-IN (beta): spin the map so heading points up
   state.currentKnockEntry = null;
   state.filterDispo = null;
   state.filterDateRange = 'today';
@@ -2801,10 +2802,11 @@
     const isStandalone = window.navigator.standalone === true ||
       window.matchMedia('(display-mode: standalone)').matches;
 
-    state.d2dMap = L.map('d2dMap', {
-      tap: true,                    // re-enabled — Leaflet 1.9 fixed iOS tap bug
-      bounceAtZoomLimits: false     // smoother UX on iOS
-    }).setView(CINCINNATI, 13);
+    // rotate:true is added ONLY once the (lazy, opt-in) leaflet-rotate plugin
+    // is loaded — see the rotation section. Default users get a plain map.
+    const _mapOpts = { tap: true, bounceAtZoomLimits: false };
+    if (_rotateReady) { _mapOpts.rotate = true; _mapOpts.rotateControl = false; _mapOpts.touchRotate = true; _mapOpts.bearing = 0; }
+    state.d2dMap = L.map('d2dMap', _mapOpts).setView(CINCINNATI, 13);
 
     // Base map — restore the rep's last choice (default satellite).
     let initialBasemap = 'satellite';
@@ -2813,6 +2815,10 @@
 
     // Restore the rep's last mark look (dots vs pins) before the first paint.
     try { const savedStyle = localStorage.getItem(MARK_STYLE_PREF); if (savedStyle === 'pins' || savedStyle === 'dots') state.d2dMarkStyle = savedStyle; } catch (_) {}
+    // Restore the opt-in map-rotation preference (activated at the end of init).
+    try { state.d2dRotateEnabled = (localStorage.getItem(ROTATE_PREF) === '1'); } catch (_) {}
+    // If a rotation rebuild preserved a viewport, restore it over the default.
+    if (_pendingRebuildView) { try { state.d2dMap.setView(_pendingRebuildView.center, _pendingRebuildView.zoom); } catch (_) {} _pendingRebuildView = null; }
 
     // Force map to recalculate size after standalone viewport settles
     if (isStandalone) {
@@ -2846,6 +2852,11 @@
     // storm zone (point-in-polygon) even before the territory layer is toggled.
     loadTerritories().catch(() => {});
     maybeFocusStormTerritory();
+
+    // Opted-in-to-rotation reps: activate it now (lazy-loads the plugin and,
+    // if this map wasn't built rotate-capable, rebuilds once). Guarded so the
+    // rebuild's own re-init doesn't loop.
+    if (state.d2dRotateEnabled && !_rotateReady && !_rotateRebuilding) { _enableRotation(); }
   }
 
   // Ray-casting point-in-polygon. ring = [[lng,lat],...] (GeoJSON order).
@@ -3054,11 +3065,17 @@
     if (_pendingHeading == null) return;
     const deg = _pendingHeading;
     state.d2dHeading = deg;
+    // When the map itself spins to the heading (beta), the arrow points
+    // straight up (screen-up = where you're heading) and the MAP rotates;
+    // otherwise (north-up default) the arrow rotates to the heading.
+    const rotating = state.d2dRotateEnabled && _rotateReady;
+    if (rotating) _applyBearingFromHeading(deg);
+    const arrowDeg = rotating ? 0 : deg;
     const el = state.locationMarker && state.locationMarker.getElement && state.locationMarker.getElement();
     const arrow = el && el.querySelector('.d2d-loc-arrow');
     if (arrow) {
       arrow.style.display = 'block';
-      arrow.style.transform = 'translate(-50%,-50%) rotate(' + deg + 'deg)';
+      arrow.style.transform = 'translate(-50%,-50%) rotate(' + arrowDeg + 'deg)';
     } else if (state.locationMarker) {
       _updateLocationMarker();
     }
@@ -3180,6 +3197,126 @@
     });
     const mapEl = document.getElementById('d2dMap');
     if (mapEl) { mapEl.style.position = 'relative'; mapEl.appendChild(btn); }
+  }
+
+  // ══════════════════════════════════════════════════════════════════
+  // MAP ROTATION — "spin to my heading" (OPT-IN / BETA, phase B)
+  // Leaflet has no native rotation, so this lazy-loads the leaflet-rotate
+  // plugin and recreates the map with rotate:true — but ONLY when the rep
+  // opts in. Default users never load the plugin and never touch this code,
+  // so a broken rotation can't affect anyone who hasn't switched it on. Every
+  // step degrades gracefully (plugin blocked/absent, no setBearing, CSP): it
+  // reverts the toggle with an honest toast rather than breaking the map.
+  //
+  // NOT device-verified — rotation rendering + the exact bearing sign need a
+  // real phone. Hence the "beta" label and the default-off gate.
+  const ROTATE_PREF = 'nbd_d2d_rotate';
+  // Vendored SAME-ORIGIN (see docs/assets/vendor/leaflet-rotate/) so it loads
+  // under the strict /pro CSP (script-src 'self') with no CSP change — matching
+  // how leaflet/draw/heat/markercluster are already served. Loaded lazily and
+  // only for reps who opt into rotation.
+  const LEAFLET_ROTATE_URL = '/assets/vendor/leaflet-rotate/leaflet-rotate.js';
+  let _rotateReady = false;         // plugin loaded AND the live map was built with rotate:true
+  let _rotatePluginPromise = null;
+  let _rotateRebuilding = false;    // re-entrancy guard around the map rebuild
+  let _pendingRebuildView = null;   // {center:[lat,lng], zoom} preserved across a rebuild
+
+  function _rotatePluginPresent() {
+    return !!(typeof L !== 'undefined' && L.Map && L.Map.prototype && typeof L.Map.prototype.setBearing === 'function');
+  }
+
+  function _loadRotatePlugin() {
+    if (_rotatePluginPresent()) return Promise.resolve(true);
+    if (_rotatePluginPromise) return _rotatePluginPromise;
+    _rotatePluginPromise = new Promise(function (resolve) {
+      try {
+        const s = document.createElement('script');
+        s.src = LEAFLET_ROTATE_URL;
+        s.async = true;
+        s.onload = function () { resolve(_rotatePluginPresent()); };
+        s.onerror = function () { _rotatePluginPromise = null; resolve(false); };
+        document.head.appendChild(s);
+      } catch (_) { _rotatePluginPromise = null; resolve(false); }
+    });
+    return _rotatePluginPromise;
+  }
+
+  // Recreate the map with rotate:true, preserving view/zoom. Only reached for
+  // opted-in reps. Guarded + wrapped so a failure reverts cleanly.
+  function _rebuildD2DMap() {
+    if (_rotateRebuilding || !state.d2dMap) return;
+    _rotateRebuilding = true;
+    try {
+      let center = null, zoom = null;
+      try { const c = state.d2dMap.getCenter(); center = [c.lat, c.lng]; zoom = state.d2dMap.getZoom(); } catch (_) {}
+      _pendingRebuildView = (center && zoom != null) ? { center: center, zoom: zoom } : null;
+      try { stopLocationWatch(); } catch (_) {}
+      try { state.d2dMap.off(); state.d2dMap.remove(); } catch (_) {}
+      state.d2dMap = null; state.d2dCluster = null;
+      state.locationMarker = null; state.accuracyCircle = null;
+      const el = document.getElementById('d2dMap');
+      if (el) el.innerHTML = ''; // drop stale control divs so create*Control() rebuild them
+      initD2DMap(); // rebuilds with rotate:true because _rotateReady is now set
+    } catch (e) {
+      console.error('map rotation rebuild failed:', e);
+      window.showToast?.('Couldn\'t start map rotation — reload the map', 'error', 4000);
+    } finally {
+      _rotateRebuilding = false;
+    }
+  }
+
+  async function _enableRotation() {
+    const ok = await _loadRotatePlugin();
+    if (!ok) {
+      state.d2dRotateEnabled = false;
+      try { localStorage.setItem(ROTATE_PREF, '0'); } catch (_) {}
+      _updateRotateControls();
+      window.showToast?.('Map rotation unavailable on this device/network', 'error', 4000);
+      return false;
+    }
+    _rotateReady = true;
+    if (!(state.d2dMap && typeof state.d2dMap.setBearing === 'function')) {
+      _rebuildD2DMap(); // current map wasn't built with rotate — recreate it
+    }
+    window.showToast?.('Map rotation on (beta) — north is no longer up', 'info', 3000);
+    // Apply the current heading immediately if we have one.
+    if (state.d2dHeading != null) _applyBearingFromHeading(state.d2dHeading);
+    return true;
+  }
+
+  // Rotate the map so the rep's heading points to the top of the screen. Sign
+  // is best-effort (unverified) — flagged for device tuning.
+  function _applyBearingFromHeading(deg) {
+    if (!state.d2dRotateEnabled || !_rotateReady) return;
+    if (!(state.d2dMap && typeof state.d2dMap.setBearing === 'function')) return;
+    try { state.d2dMap.setBearing(-deg); } catch (_) {}
+  }
+
+  function toggleMapRotate() {
+    state.d2dRotateEnabled = !state.d2dRotateEnabled;
+    try { localStorage.setItem(ROTATE_PREF, state.d2dRotateEnabled ? '1' : '0'); } catch (_) {}
+    _updateRotateControls();
+    if (state.d2dRotateEnabled) {
+      _startHeadingWatch();      // rotation needs a heading; this click is the iOS gesture
+      _enableRotation();         // lazy-loads plugin + rebuilds if needed (async, self-reverts on failure)
+    } else {
+      // North-up again — no rebuild needed, just clear the bearing.
+      if (_rotateReady && state.d2dMap && typeof state.d2dMap.setBearing === 'function') {
+        try { state.d2dMap.setBearing(0); } catch (_) {}
+      }
+      // Restore the heading ARROW (north-up mode rotates the arrow, not the map).
+      if (state.d2dHeading != null) { _pendingHeading = state.d2dHeading; _applyHeadingToMarker(); }
+      window.showToast?.('Map rotation off — north is up', 'info', 1500);
+    }
+  }
+
+  function _updateRotateControls() {
+    const btn = document.getElementById('d2d-rotate');
+    if (!btn) return;
+    const on = state.d2dRotateEnabled;
+    btn.style.background = on ? 'color-mix(in srgb, var(--orange) 20%, transparent)' : 'transparent';
+    btn.style.borderColor = on ? 'var(--orange)' : 'var(--br)';
+    btn.style.color = on ? 'var(--t)' : 'var(--m)';
   }
 
   // Build a knock marker's icon in the current look style. Colour encodes
@@ -3610,6 +3747,17 @@
     followBtn.addEventListener('click', (e) => { e.stopPropagation(); toggleFollow(); });
     panel.appendChild(followBtn);
 
+    // Map-rotation toggle (OPT-IN / BETA) — spins the map to your heading.
+    // Lazy-loads the rotation plugin on first use; harmless if you never tap it.
+    const rotateBtn = document.createElement('button');
+    rotateBtn.type = 'button';
+    rotateBtn.id = 'd2d-rotate';
+    rotateBtn.title = 'Spin the map to your heading (beta — experimental)';
+    rotateBtn.style.cssText = diag.style.cssText;
+    rotateBtn.innerHTML = '🔄 Spin';
+    rotateBtn.addEventListener('click', (e) => { e.stopPropagation(); toggleMapRotate(); });
+    panel.appendChild(rotateBtn);
+
     // Append to the map container (not the map tiles) so it floats above
     const mapEl = document.getElementById('d2dMap');
     if (mapEl) {
@@ -3617,6 +3765,7 @@
       mapEl.appendChild(panel);
     }
     _updateFollowControls(); // reflect a restored 'follow on' state on the button
+    _updateRotateControls(); // and a restored 'rotate on' state
   }
 
   function updateLayerPanel() {
@@ -4297,6 +4446,7 @@
   state.runMapDiagnostics = runMapDiagnostics;
   state.toggleMarkStyle = toggleMarkStyle;
   state.toggleFollow = toggleFollow;
+  state.toggleMapRotate = toggleMapRotate;
   state.submitKnock = submitKnock;
   state.updateKnock = updateKnock;
   state.deleteKnock = deleteKnock;

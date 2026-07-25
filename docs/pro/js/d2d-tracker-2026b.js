@@ -37,6 +37,8 @@
     toggleMarkStyle: state.toggleMarkStyle,
     // Follow mode — keep the map centered on the rep as they move.
     toggleFollow: state.toggleFollow,
+    // Opt-in/beta: spin the map to the rep's heading (lazy-loads the plugin).
+    toggleMapRotate: state.toggleMapRotate,
     openQuickKnock: state.openQuickKnock,
     closeQuickKnock: state.closeQuickKnock,
     selectDispo: state.selectDispo,

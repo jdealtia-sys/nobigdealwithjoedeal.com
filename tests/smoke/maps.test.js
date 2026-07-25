@@ -764,6 +764,59 @@ section('D2D map — follow mode + heading arrow (field navigation, phase A)');
     /function stopLocationWatch[\s\S]{0,260}_stopHeadingWatch\(\)/.test(src));
 }
 
+section('D2D map — opt-in map rotation / "spin to heading" (field navigation, phase B)');
+{
+  const src = readD2DLive();
+
+  // Toggle exists, exposed, persisted.
+  assert('D2D core defines toggleMapRotate()',
+    /function toggleMapRotate\s*\(/.test(src));
+  assert('window.D2D shim exports toggleMapRotate',
+    /toggleMapRotate:\s*state\.toggleMapRotate/.test(src));
+  assert('rotation preference persists (ROTATE_PREF)',
+    /ROTATE_PREF\s*=/.test(src) && /localStorage\.setItem\(ROTATE_PREF/.test(src) &&
+    /localStorage\.getItem\(ROTATE_PREF\)/.test(src));
+
+  // Safe-by-construction: the plugin is LAZY-loaded (injected script) only on
+  // opt-in, and the map only gets rotate:true once the plugin is ready — so a
+  // default user never loads it.
+  assert('rotation plugin is lazy-loaded via an injected script',
+    /LEAFLET_ROTATE_URL/.test(src) &&
+    /createElement\(['"]script['"]\)/.test(src.slice(src.indexOf('function _loadRotatePlugin'), src.indexOf('function _rebuildD2DMap'))));
+
+  // CSP: the /pro script-src is 'self' + a fixed host list (no CDN). The plugin
+  // must be VENDORED same-origin, not pulled from an external CDN.
+  assert('rotation plugin loads same-origin (CSP-clean, no external CDN)',
+    /LEAFLET_ROTATE_URL\s*=\s*['"]\/assets\/vendor\/leaflet-rotate\//.test(src) &&
+    !/LEAFLET_ROTATE_URL\s*=\s*['"]https?:/.test(src));
+  assert('leaflet-rotate is vendored in the repo',
+    fs.existsSync(path.join(ROOT, 'docs/assets/vendor/leaflet-rotate/leaflet-rotate.js')));
+  assert('map only gets rotate:true once the plugin is ready (default users unaffected)',
+    /if \(_rotateReady\) \{ _mapOpts\.rotate = true/.test(src));
+
+  // Graceful failure: a blocked/absent plugin reverts the toggle instead of
+  // breaking the map.
+  const en = src.slice(src.indexOf('async function _enableRotation'), src.indexOf('function _applyBearingFromHeading'));
+  assert('a failed plugin load reverts the toggle (no broken map)',
+    /if \(!ok\)/.test(en) && /state\.d2dRotateEnabled = false/.test(en) && /unavailable/.test(en));
+
+  // Heading drives the bearing when rotating; arrow points up while the map spins.
+  assert('heading drives map bearing when rotation is on',
+    /function _applyBearingFromHeading[\s\S]{0,220}setBearing\(-deg\)/.test(src));
+  assert('arrow points up (0) while the map itself spins',
+    /const rotating = state\.d2dRotateEnabled && _rotateReady/.test(src) &&
+    /const arrowDeg = rotating \? 0 : deg/.test(src));
+
+  // Rebuild preserves the viewport; re-entrancy guarded.
+  assert('rotation rebuild preserves view + guards re-entrancy',
+    /_pendingRebuildView/.test(src) && /_rotateRebuilding/.test(src));
+
+  // CSP-safe control.
+  assert('layer panel exposes a CSP-safe Spin (beta) button',
+    /id\s*=\s*['"]d2d-rotate['"]/.test(src) &&
+    /rotateBtn\.addEventListener\(\s*['"]click['"][\s\S]{0,80}toggleMapRotate\(\)/.test(src));
+}
+
 section('firestore.indexes.json — knocks [tenant, lat] viewport indexes (deploy on merge)');
 {
   const idx = JSON.parse(read(path.join(ROOT, 'firestore.indexes.json')));
