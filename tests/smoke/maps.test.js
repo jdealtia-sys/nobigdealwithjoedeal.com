@@ -537,6 +537,49 @@ section('D2D map — "Search this area" viewport knock loader (fixes the 500-rec
     /refreshKnocks:\s*state\.refreshKnocks/.test(src));
 }
 
+section('D2D map — map-data diagnostic ("why is my map empty?")');
+{
+  const src = readD2DLive();
+
+  // The diagnostic exists and is reachable from the shim (button + console).
+  assert('D2D core defines runMapDiagnostics()',
+    /async function runMapDiagnostics\s*\(/.test(src));
+  assert('window.D2D shim exports mapDiagnostics',
+    /mapDiagnostics:\s*state\.runMapDiagnostics/.test(src));
+
+  // It uses a cheap server-side COUNT aggregation (no doc reads) to learn the
+  // true total for the account — the number that disambiguates #1 vs #2 vs #3.
+  assert('diagnostic uses getCountFromServer (aggregation, not a full read)',
+    /getCountFromServer/.test(src));
+
+  // Tenancy: the count query stays scoped to userId / companyId.
+  const diag = src.slice(src.indexOf('async function runMapDiagnostics'));
+  const diagBody = diag.slice(0, 2600);
+  assert('diagnostic count query keeps rep (userId) tenancy scope',
+    /where\(\s*['"]userId['"]\s*,\s*['"]==['"]/.test(diagBody));
+  assert('diagnostic count query keeps team (companyId) tenancy scope',
+    /where\(\s*['"]companyId['"]\s*,\s*['"]==['"]/.test(diagBody));
+
+  // It distinguishes a silent load failure (#3) from a genuinely-empty
+  // account (#2): loadKnocks must record the error, and the diagnostic reads it.
+  assert('loadKnocks records state.lastKnockLoadError on failure',
+    /state\.lastKnockLoadError\s*=\s*\{\s*message:/.test(src));
+  assert('loadKnocks clears state.lastKnockLoadError on a clean load',
+    /state\.lastKnockLoadError\s*=\s*null/.test(src));
+  assert('diagnostic reads the recorded load error',
+    /state\.lastKnockLoadError/.test(diagBody));
+
+  // It names all five ranked hypotheses in its verdict text.
+  assert('diagnostic verdict covers hypotheses #1–#5',
+    /\(#1\)/.test(src) && /\(#2\)/.test(src) && /\(#3\)/.test(src) &&
+    /\(#4\)/.test(src) && /\(#5\)/.test(src));
+
+  // Surfaced via a CSP-safe button in the (existing) layer panel.
+  assert('layer panel exposes a CSP-safe diagnostics button',
+    /id\s*=\s*['"]d2d-map-diag['"]/.test(src) &&
+    /diag\.addEventListener\(\s*['"]click['"][\s\S]*?runMapDiagnostics\(\)/.test(src));
+}
+
 section('firestore.indexes.json — knocks [tenant, lat] viewport indexes (deploy on merge)');
 {
   const idx = JSON.parse(read(path.join(ROOT, 'firestore.indexes.json')));

@@ -239,6 +239,7 @@
   // ============================================================================
   const state = window._D2DState = window._D2DState || {};
   state.knocks = [];
+  state.lastKnockLoadError = null; // set by loadKnocks on failure; read by runMapDiagnostics
   state.d2dMap = null;
   state.d2dCluster = null;
   state.d2dHeat = null;
@@ -1690,8 +1691,13 @@
       buildStreetSequences();
       calculateNeighborhoodScores();
       updateNavBadge();
+      state.lastKnockLoadError = null; // clean load — clear any stale error
     } catch (e) {
       console.error('loadKnocks failed:', e);
+      // Record the failure so runMapDiagnostics() can distinguish a silent
+      // load failure (#3) from a genuinely-empty account (#2) — on screen they
+      // look identical.
+      state.lastKnockLoadError = { message: String((e && e.message) || e), at: Date.now() };
       // Common failure: composite index missing. Fall back to unbounded
       // query (old behavior) so the rep isn't stranded, but warn.
       if (String(e.message || '').toLowerCase().includes('index')) {
@@ -1714,6 +1720,7 @@
           buildStreetSequences();
           calculateNeighborhoodScores();
           updateNavBadge();
+          state.lastKnockLoadError = null; // fallback succeeded — not a failure
           return;
         } catch (e2) { console.error('fallback loadKnocks also failed:', e2); }
       }
@@ -1802,6 +1809,91 @@
     await loadKnocks();
     refreshMapMarkers();
     if (window.D2D && typeof window.D2D.renderD2D === 'function') window.D2D.renderD2D();
+  }
+
+  // ── MAP DATA DIAGNOSTIC ───────────────────────────────────────────────
+  // Answers "why is my map empty?" definitively, without a console. It cross-
+  // checks three numbers and names the exact cause from the issue's ranked
+  // hypotheses:
+  //   • loaded     — knocks currently in state.knocks
+  //   • withCoords — how many of those actually have lat/lng (can be placed)
+  //   • total      — the TRUE server-side count for this identity, via a
+  //                  getCountFromServer aggregation (cheap: no doc reads, and
+  //                  an equality-only filter needs no composite index)
+  // plus state.lastKnockLoadError (a silent load failure).
+  //   total === 0                      → #2 genuinely zero for this account
+  //   lastKnockLoadError set           → #3 silent load failure
+  //   total > loaded AND loaded==cap   → #1 the 500 recency cap
+  //   loaded > 0 AND withCoords === 0  → #4 knocks lack lat/lng
+  //   withCoords > 0                   → #5 zoom/clustering (data is fine)
+  // Tenancy is preserved: the count query is scoped to userId / companyId
+  // exactly like loadKnocks — it never widens the read surface.
+  async function runMapDiagnostics() {
+    const knocks = Array.isArray(state.knocks) ? state.knocks : [];
+    const loaded = knocks.length;
+    const withCoords = knocks.filter(k =>
+      typeof k.lat === 'number' && !isNaN(k.lat) &&
+      typeof k.lng === 'number' && !isNaN(k.lng)).length;
+    const capped = loaded >= KNOCK_PAGE_SIZE;
+    const loadError = state.lastKnockLoadError || null;
+
+    let total = null, countError = null;
+    try {
+      if (window._user && window._user.uid && window._db) {
+        const { getCountFromServer } = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
+        const scope = (state.teamMode && state.currentRep?.role === 'manager')
+          ? window.where('companyId', '==', state.currentRep.companyId)
+          : window.where('userId', '==', window._user.uid);
+        const snap = await getCountFromServer(window.query(window.collection(window._db, 'knocks'), scope));
+        total = snap.data().count;
+      }
+    } catch (e) {
+      countError = String((e && e.message) || e);
+    }
+
+    let verdict;
+    if (loadError) {
+      verdict = `⚠️ Knocks FAILED to load (#3): "${loadError.message}". Your data may be fine — tap ↻ to retry.`;
+    } else if (total === 0) {
+      verdict = `✅ Your account genuinely has 0 knocks (#2). The empty map is correct. If you expected history here, it was likely logged under a different login or company.`;
+    } else if (total != null && total > loaded && capped) {
+      verdict = `📦 Recency cap (#1): ${total} knocks total, but only your ${loaded} most-recent are loaded. Pan to the area you want and tap “Search this area”.`;
+    } else if (loaded > 0 && withCoords === 0) {
+      verdict = `📍 No coordinates (#4): ${loaded} knocks loaded but none have lat/lng, so none can be placed — they were saved without a GPS fix.`;
+    } else if (withCoords > 0) {
+      verdict = `👍 ${withCoords} of ${loaded} loaded knocks have coordinates and should be on the map. Seeing none is a zoom/clustering view issue (#5) — zoom to your territory.`;
+    } else {
+      verdict = `Loaded ${loaded}${total != null ? ' of ' + total : ''} knocks.`;
+    }
+
+    const detail = {
+      loadedOnMap: loaded,
+      withCoordinates: withCoords,
+      totalInAccount: total,
+      atRecencyCap: capped,
+      lastLoadError: loadError ? loadError.message : null,
+      countError,
+      verdict
+    };
+    console.log('[D2D map diagnostics]', detail);
+
+    const msg = [
+      `Loaded on map: ${loaded}${capped ? ` (at the ${KNOCK_PAGE_SIZE} cap)` : ''}`,
+      `With map coordinates: ${withCoords}`,
+      total != null ? `Total in your account: ${total}`
+        : (countError ? `Total: couldn't reach server` : `Total: unknown`),
+      loadError ? `Last load: FAILED (${loadError.message})` : `Last load: OK`,
+      '',
+      verdict
+    ].join('\n');
+
+    // Prefer the iOS-safe DOM modal; fall back to a long toast, then console.
+    try {
+      if (typeof uiConfirm === 'function') { await uiConfirm(msg, { okLabel: 'Got it' }); }
+      else { window.showToast?.(verdict, loadError ? 'error' : 'info', 9000); }
+    } catch (_) { window.showToast?.(verdict, loadError ? 'error' : 'info', 9000); }
+
+    return detail;
   }
 
   // Wrap a Firestore promise in a timeout so iOS Safari bfcache zombies
@@ -3223,6 +3315,22 @@
       panel.appendChild(btn);
     });
 
+    // Diagnostics action (not a layer toggle) — "why is my map empty?". Lives
+    // inside the layer panel so it inherits the panel's flex-wrap/overflow (no
+    // new floating control to collide). Styled neutral; updateLayerPanel skips
+    // it because its id isn't d2d-layer-<key>. CSP-safe (addEventListener).
+    const diag = document.createElement('button');
+    diag.type = 'button';
+    diag.id = 'd2d-map-diag';
+    diag.title = 'Check map data — why are pins missing?';
+    diag.style.cssText = 'background:transparent;border:1px solid var(--br);color:var(--m);'
+      + 'padding:6px 10px;border-radius:6px;cursor:pointer;'
+      + "font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:700;letter-spacing:.04em;"
+      + 'display:flex;align-items:center;gap:4px;-webkit-tap-highlight-color:transparent;min-height:36px;';
+    diag.innerHTML = '🔍 Check';
+    diag.addEventListener('click', (e) => { e.stopPropagation(); runMapDiagnostics(); });
+    panel.appendChild(diag);
+
     // Append to the map container (not the map tiles) so it floats above
     const mapEl = document.getElementById('d2dMap');
     if (mapEl) {
@@ -3864,6 +3972,7 @@
   state.loadKnocksInViewport = loadKnocksInViewport;
   state.refreshKnocks = refreshKnocks;
   state.runSearchThisArea = runSearchThisArea;
+  state.runMapDiagnostics = runMapDiagnostics;
   state.submitKnock = submitKnock;
   state.updateKnock = updateKnock;
   state.deleteKnock = deleteKnock;
