@@ -2846,6 +2846,7 @@
     createBasemapControl();
     createSearchAreaControl();
     _createRecenterControl();
+    _createD2DSearchControl(); // on-map address search (ported from Maps & Pins)
     // A manual drag pauses follow (see _onUserDragStart).
     state.d2dMap.on('dragstart', _onUserDragStart);
     // Load saved territories into state on entry so knocks can be attributed to a
@@ -3317,6 +3318,79 @@
     btn.style.background = on ? 'color-mix(in srgb, var(--orange) 20%, transparent)' : 'transparent';
     btn.style.borderColor = on ? 'var(--orange)' : 'var(--br)';
     btn.style.color = on ? 'var(--t)' : 'var(--m)';
+  }
+
+  // ── ON-MAP ADDRESS SEARCH (map unification, phase C) ──────────────
+  // The one thing the retired Maps & Pins map had that D2D lacked: search an
+  // address ON the map. (County-records property intel is unchanged — it still
+  // lives on the lead modal's "🏠 Pull Property Intel".) Geocode → fly there →
+  // drop a temp pin whose popup can spin up a lead (from which the rep pulls
+  // intel via the existing flow). Self-contained Nominatim call, same fair-use
+  // endpoint the layers use.
+  let _d2dSearchMarker = null;
+  async function d2dSearchAddress(q) {
+    q = (q || '').trim();
+    if (!q || !state.d2dMap) return;
+    window.showToast?.('Searching…', 'info', 1200);
+    try {
+      const res = await fetch(NOMINATIM_SEARCH + encodeURIComponent(q), { headers: { 'Accept': 'application/json' } });
+      const data = await res.json();
+      if (!data || !data[0]) { window.showToast?.('Address not found', 'error'); return; }
+      const lat = parseFloat(data[0].lat), lng = parseFloat(data[0].lon);
+      const label = String(data[0].display_name || q).split(',').slice(0, 3).join(',').trim();
+      _followProgrammaticMove = true; // intentional jump — don't pop the "Search this area" pill
+      state.d2dMap.setView([lat, lng], 18);
+      if (_d2dSearchMarker) { try { state.d2dMap.removeLayer(_d2dSearchMarker); } catch (_) {} }
+      const icon = L.divIcon({ html: '<div style="font-size:26px;filter:drop-shadow(0 2px 3px rgba(0,0,0,.55));">📍</div>', iconSize: [26, 26], iconAnchor: [13, 26], className: '' });
+      const popup = document.createElement('div');
+      popup.style.cssText = 'font-family:sans-serif;min-width:180px;font-size:12px;';
+      popup.innerHTML = '<strong>' + esc(label) + '</strong>';
+      const mk = document.createElement('button');
+      mk.textContent = '＋ Create lead here';
+      mk.style.cssText = 'display:block;margin-top:8px;padding:5px 9px;background:var(--orange,#e8720c);color:#0A0C0F;border:none;border-radius:5px;cursor:pointer;font-size:12px;font-weight:700;';
+      // Reuse the existing lead flow (from which "🏠 Pull Property Intel" works).
+      mk.addEventListener('click', function () {
+        try { window.openLeadModal && window.openLeadModal(); } catch (_) {}
+        setTimeout(function () {
+          const el = document.getElementById('lAddr'); if (el) el.value = label;
+          const s = document.getElementById('lSource'); if (s) s.value = 'Door Knock';
+          try { document.getElementById('lFname') && document.getElementById('lFname').focus(); } catch (_) {}
+        }, 120);
+      });
+      popup.appendChild(mk);
+      _d2dSearchMarker = L.marker([lat, lng], { icon: icon }).addTo(state.d2dMap).bindPopup(popup).openPopup();
+    } catch (e) {
+      console.error('d2d address search failed:', e);
+      window.showToast?.('Search failed — try again', 'error');
+    }
+  }
+
+  function _createD2DSearchControl() {
+    if (!state.d2dMap || document.getElementById('d2d-addr-search')) return;
+    const wrap = document.createElement('div');
+    wrap.id = 'd2d-addr-search';
+    wrap.style.cssText = 'position:absolute;top:10px;left:10px;z-index:1000;display:flex;gap:4px;max-width:62vw;';
+    const input = document.createElement('input');
+    input.type = 'search';
+    input.id = 'd2d-addr-input';
+    input.placeholder = 'Search address…';
+    input.style.cssText = 'flex:1;min-width:120px;background:color-mix(in srgb, var(--s) 92%, transparent);color:var(--t);'
+      + 'border:1px solid var(--br);border-radius:8px;padding:8px 10px;font-size:13px;outline:none;'
+      + '-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);box-shadow:0 3px 14px rgba(0,0,0,.4);';
+    input.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); d2dSearchAddress(input.value); } });
+    const go = document.createElement('button');
+    go.type = 'button';
+    go.title = 'Search this address';
+    go.textContent = '🔎';
+    go.style.cssText = 'background:var(--orange,#e8720c);color:#0A0C0F;border:none;border-radius:8px;width:38px;'
+      + 'cursor:pointer;font-size:15px;box-shadow:0 3px 14px rgba(0,0,0,.4);-webkit-tap-highlight-color:transparent;';
+    go.addEventListener('click', function (e) { e.stopPropagation(); d2dSearchAddress(input.value); });
+    wrap.appendChild(input);
+    wrap.appendChild(go);
+    // Don't let typing / scrolling in the box drive the map (pan, quick-knock).
+    if (L.DomEvent) { L.DomEvent.disableClickPropagation(wrap); L.DomEvent.disableScrollPropagation(wrap); }
+    const mapEl = document.getElementById('d2dMap');
+    if (mapEl) { mapEl.style.position = 'relative'; mapEl.appendChild(wrap); }
   }
 
   // Build a knock marker's icon in the current look style. Colour encodes
@@ -4447,6 +4521,7 @@
   state.toggleMarkStyle = toggleMarkStyle;
   state.toggleFollow = toggleFollow;
   state.toggleMapRotate = toggleMapRotate;
+  state.d2dSearchAddress = d2dSearchAddress;
   state.submitKnock = submitKnock;
   state.updateKnock = updateKnock;
   state.deleteKnock = deleteKnock;

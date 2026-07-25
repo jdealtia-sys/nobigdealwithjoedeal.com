@@ -39,6 +39,8 @@
     toggleFollow: state.toggleFollow,
     // Opt-in/beta: spin the map to the rep's heading (lazy-loads the plugin).
     toggleMapRotate: state.toggleMapRotate,
+    // On-map address search (ported from the retired Maps & Pins).
+    d2dSearchAddress: state.d2dSearchAddress,
     openQuickKnock: state.openQuickKnock,
     closeQuickKnock: state.closeQuickKnock,
     selectDispo: state.selectDispo,

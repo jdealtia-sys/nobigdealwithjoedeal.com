@@ -817,6 +817,43 @@ section('D2D map — opt-in map rotation / "spin to heading" (field navigation, 
     /rotateBtn\.addEventListener\(\s*['"]click['"][\s\S]{0,80}toggleMapRotate\(\)/.test(src));
 }
 
+section('Maps & Pins retired → D2D + on-map search (map unification, phase C)');
+{
+  const src = readD2DLive();
+  const actions = read(path.join(PRO_JS, 'dashboard-actions.js'));
+
+  // The 'map' route redirects to D2D — placed AFTER the lite gate so gating
+  // is unchanged, with a one-time heads-up.
+  assert("goTo('map') redirects to the D2D view",
+    /if \(name === ['"]map['"]\) \{[\s\S]{0,120}name = ['"]d2d['"]/.test(actions));
+  assert('the retire redirect sits after the lite-tier gate (gating preserved)',
+    actions.indexOf("PRO_ONLY_VIEWS.includes(name)") < actions.indexOf("if (name === 'map') {"));
+  assert('one-time redirect notice is shown',
+    /nbd_maps_redirect_seen/.test(actions));
+
+  // On-map address search ported into D2D (the one thing Maps & Pins had that
+  // D2D lacked; county-records intel still lives on the lead modal).
+  assert('D2D core defines d2dSearchAddress()',
+    /async function d2dSearchAddress\s*\(/.test(src));
+  assert('window.D2D shim exports d2dSearchAddress',
+    /d2dSearchAddress:\s*state\.d2dSearchAddress/.test(src));
+  assert('D2D search geocodes (Nominatim), flies there, drops a result pin',
+    /NOMINATIM_SEARCH \+ encodeURIComponent\(q\)/.test(src) &&
+    /_d2dSearchMarker\s*=\s*L\.marker/.test(src));
+  assert('D2D search result can spin up a lead (reuses the existing flow)',
+    /window\.openLeadModal/.test(src.slice(src.indexOf('async function d2dSearchAddress'), src.indexOf('function _createD2DSearchControl'))));
+
+  // CSP-safe search box that doesn't drive the map underneath it.
+  assert('D2D search control is CSP-safe + does not leak clicks to the map',
+    /id\s*=\s*['"]d2d-addr-search['"]/.test(src) &&
+    /addEventListener\(\s*['"]keydown['"]/.test(src) &&
+    /disableClickPropagation\(wrap\)/.test(src));
+
+  // The search jump must not pop the "Search this area" pill.
+  assert('the search fly-to is flagged so it does not pop the area pill',
+    /d2dSearchAddress[\s\S]{0,700}_followProgrammaticMove = true[\s\S]{0,160}setView/.test(src));
+}
+
 section('firestore.indexes.json — knocks [tenant, lat] viewport indexes (deploy on merge)');
 {
   const idx = JSON.parse(read(path.join(ROOT, 'firestore.indexes.json')));
