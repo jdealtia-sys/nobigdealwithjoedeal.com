@@ -35,6 +35,12 @@
     mapDiagnostics: state.runMapDiagnostics,
     // Flip the map's mark look between detailed dots and color pins.
     toggleMarkStyle: state.toggleMarkStyle,
+    // Follow mode — keep the map centered on the rep as they move.
+    toggleFollow: state.toggleFollow,
+    // Opt-in/beta: spin the map to the rep's heading (lazy-loads the plugin).
+    toggleMapRotate: state.toggleMapRotate,
+    // On-map address search (ported from the retired Maps & Pins).
+    d2dSearchAddress: state.d2dSearchAddress,
     openQuickKnock: state.openQuickKnock,
     closeQuickKnock: state.closeQuickKnock,
     selectDispo: state.selectDispo,

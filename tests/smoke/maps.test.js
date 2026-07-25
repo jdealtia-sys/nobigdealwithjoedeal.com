@@ -718,6 +718,142 @@ section('scripts/backfill-pins-to-knocks.js — legacy pin → knock migration (
     /if \(!pin\.userId\)/.test(mig));
 }
 
+section('D2D map — follow mode + heading arrow (field navigation, phase A)');
+{
+  const src = readD2DLive();
+
+  // Follow toggle exists, is exposed, and persists.
+  assert('D2D core defines toggleFollow()',
+    /function toggleFollow\s*\(/.test(src));
+  assert('window.D2D shim exports toggleFollow',
+    /toggleFollow:\s*state\.toggleFollow/.test(src));
+  assert('follow preference persists (FOLLOW_PREF localStorage)',
+    /FOLLOW_PREF\s*=/.test(src) && /localStorage\.setItem\(FOLLOW_PREF/.test(src) &&
+    /localStorage\.getItem\(FOLLOW_PREF\)/.test(src));
+
+  // Pause-on-drag → Recenter resumes.
+  assert('a manual drag pauses follow',
+    /on\(\s*['"]dragstart['"]\s*,\s*_onUserDragStart\)/.test(src) &&
+    /function _onUserDragStart[\s\S]{0,180}state\.d2dFollowPaused = true/.test(src));
+  assert('Recenter control exists and resumes follow (CSP-safe)',
+    /id\s*=\s*['"]d2d-recenter['"]/.test(src) &&
+    /addEventListener\(\s*['"]click['"][\s\S]{0,120}d2dFollowPaused = false[\s\S]{0,60}_recenterFollow\(\)/.test(src));
+
+  // Follow's own setView must NOT pop the "Search this area" pill.
+  assert('follow moves are flagged so they do not trigger the search pill',
+    /_followProgrammaticMove = true/.test(src) &&
+    /function _onMapMoveForSearch[\s\S]{0,320}if \(_followProgrammaticMove\)/.test(src));
+
+  // Heading arrow: rotated location marker, driven by compass or GPS course.
+  assert('location marker becomes a rotatable heading arrow',
+    /function _locationIcon\s*\(/.test(src) && /d2d-loc-arrow/.test(src) &&
+    /rotate\('\s*\+\s*\(hasH \? heading : 0\)/.test(src));
+  assert('heading comes from the compass (iOS webkitCompassHeading) or GPS course',
+    /webkitCompassHeading/.test(src) && /pos\.coords\.heading/.test(src));
+
+  // Perf/oscillation guard: the high-frequency compass handler rAF-coalesces,
+  // thresholds sub-3° jitter, and writes ONE element's transform.
+  const oh = src.slice(src.indexOf('function _onHeading'), src.indexOf('function _deviceOrientationHandler'));
+  assert('compass updates are rAF-coalesced + 3° thresholded (no DOM churn)',
+    /requestAnimationFrame\(_applyHeadingToMarker\)/.test(oh) && /Math\.min\(d, 360 - d\) < 3/.test(oh));
+
+  // iOS 13+ permission requested from the toggle gesture; watch released on teardown.
+  assert('iOS compass permission requested from the user gesture',
+    /DeviceOrientationEvent\.requestPermission\(\)/.test(src));
+  assert('heading watch is released when the location watch stops',
+    /function stopLocationWatch[\s\S]{0,260}_stopHeadingWatch\(\)/.test(src));
+}
+
+section('D2D map — opt-in map rotation / "spin to heading" (field navigation, phase B)');
+{
+  const src = readD2DLive();
+
+  // Toggle exists, exposed, persisted.
+  assert('D2D core defines toggleMapRotate()',
+    /function toggleMapRotate\s*\(/.test(src));
+  assert('window.D2D shim exports toggleMapRotate',
+    /toggleMapRotate:\s*state\.toggleMapRotate/.test(src));
+  assert('rotation preference persists (ROTATE_PREF)',
+    /ROTATE_PREF\s*=/.test(src) && /localStorage\.setItem\(ROTATE_PREF/.test(src) &&
+    /localStorage\.getItem\(ROTATE_PREF\)/.test(src));
+
+  // Safe-by-construction: the plugin is LAZY-loaded (injected script) only on
+  // opt-in, and the map only gets rotate:true once the plugin is ready — so a
+  // default user never loads it.
+  assert('rotation plugin is lazy-loaded via an injected script',
+    /LEAFLET_ROTATE_URL/.test(src) &&
+    /createElement\(['"]script['"]\)/.test(src.slice(src.indexOf('function _loadRotatePlugin'), src.indexOf('function _rebuildD2DMap'))));
+
+  // CSP: the /pro script-src is 'self' + a fixed host list (no CDN). The plugin
+  // must be VENDORED same-origin, not pulled from an external CDN.
+  assert('rotation plugin loads same-origin (CSP-clean, no external CDN)',
+    /LEAFLET_ROTATE_URL\s*=\s*['"]\/assets\/vendor\/leaflet-rotate\//.test(src) &&
+    !/LEAFLET_ROTATE_URL\s*=\s*['"]https?:/.test(src));
+  assert('leaflet-rotate is vendored in the repo',
+    fs.existsSync(path.join(ROOT, 'docs/assets/vendor/leaflet-rotate/leaflet-rotate.js')));
+  assert('map only gets rotate:true once the plugin is ready (default users unaffected)',
+    /if \(_rotateReady\) \{ _mapOpts\.rotate = true/.test(src));
+
+  // Graceful failure: a blocked/absent plugin reverts the toggle instead of
+  // breaking the map.
+  const en = src.slice(src.indexOf('async function _enableRotation'), src.indexOf('function _applyBearingFromHeading'));
+  assert('a failed plugin load reverts the toggle (no broken map)',
+    /if \(!ok\)/.test(en) && /state\.d2dRotateEnabled = false/.test(en) && /unavailable/.test(en));
+
+  // Heading drives the bearing when rotating; arrow points up while the map spins.
+  assert('heading drives map bearing when rotation is on',
+    /function _applyBearingFromHeading[\s\S]{0,220}setBearing\(-deg\)/.test(src));
+  assert('arrow points up (0) while the map itself spins',
+    /const rotating = state\.d2dRotateEnabled && _rotateReady/.test(src) &&
+    /const arrowDeg = rotating \? 0 : deg/.test(src));
+
+  // Rebuild preserves the viewport; re-entrancy guarded.
+  assert('rotation rebuild preserves view + guards re-entrancy',
+    /_pendingRebuildView/.test(src) && /_rotateRebuilding/.test(src));
+
+  // CSP-safe control.
+  assert('layer panel exposes a CSP-safe Spin (beta) button',
+    /id\s*=\s*['"]d2d-rotate['"]/.test(src) &&
+    /rotateBtn\.addEventListener\(\s*['"]click['"][\s\S]{0,80}toggleMapRotate\(\)/.test(src));
+}
+
+section('Maps & Pins retired → D2D + on-map search (map unification, phase C)');
+{
+  const src = readD2DLive();
+  const actions = read(path.join(PRO_JS, 'dashboard-actions.js'));
+
+  // The 'map' route redirects to D2D — placed AFTER the lite gate so gating
+  // is unchanged, with a one-time heads-up.
+  assert("goTo('map') redirects to the D2D view",
+    /if \(name === ['"]map['"]\) \{[\s\S]{0,120}name = ['"]d2d['"]/.test(actions));
+  assert('the retire redirect sits after the lite-tier gate (gating preserved)',
+    actions.indexOf("PRO_ONLY_VIEWS.includes(name)") < actions.indexOf("if (name === 'map') {"));
+  assert('one-time redirect notice is shown',
+    /nbd_maps_redirect_seen/.test(actions));
+
+  // On-map address search ported into D2D (the one thing Maps & Pins had that
+  // D2D lacked; county-records intel still lives on the lead modal).
+  assert('D2D core defines d2dSearchAddress()',
+    /async function d2dSearchAddress\s*\(/.test(src));
+  assert('window.D2D shim exports d2dSearchAddress',
+    /d2dSearchAddress:\s*state\.d2dSearchAddress/.test(src));
+  assert('D2D search geocodes (Nominatim), flies there, drops a result pin',
+    /NOMINATIM_SEARCH \+ encodeURIComponent\(q\)/.test(src) &&
+    /_d2dSearchMarker\s*=\s*L\.marker/.test(src));
+  assert('D2D search result can spin up a lead (reuses the existing flow)',
+    /window\.openLeadModal/.test(src.slice(src.indexOf('async function d2dSearchAddress'), src.indexOf('function _createD2DSearchControl'))));
+
+  // CSP-safe search box that doesn't drive the map underneath it.
+  assert('D2D search control is CSP-safe + does not leak clicks to the map',
+    /id\s*=\s*['"]d2d-addr-search['"]/.test(src) &&
+    /addEventListener\(\s*['"]keydown['"]/.test(src) &&
+    /disableClickPropagation\(wrap\)/.test(src));
+
+  // The search jump must not pop the "Search this area" pill.
+  assert('the search fly-to is flagged so it does not pop the area pill',
+    /d2dSearchAddress[\s\S]{0,700}_followProgrammaticMove = true[\s\S]{0,160}setView/.test(src));
+}
+
 section('firestore.indexes.json — knocks [tenant, lat] viewport indexes (deploy on merge)');
 {
   const idx = JSON.parse(read(path.join(ROOT, 'firestore.indexes.json')));

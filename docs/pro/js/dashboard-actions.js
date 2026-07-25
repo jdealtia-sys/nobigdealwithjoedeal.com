@@ -245,6 +245,23 @@ function goTo(name, params = {}) {
     return;
   }
 
+  // ── Maps & Pins is retired → D2D (map unification, phase C) ──
+  // Its pins/heat/jobs/territories are all unified into the D2D map, plus
+  // knocks, the dots⇄pins look, follow mode, and on-map search. Route the
+  // legacy 'map' key to 'd2d' (placed AFTER the lite gate so 'map' keeps its
+  // Pro gating). One-time heads-up so the change isn't a surprise. The
+  // #view-map DOM stays in the page — only the nav entry point moves — so
+  // this is trivially reversible.
+  if (name === 'map') {
+    name = 'd2d';
+    try {
+      if (!localStorage.getItem('nbd_maps_redirect_seen')) {
+        showToast('Maps & Pins is now the D2D map — same pins, plus knocks, layers, follow mode & search', 'info', 5000);
+        localStorage.setItem('nbd_maps_redirect_seen', '1');
+      }
+    } catch (e) {}
+  }
+
   // Force-exit bulk-select mode whenever leaving the kanban — otherwise a
   // bulk selection started on the CRM bleeds into the next view's click
   // handlers (e.g. tapping a prospect card opens a checkbox toggle instead
