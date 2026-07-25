@@ -191,6 +191,11 @@
   };
   const BASEMAP_ORDER = ['satellite', 'hybrid', 'streets', 'terrain'];
   const BASEMAP_PREF = 'nbd_d2d_basemap';
+  // Map mark LOOK preference (Phase 1 of the map unification). Pure display
+  // style — 'dots' = the detailed disposition-coded circles, 'pins' = simple
+  // color teardrops 📍. Colour still encodes status in BOTH styles; this only
+  // changes the shape. Persisted per device like BASEMAP_PREF.
+  const MARK_STYLE_PREF = 'nbd_d2d_mark_style';
   const NOMINATIM_SEARCH = 'https://nominatim.openstreetmap.org/search?format=json&countrycodes=us&limit=5&q=';
   const NOMINATIM_REVERSE = 'https://nominatim.openstreetmap.org/reverse?format=json&addressdetails=1';
   const WEATHER_KEY_STORE = 'nbd_weather_key';
@@ -240,6 +245,7 @@
   const state = window._D2DState = window._D2DState || {};
   state.knocks = [];
   state.lastKnockLoadError = null; // set by loadKnocks on failure; read by runMapDiagnostics
+  state.d2dMarkStyle = 'dots';     // 'dots' | 'pins' — restored from localStorage in initD2DMap
   state.d2dMap = null;
   state.d2dCluster = null;
   state.d2dHeat = null;
@@ -2802,6 +2808,9 @@
     try { const saved = localStorage.getItem(BASEMAP_PREF); if (saved && BASEMAPS[saved]) initialBasemap = saved; } catch (_) {}
     setBasemap(initialBasemap);
 
+    // Restore the rep's last mark look (dots vs pins) before the first paint.
+    try { const savedStyle = localStorage.getItem(MARK_STYLE_PREF); if (savedStyle === 'pins' || savedStyle === 'dots') state.d2dMarkStyle = savedStyle; } catch (_) {}
+
     // Force map to recalculate size after standalone viewport settles
     if (isStandalone) {
       setTimeout(() => { if (state.d2dMap) state.d2dMap.invalidateSize(); }, 500);
@@ -2977,6 +2986,46 @@
     }
   }
 
+  // Build a knock marker's icon in the current look style. Colour encodes
+  // status (the disposition colour) in BOTH styles — only the shape differs:
+  //   'dots' — detailed disposition-coded circle (the analytical D2D look)
+  //   'pins' — simple colour teardrop 📍 (the cleaner CRM-map look)
+  // The disposition colour is a whitelisted hex from DISPOSITIONS, but it is
+  // escaped before entering the SVG anyway (defence-in-depth, matches the
+  // maps-overlays pin path).
+  function _d2dMarkerIcon(dispo) {
+    const color = (dispo && dispo.color) || '#666';
+    if (state.d2dMarkStyle === 'pins') {
+      const safe = esc(color);
+      const svg = '<svg viewBox="0 0 24 32" width="22" height="30" xmlns="http://www.w3.org/2000/svg">'
+        + '<path d="M12 0C7.6 0 4 3.6 4 8c0 6 8 16 8 16s8-10 8-16c0-4.4-3.6-8-8-8z" fill="' + safe + '" stroke="white" stroke-width="1.5"/>'
+        + '<circle cx="12" cy="8" r="3" fill="white"/></svg>';
+      return L.divIcon({
+        html: '<div style="filter:drop-shadow(0 2px 4px rgba(0,0,0,.5));">' + svg + '</div>',
+        iconSize: [22, 30], iconAnchor: [11, 30], popupAnchor: [0, -30], className: ''
+      });
+    }
+    // Default: detailed dot — disposition short-code in a colour-filled circle.
+    const label = document.createElement('div');
+    label.style.cssText = `background:${color};width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;font-size:12px;font-weight:bold;border:2px solid white;`;
+    label.textContent = (dispo && dispo.short) || '?';
+    return L.divIcon({ html: label.outerHTML, iconSize: [30, 30], className: '' });
+  }
+
+  function _markStyleBtnLabel() { return state.d2dMarkStyle === 'pins' ? '📍 Pins' : '⚫ Dots'; }
+
+  // Flip the whole map between detailed dots and colour pins, persist the
+  // choice, and repaint. refreshMapMarkers() fully rebuilds the cluster, so
+  // this is a clean redraw — no per-marker mutation, no oscillation vector.
+  function toggleMarkStyle() {
+    state.d2dMarkStyle = (state.d2dMarkStyle === 'pins') ? 'dots' : 'pins';
+    try { localStorage.setItem(MARK_STYLE_PREF, state.d2dMarkStyle); } catch (_) {}
+    const btn = document.getElementById('d2d-mark-style');
+    if (btn) btn.innerHTML = _markStyleBtnLabel();
+    refreshMapMarkers();
+    window.showToast?.(state.d2dMarkStyle === 'pins' ? 'Color pins' : 'Detailed dots', 'info', 1500);
+  }
+
   function refreshMapMarkers() {
     if (!state.d2dMap || !state.d2dCluster) return;
     state.d2dCluster.clearLayers();
@@ -3006,11 +3055,7 @@
       if (!knock.lat || !knock.lng) return;
       const dispo = DISPOSITIONS[knock.disposition];
       const attempts = getAttemptCount(knock.address);
-      const label = document.createElement('div');
-      label.style.cssText = `background:${dispo?.color || '#666'};width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;font-size:12px;font-weight:bold;border:2px solid white;`;
-      label.textContent = dispo?.short || '?';
-
-      const icon = L.divIcon({ html: label.outerHTML, iconSize: [30, 30], className: '' });
+      const icon = _d2dMarkerIcon(dispo);
 
       // Build popup with data-attributes + touchend listeners instead of inline onclick
       // (iOS Safari standalone swallows inline onclick in Leaflet popups)
@@ -3330,6 +3375,18 @@
     diag.innerHTML = '🔍 Check';
     diag.addEventListener('click', (e) => { e.stopPropagation(); runMapDiagnostics(); });
     panel.appendChild(diag);
+
+    // Mark-look toggle (detailed dots ⇄ colour pins). A display switch, not a
+    // layer — colour still encodes status either way. Same neutral chip style
+    // as the diagnostics button; CSP-safe (addEventListener).
+    const styleBtn = document.createElement('button');
+    styleBtn.type = 'button';
+    styleBtn.id = 'd2d-mark-style';
+    styleBtn.title = 'Switch marker look: detailed dots ⇄ color pins';
+    styleBtn.style.cssText = diag.style.cssText;
+    styleBtn.innerHTML = _markStyleBtnLabel();
+    styleBtn.addEventListener('click', (e) => { e.stopPropagation(); toggleMarkStyle(); });
+    panel.appendChild(styleBtn);
 
     // Append to the map container (not the map tiles) so it floats above
     const mapEl = document.getElementById('d2dMap');
@@ -3973,6 +4030,7 @@
   state.refreshKnocks = refreshKnocks;
   state.runSearchThisArea = runSearchThisArea;
   state.runMapDiagnostics = runMapDiagnostics;
+  state.toggleMarkStyle = toggleMarkStyle;
   state.submitKnock = submitKnock;
   state.updateKnock = updateKnock;
   state.deleteKnock = deleteKnock;

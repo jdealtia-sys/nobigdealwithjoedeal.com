@@ -580,6 +580,45 @@ section('D2D map — map-data diagnostic ("why is my map empty?")');
     /diag\.addEventListener\(\s*['"]click['"][\s\S]*?runMapDiagnostics\(\)/.test(src));
 }
 
+section('D2D map — dots ⇄ pins look toggle (map unification, phase 1)');
+{
+  const src = readD2DLive();
+
+  // The look toggle exists, is exposed on the shim, and persists per device.
+  assert('D2D core defines toggleMarkStyle()',
+    /function toggleMarkStyle\s*\(/.test(src));
+  assert('window.D2D shim exports toggleMarkStyle',
+    /toggleMarkStyle:\s*state\.toggleMarkStyle/.test(src));
+  assert('mark style is persisted (MARK_STYLE_PREF localStorage)',
+    /MARK_STYLE_PREF\s*=/.test(src) &&
+    /localStorage\.setItem\(MARK_STYLE_PREF/.test(src) &&
+    /localStorage\.getItem\(MARK_STYLE_PREF\)/.test(src));
+
+  // Both looks are built by one icon helper, branched on the style.
+  assert('_d2dMarkerIcon branches on the pins style',
+    /function _d2dMarkerIcon\s*\(/.test(src) &&
+    /state\.d2dMarkStyle\s*===\s*['"]pins['"]/.test(src));
+  assert('pins style renders the teardrop SVG',
+    /M12 0C7\.6 0 4 3\.6 4 8/.test(src));
+  assert('dots style keeps the disposition short-code circle',
+    /\(dispo && dispo\.short\)\s*\|\|\s*['"]\?['"]/.test(src));
+
+  // Colour still encodes status in the pins style, and is escaped (XSS guard).
+  const iconFn = src.slice(src.indexOf('function _d2dMarkerIcon'),
+                          src.indexOf('function _markStyleBtnLabel'));
+  assert('pins style escapes the colour before interpolating into the SVG',
+    /const safe = esc\(color\)/.test(iconFn) && /fill="'\s*\+\s*safe/.test(iconFn));
+
+  // Surfaced via a CSP-safe button in the existing layer panel.
+  assert('layer panel exposes a CSP-safe mark-style toggle button',
+    /id\s*=\s*['"]d2d-mark-style['"]/.test(src) &&
+    /styleBtn\.addEventListener\(\s*['"]click['"][\s\S]*?toggleMarkStyle\(\)/.test(src));
+
+  // Default first paint is unchanged (dots), so nothing regresses visually.
+  assert("default mark style stays 'dots'",
+    /state\.d2dMarkStyle\s*=\s*['"]dots['"]/.test(src));
+}
+
 section('firestore.indexes.json — knocks [tenant, lat] viewport indexes (deploy on merge)');
 {
   const idx = JSON.parse(read(path.join(ROOT, 'firestore.indexes.json')));
