@@ -54,4 +54,22 @@ section('H-04: getAdminAnalytics admin/company_admin gate + rate limit');
     /callableRateLimit\(request,\s*'getAdminAnalytics'/.test(src));
 }
 
+section('Rep report: "Revenue per Door" is a true per-UNIQUE-door figure');
+{
+  const rep = read(path.join(PRO_JS, 'rep-report-generator.js'));
+  const fn = rep.slice(rep.indexOf('function computeRevenuePerKnock'),
+                       rep.indexOf('function computeRevenuePerKnock') + 1600);
+  // Denominator is UNIQUE doors (deduped by address→coords→id), not knock count.
+  assert('computeRevenuePerKnock dedupes to unique doors',
+    /doorsCount = new Set\(inRangeKnocks\.map\(doorKey\)\)\.size/.test(fn) &&
+    /revenuePerDoor: doorsCount > 0 \? \(revenue \/ doorsCount\)/.test(fn));
+  assert('doorKey falls back address → coords → id',
+    /const a = normAddr\(k\.address\)[\s\S]{0,200}geo:['"] \+ Number\(k\.lat\)\.toFixed\(5\)[\s\S]{0,80}k:['"] \+ \(k\.id/.test(fn));
+  // The "Revenue per Door" hero must render the per-DOOR value + door count,
+  // not the per-knock number (the old mislabel).
+  assert('Revenue per Door hero uses revenuePerDoor + doors (not per-knock)',
+    /Revenue per Door<\/div>\s*<div class="hero-value">\$\{fmtMoney\(revenuePerKnock\.revenuePerDoor\)/.test(rep) &&
+    /fmtNumber\(revenuePerKnock\.doors\)\} doors/.test(rep));
+}
+
 };

@@ -993,4 +993,21 @@ section('firestore.indexes.json — knocks [tenant, lat] viewport indexes (deplo
     hasKnockIndex(['companyId', 'lat']));
 }
 
+section('D2D "Value Per Door" — address-less knocks do not collapse into one door');
+{
+  const src = readD2DLive();
+  // doorKey gives address-less knocks a distinct identity (coords, then id) so
+  // they no longer all normalize to '' and collapse into a single door (which
+  // shrank the denominator and inflated Value Per Door).
+  assert('doorKey falls back address → coords → id',
+    /function doorKey\(k\)[\s\S]{0,320}geo:['"] \+ Number\(k\.lat\)\.toFixed\(5\)[\s\S]{0,120}return ['"]k:['"] \+ \(\(k && k\.id\)/.test(src));
+  // getRevenueMetrics must count doors AND weight the pipeline by doorKey (same
+  // key both sides) — not bare normalizeAddress — so the denominator is right.
+  const grm = src.slice(src.indexOf('function getRevenueMetrics'),
+                        src.indexOf('function getRevenueMetrics') + 1400);
+  assert('getRevenueMetrics counts doors via doorKey',
+    /doorsKnocked = new Set\(state\.knocks\.map\(k => doorKey\(k\)\)\)\.size/.test(grm) &&
+    /const norm = doorKey\(k\)/.test(grm));
+}
+
 };

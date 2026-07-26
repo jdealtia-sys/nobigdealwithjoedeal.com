@@ -394,6 +394,21 @@
     return (addr || '').toLowerCase().trim().replace(/\s+/g, ' ');
   }
 
+  // A stable "door" identity for a knock. The address when we have one; else the
+  // GPS coords (map-logged knocks carry lat/lng but no address string); else the
+  // knock's own id. Without this, every address-less knock normalized to '' and
+  // collapsed into a SINGLE door — shrinking the per-door denominator and
+  // inflating "Value Per Door". Coords are rounded to ~1m so re-knocks of the
+  // same spot still dedupe to one door.
+  function doorKey(k) {
+    const a = normalizeAddress(k && k.address);
+    if (a) return a;
+    if (k && k.lat != null && k.lng != null && isFinite(k.lat) && isFinite(k.lng)) {
+      return 'geo:' + Number(k.lat).toFixed(5) + ',' + Number(k.lng).toFixed(5);
+    }
+    return 'k:' + ((k && k.id) || '');
+  }
+
   function getAttemptCount(address) {
     const norm = normalizeAddress(address);
     return state.knocks.filter(k => normalizeAddress(k.address) === norm).length;
@@ -2680,7 +2695,7 @@
   const DEFAULT_JOB_VALUE = 12500;
 
   function getRevenueMetrics() {
-    const doorsKnocked = new Set(state.knocks.map(k => normalizeAddress(k.address))).size;
+    const doorsKnocked = new Set(state.knocks.map(k => doorKey(k))).size;
     const conversations = state.knocks.filter(k => isConversation(k.disposition)).length;
     const appointments = state.knocks.filter(k => k.disposition === 'appointment').length;
     const estimates = state.knocks.filter(k => k.estimateValue > 0).length;
@@ -2697,7 +2712,7 @@
     // double-count a single door.
     const latestByAddr = new Map();
     state.knocks.forEach(k => {
-      const norm = normalizeAddress(k.address);
+      const norm = doorKey(k);
       const kMs = (toDate(k.createdAt) || new Date(0)).getTime();
       const prev = latestByAddr.get(norm);
       if (!prev || kMs > prev._ms) latestByAddr.set(norm, { disposition: k.disposition, _ms: kMs });

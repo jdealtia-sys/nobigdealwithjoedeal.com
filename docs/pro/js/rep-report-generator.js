@@ -265,20 +265,38 @@
     };
   }
 
-  // Revenue per knock — closed revenue / total knocks
+  // Revenue per door — closed revenue / UNIQUE doors knocked, plus the raw
+  // per-knock figure. The old version divided revenue by KNOCK COUNT (attempts)
+  // yet the report labeled it "Revenue per Door" — so re-knocking a door
+  // understated the per-door number. Doors are deduped by address, then GPS
+  // coords (map-logged knocks have no address string), then knock id — the same
+  // door identity the D2D dashboard uses.
   function computeRevenuePerKnock(leads, knocks, rangeStart, rangeEnd) {
-    const knocksCount = knocks.filter(k =>
+    const normAddr = (a) => String(a || '').toLowerCase().trim().replace(/\s+/g, ' ');
+    const doorKey = (k) => {
+      const a = normAddr(k.address);
+      if (a) return a;
+      if (k.lat != null && k.lng != null && isFinite(k.lat) && isFinite(k.lng)) {
+        return 'geo:' + Number(k.lat).toFixed(5) + ',' + Number(k.lng).toFixed(5);
+      }
+      return 'k:' + (k.id || '');
+    };
+    const inRangeKnocks = knocks.filter(k =>
       inRange(toDate(k.timestamp || k.createdAt), rangeStart, rangeEnd)
-    ).length;
+    );
+    const knocksCount = inRangeKnocks.length;
+    const doorsCount = new Set(inRangeKnocks.map(doorKey)).size;
     const revenue = leads
       .filter(l => isWon(l) && inRange(toDate(l.updatedAt || l.createdAt), rangeStart, rangeEnd))
       .reduce((sum, l) => sum + (Number(l.jobValue) || 0), 0);
     return {
       knocks: knocksCount,
+      doors: doorsCount,
       revenue,
       revenuePerKnock: knocksCount > 0 ? (revenue / knocksCount) : 0,
+      revenuePerDoor: doorsCount > 0 ? (revenue / doorsCount) : 0,
       display: knocksCount > 0
-        ? fmtMoney(revenue / knocksCount) + ' per door'
+        ? fmtMoney(revenue / knocksCount) + ' per knock'
         : 'No knocks yet'
     };
   }
@@ -1588,8 +1606,8 @@ ${STATIC_CHART_CSS}
       </div>
       <div class="hero-cell">
         <div class="hero-label">Revenue per Door</div>
-        <div class="hero-value">${fmtMoney(revenuePerKnock.revenuePerKnock)} ${priorRpk ? deltaChip(revenuePerKnock.revenuePerKnock, priorRpk.revenuePerKnock) : ''}</div>
-        <div class="hero-sub">${fmtNumber(revenuePerKnock.knocks)} knocks</div>
+        <div class="hero-value">${fmtMoney(revenuePerKnock.revenuePerDoor)} ${priorRpk && priorRpk.revenuePerDoor != null ? deltaChip(revenuePerKnock.revenuePerDoor, priorRpk.revenuePerDoor) : ''}</div>
+        <div class="hero-sub">${fmtNumber(revenuePerKnock.doors)} doors</div>
       </div>
     </div>
 
