@@ -255,6 +255,7 @@
   state.accuracyCircle = null;
   state.watchId = null;
   state.currentLocation = null;
+  state.gpsFixAt = null;         // ms timestamp of the last GPS fix (nav-health readout)
   state.d2dFollowMode = false;   // map tracks the rep as they move (restored from localStorage)
   state.d2dFollowPaused = false; // a manual drag pauses follow until Recenter
   state.d2dHeading = null;       // degrees from north (compass or GPS course), or null
@@ -1876,6 +1877,39 @@
       verdict = `Loaded ${loaded}${total != null ? ' of ' + total : ''} knocks.`;
     }
 
+    // ── Navigation health ──────────────────────────────────────────
+    // Turns the phone eyeball into a definitive readout: is GPS fixing, is the
+    // compass actually feeding heading (vs GPS-course fallback), is rotation
+    // live — and it surfaces heading° + bearing° together so the map-spin sign
+    // is inspectable (if bearing ≈ -heading the plugin's applied setBearing(-deg)).
+    const bearing = (state.d2dMap && typeof state.d2dMap.getBearing === 'function')
+      ? Math.round(state.d2dMap.getBearing()) : null;
+    const gpsFixAgeSec = state.gpsFixAt ? Math.round((Date.now() - state.gpsFixAt) / 1000) : null;
+    const nav = {
+      gpsFix: !!state.currentLocation,
+      gpsAccuracyM: (typeof state.gpsAccuracy === 'number') ? Math.round(state.gpsAccuracy) : null,
+      gpsFixAgeSec: gpsFixAgeSec,
+      compassSupported: (typeof DeviceOrientationEvent !== 'undefined'),
+      compassNeedsPermission: (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function'),
+      compassActive: _compassActive,
+      heading: (state.d2dHeading != null) ? Math.round(state.d2dHeading) : null,
+      headingSource: _compassActive ? 'compass' : (state.d2dHeading != null ? 'gps-course' : 'none'),
+      follow: state.d2dFollowMode ? (state.d2dFollowPaused ? 'paused' : 'on') : 'off',
+      rotation: state.d2dRotateEnabled ? (_rotateReady ? 'on' : 'starting') : 'off',
+      rotationPluginLoaded: _rotatePluginPresent(),
+      bearing: bearing
+    };
+
+    const fmtGps = nav.gpsFix
+      ? `fix ${gpsFixAgeSec != null ? gpsFixAgeSec + 's ago' : 'active'}${nav.gpsAccuracyM != null ? ', ±' + nav.gpsAccuracyM + 'm' : ''}`
+      : 'no fix yet';
+    const fmtCompass = !nav.compassSupported ? 'not supported on this device'
+      : nav.compassActive ? 'active'
+      : (nav.compassNeedsPermission ? 'off (tap 🧭 Follow to grant)' : 'off (uses GPS course when moving)');
+    const fmtHeading = (nav.heading != null) ? `${nav.heading}° (${nav.headingSource})` : '—';
+    const fmtRotation = nav.rotation === 'off' ? 'off'
+      : `${nav.rotation}${nav.bearing != null ? ', bearing ' + nav.bearing + '°' : ''}${nav.rotationPluginLoaded ? '' : ' (plugin not loaded)'}`;
+
     const detail = {
       loadedOnMap: loaded,
       withCoordinates: withCoords,
@@ -1883,16 +1917,25 @@
       atRecencyCap: capped,
       lastLoadError: loadError ? loadError.message : null,
       countError,
+      navigation: nav,
       verdict
     };
     console.log('[D2D map diagnostics]', detail);
 
     const msg = [
-      `Loaded on map: ${loaded}${capped ? ` (at the ${KNOCK_PAGE_SIZE} cap)` : ''}`,
-      `With map coordinates: ${withCoords}`,
-      total != null ? `Total in your account: ${total}`
-        : (countError ? `Total: couldn't reach server` : `Total: unknown`),
-      loadError ? `Last load: FAILED (${loadError.message})` : `Last load: OK`,
+      'DATA',
+      `  Loaded on map: ${loaded}${capped ? ` (at the ${KNOCK_PAGE_SIZE} cap)` : ''}`,
+      `  With coordinates: ${withCoords}`,
+      total != null ? `  Total in account: ${total}`
+        : (countError ? `  Total: couldn't reach server` : `  Total: unknown`),
+      loadError ? `  Last load: FAILED (${loadError.message})` : `  Last load: OK`,
+      '',
+      'NAVIGATION',
+      `  GPS: ${fmtGps}`,
+      `  Compass: ${fmtCompass}`,
+      `  Heading: ${fmtHeading}`,
+      `  Follow: ${nav.follow}`,
+      `  Rotation: ${fmtRotation}`,
       '',
       verdict
     ].join('\n');
@@ -2937,6 +2980,7 @@
       function(pos) {
         _gpsErrorNotified = false; // clear on first successful fix
         state.currentLocation = [pos.coords.latitude, pos.coords.longitude];
+        state.gpsFixAt = Date.now(); // for the nav-health "fix N s ago" readout
         // Fix accuracy in metres — used to warn before trusting a door number
         // resolved at/near the device position when the GPS fix is weak.
         state.gpsAccuracy = (typeof pos.coords.accuracy === 'number') ? pos.coords.accuracy : null;

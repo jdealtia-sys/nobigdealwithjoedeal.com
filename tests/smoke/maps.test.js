@@ -887,6 +887,33 @@ section('D2D map — navigation polish (heading smoothing + "you are here" pulse
     /class="d2d-location-pulse"/.test(src));
 }
 
+section('D2D map — 🔍 Check now reports navigation health');
+{
+  const src = readD2DLive();
+  const diag = src.slice(src.indexOf('async function runMapDiagnostics'),
+                        src.indexOf('async function runMapDiagnostics') + 7000);
+
+  // The diagnostic now carries a navigation block alongside the data verdict.
+  assert('runMapDiagnostics returns a navigation block',
+    /navigation:\s*nav/.test(diag) && /const nav = \{/.test(diag));
+  // GPS health: fix presence + accuracy + age (needs the fix timestamp).
+  assert('reports GPS fix age + accuracy',
+    /state\.gpsFixAt/.test(diag) && /gpsAccuracyM/.test(diag));
+  assert('GPS fix timestamp is stamped on each watchPosition fix',
+    /state\.gpsFixAt = Date\.now\(\)/.test(src));
+  // Compass: support + permission + whether it's actually the heading source.
+  assert('reports compass support/permission + heading source',
+    /compassSupported/.test(diag) && /headingSource/.test(diag) &&
+    /_compassActive \? ['"]compass['"] : \(state\.d2dHeading != null \? ['"]gps-course['"]/.test(diag));
+  // Rotation: state + plugin-loaded + current bearing (so the spin sign is
+  // inspectable next to heading).
+  assert('reports rotation state, plugin-loaded, and current bearing',
+    /rotationPluginLoaded:\s*_rotatePluginPresent\(\)/.test(diag) &&
+    /getBearing\(\)/.test(diag));
+  assert('readout has a NAVIGATION section next to DATA',
+    /'NAVIGATION'/.test(diag) && /'DATA'/.test(diag));
+}
+
 section('firestore.indexes.json — knocks [tenant, lat] viewport indexes (deploy on merge)');
 {
   const idx = JSON.parse(read(path.join(ROOT, 'firestore.indexes.json')));
