@@ -3695,17 +3695,19 @@
   }
 
   // ── "SEARCH THIS AREA" VIEWPORT CONTROL (Zillow/Redfin-style) ─────────
-  // A pill that surfaces after the rep pans/zooms the map; tapping it pulls the
-  // knocks for the CURRENT viewport (loadKnocksInViewport) instead of the
-  // global 500-most-recent default. Also carries a plain 🔄 refresh.
+  // A compact reload button parked in the bottom-right corner (just above the
+  // Leaflet/Google attribution). Tapping it pulls the knocks for the CURRENT
+  // viewport (loadKnocksInViewport) instead of the global 500-most-recent
+  // default. It sits there permanently and "arms" (an orange pulse) after the
+  // rep pans/zooms, hinting there may be knocks to load in the new view.
   //
   // Verification note (this handler runs on every map move): the `moveend`
-  // handler ONLY toggles this button's visibility — it performs NO map mutation
+  // handler ONLY toggles this button's armed class — it performs NO map mutation
   // (no setView / fitBounds / invalidateSize), so it can never re-trigger its
-  // own moveend and cannot oscillate. The visibility write is idempotent
+  // own moveend and cannot oscillate. The class write is idempotent
   // (skipped when already in the target state) so a burst of moveend events
   // can't thrash layout. `_searchAreaArmed` gates the first ~2s so the init
-  // setView / invalidateSize settle doesn't flash the pill.
+  // setView / invalidateSize settle doesn't flash the hint.
   let _searchAreaArmed = false;
   let _searchAreaBusy = false;
 
@@ -3713,45 +3715,34 @@
     if (!state.d2dMap || document.getElementById('d2d-search-area-wrap')) return;
     const wrap = document.createElement('div');
     wrap.id = 'd2d-search-area-wrap';
-    // Bottom-center (above the recenter button) — keeps it clear of the top
-    // search bar + layer panel. Transient (shown after a pan/zoom).
-    wrap.style.cssText = 'position:absolute;bottom:136px;left:50%;transform:translateX(-50%);'
-      + 'z-index:1000;display:none;align-items:center;gap:6px;';
+    // Bottom-right, floated just ABOVE the Leaflet/Google attribution strip so
+    // the required map attribution stays visible (ToS) rather than being covered.
+    // Always shown (a permanent corner reload button); it arms after a pan/zoom.
+    wrap.style.cssText = 'position:absolute;bottom:26px;right:8px;'
+      + 'z-index:1000;display:flex;align-items:center;gap:6px;';
 
     const search = document.createElement('button');
     search.type = 'button';
     search.id = 'd2d-search-area';
-    search.textContent = '🔄 Search this area';
-    search.style.cssText = 'background:var(--orange,#e8720c);color:#0A0C0F;border:none;'
-      + 'padding:8px 14px;border-radius:20px;cursor:pointer;'
-      + "font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:800;letter-spacing:.03em;"
-      + 'box-shadow:0 3px 14px rgba(0,0,0,.5);-webkit-tap-highlight-color:transparent;min-height:38px;';
+    search.title = 'Search this area — load knocks in the current view';
+    search.setAttribute('aria-label', 'Search this area');
+    search.textContent = '🔄';
+    search.style.cssText = 'background:color-mix(in srgb, var(--s) 92%, transparent);'
+      + 'color:var(--t);border:1px solid var(--br);width:40px;height:40px;border-radius:20px;'
+      + 'cursor:pointer;font-size:18px;font-weight:700;box-shadow:0 3px 14px rgba(0,0,0,.5);'
+      + 'display:flex;align-items:center;justify-content:center;line-height:1;'
+      + '-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);-webkit-tap-highlight-color:transparent;';
     // addEventListener (not inline on*=) — CSP-safe, like the layer/basemap controls.
     search.addEventListener('click', (e) => { e.stopPropagation(); runSearchThisArea(); });
     wrap.appendChild(search);
 
-    const refresh = document.createElement('button');
-    refresh.type = 'button';
-    refresh.id = 'd2d-refresh-knocks';
-    refresh.title = 'Refresh knocks (re-pull the 500 most recent)';
-    refresh.textContent = '↻';
-    refresh.style.cssText = 'background:color-mix(in srgb, var(--s) 92%, transparent);'
-      + 'color:var(--t);border:1px solid var(--br);width:38px;height:38px;border-radius:19px;'
-      + 'cursor:pointer;font-size:16px;font-weight:700;box-shadow:0 3px 14px rgba(0,0,0,.5);'
-      + '-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);-webkit-tap-highlight-color:transparent;';
-    refresh.addEventListener('click', async (e) => {
-      e.stopPropagation();
-      refresh.disabled = true; refresh.textContent = '⏳';
-      try { await refreshKnocks(); window.showToast?.('Knocks refreshed', 'info'); }
-      catch (_) { window.showToast?.('Refresh failed', 'error'); }
-      finally { refresh.disabled = false; refresh.textContent = '↻'; }
-    });
-    wrap.appendChild(refresh);
-
     const mapEl = document.getElementById('d2dMap');
     if (mapEl) { mapEl.style.position = 'relative'; mapEl.appendChild(wrap); }
+    // Belt-and-suspenders with the handler's stopPropagation: keep taps on the
+    // corner button from falling through to the map's click→quick-knock handler.
+    if (window.L && L.DomEvent) { try { L.DomEvent.disableClickPropagation(wrap); } catch (_) {} }
 
-    // Show the pill only after a genuine pan/zoom. See the verification note
+    // Arm the button only after a genuine pan/zoom. See the verification note
     // above: this callback mutates no map state, so there is no feedback loop.
     state.d2dMap.on('moveend', _onMapMoveForSearch);
     setTimeout(() => { _searchAreaArmed = true; }, 2000);
@@ -3765,26 +3756,29 @@
     _setSearchAreaVisible(true);
   }
 
-  // Idempotent visibility toggle — only writes to the DOM when the state
-  // actually changes, so a burst of moveend events can't thrash layout.
+  // Idempotent arm/disarm toggle — the corner reload button is always visible;
+  // this only adds/removes the orange "you moved, tap to load here" pulse class,
+  // and only when the state actually changes, so a burst of moveend events can't
+  // thrash layout. (Name kept for the callers/oscillation-guard slice.)
   function _setSearchAreaVisible(show) {
-    const wrap = document.getElementById('d2d-search-area-wrap');
-    if (!wrap) return;
-    const want = show ? 'flex' : 'none';
-    if (wrap.style.display !== want) wrap.style.display = want;
+    const btn = document.getElementById('d2d-search-area');
+    if (!btn) return;
+    const armed = btn.classList.contains('d2d-search-armed');
+    if (show && !armed) btn.classList.add('d2d-search-armed');
+    else if (!show && armed) btn.classList.remove('d2d-search-armed');
   }
 
   async function runSearchThisArea() {
     if (_searchAreaBusy) return;
     const btn = document.getElementById('d2d-search-area');
     _searchAreaBusy = true;
-    if (btn) { btn.textContent = '⏳ Searching…'; btn.disabled = true; }
+    if (btn) { btn.textContent = '⏳'; btn.disabled = true; }
     let res;
     try {
       res = await loadKnocksInViewport();
     } finally {
       _searchAreaBusy = false;
-      if (btn) { btn.disabled = false; btn.textContent = '🔄 Search this area'; }
+      if (btn) { btn.disabled = false; btn.textContent = '🔄'; }
     }
     if (res && res.error) {
       window.showToast?.(

@@ -463,6 +463,12 @@ body.theme-frosted {
 .d2d-basemap-sv { margin-left:2px; border-left:1px solid var(--br); border-radius:0 7px 7px 0; color:var(--blue); }
 .d2d-basemap-sv:hover { color:var(--blue); background:color-mix(in srgb, var(--blue) 14%, transparent); }
 @media(max-width:480px) { .d2d-basemap-btn { min-width:30px; padding:5px 5px; font-size:14px; } }
+/* ── D2D "Search this area" corner reload button (bottom-right) ──── */
+/* Neutral at rest; "arms" with an orange pulse after a genuine pan/zoom to
+   hint there may be knocks to load in the new view. */
+#d2d-search-area.d2d-search-armed { border-color:var(--orange,#e8720c); color:var(--orange,#e8720c); animation:d2dSearchArmedPulse 1.8s ease-in-out infinite; }
+@keyframes d2dSearchArmedPulse { 0%,100%{ box-shadow:0 3px 14px rgba(0,0,0,.5),0 0 0 0 color-mix(in srgb, var(--orange) 50%, transparent); } 50%{ box-shadow:0 3px 14px rgba(0,0,0,.5),0 0 0 7px color-mix(in srgb, var(--orange) 0%, transparent); } }
+@media(prefers-reduced-motion:reduce) { #d2d-search-area.d2d-search-armed { animation:none; box-shadow:0 3px 14px rgba(0,0,0,.5),0 0 0 3px color-mix(in srgb, var(--orange) 40%, transparent); } }
 /* ── D2D property intel on knock card ───────────────────────────── */
 .d2d-pi-wrap { margin-top:2px; }
 .d2d-pi-card { display:flex; align-items:stretch; gap:12px; padding:12px; background:var(--s2); border:1px solid var(--br); border-radius:10px; }
