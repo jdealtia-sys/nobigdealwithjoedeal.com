@@ -58,6 +58,35 @@ section('Wave B3: live estimates snapshot');
     /window\._subscribeEstimates\(\)/.test(dash));
 }
 
+section('Team visibility: estimates readable by company_admin/manager (rules + client)');
+{
+  const rules = read(path.join(ROOT, 'firestore.rules'));
+  const estBlock = rules.slice(rules.indexOf('match /estimates/'),
+                              rules.indexOf('match /estimates/') + 2400);
+  // Rule: company staff (admin/manager, NOT viewer) read the tenant's estimates.
+  assert('estimates rule grants isCompanyStaff a company-scoped read',
+    /allow read:[\s\S]{0,240}isCompanyStaff\(\)[\s\S]{0,160}resource\.data\.companyId == myCompanyId\(\)/.test(estBlock));
+  // Delete stays owner-only (not widened with read).
+  assert('estimates delete stays owner-only',
+    /allow delete:\s*if isOwner\(resource\.data\.userId\) \|\| isAdmin\(\);/.test(estBlock));
+  // Create pins companyId to the caller's tenant (no cross-tenant injection).
+  assert('estimates create pins companyId to the caller tenant',
+    /allow create:[\s\S]{0,240}request\.resource\.data\.companyId == request\.auth\.token\.get\(\s*['"]companyId['"]/.test(estBlock));
+  // Edit freezes companyId so an estimate can't be re-tenanted.
+  assert('estimates update freezes companyId',
+    /allow update:[\s\S]{0,120}didNotChange\(\[[^\]]*['"]companyId['"]/.test(estBlock));
+
+  const dash = readDashboard();
+  // Client stamps companyId on create so the company read has something to match.
+  assert('_saveEstimate stamps companyId on create',
+    /addDoc\(collection\(db,'estimates'\)[\s\S]{0,200}companyId:\s*\(window\._userClaims/.test(dash));
+  // loadEstimates + subscription add the companyId scope for company_admin/manager.
+  assert('loadEstimates adds a companyId scope for company_admin/manager',
+    /async function loadEstimates[\s\S]{0,900}\['company_admin','manager'\]\.includes\(claims\.role[\s\S]{0,160}where\('companyId','==',claims\.companyId\)/.test(dash));
+  assert('_subscribeEstimates adds a team (companyId) listener, merged by id',
+    /_subscribeEstimates[\s\S]{0,900}teamRead[\s\S]{0,1800}where\('companyId', '==', claims\.companyId\)/.test(dash));
+}
+
 section('F7: V2 Builder autosave');
 {
   const src = read(path.join(PRO_JS, 'estimate-v2-ui.js'));

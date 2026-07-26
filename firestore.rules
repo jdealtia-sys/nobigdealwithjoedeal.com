@@ -417,7 +417,19 @@ service cloud.firestore {
 
     // ── ESTIMATES ─────────────────────────────────────
     match /estimates/{estimateId} {
-      allow read, delete: if isOwner(resource.data.userId) || isAdmin();
+      // Team visibility (2026-07): company_admin / manager read every rep's
+      // estimate in their own tenant so the pipeline/estCount/estimate rows
+      // reflect the whole team (mirrors /invoices' isCompanyStaff read). viewer
+      // is deliberately EXCLUDED — estimates carry pricing/margin, so this
+      // matches the recordings/storm_proofs manager-only precedent, not the
+      // broader isCompanyReader set. sameCompany requires BOTH companyIds
+      // non-null, so a solo user or a legacy estimate with no companyId falls
+      // back to owner-only. Delete stays owner-only.
+      allow read: if isOwner(resource.data.userId) || isAdmin()
+        || (isCompanyStaff()
+            && resource.data.companyId != null
+            && resource.data.companyId == myCompanyId());
+      allow delete: if isOwner(resource.data.userId) || isAdmin();
       // Edit-estimate legitimately rewrites the money fields (updateDoc with the
       // rebuilt payload), so DON'T freeze totals — but owner/provenance and the
       // server-stamped view counters must be immutable from the client (else an
@@ -425,9 +437,16 @@ service cloud.firestore {
       // engagement). The edit payload (_buildSavePayload) carries none of these
       // keys, so normal edits pass `didNotChange`. Mirrors the /expenses guard.
       allow update: if (isOwner(resource.data.userId)
-            && didNotChange(['userId', 'createdBy', 'createdAt', 'viewedAt', 'viewCount', 'lastViewedAt', 'lastViewedVia']))
+            && didNotChange(['userId', 'companyId', 'createdBy', 'createdAt', 'viewedAt', 'viewCount', 'lastViewedAt', 'lastViewedVia']))
         || isAdmin();
-      allow create: if isAuth() && request.resource.data.userId == request.auth.uid;
+      // companyId (when present) must be the caller's tenant — pins it so an
+      // owner can't stamp a VICTIM tenant's companyId and inject an estimate
+      // into that team's company-scoped rollups. Absent is allowed (legacy /
+      // solo clients that don't stamp); '== uid' is the solo convention.
+      allow create: if isAuth() && request.resource.data.userId == request.auth.uid
+        && (request.resource.data.get('companyId', '') == ''
+            || request.resource.data.companyId == request.auth.token.get('companyId', '')
+            || request.resource.data.companyId == request.auth.uid);
     }
 
     // ── SUPPLEMENTS (insurance leverage tool) ─────────
@@ -744,8 +763,19 @@ service cloud.firestore {
     }
 
     // ── NOTES ─────────────────────────────────────────
+    // Activity-log notes carry { leadId, userId(author), text, ... }. Read is
+    // scoped to the PARENT LEAD, not the note's author, so the lead owner sees
+    // teammates' notes on their lead (e.g. a manager's "Stage moved to X") and a
+    // same-company member sees the whole timeline — mirrors the subcollection
+    // /leads/{id}/notes rule. Before this, read was note-author-only, so a
+    // manager-authored stage-change note was invisible in the owner's timeline.
+    // A query filtered by leadId lets Firestore evaluate these get()s once.
+    // update/delete stay author-only (isOwner(note.userId)).
     match /notes/{noteId} {
-      allow read, update, delete: if isOwner(resource.data.userId) || isAdmin();
+      allow read: if isAuth() && (isAdmin()
+        || isOwner(get(/databases/$(database)/documents/leads/$(resource.data.leadId)).data.userId)
+        || parentLeadInMyCompany(resource.data.leadId));
+      allow update, delete: if isOwner(resource.data.userId) || isAdmin();
       allow create: if isAuth() && request.resource.data.userId == request.auth.uid;
     }
 

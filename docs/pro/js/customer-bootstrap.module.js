@@ -2910,7 +2910,11 @@ async function _gatherTimelineForReport(leadId, lead) {
   } catch (_) { /* ignore */ }
 
   try {
-    const snap = await getDocs(query(collection(window.db, 'notes'), where('leadId', '==', leadId), where('userId', '==', uid)));
+    // Read by leadId only (no author filter) so the timeline shows EVERY note on
+    // this lead — including a manager's stage-change note on a rep's lead. The
+    // /notes rule authorizes this by parent-lead ownership / same-company, so a
+    // leadId-scoped query is rule-valid for the owner and same-company members.
+    const snap = await getDocs(query(collection(window.db, 'notes'), where('leadId', '==', leadId)));
     snap.docs.forEach(d => {
       const n = d.data();
       const when = n.createdAt?.toDate ? n.createdAt.toDate() : (n.createdAt ? new Date(n.createdAt) : new Date());
@@ -2934,17 +2938,22 @@ async function _gatherNotesForReport(leadId) {
   const query      = window.query;
   const collection = window.collection;
   const where      = window.where;
-  const orderBy    = window.orderBy;
-  if ([getDocs, query, collection, where, orderBy].some(fn => typeof fn !== 'function')) return [];
+  if ([getDocs, query, collection, where].some(fn => typeof fn !== 'function')) return [];
   try {
+    // leadId-only (no author filter) so a report includes the whole lead's
+    // notes; the /notes rule authorizes by parent lead. Sort createdAt desc in
+    // JS instead of orderBy so no [leadId, createdAt] composite index is needed.
     const snap = await getDocs(
-      query(collection(window.db, 'notes'), where('leadId', '==', leadId), where('userId', '==', uid), orderBy('createdAt', 'desc'))
+      query(collection(window.db, 'notes'), where('leadId', '==', leadId))
     );
-    return snap.docs.map(d => {
-      const n = d.data();
-      const when = n.createdAt?.toDate ? n.createdAt.toDate() : (n.createdAt ? new Date(n.createdAt) : null);
-      return { text: n.text || '', createdBy: n.createdBy || '', createdAt: when };
-    });
+    const ms = (v) => (v && v.toDate ? v.toDate().getTime() : (v ? new Date(v).getTime() : 0)) || 0;
+    return snap.docs
+      .map(d => {
+        const n = d.data();
+        const when = n.createdAt?.toDate ? n.createdAt.toDate() : (n.createdAt ? new Date(n.createdAt) : null);
+        return { text: n.text || '', createdBy: n.createdBy || '', createdAt: when };
+      })
+      .sort((a, b) => ms(b.createdAt) - ms(a.createdAt));
   } catch (_) {
     return [];
   }
