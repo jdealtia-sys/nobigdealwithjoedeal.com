@@ -508,14 +508,23 @@ section('D2D map — "Search this area" viewport knock loader (fixes the 500-rec
 
   // The Search-this-area control is created and CSP-safe (addEventListener,
   // not inline onclick).
-  assert('createSearchAreaControl builds the #d2d-search-area pill',
+  assert('createSearchAreaControl builds the #d2d-search-area button',
     /function createSearchAreaControl\s*\(/.test(src) &&
     /id\s*=\s*['"]d2d-search-area['"]/.test(src));
   assert('search control is wired via addEventListener (CSP-safe, no inline onclick)',
     /search\.addEventListener\(\s*['"]click['"]/.test(src));
+  // The corner button is a permanent reload affordance (display:flex, not
+  // hidden) and taps can't fall through to the map's click→quick-knock handler.
+  assert('search-area wrap is always visible and does not leak clicks to the map',
+    /wrap\.id = ['"]d2d-search-area-wrap['"][\s\S]{0,600}display:flex/.test(src) &&
+    /disableClickPropagation\(wrap\)/.test(src));
   assert('moveend handler is armed after init (no flash on the setView/invalidateSize settle)',
     /_searchAreaArmed/.test(src) &&
     /on\(\s*['"]moveend['"]\s*,\s*_onMapMoveForSearch\)/.test(src));
+  // The "you moved — tap to load here" hint is a class toggle (the button stays
+  // put), so it mutates no layout and can't oscillate the moveend loop.
+  assert('_setSearchAreaVisible arms via the d2d-search-armed class (no layout mutation)',
+    /function _setSearchAreaVisible[\s\S]{0,400}classList\.(add|contains)\(\s*['"]d2d-search-armed['"]/.test(src));
 
   // Oscillation guard (the #1061/#1062 lesson): the moveend handler and its
   // visibility toggle must NOT mutate the map — no setView/fitBounds/
@@ -928,9 +937,13 @@ section('D2D map — control layout (no top-edge overlap)');
   assert('layer panel is below the search bar (row 2+)',
     /d2d-layer-panel[\s\S]{0,320}top:100px;right:10px/.test(src) &&
     /d2d-layer-toggle[\s\S]{0,200}top:56px;right:10px/.test(src));
-  // "Search this area" pill moved off the crowded top to bottom-center.
-  assert('search-this-area pill is bottom-anchored (off the top cluster)',
-    /d2d-search-area-wrap[\s\S]{0,320}bottom:136px;left:50%/.test(src));
+  // "Search this area" is now a compact reload button parked in the
+  // bottom-RIGHT corner, floated ABOVE the Leaflet/Google attribution (so the
+  // required attribution stays visible) — off the top cluster AND the
+  // bottom-center recenter/follow controls.
+  assert('search-this-area reload button is anchored bottom-right (clear of attribution)',
+    /d2d-search-area-wrap[\s\S]{0,320}bottom:26px;right:8px/.test(src) &&
+    !/d2d-search-area-wrap[\s\S]{0,200}bottom:136px;left:50%/.test(src));
 }
 
 section('D2D map — collapsible layers panel (frees the map)');
@@ -948,6 +961,22 @@ section('D2D map — collapsible layers panel (frees the map)');
     /_setLayerPanelOpen\(_layerPanelOpen\)/.test(src));
   assert('window.D2D exposes toggleLayerPanel',
     /toggleLayerPanel:\s*state\.toggleLayerPanel/.test(src));
+
+  // The base-map "view type" switcher is folded INTO the layer panel (one
+  // collapsible panel) — no separate always-on bottom-left control.
+  assert('basemap buttons build into any container (reusable helper)',
+    /function _buildBasemapButtons\s*\(\s*container\s*\)/.test(src) &&
+    /container\.appendChild\(btn\)/.test(src));
+  assert('the layer panel builds a "view type" group via _buildBasemapButtons',
+    /createLayerPanel[\s\S]{0,2600}d2d-viewtype-group[\s\S]{0,200}_buildBasemapButtons\(viewGroup\)/.test(src));
+  assert('the standalone bottom-left basemap control is gone',
+    !/createBasemapControl/.test(src) && !/id\s*=\s*['"]d2d-basemap-ctrl['"]/.test(src) &&
+    !/ctrl\.className = ['"]d2d-basemap-ctrl['"]/.test(src));
+  // Basemap buttons keep their ids/.active so updateBasemapControl still tracks
+  // the current view, and they're still CSP-safe (addEventListener).
+  assert('basemap buttons keep d2d-basemap-<key> ids + CSP-safe wiring',
+    /id\s*=\s*['"]d2d-basemap-['"]\s*\+\s*key/.test(src) &&
+    /btn\.addEventListener\(\s*['"]click['"][\s\S]{0,60}setBasemap\(key\)/.test(src));
 }
 
 section('firestore.indexes.json — knocks [tenant, lat] viewport indexes (deploy on merge)');
