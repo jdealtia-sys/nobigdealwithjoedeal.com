@@ -715,4 +715,26 @@ section('Photo modal: _getPhotos is team-scoped (badge vs gallery parity)');
     /seen\.has\(d\.id\)/.test(fn));
 }
 
+section('Swallowed-error fixes: doc-save + task-toggle tell the truth');
+{
+  // #7 — a generated doc that fails to attach to the lead must NOT show a
+  // success toast. onSave surfaces an honest "NOT saved to the customer" error
+  // when persistence was attempted but the metadata write never landed.
+  const docgen = read(path.join(ROOT, 'docs/pro/js/document-generator.js'));
+  const onSave = docgen.slice(docgen.indexOf('onSave: async'),
+                             docgen.indexOf('onSave: async') + 1600);
+  assert('doc onSave surfaces an error when the doc did not attach to the lead',
+    /attemptedPersist && !attachedToLead[\s\S]{0,200}NOT saved to the customer/.test(onSave) &&
+    /'error'\)/.test(onSave));
+
+  // #8 — a failed task toggle must toast an error AND revert the checkbox by
+  // reloading the timeline from Firestore (the box flipped optimistically).
+  const tasks = read(path.join(ROOT, 'docs/pro/js/customer-tasks-ui.js'));
+  const toggle = tasks.slice(tasks.indexOf('window.toggleTask ='),
+                             tasks.indexOf('window.toggleTask =') + 1600);
+  assert('toggleTask failure toasts an error + reverts via loadTimeline',
+    /catch \(error\)[\s\S]{0,500}showToast\([\s\S]{0,80}Could not update task/.test(toggle) &&
+    /catch \(error\)[\s\S]{0,700}loadTimeline\(window\._customerId/.test(toggle));
+}
+
 };
