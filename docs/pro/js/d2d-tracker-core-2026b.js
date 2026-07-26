@@ -3618,6 +3618,7 @@
   //   Heat    — knock density heatmap
   // ════════════════════════════════════════════════════════════
   let d2dLayerState = { knocks: true, customers: false, weather: false, heat: false, territory: false, score: false };
+  let _layerPanelOpen = false; // panel collapsed by default behind the "Layers" toggle (frees the map)
   let d2dCustomerMarkers = [];
   let d2dStormLayer = null;
   let d2dWeatherLayer = null;
@@ -3811,9 +3812,9 @@
 
     const panel = document.createElement('div');
     panel.id = 'd2d-layer-panel';
-    // Row 2 (top:56) — sits BELOW the top search bar so the two never overlap.
-    // Capped width so the chip cluster stays a tidy right-corner block.
-    panel.style.cssText = 'position:absolute;top:56px;right:10px;z-index:1000;'
+    // Drops from under the "Layers" toggle (top:100) when opened; hidden by
+    // default so it doesn't eat the map. Capped width = tidy right-corner block.
+    panel.style.cssText = 'position:absolute;top:100px;right:10px;z-index:1000;'
       + 'background:color-mix(in srgb, var(--s) 92%, transparent);border:1px solid color-mix(in srgb, var(--orange) 30%, transparent);'
       + 'border-radius:10px;padding:8px;display:flex;flex-wrap:wrap;justify-content:flex-end;gap:4px;max-width:min(72vw, 300px);'
       + '-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);'
@@ -3905,9 +3906,38 @@
     if (mapEl) {
       mapEl.style.position = 'relative';
       mapEl.appendChild(panel);
+
+      // Compact toggle — the panel is collapsed by default so 10 chips don't
+      // eat the map; tap to open/close. CSP-safe (addEventListener).
+      const toggle = document.createElement('button');
+      toggle.type = 'button';
+      toggle.id = 'd2d-layer-toggle';
+      toggle.title = 'Show / hide map layers & tools';
+      toggle.style.cssText = 'position:absolute;top:56px;right:10px;z-index:1001;'
+        + 'background:color-mix(in srgb, var(--s) 92%, transparent);border:1px solid color-mix(in srgb, var(--orange) 30%, transparent);'
+        + 'color:var(--t);padding:7px 12px;border-radius:10px;cursor:pointer;'
+        + "font-family:'Barlow Condensed',sans-serif;font-size:12px;font-weight:800;letter-spacing:.04em;"
+        + 'display:flex;align-items:center;gap:6px;min-height:36px;'
+        + '-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);box-shadow:0 4px 16px rgba(0,0,0,.5);-webkit-tap-highlight-color:transparent;';
+      toggle.addEventListener('click', (e) => { e.stopPropagation(); _setLayerPanelOpen(!_layerPanelOpen); });
+      mapEl.appendChild(toggle);
     }
+    _setLayerPanelOpen(_layerPanelOpen); // apply initial (collapsed) state + toggle label
     _updateFollowControls(); // reflect a restored 'follow on' state on the button
     _updateRotateControls(); // and a restored 'rotate on' state
+  }
+
+  // Open/close the layer+tools panel (collapsed by default). Only toggles
+  // visibility + the button label — no map mutation.
+  function _setLayerPanelOpen(open) {
+    _layerPanelOpen = !!open;
+    const panel = document.getElementById('d2d-layer-panel');
+    const toggle = document.getElementById('d2d-layer-toggle');
+    if (panel) panel.style.display = _layerPanelOpen ? 'flex' : 'none';
+    if (toggle) {
+      toggle.innerHTML = _layerPanelOpen ? '🗂️ Layers ▾' : '🗂️ Layers ▸';
+      toggle.style.borderColor = _layerPanelOpen ? 'var(--orange)' : 'color-mix(in srgb, var(--orange) 30%, transparent)';
+    }
   }
 
   function updateLayerPanel() {
@@ -4596,6 +4626,7 @@
   state.toggleMarkStyle = toggleMarkStyle;
   state.toggleFollow = toggleFollow;
   state.toggleMapRotate = toggleMapRotate;
+  state.toggleLayerPanel = () => _setLayerPanelOpen(!_layerPanelOpen);
   state.d2dSearchAddress = d2dSearchAddress;
   state.submitKnock = submitKnock;
   state.updateKnock = updateKnock;
