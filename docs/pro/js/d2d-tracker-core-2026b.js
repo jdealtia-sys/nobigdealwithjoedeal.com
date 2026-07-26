@@ -3431,7 +3431,9 @@
     if (!state.d2dMap || document.getElementById('d2d-addr-search')) return;
     const wrap = document.createElement('div');
     wrap.id = 'd2d-addr-search';
-    wrap.style.cssText = 'position:absolute;top:10px;left:10px;z-index:1000;display:flex;gap:4px;max-width:62vw;';
+    // Top bar: inset left to clear Leaflet's top-left zoom buttons, span to the
+    // right edge. The layer panel drops to row 2 so they never share a row.
+    wrap.style.cssText = 'position:absolute;top:8px;left:52px;right:8px;z-index:1000;display:flex;gap:4px;';
     const input = document.createElement('input');
     input.type = 'search';
     input.id = 'd2d-addr-input';
@@ -3710,7 +3712,9 @@
     if (!state.d2dMap || document.getElementById('d2d-search-area-wrap')) return;
     const wrap = document.createElement('div');
     wrap.id = 'd2d-search-area-wrap';
-    wrap.style.cssText = 'position:absolute;top:12px;left:50%;transform:translateX(-50%);'
+    // Bottom-center (above the recenter button) — keeps it clear of the top
+    // search bar + layer panel. Transient (shown after a pan/zoom).
+    wrap.style.cssText = 'position:absolute;bottom:136px;left:50%;transform:translateX(-50%);'
       + 'z-index:1000;display:none;align-items:center;gap:6px;';
 
     const search = document.createElement('button');
@@ -3807,9 +3811,11 @@
 
     const panel = document.createElement('div');
     panel.id = 'd2d-layer-panel';
-    panel.style.cssText = 'position:absolute;top:10px;right:10px;z-index:1000;'
+    // Row 2 (top:56) — sits BELOW the top search bar so the two never overlap.
+    // Capped width so the chip cluster stays a tidy right-corner block.
+    panel.style.cssText = 'position:absolute;top:56px;right:10px;z-index:1000;'
       + 'background:color-mix(in srgb, var(--s) 92%, transparent);border:1px solid color-mix(in srgb, var(--orange) 30%, transparent);'
-      + 'border-radius:10px;padding:8px;display:flex;flex-wrap:wrap;justify-content:flex-end;gap:4px;max-width:calc(100% - 20px);'
+      + 'border-radius:10px;padding:8px;display:flex;flex-wrap:wrap;justify-content:flex-end;gap:4px;max-width:min(72vw, 300px);'
       + '-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);'
       + 'box-shadow:0 4px 20px rgba(0,0,0,.5);';
 

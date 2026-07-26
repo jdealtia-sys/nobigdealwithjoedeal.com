@@ -914,6 +914,22 @@ section('D2D map — 🔍 Check now reports navigation health');
     /'NAVIGATION'/.test(diag) && /'DATA'/.test(diag));
 }
 
+section('D2D map — control layout (no top-edge overlap)');
+{
+  const src = readD2DLive();
+  // Search box: top bar, inset past the top-left zoom control, spanning right —
+  // NOT the old top-left box that collided with the layer panel.
+  assert('search box is a top bar inset from the left zoom control',
+    /d2d-addr-search[\s\S]{0,400}top:8px;left:52px;right:8px/.test(src) &&
+    !/top:10px;left:10px;z-index:1000;display:flex;gap:4px;max-width:62vw/.test(src));
+  // Layer panel ("filters") drops to row 2 so it never shares the top row with search.
+  assert('layer panel is on row 2 (below the search bar)',
+    /d2d-layer-panel[\s\S]{0,320}top:56px;right:10px/.test(src));
+  // "Search this area" pill moved off the crowded top to bottom-center.
+  assert('search-this-area pill is bottom-anchored (off the top cluster)',
+    /d2d-search-area-wrap[\s\S]{0,320}bottom:136px;left:50%/.test(src));
+}
+
 section('firestore.indexes.json — knocks [tenant, lat] viewport indexes (deploy on merge)');
 {
   const idx = JSON.parse(read(path.join(ROOT, 'firestore.indexes.json')));
