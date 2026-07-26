@@ -903,6 +903,44 @@ async function run() {
   await assertSucceeds(getDoc(doc(admin, 'users/alice/templates/tpl1')));
   await assertSucceeds(deleteDoc(doc(alice, 'users/alice/templates/tpl1')));
 
+  // 30. TEAM VISIBILITY: estimates (managers/admins) + top-level notes.
+  //     Estimates carry pricing → company_admin + manager read the tenant's
+  //     estimates so estCount/pipeline reflect the team; viewer is EXCLUDED
+  //     (mirrors recordings/storm_proofs, not the broader isCompanyReader).
+  //     Top-level /notes are activity log → the PARENT LEAD's owner sees a
+  //     teammate's note on their lead (the manager stage-change fix) and any
+  //     same-company member sees the timeline; author-only was the old bug.
+  //     Reuses collection/query/where/getDocs (declared at the drawings block)
+  //     + contexts alice/bob/coAdmin/mgrA/viewerA.
+  await env.withSecurityRulesDisabled(async (ctx) => {
+    const db = ctx.firestore();
+    await setDoc(doc(db, 'leads/leadTeamA'), { userId: 'alice', name: 'Team Lead A', companyId: 'co-a' });
+    await setDoc(doc(db, 'estimates/est-teamA'), { userId: 'alice', companyId: 'co-a', grandTotal: 5000, name: 'Alice est' });
+    await setDoc(doc(db, 'estimates/est-legacy'), { userId: 'alice', name: 'Legacy est (no companyId)' });
+    await setDoc(doc(db, 'notes/note-mgr'), { leadId: 'leadTeamA', userId: 'mia', text: 'Stage moved to Inspected' });
+  });
+  // Estimates: owner + same-company manager/admin read; viewer + cross-tenant denied.
+  await assertSucceeds(getDoc(doc(alice,   'estimates/est-teamA')));   // owner
+  await assertSucceeds(getDoc(doc(coAdmin, 'estimates/est-teamA')));   // company_admin, co-a
+  await assertSucceeds(getDoc(doc(mgrA,    'estimates/est-teamA')));   // manager, co-a
+  await assertFails(getDoc(doc(viewerA,    'estimates/est-teamA')));   // viewer EXCLUDED (pricing)
+  await assertFails(getDoc(doc(bob,        'estimates/est-teamA')));   // cross-tenant
+  // Legacy estimate (no companyId) stays owner-only — sameCompany needs both non-null.
+  await assertSucceeds(getDoc(doc(alice,   'estimates/est-legacy')));
+  await assertFails(getDoc(doc(coAdmin,    'estimates/est-legacy')));
+  // Create pins companyId to the caller's tenant — can't inject into a victim tenant.
+  await assertFails(setDoc(doc(alice, 'estimates/est-forge'), { userId: 'alice', companyId: 'co-b', grandTotal: 1 }));
+  await assertSucceeds(setDoc(doc(alice, 'estimates/est-ok'),  { userId: 'alice', companyId: 'co-a', grandTotal: 1 }));
+  // Notes: the lead OWNER reads a manager-authored note on their lead (#6 fix),
+  // same-company staff read it, cross-tenant denied. Both getDoc AND the
+  // leadId-scoped list query (the timeline's real query) must pass.
+  await assertSucceeds(getDoc(doc(alice,   'notes/note-mgr')));        // owner of parent lead
+  await assertSucceeds(getDoc(doc(mgrA,    'notes/note-mgr')));        // same-company manager
+  await assertSucceeds(getDoc(doc(coAdmin, 'notes/note-mgr')));        // same-company admin
+  await assertFails(getDoc(doc(bob,        'notes/note-mgr')));        // cross-tenant
+  await assertSucceeds(getDocs(query(collection(alice, 'notes'), where('leadId', '==', 'leadTeamA'))));
+  await assertFails(getDocs(query(collection(bob,   'notes'), where('leadId', '==', 'leadTeamA'))));
+
   console.log('✓ All firestore rules tests passed');
   await env.cleanup();
 }

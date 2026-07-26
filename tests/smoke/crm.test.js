@@ -652,6 +652,31 @@ section('Review engine — role-aware nudges, tenant-safe copy, Settings-sourced
     && /await getReviewLink\(\)/.test(rev));
 }
 
+section('Team visibility: lead-activity notes readable across the lead (rules + client)');
+{
+  const rules = read(path.join(ROOT, 'firestore.rules'));
+  // lastIndexOf → the TOP-LEVEL /notes match (the subcollection one is earlier).
+  const notesBlock = rules.slice(rules.lastIndexOf('match /notes/'),
+                                rules.lastIndexOf('match /notes/') + 700);
+  // Read is scoped to the PARENT LEAD (owner or same-company), not the note
+  // author — so a lead owner sees a manager's stage-change note on their lead.
+  assert('top-level /notes read is scoped to the parent lead (owner or same-company)',
+    /allow read:[\s\S]{0,260}leads\/\$\(resource\.data\.leadId\)[\s\S]{0,140}parentLeadInMyCompany\(resource\.data\.leadId\)/.test(notesBlock));
+  assert('/notes update+delete stay author-only',
+    /allow update, delete:\s*if isOwner\(resource\.data\.userId\) \|\| isAdmin\(\);/.test(notesBlock));
+
+  // Client: timeline + report note reads query by leadId ONLY (no author
+  // filter), so teammates' notes appear; the rule authorizes it.
+  const cust = read(path.join(ROOT, 'docs/pro/js/customer-bootstrap.module.js'));
+  assert('customer timeline reads notes by leadId only (no userId filter)',
+    /collection\(window\.db, 'notes'\), where\('leadId', '==', leadId\)\)/.test(cust) &&
+    !/collection\(window\.db, 'notes'\), where\('leadId', '==', leadId\), where\('userId'/.test(cust));
+  const rpt = read(path.join(ROOT, 'docs/pro/js/customer-photo-report-generator.js'));
+  assert('notes panel reads by leadId only (no userId filter)',
+    /collection\(db, 'notes'\), where\('leadId', '==', leadId\)\)/.test(rpt) &&
+    !/collection\(db, 'notes'\), where\('leadId', '==', leadId\), where\('userId'/.test(rpt));
+}
+
 section('Customer page: invoices load (team-scope + createdAt sort)');
 {
   const src = read(path.join(ROOT, 'docs/pro/js/customer-tasks-ui.js'));

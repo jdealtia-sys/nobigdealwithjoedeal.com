@@ -673,11 +673,18 @@ document.addEventListener('keydown', function (ev) {
 
 async function loadNotes(leadId) {
   try {
+    // leadId-only (no author filter) so the notes panel shows the whole lead's
+    // activity, incl. teammates' notes; the /notes rule authorizes by parent
+    // lead. Sort createdAt desc in JS (no [leadId, createdAt] composite index).
     const noteSnap = await getDocs(
-      query(collection(db, 'notes'), where('leadId', '==', leadId), where('userId', '==', auth.currentUser?.uid), orderBy('createdAt', 'desc'))
+      query(collection(db, 'notes'), where('leadId', '==', leadId))
     );
-    
-    if (noteSnap.empty) {
+    const _ms = (v) => (v && v.toDate ? v.toDate().getTime() : (v ? new Date(v).getTime() : 0)) || 0;
+    const notes = noteSnap.docs
+      .map(d => d.data())
+      .sort((a, b) => _ms(b.createdAt) - _ms(a.createdAt));
+
+    if (!notes.length) {
       document.getElementById('notesList').innerHTML = `
       <div class="empty">
         <div class="empty-icon"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:13px;height:13px;vertical-align:middle;"><path d="M4 3h12a1 1 0 011 1v10l-4 4H4a1 1 0 01-1-1V4a1 1 0 011-1z"/><path d="M13 14v4"/><path d="M7 7h6M7 10h3"/></svg></div>
@@ -688,8 +695,7 @@ async function loadNotes(leadId) {
     }
 
     const esc = window.nbdEsc || (s => String(s == null ? '' : s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])));
-    const html = noteSnap.docs.map(d => {
-      const note = d.data();
+    const html = notes.map(note => {
       const createdDate = note.createdAt?.toDate ? note.createdAt.toDate() : new Date();
       const timeAgo = getTimeAgo(createdDate);
 

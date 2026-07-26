@@ -3093,9 +3093,22 @@
     try {
       const uid = window._user?.uid;
       if (!uid) { window._estimates = []; return; }
-      const snap = await getDocs(query(collection(db,'estimates'), where('userId','==',uid)));
-      window._estimates = snap.docs
-        .map(d => ({id:d.id,...d.data()}))
+      // Team visibility: company_admin/manager also pull the tenant's estimates
+      // (companyId scope) so estCount + estimate rows reflect the whole team —
+      // the /estimates rule permits this read. Own-userId query ALWAYS runs (it
+      // covers the caller's legacy pre-companyId estimates). Two equality
+      // queries, deduped by id — same two-scope shape as loadLeads/_photoCache.
+      const claims = window._userClaims || {};
+      const scopes = [where('userId','==',uid)];
+      if (['company_admin','manager'].includes(claims.role || '') && claims.companyId) {
+        scopes.push(where('companyId','==',claims.companyId));
+      }
+      const byId = {};
+      for (const scope of scopes) {
+        const snap = await getDocs(query(collection(db,'estimates'), scope));
+        snap.docs.forEach(d => { byId[d.id] = {id:d.id,...d.data()}; });
+      }
+      window._estimates = Object.values(byId)
         .sort((a,b) => {
           const ta = a.createdAt?.toDate?.()?.getTime() || 0;
           const tb = b.createdAt?.toDate?.()?.getTime() || 0;
@@ -3119,22 +3132,45 @@
     if (_estimatesUnsub) { try { _estimatesUnsub(); } catch(e) {} _estimatesUnsub = null; }
     const uid = window._user?.uid;
     if (!uid) return;
-    const q = query(collection(db, 'estimates'), where('userId', '==', uid));
-    _estimatesUnsub = onSnapshot(q, (snap) => {
-      const next = snap.docs
-        .map(d => ({ id: d.id, ...d.data() }))
-        .sort((a, b) => {
-          const ta = a.createdAt?.toDate?.()?.getTime() || 0;
-          const tb = b.createdAt?.toDate?.()?.getTime() || 0;
-          return tb - ta;
-        });
-      window._estimates = next;
-      renderEstimatesList(next);
-    }, (err) => {
+    const claims = window._userClaims || {};
+    const teamRead = ['company_admin','manager'].includes(claims.role || '') && claims.companyId;
+    // Two live slices merged by doc id: own estimates (ALWAYS — also covers
+    // legacy docs with no companyId) + the tenant's estimates for
+    // company_admin/manager. A solo/rep user gets EXACTLY the previous
+    // single-listener behavior (own map only), so nothing regresses for them;
+    // only team readers gain the second listener. Merging is required — a plain
+    // own-only listener would clobber team estimates loadEstimates() merged in
+    // every time it fired.
+    const sortDesc = (a, b) => {
+      const ta = a.createdAt?.toDate?.()?.getTime() || 0;
+      const tb = b.createdAt?.toDate?.()?.getTime() || 0;
+      return tb - ta;
+    };
+    const own = {}, comp = {};
+    const rebuild = () => {
+      const merged = Object.assign({}, comp, own); // own wins on a shared doc
+      window._estimates = Object.values(merged).sort(sortDesc);
+      renderEstimatesList(window._estimates);
+    };
+    const onErr = (err) => {
       console.warn('estimates snapshot error:', err && err.message);
       // Fall back to one-shot fetch so the UI isn't stuck empty.
       loadEstimates();
-    });
+    };
+    const unsubs = [];
+    unsubs.push(onSnapshot(query(collection(db, 'estimates'), where('userId', '==', uid)), (snap) => {
+      for (const k in own) delete own[k];
+      snap.docs.forEach(d => { own[d.id] = { id: d.id, ...d.data() }; });
+      rebuild();
+    }, onErr));
+    if (teamRead) {
+      unsubs.push(onSnapshot(query(collection(db, 'estimates'), where('companyId', '==', claims.companyId)), (snap) => {
+        for (const k in comp) delete comp[k];
+        snap.docs.forEach(d => { comp[d.id] = { id: d.id, ...d.data() }; });
+        rebuild();
+      }, onErr));
+    }
+    _estimatesUnsub = () => unsubs.forEach(u => { try { u(); } catch(e) {} });
   };
 
   window._saveEstimate = async (data) => {
@@ -3147,8 +3183,13 @@
         await loadEstimates();
         return editId;
       } else {
-        // Create new estimate
-        const ref2 = await addDoc(collection(db,'estimates'), {...data, createdAt:serverTimestamp(), userId:window._user?.uid});
+        // Create new estimate. Stamp companyId (claims.companyId || uid) — the
+        // tenant key that lets same-company managers read team estimates (the
+        // /estimates rule's isCompanyStaff read) and powers team estCount. Solo
+        // operators key by uid, mirroring /pins + /invoices.
+        const ref2 = await addDoc(collection(db,'estimates'), {...data, createdAt:serverTimestamp(),
+          userId:window._user?.uid,
+          companyId: (window._userClaims && window._userClaims.companyId) || window._user?.uid || null});
         await loadEstimates();
         // Pipeline wiring: Pipeline/dashboard-KPI/Leaderboard all read
         // lead.jobValue, not the estimate itself — nothing wrote that back
