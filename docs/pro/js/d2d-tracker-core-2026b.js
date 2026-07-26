@@ -2694,13 +2694,28 @@
   // ~$12.5k is a conservative retail roof; tune per market if needed.
   const DEFAULT_JOB_VALUE = 12500;
 
+  // Date-scoped knocks for the revenue card: respects the DATE-range filter so
+  // "Expected Value / Door" reflects the selected period (today/week/month) and
+  // matches the rest of the filtered D2D view — but deliberately NOT the
+  // disposition filter. Value-per-door is Σ P(close|disposition) × dealValue ÷
+  // doors; its whole meaning is the disposition MIX across doors, so filtering to
+  // one disposition would degenerate it to a constant weight × deal size.
+  function revenueScopedKnocks() {
+    let f = state.knocks;
+    if (state.filterDateRange === 'today') f = f.filter(k => isToday(k.createdAt));
+    else if (state.filterDateRange === 'week') f = f.filter(k => isThisWeek(k.createdAt));
+    else if (state.filterDateRange === 'month') f = f.filter(k => isThisMonth(k.createdAt));
+    return f;
+  }
+
   function getRevenueMetrics() {
-    const doorsKnocked = new Set(state.knocks.map(k => doorKey(k))).size;
-    const conversations = state.knocks.filter(k => isConversation(k.disposition)).length;
-    const appointments = state.knocks.filter(k => k.disposition === 'appointment').length;
-    const estimates = state.knocks.filter(k => k.estimateValue > 0).length;
-    const closed = state.knocks.filter(k => k.closedDealValue > 0).length;
-    const revenue = state.knocks.reduce((sum, k) => sum + (k.closedDealValue || 0), 0);
+    const knocks = revenueScopedKnocks();
+    const doorsKnocked = new Set(knocks.map(k => doorKey(k))).size;
+    const conversations = knocks.filter(k => isConversation(k.disposition)).length;
+    const appointments = knocks.filter(k => k.disposition === 'appointment').length;
+    const estimates = knocks.filter(k => k.estimateValue > 0).length;
+    const closed = knocks.filter(k => k.closedDealValue > 0).length;
+    const revenue = knocks.reduce((sum, k) => sum + (k.closedDealValue || 0), 0);
 
     // Deal size to value the pipeline at: the rep's own realized average once
     // they have closes, otherwise the industry-default job value.
@@ -2711,7 +2726,7 @@
     // deduped to the most-recent disposition per address so re-knocks don't
     // double-count a single door.
     const latestByAddr = new Map();
-    state.knocks.forEach(k => {
+    knocks.forEach(k => {
       const norm = doorKey(k);
       const kMs = (toDate(k.createdAt) || new Date(0)).getTime();
       const prev = latestByAddr.get(norm);

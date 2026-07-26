@@ -1006,8 +1006,27 @@ section('D2D "Value Per Door" — address-less knocks do not collapse into one d
   const grm = src.slice(src.indexOf('function getRevenueMetrics'),
                         src.indexOf('function getRevenueMetrics') + 1400);
   assert('getRevenueMetrics counts doors via doorKey',
-    /doorsKnocked = new Set\(state\.knocks\.map\(k => doorKey\(k\)\)\)\.size/.test(grm) &&
+    /doorsKnocked = new Set\(knocks\.map\(k => doorKey\(k\)\)\)\.size/.test(grm) &&
     /const norm = doorKey\(k\)/.test(grm));
+
+  // #3 — the revenue card respects the DATE-range filter (period-scoped) but NOT
+  // the disposition filter (which would degenerate the per-door mix).
+  const rsk = src.slice(src.indexOf('function revenueScopedKnocks'),
+                        src.indexOf('function revenueScopedKnocks') + 500);
+  assert('revenueScopedKnocks applies the date range only (not filterDispo)',
+    /state\.filterDateRange === 'today'/.test(rsk) &&
+    /state\.filterDateRange === 'week'/.test(rsk) &&
+    !/filterDispo/.test(rsk));
+  assert('getRevenueMetrics operates on the date-scoped knocks',
+    /const knocks = revenueScopedKnocks\(\)/.test(grm));
+
+  // #4 — the headline is labeled EXPECTED/projected, not "Value Per Door" /
+  // "Live" (so a rep doesn't read it as money earned).
+  assert('headline reads "Expected Value / Door" + projected tag (not the old label)',
+    /Expected Value \/ Door/.test(src) &&
+    /Projected — not yet earned/.test(src) &&
+    !/>Value Per Door</.test(src) &&
+    !/◉ Live pipeline value/.test(src));
 }
 
 };
