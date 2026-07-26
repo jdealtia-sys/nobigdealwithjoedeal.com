@@ -2079,8 +2079,13 @@
       method:           estimate.method || 'line-item',
       tier:             estimate.tier || state.tier,
       mode:             estimate.mode || state.jobMode,
-      // Customer association
-      leadId:           state.leadId || null,
+      // Customer association. state.leadId is set only on the REOPEN path
+      // (loading an existing doc); a brand-new estimate opened from a customer
+      // card links via prefillFromLead → state.customer.leadId. Fall back to it
+      // so a fresh estimate isn't saved orphaned (leadId:null) — which would
+      // hide it from the customer page and skip the lead jobValue/primaryEstimate
+      // stamp-back (that block is gated on data.leadId).
+      leadId:           state.leadId || (state.customer && state.customer.leadId) || null,
       addr:             state.customer.address || '',
       owner:            state.customer.name || '',
       // FU-1: persist insurance claim info (carrier/deductible/adjuster/…) so a

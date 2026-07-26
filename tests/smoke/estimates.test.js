@@ -65,6 +65,19 @@ section('Job Templates: "Add to Existing Customer" survives a repaint (attach fi
     /doCreateEstimate[\s\S]{0,260}getElementById\('jtLeadSel'\)/.test(src));
 }
 
+section('V2 builder: new estimate keeps its customer link (leadId not orphaned)');
+{
+  const src = read(path.join(PRO_JS, 'estimate-v2-ui.js'));
+  // state.leadId is set only on reopen; a fresh estimate links via
+  // state.customer.leadId (prefillFromLead). _buildSavePayload must fall back to
+  // it, or new estimates save leadId:null — orphaned off the customer + no lead
+  // jobValue/primaryEstimate stamp-back.
+  assert('_buildSavePayload falls back to state.customer.leadId',
+    /function _buildSavePayload[\s\S]{0,1600}leadId:\s*state\.leadId\s*\|\|\s*\(state\.customer && state\.customer\.leadId\)\s*\|\|\s*null/.test(src));
+  assert('prefillFromLead is the fresh-open customer link',
+    /function prefillFromLead\(leadId\)[\s\S]{0,800}state\.customer\.leadId = leadId/.test(src));
+}
+
 section('Wave B3: live estimates snapshot');
 {
   // CSP hotfix: subscribe wiring is in dashboard-bootstrap.module.js.
