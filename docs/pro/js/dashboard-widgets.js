@@ -1218,6 +1218,63 @@ function openMobileJobDetail(leadId) {
     }
   }
 
+  // ── Activity tab — the lead's estimates + stage history ──
+  // Was a static stub that always read "No activity yet for this lead" (the
+  // tab was never populated). Surface what we already hold in memory (no extra
+  // Firestore reads): the lead's estimates (tappable → open the estimate) and
+  // its stage-change history. Preserves the static "Start Inspection" CTA and
+  // toggles the empty-state message.
+  const actBody = $('mJdTabActivity');
+  if (actBody) {
+    const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, c => (
+      { '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+    const ms = (v) => (v && v.toDate ? v.toDate().getTime() : (v ? new Date(v).getTime() : 0)) || 0;
+    const fmtWhen = (v) => {
+      const t = ms(v); if (!t) return '';
+      const days = Math.floor((Date.now() - t) / 86400000);
+      return days <= 0 ? 'today' : days === 1 ? 'yesterday'
+        : days < 30 ? days + 'd ago' : new Date(t).toLocaleDateString();
+    };
+    const items = [];
+    // Estimates: leadId match, plus a stamped primary that may predate the
+    // leadId-attach fix. Tappable → _mJdOpenEstimate opens it.
+    (window._estimates || []).forEach(e => {
+      if (!e || (e.leadId !== lead.id && e.id !== lead.primaryEstimateId)) return;
+      const amt = Number(e.grandTotal != null ? e.grandTotal : e.total) || 0;
+      const sub = [e.name && esc(e.name), fmtWhen(e.createdAt)].filter(Boolean).join(' · ');
+      items.push({ t: ms(e.createdAt), html:
+        '<button type="button" class="m-jd-act-item" data-action="call" data-fn="_mJdOpenEstimate" data-arg="' + esc(e.id) + '">'
+        + '<span class="m-jd-act-item-ico">📄</span>'
+        + '<span class="m-jd-act-item-body">'
+        +   '<span class="m-jd-act-item-t">Estimate' + (amt ? ' · $' + amt.toLocaleString() : '') + '</span>'
+        + (sub ? '<span class="m-jd-act-item-s">' + sub + '</span>' : '')
+        + '</span><span class="m-jd-act-item-chev">›</span></button>' });
+    });
+    // Stage-change history (from the lead doc — no query).
+    (lead.stageHistory || []).forEach(h => {
+      if (!h || !h.to) return;
+      const label = (typeof window.stageLabel === 'function')
+        ? window.stageLabel(h.to) : String(h.to).replace(/_/g, ' ');
+      items.push({ t: ms(h.timestamp), html:
+        '<div class="m-jd-act-item m-jd-act-item--static">'
+        + '<span class="m-jd-act-item-ico">🔁</span>'
+        + '<span class="m-jd-act-item-body">'
+        +   '<span class="m-jd-act-item-t">Stage → ' + esc(label) + '</span>'
+        +   '<span class="m-jd-act-item-s">' + fmtWhen(h.timestamp) + '</span>'
+        + '</span></div>' });
+    });
+    items.sort((a, b) => b.t - a.t);
+    const emptyEl = actBody.querySelector('.m-jd-empty');
+    let listEl = actBody.querySelector('.m-jd-act-list');
+    if (!listEl) {
+      listEl = document.createElement('div');
+      listEl.className = 'm-jd-act-list';
+      if (emptyEl) actBody.insertBefore(listEl, emptyEl); else actBody.appendChild(listEl);
+    }
+    listEl.innerHTML = items.map(i => i.html).join('');
+    if (emptyEl) emptyEl.hidden = items.length > 0;
+  }
+
   // ── Reset to Activity tab on every open ──
   _mJdSwitchTab('activity');
 

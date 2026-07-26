@@ -1419,14 +1419,40 @@ function _mJdAct(kind) {
       window._currentPhotoLeadId = id;
       goTo('photos');
       break;
-    case 'estimate':
+    case 'estimate': {
       closeMobileJobDetail();
-      window._currentEstimateLeadId = id;
+      // Open THIS lead's estimate — not the generic estimates page. Prefer the
+      // most-recent estimate already in memory for the lead, fall back to the
+      // stamped primaryEstimateId, else start a NEW estimate prefilled for the
+      // lead. (The old code set a dead per-lead global nothing read, then
+      // dumped the rep on the generic est list with no client context.)
+      const _ms = (v) => (v && v.toDate ? v.toDate().getTime() : (v ? new Date(v).getTime() : 0)) || 0;
+      const mine = (window._estimates || [])
+        .filter(e => e.leadId === id)
+        .sort((a, b) => _ms(b.createdAt) - _ms(a.createdAt));
+      const eid = (mine[0] && mine[0].id) || lead.primaryEstimateId || null;
       goTo('est');
+      if (eid && typeof window.viewEstimate === 'function') {
+        window.viewEstimate(eid);
+      } else if (typeof window.openEstimateV2Builder === 'function') {
+        window.openEstimateV2Builder({ leadId: id });
+      }
       break;
+    }
   }
 }
 window._mJdAct = _mJdAct;
+
+// Open a SPECIFIC estimate from a mobile job-detail Activity row
+// (data-fn="_mJdOpenEstimate" data-arg="<estimateId>"). Registered below so the
+// data-fn "call" dispatcher can resolve it, same as cdaMjdAct.
+function _mJdOpenEstimate(estimateId) {
+  if (!estimateId) return;
+  if (typeof closeMobileJobDetail === 'function') closeMobileJobDetail();
+  if (typeof goTo === 'function') goTo('est');
+  if (typeof window.viewEstimate === 'function') window.viewEstimate(estimateId);
+}
+window._mJdOpenEstimate = _mJdOpenEstimate;
 
 // ══════════════════════════════════════════════════════════════════════
 // Wave 2C.1 — Mobile create popover behind the bottom-nav "+" FAB
@@ -1936,6 +1962,7 @@ function editCardDetails() {
     cdPickType: cdPickType,
     cdaInspectionDeep: cdaInspectionDeep,
     cdaMjdAct: cdaMjdAct,
+    _mJdOpenEstimate: _mJdOpenEstimate,
     cdaEditLead: cdaEditLead,
     cdaOpenMobileInspection: cdaOpenMobileInspection,
     cdaVoiceMemo: cdaVoiceMemo,
