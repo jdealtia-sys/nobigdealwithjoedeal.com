@@ -48,6 +48,23 @@ section('Wave B2: V2 prefill from lead');
     /prefillFromLead\(state\.customer\.leadId\)/.test(src));
 }
 
+section('Job Templates: "Add to Existing Customer" survives a repaint (attach fix)');
+{
+  const src = read(path.join(PRO_JS, 'job-templates-ui.js'));
+  // The lead picker must mirror the pick into state.leadId (the source of
+  // truth), or a reRender() rebuilds the create step from an empty state.leadId
+  // and the estimate saves with leadId:null — "created but not attached".
+  assert('_jtWireLeadPicker syncs the pick into state.leadId via onSelect',
+    /function _jtWireLeadPicker[\s\S]{0,1600}onSelect:\s*function\s*\(lead\)\s*\{[\s\S]{0,160}state\.leadId\s*=/.test(src));
+  // The create step's hidden #jtLeadSel must derive its value from state.leadId
+  // so a repaint re-hydrates the selection instead of clearing it.
+  assert('create step hydrates #jtLeadSel from state.leadId',
+    /id="jtLeadSel"[\s\S]{0,80}state\.leadId\s*\?/.test(src));
+  // doCreateEstimate still reads that input to attribute the estimate.
+  assert('doCreateEstimate reads #jtLeadSel for attribution',
+    /doCreateEstimate[\s\S]{0,260}getElementById\('jtLeadSel'\)/.test(src));
+}
+
 section('Wave B3: live estimates snapshot');
 {
   // CSP hotfix: subscribe wiring is in dashboard-bootstrap.module.js.
