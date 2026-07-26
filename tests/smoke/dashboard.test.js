@@ -3339,4 +3339,44 @@ section('Globals Tranche 2c: __NBD_CALL_REGISTRY dispatch layer');
   assert('wiring audit saw the real markup surface (sanity floor)', dispatchNames.size > 150);
 }
 
+section('Mobile lead detail — Estimate opens the lead; Activity shows estimates');
+{
+  const actions = read(path.join(PRO_JS, 'dashboard-actions.js'));
+  const widgets = read(path.join(PRO_JS, 'dashboard-widgets.js'));
+  const css = read(path.join(ROOT, 'docs/pro/css/dashboard-app.css'));
+
+  // Bug B: the ESTIMATE quick-action opens THIS lead's estimate (viewEstimate)
+  // or a new one prefilled for the lead (openEstimateV2Builder{leadId}), not the
+  // generic est page via a dead _currentEstimateLeadId global.
+  const mJdAct = actions.slice(actions.indexOf('function _mJdAct('),
+                              actions.indexOf('window._mJdAct = _mJdAct'));
+  assert('_mJdAct estimate case opens the lead estimate (viewEstimate + V2 fallback)',
+    /case 'estimate'[\s\S]{0,1100}viewEstimate\(eid\)[\s\S]{0,200}openEstimateV2Builder\(\{ leadId: id \}\)/.test(mJdAct));
+  assert('_mJdAct estimate case no longer relies on the dead _currentEstimateLeadId global',
+    !/_currentEstimateLeadId/.test(mJdAct));
+
+  // A specific estimate row is tappable via a registered call target.
+  assert('_mJdOpenEstimate defined + registered (CSP-safe row open)',
+    /function _mJdOpenEstimate\(estimateId\)[\s\S]{0,240}viewEstimate\(estimateId\)/.test(actions) &&
+    /_mJdOpenEstimate: _mJdOpenEstimate/.test(actions));
+
+  // Bug A: openMobileJobDetail now populates the Activity tab (was a static
+  // "No activity yet" stub) with the lead's estimates + stage history.
+  const openFn = widgets.slice(widgets.indexOf('function openMobileJobDetail'),
+                               widgets.indexOf('window.openMobileJobDetail'));
+  assert('openMobileJobDetail builds the Activity list from estimates + stageHistory',
+    /mJdTabActivity/.test(openFn) &&
+    /m-jd-act-list/.test(openFn) &&
+    /data-fn="_mJdOpenEstimate"/.test(openFn) &&
+    /lead\.stageHistory/.test(openFn));
+  assert('Activity list toggles the empty-state message',
+    /emptyEl\.hidden = items\.length > 0/.test(openFn));
+  // Uses in-memory data (no new Firestore reads on open).
+  assert('Activity list reads window._estimates in-memory (no extra query)',
+    /window\._estimates \|\| \[\]/.test(openFn));
+
+  assert('m-jd Activity item styling present',
+    /\.m-jd-act-item\{/.test(css) && /\.m-jd-act-list\{/.test(css));
+}
+
 };
