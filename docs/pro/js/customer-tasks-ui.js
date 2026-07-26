@@ -286,11 +286,35 @@ window.loadProjectTimeline = async function(leadId) {
 // ── Invoices & Payments ─────────────────────────
 window.loadInvoices = async function(leadId) {
   try {
+    const uid = window.auth?.currentUser?.uid || window._user?.uid;
+    if (!uid || !window.db) {
+      document.getElementById('invoiceList').innerHTML = '<div class="empty"><div class="empty-icon">💰</div>No invoices yet</div>';
+      return;
+    }
+    // Team visibility (mirrors loadCommunicationLog + the /invoices rule):
+    // company_admin/manager/viewer with a companyId read the whole tenant's
+    // invoices for this lead; everyone else reads their own. Invoice docs are
+    // stamped `createdAt` (never `date`) + `companyId` by invoice-pipeline, so
+    // the old orderBy('date') silently dropped EVERY invoice (Firestore skips
+    // docs missing the sort field) — sort createdAt client-side instead. Both
+    // branches are two equality filters (no composite index; single-field
+    // merge-join), so no index deploy is required.
+    const claims = window._userClaims || {};
+    const role = claims.role || '';
+    const companyId = claims.companyId || null;
+    const teamScope = !!(companyId && (role === 'company_admin' || role === 'manager' || role === 'viewer' || claims.owner === true));
     const invoicesRef = window.collection(window.db, 'invoices');
-    const q = window.query(invoicesRef, window.where('leadId', '==', leadId), window.where('createdBy', '==', window.auth?.currentUser?.uid), window.orderBy('date', 'desc'));
+    const q = teamScope
+      ? window.query(invoicesRef, window.where('leadId', '==', leadId), window.where('companyId', '==', companyId))
+      : window.query(invoicesRef, window.where('leadId', '==', leadId), window.where('createdBy', '==', uid));
     const snap = await window.getDocs(q);
 
-    if (snap.empty) {
+    const tsMs = (v) => (v && v.toDate ? v.toDate().getTime() : (v ? new Date(v).getTime() : 0)) || 0;
+    const invoices = snap.docs
+      .map(d => ({ id: d.id, ...d.data() }))
+      .sort((a, b) => tsMs(b.createdAt) - tsMs(a.createdAt));
+
+    if (!invoices.length) {
       document.getElementById('invoiceList').innerHTML = '<div class="empty"><div class="empty-icon">💰</div>No invoices yet</div>';
       return;
     }
@@ -301,8 +325,7 @@ window.loadInvoices = async function(leadId) {
     let totalPaid = 0;
     let html = '';
 
-    snap.forEach(doc => {
-      const inv = doc.data();
+    invoices.forEach(inv => {
       // invoice-pipeline writes `total` (never `amount` — that legacy key
       // rendered every pipeline invoice as $0.00 here). Paid cash = the
       // invoice's own collected math (total − balanceDue), NOT a
@@ -318,11 +341,16 @@ window.loadInvoices = async function(leadId) {
 
       const safeStatus = ALLOWED_STATUSES.has(inv.status) ? inv.status : 'draft';
       const safePayUrl = /^https?:/i.test(String(inv.paymentUrl || '')) ? inv.paymentUrl : null;
-      const date = inv.date?.toDate ? inv.date.toDate() : new Date(inv.date);
+      // Invoices are stamped `createdAt`; fall back to a legacy `date` if any
+      // old doc carried one. Guard against an unparseable value so a single bad
+      // row can't render "Invalid Date".
+      const rawDate = inv.createdAt || inv.date;
+      const d = rawDate && rawDate.toDate ? rawDate.toDate() : (rawDate ? new Date(rawDate) : null);
+      const dateStr = (d && !isNaN(d.getTime())) ? d.toLocaleDateString() : '';
       html += `
         <div class="invoice-item">
           <div class="invoice-left">
-            <div class="invoice-date">${esc(date.toLocaleDateString())}</div>
+            <div class="invoice-date">${esc(dateStr)}</div>
             <div class="invoice-desc">${esc(inv.description || 'Invoice')}</div>
           </div>
           <div class="invoice-right">
