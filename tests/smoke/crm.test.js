@@ -715,4 +715,18 @@ section('Photo modal: _getPhotos is team-scoped (badge vs gallery parity)');
     /seen\.has\(d\.id\)/.test(fn));
 }
 
+section('Pipeline small fixes (#9 legacy card handlers, #10 filter preserved)');
+{
+  const crm = read(path.join(ROOT, 'docs/pro/js/crm-pipeline.js'));
+  // #10 — "Show all N" preserves the active search/damage filter instead of
+  // repainting the whole book unfiltered.
+  assert('show-all expander preserves the active filter',
+    /_kbShowAll\[stageKey\] = true;[\s\S]{0,400}renderLeads\(window\._leads, window\._filteredLeads\)/.test(crm));
+  // #9 — the legacy kanban fallback now wires card handlers (was drag-only).
+  const legacy = crm.slice(crm.indexOf('LEGACY FALLBACK'), crm.indexOf('LEGACY FALLBACK') + 2800);
+  assert('legacy kanban fallback wires card listeners (not just drag)',
+    /renderColumnCards\(body, cards, stage\);[\s\S]{0,450}wireKanbanCardListeners\(body\)/.test(legacy));
+  // (#11 — homeowner-share badge dispatch — is covered in portal.test.js.)
+}
+
 };
