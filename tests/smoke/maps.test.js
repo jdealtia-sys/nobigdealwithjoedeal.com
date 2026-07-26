@@ -922,12 +922,32 @@ section('D2D map — control layout (no top-edge overlap)');
   assert('search box is a top bar inset from the left zoom control',
     /d2d-addr-search[\s\S]{0,400}top:8px;left:52px;right:8px/.test(src) &&
     !/top:10px;left:10px;z-index:1000;display:flex;gap:4px;max-width:62vw/.test(src));
-  // Layer panel ("filters") drops to row 2 so it never shares the top row with search.
-  assert('layer panel is on row 2 (below the search bar)',
-    /d2d-layer-panel[\s\S]{0,320}top:56px;right:10px/.test(src));
+  // Layer panel ("filters") sits below the top search bar (drops from the
+  // row-2 "Layers" toggle at top:56 to top:100 when opened) — never shares the
+  // top row with search.
+  assert('layer panel is below the search bar (row 2+)',
+    /d2d-layer-panel[\s\S]{0,320}top:100px;right:10px/.test(src) &&
+    /d2d-layer-toggle[\s\S]{0,200}top:56px;right:10px/.test(src));
   // "Search this area" pill moved off the crowded top to bottom-center.
   assert('search-this-area pill is bottom-anchored (off the top cluster)',
     /d2d-search-area-wrap[\s\S]{0,320}bottom:136px;left:50%/.test(src));
+}
+
+section('D2D map — collapsible layers panel (frees the map)');
+{
+  const src = readD2DLive();
+  // Panel is collapsed by default and toggled by a compact button.
+  assert('layer panel is collapsed by default',
+    /let _layerPanelOpen = false/.test(src));
+  assert('a CSP-safe "Layers" toggle button controls the panel',
+    /id\s*=\s*['"]d2d-layer-toggle['"]/.test(src) &&
+    /toggle\.addEventListener\(\s*['"]click['"][\s\S]{0,90}_setLayerPanelOpen\(!_layerPanelOpen\)/.test(src));
+  assert('_setLayerPanelOpen shows/hides the panel + updates the label',
+    /function _setLayerPanelOpen[\s\S]{0,320}panel\.style\.display = _layerPanelOpen \? ['"]flex['"] : ['"]none['"]/.test(src));
+  assert('initial collapsed state is applied on panel build',
+    /_setLayerPanelOpen\(_layerPanelOpen\)/.test(src));
+  assert('window.D2D exposes toggleLayerPanel',
+    /toggleLayerPanel:\s*state\.toggleLayerPanel/.test(src));
 }
 
 section('firestore.indexes.json — knocks [tenant, lat] viewport indexes (deploy on merge)');

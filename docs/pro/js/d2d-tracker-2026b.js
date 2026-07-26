@@ -41,6 +41,8 @@
     toggleMapRotate: state.toggleMapRotate,
     // On-map address search (ported from the retired Maps & Pins).
     d2dSearchAddress: state.d2dSearchAddress,
+    // Collapse/expand the map layers+tools panel.
+    toggleLayerPanel: state.toggleLayerPanel,
     openQuickKnock: state.openQuickKnock,
     closeQuickKnock: state.closeQuickKnock,
     selectDispo: state.selectDispo,
