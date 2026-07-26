@@ -961,6 +961,22 @@ section('D2D map — collapsible layers panel (frees the map)');
     /_setLayerPanelOpen\(_layerPanelOpen\)/.test(src));
   assert('window.D2D exposes toggleLayerPanel',
     /toggleLayerPanel:\s*state\.toggleLayerPanel/.test(src));
+
+  // The base-map "view type" switcher is folded INTO the layer panel (one
+  // collapsible panel) — no separate always-on bottom-left control.
+  assert('basemap buttons build into any container (reusable helper)',
+    /function _buildBasemapButtons\s*\(\s*container\s*\)/.test(src) &&
+    /container\.appendChild\(btn\)/.test(src));
+  assert('the layer panel builds a "view type" group via _buildBasemapButtons',
+    /createLayerPanel[\s\S]{0,2600}d2d-viewtype-group[\s\S]{0,200}_buildBasemapButtons\(viewGroup\)/.test(src));
+  assert('the standalone bottom-left basemap control is gone',
+    !/createBasemapControl/.test(src) && !/id\s*=\s*['"]d2d-basemap-ctrl['"]/.test(src) &&
+    !/ctrl\.className = ['"]d2d-basemap-ctrl['"]/.test(src));
+  // Basemap buttons keep their ids/.active so updateBasemapControl still tracks
+  // the current view, and they're still CSP-safe (addEventListener).
+  assert('basemap buttons keep d2d-basemap-<key> ids + CSP-safe wiring',
+    /id\s*=\s*['"]d2d-basemap-['"]\s*\+\s*key/.test(src) &&
+    /btn\.addEventListener\(\s*['"]click['"][\s\S]{0,60}setBasemap\(key\)/.test(src));
 }
 
 section('firestore.indexes.json — knocks [tenant, lat] viewport indexes (deploy on merge)');

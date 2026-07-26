@@ -2885,8 +2885,7 @@
 
     watchLocationAndCenter();
     refreshMapMarkers();
-    createLayerPanel();
-    createBasemapControl();
+    createLayerPanel(); // includes the "view type" (basemap) switcher — one panel
     createSearchAreaControl();
     _createRecenterControl();
     _createD2DSearchControl(); // on-map address search (ported from Maps & Pins)
@@ -3609,7 +3608,10 @@
   // A small panel that floats over the D2D map. Each toggle
   // controls a visual layer: Knocks, Jobs, Weather, Heatmap.
   // This replaces the separate Maps & Pins view — all map
-  // features are now consolidated into D2D.
+  // features are now consolidated into D2D. The base-map "view
+  // type" switcher (Satellite/Hybrid/Streets/Terrain + Street
+  // View) lives at the TOP of this same panel, so there's one
+  // collapsible panel rather than a separate bottom-left control.
   //
   // Layers:
   //   Knocks  — the default knock markers (disposition circles)
@@ -3660,11 +3662,14 @@
     window.open('https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=' + c.lat + ',' + c.lng, '_blank');
   }
 
-  function createBasemapControl() {
-    if (!state.d2dMap || document.getElementById('d2d-basemap-ctrl')) return;
-    const ctrl = document.createElement('div');
-    ctrl.id = 'd2d-basemap-ctrl';
-    ctrl.className = 'd2d-basemap-ctrl';
+  // Build the base-map "view type" buttons (Satellite / Hybrid / Streets /
+  // Terrain + Street View) into a given container. Folded into the collapsible
+  // layer panel (see createLayerPanel) instead of a separate always-on
+  // bottom-left control — one panel, more free map space. The buttons keep
+  // their d2d-basemap-<key> ids + .active class so updateBasemapControl() still
+  // reflects the current choice. CSP-safe (addEventListener, no inline on*=).
+  function _buildBasemapButtons(container) {
+    if (!container) return;
     BASEMAP_ORDER.forEach(key => {
       const b = BASEMAPS[key];
       const btn = document.createElement('button');
@@ -3673,9 +3678,8 @@
       btn.className = 'd2d-basemap-btn' + (state.d2dBasemap === key ? ' active' : '');
       btn.title = b.label;
       btn.innerHTML = b.icon + '<span>' + b.label + '</span>';
-      // addEventListener (not inline on*=) — CSP-safe, like the layer panel.
       btn.addEventListener('click', (e) => { e.stopPropagation(); setBasemap(key); });
-      ctrl.appendChild(btn);
+      container.appendChild(btn);
     });
     const sv = document.createElement('button');
     sv.type = 'button';
@@ -3683,9 +3687,7 @@
     sv.title = 'Open Street View at the map center';
     sv.innerHTML = '👁️<span>Street</span>';
     sv.addEventListener('click', (e) => { e.stopPropagation(); openStreetView(); });
-    ctrl.appendChild(sv);
-    const mapEl = document.getElementById('d2dMap');
-    if (mapEl) { mapEl.style.position = 'relative'; mapEl.appendChild(ctrl); }
+    container.appendChild(sv);
   }
   function updateBasemapControl() {
     BASEMAP_ORDER.forEach(key => {
@@ -3814,6 +3816,20 @@
       + '-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);'
       + 'box-shadow:0 4px 20px rgba(0,0,0,.5);';
 
+    // ── "View type" (basemap) — folded in at the top of the panel so there's
+    // ONE collapsible panel instead of a separate always-on bottom-left control
+    // (frees the bottom-left corner). A full-width labelled row, divided from
+    // the layer/tool chips below it.
+    const viewGroup = document.createElement('div');
+    viewGroup.id = 'd2d-viewtype-group';
+    viewGroup.className = 'd2d-viewtype-group';
+    const viewLabel = document.createElement('span');
+    viewLabel.className = 'd2d-viewtype-label';
+    viewLabel.textContent = 'VIEW';
+    viewGroup.appendChild(viewLabel);
+    _buildBasemapButtons(viewGroup);
+    panel.appendChild(viewGroup);
+
     const layers = [
       { key: 'knocks',    icon: '📍', label: 'Knocks' },
       { key: 'customers', icon: '👥', label: 'Customers' },
@@ -3906,7 +3922,7 @@
       const toggle = document.createElement('button');
       toggle.type = 'button';
       toggle.id = 'd2d-layer-toggle';
-      toggle.title = 'Show / hide map layers & tools';
+      toggle.title = 'Show / hide map view type, layers & tools';
       toggle.style.cssText = 'position:absolute;top:56px;right:10px;z-index:1001;'
         + 'background:color-mix(in srgb, var(--s) 92%, transparent);border:1px solid color-mix(in srgb, var(--orange) 30%, transparent);'
         + 'color:var(--t);padding:7px 12px;border-radius:10px;cursor:pointer;'
