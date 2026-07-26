@@ -507,8 +507,20 @@ window.NBDDocGen = {
           // _persistPromise above \u2014 wait for it (no-op if already
           // settled) so the success toast reflects the real state.
           if (_persistPromise) { try { await _persistPromise; } catch (_) {} }
+          // Honest state: _persistPromise swallows the metadata addDoc failure
+          // (only console.warn), leaving _docMetaRef null. If persistence was
+          // ATTEMPTED for a real lead (_persistPromise set) but the doc never
+          // landed (_docMetaRef null), it is NOT attached to the customer's
+          // Documents tab \u2014 say so instead of a false success. The rendered doc
+          // is still open in the viewer to Print / Download PDF.
+          const attemptedPersist = !!_persistPromise;
+          const attachedToLead = !!_docMetaRef;
           if (typeof showToast === 'function') {
-            showToast('\u2713 Document generated \u2014 use Print or Download PDF to save a copy', 'success');
+            if (attemptedPersist && !attachedToLead) {
+              showToast('\u26a0 Document generated but NOT saved to the customer \u2014 Print or Download PDF to keep a copy, then try again', 'error');
+            } else {
+              showToast('\u2713 Document generated \u2014 use Print or Download PDF to save a copy', 'success');
+            }
           }
         },
         // Called by NBDDocViewer after the user finalizes signatures

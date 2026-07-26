@@ -3093,14 +3093,14 @@
     try {
       const uid = window._user?.uid;
       if (!uid) { window._estimates = []; return; }
-      // Team visibility: company_admin/manager also pull the tenant's estimates
+      // Team visibility: company readers (admin/manager/viewer) also pull the tenant's estimates
       // (companyId scope) so estCount + estimate rows reflect the whole team —
       // the /estimates rule permits this read. Own-userId query ALWAYS runs (it
       // covers the caller's legacy pre-companyId estimates). Two equality
       // queries, deduped by id — same two-scope shape as loadLeads/_photoCache.
       const claims = window._userClaims || {};
       const scopes = [where('userId','==',uid)];
-      if (['company_admin','manager'].includes(claims.role || '') && claims.companyId) {
+      if (['company_admin','manager','viewer'].includes(claims.role || '') && claims.companyId) {
         scopes.push(where('companyId','==',claims.companyId));
       }
       const byId = {};
@@ -3133,10 +3133,10 @@
     const uid = window._user?.uid;
     if (!uid) return;
     const claims = window._userClaims || {};
-    const teamRead = ['company_admin','manager'].includes(claims.role || '') && claims.companyId;
+    const teamRead = ['company_admin','manager','viewer'].includes(claims.role || '') && claims.companyId;
     // Two live slices merged by doc id: own estimates (ALWAYS — also covers
-    // legacy docs with no companyId) + the tenant's estimates for
-    // company_admin/manager. A solo/rep user gets EXACTLY the previous
+    // legacy docs with no companyId) + the tenant's estimates for company
+    // readers (admin/manager/viewer). A solo/rep user gets EXACTLY the previous
     // single-listener behavior (own map only), so nothing regresses for them;
     // only team readers gain the second listener. Merging is required — a plain
     // own-only listener would clobber team estimates loadEstimates() merged in

@@ -93,9 +93,9 @@ section('Team visibility: estimates readable by company_admin/manager (rules + c
   const rules = read(path.join(ROOT, 'firestore.rules'));
   const estBlock = rules.slice(rules.indexOf('match /estimates/'),
                               rules.indexOf('match /estimates/') + 2400);
-  // Rule: company staff (admin/manager, NOT viewer) read the tenant's estimates.
-  assert('estimates rule grants isCompanyStaff a company-scoped read',
-    /allow read:[\s\S]{0,240}isCompanyStaff\(\)[\s\S]{0,160}resource\.data\.companyId == myCompanyId\(\)/.test(estBlock));
+  // Rule: every company reader (admin/manager/viewer) reads the tenant's estimates.
+  assert('estimates rule grants isCompanyReader a company-scoped read',
+    /allow read:[\s\S]{0,240}isCompanyReader\(\)[\s\S]{0,160}resource\.data\.companyId == myCompanyId\(\)/.test(estBlock));
   // Delete stays owner-only (not widened with read).
   assert('estimates delete stays owner-only',
     /allow delete:\s*if isOwner\(resource\.data\.userId\) \|\| isAdmin\(\);/.test(estBlock));
@@ -110,9 +110,9 @@ section('Team visibility: estimates readable by company_admin/manager (rules + c
   // Client stamps companyId on create so the company read has something to match.
   assert('_saveEstimate stamps companyId on create',
     /addDoc\(collection\(db,'estimates'\)[\s\S]{0,200}companyId:\s*\(window\._userClaims/.test(dash));
-  // loadEstimates + subscription add the companyId scope for company_admin/manager.
-  assert('loadEstimates adds a companyId scope for company_admin/manager',
-    /async function loadEstimates[\s\S]{0,900}\['company_admin','manager'\]\.includes\(claims\.role[\s\S]{0,160}where\('companyId','==',claims\.companyId\)/.test(dash));
+  // loadEstimates + subscription add the companyId scope for every company reader.
+  assert('loadEstimates adds a companyId scope for company readers',
+    /async function loadEstimates[\s\S]{0,900}\['company_admin','manager','viewer'\]\.includes\(claims\.role[\s\S]{0,160}where\('companyId','==',claims\.companyId\)/.test(dash));
   assert('_subscribeEstimates adds a team (companyId) listener, merged by id',
     /_subscribeEstimates[\s\S]{0,900}teamRead[\s\S]{0,1800}where\('companyId', '==', claims\.companyId\)/.test(dash));
 }

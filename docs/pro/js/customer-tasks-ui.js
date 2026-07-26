@@ -140,6 +140,19 @@ window.toggleTask = async function(taskId, newDoneState) {
     
   } catch (error) {
     console.error('Error toggling task:', error);
+    // The checkbox already flipped optimistically (native click). The write
+    // failed, so tell the rep AND revert the UI to the real state by reloading
+    // the timeline from Firestore — otherwise the box shows a "done" tick the
+    // database never saved.
+    if (typeof showToast === 'function') {
+      showToast('Could not update task — check your connection and try again', 'error');
+    }
+    try {
+      if (window._customerId) {
+        const leadSnap = await window.getDoc(window.doc(window.db, 'leads', window._customerId));
+        if (leadSnap.exists()) await loadTimeline(window._customerId, leadSnap.data());
+      }
+    } catch (_) { /* best-effort revert */ }
   }
 };
 
