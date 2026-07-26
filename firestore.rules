@@ -417,16 +417,16 @@ service cloud.firestore {
 
     // ── ESTIMATES ─────────────────────────────────────
     match /estimates/{estimateId} {
-      // Team visibility (2026-07): company_admin / manager read every rep's
-      // estimate in their own tenant so the pipeline/estCount/estimate rows
-      // reflect the whole team (mirrors /invoices' isCompanyStaff read). viewer
-      // is deliberately EXCLUDED — estimates carry pricing/margin, so this
-      // matches the recordings/storm_proofs manager-only precedent, not the
-      // broader isCompanyReader set. sameCompany requires BOTH companyIds
-      // non-null, so a solo user or a legacy estimate with no companyId falls
-      // back to owner-only. Delete stays owner-only.
+      // Team visibility (2026-07): every company READER (company_admin /
+      // manager / viewer) reads the tenant's estimates so the pipeline /
+      // estCount / estimate rows reflect the whole team. viewer is included by
+      // owner decision (read-only staff who need to see quotes) — the same
+      // isCompanyReader set /email_log + /sms_log use. Still tenant-scoped:
+      // companyId must match, and sameCompany requires BOTH companyIds non-null,
+      // so a solo user or a legacy estimate with no companyId falls back to
+      // owner-only. delete + write provenance stay owner-only below.
       allow read: if isOwner(resource.data.userId) || isAdmin()
-        || (isCompanyStaff()
+        || (isCompanyReader()
             && resource.data.companyId != null
             && resource.data.companyId == myCompanyId());
       allow delete: if isOwner(resource.data.userId) || isAdmin();

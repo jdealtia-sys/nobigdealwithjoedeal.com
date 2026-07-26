@@ -919,11 +919,12 @@ async function run() {
     await setDoc(doc(db, 'estimates/est-legacy'), { userId: 'alice', name: 'Legacy est (no companyId)' });
     await setDoc(doc(db, 'notes/note-mgr'), { leadId: 'leadTeamA', userId: 'mia', text: 'Stage moved to Inspected' });
   });
-  // Estimates: owner + same-company manager/admin read; viewer + cross-tenant denied.
+  // Estimates: owner + EVERY same-company reader (admin/manager/viewer) read;
+  // cross-tenant denied. viewer is now included (isCompanyReader) by owner call.
   await assertSucceeds(getDoc(doc(alice,   'estimates/est-teamA')));   // owner
   await assertSucceeds(getDoc(doc(coAdmin, 'estimates/est-teamA')));   // company_admin, co-a
   await assertSucceeds(getDoc(doc(mgrA,    'estimates/est-teamA')));   // manager, co-a
-  await assertFails(getDoc(doc(viewerA,    'estimates/est-teamA')));   // viewer EXCLUDED (pricing)
+  await assertSucceeds(getDoc(doc(viewerA, 'estimates/est-teamA')));   // viewer, co-a (now included)
   await assertFails(getDoc(doc(bob,        'estimates/est-teamA')));   // cross-tenant
   // Legacy estimate (no companyId) stays owner-only — sameCompany needs both non-null.
   await assertSucceeds(getDoc(doc(alice,   'estimates/est-legacy')));
