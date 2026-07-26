@@ -1354,7 +1354,19 @@
       : null;
     window.EntityResolver.mountLeadPicker(root, {
       hiddenInput: hidden,
-      initialLead: initialLead
+      initialLead: initialLead,
+      // Mirror the pick into state.leadId so IT is the source of truth — not
+      // just the #jtLeadSel input. Any reRender()/paintModal() while the create
+      // step is open (an external engine callback — see job-templates.js's
+      // reRender hook — a live snapshot, or the input/change delegate) rebuilds
+      // renderPreview() from state.leadId and re-mounts this picker. Before this
+      // sync, state.leadId stayed null after a pick, so a repaint silently
+      // dropped the chosen customer and the estimate saved with leadId:null —
+      // "created but not attached to the customer". onSelect(null) fires on
+      // the picker's Change/clear, keeping state.leadId honest.
+      onSelect: function (lead) {
+        state.leadId = (lead && lead.id != null) ? String(lead.id) : null;
+      }
     });
   }
 

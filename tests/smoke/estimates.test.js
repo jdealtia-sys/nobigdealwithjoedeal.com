@@ -48,6 +48,36 @@ section('Wave B2: V2 prefill from lead');
     /prefillFromLead\(state\.customer\.leadId\)/.test(src));
 }
 
+section('Job Templates: "Add to Existing Customer" survives a repaint (attach fix)');
+{
+  const src = read(path.join(PRO_JS, 'job-templates-ui.js'));
+  // The lead picker must mirror the pick into state.leadId (the source of
+  // truth), or a reRender() rebuilds the create step from an empty state.leadId
+  // and the estimate saves with leadId:null — "created but not attached".
+  assert('_jtWireLeadPicker syncs the pick into state.leadId via onSelect',
+    /function _jtWireLeadPicker[\s\S]{0,1600}onSelect:\s*function\s*\(lead\)\s*\{[\s\S]{0,160}state\.leadId\s*=/.test(src));
+  // The create step's hidden #jtLeadSel must derive its value from state.leadId
+  // so a repaint re-hydrates the selection instead of clearing it.
+  assert('create step hydrates #jtLeadSel from state.leadId',
+    /id="jtLeadSel"[\s\S]{0,80}state\.leadId\s*\?/.test(src));
+  // doCreateEstimate still reads that input to attribute the estimate.
+  assert('doCreateEstimate reads #jtLeadSel for attribution',
+    /doCreateEstimate[\s\S]{0,260}getElementById\('jtLeadSel'\)/.test(src));
+}
+
+section('V2 builder: new estimate keeps its customer link (leadId not orphaned)');
+{
+  const src = read(path.join(PRO_JS, 'estimate-v2-ui.js'));
+  // state.leadId is set only on reopen; a fresh estimate links via
+  // state.customer.leadId (prefillFromLead). _buildSavePayload must fall back to
+  // it, or new estimates save leadId:null — orphaned off the customer + no lead
+  // jobValue/primaryEstimate stamp-back.
+  assert('_buildSavePayload falls back to state.customer.leadId',
+    /function _buildSavePayload[\s\S]{0,1600}leadId:\s*state\.leadId\s*\|\|\s*\(state\.customer && state\.customer\.leadId\)\s*\|\|\s*null/.test(src));
+  assert('prefillFromLead is the fresh-open customer link',
+    /function prefillFromLead\(leadId\)[\s\S]{0,800}state\.customer\.leadId = leadId/.test(src));
+}
+
 section('Wave B3: live estimates snapshot');
 {
   // CSP hotfix: subscribe wiring is in dashboard-bootstrap.module.js.
