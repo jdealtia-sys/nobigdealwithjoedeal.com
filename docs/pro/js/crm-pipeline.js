@@ -58,7 +58,10 @@ function renderColumnCards(body, cards, stageKey) {
     if (btn) btn.addEventListener('click', (e) => {
       e.stopPropagation();
       _kbShowAll[stageKey] = true;
-      if (typeof renderLeads === 'function') renderLeads();
+      // Preserve any active search/damage filter — a bare renderLeads() nulls
+      // window._filteredLeads and repaints the whole book unfiltered while the
+      // search box + count still show the query (rep thinks they're filtered).
+      if (typeof renderLeads === 'function') renderLeads(window._leads, window._filteredLeads);
     });
   }
 }
@@ -551,6 +554,11 @@ function renderLeads(leads, filtered){
       if(!cards.length){ body.innerHTML='<div class="k-empty"><div class="k-empty-line">Drop leads here</div></div>'; return; }
       renderColumnCards(body, cards, stage);
       _highlightCardMatches(body); // CO-M-1: highlight after parse, text nodes only
+      // Wire card-click / checkbox / task-badge / ◀▶ arrows / ⋮ menu — the
+      // new-system branch calls this (line ~480) but the legacy fallback never
+      // did, so in the fallback state (crm-stages load race → _stageKeys unset)
+      // every card was non-interactive (only drag worked).
+      wireKanbanCardListeners(body);
       body.querySelectorAll('.k-card').forEach(card=>{
         card.addEventListener('dragstart', e=>{ _dragId=card.dataset.id; card.classList.add('dragging'); e.dataTransfer.effectAllowed='move'; e.dataTransfer.setData('text/plain', card.dataset.id); });
         card.addEventListener('dragend',   e=>{ card.classList.remove('dragging'); });

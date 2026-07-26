@@ -460,9 +460,9 @@ function buildPhotoBadges(photo, esc) {
   //   - unshared: ghost pill with "Share" (subtle, doesn't compete
   //               with damage/severity tags)
   if (photo.sharedWithHomeowner) {
-    badges += '<button type="button" class="nbd-photo-badge nbd-share-toggle" data-action="toggle-share" data-photo-id="' + esc(photo.id) + '" style="font-size:9px;padding:1px 5px;border-radius:4px;background:rgba(34,197,94,.85);color:#fff;border:0;cursor:pointer;font-weight:600;">✓ Shared</button>';
+    badges += '<button type="button" class="nbd-photo-badge nbd-share-toggle" data-action="toggleHomeownerShare" data-arg="' + esc(photo.id) + '" style="font-size:9px;padding:1px 5px;border-radius:4px;background:rgba(34,197,94,.85);color:#fff;border:0;cursor:pointer;font-weight:600;">✓ Shared</button>';
   } else {
-    badges += '<button type="button" class="nbd-photo-badge nbd-share-toggle" data-action="toggle-share" data-photo-id="' + esc(photo.id) + '" style="font-size:9px;padding:1px 5px;border-radius:4px;background:rgba(255,255,255,.15);color:#fff;border:1px solid rgba(255,255,255,.3);cursor:pointer;">Share</button>';
+    badges += '<button type="button" class="nbd-photo-badge nbd-share-toggle" data-action="toggleHomeownerShare" data-arg="' + esc(photo.id) + '" style="font-size:9px;padding:1px 5px;border-radius:4px;background:rgba(255,255,255,.15);color:#fff;border:1px solid rgba(255,255,255,.3);cursor:pointer;">Share</button>';
   }
   return badges;
 }
@@ -761,11 +761,17 @@ function ensurePhotoGridDelegate() {
     // Share-with-homeowner toggle — bubbles up from the badge
     // button. Must run BEFORE the lightbox/select branches so a
     // tap on the Share pill doesn't open the editor.
-    var shareBtn = ev.target.closest('[data-action="toggle-share"]');
-    if (shareBtn && shareBtn.dataset.photoId) {
+    // Match by class (not the action name) so this keeps intercepting the badge
+    // BEFORE the lightbox even though the badge's data-action is now the real
+    // global (toggleHomeownerShare) + data-arg — which also lets the generic
+    // customer.html delegate handle the SAME badge when it's rendered outside
+    // this #photosByPhase grid (previously dead: hyphenated 'toggle-share' had
+    // no window handler).
+    var shareBtn = ev.target.closest('.nbd-share-toggle');
+    if (shareBtn && shareBtn.dataset.arg) {
       ev.preventDefault();
       ev.stopPropagation();
-      window.toggleHomeownerShare(shareBtn.dataset.photoId);
+      window.toggleHomeownerShare(shareBtn.dataset.arg);
       return;
     }
     // Show-all toggle inside a phase header.
