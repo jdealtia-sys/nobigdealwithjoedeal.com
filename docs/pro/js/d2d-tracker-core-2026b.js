@@ -2885,8 +2885,7 @@
 
     watchLocationAndCenter();
     refreshMapMarkers();
-    createLayerPanel();
-    createBasemapControl();
+    createLayerPanel(); // includes the "view type" (basemap) switcher — one panel
     createSearchAreaControl();
     _createRecenterControl();
     _createD2DSearchControl(); // on-map address search (ported from Maps & Pins)
@@ -3609,7 +3608,10 @@
   // A small panel that floats over the D2D map. Each toggle
   // controls a visual layer: Knocks, Jobs, Weather, Heatmap.
   // This replaces the separate Maps & Pins view — all map
-  // features are now consolidated into D2D.
+  // features are now consolidated into D2D. The base-map "view
+  // type" switcher (Satellite/Hybrid/Streets/Terrain + Street
+  // View) lives at the TOP of this same panel, so there's one
+  // collapsible panel rather than a separate bottom-left control.
   //
   // Layers:
   //   Knocks  — the default knock markers (disposition circles)
@@ -3660,11 +3662,14 @@
     window.open('https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=' + c.lat + ',' + c.lng, '_blank');
   }
 
-  function createBasemapControl() {
-    if (!state.d2dMap || document.getElementById('d2d-basemap-ctrl')) return;
-    const ctrl = document.createElement('div');
-    ctrl.id = 'd2d-basemap-ctrl';
-    ctrl.className = 'd2d-basemap-ctrl';
+  // Build the base-map "view type" buttons (Satellite / Hybrid / Streets /
+  // Terrain + Street View) into a given container. Folded into the collapsible
+  // layer panel (see createLayerPanel) instead of a separate always-on
+  // bottom-left control — one panel, more free map space. The buttons keep
+  // their d2d-basemap-<key> ids + .active class so updateBasemapControl() still
+  // reflects the current choice. CSP-safe (addEventListener, no inline on*=).
+  function _buildBasemapButtons(container) {
+    if (!container) return;
     BASEMAP_ORDER.forEach(key => {
       const b = BASEMAPS[key];
       const btn = document.createElement('button');
@@ -3673,9 +3678,8 @@
       btn.className = 'd2d-basemap-btn' + (state.d2dBasemap === key ? ' active' : '');
       btn.title = b.label;
       btn.innerHTML = b.icon + '<span>' + b.label + '</span>';
-      // addEventListener (not inline on*=) — CSP-safe, like the layer panel.
       btn.addEventListener('click', (e) => { e.stopPropagation(); setBasemap(key); });
-      ctrl.appendChild(btn);
+      container.appendChild(btn);
     });
     const sv = document.createElement('button');
     sv.type = 'button';
@@ -3683,9 +3687,7 @@
     sv.title = 'Open Street View at the map center';
     sv.innerHTML = '👁️<span>Street</span>';
     sv.addEventListener('click', (e) => { e.stopPropagation(); openStreetView(); });
-    ctrl.appendChild(sv);
-    const mapEl = document.getElementById('d2dMap');
-    if (mapEl) { mapEl.style.position = 'relative'; mapEl.appendChild(ctrl); }
+    container.appendChild(sv);
   }
   function updateBasemapControl() {
     BASEMAP_ORDER.forEach(key => {
@@ -3695,17 +3697,19 @@
   }
 
   // ── "SEARCH THIS AREA" VIEWPORT CONTROL (Zillow/Redfin-style) ─────────
-  // A pill that surfaces after the rep pans/zooms the map; tapping it pulls the
-  // knocks for the CURRENT viewport (loadKnocksInViewport) instead of the
-  // global 500-most-recent default. Also carries a plain 🔄 refresh.
+  // A compact reload button parked in the bottom-right corner (just above the
+  // Leaflet/Google attribution). Tapping it pulls the knocks for the CURRENT
+  // viewport (loadKnocksInViewport) instead of the global 500-most-recent
+  // default. It sits there permanently and "arms" (an orange pulse) after the
+  // rep pans/zooms, hinting there may be knocks to load in the new view.
   //
   // Verification note (this handler runs on every map move): the `moveend`
-  // handler ONLY toggles this button's visibility — it performs NO map mutation
+  // handler ONLY toggles this button's armed class — it performs NO map mutation
   // (no setView / fitBounds / invalidateSize), so it can never re-trigger its
-  // own moveend and cannot oscillate. The visibility write is idempotent
+  // own moveend and cannot oscillate. The class write is idempotent
   // (skipped when already in the target state) so a burst of moveend events
   // can't thrash layout. `_searchAreaArmed` gates the first ~2s so the init
-  // setView / invalidateSize settle doesn't flash the pill.
+  // setView / invalidateSize settle doesn't flash the hint.
   let _searchAreaArmed = false;
   let _searchAreaBusy = false;
 
@@ -3713,45 +3717,34 @@
     if (!state.d2dMap || document.getElementById('d2d-search-area-wrap')) return;
     const wrap = document.createElement('div');
     wrap.id = 'd2d-search-area-wrap';
-    // Bottom-center (above the recenter button) — keeps it clear of the top
-    // search bar + layer panel. Transient (shown after a pan/zoom).
-    wrap.style.cssText = 'position:absolute;bottom:136px;left:50%;transform:translateX(-50%);'
-      + 'z-index:1000;display:none;align-items:center;gap:6px;';
+    // Bottom-right, floated just ABOVE the Leaflet/Google attribution strip so
+    // the required map attribution stays visible (ToS) rather than being covered.
+    // Always shown (a permanent corner reload button); it arms after a pan/zoom.
+    wrap.style.cssText = 'position:absolute;bottom:26px;right:8px;'
+      + 'z-index:1000;display:flex;align-items:center;gap:6px;';
 
     const search = document.createElement('button');
     search.type = 'button';
     search.id = 'd2d-search-area';
-    search.textContent = '🔄 Search this area';
-    search.style.cssText = 'background:var(--orange,#e8720c);color:#0A0C0F;border:none;'
-      + 'padding:8px 14px;border-radius:20px;cursor:pointer;'
-      + "font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:800;letter-spacing:.03em;"
-      + 'box-shadow:0 3px 14px rgba(0,0,0,.5);-webkit-tap-highlight-color:transparent;min-height:38px;';
+    search.title = 'Search this area — load knocks in the current view';
+    search.setAttribute('aria-label', 'Search this area');
+    search.textContent = '🔄';
+    search.style.cssText = 'background:color-mix(in srgb, var(--s) 92%, transparent);'
+      + 'color:var(--t);border:1px solid var(--br);width:40px;height:40px;border-radius:20px;'
+      + 'cursor:pointer;font-size:18px;font-weight:700;box-shadow:0 3px 14px rgba(0,0,0,.5);'
+      + 'display:flex;align-items:center;justify-content:center;line-height:1;'
+      + '-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);-webkit-tap-highlight-color:transparent;';
     // addEventListener (not inline on*=) — CSP-safe, like the layer/basemap controls.
     search.addEventListener('click', (e) => { e.stopPropagation(); runSearchThisArea(); });
     wrap.appendChild(search);
 
-    const refresh = document.createElement('button');
-    refresh.type = 'button';
-    refresh.id = 'd2d-refresh-knocks';
-    refresh.title = 'Refresh knocks (re-pull the 500 most recent)';
-    refresh.textContent = '↻';
-    refresh.style.cssText = 'background:color-mix(in srgb, var(--s) 92%, transparent);'
-      + 'color:var(--t);border:1px solid var(--br);width:38px;height:38px;border-radius:19px;'
-      + 'cursor:pointer;font-size:16px;font-weight:700;box-shadow:0 3px 14px rgba(0,0,0,.5);'
-      + '-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);-webkit-tap-highlight-color:transparent;';
-    refresh.addEventListener('click', async (e) => {
-      e.stopPropagation();
-      refresh.disabled = true; refresh.textContent = '⏳';
-      try { await refreshKnocks(); window.showToast?.('Knocks refreshed', 'info'); }
-      catch (_) { window.showToast?.('Refresh failed', 'error'); }
-      finally { refresh.disabled = false; refresh.textContent = '↻'; }
-    });
-    wrap.appendChild(refresh);
-
     const mapEl = document.getElementById('d2dMap');
     if (mapEl) { mapEl.style.position = 'relative'; mapEl.appendChild(wrap); }
+    // Belt-and-suspenders with the handler's stopPropagation: keep taps on the
+    // corner button from falling through to the map's click→quick-knock handler.
+    if (window.L && L.DomEvent) { try { L.DomEvent.disableClickPropagation(wrap); } catch (_) {} }
 
-    // Show the pill only after a genuine pan/zoom. See the verification note
+    // Arm the button only after a genuine pan/zoom. See the verification note
     // above: this callback mutates no map state, so there is no feedback loop.
     state.d2dMap.on('moveend', _onMapMoveForSearch);
     setTimeout(() => { _searchAreaArmed = true; }, 2000);
@@ -3765,26 +3758,29 @@
     _setSearchAreaVisible(true);
   }
 
-  // Idempotent visibility toggle — only writes to the DOM when the state
-  // actually changes, so a burst of moveend events can't thrash layout.
+  // Idempotent arm/disarm toggle — the corner reload button is always visible;
+  // this only adds/removes the orange "you moved, tap to load here" pulse class,
+  // and only when the state actually changes, so a burst of moveend events can't
+  // thrash layout. (Name kept for the callers/oscillation-guard slice.)
   function _setSearchAreaVisible(show) {
-    const wrap = document.getElementById('d2d-search-area-wrap');
-    if (!wrap) return;
-    const want = show ? 'flex' : 'none';
-    if (wrap.style.display !== want) wrap.style.display = want;
+    const btn = document.getElementById('d2d-search-area');
+    if (!btn) return;
+    const armed = btn.classList.contains('d2d-search-armed');
+    if (show && !armed) btn.classList.add('d2d-search-armed');
+    else if (!show && armed) btn.classList.remove('d2d-search-armed');
   }
 
   async function runSearchThisArea() {
     if (_searchAreaBusy) return;
     const btn = document.getElementById('d2d-search-area');
     _searchAreaBusy = true;
-    if (btn) { btn.textContent = '⏳ Searching…'; btn.disabled = true; }
+    if (btn) { btn.textContent = '⏳'; btn.disabled = true; }
     let res;
     try {
       res = await loadKnocksInViewport();
     } finally {
       _searchAreaBusy = false;
-      if (btn) { btn.disabled = false; btn.textContent = '🔄 Search this area'; }
+      if (btn) { btn.disabled = false; btn.textContent = '🔄'; }
     }
     if (res && res.error) {
       window.showToast?.(
@@ -3819,6 +3815,20 @@
       + 'border-radius:10px;padding:8px;display:flex;flex-wrap:wrap;justify-content:flex-end;gap:4px;max-width:min(72vw, 300px);'
       + '-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);'
       + 'box-shadow:0 4px 20px rgba(0,0,0,.5);';
+
+    // ── "View type" (basemap) — folded in at the top of the panel so there's
+    // ONE collapsible panel instead of a separate always-on bottom-left control
+    // (frees the bottom-left corner). A full-width labelled row, divided from
+    // the layer/tool chips below it.
+    const viewGroup = document.createElement('div');
+    viewGroup.id = 'd2d-viewtype-group';
+    viewGroup.className = 'd2d-viewtype-group';
+    const viewLabel = document.createElement('span');
+    viewLabel.className = 'd2d-viewtype-label';
+    viewLabel.textContent = 'VIEW';
+    viewGroup.appendChild(viewLabel);
+    _buildBasemapButtons(viewGroup);
+    panel.appendChild(viewGroup);
 
     const layers = [
       { key: 'knocks',    icon: '📍', label: 'Knocks' },
@@ -3912,7 +3922,7 @@
       const toggle = document.createElement('button');
       toggle.type = 'button';
       toggle.id = 'd2d-layer-toggle';
-      toggle.title = 'Show / hide map layers & tools';
+      toggle.title = 'Show / hide map view type, layers & tools';
       toggle.style.cssText = 'position:absolute;top:56px;right:10px;z-index:1001;'
         + 'background:color-mix(in srgb, var(--s) 92%, transparent);border:1px solid color-mix(in srgb, var(--orange) 30%, transparent);'
         + 'color:var(--t);padding:7px 12px;border-radius:10px;cursor:pointer;'

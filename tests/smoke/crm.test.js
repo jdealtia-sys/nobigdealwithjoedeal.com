@@ -677,4 +677,42 @@ section('Team visibility: lead-activity notes readable across the lead (rules + 
     !/collection\(db, 'notes'\), where\('leadId', '==', leadId\), where\('userId'/.test(rpt));
 }
 
+section('Customer page: invoices load (team-scope + createdAt sort)');
+{
+  const src = read(path.join(ROOT, 'docs/pro/js/customer-tasks-ui.js'));
+  const fn = src.slice(src.indexOf('window.loadInvoices ='),
+                       src.indexOf('window.loadInvoices =') + 5400);
+  // The old orderBy('date') dropped every invoice (docs are stamped createdAt,
+  // never date). Must NOT re-introduce that field sort in the query. (Targets
+  // the window.orderBy(...) call form so a code comment mentioning the old bug
+  // doesn't trip it.)
+  assert('loadInvoices no longer queries orderBy(date)',
+    !/window\.orderBy\(\s*['"]date['"]/.test(fn));
+  // Team readers (company_admin/manager/viewer + companyId) read by
+  // leadId+companyId; everyone else by leadId+createdBy — mirrors the
+  // /invoices rule + loadCommunicationLog.
+  assert('loadInvoices is team-scoped (companyId) with an owner fallback (createdBy)',
+    /where\(\s*['"]companyId['"]\s*,\s*['"]==['"]\s*,\s*companyId\)/.test(fn) &&
+    /where\(\s*['"]createdBy['"]\s*,\s*['"]==['"]\s*,\s*uid\)/.test(fn));
+  // Results are sorted newest-first by createdAt in JS (no composite index).
+  assert('loadInvoices sorts by createdAt client-side',
+    /\.sort\(\([\s\S]{0,80}createdAt/.test(fn));
+}
+
+section('Photo modal: _getPhotos is team-scoped (badge vs gallery parity)');
+{
+  const src = read(path.join(ROOT, 'docs/pro/js/dashboard-bootstrap.module.js'));
+  const fn = src.slice(src.indexOf('window._getPhotos ='),
+                       src.indexOf('window._getPhotos =') + 1400);
+  // The modal path was userId-only while the badge/_photoCache read dual-scope,
+  // so managers saw a count then an empty gallery. Must now add the companyId
+  // scope for company readers, deduped, mirroring _photoCache.
+  assert('_getPhotos adds a companyId scope for company readers',
+    /\['company_admin','manager','viewer'\]\.includes\(claims\.role/.test(fn) &&
+    /where\(\s*['"]companyId['"]\s*,\s*['"]==['"]\s*,\s*claims\.companyId\)/.test(fn));
+  assert('_getPhotos still queries by leadId and dedupes by doc id',
+    /where\(\s*['"]leadId['"]\s*,\s*['"]==['"]\s*,\s*leadId\)/.test(fn) &&
+    /seen\.has\(d\.id\)/.test(fn));
+}
+
 };

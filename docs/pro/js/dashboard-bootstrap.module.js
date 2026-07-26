@@ -3531,9 +3531,28 @@
   window._getPhotos = async (leadId) => {
     try {
       const uid = window._user?.uid;
-      const snap = await getDocs(query(collection(db,'photos'), where('leadId','==',leadId), where('userId','==',uid)));
-      return snap.docs.map(d => ({id:d.id,...d.data()}));
-    } catch(e) { return []; }
+      if (!uid) return [];
+      // Team visibility: the photo WRITE stamps companyId and _photoCache already
+      // reads dual-scope, but this modal path was userId-only — so a manager
+      // opening a teammate's lead saw a "📷 3" badge (from the company-scoped
+      // cache) then an EMPTY gallery. Mirror _photoCache's two-scope shape: own
+      // userId always (covers pre-backfill photos with no companyId), plus the
+      // companyId scope for company readers. Each is two equality filters
+      // (leadId + userId/companyId) → single-field merge-join, no composite
+      // index. Deduped by doc id; the /photos rule permits both reads.
+      const claims = window._userClaims || {};
+      const scopes = [where('userId','==',uid)];
+      if (['company_admin','manager','viewer'].includes(claims.role || '') && claims.companyId) {
+        scopes.push(where('companyId','==',claims.companyId));
+      }
+      const seen = new Set();
+      const out = [];
+      for (const scope of scopes) {
+        const snap = await getDocs(query(collection(db,'photos'), where('leadId','==',leadId), scope));
+        snap.docs.forEach(d => { if (!seen.has(d.id)) { seen.add(d.id); out.push({id:d.id,...d.data()}); } });
+      }
+      return out;
+    } catch(e) { console.warn('[_getPhotos] load failed:', e && e.message); return []; }
   };
 
   // ── SETTINGS ───────────────────────────────────
