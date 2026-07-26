@@ -341,12 +341,19 @@ function renderLeads(leads, filtered){
     diagnostic.style.display = 'none';
   }
 
-  // Follow-up overdue
+  // Follow-up overdue — skip effectively-closed deals by semantic stageRole
+  // (won / lost / in-production job) rather than a hardcoded name list, which
+  // missed final_payment + any custom won/lost stage and so nagged "due" on
+  // done deals. Mirrors the role idiom used for pipeline value above; the name
+  // list stays as a fallback for before stageRole is loaded.
   const today=new Date(); today.setHours(0,0,0,0);
-  const _terminalStages = ['closed','lost','Complete','Lost'];
+  const _terminalStages = ['closed','lost','Complete','Lost','final_payment'];
   const overdue = all.filter(l=>{
+    if(!l.followUp) return false;
     const sk = l._stageKey || l.stage || '';
-    if(!l.followUp||_terminalStages.includes(sk)||_terminalStages.includes(l.stage||'')) return false;
+    const role = l._stageRole || (typeof window.stageRole === 'function' ? window.stageRole(sk) : 'active');
+    if(role === 'won' || role === 'lost' || role === 'job') return false;
+    if(_terminalStages.includes(sk) || _terminalStages.includes(l.stage||'')) return false;
     const d=new Date(l.followUp); d.setHours(0,0,0,0); return d<=today;
   });
   setEl('crmFollowUps', overdue.length);

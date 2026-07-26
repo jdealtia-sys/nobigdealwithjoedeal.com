@@ -727,6 +727,12 @@ section('Pipeline small fixes (#9 legacy card handlers, #10 filter preserved)');
   assert('legacy kanban fallback wires card listeners (not just drag)',
     /renderColumnCards\(body, cards, stage\);[\s\S]{0,450}wireKanbanCardListeners\(body\)/.test(legacy));
   // (#11 — homeowner-share badge dispatch — is covered in portal.test.js.)
+  // #12 — the overdue-followup count skips won/lost/job by stageRole, so a won
+  // deal at final_payment (or a custom won/lost stage) no longer nags "due".
+  const overdue = crm.slice(crm.indexOf('Follow-up overdue'), crm.indexOf('Follow-up overdue') + 800);
+  assert('overdue-followup excludes won/lost/job by stageRole',
+    /window\.stageRole\(sk\)/.test(overdue) &&
+    /role === 'won' \|\| role === 'lost' \|\| role === 'job'/.test(overdue));
 }
 
 section('Swallowed-error fixes: doc-save + task-toggle tell the truth');
