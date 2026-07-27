@@ -32,6 +32,24 @@ section('Push-1: public lead forms use submitPublicLead');
   }
 }
 
+section('QA wiring audit: Quick Measure import fails honestly (no null crash)');
+{
+  // #qmImportModal markup has never existed in any commit, so the classic
+  // builder's "📎 Import Quick Measure" button threw a TypeError on click.
+  // Every id lookup in the open/close pair must be guarded, and a missing
+  // modal must toast instead of crashing.
+  const tools = read(path.join(PRO_JS, 'tools.js'));
+  const openFn = tools.slice(tools.indexOf('function openQMImportModal'),
+                             tools.indexOf('function handleQMDrop'));
+  assert('openQMImportModal guards the modal lookup + toasts when absent',
+    /const modal = document\.getElementById\('qmImportModal'\);\s*if \(!modal\)/.test(openFn)
+    && /Quick Measure import isn\\?'t available in this build/.test(openFn));
+  assert('no unguarded getElementById(...).style / .value / .classList in the QM open/close pair',
+    !/getElementById\('qm[A-Za-z]+'\)\.(style|value|classList)/.test(openFn));
+  assert('closeQMImportModal guards too',
+    /function closeQMImportModal\(\)[\s\S]{0,240}if \(modal\) modal\.classList\.remove\('open'\)/.test(tools));
+}
+
 section('Wave C3: admin analytics');
 {
   const idx = readFunctionsIndex();
