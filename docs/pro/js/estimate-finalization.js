@@ -408,6 +408,12 @@
         const reason = line.reason
           ? `<div class="reason">${escapeHtml(line.reason)}</div>`
           : '';
+        // Per-line rep note (V2 builder overrides.note → line.repNote).
+        // Distinct styling from the catalog reason so the adjuster can
+        // tell the field observation from the boilerplate justification.
+        const repNote = line.repNote
+          ? `<div style="font-size:10px;color:#92400e;background:#fffbeb;border-left:2px solid #f59e0b;padding:3px 6px;margin-top:3px;">📝 ${escapeHtml(line.repNote)}</div>`
+          : '';
         const codeRefs = fmtCodeRefs(line.codeRefs);
         const codeRefsHtml = codeRefs
           ? `<div class="code-refs">${escapeHtml(codeRefs)}</div>`
@@ -425,6 +431,7 @@
             <td>
               <strong>${escapeHtml(line.name || '')}</strong>${codeFlag}${photoFlag}
               ${reason}
+              ${repNote}
               ${codeRefsHtml}
             </td>
             <td class="num">${fmtQty(line.quantity, line.unit)} ${escapeHtml(line.unit || '')}</td>
@@ -665,13 +672,13 @@ ${footer}
       lines.forEach(l => {
         if (!l.name || seen.has(l.name)) return;
         seen.add(l.name);
-        bullets.push({ cat: catDef.label, name: l.name });
+        bullets.push({ cat: catDef.label, name: l.name, note: l.repNote || '' });
       });
     });
 
     const bulletHtml = bullets.map(b =>
       `<li><span style="font-size:10px;color:#999;text-transform:uppercase;letter-spacing:.1em;">${escapeHtml(b.cat)}</span><br>
-           <strong>${escapeHtml(b.name)}</strong></li>`
+           <strong>${escapeHtml(b.name)}</strong>${b.note ? `<br><span style="font-size:10px;color:#92400e;font-style:italic;">📝 ${escapeHtml(b.note)}</span>` : ''}</li>`
     ).join('');
 
     // Tier card HTML (if tiers passed)

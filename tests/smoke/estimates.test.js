@@ -514,4 +514,96 @@ section('Job Templates: existence + CSP wiring');
   }
 }
 
+section('Per-line supplement money: item decisions, per-line notes, per-item photos');
+{
+  const supUi = read(path.join(PRO_JS, 'supplement-ui.js'));
+  const v2    = read(path.join(PRO_JS, 'estimate-v2-ui.js'));
+  const fin   = read(path.join(PRO_JS, 'estimate-finalization.js'));
+
+  // ── Behavioral: the engine is Node-requirable — exercise it directly. ──
+  const eng = require(path.join(PRO_JS, 'estimate-supplement.js'));
+  const s = eng.createSupplement({ rows: [], grandTotal: 1000 }, { leadId: 'L1', parentEstimateId: 'E1' });
+  eng.addItem(s, { code: 'RFG X', name: 'Item X', quantity: 2, materialCost: 10, laborCost: 5 });
+  assert('setItemPhotos replaces an item photo set by index and drops falsy entries',
+    eng.setItemPhotos(s, 'added', 0, [{ id: 'p1', url: 'https://ex/p1.jpg' }, null]) === true
+    && s.addedItems[0].photos.length === 1 && s.addedItems[0].photos[0].url === 'https://ex/p1.jpg');
+  assert('setItemPhotos rejects an out-of-range index',
+    eng.setItemPhotos(s, 'added', 5, [{ id: 'p2', url: 'u' }]) === false);
+  assert('sanitizeItemDecisions clamps unknown verdicts to approved and null on empty',
+    eng.sanitizeItemDecisions(null) === null
+    && eng.sanitizeItemDecisions([])   === null
+    && eng.sanitizeItemDecisions([{ kind: 'x', index: '1', decision: 'weird', requested: '30', approved: '20' }])[0].decision === 'approved'
+    && eng.sanitizeItemDecisions([{ decision: 'denied' }])[0].decision === 'denied'
+    && eng.sanitizeItemDecisions([{ kind: 'modified', decision: 'reduced' }])[0].kind === 'modified');
+  eng.recordResponse(s, { status: 'partial', approvedAmount: 20, itemDecisions: [
+    { kind: 'added', index: 0, code: 'RFG X', name: 'Item X', requested: 30, approved: 20, decision: 'reduced' },
+  ]});
+  assert('recordResponse stores sanitized per-line verdicts on submission.itemDecisions',
+    Array.isArray(s.submission.itemDecisions) && s.submission.itemDecisions[0].decision === 'reduced'
+    && s.submission.itemDecisions[0].approved === 20);
+  assert('recordResponse without decisions stores null (plain single-figure responses stay valid)',
+    (eng.recordResponse(eng.createSupplement({ rows: [] }, {}), { status: 'approved' })).submission.itemDecisions === null);
+
+  // ── Firestore persist path carries the same field. ──
+  const engSrc = read(path.join(PRO_JS, 'estimate-supplement.js'));
+  assert('updateResponse persists submission.itemDecisions via the sanitizer',
+    /'submission\.itemDecisions':\s*sanitizeItemDecisions\(response\.itemDecisions\)/.test(engSrc));
+  assert('formal letter embeds per-item photo strips ({id,url} entries, print-safe) in added AND modified rows',
+    /photoStripHtml = \(photos\)/.test(engSrc)
+    && /print-color-adjust:exact/.test(engSrc)
+    && /\$\{photoStripHtml\(item\.photos\)\}/.test(engSrc)
+    && /\$\{photoStripHtml\(mod\.photos\)\}/.test(engSrc));
+
+  // ── Response-recording UI: per-line decision editor + saved summary. ──
+  assert('partial response renders the per-line decision editor (kind/index/code/requested data attrs)',
+    /nbd-sup-dec-row/.test(supUi)
+    && /data-kind="' \+ it\.kind/.test(supUi)
+    && /data-requested="' \+ it\.requested/.test(supUi));
+  assert('decision editor auto-sums enabled lines into the billable amount field',
+    /const resum = function \(\)/.test(supUi)
+    && /sum \+= Number\(a && a\.value\) \|\| 0/.test(supUi));
+  assert('_collectDecisions maps unchecked→denied and short-paid→reduced',
+    /!\(on && on\.checked\) \? 'denied'/.test(supUi)
+    && /approved < requested - 0\.005 \? 'reduced' : 'approved'/.test(supUi));
+  assert('save passes itemDecisions through updateResponse and mirrors them locally',
+    /itemDecisions:\s*itemDecisions,/.test(supUi)
+    && /s\.submission\.itemDecisions = itemDecisions/.test(supUi));
+  assert('saved verdicts render as a Requested vs Approved table with ✓/✗/↓ chips',
+    /_decisionsSummaryHtml/.test(supUi)
+    && />Requested<\/th>/.test(supUi) && />Approved<\/th>/.test(supUi)
+    && /✗ Denied/.test(supUi) && /✓ Approved/.test(supUi) && /↓ Reduced/.test(supUi));
+
+  // ── Per-item photos UI. ──
+  assert('each supplement row gets a 📷 button keyed by kind+index',
+    /class="nbd-sup-photo" data-kind="' \+ kind \+ '" data-idx="' \+ idx/.test(supUi));
+  assert('photo picker queries the lead\'s photos collection and excludes deleted',
+    /window\.where\('leadId', '==', leadId\)/.test(supUi)
+    && /p\.url && !p\.deleted/.test(supUi));
+  assert('picker attaches {id,url} entries via setItemPhotos',
+    /\.map\(p => \(\{ id: p\.id, url: p\.url \}\)\)/.test(supUi)
+    && /setItemPhotos\(sup, kind, idx, chosen\)/.test(supUi));
+
+  // ── V2 per-line notes. ──
+  assert('overrideNote lives on scope overrides, caps at 500 chars, blank deletes',
+    /function overrideNote\(code\)/.test(v2)
+    && /trimmed\.slice\(0, 500\)/.test(v2)
+    && /delete scopeEntry\.overrides\.note/.test(v2));
+  assert('scope rows render the 📝 note button + note line through the delegate',
+    /data-action="edit-note"/.test(v2)
+    && /case 'edit-note':/.test(v2)
+    && /class="line-note"/.test(v2));
+  assert('saved rows persist the note and reopen restores it into overrides',
+    /note:\s*\(\(state\.scope \|\| \[\]\)\.find\(s => s\.code === line\.code\)\?\.overrides\?\.note \?\? null\)/.test(v2)
+    && /r\.note \? \{ note: String\(r\.note\) \} : \{\}/.test(v2));
+  assert('_stampLineNotes decorates resolved lines before BOTH formatEstimate calls',
+    /function _stampLineNotes\(estimate\)/.test(v2)
+    && (v2.match(/_stampLineNotes\(estimate\);/g) || []).length >= 2);
+
+  // ── Documents print the note. ──
+  assert('insurance scope rows print the rep note (escaped, distinct from catalog reason)',
+    /line\.repNote/.test(fin) && /escapeHtml\(line\.repNote\)/.test(fin));
+  assert('retail bullets carry the note as an italic sub-line',
+    /note: l\.repNote \|\| ''/.test(fin) && /escapeHtml\(b\.note\)/.test(fin));
+}
+
 };
