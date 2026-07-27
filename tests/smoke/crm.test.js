@@ -757,6 +757,101 @@ section('Swallowed-error fixes: doc-save + task-toggle tell the truth');
     /catch \(error\)[\s\S]{0,700}loadTimeline\(window\._customerId/.test(toggle));
 }
 
+section('Claim unification: ClaimCore canonical view + synced status + Claim Details panel');
+{
+  const core = read(path.join(ROOT, 'docs/pro/js/claim-core.js'));
+  const ic   = read(path.join(ROOT, 'docs/pro/js/insurance-claim.js'));
+  const cb   = readCustomer();
+  const boot = read(path.join(ROOT, 'docs/pro/js/customer-bootstrap.module.js'));
+  const html = read(path.join(ROOT, 'docs/pro/customer.html'));
+
+  // ── Behavioral: execute claim-core.js in a VM and probe the API. ──
+  // A window stub is all it needs (the parse-time self-render guard
+  // short-circuits on window._currentLead being undefined).
+  const vm = require('vm');
+  const sandbox = { window: {} };
+  let vmOk = true, vmErr = null;
+  try { vm.runInNewContext(core, sandbox); } catch (e) { vmOk = false; vmErr = e; }
+  assert('claim-core.js executes standalone against a bare window stub' + (vmErr ? ` (${vmErr.message})` : ''), vmOk);
+  const CC = sandbox.window.ClaimCore;
+  const ELEVEN = ['initial_inspection','documentation','claim_filed','adjuster_scheduled',
+                  'adjuster_visit','estimate_review','supplement_filed','approved',
+                  'work_scheduled','completed','denied'];
+  assert('every one of the 11 workflow stages maps to one of the 7 dropdown statuses',
+    !!CC && ELEVEN.every(s => CC.STATUS_VALUES.includes(CC.claimStatusFromStage(s))));
+  assert('normalizeClaim resolves carrier from insCarrier over legacy insuranceCarrier',
+    !!CC && CC.normalizeClaim({ insuranceCarrier: 'Allstate' }).carrier === 'Allstate'
+         && CC.normalizeClaim({ insCarrier: 'State Farm', insuranceCarrier: 'Allstate' }).carrier === 'State Farm');
+  assert('normalizeClaim resolves deductible from deductibleOrOwedByHO over legacy deductible',
+    !!CC && CC.normalizeClaim({ deductible: 900 }).deductible === 900
+         && CC.normalizeClaim({ deductibleOrOwedByHO: 500, deductible: 900 }).deductible === 500);
+  // The old widget wrote claimStatus:'in_progress' — not a dropdown value.
+  // normalizeClaim must recover a corrupted status from the stage instead
+  // of parroting it back.
+  assert('normalizeClaim recovers a corrupted claimStatus from claimStage',
+    !!CC && CC.normalizeClaim({ claimStatus: 'in_progress', claimStage: 'approved' }).status === 'Approved'
+         && CC.normalizeClaim({ claimStatus: 'in_progress' }).status === 'No Claim');
+
+  // ── The status-corruption fix itself. ──
+  assert('advanceClaimStage no longer hardcodes claimStatus:\'in_progress\'',
+    !/claimStatus:\s*['"]in_progress['"]/.test(ic));
+  assert('advanceClaimStage syncs claimStatus via ClaimCore.claimStatusFromStage (omits when unavailable)',
+    /ClaimCore\.claimStatusFromStage\)\s*\?\s*window\.ClaimCore\.claimStatusFromStage\(nextStageId\)\s*:\s*null/.test(ic)
+    && /\.\.\.\(syncedStatus \? \{ claimStatus: syncedStatus \} : \{\}\)/.test(ic));
+  assert('workflow widget reads insCarrier/deductibleOrOwedByHO with legacy fallbacks',
+    /insuranceCarrier:\s*lead\.insCarrier \|\| lead\.insuranceCarrier/.test(ic)
+    && /lead\.deductibleOrOwedByHO != null[\s\S]{0,120}:\s*lead\.deductible/.test(ic));
+  assert('advancing the workflow refreshes the Claim Details panel',
+    /ClaimPanel\.refresh\)window\.ClaimPanel\.refresh\(\)/.test(ic));
+
+  // ── Panel + editor wiring (CSP: delegate actions, zero inline handlers). ──
+  assert('claim-core.js contains no inline event handlers',
+    !/\son[a-z]+\s*=\s*["']/i.test(core));
+  assert('panel renders Edit + contact slots through the customer data-action delegate',
+    /data-action="openClaimEditor"/.test(core)
+    && /data-action="saveClaimEdits"/.test(core)
+    && /data-action="closeClaimEditor"/.test(core));
+  assert('contact slots render tap-to-call/text/email links',
+    /href="tel:/.test(core) && /href="sms:/.test(core) && /href="mailto:/.test(core));
+  assert('editor saves contact-slot fields flat on the lead (types.js adjuster* convention)',
+    /adjusterName:\s*val\('clmAdjName'\)/.test(core)
+    && /claimHandlerName:\s*val\('clmHandlerName'\)/.test(core)
+    && /mortgageCompanyName:\s*val\('clmMortgageName'\)/.test(core)
+    && /dateDiscovered:\s*val\('clmDateDiscovered'\)/.test(core)
+    && /policyHolder:\s*val\('clmPolicyHolder'\)/.test(core));
+
+  // ── customer.html: load order + shell panel. ──
+  assert('claim-core.js loads before insurance-claim.js (status sync needs ClaimCore at advance time)',
+    html.indexOf('js/claim-core.js') !== -1
+    && html.indexOf('js/claim-core.js') < html.indexOf('js/insurance-claim.js'));
+  assert('static insurance info-grid is gone — #insurancePanel is a ClaimPanel shell',
+    !/id="infoClaimNumber"/.test(html) && /id="insurancePanel"/.test(html));
+  assert('customer-bootstrap renders the panel via ClaimPanel and shows it on any live claimStatus',
+    /ClaimPanel\?\.render/.test(boot)
+    && /lead\.claimStatus && lead\.claimStatus !== 'No Claim'/.test(boot));
+
+  // ── V2 builder: claim inputs + prefill + write-back. ──
+  const v2 = read(path.join(ROOT, 'docs/pro/js/estimate-v2-ui.js'));
+  assert('V2 claim section gains Date of Loss + Policy Number inputs (data-claim bound)',
+    /id="v2claimDateOfLoss" data-claim="dateOfLoss"/.test(v2)
+    && /id="v2claimPolicyNumber" data-claim="policyNumber"/.test(v2));
+  assert('syncCustomerInputs mirrors the two new claim fields',
+    /v2claimDateOfLoss:\s*state\.claim && state\.claim\.dateOfLoss/.test(v2)
+    && /v2claimPolicyNumber:\s*state\.claim && state\.claim\.policyNumber/.test(v2));
+  assert('prefillFromLead fills policy/date-of-loss/adjuster only when state is empty',
+    /lead\.policyNumber && !state\.claim\.policyNumber/.test(v2)
+    && /lead\.dateOfLoss && !state\.claim\.dateOfLoss/.test(v2)
+    && /lead\.adjusterName && !state\.claim\.adjuster/.test(v2));
+  assert('prefillFromLead only replaces the pristine 2500 default deductible',
+    /state\.claim\.deductible == null \|\| state\.claim\.deductible === 2500/.test(v2));
+  const dbboot = read(path.join(ROOT, 'docs/pro/js/dashboard-bootstrap.module.js'));
+  assert('_saveEstimate claim write-back fills ONLY empty lead fields (CRM record wins)',
+    /estClaim\.carrier && !lead\.insCarrier && !lead\.insuranceCarrier/.test(dbboot)
+    && /estClaim\.number && !lead\.claimNumber/.test(dbboot)
+    && /estClaim\.adjuster && !lead\.adjusterName/.test(dbboot)
+    && /Object\.keys\(claimBack\)\.length\) await updateDoc\(leadRef, claimBack\)/.test(dbboot));
+}
+
 section('QA wiring audit: photo Reorder button binds in module scope (not window delegate)');
 {
   // customer.html's delegate resolves data-action names on WINDOW

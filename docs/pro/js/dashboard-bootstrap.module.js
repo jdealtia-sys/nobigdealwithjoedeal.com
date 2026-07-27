@@ -3265,6 +3265,18 @@
                   });
                 }
               }
+              // Claim unification: claim facts typed into the estimate
+              // builder flow back to the lead — but ONLY into empty lead
+              // fields, so the CRM record (edited via the Claim Details
+              // panel / lead modal) always wins over an estimate draft.
+              const estClaim = data.claim || {};
+              const claimBack = {};
+              if (estClaim.carrier && !lead.insCarrier && !lead.insuranceCarrier) claimBack.insCarrier = estClaim.carrier;
+              if (estClaim.number && !lead.claimNumber) claimBack.claimNumber = estClaim.number;
+              if (estClaim.policyNumber && !lead.policyNumber) claimBack.policyNumber = estClaim.policyNumber;
+              if (estClaim.dateOfLoss && !lead.dateOfLoss) claimBack.dateOfLoss = estClaim.dateOfLoss;
+              if (estClaim.adjuster && !lead.adjusterName) claimBack.adjusterName = estClaim.adjuster;
+              if (Object.keys(claimBack).length) await updateDoc(leadRef, claimBack);
             }
           } catch (stampErr) {
             console.warn('[_saveEstimate] lead stamp-back failed:', stampErr);

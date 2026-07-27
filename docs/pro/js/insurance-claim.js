@@ -112,9 +112,13 @@ let _NBD_IC_DELEGATE; // module-local (globals Tranche 1 — was window.*)
       nextStage: nextStage ? nextStage.label : 'Complete',
       checklistProgress,
       claimNumber: lead.claimNumber,
-      insuranceCarrier: lead.insuranceCarrier,
+      // The dashboard lead modal writes insCarrier / deductibleOrOwedByHO;
+      // older widget-written docs used insuranceCarrier / deductible.
+      // Read both so the widget stops showing blanks for modal-entered data.
+      insuranceCarrier: lead.insCarrier || lead.insuranceCarrier,
       approvedAmount: lead.approvedAmount,
-      deductible: lead.deductible,
+      deductible: (lead.deductibleOrOwedByHO != null && lead.deductibleOrOwedByHO !== '')
+        ? lead.deductibleOrOwedByHO : lead.deductible,
       history: claimHistory
     };
   }
@@ -153,9 +157,16 @@ let _NBD_IC_DELEGATE; // module-local (globals Tranche 1 — was window.*)
         completedAt: new Date()
       };
 
+      // Keep the coarse 7-value claimStatus (lead modal dropdown) in sync
+      // with the fine-grained 11-stage workflow. The old hardcoded
+      // 'in_progress' wasn't one of the dropdown's values, so advancing
+      // the workflow corrupted the status everywhere else. When ClaimCore
+      // isn't loaded, write no status at all rather than a bad one.
+      const syncedStatus = (window.ClaimCore && window.ClaimCore.claimStatusFromStage)
+        ? window.ClaimCore.claimStatusFromStage(nextStageId) : null;
       await window.updateDoc(leadDocRef, {
         claimStage: nextStageId,
-        claimStatus: 'in_progress',
+        ...(syncedStatus ? { claimStatus: syncedStatus } : {}),
         claimHistory: window.arrayUnion(historyEntry),
         [`checklist_${nextStageId}`]: []
       });
@@ -426,4 +437,4 @@ let _NBD_IC_DELEGATE; // module-local (globals Tranche 1 — was window.*)
 
 })();
 
-(function(){if(_NBD_IC_DELEGATE)return;_NBD_IC_DELEGATE=true;document.addEventListener('click',function(ev){var t=ev.target.closest&&ev.target.closest('[data-ic-action]');if(!t)return;if(t.dataset.icAction==='advance'&&window.InsuranceClaim&&window.InsuranceClaim.advanceClaimStage){var leadId=t.dataset.icId;var notesEl=document.getElementById('claim-notes-'+leadId);var notes=notesEl?notesEl.value.trim():'';window.InsuranceClaim.advanceClaimStage(leadId,notes).then(function(ok){if(ok&&window.InsuranceClaim&&window.InsuranceClaim.renderClaimWorkflow)window.InsuranceClaim.renderClaimWorkflow('insuranceClaimWorkflow',leadId);});}});document.addEventListener('change',function(ev){var c=ev.target.closest&&ev.target.closest('[data-ic-check]');if(!c)return;if(window.InsuranceClaim&&window.InsuranceClaim.updateChecklistItem){window.InsuranceClaim.updateChecklistItem(c.dataset.icLead,c.dataset.icStage,c.dataset.icItem,c.checked);}});})();
+(function(){if(_NBD_IC_DELEGATE)return;_NBD_IC_DELEGATE=true;document.addEventListener('click',function(ev){var t=ev.target.closest&&ev.target.closest('[data-ic-action]');if(!t)return;if(t.dataset.icAction==='advance'&&window.InsuranceClaim&&window.InsuranceClaim.advanceClaimStage){var leadId=t.dataset.icId;var notesEl=document.getElementById('claim-notes-'+leadId);var notes=notesEl?notesEl.value.trim():'';window.InsuranceClaim.advanceClaimStage(leadId,notes).then(function(ok){if(ok&&window.InsuranceClaim&&window.InsuranceClaim.renderClaimWorkflow)window.InsuranceClaim.renderClaimWorkflow('insuranceClaimWorkflow',leadId);if(ok&&window.ClaimPanel&&window.ClaimPanel.refresh)window.ClaimPanel.refresh();});}});document.addEventListener('change',function(ev){var c=ev.target.closest&&ev.target.closest('[data-ic-check]');if(!c)return;if(window.InsuranceClaim&&window.InsuranceClaim.updateChecklistItem){window.InsuranceClaim.updateChecklistItem(c.dataset.icLead,c.dataset.icStage,c.dataset.icItem,c.checked);}});})();
