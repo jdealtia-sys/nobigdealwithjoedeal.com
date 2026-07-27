@@ -3,6 +3,35 @@
 // CUSTOMER PAGE ENHANCEMENTS - Task Management & Improved UX
 // ═══════════════════════════════════════════════════════════════════════
 
+// ── RoofLink-parity count badges ────────────────────────────────────
+// Every module's loader already fetches its list — these two helpers
+// just print the numbers. Window-exposed because callers live across
+// customer-bootstrap.module.js and customer-photo-report-generator.js
+// (script order isn't guaranteed, so every call site guards on typeof).
+//
+//   nbdNavCount('navCountPhotos', 16)  → "16" chip on the jump-nav link
+//   nbdTitleCount('notesPanelTitle', 'Notes', 4) → "Notes (4)"
+//
+// n <= 0 hides the chip / restores the bare title.
+window.nbdNavCount = function (badgeId, n) {
+  var el = document.getElementById(badgeId);
+  if (!el) return;
+  n = Number(n) || 0;
+  if (n > 0) {
+    el.textContent = n > 99 ? '99+' : String(n);
+    el.style.display = 'inline-block';
+  } else {
+    el.textContent = '';
+    el.style.display = 'none';
+  }
+};
+window.nbdTitleCount = function (titleId, base, n) {
+  var el = document.getElementById(titleId);
+  if (!el) return;
+  n = Number(n) || 0;
+  el.textContent = n > 0 ? base + ' (' + n + ')' : base;
+};
+
 // Task Modal HTML (to be injected)
 const taskModalHTML = `
 <div id="taskModal" class="modal-bg">
@@ -391,6 +420,7 @@ window.loadInvoices = async function(leadId) {
     `;
 
     document.getElementById('invoiceList').innerHTML = html;
+    window.nbdTitleCount('invoicesPanelTitle', 'Invoices & Payments', invoices.length);
   } catch (error) {
     console.error('Invoice load error:', error);
     document.getElementById('invoiceList').innerHTML = '<div class="empty"><div class="empty-icon">⚠️</div>Failed to load invoices</div>';
@@ -967,6 +997,10 @@ function updatePhotoStats() {
   var bar = document.getElementById('photoStatsBar');
   if (!bar) return;
   var photos = window._allPhotos || [];
+  // Count badges ride the same load: nav chip + both photo panel titles.
+  window.nbdNavCount('navCountPhotos', photos.length);
+  window.nbdTitleCount('projectPhotosTitle', 'Project Photos', photos.length);
+  window.nbdTitleCount('photosPanelTitle', 'Photos', photos.length);
   if (photos.length === 0) { bar.style.display = 'none'; return; }
   bar.style.display = 'flex';
   
@@ -1222,6 +1256,7 @@ window.loadCommunicationLog = async function(leadId) {
     });
 
     document.getElementById('communicationLog').innerHTML = html;
+    window.nbdTitleCount('commsPanelTitle', 'Recent Communications', comms.length);
   } catch (error) {
     console.error('Communication log error:', error);
     document.getElementById('communicationLog').innerHTML = '<div class="empty"><div class="empty-icon">⚠️</div>Failed to load messages</div>';

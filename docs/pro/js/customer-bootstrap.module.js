@@ -970,6 +970,10 @@ async function loadTimeline(leadId, lead) {
         type: 'task'
       });
     });
+    // Jump-nav OPEN-task badge (RoofLink ToDo count) — done tasks don't count.
+    if (typeof window.nbdNavCount === 'function') {
+      window.nbdNavCount('navCountTasks', taskSnap.docs.filter(d => !(d.data() || {}).done).length);
+    }
   } catch (e) {
     console.log('No tasks found for timeline');
   }
@@ -1436,7 +1440,11 @@ async function loadEstimates(leadId) {
     window._customerEstimates = estSnap.docs
       .map(d => ({ id: d.id, ...d.data() }))
       .filter(e => !e.deleted);
-    
+
+    if (typeof window.nbdTitleCount === 'function') {
+      window.nbdTitleCount('estimatesPanelTitle', 'Estimates', window._customerEstimates.length);
+    }
+
     if (!window._customerEstimates.length) {
       document.getElementById('estimateList').innerHTML = `
         <div class="empty"><div class="empty-icon"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:13px;height:13px;vertical-align:middle;"><rect x="4" y="3" width="12" height="14" rx="1.5"/><path d="M7 3V1.5h6V3"/><path d="M7 8h6M7 11h4"/></svg></div>No estimates yet</div>`;

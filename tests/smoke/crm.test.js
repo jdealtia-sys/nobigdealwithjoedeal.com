@@ -852,6 +852,45 @@ section('Claim unification: ClaimCore canonical view + synced status + Claim Det
     && /Object\.keys\(claimBack\)\.length\) await updateDoc\(leadRef, claimBack\)/.test(dbboot));
 }
 
+section('Count badges: customer-page modules print their numbers (RoofLink "Photos (16)")');
+{
+  const tasksUi = read(path.join(ROOT, 'docs/pro/js/customer-tasks-ui.js'));
+  const gen     = read(path.join(ROOT, 'docs/pro/js/customer-photo-report-generator.js'));
+  const boot    = read(path.join(ROOT, 'docs/pro/js/customer-bootstrap.module.js'));
+  const html    = readCustomer();
+
+  // Helpers: window-exposed (cross-module callers), zero hides, 99+ cap.
+  assert('nbdNavCount + nbdTitleCount exposed on window with zero-hides + 99+ cap',
+    /window\.nbdNavCount = function \(badgeId, n\)/.test(tasksUi)
+    && /n > 99 \? '99\+' : String\(n\)/.test(tasksUi)
+    && /window\.nbdTitleCount = function \(titleId, base, n\)/.test(tasksUi)
+    && /n > 0 \? base \+ ' \(' \+ n \+ '\)' : base/.test(tasksUi));
+
+  // Markup: jump-nav badge spans + the seven counted panel titles.
+  assert('jump-nav carries Photos/Documents/Timeline count chips',
+    /id="navCountPhotos"/.test(html) && /id="navCountDocs"/.test(html) && /id="navCountTasks"/.test(html));
+  assert('panel titles carry ids for count stamping',
+    ['photosPanelTitle', 'docsPanelTitle', 'estimatesPanelTitle', 'notesPanelTitle',
+     'projectPhotosTitle', 'invoicesPanelTitle', 'commsPanelTitle']
+      .every(id => html.includes('id="' + id + '"')));
+
+  // Loaders stamp their counts on the data they already fetched.
+  assert('updatePhotoStats stamps the nav chip + both photo titles',
+    /nbdNavCount\('navCountPhotos', photos\.length\)/.test(tasksUi)
+    && /nbdTitleCount\('projectPhotosTitle', 'Project Photos', photos\.length\)/.test(tasksUi)
+    && /nbdTitleCount\('photosPanelTitle', 'Photos', photos\.length\)/.test(tasksUi));
+  assert('invoices + comms loaders stamp their panel titles',
+    /nbdTitleCount\('invoicesPanelTitle', 'Invoices & Payments', invoices\.length\)/.test(tasksUi)
+    && /nbdTitleCount\('commsPanelTitle', 'Recent Communications', comms\.length\)/.test(tasksUi));
+  assert('notes + documents loaders stamp counts (typeof-guarded — script order varies)',
+    /typeof window\.nbdTitleCount === 'function'[\s\S]{0,120}notesPanelTitle', 'Notes', notes\.length/.test(gen)
+    && /nbdNavCount\('navCountDocs', docSnap\.empty \? 0 : docSnap\.docs\.length\)/.test(gen));
+  assert('timeline stamps OPEN-task count on the nav (done tasks excluded)',
+    /nbdNavCount\('navCountTasks', taskSnap\.docs\.filter\(d => !\(d\.data\(\) \|\| \{\}\)\.done\)\.length\)/.test(boot));
+  assert('estimates loader stamps its panel title from the soft-delete-filtered list',
+    /nbdTitleCount\('estimatesPanelTitle', 'Estimates', window\._customerEstimates\.length\)/.test(boot));
+}
+
 section('QA wiring audit: photo Reorder button binds in module scope (not window delegate)');
 {
   // customer.html's delegate resolves data-action names on WINDOW

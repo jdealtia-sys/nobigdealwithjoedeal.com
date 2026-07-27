@@ -434,6 +434,11 @@ async function loadDocuments(leadId) {
       query(collection(db, 'documents'), where('leadId', '==', leadId), where('userId', '==', auth.currentUser?.uid), orderBy('uploadedAt', 'desc'))
     );
     
+    if (typeof window.nbdNavCount === 'function') {
+      window.nbdNavCount('navCountDocs', docSnap.empty ? 0 : docSnap.docs.length);
+      window.nbdTitleCount('docsPanelTitle', 'Documents', docSnap.empty ? 0 : docSnap.docs.length);
+    }
+
     if (docSnap.empty) {
       document.getElementById('docList').innerHTML = `
         <div class="empty">
@@ -683,6 +688,10 @@ async function loadNotes(leadId) {
     const notes = noteSnap.docs
       .map(d => d.data())
       .sort((a, b) => _ms(b.createdAt) - _ms(a.createdAt));
+
+    if (typeof window.nbdTitleCount === 'function') {
+      window.nbdTitleCount('notesPanelTitle', 'Notes', notes.length);
+    }
 
     if (!notes.length) {
       document.getElementById('notesList').innerHTML = `
