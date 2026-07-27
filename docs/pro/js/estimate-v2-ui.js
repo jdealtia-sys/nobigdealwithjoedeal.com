@@ -214,6 +214,73 @@
         #estV2Modal[data-mstep="3"] .pane-setup,
         #estV2Modal[data-mstep="3"] .pane-items { display:none; }
       }
+
+      /* ── Phase 3: homeowner presentation mode ──
+         Fullscreen overlay INSIDE the modal (so the existing delegated
+         data-action handler covers its buttons). Homeowner-clean: big
+         tier cards, no margins/costs/internal numbers anywhere. */
+      .v2-present {
+        position:absolute; inset:0; z-index:30; display:none;
+        flex-direction:column; overflow-y:auto;
+        background:var(--bg,#0b0d10);
+        padding-top: env(safe-area-inset-top, 0);
+      }
+      .v2-present.open { display:flex; }
+      .vp-hdr { padding:20px 22px 4px; flex:none; }
+      .vp-name {
+        font-family:'Barlow Condensed',sans-serif; font-size:26px; font-weight:800;
+        color:var(--t,#fff); text-transform:uppercase; letter-spacing:.04em; line-height:1.1;
+      }
+      .vp-addr { font-size:13px; color:var(--m,#98a0ab); margin-top:4px; }
+      .vp-cards {
+        display:grid; gap:12px; padding:18px 22px;
+        grid-template-columns:repeat(auto-fit, minmax(190px, 1fr));
+        align-items:stretch;
+      }
+      .vp-card {
+        border:2px solid var(--br,#2a2f35); border-radius:14px; padding:20px 14px;
+        background:var(--s2,#181c22); text-align:center; cursor:pointer;
+        font-family:inherit; color:var(--t,#e8eaf0);
+        -webkit-tap-highlight-color:transparent; touch-action:manipulation;
+      }
+      .vp-card.active { border-color:var(--green,#2ecc8a); box-shadow:0 0 0 1px var(--green,#2ecc8a); }
+      .vp-tier {
+        font-family:'Barlow Condensed',sans-serif; font-size:15px; font-weight:800;
+        text-transform:uppercase; letter-spacing:.12em; color:var(--m,#98a0ab);
+      }
+      .vp-card.active .vp-tier { color:var(--green,#2ecc8a); }
+      .vp-price {
+        font-family:'Barlow Condensed',sans-serif; font-size:34px; font-weight:800;
+        color:var(--t,#fff); margin:8px 0 4px;
+      }
+      .vp-blurb { font-size:11px; color:var(--m,#98a0ab); line-height:1.5; }
+      .vp-pick {
+        margin-top:12px; font-size:10px; font-weight:700; letter-spacing:.1em;
+        text-transform:uppercase; color:var(--m,#98a0ab);
+      }
+      .vp-card.active .vp-pick { color:var(--green,#2ecc8a); }
+      .vp-foot {
+        margin-top:auto; flex:none; display:flex; gap:10px;
+        padding:14px 22px calc(16px + env(safe-area-inset-bottom, 0));
+        border-top:1px solid var(--br,#2a2f35); background:var(--s,#111418);
+        align-items:center;
+      }
+      .vp-total {
+        font-family:'Barlow Condensed',sans-serif; font-size:26px; font-weight:800;
+        color:var(--green,#2ecc8a); white-space:nowrap; padding-right:6px;
+      }
+      .vp-sign {
+        flex:1; min-height:48px; border-radius:10px; border:none; cursor:pointer;
+        background:var(--orange,#e8720c); color:var(--accent-fg,#fff);
+        font-family:'Barlow Condensed',sans-serif; font-size:16px; font-weight:800;
+        letter-spacing:.06em; text-transform:uppercase;
+      }
+      .vp-done {
+        flex:none; min-height:48px; padding:0 18px; border-radius:10px; cursor:pointer;
+        background:none; border:1px solid var(--br,#2a2f35); color:var(--m,#98a0ab);
+        font-family:'Barlow Condensed',sans-serif; font-size:13px; font-weight:700;
+        letter-spacing:.06em; text-transform:uppercase;
+      }
       .v2-section {
         font-family:'Barlow Condensed',sans-serif; font-size:11px;
         font-weight:700; text-transform:uppercase; letter-spacing:.15em;
@@ -702,6 +769,12 @@
             🏠 Create Deal Room
           </button>
 
+          <div class="v2-section">Present</div>
+          <button type="button" class="btn btn-ghost" data-action="present"
+            style="width:100%;justify-content:center;padding:12px;margin-bottom:6px;border-color:var(--green,#2ecc8a);color:var(--green,#2ecc8a);">
+            🎁 Present to Homeowner
+          </button>
+
           <div class="v2-section">Save</div>
           <button id="v2saveBtn" type="button" class="btn btn-orange" data-action="save"
             style="width:100%;justify-content:center;padding:14px;">
@@ -813,18 +886,23 @@
           // Updates state, repaints the active button, recalculates
           // grand total. catalog-mode tier feeds resolveEstimate;
           // per-SQ mode tier picks the locked rate from
-          // estimate-config.js TIER_RATES.
-          if (arg && (arg === 'good' || arg === 'better' || arg === 'best')) {
-            state.tier = arg;
-            state._reopenedClean = false;   // 3B: tier change → re-resolve
-            ['v2tierGood', 'v2tierBetter', 'v2tierBest'].forEach(id => {
-              const b = document.getElementById(id);
-              if (b) b.classList.toggle('active',
-                id === ('v2tier' + arg.charAt(0).toUpperCase() + arg.slice(1)));
-            });
-            render();
-            saveDraftDebounced();
-          }
+          // estimate-config.js TIER_RATES. (Body extracted to
+          // setTierChoice so Phase-3 presentation tier cards share it.)
+          if (arg) setTierChoice(arg);
+          break;
+        case 'present':
+          // Phase 3: homeowner-facing Good/Better/Best compare screen.
+          openPresentation();
+          break;
+        case 'pres-tier':
+          if (arg) { setTierChoice(arg); openPresentation(); }
+          break;
+        case 'pres-close':
+          closePresentation();
+          break;
+        case 'pres-sign':
+          closePresentation();
+          sendForSignature();
           break;
         case 'load-preset':
           if (arg) loadPreset(arg);
@@ -1571,6 +1649,123 @@
       }
     }
     return estimate;
+  }
+
+  // W142 tier change, extracted from the dispatcher so the Phase-3
+  // presentation tier cards drive the exact same path as the Setup tabs.
+  function setTierChoice(arg) {
+    if (arg !== 'good' && arg !== 'better' && arg !== 'best') return;
+    state.tier = arg;
+    state._reopenedClean = false;   // 3B: tier change → re-resolve
+    ['v2tierGood', 'v2tierBetter', 'v2tierBest'].forEach(id => {
+      const b = document.getElementById(id);
+      if (b) b.classList.toggle('active',
+        id === ('v2tier' + arg.charAt(0).toUpperCase() + arg.slice(1)));
+    });
+    render();
+    saveDraftDebounced();
+  }
+
+  // ═════════════════════════════════════════════════════════
+  // Phase 3 — homeowner presentation mode
+  //
+  // Good/Better/Best side-by-side for the kitchen table: the rep hands
+  // the phone over instead of reading numbers aloud. Tapping a tier IS
+  // a real tier change (setTierChoice — same path as the Setup tabs),
+  // and "Sign Now" hands off to the existing BoldSign flow. Homeowner-
+  // clean: no margins, costs, or internal numbers anywhere.
+  // ═════════════════════════════════════════════════════════
+
+  // Three tier totals for the compare cards. Per-SQ mode already carries
+  // estimate.prices {good,better,best}. Line-item mode computes the other
+  // two tiers with a temporary state.tier swap through getCurrentEstimate
+  // (pure compute — no render, no _reopenedClean flip); the CURRENT tier
+  // always shows the truthful replay-aware number from effectiveEstimate.
+  function triTierTotals(current) {
+    if (current.prices && current.prices.good != null) {
+      return {
+        good: current.prices.good,
+        better: current.prices.better,
+        best: current.prices.best
+      };
+    }
+    const orig = state.tier;
+    const out = { good: null, better: null, best: null };
+    ['good', 'better', 'best'].forEach(t => {
+      if (t === orig) { out[t] = current.total; return; }
+      try {
+        state.tier = t;
+        const e = getCurrentEstimate();
+        out[t] = e ? e.total : null;
+      } catch (err) {
+        out[t] = null;
+      }
+    });
+    state.tier = orig;
+    return out;
+  }
+
+  function openPresentation() {
+    const modal = document.getElementById('estV2Modal');
+    if (!modal) return;
+    const estimate = effectiveEstimate();
+    if (!estimate) {
+      if (window.showToast) window.showToast('Add line items to the scope first', 'info');
+      return;
+    }
+    const escP = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, c =>
+      ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    const fmt = (n) => (n == null || !isFinite(Number(n)))
+      ? null : '$' + Math.round(Number(n)).toLocaleString('en-US');
+
+    const tiers = triTierTotals(estimate);
+    const BLURB = {
+      good: 'Solid protection that fits the budget.',
+      better: 'Our most popular package — the sweet spot.',
+      best: 'Top-of-the-line materials and warranty.'
+    };
+    const LABEL = { good: 'Good', better: 'Better', best: 'Best' };
+    const cardOrder = ['good', 'better', 'best'].filter(t => fmt(tiers[t]) !== null);
+
+    const cards = cardOrder.length >= 2
+      ? cardOrder.map(t =>
+          '<button type="button" class="vp-card' + (state.tier === t ? ' active' : '') + '" data-action="pres-tier" data-arg="' + t + '">' +
+            '<div class="vp-tier">' + LABEL[t] + '</div>' +
+            '<div class="vp-price">' + fmt(tiers[t]) + '</div>' +
+            '<div class="vp-blurb">' + BLURB[t] + '</div>' +
+            '<div class="vp-pick">' + (state.tier === t ? '✓ Selected' : 'Tap to select') + '</div>' +
+          '</button>').join('')
+      // Fewer than 2 priced tiers → a single clean total card, no fake compare.
+      : '<div class="vp-card active" style="cursor:default;">' +
+          '<div class="vp-tier">Your Project</div>' +
+          '<div class="vp-price">' + (fmt(estimate.total) || '$0') + '</div>' +
+          '<div class="vp-blurb">Full scope as reviewed with your estimator.</div>' +
+        '</div>';
+
+    let pres = document.getElementById('v2Present');
+    if (!pres) {
+      pres = document.createElement('div');
+      pres.id = 'v2Present';
+      pres.className = 'v2-present';
+      modal.appendChild(pres);
+    }
+    pres.innerHTML =
+      '<div class="vp-hdr">' +
+        '<div class="vp-name">' + (escP(state.customer.name) || 'Your Roofing Estimate') + '</div>' +
+        (state.customer.address ? '<div class="vp-addr">' + escP(state.customer.address) + '</div>' : '') +
+      '</div>' +
+      '<div class="vp-cards">' + cards + '</div>' +
+      '<div class="vp-foot">' +
+        '<div class="vp-total">' + (fmt(estimate.total) || '$0') + '</div>' +
+        '<button type="button" class="vp-sign" data-action="pres-sign">✍ Sign Now</button>' +
+        '<button type="button" class="vp-done" data-action="pres-close">Done</button>' +
+      '</div>';
+    pres.classList.add('open');
+  }
+
+  function closePresentation() {
+    const pres = document.getElementById('v2Present');
+    if (pres) pres.classList.remove('open');
   }
 
   // Phase 1b: switch the mobile step (no-op visually on desktop — the
@@ -3035,6 +3230,7 @@ html,body{margin:0;padding:0;height:100%;width:100%;background:#fff;font-family:
   function close() {
     const m = document.getElementById('estV2Modal');
     if (m) m.classList.remove('open');
+    closePresentation(); // Phase 3: never leave the overlay armed for next open
     // 3B: closing a reopened estimate clears the replay + editing state so a
     // stale window._editingEstimateId can't bleed into the Classic builder's
     // next save (the two builders share that global).

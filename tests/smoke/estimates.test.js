@@ -200,6 +200,57 @@ section('Phase 1b: V2 builder mobile step navigation + always-visible total');
     /setMobileStep\(opts\.estimateId \? 3 : 1\)/.test(src));
 }
 
+section('Phase 2: template-first New Estimate front door');
+{
+  const est = read(path.join(PRO_JS, 'estimates.js'));
+  // startNewEstimate leads with the chooser; everything stays V2-only
+  // (Classic remains deprecated for new estimates).
+  assert('startNewEstimate opens the template-or-blank chooser',
+    /function startNewEstimate\(\)[\s\S]{0,700}showNewEstimateChooser\(\);/.test(est));
+  assert('chooser leads with From Template (recommended) + Start Blank V2',
+    /From Template — Fastest/.test(est)
+    && /Start Blank/.test(est)
+    && /openEstimateV2Builder === 'function'\) window\.openEstimateV2Builder\(\);/.test(est));
+  assert('template option load-then-runs the estimates bundle (race-safe)',
+    /JobTemplatesUI\.openPicker === 'function'/.test(est)
+    && /loadBundle\('estimates'\)\.then\(openJT\)/.test(est));
+  assert('template option honors lead context (_cardDetailLeadId)',
+    /openPicker\(window\._cardDetailLeadId \? \{ leadId: window\._cardDetailLeadId \} : \{\}\)/.test(est));
+  const dashHtml = read(path.join(ROOT, 'docs/pro/dashboard.html'));
+  assert('estimates-view header button routes through startNewEstimate',
+    /data-fn="startNewEstimate" title="New estimate — start from a job template/.test(dashHtml)
+    && !/data-fn="openEstimateV2Builder" title="Build a new estimate with the V2 builder/.test(dashHtml));
+}
+
+section('Phase 3: homeowner presentation mode (Good/Better/Best)');
+{
+  const src = read(path.join(PRO_JS, 'estimate-v2-ui.js'));
+  assert('Present button in the Review pane dispatches present',
+    /data-action="present"[\s\S]{0,220}Present to Homeowner/.test(src));
+  assert('presentation overlay lives INSIDE the modal (delegate coverage)',
+    /pres\.className = 'v2-present';\s*modal\.appendChild\(pres\)/.test(src));
+  // Tier cards drive the REAL tier path — same function as the Setup tabs.
+  assert('set-tier and pres-tier share setTierChoice',
+    /case 'set-tier':[\s\S]{0,500}setTierChoice\(arg\)/.test(src)
+    && /case 'pres-tier':[\s\S]{0,120}setTierChoice\(arg\); openPresentation\(\)/.test(src));
+  // Tri-tier pricing: per-SQ uses estimate.prices; line-item swaps
+  // state.tier through getCurrentEstimate as a pure compute and always
+  // restores; the current tier keeps the replay-aware truthful total.
+  assert('triTierTotals prefers per-SQ prices and restores tier after swap',
+    /function triTierTotals\(current\)[\s\S]{0,200}current\.prices[\s\S]{0,900}state\.tier = orig;/.test(src));
+  assert('current tier shows the truthful effectiveEstimate total',
+    /if \(t === orig\) \{ out\[t\] = current\.total; return; \}/.test(src));
+  // Fewer than 2 priced tiers → single clean card, never a fake compare.
+  assert('single-card fallback when tiers cannot be priced',
+    /cardOrder\.length >= 2/.test(src) && /Full scope as reviewed with your estimator\./.test(src));
+  // Homeowner-clean + handoff: Sign Now → existing BoldSign flow; close()
+  // never leaves the overlay armed.
+  assert('Sign Now hands off to sendForSignature',
+    /case 'pres-sign':[\s\S]{0,120}sendForSignature\(\)/.test(src));
+  assert('builder close() also closes the presentation',
+    /m\.classList\.remove\('open'\);\s*closePresentation\(\)/.test(src));
+}
+
 section('Wave B3: live estimates snapshot');
 {
   // CSP hotfix: subscribe wiring is in dashboard-bootstrap.module.js.
