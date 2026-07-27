@@ -640,16 +640,18 @@ async function loadCustomerData(id) {
     const jobTypeLabels = { 'insurance': 'Insurance', 'cash': 'Cash', 'finance': 'Finance', 'warranty': 'Warranty', 'service': 'Service' };
     document.getElementById('infoJobType').textContent = jobTypeLabels[jobType] || jobType || '—';
 
-    // Insurance panel
-    const isInsurance = jobType === 'insurance' || lead.insCarrier || lead.insuranceCarrier || lead.claimNumber;
+    // Insurance panel — rendered by ClaimPanel (js/claim-core.js): the
+    // unified Claim Details card (deductible hero, synced status chip,
+    // contact slots). Also show it when a claim status exists even if the
+    // jobType was never flipped to insurance — a filed claim IS the signal.
+    const isInsurance = jobType === 'insurance' || lead.insCarrier || lead.insuranceCarrier || lead.claimNumber
+      || (lead.claimStatus && lead.claimStatus !== 'No Claim');
     if (isInsurance) {
       document.getElementById('insurancePanel').style.display = 'block';
-      document.getElementById('infoClaimNumber').textContent = lead.claimNumber || '—';
-      document.getElementById('infoClaimFiledBy').textContent = lead.claimFiledBy || '—';
-      document.getElementById('infoEstimateAmount').textContent = lead.estimateAmount ? '$' + parseFloat(lead.estimateAmount).toLocaleString() : '—';
-      document.getElementById('infoSupplementStatus').textContent = lead.supplementStatus || '—';
-      document.getElementById('infoDeductible').textContent = lead.deductibleOrOwedByHO ? '$' + parseFloat(lead.deductibleOrOwedByHO).toLocaleString() : '—';
-      document.getElementById('infoScopeOfWork').textContent = lead.scopeOfWork || '—';
+      if (window.ClaimPanel?.render) {
+        window.ClaimPanel.render('insurancePanel', lead);
+      }
+      // else: claim-core.js self-renders on parse (defer races the module).
     }
 
     // Finance panel

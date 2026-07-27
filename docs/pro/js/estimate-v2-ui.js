@@ -749,6 +749,14 @@
             <label>Deductible</label>
             <input type="number" id="v2claimDeductible" data-claim="deductible" placeholder="2500" min="0" step="50">
           </div>
+          <div class="v2-field">
+            <label>Date of Loss</label>
+            <input type="date" id="v2claimDateOfLoss" data-claim="dateOfLoss">
+          </div>
+          <div class="v2-field">
+            <label>Policy Number</label>
+            <input type="text" id="v2claimPolicyNumber" data-claim="policyNumber" placeholder="POL-9988776">
+          </div>
 
           <div class="v2-section">Selected Scope</div>
           <div id="v2scopeList">
@@ -3323,6 +3331,15 @@ html,body{margin:0;padding:0;height:100%;width:100%;background:#fff;font-family:
     // has any carrier/number on file.
     if (lead.insCarrier && !state.claim.carrier)      state.claim.carrier = lead.insCarrier;
     if (lead.claimNumber && !state.claim.number)      state.claim.number  = lead.claimNumber;
+    if (lead.policyNumber && !state.claim.policyNumber) state.claim.policyNumber = lead.policyNumber;
+    if (lead.dateOfLoss && !state.claim.dateOfLoss)   state.claim.dateOfLoss = lead.dateOfLoss;
+    if (lead.adjusterName && !state.claim.adjuster)   state.claim.adjuster = lead.adjusterName;
+    // Deductible: 2500 is the pristine state default, so a lead-recorded
+    // deductible may replace it — but never a value the rep typed.
+    if (lead.deductibleOrOwedByHO != null && lead.deductibleOrOwedByHO !== ''
+        && (state.claim.deductible == null || state.claim.deductible === 2500)) {
+      state.claim.deductible = Number(lead.deductibleOrOwedByHO) || 0;
+    }
     // Photo embeds: a NEW lead context starts with a clean selection and
     // pulls that lead's photo grid (guarded no-op if it's the same lead).
     if (!state._leadPhotos || state._leadPhotos._leadId !== leadId) {
@@ -3346,11 +3363,13 @@ html,body{margin:0;padding:0;height:100%;width:100%;background:#fff;font-family:
       v2custEmail:       state.customer && state.customer.email,
       v2custPhone:       state.customer && state.customer.phone,
       v2custAddress:     state.customer && state.customer.address,
-      v2claimCarrier:    state.claim && state.claim.carrier,
-      v2claimNumber:     state.claim && state.claim.number,
-      v2claimAdjuster:   state.claim && state.claim.adjuster,
-      v2claimDeductible: state.claim && state.claim.deductible,
-      v2county:          state.county
+      v2claimCarrier:      state.claim && state.claim.carrier,
+      v2claimNumber:       state.claim && state.claim.number,
+      v2claimAdjuster:     state.claim && state.claim.adjuster,
+      v2claimDeductible:   state.claim && state.claim.deductible,
+      v2claimDateOfLoss:   state.claim && state.claim.dateOfLoss,
+      v2claimPolicyNumber: state.claim && state.claim.policyNumber,
+      v2county:            state.county
     };
     for (const id of Object.keys(fields)) {
       const el = document.getElementById(id);

@@ -1411,36 +1411,12 @@ body.nbd-photo-selecting .nbd-photo-checkbox,
         </div>
       </div>
 
-      <!-- INSURANCE DETAILS (shown when job type is insurance) -->
-      <div class="panel" id="insurancePanel" style="display:none;">
-        <div class="panel-title">Insurance Claim Details</div>
-        <div class="info-grid">
-          <div class="info-item">
-            <div class="info-label">Claim Number</div>
-            <div class="info-value" id="infoClaimNumber">—</div>
-          </div>
-          <div class="info-item">
-            <div class="info-label">Claim Filed By</div>
-            <div class="info-value" id="infoClaimFiledBy">—</div>
-          </div>
-          <div class="info-item">
-            <div class="info-label">Estimate Amount</div>
-            <div class="info-value" id="infoEstimateAmount">—</div>
-          </div>
-          <div class="info-item">
-            <div class="info-label">Supplement Status</div>
-            <div class="info-value" id="infoSupplementStatus">—</div>
-          </div>
-          <div class="info-item">
-            <div class="info-label">Deductible / Owed by HO</div>
-            <div class="info-value" id="infoDeductible">—</div>
-          </div>
-          <div class="info-item">
-            <div class="info-label">Scope of Work</div>
-            <div class="info-value" id="infoScopeOfWork">—</div>
-          </div>
-        </div>
-      </div>
+      <!-- INSURANCE DETAILS (shown when the job is insurance-flavored).
+           Contents are rendered by ClaimPanel.render (js/claim-core.js):
+           deductible hero, status chip, claim facts, and tap-to-call
+           contact slots (Adjuster / Claim Handler / Mortgage Company).
+           The old static info-grid (infoClaimNumber etc.) lived here. -->
+      <div class="panel" id="insurancePanel" style="display:none;"></div>
 
       <!-- FINANCE DETAILS (shown when job type is finance) -->
       <div class="panel" id="financePanel" style="display:none;">
@@ -2168,7 +2144,11 @@ body.nbd-photo-selecting .nbd-photo-checkbox,
 <script defer src="js/review-engine.js?v=2"></script>
 <script defer src="js/profit-tracker.js?v=2"></script>
 <script defer src="js/lead-scoring.js?v=2"></script>
-<script defer src="js/insurance-claim.js?v=2"></script>
+<!-- Claim unification: canonical claim view + Claim Details panel/editor.
+     MUST load before insurance-claim.js — advanceClaimStage syncs the
+     coarse claimStatus via window.ClaimCore.claimStatusFromStage. -->
+<script defer src="js/claim-core.js?v=1"></script>
+<script defer src="js/insurance-claim.js?v=3"></script>
 <script defer src="js/offline-manager.js?v=5"></script>
 <script defer src="js/customer-dnd-upload.js?v=1"></script>
 <script defer src="js/customer-quick-action-bar.js?v=2"></script>
