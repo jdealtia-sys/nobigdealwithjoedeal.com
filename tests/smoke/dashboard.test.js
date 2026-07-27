@@ -3379,6 +3379,27 @@ section('Mobile lead detail — Estimate opens the lead; Activity shows estimate
     /\.m-jd-act-item\{/.test(css) && /\.m-jd-act-list\{/.test(css));
 }
 
+section('Load-status banner yields to full-screen overlays (max-z occlusion)');
+{
+  // The banner is fixed bottom-right at z-index 2147483646 — above EVERY
+  // overlay in the app. A browser occlusion sweep (390x844) caught it
+  // sitting on the V2 builder's mobile step bar, blocking the "② Items"
+  // button and the live grand total; the same corner holds modal primary
+  // actions generally. It must suppress itself while an overlay is open.
+  const src = read(path.join(PRO_JS, 'dashboard-load-status-banner.js'));
+  assert('_overlayOpen covers the builder, preview sheet, presentation + modals',
+    /function _overlayOpen\(\)[\s\S]{0,600}#estV2Modal\.open[\s\S]{0,300}nbd-ep-overlay[\s\S]{0,300}v2Present[\s\S]{0,300}\.modal-bg\.open/.test(src));
+  assert('_render bails early (hidden) while an overlay is open',
+    /if \(_overlayOpen\(\)\) \{\s*if \(banner\) banner\.style\.display = 'none';/.test(src));
+  // Hiding must not burn the 30s auto-dismiss clock — otherwise the banner
+  // silently expires behind a modal and the rep never sees the retry.
+  assert('auto-dismiss clock holds while suppressed',
+    /if \(_overlayOpen\(\)\)[\s\S]{0,200}if \(_shownAt\) _shownAt = Date\.now\(\);/.test(src));
+  // Suppression only — never a permanent dismiss, so it returns on close.
+  assert('suppression does not set the user-dismissed flag',
+    !/if \(_overlayOpen\(\)\)[\s\S]{0,200}_dismissedByUser = true/.test(src));
+}
+
 section('Storm Proof button: works before the lazy storm bundle loads');
 {
   // The card-detail 🛡️ Storm Proof button dispatches data-action="call"

@@ -114,8 +114,33 @@ let _bootStartedAt; // module-local (globals Tranche 1 — was window.*)
     }
   }
 
+  // A full-screen overlay owns the screen while it's up. This banner is
+  // pinned bottom-right at z-index max-int, so without this check it paints
+  // over ANY of them. Caught by the occlusion sweep (2026-07-27): at 390x844
+  // it sat exactly on the V2 builder's mobile step bar, blocking BOTH the
+  // "② Items" step button and the live grand total — and the same corner is
+  // where modal primary actions live. Suppress while an overlay is open; the
+  // 1s render loop restores it the moment the overlay closes.
+  function _overlayOpen() {
+    try {
+      return !!(
+        document.querySelector('#estV2Modal.open') ||   // V2 estimate builder
+        document.getElementById('nbd-ep-overlay') ||    // estimate preview sheet
+        document.getElementById('v2Present') && document.getElementById('v2Present').classList.contains('open') ||
+        document.querySelector('.modal-bg.open')        // every standard modal
+      );
+    } catch (e) { return false; }
+  }
+
   function _render() {
     if (_dismissedByUser) return;
+    // Overlay up → stay hidden, and hold the auto-dismiss clock so the
+    // banner doesn't silently burn its 30s while invisible behind a modal.
+    if (_overlayOpen()) {
+      if (banner) banner.style.display = 'none';
+      if (_shownAt) _shownAt = Date.now();
+      return;
+    }
     const s = _state();
     const ageMs = Date.now() - (_bootStartedAt || Date.now());
 
