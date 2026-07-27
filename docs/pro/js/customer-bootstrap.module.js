@@ -2836,28 +2836,37 @@ window.generateCertFromEstimate = async function(estimateId) {
   // PARENT document and cannot see a click inside the popup, so it was dead. A
   // popup written by document.write is not a /pro page under the site CSP, so
   // the no-inline-script rule doesn't reach it (warranty-cert.js is precedent).
+  // The certificate opens in a popup whose only stylesheet is nbd-mobile.css,
+  // which never DECLARES --orange — so var(--orange) resolved to nothing there
+  // and the accent rendered white-on-white. Resolve the tenant's accent from
+  // THIS document (where the theme engine has set it) and interpolate a literal
+  // into the popup. That keeps the popup on-theme for white-label tenants
+  // instead of hardcoding NBD orange, and satisfies the bare-hex drift guard
+  // in tests/crm-theme-contract.test.js.
+  const accent = (getComputedStyle(document.documentElement)
+    .getPropertyValue('--orange') || '').trim() || '#e8720c';
   const html = `<!DOCTYPE html>
 <html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Warranty Certificate — ${custName}</title>
 <style>
   *{margin:0;padding:0;box-sizing:border-box;}
   body{font-family:'Georgia',serif;background:#f8f6f1;display:flex;justify-content:center;align-items:center;min-height:100vh;min-height:100dvh;padding:20px;}
-  .cert{background:#fff;border:3px double #e8720c;padding:50px 60px;max-width:700px;width:100%;text-align:center;position:relative;}
+  .cert{background:#fff;border:3px double ${accent};padding:50px 60px;max-width:700px;width:100%;text-align:center;position:relative;}
   .cert::before{content:'';position:absolute;inset:8px;border:1px solid #d4a017;pointer-events:none;}
-  .logo{font-family:'Arial Black',sans-serif;font-size:28px;color:#e8720c;letter-spacing:3px;margin-bottom:4px;}
-  .logo-sub{font-size:11px;color:#e8720c;letter-spacing:4px;text-transform:uppercase;margin-bottom:30px;}
-  h1{font-size:32px;color:#e8720c;margin-bottom:6px;letter-spacing:2px;}
+  .logo{font-family:'Arial Black',sans-serif;font-size:28px;color:${accent};letter-spacing:3px;margin-bottom:4px;}
+  .logo-sub{font-size:11px;color:${accent};letter-spacing:4px;text-transform:uppercase;margin-bottom:30px;}
+  h1{font-size:32px;color:${accent};margin-bottom:6px;letter-spacing:2px;}
   .seal{font-size:14px;color:#666;margin-bottom:30px;letter-spacing:1px;}
   .details{text-align:left;margin:24px 0;padding:20px;background:#fafaf8;border:1px solid #e8e4d8;border-radius:4px;}
   .row{display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px dotted #ddd;}
   .row:last-child{border:none;}
   .label{color:#888;font-size:13px;}
-  .value{color:#e8720c;font-weight:bold;font-size:14px;}
+  .value{color:${accent};font-weight:bold;font-size:14px;}
   .footer{margin-top:30px;display:flex;justify-content:space-between;align-items:flex-end;}
   .sig{text-align:center;}
   .sig-line{width:180px;border-top:1px solid #333;margin-top:40px;padding-top:6px;font-size:11px;color:#888;}
-  .print-btn{margin-top:24px;padding:12px 32px;background:#e8720c;color:#fff;border:none;border-radius:6px;font-size:14px;cursor:pointer;}
-  @media print{.print-btn{display:none;} body{background:#fff;} .cert{border:3px double #e8720c;}}
+  .print-btn{margin-top:24px;padding:12px 32px;background:${accent};color:#fff;border:none;border-radius:6px;font-size:14px;cursor:pointer;}
+  @media print{.print-btn{display:none;} body{background:#fff;} .cert{border:3px double ${accent};}}
 </style><link rel="stylesheet" href="/assets/css/nbd-mobile.css">
 </head><body>
 <div class="cert">
