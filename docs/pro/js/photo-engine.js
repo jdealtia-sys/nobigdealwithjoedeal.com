@@ -1283,6 +1283,16 @@
         id: photoId,
         leadId,
         userId: uid,
+        // Tenancy: every team-scoped reader (dashboard boot's _photoCache, the
+        // customer page, share-gallery) queries photos by userId==me OR
+        // companyId==my tenant. Uploads stamped only userId were invisible to
+        // teammates — a company_admin opening another rep's customer saw an
+        // empty gallery. Stamp it here, on the one write path all uploads
+        // funnel through. Omitted (not null) for solo users with no claim, so
+        // the field stays absent rather than blocking an equality query.
+        ...(window._userClaims && window._userClaims.companyId
+          ? { companyId: window._userClaims.companyId }
+          : {}),
         url: photoUrl,
         // Storage path for future-proof deletion. Without this, the
         // delete path has to parse the download URL — fragile and prone

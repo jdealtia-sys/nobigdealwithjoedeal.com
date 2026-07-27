@@ -1317,9 +1317,20 @@ function _mJdSwitchTab(tab) {
     const el = document.getElementById(id);
     if (el) el.hidden = (k !== tab);
   }
-  // The estimate hub is mounted lazily — the tab is inert markup until the
-  // rep actually opens it, so a job-detail open costs nothing extra.
+  // Hubs mount lazily — a tab is inert markup until the rep actually opens it,
+  // so a job-detail open costs nothing extra.
   if (tab === 'estimates') _mountEstimateHub();
+  if (tab === 'photos') _mountPhotoHub();
+}
+
+// Bring the tab row to the top of the scroller after an action-ring button
+// switches tabs, so the rep lands ON the panel instead of having to scroll
+// past the hero to find it. Shared by the 'estimate' and 'photos' actions.
+function _scrollToTabs() {
+  const tabsEl = document.querySelector('#mJobDetail .m-jd-tabs');
+  if (tabsEl && typeof tabsEl.scrollIntoView === 'function') {
+    tabsEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
 }
 
 // Mount (or re-render) the embedded per-customer estimate hub into the
@@ -1348,7 +1359,47 @@ function _mountEstimateHub() {
     }
   });
 }
-// Deliberately NOT exported to window — its only caller is _mJdSwitchTab,
+// Mount (or re-render) the embedded per-customer photo workspace into the
+// Photos tab. Replaces the read-only `<img>` grid openMobileJobDetail used to
+// paint there — that grid had no click handler at all, so a rep could look at
+// thumbnails and do nothing with them.
+function _mountPhotoHub() {
+  const host = document.getElementById('mJdTabPhotos');
+  const leadId = window._cardDetailLeadId;
+  if (!host || !leadId) return;
+  if (!window.CustomerPhotoHub) {
+    host.innerHTML = '<div class="m-jd-empty">Photo panel unavailable — reload the page.</div>';
+    return;
+  }
+  window.CustomerPhotoHub.mount(host, leadId, {
+    // Adding, deleting or re-covering a photo changes the overlay's hero.
+    onPhotosChanged: () => _repaintJobDetailHero(),
+    onCoverChanged: () => _repaintJobDetailHero(),
+  });
+}
+
+// Recompute the job-detail hero from the same inputs openMobileJobDetail uses:
+// the rep-chosen cover wins, else the first cached photo.
+function _repaintJobDetailHero() {
+  const heroEl = document.getElementById('mJdHero');
+  const leadId = window._cardDetailLeadId;
+  if (!heroEl || !leadId) return;
+  const lead = (window._leads || []).find(l => l && l.id === leadId) || {};
+  const photos = (window._photoCache && window._photoCache[leadId]) || [];
+  const url = (lead.coverPhotoUrl && /^https?:/i.test(String(lead.coverPhotoUrl)) ? lead.coverPhotoUrl : null)
+    || (photos[0] && (photos[0].url || photos[0].downloadUrl || photos[0].src));
+  if (url) {
+    heroEl.style.backgroundImage = 'url("' + String(url).replace(/"/g, '%22') + '")';
+    heroEl.classList.add('has-photo');
+  } else {
+    heroEl.style.backgroundImage = '';
+    heroEl.classList.remove('has-photo');
+  }
+  const emptyEl = document.getElementById('mJdHeroEmpty');
+  if (emptyEl) emptyEl.hidden = !!url;
+}
+
+// Deliberately NOT exported to window — their only caller is _mJdSwitchTab,
 // co-located in this IIFE (Globals Tranche 2c convention: no global unless
 // markup or another slice actually dispatches it).
 window._mJdSwitchTab = _mJdSwitchTab;
@@ -1475,9 +1526,14 @@ function _mJdAct(kind) {
       if (lead.email) location.href = 'mailto:' + lead.email;
       break;
     case 'photos':
-      closeMobileJobDetail();
-      window._currentPhotoLeadId = id;
-      goTo('photos');
+      // Phase 1d: STAY on the customer, same as 'estimate' above. This used to
+      // close the overlay and navigate to the GENERIC photos view (handing off
+      // through window._currentPhotoLeadId), which dropped the customer context
+      // the rep was working in. The overlay's own Photos tab now hosts a real
+      // workspace — capture, upload, tag, set cover, delete — via
+      // CustomerPhotoHub, so there is nowhere else to go.
+      _mJdSwitchTab('photos');
+      _scrollToTabs();
       break;
     case 'estimate': {
       // Phase 1c: STAY on the customer. This switches to the embedded
@@ -1488,10 +1544,7 @@ function _mJdAct(kind) {
       // full-screen builder with no way back to the customer; a lead with two
       // estimates could only ever reach one of them from here.
       _mJdSwitchTab('estimates');
-      const tabsEl = document.querySelector('#mJobDetail .m-jd-tabs');
-      if (tabsEl && typeof tabsEl.scrollIntoView === 'function') {
-        tabsEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      }
+      _scrollToTabs();
       break;
     }
   }

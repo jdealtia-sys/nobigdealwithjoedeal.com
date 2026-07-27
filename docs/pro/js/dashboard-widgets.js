@@ -1216,37 +1216,18 @@ function openMobileJobDetail(leadId) {
   $('mJdCarrier').textContent = lead.carrier || lead.insuranceCarrier || '—';
   $('mJdClaim').textContent   = lead.claimNumber || lead.claim || '—';
 
-  // ── Photos tab — CompanyCam-style date groups ──
+  // ── Photos tab — cleared, not built. CustomerPhotoHub owns this tab and
+  // mounts on the first switch to it (_mJdSwitchTab), same lazy contract as
+  // the Estimates tab. This used to paint a read-only date-grouped `<img>`
+  // grid with NO click handler — the rep could look at thumbnails and do
+  // nothing with them, and the PHOTOS action navigated away instead. The hub
+  // renders the same date groups plus capture/upload/tag/cover/delete.
   const photoBody = $('mJdTabPhotos');
   if (photoBody) {
-    if (!photos.length) {
-      photoBody.innerHTML = '<div class="m-jd-empty">No photos yet.</div>';
-    } else {
-      const groups = {};
-      photos.forEach(p => {
-        const ts = (p.takenAt && p.takenAt.toDate) ? p.takenAt.toDate()
-                 : (p.takenAt instanceof Date) ? p.takenAt
-                 : (p.takenAt) ? new Date(p.takenAt)
-                 : (p.createdAt && p.createdAt.toDate) ? p.createdAt.toDate()
-                 : (p.uploadedAt && p.uploadedAt.toDate) ? p.uploadedAt.toDate()
-                 : null;
-        const key = ts && !isNaN(ts)
-          ? ts.toLocaleDateString(undefined, { month:'short', day:'numeric', year:'numeric' })
-          : 'Older';
-        (groups[key] = groups[key] || []).push(p);
-      });
-      const escAttr = (s) => String(s).replace(/"/g, '%22');
-      photoBody.innerHTML = Object.keys(groups).map(date => {
-        const tiles = groups[date].map(p => {
-          const url = p.url || p.downloadUrl || p.src || '';
-          return url ? '<img loading="lazy" src="' + escAttr(url) + '" alt="">' : '';
-        }).join('');
-        return '<div class="m-jd-photo-group">'
-             +   '<div class="m-jd-photo-date">' + date + '</div>'
-             +   '<div class="m-jd-photo-grid">' + tiles + '</div>'
-             + '</div>';
-      }).join('');
+    if (window.CustomerPhotoHub && window.CustomerPhotoHub.leadId() !== leadId) {
+      window.CustomerPhotoHub.unmount();
     }
+    photoBody.innerHTML = '<div class="m-jd-empty">Loading photos…</div>';
   }
 
   // ── Activity tab — the lead's estimates + stage history ──
