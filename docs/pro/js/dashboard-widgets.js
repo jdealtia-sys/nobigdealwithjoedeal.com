@@ -31,9 +31,12 @@ function renderEstimatesList(ests) {
   // so we can return early after the stat update attempt.
   const statEsts = document.getElementById('statEsts');
   if (statEsts) statEsts.textContent = ests?.length || 0;
-  const totalVal=(ests||[]).reduce((s,e)=>s+(e.grandTotal||0),0);
-  const statVal = document.getElementById('statVal');
-  if (statVal) statVal.textContent = '$' + Math.round(totalVal/1000) + 'K';
+  // Metrics audit F1: this function must NOT write #statVal. That tile is
+  // labeled "Pipeline Value" and belongs to renderLeads (lead jobValue math).
+  // The old estimate-sum write here (every revision + unattached + dead-deal
+  // quote summed together) was only ever masked by a boot-ordering dance —
+  // and the live estimates snapshot re-ran this alone, silently flipping the
+  // tile to the inflated estimates-sum until the next full leads render.
 
   const esc = window.nbdEsc || (s => String(s == null ? '' : s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])));
   const wrap=document.getElementById('estListWrap');

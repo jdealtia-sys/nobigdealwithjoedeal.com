@@ -2708,6 +2708,39 @@
     return f;
   }
 
+  // ── Calibration (metrics audit F9) ────────────────────────────────
+  // The static DISPO_PIPELINE_WEIGHT numbers are industry priors. Every
+  // D2D-converted lead carries its knock disposition (convertToLead stamps
+  // `disposition` + `d2dKnockId`), so once this tenant's own door-knock
+  // leads start DECIDING (won/job vs lost), we can observe the real
+  // P(close | disposition) and blend it in. Beta-shrinkage keeps small
+  // samples honest: with PRIOR_STRENGTH=12 pseudo-observations behind each
+  // prior, 2 lucky closes barely move the weight, 30 decided outcomes
+  // dominate it. Undecided leads contribute nothing (no signal yet).
+  const CALIBRATION_PRIOR_STRENGTH = 12;
+  function calibratedDispoWeights() {
+    const out = Object.assign({}, DISPO_PIPELINE_WEIGHT);
+    const leads = Array.isArray(window._leads) ? window._leads : [];
+    const byDispo = {};
+    leads.forEach(l => {
+      if (!l || l.deleted || !l.disposition || !(l.disposition in out)) return;
+      const role = l._stageRole
+        || (typeof window.stageRole === 'function' ? window.stageRole(l._stageKey || l.stage) : '');
+      if (role !== 'won' && role !== 'job' && role !== 'lost') return; // undecided
+      const d = byDispo[l.disposition] || (byDispo[l.disposition] = { won: 0, decided: 0 });
+      d.decided++;
+      if (role === 'won' || role === 'job') d.won++;
+    });
+    let calibratedCount = 0;
+    Object.keys(byDispo).forEach(k => {
+      const s = byDispo[k];
+      out[k] = (s.won + out[k] * CALIBRATION_PRIOR_STRENGTH)
+             / (s.decided + CALIBRATION_PRIOR_STRENGTH);
+      calibratedCount++;
+    });
+    return { weights: out, calibratedCount };
+  }
+
   function getRevenueMetrics() {
     const knocks = revenueScopedKnocks();
     const doorsKnocked = new Set(knocks.map(k => doorKey(k))).size;
@@ -2717,14 +2750,34 @@
     const closed = knocks.filter(k => k.closedDealValue > 0).length;
     const revenue = knocks.reduce((sum, k) => sum + (k.closedDealValue || 0), 0);
 
-    // Deal size to value the pipeline at: the rep's own realized average once
-    // they have closes, otherwise the industry-default job value.
-    const avgDealSize = closed > 0 ? Math.round(revenue / closed) : 0;
-    const dealValue = avgDealSize > 0 ? avgDealSize : DEFAULT_JOB_VALUE;
+    // Deal size to value the pipeline at. F9: average over ALL closes, not
+    // just the filtered date range — deal size is a stock, not a flow, and
+    // the old range-scoped average meant "Today" with zero closes priced the
+    // pipeline off the $12.5k default even for a rep with a real history.
+    // Fallback chain: own D2D closes → this tenant's CRM won-deal average →
+    // the industry default.
+    const allClosedKnocks = state.knocks.filter(k => k.closedDealValue > 0);
+    const lifetimeRevenue = allClosedKnocks.reduce((sum, k) => sum + (k.closedDealValue || 0), 0);
+    const avgDealSize = allClosedKnocks.length > 0 ? Math.round(lifetimeRevenue / allClosedKnocks.length) : 0;
+    let crmAvgDeal = 0;
+    if (!avgDealSize && Array.isArray(window._leads)) {
+      const wonVals = window._leads.filter(l => {
+        if (!l || l.deleted || !(Number(l.jobValue) > 0)) return false;
+        const role = l._stageRole
+          || (typeof window.stageRole === 'function' ? window.stageRole(l._stageKey || l.stage) : '');
+        return role === 'won' || role === 'job';
+      }).map(l => Number(l.jobValue));
+      if (wonVals.length) crmAvgDeal = Math.round(wonVals.reduce((a, b) => a + b, 0) / wonVals.length);
+    }
+    const dealValue = avgDealSize || crmAvgDeal || DEFAULT_JOB_VALUE;
 
     // Live expected pipeline value = Σ P(close | disposition) × dealValue,
     // deduped to the most-recent disposition per address so re-knocks don't
-    // double-count a single door.
+    // double-count a single door. F9: the weights are the static priors
+    // blended with this tenant's own observed close rates where outcomes
+    // exist (see calibratedDispoWeights).
+    const calibrated = calibratedDispoWeights();
+    const dispoWeights = calibrated.weights;
     const latestByAddr = new Map();
     knocks.forEach(k => {
       const norm = doorKey(k);
@@ -2733,7 +2786,7 @@
       if (!prev || kMs > prev._ms) latestByAddr.set(norm, { disposition: k.disposition, _ms: kMs });
     });
     let pipelineValue = 0;
-    latestByAddr.forEach(k => { pipelineValue += (DISPO_PIPELINE_WEIGHT[k.disposition] || 0) * dealValue; });
+    latestByAddr.forEach(k => { pipelineValue += (dispoWeights[k.disposition] || 0) * dealValue; });
     pipelineValue = Math.round(pipelineValue);
 
     const realizedPerDoor = doorsKnocked > 0 ? Math.round(revenue / doorsKnocked) : 0;
@@ -2753,6 +2806,10 @@
       pipelineValue,
       avgDealSize,
       dealValueUsed: dealValue,
+      // F9 calibration provenance — where the deal size came from and how
+      // many disposition weights are running on observed outcomes vs priors.
+      dealValueSource: avgDealSize ? 'd2d-closes' : (crmAvgDeal ? 'crm-won-avg' : 'default'),
+      calibratedDispos: calibrated.calibratedCount,
       conversionFunnel: { doors: doorsKnocked, conversations, appointments, estimates, closed }
     };
   }

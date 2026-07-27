@@ -350,10 +350,11 @@ function goTo(name, params = {}) {
     // renderLeads / renderEstimatesList during BOOT. SPA route-enter to #/dash
     // never refreshed them, so the overview showed the $0 HTML defaults until a
     // full reload. Repopulate from the in-memory sets on every dash entry.
-    // renderEstimatesList runs first (it also writes statVal = estimate total),
-    // then renderLeads runs LAST so statVal ends as the pipeline value (matches
-    // boot). _filteredLeads is passed through so the hidden CRM filter state is
-    // preserved (renderLeads keeps it when the 2nd arg is the current filter).
+    // Metrics audit F1: statVal is written ONLY by renderLeads now
+    // (renderEstimatesList no longer touches it), so the call order below is
+    // no longer load-bearing. _filteredLeads is passed through so the hidden
+    // CRM filter state is preserved (renderLeads keeps it when the 2nd arg is
+    // the current filter).
     try {
       if (typeof window.renderEstimatesList === 'function') window.renderEstimatesList(window._estimates || []);
       if (typeof window.renderLeads === 'function' && Array.isArray(window._leads)) window.renderLeads(window._leads, window._filteredLeads);

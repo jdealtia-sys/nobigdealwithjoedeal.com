@@ -1004,7 +1004,7 @@ section('D2D "Value Per Door" — address-less knocks do not collapse into one d
   // getRevenueMetrics must count doors AND weight the pipeline by doorKey (same
   // key both sides) — not bare normalizeAddress — so the denominator is right.
   const grm = src.slice(src.indexOf('function getRevenueMetrics'),
-                        src.indexOf('function getRevenueMetrics') + 1400);
+                        src.indexOf('function getRevenueMetrics') + 3600);
   assert('getRevenueMetrics counts doors via doorKey',
     /doorsKnocked = new Set\(knocks\.map\(k => doorKey\(k\)\)\)\.size/.test(grm) &&
     /const norm = doorKey\(k\)/.test(grm));

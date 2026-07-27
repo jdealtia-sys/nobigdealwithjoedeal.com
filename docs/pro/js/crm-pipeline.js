@@ -197,7 +197,12 @@ function renderLeads(leads, filtered){
     const role = l._stageRole || (typeof window.stageRole === 'function' ? window.stageRole(sk) : 'active');
     const isLost = _lostKeys.includes(sk) || role === 'lost';
     const isClosed = _closedKeys.includes(sk) || role === 'won' || role === 'job';
-    if(!isLost) pipeVal+=v;
+    // Metrics audit F2: pipeline = deals still IN PLAY only. The old
+    // "everything not lost" definition counted won/in-production money as
+    // pipeline while the Closed Revenue tile showed a subset of the same
+    // dollars — the two tiles double-reported. A dollar now lives in exactly
+    // one bucket: pipeline until it closes, closedRev after.
+    if(!isLost && !isClosed) pipeVal+=v;
     if(isClosed) closedRev+=v;
     if(_approvedKeys.includes(sk)) approvedCount++;
   });
