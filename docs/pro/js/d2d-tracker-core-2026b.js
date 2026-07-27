@@ -394,6 +394,21 @@
     return (addr || '').toLowerCase().trim().replace(/\s+/g, ' ');
   }
 
+  // A stable "door" identity for a knock. The address when we have one; else the
+  // GPS coords (map-logged knocks carry lat/lng but no address string); else the
+  // knock's own id. Without this, every address-less knock normalized to '' and
+  // collapsed into a SINGLE door — shrinking the per-door denominator and
+  // inflating "Value Per Door". Coords are rounded to ~1m so re-knocks of the
+  // same spot still dedupe to one door.
+  function doorKey(k) {
+    const a = normalizeAddress(k && k.address);
+    if (a) return a;
+    if (k && k.lat != null && k.lng != null && isFinite(k.lat) && isFinite(k.lng)) {
+      return 'geo:' + Number(k.lat).toFixed(5) + ',' + Number(k.lng).toFixed(5);
+    }
+    return 'k:' + ((k && k.id) || '');
+  }
+
   function getAttemptCount(address) {
     const norm = normalizeAddress(address);
     return state.knocks.filter(k => normalizeAddress(k.address) === norm).length;
@@ -2679,13 +2694,28 @@
   // ~$12.5k is a conservative retail roof; tune per market if needed.
   const DEFAULT_JOB_VALUE = 12500;
 
+  // Date-scoped knocks for the revenue card: respects the DATE-range filter so
+  // "Expected Value / Door" reflects the selected period (today/week/month) and
+  // matches the rest of the filtered D2D view — but deliberately NOT the
+  // disposition filter. Value-per-door is Σ P(close|disposition) × dealValue ÷
+  // doors; its whole meaning is the disposition MIX across doors, so filtering to
+  // one disposition would degenerate it to a constant weight × deal size.
+  function revenueScopedKnocks() {
+    let f = state.knocks;
+    if (state.filterDateRange === 'today') f = f.filter(k => isToday(k.createdAt));
+    else if (state.filterDateRange === 'week') f = f.filter(k => isThisWeek(k.createdAt));
+    else if (state.filterDateRange === 'month') f = f.filter(k => isThisMonth(k.createdAt));
+    return f;
+  }
+
   function getRevenueMetrics() {
-    const doorsKnocked = new Set(state.knocks.map(k => normalizeAddress(k.address))).size;
-    const conversations = state.knocks.filter(k => isConversation(k.disposition)).length;
-    const appointments = state.knocks.filter(k => k.disposition === 'appointment').length;
-    const estimates = state.knocks.filter(k => k.estimateValue > 0).length;
-    const closed = state.knocks.filter(k => k.closedDealValue > 0).length;
-    const revenue = state.knocks.reduce((sum, k) => sum + (k.closedDealValue || 0), 0);
+    const knocks = revenueScopedKnocks();
+    const doorsKnocked = new Set(knocks.map(k => doorKey(k))).size;
+    const conversations = knocks.filter(k => isConversation(k.disposition)).length;
+    const appointments = knocks.filter(k => k.disposition === 'appointment').length;
+    const estimates = knocks.filter(k => k.estimateValue > 0).length;
+    const closed = knocks.filter(k => k.closedDealValue > 0).length;
+    const revenue = knocks.reduce((sum, k) => sum + (k.closedDealValue || 0), 0);
 
     // Deal size to value the pipeline at: the rep's own realized average once
     // they have closes, otherwise the industry-default job value.
@@ -2696,8 +2726,8 @@
     // deduped to the most-recent disposition per address so re-knocks don't
     // double-count a single door.
     const latestByAddr = new Map();
-    state.knocks.forEach(k => {
-      const norm = normalizeAddress(k.address);
+    knocks.forEach(k => {
+      const norm = doorKey(k);
       const kMs = (toDate(k.createdAt) || new Date(0)).getTime();
       const prev = latestByAddr.get(norm);
       if (!prev || kMs > prev._ms) latestByAddr.set(norm, { disposition: k.disposition, _ms: kMs });

@@ -993,4 +993,40 @@ section('firestore.indexes.json — knocks [tenant, lat] viewport indexes (deplo
     hasKnockIndex(['companyId', 'lat']));
 }
 
+section('D2D "Value Per Door" — address-less knocks do not collapse into one door');
+{
+  const src = readD2DLive();
+  // doorKey gives address-less knocks a distinct identity (coords, then id) so
+  // they no longer all normalize to '' and collapse into a single door (which
+  // shrank the denominator and inflated Value Per Door).
+  assert('doorKey falls back address → coords → id',
+    /function doorKey\(k\)[\s\S]{0,320}geo:['"] \+ Number\(k\.lat\)\.toFixed\(5\)[\s\S]{0,120}return ['"]k:['"] \+ \(\(k && k\.id\)/.test(src));
+  // getRevenueMetrics must count doors AND weight the pipeline by doorKey (same
+  // key both sides) — not bare normalizeAddress — so the denominator is right.
+  const grm = src.slice(src.indexOf('function getRevenueMetrics'),
+                        src.indexOf('function getRevenueMetrics') + 1400);
+  assert('getRevenueMetrics counts doors via doorKey',
+    /doorsKnocked = new Set\(knocks\.map\(k => doorKey\(k\)\)\)\.size/.test(grm) &&
+    /const norm = doorKey\(k\)/.test(grm));
+
+  // #3 — the revenue card respects the DATE-range filter (period-scoped) but NOT
+  // the disposition filter (which would degenerate the per-door mix).
+  const rsk = src.slice(src.indexOf('function revenueScopedKnocks'),
+                        src.indexOf('function revenueScopedKnocks') + 500);
+  assert('revenueScopedKnocks applies the date range only (not filterDispo)',
+    /state\.filterDateRange === 'today'/.test(rsk) &&
+    /state\.filterDateRange === 'week'/.test(rsk) &&
+    !/filterDispo/.test(rsk));
+  assert('getRevenueMetrics operates on the date-scoped knocks',
+    /const knocks = revenueScopedKnocks\(\)/.test(grm));
+
+  // #4 — the headline is labeled EXPECTED/projected, not "Value Per Door" /
+  // "Live" (so a rep doesn't read it as money earned).
+  assert('headline reads "Expected Value / Door" + projected tag (not the old label)',
+    /Expected Value \/ Door/.test(src) &&
+    /Projected — not yet earned/.test(src) &&
+    !/>Value Per Door</.test(src) &&
+    !/◉ Live pipeline value/.test(src));
+}
+
 };
