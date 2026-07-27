@@ -3508,4 +3508,46 @@ section('Metrics audit F1-F9: one honest definition per number');
     && /calibratedDispos: calibrated\.calibratedCount/.test(d2d));
 }
 
+section('Search job cards: palette phone/email search + RoofLink-style result rows');
+{
+  const cp  = read(path.join(ROOT, 'docs/pro/js/command-palette.js'));
+  const crm = read(path.join(ROOT, 'docs/pro/js/crm-pipeline.js'));
+
+  // Phone search — digits vs digits, 3-digit floor, prefers the
+  // canonical phoneDigits key with raw-phone fallback.
+  assert('palette matches phone by normalized digits (3-digit floor, phoneDigits||phone)',
+    /const qDigits = q\.replace\(\/\\D\/g, ''\)/.test(cp)
+    && /qDigits\.length >= 3/.test(cp)
+    && /l\.phoneDigits \|\| l\.phone/.test(cp)
+    && /digits\.includes\(qDigits\)\) fuzzy = Math\.max\(fuzzy, 80\)/.test(cp));
+  assert('palette matches email substring (3-char floor)',
+    /email && email\.includes\(qLower\)\) fuzzy = Math\.max\(fuzzy, 70\)/.test(cp));
+
+  // Job-card context — every source best-effort behind window guards.
+  assert('lead rows carry card context: stage label/role color, jobType meta, thumb, value, assignee',
+    /window\.stageLabel/.test(cp)
+    && /window\.stageRole/.test(cp)
+    && /_ROLE_COLORS\[role\]/.test(cp)
+    && /window\.JOB_TYPE_META && lead\.jobType/.test(cp)
+    && /window\._photoCache && window\._photoCache\[lead\.id\]/.test(cp)
+    && /window\._repNames \|\| window\._teamNames/.test(cp));
+  assert('photo thumb only renders http(s) URLs',
+    /photos\.find\(p => \/\^https\?:\/i\.test\(String\(\(p && p\.url\) \|\| ''\)\)\)/.test(cp));
+  assert('card rows render stage dot + chips, escaped, with compact fallback for actions',
+    /const c = item\.card;/.test(cp)
+    && /width:7px;height:7px;border-radius:50%/.test(cp)
+    && /escHtml\(c\.thumb\)/.test(cp) && /escHtml\(c\.stage\)/.test(cp) && /escHtml\(c\.jobType\)/.test(cp));
+
+  // CRM board search bar gets the same digit-normalized phone matching.
+  assert('kanbanFilter matches digit-normalized phone with 3-digit floor',
+    /const searchDigits = search\.replace\(\/\\D\/g, ''\)/.test(crm)
+    && /searchDigits\.length >= 3 && phoneDigits\.includes\(searchDigits\)/.test(crm)
+    && /l\.phoneDigits \|\| l\.phone/.test(crm));
+
+  // Cache-bust: markup must load the upgraded palette.
+  const dash = read(path.join(ROOT, 'docs/pro/dashboard.html'));
+  assert('dashboard loads command-palette v2+',
+    /js\/command-palette\.js\?v=([2-9]|\d{2,})/.test(dash));
+}
+
 };

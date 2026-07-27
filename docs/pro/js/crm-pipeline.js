@@ -2159,14 +2159,21 @@ function kanbanFilter(){
   
   _searchQuery = search;
   
+  // Digit-normalized phone matching: "(513) 555" must find 5135550100
+  // no matter how either side is formatted. 3-digit floor so one digit
+  // doesn't match the whole board.
+  const searchDigits = search.replace(/\D/g, '');
+
   // Filter with email + notes included
   const filtered = (window._leads||[]).filter(l=>{
     const searchStr = [
-      l.firstName||'', l.lastName||'', l.address||'', 
+      l.firstName||'', l.lastName||'', l.address||'',
       l.damageType||'', l.phone||'', l.email||'', l.notes||''
     ].join(' ').toLowerCase();
-    
-    const matchS = !search || searchStr.includes(search);
+
+    const phoneDigits = String(l.phoneDigits || l.phone || '').replace(/\D/g, '');
+    const matchS = !search || searchStr.includes(search)
+      || (searchDigits.length >= 3 && phoneDigits.includes(searchDigits));
     const matchD = !dmg    || (l.damageType||'').toLowerCase()===dmg;
     return matchS && matchD;
   });
