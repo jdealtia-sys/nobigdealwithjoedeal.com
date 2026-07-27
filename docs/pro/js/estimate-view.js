@@ -153,6 +153,21 @@
       }
     }
 
+    // Photo embeds (2026-07): the rep-selected job photos ride the shared
+    // view — "here's YOUR roof" right above the number. URL-only entries
+    // from the server whitelist; print-safe grid.
+    if (Array.isArray(est.photos) && est.photos.length) {
+      html += '<div class="ev-section-title">Your Property</div>';
+      html += '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px;margin:10px 0 4px;">';
+      est.photos.forEach(function (p) {
+        if (!p || !p.url) return;
+        html += '<img src="' + escHtml(p.url) + '" alt="Job site photo" loading="lazy" '
+          + 'style="width:100%;border-radius:8px;display:block;break-inside:avoid;page-break-inside:avoid;'
+          + '-webkit-print-color-adjust:exact;print-color-adjust:exact;">';
+      });
+      html += '</div>';
+    }
+
     html += '<div class="ev-grand">';
     html +=   '<span class="ev-grand-lbl">Project Total</span>';
     html +=   '<span class="ev-grand-val">' + money(total) + '</span>';

@@ -43,6 +43,12 @@
       accessLevel: 'standard'   // 'standard' | 'moderate' | 'difficult' (per-SQ access tier)
     },
     scope: [],                // Array of { code, overrides } entries
+    // Photo embeds: photos SELECTED to ride this estimate ({id, url}),
+    // rendered in presentation mode, the doc formats, the preview sheet,
+    // and the homeowner share view. _leadPhotos is the pick-from cache
+    // (the linked lead's photo docs), loaded lazily per open.
+    photos: [],
+    _leadPhotos: null,
     customer: { name: '', address: '', phone: '', email: '' },
     claim: { carrier: '', number: '', adjuster: '', dateOfLoss: '', deductible: 2500, acv: null, recoverableDepreciation: null, policyNumber: '' },
     searchFilter: '',
@@ -755,6 +761,13 @@
             <div class="v2-rollup" id="v2rollup"></div>
           </div>
 
+          <div class="v2-section">Photos</div>
+          <div id="v2photosHint" style="font-size:11px;color:var(--m,#888);margin-bottom:8px;">
+            Tap photos to include them on this estimate — they show in the
+            homeowner presentation, the printed quote, and the shared link.
+          </div>
+          <div id="v2photosGrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(84px,1fr));gap:8px;"></div>
+
           <div class="v2-section">Preview / Export</div>
           <div class="v2-export-btns">
             <button type="button" data-action="finalize" data-arg="insurance-scope">📋 Insurance Scope</button>
@@ -893,6 +906,9 @@
         case 'present':
           // Phase 3: homeowner-facing Good/Better/Best compare screen.
           openPresentation();
+          break;
+        case 'toggle-photo':
+          if (arg) togglePhoto(arg);
           break;
         case 'pres-tier':
           if (arg) { setTierChoice(arg); openPresentation(); }
@@ -1651,6 +1667,87 @@
     return estimate;
   }
 
+  // ═════════════════════════════════════════════════════════
+  // Photo embeds — pick the linked lead's photos onto the estimate.
+  //
+  // The pick-from set is the lead's /photos docs (team-visible since the
+  // 2026-07 dual-scope work). Selection lives in state.photos [{id,url}]
+  // and persists through drafts + the saved doc, so it rides everywhere:
+  // presentation mode, retail/insurance doc formats, the preview sheet,
+  // and the homeowner share view.
+  // ═════════════════════════════════════════════════════════
+  async function loadLeadPhotos(force) {
+    const leadId = state.leadId || (state.customer && state.customer.leadId) || null;
+    if (!leadId) { state._leadPhotos = null; renderPhotos(); return; }
+    if (state._leadPhotos && state._leadPhotos._leadId === leadId && !force) return;
+    if (!window.db || !window.getDocs || !window.query || !window.collection || !window.where) return;
+    try {
+      const snap = await window.getDocs(window.query(
+        window.collection(window.db, 'photos'),
+        window.where('leadId', '==', leadId)
+      ));
+      const list = [];
+      snap.forEach(d => {
+        const p = d.data() || {};
+        if (p.url && !p.deleted) list.push({ id: d.id, url: p.url, _ms: (p.createdAt && p.createdAt.toMillis) ? p.createdAt.toMillis() : 0 });
+      });
+      list.sort((a, b) => b._ms - a._ms);
+      state._leadPhotos = { _leadId: leadId, list: list.slice(0, 60) };
+      renderPhotos();
+    } catch (e) {
+      console.warn('[estimate-v2] loadLeadPhotos failed:', e);
+    }
+  }
+
+  function renderPhotos() {
+    const grid = document.getElementById('v2photosGrid');
+    const hint = document.getElementById('v2photosHint');
+    if (!grid) return;
+    const leadId = state.leadId || (state.customer && state.customer.leadId) || null;
+    const escP = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, c =>
+      ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    if (!leadId) {
+      grid.innerHTML = '';
+      if (hint) hint.textContent = 'Attach a customer to pull in their photos.';
+      return;
+    }
+    const photos = (state._leadPhotos && state._leadPhotos.list) || [];
+    if (!photos.length) {
+      grid.innerHTML = '';
+      if (hint) hint.textContent = state._leadPhotos
+        ? 'No photos on this customer yet — capture some from their customer page.'
+        : 'Loading customer photos…';
+      return;
+    }
+    const selected = new Set((state.photos || []).map(p => p.id || p.url));
+    if (hint) hint.textContent = (state.photos || []).length
+      ? (state.photos.length + ' photo' + (state.photos.length === 1 ? '' : 's') + ' will ride this estimate — presentation, printed quote, and shared link.')
+      : 'Tap photos to include them on this estimate — they show in the homeowner presentation, the printed quote, and the shared link.';
+    grid.innerHTML = photos.map(p => {
+      const on = selected.has(p.id) || selected.has(p.url);
+      return '<button type="button" data-action="toggle-photo" data-arg="' + escP(p.id) + '"' +
+        ' style="position:relative;padding:0;border-radius:8px;overflow:hidden;cursor:pointer;aspect-ratio:1;' +
+        'border:2px solid ' + (on ? 'var(--orange,#e8720c)' : 'var(--br,#2a2f35)') + ';background:var(--s,#111418);">' +
+        '<img src="' + escP(p.url) + '" alt="" loading="lazy" style="width:100%;height:100%;object-fit:cover;display:block;' + (on ? '' : 'opacity:.75;') + '">' +
+        (on ? '<span style="position:absolute;top:4px;right:4px;background:var(--orange,#e8720c);color:#fff;border-radius:50%;width:20px;height:20px;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;">✓</span>' : '') +
+        '</button>';
+    }).join('');
+  }
+
+  function togglePhoto(photoId) {
+    const all = (state._leadPhotos && state._leadPhotos.list) || [];
+    const photo = all.find(p => p.id === photoId);
+    if (!photo) return;
+    const cur = state.photos || [];
+    const idx = cur.findIndex(p => (p.id || p.url) === photoId || p.url === photo.url);
+    if (idx >= 0) cur.splice(idx, 1);
+    else cur.push({ id: photo.id, url: photo.url });
+    state.photos = cur;
+    state._reopenedClean = false;
+    renderPhotos();
+    saveDraftDebounced();
+  }
+
   // W142 tier change, extracted from the dispatcher so the Phase-3
   // presentation tier cards drive the exact same path as the Setup tabs.
   function setTierChoice(arg) {
@@ -1749,11 +1846,23 @@
       pres.className = 'v2-present';
       modal.appendChild(pres);
     }
+    // Photo strip — the selected photos, homeowner-facing ("here's YOUR
+    // roof"). Horizontal scroll keeps any count tidy on a phone.
+    const photoStrip = (state.photos && state.photos.length)
+      ? '<div style="display:flex;gap:8px;overflow-x:auto;padding:4px 22px 0;-webkit-overflow-scrolling:touch;">' +
+          state.photos.map(p =>
+            '<img src="' + escP(p.url) + '" alt="" loading="lazy" ' +
+            'style="height:110px;border-radius:10px;flex:none;border:1px solid var(--br,#2a2f35);">'
+          ).join('') +
+        '</div>'
+      : '';
+
     pres.innerHTML =
       '<div class="vp-hdr">' +
         '<div class="vp-name">' + (escP(state.customer.name) || 'Your Roofing Estimate') + '</div>' +
         (state.customer.address ? '<div class="vp-addr">' + escP(state.customer.address) + '</div>' : '') +
       '</div>' +
+      photoStrip +
       '<div class="vp-cards">' + cards + '</div>' +
       '<div class="vp-foot">' +
         '<div class="vp-total">' + (fmt(estimate.total) || '$0') + '</div>' +
@@ -1964,6 +2073,7 @@
   function render() {
     renderCatalog();
     renderScope();
+    renderPhotos();
     // F7: debounced autosave on every render. Cheap — just a JSON
     // write to localStorage. Firestore backup fires on a slower
     // cadence so network blips don't cost the rep their work.
@@ -1995,6 +2105,7 @@
       customer: state.customer,
       claim: state.claim,
       passThru: state.passThru,
+      photos: state.photos,
       minJobCharge: state.minJobCharge,
       savedAt: Date.now()
     };
@@ -2360,6 +2471,10 @@
       leadId:           state.leadId || (state.customer && state.customer.leadId) || null,
       addr:             state.customer.address || '',
       owner:            state.customer.name || '',
+      // Photo embeds: the selected photos ride the saved doc so every
+      // downstream surface (preview sheet, homeowner share view, doc
+      // regeneration on reopen) sees the same set.
+      photos:           (state.photos || []).map(p => ({ id: p.id || null, url: p.url })),
       // FU-1: persist insurance claim info (carrier/deductible/adjuster/…) so a
       // reopened insurance estimate restores its claim header instead of "—".
       // Sanitized to plain values; undefined → null (Firestore-safe).
@@ -2578,6 +2693,10 @@
       : { carrier: '', number: '', adjuster: '', dateOfLoss: '', deductible: 2500, acv: null, recoverableDepreciation: null, policyNumber: '' };
     state.estimateName = doc.name || '';
     state.leadId = doc.leadId || null;
+    // Photo embeds: restore the saved selection + refresh the pick-from
+    // grid for the linked lead.
+    state.photos = Array.isArray(doc.photos) ? doc.photos.map(p => ({ id: p.id || null, url: p.url })) : [];
+    loadLeadPhotos(true);
     state.jobMode = doc.mode || 'insurance';
     state.mode = (doc.priceMode === 'per-sq') ? 'per-sq' : 'line-item';
     state.tier = doc.tier || doc.selectedTier || 'better';
@@ -2680,6 +2799,9 @@
     const meta = {
       customer: state.customer,
       claim: state.claim,
+      // Photo embeds: the selected photos render as a Photo Documentation
+      // section in the customer-facing formats (estimate-finalization.js).
+      photos: (state.photos || []).slice(),
       estimate: {
         number: 'NBD-V2-' + Date.now(),
         date: new Date().toISOString().split('T')[0],
@@ -3100,6 +3222,12 @@ html,body{margin:0;padding:0;height:100%;width:100%;background:#fff;font-family:
     // has any carrier/number on file.
     if (lead.insCarrier && !state.claim.carrier)      state.claim.carrier = lead.insCarrier;
     if (lead.claimNumber && !state.claim.number)      state.claim.number  = lead.claimNumber;
+    // Photo embeds: a NEW lead context starts with a clean selection and
+    // pulls that lead's photo grid (guarded no-op if it's the same lead).
+    if (!state._leadPhotos || state._leadPhotos._leadId !== leadId) {
+      state.photos = [];
+      loadLeadPhotos(true);
+    }
     // Sync inputs if the modal is open. If not, the next render does it.
     syncCustomerInputs();
     return true;
