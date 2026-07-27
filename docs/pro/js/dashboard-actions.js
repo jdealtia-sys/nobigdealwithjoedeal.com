@@ -1312,12 +1312,45 @@ function _mJdSwitchTab(tab) {
     t.classList.toggle('active', on);
     t.setAttribute('aria-selected', on ? 'true' : 'false');
   });
-  const map = { activity:'mJdTabActivity', photos:'mJdTabPhotos', details:'mJdTabDetails' };
+  const map = { activity:'mJdTabActivity', estimates:'mJdTabEstimates', photos:'mJdTabPhotos', details:'mJdTabDetails' };
   for (const [k, id] of Object.entries(map)) {
     const el = document.getElementById(id);
     if (el) el.hidden = (k !== tab);
   }
+  // The estimate hub is mounted lazily — the tab is inert markup until the
+  // rep actually opens it, so a job-detail open costs nothing extra.
+  if (tab === 'estimates') _mountEstimateHub();
 }
+
+// Mount (or re-render) the embedded per-customer estimate hub into the
+// Estimates tab for whichever lead the overlay is currently showing.
+function _mountEstimateHub() {
+  const host = document.getElementById('mJdTabEstimates');
+  const leadId = window._cardDetailLeadId;
+  if (!host || !leadId) return;
+  if (!window.CustomerEstimateHub) {
+    host.innerHTML = '<div class="m-jd-empty">Estimate panel unavailable — reload the page.</div>';
+    return;
+  }
+  window.CustomerEstimateHub.mount(host, leadId, {
+    // Classic (non-V2) estimates live in the `est` view's DOM, so editing one
+    // has to navigate. Close the overlay first so we don't leave it stranded
+    // over the builder. V2 opens as a modal and never calls this.
+    onLeaveForClassic: () => { if (typeof closeMobileJobDetail === 'function') closeMobileJobDetail(); },
+    // Making an estimate primary changes the lead's job value — repaint the
+    // overlay's own $ pill so the header can't disagree with the panel.
+    onLeadChanged: (id, patch) => {
+      const el = document.getElementById('mJdValue');
+      if (!el || !patch) return;
+      const v = Number(patch.jobValue) || 0;
+      el.textContent = v ? '$' + v.toLocaleString() : '';
+      el.hidden = !v;
+    }
+  });
+}
+// Deliberately NOT exported to window — its only caller is _mJdSwitchTab,
+// co-located in this IIFE (Globals Tranche 2c convention: no global unless
+// markup or another slice actually dispatches it).
 window._mJdSwitchTab = _mJdSwitchTab;
 
 // ══════════════════════════════════════════════════════════════════════
@@ -1447,22 +1480,17 @@ function _mJdAct(kind) {
       goTo('photos');
       break;
     case 'estimate': {
-      closeMobileJobDetail();
-      // Open THIS lead's estimate — not the generic estimates page. Prefer the
-      // most-recent estimate already in memory for the lead, fall back to the
-      // stamped primaryEstimateId, else start a NEW estimate prefilled for the
-      // lead. (The old code set a dead per-lead global nothing read, then
-      // dumped the rep on the generic est list with no client context.)
-      const _ms = (v) => (v && v.toDate ? v.toDate().getTime() : (v ? new Date(v).getTime() : 0)) || 0;
-      const mine = (window._estimates || [])
-        .filter(e => e.leadId === id)
-        .sort((a, b) => _ms(b.createdAt) - _ms(a.createdAt));
-      const eid = (mine[0] && mine[0].id) || lead.primaryEstimateId || null;
-      goTo('est');
-      if (eid && typeof window.viewEstimate === 'function') {
-        window.viewEstimate(eid);
-      } else if (typeof window.openEstimateV2Builder === 'function') {
-        window.openEstimateV2Builder({ leadId: id });
+      // Phase 1c: STAY on the customer. This switches to the embedded
+      // Estimates tab — the customer's hero, name, address and quick actions
+      // remain above it in the same scroll — instead of closing the overlay
+      // and navigating to the generic estimates view. Previously this guessed
+      // at "the newest estimate for this lead" and threw the rep into the
+      // full-screen builder with no way back to the customer; a lead with two
+      // estimates could only ever reach one of them from here.
+      _mJdSwitchTab('estimates');
+      const tabsEl = document.querySelector('#mJobDetail .m-jd-tabs');
+      if (tabsEl && typeof tabsEl.scrollIntoView === 'function') {
+        tabsEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
       }
       break;
     }

@@ -3345,13 +3345,17 @@ section('Mobile lead detail — Estimate opens the lead; Activity shows estimate
   const widgets = read(path.join(PRO_JS, 'dashboard-widgets.js'));
   const css = read(path.join(ROOT, 'docs/pro/css/dashboard-app.css'));
 
-  // Bug B: the ESTIMATE quick-action opens THIS lead's estimate (viewEstimate)
-  // or a new one prefilled for the lead (openEstimateV2Builder{leadId}), not the
-  // generic est page via a dead _currentEstimateLeadId global.
+  // Phase 1c: the ESTIMATE quick-action STAYS on the customer — it switches to
+  // the embedded Estimates tab instead of closing the overlay and navigating to
+  // the generic est view. The pre-1c version guessed at "the newest estimate for
+  // this lead" and opened the full-screen builder, so a customer with two
+  // estimates could only ever reach one of them from this button.
   const mJdAct = actions.slice(actions.indexOf('function _mJdAct('),
                               actions.indexOf('window._mJdAct = _mJdAct'));
-  assert('_mJdAct estimate case opens the lead estimate (viewEstimate + V2 fallback)',
-    /case 'estimate'[\s\S]{0,1100}viewEstimate\(eid\)[\s\S]{0,200}openEstimateV2Builder\(\{ leadId: id \}\)/.test(mJdAct));
+  assert('_mJdAct estimate case switches to the embedded Estimates tab',
+    /case 'estimate'[\s\S]{0,900}_mJdSwitchTab\('estimates'\)/.test(mJdAct));
+  assert('_mJdAct estimate case no longer closes the overlay or navigates away',
+    !/case 'estimate'[\s\S]{0,900}(closeMobileJobDetail\(\)|goTo\('est'\))/.test(mJdAct));
   assert('_mJdAct estimate case no longer relies on the dead _currentEstimateLeadId global',
     !/_currentEstimateLeadId/.test(mJdAct));
 
@@ -3377,6 +3381,110 @@ section('Mobile lead detail — Estimate opens the lead; Activity shows estimate
 
   assert('m-jd Activity item styling present',
     /\.m-jd-act-item\{/.test(css) && /\.m-jd-act-list\{/.test(css));
+}
+
+section('Embedded per-customer estimate hub (CustomerEstimateHub)');
+{
+  const hub = read(path.join(PRO_JS, 'customer-estimate-hub.js'));
+  const actions = read(path.join(PRO_JS, 'dashboard-actions.js'));
+  const widgets = read(path.join(PRO_JS, 'dashboard-widgets.js'));
+
+  // ── The tab exists on BOTH dashboard twins, wired to the already-registered
+  //    _mJdSwitchTab (no new call-registry entry needed).
+  for (const page of ['dashboard.html', 'dashboard.legacy.html']) {
+    const html = read(path.join(ROOT, 'docs/pro', page));
+    assert(`${page}: Estimates tab button dispatches _mJdSwitchTab('estimates')`,
+      /data-tab="estimates"[^>]*data-fn="_mJdSwitchTab" data-arg="estimates"/.test(html));
+    assert(`${page}: #mJdTabEstimates panel exists for the hub to mount into`,
+      /id="mJdTabEstimates"[^>]*role="tabpanel"/.test(html));
+    assert(`${page}: loads customer-estimate-hub.js`,
+      /customer-estimate-hub\.js/.test(html));
+  }
+
+  // ── Tab routing + lazy mount.
+  assert('_mJdSwitchTab maps the estimates tab to #mJdTabEstimates',
+    /estimates:'mJdTabEstimates'/.test(actions));
+  assert('hub mounts lazily on the first switch to the Estimates tab',
+    /if \(tab === 'estimates'\) _mountEstimateHub\(\);/.test(actions));
+  assert('_mountEstimateHub mounts for the CURRENT overlay lead',
+    /function _mountEstimateHub\(\)[\s\S]{0,700}window\._cardDetailLeadId[\s\S]{0,700}CustomerEstimateHub\.mount\(host, leadId/.test(actions));
+  // Missing module must degrade to a message, never throw into the tab switch.
+  assert('_mountEstimateHub degrades gracefully when the module is absent',
+    /if \(!window\.CustomerEstimateHub\)[\s\S]{0,220}return;/.test(actions));
+
+  // ── Stale-customer guard: opening lead B must never show lead A's money.
+  const openFn = widgets.slice(widgets.indexOf('function openMobileJobDetail'),
+                               widgets.indexOf('window.openMobileJobDetail'));
+  assert('openMobileJobDetail unmounts the hub when the lead changes',
+    /CustomerEstimateHub\.leadId\(\) !== leadId[\s\S]{0,120}\.unmount\(\)/.test(openFn));
+
+  // ── Live refresh: the snapshot rebuild repaints the hub, and the hook sits
+  //    ABOVE renderEstimatesList's estListWrap early-return (the CRM route has
+  //    no wrapper, and that's exactly where the hub is used).
+  const idxHook = widgets.indexOf('CustomerEstimateHub.isMounted()');
+  const idxBail = widgets.indexOf("if (!wrap) return;");
+  assert('renderEstimatesList refreshes a mounted hub', idxHook !== -1);
+  assert('hub refresh hook precedes the estListWrap early-return', idxHook !== -1 && idxHook < idxBail);
+
+  // ── Every action is wired to a REAL handler, not a stub. This is the whole
+  //    point of the wave: the button did nothing but navigate before.
+  for (const [act, fn] of [
+    ['duplicate', 'duplicateEstimateAction'],
+    ['assign',    'assignEstimateAction'],
+    ['archive',   'deleteEstimateAction'],
+  ]) {
+    assert(`hub '${act}' action calls ${fn}`,
+      new RegExp(`case '${act}':\\s*withEstimates\\('${fn}'`).test(hub));
+  }
+  assert("hub 'new' action opens the V2 builder prefilled with the lead",
+    /function newEstimate\(\)[\s\S]{0,200}openEstimateV2Builder', \[\{ leadId: _leadId \}\]/.test(hub));
+  assert('hub edit keeps V2 in-context and only navigates for Classic',
+    /if \(isV2\(est\)\)[\s\S]{0,200}openEstimateV2Builder[\s\S]{0,300}goTo\('est'\)/.test(hub));
+  // The estimate engine is lazy — actions must load the bundle, not no-op.
+  assert('hub actions load the lazy estimates bundle before firing',
+    /function withEstimates\([\s\S]{0,700}ScriptLoader\.loadBundle\('estimates'\)/.test(hub));
+  assert('hub skips lazy-stub functions rather than calling them',
+    /__nbdLazyEstimateStub/.test(hub));
+
+  // ── make-primary write contract (mirrors customer-bootstrap setPrimaryEstimate):
+  //    money fields ONLY. Switching which estimate counts is not a funnel event.
+  const mp = hub.slice(hub.indexOf('function makePrimary('), hub.indexOf('function onClick('));
+  assert('makePrimary writes jobValue + primaryEstimateId + lastEstimateAt',
+    /jobValue: newVal[\s\S]{0,120}primaryEstimateId: estId[\s\S]{0,120}lastEstimateAt/.test(mp));
+  assert('makePrimary NEVER touches stage or stageRole',
+    !/stageRole|\bstage:/.test(mp));
+  assert('makePrimary confirms before zeroing a live job value with a $0 draft',
+    /newVal <= 0[\s\S]{0,200}ask\(/.test(mp));
+  assert('makePrimary repaints the kanban (cards read lead.jobValue)',
+    /renderLeads\(window\._leads/.test(mp));
+  assert('makePrimary logs a communications note for the customer timeline',
+    /type: 'note'[\s\S]{0,400}source: 'primary_switch'/.test(mp));
+
+  // ── CSP + XSS: delegated listener only, every interpolation escaped.
+  assert('hub has zero inline handlers',
+    !/\son[a-z]+\s*=\s*["']/.test(hub) && !/javascript:/.test(hub));
+  assert('hub routes clicks through one delegated data-ceh-act listener',
+    /data-ceh-act/.test(hub) && /addEventListener\('click'/.test(hub));
+  // Customer/estimate names are stored-XSS sources (public lead intake).
+  assert('hub escapes the estimate title and customer name',
+    /esc\(titleOf\(est\)\)/.test(hub) && /esc\(custName\)/.test(hub));
+  assert('hub URL-encodes the address into the maps link',
+    /encodeURIComponent\(addr\)/.test(hub));
+
+  // ── Both estimate shapes render (V2 rows / Classic lineItems), same bug the
+  //    preview sheet fixed — a V2 doc must not read as "$0, no lines".
+  assert('hub normalizes V2 rows AND Classic lineItems',
+    /est\.rows/.test(hub) && /est\.lineItems/.test(hub));
+  assert('hub reads grandTotal | total | amount for the money figure',
+    /grandTotal != null[\s\S]{0,140}est\.amount/.test(hub));
+  // The strip must show the LEAD's jobValue (what pipeline/KPIs read), not a
+  // recomputed sum that could disagree with the kanban card.
+  assert('hub money strip shows lead.jobValue, not a recomputed sum',
+    /var jobValue = Number\(lead\.jobValue\)/.test(hub));
+
+  const css = read(path.join(ROOT, 'docs/pro/css/dashboard-app.css'));
+  assert('4-tab job-detail still uses the flex tab row (no fixed 3-tab width)',
+    /\.m-jd-tab\{[\s\S]{0,80}flex:1/.test(css));
 }
 
 section('Load-status banner yields to full-screen overlays (max-z occlusion)');

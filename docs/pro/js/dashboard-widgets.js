@@ -31,6 +31,15 @@ function renderEstimatesList(ests) {
   // so we can return early after the stat update attempt.
   const statEsts = document.getElementById('statEsts');
   if (statEsts) statEsts.textContent = ests?.length || 0;
+  // The embedded per-customer estimate hub reads window._estimates, so every
+  // path that repaints this list (one-shot load AND the live snapshot rebuild)
+  // must repaint the hub too — otherwise a signature webhook or a save from the
+  // builder lands in the list while the customer's own panel shows stale money.
+  // Hooked HERE, above the estListWrap early-return, because the hub is open on
+  // routes (CRM) where that wrapper doesn't exist.
+  if (window.CustomerEstimateHub && window.CustomerEstimateHub.isMounted()) {
+    try { window.CustomerEstimateHub.refresh(); } catch (e) { console.warn('[ceh] refresh failed:', e && e.message); }
+  }
   // Metrics audit F1: this function must NOT write #statVal. That tile is
   // labeled "Pipeline Value" and belongs to renderLeads (lead jobValue math).
   // The old estimate-sum write here (every revision + unattached + dead-deal
@@ -1295,6 +1304,17 @@ function openMobileJobDetail(leadId) {
     }
     listEl.innerHTML = items.map(i => i.html).join('');
     if (emptyEl) emptyEl.hidden = items.length > 0;
+  }
+
+  // ── Estimates tab — cleared, not built. CustomerEstimateHub mounts on the
+  // first switch to the tab (_mJdSwitchTab). Clearing here means the previous
+  // customer's estimates can never flash in the panel for this one.
+  const estBody = $('mJdTabEstimates');
+  if (estBody) {
+    if (window.CustomerEstimateHub && window.CustomerEstimateHub.leadId() !== leadId) {
+      window.CustomerEstimateHub.unmount();
+    }
+    estBody.innerHTML = '<div class="m-jd-empty">Loading estimates…</div>';
   }
 
   // ── Reset to Activity tab on every open ──
