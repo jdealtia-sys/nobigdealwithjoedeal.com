@@ -32,22 +32,47 @@ section('Push-1: public lead forms use submitPublicLead');
   }
 }
 
-section('QA wiring audit: Quick Measure import fails honestly (no null crash)');
+section('Quick Measure import: modal markup + wiring + V2 apply path');
 {
-  // #qmImportModal markup has never existed in any commit, so the classic
-  // builder's "📎 Import Quick Measure" button threw a TypeError on click.
-  // Every id lookup in the open/close pair must be guarded, and a missing
-  // modal must toast instead of crashing.
+  // The parser (handleQMFile → renderQMPreview → applyQMData) shipped
+  // WITHOUT its modal, so the button threw a null-lookup on every click
+  // (QA wiring audit). The markup now exists; these pin the full contract.
+  const dash = read(path.join(ROOT, 'docs/pro/dashboard.html'));
   const tools = read(path.join(PRO_JS, 'tools.js'));
-  const openFn = tools.slice(tools.indexOf('function openQMImportModal'),
-                             tools.indexOf('function handleQMDrop'));
-  assert('openQMImportModal guards the modal lookup + toasts when absent',
-    /const modal = document\.getElementById\('qmImportModal'\);\s*if \(!modal\)/.test(openFn)
-    && /Quick Measure import isn\\?'t available in this build/.test(openFn));
-  assert('no unguarded getElementById(...).style / .value / .classList in the QM open/close pair',
-    !/getElementById\('qm[A-Za-z]+'\)\.(style|value|classList)/.test(openFn));
-  assert('closeQMImportModal guards too',
-    /function closeQMImportModal\(\)[\s\S]{0,240}if \(modal\) modal\.classList\.remove\('open'\)/.test(tools));
+
+  // 1. Every id the parser reaches for must exist in the markup.
+  for (const id of ['qmImportModal', 'qmDropZone', 'qmFileInput', 'qmStatus',
+                    'qmStatusText', 'qmPreview', 'qmPreviewGrid', 'qmApplyBtn']) {
+    assert('dashboard.html defines #' + id, new RegExp('id="' + id + '"').test(dash));
+  }
+  // 2. Modal buttons dispatch CSP-safely and resolve: openQMImportModal is
+  //    allowlisted; close/apply are registered on the call registry.
+  assert('modal ✕ + Apply dispatch via data-action="call"',
+    /data-action="call" data-fn="closeQMImportModal"/.test(dash)
+    && /data-action="call" data-fn="applyQMData"/.test(dash));
+  assert('close + apply registered on __NBD_CALL_REGISTRY',
+    /Object\.assign\(window\.__NBD_CALL_REGISTRY, \{\s*closeQMImportModal: closeQMImportModal,\s*applyQMData: applyQMData\s*\}\)/.test(tools));
+  assert('drop zone opens the file picker via the clickProxy delegate',
+    /id="qmDropZone" data-action="clickProxy" data-target="qmFileInput"/.test(dash));
+  // 3. Drag/drop + file input are bound imperatively (dashboard.html has no
+  //    change/dragover delegate) and only once.
+  assert('_qmWireDropZone binds drop + change once (idempotent)',
+    /function _qmWireDropZone\(\)[\s\S]{0,900}dataset\.qmWired !== '1'[\s\S]{0,900}addEventListener\('drop'[\s\S]{0,600}addEventListener\('change'/.test(tools));
+  assert('openQMImportModal wires the zone on open', /_qmWireDropZone\(\);/.test(tools));
+  // 4. Guards survive: dashboard.legacy.html has no modal, must not crash.
+  assert('openQMImportModal still guards a missing modal with a toast',
+    /const modal = document\.getElementById\('qmImportModal'\);\s*if \(!modal\)/.test(tools)
+    && /Quick Measure import isn\\?'t available on this page/.test(tools));
+  // 5. V2 is the live builder — imports must land there, not only classic.
+  assert('applyQMData maps QM fields to V2 measurement state',
+    /function _qmToV2Measurements\(d\)[\s\S]{0,700}rawSqft: num\(d\.roofArea\)[\s\S]{0,400}ridgeLf: num\(d\.ridges\)/.test(tools));
+  assert('applyQMData pushes into an OPEN V2 builder',
+    /EstimateV2UI\.applyImportedMeasurements === 'function'[\s\S]{0,200}applyImportedMeasurements\(v2Meas\)/.test(tools));
+  assert('applyQMData opens V2 with the import staged when no builder is open',
+    /openEstimateV2Builder\(\{ importMeasurements: v2Meas \}\)/.test(tools));
+  const v2 = read(path.join(PRO_JS, 'estimate-v2-ui.js'));
+  assert('V2 exposes applyImportedMeasurements + re-renders',
+    /applyImportedMeasurements: \(imp\) => \{ applyImportedMeasurements\(imp \|\| \{\}\); render\(\); \}/.test(v2));
 }
 
 section('Wave C3: admin analytics');

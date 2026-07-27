@@ -3434,6 +3434,11 @@ html,body{margin:0;padding:0;height:100%;width:100%;background:#fff;font-family:
     addScopeEntries,
     finalize,
     save,
+    // Quick Measure import (tools.js applyQMData) pushes measurements into
+    // an ALREADY-OPEN builder through here — open({importMeasurements})
+    // only covers the not-yet-open case. Re-renders so the imported
+    // numbers (and the recomputed total) show immediately.
+    applyImportedMeasurements: (imp) => { applyImportedMeasurements(imp || {}); render(); },
     getState: () => state,
     // Test seam — pure builders + reopen helpers, exercised by
     // tests/estimate-v2-payload.test.js.

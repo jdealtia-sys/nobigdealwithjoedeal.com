@@ -10,33 +10,58 @@
 // Use var to avoid redeclaration collision with dashboard.html inline script
 var _qmData = _qmData || null;
 
-// QA wiring audit 2026-07-27: #qmImportModal markup has NEVER existed in
-// any commit, so this threw `Cannot read properties of null` the instant
-// the classic builder's "📎 Import Quick Measure" button was tapped — a
-// hard crash, not a silent no-op. The PARSER side of the feature is fully
-// implemented below (~215 lines: PDF → Claude → preview → apply); only
-// the modal UI is missing. Until that's built (or the button removed —
-// owner's call), fail honestly instead of crashing. Every id lookup is
-// guarded so a partially-present modal can't crash either.
+// The #qmImportModal markup shipped in dashboard.html on 2026-07-27 (the
+// QA wiring audit found this whole feature had a parser but no UI, so the
+// button threw a null-lookup on every click). Every id lookup stays
+// guarded so a page without the modal degrades to a toast instead of
+// crashing — dashboard.legacy.html doesn't carry it.
 function openQMImportModal() {
   _qmData = null;
   const modal = document.getElementById('qmImportModal');
   if (!modal) {
     if (typeof showToast === 'function') {
-      showToast('Quick Measure import isn\'t available in this build — enter measurements manually.', 'info');
+      showToast('Quick Measure import isn\'t available on this page — enter measurements manually.', 'info');
     }
     return;
   }
-  modal.classList.add('open');
+  if (window.nbdModal) window.nbdModal.open('qmImportModal');
+  else modal.classList.add('open');
   const hide = (id) => { const el = document.getElementById(id); if (el) el.style.display = 'none'; };
   hide('qmStatus'); hide('qmPreview'); hide('qmApplyBtn');
   const fileEl = document.getElementById('qmFileInput'); if (fileEl) fileEl.value = '';
   const dropEl = document.getElementById('qmDropZone'); if (dropEl) dropEl.style.borderColor = '';
+  _qmWireDropZone();
 }
 
 function closeQMImportModal() {
   const modal = document.getElementById('qmImportModal');
-  if (modal) modal.classList.remove('open');
+  if (!modal) return;
+  if (window.nbdModal) window.nbdModal.close('qmImportModal');
+  else modal.classList.remove('open');
+}
+
+// Drop zone + file input, bound once on first open. Imperative because
+// dashboard.html has no change/dragover delegate (that's a customer.html
+// convention) and inline handlers are CSP-blocked.
+function _qmWireDropZone() {
+  const zone = document.getElementById('qmDropZone');
+  if (zone && zone.dataset.qmWired !== '1') {
+    zone.dataset.qmWired = '1';
+    zone.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      zone.style.borderColor = 'var(--orange)';
+    });
+    zone.addEventListener('dragleave', () => { zone.style.borderColor = ''; });
+    zone.addEventListener('drop', (e) => { zone.style.borderColor = ''; handleQMDrop(e); });
+  }
+  const input = document.getElementById('qmFileInput');
+  if (input && input.dataset.qmWired !== '1') {
+    input.dataset.qmWired = '1';
+    input.addEventListener('change', () => {
+      const file = input.files && input.files[0];
+      if (file) handleQMFile(file);
+    });
+  }
 }
 
 function handleQMDrop(e) {
@@ -241,9 +266,54 @@ function renderQMPreview(d) {
   document.getElementById('qmApplyBtn').style.display = 'flex';
 }
 
+// Map QM's extracted fields onto the V2 builder's measurement state.
+// V2 is the live builder (classic is deprecated for new estimates), so an
+// import lands there first; the classic-field population below still runs
+// for anyone editing an existing classic estimate.
+function _qmToV2Measurements(d) {
+  const num = (v) => (v == null || !isFinite(Number(v))) ? null : Number(v);
+  const pitchRise = (() => {
+    const m = String(d.pitch || '').match(/(\d+(?:\.\d+)?)\s*\/\s*12/);
+    return m ? Number(m[1]) : null;
+  })();
+  const out = {
+    rawSqft: num(d.roofArea),
+    ridgeLf: num(d.ridges),
+    hipLf: num(d.hips),
+    valleyLf: num(d.valleys),
+    rakeLf: num(d.rakes),
+    eaveLf: num(d.eaves),
+    pipes: num(d.penetrations),
+  };
+  if (pitchRise != null) out.pitch = pitchRise;
+  Object.keys(out).forEach(k => { if (out[k] == null) delete out[k]; });
+  return out;
+}
+
 function applyQMData() {
   if (!_qmData) return;
   const d = _qmData;
+
+  // V2 builder path (the live one). If it's already open, push straight
+  // into its state; otherwise open it with the measurements pre-applied.
+  const v2Open = (() => {
+    const m = document.getElementById('estV2Modal');
+    return !!(m && m.classList.contains('open'));
+  })();
+  const v2Meas = _qmToV2Measurements(d);
+  if (v2Open && window.EstimateV2UI && typeof window.EstimateV2UI.applyImportedMeasurements === 'function') {
+    window.EstimateV2UI.applyImportedMeasurements(v2Meas);
+    closeQMImportModal();
+    showToast('✅ Quick Measure applied to your estimate', 'success');
+    return;
+  }
+  // Not in the classic builder either → open V2 with the import staged.
+  const classicOpen = !!document.getElementById('estRawSqft');
+  if (!classicOpen && typeof window.openEstimateV2Builder === 'function') {
+    closeQMImportModal();
+    window.openEstimateV2Builder({ importMeasurements: v2Meas });
+    return;
+  }
 
   // Populate Step 1 fields
   const addr = document.getElementById('estAddr'); if (addr) addr.value = d.address || '';
@@ -558,6 +628,15 @@ window.exportLeadsCSV = exportLeadsCSV;
 window.openQMImportModal = openQMImportModal;
 window.closeQMImportModal = closeQMImportModal;
 window.applyQMData = applyQMData;
+// The modal's ✕ / Apply buttons dispatch through the data-action="call"
+// delegate, which resolves ONLY registry entries or allowlisted window
+// names. openQMImportModal is allowlisted (dashboard-state.js); register
+// the rest here so the whole modal works without widening the allowlist.
+window.__NBD_CALL_REGISTRY = window.__NBD_CALL_REGISTRY || Object.create(null);
+Object.assign(window.__NBD_CALL_REGISTRY, {
+  closeQMImportModal: closeQMImportModal,
+  applyQMData: applyQMData
+});
 // ══ END QUICK MEASURE IMPORT ═══════════════════════════════════════════════
 
 // (duplicate openQuickAddLead/closeQuickAddLead/saveQuickLead removed — canonical definition is above)
