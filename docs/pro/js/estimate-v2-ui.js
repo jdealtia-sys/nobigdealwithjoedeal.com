@@ -2566,7 +2566,17 @@
       coverSub:     isSingleQuote
         ? 'A clear, all-in price for the work we discussed — no upsell pressure, no fine-print surprises.'
         : 'A clear estimate with itemized scope and three tiers to choose from — no upsell pressure, no fine-print surprises.',
-      coverPhoto:   null,
+      // The lead's rep-chosen cover photo (RoofLink "Set Cover") fronts the
+      // PDF when present — previously hardcoded null so the cover page never
+      // carried an image.
+      coverPhoto:   (() => {
+        try {
+          const lid = state.customer && state.customer.leadId;
+          const lead = lid ? (window._leads || []).find(l => l.id === lid) : null;
+          const u = lead && lead.coverPhotoUrl;
+          return (u && /^https?:/i.test(String(u))) ? u : null;
+        } catch (_) { return null; }
+      })(),
       coverCaption: null,
       // Body content
       summary,

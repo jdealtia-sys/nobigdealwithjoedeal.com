@@ -1150,9 +1150,12 @@ function openMobileJobDetail(leadId) {
   }
 
   // ── Hero photo ──
+  // The rep-chosen cover (lead.coverPhotoUrl, RoofLink "Set Cover") wins;
+  // fall back to the first cached photo like before.
   const photos = (window._photoCache && window._photoCache[lead.id]) || [];
   const heroEl = $('mJdHero');
-  const firstPhotoUrl = photos[0] && (photos[0].url || photos[0].downloadUrl || photos[0].src);
+  const firstPhotoUrl = (lead.coverPhotoUrl && /^https?:/i.test(String(lead.coverPhotoUrl)) ? lead.coverPhotoUrl : null)
+    || (photos[0] && (photos[0].url || photos[0].downloadUrl || photos[0].src));
   if (firstPhotoUrl) {
     heroEl.style.backgroundImage = 'url("' + String(firstPhotoUrl).replace(/"/g, '%22') + '")';
     heroEl.classList.add('has-photo');

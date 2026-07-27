@@ -118,6 +118,12 @@
  * @property {string=} adjusterEmail
  *   Only present when stage >= INSPECTED.
  *
+ * @property {string=} coverPhotoId
+ * @property {string=} coverPhotoUrl
+ *   Rep-chosen cover photo (RoofLink "Set Cover") — id of the photo doc
+ *   plus a denormalized URL so the customer hero, mobile job-detail hero,
+ *   kanban thumbs, and estimate PDF cover render without a photo lookup.
+ *
  * @property {number=} estimateTotalCents
  *   Last-saved grand total, integer cents. Drives the kanban $
  *   pipeline rollup.

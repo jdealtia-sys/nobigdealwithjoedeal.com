@@ -32,6 +32,46 @@ window.nbdTitleCount = function (titleId, base, n) {
   el.textContent = n > 0 ? base + ' (' + n + ')' : base;
 };
 
+// ── Cover photo (RoofLink "Set Cover") ──────────────────────────────
+// The cover is persisted FLAT on the lead (coverPhotoId + a denormalized
+// coverPhotoUrl) so every consumer — customer hero, mobile job-detail
+// hero, kanban thumbs, estimate PDF cover — reads it without a photo
+// lookup. Chosen from the photo quick-edit popup.
+window.renderCoverHero = function (url) {
+  var hero = document.getElementById('coverHero');
+  if (!hero) return;
+  if (url && /^https?:/i.test(String(url))) {
+    hero.style.backgroundImage = 'url("' + String(url).replace(/"/g, '%22') + '")';
+    hero.style.display = 'block';
+  } else {
+    hero.style.backgroundImage = '';
+    hero.style.display = 'none';
+  }
+};
+
+window.setCoverPhotoFromPopup = async function (idx) {
+  var photo = (window._allPhotos || [])[Number(idx)];
+  if (!photo || !photo.url) return;
+  var lead = window._currentLead || {};
+  var isCover = lead.coverPhotoId === photo.id;
+  // Tapping the current cover clears it (toggle) — no separate remove UI.
+  var updates = isCover
+    ? { coverPhotoId: null, coverPhotoUrl: null, updatedAt: new Date() }
+    : { coverPhotoId: photo.id, coverPhotoUrl: photo.url, updatedAt: new Date() };
+  try {
+    await window.updateDoc(window.doc(window.db, 'leads', window._customerId), updates);
+    Object.assign(lead, updates);
+    window.renderCoverHero(updates.coverPhotoUrl);
+    if (typeof window.showToast === 'function') {
+      window.showToast(isCover ? 'Cover photo cleared' : 'Cover photo set ★', 'success');
+    }
+    if (typeof window._closePhotoActionPopup === 'function') window._closePhotoActionPopup();
+  } catch (e) {
+    console.error('Set cover failed:', e);
+    if (typeof window.showToast === 'function') window.showToast('Could not set cover: ' + e.message, 'error');
+  }
+};
+
 // Task Modal HTML (to be injected)
 const taskModalHTML = `
 <div id="taskModal" class="modal-bg">
@@ -1349,6 +1389,15 @@ window.showPhotoActions = function(idx, event) {
     '<input type="text" id="qeDescription" value="' + (photo.description || '').replace(/"/g, '&quot;') + '" placeholder="Add description..." aria-label="Photo description" data-change-action="quickSaveMeta" style="width:100%;padding:8px;background:var(--s2,#1e293b);border:1px solid var(--br,#334155);border-radius:6px;color:var(--t);font-size:13px;box-sizing:border-box;">' +
     '</div>' +
     
+    // RoofLink "Set Cover": toggles lead.coverPhotoId/-Url. Label reflects
+    // whether THIS photo is already the cover.
+    '<button data-action="setCoverPhotoFromPopup" data-arg="' + idx + '" style="width:100%;margin-bottom:8px;padding:10px;background:' +
+      ((window._currentLead && window._currentLead.coverPhotoId === photo.id)
+        ? 'rgba(245,158,11,.2);color:var(--gold,#eab308);border:1px solid var(--gold,#eab308);'
+        : 'rgba(255,255,255,.08);color:var(--t);border:1px solid var(--br,#334155);') +
+      'border-radius:8px;cursor:pointer;font-weight:600;font-size:13px;">' +
+      ((window._currentLead && window._currentLead.coverPhotoId === photo.id) ? '★ Cover Photo — tap to clear' : '☆ Set as Cover Photo') +
+    '</button>' +
     '<div style="display:flex;gap:8px;">' +
     '<button data-action="_previewPhotoFromPopup" data-arg="' + idx + '" style="flex:2;padding:10px;background:rgba(255,255,255,.08);color:var(--t);border:1px solid var(--br,#334155);border-radius:8px;cursor:pointer;font-weight:600;font-size:13px;">👁 Preview</button>' +
     '<button data-action="_openPhotoInEditorAndClose" data-arg="' + idx + '" style="flex:2;padding:10px;background:var(--orange);color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:600;font-size:13px;">Open Editor</button>' +
