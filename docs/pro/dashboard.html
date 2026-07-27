@@ -4799,6 +4799,58 @@
   </div>
 </div>
 
+<!-- ══ GAF QUICK MEASURE IMPORT ══════════════════════════════════════
+     The parser (tools.js: handleQMFile → renderQMPreview → applyQMData)
+     shipped without this markup, so the "📎 Import Quick Measure" button
+     threw a null-lookup on every click (QA wiring audit, 2026-07-27).
+     Every id here is the contract tools.js already expects:
+       #qmImportModal #qmDropZone #qmFileInput #qmStatus #qmStatusText
+       #qmPreview #qmPreviewGrid #qmApplyBtn
+     Drop-zone drag events are CSP-safe (data-on-* handled by the
+     dashboard-ui delegate); the file input uses data-change-action. -->
+<div class="modal-bg" id="qmImportModal">
+  <div class="modal m-modal-has-bar" style="max-width:560px;">
+    <button class="modal-close" data-action="call" data-fn="closeQMImportModal">✕</button>
+    <div class="m-modal-bar">
+      <button class="m-modal-bar-x" data-action="call" data-fn="closeQMImportModal" aria-label="Close">✕</button>
+      <div class="m-modal-bar-titles">
+        <span class="m-modal-bar-eyebrow">Quick Measure</span>
+        <span class="m-modal-bar-title">Import PDF</span>
+      </div>
+      <span class="m-modal-bar-spacer" aria-hidden="true"></span>
+    </div>
+    <div style="font-size:11px;color:var(--m);margin-bottom:14px;">
+      Drop a GAF Quick Measure report — AI pulls the measurements straight into your estimate.
+    </div>
+
+    <div id="qmDropZone" data-action="clickProxy" data-target="qmFileInput"
+      style="border:2px dashed var(--br);border-radius:10px;padding:26px 16px;text-align:center;cursor:pointer;transition:border-color .15s;">
+      <div style="font-size:30px;line-height:1;margin-bottom:8px;">📄</div>
+      <div style="font-family:'Barlow Condensed',sans-serif;font-size:15px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--t);">
+        Tap to choose a PDF
+      </div>
+      <div style="font-size:11px;color:var(--m);margin-top:5px;">or drag it here · max 7.5 MB</div>
+    </div>
+    <input type="file" id="qmFileInput" accept="application/pdf,.pdf" class="dn">
+
+    <div id="qmStatus" style="display:none;margin-top:14px;background:var(--s2);border:1px solid var(--br);border-radius:8px;padding:12px;">
+      <div id="qmStatusText" style="font-size:12px;color:var(--t);line-height:1.5;"></div>
+    </div>
+
+    <div id="qmPreview" style="display:none;margin-top:14px;">
+      <div style="font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--m);margin-bottom:8px;">
+        Extracted measurements
+      </div>
+      <div id="qmPreviewGrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:6px;"></div>
+    </div>
+
+    <button id="qmApplyBtn" data-action="call" data-fn="applyQMData"
+      style="display:none;width:100%;margin-top:14px;background:var(--orange);color:var(--accent-fg,#fff);border:none;border-radius:8px;padding:14px;font-family:'Barlow Condensed',sans-serif;font-size:15px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;cursor:pointer;align-items:center;justify-content:center;gap:8px;">
+      ✓ Apply to Estimate
+    </button>
+  </div>
+</div>
+
 <div class="modal-bg" id="leadModal">
   <div class="modal m-modal-has-bar" style="max-width:600px;max-height:90vh;overflow-y:auto;">
     <button class="modal-close" data-action="closeModal" data-target="leadModal">✕</button>
