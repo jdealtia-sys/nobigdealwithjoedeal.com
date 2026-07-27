@@ -130,14 +130,32 @@
   ]);
   const LOST_STAGES = new Set(['lost', 'Lost']);
 
+  // Role-aware first (custom-stage-safe, matches analytics-kpi.js): a lead
+  // whose role is 'won' OR 'job' (in production — contract won, crew working)
+  // counts as closed-won money. The key lists remain the fallback for any
+  // un-stamped lead; they already include the production stages.
   const isWon = (lead) => {
+    const r = lead && (lead._stageRole
+      || (typeof window.stageRole === 'function' ? window.stageRole(lead._stageKey || lead.stage) : ''));
+    if (r) return r === 'won' || r === 'job';
     const s = (lead.stage || lead._stageKey || '').toString();
     return WON_STAGES.has(s) || WON_STAGES.has(s.toLowerCase());
   };
   const isLost = (lead) => {
+    const r = lead && (lead._stageRole
+      || (typeof window.stageRole === 'function' ? window.stageRole(lead._stageKey || lead.stage) : ''));
+    if (r) return r === 'lost';
     const s = (lead.stage || lead._stageKey || '').toString();
     return LOST_STAGES.has(s) || LOST_STAGES.has(s.toLowerCase());
   };
+
+  // When did this lead reach its CURRENT stage? stageStartedAt is stamped on
+  // every stage move (and backfilled by migrations 002/003), so for a won
+  // lead it IS the close date. The old updatedAt proxy re-attributed a deal
+  // to whatever month you last touched the record (adding a note to a
+  // March close moved its revenue into July). updatedAt/createdAt remain
+  // only as fallbacks for anything the backfill never saw.
+  const stageDate = (lead) => toDate(lead.stageStartedAt || lead.updatedAt || lead.createdAt);
 
   // ─── Metric calculators (pure functions) ─────────────────
 
@@ -145,7 +163,7 @@
   function computeKnocksToDeal(leads, knocks, rangeStart, rangeEnd) {
     const knocksInRange = knocks.filter(k => inRange(toDate(k.timestamp || k.createdAt), rangeStart, rangeEnd));
     const wonInRange = leads.filter(l =>
-      isWon(l) && inRange(toDate(l.updatedAt || l.createdAt), rangeStart, rangeEnd)
+      isWon(l) && inRange(stageDate(l), rangeStart, rangeEnd)
     );
     const ratio = wonInRange.length > 0 ? (knocksInRange.length / wonInRange.length) : 0;
     return {
@@ -239,7 +257,7 @@
   // Pipeline velocity — avg days per stage, bottleneck detection
   function computePipelineVelocity(leads, rangeStart, rangeEnd) {
     const relevant = leads.filter(l =>
-      inRange(toDate(l.updatedAt || l.createdAt), rangeStart, rangeEnd)
+      inRange(stageDate(l), rangeStart, rangeEnd)
     );
     const stages = {};
     relevant.forEach(l => {
@@ -287,7 +305,7 @@
     const knocksCount = inRangeKnocks.length;
     const doorsCount = new Set(inRangeKnocks.map(doorKey)).size;
     const revenue = leads
-      .filter(l => isWon(l) && inRange(toDate(l.updatedAt || l.createdAt), rangeStart, rangeEnd))
+      .filter(l => isWon(l) && inRange(stageDate(l), rangeStart, rangeEnd))
       .reduce((sum, l) => sum + (Number(l.jobValue) || 0), 0);
     return {
       knocks: knocksCount,
@@ -354,7 +372,7 @@
     const counts = {};
     canonicalOrder.forEach(s => { counts[s.key] = 0; });
     leads.forEach(l => {
-      const d = toDate(l.updatedAt || l.createdAt);
+      const d = stageDate(l);
       if (!inRange(d, rangeStart, rangeEnd)) return;
       const stageRaw = (l.stage || l._stageKey || '').toString().toLowerCase();
       if (counts[stageRaw] != null) counts[stageRaw]++;
@@ -418,7 +436,7 @@
 
     leads.forEach(l => {
       if (!isWon(l)) return;
-      const d = toDate(l.updatedAt || l.createdAt);
+      const d = stageDate(l);
       if (!d || !inRange(d, rangeStart, rangeEnd)) return;
       const key = monthKey(d);
       if (buckets[key]) {
@@ -461,11 +479,11 @@
     const inRangeLeads = leads.filter(l =>
       inRange(toDate(l.createdAt), rangeStart, rangeEnd)
     );
-    const updatedInRange = leads.filter(l =>
-      inRange(toDate(l.updatedAt || l.createdAt), rangeStart, rangeEnd)
+    const decidedInRange = leads.filter(l =>
+      inRange(stageDate(l), rangeStart, rangeEnd)
     );
-    const won = updatedInRange.filter(isWon);
-    const lost = updatedInRange.filter(isLost);
+    const won = decidedInRange.filter(isWon);
+    const lost = decidedInRange.filter(isLost);
     const active = leads.filter(l => !isWon(l) && !isLost(l));
     const revenue = won.reduce((sum, l) => sum + (Number(l.jobValue) || 0), 0);
     const pipelineValue = active.reduce((sum, l) => sum + (Number(l.jobValue) || 0), 0);

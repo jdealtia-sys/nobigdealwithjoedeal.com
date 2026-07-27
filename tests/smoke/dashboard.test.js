@@ -3379,4 +3379,92 @@ section('Mobile lead detail — Estimate opens the lead; Activity shows estimate
     /\.m-jd-act-item\{/.test(css) && /\.m-jd-act-list\{/.test(css));
 }
 
+section('Metrics audit F1-F9: one honest definition per number');
+{
+  const widgets = read(path.join(PRO_JS, 'dashboard-widgets.js'));
+  const api = read(path.join(PRO_JS, 'dashboard-api.js'));
+  const crm = readCrm();
+  const kpi = read(path.join(PRO_JS, 'analytics-kpi.js'));
+  const ea = read(path.join(PRO_JS, 'estimate-analytics.js'));
+  const rep = read(path.join(PRO_JS, 'rep-report-generator.js'));
+  const d2d = read(path.join(PRO_JS, 'd2d-tracker-core-2026b.js'));
+
+  // F1 — the "Pipeline Value" tile belongs to renderLeads alone. The old
+  // estimate-sum write in renderEstimatesList was masked by boot ordering
+  // and resurfaced on every live estimates-snapshot repaint.
+  const rel = widgets.slice(widgets.indexOf('function renderEstimatesList'),
+                            widgets.indexOf('function renderEstimatesList') + 2200);
+  assert('F1: renderEstimatesList never writes #statVal',
+    !/getElementById\('statVal'\)/.test(rel));
+
+  // F2 — CRM pipeline value counts deals still in play only; a dollar lives
+  // in exactly one bucket (pipeline until closed, closedRev after).
+  assert('F2: pipeVal excludes closed/won money (active only)',
+    /if\(!isLost && !isClosed\) pipeVal\+=v;/.test(crm));
+
+  // F3 — close-date attribution uses stageStartedAt, not the updatedAt
+  // proxy that re-attributed old closes to whatever month you last touched
+  // the record.
+  assert('F3: analytics-kpi attributes monthly revenue by stageStartedAt',
+    /toJSDate\(l\.stageStartedAt \|\| l\.updatedAt\)/.test(kpi));
+  assert('F3: rep report has a stageStartedAt-first stageDate helper',
+    /const stageDate = \(lead\) => toDate\(lead\.stageStartedAt \|\| lead\.updatedAt \|\| lead\.createdAt\)/.test(rep));
+  assert('F3: rep report core KPIs decide won/lost by stageDate',
+    /const decidedInRange = leads\.filter\(l =>\s*inRange\(stageDate\(l\)/.test(rep));
+
+  // F4 — leaderboard attributes by the lead's OWNER, and the viewer's knock
+  // count lands on the viewer's own row (not "first rep in object order").
+  const lb = api.slice(api.indexOf('async function renderLeaderboard'),
+                       api.indexOf('async function renderLeaderboard') + 4200);
+  assert('F4: leaderboard groups by lead.userId (owner), not display name',
+    /const owner = l\.userId \|\| '\(unknown\)'/.test(lb)
+    && !/const n = l\.repName \|\| window\._user/.test(lb));
+  assert('F4: viewer\'s knocks land on the viewer\'s own row',
+    /reps\[uid\]\.knocks = knockCount/.test(lb));
+
+  // F5 — viewed counts every opened estimate; View→Sign numerator is a
+  // strict subset of its denominator (can't exceed 100%).
+  assert('F5: viewed counted across all buckets + signedViewed numerator',
+    /if \(viewedMs\) out\.viewed\+\+;/.test(ea)
+    && /if \(viewedMs\) out\.signedViewed\+\+;/.test(ea)
+    && /out\.signedViewed \/ out\.viewed/.test(ea)
+    && /_pct\(s\.signedViewed, s\.viewed\)/.test(ea));
+
+  // F6 — lost estimates stay in the close-rate denominator (no survivor bias).
+  assert('F6: estimate close rate includes lost in the denominator',
+    /out\.signed \/ \(out\.sent \+ out\.signed \+ out\.lost\)/.test(ea)
+    && /_pct\(s\.signed, s\.sent \+ s\.signed \+ s\.lost\)/.test(ea));
+
+  // F7 — the mobile KPI row's overdue count skips in-production leads, same
+  // as the CRM's #12 definition.
+  assert('F7: overdueFollowUps skips job-role leads',
+    /if \(_isDecided\(l\) \|\| _isJob\(l\) \|\| !l\.followUp\) return false;/.test(kpi));
+
+  // F8 — in-production (job role) money is closed-won everywhere, never
+  // "active pipeline".
+  assert('F8: analytics-kpi active pipeline excludes job-role leads',
+    /return !_isDecided\(l\) && !_isJob\(l\) && !l\.deleted;/.test(kpi));
+  assert('F8: analytics-kpi counts won OR job as closed-won',
+    /function _isClosedWon\(l\) \{ return _isWon\(l\) \|\| _isJob\(l\); \}/.test(kpi));
+  assert('F8: rep report isWon is role-aware (won or job)',
+    /return r === 'won' \|\| r === 'job';/.test(rep));
+
+  // F9 — expected-value calibration: dispo weights blend the static priors
+  // with this tenant's own observed outcomes (Beta shrinkage), and the deal
+  // size falls back D2D closes → CRM won average → industry default.
+  assert('F9: calibratedDispoWeights blends observed outcomes with priors',
+    /function calibratedDispoWeights\(\)/.test(d2d)
+    && /CALIBRATION_PRIOR_STRENGTH = 12/.test(d2d)
+    && /\(s\.won \+ out\[k\] \* CALIBRATION_PRIOR_STRENGTH\)\s*\/ \(s\.decided \+ CALIBRATION_PRIOR_STRENGTH\)/.test(d2d));
+  assert('F9: pipeline valuation uses the calibrated weights',
+    /const calibrated = calibratedDispoWeights\(\);/.test(d2d)
+    && /pipelineValue \+= \(dispoWeights\[k\.disposition\] \|\| 0\) \* dealValue/.test(d2d));
+  assert('F9: deal size averages ALL closes with CRM-won fallback',
+    /const allClosedKnocks = state\.knocks\.filter\(k => k\.closedDealValue > 0\)/.test(d2d)
+    && /const dealValue = avgDealSize \|\| crmAvgDeal \|\| DEFAULT_JOB_VALUE;/.test(d2d));
+  assert('F9: revenue metrics expose calibration provenance',
+    /dealValueSource: avgDealSize \? 'd2d-closes' : \(crmAvgDeal \? 'crm-won-avg' : 'default'\)/.test(d2d)
+    && /calibratedDispos: calibrated\.calibratedCount/.test(d2d));
+}
+
 };

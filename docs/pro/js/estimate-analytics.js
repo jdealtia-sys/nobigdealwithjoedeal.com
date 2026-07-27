@@ -64,6 +64,7 @@
       sent:         0,
       viewed:       0,
       signed:       0,
+      signedViewed: 0,
       lost:         0,
       signedTotal:  0,
       signedTickets: [],
@@ -80,10 +81,18 @@
       const viewedMs = _toMillis(e.viewedAt);
       const signedMs = _toMillis(e.signedAt);
 
+      // Metrics audit F5: `viewed` counts EVERY estimate the homeowner
+      // opened, whatever bucket it ended in. The old code only counted
+      // views on sent-not-yet-signed estimates, so View→Sign compared
+      // disjoint populations — 3 viewed that all signed showed "—", and
+      // 2 signed + 1 viewed-unsigned showed 200%.
+      if (viewedMs) out.viewed++;
+
       if (status === 'draft' && !sentMs) out.draft++;
       else if (status === 'lost' || status === 'rejected') out.lost++;
       else if (signedMs || status === 'signed') {
         out.signed++;
+        if (viewedMs) out.signedViewed++;
         out.signedTotal += grandTotal;
         out.signedTickets.push(grandTotal);
         if (tier === 'good' || tier === 'better' || tier === 'best') {
@@ -103,7 +112,6 @@
       }
       else if (sentMs) {
         out.sent++;
-        if (viewedMs) out.viewed++;
       }
     }
 
@@ -111,11 +119,16 @@
       ? Math.round(out.signedTotal / out.signed)
       : 0;
     out.medianTimeToSign = _median(out.timeToSignDays);
-    out.closeRate = out.sent + out.signed > 0
-      ? out.signed / (out.sent + out.signed)
+    // Metrics audit F6: lost/rejected estimates stay in the close-rate
+    // denominator. Excluding them was survivor bias — losing a deal made
+    // the close rate go UP.
+    out.closeRate = out.sent + out.signed + out.lost > 0
+      ? out.signed / (out.sent + out.signed + out.lost)
       : 0;
+    // F5: of the estimates homeowners actually opened, how many signed.
+    // Numerator is a strict subset of the denominator — can't exceed 100%.
     out.viewToSignRate = out.viewed > 0
-      ? out.signed / out.viewed
+      ? out.signedViewed / out.viewed
       : 0;
     out.topSigned.sort((a, b) => b.grandTotal - a.grandTotal);
     out.topSigned = out.topSigned.slice(0, 3);
@@ -187,9 +200,9 @@
     host.innerHTML =
       '<div style="display:flex;flex-wrap:wrap;gap:8px;align-items:stretch;">' +
         tile('Total', s.total, s.draft + ' draft · ' + s.sent + ' sent · ' + s.signed + ' signed' + (s.lost ? ' · ' + s.lost + ' lost' : '')) +
-        tile('Close rate', _pct(s.signed, s.sent + s.signed), s.signed + ' / ' + (s.sent + s.signed) + ' sent+signed') +
+        tile('Close rate', _pct(s.signed, s.sent + s.signed + s.lost), s.signed + ' / ' + (s.sent + s.signed + s.lost) + ' sent+signed+lost') +
         tile('Avg ticket', _money(s.avgTicket), 'across ' + s.signed + ' signed') +
-        tile('View → sign', _pct(s.signed, s.viewed), s.viewed + ' viewed → ' + s.signed + ' signed') +
+        tile('View → sign', _pct(s.signedViewed, s.viewed), s.viewed + ' viewed → ' + s.signedViewed + ' signed') +
         tile('Median time-to-sign', s.medianTimeToSign ? Math.round(s.medianTimeToSign) + 'd' : '—', s.timeToSignDays.length + ' samples') +
         tierBar +
       '</div>' +
