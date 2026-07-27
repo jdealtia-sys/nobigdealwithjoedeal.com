@@ -208,10 +208,36 @@ function modeLineDraw() {
   }
 };
 
-  // Registration IS the security opt-in; all 20 are markup-dispatched only
-  // (no window re-export — none has a cross-boundary consumer).
+  // 🛡️ Storm Proof (card detail) — storm-integration.js rides the lazy
+  // 'storm' ScriptLoader bundle, but its button sits on EVERY customer
+  // card's detail, reachable without ever entering the Storm view. Until
+  // the bundle loads there is no registry entry, and the data-action="call"
+  // delegate no-ops silently on an unresolved fn — a dead button. This
+  // eager stub loads the bundle on first tap and hands off; when the
+  // bundle lands, storm-integration.js's own Object.assign REPLACES this
+  // stub in the registry, so every later tap dispatches straight through.
+  async function verifyStormProofForLeadLazy() {
+    if (window.StormIntegration && typeof window.StormIntegration.verifyStormProofForLead === 'function') {
+      return window.StormIntegration.verifyStormProofForLead();
+    }
+    if (typeof showToast === 'function') showToast('Loading storm tools…', 'info');
+    try {
+      await window.ScriptLoader.loadBundle('storm');
+    } catch (e) {
+      if (typeof showToast === 'function') showToast('Could not load storm tools — check your connection', 'error');
+      return;
+    }
+    if (window.StormIntegration && typeof window.StormIntegration.verifyStormProofForLead === 'function') {
+      return window.StormIntegration.verifyStormProofForLead();
+    }
+    if (typeof showToast === 'function') showToast('Storm tools unavailable', 'error');
+  }
+
+  // Registration IS the security opt-in; all entries are markup-dispatched
+  // only (no window re-export — none has a cross-boundary consumer).
   window.__NBD_CALL_REGISTRY = window.__NBD_CALL_REGISTRY || Object.create(null);
   Object.assign(window.__NBD_CALL_REGISTRY, {
+    verifyStormProofForLead: verifyStormProofForLeadLazy,
     openDailyProgramFromMore: openDailyProgramFromMore,
     mCreateFabRoute: mCreateFabRoute,
     mQuickAddRoute: mQuickAddRoute,
