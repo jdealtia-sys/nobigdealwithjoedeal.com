@@ -175,6 +175,45 @@
         .v2-title + .v2-title { margin-left: 8px !important; }
         .v2-close { width: 100%; }
       }
+
+      /* ── Phase 1b: mobile step navigation ──
+         Under 1000px the stacked-panes scroll becomes three STEPS driven
+         by data-mstep on the modal root, with a fixed bottom bar (step
+         tabs + live total). No data-mstep attr (desktop) shows all panes
+         — these rules only bite inside the media query. */
+      .v2-mstep-bar { display:none; }
+      @media (max-width: 1000px) {
+        .v2-body { padding-bottom: 62px; }
+        .v2-mstep-bar {
+          display:flex; position:absolute; left:0; right:0; bottom:0;
+          align-items:center; gap:6px; z-index:6;
+          background:var(--s,#111418); border-top:2px solid var(--orange,#e8720c);
+          padding:8px 10px calc(8px + env(safe-area-inset-bottom, 0));
+        }
+        .v2-mstep-btn {
+          flex:1; min-height:44px; border-radius:8px; cursor:pointer;
+          background:var(--s2,#181c22); border:1px solid var(--br,#2a2f35);
+          color:var(--m,#98a0ab); font-family:'Barlow Condensed',sans-serif;
+          font-size:13px; font-weight:700; letter-spacing:.05em; text-transform:uppercase;
+          -webkit-tap-highlight-color:transparent; touch-action:manipulation;
+        }
+        .v2-mstep-btn.active {
+          background:var(--orange,#e8720c); border-color:var(--orange,#e8720c);
+          color:var(--accent-fg,#fff);
+        }
+        .v2-mstep-total {
+          background:none; border:none; cursor:pointer; flex:none;
+          font-family:'Barlow Condensed',sans-serif; font-size:19px; font-weight:800;
+          color:var(--green,#2ecc8a); padding:0 6px; white-space:nowrap;
+          -webkit-tap-highlight-color:transparent;
+        }
+        #estV2Modal[data-mstep="1"] .pane-items,
+        #estV2Modal[data-mstep="1"] .pane-review { display:none; }
+        #estV2Modal[data-mstep="2"] .pane-setup,
+        #estV2Modal[data-mstep="2"] .pane-review { display:none; }
+        #estV2Modal[data-mstep="3"] .pane-setup,
+        #estV2Modal[data-mstep="3"] .pane-items { display:none; }
+      }
       .v2-section {
         font-family:'Barlow Condensed',sans-serif; font-size:11px;
         font-weight:700; text-transform:uppercase; letter-spacing:.15em;
@@ -400,7 +439,7 @@
 
       <div class="v2-body">
         <!-- LEFT: Measurements + Mode + Customer -->
-        <div class="v2-pane">
+        <div class="v2-pane pane-setup">
           <div class="v2-section">Mode</div>
           <div class="v2-tabs">
             <button id="v2modePerSq" type="button" data-action="set-mode" data-arg="per-sq">Per-SQ</button>
@@ -577,7 +616,7 @@
         </div>
 
         <!-- MIDDLE: Catalog picker -->
-        <div class="v2-pane">
+        <div class="v2-pane pane-items">
           <div class="v2-section">Line Item Catalog (278 items)</div>
           <input type="text" class="v2-search" id="v2search" placeholder="Search by code, name, or tag..." data-action="search">
           <div class="v2-cat-tabs" id="v2cats"></div>
@@ -585,7 +624,7 @@
         </div>
 
         <!-- RIGHT: Selected scope + total + export -->
-        <div class="v2-pane right">
+        <div class="v2-pane right pane-review">
 
           <!-- Wave 142: Customer + Claim inputs. Previously
                state.customer / state.claim could ONLY be populated
@@ -678,6 +717,18 @@
           <div id="v2signStatus" style="font-size:10px;color:var(--m,#888);text-align:center;"></div>
         </div>
       </div>
+
+      <!-- Phase 1b (RoofLink rebuild): mobile step bar. Under 1000px the
+           three panes become STEPS — Setup → Items → Review — instead of
+           one giant stacked scroll, with the live total always visible.
+           Desktop (3-column grid) is untouched; the bar is display:none
+           there. Tapping the total jumps to Review. -->
+      <div class="v2-mstep-bar" id="v2mStepBar">
+        <button type="button" class="v2-mstep-btn active" data-action="mstep" data-arg="1">① Setup</button>
+        <button type="button" class="v2-mstep-btn" data-action="mstep" data-arg="2">② Items</button>
+        <button type="button" class="v2-mstep-btn" data-action="mstep" data-arg="3">③ Review</button>
+        <button type="button" class="v2-mstep-total" id="v2mTotal" data-action="mstep" data-arg="3">$0</button>
+      </div>
     `;
     document.body.appendChild(modal);
 
@@ -746,6 +797,10 @@
       switch (action) {
         case 'close':
           close();
+          break;
+        case 'mstep':
+          // Phase 1b: mobile step bar — Setup(1) / Items(2) / Review(3).
+          if (arg) setMobileStep(arg);
           break;
         case 'set-mode':
           if (arg) setMode(arg);
@@ -1518,6 +1573,23 @@
     return estimate;
   }
 
+  // Phase 1b: switch the mobile step (no-op visually on desktop — the
+  // CSS only hides panes inside the ≤1000px media query). Scrolls the
+  // newly shown pane to its top so each step starts at its beginning.
+  function setMobileStep(n) {
+    const modal = document.getElementById('estV2Modal');
+    if (!modal) return;
+    const step = String(n);
+    modal.dataset.mstep = step;
+    modal.querySelectorAll('.v2-mstep-btn').forEach(b => {
+      b.classList.toggle('active', b.dataset.arg === step);
+    });
+    const pane = modal.querySelector(step === '1' ? '.pane-setup' : step === '2' ? '.pane-items' : '.pane-review');
+    if (pane) pane.scrollTop = 0;
+    const body = modal.querySelector('.v2-body');
+    if (body) body.scrollTop = 0;
+  }
+
   function renderCatalog() {
     const catDiv = document.getElementById('v2items');
     const catTabs = document.getElementById('v2cats');
@@ -1616,6 +1688,8 @@
     if (!state.scope.length && !(state.passThru && state.passThru.length)) {
       listDiv.innerHTML = '<div class="nbd-empty" style="padding:24px 8px;"><div class="ne-icon">🧾</div><div class="ne-msg">No items selected yet</div><div class="ne-sub">Pick from the catalog or load a preset.</div></div>';
       totalEl.textContent = '$0';
+      const mT0 = document.getElementById('v2mTotal');
+      if (mT0) mT0.textContent = '$0';
       rollupEl.innerHTML = '';
       return;
     }
@@ -1675,6 +1749,9 @@
     }).join('');
 
     totalEl.textContent = '$' + Math.round(estimate.total).toLocaleString();
+    // Phase 1b: mirror into the mobile step bar's always-visible total.
+    const mT = document.getElementById('v2mTotal');
+    if (mT) mT.textContent = '$' + Math.round(estimate.total).toLocaleString();
 
     const taxDisplay = estimate.taxRate > 0
       ? `<br>Tax: <strong>$${Math.round(estimate.tax).toLocaleString()}</strong> (${(estimate.taxRate * 100).toFixed(2)}%)`
@@ -2897,6 +2974,10 @@ html,body{margin:0;padding:0;height:100%;width:100%;background:#fff;font-family:
     opts = opts || {};
     ensureModal();
     document.getElementById('estV2Modal').classList.add('open');
+    // Phase 1b: pick the mobile starting step — a REOPENED estimate lands
+    // on Review (scope + total + save/export, the "look at it" step); a
+    // fresh estimate starts at Setup. Desktop ignores the attribute.
+    setMobileStep(opts.estimateId ? 3 : 1);
     const pendingImport = opts.importMeasurements || null;
     // 3B: reopen a saved V2 estimate (routed here from the estimates list).
     // Rehydrate its state and render — takes precedence over draft restore.

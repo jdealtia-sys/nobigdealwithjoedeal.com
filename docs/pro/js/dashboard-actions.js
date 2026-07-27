@@ -1475,6 +1475,25 @@ window._mJdAct = _mJdAct;
 // data-fn "call" dispatcher can resolve it, same as cdaMjdAct.
 function _mJdOpenEstimate(estimateId) {
   if (!estimateId) return;
+  // Phase 1a (RoofLink rebuild): preview sheet OVER the job detail — the
+  // rep sees lines + total in one tap and only leaves this context if
+  // they choose Edit. The old path (close detail → navigate to the
+  // estimates view → full V2 builder) remains the Edit action and the
+  // fallback when the preview module isn't loaded.
+  const est = (window._estimates || []).find(e => e.id === estimateId);
+  if (window.EstimatePreview && est) {
+    window.EstimatePreview.open(est, {
+      onEdit: () => {
+        if (typeof closeMobileJobDetail === 'function') closeMobileJobDetail();
+        if (typeof goTo === 'function') goTo('est');
+        if (typeof window.viewEstimate === 'function') window.viewEstimate(estimateId);
+      },
+      onAssign: () => {
+        if (typeof window.assignEstimateAction === 'function') window.assignEstimateAction(estimateId);
+      }
+    });
+    return;
+  }
   if (typeof closeMobileJobDetail === 'function') closeMobileJobDetail();
   if (typeof goTo === 'function') goTo('est');
   if (typeof window.viewEstimate === 'function') window.viewEstimate(estimateId);
