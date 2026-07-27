@@ -62,18 +62,16 @@
 }
 
 /* ─── 3. Sticky tab bar on customer page ──────────────────────
-   The .jump-nav at the top of customer.html scrolls away on
-   long pages. Sticky-positioning it on phones gives the rep a
-   fast jumper without having to scroll back up. */
+   HISTORICAL: this block used to set position/top/z-index/background/
+   padding-top for .jump-nav. All of it was DEAD — customer.html's own
+   inline <style> (:679) matches at equal specificity and wins on source
+   order, and .jump-nav exists in exactly one file in docs/ (customer.html).
+   The bar's real geometry now lives at customer.html:679-691. Only the
+   lift shadow ever applied, so only it survives here. Do not re-add
+   positioning rules to this file — 136 pages link it. */
 @media (max-width: 860px) {
   .jump-nav {
-    position: sticky;
-    top: 0;
-    z-index: 20;
-    background: var(--bg, #0a0c0f);
-    /* Subtle shadow so the user sees it lifted above content */
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
-    padding-top: calc(6px + env(safe-area-inset-top, 0px));
   }
 }
 
@@ -121,4 +119,47 @@
   body {
     padding-bottom: calc(80px + env(safe-area-inset-bottom, 0px));
   }
+}
+
+/* ─── 7. Bottom-right corner reservation ──────────────────────
+   fab-stack-coordinator.js measures every visible
+   [data-nbd-corner-claim] / [data-nbd-bottom-strip] element and
+   publishes the tallest as --nbd-corner-claimed (0px when nothing
+   claims). The whole FAB stack lifts by that much. This is the ONLY
+   place FAB vertical offsets are adjusted for other people's chrome —
+   no page-level module may write `bottom:` for a FAB it does not own.
+
+   This file, not dashboard-app.css, because it is the only sheet
+   loaded by all three FAB-bearing pages (dashboard.html:45,
+   dashboard.legacy.html:45, customer.html:38); customer.html does not
+   load dashboard-app.css at all.
+
+   translate:, NOT bottom:, on purpose:
+     - the mic/capture/inbox FABs set `bottom` via inline style.cssText
+       (nbd-whisper.js:497, quick-capture.js:86, quick-capture-inbox.js:67)
+       and the <=768px fan-out slots in kanban-force.css:1156-1179 are
+       already !important — a `bottom` fix needs a 3rd !important layer
+       and still loses to inline style;
+     - `translate` is an independent property, so it composes with
+       #addLeadFab's transform:scale() hover (kanban-force.css:1346)
+       instead of clobbering it;
+     - computed `bottom` is unchanged, so the e2e assertion
+       (tests/e2e/pro-authed.spec.js:1602, leadBottom === '138px') and
+       every CSS-string smoke assertion stay green.
+   Opacity is untouched — fab-stack-coordinator's inline modal hide must
+   keep winning (kanban-force.css:1152-1155). */
+#nbd-whisper-fab,
+#nbd-qc-fab,
+#nbd-qci-fab,
+#addLeadFab,
+#nbd-fab-dial {
+  translate: 0 calc(-1 * var(--nbd-corner-claimed, 0px));
+  transition: translate .16s ease;
+}
+@media (prefers-reduced-motion: reduce) {
+  #nbd-whisper-fab,
+  #nbd-qc-fab,
+  #nbd-qci-fab,
+  #addLeadFab,
+  #nbd-fab-dial { transition: none; }
 }

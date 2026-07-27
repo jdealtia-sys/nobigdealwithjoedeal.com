@@ -43,7 +43,15 @@ body::before{content:'';position:fixed;top:0;right:0;bottom:0;left:0;background-
 .tb-mark{width:32px;height:32px;background:var(--orange);border-radius:5px;display:flex;align-items:center;justify-content:center;font-family:'Barlow Condensed',sans-serif;font-size:16px;color:#fff}
 .tb-title{font-family:'Barlow Condensed',sans-serif;font-size:16px;letter-spacing:2px;color:var(--text)}
 .tb-title span{color:var(--orange)}
-.tb-links{display:flex;gap:6px;margin-left:auto;align-items:center}
+/* flex-wrap: nine links (the "Back to Dashboard" text link + eight .tb-link
+   chips) share one margin-left:auto row with no horizontal scroller of its own,
+   so on a narrow viewport the tail of the row — Understand / Project /
+   Analytics / Account — ran past the body's right edge and became genuinely
+   UNREACHABLE, not merely clipped, and dragged the whole document into
+   horizontal scroll. min-width:0 was measured and rejected: it only relocates
+   the overflow onto the a.tb-link children (scrollWidth stays 738px). Wrapping
+   is the only thing that actually removes it. */
+.tb-links{display:flex;flex-wrap:wrap;gap:6px;margin-left:auto;align-items:center}
 .tb-link{padding:5px 12px;border-radius:var(--r);border:1px solid var(--border);background:transparent;color:var(--text3);font-family:'JetBrains Mono',monospace;font-size:10px;text-decoration:none;transition:all var(--dur) var(--ease);letter-spacing:.5px}
 .tb-link:hover{border-color:var(--orange);color:var(--orange)}
 .tb-link.active{background:var(--orange-d);border-color:rgba(232,114,12,.4);color:var(--orange)}
@@ -168,7 +176,12 @@ body::before{content:'';position:fixed;top:0;right:0;bottom:0;left:0;background-
       <div class="ph-title">ANALYTICS DASHBOARD</div>
       <div class="ph-sub">Real-time usage and cost tracking from Firestore <code style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--blue)">api_usage</code> collection</div>
     </div>
-    <div style="display:flex;gap:10px;align-items:center">
+    <!-- flex-wrap: .time-tabs is flex-shrink:0 with a 303px min-content width
+         and sits beside the Refresh button, so at 375px this pair could not fit
+         the .container and overflowed to the right. .page-head above already
+         wraps, but that only breaks the title away from this row — the row
+         itself has to wrap too or the overflow simply survives one level down. -->
+    <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center">
       <div class="time-tabs">
         <button type="button" class="tt active" data-range="today">Today</button>
         <button type="button" class="tt" data-range="7d">7 Days</button>

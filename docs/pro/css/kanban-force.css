@@ -164,7 +164,19 @@
      on every theme (var(--t) on forest/neon was green-text-on-green-
      fill). --accent-ring on the border for boundary clarity. */
   .kview-btn.active{background:var(--orange);color:var(--accent-fg);border-color:var(--accent-ring);}
-  .kcol-body{flex:1!important;overflow-y:auto!important;overflow-x:hidden;padding:10px;display:flex!important;flex-direction:column!important;gap:8px;min-height:200px;max-height:calc(100vh - 170px);max-height:calc(100dvh - 170px);scrollbar-width:thin;scrollbar-color:var(--br) transparent;-webkit-overflow-scrolling:touch;touch-action:pan-y;overscroll-behavior:contain;}
+  /* --nbd-bottom-chrome (published by fab-stack-coordinator.js; declared in
+     dashboard-app.css, defaults to 0px) is subtracted here because .kcol-body
+     is the ONE scroll surface the body-level reservation cannot reach. Every
+     other view reserves for a bottom strip via `body{padding-bottom}` — the
+     body is a fixed-height border-box flex column, so padding shrinks the
+     content box and each view shrinks with it. The kanban column body does
+     not size off that content box at all: it caps itself against `dvh`, i.e.
+     the VIEWPORT, which a body padding change leaves untouched. Without the
+     term a mounted bottom strip (plan banner) paints over the last card of
+     every column and no scroll position can reveal it — the column has
+     already scrolled to its end. Both the vh and dvh lines carry the term so
+     the pre-dvh fallback stays in step with the real one. */
+  .kcol-body{flex:1!important;overflow-y:auto!important;overflow-x:hidden;padding:10px;display:flex!important;flex-direction:column!important;gap:8px;min-height:200px;max-height:calc(100vh - 170px - var(--nbd-bottom-chrome, 0px));max-height:calc(100dvh - 170px - var(--nbd-bottom-chrome, 0px));scrollbar-width:thin;scrollbar-color:var(--br) transparent;-webkit-overflow-scrolling:touch;touch-action:pan-y;overscroll-behavior:contain;}
   .kcol-body::-webkit-scrollbar{width:4px;}
   .kcol-body::-webkit-scrollbar-thumb{background:var(--br);border-radius:2px;}
   .kcol-body.drag-over{background:color-mix(in srgb, var(--orange) 6%, transparent);outline:2px dashed var(--orange);}
@@ -1298,10 +1310,16 @@
     height:100vh!important; height:100dvh!important;
     padding:48px 16px 16px!important;  /* top padding clears the floating Exit button */
   }
+  /* This block drops max-height entirely and drives an explicit height, so it
+     does NOT inherit the --nbd-bottom-chrome term from the base .kcol-body
+     rule — it has to restate it. Fullscreen hides #mobile-nav and both
+     headers, but a bottom strip is position:fixed at --z-emergency (9999)
+     against this board's z-index:990, so the one piece of chrome fullscreen
+     does not escape is exactly the one this variable measures. */
   body.kanban-fullscreen .kcol-body{
     max-height:none!important;
-    height:calc(100vh - 110px)!important;
-    height:calc(100dvh - 110px)!important;
+    height:calc(100vh - 110px - var(--nbd-bottom-chrome, 0px))!important;
+    height:calc(100dvh - 110px - var(--nbd-bottom-chrome, 0px))!important;
   }
   /* Add a small floating "Pipeline" label top-left for context */
   body.kanban-fullscreen #view-crm::before{

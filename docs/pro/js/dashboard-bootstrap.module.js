@@ -1104,7 +1104,23 @@
       setTimeout(() => {
         const banner = document.createElement('div');
         banner.id = 'liteBanner';
-        banner.style.cssText = 'position:fixed;bottom:0;left:0;right:0;z-index:9999;background:linear-gradient(90deg,var(--s),var(--s2));border-top:2px solid var(--orange);padding:10px 20px;display:flex;align-items:center;justify-content:center;gap:12px;font-size:12px;color:rgba(255,255,255,.8);';
+        // Geometry moved OUT of this cssText and into .nbd-bottom-strip
+        // (dashboard-app.css). Hand-rolling the pinned box here meant nothing
+        // else in the app could know the banner existed, so it silently ate the
+        // last row of every scroll surface and painted over #mobile-nav.
+        // data-nbd-bottom-strip is the declaration fab-stack-coordinator.js
+        // measures; it publishes the summed strip height as --nbd-bottom-chrome
+        // and every bottom-anchored consumer reserves against that. Do NOT set
+        // that custom property from here — measurement has exactly one writer,
+        // which is also what makes "both banners mounted at once" correct for
+        // free: the coordinator sums the strips rather than picking one.
+        // The class additionally brings env(safe-area-inset-bottom) padding, so
+        // the CTA and ✕ clear the iPhone home indicator.
+        banner.className = 'nbd-bottom-strip';
+        banner.setAttribute('data-nbd-bottom-strip', '');
+        // Colours only. The palette is the one thing NOT shared with the lapse
+        // strip below, so it is the only thing left inline.
+        banner.style.cssText = 'background:linear-gradient(90deg,var(--s),var(--s2));border-top:2px solid var(--orange);color:rgba(255,255,255,.8);';
         banner.innerHTML = `
           <span>🚀 You're on the <strong class="fg-orange">NBD Pro Free plan</strong> (10 leads/month)</span>
           <a href="/pro/pricing.html" style="background:var(--orange);color:var(--accent-fg);padding:6px 16px;border-radius:6px;text-decoration:none;font-weight:700;font-size:11px;">Upgrade — Starter $99/mo →</a>
@@ -1134,7 +1150,17 @@
             ' — resubscribe to keep them active.';
         const banner = document.createElement('div');
         banner.id = 'lapseBanner';
-        banner.style.cssText = 'position:fixed;bottom:0;left:0;right:0;z-index:9999;background:linear-gradient(90deg,#3a1e1e,#2a1414);border-top:2px solid #c53030;padding:10px 20px;display:flex;align-items:center;justify-content:center;gap:12px;font-size:12px;color:rgba(255,255,255,.85);flex-wrap:wrap;';
+        // Same contract as #liteBanner above — see the comment there. The
+        // flex-wrap:wrap this used to declare now comes from .nbd-bottom-strip,
+        // where it belongs: a strip that wraps to two rows is exactly the case
+        // that made a hard-coded height guess wrong, and the coordinator
+        // measures the rendered box instead of guessing.
+        banner.className = 'nbd-bottom-strip';
+        banner.setAttribute('data-nbd-bottom-strip', '');
+        // Colours only. This strip keeps its own alarm palette (raw hex, not
+        // theme tokens) on purpose — a lapsed-subscription warning must read
+        // the same on every one of the 186 themes.
+        banner.style.cssText = 'background:linear-gradient(90deg,#3a1e1e,#2a1414);border-top:2px solid #c53030;color:rgba(255,255,255,.85);';
         const span = document.createElement('span');
         span.textContent = (paused ? '⏸ ' : '⚠️ ') + msg;
         const cta = document.createElement('a');

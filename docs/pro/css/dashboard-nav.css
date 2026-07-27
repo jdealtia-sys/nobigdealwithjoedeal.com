@@ -322,10 +322,22 @@
      display:none anyway; .crm-secondary-toolbar/.fab-container/
      .cmd-palette-overlay/.nav-bottom-mobile/.mobile-more-menu never existed
      in the live DOM) — so printing any view printed the dark sidebar and
-     header on page 1. These are the live selectors. */
+     header on page 1. These are the live selectors.
+
+     .nbd-bottom-strip is the pinned billing strip (#liteBanner's free-plan
+     upsell and #lapseBanner's cancelled-subscription warning, both injected
+     by dashboard-bootstrap.module.js). It is position:fixed at bottom:0, so
+     the print engine stamps it across the footer of the sheet — and the
+     a[href]:after rule further down expands its CTA into a literal
+     "Upgrade — Starter $99/mo → (/pro/pricing.html)". These printouts are
+     handed to homeowners and adjusters: our own pricing pitch, or worse a
+     "your subscription was cancelled" notice, has no business on a customer
+     estimate. Account chrome, not document content — same category as the
+     header and the FABs above. */
   header, .sidebar, #mobile-nav, #mobile-more-menu,
   .crm-header, .crm-secondary-header, .cmd-palette,
   #addLeadFab, #nbd-fab-dial, .modal-bg, .toast-container,
+  .nbd-bottom-strip,
   button, .btn, .upload-zone { display: none !important; }
   .app-body { display: block !important; }
 

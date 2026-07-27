@@ -2213,8 +2213,22 @@
          Visible only on mobile (≤768px); on desktop the inline "📷 Open
          Camera" button in the page header is the entry point. Tapping
          this fires the same hidden file-input as the create popover's
-         Photo row, so capture flow is one consistent path. -->
-    <button class="m-shutter-fab" id="mShutterFab" type="button"
+         Photo row, so capture flow is one consistent path.
+
+         data-nbd-corner-claim: this button and #nbd-fab-dial were given
+         bottom:78px by two authors who never met, so on #/photos the dial
+         sat on top of the shutter (~96% overlap) and the camera was
+         untappable. Rather than hard-code yet another offset, the shutter
+         declares that it OWNS the bottom-right corner while it is visible;
+         fab-stack-coordinator.js measures it and publishes
+         --nbd-corner-claimed, and the shared rule in mobile-polish.css
+         translates the whole FAB stack up out of the way. Nothing here
+         needs teardown: the button lives in a <template>, and an
+         un-hydrated template's contents are invisible to
+         document.querySelectorAll, so a never-visited photos view claims
+         nothing. Keep the attribute AFTER id= — the smoke test at
+         tests/smoke/dashboard.test.js matches class= then id= in order. -->
+    <button class="m-shutter-fab" id="mShutterFab" data-nbd-corner-claim type="button"
       data-action="call" data-fn="openPhotoEngineOrClickProxy" data-arg="mCreatePhotoInput"
       aria-label="Capture photo">
       <svg class="nbd-icon nbd-icon-lg" aria-hidden="true"><use href="#nbd-icon-shutter"/></svg>
@@ -2705,8 +2719,18 @@
     <!-- Chat messages -->
     <div class="joe-messages dn" id="joeMessages"></div>
 
-    <!-- Input area -->
-    <div class="joe-input-area dn" id="joeInputArea">
+    <!-- Input area.
+         data-nbd-corner-claim: this bar is pinned to the bottom of the Ask
+         Joe pane and #joeSendBtn is its right-most control, which is
+         exactly where #nbd-whisper-fab parks — the dictation button was
+         covering the send button of the thing you dictate into. The bar
+         declares the claim instead of the FAB hard-coding a per-view
+         offset; fab-stack-coordinator.js measures it into
+         --nbd-corner-claimed and mobile-polish.css lifts the stack. It
+         qualifies as a claimant (short, on the bottom edge, inside the
+         right rail) — do NOT copy this onto a tall panel, which the
+         coordinator's height gate would silently drop anyway. -->
+    <div class="joe-input-area dn" id="joeInputArea" data-nbd-corner-claim>
       <div class="joe-quick-btns" id="joeQuickBtns">
         <button class="joe-quick" data-action="call" data-fn="joeQuick" data-arg="What should I focus on today?">📋 Today's priorities</button>
         <button class="joe-quick" data-action="call" data-fn="joeQuick" data-arg="Which leads are most likely to close?">🎯 Best leads to close</button>

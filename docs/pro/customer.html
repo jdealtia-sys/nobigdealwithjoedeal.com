@@ -69,6 +69,14 @@
    dashboard-app.css, so the scale is declared here and every z-index /
    transition on this page + its customer-*.js satellites keys off it. */
 :root{
+  /* Bottom of the ladder, same slot dashboard-app.css:20 gives it. This page
+     has consumed var(--z-sticky, 50) at .quick-actions since the sticky bar
+     shipped, but never mirrored the token — so the var resolved to "" and
+     every sticky surface here was silently running on its literal fallback.
+     That is exactly the drift this mirror block exists to prevent: a future
+     edit to the canonical 50 would have moved the dashboard and left
+     customer.html behind, with no test to catch it. */
+  --z-sticky:50;        /* sticky page chrome: .quick-actions + .jump-nav */
   --z-fab:9900;         /* floating widgets (upload indicator) — always UNDER overlays */
   --z-overlay:10000;    /* modal overlays, lightbox baseline */
   --z-overlay-top:10001;/* must beat an open overlay (lightbox over a modal) */
@@ -93,7 +101,16 @@
 ::-webkit-scrollbar-track{background:transparent}
 ::-webkit-scrollbar-thumb{background:var(--br);border-radius:3px}
 ::-webkit-scrollbar-thumb:hover{background:var(--m)}
-html{scrollbar-width:thin;scrollbar-color:var(--br) transparent}
+/* scroll-padding-top is the root cause of the whole "the thing I jumped to
+   is hidden behind the bar" family on this page. It was `auto` (i.e. 0), and
+   the only compensation was .tab-content{scroll-margin-top:80px} — which
+   reaches the 7 section wrappers and NOTHING else. Every other anchor target
+   (.info-label, .dt-preview-btn, an inline <svg>, anything customer-*.js
+   scrollIntoView()s) landed flush at y=0, i.e. underneath the pinned
+   .jump-nav. Setting it on the scrolling element fixes all of them at once,
+   including targets that don't exist yet. 60px = the 47px one-row bar plus
+   breathing room. */
+html{scrollbar-width:thin;scrollbar-color:var(--br) transparent;scroll-padding-top:60px}
 /* jump-nav: current-section state (scroll-spy in customer-tasks-ui.js). */
 .jump-nav a.active{color:var(--orange);border-color:var(--orange)!important;background:color-mix(in srgb, var(--orange) 10%, transparent)}
 </style>
@@ -678,18 +695,66 @@ body.nbd-photo-reorder .nbd-photo-item.drop-after {
 /* Jump nav — replaces the tab bar */
 .jump-nav {
   display: flex;
-  flex-wrap: wrap;
+  /* One row at every breakpoint. Wrapping is what made this bar a defect:
+     at 375px the 7 links wrapped to 3 rows and the pinned bar rendered
+     117px tall, which both buried the content it was pinned over and
+     dragged the un-pinned bar down into the bottom-right FAB lane at
+     scroll 0. Overflow-scrolling beats stacking here — same idiom the
+     .tab-bar above already uses, and the labels can't be shortened
+     instead (functions.test.js pins "Voice Intel" within 40 chars of its
+     href). scrollbar-width:none because a visible scrollbar inside a
+     47px bar eats a third of the tap target. */
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
   gap: 8px;
   margin: 18px 0;
   padding: 10px;
   background: var(--s2);
   border-radius: 8px;
   position: sticky;
-  top: 10px;
-  z-index: 50;
+  /* was 10px. A non-zero sticky offset leaves a 10px see-through slot
+     between the top of the viewport and the pinned bar, and page content
+     keeps scrolling through that slot — it reads as a paint bug, and it
+     is why the bar looked translucent even though var(--s2) is an opaque
+     hex in every theme. Flush to 0. */
+  top: 0;
+  /* Was a bare 50. Same number, now sourced from the mirrored token so
+     this bar moves with the rest of the sticky tier instead of drifting. */
+  z-index: var(--z-sticky, 50);
+  -webkit-backdrop-filter: blur(10px);
   backdrop-filter: blur(10px);
 }
+/* Horizontal partition against the FAB column — deliberately NOT a vertical
+   claim. Measured at 375x812, scroll 0: #nbd-whisper-fab and #nbd-qc-fab
+   cover 80-100% of this bar, i.e. the mic button sits on top of the "Voice
+   Intel" link. The tempting fix is to mark #tabBar data-nbd-corner-claim and
+   let fab-stack-coordinator.js lift the stack, but at scroll 0 this bar is
+   ~220px off the bottom edge, so the whole FAB stack would visibly leap into
+   mid-screen and settle back the instant the bar sticks to the top. A claim
+   is a layout promise; a bar that is only sometimes down there can't make one.
+   So the bar gives up pixels it never needed instead: --nbd-fab-rail is the
+   shared width the FAB column owns (94px = #nbd-whisper-fab's right:20px +
+   54px + margin). fab-stack-coordinator.js writes it onto :root at bootstrap
+   precisely because this page runs the FAB stack without loading
+   dashboard-app.css, so the fallback here is belt-and-braces, not a guess.
+   Ending the bar short of the rail means the two can never share a pixel at
+   any scroll offset, with zero movement — the same sideways remedy the toast
+   and the map panels use. It costs nothing now that the bar is a nowrap
+   overflow-x scroller: it simply starts scrolling sooner.
+   Gated at the FAB stack's canonical 768px breakpoint. Above it the
+   quick-action strip (hidden at 641px) no longer lifts the stack up into this
+   bar's band, and notching 94px out of a wide bar would just read as a bug. */
+@media (max-width: 768px) {
+  .jump-nav { margin-right: var(--nbd-fab-rail, 94px); }
+}
 .jump-nav a {
+  /* Required by the nowrap switch above: as flex items in a scroller these
+     would otherwise shrink to fit the (now narrower) bar rather than
+     overflow it, which is how you get 7 illegible 30px stubs instead of a
+     row you can swipe. */
+  flex: 0 0 auto;
   font-family: 'Barlow Condensed', sans-serif;
   font-size: 11px;
   font-weight: 700;

@@ -49,6 +49,49 @@
   --z-banner-status:10006;  /* offline / network status strip */
   --z-banner-alert:10007;   /* lead-alert delivery health — outranks offline */
 }
+/* ══ BOTTOM-EDGE BUDGET (2026-07) ═════════════════════════════════════
+   Single source of truth for how much of the viewport bottom is owned by
+   fixed chrome that is NOT part of normal layout. fab-stack-coordinator.js
+   is the ONLY writer; see the contract comment in that file.
+     --nbd-bottom-chrome  height of full-width strips pinned at bottom:0
+     --nbd-corner-claimed tallest short bottom-edge control in the right
+                          rail (consumed by the FAB rule in mobile-polish.css)
+     --nbd-fab-rail       horizontal width the FAB column owns. Anything
+                          else wanting the bottom-right corner moves
+                          SIDEWAYS out of this rail; it does not stack.
+                          94px = widest desktop FAB (#nbd-whisper-fab:
+                          right 20 + width 54) + margin.
+   Adding a new bottom strip must never again silently eat the last row
+   of a view. */
+:root{
+  --nbd-bottom-chrome: 0px;
+  --nbd-corner-claimed: 0px;
+  --nbd-fab-rail: 94px;
+}
+
+/* Shared shell for bottom-edge strips. z: --z-emergency — a plan banner
+   is an upsell, not a status strip: modals (--z-overlay) and toasts
+   (--z-toast) must both outrank it, unlike the offline/alert-health
+   strips at --z-banner-status/--z-banner-alert. */
+.nbd-bottom-strip{
+  position:fixed; left:0; right:0; bottom:0;
+  z-index:var(--z-emergency, 9999);
+  display:flex; align-items:center; justify-content:center;
+  gap:12px; flex-wrap:wrap; font-size:12px;
+  padding:10px 20px;
+  padding-bottom:calc(10px + env(safe-area-inset-bottom, 0px));
+  padding-left:calc(20px + env(safe-area-inset-left, 0px));
+  padding-right:calc(20px + env(safe-area-inset-right, 0px));
+}
+
+/* Bottom-anchored chrome rides above the strips. margin-bottom, not
+   transform (#toast already animates transform) and not bottom: (each
+   module keeps ownership of its own offset). The five FABs are NOT in
+   this list — they consume --nbd-corner-claimed via translate in
+   mobile-polish.css, which already folds the strip height in. */
+#mobile-nav, .toast-container, #toast.toast, #nbd-lead-alert-stack{
+  margin-bottom: var(--nbd-bottom-chrome, 0px);
+}
 /* ══ DESIGN TOKENS (Wave 4 2026-05-14) ════════════════════════════════
    Typography, spacing, radius, and tap-target scales. New components
    pull from these; legacy inline styles (~1,145 of them across the
@@ -122,7 +165,17 @@
 @media (max-width:900px){
   input,select,textarea{font-size:max(16px,1em)!important;}
 }
-body{font-family:'Barlow',sans-serif;background:var(--bg);color:var(--t);height:100vh;height:100dvh;overflow:hidden;display:flex;flex-direction:column;touch-action:pan-x pan-y pinch-zoom;-webkit-overflow-scrolling:touch;-webkit-tap-highlight-color:transparent;}
+/* padding-bottom:var(--nbd-bottom-chrome) is the ENTIRE desktop reservation for
+   fixed bottom strips, and it works because of the two declarations either side
+   of it: body is a fixed-height (100dvh) border-box flex column, so the padding
+   shrinks the CONTENT box and every scroll surface inside it shrinks in lockstep
+   — .view-scroll views, the kanban, the map panes, Ask Joe, and, critically, the
+   four iframe views (#/aitree, #/understand, #/projectcodex, #/aiusage) whose
+   inner documents this stylesheet cannot reach at all. Adding the term to each
+   surface individually would have missed those four forever.
+   0px until fab-stack-coordinator.js measures a mounted strip, so this is a
+   no-op on every view today. */
+body{font-family:'Barlow',sans-serif;background:var(--bg);color:var(--t);height:100vh;height:100dvh;padding-bottom:var(--nbd-bottom-chrome, 0px);overflow:hidden;display:flex;flex-direction:column;touch-action:pan-x pan-y pinch-zoom;-webkit-overflow-scrolling:touch;-webkit-tap-highlight-color:transparent;}
 
 /* HEADER
    OWNERSHIP (2026-07 Phase 2): dashboard-app.css owns the GLOBAL <header>
@@ -1270,11 +1323,15 @@ body:has(#view-prospects.active) .breadcrumb-container{
   border-radius: 8px;
 }
 
-/* TOAST NOTIFICATIONS */
+/* TOAST NOTIFICATIONS
+   The desktop stack used to land on the FAB column (#nbd-whisper-fab reaches
+   x = right 20 + 54 wide), so a toast covered the mic button for its whole
+   2.8s life. It now clears the rail HORIZONTALLY — see --nbd-fab-rail at the
+   top of this file for why sideways and not upwards. */
 .toast-container{
   position:fixed;
   bottom:20px;
-  right:20px;
+  right:calc(var(--nbd-fab-rail, 94px) + env(safe-area-inset-right, 0px));
   z-index:var(--z-toast);
   display:flex;
   flex-direction:column;
@@ -1672,8 +1729,54 @@ body[data-nbd-size="comfortable"] .crm-icon-btn { width: calc(32px * var(--nbd-s
 .map-sidebar::-webkit-scrollbar{width:3px;}
 .map-sidebar::-webkit-scrollbar-thumb{background:var(--br);border-radius:3px;}
 .map-sidebar::-webkit-scrollbar-thumb:hover{background:var(--orange);}
-.map-area{flex:1;position:relative;min-height:300px;}
-.map-area > div[id$="Map"]{position:absolute;top:0;left:0;right:0;bottom:0;min-height:300px;}
+.map-area{
+  flex:1;position:relative;min-height:300px;
+  /* ── MAP OVERLAY BANDS — one source of truth for the floating chrome.
+     .map-area and #mainMap are coincident boxes (inset:0), so one set of
+     offsets serves overlays parented to EITHER; the JS-appended pin /
+     customers panels inherit these through #mainMap. Nothing free-floats. */
+  --map-pad:10px;
+  --map-fab-h:56px;
+  --map-badge-h:34px;
+  /* Leaflet's own attribution strip (.leaflet-control-attribution — the
+     "Leaflet | Tiles (c) Esri" line it pins to bottom:0 right:0 of every map
+     container). A DESIGN CONSTANT, not a measurement: Leaflet renders it at
+     font-size:12px x line-height:1.4 = ~17px, and 18px buys a pixel of slack
+     without a forced layout to find out.
+     It earns a band of its own because it is the ONE piece of map chrome we
+     are not free to move, hide, or paint over — the tile licences require the
+     credit to stay legible — so everything else on the bottom edge has to
+     start above it instead of the other way round. Measured 2026-07-23: the
+     fab bar sat at bottom:var(--map-pad) and covered the strip's top ~7px at
+     all three viewports, burying the flag glyph and the word "Leaflet" under
+     an opaque pill. */
+  --map-attrib-h:18px;
+  --map-band:calc(var(--map-pad) * 2 + var(--map-fab-h) + var(--map-attrib-h));
+}
+/* min-height REMOVED: with position:absolute + inset:0 a min-height
+   overrides the `bottom:0` constraint, so the map rendered 300px tall
+   inside a 240px frame and painted 60px over the spyglass search bar and
+   the tools drawer below it. The 300px floor belongs on .map-area above,
+   which reserves real layout space. */
+.map-area > div[id$="Map"]{position:absolute;top:0;left:0;right:0;bottom:0;}
+/* Leaflet parks .leaflet-control-attribution in the map container's
+   bottom-RIGHT corner, and on both #/map and #/draw the map container's right
+   edge IS the viewport's right edge — so the credit line lands squarely in the
+   bottom-right FAB rail. On phones that put it under #nbd-fab-dial (fixed,
+   bottom:78px, 48px square); on desktop it cleared #nbd-whisper-fab by ~3px,
+   which is not clearance, it is luck.
+   Per the bottom-edge contract in js/fab-stack-coordinator.js the remedy for
+   anything that reaches this corner is to step SIDEWAYS out of the lane, never
+   to stack on top of it — and this control in particular must not claim
+   vertical space (no data-nbd-corner-claim): it is present on every map, so a
+   claim would permanently launch the whole FAB stack up by its height.
+   margin-right is the right property because .leaflet-bottom.leaflet-right is
+   the positioned box (right:0) and the control merely floats inside it; the
+   equal-specificity `.leaflet-container .leaflet-control-attribution{margin:0}`
+   in vendor/leaflet/leaflet.css loses on source order (that <link> is earlier
+   in dashboard.html), so no !important is needed. Scoped to .map-area so the
+   D2D / storm-center maps, which own different chrome, are untouched. */
+.map-area .leaflet-control-attribution{ margin-right:var(--nbd-fab-rail, 94px); }
 
 /* COMPONENTS */
 .page-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;}
@@ -1691,6 +1794,52 @@ body[data-nbd-size="comfortable"] .crm-icon-btn { width: calc(32px * var(--nbd-s
 .panel-label{font-size:9px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--orange);margin-bottom:2px;}
 .panel-title{font-family:'Barlow Condensed',sans-serif;font-size:16px;font-weight:700;text-transform:uppercase;letter-spacing:.03em;}
 .panel-body{padding:18px 20px;}
+/* Hot Leads (js/hot-leads-widget.js): keep the row action cluster out of the
+   bottom-right FAB rail.
+   Measured 2026-07-23 on #/dash at 1280x800: the last .hl-action of a hot-lead
+   row (💤 snooze, x1194-1222 / y744-772) sat flat under #nbd-whisper-fab
+   (x1206-1260 / y726-780) — covered at all five sample points, so that row's
+   snooze button was not tappable at all.
+   The rows are a `grid-template-columns:auto 1fr auto auto` with .hl-actions in
+   the last track, flush to the card's right padding, and the card is a
+   full-width .panel inside #view-dash .view-scroll whose right border-box edge
+   IS the viewport's right edge — so the cluster is in the corner the FAB column
+   owns whenever a row sits in the stack's band. At scrollY=0 that is the fifth
+   row, on every dashboard load.
+   Per the contract in js/fab-stack-coordinator.js the remedy for anything that
+   reaches this corner is to step SIDEWAYS out of the lane (--nbd-fab-rail),
+   never to stack on it and never to hard-code a corner offset of its own.
+   Deliberately NOT data-nbd-corner-claim: this widget is present on every
+   dashboard load, so a vertical claim would permanently launch the whole FAB
+   stack up by a row's height to solve a purely horizontal overlap.
+   The gutter goes on .hl-actions rather than on #hot-leads-body because
+   padding on the body also reflows the panel's own copy (the empty state and
+   the centred "Scored on damage…" footer) and would have to outrank the
+   density rules' `padding:…!important` at every body[data-nbd-size], whereas
+   padding INSIDE the cluster only widens that one grid track: the row
+   background still runs the full width of the card, so it reads as extra right
+   padding on the row rather than a hole, and the 1fr name column absorbs the
+   loss through the ellipsis it already has.
+   It is honestly a whole-list gutter and not a bottom-row one. The panel
+   scrolls inside .view-scroll, so EVERY row passes through the FAB band at some
+   offset, and CSS has no predicate for "this row is currently in the bottom
+   200px of the viewport" — scoping the gutter to the row that happens to be
+   covered would be correct only at scrollY=0 and wrong the instant the rep
+   scrolled. One uniform gutter is the version that is true at every offset.
+   Reserving the full rail from the row's edge over-reserves by the ~45px of
+   .view-scroll + .panel-body padding already between the card and the viewport.
+   That is deliberate: subtracting them would re-introduce exactly the
+   hard-coded ancestor offsets this contract exists to delete, and every other
+   consumer here adds the rail to its own local padding the same way (see
+   .map-spyglass-panel and .map-fab-bar).
+   >=769px only: below that #nbd-whisper-fab — the element doing the covering —
+   is parked at opacity:0/pointer-events:none behind the ⋯ speed-dial
+   (kanban-force.css), so this collision does not exist, and 94px of a 375px row
+   is a quarter of its width, which the desktop rail token was never sized to
+   pay for. */
+@media (min-width:769px){
+  #hot-leads-body .hl-actions{ padding-right:var(--nbd-fab-rail, 94px); }
+}
 /* Toggle switch component */
 .ob-toggle{position:relative;display:inline-block;width:38px;height:20px;flex-shrink:0;}
 .ob-toggle input{opacity:0;width:0;height:0;position:absolute;}
@@ -2443,8 +2592,12 @@ body[data-nbd-size="comfortable"] .crm-icon-btn { width: calc(32px * var(--nbd-s
 .tip-num{font-family:'Barlow Condensed',sans-serif;font-size:11px;color:var(--orange);font-weight:700;margin-bottom:3px;}
 .tip-text{font-size:12px;color:var(--t);line-height:1.5;}
 
-/* TOAST */
-#toast.toast{position:fixed;bottom:20px;right:20px;background:var(--s);border:1px solid var(--br);border-radius:8px;padding:10px 16px;font-size:13px;z-index:var(--z-toast);transform:translateY(60px);opacity:0;transition:transform var(--t-slow),opacity var(--t-slow);pointer-events:none;display:flex;flex-direction:column;gap:8px;min-width:200px;}
+/* TOAST — legacy singleton (#toast). Same corner arbitration as
+   .toast-container above: it moves SIDEWAYS out of the FAB rail rather than
+   stacking on top of it. bottom: is untouched — a toast is transient, and
+   anything transient that changed the FAB stack's vertical offset would make
+   the whole stack jump every time a save fired. */
+#toast.toast{position:fixed;bottom:20px;right:calc(var(--nbd-fab-rail, 94px) + env(safe-area-inset-right, 0px));background:var(--s);border:1px solid var(--br);border-radius:8px;padding:10px 16px;font-size:13px;z-index:var(--z-toast);transform:translateY(60px);opacity:0;transition:transform var(--t-slow),opacity var(--t-slow);pointer-events:none;display:flex;flex-direction:column;gap:8px;min-width:200px;}
 #toast.toast.show{transform:translateY(0);opacity:1;}
 .toast.success,.toast.ok{border-color:var(--green);color:var(--green);}
 #toast.toast.error{border-color:var(--red);color:var(--red);}
@@ -3884,9 +4037,23 @@ body {
   .map-view{flex-direction:column!important;position:static!important;overflow:visible!important;}
   .map-sidebar{width:100%!important;max-height:0;overflow:hidden;transition:max-height .3s ease;padding:0!important;border-right:none!important;border-top:1px solid var(--br);order:2;}
   .map-sidebar.open{max-height:340px;overflow-y:auto;padding:12px!important;}
-  .map-area{order:1;height:55vw;min-height:220px;}
+  /* height:55vw dropped (and the two !important twins in MAP MOBILE
+     OVERRIDES below). `.map-area{flex:1}` is `flex:1 1 0%`, and in the
+     column flex context that #view-map.active/#view-draw.active restore
+     further down, flex-basis replaces `height` for main-axis sizing — so
+     every height:NNvw on .map-area was inert. Reading them as live is what
+     made the pane look like it had a fixed aspect ratio and sent people
+     hunting for the wrong bug. min-height survives: it still clamps the
+     flex base size, so it is the real floor. */
+  .map-area{order:1;min-height:220px;}
   .map-area > div[id$="Map"]{height:100%!important;}
-  .map-toggle-btn{display:flex!important;position:absolute;bottom:10px;left:50%;transform:translateX(-50%);z-index:500;background:var(--s);border:1px solid var(--br);border-radius:20px;padding:6px 16px;font-size:11px;font-family:'Barlow Condensed',sans-serif;letter-spacing:.08em;color:var(--t);cursor:pointer;white-space:nowrap;box-shadow:0 2px 8px rgba(0,0,0,.4);}
+  /* Drawer handle moves OUT of the bottom band into the top-right slot
+     under .map-badge. It was 100% behind .map-fab-bar (z-index 500 vs the
+     bar's --z-fab 9900) at bottom:10px/left:50%, i.e. exactly the pixels
+     the centred toolbar occupies — the "Map Tools" button was unclickable
+     on every phone. Offsets come from the band tokens so the handle tracks
+     the badge instead of restating its height. */
+  .map-toggle-btn{display:flex!important;position:absolute;top:calc(var(--map-pad) + var(--map-badge-h))!important;right:var(--map-pad)!important;bottom:auto!important;left:auto!important;transform:none!important;z-index:500;background:var(--s);border:1px solid var(--br);border-radius:20px;padding:6px 16px;font-size:11px;font-family:'Barlow Condensed',sans-serif;letter-spacing:.08em;color:var(--t);cursor:pointer;white-space:nowrap;box-shadow:0 2px 8px rgba(0,0,0,.4);}
   /* !important blanket on the mobile re-layout rules — desktop's
      `.crm-header{ flex-wrap:nowrap; ... }` at the Pro-Chrome block
      is declared AFTER this media query in source order, so without
@@ -4036,8 +4203,16 @@ body {
      MAP MOBILE OVERRIDES
      ══════════════════════════════════ */
 
-  /* Taller map on mobile so there's room to breathe */
-  .map-area{height:64vw!important;min-height:240px!important;}
+  /* Taller map on mobile so there's room to breathe.
+     height:64vw!important dropped for the flex-basis reason documented at
+     the `.map-area{order:1}` rule above — !important does not rescue a
+     property the flex algorithm never consults. The floor stays.
+     The band tokens shrink for the phone-sized toolbar: --map-band is
+     declared in terms of these two on .map-area, so every overlay that
+     reads it (the fab bar here, the pin / customers panels injected by
+     maps-overlays.js and maps-customers.js) follows automatically —
+     there is no second place to edit. */
+  .map-area{min-height:240px!important;--map-pad:8px;--map-fab-h:46px;}
 
   /* Spyglass: static below map on mobile */
   .map-spyglass-panel{
@@ -4051,6 +4226,22 @@ body {
     order:2!important;
     background:rgba(10,12,15,.98)!important;
     padding:8px 10px!important;
+    /* Right gutter = the bottom-right FAB rail. Below 768px this panel leaves
+       the map's top-centre and becomes a full-width strip in normal flow under
+       the pane (order:2 above), which parks its right-hand "Go" button
+       (.map-spyglass-btn) in the corner #nbd-fab-dial owns — the ⋯ field-tools
+       launcher is display:flex only under this same breakpoint, fixed at
+       bottom:78px/right:16px. Measured 2026-07-23: Go at x723-758 vs the dial
+       at x704-752 (tablet) and x330-365 vs x311-359 (phone) — the button was
+       flat under the launcher on both.
+       Partition horizontally, per the contract in js/fab-stack-coordinator.js:
+       this panel is in FLOW, so it drifts in and out of the launcher's band as
+       the view scrolls. A vertical claim (data-nbd-corner-claim) would be the
+       wrong tool twice over — it would make the entire FAB stack jump every
+       time the rep scrolled the map view, and the launcher is exactly what we
+       were told not to move. A longhand after the shorthand above so the 10px
+       base stays readable as the panel's own padding. */
+    padding-right:calc(10px + var(--nbd-fab-rail, 94px))!important;
     border-radius:0!important;
     border:none!important;
     border-bottom:1px solid var(--br)!important;
@@ -4101,12 +4292,26 @@ body {
   }
   .pin-stat-dot{ width:6px!important; height:6px!important; }
 
-  /* FAB bar: icon-only, compact, scrollable strip */
+  /* FAB bar: icon-only, compact, scrollable strip.
+     Stretched edge-to-edge (left+right instead of the desktop
+     translateX(-50%) centring) so the horizontal scroller has room. The
+     right edge stops one --nbd-fab-rail short of the map so the strip
+     clears #nbd-fab-dial, the ⋯ field-tools launcher, which is fixed in
+     the bottom-right corner on EVERY mobile view and was sitting on top of
+     the last one or two map tools. Sideways, not upwards: the launcher owns
+     that rail permanently, so lifting the bar would only trade one overlap
+     for dead space (see the bottom-edge budget at the top of this file). */
   .map-fab-bar{
-    bottom:8px!important;
-    left:8px!important;
-    right:8px!important;
+    /* Same floor as the desktop rule — one Leaflet attribution strip above the
+       map's bottom, not --map-pad. The phone band is the tighter one
+       (--map-pad drops to 8px here) so the credit line was the more thoroughly
+       buried: measured 2026-07-23 the bar covered it from y860-906 (tablet) and
+       y648-694 (phone) while the strip ran to the map's floor at 914 / 702. */
+    bottom:calc(var(--map-pad) + var(--map-attrib-h))!important;
+    left:var(--map-pad)!important;
+    right:calc(var(--map-pad) + var(--nbd-fab-rail, 94px))!important;
     transform:none!important;
+    max-width:none!important;
     padding:5px 8px!important;
     gap:4px!important;
     overflow-x:auto!important;
@@ -4225,7 +4430,12 @@ body {
   #notifBtn { width:44px!important; height:44px!important; }
 
   /* ══ SAFE AREA INSETS (iPhone notch, home indicator) ══ */
-  body { padding-bottom:calc(62px + env(safe-area-inset-bottom, 0px))!important; }
+  /* On mobile the document itself is the scroller (.view.active is display:block
+     below), so this padding is the only place a bottom strip can be reserved for
+     every view at once. 62px = #mobile-nav; --nbd-bottom-chrome = whatever
+     fab-stack-coordinator.js measured on top of it (plan banners today), 0px when
+     nothing is mounted so this stays byte-equivalent to the old rule. */
+  body { padding-bottom:calc(62px + var(--nbd-bottom-chrome, 0px) + env(safe-area-inset-bottom, 0px))!important; }
   #mobile-nav { height:calc(62px + env(safe-area-inset-bottom, 0px))!important; padding-bottom:env(safe-area-inset-bottom, 0px)!important; }
   #mobile-more-menu { padding-bottom:calc(80px + env(safe-area-inset-bottom, 0px))!important; }
   header { padding-top:env(safe-area-inset-top, 0px)!important; }
@@ -4239,13 +4449,30 @@ body {
 
   /* ══ SCROLL FIX: ensure views are always scrollable ══ */
   .view.active { display:block!important; min-height:auto!important; }
-  /* Bottom clearance for the #mobile-nav bar (62px + safe-area). The
-     ⋯ field-tools speed-dial launcher (#nbd-fab-dial) and the Add Lead FAB
-     (#addLeadFab) are gated views-only (body.show-field-tools /
-     show-add-lead-fab) and the CRM board scrolls internally via .kcol-body —
-     so a .view-scroll view with no FAB over it (Photos, etc.) only needs to
-     clear the nav. (This was 150px while the launcher floated over every
-     view; that oversized gap is no longer needed once it's gated.) */
+  /* Maps & Pins / Drawing are FIXED-height panes, not scroll surfaces —
+     the map fills the pane and the tools drawer opens beneath it. The
+     blanket `.view.active{display:block}` above (mobile scroll fix) kills
+     the flex context .map-view{flex:1} and .map-area{flex:1} size from,
+     and .map-view's `height:100%` fallback cannot resolve against a
+     flex-grown parent — so the map collapsed to its min-height and left
+     434-626px of dead space below it. #id.class outranks .view.active. */
+  #view-map.active, #view-draw.active{
+    display:flex!important;
+    flex-direction:column!important;
+    min-height:0!important;
+    overflow:hidden!important;
+  }
+  /* Bottom clearance for the #mobile-nav bar (62px + safe-area).
+     MERGE RESOLUTION (overlap-sweep × FAB gating): this branch raised the
+     generic clearance to 150px on the premise that the ⋯ field-tools
+     launcher "is shown on EVERY mobile view". main has since GATED the
+     launcher and the Add Lead FAB to specific views (body.show-field-tools /
+     show-add-lead-fab), and the CRM board scrolls internally via .kcol-body —
+     so that premise no longer holds. Keeping 150px everywhere would put ~70px
+     of dead space back at the bottom of every scroll view (Photos, etc.) to
+     clear a launcher that isn't there. Generic stays main's 80px; the D2D
+     view — where the launcher genuinely IS shown — keeps its 150px exception
+     below. The map/draw flex fix above (this branch's real win) is unaffected. */
   .view-scroll { min-height:auto!important; padding-bottom:calc(80px + env(safe-area-inset-bottom, 0px))!important; }
   /* D2D exception: the field tools ARE shown on the door-knocking view, so
      its scroll region must reserve the launcher's full reach or the last
@@ -4259,14 +4486,29 @@ body {
   /* ══ MODALS: full-width on mobile, bottom-sheet style ══ */
   .modal { max-width:100vw!important; width:calc(100% - 16px)!important; margin:8px!important; border-radius:16px!important; max-height:calc(100vh - 80px)!important; max-height:calc(100dvh - 80px)!important; overflow-y:auto!important; -webkit-overflow-scrolling:touch!important; }
 
-  /* ══ TOAST: above mobile nav ══ */
-  .toast-container, #toast.toast { bottom:calc(72px + env(safe-area-inset-bottom, 0px))!important; right:12px!important; left:12px!important; max-width:none!important; }
+  /* ══ TOAST: above the mobile nav AND the speed-dial launcher ══
+     72px cleared only #mobile-nav (62px), which left the toast box at
+     y 72→~122 — right through #nbd-fab-dial, fixed at bottom:78px and 48px
+     tall (tops out ~126px). The mobile toast is full-bleed (left/right:12px),
+     so it swallowed the launcher whole: a rep could not open field tools
+     while any toast was up. 134px clears the launcher with an 8px gap and
+     still sits under the 150px .view-scroll clearance above, so it never
+     covers a row the view has already reserved space for.
+     Do NOT add --nbd-bottom-chrome here — both selectors already take the
+     bottom-strip reservation via margin-bottom from the shared rule near the
+     top of this file, and a second term would double-count it. */
+  .toast-container, #toast.toast { bottom:calc(134px + env(safe-area-inset-bottom, 0px))!important; right:12px!important; left:12px!important; max-width:none!important; }
 
 }
 
 /* ── Extra small phones (under 400px) ── */
 @media(max-width:400px){
-  .map-area{height:70vw!important;min-height:220px!important;}
+  /* height:70vw!important dropped — third and last copy of the inert
+     aspect-ratio height (see `.map-area{order:1}` in the 768 block). The
+     220px floor is the whole point of this rule: it walks the ≤768px
+     240px floor back down so a 375px phone still gets a usable pane
+     without the map eating the tools drawer. */
+  .map-area{min-height:220px!important;}
   .kanban-col{min-width:175px!important;max-width:175px!important;}
   .map-fab{ padding:5px 7px!important; }
   .map-badge{ font-size:9px!important; max-width:90px!important; }
@@ -4301,12 +4543,50 @@ body {
 /* ── MAP FLOATING TOOLBAR ── */
 .map-fab-bar{
   position:absolute;
-  bottom:18px;
-  left:50%;
+  /* This bar IS the definition of the bottom overlay band: --map-band on
+     .map-area is calc(--map-pad * 2 + --map-fab-h + --map-attrib-h), and the
+     bar declares that same height + the same floor here. So the pin /
+     customers panels that clear it can never drift from what the bar actually
+     occupies — previously they each restated a hand-measured `bottom:22px` /
+     `bottom:74px` and both were wrong at one breakpoint or another. Change
+     --map-fab-h, not literals. */
+  /* The floor is one attribution strip above the map's bottom, not --map-pad:
+     Leaflet pins its credit line to bottom:0 of the map container, so a bar
+     resting at --map-pad (10px, 8px on phones) buried the top of a ~17px strip
+     at every viewport. Lifting the bar is the only fix that scales — the
+     attribution may not be moved off the bottom edge or covered, and trimming
+     the bar sideways would not help because the strip sits in the bottom-RIGHT
+     corner while this bar is centred across the map. Both terms are tokens so
+     the panels riding --map-band follow in lockstep. */
+  bottom:calc(var(--map-pad) + var(--map-attrib-h));
+  height:var(--map-fab-h);
+  box-sizing:border-box;
+  /* Centred in the lane the bar actually OWNS — the map minus the bottom-right
+     FAB rail — rather than in the map. --nbd-fab-rail is the horizontal lane
+     the floating FAB column claims (contract in js/fab-stack-coordinator.js);
+     the map's right edge is the viewport's right edge on this view, so a bar
+     centred on the map ran 84px into the rail at 1280x800 and #nbd-whisper-fab
+     covered the last chip ("Storm Here") completely. Shifting the centre left
+     by half a rail and shortening the cap by a full rail keeps the pill
+     visually centred in the free space AND lands its right edge at
+     100% - --map-pad - --nbd-fab-rail, i.e. one pad clear of the lane, at every
+     desktop width. Sideways, never upward: the FAB column owns that rail
+     permanently, so lifting the bar would trade an overlap for dead space. */
+  left:calc(50% - var(--nbd-fab-rail, 94px) / 2);
   transform:translateX(-50%);
   z-index:var(--z-fab);
   display:flex;
+  align-items:center;
   gap:6px;
+  /* A translateX(-50%) centred absolute box takes its width from content
+     with no containing-block cap, so with the full tool set it grew wider
+     than the map and the end buttons hung off both edges with nothing to
+     scroll. Cap it to the map minus one pad per side, minus the FAB rail the
+     `left` above steps out of, and scroll inside. Capping alone would NOT have
+     fixed the rail overrun — a centred box grows symmetrically, so the cap and
+     the centre have to move together. */
+  max-width:calc(100% - var(--map-pad) * 2 - var(--nbd-fab-rail, 94px));
+  overflow-x:auto;
   background:rgba(10,12,15,.92);
   -webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);
   border:1px solid rgba(255,255,255,.1);

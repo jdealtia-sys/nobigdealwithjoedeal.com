@@ -2186,6 +2186,28 @@ function toggleMapSidebar(id) {
   // Update button text
   const btn = sidebar.closest('.map-view')?.querySelector('.map-toggle-btn');
   if (btn) btn.textContent = sidebar.classList.contains('open') ? '✕ Close' : btn.textContent.replace('✕ Close','').trim() || '☰ Tools';
+  // The drawer animates max-height over .3s (dashboard-app.css, `.map-sidebar`
+  // / `.map-sidebar.open` in the <=768px block) and now GENUINELY resizes
+  // .map-area, which is flex:1 in the same column. Before the map height-chain
+  // fix the pane was min-height-locked, so opening the drawer never changed the
+  // map's box and Leaflet never needed to hear about it; now the box shrinks
+  // (654px -> 315px at 375px wide) and without a remeasure Leaflet keeps
+  // requesting tiles for the old viewport and paints a torn pane. 350ms so the
+  // .3s transition has settled — invalidating mid-animation just re-measures an
+  // intermediate height.
+  //
+  // Read the two map handles as BARE sibling-scope names behind `typeof`
+  // guards, not off `window`: both are classic-script top-level `let`s
+  // (`let mainMap` in maps-core.js, `let drawMap` in maps-routing.js), so they
+  // live in the global LEXICAL environment and never become window properties
+  // — `window.mainMap` is permanently undefined. The `typeof` guard is what
+  // keeps a bare read from throwing ReferenceError on a page that loads this
+  // file without the maps modules; it is the same idiom dashboard-actions.js
+  // uses for `drawMap`.
+  setTimeout(() => {
+    if (typeof mainMap !== 'undefined' && mainMap?.invalidateSize) mainMap.invalidateSize();
+    if (typeof drawMap !== 'undefined' && drawMap?.invalidateSize) drawMap.invalidateSize();
+  }, 350);
 }
 
 // Sync bottom nav active state with goTo() calls from desktop sidebar

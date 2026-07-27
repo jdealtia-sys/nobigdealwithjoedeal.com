@@ -70,6 +70,12 @@
     bar.id = 'nbd-quick-action-bar';
     bar.setAttribute('role', 'toolbar');
     bar.setAttribute('aria-label', 'Quick actions');
+    // Declare, don't compute. This bar is a full-width strip pinned at
+    // bottom:0, so fab-stack-coordinator.js measures it and publishes its
+    // height as --nbd-corner-claimed / --nbd-bottom-chrome; mobile-polish.css
+    // then lifts the FAB stack by exactly that much. Nothing here needs to
+    // know how tall the bar renders or where any FAB currently sits.
+    bar.setAttribute('data-nbd-bottom-strip', '');
     bar.style.cssText = `
       position:fixed; left:0; right:0; bottom:0;
       z-index:99985;
@@ -115,20 +121,16 @@
            normally scrolls so the bar overlapping a few pixels of
            content is harmless. */
         body.nbd-qab-active { padding-bottom:64px; }
-        /* The bottom-right FAB stack (W128 mic / W130 quick-capture /
-           W132 inbox) anchors at bottom 20/84/142px — the mic FAB sat
-           UNDER this bar (z 99985 vs the FABs' 9999) on phones, so its
-           tap point hit the bar and dictation was unreachable. While
-           the bar is active, lift the whole stack by the bar height. */
-        body.nbd-qab-active #nbd-whisper-fab { bottom:calc(84px + env(safe-area-inset-bottom, 0px)) !important; }
-        body.nbd-qab-active #nbd-qc-fab      { bottom:calc(148px + env(safe-area-inset-bottom, 0px)) !important; }
-        body.nbd-qab-active #nbd-qci-fab     { bottom:calc(206px + env(safe-area-inset-bottom, 0px)) !important; }
+        /* FAB lift REMOVED 2026-07. This module used to write \`bottom:\`
+           for three FABs it does not own, restating their base constants,
+           at its own 641px breakpoint while the FAB stack switches at
+           768px — the 641-768 band ran desktop panel geometry against
+           mobile FAB geometry. The bar now just declares
+           data-nbd-bottom-strip; fab-stack-coordinator.js measures it and
+           the shared rule in mobile-polish.css lifts the stack. */
         @media (min-width:641px) {
           #nbd-quick-action-bar { display:none !important; }
           body.nbd-qab-active   { padding-bottom:0 !important; }
-          body.nbd-qab-active #nbd-whisper-fab { bottom:calc(20px + env(safe-area-inset-bottom, 0px)) !important; }
-          body.nbd-qab-active #nbd-qc-fab      { bottom:calc(84px + env(safe-area-inset-bottom, 0px)) !important; }
-          body.nbd-qab-active #nbd-qci-fab     { bottom:calc(142px + env(safe-area-inset-bottom, 0px)) !important; }
         }`;
       document.head.appendChild(style);
     }
