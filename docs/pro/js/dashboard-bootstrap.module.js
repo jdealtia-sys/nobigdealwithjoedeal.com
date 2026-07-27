@@ -3323,9 +3323,29 @@
   // Assign (or re-assign) an estimate to a customer/lead. Writes
   // leadId and also copies the lead's address/owner over for faster
   // list display. Passing leadId=null clears the assignment.
+  //
+  // Linkage invariant (CRM audit 2026-07): attaching is only half the
+  // job — Pipeline/KPIs/Leaderboard read lead.jobValue + lead
+  // .primaryEstimateId, not the estimate itself, so an assign that only
+  // wrote leadId left the pipeline under-reporting. This now mirrors
+  // _saveEstimate's create-path stamp-back exactly (first estimate →
+  // stamp through + NEW→Contacted bump; existing primary → confirm
+  // before clobbering a rep-confirmed number). It's also the manual
+  // remediation path for migration 005's reported skips — hand-assigning
+  // an orphan must leave the same state a correctly-linked save would.
   window._assignEstimateToLead = async (id, leadId) => {
     try {
       if (!id) return false;
+      // Snapshot the estimate BEFORE the write — the stamp-back needs its
+      // grandTotal, and the un-dangle pass needs its previous leadId.
+      let est = (window._estimates || []).find(e => e.id === id) || null;
+      if (!est) {
+        try {
+          const s = await getDoc(doc(db, 'estimates', id));
+          if (s.exists()) est = { id, ...s.data() };
+        } catch (_) { /* stamp-back degrades gracefully below */ }
+      }
+      const prevLeadId = (est && est.leadId) || null;
       const patch = { leadId: leadId || null, updatedAt: serverTimestamp() };
       if (leadId) {
         const lead = (window._leads || []).find(l => l.id === leadId);
@@ -3337,6 +3357,62 @@
         }
       }
       await updateDoc(doc(db, 'estimates', id), patch);
+      // Stamp-back — best-effort: a stamp failure must never fail the
+      // assign itself (same contract as _saveEstimate's create path).
+      if (leadId && leadId !== prevLeadId) {
+        try {
+          const leadRef = doc(db, 'leads', leadId);
+          const leadSnap = await getDoc(leadRef);
+          if (leadSnap.exists()) {
+            const lead = leadSnap.data();
+            const newVal = Number(est && est.grandTotal) || 0;
+            if (!lead.primaryEstimateId) {
+              const stampUpdate = {
+                primaryEstimateId: id,
+                lastEstimateAt: serverTimestamp(),
+              };
+              // Only stamp a jobValue the pipeline can trust — never
+              // zero a KPI off an estimate with no total.
+              if (newVal > 0) stampUpdate.jobValue = newVal;
+              if (normalizeStage(lead.stage) === S.NEW) {
+                stampUpdate.stage = S.CONTACTED;
+                stampUpdate.stageRole = stageRole(S.CONTACTED);
+              }
+              await updateDoc(leadRef, stampUpdate);
+            } else if (lead.primaryEstimateId !== id) {
+              const existingVal = Number(lead.jobValue) || 0;
+              const ask = window.nbdConfirm || ((m) => Promise.resolve(window.confirm(m)));
+              const useNew = await ask(
+                `This lead's job value is currently $${existingVal.toLocaleString()} (from an earlier estimate). ` +
+                `Use this estimate's $${newVal.toLocaleString()} instead?`
+              );
+              if (useNew) {
+                await updateDoc(leadRef, {
+                  jobValue: newVal,
+                  primaryEstimateId: id,
+                  lastEstimateAt: serverTimestamp(),
+                });
+              }
+            }
+          }
+        } catch (stampErr) {
+          console.warn('[_assignEstimateToLead] lead stamp-back failed:', stampErr);
+        }
+      }
+      // Un-dangle: a re-assign/unassign can leave the PREVIOUS lead's
+      // primaryEstimateId pointing at an estimate that's no longer its
+      // own. Break the pointer; leave jobValue as-is — it may be a
+      // rep-confirmed number, and "never clobber a rep-confirmed number"
+      // outranks tidiness (same principle as migration 005's stamp gate).
+      if (prevLeadId && prevLeadId !== (leadId || null)) {
+        try {
+          const prevRef = doc(db, 'leads', prevLeadId);
+          const prevSnap = await getDoc(prevRef);
+          if (prevSnap.exists() && prevSnap.data().primaryEstimateId === id) {
+            await updateDoc(prevRef, { primaryEstimateId: null });
+          }
+        } catch (_) { /* dangling pointer is display-only; next assign heals it */ }
+      }
       await loadEstimates();
       return true;
     } catch (e) {

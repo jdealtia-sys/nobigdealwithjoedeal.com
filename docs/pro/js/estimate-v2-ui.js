@@ -2555,6 +2555,27 @@
     try {
       const payload = _buildSavePayload(estimate, state);
 
+      // Linkage invariant (CRM audit 2026-07): an unattached estimate is
+      // invisible on every customer page and Activity tab (both query by
+      // leadId) and never reaches the pipeline. The button literally says
+      // "Save Estimate to Customer" — if there's no customer, say so and
+      // make the rep choose, never silently orphan the save. This is the
+      // save-time guard that keeps the migration-005 backlog from refilling.
+      if (!payload.leadId) {
+        const ask = window.nbdConfirm || ((m) => Promise.resolve(window.confirm(m)));
+        const proceed = await ask(
+          'This estimate isn\'t attached to a customer — it won\'t appear on ' +
+          'any customer page or count toward your pipeline.\n\n' +
+          'Save it unattached anyway? (You can attach it later with the ' +
+          'Assign button on the Estimates list.)'
+        );
+        if (!proceed) {
+          setStatus('Save cancelled — attach a customer first.', 'var(--m,#888)');
+          if (btn) { btn.disabled = false; btn.textContent = '💾 Save Estimate to Customer'; }
+          return;
+        }
+      }
+
       const savedId = await window._saveEstimate(payload);
 
       if (savedId) {

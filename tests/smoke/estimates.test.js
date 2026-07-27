@@ -78,6 +78,37 @@ section('V2 builder: new estimate keeps its customer link (leadId not orphaned)'
     /function prefillFromLead\(leadId\)[\s\S]{0,800}state\.customer\.leadId = leadId/.test(src));
 }
 
+section('Linkage invariant: unattached saves are warned; Assign stamps the pipeline');
+{
+  const src = read(path.join(PRO_JS, 'estimate-v2-ui.js'));
+  // Save-time guard: an unattached estimate is invisible on every customer
+  // page/Activity tab and never reaches the pipeline. save() must confirm
+  // before orphaning — and the cancel path must re-enable the Save button
+  // (no dead-button state).
+  assert('V2 save() confirms before saving with no leadId',
+    /if \(!payload\.leadId\) \{[\s\S]{0,900}nbdConfirm[\s\S]{0,900}Save cancelled — attach a customer first/.test(src));
+  assert('V2 save() cancel path re-enables the save button',
+    /Save cancelled — attach a customer first[\s\S]{0,300}btn\.disabled = false[\s\S]{0,160}return;/.test(src));
+
+  // _assignEstimateToLead must leave the same state a correctly-linked save
+  // would — it's the manual remediation path for migration 005's skips.
+  const dash = readDashboard();
+  const at = dash.indexOf('window._assignEstimateToLead');
+  const fn = dash.slice(at, at + 6000);
+  assert('assign stamps primaryEstimateId + lastEstimateAt on a first-estimate lead',
+    /primaryEstimateId: id,\s*lastEstimateAt: serverTimestamp\(\)/.test(fn));
+  assert('assign stamps jobValue only when grandTotal is positive (never zeroes a KPI)',
+    /if \(newVal > 0\) stampUpdate\.jobValue = newVal/.test(fn));
+  assert('assign confirms before clobbering an existing rep-confirmed primary',
+    /lead\.primaryEstimateId !== id[\s\S]{0,700}nbdConfirm/.test(fn));
+  assert('assign bumps a stone-cold NEW lead to Contacted (parity with _saveEstimate)',
+    /normalizeStage\(lead\.stage\) === S\.NEW[\s\S]{0,200}S\.CONTACTED/.test(fn));
+  assert('re-assign un-dangles the previous lead\'s primaryEstimateId pointer',
+    /if \(prevLeadId && prevLeadId !== \(leadId \|\| null\)\)[\s\S]{0,400}\{ primaryEstimateId: null \}/.test(fn));
+  assert('assign stamp-back is best-effort (never fails the assign itself)',
+    /catch \(stampErr\)[\s\S]{0,200}_assignEstimateToLead\] lead stamp-back failed/.test(fn));
+}
+
 section('Wave B3: live estimates snapshot');
 {
   // CSP hotfix: subscribe wiring is in dashboard-bootstrap.module.js.
