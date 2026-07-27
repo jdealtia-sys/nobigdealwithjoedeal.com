@@ -120,10 +120,54 @@ const taskModalHTML = `
 </div>
 `;
 
+// Event modal (RoofLink "Add Event") — a named, dated timeline entry
+// ("Adjuster meeting", "Contract signature"…). Stored in the SAME
+// unified leads/{leadId}/tasks subcollection as type:'event' docs so it
+// needs no new rules and rides team visibility; the timeline renders it
+// as a 📅 milestone and the open-task badge ignores it.
+const eventModalHTML = `
+<div id="eventModal" class="modal-bg">
+  <div class="modal-content" style="max-width:500px;">
+    <div class="modal-header">
+      <h3 style="margin:0;">Add Event</h3>
+      <button data-action="closeEventModal" style="background:none;border:none;font-size:24px;cursor:pointer;color:var(--m);">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div style="margin-bottom:15px;">
+        <label style="display:block;font-weight:600;margin-bottom:6px;">Event Title *</label>
+        <input type="text" id="eventTitle" placeholder="e.g., Adjuster meeting — contract signature" aria-label="Event title"
+               style="width:100%;padding:10px;background:var(--s2);color:var(--t);border:1px solid var(--br);border-radius:6px;">
+      </div>
+      <div style="margin-bottom:15px;">
+        <label style="display:block;font-weight:600;margin-bottom:6px;">Date & Time *</label>
+        <input type="datetime-local" id="eventWhen" aria-label="Event date and time"
+               style="width:100%;padding:10px;background:var(--s2);color:var(--t);border:1px solid var(--br);border-radius:6px;">
+      </div>
+      <div style="margin-bottom:15px;">
+        <label style="display:block;font-weight:600;margin-bottom:6px;">Notes</label>
+        <textarea id="eventNotes" rows="3" placeholder="Optional details…" aria-label="Event notes"
+                  style="width:100%;padding:10px;background:var(--s2);color:var(--t);border:1px solid var(--br);border-radius:6px;resize:vertical;"></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button data-action="closeEventModal" class="btn">
+        Cancel
+      </button>
+      <button data-action="saveEvent" class="btn btn-orange">
+        Add Event
+      </button>
+    </div>
+  </div>
+</div>
+`;
+
 // Inject task modal on page load
 window.addEventListener('DOMContentLoaded', () => {
   if (!document.getElementById('taskModal')) {
     document.body.insertAdjacentHTML('beforeend', taskModalHTML);
+  }
+  if (!document.getElementById('eventModal')) {
+    document.body.insertAdjacentHTML('beforeend', eventModalHTML);
   }
 });
 
@@ -139,6 +183,51 @@ window.openTaskModal = function() {
 
 window.closeTaskModal = function() {
   window.nbdModal.close('taskModal');
+};
+
+window.openEventModal = function() {
+  document.getElementById('eventTitle').value = '';
+  document.getElementById('eventWhen').value = '';
+  document.getElementById('eventNotes').value = '';
+  window.nbdModal.open('eventModal');
+  document.getElementById('eventTitle').focus();
+};
+
+window.closeEventModal = function() {
+  window.nbdModal.close('eventModal');
+};
+
+window.saveEvent = async function() {
+  const title = document.getElementById('eventTitle').value.trim();
+  const when = document.getElementById('eventWhen').value;
+  const notes = document.getElementById('eventNotes').value.trim();
+  if (!title) { alert('Please enter an event title'); return; }
+  if (!when) { alert('Please pick a date and time'); return; }
+  if (!window._customerId) { alert('Customer ID not found'); return; }
+  try {
+    await window.addDoc(window.collection(window.db, 'leads', window._customerId, 'tasks'), {
+      type: 'event',
+      leadId: window._customerId,
+      userId: window.auth.currentUser?.uid || null,
+      title: title,
+      text: title,
+      eventAt: new Date(when).toISOString(),
+      notes: notes || '',
+      done: false,
+      source: 'manual',
+      createdAt: window.serverTimestamp(),
+      createdBy: window.auth.currentUser?.email || 'Unknown'
+    });
+    window.closeEventModal();
+    const leadSnap = await window.getDoc(window.doc(window.db, 'leads', window._customerId));
+    if (leadSnap.exists()) {
+      await loadTimeline(window._customerId, leadSnap.data());
+    }
+    showToast('📅 Event added to the timeline', 'success');
+  } catch (error) {
+    console.error('Error saving event:', error);
+    showToast('Could not save event — try again', 'error');
+  }
 };
 
 window.saveTask = async function() {
@@ -158,14 +247,17 @@ window.saveTask = async function() {
   }
   
   try {
-    await window.addDoc(window.collection(window.db, 'tasks'), {
+    // Task unification: the CANONICAL store is the leads/{leadId}/tasks
+    // subcollection — the same one the dashboard (tasks.js), notification
+    // bell (_taskCache), and voice quick-capture already use. The old
+    // top-level 'tasks' collection write made customer-page tasks
+    // invisible everywhere else (and vice versa). `text` mirrors `title`
+    // because the dashboard renders t.text.
+    await window.addDoc(window.collection(window.db, 'leads', window._customerId, 'tasks'), {
       leadId: window._customerId,
-      // userId is REQUIRED — the timeline query (line 2643) filters
-      // by where('userId', '==', auth.currentUser?.uid). Without it,
-      // every task created here was invisible from the same page's
-      // own timeline. Tasks existed in Firestore but UI showed empty.
       userId: window.auth.currentUser?.uid || null,
       title: title,
+      text: title,
       dueDate: dueDate || null,
       priority: priority,
       notes: notes || '',
@@ -194,7 +286,8 @@ window.saveTask = async function() {
 // Toggle task completion
 window.toggleTask = async function(taskId, newDoneState) {
   try {
-    await window.updateDoc(window.doc(window.db, 'tasks', taskId), {
+    // Unified store: leads/{leadId}/tasks (see saveTask above).
+    await window.updateDoc(window.doc(window.db, 'leads', window._customerId, 'tasks', taskId), {
       done: newDoneState,
       completedAt: newDoneState ? window.serverTimestamp() : null
     });

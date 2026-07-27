@@ -885,8 +885,10 @@ section('Count badges: customer-page modules print their numbers (RoofLink "Phot
   assert('notes + documents loaders stamp counts (typeof-guarded — script order varies)',
     /typeof window\.nbdTitleCount === 'function'[\s\S]{0,120}notesPanelTitle', 'Notes', notes\.length/.test(gen)
     && /nbdNavCount\('navCountDocs', docSnap\.empty \? 0 : docSnap\.docs\.length\)/.test(gen));
-  assert('timeline stamps OPEN-task count on the nav (done tasks excluded)',
-    /nbdNavCount\('navCountTasks', taskSnap\.docs\.filter\(d => !\(d\.data\(\) \|\| \{\}\)\.done\)\.length\)/.test(boot));
+  // Feature 6 tightened the filter: Add-Event entries (type:'event') live
+  // in the same subcollection but are milestones, not todos.
+  assert('timeline stamps OPEN-task count on the nav (done tasks + events excluded)',
+    /nbdNavCount\('navCountTasks',\s*\n?\s*taskSnap\.docs\.filter\(d => \{ const t = d\.data\(\) \|\| \{\}; return !t\.done && t\.type !== 'event'; \}\)\.length\)/.test(boot));
   assert('estimates loader stamps its panel title from the soft-delete-filtered list',
     /nbdTitleCount\('estimatesPanelTitle', 'Estimates', window\._customerEstimates\.length\)/.test(boot));
 }
@@ -931,6 +933,78 @@ section('Cover photo: Set Cover action + hero, cover-first consumers');
   assert('V2 PDF payload fronts the lead cover instead of hardcoded null',
     !/coverPhoto:\s*null,/.test(v2)
     && /lead && lead\.coverPhotoUrl/.test(v2));
+}
+
+section('Task unification + Add Event + Job Checklist (RoofLink parity, feature 6)');
+{
+  const tasksUi = read(path.join(ROOT, 'docs/pro/js/customer-tasks-ui.js'));
+  const boot    = read(path.join(ROOT, 'docs/pro/js/customer-bootstrap.module.js'));
+  const chk     = read(path.join(ROOT, 'docs/pro/js/customer-checklist.js'));
+  const html    = readCustomer();
+  const m006    = read(path.join(ROOT, 'functions/migrations/scripts/006-unify-tasks.js'));
+
+  // ── Unification: ONE canonical store, leads/{leadId}/tasks. ──
+  assert('saveTask writes to the subcollection and mirrors title→text (dashboard renders t.text)',
+    /addDoc\(window\.collection\(window\.db, 'leads', window\._customerId, 'tasks'\)/.test(tasksUi)
+    && /title: title,\s*\n\s*text: title,/.test(tasksUi));
+  assert('toggleTask updates the subcollection doc',
+    /updateDoc\(window\.doc\(window\.db, 'leads', window\._customerId, 'tasks', taskId\)/.test(tasksUi));
+  assert('customer page no longer writes the legacy top-level tasks collection',
+    !/addDoc\(window\.collection\(window\.db, 'tasks'\)/.test(tasksUi));
+  assert('both bootstrap timelines read the subcollection with title||text fallback',
+    /collection\(db, 'leads', leadId, 'tasks'\)/.test(boot)
+    && /collection\(window\.db, 'leads', leadId, 'tasks'\)/.test(boot)
+    && !/collection\(db, 'tasks'\)/.test(boot)
+    && !/collection\(window\.db, 'tasks'\)/.test(boot)
+    && /task\.title \|\| task\.text \|\| 'Task'/.test(boot));
+
+  // ── Add Event: dated 📅 milestones in the same store, no new rules. ──
+  assert('event modal markup + open/save wired through the delegate',
+    /id="eventModal"/.test(tasksUi) && /id="eventTitle"/.test(tasksUi) && /id="eventWhen"/.test(tasksUi)
+    && /window\.openEventModal = function/.test(tasksUi)
+    && /window\.saveEvent = async function/.test(tasksUi));
+  assert('saveEvent stores type:event with ISO eventAt + manual source in the subcollection',
+    /type: 'event',/.test(tasksUi)
+    && /eventAt: new Date\(when\)\.toISOString\(\)/.test(tasksUi)
+    && /source: 'manual',/.test(tasksUi));
+  assert('customer.html has the 📅 Add Event button',
+    /data-action="openEventModal"/.test(html));
+  assert('timeline renders events as 📅 and excludes them from the open-task badge',
+    /task\.type === 'event'/.test(boot)
+    && /!t\.done && t\.type !== 'event'/.test(boot));
+  assert('Cal.com appointments merge into the timeline (leadId+userId scoped, startTime required)',
+    /collection\(db, 'appointments'\), where\('leadId', '==', leadId\), where\('userId', '==', uid0\)/.test(boot)
+    && /a\.startTime\?\.toDate/.test(boot));
+
+  // ── Job Checklist: persisted check-off state on the lead. ──
+  assert('customer-checklist.js ships insurance + default lists under stable keys',
+    /window\.JobChecklist = \{ render: render, CHECKLISTS: CHECKLISTS \}/.test(chk)
+    && /ins-file-claim/.test(chk) && /ins-supplement/.test(chk)
+    && /job-collect/.test(chk) && /NEVER rename/.test(chk));
+  assert('checkboxes ride the existing change delegate (CSP-safe)',
+    /data-change-action="toggleJobChecklistItem" data-arg="/.test(chk)
+    && /data-pass-el="true"/.test(chk)
+    && !/\son[a-z]+\s*=\s*["']/i.test(chk));
+  assert('toggle persists via dot-path map update and reverts the box on failure',
+    /update\['jobChecklist\.' \+ key\] = checked/.test(chk)
+    && /el\.checked = !checked/.test(chk));
+  assert('customer.html hosts #checklistPanel + loads the module; bootstrap renders it',
+    /id="checklistPanel"/.test(html)
+    && /js\/customer-checklist\.js/.test(html)
+    && /JobChecklist\?\.render/.test(boot));
+
+  // ── Migration 006 heals the backlog. ──
+  assert('006 exists as version 6 (unify-tasks) with the runner contract',
+    /exports\.version\s*=\s*6/.test(m006)
+    && /exports\.name\s*=\s*'unify-tasks'/.test(m006)
+    && /exports\.up = async \(ctx\)/.test(m006));
+  assert('006 copies to the SAME doc id (idempotent) and never deletes originals',
+    /db\.doc\('leads\/' \+ leadId \+ '\/tasks\/' \+ d\.id\)/.test(m006)
+    && /migratedToSubcollection: true/.test(m006)
+    && !/\.delete\(/.test(m006));
+  assert('006 mirrors title<->text and writes an audit report',
+    /const label = t\.title \|\| t\.text \|\| 'Task'/.test(m006)
+    && /system\/migrations\/reports\/006-unify-tasks/.test(m006));
 }
 
 section('QA wiring audit: photo Reorder button binds in module scope (not window delegate)');
