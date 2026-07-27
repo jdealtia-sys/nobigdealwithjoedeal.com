@@ -1290,13 +1290,17 @@ body.nbd-photo-selecting .nbd-photo-checkbox,
   </div>
 
   <!-- JUMP NAV — replaces the old tabs. Single-page scrollable layout. -->
+  <!-- RoofLink-parity count badges: the neutral .nav-count chips are
+       stamped by window.nbdNavCount (customer-tasks-ui.js) from each
+       module's loader — Photos (total), Documents (total), Timeline
+       (OPEN tasks). Messages keeps its orange unread badge. -->
   <div class="jump-nav" id="tabBar">
     <a href="#overviewTab">Overview</a>
-    <a href="#photosTab">Photos</a>
-    <a href="#documentsTab">Documents</a>
+    <a href="#photosTab">Photos <span class="nav-count" id="navCountPhotos" style="display:none;background:var(--s3,rgba(255,255,255,.08));color:var(--m,#9ca3af);font-size:10px;padding:1px 6px;border-radius:8px;margin-left:4px;font-weight:700;"></span></a>
+    <a href="#documentsTab">Documents <span class="nav-count" id="navCountDocs" style="display:none;background:var(--s3,rgba(255,255,255,.08));color:var(--m,#9ca3af);font-size:10px;padding:1px 6px;border-radius:8px;margin-left:4px;font-weight:700;"></span></a>
     <a href="#voiceTab">Voice Intel</a>
     <a href="#messagesTab">Messages <span id="msgUnreadBadge" style="display:none;background:var(--orange, #c8541a);color:var(--accent-fg);font-size:10px;padding:1px 6px;border-radius:8px;margin-left:4px;font-weight:700;"></span></a>
-    <a href="#timelineTab">Timeline</a>
+    <a href="#timelineTab">Timeline <span class="nav-count" id="navCountTasks" title="Open tasks" style="display:none;background:var(--s3,rgba(255,255,255,.08));color:var(--m,#9ca3af);font-size:10px;padding:1px 6px;border-radius:8px;margin-left:4px;font-weight:700;"></span></a>
     <a href="#contactTab">Contact</a>
   </div>
 
@@ -1336,7 +1340,7 @@ body.nbd-photo-selecting .nbd-photo-checkbox,
       <!-- PHOTOS -->
       <div class="panel">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
-          <div class="panel-title" style="margin:0;">Photos</div>
+          <div class="panel-title" style="margin:0;" id="photosPanelTitle">Photos</div>
           <button class="btn btn-orange" data-action="openUploadModal" style="font-size:11px;padding:6px 12px;">Upload</button>
         </div>
         <div id="photoList">
@@ -1350,7 +1354,7 @@ body.nbd-photo-selecting .nbd-photo-checkbox,
       <!-- DOCUMENTS -->
       <div class="panel">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;gap:8px;flex-wrap:wrap;">
-          <div class="panel-title" style="margin:0;">Documents</div>
+          <div class="panel-title" style="margin:0;" id="docsPanelTitle">Documents</div>
           <div style="display:flex;gap:6px;flex-wrap:wrap;">
             <button class="btn btn-orange" data-action="openDocCreateModal" style="font-size:11px;padding:6px 12px;">
               📝 Create
@@ -1453,7 +1457,7 @@ body.nbd-photo-selecting .nbd-photo-checkbox,
       <!-- ESTIMATES -->
       <div class="panel">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
-          <div class="panel-title" style="margin:0;">Estimates</div>
+          <div class="panel-title" style="margin:0;" id="estimatesPanelTitle">Estimates</div>
           <div style="display:flex;gap:8px;">
             <button class="btn btn-ghost" data-action="openEstimateModal" style="font-size:11px;padding:6px 12px;"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:13px;height:13px;vertical-align:middle;"><path d="M3 5h5l2 2h7a1 1 0 011 1v8a1 1 0 01-1 1H3a1 1 0 01-1-1V6a1 1 0 011-1z"/></svg> Log Estimate</button>
             <button class="btn btn-orange" data-action="_openInDashboardEstimate" style="font-size:11px;padding:6px 12px;"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="width:12px;height:12px;vertical-align:middle;"><path d="M10 4v12M4 10h12"/></svg> Build Estimate</button>
@@ -1470,7 +1474,7 @@ body.nbd-photo-selecting .nbd-photo-checkbox,
       <!-- NOTES -->
       <div class="panel">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
-          <div class="panel-title" style="margin:0;">Notes</div>
+          <div class="panel-title" style="margin:0;" id="notesPanelTitle">Notes</div>
           <button data-action="openNotesModal" title="Open larger editor"
             style="background:transparent;border:none;color:var(--m);font-size:11px;cursor:pointer;padding:4px 6px;text-decoration:underline;">
             Open larger editor
@@ -1547,7 +1551,7 @@ body.nbd-photo-selecting .nbd-photo-checkbox,
     <div style="max-width:1200px;margin:0 auto;padding:20px;">
       <div class="panel">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px;">
-          <div class="panel-title" style="margin:0;">Project Photos</div>
+          <div class="panel-title" style="margin:0;" id="projectPhotosTitle">Project Photos</div>
           <div style="display:flex;gap:8px;flex-wrap:wrap;">
             <button class="btn btn-orange" data-action="openUploadModal" style="font-size:13px;padding:6px 16px;">Upload Photos</button>
             <!-- Photo system Phase 4: link to the dedicated Review Sprint
@@ -1744,7 +1748,7 @@ body.nbd-photo-selecting .nbd-photo-checkbox,
         <div>
           <!-- INVOICES & PAYMENTS -->
           <div class="panel">
-            <div class="panel-title">Invoices & Payments</div>
+            <div class="panel-title" id="invoicesPanelTitle">Invoices & Payments</div>
             <div id="invoiceList">
               <div class="empty">
                 <div class="empty-icon">&#128176;</div>
@@ -1865,7 +1869,7 @@ body.nbd-photo-selecting .nbd-photo-checkbox,
         <div>
           <!-- COMMUNICATION LOG -->
           <div class="panel">
-            <div class="panel-title">Recent Communications</div>
+            <div class="panel-title" id="commsPanelTitle">Recent Communications</div>
             <div id="communicationLog">
               <div class="empty">
                 <div class="empty-icon">💬</div>
