@@ -98,6 +98,29 @@
     window.isLostStage = (k) => resolved.roleOf(k) === ROLE.LOST;
     window.stageLabel = (k) => (resolved.stageMeta[k] || resolved.stageMeta[normalizeStage(k)] || {}).label || k;
     window.stageColor = (k) => (resolved.stageMeta[k] || resolved.stageMeta[normalizeStage(k)] || {}).color || '#374151';
+    // stageOptionsForType is the STAGE PICKER's list — the kanban card ⋮
+    // "Move to stage…" submenu and the card-detail stage chip both read it
+    // (kanban-context-menu.js). The imported version closes over the
+    // module-local defaults, so leaving it pointed there meant a tenant with a
+    // custom pipeline got the BUILT-IN stages after their config resolved:
+    // custom stages absent, renamed stages showing their old label, the ✓
+    // current-stage marker never matching, and hidden stages still offered.
+    window.stageOptionsForType = function (jobType) {
+      const view = resolved.views[jobType] || resolved.views.insurance || { stages: [] };
+      const keys = (view.stages || []).slice();
+      // Warranty + Service terminate on their own; every other track converges
+      // into the job board after contract_signed (mirrors the default helper).
+      if (jobType !== 'warranty' && jobType !== 'service') {
+        const at = keys.indexOf('contract_signed');
+        if (at !== -1) {
+          const jobs = ((resolved.views.jobs && resolved.views.jobs.stages) || []).filter(k => !keys.includes(k));
+          keys.splice(at + 1, 0, ...jobs);
+        }
+      }
+      return keys
+        .filter(k => !(resolved.stageMeta[k] && resolved.stageMeta[k].hidden))
+        .map(k => ({ value: k, label: (resolved.stageMeta[k] || {}).label || k }));
+    };
     const vk = window._currentViewKey || 'insurance';
     const vs = (resolved.views[vk] && resolved.views[vk].stages) || [];
     window._stageKeys = vs;
@@ -252,6 +275,82 @@
     }
   };
 
+  // ── Stage select population ──
+  // #lStage ships as a STATIC <option> list in dashboard.html, so a tenant
+  // running a custom pipeline had no <option> for its own stages: the select
+  // read back as '' and saveLead persisted that empty string, DESTROYING the
+  // lead's stage on every edit. Repopulate from the live (tenant-resolved)
+  // window.STAGE_META on every modal open — same repopulate-on-open contract
+  // as refreshSubTypeAndTrades above.
+  //
+  // Grouping is by stage `track` so filterStageDropdownByJobType — which hides
+  // optgroups by matching keywords in their label — keeps working unchanged.
+  // Every non-hidden stage stays in the list regardless of job type: the
+  // filter only display:none's the off-track groups, and dropping their
+  // options would reintroduce the exact blanking this fixes.
+  const _STAGE_GROUPS = [
+    ['lead',      'Lead Pipeline'],
+    ['insurance', 'Insurance Track'],
+    ['cash',      'Cash Track'],
+    ['finance',   'Finance Track'],
+    ['warranty',  'Warranty Track'],
+    ['service',   'Service Track'],
+    ['contract',  'Contract'],
+    ['job',       'Job Pipeline'],
+    ['custom',    'Custom Stages'],
+    ['exit',      'Exit']
+  ];
+  function _stageGroupFor(key, meta) {
+    if (key === 'lost') return 'exit';
+    if (key === 'contract_signed') return 'contract';
+    const track = meta.track || '';
+    if (track === 'insurance' || track === 'cash' || track === 'finance' ||
+        track === 'warranty'  || track === 'service') return track;
+    if (track === 'shared') return meta.type === 'job' ? 'job' : 'lead';
+    return 'custom'; // resolvePipelineConfig stamps track:'custom' on tenant-invented stages
+  }
+  window.refreshStageOptions = function(keepValue) {
+    const sel = document.getElementById('lStage');
+    if (!sel) return;
+    const META = window.STAGE_META || STAGE_META;
+    // editLead assigns #lStage BEFORE it calls openLeadModal, so a stage with
+    // no matching option has ALREADY collapsed to '' by the time we run —
+    // hence the explicit keepValue, with the live selection as the fallback.
+    const want = keepValue || sel.value || '';
+    const groups = {};
+    Object.keys(META).forEach(key => {
+      const meta = META[key] || {};
+      // Hidden stages are off the board so they aren't pickable — except the
+      // one this lead is actually sitting on, which must stay selectable or
+      // saving would blank it.
+      if (meta.hidden && key !== want) return;
+      const g = _stageGroupFor(key, meta);
+      (groups[g] || (groups[g] = [])).push(key);
+    });
+    // Labels and custom keys come from the tenant pipeline config (company_
+    // admin writable) and flow into innerHTML — escape both, same defence-in-
+    // depth reasoning as buildKanbanColumns.
+    const esc = window.nbdEsc || (s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])));
+    sel.innerHTML = _STAGE_GROUPS.map(([g, label]) => {
+      const keys = groups[g];
+      if (!keys || !keys.length) return '';
+      return `<optgroup label="${label}">` + keys.map(k =>
+        `<option value="${esc(k)}">${esc((META[k] || {}).label || k)}</option>`
+      ).join('') + '</optgroup>';
+    }).join('');
+    if (want) sel.value = want;
+    // Stage the config no longer knows about at all (a custom stage the owner
+    // later deleted, still stored on an old lead). Keep it as its own option
+    // so the value round-trips untouched instead of saving as ''.
+    if (want && sel.value !== want) {
+      const opt = document.createElement('option');
+      opt.value = want;
+      opt.textContent = (META[want] && META[want].label) || want;
+      sel.appendChild(opt);
+      sel.value = want;
+    }
+  };
+
   // Toggle a trade chip selection on/off (visual + data-selected flag)
   window.toggleTradeChip = function(btn) {
     const on = btn.dataset.selected === '1';
@@ -352,7 +451,11 @@
     closeout:        'certificate_of_completion',
     final_invoice:   'invoice',
     warranty_cert:   'warranty_certificate',
-    warranty_report: 'before_after_report'
+    warranty_report: 'before_after_report',
+    // The finance track's "Send Pre-Qual Link" chip ships as kind:'doc' but was
+    // unmapped, so it fell through to the log-only tail even though the
+    // financing_options template is fully defined (doc-preflight.js:762).
+    send_prequal:    'financing_options'
   };
 
   // Convert a lead record to the merge-data shape the NBDDocGen templates
@@ -432,6 +535,93 @@
       return false;
     });
   }
+
+  // ─────────────────────────────────────────────────────────────────
+  // Next-Action handlers — the chips that have a real destination.
+  //
+  // Availability is NOT symmetric on dashboard.html: ReviewEngine,
+  // InvoicePipeline and smart-calendar are eager <script defer> tags, while
+  // PhotoEngine lives in the lazy 'photos' bundle. dashboard-actions.js
+  // installs a load-then-run stub on window.PhotoEngine, so we call THAT
+  // rather than reaching for ScriptLoader here — but every handler still
+  // feature-checks its own target and returns false if it isn't there, which
+  // drops the chip back to the honest timeline-log tail instead of no-opping.
+  // ─────────────────────────────────────────────────────────────────
+  function _actionRequestReview(leadId) {
+    if (!(window.ReviewEngine && typeof window.ReviewEngine.sendReviewSMS === 'function')) return false;
+    window.ReviewEngine.sendReviewSMS(leadId);
+    return true;
+  }
+
+  // Deposits and final payments both open the invoice builder on this lead.
+  // The lead modal closes first — the invoice modal is a sibling overlay and
+  // stacking the two leaves the rep looking at the wrong one.
+  function _actionOpenInvoice(leadId) {
+    if (!(window.InvoicePipeline && typeof window.InvoicePipeline.createInvoiceUI === 'function')) return false;
+    if (typeof window.closeLeadModal === 'function') window.closeLeadModal();
+    window.InvoicePipeline.createInvoiceUI(leadId);
+    return true;
+  }
+
+  function _actionOpenCamera(leadId) {
+    if (!(window.PhotoEngine && typeof window.PhotoEngine.openCamera === 'function')) return false;
+    if (typeof window.closeLeadModal === 'function') window.closeLeadModal();
+    window.PhotoEngine.openCamera(leadId);
+    return true;
+  }
+
+  // Scheduling chips land the rep on the Today's Schedule timeline.
+  // goTo('schedule') is the call smart-calendar.js wraps to repaint itself;
+  // loadSmartCalendar is the direct fallback for pages without the nav helper.
+  function _actionOpenSchedule() {
+    const hasNav  = typeof window.goTo === 'function';
+    const hasCal  = typeof window.loadSmartCalendar === 'function';
+    if (!hasNav && !hasCal) return false;
+    if (typeof window.closeLeadModal === 'function') window.closeLeadModal();
+    if (hasNav) window.goTo('schedule');
+    else window.loadSmartCalendar();
+    return true;
+  }
+
+  // request_supp is kind:'action' because it doesn't generate anything — it
+  // moves the claim's supplement to "requested" (the value the lead form and
+  // the supplement approval flow both read). Leads have NO snapshot listener,
+  // so refresh the in-memory lead and the open form field by hand; otherwise
+  // the rep keeps seeing the stale value until a full reload.
+  function _actionRequestSupplement(leadId) {
+    if (!(leadId && window.db && window.doc && window.updateDoc)) return false;
+    window.updateDoc(window.doc(window.db, 'leads', leadId), {
+      supplementStatus: 'requested',
+      updatedAt: window.serverTimestamp ? window.serverTimestamp() : new Date()
+    }).then(() => {
+      const lead = _findLead(leadId);
+      if (lead) lead.supplementStatus = 'requested';
+      const sel = document.getElementById('lSupplementStatus');
+      if (sel && (document.getElementById('lEditId')?.value || '') === leadId) sel.value = 'requested';
+      if (typeof showToast === 'function') showToast('✓ Supplement marked as requested', 'success');
+    }).catch(err => {
+      console.warn('request_supp write failed:', err && err.message);
+      if (typeof showToast === 'function') showToast('Could not mark the supplement as requested — try again', 'warning');
+    });
+    return true;
+  }
+
+  // Chip ID → handler. Only IDs whose target subsystem genuinely exists are
+  // listed. The ones deliberately absent (log_contact, follow_up,
+  // log_adjuster, follow_supp, follow_lender, confirm_delivery, log_diagnosis,
+  // upload_scope) are workflow markers with nothing to open — their "Logged"
+  // toast is the honest outcome, so they keep falling through.
+  const ACTION_HANDLER_MAP = {
+    request_review:  _actionRequestReview,
+    collect_deposit: _actionOpenInvoice,
+    request_payment: _actionOpenInvoice,
+    photo_intake:    _actionOpenCamera,
+    progress_photos: _actionOpenCamera,
+    final_photos:    _actionOpenCamera,
+    sched_inspect:   _actionOpenSchedule,
+    sched_crew:      _actionOpenSchedule,
+    request_supp:    _actionRequestSupplement
+  };
 
   // ─────────────────────────────────────────────────────────────────
   // Doc-data bridge — lets DocPreflight (js/doc-preflight.js) run from
@@ -686,12 +876,6 @@
         const docType = (lead && lead.jobType === 'insurance') ? 'inspectionInsurance' : 'inspectionHomeowner';
         _generateDocWithPreflight(docType, leadId);
         return;
-      } else if (actionId === 'request_supp') {
-        // request_supp is wired as kind:'action' in STAGE_ACTIONS (it
-        // changes supplementStatus), but if it ever arrives as a doc
-        // generation request, route to the supplement_request letter.
-        _generateDocWithPreflight('supplement_request', leadId);
-        return;
       } else if (ACTION_DOC_MAP[actionId]) {
         // 2. Mapped doc types — every other chip with a doc kind whose
         //    action ID is in ACTION_DOC_MAP (AOB, contract, change order,
@@ -717,9 +901,21 @@
     }
 
     // ── Plain workflow actions ──
-    // No doc, no stage change — just record that the rep did the thing.
-    // Useful for "Log Contact", "Follow Up", "Order Materials", etc.
+    // Two families. Chips with a real destination open it (ACTION_HANDLER_MAP
+    // above) AND log the fact; everything else is a "log that you did this"
+    // marker — "Log Contact", "Follow Up", "Order Materials" — with nothing
+    // to open, so recording it IS the whole action.
     const label = (actionId || 'action').replace(/_/g, ' ');
+    const handler = ACTION_HANDLER_MAP[actionId];
+    if (handler) {
+      if (!leadId) {
+        if (typeof showToast === 'function') showToast('Open a lead first', 'warning');
+        return;
+      }
+      // A handler that reports false means its subsystem wasn't loaded — fall
+      // through to the log tail rather than swallowing the click.
+      if (handler(leadId)) { _logLeadActivity(leadId, actionId, label); return; }
+    }
     if (leadId) {
       _logLeadActivity(leadId, actionId, label).then(ok => {
         if (typeof showToast === 'function') {
@@ -2760,14 +2956,21 @@
     window._leads = window._leads || [];
     // If we already have this lead (edit case), replace it; otherwise prepend.
     const idx = window._leads.findIndex(l => l.id === leadId);
+    // saveLead OMITS the `stage` key when #lStage had no option matching the
+    // lead's stage — writing '' would destroy it (see crm-leads.js). Firestore
+    // leaves the stored stage alone on such a partial update, so mirror that
+    // here: without this the spread drops the field and the card silently
+    // re-buckets into New until loadLeads round-trips.
+    const _stage = data.stage != null ? data.stage : window._leads[idx]?.stage;
     const merged = {
       id: leadId,
       ...data,
+      stage: _stage,
       userId: window._user?.uid,
       createdAt: window._leads[idx]?.createdAt || new Date(),
       _stageKey: typeof normalizeStage === 'function'
-        ? normalizeStage(data.stage)
-        : (data.stage || 'new')
+        ? normalizeStage(_stage)
+        : (_stage || 'new')
     };
     merged._stageRole = stageRole(merged._stageKey);
     if (idx >= 0) window._leads[idx] = merged;

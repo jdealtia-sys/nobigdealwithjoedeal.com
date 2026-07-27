@@ -1356,7 +1356,11 @@ section('Phase orange-rgba — 7 deferred JS files reviewed');
   // theme-shift (PDFs, customer-facing auth + share, theme-engine config).
   for (const [file, expectedCount, reason] of [
     ['docs/pro/js/document-generator-templates.js', 1, 'PDF template box-shadow — brand-pin (PDFs do not theme-shift)'],
-    ['docs/pro/js/share-gallery.js',                1, 'customer-facing share gallery — brand-pin per Phase A'],
+    // share-gallery.js was DELETED 2026-07-27: it uploaded a text/html Blob to a
+    // Storage path whose write rule requires isImage(), so the Share Gallery
+    // button could never succeed, and it minted permanent unrevocable links with
+    // hardcoded NBD brand strings — the pre-#698 pattern #702 retired for GDPR.
+    // Share now routes through PortalLinkHelpers (revocable, tenant-aware).
     ['docs/pro/js/nbd-auth.js',                     3, 'auth screen border + bg — brand-pin per Phase A'],
     ['docs/pro/js/theme-engine.js',                 2, 'theme-engine defaults (rgba(232,114,12,...)) — config, not styling'],
   ]) {
@@ -3485,6 +3489,194 @@ section('Embedded per-customer estimate hub (CustomerEstimateHub)');
   const css = read(path.join(ROOT, 'docs/pro/css/dashboard-app.css'));
   assert('4-tab job-detail still uses the flex tab row (no fixed 3-tab width)',
     /\.m-jd-tab\{[\s\S]{0,80}flex:1/.test(css));
+}
+
+section('Customer-surface sweep — blockers caught in review (regression pins)');
+{
+  const decomment = (s) => s.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+
+  // ── 1. Job Value round-trip. The field is type="number"; assigning a legacy
+  //    display string ("$45,000") to it makes the browser sanitize .value to '',
+  //    so an unrelated save then wrote jobValue:0 over a live deal. BOTH ends of
+  //    the round-trip must strip.
+  const editModal = read(path.join(PRO_JS, 'customer-edit-modal.js'));
+  assert('edit-modal SEEDS Job Value as a bare number (legacy "$45,000" survives)',
+    /replace\(\/\[\^0-9\.\\-\]\/g, ''\)[\s\S]{0,200}getElementById\('editJobValue'\)\.value =/.test(editModal));
+  assert('edit-modal WRITES Job Value as a number, never a raw string',
+    /jobValue: parseFloat\(String\(document\.getElementById\('editJobValue'\)\.value\)\.replace/.test(editModal));
+  const custHtml = read(path.join(ROOT, 'docs/pro/customer.html'));
+  assert('Job Value input is type="number"',
+    /id="editJobValue"[^>]*type="number"|type="number"[^>]*id="editJobValue"/.test(custHtml));
+
+  // ── 2. Lightbox handshake. setLightboxSource is a CURSOR SETTER — it displays
+  //    nothing. Returning early on it left the lightbox permanently closed, and
+  //    the arg order (url, desc, arr, idx) into a (srcArray, idx) setter nulled
+  //    the source, forcing the ‹ › arrows back onto the wrong customer's array.
+  const tasksUi = read(path.join(PRO_JS, 'customer-tasks-ui.js'));
+  // Comments in this function NAME setLightboxSource while explaining the
+  // ordering rule, so the ordering check has to run against code only.
+  const openLb = decomment(tasksUi.slice(tasksUi.indexOf('window.openPhotoLightbox = function'),
+                                         tasksUi.indexOf('window.openPhotoLightbox = function') + 1900));
+  assert('openPhotoLightbox DISPLAYS before handing over the cursor',
+    openLb.indexOf("classList.add('active')") !== -1 &&
+    openLb.indexOf('setLightboxSource') !== -1 &&
+    openLb.indexOf("classList.add('active')") < openLb.indexOf('setLightboxSource'));
+  assert('openPhotoLightbox calls the setter with (srcArray, idx) — its real signature',
+    /setLightboxSource\(srcArray, Number\(idx\) \|\| 0\)/.test(openLb));
+  assert('openPhotoLightbox locks body scroll (pairs with the canonical closeLightbox reset)',
+    /document\.body\.style\.overflow = 'hidden'/.test(openLb));
+  const bootstrap = read(path.join(PRO_JS, 'customer-bootstrap.module.js'));
+  assert('setLightboxSource really is a two-arg cursor setter',
+    /window\.setLightboxSource = function\(srcArray, idx\)/.test(bootstrap));
+  assert('exactly one closeLightbox definition survives (the one that unlocks scroll)',
+    (read(path.join(PRO_JS, 'customer-tasks-ui.js')).split('window.closeLightbox =').length - 1) === 0
+    && (bootstrap.split('window.closeLightbox =').length - 1) === 1);
+
+  // ── 3. _mJdShare lives on the DASHBOARD, where customer-portal.js is never
+  //    loaded — so PortalLinkHelpers.resolveUrl/copyForLead throw 'Portal module
+  //    not loaded'. It must mint through the dashboard's own callable path.
+  const actions = read(path.join(PRO_JS, 'dashboard-actions.js'));
+  const share = decomment(actions.slice(actions.indexOf('function _mJdShare()'),
+                                        actions.indexOf('function _mJdAct(')));
+  assert('_mJdShare mints via _mintPortalUrl (works on the dashboard)',
+    /window\._mintPortalUrl\(id\)/.test(share));
+  assert('_mJdShare does NOT use the customer-page-only PortalLinkHelpers minter',
+    !/PortalLinkHelpers\.(resolveUrl|copyForLead)/.test(share));
+  assert('_mJdShare still prefers the OS share sheet',
+    /navigator\.share\(\{[\s\S]{0,200}url: portal/.test(share));
+  assert('_mJdShare treats an AbortError as a dismissal, not a failure',
+    /err\.name === 'AbortError'/.test(share));
+  assert('_mJdShare records the share (feeds fresh pulse / stale-shares / engagement)',
+    /recordShare\(id, 'share'\)/.test(share));
+  const api = read(path.join(PRO_JS, 'dashboard-api.js'));
+  // Scope to the minter's own body — _sharePortalLink sits directly below it
+  // and legitimately does use the clipboard.
+  const minter = decomment(api.slice(api.indexOf('window._mintPortalUrl = async function'),
+                                     api.indexOf('window._sharePortalLink = async function')));
+  assert('_mintPortalUrl is side-effect free (no clipboard/SMS/share-record in the minter)',
+    minter.length > 0 &&
+    !/navigator\.clipboard|window\.open\(|recordShare|showToast/.test(minter) &&
+    /return location\.origin \+ '\/pro\/portal\.html\?token='/.test(minter));
+  for (const page of ['dashboard.html', 'dashboard.legacy.html']) {
+    assert(`${page} still does NOT load customer-portal.js (the minter must not depend on it)`,
+      !/customer-portal\.js/.test(read(path.join(ROOT, 'docs/pro', page))));
+  }
+
+  // ── 4. The mobile quick-action bar must NOT send on tap. smsForLead mints a
+  //    portal link, composes a fixed body and POSTs to Twilio with no preview —
+  //    an irreversible customer-facing send behind a button labelled "Text".
+  const qab = read(path.join(PRO_JS, 'customer-quick-action-bar.js'));
+  assert('quick-action bar Text/Email open the OS composer, never auto-send',
+    /href="sms:\$\{escapeAttr\(phone\)\}"/.test(qab) &&
+    /href="mailto:\$\{escapeAttr\(email\)\}"/.test(qab));
+  assert('quick-action bar does not call the auto-sending portal helpers',
+    !/(smsForLead|emailForLead)/.test(decomment(qab)));
+}
+
+section('Embedded per-customer photo hub (CustomerPhotoHub)');
+{
+  const hub = read(path.join(PRO_JS, 'customer-photo-hub.js'));
+  const actions = read(path.join(PRO_JS, 'dashboard-actions.js'));
+  const widgets = read(path.join(PRO_JS, 'dashboard-widgets.js'));
+  const engine = read(path.join(PRO_JS, 'photo-engine.js'));
+
+  // "Does this file CALL X" assertions must not match X appearing in a comment
+  // that explains why the file deliberately does NOT call it. These modules
+  // carry long rationale headers, so strip comments before those checks.
+  const decomment = (s) => s.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+  const hubCode = decomment(hub);
+
+  // ── The PHOTOS action must STAY on the customer, like the estimate action.
+  const mJdAct = actions.slice(actions.indexOf('function _mJdAct('),
+                               actions.indexOf('window._mJdAct = _mJdAct'));
+  assert("_mJdAct photos case switches to the embedded Photos tab",
+    /case 'photos':[\s\S]{0,700}_mJdSwitchTab\('photos'\)/.test(mJdAct));
+  assert("_mJdAct photos case no longer closes the overlay or navigates to the photos view",
+    !/case 'photos':[\s\S]{0,700}(closeMobileJobDetail\(\)|goTo\('photos'\))/.test(mJdAct));
+  // The dead handoff global that navigation used is no longer WRITTEN here
+  // (nbdSelectPhotoLead still owns it for the standalone photos view).
+  assert('_mJdAct no longer sets the _currentPhotoLeadId handoff global',
+    !/_currentPhotoLeadId\s*=/.test(decomment(mJdAct)));
+
+  assert('hub mounts lazily on the first switch to the Photos tab',
+    /if \(tab === 'photos'\) _mountPhotoHub\(\);/.test(actions));
+  assert('_mountPhotoHub mounts for the CURRENT overlay lead',
+    /function _mountPhotoHub\(\)[\s\S]{0,700}window\._cardDetailLeadId[\s\S]{0,700}CustomerPhotoHub\.mount\(host, leadId/.test(actions));
+  assert('_mountPhotoHub degrades gracefully when the module is absent',
+    /function _mountPhotoHub[\s\S]{0,400}if \(!window\.CustomerPhotoHub\)[\s\S]{0,220}return;/.test(actions));
+
+  // ── The old read-only grid is GONE from openMobileJobDetail; the hub owns
+  //    that tab. Re-adding it would resurrect the un-tappable thumbnails.
+  const openFn = widgets.slice(widgets.indexOf('function openMobileJobDetail'),
+                               widgets.indexOf('window.openMobileJobDetail'));
+  assert('openMobileJobDetail no longer paints the dead read-only photo grid',
+    !/m-jd-photo-grid/.test(openFn));
+  assert('openMobileJobDetail unmounts the photo hub when the lead changes',
+    /CustomerPhotoHub\.leadId\(\) !== leadId[\s\S]{0,120}\.unmount\(\)/.test(openFn));
+
+  // ── Both dashboards load it.
+  for (const page of ['dashboard.html', 'dashboard.legacy.html']) {
+    const html = read(path.join(ROOT, 'docs/pro', page));
+    assert(`${page}: loads customer-photo-hub.js`, /customer-photo-hub\.js/.test(html));
+  }
+
+  // ── The tab is a WORKSPACE, not a gallery: every control does real work.
+  for (const [act, marker] of [
+    ['camera', 'doCamera'],
+    ['upload', 'doUpload'],
+    ['cover',  'doCover'],
+    ['tag',    'doTag'],
+    ['delete', 'doDelete'],
+  ]) {
+    assert(`hub '${act}' action is wired to ${marker}`,
+      new RegExp(`case '${act}':\\s*${marker}\\(`).test(hub));
+  }
+  // Tiles are buttons now, not inert <img> — the reported dead-control.
+  assert('photo tiles are tappable buttons carrying a photo id',
+    /class="cph-tile[\s\S]{0,120}data-cph-act="open" data-cph-id="/.test(hub));
+
+  // ── The photo engine is lazy; every engine-backed action must load it first.
+  assert('hub loads the lazy photos bundle before engine calls',
+    /function ensureEngine\([\s\S]{0,300}ScriptLoader\.loadBundle\('photos'\)/.test(hub));
+  assert('hub camera/upload/delete/tag all route through ensureEngine',
+    (hub.match(/ensureEngine\(\)\.then/g) || []).length >= 4);
+
+  // ── Cover contract mirrors customer-tasks-ui.js: BOTH the id and the
+  //    denormalized url, toggle-to-clear. Every consumer reads coverPhotoUrl.
+  const cover = hub.slice(hub.indexOf('function doCover('), hub.indexOf('function doTag('));
+  assert('cover write sets coverPhotoId AND the denormalized coverPhotoUrl',
+    /coverPhotoId: id, coverPhotoUrl: url/.test(cover));
+  assert('cover is toggle-to-clear (second tap nulls both fields)',
+    /coverPhotoId: null, coverPhotoUrl: null/.test(cover));
+  assert('cover repaints the kanban (card thumb strip reads coverPhotoUrl)',
+    /renderLeads\(window\._leads/.test(cover));
+  // A deleted photo must not remain the lead's cover.
+  assert('deleting the cover photo clears the cover',
+    /coverPhotoId === id\) clearCover/.test(hub));
+
+  // ── Mutations keep _photoCache authoritative rather than re-querying:
+  //    PhotoEngine.getPhotosForLead is userId-only and would NARROW a team
+  //    member's view, so it must NOT be used as the hub's refresh path.
+  assert('hub renders from the team-scoped window._photoCache',
+    /window\._photoCache\[_leadId\]/.test(hubCode));
+  assert('hub does not refresh via the userId-only getPhotosForLead',
+    !/getPhotosForLead|getPhotosForReport/.test(hubCode));
+
+  // ── Safety.
+  assert('hub has zero inline handlers',
+    !/\son[a-z]+\s*=\s*["']/.test(hubCode) && !/javascript:/.test(hubCode));
+  assert('hub refuses non-http photo urls (no javascript: into src/href)',
+    /function safeUrl\([\s\S]{0,200}\^https\?:\\\/\\\//.test(hub));
+  assert('hub escapes interpolated photo fields',
+    /esc\(sel\.description/.test(hub) && /esc\(p\.id\)/.test(hub));
+
+  // ── Tenancy: uploads must be visible to teammates. The dashboard's photo
+  //    cache queries userId==me OR companyId==my tenant; uploads that stamped
+  //    only userId were invisible to every teammate.
+  assert('photo uploads stamp companyId for team visibility',
+    /companyId: window\._userClaims\.companyId/.test(engine));
+  assert('companyId is omitted (not null) when the user has no company claim',
+    /window\._userClaims && window\._userClaims\.companyId[\s\S]{0,120}: \{\}/.test(engine));
 }
 
 section('Load-status banner yields to full-screen overlays (max-z occlusion)');

@@ -8,7 +8,15 @@ function openEditCustomerModal() {
   document.getElementById('editEmail').value = lead.email || '';
   document.getElementById('editAddress').value = lead.address || '';
   document.getElementById('editDamageType').value = lead.damageType || lead.serviceType || '';
-  document.getElementById('editJobValue').value = lead.jobValue || lead.estimatedValue || '';
+  // Job Value is now a type="number" input, so it must be SEEDED with a bare
+  // number. Legacy leads hold display strings like "$45,000"; assigning one to
+  // a number input makes the browser sanitize .value to '' — the field looks
+  // empty, the rep saves an unrelated edit, and parseFloat('')||0 writes
+  // jobValue:0 over a live $45,000 deal with no error and no visible cue.
+  // Strip on the way IN with the same rule the save path uses on the way out.
+  const _rawJv = lead.jobValue != null && lead.jobValue !== '' ? lead.jobValue : lead.estimatedValue;
+  const _jv = parseFloat(String(_rawJv == null ? '' : _rawJv).replace(/[^0-9.\-]/g, ''));
+  document.getElementById('editJobValue').value = isFinite(_jv) ? _jv : '';
   // nbdModal owns visibility + Esc/backdrop close (batch-4 consolidation).
   window.nbdModal.open('editCustomerModal');
 }
@@ -29,7 +37,14 @@ async function saveCustomerEdits() {
       email: document.getElementById('editEmail').value.trim(),
       address: document.getElementById('editAddress').value.trim(),
       damageType: document.getElementById('editDamageType').value.trim(),
-      jobValue: document.getElementById('editJobValue').value.trim(),
+      // Coerce to a NUMBER before writing. Every downstream consumer
+      // (kanban column totals, dashboard KPI tiles, leaderboard, the profit
+      // panel) does Number(lead.jobValue) — a rep typing "$45,000" stored
+      // the raw string, which reads back NaN and silently under-counts as
+      // $0. Mirrors the canonical writer in crm-leads.js:243 (saveLead);
+      // the strip is needed because a type="number" input still hands back
+      // a string and existing leads already hold "$45,000"-shaped values.
+      jobValue: parseFloat(String(document.getElementById('editJobValue').value).replace(/[^0-9.\-]/g, '')) || 0,
       updatedAt: new Date()
     };
     // Refresh the normalized inbound-SMS match key alongside phone —

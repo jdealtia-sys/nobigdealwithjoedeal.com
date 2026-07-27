@@ -205,8 +205,14 @@ section('Phase 2: template-first New Estimate front door');
   const est = read(path.join(PRO_JS, 'estimates.js'));
   // startNewEstimate leads with the chooser; everything stays V2-only
   // (Classic remains deprecated for new estimates).
-  assert('startNewEstimate opens the template-or-blank chooser',
-    /function startNewEstimate\(\)[\s\S]{0,700}showNewEstimateChooser\(\);/.test(est));
+  // startNewEstimate takes an EXPLICIT leadId (2026-07-27). The customer-scoped
+  // entry points — the lead-edit-modal "Send Estimate" / "Send Service Quote" /
+  // "Revise Estimate" chips — call startNewEstimate(leadId), but the chooser used
+  // to read ONLY window._cardDetailLeadId, which is null unless a card-detail
+  // modal happens to be open. So those chips opened a builder with no customer
+  // attached. The global stays as the fallback for the callers that pass nothing.
+  assert('startNewEstimate opens the template-or-blank chooser with the lead',
+    /function startNewEstimate\(leadId\)[\s\S]{0,1600}showNewEstimateChooser\(leadId \|\| window\._cardDetailLeadId\);/.test(est));
   assert('chooser leads with From Template (recommended) + Start Blank V2',
     /From Template — Fastest/.test(est)
     && /Start Blank/.test(est)
@@ -214,8 +220,13 @@ section('Phase 2: template-first New Estimate front door');
   assert('template option load-then-runs the estimates bundle (race-safe)',
     /JobTemplatesUI\.openPicker === 'function'/.test(est)
     && /loadBundle\('estimates'\)\.then\(openJT\)/.test(est));
-  assert('template option honors lead context (_cardDetailLeadId)',
-    /openPicker\(window\._cardDetailLeadId \? \{ leadId: window\._cardDetailLeadId \} : \{\}\)/.test(est));
+  // Both chooser branches must thread the resolved lead through, or the estimate
+  // saves orphaned (leadId:null) and never reaches the pipeline stamp-back.
+  assert('template option honors the lead the chooser was opened for',
+    /function showNewEstimateChooser\(leadId\)/.test(est)
+    && /openPicker\(leadId \? \{ leadId: leadId \} : \{\}\)/.test(est));
+  assert('Start Blank also threads the lead into the V2 builder',
+    (est.match(/openEstimateV2Builder\(leadId \? \{ leadId: leadId \} : \{\}\)/g) || []).length >= 2);
   const dashHtml = read(path.join(ROOT, 'docs/pro/dashboard.html'));
   assert('estimates-view header button routes through startNewEstimate',
     /data-fn="startNewEstimate" title="New estimate — start from a job template/.test(dashHtml)

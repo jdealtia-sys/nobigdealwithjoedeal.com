@@ -1249,37 +1249,39 @@ body.nbd-photo-selecting .nbd-photo-checkbox,
         title="Open the portal in a preview window — see what the customer will see">
         🔍 Preview Portal
       </button>
-      <button class="btn" data-action="openGallerySharePanel" title="Generate or view shareable customer gallery link">
+      <button class="btn" data-action="openGallerySharePanel" title="Generate or view the shareable homeowner portal link">
         🔗 Share Portal
       </button>
-      <!-- Customer Sharing Panel — dual portals -->
+      <!-- Customer Sharing Panel — ONE portal.
+           This used to advertise two products: a "📸 Photo Gallery"
+           ("just photos — perfect for showing a homeowner your work at
+           the door") and a "📋 Full Project Portal". Both Generate
+           buttons and both 👁 previews minted the IDENTICAL
+           /pro/portal.html?token=… URL, because there is no photos-only
+           view: createPortalToken has no view-type field and
+           getHomeownerPortalView unconditionally returns grandTotal +
+           pipeline status. A rep who picked "Photo Gallery" precisely to
+           avoid showing pricing at the door was sending the homeowner
+           the price anyway. The honest fix is one row whose description
+           states what the link actually contains; a real photos-only
+           portal needs a backend view-type and is out of scope. -->
       <div id="gallerySharePanel" style="display:none;background:var(--s2);border:1px solid var(--br);border-radius:8px;padding:14px;margin-top:10px;width:100%;">
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
           <span style="font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--orange);">Customer Sharing</span>
           <button class="btn btn-ghost" style="font-size:9px;padding:3px 8px;margin-left:auto;" data-action="_closeGallerySharePanel">Close</button>
         </div>
 
-        <!-- Photo Portal -->
-        <div style="background:var(--s);border:1px solid var(--br);border-radius:6px;padding:12px;margin-bottom:8px;">
-          <div style="font-size:11px;font-weight:700;color:var(--t);margin-bottom:6px;">📸 Photo Gallery</div>
-          <div style="font-size:10px;color:var(--m);margin-bottom:8px;">Just photos — perfect for showing a homeowner your work at the door.</div>
-          <div style="display:flex;gap:6px;align-items:center;">
-            <input type="text" id="photoPortalUrl" readonly placeholder="Click Generate to create link" aria-label="Photo gallery share link" style="flex:1;background:var(--s2);border:1px solid var(--br);border-radius:4px;padding:6px 8px;font-size:11px;color:var(--t);font-family:inherit;">
-            <button class="btn btn-orange" style="font-size:10px;padding:6px 10px;white-space:nowrap;" data-action="generatePhotoPortalLink">Generate</button>
-            <button class="btn btn-ghost" style="font-size:10px;padding:6px 8px;" data-action="copyPortalUrl" data-arg="photoPortalUrl">📋</button>
-            <button class="btn btn-ghost" style="font-size:10px;padding:6px 8px;" data-action="CustomerPortal.preview" data-pass-customer-id="true" data-arg="photo">👁</button>
-          </div>
-        </div>
-
-        <!-- Full Portal -->
+        <!-- Project Portal — ids/handlers deliberately unchanged
+             (#fullPortalUrl is read by portal-link-helpers.js's
+             copy-failure fallback and by quickCopyPortalLink). -->
         <div style="background:var(--s);border:1px solid var(--br);border-radius:6px;padding:12px;">
-          <div style="font-size:11px;font-weight:700;color:var(--t);margin-bottom:6px;">📋 Full Project Portal</div>
-          <div style="font-size:10px;color:var(--m);margin-bottom:8px;">Photos + status + timeline + next steps. Send to customers for project tracking.</div>
+          <div style="font-size:11px;font-weight:700;color:var(--t);margin-bottom:6px;">📋 Project Portal</div>
+          <div style="font-size:10px;color:var(--m);margin-bottom:8px;">One link the homeowner can open: photos, project status, timeline, next steps — and your estimate pricing. Expires in 30 days and can be revoked.</div>
           <div style="display:flex;gap:6px;align-items:center;">
-            <input type="text" id="fullPortalUrl" readonly placeholder="Click Generate to create link" aria-label="Full project portal share link" style="flex:1;background:var(--s2);border:1px solid var(--br);border-radius:4px;padding:6px 8px;font-size:11px;color:var(--t);font-family:inherit;">
+            <input type="text" id="fullPortalUrl" readonly placeholder="Click Generate to create link" aria-label="Project portal share link" style="flex:1;background:var(--s2);border:1px solid var(--br);border-radius:4px;padding:6px 8px;font-size:11px;color:var(--t);font-family:inherit;">
             <button class="btn btn-orange" style="font-size:10px;padding:6px 10px;white-space:nowrap;" data-action="generateFullPortalLink">Generate</button>
             <button class="btn btn-ghost" style="font-size:10px;padding:6px 8px;" data-action="copyPortalUrl" data-arg="fullPortalUrl">📋</button>
-            <button class="btn btn-ghost" style="font-size:10px;padding:6px 8px;" data-action="CustomerPortal.preview" data-pass-customer-id="true" data-arg="full">👁</button>
+            <button class="btn btn-ghost" style="font-size:10px;padding:6px 8px;" data-action="CustomerPortal.preview" data-pass-customer-id="true" title="Preview the portal exactly as the homeowner sees it">👁</button>
           </div>
         </div>
       </div>
@@ -1334,13 +1336,21 @@ body.nbd-photo-selecting .nbd-photo-checkbox,
             </button>
           </div>
         </div>
+        <!-- One pill per data-type loadTimeline can emit. filterTimeline
+             hides every row whose data-type !== the pill's filter, so a
+             missing pill means those rows are unreachable except via
+             "All" — that orphaned type:'event' and type:'communication'
+             rows. Keep this list in sync with loadTimeline's emitted
+             types in customer-bootstrap.module.js. -->
         <div class="tl-filters" id="tlFilters">
           <span class="tl-pill active" data-filter="all" data-action="filterTimeline" data-arg="all" data-pass-el="true">All</span>
           <span class="tl-pill" data-filter="stage" data-action="filterTimeline" data-arg="stage" data-pass-el="true">Stage Changes</span>
           <span class="tl-pill" data-filter="photo" data-action="filterTimeline" data-arg="photo" data-pass-el="true">Photos</span>
           <span class="tl-pill" data-filter="task" data-action="filterTimeline" data-arg="task" data-pass-el="true">Tasks</span>
+          <span class="tl-pill" data-filter="event" data-action="filterTimeline" data-arg="event" data-pass-el="true">Events</span>
           <span class="tl-pill" data-filter="document" data-action="filterTimeline" data-arg="document" data-pass-el="true">Documents</span>
           <span class="tl-pill" data-filter="note" data-action="filterTimeline" data-arg="note" data-pass-el="true">Notes</span>
+          <span class="tl-pill" data-filter="communication" data-action="filterTimeline" data-arg="communication" data-pass-el="true">Calls &amp; Texts</span>
         </div>
         <div id="timelineList">
           <div class="empty">
@@ -1575,7 +1585,16 @@ body.nbd-photo-selecting .nbd-photo-checkbox,
                  so it can be optimized for the sort-100-photos sprint
                  without competing with customer.html's other panels. -->
             <a class="btn" href="/pro/photo-review?id=" id="prReviewBtn" style="font-size:13px;padding:6px 16px;background:var(--purple);border-color:var(--purple);color:var(--accent-fg,#fff);text-decoration:none;display:inline-flex;align-items:center;gap:6px;">✦ Review &amp; Sort</a>
-            <button class="btn" data-action="ShareGallery.generate" data-pass-customer-id="true" style="font-size:13px;padding:6px 16px;background:var(--blue);border-color:var(--blue);color:var(--accent-fg,#fff);">Share Gallery</button>
+            <!-- Was ShareGallery.generate, which could never succeed: it
+                 uploaded a text/html Blob to galleries/{uid}/{leadId}.html,
+                 and that Storage path's write rule requires isImage(), so
+                 uploadBytes always rejected storage/unauthorized. It also
+                 minted PERMANENT, UNREVOCABLE Storage links (the exact thing
+                 #698/#702 retired for GDPR) off hardcoded NBD brand strings.
+                 Routed to the canonical minter instead — one revocable,
+                 30-day tokenized portal link, same as every other share
+                 surface, and it participates in W44 share tracking. -->
+            <button class="btn" data-action="PortalLinkHelpers.copyForLead" data-pass-customer-id="true" title="Copy the homeowner portal link — photos, status, timeline and pricing" style="font-size:13px;padding:6px 16px;background:var(--blue);border-color:var(--blue);color:var(--accent-fg,#fff);">Share Portal Link</button>
           </div>
         </div>
         <script defer src="js/customer-photo-review-links.js?v=1"></script>
@@ -2198,7 +2217,12 @@ body.nbd-photo-selecting .nbd-photo-checkbox,
 <script defer src="js/customer-smart-followup-panel.js?v=1"></script>
 <!-- T-2: AI texting rep UI — surfaces pending /leads/{id}/ai_drafts -->
 <script defer src="js/customer-ai-drafts-panel.js?v=1"></script>
-<script defer src="js/share-gallery.js?v=2"></script>
+<!-- share-gallery.js is NOT loaded here anymore. Its only caller on this
+     page was the Photos-tab "Share Gallery" button, which now routes to
+     PortalLinkHelpers.copyForLead; the module's own upload path is dead
+     (isImage() Storage rule rejects its text/html Blob) and it would have
+     minted unrevocable, NBD-brand-hardcoded links. The file is kept on
+     disk — retiring it entirely is a separate call. -->
 <!-- R-03: signImageUrl client helper. Must load before the inspection
      editor below, which calls window.NBDSignedUrl.get() for canvas
      image loads (un-tainted fetch → blob → object URL). -->
@@ -2279,7 +2303,13 @@ body.nbd-photo-selecting .nbd-photo-checkbox,
       </div>
       <div>
         <label style="display:block;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--m);margin-bottom:4px;">Job Value</label>
-        <input id="editJobValue" type="text" inputmode="decimal" aria-label="Job value in dollars" style="width:100%;padding:10px 12px;background:var(--s);border:1px solid var(--br);border-radius:8px;color:var(--t);font-size:14px;box-sizing:border-box;" placeholder="$0.00" />
+        <!-- type="number" is load-bearing, not cosmetic: as a free text
+             field a rep typed "$45,000" and that raw string was stored on
+             lead.jobValue, which NaNs every pipeline $ rollup / KPI /
+             leaderboard that reads it (#1035-1036). The browser now refuses
+             the currency symbol and separators outright, so the value that
+             reaches Firestore is already plain digits. -->
+        <input id="editJobValue" type="number" min="0" step="any" inputmode="decimal" aria-label="Job value in dollars" style="width:100%;padding:10px 12px;background:var(--s);border:1px solid var(--br);border-radius:8px;color:var(--t);font-size:14px;box-sizing:border-box;" placeholder="45000" />
       </div>
       <div style="display:flex;gap:10px;margin-top:8px;">
         <button data-action="closeEditCustomerModal" class="btn" style="flex:1;padding:12px;font-size:13px;text-transform:uppercase;">Cancel</button>

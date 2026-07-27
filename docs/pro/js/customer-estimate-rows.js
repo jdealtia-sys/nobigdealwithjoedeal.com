@@ -101,7 +101,40 @@
     return rows;
   }
 
-  const _api = { buildDisplayRows: buildDisplayRows, numFrom: numFrom };
+  // ── Two-shape estimate readers ──────────────────────────────────────
+  // Estimates exist in TWO shapes and every reader used to invent its own
+  // guess at which key holds the money and the label:
+  //   V2      → name  / grandTotal / rows
+  //   Classic → title / amount|total / lineItems
+  // That drift is not cosmetic. setPrimaryEstimate read `grandTotal` ONLY, so
+  // making a visible $14,500 Classic estimate primary wrote `jobValue: 0` over
+  // the lead and blanked the header, the profit panel and every pipeline
+  // number. These two helpers are the single source of truth — any surface
+  // that needs "what is this estimate worth / what is it called" calls them.
+  //
+  // Order matters: grandTotal first (V2's authoritative total), then total,
+  // then amount (Classic's two spellings). Falsy-but-present 0 is preserved via
+  // the != null checks — a genuine $0 draft must not fall through to a stale key.
+  function estimateValue(est) {
+    if (!est) return 0;
+    const v = est.grandTotal != null ? est.grandTotal
+      : est.total != null ? est.total
+      : est.amount != null ? est.amount : 0;
+    const n = numFrom(v);
+    return isFinite(n) ? n : 0;
+  }
+
+  function estimateName(est) {
+    if (!est) return 'Estimate';
+    return est.title || est.name || est.addr || 'Estimate';
+  }
+
+  const _api = {
+    buildDisplayRows: buildDisplayRows,
+    numFrom: numFrom,
+    estimateValue: estimateValue,
+    estimateName: estimateName,
+  };
   if (typeof window !== 'undefined') {
     window.NBDCustomerEstimateRows = _api;
   }

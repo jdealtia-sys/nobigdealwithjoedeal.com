@@ -4907,6 +4907,11 @@
     </div>
     <div class="mrow">
       <div class="mfield"><label>Stage</label>
+        <!-- The options below are the BUILT-IN pipeline only, kept as the
+             pre-module fallback. openLeadModal calls window.refreshStageOptions
+             on every open and replaces them with the resolved tenant pipeline —
+             editing this list does NOT change what a tenant with a custom
+             pipeline sees (dashboard-bootstrap.module.js). -->
         <select id="lStage">
           <!-- Lead stages — shared -->
           <optgroup label="Lead Pipeline">
@@ -5399,8 +5404,8 @@
 <script defer src="js/nbd-url.js?v=1"></script>
 <script defer src="js/dashboard-state.js?v=2"></script>
 <script defer src="js/dashboard-api.js?v=2"></script>
-<!-- Embedded per-customer estimate hub — renders from caches; engine stays lazy. -->
 <script defer src="js/customer-estimate-hub.js?v=1"></script>
+<script defer src="js/customer-photo-hub.js?v=1"></script>
 <script defer src="js/estimate-preview.js?v=1"></script>
 <script defer src="js/dashboard-widgets.js?v=4"></script>
 <script defer src="js/dashboard-ui.js?v=2"></script>
@@ -6248,7 +6253,6 @@
      Blank buttons), and preloaded when the Docs view opens. Pre-flight reads
      window._leadDoc / _customerId / _customerEstimates / _allPhotos, which
      the dashboard stages just-in-time in _stageWindowStateForLead. -->
-<script defer src="js/share-gallery.js?v=2"></script>
 <script defer src="js/analytics-kpi.js?v=4"></script>
 <!-- T-3: AI texting analytics card (renders on the board/analytics view) -->
 <script defer src="js/ai-texting-stats-card.js?v=1"></script>

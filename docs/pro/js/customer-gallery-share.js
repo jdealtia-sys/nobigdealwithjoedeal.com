@@ -1,41 +1,24 @@
 
 // ── Gallery Share Panel Functions ──
-// Manages the persistent gallery share URL for a customer.
-// Uses the CustomerPortal module to generate/delete portal links.
-// The URL is stored on the lead doc as 'portalUrl' for instant
-// retrieval on next page load (no re-generation needed).
+// Drives the Customer Sharing panel on customer.html. Every link this
+// panel hands out is minted by the one canonical path
+// (PortalLinkHelpers.resolveUrl → CustomerPortal.mintUrl →
+// createPortalToken), so it is short-lived and revocable.
+//
+// The panel used to advertise two products — a photos-only "Photo
+// Gallery" and a "Full Project Portal" — but both minted the identical
+// full-portal token URL (there is no photos-only server view). The
+// markup collapsed to one row; generatePhotoPortalLink went with it.
 
-
-// ── Dual Portal Functions (April 2026) ──
-// Supports both Photo Gallery (photos-only) and Full Project Portal.
-
-async function openGallerySharePanel() {
+function openGallerySharePanel() {
   const panel = document.getElementById('gallerySharePanel');
   if (!panel) return;
   panel.style.display = 'block';
-
-  // Load existing URLs from the lead doc
-  try {
-    const leadSnap = await window.getDoc(window.doc(window.db, 'leads', window._customerId));
-    const data = leadSnap.exists() ? leadSnap.data() : {};
-    const photoInput = document.getElementById('photoPortalUrl');
-    const fullInput = document.getElementById('fullPortalUrl');
-    if (photoInput && data.photoPortalUrl) photoInput.value = data.photoPortalUrl;
-    if (fullInput && data.portalUrl) fullInput.value = data.portalUrl;
-  } catch (e) { /* will generate on demand */ }
-}
-
-async function generatePhotoPortalLink() {
-  const input = document.getElementById('photoPortalUrl');
-  if (input) input.value = 'Generating...';
-  try {
-    if (typeof CustomerPortal === 'undefined') throw new Error('Portal module not loaded');
-    const url = await CustomerPortal.generatePhotoPortal(window._customerId);
-    if (url && input) input.value = url;
-    else if (input) input.value = 'Failed — try again';
-  } catch (e) {
-    if (input) input.value = 'Error: ' + (e.message || '').substring(0, 50);
-  }
+  // No prefill from the lead doc. lead.portalUrl / lead.photoPortalUrl
+  // were the legacy PERMANENT Firebase Storage links that #698/#702
+  // retired and scripts/purge-legacy-storage-portals.js deletes — reading
+  // them back would put an unrevocable URL in front of the rep again.
+  // The input fills in on Generate / 📋, both of which mint a fresh token.
 }
 
 async function generateFullPortalLink() {
@@ -51,15 +34,43 @@ async function generateFullPortalLink() {
   }
 }
 
-function copyPortalUrl(inputId) {
+// The 📋 button beside the portal-link input. This used to bare-return
+// whenever the input held anything that wasn't already a link — which,
+// now that openGallerySharePanel no longer prefills, is EVERY fresh panel
+// open. A button labelled "copy" that silently does nothing reads as a
+// broken page. Generate-on-demand instead, mirroring quickCopyPortalLink
+// below, and echo the URL into the input so the rep can see exactly what
+// landed on the clipboard.
+async function copyPortalUrl(inputId) {
   const input = document.getElementById(inputId);
-  if (!input || !input.value || input.value.startsWith('Error') || input.value.startsWith('Gen') || input.value.startsWith('Click')) return;
-  navigator.clipboard.writeText(input.value).then(() => {
+  // The generate* handlers park status strings ('Generating...',
+  // 'Error: …', 'Failed — try again') in this same input, and the markup
+  // ships a 'Click Generate to create link' placeholder. Only an http(s)
+  // value is a real link; everything else means "no link yet".
+  const current = input ? String(input.value || '') : '';
+  let url = /^https?:\/\//.test(current) ? current : null;
+
+  if (!url) {
+    if (input) input.value = 'Generating...';
+    try {
+      url = await _resolvePortalUrl();
+      if (input) input.value = url;
+    } catch (e) {
+      if (input) input.value = 'Error: ' + (e.message || '').substring(0, 50);
+      if (typeof showToast === 'function') showToast('Couldn\'t create link: ' + (e.message || 'unknown'), 'error');
+      return;
+    }
+  }
+
+  try {
+    await navigator.clipboard.writeText(url);
     if (typeof showToast === 'function') showToast('Link copied to clipboard', 'success');
-  }).catch(() => {
-    input.select();
+  } catch (_) {
+    // Safari / insecure context / focus loss. The link is already visible
+    // in the input, so select it and let the rep press Ctrl+C.
+    if (input) { input.focus(); input.select(); }
     if (typeof showToast === 'function') showToast('Press Ctrl+C to copy', 'info');
-  });
+  }
 }
 
 // Wave 40 + 41 + 42: portal link helpers.
@@ -71,8 +82,10 @@ function copyPortalUrl(inputId) {
 // now delegate to that shared API; the button-specific UI bits
 // (label restoration, "⏳ Preparing…" state) stay here.
 //
-// _resolvePortalUrl is kept as a thin local wrapper for any inline
-// usage that still references it directly.
+// _resolvePortalUrl is the thin local wrapper over that shared API —
+// the single entry point every link-producing control on this page
+// goes through (copyPortalUrl above, quickCopyPortalLink and
+// quickSmsPortalLink below), so there is exactly one minter.
 async function _resolvePortalUrl() {
   if (!window._customerId) throw new Error('No customer selected');
   if (window.PortalLinkHelpers) {
