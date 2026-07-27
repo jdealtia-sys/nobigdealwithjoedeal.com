@@ -1316,13 +1316,23 @@ body.nbd-photo-selecting .nbd-photo-checkbox,
     
     <!-- LEFT COLUMN -->
     <div>
+      <!-- JOB CHECKLIST (RoofLink "View Checklist") — rendered by
+           window.JobChecklist (js/customer-checklist.js) from
+           lead.jobChecklist; hidden until the lead loads. -->
+      <div class="panel" id="checklistPanel" style="display:none;"></div>
+
       <!-- TIMELINE -->
       <div class="panel">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:15px;">
           <div class="panel-title" style="margin:0;">Timeline & Tasks</div>
-          <button class="btn btn-orange" data-action="openTaskModal" style="font-size:11px;padding:6px 12px;">
-            ✅ Add Task
-          </button>
+          <div style="display:flex;gap:8px;">
+            <button class="btn" data-action="openEventModal" style="font-size:11px;padding:6px 12px;">
+              📅 Add Event
+            </button>
+            <button class="btn btn-orange" data-action="openTaskModal" style="font-size:11px;padding:6px 12px;">
+              ✅ Add Task
+            </button>
+          </div>
         </div>
         <div class="tl-filters" id="tlFilters">
           <span class="tl-pill active" data-filter="all" data-action="filterTimeline" data-arg="all" data-pass-el="true">All</span>
@@ -2154,6 +2164,8 @@ body.nbd-photo-selecting .nbd-photo-checkbox,
 <script defer src="js/review-engine.js?v=2"></script>
 <script defer src="js/profit-tracker.js?v=2"></script>
 <script defer src="js/lead-scoring.js?v=2"></script>
+<!-- Persisted per-job workflow checklist (RoofLink "View Checklist"). -->
+<script defer src="js/customer-checklist.js?v=1"></script>
 <!-- Claim unification: canonical claim view + Claim Details panel/editor.
      MUST load before insurance-claim.js — advanceClaimStage syncs the
      coarse claimStatus via window.ClaimCore.claimStatusFromStage. -->

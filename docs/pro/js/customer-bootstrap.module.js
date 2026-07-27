@@ -647,6 +647,12 @@ async function loadCustomerData(id) {
       window.renderCoverHero(lead.coverPhotoUrl || null);
     }
 
+    // Job checklist (RoofLink "View Checklist") — persisted check-off
+    // state on lead.jobChecklist; same defer-race guard.
+    if (window.JobChecklist?.render) {
+      window.JobChecklist.render(lead);
+    }
+
     // Insurance panel — rendered by ClaimPanel (js/claim-core.js): the
     // unified Claim Details card (deductible hero, synced status chip,
     // contact slots). Also show it when a claim status exists even if the
@@ -959,17 +965,34 @@ async function loadTimeline(leadId, lead) {
     });
   }
 
-  // Load tasks
+  // Load tasks — UNIFIED store: leads/{leadId}/tasks subcollection (same
+  // one the dashboard, notification bell, and quick-capture use; the old
+  // top-level 'tasks' query couldn't see any of those). Docs may carry
+  // `title` (customer page) or `text` (dashboard/quick-capture) — read
+  // both. type:'event' docs are Add-Event entries, rendered as dated
+  // 📅 milestones instead of checkable todos.
   try {
     const taskSnap = await getDocs(
-      query(collection(db, 'tasks'), where('leadId', '==', leadId), where('userId', '==', auth.currentUser?.uid))
+      query(collection(db, 'leads', leadId, 'tasks'))
     );
     taskSnap.docs.forEach(d => {
       const task = d.data();
+      if (task.type === 'event') {
+        const when = task.eventAt ? new Date(task.eventAt) : (task.createdAt?.toDate ? task.createdAt.toDate() : new Date());
+        timeline.push({
+          time: when,
+          icon: '📅',
+          title: task.title || task.text || 'Event',
+          desc: (task.eventAt ? when.toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : '')
+            + (task.notes ? ' — ' + task.notes : ''),
+          type: 'event'
+        });
+        return;
+      }
       timeline.push({
         time: task.createdAt?.toDate ? task.createdAt.toDate() : new Date(task.createdAt || Date.now()),
         icon: task.done ? '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:13px;height:13px;vertical-align:middle;"><path d="M4 10.5l4 4 8-9"/></svg>' : '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:13px;height:13px;vertical-align:middle;"><path d="M5 2h10v4l-3 3 3 3v4H5v-4l3-3-3-3V2z"/></svg>',
-        title: task.title || 'Task',
+        title: task.title || task.text || 'Task',
         desc: task.dueDate || '',
         isTask: true,
         taskId: d.id,
@@ -977,13 +1000,40 @@ async function loadTimeline(leadId, lead) {
         type: 'task'
       });
     });
-    // Jump-nav OPEN-task badge (RoofLink ToDo count) — done tasks don't count.
+    // Jump-nav OPEN-task badge (RoofLink ToDo count) — done tasks and
+    // Add-Event entries don't count.
     if (typeof window.nbdNavCount === 'function') {
-      window.nbdNavCount('navCountTasks', taskSnap.docs.filter(d => !(d.data() || {}).done).length);
+      window.nbdNavCount('navCountTasks',
+        taskSnap.docs.filter(d => { const t = d.data() || {}; return !t.done && t.type !== 'event'; }).length);
     }
   } catch (e) {
     console.log('No tasks found for timeline');
   }
+
+  // Appointments (Cal.com webhook writes /appointments with leadId +
+  // startTime + title; manual events live in the tasks subcollection
+  // above). Merged here so booked meetings finally show on the timeline.
+  try {
+    const uid0 = auth.currentUser?.uid;
+    if (uid0) {
+      const apptSnap = await getDocs(
+        query(collection(db, 'appointments'), where('leadId', '==', leadId), where('userId', '==', uid0))
+      );
+      apptSnap.docs.forEach(d => {
+        const a = d.data();
+        const when = a.startTime?.toDate ? a.startTime.toDate() : (a.startTime ? new Date(a.startTime) : null);
+        if (!when) return;
+        timeline.push({
+          time: when,
+          icon: '📅',
+          title: a.title || 'Appointment',
+          desc: when.toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })
+            + (a.status ? ' · ' + a.status : ''),
+          type: 'event'
+        });
+      });
+    }
+  } catch (e) { /* appointments are optional — older tenants have none */ }
 
   // Load estimates
   try {
@@ -2916,15 +2966,17 @@ async function _gatherTimelineForReport(leadId, lead) {
   }
 
   try {
-    const snap = await getDocs(query(collection(window.db, 'tasks'), where('leadId', '==', leadId), where('userId', '==', uid)));
+    // Unified store: leads/{leadId}/tasks (title on customer-created
+    // docs, text on dashboard/quick-capture ones).
+    const snap = await getDocs(query(collection(window.db, 'leads', leadId, 'tasks')));
     snap.docs.forEach(d => {
       const t = d.data();
       const created = t.createdAt?.toDate ? t.createdAt.toDate() : (t.createdAt ? new Date(t.createdAt) : new Date());
       timeline.push({
-        time:  created,
-        title: (t.done ? '✓ ' : '') + (t.title || 'Task'),
-        desc:  t.dueDate ? `Due ${t.dueDate}` : '',
-        type:  'task'
+        time:  t.type === 'event' && t.eventAt ? new Date(t.eventAt) : created,
+        title: (t.type === 'event' ? '📅 ' : (t.done ? '✓ ' : '')) + (t.title || t.text || 'Task'),
+        desc:  t.type === 'event' ? (t.notes || '') : (t.dueDate ? `Due ${t.dueDate}` : ''),
+        type:  t.type === 'event' ? 'event' : 'task'
       });
     });
   } catch (_) { /* ignore */ }
