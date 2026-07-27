@@ -141,6 +141,25 @@
         <a class="qab-btn qab-call" href="tel:${escapeAttr(phone)}" aria-label="Call ${escapeAttr(lead.phone)}">
           <span class="qab-icon">📞</span><span>Call</span>
         </a>`);
+      // Text/Email stay sms:/mailto: ANCHORS — they open the rep's own
+      // composer, pre-addressed and empty, which is what a rep mid-call
+      // expects from a button labelled "Text": something they can type into,
+      // read back, and abandon.
+      //
+      // These were briefly rewired to PortalLinkHelpers.smsForLead to close a
+      // Comm Log gap (customer.html doesn't load crm-snooze.js, whose
+      // capture-phase logger catches these clicks on the dashboard, so texts
+      // sent from this bar don't reach the timeline). That is the wrong trade:
+      // smsForLead is not a generic "text this customer" helper — it mints a
+      // portal link, composes a fixed body, and hands straight to
+      // NBDComms.sendSMS, which POSTs to Twilio with NO preview and no
+      // confirmation. A rep tapping 💬 would have sent an unreviewed templated
+      // message to the homeowner. An irreversible customer-facing send behind a
+      // mislabelled control is strictly worse than a missing log line.
+      //
+      // The Comm Log gap is real and still open — the fix is a logger on this
+      // page, or a compose step, not a silent send. Kanban's equivalent control
+      // is honestly labelled "Text portal link" for exactly this reason.
       buttons.push(`
         <a class="qab-btn qab-sms" href="sms:${escapeAttr(phone)}" aria-label="Text ${escapeAttr(lead.phone)}">
           <span class="qab-icon">💬</span><span>Text</span>
@@ -162,7 +181,8 @@
     if (buttons.length === 0) return null;
     bar.innerHTML = buttons.join('');
 
-    // Wire the Task button (link buttons handle themselves via href).
+    // Call / Text / Email are anchors and handle themselves; only Task needs
+    // wiring.
     const taskBtn = bar.querySelector('.qab-task');
     if (taskBtn) {
       taskBtn.addEventListener('click', () => {

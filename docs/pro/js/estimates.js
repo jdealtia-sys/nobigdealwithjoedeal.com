@@ -181,20 +181,29 @@ if (typeof window.R === 'undefined' || !window.R) {
   syncRatesFromProductLibrary('better');
 }
 
-function startNewEstimate() {
+function startNewEstimate(leadId) {
   // Phase 2 (RoofLink rebuild, 2026-07-27): template-FIRST front door.
   // W145 made V2 the unconditional default; this keeps everything V2
   // (Classic stays deprecated for new estimates — V2-only per Jo,
   // 2026-07-04) but leads with the fastest path: pick a job template,
   // measurements auto-fill the quantities, land in a nearly-done
   // estimate. "Start Blank" remains one tap away for oddball jobs.
-  showNewEstimateChooser();
+  //
+  // leadId is EXPLICIT here so the customer-scoped entry points (the
+  // lead-edit-modal "Send Estimate" / "Send Service Quote" / "Revise
+  // Estimate" chips) attach the estimate to their lead. Those chips call
+  // startNewEstimate(leadId) but the chooser only ever read
+  // window._cardDetailLeadId — which is null unless a card-detail modal is
+  // open — so they opened a builder with no customer on it. Falling back to
+  // the global keeps the card-detail + toolbar callers (which pass nothing)
+  // behaving exactly as before.
+  showNewEstimateChooser(leadId || window._cardDetailLeadId);
 }
 
 // Template-or-blank chooser — mobile bottom sheet (centered ≥720px),
 // built via createElement (CSP-safe, no inline handlers, matches the
 // assign-picker pattern above).
-function showNewEstimateChooser() {
+function showNewEstimateChooser(leadId) {
   let overlay = document.getElementById('est-new-chooser');
   if (overlay) overlay.remove(); // rebuild fresh — matchMedia layout may differ
 
@@ -253,10 +262,10 @@ function showNewEstimateChooser() {
       // direct dashboard-tile tap can race the bundle, so load-then-run.
       const openJT = () => {
         if (window.JobTemplatesUI && typeof window.JobTemplatesUI.openPicker === 'function') {
-          window.JobTemplatesUI.openPicker(window._cardDetailLeadId ? { leadId: window._cardDetailLeadId } : {});
+          window.JobTemplatesUI.openPicker(leadId ? { leadId: leadId } : {});
         } else if (typeof showToast === 'function') {
           showToast('Templates unavailable — starting a blank estimate instead', 'info');
-          if (typeof window.openEstimateV2Builder === 'function') window.openEstimateV2Builder();
+          if (typeof window.openEstimateV2Builder === 'function') window.openEstimateV2Builder(leadId ? { leadId: leadId } : {});
         }
       };
       if (window.JobTemplatesUI) openJT();
@@ -271,7 +280,10 @@ function showNewEstimateChooser() {
     name: 'Start Blank',
     desc: 'Open the V2 builder empty — full 270-item catalog, presets, tiers.',
     onClick: () => {
-      if (typeof window.openEstimateV2Builder === 'function') window.openEstimateV2Builder();
+      // opts.leadId (estimate-v2-ui.js open()) prefills from the lead and
+      // suppresses the stale-draft restore prompt — blank of LINE ITEMS, not
+      // blank of customer.
+      if (typeof window.openEstimateV2Builder === 'function') window.openEstimateV2Builder(leadId ? { leadId: leadId } : {});
       // Defense-in-depth: V2 not loaded (mid-deploy SW cache miss) →
       // legacy picker so the rep isn't blocked.
       else showEstimateTypeSelector();

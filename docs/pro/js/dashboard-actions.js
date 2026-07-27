@@ -939,6 +939,17 @@ if (typeof startNewEstimate === 'function') {
     window.openEstimateV2Builder = function () { _lazyEstimate('openEstimateV2Builder', arguments); };
     window.openEstimateV2Builder.__nbdLazyEstimateStub = true;
   }
+  // The estimate ROW actions ship in the same bundle and are reachable from
+  // surfaces that render before it loads — the customer estimate hub, the
+  // estimates list and the mobile job-detail preview sheet. Callers guard with
+  // a bare `typeof window.X === 'function'` (see _mJdOpenEstimate's onAssign),
+  // which turns a pre-bundle tap into a SILENT no-op rather than a toast. The
+  // stub makes that guard pass and defers the real call until the bundle lands.
+  ['assignEstimateAction', 'duplicateEstimateAction', 'deleteEstimateAction'].forEach(function (n) {
+    if (typeof window[n] === 'function') return;
+    window[n] = function () { _lazyEstimate(n, arguments); };
+    window[n].__nbdLazyEstimateStub = true;
+  });
 }
 if(typeof saveEstimate==='function'){window.saveEstimate=saveEstimate;}
 if(typeof cancelEstimate==='function'){window.cancelEstimate=cancelEstimate;}
@@ -1467,47 +1478,64 @@ function closeMobileInspection() {
 }
 window.closeMobileInspection = closeMobileInspection;
 
-// Wave 2C.2 — Mobile share, native first.
+// Wave 2C.2 — Mobile share, through the canonical minter.
 //
-// Tapping the share icon in the mobile job-detail top bar invokes
-// navigator.share() with the lead's name + portal URL when both are
-// available. If navigator.share is missing (desktop, some older
-// Android browsers) we fall back to copying the portal link to the
-// clipboard and toasting; if there's no portal link yet we toast the
-// rep with a helpful next step. CompanyCam invokes the OS share sheet
-// for this exact pattern — we mirror it but stay branded.
+// Tapping the share icon in the mobile job-detail top bar hands off to
+// PortalLinkHelpers.copyForLead, the same path the kanban context menu and
+// customer.html use. It mints a fresh revocable token URL on demand, owns the
+// 3-layer clipboard fallback (clipboard API → execCommand → surface the URL)
+// and — load-bearing — records the share in the Comm Log via _recordShare.
+//
+// This used to scrape lead.portalShortUrl / lead.portalUrl / lead.portalToken
+// off the in-memory lead. PR #698 retired those persisted, permanently-valid
+// Storage links and no writer for any of the three fields survives, so every
+// tap read '' and fell straight into the "No portal link yet" dead end.
 function _mJdShare() {
   const id = window._cardDetailLeadId;
   if (!id) return;
-  const lead = (window._leads || []).find(l => l.id === id);
-  if (!lead) return;
-  const name = ((lead.firstName || '') + ' ' + (lead.lastName || '')).trim()
-    || lead.name || 'Lead';
-  // Prefer the portal short link if the rep already minted one;
-  // otherwise the customer-page URL with leadId.
-  const portal = lead.portalShortUrl || lead.portalUrl
-    || (lead.portalToken
-        ? location.origin + ((window.NBDUrl && window.NBDUrl.customer(id))
-            || ('/pro/customer.html?id=' + encodeURIComponent(id)))
-            + '&t=' + encodeURIComponent(lead.portalToken)
-        : '');
-  const text = lead.address ? (name + ' — ' + lead.address) : name;
+  // NOTE ON THE MINTER: do NOT reach for PortalLinkHelpers.resolveUrl /
+  // .copyForLead here. Those hard-throw 'Portal module not loaded' unless
+  // window.CustomerPortal exists, and customer-portal.js is loaded on
+  // customer.html ONLY — never on either dashboard, which is where this sheet
+  // lives. window._mintPortalUrl (dashboard-api.js) is the dashboard's own
+  // createPortalToken path and is the one that actually works on this page.
+  //
+  // On a phone the share icon should raise the OS share sheet — that is how a
+  // rep gets the link into whatever they actually text from. Fall back to
+  // _sharePortalLink (clipboard + SMS shortcut), the same handler the desktop
+  // card-detail share button uses.
+  const fallback = () => {
+    if (typeof window._sharePortalLink === 'function') { window._sharePortalLink(id); return; }
+    if (typeof showToast === 'function') showToast('Portal links are still loading — try again in a moment', 'warning');
+  };
+  if (!(navigator.share && typeof window._mintPortalUrl === 'function')) { fallback(); return; }
 
-  if (navigator && typeof navigator.share === 'function' && portal) {
-    navigator.share({ title: name, text: text, url: portal })
-      .catch(() => {/* user cancel or share denied — silent */});
-    return;
-  }
-  // Fallback: copy to clipboard.
-  if (portal && navigator && navigator.clipboard && navigator.clipboard.writeText) {
-    navigator.clipboard.writeText(portal)
-      .then(() => { if (typeof showToast === 'function') showToast('Portal link copied', 'success'); })
-      .catch(() => { if (typeof showToast === 'function') showToast('Copy failed — long-press the address to share', 'error'); });
-    return;
-  }
-  if (typeof showToast === 'function') {
-    showToast(portal ? 'Sharing not supported here' : 'No portal link yet — generate one from the lead detail', 'info');
-  }
+  const lead = (window._leads || []).find(l => l && l.id === id) || {};
+  const who = ((lead.firstName || '') + ' ' + (lead.lastName || '')).trim() || lead.name || 'your project';
+  window._mintPortalUrl(id).then((portal) => {
+    if (!portal) { fallback(); return; }
+    return navigator.share({
+      title: 'Project portal',
+      text: 'Here is the project portal for ' + who + '.',
+      url: portal,
+    }).then(() => {
+      // Every share path must reach recordShare — it stamps lastSharedAt /
+      // lastSharedVia, and the fresh pulse, viewed badge, engagement tier,
+      // smart-followup and stale-shares filter all read zero signal without it.
+      // _sharePortalLink records on its own path; this branch must do it here.
+      if (window.PortalLinkHelpers && typeof window.PortalLinkHelpers.recordShare === 'function') {
+        window.PortalLinkHelpers.recordShare(id, 'share');
+      }
+    }).catch((err) => {
+      // AbortError = the rep dismissed the OS sheet. Not a failure, and it must
+      // not fall through to a surprise clipboard write + SMS composer.
+      if (err && err.name === 'AbortError') return;
+      fallback();
+    });
+  }).catch((e) => {
+    console.warn('[_mJdShare] mint failed:', e && e.message);
+    fallback();
+  });
 }
 
 function _mJdAct(kind) {
@@ -1860,28 +1888,50 @@ function _stashLeadForCustomerPage(leadId) {
 // Wave 18: expose so global-search.js can stash before navigating.
 window._stashLeadForCustomerPage = _stashLeadForCustomerPage;
 
+// Canonical customer-page URL for these three navigations. NBDUrl.customer is
+// the one builder for /pro/customer?id=… (it also owns the extensionless form
+// the host 301s to); the literal is the documented fallback for a boot race,
+// since nbd-url.js is a defer script like this one. Absolute /pro/… per the
+// CI-guarded inter-page nav rule.
+function _customerHref(id, hash) {
+  const base = (window.NBDUrl && window.NBDUrl.customer(id))
+    || ('/pro/customer.html?id=' + encodeURIComponent(id));
+  return base + (hash || '');
+}
+
 function openPhotosForLead() {
-  if (!window._cardDetailLeadId) return;
-  _stashLeadForCustomerPage(window._cardDetailLeadId);
-  window.location.href = `/pro/customer.html?id=${window._cardDetailLeadId}#photos`;
+  const lid = window._cardDetailLeadId;
+  if (!lid) return;
+  _stashLeadForCustomerPage(lid);
+  // #photosTab / #documentsTab — the real element ids on customer.html. The
+  // shorter '#photos' / '#documents' fragments matched nothing, so the page
+  // opened scrolled to the top with no tab selected.
+  window.location.href = _customerHref(lid, '#photosTab');
 }
 
 function openDocsForLead() {
-  if (!window._cardDetailLeadId) return;
-  _stashLeadForCustomerPage(window._cardDetailLeadId);
-  window.location.href = `/pro/customer.html?id=${window._cardDetailLeadId}#documents`;
+  const lid = window._cardDetailLeadId;
+  if (!lid) return;
+  _stashLeadForCustomerPage(lid);
+  window.location.href = _customerHref(lid, '#documentsTab');
 }
 
 function openFullCustomerDetails() {
-  if (!window._cardDetailLeadId) return;
-  _stashLeadForCustomerPage(window._cardDetailLeadId);
-  window.location.href = `/pro/customer.html?id=${window._cardDetailLeadId}`;
+  const lid = window._cardDetailLeadId;
+  if (!lid) return;
+  _stashLeadForCustomerPage(lid);
+  window.location.href = _customerHref(lid);
 }
 
 function editCardDetails() {
-  if (!window._cardDetailLeadId) return;
+  const lid = window._cardDetailLeadId;
+  if (!lid) return;
+  // Read the id BEFORE closing: closeCardDetailModal → nbdModal.close →
+  // _cardDetailReset nulls window._cardDetailLeadId synchronously, so the
+  // old `editLead(window._cardDetailLeadId)` always received null and the
+  // edit modal never opened. (Same hoist as cdaEditLead / cdaInspectionDeep.)
   closeCardDetailModal();
-  editLead(window._cardDetailLeadId);
+  editLead(lid);
 }
 
   // _stashLeadForCustomerPage keeps its window export above (7 widget callers).
@@ -1931,16 +1981,24 @@ function editCardDetails() {
   }
   function cdaPhotos() {
     if (window.PhotoEngine && typeof window.PhotoEngine.openCamera === 'function') {
+      // Hoist the lead id ABOVE the close — closeCardDetailModal nulls
+      // window._cardDetailLeadId synchronously (nbdModal.close →
+      // _cardDetailReset), so reading it after handed openCamera null and
+      // every photo captured from this button landed at photos/<uid>/null/
+      // with leadId:null — attached to no customer and unrecoverable.
+      const lid = window._cardDetailLeadId;
       if (typeof closeCardDetailModal === 'function') closeCardDetailModal();
-      window.PhotoEngine.openCamera(window._cardDetailLeadId);
+      window.PhotoEngine.openCamera(lid);
     } else if (typeof showToast === 'function') {
       showToast('Photo engine loading...', 'error');
     }
   }
   function cdaInvoice() {
     if (window.InvoicePipeline && typeof window.InvoicePipeline.createInvoiceUI === 'function') {
+      // Same read-before-close contract as cdaPhotos above.
+      const lid = window._cardDetailLeadId;
       if (typeof closeCardDetailModal === 'function') closeCardDetailModal();
-      window.InvoicePipeline.createInvoiceUI(window._cardDetailLeadId);
+      window.InvoicePipeline.createInvoiceUI(lid);
     } else if (typeof showToast === 'function') {
       showToast('Invoice pipeline loading...', 'error');
     }
@@ -2018,12 +2076,43 @@ function editCardDetails() {
       window.openMobileInspection(window._cardDetailLeadId);
     }
   }
+  // The voice-memo button is a TOGGLE. recordForLead's own toast already
+  // promises "tap again to stop", but nothing was ever wired to stopNow()
+  // (zero callers repo-wide), so the second tap opened a SECOND getUserMedia
+  // stream: recorder #1 was orphaned but still live, still holding the mic,
+  // and still uploading when its 60s cap fired — burning a second
+  // transcribeVoiceMemo rate-limit slot for one memo. voice-memo.js keeps its
+  // MediaRecorder private, so the in-flight state is tracked here.
+  let _cdaVoiceRecording = false;
+  function _cdaVoiceBtn() {
+    // Two buttons share .cd-voice-btn in the card-detail share row (memo +
+    // voicemail); match on data-fn so we never light up the voicemail one.
+    return document.querySelector('.cd-voice-btn[data-fn="cdaVoiceMemo"]');
+  }
   function cdaVoiceMemo() {
-    if (window._cardDetailLeadId &&
-        window.NBDVoiceMemo &&
-        typeof window.NBDVoiceMemo.recordForLead === 'function') {
-      window.NBDVoiceMemo.recordForLead(window._cardDetailLeadId);
+    if (!window._cardDetailLeadId ||
+        !window.NBDVoiceMemo ||
+        typeof window.NBDVoiceMemo.recordForLead !== 'function') return;
+    if (_cdaVoiceRecording) {
+      // stopNow only closes the recorder — recordForLead's promise carries on
+      // through transcription and clears the flag below when it settles. If an
+      // older voice-memo.js is cached without stopNow we still swallow the tap
+      // rather than start a competing recorder; the 60s cap ends it.
+      if (typeof window.NBDVoiceMemo.stopNow === 'function') window.NBDVoiceMemo.stopNow();
+      return;
     }
+    _cdaVoiceRecording = true;
+    const btn = _cdaVoiceBtn();
+    if (btn) btn.classList.add('recording');
+    Promise.resolve(window.NBDVoiceMemo.recordForLead(window._cardDetailLeadId))
+      .catch(() => { /* recordForLead resolves on every failure path — belt and braces */ })
+      .then(() => {
+        _cdaVoiceRecording = false;
+        // Re-query: the card-detail modal may have been closed and rebuilt
+        // during the recording, leaving `btn` detached.
+        const b = _cdaVoiceBtn();
+        if (b) b.classList.remove('recording');
+      });
   }
   // step-4: opens the voicemail-pipeline modal for the current card-detail lead.
   function cdaOpenVoicemail() {

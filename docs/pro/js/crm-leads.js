@@ -96,6 +96,22 @@ function openLeadModal(){
       jtEl.value = view;
     }
   }
+  // Rebuild the stage <select> from the RESOLVED tenant pipeline before the
+  // track filter runs. The page markup carries a static option list of the
+  // built-in stages only, so a tenant with a custom pipeline had no option
+  // matching the lead's stage: the select read back as '' and saveLead wrote
+  // that empty string over the stored stage. editLead assigns #lStage BEFORE
+  // it calls us, so by now an unknown key has already collapsed to '' —
+  // recover the intended value from the in-memory lead and hand it over.
+  if (typeof window.refreshStageOptions === 'function') {
+    const stEl = document.getElementById('lStage');
+    let want = stEl?.value || '';
+    if (!want && isEdit) {
+      const editing = (window._leads || []).find(l => l && l.id === document.getElementById('lEditId').value);
+      if (editing) want = editing._stageKey || editing.stage || '';
+    }
+    window.refreshStageOptions(want || 'new');
+  }
   // Apply smart stage dropdown filter based on current jobType
   if (typeof window.filterStageDropdownByJobType === 'function') {
     window.filterStageDropdownByJobType(jtEl?.value || '');
@@ -227,7 +243,14 @@ async function saveLead(){
       address: addr,
       phone: document.getElementById('lPhone')?.value?.trim() || '',
       email: document.getElementById('lEmail')?.value?.trim() || '',
-      stage: _editStageVal,
+      // OMIT `stage` entirely when the select came back blank. A blank means
+      // the dropdown had no option matching this lead's stage (a custom
+      // pipeline stage, or one the tenant later removed) — writing '' would
+      // DESTROY the stored stage on every save, while a missing key leaves it
+      // untouched. openLeadModal repopulates the options so this should now be
+      // unreachable; it stays as the last line of defence because the cost of
+      // being wrong is silent data loss.
+      ...(_editStageVal ? { stage: _editStageVal } : {}),
       // Sync the denormalized role with the stage (see _editStageRole above).
       ...(_editStageRole ? { stageRole: _editStageRole } : {}),
       jobType: document.getElementById('lJobType')?.value || '',

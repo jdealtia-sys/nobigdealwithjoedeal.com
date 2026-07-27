@@ -159,38 +159,25 @@
   }
 
   // ════════════════════════════════════════════════════════
-  // Photo-Only Portal (April 2026 → token-based)
+  // 2026-07-27: generatePhotoPortal was DELETED, and previewPortal's
+  // `type` parameter with it.
   //
-  // Historically a separate static gallery page; the homeowner
-  // portal now renders shared photos itself, so this shares the
-  // same secure /pro/portal.html token URL. Kept as a distinct
-  // entry point for its caller-facing toasts + gallery-share UI.
+  // Both were the client half of a product that does not exist. They
+  // called the same mintTokenUrl as generatePortal and returned the same
+  // /pro/portal.html?token=… URL, differing only in their toast copy —
+  // there is no photos-only view to mint: createPortalToken has no
+  // view-type field and getHomeownerPortalView unconditionally returns
+  // grandTotal + pipeline status. So the customer.html panel that offered
+  // "Photo Gallery: just photos" alongside "Full Project Portal" sent the
+  // full portal — pricing included — to a rep who chose the first option
+  // specifically to keep pricing off the screen at the homeowner's door.
+  // The panel is now a single honest "Project Portal" row; no callers left.
+  // Reinstating a real photos-only link needs a backend view-type first.
   // ════════════════════════════════════════════════════════
-  async function generatePhotoPortal(leadId) {
-    if (!leadId || !window._user) {
-      if (typeof showToast === 'function') showToast('Must be logged in', 'error');
-      return null;
-    }
-    if (typeof showToast === 'function') showToast('Generating photo gallery...', 'ok');
-    try {
-      const lead = (window._leads || []).find(l => l.id === leadId);
-      if (!lead) throw new Error('Lead not found');
 
-      const shareUrl = await mintTokenUrl(leadId);
-      if (typeof showToast === 'function') showToast('Photo gallery ready!', 'ok');
-      try { await navigator.clipboard.writeText(shareUrl); } catch(e) {}
-      return shareUrl;
-    } catch(e) {
-      console.error('Photo portal generation failed:', e);
-      if (typeof showToast === 'function') showToast('Photo gallery failed: ' + e.message, 'error');
-      return null;
-    }
-  }
-
-  // ── Preview portal (opens in NBDDocViewer or new tab) ──
-  async function previewPortal(leadId, type) {
+  // ── Preview portal (opens in a new tab) ──
+  async function previewPortal(leadId) {
     if (!leadId) return;
-    // type kept for signature compat; the token portal renders photos inline.
     try {
       const url = await mintTokenUrl(leadId);
       window.open(url, '_blank', 'noopener');
@@ -202,7 +189,6 @@
   // Expose to window
   window.CustomerPortal = {
     generate: generatePortal,
-    generatePhotoPortal: generatePhotoPortal,
     preview: previewPortal,
     shareSMS: sharePortalSMS,
     shareEmail: sharePortalEmail,

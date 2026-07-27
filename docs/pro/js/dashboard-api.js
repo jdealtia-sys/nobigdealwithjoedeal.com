@@ -456,18 +456,30 @@ window._revokePortalLink = async function (leadId) {
 // Mints a portal token via createPortalToken and produces the
 // public URL. Copies to clipboard + opens SMS prefilled with the
 // link + the homeowner's first name. Expires in 30 days.
+// Mint-only portal URL for THIS page. Deliberately separate from
+// PortalLinkHelpers.resolveUrl, which hard-throws unless window.CustomerPortal
+// is present — and customer-portal.js is loaded on customer.html ONLY, never on
+// either dashboard. Anything on the dashboard that needs a portal URL must come
+// through here (the createPortalToken callable) or it dies at runtime.
+// Side-effect free: no clipboard, no SMS, no share recording — the caller owns
+// what happens next, and the caller owns calling PortalLinkHelpers.recordShare.
+window._mintPortalUrl = async function (leadId) {
+  if (!leadId) throw new Error('No lead selected');
+  const mod = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-functions.js');
+  const fns = mod.getFunctions();
+  const call = mod.httpsCallable(fns, 'createPortalToken');
+  const res = await call({ leadId, ttlDays: 30 });
+  const token = res && res.data && res.data.token;
+  if (!token) throw new Error('No token returned');
+  return location.origin + '/pro/portal.html?token=' + encodeURIComponent(token);
+};
+
 window._sharePortalLink = async function (leadId) {
   if (!leadId) { if (typeof showToast==='function') showToast('No lead selected','error'); return; }
   const lead = (window._leads || []).find(l => l.id === leadId);
   if (!lead) { if (typeof showToast==='function') showToast('Lead not found','error'); return; }
   try {
-    const mod = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-functions.js');
-    const fns = mod.getFunctions();
-    const call = mod.httpsCallable(fns, 'createPortalToken');
-    const res = await call({ leadId, ttlDays: 30 });
-    const token = res && res.data && res.data.token;
-    if (!token) throw new Error('No token returned');
-    const url = location.origin + '/pro/portal.html?token=' + encodeURIComponent(token);
+    const url = await window._mintPortalUrl(leadId);
     // Try clipboard first — falls back to prompt() if denied.
     try { await navigator.clipboard.writeText(url); } catch(e) {}
     if (typeof showToast==='function') showToast('Portal link copied to clipboard', 'success');

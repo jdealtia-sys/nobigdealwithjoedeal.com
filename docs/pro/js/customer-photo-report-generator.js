@@ -779,19 +779,83 @@ window.saveEstimate = async function() {
   }
   
   try {
-    await window.addDoc(window.collection(window.db, 'estimates'), {
+    const estRef = await window.addDoc(window.collection(window.db, 'estimates'), {
       leadId: window._customerId,
       // The estimates create rule requires userId == auth.uid; omitting it
       // made every Log Estimate from this page PERMISSION_DENIED.
       userId: window.auth?.currentUser?.uid || auth.currentUser?.uid || null,
       type: type,
       amount: amount,
+      // Classic-shape doc (type/amount) written into a collection the rest of
+      // the page reads in V2 shape. NBDCustomerEstimateRows.estimateValue /
+      // .estimateName prefer grandTotal/title, so mirror both here rather than
+      // making every reader special-case the Log Estimate flow.
+      grandTotal: amount,
+      title: type ? `${type} Estimate` : 'Estimate',
       notes: notes,
       status: 'Draft',
       createdAt: window.serverTimestamp(),
       createdBy: auth.currentUser?.email || 'Unknown'
     });
-    
+
+    // Pipeline wiring: the header Job Value, the Profit panel, pipeline $,
+    // the KPI tiles and the leaderboard ALL read lead.jobValue — never the
+    // estimates collection — so logging an estimate here used to leave every
+    // one of them at zero. Mirrors the canonical stamp-back in
+    // dashboard-bootstrap.module.js:_saveEstimate. Best-effort: a lead-write
+    // failure must never fail the estimate save the rep just watched succeed.
+    try {
+      const leadRef = window.doc(window.db, 'leads', window._customerId);
+      const leadSnap = await window.getDoc(leadRef);
+      if (leadSnap.exists()) {
+        const lead = leadSnap.data();
+        if (!lead.primaryEstimateId) {
+          // First estimate this lead has ever had — unambiguous, stamp it
+          // straight through. Only bump a stone-cold "new" lead forward, to
+          // Contacted (there is no "quote drafted" stage); never regress a
+          // lead already further along the funnel. normalizeStage/stageRole
+          // live in dashboard-bootstrap.module.js, which customer.html does
+          // NOT load, so both are typeof-guarded and the fallback compares
+          // literally — an unrecognized stage is left alone rather than
+          // being treated as 'new'.
+          const stampUpdate = {
+            jobValue: amount,
+            primaryEstimateId: estRef.id,
+            lastEstimateAt: window.serverTimestamp()
+          };
+          const stageKey = (typeof window.normalizeStage === 'function')
+            ? window.normalizeStage(lead.stage)
+            : String(lead.stage || 'new').trim().toLowerCase();
+          if (stageKey === 'new') {
+            stampUpdate.stage = 'contacted';
+            if (typeof window.stageRole === 'function') stampUpdate.stageRole = window.stageRole('contacted');
+          }
+          await window.updateDoc(leadRef, stampUpdate);
+        } else {
+          // Lead already has a primary estimate (this is a revision or a
+          // second quote) — don't silently clobber a rep-confirmed number.
+          // Same confirm helper the V2 builder uses, falling back to the
+          // native confirm() where nbdModal isn't loaded. On reject the
+          // estimate still saves; the lead is just left untouched.
+          const existingVal = Number(lead.jobValue) || 0;
+          const ask = window.nbdConfirm || ((m) => Promise.resolve(window.confirm(m)));
+          const useNew = await ask(
+            `This lead's job value is currently $${existingVal.toLocaleString()} (from an earlier estimate). ` +
+            `Use this new estimate's $${amount.toLocaleString()} instead?`
+          );
+          if (useNew) {
+            await window.updateDoc(leadRef, {
+              jobValue: amount,
+              primaryEstimateId: estRef.id,
+              lastEstimateAt: window.serverTimestamp()
+            });
+          }
+        }
+      }
+    } catch (stampErr) {
+      console.warn('[saveEstimate] lead stamp-back failed:', stampErr);
+    }
+
     alert('Estimate created successfully!');
     closeEstimateModal();
     if (window.loadEstimates) await window.loadEstimates(window._customerId);
@@ -799,9 +863,23 @@ window.saveEstimate = async function() {
     // Reload timeline
     const leadSnap2 = await window.getDoc(window.doc(window.db, 'leads', window._customerId));
     if (leadSnap2.exists()) {
-      if (window.loadTimeline) await window.loadTimeline(window._customerId, leadSnap2.data());
+      const fresh = { id: leadSnap2.id, ...leadSnap2.data() };
+      // Leads have NO snapshot listener on this page — the stamp-back above
+      // changed jobValue/stage on the server and nothing would repaint. Re-seed
+      // the in-memory state every other module reads, then hand-repaint the two
+      // cells that show it (mirrors saveCustomerEdits in customer-edit-modal.js).
+      window._currentLead = fresh;
+      window._leadDoc = fresh;
+      if (Array.isArray(window._leads)) window._leads = [fresh];
+      const _jvCell = document.getElementById('infoJobValue');
+      if (_jvCell) _jvCell.textContent = fresh.jobValue ? `$${(Number(fresh.jobValue) || 0).toLocaleString()}` : '—';
+      // jobValue feeds the profit-panel margin math → re-render it too
+      if (window.ProfitTracker && typeof window.ProfitTracker.renderCostPanel === 'function') {
+        try { window.ProfitTracker.renderCostPanel('profitPanel', window._customerId); } catch (e) {}
+      }
+      if (window.loadTimeline) await window.loadTimeline(window._customerId, fresh);
     }
-    
+
   } catch (error) {
     console.error('Error saving estimate:', error);
     alert('Failed to save estimate. Please try again.');

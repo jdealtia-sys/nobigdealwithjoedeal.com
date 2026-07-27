@@ -1238,6 +1238,16 @@
     if (!window._storage || !window._db || !window._user) {
       throw new Error('Firebase not initialized');
     }
+    // Fail loudly on a missing lead. Callers that read a lead id out of a
+    // global can hand us null/'' when that global was cleared (the
+    // read-after-close class of bug), and firestore.rules leaves `leadId`
+    // unconstrained — so the write SUCCEEDS and silently strands the photo at
+    // photos/<uid>/null/ on a doc attached to no customer. There is no UI
+    // anywhere that lists leadId-less photos, so they are unrecoverable.
+    // Every caller is already inside a try/catch that toasts.
+    if (!leadId || typeof leadId !== 'string') {
+      throw new Error('Cannot upload a photo without a customer — reopen the customer and try again');
+    }
 
     const { ref, uploadBytes, getDownloadURL } = await import(
       'https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js'
@@ -1265,12 +1275,14 @@
       const thumbUrl = await getDownloadURL(thumbRef);
 
       // Derive a normalized `phase` field from the user-selected tags.
-      // share-gallery.js reads photo.phase to bucket photos into
-      // Before / During / After sections. Without a dedicated field,
-      // every photo defaulted to 'During' and the Before/After buckets
-      // were always empty. We honor whichever phase tag the user set;
-      // if none, we leave phase null so the gallery falls back to the
-      // existing 'During' default.
+      // The customer page's photo panel (customer-tasks-ui.js) buckets on
+      // photo.phase for its Before / During / After filters and counts.
+      // Without a dedicated field every photo defaulted to 'During' and the
+      // Before/After buckets were always empty. We honor whichever phase tag
+      // the user set; if none, we leave phase null so consumers fall back to
+      // their existing 'During' default.
+      // (This used to name share-gallery.js as the reader — that module was
+      // deleted 2026-07-27; the field is still load-bearing for the panel above.)
       let phase = null;
       const _tagList = Array.isArray(tags) ? tags : [];
       if (_tagList.includes('before')) phase = 'Before';

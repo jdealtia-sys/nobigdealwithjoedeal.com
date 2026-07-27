@@ -429,6 +429,17 @@ window.loadProjectTimeline = async function(leadId) {
     // Find current stage index
     const currentIndex = milestones.findIndex(m => m.stage === currentStage);
 
+    // stageHistory is an ARRAY of {from, to, timestamp, user} written by the
+    // stage-change handler — it was being read as an object keyed by stage
+    // (stageHistory[stage].date), which is always undefined, so NO milestone
+    // ever rendered a date. Index it once by destination stage; the FIRST
+    // entry wins so a milestone reports when the lead first reached that
+    // stage, not the latest re-entry after a bounce-back.
+    const stageDates = {};
+    (Array.isArray(lead.stageHistory) ? lead.stageHistory : []).forEach(h => {
+      if (h && h.to && !(h.to in stageDates)) stageDates[h.to] = h.timestamp;
+    });
+
     let html = '';
     milestones.forEach((milestone, index) => {
       const isCompleted = index < currentIndex;
@@ -436,8 +447,14 @@ window.loadProjectTimeline = async function(leadId) {
       const isPending = index > currentIndex;
 
       const stateClass = isCompleted ? 'completed' : isActive ? 'active' : 'pending';
-      const date = lead.stageHistory?.[milestone.stage]?.date;
-      const dateStr = date ? new Date(date.seconds ? date.seconds * 1000 : date).toLocaleDateString() : '';
+      // Shared coercion — stageHistory timestamps arrive as Firestore
+      // Timestamps, bare {seconds} objects (REST/portal reads) or ISO
+      // strings depending on the read path; _nbdTsToDate handles all of
+      // them. It's published by loadCustomerData, hence the typeof guard.
+      const date = (typeof window._nbdTsToDate === 'function')
+        ? window._nbdTsToDate(stageDates[milestone.stage])
+        : null;
+      const dateStr = date ? date.toLocaleDateString() : '';
 
       html += `
         <div class="milestone ${stateClass}">
@@ -1405,7 +1422,9 @@ window.openPhotoInEditor = function(idx) {
   if (window.NBDPhotoEditor) {
     window.NBDPhotoEditor.open(photo.url, photo.id, window._customerId, photo);
   } else {
-    openPhotoLightbox(photo.url, photo.description || '');
+    // Pass the array we indexed into (_allPhotos) plus the index, so the
+    // lightbox arrows walk THIS list and not whichever one loaded last.
+    openPhotoLightbox(photo.url, photo.description || '', window._allPhotos || [], Number(idx) || 0);
   }
 };
 
@@ -2032,7 +2051,9 @@ function _previewPhotoFromPopup(idx) {
   var photo = (window._allPhotos || [])[+idx];
   if (!photo) return;
   if (typeof openPhotoLightbox === 'function') {
-    openPhotoLightbox(photo.url, photo.description || '');
+    // _allPhotos + idx: the arrows must step through the same list the rep
+    // was looking at when they opened the popup.
+    openPhotoLightbox(photo.url, photo.description || '', window._allPhotos || [], +idx);
   }
   _closePhotoActionPopup();
 }
@@ -2216,20 +2237,47 @@ window.setupContactTab = function(customerData) {
 };
 
 // ── Open Photo in Lightbox ─────────────────────
-window.openPhotoLightbox = function(url, description) {
+// srcArray/idx are optional, but every caller that indexed into an array MUST
+// pass both. The lightbox's next/prev arrows live in customer-bootstrap.module.js
+// and walk a module-scoped cursor this file structurally cannot set, so an
+// open-by-URL left the arrows stepping through whatever array was loaded last.
+// window.setLightboxSource is that module's setter; hand it the array we
+// actually indexed into. _allPhotos and _customerPhotos differ in LENGTH
+// (the team-read path drops the userId filter), so one array's cursor
+// addressing the other doesn't just reorder photos — it goes out of bounds.
+window.openPhotoLightbox = function(url, description, srcArray, idx) {
+  // DISPLAY FIRST, then hand over the cursor. setLightboxSource is a
+  // cursor-setter only — it stores the array the ‹ › arrows should walk and
+  // displays nothing. Returning early on it (as an earlier revision did) meant
+  // the lightbox never opened at all, and passing (url, description, …) into a
+  // two-arg (srcArray, idx) setter nulled _lightboxSource, forcing the arrows
+  // back onto window._customerPhotos — the exact cross-customer bug the
+  // handshake exists to prevent.
   const lightbox = document.getElementById('lightbox');
   const img = document.getElementById('lightboxImg');
   if (lightbox && img) {
     img.src = url;
     if (description) img.alt = description;
     lightbox.classList.add('active');
+    // Pairs with the `document.body.style.overflow = ''` reset in the canonical
+    // closeLightbox (customer-bootstrap.module.js).
+    document.body.style.overflow = 'hidden';
+  }
+  // Hand the arrows the array we actually indexed into. The two customer photo
+  // arrays differ in LENGTH (window._customerPhotos drops the userId filter for
+  // team readers; _allPhotos always filters by uid), so one array's cursor must
+  // never address the other.
+  if (Array.isArray(srcArray) && typeof window.setLightboxSource === 'function') {
+    window.setLightboxSource(srcArray, Number(idx) || 0);
   }
 };
 
-window.closeLightbox = function() {
-  const lightbox = document.getElementById('lightbox');
-  if (lightbox) lightbox.classList.remove('active');
-};
+// closeLightbox is deliberately NOT defined here. This file loads after
+// customer-bootstrap.module.js, so the duplicate that used to sit on this
+// line won the page — and it omitted the `document.body.style.overflow = ''`
+// reset that openLightbox's `overflow:hidden` depends on, leaving the page
+// permanently scroll-locked after the first close. The complete definition
+// in customer-bootstrap.module.js now takes effect.
 
 console.log('✓ Customer page enhancements loaded');
 

@@ -188,7 +188,7 @@ const KNOWN_GLOBALS = new Set([
   'PhotoEditor','ProductLibrary','PropertyIntel','CrmStages','KanbanContextMenu','NeedsAttentionFilter',
   'StaleSharesFilter','TemplateSuite','TemplatesLibrary','RoofiventCatalog','RealDealAcademy',
   'RealDealAcademyLab','RepOS','RepReportGenerator','ReportsDashboard','ReportsTrends','ReviewEngine',
-  'SalesTraining','ShareGallery','SignedImageUrl','SmartFollowupBriefing','StandaloneCompat',
+  'SalesTraining','SignedImageUrl','SmartFollowupBriefing','StandaloneCompat',
   'StateStore','StormCenter','StormIntegration','SupplementUI','Tasks','UI','VoiceIntelligence',
   'VoiceMemo','WarrantyCert','WhatsNew','Widgets','Tools','ShortcutsHelp','PrefsSync','PortalLinkHelpers',
   'IDBCache','Icons','InsuranceClaim','IntegrationsClient','EstimateAnalytics','EstimateBuilderV2',

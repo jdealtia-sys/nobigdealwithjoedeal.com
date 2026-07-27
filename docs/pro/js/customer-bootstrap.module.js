@@ -1,5 +1,5 @@
 
-let toggleCustomerPhotoReorder, _lightboxIndex; // module-local (globals Tranche 1 — was window.*)
+let toggleCustomerPhotoReorder, _lightboxIndex, _lightboxSource; // module-local (globals Tranche 1 — was window.*)
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { initializeAppCheck, ReCaptchaEnterpriseProvider } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app-check.js";
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
@@ -1101,11 +1101,38 @@ async function loadTimeline(leadId, lead) {
         // existing call/email/sms docs have no `title`, so they keep the old label.
         title: c.title || `${COMM_LABELS[t] || 'Contacted'} ${c.direction === 'inbound' ? 'from' : ''} customer`,
         desc: c.content || c.note || '',
-        type: 'communication'
+        // Don't flatten every comm doc to 'communication': setPrimaryEstimate
+        // writes its audit row here as type:'note', and the Notes filter pill
+        // matches on data-type, so flattening hid those rows under Calls/Texts.
+        type: (t === 'note' ? 'note' : 'communication')
       });
     });
   } catch (e) {
     console.log('No communications found for timeline');
+  }
+
+  // Load notes. The Notes filter pill matched data-type="note", but this
+  // function never queried /notes — clicking Notes emptied the timeline and
+  // told the rep the customer had none while the Notes panel beside it was
+  // full. Mirrors _gatherTimelineForReport's notes block: leadId only, no
+  // author filter, so a manager's note on a rep's lead shows too (the /notes
+  // rule authorizes by parent lead ownership / same company).
+  try {
+    const noteSnap = await getDocs(
+      query(collection(db, 'notes'), where('leadId', '==', leadId))
+    );
+    noteSnap.docs.forEach(d => {
+      const n = d.data();
+      timeline.push({
+        time: n.createdAt?.toDate ? n.createdAt.toDate() : new Date(n.createdAt || Date.now()),
+        icon: '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:13px;height:13px;vertical-align:middle;"><path d="M4 13.5V16h2.5l7-7L11 6.5l-7 7z"/><path d="M12.5 5l2.5 2.5"/></svg>',
+        title: 'Note added',
+        desc: (n.text || '').substring(0, 200),
+        type: 'note'
+      });
+    });
+  } catch (e) {
+    console.log('No notes found for timeline');
   }
 
   // Sort by time (newest first)
@@ -1429,9 +1456,21 @@ async function setPrimaryEstimate(estId) {
     if (typeof showToast === 'function') showToast('That estimate is already primary', 'info');
     return;
   }
-  const newVal = Number(est.grandTotal) || 0;
+  // Money + label come from the shared two-shape readers. Reading grandTotal
+  // alone was a data-loss bug: Classic docs (title/amount|total/lineItems —
+  // including everything the page's own Log Estimate modal writes) rendered
+  // $14,500 in the row beside this button while newVal computed 0, so the rep
+  // got the "$0" confirm and, clicking through, wrote jobValue:0 over a live
+  // deal. customer-estimate-rows.js is loaded on customer.html; the inline
+  // fallback mirrors its ladder so a missing script can't resurrect the $0 write.
+  const _rowsApi = window.NBDCustomerEstimateRows || {};
+  const newVal = typeof _rowsApi.estimateValue === 'function'
+    ? _rowsApi.estimateValue(est)
+    : Number(est.grandTotal != null ? est.grandTotal : est.total != null ? est.total : est.amount) || 0;
   const oldVal = Number(current.jobValue) || 0;
-  const estName = est.title || 'Estimate';
+  const estName = typeof _rowsApi.estimateName === 'function'
+    ? _rowsApi.estimateName(est)
+    : (est.title || est.name || est.addr || 'Estimate');
   // Validate: a Draft/$0 estimate would zero out the lead's job value —
   // confirm before letting a rep silently shrink a live deal.
   if (newVal <= 0) {
@@ -1681,108 +1720,46 @@ window.shareEstimateViewLink = async function(estId) {
 // also routes through the sandboxed NBDDocViewer — restoring it (in place of
 // the document.write popup below) is a UX call left to the owner.
 
-// ── EXPORT ESTIMATE FROM CUSTOMER PAGE ────────────────────────────────────
-window.exportCustomerEstimate = function(estId) {
-  const est = (window._customerEstimates || []).find(e => e.id === estId);
-  if (!est) { alert('Estimate not found'); return; }
-  const fmt = n => '$' + parseFloat(n).toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2});
-  const tierNames = { good:'Standard Reroof', better:'Reroof Plus', best:'Full Redeck' };
-  // Customer-facing rows at RETAIL. est.rows on V2/insurance docs saved before
-  // the 2026-07-18 money-math sweep hold the internal COST basis in rate/total,
-  // so printing them verbatim exposed the margin to the homeowner. The retail
-  // derivation (rows[].retailTotal → material×(1+markup)+labor → face value,
-  // + the O&P line that makes lines foot to the subtotal, per-SQ → no rows)
-  // lives in customer-estimate-rows.js — pure, unit-tested. If that script
-  // failed to load, fail CLOSED for margin data: docs with V2 cost pricing
-  // render no per-line rows (the grand total still shows); classic docs keep
-  // their rows, which are all-in customer prices by construction.
-  const _rowsApi = window.NBDCustomerEstimateRows;
-  const _hasV2Cost = Number.isFinite(Number(est.materialMarkupPct))
-    || est.priceMode === 'per-sq' || est.prices != null;
-  const rows = (_rowsApi && typeof _rowsApi.buildDisplayRows === 'function')
-    ? _rowsApi.buildDisplayRows(est)
-    : (_hasV2Cost ? [] : (est.rows || []));
-  const _b = (window._brand && window._brand()) || {};
-  const _isNbd = !_b.legalName || _b.legalName === 'No Big Deal Home Solutions';
-  const _esc = s => String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-  const _logo = _isNbd ? '/assets/images/nbd-logo.png' : (_b.logoUrl || '');
-  const _nameHtml = _isNbd ? 'No Big <span>Deal</span> Home Solutions' : _esc(_b.legalName);
-  const _legalName = _isNbd ? 'No Big Deal Home Solutions' : _b.legalName;
-  const _site = _isNbd ? 'nobigdealwithjoedeal.com' : ((_b.contact && _b.contact.website) || '');
-  const _tag = _isNbd ? 'Insurance Restoration Specialists' : (_b.tagline || '');
-  const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>NBD Estimate — ${_esc(est.addr||est.address||'')}</title>
-  <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700;800&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
-  <style>*{margin:0;padding:0;box-sizing:border-box;}body{font-family:'Barlow',sans-serif;padding:36px;max-width:860px;margin:0 auto;}
-  .hdr{display:flex;justify-content:space-between;align-items:flex-start;padding-bottom:20px;border-bottom:3px solid var(--orange);margin-bottom:26px;}
-  .brand{font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;}
-  .brand span{color:var(--orange);}.badge{font-size:9px;font-weight:700;letter-spacing:.18em;text-transform:uppercase;color:var(--orange);border:1px solid var(--orange);padding:2px 9px;border-radius:2px;display:inline-block;margin-top:5px;}
-  .est-hdr{text-align:right;}.est-type{font-family:'Barlow Condensed',sans-serif;font-size:32px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:#111;}
-  .est-date{font-size:12px;color:#666;}
-  .est-total-lbl{font-size:9px;font-weight:700;letter-spacing:.15em;text-transform:uppercase;color:var(--orange);margin-top:10px;}
-  .est-total-val{font-family:'Barlow Condensed',sans-serif;font-size:38px;font-weight:800;color:var(--orange);}
-  h2{font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.18em;color:#111;margin:22px 0 12px;padding-bottom:4px;border-bottom:2px solid var(--orange);}
-  .meas-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:6px;}
-  @media (max-width:600px){ .meas-grid{ grid-template-columns:repeat(2,1fr); } }
-  @media (max-width:400px){ .meas-grid{ grid-template-columns:1fr; } }
-  .mf label{font-size:9px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:#999;}
-  .mf .v{font-size:18px;font-weight:700;color:#111;}
-  table{width:100%;border-collapse:collapse;}thead tr{border-bottom:2px solid #111;}
-  th{font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;padding:8px 10px;text-align:left;color:#111;}
-  td{padding:8px 10px;border-bottom:1px solid #f0f0f0;font-size:13px;}
-  .code{color:var(--orange);font-weight:700;font-family:'Barlow Condensed',sans-serif;}
-  .grand-row td{font-family:'Barlow Condensed',sans-serif;font-size:16px;font-weight:700;color:var(--orange);border-top:3px solid #111;background:#fff8f5;padding:12px 10px;}
-  .footer{margin-top:32px;padding-top:14px;border-top:1px solid #eee;display:flex;justify-content:space-between;font-size:10px;color:#999;}
-  @page{margin:1.8cm 2cm;size:letter;}
-  *{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;}
-  </style><link rel="stylesheet" href="/assets/css/nbd-mobile.css">
-</head><body>
-  <div class="hdr">
-    <div style="display:flex;align-items:center;gap:14px;">
-      <img src="${_logo}" alt="${_esc(_legalName)}" style="height:54px;width:auto;display:block;flex-shrink:0;" loading="lazy" decoding="async" />
-      <div><div class="brand">${_nameHtml}</div><div style="font-size:13px;color:#666;margin-top:2px;">${_esc(_site)}</div><div class="badge">${_esc(_tag)}</div></div>
-    </div>
-    <div class="est-hdr">
-      <div class="est-type">Roofing Estimate</div>
-      <div class="est-date">${new Date().toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'})}</div>
-      <div class="est-date">${_esc(est.addr||est.address||'')}</div>
-      <div class="est-total-lbl">Estimate Total</div>
-      <div class="est-total-val">${fmt(est.grandTotal||est.amount||0)}</div>
-    </div>
-  </div>
-  <h2>Measurements</h2>
-  <div class="meas-grid">
-    <div class="mf"><label>Squares</label><div class="v">${est.sq||'—'}</div></div>
-    <div class="mf"><label>Roof SqFt</label><div class="v">${est.raw||'—'}</div></div>
-    <div class="mf"><label>Pitch</label><div class="v">${est.pitch||est.pl||'—'}</div></div>
-    <div class="mf"><label>Ridge LF</label><div class="v">${est.ridge||'—'}</div></div>
-    <div class="mf"><label>Eave LF</label><div class="v">${est.eave||'—'}</div></div>
-    <div class="mf"><label>Hip LF</label><div class="v">${est.hip||'—'}</div></div>
-  </div>
-  <h2>Package — ${est.tierName||tierNames[est.tier]||est.tier||'Standard'}</h2>
-  <table><thead><tr><th>Code</th><th>Description</th><th>Qty</th><th>Rate</th><th>Total</th></tr></thead>
-  <tbody>
-    ${rows.map(r=>`<tr><td class="code">${_esc(r.code)}</td><td>${_esc(r.desc)}</td><td>${_esc(r.qty)}</td><td>${_esc(r.rate)}</td><td>${fmt(r.total)}</td></tr>`).join('')}
-    <tr class="grand-row"><td colspan="4">ESTIMATE TOTAL — ${est.tierName||tierNames[est.tier]||''}</td><td>${fmt(est.grandTotal||est.amount||0)}</td></tr>
-  </tbody></table>
-  <div class="footer">
-    <div>${_esc(_legalName)} · ${_esc(_site)}</div>
-    <div>This estimate is valid for 30 days. Measurements verified on-site prior to work.</div>
-  </div>
-  <script>window.print();<\/script></body></html>`;
-  const w = window.open('','_blank'); w.document.write(html); w.document.close();
-};
-// ── END EXPORT ─────────────────────────────────────────────────────────────
+// NOTE: a first, dead window.exportCustomerEstimate (a document.write print
+// popup) used to live here. It was shadowed by the later jsPDF definition —
+// window assignments, last one wins — so it never ran. Its two behaviours the
+// winner lacked (buildDisplayRows retail lines, window._brand() tenant
+// branding) were ported into that jsPDF export before this was deleted; see
+// the "EXPORT ESTIMATE AS PDF" block below.
 
-// Lightbox functionality
+// Lightbox functionality.
+//
+// The ‹ › arrows used to walk window._customerPhotos regardless of which array
+// actually opened the viewer. customer-tasks-ui.js's openPhotoLightbox() opens
+// the SAME #lightbox from window._allPhotos and can't reach this module's
+// _lightboxIndex, so paging out of one of its photos indexed a different array
+// — and these two arrays differ in LENGTH, not just order (_customerPhotos
+// drops the userId filter for team readers, see _photoQueryScopes; _allPhotos
+// always filters by uid). So the cursor and the array it indexes must travel
+// together: _lightboxSource is whatever array opened the viewer.
 window._customerPhotos = [];
 _lightboxIndex = 0;
+_lightboxSource = null;
 
-window.openLightbox = function(index) {
+// srcArray is optional — callers on this page pass an index into
+// window._customerPhotos and get the historical behaviour.
+window.openLightbox = function(index, srcArray) {
+  const src = Array.isArray(srcArray) ? srcArray : (window._customerPhotos || []);
+  const photo = src[index];
+  if (!photo) return;
+  _lightboxSource = src;
   _lightboxIndex = index;
-  const photo = window._customerPhotos[index];
   document.getElementById('lightboxImg').src = photo.url;
   document.getElementById('lightbox').classList.add('active');
   document.body.style.overflow = 'hidden';
+};
+
+// Handshake for foreign openers (customer-tasks-ui.js's openPhotoLightbox,
+// which is handed a bare url): tell the arrows which array they're paging and
+// where in it the visible photo sits. Pass an empty array to disable paging.
+window.setLightboxSource = function(srcArray, idx) {
+  _lightboxSource = Array.isArray(srcArray) ? srcArray : null;
+  _lightboxIndex = Number(idx) || 0;
 };
 
 window.closeLightbox = function() {
@@ -1790,15 +1767,19 @@ window.closeLightbox = function() {
   document.body.style.overflow = '';
 };
 
-window.nextPhoto = function() {
-  _lightboxIndex = (_lightboxIndex + 1) % window._customerPhotos.length;
-  document.getElementById('lightboxImg').src = window._customerPhotos[_lightboxIndex].url;
-};
+// Empty/absent source: `idx % 0` is NaN and src[NaN].url throws, so page nowhere.
+function _stepLightbox(delta) {
+  const src = _lightboxSource || window._customerPhotos || [];
+  if (!src.length) return;
+  _lightboxIndex = (_lightboxIndex + delta + src.length) % src.length;
+  const photo = src[_lightboxIndex];
+  if (!photo || !photo.url) return;
+  document.getElementById('lightboxImg').src = photo.url;
+}
 
-window.prevPhoto = function() {
-  _lightboxIndex = (_lightboxIndex - 1 + window._customerPhotos.length) % window._customerPhotos.length;
-  document.getElementById('lightboxImg').src = window._customerPhotos[_lightboxIndex].url;
-};
+window.nextPhoto = function() { _stepLightbox(1); };
+
+window.prevPhoto = function() { _stepLightbox(-1); };
 
 // Keyboard navigation for lightbox
 document.addEventListener('keydown', (e) => {
@@ -2685,12 +2666,23 @@ window.exportCustomerEstimate = async function(estimateId) {
     const pw = pdf.internal.pageSize.getWidth();
     let y = 20;
 
+    // Branding — tenant-aware (Phase B). This export hardcoded NBD's legal name
+    // and navy, so a homeowner of ANY other tenant received a quote carrying
+    // Joe's company. Same resolver + hex idiom as customer-photo-report-generator.js;
+    // NBD renders byte-identical (its own colors ARE #1E3A6E / #E8720C).
+    const _b = (window._brand && window._brand()) || {};
+    const _isNbd = !_b.legalName || _b.legalName === 'No Big Deal Home Solutions';
+    const _hx = (h) => { const m = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(String(h || '')); return m ? [parseInt(m[1],16), parseInt(m[2],16), parseInt(m[3],16)] : null; };
+    const _pri = (!_isNbd && _hx(_b.colors && _b.colors.primary)) || [30, 58, 110];
+    const _acc = (!_isNbd && _hx(_b.colors && _b.colors.accent)) || [232, 114, 12];
+    const _legalName = _isNbd ? 'No Big Deal Home Solutions' : String(_b.legalName || '');
+
     // Header
-    pdf.setFillColor(30, 58, 110);
+    pdf.setFillColor(_pri[0], _pri[1], _pri[2]);
     pdf.rect(0, 0, pw, 28, 'F');
     pdf.setTextColor(255, 255, 255);
     pdf.setFontSize(18);
-    pdf.text('No Big Deal Home Solutions', 14, 14);
+    pdf.text(_legalName, 14, 14);
     pdf.setFontSize(9);
     pdf.text('ESTIMATE', 14, 22);
     pdf.setFontSize(9);
@@ -2706,15 +2698,51 @@ window.exportCustomerEstimate = async function(estimateId) {
     if (lead.phone) { pdf.text(`Phone: ${lead.phone}`, 14, y); y += 6; }
     y += 4;
 
-    // Estimate details
+    // Estimate details. Title reads through the two-shape helper: V2 docs name
+    // the estimate in `name`, Classic docs in `title`.
+    const _rowsApi = window.NBDCustomerEstimateRows;
     pdf.setFontSize(13);
-    pdf.setTextColor(232, 114, 12);
-    pdf.text(est.title || 'Estimate', 14, y); y += 8;
+    pdf.setTextColor(_acc[0], _acc[1], _acc[2]);
+    pdf.text((_rowsApi && typeof _rowsApi.estimateName === 'function')
+      ? _rowsApi.estimateName(est)
+      : (est.title || est.name || est.addr || 'Estimate'), 14, y); y += 8;
     const tier = est.tier || est.tierName || '';
     if (tier) { pdf.setFontSize(9); pdf.setTextColor(100,100,100); pdf.text(`Tier: ${tier.toUpperCase()}`, 14, y); y += 6; }
 
-    // Line items
-    if (est.lineItems && est.lineItems.length > 0) {
+    // Customer-facing lines at RETAIL. Reading est.lineItems ONLY printed a
+    // homeowner PDF with no lines at all for V2 docs (rows/name/grandTotal — the
+    // default for every new estimate): a header, the customer block and a Total.
+    // buildDisplayRows is the shared derivation (rows[].retailTotal →
+    // material×(1+markup)+labor → face value, plus the O&P line that makes the
+    // lines foot to the subtotal); pre-sweep V2 rows hold the internal COST basis
+    // in rate/total, so printing est.rows verbatim would expose the margin.
+    // If that script is missing we fail CLOSED for margin data: V2-priced docs
+    // print no lines (the Total still renders), classic rows/lineItems still do.
+    // buildDisplayRows deliberately returns NO rows for per-SQ docs, whose rows
+    // are the internal cost basis — empty rows AND no lineItems is the correct
+    // summary-only render, not an error.
+    const _hasV2Cost = Number.isFinite(Number(est.materialMarkupPct))
+      || est.priceMode === 'per-sq' || est.prices != null;
+    const displayRows = (_rowsApi && typeof _rowsApi.buildDisplayRows === 'function')
+      ? _rowsApi.buildDisplayRows(est)
+      : (_hasV2Cost ? [] : (est.rows || []));
+    const lineItems = Array.isArray(est.lineItems) ? est.lineItems : [];
+    // One print shape for both doc families: {desc, qty, rate(string), total(number)}.
+    const printRows = displayRows.length
+      ? displayRows.map(r => ({
+          desc:  r.desc || r.description || '—',
+          qty:   r.qty == null ? '' : r.qty,
+          rate:  r.rate == null ? '' : r.rate,
+          total: Number(r.total) || 0
+        }))
+      : lineItems.map(item => ({
+          desc:  item.description || item.name || '—',
+          qty:   item.qty || item.quantity || 1,
+          rate:  '$' + (parseFloat(item.unitPrice || item.price || 0) || 0).toFixed(2),
+          total: parseFloat(item.total || item.lineTotal || 0) || 0
+        }));
+
+    if (printRows.length > 0) {
       pdf.setFontSize(9);
       pdf.setTextColor(100,100,100);
       pdf.text('DESCRIPTION', 14, y);
@@ -2727,12 +2755,12 @@ window.exportCustomerEstimate = async function(estimateId) {
       y += 5;
 
       pdf.setTextColor(30, 30, 30);
-      est.lineItems.forEach(item => {
+      printRows.forEach(r => {
         if (y > 250) { pdf.addPage(); y = 20; }
-        pdf.text((item.description || item.name || '—').substring(0, 40), 14, y);
-        pdf.text(String(item.qty || item.quantity || 1), 125, y);
-        pdf.text('$' + (parseFloat(item.unitPrice || item.price || 0)).toFixed(2), 148, y);
-        pdf.text('$' + (parseFloat(item.total || item.lineTotal || 0)).toFixed(2), 178, y);
+        pdf.text(String(r.desc).substring(0, 40), 14, y);
+        pdf.text(String(r.qty), 125, y);
+        pdf.text(String(r.rate), 148, y);
+        pdf.text('$' + r.total.toFixed(2), 178, y);
         y += 6;
       });
       y += 4;
@@ -2741,9 +2769,11 @@ window.exportCustomerEstimate = async function(estimateId) {
 
     // Totals
     pdf.setFontSize(12);
-    pdf.setTextColor(30, 58, 110);
-    const total = est.grandTotal || est.total || est.amount || 0;
-    pdf.text(`Total: $${parseFloat(total).toLocaleString()}`, pw - 14, y, { align: 'right' });
+    pdf.setTextColor(_pri[0], _pri[1], _pri[2]);
+    const total = (_rowsApi && typeof _rowsApi.estimateValue === 'function')
+      ? _rowsApi.estimateValue(est)
+      : (Number(est.grandTotal != null ? est.grandTotal : est.total != null ? est.total : est.amount) || 0);
+    pdf.text(`Total: $${total.toLocaleString()}`, pw - 14, y, { align: 'right' });
 
     // Notes
     if (est.notes) {
@@ -2757,13 +2787,17 @@ window.exportCustomerEstimate = async function(estimateId) {
     }
 
     const custName = ((lead.firstName || '') + '_' + (lead.lastName || '')).trim().replace(/\s+/g, '_') || 'customer';
-    pdf.save(`NBD_Estimate_${custName}_${estimateId.slice(0,6)}.pdf`);
+    // Doc-number prefix is per-tenant too — a non-NBD download shouldn't land
+    // in the homeowner's folder named NBD_*.
+    const _filePrefix = _isNbd ? 'NBD' : (String(_b.docPrefix || '').replace(/[^A-Za-z0-9]+/g, '') || 'Estimate');
+    pdf.save(`${_filePrefix}_Estimate_${custName}_${estimateId.slice(0,6)}.pdf`);
     if (typeof showToast === 'function') showToast('Estimate PDF exported', 'ok');
   } catch (e) {
     console.error('Estimate export failed:', e);
     if (typeof showToast === 'function') showToast('Export failed — ' + e.message, 'error');
   }
 };
+// ── END EXPORT ─────────────────────────────────────────────────────────────
 
 // ============================================
 // GENERATE WARRANTY CERTIFICATE FROM ESTIMATE
@@ -2790,28 +2824,40 @@ window.generateCertFromEstimate = async function(estimateId) {
   const expiryDate = new Date(installDate);
   expiryDate.setFullYear(expiryDate.getFullYear() + warrantyYears);
 
+  // Accent is a literal here, not var(--orange): this popup links only
+  // nbd-mobile.css, which never DECLARES --orange (it only reads it with a
+  // fallback). Every var(--orange) resolved to nothing, which made the Print
+  // button's background transparent — white text on the white certificate. The
+  // theme tokens live on the app shell, which a document.write popup never loads.
+  //
+  // Print Certificate is wired by a <script> injected into the popup document,
+  // the same way warranty-cert.js:250 does it. The button carried
+  // data-action="print", but this page's delegated click listener lives in the
+  // PARENT document and cannot see a click inside the popup, so it was dead. A
+  // popup written by document.write is not a /pro page under the site CSP, so
+  // the no-inline-script rule doesn't reach it (warranty-cert.js is precedent).
   const html = `<!DOCTYPE html>
 <html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Warranty Certificate — ${custName}</title>
 <style>
   *{margin:0;padding:0;box-sizing:border-box;}
   body{font-family:'Georgia',serif;background:#f8f6f1;display:flex;justify-content:center;align-items:center;min-height:100vh;min-height:100dvh;padding:20px;}
-  .cert{background:#fff;border:3px double var(--orange);padding:50px 60px;max-width:700px;width:100%;text-align:center;position:relative;}
+  .cert{background:#fff;border:3px double #e8720c;padding:50px 60px;max-width:700px;width:100%;text-align:center;position:relative;}
   .cert::before{content:'';position:absolute;inset:8px;border:1px solid #d4a017;pointer-events:none;}
-  .logo{font-family:'Arial Black',sans-serif;font-size:28px;color:var(--orange);letter-spacing:3px;margin-bottom:4px;}
-  .logo-sub{font-size:11px;color:var(--orange);letter-spacing:4px;text-transform:uppercase;margin-bottom:30px;}
-  h1{font-size:32px;color:var(--orange);margin-bottom:6px;letter-spacing:2px;}
+  .logo{font-family:'Arial Black',sans-serif;font-size:28px;color:#e8720c;letter-spacing:3px;margin-bottom:4px;}
+  .logo-sub{font-size:11px;color:#e8720c;letter-spacing:4px;text-transform:uppercase;margin-bottom:30px;}
+  h1{font-size:32px;color:#e8720c;margin-bottom:6px;letter-spacing:2px;}
   .seal{font-size:14px;color:#666;margin-bottom:30px;letter-spacing:1px;}
   .details{text-align:left;margin:24px 0;padding:20px;background:#fafaf8;border:1px solid #e8e4d8;border-radius:4px;}
   .row{display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px dotted #ddd;}
   .row:last-child{border:none;}
   .label{color:#888;font-size:13px;}
-  .value{color:var(--orange);font-weight:bold;font-size:14px;}
+  .value{color:#e8720c;font-weight:bold;font-size:14px;}
   .footer{margin-top:30px;display:flex;justify-content:space-between;align-items:flex-end;}
   .sig{text-align:center;}
   .sig-line{width:180px;border-top:1px solid #333;margin-top:40px;padding-top:6px;font-size:11px;color:#888;}
-  .print-btn{margin-top:24px;padding:12px 32px;background:var(--orange);color:#fff;border:none;border-radius:6px;font-size:14px;cursor:pointer;}
-  @media print{.print-btn{display:none;} body{background:#fff;} .cert{border:3px double var(--orange);}}
+  .print-btn{margin-top:24px;padding:12px 32px;background:#e8720c;color:#fff;border:none;border-radius:6px;font-size:14px;cursor:pointer;}
+  @media print{.print-btn{display:none;} body{background:#fff;} .cert{border:3px double #e8720c;}}
 </style><link rel="stylesheet" href="/assets/css/nbd-mobile.css">
 </head><body>
 <div class="cert">
@@ -2834,8 +2880,10 @@ window.generateCertFromEstimate = async function(estimateId) {
     <div class="sig"><div class="sig-line">Contractor Signature</div></div>
     <div class="sig"><div class="sig-line">Date Issued: ${new Date().toLocaleDateString()}</div></div>
   </div>
-  <button class="print-btn" data-action="print">🖨️ Print Certificate</button>
-</div></body></html>`;
+  <button class="print-btn" id="certPrintBtn">🖨️ Print Certificate</button>
+</div>
+<script>document.getElementById('certPrintBtn').addEventListener('click',function(){window.print();});<\/script>
+</body></html>`;
 
   const win = window.open('', '_blank');
   if (win) {

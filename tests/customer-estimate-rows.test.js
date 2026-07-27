@@ -203,98 +203,223 @@ test('totals round to cents', () => {
 });
 
 // ═══════════════════════════════════════════════════════════════════════
-// Integration: the REAL exportCustomerEstimate template from
+// Two-shape readers: estimateValue / estimateName
+// ═══════════════════════════════════════════════════════════════════════
+console.log('\ncustomer-estimate-rows — estimateValue / estimateName');
+console.log('──────────────────────────────────────────────────');
+
+test('estimateValue reads V2 grandTotal and Classic amount|total alike', () => {
+  eq(CR.estimateValue({ grandTotal: 14500 }), 14500, 'V2');
+  eq(CR.estimateValue({ total: 14500 }), 14500, 'classic total');
+  eq(CR.estimateValue({ amount: 14500 }), 14500, 'classic amount');
+  eq(CR.estimateValue({ amount: '$14,500' }), 14500, 'display-string amount');
+});
+
+test('estimateValue preserves a real 0 and never NaNs', () => {
+  eq(CR.estimateValue({ grandTotal: 0, amount: 9000 }), 0, 'genuine $0 draft');
+  eq(CR.estimateValue({ amount: 'n/a' }), 0);
+  eq(CR.estimateValue(null), 0);
+});
+
+test('estimateName reads Classic title, V2 name, then addr', () => {
+  eq(CR.estimateName({ title: 'Roof — 12 Oak' }), 'Roof — 12 Oak');
+  eq(CR.estimateName({ name: 'Reroof Plus' }), 'Reroof Plus');
+  eq(CR.estimateName({ addr: '12 Oak St' }), '12 Oak St');
+  eq(CR.estimateName({}), 'Estimate');
+});
+
+// ═══════════════════════════════════════════════════════════════════════
+// Integration: the REAL exportCustomerEstimate from
 // customer-bootstrap.module.js (extracted by marker — the module itself
-// imports firebase, so it can't be require()d). Locks the wiring: the
-// export must render the helper's retail rows, escape row fields, and
-// fail CLOSED (no V2 cost rows) if the helper script is missing.
+// imports firebase, so it can't be require()d).
+//
+// This targets the jsPDF export, which is the one that actually RUNS. A
+// second, earlier document.write definition used to shadow-lose to it and
+// this suite used to assert against that dead code; the jsPDF winner read
+// only est.lineItems + est.title, so V2 docs (rows/name/grandTotal — every
+// new estimate) exported a homeowner PDF with no line items at all, and it
+// hardcoded NBD's name + navy onto every tenant's quote. Both behaviours
+// were ported in; these tests lock them.
+//
+// jsPDF text() is not an HTML sink, so there is no escaping assertion here
+// (the deleted document.write version needed one).
 // ═══════════════════════════════════════════════════════════════════════
 const fs = require('fs');
+const vm = require('vm');
 const modSrc = fs.readFileSync(path.join(__dirname, '..', 'docs', 'pro', 'js', 'customer-bootstrap.module.js'), 'utf8');
-const START = 'window.exportCustomerEstimate = function(estId) {';
+const START = 'window.exportCustomerEstimate = async function(estimateId) {';
 const END = '// ── END EXPORT';
-const s = modSrc.indexOf(START), e = modSrc.indexOf(END);
+const s = modSrc.indexOf(START), e = modSrc.indexOf(END, s < 0 ? 0 : s);
 
-console.log('\nexportCustomerEstimate — real template via vm sandbox');
+console.log('\nexportCustomerEstimate — real jsPDF export via vm sandbox');
 console.log('──────────────────────────────────────────────────');
 
 test('export function found in customer-bootstrap.module.js', () => {
   if (s < 0 || e < 0 || e <= s) throw new Error('extraction markers not found — update tests/customer-estimate-rows.test.js');
 });
 
-function runExport(est, opts) {
-  const vm = require('vm');
-  const win = {
-    _customerEstimates: [est],
-    _brand: null,
-    open: () => {
-      const w = { document: { html: '', write(h) { this.html += h; }, close() {} } };
-      win._lastWindow = w;
-      return w;
-    },
+test('exactly one exportCustomerEstimate definition survives', () => {
+  const n = modSrc.split('window.exportCustomerEstimate = ').length - 1;
+  eq(n, 1, 'definitions (a shadowed duplicate silently wins/loses at load)');
+});
+
+// Minimal jsPDF stand-in: records what the export actually drew so the
+// assertions can talk about printed text and brand fills instead of a PDF blob.
+function fakeJsPDF(rec) {
+  function Doc() {
+    this.internal = { pageSize: { getWidth: function () { return 216; } } };
+    this._color = null;
+  }
+  Doc.prototype.setFillColor = function (r, g, b) { rec.fills.push([r, g, b]); };
+  Doc.prototype.setTextColor = function (r, g, b) { this._color = [r, g, b]; };
+  Doc.prototype.setDrawColor = function () {};
+  Doc.prototype.setFontSize = function () {};
+  Doc.prototype.rect = function () {};
+  Doc.prototype.line = function () {};
+  Doc.prototype.addPage = function () {};
+  Doc.prototype.splitTextToSize = function (t) { return [String(t)]; };
+  Doc.prototype.text = function (t) {
+    const self = this;
+    (Array.isArray(t) ? t : [t]).forEach(function (str) {
+      rec.texts.push({ s: String(str), color: self._color });
+    });
   };
-  if (!opts || !opts.noHelper) win.NBDCustomerEstimateRows = CR;
-  win.window = win;
-  const sandbox = { window: win, alert: () => {}, Number, Math, String, Date, parseFloat, JSON };
-  vm.runInNewContext(modSrc.slice(s, e), sandbox, { filename: 'exportCustomerEstimate.extracted.js' });
-  win.exportCustomerEstimate(est.id);
-  return (win._lastWindow && win._lastWindow.document.html) || '';
+  Doc.prototype.save = function (f) { rec.saved = f; };
+  return Doc;
 }
 
-// Pre-sweep V2/insurance doc: rows persisted at COST (1000 mat + 500 lab
-// per line, saved total 1500) under a retail grandTotal.
+function runExport(est, opts) {
+  opts = opts || {};
+  const rec = { texts: [], fills: [], saved: null, errors: [] };
+  const win = {
+    _customerEstimates: [est],
+    _currentLead: { firstName: 'Ada', lastName: 'Ruiz', address: '12 Oak St' },
+    jspdf: { jsPDF: fakeJsPDF(rec) },
+  };
+  if (opts.brand) win._brand = function () { return opts.brand; };
+  if (!opts.noHelper) win.NBDCustomerEstimateRows = CR;
+  win.window = win;
+  const sandbox = {
+    window: win,
+    console: { error: function (m, err) { rec.errors.push(String((err && err.message) || m)); }, warn: function () {}, log: function () {} },
+    Number, Math, String, Date, Array, JSON, parseFloat, parseInt,
+  };
+  vm.runInNewContext(modSrc.slice(s, e), sandbox, { filename: 'exportCustomerEstimate.extracted.js' });
+  // Async fn, but window.jspdf is already present so nothing awaits: the whole
+  // body runs synchronously before the returned promise settles.
+  const p = win.exportCustomerEstimate(est.id);
+  if (p && typeof p.catch === 'function') p.catch(function () {});
+  rec.all = rec.texts.map(function (t) { return t.s; }).join('\n');
+  return rec;
+}
+
+// Pre-sweep V2/insurance doc: rows persisted at COST (1000 mat + 500 lab per
+// line, saved total 1500) under a retail grandTotal. No lineItems, no title —
+// the exact shape the old lineItems/title-only export rendered blank.
 const preSweepV2 = {
-  id: 'e1', tier: 'better', addr: '12 Oak St',
+  id: 'e1abc9', tier: 'better', addr: '12 Oak St', name: 'Reroof Plus — 12 Oak St',
   materialMarkupPct: 0.25, overhead: 200, profit: 300,
   overheadPct: 0.10, profitPct: 0.15,
   grandTotal: 2250, subtotal: 2250,
-  rows: [{ code: 'SHNG', desc: 'Shingles <b>GAF</b>', qty: '10.00SQ', rate: '$150.00',
+  rows: [{ code: 'SHNG', desc: 'Shingles GAF', qty: '10.00SQ', rate: '$150.00',
            total: 1500, materialTotal: 1000, laborTotal: 500 }],
 };
 
-test('pre-sweep V2 doc renders RETAIL line total, not the cost basis', () => {
-  const html = runExport(preSweepV2);
-  if (html.indexOf('$1,750.00') < 0) throw new Error('derived retail $1,750.00 missing from export HTML');
-  if (html.indexOf('$1,500.00') >= 0) throw new Error('internal cost total $1,500.00 leaked into export HTML');
-  if (html.indexOf('$150.00') >= 0) throw new Error('internal cost rate $150.00 leaked into export HTML');
-  if (html.indexOf('$175.00') < 0) throw new Error('retail unit rate $175.00 missing');
+test('V2 doc (rows, no lineItems) prints its line items at all', () => {
+  const rec = runExport(preSweepV2);
+  eq(rec.errors.length, 0, 'export threw: ' + rec.errors.join('; '));
+  if (rec.all.indexOf('Shingles GAF') < 0) throw new Error('V2 row description missing — export printed no lines');
+  if (rec.all.indexOf('DESCRIPTION') < 0) throw new Error('line-item table header missing');
 });
 
-test('O&P line renders so lines foot to the subtotal', () => {
-  const html = runExport(preSweepV2);
-  if (html.indexOf('Overhead &amp; Profit (25%)') < 0) throw new Error('O&P line missing (or unescaped)');
-  if (html.indexOf('$500.00') < 0) throw new Error('O&P amount missing');
+test('V2 lines print RETAIL, never the internal cost basis', () => {
+  const rec = runExport(preSweepV2);
+  if (rec.all.indexOf('$1750.00') < 0) throw new Error('derived retail $1750.00 missing');
+  if (rec.all.indexOf('$1500.00') >= 0) throw new Error('internal cost total leaked into the PDF');
+  if (rec.all.indexOf('$150.00') >= 0) throw new Error('internal cost rate leaked into the PDF');
+  if (rec.all.indexOf('$175.00') < 0) throw new Error('retail unit rate $175.00 missing');
 });
 
-test('row fields are HTML-escaped in the export', () => {
-  const html = runExport(preSweepV2);
-  if (html.indexOf('<b>GAF</b>') >= 0) throw new Error('row desc rendered unescaped');
-  if (html.indexOf('&lt;b&gt;GAF&lt;/b&gt;') < 0) throw new Error('escaped desc not found');
+test('O&P line prints so the lines foot to the subtotal', () => {
+  const rec = runExport(preSweepV2);
+  if (rec.all.indexOf('Overhead & Profit (25%)') < 0) throw new Error('O&P line missing');
+  if (rec.all.indexOf('$500.00') < 0) throw new Error('O&P amount missing');
 });
 
-test('helper missing → fail closed: V2 cost rows absent, grand total still renders', () => {
-  const html = runExport(preSweepV2, { noHelper: true });
-  if (html.indexOf('1,500.00') >= 0 || html.indexOf('$150.00') >= 0) throw new Error('cost leaked without helper');
-  if (html.indexOf('SHNG') >= 0) throw new Error('V2 rows rendered without helper (must fail closed)');
-  if (html.indexOf('$2,250.00') < 0) throw new Error('grand total missing');
+test('title reads estimateName — V2 name, not the absent title', () => {
+  const rec = runExport(preSweepV2);
+  if (rec.all.indexOf('Reroof Plus — 12 Oak St') < 0) throw new Error('V2 est.name not printed as the title');
 });
 
-test('helper missing → classic doc rows still render (fail-open only for retail rows)', () => {
-  const classic = { id: 'e2', tier: 'good', grandTotal: 12250,
-    rows: [{ code: 'RFG SYS', desc: 'Good — Standard Reroof', qty: '20.00 SQ', rate: '$595/SQ', total: 11900 }] };
-  const html = runExport(classic, { noHelper: true });
-  if (html.indexOf('$595/SQ') < 0) throw new Error('classic row rate missing');
-  if (html.indexOf('$11,900.00') < 0) throw new Error('classic row total missing');
+test('total reads estimateValue (grandTotal)', () => {
+  const rec = runExport(preSweepV2);
+  if (rec.all.indexOf('Total: $2,250') < 0) throw new Error('grand total missing');
 });
 
-test('per-SQ V2 doc renders no cost rows, tier total only', () => {
-  const perSq = { id: 'e3', tier: 'best', priceMode: 'per-sq', grandTotal: 14000,
+test('classic lineItems doc still renders its lines and its amount', () => {
+  const classic = {
+    id: 'e2def8', title: 'Roof Replacement — 12 Oak St', amount: 14500,
+    lineItems: [{ description: 'Tear-off + reroof', quantity: 20, unitPrice: 595, total: 11900 }]
+  };
+  const rec = runExport(classic);
+  eq(rec.errors.length, 0, 'export threw: ' + rec.errors.join('; '));
+  if (rec.all.indexOf('Tear-off + reroof') < 0) throw new Error('classic line item missing');
+  if (rec.all.indexOf('$595.00') < 0) throw new Error('classic unit price missing');
+  if (rec.all.indexOf('$11900.00') < 0) throw new Error('classic line total missing');
+  if (rec.all.indexOf('Total: $14,500') < 0) throw new Error('classic amount not read as the total');
+});
+
+test('per-SQ doc prints no cost rows and does not crash — tier total only', () => {
+  const perSq = { id: 'e3ghi7', tier: 'best', priceMode: 'per-sq', grandTotal: 14000,
     prices: { good: 9000, better: 11000, best: 14000 }, materialMarkupPct: 0.25,
     rows: [{ code: 'SHNG', desc: 'Shingles', qty: '10.00SQ', rate: '$150.00',
              total: 1500, materialTotal: 1000, laborTotal: 500 }] };
-  const html = runExport(perSq);
-  if (html.indexOf('SHNG') >= 0) throw new Error('per-SQ internal rows leaked');
-  if (html.indexOf('$14,000.00') < 0) throw new Error('tier grand total missing');
+  const rec = runExport(perSq);
+  eq(rec.errors.length, 0, 'export threw: ' + rec.errors.join('; '));
+  if (rec.all.indexOf('Shingles') >= 0) throw new Error('per-SQ internal rows leaked');
+  if (rec.all.indexOf('DESCRIPTION') >= 0) throw new Error('empty line table rendered its header');
+  if (rec.all.indexOf('Total: $14,000') < 0) throw new Error('tier grand total missing');
+});
+
+test('helper missing → fail closed: V2 cost rows absent, total still prints', () => {
+  const rec = runExport(preSweepV2, { noHelper: true });
+  if (rec.all.indexOf('Shingles GAF') >= 0) throw new Error('V2 rows rendered without the helper (must fail closed)');
+  if (rec.all.indexOf('$1500.00') >= 0 || rec.all.indexOf('$150.00') >= 0) throw new Error('cost leaked without the helper');
+  if (rec.all.indexOf('Total: $2,250') < 0) throw new Error('grand total missing');
+});
+
+test('helper missing → classic lineItems still render (fail-open only for retail rows)', () => {
+  const classic = { id: 'e4jkl6', title: 'Roof', amount: 11900,
+    lineItems: [{ description: 'Good — Standard Reroof', quantity: 20, unitPrice: 595, total: 11900 }] };
+  const rec = runExport(classic, { noHelper: true });
+  if (rec.all.indexOf('Good — Standard Reroof') < 0) throw new Error('classic line item missing');
+  if (rec.all.indexOf('$11900.00') < 0) throw new Error('classic line total missing');
+});
+
+// ── Tenant branding: no other company's homeowner may receive Joe's name ──
+test('NBD (no brand override) renders byte-identical: NBD name + navy', () => {
+  const rec = runExport(preSweepV2);
+  if (rec.all.indexOf('No Big Deal Home Solutions') < 0) throw new Error('NBD legal name missing');
+  if (!rec.fills.some(function (f) { return f[0] === 30 && f[1] === 58 && f[2] === 110; })) {
+    throw new Error('NBD navy header fill missing');
+  }
+  if (String(rec.saved).indexOf('NBD_Estimate_') !== 0) throw new Error('NBD filename prefix changed: ' + rec.saved);
+});
+
+test('non-NBD tenant gets its own name, primary color and doc prefix', () => {
+  const rec = runExport(preSweepV2, {
+    brand: { legalName: 'Acme Exteriors LLC', docPrefix: 'ACME',
+             colors: { primary: '#0A5F38', accent: '#FFB300' } }
+  });
+  if (rec.all.indexOf('No Big Deal') >= 0) throw new Error("NBD's name leaked onto another tenant's estimate");
+  if (rec.all.indexOf('Acme Exteriors LLC') < 0) throw new Error('tenant legal name missing');
+  if (!rec.fills.some(function (f) { return f[0] === 10 && f[1] === 95 && f[2] === 56; })) {
+    throw new Error('tenant primary color not applied to the header (#0A5F38)');
+  }
+  if (rec.fills.some(function (f) { return f[0] === 30 && f[1] === 58 && f[2] === 110; })) {
+    throw new Error('NBD navy still painted for a non-NBD tenant');
+  }
+  if (String(rec.saved).indexOf('ACME_Estimate_') !== 0) throw new Error('tenant doc prefix missing from filename: ' + rec.saved);
 });
 
 console.log('\n──────────────────────────────────────────────────');

@@ -1213,7 +1213,11 @@ function openMobileJobDetail(leadId) {
   $('mJdPhone').textContent   = lead.phone || '—';
   $('mJdEmailV').textContent  = lead.email || '—';
   $('mJdSource').textContent  = lead.source || lead.leadSource || '—';
-  $('mJdCarrier').textContent = lead.carrier || lead.insuranceCarrier || '—';
+  // Carrier precedence mirrors claim-core.js normalizeClaim (:92): insCarrier is
+  // what the canonical lead writer (crm-leads.js #lInsCarrier) stamps, so it must
+  // win. Reading .carrier first meant this row showed '—' for every lead that
+  // actually had a carrier.
+  $('mJdCarrier').textContent = lead.insCarrier || lead.insuranceCarrier || lead.carrier || '—';
   $('mJdClaim').textContent   = lead.claimNumber || lead.claim || '—';
 
   // ── Photos tab — cleared, not built. CustomerPhotoHub owns this tab and

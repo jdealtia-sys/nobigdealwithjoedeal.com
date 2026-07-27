@@ -1215,14 +1215,45 @@ let _NBD_IP_DELEGATE_BOUND; // module-local (globals Tranche 1 — was window.*)
     // Build inline modal instead of using prompt()
     destroyExisting('nbd-invoice-modal');
 
+    // Estimate source. This used to be a free-text "Estimate ID" box prefilled
+    // from lead.estimateId — a key NO writer in this codebase ever stamps — so
+    // it was always blank and the rep was expected to type a Firestore document
+    // id from memory. Offer the lead's own estimates instead: leadId match, plus
+    // a stamped primary that predates the leadId-attach fix (#1036).
+    // customer-estimate-rows.js is loaded on customer.html but not everywhere
+    // this pipeline runs, hence the guarded helper fallbacks — the two estimate
+    // shapes (V2 name/grandTotal, Classic title/amount|total) must both read.
+    const lead = (leadId && Array.isArray(window._leads))
+      ? window._leads.find(l => l.id === leadId) : null;
+    const estName = (window.NBDCustomerEstimateRows && window.NBDCustomerEstimateRows.estimateName)
+      || (e => (e && (e.title || e.name || e.addr)) || 'Estimate');
+    const estValue = (window.NBDCustomerEstimateRows && window.NBDCustomerEstimateRows.estimateValue)
+      || (e => Number(e && (e.grandTotal != null ? e.grandTotal : e.total != null ? e.total : e.amount)) || 0);
+    const leadEstimates = lead
+      ? (window._estimates || []).filter(e => e && (e.leadId === lead.id || e.id === lead.primaryEstimateId))
+      : [];
+    // Estimate names come from lead-derived (public-intake) text — escape both
+    // the option label and the value.
+    const estOptions = leadEstimates.map(e => {
+      const v = estValue(e);
+      const label = estName(e) + (v ? ' — ' + formatCurrency(v) : '');
+      const sel = (lead && lead.primaryEstimateId === e.id) ? ' selected' : '';
+      return `<option value="${escHtml(e.id)}"${sel}>${escHtml(label)}</option>`;
+    }).join('');
+
     const overlay = document.createElement('div');
     overlay.id = 'nbd-invoice-modal';
     overlay.className = 'modal-bg';
     overlay.innerHTML = `
       <div class="modal" style="max-width:420px;">
         <div style="font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:700;margin-bottom:16px;">Create Invoice from Estimate</div>
-        <label style="font-size:10px;font-weight:600;color:var(--m);text-transform:uppercase;letter-spacing:.08em;">Estimate ID</label>
-        <input id="nbd-inv-est-id" type="text" class="fi" autofocus placeholder="Select or enter estimate ID..." style="margin-top:6px;">
+        <label style="font-size:10px;font-weight:600;color:var(--m);text-transform:uppercase;letter-spacing:.08em;">Estimate</label>
+        ${leadEstimates.length ? `
+        <select id="nbd-inv-est-pick" class="fi" style="margin-top:6px;">
+          ${estOptions}
+          <option value="__manual__">Other — enter an estimate ID…</option>
+        </select>` : ''}
+        <input id="nbd-inv-est-id" type="text" class="fi" placeholder="Enter estimate ID..." style="margin-top:6px;"${leadEstimates.length ? ' hidden' : ''}>
         <div style="display:flex;gap:8px;margin-top:20px;">
           <button id="nbd-inv-cancel" type="button" class="btn btn-ghost" style="flex:1;justify-content:center;">Cancel</button>
           <button id="nbd-inv-create" type="button" class="btn btn-orange" style="flex:1;justify-content:center;">Create Invoice</button>
@@ -1234,21 +1265,28 @@ let _NBD_IP_DELEGATE_BOUND; // module-local (globals Tranche 1 — was window.*)
     const done = new Promise((resolve) => { resolveP = resolve; });
     const closeModal = openOverlay(overlay, () => resolveP());
 
-    // Populate estimate dropdown if leads have estimates
     const input = overlay.querySelector('#nbd-inv-est-id');
-    if (leadId && window._leads) {
-      const lead = window._leads.find(l => l.id === leadId);
-      if (lead?.estimateId) input.value = lead.estimateId;
+    const picker = overlay.querySelector('#nbd-inv-est-pick');
+    // Manual entry stays reachable even when the lead has estimates — an
+    // estimate created in another tab won't be in the in-memory cache yet.
+    if (picker) {
+      picker.addEventListener('change', () => {
+        const manual = picker.value === '__manual__';
+        input.hidden = !manual;
+        if (manual) input.focus();
+      });
     }
     // The canonical .modal-bg fades in via a visibility transition, so a
     // synchronous focus() no-ops — retry after the first transition frame
     // (covers the legacy-page fallback; nbdModal does its own retry).
-    setTimeout(() => { if (document.contains(input)) input.focus(); }, 80);
+    const focusTarget = picker || input;
+    setTimeout(() => { if (document.contains(focusTarget)) focusTarget.focus(); }, 80);
 
     overlay.querySelector('#nbd-inv-cancel').onclick = () => closeModal();
     overlay.querySelector('#nbd-inv-create').onclick = async () => {
-      const estimateId = input.value.trim();
-      if (!estimateId) { if (typeof showToast === 'function') showToast('Enter an estimate ID', 'error'); return; }
+      const picked = (picker && picker.value !== '__manual__') ? picker.value : '';
+      const estimateId = picked || input.value.trim();
+      if (!estimateId) { if (typeof showToast === 'function') showToast('Pick an estimate or enter an estimate ID', 'error'); return; }
       closeModal();
       try {
         showToast('Creating invoice...', 'info');
