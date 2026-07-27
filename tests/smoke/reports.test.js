@@ -42,6 +42,25 @@ section('Wave C3: admin analytics');
   assert('loadAnalytics renders KPI tiles', /function loadAnalytics/.test(adm));
 }
 
+section('Admin: one-tap Run Migrations (client surface for the runMigrations callable)');
+{
+  const adm = read(path.join(PRO_JS, 'admin-manager.js'));
+  // The callable existed with no UI — a deployed migration sat unapplied
+  // until the daily tick. The button closes that gap; the server keeps the
+  // platform-admin + App Check gate, so exposure adds no new access.
+  assert('runMigrationsNow invokes the runMigrations callable',
+    /async function runMigrationsNow\(\)[\s\S]{0,700}callable\('runMigrations'\)/.test(adm));
+  assert('runMigrationsNow confirms via nbdConfirm first (iOS-PWA-safe)',
+    /runMigrationsNow\(\)[\s\S]{0,300}window\.nbdConfirm \|\| \(\(m\) => Promise\.resolve\(window\.confirm\(m\)\)\)/.test(adm));
+  assert('runMigrationsNow surfaces lock, error, no-op and success outcomes',
+    /skipped === 'locked'/.test(adm) && /d\.lastError/.test(adm)
+    && /Nothing pending/.test(adm) && /Ran ' \+ d\.ranCount/.test(adm));
+  assert('AdminManager exports runMigrationsNow', /runMigrationsNow,/.test(adm));
+  const dash = read(path.join(ROOT, 'docs/pro/dashboard.html'));
+  assert('admin view has the Run Migrations button (CSP-safe module action)',
+    /data-action="module" data-target="AdminManager\.runMigrationsNow"/.test(dash));
+}
+
 section('H-04: getAdminAnalytics admin/company_admin gate + rate limit');
 {
   const src = readFunctionsIndex();

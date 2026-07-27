@@ -637,6 +637,47 @@
     }
   }
 
+  // ── Run migrations now ─────────────────────────────────
+  // One-tap invocation of the runMigrations callable so a freshly
+  // deployed migration (e.g. 005's orphan-estimate relink) applies
+  // immediately instead of waiting for the daily migrationsTick.
+  // Server-enforced platform-admin gate + App Check; safe to tap
+  // repeatedly — the runner is idempotent and pending=0 is a no-op.
+  // nbdConfirm first: native confirm() is blocked in iOS standalone
+  // (PWA) mode, which is exactly where this gets tapped.
+  async function runMigrationsNow() {
+    const ask = window.nbdConfirm || ((m) => Promise.resolve(window.confirm(m)));
+    if (!(await ask('Run pending data migrations now?\n\nApplies any deployed migration that has not run yet. Safe: idempotent, and already-applied migrations are skipped.'))) return;
+    toast('Running migrations…', 'info');
+    try {
+      const fn = await callable('runMigrations');
+      const res = await fn({});
+      const d = (res && res.data) || {};
+      if (d.skipped === 'locked') {
+        toast('Another migration run holds the lock — try again in a minute.', 'info');
+        return;
+      }
+      if (d.lastError) {
+        console.error('[admin] migration run stopped on error:', d.lastError);
+        toast('Migrations stopped at v' + (d.appliedVersion || 0) + ' with an error — check console.', 'error');
+        return;
+      }
+      if (!d.ranCount) {
+        toast('Nothing pending — data already at migration v' + (d.appliedVersion || 0) + '.', 'success');
+        return;
+      }
+      const results = d.results || [];
+      results.forEach(r => console.log('[admin] migration #' + r.version + ' ' + r.name
+        + ' — read ' + r.docsRead + ', wrote ' + r.docsWritten + (r.note ? ' — ' + r.note : '')));
+      const lastNote = (results[results.length - 1] || {}).note || '';
+      toast('✓ Ran ' + d.ranCount + ' migration(s) → v' + d.appliedVersion
+        + (lastNote ? ' — ' + lastNote : ''), 'success');
+    } catch (e) {
+      console.error('runMigrations failed:', e);
+      toast(e.message || 'Migration run failed — platform-admin only.', 'error');
+    }
+  }
+
   // Public API
   window.AdminManager = {
     init,
@@ -649,6 +690,7 @@
     toggleDeactivate,
     applyGate,
     rotateAccessCodes,
+    runMigrationsNow,
     loadAnalytics
   };
 
