@@ -166,6 +166,40 @@ section('Phase 1a: shared estimate preview sheet (mobile-first, both doc shapes)
   assert('customer.html loads estimate-preview.js', /estimate-preview\.js\?v=1/.test(custHtml));
 }
 
+section('Phase 1b: V2 builder mobile step navigation + always-visible total');
+{
+  const src = read(path.join(PRO_JS, 'estimate-v2-ui.js'));
+  // The three panes become steps on mobile: Setup → Items → Review.
+  assert('panes carry step classes',
+    /class="v2-pane pane-setup"/.test(src)
+    && /class="v2-pane pane-items"/.test(src)
+    && /class="v2-pane right pane-review"/.test(src));
+  assert('mobile step bar with mstep actions + live total button',
+    /class="v2-mstep-bar" id="v2mStepBar"/.test(src)
+    && /data-action="mstep" data-arg="1"/.test(src)
+    && /data-action="mstep" data-arg="3"/.test(src)
+    && /id="v2mTotal" data-action="mstep" data-arg="3"/.test(src));
+  // Desktop untouched: the bar's base rule is display:none, and the
+  // step-visibility rules live only inside the ≤1000px media query.
+  assert('step bar hidden by default (desktop unaffected)',
+    /\.v2-mstep-bar \{ display:none; \}/.test(src));
+  assert('data-mstep visibility rules hide the other panes per step',
+    /#estV2Modal\[data-mstep="1"\] \.pane-items/.test(src)
+    && /#estV2Modal\[data-mstep="2"\] \.pane-review/.test(src)
+    && /#estV2Modal\[data-mstep="3"\] \.pane-setup/.test(src));
+  assert('dispatcher routes mstep to setMobileStep',
+    /case 'mstep':[\s\S]{0,160}setMobileStep\(arg\)/.test(src)
+    && /function setMobileStep\(n\)/.test(src));
+  // The bar's total mirrors the grand total in BOTH renderScope branches
+  // (empty state + priced), so it never shows a stale number.
+  assert('live total mirrored into the step bar (both branches)',
+    /mT0\.textContent = '\$0'/.test(src)
+    && /mT\.textContent = '\$' \+ Math\.round\(estimate\.total\)\.toLocaleString\(\)/.test(src));
+  // Reopen lands on Review (look-at-it step); fresh estimates on Setup.
+  assert('open() starts at Review for reopen, Setup for fresh',
+    /setMobileStep\(opts\.estimateId \? 3 : 1\)/.test(src));
+}
+
 section('Wave B3: live estimates snapshot');
 {
   // CSP hotfix: subscribe wiring is in dashboard-bootstrap.module.js.
