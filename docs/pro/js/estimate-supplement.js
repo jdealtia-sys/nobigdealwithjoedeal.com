@@ -285,6 +285,26 @@
     return true;
   }
 
+  /**
+   * Replace an item's photo set by INDEX (code-keyed attachPhoto breaks on
+   * duplicate catalog codes — same reason removeAddedItemAt exists). The
+   * picker UI passes [{id, url}] entries so the formal letter can embed the
+   * actual images, not just count them.
+   *
+   * @param {Object} supplement
+   * @param {'added'|'modified'} kind
+   * @param {number} index — row index within that list
+   * @param {Array<{id:string,url:string}>} photos
+   */
+  function setItemPhotos(supplement, kind, index, photos) {
+    const list = kind === 'modified' ? supplement.modifiedItems : supplement.addedItems;
+    const i = Number(index);
+    if (!Number.isInteger(i) || i < 0 || i >= list.length) return false;
+    list[i].photos = Array.isArray(photos) ? photos.filter(Boolean) : [];
+    supplement.updatedAt = new Date().toISOString();
+    return true;
+  }
+
   // ═════════════════════════════════════════════════════════
   // Delta calculator — rolls up added + modified items
   // ═════════════════════════════════════════════════════════
@@ -368,8 +388,31 @@
     supplement.submission.responseStatus  = response.status;
     supplement.submission.approvedAmount  = Number(response.approvedAmount) || null;
     supplement.submission.responseNotes   = response.notes || '';
+    // Per-line adjuster verdicts (RoofLink-style Requested vs Approved):
+    // which items were approved / reduced / denied on a partial. The single
+    // approvedAmount above stays the billable number invoice-pipeline reads.
+    supplement.submission.itemDecisions   = sanitizeItemDecisions(response.itemDecisions);
     supplement.updatedAt = new Date().toISOString();
     return supplement;
+  }
+
+  /**
+   * Sanitize a per-line decision list to a fixed shape (or null). Each entry
+   * records the adjuster's verdict on ONE supplement line:
+   *   { kind:'added'|'modified', index, code, name, requested, approved,
+   *     decision:'approved'|'reduced'|'denied' }
+   */
+  function sanitizeItemDecisions(decisions) {
+    if (!Array.isArray(decisions) || !decisions.length) return null;
+    return decisions.map(d => ({
+      kind: d && d.kind === 'modified' ? 'modified' : 'added',
+      index: (d && Number.isInteger(Number(d.index))) ? Number(d.index) : 0,
+      code: String((d && d.code) || ''),
+      name: String((d && d.name) || ''),
+      requested: Number(d && d.requested) || 0,
+      approved: Number(d && d.approved) || 0,
+      decision: (d && (d.decision === 'denied' || d.decision === 'reduced')) ? d.decision : 'approved',
+    }));
   }
 
   // ═════════════════════════════════════════════════════════
@@ -426,6 +469,17 @@
     const fmtDate = EF ? EF.fmtDate : (d => new Date(d).toLocaleDateString());
     const baseCSS = EF ? EF.BASE_CSS : '';
 
+    // Per-item photo strip — when the picker attached {id,url} entries,
+    // embed the actual documentation images in the letter (print-safe).
+    // Legacy string photo ids only get the count badge.
+    const photoStripHtml = (photos) => {
+      const withUrl = (photos || []).filter(p => p && typeof p === 'object' && p.url);
+      if (!withUrl.length) return '';
+      return `<div style="margin-top:4px;">` + withUrl.map(p =>
+        `<img src="${escape(p.url)}" alt="Documentation photo" style="height:70px;max-width:110px;object-fit:cover;border-radius:3px;margin:2px 4px 0 0;print-color-adjust:exact;-webkit-print-color-adjust:exact;page-break-inside:avoid;">`
+      ).join('') + `</div>`;
+    };
+
     // Added items table
     const addedRows = supplement.addedItems.map((item, i) => {
       const photoFlag = item.photos && item.photos.length
@@ -443,6 +497,7 @@
             <strong>${escape(item.name || '')}</strong>${photoFlag}
             <div class="reason">${escape(item.justification || item.reason || '')}</div>
             ${codeRef}
+            ${photoStripHtml(item.photos)}
           </td>
           <td class="num">${fmtQty(item.quantity, item.unit)} ${escape(item.unit)}</td>
           <td class="num">${fmtMoney(item.materialCostPerUnit)}</td>
@@ -464,6 +519,7 @@
           <td>
             <strong>${escape(mod.name || '')}</strong>${photoFlag}
             <div class="reason">${escape(mod.justification || '')}</div>
+            ${photoStripHtml(mod.photos)}
           </td>
           <td class="num">${fmtQty(mod.originalQuantity, mod.unit)} → <strong>${fmtQty(mod.newQuantity, mod.unit)}</strong></td>
           <td class="num">+${fmtQty(mod.deltaQuantity, mod.unit)} ${escape(mod.unit)}</td>
@@ -803,6 +859,10 @@ ${signBlock}
           'submission.responseStatus': status,
           'submission.approvedAmount': approvedAmount,
           'submission.responseNotes': (response.notes || ''),
+          // Per-line verdicts (which items the adjuster approved/reduced/
+          // denied). Recorded for ANY status when provided — the audit
+          // trail matters even on a full approval — null otherwise.
+          'submission.itemDecisions': sanitizeItemDecisions(response.itemDecisions),
           'submission.respondedAt': ts,
           updatedAt: ts,
         }
@@ -857,6 +917,8 @@ ${signBlock}
     removeAddedItemAt,
     removeModification,
     attachPhoto,
+    setItemPhotos,         // index-keyed photo set ({id,url} entries — letter embeds them)
+    sanitizeItemDecisions, // per-line adjuster verdict shape guard
     calculateDelta,
     markSubmitted,
     recordResponse,

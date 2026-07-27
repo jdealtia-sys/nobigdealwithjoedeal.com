@@ -981,6 +981,12 @@
           if (code) overrideQty(code);
           break;
         }
+        case 'edit-note': {
+          const item = target.closest('.v2-scope-item');
+          const code = item && item.dataset.code;
+          if (code) overrideNote(code);
+          break;
+        }
       }
     });
 
@@ -1170,6 +1176,30 @@
       }
       scopeEntry.overrides.qty = n;
     }
+    state._reopenedClean = false;   // 3B
+    render();
+  }
+
+  // Per-line note (RoofLink-style "Note:" on estimate rows). Lives in
+  // state.scope[].overrides.note — pure annotation, never touches math.
+  // Rendered on the scope row, persisted on saved rows (rows[].note),
+  // and printed on the finalized documents under the line description.
+  function overrideNote(code) {
+    const scopeEntry = state.scope.find(s => s.code === code);
+    if (!scopeEntry) return;
+    const estimate = getCurrentEstimate();
+    const line = estimate && estimate.lines.find(l => l.code === code);
+    const current = (scopeEntry.overrides && scopeEntry.overrides.note) || '';
+    const msg = 'Note for ' + ((line && line.name) || code) + '\n\n'
+      + 'Shows under this line on the estimate documents.\n'
+      + 'Leave blank to remove the note.';
+    // eslint-disable-next-line no-alert
+    const input = window.prompt(msg, current);
+    if (input === null) return;  // user hit Cancel
+    scopeEntry.overrides = scopeEntry.overrides || {};
+    const trimmed = String(input).trim();
+    if (trimmed === '') delete scopeEntry.overrides.note;
+    else scopeEntry.overrides.note = trimmed.slice(0, 500);
     state._reopenedClean = false;   // 3B
     render();
   }
@@ -2143,6 +2173,10 @@
       const qtyDecimals = (line.unit === 'SQ' || line.unit === 'LF') ? 1 : 0;
       const safeQty = (Number(line.quantity) || 0).toFixed(qtyDecimals);
       const overridden = !!line.qtyOverridden;
+      // Per-line rep note (overrides.note) — annotation only, shown here
+      // and printed under the line on the finalized documents.
+      const noteEntry = state.scope.find(s => s.code === line.code);
+      const lineNote = (noteEntry && noteEntry.overrides && noteEntry.overrides.note) || '';
       // data-action + data-code get picked up by the delegated click
       // handler on #v2scopeList installed in ensureModal(). Clean under
       // Report-Only CSP (script-src-attr 'none') — zero inline onclicks.
@@ -2151,12 +2185,14 @@
       return `
         <div class="v2-scope-item${overridden ? ' overridden' : ''}" data-code="${escLocal(line.code)}">
           <div class="actions">
+            <button class="edit-note" type="button" data-action="edit-note" title="${lineNote ? 'Edit note' : 'Add note'}" style="${lineNote ? 'color:var(--orange,#e8720c);' : ''}">📝</button>
             <button class="edit-qty" type="button" data-action="override-qty" title="Edit quantity">✎</button>
             <button class="rm" type="button" data-action="remove-from-scope" title="Remove">×</button>
           </div>
           <div class="total">$${Math.round(Number(line.lineTotal) || 0).toLocaleString()}</div>
           <div class="name">${escLocal((line.name || '').substring(0, 38))}</div>
           <div class="qty">${safeQty} ${escLocal(line.unit)} · ${escLocal(line.code)}${overridden ? ' · <span style="color:var(--blue,#22d3ee);">manual</span>' : ''}</div>
+          ${lineNote ? `<div class="line-note" style="font-size:11px;color:var(--m,#9ca3af);font-style:italic;margin-top:2px;">📝 ${escLocal(lineNote)}</div>` : ''}
         </div>
       `;
     }).join('');
@@ -2674,6 +2710,8 @@
         // override lives in state.scope[].overrides.qty; without this the saved
         // qty re-resolves from measurements on the first post-reopen edit).
         qtyOverride:         ((state.scope || []).find(s => s.code === line.code)?.overrides?.qty ?? null),
+        // Per-line rep note — annotation printed under the line on documents.
+        note:                ((state.scope || []).find(s => s.code === line.code)?.overrides?.note ?? null),
         };
       }),
       // Totals — grandTotal is the canonical customer total: the selected
@@ -2847,7 +2885,10 @@
     // rows, which aren't catalog items). Quantities re-resolve from measurements.
     state.scope = (doc.rows || [])
       .filter((r) => r && r.code && !/^SVC /.test(r.code) && r.source !== 'passthru')
-      .map((r) => ({ code: r.code, overrides: (r.qtyOverride != null ? { qty: Number(r.qtyOverride) } : {}) }));
+      .map((r) => ({ code: r.code, overrides: Object.assign(
+        (r.qtyOverride != null ? { qty: Number(r.qtyOverride) } : {}),
+        (r.note ? { note: String(r.note) } : {})
+      ) }));
     // Repopulate pass-through fees (measurement report, e-sign, permit upcharge)
     // from the saved SVC/passthru rows — else the FIRST edit after reopen drops
     // them from the live re-resolve (getCurrentEstimate reads state.passThru)
@@ -2866,6 +2907,19 @@
     // one key over a stale-DOM baseline (the rest stays wrong).
     if (typeof syncMeasurementInputs === 'function') syncMeasurementInputs();
     return true;
+  }
+
+  // Stamp per-line rep notes (state.scope[].overrides.note) onto resolved
+  // lines as line.repNote so the document formatters can print them. Also
+  // honors notes carried on replayed saved rows (line.note) when the scope
+  // entry lacks one (belt-and-braces for reconstructed docs).
+  function _stampLineNotes(estimate) {
+    if (!estimate || !Array.isArray(estimate.lines)) return;
+    estimate.lines.forEach(line => {
+      const e = (state.scope || []).find(s => s.code === line.code);
+      const n = (e && e.overrides && e.overrides.note) || line.note || null;
+      if (n) line.repNote = String(n);
+    });
   }
 
   // The estimate to render/save RIGHT NOW: on a clean reopen of a 3A-capable
@@ -2948,6 +3002,10 @@
       // card by KEY (not float-equality on totals — see estimate-finalization.js).
       if (meta.tiers) meta.tiers.recommended = state.tier;
     }
+    // Per-line rep notes ride to the formatters as line.repNote — the
+    // resolver doesn't carry annotations, so stamp them from state here
+    // (and from saved rows on a clean reopen, where state mirrors them).
+    _stampLineNotes(estimate);
     // formatEstimate can throw if a required field in the catalog item
     // is malformed. Wrap so the user gets a real error instead of a
     // silent nothing — the single biggest reason "previews not showing"
@@ -3182,6 +3240,7 @@
     }
     let result;
     try {
+      _stampLineNotes(estimate);
       result = window.EstimateFinalization.formatEstimate(estimate, 'retail-quote', {
         customer,
         claim: state.claim,

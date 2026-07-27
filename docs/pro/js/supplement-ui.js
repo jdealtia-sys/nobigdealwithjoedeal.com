@@ -71,6 +71,65 @@
       'background:rgba(255,255,255,0.03);white-space:nowrap;">' + m.label + '</span>';
   }
 
+  // Read-only per-line verdict table for an already-recorded response
+  // (RoofLink-style Requested vs Approved columns).
+  function _decisionsSummaryHtml(s) {
+    const dec = s.submission && s.submission.itemDecisions;
+    if (!dec || !dec.length) return '';
+    const chip = function (d) {
+      return d === 'denied' ? '<span style="color:#ef4444;font-weight:700;">✗ Denied</span>'
+        : d === 'reduced' ? '<span style="color:#eab308;font-weight:700;">↓ Reduced</span>'
+        : '<span style="color:#22c55e;font-weight:700;">✓ Approved</span>';
+    };
+    const rows = dec.map(function (d) {
+      return '<tr>' +
+        '<td style="padding:4px 6px;font-size:12px;">' + _esc(d.name || d.code) + '</td>' +
+        '<td style="padding:4px 6px;font-size:12px;text-align:right;font-variant-numeric:tabular-nums;">' + _money(Number(d.requested) || 0) + '</td>' +
+        '<td style="padding:4px 6px;font-size:12px;text-align:right;font-variant-numeric:tabular-nums;">' + (d.decision === 'denied' ? '$0' : _money(Number(d.approved) || 0)) + '</td>' +
+        '<td style="padding:4px 6px;font-size:11px;text-align:right;white-space:nowrap;">' + chip(d.decision) + '</td>' +
+        '</tr>';
+    }).join('');
+    return '<table style="width:100%;border-collapse:collapse;margin-top:8px;background:#0d1830;border:1px solid #2a3344;">' +
+      '<thead><tr style="font-size:10px;color:#94a3b8;text-transform:uppercase;letter-spacing:.05em;background:#13171d;">' +
+      '<th style="text-align:left;padding:5px 6px;font-weight:600;">Item</th>' +
+      '<th style="text-align:right;padding:5px 6px;font-weight:600;">Requested</th>' +
+      '<th style="text-align:right;padding:5px 6px;font-weight:600;">Approved</th>' +
+      '<th style="padding:5px 6px;"></th>' +
+      '</tr></thead><tbody>' + rows + '</tbody></table>';
+  }
+
+  // Editable per-line decision rows for recording a PARTIAL response —
+  // uncheck what the adjuster denied, adjust approved $ per line; the
+  // billable total auto-sums into the amount field.
+  function _decisionEditorHtml(s) {
+    const items = [];
+    (s.addedItems || []).forEach(function (it, i) {
+      items.push({ kind: 'added', index: i, code: it.code || '', name: it.name || '', requested: Number(it.lineTotal) || 0 });
+    });
+    (s.modifiedItems || []).forEach(function (m, i) {
+      items.push({ kind: 'modified', index: i, code: m.originalCode || '', name: m.name || '', requested: Number(m.deltaLineTotal) || 0 });
+    });
+    if (!items.length) return '';
+    const prior = {};
+    ((s.submission && s.submission.itemDecisions) || []).forEach(function (d) { prior[d.kind + ':' + d.index] = d; });
+    const rows = items.map(function (it) {
+      const p = prior[it.kind + ':' + it.index];
+      const on = !p || p.decision !== 'denied';
+      const appr = p ? Number(p.approved) : it.requested;
+      return '<div class="nbd-sup-dec-row" data-kind="' + it.kind + '" data-index="' + it.index + '" ' +
+        'data-code="' + _esc(it.code) + '" data-name="' + _esc(it.name) + '" data-requested="' + it.requested + '" ' +
+        'style="display:flex;align-items:center;gap:8px;padding:6px 8px;border-top:1px solid #1a2540;">' +
+        '<input type="checkbox" class="nbd-sup-dec-on"' + (on ? ' checked' : '') + ' style="width:15px;height:15px;cursor:pointer;flex:0 0 auto;">' +
+        '<div style="flex:1;min-width:0;font-size:12px;">' + _esc(it.name || it.code) +
+          ' <span style="color:#94a3b8;white-space:nowrap;">req ' + _money(it.requested) + '</span></div>' +
+        '<input type="number" class="nbd-sup-dec-amt" min="0" step="0.01" value="' + (on ? (Math.round(appr * 100) / 100) : '') + '"' + (on ? '' : ' disabled') +
+          ' style="width:96px;padding:5px 7px;border-radius:5px;border:1px solid #2a3344;background:#13171d;color:inherit;font:inherit;font-size:12px;flex:0 0 auto;">' +
+        '</div>';
+    }).join('');
+    return '<div style="font-size:11px;color:#94a3b8;margin:8px 0 2px;">Uncheck what the adjuster denied; adjust approved $ per line. The billable total auto-sums (edit it after if the carrier applied O&amp;P differently).</div>' +
+      '<div style="background:#0d1830;border:1px solid #2a3344;border-radius:6px;">' + rows + '</div>';
+  }
+
   // Rows for each saved supplement + its "record carrier response" control.
   function _existingListHtml() {
     return (_existingSupplements || []).map(function (s) {
@@ -95,6 +154,8 @@
           (bill != null
             ? '<div style="margin-top:6px;font-size:11px;color:#94a3b8;">Invoices bill <strong style="color:#cbd5e1;">' + bill + '</strong> for this supplement.</div>'
             : '') +
+          _decisionsSummaryHtml(s) +
+          '<div class="nbd-sup-decisions" style="display:none;"></div>' +
           '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:8px;">' +
             '<select class="nbd-sup-resp-status" style="flex:1;min-width:180px;padding:7px 9px;border-radius:5px;border:1px solid #2a3344;background:#13171d;color:inherit;font:inherit;font-size:13px;">' +
               '<option value="">Record carrier response…</option>' +
@@ -189,13 +250,23 @@
     const parentTotal = (parent && (parent.grandTotal || parent.total)) || Number(sup.originalTotal) || 0;
     const newTotal = parentTotal + supTotal;
 
+    // Per-item photo button — count shows attached photos; the picker
+    // attaches {id,url} entries so the formal letter embeds the images.
+    const photoBtn = (kind, idx, photos) => {
+      const n = (photos || []).length;
+      return '<button type="button" class="nbd-sup-photo" data-kind="' + kind + '" data-idx="' + idx + '" ' +
+        'title="Attach documentation photos" ' +
+        'style="background:transparent;border:1px solid var(--br, #2a3344);color:' + (n ? 'var(--orange, #c8541a)' : '#94a3b8') + ';padding:3px 8px;border-radius:4px;cursor:pointer;font-size:11px;margin-right:4px;">📷' + (n ? ' ' + n : '') + '</button>';
+    };
+
     const addedRows = (sup.addedItems || []).map((it, idx) =>
       '<tr style="border-top:1px solid var(--br, #2a3344);">' +
         '<td style="padding:8px 6px;font-size:12px;font-family:monospace;">' + _esc(it.code || '') + '</td>' +
         '<td style="padding:8px 6px;font-size:13px;">' + _esc(it.name || '') + '</td>' +
         '<td style="padding:8px 6px;font-size:12px;text-align:right;">' + _esc(String(it.quantity || 0)) + '</td>' +
         '<td style="padding:8px 6px;font-size:12px;text-align:right;font-variant-numeric:tabular-nums;">' + _money(it.lineTotal || 0) + '</td>' +
-        '<td style="padding:8px 6px;text-align:right;">' +
+        '<td style="padding:8px 6px;text-align:right;white-space:nowrap;">' +
+          photoBtn('added', idx, it.photos) +
           '<button type="button" class="nbd-sup-remove-add" data-idx="' + idx + '" style="background:transparent;border:1px solid var(--br, #2a3344);color:#fca5a5;padding:3px 8px;border-radius:4px;cursor:pointer;font-size:11px;">Remove</button>' +
         '</td>' +
       '</tr>'
@@ -207,7 +278,8 @@
         '<td style="padding:8px 6px;font-size:13px;">' + _esc(m.name || '') + '</td>' +
         '<td style="padding:8px 6px;font-size:12px;text-align:right;">' + _esc(String(m.originalQuantity)) + ' → ' + _esc(String(m.newQuantity)) + '</td>' +
         '<td style="padding:8px 6px;font-size:12px;text-align:right;font-variant-numeric:tabular-nums;">' + _money(m.deltaLineTotal || 0) + '</td>' +
-        '<td style="padding:8px 6px;text-align:right;">' +
+        '<td style="padding:8px 6px;text-align:right;white-space:nowrap;">' +
+          photoBtn('modified', idx, m.photos) +
           '<button type="button" class="nbd-sup-remove-mod" data-idx="' + idx + '" style="background:transparent;border:1px solid var(--br, #2a3344);color:#fca5a5;padding:3px 8px;border-radius:4px;cursor:pointer;font-size:11px;">Remove</button>' +
         '</td>' +
       '</tr>'
@@ -341,6 +413,11 @@
         }
       });
     });
+    Array.from(modal.querySelectorAll('.nbd-sup-photo')).forEach(b => {
+      b.addEventListener('click', () => {
+        _openPhotoPicker(b.dataset.kind, Number(b.dataset.idx));
+      });
+    });
 
     const previewBtn = modal.querySelector('#nbd-sup-preview');
     if (previewBtn) previewBtn.addEventListener('click', _previewLetter);
@@ -357,20 +434,75 @@
       const sel = rowEl.querySelector('.nbd-sup-resp-status');
       const amt = rowEl.querySelector('.nbd-sup-resp-amount');
       const btn = rowEl.querySelector('.nbd-sup-resp-save');
+      const decBox = rowEl.querySelector('.nbd-sup-decisions');
+      const sup = (_existingSupplements || []).find(function (x) { return x.id === rowEl.dataset.supId; });
+      // Re-sum the enabled per-line approved amounts into the billable field.
+      const resum = function () {
+        if (!decBox || decBox.style.display === 'none') return;
+        let sum = 0;
+        Array.from(decBox.querySelectorAll('.nbd-sup-dec-row')).forEach(function (r) {
+          const on = r.querySelector('.nbd-sup-dec-on');
+          const a = r.querySelector('.nbd-sup-dec-amt');
+          if (on && on.checked) sum += Number(a && a.value) || 0;
+        });
+        if (amt) amt.value = String(Math.round(sum * 100) / 100);
+      };
+      const wireDecisionRows = function () {
+        Array.from(decBox.querySelectorAll('.nbd-sup-dec-row')).forEach(function (r) {
+          const on = r.querySelector('.nbd-sup-dec-on');
+          const a = r.querySelector('.nbd-sup-dec-amt');
+          if (on) on.addEventListener('change', function () {
+            if (on.checked) { a.disabled = false; a.value = String(Math.round((Number(r.dataset.requested) || 0) * 100) / 100); }
+            else { a.disabled = true; a.value = ''; }
+            resum();
+          });
+          if (a) a.addEventListener('input', resum);
+        });
+      };
       if (sel && amt) {
         sel.addEventListener('change', function () {
           if (sel.value === 'partial') {
             amt.style.display = 'inline-block';
-            // Do NOT prefill the full supplement total — a 'partial' means the
-            // adjuster approved LESS, and saving the prefilled full total silently
-            // bills 100% while tagging it 'partial'. Leave it for the rep to enter.
+            // Per-line decision editor: uncheck denied lines, adjust approved
+            // $ per line — the billable total auto-sums from what survives.
+            // (The old flow was one blind dollar figure; now the record shows
+            // WHICH items the adjuster approved.)
+            if (decBox && sup) {
+              decBox.innerHTML = _decisionEditorHtml(sup);
+              decBox.style.display = decBox.innerHTML ? 'block' : 'none';
+              wireDecisionRows();
+              resum();
+            }
             amt.focus();
           } else {
             amt.style.display = 'none';
+            if (decBox) { decBox.style.display = 'none'; decBox.innerHTML = ''; }
           }
         });
       }
       if (btn) btn.addEventListener('click', function () { _saveResponse(rowEl, sel, amt, btn); });
+    });
+  }
+
+  // Collect the per-line verdicts from an open decision editor (null when
+  // the editor isn't showing — plain single-figure responses stay valid).
+  function _collectDecisions(rowEl) {
+    const decBox = rowEl.querySelector('.nbd-sup-decisions');
+    if (!decBox || decBox.style.display === 'none') return null;
+    const rows = Array.from(decBox.querySelectorAll('.nbd-sup-dec-row'));
+    if (!rows.length) return null;
+    return rows.map(function (r) {
+      const on = r.querySelector('.nbd-sup-dec-on');
+      const a = r.querySelector('.nbd-sup-dec-amt');
+      const requested = Number(r.dataset.requested) || 0;
+      const approved = (on && on.checked) ? (Number(a && a.value) || 0) : 0;
+      const decision = !(on && on.checked) ? 'denied'
+        : (approved < requested - 0.005 ? 'reduced' : 'approved');
+      return {
+        kind: r.dataset.kind, index: Number(r.dataset.index) || 0,
+        code: r.dataset.code || '', name: r.dataset.name || '',
+        requested: requested, approved: approved, decision: decision,
+      };
     });
   }
 
@@ -403,9 +535,14 @@
     const prevLabel = btn.textContent;
     btn.textContent = 'Saving…';
 
+    // Per-line adjuster verdicts from the decision editor (null when the
+    // rep recorded a plain single-figure response).
+    const itemDecisions = _collectDecisions(rowEl);
+
     const ok = await window.EstimateSupplement.updateResponse(supId, {
       status: status,
       approvedAmount: approvedAmount,
+      itemDecisions: itemDecisions,
     });
 
     if (!ok) {
@@ -422,6 +559,7 @@
       s.submission = s.submission || {};
       s.submission.responseStatus = status;
       s.submission.approvedAmount = approvedAmount;
+      s.submission.itemDecisions = itemDecisions;
     }
     const bill = status === 'approved' ? _money(Number(rowEl.dataset.supTotal) || 0)
                : status === 'partial' ? _money(approvedAmount)
@@ -443,6 +581,97 @@
         detail: { source: 'supplement-response', supplementId: supId }
       }));
     } catch (_) {}
+  }
+
+  // ─── Per-item photo picker ─────────────────────────────────────
+  // Loads the lead's photo grid once per lead (same 'photos' collection
+  // query the V2 builder uses), lets the rep toggle a selection, and
+  // writes {id,url} entries onto the item via setItemPhotos — the formal
+  // letter then embeds the actual images under the line.
+  let _leadPhotoCache = null; // { leadId, list: [{id,url}] }
+  async function _loadLeadPhotos(leadId) {
+    if (_leadPhotoCache && _leadPhotoCache.leadId === leadId) return _leadPhotoCache.list;
+    if (!leadId || !window.db || !window.getDocs || !window.query || !window.collection || !window.where) return [];
+    try {
+      const snap = await window.getDocs(window.query(
+        window.collection(window.db, 'photos'),
+        window.where('leadId', '==', leadId)));
+      const list = [];
+      snap.forEach(d => {
+        const p = d.data() || {};
+        if (p.url && !p.deleted) list.push({ id: d.id, url: p.url, _ms: (p.createdAt && p.createdAt.toMillis) ? p.createdAt.toMillis() : 0 });
+      });
+      list.sort((a, b) => b._ms - a._ms);
+      _leadPhotoCache = { leadId: leadId, list: list.slice(0, 60) };
+      return _leadPhotoCache.list;
+    } catch (e) {
+      console.warn('[Supplement] photo load failed:', e);
+      return [];
+    }
+  }
+
+  async function _openPhotoPicker(kind, idx) {
+    const sup = _currentSupplement;
+    if (!sup) return;
+    const list = kind === 'modified' ? sup.modifiedItems : sup.addedItems;
+    const item = list && list[idx];
+    if (!item) return;
+    const leadId = sup.leadId || window._customerId || null;
+    const photos = await _loadLeadPhotos(leadId);
+    const selected = new Set((item.photos || [])
+      .map(p => (p && typeof p === 'object' ? p.id : p)).filter(Boolean));
+
+    let overlay = document.getElementById('nbd-sup-photo-picker');
+    if (overlay) overlay.remove();
+    overlay = document.createElement('div');
+    overlay.id = 'nbd-sup-photo-picker';
+    overlay.style.cssText = 'position:fixed;inset:0;z-index:10016;background:rgba(10,12,15,0.94);display:flex;align-items:center;justify-content:center;padding:20px;overflow-y:auto;';
+    const inner = document.createElement('div');
+    inner.style.cssText = 'background:#0f1729;border:1px solid #2a3344;border-radius:12px;max-width:640px;width:100%;padding:18px;color:#e2e8f0;';
+    const title = document.createElement('div');
+    title.style.cssText = 'font-size:14px;font-weight:700;margin-bottom:4px;';
+    title.textContent = 'Photos for: ' + (item.name || item.code || item.originalCode || '');
+    const hint = document.createElement('div');
+    hint.style.cssText = 'font-size:12px;color:#94a3b8;margin-bottom:10px;';
+    hint.textContent = photos.length
+      ? 'Tap to select — selected photos embed in the supplement letter under this line.'
+      : 'No photos on this customer yet — capture some from their customer page first.';
+    const grid = document.createElement('div');
+    grid.style.cssText = 'display:grid;grid-template-columns:repeat(auto-fill,minmax(90px,1fr));gap:8px;max-height:50vh;overflow-y:auto;';
+    photos.forEach(p => {
+      const cell = document.createElement('button');
+      cell.type = 'button';
+      cell.style.cssText = 'position:relative;padding:0;border:2px solid ' + (selected.has(p.id) ? 'var(--orange, #c8541a)' : '#2a3344') + ';border-radius:6px;background:none;cursor:pointer;overflow:hidden;aspect-ratio:1;';
+      const img = document.createElement('img');
+      img.src = p.url; img.loading = 'lazy'; img.alt = 'Customer photo';
+      img.style.cssText = 'width:100%;height:100%;object-fit:cover;display:block;';
+      cell.appendChild(img);
+      cell.addEventListener('click', () => {
+        if (selected.has(p.id)) { selected.delete(p.id); cell.style.borderColor = '#2a3344'; }
+        else { selected.add(p.id); cell.style.borderColor = 'var(--orange, #c8541a)'; }
+      });
+      grid.appendChild(cell);
+    });
+    const bar = document.createElement('div');
+    bar.style.cssText = 'display:flex;gap:8px;justify-content:flex-end;margin-top:14px;';
+    const cancel = document.createElement('button');
+    cancel.type = 'button'; cancel.textContent = 'Cancel';
+    cancel.style.cssText = 'padding:9px 16px;background:transparent;border:1px solid #2a3344;color:#94a3b8;border-radius:6px;cursor:pointer;font-size:13px;';
+    cancel.addEventListener('click', () => overlay.remove());
+    const done = document.createElement('button');
+    done.type = 'button'; done.textContent = 'Attach selected';
+    done.style.cssText = 'padding:9px 18px;background:var(--orange, #c8541a);border:none;color:#fff;border-radius:6px;cursor:pointer;font-size:13px;font-weight:700;';
+    done.addEventListener('click', () => {
+      const chosen = photos.filter(p => selected.has(p.id)).map(p => ({ id: p.id, url: p.url }));
+      window.EstimateSupplement.setItemPhotos(sup, kind, idx, chosen);
+      overlay.remove();
+      _renderModal();
+    });
+    bar.appendChild(cancel); bar.appendChild(done);
+    inner.appendChild(title); inner.appendChild(hint); inner.appendChild(grid); inner.appendChild(bar);
+    overlay.appendChild(inner);
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
+    document.body.appendChild(overlay);
   }
 
   function _runCatalogSearch(query, qty) {
