@@ -3357,7 +3357,7 @@ section('Mobile lead detail — Estimate opens the lead; Activity shows estimate
 
   // A specific estimate row is tappable via a registered call target.
   assert('_mJdOpenEstimate defined + registered (CSP-safe row open)',
-    /function _mJdOpenEstimate\(estimateId\)[\s\S]{0,240}viewEstimate\(estimateId\)/.test(actions) &&
+    /function _mJdOpenEstimate\(estimateId\)[\s\S]{0,1200}viewEstimate\(estimateId\)/.test(actions) &&
     /_mJdOpenEstimate: _mJdOpenEstimate/.test(actions));
 
   // Bug A: openMobileJobDetail now populates the Activity tab (was a static

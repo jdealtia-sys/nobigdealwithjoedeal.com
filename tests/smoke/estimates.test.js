@@ -109,6 +109,63 @@ section('Linkage invariant: unattached saves are warned; Assign stamps the pipel
     /catch \(stampErr\)[\s\S]{0,200}_assignEstimateToLead\] lead stamp-back failed/.test(fn));
 }
 
+section('Phase 1a: shared estimate preview sheet (mobile-first, both doc shapes)');
+{
+  const fs = require('fs');
+  const p = path.join(PRO_JS, 'estimate-preview.js');
+  assert('estimate-preview.js exists', fs.existsSync(p));
+  const src = read(p);
+  assert('exposes EstimatePreview.open with sentinel',
+    /window\.EstimatePreview = \{ __sentinel: 'nbd-est-preview-v1', open: open, close: close \}/.test(src));
+  // The whole point: ONE normalizer for both estimate shapes. The customer
+  // page's legacy modal read classic fields only, so V2 docs previewed as
+  // "Untitled, $0, no lines".
+  assert('normalizer reads V2 rows AND classic lineItems',
+    /Array\.isArray\(est\.rows\)/.test(src) && /Array\.isArray\(est\.lineItems\)/.test(src));
+  assert('total falls back grandTotal → total → amount',
+    /est\.grandTotal != null \? est\.grandTotal[\s\S]{0,80}est\.total != null \? est\.total[\s\S]{0,80}est\.amount/.test(src));
+  assert('unattached estimates get the NOT ATTACHED chip',
+    /NOT ATTACHED/.test(src));
+  // CSP: one delegated listener on data-ep-action, zero inline handlers.
+  assert('single delegated click listener keyed on data-ep-action',
+    /ov\.addEventListener\('click'/.test(src) && /closest\('\[data-ep-action\]'\)/.test(src));
+  const INLINE = /\son(?:click|change|input|submit|load|error|keydown|keyup|touchstart|touchend)\s*=\s*["'`]/gi;
+  assert('estimate-preview.js has zero inline on*= handlers', (src.match(INLINE) || []).length === 0);
+  // Action buttons render only for provided callbacks — each page offers
+  // exactly what it supports.
+  assert('actions are callback-gated (onEdit/onAssign/onDuplicate/onArchive)',
+    /typeof opts\.onEdit === 'function'/.test(src) && /typeof opts\.onArchive === 'function'/.test(src));
+
+  // Wire-in 1: dashboard list — card body previews, ✎ Edit stays direct.
+  const widgets = read(path.join(PRO_JS, 'dashboard-widgets.js'));
+  assert('dashboard est-card body dispatches preview (Edit button keeps open)',
+    /est-card-main" data-act="preview"/.test(widgets)
+    && /data-act="open" title="Open & edit"/.test(widgets));
+  assert('preview case falls back to viewEstimate when module absent',
+    /case 'preview':[\s\S]{0,700}EstimatePreview\.open\(est/.test(widgets)
+    && /case 'preview':[\s\S]{0,900}else if \(typeof viewEstimate === 'function'\) viewEstimate\(id\);/.test(widgets));
+
+  // Wire-in 2: mobile job-detail Activity rows preview in place.
+  const actions = read(path.join(PRO_JS, 'dashboard-actions.js'));
+  assert('_mJdOpenEstimate previews over the job detail (edit = old path)',
+    /function _mJdOpenEstimate\(estimateId\)[\s\S]{0,900}EstimatePreview\.open\(est/.test(actions));
+
+  // Wire-in 3: customer page viewer prefers the shared sheet (fixes the
+  // V2-shape mismatch) and keeps the legacy modal as fallback.
+  const cust = read(path.join(PRO_JS, 'customer-bootstrap.module.js'));
+  assert('customer viewEstimate prefers EstimatePreview with archive support',
+    /window\.viewEstimate = function\(estimateId\)[\s\S]{0,1200}EstimatePreview\.open\(estimate[\s\S]{0,600}onArchive/.test(cust));
+  assert('customer archive path stays a SOFT delete',
+    /EstimatePreview\.open\(estimate[\s\S]{0,1400}deleted: true/.test(cust));
+
+  // Both pages actually load the module.
+  const dashHtml = read(path.join(ROOT, 'docs/pro/dashboard.html'));
+  const custHtml = read(path.join(ROOT, 'docs/pro/customer.html'));
+  assert('dashboard.html loads estimate-preview.js before dashboard-widgets',
+    /estimate-preview\.js\?v=1"><\/script>\s*<script defer src="js\/dashboard-widgets\.js/.test(dashHtml));
+  assert('customer.html loads estimate-preview.js', /estimate-preview\.js\?v=1/.test(custHtml));
+}
+
 section('Wave B3: live estimates snapshot');
 {
   // CSP hotfix: subscribe wiring is in dashboard-bootstrap.module.js.

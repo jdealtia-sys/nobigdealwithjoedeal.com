@@ -94,7 +94,10 @@ function renderEstimatesList(ests) {
     }
     return ''
       + '<div class="est-card nbd-est-card" data-id="' + esc(e.id) + '">'
-        + '<div class="est-card-main" data-act="open">'
+        // Phase 1a (RoofLink rebuild): tapping the card body opens the
+        // mobile-friendly preview sheet, not the full editor. The ✎ Edit
+        // action button below keeps the direct data-act="open" path.
+        + '<div class="est-card-main" data-act="preview">'
           + '<div class="est-card-icon">📋</div>'
           + '<div class="est-card-body">'
             + '<div class="est-card-name">' + esc(displayName(e)) + '</div>'
@@ -134,6 +137,19 @@ function renderEstimatesList(ests) {
       if (!id) return;
       ev.stopPropagation();
       switch (act) {
+        case 'preview': {
+          // Preview sheet with the full action set; falls back to the
+          // old straight-to-editor behavior if the module isn't loaded.
+          const est = (window._estimates || []).find(x => x.id === id);
+          if (window.EstimatePreview && est) {
+            window.EstimatePreview.open(est, {
+              onEdit:      () => { if (typeof viewEstimate === 'function') viewEstimate(id); },
+              onAssign:    () => { if (typeof assignEstimateAction === 'function') assignEstimateAction(id); },
+              onDuplicate: () => { if (typeof duplicateEstimateAction === 'function') duplicateEstimateAction(id); }
+            });
+          } else if (typeof viewEstimate === 'function') viewEstimate(id);
+          break;
+        }
         case 'open':       if (typeof viewEstimate === 'function') viewEstimate(id); break;
         case 'duplicate':  if (typeof duplicateEstimateAction === 'function') duplicateEstimateAction(id); break;
         case 'rename':     if (typeof renameEstimateAction === 'function') renameEstimateAction(id); break;

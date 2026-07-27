@@ -2392,9 +2392,44 @@ window.viewEstimate = function(estimateId) {
     alert('Estimate not found');
     return;
   }
-  
+
   window._currentEstimateId = estimateId;
-  
+
+  // Phase 1a (RoofLink rebuild): the shared preview sheet understands BOTH
+  // estimate shapes. The legacy modal below reads the classic fields only
+  // (lineItems/title/amount), so a V2 doc (rows/name/grandTotal) rendered
+  // as "Untitled, $0, no lines" — the reported can't-preview-Joe's-
+  // estimates bug. Legacy modal stays as the fallback if the module
+  // didn't load.
+  if (window.EstimatePreview) {
+    window.EstimatePreview.open(estimate, {
+      onEdit: function () {
+        window.location.href = '/pro/dashboard?edit=' + encodeURIComponent(window._customerId) + '&est=' + encodeURIComponent(estimateId);
+      },
+      onArchive: async function () {
+        const ask = window.nbdConfirm || ((m) => Promise.resolve(window.confirm(m)));
+        if (!(await ask('Archive this estimate? It will be hidden but never permanently deleted.'))) return;
+        try {
+          // SOFT DELETE — never deleteDoc on estimates (standing rule).
+          await updateDoc(doc(db, 'estimates', estimateId), {
+            deleted: true,
+            deletedAt: serverTimestamp()
+          });
+          window._currentEstimateId = null;
+          await loadEstimates(window._customerId);
+          const leadSnap = await getDoc(doc(db, 'leads', window._customerId));
+          if (leadSnap.exists()) {
+            await loadTimeline(window._customerId, leadSnap.data());
+          }
+        } catch (error) {
+          console.error('Archive error:', error);
+          alert('Failed to archive estimate.');
+        }
+      }
+    });
+    return;
+  }
+
   const esc = window.nbdEsc || (s => String(s == null ? '' : s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])));
 
   // Parse line items if they exist
