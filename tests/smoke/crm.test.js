@@ -757,4 +757,21 @@ section('Swallowed-error fixes: doc-save + task-toggle tell the truth');
     /catch \(error\)[\s\S]{0,700}loadTimeline\(window\._customerId/.test(toggle));
 }
 
+section('QA wiring audit: photo Reorder button binds in module scope (not window delegate)');
+{
+  // customer.html's delegate resolves data-action names on WINDOW
+  // (customer-tasks-ui.js), but the Tranche-1 globals cleanup made
+  // toggleCustomerPhotoReorder module-local — and a tripwire test bans
+  // re-windowing it. The old data-action button therefore console.error'd
+  // and did nothing: a dead Reorder button on every customer gallery.
+  // Contract now: NO data-action on the button; the photo-strip click
+  // delegate routes #nbdReorderToggle to the module-local function.
+  const cb = readCustomer();
+  assert('Reorder button carries no data-action (window path is banned)',
+    !/data-action="toggleCustomerPhotoReorder"/.test(cb)
+    && /id="nbdReorderToggle">Reorder<\/button>/.test(cb));
+  assert('photo-strip click delegate routes the Reorder toggle in module scope',
+    /closest\('#nbdReorderToggle'\)\)\s*\{\s*toggleCustomerPhotoReorder\(\);/.test(cb));
+}
+
 };

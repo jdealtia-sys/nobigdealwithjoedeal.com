@@ -1210,7 +1210,14 @@ function renderCustomerPhotoStrip() {
   html += '<div style="display:flex;gap:8px;margin-top:12px;align-items:center;">'
        + '<button class="btn btn-orange" style="flex:1;" data-action="openUploadModal">📤 Upload More</button>'
        + '<button class="btn" style="flex:1;background:var(--blue);border-color:var(--blue);color:#fff;" data-action="generatePhotoReport" data-pass-customer-id="true">📋 Generate Report</button>'
-       + '<button type="button" class="nbd-photo-reorder-btn" id="nbdReorderToggle" data-action="toggleCustomerPhotoReorder">Reorder</button>'
+       // QA wiring audit 2026-07-27: NO data-action here. The Tranche-1
+       // globals cleanup made toggleCustomerPhotoReorder module-local (and
+       // a tripwire test bans re-windowing it), but the page delegate
+       // resolves data-action names on WINDOW — so this button was a
+       // silent console.error, dead on every customer photo gallery. It
+       // now binds inside attachCustomerPhotoStripHandlers below, module
+       // scope end to end.
+       + '<button type="button" class="nbd-photo-reorder-btn" id="nbdReorderToggle">Reorder</button>'
        + '</div>';
 
   listEl.innerHTML = html;
@@ -1224,6 +1231,13 @@ function attachCustomerPhotoStripHandlers() {
 
   // Click → open editor or lightbox (suppressed in reorder mode).
   listEl.addEventListener('click', function(ev) {
+    // Reorder toggle — handled here (module scope) because the function
+    // is module-local and the page's data-action delegate only resolves
+    // window names. Fires in AND out of reorder mode (it's the exit too).
+    if (ev.target.closest && ev.target.closest('#nbdReorderToggle')) {
+      toggleCustomerPhotoReorder();
+      return;
+    }
     if (document.body.classList.contains('nbd-photo-reorder')) return;
     var tile = ev.target.closest('.nbd-photo-item');
     if (!tile) return;
