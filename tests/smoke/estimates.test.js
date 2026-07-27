@@ -301,6 +301,39 @@ section('Photo embeds: selected photos ride the estimate everywhere');
     /Your Property/.test(view) && /est\.photos\.forEach/.test(view));
 }
 
+section('Items step: "✓ Selected (N)" filter shows WHAT is picked, not just how many');
+{
+  const src = read(path.join(PRO_JS, 'estimate-v2-ui.js'));
+  // The catalog step showed a selection COUNT but never which items, so
+  // checking your picks meant leaving for Review and coming back.
+  assert('Selected chip renders only when something is selected',
+    /const selectedCount = \(state\.scope \|\| \[\]\)\.length \+ \(\(state\.passThru \|\| \[\]\)\.length\)/.test(src)
+    && /selectedCount\s*\?\s*`<button[^`]*data-arg="selected"[^`]*Selected \(\$\{selectedCount\}\)/.test(src));
+  assert('selected view short-circuits catalog filtering',
+    /if \(state\.categoryFilter === 'selected'\) \{\s*renderSelectedList\(catDiv, cat\);\s*return;\s*\}/.test(src));
+  // Rows carry RESOLVED qty + line total (the real numbers), not catalog
+  // list price — that's what makes it a scope list instead of a filter.
+  assert('rows use resolved lines (qty + lineTotal) with catalog fallback',
+    /function renderSelectedList\(catDiv, cat\)[\s\S]{0,900}getCurrentEstimate\(\)[\s\S]{0,300}byCode\[l\.code\] = l/.test(src)
+    && /qty: line \? \(Number\(line\.quantity\) \|\| 0\) : null/.test(src));
+  assert('pass-through lines are included in the selected view',
+    /\(state\.passThru \|\| \[\]\)\.forEach\(p => \{[\s\S]{0,300}passThru: true/.test(src));
+  assert('footer shows item count + running total',
+    /const sum = rows\.reduce\(\(s, r\) => s \+ \(r\.total \|\| 0\), 0\)/.test(src));
+  // × removes; its own dispatcher case because these are .v2-item cards,
+  // not the Review pane's .v2-scope-item.
+  assert('remove-selected case wired to removeFromScope',
+    /case 'remove-selected':[\s\S]{0,400}removeFromScope\(code\)/.test(src)
+    && /data-action="remove-selected" data-code="\$\{esc\(r\.code\)\}"/.test(src));
+  // Two dead-end guards: removing the last pick, and searching from the view.
+  assert('removing the last selection falls back to All',
+    /if \(state\.categoryFilter === 'selected' && selectedCount === 0\) state\.categoryFilter = 'all';/.test(src));
+  assert('typing a search leaves the Selected view',
+    /if \(state\.searchFilter && state\.categoryFilter === 'selected'\) state\.categoryFilter = 'all';/.test(src));
+  assert('empty selected view has a real empty state',
+    /Nothing selected yet[\s\S]{0,120}Pick items from All or a category/.test(src));
+}
+
 section('Wave B3: live estimates snapshot');
 {
   // CSP hotfix: subscribe wiring is in dashboard-bootstrap.module.js.
