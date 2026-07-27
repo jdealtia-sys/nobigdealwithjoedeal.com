@@ -959,6 +959,14 @@
           if (code) removeFromScope(code);
           break;
         }
+        case 'remove-selected': {
+          // × in the Items step's "✓ Selected" view. Its own case because
+          // those rows are .v2-item cards, not .v2-scope-item — and the
+          // code sits on the button itself.
+          const code = target.dataset.code;
+          if (code) removeFromScope(code);
+          break;
+        }
         case 'override-qty': {
           const item = target.closest('.v2-scope-item');
           const code = item && item.dataset.code;
@@ -1087,6 +1095,9 @@
 
   function setSearch(q) {
     state.searchFilter = q || '';
+    // Typing a search means "find me something in the catalog" — drop out of
+    // the "✓ Selected" view so results aren't silently swallowed by it.
+    if (state.searchFilter && state.categoryFilter === 'selected') state.categoryFilter = 'all';
     renderCatalog();
   }
 
@@ -1915,13 +1926,32 @@
       .replace(/"/g, '&quot;')
       .replace(/'/g, '&#39;');
 
+    // "✓ Selected (N)" chip — collapses the 278-item catalog down to just
+    // what's actually on this estimate. Step ② shows a selection COUNT but
+    // never said WHICH items, so checking your picks meant leaving the
+    // catalog for the Review step and coming back. Only rendered when
+    // something is selected, so a fresh estimate isn't cluttered.
+    const selectedCount = (state.scope || []).length + ((state.passThru || []).length);
+    // If the last selection was removed while viewing it, fall back to All.
+    if (state.categoryFilter === 'selected' && selectedCount === 0) state.categoryFilter = 'all';
+
     const cats = Object.keys(cat.byCategory || {}).sort();
     catTabs.innerHTML = [
+      selectedCount
+        ? `<button type="button" class="${state.categoryFilter === 'selected' ? 'active' : ''}" data-action="set-category" data-arg="selected" style="${state.categoryFilter === 'selected' ? '' : 'border-color:var(--green,#2ecc8a);color:var(--green,#2ecc8a);'}">✓ Selected (${selectedCount})</button>`
+        : '',
       `<button type="button" class="${state.categoryFilter === 'all' ? 'active' : ''}" data-action="set-category" data-arg="all">All</button>`,
       ...cats.map(c =>
         `<button type="button" class="${state.categoryFilter === c ? 'active' : ''}" data-action="set-category" data-arg="${escAttr(c)}">${escAttr(c)} (${cat.byCategory[c].length})</button>`
       )
     ].join('');
+
+    // Selected view renders its own card shape (qty + line total + remove),
+    // so it short-circuits the catalog filtering below entirely.
+    if (state.categoryFilter === 'selected') {
+      renderSelectedList(catDiv, cat);
+      return;
+    }
 
     // Filter items
     let items = state.categoryFilter === 'all' ? cat.items : cat.byCategory[state.categoryFilter] || [];
@@ -1978,6 +2008,77 @@
     if (!items.length) {
       catDiv.innerHTML = '<div class="nbd-empty" style="padding:24px 8px;"><div class="ne-icon">🔍</div><div class="ne-msg">No items match your search</div><div class="ne-sub">Try a different code, name, or tag.</div></div>';
     }
+  }
+
+  // "✓ Selected" view for the Items step — the picked items with their
+  // RESOLVED quantity and line total (not catalog list price), so it reads
+  // as a real mini scope list rather than a filtered catalog. Each row
+  // removes with ×; tapping the row itself does nothing here (addToScope
+  // no-ops on an item already in scope, which would feel broken).
+  function renderSelectedList(catDiv, cat) {
+    const esc = (s) => String(s || '')
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+
+    // Resolved lines give the real qty/total. Best-effort: if the engine
+    // isn't ready we still list the picks with their catalog identity.
+    let byCode = {};
+    try {
+      const est = getCurrentEstimate();
+      (est && est.lines || []).forEach(l => { byCode[l.code] = l; });
+    } catch (e) { byCode = {}; }
+
+    const rows = [];
+    (state.scope || []).forEach(s => {
+      const item = (cat && typeof cat.find === 'function' && cat.find(s.code)) || null;
+      const line = byCode[s.code];
+      rows.push({
+        code: s.code,
+        name: (line && line.name) || (item && item.name) || s.code,
+        qty: line ? (Number(line.quantity) || 0) : null,
+        unit: (line && line.unit) || (item && item.unit) || '',
+        total: line ? (Number(line.lineTotal) || 0) : null,
+        overridden: !!(line && line.qtyOverridden)
+      });
+    });
+    (state.passThru || []).forEach(p => {
+      rows.push({
+        code: p.code, name: p.desc || 'Service', qty: 1, unit: 'ea',
+        total: Number(p.amount) || 0, overridden: false, passThru: true
+      });
+    });
+
+    if (!rows.length) {
+      catDiv.innerHTML = '<div class="nbd-empty" style="padding:24px 8px;"><div class="ne-icon">🧾</div><div class="ne-msg">Nothing selected yet</div><div class="ne-sub">Pick items from All or a category.</div></div>';
+      return;
+    }
+
+    const sum = rows.reduce((s, r) => s + (r.total || 0), 0);
+    catDiv.innerHTML =
+      rows.map(r => {
+        const qtyStr = r.qty != null
+          ? (r.unit === 'SQ' || r.unit === 'LF' ? r.qty.toFixed(1) : Math.round(r.qty)) + ' ' + esc(r.unit)
+          : '—';
+        return `
+        <div class="v2-item" data-code="${esc(r.code)}" style="border-color:var(--green,#2ecc8a);background:color-mix(in srgb, var(--green,#2ecc8a) 10%, var(--bg,#0a0c0f));">
+          <div style="flex:1;min-width:0;">
+            <div class="code">${esc(r.code)}${r.passThru ? ' · PASS-THRU' : ''}</div>
+            <div class="name">${esc((r.name || '').substring(0, 60))}${(r.name || '').length > 60 ? '…' : ''}</div>
+            <div style="font-size:10px;color:var(--m,#98a0ab);margin-top:2px;">${qtyStr}${r.overridden ? ' · <span style="color:var(--blue,#22d3ee);">manual</span>' : ''}</div>
+          </div>
+          <div class="cost" style="display:flex;align-items:center;gap:8px;">
+            <div style="text-align:right;">
+              <div style="color:var(--t,#e8eaf0);font-weight:700;">${r.total != null ? '$' + Math.round(r.total).toLocaleString() : '—'}</div>
+            </div>
+            <button type="button" data-action="remove-selected" data-code="${esc(r.code)}" title="Remove from estimate"
+              style="background:none;border:1px solid var(--br,#2a2f35);color:var(--m,#98a0ab);border-radius:6px;width:30px;height:30px;font-size:15px;line-height:1;cursor:pointer;flex:none;">×</button>
+          </div>
+        </div>`;
+      }).join('') +
+      `<div style="display:flex;justify-content:space-between;align-items:baseline;padding:12px 4px 4px;border-top:1px solid var(--br,#2a2f35);margin-top:8px;">
+         <span style="font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--m,#98a0ab);">${rows.length} item${rows.length === 1 ? '' : 's'}</span>
+         <span style="font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:800;color:var(--green,#2ecc8a);">$${Math.round(sum).toLocaleString()}</span>
+       </div>`;
   }
 
   function renderScope() {
