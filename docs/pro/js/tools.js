@@ -10,18 +10,33 @@
 // Use var to avoid redeclaration collision with dashboard.html inline script
 var _qmData = _qmData || null;
 
+// QA wiring audit 2026-07-27: #qmImportModal markup has NEVER existed in
+// any commit, so this threw `Cannot read properties of null` the instant
+// the classic builder's "📎 Import Quick Measure" button was tapped — a
+// hard crash, not a silent no-op. The PARSER side of the feature is fully
+// implemented below (~215 lines: PDF → Claude → preview → apply); only
+// the modal UI is missing. Until that's built (or the button removed —
+// owner's call), fail honestly instead of crashing. Every id lookup is
+// guarded so a partially-present modal can't crash either.
 function openQMImportModal() {
   _qmData = null;
-  document.getElementById('qmImportModal').classList.add('open');
-  document.getElementById('qmStatus').style.display = 'none';
-  document.getElementById('qmPreview').style.display = 'none';
-  document.getElementById('qmApplyBtn').style.display = 'none';
-  document.getElementById('qmFileInput').value = '';
-  document.getElementById('qmDropZone').style.borderColor = '';
+  const modal = document.getElementById('qmImportModal');
+  if (!modal) {
+    if (typeof showToast === 'function') {
+      showToast('Quick Measure import isn\'t available in this build — enter measurements manually.', 'info');
+    }
+    return;
+  }
+  modal.classList.add('open');
+  const hide = (id) => { const el = document.getElementById(id); if (el) el.style.display = 'none'; };
+  hide('qmStatus'); hide('qmPreview'); hide('qmApplyBtn');
+  const fileEl = document.getElementById('qmFileInput'); if (fileEl) fileEl.value = '';
+  const dropEl = document.getElementById('qmDropZone'); if (dropEl) dropEl.style.borderColor = '';
 }
 
 function closeQMImportModal() {
-  document.getElementById('qmImportModal').classList.remove('open');
+  const modal = document.getElementById('qmImportModal');
+  if (modal) modal.classList.remove('open');
 }
 
 function handleQMDrop(e) {
