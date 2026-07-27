@@ -1136,7 +1136,12 @@ function buildCard(l){
   // controlled fields like `l.address` can never break out of an onclick
   // attribute. Only http(s) photo URLs are rendered.
   const photos = window._photoCache?.[l.id] || [];
-  const safePhotos = photos.filter(p => /^https?:/i.test(String(p.url || '')));
+  // Rep-chosen cover (lead.coverPhotoUrl) leads the thumb strip; the rest
+  // follow in cache order with the cover deduped out.
+  const orderedPhotos = (l.coverPhotoUrl && /^https?:/i.test(String(l.coverPhotoUrl)))
+    ? [{ url: l.coverPhotoUrl }, ...photos.filter(p => p.url !== l.coverPhotoUrl)]
+    : photos;
+  const safePhotos = orderedPhotos.filter(p => /^https?:/i.test(String(p.url || '')));
   const photoHTML = safePhotos.length ? `<div class="kc-photos">
     ${safePhotos.slice(0,3).map(p=>`<img class="kc-photo-thumb nbd-kc-photo" data-lead-id="${escHtml(l.id)}" src="${escHtml(p.url)}" loading="lazy">`).join('')}
     ${safePhotos.length > 3 ? `<div class="kc-photo-more nbd-kc-photo" data-lead-id="${escHtml(l.id)}">+${safePhotos.length-3}</div>` : ''}

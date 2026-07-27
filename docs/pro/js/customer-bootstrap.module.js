@@ -640,6 +640,13 @@ async function loadCustomerData(id) {
     const jobTypeLabels = { 'insurance': 'Insurance', 'cash': 'Cash', 'finance': 'Finance', 'warranty': 'Warranty', 'service': 'Service' };
     document.getElementById('infoJobType').textContent = jobTypeLabels[jobType] || jobType || '—';
 
+    // Cover photo hero (RoofLink "Set Cover") — typeof-guarded: the
+    // renderer lives in customer-tasks-ui.js and defer order can race
+    // this module on a cold cache.
+    if (typeof window.renderCoverHero === 'function') {
+      window.renderCoverHero(lead.coverPhotoUrl || null);
+    }
+
     // Insurance panel — rendered by ClaimPanel (js/claim-core.js): the
     // unified Claim Details card (deductible hero, synced status chip,
     // contact slots). Also show it when a claim status exists even if the

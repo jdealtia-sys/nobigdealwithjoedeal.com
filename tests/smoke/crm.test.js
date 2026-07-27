@@ -891,6 +891,48 @@ section('Count badges: customer-page modules print their numbers (RoofLink "Phot
     /nbdTitleCount\('estimatesPanelTitle', 'Estimates', window\._customerEstimates\.length\)/.test(boot));
 }
 
+section('Cover photo: Set Cover action + hero, cover-first consumers');
+{
+  const tasksUi = read(path.join(ROOT, 'docs/pro/js/customer-tasks-ui.js'));
+  const boot    = read(path.join(ROOT, 'docs/pro/js/customer-bootstrap.module.js'));
+  const widgets = read(path.join(ROOT, 'docs/pro/js/dashboard-widgets.js'));
+  const pipe    = read(path.join(ROOT, 'docs/pro/js/crm-pipeline.js'));
+  const v2      = read(path.join(ROOT, 'docs/pro/js/estimate-v2-ui.js'));
+  const html    = readCustomer();
+  const types   = read(path.join(ROOT, 'docs/pro/js/types.js'));
+
+  // Persistence contract: flat lead fields, id + denormalized URL.
+  assert('setCoverPhotoFromPopup persists coverPhotoId + coverPhotoUrl and toggles off on re-tap',
+    /window\.setCoverPhotoFromPopup = async function \(idx\)/.test(tasksUi)
+    && /coverPhotoId: photo\.id, coverPhotoUrl: photo\.url/.test(tasksUi)
+    && /coverPhotoId: null, coverPhotoUrl: null/.test(tasksUi)
+    && /lead\.coverPhotoId === photo\.id/.test(tasksUi));
+  assert('lead typedef declares coverPhotoId/coverPhotoUrl',
+    /@property \{string=\} coverPhotoId/.test(types) && /@property \{string=\} coverPhotoUrl/.test(types));
+
+  // Quick-edit popup carries the Set Cover button with live state.
+  assert('photo quick-edit popup renders the Set Cover toggle',
+    /data-action="setCoverPhotoFromPopup"/.test(tasksUi)
+    && /★ Cover Photo — tap to clear/.test(tasksUi)
+    && /☆ Set as Cover Photo/.test(tasksUi));
+
+  // Hero on the customer page — https-guarded renderer + bootstrap call.
+  assert('customer.html has the #coverHero band and bootstrap renders it (typeof-guarded)',
+    /id="coverHero"/.test(html)
+    && /window\.renderCoverHero = function \(url\)/.test(tasksUi)
+    && /\/\^https\?:\/i\.test\(String\(url\)\)/.test(tasksUi)
+    && /renderCoverHero\(lead\.coverPhotoUrl \|\| null\)/.test(boot));
+
+  // Consumers prefer the cover.
+  assert('mobile job-detail hero prefers lead.coverPhotoUrl (https-guarded) over first photo',
+    /lead\.coverPhotoUrl && \/\^https\?:\/i\.test\(String\(lead\.coverPhotoUrl\)\)/.test(widgets));
+  assert('kanban thumb strip leads with the cover, deduped',
+    /\[\{ url: l\.coverPhotoUrl \}, \.\.\.photos\.filter\(p => p\.url !== l\.coverPhotoUrl\)\]/.test(pipe));
+  assert('V2 PDF payload fronts the lead cover instead of hardcoded null',
+    !/coverPhoto:\s*null,/.test(v2)
+    && /lead && lead\.coverPhotoUrl/.test(v2));
+}
+
 section('QA wiring audit: photo Reorder button binds in module scope (not window delegate)');
 {
   // customer.html's delegate resolves data-action names on WINDOW
