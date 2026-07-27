@@ -5184,6 +5184,8 @@
 <script defer src="js/nbd-url.js?v=1"></script>
 <script defer src="js/dashboard-state.js?v=1"></script>
 <script defer src="js/dashboard-api.js?v=2"></script>
+<!-- Embedded per-customer estimate hub — renders from caches; engine stays lazy. -->
+<script defer src="js/customer-estimate-hub.js?v=1"></script>
 <script defer src="js/dashboard-widgets.js?v=2"></script>
 <script defer src="js/dashboard-ui.js?v=2"></script>
 <script defer src="js/dashboard-actions.js?v=3"></script>
@@ -5675,6 +5677,7 @@
     </div>
     <div class="m-jd-tabs" role="tablist" aria-label="Lead detail sections">
       <button class="m-jd-tab active" data-tab="activity" role="tab" aria-selected="true" data-action="call" data-fn="_mJdSwitchTab" data-arg="activity">Activity</button>
+      <button class="m-jd-tab" data-tab="estimates" role="tab" aria-selected="false" data-action="call" data-fn="_mJdSwitchTab" data-arg="estimates">Estimates</button>
       <button class="m-jd-tab" data-tab="photos" role="tab" aria-selected="false" data-action="call" data-fn="_mJdSwitchTab" data-arg="photos">Photos</button>
       <button class="m-jd-tab" data-tab="details" role="tab" aria-selected="false" data-action="call" data-fn="_mJdSwitchTab" data-arg="details">Details</button>
     </div>
@@ -5693,6 +5696,9 @@
         <span class="m-jd-cta-chev">›</span>
       </button>
       <div class="m-jd-empty">No activity yet for this lead.</div>
+    </div>
+    <div class="m-jd-tab-body" id="mJdTabEstimates" role="tabpanel" aria-labelledby="estimates" hidden>
+      <div class="m-jd-empty">Loading estimates…</div>
     </div>
     <div class="m-jd-tab-body" id="mJdTabPhotos" role="tabpanel" aria-labelledby="photos" hidden>
       <div class="m-jd-empty">No photos yet.</div>
