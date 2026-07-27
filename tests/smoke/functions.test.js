@@ -2052,6 +2052,51 @@ section('Migration framework — versioned runner');
     && /d\.updatedAt \|\| d\.createdAt \|\| Timestamp\.now\(\)/.test(m003));
 }
 
+section('Migration 005: orphan-estimate relink — conservative, tenant-scoped, audited');
+{
+  // CRM-audit backlog heal: the V2-builder + job-templates leadId:null bugs
+  // (fixed client-side) left estimates invisible to their customer pages.
+  // 005 relinks them — but a WRONG link is worse than a reported skip, so
+  // every one of these guardrails must hold.
+  const m005 = read(path.join(ROOT, 'functions/migrations/scripts/005-relink-orphan-estimates.js'));
+  assert('005 exists as version 5 (relink-orphan-estimates)',
+    /exports\.version\s*=\s*5/.test(m005)
+    && /exports\.name\s*=\s*'relink-orphan-estimates'/.test(m005));
+  // Same normalization the classic builder's save-time resolver uses —
+  // one canonical definition of "same address" across the app.
+  assert('005 normalizes like estimates.js (lowercase, strip non-alphanumeric)',
+    /toLowerCase\(\)\.replace\(\/\[\^a-z0-9\]\/g/.test(m005));
+  // Unique-match-only on every tier: exact, addr+name narrow, prefix, name.
+  assert('005 links only on UNIQUE matches (never guesses among candidates)',
+    /exact\.length === 1/.test(m005)
+    && /narrowed\.length === 1/.test(m005)
+    && /prefix\.length === 1/.test(m005)
+    && /byName\.length === 1/.test(m005));
+  // Candidate pool is same-tenant only — companyId key + userId key. A
+  // cross-tenant relink would leak a customer into another company's book.
+  assert('005 candidate pool is tenant-scoped (companyId/userId keys only)',
+    /'c:' \+ e\.companyId/.test(m005) && /'u:' \+ e\.userId/.test(m005)
+    && /skip\('no-tenant'\)/.test(m005));
+  // An estimate WITH an address that matched nothing must NOT fall through
+  // to name-matching — same owner name on a different address is likely a
+  // different property.
+  assert('005 never name-matches an estimate that has an address',
+    /skip\('no-match'\); continue; \} \/\/ has an addr, nothing matched/.test(m005));
+  // Stamp-back safety: rep-confirmed primaries are sacred; jobValue only
+  // stamps a positive number (never zeroes a KPI); funnel position untouched.
+  assert('005 stamp-back skips leads that already have a primaryEstimateId',
+    /if \(!info \|\| info\.primaryEstimateId\) continue;/.test(m005));
+  assert('005 stamps jobValue only when grandTotal is positive',
+    /if \(primary\.grandTotal > 0\) update\.jobValue/.test(m005));
+  assert('005 never writes stage or stageRole onto a lead',
+    !/stage:/.test(m005) && !/stageRole/.test(m005));
+  // Every decision lands in the audit report doc so skips are hand-fixable
+  // and links are reversible per-row.
+  assert('005 writes the audit report to /system/migrations/reports',
+    /system\/migrations\/reports\/005-relink-orphan-estimates/.test(m005)
+    && /skipped: skippedRows/.test(m005) && /linked: linkedRows/.test(m005));
+}
+
 section('Phase D.3 — integrationStatus secret-readout completeness');
 {
   // Step 4c: integrationStatus body moved to handlers/integrations.js.
