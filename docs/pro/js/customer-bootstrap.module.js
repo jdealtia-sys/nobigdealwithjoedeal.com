@@ -1210,7 +1210,14 @@ function renderCustomerPhotoStrip() {
   html += '<div style="display:flex;gap:8px;margin-top:12px;align-items:center;">'
        + '<button class="btn btn-orange" style="flex:1;" data-action="openUploadModal">📤 Upload More</button>'
        + '<button class="btn" style="flex:1;background:var(--blue);border-color:var(--blue);color:#fff;" data-action="generatePhotoReport" data-pass-customer-id="true">📋 Generate Report</button>'
-       + '<button type="button" class="nbd-photo-reorder-btn" id="nbdReorderToggle" data-action="toggleCustomerPhotoReorder">Reorder</button>'
+       // QA wiring audit 2026-07-27: NO data-action here. The Tranche-1
+       // globals cleanup made toggleCustomerPhotoReorder module-local (and
+       // a tripwire test bans re-windowing it), but the page delegate
+       // resolves data-action names on WINDOW — so this button was a
+       // silent console.error, dead on every customer photo gallery. It
+       // now binds inside attachCustomerPhotoStripHandlers below, module
+       // scope end to end.
+       + '<button type="button" class="nbd-photo-reorder-btn" id="nbdReorderToggle">Reorder</button>'
        + '</div>';
 
   listEl.innerHTML = html;
@@ -1224,6 +1231,13 @@ function attachCustomerPhotoStripHandlers() {
 
   // Click → open editor or lightbox (suppressed in reorder mode).
   listEl.addEventListener('click', function(ev) {
+    // Reorder toggle — handled here (module scope) because the function
+    // is module-local and the page's data-action delegate only resolves
+    // window names. Fires in AND out of reorder mode (it's the exit too).
+    if (ev.target.closest && ev.target.closest('#nbdReorderToggle')) {
+      toggleCustomerPhotoReorder();
+      return;
+    }
     if (document.body.classList.contains('nbd-photo-reorder')) return;
     var tile = ev.target.closest('.nbd-photo-item');
     if (!tile) return;
@@ -2392,9 +2406,44 @@ window.viewEstimate = function(estimateId) {
     alert('Estimate not found');
     return;
   }
-  
+
   window._currentEstimateId = estimateId;
-  
+
+  // Phase 1a (RoofLink rebuild): the shared preview sheet understands BOTH
+  // estimate shapes. The legacy modal below reads the classic fields only
+  // (lineItems/title/amount), so a V2 doc (rows/name/grandTotal) rendered
+  // as "Untitled, $0, no lines" — the reported can't-preview-Joe's-
+  // estimates bug. Legacy modal stays as the fallback if the module
+  // didn't load.
+  if (window.EstimatePreview) {
+    window.EstimatePreview.open(estimate, {
+      onEdit: function () {
+        window.location.href = '/pro/dashboard?edit=' + encodeURIComponent(window._customerId) + '&est=' + encodeURIComponent(estimateId);
+      },
+      onArchive: async function () {
+        const ask = window.nbdConfirm || ((m) => Promise.resolve(window.confirm(m)));
+        if (!(await ask('Archive this estimate? It will be hidden but never permanently deleted.'))) return;
+        try {
+          // SOFT DELETE — never deleteDoc on estimates (standing rule).
+          await updateDoc(doc(db, 'estimates', estimateId), {
+            deleted: true,
+            deletedAt: serverTimestamp()
+          });
+          window._currentEstimateId = null;
+          await loadEstimates(window._customerId);
+          const leadSnap = await getDoc(doc(db, 'leads', window._customerId));
+          if (leadSnap.exists()) {
+            await loadTimeline(window._customerId, leadSnap.data());
+          }
+        } catch (error) {
+          console.error('Archive error:', error);
+          alert('Failed to archive estimate.');
+        }
+      }
+    });
+    return;
+  }
+
   const esc = window.nbdEsc || (s => String(s == null ? '' : s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])));
 
   // Parse line items if they exist
@@ -2910,7 +2959,11 @@ async function _gatherTimelineForReport(leadId, lead) {
   } catch (_) { /* ignore */ }
 
   try {
-    const snap = await getDocs(query(collection(window.db, 'notes'), where('leadId', '==', leadId), where('userId', '==', uid)));
+    // Read by leadId only (no author filter) so the timeline shows EVERY note on
+    // this lead — including a manager's stage-change note on a rep's lead. The
+    // /notes rule authorizes this by parent-lead ownership / same-company, so a
+    // leadId-scoped query is rule-valid for the owner and same-company members.
+    const snap = await getDocs(query(collection(window.db, 'notes'), where('leadId', '==', leadId)));
     snap.docs.forEach(d => {
       const n = d.data();
       const when = n.createdAt?.toDate ? n.createdAt.toDate() : (n.createdAt ? new Date(n.createdAt) : new Date());
@@ -2934,17 +2987,22 @@ async function _gatherNotesForReport(leadId) {
   const query      = window.query;
   const collection = window.collection;
   const where      = window.where;
-  const orderBy    = window.orderBy;
-  if ([getDocs, query, collection, where, orderBy].some(fn => typeof fn !== 'function')) return [];
+  if ([getDocs, query, collection, where].some(fn => typeof fn !== 'function')) return [];
   try {
+    // leadId-only (no author filter) so a report includes the whole lead's
+    // notes; the /notes rule authorizes by parent lead. Sort createdAt desc in
+    // JS instead of orderBy so no [leadId, createdAt] composite index is needed.
     const snap = await getDocs(
-      query(collection(window.db, 'notes'), where('leadId', '==', leadId), where('userId', '==', uid), orderBy('createdAt', 'desc'))
+      query(collection(window.db, 'notes'), where('leadId', '==', leadId))
     );
-    return snap.docs.map(d => {
-      const n = d.data();
-      const when = n.createdAt?.toDate ? n.createdAt.toDate() : (n.createdAt ? new Date(n.createdAt) : null);
-      return { text: n.text || '', createdBy: n.createdBy || '', createdAt: when };
-    });
+    const ms = (v) => (v && v.toDate ? v.toDate().getTime() : (v ? new Date(v).getTime() : 0)) || 0;
+    return snap.docs
+      .map(d => {
+        const n = d.data();
+        const when = n.createdAt?.toDate ? n.createdAt.toDate() : (n.createdAt ? new Date(n.createdAt) : null);
+        return { text: n.text || '', createdBy: n.createdBy || '', createdAt: when };
+      })
+      .sort((a, b) => ms(b.createdAt) - ms(a.createdAt));
   } catch (_) {
     return [];
   }

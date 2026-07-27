@@ -1219,7 +1219,26 @@
     border-color:var(--accent-ring, rgba(255,255,255,.35));
   }
   @media (max-width:768px){
-    #nbd-fab-dial{ display:flex; }
+    /* Gated to the CRM view (body.show-field-tools, set by dashboard-ui.js
+       alongside show-add-lead-fab). The field tools are lead-context; the
+       launcher used to show on EVERY mobile view and its fixed bottom-right
+       slot floated over the Photos card VIEW/ADD buttons and the D2D streak
+       card. Now it appears only where the kanban does. */
+    body.show-field-tools #nbd-fab-dial{ display:flex; }
+  }
+
+  /* Field-tools cluster is CRM-only — hide the mic / quick-capture / inbox
+     FABs off the CRM view. On mobile the launcher above is the sole entry,
+     so gating it already hides the fan; this !important rule additionally
+     covers the DESKTOP (≥769px) vertical stack, where the three tool FABs
+     render directly with no launcher and would otherwise float over other
+     views' content. On CRM (body.show-field-tools) the rule doesn't match,
+     so the tools keep their inline display:flex and behave exactly as
+     before (mobile: parked/fan; desktop: vertical stack). */
+  body:not(.show-field-tools) #nbd-whisper-fab,
+  body:not(.show-field-tools) #nbd-qc-fab,
+  body:not(.show-field-tools) #nbd-qci-fab{
+    display:none !important;
   }
 
   /* Sidebar-collapsed mode — narrows the rail to icons only.

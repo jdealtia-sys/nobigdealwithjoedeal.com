@@ -58,7 +58,10 @@ function renderColumnCards(body, cards, stageKey) {
     if (btn) btn.addEventListener('click', (e) => {
       e.stopPropagation();
       _kbShowAll[stageKey] = true;
-      if (typeof renderLeads === 'function') renderLeads();
+      // Preserve any active search/damage filter — a bare renderLeads() nulls
+      // window._filteredLeads and repaints the whole book unfiltered while the
+      // search box + count still show the query (rep thinks they're filtered).
+      if (typeof renderLeads === 'function') renderLeads(window._leads, window._filteredLeads);
     });
   }
 }
@@ -194,7 +197,12 @@ function renderLeads(leads, filtered){
     const role = l._stageRole || (typeof window.stageRole === 'function' ? window.stageRole(sk) : 'active');
     const isLost = _lostKeys.includes(sk) || role === 'lost';
     const isClosed = _closedKeys.includes(sk) || role === 'won' || role === 'job';
-    if(!isLost) pipeVal+=v;
+    // Metrics audit F2: pipeline = deals still IN PLAY only. The old
+    // "everything not lost" definition counted won/in-production money as
+    // pipeline while the Closed Revenue tile showed a subset of the same
+    // dollars — the two tiles double-reported. A dollar now lives in exactly
+    // one bucket: pipeline until it closes, closedRev after.
+    if(!isLost && !isClosed) pipeVal+=v;
     if(isClosed) closedRev+=v;
     if(_approvedKeys.includes(sk)) approvedCount++;
   });
@@ -338,12 +346,19 @@ function renderLeads(leads, filtered){
     diagnostic.style.display = 'none';
   }
 
-  // Follow-up overdue
+  // Follow-up overdue — skip effectively-closed deals by semantic stageRole
+  // (won / lost / in-production job) rather than a hardcoded name list, which
+  // missed final_payment + any custom won/lost stage and so nagged "due" on
+  // done deals. Mirrors the role idiom used for pipeline value above; the name
+  // list stays as a fallback for before stageRole is loaded.
   const today=new Date(); today.setHours(0,0,0,0);
-  const _terminalStages = ['closed','lost','Complete','Lost'];
+  const _terminalStages = ['closed','lost','Complete','Lost','final_payment'];
   const overdue = all.filter(l=>{
+    if(!l.followUp) return false;
     const sk = l._stageKey || l.stage || '';
-    if(!l.followUp||_terminalStages.includes(sk)||_terminalStages.includes(l.stage||'')) return false;
+    const role = l._stageRole || (typeof window.stageRole === 'function' ? window.stageRole(sk) : 'active');
+    if(role === 'won' || role === 'lost' || role === 'job') return false;
+    if(_terminalStages.includes(sk) || _terminalStages.includes(l.stage||'')) return false;
     const d=new Date(l.followUp); d.setHours(0,0,0,0); return d<=today;
   });
   setEl('crmFollowUps', overdue.length);
@@ -551,6 +566,11 @@ function renderLeads(leads, filtered){
       if(!cards.length){ body.innerHTML='<div class="k-empty"><div class="k-empty-line">Drop leads here</div></div>'; return; }
       renderColumnCards(body, cards, stage);
       _highlightCardMatches(body); // CO-M-1: highlight after parse, text nodes only
+      // Wire card-click / checkbox / task-badge / ◀▶ arrows / ⋮ menu — the
+      // new-system branch calls this (line ~480) but the legacy fallback never
+      // did, so in the fallback state (crm-stages load race → _stageKeys unset)
+      // every card was non-interactive (only drag worked).
+      wireKanbanCardListeners(body);
       body.querySelectorAll('.k-card').forEach(card=>{
         card.addEventListener('dragstart', e=>{ _dragId=card.dataset.id; card.classList.add('dragging'); e.dataTransfer.effectAllowed='move'; e.dataTransfer.setData('text/plain', card.dataset.id); });
         card.addEventListener('dragend',   e=>{ card.classList.remove('dragging'); });

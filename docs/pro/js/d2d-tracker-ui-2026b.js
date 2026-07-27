@@ -864,9 +864,9 @@
         <div class="d2d-revenue-banner">
           <div class="d2d-rev-main">
             <div class="d2d-rev-primary">
-              <div class="d2d-revenue-label">Value Per Door</div>
+              <div class="d2d-revenue-label">Expected Value / Door</div>
               <div class="d2d-revenue-amount">${perDoorText}</div>
-              <div class="d2d-rev-tag">◉ Live pipeline value</div>
+              <div class="d2d-rev-tag">◉ Projected — not yet earned</div>
             </div>
             <div class="d2d-streak">
               <div class="d2d-streak-badge-sm">${gamify.currentMilestone ? gamify.currentMilestone.badge : '🔥'}</div>
@@ -978,7 +978,7 @@
           </div>
           <div class="d2d-metric-card">
             <div class="d2d-metric-val" style="color:var(--orange, #e8720c);">${revenue.totalDoorsKnocked > 0 ? '$' + revenue.expectedPerDoor.toLocaleString() : '—'}</div>
-            <div class="d2d-metric-lbl">Val/Door</div>
+            <div class="d2d-metric-lbl">Exp/Door</div>
           </div>
           <div class="d2d-metric-card">
             <div class="d2d-metric-val" style="color:var(--purple,#9B6DFF);">${revenue.avgDealSize > 0 ? '$' + revenue.avgDealSize.toLocaleString() : '—'}</div>

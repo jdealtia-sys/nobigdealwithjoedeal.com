@@ -208,10 +208,36 @@ function modeLineDraw() {
   }
 };
 
-  // Registration IS the security opt-in; all 20 are markup-dispatched only
-  // (no window re-export — none has a cross-boundary consumer).
+  // 🛡️ Storm Proof (card detail) — storm-integration.js rides the lazy
+  // 'storm' ScriptLoader bundle, but its button sits on EVERY customer
+  // card's detail, reachable without ever entering the Storm view. Until
+  // the bundle loads there is no registry entry, and the data-action="call"
+  // delegate no-ops silently on an unresolved fn — a dead button. This
+  // eager stub loads the bundle on first tap and hands off; when the
+  // bundle lands, storm-integration.js's own Object.assign REPLACES this
+  // stub in the registry, so every later tap dispatches straight through.
+  async function verifyStormProofForLeadLazy() {
+    if (window.StormIntegration && typeof window.StormIntegration.verifyStormProofForLead === 'function') {
+      return window.StormIntegration.verifyStormProofForLead();
+    }
+    if (typeof showToast === 'function') showToast('Loading storm tools…', 'info');
+    try {
+      await window.ScriptLoader.loadBundle('storm');
+    } catch (e) {
+      if (typeof showToast === 'function') showToast('Could not load storm tools — check your connection', 'error');
+      return;
+    }
+    if (window.StormIntegration && typeof window.StormIntegration.verifyStormProofForLead === 'function') {
+      return window.StormIntegration.verifyStormProofForLead();
+    }
+    if (typeof showToast === 'function') showToast('Storm tools unavailable', 'error');
+  }
+
+  // Registration IS the security opt-in; all entries are markup-dispatched
+  // only (no window re-export — none has a cross-boundary consumer).
   window.__NBD_CALL_REGISTRY = window.__NBD_CALL_REGISTRY || Object.create(null);
   Object.assign(window.__NBD_CALL_REGISTRY, {
+    verifyStormProofForLead: verifyStormProofForLeadLazy,
     openDailyProgramFromMore: openDailyProgramFromMore,
     mCreateFabRoute: mCreateFabRoute,
     mQuickAddRoute: mQuickAddRoute,
@@ -243,6 +269,23 @@ function goTo(name, params = {}) {
   if (window._userPlan === 'lite' && PRO_ONLY_VIEWS.includes(name)) {
     showToast('Upgrade to access this feature — plans start at $99/mo', 'error');
     return;
+  }
+
+  // ── Maps & Pins is retired → D2D (map unification, phase C) ──
+  // Its pins/heat/jobs/territories are all unified into the D2D map, plus
+  // knocks, the dots⇄pins look, follow mode, and on-map search. Route the
+  // legacy 'map' key to 'd2d' (placed AFTER the lite gate so 'map' keeps its
+  // Pro gating). One-time heads-up so the change isn't a surprise. The
+  // #view-map DOM stays in the page — only the nav entry point moves — so
+  // this is trivially reversible.
+  if (name === 'map') {
+    name = 'd2d';
+    try {
+      if (!localStorage.getItem('nbd_maps_redirect_seen')) {
+        showToast('Maps & Pins is now the D2D map — same pins, plus knocks, layers, follow mode & search', 'info', 5000);
+        localStorage.setItem('nbd_maps_redirect_seen', '1');
+      }
+    } catch (e) {}
   }
 
   // Force-exit bulk-select mode whenever leaving the kanban — otherwise a
@@ -333,10 +376,11 @@ function goTo(name, params = {}) {
     // renderLeads / renderEstimatesList during BOOT. SPA route-enter to #/dash
     // never refreshed them, so the overview showed the $0 HTML defaults until a
     // full reload. Repopulate from the in-memory sets on every dash entry.
-    // renderEstimatesList runs first (it also writes statVal = estimate total),
-    // then renderLeads runs LAST so statVal ends as the pipeline value (matches
-    // boot). _filteredLeads is passed through so the hidden CRM filter state is
-    // preserved (renderLeads keeps it when the 2nd arg is the current filter).
+    // Metrics audit F1: statVal is written ONLY by renderLeads now
+    // (renderEstimatesList no longer touches it), so the call order below is
+    // no longer load-bearing. _filteredLeads is passed through so the hidden
+    // CRM filter state is preserved (renderLeads keeps it when the 2nd arg is
+    // the current filter).
     try {
       if (typeof window.renderEstimatesList === 'function') window.renderEstimatesList(window._estimates || []);
       if (typeof window.renderLeads === 'function' && Array.isArray(window._leads)) window.renderLeads(window._leads, window._filteredLeads);
@@ -1402,14 +1446,59 @@ function _mJdAct(kind) {
       window._currentPhotoLeadId = id;
       goTo('photos');
       break;
-    case 'estimate':
+    case 'estimate': {
       closeMobileJobDetail();
-      window._currentEstimateLeadId = id;
+      // Open THIS lead's estimate — not the generic estimates page. Prefer the
+      // most-recent estimate already in memory for the lead, fall back to the
+      // stamped primaryEstimateId, else start a NEW estimate prefilled for the
+      // lead. (The old code set a dead per-lead global nothing read, then
+      // dumped the rep on the generic est list with no client context.)
+      const _ms = (v) => (v && v.toDate ? v.toDate().getTime() : (v ? new Date(v).getTime() : 0)) || 0;
+      const mine = (window._estimates || [])
+        .filter(e => e.leadId === id)
+        .sort((a, b) => _ms(b.createdAt) - _ms(a.createdAt));
+      const eid = (mine[0] && mine[0].id) || lead.primaryEstimateId || null;
       goTo('est');
+      if (eid && typeof window.viewEstimate === 'function') {
+        window.viewEstimate(eid);
+      } else if (typeof window.openEstimateV2Builder === 'function') {
+        window.openEstimateV2Builder({ leadId: id });
+      }
       break;
+    }
   }
 }
 window._mJdAct = _mJdAct;
+
+// Open a SPECIFIC estimate from a mobile job-detail Activity row
+// (data-fn="_mJdOpenEstimate" data-arg="<estimateId>"). Registered below so the
+// data-fn "call" dispatcher can resolve it, same as cdaMjdAct.
+function _mJdOpenEstimate(estimateId) {
+  if (!estimateId) return;
+  // Phase 1a (RoofLink rebuild): preview sheet OVER the job detail — the
+  // rep sees lines + total in one tap and only leaves this context if
+  // they choose Edit. The old path (close detail → navigate to the
+  // estimates view → full V2 builder) remains the Edit action and the
+  // fallback when the preview module isn't loaded.
+  const est = (window._estimates || []).find(e => e.id === estimateId);
+  if (window.EstimatePreview && est) {
+    window.EstimatePreview.open(est, {
+      onEdit: () => {
+        if (typeof closeMobileJobDetail === 'function') closeMobileJobDetail();
+        if (typeof goTo === 'function') goTo('est');
+        if (typeof window.viewEstimate === 'function') window.viewEstimate(estimateId);
+      },
+      onAssign: () => {
+        if (typeof window.assignEstimateAction === 'function') window.assignEstimateAction(estimateId);
+      }
+    });
+    return;
+  }
+  if (typeof closeMobileJobDetail === 'function') closeMobileJobDetail();
+  if (typeof goTo === 'function') goTo('est');
+  if (typeof window.viewEstimate === 'function') window.viewEstimate(estimateId);
+}
+window._mJdOpenEstimate = _mJdOpenEstimate;
 
 // ══════════════════════════════════════════════════════════════════════
 // Wave 2C.1 — Mobile create popover behind the bottom-nav "+" FAB
@@ -1919,6 +2008,7 @@ function editCardDetails() {
     cdPickType: cdPickType,
     cdaInspectionDeep: cdaInspectionDeep,
     cdaMjdAct: cdaMjdAct,
+    _mJdOpenEstimate: _mJdOpenEstimate,
     cdaEditLead: cdaEditLead,
     cdaOpenMobileInspection: cdaOpenMobileInspection,
     cdaVoiceMemo: cdaVoiceMemo,

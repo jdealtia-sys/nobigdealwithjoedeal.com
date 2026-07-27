@@ -474,6 +474,22 @@ header{flex-shrink:0;background:rgba(10,12,15,.97);-webkit-backdrop-filter:blur(
   padding:32px 16px; text-align:center;
   color:var(--m); font-size:13px;
 }
+/* Mobile job-detail Activity list — estimates (tappable) + stage history. */
+.m-jd-act-list{ display:flex; flex-direction:column; gap:8px; margin-top:12px; }
+.m-jd-act-item{
+  display:flex; align-items:center; gap:12px; width:100%;
+  padding:12px 14px; text-align:left;
+  background:var(--s2, #181c22); border:1px solid var(--br);
+  border-radius:10px; color:var(--t); cursor:pointer;
+  -webkit-tap-highlight-color:transparent;
+}
+.m-jd-act-item--static{ cursor:default; }
+.m-jd-act-item:active{ background:color-mix(in srgb, var(--orange) 12%, transparent); }
+.m-jd-act-item-ico{ flex-shrink:0; font-size:18px; line-height:1; }
+.m-jd-act-item-body{ display:flex; flex-direction:column; gap:2px; min-width:0; flex:1; }
+.m-jd-act-item-t{ font-size:13px; font-weight:700; color:var(--t); }
+.m-jd-act-item-s{ font-size:11px; color:var(--m); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.m-jd-act-item-chev{ flex-shrink:0; color:var(--m); font-size:18px; }
 .m-jd-detail-row{
   display:flex; justify-content:space-between; align-items:flex-start;
   gap:14px; padding:10px 0;
@@ -4230,6 +4246,20 @@ body {
     border:none!important;
     border-bottom:1px solid var(--br)!important;
   }
+  /* The ⋯ field-tools launcher is fixed bottom-right and IS shown on the
+     map view (enabled there deliberately in #1059 — a rep dictates right
+     after a knock). On mobile the spyglass row goes full-width static, so
+     its 📍 "go to my location" + Go buttons land in the launcher's
+     right-hand column and sit underneath it — tap-blocked.
+     Reserve that column: 48px launcher + 16px inset + 12px gap = 76px.
+     Horizontal clearance is deliberate — the panel is in normal flow, so
+     a vertical/padding-bottom fix would only hold at one scroll offset,
+     while keeping the controls out of the launcher's COLUMN holds at
+     every offset. Gated on show-field-tools so the row keeps its full
+     width on views where the launcher isn't rendered. */
+  body.show-field-tools .map-spyglass-panel{
+    padding-right:calc(76px + env(safe-area-inset-right, 0px))!important;
+  }
 
   /* Map-view: column layout with order slots */
   .map-view{ flex-direction:column!important; position:relative!important; }
@@ -4432,16 +4462,26 @@ body {
     min-height:0!important;
     overflow:hidden!important;
   }
-  /* Bottom clearance for the ⋯ field-tools speed-dial launcher
-     (#nbd-fab-dial: fixed, bottom 78px + 48px tall → tops out ~126px, shown
-     on EVERY mobile view). The old 80px cleared only the 62px #mobile-nav, so
-     the last row of any scrollable view sat trapped under the launcher (the
-     Photos card VIEW/ADD button, the D2D value/streak card). 150px = launcher
-     bottom (78) + height (48) + a 24px margin; the safe-area term matches the
-     launcher's own inset so it clears on notched devices too. Add Lead
-     (#addLeadFab) is CRM-only (body.show-add-lead-fab) and the CRM board scrolls
-     via .kcol-body, so .view-scroll views never need to clear it. */
-  .view-scroll { min-height:auto!important; padding-bottom:calc(150px + env(safe-area-inset-bottom, 0px))!important; }
+  /* Bottom clearance for the #mobile-nav bar (62px + safe-area).
+     MERGE RESOLUTION (overlap-sweep × FAB gating): this branch raised the
+     generic clearance to 150px on the premise that the ⋯ field-tools
+     launcher "is shown on EVERY mobile view". main has since GATED the
+     launcher and the Add Lead FAB to specific views (body.show-field-tools /
+     show-add-lead-fab), and the CRM board scrolls internally via .kcol-body —
+     so that premise no longer holds. Keeping 150px everywhere would put ~70px
+     of dead space back at the bottom of every scroll view (Photos, etc.) to
+     clear a launcher that isn't there. Generic stays main's 80px; the D2D
+     view — where the launcher genuinely IS shown — keeps its 150px exception
+     below. The map/draw flex fix above (this branch's real win) is unaffected. */
+  .view-scroll { min-height:auto!important; padding-bottom:calc(80px + env(safe-area-inset-bottom, 0px))!important; }
+  /* D2D exception: the field tools ARE shown on the door-knocking view, so
+     its scroll region must reserve the launcher's full reach or the last
+     value/streak cards sit trapped under it — the exact overlap Jo caught
+     on his phone. 150px = launcher bottom (78) + height (48) + 24px margin.
+     Scoped to body.show-field-tools + the id so it beats the generic
+     .view-scroll rule above and applies only where the launcher actually is
+     (D2D's own inline padding-bottom:80px is outranked by the !important). */
+  body.show-field-tools #d2dContent { padding-bottom:calc(150px + env(safe-area-inset-bottom, 0px))!important; }
 
   /* ══ MODALS: full-width on mobile, bottom-sheet style ══ */
   .modal { max-width:100vw!important; width:calc(100% - 16px)!important; margin:8px!important; border-radius:16px!important; max-height:calc(100vh - 80px)!important; max-height:calc(100dvh - 80px)!important; overflow-y:auto!important; -webkit-overflow-scrolling:touch!important; }

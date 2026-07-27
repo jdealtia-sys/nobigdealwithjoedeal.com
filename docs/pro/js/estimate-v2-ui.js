@@ -43,6 +43,12 @@
       accessLevel: 'standard'   // 'standard' | 'moderate' | 'difficult' (per-SQ access tier)
     },
     scope: [],                // Array of { code, overrides } entries
+    // Photo embeds: photos SELECTED to ride this estimate ({id, url}),
+    // rendered in presentation mode, the doc formats, the preview sheet,
+    // and the homeowner share view. _leadPhotos is the pick-from cache
+    // (the linked lead's photo docs), loaded lazily per open.
+    photos: [],
+    _leadPhotos: null,
     customer: { name: '', address: '', phone: '', email: '' },
     claim: { carrier: '', number: '', adjuster: '', dateOfLoss: '', deductible: 2500, acv: null, recoverableDepreciation: null, policyNumber: '' },
     searchFilter: '',
@@ -174,6 +180,112 @@
         .v2-title { font-size: 14px !important; }
         .v2-title + .v2-title { margin-left: 8px !important; }
         .v2-close { width: 100%; }
+      }
+
+      /* ── Phase 1b: mobile step navigation ──
+         Under 1000px the stacked-panes scroll becomes three STEPS driven
+         by data-mstep on the modal root, with a fixed bottom bar (step
+         tabs + live total). No data-mstep attr (desktop) shows all panes
+         — these rules only bite inside the media query. */
+      .v2-mstep-bar { display:none; }
+      @media (max-width: 1000px) {
+        .v2-body { padding-bottom: 62px; }
+        .v2-mstep-bar {
+          display:flex; position:absolute; left:0; right:0; bottom:0;
+          align-items:center; gap:6px; z-index:6;
+          background:var(--s,#111418); border-top:2px solid var(--orange,#e8720c);
+          padding:8px 10px calc(8px + env(safe-area-inset-bottom, 0));
+        }
+        .v2-mstep-btn {
+          flex:1; min-height:44px; border-radius:8px; cursor:pointer;
+          background:var(--s2,#181c22); border:1px solid var(--br,#2a2f35);
+          color:var(--m,#98a0ab); font-family:'Barlow Condensed',sans-serif;
+          font-size:13px; font-weight:700; letter-spacing:.05em; text-transform:uppercase;
+          -webkit-tap-highlight-color:transparent; touch-action:manipulation;
+        }
+        .v2-mstep-btn.active {
+          background:var(--orange,#e8720c); border-color:var(--orange,#e8720c);
+          color:var(--accent-fg,#fff);
+        }
+        .v2-mstep-total {
+          background:none; border:none; cursor:pointer; flex:none;
+          font-family:'Barlow Condensed',sans-serif; font-size:19px; font-weight:800;
+          color:var(--green,#2ecc8a); padding:0 6px; white-space:nowrap;
+          -webkit-tap-highlight-color:transparent;
+        }
+        #estV2Modal[data-mstep="1"] .pane-items,
+        #estV2Modal[data-mstep="1"] .pane-review { display:none; }
+        #estV2Modal[data-mstep="2"] .pane-setup,
+        #estV2Modal[data-mstep="2"] .pane-review { display:none; }
+        #estV2Modal[data-mstep="3"] .pane-setup,
+        #estV2Modal[data-mstep="3"] .pane-items { display:none; }
+      }
+
+      /* ── Phase 3: homeowner presentation mode ──
+         Fullscreen overlay INSIDE the modal (so the existing delegated
+         data-action handler covers its buttons). Homeowner-clean: big
+         tier cards, no margins/costs/internal numbers anywhere. */
+      .v2-present {
+        position:absolute; inset:0; z-index:30; display:none;
+        flex-direction:column; overflow-y:auto;
+        background:var(--bg,#0b0d10);
+        padding-top: env(safe-area-inset-top, 0);
+      }
+      .v2-present.open { display:flex; }
+      .vp-hdr { padding:20px 22px 4px; flex:none; }
+      .vp-name {
+        font-family:'Barlow Condensed',sans-serif; font-size:26px; font-weight:800;
+        color:var(--t,#fff); text-transform:uppercase; letter-spacing:.04em; line-height:1.1;
+      }
+      .vp-addr { font-size:13px; color:var(--m,#98a0ab); margin-top:4px; }
+      .vp-cards {
+        display:grid; gap:12px; padding:18px 22px;
+        grid-template-columns:repeat(auto-fit, minmax(190px, 1fr));
+        align-items:stretch;
+      }
+      .vp-card {
+        border:2px solid var(--br,#2a2f35); border-radius:14px; padding:20px 14px;
+        background:var(--s2,#181c22); text-align:center; cursor:pointer;
+        font-family:inherit; color:var(--t,#e8eaf0);
+        -webkit-tap-highlight-color:transparent; touch-action:manipulation;
+      }
+      .vp-card.active { border-color:var(--green,#2ecc8a); box-shadow:0 0 0 1px var(--green,#2ecc8a); }
+      .vp-tier {
+        font-family:'Barlow Condensed',sans-serif; font-size:15px; font-weight:800;
+        text-transform:uppercase; letter-spacing:.12em; color:var(--m,#98a0ab);
+      }
+      .vp-card.active .vp-tier { color:var(--green,#2ecc8a); }
+      .vp-price {
+        font-family:'Barlow Condensed',sans-serif; font-size:34px; font-weight:800;
+        color:var(--t,#fff); margin:8px 0 4px;
+      }
+      .vp-blurb { font-size:11px; color:var(--m,#98a0ab); line-height:1.5; }
+      .vp-pick {
+        margin-top:12px; font-size:10px; font-weight:700; letter-spacing:.1em;
+        text-transform:uppercase; color:var(--m,#98a0ab);
+      }
+      .vp-card.active .vp-pick { color:var(--green,#2ecc8a); }
+      .vp-foot {
+        margin-top:auto; flex:none; display:flex; gap:10px;
+        padding:14px 22px calc(16px + env(safe-area-inset-bottom, 0));
+        border-top:1px solid var(--br,#2a2f35); background:var(--s,#111418);
+        align-items:center;
+      }
+      .vp-total {
+        font-family:'Barlow Condensed',sans-serif; font-size:26px; font-weight:800;
+        color:var(--green,#2ecc8a); white-space:nowrap; padding-right:6px;
+      }
+      .vp-sign {
+        flex:1; min-height:48px; border-radius:10px; border:none; cursor:pointer;
+        background:var(--orange,#e8720c); color:var(--accent-fg,#fff);
+        font-family:'Barlow Condensed',sans-serif; font-size:16px; font-weight:800;
+        letter-spacing:.06em; text-transform:uppercase;
+      }
+      .vp-done {
+        flex:none; min-height:48px; padding:0 18px; border-radius:10px; cursor:pointer;
+        background:none; border:1px solid var(--br,#2a2f35); color:var(--m,#98a0ab);
+        font-family:'Barlow Condensed',sans-serif; font-size:13px; font-weight:700;
+        letter-spacing:.06em; text-transform:uppercase;
       }
       .v2-section {
         font-family:'Barlow Condensed',sans-serif; font-size:11px;
@@ -400,7 +512,7 @@
 
       <div class="v2-body">
         <!-- LEFT: Measurements + Mode + Customer -->
-        <div class="v2-pane">
+        <div class="v2-pane pane-setup">
           <div class="v2-section">Mode</div>
           <div class="v2-tabs">
             <button id="v2modePerSq" type="button" data-action="set-mode" data-arg="per-sq">Per-SQ</button>
@@ -577,7 +689,7 @@
         </div>
 
         <!-- MIDDLE: Catalog picker -->
-        <div class="v2-pane">
+        <div class="v2-pane pane-items">
           <div class="v2-section">Line Item Catalog (278 items)</div>
           <input type="text" class="v2-search" id="v2search" placeholder="Search by code, name, or tag..." data-action="search">
           <div class="v2-cat-tabs" id="v2cats"></div>
@@ -585,7 +697,7 @@
         </div>
 
         <!-- RIGHT: Selected scope + total + export -->
-        <div class="v2-pane right">
+        <div class="v2-pane right pane-review">
 
           <!-- Wave 142: Customer + Claim inputs. Previously
                state.customer / state.claim could ONLY be populated
@@ -649,6 +761,13 @@
             <div class="v2-rollup" id="v2rollup"></div>
           </div>
 
+          <div class="v2-section">Photos</div>
+          <div id="v2photosHint" style="font-size:11px;color:var(--m,#888);margin-bottom:8px;">
+            Tap photos to include them on this estimate — they show in the
+            homeowner presentation, the printed quote, and the shared link.
+          </div>
+          <div id="v2photosGrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(84px,1fr));gap:8px;"></div>
+
           <div class="v2-section">Preview / Export</div>
           <div class="v2-export-btns">
             <button type="button" data-action="finalize" data-arg="insurance-scope">📋 Insurance Scope</button>
@@ -661,6 +780,12 @@
           <button type="button" class="btn btn-ghost" data-action="create-deal-room"
             style="width:100%;justify-content:center;padding:12px;margin-bottom:6px;border-color:var(--blue,#4A9EFF);color:var(--blue,#4A9EFF);">
             🏠 Create Deal Room
+          </button>
+
+          <div class="v2-section">Present</div>
+          <button type="button" class="btn btn-ghost" data-action="present"
+            style="width:100%;justify-content:center;padding:12px;margin-bottom:6px;border-color:var(--green,#2ecc8a);color:var(--green,#2ecc8a);">
+            🎁 Present to Homeowner
           </button>
 
           <div class="v2-section">Save</div>
@@ -677,6 +802,18 @@
           </button>
           <div id="v2signStatus" style="font-size:10px;color:var(--m,#888);text-align:center;"></div>
         </div>
+      </div>
+
+      <!-- Phase 1b (RoofLink rebuild): mobile step bar. Under 1000px the
+           three panes become STEPS — Setup → Items → Review — instead of
+           one giant stacked scroll, with the live total always visible.
+           Desktop (3-column grid) is untouched; the bar is display:none
+           there. Tapping the total jumps to Review. -->
+      <div class="v2-mstep-bar" id="v2mStepBar">
+        <button type="button" class="v2-mstep-btn active" data-action="mstep" data-arg="1">① Setup</button>
+        <button type="button" class="v2-mstep-btn" data-action="mstep" data-arg="2">② Items</button>
+        <button type="button" class="v2-mstep-btn" data-action="mstep" data-arg="3">③ Review</button>
+        <button type="button" class="v2-mstep-total" id="v2mTotal" data-action="mstep" data-arg="3">$0</button>
       </div>
     `;
     document.body.appendChild(modal);
@@ -747,6 +884,10 @@
         case 'close':
           close();
           break;
+        case 'mstep':
+          // Phase 1b: mobile step bar — Setup(1) / Items(2) / Review(3).
+          if (arg) setMobileStep(arg);
+          break;
         case 'set-mode':
           if (arg) setMode(arg);
           break;
@@ -758,18 +899,26 @@
           // Updates state, repaints the active button, recalculates
           // grand total. catalog-mode tier feeds resolveEstimate;
           // per-SQ mode tier picks the locked rate from
-          // estimate-config.js TIER_RATES.
-          if (arg && (arg === 'good' || arg === 'better' || arg === 'best')) {
-            state.tier = arg;
-            state._reopenedClean = false;   // 3B: tier change → re-resolve
-            ['v2tierGood', 'v2tierBetter', 'v2tierBest'].forEach(id => {
-              const b = document.getElementById(id);
-              if (b) b.classList.toggle('active',
-                id === ('v2tier' + arg.charAt(0).toUpperCase() + arg.slice(1)));
-            });
-            render();
-            saveDraftDebounced();
-          }
+          // estimate-config.js TIER_RATES. (Body extracted to
+          // setTierChoice so Phase-3 presentation tier cards share it.)
+          if (arg) setTierChoice(arg);
+          break;
+        case 'present':
+          // Phase 3: homeowner-facing Good/Better/Best compare screen.
+          openPresentation();
+          break;
+        case 'toggle-photo':
+          if (arg) togglePhoto(arg);
+          break;
+        case 'pres-tier':
+          if (arg) { setTierChoice(arg); openPresentation(); }
+          break;
+        case 'pres-close':
+          closePresentation();
+          break;
+        case 'pres-sign':
+          closePresentation();
+          sendForSignature();
           break;
         case 'load-preset':
           if (arg) loadPreset(arg);
@@ -1518,6 +1667,233 @@
     return estimate;
   }
 
+  // ═════════════════════════════════════════════════════════
+  // Photo embeds — pick the linked lead's photos onto the estimate.
+  //
+  // The pick-from set is the lead's /photos docs (team-visible since the
+  // 2026-07 dual-scope work). Selection lives in state.photos [{id,url}]
+  // and persists through drafts + the saved doc, so it rides everywhere:
+  // presentation mode, retail/insurance doc formats, the preview sheet,
+  // and the homeowner share view.
+  // ═════════════════════════════════════════════════════════
+  async function loadLeadPhotos(force) {
+    const leadId = state.leadId || (state.customer && state.customer.leadId) || null;
+    if (!leadId) { state._leadPhotos = null; renderPhotos(); return; }
+    if (state._leadPhotos && state._leadPhotos._leadId === leadId && !force) return;
+    if (!window.db || !window.getDocs || !window.query || !window.collection || !window.where) return;
+    try {
+      const snap = await window.getDocs(window.query(
+        window.collection(window.db, 'photos'),
+        window.where('leadId', '==', leadId)
+      ));
+      const list = [];
+      snap.forEach(d => {
+        const p = d.data() || {};
+        if (p.url && !p.deleted) list.push({ id: d.id, url: p.url, _ms: (p.createdAt && p.createdAt.toMillis) ? p.createdAt.toMillis() : 0 });
+      });
+      list.sort((a, b) => b._ms - a._ms);
+      state._leadPhotos = { _leadId: leadId, list: list.slice(0, 60) };
+      renderPhotos();
+    } catch (e) {
+      console.warn('[estimate-v2] loadLeadPhotos failed:', e);
+    }
+  }
+
+  function renderPhotos() {
+    const grid = document.getElementById('v2photosGrid');
+    const hint = document.getElementById('v2photosHint');
+    if (!grid) return;
+    const leadId = state.leadId || (state.customer && state.customer.leadId) || null;
+    const escP = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, c =>
+      ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    if (!leadId) {
+      grid.innerHTML = '';
+      if (hint) hint.textContent = 'Attach a customer to pull in their photos.';
+      return;
+    }
+    const photos = (state._leadPhotos && state._leadPhotos.list) || [];
+    if (!photos.length) {
+      grid.innerHTML = '';
+      if (hint) hint.textContent = state._leadPhotos
+        ? 'No photos on this customer yet — capture some from their customer page.'
+        : 'Loading customer photos…';
+      return;
+    }
+    const selected = new Set((state.photos || []).map(p => p.id || p.url));
+    if (hint) hint.textContent = (state.photos || []).length
+      ? (state.photos.length + ' photo' + (state.photos.length === 1 ? '' : 's') + ' will ride this estimate — presentation, printed quote, and shared link.')
+      : 'Tap photos to include them on this estimate — they show in the homeowner presentation, the printed quote, and the shared link.';
+    grid.innerHTML = photos.map(p => {
+      const on = selected.has(p.id) || selected.has(p.url);
+      return '<button type="button" data-action="toggle-photo" data-arg="' + escP(p.id) + '"' +
+        ' style="position:relative;padding:0;border-radius:8px;overflow:hidden;cursor:pointer;aspect-ratio:1;' +
+        'border:2px solid ' + (on ? 'var(--orange,#e8720c)' : 'var(--br,#2a2f35)') + ';background:var(--s,#111418);">' +
+        '<img src="' + escP(p.url) + '" alt="" loading="lazy" style="width:100%;height:100%;object-fit:cover;display:block;' + (on ? '' : 'opacity:.75;') + '">' +
+        (on ? '<span style="position:absolute;top:4px;right:4px;background:var(--orange,#e8720c);color:#fff;border-radius:50%;width:20px;height:20px;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;">✓</span>' : '') +
+        '</button>';
+    }).join('');
+  }
+
+  function togglePhoto(photoId) {
+    const all = (state._leadPhotos && state._leadPhotos.list) || [];
+    const photo = all.find(p => p.id === photoId);
+    if (!photo) return;
+    const cur = state.photos || [];
+    const idx = cur.findIndex(p => (p.id || p.url) === photoId || p.url === photo.url);
+    if (idx >= 0) cur.splice(idx, 1);
+    else cur.push({ id: photo.id, url: photo.url });
+    state.photos = cur;
+    state._reopenedClean = false;
+    renderPhotos();
+    saveDraftDebounced();
+  }
+
+  // W142 tier change, extracted from the dispatcher so the Phase-3
+  // presentation tier cards drive the exact same path as the Setup tabs.
+  function setTierChoice(arg) {
+    if (arg !== 'good' && arg !== 'better' && arg !== 'best') return;
+    state.tier = arg;
+    state._reopenedClean = false;   // 3B: tier change → re-resolve
+    ['v2tierGood', 'v2tierBetter', 'v2tierBest'].forEach(id => {
+      const b = document.getElementById(id);
+      if (b) b.classList.toggle('active',
+        id === ('v2tier' + arg.charAt(0).toUpperCase() + arg.slice(1)));
+    });
+    render();
+    saveDraftDebounced();
+  }
+
+  // ═════════════════════════════════════════════════════════
+  // Phase 3 — homeowner presentation mode
+  //
+  // Good/Better/Best side-by-side for the kitchen table: the rep hands
+  // the phone over instead of reading numbers aloud. Tapping a tier IS
+  // a real tier change (setTierChoice — same path as the Setup tabs),
+  // and "Sign Now" hands off to the existing BoldSign flow. Homeowner-
+  // clean: no margins, costs, or internal numbers anywhere.
+  // ═════════════════════════════════════════════════════════
+
+  // Three tier totals for the compare cards. Per-SQ mode already carries
+  // estimate.prices {good,better,best}. Line-item mode computes the other
+  // two tiers with a temporary state.tier swap through getCurrentEstimate
+  // (pure compute — no render, no _reopenedClean flip); the CURRENT tier
+  // always shows the truthful replay-aware number from effectiveEstimate.
+  function triTierTotals(current) {
+    if (current.prices && current.prices.good != null) {
+      return {
+        good: current.prices.good,
+        better: current.prices.better,
+        best: current.prices.best
+      };
+    }
+    const orig = state.tier;
+    const out = { good: null, better: null, best: null };
+    ['good', 'better', 'best'].forEach(t => {
+      if (t === orig) { out[t] = current.total; return; }
+      try {
+        state.tier = t;
+        const e = getCurrentEstimate();
+        out[t] = e ? e.total : null;
+      } catch (err) {
+        out[t] = null;
+      }
+    });
+    state.tier = orig;
+    return out;
+  }
+
+  function openPresentation() {
+    const modal = document.getElementById('estV2Modal');
+    if (!modal) return;
+    const estimate = effectiveEstimate();
+    if (!estimate) {
+      if (window.showToast) window.showToast('Add line items to the scope first', 'info');
+      return;
+    }
+    const escP = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, c =>
+      ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    const fmt = (n) => (n == null || !isFinite(Number(n)))
+      ? null : '$' + Math.round(Number(n)).toLocaleString('en-US');
+
+    const tiers = triTierTotals(estimate);
+    const BLURB = {
+      good: 'Solid protection that fits the budget.',
+      better: 'Our most popular package — the sweet spot.',
+      best: 'Top-of-the-line materials and warranty.'
+    };
+    const LABEL = { good: 'Good', better: 'Better', best: 'Best' };
+    const cardOrder = ['good', 'better', 'best'].filter(t => fmt(tiers[t]) !== null);
+
+    const cards = cardOrder.length >= 2
+      ? cardOrder.map(t =>
+          '<button type="button" class="vp-card' + (state.tier === t ? ' active' : '') + '" data-action="pres-tier" data-arg="' + t + '">' +
+            '<div class="vp-tier">' + LABEL[t] + '</div>' +
+            '<div class="vp-price">' + fmt(tiers[t]) + '</div>' +
+            '<div class="vp-blurb">' + BLURB[t] + '</div>' +
+            '<div class="vp-pick">' + (state.tier === t ? '✓ Selected' : 'Tap to select') + '</div>' +
+          '</button>').join('')
+      // Fewer than 2 priced tiers → a single clean total card, no fake compare.
+      : '<div class="vp-card active" style="cursor:default;">' +
+          '<div class="vp-tier">Your Project</div>' +
+          '<div class="vp-price">' + (fmt(estimate.total) || '$0') + '</div>' +
+          '<div class="vp-blurb">Full scope as reviewed with your estimator.</div>' +
+        '</div>';
+
+    let pres = document.getElementById('v2Present');
+    if (!pres) {
+      pres = document.createElement('div');
+      pres.id = 'v2Present';
+      pres.className = 'v2-present';
+      modal.appendChild(pres);
+    }
+    // Photo strip — the selected photos, homeowner-facing ("here's YOUR
+    // roof"). Horizontal scroll keeps any count tidy on a phone.
+    const photoStrip = (state.photos && state.photos.length)
+      ? '<div style="display:flex;gap:8px;overflow-x:auto;padding:4px 22px 0;-webkit-overflow-scrolling:touch;">' +
+          state.photos.map(p =>
+            '<img src="' + escP(p.url) + '" alt="" loading="lazy" ' +
+            'style="height:110px;border-radius:10px;flex:none;border:1px solid var(--br,#2a2f35);">'
+          ).join('') +
+        '</div>'
+      : '';
+
+    pres.innerHTML =
+      '<div class="vp-hdr">' +
+        '<div class="vp-name">' + (escP(state.customer.name) || 'Your Roofing Estimate') + '</div>' +
+        (state.customer.address ? '<div class="vp-addr">' + escP(state.customer.address) + '</div>' : '') +
+      '</div>' +
+      photoStrip +
+      '<div class="vp-cards">' + cards + '</div>' +
+      '<div class="vp-foot">' +
+        '<div class="vp-total">' + (fmt(estimate.total) || '$0') + '</div>' +
+        '<button type="button" class="vp-sign" data-action="pres-sign">✍ Sign Now</button>' +
+        '<button type="button" class="vp-done" data-action="pres-close">Done</button>' +
+      '</div>';
+    pres.classList.add('open');
+  }
+
+  function closePresentation() {
+    const pres = document.getElementById('v2Present');
+    if (pres) pres.classList.remove('open');
+  }
+
+  // Phase 1b: switch the mobile step (no-op visually on desktop — the
+  // CSS only hides panes inside the ≤1000px media query). Scrolls the
+  // newly shown pane to its top so each step starts at its beginning.
+  function setMobileStep(n) {
+    const modal = document.getElementById('estV2Modal');
+    if (!modal) return;
+    const step = String(n);
+    modal.dataset.mstep = step;
+    modal.querySelectorAll('.v2-mstep-btn').forEach(b => {
+      b.classList.toggle('active', b.dataset.arg === step);
+    });
+    const pane = modal.querySelector(step === '1' ? '.pane-setup' : step === '2' ? '.pane-items' : '.pane-review');
+    if (pane) pane.scrollTop = 0;
+    const body = modal.querySelector('.v2-body');
+    if (body) body.scrollTop = 0;
+  }
+
   function renderCatalog() {
     const catDiv = document.getElementById('v2items');
     const catTabs = document.getElementById('v2cats');
@@ -1616,6 +1992,8 @@
     if (!state.scope.length && !(state.passThru && state.passThru.length)) {
       listDiv.innerHTML = '<div class="nbd-empty" style="padding:24px 8px;"><div class="ne-icon">🧾</div><div class="ne-msg">No items selected yet</div><div class="ne-sub">Pick from the catalog or load a preset.</div></div>';
       totalEl.textContent = '$0';
+      const mT0 = document.getElementById('v2mTotal');
+      if (mT0) mT0.textContent = '$0';
       rollupEl.innerHTML = '';
       return;
     }
@@ -1675,6 +2053,9 @@
     }).join('');
 
     totalEl.textContent = '$' + Math.round(estimate.total).toLocaleString();
+    // Phase 1b: mirror into the mobile step bar's always-visible total.
+    const mT = document.getElementById('v2mTotal');
+    if (mT) mT.textContent = '$' + Math.round(estimate.total).toLocaleString();
 
     const taxDisplay = estimate.taxRate > 0
       ? `<br>Tax: <strong>$${Math.round(estimate.tax).toLocaleString()}</strong> (${(estimate.taxRate * 100).toFixed(2)}%)`
@@ -1692,6 +2073,7 @@
   function render() {
     renderCatalog();
     renderScope();
+    renderPhotos();
     // F7: debounced autosave on every render. Cheap — just a JSON
     // write to localStorage. Firestore backup fires on a slower
     // cadence so network blips don't cost the rep their work.
@@ -1723,6 +2105,7 @@
       customer: state.customer,
       claim: state.claim,
       passThru: state.passThru,
+      photos: state.photos,
       minJobCharge: state.minJobCharge,
       savedAt: Date.now()
     };
@@ -2079,10 +2462,19 @@
       method:           estimate.method || 'line-item',
       tier:             estimate.tier || state.tier,
       mode:             estimate.mode || state.jobMode,
-      // Customer association
-      leadId:           state.leadId || null,
+      // Customer association. state.leadId is set only on the REOPEN path
+      // (loading an existing doc); a brand-new estimate opened from a customer
+      // card links via prefillFromLead → state.customer.leadId. Fall back to it
+      // so a fresh estimate isn't saved orphaned (leadId:null) — which would
+      // hide it from the customer page and skip the lead jobValue/primaryEstimate
+      // stamp-back (that block is gated on data.leadId).
+      leadId:           state.leadId || (state.customer && state.customer.leadId) || null,
       addr:             state.customer.address || '',
       owner:            state.customer.name || '',
+      // Photo embeds: the selected photos ride the saved doc so every
+      // downstream surface (preview sheet, homeowner share view, doc
+      // regeneration on reopen) sees the same set.
+      photos:           (state.photos || []).map(p => ({ id: p.id || null, url: p.url })),
       // FU-1: persist insurance claim info (carrier/deductible/adjuster/…) so a
       // reopened insurance estimate restores its claim header instead of "—".
       // Sanitized to plain values; undefined → null (Firestore-safe).
@@ -2301,6 +2693,10 @@
       : { carrier: '', number: '', adjuster: '', dateOfLoss: '', deductible: 2500, acv: null, recoverableDepreciation: null, policyNumber: '' };
     state.estimateName = doc.name || '';
     state.leadId = doc.leadId || null;
+    // Photo embeds: restore the saved selection + refresh the pick-from
+    // grid for the linked lead.
+    state.photos = Array.isArray(doc.photos) ? doc.photos.map(p => ({ id: p.id || null, url: p.url })) : [];
+    loadLeadPhotos(true);
     state.jobMode = doc.mode || 'insurance';
     state.mode = (doc.priceMode === 'per-sq') ? 'per-sq' : 'line-item';
     state.tier = doc.tier || doc.selectedTier || 'better';
@@ -2403,6 +2799,9 @@
     const meta = {
       customer: state.customer,
       claim: state.claim,
+      // Photo embeds: the selected photos render as a Photo Documentation
+      // section in the customer-facing formats (estimate-finalization.js).
+      photos: (state.photos || []).slice(),
       estimate: {
         number: 'NBD-V2-' + Date.now(),
         date: new Date().toISOString().split('T')[0],
@@ -2549,6 +2948,27 @@
 
     try {
       const payload = _buildSavePayload(estimate, state);
+
+      // Linkage invariant (CRM audit 2026-07): an unattached estimate is
+      // invisible on every customer page and Activity tab (both query by
+      // leadId) and never reaches the pipeline. The button literally says
+      // "Save Estimate to Customer" — if there's no customer, say so and
+      // make the rep choose, never silently orphan the save. This is the
+      // save-time guard that keeps the migration-005 backlog from refilling.
+      if (!payload.leadId) {
+        const ask = window.nbdConfirm || ((m) => Promise.resolve(window.confirm(m)));
+        const proceed = await ask(
+          'This estimate isn\'t attached to a customer — it won\'t appear on ' +
+          'any customer page or count toward your pipeline.\n\n' +
+          'Save it unattached anyway? (You can attach it later with the ' +
+          'Assign button on the Estimates list.)'
+        );
+        if (!proceed) {
+          setStatus('Save cancelled — attach a customer first.', 'var(--m,#888)');
+          if (btn) { btn.disabled = false; btn.textContent = '💾 Save Estimate to Customer'; }
+          return;
+        }
+      }
 
       const savedId = await window._saveEstimate(payload);
 
@@ -2802,6 +3222,12 @@ html,body{margin:0;padding:0;height:100%;width:100%;background:#fff;font-family:
     // has any carrier/number on file.
     if (lead.insCarrier && !state.claim.carrier)      state.claim.carrier = lead.insCarrier;
     if (lead.claimNumber && !state.claim.number)      state.claim.number  = lead.claimNumber;
+    // Photo embeds: a NEW lead context starts with a clean selection and
+    // pulls that lead's photo grid (guarded no-op if it's the same lead).
+    if (!state._leadPhotos || state._leadPhotos._leadId !== leadId) {
+      state.photos = [];
+      loadLeadPhotos(true);
+    }
     // Sync inputs if the modal is open. If not, the next render does it.
     syncCustomerInputs();
     return true;
@@ -2871,6 +3297,10 @@ html,body{margin:0;padding:0;height:100%;width:100%;background:#fff;font-family:
     opts = opts || {};
     ensureModal();
     document.getElementById('estV2Modal').classList.add('open');
+    // Phase 1b: pick the mobile starting step — a REOPENED estimate lands
+    // on Review (scope + total + save/export, the "look at it" step); a
+    // fresh estimate starts at Setup. Desktop ignores the attribute.
+    setMobileStep(opts.estimateId ? 3 : 1);
     const pendingImport = opts.importMeasurements || null;
     // 3B: reopen a saved V2 estimate (routed here from the estimates list).
     // Rehydrate its state and render — takes precedence over draft restore.
@@ -2928,6 +3358,7 @@ html,body{margin:0;padding:0;height:100%;width:100%;background:#fff;font-family:
   function close() {
     const m = document.getElementById('estV2Modal');
     if (m) m.classList.remove('open');
+    closePresentation(); // Phase 3: never leave the overlay armed for next open
     // 3B: closing a reopened estimate clears the replay + editing state so a
     // stale window._editingEstimateId can't bleed into the Classic builder's
     // next save (the two builders share that global).
@@ -3003,6 +3434,11 @@ html,body{margin:0;padding:0;height:100%;width:100%;background:#fff;font-family:
     addScopeEntries,
     finalize,
     save,
+    // Quick Measure import (tools.js applyQMData) pushes measurements into
+    // an ALREADY-OPEN builder through here — open({importMeasurements})
+    // only covers the not-yet-open case. Re-renders so the imported
+    // numbers (and the recomputed total) show immediately.
+    applyImportedMeasurements: (imp) => { applyImportedMeasurements(imp || {}); render(); },
     getState: () => state,
     // Test seam — pure builders + reopen helpers, exercised by
     // tests/estimate-v2-payload.test.js.

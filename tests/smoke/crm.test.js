@@ -652,4 +652,126 @@ section('Review engine — role-aware nudges, tenant-safe copy, Settings-sourced
     && /await getReviewLink\(\)/.test(rev));
 }
 
+section('Team visibility: lead-activity notes readable across the lead (rules + client)');
+{
+  const rules = read(path.join(ROOT, 'firestore.rules'));
+  // lastIndexOf → the TOP-LEVEL /notes match (the subcollection one is earlier).
+  const notesBlock = rules.slice(rules.lastIndexOf('match /notes/'),
+                                rules.lastIndexOf('match /notes/') + 700);
+  // Read is scoped to the PARENT LEAD (owner or same-company), not the note
+  // author — so a lead owner sees a manager's stage-change note on their lead.
+  assert('top-level /notes read is scoped to the parent lead (owner or same-company)',
+    /allow read:[\s\S]{0,260}leads\/\$\(resource\.data\.leadId\)[\s\S]{0,140}parentLeadInMyCompany\(resource\.data\.leadId\)/.test(notesBlock));
+  assert('/notes update+delete stay author-only',
+    /allow update, delete:\s*if isOwner\(resource\.data\.userId\) \|\| isAdmin\(\);/.test(notesBlock));
+
+  // Client: timeline + report note reads query by leadId ONLY (no author
+  // filter), so teammates' notes appear; the rule authorizes it.
+  const cust = read(path.join(ROOT, 'docs/pro/js/customer-bootstrap.module.js'));
+  assert('customer timeline reads notes by leadId only (no userId filter)',
+    /collection\(window\.db, 'notes'\), where\('leadId', '==', leadId\)\)/.test(cust) &&
+    !/collection\(window\.db, 'notes'\), where\('leadId', '==', leadId\), where\('userId'/.test(cust));
+  const rpt = read(path.join(ROOT, 'docs/pro/js/customer-photo-report-generator.js'));
+  assert('notes panel reads by leadId only (no userId filter)',
+    /collection\(db, 'notes'\), where\('leadId', '==', leadId\)\)/.test(rpt) &&
+    !/collection\(db, 'notes'\), where\('leadId', '==', leadId\), where\('userId'/.test(rpt));
+}
+
+section('Customer page: invoices load (team-scope + createdAt sort)');
+{
+  const src = read(path.join(ROOT, 'docs/pro/js/customer-tasks-ui.js'));
+  const fn = src.slice(src.indexOf('window.loadInvoices ='),
+                       src.indexOf('window.loadInvoices =') + 5400);
+  // The old orderBy('date') dropped every invoice (docs are stamped createdAt,
+  // never date). Must NOT re-introduce that field sort in the query. (Targets
+  // the window.orderBy(...) call form so a code comment mentioning the old bug
+  // doesn't trip it.)
+  assert('loadInvoices no longer queries orderBy(date)',
+    !/window\.orderBy\(\s*['"]date['"]/.test(fn));
+  // Team readers (company_admin/manager/viewer + companyId) read by
+  // leadId+companyId; everyone else by leadId+createdBy — mirrors the
+  // /invoices rule + loadCommunicationLog.
+  assert('loadInvoices is team-scoped (companyId) with an owner fallback (createdBy)',
+    /where\(\s*['"]companyId['"]\s*,\s*['"]==['"]\s*,\s*companyId\)/.test(fn) &&
+    /where\(\s*['"]createdBy['"]\s*,\s*['"]==['"]\s*,\s*uid\)/.test(fn));
+  // Results are sorted newest-first by createdAt in JS (no composite index).
+  assert('loadInvoices sorts by createdAt client-side',
+    /\.sort\(\([\s\S]{0,80}createdAt/.test(fn));
+}
+
+section('Photo modal: _getPhotos is team-scoped (badge vs gallery parity)');
+{
+  const src = read(path.join(ROOT, 'docs/pro/js/dashboard-bootstrap.module.js'));
+  const fn = src.slice(src.indexOf('window._getPhotos ='),
+                       src.indexOf('window._getPhotos =') + 1400);
+  // The modal path was userId-only while the badge/_photoCache read dual-scope,
+  // so managers saw a count then an empty gallery. Must now add the companyId
+  // scope for company readers, deduped, mirroring _photoCache.
+  assert('_getPhotos adds a companyId scope for company readers',
+    /\['company_admin','manager','viewer'\]\.includes\(claims\.role/.test(fn) &&
+    /where\(\s*['"]companyId['"]\s*,\s*['"]==['"]\s*,\s*claims\.companyId\)/.test(fn));
+  assert('_getPhotos still queries by leadId and dedupes by doc id',
+    /where\(\s*['"]leadId['"]\s*,\s*['"]==['"]\s*,\s*leadId\)/.test(fn) &&
+    /seen\.has\(d\.id\)/.test(fn));
+}
+
+section('Pipeline small fixes (#9 legacy card handlers, #10 filter preserved)');
+{
+  const crm = read(path.join(ROOT, 'docs/pro/js/crm-pipeline.js'));
+  // #10 — "Show all N" preserves the active search/damage filter instead of
+  // repainting the whole book unfiltered.
+  assert('show-all expander preserves the active filter',
+    /_kbShowAll\[stageKey\] = true;[\s\S]{0,400}renderLeads\(window\._leads, window\._filteredLeads\)/.test(crm));
+  // #9 — the legacy kanban fallback now wires card handlers (was drag-only).
+  const legacy = crm.slice(crm.indexOf('LEGACY FALLBACK'), crm.indexOf('LEGACY FALLBACK') + 2800);
+  assert('legacy kanban fallback wires card listeners (not just drag)',
+    /renderColumnCards\(body, cards, stage\);[\s\S]{0,450}wireKanbanCardListeners\(body\)/.test(legacy));
+  // (#11 — homeowner-share badge dispatch — is covered in portal.test.js.)
+  // #12 — the overdue-followup count skips won/lost/job by stageRole, so a won
+  // deal at final_payment (or a custom won/lost stage) no longer nags "due".
+  const overdue = crm.slice(crm.indexOf('Follow-up overdue'), crm.indexOf('Follow-up overdue') + 800);
+  assert('overdue-followup excludes won/lost/job by stageRole',
+    /window\.stageRole\(sk\)/.test(overdue) &&
+    /role === 'won' \|\| role === 'lost' \|\| role === 'job'/.test(overdue));
+}
+
+section('Swallowed-error fixes: doc-save + task-toggle tell the truth');
+{
+  // #7 — a generated doc that fails to attach to the lead must NOT show a
+  // success toast. onSave surfaces an honest "NOT saved to the customer" error
+  // when persistence was attempted but the metadata write never landed.
+  const docgen = read(path.join(ROOT, 'docs/pro/js/document-generator.js'));
+  const onSave = docgen.slice(docgen.indexOf('onSave: async'),
+                             docgen.indexOf('onSave: async') + 1600);
+  assert('doc onSave surfaces an error when the doc did not attach to the lead',
+    /attemptedPersist && !attachedToLead[\s\S]{0,200}NOT saved to the customer/.test(onSave) &&
+    /'error'\)/.test(onSave));
+
+  // #8 — a failed task toggle must toast an error AND revert the checkbox by
+  // reloading the timeline from Firestore (the box flipped optimistically).
+  const tasks = read(path.join(ROOT, 'docs/pro/js/customer-tasks-ui.js'));
+  const toggle = tasks.slice(tasks.indexOf('window.toggleTask ='),
+                             tasks.indexOf('window.toggleTask =') + 1600);
+  assert('toggleTask failure toasts an error + reverts via loadTimeline',
+    /catch \(error\)[\s\S]{0,500}showToast\([\s\S]{0,80}Could not update task/.test(toggle) &&
+    /catch \(error\)[\s\S]{0,700}loadTimeline\(window\._customerId/.test(toggle));
+}
+
+section('QA wiring audit: photo Reorder button binds in module scope (not window delegate)');
+{
+  // customer.html's delegate resolves data-action names on WINDOW
+  // (customer-tasks-ui.js), but the Tranche-1 globals cleanup made
+  // toggleCustomerPhotoReorder module-local — and a tripwire test bans
+  // re-windowing it. The old data-action button therefore console.error'd
+  // and did nothing: a dead Reorder button on every customer gallery.
+  // Contract now: NO data-action on the button; the photo-strip click
+  // delegate routes #nbdReorderToggle to the module-local function.
+  const cb = readCustomer();
+  assert('Reorder button carries no data-action (window path is banned)',
+    !/data-action="toggleCustomerPhotoReorder"/.test(cb)
+    && /id="nbdReorderToggle">Reorder<\/button>/.test(cb));
+  assert('photo-strip click delegate routes the Reorder toggle in module scope',
+    /closest\('#nbdReorderToggle'\)\)\s*\{\s*toggleCustomerPhotoReorder\(\);/.test(cb));
+}
+
 };

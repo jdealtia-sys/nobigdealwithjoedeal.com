@@ -1836,6 +1836,12 @@ exports.getEstimateForView = onRequest(
       // Allow the formatter to render tier comparison if the doc
       // already carries the tiers payload (per-SQ retail quotes do).
       tiers:       est.tiers || null,
+      // Photo embeds (2026-07): the rep-selected photos ride the shared
+      // view. URL-only pass-through — {url} per entry, ids and any other
+      // photo-doc fields stay server-side.
+      photos:      Array.isArray(est.photos)
+        ? est.photos.filter(p => p && typeof p.url === 'string').map(p => ({ url: p.url }))
+        : [],
     };
 
     // Full white-label (2026-07-19): the renderer hardcoded "NBD · No Big

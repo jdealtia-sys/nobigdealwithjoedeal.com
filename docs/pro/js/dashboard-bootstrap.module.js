@@ -3119,9 +3119,22 @@
     try {
       const uid = window._user?.uid;
       if (!uid) { window._estimates = []; return; }
-      const snap = await getDocs(query(collection(db,'estimates'), where('userId','==',uid)));
-      window._estimates = snap.docs
-        .map(d => ({id:d.id,...d.data()}))
+      // Team visibility: company readers (admin/manager/viewer) also pull the tenant's estimates
+      // (companyId scope) so estCount + estimate rows reflect the whole team —
+      // the /estimates rule permits this read. Own-userId query ALWAYS runs (it
+      // covers the caller's legacy pre-companyId estimates). Two equality
+      // queries, deduped by id — same two-scope shape as loadLeads/_photoCache.
+      const claims = window._userClaims || {};
+      const scopes = [where('userId','==',uid)];
+      if (['company_admin','manager','viewer'].includes(claims.role || '') && claims.companyId) {
+        scopes.push(where('companyId','==',claims.companyId));
+      }
+      const byId = {};
+      for (const scope of scopes) {
+        const snap = await getDocs(query(collection(db,'estimates'), scope));
+        snap.docs.forEach(d => { byId[d.id] = {id:d.id,...d.data()}; });
+      }
+      window._estimates = Object.values(byId)
         .sort((a,b) => {
           const ta = a.createdAt?.toDate?.()?.getTime() || 0;
           const tb = b.createdAt?.toDate?.()?.getTime() || 0;
@@ -3145,22 +3158,45 @@
     if (_estimatesUnsub) { try { _estimatesUnsub(); } catch(e) {} _estimatesUnsub = null; }
     const uid = window._user?.uid;
     if (!uid) return;
-    const q = query(collection(db, 'estimates'), where('userId', '==', uid));
-    _estimatesUnsub = onSnapshot(q, (snap) => {
-      const next = snap.docs
-        .map(d => ({ id: d.id, ...d.data() }))
-        .sort((a, b) => {
-          const ta = a.createdAt?.toDate?.()?.getTime() || 0;
-          const tb = b.createdAt?.toDate?.()?.getTime() || 0;
-          return tb - ta;
-        });
-      window._estimates = next;
-      renderEstimatesList(next);
-    }, (err) => {
+    const claims = window._userClaims || {};
+    const teamRead = ['company_admin','manager','viewer'].includes(claims.role || '') && claims.companyId;
+    // Two live slices merged by doc id: own estimates (ALWAYS — also covers
+    // legacy docs with no companyId) + the tenant's estimates for company
+    // readers (admin/manager/viewer). A solo/rep user gets EXACTLY the previous
+    // single-listener behavior (own map only), so nothing regresses for them;
+    // only team readers gain the second listener. Merging is required — a plain
+    // own-only listener would clobber team estimates loadEstimates() merged in
+    // every time it fired.
+    const sortDesc = (a, b) => {
+      const ta = a.createdAt?.toDate?.()?.getTime() || 0;
+      const tb = b.createdAt?.toDate?.()?.getTime() || 0;
+      return tb - ta;
+    };
+    const own = {}, comp = {};
+    const rebuild = () => {
+      const merged = Object.assign({}, comp, own); // own wins on a shared doc
+      window._estimates = Object.values(merged).sort(sortDesc);
+      renderEstimatesList(window._estimates);
+    };
+    const onErr = (err) => {
       console.warn('estimates snapshot error:', err && err.message);
       // Fall back to one-shot fetch so the UI isn't stuck empty.
       loadEstimates();
-    });
+    };
+    const unsubs = [];
+    unsubs.push(onSnapshot(query(collection(db, 'estimates'), where('userId', '==', uid)), (snap) => {
+      for (const k in own) delete own[k];
+      snap.docs.forEach(d => { own[d.id] = { id: d.id, ...d.data() }; });
+      rebuild();
+    }, onErr));
+    if (teamRead) {
+      unsubs.push(onSnapshot(query(collection(db, 'estimates'), where('companyId', '==', claims.companyId)), (snap) => {
+        for (const k in comp) delete comp[k];
+        snap.docs.forEach(d => { comp[d.id] = { id: d.id, ...d.data() }; });
+        rebuild();
+      }, onErr));
+    }
+    _estimatesUnsub = () => unsubs.forEach(u => { try { u(); } catch(e) {} });
   };
 
   window._saveEstimate = async (data) => {
@@ -3173,8 +3209,13 @@
         await loadEstimates();
         return editId;
       } else {
-        // Create new estimate
-        const ref2 = await addDoc(collection(db,'estimates'), {...data, createdAt:serverTimestamp(), userId:window._user?.uid});
+        // Create new estimate. Stamp companyId (claims.companyId || uid) — the
+        // tenant key that lets same-company managers read team estimates (the
+        // /estimates rule's isCompanyStaff read) and powers team estCount. Solo
+        // operators key by uid, mirroring /pins + /invoices.
+        const ref2 = await addDoc(collection(db,'estimates'), {...data, createdAt:serverTimestamp(),
+          userId:window._user?.uid,
+          companyId: (window._userClaims && window._userClaims.companyId) || window._user?.uid || null});
         await loadEstimates();
         // Pipeline wiring: Pipeline/dashboard-KPI/Leaderboard all read
         // lead.jobValue, not the estimate itself — nothing wrote that back
@@ -3308,9 +3349,29 @@
   // Assign (or re-assign) an estimate to a customer/lead. Writes
   // leadId and also copies the lead's address/owner over for faster
   // list display. Passing leadId=null clears the assignment.
+  //
+  // Linkage invariant (CRM audit 2026-07): attaching is only half the
+  // job — Pipeline/KPIs/Leaderboard read lead.jobValue + lead
+  // .primaryEstimateId, not the estimate itself, so an assign that only
+  // wrote leadId left the pipeline under-reporting. This now mirrors
+  // _saveEstimate's create-path stamp-back exactly (first estimate →
+  // stamp through + NEW→Contacted bump; existing primary → confirm
+  // before clobbering a rep-confirmed number). It's also the manual
+  // remediation path for migration 005's reported skips — hand-assigning
+  // an orphan must leave the same state a correctly-linked save would.
   window._assignEstimateToLead = async (id, leadId) => {
     try {
       if (!id) return false;
+      // Snapshot the estimate BEFORE the write — the stamp-back needs its
+      // grandTotal, and the un-dangle pass needs its previous leadId.
+      let est = (window._estimates || []).find(e => e.id === id) || null;
+      if (!est) {
+        try {
+          const s = await getDoc(doc(db, 'estimates', id));
+          if (s.exists()) est = { id, ...s.data() };
+        } catch (_) { /* stamp-back degrades gracefully below */ }
+      }
+      const prevLeadId = (est && est.leadId) || null;
       const patch = { leadId: leadId || null, updatedAt: serverTimestamp() };
       if (leadId) {
         const lead = (window._leads || []).find(l => l.id === leadId);
@@ -3322,6 +3383,62 @@
         }
       }
       await updateDoc(doc(db, 'estimates', id), patch);
+      // Stamp-back — best-effort: a stamp failure must never fail the
+      // assign itself (same contract as _saveEstimate's create path).
+      if (leadId && leadId !== prevLeadId) {
+        try {
+          const leadRef = doc(db, 'leads', leadId);
+          const leadSnap = await getDoc(leadRef);
+          if (leadSnap.exists()) {
+            const lead = leadSnap.data();
+            const newVal = Number(est && est.grandTotal) || 0;
+            if (!lead.primaryEstimateId) {
+              const stampUpdate = {
+                primaryEstimateId: id,
+                lastEstimateAt: serverTimestamp(),
+              };
+              // Only stamp a jobValue the pipeline can trust — never
+              // zero a KPI off an estimate with no total.
+              if (newVal > 0) stampUpdate.jobValue = newVal;
+              if (normalizeStage(lead.stage) === S.NEW) {
+                stampUpdate.stage = S.CONTACTED;
+                stampUpdate.stageRole = stageRole(S.CONTACTED);
+              }
+              await updateDoc(leadRef, stampUpdate);
+            } else if (lead.primaryEstimateId !== id) {
+              const existingVal = Number(lead.jobValue) || 0;
+              const ask = window.nbdConfirm || ((m) => Promise.resolve(window.confirm(m)));
+              const useNew = await ask(
+                `This lead's job value is currently $${existingVal.toLocaleString()} (from an earlier estimate). ` +
+                `Use this estimate's $${newVal.toLocaleString()} instead?`
+              );
+              if (useNew) {
+                await updateDoc(leadRef, {
+                  jobValue: newVal,
+                  primaryEstimateId: id,
+                  lastEstimateAt: serverTimestamp(),
+                });
+              }
+            }
+          }
+        } catch (stampErr) {
+          console.warn('[_assignEstimateToLead] lead stamp-back failed:', stampErr);
+        }
+      }
+      // Un-dangle: a re-assign/unassign can leave the PREVIOUS lead's
+      // primaryEstimateId pointing at an estimate that's no longer its
+      // own. Break the pointer; leave jobValue as-is — it may be a
+      // rep-confirmed number, and "never clobber a rep-confirmed number"
+      // outranks tidiness (same principle as migration 005's stamp gate).
+      if (prevLeadId && prevLeadId !== (leadId || null)) {
+        try {
+          const prevRef = doc(db, 'leads', prevLeadId);
+          const prevSnap = await getDoc(prevRef);
+          if (prevSnap.exists() && prevSnap.data().primaryEstimateId === id) {
+            await updateDoc(prevRef, { primaryEstimateId: null });
+          }
+        } catch (_) { /* dangling pointer is display-only; next assign heals it */ }
+      }
       await loadEstimates();
       return true;
     } catch (e) {
@@ -3516,9 +3633,28 @@
   window._getPhotos = async (leadId) => {
     try {
       const uid = window._user?.uid;
-      const snap = await getDocs(query(collection(db,'photos'), where('leadId','==',leadId), where('userId','==',uid)));
-      return snap.docs.map(d => ({id:d.id,...d.data()}));
-    } catch(e) { return []; }
+      if (!uid) return [];
+      // Team visibility: the photo WRITE stamps companyId and _photoCache already
+      // reads dual-scope, but this modal path was userId-only — so a manager
+      // opening a teammate's lead saw a "📷 3" badge (from the company-scoped
+      // cache) then an EMPTY gallery. Mirror _photoCache's two-scope shape: own
+      // userId always (covers pre-backfill photos with no companyId), plus the
+      // companyId scope for company readers. Each is two equality filters
+      // (leadId + userId/companyId) → single-field merge-join, no composite
+      // index. Deduped by doc id; the /photos rule permits both reads.
+      const claims = window._userClaims || {};
+      const scopes = [where('userId','==',uid)];
+      if (['company_admin','manager','viewer'].includes(claims.role || '') && claims.companyId) {
+        scopes.push(where('companyId','==',claims.companyId));
+      }
+      const seen = new Set();
+      const out = [];
+      for (const scope of scopes) {
+        const snap = await getDocs(query(collection(db,'photos'), where('leadId','==',leadId), scope));
+        snap.docs.forEach(d => { if (!seen.has(d.id)) { seen.add(d.id); out.push({id:d.id,...d.data()}); } });
+      }
+      return out;
+    } catch(e) { console.warn('[_getPhotos] load failed:', e && e.message); return []; }
   };
 
   // ── SETTINGS ───────────────────────────────────

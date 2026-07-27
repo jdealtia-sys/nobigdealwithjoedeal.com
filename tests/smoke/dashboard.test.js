@@ -1129,15 +1129,53 @@ section('Mobile FAB speed-dial (2026-07-06, Jo\'s pick) — one launcher, tools 
     /body\.nbd-dial-open #nbd-whisper-fab,\s*body\.nbd-dial-open #nbd-qc-fab,\s*body\.nbd-dial-open #nbd-qci-fab\{\s*opacity:1; pointer-events:auto;/.test(styles));
   assert('＋ Add Lead floats ABOVE the launcher on mobile (138px slot)',
     /#addLeadFab\{\s*bottom:calc\(138px \+ env\(safe-area-inset-bottom, 0px\)\) !important;/.test(styles));
-  assert('launcher styled at the bottom slot, desktop-hidden, mobile-shown',
+  assert('launcher styled at the bottom slot, desktop-hidden, shown on mobile gated views',
     /#nbd-fab-dial\{\s*display:none;\s*position:fixed;\s*bottom:calc\(78px/.test(styles)
-    && /@media \(max-width:768px\)\{\s*#nbd-fab-dial\{ display:flex; \}\s*\}/.test(styles));
-  // The launcher is shown on EVERY mobile view, so every scrollable view must
-  // reserve enough bottom padding for the last row to clear it — otherwise the
-  // card action buttons (Photos VIEW/ADD, D2D value card) sit trapped under the
-  // FAB. Clearance must exceed the launcher's ~126px top (78px bottom + 48px).
-  assert('mobile .view-scroll reserves bottom clearance for the ⋯ launcher (≥126px)',
-    /\.view-scroll \{ min-height:auto!important; padding-bottom:calc\((1[3-9]\d|[2-9]\d\d)px \+ env\(safe-area-inset-bottom, 0px\)\)!important; \}/.test(styles));
+    && /@media \(max-width:768px\)\{[\s\S]{0,400}body\.show-field-tools #nbd-fab-dial\{ display:flex; \}\s*\}/.test(styles));
+  // Field-tools cluster is gated to CRM + D2D via body.show-field-tools
+  // (dashboard-ui.js sets it next to show-add-lead-fab). On every OTHER view
+  // the mic / quick-capture / inbox FABs are display:none so the fixed
+  // bottom-right stack can't float over the Photos card VIEW/ADD buttons —
+  // the overlap Jo flagged from his phone.
+  assert('field tools hidden on non-gated views (body:not(.show-field-tools))',
+    /body:not\(\.show-field-tools\) #nbd-whisper-fab,\s*body:not\(\.show-field-tools\) #nbd-qc-fab,\s*body:not\(\.show-field-tools\) #nbd-qci-fab\{\s*display:none !important;/.test(styles));
+  // CRM *and* D2D (view-map): a rep dictates the note right after a knock,
+  // so the tools must be reachable on the door-knocking view too.
+  const uiSrc = read(path.join(PRO_JS, 'dashboard-ui.js'));
+  assert('dashboard-ui gates show-field-tools to the CRM + D2D views',
+    /view-map['"]\)\?\.classList\.contains\(['"]active['"]\)/.test(uiSrc)
+    && /show-field-tools['"],\s*!!\(onCrm \|\| onMap\)/.test(uiSrc));
+  assert('Add Lead FAB stays CRM-only (not widened to D2D)',
+    /show-add-lead-fab['"],\s*!!onCrm/.test(uiSrc));
+  // A .view-scroll view with no FAB over it (Photos, …) only needs the 62px
+  // #mobile-nav clearance — not the launcher's ~126px reach.
+  assert('mobile .view-scroll clears the mobile nav (~80px, no FAB to clear)',
+    /\.view-scroll \{ min-height:auto!important; padding-bottom:calc\(80px \+ env\(safe-area-inset-bottom, 0px\)\)!important; \}/.test(styles));
+  // …but D2D DOES host the launcher, so its scroll region must reserve the
+  // launcher's full reach (≥126px) or the value/streak cards sit trapped
+  // under it again. Regression guard for the exact bug in the screenshots.
+  // The map's spyglass row goes full-width static on mobile, putting its
+  // 📍 / Go buttons in the launcher's right-hand column — tap-blocked until
+  // the row reserves that column. Horizontal (not vertical) clearance,
+  // because the row is in normal flow and scrolls.
+  assert('map spyglass row clears the launcher column when field tools are shown (≥64px)',
+    /body\.show-field-tools \.map-spyglass-panel\{\s*padding-right:calc\((6[4-9]|[7-9]\d|\d{3,})px \+ env\(safe-area-inset-right, 0px\)\)!important;/.test(styles));
+  assert('D2D scroll region clears the launcher when field tools are shown (≥126px)',
+    /body\.show-field-tools #d2dContent \{ padding-bottom:calc\((1[3-9]\d|[2-9]\d\d)px \+ env\(safe-area-inset-bottom, 0px\)\)!important; \}/.test(styles));
+
+  // ── Collision guard: REVERTED (see below) ────────────────────────
+  // fab-collision-guard.js shipped in #1061 and was reverted the same
+  // night — it measured by writing dodge:0 and re-applying, so the browser
+  // painted the intermediate state ~11x/sec (visible flicker), and its
+  // MutationObserver watched `style` on the whole body subtree while the
+  // dodge itself WRITES style on a body descendant — re-triggering itself
+  // in a rAF busy-loop that dropped taps. Both are fixable (measure
+  // arithmetically from the applied offset instead of resetting; scope the
+  // observer and ignore self-writes) but it must not ship again without a
+  // real-device soak. This guard fails the build if it comes back without
+  // that fix, so the same regression can't return by copy-paste.
+  assert('collision guard stays out until the flicker + self-trigger loop are fixed',
+    !/fab-collision-guard\.js/.test(dashHtml));
 }
 
 section('Pipeline one-row toolbar (2026-07-06) — three controls, ids intact');
@@ -3299,6 +3337,175 @@ section('Globals Tranche 2c: __NBD_CALL_REGISTRY dispatch layer');
   assert('every markup-dispatched name in dashboard.html is allowlisted or registered — '
       + (unresolved.slice(0, 5).join(', ') || 'clean'), unresolved.length === 0);
   assert('wiring audit saw the real markup surface (sanity floor)', dispatchNames.size > 150);
+}
+
+section('Mobile lead detail — Estimate opens the lead; Activity shows estimates');
+{
+  const actions = read(path.join(PRO_JS, 'dashboard-actions.js'));
+  const widgets = read(path.join(PRO_JS, 'dashboard-widgets.js'));
+  const css = read(path.join(ROOT, 'docs/pro/css/dashboard-app.css'));
+
+  // Bug B: the ESTIMATE quick-action opens THIS lead's estimate (viewEstimate)
+  // or a new one prefilled for the lead (openEstimateV2Builder{leadId}), not the
+  // generic est page via a dead _currentEstimateLeadId global.
+  const mJdAct = actions.slice(actions.indexOf('function _mJdAct('),
+                              actions.indexOf('window._mJdAct = _mJdAct'));
+  assert('_mJdAct estimate case opens the lead estimate (viewEstimate + V2 fallback)',
+    /case 'estimate'[\s\S]{0,1100}viewEstimate\(eid\)[\s\S]{0,200}openEstimateV2Builder\(\{ leadId: id \}\)/.test(mJdAct));
+  assert('_mJdAct estimate case no longer relies on the dead _currentEstimateLeadId global',
+    !/_currentEstimateLeadId/.test(mJdAct));
+
+  // A specific estimate row is tappable via a registered call target.
+  assert('_mJdOpenEstimate defined + registered (CSP-safe row open)',
+    /function _mJdOpenEstimate\(estimateId\)[\s\S]{0,1200}viewEstimate\(estimateId\)/.test(actions) &&
+    /_mJdOpenEstimate: _mJdOpenEstimate/.test(actions));
+
+  // Bug A: openMobileJobDetail now populates the Activity tab (was a static
+  // "No activity yet" stub) with the lead's estimates + stage history.
+  const openFn = widgets.slice(widgets.indexOf('function openMobileJobDetail'),
+                               widgets.indexOf('window.openMobileJobDetail'));
+  assert('openMobileJobDetail builds the Activity list from estimates + stageHistory',
+    /mJdTabActivity/.test(openFn) &&
+    /m-jd-act-list/.test(openFn) &&
+    /data-fn="_mJdOpenEstimate"/.test(openFn) &&
+    /lead\.stageHistory/.test(openFn));
+  assert('Activity list toggles the empty-state message',
+    /emptyEl\.hidden = items\.length > 0/.test(openFn));
+  // Uses in-memory data (no new Firestore reads on open).
+  assert('Activity list reads window._estimates in-memory (no extra query)',
+    /window\._estimates \|\| \[\]/.test(openFn));
+
+  assert('m-jd Activity item styling present',
+    /\.m-jd-act-item\{/.test(css) && /\.m-jd-act-list\{/.test(css));
+}
+
+section('Load-status banner yields to full-screen overlays (max-z occlusion)');
+{
+  // The banner is fixed bottom-right at z-index 2147483646 — above EVERY
+  // overlay in the app. A browser occlusion sweep (390x844) caught it
+  // sitting on the V2 builder's mobile step bar, blocking the "② Items"
+  // button and the live grand total; the same corner holds modal primary
+  // actions generally. It must suppress itself while an overlay is open.
+  const src = read(path.join(PRO_JS, 'dashboard-load-status-banner.js'));
+  assert('_overlayOpen covers the builder, preview sheet, presentation + modals',
+    /function _overlayOpen\(\)[\s\S]{0,600}#estV2Modal\.open[\s\S]{0,300}nbd-ep-overlay[\s\S]{0,300}v2Present[\s\S]{0,300}\.modal-bg\.open/.test(src));
+  assert('_render bails early (hidden) while an overlay is open',
+    /if \(_overlayOpen\(\)\) \{\s*if \(banner\) banner\.style\.display = 'none';/.test(src));
+  // Hiding must not burn the 30s auto-dismiss clock — otherwise the banner
+  // silently expires behind a modal and the rep never sees the retry.
+  assert('auto-dismiss clock holds while suppressed',
+    /if \(_overlayOpen\(\)\)[\s\S]{0,200}if \(_shownAt\) _shownAt = Date\.now\(\);/.test(src));
+  // Suppression only — never a permanent dismiss, so it returns on close.
+  assert('suppression does not set the user-dismissed flag',
+    !/if \(_overlayOpen\(\)\)[\s\S]{0,200}_dismissedByUser = true/.test(src));
+}
+
+section('Storm Proof button: works before the lazy storm bundle loads');
+{
+  // The card-detail 🛡️ Storm Proof button dispatches data-action="call"
+  // data-fn="verifyStormProofForLead", but the real function rides the lazy
+  // 'storm' bundle — reachable-from-CRM taps hit an unresolved registry key
+  // and the delegate no-ops silently (the reported dead button). The eager
+  // stub in dashboard-actions.js must load the bundle on first tap.
+  const actions = read(path.join(PRO_JS, 'dashboard-actions.js'));
+  assert('eager stub loads the storm bundle then delegates to StormIntegration',
+    /async function verifyStormProofForLeadLazy\(\)[\s\S]{0,900}ScriptLoader\.loadBundle\('storm'\)[\s\S]{0,600}StormIntegration\.verifyStormProofForLead\(\)/.test(actions));
+  assert('stub registered under the button\'s data-fn name',
+    /verifyStormProofForLead: verifyStormProofForLeadLazy,/.test(actions));
+  const storm = read(path.join(PRO_JS, 'storm-integration.js'));
+  assert('storm-integration replaces the stub with the real registration on load',
+    /Object\.assign\(window\.__NBD_CALL_REGISTRY, \{\s*verifyStormProofForLead: verifyStormProofForLead\s*\}\)/.test(storm));
+  const dashHtml = read(path.join(ROOT, 'docs/pro/dashboard.html'));
+  assert('card-detail button dispatches via data-action=call (CSP-safe)',
+    /data-action="call" data-fn="verifyStormProofForLead"/.test(dashHtml));
+}
+
+section('Metrics audit F1-F9: one honest definition per number');
+{
+  const widgets = read(path.join(PRO_JS, 'dashboard-widgets.js'));
+  const api = read(path.join(PRO_JS, 'dashboard-api.js'));
+  const crm = readCrm();
+  const kpi = read(path.join(PRO_JS, 'analytics-kpi.js'));
+  const ea = read(path.join(PRO_JS, 'estimate-analytics.js'));
+  const rep = read(path.join(PRO_JS, 'rep-report-generator.js'));
+  const d2d = read(path.join(PRO_JS, 'd2d-tracker-core-2026b.js'));
+
+  // F1 — the "Pipeline Value" tile belongs to renderLeads alone. The old
+  // estimate-sum write in renderEstimatesList was masked by boot ordering
+  // and resurfaced on every live estimates-snapshot repaint.
+  const rel = widgets.slice(widgets.indexOf('function renderEstimatesList'),
+                            widgets.indexOf('function renderEstimatesList') + 2200);
+  assert('F1: renderEstimatesList never writes #statVal',
+    !/getElementById\('statVal'\)/.test(rel));
+
+  // F2 — CRM pipeline value counts deals still in play only; a dollar lives
+  // in exactly one bucket (pipeline until closed, closedRev after).
+  assert('F2: pipeVal excludes closed/won money (active only)',
+    /if\(!isLost && !isClosed\) pipeVal\+=v;/.test(crm));
+
+  // F3 — close-date attribution uses stageStartedAt, not the updatedAt
+  // proxy that re-attributed old closes to whatever month you last touched
+  // the record.
+  assert('F3: analytics-kpi attributes monthly revenue by stageStartedAt',
+    /toJSDate\(l\.stageStartedAt \|\| l\.updatedAt\)/.test(kpi));
+  assert('F3: rep report has a stageStartedAt-first stageDate helper',
+    /const stageDate = \(lead\) => toDate\(lead\.stageStartedAt \|\| lead\.updatedAt \|\| lead\.createdAt\)/.test(rep));
+  assert('F3: rep report core KPIs decide won/lost by stageDate',
+    /const decidedInRange = leads\.filter\(l =>\s*inRange\(stageDate\(l\)/.test(rep));
+
+  // F4 — leaderboard attributes by the lead's OWNER, and the viewer's knock
+  // count lands on the viewer's own row (not "first rep in object order").
+  const lb = api.slice(api.indexOf('async function renderLeaderboard'),
+                       api.indexOf('async function renderLeaderboard') + 4200);
+  assert('F4: leaderboard groups by lead.userId (owner), not display name',
+    /const owner = l\.userId \|\| '\(unknown\)'/.test(lb)
+    && !/const n = l\.repName \|\| window\._user/.test(lb));
+  assert('F4: viewer\'s knocks land on the viewer\'s own row',
+    /reps\[uid\]\.knocks = knockCount/.test(lb));
+
+  // F5 — viewed counts every opened estimate; View→Sign numerator is a
+  // strict subset of its denominator (can't exceed 100%).
+  assert('F5: viewed counted across all buckets + signedViewed numerator',
+    /if \(viewedMs\) out\.viewed\+\+;/.test(ea)
+    && /if \(viewedMs\) out\.signedViewed\+\+;/.test(ea)
+    && /out\.signedViewed \/ out\.viewed/.test(ea)
+    && /_pct\(s\.signedViewed, s\.viewed\)/.test(ea));
+
+  // F6 — lost estimates stay in the close-rate denominator (no survivor bias).
+  assert('F6: estimate close rate includes lost in the denominator',
+    /out\.signed \/ \(out\.sent \+ out\.signed \+ out\.lost\)/.test(ea)
+    && /_pct\(s\.signed, s\.sent \+ s\.signed \+ s\.lost\)/.test(ea));
+
+  // F7 — the mobile KPI row's overdue count skips in-production leads, same
+  // as the CRM's #12 definition.
+  assert('F7: overdueFollowUps skips job-role leads',
+    /if \(_isDecided\(l\) \|\| _isJob\(l\) \|\| !l\.followUp\) return false;/.test(kpi));
+
+  // F8 — in-production (job role) money is closed-won everywhere, never
+  // "active pipeline".
+  assert('F8: analytics-kpi active pipeline excludes job-role leads',
+    /return !_isDecided\(l\) && !_isJob\(l\) && !l\.deleted;/.test(kpi));
+  assert('F8: analytics-kpi counts won OR job as closed-won',
+    /function _isClosedWon\(l\) \{ return _isWon\(l\) \|\| _isJob\(l\); \}/.test(kpi));
+  assert('F8: rep report isWon is role-aware (won or job)',
+    /return r === 'won' \|\| r === 'job';/.test(rep));
+
+  // F9 — expected-value calibration: dispo weights blend the static priors
+  // with this tenant's own observed outcomes (Beta shrinkage), and the deal
+  // size falls back D2D closes → CRM won average → industry default.
+  assert('F9: calibratedDispoWeights blends observed outcomes with priors',
+    /function calibratedDispoWeights\(\)/.test(d2d)
+    && /CALIBRATION_PRIOR_STRENGTH = 12/.test(d2d)
+    && /\(s\.won \+ out\[k\] \* CALIBRATION_PRIOR_STRENGTH\)\s*\/ \(s\.decided \+ CALIBRATION_PRIOR_STRENGTH\)/.test(d2d));
+  assert('F9: pipeline valuation uses the calibrated weights',
+    /const calibrated = calibratedDispoWeights\(\);/.test(d2d)
+    && /pipelineValue \+= \(dispoWeights\[k\.disposition\] \|\| 0\) \* dealValue/.test(d2d));
+  assert('F9: deal size averages ALL closes with CRM-won fallback',
+    /const allClosedKnocks = state\.knocks\.filter\(k => k\.closedDealValue > 0\)/.test(d2d)
+    && /const dealValue = avgDealSize \|\| crmAvgDeal \|\| DEFAULT_JOB_VALUE;/.test(d2d));
+  assert('F9: revenue metrics expose calibration provenance',
+    /dealValueSource: avgDealSize \? 'd2d-closes' : \(crmAvgDeal \? 'crm-won-avg' : 'default'\)/.test(d2d)
+    && /calibratedDispos: calibrated\.calibratedCount/.test(d2d));
 }
 
 };

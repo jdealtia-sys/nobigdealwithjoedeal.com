@@ -48,6 +48,259 @@ section('Wave B2: V2 prefill from lead');
     /prefillFromLead\(state\.customer\.leadId\)/.test(src));
 }
 
+section('Job Templates: "Add to Existing Customer" survives a repaint (attach fix)');
+{
+  const src = read(path.join(PRO_JS, 'job-templates-ui.js'));
+  // The lead picker must mirror the pick into state.leadId (the source of
+  // truth), or a reRender() rebuilds the create step from an empty state.leadId
+  // and the estimate saves with leadId:null — "created but not attached".
+  assert('_jtWireLeadPicker syncs the pick into state.leadId via onSelect',
+    /function _jtWireLeadPicker[\s\S]{0,1600}onSelect:\s*function\s*\(lead\)\s*\{[\s\S]{0,160}state\.leadId\s*=/.test(src));
+  // The create step's hidden #jtLeadSel must derive its value from state.leadId
+  // so a repaint re-hydrates the selection instead of clearing it.
+  assert('create step hydrates #jtLeadSel from state.leadId',
+    /id="jtLeadSel"[\s\S]{0,80}state\.leadId\s*\?/.test(src));
+  // doCreateEstimate still reads that input to attribute the estimate.
+  assert('doCreateEstimate reads #jtLeadSel for attribution',
+    /doCreateEstimate[\s\S]{0,260}getElementById\('jtLeadSel'\)/.test(src));
+}
+
+section('V2 builder: new estimate keeps its customer link (leadId not orphaned)');
+{
+  const src = read(path.join(PRO_JS, 'estimate-v2-ui.js'));
+  // state.leadId is set only on reopen; a fresh estimate links via
+  // state.customer.leadId (prefillFromLead). _buildSavePayload must fall back to
+  // it, or new estimates save leadId:null — orphaned off the customer + no lead
+  // jobValue/primaryEstimate stamp-back.
+  assert('_buildSavePayload falls back to state.customer.leadId',
+    /function _buildSavePayload[\s\S]{0,1600}leadId:\s*state\.leadId\s*\|\|\s*\(state\.customer && state\.customer\.leadId\)\s*\|\|\s*null/.test(src));
+  assert('prefillFromLead is the fresh-open customer link',
+    /function prefillFromLead\(leadId\)[\s\S]{0,800}state\.customer\.leadId = leadId/.test(src));
+}
+
+section('Linkage invariant: unattached saves are warned; Assign stamps the pipeline');
+{
+  const src = read(path.join(PRO_JS, 'estimate-v2-ui.js'));
+  // Save-time guard: an unattached estimate is invisible on every customer
+  // page/Activity tab and never reaches the pipeline. save() must confirm
+  // before orphaning — and the cancel path must re-enable the Save button
+  // (no dead-button state).
+  assert('V2 save() confirms before saving with no leadId',
+    /if \(!payload\.leadId\) \{[\s\S]{0,900}nbdConfirm[\s\S]{0,900}Save cancelled — attach a customer first/.test(src));
+  assert('V2 save() cancel path re-enables the save button',
+    /Save cancelled — attach a customer first[\s\S]{0,300}btn\.disabled = false[\s\S]{0,160}return;/.test(src));
+
+  // _assignEstimateToLead must leave the same state a correctly-linked save
+  // would — it's the manual remediation path for migration 005's skips.
+  const dash = readDashboard();
+  const at = dash.indexOf('window._assignEstimateToLead');
+  const fn = dash.slice(at, at + 6000);
+  assert('assign stamps primaryEstimateId + lastEstimateAt on a first-estimate lead',
+    /primaryEstimateId: id,\s*lastEstimateAt: serverTimestamp\(\)/.test(fn));
+  assert('assign stamps jobValue only when grandTotal is positive (never zeroes a KPI)',
+    /if \(newVal > 0\) stampUpdate\.jobValue = newVal/.test(fn));
+  assert('assign confirms before clobbering an existing rep-confirmed primary',
+    /lead\.primaryEstimateId !== id[\s\S]{0,700}nbdConfirm/.test(fn));
+  assert('assign bumps a stone-cold NEW lead to Contacted (parity with _saveEstimate)',
+    /normalizeStage\(lead\.stage\) === S\.NEW[\s\S]{0,200}S\.CONTACTED/.test(fn));
+  assert('re-assign un-dangles the previous lead\'s primaryEstimateId pointer',
+    /if \(prevLeadId && prevLeadId !== \(leadId \|\| null\)\)[\s\S]{0,400}\{ primaryEstimateId: null \}/.test(fn));
+  assert('assign stamp-back is best-effort (never fails the assign itself)',
+    /catch \(stampErr\)[\s\S]{0,200}_assignEstimateToLead\] lead stamp-back failed/.test(fn));
+}
+
+section('Phase 1a: shared estimate preview sheet (mobile-first, both doc shapes)');
+{
+  const fs = require('fs');
+  const p = path.join(PRO_JS, 'estimate-preview.js');
+  assert('estimate-preview.js exists', fs.existsSync(p));
+  const src = read(p);
+  assert('exposes EstimatePreview.open with sentinel',
+    /window\.EstimatePreview = \{ __sentinel: 'nbd-est-preview-v1', open: open, close: close \}/.test(src));
+  // The whole point: ONE normalizer for both estimate shapes. The customer
+  // page's legacy modal read classic fields only, so V2 docs previewed as
+  // "Untitled, $0, no lines".
+  assert('normalizer reads V2 rows AND classic lineItems',
+    /Array\.isArray\(est\.rows\)/.test(src) && /Array\.isArray\(est\.lineItems\)/.test(src));
+  assert('total falls back grandTotal → total → amount',
+    /est\.grandTotal != null \? est\.grandTotal[\s\S]{0,80}est\.total != null \? est\.total[\s\S]{0,80}est\.amount/.test(src));
+  assert('unattached estimates get the NOT ATTACHED chip',
+    /NOT ATTACHED/.test(src));
+  // CSP: one delegated listener on data-ep-action, zero inline handlers.
+  assert('single delegated click listener keyed on data-ep-action',
+    /ov\.addEventListener\('click'/.test(src) && /closest\('\[data-ep-action\]'\)/.test(src));
+  const INLINE = /\son(?:click|change|input|submit|load|error|keydown|keyup|touchstart|touchend)\s*=\s*["'`]/gi;
+  assert('estimate-preview.js has zero inline on*= handlers', (src.match(INLINE) || []).length === 0);
+  // Action buttons render only for provided callbacks — each page offers
+  // exactly what it supports.
+  assert('actions are callback-gated (onEdit/onAssign/onDuplicate/onArchive)',
+    /typeof opts\.onEdit === 'function'/.test(src) && /typeof opts\.onArchive === 'function'/.test(src));
+
+  // Wire-in 1: dashboard list — card body previews, ✎ Edit stays direct.
+  const widgets = read(path.join(PRO_JS, 'dashboard-widgets.js'));
+  assert('dashboard est-card body dispatches preview (Edit button keeps open)',
+    /est-card-main" data-act="preview"/.test(widgets)
+    && /data-act="open" title="Open & edit"/.test(widgets));
+  assert('preview case falls back to viewEstimate when module absent',
+    /case 'preview':[\s\S]{0,700}EstimatePreview\.open\(est/.test(widgets)
+    && /case 'preview':[\s\S]{0,900}else if \(typeof viewEstimate === 'function'\) viewEstimate\(id\);/.test(widgets));
+
+  // Wire-in 2: mobile job-detail Activity rows preview in place.
+  const actions = read(path.join(PRO_JS, 'dashboard-actions.js'));
+  assert('_mJdOpenEstimate previews over the job detail (edit = old path)',
+    /function _mJdOpenEstimate\(estimateId\)[\s\S]{0,900}EstimatePreview\.open\(est/.test(actions));
+
+  // Wire-in 3: customer page viewer prefers the shared sheet (fixes the
+  // V2-shape mismatch) and keeps the legacy modal as fallback.
+  const cust = read(path.join(PRO_JS, 'customer-bootstrap.module.js'));
+  assert('customer viewEstimate prefers EstimatePreview with archive support',
+    /window\.viewEstimate = function\(estimateId\)[\s\S]{0,1200}EstimatePreview\.open\(estimate[\s\S]{0,600}onArchive/.test(cust));
+  assert('customer archive path stays a SOFT delete',
+    /EstimatePreview\.open\(estimate[\s\S]{0,1400}deleted: true/.test(cust));
+
+  // Both pages actually load the module.
+  const dashHtml = read(path.join(ROOT, 'docs/pro/dashboard.html'));
+  const custHtml = read(path.join(ROOT, 'docs/pro/customer.html'));
+  assert('dashboard.html loads estimate-preview.js before dashboard-widgets',
+    /estimate-preview\.js\?v=1"><\/script>\s*<script defer src="js\/dashboard-widgets\.js/.test(dashHtml));
+  assert('customer.html loads estimate-preview.js', /estimate-preview\.js\?v=1/.test(custHtml));
+}
+
+section('Phase 1b: V2 builder mobile step navigation + always-visible total');
+{
+  const src = read(path.join(PRO_JS, 'estimate-v2-ui.js'));
+  // The three panes become steps on mobile: Setup → Items → Review.
+  assert('panes carry step classes',
+    /class="v2-pane pane-setup"/.test(src)
+    && /class="v2-pane pane-items"/.test(src)
+    && /class="v2-pane right pane-review"/.test(src));
+  assert('mobile step bar with mstep actions + live total button',
+    /class="v2-mstep-bar" id="v2mStepBar"/.test(src)
+    && /data-action="mstep" data-arg="1"/.test(src)
+    && /data-action="mstep" data-arg="3"/.test(src)
+    && /id="v2mTotal" data-action="mstep" data-arg="3"/.test(src));
+  // Desktop untouched: the bar's base rule is display:none, and the
+  // step-visibility rules live only inside the ≤1000px media query.
+  assert('step bar hidden by default (desktop unaffected)',
+    /\.v2-mstep-bar \{ display:none; \}/.test(src));
+  assert('data-mstep visibility rules hide the other panes per step',
+    /#estV2Modal\[data-mstep="1"\] \.pane-items/.test(src)
+    && /#estV2Modal\[data-mstep="2"\] \.pane-review/.test(src)
+    && /#estV2Modal\[data-mstep="3"\] \.pane-setup/.test(src));
+  assert('dispatcher routes mstep to setMobileStep',
+    /case 'mstep':[\s\S]{0,160}setMobileStep\(arg\)/.test(src)
+    && /function setMobileStep\(n\)/.test(src));
+  // The bar's total mirrors the grand total in BOTH renderScope branches
+  // (empty state + priced), so it never shows a stale number.
+  assert('live total mirrored into the step bar (both branches)',
+    /mT0\.textContent = '\$0'/.test(src)
+    && /mT\.textContent = '\$' \+ Math\.round\(estimate\.total\)\.toLocaleString\(\)/.test(src));
+  // Reopen lands on Review (look-at-it step); fresh estimates on Setup.
+  assert('open() starts at Review for reopen, Setup for fresh',
+    /setMobileStep\(opts\.estimateId \? 3 : 1\)/.test(src));
+}
+
+section('Phase 2: template-first New Estimate front door');
+{
+  const est = read(path.join(PRO_JS, 'estimates.js'));
+  // startNewEstimate leads with the chooser; everything stays V2-only
+  // (Classic remains deprecated for new estimates).
+  assert('startNewEstimate opens the template-or-blank chooser',
+    /function startNewEstimate\(\)[\s\S]{0,700}showNewEstimateChooser\(\);/.test(est));
+  assert('chooser leads with From Template (recommended) + Start Blank V2',
+    /From Template — Fastest/.test(est)
+    && /Start Blank/.test(est)
+    && /openEstimateV2Builder === 'function'\) window\.openEstimateV2Builder\(\);/.test(est));
+  assert('template option load-then-runs the estimates bundle (race-safe)',
+    /JobTemplatesUI\.openPicker === 'function'/.test(est)
+    && /loadBundle\('estimates'\)\.then\(openJT\)/.test(est));
+  assert('template option honors lead context (_cardDetailLeadId)',
+    /openPicker\(window\._cardDetailLeadId \? \{ leadId: window\._cardDetailLeadId \} : \{\}\)/.test(est));
+  const dashHtml = read(path.join(ROOT, 'docs/pro/dashboard.html'));
+  assert('estimates-view header button routes through startNewEstimate',
+    /data-fn="startNewEstimate" title="New estimate — start from a job template/.test(dashHtml)
+    && !/data-fn="openEstimateV2Builder" title="Build a new estimate with the V2 builder/.test(dashHtml));
+}
+
+section('Phase 3: homeowner presentation mode (Good/Better/Best)');
+{
+  const src = read(path.join(PRO_JS, 'estimate-v2-ui.js'));
+  assert('Present button in the Review pane dispatches present',
+    /data-action="present"[\s\S]{0,220}Present to Homeowner/.test(src));
+  assert('presentation overlay lives INSIDE the modal (delegate coverage)',
+    /pres\.className = 'v2-present';\s*modal\.appendChild\(pres\)/.test(src));
+  // Tier cards drive the REAL tier path — same function as the Setup tabs.
+  assert('set-tier and pres-tier share setTierChoice',
+    /case 'set-tier':[\s\S]{0,500}setTierChoice\(arg\)/.test(src)
+    && /case 'pres-tier':[\s\S]{0,120}setTierChoice\(arg\); openPresentation\(\)/.test(src));
+  // Tri-tier pricing: per-SQ uses estimate.prices; line-item swaps
+  // state.tier through getCurrentEstimate as a pure compute and always
+  // restores; the current tier keeps the replay-aware truthful total.
+  assert('triTierTotals prefers per-SQ prices and restores tier after swap',
+    /function triTierTotals\(current\)[\s\S]{0,200}current\.prices[\s\S]{0,900}state\.tier = orig;/.test(src));
+  assert('current tier shows the truthful effectiveEstimate total',
+    /if \(t === orig\) \{ out\[t\] = current\.total; return; \}/.test(src));
+  // Fewer than 2 priced tiers → single clean card, never a fake compare.
+  assert('single-card fallback when tiers cannot be priced',
+    /cardOrder\.length >= 2/.test(src) && /Full scope as reviewed with your estimator\./.test(src));
+  // Homeowner-clean + handoff: Sign Now → existing BoldSign flow; close()
+  // never leaves the overlay armed.
+  assert('Sign Now hands off to sendForSignature',
+    /case 'pres-sign':[\s\S]{0,120}sendForSignature\(\)/.test(src));
+  assert('builder close() also closes the presentation',
+    /m\.classList\.remove\('open'\);\s*closePresentation\(\)/.test(src));
+}
+
+section('Photo embeds: selected photos ride the estimate everywhere');
+{
+  const src = read(path.join(PRO_JS, 'estimate-v2-ui.js'));
+  // Selection state + Review-pane picker grid.
+  assert('state seeds photos[] + _leadPhotos cache',
+    /photos: \[\],\s*\n\s*_leadPhotos: null,/.test(src));
+  assert('Review pane has the photo picker grid + hint',
+    /<div class="v2-section">Photos<\/div>/.test(src)
+    && /id="v2photosGrid"/.test(src) && /id="v2photosHint"/.test(src));
+  assert('loadLeadPhotos queries the lead\'s photo docs (guarded, capped)',
+    /function loadLeadPhotos\(force\)[\s\S]{0,900}where\('leadId', '==', leadId\)/.test(src)
+    && /\.slice\(0, 60\)/.test(src));
+  assert('toggle-photo dispatches togglePhoto and marks the estimate dirty',
+    /case 'toggle-photo':[\s\S]{0,120}togglePhoto\(arg\)/.test(src)
+    && /function togglePhoto\(photoId\)[\s\S]{0,700}saveDraftDebounced\(\);/.test(src));
+  // Persistence: saved doc, reopen, drafts.
+  assert('_buildSavePayload persists the selection ({id,url} only)',
+    /photos:\s*\(state\.photos \|\| \[\]\)\.map\(p => \(\{ id: p\.id \|\| null, url: p\.url \}\)\)/.test(src));
+  assert('rehydrateFromSaved restores photos + refreshes the pick grid',
+    /state\.photos = Array\.isArray\(doc\.photos\)[\s\S]{0,160}loadLeadPhotos\(true\);/.test(src));
+  assert('drafts carry photos', /photos: state\.photos,/.test(src));
+  // Ride-alongs: presentation strip + doc formats.
+  assert('presentation mode renders the photo strip',
+    /const photoStrip = \(state\.photos && state\.photos\.length\)/.test(src)
+    && /photoStrip \+\s*'<div class="vp-cards">/.test(src));
+  assert('finalize passes meta.photos to the formatters',
+    /photos: \(state\.photos \|\| \[\]\)\.slice\(\),/.test(src));
+
+  const fin = read(path.join(PRO_JS, 'estimate-finalization.js'));
+  assert('photoBlock is print-safe and empty-selection-silent',
+    /function photoBlock\(photos, accent\)[\s\S]{0,200}return '';/.test(fin)
+    && /print-color-adjust:exact/.test(fin) && /page-break-inside:avoid/.test(fin));
+  assert('retail + insurance formats embed the photo block (single-quote inherits retail)',
+    /\$\{scopeBlock\}\s*\n\$\{photoBlock\(meta\.photos, _acc\)\}/.test(fin)
+    && /\$\{photoSummary\}\s*\n\$\{photoBlock\(meta\.photos, _acc\)\}/.test(fin));
+
+  const prev = read(path.join(PRO_JS, 'estimate-preview.js'));
+  assert('preview sheet shows the photo thumbnail row',
+    /Array\.isArray\(est\.photos\) && est\.photos\.length/.test(prev));
+
+  // Homeowner share view: server whitelist passes URL-only entries; the
+  // client renders them above the total.
+  const portal = read(path.join(FUNCTIONS, 'portal.js'));
+  assert('getEstimateForView whitelist passes photos URL-only',
+    /photos:\s*Array\.isArray\(est\.photos\)[\s\S]{0,200}\.map\(p => \(\{ url: p\.url \}\)\)/.test(portal));
+  const view = read(path.join(PRO_JS, 'estimate-view.js'));
+  assert('shared view renders the Your Property photo grid',
+    /Your Property/.test(view) && /est\.photos\.forEach/.test(view));
+}
+
 section('Wave B3: live estimates snapshot');
 {
   // CSP hotfix: subscribe wiring is in dashboard-bootstrap.module.js.
@@ -56,6 +309,35 @@ section('Wave B3: live estimates snapshot');
   assert('_subscribeEstimates wired', /window\._subscribeEstimates/.test(dash));
   assert('subscribe called on auth ready',
     /window\._subscribeEstimates\(\)/.test(dash));
+}
+
+section('Team visibility: estimates readable by company_admin/manager (rules + client)');
+{
+  const rules = read(path.join(ROOT, 'firestore.rules'));
+  const estBlock = rules.slice(rules.indexOf('match /estimates/'),
+                              rules.indexOf('match /estimates/') + 2400);
+  // Rule: every company reader (admin/manager/viewer) reads the tenant's estimates.
+  assert('estimates rule grants isCompanyReader a company-scoped read',
+    /allow read:[\s\S]{0,240}isCompanyReader\(\)[\s\S]{0,160}resource\.data\.companyId == myCompanyId\(\)/.test(estBlock));
+  // Delete stays owner-only (not widened with read).
+  assert('estimates delete stays owner-only',
+    /allow delete:\s*if isOwner\(resource\.data\.userId\) \|\| isAdmin\(\);/.test(estBlock));
+  // Create pins companyId to the caller's tenant (no cross-tenant injection).
+  assert('estimates create pins companyId to the caller tenant',
+    /allow create:[\s\S]{0,240}request\.resource\.data\.companyId == request\.auth\.token\.get\(\s*['"]companyId['"]/.test(estBlock));
+  // Edit freezes companyId so an estimate can't be re-tenanted.
+  assert('estimates update freezes companyId',
+    /allow update:[\s\S]{0,120}didNotChange\(\[[^\]]*['"]companyId['"]/.test(estBlock));
+
+  const dash = readDashboard();
+  // Client stamps companyId on create so the company read has something to match.
+  assert('_saveEstimate stamps companyId on create',
+    /addDoc\(collection\(db,'estimates'\)[\s\S]{0,200}companyId:\s*\(window\._userClaims/.test(dash));
+  // loadEstimates + subscription add the companyId scope for every company reader.
+  assert('loadEstimates adds a companyId scope for company readers',
+    /async function loadEstimates[\s\S]{0,900}\['company_admin','manager','viewer'\]\.includes\(claims\.role[\s\S]{0,160}where\('companyId','==',claims\.companyId\)/.test(dash));
+  assert('_subscribeEstimates adds a team (companyId) listener, merged by id',
+    /_subscribeEstimates[\s\S]{0,900}teamRead[\s\S]{0,1800}where\('companyId', '==', claims\.companyId\)/.test(dash));
 }
 
 section('F7: V2 Builder autosave');

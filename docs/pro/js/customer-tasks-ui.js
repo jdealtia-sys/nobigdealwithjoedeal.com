@@ -140,6 +140,19 @@ window.toggleTask = async function(taskId, newDoneState) {
     
   } catch (error) {
     console.error('Error toggling task:', error);
+    // The checkbox already flipped optimistically (native click). The write
+    // failed, so tell the rep AND revert the UI to the real state by reloading
+    // the timeline from Firestore — otherwise the box shows a "done" tick the
+    // database never saved.
+    if (typeof showToast === 'function') {
+      showToast('Could not update task — check your connection and try again', 'error');
+    }
+    try {
+      if (window._customerId) {
+        const leadSnap = await window.getDoc(window.doc(window.db, 'leads', window._customerId));
+        if (leadSnap.exists()) await loadTimeline(window._customerId, leadSnap.data());
+      }
+    } catch (_) { /* best-effort revert */ }
   }
 };
 
@@ -286,11 +299,35 @@ window.loadProjectTimeline = async function(leadId) {
 // ── Invoices & Payments ─────────────────────────
 window.loadInvoices = async function(leadId) {
   try {
+    const uid = window.auth?.currentUser?.uid || window._user?.uid;
+    if (!uid || !window.db) {
+      document.getElementById('invoiceList').innerHTML = '<div class="empty"><div class="empty-icon">💰</div>No invoices yet</div>';
+      return;
+    }
+    // Team visibility (mirrors loadCommunicationLog + the /invoices rule):
+    // company_admin/manager/viewer with a companyId read the whole tenant's
+    // invoices for this lead; everyone else reads their own. Invoice docs are
+    // stamped `createdAt` (never `date`) + `companyId` by invoice-pipeline, so
+    // the old orderBy('date') silently dropped EVERY invoice (Firestore skips
+    // docs missing the sort field) — sort createdAt client-side instead. Both
+    // branches are two equality filters (no composite index; single-field
+    // merge-join), so no index deploy is required.
+    const claims = window._userClaims || {};
+    const role = claims.role || '';
+    const companyId = claims.companyId || null;
+    const teamScope = !!(companyId && (role === 'company_admin' || role === 'manager' || role === 'viewer' || claims.owner === true));
     const invoicesRef = window.collection(window.db, 'invoices');
-    const q = window.query(invoicesRef, window.where('leadId', '==', leadId), window.where('createdBy', '==', window.auth?.currentUser?.uid), window.orderBy('date', 'desc'));
+    const q = teamScope
+      ? window.query(invoicesRef, window.where('leadId', '==', leadId), window.where('companyId', '==', companyId))
+      : window.query(invoicesRef, window.where('leadId', '==', leadId), window.where('createdBy', '==', uid));
     const snap = await window.getDocs(q);
 
-    if (snap.empty) {
+    const tsMs = (v) => (v && v.toDate ? v.toDate().getTime() : (v ? new Date(v).getTime() : 0)) || 0;
+    const invoices = snap.docs
+      .map(d => ({ id: d.id, ...d.data() }))
+      .sort((a, b) => tsMs(b.createdAt) - tsMs(a.createdAt));
+
+    if (!invoices.length) {
       document.getElementById('invoiceList').innerHTML = '<div class="empty"><div class="empty-icon">💰</div>No invoices yet</div>';
       return;
     }
@@ -301,8 +338,7 @@ window.loadInvoices = async function(leadId) {
     let totalPaid = 0;
     let html = '';
 
-    snap.forEach(doc => {
-      const inv = doc.data();
+    invoices.forEach(inv => {
       // invoice-pipeline writes `total` (never `amount` — that legacy key
       // rendered every pipeline invoice as $0.00 here). Paid cash = the
       // invoice's own collected math (total − balanceDue), NOT a
@@ -318,11 +354,16 @@ window.loadInvoices = async function(leadId) {
 
       const safeStatus = ALLOWED_STATUSES.has(inv.status) ? inv.status : 'draft';
       const safePayUrl = /^https?:/i.test(String(inv.paymentUrl || '')) ? inv.paymentUrl : null;
-      const date = inv.date?.toDate ? inv.date.toDate() : new Date(inv.date);
+      // Invoices are stamped `createdAt`; fall back to a legacy `date` if any
+      // old doc carried one. Guard against an unparseable value so a single bad
+      // row can't render "Invalid Date".
+      const rawDate = inv.createdAt || inv.date;
+      const d = rawDate && rawDate.toDate ? rawDate.toDate() : (rawDate ? new Date(rawDate) : null);
+      const dateStr = (d && !isNaN(d.getTime())) ? d.toLocaleDateString() : '';
       html += `
         <div class="invoice-item">
           <div class="invoice-left">
-            <div class="invoice-date">${esc(date.toLocaleDateString())}</div>
+            <div class="invoice-date">${esc(dateStr)}</div>
             <div class="invoice-desc">${esc(inv.description || 'Invoice')}</div>
           </div>
           <div class="invoice-right">
@@ -419,9 +460,9 @@ function buildPhotoBadges(photo, esc) {
   //   - unshared: ghost pill with "Share" (subtle, doesn't compete
   //               with damage/severity tags)
   if (photo.sharedWithHomeowner) {
-    badges += '<button type="button" class="nbd-photo-badge nbd-share-toggle" data-action="toggle-share" data-photo-id="' + esc(photo.id) + '" style="font-size:9px;padding:1px 5px;border-radius:4px;background:rgba(34,197,94,.85);color:#fff;border:0;cursor:pointer;font-weight:600;">✓ Shared</button>';
+    badges += '<button type="button" class="nbd-photo-badge nbd-share-toggle" data-action="toggleHomeownerShare" data-arg="' + esc(photo.id) + '" style="font-size:9px;padding:1px 5px;border-radius:4px;background:rgba(34,197,94,.85);color:#fff;border:0;cursor:pointer;font-weight:600;">✓ Shared</button>';
   } else {
-    badges += '<button type="button" class="nbd-photo-badge nbd-share-toggle" data-action="toggle-share" data-photo-id="' + esc(photo.id) + '" style="font-size:9px;padding:1px 5px;border-radius:4px;background:rgba(255,255,255,.15);color:#fff;border:1px solid rgba(255,255,255,.3);cursor:pointer;">Share</button>';
+    badges += '<button type="button" class="nbd-photo-badge nbd-share-toggle" data-action="toggleHomeownerShare" data-arg="' + esc(photo.id) + '" style="font-size:9px;padding:1px 5px;border-radius:4px;background:rgba(255,255,255,.15);color:#fff;border:1px solid rgba(255,255,255,.3);cursor:pointer;">Share</button>';
   }
   return badges;
 }
@@ -720,11 +761,17 @@ function ensurePhotoGridDelegate() {
     // Share-with-homeowner toggle — bubbles up from the badge
     // button. Must run BEFORE the lightbox/select branches so a
     // tap on the Share pill doesn't open the editor.
-    var shareBtn = ev.target.closest('[data-action="toggle-share"]');
-    if (shareBtn && shareBtn.dataset.photoId) {
+    // Match by class (not the action name) so this keeps intercepting the badge
+    // BEFORE the lightbox even though the badge's data-action is now the real
+    // global (toggleHomeownerShare) + data-arg — which also lets the generic
+    // customer.html delegate handle the SAME badge when it's rendered outside
+    // this #photosByPhase grid (previously dead: hyphenated 'toggle-share' had
+    // no window handler).
+    var shareBtn = ev.target.closest('.nbd-share-toggle');
+    if (shareBtn && shareBtn.dataset.arg) {
       ev.preventDefault();
       ev.stopPropagation();
-      window.toggleHomeownerShare(shareBtn.dataset.photoId);
+      window.toggleHomeownerShare(shareBtn.dataset.arg);
       return;
     }
     // Show-all toggle inside a phase header.

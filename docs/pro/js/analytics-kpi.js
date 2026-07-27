@@ -38,6 +38,17 @@
   function _isWon(l)     { return l && l._stageRole ? l._stageRole === 'won'  : WON_STAGES.includes((l && (l._stageKey || l.stage)) || ''); }
   function _isLost(l)    { return l && l._stageRole ? l._stageRole === 'lost' : LOST_STAGES.includes((l && (l._stageKey || l.stage)) || ''); }
   function _isDecided(l) { return _isWon(l) || _isLost(l); }
+  // Metrics audit F8: 'job' role = in production — the deal is won and the
+  // crew is working. That money belongs with closed revenue (crm-pipeline
+  // already counts it there), NOT in "Active Pipeline". Same role resolution
+  // as crm-pipeline's overdue-followup fix (#12).
+  function _isJob(l) {
+    var r = l && (l._stageRole
+      || (typeof window.stageRole === 'function' ? window.stageRole(l._stageKey || l.stage) : ''));
+    return r === 'job';
+  }
+  // Metrics audit F8: closed-won money = role won OR job (in production).
+  function _isClosedWon(l) { return _isWon(l) || _isJob(l); }
 
   // ── Date helpers ──
   function toJSDate(v) {
@@ -149,16 +160,21 @@
     var thisYear = now.getFullYear();
     var today = new Date(); today.setHours(0, 0, 0, 0);
 
+    // F8: active = still in play — not won, not lost, not in production.
     var activeLeads = leads.filter(function (l) {
-      return !_isDecided(l) && !l.deleted;
+      return !_isDecided(l) && !_isJob(l) && !l.deleted;
     });
     var pipelineValue = activeLeads.reduce(function (sum, l) {
       return sum + (parseFloat(l.jobValue) || 0);
     }, 0);
 
     var closedThisMonth = leads.filter(function (l) {
-      if (!_isWon(l)) return false;
-      var d = toJSDate(l.updatedAt);
+      if (!_isClosedWon(l)) return false;
+      // F3: stageStartedAt is stamped on every stage move (+ backfilled by
+      // migrations 002/003) — for a won lead it IS the close date. The old
+      // updatedAt proxy re-attributed a March close to July the moment you
+      // added a note to it.
+      var d = toJSDate(l.stageStartedAt || l.updatedAt);
       return d && d.getMonth() === thisMonth && d.getFullYear() === thisYear;
     });
     var monthlyRevenue = closedThisMonth.reduce(function (sum, l) {
@@ -166,7 +182,7 @@
     }, 0);
 
     var totalClosed = leads.filter(function (l) {
-      return _isWon(l);
+      return _isClosedWon(l);
     }).length;
     var totalLost = leads.filter(function (l) {
       return _isLost(l);
@@ -179,14 +195,17 @@
       return d && d.getMonth() === thisMonth && d.getFullYear() === thisYear;
     }).length;
 
+    // F7: skip in-production (job-role) leads too — aligned with the CRM's
+    // overdue-followup definition (#12). A crew-scheduled job isn't a
+    // follow-up you're late on.
     var overdueFollowUps = leads.filter(function (l) {
-      if (_isDecided(l) || !l.followUp) return false;
+      if (_isDecided(l) || _isJob(l) || !l.followUp) return false;
       var d = new Date(l.followUp); d.setHours(0, 0, 0, 0);
       return d < today;
     }).length;
 
     var closedWithValue = leads.filter(function (l) {
-      return _isWon(l) && parseFloat(l.jobValue) > 0;
+      return _isClosedWon(l) && parseFloat(l.jobValue) > 0;
     });
     var avgDealSize = closedWithValue.length > 0
       ? closedWithValue.reduce(function (s, l) { return s + parseFloat(l.jobValue); }, 0) / closedWithValue.length

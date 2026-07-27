@@ -139,11 +139,12 @@ section('Customer-facing portal gallery — share photos with homeowner');
   assert('portal.html has .ph-grid + .ph-tile CSS rules',
     /\.ph-grid\s*\{/.test(portalUI) && /\.ph-tile\s*\{/.test(portalUI));
 
-  // Rep-side toggle — buildPhotoBadges emits the share badge as
-  // a real <button> with data-action so the delegated handler
-  // can route the click without opening the lightbox.
+  // Rep-side toggle — buildPhotoBadges emits the share badge as a real <button>
+  // whose data-action IS the real global (toggleHomeownerShare) + data-arg, so
+  // the generic customer.html delegate routes it even OUTSIDE the #photosByPhase
+  // grid (the old hyphenated 'toggle-share' had no window handler → dead there).
   assert('customer.html buildPhotoBadges emits share toggle button',
-    /data-action="toggle-share"[\s\S]{0,200}data-photo-id="' \+ esc\(photo\.id\)/.test(customer));
+    /data-action="toggleHomeownerShare" data-arg="' \+ esc\(photo\.id\)/.test(customer));
   assert('customer.html shows different badge for shared vs unshared',
     /if \(photo\.sharedWithHomeowner\)[\s\S]{0,400}Shared[\s\S]{0,400}else[\s\S]{0,400}Share/.test(customer));
 
@@ -160,7 +161,7 @@ section('Customer-facing portal gallery — share photos with homeowner');
   // the lightbox/select branches — otherwise tapping Share also
   // opens the photo editor.
   assert('photo grid delegate routes toggle-share before lightbox/select',
-    /var shareBtn = ev\.target\.closest\(['"]\[data-action="toggle-share"\]['"]\)/.test(customer)
+    /var shareBtn = ev\.target\.closest\(['"]\.nbd-share-toggle['"]\)/.test(customer)
     && /ev\.stopPropagation\(\)[\s\S]{0,200}toggleHomeownerShare/.test(customer));
 
   // Photo projection round-trips the share + caption fields so

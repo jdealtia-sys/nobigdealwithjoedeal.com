@@ -25,6 +25,24 @@
     init: state.initD2D,
     renderD2D: state.renderD2D,
     loadKnocks: state.loadKnocks,
+    // "Search this area" — viewport-scoped knock pull + plain refresh. Fixes
+    // the loadKnocks 500-most-recent cap for reps panning to older territory.
+    loadKnocksInViewport: state.loadKnocksInViewport,
+    searchThisArea: state.runSearchThisArea,
+    refreshKnocks: state.refreshKnocks,
+    // Map-data diagnostic — "why is my map empty?" Returns {loadedOnMap,
+    // withCoordinates, totalInAccount, ...} and shows a plain-English verdict.
+    mapDiagnostics: state.runMapDiagnostics,
+    // Flip the map's mark look between detailed dots and color pins.
+    toggleMarkStyle: state.toggleMarkStyle,
+    // Follow mode — keep the map centered on the rep as they move.
+    toggleFollow: state.toggleFollow,
+    // Opt-in/beta: spin the map to the rep's heading (lazy-loads the plugin).
+    toggleMapRotate: state.toggleMapRotate,
+    // On-map address search (ported from the retired Maps & Pins).
+    d2dSearchAddress: state.d2dSearchAddress,
+    // Collapse/expand the map layers+tools panel.
+    toggleLayerPanel: state.toggleLayerPanel,
     openQuickKnock: state.openQuickKnock,
     closeQuickKnock: state.closeQuickKnock,
     selectDispo: state.selectDispo,

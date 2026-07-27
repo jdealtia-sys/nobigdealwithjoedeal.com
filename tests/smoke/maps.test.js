@@ -6,6 +6,7 @@
 
 'use strict';
 
+const fs = require('fs');
 const path = require('path');
 const { ROOT, PRO_JS, FUNCTIONS, read, readCrm, readD2DLive, readMaps } = require('./_shared');
 
@@ -470,6 +471,562 @@ section('Map heat + pins toggle + mobile');
   assert('hideCustomersLayer supersedes an in-flight build (no panel re-show after hide)',
     /function hideCustomersLayer\(\)\s*\{[\s\S]{0,260}_custBuildToken\+\+;/.test(maps),
     'expected hideCustomersLayer to bump _custBuildToken so a running backfill build aborts before re-showing the panel');
+}
+
+section('D2D map — "Search this area" viewport knock loader (fixes the 500-recent cap)');
+{
+  const src = readD2DLive();
+
+  // The spatial loader exists and is wired into the public shim so the map
+  // control (and any future caller) can reach it.
+  assert('D2D core defines loadKnocksInViewport()',
+    /async function loadKnocksInViewport\s*\(/.test(src));
+  assert('window.D2D shim exports loadKnocksInViewport',
+    /loadKnocksInViewport:\s*state\.loadKnocksInViewport/.test(src));
+
+  // Bounding-box strategy: Firestore permits a range on ONE field, so lat is
+  // range-filtered server-side and lng is filtered client-side.
+  assert('viewport query range-filters lat server-side (>= and <=)',
+    /where\(\s*['"]lat['"]\s*,\s*['"]>=['"]/.test(src) &&
+    /where\(\s*['"]lat['"]\s*,\s*['"]<=['"]/.test(src));
+  assert('viewport query filters lng client-side',
+    /lng\s*>=\s*west\s*&&\s*lng\s*<=\s*east/.test(src));
+
+  // Tenancy: the viewport query must stay scoped to userId / companyId — it
+  // must never widen the read surface. Scope the check to the function body.
+  const vp = src.slice(src.indexOf('async function loadKnocksInViewport'));
+  const vpBody = vp.slice(0, 2200);
+  assert('viewport query keeps rep (userId) tenancy scope',
+    /where\(\s*['"]userId['"]\s*,\s*['"]==['"]/.test(vpBody));
+  assert('viewport query keeps team (companyId) tenancy scope',
+    /where\(\s*['"]companyId['"]\s*,\s*['"]==['"]/.test(vpBody));
+
+  // Default first paint is UNCHANGED — 500-most-recent is still the boot
+  // loader, so nothing regresses.
+  assert('KNOCK_PAGE_SIZE default stays 500 (no regression to first paint)',
+    /KNOCK_PAGE_SIZE\s*=\s*500/.test(src));
+
+  // The Search-this-area control is created and CSP-safe (addEventListener,
+  // not inline onclick).
+  assert('createSearchAreaControl builds the #d2d-search-area button',
+    /function createSearchAreaControl\s*\(/.test(src) &&
+    /id\s*=\s*['"]d2d-search-area['"]/.test(src));
+  assert('search control is wired via addEventListener (CSP-safe, no inline onclick)',
+    /search\.addEventListener\(\s*['"]click['"]/.test(src));
+  // The corner button is a permanent reload affordance (display:flex, not
+  // hidden) and taps can't fall through to the map's click→quick-knock handler.
+  assert('search-area wrap is always visible and does not leak clicks to the map',
+    /wrap\.id = ['"]d2d-search-area-wrap['"][\s\S]{0,600}display:flex/.test(src) &&
+    /disableClickPropagation\(wrap\)/.test(src));
+  assert('moveend handler is armed after init (no flash on the setView/invalidateSize settle)',
+    /_searchAreaArmed/.test(src) &&
+    /on\(\s*['"]moveend['"]\s*,\s*_onMapMoveForSearch\)/.test(src));
+  // The "you moved — tap to load here" hint is a class toggle (the button stays
+  // put), so it mutates no layout and can't oscillate the moveend loop.
+  assert('_setSearchAreaVisible arms via the d2d-search-armed class (no layout mutation)',
+    /function _setSearchAreaVisible[\s\S]{0,400}classList\.(add|contains)\(\s*['"]d2d-search-armed['"]/.test(src));
+
+  // Oscillation guard (the #1061/#1062 lesson): the moveend handler and its
+  // visibility toggle must NOT mutate the map — no setView/fitBounds/
+  // invalidateSize — so the handler can't re-trigger its own moveend.
+  const mh = src.slice(src.indexOf('function _onMapMoveForSearch'),
+                       src.indexOf('async function runSearchThisArea'));
+  assert('search move/visibility handlers perform no map mutation (no oscillation)',
+    !/(setView|fitBounds|invalidateSize|flyTo|panTo|panBy)/.test(mh));
+
+  // Honest feedback: loading state, result count, and an empty state that
+  // reads "searched, none here" — distinct from "not loaded yet".
+  assert('viewport search has an honest empty state',
+    /No knocks logged in this area/.test(src));
+  assert('viewport search reports a result count',
+    /\$\{n\} knock/.test(src) && /in this area/.test(src));
+
+  // Plain refresh affordance (there was previously no re-pull short of reload).
+  assert('D2D exposes a plain refreshKnocks re-pull',
+    /async function refreshKnocks\s*\(/.test(src) &&
+    /refreshKnocks:\s*state\.refreshKnocks/.test(src));
+}
+
+section('D2D map — map-data diagnostic ("why is my map empty?")');
+{
+  const src = readD2DLive();
+
+  // The diagnostic exists and is reachable from the shim (button + console).
+  assert('D2D core defines runMapDiagnostics()',
+    /async function runMapDiagnostics\s*\(/.test(src));
+  assert('window.D2D shim exports mapDiagnostics',
+    /mapDiagnostics:\s*state\.runMapDiagnostics/.test(src));
+
+  // It uses a cheap server-side COUNT aggregation (no doc reads) to learn the
+  // true total for the account — the number that disambiguates #1 vs #2 vs #3.
+  assert('diagnostic uses getCountFromServer (aggregation, not a full read)',
+    /getCountFromServer/.test(src));
+
+  // Tenancy: the count query stays scoped to userId / companyId.
+  const diag = src.slice(src.indexOf('async function runMapDiagnostics'));
+  const diagBody = diag.slice(0, 2600);
+  assert('diagnostic count query keeps rep (userId) tenancy scope',
+    /where\(\s*['"]userId['"]\s*,\s*['"]==['"]/.test(diagBody));
+  assert('diagnostic count query keeps team (companyId) tenancy scope',
+    /where\(\s*['"]companyId['"]\s*,\s*['"]==['"]/.test(diagBody));
+
+  // It distinguishes a silent load failure (#3) from a genuinely-empty
+  // account (#2): loadKnocks must record the error, and the diagnostic reads it.
+  assert('loadKnocks records state.lastKnockLoadError on failure',
+    /state\.lastKnockLoadError\s*=\s*\{\s*message:/.test(src));
+  assert('loadKnocks clears state.lastKnockLoadError on a clean load',
+    /state\.lastKnockLoadError\s*=\s*null/.test(src));
+  assert('diagnostic reads the recorded load error',
+    /state\.lastKnockLoadError/.test(diagBody));
+
+  // It names all five ranked hypotheses in its verdict text.
+  assert('diagnostic verdict covers hypotheses #1–#5',
+    /\(#1\)/.test(src) && /\(#2\)/.test(src) && /\(#3\)/.test(src) &&
+    /\(#4\)/.test(src) && /\(#5\)/.test(src));
+
+  // Surfaced via a CSP-safe button in the (existing) layer panel.
+  assert('layer panel exposes a CSP-safe diagnostics button',
+    /id\s*=\s*['"]d2d-map-diag['"]/.test(src) &&
+    /diag\.addEventListener\(\s*['"]click['"][\s\S]*?runMapDiagnostics\(\)/.test(src));
+}
+
+section('D2D map — dots ⇄ pins look toggle (map unification, phase 1)');
+{
+  const src = readD2DLive();
+
+  // The look toggle exists, is exposed on the shim, and persists per device.
+  assert('D2D core defines toggleMarkStyle()',
+    /function toggleMarkStyle\s*\(/.test(src));
+  assert('window.D2D shim exports toggleMarkStyle',
+    /toggleMarkStyle:\s*state\.toggleMarkStyle/.test(src));
+  assert('mark style is persisted (MARK_STYLE_PREF localStorage)',
+    /MARK_STYLE_PREF\s*=/.test(src) &&
+    /localStorage\.setItem\(MARK_STYLE_PREF/.test(src) &&
+    /localStorage\.getItem\(MARK_STYLE_PREF\)/.test(src));
+
+  // Both looks are built by one icon helper, branched on the style.
+  assert('_d2dMarkerIcon branches on the pins style',
+    /function _d2dMarkerIcon\s*\(/.test(src) &&
+    /state\.d2dMarkStyle\s*===\s*['"]pins['"]/.test(src));
+  assert('pins style renders the teardrop SVG',
+    /M12 0C7\.6 0 4 3\.6 4 8/.test(src));
+  assert('dots style keeps the disposition short-code circle',
+    /\(dispo && dispo\.short\)\s*\|\|\s*['"]\?['"]/.test(src));
+
+  // Colour still encodes status in the pins style, and is escaped (XSS guard).
+  const iconFn = src.slice(src.indexOf('function _d2dMarkerIcon'),
+                          src.indexOf('function _markStyleBtnLabel'));
+  assert('pins style escapes the colour before interpolating into the SVG',
+    /const safe = esc\(color\)/.test(iconFn) && /fill="'\s*\+\s*safe/.test(iconFn));
+
+  // Surfaced via a CSP-safe button in the existing layer panel.
+  assert('layer panel exposes a CSP-safe mark-style toggle button',
+    /id\s*=\s*['"]d2d-mark-style['"]/.test(src) &&
+    /styleBtn\.addEventListener\(\s*['"]click['"][\s\S]*?toggleMarkStyle\(\)/.test(src));
+
+  // Default first paint is unchanged (dots), so nothing regresses visually.
+  assert("default mark style stays 'dots'",
+    /state\.d2dMarkStyle\s*=\s*['"]dots['"]/.test(src));
+}
+
+section('D2D map — Customers layer (map unification, phase 2)');
+{
+  const src = readD2DLive();
+
+  // The old jobs-only ($-label) layer is replaced by a full Customers layer.
+  assert('D2D layer state uses a customers layer (not the old jobs key)',
+    /d2dLayerState\s*=\s*\{[^}]*customers:\s*false/.test(src) &&
+    !/d2dLayerState\s*=\s*\{[^}]*\bjobs\b:/.test(src));
+  assert('layer panel shows a Customers entry',
+    /key:\s*['"]customers['"][\s\S]{0,40}label:\s*['"]Customers['"]/.test(src));
+  assert('toggleLayer handles the customers layer',
+    /case\s*['"]customers['"]:[\s\S]{0,160}buildD2DCustomersLayer\(\)/.test(src));
+  assert('D2D core defines buildD2DCustomersLayer()',
+    /async function buildD2DCustomersLayer\s*\(/.test(src));
+
+  // Colour = pipeline stage, from the live stage engine (same source as kanban).
+  const build = src.slice(src.indexOf('function _leadStageColor'),
+                         src.indexOf('async function buildD2DCustomersLayer') + 4000);
+  assert('customer colour comes from the live stage engine',
+    /window\.STAGE_META/.test(build) && /window\.stageRole/.test(build) && /window\.normalizeStage/.test(build));
+
+  // Customers honour the SAME dots/pins look toggle as knocks (one visual language).
+  assert('customer marks reuse _d2dMarkerIcon (shared dots/pins look)',
+    /const icon = _d2dMarkerIcon\(\{\s*color:\s*color/.test(src));
+  assert('flipping the look restyles the customers layer too',
+    /if \(d2dLayerState\.customers\) buildD2DCustomersLayer\(\)/.test(src));
+
+  // Whole pipeline minus soft-deleted (broader than the old job-stages-only filter).
+  assert('customers layer covers the whole pipeline (skips soft-deleted)',
+    /window\._leads\s*\|\|\s*\[\]\)\.filter\(l => l && !l\.deleted\)/.test(src));
+
+  // Reuses the fair-use geocode discipline (cache + per-build cap + 1.1s spacing).
+  assert('customers layer keeps the geocode cache + per-build cap',
+    /D2D_GEOCODE_CACHE/.test(build) && /D2D_GEOCODE_PER_BUILD_CAP/.test(build) && /1100/.test(build));
+
+  // CSP-safe "View lead" (addEventListener, not inline onclick).
+  assert('customer popup View-lead button is CSP-safe',
+    /view\.addEventListener\(\s*['"]click['"]/.test(src) && /openCardDetailModal/.test(src));
+}
+
+section('D2D map — one mark per house (map unification, phase 3)');
+{
+  const src = readD2DLive();
+
+  // Suppression set: leads that can be placed (coords required so a house
+  // never vanishes), keyed by the same normalizeAddress used for knock dedupe.
+  assert('D2D core defines _leadAddrSetWithCoords()',
+    /function _leadAddrSetWithCoords\s*\(/.test(src));
+  const setFn = src.slice(src.indexOf('function _leadAddrSetWithCoords'),
+                         src.indexOf('function _leadStageColor'));
+  assert('suppression set requires lead coordinates',
+    /Number\(l\.lat\)\s*&&\s*Number\(l\.lng\)/.test(setFn));
+  assert('suppression set keys by normalizeAddress',
+    /normalizeAddress\(l\.address/.test(setFn));
+
+  // refreshMapMarkers drops a knock mark when a coords-bearing lead shares its
+  // address AND the customers layer is on (no effect when the layer is off).
+  assert('knock render suppresses houses shown as customers (only when layer on)',
+    /const suppressAddrs = d2dLayerState\.customers \? _leadAddrSetWithCoords\(\) : null/.test(src) &&
+    /if \(suppressAddrs && suppressAddrs\.has\(norm\)\) return/.test(src));
+
+  // Toggling the customers layer re-renders knocks so suppression tracks it.
+  assert('toggling customers re-runs refreshMapMarkers (suppression stays in sync)',
+    /case\s*['"]customers['"]:[\s\S]{0,500}refreshMapMarkers\(\)/.test(src));
+}
+
+section('scripts/backfill-pins-to-knocks.js — legacy pin → knock migration (phase 4)');
+{
+  const p = path.join(ROOT, 'scripts', 'backfill-pins-to-knocks.js');
+  assert('migration script exists', fs.existsSync(p));
+  const mig = fs.existsSync(p) ? read(p) : '';
+
+  // Same safety discipline as the other backfills: dry-run by default,
+  // --apply needs --yes, idempotent, non-destructive.
+  assert('migration is dry-run by default (--apply needs --yes)',
+    /APPLY\s*&&\s*!YES/.test(mig) && /--apply.*--yes|--apply --yes/.test(mig));
+  assert('migration is idempotent (skips already-migrated pins)',
+    /pin\.migratedToKnock\s*===\s*true/.test(mig) && /migratedFromPinId/.test(mig));
+  assert('migration is non-destructive (never deletes the source pin)',
+    !/\.delete\(\)/.test(mig));
+
+  // Only hand-dropped door-knock pins migrate — customer/lead pins are skipped
+  // (they re-derive from /leads via the Customers layer).
+  assert('migration skips lead/customer pins',
+    /if \(p\.leadId\) return false/.test(mig) && /p\.type === ['"]customer['"]/.test(mig));
+
+  // Legacy status → disposition mapping (with the two best-effort cases).
+  assert('migration maps legacy pin statuses to knock dispositions',
+    /'not-home':\s*'not_home'/.test(mig) &&
+    /'do-not-knock':\s*'do_not_knock'/.test(mig) &&
+    /'signed':\s*'appointment'/.test(mig));
+
+  // Tenancy carried onto the knock (owner uid required; company scoped).
+  assert('migrated knock keeps userId/companyId tenancy',
+    /userId:\s*pin\.userId/.test(mig) && /companyId:\s*pin\.companyId\s*\|\|\s*pin\.userId/.test(mig) &&
+    /if \(!pin\.userId\)/.test(mig));
+}
+
+section('D2D map — follow mode + heading arrow (field navigation, phase A)');
+{
+  const src = readD2DLive();
+
+  // Follow toggle exists, is exposed, and persists.
+  assert('D2D core defines toggleFollow()',
+    /function toggleFollow\s*\(/.test(src));
+  assert('window.D2D shim exports toggleFollow',
+    /toggleFollow:\s*state\.toggleFollow/.test(src));
+  assert('follow preference persists (FOLLOW_PREF localStorage)',
+    /FOLLOW_PREF\s*=/.test(src) && /localStorage\.setItem\(FOLLOW_PREF/.test(src) &&
+    /localStorage\.getItem\(FOLLOW_PREF\)/.test(src));
+
+  // Pause-on-drag → Recenter resumes.
+  assert('a manual drag pauses follow',
+    /on\(\s*['"]dragstart['"]\s*,\s*_onUserDragStart\)/.test(src) &&
+    /function _onUserDragStart[\s\S]{0,180}state\.d2dFollowPaused = true/.test(src));
+  assert('Recenter control exists and resumes follow (CSP-safe)',
+    /id\s*=\s*['"]d2d-recenter['"]/.test(src) &&
+    /addEventListener\(\s*['"]click['"][\s\S]{0,120}d2dFollowPaused = false[\s\S]{0,60}_recenterFollow\(\)/.test(src));
+
+  // Follow's own setView must NOT pop the "Search this area" pill.
+  assert('follow moves are flagged so they do not trigger the search pill',
+    /_followProgrammaticMove = true/.test(src) &&
+    /function _onMapMoveForSearch[\s\S]{0,320}if \(_followProgrammaticMove\)/.test(src));
+
+  // Heading arrow: rotated location marker, driven by compass or GPS course.
+  assert('location marker becomes a rotatable heading arrow',
+    /function _locationIcon\s*\(/.test(src) && /d2d-loc-arrow/.test(src) &&
+    /rotate\('\s*\+\s*\(hasH \? heading : 0\)/.test(src));
+  assert('heading comes from the compass (iOS webkitCompassHeading) or GPS course',
+    /webkitCompassHeading/.test(src) && /pos\.coords\.heading/.test(src));
+
+  // Perf/oscillation guard: the high-frequency compass handler rAF-coalesces,
+  // thresholds sub-3° jitter, and writes ONE element's transform.
+  const oh = src.slice(src.indexOf('function _onHeading'), src.indexOf('function _deviceOrientationHandler'));
+  assert('compass updates are rAF-coalesced + 3° thresholded (no DOM churn)',
+    /requestAnimationFrame\(_applyHeadingToMarker\)/.test(oh) && /Math\.min\(d, 360 - d\) < 3/.test(oh));
+
+  // iOS 13+ permission requested from the toggle gesture; watch released on teardown.
+  assert('iOS compass permission requested from the user gesture',
+    /DeviceOrientationEvent\.requestPermission\(\)/.test(src));
+  assert('heading watch is released when the location watch stops',
+    /function stopLocationWatch[\s\S]{0,260}_stopHeadingWatch\(\)/.test(src));
+}
+
+section('D2D map — opt-in map rotation / "spin to heading" (field navigation, phase B)');
+{
+  const src = readD2DLive();
+
+  // Toggle exists, exposed, persisted.
+  assert('D2D core defines toggleMapRotate()',
+    /function toggleMapRotate\s*\(/.test(src));
+  assert('window.D2D shim exports toggleMapRotate',
+    /toggleMapRotate:\s*state\.toggleMapRotate/.test(src));
+  assert('rotation preference persists (ROTATE_PREF)',
+    /ROTATE_PREF\s*=/.test(src) && /localStorage\.setItem\(ROTATE_PREF/.test(src) &&
+    /localStorage\.getItem\(ROTATE_PREF\)/.test(src));
+
+  // Safe-by-construction: the plugin is LAZY-loaded (injected script) only on
+  // opt-in, and the map only gets rotate:true once the plugin is ready — so a
+  // default user never loads it.
+  assert('rotation plugin is lazy-loaded via an injected script',
+    /LEAFLET_ROTATE_URL/.test(src) &&
+    /createElement\(['"]script['"]\)/.test(src.slice(src.indexOf('function _loadRotatePlugin'), src.indexOf('function _rebuildD2DMap'))));
+
+  // CSP: the /pro script-src is 'self' + a fixed host list (no CDN). The plugin
+  // must be VENDORED same-origin, not pulled from an external CDN.
+  assert('rotation plugin loads same-origin (CSP-clean, no external CDN)',
+    /LEAFLET_ROTATE_URL\s*=\s*['"]\/assets\/vendor\/leaflet-rotate\//.test(src) &&
+    !/LEAFLET_ROTATE_URL\s*=\s*['"]https?:/.test(src));
+  assert('leaflet-rotate is vendored in the repo',
+    fs.existsSync(path.join(ROOT, 'docs/assets/vendor/leaflet-rotate/leaflet-rotate.js')));
+  assert('map only gets rotate:true once the plugin is ready (default users unaffected)',
+    /if \(_rotateReady\) \{ _mapOpts\.rotate = true/.test(src));
+
+  // Graceful failure: a blocked/absent plugin reverts the toggle instead of
+  // breaking the map.
+  const en = src.slice(src.indexOf('async function _enableRotation'), src.indexOf('function _applyBearingFromHeading'));
+  assert('a failed plugin load reverts the toggle (no broken map)',
+    /if \(!ok\)/.test(en) && /state\.d2dRotateEnabled = false/.test(en) && /unavailable/.test(en));
+
+  // Heading drives the bearing when rotating; arrow points up while the map spins.
+  assert('heading drives map bearing when rotation is on',
+    /function _applyBearingFromHeading[\s\S]{0,220}setBearing\(-deg\)/.test(src));
+  assert('arrow points up (0) while the map itself spins',
+    /const rotating = state\.d2dRotateEnabled && _rotateReady/.test(src) &&
+    /const arrowDeg = rotating \? 0 : deg/.test(src));
+
+  // Rebuild preserves the viewport; re-entrancy guarded.
+  assert('rotation rebuild preserves view + guards re-entrancy',
+    /_pendingRebuildView/.test(src) && /_rotateRebuilding/.test(src));
+
+  // CSP-safe control.
+  assert('layer panel exposes a CSP-safe Spin (beta) button',
+    /id\s*=\s*['"]d2d-rotate['"]/.test(src) &&
+    /rotateBtn\.addEventListener\(\s*['"]click['"][\s\S]{0,80}toggleMapRotate\(\)/.test(src));
+}
+
+section('Maps & Pins retired → D2D + on-map search (map unification, phase C)');
+{
+  const src = readD2DLive();
+  const actions = read(path.join(PRO_JS, 'dashboard-actions.js'));
+
+  // The 'map' route redirects to D2D — placed AFTER the lite gate so gating
+  // is unchanged, with a one-time heads-up.
+  assert("goTo('map') redirects to the D2D view",
+    /if \(name === ['"]map['"]\) \{[\s\S]{0,120}name = ['"]d2d['"]/.test(actions));
+  assert('the retire redirect sits after the lite-tier gate (gating preserved)',
+    actions.indexOf("PRO_ONLY_VIEWS.includes(name)") < actions.indexOf("if (name === 'map') {"));
+  assert('one-time redirect notice is shown',
+    /nbd_maps_redirect_seen/.test(actions));
+
+  // On-map address search ported into D2D (the one thing Maps & Pins had that
+  // D2D lacked; county-records intel still lives on the lead modal).
+  assert('D2D core defines d2dSearchAddress()',
+    /async function d2dSearchAddress\s*\(/.test(src));
+  assert('window.D2D shim exports d2dSearchAddress',
+    /d2dSearchAddress:\s*state\.d2dSearchAddress/.test(src));
+  assert('D2D search geocodes (Nominatim), flies there, drops a result pin',
+    /NOMINATIM_SEARCH \+ encodeURIComponent\(q\)/.test(src) &&
+    /_d2dSearchMarker\s*=\s*L\.marker/.test(src));
+  assert('D2D search result can spin up a lead (reuses the existing flow)',
+    /window\.openLeadModal/.test(src.slice(src.indexOf('async function d2dSearchAddress'), src.indexOf('function _createD2DSearchControl'))));
+
+  // CSP-safe search box that doesn't drive the map underneath it.
+  assert('D2D search control is CSP-safe + does not leak clicks to the map',
+    /id\s*=\s*['"]d2d-addr-search['"]/.test(src) &&
+    /addEventListener\(\s*['"]keydown['"]/.test(src) &&
+    /disableClickPropagation\(wrap\)/.test(src));
+
+  // The search jump must not pop the "Search this area" pill.
+  assert('the search fly-to is flagged so it does not pop the area pill',
+    /d2dSearchAddress[\s\S]{0,700}_followProgrammaticMove = true[\s\S]{0,160}setView/.test(src));
+}
+
+section('D2D map — Customers layer persists geocoded coords (geocode once ever)');
+{
+  const src = readD2DLive();
+  // After a live geocode, the customers layer persists lat/lng via the shared
+  // rolling-backfill helper (same as the old map), guarded against temp ids.
+  const build = src.slice(src.indexOf('async function buildD2DCustomersLayer'),
+                         src.indexOf('async function buildD2DCustomersLayer') + 3200);
+  assert('D2D customers layer persists geocoded coords via _saveLeadCoords',
+    /window\._saveLeadCoords\(lead\.id,\s*lat,\s*lng\)/.test(build));
+  assert('geocode-persist skips temp/demo lead ids',
+    /lead\.id && !String\(lead\.id\)\.startsWith\(['"]d-['"]\)/.test(build));
+}
+
+section('D2D map — navigation polish (heading smoothing + "you are here" pulse)');
+{
+  const src = readD2DLive();
+
+  // Circular low-pass filter smooths the jittery compass (unit-vector average
+  // so it eases across the 0°/360° wrap) and _onHeading runs through it.
+  assert('heading is smoothed by a circular low-pass filter',
+    /function _smoothHeading\s*\(/.test(src) &&
+    /Math\.atan2\(_headingSmY, _headingSmX\)/.test(src) &&
+    /Math\.cos\(rad\)/.test(src) && /Math\.sin\(rad\)/.test(src));
+  assert('_onHeading applies the smoothing filter',
+    /function _onHeading[\s\S]{0,140}deg = _smoothHeading\(deg\)/.test(src));
+  assert('the smoothing filter resets on teardown',
+    /function _stopHeadingWatch[\s\S]{0,600}_headingSmX = null; _headingSmY = null/.test(src));
+
+  // The location marker gets the radiating "you are here" pulse back.
+  assert('location dot uses the d2d-location-pulse treatment',
+    /class="d2d-location-pulse"/.test(src));
+}
+
+section('D2D map — 🔍 Check now reports navigation health');
+{
+  const src = readD2DLive();
+  const diag = src.slice(src.indexOf('async function runMapDiagnostics'),
+                        src.indexOf('async function runMapDiagnostics') + 7000);
+
+  // The diagnostic now carries a navigation block alongside the data verdict.
+  assert('runMapDiagnostics returns a navigation block',
+    /navigation:\s*nav/.test(diag) && /const nav = \{/.test(diag));
+  // GPS health: fix presence + accuracy + age (needs the fix timestamp).
+  assert('reports GPS fix age + accuracy',
+    /state\.gpsFixAt/.test(diag) && /gpsAccuracyM/.test(diag));
+  assert('GPS fix timestamp is stamped on each watchPosition fix',
+    /state\.gpsFixAt = Date\.now\(\)/.test(src));
+  // Compass: support + permission + whether it's actually the heading source.
+  assert('reports compass support/permission + heading source',
+    /compassSupported/.test(diag) && /headingSource/.test(diag) &&
+    /_compassActive \? ['"]compass['"] : \(state\.d2dHeading != null \? ['"]gps-course['"]/.test(diag));
+  // Rotation: state + plugin-loaded + current bearing (so the spin sign is
+  // inspectable next to heading).
+  assert('reports rotation state, plugin-loaded, and current bearing',
+    /rotationPluginLoaded:\s*_rotatePluginPresent\(\)/.test(diag) &&
+    /getBearing\(\)/.test(diag));
+  assert('readout has a NAVIGATION section next to DATA',
+    /'NAVIGATION'/.test(diag) && /'DATA'/.test(diag));
+}
+
+section('D2D map — control layout (no top-edge overlap)');
+{
+  const src = readD2DLive();
+  // Search box: top bar, inset past the top-left zoom control, spanning right —
+  // NOT the old top-left box that collided with the layer panel.
+  assert('search box is a top bar inset from the left zoom control',
+    /d2d-addr-search[\s\S]{0,400}top:8px;left:52px;right:8px/.test(src) &&
+    !/top:10px;left:10px;z-index:1000;display:flex;gap:4px;max-width:62vw/.test(src));
+  // Layer panel ("filters") sits below the top search bar (drops from the
+  // row-2 "Layers" toggle at top:56 to top:100 when opened) — never shares the
+  // top row with search.
+  assert('layer panel is below the search bar (row 2+)',
+    /d2d-layer-panel[\s\S]{0,320}top:100px;right:10px/.test(src) &&
+    /d2d-layer-toggle[\s\S]{0,200}top:56px;right:10px/.test(src));
+  // "Search this area" is now a compact reload button parked in the
+  // bottom-RIGHT corner, floated ABOVE the Leaflet/Google attribution (so the
+  // required attribution stays visible) — off the top cluster AND the
+  // bottom-center recenter/follow controls.
+  assert('search-this-area reload button is anchored bottom-right (clear of attribution)',
+    /d2d-search-area-wrap[\s\S]{0,320}bottom:26px;right:8px/.test(src) &&
+    !/d2d-search-area-wrap[\s\S]{0,200}bottom:136px;left:50%/.test(src));
+}
+
+section('D2D map — collapsible layers panel (frees the map)');
+{
+  const src = readD2DLive();
+  // Panel is collapsed by default and toggled by a compact button.
+  assert('layer panel is collapsed by default',
+    /let _layerPanelOpen = false/.test(src));
+  assert('a CSP-safe "Layers" toggle button controls the panel',
+    /id\s*=\s*['"]d2d-layer-toggle['"]/.test(src) &&
+    /toggle\.addEventListener\(\s*['"]click['"][\s\S]{0,90}_setLayerPanelOpen\(!_layerPanelOpen\)/.test(src));
+  assert('_setLayerPanelOpen shows/hides the panel + updates the label',
+    /function _setLayerPanelOpen[\s\S]{0,320}panel\.style\.display = _layerPanelOpen \? ['"]flex['"] : ['"]none['"]/.test(src));
+  assert('initial collapsed state is applied on panel build',
+    /_setLayerPanelOpen\(_layerPanelOpen\)/.test(src));
+  assert('window.D2D exposes toggleLayerPanel',
+    /toggleLayerPanel:\s*state\.toggleLayerPanel/.test(src));
+
+  // The base-map "view type" switcher is folded INTO the layer panel (one
+  // collapsible panel) — no separate always-on bottom-left control.
+  assert('basemap buttons build into any container (reusable helper)',
+    /function _buildBasemapButtons\s*\(\s*container\s*\)/.test(src) &&
+    /container\.appendChild\(btn\)/.test(src));
+  assert('the layer panel builds a "view type" group via _buildBasemapButtons',
+    /createLayerPanel[\s\S]{0,2600}d2d-viewtype-group[\s\S]{0,200}_buildBasemapButtons\(viewGroup\)/.test(src));
+  assert('the standalone bottom-left basemap control is gone',
+    !/createBasemapControl/.test(src) && !/id\s*=\s*['"]d2d-basemap-ctrl['"]/.test(src) &&
+    !/ctrl\.className = ['"]d2d-basemap-ctrl['"]/.test(src));
+  // Basemap buttons keep their ids/.active so updateBasemapControl still tracks
+  // the current view, and they're still CSP-safe (addEventListener).
+  assert('basemap buttons keep d2d-basemap-<key> ids + CSP-safe wiring',
+    /id\s*=\s*['"]d2d-basemap-['"]\s*\+\s*key/.test(src) &&
+    /btn\.addEventListener\(\s*['"]click['"][\s\S]{0,60}setBasemap\(key\)/.test(src));
+}
+
+section('firestore.indexes.json — knocks [tenant, lat] viewport indexes (deploy on merge)');
+{
+  const idx = JSON.parse(read(path.join(ROOT, 'firestore.indexes.json')));
+  const hasKnockIndex = (fields) => idx.indexes.some(i =>
+    i.collectionGroup === 'knocks' &&
+    Array.isArray(i.fields) &&
+    i.fields.length === fields.length &&
+    i.fields.every((f, n) => f.fieldPath === fields[n]));
+  assert('knocks [userId, lat] index present (rep viewport scope)',
+    hasKnockIndex(['userId', 'lat']));
+  assert('knocks [companyId, lat] index present (team viewport scope)',
+    hasKnockIndex(['companyId', 'lat']));
+}
+
+section('D2D "Value Per Door" — address-less knocks do not collapse into one door');
+{
+  const src = readD2DLive();
+  // doorKey gives address-less knocks a distinct identity (coords, then id) so
+  // they no longer all normalize to '' and collapse into a single door (which
+  // shrank the denominator and inflated Value Per Door).
+  assert('doorKey falls back address → coords → id',
+    /function doorKey\(k\)[\s\S]{0,320}geo:['"] \+ Number\(k\.lat\)\.toFixed\(5\)[\s\S]{0,120}return ['"]k:['"] \+ \(\(k && k\.id\)/.test(src));
+  // getRevenueMetrics must count doors AND weight the pipeline by doorKey (same
+  // key both sides) — not bare normalizeAddress — so the denominator is right.
+  const grm = src.slice(src.indexOf('function getRevenueMetrics'),
+                        src.indexOf('function getRevenueMetrics') + 3600);
+  assert('getRevenueMetrics counts doors via doorKey',
+    /doorsKnocked = new Set\(knocks\.map\(k => doorKey\(k\)\)\)\.size/.test(grm) &&
+    /const norm = doorKey\(k\)/.test(grm));
+
+  // #3 — the revenue card respects the DATE-range filter (period-scoped) but NOT
+  // the disposition filter (which would degenerate the per-door mix).
+  const rsk = src.slice(src.indexOf('function revenueScopedKnocks'),
+                        src.indexOf('function revenueScopedKnocks') + 500);
+  assert('revenueScopedKnocks applies the date range only (not filterDispo)',
+    /state\.filterDateRange === 'today'/.test(rsk) &&
+    /state\.filterDateRange === 'week'/.test(rsk) &&
+    !/filterDispo/.test(rsk));
+  assert('getRevenueMetrics operates on the date-scoped knocks',
+    /const knocks = revenueScopedKnocks\(\)/.test(grm));
+
+  // #4 — the headline is labeled EXPECTED/projected, not "Value Per Door" /
+  // "Live" (so a rep doesn't read it as money earned).
+  assert('headline reads "Expected Value / Door" + projected tag (not the old label)',
+    /Expected Value \/ Door/.test(src) &&
+    /Projected — not yet earned/.test(src) &&
+    !/>Value Per Door</.test(src) &&
+    !/◉ Live pipeline value/.test(src));
 }
 
 };

@@ -1955,6 +1955,16 @@ window.syncMobileToolsMenuActive = syncMobileToolsMenuActive;
   const updateFab = () => {
     const onCrm = document.getElementById('view-crm')?.classList.contains('active');
     document.body.classList.toggle('show-add-lead-fab', !!onCrm);
+    // Field-tools cluster (⋯ launcher + W128 mic / W130 quick-capture /
+    // W132 inbox): CRM + D2D only (Jo's call — a rep dictates the note
+    // right after a knock, so the tools have to be reachable on the
+    // door-knocking view too). Everywhere else the fixed bottom-right
+    // stack stays hidden so it can't float over the Photos card buttons.
+    // kanban-force.css keys the launcher + tool FABs off show-field-tools;
+    // dashboard-app.css gives #d2dContent launcher-sized bottom clearance
+    // so the D2D value/streak cards can always scroll clear of it.
+    const onMap = document.getElementById('view-map')?.classList.contains('active');
+    document.body.classList.toggle('show-field-tools', !!(onCrm || onMap));
   };
   const install = () => {
     const _origGoTo = window.goTo;

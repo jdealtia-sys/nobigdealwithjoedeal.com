@@ -60,27 +60,48 @@ async function renderLeaderboard(){
   const lbEl = document.getElementById('lbRows');
   if (!lbEl) return;
 
-  // Build rep stats from leads
+  // Metrics audit F4: attribute by the lead's OWNER (userId), never by
+  // display name. The old `repName || viewer's displayName` keying folded
+  // every unlabeled lead into whichever account was looking at the screen —
+  // and with team visibility shipping the whole tenant book, a manager
+  // opening the leaderboard absorbed every teammate's repName-less leads.
+  // repName is display-only now: best repName seen on that owner's leads,
+  // else "You" for the viewer, else a short owner tag for a teammate.
+  const wonRole = (l) => {
+    const r = l._stageRole
+      || (typeof window.stageRole === 'function' ? window.stageRole(l._stageKey || l.stage) : '');
+    // F8: in-production (job role) is won money, same as crm closedRev.
+    if (r) return r === 'won' || r === 'job';
+    return WON.includes(l._stageKey || l.stage || '');
+  };
   const reps = {};
   leads.filter(l => !l.deleted).forEach(l => {
-    const n = l.repName || window._user?.displayName || 'You';
-    if (!reps[n]) reps[n] = { name: n, leads: 0, won: 0, revenue: 0, knocks: 0 };
-    reps[n].leads++;
-    if (l._stageRole ? l._stageRole === 'won' : WON.includes(l._stageKey || l.stage || '')) {
-      reps[n].won++;
-      reps[n].revenue += parseFloat(l.jobValue) || 0;
+    const owner = l.userId || '(unknown)';
+    if (!reps[owner]) reps[owner] = { owner, name: '', leads: 0, won: 0, revenue: 0, knocks: 0 };
+    if (!reps[owner].name && l.repName) reps[owner].name = l.repName;
+    reps[owner].leads++;
+    if (wonRole(l)) {
+      reps[owner].won++;
+      reps[owner].revenue += parseFloat(l.jobValue) || 0;
     }
   });
+  Object.values(reps).forEach(r => {
+    if (r.name) return;
+    if (r.owner === uid) r.name = window._user?.displayName || 'You';
+    else if (r.owner === '(unknown)') r.name = 'Unassigned';
+    else r.name = 'Teammate ' + String(r.owner).slice(0, 6);
+  });
 
-  // Enrich with knock data if available
+  // Enrich with knock data. The knocks query is scoped to the VIEWER (the
+  // /knocks read rule is owner-or-manager), so the count lands on the
+  // viewer's own row only — the old code dumped it on whichever rep
+  // happened to be first in object-key order.
   if (db && uid) {
     try {
       const snap = await window.getDocs(window.query(window.collection(db, 'knocks'), window.where('userId', '==', uid)));
       const knockCount = snap.size;
-      // Assign knocks to first (or only) rep
-      const repKeys = Object.keys(reps);
-      if (repKeys.length > 0) reps[repKeys[0]].knocks = knockCount;
-      else reps[window._user?.displayName || 'You'] = { name: window._user?.displayName || 'You', leads: 0, won: 0, revenue: 0, knocks: knockCount };
+      if (!reps[uid]) reps[uid] = { owner: uid, name: window._user?.displayName || 'You', leads: 0, won: 0, revenue: 0, knocks: 0 };
+      reps[uid].knocks = knockCount;
     } catch (e) { /* knocks may not have index — skip */ }
   }
 
