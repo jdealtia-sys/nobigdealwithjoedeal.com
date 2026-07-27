@@ -251,6 +251,56 @@ section('Phase 3: homeowner presentation mode (Good/Better/Best)');
     /m\.classList\.remove\('open'\);\s*closePresentation\(\)/.test(src));
 }
 
+section('Photo embeds: selected photos ride the estimate everywhere');
+{
+  const src = read(path.join(PRO_JS, 'estimate-v2-ui.js'));
+  // Selection state + Review-pane picker grid.
+  assert('state seeds photos[] + _leadPhotos cache',
+    /photos: \[\],\s*\n\s*_leadPhotos: null,/.test(src));
+  assert('Review pane has the photo picker grid + hint',
+    /<div class="v2-section">Photos<\/div>/.test(src)
+    && /id="v2photosGrid"/.test(src) && /id="v2photosHint"/.test(src));
+  assert('loadLeadPhotos queries the lead\'s photo docs (guarded, capped)',
+    /function loadLeadPhotos\(force\)[\s\S]{0,900}where\('leadId', '==', leadId\)/.test(src)
+    && /\.slice\(0, 60\)/.test(src));
+  assert('toggle-photo dispatches togglePhoto and marks the estimate dirty',
+    /case 'toggle-photo':[\s\S]{0,120}togglePhoto\(arg\)/.test(src)
+    && /function togglePhoto\(photoId\)[\s\S]{0,700}saveDraftDebounced\(\);/.test(src));
+  // Persistence: saved doc, reopen, drafts.
+  assert('_buildSavePayload persists the selection ({id,url} only)',
+    /photos:\s*\(state\.photos \|\| \[\]\)\.map\(p => \(\{ id: p\.id \|\| null, url: p\.url \}\)\)/.test(src));
+  assert('rehydrateFromSaved restores photos + refreshes the pick grid',
+    /state\.photos = Array\.isArray\(doc\.photos\)[\s\S]{0,160}loadLeadPhotos\(true\);/.test(src));
+  assert('drafts carry photos', /photos: state\.photos,/.test(src));
+  // Ride-alongs: presentation strip + doc formats.
+  assert('presentation mode renders the photo strip',
+    /const photoStrip = \(state\.photos && state\.photos\.length\)/.test(src)
+    && /photoStrip \+\s*'<div class="vp-cards">/.test(src));
+  assert('finalize passes meta.photos to the formatters',
+    /photos: \(state\.photos \|\| \[\]\)\.slice\(\),/.test(src));
+
+  const fin = read(path.join(PRO_JS, 'estimate-finalization.js'));
+  assert('photoBlock is print-safe and empty-selection-silent',
+    /function photoBlock\(photos, accent\)[\s\S]{0,200}return '';/.test(fin)
+    && /print-color-adjust:exact/.test(fin) && /page-break-inside:avoid/.test(fin));
+  assert('retail + insurance formats embed the photo block (single-quote inherits retail)',
+    /\$\{scopeBlock\}\s*\n\$\{photoBlock\(meta\.photos, _acc\)\}/.test(fin)
+    && /\$\{photoSummary\}\s*\n\$\{photoBlock\(meta\.photos, _acc\)\}/.test(fin));
+
+  const prev = read(path.join(PRO_JS, 'estimate-preview.js'));
+  assert('preview sheet shows the photo thumbnail row',
+    /Array\.isArray\(est\.photos\) && est\.photos\.length/.test(prev));
+
+  // Homeowner share view: server whitelist passes URL-only entries; the
+  // client renders them above the total.
+  const portal = read(path.join(FUNCTIONS, 'portal.js'));
+  assert('getEstimateForView whitelist passes photos URL-only',
+    /photos:\s*Array\.isArray\(est\.photos\)[\s\S]{0,200}\.map\(p => \(\{ url: p\.url \}\)\)/.test(portal));
+  const view = read(path.join(PRO_JS, 'estimate-view.js'));
+  assert('shared view renders the Your Property photo grid',
+    /Your Property/.test(view) && /est\.photos\.forEach/.test(view));
+}
+
 section('Wave B3: live estimates snapshot');
 {
   // CSP hotfix: subscribe wiring is in dashboard-bootstrap.module.js.

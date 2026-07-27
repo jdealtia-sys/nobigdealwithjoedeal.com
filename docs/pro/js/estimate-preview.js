@@ -184,6 +184,13 @@
             sig +
             '<span class="ep-chip">' + esc(v.created) + '</span>' +
           '</div>' +
+          ((Array.isArray(est.photos) && est.photos.length)
+            ? '<div style="display:flex;gap:6px;overflow-x:auto;margin-top:10px;-webkit-overflow-scrolling:touch;">' +
+                est.photos.map(function (p) {
+                  return '<img src="' + esc(p.url) + '" alt="" loading="lazy" style="height:64px;border-radius:6px;flex:none;border:1px solid var(--br,#2a2f37);">';
+                }).join('') +
+              '</div>'
+            : '') +
           '<div style="margin-top:10px;">' + linesHtml + '</div>' +
           '<div style="margin:12px 0 10px;">' + totalsHtml + '</div>' +
         '</div>' +

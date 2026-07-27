@@ -63,6 +63,32 @@
     });
   }
 
+  // Photo Documentation block — shared by the customer-facing formats.
+  // Renders the photos the rep selected onto the estimate (meta.photos,
+  // [{id,url}]). Print-safe: photos keep their colors on paper and never
+  // split across a page break. Empty selection → empty string (section
+  // disappears entirely).
+  function photoBlock(photos, accent) {
+    if (!Array.isArray(photos) || !photos.length) return '';
+    const acc = accent || '#e8720c';
+    const cells = photos.map(p =>
+      `<div style="break-inside:avoid;page-break-inside:avoid;">
+        <img src="${escapeHtml(p.url)}" alt="Job site photo"
+          style="width:100%;border-radius:8px;border:1px solid #d8dbe0;display:block;-webkit-print-color-adjust:exact;print-color-adjust:exact;">
+      </div>`).join('');
+    return `
+      <div style="margin:26px 0;break-inside:avoid-page;">
+        <div style="font-family:'Barlow Condensed',sans-serif;font-size:15px;font-weight:800;
+          text-transform:uppercase;letter-spacing:.1em;color:${escapeHtml(acc)};
+          border-bottom:2px solid ${escapeHtml(acc)};padding-bottom:6px;margin-bottom:14px;">
+          Photo Documentation
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px;">
+          ${cells}
+        </div>
+      </div>`;
+  }
+
   function fmtCodeRefs(refs) {
     if (!refs || !Object.keys(refs).length) return '';
     const parts = [];
@@ -586,6 +612,7 @@ ${scopeTables}
 ${summaryTable}
 ${codeSummary}
 ${photoSummary}
+${photoBlock(meta.photos, _acc)}
 ${footer}
 </body></html>`;
 
@@ -810,6 +837,7 @@ ${header}
 ${propertyBlock}
 ${tierCards}
 ${scopeBlock}
+${photoBlock(meta.photos, _acc)}
 ${depositTerms}
 ${warranty}
 ${footer}
