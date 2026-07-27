@@ -3379,6 +3379,26 @@ section('Mobile lead detail — Estimate opens the lead; Activity shows estimate
     /\.m-jd-act-item\{/.test(css) && /\.m-jd-act-list\{/.test(css));
 }
 
+section('Storm Proof button: works before the lazy storm bundle loads');
+{
+  // The card-detail 🛡️ Storm Proof button dispatches data-action="call"
+  // data-fn="verifyStormProofForLead", but the real function rides the lazy
+  // 'storm' bundle — reachable-from-CRM taps hit an unresolved registry key
+  // and the delegate no-ops silently (the reported dead button). The eager
+  // stub in dashboard-actions.js must load the bundle on first tap.
+  const actions = read(path.join(PRO_JS, 'dashboard-actions.js'));
+  assert('eager stub loads the storm bundle then delegates to StormIntegration',
+    /async function verifyStormProofForLeadLazy\(\)[\s\S]{0,900}ScriptLoader\.loadBundle\('storm'\)[\s\S]{0,600}StormIntegration\.verifyStormProofForLead\(\)/.test(actions));
+  assert('stub registered under the button\'s data-fn name',
+    /verifyStormProofForLead: verifyStormProofForLeadLazy,/.test(actions));
+  const storm = read(path.join(PRO_JS, 'storm-integration.js'));
+  assert('storm-integration replaces the stub with the real registration on load',
+    /Object\.assign\(window\.__NBD_CALL_REGISTRY, \{\s*verifyStormProofForLead: verifyStormProofForLead\s*\}\)/.test(storm));
+  const dashHtml = read(path.join(ROOT, 'docs/pro/dashboard.html'));
+  assert('card-detail button dispatches via data-action=call (CSP-safe)',
+    /data-action="call" data-fn="verifyStormProofForLead"/.test(dashHtml));
+}
+
 section('Metrics audit F1-F9: one honest definition per number');
 {
   const widgets = read(path.join(PRO_JS, 'dashboard-widgets.js'));
