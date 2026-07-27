@@ -195,14 +195,29 @@
     // partial-name match on a 🔥 Hot lead beats a partial-name match
     // on a cold one when both have similar fuzzy scores.
     const useUnified = !!(window.NBDLeadScore && window.NBDLeadScore.score);
+    // Phone search: compare digits to digits so "(513) 555" matches
+    // 5135550100 however either side is formatted. 3-digit minimum so a
+    // single digit doesn't light up the whole cache.
+    const qDigits = q.replace(/\D/g, '');
+    const qLower = q.toLowerCase();
     const scored = [];
     for (const l of leads) {
       const name = ((l.firstName || '') + ' ' + (l.lastName || '')).trim();
       const addr = l.address || '';
-      const fuzzy = Math.max(
+      let fuzzy = Math.max(
         _score(q, name, addr),
         _score(q, addr, name)
       );
+      // Phone + email — the dashboard help text promises "name, phone,
+      // or address" but the palette never actually searched phone/email.
+      if (qDigits.length >= 3) {
+        const digits = String(l.phoneDigits || l.phone || '').replace(/\D/g, '');
+        if (digits && digits.includes(qDigits)) fuzzy = Math.max(fuzzy, 80);
+      }
+      if (qLower.length >= 3) {
+        const email = String(l.email || '').toLowerCase();
+        if (email && email.includes(qLower)) fuzzy = Math.max(fuzzy, 70);
+      }
       if (fuzzy <= 0) continue;
       // Boost: small additive nudge from the W135 score so two
       // equally-fuzzy-matching leads rank with the hotter one first.
@@ -215,15 +230,41 @@
     return scored.slice(0, RESULTS_LIMIT).map(x => _leadToAction(x.lead, x.score));
   }
 
+  // Stage-role → chip color (coarse buckets so any stage taxonomy maps).
+  const _ROLE_COLORS = { won: '#10b981', job: '#3b82f6', lost: '#ef4444' };
+
   function _leadToAction(lead, score) {
     const name = ((lead.firstName || '') + ' ' + (lead.lastName || '')).trim() || '(no name)';
     const addr = lead.address || '';
+    // Job-card context (RoofLink-style result rows): stage chip with a
+    // color dot, jobType tag, $ value, photo thumbnail, assignee. All
+    // best-effort — every source degrades to nothing when absent.
+    const card = {};
+    try {
+      const stageKey = (typeof window.normalizeStage === 'function')
+        ? window.normalizeStage(lead.stage || '') : (lead.stage || '');
+      card.stage = (typeof window.stageLabel === 'function')
+        ? window.stageLabel(stageKey) : (lead.stage || '');
+      const role = (typeof window.stageRole === 'function') ? window.stageRole(stageKey) : '';
+      card.stageColor = _ROLE_COLORS[role] || 'var(--orange, #e8720c)';
+      const jtm = (window.JOB_TYPE_META && lead.jobType) ? window.JOB_TYPE_META[lead.jobType] : null;
+      if (jtm) { card.jobType = jtm.label; card.jobTypeColor = jtm.color || '#888'; }
+      const photos = (window._photoCache && window._photoCache[lead.id]) || [];
+      const p0 = photos.find(p => /^https?:/i.test(String((p && p.url) || '')));
+      if (p0) card.thumb = p0.url;
+      const v = Number(lead.jobValue) || 0;
+      if (v > 0) card.value = '$' + Math.round(v).toLocaleString();
+      const uid = lead.userId || lead.assignedTo || null;
+      const names = window._repNames || window._teamNames || null;
+      if (uid && names && names[uid]) card.assignee = String(names[uid]);
+    } catch (_) { /* card stays partial — row still renders */ }
     return {
       id: 'lead:' + lead.id,
       label: name,
       sublabel: addr,
       icon: '👤',
       group: 'Leads',
+      card,
       score,
       run: () => {
         if (typeof window.openCardDetail === 'function') {
@@ -426,6 +467,38 @@
   }
 
   function _renderItem(item, idx) {
+    // Lead rows render as job cards (stage dot, type tag, $, thumbnail,
+    // assignee) — action/navigation rows keep the compact icon layout.
+    const c = item.card;
+    if (c && (c.stage || c.thumb || c.value)) {
+      const left = c.thumb
+        ? '<img src="' + escHtml(c.thumb) + '" loading="lazy" alt="" style="width:34px;height:34px;border-radius:6px;object-fit:cover;flex-shrink:0;border:1px solid var(--br,#2a3344);">'
+        : '<span style="font-size:16px;width:34px;height:34px;flex-shrink:0;display:flex;align-items:center;justify-content:center;background:var(--s3,rgba(255,255,255,.05));border-radius:6px;">' + escHtml(item.icon || '👤') + '</span>';
+      const subBits = [];
+      if (item.sublabel) subBits.push(escHtml(item.sublabel));
+      if (c.assignee) subBits.push('👤 ' + escHtml(c.assignee));
+      const rightBits = [];
+      if (c.stage) rightBits.push(
+        '<span style="display:inline-flex;align-items:center;gap:5px;font-size:10px;font-weight:700;color:' + escHtml(c.stageColor) + ';white-space:nowrap;">' +
+          '<span style="width:7px;height:7px;border-radius:50%;background:' + escHtml(c.stageColor) + ';display:inline-block;"></span>' +
+          escHtml(c.stage) + '</span>');
+      const tagBits = [];
+      if (c.value) tagBits.push('<span style="font-size:11px;font-weight:700;color:var(--t,#e2e8f0);font-variant-numeric:tabular-nums;">' + escHtml(c.value) + '</span>');
+      if (c.jobType) tagBits.push(
+        '<span style="font-size:9px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:' + escHtml(c.jobTypeColor) + ';border:1px solid ' + escHtml(c.jobTypeColor) + '55;border-radius:999px;padding:1px 7px;white-space:nowrap;">' + escHtml(c.jobType) + '</span>');
+      if (tagBits.length) rightBits.push('<span style="display:inline-flex;align-items:center;gap:6px;">' + tagBits.join('') + '</span>');
+      return '<div class="nbd-cmd-row" data-idx="' + idx + '" ' +
+        'style="display:flex;align-items:center;gap:10px;padding:8px 12px;border-radius:6px;cursor:pointer;font-size:14px;">' +
+        left +
+        '<div style="flex:1;min-width:0;">' +
+          '<div style="font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + escHtml(item.label) + '</div>' +
+          (subBits.length
+            ? '<div style="font-size:11px;color:var(--m,#94a3b8);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + subBits.join(' · ') + '</div>'
+            : '') +
+        '</div>' +
+        '<div style="display:flex;flex-direction:column;align-items:flex-end;gap:3px;flex-shrink:0;">' + rightBits.join('') + '</div>' +
+        '</div>';
+    }
     return '<div class="nbd-cmd-row" data-idx="' + idx + '" ' +
       'style="display:flex;align-items:center;gap:10px;padding:8px 12px;border-radius:6px;cursor:pointer;font-size:14px;">' +
       '<span style="font-size:16px;width:22px;flex-shrink:0;text-align:center;">' + escHtml(item.icon || '•') + '</span>' +
