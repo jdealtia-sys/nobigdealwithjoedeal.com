@@ -38,6 +38,15 @@ Thumbs.db
 .env
 .env.local
 .env.production
+# Firebase Functions secret overrides. ci.yml generates functions/.secret.local
+# from the defineSecret() calls so the emulator can boot without Secret Manager
+# access, and the local QA runbook has you do the same by hand — so this file
+# routinely exists in a working tree while being exactly the shape of thing that
+# must never be committed. It was not ignored, so a `git add -A` would have
+# picked it up. gitleaks would catch a REAL secret in it, but the point is not
+# to rely on that.
+.secret.local
+**/.secret.local
 
 # Claude Code session data
 .claude/
