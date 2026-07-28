@@ -5184,6 +5184,11 @@
 <script defer src="js/nbd-url.js?v=1"></script>
 <script defer src="js/dashboard-state.js?v=1"></script>
 <script defer src="js/dashboard-api.js?v=2"></script>
+<!-- Canonical two-shape estimate money reader (window.NBDCustomerEstimateRows).
+     Must load BEFORE its consumers below — see the matching note in
+     dashboard.html. Without it those consumers silently run their weaker
+     inline fallback ladders. -->
+<script defer src="js/customer-estimate-rows.js?v=1"></script>
 <script defer src="js/customer-estimate-hub.js?v=1"></script>
 <script defer src="js/customer-photo-hub.js?v=1"></script>
 <script defer src="js/dashboard-widgets.js?v=2"></script>

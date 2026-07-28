@@ -1256,7 +1256,18 @@ function openMobileJobDetail(leadId) {
     // leadId-attach fix. Tappable → _mJdOpenEstimate opens it.
     (window._estimates || []).forEach(e => {
       if (!e || (e.leadId !== lead.id && e.id !== lead.primaryEstimateId)) return;
-      const amt = Number(e.grandTotal != null ? e.grandTotal : e.total) || 0;
+      // Classic estimates carry their value on `amount` (the shape the
+      // customer page's own Log Estimate flow writes, and what its timeline
+      // reads back via est.amount). This ladder stopped at grandTotal|total,
+      // so every Classic doc scored 0 and the row rendered a bare "Estimate"
+      // with the "· $X" suffix silently dropped. Same two-shape reader as the
+      // rest of the money surfaces.
+      const _rowsApi = window.NBDCustomerEstimateRows;
+      const amt = (_rowsApi && typeof _rowsApi.estimateValue === 'function')
+        ? _rowsApi.estimateValue(e)
+        : Number(e.grandTotal != null ? e.grandTotal
+            : e.total != null ? e.total
+            : e.amount) || 0;
       const sub = [e.name && esc(e.name), fmtWhen(e.createdAt)].filter(Boolean).join(' · ');
       items.push({ t: ms(e.createdAt), html:
         '<button type="button" class="m-jd-act-item" data-action="call" data-fn="_mJdOpenEstimate" data-arg="' + esc(e.id) + '">'

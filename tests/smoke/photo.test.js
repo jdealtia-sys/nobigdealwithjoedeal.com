@@ -716,8 +716,22 @@ section('NBDUrl helper: canonical customer URL builder');
   // dashboard.html must load nbd-url.js BEFORE dashboard-actions.js
   // (actions.js calls NBDUrl.customer). Both are defer, defer order
   // is document order, so nbd-url.js needs to come first in source.
+  //
+  // Compare real tag POSITIONS rather than the previous
+  // /nbd-url\.js[\s\S]{0,500}dashboard-actions\.js/ proximity match. That
+  // regex encoded "within 500 characters" as a stand-in for "before", so
+  // adding an explanatory comment between the two tags failed a test whose
+  // actual condition still held. Ordering is the requirement; distance is not.
+  //
+  // Match the <script> tags specifically, not the bare filenames — the
+  // comment above nbd-url.js mentions "dashboard-actions.js" by name, and a
+  // plain indexOf would find that prose occurrence first and report a
+  // backwards order that doesn't exist.
+  const _tag = (f) => dashboard.search(new RegExp('<script\\s+defer\\s+src="js/' + f + ''));
+  const _urlAt = _tag('nbd-url\\.js');
+  const _actionsAt = _tag('dashboard-actions\\.js');
   assert('dashboard.html loads nbd-url.js BEFORE dashboard-actions.js',
-    /nbd-url\.js[\s\S]{0,500}dashboard-actions\.js/.test(dashboard),
+    _urlAt > -1 && _actionsAt > -1 && _urlAt < _actionsAt,
     'expected the nbd-url.js script tag to appear before dashboard-actions.js');
 
   // ── Zero raw bad-pattern literals in source ──

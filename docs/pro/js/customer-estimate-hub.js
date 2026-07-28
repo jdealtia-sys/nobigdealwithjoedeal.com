@@ -83,12 +83,33 @@
 
   // Estimate totals live under different keys in the two builders
   // (V2 grandTotal / Classic total|amount) — one reader for both.
+  //
+  // Defer to the canonical reader (customer-estimate-rows.js) rather than
+  // keeping a private copy. This matters because totalOf feeds the ★ Primary
+  // WRITE below, which stamps lead.jobValue — and per the pipeline wiring,
+  // lead.jobValue is what the kanban $, the KPIs and the leaderboard all read.
+  // A total this function reads low doesn't just render wrong, it can be
+  // committed over a live deal's value.
+  //
+  // The local fallback mirrors numFrom(): match the first numeric run and
+  // strip commas, instead of Number(v) || 0. Number('$14,500') is NaN and
+  // collapses to 0 — the shape the canonical reader has an explicit test for
+  // ('display-string amount'). No in-app producer writes a formatted total
+  // today (they all coerce with Number()), so this is defence against legacy
+  // and imported docs, not a live defect — but it is a money path, and the
+  // two readers disagreeing is exactly how the last $0-over-a-live-deal bug
+  // happened.
   function totalOf(est) {
     if (!est) return 0;
+    var api = window.NBDCustomerEstimateRows;
+    if (api && typeof api.estimateValue === 'function') return api.estimateValue(est);
     var v = est.grandTotal != null ? est.grandTotal
       : est.total != null ? est.total
       : est.amount != null ? est.amount : 0;
-    return Number(v) || 0;
+    if (typeof v === 'number') return isFinite(v) ? v : 0;
+    var m = String(v == null ? '' : v).match(/-?\d[\d,]*\.?\d*/);
+    var n = m ? parseFloat(m[0].replace(/,/g, '')) : NaN;
+    return isFinite(n) ? n : 0;
   }
   function isV2(est) {
     return !!(est && (est.builder === 'v2' || est.estimateVersion === 'v2'));
