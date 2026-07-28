@@ -257,7 +257,12 @@ body{background:var(--navy-dark);color:var(--white);display:grid;grid-template-c
     <div class="main-view" id="mainView">
       <div class="eyebrow">Pro Member Access</div>
       <h2 class="view-title">SIGN IN</h2>
-      <p class="view-sub">Not a member? <a href="/pro/landing.html#pricing">View plans →</a></p>
+      <!-- Direct signup path. This said "View plans →" (pricing page only) and
+           the footer below said "Invite-only" — so the ONE page a returning
+           visitor bookmarks offered no way to create an account, contradicting
+           the self-serve free tier the register and pricing pages sell. The
+           funnel was one-directional: register linked here, nothing linked back. -->
+      <p class="view-sub">Not a member? <a href="/pro/register.html">Create a free account →</a> <span style="opacity:.6">·</span> <a href="/pro/landing.html#pricing">View plans</a></p>
       <div class="alert alert-error" id="loginError"><span class="alert-icon">⚠</span><span id="loginErrorMsg">Invalid email or password.</span></div>
       <!-- Wrapped in a real <form> so Chrome/Safari/Firefox detect the
            email+password pair, offer autofill, and prompt to save the
@@ -282,8 +287,12 @@ body{background:var(--navy-dark);color:var(--white);display:grid;grid-template-c
           <div class="spinner"></div>
         </button>
       </form>
+      <!-- "Invite-only for NBD members" predates self-serve signup and directly
+           contradicted it. The contact links stay — this is the PLATFORM's login
+           page, so the platform operator's support channel is correct here
+           (unlike tenant-facing paper, where NBD identity is a leak). -->
       <div class="fn">
-        Invite-only for NBD members. Questions? <a href="tel:8594207382">(859) 420-7382</a> or <a href="mailto:jd@nobigdealwithjoedeal.com">email Joe</a>
+        New here? <a href="/pro/register.html">Sign up free</a> — no credit card, 10 leads a month. Questions? <a href="tel:8594207382">(859) 420-7382</a> or <a href="mailto:jd@nobigdealwithjoedeal.com">email Joe</a>
       </div>
     </div>
     <div class="reset-view" id="resetView">
