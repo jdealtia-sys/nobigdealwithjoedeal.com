@@ -225,6 +225,17 @@ jobs:
       - name: Run portal-link minter tests
         run: node tests/portal-link-minter.test.js
 
+      # Quick-action bar Comm Log: crm-snooze.js's capture-phase tel:/sms:/mailto:
+      # logger is NOT loaded on customer.html, so taps on the mobile quick-action
+      # bar reached the timeline from nowhere — a rep could call a customer and
+      # later find no record of it. Pins BOTH halves of the correct fix: the tap
+      # logs, AND the buttons stay sms:/mailto: anchors (an earlier attempt wired
+      # Text to PortalLinkHelpers.smsForLead, which POSTs to Twilio with no
+      # preview — an unreviewed message to a homeowner behind a "Text" button).
+      # Drives the real module in a fake-DOM sandbox. Dependency-free.
+      - name: Run quick-action-bar comm-log tests
+        run: node tests/qab-comm-log.test.js
+
       # Stranger-gauntlet Fix Batch 1 (2026-07-16): invite-claim flag scoping,
       # past_due seat entitlement, company-keyed AI billing reads, invitee
       # register bypass, letterhead tagline gate, @stranger-required CI shape.

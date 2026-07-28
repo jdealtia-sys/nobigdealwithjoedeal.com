@@ -157,9 +157,12 @@
       // message to the homeowner. An irreversible customer-facing send behind a
       // mislabelled control is strictly worse than a missing log line.
       //
-      // The Comm Log gap is real and still open — the fix is a logger on this
-      // page, or a compose step, not a silent send. Kanban's equivalent control
-      // is honestly labelled "Text portal link" for exactly this reason.
+      // That Comm Log gap is now CLOSED the right way — see the capture-phase
+      // listener below, which routes these taps through the page's own
+      // logCommunication(). The anchors stay anchors; the log happens
+      // alongside the navigation instead of replacing it with a send.
+      // Kanban's equivalent control is honestly labelled "Text portal link"
+      // for exactly the reason above, and should stay that way.
       buttons.push(`
         <a class="qab-btn qab-sms" href="sms:${escapeAttr(phone)}" aria-label="Text ${escapeAttr(lead.phone)}">
           <span class="qab-icon">💬</span><span>Text</span>
@@ -181,8 +184,49 @@
     if (buttons.length === 0) return null;
     bar.innerHTML = buttons.join('');
 
-    // Call / Text / Email are anchors and handle themselves; only Task needs
-    // wiring.
+    // Call / Text / Email navigate on their own (tel:/sms:/mailto: hand off to
+    // the OS composer). They still have to reach the Comm Log.
+    //
+    // The gap this closes: on the dashboard, crm-snooze.js installs a
+    // capture-phase delegate that logs EVERY tel:/sms:/mailto: click. That file
+    // is not loaded on customer.html, so taps on this bar reached the timeline
+    // from nowhere — a rep could call a customer from the bar and, weeks later,
+    // find no record it happened.
+    //
+    // Routing through window.logCommunication (customer-bootstrap.module.js,
+    // exposed globally there) rather than porting the crm-snooze delegate: it
+    // is the page's own canonical logger, and it does strictly more — refreshes
+    // the timeline so the entry appears immediately, and stamps
+    // lastContactedAt / lastContactType on the lead, which the follow-up logic
+    // reads. Duplicating a second writer against `communications` is exactly
+    // the kind of drift that leaves two implementations disagreeing.
+    //
+    // Never block navigation: the log is fire-and-forget, the protocol handler
+    // fires as normal, and a logging failure must not cost the rep the call.
+    bar.addEventListener('click', (e) => {
+      const a = e.target && e.target.closest && e.target.closest('a[href]');
+      if (!a || !bar.contains(a)) return;
+      const href = a.getAttribute('href') || '';
+      const type = href.startsWith('tel:') ? 'call'
+        : href.startsWith('sms:') ? 'sms'
+        : href.startsWith('mailto:') ? 'email' : null;
+      if (!type) return;
+      const leadId = window._customerId;
+      if (!leadId || typeof window.logCommunication !== 'function') return;
+      const who = (lead && (lead.firstName || lead.name)) || 'customer';
+      const label = {
+        call: 'Called ' + who + ' from the quick bar',
+        sms: 'Texted ' + who + ' from the quick bar',
+        email: 'Emailed ' + who + ' from the quick bar',
+      }[type];
+      try {
+        Promise.resolve(window.logCommunication(leadId, type, label))
+          .catch((err) => console.warn('[qab] comm log failed:', err && err.message));
+      } catch (err) {
+        console.warn('[qab] comm log threw:', err && err.message);
+      }
+    }, true); // capture — fire before anything that might stopPropagation
+
     const taskBtn = bar.querySelector('.qab-task');
     if (taskBtn) {
       taskBtn.addEventListener('click', () => {
