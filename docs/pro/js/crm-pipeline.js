@@ -326,21 +326,63 @@ function renderLeads(leads, filtered){
   const diagnostic = document.getElementById('crmDiagnostic');
   const diagnosticDetails = document.getElementById('crmDiagnosticDetails');
   const loadCompleted = window._leadsLoaded === true;
+  // AN EMPTY BOARD IS NOT A BROKEN BOARD.
+  //
+  // This gate was (loadCompleted && all.length === 0), which every brand-new
+  // account satisfies permanently — they have no leads by definition. So a
+  // first-time contractor clicking any track tab, toggling Board/List, clearing
+  // a search or reloading on #/crm was shown an orange-bordered panel reading
+  // "⚠️ CRM Diagnostic — Your kanban isn't loading", above a monospace dump of
+  // his email and Firebase UID and the line "Firestore rules blocking reads
+  // (check Firebase Console)". Nothing was wrong. It is the most alarming
+  // thing this product can say to someone on day one, and it recurred all
+  // session because the dismiss isn't persisted.
+  //
+  // The diagnostic is genuinely valuable when a read actually FAILS, so the
+  // discriminator is the error, not the count — same correction as the
+  // load-status banner (#1118).
+  const loadErr = window._loadLeadsLastError || null;
+  const title = document.getElementById('crmDiagnosticTitle');
+  const lede = document.getElementById('crmDiagnosticLede');
+  const debugTools = document.getElementById('crmDiagnosticDebugTools');
+  const debugToggle = document.getElementById('crmDiagnosticDebugToggle');
+  const _setDebugVisible = (on) => {
+    if (debugTools) debugTools.style.display = on ? 'contents' : 'none';
+    if (debugToggle) debugToggle.style.display = on ? '' : 'none';
+    if (diagnosticDetails) diagnosticDetails.style.display = on ? '' : 'none';
+  };
+
   if (loadCompleted && all.length === 0 && window._user?.uid && diagnostic && diagnosticDetails) {
-    const details = [
-      `✓ User authenticated: ${window._user.email}`,
-      `✓ User ID: ${window._user.uid}`,
-      `✓ Database connected: ${window.db ? 'Yes' : 'No'}`,
-      `✓ Leads in memory: ${all.length}`,
-      ``,
-      `Possible causes:`,
-      `1. No leads created yet for this account`,
-      `2. Firestore rules blocking reads (check Firebase Console)`,
-      `3. Network connectivity issue`,
-      ``,
-      `Click Load Sample Data to add 5 test leads`
-    ];
-    diagnosticDetails.textContent = details.join('\n');
+    if (loadErr) {
+      // Genuine failure — the original diagnostic, unchanged.
+      if (title) title.textContent = '⚠️ CRM Diagnostic';
+      if (lede) lede.textContent = "Your kanban isn't loading. Here's what we're seeing:";
+      _setDebugVisible(true);
+      const details = [
+        `✓ User authenticated: ${window._user.email}`,
+        `✓ User ID: ${window._user.uid}`,
+        `✓ Database connected: ${window.db ? 'Yes' : 'No'}`,
+        `✓ Leads in memory: ${all.length}`,
+        `✗ Last error: ${(loadErr.code || loadErr.name || 'error')}: ${(loadErr.message || '').slice(0, 160)}`,
+        ``,
+        `Possible causes:`,
+        `1. Firestore rules blocking reads (check Firebase Console)`,
+        `2. Network connectivity issue`,
+        ``,
+        `Click Retry Load, or Load Sample Data to add 5 test leads`
+      ];
+      diagnosticDetails.textContent = details.join('\n');
+    } else {
+      // Simply empty — a first-run invitation, not an error report. No UID
+      // dump, no rules blame, no debug tools; Load Sample Data stays because
+      // an empty account is exactly who wants to see a populated board.
+      if (title) title.textContent = '👋 Your pipeline is ready';
+      if (lede) {
+        lede.textContent = 'No leads yet — tap ＋ Add Lead to create your first one, '
+          + 'or load a few samples to see how the board works.';
+      }
+      _setDebugVisible(false);
+    }
     diagnostic.style.display = 'block';
   } else if (diagnostic) {
     diagnostic.style.display = 'none';

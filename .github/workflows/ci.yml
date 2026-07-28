@@ -272,6 +272,15 @@ jobs:
       - name: Run empty-tenant load-banner tests
         run: node tests/empty-tenant-load-banner.test.js
 
+      # Empty-is-not-failed (companion to the load-status banner fix): the CRM
+      # entry was gated on lead COUNT, so a zero-lead tenant got no kanban
+      # columns at all, and the diagnostic panel keyed off count instead of the
+      # error — telling every new signup "Your kanban isn't loading" over a dump
+      # of their Firebase UID. Pins that the board renders empty, the friendly
+      # branch leaks no diagnostics, and the failure branch keeps its tools.
+      - name: Run empty-is-not-failed tests
+        run: node tests/empty-is-not-failed.test.js
+
       # Portal-link minter: portal-link-helpers.js ships on customer.html AND
       # both dashboards, but the two page families expose different minters
       # (CustomerPortal.mintUrl vs _mintPortalUrl). Requiring only the former
