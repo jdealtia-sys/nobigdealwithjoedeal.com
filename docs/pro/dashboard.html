@@ -5404,6 +5404,15 @@
 <script defer src="js/nbd-url.js?v=1"></script>
 <script defer src="js/dashboard-state.js?v=2"></script>
 <script defer src="js/dashboard-api.js?v=2"></script>
+<!-- Canonical two-shape estimate money reader (window.NBDCustomerEstimateRows).
+     Must load BEFORE its consumers below (customer-estimate-hub, invoice-pipeline,
+     dashboard-widgets), which all read V2 grandTotal / Classic total|amount.
+     Those consumers guard with `window.NBDCustomerEstimateRows && ...` and fall
+     back to a weaker inline ladder — on this page the guard never matched,
+     because this file was only ever loaded on customer.html, so the dashboard
+     silently ran the fallbacks. Dependency-free and already unit-tested
+     (tests/customer-estimate-rows.test.js). -->
+<script defer src="js/customer-estimate-rows.js?v=1"></script>
 <script defer src="js/customer-estimate-hub.js?v=1"></script>
 <script defer src="js/customer-photo-hub.js?v=1"></script>
 <script defer src="js/estimate-preview.js?v=1"></script>

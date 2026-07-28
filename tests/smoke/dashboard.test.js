@@ -3850,4 +3850,58 @@ section('Search job cards: palette phone/email search + RoofLink-style result ro
     /js\/command-palette\.js\?v=([2-9]|\d{2,})/.test(dash));
 }
 
+section('Canonical estimate money reader ships with its consumers');
+{
+  // customer-estimate-rows.js owns estimateValue() — the ONE reader that maps
+  // both estimate shapes (V2 grandTotal / Classic total|amount) to a number.
+  // Its consumers all guard with `window.NBDCustomerEstimateRows && ...` and
+  // fall back to a weaker inline ladder, which makes a missing <script> tag
+  // invisible: nothing throws, the numbers just quietly come out low or zero.
+  //
+  // It was loaded ONLY on customer.html, so every consumer on both dashboard
+  // pages ran the fallback — including invoice-pipeline (a money path) and the
+  // embedded estimate hub, whose ★ Primary button writes lead.jobValue, the
+  // value the kanban $, KPIs and leaderboard all read.
+  //
+  // So: any page loading a consumer must also load the reader, BEFORE it.
+  const CONSUMERS = [
+    'customer-estimate-hub.js',
+    'invoice-pipeline.js',
+    'dashboard-widgets.js',
+  ];
+  const PAGES = ['docs/pro/dashboard.html', 'docs/pro/dashboard.legacy.html', 'docs/pro/customer.html'];
+
+  for (const page of PAGES) {
+    const html = read(path.join(ROOT, page));
+    const used = CONSUMERS.filter((c) => html.includes(c));
+    if (!used.length) continue;
+    const readerAt = html.indexOf('customer-estimate-rows.js');
+    assert(`${page} loads the canonical reader (consumers: ${used.join(', ')})`,
+      readerAt > -1,
+      'without it these consumers silently fall back to a weaker money ladder');
+    // Order matters for the same reason nbd-url.js loads before its callers:
+    // a consumer that runs first sees window.NBDCustomerEstimateRows undefined.
+    for (const c of used) {
+      assert(`${page} loads the reader before ${c}`,
+        readerAt > -1 && readerAt < html.indexOf(c),
+        'defer scripts execute in document order — a later reader is too late');
+    }
+  }
+
+  // The hub keeps a local fallback for the case where the reader is absent.
+  // It must parse display strings the way numFrom() does; Number('$14,500')
+  // is NaN and collapses to 0, which is how a live deal gets zeroed.
+  const hub = read(path.join(PRO_JS, 'customer-estimate-hub.js'));
+  assert('hub totalOf prefers the canonical reader',
+    /NBDCustomerEstimateRows[\s\S]{0,120}estimateValue/.test(hub));
+  assert('hub totalOf fallback strips commas instead of Number()-ing a display string',
+    /match\(\/-\?\\d\[\\d,\]\*\\\.\?\\d\*\//.test(hub) && /replace\(\/,\/g, ''\)/.test(hub));
+
+  // Classic docs carry their value on `amount`; a ladder that stops at
+  // grandTotal|total scores them 0 and drops the "· $X" suffix entirely.
+  const dw = read(path.join(PRO_JS, 'dashboard-widgets.js'));
+  assert('job-detail activity reads Classic `amount`, not just grandTotal|total',
+    /estimateValue\(e\)/.test(dw) && /e\.amount/.test(dw));
+}
+
 };
