@@ -40,6 +40,48 @@
   window.TRADES = TRADES;
   window.SUB_TYPES = SUB_TYPES;
   window.JOB_TYPE_META = JOB_TYPE_META;
+
+  // ─── Estimate money: one reader, one stamping rule ──────────────────
+  //
+  // Three separate places in this file stamped lead.jobValue from an estimate,
+  // and all three read `Number(est.grandTotal) || 0` — grandTotal ONLY. Classic
+  // estimates carry their value on `total` or `amount` (it is what the customer
+  // page's own Log Estimate flow writes), so every one of them scored 0.
+  //
+  // The guard was applied inconsistently on top of that: the first-estimate
+  // branch of _assignEstimateToLead had `if (newVal > 0)` with the comment
+  // "never zero a KPI off an estimate with no total" — while its own re-assign
+  // branch, and BOTH branches of the duplicate-estimate flow, wrote the 0
+  // straight through. So the same rule the author wrote down was enforced in
+  // one of four places.
+  //
+  // That matters because lead.jobValue is the number the kanban column totals,
+  // the KPI tiles, the leaderboard and the customer header all read. Zeroing it
+  // silently deletes a deal's value from every money surface at once, and the
+  // confirm the rep clicked through said "Use this estimate's $0 instead?" —
+  // which reads like a bug in the estimate, not a warning about the lead.
+  //
+  // _estValue: the canonical two-shape reader (customer-estimate-rows.js, loaded
+  // on this page since #1110), with a fallback mirroring its numFrom so a
+  // missing script degrades to the same answers rather than to zero.
+  const _estValue = (est) => {
+    const api = window.NBDCustomerEstimateRows;
+    if (api && typeof api.estimateValue === 'function') return api.estimateValue(est);
+    if (!est) return 0;
+    const v = est.grandTotal != null ? est.grandTotal
+      : est.total != null ? est.total
+      : est.amount != null ? est.amount : 0;
+    if (typeof v === 'number') return isFinite(v) ? v : 0;
+    const m = String(v == null ? '' : v).match(/-?\d[\d,]*\.?\d*/);
+    const n = m ? parseFloat(m[0].replace(/,/g, '')) : NaN;
+    return isFinite(n) ? n : 0;
+  };
+  // _canStampJobValue: the rule, in one place. A 0 is never worth writing —
+  // not over an existing value, and not as a lead's first one. A genuine $0
+  // draft is indistinguishable here from an estimate we simply failed to read,
+  // and the cost of the two mistakes is not symmetric: skipping the stamp loses
+  // nothing (the rep can set it), writing the 0 destroys a real number.
+  const _canStampJobValue = (v) => Number.isFinite(v) && v > 0;
   // Phase marker for the pre-module error trap (v159.5+) so the diag
   // banner can pinpoint where init died if a downstream import throws.
   window.__nbdMark && window.__nbdMark('m2:stagesImport');
@@ -3438,10 +3480,15 @@
                 // forward (to Contacted, since a real number now exists);
                 // never regress a lead already further along the funnel.
                 const stampUpdate = {
-                  jobValue: Number(data.grandTotal) || 0,
                   primaryEstimateId: ref2.id,
                   lastEstimateAt: serverTimestamp(),
                 };
+                // Only stamp a jobValue the pipeline can trust (see _estValue /
+                // _canStampJobValue). Previously wrote `Number(data.grandTotal) || 0`
+                // unconditionally, so a Classic estimate set the lead's very first
+                // job value to $0.
+                const _firstVal = _estValue(data);
+                if (_canStampJobValue(_firstVal)) stampUpdate.jobValue = _firstVal;
                 if (normalizeStage(lead.stage) === S.NEW) {
                   stampUpdate.stage = S.CONTACTED;
                   stampUpdate.stageRole = stageRole(S.CONTACTED);
@@ -3454,18 +3501,30 @@
                 // already uses elsewhere (nbdConfirm, falling back to the
                 // native confirm()).
                 const existingVal = Number(lead.jobValue) || 0;
-                const newVal = Number(data.grandTotal) || 0;
-                const ask = window.nbdConfirm || ((m) => Promise.resolve(window.confirm(m)));
-                const useNew = await ask(
-                  `This lead's job value is currently $${existingVal.toLocaleString()} (from an earlier estimate). ` +
-                  `Use this new estimate's $${newVal.toLocaleString()} instead?`
-                );
-                if (useNew) {
+                const newVal = _estValue(data);
+                // Never OFFER to trade a real job value for a zero. The old code
+                // read grandTotal alone, so a Classic estimate produced the
+                // prompt "Use this new estimate's $0 instead?" — which reads as a
+                // broken estimate rather than a warning, and clicking through
+                // wiped the deal's value from the kanban, KPIs and leaderboard.
+                if (!_canStampJobValue(newVal)) {
                   await updateDoc(leadRef, {
-                    jobValue: newVal,
                     primaryEstimateId: ref2.id,
                     lastEstimateAt: serverTimestamp(),
                   });
+                } else {
+                  const ask = window.nbdConfirm || ((m) => Promise.resolve(window.confirm(m)));
+                  const useNew = await ask(
+                    `This lead's job value is currently $${existingVal.toLocaleString()} (from an earlier estimate). ` +
+                    `Use this new estimate's $${newVal.toLocaleString()} instead?`
+                  );
+                  if (useNew) {
+                    await updateDoc(leadRef, {
+                      jobValue: newVal,
+                      primaryEstimateId: ref2.id,
+                      lastEstimateAt: serverTimestamp(),
+                    });
+                  }
                 }
               }
               // Claim unification: claim facts typed into the estimate
@@ -3606,7 +3665,7 @@
           const leadSnap = await getDoc(leadRef);
           if (leadSnap.exists()) {
             const lead = leadSnap.data();
-            const newVal = Number(est && est.grandTotal) || 0;
+            const newVal = _estValue(est);
             if (!lead.primaryEstimateId) {
               const stampUpdate = {
                 primaryEstimateId: id,
@@ -3614,25 +3673,36 @@
               };
               // Only stamp a jobValue the pipeline can trust — never
               // zero a KPI off an estimate with no total.
-              if (newVal > 0) stampUpdate.jobValue = newVal;
+              if (_canStampJobValue(newVal)) stampUpdate.jobValue = newVal;
               if (normalizeStage(lead.stage) === S.NEW) {
                 stampUpdate.stage = S.CONTACTED;
                 stampUpdate.stageRole = stageRole(S.CONTACTED);
               }
               await updateDoc(leadRef, stampUpdate);
             } else if (lead.primaryEstimateId !== id) {
-              const existingVal = Number(lead.jobValue) || 0;
-              const ask = window.nbdConfirm || ((m) => Promise.resolve(window.confirm(m)));
-              const useNew = await ask(
-                `This lead's job value is currently $${existingVal.toLocaleString()} (from an earlier estimate). ` +
-                `Use this estimate's $${newVal.toLocaleString()} instead?`
-              );
-              if (useNew) {
+              // Same rule as the branch above, which this one did NOT share:
+              // it wrote jobValue unconditionally, so re-assigning a Classic
+              // estimate offered "Use this estimate's $0 instead?" and, on Yes,
+              // zeroed a live deal across every money surface.
+              if (!_canStampJobValue(newVal)) {
                 await updateDoc(leadRef, {
-                  jobValue: newVal,
                   primaryEstimateId: id,
                   lastEstimateAt: serverTimestamp(),
                 });
+              } else {
+                const existingVal = Number(lead.jobValue) || 0;
+                const ask = window.nbdConfirm || ((m) => Promise.resolve(window.confirm(m)));
+                const useNew = await ask(
+                  `This lead's job value is currently $${existingVal.toLocaleString()} (from an earlier estimate). ` +
+                  `Use this estimate's $${newVal.toLocaleString()} instead?`
+                );
+                if (useNew) {
+                  await updateDoc(leadRef, {
+                    jobValue: newVal,
+                    primaryEstimateId: id,
+                    lastEstimateAt: serverTimestamp(),
+                  });
+                }
               }
             }
           }

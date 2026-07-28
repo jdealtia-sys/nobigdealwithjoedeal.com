@@ -97,8 +97,20 @@ section('Linkage invariant: unattached saves are warned; Assign stamps the pipel
   const fn = dash.slice(at, at + 6000);
   assert('assign stamps primaryEstimateId + lastEstimateAt on a first-estimate lead',
     /primaryEstimateId: id,\s*lastEstimateAt: serverTimestamp\(\)/.test(fn));
-  assert('assign stamps jobValue only when grandTotal is positive (never zeroes a KPI)',
-    /if \(newVal > 0\) stampUpdate\.jobValue = newVal/.test(fn));
+  // Asserted by intent, not by the literal comparison. This pinned
+  // `if (newVal > 0) stampUpdate.jobValue = newVal`, which was the rule
+  // expressed inline in ONE of the four branches that stamp jobValue — the
+  // other three wrote a 0 straight through. The rule now lives in a shared
+  // _canStampJobValue() consulted by all of them, so the literal is gone and
+  // the guarantee is strictly stronger.
+  assert('assign stamps jobValue only when the value is positive (never zeroes a KPI)',
+    /_canStampJobValue\(newVal\)\) stampUpdate\.jobValue = newVal/.test(fn));
+  // And the value being tested must come from the two-shape reader — a guard
+  // in front of a grandTotal-only read still zeroes every Classic estimate.
+  assert('assign reads the estimate value two-shape (not grandTotal alone)',
+    /const newVal = _estValue\(est\)/.test(fn));
+  assert('the re-assign branch shares the same guard (it used to write 0 through)',
+    /if \(!_canStampJobValue\(newVal\)\)/.test(fn));
   assert('assign confirms before clobbering an existing rep-confirmed primary',
     /lead\.primaryEstimateId !== id[\s\S]{0,700}nbdConfirm/.test(fn));
   assert('assign bumps a stone-cold NEW lead to Contacted (parity with _saveEstimate)',

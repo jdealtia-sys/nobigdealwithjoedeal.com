@@ -448,8 +448,21 @@
 
     // ── Estimates ──
     var totalEstimates = estimates.length;
+    // Two-shape read. This laddered total -> grandTotal and stopped, with no
+    // `amount` rung, so Classic estimates contributed 0 to the numerator while
+    // still counting in totalEstimates below — dragging the "Avg value" label
+    // down twice over.
+    var _estValue = (window.NBDCustomerEstimateRows && window.NBDCustomerEstimateRows.estimateValue)
+      || function (e) {
+        if (!e) return 0;
+        var v = e.grandTotal != null ? e.grandTotal
+          : e.total != null ? e.total
+          : e.amount != null ? e.amount : 0;
+        var n = typeof v === 'number' ? v : parseFloat(String(v).replace(/[^0-9.-]/g, ''));
+        return isFinite(n) ? n : 0;
+      };
     var estTotalValue = estimates.reduce(function (sum, e) {
-      return sum + (parseFloat(e.total) || parseFloat(e.grandTotal) || 0);
+      return sum + _estValue(e);
     }, 0);
     var avgEstimateValue = totalEstimates > 0 ? estTotalValue / totalEstimates : 0;
 

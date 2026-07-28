@@ -214,6 +214,16 @@ jobs:
       - name: Run hidden-stage bucketing tests
         run: node tests/hidden-stage-bucketing.test.js
 
+      # Estimate money ladder: estimates exist in two shapes (V2 grandTotal /
+      # Classic amount|total), and Classic is what the customer page's Log
+      # Estimate flow writes. Reading grandTotal alone scored every Classic doc
+      # 0 — which stamped lead.jobValue to $0 (the number the kanban, KPIs and
+      # leaderboard all read) and wrote `total: 0` invoice docs to Firestore.
+      # Pins the reader contract AND statically guards the money-bearing files,
+      # because a missing ladder rung is invisible to any test fed only V2 docs.
+      - name: Run estimate money-ladder tests
+        run: node tests/estimate-money-ladder.test.js
+
       # Portal-link minter: portal-link-helpers.js ships on customer.html AND
       # both dashboards, but the two page families expose different minters
       # (CustomerPortal.mintUrl vs _mintPortalUrl). Requiring only the former

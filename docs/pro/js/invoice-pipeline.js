@@ -270,7 +270,10 @@ let _NBD_IP_DELEGATE_BOUND; // module-local (globals Tranche 1 — was window.*)
   function buildRowItems(est) {
     const markup = Number(est && est.materialMarkupPct);
     const hasV2Pricing = Number.isFinite(markup);
-    const items = ((est && est.rows) || []).map(function (row) {
+    // Classic docs carry their lines on `lineItems`, V2 on `rows`. Reading
+    // `rows` alone silently produced an empty item list for every Classic
+    // estimate — which is how a $0 invoice got written for a $14,200 job.
+    const items = ((est && (est.rows || est.lineItems)) || []).map(function (row) {
       const quantity = numFrom(row.qty);
       const explicitRetail = (row.retailTotal != null && Number.isFinite(Number(row.retailTotal)))
         ? Number(row.retailTotal) : null;
@@ -383,7 +386,18 @@ let _NBD_IP_DELEGATE_BOUND; // module-local (globals Tranche 1 — was window.*)
       // scope skips tax → 0 honored; fall back to 7.5% only when no rate saved).
       const taxRate = (typeof est.taxRate === 'number') ? est.taxRate : 0.075;
 
-      const savedGrand = Number(est.grandTotal);
+      // Two-shape read, not grandTotal alone. Classic estimates (title /
+      // amount|total / lineItems) carry no grandTotal, so this scored NaN,
+      // hasLockedTotal went false, and buildRowItems — which mapped est.rows
+      // only — returned []. Every downstream number then computed 0 and a
+      // `total: 0` invoice was written to Firestore before Stripe rejected it,
+      // leaving an orphan $0 draft in the AR rollups. The picker that chose the
+      // estimate had shown the right figure all along; it uses estimateValue.
+      const _rowsApi = window.NBDCustomerEstimateRows;
+      const savedGrand = (_rowsApi && typeof _rowsApi.estimateValue === 'function')
+        ? _rowsApi.estimateValue(est)
+        : numFrom(est.grandTotal != null ? est.grandTotal
+            : est.total != null ? est.total : est.amount);
       const hasLockedTotal = Number.isFinite(savedGrand) && savedGrand > 0;
       const isPerSq = (est.priceMode === 'per-sq') || (est.prices != null);
 
@@ -521,6 +535,17 @@ let _NBD_IP_DELEGATE_BOUND; // module-local (globals Tranche 1 — was window.*)
         // operators key by uid (companyId == uid convention).
         companyId: window._userClaims?.companyId || window._auth?.currentUser?.uid || null
       };
+
+      // Backstop — refuse to persist a zero invoice, whatever produced it.
+      // The two-shape reads above fix the known cause, but an invoice for $0 is
+      // never a thing a rep meant to create: Stripe rejects it downstream
+      // ("Invoice has no line items"), so the only lasting effect is an orphan
+      // draft that still counts in the AR rollups on the money dashboard and in
+      // analytics. Failing here costs the rep one error toast; succeeding costs
+      // them a wrong receivables number they have no obvious way to find.
+      if (!(Number(invoiceData.total) > 0)) {
+        throw new Error('This estimate has no dollar total — open it and set a price before invoicing.');
+      }
 
       const invoiceRef = await window.addDoc(window.collection(db, 'invoices'), invoiceData);
 
