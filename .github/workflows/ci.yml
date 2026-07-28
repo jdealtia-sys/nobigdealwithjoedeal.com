@@ -251,12 +251,20 @@ jobs:
       - uses: actions/setup-node@v5
         with:
           node-version: '22'
-      - name: Parse every .js under functions/ and docs/pro/js/
-        run: |
-          set -e
-          for f in $(find functions docs/pro/js -name '*.js' -not -path '*/node_modules/*' -not -path '*/_archive/*'); do
-            node --check "$f"
-          done
+      # Parse-checks every FIRST-PARTY shipped .js under functions/ + docs/.
+      #
+      # This used to be an inline `for f in $(find functions docs/pro/js ...)`
+      # loop, which left ~80 shipped files unchecked by anything in CI — most
+      # importantly all of docs/assets/js/inline/, the directory the CSP sweeps
+      # moved every former inline <script> and on*= handler into. A syntax
+      # error there renders a page dead with nothing else in CI noticing.
+      #
+      # The script widens coverage to all of docs/ (excluding assets/vendor,
+      # _archive, node_modules), and is ~6x faster than the serial loop because
+      # it runs a CPU-sized pool instead of one blocking spawn per file. It is
+      # also reused verbatim as the pre-Hosting gate in firebase-deploy.yml.
+      - name: Parse every shipped first-party .js
+        run: node scripts/check-js-syntax.js
 
   firestore-rules:
     name: Firestore rules tests
@@ -450,15 +458,31 @@ jobs:
     # auto-connects to emulators on localhost via nbd-emulator-connect.js),
     # and run pro-authed.spec.js against it. No prod credentials involved.
     #
-    # @stranger is REQUIRED (gauntlet 2026-07-16): it is the ONLY runtime
-    # proof anywhere in CI that a stranger can self-provision (register →
-    # createCompany → onboarding → claimInvite → isolation). The legacy
-    # shards run functions-LESS and explicitly allowlist createCompany
-    # connection-refusals, and the deploy workflow gates only smoke+rules —
-    # so with this advisory, a regression that bricked new-tenant signup
-    # merged green. Its flake shields are mature (own emulator session,
-    # retries=3, SW blocked); the remaining shards stay advisory until
-    # they earn the same promotion.
+    # @stranger was promoted to REQUIRED first (gauntlet 2026-07-16): it is the
+    # ONLY runtime proof anywhere in CI that a stranger can self-provision
+    # (register → createCompany → onboarding → claimInvite → isolation). The
+    # legacy shards run functions-LESS and explicitly allowlist createCompany
+    # connection-refusals, so with it advisory, a regression that bricked
+    # new-tenant signup merged green.
+    #
+    # ALL FIVE ARE NOW REQUIRED (2026-07-28). The remaining four were held
+    # advisory "until they earn the same promotion" — they have now earned it:
+    # across all 60 CI runs on main since the 2026-07-08 knock→lead poll-race
+    # fix (#912), @shard1, @shard2 and @audit are 60/60 green and @gauntlet is
+    # 59/59 (+1 cancelled). The only shard to fail even once in that window is
+    # @stranger — the one that was already blocking.
+    #
+    # That last documented flake class was a TEST-side race, not a product bug
+    # (the poll broke on convertedToLead before the separate _saveLead
+    # back-link write landed), and it was fixed at the source rather than
+    # absorbed by this flag. That is the bar for promotion: fix the race, prove
+    # it green, then make it blocking — not the reverse.
+    #
+    # Left advisory, these were worse than nothing: they burn ~5 runners a push
+    # and a real regression in any of them still merges green, so the signal
+    # was being produced and then discarded. To re-park a shard that starts
+    # flaking, prefer fixing the race; if you must, add a per-shard exclusion
+    # here and record WHY, as the @stranger promotion note above does.
     #
     # FLAKE CLASS + FIX (2026-07-05): with 16 serial journeys in ONE
     # emulator session, the Java Firestore emulator intermittently dropped
@@ -470,7 +494,7 @@ jobs:
     # emulator session at roughly half load, selected via PLAYWRIGHT_GREP.
     # If a rotating victim reappears, split further or slim the per-test
     # dashboard boot - do NOT chase individual tests.
-    continue-on-error: ${{ matrix.shard != '@stranger' }}
+    continue-on-error: false
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v5
