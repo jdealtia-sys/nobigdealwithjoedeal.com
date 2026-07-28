@@ -6386,4 +6386,9 @@
      gets ground truth: code version, _leadsLoaded, error code, retry
      count, online state. Trivial to dismiss; auto-fades to ~30%
      opacity when leads finally load. -->
-<script src="js/dashboard-load-status-banner.js?v=1"></script>
+<!-- v2: the "Data not loaded" false-positive fix. The version query is the
+     cache-bust convention here, and it is load-bearing for THIS change — the
+     banner script is a plain (non-module) classic script that browsers cache
+     hard, so shipping the fix without bumping it leaves every warm cache
+     showing the old false error. -->
+<script src="js/dashboard-load-status-banner.js?v=2"></script>
