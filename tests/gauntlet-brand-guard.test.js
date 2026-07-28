@@ -36,6 +36,22 @@ const FILES = [
   'docs/pro/js/customer-portal.js',
   'functions/print/templates/warranty.hbs',
   'functions/print/partials/coverPage.hbs',
+  // Added after the first-run audit. Every one of these leaked the platform
+  // owner's identity into something a HOMEOWNER receives, and every one
+  // survived purely because it wasn't on this list — the checks below would
+  // have caught them on day one:
+  //   estimate-v2-ui.js       preparedBy:'Joe Deal' on the BoldSign-signed instrument
+  //   d2d-tracker-core        "from NBD Home Solutions" in six knock-follow-up templates
+  //   dashboard-ui.js         "- No Big Deal Exteriors" signing a tenant's booking email
+  //   crm-portal-bridge.js    "Joe from No Big Deal Home Solutions" in a follow-up SMS
+  //   review-engine.js        "Joe & the NBD team" + the owner's cell in a review ask
+  // A file-list omission is a silent hole; prefer adding a file here over
+  // trusting that it has no customer-facing output.
+  'docs/pro/js/estimate-v2-ui.js',
+  'docs/pro/js/d2d-tracker-core-2026b.js',
+  'docs/pro/js/dashboard-ui.js',
+  'docs/pro/js/crm-portal-bridge.js',
+  'docs/pro/js/review-engine.js',
 ];
 
 // Rendered NBD-identity literals that must never appear ungated on a tenant path.

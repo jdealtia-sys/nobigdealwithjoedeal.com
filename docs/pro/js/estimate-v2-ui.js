@@ -19,6 +19,45 @@
   'use strict';
   if (typeof window === 'undefined') return;
 
+  // ─── Tenant identity on customer-facing estimates ────────────────────
+  //
+  // These were hardcoded `preparedBy: 'Joe Deal'` and `number: 'NBD-V2-' + …`.
+  // Both reach paper a homeowner signs: formatEstimate() renders "Scope
+  // Prepared By" into the retail quote, and sendForSignature passes that HTML
+  // verbatim to BoldSign — so the executed instrument named the wrong
+  // contracting party. estimate-finalization.js already HAS the correct
+  // non-NBD gate; it just never fired, because `est.preparedBy` was always
+  // truthy and short-circuited it.
+  //
+  // Same shape as email_system.js _brandFields(): resolve once, and never use
+  // an NBD literal as a `||` fallback — _resolveBrand() blanks unset tenant
+  // fields to '', so `x || 'Joe Deal'` re-injects the owner's identity exactly
+  // where a tenant left something empty.
+  function _v2Brand() {
+    let b = null;
+    try { if (typeof window._brand === 'function') b = window._brand() || null; } catch (e) { b = null; }
+    const isNbd = !b || !b.legalName || b.legalName === 'No Big Deal Home Solutions';
+    return { b: b || {}, isNbd };
+  }
+  function _v2PreparedBy() {
+    const { isNbd } = _v2Brand();
+    // NBD keeps its exact literal (byte-identical output for the owner).
+    if (isNbd) return 'Joe Deal';
+    // A tenant signs their own paper: the logged-in rep, else nothing. Never
+    // a fallback to the owner's name.
+    return (window._user && (window._user.displayName || window._user.email)) || '';
+  }
+  function _v2EstNumber(suffix) {
+    // _custIdPrefix() already returns 'NBD' for the platform tenant and a
+    // derived/reserved prefix for everyone else — so this stays 'NBD-V2-…'
+    // for the owner and becomes e.g. 'SRR-V2-…' for a tenant.
+    let prefix = 'NBD';
+    try {
+      if (typeof window._custIdPrefix === 'function') prefix = window._custIdPrefix() || 'NBD';
+    } catch (e) { /* keep the default */ }
+    return prefix + '-V2-' + suffix;
+  }
+
   // Session state
   const state = {
     mode: 'line-item',        // 'line-item' | 'per-sq'
@@ -2434,12 +2473,27 @@
         return parts.length ? parts.join(' · ') : null;
       })(),
     };
-    const preparedBy = {
-      name:  (meta.estimate && meta.estimate.preparedBy) || (window._user && window._user.displayName) || 'Joe Deal',
-      role:  'Project Owner · No Big Deal Home Solutions',
-      phone: '(859) 420-7382',
-      email: 'jd@nobigdealwithjoedeal.com',
-    };
+    // Server-PDF payload. coverPage.hbs has a {{else}} branch that falls back
+    // to the resolved COMPANY block — but it only fires when these fields are
+    // OMITTED. Sending them populated bypassed the tenant fallback entirely and
+    // stamped the owner's role, cell and email onto a tenant's cover page.
+    //
+    // So for a tenant we send the rep name only, and leave role/phone/email off
+    // the payload so the Handlebars fallback does its job. NBD keeps the exact
+    // literals it had.
+    const _pb = _v2Brand();
+    const preparedBy = _pb.isNbd
+      ? {
+          name:  (meta.estimate && meta.estimate.preparedBy) || (window._user && window._user.displayName) || 'Joe Deal',
+          role:  'Project Owner · No Big Deal Home Solutions',
+          phone: '(859) 420-7382',
+          email: 'jd@nobigdealwithjoedeal.com',
+        }
+      : (() => {
+          const name = (meta.estimate && meta.estimate.preparedBy)
+            || (window._user && (window._user.displayName || window._user.email)) || '';
+          return name ? { name } : {};
+        })();
     const projectMeta = [
       { label: 'Estimate Date',  value: dateFmt },
       { label: 'Estimate No.',   value: estNum },
@@ -2976,9 +3030,9 @@
       // section in the customer-facing formats (estimate-finalization.js).
       photos: (state.photos || []).slice(),
       estimate: {
-        number: 'NBD-V2-' + Date.now(),
+        number: _v2EstNumber(Date.now()),
         date: new Date().toISOString().split('T')[0],
-        preparedBy: 'Joe Deal'
+        preparedBy: _v2PreparedBy()
       }
     };
     // For retail quote, also pass tier comparison.
@@ -3254,7 +3308,7 @@
       result = window.EstimateFinalization.formatEstimate(estimate, 'retail-quote', {
         customer,
         claim: state.claim,
-        estimate: { number: 'NBD-V2-' + estimateId, date: new Date().toISOString().split('T')[0], preparedBy: 'Joe Deal' }
+        estimate: { number: _v2EstNumber(estimateId), date: new Date().toISOString().split('T')[0], preparedBy: _v2PreparedBy() }
       });
     } catch (e) {
       if (btn) { btn.disabled = false; btn.textContent = '✍️ Send for Signature'; }

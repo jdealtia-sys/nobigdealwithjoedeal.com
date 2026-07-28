@@ -205,6 +205,19 @@
   // ═════════════════════════════════════════════════════════
   const NBD_ACCENT = '#e8720c';
 
+  // Tenant doc-number prefix, from the same source the customer IDs use, so a
+  // tenant's estimate numbers match their customer IDs instead of falling back
+  // to 'NBD'. Returns '' if unavailable — callers must not substitute 'NBD'.
+  function _tenantPrefix() {
+    try {
+      if (typeof window !== 'undefined' && typeof window._custIdPrefix === 'function') {
+        const p = window._custIdPrefix();
+        return (p && p !== 'NBD') ? p : '';
+      }
+    } catch (_) { /* fall through */ }
+    return '';
+  }
+
   function resolveBrand() {
     let b = {};
     try {
@@ -227,8 +240,21 @@
       website:     contact.website || '',
       address:     contact.address || '',
       // Doc-number prefix + signature seal.
-      docPrefix:   isNbd ? 'NBD' : (b.docPrefix || 'NBD'),
-      seal:        isNbd ? 'NBD' : (b.seal || 'NBD'),
+      //
+      // The `|| 'NBD'` on the non-NBD arms defeated the isNbd gate immediately
+      // above it: _resolveBrand() blanks an unset docPrefix/seal to '', so a
+      // tenant who never reserved a prefix got 'NBD' back anyway. That is how a
+      // Summit Ridge estimate ended up promising a "10-year NBD labor warranty"
+      // under a header carrying Summit Ridge's own name — the document
+      // contradicted itself.
+      //
+      // Fall back within the TENANT's own identity instead (same ladder
+      // estimate-supplement.js:441 already uses), never to the platform owner's.
+      // _custIdPrefix() already returns 'NBD' only for the platform tenant and
+      // a derived/reserved prefix for everyone else — reuse it rather than
+      // re-deriving, so document numbers match the customer IDs.
+      docPrefix:   isNbd ? 'NBD' : (b.docPrefix || _tenantPrefix() || ''),
+      seal:        isNbd ? 'NBD' : (b.seal || b.displayName || b.legalName || ''),
       // Pass the raw brand through for any caller that needs more.
       _raw: b
     };

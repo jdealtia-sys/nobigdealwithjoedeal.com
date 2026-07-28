@@ -817,11 +817,24 @@ const shareCalViaSMS = function() {
   window.open('sms:?body=' + msg);
 }
 
+// Sign-off resolves per tenant. This was hardcoded '- No Big Deal Exteriors',
+// so a contractor emailing his own homeowner signed the message with the
+// platform owner's company. Same gate shape as email_system.js _brandFields():
+// NBD keeps its exact literal; a tenant gets their legalName, and a tenant who
+// hasn't set one gets no sign-off rather than the owner's.
+function _calSignOff() {
+  let b = null;
+  try { if (typeof window._brand === 'function') b = window._brand() || null; } catch (e) { b = null; }
+  const isNbd = !b || !b.legalName || b.legalName === 'No Big Deal Home Solutions';
+  if (isNbd) return '\n\n- No Big Deal Exteriors';
+  return b.legalName ? '\n\n- ' + b.legalName : '';
+}
+
 const shareCalViaEmail = function() {
   const url = document.getElementById('calBookingUrl')?.value || '';
   if (!url) { showToast('Set up your booking link first', 'error'); return; }
   const subject = encodeURIComponent('Schedule Your Free Roof Inspection');
-  const body = encodeURIComponent('Hi,\n\nYou can schedule your free roof inspection at a time that works for you:\n\n' + url + '\n\nLooking forward to helping you!\n\n- No Big Deal Exteriors');
+  const body = encodeURIComponent('Hi,\n\nYou can schedule your free roof inspection at a time that works for you:\n\n' + url + '\n\nLooking forward to helping you!' + _calSignOff());
   window.open('mailto:?subject=' + subject + '&body=' + body);
 }
 
@@ -1185,7 +1198,7 @@ const DOC_TEMPLATES = {
   contract: {
     title: 'Roofing Contract',
     content: `<h2>ROOFING CONTRACT</h2>
-<p><strong>Contractor:</strong> No Big Deal Home Solutions · <span class="field-line">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span> · (859) 420-7382</p>
+<p><strong>Contractor:</strong> {{COMPANY}} · <span class="field-line">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span> · {{COMPANY_PHONE}}</p>
 <p><strong>Homeowner:</strong> <span class="field-line">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></p>
 <p><strong>Property Address:</strong> <span class="field-line">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></p>
 <p><strong>Scope of Work:</strong> Complete roof replacement including tear-off, decking inspection, synthetic underlayment, architectural shingles (GAF Timberline series), ridge cap, flashing, pipe boots, drip edge, and full cleanup.</p>
@@ -1193,7 +1206,7 @@ const DOC_TEMPLATES = {
 <p><strong>Contract Price:</strong> $<span class="field-line">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span> &nbsp;&nbsp; <strong>Start Date:</strong> <span class="field-line">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></p>
 <p><strong>NBD Guarantee:</strong> NBD Lifetime Pledge on every install — Standard (NBD backed, no expiration), Preferred (Lifetime + transferable to one owner + 48hr callback), Elite (Lifetime + fully transferable + annual inspection + signed certificate). GAF Timberline shingle manufacturer lifetime warranty included on all installs.</p>
 <p><strong>Payment Terms:</strong> 50% due at material delivery. Balance due upon completion.</p>
-<p>By signing below, homeowner authorizes No Big Deal Home Solutions to perform the above work.</p>
+<p>By signing below, homeowner authorizes {{COMPANY}} to perform the above work.</p>
 <p><strong>Homeowner Signature:</strong> <span class="field-line">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span> Date: <span class="field-line">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></p>
 <p><strong>Contractor Signature:</strong> {{REP_NAME}} <span class="field-line">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span> Date: <span class="field-line">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></p>`
   },
@@ -1207,7 +1220,7 @@ const DOC_TEMPLATES = {
 <div style="font-size:9px;font-weight:700;letter-spacing:.2em;text-transform:uppercase;color:#999;margin-bottom:6px;">Certificate of Guarantee</div>
 <div style="font-family:'Barlow Condensed',sans-serif;font-size:28px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:#111;">NBD Labor Guarantee</div>
 </div>
-<p>This certificate confirms that the installation performed by <strong>No Big Deal Home Solutions</strong> at the property listed below is covered by the NBD Labor Guarantee as described herein.</p>
+<p>This certificate confirms that the installation performed by <strong>{{COMPANY}}</strong> at the property listed below is covered by the NBD Labor Guarantee as described herein.</p>
 <h2>Property &amp; Installation</h2>
 <div class="doc-row-2">
   <div class="doc-field-row"><span class="doc-field-label">Property Address</span><span class="doc-field-line"></span></div>
@@ -1221,13 +1234,13 @@ const DOC_TEMPLATES = {
   <div class="doc-check-item"><span class="doc-checkbox"></span>Preferred — 10-Year Labor Guarantee (transferable to 1 owner)</div>
   <div class="doc-check-item"><span class="doc-checkbox"></span>Elite — NBD Lifetime Pledge (fully transferable)</div>
 </div>
-<p style="font-size:12px;color:#555;margin-top:12px;line-height:1.7;">No Big Deal Home Solutions guarantees all labor performed under this installation against defects in workmanship for the lifetime of the installation, beginning on the installation date. This guarantee covers labor costs to repair or correct any installation defect at no charge to the homeowner. It does not cover damage caused by acts of nature, improper maintenance, or alterations made by others. Manufacturer shingle warranty is separate and provided by GAF directly.</p>
+<p style="font-size:12px;color:#555;margin-top:12px;line-height:1.7;">{{COMPANY}} guarantees all labor performed under this installation against defects in workmanship for the lifetime of the installation, beginning on the installation date. This guarantee covers labor costs to repair or correct any installation defect at no charge to the homeowner. It does not cover damage caused by acts of nature, improper maintenance, or alterations made by others. Manufacturer shingle warranty is separate and provided by GAF directly.</p>
 <h2>Transferability</h2>
-<p style="font-size:12px;color:#555;line-height:1.7;">Preferred and Elite guarantees are transferable as noted above. To transfer, notify No Big Deal Home Solutions in writing within 30 days of property sale. A transfer fee of $0 applies. New owner receives the remaining guarantee term in writing.</p>
+<p style="font-size:12px;color:#555;line-height:1.7;">Preferred and Elite guarantees are transferable as noted above. To transfer, notify {{COMPANY}} in writing within 30 days of property sale. A transfer fee of $0 applies. New owner receives the remaining guarantee term in writing.</p>
 <div class="doc-sig-block">
   <div class="doc-sig-row">
     <div class="doc-sig-field"><div class="doc-field-line"></div><div class="doc-sig-label">Homeowner Signature &amp; Date</div></div>
-    <div class="doc-sig-field"><div class="doc-field-line"></div><div class="doc-sig-label">{{REP_NAME}} — No Big Deal Home Solutions</div></div>
+    <div class="doc-sig-field"><div class="doc-field-line"></div><div class="doc-sig-label">{{REP_NAME}} — {{COMPANY}}</div></div>
   </div>
   <div style="text-align:center;font-size:10px;color:#aaa;margin-top:16px;">Certificate #: NBD-<span class="doc-field-line short" style="display:inline-block;width:80px;"></span> · Keep this document with your home records</div>
 </div>`
@@ -1235,7 +1248,7 @@ const DOC_TEMPLATES = {
   supplement: {
     title: 'Supplement Request',
     content: `<h2>INSURANCE SUPPLEMENT REQUEST</h2>
-<p><strong>Contractor:</strong> No Big Deal Home Solutions | License # ________ | (859) 420-7382</p>
+<p><strong>Contractor:</strong> {{COMPANY}} | License # ________ | {{COMPANY_PHONE}}</p>
 <p><strong>Claim #:</strong> <span class="field-line">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span> &nbsp;&nbsp; <strong>Policy #:</strong> <span class="field-line">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></p>
 <p><strong>Insured:</strong> <span class="field-line">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span> &nbsp;&nbsp; <strong>Property:</strong> <span class="field-line">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></p>
 <p><strong>Carrier:</strong> <span class="field-line">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span> &nbsp;&nbsp; <strong>Adjuster:</strong> <span class="field-line">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></p>
@@ -1275,9 +1288,9 @@ const DOC_TEMPLATES = {
     content: `<h2>WORK AUTHORIZATION FORM</h2>
 <p>I, <span class="field-line">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span>, owner of the property located at:</p>
 <p><span class="field-line">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></p>
-<p>hereby authorize <strong>No Big Deal Home Solutions</strong> to perform the following work:</p>
+<p>hereby authorize <strong>{{COMPANY}}</strong> to perform the following work:</p>
 <p><span class="field-line">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></p>
-<p>I authorize No Big Deal Home Solutions to negotiate with my insurance company on my behalf and to receive payment directly from the insurance carrier for covered work.</p>
+<p>I authorize {{COMPANY}} to negotiate with my insurance company on my behalf and to receive payment directly from the insurance carrier for covered work.</p>
 <p><strong>Homeowner Signature:</strong> <span class="field-line">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></p>
 <p><strong>Date:</strong> <span class="field-line">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span> &nbsp;&nbsp; <strong>Phone:</strong> <span class="field-line">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></p>`
   },
@@ -1303,7 +1316,7 @@ const DOC_TEMPLATES = {
   completion: {
     title: 'Certificate of Completion',
     content: `<h2>CERTIFICATE OF COMPLETION</h2>
-<p>This certifies that <strong>No Big Deal Home Solutions</strong> has completed the following work:</p>
+<p>This certifies that <strong>{{COMPANY}}</strong> has completed the following work:</p>
 <p><strong>Property:</strong> <span class="field-line">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></p>
 <p><strong>Work Completed:</strong> <span class="field-line">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></p>
 <p><strong>Completion Date:</strong> <span class="field-line">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span> &nbsp;&nbsp; <strong>Invoice #:</strong> <span class="field-line">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></p>
@@ -1311,7 +1324,7 @@ const DOC_TEMPLATES = {
 <p><strong>Warranty:</strong> NBD NBD Lifetime Pledge — effective date of installation. <span class="field-line">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></p>
 <p>All work has been completed per the agreed scope of work and to the homeowner's satisfaction.</p>
 <p><strong>Homeowner Signature:</strong> <span class="field-line">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span> Date: <span class="field-line">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></p>
-<p><strong>Contractor:</strong> {{REP_NAME}} — No Big Deal Home Solutions — (859) 420-7382</p>`
+<p><strong>Contractor:</strong> {{REP_NAME}} — {{COMPANY}} — {{COMPANY_PHONE}}</p>`
   }
 };
 
@@ -1350,15 +1363,41 @@ function _nbdRepName(){
     const u = window._user;
     if (u && (u.displayName || u.email)) return u.displayName || u.email;
   } catch(e){}
-  return 'Authorized NBD Representative';
+  // Generic, not "Authorized NBD Representative" — this is the fallback a
+  // TENANT's blank form falls back to when auth hasn't settled.
+  return 'Authorized Representative';
+}
+
+// Company identity for the printable blank forms below. These templates had
+// "No Big Deal Home Solutions" and the owner's phone hardcoded into WORK
+// AUTHORIZATIONS, warranty certificates and certificates of completion — the
+// paper a rep prints and has a homeowner sign at the door. One of them reads
+// "I authorize {company} to negotiate with my insurance company on my behalf
+// and to receive payment directly from the insurance carrier": a tenant's
+// customer was signing that in the platform owner's favour.
+//
+// Same isNbd gate as elsewhere; NBD's own forms render byte-identical.
+function _nbdDocCompany(){
+  let b = null;
+  try { if (typeof window._brand === 'function') b = window._brand() || null; } catch(e){ b = null; }
+  const isNbd = !b || !b.legalName || b.legalName === 'No Big Deal Home Solutions';
+  if (isNbd) return { name: 'No Big Deal Home Solutions', phone: '(859) 420-7382' };
+  const c = (b && b.contact) || {};
+  // Never `|| NBD-literal` — an unset tenant field must render blank (the
+  // forms already carry a ruled line for handwriting it in), not the owner's.
+  return { name: b.legalName || b.displayName || '', phone: c.phone || '' };
 }
 
 function openDocTemplate(key){
   const t = DOC_TEMPLATES[key];
   if(!t) return;
   const repName = _nbdRepName();
+  const co = _nbdDocCompany();
   document.getElementById('docViewerTitle').textContent = t.title;
-  document.getElementById('docViewerContent').innerHTML = t.content.split('{{REP_NAME}}').join(repName);
+  document.getElementById('docViewerContent').innerHTML = t.content
+    .split('{{REP_NAME}}').join(repName)
+    .split('{{COMPANY_PHONE}}').join(co.phone)
+    .split('{{COMPANY}}').join(co.name);
   if(window.nbdModal){window.nbdModal.open('docViewerModal');}else{document.getElementById('docViewerModal').classList.add('open');}
 }
 function closeDocViewer(){ if(window.nbdModal){window.nbdModal.close('docViewerModal');}else{document.getElementById('docViewerModal').classList.remove('open');} }
