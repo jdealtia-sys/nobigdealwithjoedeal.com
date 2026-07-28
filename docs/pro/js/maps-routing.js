@@ -1480,14 +1480,34 @@ async function loadDrawingFromCustomer() {
       if (!(await _ask('Replace the current drawing with v' + (data.version || '?') + ' from ' + (matched?.firstName || matched?.address || 'customer') + '?'))) return;
     }
 
-    // Clear current state
-    if (typeof clearAll === 'function') {
-      clearAll();
-    } else {
-      // Fallback: manual reset
-      drawnLines = [];
-      facets = [];
+    // Clear current state.
+    //
+    // `clearAll` is undefined at this scope — it exists nowhere in the repo — so
+    // this always took the fallback, which reset the ARRAYS without removing
+    // anything from the map. The previous drawing's polylines, labels and facet
+    // polygons stayed painted, on top of the drawing being loaded.
+    //
+    // Not clearDraw() either: that prompts "Clear all lines and facets?", and we
+    // have already asked "Replace the current drawing…?" above. Double-prompting
+    // a rep mid-load is its own bug. Same teardown, without the confirm.
+    try {
+      drawnLines.forEach((l) => {
+        if (l.line) drawMap.removeLayer(l.line);
+        if (l.lbl) drawMap.removeLayer(l.lbl);
+        if (l.dot1) drawMap.removeLayer(l.dot1);
+        if (l.dot2) drawMap.removeLayer(l.dot2);
+      });
+      facets.forEach((f) => {
+        if (f.polygon) drawMap.removeLayer(f.polygon);
+        if (f.areaLabel) drawMap.removeLayer(f.areaLabel);
+        (f.dots || []).forEach((d) => { try { drawMap.removeLayer(d); } catch (e) {} });
+      });
+      if (typeof clearTemp === 'function') clearTemp();
+    } catch (e) {
+      console.warn('[maps-routing] teardown before load failed:', e && e.message);
     }
+    drawnLines = [];
+    facets = [];
 
     // Restore pitch/waste selectors
     const pitchSel = document.getElementById('pitchSel');
@@ -1495,29 +1515,61 @@ async function loadDrawingFromCustomer() {
     const wasteSel = document.getElementById('wasteSel');
     if (wasteSel && data.waste) wasteSel.value = String(data.waste);
 
-    // Rehydrate lines
+    // Rehydrate lines — and PAINT them.
+    //
+    // These pushes used to create plain data objects with no Leaflet layers,
+    // on the assumption that a later redrawAll() would build them. redrawAll
+    // does not exist, so nothing was ever added to the map: the rep clicked
+    // "Load from Customer", the map panned onto the drawing's bounds, the
+    // Base/Pitched/Waste/SQ readout updated and a green "Loaded v3 from Smith"
+    // toast fired — over a completely empty canvas, with an empty Lines list.
+    // Mirrors the layer construction in finalizeLine().
     (data.lines || []).forEach(l => {
       try {
+        const p1 = L.latLng(l.p1.lat, l.p1.lng);
+        const p2 = L.latLng(l.p2.lat, l.p2.lng);
+        const lt = (typeof LT !== 'undefined' && LT[l.type]) || {};
+        const color = lt.color || '#4A9EFF';
+        const line = L.polyline([p1, p2], {
+          color, weight: 4, opacity: .95, dashArray: lt.dash || null,
+        }).addTo(drawMap);
+        const dist = Number(l.dist) || 0;
+        const lbl = L.marker(mid(p1, p2), {
+          icon: L.divIcon({
+            html: '<div class="meas-label" style="border-color:' + color + '">' + dist.toFixed(1) + ' ft</div>',
+            className: '', iconAnchor: [0, 10],
+          }),
+        }).addTo(drawMap);
         drawnLines.push({
-          type: l.type, name: l.name, dist: l.dist,
-          p1: L.latLng(l.p1.lat, l.p1.lng),
-          p2: L.latLng(l.p2.lat, l.p2.lng)
+          id: Date.now() + Math.random(),
+          type: l.type, name: l.name || lt.n, color, dist,
+          line, lbl, p1, p2, subtype: 'line',
         });
       } catch (err) { /* skip malformed line */ }
     });
 
-    // Rehydrate facets
+    // Rehydrate facets — and paint them too.
     (data.facets || []).forEach(f => {
       try {
-        facets.push({
+        const points = (f.points || []).map(p => L.latLng(p.lat, p.lng));
+        const rec = {
           name: f.name, pitch: f.pitch, closed: !!f.closed, baseArea: f.baseArea,
-          points: (f.points || []).map(p => L.latLng(p.lat, p.lng))
-        });
+          points, dots: [],
+        };
+        if (points.length >= 3) {
+          const color = f.color || '#4A9EFF';
+          rec.polygon = L.polygon(points, {
+            color, weight: 1, fillColor: color, fillOpacity: .12,
+          }).addTo(drawMap);
+        }
+        facets.push(rec);
       } catch (err) { /* skip malformed facet */ }
     });
 
-    // Redraw + recompute
-    if (typeof redrawAll === 'function') redrawAll();
+    // Repaint the sidebars — the geometry is on the map now, but the Lines and
+    // Facets lists render from these arrays and were never asked to redraw.
+    if (typeof renderLineList === 'function') renderLineList();
+    if (typeof renderFacetList === 'function') renderFacetList();
     if (typeof recalc === 'function') recalc();
 
     // Center map on drawing bounds if possible

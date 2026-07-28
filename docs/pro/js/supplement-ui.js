@@ -674,9 +674,23 @@
     document.body.appendChild(overlay);
   }
 
-  function _runCatalogSearch(query, qty) {
+  async function _runCatalogSearch(query, qty) {
     const wrap = document.getElementById('nbd-sup-search-results');
     if (!wrap) return;
+    // window.NBD_XACT_CATALOG is assigned at exactly one site repo-wide
+    // (estimate-catalog-xactimate.js), and that file has no static <script> tag
+    // — it ships only inside the lazy 'estimates' bundle. Nothing loaded on
+    // customer.html ever requests that bundle, so on the "+ Supplement" modal
+    // there this bail was unconditional: every search returned a red "Catalog
+    // not loaded.", and since createSupplement then left modifiedItems empty,
+    // nothing could be added to a supplement from that surface at all.
+    if (!(window.NBD_XACT_CATALOG && typeof window.NBD_XACT_CATALOG.search === 'function')
+        && window.ScriptLoader && typeof window.ScriptLoader.loadBundle === 'function') {
+      wrap.style.display = 'block';
+      wrap.innerHTML = '<div style="padding:10px;color:#94a3b8;font-size:12px;">Loading catalog…</div>';
+      try { await window.ScriptLoader.loadBundle('estimates'); }
+      catch (e) { console.warn('[supplement-ui] estimates bundle failed to load:', e && e.message); }
+    }
     const cat = window.NBD_XACT_CATALOG;
     if (!cat || typeof cat.search !== 'function') {
       wrap.style.display = 'block';

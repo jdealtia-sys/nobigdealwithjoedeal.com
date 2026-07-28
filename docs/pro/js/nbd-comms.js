@@ -36,9 +36,11 @@ let _NBD_NC_DELEGATE; // module-local (globals Tranche 1 — was window.*)
     : 'https://us-central1-nobigdeal-pro.cloudfunctions.net';
 
   // ── Helpers ─────────────────────────────────────────────────────
-  const escHtml = (s) => String(s == null ? '' : s)
-    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
-    .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+  // (escHtml removed: its only caller was the stage-email toast, which built an
+  // HTML string for a renderer that uses textContent. There is no innerHTML
+  // sink left in this module, and keeping an escaper around invites someone to
+  // reach for it again on a text sink — where it corrupts the output rather
+  // than protecting it.)
 
   function toMailtoBody(html) {
     if (!html) return '';
@@ -317,18 +319,27 @@ let _NBD_NC_DELEGATE; // module-local (globals Tranche 1 — was window.*)
         }
         if (!lead || !lead.email) return;
         const name = ((lead.firstName || '') + ' ' + (lead.lastName || '')).trim() || 'this customer';
-        const safeId = String(leadId).replace(/[^a-zA-Z0-9_-]/g, '');
-        const safeName = escHtml(name);
-        const reviewAction = (typeof window.emailByStage === 'function') ? 'emailByStage' : 'gotoCustomerEmail';
-        const msg = `📧 Stage email ready for <strong>${safeName}</strong>`
-          + ` <button data-nc-action="sendStageNow" data-nc-id="${safeId}" style="margin-left:8px;padding:3px 10px;`
-          + `border:1px solid var(--orange);background:var(--orange);color:#fff;`
-          + `border-radius:4px;font-size:11px;font-weight:700;cursor:pointer;">`
-          + `Send now</button>`
-          + ` <button data-nc-action="${reviewAction}" data-nc-id="${safeId}" style="margin-left:4px;padding:3px 10px;`
-          + `border:1px solid var(--br,#444);background:transparent;color:var(--t,#eee);`
-          + `border-radius:4px;font-size:11px;font-weight:600;cursor:pointer;">`
-          + `Review</button>`;
+        // PLAIN TEXT. showToast renders its message with textContent — a
+        // deliberate stored-XSS fix, and its own source notes that no caller
+        // passes intentional markup. This one did: it built <strong> and two
+        // styled <button> elements, so the rep dragging a lead to a new stage
+        // got a toast containing the literal characters
+        //   <button data-nc-action="sendStageNow" style="…">Send now</button>
+        // spelled out on screen. The buttons were never clickable, so the
+        // markup bought nothing even before it failed to render.
+        //
+        // Note this is also why the name must NOT be escaped here: escHtml
+        // through a textContent renderer displays a customer called "Bob & Sons"
+        // as "Bob &amp; Sons". Escaping is for innerHTML sinks; this is not one.
+        //
+        // The actions are dropped rather than re-homed. Of the two, only
+        // gotoCustomerEmail resolves on the dashboard (emailByStage lives in
+        // email_system.js, loaded on customer.html alone), and sendStageEmail
+        // returns { error: 'no-emailByStage' } there for the same reason — so a
+        // working "Send now" button would still not send. Whether that
+        // subsystem should be reachable from the dashboard is a product call,
+        // not something to paper over with a button that no-ops.
+        const msg = `📧 Stage email ready for ${name} — open their customer page to review.`;
         if (typeof window.showToast === 'function') {
           window.showToast(msg, hasTemplate ? 'success' : 'info');
         }

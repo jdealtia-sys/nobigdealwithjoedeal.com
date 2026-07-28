@@ -245,6 +245,14 @@ jobs:
       # whole team). Dependency-free.
       - name: Run customer-page claims + companyId tests
         run: node tests/customer-page-claims.test.js
+      # Dead-control tail: six controls whose dependency lived on a different
+      # page or inside a lazy bundle nobody requested — command-palette targeting
+      # a global (openCardDetail) that has never existed, drag-drop upload and
+      # Xactimate catalog search bailing instead of loading their bundle, maps
+      # "Load from Customer" calling a redrawAll() that does not exist, and the
+      # stage-email toast building HTML for a textContent renderer.
+      - name: Run dead-control tail tests
+        run: node tests/dead-controls-tail.test.js
 
       # Estimate hub controls: the per-customer hub labelled a deleteDoc() call
       # "🗄 Archive" (an archive box = filed away, recoverable), and routed ⎘ Copy
