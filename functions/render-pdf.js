@@ -202,6 +202,44 @@ const NBD_DOC_COMPANY = {
   seal: 'NBD',
   colors: null,
 };
+// Tenant-zero (platform) owner uid — solo convention: companyId == owner uid.
+// Same source of truth as estimate-email.js / lead-bridge.js / stripe.js.
+const NBD_OWNER_UID = process.env.NBD_OWNER_UID || '1phDvAVXHSg82wDLegAbQFq14Ci1';
+
+// What a NON-platform tenant renders when we cannot resolve their brand.
+//
+// This exists because NBD_DOC_COMPANY was the fallback for EVERY unresolved
+// case, so a tenant whose companyProfile was missing or incomplete got the
+// platform owner's logo, legal name, tagline, phone, email, contact name and
+// seal stamped onto their contracts, warranties and invoices — paper a
+// homeowner signs, naming the wrong contracting party.
+//
+// That is not a hypothetical edge: provisioning is BEST-EFFORT. register.js
+// catches createCompany failure at three separate sites and only
+// console.warn's "createCompany failed (account still usable)", so a
+// contractor whose signup hiccupped ends up with a working account, no
+// companyProfile doc, and Joe's identity on his paperwork.
+//
+// Blank beats wrong. Every field the tenant branch already blanks (logo, seal,
+// contactName) is blanked here too, and the name/contact lines go empty rather
+// than borrowing someone else's — the printed forms carry ruled lines for
+// writing them in. isNbd:false so every {{#if company.isNbd}} branch renders
+// the neutral side and coverPage.hbs's {{else}} company fallback fires.
+const NEUTRAL_DOC_COMPANY = {
+  isNbd: false,
+  logoUrl: '',
+  nameHtml: '',
+  footerName: '',
+  brandTag: '',
+  brandContact: '',
+  footerContact: '',
+  email: '',
+  phone: '',
+  contactName: '',
+  seal: '',
+  colors: null,
+};
+
 function hbsEsc(s) {
   return String(s == null ? '' : s)
     .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -251,7 +289,14 @@ function buildBrandVars(colors) {
   return v.length ? ':root{' + v.join(';') + ';}' : '';
 }
 async function resolveDocCompany(companyId) {
-  if (!companyId) return NBD_DOC_COMPANY;
+  // The platform tenant — and ONLY the platform tenant — gets the NBD chrome
+  // when its brand can't be resolved. Everyone else falls back to neutral.
+  // This used to be the fallback for all four unresolved cases below (no
+  // companyId, no profile doc, no legalName, and a thrown read), which is how
+  // the owner's identity reached other contractors' documents.
+  const isPlatform = String(companyId || '') === NBD_OWNER_UID;
+  const UNRESOLVED = isPlatform ? NBD_DOC_COMPANY : NEUTRAL_DOC_COMPANY;
+  if (!companyId) return UNRESOLVED;
   try {
     const snap = await getFirestore().collection('companyProfile').doc(String(companyId)).get();
     if (snap.exists) {
@@ -284,7 +329,14 @@ async function resolveDocCompany(companyId) {
   } catch (e) {
     logger.error('[renderPdf] tenant resolve failed', { companyId, err: e && e.message });
   }
-  return NBD_DOC_COMPANY;
+  // Unresolved. Platform → NBD chrome (unchanged, byte-identical). Any other
+  // tenant → neutral, never the owner's identity. Logged because for a tenant
+  // this means their companyProfile is missing or has no legalName — usually a
+  // failed/incomplete provisioning — and the document goes out unbranded.
+  if (!isPlatform) {
+    logger.warn('[renderPdf] unresolved tenant brand — rendering neutral', { companyId });
+  }
+  return UNRESOLVED;
 }
 
 // ─── Main callable ─────────────────────────────────────────────
