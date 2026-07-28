@@ -264,8 +264,19 @@ console.log('\nClient billing gate — primed at boot + no silent hard-block');
 console.log('\nCI gate — @stranger shard is required');
 {
   const ci = read('.github/workflows/ci.yml');
-  assert('continue-on-error exempts the @stranger shard',
-    /continue-on-error: \$\{\{ matrix\.shard != '@stranger' \}\}/.test(ci),
+  // Asserted by INTENT, not by the shape of the expression. This originally
+  // pinned the literal `continue-on-error: ${{ matrix.shard != '@stranger' }}`,
+  // which was the only way to keep @stranger blocking while the other four
+  // shards were advisory. All five are blocking now (they earned it on a
+  // 60-run green record), so that literal is gone — but the requirement it
+  // encoded is strictly better satisfied, and a test that fails on a change
+  // which over-satisfies it is testing the wrong thing.
+  //
+  // What must stay true: no shard, and specifically not @stranger, is exempt
+  // from blocking. `continue-on-error: true` anywhere in this job would let a
+  // red shard merge green, which is exactly the hole this guards.
+  assert('no E2E shard is exempted from blocking (incl. @stranger)',
+    /continue-on-error:\s*false/.test(ci) && !/continue-on-error:\s*true/.test(ci),
     'the only runtime proof of stranger self-provisioning must gate merges');
   assert('this suite runs in CI',
     /gauntlet-regressions\.test\.js/.test(ci),

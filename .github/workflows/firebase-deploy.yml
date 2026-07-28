@@ -185,6 +185,42 @@ jobs:
           fi
           echo "sa_path=$SA_FILE" >> "$GITHUB_OUTPUT"
 
+      # ── Gate — the frontend must be provably non-broken before it ships ──
+      #
+      # This workflow does NOT depend on the CI workflow; both trigger on the
+      # same push to main and run in parallel. So until this gate existed, the
+      # rules deploy was gated (below), the functions deploy was gated (below),
+      # and Hosting — the surface every user actually touches — shipped with
+      # nothing in front of it. A push that broke every test still put the
+      # whole frontend into production.
+      #
+      # Both checks below are deliberately chosen to be FAST and FLAKE-PROOF,
+      # because the hosting-first ordering exists to protect content delivery
+      # from *deploy-step* flakes (the #732/#736 auth races) and a gate that
+      # can itself flake would give that guarantee back:
+      #   - No network, no emulator, no browser, no credentials.
+      #   - No npm install (both are Node-builtins only).
+      #   - Measured locally over the full tree: ~4s (459 files) and ~0.5s
+      #     (211 pages / 20k refs). Negligible against a ~10-13 min deploy.
+      # Anything slower or network-dependent belongs in ci.yml, not here.
+      #
+      # A failure here is real: a shipped .js that parses under neither
+      # grammar, or a dead internal link / 404'd asset / broken anchor.
+      #
+      # Placement is deliberate: this runs AFTER the blog-index and sitemap
+      # regeneration steps above, which rewrite docs/ at deploy time. So the
+      # integrity check validates the content that ACTUALLY ships, including
+      # the freshly generated blog cards — which the ci.yml copy of this check
+      # (running against the committed tree) structurally cannot do. Those two
+      # generators soft-fail by design; this is what catches it when a
+      # soft-failed or malformed regeneration would have shipped a broken page.
+      - name: Gate — shipped JS must parse + site integrity must hold
+        if: ${{ github.event_name == 'push' || github.event.inputs.scope == 'all' || github.event.inputs.scope == 'hosting' }}
+        run: |
+          set -e
+          node scripts/check-js-syntax.js
+          node scripts/check-site-integrity.js --quiet
+
       # Hosting deploys FIRST — before rules / indexes / storage / functions —
       # so a transient auth-race flake on the rules deploy (the recurring
       # "Failed to authenticate" abort that took out deploys #732 + #736) can
@@ -193,6 +229,9 @@ jobs:
       # still run after this and still fail the job on a real error (functions
       # stay gated behind the rules deploy), so regressions are surfaced — they
       # just no longer block the frontend from shipping.
+      #
+      # NOTE: "first" is about DEPLOY ordering, not about skipping validation —
+      # the static pre-flight gate above still runs ahead of this step.
       - name: Deploy Hosting
         if: ${{ github.event_name == 'push' || github.event.inputs.scope == 'all' || github.event.inputs.scope == 'hosting' }}
         env:

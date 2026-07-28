@@ -961,9 +961,43 @@ section('E2: CI workflow present');
   const ci = read(path.join(ROOT, '.github/workflows/ci.yml'));
   assert('CI runs smoke tests',           /node tests\/smoke\.test\.js/.test(ci));
   assert('CI runs firestore rules tests', /firestore-rules\.test\.js/.test(ci));
-  assert('CI does a syntax pass',         /node --check/.test(ci));
+  assert('CI does a syntax pass',         /check-js-syntax\.js/.test(ci));
   assert('CI secret-scans for private keys',
     /PRIVATE KEY/.test(ci) && /sk-ant-/.test(ci) && /sk_live_/.test(ci));
+
+  // The E2E shards exist to catch regressions the unit suites structurally
+  // cannot. Left advisory (continue-on-error: true) they still burn ~5
+  // runners a push but a real regression merges green — the signal gets
+  // produced and then discarded. All five earned promotion on a 60-run
+  // green record; this keeps them blocking. If a shard must be re-parked,
+  // that is a deliberate call which should also update this assertion.
+  assert('E2E shards are blocking, not advisory',
+    /continue-on-error:\s*false/.test(ci) && !/continue-on-error:\s*true/.test(ci));
+}
+
+section('E2b: hosting deploy is gated');
+{
+  // firebase-deploy.yml does NOT depend on the CI workflow — both fire on the
+  // same push to main and run in parallel. The rules and functions deploys
+  // carry their own inline gates; Hosting (which deploys FIRST, and is the
+  // surface every user touches) had none, so a push that broke every test
+  // still shipped the whole frontend. These assertions keep that closed.
+  const dep = read(path.join(ROOT, '.github/workflows/firebase-deploy.yml'));
+  assert('deploy gates hosting on shipped-JS parse', /check-js-syntax\.js/.test(dep));
+  assert('deploy gates hosting on site integrity',   /check-site-integrity\.js/.test(dep));
+
+  // Ordering is the whole point: a gate that runs AFTER the deploy it guards
+  // is decoration. Assert the gate step precedes the Deploy Hosting step.
+  const gateAt = dep.indexOf('check-js-syntax.js');
+  const hostAt = dep.indexOf('name: Deploy Hosting');
+  assert('the gate runs BEFORE hosting deploys', gateAt > -1 && hostAt > -1 && gateAt < hostAt);
+
+  // The gate must stay dependency-free. Hosting-first exists to protect
+  // content delivery from deploy-step auth flakes, so a gate that needed a
+  // network/emulator/npm-install round-trip would hand that guarantee back.
+  const checker = read(path.join(ROOT, 'scripts/check-js-syntax.js'));
+  assert('the syntax checker uses only Node builtins',
+    !/require\(['"](?!child_process|fs|os|path)[^'"]+['"]\)/.test(checker));
 }
 
 section('E3: CODEOWNERS + PR template + Dependabot');
