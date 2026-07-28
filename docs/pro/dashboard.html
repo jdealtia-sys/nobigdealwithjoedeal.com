@@ -2356,7 +2356,13 @@
             <span class="bc-meta-cp" data-action="goTo" data-target="crm">← Back to CRM</span>
           </div>
           <div class="page-title">Template Library</div>
-          <div class="page-sub">24 NBD-branded documents — ready to generate, print, and present</div>
+          <!-- Was "24 NBD-branded documents". The documents themselves ARE
+               correctly re-branded per tenant (document-generator.js
+               _deBrandSignerLabel is the chokepoint), so this subtitle was the
+               only thing telling a non-NBD contractor that his own template
+               library belongs to someone else. The accurate wording is also
+               the better pitch. -->
+          <div class="page-sub">24 documents, branded with your company details — ready to generate, print, and present</div>
         </div>
         <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
           <button class="btn btn-ghost" title="Saved SMS / email snippets that auto-fill the composer when you share a portal link"
