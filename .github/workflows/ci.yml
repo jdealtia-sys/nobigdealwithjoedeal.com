@@ -214,6 +214,17 @@ jobs:
       - name: Run hidden-stage bucketing tests
         run: node tests/hidden-stage-bucketing.test.js
 
+      # Portal-link minter: portal-link-helpers.js ships on customer.html AND
+      # both dashboards, but the two page families expose different minters
+      # (CustomerPortal.mintUrl vs _mintPortalUrl). Requiring only the former
+      # made every portal affordance on the dashboards throw 'Portal module not
+      # loaded' — the kanban context menu, activity feed, global search, notif
+      # bell, three widgets, smart-followup + briefing, and the bootstrap.
+      # Drives the real module in a fake-DOM sandbox under each page shape,
+      # and pins the script tags both minters depend on. Dependency-free.
+      - name: Run portal-link minter tests
+        run: node tests/portal-link-minter.test.js
+
       # Stranger-gauntlet Fix Batch 1 (2026-07-16): invite-claim flag scoping,
       # past_due seat entitlement, company-keyed AI billing reads, invitee
       # register bypass, letterhead tagline gate, @stranger-required CI shape.

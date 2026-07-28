@@ -88,17 +88,45 @@
   // Firestore-first / generate-on-demand. Same flow Waves 40 + 41
   // already implemented inline in customer.html — extracted here so
   // the kanban context menu can reuse it without duplicating.
+  // Two minters exist, one per page family, and this module is loaded on BOTH:
+  //
+  //   customer.html            → window.CustomerPortal.mintUrl  (customer-portal.js)
+  //   dashboard(.legacy).html  → window._mintPortalUrl          (dashboard-api.js)
+  //
+  // Identical contract: async, takes a leadId, returns a fresh token URL,
+  // throws on failure. customer-portal.js is loaded on customer.html ONLY, so
+  // requiring CustomerPortal here made every portal affordance on both
+  // dashboards throw 'Portal module not loaded' — a visible error toast, from
+  // ten modules: the kanban context menu, activity feed, global search,
+  // notification bell, hot-leads / almost-there / stale-shares widgets,
+  // smart-followup (+ briefing) and the dashboard bootstrap.
+  //
+  // dashboard-api.js already had the right idea — its _mintPortalUrl comment
+  // says "anything on the dashboard that needs a portal URL must come through
+  // here or it dies at runtime" — but only _sharePortalLink and _mJdShare were
+  // ever routed through it. Everything reaching this function still died.
+  //
+  // Resolving the minter here rather than at each of the ten call sites keeps
+  // one resolve flow (clipboard fallbacks, SMS body template, recordShare) and
+  // means a future surface can't reintroduce this by picking the wrong minter.
+  function _minter() {
+    if (window.CustomerPortal && typeof window.CustomerPortal.mintUrl === 'function') {
+      return window.CustomerPortal.mintUrl.bind(window.CustomerPortal);
+    }
+    if (typeof window._mintPortalUrl === 'function') return window._mintPortalUrl;
+    return null;
+  }
+
   async function resolveUrl(leadId) {
     if (!leadId) throw new Error('leadId required');
-    if (typeof window.CustomerPortal === 'undefined' || typeof window.CustomerPortal.mintUrl !== 'function') {
-      throw new Error('Portal module not loaded');
-    }
+    const mint = _minter();
+    if (!mint) throw new Error('Portal module not loaded');
     // Always mint a fresh, revocable token URL (/pro/portal.html?token=…).
     // We deliberately no longer return a persisted lead.portalUrl — those were
     // the legacy, permanent, UNREVOCABLE Firebase Storage links this sweep
     // is retiring. Tokens are cheap (30-day TTL) and revoked together by
     // revokePortalToken({leadId}).
-    const url = await window.CustomerPortal.mintUrl(leadId);
+    const url = await mint(leadId);
     if (!url) throw new Error('Could not create portal link');
     return url;
   }
