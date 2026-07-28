@@ -95,6 +95,35 @@ onAuthStateChanged(auth, async (user) => {
 
   // CRITICAL: Set global _user for external modules (customer-portal, photo-report, review-engine, profit-tracker)
   window._user = user;
+
+  // window._userClaims is the tenant/role record every team-scoped reader on
+  // this page branches on — and NOTHING on customer.html was setting it. Its
+  // only three writers repo-wide (billing-gate.js, dashboard-bootstrap.module.js,
+  // nbd-auth.js) are all dashboard-side, so here it stayed undefined and every
+  // consumer's `window._userClaims || {}` fallback silently selected the
+  // owner-only branch of a deliberate owner-vs-team fork.
+  //
+  // The effect is invisible to a solo operator (companyId === uid makes both
+  // branches identical) and wrong for everyone else: a company_admin or manager
+  // opening a rep's job saw an empty Invoices panel, an empty Communication Log,
+  // an empty photo gallery, understated job costs in the Profit panel, and a
+  // "Read-only — this customer belongs to a teammate" banner they should never
+  // get. Firestore would have served all of it — the rules already allow it
+  // (leads/invoices/expenses are company-readable); the queries just never
+  // asked for the team scope.
+  //
+  // Awaited, not fire-and-forget: the hydration below reads these branches, so
+  // resolving late would still render the owner-only view. getIdTokenResult()
+  // is served from the in-memory token unless it is expiring, so this does not
+  // add a round trip on a normal load. Failure is non-fatal — falling back to
+  // {} is exactly today's behaviour, so a token hiccup degrades to owner-scope
+  // rather than blocking the page.
+  try {
+    const _tr = await user.getIdTokenResult();
+    window._userClaims = (_tr && _tr.claims) || {};
+  } catch (_) {
+    window._userClaims = window._userClaims || {};
+  }
   // Fetch the shop-wide Company Profile so generated docs use the rep's
   // saved legal text / financing / marketing. Fire-and-forget — defaults
   // are already in window._companyProfile.
@@ -409,7 +438,16 @@ async function loadCustomerData(id) {
       const _roIsOwner = lead.userId && window._user && lead.userId === window._user.uid;
       const _roIsStaff = ['company_admin', 'manager'].includes(_roRole)
         && !!_roClaims.companyId && lead.companyId === _roClaims.companyId;
-      const _roReadOnly = _roRole === 'viewer' || (!_roIsOwner && !_roIsStaff && _roRole !== 'admin');
+      // Defence in depth on top of the claims fix above. With claims
+      // unresolved, _roRole is '' and this collapsed to `!_roIsOwner` — so a
+      // company_admin who genuinely can edit was told the record was read-only.
+      // An UNKNOWN role is not evidence of restriction: claiming "belongs to a
+      // teammate" on a lead the user can in fact edit is worse than showing no
+      // banner, because the banner is the only thing telling them to stop.
+      // 'viewer' is still asserted positively, since that one IS a real
+      // restriction the rules enforce.
+      const _roReadOnly = _roRole === 'viewer'
+        || (!!_roRole && !_roIsOwner && !_roIsStaff && _roRole !== 'admin');
       if (_roReadOnly && !document.getElementById('nbdReadOnlyBanner')) {
         document.body.classList.add('nbd-readonly-customer');
         const b = document.createElement('div');

@@ -975,15 +975,28 @@
       metricsForStorage = null;
     }
 
-    // Save to Firestore
-    const reportId = await saveReport({
-      name: tmpl.name + ' — ' + fmtDate(rangeStart) + ' to ' + fmtDate(rangeEnd),
-      template,
-      rangeStart: rangeStart.toISOString(),
-      rangeEnd: rangeEnd.toISOString(),
-      html, // stored so re-open is instant
-      metrics: metricsForStorage
-    });
+    // Save to Firestore. The persist is best-effort relative to SHOWING the
+    // report: the rep asked to see it, and losing the render because the write
+    // failed would be the worse outcome. But the failure must be visible —
+    // _saveReport used to swallow it and return null, so a rejected write was
+    // indistinguishable from success and the report just quietly was not in My
+    // Reports afterwards. Surface it and carry on.
+    let reportId = null;
+    try {
+      reportId = await saveReport({
+        name: tmpl.name + ' — ' + fmtDate(rangeStart) + ' to ' + fmtDate(rangeEnd),
+        template,
+        rangeStart: rangeStart.toISOString(),
+        rangeEnd: rangeEnd.toISOString(),
+        html, // stored so re-open is instant
+        metrics: metricsForStorage
+      });
+    } catch (saveErr) {
+      console.error('[Reports] save failed:', saveErr);
+      if (typeof showToast === 'function') {
+        showToast("Report generated, but couldn't be saved to My Reports", 'warning');
+      }
+    }
 
     // Open in NBDDocViewer
     if (window.NBDDocViewer && typeof window.NBDDocViewer.open === 'function') {

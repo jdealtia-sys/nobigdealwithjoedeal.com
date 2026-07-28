@@ -235,6 +235,17 @@ jobs:
       - name: Run photo-hub engine tests
         run: node tests/photo-hub-engine.test.js
 
+      # customer.html tenant claims + companyId stamping: window._userClaims is
+      # written by three dashboard-side files, NONE loaded on customer.html, so
+      # every team-scoped reader there silently took the owner-only branch — a
+      # manager saw empty Invoices / Comm Log / photos, understated job costs,
+      # and a false read-only banner. Also pins companyId on the two writers
+      # that omitted it (/reports create REQUIRES it -> every save rejected
+      # behind a success toast; customer-page Log Estimate was invisible to the
+      # whole team). Dependency-free.
+      - name: Run customer-page claims + companyId tests
+        run: node tests/customer-page-claims.test.js
+
       # Portal-link minter: portal-link-helpers.js ships on customer.html AND
       # both dashboards, but the two page families expose different minters
       # (CustomerPortal.mintUrl vs _mintPortalUrl). Requiring only the former
