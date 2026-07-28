@@ -287,7 +287,21 @@
         : '<button type="button" class="ceh-btn" data-ceh-act="primary" data-ceh-id="' + id + '">☆ Make primary</button>') +
       '<button type="button" class="ceh-btn" data-ceh-act="duplicate" data-ceh-id="' + id + '">⎘ Copy</button>' +
       '<button type="button" class="ceh-btn" data-ceh-act="assign" data-ceh-id="' + id + '">👤 Assign</button>' +
-      '<button type="button" class="ceh-btn danger" data-ceh-act="archive" data-ceh-id="' + id + '">🗄 Archive</button>' +
+      // Labelled for what it DOES. This button read "🗄 Archive" — an archive
+      // box, the universal "filed away, still there" affordance — while
+      // dispatching deleteEstimateAction, which calls deleteDoc() and destroys
+      // the document. Its own confirm already said "This cannot be undone", so
+      // the control contradicted itself and the reassuring half was the part a
+      // rep reads first.
+      //
+      // Relabelled rather than converted to a soft delete: the tenant estimates
+      // snapshots that populate window._estimates apply no `deleted` filter, so
+      // a soft-deleted estimate would stay visible on the dashboard list and
+      // Archive would look broken. A real archive needs those readers updated
+      // first — worth doing, but it is a feature, not this fix. The dashboard's
+      // own estimates list already calls this exact action "delete"; the hub
+      // was the outlier.
+      '<button type="button" class="ceh-btn danger" data-ceh-act="archive" data-ceh-id="' + id + '">🗑 Delete</button>' +
       '</div>';
     return html;
   }
@@ -521,11 +535,60 @@
         break;
       case 'edit':      openBuilder(id); break;
       case 'primary':   makePrimary(id); break;
-      case 'duplicate': withEstimates('duplicateEstimateAction', [id]); break;
+      case 'duplicate': doDuplicate(id); break;
       case 'assign':    withEstimates('assignEstimateAction', [id]); break;
       case 'archive':   withEstimates('deleteEstimateAction', [id]); break;
       case 'new':       newEstimate(); break;
     }
+  }
+
+  // Duplicating from a per-customer hub means "another estimate for THIS
+  // customer" — the surrounding UI is that customer's job.
+  //
+  // The generic duplicateEstimateAction cannot mean that: window._duplicateEstimate
+  // deliberately sets `leadId = null` on the copy so the rep can assign it from
+  // the dashboard estimates list, which is the right default THERE. Routed
+  // through it, this button toasted "✓ Estimate duplicated" and the copy never
+  // appeared — the hub lists by leadId, so an unassigned copy is filtered out.
+  // The rep saw a success message, an unchanged list and an unchanged count,
+  // which reads as a failed action rather than a misfiled one.
+  //
+  // _duplicateEstimate is eager (dashboard-bootstrap), so unlike the other
+  // actions here this needs no lazy-bundle hop.
+  function doDuplicate(id) {
+    if (typeof window._duplicateEstimate !== 'function') {
+      toast('Duplicate not available — reload the page', 'error');
+      return;
+    }
+    var lead = _leadId;
+    Promise.resolve(window._duplicateEstimate(id)).then(function (newId) {
+      if (!newId) { toast('Failed to duplicate', 'error'); return; }
+      if (!lead || !(window.db && window.doc && window.updateDoc)) {
+        // Copy exists but we cannot attach it. Say so plainly rather than
+        // claiming success for something the rep will not find here.
+        toast('Estimate duplicated, but not attached to this customer', 'warning');
+        refresh();
+        return;
+      }
+      return window.updateDoc(window.doc(window.db, 'estimates', newId), { leadId: lead })
+        .then(function () {
+          // Patch the in-memory copy too — the hub renders from window._estimates
+          // and _duplicateEstimate's reload raced this attach.
+          var arr = window._estimates || [];
+          for (var i = 0; i < arr.length; i++) {
+            if (arr[i] && arr[i].id === newId) arr[i].leadId = lead;
+          }
+          if (_leadId === lead) refresh();
+          toast('✓ Estimate duplicated', 'success');
+        })
+        .catch(function (e) {
+          console.warn('[ceh] duplicate attach failed:', e && e.message);
+          toast('Estimate duplicated, but not attached to this customer', 'warning');
+        });
+    }).catch(function (e) {
+      console.warn('[ceh] duplicate failed:', e && e.message);
+      toast('Failed to duplicate', 'error');
+    });
   }
 
   // ── Public API ───────────────────────────────────────────────────────

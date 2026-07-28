@@ -246,6 +246,15 @@ jobs:
       - name: Run customer-page claims + companyId tests
         run: node tests/customer-page-claims.test.js
 
+      # Estimate hub controls: the per-customer hub labelled a deleteDoc() call
+      # "🗄 Archive" (an archive box = filed away, recoverable), and routed ⎘ Copy
+      # through the generic duplicate that nulls leadId — so the copy was
+      # filtered straight out of a hub that lists BY leadId, behind a success
+      # toast. Pins label honesty, that the action is still the real delete, and
+      # that the dashboard's own unassigning default is unchanged.
+      - name: Run estimate-hub control tests
+        run: node tests/estimate-hub-controls.test.js
+
       # Portal-link minter: portal-link-helpers.js ships on customer.html AND
       # both dashboards, but the two page families expose different minters
       # (CustomerPortal.mintUrl vs _mintPortalUrl). Requiring only the former
