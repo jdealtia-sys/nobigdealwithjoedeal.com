@@ -66,9 +66,26 @@ let _bootStartedAt; // module-local (globals Tranche 1 — was window.*)
     const err = window._loadLeadsLastError || null;
     const retry = (window._loadLeadsRetryAttempt || 0) + (window._loadLeadsSlowAttempt || 0);
     const exhausted = !!window._loadLeadsExhausted;
+    // Kept (unused by the render gate now) purely as the honest name for
+    // "loaded AND non-empty". Do NOT reintroduce it as the success condition —
+    // that is the bug described below.
     const hasData = loaded && count > 0;
     const online = navigator.onLine;
-    return { loaded, count, err, retry, exhausted, hasData, online };
+    // loadedOk — the load COMPLETED without error. Distinct from hasData on
+    // purpose: a tenant with zero leads has successfully loaded zero leads.
+    //
+    // This banner's success path used to test hasData (loaded && count > 0), so
+    // a brand-new account — which by definition has no leads — never satisfied
+    // it. Every single new signup got a persistent "Data not loaded" pill with a
+    // Retry button on their very first dashboard, for the full 30s auto-dismiss
+    // window, while _leadsLoaded was true and _loadLeadsLastError was null.
+    // Nothing had failed; the account was simply empty. Retry could not help,
+    // because there was nothing to fix.
+    //
+    // Invisible to anyone with data, which is why it survived: the owner's
+    // account has always had leads, so count > 0 was always true for him.
+    const loadedOk = loaded && !err;
+    return { loaded, loadedOk, count, err, retry, exhausted, hasData, online };
   }
 
   function _ensureBanner() {
@@ -145,7 +162,10 @@ let _bootStartedAt; // module-local (globals Tranche 1 — was window.*)
     const ageMs = Date.now() - (_bootStartedAt || Date.now());
 
     // Success path: silently remove if we'd been showing.
-    if (s.hasData) {
+    // Gated on loadedOk, NOT hasData — an empty account is a successful load,
+    // and claiming otherwise is the difference between "you have no leads yet"
+    // and "this product is broken" on someone's first ever screen.
+    if (s.loadedOk) {
       if (banner) {
         banner.style.opacity = '0';
         banner.style.transform = 'translateY(20px)';

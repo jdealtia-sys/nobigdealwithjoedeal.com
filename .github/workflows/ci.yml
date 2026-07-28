@@ -263,6 +263,15 @@ jobs:
       - name: Run estimate-hub control tests
         run: node tests/estimate-hub-controls.test.js
 
+      # Empty-tenant first run: the load-status banner gated success on
+      # (loaded && count > 0), so an account with ZERO leads — i.e. every brand
+      # new signup — got a persistent "Data not loaded" error pill with a Retry
+      # button on its very first dashboard, while the load had in fact succeeded.
+      # Invisible to anyone with data, which is why it shipped. Also pins the
+      # ?v= cache-bust, without which warm caches keep serving the broken file.
+      - name: Run empty-tenant load-banner tests
+        run: node tests/empty-tenant-load-banner.test.js
+
       # Portal-link minter: portal-link-helpers.js ships on customer.html AND
       # both dashboards, but the two page families expose different minters
       # (CustomerPortal.mintUrl vs _mintPortalUrl). Requiring only the former

@@ -2356,7 +2356,13 @@
             <span class="bc-meta-cp" data-action="goTo" data-target="crm">← Back to CRM</span>
           </div>
           <div class="page-title">Template Library</div>
-          <div class="page-sub">24 NBD-branded documents — ready to generate, print, and present</div>
+          <!-- Was "24 NBD-branded documents". The documents themselves ARE
+               correctly re-branded per tenant (document-generator.js
+               _deBrandSignerLabel is the chokepoint), so this subtitle was the
+               only thing telling a non-NBD contractor that his own template
+               library belongs to someone else. The accurate wording is also
+               the better pitch. -->
+          <div class="page-sub">24 documents, branded with your company details — ready to generate, print, and present</div>
         </div>
         <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
           <button class="btn btn-ghost" title="Saved SMS / email snippets that auto-fill the composer when you share a portal link"
@@ -6386,4 +6392,9 @@
      gets ground truth: code version, _leadsLoaded, error code, retry
      count, online state. Trivial to dismiss; auto-fades to ~30%
      opacity when leads finally load. -->
-<script src="js/dashboard-load-status-banner.js?v=1"></script>
+<!-- v2: the "Data not loaded" false-positive fix. The version query is the
+     cache-bust convention here, and it is load-bearing for THIS change — the
+     banner script is a plain (non-module) classic script that browsers cache
+     hard, so shipping the fix without bumping it leaves every warm cache
+     showing the old false error. -->
+<script src="js/dashboard-load-status-banner.js?v=2"></script>
