@@ -66,9 +66,21 @@
     } catch (e) { return 0; }
   }
   // Mirrors the date resolution the old inline grid used: takenAt, then
-  // createdAt, then uploadedAt.
+  // createdAt, then uploadedAt — plus capturedAt as a final fallback.
+  //
+  // capturedAt is LAST on purpose. For a photo read back from Firestore,
+  // createdAt is resolved and is the ordering authority (the /photos queries
+  // orderBy it, with matching composite indexes) — this must not change that.
+  // But a photo object we just pushed into the local cache after an upload
+  // carries UNRESOLVED serverTimestamp() sentinels for createdAt/uploadedAt:
+  // ms() cannot read them, returns 0, and the just-uploaded photo sorted to the
+  // very bottom of the grid under an "Older" heading — below months-old shots,
+  // with the "Latest" stat reading "—" if they were the customer's first. It
+  // looked like a half-failed upload and reps re-shot the roof. capturedAt is
+  // the one real epoch on that object, so it fills the gap until the doc is
+  // re-read, and never overrides a resolved createdAt.
   function photoTime(p) {
-    return ms(p && p.takenAt) || ms(p && p.createdAt) || ms(p && p.uploadedAt) || 0;
+    return ms(p && p.takenAt) || ms(p && p.createdAt) || ms(p && p.uploadedAt) || ms(p && p.capturedAt) || 0;
   }
   function dayLabel(t) {
     if (!t) return 'Older';
@@ -282,10 +294,30 @@
     }
   }
 
+  // window.PhotoEngine is NOT a reliable "engine is ready" signal.
+  // dashboard-actions.js installs a placeholder — `{ __nbdLazyPhotosStub: true }`
+  // with method shims — precisely to mean "not loaded yet". Testing bare
+  // truthiness accepted that placeholder as the engine, so loadBundle('photos')
+  // never ran and the real engine never arrived. Everything downstream then
+  // failed in a different way:
+  //   - the stub's shims return undefined (they fire-and-forget), so the
+  //     upload chain called .then() on undefined and threw BEFORE its .catch
+  //     was attached — rejecting the whole chain, dropping files 2..N, and
+  //     skipping the terminal handler that clears _busy, so the button sat on
+  //     "⬆ Uploading…" forever;
+  //   - the stub carries no deletePhoto/updatePhotoTags at all, so Delete and
+  //     the tag chips fell through to "still loading" permanently — the load
+  //     that would have fixed them was exactly what ensureEngine skipped.
+  // Same check the sibling estimate hub already makes (customer-estimate-hub.js
+  // withEstimates); this is that pattern applied here.
+  function engineReady() {
+    var pe = window.PhotoEngine;
+    return !!(pe && !pe.__nbdLazyPhotosStub);
+  }
   function ensureEngine() {
-    if (window.PhotoEngine) return Promise.resolve(true);
+    if (engineReady()) return Promise.resolve(true);
     if (!(window.ScriptLoader && window.ScriptLoader.loadBundle)) return Promise.resolve(false);
-    return window.ScriptLoader.loadBundle('photos').then(function () { return !!window.PhotoEngine; });
+    return window.ScriptLoader.loadBundle('photos').then(function () { return engineReady(); });
   }
 
   // ── Actions ──────────────────────────────────────────────────────────
@@ -330,14 +362,36 @@
       _busy = true;
       render();
       var done = 0, failed = 0;
+      // Pin the lead for the whole batch. _leadId is module-scoped and the per
+      // file .then bodies run LATER — they used to read whatever it happened to
+      // be at execution time. A rep who starts a 6-photo upload on LTE, backs
+      // out, and opens another customer had the remaining files written under
+      // the NEW lead's id: wrong Storage path, wrong Firestore doc, no signal.
+      // The first customer's roof photos simply end up on someone else's job.
+      var batchLead = _leadId;
+      if (!batchLead) { _busy = false; render(); toast('No customer selected', 'error'); return; }
       // Sequential, not parallel: phone uploads on LTE fall over when several
       // multi-MB blobs contend, and the rep gets a clearer count this way.
       var chain = Promise.resolve();
       files.forEach(function (f) {
         chain = chain.then(function () {
-          return window.PhotoEngine.uploadFromFile(_leadId, f, [], '')
+          // Promise.resolve() so a non-promise return can never throw before
+          // the .catch below is attached — that failure mode is what rejected
+          // the whole chain and left the button stuck on "Uploading…".
+          return Promise.resolve(window.PhotoEngine.uploadFromFile(batchLead, f, [], ''))
             .then(function (photo) {
-              if (photo && photo.id) { bag().push(photo); done++; }
+              if (photo && photo.id) {
+                // Cache under the lead the file was uploaded FOR, not the one
+                // on screen now — bag() reads the live _leadId.
+                // Dedupe by id: the engine now seeds this same cache on a
+                // successful write (so camera captures appear too), and this
+                // path goes through the engine.
+                if (!window._photoCache) window._photoCache = {};
+                if (!Array.isArray(window._photoCache[batchLead])) window._photoCache[batchLead] = [];
+                var _b = window._photoCache[batchLead];
+                if (!_b.some(function (p) { return p && p.id === photo.id; })) _b.push(photo);
+                done++;
+              }
             })
             .catch(function (e) {
               failed++;
@@ -347,6 +401,11 @@
       });
       chain.then(function () {
         _busy = false;
+        // If the rep navigated to a different customer mid-batch, the upload
+        // still completed correctly against batchLead — but repainting this
+        // panel (now showing someone else) with that result would be wrong,
+        // and the toast would name the wrong job.
+        if (_leadId !== batchLead) return;
         syncHost();
         if (done) toast(done + ' photo' + (done === 1 ? '' : 's') + ' added' + (failed ? ' · ' + failed + ' failed' : ''), failed ? 'warning' : 'success');
         else toast('Upload failed', 'error');
