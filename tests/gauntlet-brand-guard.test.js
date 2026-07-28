@@ -52,6 +52,11 @@ const FILES = [
   'docs/pro/js/dashboard-ui.js',
   'docs/pro/js/crm-portal-bridge.js',
   'docs/pro/js/review-engine.js',
+  // Added with the Stripe platform-only gate: this module hardcoded
+  // "NBD Roofing" in the invoice email subject, the emailed invoice header and
+  // thank-you line, the payment receipt, and the invoice SMS — five things a
+  // TENANT's homeowner receives.
+  'docs/pro/js/invoice-pipeline.js',
 ];
 
 // Rendered NBD-identity literals that must never appear ungated on a tenant path.

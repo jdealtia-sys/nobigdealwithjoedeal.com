@@ -32,6 +32,47 @@ const Stripe = require('stripe');
 // API-version upgrade is then a separate, testable change.
 const STRIPE_API_VERSION = '2023-10-16';
 
+// ═══════════════════════════════════════════════════════════════════════
+// PLATFORM-ONLY PAYMENT COLLECTION — read this before touching the gate.
+// ═══════════════════════════════════════════════════════════════════════
+// Stripe here serves TWO different money flows through ONE client on the
+// PLATFORM's secret key:
+//
+//   1. Subscription billing — a contractor paying us for NBD Pro. The money is
+//      ours. Correct on the platform key. Untouched by this gate.
+//   2. Invoice payment links — a contractor's HOMEOWNER paying the CONTRACTOR
+//      for a roof. That money is the contractor's. It is NOT ours to collect.
+//
+// There is no Stripe Connect in this codebase: no `stripeAccount`, no
+// `on_behalf_of`, no `transfer_data`, no `accounts.create` — grep and see.
+// getStripe() memoizes a single client on STRIPE_SECRET_KEY. So flow 2 settled
+// every tenant's customer payments into the PLATFORM balance. That was correct
+// when we were the only tenant; it stopped being correct the moment anyone else
+// could sign up, and the consequences are not cosmetic:
+//   - chargebacks hit our account and our dispute rate, for work we did not do
+//   - the 1099-K reports their revenue as ours
+//   - collecting funds on behalf of other businesses is regulated activity;
+//     Connect exists precisely so a platform doesn't have to be licensed for it
+//   - we would owe every contractor a manual payout, forever
+//
+// Until Connect Express ships (per-tenant account + onboarding in Settings,
+// links minted `on_behalf_of` theirs), online collection is restricted to the
+// platform tenant. Contractors still invoice normally and record payment via
+// markPaid — check, cash, or a card taken on their own terminal.
+//
+// DO NOT relax this to "warn and continue". Minting the link is the act that
+// takes the money; a warning the rep clicks past does not change where it goes.
+const NBD_OWNER_UID = process.env.NBD_OWNER_UID || '1phDvAVXHSg82wDLegAbQFq14Ci1';
+
+// True only for the platform tenant. Solo convention is companyId == owner uid,
+// so accept either the claim or the raw uid — a platform admin operating without
+// a companyId claim must not be locked out of our own invoicing.
+function isPlatformTenant(decoded) {
+  if (!decoded) return false;
+  const companyId = decoded.companyId || null;
+  return decoded.uid === NBD_OWNER_UID || companyId === NBD_OWNER_UID;
+}
+
 // Shared helpers (B2).
 const { requireAuth } = require('./shared');
 const { httpRateLimit } = require('./integrations/upstash-ratelimit');
@@ -1006,6 +1047,23 @@ exports.createStripePaymentLink = onRequest(
     const authResult = await requireAuth(req);
     if (authResult.error) { res.status(authResult.error.status).json(authResult.error.body); return; }
     const { decoded } = authResult;
+
+    // Platform-only until Connect ships — see the block comment at the top of
+    // this file. Refused BEFORE any Stripe call, so no link is ever minted for
+    // a tenant, and 403 (not 402): this is not an upsell, it is a capability
+    // the platform must not exercise on their behalf.
+    if (!isPlatformTenant(decoded)) {
+      logger.info('payment_link_refused_non_platform_tenant', {
+        uid: decoded.uid,
+        companyId: decoded.companyId || null,
+      });
+      res.status(403).json({
+        error: 'ONLINE_PAYMENTS_UNAVAILABLE',
+        message: 'Online card payment isn\'t available for your account yet. '
+          + 'Send the invoice and record check, cash or card under Mark Paid.',
+      });
+      return;
+    }
 
     try {
       const { invoiceId } = req.body;

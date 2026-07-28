@@ -78,6 +78,26 @@ let _NBD_IP_DELEGATE_BOUND; // module-local (globals Tranche 1 — was window.*)
   }
 
   /**
+   * Company name on anything a HOMEOWNER receives from this module — the
+   * invoice email subject, the emailed invoice header and thank-you line, the
+   * payment-received receipt, and the SMS. All five were hardcoded
+   * "NBD Roofing", so a tenant's customer was told the bill came from the
+   * platform owner. (Missed by the brand guard only because this file was not
+   * on its FILES list — it is now.)
+   *
+   * Same isNbd gate as email_system.js _brandFields(): NBD renders
+   * byte-identical, a tenant gets their own name, and a tenant with nothing set
+   * degrades to a neutral word rather than to the owner's.
+   */
+  function _invoiceCompany() {
+    let b = null;
+    try { if (typeof window._brand === 'function') b = window._brand() || null; } catch (e) { b = null; }
+    const isNbd = !b || !b.legalName || b.legalName === 'No Big Deal Home Solutions';
+    if (isNbd) return 'NBD Roofing';
+    return b.legalName || b.displayName || 'your contractor';
+  }
+
+  /**
    * Overlay lifecycle for this pipeline's dynamically-built modals.
    * Canonical .modal-bg/.modal markup (dashboard-app.css ~:2187); open and
    * close are ONLY classList 'open' toggles — the .modal-bg is always flex
@@ -579,7 +599,34 @@ let _NBD_IP_DELEGATE_BOUND; // module-local (globals Tranche 1 — was window.*)
    * @param {string} invoiceId
    * @returns {Promise<{url: string, paymentLinkId: string}>}
    */
+  // Online card collection is PLATFORM-ONLY until Stripe Connect ships. There
+  // is no Connect in the backend, so a link minted for a tenant would settle
+  // their homeowner's payment into the platform's balance — see the block
+  // comment atop functions/stripe.js. The server refuses these with 403
+  // ONLINE_PAYMENTS_UNAVAILABLE; this mirrors the check client-side so a
+  // contractor never triggers a request that can only fail.
+  //
+  // Everything downstream already renders the Pay Online button, the SMS link
+  // and the portal CTA conditionally on invoice.stripePaymentLink, so leaving
+  // it unset makes all of them disappear on their own — no extra branching.
+  function _canCollectOnline() {
+    try {
+      const claims = window._userClaims || {};
+      const uid = (window._user && window._user.uid) || null;
+      const OWNER = window.__NBD_OWNER_UID || '1phDvAVXHSg82wDLegAbQFq14Ci1';
+      return uid === OWNER || claims.companyId === OWNER;
+    } catch (e) {
+      return false; // fail CLOSED — never mint on an unresolved identity
+    }
+  }
+
   async function generateStripePaymentLink(invoiceId) {
+    if (!_canCollectOnline()) {
+      const err = new Error('Online card payment isn\'t available for your account yet — '
+        + 'send the invoice and record payment under Mark Paid.');
+      err.code = 'ONLINE_PAYMENTS_UNAVAILABLE';
+      throw err;
+    }
     try {
       const result = await callCloudFunction('createStripePaymentLink', {
         invoiceId: invoiceId
@@ -669,7 +716,7 @@ let _NBD_IP_DELEGATE_BOUND; // module-local (globals Tranche 1 — was window.*)
         if (window.NBDComms?.sendEmail) {
           const emailResult = await window.NBDComms.sendEmail({
             to: invoice.customerEmail || '',
-            subject: `Invoice ${invoiceId} from NBD Roofing`,
+            subject: `Invoice ${invoiceId} from ${_invoiceCompany()}`,
             html: invoiceHtml,
             leadId: invoice.leadId || null,
           });
@@ -682,7 +729,14 @@ let _NBD_IP_DELEGATE_BOUND; // module-local (globals Tranche 1 — was window.*)
 
       } else if (method === 'sms') {
         const link = invoice.stripePaymentLink || '';
-        const message = `Your NBD Roofing invoice is ready. Payment link: ${link}`;
+        // Two fixes on one line. The company was hardcoded "NBD Roofing", so a
+        // tenant's homeowner was told the invoice came from the platform owner.
+        // And the link was interpolated unconditionally — with none (which is
+        // now the normal case for a tenant) the customer got "Payment link: "
+        // with nothing after it.
+        const message = link
+          ? `Your ${_invoiceCompany()} invoice is ready. Payment link: ${link}`
+          : `Your ${_invoiceCompany()} invoice is ready — reply here with any questions.`;
 
         if (window.NBDComms?.sendSMS) {
           const smsResult = await window.NBDComms.sendSMS({
@@ -844,7 +898,7 @@ let _NBD_IP_DELEGATE_BOUND; // module-local (globals Tranche 1 — was window.*)
       if (window.NBDComms?.sendEmail && invoice.customerEmail) {
         await window.NBDComms.sendEmail({
           to: invoice.customerEmail,
-          subject: `Payment Received - NBD Roofing Invoice ${invoiceId}`,
+          subject: `Payment Received - ${_invoiceCompany()} Invoice ${invoiceId}`,
           html: `<p>Thank you! We received your payment of ${formatCurrency(amount)}.</p><p>Your invoice is now ${newBalanceDue === 0 ? 'fully paid' : 'partially paid'}.</p>`,
           leadId: invoice.leadId || null,
         });
@@ -1192,7 +1246,7 @@ let _NBD_IP_DELEGATE_BOUND; // module-local (globals Tranche 1 — was window.*)
         <body>
           <div class="container">
             <div class="header">
-              <div class="brand">NBD Roofing</div>
+              <div class="brand">${_esc(_invoiceCompany())}</div>
               <p style="margin:5px 0 0 0;color:#999;">Your Invoice is Ready</p>
             </div>
             <p>Hello,</p>
@@ -1226,7 +1280,7 @@ let _NBD_IP_DELEGATE_BOUND; // module-local (globals Tranche 1 — was window.*)
             </table>
             <p><strong>Payment Terms:</strong> ${_esc(invoice.terms)}</p>
             ${_safeUrl(invoice.stripePaymentLink) ? `<a href="${_esc(_safeUrl(invoice.stripePaymentLink))}" class="cta">Pay Online</a>` : ''}
-            <p style="margin-top: 30px; font-size: 12px; color: #999;">Thank you for choosing NBD Roofing!</p>
+            <p style="margin-top: 30px; font-size: 12px; color: #999;">Thank you for choosing ${_esc(_invoiceCompany())}!</p>
           </div>
         </body>
       </html>
@@ -1316,9 +1370,32 @@ let _NBD_IP_DELEGATE_BOUND; // module-local (globals Tranche 1 — was window.*)
       try {
         showToast('Creating invoice...', 'info');
         const invoiceId = await createInvoiceFromEstimate(estimateId);
-        await generateStripePaymentLink(invoiceId);
+
+        // The invoice EXISTS from here on. Minting the payment link used to sit
+        // inside this same try, so any link failure — a Stripe hiccup, a $0 line
+        // item, the totals-reconcile guard, and now the platform-only refusal —
+        // skipped both the success toast and the detail modal. The rep saw only
+        // a red error over an invoice that had in fact been written, so he
+        // clicked Create again and ended up with two invoices for one job.
+        //
+        // Report creation first, then attempt the link separately.
         showToast('Invoice created successfully', 'success');
         showInvoiceDetailModal(invoiceId);
+
+        try {
+          await generateStripePaymentLink(invoiceId);
+        } catch (linkErr) {
+          // Not a failure of the invoice. For a tenant this is the expected
+          // path until Connect ships, so say what to do instead of erroring.
+          if (linkErr && linkErr.code === 'ONLINE_PAYMENTS_UNAVAILABLE') {
+            showToast('Invoice ready — record check or cash under Mark Paid '
+              + '(online card payment isn\'t enabled for your account yet).', 'info');
+          } else {
+            console.warn('payment link failed:', linkErr && linkErr.message);
+            showToast('Invoice created, but the online payment link could not be '
+              + 'generated — you can still send it and use Mark Paid.', 'warning');
+          }
+        }
       } catch (error) {
         showToast(`Error: ${error.message}`, 'error');
       }
