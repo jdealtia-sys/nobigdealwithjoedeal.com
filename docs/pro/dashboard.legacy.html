@@ -2034,14 +2034,17 @@
 
     <!-- DIAGNOSTIC PANEL (shows when loadLeads fails) -->
     <div id="crmDiagnostic" style="display:none;margin:16px;padding:20px;background:var(--s2);border:2px solid var(--orange);border-radius:8px;">
-      <div style="font-size:16px;font-weight:700;color:var(--orange);margin-bottom:12px;">⚠️ CRM Diagnostic</div>
-      <div style="font-size:13px;color:var(--t);line-height:1.6;margin-bottom:16px;">
+      <!-- Dual-mode — mirrors dashboard.html. crm-pipeline.js is shared, so
+           these IDs must exist here too or the legacy page keeps the alarming
+           heading with its details hidden. -->
+      <div id="crmDiagnosticTitle" style="font-size:16px;font-weight:700;color:var(--orange);margin-bottom:12px;">⚠️ CRM Diagnostic</div>
+      <div id="crmDiagnosticLede" style="font-size:13px;color:var(--t);line-height:1.6;margin-bottom:16px;">
         Your kanban isn't loading. Here's what we're seeing:
       </div>
       <div id="crmDiagnosticDetails" style="font-family:monospace;font-size:11px;background:var(--s1);padding:12px;border-radius:4px;color:var(--m);margin-bottom:16px;"></div>
-      
+
       <!-- Debug Console (collapsible) -->
-      <div class="mb-md">
+      <div class="mb-md" id="crmDiagnosticDebugToggle">
         <button class="btn btn-ghost" data-action="toggle" data-target="debugConsole" style="font-size:11px;padding:4px 8px;">
           <span id="debugConsoleToggle">▶</span> Show Debug Console
         </button>
@@ -2054,9 +2057,11 @@
       
       <div class="flex-g8">
         <button class="btn btn-orange" data-action="call" data-fn="loadSampleData">🎲 Load Sample Data</button>
-        <button class="btn btn-ghost" data-action="call" data-fn="retryLoadLeads">🔄 Retry Load</button>
-        <button class="btn btn-ghost" data-action="call" data-fn="testFirestoreRules">🔐 Test Rules</button>
-        <button class="btn btn-ghost" data-action="call" data-fn="copyDebugInfo">📋 Copy Debug Info</button>
+        <span id="crmDiagnosticDebugTools" style="display:contents;">
+          <button class="btn btn-ghost" data-action="call" data-fn="retryLoadLeads">🔄 Retry Load</button>
+          <button class="btn btn-ghost" data-action="call" data-fn="testFirestoreRules">🔐 Test Rules</button>
+          <button class="btn btn-ghost" data-action="call" data-fn="copyDebugInfo">📋 Copy Debug Info</button>
+        </span>
         <button class="btn btn-ghost" data-action="hideEl" data-target="crmDiagnostic">✕ Dismiss</button>
       </div>
     </div>

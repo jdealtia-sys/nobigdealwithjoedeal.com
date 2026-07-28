@@ -2059,14 +2059,21 @@
 
     <!-- DIAGNOSTIC PANEL (shows when loadLeads fails) -->
     <div id="crmDiagnostic" style="display:none;margin:16px;padding:20px;background:var(--s2);border:2px solid var(--orange);border-radius:8px;">
-      <div style="font-size:16px;font-weight:700;color:var(--orange);margin-bottom:12px;">⚠️ CRM Diagnostic</div>
-      <div style="font-size:13px;color:var(--t);line-height:1.6;margin-bottom:16px;">
+      <!-- Dual-mode. renderLeads() rewrites the title/lede and hides the debug
+           tools when the board is merely EMPTY rather than broken: a brand-new
+           account has zero leads by definition, and telling that user his
+           kanban "isn't loading" — over a dump of his own Firebase UID and a
+           line blaming Firestore rules — is the single most alarming thing the
+           product can say to someone on day one. The diagnostic itself is
+           genuinely useful when a read actually fails, so it stays. -->
+      <div id="crmDiagnosticTitle" style="font-size:16px;font-weight:700;color:var(--orange);margin-bottom:12px;">⚠️ CRM Diagnostic</div>
+      <div id="crmDiagnosticLede" style="font-size:13px;color:var(--t);line-height:1.6;margin-bottom:16px;">
         Your kanban isn't loading. Here's what we're seeing:
       </div>
       <div id="crmDiagnosticDetails" style="font-family:monospace;font-size:11px;background:var(--s1);padding:12px;border-radius:4px;color:var(--m);margin-bottom:16px;"></div>
-      
+
       <!-- Debug Console (collapsible) -->
-      <div class="mb-md">
+      <div class="mb-md" id="crmDiagnosticDebugToggle">
         <button class="btn btn-ghost" data-action="toggle" data-target="debugConsole" style="font-size:11px;padding:4px 8px;">
           <span id="debugConsoleToggle">▶</span> Show Debug Console
         </button>
@@ -2078,10 +2085,14 @@
       </div>
       
       <div class="flex-g8">
+        <!-- Load Sample Data is useful in BOTH modes — an empty account is
+             exactly who wants to see what a populated board looks like. -->
         <button class="btn btn-orange" data-action="call" data-fn="loadSampleData">🎲 Load Sample Data</button>
-        <button class="btn btn-ghost" data-action="call" data-fn="retryLoadLeads">🔄 Retry Load</button>
-        <button class="btn btn-ghost" data-action="call" data-fn="testFirestoreRules">🔐 Test Rules</button>
-        <button class="btn btn-ghost" data-action="call" data-fn="copyDebugInfo">📋 Copy Debug Info</button>
+        <span id="crmDiagnosticDebugTools" style="display:contents;">
+          <button class="btn btn-ghost" data-action="call" data-fn="retryLoadLeads">🔄 Retry Load</button>
+          <button class="btn btn-ghost" data-action="call" data-fn="testFirestoreRules">🔐 Test Rules</button>
+          <button class="btn btn-ghost" data-action="call" data-fn="copyDebugInfo">📋 Copy Debug Info</button>
+        </span>
         <button class="btn btn-ghost" data-action="hideEl" data-target="crmDiagnostic">✕ Dismiss</button>
       </div>
     </div>

@@ -426,12 +426,22 @@ function goTo(name, params = {}) {
   }
   // CRM: re-render kanban on every entry (not just first)
   if(name==='crm') {
-    if (typeof renderLeads === 'function' && window._leads?.length) {
+    // NOT gated on _leads.length. That gate meant a tenant with zero leads got
+    // no buildKanbanColumns() and no renderLeads() at all — so Pipeline, their
+    // primary nav item, painted the header ("0 leads · $0 pipeline") and then
+    // literally nothing: no columns, no drop targets, no message. It reads as a
+    // board that failed to load, on the screen a new contractor opens first.
+    //
+    // The empty state was already written and simply never ran —
+    // dashboard-bootstrap.module.js emits a per-column "No leads" cell. Same
+    // count-gate was removed from the boot path in Wave 120 and left behind
+    // here; this is that removal finished.
+    if (typeof renderLeads === 'function') {
       // Ensure kanban columns exist
       if (!document.getElementById('kanbanBoard')?.children?.length && typeof window.buildKanbanColumns === 'function') {
         window.buildKanbanColumns(window._currentViewKey || 'insurance');
       }
-      renderLeads(window._leads, window._filteredLeads);
+      renderLeads(window._leads || [], window._filteredLeads);
     }
   }
   // These views' modules are lazy-loaded — chain init onto the preload
