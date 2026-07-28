@@ -1980,10 +1980,20 @@
     // the rep can uncheck, rename inline, or add ad-hoc signers.
     var docTypeEntry = (window.NBDDocGen && window.NBDDocGen.DOCUMENT_TYPES && window.NBDDocGen.DOCUMENT_TYPES[type]) || {};
     var defaults = Array.isArray(docTypeEntry.defaultSigners) ? docTypeEntry.defaultSigners : [];
+    // De-brand the seeded labels. DOCUMENT_TYPES.defaultSigners carries NBD
+    // defaults like "Authorized NBD Representative" and "NBD Inspector"; the
+    // EMITTED pdf is already corrected, because renderSignatureBlock runs every
+    // label through NBDDocGen._deBrandSignerLabel. This modal was the one place
+    // that copied them raw, so a tenant saw the platform owner's name pre-filled
+    // in his own signer box across 7 doc types. The chokepoint already exists —
+    // it just was never called from here.
+    var _deBrand = (window.NBDDocGen && typeof window.NBDDocGen._deBrandSignerLabel === 'function')
+      ? window.NBDDocGen._deBrandSignerLabel.bind(window.NBDDocGen)
+      : function (x) { return x; };
     state.signers = defaults.map(function (s) {
       return {
         role: s.role || 'signer',
-        label: s.label || s.role || 'Signer',
+        label: _deBrand(s.label || s.role || 'Signer'),
         required: s.required !== false,
         enabled: true,
         removable: false,

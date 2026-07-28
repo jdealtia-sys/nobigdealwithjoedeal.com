@@ -32,9 +32,23 @@
     try { if (typeof window._brand === 'function') return window._brand() || {}; } catch (e) { /* fall through */ }
     return {};
   }
-  function brandName()    { const b = _b(); return b.legalName || b.displayName || BRAND.name; }
-  function brandPhone()   { const b = _b(); return (b.contact && b.contact.phone) || BRAND.phone; }
-  function brandSignOff() { const b = _b(); return b.smsSignOff || 'Joe & the NBD team'; }
+  // `|| NBD-literal` is the bug pattern here. _resolveBrand() blanks an unset
+  // tenant field to '', so a `||` fallback re-injects the platform owner's
+  // identity exactly where a contractor left something empty — his customer got
+  // a review request signed "Joe & the NBD team" with Joe's cell number. And
+  // smsSignOff has no Settings field at all, so the contractor could not fix it.
+  //
+  // Gate on isNbd instead: NBD keeps its literals byte-identical, a tenant gets
+  // theirs, and a tenant with nothing set gets blank rather than Joe's.
+  function _isNbdBrand()  { const b = _b(); return !b.legalName || b.legalName === 'No Big Deal Home Solutions'; }
+  function brandName()    { const b = _b(); return b.legalName || b.displayName || (_isNbdBrand() ? BRAND.name : ''); }
+  function brandPhone()   { const b = _b(); return (b.contact && b.contact.phone) || (_isNbdBrand() ? BRAND.phone : ''); }
+  function brandSignOff() {
+    const b = _b();
+    if (b.smsSignOff) return b.smsSignOff;
+    if (_isNbdBrand()) return 'Joe & the NBD team';
+    return b.legalName || b.displayName || '';
+  }
 
   // ═══════════════════════════════════════════════════════════════
   // GOOGLE REVIEW REQUEST

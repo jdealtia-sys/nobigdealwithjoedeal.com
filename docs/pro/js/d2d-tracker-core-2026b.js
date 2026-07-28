@@ -202,14 +202,41 @@
   const SYNC_QUEUE_KEY = 'nbd_d2d_sync_queue';
   const PAGE_SIZE = 200;
 
-  // SMS templates
+  // Resolves the company name that goes into a message a HOMEOWNER receives.
+  // The templates below used to hardcode "NBD Home Solutions" / "NBD", and
+  // sendFollowUpSMS substituted only {name}/{rep}/{address}/{follow_up_date} —
+  // so a tenant's prospect was told the rep works for the platform owner. (The
+  // server has a brand-swapping twin, sendD2DSMS, but nothing in docs/ calls
+  // it.) Same isNbd gate as email_system.js: NBD keeps its exact wording, a
+  // tenant gets their own name, and a tenant with none set degrades to a
+  // neutral phrase rather than to the owner's.
+  function _d2dCompany() {
+    let b = null;
+    try { if (typeof window._brand === 'function') b = window._brand() || null; } catch (e) { b = null; }
+    const isNbd = !b || !b.legalName || b.legalName === 'No Big Deal Home Solutions';
+    if (isNbd) return 'NBD Home Solutions';
+    return b.legalName || b.displayName || 'our team';
+  }
+  // Substitutes the shared tokens. Used by the send paths AND by the template
+  // picker preview, so the rep reads the message his customer will actually get
+  // rather than a raw {company} token.
+  function _fillTemplate(body, vars) {
+    return String(body || '')
+      .replace(/\{company\}/g, (vars && vars.company) || _d2dCompany())
+      .replace(/\{name\}/g, (vars && vars.name) || 'there')
+      .replace(/\{rep\}/g, (vars && vars.rep) || '')
+      .replace(/\{address\}/g, (vars && vars.address) || '')
+      .replace(/\{follow_up_date\}/g, (vars && vars.follow_up_date) || 'soon');
+  }
+
+  // SMS templates — {company} resolves per tenant at send/preview time.
   const SMS_TEMPLATES = {
-    interested: { label: 'Thanks for Chatting', body: 'Hey {name}! This is {rep} from NBD Home Solutions. Great chatting today — I\'d love to take a closer look at your roof. Let me know a good time!' },
-    appointment: { label: 'Appointment Confirmation', body: 'Hi {name}! {rep} from NBD confirming our upcoming roof inspection. Looking forward to it!' },
-    storm_damage: { label: 'Storm Damage Alert', body: 'Hi {name}, {rep} from NBD. I noticed some storm damage on your roof today. I offer free inspections — would you like me to come take a closer look?' },
-    ins_has_claim: { label: 'Insurance Help', body: 'Hi {name}, {rep} from NBD. I can help guide you through your insurance claim process. Want to set up a time to chat?' },
-    follow_up: { label: 'General Follow-up', body: 'Hi {name}! {rep} from NBD checking in. We chatted recently about your roof — any updates on your end? Happy to answer any questions.' },
-    not_home: { label: 'Missed You', body: 'Hi {name}, {rep} from NBD Home Solutions. I stopped by {address} today but missed you. I noticed a few things on your roof I\'d love to discuss. When works best for a quick chat?' }
+    interested: { label: 'Thanks for Chatting', body: 'Hey {name}! This is {rep} from {company}. Great chatting today — I\'d love to take a closer look at your roof. Let me know a good time!' },
+    appointment: { label: 'Appointment Confirmation', body: 'Hi {name}! {rep} from {company} confirming our upcoming roof inspection. Looking forward to it!' },
+    storm_damage: { label: 'Storm Damage Alert', body: 'Hi {name}, {rep} from {company}. I noticed some storm damage on your roof today. I offer free inspections — would you like me to come take a closer look?' },
+    ins_has_claim: { label: 'Insurance Help', body: 'Hi {name}, {rep} from {company}. I can help guide you through your insurance claim process. Want to set up a time to chat?' },
+    follow_up: { label: 'General Follow-up', body: 'Hi {name}! {rep} from {company} checking in. We chatted recently about your roof — any updates on your end? Happy to answer any questions.' },
+    not_home: { label: 'Missed You', body: 'Hi {name}, {rep} from {company}. I stopped by {address} today but missed you. I noticed a few things on your roof I\'d love to discuss. When works best for a quick chat?' }
   };
 
   // Gamification challenges
@@ -288,6 +315,10 @@
   state.CARRIERS = CARRIERS;
   state.MAX_ATTEMPTS = MAX_ATTEMPTS;
   state.SMS_TEMPLATES = SMS_TEMPLATES;
+  // Exposed so the template PICKER renders the same resolved text the customer
+  // will receive. Without it the preview shows a raw "{company}" token.
+  state.fillTemplate = _fillTemplate;
+  state.brandCompany = _d2dCompany;
   state.DAILY_CHALLENGES = DAILY_CHALLENGES;
   state.STREAK_MILESTONES = STREAK_MILESTONES;
   state.HOT_DISPOSITIONS = HOT_DISPOSITIONS;
@@ -4555,11 +4586,12 @@
     if (!phone) { window.showToast?.('No phone number for this contact', 'error'); return; }
     const repName = state.currentRep?.name || window._user?.displayName || 'your local roofer';
     const tmpl = SMS_TEMPLATES[templateKey] || SMS_TEMPLATES[knock.disposition] || SMS_TEMPLATES.follow_up;
-    const body = tmpl.body
-      .replace(/\{name\}/g, knock.homeowner || 'there')
-      .replace(/\{rep\}/g, repName)
-      .replace(/\{address\}/g, knock.address || '')
-      .replace(/\{follow_up_date\}/g, knock.followUpDate ? formatDate(knock.followUpDate) : 'soon');
+    const body = _fillTemplate(tmpl.body, {
+      name: knock.homeowner || 'there',
+      rep: repName,
+      address: knock.address || '',
+      follow_up_date: knock.followUpDate ? formatDate(knock.followUpDate) : 'soon',
+    });
 
     // Try NBDComms first
     if (window.NBDComms && typeof window.NBDComms.sendSMS === 'function') {
@@ -4584,13 +4616,19 @@
 
   function sendFollowUpEmail(knock, templateKey) {
     if (!knock.email) { window.showToast?.('No email for this contact', 'error'); return; }
-    const repName = state.currentRep?.name || window._user?.displayName || 'NBD Home Solutions';
+    // repName fell back to 'NBD Home Solutions' — so a tenant rep with no
+    // display name introduced himself as the platform owner's company.
+    const _co = _d2dCompany();
+    const repName = state.currentRep?.name || window._user?.displayName || _co;
     const tmpl = SMS_TEMPLATES[templateKey] || SMS_TEMPLATES[knock.disposition] || SMS_TEMPLATES.follow_up;
-    const body = tmpl.body
-      .replace(/\{name\}/g, knock.homeowner || 'there')
-      .replace(/\{rep\}/g, repName)
-      .replace(/\{address\}/g, knock.address || '');
-    window.open(`mailto:${knock.email}?subject=NBD Home Solutions — ${tmpl.label}&body=${encodeURIComponent(body)}`, '_blank');
+    const body = _fillTemplate(tmpl.body, {
+      company: _co,
+      name: knock.homeowner || 'there',
+      rep: repName,
+      address: knock.address || '',
+    });
+    // Subject was hardcoded "NBD Home Solutions — <label>" unconditionally.
+    window.open(`mailto:${knock.email}?subject=${encodeURIComponent(_co + ' — ' + tmpl.label)}&body=${encodeURIComponent(body)}`, '_blank');
   }
 
   // ============================================================================

@@ -4517,7 +4517,7 @@
         <div class="panel-hdr"><div><div class="panel-label">Your Booking Link</div><div class="panel-title">Share With Homeowners</div></div></div>
         <div class="panel-body">
           <div style="display:flex;gap:8px;align-items:center;margin-bottom:12px;">
-            <input type="text" id="calBookingUrl" value="https://cal.com/nobigdeal/roof-inspection" readonly style="flex:1;background:var(--s2);border:1px solid var(--br);border-radius:7px;padding:10px 14px;font-family:inherit;font-size:13px;color:var(--t);">
+            <input type="text" id="calBookingUrl" value="" readonly placeholder="Set your Cal.com username below to generate your link" style="flex:1;background:var(--s2);border:1px solid var(--br);border-radius:7px;padding:10px 14px;font-family:inherit;font-size:13px;color:var(--t);">
             <button class="btn btn-orange" style="padding:10px 16px;font-size:12px;white-space:nowrap;" data-action="call" data-fn="copyCalLink">📋 Copy Link</button>
           </div>
           <div class="fwgap-8">
@@ -4535,11 +4535,11 @@
           <div class="sf-row">
             <div class="sf" style="flex:2;">
               <label class="eyebrow">Cal.com Username</label>
-              <input type="text" id="calUsername" placeholder="nobigdeal" value="nobigdeal" style="width:100%;background:var(--s2);border:1px solid var(--br);border-radius:7px;padding:10px 14px;font-family:inherit;font-size:13px;color:var(--t);" data-on-input="updateCalEmbed">
+              <input type="text" id="calUsername" placeholder="your-cal-username" value="" style="width:100%;background:var(--s2);border:1px solid var(--br);border-radius:7px;padding:10px 14px;font-family:inherit;font-size:13px;color:var(--t);" data-on-input="updateCalEmbed">
             </div>
             <div class="sf" style="flex:2;">
               <label class="eyebrow">Event Type Slug</label>
-              <input type="text" id="calEventSlug" placeholder="roof-inspection" value="roof-inspection" style="width:100%;background:var(--s2);border:1px solid var(--br);border-radius:7px;padding:10px 14px;font-family:inherit;font-size:13px;color:var(--t);" data-on-input="updateCalEmbed">
+              <input type="text" id="calEventSlug" placeholder="roof-inspection" value="" style="width:100%;background:var(--s2);border:1px solid var(--br);border-radius:7px;padding:10px 14px;font-family:inherit;font-size:13px;color:var(--t);" data-on-input="updateCalEmbed">
             </div>
             <div class="sf" style="flex:1;display:flex;align-items:flex-end;">
               <button class="btn btn-orange" style="width:100%;padding:10px;font-size:12px;" data-action="call" data-fn="saveCalSettings">Save</button>

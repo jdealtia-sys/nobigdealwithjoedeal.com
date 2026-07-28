@@ -724,12 +724,30 @@ window._repBookingUrl = function () {
       return 'https://cal.com/' + encodeURIComponent(legacy.username) + '/' + encodeURIComponent(slug);
     }
   } catch (e) {}
-  // House account
+  // House account — for the NBD tenant ONLY. Returning it unconditionally
+  // meant a contractor who never configured Cal.com texted his homeowner a
+  // link to the platform owner's calendar, and every booking landed there.
+  // A tenant with nothing configured gets '' so callers can decline to send;
+  // see the !url guards in dashboard-ui.js shareCalViaSMS / shareCalViaEmail.
+  try {
+    const _b = (typeof window._brand === 'function') ? (window._brand() || null) : null;
+    const _isNbd = !_b || !_b.legalName || _b.legalName === 'No Big Deal Home Solutions';
+    if (!_isNbd) return '';
+  } catch (e) { /* fall through to the house account */ }
   return 'https://cal.com/nobigdeal/roof-inspection';
 };
 
 window.sendBookingSMS = function(leadId, phone, firstName) {
   const bookingUrl = window._repBookingUrl();
+  // _repBookingUrl now returns '' for a tenant with no calendar configured
+  // (it used to hand back the platform owner's). Sending "Pick a time here: "
+  // with nothing after it is worse than not sending — tell the rep what to fix.
+  if (!bookingUrl) {
+    if (typeof showToast === 'function') {
+      showToast('Set up your booking link first — Schedule → Your Booking Link', 'error');
+    }
+    return;
+  }
   const cleanPhone = (phone || '').replace(/\D/g, '');
   // M1 brand parity (customer-bootstrap.module.js pattern): NBD keeps
   // 'Joe from No Big Deal Roofing'; a non-NBD tenant uses its own smsSignOff
@@ -751,8 +769,18 @@ window.sendFollowUpSMS = function(leadId) {
   const firstName = lead.firstName || lead.fname || '';
   const cleanPhone = lead.phone.replace(/\D/g, '');
   const bookingUrl = window._repBookingUrl();
+  // Sign-off resolves per tenant — this hardcoded "Joe from No Big Deal Home
+  // Solutions", so a contractor's follow-up introduced him as the platform
+  // owner. Same resolution sendBookingSMS directly above already does.
+  const _b = (window._brand && window._brand()) || {};
+  const _isNbd = !_b.legalName || _b.legalName === 'No Big Deal Home Solutions';
+  const signOff = _b.smsSignOff || (_isNbd ? 'Joe from No Big Deal Home Solutions' : (_b.legalName || ''));
+  // The booking link is optional here (the message stands without it), unlike
+  // sendBookingSMS whose entire purpose is the link.
+  const bookingLine = bookingUrl ? ` If you'd like to schedule a time to chat: ${bookingUrl}` : '';
+  const intro = signOff ? `, this is ${signOff}` : '';
   const body = encodeURIComponent(
-    `Hi${firstName ? ' ' + firstName : ''}, this is Joe from No Big Deal Home Solutions. Just following up on your project — wanted to check in and see if you have any questions. If you'd like to schedule a time to chat: ${bookingUrl}`
+    `Hi${firstName ? ' ' + firstName : ''}${intro}. Just following up on your project — wanted to check in and see if you have any questions.${bookingLine}`
   );
   window.open(`sms:${cleanPhone}?body=${body}`, '_self');
 };

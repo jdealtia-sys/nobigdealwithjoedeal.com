@@ -150,8 +150,24 @@
     Object.entries(state.SMS_TEMPLATES).forEach(([key, tmpl]) => {
       const opt = document.createElement('div');
       opt.style.cssText = 'padding:10px;background:var(--s2);border:1px solid var(--br);border-radius:6px;margin-bottom:8px;cursor:pointer;transition:border-color var(--t-mid);';
-      opt.innerHTML = '<div style="font-weight:600;font-size:13px;color:var(--t);">' + tmpl.label + '</div>'
-        + '<div style="font-size:11px;color:var(--m);margin-top:4px;">' + tmpl.body.substring(0, 80) + '...</div>';
+      // Preview the RESOLVED text — templates carry a {company} token now, and
+      // showing the rep a raw token (or worse, the platform owner's name) tells
+      // him nothing about what his customer will actually read.
+      const _preview = (typeof state.fillTemplate === 'function')
+        ? state.fillTemplate(tmpl.body, {
+            name: knock.homeowner || 'there',
+            rep: state.currentRep?.name || window._user?.displayName || 'you',
+            address: knock.address || '',
+          })
+        : tmpl.body;
+      // ESCAPE. tmpl.body was a constant, but the resolved preview now embeds
+      // the tenant's legalName and the homeowner's name — both stored, both
+      // attacker-influencable — into an innerHTML sink.
+      const _e = state.esc || ((s) => String(s == null ? '' : s)
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;').replace(/'/g, '&#39;'));
+      opt.innerHTML = '<div style="font-weight:600;font-size:13px;color:var(--t);">' + _e(tmpl.label) + '</div>'
+        + '<div style="font-size:11px;color:var(--m);margin-top:4px;">' + _e(_preview.substring(0, 80)) + '...</div>';
       opt.addEventListener('mouseenter', () => { opt.style.borderColor = 'var(--blue)'; });
       opt.addEventListener('mouseleave', () => { opt.style.borderColor = 'var(--br)'; });
       opt.addEventListener('click', () => {
