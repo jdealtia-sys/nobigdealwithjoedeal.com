@@ -784,6 +784,15 @@ window.saveEstimate = async function() {
       // The estimates create rule requires userId == auth.uid; omitting it
       // made every Log Estimate from this page PERMISSION_DENIED.
       userId: window.auth?.currentUser?.uid || auth.currentUser?.uid || null,
+      // Tenancy. The create rule PERMITS companyId to be absent, so omitting it
+      // failed silently at READ time instead: the team estimates listener
+      // queries where('companyId','==',claims.companyId), so an estimate logged
+      // from this page was invisible to every teammate — the manager's estimate
+      // count, the estimates list and the revenue rollups all under-reported it,
+      // permanently. Mirrors the canonical writer in dashboard-bootstrap.
+      // Solo operators key by uid (the companyId == uid convention).
+      companyId: window._userClaims?.companyId
+        || window.auth?.currentUser?.uid || auth.currentUser?.uid || null,
       type: type,
       amount: amount,
       // Classic-shape doc (type/amount) written into a collection the rest of

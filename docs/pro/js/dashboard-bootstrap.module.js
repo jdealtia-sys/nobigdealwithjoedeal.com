@@ -3758,19 +3758,36 @@
   };
 
   window._saveReport = async (data) => {
+    const uid = window._user?.uid;
+    if (!uid) throw new Error('Not signed in');
+    // The /reports create rule REQUIRES companyId (string, non-empty, equal to
+    // the caller's tenant or their uid) — it is pinned there so a crafted write
+    // cannot inject a report into another tenant's team-visible feed. This
+    // writer never stamped it, so every save through it was rejected. The rule's
+    // own comment says "saveReport already stamps companyId" and it is right
+    // about the OTHER saveReport (inspection-report-engine.js); this one is a
+    // second, separate writer that was missed.
+    //
+    // Solo operators key by uid — the companyId == uid convention the rule
+    // allows explicitly, and the same fallback /invoices uses.
+    const companyId = window._userClaims?.companyId || uid;
     try {
-      const uid = window._user?.uid;
-      if (!uid) throw new Error('Not signed in');
       const ref2 = await addDoc(collection(db, 'reports'), {
         ...data,
         userId: uid,
+        companyId,
         createdAt: serverTimestamp()
       });
       await window._loadReports();
       return ref2.id;
     } catch (e) {
+      // Rethrow rather than swallowing. Returning null made a rules rejection
+      // indistinguishable from success to the caller, which toasted
+      // "✓ Report saved to My Reports" over a write that never landed — the
+      // report then simply was not in My Reports, with a console.error as the
+      // only trace. A failed save must be able to reach the user.
       console.error('[Reports] saveReport failed:', e);
-      return null;
+      throw e;
     }
   };
 
