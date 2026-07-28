@@ -119,7 +119,24 @@
       _toast(`${file.name}: too large (max 30 MB)`, 'error');
       return false;
     }
-    if (!window.PhotoEngine || typeof window.PhotoEngine.uploadFromFile !== 'function') {
+    // photo-engine.js has NO static <script> tag anywhere — it ships only in the
+    // lazy 'photos' bundle, and nothing on customer.html (this module's only
+    // surface, per the pathname gate above) ever requests it. So this bail was
+    // unconditional: every dropped image failed with "refresh and try again",
+    // and refreshing never helped. Dropped PDFs still worked and the ⬆ Upload
+    // button still worked, so it read as a transient one-file-type glitch.
+    //
+    // ScriptLoader IS loaded on this page — the bundle just had to be asked for.
+    // Reject the lazy placeholder too: it satisfies the truthiness test while
+    // being exactly the thing that means "not loaded yet".
+    const _peReady = () => window.PhotoEngine
+      && !window.PhotoEngine.__nbdLazyPhotosStub
+      && typeof window.PhotoEngine.uploadFromFile === 'function';
+    if (!_peReady() && window.ScriptLoader && typeof window.ScriptLoader.loadBundle === 'function') {
+      try { await window.ScriptLoader.loadBundle('photos'); }
+      catch (e) { console.warn('[dnd] photos bundle failed to load:', e && e.message); }
+    }
+    if (!_peReady()) {
       _toast('Photo engine not loaded — refresh and try again', 'error');
       return false;
     }

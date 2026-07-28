@@ -88,6 +88,25 @@
               window.showToast('Sign-out failed — try refreshing the page.', 'error');
             }
           }
+        } else if (window.auth) {
+          // Neither sign-out global exists on this page — customer.html exposes
+          // window.auth but no signOut helper, so this row used to close the
+          // palette and do nothing at all. Sign-out is the one action a rep must
+          // never be silently stuck on.
+          //
+          // Import the SDK's signOut directly (same CDN pin the rest of the app
+          // uses) so this genuinely ends the session rather than just navigating
+          // away and leaving the rep signed in — which is what a bare redirect
+          // to /pro/login.html would do; that page has no sign-out handling.
+          import('https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js')
+            .then((m) => m.signOut(window.auth))
+            .then(() => { window.location.href = '/pro/login.html'; })
+            .catch((e) => {
+              console.error('[command-palette] signOut failed:', e);
+              if (typeof window.showToast === 'function') {
+                window.showToast('Sign-out failed — try refreshing the page.', 'error');
+              }
+            });
         }
       } },
   ];
@@ -100,10 +119,25 @@
   let _currentResults = [];
 
   // ─── Utility ────────────────────────────────────────────────────
+  // window.goTo is a DASHBOARD global — it switches the SPA view in place. This
+  // palette is also loaded on customer.html, which defines no such function, so
+  // every Navigation row there did nothing at all: the palette closed, no view
+  // changed, no toast, no error. Nineteen rows plus New Lead and Sign Out, all
+  // inert, on a page where the rep has no other way to reach them.
+  //
+  // Falling back to a real page load rather than deleting the palette from
+  // customer.html: its lead search is genuinely useful there, and a hard
+  // navigation is exactly what a rep pressing Enter on "Estimates" wants.
   function _goTo(name, params) {
     if (typeof window.goTo === 'function') {
-      try { window.goTo(name, params || {}); }
+      try { window.goTo(name, params || {}); return; }
       catch (e) { console.warn('[NBDCommand] goTo failed:', e); }
+    }
+    // Not on the dashboard — the view router does not exist here.
+    try {
+      window.location.href = '/pro/dashboard.html#' + encodeURIComponent(String(name || ''));
+    } catch (e) {
+      console.warn('[NBDCommand] navigation fallback failed:', e);
     }
   }
   function _toast(msg, kind) {
@@ -267,20 +301,33 @@
       card,
       score,
       run: () => {
-        if (typeof window.openCardDetail === 'function') {
-          try { window.openCardDetail(lead.id); return; }
-          catch (e) { console.warn('[command-palette] openCardDetail failed (will fallback to goTo):', e); }
+        // window.openCardDetail has NEVER existed anywhere in this repo — the
+        // real global is openCardDetailModal (dashboard-widgets.js). Both the
+        // direct call and the 200ms retry below targeted the wrong name, so
+        // typing a customer's name and pressing Enter landed the rep on the
+        // kanban with nothing opened, and they had to hunt the card by hand —
+        // which is the entire thing they used the palette to avoid.
+        const _open = window.openCardDetailModal || window.openLeadDetail;
+        if (typeof _open === 'function') {
+          try { _open(lead.id); return; }
+          catch (e) { console.warn('[command-palette] card detail failed (will fall back):', e); }
         }
         if (typeof window.goTo === 'function') {
           window.goTo('crm');
           // Try to open the lead detail modal after a beat.
           setTimeout(() => {
-            if (typeof window.openCardDetail === 'function') {
-              try { window.openCardDetail(lead.id); }
-              catch (e) { console.error('[command-palette] openCardDetail retry also failed:', e); }
+            const _o = window.openCardDetailModal || window.openLeadDetail;
+            if (typeof _o === 'function') {
+              try { _o(lead.id); }
+              catch (e) { console.error('[command-palette] card detail retry also failed:', e); }
             }
           }, 200);
+          return;
         }
+        // Neither global exists — this page is not the dashboard (the palette
+        // also loads on customer.html, where none of its navigation targets are
+        // defined). Go somewhere real rather than silently doing nothing.
+        window.location.href = '/pro/customer.html?id=' + encodeURIComponent(lead.id);
       },
     };
   }
