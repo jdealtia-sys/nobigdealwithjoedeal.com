@@ -3433,13 +3433,21 @@ section('Embedded per-customer estimate hub (CustomerEstimateHub)');
   // ── Every action is wired to a REAL handler, not a stub. This is the whole
   //    point of the wave: the button did nothing but navigate before.
   for (const [act, fn] of [
-    ['duplicate', 'duplicateEstimateAction'],
     ['assign',    'assignEstimateAction'],
     ['archive',   'deleteEstimateAction'],
   ]) {
     assert(`hub '${act}' action calls ${fn}`,
       new RegExp(`case '${act}':\\s*withEstimates\\('${fn}'`).test(hub));
   }
+  // 'duplicate' deliberately no longer routes through duplicateEstimateAction.
+  // That path's _duplicateEstimate sets `leadId = null` so the copy can be
+  // assigned from the dashboard estimates list — correct THERE, wrong here: this
+  // hub lists BY leadId, so the copy was filtered straight out and the rep got a
+  // "✓ Estimate duplicated" toast over an unchanged list. The hub now duplicates
+  // and attaches to its own lead. See tests/estimate-hub-controls.test.js.
+  assert("hub 'duplicate' uses the lead-attaching local handler",
+    /case 'duplicate':\s*doDuplicate\(id\);/.test(hub)
+    && /function doDuplicate\(id\)/.test(hub));
   assert("hub 'new' action opens the V2 builder prefilled with the lead",
     /function newEstimate\(\)[\s\S]{0,200}openEstimateV2Builder', \[\{ leadId: _leadId \}\]/.test(hub));
   assert('hub edit keeps V2 in-context and only navigates for Classic',
