@@ -290,6 +290,20 @@ jobs:
       - name: Run Stripe platform-only payment tests
         run: node tests/stripe-platform-only-payments.test.js
 
+      # Server PDF brand fallback: resolveDocCompany returned the OWNER's identity
+      # (logo, legal name, phone, jd@ email, 'Joe', NBD seal) for every unresolved
+      # case — including a missing companyProfile, which is reachable because
+      # provisioning is best-effort. A tenant got Joe's name on contracts a
+      # homeowner signs. Reserved for the platform tenant; everyone else neutral.
+      - name: Run render-pdf neutral-fallback tests
+        run: node tests/render-pdf-neutral-fallback.test.js
+
+      # Widgets must not invent data: the Team Leaderboard rendered three fake
+      # reps (Joe Deal $48.5k) and Material Price Watch four fake shingle prices
+      # a roofer could quote a real job from. Both opt-in from an ungated picker.
+      - name: Run widget fabricated-data tests
+        run: node tests/widgets-no-fabricated-data.test.js
+
       # Portal-link minter: portal-link-helpers.js ships on customer.html AND
       # both dashboards, but the two page families expose different minters
       # (CustomerPortal.mintUrl vs _mintPortalUrl). Requiring only the former

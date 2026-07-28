@@ -327,37 +327,76 @@ const WIDGETS = [
         <div id="w-qe-result" style="font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:800;color:var(--orange);text-align:center;padding:6px 0;">$0</div>`;
     }},
 
-  {id:'material-watch', name:'Material Price Watch', icon:'📊', cat:'Operations', size:'sm',
-    render(el){
-      // Simulated price data — in production would fetch from supplier API
-      const items = [
-        {name:'OC Duration', price:'$98/sq', trend:'+2%', up:true},
-        {name:'GAF Timberline', price:'$102/sq', trend:'-1%', up:false},
-        {name:'Synthetic Felt', price:'$67/roll', trend:'0%', up:false},
-        {name:'Drip Edge 10ft', price:'$4.50/pc', trend:'+5%', up:true},
-      ];
-      el.innerHTML = items.map(i => `
-        <div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;border-bottom:1px solid var(--br);">
-          <div style="font-size:11px;font-weight:600;color:var(--t);">${i.name}</div>
-          <div style="display:flex;gap:6px;align-items:center;">
-            <span style="font-size:11px;color:var(--m);">${i.price}</span>
-            <span style="font-size:9px;color:${i.up?'var(--red)':'var(--green)'};">${i.trend}</span>
-          </div>
-        </div>`).join('');
-    }},
+  // 'material-watch' (Material Price Watch) REMOVED.
+  //
+  // It rendered four invented prices — "OC Duration $98/sq +2%", "GAF
+  // Timberline $102/sq -1%", "Synthetic Felt $67/roll", "Drip Edge 10ft
+  // $4.50/pc" — under the comment "Simulated price data — in production would
+  // fetch from supplier API". There is no supplier API, in this repo or
+  // anywhere it could reach.
+  //
+  // Of all the fabricated data on the dashboard this was the dangerous one: it
+  // is specific, it looks authoritative, and it is directly ACTIONABLE. A
+  // roofer pricing a job off "$98/sq" for a shingle he hasn't quoted this month
+  // loses real money on a real roof, and nothing on the widget told him the
+  // number was made up.
+  //
+  // Not replaced with an empty state, because a "Material Price Watch" that
+  // never has data is just a permanently broken tile. If a supplier feed (or a
+  // read of the tenant's own Product Library pricing) ever lands, re-add it
+  // then — pointed at that source. Until then, no widget beats a lying one.
 
   {id:'team-leaderboard', name:'Team Leaderboard', icon:'🥇', cat:'Operations', size:'sm',
     render(el){
-      // Pull from leaderboard data or simulate
-      const reps = [
-        {name:'Joe Deal', rev:48500, deals:12},
-        {name:'Mike S.', rev:32100, deals:8},
-        {name:'Sarah K.', rev:27800, deals:7},
-      ];
+      // REAL data. This used to render three invented reps — "Joe Deal $48.5k
+      // / 12 deals", "Mike S. $32.1k", "Sarah K. $27.8k" — with the comment
+      // "Pull from leaderboard data or simulate". It's opt-in from an ungated
+      // picker, and a brand-new tenant with an empty dashboard is exactly who
+      // browses the widget gallery looking for something to fill it. He'd add
+      // a leaderboard, see a stranger named Joe Deal topping HIS board with
+      // $48.5k, and reasonably conclude the product was showing someone else's
+      // data — or that its numbers can't be trusted at all.
+      //
+      // Same aggregation the real Leaderboard view uses: group non-deleted
+      // leads by owner, count won by stage ROLE (not a hardcoded name list, so
+      // custom pipelines work), and sum jobValue — the canonical money field.
+      const leads = (window._leads || []).filter(l => l && !l.deleted);
+      const byRep = {};
+      leads.forEach(l => {
+        const owner = l.userId || '(unknown)';
+        if (!byRep[owner]) byRep[owner] = { name: '', rev: 0, deals: 0 };
+        if (!byRep[owner].name && l.repName) byRep[owner].name = l.repName;
+        const role = l._stageRole
+          || (typeof window.stageRole === 'function' ? window.stageRole(l._stageKey || l.stage) : '');
+        if (role === 'won' || role === 'job') {
+          byRep[owner].deals++;
+          byRep[owner].rev += parseFloat(l.jobValue) || 0;
+        }
+      });
+      const reps = Object.entries(byRep)
+        .map(([owner, r]) => ({
+          // Fall back to the signed-in user's own name for their own row, then
+          // a neutral label — never an invented person.
+          name: r.name
+            || (owner === (window._user && window._user.uid)
+                ? ((window._user && (window._user.displayName || window._user.email)) || 'You')
+                : 'Teammate'),
+          rev: r.rev,
+          deals: r.deals,
+        }))
+        .filter(r => r.deals > 0)
+        .sort((a, b) => b.rev - a.rev)
+        .slice(0, 3);
+
+      if (!reps.length) {
+        el.innerHTML = '<div style="padding:10px 0;font-size:11px;color:var(--m);">'
+          + 'No closed jobs yet — reps appear here once deals start closing.</div>';
+        return;
+      }
       el.innerHTML = reps.map((r,i) => `
         <div style="display:flex;align-items:center;gap:8px;padding:5px 0;${i<reps.length-1?'border-bottom:1px solid var(--br);':''}">
           <span style="font-size:14px;">${i===0?'🥇':i===1?'🥈':'🥉'}</span>
-          <div style="flex:1;"><div style="font-size:11px;font-weight:700;color:var(--t);">${r.name}</div></div>
+          <div style="flex:1;"><div style="font-size:11px;font-weight:700;color:var(--t);">${esc(r.name)}</div></div>
           <div style="text-align:right;"><div style="font-size:12px;font-weight:700;color:var(--orange);">$${(r.rev/1000).toFixed(1)}k</div><div style="font-size:9px;color:var(--m);">${r.deals} deals</div></div>
         </div>`).join('');
     }},
@@ -651,7 +690,10 @@ function renderWidgetHome() {
       'weather-radar': 'd2d', 'storm-alerts': 'storm',
       'quick-estimate': 'est', 'quick-draw': 'draw', 'booking-link': 'schedule',
       'ask-joe-mini': 'joe', 'team-leaderboard': 'board',
-      'today-schedule': 'schedule', 'material-watch': 'products'
+      // 'material-watch' dropped with the widget itself (see above). This map
+      // is keyed by widget id, so a stale entry is harmless — removed anyway so
+      // the next reader doesn't go looking for a widget that isn't there.
+      'today-schedule': 'schedule'
     };
     const card = document.createElement('div');
     card.className = 'w-card w-' + w.size;
