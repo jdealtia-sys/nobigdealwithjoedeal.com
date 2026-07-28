@@ -76,7 +76,13 @@
       if (!e || e.deleted) continue;
       const status = String(e.status || (e.signedAt ? 'signed' : 'draft')).toLowerCase();
       const tier = String(e.tier || '').toLowerCase();
-      const grandTotal = Number(e.grandTotal || e.total || 0) || 0;
+      // Two-shape read — the grandTotal||total ladder had no `amount` rung, so
+      // Classic estimates scored 0 in every funnel/value rollup below.
+      const _api = window.NBDCustomerEstimateRows;
+      const grandTotal = (_api && typeof _api.estimateValue === 'function')
+        ? _api.estimateValue(e)
+        : (Number(e.grandTotal != null ? e.grandTotal
+            : e.total != null ? e.total : e.amount) || 0);
       const sentMs = _toMillis(e.sentAt);
       const viewedMs = _toMillis(e.viewedAt);
       const signedMs = _toMillis(e.signedAt);

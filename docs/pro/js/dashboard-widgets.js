@@ -17,6 +17,31 @@
 // ══════════════════════════════════════════════
 // ESTIMATES LIST + builder open
 // ══════════════════════════════════════════════
+
+// Two-shape estimate money read. V2 stores grandTotal; Classic stores
+// total|amount — and Classic is what the customer page's own Log Estimate
+// flow writes, plus what the demo seed uses. Reading grandTotal alone
+// rendered "$0" on estimate cards sitting next to a lead whose Job Value
+// showed the real figure, so the same screen contradicted itself.
+//
+// #1110 corrected the job-detail activity row further down this file but
+// missed these two card renderers; this is that fix finished. Defers to the
+// canonical reader (customer-estimate-rows.js, loaded on this page) with a
+// fallback that mirrors its numFrom so a missing script degrades to the same
+// answer rather than to zero.
+function _estVal(e) {
+  const api = window.NBDCustomerEstimateRows;
+  if (api && typeof api.estimateValue === 'function') return api.estimateValue(e);
+  if (!e) return 0;
+  const v = e.grandTotal != null ? e.grandTotal
+    : e.total != null ? e.total
+    : e.amount != null ? e.amount : 0;
+  if (typeof v === 'number') return isFinite(v) ? v : 0;
+  const m = String(v == null ? '' : v).match(/-?\d[\d,]*\.?\d*/);
+  const n = m ? parseFloat(m[0].replace(/,/g, '')) : NaN;
+  return isFinite(n) ? n : 0;
+}
+
 let _NBD_DW_DELEGATE; // module-local (globals Tranche 1 — was window.*)
 function renderEstimatesList(ests) {
   // Null-guard the analytics stat tiles AND the list wrapper. After the
@@ -121,7 +146,7 @@ function renderEstimatesList(ests) {
               + '<span class="est-date">' + esc(formatDate(e.createdAt || e.updatedAt)) + '</span>'
             + '</div>'
           + '</div>'
-          + '<div class="est-card-total">$' + Number(e.grandTotal || 0).toLocaleString('en-US', { maximumFractionDigits: 0 }) + '</div>'
+          + '<div class="est-card-total">$' + _estVal(e).toLocaleString('en-US', { maximumFractionDigits: 0 }) + '</div>'
         + '</div>'
         + '<div class="est-card-actions">'
           + '<button class="est-act-btn" data-act="open" title="Open & edit">✎ Edit</button>'
@@ -183,7 +208,7 @@ function renderEstimatesList(ests) {
         <div style="font-size:18px;">📋</div>
         <div><div class="est-addr" style="font-size:12px;">${esc(e.addr||'No address')}</div>
         <div class="est-meta">${esc(e.tierName||'')}</div></div>
-        <div class="est-total" style="font-size:16px;">$${Number(e.grandTotal||0).toLocaleString('en-US',{maximumFractionDigits:0})}</div>
+        <div class="est-total" style="font-size:16px;">$${_estVal(e).toLocaleString('en-US',{maximumFractionDigits:0})}</div>
       </div>`).join('');
     rc.querySelectorAll('.nbd-recent-est').forEach(el => {
       el.addEventListener('click', () => {
