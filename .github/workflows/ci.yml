@@ -281,6 +281,15 @@ jobs:
       - name: Run empty-is-not-failed tests
         run: node tests/empty-is-not-failed.test.js
 
+      # MONEY CUSTODY GATE: there is no Stripe Connect, so a payment link minted
+      # for a tenant settles their HOMEOWNER's payment into the PLATFORM's
+      # balance — our chargebacks, our 1099-K, and collecting funds on behalf of
+      # other businesses. Online collection is platform-only until Connect ships.
+      # Also pins that Connect is still absent: if it appears, this test should
+      # fail and be REWRITTEN to lift the gate deliberately, not deleted.
+      - name: Run Stripe platform-only payment tests
+        run: node tests/stripe-platform-only-payments.test.js
+
       # Portal-link minter: portal-link-helpers.js ships on customer.html AND
       # both dashboards, but the two page families expose different minters
       # (CustomerPortal.mintUrl vs _mintPortalUrl). Requiring only the former
