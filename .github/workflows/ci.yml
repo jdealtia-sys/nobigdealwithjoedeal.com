@@ -224,6 +224,17 @@ jobs:
       - name: Run estimate money-ladder tests
         run: node tests/estimate-money-ladder.test.js
 
+      # Photo hub vs the lazy PhotoEngine placeholder: dashboard-actions.js
+      # installs `window.PhotoEngine = { __nbdLazyPhotosStub: true, … }` to mean
+      # "bundle not loaded yet". The hub tested bare truthiness, accepted it as
+      # the engine, and so never loaded the real one — ⬆ Upload locked on
+      # "Uploading…" and dropped files 2..N, while Delete and the tag chips
+      # no-op'd permanently. Also pins batch lead-pinning (photos were filed
+      # under whichever customer was on screen when each .then RAN), fresh-upload
+      # ordering, phase-on-tag-edit, and idempotent cache seeding.
+      - name: Run photo-hub engine tests
+        run: node tests/photo-hub-engine.test.js
+
       # Portal-link minter: portal-link-helpers.js ships on customer.html AND
       # both dashboards, but the two page families expose different minters
       # (CustomerPortal.mintUrl vs _mintPortalUrl). Requiring only the former

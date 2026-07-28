@@ -204,8 +204,18 @@ section('Phase B.1 — AI Vision auto-tag on photo upload');
 {
   const pe = read(path.join(ROOT, 'docs/pro/js/photo-engine.js'));
   // 1. Background auto-tag is invoked after the photo doc lands.
+  // Ordering, by position rather than by proximity. This was
+  // /await setDoc\(photoDocRef[^)]*\)[\s\S]{0,1500}_autoTagPhotoBackground\(photoId\)/,
+  // i.e. "within 1500 characters of" standing in for "after" — so adding any
+  // post-write step between them failed a test whose condition still held.
+  // What must be true is that the auto-tag fires AFTER the doc lands.
+  // Match the CALL, not the `function _autoTagPhotoBackground(photoId)`
+  // definition — the definition sits earlier in the file, so a plain indexOf
+  // finds it and reports an ordering that has nothing to do with the call.
+  const _setDocAt = pe.indexOf('await setDoc(photoDocRef');
+  const _autoTagAt = pe.search(/(?<!function )_autoTagPhotoBackground\(photoId\);/);
   assert('photo-engine.js fires _autoTagPhotoBackground(photoId) after setDoc',
-    /await setDoc\(photoDocRef[^)]*\)[\s\S]{0,1500}_autoTagPhotoBackground\(photoId\)/.test(pe),
+    _setDocAt > -1 && _autoTagAt > -1 && _setDocAt < _autoTagAt,
     'expected uploadPhotoToFirebase to call _autoTagPhotoBackground(photoId) after setDoc');
   // 2. Helper lazy-loads the Functions SDK + calls analyzePhotoVision.
   assert('_autoTagPhotoBackground helper defined',

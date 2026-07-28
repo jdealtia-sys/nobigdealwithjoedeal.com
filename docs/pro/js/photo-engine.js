@@ -1340,6 +1340,32 @@
       // Clear cache for this lead
       delete state.photoCache[leadId];
 
+      // Keep the GLOBAL cache and the embedded hub in step. state.photoCache is
+      // this engine's own cache; the customer Photos hub renders exclusively
+      // from window._photoCache, which nothing here touched. So a rep shooting
+      // five roof photos got five "Photo N saved" toasts, closed the camera,
+      // and found the tab showing the old count and grid — re-entering did not
+      // help, because mount() re-renders the same stale cache. Reps read that
+      // as a failed save and re-shot the roof, creating duplicates.
+      //
+      // The sibling estimate hub is already wired this way (dashboard-widgets
+      // calls CustomerEstimateHub.refresh() after a write). Guarded and
+      // fire-and-forget: a rendering failure must never surface as a photo that
+      // did not save, since at this point it demonstrably did.
+      // Idempotent by id: the hub's own multi-file upload path pushes each
+      // returned photo into this same cache, and it also routes through this
+      // function — so an unconditional push here would render every
+      // button-uploaded photo twice.
+      try {
+        if (!window._photoCache) window._photoCache = {};
+        if (!Array.isArray(window._photoCache[leadId])) window._photoCache[leadId] = [];
+        const _bag = window._photoCache[leadId];
+        if (!_bag.some((p) => p && p.id === photoId)) _bag.push(photoData);
+        if (window.CustomerPhotoHub && typeof window.CustomerPhotoHub.refresh === 'function') {
+          window.CustomerPhotoHub.refresh();
+        }
+      } catch (e) { /* cache/repaint is best-effort; the write already succeeded */ }
+
       // ── B.1 (Phase B) — AI Vision auto-tag, fire-and-forget.
       // After the photo lands in Firestore, kick off
       //   analyzePhotoVision({ photoId })
@@ -1694,12 +1720,28 @@
       }
       return uploadPhotoToFirebase(file, leadId, tags, description, '');
     },
+    // Writes `phase` alongside `tags`, because phase is DERIVED from tags and
+    // was only ever computed at upload time (see uploadPhotoToFirebase). Tagging
+    // an existing photo "before"/"after" therefore changed nothing downstream:
+    // the customer page's Before/During/After buckets and the homeowner portal's
+    // before/after pairing both read `phase`, so a rep could tag ten photos and
+    // watch the Before and After counts stay at zero.
+    //
+    // Same derivation as the upload path — kept literally identical rather than
+    // factored out, so the two cannot drift into disagreeing about what a tag
+    // means. A tag set with none of the three clears phase to null rather than
+    // leaving a stale value behind.
     updatePhotoTags: async (photoId, tags) => {
       if (!window._db) throw new Error('Firestore not initialized');
       const { doc, updateDoc } = await import(
         'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js'
       );
-      await updateDoc(doc(window._db, 'photos', photoId), { tags });
+      const _tagList = Array.isArray(tags) ? tags : [];
+      let phase = null;
+      if (_tagList.includes('before')) phase = 'Before';
+      else if (_tagList.includes('after')) phase = 'After';
+      else if (_tagList.includes('during')) phase = 'During';
+      await updateDoc(doc(window._db, 'photos', photoId), { tags, phase });
     },
     updatePhotoDescription: async (photoId, description) => {
       if (!window._db) throw new Error('Firestore not initialized');
