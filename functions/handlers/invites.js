@@ -344,9 +344,10 @@ exports.teamInviteEmail = onDocumentCreated(
 // claimInvite behave identically.
 //
 // Seat policy: (invited + active) member docs < PLAN_LIMITS[plan].reps.
-// free/starter (reps:1) → no team invites; growth (reps:5) → up to 5
-// reps besides the owner (the generous reading of the landing copy
-// "Growth allows up to 5 team reps"); enterprise → unlimited.
+// free/starter (reps:1) → no team invites; team (reps:2, $149/mo) → up
+// to 2 reps; growth (reps:5) → up to 5 reps besides the owner (the
+// generous reading of the landing copy "Growth allows up to 5 team
+// reps"); enterprise → unlimited.
 // ───────────────────────────────────────────────────────────────
 
 // How many INVITED-REP seats a plan grants (besides the owner). reps:1 in
@@ -356,6 +357,19 @@ function seatLimitForPlan(plan) {
   const limits = PLAN_LIMITS[plan] || PLAN_LIMITS.free;
   if (limits.reps === Infinity) return Infinity;
   return limits.reps <= 1 ? 0 : limits.reps;
+}
+
+// Single source for the seat-cap refusal copy. BOTH throw sites (the fast
+// pre-check and the authoritative in-transaction re-check) must call this so
+// the two strings can never drift apart again — the duplicated ternary is
+// exactly how the wrong "Growth plan" copy survived at the race-path site.
+// The cheapest plan with ANY invite seats is Team ($149/mo, 2 seats) — see
+// PLAN_LIMITS in billing.js — so the zero-seat refusal names Team, not
+// Growth ($299).
+function seatCapMessage(seats) {
+  return seats === 0
+    ? 'Team invites need the Team plan ($149/mo) or higher — your current plan is solo. Upgrade at /pro/landing.html#pricing.'
+    : `Your plan includes ${seats} team seat${seats === 1 ? '' : 's'} and they're all taken. Remove a member or upgrade to add more.`;
 }
 
 // Invite TTL (gauntlet batch 2): pending invites are claimable for 30 days
@@ -476,10 +490,7 @@ exports.createTeamInvite = onCall(
     const reusesSeat = existingStatus === 'invited' && !isInviteExpired(existing.data());
     const seatsAfter = occupied.length + (reusesSeat ? 0 : 1);
     if (seats !== Infinity && seatsAfter > seats) {
-      throw new HttpsError('resource-exhausted',
-        seats === 0
-          ? 'Team invites need the Growth plan — your current plan is solo. Upgrade at /pro/landing.html#pricing.'
-          : `Your plan includes ${seats} team seat${seats === 1 ? '' : 's'} and they're all taken. Remove a member or upgrade to add more.`);
+      throw new HttpsError('resource-exhausted', seatCapMessage(seats));
     }
 
     // Solo owners may not have a companies/{uid} doc yet (pre-Phase-2
@@ -538,10 +549,7 @@ exports.createTeamInvite = onCall(
           return md.status === 'active';
         }).length;
         if (occ + 1 > seats) {
-          throw new HttpsError('resource-exhausted',
-            seats === 0
-              ? 'Team invites need the Growth plan — your current plan is solo. Upgrade at /pro/landing.html#pricing.'
-              : `Your plan includes ${seats} team seat${seats === 1 ? '' : 's'} and they're all taken. Remove a member or upgrade to add more.`);
+          throw new HttpsError('resource-exhausted', seatCapMessage(seats));
         }
       }
       tx.set(memberRef, {

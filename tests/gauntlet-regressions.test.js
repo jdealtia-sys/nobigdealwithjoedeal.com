@@ -81,6 +81,16 @@ console.log('\nTeam plan ($149, 2 seats) — wired server + client + stripe + pr
     /sessionStorage\.getItem\(\s*['"]nbd_plan_intent['"]\s*\)/.test(lg)
     && /\/pro\/pricing\.html/.test(lg),
     'returning visitors with a stashed plan intent must not land on dashboard and drop the upsell');
+  // 2026-07-28 first-run audit: the zero-seat invite refusal recommended the
+  // Growth plan ($299) when Team ($149) is the cheapest sufficient plan.
+  const invSrc = read('functions/handlers/invites.js');
+  assert('seat-gate copy recommends the cheapest sufficient plan (Team, not Growth)',
+    !/Team invites need the Growth plan/.test(invSrc) && /Team plan \(\$149\/mo\)/.test(invSrc));
+  assert('seat-gate refusal copy is single-sourced at BOTH throw sites (pre-check + txn re-check)',
+    (invSrc.match(/seatCapMessage\(/g) || []).length >= 3,
+    'the duplicated ternary is how the Growth copy survived at the race-path site');
+  assert('createTeamMember seat copy does not point at the wrong plan',
+    !/Team seats need a paid plan/.test(read('functions/handlers/admin.js')));
 }
 
 // ── Part B: source-contract guards ────────────────────────────────────
