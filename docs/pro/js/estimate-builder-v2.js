@@ -510,7 +510,70 @@
     if (cp.addonPrices && typeof cp.addonPrices === 'object') out.addonPrices = Object.assign({}, s.addonPrices, sane(cp.addonPrices));
     if (cp.dumpFee != null && cp.dumpFee !== '' && Number.isFinite(Number(cp.dumpFee)))                         out.dumpFee = Number(cp.dumpFee);
     if (cp.tearOffExtraPerSq != null && cp.tearOffExtraPerSq !== '' && Number.isFinite(Number(cp.tearOffExtraPerSq))) out.tearOffExtraPerSq = Number(cp.tearOffExtraPerSq);
-    return out;
+    // Per-tenant custom jurisdictions ride the same at-CALC-time overlay so a
+    // late-arriving companyProfile is honored (county-jurisdiction settings,
+    // 2026-07-29).
+    return _withTenantJurisdictions(out);
+  }
+
+  // Per-tenant custom jurisdictions (Settings → Estimates → My Jurisdictions).
+  // companyProfile/{companyId}.pricing.customJurisdictions is a map of
+  //   'custom-<slug>' → { name, cost, rate }   (rate is a DECIMAL, 0.0925)
+  // read at CALL time behind the same typeof-window guard as
+  // applyCompanyPricing — in Node (no window) this is a no-op by construction,
+  // so the harnesses' neutral-county behavior is untouched. Only sane entries
+  // survive: name must be a non-empty string; cost a finite number >= 0; rate a
+  // finite decimal 0..1. '' slugs are skipped ('' is reserved for the Other
+  // option — the countyTax double-index would read NaN off a '' key).
+  function _tenantJurisdictions() {
+    const cj = (typeof window !== 'undefined'
+      && window._companyProfile
+      && window._companyProfile.pricing
+      && window._companyProfile.pricing.customJurisdictions) || null;
+    const permits = {};
+    const countyTax = {};
+    if (cj && typeof cj === 'object') {
+      Object.keys(cj).forEach(slug => {
+        if (!slug) return;
+        const e = cj[slug];
+        if (!e || typeof e !== 'object') return;
+        const name = (typeof e.name === 'string') ? e.name.trim() : '';
+        if (!name) return;
+        // Blank/garbage numbers are DROPPED (not zeroed) so the engine's
+        // defaults stand — same L-1 rationale as applyCompanyPricing's sane().
+        const cost = Number(e.cost);
+        if (e.cost != null && e.cost !== '' && Number.isFinite(cost) && cost >= 0) {
+          permits[slug] = { name: name, cost: cost };
+        }
+        const rate = Number(e.rate);
+        if (e.rate != null && e.rate !== '' && Number.isFinite(rate) && rate >= 0 && rate <= 1) {
+          countyTax[slug] = rate;
+        }
+      });
+    }
+    return { permits, countyTax };
+  }
+
+  // Merge the tenant jurisdiction maps onto resolved settings. Custom keys ADD
+  // to — never replace — the canonical 7 (canonical spread first; the
+  // 'custom-' slug prefix guarantees no collision anyway). Touches nothing but
+  // permits/countyTax.
+  function _withTenantJurisdictions(s) {
+    const tj = _tenantJurisdictions();
+    if (!Object.keys(tj.permits).length && !Object.keys(tj.countyTax).length) return s;
+    return Object.assign({}, s, {
+      permits:   Object.assign({}, s.permits,   tj.permits),
+      countyTax: Object.assign({}, s.countyTax, tj.countyTax)
+    });
+  }
+
+  // The jurisdictions-overlaid tax map (loadSettings().countyTax + tenant
+  // custom jurisdictions). Consumed by EstimateLogic's resolveEstimate fallback
+  // so the JT / live V2 line-item paths tax custom counties correctly.
+  // loadSettings itself stays PURE — the settings panel's load/save spreads
+  // must never bake tenant values into localStorage.
+  function getCountyTaxMap() {
+    return Object.assign({}, loadSettings().countyTax, _tenantJurisdictions().countyTax);
   }
 
   // ═════════════════════════════════════════════════════════
@@ -811,7 +874,9 @@
   function calculateLineItem(input) {
     // Line-item mode prices off the catalog (material+labor) + OH&P, not the per-SQ
     // tierRates/addonPrices, so applyCompanyPricing is intentionally NOT applied here.
-    const s = input.settingsOverride || loadSettings();
+    // ONLY the tenant jurisdictions overlay applies (permits/countyTax — a Node
+    // no-op), so custom counties price the permit line + cash tax on this path too.
+    const s = _withTenantJurisdictions(input.settingsOverride || loadSettings());
     const tier = input.tier || 'better';
     const mode = input.mode || 'cash';
     const g = prepGeometry(input, s);
@@ -1079,6 +1144,7 @@
     loadSettings,
     saveSettings,
     updateSettings,
+    getCountyTaxMap,
 
     // Calculation
     calcDeposit,

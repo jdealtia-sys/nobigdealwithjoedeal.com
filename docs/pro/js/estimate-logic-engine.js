@@ -896,10 +896,16 @@
     //   2. EstimateBuilderV2 live settings — fallback for UI flows
     //      that don't pass countyTax through
     //   3. settings.fallbackTaxRate or 7% — last resort
+    // getCountyTaxMap (county-jurisdiction settings, 2026-07-29) is the
+    // jurisdictions-overlaid map (loadSettings().countyTax + the tenant's
+    // customJurisdictions); prefer it when the loaded engine exports it and
+    // keep the plain loadSettings read as the fallback for older stubs.
     const countyTaxMap = (settings.countyTax && typeof settings.countyTax === 'object')
       ? settings.countyTax
       : (window.EstimateBuilderV2
-          ? (window.EstimateBuilderV2.loadSettings().countyTax || {})
+          ? (typeof window.EstimateBuilderV2.getCountyTaxMap === 'function'
+              ? (window.EstimateBuilderV2.getCountyTaxMap() || {})
+              : (window.EstimateBuilderV2.loadSettings().countyTax || {}))
           : {});
     const taxRate = (mode === 'insurance')
       ? 0

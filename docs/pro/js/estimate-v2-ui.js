@@ -119,6 +119,44 @@
   // Modal HTML (created lazily on first open)
   // ═════════════════════════════════════════════════════════
 
+  // Per-tenant custom jurisdictions → extra #v2county options (county-
+  // jurisdiction settings, 2026-07-29). Built from window._companyProfile at
+  // modal-mount time — mounting is user-initiated, so the profile is hydrated
+  // by then on all three estimate pages (dashboard, legacy, customer.html).
+  // Jurisdiction names are tenant-entered text: HTML-escape them (stored-XSS
+  // render-safety rule). Appended AFTER the 7 static option literals so the
+  // smoke pins on the static head keep matching.
+  function _tenantCountyOptions() {
+    const esc = (s) => String(s == null ? '' : s)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+    const cj = (window._companyProfile
+      && window._companyProfile.pricing
+      && window._companyProfile.pricing.customJurisdictions) || null;
+    if (!cj || typeof cj !== 'object') return '';
+    return Object.keys(cj)
+      .filter(slug => slug && cj[slug] && typeof cj[slug].name === 'string' && cj[slug].name.trim())
+      .map(slug => `<option data-tenant-option value="${esc(slug)}">${esc(cj[slug].name.trim())}</option>`)
+      .join('');
+  }
+
+  // The modal template is baked once per page life (ensureModal early-returns
+  // once #estV2Modal exists), so the tenant tail of #v2county must refresh on
+  // every open: a jurisdiction added in Settings mid-session — or a
+  // companyProfile that hydrated after first mount — must be selectable
+  // without a reload. Injected options carry data-tenant-option so the 8
+  // static options are never touched (smoke pins on the static head).
+  function _refreshTenantCountyOptions() {
+    const sel = document.getElementById('v2county');
+    if (!sel) return;
+    sel.querySelectorAll('option[data-tenant-option]').forEach(o => o.remove());
+    const html = _tenantCountyOptions();
+    if (html) sel.insertAdjacentHTML('beforeend', html);
+  }
+
   function ensureModal() {
     if (document.getElementById('estV2Modal')) return;
 
@@ -591,7 +629,7 @@
               <option value="clermont-oh">Clermont County, OH</option>
               <option value="kenton-ky">Kenton County, KY</option>
               <option value="boone-ky">Boone County, KY</option>
-              <option value="campbell-ky">Campbell County, KY</option>
+              <option value="campbell-ky">Campbell County, KY</option>${_tenantCountyOptions()}
             </select>
           </div>
 
@@ -3544,6 +3582,7 @@ html,body{margin:0;padding:0;height:100%;width:100%;background:#fff;font-family:
   function open(opts) {
     opts = opts || {};
     ensureModal();
+    _refreshTenantCountyOptions();
     document.getElementById('estV2Modal').classList.add('open');
     // Phase 1b: pick the mobile starting step — a REOPENED estimate lands
     // on Review (scope + total + save/export, the "look at it" step); a

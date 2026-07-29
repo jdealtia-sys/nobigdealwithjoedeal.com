@@ -4174,6 +4174,12 @@
       if (el && tax[taxMap[id]] != null) el.value = (tax[taxMap[id]] * 100).toFixed(2);
     });
 
+    // My Jurisdictions rows (county-jurisdiction settings, 2026-07-29) —
+    // rendered fresh on every Estimates-tab open from the per-tenant
+    // companyProfile.pricing.customJurisdictions map (NOT the localStorage
+    // engine settings; companyProfile is the single store for custom rows).
+    _renderJurisdictionRows();
+
     // Catalog summary
     if (byId('v2matCount'))  byId('v2matCount').textContent  = (window.NBD_PRODUCTS || []).length;
     if (byId('v2labCount'))  byId('v2labCount').textContent  = (window.NBD_LABOR?.count) || 0;
@@ -4204,8 +4210,135 @@
     addonField('v2addonGuttersLf',       'guttersLf',            null,                            8.5);
   };
 
+  // ── My Jurisdictions (county-jurisdiction settings, 2026-07-29) ──
+  // Per-tenant custom counties/cities: display name + permit cost (USD) +
+  // tax rate (%). Stored ONLY in companyProfile/{companyId}
+  // .pricing.customJurisdictions as { 'custom-<slug>': { name, cost, rate } }
+  // (rate is a DECIMAL) — never in the localStorage nbd_est_settings_v3 patch
+  // and never in userSettings.estimateSettingsV2 (write-only dead store).
+
+  // Slug: 'custom-' + slugified name (lowercase, non-alphanumerics → '-',
+  // trimmed, capped ~40 chars). A name with NO ASCII alphanumerics (all-CJK,
+  // all-symbols) gets a stable hash-derived slug so the row is KEPT, not
+  // silently dropped on save. Returns '' only for a blank name. Never emits a
+  // bare '' and can never shadow a canonical slug (the 'custom-' prefix
+  // guarantees it); '' stays reserved for "Other".
+  function _jurSlugify(name) {
+    const base = String(name || '')
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '')
+      .slice(0, 40)
+      .replace(/-+$/g, '');
+    if (base) return 'custom-' + base;
+    const s = String(name || '').trim();
+    if (!s) return '';
+    let h = 5381;
+    for (let i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) >>> 0;
+    return 'custom-j' + h.toString(36);
+  }
+
+  function _renderJurisdictionRow(name, cost, ratePct) {
+    const esc = window.nbdEsc || (s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])));
+    const row = document.createElement('div');
+    row.className = 'sf-row';
+    row.setAttribute('data-jur-row', '');
+    // Inputs are found by data attribute (rows repeat — no fixed ids). The
+    // tenant-entered name is escaped into the value attribute (stored-XSS rule).
+    row.innerHTML =
+      '<div class="sf"><label>County / City Name</label><input type="text" data-jur-name maxlength="80" placeholder="e.g. Metro Nashville, TN" value="' + esc(name || '') + '"></div>' +
+      '<div class="sf"><label>Permit Cost ($)</label><input type="number" data-jur-cost min="0" step="5" value="' + esc(cost != null ? cost : '') + '"></div>' +
+      '<div class="sf"><label>Tax Rate %</label><input type="number" data-jur-rate min="0" step="0.01" value="' + esc(ratePct != null ? ratePct : '') + '"></div>' +
+      '<div class="sf"><label>&nbsp;</label><button class="btn btn-ghost fs-11" type="button" data-action="call" data-fn="_removeJurisdictionRow" data-pass-el>✕ Remove</button></div>';
+    return row;
+  }
+
+  let _jurRehydratePoll = null;
+  function _renderJurisdictionRows() {
+    const host = document.getElementById('jurRows');
+    if (!host) return;
+    if (window._companyProfileLoaded !== true) {
+      // companyProfile still hydrating (fresh device / slow network): render a
+      // placeholder and re-render when it lands. Saving is gated on the same
+      // flag below, so a pre-hydration empty list can never be persisted as a
+      // tenant-wide wipe.
+      host.innerHTML = '<div class="fs-11" style="color:var(--m);padding:6px 2px;">Loading your saved jurisdictions…</div>';
+      if (!_jurRehydratePoll) {
+        _jurRehydratePoll = setInterval(() => {
+          if (window._companyProfileLoaded === true) {
+            clearInterval(_jurRehydratePoll); _jurRehydratePoll = null;
+            _renderJurisdictionRows();
+          }
+        }, 500);
+        setTimeout(() => { if (_jurRehydratePoll) { clearInterval(_jurRehydratePoll); _jurRehydratePoll = null; } }, 30000);
+      }
+      return;
+    }
+    host.innerHTML = '';
+    const cj = (window._companyProfile
+      && window._companyProfile.pricing
+      && window._companyProfile.pricing.customJurisdictions) || {};
+    Object.keys(cj).forEach(slug => {
+      const e = cj[slug];
+      if (!slug || !e || typeof e !== 'object') return;
+      const rate = Number(e.rate);
+      const ratePct = (e.rate != null && e.rate !== '' && Number.isFinite(rate)) ? (rate * 100).toFixed(2) : null;
+      const cost = Number(e.cost);
+      const costVal = (e.cost != null && e.cost !== '' && Number.isFinite(cost)) ? cost : null;
+      host.appendChild(_renderJurisdictionRow(typeof e.name === 'string' ? e.name : '', costVal, ratePct));
+    });
+  }
+
+  const _addJurisdictionRow = function() {
+    const host = document.getElementById('jurRows');
+    if (!host) return;
+    host.appendChild(_renderJurisdictionRow('', null, null));
+    const inp = host.lastElementChild && host.lastElementChild.querySelector('[data-jur-name]');
+    if (inp) inp.focus();
+  };
+
+  const _removeJurisdictionRow = function(el) {
+    const row = el && el.closest ? el.closest('[data-jur-row]') : null;
+    if (row) row.remove();
+  };
+
+  // Read the rows container into the COMPLETE customJurisdictions map.
+  // Returns null when the container isn't in the DOM (defensive — the save
+  // button lives in the same hydrated panel).
+  function _collectJurisdictionRows() {
+    const host = document.getElementById('jurRows');
+    if (!host) return null;
+    const map = {};
+    host.querySelectorAll('[data-jur-row]').forEach(row => {
+      const nameEl = row.querySelector('[data-jur-name]');
+      const costEl = row.querySelector('[data-jur-cost]');
+      const rateEl = row.querySelector('[data-jur-rate]');
+      const name = String((nameEl && nameEl.value) || '').trim();
+      if (!name) return;                    // blank row — ignore
+      const base = _jurSlugify(name);
+      if (!base) return;                    // name has no sluggable characters
+      let slug = base, n = 2;
+      while (map[slug]) { slug = base + '-' + n; n++; }
+      const cost = parseFloat(costEl && costEl.value);
+      const ratePct = parseFloat(rateEl && rateEl.value);
+      map[slug] = {
+        name,
+        // Blank/garbage numbers persist as null — the engine overlay drops
+        // them so the default permit ($150) / fallback tax stand (never a
+        // silent $0, the L-1 class).
+        cost: (Number.isFinite(cost) && cost >= 0) ? cost : null,
+        rate: (Number.isFinite(ratePct) && ratePct >= 0) ? (ratePct / 100) : null
+      };
+    });
+    return map;
+  }
+
   // Save every v2 engine setting from the Estimates tab form
   window._saveEstimateDefaultsV2 = async function() {
+    // Honest-save flags: the success message below must not claim a sync
+    // that was skipped (profile not hydrated) or that threw (caught below).
+    let jurSaveSkipped = false;
+    let pricingSaveFailed = false;
     const byId = (id) => document.getElementById(id);
     const num = (id, fallback) => {
       const v = parseFloat(byId(id)?.value);
@@ -4298,17 +4431,70 @@
           valleyMetalLf:        num('v2addonValleyLf', 8.5),
           guttersLf:            num('v2addonGuttersLf', 8.5)
         };
-        await window._saveCompanyProfile({ pricing: { addonPrices } });
+        // My Jurisdictions rows ride the same per-tenant save (county-
+        // jurisdiction settings, 2026-07-29). NOT added to the localStorage
+        // patch above — companyProfile is the single store for custom rows.
+        // GATED on hydration: before _loadCompanyProfile's getDoc lands, the
+        // rows container holds only a placeholder, and persisting that empty
+        // collection would FULL-REPLACE the field below — wiping every
+        // jurisdiction for the whole tenant from one stale device.
+        const profileReady = window._companyProfileLoaded === true;
+        if (!profileReady) jurSaveSkipped = true;
+        const customJurisdictions = profileReady ? _collectJurisdictionRows() : null;
+        const prevJurSlugs = Object.keys((window._companyProfile
+          && window._companyProfile.pricing
+          && window._companyProfile.pricing.customJurisdictions) || {});
+        const pricing = { addonPrices };
+        if (customJurisdictions) pricing.customJurisdictions = customJurisdictions;
+        await window._saveCompanyProfile({ pricing });
+        // FULL-REPLACE the customJurisdictions field. _saveCompanyProfile
+        // deep-merges (cache) and setDoc({merge:true}) merges nested map keys
+        // on the server — either would silently RESURRECT deleted rows. An
+        // updateDoc at the dot-notation field path replaces the map wholesale
+        // so removal sticks; then reconcile the in-memory profile (and, when
+        // rows were actually deleted, re-pull so the tenant cache matches).
+        if (customJurisdictions && window._db && window._user) {
+          const removed = prevJurSlugs.filter(k => !(k in customJurisdictions));
+          const { updateDoc, doc } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js");
+          // Resolve via the SAME helper _saveCompanyProfile uses — a
+          // divergent key would land the merge-write and the full-replace on
+          // different docs (deleted rows resurrect, save reads as success).
+          const companyKey = (typeof window._resolveCompanyKey === 'function')
+            ? await window._resolveCompanyKey()
+            : ((window._userClaims && window._userClaims.companyId) || window._user.uid);
+          if (companyKey) {
+            await updateDoc(
+              doc(window._db, 'companyProfile', String(companyKey)),
+              { 'pricing.customJurisdictions': customJurisdictions }
+            );
+            if (window._companyProfile && window._companyProfile.pricing) {
+              window._companyProfile.pricing.customJurisdictions = Object.assign({}, customJurisdictions);
+            }
+            if (removed.length && typeof window._loadCompanyProfile === 'function') {
+              await window._loadCompanyProfile();
+            }
+          }
+        }
       }
-    } catch (e) { console.warn('Add-on rates save failed:', e); }
+    } catch (e) {
+      console.warn('Add-on rates / jurisdictions save failed:', e);
+      pricingSaveFailed = true;
+    }
 
     const msg = document.getElementById('v2save-msg');
     if (msg) {
       msg.style.display = 'block';
-      msg.textContent = '✓ Estimate settings saved. Every linked estimate will use these rates.';
-      setTimeout(() => msg.style.display = 'none', 3500);
+      msg.textContent = pricingSaveFailed
+        ? '⚠ Rates saved on this device, but the company pricing sync failed — check your connection and press Save again.'
+        : jurSaveSkipped
+          ? '✓ Estimate settings saved. Your jurisdictions were still loading and were left untouched — reopen this tab to edit them.'
+          : '✓ Estimate settings saved. Every linked estimate will use these rates.';
+      setTimeout(() => msg.style.display = 'none', 5000);
     }
-    if (typeof showToast === 'function') showToast('✓ Estimate settings saved', 'success');
+    if (typeof showToast === 'function') {
+      showToast(pricingSaveFailed ? '⚠ Company pricing sync failed — Save again' : '✓ Estimate settings saved',
+        pricingSaveFailed ? 'info' : 'success');
+    }
   };
 
   const _resetEstimateDefaultsV2 = function() {
@@ -5120,6 +5306,8 @@ Object.assign(window.__NBD_CALL_REGISTRY, {
   _saveCompanySettings: _saveCompanySettings,
   _testNotif: _testNotif,
   _resetEstimateDefaultsV2: _resetEstimateDefaultsV2,
+  _addJurisdictionRow: _addJurisdictionRow,
+  _removeJurisdictionRow: _removeJurisdictionRow,
   _saveSiteSlug: _saveSiteSlug,
   _saveCompanyProfileSettings: _saveCompanyProfileSettings,
   _resetCompanyProfileSettings: _resetCompanyProfileSettings,

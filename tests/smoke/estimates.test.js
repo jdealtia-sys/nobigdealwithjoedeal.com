@@ -663,4 +663,92 @@ section('Neutral county default: "Other / My county" everywhere, no Hamilton coe
     /county:\s*resolved\.county \|\| meta\.county \|\| null,/.test(jtEngine));
 }
 
+section('Custom jurisdictions: per-tenant rows reach both pickers + the engine (county-jurisdiction settings)');
+{
+  // County-jurisdiction settings 2026-07-29: a tenant's "My Jurisdictions"
+  // rows (companyProfile.pricing.customJurisdictions) must appear in the V2 +
+  // JT county pickers and price the permit line + cash tax on every path.
+  // Behavioral coverage lives in tests/custom-jurisdictions.test.js; these
+  // pins hold the lexical wiring together.
+
+  // (a) V2 picker: tenant options are APPENDED after the 7 static option
+  // literals (the neutral-'' head + 7-literal pins above must keep matching
+  // the static markup) — the injection expression sits right after the last
+  // static option, before </select>.
+  const v2ui = read(path.join(PRO_JS, 'estimate-v2-ui.js'));
+  assert('#v2county appends tenant options AFTER the static campbell-ky literal',
+    /<option value="campbell-ky">Campbell County, KY<\/option>[^<]{0,40}\$\{_tenantCountyOptions\(\)\}/.test(v2ui));
+  assert('v2-ui builds tenant options from companyProfile with HTML-escaped names',
+    /function _tenantCountyOptions\(/.test(v2ui)
+    && /customJurisdictions/.test(v2ui)
+    && /_tenantCountyOptions[\s\S]{0,600}replace\(\/&\/g, '&amp;'\)/.test(v2ui));
+
+  // (b) JT picker: '' Other literal stays FIRST; canonical 7 come from the
+  // engine's PERMIT_COSTS export (present on customer.html via inline
+  // fallbacks); custom jurisdictions append with their STORED names.
+  const jtUi = read(path.join(PRO_JS, 'job-templates-ui.js'));
+  assert("countyOptions still leads with the '' Other literal and sources the 7 from EstimateBuilderV2.PERMIT_COSTS",
+    /var other = \{ value: '', label: 'Other \/ My county' \};\s*var opts = \[other\];/.test(jtUi)
+    && /window\.EstimateBuilderV2/.test(jtUi)
+    && /eb2 && eb2\.PERMIT_COSTS/.test(jtUi));
+  assert('countyOptions appends custom jurisdictions with their stored display names',
+    /customJurisdictions/.test(jtUi));
+
+  // (c) Engine: jurisdictions overlay + overlaid-tax-map getter.
+  const engine = read(path.join(PRO_JS, 'estimate-builder-v2.js'));
+  assert('engine reads pricing.customJurisdictions behind the typeof-window guard (Node no-op)',
+    /function _tenantJurisdictions\(/.test(engine)
+    && /_tenantJurisdictions[\s\S]{0,400}typeof window !== 'undefined'[\s\S]{0,200}customJurisdictions/.test(engine));
+  assert('overlay applies in applyCompanyPricing AND calculateLineItem (jurisdictions only)',
+    /return _withTenantJurisdictions\(out\);/.test(engine)
+    && /const s = _withTenantJurisdictions\(input\.settingsOverride \|\| loadSettings\(\)\);/.test(engine));
+  assert('engine exports getCountyTaxMap (loadSettings().countyTax + tenant overlay)',
+    /function getCountyTaxMap\(/.test(engine)
+    && /getCountyTaxMap,/.test(engine));
+  const logic = read(path.join(PRO_JS, 'estimate-logic-engine.js'));
+  assert('EstimateLogic prefers EstimateBuilderV2.getCountyTaxMap, keeps the loadSettings fallback',
+    /typeof window\.EstimateBuilderV2\.getCountyTaxMap === 'function'/.test(logic)
+    && /window\.EstimateBuilderV2\.loadSettings\(\)\.countyTax \|\| \{\}/.test(logic));
+
+  // (d) Settings markup on BOTH dashboards. The dashboard.test.js wiring
+  // audit scans dashboard.html ONLY — legacy drift would be a silent
+  // page-scoped failure, so legacy parity is pinned explicitly here.
+  const bootSrc = read(path.join(PRO_JS, 'dashboard-bootstrap.module.js'));
+  for (const page of ['docs/pro/dashboard.html', 'docs/pro/dashboard.legacy.html']) {
+    const src = read(path.join(ROOT, page));
+    assert(page + ' has the #jurRows container + Add Jurisdiction data-fn wiring',
+      /id="jurRows"/.test(src)
+      && /data-action="call" data-fn="_addJurisdictionRow"/.test(src));
+  }
+  assert('add/remove jurisdiction handlers registered in the __NBD_CALL_REGISTRY block (not window-exported)',
+    /_addJurisdictionRow: _addJurisdictionRow,/.test(bootSrc)
+    && /_removeJurisdictionRow: _removeJurisdictionRow,/.test(bootSrc)
+    && !/window\._addJurisdictionRow\s*=/.test(bootSrc)
+    && !/window\._removeJurisdictionRow\s*=/.test(bootSrc));
+  // Delete semantics: _saveCompanyProfile deep-merges (setDoc {merge:true}
+  // merges nested map keys), which would resurrect deleted rows — the save
+  // must full-replace the field at its dot-notation path.
+  assert('save full-replaces pricing.customJurisdictions (deleted rows must not resurrect)',
+    /'pricing\.customJurisdictions': customJurisdictions/.test(bootSrc));
+  // Custom rows must NOT ride the per-device localStorage patch or the dead
+  // userSettings sink — companyProfile is the single store.
+  assert('customJurisdictions never enters the localStorage settings patch',
+    !/patch\.customJurisdictions/.test(bootSrc));
+  // Review follow-ups (2026-07-29): a pre-hydration empty render must never
+  // be persisted as a tenant-wide wipe, and the full-replace must target the
+  // same doc key as _saveCompanyProfile.
+  assert('jurisdiction render/save gate on companyProfile hydration (wipe-race fix)',
+    /window\._companyProfileLoaded === true/.test(bootSrc)
+    && /window\._companyProfileLoaded = true/.test(read(path.join(PRO_JS, 'company-profile.js')))
+    && /profileReady \? _collectJurisdictionRows\(\) : null/.test(bootSrc));
+  assert('full-replace resolves the company key via the shared resolver',
+    /window\._resolveCompanyKey/.test(bootSrc)
+    && /window\._resolveCompanyKey = _resolveCompanyKey/.test(read(path.join(PRO_JS, 'company-profile.js'))));
+  // Stale-options fix: the V2 modal template bakes once per page life, so the
+  // tenant tail of #v2county must refresh on every open().
+  assert('#v2county tenant option tail refreshes on modal open',
+    /_refreshTenantCountyOptions\(\);/.test(v2ui)
+    && /data-tenant-option/.test(v2ui));
+}
+
 };
