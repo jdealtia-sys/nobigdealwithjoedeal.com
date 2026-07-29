@@ -769,8 +769,23 @@ async function shareRoofReport() {
   const intel = window._lastIntel;
   if (!intel) { if (window.showToast) window.showToast('Look up a property first', 'info'); return; }
   const RR = window.RoofReport;
-  const Engine = window.InspectionReportEngine;
-  if (!RR || typeof RR.buildRoofReportHtml !== 'function' || !Engine || typeof Engine.saveReport !== 'function') {
+  // InspectionReportEngine ships in the LAZY 'photos' bundle (script-loader.js),
+  // which only loads on the Photos view or a card-detail photo/camera button.
+  // This card is a modal reachable from anywhere, so on a fresh session the
+  // engine isn't here yet — and dashboard-actions.js installs a lazy STUB
+  // ({__nbdLazyPhotosStub:true, openBuilder}) that is truthy but has no
+  // saveReport, so the guard below used to bail with "engine not ready" and the
+  // 📄 button looked broken unless the rep had already opened Photos. Same
+  // stub-vs-real trap as the photo hub (#1114): load the bundle, then RE-READ
+  // the global, because the real engine replaces the stub on load.
+  let Engine = window.InspectionReportEngine;
+  const engineReady = (e) => !!e && !e.__nbdLazyPhotosStub && typeof e.saveReport === 'function';
+  if (!engineReady(Engine) && window.ScriptLoader && typeof window.ScriptLoader.loadBundle === 'function') {
+    if (window.showToast) window.showToast('Loading the report engine…', 'info');
+    try { await window.ScriptLoader.loadBundle('photos'); } catch (_) { /* fall through to the guard */ }
+    Engine = window.InspectionReportEngine;
+  }
+  if (!RR || typeof RR.buildRoofReportHtml !== 'function' || !engineReady(Engine)) {
     if (window.showToast) window.showToast('Roof Report engine not ready', 'error');
     return;
   }
