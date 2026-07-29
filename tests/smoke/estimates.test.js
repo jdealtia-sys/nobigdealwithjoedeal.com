@@ -699,9 +699,16 @@ section('Custom jurisdictions: per-tenant rows reach both pickers + the engine (
   assert('engine reads pricing.customJurisdictions behind the typeof-window guard (Node no-op)',
     /function _tenantJurisdictions\(/.test(engine)
     && /_tenantJurisdictions[\s\S]{0,400}typeof window !== 'undefined'[\s\S]{0,200}customJurisdictions/.test(engine));
-  assert('overlay applies in applyCompanyPricing AND calculateLineItem (jurisdictions only)',
-    /return _withTenantJurisdictions\(out\);/.test(engine)
-    && /const s = _withTenantJurisdictions\(input\.settingsOverride \|\| loadSettings\(\)\);/.test(engine));
+  // The overlay must be applied at EVERY county-resolving entry point or one
+  // estimate prices differently depending on which path computed it. Renamed
+  // _withTenantJurisdictions -> _withTenantCounties when the canonical-7
+  // overrides joined it (per-tenant county migration); the pin follows the
+  // INTENT — both call sites go through the one overlay.
+  assert('the tenant county overlay applies in applyCompanyPricing AND calculateLineItem',
+    /return _withTenantCounties\(out\);/.test(engine)
+    && /const s = _withTenantCounties\(input\.settingsOverride \|\| loadSettings\(\)\);/.test(engine));
+  assert('getCountyTaxMap routes through the SAME overlay (JT / EstimateLogic parity)',
+    /return _withTenantCounties\(loadSettings\(\)\)\.countyTax;/.test(engine));
   assert('engine exports getCountyTaxMap (loadSettings().countyTax + tenant overlay)',
     /function getCountyTaxMap\(/.test(engine)
     && /getCountyTaxMap,/.test(engine));
