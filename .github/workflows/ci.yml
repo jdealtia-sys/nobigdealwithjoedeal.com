@@ -173,6 +173,16 @@ jobs:
       - name: Run roof-report generator tests
         run: node tests/roof-report.test.js
 
+      # Roof Report WIRING (QA 2026-07-29): the generator was fine, but the 📄
+      # button needs InspectionReportEngine, which ships in the LAZY photos
+      # bundle. The property-intel card is a modal reachable from anywhere, and
+      # dashboard-actions installs a TRUTHY placeholder with no saveReport — so
+      # shareRoofReport bailed with "engine not ready" on any session that had
+      # not already opened Photos. Pins the bundle load, the stub-vs-real check,
+      # and the post-load re-read (same class as photo-hub-engine).
+      - name: Run roof-report wiring tests
+        run: node tests/roof-report-wiring.test.js
+
       # Inbound-SMS convert: the builder that turns an untrusted unmatched_sms
       # row into a lead must always stamp the converting admin's userId/companyId
       # (never a null-tenant lead), carry phoneDigits for re-matching, clamp the
