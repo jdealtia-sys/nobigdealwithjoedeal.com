@@ -13,7 +13,11 @@
   // (188 base + 88 RoofIVent = 276). v4 also replaces the old
   // wipe-on-mismatch reseed with migrateStore(), which merges fresh
   // defaults with the user's created/edited products.
-  const DATA_VERSION = 4;
+  // DATA_VERSION 5 (2026-07-29): labor_008 Building Permit Fee description/
+  // notes neutralized — the seed text named Hamilton County / Cincinnati on
+  // every tenant's product library (NBD-leak audit remnant). migrateStore
+  // lands the fix while preserving user-edited copies.
+  const DATA_VERSION = 5;
 
   // Pull from product-data.js globals
   const CATEGORIES = window.NBD_CATEGORIES || {};
