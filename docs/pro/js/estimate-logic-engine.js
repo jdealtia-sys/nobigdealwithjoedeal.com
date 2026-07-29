@@ -907,11 +907,30 @@
               ? (window.EstimateBuilderV2.getCountyTaxMap() || {})
               : (window.EstimateBuilderV2.loadSettings().countyTax || {}))
           : {});
+    // Blank-county fallback. Two bugs lived on this line:
+    //   1. `settings.fallbackTaxRate || 0.07` swallowed an explicit 0, so a
+    //      tenant that owes NO sales tax still got 7% — phantom tax on
+    //      customer-facing paper.
+    //   2. No caller passes fallbackTaxRate (estimate-v2-ui and job-templates
+    //      send only {tier, mode, county}), so the tenant's company-wide rate
+    //      never reached this path at all: the per-SQ quote used 9.25% while
+    //      the catalog / Job-Template scope for the same customer used 7%.
+    // Resolve it the same way the county map is resolved — from the engine.
+    const _fbSetting = (settings.fallbackTaxRate != null && settings.fallbackTaxRate !== '' && Number.isFinite(Number(settings.fallbackTaxRate)))
+      ? Number(settings.fallbackTaxRate)
+      : null;
+    const _fbTenant = (_fbSetting == null
+      && typeof window !== 'undefined' && window.EstimateBuilderV2
+      && typeof window.EstimateBuilderV2.getFallbackTaxRate === 'function')
+      ? Number(window.EstimateBuilderV2.getFallbackTaxRate())
+      : null;
+    const fallbackRate = (_fbSetting != null) ? _fbSetting
+      : (Number.isFinite(_fbTenant) ? _fbTenant : 0.07);
     const taxRate = (mode === 'insurance')
       ? 0
       : (countyTaxMap[settings.county || ''] != null
           ? Number(countyTaxMap[settings.county])
-          : Number(settings.fallbackTaxRate || 0.07));
+          : fallbackRate);
     const tax = subtotal * taxRate;
 
     let total = subtotal + tax;

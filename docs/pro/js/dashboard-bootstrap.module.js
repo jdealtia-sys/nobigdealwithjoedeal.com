@@ -4146,10 +4146,18 @@
   }
 
   // Populate the Estimates settings tab from current v2 engine settings
+  // Did the 14 county inputs get populated FROM a hydrated tenant profile?
+  // Distinct from window._companyProfileLoaded, which only says the profile is
+  // hydrated NOW. The save path needs the former: publishing inputs that were
+  // painted before hydration is a full-replace of company money with factory
+  // values. Reset on every (re)paint so it always describes what is on screen.
+  let _countyInputsResolved = false;
+
   window._loadEstimateDefaultsV2 = function() {
     // Resolved (tenant county policy overlaid) — the permit/tax inputs below
     // must show COMPANY values, not this device's stale localStorage copy.
     const s = _v2ReadResolvedSettings();
+    _countyInputsResolved = !!s && window._companyProfileLoaded === true;
     if (!s) return;
     const byId = (id) => document.getElementById(id);
 
@@ -4291,7 +4299,15 @@
         _jurRehydratePoll = setInterval(() => {
           if (window._companyProfileLoaded === true) {
             clearInterval(_jurRehydratePoll); _jurRehydratePoll = null;
-            _renderJurisdictionRows();
+            // Repaint the WHOLE panel, not just these rows: the 14 canonical
+            // county inputs were also painted pre-hydration (from factory /
+            // device values) and had no other refresh hook, so they stayed
+            // stale until the tab was re-entered — and a Save then published
+            // those stale numbers company-wide as a dot-path full replace.
+            // No recursion risk: this pass sees _companyProfileLoaded === true,
+            // so the render branch runs and installs no new poll.
+            if (typeof window._loadEstimateDefaultsV2 === 'function') window._loadEstimateDefaultsV2();
+            else _renderJurisdictionRows();
           }
         }, 500);
         setTimeout(() => { if (_jurRehydratePoll) { clearInterval(_jurRehydratePoll); _jurRehydratePoll = null; } }, 30000);
@@ -4364,6 +4380,7 @@
     let jurSaveSkipped = false;
     let pricingSaveFailed = false;
     let pricingSaveDenied = false;
+    let countySaveSkipped = false;
     const byId = (id) => document.getElementById(id);
     const num = (id, fallback) => {
       const v = parseFloat(byId(id)?.value);
@@ -4465,6 +4482,14 @@
         // jurisdiction for the whole tenant from one stale device.
         const profileReady = window._companyProfileLoaded === true;
         if (!profileReady) jurSaveSkipped = true;
+        // The 14 canonical county inputs may have been PAINTED before the tenant
+        // profile landed (fresh device / cleared cache / slow network), and
+        // _loadEstimateDefaultsV2 is what records whether they were. Publishing
+        // stale inputs would dot-path FULL-REPLACE company county money with
+        // factory values for every rep — profileReady alone does not catch that,
+        // because it only says the profile is hydrated NOW, at save time.
+        const countyReady = profileReady && _countyInputsResolved;
+        if (!countyReady) countySaveSkipped = true;
         const customJurisdictions = profileReady ? _collectJurisdictionRows() : null;
         const prevJurSlugs = Object.keys((window._companyProfile
           && window._companyProfile.pricing
@@ -4476,7 +4501,7 @@
         // 14 inputs above; the same values go to companyProfile so every rep and
         // device prices identically. fallbackTaxRate rides along — it is the
         // blank-county rate, meaningless as a per-device preference.
-        if (profileReady) {
+        if (countyReady) {
           pricing.permits = patch.permits;
           pricing.countyTax = patch.countyTax;
           pricing.fallbackTaxRate = patch.fallbackTaxRate;
@@ -4502,14 +4527,14 @@
             // a later reset (which writes {}) actually CLEARS them instead of
             // merging into the previous values.
             const replace = { 'pricing.customJurisdictions': customJurisdictions };
-            if (profileReady) {
+            if (countyReady) {
               replace['pricing.permits'] = patch.permits;
               replace['pricing.countyTax'] = patch.countyTax;
             }
             await updateDoc(doc(window._db, 'companyProfile', String(companyKey)), replace);
             if (window._companyProfile && window._companyProfile.pricing) {
               window._companyProfile.pricing.customJurisdictions = Object.assign({}, customJurisdictions);
-              if (profileReady) {
+              if (countyReady) {
                 window._companyProfile.pricing.permits = Object.assign({}, patch.permits);
                 window._companyProfile.pricing.countyTax = Object.assign({}, patch.countyTax);
                 window._companyProfile.pricing.fallbackTaxRate = patch.fallbackTaxRate;
@@ -4534,8 +4559,8 @@
         ? (pricingSaveDenied
             ? '⚠ Saved on this device only. County rates and add-on pricing are company-wide — ask an owner or company admin to change them.'
             : '⚠ Rates saved on this device, but the company pricing sync failed — check your connection and press Save again.')
-        : jurSaveSkipped
-          ? '✓ Estimate settings saved. Your jurisdictions were still loading and were left untouched — reopen this tab to edit them.'
+        : (jurSaveSkipped || countySaveSkipped)
+          ? '✓ Estimate settings saved on this device. Company county rates were still loading, so they were left untouched — reopen this tab to change them.'
           : '✓ Estimate settings saved. Every linked estimate will use these rates.';
       setTimeout(() => msg.style.display = 'none', 5000);
     }
@@ -4580,6 +4605,13 @@
         tenantResetFailed = true;
         tenantResetErr = e;
         console.warn('[estimate-settings] tenant county reset failed:', e && e.message);
+      }
+      // A tenant that never saved a company profile has no doc, so the dot-path
+      // updateDoc rejects NOT_FOUND — but there is nothing to clear, so that IS
+      // success. Only a real failure should be reported to the user.
+      if (tenantResetFailed && /not-found|NOT_FOUND/i.test(String((tenantResetErr && (tenantResetErr.code || tenantResetErr.message)) || ''))) {
+        tenantResetFailed = false;
+        tenantResetErr = null;
       }
     }
 

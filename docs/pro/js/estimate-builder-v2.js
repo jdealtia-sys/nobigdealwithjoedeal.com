@@ -538,15 +538,27 @@
     const tj = _tenantJurisdictions();
     if (!cp && !Object.keys(tj.permits).length && !Object.keys(tj.countyTax).length) return s;
 
-    // countyTax entries are bare decimals; a blank/garbage field is DROPPED so
+    // countyTax entries are bare DECIMALS; a blank/garbage field is DROPPED so
     // the config rate stands (never coerced to 0 — the L-1 under-pricing class),
     // but a literal 0 IS honored (a tenant with no sales tax).
+    //
+    // Range 0..1 is enforced, matching _tenantJurisdictions' rate guard:
+    //   - a NEGATIVE rate would SUBTRACT tax from the customer total (an owner
+    //     typo of -5 became -0.05 company-wide, and permits already rejected
+    //     n < 0, so the two sanitizers disagreed);
+    //   - a rate > 1 is a percent pasted where a decimal belongs (9.25 meaning
+    //     9.25%, which would tax at 925%).
+    const saneRate = (v) => {
+      if (v === '' || v == null) return null;
+      const n = Number(v);
+      return (Number.isFinite(n) && n >= 0 && n <= 1) ? n : null;
+    };
     const saneRates = (obj) => {
       const o = {};
       Object.keys(obj || {}).forEach(k => {
         if (!k) return; // '' is reserved for the Other option (NaN double-index)
-        const n = Number(obj[k]);
-        if (obj[k] !== '' && obj[k] != null && Number.isFinite(n)) o[k] = n;
+        const n = saneRate(obj[k]);
+        if (n != null) o[k] = n;
       });
       return o;
     };
@@ -575,10 +587,20 @@
     // jurisdictions (custom-* keys can never collide with a canonical slug).
     out.permits   = Object.assign({}, s.permits,   cp ? sanePermits(cp.permits, s.permits) : {}, tj.permits);
     out.countyTax = Object.assign({}, s.countyTax, cp ? saneRates(cp.countyTax) : {},            tj.countyTax);
-    if (cp && cp.fallbackTaxRate != null && cp.fallbackTaxRate !== '' && Number.isFinite(Number(cp.fallbackTaxRate))) {
-      out.fallbackTaxRate = Number(cp.fallbackTaxRate);
+    if (cp) {
+      const fb = saneRate(cp.fallbackTaxRate);
+      if (fb != null) out.fallbackTaxRate = fb;
     }
     return out;
+  }
+
+  // The tenant-resolved blank-county fallback rate, for consumers that compute
+  // tax OUTSIDE this engine (estimate-logic-engine's resolveEstimate). Returns a
+  // finite decimal always — the caller must not have to re-implement the
+  // 0-is-legitimate check.
+  function getFallbackTaxRate() {
+    const r = _withTenantCounties(loadSettings()).fallbackTaxRate;
+    return Number.isFinite(Number(r)) ? Number(r) : FALLBACK_TAX_RATE;
   }
 
   // Per-tenant custom jurisdictions (Settings → Estimates → My Jurisdictions).
@@ -1212,6 +1234,7 @@
     updateSettings,
     getCountyTaxMap,
     getResolvedCountySettings,
+    getFallbackTaxRate,
 
     // Calculation
     calcDeposit,
