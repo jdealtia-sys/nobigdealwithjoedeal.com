@@ -23,6 +23,7 @@
 
   const STORAGE_KEY = 'nbd-onboarding-complete';
   let _stepIdx = 0;
+  let _dir = 1; // travel direction: +1 Next / -1 Back — drives the skip loop
   let _overlay = null;
 
   // Tour steps. Each has:
@@ -51,7 +52,7 @@
       placement: 'right'
     },
     {
-      anchor:    '#prospectsToggleBtn, #addLeadFab, .crm-hdr-actions .btn-orange',
+      anchor:    '#addLeadFab, #crmAddLeadBtn, #mni-create, #prospectsToggleBtn',
       title:     'Add your first lead',
       body:      "Tap the orange + button. Name + address is enough — you can fill in damage, claim, or job value later.",
       ctaLabel:  '＋ Add a lead now',
@@ -67,7 +68,7 @@
       placement: 'right'
     },
     {
-      anchor:    '.gear, [onclick*="settings"]',
+      anchor:    '.hdr-tool[data-target="settings"], #hdrMobileBtn',
       title:     'Make it yours',
       body:      "Settings has themes, UI sizes, and card density. The connection dot in the top right is also a refresh button.",
       learnMore: 'how-to.html#settings',
@@ -201,10 +202,17 @@
   // ────────────────────────────────────────────────────────────────────
   function findAnchor(selector) {
     if (!selector) return null;
-    // Try each comma-separated selector in order; first one that exists + is visible wins.
+    // Try each comma-separated selector in order; first one that exists + is
+    // visible wins. Visibility = a real layout box + not hidden. The old
+    // offset-parent test was wrong two ways: it is null for position:fixed
+    // elements that ARE visible (the add-lead FAB, the mobile bottom nav),
+    // and non-null for visibility:hidden ones.
     for (const sel of selector.split(',').map(s => s.trim()).filter(Boolean)) {
       const el = document.querySelector(sel);
-      if (el && el.offsetParent !== null) return el;
+      if (!el) continue;
+      const r = el.getBoundingClientRect();
+      const cs = getComputedStyle(el);
+      if (r.width > 0 && r.height > 0 && cs.visibility !== 'hidden' && cs.display !== 'none') return el;
     }
     return null;
   }
@@ -280,6 +288,18 @@
   }
 
   function renderStep() {
+    // Direction-aware skip: an anchored step whose anchor is missing or
+    // hidden right now (wrong view, collapsed sidebar, mobile breakpoint)
+    // is skipped in the direction of travel instead of rendering a
+    // floating centered tooltip pointing at nothing. Forward exhaustion
+    // falls into the `if (!step) complete()` below; backward exhaustion
+    // clamps to step 0, which must stay placement:'center' (always
+    // renderable) so this loop terminates in both directions.
+    while (STEPS[_stepIdx] && STEPS[_stepIdx].placement !== 'center'
+           && STEPS[_stepIdx].anchor && !findAnchor(STEPS[_stepIdx].anchor)) {
+      _stepIdx += _dir;
+      if (_stepIdx < 0) { _stepIdx = 0; break; }
+    }
     const step = STEPS[_stepIdx];
     if (!step) { complete(); return; }
     const target = findAnchor(step.anchor);
@@ -345,8 +365,8 @@
     tip.querySelectorAll('button[data-act]').forEach(b => {
       b.addEventListener('click', () => {
         const act = b.dataset.act;
-        if (act === 'next')      { _stepIdx++; renderStep(); }
-        else if (act === 'back') { _stepIdx = Math.max(0, _stepIdx - 1); renderStep(); }
+        if (act === 'next')      { _dir = 1; _stepIdx++; renderStep(); }
+        else if (act === 'back') { _dir = -1; _stepIdx = Math.max(0, _stepIdx - 1); renderStep(); }
         else if (act === 'skip') { complete(); }
         else if (act === 'cta')  {
           complete();
@@ -377,16 +397,21 @@
 
   function _onKey(e) {
     if (e.key === 'Escape') { e.preventDefault(); complete(); }
-    else if (e.key === 'ArrowRight') { _stepIdx++; renderStep(); }
-    else if (e.key === 'ArrowLeft') { _stepIdx = Math.max(0, _stepIdx - 1); renderStep(); }
+    else if (e.key === 'ArrowRight') { _dir = 1; _stepIdx++; renderStep(); }
+    else if (e.key === 'ArrowLeft') { _dir = -1; _stepIdx = Math.max(0, _stepIdx - 1); renderStep(); }
   }
   function _onResize() {
     const tip = document.getElementById('nbd-onb-tooltip');
     if (!tip) return;
     const step = STEPS[_stepIdx];
     if (!step) return;
-    positionTooltip(tip, findAnchor(step.anchor), step.placement);
-    positionSpotlight(findAnchor(step.anchor));
+    const target = findAnchor(step.anchor);
+    // If the resize hid the current anchor (e.g. desktop→mobile collapsed
+    // the sidebar mid-step), re-render so the skip logic runs instead of
+    // positionTooltip's silent center fallback.
+    if (!target && step.placement !== 'center' && step.anchor) { renderStep(); return; }
+    positionTooltip(tip, target, step.placement);
+    positionSpotlight(target);
   }
 
   function start(force) {
@@ -394,6 +419,7 @@
       try { if (localStorage.getItem(STORAGE_KEY) === '1') return; } catch (e) {}
     }
     _stepIdx = 0;
+    _dir = 1;
     injectStyles();
     document.addEventListener('keydown', _onKey, true);
     window.addEventListener('resize', _onResize);
