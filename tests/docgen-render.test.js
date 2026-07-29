@@ -160,6 +160,72 @@ for (const t of DOC_TYPES) {
   ok(t.label + ' / Oaks: does NOT leak "NBD" signature seal', !/Authorized NBD Representative/.test(o));
 }
 
+// ════════════════════════════════════════════════════════════════════
+// UNRESERVED-PREFIX TENANT — _docPrefix derives from legalName.
+// A non-NBD tenant with docPrefix '' used to mint orphan '-WC-#####'
+// certificate numbers ('Certificate #-WC-48213'). Now the prefix derives
+// from legalName (byte-identical to company-profile.js _deriveCustPrefix),
+// so certs read 'ORC-WC-…' — consistent with customer IDs and the
+// standalone warranty wizard, and still never 'NBD'.
+// ════════════════════════════════════════════════════════════════════
+console.log('\nDOCGEN RENDER — warranty cert, unreserved-prefix tenant (derived prefix)');
+const UNDER_BRAND = {
+  legalName: 'Oaks Roofing & Construction', displayName: 'Oaks Roofing & Construction',
+  seal: '', docPrefix: '', tagline: '', smsSignOff: '', logoUrl: '',
+  colors: { accent: '#C2410C' },
+  contact: { phone: '', email: '', website: '', address: '', alertEmail: '', alertSms: '' },
+};
+const un = render(UNDER_BRAND);
+ok('unreserved: renders HTML (no error)', typeof un === 'string' && un.indexOf('RENDER_ERROR') !== 0 && un.length > 500);
+ok('unreserved: Certificate #ORC-WC-… (derived prefix)', /Certificate #ORC-WC-\d/.test(un));
+ok('unreserved: no orphan "Certificate #-WC-"', !/Certificate #-WC-/.test(un));
+ok('unreserved: no NBD-WC- leak', !/NBD-WC-/.test(un));
+
+// ════════════════════════════════════════════════════════════════════
+// BLANK TENANT — footers/letterheads must not emit orphan separators,
+// dangling labeled lines, or empty <img src=""> when every contact
+// field is blank (first-run audit 2026-07-28: '(555) 555-5555 · · ',
+// 'Zelle —', broken-image boxes on a brand-new tenant's paper).
+// The blank tenant has ZERO contact fields, so ZERO join separators
+// may survive in any rendered doc.
+// ════════════════════════════════════════════════════════════════════
+const BLANK_TENANT = { legalName: 'Blank Roofing Co', colors: {}, contact: {} };
+for (const t of DOC_TYPES) {
+  console.log('\nDOCGEN RENDER — ' + t.label + ' (blank-contact tenant, no orphans)');
+  const bl = renderType(BLANK_TENANT, t.method, t.data);
+  ok(t.label + ' / blank: renders HTML (no error)', typeof bl === 'string' && bl.indexOf('RENDER_ERROR') !== 0 && bl.length > 500);
+  ok(t.label + ' / blank: no empty <img src="">', !/src=""/.test(bl));
+  ok(t.label + ' / blank: no orphan &nbsp;|&nbsp; separators', !/&nbsp;\|&nbsp;/.test(bl));
+  ok(t.label + ' / blank: no orphan " &middot; " separators', !/ &middot; /.test(bl));
+  ok(t.label + ' / blank: no dangling "Zelle —"', !/Zelle —\s*</.test(bl));
+  ok(t.label + ' / blank: no "For Zelle payments" line', !/For Zelle payments/.test(bl));
+  ok(t.label + ' / blank: no dangling "CALL OR TEXT:"', !/CALL OR TEXT:\s*</.test(bl));
+}
+
+// Blank tenant through the core header/footer builders (renderHeader /
+// renderFooter feed proposal/contract/inspection docs).
+console.log('\nDOCGEN RENDER — core header/footer builders (blank vs NBD joins)');
+const dgBlankFull = loadFullDocGen(BLANK_TENANT);
+const blHdr = dgBlankFull.renderHeader({});
+const blFtr = dgBlankFull.renderFooter({});
+ok('blank renderHeader: no orphan &nbsp;|&nbsp;', !/&nbsp;\|&nbsp;/.test(blHdr));
+ok('blank renderHeader: no empty <img src="">', !/src=""/.test(blHdr));
+ok('blank renderFooter: no orphan &nbsp;|&nbsp;', !/&nbsp;\|&nbsp;/.test(blFtr));
+
+// ── NBD byte-identity pins: every join separator must still render for
+// NBD exactly as before (all NBD fields are set, so filter(Boolean)
+// keeps all parts and join reproduces the original strings). ──
+const nbdInv = renderType(NBD_BRAND, 'renderInvoice', BASE);
+ok('NBD invoice: still lists "Zelle — info@nobigdealwithjoedeal.com"', /Zelle — info@nobigdealwithjoedeal\.com/.test(nbdInv));
+ok('NBD invoice: footer keeps " &middot; " joins', / &middot; /.test(nbdInv));
+const dgNbdFull = loadFullDocGen(NBD_BRAND);
+ok('NBD renderHeader: keeps &nbsp;|&nbsp; joins', /&nbsp;\|&nbsp;/.test(dgNbdFull.renderHeader({})));
+ok('NBD renderFooter: keeps &nbsp;|&nbsp; joins', /&nbsp;\|&nbsp;/.test(dgNbdFull.renderFooter({})));
+const nbdHang = renderType(NBD_BRAND, 'renderDoorHanger', BASE);
+ok('NBD door hanger: keeps "CALL OR TEXT: (859) 420-7382"', /CALL OR TEXT: \(859\) 420-7382/.test(nbdHang));
+const nbdPay = renderType(NBD_BRAND, 'renderPaymentAgreement', Object.assign({ totalAmount: 12500, depositAmount: 4000, progressAmount: 4500, finalAmount: 4000 }, BASE));
+ok('NBD payment agreement: keeps "For Zelle payments" term', /For Zelle payments, send to <strong>info@nobigdealwithjoedeal\.com<\/strong>/.test(nbdPay));
+
 console.log('\n──────────────────────────────────────────────────');
 console.log(passed + ' passed, ' + failed + ' failed');
 if (failed) { console.log('FAILED: ' + fails.join(', ')); process.exit(1); }

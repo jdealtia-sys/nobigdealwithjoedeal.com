@@ -77,6 +77,21 @@ ok('NBD: docPrefix = NBD (byte-identical)', dgNBD._docPrefix() === 'NBD');
 ok('Oaks: logo = tenant logoUrl', dgOAK._logoSrc() === 'https://nobigdealwithjoedeal.com/sites/oaks/logo-orange.svg');
 ok('Oaks: docPrefix = OAK', dgOAK._docPrefix() === 'OAK');
 
+// ── _docPrefix derivation for a non-NBD tenant with NO reserved prefix ──
+// Blank docPrefix used to return '' → orphan '-0001' doc numbers and
+// '-Contract-Smith-….pdf' filenames. Now derives a seal from legalName,
+// byte-identical to company-profile.js _deriveCustPrefix (word initials,
+// slice 4; <2 chars → first word slice 3; ''/'NBD' → 'CUS').
+console.log('\nDOCGEN BRAND — _docPrefix() derivation (unreserved non-NBD tenant)');
+const dgUNRES = loadDocGen({ legalName: 'Oaks Roofing & Construction', docPrefix: '', colors: {}, contact: {} });
+ok('unreserved: derives ORC from legalName initials', dgUNRES._docPrefix() === 'ORC');
+ok('unreserved: never blank', dgUNRES._docPrefix() !== '');
+const dgDEGEN = loadDocGen({ legalName: '——', docPrefix: '', colors: {}, contact: {} });
+ok('degenerate legalName: falls back to CUS', dgDEGEN._docPrefix() === 'CUS');
+const dgCOLLIDE = loadDocGen({ legalName: 'New Boston Decking', docPrefix: '', colors: {}, contact: {} });
+ok('NBD-initials collision: forced to CUS (never NBD)', dgCOLLIDE._docPrefix() === 'CUS');
+ok('NBD-initials collision: result is not NBD', dgCOLLIDE._docPrefix() !== 'NBD');
+
 console.log('\n──────────────────────────────────────────────────');
 console.log(passed + ' passed, ' + failed + ' failed');
 if (failed) { console.log('FAILED: ' + fails.join(', ')); process.exit(1); }

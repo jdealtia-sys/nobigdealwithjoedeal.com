@@ -6,7 +6,9 @@
  * unset. Before the fix, the deep-merge onto NBD defaults silently stamped
  * NBD's phone/email/logo/seal onto that tenant's documents, portal, and PDFs.
  * After the fix, an unset identity field comes back BLANK — never NBD's — at
- * every layer:
+ * every layer (EXCEPTION: docPrefix now DERIVES a seal from legalName instead
+ * of blanking — blank produced orphan '-0001' doc numbers; the derivation is
+ * byte-identical to company-profile.js _deriveCustPrefix and still never NBD):
  *   1. window._brand()      (docs/pro/js/company-profile.js resolver)
  *   2. NBDDocGen._resolveCompany/_logoSrc/_docPrefix (client doc generator)
  *   3. hexToRgb/darken      (functions/render-pdf.js — L5 3-digit, L4 darker)
@@ -121,12 +123,15 @@ eq('_resolveCompany phone blank (not NBD)', rc.phone, '');
 eq('_resolveCompany email blank (not NBD)', rc.email, '');
 eq('_resolveCompany website blank (not NBD)', rc.website, '');
 eq('_logoSrc blank (not NBD logo)', dgU._logoSrc(), '');
-eq('_docPrefix blank (not "NBD")', dgU._docPrefix(), '');
+eq('renderNBDLogo suppressed for logo-less tenant (no <img src="">)', dgU.renderNBDLogo(), '');
+eq('_docPrefix derived from legalName (never NBD, never blank)', dgU._docPrefix(), 'ORC');
+ok('_docPrefix never NBD for a stranger', dgU._docPrefix() !== 'NBD');
 
 console.log('\nNBD — document-generator.js byte-identical');
 const dgN = loadDocGen({ legalName: 'No Big Deal Home Solutions' });
 ok('_resolveCompany returns base COMPANY', dgN._resolveCompany() === dgN.COMPANY);
 ok('_logoSrc returns NBD logo', /nbd-logo/.test(dgN._logoSrc()));
+ok('renderNBDLogo renders <img class="nbd-logo-img"> for NBD', /<img class="nbd-logo-img"/.test(dgN.renderNBDLogo()));
 eq('_docPrefix is NBD', dgN._docPrefix(), 'NBD');
 
 console.log('\nL4/L5 — _rgba() helper');
