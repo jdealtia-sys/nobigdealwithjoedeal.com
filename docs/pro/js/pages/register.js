@@ -13,6 +13,7 @@ import { getAuth, createUserWithEmailAndPassword, updateProfile, GoogleAuthProvi
 import { getFirestore, doc, setDoc, getDoc, serverTimestamp }   from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { getFunctions, httpsCallable }                           from "https://www.gstatic.com/firebasejs/10.12.2/firebase-functions.js";
 import { connectEmulatorsIfLocal, emulatorAppCheckIfLocal }      from "../nbd-emulator-connect.js"; // Audit #3: localhost-only, no-op in prod
+import { ensureProvisioned }                                     from "../provisioning-retry.js"; // retry + pending-marker (first-run audit 2026-07-28)
 
 const firebaseConfig = {
   apiKey:            "AIzaSyDTrotINzl2YjdGbH25BpC-FPv8i_fXNvg",
@@ -208,15 +209,10 @@ async function register(e) {
       }
       // PILLAR1 Phase 2: turn the account into a real tenant (companies/{uid}
       // + companyProfile seed + owner claims) so lead routing and per-tenant
-      // branding work without hand-seeding. Non-fatal: if it fails the
-      // account still works under the solo uid convention and the dashboard
-      // can retry later.
-      try {
-        await createCompanyFn({ name: company || `${firstName} ${lastName}`.trim() });
-        await cred.user.getIdToken(true); // pick up companyId/role claims
-      } catch (provisionErr) {
-        console.warn('createCompany failed (account still usable):', provisionErr);
-      }
+      // branding work without hand-seeding. Non-fatal: retried with backoff;
+      // a final failure marks the account pending so the onboarding wizard
+      // (blocking) and the dashboard login-heal finish the job.
+      await ensureProvisioned(cred.user, () => createCompanyFn({ name: company || `${firstName} ${lastName}`.trim() }));
       // New owners: paid intent → pricing (checkout first, ownerDest), else
       // the setup wizard. A brief note so the redirect isn't a blank flash.
       const dest = ownerDest();
@@ -269,12 +265,7 @@ async function register(e) {
       // Server-side failure — not the visitor's fault. Their account already
       // exists; give them a working free-tier tenant instead of a dead end.
       console.warn('validateAccessCode failed server-side, continuing on free tier:', codeErr);
-      try {
-        await createCompanyFn({ name: company || `${firstName} ${lastName}`.trim() });
-        await cred.user.getIdToken(true);
-      } catch (provisionErr) {
-        console.warn('createCompany failed (account still usable):', provisionErr);
-      }
+      await ensureProvisioned(cred.user, () => createCompanyFn({ name: company || `${firstName} ${lastName}`.trim() }));
       okEl.textContent = 'Account created on the free tier — your access code could not be applied right now. Email jd@nobigdealwithjoedeal.com and Joe will upgrade you.';
       btn.textContent = '✓ Done';
       setTimeout(() => { window.location.replace('/pro/onboarding.html'); }, 3000);
@@ -292,14 +283,9 @@ async function register(e) {
     // provisioning entirely — a paid (starter/growth) user landed with no
     // companies/{uid} doc, no companyId claim, no doc prefix: public lead
     // intake and per-tenant branding silently broken. Provision like the free
-    // path (createCompany is idempotent and refuses invited reps) and run the
-    // same onboarding wizard, which self-heals if this call fails.
-    try {
-      await createCompanyFn({ name: company || `${firstName} ${lastName}`.trim() });
-      await auth.currentUser.getIdToken(true); // pick up companyId/role claims
-    } catch (provisionErr) {
-      console.warn('createCompany failed (account still usable):', provisionErr);
-    }
+    // path (createCompany is idempotent and refuses invited reps); a failure
+    // marks pending and the onboarding wizard blocks until it lands.
+    await ensureProvisioned(auth.currentUser, () => createCompanyFn({ name: company || `${firstName} ${lastName}`.trim() }));
     okEl.textContent = 'Account created! Setting up your workspace...';
     btn.textContent = '✓ Done';
     setTimeout(() => { window.location.replace('/pro/onboarding.html'); }, 1200);
@@ -354,12 +340,7 @@ async function googleRegister() {
         // the signed-in account (mirrors the email/password path).
         console.warn('validateAccessCode failed server-side, continuing on free tier:', codeErr);
         if (isNewUser) {
-          try {
-            await createCompanyFn({ name: user.displayName || (user.email || '').split('@')[0] });
-            await user.getIdToken(true);
-          } catch (provisionErr) {
-            console.warn('createCompany failed (account still usable):', provisionErr);
-          }
+          await ensureProvisioned(user, () => createCompanyFn({ name: user.displayName || (user.email || '').split('@')[0] }));
         }
         document.getElementById('regOk').textContent = 'Signed in on the free tier — your access code could not be applied right now. Email jd@nobigdealwithjoedeal.com and Joe will upgrade you.';
         setTimeout(() => { window.location.href = isNewUser ? '/pro/onboarding.html' : '/pro/dashboard.html'; }, 3000);
@@ -376,25 +357,15 @@ async function googleRegister() {
       // email/password code path; this is the same gap in the Google branch —
       // a paid code-holder landed with no companies doc / companyId claim).
       // createCompany is idempotent and refuses invited reps.
-      try {
-        await createCompanyFn({ name: user.displayName || (user.email || '').split('@')[0] });
-        await auth.currentUser.getIdToken(true);
-      } catch (provisionErr) {
-        console.warn('createCompany failed (account still usable):', provisionErr);
-      }
+      await ensureProvisioned(auth.currentUser, () => createCompanyFn({ name: user.displayName || (user.email || '').split('@')[0] }));
     } else if (isNewUser && !inviteIntent) {
       // PILLAR1 Phase 2 parity: Google free signups get provisioned too
       // (the email/password path already does this). Idempotent; server
-      // refuses invited reps. Non-fatal — account works either way and
-      // the onboarding wizard retries if this didn't land.
+      // refuses invited reps. Non-fatal — account works either way; a
+      // failure marks pending and the wizard/dashboard heals finish it.
       // Invitees (?invite=1) are NOT provisioned — claimInvite joins them
       // to their team on first dashboard load instead.
-      try {
-        await createCompanyFn({ name: user.displayName || (user.email || '').split('@')[0] });
-        await user.getIdToken(true); // pick up companyId/role claims
-      } catch (provisionErr) {
-        console.warn('createCompany failed (account still usable):', provisionErr);
-      }
+      await ensureProvisioned(user, () => createCompanyFn({ name: user.displayName || (user.email || '').split('@')[0] }));
     }
 
     // New free owners route via ownerDest (paid intent → pricing/checkout

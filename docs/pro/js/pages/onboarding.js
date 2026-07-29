@@ -27,6 +27,7 @@ import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/
 import { getFirestore, doc, getDoc, setDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-functions.js";
 import { connectEmulatorsIfLocal, emulatorAppCheckIfLocal } from "../nbd-emulator-connect.js"; // localhost-only, no-op in prod
+import { ensureProvisioned } from "../provisioning-retry.js"; // retry + pending-marker (first-run audit 2026-07-28)
 
 const firebaseConfig = {
   apiKey:            "AIzaSyDTrotINzl2YjdGbH25BpC-FPv8i_fXNvg",
@@ -247,17 +248,23 @@ async function finish() {
     // Provisioning self-heal: if the register-page createCompany call didn't
     // land (offline, App Check hiccup), this account has no companyId claim
     // yet. Retry here — idempotent, and it refuses invited reps server-side.
+    // BLOCKING (first-run audit 2026-07-28): this used to swallow its own
+    // failure and then write onboarded:true anyway — the wizard never
+    // reappeared (the boot gate redirects onboarded users to the dashboard)
+    // and the account was PERMANENTLY tenant-less with no remaining repair
+    // path. Mirror the prefix-reservation blocking return below instead:
+    // hold the rep on the wizard until the tenant actually exists.
     if (!state.claims.companyId) {
-      try {
-        const createCompanyFn = httpsCallable(functions, 'createCompany');
-        await createCompanyFn({
-          name: overrides.businessName,
-          phone: val('obPhone'),
-          serviceArea: val('obServiceArea'),
-        });
-        await state.user.getIdToken(true);
-      } catch (e) {
-        console.warn('createCompany retry failed (profile still saved):', e && e.message);
+      const createCompanyFn = httpsCallable(functions, 'createCompany');
+      const ok = await ensureProvisioned(state.user, () => createCompanyFn({
+        name: overrides.businessName,
+        phone: val('obPhone'),
+        serviceArea: val('obServiceArea'),
+      }));
+      if (!ok) {
+        showErr('Could not finish setting up your workspace — check your connection and press Finish again.');
+        if (btn) { btn.disabled = false; btn.textContent = 'Finish Setup →'; }
+        return; // profile is saved; block onboarded:true until the tenant exists
       }
     }
 
@@ -305,6 +312,18 @@ async function finish() {
 }
 
 async function skip() {
+  // Best-effort provisioning BEFORE marking onboarded — a skipper used to
+  // become permanently tenant-less (onboarded:true with no createCompany
+  // attempt at all). Never blocks the skip: on failure ensureProvisioned
+  // leaves the pending marker and the dashboard login-heal retries.
+  try {
+    if (!state.claims.companyId && state.claims.owner !== true) {
+      const createCompanyFn = httpsCallable(functions, 'createCompany');
+      await ensureProvisioned(state.user, () => createCompanyFn({
+        name: state.user.displayName || (state.user.email || '').split('@')[0],
+      }));
+    }
+  } catch (_) { /* never trap the rep on this page */ }
   try {
     await setDoc(doc(db, 'users', state.user.uid), {
       onboarded: true,

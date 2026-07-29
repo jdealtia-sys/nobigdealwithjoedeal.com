@@ -22,6 +22,7 @@ import { getAuth, onAuthStateChanged, createUserWithEmailAndPassword, updateProf
 import { getFirestore, doc, getDoc, setDoc, onSnapshot, serverTimestamp } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
 import { getFunctions, httpsCallable } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-functions.js';
 import { connectEmulatorsIfLocal, emulatorAppCheckIfLocal } from '../nbd-emulator-connect.js'; // Audit #3: localhost-only, no-op in prod
+import { ensureProvisioned } from '../provisioning-retry.js'; // retry + pending-marker (first-run audit 2026-07-28)
 
 const app = initializeApp({
   apiKey:            "AIzaSyDTrotINzl2YjdGbH25BpC-FPv8i_fXNvg",
@@ -183,15 +184,11 @@ async function createAndActivate() {
     // claims), same as register.js. Without this, a buy-first account (created
     // here rather than at register) gets a paid subscriptions doc but NO
     // company/companyId claim — the exact tenant-less-payer hole #945 fixed on
-    // the register path. Idempotent; non-fatal (the webhook keys billing to the
-    // uid, and onboarding self-heals a missing company). This closes the gap
-    // for any future direct-to-Checkout entry (payment-link / email campaign).
-    try {
-      await createCompanyFn({ name: (name || email.split('@')[0]) });
-      await cred.user.getIdToken(true); // pick up companyId/role claims
-    } catch (provisionErr) {
-      console.warn('createCompany failed (account still usable):', provisionErr);
-    }
+    // the register path. Idempotent; retried with backoff, and a final
+    // failure marks pending so the onboarding wizard (blocking) and the
+    // dashboard login-heal finish the job — a PAYING tenant must never stay
+    // tenant-less.
+    await ensureProvisioned(cred.user, () => createCompanyFn({ name: (name || email.split('@')[0]) }));
 
     hide('stepCreate');
     await handleSignedInUser(cred.user);
