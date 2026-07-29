@@ -650,6 +650,18 @@ section('Review engine — role-aware nudges, tenant-safe copy, Settings-sourced
     /async function sendReviewRequestSMS/.test(rev)
     && /async function sendReviewRequestEmail/.test(rev)
     && /await getReviewLink\(\)/.test(rev));
+
+  // Referral surfaces (NBD-leak audit 2026-07-29): a nameless lead (Quick Add
+  // creates firstName:'' by design; non-Latin names sanitize to '') must not
+  // get an NBD-prefixed code on a tenant's surface, and the referral SMS must
+  // resolve the tenant brand like every other copy surface in this file.
+  assert('referral code prefix fallback is isNbd-gated (REF for tenants)',
+    /_isNbdBrand\(\) \? 'NBD' : 'REF'/.test(rev)
+    && !/lead\.firstName \|\| 'NBD'/.test(rev),
+    "expected _fbPrefix = _isNbdBrand() ? 'NBD' : 'REF', no bare || 'NBD'");
+  assert('referral SMS resolves brandName(), not the BRAND const',
+    !/choosing \$\{BRAND\.name\}/.test(rev)
+    && /choosing \$\{brandName\(\)\}/.test(rev));
 }
 
 section('Team visibility: lead-activity notes readable across the lead (rules + client)');

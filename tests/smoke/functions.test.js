@@ -31,6 +31,20 @@ section('Alert outbox ledger (2026-07-06, punch item 6)');
     && /await recordAlertOutbox\(collection, leadId, d, target, outcomes\)/.test(la));
   assert('outbox write is best-effort (never blocks the alert path)',
     /outbox write failed/.test(la));
+
+  // NBD-leak audit 2026-07-29: the homeowner acks must gate on WHOSE lead it
+  // is (companyId → isNbd), never on the resolved seal — the old seal check
+  // also matched an UNRESOLVED tenant's fallback target, sending Joe-branded
+  // acks to another company's customer. The unresolved-tenant arm keeps Joe's
+  // ROUTING as backstop but carries an empty-string brand.
+  assert('resolveAlertTarget keys isNbd on the platform owner uid',
+    /NBD_OWNER_UID/.test(la)
+    && /const isNbd = !companyId \|\| String\(companyId\) === NBD_OWNER_UID/.test(la));
+  assert('unresolved NON-NBD tenant gets Joe routing but an empty-string brand',
+    /name: '', seal: '', isNbd: false/.test(la));
+  assert('homeowner acks (email + SMS) gate on target.isNbd, not seal',
+    (la.match(/target\.isNbd !== true\) return/g) || []).length === 2
+    && !/target\.seal !== 'NBD'\) return/.test(la));
   const rules = read(path.join(ROOT, 'firestore.rules'));
   assert('alert_outbox rules: tenant readers + admin only, zero client writes',
     /match \/alert_outbox\/\{outboxId\}[\s\S]{0,600}allow create, update, delete: if false/.test(rules));

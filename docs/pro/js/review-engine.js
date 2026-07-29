@@ -250,7 +250,13 @@
     // punctuation (e.g. 'Jo Ann' or a '(Web lead)' default) that would break the
     // exact-match redemption lookup and silently lose the $200. Pad the random
     // suffix to a full 4 chars (toString(36) can drop trailing zeros → 'JOHN-').
-    const prefix = (lead.firstName || 'NBD').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 4) || 'NBD';
+    // NBD-leak gate (2026-07-29): a nameless lead (Quick Add creates
+    // firstName:'' by design, and non-Latin names sanitize to '') used to get
+    // an NBD-prefixed code on a TENANT's surface. The redemption lookup needs a
+    // non-empty prefix (exact match, no format regex server-side), so mirror
+    // the 'CUS'-floor idea with a neutral 'REF' floor rather than ''.
+    const _fbPrefix = _isNbdBrand() ? 'NBD' : 'REF';
+    const prefix = (lead.firstName || lead.fname || _fbPrefix).toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 4) || _fbPrefix;
     const suffix = (Math.random().toString(36).substring(2, 6) + '0000').slice(0, 4).toUpperCase();
     return prefix + '-' + suffix;
   }
@@ -339,10 +345,10 @@
     if (!code) code = await assignReferralCode(leadId);
     if (!code) return;
 
-    const firstName = lead.firstName || '';
+    const firstName = lead.firstName || lead.fname || '';
     const phone = lead.phone.replace(/\D/g, '');
     const body = encodeURIComponent(
-      `Hey${firstName ? ' ' + firstName : ''}, thanks again for choosing ${BRAND.name}! Here's your personal referral code: ${code}\n\nShare it with friends & neighbors — they get a free inspection, and you get a $200 bonus when their project closes. Win-win!`
+      `Hey${firstName ? ' ' + firstName : ''}, thanks again for choosing ${brandName()}! Here's your personal referral code: ${code}\n\nShare it with friends & neighbors — they get a free inspection, and you get a $200 bonus when their project closes. Win-win!`
     );
     window.open(`sms:${phone}?body=${body}`, '_self');
   }

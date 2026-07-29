@@ -141,6 +141,27 @@ function loadCompanyProfile() {
   const dgReserved = loadDocGenWith(win._brand());
   ok('_docPrefix parity: reserved prefix wins (OAK)', dgReserved._docPrefix() === win._custIdPrefix());
 
+  // ── Mint-site hydration gates (NBD-leak audit 2026-07-29) ──
+  // The customer-ID mints in both bootstraps used to carry typeof fallbacks
+  // (`: 'NBD'` / `: 'customerIds'`) that fired whenever the mint raced
+  // company-profile hydration — deterministically on the customer-page
+  // dashboard-handoff path — stamping a NON-NBD tenant's lead with an
+  // un-salted NBD-#### ID from the shared platform counter. The fix gates
+  // every mint on _companyProfileLoaded and SKIPS (never guesses) when the
+  // profile or any helper is unavailable. These pins keep both properties.
+  console.log('\nMint-site hydration gates (customer/dashboard bootstraps)');
+  for (const rel of ['customer-bootstrap.module.js', 'dashboard-bootstrap.module.js']) {
+    const src = fs.readFileSync(path.join(__dirname, '..', 'docs/pro/js', rel), 'utf8');
+    const mintBlocks = src.split(/_custCounterId\(/).length - 1;
+    ok(rel + ': every mint gates on _companyProfileLoaded',
+      mintBlocks > 0
+      && (src.match(/_companyProfileLoaded !== true[\s\S]{0,900}?_custCounterId\(/g) || []).length === mintBlocks);
+    ok(rel + ": no 'NBD' / 'customerIds' typeof fallback at a mint site",
+      !/typeof window\._custCounterId === 'function'\) \? [^:]+ : 'customerIds'/.test(src)
+      && !/typeof window\._custIdPrefix === 'function'\) \? [^:]+ : 'NBD'/.test(src)
+      && !/_formatCustomerId\(_pfx[^)]*\)\s*:\s*_pfx \+ '-'/.test(src));
+  }
+
   console.log('\n──────────────────────────────────────────────────');
   console.log(`${passed} passed, ${failed} failed`);
   if (failed) { console.log('\nFailures:'); fails.forEach(f => console.log('  - ' + f)); process.exit(1); }
