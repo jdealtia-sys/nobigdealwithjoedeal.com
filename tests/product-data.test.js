@@ -36,6 +36,12 @@ const DATA_SRC = fs.readFileSync(path.join(SRC_DIR, 'product-data.js'), 'utf8');
 const RIV_SRC = fs.readFileSync(path.join(SRC_DIR, 'roofivent-catalog.js'), 'utf8');
 const LIB_SRC = fs.readFileSync(path.join(SRC_DIR, 'product-library.js'), 'utf8');
 
+// Current store version, read from the source so a DATA_VERSION bump (a
+// deliberate data-fix reseed) doesn't break the version-stamp assertions —
+// the intent is "stores carry the CURRENT version", not a specific number.
+const CURRENT_V = Number((LIB_SRC.match(/const DATA_VERSION = (\d+);/) || [])[1]);
+if (!Number.isFinite(CURRENT_V)) throw new Error('could not read DATA_VERSION from product-library.js');
+
 // ── 1. Catalog: load product-data.js + roofivent-catalog.js into one window ──
 
 const catalogWin = {};
@@ -192,9 +198,9 @@ const savedRaw = migrated.localStorage.getItem('nbd_product_library');
 const saved = savedRaw ? JSON.parse(savedRaw) : null;
 const savedById = saved ? new Map(saved.items.map(p => [p.id, p])) : new Map();
 
-test('migrated store is stamped _v = 4', () => {
+test('migrated store is stamped with the current DATA_VERSION', () => {
   ok(saved, 'nothing saved to localStorage');
-  eq(saved._v, 4);
+  eq(saved._v, CURRENT_V);
 });
 
 test('user-EDITED default survives (name + custom sell price kept)', () => {
@@ -226,18 +232,18 @@ test('migrated item count = all defaults + 1 custom (no dupes, no losses)', () =
   eq(saved.items.length, DEFAULTS_COUNT + 1);
 });
 
-test('no-store case still seeds full defaults at v4', () => {
+test('no-store case still seeds full defaults at the current version', () => {
   const fresh = loadLibraryWith({});
   const s = JSON.parse(fresh.localStorage.getItem('nbd_product_library'));
-  eq(s._v, 4, '_v');
+  eq(s._v, CURRENT_V, '_v');
   eq(s.items.length, DEFAULTS_COUNT, 'seeded count');
 });
 
-test('matching-version store is used as-is (no reseed at _v 4)', () => {
-  const tiny = JSON.stringify({ _v: 4, items: [customProduct] });
+test('matching-version store is used as-is (no reseed at current _v)', () => {
+  const tiny = JSON.stringify({ _v: CURRENT_V, items: [customProduct] });
   const same = loadLibraryWith({ nbd_product_library: tiny });
   const s = JSON.parse(same.localStorage.getItem('nbd_product_library'));
-  eq(s.items.length, 1, 'v4 store must not be reseeded');
+  eq(s.items.length, 1, 'current-version store must not be reseeded');
 });
 
 // ── 4. Archive / hard-delete survive migration (P1-P3) ──
@@ -275,7 +281,7 @@ test('deleteProduct() stamps updatedAt (archive counts as an edit)', () => {
     createdAt: '2026-01-01T00:00:00.000Z',
     updatedAt: '2026-01-01T00:00:00.000Z'
   });
-  const store = JSON.stringify({ _v: 4, items: [item] });
+  const store = JSON.stringify({ _v: CURRENT_V, items: [item] });
   const res = loadLibraryWith({ nbd_product_library: store });
   res.win._productLib.delete('shingle_001');
   const s = JSON.parse(res.localStorage.getItem('nbd_product_library'));
