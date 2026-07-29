@@ -53,6 +53,7 @@ const TWILIO_PHONE_NUMBER = defineSecret('TWILIO_PHONE_NUMBER');
 // handlers/ai-texting.js).
 const { generateAIDraft, ANTHROPIC_API_KEY: AI_ANTHROPIC_KEY } = require('./handlers/ai-texting');
 const { isPortalDraft, clampPortalText } = require('./ai-draft-routing');
+const { applyRepReplyEffects } = require('./portal-reply-effects');
 
 // CORS origins
 const CORS_ORIGINS = [
@@ -1105,9 +1106,10 @@ exports.onAiDraftApproved = onDocumentUpdated(
       if (!text) { await fail('empty_body'); return; }
       try {
         // Mirror replyToPortalMessage's rep-reply write (portal.js).
-        await db.collection(`leads/${leadId}/portal_messages`).add({
+        const msgRef = await db.collection(`leads/${leadId}/portal_messages`).add({
           leadId,
           ownerUid: after.userId || null,
+          companyId: after.companyId || after.userId || null,
           source: 'rep',
           text,
           aiDraftId: draftId,
@@ -1116,6 +1118,18 @@ exports.onAiDraftApproved = onDocumentUpdated(
           readByRecipient: false,
         });
         await draftRef.update({ status: 'sent', sentChannel: 'portal', sentAt: FieldValue.serverTimestamp() });
+        // ...and the rest of what a rep reply does (mark-read, lead bump,
+        // timeline entry) — shared with replyToPortalMessage so the AI path
+        // can't silently do less than the human one. Best-effort by design:
+        // the reply is already delivered, so none of this can fail the send.
+        await applyRepReplyEffects({
+          db, FieldValue, leadId,
+          ownerUid: after.userId || null,
+          companyId: after.companyId || after.userId || null,
+          messageId: msgRef.id,
+          textPreview: text,
+          logger,
+        });
         logger.info('[ai-draft-send] portal reply posted', { leadId, draftId });
       } catch (e) {
         await fail('portal_send_error', e && e.message);

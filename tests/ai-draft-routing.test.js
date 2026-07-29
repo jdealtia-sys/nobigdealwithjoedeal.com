@@ -37,6 +37,32 @@ console.log('AI DRAFT ROUTING — channel fork');
   ok('only the explicit portal set counts', R.PORTAL_TRIGGER_TYPES.has('portal_message_in') && !R.PORTAL_TRIGGER_TYPES.has('inbound_sms'));
 }
 
+// channel — defense in depth (emulator QA 2026-07-29). A portal draft carries
+// the homeowner's customerPhone, so triggerType was the ONLY thing keeping a
+// web-portal reply from being TEXTED. Either signal must route to the portal.
+{
+  ok('channel:portal alone → portal (triggerType lost)',
+    R.isPortalDraft({ channel: 'portal' }) === true);
+  ok('channel:portal + missing triggerType → portal (the QA F2 hole)',
+    R.isPortalDraft({ channel: 'portal', customerPhone: '+15135550142' }) === true);
+  ok('channel:sms + portal triggerType still → portal (trigger wins, never silently texts)',
+    R.isPortalDraft({ channel: 'sms', triggerType: 'portal_message_in' }) === true);
+  ok('channel:sms → NOT portal', R.isPortalDraft({ channel: 'sms', triggerType: 'inbound_sms' }) === false);
+  ok('unknown channel value falls back to triggerType',
+    R.isPortalDraft({ channel: 'carrier-pigeon', triggerType: 'inbound_sms' }) === false
+    && R.isPortalDraft({ channel: 'carrier-pigeon', triggerType: 'portal_message_in' }) === true);
+  ok('legacy draft (neither field) keeps the documented SMS default',
+    R.isPortalDraft({ draftText: 'hi', customerPhone: '+15135550142' }) === false);
+  ok('channelForTriggerType stamps portal for portal triggers, sms otherwise',
+    R.channelForTriggerType('portal_message_in') === 'portal'
+    && R.channelForTriggerType('inbound_sms') === 'sms'
+    && R.channelForTriggerType(undefined) === 'sms'
+    && R.channelForTriggerType(123) === 'sms');
+  ok('a stamped channel round-trips through isPortalDraft for BOTH kinds',
+    R.isPortalDraft({ channel: R.channelForTriggerType('portal_message_in') }) === true
+    && R.isPortalDraft({ channel: R.channelForTriggerType('inbound_sms') }) === false);
+}
+
 // clampPortalText
 {
   ok('trims whitespace', R.clampPortalText('  hi there  ') === 'hi there');

@@ -52,6 +52,7 @@ const { defineSecret } = require('firebase-functions/params');
 const { logger } = require('firebase-functions/v2');
 const { FieldValue } = require('firebase-admin/firestore');
 const { buildPersonaPrompt, sanitizeMultiline } = require('./ai-persona');
+const { channelForTriggerType } = require('../ai-draft-routing');
 
 // Neutralize customer-controlled text before it goes INTO the AI prompt:
 // sanitizeMultiline kills forged "═══" section headers; the replace strips
@@ -153,6 +154,20 @@ async function buildLeadContext(db, leadId, lead, incomingBody) {
     thread = snap.docs.map(d => d.data()).reverse(); // chronological
   } catch (_) { /* missing index — first run; skip */ }
 
+  // ── Recent homeowner-portal thread (last 12, oldest → newest) ──
+  // The portal is a SECOND conversation channel (onPortalMessageDraft drafts
+  // replies to it). Without this read every portal draft was generated as a
+  // cold first contact: the thread section below claimed "first inbound SMS",
+  // so the persona re-introduced itself on every message and the AI could
+  // neither cite the homeowner's earlier question nor its own prior answer.
+  let portalThread = [];
+  try {
+    const snap = await db.collection('leads').doc(leadId).collection('portal_messages')
+      .orderBy('createdAt', 'desc')
+      .limit(12).get();
+    portalThread = snap.docs.map(d => d.data()).reverse(); // chronological
+  } catch (_) { /* no portal thread / missing index — skip */ }
+
   // ── Recent non-SMS activity ──
   let activity = [];
   try {
@@ -183,7 +198,22 @@ async function buildLeadContext(db, leadId, lead, incomingBody) {
   } else {
     lines.push('');
     lines.push('═══ RECENT TEXT THREAD ═══');
-    lines.push('(no prior text history — this is the first inbound SMS from this lead)');
+    lines.push('(no prior text history with this lead)');
+  }
+
+  if (portalThread.length > 0) {
+    lines.push('');
+    lines.push('═══ HOMEOWNER PORTAL THREAD (oldest → newest) ═══');
+    for (const m of portalThread) {
+      const dir = m.source === 'homeowner' ? 'HOMEOWNER' : 'JOE/ASSISTANT';
+      lines.push(`[${dir}] ${cleanInbound(m.text, 240)}`);
+    }
+  }
+
+  // Nothing at all on EITHER channel is the only true first contact — say so
+  // explicitly rather than letting the empty-SMS branch above imply it.
+  if (thread.length === 0 && portalThread.length === 0) {
+    lines.push('(this is your first exchange with this lead on any channel)');
   }
 
   if (activity.length > 0) {
@@ -191,8 +221,10 @@ async function buildLeadContext(db, leadId, lead, incomingBody) {
     lines.push('═══ RECENT ACTIVITY ═══');
     for (const a of activity) {
       const label = a.label || a.type || 'activity';
-      const msg = a.message || a.transcript || '';
-      lines.push(`- ${label}${msg ? ': ' + msg.slice(0, 120) : ''}`);
+      // textPreview is what the portal + several other producers store; without
+      // it these lines were content-free ("- Message from homeowner").
+      const msg = a.message || a.transcript || a.textPreview || '';
+      lines.push(`- ${label}${msg ? ': ' + String(msg).slice(0, 120) : ''}`);
     }
   }
 
@@ -354,6 +386,10 @@ async function generateAIDraft({ db, leadId, lead, incomingBody, incomingNoteId,
       userId: ownerUid,
       companyId,
       triggerType:   triggerType || 'inbound_sms',
+      // Explicit delivery channel alongside triggerType. onAiDraftApproved
+      // accepts either signal, so a portal reply can never fall through to the
+      // SMS branch (and get TEXTED) just because triggerType went missing.
+      channel:       channelForTriggerType(triggerType),
       incomingMsgId: incomingNoteId || null,
       incomingBody:  String(incomingBody).slice(0, 1600),
       incomingPhone: incomingPhone || null,

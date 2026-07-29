@@ -13,8 +13,25 @@
 // Trigger types whose approved draft is delivered to the portal thread, not SMS.
 const PORTAL_TRIGGER_TYPES = new Set(['portal_message_in']);
 
+// Explicit delivery channel, stamped on every draft at generation time
+// (ai-texting.js). Defense in depth: a portal draft also carries the
+// homeowner's customerPhone (copied from lead.phone), so triggerType was the
+// ONLY thing standing between a web-portal reply and an actual text message.
+// Either signal now routes to the portal; a draft carrying neither (legacy
+// rows written before the stamp existed) keeps the documented SMS default.
+const PORTAL_CHANNEL = 'portal';
+
 function isPortalDraft(draft) {
-  return !!draft && typeof draft.triggerType === 'string' && PORTAL_TRIGGER_TYPES.has(draft.triggerType);
+  if (!draft) return false;
+  if (draft.channel === PORTAL_CHANNEL) return true;
+  return typeof draft.triggerType === 'string' && PORTAL_TRIGGER_TYPES.has(draft.triggerType);
+}
+
+// The channel to stamp for a given triggerType, so producers never hand-code it.
+function channelForTriggerType(triggerType) {
+  return (typeof triggerType === 'string' && PORTAL_TRIGGER_TYPES.has(triggerType))
+    ? PORTAL_CHANNEL
+    : 'sms';
 }
 
 // Portal messages allow 2000 chars (vs SMS 1600). Trim + clamp; '' means the
@@ -24,4 +41,7 @@ function clampPortalText(s, max) {
   return t.slice(0, (max && max > 0) ? max : 2000);
 }
 
-module.exports = { isPortalDraft, clampPortalText, PORTAL_TRIGGER_TYPES };
+module.exports = {
+  isPortalDraft, clampPortalText, channelForTriggerType,
+  PORTAL_TRIGGER_TYPES, PORTAL_CHANNEL,
+};
