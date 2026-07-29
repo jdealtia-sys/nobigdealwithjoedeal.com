@@ -50,6 +50,7 @@ const { httpRateLimit } = require('./integrations/upstash-ratelimit');
 // alongside other cross-module primitives. portal.js was where the
 // duplicated copy was first flagged.
 const { callableRateLimit } = require('./shared');
+const { applyRepReplyEffects } = require('./portal-reply-effects');
 
 // CORS origins — identical to the list in functions/index.js. The
 // duplication is deliberate: portal.js is meant to be importable on
@@ -165,6 +166,11 @@ exports.createPortalToken = onCall(
     await db.doc(`portal_tokens/${token}`).set({
       leadId,
       ownerUid: lead.userId,
+      // Tenant key carried on the token so sendPortalMessage can stamp
+      // companyId on the thread without a per-message lead read. ownerUid is
+      // lead.userId — the REP's uid, which diverges from companyId on a team
+      // tenant — so it is only a last-resort fallback, never the source.
+      companyId: lead.companyId || null,
       mintedBy: uid,
       mintedAt: FieldValue.serverTimestamp(),
       expiresAt,
@@ -1467,9 +1473,30 @@ exports.sendPortalMessage = onRequest(
     }
 
     try {
+      // Tenant key for the thread (Comm Log stamping contract). Tokens minted
+      // since this shipped carry companyId, so the common path costs no extra
+      // read; older tokens fall back to one best-effort lead read, and only
+      // then to ownerUid — which is the REP's uid and WRONG for a team tenant,
+      // so that last resort is logged rather than stamped silently.
+      let msgCompanyId = tok.companyId || null;
+      if (!msgCompanyId) {
+        try {
+          const leadForTenant = await db.doc(`leads/${tok.leadId}`).get();
+          const ld = leadForTenant.exists ? (leadForTenant.data() || {}) : {};
+          msgCompanyId = ld.companyId || null;
+        } catch (e) {
+          logger.warn('[sendPortalMessage] lead tenant read failed', { leadId: tok.leadId, msg: e && e.message });
+        }
+        if (!msgCompanyId) {
+          msgCompanyId = tok.ownerUid || null;
+          logger.warn('[sendPortalMessage] stamping ownerUid as the tenant key (legacy token, no lead companyId)', { leadId: tok.leadId });
+        }
+      }
+
       const msgRef = await db.collection(`leads/${tok.leadId}/portal_messages`).add({
         leadId: tok.leadId,
         ownerUid: tok.ownerUid,
+        companyId: msgCompanyId,
         source: 'homeowner',
         text: safeText,
         createdAt: FieldValue.serverTimestamp(),
@@ -1481,6 +1508,7 @@ exports.sendPortalMessage = onRequest(
       try {
         await db.collection(`leads/${tok.leadId}/activity`).add({
           userId: tok.ownerUid,
+          companyId: msgCompanyId,
           type: 'portal_message_in',
           label: 'Message from homeowner',
           messageId: msgRef.id,
@@ -1569,6 +1597,7 @@ exports.replyToPortalMessage = onCall(
     const msgRef = await db.collection(`leads/${leadId}/portal_messages`).add({
       leadId,
       ownerUid: lead.userId,
+      companyId: lead.companyId || lead.userId || null,
       source: 'rep',
       text: safeText,
       createdAt: FieldValue.serverTimestamp(),
@@ -1576,45 +1605,17 @@ exports.replyToPortalMessage = onCall(
       readByRecipient: false,
     });
 
-    // Mark all unread homeowner messages as read-by-recipient since
-    // the rep is now actively responding (implicit acknowledgement).
-    try {
-      const unreadSnap = await db.collection(`leads/${leadId}/portal_messages`)
-        .where('source', '==', 'homeowner')
-        .where('readByRecipient', '==', false)
-        .limit(100)
-        .get();
-      if (!unreadSnap.empty) {
-        const batch = db.batch();
-        unreadSnap.forEach(d => batch.update(d.ref, { readByRecipient: true }));
-        await batch.commit();
-      }
-    } catch (e) {
-      logger.warn('[replyToPortalMessage] mark-read failed', { msg: e.message });
-    }
-
-    // Bump lead.updatedAt + clear unread counter.
-    try {
-      await leadRef.set({
-        updatedAt: FieldValue.serverTimestamp(),
-        lastRepMessageAt: FieldValue.serverTimestamp(),
-        unreadHomeownerMessages: 0,
-      }, { merge: true });
-    } catch (_) { /* non-critical */ }
-
-    // Activity log entry.
-    try {
-      await db.collection(`leads/${leadId}/activity`).add({
-        userId: lead.userId,
-        type: 'portal_message_out',
-        label: 'Reply to homeowner',
-        messageId: msgRef.id,
-        textPreview: safeText.slice(0, 120),
-        createdAt: FieldValue.serverTimestamp(),
-      });
-    } catch (e) {
-      logger.warn('[replyToPortalMessage] activity create failed', { msg: e.message });
-    }
+    // Mark-read + lead bump + timeline entry. Shared with the AI-approved
+    // portal reply (onAiDraftApproved's portal branch) so the two rep-reply
+    // paths cannot drift — the AI path used to do none of this.
+    await applyRepReplyEffects({
+      db, FieldValue, leadId,
+      ownerUid: lead.userId,
+      companyId: lead.companyId || lead.userId || null,
+      messageId: msgRef.id,
+      textPreview: safeText,
+      logger,
+    });
 
     return { success: true, messageId: msgRef.id };
   }

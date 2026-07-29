@@ -53,6 +53,7 @@ const TWILIO_PHONE_NUMBER = defineSecret('TWILIO_PHONE_NUMBER');
 // handlers/ai-texting.js).
 const { generateAIDraft, ANTHROPIC_API_KEY: AI_ANTHROPIC_KEY } = require('./handlers/ai-texting');
 const { isPortalDraft, clampPortalText } = require('./ai-draft-routing');
+const { applyRepReplyEffects } = require('./portal-reply-effects');
 
 // CORS origins
 const CORS_ORIGINS = [
@@ -1103,11 +1104,13 @@ exports.onAiDraftApproved = onDocumentUpdated(
     if (isPortalDraft(after)) {
       const text = clampPortalText(after.draftText, 2000);
       if (!text) { await fail('empty_body'); return; }
+      let portalMsgId = null;
       try {
         // Mirror replyToPortalMessage's rep-reply write (portal.js).
-        await db.collection(`leads/${leadId}/portal_messages`).add({
+        const msgRef = await db.collection(`leads/${leadId}/portal_messages`).add({
           leadId,
           ownerUid: after.userId || null,
+          companyId: after.companyId || after.userId || null,
           source: 'rep',
           text,
           aiDraftId: draftId,
@@ -1115,11 +1118,27 @@ exports.onAiDraftApproved = onDocumentUpdated(
           readBySender: true,
           readByRecipient: false,
         });
+        portalMsgId = msgRef.id;
         await draftRef.update({ status: 'sent', sentChannel: 'portal', sentAt: FieldValue.serverTimestamp() });
         logger.info('[ai-draft-send] portal reply posted', { leadId, draftId });
       } catch (e) {
         await fail('portal_send_error', e && e.message);
+        return;
       }
+      // ...and the rest of what a rep reply does (mark-read, lead bump,
+      // timeline entry) — shared with replyToPortalMessage so the AI path
+      // can't silently do less than the human one. Deliberately OUTSIDE the
+      // try above and .catch()-guarded: the reply is already delivered and the
+      // draft already says 'sent', so nothing here may flip it to failed and
+      // tell the rep a send broke that the homeowner has already received.
+      await applyRepReplyEffects({
+        db, FieldValue, leadId,
+        ownerUid: after.userId || null,
+        companyId: after.companyId || after.userId || null,
+        messageId: portalMsgId,
+        textPreview: text,
+        logger,
+      }).catch((e) => logger.warn('[ai-draft-send] portal reply side effects failed', { leadId, draftId, err: e && e.message }));
       return;
     }
 

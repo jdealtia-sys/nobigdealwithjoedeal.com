@@ -155,6 +155,16 @@ jobs:
       - name: Run AI-draft routing tests
         run: node tests/ai-draft-routing.test.js
 
+      # Portal AI reply (emulator QA 2026-07-29): the AI draft must see the
+      # HOMEOWNER PORTAL thread — it read only sms notes, so every portal draft
+      # was generated as a cold first contact and the persona re-introduced
+      # itself on every message — and an AI-approved portal reply must perform
+      # the same mark-read / lead-bump / timeline side effects as a human rep
+      # reply (it did none of them: permanent unread badge, lead read as
+      # unanswered forever, and the AI stayed blind to its own prior replies).
+      - name: Run portal AI reply tests
+        run: node tests/portal-ai-reply.test.js
+
       # Roof Report generator: the homeowner-facing HTML is served to a
       # logged-out homeowner, so every record/brand field MUST be escaped
       # (stored-XSS + brand-injection source) and it must NEVER leak the rep's
