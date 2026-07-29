@@ -125,10 +125,20 @@ window.NBDDocGen = {
     try {
       const b = (typeof window !== 'undefined' && window._brand) ? window._brand() : null;
       if (b && b.docPrefix) return b.docPrefix;
-      // A non-NBD tenant that didn't set a docPrefix gets NO prefix — never
-      // 'NBD' on another company's doc numbers (M1). Empty prefix yields
-      // '-0001'; provisioning should require docPrefix before a tenant launches.
-      if (b && b.legalName && b.legalName !== this.COMPANY.name) return '';
+      // A non-NBD tenant that didn't set a docPrefix gets a DERIVED prefix —
+      // never 'NBD' on another company's doc numbers (M1), and never '' (an
+      // empty prefix yielded orphan '-0001' doc numbers / '-Contract-….pdf'
+      // filenames). Derivation MUST stay byte-identical to company-profile.js
+      // _deriveCustPrefix / onboarding.js deriveSeal / functions/customer-id.js
+      // deriveCustPrefix (same pattern as _custIdSalt), so a later
+      // reserveCompanyPrefix stamps the SAME prefix — no doc renumbering.
+      if (b && b.legalName && b.legalName !== this.COMPANY.name) {
+        const words = String(b.legalName).toUpperCase().split(/[^A-Z0-9]+/).filter(Boolean);
+        let seal = words.map(function (w) { return w[0]; }).join('').slice(0, 4);
+        if (seal.length < 2 && words[0]) seal = words[0].slice(0, 3);
+        if (!seal || seal === 'NBD') seal = 'CUS';
+        return seal;
+      }
     } catch (_) { /* ignore */ }
     return 'NBD';
   },
@@ -1623,6 +1633,9 @@ window.NBDDocGen = {
     // work. The actual logo bytes live in nbd-logo-asset.js, which is loaded
     // before any document render and exposes window.NBD_LOGO_DATA_URI.
     const src = this._logoSrc();
+    // A logo-less tenant gets NO <img> at all — src="" renders a broken-image
+    // box on their paper (_logoSrc deliberately blanks for non-NBD, M1).
+    if (!src) return '';
     return `<img class="nbd-logo-img" src="${src}" alt="${this._resolveCompany().name}" />`;
   },
 
@@ -1647,15 +1660,15 @@ window.NBDDocGen = {
             ${this.renderNBDLogo()}
           </div>
           <div class="header-info">
-            <div>${L.phone}</div>
-            <div>${L.email}</div>
-            <div>${L.website}</div>
+            ${L.phone ? `<div>${L.phone}</div>` : ''}
+            ${L.email ? `<div>${L.email}</div>` : ''}
+            ${L.website ? `<div>${L.website}</div>` : ''}
           </div>
         </div>
         <div class="header-company-name">${L.name}</div>
         <div class="header-tagline">${L.tagline}</div>
         <div class="header-contact-row">
-          ${L.phone} &nbsp;|&nbsp; ${L.email} &nbsp;|&nbsp; ${L.website}${showAddress}
+          ${[L.phone, L.email, L.website].filter(Boolean).join(' &nbsp;|&nbsp; ')}${showAddress}
         </div>
       </div>
     `;
@@ -1675,7 +1688,7 @@ window.NBDDocGen = {
     return `
       <div class="document-footer">
         <span class="footer-brand">${L.name}</span>
-        <div>${L.phone} &nbsp;|&nbsp; ${L.email} &nbsp;|&nbsp; ${L.website}</div>
+        <div>${[L.phone, L.email, L.website].filter(Boolean).join(' &nbsp;|&nbsp; ')}</div>
         ${licenseLine}
         ${pageText}
         <span class="footer-credit">${L.tagline}</span>
@@ -2512,6 +2525,7 @@ window.NBDDocGen = {
         return `<tr><td style="padding:8px 12px;font-weight:600;color:#1e3a6e;white-space:nowrap;width:180px;border-bottom:1px solid #f0f0f0;">${this._escHtml(label)}</td><td style="padding:8px 12px;border-bottom:1px solid #f0f0f0;">${this._escHtml(String(v).substring(0, 500))}</td></tr>`;
       }).join('');
 
+    const c = this._resolveCompany();
     return `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${typeName} — ${this._escHtml(name || 'NBD Pro')}</title>
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700;800&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
@@ -2535,7 +2549,7 @@ table{width:100%;border-collapse:collapse;margin-bottom:16px;}
 </style></head><body>
 <div class="hdr">
   <div>
-    <div class="brand-row"><img class="brand-logo" src="${this._logoSrc()}" alt="${this._resolveCompany().name}"/><div class="brand">${this._resolveCompany().name}</div></div>
+    <div class="brand-row">${this._logoSrc() ? `<img class="brand-logo" src="${this._logoSrc()}" alt="${this._resolveCompany().name}"/>` : ''}<div class="brand">${this._resolveCompany().name}</div></div>
     <div class="badge">${typeName}</div>
   </div>
   <div><div class="doc-type">${typeName}</div><div class="doc-date">${date}</div></div>
@@ -2554,7 +2568,7 @@ ${price ? '<div style="text-align:right;margin:24px 0;"><span style="font-size:1
   <div><div class="sig-line">Homeowner Signature</div><div style="margin-top:16px;"><div class="sig-line">Date</div></div></div>
   <div><div class="sig-line">Contractor Signature</div><div style="margin-top:16px;"><div class="sig-line">Date</div></div></div>
 </div>
-<div class="footer"><span>${this._resolveCompany().name} · ${this._resolveCompany().phone} · ${this._resolveCompany().website}</span><span>Generated by NBD Pro</span></div>
+<div class="footer"><span>${[c.name, c.phone, c.website].filter(Boolean).join(' · ')}</span><span>Generated by NBD Pro</span></div>
 </body></html>`;
   },
 
@@ -2759,16 +2773,16 @@ ${price ? '<div style="text-align:right;margin:24px 0;"><span style="font-size:1
 <div class="page">
   <div class="doc-hdr">
     <div class="doc-hdr-top">
-      <img class="doc-hdr-logo" src="${logoSrc}" alt="${esc(L.name)}"/>
+      ${logoSrc ? `<img class="doc-hdr-logo" src="${logoSrc}" alt="${esc(L.name)}"/>` : ''}
       <div class="doc-hdr-contact">
-        <div>${esc(L.phone)}</div>
-        <div>${esc(L.email)}</div>
-        <div>${esc(L.website)}</div>
+        ${L.phone ? `<div>${esc(L.phone)}</div>` : ''}
+        ${L.email ? `<div>${esc(L.email)}</div>` : ''}
+        ${L.website ? `<div>${esc(L.website)}</div>` : ''}
       </div>
     </div>
     <div class="doc-hdr-co">${esc(L.name)}</div>
     <div class="doc-hdr-tag">${tagline}</div>
-    <div class="doc-hdr-row">${esc(L.phone)} &nbsp;|&nbsp; ${esc(L.email)} &nbsp;|&nbsp; ${esc(L.website)}${L.address ? ' &nbsp;|&nbsp; ' + esc(L.address) : ''}${serviceArea ? ' &nbsp;|&nbsp; ' + serviceArea : ''}</div>
+    <div class="doc-hdr-row">${[esc(L.phone), esc(L.email), esc(L.website), L.address && esc(L.address), serviceArea].filter(Boolean).join(' &nbsp;|&nbsp; ')}</div>
   </div>
 
   <div class="doc-title">Customer Report</div>
@@ -2807,7 +2821,7 @@ ${price ? '<div style="text-align:right;margin:24px 0;"><span style="font-size:1
 
   <div class="doc-ftr">
     <span class="ftr-brand">${esc(L.name)}</span>
-    <span>${esc(L.phone)} &nbsp;|&nbsp; ${esc(L.email)} &nbsp;|&nbsp; ${esc(L.website)}</span>
+    <span>${[esc(L.phone), esc(L.email), esc(L.website)].filter(Boolean).join(' &nbsp;|&nbsp; ')}</span>
     ${disclaimer ? `<span class="ftr-disc">${disclaimer}</span>` : ''}
   </div>
 </div>

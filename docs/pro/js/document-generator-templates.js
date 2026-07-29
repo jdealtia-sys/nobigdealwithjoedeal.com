@@ -191,17 +191,17 @@
              img-src allows data:, so this renders the actual brand mark
              (wordmark + roof + Home Solutions + script tagline) as a real
              image instead of a hand-drawn SVG approximation. -->
-        <img class="letterhead-logo-img" src="${LOGO_URL}" alt="${C.name}"/>
+        ${LOGO_URL ? `<img class="letterhead-logo-img" src="${LOGO_URL}" alt="${C.name}"/>` : ''}
         <div><div class="letterhead-name">${C.name}</div>
         <div class="letterhead-tagline">${C.tagline || ''}</div></div>
       </div>
-      <div class="letterhead-contact">${C.phone}<br>${C.email}<br>${C.website}</div></div>`;
+      <div class="letterhead-contact">${[C.phone, C.email, C.website].filter(Boolean).join('<br>')}</div></div>`;
   }
 
   function footer(extra) {
     return `<div class="footer">
       <span class="footer-brand">${C.name}</span>
-      <span>${C.phone} &middot; ${C.email} &middot; ${C.website}</span>
+      <span>${[C.phone, C.email, C.website].filter(Boolean).join(' &middot; ')}</span>
       <span>${extra || C.tagline || ''}</span>
     </div>`;
   }
@@ -843,7 +843,7 @@
           <div style="font-size:11px;color:#666;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:8px;">Payment Methods</div>
           <div style="font-size:13px;line-height:1.8;">
             Check — payable to <strong>${C.name}</strong><br>
-            Zelle — ${C.email}<br>
+            ${C.email ? `Zelle — ${C.email}<br>` : ''}
             Credit Card — ask for secure link<br>
             Financing — through ${esc(_invFinancePartner)}
           </div>
@@ -927,7 +927,7 @@
       <div class="intro-hero">
         <!-- Real NBD logo (data URI from nbd-logo-asset.js). <img> not
              <object> — iframe CSP blocks <object>. -->
-        <img class="intro-hero-logo" src="${LOGO_URL}" alt="${C.name}" style="display:block;width:320px;max-width:90%;height:auto;margin:0 auto 14px;background:#fff;border-radius:10px;padding:10px 16px;box-sizing:border-box;"/>
+        ${LOGO_URL ? `<img class="intro-hero-logo" src="${LOGO_URL}" alt="${C.name}" style="display:block;width:320px;max-width:90%;height:auto;margin:0 auto 14px;background:#fff;border-radius:10px;padding:10px 16px;box-sizing:border-box;"/>` : ''}
         <h1>${C.name}</h1>
         <div class="tagline">${tagline}</div>
         <p style="margin-top:16px;font-size:14px;opacity:0.9;max-width:500px;margin-left:auto;margin-right:auto;">
@@ -974,7 +974,7 @@
         <div style="font-size:20px;font-weight:700;color:${S};font-family:'Helvetica Neue',Arial,sans-serif;">
           Schedule Your Free Inspection</div>
         <div style="font-size:18px;color:${A};font-weight:700;margin-top:8px;">${C.phone}</div>
-        <div style="font-size:14px;color:#555;margin-top:4px;">${C.email} | ${C.website}</div>
+        <div style="font-size:14px;color:#555;margin-top:4px;">${[C.email, C.website].filter(Boolean).join(' | ')}</div>
       </div>
     `);
   };
@@ -1242,7 +1242,7 @@
 
       <div class="ref-card">
         <div class="ref-top">
-          <img class="ref-logo" src="${LOGO_URL}" alt="${C.name}"/>
+          ${LOGO_URL ? `<img class="ref-logo" src="${LOGO_URL}" alt="${C.name}"/>` : ''}
           <h2>KNOW SOMEONE WHO<br>NEEDS A NEW ROOF?</h2>
           <p style="margin:8px 0 0;font-size:14px;color:${A};">Refer them to ${C.name}!</p>
         </div>
@@ -1270,8 +1270,8 @@
         </div>
         <div class="ref-contact">
           <strong>${C.name}</strong><br>
-          ${C.phone} | ${C.email}<br>
-          ${C.website}
+          ${[C.phone, C.email].filter(Boolean).join(' | ')}${C.website ? `<br>
+          ${C.website}` : ''}
         </div>
       </div>
 
@@ -1536,7 +1536,7 @@
         <div style="font-size:14px;margin-top:8px;opacity:0.9;">
           Schedule your free, no-obligation inspection today.</div>
         <div style="font-size:22px;font-weight:700;margin-top:12px;">${esc(d.emergencyPhone) || C.phone}</div>
-        <div style="font-size:13px;margin-top:4px;opacity:0.8;">${C.email} | ${C.website}</div>
+        <div style="font-size:13px;margin-top:4px;opacity:0.8;">${[C.email, C.website].filter(Boolean).join(' | ')}</div>
       </div>
 
       <p style="font-size:10px;color:#999;text-align:center;margin-top:20px;">
@@ -1641,7 +1641,7 @@
         <div style="font-size:20px;font-weight:700;">Ready to Get Started?</div>
         <div style="font-size:14px;margin-top:8px;opacity:0.9;">Call us today for your free inspection. We will walk you through every step.</div>
         <div style="font-size:22px;font-weight:700;margin-top:12px;">${C.phone}</div>
-        <div style="font-size:13px;margin-top:4px;opacity:0.8;">${C.email} | ${C.website}</div>
+        <div style="font-size:13px;margin-top:4px;opacity:0.8;">${[C.email, C.website].filter(Boolean).join(' | ')}</div>
       </div>
 
       ${footer('Insurance Claim Process Guide')}
@@ -1693,7 +1693,7 @@
       <div class="hanger">
         <div class="hanger-top">
           <div class="hanger-hole"></div>
-          <img class="hanger-logo" src="${LOGO_URL}" alt="${C.name}"/>
+          ${LOGO_URL ? `<img class="hanger-logo" src="${LOGO_URL}" alt="${C.name}"/>` : ''}
           <div style="font-size:12px;letter-spacing:0.15em;text-transform:uppercase;color:${A};margin-bottom:8px;">
             WE'RE IN YOUR NEIGHBORHOOD</div>
           <h2 style="margin:0;font-size:22px;color:#fff;line-height:1.3;">${d.headline ? esc(d.headline) : 'FREE ROOF<br>INSPECTION'}</h2>
@@ -1713,8 +1713,8 @@
           </div>
         </div>
         <div class="hanger-cta">
-          CALL OR TEXT: ${C.phone}<br>
-          <span style="font-size:12px;font-weight:400;opacity:0.9;">${C.website}</span>
+          ${C.phone ? `CALL OR TEXT: ${C.phone}<br>` : ''}
+          ${C.website ? `<span style="font-size:12px;font-weight:400;opacity:0.9;">${C.website}</span>` : ''}
         </div>
       </div>
 
@@ -1760,7 +1760,7 @@
 
       <div class="mailer">
         <div class="mailer-top">
-          <img class="mailer-logo" src="${LOGO_URL}" alt="${C.name}"/>
+          ${LOGO_URL ? `<img class="mailer-logo" src="${LOGO_URL}" alt="${C.name}"/>` : ''}
           <div style="font-size:11px;letter-spacing:0.2em;text-transform:uppercase;color:${A};margin-bottom:12px;">
             ATTENTION: ${esc(d.neighborhoodName)} RESIDENTS</div>
           <h1 style="margin:0;color:#fff;font-size:26px;line-height:1.3;">
@@ -1790,7 +1790,7 @@
           <div style="text-align:center;padding:20px;background:${A};border-radius:8px;color:#fff;">
             <div style="font-size:18px;font-weight:700;">${esc(d.ctaText || 'Schedule Your Free Inspection')}</div>
             <div style="font-size:22px;font-weight:700;margin-top:8px;">${C.phone}</div>
-            <div style="font-size:13px;margin-top:4px;opacity:0.9;">${C.email} | ${C.website}</div>
+            <div style="font-size:13px;margin-top:4px;opacity:0.9;">${[C.email, C.website].filter(Boolean).join(' | ')}</div>
           </div>
         </div>
         <div class="mailer-footer">
@@ -1886,7 +1886,7 @@
         <div style="font-size:14px;color:#555;margin-top:8px;">
           Schedule your free inspection and see why our customers love working with us.</div>
         <div style="font-size:22px;font-weight:700;color:${A};margin-top:12px;">${C.phone}</div>
-        <div style="font-size:13px;color:#666;margin-top:4px;">${C.email} | ${C.website}</div>
+        <div style="font-size:13px;color:#666;margin-top:4px;">${[C.email, C.website].filter(Boolean).join(' | ')}</div>
       </div>
 
       ${footer('Customer Testimonials')}
@@ -1944,7 +1944,7 @@
           With gratitude,<br><br>
           <strong>${C.name === 'No Big Deal Home Solutions' ? 'Joe Deal' : ((typeof window !== 'undefined' && window._user && window._user.displayName) || C.name)}</strong><br>
           <span style="font-size:13px;color:#666;">Owner, ${C.name}</span><br>
-          <span style="font-size:13px;color:#666;">${C.phone} | ${C.email}</span>
+          <span style="font-size:13px;color:#666;">${[C.phone, C.email].filter(Boolean).join(' | ')}</span>
         </p>
       </div>
       ${footer('Thank You Letter')}
@@ -2028,7 +2028,7 @@
         <ol style="font-size:13px;line-height:2;padding-left:24px;color:#444;">
           <li>All payments are due as specified above. Late payments may be subject to a ${esc(latePaymentText)}.</li>
           <li>Checks should be made payable to <strong>${C.name}</strong>.</li>
-          <li>For Zelle payments, send to <strong>${C.email}</strong>.</li>
+          ${C.email ? `<li>For Zelle payments, send to <strong>${C.email}</strong>.</li>` : ''}
           <li>Credit card payments are accepted via secure link provided by ${C.name}. A convenience fee may apply.</li>
           <li>Financing is available through ${esc(financePartner)}, subject to credit approval and separate terms.</li>
           <li>Work will not commence until the deposit payment has been received and verified.</li>

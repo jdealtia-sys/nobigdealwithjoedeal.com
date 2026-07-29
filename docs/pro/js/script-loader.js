@@ -116,8 +116,8 @@
     // document-generator-templates augments and doc-preflight consumes.
     docgen: [
       'js/nbd-logo-asset.js?v=2',
-      'js/document-generator.js?v=6',
-      'js/document-generator-templates.js?v=6',
+      'js/document-generator.js?v=7',
+      'js/document-generator-templates.js?v=7',
       'js/doc-preflight.js?v=1'
     ],
     // Estimate engine (PR 2c). The revenue-critical builder + its product/

@@ -111,6 +111,36 @@ function loadCompanyProfile() {
   ok('client ⇄ server prefix-less prefix parity (SORC)', win._custIdPrefix() === _srvPfxless.prefix);
   ok('client ⇄ server prefix-less counter parity', win._custCounterId('someco') === _srvPfxless.counterId);
 
+  // ── Docgen ⇄ customer-ID prefix parity — document-generator.js _docPrefix()
+  // carries an inline copy of the _deriveCustPrefix derivation (it cannot call
+  // the closure-private helper). This pin keeps the two copies from drifting:
+  // for the same unreserved non-NBD brand, doc numbers and customer IDs MUST
+  // resolve the same prefix (same contract as the _custIdSalt parity above). ──
+  console.log('\nDocgen ⇄ customer-ID prefix parity (document-generator.js _docPrefix)');
+  const dgSrc = fs.readFileSync(path.join(__dirname, '..', 'docs/pro/js', 'document-generator.js'), 'utf8');
+  function loadDocGenWith(brand) {
+    const w2 = { _brand: () => brand };
+    w2.window = w2;
+    const noop = () => ({ style: {}, appendChild() {}, setAttribute() {}, addEventListener() {} });
+    const sb2 = {
+      window: w2,
+      document: { addEventListener() {}, getElementById() { return null; }, querySelector() { return null; }, createElement: noop, body: noop() },
+      console: { log() {}, warn() {}, error() {} },
+      setTimeout, clearTimeout, Date, Math, JSON,
+    };
+    vm.runInNewContext(dgSrc, sb2, { filename: 'document-generator.js' });
+    return w2.NBDDocGen;
+  }
+  await win._saveCompanyProfile({ brand: { legalName: 'Some Other Roofing Co' } });
+  const dgDerived = loadDocGenWith(win._brand());
+  ok('_docPrefix parity: prefix-less non-NBD (SORC)', dgDerived._docPrefix() === win._custIdPrefix());
+  await win._saveCompanyProfile({ brand: { legalName: '★★★' } });
+  const dgUnderivable = loadDocGenWith(win._brand());
+  ok('_docPrefix parity: underivable legalName (CUS)', dgUnderivable._docPrefix() === win._custIdPrefix());
+  await win._saveCompanyProfile({ brand: { legalName: 'Oaks Roofing & Construction', docPrefix: 'OAK' } });
+  const dgReserved = loadDocGenWith(win._brand());
+  ok('_docPrefix parity: reserved prefix wins (OAK)', dgReserved._docPrefix() === win._custIdPrefix());
+
   console.log('\n──────────────────────────────────────────────────');
   console.log(`${passed} passed, ${failed} failed`);
   if (failed) { console.log('\nFailures:'); fails.forEach(f => console.log('  - ' + f)); process.exit(1); }
