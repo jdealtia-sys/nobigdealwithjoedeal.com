@@ -65,6 +65,16 @@ body {
   min-height: 100vh;min-height: 100dvh;
 }
 
+/* The a11y <main> landmark wraps BOTH panels, so it — not body — must carry
+   the split-pane flex row. Without this, <main> is body's lone (block) flex
+   item and the panels stack vertically: the sticky 100vh left rail pins over
+   the form while it scrolls past underneath. */
+main#main {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+}
+
 /* ── LEFT PANEL ── */
 .left-panel {
   width: 420px;
@@ -78,7 +88,9 @@ body {
   top: 0;
   height: 100vh;
   height: 100dvh;
-  overflow: hidden;
+  /* auto, not hidden: on short viewports the rail content (961px tall) was
+     clipped — the left footer with the login link was unreachable. */
+  overflow-y: auto;
 }
 
 .brand-mark {
@@ -401,7 +413,7 @@ body {
 
 /* Mobile */
 @media (max-width: 760px) {
-  body { flex-direction: column; -webkit-overflow-scrolling: touch; overflow-x: hidden; }
+  body, main#main { flex-direction: column; -webkit-overflow-scrolling: touch; overflow-x: hidden; }
   * { -webkit-tap-highlight-color: transparent; }
   .left-panel {
     width: 100%;

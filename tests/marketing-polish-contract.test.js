@@ -161,8 +161,12 @@ ok('estimate.html footer has no doubled separator',
   // Deliberate: no fabricated aggregateRating (no truthful count on page).
   ok('review.html schema has NO aggregateRating (honest-count rule)', !(j && j.aggregateRating));
 }
-ok('free-guide funnel link present in consumer footers (index)',
-  /data-nbd-freeguide/.test(read(path.join(DOCS, 'index.html'))));
+// Jo's call (2026-07-29): the growth playbook is a CONTRACTOR lead magnet —
+// it must NOT appear on homeowner pages; it lives on the /pro surfaces only.
+ok('free-guide funnel link ABSENT from consumer footers (index)',
+  !/data-nbd-freeguide/.test(read(path.join(DOCS, 'index.html'))));
+ok('free-guide funnel link present on the pro landing footer',
+  /data-nbd-freeguide/.test(read(path.join(DOCS, 'pro/index.html'))));
 ok('free-roof page has JSON-LD', /application\/ld\+json/.test(read(path.join(DOCS, 'free-roof/index.html'))));
 
 // 11. Chrome batch 2 (Jo's calls, 2026-07-19)
