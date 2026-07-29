@@ -167,9 +167,18 @@ window.generatePhotoReport = async function() {
     doc.text(_isNbd ? 'No Big Deal Home Solutions | Greater Cincinnati Area' : (String(_b.legalName || '') + ((_b.contact && _b.contact.address) ? (' | ' + _b.contact.address) : '')), 105, 285, { align: 'center' });
     doc.text(_isNbd ? 'nobigdealwithjoedeal.com' : String((_b.contact && _b.contact.website) || ''), 105, 290, { align: 'center' });
     
-    // Generate filename
+    // Generate filename. Prefix via the shared resolver (company-profile.js,
+    // loaded on customer.html — the only page that loads this file): NBD only
+    // for the platform tenant, reserved docPrefix wins, else derived — an
+    // under-configured tenant must NOT hand a homeowner an NBD_-named PDF.
+    // Fallback keeps the same never-leak contract if the resolver is absent.
     const safeCustomerName = customerName.replace(/[^a-zA-Z0-9]/g, '_');
-    const filename = `${(_b.docPrefix) || 'NBD'}_Photo_Report_${safeCustomerName}_${Date.now()}.pdf`;
+    const _fnPrefix = String(
+      (typeof window._custIdPrefix === 'function')
+        ? window._custIdPrefix()
+        : (_isNbd ? 'NBD' : (_b.docPrefix || ''))
+    ).replace(/[^A-Za-z0-9]/g, '');
+    const filename = `${_fnPrefix ? _fnPrefix + '_' : ''}Photo_Report_${safeCustomerName}_${Date.now()}.pdf`;
     
     // Get PDF as blob for potential email attachment
     const pdfBlob = doc.output('blob');
