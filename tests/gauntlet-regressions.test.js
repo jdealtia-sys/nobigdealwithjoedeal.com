@@ -395,6 +395,19 @@ console.log('\nUsage caps — enforced with nudges (metering wired)');
   assert('both create branches meter via trackUsage',
     (boot.match(/NBDBilling\.trackUsage\('leads'\)/g) || []).length >= 2,
     'geocoded AND no-address fallback paths must both count');
+  // CSV bulk import (first-run audit 2026-07-28): the import path must
+  // mirror _saveLead — pre-gate, per-create meter, and a partial-import
+  // stop at the cap — or a free tenant bulk-loads around the 10/mo cap
+  // AND the imported leads never count against subsequent single adds.
+  const imp = read('docs/pro/js/data-import.js');
+  assert('CSV import pre-gates through enforceGate (mirrors _saveLead)',
+    /NBDBilling\.enforceGate === 'function'[\s\S]{0,160}enforceGate\('leads', 'leads'\)/.test(imp));
+  assert('CSV import meters each created lead via trackUsage',
+    /NBDBilling\.trackUsage\('leads'\)/.test(imp),
+    'unmetered imports leave the server counter low — later adds under-gate');
+  assert('CSV import stops at the cap and surfaces it on the done screen',
+    /skippedCap/.test(imp) && /plan limit/i.test(imp),
+    'partial import up to the allowance + a clear "plan limit" message');
   assert('lapse banner renders for cancelled subscriptions',
     /lapseBanner/.test(boot) && /lapseEnforced === true/.test(boot));
   assert("invite_expired is non-terminal in the claim check",

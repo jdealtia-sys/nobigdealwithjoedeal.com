@@ -387,12 +387,42 @@
       closeImport();
       return;
     }
+
+    // Plan-cap gate (first-run audit 2026-07-28): the CSV bulk path must
+    // mirror _saveLead's enforceGate check — without it a free tenant could
+    // import unlimited leads around the 10/mo cap. At the cap this shows the
+    // canonical upgrade modal (billing-gate.js owns its CSP-safe delegate,
+    // loaded earlier on both dashboard pages) and aborts. Fails open before
+    // the plan loads and for owners, per the 2026-07-16 product decision.
+    if (window.NBDBilling && typeof window.NBDBilling.enforceGate === 'function'
+        && !window.NBDBilling.enforceGate('leads', 'leads')) {
+      closeImport();
+      return;
+    }
+
     const companyId = window._userClaims?.companyId || uid;
     const existingLeads = Array.isArray(window._leads) ? window._leads : [];
+
+    // Remaining monthly allowance — imports run up to the cap, then stop
+    // (partial import beats all-or-nothing for onboarding). Owners resolve
+    // to enterprise (limits Infinity) so they're exempt automatically; an
+    // unloaded plan fails open, matching enforceGate above.
+    let remaining = Infinity;
+    if (window.NBDBilling && typeof window.NBDBilling.getPlan === 'function') {
+      const p = window.NBDBilling.getPlan();
+      if (p.loaded && p.limits && p.limits.leads !== Infinity) {
+        remaining = Math.max(0, p.limits.leads - (p.usage.leads || 0));
+      }
+    }
+    // LITE (trial-expired free): mirror _saveLead's blunt total-leads stop.
+    if (window._userPlan === 'lite') {
+      remaining = Math.min(remaining, Math.max(0, 10 - existingLeads.length));
+    }
 
     let imported = 0;
     let skippedDupe = 0;
     let skippedEmpty = 0;
+    let skippedCap = 0;
     let failed = 0;
 
     for (let i = 0; i < dataRows.length; i++) {
@@ -413,6 +443,13 @@
         }
       }
       if (isDupe) { skippedDupe++; continue; }
+
+      // Plan-cap stop: allowance exhausted — everything from this row on
+      // stays unimported (dupes/empties above never consumed allowance).
+      if (imported >= remaining) {
+        skippedCap = dataRows.length - i;
+        break;
+      }
 
       try {
         const ref = await window.addDoc(
@@ -436,6 +473,12 @@
         // this same import run catch dupes from earlier rows.
         existingLeads.push({ id: ref.id, ...lead, userId: uid, companyId });
         imported++;
+        // Meter the create (server-authoritative monthly counter — same
+        // call both _saveLead branches make). Without this, imported leads
+        // never count and subsequent single adds under-gate.
+        if (window.NBDBilling && typeof window.NBDBilling.trackUsage === 'function') {
+          window.NBDBilling.trackUsage('leads');
+        }
       } catch (e) {
         console.warn('[import] row failed', i, e.message);
         failed++;
@@ -458,7 +501,21 @@
     }
     try { window.dispatchEvent(new CustomEvent('nbd:data-refreshed', { detail: { source: 'import' } })); } catch (_) {}
 
-    renderDoneStep({ imported, skippedDupe, skippedEmpty, failed, total: dataRows.length });
+    renderDoneStep({ imported, skippedDupe, skippedEmpty, skippedCap, failed, total: dataRows.length });
+
+    // Cap hit mid-import: surface the canonical upsell once (on Growth it
+    // degrades to billing-gate's explanatory toast). Fresh getPlan() so the
+    // "used" figure includes the rows this run just metered.
+    if (skippedCap > 0 && window.NBDBilling
+        && typeof window.NBDBilling.showUpgradeModal === 'function') {
+      let used = 0, cap = 10;
+      if (typeof window.NBDBilling.getPlan === 'function') {
+        const pNow = window.NBDBilling.getPlan();
+        used = (pNow.usage && pNow.usage.leads) || 0;
+        if (pNow.limits && pNow.limits.leads !== Infinity) cap = pNow.limits.leads;
+      }
+      window.NBDBilling.showUpgradeModal('leads', 'leads', used, cap);
+    }
   }
 
   function renderDoneStep(result) {
@@ -479,6 +536,14 @@
             <div style="display:flex; justify-content:space-between; padding:8px 12px; background:var(--s2,#0f1419); border-radius:6px;">
               <span style="color:var(--m,#9aa3b2);">Skipped as duplicates</span>
               <strong style="color:#f59e0b;">${result.skippedDupe}</strong>
+            </div>` : ''}
+          ${result.skippedCap > 0 ? `
+            <div style="display:flex; justify-content:space-between; padding:8px 12px; background:var(--s2,#0f1419); border-radius:6px;">
+              <span style="color:var(--m,#9aa3b2);">Not imported — plan limit reached</span>
+              <strong style="color:#f59e0b;">${result.skippedCap}</strong>
+            </div>
+            <div style="font-size:11px; color:#f59e0b; text-align:left; padding:0 4px;">
+              Upgrade your plan to import the rest.
             </div>` : ''}
           ${result.skippedEmpty > 0 ? `
             <div style="display:flex; justify-content:space-between; padding:8px 12px; background:var(--s2,#0f1419); border-radius:6px;">
