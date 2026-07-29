@@ -385,7 +385,7 @@ test('onboarding-tour-anchors @audit', async ({ browser }) => {
             centered: tip.classList.contains('nbd-onb-tooltip-center'),
             spotVisible,
             spotRect: spotVisible ? rectOf(spot) : null,
-            mniCreateRect: rectOf(document.getElementById('mni-create')),
+            hdrMobileRect: rectOf(document.getElementById('hdrMobileBtn')),
           };
         });
         if (!state) break;
@@ -416,9 +416,16 @@ test('onboarding-tour-anchors @audit', async ({ browser }) => {
   assertNoFloatingTooltips(desktopSeen, 'desktop');
 
   // Mobile: sidebar is display:none ≤900px → the two sidebar steps must be
-  // SKIPPED (not rendered centered), and the add-lead step must spotlight
-  // the fixed bottom-nav orange + (#mni-create) — the exact element class
-  // the old offsetParent visibility test could never return.
+  // SKIPPED (not rendered centered). NOTE the add-lead step also skips on
+  // mobile: #mni-create exists only in the static markup — at boot
+  // mobile-nav-customizer.js REBUILDS #mobile-nav from its tab registry
+  // (DEFAULT_TABS dash/map/crm/joe, no create FAB), so no add-lead anchor
+  // survives on the home view. Positive anchored-spotlight coverage on
+  // mobile comes from the settings step, whose #hdrMobileBtn kebab is
+  // position:static and always in the header — while the FIRST selector in
+  // that step's anchor list (.hdr-tool[data-target="settings"]) is inside
+  // .hdr-tools-desktop-only (display:none ≤768px), so this also proves
+  // findAnchor falls through a hidden selector to a visible one.
   const mobileSeen = await walkTour({
     viewport: { width: 390, height: 844 },
     isMobile: true,
@@ -432,11 +439,11 @@ test('onboarding-tour-anchors @audit', async ({ browser }) => {
     .not.toContain('Pipeline is home base');
   expect(mobileTitles, 'mobile: sidebar step #nav-d2d must be skipped (sidebar hidden)')
     .not.toContain('Door-to-Door built in');
-  const addStep = mobileSeen.find((s) => s.title.includes('Add your first lead'));
-  expect(addStep, 'mobile: the add-lead step must render (anchored to #mni-create)').toBeTruthy();
-  expect(addStep.spotVisible, 'mobile: add-lead step must have a visible spotlight').toBe(true);
-  const a = addStep.spotRect;
-  const b = addStep.mniCreateRect;
+  const settingsStep = mobileSeen.find((s) => s.title.includes('Make it yours'));
+  expect(settingsStep, 'mobile: the settings step must render (anchored to #hdrMobileBtn)').toBeTruthy();
+  expect(settingsStep.spotVisible, 'mobile: settings step must have a visible spotlight').toBe(true);
+  const a = settingsStep.spotRect;
+  const b = settingsStep.hdrMobileRect;
   const overlaps = !!(a && b && a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom);
-  expect(overlaps, 'mobile: spotlight must cover #mni-create').toBe(true);
+  expect(overlaps, 'mobile: spotlight must cover #hdrMobileBtn').toBe(true);
 });
