@@ -34,7 +34,9 @@
 //     the server will refuse every attempt, permanently.
 //   functions/resource-exhausted — callableRateLimit('createCompany', 5, 1h);
 //     hammering it burns the budget the wizard/dashboard heals draw from.
-const PERMANENT_CODES = ['functions/failed-precondition', 'functions/resource-exhausted'];
+//   functions/invalid-argument — deterministic input rejection (e.g. a name
+//     outside the server's 2-80 char rule); identical input fails identically.
+const PERMANENT_CODES = ['functions/failed-precondition', 'functions/resource-exhausted', 'functions/invalid-argument'];
 
 export async function ensureProvisioned(user, callThunk, opts) {
   const { attempts = 3, baseDelayMs = 800 } = opts || {};

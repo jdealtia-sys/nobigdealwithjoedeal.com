@@ -1115,7 +1115,7 @@ console.log('\nProvisioning reliability — retry + block + login heal');
     && ob.indexOf('const ok = await ensureProvisioned') < ob.indexOf('onboarded: true'),
     'writing onboarded first would close the only guaranteed repair surface');
   assert('skip() attempts best-effort provisioning (never blocks the skip)',
-    /async function skip\(\) \{[\s\S]{0,700}await ensureProvisioned\(state\.user/.test(ob)
+    /async function skip\(\) \{[\s\S]{0,1000}await ensureProvisioned\(state\.user/.test(ob)
     && /async function skip\(\) \{[\s\S]{0,500}state\.claims\.owner !== true/.test(ob),
     'a skipper used to be marked onboarded with NO provisioning attempt at all');
 
@@ -1135,7 +1135,7 @@ console.log('\nProvisioning reliability — retry + block + login heal');
     && /!window\._userClaims\.companyId && window\._userClaims\.owner !== true\s*\r?\n\s*&& localStorage\.getItem\(_provisionPendingKey\)/.test(boot),
     'without the marker gate the heal would auto-provision solo tenants for pending invitees');
   assert('heal success: token refresh → marker removal → reload (in that order); failure keeps the marker',
-    /createCompany'\);[\s\S]{0,400}getIdToken\(true\);[\s\S]{0,300}localStorage\.removeItem\(_provisionPendingKey\);[\s\S]{0,100}window\.location\.reload\(\);/.test(boot),
+    /createCompany'\);[\s\S]{0,800}getIdToken\(true\);[\s\S]{0,300}localStorage\.removeItem\(_provisionPendingKey\);[\s\S]{0,100}window\.location\.reload\(\);/.test(boot),
     'reload only after SUCCESS + marker removal = no reload loop; kept marker = next load retries');
 }
 

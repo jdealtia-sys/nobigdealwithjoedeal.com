@@ -1579,7 +1579,11 @@
           const fns = getFunctions();
           await connectEmulatorsIfLocal({ functions: fns }); // no-op in prod
           const fn = httpsCallable(fns, 'createCompany');
-          await fn({ name: user.displayName || (user.email || '').split('@')[0] });
+          // Server requires a 2-80 char name; a 1-char email local-part
+          // (j@x.com) would reject as invalid-argument — fall back to the
+          // full email (mirrors the onboarding skip() fallback).
+          const healName = (user.displayName || (user.email || '').split('@')[0] || '').trim();
+          await fn({ name: (healName.length >= 2 ? healName : (user.email || 'New Contractor')).slice(0, 80) });
           // Claims changed → refresh the token FIRST, then clear the marker
           // and reboot so every scoped query re-runs under the new companyId
           // (same ordering rationale as the claimed-invite path above).

@@ -319,8 +319,11 @@ async function skip() {
   try {
     if (!state.claims.companyId && state.claims.owner !== true) {
       const createCompanyFn = httpsCallable(functions, 'createCompany');
+      // Server requires a 2-80 char name; a 1-char email local-part (j@x.com)
+      // would reject as invalid-argument — fall back to the full email.
+      const skipName = (state.user.displayName || (state.user.email || '').split('@')[0] || '').trim();
       await ensureProvisioned(state.user, () => createCompanyFn({
-        name: state.user.displayName || (state.user.email || '').split('@')[0],
+        name: (skipName.length >= 2 ? skipName : (state.user.email || 'New Contractor')).slice(0, 80),
       }));
     }
   } catch (_) { /* never trap the rep on this page */ }
