@@ -3194,19 +3194,31 @@
               pinData.leadId = leadRef.id;
               await window._savePin(pinData);
 
-              // Auto-assign customer ID (NBD-0001 format)
+              // Auto-assign customer ID (NBD-0001 format).
+              // NBD-leak gate (2026-07-29, same as customer-bootstrap): never
+              // mint from the 'NBD'/'customerIds' typeof fallbacks — on a
+              // fresh device the first-seconds race against profile hydration
+              // stamps a tenant lead with the platform prefix + shared
+              // counter. Skip instead; the customer-page mint backfills later.
               try {
+                if (window._companyProfileLoaded !== true && typeof window._loadCompanyProfile === 'function') {
+                  await window._loadCompanyProfile();
+                }
+                if (window._companyProfileLoaded !== true
+                    || typeof window._custCounterId !== 'function'
+                    || typeof window._custIdPrefix !== 'function'
+                    || typeof window._formatCustomerId !== 'function') {
+                  throw new Error('company profile not hydrated — customer-ID mint deferred');
+                }
                 const _cid = window._userClaims?.companyId || window._user?.uid;
-                const _ctrId = (typeof window._custCounterId === 'function') ? window._custCounterId(_cid) : 'customerIds';
-                const _pfx = (typeof window._custIdPrefix === 'function') ? window._custIdPrefix() : 'NBD';
+                const _ctrId = window._custCounterId(_cid);
+                const _pfx = window._custIdPrefix();
                 const counterRef = doc(db, 'counters', _ctrId);
                 const custId = await runTransaction(db, async (tx) => {
                   const snap = await tx.get(counterRef);
                   let nextNum = snap.exists() ? (snap.data().next || 0) + 1 : 1;
                   tx.set(counterRef, { next: nextNum }, { merge: true });
-                  return (typeof window._formatCustomerId === 'function')
-                    ? window._formatCustomerId(_pfx, nextNum, _cid)
-                    : _pfx + '-' + String(nextNum).padStart(4, '0');
+                  return window._formatCustomerId(_pfx, nextNum, _cid);
                 });
                 await updateDoc(doc(db, 'leads', leadRef.id), { customerId: custId });
                 console.log('✓ Assigned customer ID:', custId);
@@ -3263,19 +3275,27 @@
         if (window.NBDBilling && typeof window.NBDBilling.trackUsage === 'function') {
           window.NBDBilling.trackUsage('leads');
         }
-        // Auto-assign customer ID
+        // Auto-assign customer ID.
+        // NBD-leak gate (2026-07-29): see the geocoded branch above.
         try {
+          if (window._companyProfileLoaded !== true && typeof window._loadCompanyProfile === 'function') {
+            await window._loadCompanyProfile();
+          }
+          if (window._companyProfileLoaded !== true
+              || typeof window._custCounterId !== 'function'
+              || typeof window._custIdPrefix !== 'function'
+              || typeof window._formatCustomerId !== 'function') {
+            throw new Error('company profile not hydrated — customer-ID mint deferred');
+          }
           const _cid = window._userClaims?.companyId || window._user?.uid;
-          const _ctrId = (typeof window._custCounterId === 'function') ? window._custCounterId(_cid) : 'customerIds';
-          const _pfx = (typeof window._custIdPrefix === 'function') ? window._custIdPrefix() : 'NBD';
+          const _ctrId = window._custCounterId(_cid);
+          const _pfx = window._custIdPrefix();
           const counterRef = doc(db, 'counters', _ctrId);
           const custId = await runTransaction(db, async (tx) => {
             const snap = await tx.get(counterRef);
             let nextNum = snap.exists() ? (snap.data().next || 0) + 1 : 1;
             tx.set(counterRef, { next: nextNum }, { merge: true });
-            return (typeof window._formatCustomerId === 'function')
-              ? window._formatCustomerId(_pfx, nextNum, _cid)
-              : _pfx + '-' + String(nextNum).padStart(4, '0');
+            return window._formatCustomerId(_pfx, nextNum, _cid);
           });
           await updateDoc(doc(db, 'leads', fallbackRef.id), { customerId: custId });
           console.log('✓ Assigned customer ID:', custId);

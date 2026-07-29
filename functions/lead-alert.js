@@ -34,13 +34,29 @@ const SECRETS = [RESEND_API_KEY, EMAIL_FROM, TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOK
 const ALERT_EMAILS = ['jd@nobigdealwithjoedeal.com', 'jonathandeal459@gmail.com'];
 const ALERT_SMS = '+18594207382'; // Joe's cell — default when a lead has no tenant contact
 
+// Platform-tenant gate (same convention as render-pdf.js NBD_OWNER_UID): the
+// "is this NBD's lead" signal must be the lead's companyId, NOT the resolved
+// seal — the old fallback carried seal 'NBD' for an UNRESOLVED tenant lead
+// too, so that tenant's homeowner got Joe's ack email/SMS (NBD-leak audit
+// 2026-07-29).
+const NBD_OWNER_UID = process.env.NBD_OWNER_UID || '1phDvAVXHSg82wDLegAbQFq14Ci1';
+
 // Resolve who gets the alert for a lead's tenant (Phase C, TenantContext).
 // NBD — and any lead without a configured tenant alert contact — falls back to
 // Joe, so this is byte-identical until a tenant sets companyProfile.brand.contact
 // .alertEmail / .alertSms. A configured tenant gets its leads routed to itself.
+// isNbd rides along so the homeowner-ack gates key on WHOSE lead it is rather
+// than which brand string happened to resolve.
 async function resolveAlertTarget(companyId) {
-  const fallback = { emails: ALERT_EMAILS, sms: ALERT_SMS, name: 'No Big Deal Home Solutions', seal: 'NBD' };
-  if (!companyId) return fallback;
+  const isNbd = !companyId || String(companyId) === NBD_OWNER_UID;
+  const fallback = isNbd
+    ? { emails: ALERT_EMAILS, sms: ALERT_SMS, name: 'No Big Deal Home Solutions', seal: 'NBD', isNbd: true }
+    // Unresolved NON-NBD tenant: keep Joe's ROUTING as the backstop (the lead
+    // must not vanish unseen) but never his brand — per the #1129 convention
+    // the tenant arm gets empty strings, and isNbd:false keeps the homeowner
+    // acks (Joe-branded copy) from firing at another company's customer.
+    : { emails: ALERT_EMAILS, sms: ALERT_SMS, name: '', seal: '', isNbd: false };
+  if (isNbd) return fallback;
   try {
     const snap = await getFirestore().collection('companyProfile').doc(String(companyId)).get();
     if (snap.exists) {
@@ -56,6 +72,7 @@ async function resolveAlertTarget(companyId) {
           // a tenant that set alert routing but no seal — an NBD bleed. M1.)
           name: b.legalName || '',
           seal: b.seal || '',
+          isNbd: false,
         };
       }
     }
@@ -125,7 +142,9 @@ function emailHtml(label, source, s, leadId, name) {
 }
 
 function smsBody(label, source, s, seal) {
-  const lines = [`🔔 ${seal} lead — ${label}${source ? ` (${source})` : ''}`, `${s.name} · ${s.phone}`];
+  // Suppress the seal token when the tenant has none — never render a bare
+  // gap, and never substitute 'NBD' on a tenant's alert.
+  const lines = [`🔔 ${seal ? seal + ' ' : ''}lead — ${label}${source ? ` (${source})` : ''}`, `${s.name} · ${s.phone}`];
   if (s.address) lines.push(s.address);
   if (s.concern) lines.push('Concern: ' + (CONCERN_LABEL[s.concern] || s.concern));
   if (s.story) lines.push(String(s.story).slice(0, 200));
@@ -179,8 +198,11 @@ function ackEmailText(collection, firstName) {
 }
 
 async function ackHomeowner(collection, d, leadId, target) {
-  // NBD leads only — a configured tenant's homeowners are not ours to email.
-  if (!target || target.seal !== 'NBD') return; // fallback target always carries seal 'NBD'; a CONFIGURED tenant may have seal '' — treat anything non-NBD as not ours to email/text
+  // NBD leads only — a tenant's homeowners are not ours to email. Gate on
+  // WHOSE lead it is (isNbd from the companyId), not on the resolved seal:
+  // the old seal check also matched an UNRESOLVED tenant's fallback target,
+  // sending Joe-branded acks to another company's customer (audit 2026-07-29).
+  if (!target || target.isNbd !== true) return;
   const email = String(d.email || '').trim();
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return;
   try {
@@ -303,7 +325,8 @@ async function alertJoe(collection, d, leadId) {
 async function ackHomeownerSms(collection, d, leadId, target) {
   if (process.env.LEAD_ACK_SMS_ENABLED !== 'true') return;
   if (collection !== 'estimate_leads') return;
-  if (!target || target.seal !== 'NBD') return; // fallback target always carries seal 'NBD'; a CONFIGURED tenant may have seal '' — treat anything non-NBD as not ours to email/text
+  // Same isNbd gate as ackHomeowner — never text another company's customer.
+  if (!target || target.isNbd !== true) return;
   const digits = String(d.phone || d.phoneNumber || '').replace(/[^\d]/g, '');
   if (digits.length !== 10 && !(digits.length === 11 && digits[0] === '1')) return;
   const to = '+1' + digits.slice(-10);

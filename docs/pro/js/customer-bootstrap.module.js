@@ -398,9 +398,28 @@ async function loadCustomerData(id) {
     );
     if (!lead.customerId && _cidCanWrite) {
       try {
+        // NBD-leak gate (2026-07-29): this mint used to race company-profile
+        // hydration. The auth callback fires _loadCompanyProfile() UN-awaited
+        // and reaches here synchronously on the dashboard-handoff path, so
+        // _custIdPrefix() still saw the bare NBD defaults and DETERMINISTICALLY
+        // stamped a non-NBD tenant's lead 'NBD-00NN' from the shared platform
+        // counter (un-salted, never self-heals — mint only runs when the ID is
+        // absent). Await hydration; if the profile still isn't loaded, or any
+        // helper is missing (page-scoped-helper rule: a typeof fallback here is
+        // a silent wrong answer, not a safety net), SKIP the mint — the badge
+        // stays hidden and a later visit mints correctly.
+        if (window._companyProfileLoaded !== true && typeof window._loadCompanyProfile === 'function') {
+          await window._loadCompanyProfile();
+        }
+        if (window._companyProfileLoaded !== true
+            || typeof window._custCounterId !== 'function'
+            || typeof window._custIdPrefix !== 'function'
+            || typeof window._formatCustomerId !== 'function') {
+          throw new Error('company profile not hydrated — customer-ID mint skipped this visit');
+        }
         const _cid = (lead && lead.companyId) || (window._user && window._user.uid);
-        const _ctrId = (typeof window._custCounterId === 'function') ? window._custCounterId(_cid) : 'customerIds';
-        const _pfx = (typeof window._custIdPrefix === 'function') ? window._custIdPrefix() : 'NBD';
+        const _ctrId = window._custCounterId(_cid);
+        const _pfx = window._custIdPrefix();
         const counterRef = doc(db, 'counters', _ctrId);
         const newId = await runTransaction(db, async (transaction) => {
           const counterSnap = await transaction.get(counterRef);
@@ -409,9 +428,7 @@ async function loadCustomerData(id) {
             nextNum = (counterSnap.data().next || 0) + 1;
           }
           transaction.set(counterRef, { next: nextNum }, { merge: true });
-          return (typeof window._formatCustomerId === 'function')
-            ? window._formatCustomerId(_pfx, nextNum, _cid)
-            : _pfx + '-' + String(nextNum).padStart(4, '0');
+          return window._formatCustomerId(_pfx, nextNum, _cid);
         });
         await updateDoc(doc(db, 'leads', id), { customerId: newId });
         lead.customerId = newId;
