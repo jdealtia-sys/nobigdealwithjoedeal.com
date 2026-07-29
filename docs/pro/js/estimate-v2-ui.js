@@ -119,6 +119,30 @@
   // Modal HTML (created lazily on first open)
   // ═════════════════════════════════════════════════════════
 
+  // Per-tenant custom jurisdictions → extra #v2county options (county-
+  // jurisdiction settings, 2026-07-29). Built from window._companyProfile at
+  // modal-mount time — mounting is user-initiated, so the profile is hydrated
+  // by then on all three estimate pages (dashboard, legacy, customer.html).
+  // Jurisdiction names are tenant-entered text: HTML-escape them (stored-XSS
+  // render-safety rule). Appended AFTER the 7 static option literals so the
+  // smoke pins on the static head keep matching.
+  function _tenantCountyOptions() {
+    const esc = (s) => String(s == null ? '' : s)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+    const cj = (window._companyProfile
+      && window._companyProfile.pricing
+      && window._companyProfile.pricing.customJurisdictions) || null;
+    if (!cj || typeof cj !== 'object') return '';
+    return Object.keys(cj)
+      .filter(slug => slug && cj[slug] && typeof cj[slug].name === 'string' && cj[slug].name.trim())
+      .map(slug => `<option value="${esc(slug)}">${esc(cj[slug].name.trim())}</option>`)
+      .join('');
+  }
+
   function ensureModal() {
     if (document.getElementById('estV2Modal')) return;
 
@@ -591,7 +615,7 @@
               <option value="clermont-oh">Clermont County, OH</option>
               <option value="kenton-ky">Kenton County, KY</option>
               <option value="boone-ky">Boone County, KY</option>
-              <option value="campbell-ky">Campbell County, KY</option>
+              <option value="campbell-ky">Campbell County, KY</option>${_tenantCountyOptions()}
             </select>
           </div>
 

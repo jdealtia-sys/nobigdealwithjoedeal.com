@@ -272,26 +272,53 @@
     return (info && info.unit) ? info.unit : '';
   }
 
-  // County options for the preconfirm tax selector — sourced from the engine
-  // tax map (estimate-config.js COUNTY_TAX, the same table the V2 builder
-  // reads), so preview tax == saved tax == V2 tax. A neutral "Other / My
-  // county" ('' — engine fallbacks fire: default permit, 7% tax) leads BOTH
-  // branches so off-list tenants aren't forced onto an OH/KY county.
+  // County options for the preconfirm tax selector. A neutral "Other / My
+  // county" ('' — engine fallbacks fire: default permit, 7% tax) leads every
+  // branch so off-list tenants aren't forced onto an OH/KY county.
+  //
+  // County-jurisdiction settings (2026-07-29): the canonical 7 come from
+  // EstimateBuilderV2.PERMIT_COSTS (exported, carries display names, and is
+  // present on customer.html via the engine's inline fallbacks — fixing the
+  // old customer.html no-config branch that offered only Other + one county),
+  // with the config-derived derivation kept as a defensive fallback. The
+  // tenant's custom jurisdictions are appended with their STORED display
+  // names — never parsed out of the slug. Labels are escaped at the render
+  // site (renderPreconfirm's esc()).
   function countyOptions() {
     var other = { value: '', label: 'Other / My county' };
-    var cfg = window.NBD_ESTIMATE_CONFIG;
-    var map = cfg && cfg.COUNTY_TAX;
-    if (map && typeof map === 'object' && Object.keys(map).length) {
-      return [other].concat(Object.keys(map).map(function (slug) {
-        var entry = map[slug] || {};
-        var st = String(slug).split('-').pop();
-        var label = entry.name
-          ? entry.name + ' County, ' + String(st || '').toUpperCase()
-          : slug;
-        return { value: slug, label: label };
+    var opts = [other];
+    var eb2 = window.EstimateBuilderV2;
+    var permits = eb2 && eb2.PERMIT_COSTS;
+    if (permits && typeof permits === 'object' && Object.keys(permits).length) {
+      opts = opts.concat(Object.keys(permits).map(function (slug) {
+        var entry = permits[slug] || {};
+        return { value: slug, label: entry.name || slug };
       }));
+    } else {
+      var cfg = window.NBD_ESTIMATE_CONFIG;
+      var map = cfg && cfg.COUNTY_TAX;
+      if (map && typeof map === 'object' && Object.keys(map).length) {
+        opts = opts.concat(Object.keys(map).map(function (slug) {
+          var entry = map[slug] || {};
+          var st = String(slug).split('-').pop();
+          var label = entry.name
+            ? entry.name + ' County, ' + String(st || '').toUpperCase()
+            : slug;
+          return { value: slug, label: label };
+        }));
+      }
     }
-    return [other, { value: 'hamilton-oh', label: 'Hamilton County, OH' }];
+    var cj = window._companyProfile
+      && window._companyProfile.pricing
+      && window._companyProfile.pricing.customJurisdictions;
+    if (cj && typeof cj === 'object') {
+      Object.keys(cj).forEach(function (slug) {
+        var e = cj[slug];
+        if (!slug || !e || typeof e.name !== 'string' || !e.name.trim()) return;
+        opts.push({ value: slug, label: e.name.trim() });
+      });
+    }
+    return opts;
   }
 
   // ══════════════════════════════════════════════════════════════════════
