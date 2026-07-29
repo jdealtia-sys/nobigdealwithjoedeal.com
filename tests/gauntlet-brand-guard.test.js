@@ -57,6 +57,11 @@ const FILES = [
   // thank-you line, the payment receipt, and the invoice SMS — five things a
   // TENANT's homeowner receives.
   'docs/pro/js/invoice-pipeline.js',
+  // Added with the neutral-county fix (first-run audit punch list): the V2
+  // engine generates customer-paper line names (e.g. the Building Permit
+  // scope line) — a jurisdiction/brand literal here would print on every
+  // tenant's estimate.
+  'docs/pro/js/estimate-builder-v2.js',
 ];
 
 // Rendered NBD-identity literals that must never appear ungated on a tenant path.

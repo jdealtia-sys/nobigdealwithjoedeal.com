@@ -137,12 +137,12 @@
       'js/roofivent-catalog.js?v=1',
       'js/product-library.js?v=3',
       'js/estimate-labor-catalog.js?v=1',
-      'js/estimate-builder-v2.js?v=2',
+      'js/estimate-builder-v2.js?v=3',
       'js/estimate-catalog-xactimate.js?v=1',
       'js/estimate-logic-engine.js?v=4',
       'js/estimates.js?v=6',
       'js/estimate-finalization.js?v=2',
-      'js/estimate-v2-ui.js?v=12',
+      'js/estimate-v2-ui.js?v=13',
       'js/estimate-supplement.js?v=1',
       'js/supplement-ui.js?v=1',
       // Job templates ride the estimates bundle: data is inert, the engine
@@ -152,9 +152,9 @@
       // entity-resolver.js (the lead search/quick-create picker) must load
       // before job-templates-ui.js, which calls it from paintModal.
       'js/job-templates-data.js?v=1',
-      'js/job-templates.js?v=1',
+      'js/job-templates.js?v=2',
       'js/entity-resolver.js?v=1',
-      'js/job-templates-ui.js?v=1'
+      'js/job-templates-ui.js?v=2'
     ],
     // Photo + inspection engine (PR 2d). Camera capture / gallery / lightbox /
     // bulk-analyze (photo-engine), the photo-report doc (photo-report), and the

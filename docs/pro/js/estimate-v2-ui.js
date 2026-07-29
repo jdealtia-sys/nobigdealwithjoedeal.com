@@ -63,7 +63,11 @@
     mode: 'line-item',        // 'line-item' | 'per-sq'
     tier: 'better',
     jobMode: 'insurance',     // 'insurance' | 'cash'
-    county: 'hamilton-oh',
+    // Neutral default (first-run audit 2026-07-28): '' = "Other / My county".
+    // The engines already fail safe on a blank county (DEFAULT_PERMIT_COST
+    // $150 + 7% fallback tax), so a tenant outside the 7 listed OH/KY
+    // counties never gets silently taxed/permitted as Hamilton County, OH.
+    county: '',
     measurements: {
       rawSqft: 0, pitch: 6, waste: 1.15,   // default 6/12 (non-steep) so the steep adder is opt-in, not auto-applied
       ridgeLf: 0, eaveLf: 0, rakeLf: 0, hipLf: 0, valleyLf: 0, wallLf: 0,
@@ -580,6 +584,7 @@
           <div class="v2-field">
             <label>County / Jurisdiction</label>
             <select id="v2county" data-state="county">
+              <option value="">Other / My county — default permit, 7.00% tax</option>
               <option value="hamilton-oh">Hamilton County, OH</option>
               <option value="butler-oh">Butler County, OH</option>
               <option value="warren-oh">Warren County, OH</option>

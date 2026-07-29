@@ -46,9 +46,10 @@
  *      one entry; fixed+formula collisions carry NO qty override + a
  *      'measurement-driven' warning; price overrides warn they don't
  *      carry; result exposes warnings[].
- *  11. PAYLOAD COUNTY/META — county defaults to 'hamilton-oh' (V2 parity)
- *      and persists; meta.owner/addr pass through; minJobApplied surfaced
- *      in totals + payload when the floor binds.
+ *  11. PAYLOAD COUNTY/META — county defaults NEUTRAL ('' → 7% fallback
+ *      tax, payload stamps null; V2 "Other / My county" parity); explicit
+ *      county persists; meta.owner/addr pass through; minJobApplied
+ *      surfaced in totals + payload when the floor binds.
  *  12. USAGE TRACKING  — createEstimate (fake _saveEstimate) and
  *      insertIntoV2 stamp {n, last} into 'nbd_jt_usage_v1'; list()
  *      overlays useCount/lastUsedAt (defaults 0/null); a FAILED save does
@@ -911,22 +912,24 @@ if (ovPick) {
 }
 
 // ════════════════════════════════════════════════════════════════════
-// 11. PAYLOAD COUNTY/META — resolveSelection defaults county to
-//     'hamilton-oh' (V2 builder parity — estimate-v2-ui.js:27) and the
-//     payload persists it; meta.owner/addr pass through; minJobApplied
-//     surfaced in totals + payload when the floor binds.
+// 11. PAYLOAD COUNTY/META — resolveSelection defaults county NEUTRAL
+//     ('' — V2 builder "Other / My county" parity, first-run audit
+//     2026-07-28): taxes at the 7% fallback, never any county's rate,
+//     and the payload stamps county null; an EXPLICIT county still
+//     persists; meta.owner/addr pass through; minJobApplied surfaced
+//     in totals + payload when the floor binds.
 // ════════════════════════════════════════════════════════════════════
-section('PAYLOAD — county default + owner/addr passthrough + min-floor flag');
+section('PAYLOAD — neutral county default + owner/addr passthrough + min-floor flag');
 const ctyMap = (V2 && typeof V2.loadSettings === 'function' && V2.loadSettings().countyTax) || {};
 const hamRate = Number(ctyMap['hamilton-oh']);
 ok("county tax map carries 'hamilton-oh'", Number.isFinite(hamRate) && hamRate > 0, 'got ' + hamRate);
 const t7 = repairA || TPLS[0];
 const r7 = JT.resolveSelection([{ templateId: t7.id }], smokeOpts(t7));
-ok("resolve without opts.county taxes at the 'hamilton-oh' rate (" + hamRate + '), not the 7% fallback',
-  r7.totals && nearly(r7.totals.taxRate, hamRate, 1e-9), 'got ' + (r7.totals && r7.totals.taxRate));
+ok('resolve without opts.county taxes at the fallback rate (0.07), not any county rate',
+  r7.totals && nearly(r7.totals.taxRate, 0.07, 1e-9), 'got ' + (r7.totals && r7.totals.taxRate));
 const p7 = JT.buildEstimatePayload(r7, { name: 'County default' });
-ok("payload stamps county 'hamilton-oh' by default (V2 _buildSavePayload parity)",
-  p7 && p7.county === 'hamilton-oh', 'got ' + (p7 && p7.county));
+ok('payload stamps county null by default (neutral — no OH/KY county for off-list tenants)',
+  p7 && p7.county === null, 'got ' + (p7 && p7.county));
 ok('payload owner/addr default to blank strings', p7 && p7.owner === '' && p7.addr === '');
 const altCounty = Object.keys(ctyMap).find(function (k) {
   return k !== 'hamilton-oh' && Number(ctyMap[k]) > 0 && Number(ctyMap[k]) !== hamRate;

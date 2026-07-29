@@ -590,7 +590,8 @@
    * through markup untouched, so retailPerUnit === typed exactly; OH&P/tax
    * still apply on top. Cost-split on such a line reads cost==retail
    * (rep-negotiated) by design. Pushes 'Priced manually: <name>'.
-   * county → engine tax map; defaults 'hamilton-oh' (estimate-v2-ui parity).
+   * county → engine tax map; defaults '' — neutral "Other / My county"
+   * (estimate-v2-ui parity; EstimateLogic fails safe at the 7% fallback).
    * Returns {lines, totals, measurements, minJobCharge, county,
    *          sourceTemplates, warnings}.
    */
@@ -698,7 +699,7 @@
       Object.assign(measurements, opts.measurements);
     }
 
-    const county = opts.county || 'hamilton-oh'; // estimate-v2-ui.js default parity
+    const county = opts.county || ''; // neutral default (estimate-v2-ui.js parity) — engine taxes at the 7% fallback
 
     if (!window.EstimateLogic || typeof window.EstimateLogic.resolveEstimate !== 'function') {
       warnings.push('EstimateLogic not loaded — cannot resolve');
@@ -766,7 +767,7 @@
       owner:           meta.owner || '',
       // Tax jurisdiction — must round-trip or the V2 reopen path re-taxes
       // at ITS default and the saved grandTotal shifts on first edit.
-      county:          resolved.county || meta.county || 'hamilton-oh',
+      county:          resolved.county || meta.county || null,
       // Measurements (echoed so the estimate list can show them)
       raw:             Math.round(ctx.rawSqft || 0),
       adj:             Math.round(ctx.adjustedSqft || 0),
