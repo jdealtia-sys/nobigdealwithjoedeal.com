@@ -399,7 +399,7 @@ test.describe.serial('Gauntlet lifecycle — persona / lapse / access-code / mul
       await ownerPage.waitForFunction(() => window._user && window._user.uid, null, { timeout: 20_000 });
       const over = await callFromPage(ownerPage, 'createTeamInvite', { email: `e2e-gaunt-mr-6th-${stamp}@nbd.test`, role: 'sales_rep' });
       expect(over.ok, 'over-cap invite refused').toBe(false);
-      expect(over.message, `refusal names the seat cap (got: ${over.message || ''})`).toMatch(/taken|seat|growth plan/i);
+      expect(over.message, `refusal names the seat cap (got: ${over.message || ''})`).toMatch(/taken|seat|team plan/i);
     } finally {
       await ownerCtx.close();
     }

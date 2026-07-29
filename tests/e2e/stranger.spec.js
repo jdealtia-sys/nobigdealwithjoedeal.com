@@ -353,7 +353,7 @@ test.describe.serial('The Stranger Test — second-contractor lifecycle @strange
     // Free plan → zero seats. The gate must refuse BEFORE any member doc.
     const gated = await callFromPage(page, 'createTeamInvite', { email: REP.email, role: 'manager' });
     expect(gated.ok, 'free-plan invite refused').toBe(false);
-    expect(gated.message, 'refusal names the upgrade path').toMatch(/growth plan/i);
+    expect(gated.message, 'refusal names the upgrade path').toMatch(/team plan/i);
 
     // Upgrade the tenant (admin stand-in for Stripe checkout, which cannot
     // be emulated — the webhook path has its own unit coverage).
