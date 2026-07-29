@@ -13,6 +13,7 @@ const TAB_REGISTRY = [
   { id: 'dash',       icon: '📊', label: 'Home',        action: 'dash',       category: 'Core' },
   { id: 'home',       icon: '🏠', label: 'Widgets',     action: 'home',       category: 'Core' },
   { id: 'crm',        icon: '👥', label: 'CRM',         action: 'crm',        category: 'Core',  badge: true },
+  { id: 'create',     icon: '➕', label: 'New',         action: 'create',     category: 'Core' },
   { id: 'est',        icon: '📋', label: 'Estimates',   action: 'est',        category: 'Core' },
   { id: 'map',        icon: '🗺️', label: 'Map',         action: 'map',        category: 'Tools' },
   { id: 'd2d',        icon: '🚪', label: 'D2D',         action: 'd2d',        category: 'Tools' },
@@ -31,7 +32,11 @@ const TAB_REGISTRY = [
   { id: 'settings',   icon: '⚙️', label: 'Settings',    action: 'settings',   category: 'System' },
 ];
 
-const DEFAULT_TABS = ['dash', 'map', 'crm', 'joe'];
+// Matches the original static #mobile-nav (Home, Pipeline, +, Ask Joe, More):
+// the create FAB is a default so a first-run phone user always has an
+// add-lead control on the home view (first-run punch list follow-up 2026-07-29).
+// Map stays available in the picker.
+const DEFAULT_TABS = ['dash', 'crm', 'create', 'joe'];
 const STORAGE_KEY  = 'nbd_mobile_tabs';
 const MAX_TABS     = 4;
 
@@ -306,6 +311,17 @@ function renderBottomNav() {
   tabIds.forEach(id => {
     const tab = TAB_REGISTRY.find(t => t.id === id);
     if (!tab) return;
+    if (tab.action === 'create') {
+      // The orange "+" FAB is not a view — it opens the create popover via
+      // the same registry-dispatched handler the static markup used
+      // (mCreateFabRoute). Keep the static markup's class/id/aria so the
+      // .mn-fab CSS treatment and the onboarding-tour anchor keep working.
+      html += `<div class="mn-item mn-fab" id="mni-create" data-mnc-action="create" role="button" aria-label="Create new">
+        <span class="mn-icon">${tab.icon}</span>
+        <span class="mn-lbl">${tab.label}</span>
+      </div>`;
+      return;
+    }
     html += `<div class="mn-item" id="mni-${tab.id}" data-mnc-action="mobileNav" data-mnc-id="${tab.action}">
       <span class="mn-icon">${tab.icon}</span>
       <span class="mn-lbl">${tab.label}</span>
@@ -771,6 +787,16 @@ if (!_delegateBound) {
     try {
       switch (action) {
         case 'mobileNav':     if (typeof mobileNav === 'function') mobileNav(id); break;
+        case 'create': {
+          // mCreateFabRoute was consolidated OFF window into
+          // __NBD_CALL_REGISTRY (Tranche 2c-4c) — registry is the ONLY
+          // resolution path (window.<name> is denylisted by the tranche-0
+          // smoke pin).
+          const reg = window.__NBD_CALL_REGISTRY;
+          const fn = reg && reg.mCreateFabRoute;
+          if (typeof fn === 'function') fn();
+          break;
+        }
         case 'toggleMore':    if (typeof toggleMobileMore === 'function') toggleMobileMore(); break;
         case 'addTab':        _ncmAddTab(id); break;
         case 'removeTab':     _ncmRemoveTab(parseInt(id, 10)); break;
