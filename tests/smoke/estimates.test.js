@@ -734,6 +734,21 @@ section('Custom jurisdictions: per-tenant rows reach both pickers + the engine (
   // userSettings sink — companyProfile is the single store.
   assert('customJurisdictions never enters the localStorage settings patch',
     !/patch\.customJurisdictions/.test(bootSrc));
+  // Review follow-ups (2026-07-29): a pre-hydration empty render must never
+  // be persisted as a tenant-wide wipe, and the full-replace must target the
+  // same doc key as _saveCompanyProfile.
+  assert('jurisdiction render/save gate on companyProfile hydration (wipe-race fix)',
+    /window\._companyProfileLoaded === true/.test(bootSrc)
+    && /window\._companyProfileLoaded = true/.test(read(path.join(PRO_JS, 'company-profile.js')))
+    && /profileReady \? _collectJurisdictionRows\(\) : null/.test(bootSrc));
+  assert('full-replace resolves the company key via the shared resolver',
+    /window\._resolveCompanyKey/.test(bootSrc)
+    && /window\._resolveCompanyKey = _resolveCompanyKey/.test(read(path.join(PRO_JS, 'company-profile.js'))));
+  // Stale-options fix: the V2 modal template bakes once per page life, so the
+  // tenant tail of #v2county must refresh on every open().
+  assert('#v2county tenant option tail refreshes on modal open',
+    /_refreshTenantCountyOptions\(\);/.test(v2ui)
+    && /data-tenant-option/.test(v2ui));
 }
 
 };

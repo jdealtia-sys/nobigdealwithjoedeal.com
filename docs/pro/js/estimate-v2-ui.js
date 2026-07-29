@@ -139,8 +139,22 @@
     if (!cj || typeof cj !== 'object') return '';
     return Object.keys(cj)
       .filter(slug => slug && cj[slug] && typeof cj[slug].name === 'string' && cj[slug].name.trim())
-      .map(slug => `<option value="${esc(slug)}">${esc(cj[slug].name.trim())}</option>`)
+      .map(slug => `<option data-tenant-option value="${esc(slug)}">${esc(cj[slug].name.trim())}</option>`)
       .join('');
+  }
+
+  // The modal template is baked once per page life (ensureModal early-returns
+  // once #estV2Modal exists), so the tenant tail of #v2county must refresh on
+  // every open: a jurisdiction added in Settings mid-session — or a
+  // companyProfile that hydrated after first mount — must be selectable
+  // without a reload. Injected options carry data-tenant-option so the 8
+  // static options are never touched (smoke pins on the static head).
+  function _refreshTenantCountyOptions() {
+    const sel = document.getElementById('v2county');
+    if (!sel) return;
+    sel.querySelectorAll('option[data-tenant-option]').forEach(o => o.remove());
+    const html = _tenantCountyOptions();
+    if (html) sel.insertAdjacentHTML('beforeend', html);
   }
 
   function ensureModal() {
@@ -3568,6 +3582,7 @@ html,body{margin:0;padding:0;height:100%;width:100%;background:#fff;font-family:
   function open(opts) {
     opts = opts || {};
     ensureModal();
+    _refreshTenantCountyOptions();
     document.getElementById('estV2Modal').classList.add('open');
     // Phase 1b: pick the mobile starting step — a REOPENED estimate lands
     // on Review (scope + total + save/export, the "look at it" step); a

@@ -4218,9 +4218,11 @@
   // and never in userSettings.estimateSettingsV2 (write-only dead store).
 
   // Slug: 'custom-' + slugified name (lowercase, non-alphanumerics → '-',
-  // trimmed, capped ~40 chars). Returns '' for an unusable name — callers skip
-  // those rows. Never emits a bare '' and can never shadow a canonical slug
-  // (the 'custom-' prefix guarantees it); '' stays reserved for "Other".
+  // trimmed, capped ~40 chars). A name with NO ASCII alphanumerics (all-CJK,
+  // all-symbols) gets a stable hash-derived slug so the row is KEPT, not
+  // silently dropped on save. Returns '' only for a blank name. Never emits a
+  // bare '' and can never shadow a canonical slug (the 'custom-' prefix
+  // guarantees it); '' stays reserved for "Other".
   function _jurSlugify(name) {
     const base = String(name || '')
       .toLowerCase()
@@ -4228,7 +4230,12 @@
       .replace(/^-+|-+$/g, '')
       .slice(0, 40)
       .replace(/-+$/g, '');
-    return base ? ('custom-' + base) : '';
+    if (base) return 'custom-' + base;
+    const s = String(name || '').trim();
+    if (!s) return '';
+    let h = 5381;
+    for (let i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) >>> 0;
+    return 'custom-j' + h.toString(36);
   }
 
   function _renderJurisdictionRow(name, cost, ratePct) {
@@ -4246,9 +4253,27 @@
     return row;
   }
 
+  let _jurRehydratePoll = null;
   function _renderJurisdictionRows() {
     const host = document.getElementById('jurRows');
     if (!host) return;
+    if (window._companyProfileLoaded !== true) {
+      // companyProfile still hydrating (fresh device / slow network): render a
+      // placeholder and re-render when it lands. Saving is gated on the same
+      // flag below, so a pre-hydration empty list can never be persisted as a
+      // tenant-wide wipe.
+      host.innerHTML = '<div class="fs-11" style="color:var(--m);padding:6px 2px;">Loading your saved jurisdictions…</div>';
+      if (!_jurRehydratePoll) {
+        _jurRehydratePoll = setInterval(() => {
+          if (window._companyProfileLoaded === true) {
+            clearInterval(_jurRehydratePoll); _jurRehydratePoll = null;
+            _renderJurisdictionRows();
+          }
+        }, 500);
+        setTimeout(() => { if (_jurRehydratePoll) { clearInterval(_jurRehydratePoll); _jurRehydratePoll = null; } }, 30000);
+      }
+      return;
+    }
     host.innerHTML = '';
     const cj = (window._companyProfile
       && window._companyProfile.pricing
@@ -4310,6 +4335,10 @@
 
   // Save every v2 engine setting from the Estimates tab form
   window._saveEstimateDefaultsV2 = async function() {
+    // Honest-save flags: the success message below must not claim a sync
+    // that was skipped (profile not hydrated) or that threw (caught below).
+    let jurSaveSkipped = false;
+    let pricingSaveFailed = false;
     const byId = (id) => document.getElementById(id);
     const num = (id, fallback) => {
       const v = parseFloat(byId(id)?.value);
@@ -4405,7 +4434,13 @@
         // My Jurisdictions rows ride the same per-tenant save (county-
         // jurisdiction settings, 2026-07-29). NOT added to the localStorage
         // patch above — companyProfile is the single store for custom rows.
-        const customJurisdictions = _collectJurisdictionRows();
+        // GATED on hydration: before _loadCompanyProfile's getDoc lands, the
+        // rows container holds only a placeholder, and persisting that empty
+        // collection would FULL-REPLACE the field below — wiping every
+        // jurisdiction for the whole tenant from one stale device.
+        const profileReady = window._companyProfileLoaded === true;
+        if (!profileReady) jurSaveSkipped = true;
+        const customJurisdictions = profileReady ? _collectJurisdictionRows() : null;
         const prevJurSlugs = Object.keys((window._companyProfile
           && window._companyProfile.pricing
           && window._companyProfile.pricing.customJurisdictions) || {});
@@ -4421,7 +4456,12 @@
         if (customJurisdictions && window._db && window._user) {
           const removed = prevJurSlugs.filter(k => !(k in customJurisdictions));
           const { updateDoc, doc } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js");
-          const companyKey = (window._userClaims && window._userClaims.companyId) || window._user.uid;
+          // Resolve via the SAME helper _saveCompanyProfile uses — a
+          // divergent key would land the merge-write and the full-replace on
+          // different docs (deleted rows resurrect, save reads as success).
+          const companyKey = (typeof window._resolveCompanyKey === 'function')
+            ? await window._resolveCompanyKey()
+            : ((window._userClaims && window._userClaims.companyId) || window._user.uid);
           if (companyKey) {
             await updateDoc(
               doc(window._db, 'companyProfile', String(companyKey)),
@@ -4436,15 +4476,25 @@
           }
         }
       }
-    } catch (e) { console.warn('Add-on rates / jurisdictions save failed:', e); }
+    } catch (e) {
+      console.warn('Add-on rates / jurisdictions save failed:', e);
+      pricingSaveFailed = true;
+    }
 
     const msg = document.getElementById('v2save-msg');
     if (msg) {
       msg.style.display = 'block';
-      msg.textContent = '✓ Estimate settings saved. Every linked estimate will use these rates.';
-      setTimeout(() => msg.style.display = 'none', 3500);
+      msg.textContent = pricingSaveFailed
+        ? '⚠ Rates saved on this device, but the company pricing sync failed — check your connection and press Save again.'
+        : jurSaveSkipped
+          ? '✓ Estimate settings saved. Your jurisdictions were still loading and were left untouched — reopen this tab to edit them.'
+          : '✓ Estimate settings saved. Every linked estimate will use these rates.';
+      setTimeout(() => msg.style.display = 'none', 5000);
     }
-    if (typeof showToast === 'function') showToast('✓ Estimate settings saved', 'success');
+    if (typeof showToast === 'function') {
+      showToast(pricingSaveFailed ? '⚠ Company pricing sync failed — Save again' : '✓ Estimate settings saved',
+        pricingSaveFailed ? 'info' : 'success');
+    }
   };
 
   const _resetEstimateDefaultsV2 = function() {

@@ -256,6 +256,11 @@
     } catch (_) { /* ignore */ }
     return null;
   }
+  // Exported so per-tenant writers outside this module (e.g. the custom-
+  // jurisdictions full-replace in dashboard-bootstrap) target the SAME doc
+  // key as _saveCompanyProfile — a divergent key means the merge-write and
+  // the replace-write hit different docs and deleted rows resurrect.
+  window._resolveCompanyKey = _resolveCompanyKey;
 
   window.NBD_COMPANY_PROFILE_DEFAULTS = NBD_COMPANY_PROFILE_DEFAULTS;
   window._companyProfile = deepMerge({}, NBD_COMPANY_PROFILE_DEFAULTS);
@@ -308,6 +313,11 @@
         _brandOverrideRaw = (remote && remote.brand) || null;
         try { localStorage.setItem(_cacheKeyFor(key), JSON.stringify(remote)); } catch (_) {}
       }
+      // Hydration is DEFINITIVE only once the doc read succeeded (exists or
+      // not). Destructive per-tenant writes (the custom-jurisdictions
+      // full-replace) gate on this flag so a pre-hydration empty render can
+      // never be saved as a tenant-wide wipe. A failed read leaves it unset.
+      window._companyProfileLoaded = true;
     } catch (e) {
       console.warn('[company-profile] load failed:', e && e.message);
     }
