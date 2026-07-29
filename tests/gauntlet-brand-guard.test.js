@@ -62,6 +62,10 @@ const FILES = [
   // scope line) — a jurisdiction/brand literal here would print on every
   // tenant's estimate.
   'docs/pro/js/estimate-builder-v2.js',
+  // Added with the photo-report filename fix (punch-list spin-off 2026-07-29):
+  // this generator builds a PDF a homeowner receives; its filename used to
+  // fall back `docPrefix || 'NBD'` for under-configured tenants.
+  'docs/pro/js/customer-photo-report-generator.js',
 ];
 
 // Rendered NBD-identity literals that must never appear ungated on a tenant path.

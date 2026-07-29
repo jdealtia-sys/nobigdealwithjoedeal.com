@@ -989,4 +989,21 @@ section('customer.html: every inline event handler migrated to data-action deleg
     /function _previewPhotoFromPopup[\s\S]{0,1200}openPhotoLightbox\(photo\.url,\s*photo\.description/.test(customer));
 }
 
+section('Photo-report PDF filename never leaks NBD onto a tenant download (2026-07-29)');
+{
+  // The homeowner-facing photo-report PDF's filename fell back
+  // `docPrefix || 'NBD'` — an under-configured tenant handed their customer
+  // an NBD_-named file. Now routed through the shared _custIdPrefix resolver
+  // (NBD only for the platform tenant, reserved prefix wins, else derived),
+  // with a no-leak local fallback when the resolver is absent.
+  const gen = read(path.join(PRO_JS, 'customer-photo-report-generator.js'));
+  assert('photo-report filename has NO bare NBD fallback',
+    !/\|\|\s*'NBD'/.test(gen),
+    "the `docPrefix || 'NBD'` fallback must never return");
+  assert('photo-report filename prefix routes through the shared resolver',
+    /_custIdPrefix[\s\S]{0,300}Photo_Report_/.test(gen));
+  assert('blank prefix drops cleanly (no leading underscore filename)',
+    /_fnPrefix \? _fnPrefix \+ '_' : ''/.test(gen));
+}
+
 };
