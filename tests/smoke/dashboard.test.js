@@ -2859,6 +2859,21 @@ section('Globals Tranches 0+1: converted names stay off window');
   assert('mobile-nav-customizer binds drag/touch via modal-level delegation',
     /_bindDnd\(modal\)/.test(mnc) && /addEventListener\('touchmove'[\s\S]{0,80}passive: false/.test(mnc));
 
+  // First-run punch list follow-up (2026-07-29): the customizer REBUILDS
+  // #mobile-nav at boot, so the static markup's create FAB only exists if the
+  // registry + defaults carry it. Without these pins a default-tab tweak
+  // silently removes the ONLY add-lead control on the mobile home view.
+  assert('mobile-nav-customizer: create FAB is a registry tab AND a default tab',
+    /\{ id: 'create',[\s\S]{0,80}action: 'create'/.test(mnc)
+    && /const DEFAULT_TABS = \['dash', 'crm', 'create', 'joe'\]/.test(mnc),
+    'the mobile home view must always ship with an add-lead control by default');
+  assert('mobile-nav-customizer renders the create FAB with the static markup identity',
+    /class="mn-item mn-fab" id="mni-create" data-mnc-action="create"/.test(mnc),
+    '.mn-fab CSS treatment + onboarding-tour #mni-create anchor depend on this shape');
+  assert('mobile-nav-customizer dispatches create via __NBD_CALL_REGISTRY first',
+    /case 'create':[\s\S]{0,400}__NBD_CALL_REGISTRY[\s\S]{0,200}mCreateFabRoute/.test(mnc),
+    'mCreateFabRoute lives in the call registry, not on window (Tranche 2c-4c)');
+
   // CSP-dead handler audit (2026-07-05, post-2a sweep). Three more prod
   // breakages of the same class, all pinned here so they can't return:
   const bootSrc = read(path.join(PRO_JS, 'dashboard-bootstrap.module.js'));

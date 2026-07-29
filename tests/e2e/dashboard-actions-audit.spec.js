@@ -270,6 +270,10 @@ test('dashboard-actions-audit @audit', async ({ page }) => {
     await page.evaluate(() => {
       document.querySelectorAll('#mobile-more-menu.open').forEach((m) => m.classList.remove('open'));
       if (typeof window.closeMobileMore === 'function') window.closeMobileMore();
+      // The bottom-nav create FAB opens the m-create bottom sheet; its
+      // backdrop sits ABOVE the nav (z 1900+) and would swallow every later
+      // forced tap as a backdrop-close if left open.
+      if (typeof window.closeMobileCreatePopover === 'function') window.closeMobileCreatePopover();
       document.getElementById('estV2Modal')?.classList.remove('open');
       document.querySelectorAll('.modal.open').forEach((m) => m.classList.remove('open'));
     }).catch(() => {});
@@ -314,12 +318,20 @@ test('dashboard-actions-audit @audit', async ({ page }) => {
 
   // Regression gate for tap-stealing overlays (push opt-in card, PWA install
   // banners — 2026-07-05): every routed bottom-nav tap must have navigated.
-  // mni-dash is exempt (already on dash → correctly a no-op) and mni-more
-  // opens the More drawer rather than a view.
+  // mni-dash is exempt (already on dash → correctly a no-op), mni-more opens
+  // the More drawer, and mni-create opens the create popover — those two are
+  // asserted as MODAL results instead.
   const deadNavTaps = tapResults.filter((t) =>
-    /bottom nav/.test(t.describe) && !/mni-dash|mni-more/.test(t.selector) &&
+    /bottom nav/.test(t.describe) && !/mni-dash|mni-more|mni-create/.test(t.selector) &&
     !/^VIEW:/.test(t.result) && t.result !== 'NOT_FOUND' && t.result !== 'HIDDEN');
   expect(deadNavTaps, 'bottom-nav taps that did not navigate (overlay covering the tab bar?)').toEqual([]);
+
+  // The create FAB is a default tab (mobile-nav-customizer DEFAULT_TABS,
+  // 2026-07-29) and its tap must open the create popover — a silent no-op
+  // here means the registry dispatch (mCreateFabRoute) went dead.
+  const createTap = tapResults.find((t) => /mni-create/.test(t.selector));
+  expect(createTap, 'bottom nav must include the create FAB (default tab)').toBeTruthy();
+  expect(createTap.result, 'create FAB tap must open the create popover').toMatch(/^MODAL:/);
 });
 
 // ── First-run onboarding tour: anchors resolve, unresolvable steps skip ──
@@ -386,6 +398,7 @@ test('onboarding-tour-anchors @audit', async ({ browser }) => {
             spotVisible,
             spotRect: spotVisible ? rectOf(spot) : null,
             hdrMobileRect: rectOf(document.getElementById('hdrMobileBtn')),
+            mniCreateRect: rectOf(document.getElementById('mni-create')),
           };
         });
         if (!state) break;
@@ -416,16 +429,14 @@ test('onboarding-tour-anchors @audit', async ({ browser }) => {
   assertNoFloatingTooltips(desktopSeen, 'desktop');
 
   // Mobile: sidebar is display:none ≤900px → the two sidebar steps must be
-  // SKIPPED (not rendered centered). NOTE the add-lead step also skips on
-  // mobile: #mni-create exists only in the static markup — at boot
-  // mobile-nav-customizer.js REBUILDS #mobile-nav from its tab registry
-  // (DEFAULT_TABS dash/map/crm/joe, no create FAB), so no add-lead anchor
-  // survives on the home view. Positive anchored-spotlight coverage on
-  // mobile comes from the settings step, whose #hdrMobileBtn kebab is
-  // position:static and always in the header — while the FIRST selector in
-  // that step's anchor list (.hdr-tool[data-target="settings"]) is inside
-  // .hdr-tools-desktop-only (display:none ≤768px), so this also proves
-  // findAnchor falls through a hidden selector to a visible one.
+  // SKIPPED (not rendered centered). mobile-nav-customizer.js REBUILDS
+  // #mobile-nav at boot, and since 2026-07-29 its DEFAULT_TABS include the
+  // create FAB — so the add-lead step must render spotlighting the rebuilt
+  // #mni-create (position:fixed nav — the exact element class the old
+  // offsetParent visibility test could never return). The settings step
+  // additionally proves findAnchor falls through a hidden selector
+  // (.hdr-tool[data-target="settings"] is desktop-only ≤768px) to the
+  // visible #hdrMobileBtn kebab.
   const mobileSeen = await walkTour({
     viewport: { width: 390, height: 844 },
     isMobile: true,
@@ -439,11 +450,16 @@ test('onboarding-tour-anchors @audit', async ({ browser }) => {
     .not.toContain('Pipeline is home base');
   expect(mobileTitles, 'mobile: sidebar step #nav-d2d must be skipped (sidebar hidden)')
     .not.toContain('Door-to-Door built in');
+  const rectsOverlap = (a, b) =>
+    !!(a && b && a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom);
+  const addStep = mobileSeen.find((s) => s.title.includes('Add your first lead'));
+  expect(addStep, 'mobile: the add-lead step must render (create FAB is a default tab)').toBeTruthy();
+  expect(addStep.spotVisible, 'mobile: add-lead step must have a visible spotlight').toBe(true);
+  expect(rectsOverlap(addStep.spotRect, addStep.mniCreateRect),
+    'mobile: add-lead spotlight must cover the rebuilt #mni-create').toBe(true);
   const settingsStep = mobileSeen.find((s) => s.title.includes('Make it yours'));
   expect(settingsStep, 'mobile: the settings step must render (anchored to #hdrMobileBtn)').toBeTruthy();
   expect(settingsStep.spotVisible, 'mobile: settings step must have a visible spotlight').toBe(true);
-  const a = settingsStep.spotRect;
-  const b = settingsStep.hdrMobileRect;
-  const overlaps = !!(a && b && a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom);
-  expect(overlaps, 'mobile: spotlight must cover #hdrMobileBtn').toBe(true);
+  expect(rectsOverlap(settingsStep.spotRect, settingsStep.hdrMobileRect),
+    'mobile: spotlight must cover #hdrMobileBtn').toBe(true);
 });
