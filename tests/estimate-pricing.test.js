@@ -124,6 +124,19 @@ test('C-1: blank/unknown jurisdiction → default permit $150, not $0 (per-SQ)',
   eq(unknown.addOns.permit, 150);  // off-list jurisdiction also fails safe to the default
   eq(known.addOns.permit, 185);    // known county still uses its real value (unchanged)
 });
+test('Blank jurisdiction permit line: "Building Permit — Local Jurisdiction" at $150', () => {
+  // Neutral-county fix (first-run audit 2026-07-28): blank county is the
+  // COMMON case for off-list tenants and this line name lands on customer
+  // paper — it must read presentably (not "jurisdiction not set") while the
+  // C-1 fail-safe cost holds.
+  const items = EBv2.generateLineItemsFromMeasurements({
+    tier: 'better', rawSqft: 3900, pitch: '6/12', wasteFactorOverride: 1.0
+  });
+  const permit = items.find(i => i.code === 'PERMIT');
+  if (!permit) throw new Error('no PERMIT line generated for a blank jurisdiction');
+  eq(permit.name, 'Building Permit — Local Jurisdiction', 'permit line name');
+  eq(permit.materialCost, 150, 'permit fail-safe cost');
+});
 test('Cash mode applies county tax; insurance mode hides it', () => {
   const cash = EBv2.calculateEstimate({
     method: 'per-sq', tier: 'better', mode: 'cash',

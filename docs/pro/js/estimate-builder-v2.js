@@ -781,10 +781,13 @@
     // C-1: always include a permit line. When the jurisdiction is unknown/blank
     // the line was silently omitted (→ $0 permit); fall back to a default cost +
     // label instead so the per-SQ tier and the scope both reflect a real permit.
+    // Blank county is the COMMON case for off-list tenants (neutral "Other /
+    // My county" default, first-run audit 2026-07-28) and this string lands on
+    // customer paper — keep the fallback label presentable.
     items.push({
       catalogKey: 'permit-fee',
       code: 'PERMIT',
-      name: `Building Permit — ${permitInfo ? permitInfo.name : 'jurisdiction not set'}`,
+      name: `Building Permit — ${permitInfo ? permitInfo.name : 'Local Jurisdiction'}`,
       category: 'permit',
       unit: 'JOB',
       qty: 1,

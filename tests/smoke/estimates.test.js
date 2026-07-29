@@ -629,4 +629,38 @@ section('Per-line supplement money: item decisions, per-line notes, per-item pho
     /note: l\.repNote \|\| ''/.test(fin) && /escapeHtml\(b\.note\)/.test(fin));
 }
 
+section('Neutral county default: "Other / My county" everywhere, no Hamilton coercion');
+{
+  // First-run audit 2026-07-28: every new estimate defaulted to Hamilton
+  // County, OH — permit $185 + 7.80% tax + "Hamilton County, OH" on customer
+  // paper — for EVERY tenant, with no way to express any other jurisdiction.
+  // The neutral '' county rides the engines' existing fail-safes ($150
+  // permit, 7% tax), so these checks pin the UI surface, not the math.
+  const v2ui = read(path.join(PRO_JS, 'estimate-v2-ui.js'));
+  assert('#v2county leads with the neutral <option value="">Other / My county</option>',
+    /<select id="v2county"[^>]*>\s*<option value="">[^<]*Other\s*\/\s*My county/i.test(v2ui));
+  assert('#v2county still offers all 7 named OH/KY counties',
+    ['hamilton-oh', 'butler-oh', 'warren-oh', 'clermont-oh', 'kenton-ky', 'boone-ky', 'campbell-ky']
+      .every(slug => new RegExp('<option value="' + slug + '">').test(v2ui)));
+  assert("V2 session state defaults county to '' (neutral, not hamilton-oh)",
+    /county: '',/.test(v2ui) && !/county: 'hamilton-oh'/.test(v2ui));
+
+  const engine = read(path.join(PRO_JS, 'estimate-builder-v2.js'));
+  assert('blank-jurisdiction permit line renders "Local Jurisdiction" (customer paper), not "jurisdiction not set"',
+    /Local Jurisdiction/.test(engine) && !/jurisdiction not set/.test(engine));
+
+  const jtUi = read(path.join(PRO_JS, 'job-templates-ui.js'));
+  assert("job-templates-ui.js no longer coerces blank county to 'hamilton-oh'",
+    !/\|\| 'hamilton-oh'/.test(jtUi));
+  assert("job-templates-ui.js countyOptions leads with the '' Other / My county option",
+    /value: '',\s*label: 'Other \/ My county'/.test(jtUi));
+
+  const jtEngine = read(path.join(PRO_JS, 'job-templates.js'));
+  assert("job-templates.js engine no longer defaults opts.county to 'hamilton-oh'",
+    !/opts\.county \|\| 'hamilton-oh'/.test(jtEngine)
+    && /opts\.county \|\| ''/.test(jtEngine));
+  assert('job-templates.js payload stamps null (not hamilton-oh) when no county picked',
+    /county:\s*resolved\.county \|\| meta\.county \|\| null,/.test(jtEngine));
+}
+
 };

@@ -94,7 +94,7 @@
     collapsed: {},           // templateId -> bool (preconfirm sections)
     tier: 'better',
     jobMode: 'cash',
-    county: 'hamilton-oh',   // tax jurisdiction — same default as estimate-v2-ui.js:27
+    county: '',              // tax jurisdiction — neutral "Other / My county" default (estimate-v2-ui.js parity; engines fail safe at $150 permit / 7% tax)
     measurements: Object.assign({}, MEAS_DEFAULTS),
     measSeedKey: '',
     measOpen: false,
@@ -274,21 +274,24 @@
 
   // County options for the preconfirm tax selector — sourced from the engine
   // tax map (estimate-config.js COUNTY_TAX, the same table the V2 builder
-  // reads), so preview tax == saved tax == V2 tax. Fallback: hamilton-oh only.
+  // reads), so preview tax == saved tax == V2 tax. A neutral "Other / My
+  // county" ('' — engine fallbacks fire: default permit, 7% tax) leads BOTH
+  // branches so off-list tenants aren't forced onto an OH/KY county.
   function countyOptions() {
+    var other = { value: '', label: 'Other / My county' };
     var cfg = window.NBD_ESTIMATE_CONFIG;
     var map = cfg && cfg.COUNTY_TAX;
     if (map && typeof map === 'object' && Object.keys(map).length) {
-      return Object.keys(map).map(function (slug) {
+      return [other].concat(Object.keys(map).map(function (slug) {
         var entry = map[slug] || {};
         var st = String(slug).split('-').pop();
         var label = entry.name
           ? entry.name + ' County, ' + String(st || '').toUpperCase()
           : slug;
         return { value: slug, label: label };
-      });
+      }));
     }
-    return [{ value: 'hamilton-oh', label: 'Hamilton County, OH' }];
+    return [other, { value: 'hamilton-oh', label: 'Hamilton County, OH' }];
   }
 
   // ══════════════════════════════════════════════════════════════════════
@@ -388,7 +391,7 @@
     return {
       tier: state.tier,
       jobMode: state.jobMode,
-      county: state.county || 'hamilton-oh',
+      county: state.county || '',
       measurements: Object.assign({}, state.measurements)
     };
   }
@@ -987,8 +990,9 @@
         return '<button type="button" class="' + (state.jobMode === m ? 'on' : '') + '" data-jt-action="set-jobmode" data-id="' + m + '">' + (m === 'cash' ? 'Cash' : 'Insurance') + '</button>';
       }).join('') + '</div></div>';
 
-    // County/tax jurisdiction — same tax map + default as the V2 builder, so
-    // preview tax == saved tax == V2 tax (never the 7% no-county fallback).
+    // County/tax jurisdiction — same tax map + neutral default as the V2
+    // builder, so preview tax == saved tax == V2 tax ("Other / My county"
+    // = '' rides the engines' 7% fallback by design).
     var countySel = '<div><span class="jt-ctl-lbl">County / Tax</span>' +
       '<select class="jt-in" data-jt-action="set-county" style="min-width:180px;">' +
       countyOptions().map(function (o) {
@@ -1931,7 +1935,7 @@
 
       // ── Preconfirm global county/tax jurisdiction ──
       if (action === 'set-county') {
-        state.county = el.value || 'hamilton-oh';
+        state.county = el.value || '';
         scheduleResolve();
         return;
       }
