@@ -1077,6 +1077,91 @@ console.log('\nPer-seat charging — buy-seats stepper reachable during past_due
     /if \(t\.disabled\) return;/.test(tab));
 }
 
+// ═══════════════════════════════════════════════════════════════════
+// PROVISIONING RELIABILITY (first-run audit 2026-07-28, root cause):
+// createCompany used to be single-shot + swallowed at SEVEN call sites
+// (register ×6, stripe-success ×1); the wizard's own self-heal swallowed
+// too and then wrote onboarded:true, and skip() never attempted it — a
+// transient failure at signup left the account PERMANENTLY tenant-less
+// (misrouted public leads, phantom-company team ops, no branding). Three
+// layers now: bounded-retry helper, blocking wizard finish, marker-gated
+// login-time self-heal on dashboard load.
+// ═══════════════════════════════════════════════════════════════════
+
+console.log('\nProvisioning reliability — retry + block + login heal');
+{
+  // (1) the shared retry helper — a static ES module, deliberately NOT a
+  // window.X helper (the page-scoped-helper silent-failure class).
+  assert('provisioning-retry.js exists',
+    fs.existsSync(path.join(ROOT, 'docs/pro/js/provisioning-retry.js')),
+    'the shared ensureProvisioned helper is the root-cause fix vehicle');
+  const pr = read('docs/pro/js/provisioning-retry.js');
+  assert('ensureProvisioned is an exported async fn taking (user, callThunk)',
+    /export async function ensureProvisioned\(user, callThunk/.test(pr));
+  assert('retry loop is BOUNDED (attempts-capped, no while(true))',
+    /attempts = 3/.test(pr) && /attempt < attempts/.test(pr) && !/while\s*\(\s*true/.test(pr),
+    'createCompany is rate-limited 5/hr — an unbounded loop burns the whole quota');
+  assert('permanent codes are never retried (failed-precondition + resource-exhausted)',
+    /'functions\/failed-precondition'/.test(pr)
+    && /'functions\/resource-exhausted'/.test(pr)
+    && /PERMANENT_CODES\.includes\(code\)\) break;/.test(pr),
+    'invited-rep refusals are permanent; retrying the rate limit burns the quota the heals need');
+  assert('success path refreshes the token and CLEARS the per-uid pending marker',
+    /getIdToken\(true\)/.test(pr)
+    && /localStorage\.removeItem\('nbd_provision_pending_' \+ user\.uid\)/.test(pr));
+  assert('final failure SETS the per-uid pending marker (login-heal handoff) and returns false',
+    /localStorage\.setItem\('nbd_provision_pending_' \+ user\.uid, '1'\)/.test(pr)
+    && /return false;/.test(pr));
+
+  // (2) register.js — all six call sites routed through the helper, statically
+  // imported; zero remaining single-shot swallows.
+  const reg = read('docs/pro/js/pages/register.js');
+  assert('register.js statically imports ensureProvisioned (no window.X guard)',
+    /import \{ ensureProvisioned \}\s+from "\.\.\/provisioning-retry\.js"/.test(reg));
+  assert('all 6 register createCompany sites route through ensureProvisioned',
+    (reg.match(/await ensureProvisioned\(/g) || []).length >= 6,
+    'email free, code server-fallback, code success, Google code-fallback, Google code success, Google free');
+  assert('no remaining single-shot createCompany swallow in register.js',
+    !reg.includes("console.warn('createCompany failed (account still usable)"),
+    'the swallow pattern is what made a transient signup failure permanent');
+
+  // (3) onboarding wizard — finish() BLOCKS un-provisioned completion
+  // (before the onboarded:true write), skip() attempts best-effort.
+  const ob = read('docs/pro/js/pages/onboarding.js');
+  assert('onboarding.js statically imports ensureProvisioned',
+    /import \{ ensureProvisioned \}\s+from "\.\.\/provisioning-retry\.js"/.test(ob));
+  assert('finish() blocks on failed provisioning: showErr + re-enable + return',
+    /const ok = await ensureProvisioned\(state\.user[\s\S]{0,300}if \(!ok\) \{[\s\S]{0,300}showErr\('Could not finish setting up your workspace[\s\S]{0,200}return;/.test(ob),
+    'swallow-then-onboarded:true made the tenant-less state permanent (wizard never reappears)');
+  assert('the provisioning gate runs BEFORE the onboarded:true write (order-pinned)',
+    ob.indexOf('const ok = await ensureProvisioned') !== -1
+    && ob.indexOf('const ok = await ensureProvisioned') < ob.indexOf('onboarded: true'),
+    'writing onboarded first would close the only guaranteed repair surface');
+  assert('skip() attempts best-effort provisioning (never blocks the skip)',
+    /async function skip\(\) \{[\s\S]{0,1000}await ensureProvisioned\(state\.user/.test(ob)
+    && /async function skip\(\) \{[\s\S]{0,500}state\.claims\.owner !== true/.test(ob),
+    'a skipper used to be marked onboarded with NO provisioning attempt at all');
+
+  // (4) stripe-success buy-first path — a PAYING tenant gets the same retry
+  // + marker handoff.
+  const ss = read('docs/pro/js/pages/stripe-success.js');
+  assert('stripe-success statically imports ensureProvisioned',
+    /import \{ ensureProvisioned \} from '\.\.\/provisioning-retry\.js'/.test(ss));
+  assert('buy-first provisioning routed through ensureProvisioned',
+    /await ensureProvisioned\(cred\.user, \(\) => createCompanyFn\(\{ name:/.test(ss));
+
+  // (5) dashboard-bootstrap login-time self-heal — marker-gated so invitee
+  // flows (?invite=1 → claimInvite) are untouched.
+  const boot = read('docs/pro/js/dashboard-bootstrap.module.js');
+  assert('login heal gated on missing companyId AND non-owner AND the pending marker',
+    /_provisionPendingKey = 'nbd_provision_pending_' \+ user\.uid/.test(boot)
+    && /!window\._userClaims\.companyId && window\._userClaims\.owner !== true\s*\r?\n\s*&& localStorage\.getItem\(_provisionPendingKey\)/.test(boot),
+    'without the marker gate the heal would auto-provision solo tenants for pending invitees');
+  assert('heal success: token refresh → marker removal → reload (in that order); failure keeps the marker',
+    /createCompany'\);[\s\S]{0,800}getIdToken\(true\);[\s\S]{0,300}localStorage\.removeItem\(_provisionPendingKey\);[\s\S]{0,100}window\.location\.reload\(\);/.test(boot),
+    'reload only after SUCCESS + marker removal = no reload loop; kept marker = next load retries');
+}
+
 console.log('\n──────────────────────────────────────────────────');
 console.log(`${passed} passed, ${failed} failed`);
 if (failed) { console.log('\nFailures:'); fails.forEach((f) => console.log('  - ' + f)); process.exit(1); }

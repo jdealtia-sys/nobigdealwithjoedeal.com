@@ -107,14 +107,19 @@ console.log('RENDER-PDF — unresolved tenant brand renders neutral, not the own
 }
 
 // ── 4. The precondition that makes case 2 live ────────────────────────
-// If provisioning ever becomes fail-hard, this fallback stops being reachable
-// that way — worth knowing, so assert the current best-effort behaviour rather
-// than silently depending on it.
+// If provisioning ever becomes fail-hard AT REGISTER, this fallback stops
+// being reachable that way — worth knowing, so assert the current behaviour
+// rather than silently depending on it. Since the 2026-07-28 first-run audit
+// the single-shot console.warn swallow was replaced by ensureProvisioned
+// (docs/pro/js/provisioning-retry.js): bounded retries, then `return false`
+// — still never throws, so registration still proceeds and a retried-out
+// tenant still reaches the no-profile path until the wizard/dashboard heals
+// finish the job.
 {
   const reg = fs.readFileSync(path.join(ROOT, 'docs/pro/js/pages/register.js'), 'utf8');
-  const n = (reg.match(/createCompany failed \(account still usable\)/g) || []).length;
+  const pr = fs.readFileSync(path.join(ROOT, 'docs/pro/js/provisioning-retry.js'), 'utf8');
   ok('registration still treats createCompany failure as non-fatal',
-    n >= 1,
+    /ensureProvisioned\(/.test(reg) && /return false;/.test(pr) && !/^\s*throw\b/m.test(pr),
     'if this became fail-hard, a tenant could no longer reach the no-profile path this way');
 }
 

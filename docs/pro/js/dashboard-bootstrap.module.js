@@ -1560,6 +1560,42 @@
           }
         }
       }
+      // Login-time provisioning self-heal (first-run audit 2026-07-28, root
+      // cause). A signup whose createCompany never landed (offline, App Check
+      // hiccup, rate limit) carries the per-uid nbd_provision_pending_ marker
+      // set by provisioning-retry.js — finish the job here on dashboard load.
+      // Marker-gated so the invitee flow is untouched: ?invite=1 signups
+      // never call createCompany and never set the marker, and the claimInvite
+      // semantics above (incl. the 14-day young-account re-check) are
+      // unchanged. createCompany is idempotent and refuses invited reps
+      // server-side. Reload fires ONLY after a successful provision + marker
+      // removal (no reload loop); a failure keeps the marker so the next
+      // dashboard load retries.
+      const _provisionPendingKey = 'nbd_provision_pending_' + user.uid;
+      if (!window._userClaims.companyId && window._userClaims.owner !== true
+          && localStorage.getItem(_provisionPendingKey)) {
+        try {
+          const { getFunctions, httpsCallable } = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-functions.js');
+          const fns = getFunctions();
+          await connectEmulatorsIfLocal({ functions: fns }); // no-op in prod
+          const fn = httpsCallable(fns, 'createCompany');
+          // Server requires a 2-80 char name; a 1-char email local-part
+          // (j@x.com) would reject as invalid-argument — fall back to the
+          // full email (mirrors the onboarding skip() fallback).
+          const healName = (user.displayName || (user.email || '').split('@')[0] || '').trim();
+          await fn({ name: (healName.length >= 2 ? healName : (user.email || 'New Contractor')).slice(0, 80) });
+          // Claims changed → refresh the token FIRST, then clear the marker
+          // and reboot so every scoped query re-runs under the new companyId
+          // (same ordering rationale as the claimed-invite path above).
+          await user.getIdToken(true);
+          localStorage.removeItem(_provisionPendingKey);
+          window.location.reload();
+          return;
+        } catch (e) {
+          // Keep the marker — the next dashboard load retries.
+          console.warn('Provisioning heal skipped (will retry next load):', e && e.message);
+        }
+      }
     } catch (e) { window._userClaims = {}; }
     // Notification permission is now opt-in via a user gesture.
     // A page-load requestPermission() call is auto-denied by modern
