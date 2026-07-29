@@ -35,6 +35,25 @@ test.use({
     'Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1',
 });
 
+// Sandbox egress blocks www.gstatic.com — serve locally-bundled Firebase
+// 10.12.2 ESM builds instead (set FIREBASE_SDK_DIR to the esbuild output).
+// Shared by both tests in this file.
+async function installSandboxRoutes(page) {
+  const sdkDir = process.env.FIREBASE_SDK_DIR;
+  if (!sdkDir) return;
+  await page.route(/https:\/\/www\.gstatic\.com\/firebasejs\/10\.12\.2\/(firebase-[a-z-]+\.js)/, (route, req) => {
+    const m = req.url().match(/(firebase-[a-z-]+\.js)$/);
+    const f = m && path.join(sdkDir, m[1]);
+    if (f && fs.existsSync(f)) {
+      route.fulfill({ status: 200, contentType: 'text/javascript', body: fs.readFileSync(f, 'utf8') });
+    } else {
+      route.abort();
+    }
+  });
+  // fail fast on other blocked third-party hosts instead of proxy 403 stalls
+  await page.route(/https:\/\/(browser\.sentry-cdn\.com|www\.google\.com|www\.googletagmanager\.com|fonts\.googleapis\.com|fonts\.gstatic\.com|unpkg\.com)\/.*/, (r) => r.abort());
+}
+
 test('dashboard-actions-audit @audit', async ({ page }) => {
   test.setTimeout(300_000);
   let creds;
@@ -55,22 +74,7 @@ test('dashboard-actions-audit @audit', async ({ page }) => {
     } catch (e) {}
   });
 
-  // Sandbox egress blocks www.gstatic.com — serve locally-bundled Firebase
-  // 10.12.2 ESM builds instead (set FIREBASE_SDK_DIR to the esbuild output).
-  const sdkDir = process.env.FIREBASE_SDK_DIR;
-  if (sdkDir) {
-    await page.route(/https:\/\/www\.gstatic\.com\/firebasejs\/10\.12\.2\/(firebase-[a-z-]+\.js)/, (route, req) => {
-      const m = req.url().match(/(firebase-[a-z-]+\.js)$/);
-      const f = m && path.join(sdkDir, m[1]);
-      if (f && fs.existsSync(f)) {
-        route.fulfill({ status: 200, contentType: 'text/javascript', body: fs.readFileSync(f, 'utf8') });
-      } else {
-        route.abort();
-      }
-    });
-    // fail fast on other blocked third-party hosts instead of proxy 403 stalls
-    await page.route(/https:\/\/(browser\.sentry-cdn\.com|www\.google\.com|www\.googletagmanager\.com|fonts\.googleapis\.com|fonts\.gstatic\.com|unpkg\.com)\/.*/, (r) => r.abort());
-  }
+  await installSandboxRoutes(page);
 
   const consoleAll = [];
   page.on('console', (msg) => consoleAll.push(msg.type() + ': ' + msg.text().slice(0, 300)));
@@ -316,4 +320,123 @@ test('dashboard-actions-audit @audit', async ({ page }) => {
     /bottom nav/.test(t.describe) && !/mni-dash|mni-more/.test(t.selector) &&
     !/^VIEW:/.test(t.result) && t.result !== 'NOT_FOUND' && t.result !== 'HIDDEN');
   expect(deadNavTaps, 'bottom-nav taps that did not navigate (overlay covering the tab bar?)').toEqual([]);
+});
+
+// ── First-run onboarding tour: anchors resolve, unresolvable steps skip ──
+// First-run audit 2026-07-28: the "Tap the orange + button" tooltip floated
+// centered with no spotlight because every selector in the step's anchor
+// list was unresolvable (wrong id / CSP-dead [onclick*=] / position:fixed
+// rejected by the offsetParent visibility test). Invariant under test:
+// whenever the spotlight is hidden, the tooltip must be a genuine centered
+// step (welcome / closer) — an anchored step either spotlights a real
+// element or is skipped in the direction of travel.
+//
+// Runs in its OWN browser contexts (fresh storage) so it never races the
+// audit test above, which pre-dismisses the tour via nbd-onboarding-complete.
+test('onboarding-tour-anchors @audit', async ({ browser }) => {
+  test.setTimeout(300_000);
+  let creds;
+  try { creds = requireTestUser(); } catch (e) { test.skip(true, String(e.message)); return; }
+
+  const CENTER_TITLES = ['Welcome to NBD Pro', "You're set"];
+
+  async function walkTour(contextOpts) {
+    const context = await browser.newContext({
+      baseURL: process.env.PLAYWRIGHT_BASE_URL || 'https://nobigdealwithjoedeal.com',
+      serviceWorkers: 'block',
+      ...(/^https?:\/\/(127\.0\.0\.1|localhost)([:/]|$)/.test(process.env.PLAYWRIGHT_BASE_URL || '')
+        ? { bypassCSP: true }
+        : {}),
+      ...(process.env.PLAYWRIGHT_PROXY_SERVER
+        ? { proxy: { server: process.env.PLAYWRIGHT_PROXY_SERVER, bypass: '127.0.0.1,localhost' }, ignoreHTTPSErrors: true }
+        : {}),
+      ...contextOpts,
+    });
+    const page = await context.newPage();
+    try {
+      // Force the tour the way how-to.html's "▶ Restart Tour" does: clear
+      // the completion flag + set the one-shot force key. Snooze the push
+      // opt-in card so it can't overlap the tooltip.
+      await page.addInitScript(() => {
+        try {
+          localStorage.removeItem('nbd-onboarding-complete');
+          localStorage.setItem('nbd-tour-force', '1');
+          localStorage.setItem('nbd_push_optin_snoozed_until', String(Date.now() + 3600_000));
+        } catch (e) {}
+      });
+      await installSandboxRoutes(page);
+      await loginAs(page, creds);
+      await page.waitForSelector('#nbd-onb-tooltip', { timeout: 60_000 });
+
+      const seen = [];
+      for (let i = 0; i < 12; i++) {
+        const state = await page.evaluate(() => {
+          const tip = document.getElementById('nbd-onb-tooltip');
+          if (!tip) return null; // tour completed
+          const spot = document.getElementById('nbd-onb-spotlight');
+          const spotVisible = !!spot && getComputedStyle(spot).display !== 'none';
+          const rectOf = (el) => {
+            if (!el) return null;
+            const r = el.getBoundingClientRect();
+            return { top: r.top, left: r.left, right: r.right, bottom: r.bottom };
+          };
+          return {
+            title: ((tip.querySelector('.nbd-onb-title') || {}).textContent || '').trim(),
+            centered: tip.classList.contains('nbd-onb-tooltip-center'),
+            spotVisible,
+            spotRect: spotVisible ? rectOf(spot) : null,
+            mniCreateRect: rectOf(document.getElementById('mni-create')),
+          };
+        });
+        if (!state) break;
+        seen.push(state);
+        const next = page.locator('#nbd-onb-tooltip button[data-act="next"]');
+        if ((await next.count()) === 0) break;
+        await next.click({ force: true });
+        await page.waitForTimeout(600);
+      }
+      return seen;
+    } finally {
+      await context.close();
+    }
+  }
+
+  function assertNoFloatingTooltips(seen, label) {
+    const violations = seen.filter((s) =>
+      !s.spotVisible && !(s.centered && CENTER_TITLES.some((t) => s.title.includes(t))));
+    expect(violations, label + ': steps rendered with no spotlight that are not genuine centered steps')
+      .toEqual([]);
+    expect(seen.length, label + ': tour rendered at least the two centered steps').toBeGreaterThanOrEqual(2);
+  }
+
+  // Desktop: sidebar visible → #nav-crm / #nav-d2d anchor; the add-lead
+  // step may legitimately skip on the home view (no add control on-screen)
+  // — the invariant is simply "never a floating unanchored tooltip".
+  const desktopSeen = await walkTour({ viewport: { width: 1280, height: 800 } });
+  assertNoFloatingTooltips(desktopSeen, 'desktop');
+
+  // Mobile: sidebar is display:none ≤900px → the two sidebar steps must be
+  // SKIPPED (not rendered centered), and the add-lead step must spotlight
+  // the fixed bottom-nav orange + (#mni-create) — the exact element class
+  // the old offsetParent visibility test could never return.
+  const mobileSeen = await walkTour({
+    viewport: { width: 390, height: 844 },
+    isMobile: true,
+    hasTouch: true,
+    userAgent:
+      'Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1',
+  });
+  assertNoFloatingTooltips(mobileSeen, 'mobile');
+  const mobileTitles = mobileSeen.map((s) => s.title).join(' | ');
+  expect(mobileTitles, 'mobile: sidebar step #nav-crm must be skipped (sidebar hidden)')
+    .not.toContain('Pipeline is home base');
+  expect(mobileTitles, 'mobile: sidebar step #nav-d2d must be skipped (sidebar hidden)')
+    .not.toContain('Door-to-Door built in');
+  const addStep = mobileSeen.find((s) => s.title.includes('Add your first lead'));
+  expect(addStep, 'mobile: the add-lead step must render (anchored to #mni-create)').toBeTruthy();
+  expect(addStep.spotVisible, 'mobile: add-lead step must have a visible spotlight').toBe(true);
+  const a = addStep.spotRect;
+  const b = addStep.mniCreateRect;
+  const overlaps = !!(a && b && a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom);
+  expect(overlaps, 'mobile: spotlight must cover #mni-create').toBe(true);
 });

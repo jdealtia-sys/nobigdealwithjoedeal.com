@@ -3771,6 +3771,17 @@ section('Metrics audit F1-F9: one honest definition per number');
   assert('F4: viewer\'s knocks land on the viewer\'s own row',
     /reps\[uid\]\.knocks = knockCount/.test(lb));
 
+  // F4 follow-up (first-run audit 2026-07-28): the knocks enrichment used
+  // to materialize the viewer's row unconditionally, which handed a
+  // brand-new tenant a gold medal at 0 leads / 0 knocks and made the
+  // authored empty state below it dead code.
+  assert('leaderboard: viewer row is only materialized when knocks exist',
+    /if \(knockCount > 0\) \{[\s\S]{0,400}if \(!reps\[uid\]\) reps\[uid\][\s\S]{0,300}reps\[uid\]\.knocks = knockCount;[\s\S]{0,50}\}/.test(lb));
+  assert('leaderboard: no unconditional viewer-row insert after the knocks query',
+    !/knockCount = snap\.size;\s*\n\s*if \(!reps\[uid\]\)/.test(lb));
+  assert('leaderboard: zero-data empty state exists and is reachable',
+    /No data yet\. Close deals to appear on the leaderboard/.test(lb));
+
   // F5 — viewed counts every opened estimate; View→Sign numerator is a
   // strict subset of its denominator (can't exceed 100%).
   assert('F5: viewed counted across all buckets + signedViewed numerator',
@@ -3910,6 +3921,75 @@ section('Canonical estimate money reader ships with its consumers');
   const dw = read(path.join(PRO_JS, 'dashboard-widgets.js'));
   assert('job-detail activity reads Classic `amount`, not just grandTotal|total',
     /estimateValue\(e\)/.test(dw) && /e\.amount/.test(dw));
+}
+
+section('First-run tour: anchors resolve + direction-aware skip (first-run audit 2026-07-28)');
+{
+  // The tour's "Tap the orange + button" tooltip floated centered with no
+  // spotlight because every selector in the step-3 anchor list was
+  // unresolvable (wrong id, CSP-dead [onclick*=], position:fixed rejected
+  // by the offsetParent visibility test). These pins guard the three
+  // contracts that prevent a recurrence.
+  const tour = read(path.join(PRO_JS, 'onboarding-tour.js'));
+  const pages = {
+    'docs/pro/dashboard.html': read(path.join(ROOT, 'docs/pro/dashboard.html')),
+    'docs/pro/dashboard.legacy.html': read(path.join(ROOT, 'docs/pro/dashboard.legacy.html')),
+  };
+
+  // (a) every #id anchor in the tour must exist in BOTH dashboard pages —
+  // the exact class of markup drift that caused the defect.
+  const anchorLiterals = [...tour.matchAll(/anchor:\s*'([^']+)'/g)].map((m) => m[1]);
+  assert('tour declares anchored steps', anchorLiterals.length >= 2);
+  for (const literal of anchorLiterals) {
+    for (const sel of literal.split(',').map((s) => s.trim()).filter(Boolean)) {
+      // (b) CSP sweep: no on*= attributes exist anywhere under /pro, so an
+      // [onclick*=...] anchor can never resolve — ban the pattern outright.
+      assert(`tour anchor "${sel}" is not an [onclick sniff (CSP: no on*= attrs)`,
+        !sel.includes('[onclick'));
+      const idMatch = sel.match(/^#([A-Za-z0-9_-]+)$/);
+      if (!idMatch) continue;
+      for (const [page, html] of Object.entries(pages)) {
+        assert(`tour anchor #${idMatch[1]} exists in ${page}`,
+          html.includes(`id="${idMatch[1]}"`));
+      }
+    }
+  }
+  // The one non-#id anchor (desktop Settings gear) must keep matching too.
+  for (const [page, html] of Object.entries(pages)) {
+    assert(`tour Settings anchor (.hdr-tool[data-target="settings"]) matches markup in ${page}`,
+      /class="hdr-tool[^"]*"[^>]*data-target="settings"/.test(html));
+  }
+
+  // (c) visibility contract: findAnchor must judge visibility by layout box
+  // + computed style — offsetParent is null for position:fixed elements
+  // that ARE visible (the FAB, the mobile bottom nav) and non-null for
+  // visibility:hidden ones.
+  const fa = tour.slice(tour.indexOf('function findAnchor'),
+                        tour.indexOf('function findAnchor') + 1100);
+  assert('tour: findAnchor visibility uses rect + computed style',
+    /getBoundingClientRect\(\)/.test(fa) && /getComputedStyle\(/.test(fa));
+  assert('tour: findAnchor no longer relies on offsetParent',
+    !/offsetParent/.test(tour));
+
+  // (d) skip contract: an anchored step whose anchor can't be found is
+  // skipped in the direction of travel (never rendered as a floating
+  // centered tooltip). Loose regex on intent, not mechanism.
+  const rs = tour.slice(tour.indexOf('function renderStep'),
+                        tour.indexOf('function renderStep') + 1600);
+  assert('tour: renderStep skips unresolvable anchored steps in the travel direction',
+    /while\s*\(STEPS\[_stepIdx\][\s\S]{0,260}findAnchor\(STEPS\[_stepIdx\]\.anchor\)\)[\s\S]{0,160}_stepIdx \+= _dir/.test(rs));
+  // Backward exhaustion clamps to step 0 — which therefore must stay an
+  // unanchored placement:'center' step or the skip loop loses its
+  // guaranteed landing spot.
+  const firstStep = tour.slice(tour.indexOf('const STEPS = ['),
+                               tour.indexOf('const STEPS = [') + 500);
+  assert('tour: step 0 stays unanchored + centered (backward-skip clamp target)',
+    /anchor:\s*null/.test(firstStep) && /placement:\s*'center'/.test(firstStep));
+
+  // Public API unchanged — dashboard-actions' restartOnboardingTour guards
+  // on forceRestart existing.
+  assert('tour: public API start/stop/forceRestart intact',
+    /window\.OnboardingTour = \{\s*start,\s*stop: complete,\s*forceRestart/.test(tour));
 }
 
 };

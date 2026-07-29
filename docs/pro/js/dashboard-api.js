@@ -100,8 +100,13 @@ async function renderLeaderboard(){
     try {
       const snap = await window.getDocs(window.query(window.collection(db, 'knocks'), window.where('userId', '==', uid)));
       const knockCount = snap.size;
-      if (!reps[uid]) reps[uid] = { owner: uid, name: window._user?.displayName || 'You', leads: 0, won: 0, revenue: 0, knocks: 0 };
-      reps[uid].knocks = knockCount;
+      // Only materialize the viewer's row when there is real knock data —
+      // the unconditional insert made the empty state below unreachable and
+      // handed a brand-new tenant a gold medal at 0 leads / 0 knocks.
+      if (knockCount > 0) {
+        if (!reps[uid]) reps[uid] = { owner: uid, name: window._user?.displayName || 'You', leads: 0, won: 0, revenue: 0, knocks: 0 };
+        reps[uid].knocks = knockCount;
+      }
     } catch (e) { /* knocks may not have index — skip */ }
   }
 
