@@ -6038,9 +6038,14 @@
      Blank buttons), and preloaded when the Docs view opens. Pre-flight reads
      window._leadDoc / _customerId / _customerEstimates / _allPhotos, which
      the dashboard stages just-in-time in _stageWindowStateForLead. -->
-<script defer src="js/analytics-kpi.js?v=4"></script>
+<script defer src="js/analytics-kpi.js?v=5"></script>
 <!-- T-3: AI texting analytics card (renders on the board/analytics view) -->
 <script defer src="js/ai-texting-stats-card.js?v=1"></script>
+<!-- idea #2 follow-up: adjuster-tactic board (renders on the board/analytics view).
+     dashboard-actions.js is SHARED by both dashboards and calls
+     AdjusterTacticCard.render() behind a truthiness guard, so omitting this tag
+     here made the card silently absent on the legacy page. -->
+<script defer src="js/adjuster-tactic-card.js?v=2"></script>
 <!-- T-4: AI texting persona editor (Settings → AI Texting tab) -->
 <script defer src="js/ai-texting-persona.js?v=1"></script>
 <script defer src="js/lead-scoring.js?v=2"></script>
