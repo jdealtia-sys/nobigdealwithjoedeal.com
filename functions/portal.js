@@ -166,6 +166,11 @@ exports.createPortalToken = onCall(
     await db.doc(`portal_tokens/${token}`).set({
       leadId,
       ownerUid: lead.userId,
+      // Tenant key carried on the token so sendPortalMessage can stamp
+      // companyId on the thread without a per-message lead read. ownerUid is
+      // lead.userId — the REP's uid, which diverges from companyId on a team
+      // tenant — so it is only a last-resort fallback, never the source.
+      companyId: lead.companyId || null,
       mintedBy: uid,
       mintedAt: FieldValue.serverTimestamp(),
       expiresAt,
@@ -1468,16 +1473,25 @@ exports.sendPortalMessage = onRequest(
     }
 
     try {
-      // Tenant key for the thread (Comm Log stamping contract). Same
-      // `lead.companyId || ownerUid` convention this file already uses for the
-      // white-label read at the top of getPortalData; best-effort so a read
-      // failure can never drop a homeowner's message.
-      let msgCompanyId = tok.ownerUid || null;
-      try {
-        const leadForTenant = await db.doc(`leads/${tok.leadId}`).get();
-        const ld = leadForTenant.exists ? (leadForTenant.data() || {}) : {};
-        msgCompanyId = ld.companyId || tok.ownerUid || null;
-      } catch (_) { /* keep the ownerUid fallback */ }
+      // Tenant key for the thread (Comm Log stamping contract). Tokens minted
+      // since this shipped carry companyId, so the common path costs no extra
+      // read; older tokens fall back to one best-effort lead read, and only
+      // then to ownerUid — which is the REP's uid and WRONG for a team tenant,
+      // so that last resort is logged rather than stamped silently.
+      let msgCompanyId = tok.companyId || null;
+      if (!msgCompanyId) {
+        try {
+          const leadForTenant = await db.doc(`leads/${tok.leadId}`).get();
+          const ld = leadForTenant.exists ? (leadForTenant.data() || {}) : {};
+          msgCompanyId = ld.companyId || null;
+        } catch (e) {
+          logger.warn('[sendPortalMessage] lead tenant read failed', { leadId: tok.leadId, msg: e && e.message });
+        }
+        if (!msgCompanyId) {
+          msgCompanyId = tok.ownerUid || null;
+          logger.warn('[sendPortalMessage] stamping ownerUid as the tenant key (legacy token, no lead companyId)', { leadId: tok.leadId });
+        }
+      }
 
       const msgRef = await db.collection(`leads/${tok.leadId}/portal_messages`).add({
         leadId: tok.leadId,

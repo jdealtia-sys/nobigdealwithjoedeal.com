@@ -144,38 +144,34 @@ async function buildLeadContext(db, leadId, lead, incomingBody) {
   const isCustomer= (lead.stage === 'Complete') || lead.completedAt || lead.installCompletedAt;
   const isProspect= !!lead.isProspect;
 
-  // ── Recent SMS thread (last 12 msgs ordered oldest → newest) ──
-  let thread = [];
-  try {
-    const snap = await db.collection('leads').doc(leadId).collection('notes')
+  // ── Conversation history: SMS thread, homeowner-portal thread, activity ──
+  // All three are independent, so they run CONCURRENTLY: generateAIDraft is
+  // awaited inside the incomingSMS webhook against Twilio's 15s ceiling, and
+  // serial round-trips here spend that budget for nothing. Each query keeps its
+  // own skip-on-error semantics (a missing index must degrade, never throw).
+  //
+  // The portal is a SECOND conversation channel (onPortalMessageDraft drafts
+  // replies to it). Without the portal read every portal draft was generated as
+  // a cold first contact — the thread section below claimed "first inbound
+  // SMS", so the persona re-introduced itself on every message and the AI could
+  // cite neither the homeowner's earlier question nor its own prior answer.
+  const leadRef = db.collection('leads').doc(leadId);
+  const [threadSnap, portalSnap, activitySnap] = await Promise.all([
+    leadRef.collection('notes')
       .where('type', '==', 'sms')
       .orderBy('createdAt', 'desc')
-      .limit(12).get();
-    thread = snap.docs.map(d => d.data()).reverse(); // chronological
-  } catch (_) { /* missing index — first run; skip */ }
-
-  // ── Recent homeowner-portal thread (last 12, oldest → newest) ──
-  // The portal is a SECOND conversation channel (onPortalMessageDraft drafts
-  // replies to it). Without this read every portal draft was generated as a
-  // cold first contact: the thread section below claimed "first inbound SMS",
-  // so the persona re-introduced itself on every message and the AI could
-  // neither cite the homeowner's earlier question nor its own prior answer.
-  let portalThread = [];
-  try {
-    const snap = await db.collection('leads').doc(leadId).collection('portal_messages')
+      .limit(12).get().catch(() => null),      // missing index — first run; skip
+    leadRef.collection('portal_messages')
       .orderBy('createdAt', 'desc')
-      .limit(12).get();
-    portalThread = snap.docs.map(d => d.data()).reverse(); // chronological
-  } catch (_) { /* no portal thread / missing index — skip */ }
-
-  // ── Recent non-SMS activity ──
-  let activity = [];
-  try {
-    const snap = await db.collection('leads').doc(leadId).collection('activity')
+      .limit(12).get().catch(() => null),      // no portal thread / no index; skip
+    leadRef.collection('activity')
       .orderBy('createdAt', 'desc')
-      .limit(5).get();
-    activity = snap.docs.map(d => d.data());
-  } catch (_) { /* no activity yet */ }
+      .limit(5).get().catch(() => null),       // no activity yet; skip
+  ]);
+  // .reverse() → chronological, matching the "oldest → newest" headers below.
+  const thread       = threadSnap ? threadSnap.docs.map(d => d.data()).reverse() : [];
+  const portalThread = portalSnap ? portalSnap.docs.map(d => d.data()).reverse() : [];
+  const activity     = activitySnap ? activitySnap.docs.map(d => d.data()) : [];
 
   // ── Format ──
   const lines = [];
@@ -220,11 +216,16 @@ async function buildLeadContext(db, leadId, lead, incomingBody) {
     lines.push('');
     lines.push('═══ RECENT ACTIVITY ═══');
     for (const a of activity) {
-      const label = a.label || a.type || 'activity';
-      // textPreview is what the portal + several other producers store; without
-      // it these lines were content-free ("- Message from homeowner").
-      const msg = a.message || a.transcript || a.textPreview || '';
-      lines.push(`- ${label}${msg ? ': ' + String(msg).slice(0, 120) : ''}`);
+      // EVERY field here can be homeowner-authored: textPreview on a
+      // portal_message_in entry is the raw inbound text (portal.js only trims +
+      // clamps it), so it must go through cleanInbound like the thread lines
+      // above — otherwise '═══' headers and '[HOMEOWNER]' labels survive into
+      // the prompt and can forge a conversation turn / argue with the locked
+      // guardrails. This block feeds the SMS draft path too (the activity query
+      // is unfiltered), so an unsanitized preview would be a live-SMS hole.
+      const label = cleanInbound(a.label || a.type || 'activity', 60);
+      const msg = cleanInbound(a.message || a.transcript || a.textPreview || '', 120);
+      lines.push(`- ${label}${msg ? ': ' + msg : ''}`);
     }
   }
 

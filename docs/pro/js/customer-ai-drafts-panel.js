@@ -140,6 +140,18 @@
     return draft.personaName || '';
   }
 
+  // Which channel will onAiDraftApproved deliver this on? Mirrors
+  // functions/ai-draft-routing.js isPortalDraft (channel first, then
+  // triggerType) — the rep is the human in the loop and was previously told
+  // every draft "sends from the business line", including portal replies that
+  // are never texted. Read-only mirror: the client never writes these fields
+  // (the ai_drafts update rule allows only status/draftText/edit metadata).
+  function isPortalDraft(draft) {
+    if (!draft) return false;
+    if (draft.channel === 'portal') return true;
+    return draft.triggerType === 'portal_message_in';
+  }
+
   // ─── Render ──────────────────────────────────────────────────────
   function cardHtml(draft) {
     const incoming = String(draft.incomingBody || '').trim();
@@ -154,6 +166,7 @@
     return `
       <div class="aidp-card" data-aidp-id="${escapeHtml(draft.id)}"
         data-aidp-original="${escapeHtml(draftText)}"
+        data-aidp-portal="${isPortalDraft(draft) ? '1' : '0'}"
         style="background:rgba(99,102,241,0.08); border:1px solid rgba(99,102,241,0.40);
                border-radius:10px; padding:14px 16px; margin:12px 0;">
         <div style="display:flex; align-items:center; gap:8px; margin-bottom:6px;">
@@ -165,7 +178,7 @@
         ${incomingHtml}
         <label style="display:block; font-size:10px; font-weight:600; color:var(--m,#9aa3b2);
                       text-transform:uppercase; letter-spacing:0.05em; margin-bottom:5px;">
-          Draft (editable) — sends from the business line
+          Draft (editable) — ${isPortalDraft(draft) ? 'posts to the homeowner portal thread' : 'sends from the business line'}
         </label>
         <textarea class="aidp-text" rows="3"
           aria-label="AI draft reply text (editable)"
@@ -262,7 +275,10 @@
       const edited = (ta ? ta.value : '').trim();
       if (!edited) { setStatus('Add some text before sending.'); if (ta) ta.focus(); return; }
       const original = card.getAttribute('data-aidp-original') || '';
-      setBusy(true); setStatus('Approving — sending from the business line…');
+      setBusy(true);
+      setStatus(card.getAttribute('data-aidp-portal') === '1'
+        ? 'Approving — posting to the portal thread…'
+        : 'Approving — sending from the business line…');
       try {
         await window.updateDoc(ref, {
           status: 'approved',
