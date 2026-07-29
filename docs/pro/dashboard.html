@@ -121,7 +121,7 @@
 <script defer src="/assets/vendor/leaflet-markercluster/leaflet.markercluster.js"></script>
 <!-- Centralized Auth Gate -->
 <script type="module" src="js/dashboard-auth-gate.module.js?v=1"></script>
-<script type="module" src="js/dashboard-bootstrap.module.js?v=9"></script>
+<script type="module" src="js/dashboard-bootstrap.module.js?v=10"></script>
 
 <!-- Main app CSS — extracted to css/dashboard-app.css (Rock 4 Phase 2b).
      Was a 4,500-line anonymous inline <style>; external file caches per the
@@ -3433,7 +3433,7 @@
             <div class="sf-row">
               <div class="sf"><label>Dump Fee ($)</label><input type="number" id="defDumpFee" value="550" step="25"></div>
               <div class="sf"><label>Extra Layer Tear-Off ($/SQ)</label><input type="number" id="defExtraLayer" value="50" step="5"></div>
-              <div class="sf"><label>Fallback Tax Rate %</label><input type="number" id="defTaxRate" value="7" step="0.1"></div>
+              <div class="sf"><label>Fallback Tax Rate %</label><input min="0" max="25" type="number" id="defTaxRate" value="7" step="0.1"></div>
             </div>
           </div>
         </div>
@@ -3444,15 +3444,15 @@
           <div class="panel-body">
             <p style="font-size:12px;color:var(--m);margin-bottom:12px;">These values auto-populate the permit line when an estimate's county is set. Update as your local jurisdictions change their fees.</p>
             <div class="sf-row">
-              <div class="sf"><label>Hamilton County, OH</label><input type="number" id="permHamOh" value="185"></div>
-              <div class="sf"><label>Butler County, OH</label><input type="number" id="permButOh" value="150"></div>
-              <div class="sf"><label>Warren County, OH</label><input type="number" id="permWarOh" value="165"></div>
-              <div class="sf"><label>Clermont County, OH</label><input type="number" id="permCleOh" value="170"></div>
+              <div class="sf"><label>Hamilton County, OH</label><input min="0" type="number" id="permHamOh" value="185"></div>
+              <div class="sf"><label>Butler County, OH</label><input min="0" type="number" id="permButOh" value="150"></div>
+              <div class="sf"><label>Warren County, OH</label><input min="0" type="number" id="permWarOh" value="165"></div>
+              <div class="sf"><label>Clermont County, OH</label><input min="0" type="number" id="permCleOh" value="170"></div>
             </div>
             <div class="sf-row">
-              <div class="sf"><label>Kenton County, KY</label><input type="number" id="permKenKy" value="125"></div>
-              <div class="sf"><label>Boone County, KY</label><input type="number" id="permBooKy" value="135"></div>
-              <div class="sf"><label>Campbell County, KY</label><input type="number" id="permCamKy" value="130"></div>
+              <div class="sf"><label>Kenton County, KY</label><input min="0" type="number" id="permKenKy" value="125"></div>
+              <div class="sf"><label>Boone County, KY</label><input min="0" type="number" id="permBooKy" value="135"></div>
+              <div class="sf"><label>Campbell County, KY</label><input min="0" type="number" id="permCamKy" value="130"></div>
               <div class="sf"><label></label><span style="font-size:10px;color:var(--m);padding:12px 0;display:block;">All values in USD. Saved per estimate via county lookup.</span></div>
             </div>
           </div>
@@ -3464,15 +3464,15 @@
           <div class="panel-body">
             <p style="font-size:12px;color:var(--m);margin-bottom:12px;">Applied automatically on cash estimates based on the customer's county. Insurance mode skips tax.</p>
             <div class="sf-row">
-              <div class="sf"><label>Hamilton OH %</label><input type="number" id="taxHamOh" value="7.80" step="0.01"></div>
-              <div class="sf"><label>Butler OH %</label><input type="number" id="taxButOh" value="7.25" step="0.01"></div>
-              <div class="sf"><label>Warren OH %</label><input type="number" id="taxWarOh" value="6.75" step="0.01"></div>
-              <div class="sf"><label>Clermont OH %</label><input type="number" id="taxCleOh" value="7.25" step="0.01"></div>
+              <div class="sf"><label>Hamilton OH %</label><input min="0" max="25" type="number" id="taxHamOh" value="7.80" step="0.01"></div>
+              <div class="sf"><label>Butler OH %</label><input min="0" max="25" type="number" id="taxButOh" value="7.25" step="0.01"></div>
+              <div class="sf"><label>Warren OH %</label><input min="0" max="25" type="number" id="taxWarOh" value="6.75" step="0.01"></div>
+              <div class="sf"><label>Clermont OH %</label><input min="0" max="25" type="number" id="taxCleOh" value="7.25" step="0.01"></div>
             </div>
             <div class="sf-row">
-              <div class="sf"><label>Kenton KY %</label><input type="number" id="taxKenKy" value="6.00" step="0.01"></div>
-              <div class="sf"><label>Boone KY %</label><input type="number" id="taxBooKy" value="6.00" step="0.01"></div>
-              <div class="sf"><label>Campbell KY %</label><input type="number" id="taxCamKy" value="6.00" step="0.01"></div>
+              <div class="sf"><label>Kenton KY %</label><input min="0" max="25" type="number" id="taxKenKy" value="6.00" step="0.01"></div>
+              <div class="sf"><label>Boone KY %</label><input min="0" max="25" type="number" id="taxBooKy" value="6.00" step="0.01"></div>
+              <div class="sf"><label>Campbell KY %</label><input min="0" max="25" type="number" id="taxCamKy" value="6.00" step="0.01"></div>
               <div class="sf"><label></label></div>
             </div>
           </div>

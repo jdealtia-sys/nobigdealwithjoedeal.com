@@ -137,7 +137,7 @@
       'js/roofivent-catalog.js?v=1',
       'js/product-library.js?v=3',
       'js/estimate-labor-catalog.js?v=1',
-      'js/estimate-builder-v2.js?v=4',
+      'js/estimate-builder-v2.js?v=5',
       'js/estimate-catalog-xactimate.js?v=1',
       'js/estimate-logic-engine.js?v=5',
       'js/estimates.js?v=6',

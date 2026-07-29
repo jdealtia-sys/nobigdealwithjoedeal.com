@@ -163,6 +163,16 @@ jobs:
       # the explicit portal trigger types deliver to the portal thread. A false
       # positive silently diverts a customer SMS; a false negative texts a
       # portal reply. Dependency-free require() of functions/ai-draft-routing.js.
+      # County policy is per-TENANT (migrated off per-device localStorage
+      # 2026-07-29): the canonical-7 permit costs + tax rates now live in
+      # companyProfile.pricing and are overlaid at every county-resolving entry
+      # point, so one estimate cannot price differently depending on which path
+      # computed it. Also pins the money fail-safes (a blank/garbage tenant value
+      # must never zero a permit or a tax rate) and that reset clears company
+      # policy rather than just this device.
+      - name: Run county tenant-policy tests
+        run: node tests/county-tenant-policy.test.js
+
       - name: Run AI-draft routing tests
         run: node tests/ai-draft-routing.test.js
 

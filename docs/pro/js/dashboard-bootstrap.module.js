@@ -4137,6 +4137,28 @@
     return EB2.loadSettings();
   }
 
+  // companyProfile writes are owner/company_admin-only (firestore.rules), so a
+  // plain sales_rep pressing Save gets a rules denial, NOT a network blip. The
+  // two are indistinguishable in the old "check your connection" copy, which
+  // told a rep to retry something that can never succeed for them.
+  function _pricingDenied(e) {
+    const code = (e && (e.code || e.message)) || '';
+    return /permission[-_ ]denied|insufficient permissions|PERMISSION_DENIED/i.test(String(code));
+  }
+
+  // Same settings, but with the tenant's COUNTY policy overlaid — what the
+  // settings panel must DISPLAY. County permit costs and tax rates are
+  // company-wide (companyProfile.pricing), so the 14 inputs have to show what
+  // the company prices at, not whatever this device last saved locally.
+  // The SAVE path deliberately keeps using the pure _v2ReadSettings() so the
+  // overlay can never be written back into localStorage as device state.
+  function _v2ReadResolvedSettings() {
+    const EB2 = window.EstimateBuilderV2;
+    if (!EB2) return null;
+    if (typeof EB2.getResolvedCountySettings === 'function') return EB2.getResolvedCountySettings();
+    return _v2ReadSettings();
+  }
+
   function _v2WriteSettings(patch) {
     const EB2 = window.EstimateBuilderV2;
     if (!EB2 || typeof EB2.updateSettings !== 'function') return null;
@@ -4144,8 +4166,18 @@
   }
 
   // Populate the Estimates settings tab from current v2 engine settings
+  // Did the 14 county inputs get populated FROM a hydrated tenant profile?
+  // Distinct from window._companyProfileLoaded, which only says the profile is
+  // hydrated NOW. The save path needs the former: publishing inputs that were
+  // painted before hydration is a full-replace of company money with factory
+  // values. Reset on every (re)paint so it always describes what is on screen.
+  let _countyInputsResolved = false;
+
   window._loadEstimateDefaultsV2 = function() {
-    const s = _v2ReadSettings();
+    // Resolved (tenant county policy overlaid) — the permit/tax inputs below
+    // must show COMPANY values, not this device's stale localStorage copy.
+    const s = _v2ReadResolvedSettings();
+    _countyInputsResolved = !!s && window._companyProfileLoaded === true;
     if (!s) return;
     const byId = (id) => document.getElementById(id);
 
@@ -4287,7 +4319,15 @@
         _jurRehydratePoll = setInterval(() => {
           if (window._companyProfileLoaded === true) {
             clearInterval(_jurRehydratePoll); _jurRehydratePoll = null;
-            _renderJurisdictionRows();
+            // Repaint the WHOLE panel, not just these rows: the 14 canonical
+            // county inputs were also painted pre-hydration (from factory /
+            // device values) and had no other refresh hook, so they stayed
+            // stale until the tab was re-entered — and a Save then published
+            // those stale numbers company-wide as a dot-path full replace.
+            // No recursion risk: this pass sees _companyProfileLoaded === true,
+            // so the render branch runs and installs no new poll.
+            if (typeof window._loadEstimateDefaultsV2 === 'function') window._loadEstimateDefaultsV2();
+            else _renderJurisdictionRows();
           }
         }, 500);
         setTimeout(() => { if (_jurRehydratePoll) { clearInterval(_jurRehydratePoll); _jurRehydratePoll = null; } }, 30000);
@@ -4359,6 +4399,8 @@
     // that was skipped (profile not hydrated) or that threw (caught below).
     let jurSaveSkipped = false;
     let pricingSaveFailed = false;
+    let pricingSaveDenied = false;
+    let countySaveSkipped = false;
     const byId = (id) => document.getElementById(id);
     const num = (id, fallback) => {
       const v = parseFloat(byId(id)?.value);
@@ -4460,12 +4502,30 @@
         // jurisdiction for the whole tenant from one stale device.
         const profileReady = window._companyProfileLoaded === true;
         if (!profileReady) jurSaveSkipped = true;
+        // The 14 canonical county inputs may have been PAINTED before the tenant
+        // profile landed (fresh device / cleared cache / slow network), and
+        // _loadEstimateDefaultsV2 is what records whether they were. Publishing
+        // stale inputs would dot-path FULL-REPLACE company county money with
+        // factory values for every rep — profileReady alone does not catch that,
+        // because it only says the profile is hydrated NOW, at save time.
+        const countyReady = profileReady && _countyInputsResolved;
+        if (!countyReady) countySaveSkipped = true;
         const customJurisdictions = profileReady ? _collectJurisdictionRows() : null;
         const prevJurSlugs = Object.keys((window._companyProfile
           && window._companyProfile.pricing
           && window._companyProfile.pricing.customJurisdictions) || {});
         const pricing = { addonPrices };
         if (customJurisdictions) pricing.customJurisdictions = customJurisdictions;
+        // County policy is per-TENANT (migrated off per-device localStorage
+        // 2026-07-29). patch.permits / patch.countyTax were just built from the
+        // 14 inputs above; the same values go to companyProfile so every rep and
+        // device prices identically. fallbackTaxRate rides along — it is the
+        // blank-county rate, meaningless as a per-device preference.
+        if (countyReady) {
+          pricing.permits = patch.permits;
+          pricing.countyTax = patch.countyTax;
+          pricing.fallbackTaxRate = patch.fallbackTaxRate;
+        }
         await window._saveCompanyProfile({ pricing });
         // FULL-REPLACE the customJurisdictions field. _saveCompanyProfile
         // deep-merges (cache) and setDoc({merge:true}) merges nested map keys
@@ -4483,12 +4543,22 @@
             ? await window._resolveCompanyKey()
             : ((window._userClaims && window._userClaims.companyId) || window._user.uid);
           if (companyKey) {
-            await updateDoc(
-              doc(window._db, 'companyProfile', String(companyKey)),
-              { 'pricing.customJurisdictions': customJurisdictions }
-            );
+            // The canonical county maps get the same full-replace treatment so
+            // a later reset (which writes {}) actually CLEARS them instead of
+            // merging into the previous values.
+            const replace = { 'pricing.customJurisdictions': customJurisdictions };
+            if (countyReady) {
+              replace['pricing.permits'] = patch.permits;
+              replace['pricing.countyTax'] = patch.countyTax;
+            }
+            await updateDoc(doc(window._db, 'companyProfile', String(companyKey)), replace);
             if (window._companyProfile && window._companyProfile.pricing) {
               window._companyProfile.pricing.customJurisdictions = Object.assign({}, customJurisdictions);
+              if (countyReady) {
+                window._companyProfile.pricing.permits = Object.assign({}, patch.permits);
+                window._companyProfile.pricing.countyTax = Object.assign({}, patch.countyTax);
+                window._companyProfile.pricing.fallbackTaxRate = patch.fallbackTaxRate;
+              }
             }
             if (removed.length && typeof window._loadCompanyProfile === 'function') {
               await window._loadCompanyProfile();
@@ -4499,15 +4569,18 @@
     } catch (e) {
       console.warn('Add-on rates / jurisdictions save failed:', e);
       pricingSaveFailed = true;
+      pricingSaveDenied = _pricingDenied(e);
     }
 
     const msg = document.getElementById('v2save-msg');
     if (msg) {
       msg.style.display = 'block';
       msg.textContent = pricingSaveFailed
-        ? '⚠ Rates saved on this device, but the company pricing sync failed — check your connection and press Save again.'
-        : jurSaveSkipped
-          ? '✓ Estimate settings saved. Your jurisdictions were still loading and were left untouched — reopen this tab to edit them.'
+        ? (pricingSaveDenied
+            ? '⚠ Saved on this device only. County rates and add-on pricing are company-wide — ask an owner or company admin to change them.'
+            : '⚠ Rates saved on this device, but the company pricing sync failed — check your connection and press Save again.')
+        : (jurSaveSkipped || countySaveSkipped)
+          ? '✓ Estimate settings saved on this device. Company county rates were still loading, so they were left untouched — reopen this tab to change them.'
           : '✓ Estimate settings saved. Every linked estimate will use these rates.';
       setTimeout(() => msg.style.display = 'none', 5000);
     }
@@ -4517,14 +4590,60 @@
     }
   };
 
-  const _resetEstimateDefaultsV2 = function() {
-    if (!confirm('Reset all estimate settings to factory defaults? This cannot be undone.')) return;
+  const _resetEstimateDefaultsV2 = async function() {
+    if (!confirm('Reset all estimate settings to factory defaults? County permit costs and tax rates are COMPANY-wide, so this resets them for every rep. This cannot be undone.')) return;
     const EB2 = window.EstimateBuilderV2;
     if (!EB2) return;
     const defaults = EB2.getDefaultSettings();
     EB2.saveSettings(defaults);
+
+    // Clearing localStorage alone would be cosmetic for counties: the tenant
+    // overlay re-applies the company's saved values on the very next calc, so
+    // "reset to factory defaults" has to clear the per-tenant county maps too.
+    // Gated on a hydrated profile — never write a wipe from a stale page.
+    let tenantResetFailed = false;
+    let tenantResetErr = null;
+    if (window._companyProfileLoaded === true && window._db && window._user) {
+      try {
+        const { updateDoc, doc } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js");
+        const companyKey = (typeof window._resolveCompanyKey === 'function')
+          ? await window._resolveCompanyKey()
+          : ((window._userClaims && window._userClaims.companyId) || window._user.uid);
+        if (companyKey) {
+          await updateDoc(doc(window._db, 'companyProfile', String(companyKey)), {
+            'pricing.permits': {},
+            'pricing.countyTax': {},
+            'pricing.fallbackTaxRate': null,
+          });
+          if (window._companyProfile && window._companyProfile.pricing) {
+            window._companyProfile.pricing.permits = {};
+            window._companyProfile.pricing.countyTax = {};
+            window._companyProfile.pricing.fallbackTaxRate = null;
+          }
+        }
+      } catch (e) {
+        tenantResetFailed = true;
+        tenantResetErr = e;
+        console.warn('[estimate-settings] tenant county reset failed:', e && e.message);
+      }
+      // A tenant that never saved a company profile has no doc, so the dot-path
+      // updateDoc rejects NOT_FOUND — but there is nothing to clear, so that IS
+      // success. Only a real failure should be reported to the user.
+      if (tenantResetFailed && /not-found|NOT_FOUND/i.test(String((tenantResetErr && (tenantResetErr.code || tenantResetErr.message)) || ''))) {
+        tenantResetFailed = false;
+        tenantResetErr = null;
+      }
+    }
+
     window._loadEstimateDefaultsV2();
-    if (typeof showToast === 'function') showToast('↺ Reset to factory defaults', 'success');
+    if (typeof showToast === 'function') {
+      showToast(!tenantResetFailed
+        ? '↺ Reset to factory defaults'
+        : _pricingDenied(tenantResetErr)
+          ? '↺ Reset on this device. Company county rates are owner/admin-only.'
+          : '↺ Reset on this device — company county rates could not be reset. Try again.',
+        tenantResetFailed ? 'info' : 'success');
+    }
   };
 
   // Legacy stubs kept for backwards compat with any other caller
