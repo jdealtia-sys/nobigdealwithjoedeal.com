@@ -147,6 +147,17 @@ jobs:
       - name: Run adjuster-board aggregation tests
         run: node tests/adjuster-board.test.js
 
+      # ...and the card must actually SURVIVE on screen (QA 2026-07-29). The
+      # whole adjuster board was built — logic, callable, card, render call —
+      # and showed nothing: analytics-kpi.js owns #analyticsContainer and writes
+      # innerHTML twice per render, re-appending only the AI-texting card, so
+      # the adjuster card was wiped on every visit; and the card script was
+      # missing from dashboard.legacy.html while the SHARED dispatcher calls it
+      # behind a truthiness guard. Generic: discovers every card that injects
+      # into that container, so the next one can't repeat this.
+      - name: Run analytics-container re-mount + parity tests
+        run: node tests/analytics-container-remount.test.js
+
       # AI-draft channel fork: an inbound_sms draft must NEVER be misrouted as a
       # portal draft (keeps the live Twilio send path byte-identical), and only
       # the explicit portal trigger types deliver to the portal thread. A false

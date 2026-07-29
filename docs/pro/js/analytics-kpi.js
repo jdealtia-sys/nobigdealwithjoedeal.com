@@ -672,10 +672,12 @@
       renderDashboardHTML(el, m);
       // renderDashboardHTML's el.innerHTML= wipes children, so re-append these
       // after each render (matches the AI Texting card's re-mount pattern).
+      // EVERY card that injects into #analyticsContainer must be listed here or
+      // it is destroyed the moment this fetch resolves — the Adjuster Tactics
+      // card was appended by goTo('board') and then silently wiped on every
+      // visit (tests/analytics-container-remount.test.js pins the whole set).
       renderD2DCommandCenter(el);
-      if (window.AiTextingStatsCard && typeof window.AiTextingStatsCard.render === 'function') {
-        window.AiTextingStatsCard.render();
-      }
+      remountContainerCards();
     }).catch(function (err) {
       console.error('Analytics fetch error:', err);
       el.innerHTML =
@@ -684,8 +686,21 @@
           '<div class="ne-msg">Could not load analytics</div>' +
           '<div class="ne-sub">Please try again.</div>' +
         '</div>';
-      if (window.AiTextingStatsCard && typeof window.AiTextingStatsCard.render === 'function') {
-        window.AiTextingStatsCard.render();
+      // The error branch wipes the container too — re-mount here as well, or a
+      // failed analytics fetch takes the sibling cards down with it.
+      remountContainerCards();
+    });
+  }
+
+  // Cards that live INSIDE #analyticsContainer and are therefore destroyed by
+  // this module's innerHTML writes. Each is optional (page-scoped: not every
+  // dashboard loads every card) and each render() is idempotent — the cards
+  // find-or-create their own host div, so re-mounting is safe to call twice.
+  function remountContainerCards() {
+    ['AiTextingStatsCard', 'AdjusterTacticCard'].forEach(function (name) {
+      var card = window[name];
+      if (card && typeof card.render === 'function') {
+        try { card.render(); } catch (e) { console.warn('[analytics-kpi] re-mount failed for ' + name + ':', e && e.message); }
       }
     });
   }
