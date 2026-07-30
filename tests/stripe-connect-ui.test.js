@@ -518,6 +518,16 @@ const BOOT_CODE = decomment(BOOT);
   ok('BEHAVIOUR: not_started offers "Set up payouts"',
     /data-connect-action="start"/.test(r1.html) && /Set up payouts/.test(r1.html));
   ok('BEHAVIOUR: not_started is revealed to the owner', r1.card.style.display === '');
+  // Added 2026-07-30 after mutation M20 proved this was UNGUARDED: deleting the
+  // not_started blurb's fee sentence left the whole suite green. Part 8's
+  // coupling (b) is a whole-file regex, so the other two fee mentions satisfied
+  // it, and the brace-scoped ON/OFF pins only ever look inside
+  // _nbdConnectCapabilityNote — never the blurb. not_started is the ONE screen
+  // that must carry the price: it is what a contractor reads immediately before
+  // clicking through to hand Stripe their SSN and bank details. Undisclosed-fee
+  // risk, not a copy nitpick — assert on the rendered output, per status.
+  ok('BEHAVIOUR: not_started discloses the fee BEFORE onboarding',
+    /3\.4% \+ 30/.test(r1.html));
 
   const r2 = renderWith(OWNER, {
     status: 'onboarding_incomplete', label: 'Finish setup', connected: true, accountId: 'acct_x',
@@ -591,6 +601,16 @@ const BOOT_CODE = decomment(BOOT);
     'the runbook is test-mode-first; the owner must be able to tell which account this is');
   ok('BEHAVIOUR: a test-mode account never reads as live-enabled', !ON_COPY_RE.test(r6.html),
     'fully onboarded in TEST mode is fully onboarded for nobody — mayCollectOnline says false');
+  // Added 2026-07-30 after mutation M19a: the 'ready' BLURB's capability branch
+  // was pinned only by a whole-file COUNT of `onlinePaymentsEnabled === true`
+  // occurrences. Collapsing that if/else to the unconditional ON blurb told a
+  // TEST-mode owner "a homeowner's card payment settles into this account's
+  // bank" — a false capability claim — while r5/r6 stayed green, because they
+  // only ever inspect copy emitted by _nbdConnectCapabilityNote, never the
+  // blurb. Assert the blurb itself, on the fixture that can expose it.
+  ok('BEHAVIOUR: a not-yet-enabled ready account never claims links or settlement',
+    !/can carry an online/.test(r6.html) && !/settles into this account/.test(r6.html),
+    'the blurb must branch on onlinePaymentsEnabled, not just describe the Stripe account');
 
   // An unrecognised status from a newer server must not be silently rendered as
   // one of the good states.

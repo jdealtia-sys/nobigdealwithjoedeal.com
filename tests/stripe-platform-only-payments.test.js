@@ -356,10 +356,23 @@ console.log('STRIPE — where homeowner money lands: confinement + the three-way
   ok('it fails CLOSED on an unresolved identity or a failed read',
     /catch \(e\) \{\s*return false;/.test(body),
     'an unknown identity must not be treated as a capable tenant');
-  // Pin the CONDITION, not the flag name: `if (false) { … }` around the cache
-  // read leaves every identifier in place while disabling it.
-  ok('only a definitive answer is cached, and the cache is actually consulted',
-    /if \(_collectOnlineCache !== null\) return _collectOnlineCache;/.test(body),
+  // REWRITTEN 2026-07-30. The previous single assertion here claimed — in its
+  // own comment — to defend against an `if (false) { … }` wrapper around the
+  // cache read. Mutation M12 proved it did not: it was a bare statement-presence
+  // regex, so wrapping the statement in a disabled block preserved the substring
+  // and the suite stayed green with the cache never consulted. The same
+  // assertion's other half ("only a definitive answer is cached") was pinned by
+  // nothing at all — caching a false on the unresolved-identity path, the exact
+  // #1139 late-claims trap, also stayed green. Split into two assertions that
+  // each bite:
+  //   (a) ADJACENCY, not presence — the read must be the first statement of the
+  //       try, so any wrapper or relocation breaks the match.
+  //   (b) a NEGATIVE pin on the early-return path — it must not write the cache.
+  ok('the cache read is the first thing the mirror does',
+    /try \{\s*if \(_collectOnlineCache !== null\) return _collectOnlineCache;/.test(body),
+    'a wrapped or relocated read leaves the identifiers in place while disabling the cache');
+  ok('a not-yet-resolved identity is never cached',
+    !/if \(!companyId\)[^\n]*_collectOnlineCache/.test(body),
     'claims hydrate late — caching a not-yet-resolved "false" wedges the tenant for the page');
 
   ok('generateStripePaymentLink AWAITS the mirror before calling the server',
