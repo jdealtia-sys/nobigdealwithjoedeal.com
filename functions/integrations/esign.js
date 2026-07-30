@@ -37,6 +37,14 @@ const { FieldValue } = require('firebase-admin/firestore');
 const crypto = require('crypto');
 const { getSecret, hasSecret, SECRETS } = require('./_shared');
 
+// Platform tenant identity, for the auto-invoice gate below. MUST stay
+// byte-identical to functions/stripe.js NBD_OWNER_UID — that module keeps
+// isPlatformTenant() private (it takes a decoded token, which a webhook does
+// not have), so this is a deliberate second read of the SAME env override, not
+// a second source of truth. tests/stripe-platform-only-payments.test.js pins
+// that both files resolve the same default.
+const NBD_OWNER_UID = process.env.NBD_OWNER_UID || '1phDvAVXHSg82wDLegAbQFq14Ci1';
+
 const CORS_ORIGINS = [
   'https://nobigdealwithjoedeal.com',
   'https://www.nobigdealwithjoedeal.com',
@@ -327,6 +335,30 @@ async function createStripeInvoiceForEstimate(estRef) {
   if (!est) return;
   if (est.stripeInvoiceId) {
     logger.info('auto-invoice: already created', { id: est.stripeInvoiceId });
+    return;
+  }
+
+  // PLATFORM-ONLY, same rule as createStripePaymentLink (#1123) — this is the
+  // OTHER homeowner→contractor money path and it was never gated.
+  //
+  // Nothing is charged today (the invoice is created as a draft:
+  // auto_advance:false + collection_method:'send_invoice'), but for a
+  // non-platform tenant this still puts THEIR homeowner's name/email on OUR
+  // Stripe account as a customer, with a draft invoice for THEIR job amount
+  // sitting in our dashboard — one "send" click away from collecting another
+  // business's money into our balance. That is precisely what the payment-link
+  // gate exists to prevent.
+  //
+  // No auth token here (this runs from the BoldSign webhook), so resolve the
+  // tenant from the estimate itself: solo convention is companyId == owner uid,
+  // so either matching the platform owner is us.
+  const ownerUid = est.userId || null;
+  const companyId = est.companyId || null;
+  const isPlatform = ownerUid === NBD_OWNER_UID || companyId === NBD_OWNER_UID;
+  if (!isPlatform) {
+    logger.info('auto-invoice skipped: non-platform tenant (no Connect yet)', {
+      estimateId: estRef.id, ownerUid, companyId,
+    });
     return;
   }
 
