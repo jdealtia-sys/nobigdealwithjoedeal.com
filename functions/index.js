@@ -121,6 +121,16 @@ exports.getAiTextingStats          = aiTextingStatsHandlers.getAiTextingStats;
 const adjusterBoardHandlers = require('./handlers/adjuster-board');
 exports.getAdjusterTacticBoard     = adjusterBoardHandlers.getAdjusterTacticBoard;
 
+// Stripe Connect Express — PHASE 1 ONLY: accounts + onboarding + account state.
+// Moves no money and mints no payment links; the #1123 platform-only gate in
+// stripe.js is untouched. See the header of handlers/stripe-connect.js.
+const stripeConnectHandlers = require('./handlers/stripe-connect');
+exports.createConnectAccount        = stripeConnectHandlers.createConnectAccount;
+exports.createConnectOnboardingLink = stripeConnectHandlers.createConnectOnboardingLink;
+exports.getConnectStatus            = stripeConnectHandlers.getConnectStatus;
+exports.createConnectDashboardLink  = stripeConnectHandlers.createConnectDashboardLink;
+exports.stripeConnectWebhook        = stripeConnectHandlers.stripeConnectWebhook;
+
 // T-4: live persona preview for Settings → AI Texting.
 const aiTextingPreviewHandlers = require('./handlers/ai-texting-preview');
 exports.previewAiPersona           = aiTextingPreviewHandlers.previewAiPersona;
