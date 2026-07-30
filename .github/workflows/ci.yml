@@ -427,6 +427,17 @@ jobs:
       - name: Run security-header + GDPR + internal-doc publication tests
         run: node tests/security-headers-gdpr.test.js
 
+      # Regression tripwire for the 2026-07-30 public-surface sweep
+      # (#1147/#1149/#1150). hosting.public is "docs", so docs/ IS the site
+      # root; the fixes there had to EDIT files the CRM loads at runtime,
+      # which no hosting.ignore glob can protect. This pins the specific
+      # strings that leaked — third-party PII in comments, the private Worker
+      # hostname, supplier branch + portal-cost provenance, "plan gating is
+      # fake", operator TODOs — so they cannot quietly come back.
+      # Mutation-tested in five shapes; each failure names file:line.
+      - name: Run public-surface leak tripwire
+        run: node tests/public-surface-leak-tripwire.test.js
+
   site-integrity:
     name: Site integrity
     runs-on: ubuntu-latest
