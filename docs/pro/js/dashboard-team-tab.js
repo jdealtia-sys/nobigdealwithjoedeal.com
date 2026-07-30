@@ -269,9 +269,14 @@
         // Only card-billed Stripe subs can carry a seat line item. An
         // access-code comp shows 'active' + a paid plan but would get a
         // failed-precondition from setCompanySeatCount, so don't offer the
-        // stepper at all. source 'checkout' is the card-billed sub; a legit
-        // paid owner always has it (owners short-circuit to enterprise/free,
-        // already excluded below).
+        // stepper at all. source 'checkout' is the card-billed sub.
+        // Founder accounts pass this predicate too (2026-07-29): billing-
+        // gate's owner path mirrors a real checkout sub into getPlan()
+        // (plan/status/source/purchasedSeats), so a card-billed founder
+        // sees the stepper with the real plan's finite caps; a founder
+        // WITHOUT a checkout sub stays enterprise (reps === Infinity) and
+        // is excluded below. Gating is unaffected — owners bypass in
+        // canUse/enforceGate/softGate regardless of the mirrored plan.
         var cardBilled = !!pl && pl.source === 'checkout';
         if (!entitled || !cardBilled || !pl || pl.plan === 'free' || reps === Infinity || reps == null) {
           host.innerHTML = ''; host.style.display = 'none'; return;

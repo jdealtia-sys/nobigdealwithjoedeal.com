@@ -101,6 +101,23 @@ let _NBD_BG_DELEGATE; // module-local (globals Tranche 1 — was window.*)
     });
   }
 
+  // Pillar 4: billing is company-level — resolve the subscription from
+  // the companyId claim (== owner uid) so team members see the team
+  // plan, not a phantom 'free' under their own uid. Solo owners:
+  // companyId == uid, byte-identical behavior.
+  async function _resolveBillingKey(uid) {
+    let billingKey = uid;
+    try {
+      if (window._userClaims && window._userClaims.companyId) {
+        billingKey = window._userClaims.companyId;
+      } else if (window._user && typeof window._user.getIdTokenResult === 'function') {
+        const tr = await window._user.getIdTokenResult();
+        billingKey = (tr && tr.claims && tr.claims.companyId) || uid;
+      }
+    } catch (_) { /* fall back to uid */ }
+    return billingKey;
+  }
+
   // ── Load subscription data from Firestore ──
   async function loadSubscription() {
     try {
@@ -121,15 +138,52 @@ let _NBD_BG_DELEGATE; // module-local (globals Tranche 1 — was window.*)
         }
       } catch (_) { /* claims unread — owner short-circuit simply won't fire */ }
 
-      // Owner short-circuit: always enterprise, never gated, never
-      // warned about usage. Skip the Firestore read entirely so an
-      // auth/permission hiccup can't downgrade the founder.
+      // Owner short-circuit: enterprise defaults, never gated. Gate
+      // safety never depends on the read below — canUse/enforceGate/
+      // softGate key on _isOwner() before ever consulting _plan, and the
+      // defaults are pinned BEFORE any Firestore I/O so an auth/permission
+      // hiccup can't downgrade the founder.
+      //
+      // Founder display mirror (2026-07-29): the old block skipped the
+      // Firestore read entirely, so _source stayed null and _purchasedSeats
+      // stayed 0 — the team tab's _renderSeatBuy() therefore hid the
+      // "Extra seats" stepper from a founder who holds a REAL card-billed
+      // sub (source 'checkout'). Best-effort read the sub doc and mirror a
+      // source==='checkout' doc into the display state (plan/status/source/
+      // purchasedSeats/usage/trialEndsAt) so getPlan() reflects the real
+      // subscription — with its real finite caps — and the stepper renders.
+      // ONLY checkout docs mirror: a comp/junk doc (access_code, plan
+      // 'free', missing source) must never repaint the founder's billing
+      // UI as Free, and checkout is the only sub kind setCompanySeatCount
+      // can act on anyway. Missing doc or ANY read failure keeps the
+      // enterprise defaults.
       if (_isOwner()) {
         _plan = 'enterprise';
         _status = 'active';
         _usage = { leads: 0, reports: 0, aiCalls: 0, cycleStart: null };
         _trialEndsAt = null;
+        _purchasedSeats = 0;
+        _source = null;
         _loaded = true;
+        try {
+          if (await _waitForFirestore(3000)) {
+            const billingKey = await _resolveBillingKey(uid);
+            const snap = await window.getDoc(window.doc(window.db, 'subscriptions', billingKey));
+            const data = snap.exists() ? snap.data() : null;
+            if (data && data.source === 'checkout') {
+              _plan = _normalizePlan(data.plan || 'free');
+              _status = data.status || 'none';
+              _usage = data.usage || { leads: 0, reports: 0, aiCalls: 0 };
+              _trialEndsAt = data.trialEndsAt || null;
+              _source = 'checkout';
+              // Same entitled-status seat mirror as the non-owner path.
+              const entitledForSeats = _status === 'active' || _status === 'trialing'
+                || _status === 'past_due';
+              _purchasedSeats = entitledForSeats
+                ? Math.max(0, Number(data.purchasedSeats) || 0) : 0;
+            }
+          }
+        } catch (_) { /* display mirror failed — founder keeps enterprise defaults */ }
         return;
       }
 
@@ -142,19 +196,7 @@ let _NBD_BG_DELEGATE; // module-local (globals Tranche 1 — was window.*)
         return;
       }
 
-      // Pillar 4: billing is company-level — resolve the subscription from
-      // the companyId claim (== owner uid) so team members see the team
-      // plan, not a phantom 'free' under their own uid. Solo owners:
-      // companyId == uid, byte-identical behavior.
-      let billingKey = uid;
-      try {
-        if (window._userClaims && window._userClaims.companyId) {
-          billingKey = window._userClaims.companyId;
-        } else if (window._user && typeof window._user.getIdTokenResult === 'function') {
-          const tr = await window._user.getIdTokenResult();
-          billingKey = (tr && tr.claims && tr.claims.companyId) || uid;
-        }
-      } catch (_) { /* fall back to uid */ }
+      const billingKey = await _resolveBillingKey(uid);
       const snap = await window.getDoc(window.doc(window.db, 'subscriptions', billingKey));
       if (snap.exists()) {
         const data = snap.data();

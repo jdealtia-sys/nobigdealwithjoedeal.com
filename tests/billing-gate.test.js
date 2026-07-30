@@ -26,8 +26,9 @@ function assert(name, cond) { if (cond) { passed++; console.log('  ✓ ' + name)
 
 // Build a fresh sandboxed NBDBilling whose Firestore getDoc returns `subDoc`.
 // `claims` wires user.getIdTokenResult() to resolve { claims } (the owner-
-// claim path); `claimsError` makes that read throw (fallback path).
-function makeBilling({ user, subDoc, subExists = true, claims, claimsError } = {}) {
+// claim path); `claimsError` makes that read throw (fallback path);
+// `getDocError` makes the subscription-doc read itself throw.
+function makeBilling({ user, subDoc, subExists = true, claims, claimsError, getDocError } = {}) {
   if (user && (claims || claimsError)) {
     user.getIdTokenResult = async () => {
       if (claimsError) throw new Error('claims read failed (simulated)');
@@ -45,7 +46,10 @@ function makeBilling({ user, subDoc, subExists = true, claims, claimsError } = {
     _user: user || null,
     db: {},
     doc: (_db, coll, id) => ({ coll, id }),
-    getDoc: async () => ({ exists: () => subExists, data: () => subDoc || {} }),
+    getDoc: async () => {
+      if (getDocError) throw new Error('simulated firestore blip');
+      return { exists: () => subExists, data: () => subDoc || {} };
+    },
   };
   windowStub.window = windowStub;
   const sandbox = { window: windowStub, document: documentStub, console: { log() {}, error() {}, warn() {} }, setTimeout, Date };
@@ -225,6 +229,112 @@ function makeBilling({ user, subDoc, subExists = true, claims, claimsError } = {
     await B.loadSubscription();
     assert('after load: loaded === true', B.getPlan().loaded === true);
     assert('after load: plan === team', B.getPlan().plan === 'team');
+  }
+
+  // 8. Founder display mirror (2026-07-29 seat-stepper fix). The owner
+  //    short-circuit pins enterprise for GATING, then best-effort reads the
+  //    sub doc and mirrors a card-billed (source 'checkout') sub into
+  //    getPlan() so the founder's billing/team UI reflects the REAL
+  //    subscription — verified live: Jo's card-billed Growth sub was
+  //    invisible and the "Extra seats" stepper never rendered. The
+  //    never-limit-gated guarantee must survive every branch.
+
+  // 8a. Owner + readable checkout sub → getPlan() exposes the real plan
+  //     (finite caps), source 'checkout', purchasedSeats — exactly the
+  //     surface _renderSeatBuy() needs to SHOW the stepper — while every
+  //     gate still bypasses via the owner claim.
+  {
+    const B = makeBilling({
+      user: { uid: 'founder-co', email: 'founder@demo.test' },
+      claims: { owner: true, companyId: 'founder-co' },
+      subDoc: { plan: 'growth', status: 'active', source: 'checkout', purchasedSeats: 3,
+                usage: { leads: 42, reports: 1, aiCalls: 7 } },
+    });
+    await B.loadSubscription();
+    const p = B.getPlan();
+    assert('owner + checkout sub: getPlan().plan mirrors the real sub (growth)', p.plan === 'growth');
+    assert('owner + checkout sub: source === checkout', p.source === 'checkout');
+    assert('owner + checkout sub: purchasedSeats === 3 (real count)', p.purchasedSeats === 3);
+    assert('owner + checkout sub: status active + loaded', p.status === 'active' && p.loaded === true);
+    assert('owner + checkout sub: finite rep cap for display (growth = 5)', p.limits.reps === 5);
+    assert('owner + checkout sub: usage mirrors the doc (42 leads)', p.usage.leads === 42);
+    // Mirror of the dashboard-team-tab _renderSeatBuy visibility predicate:
+    // entitled + card-billed + paid plan + finite reps ⇒ founder SEES it.
+    const stepperVisible = (p.status === 'active' || p.status === 'trialing' || p.status === 'past_due')
+      && p.source === 'checkout' && p.plan !== 'free'
+      && p.limits.reps !== Infinity && p.limits.reps != null;
+    assert('owner + checkout sub: seat-stepper predicate is TRUE', stepperVisible === true);
+    // Never-gated guarantee intact despite the finite mirrored plan.
+    assert('owner + checkout sub: canUse(team) still true (owner bypass)', B.canUse('team') === true);
+    assert('owner + checkout sub: canUse(reports) still true', B.canUse('reports') === true);
+    assert('owner + checkout sub: enforceGate never blocks', B.enforceGate('leads', 'leads') === true);
+    assert('owner + checkout sub: softGate never warns/blocks', B.softGate('leads', 'leads') === true);
+  }
+
+  // 8a2. Owner + past_due checkout sub → status mirrors truthfully and
+  //      purchasedSeats still count (past_due is seat-entitled — the
+  //      reduction path), so the stepper's minus-only mode can render.
+  {
+    const B = makeBilling({
+      user: { uid: 'founder-pd', email: 'founder@demo.test' },
+      claims: { owner: true },
+      subDoc: { plan: 'growth', status: 'past_due', source: 'checkout', purchasedSeats: 2 },
+    });
+    await B.loadSubscription();
+    const p = B.getPlan();
+    assert('owner + past_due checkout sub: status mirrors past_due', p.isPastDue === true);
+    assert('owner + past_due checkout sub: purchasedSeats still count (2)', p.purchasedSeats === 2);
+    assert('owner + past_due checkout sub: still never gated', B.canUse('team') === true && B.enforceGate('leads', 'leads') === true);
+  }
+
+  // 8b. Owner + FAILING Firestore read → enterprise/active defaults stand,
+  //     loaded stays true, and no gate ever fires. The mirror is display-
+  //     only sugar; a blip must never downgrade the founder.
+  {
+    const B = makeBilling({
+      user: { uid: 'founder-blip', email: 'founder@demo.test' },
+      claims: { owner: true },
+      getDocError: true,
+    });
+    await B.loadSubscription();
+    const p = B.getPlan();
+    assert('owner + failing read: resolves enterprise', p.plan === 'enterprise');
+    assert('owner + failing read: status active, loaded true', p.status === 'active' && p.loaded === true);
+    assert('owner + failing read: source null + 0 purchased seats', p.source === null && p.purchasedSeats === 0);
+    assert('owner + failing read: reps Infinity (stepper predicate FALSE)', p.limits.reps === Infinity);
+    assert('owner + failing read: canUse(team) true — never gated', B.canUse('team') === true);
+    assert('owner + failing read: enforceGate true — never gated', B.enforceGate('leads', 'leads') === true);
+    assert('owner + failing read: softGate true — never warned', B.softGate('leads', 'leads') === true);
+  }
+
+  // 8c. Owner + NO sub doc → enterprise defaults (nothing to mirror).
+  {
+    const B = makeBilling({
+      user: { uid: 'founder-nodoc', email: 'founder@demo.test' },
+      claims: { owner: true },
+      subExists: false,
+    });
+    await B.loadSubscription();
+    const p = B.getPlan();
+    assert('owner + missing doc: stays enterprise/active', p.plan === 'enterprise' && p.status === 'active');
+    assert('owner + missing doc: source null, seats 0', p.source === null && p.purchasedSeats === 0);
+  }
+
+  // 8d. Owner + NON-checkout doc (access-code comp) → enterprise defaults
+  //     kept, DELIBERATELY. Only a card-billed sub mirrors: a comp/junk doc
+  //     must never repaint the founder's billing UI (worst case a
+  //     {plan:'free'} doc painting Free + Upgrade), and setCompanySeatCount
+  //     refuses non-checkout subs anyway, so the stepper stays hidden.
+  {
+    const B = makeBilling({
+      user: { uid: 'founder-comp', email: 'founder@demo.test' },
+      claims: { owner: true },
+      subDoc: { plan: 'foundation', status: 'active', source: 'access_code', purchasedSeats: 2 },
+    });
+    await B.loadSubscription();
+    const p = B.getPlan();
+    assert('owner + access_code comp doc: NOT mirrored (stays enterprise)', p.plan === 'enterprise');
+    assert('owner + access_code comp doc: source stays null, seats 0', p.source === null && p.purchasedSeats === 0);
   }
 
   console.log('\n──────────────────────────────────────────────────');
