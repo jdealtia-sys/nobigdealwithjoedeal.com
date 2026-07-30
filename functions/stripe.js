@@ -1659,26 +1659,68 @@ exports.invoiceWebhook = onRequest(
         // where charge.transfer comes from).
         //
         // D3: under destination routing a chargeback DEBITS THE PLATFORM
-        // (plus Stripe's dispute fee). Recovery = reverse the transfer
-        // attached to the disputed charge so the contractor bears the loss.
-        // Reversal FIRST and its errors PROPAGATE (marker-delete → Stripe
-        // retry re-runs it; the dispute-keyed idempotencyKey makes the
-        // re-run a no-op). Alerts after, best-effort. NO invoice-ledger
-        // mutation (phase 4).
+        // (plus Stripe's dispute fee, which no reversal recovers — see the
+        // fee note in the alert copy below). Recovery = reverse the transfer
+        // attached to the disputed charge so the contractor, not the
+        // platform, bears the disputed principal. NO invoice-ledger mutation
+        // (phase 4).
+        //
+        // REWRITTEN 2026-07-30 (close-out audit of #1145). This comment used
+        // to read "Reversal FIRST and its errors PROPAGATE (marker-delete →
+        // Stripe retry re-runs it; the dispute-keyed idempotencyKey makes the
+        // re-run a no-op). Alerts after, best-effort." — i.e. a propagating
+        // reversal was DELIBERATE. That premise was wrong twice over:
+        //   1. the alert sat AFTER the reversal, so a reversal failure told
+        //      the owner NOTHING — the chargeback itself landed in silence,
+        //      which is the one thing this branch exists to prevent;
+        //   2. the failure this call actually hits is `balance_insufficient`
+        //      on a daily-payout Express account — the NORMAL state, and
+        //      PERMANENT: no amount of retrying makes a spent balance
+        //      reversible. Stripe would retry the delivery for ~3 days and
+        //      auto-disable an endpoint that keeps 500ing, which would stop
+        //      payment_intent.succeeded from crediting invoices for EVERY
+        //      tenant, platform included. A recovery we cannot make today is
+        //      never worth the credit path.
+        // So the reversal is now NON-FATAL in its own try/catch: the owner is
+        // ALWAYS alerted that a chargeback opened, and the alert distinguishes
+        // "recovered from the contractor" from "RECOVERY FAILED, the platform
+        // is out this money". Marker discipline is UNCHANGED for genuine
+        // infrastructure errors elsewhere in the branch (the charge/PI reads,
+        // Firestore) — only this one money call is swallowed. The
+        // dispute-keyed idempotencyKey stays: those other errors still delete
+        // the marker and Stripe's retry must not double-reverse.
         const dispute = event.data.object;
         const charge = await stripe.charges.retrieve(String(dispute.charge), { expand: ['transfer'] });
         const decision = connectLogic.decideDisputeReversal(dispute, charge);
         let reversalId = null;
+        let reversalError = null;
         if (decision.reverse) {
           const revParams = { metadata: { disputeId: String(dispute.id), source: 'nbd_dispute_auto_reversal' } };
           if (decision.amountCents != null) revParams.amount = decision.amountCents;
-          const reversal = await stripe.transfers.createReversal(decision.transferId, revParams,
-            { idempotencyKey: 'nbd-dispute-rev-' + dispute.id });
-          reversalId = (reversal && reversal.id) || null;
-          logger.warn('dispute_transfer_auto_reversed', {
-            disputeId: dispute.id, transferId: decision.transferId, chargeId: charge.id,
-            amountCents: decision.amountCents, disputeAmountCents: dispute.amount || 0,
-          });
+          try {
+            const reversal = await stripe.transfers.createReversal(decision.transferId, revParams,
+              { idempotencyKey: 'nbd-dispute-rev-' + dispute.id });
+            reversalId = (reversal && reversal.id) || null;
+            logger.warn('dispute_transfer_auto_reversed', {
+              disputeId: dispute.id, transferId: decision.transferId, chargeId: charge.id,
+              amountCents: decision.amountCents, disputeAmountCents: dispute.amount || 0,
+              // Deliberate: the reversal recovers the disputed PRINCIPAL only.
+              disputeFeeAbsorbedByPlatform: true,
+            });
+          } catch (revErr) {
+            // CODE + truncated message: enough to act on in the alert without
+            // pasting an unbounded Stripe string into an email/Slack/activity.
+            reversalError = String((revErr && (revErr.code || revErr.type)) || 'error')
+              + ': ' + String((revErr && revErr.message) || '').slice(0, 180);
+            logger.error('dispute_transfer_reversal_failed', {
+              disputeId: dispute.id, transferId: decision.transferId, chargeId: charge.id,
+              amountCents: decision.amountCents, disputeAmountCents: dispute.amount || 0,
+              err: reversalError,
+              // The platform ate this one. Alert fires anyway (below).
+              platformOutOfPocketCents: decision.amountCents != null
+                ? decision.amountCents : (dispute.amount || 0),
+            });
+          }
         } else {
           logger.warn('dispute_no_transfer_to_reverse', {
             disputeId: dispute.id, chargeId: String(dispute.charge), reason: decision.reason,
@@ -1692,23 +1734,54 @@ exports.invoiceWebhook = onRequest(
           : null;
         const disputeUid = meta.userId || (invoice && invoice.createdBy) || null;
         const disputeInvoiceId = meta.invoiceId ? String(meta.invoiceId) : null;
+        // THREE states, never two: recovered / recovery failed / nothing to
+        // recover. The middle one is the whole point of the rewrite above —
+        // before today it rendered as the first one or as no email at all.
+        const recoveryLine = !decision.reverse
+          ? '\nThis charge was collected on the platform account — nothing was pulled from a payout balance.\n'
+          : (reversalError
+            ? '\nAUTOMATIC RECOVERY FAILED — the disputed amount could NOT be pulled back from your payout'
+              + ' balance (' + reversalError + '). NBD Pro is out this money until it is settled by hand;'
+              + ' expect a follow-up.\n'
+            : '\nThe disputed amount has been recovered from your Stripe payout balance.\n');
+        // Deliberate phase-3 decision, stated out loud so it is never a
+        // surprise on the statement: the reversal recovers the disputed
+        // PRINCIPAL. Stripe's per-dispute fee is charged to the platform
+        // account and is not part of it.
+        const disputeFeeNote =
+          '\nNote: Stripe charges a separate per-dispute fee. That fee is NOT part of the recovery'
+          + ' above — NBD Pro absorbs it.\n';
         await alertInvoicePaymentEvent(db, {
           uid: disputeUid,
           leadId: (invoice && invoice.leadId) || null,
           invoiceId: disputeInvoiceId,
           source: 'stripe_dispute',
-          emailSubject: 'Chargeback opened — $' + amount + ' — NBD Pro',
+          emailSubject: (reversalError ? 'Chargeback opened — RECOVERY FAILED — $' : 'Chargeback opened — $')
+            + amount + ' — NBD Pro',
           emailBody:
             'A customer has disputed a card payment (chargeback).\n\n' +
             'Invoice: ' + (disputeInvoiceId || 'n/a') + '\n' +
             'Amount:  $' + amount + '\n' +
             'Reason:  ' + (dispute.reason || 'unknown') + '\n' +
-            (decision.reverse
-              ? '\nThe disputed amount has been recovered from your Stripe payout balance.\n'
-              : '\nThis charge was collected on the platform account — nothing was pulled from a payout balance.\n') +
+            recoveryLine +
+            disputeFeeNote +
             (dueBy ? 'Evidence is due to Stripe by ' + dueBy + '.\n' : '') +
-            '\nSubmit your evidence (contract, signed completion, photos, texts) in the Stripe dashboard before the deadline or the dispute is lost by default.',
-          slackText: '⚠️ Chargeback opened ($' + amount + ')',
+            // FIX 2026-07-30: this used to say "Submit your evidence ... in the
+            // Stripe dashboard", which asks the contractor to do something they
+            // CANNOT. Payments are routed as destination charges on the
+            // platform account, so the dispute object lives on the PLATFORM
+            // account — an Express dashboard does not surface it and only the
+            // platform can file a response.
+            '\nEVIDENCE — how this actually works: your card payments are processed through the NBD Pro' +
+            ' platform Stripe account, so this dispute lives there, not on your own Stripe account. It' +
+            ' will NOT appear in your Stripe Express dashboard and you cannot file the response' +
+            ' yourself — NBD Pro submits the evidence to Stripe.\n' +
+            'Send your evidence (signed contract, signed completion certificate, photos, texts with the' +
+            ' customer) to NBD Pro as soon as you have it — reply to this email. Stripe\'s deadline' +
+            (dueBy ? ' (' + dueBy + ')' : '') + ' is hard: if nothing is filed by then the dispute is' +
+            ' lost by default.',
+          slackText: (reversalError ? '⚠️ Chargeback opened — RECOVERY FAILED ($' : '⚠️ Chargeback opened ($')
+            + amount + ')',
           slackBlocks: [{
             type: 'section',
             text: {
@@ -1719,17 +1792,289 @@ exports.invoiceWebhook = onRequest(
                 'Dispute: `' + dispute.id + '`\n' +
                 'Invoice: `' + (disputeInvoiceId || 'n/a') + '`\n' +
                 'Company: `' + (meta.companyId || 'n/a') + '`\n' +
-                'Reversal: `' + (reversalId || 'n/a (platform charge)') + '`',
+                (!decision.reverse
+                  ? 'Recovery: n/a (platform charge — nothing to reverse)\n'
+                  : (reversalError
+                    ? '*Recovery: FAILED — the platform is currently out $' + amount + '.*\n'
+                      + 'Error: `' + reversalError + '`\n'
+                      + '➜ Act in the Stripe dashboard: reverse the transfer by hand once the connected'
+                      + ' account has balance, or invoice the contractor.\n'
+                    : 'Recovery: reversed `' + (reversalId || 'n/a') + '`\n')) +
+                '_Stripe\'s dispute fee is not recovered by the reversal — the platform absorbs it._\n' +
+                'Evidence is filed by the PLATFORM (destination charge) — the contractor cannot.',
             },
           }],
           activity: {
             userId: disputeUid,
             type: 'stripe_dispute_created',
-            label: 'Chargeback opened ($' + amount + ')',
+            label: 'Chargeback opened ($' + amount + ')'
+              + (reversalError ? ' — automatic recovery FAILED' : ''),
             disputeId: String(dispute.id),
             paymentIntentId: dispute.payment_intent ? String(dispute.payment_intent) : null,
             amountCents: dispute.amount || 0,
             reason: dispute.reason || null,
+            recovery: !decision.reverse ? 'not_applicable' : (reversalError ? 'failed' : 'reversed'),
+            reversalId: reversalId || null,
+            recoveryError: reversalError || null,
+          },
+        });
+
+      } else if (event.type === 'charge.dispute.closed') {
+        // NEW 2026-07-30 (close-out audit of #1145). charge.dispute.created
+        // reverses the contractor's transfer UNCONDITIONALLY — correct while
+        // the outcome is unknown — but until today NOTHING handled the
+        // outcome. When the platform WINS, Stripe reinstates the funds to the
+        // PLATFORM balance and our reversal is never undone: the contractor
+        // stays permanently short, with no ledger row anywhere saying why.
+        // Recovery was a one-way street. This branch closes it.
+        //
+        // OPS: the endpoint must have charge.dispute.closed enabled in the
+        // Stripe dashboard alongside charge.dispute.created, or a win is
+        // silently never repaid.
+        //
+        // Same discipline as the created branch above: the READS may throw
+        // (outer catch deletes the marker, Stripe retries, guards below make
+        // the re-run a no-op), the MONEY call may NOT — a repayment we cannot
+        // make today must never 500 this endpoint into Stripe's auto-disable
+        // and take the credit path down with it.
+        //
+        // The decision stays INLINE rather than moving to
+        // stripe-connect-logic.js: unlike decideDisputeReversal it is not pure
+        // over objects the caller already holds — proving that THIS dispute is
+        // what clawed the money back needs a second Stripe read (the reversal
+        // list), and the answer is inseparable from the two idempotency guards
+        // wrapped around the transfer it authorises. Splitting it would put
+        // half of one money decision in a module that is deliberately
+        // dependency-free and money-primitive-free.
+        const dispute = event.data.object;
+        const status = String(dispute.status || '').toLowerCase();
+        const won = status === 'won';
+        const charge = await stripe.charges.retrieve(String(dispute.charge), { expand: ['transfer'] });
+        const t = charge.transfer;
+        const transferId = typeof t === 'string' ? t : String((t && t.id) || '');
+        const destination = (t && typeof t === 'object')
+          ? (typeof t.destination === 'string' ? t.destination : String((t.destination && t.destination.id) || ''))
+          : '';
+
+        // GUARD: repay ONLY what this dispute actually took. A dispute on a
+        // platform-account charge (no transfer), or one whose created-branch
+        // reversal never happened (no transfer to reverse, or the reversal
+        // FAILED — now a survivable state), must be a pure no-op: repaying a
+        // contractor who was never debited gifts them the money out of the
+        // platform balance. Attribution is by the metadata the created branch
+        // stamps, not by transfer.amount_reversed, which also counts
+        // reversals from other causes (e.g. a refund).
+        // Computed for EVERY terminal status, not just 'won': on a loss it is
+        // what makes the alert able to say the debit stands rather than
+        // guessing, and it keeps the log honest about what this dispute took.
+        let reversedCents = 0;
+        if (transferId.startsWith('tr_')) {
+          const revList = await stripe.transfers.listReversals(transferId, { limit: 100 });
+          for (const rev of (revList && revList.data) || []) {
+            const rm = (rev && rev.metadata) || {};
+            if (String(rm.disputeId || '') === String(dispute.id)
+                && String(rm.source || '') === 'nbd_dispute_auto_reversal') {
+              reversedCents += Number(rev.amount) || 0;
+            }
+          }
+        }
+        // CLAMP: never send back more than this dispute took. Non-won statuses
+        // move no money at all, so they repay nothing by construction.
+        const repayCents = (won && reversedCents > 0) ? reversedCents : 0;
+        const shouldRepay = won && repayCents > 0 && destination.startsWith('acct_');
+
+        let repayTransferId = null;
+        let repayError = null;
+        if (shouldRepay) {
+          // Double-pay guard 1 of 2 (the durable one). The dispute-keyed
+          // idempotencyKey below only protects while Stripe retains the key
+          // (~24h) whereas its retry schedule runs ~3 days — so a retry after
+          // a committed-but-unacked repay could pay twice. Our own repayment
+          // is findable on the charge's transfer_group. A read: it throws to
+          // the outer catch and the retry re-checks, which is what we want.
+          if (charge.transfer_group) {
+            const priorList = await stripe.transfers.list({
+              transfer_group: String(charge.transfer_group), limit: 100,
+            });
+            for (const tr of (priorList && priorList.data) || []) {
+              const tm = (tr && tr.metadata) || {};
+              if (String(tm.disputeId || '') === String(dispute.id)
+                  && String(tm.source || '') === 'nbd_dispute_won_repay') {
+                repayTransferId = String(tr.id);
+                break;
+              }
+            }
+          }
+          if (repayTransferId) {
+            logger.info('dispute_won_repay_already_done', {
+              disputeId: dispute.id, chargeId: charge.id, transferId: repayTransferId,
+            });
+          } else {
+            const repayParams = {
+              amount: repayCents,
+              currency: String((t && t.currency) || charge.currency || 'usd'),
+              destination,
+              metadata: {
+                disputeId: String(dispute.id),
+                chargeId: String(charge.id),
+                source: 'nbd_dispute_won_repay',
+              },
+            };
+            // Keep the repayment on the original charge's group so guard 1
+            // can find it, and so the money reads as one story in Stripe.
+            if (charge.transfer_group) repayParams.transfer_group = String(charge.transfer_group);
+            try {
+              // Double-pay guard 2 of 2: dispute-keyed, so a same-day retry
+              // returns the FIRST transfer instead of minting a second.
+              const repay = await stripe.transfers.create(repayParams,
+                { idempotencyKey: 'nbd-dispute-repay-' + dispute.id });
+              repayTransferId = (repay && repay.id) || null;
+              logger.warn('dispute_won_transfer_repaid', {
+                disputeId: dispute.id, chargeId: charge.id, destination,
+                amountCents: repayCents, transferId: repayTransferId,
+              });
+            } catch (repayErr) {
+              // Cross-border/currency mismatch, a rejected or restricted
+              // connected account, an insufficient PLATFORM balance — treated
+              // exactly like a failed reversal: alert loudly, never 500.
+              repayError = String((repayErr && (repayErr.code || repayErr.type)) || 'error')
+                + ': ' + String((repayErr && repayErr.message) || '').slice(0, 180);
+              logger.error('dispute_won_repay_failed', {
+                disputeId: dispute.id, chargeId: charge.id, destination,
+                amountCents: repayCents, err: repayError,
+                // Owed to the contractor until a human sends it.
+                contractorShortCents: repayCents,
+              });
+            }
+          }
+        } else if (won && repayCents > 0) {
+          // Money was clawed back but there is no acct_ to send it to (the
+          // expanded transfer carried no destination). Treated as a FAILED
+          // repayment, never as a silent success — the alert must not tell a
+          // contractor they were paid back when nothing moved.
+          repayError = 'no_destination: the reversed transfer carried no connected account id';
+          logger.error('dispute_won_repay_failed', {
+            disputeId: dispute.id, chargeId: charge.id, destination: destination || null,
+            amountCents: repayCents, err: repayError, contractorShortCents: repayCents,
+          });
+        }
+
+        logger.warn('dispute_closed', {
+          disputeId: dispute.id, chargeId: charge.id, status,
+          reversedCents, repayCents, repayTransferId,
+          repayFailed: !!repayError,
+          // Stripe returns the dispute fee on a win only; on any other
+          // terminal status the platform keeps absorbing it.
+          disputeFeeAbsorbedByPlatform: !won,
+        });
+
+        const { meta, invoice } = await resolveInvoiceContext(db, stripe, dispute.payment_intent);
+        const amount = ((dispute.amount || 0) / 100).toFixed(2);
+        const repaid = (repayCents / 100).toFixed(2);
+        const closedUid = meta.userId || (invoice && invoice.createdBy) || null;
+        const closedInvoiceId = meta.invoiceId ? String(meta.invoiceId) : null;
+        const lost = status === 'lost';
+        const reversedDollars = (reversedCents / 100).toFixed(2);
+        // 'won' | 'lost' | anything else terminal (Stripe also closes early
+        // INQUIRIES here as 'warning_closed'). Never label an unknown status
+        // as a loss — say what Stripe said.
+        const outcomeWord = won ? 'WON' : (lost ? 'lost' : 'closed (' + (status || 'unknown') + ')');
+        // Won-and-repaid / won-and-repayment-failed / won-with-nothing-taken /
+        // final loss / other terminal status. Every one of them gets an alert;
+        // only the first two move money, and no non-won path makes a Stripe
+        // money call at all.
+        //
+        // KNOWN GAP, left deliberate: an INQUIRY that closes 'warning_closed'
+        // never actually debited the platform, yet charge.dispute.created has
+        // already reversed the contractor's transfer — so the contractor is
+        // short money the platform still holds. Not auto-repaid here (only a
+        // 'won' outcome is), but the copy says so instead of claiming the
+        // money is gone, so a human can settle it. Revisit in phase 4.
+        const outcomeLine = won
+          ? (repayCents <= 0
+            ? '\nNothing had been pulled back from your payout balance for this chargeback, so there is'
+              + ' nothing to return to you.\n'
+            : (repayError
+              ? '\nWE COULD NOT RETURN THE MONEY AUTOMATICALLY — $' + repaid + ' was pulled from your'
+                + ' payout balance when the chargeback opened and the repayment failed ('
+                + repayError + '). You are still short that amount; NBD Pro must send it by hand.'
+                + ' Expect a follow-up.\n'
+              : '\n$' + repaid + ' — the amount pulled from your payout balance when the chargeback'
+                + ' opened — has been sent back to you.\n'))
+          : (lost
+            ? '\nThis is final: the disputed amount is not coming back'
+              + (reversedCents > 0 ? ' and stays debited from your payout balance.' : '.')
+              + ' Stripe also charges a separate per-dispute fee on a lost dispute; NBD Pro absorbs'
+              + ' that fee.\n'
+            : '\nThis closed with status "' + (status || 'unknown') + '" and no money was moved by it.'
+              + (reversedCents > 0
+                ? ' $' + reversedDollars + ' was pulled from your payout balance when it opened and has'
+                  + ' NOT been returned — NBD Pro is reviewing whether it is owed back to you.'
+                : '')
+              + '\n');
+        await alertInvoicePaymentEvent(db, {
+          uid: closedUid,
+          leadId: (invoice && invoice.leadId) || null,
+          invoiceId: closedInvoiceId,
+          source: 'stripe_dispute',
+          emailSubject: 'Chargeback ' + outcomeWord + (repayError ? ' — repayment FAILED' : '')
+            + ' — $' + amount + ' — NBD Pro',
+          emailBody:
+            'A card chargeback has closed with status: ' + (status || 'unknown') + '.\n\n' +
+            'Invoice: ' + (closedInvoiceId || 'n/a') + '\n' +
+            'Amount:  $' + amount + '\n' +
+            'Reason:  ' + (dispute.reason || 'unknown') + '\n' +
+            outcomeLine +
+            '\nThe CRM invoice ledger was not changed by this dispute (recorded payments are'
+            + ' unchanged) — adjust records manually if needed.',
+          slackText: (won ? '🏆 ' : '💥 ') + 'Chargeback ' + outcomeWord
+            + (repayError ? ' — repayment FAILED' : '') + ' ($' + amount + ')',
+          slackBlocks: [{
+            type: 'section',
+            text: {
+              type: 'mrkdwn',
+              text:
+                (won ? '*🏆 Stripe chargeback WON*\n' : '*💥 Stripe dispute closed — ' + (status || 'unknown') + '*\n') +
+                'Amount: *$' + amount + '*\n' +
+                'Dispute: `' + dispute.id + '`\n' +
+                'Invoice: `' + (closedInvoiceId || 'n/a') + '`\n' +
+                'Company: `' + (meta.companyId || 'n/a') + '`\n' +
+                (won
+                  ? (repayCents <= 0
+                    ? 'Repayment: n/a (this dispute never reversed a transfer)\n'
+                    : (repayError
+                      ? '*Repayment: FAILED — the contractor is still out $' + repaid + '.*\n'
+                        + 'Error: `' + repayError + '`\n'
+                        + '➜ Act in the Stripe dashboard: send $' + repaid + ' to `'
+                        + (destination || 'their connected account') + '` by hand.\n'
+                      : 'Repayment: sent $' + repaid + ' → `' + destination + '` (`'
+                        + (repayTransferId || 'n/a') + '`)\n'))
+                  : (lost
+                    ? (reversedCents > 0
+                      ? 'The reversal stands — the contractor bears the loss.\n'
+                      : 'Nothing was reversed (platform charge) — the platform bears the loss.\n')
+                      + '_Stripe\'s dispute fee is not recovered — the platform absorbs it._\n'
+                    : 'No money moved on this event.'
+                      + (reversedCents > 0
+                        ? ' ➜ $' + reversedDollars + ' is still held back from `' + destination
+                          + '` — decide by hand whether it is owed back (an inquiry that closes never'
+                          + ' debited us).\n'
+                        : '\n'))),
+            },
+          }],
+          activity: {
+            userId: closedUid,
+            type: 'stripe_dispute_closed',
+            label: 'Chargeback ' + outcomeWord + ' ($' + amount + ')'
+              + (repayError ? ' — repayment FAILED' : ''),
+            disputeId: String(dispute.id),
+            paymentIntentId: dispute.payment_intent ? String(dispute.payment_intent) : null,
+            amountCents: dispute.amount || 0,
+            disputeStatus: status || null,
+            reversedCents,
+            repaidCents: repayError ? 0 : repayCents,
+            repayTransferId: repayError ? null : (repayTransferId || null),
+            repayError: repayError || null,
           },
         });
 

@@ -371,9 +371,36 @@ console.log('STRIPE — where homeowner money lands: confinement + the three-way
   ok('the cache read is the first thing the mirror does',
     /try \{\s*if \(_collectOnlineCache !== null\) return _collectOnlineCache;/.test(body),
     'a wrapped or relocated read leaves the identifiers in place while disabling the cache');
-  ok('a not-yet-resolved identity is never cached',
-    !/if \(!companyId\)[^\n]*_collectOnlineCache/.test(body),
-    'claims hydrate late — caching a not-yet-resolved "false" wedges the tenant for the page');
+  // (b) PREMISE REWRITTEN 2026-07-30 (second pass). (b) shipped as
+  //     `!/if \(!companyId\)[^\n]*_collectOnlineCache/` — SAME-LINE only, because
+  //     of the [^\n]. It was hand-verified against exactly one mutation shape (a
+  //     one-line early return) and passed; reformatting the same mutation into a
+  //     multi-line block sails through with the suite green. Formatting was never
+  //     the invariant. The invariant is a COUNT, and it holds in any formatting:
+  //     exactly TWO statements may write this cache — the platform-owner
+  //     short-circuit and the definitive answer computed after the mirror read —
+  //     plus the module-level declaration. Both scopes are pinned, because each
+  //     alone is escapable: body-only misses a write moved out to a helper,
+  //     file-only misses a write moved in.
+  const cacheWriteRe = /_collectOnlineCache\s*=[^=]/g;           // assignment, not `!==`/`===`
+  const declRe = /(?:let|var|const)\s+_collectOnlineCache\s*=[^=]/g;
+  const bodyWrites = (body.match(cacheWriteRe) || []).length;
+  const fileWrites = (c.match(cacheWriteRe) || []).length - (c.match(declRe) || []).length;
+  ok('exactly two statements cache the capability, and both are inside _canCollectOnline',
+    bodyWrites === 2 && fileWrites === 2,
+    'found ' + bodyWrites + ' cache write(s) in _canCollectOnline and ' + fileWrites
+      + ' outside the declaration; expected 2 and 2 (the __NBD_OWNER_UID short-circuit and the'
+      + ' post-read definitive answer). A THIRD write is a path that caches a NON-definitive'
+      + ' answer: claims hydrate late, so a "false" cached before the identity resolves wedges'
+      + ' online payments OFF for that tenant for the whole page load — the #1139 trap, and the'
+      + ' unresolved-identity early return is where it keeps reappearing. A count that drops'
+      + ' means a write moved out of this function, where none of these pins can see it.'
+      + ' If a new cache point is genuinely legitimate, prove it can only run on a RESOLVED'
+      + ' identity, then update this count deliberately.');
+  ok('the unresolved-identity path still returns early, uncached',
+    /if \(!companyId\)\s*\{?\s*return false;/.test(body),
+    'anti-vacuity for the count above: delete the early return and the count stays 2 while an'
+      + ' unresolved identity falls straight through into the mirror read');
 
   ok('generateStripePaymentLink AWAITS the mirror before calling the server',
     /if \(!\(await _canCollectOnline\(\)\)\) \{[\s\S]{0,300}ONLINE_PAYMENTS_UNAVAILABLE/.test(c),
