@@ -428,6 +428,20 @@ async function main() {
     ok('S1 the activity row does not record a recovery',
       lastActivity(w).recovery !== 'reversed' && !lastActivity(w).reversalId,
       JSON.stringify(lastActivity(w)));
+    // POSITIVE, and it is what couples the pure module's reason STRING to the
+    // copy that reads it. stripe.js selects the recovery paragraph by
+    // `decision.reason === 'inquiry_no_funds_withdrawn'`; rename that constant
+    // and the paragraph silently degrades to the generic needs-review alarm
+    // while the intro still says "inquiry" (that sentence is driven by a
+    // different flag). Every negative assertion above survives the rename —
+    // these two do not, which is the point of pinning the reassurance itself.
+    ok('S1 the copy states plainly that no money was taken from anyone',
+      /no money from anyone|nothing has been pulled/i.test(told(w))
+      && /second notice|escalat/i.test(told(w)),
+      told(w).slice(0, 500));
+    ok('S1 an inquiry is NOT escalated as a recovery failure or a needs-review incident',
+      !/RECOVERY WAS NOT POSSIBLE|RECOVERY FAILED|NEEDS REVIEW|settling this by hand/i.test(told(w)),
+      'every Amex retrieval would page the owner and alarm the contractor — ' + told(w).slice(0, 400));
     ok('S1 the inquiry is not billed a dispute fee it never incurred',
       !/per-dispute fee/i.test(told(w)),
       'Stripe charges no fee unless an inquiry escalates — saying otherwise is a false statement about'
@@ -488,6 +502,13 @@ async function main() {
       reversalCalls(b).length === 0, JSON.stringify(b.calls));
     ok('S4b …and is not described as an inquiry',
       !/an inquiry is a request for information/i.test(told(b)), told(b).slice(0, 300));
+    // Same reason-string coupling as S1: `funds_not_yet_withdrawn` selects a
+    // "not yet, you will get a second notice" paragraph. Renamed, it degrades
+    // into a needs-review alarm for a dispute that is proceeding normally.
+    ok('S4b …and says the money has not been taken YET, not that recovery failed',
+      /yet/i.test(told(b))
+      && !/RECOVERY WAS NOT POSSIBLE|RECOVERY FAILED|NEEDS REVIEW/i.test(told(b)),
+      told(b).slice(0, 400));
     await run('funds_withdrawn', b, dispute());
     ok('S4b the withdrawal event performs the recovery',
       reversedOn(b, 'tr_X') === TRANSFER_CENTS);
@@ -756,23 +777,38 @@ main().then(() => {
   process.exit(1);
 });
 
-/* MUTATION LOG — the source-level anchors in this file (the only ones; every
- * other assertion above is a property of what the code DID).
+/* MUTATION LOG — 2026-07-30, all shapes run and verified.
  *
- * Anchor A: `countMatches(branchRe('charge.dispute.created')) === 1` + extraction.
- *   1. ORIGINAL   rename the branch to 'charge.dispute.opened'  → RED at extraction
- *                 ("RE-ANCHOR THIS HARNESS"), not a silent pass. Correct reason.
- *   2. REFORMAT   split the else-if across three lines with extra spaces
- *                 → GREEN. The anchor is \s*-tolerant on purpose: a formatter
- *                 must not be able to redden a money suite.
- *   3. BENIGN     add `// charge.dispute.created is handled below` as a comment
- *                 → GREEN (count still 1: the anchor requires the full else-if
- *                 shape, so prose cannot satisfy or inflate it).
- *   4. CONTROL    add a SECOND real `else if (event.type === 'charge.dispute.created')`
- *                 → RED on the count. Two branches on one event type means one is
- *                 dead code and the harness would silently test the wrong half.
+ * A: the SOURCE-LEVEL anchors (the only ones in this file; every other
+ *    assertion is a property of what the code DID).
+ *   A1 ORIGINAL  rename the branch to 'charge.dispute.opened'  → RED at
+ *                extraction ("RE-ANCHOR THIS HARNESS"), never a silent pass.
+ *   A2 REFORMAT  split the else-if head across six lines with extra spaces
+ *                → GREEN. The anchor is \s*-tolerant and paren-matched on
+ *                purpose: a formatter must not be able to redden a money suite,
+ *                and the head legitimately grew a second event type today.
+ *   A3 BENIGN    add two comment lines naming charge.dispute.created and
+ *                `event.type === 'charge.dispute.funds_withdrawn'` → GREEN.
+ *                Prose can neither satisfy nor inflate the count, because the
+ *                anchor only inspects paren-matched else-if CONDITIONS.
+ *   A4 CONTROL   add a SECOND real else-if on charge.dispute.created → RED.
+ *                One of the two would be dead and the harness would silently
+ *                test the wrong half.
+ *   A5/A6 same three shapes for the alertInvoicePaymentEvent anchor: a second
+ *                definition under the same name → RED; reformatting the
+ *                signature across lines → GREEN.
  *
- * Anchor B: `countMatches(fnRe('alertInvoicePaymentEvent')) === 1` — same four
- *   shapes, same results (rename → RED; reformat the signature across lines →
- *   GREEN; mention the name in a comment → GREEN; add a second definition → RED).
+ * B: BEHAVIOURAL non-vacuity — each audit fix reverted in the source, proving
+ *    the scenario that covers it reddens, and for the right reason.
+ *   B1 drop the debit gate in decideDisputeReversal (#2/#6) → S1, S3, S4 red.
+ *   B2 collapse recoveryState back to `!decision.reverse` (#3/#4/#8) → S2, S10 red.
+ *   B3 drop the prior-reversal lookup (#4/#10)                → S10, S10p red.
+ *   B4 drop the unattributed-reversal accounting (#9/#12)     → S7 red.
+ *   B5 let the post-money context read propagate (#10)        → S12 red.
+ *   B6 collapse the lost-with-unreversed-transfer copy (#3)   → S13 red.
+ *   B8 rename the 'inquiry_no_funds_withdrawn' reason string  → S1 red (the
+ *      reason is a cross-file API — stripe.js picks the contractor's paragraph
+ *      off it, and the "this is an inquiry" intro is driven by a DIFFERENT flag,
+ *      so only the reassurance copy itself pins the coupling).
+ *   B7 CONTROL: a cosmetic no-op change no assertion claims → GREEN.
  */

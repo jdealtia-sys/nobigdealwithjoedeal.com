@@ -410,9 +410,26 @@ endpoint's signing secret is wrong so every delivery 400s (§5a). Silence looks
 identical in both cases, which is why this check is a step and not an
 assumption.
 
-**When a dispute is LOST**, there is nothing further to do: the auto-reversal
-already recovered the amount from the contractor at open. The platform's
-residual cost is Stripe's dispute fee, which we absorb.
+**When a dispute is LOST**, what to do depends entirely on whether the
+auto-reversal at open actually SUCCEEDED — read the alert, do not assume.
+
+- **Reversal succeeded** — nothing further to do. The amount was recovered from
+  the contractor at open. The platform's residual cost is Stripe's dispute fee,
+  which we absorb.
+- **Reversal FAILED** (the alert says `RECOVERY FAILED`) — the platform is out
+  the **full disputed amount**, not just the fee, and the contractor still holds
+  their payout. This is not an edge case: a connected account on daily payouts
+  has usually already swept its balance to the bank, so `balance_insufficient`
+  is the ordinary outcome. Recover it by hand — reverse the transfer once the
+  account has balance (use the stamped CLI command in the alert, **not** the
+  dashboard button; an unstamped reversal is invisible to the automatic
+  repayment if a later dispute is won), or invoice the contractor directly.
+
+> Rewritten 2026-07-30. This section previously said flatly that a lost dispute
+> needs no action, which was true only of the path where recovery worked — i.e.
+> it promised "nothing to do" in exactly the case costing the platform the most
+> money. The reversal became non-fatal in #1146, so both outcomes are now
+> reachable and the alert is what distinguishes them.
 
 ### (c) Refunds
 

@@ -19,7 +19,10 @@
  *   - platformFeeCents() must never exceed the charge and must fail closed on
  *     anything that is not integer cents
  *   - decideDisputeReversal() must recover the disputed amount and never MORE
- *     than the transfer holds
+ *     than the transfer holds — AMENDED 2026-07-30 (#1146 findings 2 + 6): and
+ *     must not recover at all until Stripe has actually DEBITED us, because an
+ *     inquiry takes nothing and has no outcome event that would give a
+ *     claw-back back. disputeFundsWithdrawn() owns that gate.
  *   - connectTestModeAllowed() must be a strict '1', never truthiness
  *
  * The money PRIMITIVES stay in functions/stripe.js; this handler and this logic
@@ -252,6 +255,13 @@ console.log('\nplatformFeeCents — the fee we are allowed to take');
 // This function stays PURE: the double-reversal guard is event-level
 // (stripe_events/{event.id} + the dispute-keyed idempotencyKey on the reversal
 // call), not a flag in here.
+//
+// PREMISE AMENDED 2026-07-30 (#1146 findings 2 + 6) — the "two symmetrical
+// mistakes" framing above is INCOMPLETE, not wrong. There is a third and it is
+// the expensive one: reversing when nobody was debited. The cases in this block
+// all describe a dispute whose funds ARE withdrawn; the debit gate itself is
+// the next block. Kept separate deliberately — this block is the arithmetic
+// (clamp, remainder, fail-closed) and that one is the precondition.
 console.log('\ndecideDisputeReversal — recovery, not punishment');
 {
   const tr = (over) => Object.assign({ id: 'tr_1', amount: 50000, amount_reversed: 0 }, over || {});
@@ -308,6 +318,171 @@ console.log('\ndecideDisputeReversal — recovery, not punishment');
   ok('an UNEXPANDED transfer reverses the remainder (amountCents null, not 0)',
     unexpanded.reverse === true && unexpanded.transferId === 'tr_9' && unexpanded.amountCents === null,
     'amountCents 0 would send amount:0; null means "omit the param"');
+
+  // EVERY case above passes a dispute with NO status and NO balance_transactions,
+  // and they all still reverse. That is not an accident of the fixtures — it is
+  // the fallback pinned at F3 below. Stated here so the block above is not
+  // silently load-bearing on a rule it never mentions.
+  ok('the cases above rely on the absent-payload fallback, which reverses',
+    L.decideDisputeReversal(d(50000), { transfer: tr() }).reverse === true);
+}
+
+// ── disputeFundsWithdrawn + the DEBIT gate ────────────────────────────────
+// NEW 2026-07-30 (#1146 audit findings 2 + 6). PREMISE CORRECTION to the block
+// above, which was written believing there were only "two symmetrical
+// mistakes": not reversing, and over-reversing. There is a THIRD, and it is the
+// expensive one — reversing when NOBODY was debited.
+//
+// An INQUIRY (Amex/Discover retrieval; Stripe status warning_*) is a request
+// for information. Stripe withdraws nothing from the platform balance for it,
+// and an inquiry can never close 'won' — the card networks send no win message
+// — so there is no outcome event that would ever give a claw-back back. On a
+// $10k invoice the old unconditional reversal parked ~$9.6k of the contractor's
+// money in the platform balance indefinitely, and the contractor ate 100% of it.
+//
+// The fix is NOT "skip warning_*" alone: that would leave an inquiry that
+// ESCALATES with no reversal at all and move the whole loss onto the platform.
+// Recovery moved onto the DEBIT — which is why the caller now handles
+// charge.dispute.funds_withdrawn as well. Both halves are tested here; the
+// two-event lifecycle is tested behaviourally in
+// tests/stripe-dispute-branches.test.js (S4).
+console.log('\ndisputeFundsWithdrawn — has Stripe actually taken the money?');
+{
+  const tr = (over) => Object.assign({ id: 'tr_1', amount: 50000, amount_reversed: 0 }, over || {});
+  const CH = { transfer: tr() };
+  const DEBIT = [{ id: 'txn_1', amount: -60000 }];
+  const REINSTATE = [{ id: 'txn_2', amount: 60000 }];
+  const dp = (over) => Object.assign({ id: 'dp_1', amount: 50000 }, over || {});
+
+  const INQUIRY_STATUSES = ['warning_needs_response', 'warning_under_review', 'warning_closed'];
+  const REAL_STATUSES = ['needs_response', 'under_review', 'lost', 'won'];
+
+  // ── F1. An inquiry must never trigger a claw-back ──────────────────────
+  for (const status of INQUIRY_STATUSES) {
+    const f = L.disputeFundsWithdrawn(dp({ status, balance_transactions: [] }));
+    ok('F1 ' + status + ' → withdrawn:false, inquiry:true',
+      f.withdrawn === false && f.inquiry === true, JSON.stringify(f));
+
+    const r = L.decideDisputeReversal(dp({ status, balance_transactions: [] }), CH);
+    ok('F1 ' + status + ' does NOT reverse',
+      r.reverse === false && r.amountCents === 0, JSON.stringify(r));
+    // The reason STRING is an API: functions/stripe.js selects the contractor's
+    // recovery copy off it (inquiry_no_debit vs awaiting_withdrawal vs
+    // needs_review). Renaming it here silently downgrades a truthful inquiry
+    // notice into a "we could not recover, a human is settling it" alarm.
+    ok('F1 ' + status + ' → reason inquiry_no_funds_withdrawn',
+      r.reason === 'inquiry_no_funds_withdrawn', r.reason);
+    ok('F1 ' + status + ' → inquiry:true and the transfer is still identified',
+      r.inquiry === true && r.transferId === 'tr_1', JSON.stringify(r));
+  }
+
+  ok('F1 the status match is case-insensitive',
+    L.decideDisputeReversal(dp({ status: 'WARNING_NEEDS_RESPONSE', balance_transactions: [] }), CH)
+      .reason === 'inquiry_no_funds_withdrawn',
+    'Stripe sends lowercase, but a normaliser upstream must not be able to re-arm the bug');
+
+  // The deliberate asymmetry, and it is worth stating: a warning_* status wins
+  // even if a debit entry is somehow present. An inquiry never debits us, so
+  // the array cannot be right; guessing the other way costs the contractor the
+  // whole transfer with no path back.
+  ok('F1 warning_* refuses even when a debit entry IS present',
+    L.decideDisputeReversal(dp({ status: 'warning_needs_response', balance_transactions: DEBIT }), CH)
+      .reverse === false,
+    'the status short-circuit is load-bearing, not belt-and-braces');
+
+  // ── F2. A real chargeback with the debit on file DOES reverse ──────────
+  for (const status of REAL_STATUSES) {
+    const f = L.disputeFundsWithdrawn(dp({ status, balance_transactions: DEBIT }));
+    ok('F2 ' + status + ' + a negative balance transaction → withdrawn',
+      f.withdrawn === true && f.inquiry === false && f.basis === 'balance_transactions',
+      JSON.stringify(f));
+    const r = L.decideDisputeReversal(dp({ status, balance_transactions: DEBIT }), CH);
+    ok('F2 ' + status + ' reverses the clamped amount',
+      r.reverse === true && r.amountCents === 50000 && r.reason === 'destination_charge'
+      && r.inquiry === false, JSON.stringify(r));
+  }
+
+  // ── F3. What the array says, and what its ABSENCE says ─────────────────
+  // Empty array on a real status = "not withdrawn YET". Distinct from an
+  // inquiry: this one WILL debit us, so the caller's copy must say "not yet"
+  // rather than "an inquiry takes nothing", and funds_withdrawn does the work.
+  const pending = L.decideDisputeReversal(dp({ status: 'needs_response', balance_transactions: [] }), CH);
+  ok('F3 a real dispute with no debit yet → funds_not_yet_withdrawn, not reversed',
+    pending.reverse === false && pending.reason === 'funds_not_yet_withdrawn'
+    && pending.amountCents === 0, JSON.stringify(pending));
+  ok('F3 …and it is NOT flagged as an inquiry (two different waits)',
+    pending.inquiry === false,
+    'collapsing them tells a contractor an incoming chargeback is only a request for information');
+
+  ok('F3 a reinstatement-only array does not count as a withdrawal',
+    L.disputeFundsWithdrawn(dp({ status: 'won', balance_transactions: REINSTATE })).withdrawn === false);
+  // Withdrawn THEN reinstated: the debit did happen, so the recovery premise
+  // held. Whether it is owed back is the closed branch's business, and it
+  // attributes by reversal metadata — not by re-reading this.
+  ok('F3 withdrawn-then-reinstated still reads as withdrawn (the debit was real)',
+    L.disputeFundsWithdrawn(dp({ status: 'won', balance_transactions: DEBIT.concat(REINSTATE) }))
+      .withdrawn === true);
+
+  // ABSENT array → fall back to the status and assume withdrawn. Deliberate
+  // direction: a real chargeback must never be left unrecovered because a
+  // field was missing from an older payload shape or a hand-built object. The
+  // false-positive cost is bounded because warning_* is still caught first.
+  const noArray = L.disputeFundsWithdrawn(dp({ status: 'needs_response' }));
+  ok('F3 an ABSENT balance_transactions falls back to the status and assumes withdrawn',
+    noArray.withdrawn === true && noArray.basis === 'status', JSON.stringify(noArray));
+  ok('F3 the fallback never overrides the inquiry rule',
+    L.disputeFundsWithdrawn(dp({ status: 'warning_under_review' })).withdrawn === false,
+    'a missing array must not turn an inquiry into a claw-back');
+  for (const junk of [null, 'yes', 42, {}, true]) {
+    ok('F3 a non-array balance_transactions ' + JSON.stringify(junk) + ' falls back to the status',
+      L.disputeFundsWithdrawn(dp({ status: 'needs_response', balance_transactions: junk })).basis === 'status');
+  }
+  ok('F3 a null/absent dispute does not throw',
+    L.disputeFundsWithdrawn(null).withdrawn === true && L.disputeFundsWithdrawn(undefined).inquiry === false);
+
+  // ── F4. Precedence between the refusal reasons ─────────────────────────
+  // Order matters because each reason renders DIFFERENT copy to the contractor.
+  ok('F4 no_transfer outranks the debit gate (a platform charge has no counterparty at all)',
+    L.decideDisputeReversal(dp({ status: 'warning_needs_response', balance_transactions: [] }), { id: 'ch_1' })
+      .reason === 'no_transfer');
+  ok('F4 the debit gate outranks malformed (we never even read an amount we will not use)',
+    L.decideDisputeReversal(dp({ status: 'warning_needs_response', amount: 0, balance_transactions: [] }), CH)
+      .reason === 'inquiry_no_funds_withdrawn');
+  ok('F4 a malformed amount on a WITHDRAWN dispute still fails closed',
+    L.decideDisputeReversal(dp({ status: 'needs_response', amount: 0, balance_transactions: DEBIT }), CH)
+      .reason === 'malformed');
+  ok('F4 an already-exhausted transfer still reads nothing_to_reverse once withdrawn',
+    L.decideDisputeReversal(dp({ status: 'needs_response', balance_transactions: DEBIT }),
+      { transfer: tr({ amount_reversed: 50000 }) }).reason === 'nothing_to_reverse');
+
+  // ── F5. Shape invariants the caller depends on ─────────────────────────
+  // amountCents === null is a COMMAND ("omit the param, reverse the whole
+  // remainder"). On a refusal path it must never appear, or a caller that reads
+  // the amount before the boolean empties the transfer.
+  const everyShape = [
+    L.decideDisputeReversal(dp({ status: 'warning_needs_response', balance_transactions: [] }), CH),
+    L.decideDisputeReversal(dp({ status: 'needs_response', balance_transactions: [] }), CH),
+    L.decideDisputeReversal(dp({ status: 'needs_response', balance_transactions: DEBIT }), CH),
+    L.decideDisputeReversal(dp({ status: 'needs_response', amount: 0, balance_transactions: DEBIT }), CH),
+    L.decideDisputeReversal(dp({ status: 'needs_response', balance_transactions: DEBIT }), { id: 'ch_1' }),
+    L.decideDisputeReversal(dp({ status: 'needs_response', balance_transactions: DEBIT }),
+      { transfer: tr({ amount_reversed: 50000 }) }),
+    L.decideDisputeReversal(dp({ status: 'needs_response', balance_transactions: DEBIT }), { transfer: 'tr_9' }),
+    L.decideDisputeReversal(null, null),
+  ];
+  const KEYS = ['reverse', 'transferId', 'amountCents', 'reason', 'inquiry'];
+  ok('F5 every return carries exactly the same five keys',
+    everyShape.every((r) => eq(Object.keys(r).sort(), KEYS.slice().sort())),
+    JSON.stringify(everyShape.map((r) => Object.keys(r))));
+  ok('F5 every REFUSAL reports amountCents 0 — never null',
+    everyShape.filter((r) => r.reverse === false).every((r) => r.amountCents === 0),
+    'null means "reverse the full remainder"; on a refusal that is the whole transfer');
+  ok('F5 every refusal names a reason and every approval says destination_charge',
+    everyShape.every((r) => typeof r.reason === 'string' && r.reason.length > 0
+      && (r.reverse === false || r.reason === 'destination_charge')),
+    JSON.stringify(everyShape.map((r) => r.reason)));
+  ok('F5 inquiry is always a strict boolean (the caller does === true on it)',
+    everyShape.every((r) => r.inquiry === true || r.inquiry === false));
 }
 
 // ── connectTestModeAllowed: the ONE sanctioned test-mode switch ────────────
