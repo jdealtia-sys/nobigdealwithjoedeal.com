@@ -115,9 +115,20 @@ function _normalizePlan(raw) {
 // block in the auth handler below). This is the LAST client copy of the
 // founder emails; the authoritative list lives in
 // functions/handlers/_shared.js OWNER_EMAILS (the mint source).
+//
+// PUBLIC-FILE HYGIENE (2026-07-30): this file is served unauthenticated at
+// /pro/js/nbd-auth.js, so every address listed here is world-readable. The
+// founder's PERSONAL gmail was removed for that reason; jd@ stays because it
+// is already published in the sitewide schema.org JSON-LD, so it discloses
+// nothing new. Tradeoff, deliberately accepted: the client-side self-heal
+// (claim missing → ask server to mint) now only fires for the address below.
+// The SERVER list in functions/handlers/_shared.js still contains BOTH, so a
+// founder signing in with the personal gmail is still granted the claim once
+// minted — they just can't trigger the mint from the browser. Recovery if the
+// claim is ever lost on that account: mint it with the admin script runner.
+// Do NOT re-add a personal address here to restore convenience.
 const OWNER_EMAILS = new Set([
-  'jd@nobigdealwithjoedeal.com',
-  'jonathandeal459@gmail.com'
+  'jd@nobigdealwithjoedeal.com'
 ]);
 
 // ── Page → Required Plan Mapping ──────────────────────────

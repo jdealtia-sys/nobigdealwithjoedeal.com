@@ -1,20 +1,18 @@
 /**
  * NBD Marketing — lead submission shim.
  *
- * HISTORY: this module used to initialize a SEPARATE `nobigdealwithjoedeal`
- * Firebase project and write leads straight into its `leads` collection via
- * the modular Firestore SDK. That collection accepted unauthenticated public
- * writes gated ONLY by firestore.rules shape checks — no App Check, no
- * Turnstile, no rate limit (App Check was never registered for the marketing
- * project, so MARKETING_RECAPTCHA_SITE_KEY stayed empty). Anyone could POST
- * unlimited leads straight to Firestore.
+ * HISTORY: this module previously wrote leads directly to a separate,
+ * now-retired Firebase project. That path is gone.
  *
  * Every marketing lead now flows through the SAME hardened gateway the main
- * site + Oaks microsite already use: the `submitPublicLead` Cloud Function on
- * nobigdeal-pro, which enforces App Check + Turnstile + per-IP rate limit +
- * honeypot server-side, and bridges the lead into the CRM pipeline + operator
- * alerts. The standalone `nobigdealwithjoedeal` marketing project has since
- * been retired, so its old `leads` collection no longer accepts writes.
+ * site + Oaks microsite already use: the `submitPublicLead` Cloud Function,
+ * which enforces its checks server-side and bridges the lead into the CRM
+ * pipeline + operator alerts.
+ *
+ * NOTE: this file is served unauthenticated. Keep the history note vague —
+ * an earlier version of this comment described the exact weakness of the old
+ * path and named the retired project and collection, which is a roadmap for
+ * anyone probing whether that project is really shut down.
  *
  * The exported helper keeps its original name + contract (resolves with the
  * new lead id, throws on failure) so existing callers — sites/js/sites-landing.js

@@ -1198,7 +1198,7 @@ function buildCard(l){
   })();
 
   // R4.3: Phone display normalization. Some leads were imported with
-  // raw '3046871719', some hand-typed '304-687-1719', some pasted
+  // raw '5135550147', some hand-typed '513-555-0147', some pasted
   // '(513) 555-0192'. Normalize to one consistent display format —
   // '(xxx) xxx-xxxx' — at render time so the kanban scans cleanly.
   // The href:tel: link still strips to digits independently.
@@ -1212,7 +1212,7 @@ function buildCard(l){
   }
   const phone = escHtml(_phoneFmt);
   // R5.10: emails are case-insensitive per RFC; user-entered casing
-  // ('Heatherclymer918@yahoo.com') reads as awkward on the kanban scan.
+  // ('SomeOwner918@example.com') reads as awkward on the kanban scan.
   // Normalize display to lowercase. mailto: and downstream consumers
   // see the original l.email value via the lead record.
   const email = escHtml(String(l.email||'').toLowerCase());

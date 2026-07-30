@@ -228,6 +228,16 @@ console.log('\nINTERNAL DOCS — not published to hosting');
   ok(`no markdown under docs/ is published (leaking: ${servedMd.join(', ') || 'none'})`,
     servedMd.length === 0);
 
+  // (c2) CREDIT.txt asset sidecars are internal sourcing notes, not
+  //      site content — they record where each brand image came from,
+  //      including "ripped from <vendor>" admissions and a prior-logo
+  //      mixup. Same class as the .md runbooks but a different extension,
+  //      so the markdown rule above does not reach them.
+  const creditFiles = all.filter(f => /(^|\/)CREDIT\.txt$/i.test(f));
+  const servedCredits = creditFiles.filter(f => !isIgnored(f));
+  ok(`no CREDIT.txt sidecar is published (${creditFiles.length} present; leaking: ${servedCredits.join(', ') || 'none'})`,
+    servedCredits.length === 0);
+
   // (d) the guard must not be vacuous — if the walk found no .md at all, the
   //     assertion above passes for the wrong reason.
   const totalMd = all.filter(f => /\.md$/i.test(f)).length;

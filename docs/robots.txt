@@ -4,10 +4,9 @@
 #
 # Structure note: all user-agents (wildcard + the explicitly welcomed AI/search
 # crawlers) are stacked into ONE group so every rule below applies to every
-# crawler. Previously each named bot had its own "Allow: /" group, which —
-# per RFC 9309 group parsing — exempted them from the Disallow block at the
-# bottom of the file (the block only attached to the last named group), so
-# the private-page blocks were silently ignored by Googlebot and the rest.
+# crawler. Per RFC 9309 group parsing, giving a named bot its own "Allow: /"
+# group would exempt it from the Disallow block at the bottom of this file.
+# Do NOT split these back into per-bot groups.
 
 User-agent: *
 User-agent: GPTBot
