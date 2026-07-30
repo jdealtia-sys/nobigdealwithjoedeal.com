@@ -9,6 +9,7 @@ let _NBD_IP_DELEGATE_BOUND; // module-local (globals Tranche 1 — was window.*)
   'use strict';
 
   const CLOUD_FUNCTION_BASE = 'https://us-central1-nobigdeal-pro.cloudfunctions.net';
+  let _collectOnlineCache = null; // capability resolved once per page load (D7)
 
   // ═══════════════════════════════════════════════════════════════════════
   // UTILITIES
@@ -599,31 +600,53 @@ let _NBD_IP_DELEGATE_BOUND; // module-local (globals Tranche 1 — was window.*)
    * @param {string} invoiceId
    * @returns {Promise<{url: string, paymentLinkId: string}>}
    */
-  // Online card collection is PLATFORM-ONLY until Stripe Connect ships. There
-  // is no Connect in the backend, so a link minted for a tenant would settle
-  // their homeowner's payment into the platform's balance — see the block
-  // comment atop functions/stripe.js. The server refuses these with 403
-  // ONLINE_PAYMENTS_UNAVAILABLE; this mirrors the check client-side so a
-  // contractor never triggers a request that can only fail.
-  //
-  // Everything downstream already renders the Pay Online button, the SMS link
-  // and the portal CTA conditionally on invoice.stripePaymentLink, so leaving
-  // it unset makes all of them disappear on their own — no extra branching.
-  function _canCollectOnline() {
+  // Client-side MIRROR of the server gate (functions/stripe.js): the platform
+  // tenant may always mint; any other tenant only when their
+  // connectAccounts/{companyId} mirror satisfies mayCollectOnline()
+  // (functions/stripe-connect-logic.js:149-157): acct_ id + chargesEnabled +
+  // detailsSubmitted + livemode. A MIRROR, not the authority — the server
+  // re-checks (plus the live-subscription gate) and refuses with 403
+  // ONLINE_PAYMENTS_UNAVAILABLE. firestore.rules already allows the
+  // same-tenant read of connectAccounts; the getConnectStatus callable is
+  // per-uid rate-limited and NOT safe to call per render.
+  // Fail CLOSED. Unresolved identity or a failed read returns false WITHOUT
+  // caching (claims hydrate late — the #1139 trap); only definitive answers
+  // are cached for the page's lifetime (a tenant finishing onboarding
+  // mid-session reloads to pick it up).
+  // Everything downstream still renders the Pay Online button, SMS link and
+  // portal CTA conditionally on invoice.stripePaymentLink — no extra branching.
+  async function _canCollectOnline() {
     try {
+      if (_collectOnlineCache !== null) return _collectOnlineCache;
       const claims = window._userClaims || {};
       const uid = (window._user && window._user.uid) || null;
       const OWNER = window.__NBD_OWNER_UID || '1phDvAVXHSg82wDLegAbQFq14Ci1';
-      return uid === OWNER || claims.companyId === OWNER;
+      if (uid === OWNER || claims.companyId === OWNER) {
+        _collectOnlineCache = true;
+        return true;
+      }
+      const companyId = claims.companyId || uid;
+      if (!companyId) return false; // identity not resolved — do NOT cache
+      const snap = await window.getDoc(window.doc(getDb(), 'connectAccounts', companyId));
+      const s = (snap && snap.exists()) ? snap.data() : {};
+      // QA/emulator only — mirrors the server's NBD_CONNECT_ALLOW_TEST_MODE.
+      // Console-spoofing it buys nothing: the server refuses.
+      const allowTest = window.__NBD_CONNECT_ALLOW_TEST_MODE === true;
+      const ok = String(s.accountId || '').startsWith('acct_')
+        && s.chargesEnabled === true
+        && s.detailsSubmitted === true
+        && (s.livemode === true || allowTest);
+      _collectOnlineCache = ok; // definitive — cache per page load
+      return ok;
     } catch (e) {
-      return false; // fail CLOSED — never mint on an unresolved identity
+      return false; // fail CLOSED — never mint on an unresolved identity or failed read
     }
   }
 
   async function generateStripePaymentLink(invoiceId) {
-    if (!_canCollectOnline()) {
-      const err = new Error('Online card payment isn\'t available for your account yet — '
-        + 'send the invoice and record payment under Mark Paid.');
+    if (!(await _canCollectOnline())) {
+      const err = new Error('Online card payment isn\'t set up for your company yet — '
+        + 'connect payouts under Settings → Billing, or record check/cash under Mark Paid.');
       err.code = 'ONLINE_PAYMENTS_UNAVAILABLE';
       throw err;
     }
@@ -643,6 +666,9 @@ let _NBD_IP_DELEGATE_BOUND; // module-local (globals Tranche 1 — was window.*)
       return result;
 
     } catch (error) {
+      if (error && !error.code && /ONLINE_PAYMENTS_UNAVAILABLE/.test(String(error.message || ''))) {
+        error.code = 'ONLINE_PAYMENTS_UNAVAILABLE';
+      }
       console.error('generateStripePaymentLink error:', error);
       throw error;
     }
@@ -868,7 +894,26 @@ let _NBD_IP_DELEGATE_BOUND; // module-local (globals Tranche 1 — was window.*)
       // resend.
       if (invoice.stripePaymentLink && newBalanceDue > 0) {
         try { await generateStripePaymentLink(invoiceId); }
-        catch (regenErr) { console.warn('markPaid: payment-link regen failed', regenErr && regenErr.message); }
+        catch (regenErr) {
+          console.warn('markPaid: payment-link regen failed', regenErr && regenErr.message);
+          if (regenErr && regenErr.code === 'ONLINE_PAYMENTS_UNAVAILABLE') {
+            // Capability lost since the original mint (deauthorized /
+            // sub lapsed). The server refused BEFORE it could deactivate the
+            // prior link, so the STALE link may remain payable on Stripe —
+            // null the CRM fields so every CTA disappears; the single-use
+            // restriction bounds residual exposure to one session. Runbook
+            // documents manual deactivation in the Stripe dashboard.
+            try {
+              await window.updateDoc(window.doc(getDb(), 'invoices', invoiceId), {
+                stripePaymentLink: null, stripeInvoiceId: null, updatedAt: new Date(),
+              });
+            } catch (clearErr) { console.warn('markPaid: stale-link clear failed', clearErr && clearErr.message); }
+            if (typeof showToast === 'function') {
+              showToast('Payment recorded, but online card payments are no longer enabled for this company — '
+                + 'the old payment link was removed. Re-enable payouts under Settings → Billing.', 'warning');
+            }
+          }
+        }
       }
 
       // If fully paid, advance lead stage. Post-crm-stages migration the
@@ -1385,11 +1430,12 @@ let _NBD_IP_DELEGATE_BOUND; // module-local (globals Tranche 1 — was window.*)
         try {
           await generateStripePaymentLink(invoiceId);
         } catch (linkErr) {
-          // Not a failure of the invoice. For a tenant this is the expected
-          // path until Connect ships, so say what to do instead of erroring.
+          // Not a failure of the invoice. This is the expected path for a
+          // tenant whose payouts aren't connected yet, so say what to do
+          // instead of erroring.
           if (linkErr && linkErr.code === 'ONLINE_PAYMENTS_UNAVAILABLE') {
-            showToast('Invoice ready — record check or cash under Mark Paid '
-              + '(online card payment isn\'t enabled for your account yet).', 'info');
+            showToast('Invoice ready — record check or cash under Mark Paid. '
+              + 'To take card payments online, set up payouts under Settings → Billing.', 'info');
           } else {
             console.warn('payment link failed:', linkErr && linkErr.message);
             showToast('Invoice created, but the online payment link could not be '

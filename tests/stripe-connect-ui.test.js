@@ -7,12 +7,17 @@
  *
  * Four things are load-bearing here, and each has burned this repo before:
  *
- *  1. THE HONESTY GATE. The #1123 platform-only payment gate is still closed, so
- *     finishing Stripe onboarding grants a contractor nothing — while Express
- *     onboarding collects SSN + bank details. So the card is OWNER-ONLY and every
- *     connected state carries a "payments are still off" note. If a future change
- *     reveals this to tenants while the gate stands, that is asking people for
- *     their SSN under false pretences. These tests exist to make that loud.
+ *  1. CAPABILITY TRUTH. REWRITTEN 2026-07-3x: phase 3 lifted the #1123 gate, so
+ *     the honesty problem inverted. Finishing onboarding now grants a real
+ *     capability, which means the card must (a) be reachable by the people the
+ *     server lets act — owner OR company_admin, mirroring requireTeamAdmin —
+ *     and (b) say which state the account is actually in: "Online card payments
+ *     are ON" when Stripe says so, "not switched on" when it doesn't, and the
+ *     price (3.4% + 30…) in BOTH, because a fee the contractor first learns
+ *     about from a payout is a fee we hid. Part 8 couples the card to the
+ *     server gate in both directions so neither can move alone: a widened card
+ *     over a closed gate is asking for an SSN for nothing; a lifted gate behind
+ *     an owner-only card charges tenants for something they cannot see.
  *
  *  2. TEMPLATE RE-EXECUTION. The module ships inside the lazily-hydrated
  *     tpl-view-settings template and runs AGAIN at hydration, after DCL. A bare
@@ -45,6 +50,22 @@ const read = (p) => fs.readFileSync(path.join(ROOT, p), 'utf8');
 const decomment = (s) => s.split('\n')
   .filter((l) => !/^\s*(\/\/|\*|\/\*)/.test(l))
   .join('\n');
+
+// Brace-match the block that OPENS at the first `{` at or after `from`.
+// Scoping matters more in phase 3 than it did in phase 2: the card now carries
+// two mutually exclusive copies (ON and OFF) in one function, and a whole-file
+// regex cannot tell "the ON copy is inside the enabled branch" from "the ON
+// copy is printed unconditionally". Same trap as the esign `return;` window.
+function braceBlock(src, from) {
+  const open = src.indexOf('{', from);
+  if (from < 0 || open === -1) return '';
+  let depth = 0;
+  for (let i = open; i < src.length; i++) {
+    if (src[i] === '{') depth++;
+    else if (src[i] === '}') { depth--; if (depth === 0) return src.slice(open, i + 1); }
+  }
+  return '';
+}
 
 let passed = 0, failed = 0;
 const fails = [];
@@ -88,12 +109,24 @@ const BOOT_CODE = decomment(BOOT);
     'must not flash for non-owners before render');
 }
 
-// ── Part 2: the honesty gate (owner-only + no false promises) ──────────
+// ── Part 2: capability truth (who sees it, and what it says) ───────────
 {
-  ok('visibility keys on the OWNER claim',
-    /_userClaims\s*&&\s*window\._userClaims\.owner === true/.test(CODE)
-    || /window\._userClaims\.owner === true/.test(CODE),
-    'strict === true: a truthy string must not reveal it');
+  // REWRITTEN 2026-07-3x (silently-stale). The old pin was `owner === true`
+  // alone — and that substring SURVIVES a widening, so the assertion would have
+  // kept passing while the card quietly served a second role. Phase 3 pins the
+  // WHOLE predicate: owner OR company_admin, which is exactly who the server's
+  // requireTeamAdmin (functions/handlers/_shared.js:209) lets create the
+  // account and mint the onboarding link. Strict === on both sides; the
+  // predicate wraps lines, hence \s*.
+  ok('visibility is owner OR company_admin (mirrors server requireTeamAdmin)',
+    /owner === true\s*\|\|\s*window\._userClaims\.role === 'company_admin'/.test(CODE),
+    'strict === on both: a truthy string must not reveal it, and a role the server would refuse'
+      + ' must not be shown a button that 403s');
+  // Brace-scoped: a whole-file negative would be satisfied by any unrelated
+  // mention. No other role may open this card — the server refuses them.
+  ok('no other role can open the card',
+    !/manager|sales_rep|viewer/.test(braceBlock(CODE, CODE.indexOf('function _nbdConnectVisible'))),
+    'onboarding hands over SSN + bank details; only the people the server will actually let act');
 
   // Three independent places must respect it, because each is a separate way in.
   ok('render hides the card for non-owners',
@@ -112,33 +145,74 @@ const BOOT_CODE = decomment(BOOT);
   ok('the claims wait is bounded',
     /_nbdConnectAwaitClaims[\s\S]{0,240}?for \(var i = 0; i < [1-9]\d*; i\+\+\)/.test(CODE));
 
-  // The note that keeps the card honest while #1123 stands.
-  ok('a "payments are still off" note exists',
-    /_nbdConnectGateNote/.test(CODE)
-    && /still switched off/i.test(CODE));
+  // REWRITTEN (fired): phase 2's note said "payments are still switched off for
+  // every account", which was true and is now a lie. The note becomes a
+  // CAPABILITY note with two branches — and both of them are load-bearing copy,
+  // so each is pinned by its canonical substring rather than by the function
+  // name (a renamed-but-gutted note would pass a name-only pin).
+  ok('a capability note exists', /_nbdConnectCapabilityNote/.test(CODE));
+
+  const noteAt = CODE.indexOf('function _nbdConnectCapabilityNote');
+  const NOTE = braceBlock(CODE, noteAt);
+  ok('the capability note body was located (the branch pins below are scoped)',
+    noteAt > -1 && NOTE.length > 200);
+  // The ON branch: the first `if (…)` inside the note. Its block is where the
+  // enabled copy is allowed to live and nowhere else.
+  const ON_BRANCH = braceBlock(NOTE, NOTE.indexOf('if ('));
+  const ON_COPY = 'Online card payments are ON';
+
+  ok('the enabled state says so in plain words', CODE.indexOf(ON_COPY) !== -1);
+  ok('the disabled state says so in plain words', /not switched on/i.test(CODE),
+    'silence reads as "it works" — a contractor sending an invoice needs to know it will not collect');
+
+  // The branch invariant. This REPLACES phase 2's "the card never claims card
+  // payments are enabled" — a blanket negative that fired the moment the claim
+  // became true and legitimate. What survives of it is the part that still
+  // matters: the claim must be CONDITIONAL. The ON copy must sit INSIDE the
+  // enabled branch and appear nowhere else in the file; printed unconditionally
+  // it is the same lie the phase-2 assertion was written to catch. (M17.)
+  ok('the note branches on the real capability field',
+    /onlinePaymentsEnabled === true/.test(NOTE),
+    'branching on truthiness or on `connected` would call a verifying account ON');
+  ok('the ON copy renders ONLY inside the enabled branch',
+    ON_BRANCH.indexOf(ON_COPY) !== -1
+    && (CODE.split(ON_COPY).length - 1) === 1,
+    'found ' + (CODE.split(ON_COPY).length - 1) + ' occurrence(s); it must appear exactly once,'
+      + ' inside the onlinePaymentsEnabled branch');
+
+  // The price is disclosed in BOTH branches: ON because they are paying it now,
+  // OFF because they are about to decide whether to turn it on. Encoding-robust
+  // substring — the copy carries a cent sign this file deliberately never types.
+  const FEE = /3\.4% \+ 30/;
+  ok('the ON branch discloses the fee', FEE.test(ON_BRANCH));
+  ok('the OFF branch discloses the fee too',
+    ON_BRANCH !== '' && FEE.test(NOTE.split(ON_BRANCH).join('')),
+    'someone deciding whether to onboard is exactly who needs the price');
 
   // It must appear in EVERY state that could read as "you're done". Count CALL
-  // sites — `function _nbdConnectGateNote()` matches a naive /name\(\)/ too, so
-  // the definition inflates the count and a deleted call still "passes".
+  // sites — `function _nbdConnectCapabilityNote(` matches a naive /name\(/ too,
+  // so the definition inflates the count and a deleted call still "passes".
   // (Same trap as the adjuster-board test regex.)
-  const noteCalls = (CODE.match(/(?:^|[^\w])_nbdConnectGateNote\(\)/g) || [])
+  const noteCalls = (CODE.match(/(?:^|[^\w])_nbdConnectCapabilityNote\(/g) || [])
     .filter((m) => !/function/.test(m)).length
-    - (/function _nbdConnectGateNote\(\)/.test(CODE) ? 1 : 0);
+    - (/function _nbdConnectCapabilityNote\(/.test(CODE) ? 1 : 0);
   ok('the note is used by all three connected-ish states', noteCalls >= 3,
     'found ' + noteCalls + ' CALL sites (definition excluded); ready + verifying + payouts_paused each need it');
 
-  // The whole point of the gate: never tell anyone online collection works.
-  ok('the card never claims card payments are enabled',
-    !/you can now (accept|take|collect)/i.test(CODE)
-    && !/payments are (now )?(live|enabled|on)\b/i.test(CODE));
   ok('Mark Paid is still named as the actual way to get paid',
-    /Mark Paid/.test(SRC));
+    /Mark Paid/.test(SRC),
+    'check and cash are free and always will be — the card must not read as "card or nothing"');
 
-  // onlinePaymentsEnabled is hard-false server-side in phase 1; the UI must not
-  // treat it as a capability switch.
-  ok('the UI does not gate anything on onlinePaymentsEnabled',
-    !/if\s*\([^)]*onlinePaymentsEnabled/.test(CODE),
-    'that field is hard-coded false in phase 1 — branching on it invents a state');
+  // INVERTED (fired): phase 2 FORBADE branching on onlinePaymentsEnabled,
+  // because the server hard-coded it false and a branch would have invented a
+  // state. Phase 3 computes it from mayCollectOnline(), so the field is the
+  // only honest source of the card's headline — and NOT branching on it is now
+  // the bug. Two branches minimum: the capability note and the ready blurb.
+  const capBranches = (CODE.match(/onlinePaymentsEnabled === true/g) || []).length;
+  ok('the UI branches on the real capability field in at least two places',
+    capBranches >= 2,
+    'found ' + capBranches + '; the note and the ready blurb must each tell the truth about'
+      + ' whether this account can actually charge a card');
 }
 
 // ── Part 3: template re-execution safety ──────────────────────────────
@@ -309,19 +383,58 @@ const BOOT_CODE = decomment(BOOT);
     /_nbdConnectEsc\(st\.label/.test(CODE));
 }
 
-// ── Part 8: the phase-3 tripwire ──────────────────────────────────────
+// ── Part 8: server↔card couplings (things that must move together) ────
 {
-  // Phase 3 must move the gate and the visibility check together. If someone
-  // widens visibility while the platform-only gate still stands, that is the
-  // SSN-for-nothing scenario — fail loudly and explain.
-  const gateStillClosed = /ONLINE_PAYMENTS_UNAVAILABLE/.test(read('functions/stripe.js'));
-  const ownerOnly = /owner === true/.test(CODE);
-  ok('owner-only visibility and the #1123 gate agree',
-    gateStillClosed === ownerOnly,
-    gateStillClosed
-      ? 'the platform-only payment gate is still closed, so this card must stay OWNER-ONLY — '
-        + 'revealing it to tenants asks them for SSN + bank details for a capability they will not get'
-      : 'the gate is gone (phase 3): widen visibility deliberately and rewrite this assertion');
+  // REWRITTEN 2026-07-3x. The phase-2 coupling used
+  // `gateStillClosed = /ONLINE_PAYMENTS_UNAVAILABLE/` as its signal, and phase 3
+  // KEEPS that error code (it now means "capability absent" rather than
+  // "platform-only"). So the old signal is permanently true — a dead assertion
+  // that would have passed forever without ever being consulted again. It is
+  // replaced, not deleted, by three live couplings. Phase 4 rewrites these
+  // premises again — never deletes them.
+  const STRIPE_CODE = decomment(read('functions/stripe.js'));
+
+  // (a) THE GATE AND THE CARD MOVE TOGETHER. Either both are open or both are
+  //     shut; the two failure modes are opposite and both bad.
+  const gateLifted = /mayCollectOnline\(/.test(STRIPE_CODE);
+  const teamVisible = /role === 'company_admin'/.test(CODE);
+  ok('the server gate and the card audience agree',
+    gateLifted === teamVisible,
+    gateLifted
+      ? 'the mint is gated by mayCollectOnline (tenants CAN collect) but this card is still'
+        + ' owner-only: tenants are charged for a capability they can neither see nor manage,'
+        + ' and their company_admin cannot even start onboarding'
+      : 'the card was widened past the owner while the mint still refuses tenants: that asks'
+        + ' people for SSN + bank details for a capability they will not get');
+
+  // (b) IF WE TAKE A FEE, THE CARD SAYS SO. A fee a contractor first discovers
+  //     from a payout is a fee we hid; copy promising a fee we do not take is a
+  //     false pricing claim. Anti-vacuity for this pair is anchored elsewhere:
+  //     platform-only Part 1 pins that platformFeeCents is exported, and
+  //     stripe-connect.test.js pins PLATFORM_FEE_BPS = 340.
+  const feeCharged = /application_fee_amount/.test(STRIPE_CODE);
+  const feeDisclosed = /3\.4% \+ 30/.test(CODE);
+  ok('charging the platform fee and disclosing it on the card agree',
+    feeCharged === feeDisclosed,
+    feeCharged
+      ? 'the mint charges a platform fee that this card never mentions — undisclosed pricing'
+      : 'the card quotes a platform fee the mint does not charge — a false pricing claim');
+
+  // (c) AND THE PUBLIC SURFACES SAY SO TOO. Ownership of this used to fall
+  //     between the UI and the docs slices; it lands here. Terms is the
+  //     contract, pricing/index/landing are what a contractor reads before
+  //     signing up — and index.html/landing.html are byte-copies of each other,
+  //     so a half-landed edit shows up as one of these failing alone.
+  if (feeCharged) {
+    ['docs/pro/terms.html', 'docs/pro/pricing.html', 'docs/pro/index.html', 'docs/pro/landing.html']
+      .forEach((p) => {
+        ok('the platform fee is disclosed in ' + p, /3\.4%/.test(read(p)),
+          'we take a cut of a homeowner payment; every surface a contractor reads before'
+            + ' turning it on must say so');
+      });
+  } else {
+    ok('no platform fee is charged, so no public disclosure is required', true);
+  }
 }
 
 // ── Part 9: BEHAVIOUR — actually run the renderer ─────────────────────
@@ -378,11 +491,26 @@ const BOOT_CODE = decomment(BOOT);
   ok('the module executes standalone and exposes renderConnectCard', loaded
     && typeof mkEnv(OWNER, null).renderConnectCard === 'function');
 
-  // Non-owner: hidden, and nothing rendered into the body.
-  const nonOwner = renderWith({ owner: false }, { status: 'ready', label: 'Connected', connected: true });
-  ok('BEHAVIOUR: a non-owner gets the card hidden', nonOwner.card.style.display === 'none');
-  ok('BEHAVIOUR: a non-owner gets no card content', nonOwner.html === '');
-  const noClaims = renderWith(undefined, { status: 'ready', label: 'Connected', connected: true });
+  // Audience, rendered rather than regexed. UPDATED 2026-07-3x: the card now
+  // serves owner OR company_admin — the same two the server's requireTeamAdmin
+  // accepts — and nobody else. A role that can see the button but gets a 403
+  // from every callable is worse than no button.
+  const READY = { status: 'ready', label: 'Connected', connected: true };
+  const nonOwner = renderWith({ owner: false }, READY);
+  ok('BEHAVIOUR: a plain member gets the card hidden', nonOwner.card.style.display === 'none');
+  ok('BEHAVIOUR: a plain member gets no card content', nonOwner.html === '');
+
+  const rep = renderWith({ owner: false, role: 'sales_rep' }, READY);
+  ok('BEHAVIOUR: a sales_rep gets the card hidden', rep.card.style.display === 'none',
+    'the server refuses createConnectAccount for them — showing the button teaches a 403');
+  ok('BEHAVIOUR: a sales_rep gets no card content', rep.html === '');
+
+  const admin = renderWith({ owner: false, role: 'company_admin' }, READY);
+  ok('BEHAVIOUR: a company_admin CAN see the card', admin.card.style.display === '',
+    'requireTeamAdmin lets them act; phase 3 lets them see');
+  ok('BEHAVIOUR: a company_admin gets real card content', admin.html.length > 0);
+
+  const noClaims = renderWith(undefined, READY);
   ok('BEHAVIOUR: missing claims also hide the card', noClaims.card.style.display === 'none');
 
   // Owner + each status.
@@ -390,6 +518,16 @@ const BOOT_CODE = decomment(BOOT);
   ok('BEHAVIOUR: not_started offers "Set up payouts"',
     /data-connect-action="start"/.test(r1.html) && /Set up payouts/.test(r1.html));
   ok('BEHAVIOUR: not_started is revealed to the owner', r1.card.style.display === '');
+  // Added 2026-07-30 after mutation M20 proved this was UNGUARDED: deleting the
+  // not_started blurb's fee sentence left the whole suite green. Part 8's
+  // coupling (b) is a whole-file regex, so the other two fee mentions satisfied
+  // it, and the brace-scoped ON/OFF pins only ever look inside
+  // _nbdConnectCapabilityNote — never the blurb. not_started is the ONE screen
+  // that must carry the price: it is what a contractor reads immediately before
+  // clicking through to hand Stripe their SSN and bank details. Undisclosed-fee
+  // risk, not a copy nitpick — assert on the rendered output, per status.
+  ok('BEHAVIOUR: not_started discloses the fee BEFORE onboarding',
+    /3\.4% \+ 30/.test(r1.html));
 
   const r2 = renderWith(OWNER, {
     status: 'onboarding_incomplete', label: 'Finish setup', connected: true, accountId: 'acct_x',
@@ -400,37 +538,79 @@ const BOOT_CODE = decomment(BOOT);
   ok('BEHAVIOUR: requirement field NAMES are listed, humanised',
     /ssn last 4/.test(r2.html) && /External account/.test(r2.html));
 
-  const r3 = renderWith(OWNER, { status: 'verifying', label: 'Verification in progress', connected: true, accountId: 'acct_x' });
-  ok('BEHAVIOUR: verifying carries the payments-are-off note',
-    /still switched off/i.test(r3.html));
+  // r3-r6 REWRITTEN 2026-07-3x. Phase 2 asserted every connected state said
+  // "still switched off", because that was true of every account. Phase 3
+  // renders the CAPABILITY the server reports, so each fixture now carries an
+  // explicit onlinePaymentsEnabled and asserts the matching copy — including
+  // the negative direction, which is the one that catches a note that lost its
+  // branch and prints ON unconditionally.
+  const ON_COPY_RE = /Online card payments are ON/;
+  const FEE_RE = /3\.4% \+ 30/;
+
+  const r3 = renderWith(OWNER, {
+    status: 'verifying', label: 'Verification in progress', connected: true, accountId: 'acct_x',
+    onlinePaymentsEnabled: false,
+  });
+  ok('BEHAVIOUR: verifying says payments are not switched on yet',
+    /not switched on/i.test(r3.html));
+  ok('BEHAVIOUR: verifying must NOT read as enabled', !ON_COPY_RE.test(r3.html),
+    'Stripe has not enabled charges on this account — saying otherwise sends an invoice nobody can pay');
   ok('BEHAVIOUR: verifying does NOT push another onboarding link',
     !/data-connect-action="link"/.test(r3.html),
     'the fix-it path for a verifying account is the Express dashboard, not a new link');
 
+  // payouts_paused is the subtle one: a payout hold is NOT a charge block
+  // (stripe-connect-logic.js mayCollectOnline deliberately ignores
+  // payoutsEnabled), so the capability really is ON while the money piles up in
+  // Stripe. The card must say BOTH things at once.
   const r4 = renderWith(OWNER, {
     status: 'payouts_paused', label: 'Connected — payouts on hold', connected: true,
     accountId: 'acct_x', disabledReason: 'requirements.past_due',
     requirementsPastDue: ['individual.verification.document'],
+    onlinePaymentsEnabled: true, chargesEnabled: true, payoutsEnabled: false,
   });
   ok('BEHAVIOUR: payouts_paused shows Stripe\'s reason', /requirements\.past_due/.test(r4.html));
-  ok('BEHAVIOUR: payouts_paused carries the note', /still switched off/i.test(r4.html));
+  ok('BEHAVIOUR: payouts_paused still reports payments ON (a payout hold is not a charge block)',
+    ON_COPY_RE.test(r4.html));
+  ok('BEHAVIOUR: payouts_paused discloses the fee', FEE_RE.test(r4.html));
+  ok('BEHAVIOUR: payouts_paused still says payouts are held',
+    /payouts.*(hold|paused)/i.test(r4.html),
+    'charges work but the money is stuck in Stripe — both facts, or the card is misleading');
 
   const r5 = renderWith(OWNER, {
     status: 'ready', label: 'Connected', connected: true, accountId: 'acct_live1',
     livemode: true, chargesEnabled: true, payoutsEnabled: true, detailsSubmitted: true,
+    onlinePaymentsEnabled: true,
   });
-  ok('BEHAVIOUR: ready still carries the note (the whole honesty point)',
-    /still switched off/i.test(r5.html),
-    'a fully-onboarded account must NOT read as "you can take payments now"');
+  ok('BEHAVIOUR: a live, capable account reads as ON', ON_COPY_RE.test(r5.html),
+    'this is the state the whole phase exists to reach — it must say so');
+  ok('BEHAVIOUR: the ON state discloses the price', FEE_RE.test(r5.html),
+    'the first time a contractor sees 3.4% must not be on a payout statement');
+  ok('BEHAVIOUR: the retired "still switched off" copy is gone',
+    !/still switched off/i.test(r5.html),
+    'phase 2 copy on a phase 3 account tells a working tenant their payments do not work');
   ok('BEHAVIOUR: ready offers the Express dashboard',
     /data-connect-action="dashboard"/.test(r5.html));
   ok('BEHAVIOUR: livemode renders a LIVE badge', />LIVE</.test(r5.html));
 
   const r6 = renderWith(OWNER, {
     status: 'ready', label: 'Connected', connected: true, accountId: 'acct_test1', livemode: false,
+    onlinePaymentsEnabled: false,
   });
   ok('BEHAVIOUR: test-mode renders a TEST badge', />TEST</.test(r6.html),
     'the runbook is test-mode-first; the owner must be able to tell which account this is');
+  ok('BEHAVIOUR: a test-mode account never reads as live-enabled', !ON_COPY_RE.test(r6.html),
+    'fully onboarded in TEST mode is fully onboarded for nobody — mayCollectOnline says false');
+  // Added 2026-07-30 after mutation M19a: the 'ready' BLURB's capability branch
+  // was pinned only by a whole-file COUNT of `onlinePaymentsEnabled === true`
+  // occurrences. Collapsing that if/else to the unconditional ON blurb told a
+  // TEST-mode owner "a homeowner's card payment settles into this account's
+  // bank" — a false capability claim — while r5/r6 stayed green, because they
+  // only ever inspect copy emitted by _nbdConnectCapabilityNote, never the
+  // blurb. Assert the blurb itself, on the fixture that can expose it.
+  ok('BEHAVIOUR: a not-yet-enabled ready account never claims links or settlement',
+    !/can carry an online/.test(r6.html) && !/settles into this account/.test(r6.html),
+    'the blurb must branch on onlinePaymentsEnabled, not just describe the Stripe account');
 
   // An unrecognised status from a newer server must not be silently rendered as
   // one of the good states.

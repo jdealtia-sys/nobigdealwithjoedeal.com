@@ -1,6 +1,6 @@
 /**
- * tests/stripe-platform-only-payments.test.js — online card collection is
- * PLATFORM-ONLY until Stripe Connect ships.
+ * tests/stripe-platform-only-payments.test.js — where a homeowner's money is
+ * allowed to land, and what must be true before it moves.
  *
  * THE PROBLEM. Stripe serves two different money flows here through ONE client
  * on the platform's secret key:
@@ -14,21 +14,27 @@
  * their revenue as ours, and collecting funds on behalf of other businesses
  * (which is why Connect exists).
  *
- * STATUS 2026-07-29: Connect Express PHASE 1 has landed — connected accounts
- * and onboarding exist (functions/handlers/stripe-connect.js). What still does
- * NOT exist is any way to ROUTE money to those accounts, so the platform-only
- * gate remains necessary and this suite still guards it.
+ * STATUS 2026-07-3x: Connect Express PHASE 3 is LIVE — destination charges
+ * route tenant mints to connected accounts, gated by mayCollectOnline(); the
+ * platform tenant's own mints are unchanged (no routing, no platform fee). The
+ * blanket "no tenant may ever collect online" premise this file was born with
+ * is therefore RETIRED, exactly as the phase-1 rewrite note below predicted.
+ * What replaces it is CONFINEMENT plus a GATE — that is what the parts pin now.
  *
  * So this pins:
- *   Part 1 — the MONEY primitives (on_behalf_of / transfer_data /
- *            application_fee) are absent everywhere, and Connect ACCOUNT
- *            plumbing stays confined to the Connect files. When phase 3 lifts
- *            the gate, Part 1 is the assertion to rewrite — deliberately, as
- *            this one was — and the gate checks below are what
- *            mayCollectOnline() replaces. Never delete them.
- *   Part 2 — the server refuses non-platform tenants BEFORE any Stripe call.
- *   Part 3 — the client mirrors it, fails closed, and an invoice is never lost
- *            because a link failed.
+ *   Part 1 — the MONEY primitives are CONFINED, not absent: they may appear in
+ *            functions/stripe.js and nowhere else under functions/ — never
+ *            inside the four subscription-billing exports, and never in the two
+ *            Connect files (which stay accounts-only). Connect ACCOUNT plumbing
+ *            stays confined to those same two Connect files.
+ *   Part 2 — the three-way gate in createStripePaymentLink: platform tenant →
+ *            mint as before; a capable tenant with a live subscription →
+ *            destination mint with the platform fee; everyone else → 403
+ *            ONLINE_PAYMENTS_UNAVAILABLE, returned BEFORE any Stripe call.
+ *   Part 3 — the client capability mirror fails closed, caches only definitive
+ *            answers, and an invoice is never lost because a link failed.
+ *   Part 4 — the OTHER homeowner→contractor path (esign C5 auto-invoices) is
+ *            STILL platform-only; phase 3 deliberately did not port it.
  *
  * Zero deps.  Run: node tests/stripe-platform-only-payments.test.js
  */
@@ -48,9 +54,9 @@ function ok(name, cond, detail) {
   else { failed++; fails.push(name); console.log('  ✗ ' + name + (detail ? ' — ' + detail : '')); }
 }
 
-console.log('STRIPE — online collection is platform-only until Connect ships');
+console.log('STRIPE — where homeowner money lands: confinement + the three-way gate');
 
-// ── Part 1: Connect exists, but CANNOT route money yet ────────────────
+// ── Part 1: the money primitives are CONFINED, not absent ─────────────
 //
 // REWRITTEN 2026-07-29 (Connect phase 1), exactly as the original assertion
 // instructed: it asserted "no Connect plumbing anywhere in functions/", which
@@ -68,15 +74,44 @@ console.log('STRIPE — online collection is platform-only until Connect ships')
 //   (b) the ACCOUNT primitives are confined to the two Connect files, so
 //       account plumbing cannot quietly appear inside the subscription or
 //       invoice paths.
+//
+// REWRITTEN AGAIN 2026-07-3x (Connect phase 3), on the instruction the previous
+// rewrite left behind: phase 3 mints DESTINATION charges, so (a) fired — the
+// money primitives now exist, deliberately. The premise that replaces
+// "absent everywhere" is CONFINEMENT, which is the property that actually
+// protects the two flows from each other:
+//   (a') the money primitives live in functions/stripe.js and NOWHERE else
+//        under functions/. The allowlist is deliberately ONE file — not the two
+//        Connect files, which stay accounts-only so that reading either of them
+//        can never leave you wondering whether it moves money (their own
+//        containment loop, tests/stripe-connect.test.js:197-201, says the same
+//        thing from the other side).
+//   (a'') within stripe.js, the four SUBSCRIPTION-billing exports must stay
+//        money-primitive-free and connected-account-free: contractors paying us
+//        is a different flow from homeowners paying contractors, and the whole
+//        point of the confinement is that neither leaks into the other.
+//        (functions/handlers/seats.js needs no slice — it is covered by the
+//        directory walk above, which allows it zero money primitives at all.)
+//   (b) is UNCHANGED and still true: stripe.js gains no ACCOUNT primitive —
+//        the mint only reads connectState.accountId strings out of Firestore.
+//        (Note `transfers.createReversal` matches MONEY, not ACCOUNT.)
+// Phase 4 rewrites these premises again — deliberately. Never deletes them.
 {
   const fnDir = path.join(ROOT, 'functions');
-  // Routing money on someone else's behalf. NONE of these may exist yet.
-  const MONEY = /on_behalf_of|transfer_data|application_fee/;
+  // Routing money on someone else's behalf, plus the phase-3 recovery lever
+  // (a chargeback under destination routing debits the PLATFORM, so the mint's
+  // transfer is reversed). Allowed, but only in MONEY_FILES.
+  const MONEY = /on_behalf_of|transfer_data|application_fee|createReversal|transfers\.create/;
   // Creating/holding a connected account. Allowed, but only in the Connect files.
   const ACCOUNT = /stripeAccount|accounts\.create|accountLinks\.create|createLoginLink/;
   const CONNECT_FILES = new Set([
     path.join('functions', 'handlers', 'stripe-connect.js'),
     path.join('functions', 'stripe-connect-logic.js'),
+  ]);
+  // The ONE file allowed to name a money primitive. If this set ever grows,
+  // that is a design change to argue about in review, not a test to widen.
+  const MONEY_FILES = new Set([
+    path.join('functions', 'stripe.js'),
   ]);
 
   const moneyHits = [];
@@ -89,16 +124,18 @@ console.log('STRIPE — online collection is platform-only until Connect ships')
       if (!e.name.endsWith('.js')) continue;
       const rel = path.relative(ROOT, full);
       const src = decomment(fs.readFileSync(full, 'utf8'));
-      if (MONEY.test(src)) moneyHits.push(rel);
+      if (MONEY.test(src) && !MONEY_FILES.has(rel)) moneyHits.push(rel);
       if (ACCOUNT.test(src) && !CONNECT_FILES.has(rel)) accountHits.push(rel);
     }
   })(fnDir);
 
-  ok('no per-tenant MONEY routing anywhere in functions/ (so the gate is still required)',
+  ok('money routing is CONFINED to functions/stripe.js',
     moneyHits.length === 0,
     moneyHits.length
-      ? 'on_behalf_of / transfer_data / application_fee appeared in ' + moneyHits.join(', ')
-        + ' — that is the gate lift. Rewrite this assertion and Parts 2-4 deliberately, do not delete them.'
+      ? 'on_behalf_of / transfer_data / application_fee / createReversal / transfers.create appeared in '
+        + moneyHits.join(', ')
+        + ' — the mint and the dispute reversal are the only sanctioned homes. Move it back, or'
+        + ' change MONEY_FILES deliberately with a comment saying why.'
       : '');
 
   ok('Connect ACCOUNT plumbing stays inside the two Connect files',
@@ -108,14 +145,50 @@ console.log('STRIPE — online collection is platform-only until Connect ships')
         + ' — the subscription and invoice paths must not grow Connect plumbing sideways'
       : '');
 
-  // The phase-1 files themselves must exist, or the two checks above are
-  // vacuously true and this test would silently stop meaning anything.
-  ok('the Connect phase-1 files are present (these checks are not vacuous)',
+  // ── The four subscription-billing exports stay a separate flow ──────────
+  // Sliced by export boundary rather than regexed whole-file: stripe.js is the
+  // allowlisted money file now, so a whole-file assertion here would say
+  // nothing. Each slice runs from `exports.<name>` to the next `exports.`.
+  {
+    const s = decomment(read('functions/stripe.js'));
+    for (const name of ['createCheckoutSession', 'stripeWebhook', 'createCustomerPortalSession', 'getSubscriptionStatus']) {
+      const start = s.indexOf('exports.' + name);
+      const next = start === -1 ? -1 : s.indexOf('exports.', start + 8);
+      const slice = start === -1 ? '' : s.slice(start, next === -1 ? s.length : next);
+      ok('the ' + name + ' slice was located (this sweep is not vacuous)',
+        start !== -1 && slice.length > 200,
+        'export renamed or removed — re-anchor this slice before trusting the sweep below');
+      ok(name + ' routes no money and names no connected account',
+        slice !== '' && !MONEY.test(slice) && slice.indexOf('stripeAccount') === -1,
+        'subscription billing is contractors paying US — it must never gain destination routing,'
+          + ' a platform fee, or a stripeAccount header');
+    }
+  }
+
+  // The Connect files themselves must exist and the phase-3 fee primitive must
+  // be exported, or the checks above are vacuously true and this test would
+  // silently stop meaning anything.
+  ok('the Connect files are present (these checks are not vacuous)',
     fs.existsSync(path.join(ROOT, 'functions/handlers/stripe-connect.js'))
     && fs.existsSync(path.join(ROOT, 'functions/stripe-connect-logic.js')));
+  ok('the phase-3 fee primitive really exists (confinement is about something)',
+    typeof require('../functions/stripe-connect-logic.js').platformFeeCents === 'function',
+    'if platformFeeCents is gone there is no fee to confine and Part 2 pin 10 is theatre');
 }
 
-// ── Part 2: the server refuses non-platform tenants ───────────────────
+// ── Part 2: the three-way gate in createStripePaymentLink ─────────────
+//
+// REWRITTEN 2026-07-3x (Connect phase 3). The old premise was binary — platform
+// tenant or refusal — and it fired the moment the gate grew a middle branch.
+// The new premise is the three-way gate itself: (1) platform tenant mints
+// exactly as before, (2) a tenant whose connectAccounts mirror satisfies
+// mayCollectOnline() AND who holds a live subscription mints a DESTINATION
+// charge on their own account, (3) everyone else still gets 403
+// ONLINE_PAYMENTS_UNAVAILABLE — same error code, same before-any-Stripe-call
+// ordering, and the refusal branch still RETURNS rather than warning and
+// continuing. Every pin below is scoped to the handler slice: stripe.js is now
+// the allowlisted money file, so a whole-file regex would pass on text from the
+// subscription exports and prove nothing about the mint.
 {
   const s = read('functions/stripe.js');
   const code = decomment(s);
@@ -126,32 +199,189 @@ console.log('STRIPE — online collection is platform-only until Connect ships')
     'solo convention is companyId == uid; a platform admin without the claim must not be locked out');
   ok('the owner uid is env-overridable', /process\.env\.NBD_OWNER_UID/.test(code));
 
-  ok('createStripePaymentLink refuses non-platform tenants',
-    /if \(!isPlatformTenant\(decoded\)\) \{/.test(code));
+  // Handler slice: exports.createStripePaymentLink → exports.invoiceWebhook.
+  const hsStart = code.indexOf('exports.createStripePaymentLink');
+  const hsEnd = code.indexOf('exports.invoiceWebhook');
+  const hs = (hsStart > -1 && hsEnd > hsStart) ? code.slice(hsStart, hsEnd) : '';
+  ok('the createStripePaymentLink slice was located (every pin below is scoped to it)',
+    hs.length > 500, 'handler renamed/moved — re-anchor before trusting anything below');
+
+  // 1. The gate delegates to the shared pure predicates rather than re-deciding.
+  ok('stripe.js requires the Connect logic module',
+    /require\('\.\/stripe-connect-logic'\)/.test(code),
+    'the gate must reuse mayCollectOnline/platformFeeCents, not grow a second opinion');
+
+  // 2. Ordering is still the whole point: a capability check after the Stripe
+  //    call has already minted the link.
+  const platformAt = hs.indexOf('isPlatformTenant(decoded)');
+  const capAt = hs.indexOf('mayCollectOnline(');
+  const refuseAt = hs.indexOf('ONLINE_PAYMENTS_UNAVAILABLE');
+  const mintAt = hs.indexOf('paymentLinks.create');
+  ok('platform check → capability check → mint, in that order',
+    platformAt > -1 && capAt > platformAt && mintAt > capAt,
+    `isPlatformTenant@${platformAt} mayCollectOnline@${capAt} paymentLinks.create@${mintAt}`);
+  ok('the refusal happens BEFORE any Stripe call',
+    refuseAt > -1 && mintAt > refuseAt,
+    'a gate after paymentLinks.create has already taken the money');
+
+  // 3. Same refusal code as #1123 — it now means "capability absent", not
+  //    "platform-only" — and still 403, never 402.
   ok('it refuses with 403, not 402',
-    /res\.status\(403\)[\s\S]{0,200}ONLINE_PAYMENTS_UNAVAILABLE/.test(code),
+    /res\.status\(403\)[\s\S]{0,200}ONLINE_PAYMENTS_UNAVAILABLE/.test(hs),
     '402 reads as an upsell; this is a capability we must not exercise on their behalf');
 
-  // Ordering is the whole point: refusing after the Stripe call would still
-  // have minted the link.
-  const handlerAt = s.indexOf('exports.createStripePaymentLink');
-  const gateAt = s.indexOf('if (!isPlatformTenant(decoded))', handlerAt);
-  const stripeCallAt = s.indexOf('paymentLinks.create', handlerAt);
-  ok('the refusal happens BEFORE any Stripe call',
-    gateAt > handlerAt && stripeCallAt > gateAt,
-    'a gate after paymentLinks.create has already taken the money');
+  // 4. The refusal must RETURN. "Warn and continue" is the forbidden shape:
+  //    logging and then minting anyway routes the money regardless. Brace-match
+  //    the gate's OWN block — a loose window matches an unrelated later
+  //    `return;` and passes over a deleted one (the esign lesson, Part 4).
+  {
+    const gateAt = hs.indexOf('if (!capable || !liveSub) {');
+    let block = '';
+    if (gateAt !== -1) {
+      const open = hs.indexOf('{', gateAt);
+      let depth = 0;
+      for (let i = open; i < hs.length; i++) {
+        if (hs[i] === '{') depth++;
+        else if (hs[i] === '}') { depth--; if (depth === 0) { block = hs.slice(open, i + 1); break; } }
+      }
+    }
+    ok('the refusal branch RETURNS (never warn-and-continue)',
+      gateAt !== -1 && block !== '' && /\breturn;/.test(block),
+      'the `if (!capable || !liveSub)` block must return before the mint');
+  }
+
+  // 5. Test-mode is opt-in through the ONE sanctioned helper. The strict
+  //    `=== '1'` itself is pinned + unit-tested against the logic module
+  //    (tests/stripe-connect.test.js) — that is where the string lives.
+  ok('allowTestMode comes from connectTestModeAllowed(process.env)',
+    /connectTestModeAllowed\(process\.env\)/.test(hs),
+    'an inline truthy env read would let any non-empty value enable test-mode charging');
+
+  // 6. D6: a Connect mint additionally requires a LIVE subscription — the same
+  //    status set as the checkout double-bill guard, INCLUDING past_due. A
+  //    dunning tenant still holds a chargeable sub and must keep collecting
+  //    from homeowners (rule: checkout-gate-live-sub-not-entitlement), which is
+  //    why this is NOT shared.js requirePaidSubscription.
+  ok('the mint reads the tenant subscription doc',
+    /subscriptions\//.test(hs) && /hasLiveSubscription\(/.test(hs));
+  ok('the live-sub status set includes past_due (dunning is not a charge block)',
+    /CONNECT_MINT_LIVE_SUB = \{[\s\S]{0,200}past_due/.test(code),
+    'requirePaidSubscription excludes past_due/unpaid/incomplete — using it here would cut off'
+      + ' a tenant mid-dunning from collecting their own money');
+
+  // 7. D5: ownership is TENANCY, not authorship — an owner regenerating a rep's
+  //    link is not an intruder. Legacy invoices with no companyId stamp fall
+  //    back to the creator's uid.
+  const ownAt = hs.indexOf('invoice.companyId');
+  ok('ownership is checked by tenancy with a legacy uid fallback',
+    ownAt > -1 && /invoice\.createdBy === decoded\.uid/.test(hs));
+  ok('the ownership check precedes the mint', ownAt > -1 && mintAt > ownAt);
+
+  // 8. D5: companyId rides in BOTH metadata sets so the webhook tamper check
+  //    can key on tenancy. The shared const is the point — two hand-written
+  //    literals drift. The payment_intent_data literal ALSO proves that link
+  //    payment_intent_data carries metadata and nothing else.
+  ok('linkMetadata carries companyId',
+    /linkMetadata = \{[\s\S]{0,220}companyId/.test(hs));
+  ok('the same object is used for the link metadata',
+    /metadata:\s*linkMetadata/.test(hs));
+  ok('payment_intent_data carries ONLY that metadata',
+    /payment_intent_data:\s*\{\s*metadata:\s*linkMetadata\s*\}/.test(hs),
+    'on a PaymentLink, payment_intent_data accepts metadata/statement_descriptor/transfer_group'
+      + ' only — routing params are TOP-LEVEL, so anything else here silently does nothing');
+
+  // 9. D1: the destination-charge params themselves, at the mint.
+  const mintTail = mintAt > -1 ? hs.slice(mintAt) : '';
+  ok('the mint routes on behalf of the connected account',
+    /on_behalf_of:\s*connectState\.accountId/.test(mintTail));
+  ok('the mint sets the transfer destination to the connected account',
+    /transfer_data:\s*\{\s*destination:\s*connectState\.accountId\s*\}/.test(mintTail));
+  ok('the mint carries the computed platform fee',
+    /application_fee_amount:\s*feeCents/.test(mintTail));
+
+  // 10. D2: the fee can only be reached through the gate. A fee computed above
+  //     the capability check would be a fee on an unrouted platform mint.
+  ok('the platform fee sits AFTER the capability check',
+    hs.indexOf('application_fee_amount') > capAt && capAt > -1,
+    `application_fee_amount@${hs.indexOf('application_fee_amount')} mayCollectOnline@${capAt}`);
 }
 
-// ── Part 3: the client mirrors it and never loses an invoice ──────────
+// ── Part 3: the client capability MIRROR (and no lost invoices) ───────
+//
+// REWRITTEN 2026-07-3x (Connect phase 3). The old check pinned a synchronous
+// platform-uid comparison, which was the whole client story while the gate was
+// binary. Phase 3 makes the answer per-tenant and asynchronous (a Firestore
+// read of the connectAccounts mirror), so the pins move to the properties that
+// still matter: the SAME four conditions the server predicate uses, fail-closed
+// on anything unresolved, a cache that only ever stores a definitive answer,
+// and an awaited short-circuit before the call. It is a MIRROR, never the
+// authority — the server re-checks and 403s.
 {
   const c = decomment(read('docs/pro/js/invoice-pipeline.js'));
 
-  ok('client has a matching capability check', /function _canCollectOnline\(\)/.test(c));
-  ok('it fails CLOSED on an unresolved identity',
-    /catch \(e\) \{\s*return false;/.test(c),
-    'an unknown identity must not be treated as the platform tenant');
-  ok('generateStripePaymentLink short-circuits for a tenant',
-    /if \(!_canCollectOnline\(\)\) \{[\s\S]{0,300}ONLINE_PAYMENTS_UNAVAILABLE/.test(c));
+  ok('client has a matching capability check', /async function _canCollectOnline\(/.test(c),
+    'it must be async now: the answer comes from a Firestore read, not a uid comparison');
+
+  // Brace-match the function body. Every condition pin below is scoped to it —
+  // whole-file regexes would match the render paths that merely consume the
+  // answer, and would pass over a deleted condition.
+  let body = '';
+  {
+    const at = c.indexOf('async function _canCollectOnline(');
+    if (at !== -1) {
+      const open = c.indexOf('{', at);
+      let depth = 0;
+      for (let i = open; i < c.length; i++) {
+        if (c[i] === '{') depth++;
+        else if (c[i] === '}') { depth--; if (depth === 0) { body = c.slice(open, i + 1); break; } }
+      }
+    }
+  }
+  ok('the capability function body was located (the pins below are scoped)', body.length > 300);
+
+  // The four conditions of mayCollectOnline(), mirrored verbatim in intent.
+  ok('it requires an acct_ id, live charges, finished onboarding and livemode',
+    /startsWith\('acct_'\)/.test(body)
+    && /chargesEnabled === true/.test(body)
+    && /detailsSubmitted === true/.test(body)
+    && /livemode === true/.test(body),
+    'any missing condition lets the client offer a link the server will refuse — or worse, mint'
+      + ' against a test-mode account');
+  ok('the platform tenant still short-circuits to allowed',
+    /__NBD_OWNER_UID/.test(body),
+    'the platform mint is unchanged by phase 3 and must not depend on a connectAccounts doc');
+  ok('it reads the connectAccounts mirror, not the rate-limited callable',
+    /'connectAccounts'/.test(body) && !/getConnectStatus/.test(body),
+    'getConnectStatus is per-uid rate-limited and is not safe to call per render');
+  ok('it fails CLOSED on an unresolved identity or a failed read',
+    /catch \(e\) \{\s*return false;/.test(body),
+    'an unknown identity must not be treated as a capable tenant');
+  // REWRITTEN 2026-07-30. The previous single assertion here claimed — in its
+  // own comment — to defend against an `if (false) { … }` wrapper around the
+  // cache read. Mutation M12 proved it did not: it was a bare statement-presence
+  // regex, so wrapping the statement in a disabled block preserved the substring
+  // and the suite stayed green with the cache never consulted. The same
+  // assertion's other half ("only a definitive answer is cached") was pinned by
+  // nothing at all — caching a false on the unresolved-identity path, the exact
+  // #1139 late-claims trap, also stayed green. Split into two assertions that
+  // each bite:
+  //   (a) ADJACENCY, not presence — the read must be the first statement of the
+  //       try, so any wrapper or relocation breaks the match.
+  //   (b) a NEGATIVE pin on the early-return path — it must not write the cache.
+  ok('the cache read is the first thing the mirror does',
+    /try \{\s*if \(_collectOnlineCache !== null\) return _collectOnlineCache;/.test(body),
+    'a wrapped or relocated read leaves the identifiers in place while disabling the cache');
+  ok('a not-yet-resolved identity is never cached',
+    !/if \(!companyId\)[^\n]*_collectOnlineCache/.test(body),
+    'claims hydrate late — caching a not-yet-resolved "false" wedges the tenant for the page');
+
+  ok('generateStripePaymentLink AWAITS the mirror before calling the server',
+    /if \(!\(await _canCollectOnline\(\)\)\) \{[\s\S]{0,300}ONLINE_PAYMENTS_UNAVAILABLE/.test(c),
+    'a missing await makes the Promise truthy and every tenant passes the client gate');
+  ok('a server refusal is normalised back onto error.code',
+    /\/ONLINE_PAYMENTS_UNAVAILABLE\/\.test\(String\(error\.message/.test(c),
+    'markPaid regen and the create-invoice path both branch on error.code — an un-normalised'
+      + ' server 403 falls through to the generic warning and leaves a stale link in place');
 
   // The duplicate-invoice bug: link generation must not sit inside the same
   // try as invoice creation, or a link failure reads as a creation failure.
@@ -170,9 +400,25 @@ console.log('STRIPE — online collection is platform-only until Connect ships')
   ok('the invoice SMS drops the link line when there is no link',
     /link\s*\n?\s*\? `Your \$\{_invoiceCompany\(\)\} invoice is ready\. Payment link/.test(c)
     || /\? `Your \$\{_invoiceCompany\(\)\} invoice is ready\. Payment link: \$\{link\}`/.test(c));
+
+  // D12: the customer-tasks Pay button read `inv.paymentUrl`, a field nothing
+  // has ever written — so the one place a homeowner-facing surface offered to
+  // take a card payment was dead markup. Now that tenants can actually collect,
+  // it must key on the field the pipeline really writes.
+  const ct = decomment(read('docs/pro/js/customer-tasks-ui.js'));
+  ok('the customer Pay anchor keys on the field the pipeline writes',
+    /inv\.stripePaymentLink/.test(ct));
+  ok('no reference to the phantom paymentUrl field survives',
+    !/inv\.paymentUrl/.test(ct),
+    'a field nobody writes renders a button nobody can click');
 }
 
 // ── Part 4: the OTHER homeowner→contractor path is gated too ──────────
+// UNCHANGED BY PHASE 3, deliberately: phase 3 lifted the payment-link gate but
+// did NOT port C5 — tenant esign auto-invoices stay platform-only, because a
+// paid hosted invoice carries no invoiceId metadata and would never credit the
+// CRM ledger (see docs/deploy/10-stripe-connect.md and the note in esign.js).
+// So every assertion below still asserts what it always did.
 // Found while scoping Connect (2026-07-29): createStripePaymentLink was gated
 // by #1123, but functions/integrations/esign.js createStripeInvoiceForEstimate
 // — which runs from the BoldSign signature webhook on every signed estimate —

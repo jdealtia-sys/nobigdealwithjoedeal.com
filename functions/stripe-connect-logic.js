@@ -156,6 +156,59 @@ function mayCollectOnline(state, opts) {
   return true;
 }
 
+// ── Platform fee (phase 3) ──────────────────────────────────────────────
+// 340 bps + 30¢ = Stripe's 2.9% + 30¢ pass-through plus a 0.5% platform
+// margin. Charged ONLY on Connect-routed tenant mints — the platform
+// tenant's own mints carry no fee. Input is strict integer cents: anything
+// else fails CLOSED to 0. Clamped strictly below the charge so the
+// tenant's settlement is never zero or negative. (The mint already refuses
+// balances under 100 cents — stripe.js MIN_CENTS — so the clamp is a
+// backstop, not the normal path.)
+const PLATFORM_FEE_BPS = 340;
+const PLATFORM_FEE_FLAT_CENTS = 30;
+function platformFeeCents(chargedCents) {
+  if (typeof chargedCents !== 'number' || !Number.isInteger(chargedCents) || chargedCents <= 0) return 0;
+  const fee = Math.round((chargedCents * PLATFORM_FEE_BPS) / 10000) + PLATFORM_FEE_FLAT_CENTS;
+  return Math.max(0, Math.min(fee, chargedCents - 1));
+}
+
+// ── Dispute reversal decision (phase 3) ─────────────────────────────────
+// Under destination routing a chargeback debits the PLATFORM balance. The
+// transfer attached to the disputed charge is the recovery lever: reverse
+// the DISPUTED amount (clamped to what remains reversible) so the
+// contractor, not the platform, bears the loss — and a PARTIAL dispute
+// never over-recovers from the contractor. Pure decision — the webhook
+// does the I/O and retrieves the charge with the transfer expanded. A
+// platform-tenant charge has no transfer. amountCents === null means the
+// transfer object was not expanded: the caller omits the amount and Stripe
+// reverses the full remainder (can never over-reverse).
+function decideDisputeReversal(dispute, charge) {
+  const d = dispute || {};
+  const c = charge || {};
+  const t = c.transfer;
+  const transferId = typeof t === 'string' ? t : str(t && t.id);
+  if (!transferId.startsWith('tr_')) return { reverse: false, transferId: null, amountCents: 0, reason: 'no_transfer' };
+  const disputed = Number(d.amount);
+  if (!Number.isInteger(disputed) || disputed <= 0) return { reverse: false, transferId, amountCents: 0, reason: 'malformed' };
+  const tAmount = (t && typeof t === 'object') ? Number(t.amount) : NaN;
+  const tReversed = (t && typeof t === 'object') ? (Number(t.amount_reversed) || 0) : 0;
+  if (Number.isInteger(tAmount) && tAmount > 0) {
+    const remaining = tAmount - tReversed;
+    if (remaining <= 0) return { reverse: false, transferId, amountCents: 0, reason: 'nothing_to_reverse' };
+    return { reverse: true, transferId, amountCents: Math.min(disputed, remaining), reason: 'destination_charge' };
+  }
+  return { reverse: true, transferId, amountCents: null, reason: 'destination_charge' };
+}
+
+// ── Test-mode opt-in (phase 3) ──────────────────────────────────────────
+// The ONLY sanctioned source of mayCollectOnline's allowTestMode. Set in
+// the emulator/QA env (functions/.env.local, demo- projects only), NEVER a
+// prod default. Takes the env object as an argument so this module stays
+// pure and unit-testable. Strict string '1' — never truthiness.
+function connectTestModeAllowed(env) {
+  return !!env && env.NBD_CONNECT_ALLOW_TEST_MODE === '1';
+}
+
 /** Human-facing status for the Settings card. Never invents reassurance. */
 function describeConnectStatus(state) {
   const s = state || {};
@@ -178,6 +231,11 @@ module.exports = {
   decideWebhookApply,
   mayCollectOnline,
   describeConnectStatus,
+  platformFeeCents,
+  decideDisputeReversal,
+  connectTestModeAllowed,
+  PLATFORM_FEE_BPS,
+  PLATFORM_FEE_FLAT_CENTS,
   REQUESTED_CAPABILITIES,
   CLAIM_STALE_MS,
 };

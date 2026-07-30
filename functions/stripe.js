@@ -33,7 +33,7 @@ const Stripe = require('stripe');
 const STRIPE_API_VERSION = '2023-10-16';
 
 // ═══════════════════════════════════════════════════════════════════════
-// PLATFORM-ONLY PAYMENT COLLECTION — read this before touching the gate.
+// WHERE THE MONEY GOES — read this before touching the gate.
 // ═══════════════════════════════════════════════════════════════════════
 // Stripe here serves TWO different money flows through ONE client on the
 // PLATFORM's secret key:
@@ -43,25 +43,25 @@ const STRIPE_API_VERSION = '2023-10-16';
 //   2. Invoice payment links — a contractor's HOMEOWNER paying the CONTRACTOR
 //      for a roof. That money is the contractor's. It is NOT ours to collect.
 //
-// There is no Stripe Connect in this codebase: no `stripeAccount`, no
-// `on_behalf_of`, no `transfer_data`, no `accounts.create` — grep and see.
-// getStripe() memoizes a single client on STRIPE_SECRET_KEY. So flow 2 settled
-// every tenant's customer payments into the PLATFORM balance. That was correct
-// when we were the only tenant; it stopped being correct the moment anyone else
-// could sign up, and the consequences are not cosmetic:
+// REWRITTEN 2026-07-3x (Connect phase 3). The premise this block used to carry
+// — "there is no Stripe Connect in this codebase, grep and see" — is now FALSE,
+// deliberately. Flow 2 used to settle every tenant's customer payments into the
+// PLATFORM balance, correct while we were the only tenant but not one minute
+// after anyone else could sign up. The reasons were never cosmetic:
 //   - chargebacks hit our account and our dispute rate, for work we did not do
 //   - the 1099-K reports their revenue as ours
 //   - collecting funds on behalf of other businesses is regulated activity;
 //     Connect exists precisely so a platform doesn't have to be licensed for it
 //   - we would owe every contractor a manual payout, forever
 //
-// Until Connect Express ships (per-tenant account + onboarding in Settings,
-// links minted `on_behalf_of` theirs), online collection is restricted to the
-// platform tenant. Contractors still invoice normally and record payment via
-// markPaid — check, cash, or a card taken on their own terminal.
+// So createStripePaymentLink now mints a DESTINATION charge for a tenant whose
+// connectAccounts/{companyId} mirror satisfies mayCollectOnline() AND who holds
+// a live subscription — that money settles into THEIR account, net of the
+// platform fee. The platform tenant keeps minting on the platform account,
+// fee-free. Everyone else is still refused (403) and collects via markPaid.
 //
-// DO NOT relax this to "warn and continue". Minting the link is the act that
-// takes the money; a warning the rep clicks past does not change where it goes.
+// DO NOT relax the refusal to "warn and continue". Minting the link is the act
+// that takes the money; a warning the rep clicks past does not change where it goes.
 const NBD_OWNER_UID = process.env.NBD_OWNER_UID || '1phDvAVXHSg82wDLegAbQFq14Ci1';
 
 // True only for the platform tenant. Solo convention is companyId == owner uid,
@@ -71,6 +71,24 @@ function isPlatformTenant(decoded) {
   if (!decoded) return false;
   const companyId = decoded.companyId || null;
   return decoded.uid === NBD_OWNER_UID || companyId === NBD_OWNER_UID;
+}
+
+const connectLogic = require('./stripe-connect-logic');
+
+// D6: Connect-routed mints additionally require a LIVE subscription. Same
+// status set as createCheckoutSession's double-bill guard — which keeps its
+// OWN in-function copy: the LIVE_SUB_STATUS literal there is pinned INSIDE
+// that block by tests/gauntlet-regressions.test.js:995-1004, so do NOT
+// hoist/deduplicate. Deliberately NOT shared.js requirePaidSubscription
+// (shared.js:132-135): that helper excludes past_due/unpaid/incomplete —
+// but a dunning tenant still holds a chargeable sub and must keep
+// collecting from homeowners (rule: checkout-gate-live-sub-not-entitlement).
+// Consequence, accepted: access-code/free tenants (no stripeSubscriptionId)
+// cannot Connect-mint even when fully onboarded.
+const CONNECT_MINT_LIVE_SUB = { active: 1, trialing: 1, past_due: 1, unpaid: 1, incomplete: 1 };
+function hasLiveSubscription(sub) {
+  const s = sub || {};
+  return !!(s.stripeSubscriptionId && CONNECT_MINT_LIVE_SUB[String(s.status)]);
 }
 
 // Shared helpers (B2).
@@ -1048,21 +1066,42 @@ exports.createStripePaymentLink = onRequest(
     if (authResult.error) { res.status(authResult.error.status).json(authResult.error.body); return; }
     const { decoded } = authResult;
 
-    // Platform-only until Connect ships — see the block comment at the top of
-    // this file. Refused BEFORE any Stripe call, so no link is ever minted for
-    // a tenant, and 403 (not 402): this is not an upsell, it is a capability
-    // the platform must not exercise on their behalf.
+    // ── Three-way capability gate (#1123 lift, phase 3) ──────────────────
+    //   1. Platform tenant → mint exactly as before: no destination routing,
+    //      no fee (isPlatformTenant stays the fast path; D2: the fee never
+    //      applies to the platform tenant's own mints).
+    //   2. Other tenant with a ready Connect account (mayCollectOnline over
+    //      the admin-SDK-only connectAccounts/{companyId} mirror) AND a live
+    //      subscription (incl. past_due — see hasLiveSubscription) →
+    //      destination-charge mint on their behalf.
+    //   3. Everyone else → 403 ONLINE_PAYMENTS_UNAVAILABLE. Same error code
+    //      as before, refusal still BEFORE any Stripe call, and the refusal
+    //      branch RETURNS — never "warn and continue".
+    const tenantId = decoded.companyId || decoded.uid;
+    let connectState = null; // null ⇒ platform mint (no destination, no fee)
     if (!isPlatformTenant(decoded)) {
-      logger.info('payment_link_refused_non_platform_tenant', {
-        uid: decoded.uid,
-        companyId: decoded.companyId || null,
-      });
-      res.status(403).json({
-        error: 'ONLINE_PAYMENTS_UNAVAILABLE',
-        message: 'Online card payment isn\'t available for your account yet. '
-          + 'Send the invoice and record check, cash or card under Mark Paid.',
-      });
-      return;
+      const gateDb = getFirestore();
+      const [connectSnap, subSnap] = await Promise.all([
+        gateDb.doc('connectAccounts/' + tenantId).get(),
+        gateDb.doc('subscriptions/' + tenantId).get(),
+      ]);
+      const state = connectSnap.exists ? (connectSnap.data() || {}) : null;
+      const allowTestMode = connectLogic.connectTestModeAllowed(process.env); // D9
+      const capable = !!state && connectLogic.mayCollectOnline(state, { allowTestMode });
+      const liveSub = hasLiveSubscription(subSnap.exists ? subSnap.data() : null);
+      if (!capable || !liveSub) {
+        logger.info('payment_link_refused_tenant', {
+          uid: decoded.uid, companyId: tenantId,
+          reason: !capable ? 'connect_not_ready' : 'no_live_subscription',
+        });
+        res.status(403).json({
+          error: 'ONLINE_PAYMENTS_UNAVAILABLE',
+          message: 'Online card payment isn\'t available for your account yet. '
+            + 'Send the invoice and record check, cash or card under Mark Paid.',
+        });
+        return;
+      }
+      connectState = state;
     }
 
     try {
@@ -1084,8 +1123,15 @@ exports.createStripePaymentLink = onRequest(
 
       const invoice = invoiceSnap.data();
 
-      // Validate ownership
-      if (invoice.createdBy !== decoded.uid) {
+      // D5: ownership = TENANCY, not authorship. Any authenticated member of
+      // the invoice's tenant may mint or regenerate (the owner regenerating a
+      // rep's link; markPaid's balance-change regen from any seat). Legacy
+      // invoices without a companyId stamp fall back to the creator's uid.
+      const invoiceTenant = invoice.companyId || null;
+      const sameTenant = invoiceTenant
+        ? invoiceTenant === tenantId
+        : invoice.createdBy === decoded.uid;
+      if (!sameTenant) {
         res.status(403).json({ error: 'Unauthorized' });
         return;
       }
@@ -1230,6 +1276,19 @@ exports.createStripePaymentLink = onRequest(
         }
       }
 
+      // D2: platform fee, Connect mints only (3.4% + 30 cents = Stripe
+      // 2.9%+30c pass-through + 0.5% platform margin; clamped below the
+      // charge; balanceDueCents is already >= MIN_CENTS here).
+      const feeCents = connectState ? connectLogic.platformFeeCents(balanceDueCents) : 0;
+      // D5: companyId in BOTH metadata sets so invoiceWebhook's tamper check
+      // can key on tenancy (legacy links carry only userId — see the webhook
+      // fallback). chargedCents unchanged (#980).
+      const linkMetadata = {
+        invoiceId: String(invoiceId),
+        userId: decoded.uid,
+        companyId: tenantId,
+        chargedCents: String(balanceDueCents),
+      };
       const paymentLink = await stripe.paymentLinks.create({
         line_items: chargeLineItems,
         // Single-use: without this the link is reusable and a homeowner (or a
@@ -1237,21 +1296,40 @@ exports.createStripePaymentLink = onRequest(
         // payment_intent the event-idempotency guard can't dedupe — an
         // uncredited overcharge. One completed session closes the link.
         restrictions: { completed_sessions: { limit: 1 } },
-        // chargedCents lets the webhook credit the ACTUAL amount this link
-        // collects instead of assuming the full invoice total.
-        metadata: { invoiceId: String(invoiceId), userId: decoded.uid, chargedCents: String(balanceDueCents) },
-        payment_intent_data: {
-          metadata: { invoiceId: String(invoiceId), userId: decoded.uid, chargedCents: String(balanceDueCents) },
-        },
+        metadata: linkMetadata,
+        payment_intent_data: { metadata: linkMetadata },
         after_completion: {
           type: 'redirect',
           redirect: {
             url: `https://nobigdealwithjoedeal.com/pro/invoice-success.html?invoiceId=${encodeURIComponent(invoiceId)}`,
           },
         },
+        // D1: DESTINATION charge minted for the tenant's connected account
+        // (settlement merchant = connected account). These three are
+        // TOP-LEVEL PaymentLink create params — payment_intent_data on links
+        // carries only metadata/statement_descriptor/transfer_group. Every
+        // object (plink_, session, PI, charge, dispute) stays on the
+        // PLATFORM account, so the prior-plink_ deactivation above, the
+        // single-use restriction, invoiceWebhook's payment_intent.succeeded
+        // flow, and the invoice-success redirect keep working unchanged.
+        // The fee nets out of the tenant's SETTLEMENT, not the charge — the
+        // PI's amount/amount_received remain the full homeowner payment.
+        // No statement_descriptor: with the tenant as settlement merchant,
+        // Stripe uses the CONNECTED account's business-profile descriptor,
+        // which is exactly what the homeowner should see.
+        ...(connectState ? {
+          on_behalf_of: connectState.accountId,
+          transfer_data: { destination: connectState.accountId },
+          application_fee_amount: feeCents,
+        } : {}),
       });
 
-      logger.info('payment_link_created', { invoiceId, uid: decoded.uid, paymentLinkId: paymentLink.id });
+      logger.info('payment_link_created', {
+        invoiceId, uid: decoded.uid, paymentLinkId: paymentLink.id,
+        connect: !!connectState,
+        destination: connectState ? connectState.accountId : null,
+        feeCents,
+      });
       res.json({ url: paymentLink.url, paymentLinkId: paymentLink.id });
 
     } catch (e) {
@@ -1260,6 +1338,60 @@ exports.createStripePaymentLink = onRequest(
     }
   }
 );
+
+// ── Phase-3 payment-event visibility (D3) ────────────────────────────────
+// Mirrors the E1 dunning pattern (stripeWebhook invoice.payment_failed,
+// stripe.js:795-855): email_queue + lead activity + Slack. Best-effort —
+// failures log-and-continue so an alert hiccup never 500s the webhook after
+// the critical work (e.g. a reversal) has already committed.
+async function alertInvoicePaymentEvent(db, opts) {
+  try {
+    if (opts.uid) {
+      const email = (await getAuth().getUser(opts.uid)).email;
+      if (email) {
+        await db.collection('email_queue').add({
+          to: email,
+          subject: opts.emailSubject,
+          bodyPlain: opts.emailBody,
+          status: 'pending', // worker filters on status, not source
+          createdAt: FieldValue.serverTimestamp(),
+          source: opts.source || 'stripe_dunning',
+        });
+      }
+    }
+    if (opts.leadId && opts.activity) {
+      await db.collection('leads/' + opts.leadId + '/activity').add(
+        Object.assign({}, opts.activity, { createdAt: FieldValue.serverTimestamp() }));
+    }
+    const slack = require('./integrations/slack'); // same in-function require as the E1 wing
+    if (typeof slack.postSlack === 'function') {
+      await slack.postSlack({ text: opts.slackText, blocks: opts.slackBlocks });
+    }
+  } catch (e) {
+    logger.warn('payment_event_alert_failed', { invoiceId: opts.invoiceId || null, err: e.message });
+  }
+}
+
+// Resolve mint context from a charge/dispute. The PI's metadata carries
+// invoiceId/userId/companyId (payment_intent_data.metadata is NOT copied
+// onto the Charge — always read the PI). The invoice read is for
+// leadId/ownership VISIBILITY ONLY — never mutated by any phase-3 branch
+// (refund/dispute ledger unwind is deferred to phase 4). Errors PROPAGATE:
+// the outer catch deletes the stripe_events marker so Stripe's retry
+// re-resolves — safe because every effect upstream is idempotency-keyed.
+async function resolveInvoiceContext(db, stripe, paymentIntentId) {
+  let meta = {};
+  if (paymentIntentId) {
+    const pi = await stripe.paymentIntents.retrieve(String(paymentIntentId));
+    meta = pi.metadata || {};
+  }
+  let invoice = null;
+  if (meta.invoiceId) {
+    const snap = await db.collection('invoices').doc(String(meta.invoiceId)).get();
+    invoice = snap.exists ? snap.data() : null;
+  }
+  return { meta, invoice };
+}
 
 exports.invoiceWebhook = onRequest(
   {
@@ -1375,7 +1507,17 @@ exports.invoiceWebhook = onRequest(
             const invSnap = await tx.get(invRef);
             if (!invSnap.exists) return { skipped: 'not_found' };
             const inv = invSnap.data();
-            if (claimedUserId && inv.createdBy !== claimedUserId) {
+            // D5: tenancy tamper check. Phase-3 mints stamp companyId into PI
+            // metadata — compare tenancy when both sides have it. Links minted
+            // BEFORE the rekey carry only userId: fall back to the original
+            // createdBy comparison for those (legacy invoices may also lack
+            // companyId). Absent metadata still passes, as before.
+            const claimedCompanyId = metadata.companyId;
+            if (claimedCompanyId && inv.companyId) {
+              if (inv.companyId !== claimedCompanyId) {
+                return { skipped: 'owner_mismatch', actualCompanyId: inv.companyId, actualCreatedBy: inv.createdBy };
+              }
+            } else if (claimedUserId && inv.createdBy !== claimedUserId) {
               return { skipped: 'owner_mismatch', actualCreatedBy: inv.createdBy };
             }
             // Idempotency ledger: this exact payment was already credited.
@@ -1386,6 +1528,10 @@ exports.invoiceWebhook = onRequest(
             // cents) cumulatively onto any prior payment — the link charges only
             // the outstanding balance, and a rep may have recorded a cash deposit
             // first. Mirrors the client markPaid() cumulative math.
+            // Destination-charge note: the platform fee nets out of the tenant
+            // SETTLEMENT, not the charge — amount_received is still the full
+            // homeowner payment, so the payments[] ledger contract
+            // (money-dashboard/analytics-kpi/leaderboard paymentsOf) is unchanged.
             const total = Number(inv.total) || 0;
             const receivedCents = Number(paymentIntent.amount_received);
             const received = Number.isFinite(receivedCents) && receivedCents > 0
@@ -1436,6 +1582,8 @@ exports.invoiceWebhook = onRequest(
             // Metadata tampering — event recorded, but not marked paid.
             logger.error('invoiceWebhook: metadata userId mismatch', {
               invoiceId, claimedUserId, actualCreatedBy: creditResult.actualCreatedBy,
+              claimedCompanyId: metadata.companyId || null,
+              actualCompanyId: creditResult.actualCompanyId || null,
             });
           } else if (creditResult.skipped === 'already_applied') {
             logger.info('invoiceWebhook: paymentIntent already credited — idempotent skip',
@@ -1501,6 +1649,195 @@ exports.invoiceWebhook = onRequest(
               }
             }
           }
+        }
+      } else if (event.type === 'charge.dispute.created') {
+        // API-version note for every branch below: webhook payloads arrive in
+        // the ENDPOINT's configured version (2026-02-25.clover today) while
+        // this SDK client is pinned to STRIPE_API_VERSION '2023-10-16' for the
+        // calls it MAKES. So read event fields off event.data.object exactly as
+        // delivered, and treat retrieve() results as 2023-10-16 shapes (that is
+        // where charge.transfer comes from).
+        //
+        // D3: under destination routing a chargeback DEBITS THE PLATFORM
+        // (plus Stripe's dispute fee). Recovery = reverse the transfer
+        // attached to the disputed charge so the contractor bears the loss.
+        // Reversal FIRST and its errors PROPAGATE (marker-delete → Stripe
+        // retry re-runs it; the dispute-keyed idempotencyKey makes the
+        // re-run a no-op). Alerts after, best-effort. NO invoice-ledger
+        // mutation (phase 4).
+        const dispute = event.data.object;
+        const charge = await stripe.charges.retrieve(String(dispute.charge), { expand: ['transfer'] });
+        const decision = connectLogic.decideDisputeReversal(dispute, charge);
+        let reversalId = null;
+        if (decision.reverse) {
+          const revParams = { metadata: { disputeId: String(dispute.id), source: 'nbd_dispute_auto_reversal' } };
+          if (decision.amountCents != null) revParams.amount = decision.amountCents;
+          const reversal = await stripe.transfers.createReversal(decision.transferId, revParams,
+            { idempotencyKey: 'nbd-dispute-rev-' + dispute.id });
+          reversalId = (reversal && reversal.id) || null;
+          logger.warn('dispute_transfer_auto_reversed', {
+            disputeId: dispute.id, transferId: decision.transferId, chargeId: charge.id,
+            amountCents: decision.amountCents, disputeAmountCents: dispute.amount || 0,
+          });
+        } else {
+          logger.warn('dispute_no_transfer_to_reverse', {
+            disputeId: dispute.id, chargeId: String(dispute.charge), reason: decision.reason,
+          });
+        }
+
+        const { meta, invoice } = await resolveInvoiceContext(db, stripe, dispute.payment_intent);
+        const amount = ((dispute.amount || 0) / 100).toFixed(2);
+        const dueBy = (dispute.evidence_details && dispute.evidence_details.due_by)
+          ? new Date(dispute.evidence_details.due_by * 1000).toISOString().slice(0, 10)
+          : null;
+        const disputeUid = meta.userId || (invoice && invoice.createdBy) || null;
+        const disputeInvoiceId = meta.invoiceId ? String(meta.invoiceId) : null;
+        await alertInvoicePaymentEvent(db, {
+          uid: disputeUid,
+          leadId: (invoice && invoice.leadId) || null,
+          invoiceId: disputeInvoiceId,
+          source: 'stripe_dispute',
+          emailSubject: 'Chargeback opened — $' + amount + ' — NBD Pro',
+          emailBody:
+            'A customer has disputed a card payment (chargeback).\n\n' +
+            'Invoice: ' + (disputeInvoiceId || 'n/a') + '\n' +
+            'Amount:  $' + amount + '\n' +
+            'Reason:  ' + (dispute.reason || 'unknown') + '\n' +
+            (decision.reverse
+              ? '\nThe disputed amount has been recovered from your Stripe payout balance.\n'
+              : '\nThis charge was collected on the platform account — nothing was pulled from a payout balance.\n') +
+            (dueBy ? 'Evidence is due to Stripe by ' + dueBy + '.\n' : '') +
+            '\nSubmit your evidence (contract, signed completion, photos, texts) in the Stripe dashboard before the deadline or the dispute is lost by default.',
+          slackText: '⚠️ Chargeback opened ($' + amount + ')',
+          slackBlocks: [{
+            type: 'section',
+            text: {
+              type: 'mrkdwn',
+              text:
+                '*⚠️ Stripe chargeback opened*\n' +
+                'Amount: *$' + amount + '*\n' +
+                'Dispute: `' + dispute.id + '`\n' +
+                'Invoice: `' + (disputeInvoiceId || 'n/a') + '`\n' +
+                'Company: `' + (meta.companyId || 'n/a') + '`\n' +
+                'Reversal: `' + (reversalId || 'n/a (platform charge)') + '`',
+            },
+          }],
+          activity: {
+            userId: disputeUid,
+            type: 'stripe_dispute_created',
+            label: 'Chargeback opened ($' + amount + ')',
+            disputeId: String(dispute.id),
+            paymentIntentId: dispute.payment_intent ? String(dispute.payment_intent) : null,
+            amountCents: dispute.amount || 0,
+            reason: dispute.reason || null,
+          },
+        });
+
+      } else if (event.type === 'charge.refunded') {
+        // D3: VISIBILITY ONLY. Stripe fires this on PARTIAL refunds too —
+        // charge.refunded is true only once the charge is fully refunded. No
+        // invoice/payments[]/amountPaid mutation here: the refund ledger unwind
+        // is phase 4, so the alert says so out loud rather than leaving the
+        // owner to discover a silently-wrong balance.
+        const charge = event.data.object;
+        const { meta, invoice } = await resolveInvoiceContext(db, stripe, charge.payment_intent);
+        const full = charge.refunded === true;
+        const amount = ((charge.amount_refunded || 0) / 100).toFixed(2);
+        const refundUid = meta.userId || (invoice && invoice.createdBy) || null;
+        const refundInvoiceId = meta.invoiceId ? String(meta.invoiceId) : null;
+        logger.warn('charge_refunded', {
+          chargeId: charge.id, invoiceId: refundInvoiceId,
+          amountRefundedCents: charge.amount_refunded || 0, full,
+        });
+        await alertInvoicePaymentEvent(db, {
+          uid: refundUid,
+          leadId: (invoice && invoice.leadId) || null,
+          invoiceId: refundInvoiceId,
+          source: 'stripe_refund',
+          emailSubject: (full ? 'Refund' : 'Partial refund') + ' issued — $' + amount + ' — NBD Pro',
+          emailBody:
+            'A ' + (full ? 'full' : 'partial') + ' refund was issued on a card payment.\n\n' +
+            'Invoice: ' + (refundInvoiceId || 'n/a') + '\n' +
+            'Refunded: $' + amount + '\n' +
+            'Charge:  ' + charge.id + '\n' +
+            '\nIMPORTANT: the CRM invoice ledger was NOT changed — amounts recorded as paid still include this money; adjust records manually if needed.',
+          slackText: '↩️ Refund issued ($' + amount + ')',
+          slackBlocks: [{
+            type: 'section',
+            text: {
+              type: 'mrkdwn',
+              text:
+                '*↩️ Stripe refund issued*\n' +
+                'Amount: *$' + amount + '*' + (full ? '' : ' (partial)') + '\n' +
+                'Charge: `' + charge.id + '`\n' +
+                'Invoice: `' + (refundInvoiceId || 'n/a') + '`\n' +
+                'Company: `' + (meta.companyId || 'n/a') + '`\n' +
+                'CRM ledger unchanged — adjust manually if needed.',
+            },
+          }],
+          activity: {
+            userId: refundUid,
+            type: 'stripe_charge_refunded',
+            label: (full ? 'Refund' : 'Partial refund') + ' issued ($' + amount + ')',
+            chargeId: String(charge.id),
+            paymentIntentId: charge.payment_intent ? String(charge.payment_intent) : null,
+            amountRefundedCents: charge.amount_refunded || 0,
+          },
+        });
+
+      } else if (event.type === 'payment_intent.payment_failed') {
+        // D3: VISIBILITY ONLY, and only for OUR invoice mints. Once this type
+        // is registered Stripe also delivers SUBSCRIPTION-billing PI failures
+        // on this endpoint; those belong to stripeWebhook's dunning wing, so
+        // ack and skip anything without our invoiceId metadata. The link stays
+        // open for a retry — nothing in the CRM changes.
+        const pi = event.data.object;
+        const meta = pi.metadata || {};
+        if (meta.invoiceId) {
+          const invSnap = await db.collection('invoices').doc(String(meta.invoiceId)).get();
+          const invoice = invSnap.exists ? invSnap.data() : null;
+          const amount = ((pi.amount || 0) / 100).toFixed(2);
+          // CODES ONLY — last_payment_error.message can echo cardholder detail.
+          const lastErr = pi.last_payment_error || {};
+          const errorCode = lastErr.decline_code || lastErr.code || 'unknown';
+          const failedUid = meta.userId || (invoice && invoice.createdBy) || null;
+          logger.warn('invoice_payment_intent_failed', {
+            invoiceId: String(meta.invoiceId), paymentIntentId: pi.id, errorCode,
+          });
+          await alertInvoicePaymentEvent(db, {
+            uid: failedUid,
+            leadId: (invoice && invoice.leadId) || null,
+            invoiceId: String(meta.invoiceId),
+            source: 'stripe_payment_failed',
+            emailSubject: 'Customer card declined — $' + amount + ' — NBD Pro',
+            emailBody:
+              'A customer card payment on one of your invoices was declined.\n\n' +
+              'Invoice: ' + String(meta.invoiceId) + '\n' +
+              'Amount:  $' + amount + '\n' +
+              'Reason code: ' + errorCode + '\n' +
+              '\nThe payment link is still open — the customer can try again with another card, or you can record check/cash under Mark Paid.',
+            slackText: '💳 Customer card declined ($' + amount + ')',
+            slackBlocks: [{
+              type: 'section',
+              text: {
+                type: 'mrkdwn',
+                text:
+                  '*💳 Customer card declined*\n' +
+                  'Amount: *$' + amount + '*\n' +
+                  'Invoice: `' + String(meta.invoiceId) + '`\n' +
+                  'Company: `' + (meta.companyId || 'n/a') + '`\n' +
+                  'Code: `' + errorCode + '`',
+              },
+            }],
+            activity: {
+              userId: failedUid,
+              type: 'stripe_payment_failed',
+              label: 'Customer card declined ($' + amount + ')',
+              paymentIntentId: String(pi.id),
+              errorCode,
+              amountCents: pi.amount || 0,
+            },
+          });
         }
       }
 

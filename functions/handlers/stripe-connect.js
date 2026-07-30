@@ -5,21 +5,26 @@
  * (contractors paying us: ours) and invoice payments (a contractor's HOMEOWNER
  * paying the CONTRACTOR: theirs, settling into our balance). #1123 gated the
  * second to the platform tenant. Connect is the real fix: each tenant gets
- * their own connected account, and a later phase mints payment links
- * on_behalf_of it.
+ * their own connected account, and the mint routes the charge to it.
  *
- * ══ PHASE 1 SCOPE — READ BEFORE EXTENDING ══
+ * ══ SCOPE — READ BEFORE EXTENDING ══
  * This file creates connected accounts and onboards them. It does NOT move
- * money and MUST NOT: no payment links, no charges, no application_fee, no
- * on_behalf_of, no transfer_data. The #1123 platform-only gate in
- * functions/stripe.js stays exactly as it is. Lifting it is a separate,
- * deliberate change reviewed against mayCollectOnline() in
- * ../stripe-connect-logic.js — which is written and tested here precisely so
- * that decision is a reviewed predicate swap, not a fresh judgement call.
+ * money: no payment links, no charges, no fee or routing parameters. That
+ * confinement is enforced by tests/stripe-connect.test.js and is a deliberate
+ * boundary, not an accident of phase order — the mint and every money
+ * primitive live in functions/stripe.js alone, so there is exactly one file
+ * to read when asking "where does the money go".
  *
- * Platform fee: intentionally NOT charged. The fee plumbing is a later phase;
- * the owner's decision was "build fee-ready, charge nothing yet", so there is
- * no application_fee anywhere in this file by design.
+ * REWRITTEN 2026-07-30 (Connect phase 3). The premise this header carried —
+ * "the #1123 platform-only gate stays exactly as it is" and "platform fee:
+ * intentionally NOT charged" — was retired by phase 3. The gate is now a
+ * three-way predicate in functions/stripe.js (platform tenant mints as
+ * before, fee-free; a tenant satisfying mayCollectOnline() plus a live
+ * subscription gets a routed charge carrying the platform fee; everyone else
+ * is still refused with 403 ONLINE_PAYMENTS_UNAVAILABLE and records payment
+ * under Mark Paid). mayCollectOnline() in ../stripe-connect-logic.js was
+ * written and tested here precisely so that lift could be a reviewed
+ * predicate swap rather than a fresh judgement call — which is what it was.
  *
  * State lives in connectAccounts/{companyId}, which is ADMIN-SDK-ONLY
  * (firestore.rules: allow write: if false). It is deliberately NOT on
@@ -100,9 +105,11 @@ function publicState(data) {
     disabledReason: d.disabledReason || null,
     requirementsCurrentlyDue: d.requirementsCurrentlyDue || [],
     requirementsPastDue: d.requirementsPastDue || [],
-    // NOTE: phase 1 never reports "you can collect online" — the #1123 gate is
-    // still the authority on that and it refuses every tenant.
-    onlinePaymentsEnabled: false,
+    // Phase 3: REAL capability truth. Same predicate the mint enforces in
+    // functions/stripe.js createStripePaymentLink — this is a display MIRROR
+    // of that gate, never an authority. allowTestMode comes ONLY from the
+    // NBD_CONNECT_ALLOW_TEST_MODE env flag (emulator/QA; never set in prod).
+    onlinePaymentsEnabled: L.mayCollectOnline(d, { allowTestMode: L.connectTestModeAllowed(process.env) }),
   };
 }
 
