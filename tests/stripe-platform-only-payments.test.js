@@ -43,24 +43,69 @@ function ok(name, cond, detail) {
 
 console.log('STRIPE — online collection is platform-only until Connect ships');
 
-// ── Part 1: Connect is still absent (the gate's whole premise) ────────
+// ── Part 1: Connect exists, but CANNOT route money yet ────────────────
+//
+// REWRITTEN 2026-07-29 (Connect phase 1), exactly as the original assertion
+// instructed: it asserted "no Connect plumbing anywhere in functions/", which
+// was the gate's premise while Connect did not exist. Phase 1 added connected
+// ACCOUNTS + onboarding, so that assertion fired — the documented signal to
+// rewrite it deliberately, never to delete it.
+//
+// The premise the gate actually rests on is narrower and still true: no code
+// path can route a homeowner's payment to a tenant's account. So this now pins
+// two things instead:
+//   (a) the MONEY primitives are absent everywhere — that is what makes the
+//       platform-only gate still necessary. When phase 3 lifts the gate, THIS
+//       is the assertion to rewrite (again, deliberately), and the gate checks
+//       in Parts 2-4 are what must be replaced by mayCollectOnline().
+//   (b) the ACCOUNT primitives are confined to the two Connect files, so
+//       account plumbing cannot quietly appear inside the subscription or
+//       invoice paths.
 {
   const fnDir = path.join(ROOT, 'functions');
-  const CONNECT = /stripeAccount|on_behalf_of|transfer_data|application_fee|accounts\.create|acct_/;
-  const hits = [];
+  // Routing money on someone else's behalf. NONE of these may exist yet.
+  const MONEY = /on_behalf_of|transfer_data|application_fee/;
+  // Creating/holding a connected account. Allowed, but only in the Connect files.
+  const ACCOUNT = /stripeAccount|accounts\.create|accountLinks\.create|createLoginLink/;
+  const CONNECT_FILES = new Set([
+    path.join('functions', 'handlers', 'stripe-connect.js'),
+    path.join('functions', 'stripe-connect-logic.js'),
+  ]);
+
+  const moneyHits = [];
+  const accountHits = [];
   (function walk(dir) {
     for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
       if (e.name === 'node_modules' || e.name === '_archive') continue;
       const full = path.join(dir, e.name);
       if (e.isDirectory()) { walk(full); continue; }
       if (!e.name.endsWith('.js')) continue;
+      const rel = path.relative(ROOT, full);
       const src = decomment(fs.readFileSync(full, 'utf8'));
-      if (CONNECT.test(src)) hits.push(path.relative(ROOT, full));
+      if (MONEY.test(src)) moneyHits.push(rel);
+      if (ACCOUNT.test(src) && !CONNECT_FILES.has(rel)) accountHits.push(rel);
     }
   })(fnDir);
-  ok('no Stripe Connect plumbing in functions/ (so the gate is still required)',
-    hits.length === 0,
-    hits.length ? 'Connect appeared in ' + hits.join(', ') + ' — time to lift the gate deliberately, not delete this test' : '');
+
+  ok('no per-tenant MONEY routing anywhere in functions/ (so the gate is still required)',
+    moneyHits.length === 0,
+    moneyHits.length
+      ? 'on_behalf_of / transfer_data / application_fee appeared in ' + moneyHits.join(', ')
+        + ' — that is the gate lift. Rewrite this assertion and Parts 2-4 deliberately, do not delete them.'
+      : '');
+
+  ok('Connect ACCOUNT plumbing stays inside the two Connect files',
+    accountHits.length === 0,
+    accountHits.length
+      ? 'account primitives leaked into ' + accountHits.join(', ')
+        + ' — the subscription and invoice paths must not grow Connect plumbing sideways'
+      : '');
+
+  // The phase-1 files themselves must exist, or the two checks above are
+  // vacuously true and this test would silently stop meaning anything.
+  ok('the Connect phase-1 files are present (these checks are not vacuous)',
+    fs.existsSync(path.join(ROOT, 'functions/handlers/stripe-connect.js'))
+    && fs.existsSync(path.join(ROOT, 'functions/stripe-connect-logic.js')));
 }
 
 // ── Part 2: the server refuses non-platform tenants ───────────────────

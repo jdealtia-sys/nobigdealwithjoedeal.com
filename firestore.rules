@@ -902,6 +902,30 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // ── STRIPE CONNECT ────────────────────────────────
+    // Per-tenant connected-account state. Admin-SDK-only writes
+    // (createConnectAccount / getConnectStatus / stripeConnectWebhook), exactly
+    // like subscriptions above — this is a MONEY ENTITLEMENT, not a preference.
+    //
+    // It deliberately does NOT live on companyProfile: that doc is writable by
+    // any company_admin, who could then set chargesEnabled:true from devtools
+    // and self-authorise online collection with no Stripe account behind it —
+    // re-opening the custody hole #1123 closed.
+    //
+    // READ is same-tenant (not owner-only) on purpose: reps create invoices, so
+    // the client capability check has to resolve for a rep too. Reading is
+    // safe; writing is the hazard.
+    match /connectAccounts/{companyId} {
+      allow read: if isAdmin()
+        || (isAuth() && (companyId == myCompanyId() || companyId == request.auth.uid));
+      allow write: if false;
+    }
+    // Reverse index acct_… → companyId, used only by the webhook to resolve a
+    // tenant. No client ever reads it (it would leak the tenant map).
+    match /connectAccountIds/{accountId} {
+      allow read, write: if false;
+    }
+
     // ── ACCESS CODES ──────────────────────────────────
     // Admin-SDK-only. Clients can neither read nor write.
     match /access_codes/{codeId} {

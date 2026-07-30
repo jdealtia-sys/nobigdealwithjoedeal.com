@@ -170,6 +170,17 @@ jobs:
       # computed it. Also pins the money fail-safes (a blank/garbage tenant value
       # must never zero a permit or a tax rate) and that reset clears company
       # policy rather than just this device.
+      # Stripe Connect Express phase 1 (accounts + onboarding). MONEY-PATH gate:
+      # capability booleans must FAIL CLOSED (a garbage/absent value must never
+      # read as "charges enabled"), two admins must not mint two connected
+      # accounts, an out-of-order or TEST-mode account.updated must not flip LIVE
+      # state, requirement VALUES (SSN-class PII) must never be mirrored into
+      # Firestore, and phase 1 must contain NO application_fee / on_behalf_of /
+      # payment link — the #1123 platform-only gate stays closed until a
+      # deliberate later change. Dependency-free require() of the logic module.
+      - name: Run Stripe Connect phase-1 tests
+        run: node tests/stripe-connect.test.js
+
       - name: Run county tenant-policy tests
         run: node tests/county-tenant-policy.test.js
 
