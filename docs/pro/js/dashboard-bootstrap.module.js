@@ -1915,6 +1915,53 @@
         // Clean URL
         window.history.replaceState({}, '', '/pro/dashboard.html');
       }, 500);
+    } else if (urlParams.get('settings')) {
+      // ── DEEP LINK: Settings → <tab> ──
+      // Stripe Connect onboarding returns here
+      // (/pro/dashboard?settings=billing&connect=return|refresh) because
+      // /pro/settings does NOT exist — Settings is a view inside this page, and
+      // a Stripe return URL pointing at a non-existent page 404'd for every
+      // user once already (stripe.js:947).
+      //
+      // ALLOWLIST, not passthrough: switchSettingsTab() hides EVERY .stab-panel
+      // and then shows one only `if (panel)`, so an unrecognised value from the
+      // URL leaves the user staring at a blank Settings screen.
+      const SETTINGS_TABS = ['access', 'ai-texting', 'appearance', 'billing', 'company',
+        'company-profile', 'daily', 'estimates', 'help', 'notifications', 'pipelines',
+        'profile', 'team'];
+      const wantTab = String(urlParams.get('settings') || '').toLowerCase();
+      const connectParam = String(urlParams.get('connect') || '').toLowerCase();
+      if (connectParam === 'return' || connectParam === 'refresh') {
+        // Force a live re-read on arrival: Stripe redirects the moment the
+        // owner finishes, and the account.updated webhook may not have landed
+        // yet, so the stored mirror is legitimately stale for a few seconds.
+        // Consumed by the billing-tab hook in dashboard-connect-tab.js — a flag
+        // rather than a call, because that script lives in a lazily hydrated
+        // template and may not have executed yet.
+        window._nbdConnectPendingRefresh = true;
+        // 'refresh' is Stripe telling us the AccountLink expired before it was
+        // used. Deliberately NOT auto-minting a replacement: an auto-redirect
+        // that keeps failing is an infinite bounce. Show it and let them click.
+        if (connectParam === 'refresh') window._nbdConnectLinkExpired = true;
+      }
+      if (SETTINGS_TABS.indexOf(wantTab) !== -1) {
+        (async () => {
+          if (typeof goTo === 'function') goTo('settings');
+          // The settings view is LAZILY hydrated, so switchSettingsTab and the
+          // panel may both be missing for a while. Poll instead of guessing a
+          // delay — openSettingsTab()'s fixed 200ms is exactly that race.
+          for (let i = 0; i < 40; i++) {
+            if (typeof window.switchSettingsTab === 'function'
+                && document.getElementById('stab-panel-' + wantTab)) break;
+            await new Promise((r) => setTimeout(r, 150));
+          }
+          if (typeof window.switchSettingsTab === 'function'
+              && document.getElementById('stab-panel-' + wantTab)) {
+            window.switchSettingsTab(wantTab);
+          }
+          window.history.replaceState({}, '', '/pro/dashboard.html');
+        })();
+      }
     }
   });
 

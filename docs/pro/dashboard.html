@@ -4215,9 +4215,23 @@
             </div>
           </div>
         </div>
+
+        <!-- STRIPE CONNECT / PAYOUTS (Connect phase 2) -->
+        <!-- Starts display:none and is only revealed by renderConnectCard() for
+             the platform owner. Rationale in js/dashboard-connect-tab.js: the
+             #1123 payment gate is still closed, so Express onboarding would ask
+             a contractor for SSN + bank details in exchange for nothing. Phase 3
+             lifts the gate and this visibility check together. -->
+        <div class="panel" id="connectPayoutsCard" style="display:none;">
+          <div class="panel-hdr"><div><div class="panel-label">Payouts</div><div class="panel-title">Stripe Connect</div></div></div>
+          <div class="panel-body" id="connectPayoutsBody">
+            <div style="padding:14px;color:var(--m);font-size:12px;">Loading payout status…</div>
+          </div>
+        </div>
       </div><!-- /stab-panel-billing -->
 
       <script src="js/dashboard-billing-tab.js?v=1"></script>
+      <script src="js/dashboard-connect-tab.js?v=1"></script>
 
       <!-- ══ TAB: NOTIFICATIONS ══ -->
       <div class="stab-panel dn" id="stab-panel-notifications">
