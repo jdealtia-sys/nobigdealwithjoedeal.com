@@ -8,17 +8,24 @@
  *   2. invoice payment links — a contractor's HOMEOWNER paying the CONTRACTOR.
  *      Theirs. Was settling into OUR balance.
  *
- * There is no Connect: no stripeAccount, no on_behalf_of, no transfer_data, no
- * accounts.create anywhere in functions/. getStripe() memoizes one client on
- * STRIPE_SECRET_KEY. That was fine while we were the only tenant and became
- * wrong the moment anyone else could sign up — chargebacks against our account
- * for work we did not do, a 1099-K reporting their revenue as ours, and
- * collecting funds on behalf of other businesses (which is why Connect exists).
+ * getStripe() memoizes one client on STRIPE_SECRET_KEY. That was fine while we
+ * were the only tenant and became wrong the moment anyone else could sign up —
+ * chargebacks against our account for work we did not do, a 1099-K reporting
+ * their revenue as ours, and collecting funds on behalf of other businesses
+ * (which is why Connect exists).
  *
- * So this pins three things:
- *   Part 1 — Connect really is absent, so the gate stays necessary. If someone
- *            adds Connect, this test SHOULD fail and be rewritten; that is the
- *            signal to lift the restriction, not to delete the assertion.
+ * STATUS 2026-07-29: Connect Express PHASE 1 has landed — connected accounts
+ * and onboarding exist (functions/handlers/stripe-connect.js). What still does
+ * NOT exist is any way to ROUTE money to those accounts, so the platform-only
+ * gate remains necessary and this suite still guards it.
+ *
+ * So this pins:
+ *   Part 1 — the MONEY primitives (on_behalf_of / transfer_data /
+ *            application_fee) are absent everywhere, and Connect ACCOUNT
+ *            plumbing stays confined to the Connect files. When phase 3 lifts
+ *            the gate, Part 1 is the assertion to rewrite — deliberately, as
+ *            this one was — and the gate checks below are what
+ *            mayCollectOnline() replaces. Never delete them.
  *   Part 2 — the server refuses non-platform tenants BEFORE any Stripe call.
  *   Part 3 — the client mirrors it, fails closed, and an invoice is never lost
  *            because a link failed.
