@@ -1,18 +1,30 @@
 /**
- * tests/stripe-connect.test.js — Stripe Connect Express, phase 1.
+ * tests/stripe-connect.test.js — Stripe Connect Express: the pure decisions.
  *
- * Phase 1 creates connected accounts and onboards them. It moves NO money: no
- * payment links, no charges, no application_fee, no on_behalf_of. The #1123
- * platform-only gate stays closed, and tests/stripe-platform-only-payments.test.js
- * still pins that. This suite pins the decisions that would be expensive to get
- * wrong later:
+ * Phase 1 created connected accounts and onboarded them, moving no money.
+ * PHASE 3 (2026-07-3x) moves the money: tenant payment links are now DESTINATION
+ * charges routed to the tenant's own connected account, carrying a platform
+ * fee, with a chargeback recovered by reversing the transfer. Every one of
+ * those is a decision this module owns and this suite unit-tests, because each
+ * is arithmetic that touches somebody's bank account:
  *
  *   - a bad/absent Stripe capability must never read as "enabled"
  *   - two admins clicking Connect must not mint two accounts holding real money
  *   - an out-of-order or TEST-mode account.updated must not flip LIVE state
  *   - requirement VALUES (SSN-class PII) must never be mirrored into Firestore
- *   - mayCollectOnline() — the future gate-lift predicate — must be strict now,
- *     while nothing depends on it, rather than argued about under pressure later
+ *   - mayCollectOnline() — written strict in phase 1 while nothing depended on
+ *     it, precisely so the gate lift was a reviewed predicate swap. It now has
+ *     two callers (the mint gate + the status mirror) and the containment
+ *     section pins that they EXIST, the inverse of what phase 1 pinned.
+ *   - platformFeeCents() must never exceed the charge and must fail closed on
+ *     anything that is not integer cents
+ *   - decideDisputeReversal() must recover the disputed amount and never MORE
+ *     than the transfer holds
+ *   - connectTestModeAllowed() must be a strict '1', never truthiness
+ *
+ * The money PRIMITIVES stay in functions/stripe.js; this handler and this logic
+ * module remain accounts-only (containment section below, and the other half of
+ * the same boundary in tests/stripe-platform-only-payments.test.js Part 1).
  *
  * Zero deps (the logic module is deliberately firebase-free).
  * Run: node tests/stripe-connect.test.js
@@ -44,7 +56,7 @@ const LOGIC = read('functions/stripe-connect-logic.js');
 const INDEX = read('functions/index.js');
 const RULES = read('firestore.rules');
 
-console.log('STRIPE CONNECT — phase 1 (accounts + onboarding, money gate closed)');
+console.log('STRIPE CONNECT — pure decisions (accounts, capability, fee, disputes)');
 
 // ── deriveConnectState: booleans must FAIL CLOSED ─────────────────────────
 console.log('\nderiveConnectState — capability state fails closed');
@@ -160,8 +172,12 @@ console.log('\ndecideWebhookApply — out-of-order and cross-mode protection');
     L.decideWebhookApply({ livemode: true }, { account: 'acct_x', created: 500, livemode: true }).watermark === 500);
 }
 
-// ── mayCollectOnline: the FUTURE gate-lift predicate ──────────────────────
-console.log('\nmayCollectOnline — strict now, while nothing depends on it');
+// ── mayCollectOnline: the gate-lift predicate ─────────────────────────────
+// ASSERTIONS UNCHANGED, PREMISE UPGRADED 2026-07-3x: written in phase 1 while
+// nothing depended on it, exactly so the phase-3 lift was a reviewed predicate
+// swap. Everything below is now LOAD-BEARING — it decides whether a real
+// homeowner's card can be charged for a real tenant.
+console.log('\nmayCollectOnline — now load-bearing (the mint and the card both call it)');
 {
   const ready = { accountId: 'acct_1', chargesEnabled: true, detailsSubmitted: true, livemode: true, payoutsEnabled: true };
   ok('a live, charges-enabled, onboarded account may collect', L.mayCollectOnline(ready) === true);
@@ -175,6 +191,145 @@ console.log('\nmayCollectOnline — strict now, while nothing depends on it');
   ok('empty/null state → no', L.mayCollectOnline(null) === false && L.mayCollectOnline({}) === false);
   ok('allowTestMode:true is opt-in only (for test-mode QA)',
     L.mayCollectOnline(Object.assign({}, ready, { livemode: false }), { allowTestMode: true }) === true);
+}
+
+// ── platformFeeCents: the phase-3 platform fee ────────────────────────────
+// NEW 2026-07-3x (phase 3). 340bps + 30 cents = Stripe's 2.9% + 30 cents
+// pass-through plus a 0.5% platform margin, charged ONLY on Connect-routed
+// tenant mints. Two failure modes are worth arithmetic: a fee that exceeds the
+// charge (Stripe rejects the mint, and morally we would be taking the whole
+// payment), and a fee computed off a value that is not integer cents.
+console.log('\nplatformFeeCents — the fee we are allowed to take');
+{
+  const cases = [
+    [10000, 370],     // $100.00 → $3.70
+    [100000, 3430],   // $1,000.00 → $34.30
+    [250000, 8530],   // $2,500.00 → $85.30
+    [100, 33],        // $1.00 → 33c (the mint's MIN_CENTS floor, disclosed honestly)
+    [31, 30],         // clamped to charge-1: never take the whole payment
+    [1, 0],           // 1c charge cannot carry a 30c flat fee at all
+  ];
+  for (const [charge, fee] of cases) {
+    ok('platformFeeCents(' + charge + ') === ' + fee, L.platformFeeCents(charge) === fee,
+      'got ' + L.platformFeeCents(charge));
+  }
+
+  // Fails CLOSED on anything that is not strict integer cents. A string or a
+  // fractional value means the caller is confused about units, and guessing
+  // charges someone the wrong amount.
+  for (const bad of [0, -100, NaN, undefined, null, '10000', 100.5, Infinity, {}]) {
+    ok('platformFeeCents(' + JSON.stringify(bad) + ') === 0 (fails closed)',
+      L.platformFeeCents(bad) === 0, 'got ' + L.platformFeeCents(bad));
+  }
+
+  // The clamp is a backstop, not the normal path — but it must hold across the
+  // whole range the mint can reach (MIN_CENTS 100 … MAX_CENTS).
+  let spreadOk = true;
+  for (let charge = 100; charge <= 5000000; charge = Math.ceil(charge * 1.37)) {
+    const f = L.platformFeeCents(charge);
+    if (!Number.isInteger(f) || f < 0 || f >= charge) { spreadOk = false; break; }
+  }
+  ok('across the mintable range the fee is a non-negative integer strictly below the charge',
+    spreadOk, 'a fee >= the charge leaves the contractor with nothing (and Stripe rejects it)');
+
+  // The constants are the disclosed price. If they move, the copy on
+  // pricing/terms/index/landing and the Settings card is a false claim —
+  // tests/stripe-connect-ui.test.js Part 8 couples them.
+  ok('the rate constants are the disclosed 3.4% + 30 cents',
+    /PLATFORM_FEE_BPS = 340/.test(LOGIC) && /PLATFORM_FEE_FLAT_CENTS = 30/.test(LOGIC));
+}
+
+// ── decideDisputeReversal: who eats a chargeback ──────────────────────────
+// NEW 2026-07-3x (phase 3). Under destination charges a chargeback debits the
+// PLATFORM balance while the money already sits with the contractor. The
+// transfer attached to the disputed charge is the only recovery lever. Two
+// symmetrical mistakes: not reversing (we eat a job we never did), and
+// over-reversing (we take more from the contractor than the homeowner
+// disputed). dispute.amount is the FULL charge while the transfer is
+// charge-minus-fee, so the clamp is mandatory — an unclamped reversal is an
+// API error, not a rounding difference.
+//
+// This function stays PURE: the double-reversal guard is event-level
+// (stripe_events/{event.id} + the dispute-keyed idempotencyKey on the reversal
+// call), not a flag in here.
+console.log('\ndecideDisputeReversal — recovery, not punishment');
+{
+  const tr = (over) => Object.assign({ id: 'tr_1', amount: 50000, amount_reversed: 0 }, over || {});
+  const d = (amount) => ({ id: 'dp_1', amount });
+
+  const full = L.decideDisputeReversal(d(50000), { transfer: tr() });
+  ok('a full dispute reverses the full transfer',
+    full.reverse === true && full.transferId === 'tr_1' && full.amountCents === 50000
+    && full.reason === 'destination_charge', JSON.stringify(full));
+
+  const partial = L.decideDisputeReversal(d(20000), { transfer: tr() });
+  ok('a PARTIAL dispute reverses only the disputed amount',
+    partial.reverse === true && partial.amountCents === 20000,
+    'over-recovering from the contractor turns a $200 dispute into a $500 clawback');
+
+  const clamped = L.decideDisputeReversal(d(60000), { transfer: tr() });
+  ok('a dispute larger than the transfer clamps to the transfer',
+    clamped.reverse === true && clamped.amountCents === 50000,
+    'dispute.amount is the gross charge; the transfer is charge-minus-fee, so this is the NORMAL case');
+
+  const spent = L.decideDisputeReversal(d(50000), { transfer: tr({ amount_reversed: 50000 }) });
+  ok('an already fully-reversed transfer is nothing_to_reverse',
+    spent.reverse === false && spent.amountCents === 0 && spent.reason === 'nothing_to_reverse',
+    'the Stripe retry path must not error on a second attempt');
+
+  const partlySpent = L.decideDisputeReversal(d(50000), { transfer: tr({ amount_reversed: 30000 }) });
+  ok('a partly-reversed transfer clamps to what remains',
+    partlySpent.reverse === true && partlySpent.amountCents === 20000);
+
+  const platform = L.decideDisputeReversal(d(50000), { id: 'ch_1' });
+  ok('a charge with no transfer is a PLATFORM charge — nothing to reverse',
+    platform.reverse === false && platform.transferId === null && platform.reason === 'no_transfer',
+    'the platform tenant mints without routing; a reversal attempt there is a bug');
+
+  ok('null/garbage charge → no_transfer',
+    L.decideDisputeReversal(d(50000), null).reason === 'no_transfer'
+    && L.decideDisputeReversal(d(50000), { transfer: { id: 'ch_nope' } }).reason === 'no_transfer'
+    && L.decideDisputeReversal(d(50000), { transfer: 42 }).reason === 'no_transfer');
+
+  for (const bad of [null, undefined, 0, -1, 'lots', 100.5]) {
+    const m = L.decideDisputeReversal({ amount: bad }, { transfer: tr() });
+    ok('a dispute amount of ' + JSON.stringify(bad) + ' is malformed, never a guess',
+      m.reverse === false && m.reason === 'malformed' && m.transferId === 'tr_1',
+      JSON.stringify(m));
+  }
+  ok('a null dispute is malformed (transfer still identified)',
+    L.decideDisputeReversal(null, { transfer: tr() }).reason === 'malformed');
+
+  // The charge was retrieved WITHOUT expand:['transfer'] — Stripe returns the
+  // id as a bare string. We know which transfer, not how much is left on it, so
+  // the caller must OMIT the amount and let Stripe reverse the remainder. That
+  // can never over-reverse; guessing the full disputed amount could.
+  const unexpanded = L.decideDisputeReversal(d(10000), { transfer: 'tr_9' });
+  ok('an UNEXPANDED transfer reverses the remainder (amountCents null, not 0)',
+    unexpanded.reverse === true && unexpanded.transferId === 'tr_9' && unexpanded.amountCents === null,
+    'amountCents 0 would send amount:0; null means "omit the param"');
+}
+
+// ── connectTestModeAllowed: the ONE sanctioned test-mode switch ────────────
+// NEW 2026-07-3x (phase 3). This is the single source of mayCollectOnline's
+// allowTestMode for BOTH the mint gate (functions/stripe.js) and the status
+// mirror (handlers/stripe-connect.js). Strict '1' on purpose: a truthiness read
+// turns any stray value — 'false', '0', 'no' — into permission to charge real
+// cards against a test-mode account.
+console.log('\nconnectTestModeAllowed — strict string, never truthiness');
+{
+  ok("env NBD_CONNECT_ALLOW_TEST_MODE='1' → true",
+    L.connectTestModeAllowed({ NBD_CONNECT_ALLOW_TEST_MODE: '1' }) === true);
+  for (const bad of ['true', 'yes', '0', 'false', '', ' 1', '1 ', 1, true, null, undefined]) {
+    ok('env value ' + JSON.stringify(bad) + ' → false',
+      L.connectTestModeAllowed({ NBD_CONNECT_ALLOW_TEST_MODE: bad }) === false);
+  }
+  ok('an env with the flag absent → false', L.connectTestModeAllowed({ PATH: '/usr/bin' }) === false);
+  ok('undefined/null env → false',
+    L.connectTestModeAllowed(undefined) === false && L.connectTestModeAllowed(null) === false);
+  ok('the strict === \'1\' comparison lives here, in the shared helper',
+    /NBD_CONNECT_ALLOW_TEST_MODE === '1'/.test(LOGIC),
+    'both callers route through this module so there is exactly one place to get it wrong');
 }
 
 // ── describeConnectStatus ─────────────────────────────────────────────────
@@ -191,21 +346,86 @@ console.log('\ndescribeConnectStatus');
     L.describeConnectStatus({ accountId: 'acct_1', detailsSubmitted: true, chargesEnabled: true, payoutsEnabled: true }).code === 'ready');
 }
 
-// ── PHASE-1 CONTAINMENT: this must not move money ─────────────────────────
-console.log('\nPhase-1 containment (the money gate stays closed)');
+// ── CONTAINMENT: this handler still moves no money ────────────────────────
+// REWRITTEN 2026-07-3x (phase 3). The section used to assert that NOBODY moved
+// money. Phase 3 moves money — deliberately — so the premise narrows to where
+// it moves: the mint and the dispute reversal live in functions/stripe.js and
+// this handler stays accounts + webhook only. Reading it should never leave you
+// wondering whether it can charge a card. (The same boundary from the other
+// side: tests/stripe-platform-only-payments.test.js Part 1 allows the money
+// primitives in stripe.js and NOWHERE else under functions/.)
+console.log('\nContainment (money lives in stripe.js, not here)');
 {
+  const STRIPE_JS = decomment(read('functions/stripe.js'));
   const decommented = HANDLER.split('\n').filter((l) => !/^\s*(\/\/|\*|\/\*)/.test(l)).join('\n');
   for (const forbidden of ['application_fee', 'on_behalf_of', 'transfer_data', 'paymentLinks.create', 'paymentIntents.create', 'charges.create']) {
-    ok('phase 1 contains no ' + forbidden, decommented.indexOf(forbidden) === -1,
-      'phase 1 creates accounts only — money movement is a later, deliberate change');
+    ok('this handler contains no ' + forbidden, decommented.indexOf(forbidden) === -1,
+      'phase 3 routes money in functions/stripe.js; this handler remains accounts + webhook only');
   }
-  ok('the #1123 platform-only gate is still intact in stripe.js',
-    /if \(!isPlatformTenant\(decoded\)\) \{/.test(read('functions/stripe.js'))
-    && /ONLINE_PAYMENTS_UNAVAILABLE/.test(read('functions/stripe.js')));
-  ok('phase 1 reports onlinePaymentsEnabled:false to the client',
-    /onlinePaymentsEnabled: false/.test(HANDLER));
-  ok('mayCollectOnline has NO caller yet (it is the future gate, documented now)',
-    !/mayCollectOnline\(/.test(CODE) && !/mayCollectOnline\(/.test(decomment(read('functions/stripe.js'))));
+
+  // REWRITTEN (silently-stale): the old assertion pinned
+  // `if (!isPlatformTenant(decoded)) {` — the shape of a gate that refused
+  // every tenant. That literal SURVIVES phase 3 as the platform fast path, so
+  // the assertion would have kept passing while meaning something completely
+  // different. What must be true now is that the tenant branch is gated by the
+  // shared predicate.
+  ok('the tenant mint in stripe.js is gated by mayCollectOnline',
+    /mayCollectOnline\(/.test(STRIPE_JS),
+    'without the predicate the mint either refuses everyone or routes for anyone');
+  ok('the ONLINE_PAYMENTS_UNAVAILABLE refusal survives the lift',
+    /ONLINE_PAYMENTS_UNAVAILABLE/.test(STRIPE_JS),
+    "the code is kept on purpose — it now means 'capability absent', not 'platform-only', and the"
+      + ' client branches on it to null out stale links');
+
+  // REWRITTEN (fired): phase 1 hard-coded onlinePaymentsEnabled:false, so a
+  // literal was the honest answer. Phase 3 computes it, and the pin must target
+  // the COMPUTED expression in publicState — not the field name. VACUOUS-PASS
+  // HAZARD: getConnectStatus's not-started early return still carries a
+  // truthful `onlinePaymentsEnabled: false` literal, so /onlinePaymentsEnabled/
+  // or even /: false/ would pass against a hard-coded card. (Mutation M14.)
+  ok('publicState COMPUTES onlinePaymentsEnabled from mayCollectOnline',
+    /onlinePaymentsEnabled:\s*L\.mayCollectOnline\(/.test(HANDLER),
+    'a hard-coded value here tells a tenant they can (or cannot) collect regardless of Stripe');
+
+  // INVERTED (fired): phase 1 pinned that mayCollectOnline had NO caller — it
+  // was a contract written ahead of its use. Phase 3 pins the opposite: the
+  // callers EXIST. Deleting the gate now un-gates tenant money, and deleting
+  // the mirror makes the Settings card lie about it.
+  ok('mayCollectOnline is CALLED by the mint gate and by the status mirror',
+    /mayCollectOnline\(/.test(STRIPE_JS) && /mayCollectOnline\(/.test(CODE),
+    'phase 1 pinned that it had no caller; phase 3 pins that it has one in each place');
+}
+
+// ── Phase-3 webhook branches (platform-account events) ────────────────────
+// NEW 2026-07-3x. Under destination charges the dispute/refund/decline events
+// all land on the PLATFORM endpoint — invoiceWebhook — not on the Connect
+// endpoint, which stays account.* only. These are source pins, not behaviour:
+// the reversal DECISION is unit-tested above; what is pinned here is that the
+// decision is actually wired to an event and to a Stripe call.
+console.log('\nPhase-3 webhook branches');
+{
+  const S = decomment(read('functions/stripe.js'));
+  const wAt = S.indexOf('exports.invoiceWebhook');
+  const W = wAt > -1 ? S.slice(wAt) : '';
+  ok('the invoiceWebhook region was located', W.length > 1000);
+
+  const disputeAt = W.indexOf('charge.dispute.created');
+  ok('invoiceWebhook handles charge.dispute.created', disputeAt > -1,
+    'unregistered/unhandled, a chargeback silently debits the platform and nobody is told');
+  ok('the dispute branch consults decideDisputeReversal and then reverses',
+    disputeAt > -1
+    && W.indexOf('decideDisputeReversal(', disputeAt) > disputeAt
+    && W.indexOf('createReversal(', disputeAt) > disputeAt,
+    'deciding without reversing is a log line; reversing without deciding over-recovers');
+
+  ok('invoiceWebhook handles charge.refunded', W.indexOf('charge.refunded') > -1);
+
+  const failedAt = W.indexOf('payment_intent.payment_failed');
+  ok('invoiceWebhook handles payment_intent.payment_failed', failedAt > -1);
+  ok('the decline branch is guarded on OUR mint metadata',
+    failedAt > -1 && /meta\.invoiceId/.test(W.slice(failedAt, failedAt + 900)),
+    'once registered, Stripe also delivers subscription-billing PI failures here — those belong to'
+      + " stripeWebhook's dunning wing, not to an invoice alert");
 }
 
 // ── Wiring: deploy discoverability, secrets, rules ────────────────────────

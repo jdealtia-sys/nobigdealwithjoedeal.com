@@ -1,12 +1,27 @@
-# Stripe Connect Express — owner setup
+# Stripe Connect Express — owner setup + phase-3 go-live
 
 Connect lets each contractor collect card payments into **their own** Stripe
-account instead of ours. Until it is live, online collection is restricted to the
-platform tenant (see `functions/stripe.js`, PR #1123) and contractors record
-check/cash/their-own-terminal payments via **Mark Paid**.
+account instead of ours. Where the code stands:
 
-**Nothing in this document can be done by code.** Enabling Connect, accepting the
-agreement, and completing the platform profile are account-owner actions.
+- **Phase 1 (shipped, #1143/#1144):** account creation + Express onboarding +
+  the `stripeConnectWebhook` state mirror (`connectAccounts/{companyId}`,
+  admin-SDK-only so a `company_admin` cannot forge `chargesEnabled`).
+- **Phase 2 (shipped):** the Settings → Billing card (owner **or**
+  company_admin) showing capability truth from `getConnectStatus`.
+- **Phase 3 (this PR):** the payment-link gate is **lifted in code**. A tenant
+  mint routes as a **destination charge** to the tenant's connected account
+  (`on_behalf_of` + `transfer_data` + `application_fee_amount` in
+  `functions/stripe.js`) once `mayCollectOnline()` passes **and** the tenant
+  holds a live subscription. Everyone else still gets the same 403
+  `ONLINE_PAYMENTS_UNAVAILABLE` refusal and records check/cash via **Mark
+  Paid**.
+
+**The feature is dark until the steps in this document are done.** No tenant
+can pass `mayCollectOnline()` before Connect is enabled in the dashboard and a
+tenant completes onboarding — there is no feature flag; this document IS the
+switch. **Nothing in this document can be done by code.** Enabling Connect,
+accepting the agreement, completing the platform profile, registering the
+webhooks and setting the secret are account-owner actions.
 
 > **Do all of this in TEST MODE first, verify, then repeat in LIVE MODE.**
 > Connect settings, branding, the platform profile and webhook endpoints are all
@@ -14,24 +29,58 @@ agreement, and completing the platform profile are account-owner actions.
 
 ---
 
-## What is already shipped (phase 1)
+## Liability — the truth
 
-Code exists to create and onboard connected accounts:
+*(This section rewrites the earlier "answer the platform-profile liability
+question so the connected account bears chargebacks" guidance. That premise
+was wrong for the integration we shipped — rewritten, not deleted.)*
 
-| Function | What it does |
-|---|---|
-| `createConnectAccount` | creates the tenant's Express account (owner/company_admin only, idempotent) |
-| `createConnectOnboardingLink` | mints a single-use Stripe-hosted onboarding URL |
-| `getConnectStatus` | re-reads Stripe and returns the current capability state |
-| `createConnectDashboardLink` | opens the contractor's Express dashboard |
-| `stripeConnectWebhook` | persists `account.updated` / deauthorization |
+Under **destination charges with `on_behalf_of`** (what phase 3 ships),
+chargeback and negative-balance liability sits on the **PLATFORM** regardless
+of how the platform-profile liability question is answered. A homeowner
+chargeback debits **our** balance (plus Stripe's dispute fee), on our dispute
+rate, for work we did not perform.
 
-Phase 1 **moves no money**: there is no `application_fee`, no `on_behalf_of`, no
-payment-link change. State lands in `connectAccounts/{companyId}`, which is
-admin-SDK-only (a `company_admin` must not be able to forge `chargesEnabled`).
+**Shipped mitigation:** on `charge.dispute.created`, `invoiceWebhook`
+automatically reverses the transfer attached to the disputed charge — the
+disputed amount, clamped to what remains reversible on the transfer — so the
+contractor, not the platform, bears the loss. It then alerts the owner
+(email via `email_queue` + Slack) and stamps a lead activity row. The reversal
+is idempotency-keyed on the dispute id, so webhook retries cannot double-pull.
 
-Still to come: the Settings → Billing UI (phase 2) and lifting the payment-link
-gate (phase 3, only after you have walked a real account through onboarding).
+A **true** liability shift requires Standard accounts / direct charges — out of
+scope. Direct charges would also move `payment_intent.succeeded` off
+`invoiceWebhook` and orphan the CRM ledger (no invoice credit, no payments[]
+row), so this is not a knob to flip casually. Phase 4 territory.
+
+---
+
+## The platform fee
+
+**3.4% + 30¢ per online card payment** = Stripe's 2.9% + 30¢ card-processing
+pass-through + a 0.5% platform margin.
+
+- Computed by `platformFeeCents()` in `functions/stripe-connect-logic.js`
+  (`PLATFORM_FEE_BPS = 340`, `PLATFORM_FEE_FLAT_CENTS = 30`).
+- Applied on **tenant Connect mints ONLY** — the platform tenant's own mints
+  carry no fee. Check/cash recorded via Mark Paid is always free.
+- Clamped strictly below the charge (the mint already refuses balances under
+  $1.00, so the worst real fee is 33¢ on a $1.00 charge).
+- The fee **nets out of the tenant's settlement, not the charge** — the
+  PaymentIntent's `amount_received` stays the full homeowner payment, so the
+  CRM ledger credits the gross amount and the payments[] contract is unchanged.
+- Disclosure surfaces (keep in sync if the fee ever changes): the pricing-page
+  FAQ, the index/landing pricing-footer, terms §3 ("Online Payment
+  Processing"), and the Settings → Billing Connect card.
+
+## Statement descriptor
+
+**No statement descriptor is passed in code — deliberately.** With the tenant
+as settlement merchant (`on_behalf_of`), the homeowner's card statement shows
+the **CONNECTED account's** business-profile descriptor, collected during
+Express onboarding. That is exactly what the homeowner should see ("Joe's
+Roofing", not "NBD PRO"). Do **not** add one: it would mislabel the charge and
+invites 22-char/prefix validation failures.
 
 ---
 
@@ -45,15 +94,13 @@ gate (phase 3, only after you have walked a real account through onboarding).
 ## 2. Complete the Connect platform profile
 
 Connect → **Settings** → *Platform profile*. `accounts.create` is **refused**
-until this is submitted, so phase 1 will error until it is done.
+until this is submitted, so `createConnectAccount` will error until it is done.
 
 It asks what the business does, who the connected accounts are (US roofing
-contractors), and estimated volume.
-
-> **The liability question matters most.** Answer it so the **connected account**
-> bears chargeback and negative-balance liability, **not the platform**. If the
-> platform takes liability, the main reason for doing this — chargebacks landing
-> on our dispute rate for work we did not perform — survives Connect.
+contractors), and estimated volume. Answer the liability question honestly —
+but read **"Liability — the truth"** above: with destination charges the
+platform carries the liability either way; the dispute auto-reversal is the
+real mitigation.
 
 ## 3. Enable Express + branding
 
@@ -63,54 +110,133 @@ contractors), and estimated volume.
   it is **separate** from the Checkout/portal branding already set for
   subscriptions. Left default, they see an unbranded Stripe page mid-onboarding.
 
-## 4. Payouts + statement descriptor
+## 4. Payouts
 
-- Connect → Settings → **Payouts**: default schedule (daily/weekly/monthly),
-  delay days, and whether connected accounts may change their own schedule.
-  Decide once — contractors will ask.
-- Decide whose **statement descriptor** and support contact the homeowner sees.
-  Express accounts normally carry their own.
+Connect → Settings → **Payouts**: default schedule (daily/weekly/monthly),
+delay days, and whether connected accounts may change their own schedule.
+Decide once — contractors will ask. (Statement descriptor: see the section
+above — nothing to configure beyond what Express onboarding collects.)
 
-## 5. Register the Connect webhook
+## 5. Register webhooks — TWO endpoints
 
-Developers → **Webhooks** → **Add endpoint**:
+> **BEFORE registering anything:** the live Stripe account carries an
+> **unmanaged Cloudflare-Worker webhook on `checkout.session.completed`** that
+> is not in this repo. Reconcile what it is (and whether it should survive)
+> with Jo before adding endpoints, so we know every consumer of the account's
+> events.
+
+### (a) invoiceWebhook — ADD the three phase-3 events
+
+The existing platform endpoint
+(`https://us-central1-nobigdeal-pro.cloudfunctions.net/invoiceWebhook`)
+gains three event types in its dashboard registration:
+
+- `charge.dispute.created` — triggers the automatic transfer reversal + alert.
+- `charge.refunded` — visibility only: alerts the owner; the CRM invoice
+  ledger is **not** changed (adjust records manually if needed).
+- `payment_intent.payment_failed` — visibility only: alerts the owner when a
+  homeowner's card declines on one of OUR invoice links (subscription-billing
+  failures are ignored here — they belong to `stripeWebhook`'s dunning wing).
+
+Register them in **TEST mode AND LIVE mode separately** (dashboard settings do
+not copy across). The signing secret is **unchanged**
+(`STRIPE_INVOICE_WEBHOOK_SECRET`, with the legacy fallback intact). Until the
+events are registered, the new branches are dead code — safe in either order
+relative to the deploy.
+
+### (b) stripeConnectWebhook — replace the placeholder secret
+
+Developers → **Webhooks** → **Add endpoint** (per mode):
 
 - **Endpoint URL:** `https://us-central1-nobigdeal-pro.cloudfunctions.net/stripeConnectWebhook`
 - **Listen to:** events on **Connected accounts**
 - **Events:** `account.updated`, `account.application.deauthorized`
 - Save, then **Reveal** the signing secret (`whsec_...`).
 
-> Do **not** add "events on Connected accounts" to the existing `stripeWebhook`
-> endpoint. That endpoint verifies a different signing secret and handles
-> subscription events; Connect events belong only on the new endpoint.
-
-## 6. Set the new secret
-
-```bash
-firebase functions:secrets:set STRIPE_CONNECT_WEBHOOK_SECRET --project nobigdeal-pro
-```
-
-Verify:
+Then set the secret — **the current stored value is a `__unset__`
+placeholder**; every delivery 500s fail-closed until a real `whsec_` is set.
+Verify first, then set:
 
 ```bash
 firebase functions:secrets:access STRIPE_CONNECT_WEBHOOK_SECRET --project nobigdeal-pro
+firebase functions:secrets:set STRIPE_CONNECT_WEBHOOK_SECRET --project nobigdeal-pro
 ```
 
-The webhook **fails closed** if this is unset — it returns 500 rather than
-skipping signature verification.
+After setting it: check Stripe has not **auto-disabled** the endpoint from the
+accumulated 500s, and use **Resend** on any missed `account.updated` deliveries
+so `connectAccounts/{companyId}` catches up.
+
+> Do **not** reuse `STRIPE_WEBHOOK_SECRET` (the subscription endpoint's
+> secret), and do not add "events on Connected accounts" to `stripeWebhook`.
+> Each endpoint verifies its own signing secret; Connect account events belong
+> only on the Connect endpoint, and the three new payment events belong only
+> on `invoiceWebhook`.
+
+## 6. Refunds + stale links — ops rules until phase 4
+
+- **Refunding a Connect charge from the dashboard: tick "Reverse transfer".**
+  A plain refund returns the homeowner's money from the **PLATFORM** balance
+  while the transfer stays with the contractor. Phase 4 owns the code path;
+  until then this checkbox is the rule for every refund on a tenant charge.
+- **Capability-loss stale links:** if a tenant loses capability (deauthorized /
+  sub lapsed) while an invoice has an open payment link, a Mark Paid regen gets
+  refused and the client nulls the CRM link fields (all Pay CTAs vanish) — but
+  the `plink_` itself may remain payable on Stripe until it errors. The
+  single-use restriction bounds exposure to one session; deactivate the link
+  manually in the dashboard if needed.
+
+## 7. Test mode + emulator QA walkthrough
+
+`mayCollectOnline()` requires `livemode: true` unless test mode is explicitly
+allowed. The opt-in exists ONLY for the emulator/QA:
+
+- **Server:** `NBD_CONNECT_ALLOW_TEST_MODE=1` in `functions/.env.local`
+  (**demo- projects ONLY** — never a prod deploy env). Read per-request via
+  `connectTestModeAllowed(process.env)` in `functions/stripe-connect-logic.js`;
+  strict string `'1'`.
+- **Client:** set `window.__NBD_CONNECT_ALLOW_TEST_MODE = true` manually in the
+  browser console — it is never shipped in page code. Spoofing it buys
+  nothing; the server re-checks.
+- **Seed** (admin-SDK write against the emulator):
+  - `connectAccounts/{companyId}` = `{ accountId: 'acct_test000',
+    chargesEnabled: true, detailsSubmitted: true, livemode: false,
+    status: 'ready' }`
+  - `subscriptions/{companyId}` = `{ stripeSubscriptionId: 'sub_test',
+    status: 'active' }`
+
+Then: sign in as that tenant, create an invoice, and confirm the mint returns
+a link instead of the 403.
+
+Note: `createStripePaymentLink` is a bearer-token `onRequest` endpoint with
+**no App Check enforcement** (unchanged phase-3 parity with the platform
+tenant's client). QA implication: browser-automation runs against prod die on
+App Check throttling elsewhere in the app after ~1h — **use the emulator** for
+this walkthrough.
 
 ---
 
 ## Done when
 
-In **test mode**, an owner can create an account, complete Stripe onboarding, and
-`getConnectStatus` reports `chargesEnabled: true` with `livemode: false`.
+**TEST mode:**
 
-A test-mode account can never satisfy the live payment gate: `livemode` is stored
-per account and the gate predicate (`mayCollectOnline` in
-`functions/stripe-connect-logic.js`) requires it to be `true`.
+- An owner can create an account and complete Stripe onboarding;
+  `getConnectStatus` reports `chargesEnabled: true` with `livemode: false`.
+- With test mode allowed (§7), a tenant invoice mints a payment link.
+- A test-card payment succeeds; the **application fee shows on the platform
+  balance transaction**; `invoiceWebhook` credits the CRM ledger with the
+  **full gross amount**.
 
-**Do not lift the payment-link gate yourself.** That is phase 3, and it is the
-change that actually redirects money — it needs the gate test rewritten
-deliberately, plus a live-mode settlement check against the Stripe dashboard
-(code-level proof is not proof of settlement).
+**LIVE mode:**
+
+- A real tenant is onboarded with `livemode: true`.
+- **ONE real homeowner payment settles into the TENANT's bank** — verify the
+  transfer in their Express dashboard AND the fee on the platform balance.
+  Code-level proof is not settlement proof.
+- The three new events (§5a) are registered in **both** modes, and
+  `STRIPE_CONNECT_WEBHOOK_SECRET` is a real `whsec_` in both modes.
+- The dispute/refund flow (§6) has been dry-reviewed: everyone who can press
+  Refund knows about "Reverse transfer".
+
+---
+
+The gate is lifted in code. What remains manual is this document.

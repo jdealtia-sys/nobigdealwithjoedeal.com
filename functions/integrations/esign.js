@@ -352,6 +352,15 @@ async function createStripeInvoiceForEstimate(estRef) {
   // No auth token here (this runs from the BoldSign webhook), so resolve the
   // tenant from the estimate itself: solo convention is companyId == owner uid,
   // so either matching the platform owner is us.
+  //
+  // PHASE 3 (Connect destination charges) DELIBERATELY DID NOT LIFT THIS
+  // GATE. The payment-link mint now routes tenant money via Connect, but C5
+  // hosted invoices remain platform-only because (a) they are a
+  // reconciliation dead end — a paid hosted invoice's payment_intent carries
+  // no invoiceId metadata, so invoiceWebhook never credits the CRM ledger and
+  // stripeWebhook's invoice.paid ignores non-subscription_cycle reasons — and
+  // (b) they would park tenant homeowner PII as platform-account Customers.
+  // Phase 4 decides: create these on the connected account, or retire C5.
   const ownerUid = est.userId || null;
   const companyId = est.companyId || null;
   const isPlatform = ownerUid === NBD_OWNER_UID || companyId === NBD_OWNER_UID;

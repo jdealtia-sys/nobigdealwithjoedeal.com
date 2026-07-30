@@ -170,26 +170,38 @@ jobs:
       # computed it. Also pins the money fail-safes (a blank/garbage tenant value
       # must never zero a permit or a tax rate) and that reset clears company
       # policy rather than just this device.
-      # Stripe Connect Express phase 1 (accounts + onboarding). MONEY-PATH gate:
-      # capability booleans must FAIL CLOSED (a garbage/absent value must never
-      # read as "charges enabled"), two admins must not mint two connected
-      # accounts, an out-of-order or TEST-mode account.updated must not flip LIVE
-      # state, requirement VALUES (SSN-class PII) must never be mirrored into
-      # Firestore, and phase 1 must contain NO application_fee / on_behalf_of /
-      # payment link — the #1123 platform-only gate stays closed until a
-      # deliberate later change. Dependency-free require() of the logic module.
+      # Stripe Connect Express — the pure money decisions (phases 1 + 3).
+      # MONEY-PATH gate: capability booleans must FAIL CLOSED (a garbage/absent
+      # value must never read as "charges enabled"), two admins must not mint two
+      # connected accounts, an out-of-order or TEST-mode account.updated must not
+      # flip LIVE state, and requirement VALUES (SSN-class PII) must never be
+      # mirrored into Firestore. Phase 3 (2026-07-3x) added the arithmetic that
+      # touches a contractor's bank account: platformFeeCents must never exceed
+      # the charge and must fail closed on anything that isn't integer cents;
+      # decideDisputeReversal must recover the disputed amount and never MORE
+      # than the transfer holds; connectTestModeAllowed must be a strict '1'.
+      # Containment moved rather than lifted: the money primitives now live in
+      # functions/stripe.js and NOWHERE else — the handler and the logic module
+      # stay accounts-only, pinned from both sides (see the platform-only step).
+      # Dependency-free require() of the logic module.
       - name: Run Stripe Connect phase-1 tests
         run: node tests/stripe-connect.test.js
 
-      # Connect phase 2 (the Settings → Billing card, #1143's first caller). The
-      # honesty gate is the point: while the #1123 platform-only gate stands,
-      # finishing Express onboarding gives a contractor NOTHING, and onboarding
-      # collects SSN + bank details — so the card is OWNER-ONLY and every
-      # connected state carries a "payments are still off" note. Also pins the
-      # template re-execution guards (this script runs twice), the deep-link tab
-      # ALLOWLIST (an unknown tab blanks the whole Settings screen), callable-SDK
-      # use (enforceAppCheck ⇒ a raw fetch 401s), and that the single-use
-      # AccountLink is never persisted.
+      # Connect Settings → Billing card. CAPABILITY TRUTH is the point now that
+      # phase 3 lifted the #1123 gate (2026-07-3x): the card is reachable by
+      # owner OR company_admin — mirroring the server's requireTeamAdmin, so
+      # nobody is shown a button that 403s — and it renders what the account can
+      # actually do: "Online card payments are ON" only inside the
+      # onlinePaymentsEnabled branch, "not switched on" otherwise, and the
+      # 3.4% + 30c price in BOTH (a fee first learned about from a payout is a
+      # fee we hid). Couplings fail LOUDLY in both directions: gate lifted but
+      # card owner-only = charging tenants for something they can't manage; card
+      # widened but gate closed = asking for an SSN for nothing; fee charged but
+      # undisclosed on terms/pricing/index/landing = undisclosed pricing. Also
+      # pins the template re-execution guards (this script runs twice), the
+      # deep-link tab ALLOWLIST (an unknown tab blanks the whole Settings
+      # screen), callable-SDK use (enforceAppCheck ⇒ a raw fetch 401s), and that
+      # the single-use AccountLink is never persisted.
       - name: Run Stripe Connect phase-2 UI tests
         run: node tests/stripe-connect-ui.test.js
 
@@ -345,12 +357,19 @@ jobs:
       - name: Run empty-is-not-failed tests
         run: node tests/empty-is-not-failed.test.js
 
-      # MONEY CUSTODY GATE: there is no Stripe Connect, so a payment link minted
-      # for a tenant settles their HOMEOWNER's payment into the PLATFORM's
-      # balance — our chargebacks, our 1099-K, and collecting funds on behalf of
-      # other businesses. Online collection is platform-only until Connect ships.
-      # Also pins that Connect is still absent: if it appears, this test should
-      # fail and be REWRITTEN to lift the gate deliberately, not deleted.
+      # MONEY CUSTODY GATE. The original premise — a tenant's payment link
+      # settles their HOMEOWNER's money into the PLATFORM's balance (our
+      # chargebacks, our 1099-K, collecting funds on behalf of other businesses)
+      # — was fixed by Connect phase 3 (2026-07-3x), exactly the deliberate
+      # rewrite this comment used to ask for. What the suite pins now:
+      # CONFINEMENT (the money primitives live in functions/stripe.js and
+      # nowhere else under functions/, never inside the four subscription-billing
+      # exports, never in the two Connect files); the THREE-WAY GATE in
+      # createStripePaymentLink (platform tenant mints as before; a capable
+      # tenant with a live subscription — past_due included — mints a
+      # destination charge; everyone else gets a 403 returned BEFORE any Stripe
+      # call); the CLIENT MIRROR failing closed; and that esign C5 auto-invoices
+      # were deliberately NOT ported and stay platform-only.
       - name: Run Stripe platform-only payment tests
         run: node tests/stripe-platform-only-payments.test.js
 

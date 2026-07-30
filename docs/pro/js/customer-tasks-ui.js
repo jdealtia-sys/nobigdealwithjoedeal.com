@@ -532,7 +532,9 @@ window.loadInvoices = async function(leadId) {
       totalPaid += paidCash;
 
       const safeStatus = ALLOWED_STATUSES.has(inv.status) ? inv.status : 'draft';
-      const safePayUrl = /^https?:/i.test(String(inv.paymentUrl || '')) ? inv.paymentUrl : null;
+      // invoice-pipeline writes `stripePaymentLink` (invoice-pipeline.js:637-641);
+      // nothing anywhere ever wrote `paymentUrl` — this button was dead (D12).
+      const safePayUrl = /^https?:/i.test(String(inv.stripePaymentLink || '')) ? inv.stripePaymentLink : null;
       // Invoices are stamped `createdAt`; fall back to a legacy `date` if any
       // old doc carried one. Guard against an unparseable value so a single bad
       // row can't render "Invalid Date".

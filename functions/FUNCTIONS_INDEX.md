@@ -68,7 +68,7 @@ If you add a new export, list it here so the next audit doesn't have to re-deriv
 | Export | Type | Compensating control |
 |---|---|---|
 | `stripeWebhook` | onRequest | Stripe signature verification + idempotency via `stripe_events/{eventId}` |
-| `invoiceWebhook` | onRequest | Stripe signature verification (invoice events) |
+| `invoiceWebhook` | onRequest | Stripe signature verification (payment_intent.succeeded credit; phase-3 dispute auto-reversal + refund/decline visibility) |
 | `esignWebhook` | onRequest | BoldSign webhook-secret verification |
 | `measurementWebhook` | onRequest | Hover/EagleView webhook-secret verification |
 | `calcomWebhook` | onRequest | Cal.com HMAC verification |
