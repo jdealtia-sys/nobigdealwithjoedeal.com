@@ -210,7 +210,18 @@ be added, in both modes.
   refund and decline alerts all fire correctly, so the endpoint looks healthy,
   while **no payment ever posts to any invoice** and nothing errors anywhere.
   Put it on **every** endpoint you create, in **every** mode.
-- `charge.dispute.created` — triggers the automatic transfer reversal + alert.
+- `charge.dispute.created` — opens the dispute. Triggers the automatic transfer
+  reversal **only when funds were actually withdrawn**. Card networks open some
+  disputes as *inquiries* (`warning_needs_response` / `warning_under_review`)
+  that take no money from the platform, so reversing on those would claw back a
+  contractor's payout for an event that cost us nothing.
+- **`charge.dispute.funds_withdrawn` — the escalation event, and the easiest to
+  omit.** An inquiry that later becomes a real chargeback fires THIS, not a
+  second `created`. Leave it off and the recovery never runs for any dispute
+  that started life as an inquiry: the money is taken from the platform, the
+  contractor keeps their payout, and **nothing alerts** — the same silent shape
+  as a missing `payment_intent.succeeded`. Register it everywhere you register
+  `charge.dispute.created`.
 - `charge.dispute.closed` — the dispute's final outcome (won / lost /
   warning_closed). Required for the **won** path to close its loop; see §6b.
   Without it, a dispute we win leaves the contractor permanently short by the
