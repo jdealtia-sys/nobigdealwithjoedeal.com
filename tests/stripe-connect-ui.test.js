@@ -208,11 +208,26 @@ const BOOT_CODE = decomment(BOOT);
   // state. Phase 3 computes it from mayCollectOnline(), so the field is the
   // only honest source of the card's headline — and NOT branching on it is now
   // the bug. Two branches minimum: the capability note and the ready blurb.
-  const capBranches = (CODE.match(/onlinePaymentsEnabled === true/g) || []).length;
-  ok('the UI branches on the real capability field in at least two places',
-    capBranches >= 2,
-    'found ' + capBranches + '; the note and the ready blurb must each tell the truth about'
-      + ' whether this account can actually charge a card');
+  //
+  // PREMISE REWRITTEN 2026-07-30 (second pass). This used to be a whole-file
+  // COUNT — `(CODE.match(/onlinePaymentsEnabled === true/g)).length >= 2` — on
+  // the theory that two occurrences meant two branches. A count cannot say
+  // WHERE: adding any third occurrence anywhere in the file (a log line, a
+  // helper, a second note) buys a licence to delete the ready blurb's branch
+  // with the suite fully green, which is exactly how M19a got through. The
+  // note's branch is already brace-scoped above (NOTE); scope the blurb's
+  // branch the same way, to the `st.status === 'ready'` arm itself, so the pin
+  // is about that arm and nothing else can satisfy it. Behavioural backstop in
+  // Part 9: two fixtures differing ONLY in onlinePaymentsEnabled must render
+  // DIFFERENT blurbs, which no rewording can satisfy once the branch is gone.
+  const readyArm = braceBlock(CODE, CODE.indexOf("st.status === 'ready'"));
+  ok('the ready arm was located (the branch pin below is scoped)',
+    readyArm.length > 200 && /blurb =/.test(readyArm),
+    'the status arms were restructured — re-anchor this scope, the pin below is vacuous without it');
+  ok('the ready BLURB itself branches on the real capability field',
+    /onlinePaymentsEnabled === true/.test(readyArm),
+    'a ready arm that never consults the capability tells a TEST-mode owner that a homeowner\'s'
+      + ' card payment settles into their bank: the Stripe account is ready, the CRM is not');
 }
 
 // ── Part 3: template re-execution safety ──────────────────────────────
@@ -611,6 +626,39 @@ const BOOT_CODE = decomment(BOOT);
   ok('BEHAVIOUR: a not-yet-enabled ready account never claims links or settlement',
     !/can carry an online/.test(r6.html) && !/settles into this account/.test(r6.html),
     'the blurb must branch on onlinePaymentsEnabled, not just describe the Stripe account');
+
+  // STRENGTHENED 2026-07-30 (second pass). The pin above is copy-shaped: both
+  // literals are lifted from today's ON blurb, so REWORDING that blurb while
+  // collapsing the branch passes it, and its companion guard in Part 2 was a
+  // whole-file occurrence COUNT (now brace-scoped, see there). What is true
+  // regardless of wording is that the ready blurb must DIFFER between an account
+  // this CRM will charge a card on and one it won't. These two fixtures are
+  // identical in every field except onlinePaymentsEnabled, so identical blurbs
+  // can only mean the branch is gone — whatever the new copy says.
+  const READY_BASE = {
+    status: 'ready', label: 'Connected', connected: true, accountId: 'acct_same',
+    livemode: true, chargesEnabled: true, payoutsEnabled: true, detailsSubmitted: true,
+  };
+  // Extract the blurb rather than diffing whole cards: the capability NOTE also
+  // branches on this field, so a whole-HTML diff would stay green with the blurb
+  // collapsed — the same vacuity M19a exploited. The blurb is the div the
+  // renderer emits between the head and `extra`.
+  const blurbOf = (html) => {
+    const m = /<div style="font-size:12px;color:var\(--m\);line-height:1\.5;">([\s\S]*?)<\/div>/.exec(html);
+    return m ? m[1] : '';
+  };
+  const onBlurb = blurbOf(renderWith(OWNER,
+    Object.assign({}, READY_BASE, { onlinePaymentsEnabled: true })).html);
+  const offBlurb = blurbOf(renderWith(OWNER,
+    Object.assign({}, READY_BASE, { onlinePaymentsEnabled: false })).html);
+  ok('BEHAVIOUR: the ready blurb is extractable from both renders',
+    onBlurb.length > 40 && offBlurb.length > 40,
+    'anti-vacuity for the comparison below — re-anchor blurbOf() on the renderer\'s markup');
+  ok('BEHAVIOUR: the ready blurb DIFFERS on onlinePaymentsEnabled alone',
+    onBlurb !== offBlurb,
+    'two accounts identical except the capability got the same sentence, so the blurb no longer'
+      + ' branches: one of those two owners is being told something untrue about whether a'
+      + ' homeowner can pay them. Copy-independent — rewording cannot silence this');
 
   // An unrecognised status from a newer server must not be silently rendered as
   // one of the good states.
