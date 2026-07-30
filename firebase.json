@@ -7,7 +7,9 @@
       "firebase.json",
       "**/.*",
       "**/node_modules/**",
-      "dev/**"
+      "dev/**",
+      "deploy/**",
+      "**/*.md"
     ],
     "redirects": [
       { "_comment": "QR-stable yard sign link. /yardsign is printed on physical yard signs with a QR code; this redirect points scanners to the current GBP listing. 302 (not 301) on purpose: the destination is meant to be swappable without re-printing signs, and 301 would let browsers cache an old target. To repoint: change `destination` below and redeploy.",

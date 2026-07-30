@@ -15,6 +15,18 @@
  *     compliance gap, so we assert coverage of the known PII collections + the
  *     documented shape (leads recursive, invoices keyed on createdBy).
  *
+ *  3. Internal-doc publication (firebase.json hosting.ignore) — hosting serves
+ *     `docs/` as the site ROOT, so anything committed under docs/ is world-
+ *     readable by default. That silently published all 16 ops runbooks under
+ *     docs/deploy/ (Cloud Function URLs, secret NAMES, deploy procedures, the
+ *     NBD_DEPLOY_SKIP_LIST rationale, known-gotcha writeups) plus
+ *     docs/pro/README-killswitch.md — confirmed live 2026-07-30. No secret
+ *     VALUES leaked (those live in Secret Manager), but it read as a map of
+ *     where the system is fragile. We assert the docs are EXCLUDED FROM THE
+ *     UPLOAD rather than 404'd by a rewrite, because ignored files never reach
+ *     the CDN at all. Guard is filesystem-driven: it walks docs/ and fails on
+ *     any .md that a future commit drops into a served path.
+ *
  * Zero deps. Run: node tests/security-headers-gdpr.test.js
  */
 'use strict';
@@ -139,6 +151,78 @@ console.log('\nGDPR REGISTRY — collectionGroup sweeps have a COLLECTION_GROUP 
     const covered = overrides.some(f => f.collectionGroup === g && f.fieldPath === 'userId'
       && (f.indexes || []).some(i => i.queryScope === 'COLLECTION_GROUP'));
     ok(`collectionGroup "${g}".userId has a COLLECTION_GROUP single-field index`, covered);
+  }
+}
+
+// ── 3. Internal docs must never be published ─────────────────
+// hosting.public is "docs", so every path under docs/ is served at the site
+// root unless an `ignore` glob excludes it from the upload. Runbooks are
+// authored as .md and nothing under docs/ links to a .md (no <a href>, no
+// sitemap entry, no llms.txt reference), so "*.md under the hosting root" is
+// a reliable proxy for "internal, not site content".
+console.log('\nINTERNAL DOCS — not published to hosting');
+{
+  const fs = require('fs');
+  const ignore = fb.hosting.ignore || [];
+
+  // firebase.json ignore globs are matched against paths RELATIVE to
+  // hosting.public. Supports `**/` (zero+ dirs), trailing `**`, and `*`.
+  function globToRe(glob) {
+    let re = '';
+    for (let i = 0; i < glob.length; i++) {
+      const c = glob[i];
+      if (c === '*') {
+        if (glob[i + 1] === '*') {
+          if (glob[i + 2] === '/') { re += '(?:[^/]+/)*'; i += 2; } else { re += '.*'; i += 1; }
+        } else { re += '[^/]*'; }
+      } else if ('.+?^${}()|[]\\/'.includes(c)) {
+        re += (c === '/' ? '/' : '\\' + c);
+      } else { re += c; }
+    }
+    return new RegExp('^' + re + '$');
+  }
+  const ignoreRes = ignore.map(globToRe);
+  const isIgnored = rel => ignoreRes.some(r => r.test(rel));
+
+  const root = path.join(__dirname, '..', fb.hosting.public);
+  function walk(dir, rel, out) {
+    for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+      const r = rel ? rel + '/' + e.name : e.name;
+      if (e.isDirectory()) walk(path.join(dir, e.name), r, out); else out.push(r);
+    }
+    return out;
+  }
+  const all = walk(root, '', []);
+
+  // (a) the exact leak that shipped: every runbook under docs/deploy/.
+  const deployDocs = all.filter(f => f.startsWith('deploy/'));
+  ok(`docs/deploy/ is non-empty (${deployDocs.length} runbooks — guard is live)`, deployDocs.length > 0);
+  const servedDeploy = deployDocs.filter(f => !isIgnored(f));
+  ok(`no docs/deploy/ file is published (leaking: ${servedDeploy.join(', ') || 'none'})`,
+    servedDeploy.length === 0);
+
+  // (b) directory-level intent, so a future NON-.md runbook (deploy/rotate.sh,
+  //     deploy/notes.txt) is caught too — not just markdown.
+  ok('hosting.ignore excludes the whole deploy/ directory', ignore.includes('deploy/**'));
+  ok('hosting.ignore still excludes the dev/ directory', ignore.includes('dev/**'));
+
+  // (c) the general rule: NO markdown anywhere under the hosting root is
+  //     served. Catches internal docs dropped outside deploy/ — this is what
+  //     caught docs/pro/README-killswitch.md (service-worker kill switch) and
+  //     docs/assets/gaf/timberline/README.md.
+  const servedMd = all.filter(f => /\.md$/i.test(f) && !isIgnored(f));
+  ok(`no markdown under docs/ is published (leaking: ${servedMd.join(', ') || 'none'})`,
+    servedMd.length === 0);
+
+  // (d) the guard must not be vacuous — if the walk found no .md at all, the
+  //     assertion above passes for the wrong reason.
+  const totalMd = all.filter(f => /\.md$/i.test(f)).length;
+  ok(`walk actually found markdown to check (${totalMd} files)`, totalMd > 0);
+
+  // (e) real site content must still ship — proves the globs above aren't
+  //     over-broad enough to unpublish the marketing site.
+  for (const keep of ['index.html', 'robots.txt', 'sitemap.xml', 'llms.txt']) {
+    ok(`site content still published: ${keep}`, all.includes(keep) && !isIgnored(keep));
   }
 }
 
