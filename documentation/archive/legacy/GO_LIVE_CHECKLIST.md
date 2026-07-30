@@ -1,6 +1,14 @@
 # Go-Live Checklist
 
-Beginner-level, step-by-step. Follow in order. Each part is its own short file under `docs/deploy/`.
+> **The linked runbooks are no longer in this repo (2026-07-30).** They lived under
+> `docs/deploy/`, which — because `firebase.json` sets `hosting.public: "docs"` — was
+> the live site root, so all 16 were served publicly at
+> `https://nobigdealwithjoedeal.com/deploy/<file>.md`. They were also readable via
+> the public GitHub tree. They have been moved out of the repository entirely; the
+> `docs/deploy/**` links in the table below are retained for historical context and
+> no longer resolve. Ask the repo owner for the current location.
+
+Beginner-level, step-by-step. Follow in order. Each part was its own short file under `docs/deploy/`.
 
 | # | File | Time | What it is |
 |---|---|---|---|

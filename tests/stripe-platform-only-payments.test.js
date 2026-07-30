@@ -444,7 +444,7 @@ console.log('STRIPE — where homeowner money lands: confinement + the three-way
 // UNCHANGED BY PHASE 3, deliberately: phase 3 lifted the payment-link gate but
 // did NOT port C5 — tenant esign auto-invoices stay platform-only, because a
 // paid hosted invoice carries no invoiceId metadata and would never credit the
-// CRM ledger (see docs/deploy/10-stripe-connect.md and the note in esign.js).
+// CRM ledger (see the Stripe Connect runbook, kept outside this repo, and the note in esign.js).
 // So every assertion below still asserts what it always did.
 // Found while scoping Connect (2026-07-29): createStripePaymentLink was gated
 // by #1123, but functions/integrations/esign.js createStripeInvoiceForEstimate
