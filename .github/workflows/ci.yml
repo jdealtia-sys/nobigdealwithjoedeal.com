@@ -417,6 +417,16 @@ jobs:
       - name: Run gauntlet regression tests
         run: node tests/gauntlet-regressions.test.js
 
+      # CSP/security-header invariants, the GDPR erasure/export registry, AND
+      # the internal-doc publication guard. Was authored as a test file but
+      # never wired into CI, so none of it actually gated anything — which is
+      # how all 16 ops runbooks under docs/deploy/ stayed publicly served
+      # (hosting.public is "docs", so docs/ IS the site root). Gated here so a
+      # future commit can't re-open unsafe-inline, drop a PII collection from
+      # the erasure registry, or drop a runbook into a served path.
+      - name: Run security-header + GDPR + internal-doc publication tests
+        run: node tests/security-headers-gdpr.test.js
+
   site-integrity:
     name: Site integrity
     runs-on: ubuntu-latest
