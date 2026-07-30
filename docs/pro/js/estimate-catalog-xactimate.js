@@ -9,9 +9,14 @@
 //   - Tier assignment (good / better / best / any)
 //
 // Source: NRCA Guidelines + Ohio Residential Code (OBC) +
-// Kentucky Residential Code (KRC) + 2021 IRC + live Cincinnati
-// supplier pricing from ABC Supply, Beacon, SRS + Joe's crew
-// time-study data.
+// Kentucky Residential Code (KRC) + 2021 IRC + regional supplier
+// pricing and in-house productivity data.
+//
+// NOTE: this file is served unauthenticated at
+// /pro/js/estimate-catalog-xactimate.js. Do NOT name specific
+// suppliers, branches, negotiated rates or the source of the
+// productivity figures here — that discloses commercial
+// relationships to anyone who views source.
 //
 // This is the CATALOG ONLY — pricing math is handled by
 // estimate-builder-v2.js. This file registers entries under

@@ -1416,7 +1416,7 @@ ${blockers.length ? blockers.map(b => `- [ ] **${b.title}** (${b.sessionsOpen} s
 - **S8:** Close before opening — 2+ session loops must close first
 - **S8:** Execution Debt Register updated every session
 - **S10:** CRM file path is \`pro/dashboard.html\` — not \`pro/crm/index.html\`
-- **S13:** Worker URL: \`nbd-ai-proxy.jonathandeal459.workers.dev\` (gemini-2.5-flash only)
+- **S13:** AI proxy Worker URL is configured out-of-band — never hardcode it here (publicly served file)
 - **S13:** Create token → use → delete (never share in chat)
 - **S27:** Vault Firestore is long-term memory — always purge cache after vault.html changes
 - **S29:** vaultImportSession() always checks for duplicates and shows resolution modal — never silently overwrite
@@ -2351,7 +2351,7 @@ const SEED_BLOCKERS = [
 const SEED_DIRECTIVES = [
   {session: 5, text: '"Never lose a job" — soft delete only in CRM', binding: true},
   {session: 7, text: 'nbdApplyTheme() is single point of theme write', binding: true},
-  {session: 13, text: 'Worker URL: nbd-ai-proxy.jonathandeal459.workers.dev (gemini-2.5-flash only)', binding: true}
+  {session: 13, text: 'AI proxy Worker URL is configured out-of-band — never hardcode it here (publicly served file)', binding: true}
 ];
 
 const SEED_DECISIONS = [

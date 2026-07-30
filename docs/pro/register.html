@@ -556,11 +556,8 @@ main#main {
       <div class="ffield code-field">
         <label for="regCode">Access Code <span style="font-weight:400;color:rgba(255,255,255,.55);">(optional — leave blank for free tier)</span></label>
         <input class="finput" id="regCode" name="access-code" type="text" placeholder="NBD-XXXXX or leave blank" autocomplete="off" spellcheck="false">
-        <!-- 2026-07 access-code audit: the page used to print a code
-             ("NBD-PRO") to every visitor. No such code is seeded, so it
-             only produced a confusing failure — and if anyone ever created
-             that doc it would be a public paywall bypass. Codes are now
-             invitation-only. -->
+        <!-- Access codes are invitation-only. Never render a sample or
+             placeholder code here — this page is public. -->
         <div class="code-hint">Codes are invitation-only — <a href="mailto:jd@nobigdealwithjoedeal.com">email Joe</a> if you were promised one. No code needed for the free tier.</div>
       </div>
 

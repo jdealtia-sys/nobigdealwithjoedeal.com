@@ -340,8 +340,7 @@ Four Pillars:
 Architecture:
 - nbdApplyTheme(id) — SINGLE SOURCE OF TRUTH. Never bypass.
 - 100 v5 themes (body.theme-{id}) + 176 v3 themes (:root[data-theme]) — permanently bridged
-- PLAN_UNLOCK = {blueprint:15, foundation:35, infused:55, team:70, command:80}
-- Stripe: NOT WIRED — all gating fake until Stripe lands
+- Stripe: live — billing and plan gating are enforced server-side
 
 ${'━'.repeat(60)}
 
