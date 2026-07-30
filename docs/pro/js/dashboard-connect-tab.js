@@ -362,7 +362,7 @@
           // which is the expected state until the dashboard checklist is done.
           if (action === 'start') {
             msg += ' — if this keeps failing, Connect may not be enabled on the '
-              + 'Stripe platform account yet (docs/deploy/10-stripe-connect.md).';
+              + 'Stripe platform account yet — see the Stripe Connect owner-setup runbook.';
           }
           window._nbdConnectError = msg;
           if (typeof showToast === 'function') showToast(_nbdConnectEsc(msg), 'error');

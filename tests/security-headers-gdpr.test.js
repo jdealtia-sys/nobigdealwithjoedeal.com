@@ -27,6 +27,14 @@
  *     the CDN at all. Guard is filesystem-driven: it walks docs/ and fails on
  *     any .md that a future commit drops into a served path.
  *
+ *     FOLLOW-UP (same day): the hosting fix alone was NOT sufficient. This repo
+ *     is PUBLIC, so all 16 runbooks stayed readable at raw.githubusercontent.com
+ *     even after they stopped serving from the CDN. On a public repo the git
+ *     tree — not hosting — is the real exposure surface. The runbooks were
+ *     therefore removed from the repo entirely and relocated outside it. This
+ *     section still guards the hosting side, which remains the right invariant
+ *     for anything that DOES live under docs/.
+ *
  * Zero deps. Run: node tests/security-headers-gdpr.test.js
  */
 'use strict';
@@ -194,11 +202,17 @@ console.log('\nINTERNAL DOCS — not published to hosting');
   }
   const all = walk(root, '', []);
 
-  // (a) the exact leak that shipped: every runbook under docs/deploy/.
+  // (a) the exact leak that shipped. The runbooks have since been REMOVED from
+  //     the repo entirely: this is a PUBLIC repo, so unpublishing them from
+  //     hosting still left all 16 readable via raw.githubusercontent.com — the
+  //     git tree, not the CDN, was the real exposure. They now live outside the
+  //     repo. The `deploy/**` ignore glob stays as a tripwire so that if the
+  //     directory is ever recreated, nothing in it publishes. Non-vacuity is
+  //     anchored on (d) below, NOT on this directory existing — so this
+  //     assertion is honest whether docs/deploy/ is present or absent.
   const deployDocs = all.filter(f => f.startsWith('deploy/'));
-  ok(`docs/deploy/ is non-empty (${deployDocs.length} runbooks — guard is live)`, deployDocs.length > 0);
   const servedDeploy = deployDocs.filter(f => !isIgnored(f));
-  ok(`no docs/deploy/ file is published (leaking: ${servedDeploy.join(', ') || 'none'})`,
+  ok(`no docs/deploy/ file is published (${deployDocs.length} present; leaking: ${servedDeploy.join(', ') || 'none'})`,
     servedDeploy.length === 0);
 
   // (b) directory-level intent, so a future NON-.md runbook (deploy/rotate.sh,
