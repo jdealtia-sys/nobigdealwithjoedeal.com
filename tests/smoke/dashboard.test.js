@@ -2001,10 +2001,25 @@ section('Phase C.3 wave 2 — draw + dash + reports + settings');
     const settingsBody = dash.slice(tplStart, tplEnd);
     // Count all <script ...> opening tags (inline or external) inside
     // the template. Inline = `<script>`; external = `<script src=...>`.
+    // 6 → 7 on 2026-07-29: dashboard-connect-tab.js (Connect phase 2).
     const scriptCount = (settingsBody.match(/<script[\s>]/g) || []).length;
-    assert('tpl-view-settings carries 6 <script> blocks (inline or external, incl. pipeline-builder)',
-      scriptCount === 6,
-      'expected 6 scripts inside the settings template, got ' + scriptCount);
+    assert('tpl-view-settings carries 7 <script> blocks (inline or external, incl. pipeline-builder)',
+      scriptCount === 7,
+      'expected 7 scripts inside the settings template, got ' + scriptCount);
+    // The COUNT is a weak proxy for the thing that actually matters (CSP
+    // extraction put these scripts inside the template, and a settings module
+    // loaded OUTSIDE it runs before its markup exists). So also pin the intent:
+    // every settings-tab module must be referenced from inside the template.
+    // Bumping the number alone, next time, would satisfy the count and miss this.
+    ['dashboard-custom-theme.js', 'dashboard-sidebar-customizer.js', 'pipeline-builder.js',
+      'dashboard-team-tab.js', 'dashboard-billing-tab.js', 'dashboard-connect-tab.js',
+      'dashboard-hotkey-toggles.js'].forEach((f) => {
+      const insideCount = (settingsBody.match(new RegExp(f.replace(/\./g, '\\.'), 'g')) || []).length;
+      const wholeFile = (dash.match(new RegExp('<script[^>]*' + f.replace(/\./g, '\\.'), 'g')) || []).length;
+      assert(f + ' is loaded from INSIDE tpl-view-settings',
+        insideCount > 0 && wholeFile === 1,
+        'expected exactly one <script> for ' + f + ', inside the settings template');
+    });
   }
 }
 

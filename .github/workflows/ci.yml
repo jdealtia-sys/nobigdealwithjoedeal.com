@@ -181,6 +181,18 @@ jobs:
       - name: Run Stripe Connect phase-1 tests
         run: node tests/stripe-connect.test.js
 
+      # Connect phase 2 (the Settings → Billing card, #1143's first caller). The
+      # honesty gate is the point: while the #1123 platform-only gate stands,
+      # finishing Express onboarding gives a contractor NOTHING, and onboarding
+      # collects SSN + bank details — so the card is OWNER-ONLY and every
+      # connected state carries a "payments are still off" note. Also pins the
+      # template re-execution guards (this script runs twice), the deep-link tab
+      # ALLOWLIST (an unknown tab blanks the whole Settings screen), callable-SDK
+      # use (enforceAppCheck ⇒ a raw fetch 401s), and that the single-use
+      # AccountLink is never persisted.
+      - name: Run Stripe Connect phase-2 UI tests
+        run: node tests/stripe-connect-ui.test.js
+
       - name: Run county tenant-policy tests
         run: node tests/county-tenant-policy.test.js
 
