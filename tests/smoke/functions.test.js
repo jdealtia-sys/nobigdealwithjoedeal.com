@@ -365,8 +365,106 @@ section('Slack alerts');
   for (const name of ['slack_onLeadWon','slack_onAdminGrantAttempt','slack_onStormAlert']) {
     assert('exports ' + name, new RegExp('exports\\.' + name + '\\s*=').test(src));
   }
+  // PREMISE REWRITTEN 2026-07-30 (#1146 audit, findings 1 + 11). This
+  // assertion is KEPT — silent-fail on a missing webhook is still the
+  // contract — but it was never the guard it was read as. It checks the
+  // helper's own internal guard and nothing else, so it passed happily while
+  // BOTH Stripe webhooks called postSlack without declaring
+  // SLACK_WEBHOOK_URL in their secrets arrays: Gen2 mounts only a function's
+  // DECLARED secrets, so the param read '', hasSecret() was false, and every
+  // dispute + dunning alert returned {posted:false, reason:'unconfigured'}
+  // and was discarded. The binding check below is the part that would have
+  // caught it.
   assert('Slack helper fails silent on missing webhook',
     /hasSecret\('SLACK_WEBHOOK_URL'\)[\s\S]{0,120}return \{ posted: false/.test(src));
+
+  // ── Anti-rot: postSlack caller ⇒ SLACK_WEBHOOK_URL bound ──────────────
+  // Every DEPLOYED function under functions/ that can reach a postSlack call
+  // — directly, or through a module-level helper in the same file — must
+  // declare SLACK_WEBHOOK_URL in its own secrets array. Undeclared = the
+  // alert is dropped in silence, which is invisible in every other test we
+  // have (they assert on source text, and the source looks correct).
+  {
+    const POST_SLACK = /postSlack\s*\(/;              // NOT postSlackSummary(
+    const TOP_LEVEL = /^(?:async\s+)?function\s+[\w$]+|^exports\.[\w$]+\s*=|^module\.exports/gm;
+
+    const files = [];
+    (function walk(dir) {
+      for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+        if (entry.name === 'node_modules' || entry.name.startsWith('.')) continue;
+        const p = path.join(dir, entry.name);
+        if (entry.isDirectory()) walk(p);
+        else if (entry.name.endsWith('.js')) files.push(p);
+      }
+    })(FUNCTIONS);
+
+    const posters = [];   // deployed functions that can reach postSlack
+    const unbound = [];   // …of those, the ones not declaring the secret
+    for (const file of files) {
+      const body = read(file);
+      if (!POST_SLACK.test(body)) continue;
+
+      // Split on column-0 definitions. A deployed function's own body is
+      // always indented, so a top-level `function`/`exports.` reliably ends
+      // the previous region — which is what keeps a module-level helper
+      // (e.g. stripe.js alertInvoicePaymentEvent) from being mis-attributed
+      // to whichever handler happens to sit above it.
+      const starts = [];
+      let m;
+      TOP_LEVEL.lastIndex = 0;
+      while ((m = TOP_LEVEL.exec(body)) !== null) starts.push(m.index);
+      const regions = starts.map((start, i) => ({
+        text: body.slice(start, i + 1 < starts.length ? starts[i + 1] : body.length),
+      }));
+
+      // Pass 1: module-level helpers that post to Slack on a caller's behalf.
+      const slackHelpers = [];
+      for (const r of regions) {
+        const h = /^(?:async\s+)?function\s+([\w$]+)/.exec(r.text);
+        if (h && POST_SLACK.test(r.text)) slackHelpers.push(h[1]);
+      }
+
+      // Pass 2: deployed functions, direct callers or helper callers.
+      for (const r of regions) {
+        const d = /^exports\.([\w$]+)\s*=/.exec(r.text);
+        if (!d || !/\bon[A-Z]\w*\s*\(/.test(r.text.slice(0, 400))) continue;
+        const reaches = POST_SLACK.test(r.text)
+          || slackHelpers.some(h => new RegExp('\\b' + h + '\\s*\\(').test(r.text));
+        if (!reaches) continue;
+        const label = path.relative(FUNCTIONS, file).replace(/\\/g, '/') + ':' + d[1];
+        posters.push(label);
+        const arr = /secrets:\s*\[[\s\S]*?\]/.exec(r.text);
+        if (!arr || !/SLACK_WEBHOOK_URL/.test(arr[0])) unbound.push(label);
+      }
+    }
+
+    // The scan finding nothing is itself the failure mode this guard is most
+    // likely to rot into, so pin a floor: slack.js's 3 triggers, device-alert,
+    // storm-briefing, and both Stripe webhooks.
+    assert('postSlack-caller scan found the known Slack-posting functions',
+      posters.length >= 7
+        && posters.includes('stripe.js:invoiceWebhook')
+        && posters.includes('stripe.js:stripeWebhook'),
+      'found: ' + (posters.join(', ') || 'NONE'));
+    assert('every postSlack caller declares SLACK_WEBHOOK_URL in its secrets array',
+      unbound.length === 0,
+      unbound.length ? 'unbound (alerts silently dropped): ' + unbound.join(', ') : '');
+  }
+
+  // Binding the secret is necessary but NOT sufficient: prod's
+  // SLACK_WEBHOOK_URL still holds only the deploy workflow's '__unset__' stub,
+  // so Slack stays unconfigured until the owner sets it. The owner-only,
+  // action-required chargeback copy therefore needs a channel that works
+  // today — an email_queue CC to NBD_OWNER_UID (#1146 finding 1, half b).
+  {
+    const st = read(path.join(FUNCTIONS, 'stripe.js'));
+    assert('alertInvoicePaymentEvent can CC the platform owner via email_queue',
+      /if \(opts\.ownerUid\)[\s\S]{0,1600}collection\('email_queue'\)\.add\(\{[\s\S]{0,500}audience: 'platform_owner'/.test(st));
+    assert('a requested owner alert that resolves no email is an ERROR, not silence',
+      /logger\.error\('payment_event_owner_alert_undeliverable'/.test(st));
+    assert('postSlack result is no longer discarded by alertInvoicePaymentEvent',
+      /payment_event_slack_not_delivered/.test(st));
+  }
 }
 
 section('Turnstile');

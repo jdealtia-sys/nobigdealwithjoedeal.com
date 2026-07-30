@@ -172,6 +172,40 @@ function platformFeeCents(chargedCents) {
   return Math.max(0, Math.min(fee, chargedCents - 1));
 }
 
+// ── Has Stripe actually taken the money? (phase 3) ──────────────────────
+// NEW 2026-07-30 (#1146 audit finding 2/6). An INQUIRY — Amex/Discover
+// retrieval, Stripe status `warning_needs_response` / `warning_under_review`
+// / `warning_closed` — is a REQUEST FOR INFORMATION. Stripe withdraws
+// NOTHING from the platform balance for it, and there is no "won" outcome
+// to close it with, so a claw-back taken at inquiry time is never returned
+// by any outcome event. It must therefore never trigger one.
+//
+// The authority is the dispute's own balance-transaction list: it holds
+// "zero, one, or two balance transactions that show funds withdrawn and
+// reinstated". A negative entry IS the platform debit. Two deliberate
+// asymmetries:
+//   - a `warning_*` status short-circuits to false even if the array is
+//     somehow present, because an inquiry never debits us;
+//   - when the array is ABSENT (older payload shape, a caller that built
+//     the object by hand) we fall back to the status and assume withdrawn,
+//     so a real chargeback is never left unrecovered by a missing field.
+//     The false-positive cost of that fallback is bounded — a `warning_*`
+//     status is still caught by the first rule.
+// An empty array on a non-warning status means "not withdrawn YET" — that
+// is the legitimate wait-for-the-withdrawal state, and it is why the
+// caller must also handle the funds-withdrawn event.
+function disputeFundsWithdrawn(dispute) {
+  const d = dispute || {};
+  const status = str(d.status).toLowerCase();
+  if (status.startsWith('warning_')) return { withdrawn: false, inquiry: true, basis: 'status' };
+  const bts = d.balance_transactions;
+  if (Array.isArray(bts)) {
+    const debited = bts.some((b) => b && Number(b.amount) < 0);
+    return { withdrawn: debited, inquiry: false, basis: 'balance_transactions' };
+  }
+  return { withdrawn: true, inquiry: false, basis: 'status' };
+}
+
 // ── Dispute reversal decision (phase 3) ─────────────────────────────────
 // Under destination routing a chargeback debits the PLATFORM balance. The
 // transfer attached to the disputed charge is the recovery lever: reverse
@@ -182,22 +216,49 @@ function platformFeeCents(chargedCents) {
 // platform-tenant charge has no transfer. amountCents === null means the
 // transfer object was not expanded: the caller omits the amount and Stripe
 // reverses the full remainder (can never over-reverse).
+//
+// REWRITTEN 2026-07-30 (#1146 audit findings 2 + 6). This used to read only
+// the transfer and the amount, so it recovered "the disputed amount"
+// whenever a transfer existed. The stale premise was that every
+// charge.dispute.* delivery means the platform has been debited. It does
+// not: an inquiry costs the platform $0, and on a $10k invoice the old
+// behaviour held ~$9.6k of the contractor's money with no event that ever
+// gives it back. Recovery is now gated on the debit having HAPPENED
+// (disputeFundsWithdrawn above), which makes this a two-event decision —
+// see the caller's runbook note for the events that must be registered.
 function decideDisputeReversal(dispute, charge) {
   const d = dispute || {};
   const c = charge || {};
   const t = c.transfer;
+  const funds = disputeFundsWithdrawn(d);
   const transferId = typeof t === 'string' ? t : str(t && t.id);
-  if (!transferId.startsWith('tr_')) return { reverse: false, transferId: null, amountCents: 0, reason: 'no_transfer' };
+  if (!transferId.startsWith('tr_')) {
+    return { reverse: false, transferId: null, amountCents: 0, reason: 'no_transfer', inquiry: funds.inquiry };
+  }
+  if (!funds.withdrawn) {
+    // Two distinct waits, never collapsed: an inquiry may never debit us at
+    // all, while a real dispute whose withdrawal has not landed yet will.
+    // The caller's copy says which one out loud.
+    return {
+      reverse: false,
+      transferId,
+      amountCents: 0,
+      reason: funds.inquiry ? 'inquiry_no_funds_withdrawn' : 'funds_not_yet_withdrawn',
+      inquiry: funds.inquiry,
+    };
+  }
   const disputed = Number(d.amount);
-  if (!Number.isInteger(disputed) || disputed <= 0) return { reverse: false, transferId, amountCents: 0, reason: 'malformed' };
+  if (!Number.isInteger(disputed) || disputed <= 0) {
+    return { reverse: false, transferId, amountCents: 0, reason: 'malformed', inquiry: false };
+  }
   const tAmount = (t && typeof t === 'object') ? Number(t.amount) : NaN;
   const tReversed = (t && typeof t === 'object') ? (Number(t.amount_reversed) || 0) : 0;
   if (Number.isInteger(tAmount) && tAmount > 0) {
     const remaining = tAmount - tReversed;
-    if (remaining <= 0) return { reverse: false, transferId, amountCents: 0, reason: 'nothing_to_reverse' };
-    return { reverse: true, transferId, amountCents: Math.min(disputed, remaining), reason: 'destination_charge' };
+    if (remaining <= 0) return { reverse: false, transferId, amountCents: 0, reason: 'nothing_to_reverse', inquiry: false };
+    return { reverse: true, transferId, amountCents: Math.min(disputed, remaining), reason: 'destination_charge', inquiry: false };
   }
-  return { reverse: true, transferId, amountCents: null, reason: 'destination_charge' };
+  return { reverse: true, transferId, amountCents: null, reason: 'destination_charge', inquiry: false };
 }
 
 // ── Test-mode opt-in (phase 3) ──────────────────────────────────────────
@@ -232,6 +293,7 @@ module.exports = {
   mayCollectOnline,
   describeConnectStatus,
   platformFeeCents,
+  disputeFundsWithdrawn,
   decideDisputeReversal,
   connectTestModeAllowed,
   PLATFORM_FEE_BPS,
