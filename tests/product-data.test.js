@@ -4,8 +4,8 @@
  * Guards the PRODUCT catalog (product-data.js + roofivent-catalog.js merge)
  * and the product-library.js DATA_VERSION migration:
  *   1. Catalog integrity — unique ids across the merge, required fields,
- *      category/unit registered, sell >= cost > 0 across all three tiers,
- *      total count >= 260 (188 base + 88 RoofIVent = 276).
+ *      category/unit registered, sell present on all three tiers, no private
+ *      cost/labor fields, total count >= 260 (188 base + 88 RoofIVent = 276).
  *   2. Migration (v3 store -> v4) — user-created products and user-edited
  *      defaults (updatedAt !== createdAt) survive; untouched defaults are
  *      refreshed; new default SKUs appear. The old reseed WIPED user data.
@@ -30,6 +30,8 @@ function eq(actual, expected, label) {
 function ok(cond, label) {
   if (!cond) throw new Error(label || 'assertion failed');
 }
+
+const { hasPrivateFields } = require(path.join(__dirname, '..', 'functions', 'catalog-cost-logic.js'));
 
 const SRC_DIR = path.join(__dirname, '..', 'docs', 'pro', 'js');
 const DATA_SRC = fs.readFileSync(path.join(SRC_DIR, 'product-data.js'), 'utf8');
@@ -89,17 +91,32 @@ test('every product unit is registered in NBD_UNITS', () => {
   eq(bad.map(p => p.id + ':' + p.unit).join(','), '', 'unregistered unit');
 });
 
-test('pricing: sell >= cost > 0 on all three tiers (allowlisted zero-cost SKUs exempt from cost > 0)', () => {
+test('pricing: sell is a number >= 0 on all three tiers', () => {
   const bad = [];
   PRODUCTS.forEach(p => {
     TIERS.forEach(t => {
       const tr = p.pricing && p.pricing[t];
-      if (!tr || typeof tr.sell !== 'number' || typeof tr.cost !== 'number') { bad.push(p.id + ':' + t + ':shape'); return; }
-      if (!(tr.sell >= tr.cost)) bad.push(p.id + ':' + t + ':sell<cost');
-      if (ZERO_COST_OK.has(p.id) ? !(tr.cost >= 0) : !(tr.cost > 0)) bad.push(p.id + ':' + t + ':cost');
+      if (!tr || typeof tr.sell !== 'number' || !Number.isFinite(tr.sell)) { bad.push(p.id + ':' + t + ':shape'); return; }
+      if (!(tr.sell >= 0)) bad.push(p.id + ':' + t + ':sell<0');
     });
   });
   eq(bad.join(','), '', 'pricing violations');
+});
+
+// The old form of this test also asserted `sell >= cost > 0`. Cost is no
+// longer here to assert against: docs/ is hosting.public AND a public repo, so
+// the wholesale half became tenant-owned data in Firestore at
+// catalogCosts/{companyId}. The sell >= cost > 0 invariant did NOT disappear —
+// it moved to validateCostOverlay(), which runs against this same public
+// catalog at extract time (scripts/extract-catalog-costs.js) and again at
+// import time (scripts/import-catalog-costs.js).
+// tests/catalog-cost-seed.test.js exercises it, and
+// tests/catalog-cost-privacy.test.js is the guard that keeps cost from coming
+// back here. What this file can still assert is that it is gone:
+test('published catalog carries NO private cost/labor fields', () => {
+  const leaking = PRODUCTS.filter(hasPrivateFields);
+  eq(leaking.map(p => p.id).slice(0, 10).join(','), '',
+     leaking.length + ' product(s) still ship cost/labor in a PUBLIC file');
 });
 
 test('isActive is a boolean on every product', () => {

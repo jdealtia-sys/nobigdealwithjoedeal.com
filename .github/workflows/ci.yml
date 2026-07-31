@@ -427,6 +427,26 @@ jobs:
       - name: Run security-header + GDPR + internal-doc publication tests
         run: node tests/security-headers-gdpr.test.js
 
+      # Catalog cost privacy. docs/ is hosting.public AND this repo is public,
+      # so product-data.js shipped wholesale COST beside retail SELL for 187
+      # SKUs (a computable margin on every product) plus the overhead/margin
+      # policy, and roofivent-catalog.js shipped a supplier's confidential
+      # contractor price list. Same two-surface shape as the runbook leak
+      # (#1147 hosting → #1149 repo) — and those were one company's supplier
+      # terms, seeded onto every other tenant. Costs are now tenant-owned
+      # (catalogCosts/{companyId}); these two suites keep them there.
+      # privacy = the leak guard (structural + signature + strict scans, each
+      # mutation-tested). seed = the behaviour (lossless split, the
+      # sell >= cost > 0 invariant, the hydration path's tombstone/user-edit
+      # semantics, and "cost not set" never rendering as a 100% margin).
+      - name: Run catalog cost privacy guard
+        run: node tests/catalog-cost-privacy.test.js
+      - name: Run catalog cost seed + hydration tests
+        run: node tests/catalog-cost-seed.test.js
+      # Catalog integrity + the product-library DATA_VERSION migration. Was
+      # local-only; gated here because the cost split touches both.
+      - name: Run product catalog + library migration tests
+        run: node tests/product-data.test.js
       # Regression tripwire for the 2026-07-30 public-surface sweep
       # (#1147/#1149/#1150). hosting.public is "docs", so docs/ IS the site
       # root; the fixes there had to EDIT files the CRM loads at runtime,

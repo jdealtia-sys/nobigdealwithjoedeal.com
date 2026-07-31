@@ -51,6 +51,14 @@ Thumbs.db
 # Claude Code session data
 .claude/
 
+# Private catalog cost book. scripts/extract-catalog-costs.js rebuilds the
+# wholesale-cost + labor overlay here so scripts/import-catalog-costs.js can
+# load it into one tenant's Firestore book. Committing it would recreate the
+# exact leak the public/private catalog split exists to close — this is a
+# PUBLIC repo, so "not served by hosting" is not the same as "not readable"
+# (#1147 → #1149).
+.local/
+
 # Firebase build caches
 .firebase/*.cache
 .firebase/hosting.*.cache
