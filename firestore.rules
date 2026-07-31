@@ -987,6 +987,32 @@ service cloud.firestore {
     match /rate_limits/{uid}        { allow read, write: if false; }
     match /_rate_limits_ip/{docId}  { allow read, write: if false; }
 
+    // ── PER-TENANT CATALOG COST BOOK ──────────────────
+    // catalogCosts/{companyId} → { costs: { [productId]: { cost: {good,
+    // better,best}, labor: {…} } } } — every tenant's OWN wholesale cost
+    // and labor/margin model.
+    //
+    // This data used to ship inside docs/pro/js/product-data.js, which
+    // hosting serves unauthenticated from a public repo: one company's
+    // buy prices were published to the internet AND handed to every other
+    // tenant as their seed. Costs are now tenant-owned and never leave
+    // the tenant — there is no platform-wide copy to leak or distribute.
+    //
+    // READ is open to same-tenant members (a rep needs the margin readout
+    // in the Product Library); WRITE is owner + company_admin only. That
+    // is deliberately the same split companyProfile uses (product decision
+    // 2026-07-08): the cost book is tenant-wide, money-bearing config, so
+    // a viewer or sales_rep must not be able to rewrite it for everyone.
+    // A rep's own edits still land in their local product store; they just
+    // don't propagate. Scope key: companyId claim, or uid for solo
+    // operators (the companyId == uid convention).
+    match /catalogCosts/{companyId} {
+      allow read: if isAuth() && (companyId == myCompanyId() || companyId == request.auth.uid);
+      allow write: if isAdmin()
+        || companyId == request.auth.uid
+        || (isCompanyAdmin() && companyId == myCompanyId());
+    }
+
     // ── PHOTO VISION COST METERS (admin-SDK writes) ──
     // Owner can read their own meters so the client knows when caps
     // are approaching ("$8.40 of $10 used on this lead"). Writes are

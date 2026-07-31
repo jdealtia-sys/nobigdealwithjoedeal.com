@@ -127,15 +127,24 @@
     // tests/e2e/estimate-engine.spec.js (snapshot: 222 products / 298 merged
     // catalog keys / 270 xactimate):
     //   product-data → roofivent-catalog (merges into NBD_PRODUCTS) →
+    //   catalog-costs (merges the private cost/labor half back in) →
     //   product-library (reads NBD_* + defines _productLib, before estimates.js) →
     //   estimate-builder-v2 (defines EstimateBuilderV2.CATALOG) BEFORE
     //   estimate-catalog-xactimate (merges 270 items into that CATALOG at load) →
     //   estimates (window.R, startNewEstimate) → finalization → v2-ui (last).
     // estimate-config, review-engine, property-intel stay EAGER.
+    //
+    // catalog-costs MUST sit between the catalogs and product-library: the
+    // catalog files no longer carry cost/labor (they are public files on a
+    // public repo), and product-library seeds localStorage synchronously at
+    // load. Its cache-first pass patches window.NBD_PRODUCTS in time on any
+    // device that has hydrated before; the async fetch behind it calls
+    // _productLib.applyCostSeed for the cold-device case.
     estimates: [
-      'js/product-data.js?v=1',
-      'js/roofivent-catalog.js?v=1',
-      'js/product-library.js?v=3',
+      'js/product-data.js?v=2',
+      'js/roofivent-catalog.js?v=2',
+      'js/catalog-costs.js?v=1',
+      'js/product-library.js?v=4',
       'js/estimate-labor-catalog.js?v=1',
       'js/estimate-builder-v2.js?v=5',
       'js/estimate-catalog-xactimate.js?v=1',

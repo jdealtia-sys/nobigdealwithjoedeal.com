@@ -1,19 +1,18 @@
 // ============================================================
 // NBD Pro — RoofIVent Premium Ventilation Catalog
 //
-// Source: 2026 Contractor Price List (v1.3) — delivered
-//         directly from Keith Boivin, National Sales Director
-//         (keith.boivin@roofivent.com) to Joe Deal via email
-//         March 18, 2026. Valid through May 01, 2027.
+// Source: 2026 RoofIVent Contractor Price List (v1.3).
+//         Valid through May 01, 2027.
 //
-// Pricing model:
-//   cost = Roofivent contractor price (Joe's actual buy)
-//   sell = MSRP (suggested retail on the price sheet)
-//
-// Volume rebate (annual, post-performance):
-//   250-499 units  → 2%
-//   500-999 units  → 3%
-//   1,000+ units   → 5%
+// PUBLIC HALF ONLY. This file is served unauthenticated at
+// /pro/js/roofivent-catalog.js and lives in a public repo, so
+// it carries spec + MSRP (`sell`) and nothing else. The
+// contractor buy price behind each SKU, the labor block, the
+// volume-rebate schedule and the supplier's contact details
+// were removed on 2026-07-30 — they are supplier-confidential
+// commercial terms and were readable by anyone. Cost data is
+// now tenant-owned and lives in each company's own cost book
+// (catalogCosts/{companyId}); see docs/pro/js/catalog-costs.js.
 //
 // Joe is the exclusive NBD distributor. RoofIVent products
 // live on the BEST-tier system by default; individual SKUs
@@ -63,29 +62,21 @@
     mb114: { key: 'mb114', label: 'Metal Exposed Fastener · 1,1/4" Rib',skuSuffix:'MB1,1/4',idSuffix:'mb114',colors: COLORS_RIB, profile: 'metal_rib114' }
   };
 
-  // ═════════════════════════════════════════════════════════
-  // Shared labor defaults
-  // ═════════════════════════════════════════════════════════
-  const LABOR_DEFAULTS = {
-    ratePerManHour: 35,
-    crewSize: 1,
-    overheadMultiplier: 1.35,
-    profitMarginPct: 25
-  };
-
-  function makeLabor(hoursPerUnit) {
-    const perUnit = Math.round(hoursPerUnit * LABOR_DEFAULTS.ratePerManHour);
-    return Object.assign({ perUnit, hoursPerUnit }, LABOR_DEFAULTS);
-  }
-
-  function makePricing(contractor, msrp) {
-    // Roofivent products are uniform contractor pricing regardless
-    // of the system tier they appear in. Joe's tier-level markup
-    // happens in the Estimate Builder, not at the catalog level.
+  function makePricing(msrp) {
+    // RoofIVent SKUs sell at one MSRP regardless of the system tier
+    // they appear in. Joe's tier-level markup happens in the Estimate
+    // Builder, not at the catalog level.
+    //
+    // No `cost` key here on purpose: the contractor buy price is
+    // private and is merged back in by catalog-costs.js after the
+    // tenant's cost book loads. makeLabor() lived here too
+    // and is gone for the same reason — labor.perUnit /
+    // ratePerManHour / overheadMultiplier / profitMarginPct are the
+    // margin model.
     return {
-      good:   { sell: msrp, cost: contractor },
-      better: { sell: msrp, cost: contractor },
-      best:   { sell: msrp, cost: contractor }
+      good:   { sell: msrp },
+      better: { sell: msrp },
+      best:   { sell: msrp }
     };
   }
 
@@ -94,7 +85,7 @@
   //
   // family: the family definition
   // size:   size key ('4', '5', '6', '8', or '-' for no-size)
-  // sizeInfo: { contractor, msrp, installs? }
+  // sizeInfo: { msrp, installs? }
   // variantKey: 'pg' | 'pi' | 'mb34' | 'mb114'
   // ═════════════════════════════════════════════════════════
   function makeEntry(family, size, sizeInfo, variantKey) {
@@ -122,8 +113,7 @@
       colors: variant.colors,
       styles: [family.style || 'Roof Vent'],
       sizes: sizeLabel ? [sizeLabel] : (family.sizes || ['Standard']),
-      pricing: makePricing(sizeInfo.contractor, sizeInfo.msrp),
-      labor: makeLabor(family.hoursPerUnit || 0.5),
+      pricing: makePricing(sizeInfo.msrp),
       manufacturer: 'RoofIVent',
       sku: baseSku.replace('{COLOR}', '{XX}'),   // shows {XX} as color placeholder
       skuPattern: baseSku,                        // machine-readable pattern
@@ -148,15 +138,14 @@
       name: 'iVENT ECO',
       description: 'Static natural-airflow kitchen / bathroom / dryer roof exhaust. Vent inlet pipe aligns with roof slope for click-in iFLEX pipe connection. Built-in bubble level + condensation drain.',
       skuPrefix: 'EL',
-      hoursPerUnit: 0.6,
       style: 'Static Kitchen / Bath / Dryer Vent',
       defaultQty: 1,
       sortOrder: 2100,
       tags: ['vent','kitchen','bathroom','dryer','static','passive'],
       sizes: {
-        '4': { contractor: 76,  msrp: 95,  installs: ['pg','pi','mb34','mb114'] },
-        '5': { contractor: 76,  msrp: 95,  installs: ['pg','pi','mb34','mb114'] },
-        '6': { contractor: 90,  msrp: 112, installs: ['pg','pi','mb34','mb114'] }
+        '4': { msrp: 95,  installs: ['pg','pi','mb34','mb114'] },
+        '5': { msrp: 95,  installs: ['pg','pi','mb34','mb114'] },
+        '6': { msrp: 112, installs: ['pg','pi','mb34','mb114'] }
       },
       sizeOrder: { '4': 0, '5': 10, '6': 20 }
     },
@@ -167,16 +156,15 @@
       name: 'iVENT ROTO OBLONG',
       description: 'Active wind-powered oblong kitchen / bathroom turbine exhaust. Encapsulated dual-bearing oil system for silent operation. Adjustable to any roof slope 1:12 – 12:12.',
       skuPrefix: 'RLP',
-      hoursPerUnit: 0.75,
       style: 'Active Kitchen / Bath Turbine (Oblong)',
       defaultQty: 1,
       sortOrder: 2200,
       tags: ['vent','kitchen','bathroom','turbine','active','oblong'],
       sizes: {
-        '4': { contractor: 114, msrp: 143, installs: ['pg','pi','mb34','mb114'] },
-        '5': { contractor: 114, msrp: 143, installs: ['pg','pi','mb34','mb114'] },
-        '6': { contractor: 114, msrp: 143, installs: ['pg','pi','mb34','mb114'] },
-        '8': { contractor: 178, msrp: 223, installs: ['pg','pi'] }
+        '4': { msrp: 143, installs: ['pg','pi','mb34','mb114'] },
+        '5': { msrp: 143, installs: ['pg','pi','mb34','mb114'] },
+        '6': { msrp: 143, installs: ['pg','pi','mb34','mb114'] },
+        '8': { msrp: 223, installs: ['pg','pi'] }
       },
       sizeOrder: { '4': 0, '5': 10, '6': 20, '8': 30 }
     },
@@ -187,16 +175,15 @@
       name: 'iVENT ROTO ROUND',
       description: 'Active wind-powered round kitchen / bathroom turbine exhaust. Encapsulated dual-bearing oil system for silent operation. Adjustable 1:12 – 12:12.',
       skuPrefix: 'RLK',
-      hoursPerUnit: 0.75,
       style: 'Active Kitchen / Bath Turbine (Round)',
       defaultQty: 1,
       sortOrder: 2300,
       tags: ['vent','kitchen','bathroom','turbine','active','round'],
       sizes: {
-        '4': { contractor: 114, msrp: 143, installs: ['pg','pi','mb34','mb114'] },
-        '5': { contractor: 114, msrp: 143, installs: ['pg','pi','mb34','mb114'] },
-        '6': { contractor: 114, msrp: 143, installs: ['pg','pi','mb34','mb114'] },
-        '8': { contractor: 178, msrp: 223, installs: ['pg','pi'] }
+        '4': { msrp: 143, installs: ['pg','pi','mb34','mb114'] },
+        '5': { msrp: 143, installs: ['pg','pi','mb34','mb114'] },
+        '6': { msrp: 143, installs: ['pg','pi','mb34','mb114'] },
+        '8': { msrp: 223, installs: ['pg','pi'] }
       },
       sizeOrder: { '4': 0, '5': 10, '6': 20, '8': 30 }
     },
@@ -208,15 +195,14 @@
       description: 'Active wind-powered ATTIC exhaust turbine with oblong profile for lower visual impact. Ideal where HOAs or historic districts restrict vent height. Adjustable 1:12 – 12:12.',
       skuPrefix: 'RLP-A',
       sizeInSku: false,   // SKU is RLP-A-xx-PG (no size digit for 6"), RLP-A8-xx-PG for 8"
-      hoursPerUnit: 0.85,
       style: 'Active Attic Turbine (Oblong)',
       defaultQty: 2,
       sortOrder: 2400,
       tags: ['vent','attic','turbine','active','oblong','exhaust'],
       sizes: {
         // 6" uses RLP-A prefix, 8" uses RLP-A8 prefix (different skuPrefix per size)
-        '6': { contractor: 114, msrp: 143, installs: ['pg','pi','mb34','mb114'], skuPrefix: 'RLP-A' },
-        '8': { contractor: 178, msrp: 223, installs: ['pg','pi'],                skuPrefix: 'RLP-A8' }
+        '6': { msrp: 143, installs: ['pg','pi','mb34','mb114'], skuPrefix: 'RLP-A' },
+        '8': { msrp: 223, installs: ['pg','pi'],                skuPrefix: 'RLP-A8' }
       },
       sizeOrder: { '6': 0, '8': 10 }
     },
@@ -228,14 +214,13 @@
       description: 'Active wind-powered ATTIC exhaust turbine with round profile. High-CFM throughput for larger attic volumes. Adjustable 1:12 – 12:12.',
       skuPrefix: 'RLK-A',
       sizeInSku: false,
-      hoursPerUnit: 0.85,
       style: 'Active Attic Turbine (Round)',
       defaultQty: 2,
       sortOrder: 2500,
       tags: ['vent','attic','turbine','active','round','exhaust'],
       sizes: {
-        '6': { contractor: 114, msrp: 143, installs: ['pg','pi','mb34','mb114'], skuPrefix: 'RLK-A' },
-        '8': { contractor: 178, msrp: 223, installs: ['pg','pi'],                skuPrefix: 'RLK-A8' }
+        '6': { msrp: 143, installs: ['pg','pi','mb34','mb114'], skuPrefix: 'RLK-A' },
+        '8': { msrp: 223, installs: ['pg','pi'],                skuPrefix: 'RLK-A8' }
       },
       sizeOrder: { '6': 0, '8': 10 }
     },
@@ -248,19 +233,18 @@
       description: 'Passive low-profile attic vent. UV-stable pure polypropylene, hail-toughened. Can be used as exhaust or intake. NFA 53 sq.in. (0.37 sq.ft.) per vent. Recommended spacing: 1 vent per 300 SF of attic.',
       skuPrefix: 'WP-2',
       sizeInSku: false,
-      hoursPerUnit: 0.4,
       style: 'Passive Low-Profile Attic Vent',
       defaultQty: 8,
       sortOrder: 2000,
       tags: ['vent','attic','passive','static','low-profile'],
       coverage: 'NFA 53 sq.in. / 0.37 sq.ft. per vent — 1 per 300 SF',
       sizes: {
-        '-': { contractor: 32, msrp: 40, installs: ['pg','pi','mb34','mb114'],
+        '-': { msrp: 40, installs: ['pg','pi','mb34','mb114'],
                installPricing: {
-                 pg:    { contractor: 32, msrp: 40 },
-                 pi:    { contractor: 35, msrp: 44 },
-                 mb34:  { contractor: 35, msrp: 44 },
-                 mb114: { contractor: 35, msrp: 44 }
+                 pg:    { msrp: 40 },
+                 pi:    { msrp: 44 },
+                 mb34:  { msrp: 44 },
+                 mb114: { msrp: 44 }
                }
         }
       }
@@ -273,14 +257,13 @@
       description: 'Waterproof cable penetration flashing for solar, antenna, or service wires. Max cable diameter 1,3/8". UV-stable polypropylene with integrated drip edge.',
       skuPrefix: 'PS-2',
       sizeInSku: false,
-      hoursPerUnit: 0.5,
       style: 'Cable Penetration Flashing',
       defaultQty: 1,
       sortOrder: 2600,
       coverage: 'Max cable diameter 1,3/8"',
       tags: ['penetration','cable','flashing','solar','antenna'],
       sizes: {
-        '-': { contractor: 60, msrp: 75, installs: ['pg','pi','mb34','mb114'] }
+        '-': { msrp: 75, installs: ['pg','pi','mb34','mb114'] }
       }
     },
 
@@ -291,14 +274,13 @@
       description: 'Waterproof vent pipe / plumbing flashing for 1"-3" pipe diameters. Hail-resistant polypropylene body with pivoting collar for roof pitch alignment.',
       skuPrefix: 'PP-1',
       sizeInSku: false,
-      hoursPerUnit: 0.4,
       style: 'Pipe Penetration Flashing (1"-3")',
       defaultQty: 4,
       sortOrder: 2700,
       coverage: 'Pipe diameter 1" - 3"',
       tags: ['penetration','pipe','plumbing','flashing','boot'],
       sizes: {
-        '-': { contractor: 58, msrp: 73, installs: ['pg','pi','mb34','mb114'] }
+        '-': { msrp: 73, installs: ['pg','pi','mb34','mb114'] }
       }
     },
 
@@ -309,14 +291,13 @@
       description: 'Oversize vent pipe / plumbing flashing for 4"-5" pipe diameters. For large plumbing stacks and ductwork.',
       skuPrefix: 'PP-2',
       sizeInSku: false,
-      hoursPerUnit: 0.5,
       style: 'Pipe Penetration Flashing (2"-5")',
       defaultQty: 2,
       sortOrder: 2800,
       coverage: 'Pipe diameter 4" - 5"',
       tags: ['penetration','pipe','plumbing','flashing','oversize'],
       sizes: {
-        '-': { contractor: 61, msrp: 76, installs: ['pg','pi','mb34','mb114'] }
+        '-': { msrp: 76, installs: ['pg','pi','mb34','mb114'] }
       }
     }
   ];
@@ -341,7 +322,7 @@
         // Per-install pricing override (for iVENT FLOW)
         const effectivePrice = sizeInfo.installPricing && sizeInfo.installPricing[installKey]
           ? sizeInfo.installPricing[installKey]
-          : { contractor: sizeInfo.contractor, msrp: sizeInfo.msrp };
+          : { msrp: sizeInfo.msrp };
 
         const entry = makeEntry(
           effectiveFamily,
@@ -372,8 +353,7 @@
       colors: COLORS_TURBO,
       styles: ['Turbine Head Upgrade'],
       sizes: ['6"'],
-      pricing: makePricing(84, 105),
-      labor: makeLabor(0.5),
+      pricing: makePricing(105),
       manufacturer: 'RoofIVent',
       sku: 'NRK-6-{XX}',
       skuPattern: 'NRK-6-{COLOR}',
@@ -398,8 +378,7 @@
       colors: COLORS_TURBO,
       styles: ['Turbine Head Upgrade'],
       sizes: ['6"'],
-      pricing: makePricing(84, 105),
-      labor: makeLabor(0.5),
+      pricing: makePricing(105),
       manufacturer: 'RoofIVent',
       sku: 'NRP-6-{XX}',
       skuPattern: 'NRP-6-{COLOR}',
@@ -424,8 +403,7 @@
       colors: COLORS_TURBO,
       styles: ['Turbine Head Upgrade'],
       sizes: ['8"'],
-      pricing: makePricing(108, 135),
-      labor: makeLabor(0.6),
+      pricing: makePricing(135),
       manufacturer: 'RoofIVent',
       sku: 'NRK-8-{XX}',
       skuPattern: 'NRK-8-{COLOR}',
@@ -450,8 +428,7 @@
       colors: COLORS_TURBO,
       styles: ['Turbine Head Upgrade'],
       sizes: ['8"'],
-      pricing: makePricing(108, 135),
-      labor: makeLabor(0.6),
+      pricing: makePricing(135),
       manufacturer: 'RoofIVent',
       sku: 'NRP-8-{XX}',
       skuPattern: 'NRP-8-{COLOR}',
@@ -476,8 +453,7 @@
       colors: COLORS_TURBO,
       styles: ['Turbine Head with Drainage'],
       sizes: ['6"'],
-      pricing: makePricing(92, 115),
-      labor: makeLabor(0.6),
+      pricing: makePricing(115),
       manufacturer: 'RoofIVent',
       sku: 'NRP-6-{XX}-MF',
       skuPattern: 'NRP-6-{COLOR}-MF',
@@ -502,8 +478,7 @@
       colors: COLORS_TURBO,
       styles: ['Turbine Head with Drainage'],
       sizes: ['6"'],
-      pricing: makePricing(92, 115),
-      labor: makeLabor(0.6),
+      pricing: makePricing(115),
       manufacturer: 'RoofIVent',
       sku: 'NRK-6-{XX}-MF',
       skuPattern: 'NRK-6-{COLOR}-MF',
@@ -528,8 +503,7 @@
       colors: COLORS_WALL,
       styles: ['Wall-Mount Passive Vent'],
       sizes: ['4"'],
-      pricing: makePricing(90, 112),
-      labor: makeLabor(0.75),
+      pricing: makePricing(112),
       manufacturer: 'RoofIVent',
       sku: 'WV-NKO-4-{XX}',
       skuPattern: 'WV-NKO-4-{COLOR}',
@@ -554,8 +528,7 @@
       colors: COLORS_WALL,
       styles: ['Wall-Mount Active Turbine'],
       sizes: ['4"'],
-      pricing: makePricing(109, 136),
-      labor: makeLabor(1.0),
+      pricing: makePricing(136),
       manufacturer: 'RoofIVent',
       sku: 'WV-NRP-4-{XX}',
       skuPattern: 'WV-NRP-4-{COLOR}',
@@ -581,8 +554,7 @@
       colors: ['Gray'],
       styles: ['Flex Duct with Reducer'],
       sizes: ['5" × 20"'],
-      pricing: makePricing(26, 32),
-      labor: makeLabor(0.2),
+      pricing: makePricing(32),
       manufacturer: 'RoofIVent',
       sku: 'KFP-5-20',
       warranty: 'Lifetime warranty',
@@ -602,8 +574,7 @@
       colors: ['Gray'],
       styles: ['Flex Duct with Reducer'],
       sizes: ['5" × 40"'],
-      pricing: makePricing(29, 36),
-      labor: makeLabor(0.25),
+      pricing: makePricing(36),
       manufacturer: 'RoofIVent',
       sku: 'KFP-5-40',
       warranty: 'Lifetime warranty',
@@ -623,8 +594,7 @@
       colors: ['Gray'],
       styles: ['Flex Duct with Reducer'],
       sizes: ['6" × 20"'],
-      pricing: makePricing(32, 40),
-      labor: makeLabor(0.2),
+      pricing: makePricing(40),
       manufacturer: 'RoofIVent',
       sku: 'KFP-6-20',
       warranty: 'Lifetime warranty',
@@ -644,8 +614,7 @@
       colors: ['Gray'],
       styles: ['Flex Duct with Reducer'],
       sizes: ['6" × 40"'],
-      pricing: makePricing(35, 44),
-      labor: makeLabor(0.25),
+      pricing: makePricing(44),
       manufacturer: 'RoofIVent',
       sku: 'KFP-6-40',
       warranty: 'Lifetime warranty',
@@ -669,8 +638,7 @@
       colors: ['Gray'],
       styles: ['Flex Duct with Backdraft Damper'],
       sizes: ['5" × 20"'],
-      pricing: makePricing(33, 41),
-      labor: makeLabor(0.25),
+      pricing: makePricing(41),
       manufacturer: 'RoofIVent',
       sku: 'KFPZ-5-20',
       warranty: 'Lifetime warranty',
@@ -690,8 +658,7 @@
       colors: ['Gray'],
       styles: ['Flex Duct with Backdraft Damper'],
       sizes: ['5" × 40"'],
-      pricing: makePricing(36, 45),
-      labor: makeLabor(0.3),
+      pricing: makePricing(45),
       manufacturer: 'RoofIVent',
       sku: 'KFPZ-5-40',
       warranty: 'Lifetime warranty',
@@ -711,8 +678,7 @@
       colors: ['Gray'],
       styles: ['Flex Duct with Backdraft Damper'],
       sizes: ['6" × 20"'],
-      pricing: makePricing(39, 49),
-      labor: makeLabor(0.25),
+      pricing: makePricing(49),
       manufacturer: 'RoofIVent',
       sku: 'KFPZ-6-20',
       warranty: 'Lifetime warranty',
@@ -732,8 +698,7 @@
       colors: ['Gray'],
       styles: ['Flex Duct with Backdraft Damper'],
       sizes: ['6" × 40"'],
-      pricing: makePricing(42, 53),
-      labor: makeLabor(0.3),
+      pricing: makePricing(53),
       manufacturer: 'RoofIVent',
       sku: 'KFPZ-6-40',
       warranty: 'Lifetime warranty',
@@ -759,8 +724,7 @@
       colors: ['Gray'],
       styles: ['Duct Accessory'],
       sizes: ['5"'],
-      pricing: makePricing(40, 50),
-      labor: makeLabor(0.25),
+      pricing: makePricing(50),
       manufacturer: 'RoofIVent',
       sku: 'SKR-5',
       warranty: 'Lifetime warranty',
@@ -782,8 +746,7 @@
       colors: ['Gray'],
       styles: ['Duct Accessory'],
       sizes: ['6"'],
-      pricing: makePricing(48, 60),
-      labor: makeLabor(0.25),
+      pricing: makePricing(60),
       manufacturer: 'RoofIVent',
       sku: 'SKR-6',
       warranty: 'Lifetime warranty',
@@ -805,8 +768,7 @@
       colors: ['Gray'],
       styles: ['Duct Accessory'],
       sizes: ['6"→5"→4"'],
-      pricing: makePricing(5, 6),
-      labor: makeLabor(0.1),
+      pricing: makePricing(6),
       manufacturer: 'RoofIVent',
       sku: 'R-4',
       warranty: 'Lifetime warranty',
@@ -828,8 +790,7 @@
       colors: [],
       styles: ['Warranty Service'],
       sizes: ['Per Install'],
-      pricing: makePricing(0, 0),
-      labor: makeLabor(0.25),
+      pricing: makePricing(0),
       manufacturer: 'RoofIVent',
       sku: 'RIV-WARR',
       warranty: 'Lifetime warranty · FL47016 Florida Product Approval',
@@ -841,32 +802,16 @@
     }
   ];
 
-  // ═════════════════════════════════════════════════════════
-  // Volume rebate metadata (for reporting / margin tracking)
-  // ═════════════════════════════════════════════════════════
-  const VOLUME_REBATE = {
-    program: 'RoofIVent Contractor Volume Rebate 2026',
-    paymentTerms: 'ACH or Check — payable to ROOFIVENT LLC',
-    contractValidThrough: '2027-05-01',
-    shipping: 'FOB Roofivent warehouse · Naperville IL · 3 business days',
-    tiers: [
-      { minUnits: 250,  maxUnits: 499,  rebatePct: 0.02 },
-      { minUnits: 500,  maxUnits: 999,  rebatePct: 0.03 },
-      { minUnits: 1000, maxUnits: null, rebatePct: 0.05 }
-    ],
-    notes: 'Rebates are annual post-performance, not reflected on invoices. Requires account compliance (payment status + channel rules). Roofivent may modify with prior notice.',
-    salesDirector: {
-      name: 'Keith Boivin',
-      title: 'National Sales Director',
-      email: 'keith.boivin@roofivent.com',
-      phone: '+1 (682) 351-3934'
-    },
-    orders: {
-      email: 'office@roofivent.com',
-      phone: '+1 (847) 636-2137',
-      address: 'ROOFIVENT LLC · Frontenac Rd, Unit B · Naperville IL 60563'
-    }
-  };
+  // VOLUME_REBATE was removed here on 2026-07-30: an unused block of
+  // supplier-confidential commercial terms plus a named third party's
+  // personal contact details. Nothing read it — `git grep volumeRebate`
+  // had exactly one hit, the handle below — so it was deleted rather
+  // than migrated. It belongs in a private store, not in docs/.
+  //
+  // No pointer to where the old copy lives: this file is served
+  // unauthenticated from a public repo, and naming the commit would
+  // hand an unauthenticated reader a direct link to the very data the
+  // deletion removed. Ask the owner.
 
   // ═════════════════════════════════════════════════════════
   // Register everything into the product library
@@ -886,8 +831,7 @@
     colorCodes: COLOR_CODE,
     products: all,
     count: all.length,
-    volumeRebate: VOLUME_REBATE,
-    sourceDocument: '2026 Contractor Price List v1.3 (emailed 2026-03-18 by Keith Boivin)'
+    sourceDocument: '2026 RoofIVent Contractor Price List v1.3'
   };
 
   console.log(`[RoofIVent] Loaded ${all.length} products into NBD_PRODUCTS (${toAdd.length} new).`);

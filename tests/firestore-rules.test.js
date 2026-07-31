@@ -126,6 +126,24 @@ async function run() {
   // 6. user cannot write rate_limits/*
   await assertFails(setDoc(doc(alice, 'rate_limits/alice'), { count: 0, windowStart: 0 }));
 
+  // 6b. catalogCosts/{companyId} is a tenant's OWN wholesale cost + labor/
+  //     margin model — the half that used to ship inside
+  //     docs/pro/js/product-data.js, where it was readable by anyone with a
+  //     URL AND handed to every other tenant as their seed. It is now
+  //     tenant-scoped like companyProfile: same-tenant read, owner/
+  //     company_admin write. The cross-tenant read is the assertion that
+  //     matters — one company's buy prices must never reach another.
+  await assertFails(getDoc(doc(alice, 'catalogCosts/co-b')));
+  await assertFails(setDoc(doc(alice, 'catalogCosts/co-b'), { costs: {} }));
+  await assertFails(getDoc(doc(bob, 'catalogCosts/co-a')));
+  //     Non-vacuity + the read/write split: alice (sales_rep in co-a) CAN read
+  //     her own company's book — a rep needs the margin readout — but must not
+  //     rewrite tenant-wide, money-bearing config. Same split companyProfile
+  //     uses. Platform admin can write.
+  await assertSucceeds(getDoc(doc(alice, 'catalogCosts/co-a')));
+  await assertFails(setDoc(doc(alice, 'catalogCosts/co-a'), { costs: {} }));
+  await assertSucceeds(setDoc(doc(admin, 'catalogCosts/co-a'), { costs: {} }));
+
   // 7. user cannot read another user's email_log row
   await assertFails(getDoc(doc(bob, 'email_log/log1')));
 

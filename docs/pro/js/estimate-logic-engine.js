@@ -355,11 +355,18 @@
       return null;
     }
     const tierPricing = product.pricing && product.pricing[tier];
+    // `cost` is absent until catalog-costs.js hydrates the private half of the
+    // catalog (product-data.js publishes retail `sell` only — it is served
+    // unauthenticated from a public repo). Number(undefined) is NaN, and NaN
+    // propagates silently through every downstream margin/total, so coerce a
+    // missing cost to 0 — the same value this returned for a tier with no
+    // pricing block before the split.
+    const rawCost = tierPricing ? Number(tierPricing.cost) : 0;
     return {
       id: product.id,
       name: product.name,
       unit: product.unit,
-      cost: tierPricing ? Number(tierPricing.cost) : 0,
+      cost: Number.isFinite(rawCost) ? rawCost : 0,
       sell: tierPricing ? Number(tierPricing.sell) : 0,
       manufacturer: product.manufacturer,
       sku: product.sku,

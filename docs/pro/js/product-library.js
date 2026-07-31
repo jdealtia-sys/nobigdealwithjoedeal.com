@@ -2,6 +2,20 @@
  * NBD Pro - Product Library v2
  * Full CRUD system consuming window.NBD_PRODUCTS / NBD_CATEGORIES from product-data.js
  * Stores user edits in localStorage under 'nbd_product_library'
+ *
+ * COST DATA (2026-07-30): product-data.js publishes spec + retail `sell` only —
+ * it is served unauthenticated from a public repo. Wholesale `cost` and the
+ * `labor` block are TENANT-OWNED: they live in this company's own cost book at
+ * catalogCosts/{companyId} and are merged in by catalog-costs.js. See that
+ * file's header for the load-order reasoning, and applyCostSeed() below.
+ *
+ * Nothing else about this store changed: localStorage is still the storage
+ * layer, and the DATA_VERSION / tombstone / user-edit semantics documented on
+ * migrateStore() are unchanged.
+ *
+ * A tenant that has not entered costs has NO cost — `undefined`, not 0. See
+ * hasCost() / marginKnown(): every margin surface renders "not set" rather
+ * than the 100% a zero cost would imply.
  */
 
 (function() {
@@ -99,6 +113,42 @@
     saveAll();
   }
 
+  // Merge the PRIVATE cost overlay into an already-seeded store.
+  //
+  // product-data.js no longer ships wholesale cost or the labor block — they
+  // live in this company's own cost book and are merged by
+  // catalog-costs.js. On a device that has hydrated before, that merge lands
+  // on window.NBD_PRODUCTS BEFORE this file runs, so seedDefaults/migrateStore
+  // never see a difference. This is the cold-device path: the store was
+  // already written from a sell-only catalog and has to be patched in place.
+  //
+  // It reuses migrateStore's ownership rules verbatim — anything else would
+  // overwrite a rep's real numbers with the factory ones:
+  //   - tombstoned ids            → never touched (they are gone on purpose)
+  //   - user-created products     → no overlay entry exists; skipped
+  //   - user-EDITED defaults      → updatedAt !== createdAt; their costs win
+  //   - user-ARCHIVED defaults    → isActive === false; kept verbatim
+  //   - untouched defaults        → patched
+  //
+  // It deliberately does NOT stamp updatedAt. Doing so would mark every
+  // product user-edited, and migrateStore would then refuse to land any future
+  // catalog fix on any of them — permanently. Cost hydration is not an edit.
+  function applyCostSeed(seed) {
+    const costs = seed && seed.costs;
+    const merge = window.NBDCatalogCosts && window.NBDCatalogCosts.mergeInto;
+    if (!costs || typeof merge !== 'function') return 0;
+    const tombstoned = new Set(deletedIds);
+    let patched = 0;
+    products.forEach(p => {
+      if (!p || !p.id || tombstoned.has(p.id)) return;
+      if (p.isActive === false) return;
+      if (p.updatedAt && p.createdAt && p.updatedAt !== p.createdAt) return;
+      if (merge(p, costs[p.id])) patched++;
+    });
+    if (patched) { saveAll(); reRender(); }
+    return patched;
+  }
+
   function saveAll() {
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify({ _v: DATA_VERSION, items: products, _deleted: deletedIds }));
@@ -119,6 +169,15 @@
     if (idx >= 0) products[idx] = product;
     else products.push(product);
     saveAll();
+    // Push the cost half up to the company's cost book so the owner's numbers
+    // reach their other devices and their reps, instead of living only in this
+    // browser's localStorage (the per-device drift #1139 fixed for county
+    // overrides). Fire-and-forget: firestore.rules limits cost writes to
+    // owner/company_admin, so a rep's edit stays local and that is fine.
+    try {
+      const cc = window.NBDCatalogCosts;
+      if (cc && typeof cc.recordProduct === 'function') cc.recordProduct(product);
+    } catch (e) { /* never block a local save on the sync */ }
     return product;
   }
 
@@ -160,6 +219,46 @@
     if (!sell) return 0;
     return Math.round(((sell - cost) / sell) * 100);
   }
+
+  // Prefill for the Add-Product form's Overhead Mult. / Profit Margin % boxes.
+  // These used to be hardcoded 1.35 / 25 here — which meant one company's
+  // margin policy was published verbatim in a public file (they appeared
+  // 176 / 173 times in the leaked catalog) AND applied as every other tenant's
+  // default. They now come from the tenant's own cost book. The neutral
+  // fallback (no markup, no target margin) applies to a tenant that has not
+  // set a policy — the same state in which no product has a cost either.
+  // Named constants, not an inline literal — see the same note in
+  // catalog-costs.js: tests/catalog-cost-privacy.test.js forbids ANY numeric
+  // literal beside these two key names in a catalog file, so no real policy
+  // has a way back in.
+  const NEUTRAL_OVERHEAD = 1; // multiplier: 1 = straight cost passthrough
+  const NEUTRAL_MARGIN = 0;   // percent
+
+  function laborDefaults() {
+    const cc = window.NBDCatalogCosts;
+    if (cc && typeof cc.defaults === 'function') return cc.defaults();
+    return { overheadMultiplier: NEUTRAL_OVERHEAD, profitMarginPct: NEUTRAL_MARGIN };
+  }
+
+  // ── "cost not set" is a REAL state, not zero ────────────────────────────
+  // Costs are tenant-owned (catalogCosts/{companyId}) and a tenant that has
+  // not entered them has NO cost — `undefined`, not 0. The two must never be
+  // confused: grossMargin(sell, 0, 0) returns 100%, so treating "not set" as
+  // zero makes the library confidently report a perfect margin on every
+  // product. That fabricated 100% is exactly the failure mode that made
+  // "just delete the cost fields" the wrong fix. Note 0 is a LEGITIMATE cost
+  // for a couple of SKUs (owned equipment, a free warranty certificate), so
+  // the check is on the type, not on truthiness.
+  function hasCost(p, tier) {
+    const t = p && p.pricing && p.pricing[tier];
+    return !!t && typeof t.cost === 'number' && isFinite(t.cost);
+  }
+
+  // A product's margin is only meaningful once its material cost is known.
+  // Labor is treated as 0 when unset (a product genuinely can have no labor).
+  function marginKnown(p, tier) { return hasCost(p, tier); }
+
+  const NOT_SET = '<span style="color:var(--m);opacity:.75;font-weight:500;">Cost not set</span>';
 
   // True gross margin: sell - material cost - labor cost
   function grossMargin(sell, matCost, laborCost) {
@@ -229,11 +328,19 @@
     const usedCats = [...new Set(products.filter(p => p.isActive !== false).map(p => p.category))];
     const categoryCount = usedCats.length;
     const marginTier = currentFilter.tier || 'better';
-    const avgMargin = activeCount > 0 ? Math.round(
-      products.filter(p => p.isActive !== false).reduce((s, p) => {
-        return s + grossMargin(p.pricing?.[marginTier]?.sell || 0, p.pricing?.[marginTier]?.cost || 0, p.labor?.perUnit || 0);
-      }, 0) / activeCount
-    ) : 0;
+    // Average over the products whose cost is actually KNOWN. Averaging a
+    // fabricated 100% for every cost-less product used to make a brand-new
+    // tenant's library read "Avg Margin 100%".
+    // pricedCount also drives the empty-state banner below: a tenant that has
+    // entered no costs gets told so, instead of a library full of confident
+    // 100% margins.
+    const priced = products.filter(p => p.isActive !== false && marginKnown(p, marginTier));
+    const avgMargin = priced.length ? Math.round(
+      priced.reduce((s, p) => {
+        return s + grossMargin(p.pricing?.[marginTier]?.sell || 0, p.pricing[marginTier].cost, p.labor?.perUnit || 0);
+      }, 0) / priced.length
+    ) : null;
+    const pricedCount = priced.length;
 
     // Group results by category
     const grouped = {};
@@ -269,7 +376,8 @@
       catProds.forEach(p => {
         const tierForMargin = currentFilter.tier || 'better';
         const laborCost = p.labor?.perUnit || 0;
-        const matCost = p.pricing?.[tierForMargin]?.cost || 0;
+        const costKnown = marginKnown(p, tierForMargin);
+        const matCost = costKnown ? p.pricing[tierForMargin].cost : 0;
         const sellPrice = p.pricing?.[tierForMargin]?.sell || 0;
         const myCost = matCost + laborCost;
         const m = grossMargin(sellPrice, matCost, laborCost);
@@ -294,15 +402,17 @@
                 return `<div style="background:${isHighlighted ? TIER_COLORS[t]+'20' : TIER_COLORS[t]+'0a'};border-radius:6px;padding:6px 8px;text-align:center;border:${isHighlighted ? '2px' : '1px'} solid ${isHighlighted ? TIER_COLORS[t] : TIER_COLORS[t]+'20'};${isHighlighted ? 'transform:scale(1.03);box-shadow:0 2px 8px '+TIER_COLORS[t]+'30;' : ''}">
                   <div style="font-size:10px;font-weight:600;color:${TIER_COLORS[t]};text-transform:uppercase;">${TIER_LABELS[t]}</div>
                   <div style="font-size:14px;font-weight:700;color:var(--t);">${formatCurrency(p.pricing?.[t]?.sell)}</div>
-                  <div style="font-size:10px;color:var(--m);">Profit ${grossMargin(p.pricing?.[t]?.sell||0, p.pricing?.[t]?.cost||0, laborCost)}%</div>
+                  <div style="font-size:10px;color:var(--m);">${hasCost(p, t) ? 'Profit ' + grossMargin(p.pricing[t].sell||0, p.pricing[t].cost, laborCost) + '%' : 'Profit —'}</div>
                 </div>`;
               }).join('')}
             </div>
 
             <!-- Cost Breakdown Row -->
             <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;">
-              <span style="font-size:11px;padding:3px 10px;border-radius:10px;background:#1e293b;color:#f1f5f9;font-weight:700;">🏷️ My Cost: ${formatCurrency(myCost)}/${p.unit} <span style="opacity:.6;font-weight:400;">(${TIER_LABELS[tierForMargin]})</span></span>
-              ${matCost ? `<span style="font-size:11px;padding:2px 8px;border-radius:10px;background:#dcfce7;color:#166534;">💲 Mat ${formatCurrency(matCost)}</span>` : ''}
+              ${costKnown
+                ? `<span style="font-size:11px;padding:3px 10px;border-radius:10px;background:#1e293b;color:#f1f5f9;font-weight:700;">🏷️ My Cost: ${formatCurrency(myCost)}/${p.unit} <span style="opacity:.6;font-weight:400;">(${TIER_LABELS[tierForMargin]})</span></span>`
+                : `<span style="font-size:11px;padding:3px 10px;border-radius:10px;background:var(--s2);color:var(--m);font-weight:600;border:1px dashed var(--br);">🏷️ My Cost: not set <span style="opacity:.7;font-weight:400;">(${TIER_LABELS[tierForMargin]})</span></span>`}
+              ${costKnown && matCost ? `<span style="font-size:11px;padding:2px 8px;border-radius:10px;background:#dcfce7;color:#166534;">💲 Mat ${formatCurrency(matCost)}</span>` : ''}
               ${hasLabor ? `<span style="font-size:11px;padding:2px 8px;border-radius:10px;background:#fef3c7;color:#92400e;">⚒️ Lab ${formatCurrency(p.labor.perUnit)}</span>` : ''}
             </div>
 
@@ -315,7 +425,9 @@
 
             <!-- Footer -->
             <div style="display:flex;justify-content:space-between;align-items:center;padding-top:10px;border-top:1px solid var(--br);">
-              <div style="font-size:12px;color:var(--m);"><strong>Gross Profit <span style="font-weight:400;opacity:.7;">(${TIER_LABELS[tierForMargin]})</span>:</strong> <span style="color:${m >= 40 ? '#10b981' : m >= 25 ? '#f59e0b' : '#ef4444'};font-weight:700;">${formatCurrency(sellPrice - myCost)}/${p.unit} (${m}%)</span></div>
+              <div style="font-size:12px;color:var(--m);"><strong>Gross Profit <span style="font-weight:400;opacity:.7;">(${TIER_LABELS[tierForMargin]})</span>:</strong> ${costKnown
+                ? `<span style="color:${m >= 40 ? '#10b981' : m >= 25 ? '#f59e0b' : '#ef4444'};font-weight:700;">${formatCurrency(sellPrice - myCost)}/${p.unit} (${m}%)</span>`
+                : NOT_SET}</div>
               <div style="display:flex;gap:6px;">
                 <button data-pl-action="editProduct" data-pl-id="${p.id}" style="padding:5px 12px;background:#3b82f6;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:11px;font-weight:600;">Edit</button>
                 <button data-pl-action="archiveProduct" data-pl-id="${p.id}" style="padding:5px 10px;background:#f3f4f6;color:#6b7280;border:none;border-radius:6px;cursor:pointer;font-size:11px;font-weight:500;">Archive</button>
@@ -356,13 +468,19 @@
           </div>
           <div style="background:var(--s);padding:14px;border-radius:8px;border-left:4px solid #f59e0b;">
             <div style="font-size:11px;color:var(--m);font-weight:500;">Avg Margin</div>
-            <div style="font-size:22px;font-weight:700;color:var(--t);margin-top:2px;">${avgMargin}%</div>
+            <div style="font-size:22px;font-weight:700;color:var(--t);margin-top:2px;">${avgMargin == null ? '—' : avgMargin + '%'}</div>
+            ${avgMargin != null && pricedCount < activeCount ? `<div style="font-size:10px;color:var(--m);margin-top:2px;">${pricedCount} of ${activeCount} priced</div>` : ''}
           </div>
           <div style="background:var(--s);padding:14px;border-radius:8px;border-left:4px solid #8b5cf6;">
             <div style="font-size:11px;color:var(--m);font-weight:500;">Showing</div>
             <div style="font-size:22px;font-weight:700;color:var(--t);margin-top:2px;">${results.length}</div>
           </div>
         </div>
+
+        ${pricedCount === 0 && activeCount > 0 ? `
+        <div style="background:#fef3c7;border:1px solid #fcd34d;color:#92400e;padding:12px 14px;border-radius:8px;margin-bottom:16px;font-size:13px;line-height:1.5;">
+          <strong>Your costs aren't set yet.</strong> Prices below are your <em>sell</em> prices — profit and margin stay blank until you enter what each item costs you. Open any product and fill in Material Cost per tier.
+        </div>` : ''}
 
         <!-- Search & Filter -->
         <div style="background:var(--s);padding:14px;border-radius:8px;margin-bottom:16px;">
@@ -470,7 +588,10 @@
                   </div>
                   <div>
                     <label style="font-size:10px;color:var(--m);">Material Cost</label>
-                    <input id="pm-cost-${t}" type="number" step="0.01" value="${p?.pricing?.[t]?.cost || 0}" style="width:100%;padding:6px;background:var(--s2);border:1px solid var(--br);border-radius:4px;font-size:13px;box-sizing:border-box;color:var(--t);">
+                    <!-- Blank, not 0, when unset: an empty box reads as "tell
+                         me your cost", a 0 reads as "your cost is nothing"
+                         and prices the tier at a 100% margin. -->
+                    <input id="pm-cost-${t}" type="number" step="0.01" value="${hasCost(p, t) ? p.pricing[t].cost : ''}" placeholder="your cost" style="width:100%;padding:6px;background:var(--s2);border:1px solid var(--br);border-radius:4px;font-size:13px;box-sizing:border-box;color:var(--t);">
                   </div>
                   <div id="pm-margin-${t}" style="text-align:center;margin-top:6px;font-size:11px;font-weight:700;"></div>
                 </div>
@@ -501,11 +622,11 @@
               </div>
               <div>
                 <label style="font-size:10px;color:var(--m);">Overhead Mult.</label>
-                <input id="pm-labor-overhead" type="number" step="0.01" value="${p?.labor?.overheadMultiplier || 1.35}" style="width:100%;padding:6px;background:var(--s2);border:1px solid var(--br);border-radius:4px;font-size:13px;box-sizing:border-box;color:var(--t);">
+                <input id="pm-labor-overhead" type="number" step="0.01" value="${p?.labor?.overheadMultiplier || laborDefaults().overheadMultiplier}" style="width:100%;padding:6px;background:var(--s2);border:1px solid var(--br);border-radius:4px;font-size:13px;box-sizing:border-box;color:var(--t);">
               </div>
               <div>
                 <label style="font-size:10px;color:var(--m);">Profit Margin %</label>
-                <input id="pm-labor-profit" type="number" step="1" value="${p?.labor?.profitMarginPct || 25}" style="width:100%;padding:6px;background:var(--s2);border:1px solid var(--br);border-radius:4px;font-size:13px;box-sizing:border-box;color:var(--t);">
+                <input id="pm-labor-profit" type="number" step="1" value="${p?.labor?.profitMarginPct || laborDefaults().profitMarginPct}" style="width:100%;padding:6px;background:var(--s2);border:1px solid var(--br);border-radius:4px;font-size:13px;box-sizing:border-box;color:var(--t);">
               </div>
             </div>
           </div>
@@ -567,10 +688,17 @@
     const warnings = [];
     TIERS.forEach(t => {
       const sell = parseFloat(document.getElementById('pm-sell-' + t)?.value) || 0;
-      const mat = parseFloat(document.getElementById('pm-cost-' + t)?.value) || 0;
-      const myCost = mat + labor;
+      const costRaw = (document.getElementById('pm-cost-' + t)?.value ?? '').trim();
+      const mat = parseFloat(costRaw);
       const el = document.getElementById('pm-margin-' + t);
       if (!el) return;
+      // An EMPTY cost box means "not set" — show nothing rather than a margin
+      // computed against an assumed zero cost.
+      if (costRaw === '' || !isFinite(mat)) {
+        el.innerHTML = '<span style="color:var(--m);">enter cost</span>';
+        return;
+      }
+      const myCost = mat + labor;
       if (sell <= 0) { el.innerHTML = '<span style="color:var(--m);">—</span>'; return; }
       const m = Math.round(((sell - myCost) / sell) * 100);
       const profit = sell - myCost;
@@ -588,13 +716,31 @@
     const name = document.getElementById('pm-name').value.trim();
     if (!name) { showToast('Product name is required', 'error'); return; }
 
-    // Validate: no tier sells below cost
+    // Read the cost boxes once. '' means the tenant has not set that tier's
+    // cost — kept as `null` all the way through so it round-trips as "unset"
+    // rather than collapsing to a zero cost (and a fake 100% margin).
+    const costInput = {};
+    TIERS.forEach(t => {
+      const raw = (document.getElementById(`pm-cost-${t}`)?.value ?? '').trim();
+      const n = parseFloat(raw);
+      costInput[t] = (raw === '' || !isFinite(n)) ? null : n;
+    });
+
+    // Validate: no tier sells below cost.
+    //
+    // A tier with no material cost set is still checked against LABOR, which
+    // is known. Skipping it entirely (the first cut of this) made the guard
+    // unreachable for exactly the case a new tenant hits most: costs blank,
+    // labor filled in, and a sell price already underwater on labor alone.
+    // Only a tier with NEITHER number known is genuinely unknowable.
     const laborVal = parseFloat(document.getElementById('pm-labor-perunit')?.value) || 0;
     const belowCost = [];
     TIERS.forEach(t => {
       const sell = parseFloat(document.getElementById('pm-sell-' + t)?.value) || 0;
-      const mat = parseFloat(document.getElementById('pm-cost-' + t)?.value) || 0;
-      if (sell > 0 && sell <= mat + laborVal) belowCost.push(TIER_LABELS[t]);
+      if (!(sell > 0)) return;
+      if (costInput[t] === null && !(laborVal > 0)) return; // nothing to compare against
+      const known = (costInput[t] || 0) + laborVal;
+      if (sell <= known) belowCost.push(TIER_LABELS[t] + (costInput[t] === null ? ' (labor alone)' : ''));
     });
     // Batch 2 (iOS PWA): nbdConfirm so this guard isn't bypassed in standalone.
     if (belowCost.length) {
@@ -621,13 +767,12 @@
     const tagsRaw = document.getElementById('pm-tags').value;
     product.tags = tagsRaw ? tagsRaw.split(',').map(t => t.trim()).filter(Boolean) : [];
 
-    // Pricing
+    // Pricing. `cost` is OMITTED (not zeroed) when the box is blank, so an
+    // unpriced tier stays visibly unpriced everywhere downstream.
     product.pricing = {};
     TIERS.forEach(t => {
-      product.pricing[t] = {
-        sell: parseFloat(document.getElementById(`pm-sell-${t}`).value) || 0,
-        cost: parseFloat(document.getElementById(`pm-cost-${t}`).value) || 0
-      };
+      product.pricing[t] = { sell: parseFloat(document.getElementById(`pm-sell-${t}`).value) || 0 };
+      if (costInput[t] !== null) product.pricing[t].cost = costInput[t];
     });
 
     // Labor
@@ -636,8 +781,8 @@
       ratePerManHour: parseFloat(document.getElementById('pm-labor-rate').value) || 0,
       crewSize: parseInt(document.getElementById('pm-labor-crew').value) || 0,
       hoursPerUnit: parseFloat(document.getElementById('pm-labor-hours').value) || 0,
-      overheadMultiplier: parseFloat(document.getElementById('pm-labor-overhead').value) || 1.35,
-      profitMarginPct: parseFloat(document.getElementById('pm-labor-profit').value) || 25
+      overheadMultiplier: parseFloat(document.getElementById('pm-labor-overhead').value) || laborDefaults().overheadMultiplier,
+      profitMarginPct: parseFloat(document.getElementById('pm-labor-profit').value) || laborDefaults().profitMarginPct
     };
 
     const wasEdit = !!editingProduct;
@@ -703,12 +848,16 @@
   function exportProductsCSV() {
     const active = products.filter(p => p.isActive !== false);
     const rows = [['Name','Category','Unit','Good Sell','Good Cost','Better Sell','Better Cost','Best Sell','Best Cost','Labor/Unit','Manufacturer','Warranty','Colors','Tags']];
+    // An unset cost exports as an EMPTY cell, not 0 — a spreadsheet full of
+    // zeroes would average out to a 100% margin in whatever the rep builds on
+    // top of it.
+    const costCell = (p, t) => (hasCost(p, t) ? p.pricing[t].cost : '');
     active.forEach(p => {
       rows.push([
         p.name, catLabel(p.category), p.unit,
-        p.pricing?.good?.sell, p.pricing?.good?.cost,
-        p.pricing?.better?.sell, p.pricing?.better?.cost,
-        p.pricing?.best?.sell, p.pricing?.best?.cost,
+        p.pricing?.good?.sell, costCell(p, 'good'),
+        p.pricing?.better?.sell, costCell(p, 'better'),
+        p.pricing?.best?.sell, costCell(p, 'best'),
         p.labor?.perUnit || 0,
         p.manufacturer || '', p.warranty || '',
         (p.colors || []).join('; '), (p.tags || []).join('; ')
@@ -733,6 +882,8 @@
     save: saveProduct,
     delete: deleteProduct,
     hardDelete: hardDeleteProduct,
+    // Called by catalog-costs.js once the tenant's cost book loads.
+    applyCostSeed,
     search: searchProducts,
     exportCSV: exportProductsCSV,
     resetDefaults: resetToDefaults,
@@ -748,14 +899,21 @@
     setTierFilter,
     toggleCategory,
     getProducts: () => products.filter(p => p.isActive !== false),
-    getStats: () => ({
-      total: products.filter(p => p.isActive !== false).length,
-      categories: new Set(products.filter(p => p.isActive !== false).map(p => p.category)).size,
-      avgMargin: Math.round(
-        products.filter(p => p.isActive !== false).reduce((s, p) => s + grossMargin(p.pricing?.better?.sell || 0, p.pricing?.better?.cost || 0, p.labor?.perUnit || 0), 0) /
-        Math.max(products.filter(p => p.isActive !== false).length, 1)
-      )
-    })
+    getStats: () => {
+      const active = products.filter(p => p.isActive !== false);
+      // Only products whose cost this tenant has actually entered contribute.
+      // avgMargin is NULL (not 0, not 100) when none are priced — callers must
+      // render "—" rather than a number nobody supplied.
+      const priced = active.filter(p => marginKnown(p, 'better'));
+      return {
+        total: active.length,
+        categories: new Set(active.map(p => p.category)).size,
+        priced: priced.length,
+        avgMargin: priced.length ? Math.round(
+          priced.reduce((s, p) => s + grossMargin(p.pricing.better.sell || 0, p.pricing.better.cost, p.labor?.perUnit || 0), 0) / priced.length
+        ) : null
+      };
+    }
   };
 
   window.renderProductLibrary = render;
