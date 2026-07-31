@@ -72,6 +72,7 @@ const CORE_PAGES = [
   ['roof-score',   'roof-score.html',       '0.9',  'weekly'],
   ['storm-report', 'storm-report.html',     '0.9',  'weekly'],
   ['free-roof',    'free-roof/index.html',  '0.85', 'monthly'],
+  ['free-tools',   'free-tools/index.html', '0.85', 'monthly'],
   ['privacy',      'privacy.html',          '0.6',  'monthly'],
   ['review',       'review.html',           '0.6',  'monthly'],
 ];
