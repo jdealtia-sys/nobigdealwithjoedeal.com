@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://www.googletagmanager.com https://www.google-analytics.com https://challenges.cloudflare.com https://us-central1-nobigdeal-pro.cloudfunctions.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https:; connect-src 'self' https://us-central1-nobigdeal-pro.cloudfunctions.net https://challenges.cloudflare.com; frame-src https://challenges.cloudflare.com; object-src 'none'; base-uri 'self';">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Free Roofing Tools | Roof Score, Storm Check &amp; More | No Big Deal</title>
+<meta name="description" content="Every free tool NBD offers Cincinnati-area homeowners in one place: Roof Score, storm claim check, 5-year storm report, storm alerts, instant estimate, roof visualizer, and free inspection.">
+<meta name="robots" content="index,follow">
+<link rel="canonical" href="https://nobigdealwithjoedeal.com/free-tools">
+<meta property="og:title" content="Free Roofing Tools — No Big Deal Home Solutions">
+<meta property="og:description" content="Roof Score, storm claim check, 5-year storm report, storm alerts, instant estimate, roof visualizer, and free inspection — every free tool NBD offers, in one place.">
+<meta property="og:url" content="https://nobigdealwithjoedeal.com/free-tools/">
+<meta property="og:type" content="website">
+<meta property="og:image" content="https://nobigdealwithjoedeal.com/assets/images/drone-hero-crew.jpg">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://nobigdealwithjoedeal.com/assets/images/drone-hero-crew.jpg">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/assets/css/nbd-fonts.css">
+<style>
+:root{
+  --navy:#1e3a6e;--navy-dark:#142a52;--navy-mid:#1a3260;--navy-light:#243f7a;
+  --orange:#e8720c;--orange-light:#f08030;--orange-dark:#c45e08;
+  --gray-sub:#4a4a4a;--white:#fff;--off-white:#f5f3ef;--gray:#6b7280;--light-gray:#e8e5e0;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html{scroll-behavior:smooth;font-size:16px}
+body{font-family:'Montserrat',sans-serif;color:var(--gray-sub);background:var(--off-white);line-height:1.65;-webkit-font-smoothing:antialiased}
+a{color:var(--orange);text-decoration:none}
+a:hover{color:var(--orange-light)}
+
+.hero{background:linear-gradient(135deg,var(--navy-dark) 0%,var(--navy) 60%,rgba(232,114,12,.15) 100%);color:#fff;padding:72px 5% 56px;text-align:center;position:relative;overflow:hidden}
+.hero::before{content:'';position:absolute;inset:0;background:repeating-linear-gradient(45deg,transparent,transparent 40px,rgba(232,114,12,.04) 40px,rgba(232,114,12,.04) 41px);pointer-events:none}
+.hero-inner{max-width:760px;margin:0 auto;position:relative}
+.hero-kicker{display:inline-block;font-size:.72rem;font-weight:800;letter-spacing:.22em;text-transform:uppercase;color:var(--orange-light);background:rgba(232,114,12,.12);border:1px solid rgba(232,114,12,.35);padding:7px 18px;border-radius:100px;margin-bottom:22px}
+.hero h1{font-family:'Bebas Neue',sans-serif;font-size:clamp(2.4rem,5.5vw,4rem);line-height:1.04;letter-spacing:.02em;margin-bottom:14px}
+.hero h1 span{color:#DA6A05}
+.hero .hero-lede{color:rgba(255,255,255,.8);font-size:1.02rem;line-height:1.7;max-width:600px;margin:0 auto}
+
+.tools{padding:56px 5% 24px;max-width:1080px;margin:0 auto}
+.tool-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:20px}
+.tool-card{background:#fff;border:1px solid var(--light-gray);border-radius:14px;padding:26px 24px;display:flex;flex-direction:column;gap:12px;text-decoration:none;color:inherit;transition:all .2s;position:relative;overflow:hidden}
+.tool-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:var(--card-accent,var(--orange));opacity:0;transition:opacity .2s}
+.tool-card:hover{border-color:var(--card-accent,var(--orange));transform:translateY(-3px);box-shadow:0 14px 34px rgba(20,42,82,.12)}
+.tool-card:hover::before{opacity:1}
+.tool-icon{width:44px;height:44px;border-radius:10px;display:flex;align-items:center;justify-content:center;background:var(--card-accent-dim,rgba(232,114,12,.1));flex-shrink:0}
+.tool-icon svg{width:22px;height:22px;stroke:var(--card-accent,var(--orange));stroke-width:2;fill:none;stroke-linecap:round;stroke-linejoin:round}
+.tool-name{font-family:'Bebas Neue',sans-serif;font-size:1.35rem;letter-spacing:.02em;color:var(--navy-dark)}
+.tool-desc{font-size:.92rem;line-height:1.62;color:var(--gray)}
+.tool-cta{margin-top:auto;font-size:.78rem;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--card-accent,var(--orange));display:inline-flex;align-items:center;gap:6px}
+.tool-card:hover .tool-cta{color:var(--card-accent,var(--orange-light))}
+
+.closer{background:#fff;border-top:1px solid var(--light-gray);text-align:center;padding:52px 5% 64px;margin-top:32px}
+.closer h2{font-family:'Bebas Neue',sans-serif;font-size:clamp(1.7rem,3vw,2.3rem);color:var(--navy-dark);letter-spacing:.02em;margin-bottom:10px}
+.closer p{color:var(--gray);font-size:.96rem;max-width:520px;margin:0 auto}
+.closer a{font-weight:700}
+
+.fr-head{background:var(--navy-dark);border-bottom:3px solid var(--orange);padding:12px 20px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100}
+.fr-logo{display:flex;flex-direction:column;text-decoration:none;line-height:1}
+.fr-logo b{font-family:'Bebas Neue',sans-serif;font-size:1.25rem;color:#fff;letter-spacing:.04em}
+.fr-logo b span{color:var(--orange)}
+.fr-logo small{font-size:.6rem;color:rgba(255,255,255,.6);letter-spacing:.14em;text-transform:uppercase;margin-top:2px}
+.fr-callbtn{display:inline-flex;align-items:center;gap:7px;background:#B85400;color:#fff;text-decoration:none;font-weight:800;font-size:.82rem;padding:9px 15px;border-radius:8px;letter-spacing:.02em}
+.fr-callbtn:hover{background:var(--orange-dark);color:#fff}
+.fr-foot{background:var(--navy-dark);color:rgba(255,255,255,.7);text-align:center;padding:26px 20px;font-size:.8rem;line-height:1.7}
+.fr-foot a{color:var(--orange-light);text-decoration:none}
+.fr-foot .ph{font-family:'Bebas Neue',sans-serif;font-size:1.5rem;color:#fff;letter-spacing:.03em;display:block;margin-bottom:6px}
+
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.001ms!important;animation-iteration-count:1!important;transition-duration:.001ms!important;scroll-behavior:auto!important}}
+@media(max-width:600px){input,select,textarea{font-size:16px!important}}
+</style>
+<link rel="stylesheet" href="/assets/css/nbd-mobile.css">
+<link rel="stylesheet" href="/assets/css/mobile-cta.css">
+<style>.nbd-skip{position:absolute;left:-9999px;top:0;z-index:100000;background:#B85400;color:#fff;padding:10px 16px;font-weight:700;text-decoration:none;border-radius:0 0 6px 0}.nbd-skip:focus{left:0}</style>
+<script type="application/ld+json">{
+ "@context": "https://schema.org",
+ "@type": "CollectionPage",
+ "name": "Free Roofing Tools — No Big Deal Home Solutions",
+ "url": "https://nobigdealwithjoedeal.com/free-tools/",
+ "description": "Every free homeowner tool NBD offers in one place: Roof Score, storm claim check, 5-year storm report, storm alerts, instant estimate, roof visualizer, and free inspection.",
+ "isPartOf": { "@type": "WebSite", "name": "No Big Deal Home Solutions", "url": "https://nobigdealwithjoedeal.com/" }
+}</script>
+</head>
+<body><a class="nbd-skip" href="#main">Skip to content</a>
+<header class="fr-head">
+  <a href="/" class="fr-logo"><b>NO BIG <span>DEAL</span></b><small>Home Solutions</small></a>
+  <a href="tel:+18594207382" class="fr-callbtn"><svg class="ico ico-fill" viewBox="0 0 24 24" aria-hidden="true"><path d="M6.6 10.8c1.4 2.8 3.8 5.1 6.6 6.6l2.2-2.2c.3-.3.7-.4 1-.2 1.1.4 2.3.6 3.6.6.6 0 1 .4 1 1V20c0 .6-.4 1-1 1-9.4 0-17-7.6-17-17 0-.6.4-1 1-1h3.5c.6 0 1 .4 1 1 0 1.3.2 2.5.6 3.6.1.3 0 .7-.2 1L6.6 10.8z"/></svg> Call Joe</a>
+</header>
+<main id="main">
+<section class="hero">
+  <div class="hero-inner">
+    <span class="hero-kicker">No Sign-Up Fees. No Catch.</span>
+    <h1>Every Free Tool We Built, <span>In One Place</span>.</h1>
+    <p class="hero-lede">Check your roof's condition, see if storm damage is worth a claim, get an instant estimate, or just book a free inspection — pick the one that fits what you actually need right now.</p>
+  </div>
+</section>
+
+<section class="tools">
+  <div class="tool-grid">
+
+    <a href="/roof-score" class="tool-card" style="--card-accent:#e8720c;--card-accent-dim:rgba(232,114,12,.1)">
+      <div class="tool-icon"><svg viewBox="0 0 24 24"><path d="M12 2 L15 9 L22 9.5 L17 14.5 L18.5 22 L12 18 L5.5 22 L7 14.5 L2 9.5 L9 9 Z"/></svg></div>
+      <div class="tool-name">Roof Score</div>
+      <div class="tool-desc">Answer a few questions about your roof's age and condition and get an instant 0–100 Roof Health Score. See the full breakdown once you share your info.</div>
+      <span class="tool-cta">Get My Score &rarr;</span>
+    </a>
+
+    <a href="/storm-check" class="tool-card" style="--card-accent:#1e3a6e;--card-accent-dim:rgba(30,58,110,.1)">
+      <div class="tool-icon"><svg viewBox="0 0 24 24"><path d="M4 20 L12 4 L20 20 Z"/><path d="M12 10 V16"/><circle cx="12" cy="18" r=".8" fill="currentColor"/></svg></div>
+      <div class="tool-name">Is It Worth a Claim?</div>
+      <div class="tool-desc">A quick yes/no read on whether recent storm damage at your address is worth filing an insurance claim over. Two minutes, no paperwork.</div>
+      <span class="tool-cta">Check My Address &rarr;</span>
+    </a>
+
+    <a href="/storm-report" class="tool-card" style="--card-accent:#1e3a6e;--card-accent-dim:rgba(30,58,110,.1)">
+      <div class="tool-icon"><svg viewBox="0 0 24 24"><rect x="4" y="3" width="16" height="18" rx="2"/><line x1="8" y1="8" x2="16" y2="8"/><line x1="8" y1="12" x2="16" y2="12"/><line x1="8" y1="16" x2="12" y2="16"/></svg></div>
+      <div class="tool-name">5-Year Storm Report</div>
+      <div class="tool-desc">The full documented history: every hail and wind event at your exact address for the last 5 years, mapped and ready to hand your insurer.</div>
+      <span class="tool-cta">Pull My Report &rarr;</span>
+    </a>
+
+    <a href="/storm-alerts" class="tool-card" style="--card-accent:#f08030;--card-accent-dim:rgba(240,128,48,.12)">
+      <div class="tool-icon"><svg viewBox="0 0 24 24"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a1.99 1.99 0 0 1-3.4 0"/></svg></div>
+      <div class="tool-name">Storm Alerts</div>
+      <div class="tool-desc">Free text the moment hail or severe storms hit your zip code — so you know to check your roof before small damage becomes a big leak.</div>
+      <span class="tool-cta">Sign Up Free &rarr;</span>
+    </a>
+
+    <a href="/estimate" class="tool-card" style="--card-accent:#e8720c;--card-accent-dim:rgba(232,114,12,.1)">
+      <div class="tool-icon"><svg viewBox="0 0 24 24" style="fill:currentColor;stroke:none"><path d="M13 2 L4 14 L11 14 L10 22 L20 10 L13 10 Z"/></svg></div>
+      <div class="tool-name">Instant Estimate</div>
+      <div class="tool-desc">Get a ballpark cost for your roof replacement in minutes — material options and pricing before you ever pick up the phone.</div>
+      <span class="tool-cta">Estimate My Cost &rarr;</span>
+    </a>
+
+    <a href="/visualizer" class="tool-card" style="--card-accent:#1e3a6e;--card-accent-dim:rgba(30,58,110,.1)">
+      <div class="tool-icon"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="14" rx="2"/><circle cx="9" cy="10" r="2"/><path d="M21 15 L15 10 L6 18"/></svg></div>
+      <div class="tool-name">Roof Visualizer</div>
+      <div class="tool-desc">Upload a photo of your home and see what new roofing, siding, or gutters would actually look like — before you spend a dollar.</div>
+      <span class="tool-cta">See My Home &rarr;</span>
+    </a>
+
+    <a href="/inspect" class="tool-card" style="--card-accent:#f08030;--card-accent-dim:rgba(240,128,48,.12)">
+      <div class="tool-icon"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><line x1="16" y1="16" x2="21" y2="21"/></svg></div>
+      <div class="tool-name">Free 24-Hr Inspection</div>
+      <div class="tool-desc">Book a free roof inspection with Joe, usually within 24 hours. No obligation, no sales pressure, no call center.</div>
+      <span class="tool-cta">Book My Inspection &rarr;</span>
+    </a>
+
+    <a href="/free-roof/" class="tool-card" style="--card-accent:#e8720c;--card-accent-dim:rgba(232,114,12,.1)">
+      <div class="tool-icon"><svg viewBox="0 0 24 24"><path d="M3 11 L12 3 L21 11"/><path d="M5 10 V20 H19 V10"/></svg></div>
+      <div class="tool-name">Free Roof Program</div>
+      <div class="tool-desc">Every year, NBD gives one Cincinnati-area homeowner a complete roof replacement — free. Nominate yourself or a neighbor.</div>
+      <span class="tool-cta">See the Program &rarr;</span>
+    </a>
+
+  </div>
+</section>
+
+<section class="closer">
+  <h2>Not sure which one fits?</h2>
+  <p>Text or call and I'll point you at the right one — <a href="tel:+18594207382">(859) 420-7382</a>.</p>
+</section>
+</main>
+<footer class="fr-foot">
+  <span class="ph"><a href="tel:+18594207382" style="color:#fff">(859) 420-7382</a></span>
+  Owner-operated roofing &amp; storm restoration &middot; Greater Cincinnati &amp; N. Kentucky<br>
+  <a href="/">Home</a> &middot; <a href="/about">About Joe</a> &middot; <a href="/review">Reviews</a> &middot; <a href="/blog">Blog</a>
+</footer>
+<div class="mobile-cta-strip" aria-label="Quick contact options">
+  <a href="tel:+18594207382" class="mobile-cta-call"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M6.6 10.8c1.4 2.8 3.8 5.1 6.6 6.6l2.2-2.2c.3-.3.7-.4 1-.2 1.1.4 2.3.6 3.6.6.6 0 1 .4 1 1V20c0 .6-.4 1-1 1-9.4 0-17-7.6-17-17 0-.6.4-1 1-1h3.5c.6 0 1 .4 1 1 0 1.3.2 2.5.6 3.6.1.3 0 .7-.2 1L6.6 10.8z"/></svg>Call Joe</a>
+  <a href="sms:+18594207382" class="mobile-cta-text"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/></svg>Text Us</a>
+</div>
+</body>
+</html>

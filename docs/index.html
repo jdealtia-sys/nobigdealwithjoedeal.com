@@ -89,7 +89,7 @@ nav{background:var(--navy-dark);padding:0 40px;display:flex;align-items:center;j
 .mobile-nav.open{display:block}
 .mobile-nav a{display:block;padding:14px 24px;color:rgba(255,255,255,.85);text-decoration:none;font-size:.85rem;font-weight:600;letter-spacing:.06em;text-transform:uppercase;border-bottom:1px solid rgba(255,255,255,.06);transition:color .2s,background .2s}
 .mobile-nav a:hover{color:var(--orange);background:rgba(255,255,255,.04)}
-.mobile-cta-btn{margin:16px;background:var(--orange)!important;color:white!important;text-align:center;border-radius:6px;border-bottom:none!important;padding:14px 24px!important;display:block}
+.mobile-cta-btn{margin:16px;background:#B85400!important;color:white!important;text-align:center;border-radius:6px;border-bottom:none!important;padding:14px 24px!important;display:block}
 
 /* ── SHARED ── */
 /* Reveal: visible by default. Hide pre-animation ONLY when JS has signaled readiness
@@ -303,7 +303,7 @@ a.trust-item:focus-visible{outline:2px solid var(--orange);outline-offset:-2px}
 .form-group input,.form-group select,.form-group textarea{width:100%;padding:12px 14px;border:1.5px solid var(--light-gray);border-radius:6px;font-family:'Montserrat',sans-serif;font-size:.87rem;color:var(--navy-dark);background:var(--off-white);transition:border-color .2s;outline:none}
 .form-group input:focus,.form-group select:focus,.form-group textarea:focus{border-color:var(--orange);background:white}
 .form-group textarea{resize:vertical;min-height:100px}
-.form-submit{width:100%;padding:15px;background:var(--orange);color:white;font-family:'Montserrat',sans-serif;font-size:.9rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;border:none;border-radius:6px;cursor:pointer;transition:all .25s;margin-top:4px}
+.form-submit{width:100%;padding:15px;background:#B85400;color:white;font-family:'Montserrat',sans-serif;font-size:.9rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;border:none;border-radius:6px;cursor:pointer;transition:all .25s;margin-top:4px}
 .form-submit:hover{background:var(--orange-light);transform:translateY(-2px);box-shadow:0 6px 20px rgba(232,114,12,.4)}
 .form-note{font-size:.7rem;color:#a0aec0;text-align:center;margin-top:8px}
 .form-success{display:none;text-align:center;padding:30px 0}
@@ -439,7 +439,7 @@ footer{background:var(--navy-dark);border-top:3px solid var(--orange);padding:60
 .hs-cta{background:var(--navy-dark);color:white;border-radius:14px;padding:28px;text-align:center;}
 .hs-cta h3{font-family:'Bebas Neue',sans-serif;font-size:1.6rem;margin-bottom:10px;color:white;letter-spacing:.03em;}
 .hs-cta p{font-size:.83rem;color:rgba(255,255,255,.75);line-height:1.6;margin-bottom:20px;}
-.hs-btn{display:block;background:var(--orange);color:white;padding:13px 20px;border-radius:8px;font-weight:800;font-size:.88rem;text-decoration:none;margin-bottom:10px;transition:background .2s;}
+.hs-btn{display:block;background:#B85400;color:white;padding:13px 20px;border-radius:8px;font-weight:800;font-size:.88rem;text-decoration:none;margin-bottom:10px;transition:background .2s;}
 .hs-btn:hover{background:var(--orange-dark);}
 .hs-phone{display:block;background:transparent;border:1px solid rgba(255,255,255,.3);color:rgba(255,255,255,.8);font-size:.83rem;text-decoration:none;padding:10px 20px;border-radius:8px;transition:all .2s;}
 .hs-phone:hover{border-color:var(--orange);color:white;}
@@ -830,6 +830,8 @@ nav .nav-logo-text .sub{white-space:nowrap}
         <li><a href="/services/roof-cleaning-soft-wash">Roof Cleaning</a></li>
         <li><a href="/services/fire-water-smoke-damage">Fire &amp; Water Damage</a></li>
         <li><a href="/services/financing">Financing</a></li>
+        <li><a href="/roof-score" style="color:var(--orange-light,#f08030)">Roof Score</a></li>
+        <li><a href="/free-tools" style="color:var(--orange-light,#f08030)">All Free Tools</a></li>
         <li><a href="/storm-alerts" style="color:var(--orange-light,#f08030)">Storm Alerts</a></li>
         <li><a href="/storm-report" style="color:var(--orange-light,#f08030)">5-Year Storm Report</a></li>
         <li><a href="/storm-check" style="color:var(--orange-light,#f08030)">Is It Worth a Claim?</a></li><li><a href="/inspect" style="color:var(--orange-light,#f08030)">Free 24-Hr Inspection</a></li>
@@ -881,9 +883,12 @@ nav .nav-logo-text .sub{white-space:nowrap}
   <div class="mnav-group">Tools</div>
   <a href="/estimate" style="color:#f08030">Instant Estimate</a>
   <a href="/visualizer" style="color:#f08030">Roof Visualizer</a>
+  <a href="/roof-score" style="color:#f08030">Roof Score</a>
   <a href="/storm-alerts" style="color:#f08030">Storm Alerts</a>
   <a href="/storm-report" style="color:#f08030">5-Year Storm Report</a>
   <a href="/storm-check" style="color:#f08030">Is It Worth a Claim?</a>
+  <a href="/inspect" style="color:#f08030">Free 24-Hr Inspection</a>
+  <a href="/free-tools" style="color:#f08030">All Free Tools</a>
   <a href="/#contact" style="color:#e8720c;font-weight:800;">Book Inspection &rarr;</a>
 </div>
 <main id="main">
@@ -1113,7 +1118,7 @@ nav .nav-logo-text .sub{white-space:nowrap}
 .storm-card .badge{align-self:flex-start;font-size:.64rem;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:#c45e08;background:rgba(232,114,12,.1);border:1px solid rgba(232,114,12,.25);padding:3px 8px;border-radius:100px}
 .storm-card p{font-size:.82rem;color:#4a4a4a;line-height:1.55;margin:0}
 .storm-cta{text-align:center}
-.storm-cta a{display:inline-flex;align-items:center;gap:8px;background:#e8720c;color:#fff;text-decoration:none;font-weight:800;font-size:.82rem;letter-spacing:.04em;text-transform:uppercase;padding:14px 28px;border-radius:8px;transition:all .2s}
+.storm-cta a{display:inline-flex;align-items:center;gap:8px;background:#B85400;color:#fff;text-decoration:none;font-weight:800;font-size:.82rem;letter-spacing:.04em;text-transform:uppercase;padding:14px 28px;border-radius:8px;transition:all .2s}
 .storm-cta a:hover{background:#c45e08;transform:translateY(-1px)}
 .storm-cta .note{display:block;font-size:.78rem;color:#6b7280;margin-top:12px}
 @media(max-width:980px){.storm-grid{grid-template-columns:repeat(2,1fr)}}
