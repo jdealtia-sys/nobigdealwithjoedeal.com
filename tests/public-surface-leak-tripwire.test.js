@@ -158,16 +158,35 @@ ok(`scan set is non-empty (${sources.size} served text files) — guard is live`
 
 // ── 2. Private infrastructure ────────────────────────────────
 // The AI-proxy Worker hostname (which embedded the founder's personal
-// account handle) was hardcoded in vault-app.js + vault-page.js. The bare
-// CSP wildcard `https://*.workers.dev` is fine and must stay allowed.
+// account handle) was hardcoded in vault-app.js + vault-page.js.
+//
+// NON-VACUITY ANCHOR REWRITTEN 2026-08-02, premise changed — do not read the
+// old form as "this used to be stricter". It asserted that the bare wildcard
+// `*.workers.dev` still appeared in a served file, on the premise that the
+// per-page CSP <meta> tags carried it. Those 156 metas were deleted
+// deliberately (the enforced policy is the firebase.json header, and a second
+// hand-maintained copy was pure drift), so that anchor now measures nothing.
+//
+// Worth recording precisely: the enforced header CSP never allowed
+// *.workers.dev at all — `grep -c workers.dev firebase.json` is 0. Because a
+// page carrying both policies enforces their INTERSECTION, the Worker origin
+// was already unreachable while the metas existed. Deleting them did not
+// remove a live allowance; it removed a misleading one.
+//
+// The replacement anchor proves what actually matters: that this scan can
+// still SEE hostname-shaped strings in the served set. If the file walk, the
+// ignore-glob matcher, or the TEXTY filter ever silently empties the corpus,
+// the positive control drops to zero and fails here rather than letting the
+// real check pass vacuously.
 {
   const worker = scan(/[a-z0-9-]+\.[a-z0-9-]+\.workers\.dev/i);
   ok(`no specific *.workers.dev hostname in served files (found: ${worker.slice(0, 5).join(', ') || 'none'})`,
     worker.length === 0);
-  // Prove the above isn't passing just because the wildcard vanished too.
-  const wildcard = scan(/\*\.workers\.dev/);
-  ok(`CSP wildcard *.workers.dev still present (${wildcard.length} refs) — check above is not vacuous`,
-    wildcard.length > 0);
+
+  const controlRe = /[a-z0-9-]+\.cloudfunctions\.net/i;
+  const control = scan(controlRe);
+  ok(`positive control: scan still sees hostname-shaped strings (${control.length} *.cloudfunctions.net refs) — check above is not vacuous`,
+    control.length > 0);
 }
 
 // ── 3. Commercial relationships ──────────────────────────────
