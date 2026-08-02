@@ -46,7 +46,16 @@ Allow: /pro/landing
 # crawlers can see the noindex (a robots-blocked URL can still be
 # URL-indexed). Same rationale as /pro/blog. Only non-page assets and the
 # surfaces without their own noindex signal are disallowed below.
-Disallow: /tools/
+#
+# /tools removed from this list 2026-08-02 for exactly the reason above.
+# "Disallow: /tools/" could never match the served canonical URL — cleanUrls
+# means the page is served at /tools, and RFC 9309 prefix matching does not
+# treat "/tools/" as covering "/tools". It also actively worked against us:
+# the page carries <meta name="robots" content="noindex, nofollow">, and a
+# robots-blocked URL is never fetched, so a crawler could not SEE that noindex
+# and could still leave a URL-only listing. It is now covered by an
+# X-Robots-Tag header in firebase.json, which is authoritative and needs the
+# page to stay crawlable.
 Disallow: /admin/
 Disallow: /pro/js/
 Disallow: /pro/img/
