@@ -815,7 +815,13 @@
         <div class="quote-form" id="quoteForm">
           <h3>Request a Quote Today</h3>
           <p class="form-desc">Fill out the form to ask a question or request service. We're committed to providing reliable roofing and exterior solutions with a focus on customer satisfaction.</p>
-          <form id="leadForm" onsubmit="return submitForm(event)">
+          <!-- NOTE: this page is RETIRED — firebase.json 301s every /sites/oaks URL
+               form to the data-driven microsite /sites/t/oaks (Jo's 2026-07-04 cutover).
+               No inline onsubmit= regardless: the site-wide CSP sets script-src-attr 'none',
+               which silently blocks handler attributes, so the old attribute could never
+               have fired. /assets/js/inline/c1372efcd5.js binds via addEventListener.
+               action="#" method="post" so a JS failure never puts contact details in a URL. -->
+          <form id="leadForm" action="#" method="post">
             <div class="form-row">
               <div class="form-group"><label>First Name</label><input type="text" id="firstName" placeholder="John" required></div>
               <div class="form-group"><label>Last Name</label><input type="text" id="lastName" placeholder="Smith"></div>

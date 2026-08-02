@@ -1,5 +1,10 @@
 /* @generated — extracted from inline <script> by audit-homeowner-2026-05-22.
-   Hash: c1372efcd5.  Do not edit by hand. */
+   Hash: c1372efcd5.  Hand-edited 2026-08-02 to bind the submit handler in JS:
+   its page carried onsubmit="return submitForm(event)", which firebase.json's
+   site-wide `script-src-attr 'none'` silently blocks. Note /sites/oaks.html is
+   RETIRED (301s to the /sites/t/oaks microsite), so no real submissions were
+   affected — this removes the last inline handler on the homeowner surface.
+   No generator regenerates this file. */
 async function submitForm(e) {
       e.preventDefault();
       const data = {
@@ -32,6 +37,9 @@ async function submitForm(e) {
         alert('Something went wrong. Please call us at (513) 827-5297.');
       }
     }
+
+    const leadForm = document.getElementById('leadForm');
+    if (leadForm) leadForm.addEventListener('submit', submitForm);
 
     // Active nav highlight on scroll
     const navLinks = document.querySelectorAll('.nav-links a[href^="#"]');
