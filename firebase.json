@@ -162,6 +162,26 @@
         ]
       },
       {
+        "_comment": "The internal ops hub at /tools (2026-08-02). It is already gated client-side — the page ships style=\"visibility:hidden\" on <html> and its module script runs NBDAuth.init, which replaces the location with /pro/login.html for a signed-out visitor (verified live). What that cannot do is stop the raw HTML being fetched, and the HTML enumerates 12 /pro/* destinations. Jo's call is to accept that residual and keep the bookmark working. This header replaces the robots.txt 'Disallow: /tools/' line, which never matched the served URL (cleanUrls serves /tools; RFC 9309 prefix matching does not treat /tools/ as covering /tools) and which prevented crawlers from ever seeing the page's own noindex meta. Same rationale as /pro/blog and the /pro app pages above.",
+        "source": "/tools",
+        "headers": [
+          { "key": "X-Robots-Tag", "value": "noindex, nofollow" }
+        ]
+      },
+      {
+        "source": "/tools/**",
+        "headers": [
+          { "key": "X-Robots-Tag", "value": "noindex, nofollow" }
+        ]
+      },
+      {
+        "_comment": "The /sites index (2026-08-02): a B2B 'Contractor Websites by NBD' offering page sitting on the HOMEOWNER domain. It was the one /sites page with no noindex of any kind — fully crawlable, yet with zero inbound links from anywhere on the site and a (513) 555-0100 placeholder phone. Jo's call: hold it back until the offering is deliberately launched. Same convention as its siblings and /pro/blog — X-Robots-Tag is authoritative and the page stays OUT of robots.txt so crawlers can SEE the noindex instead of leaving a URL-only listing. Drop this rule and the <meta name=robots> in docs/sites/index.html together at launch.",
+        "source": "/sites",
+        "headers": [
+          { "key": "X-Robots-Tag", "value": "noindex, nofollow" }
+        ]
+      },
+      {
         "source": "/sites/oaks",
         "headers": [
           { "key": "X-Robots-Tag", "value": "noindex, nofollow" }
