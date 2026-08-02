@@ -2,6 +2,15 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
+  <!-- Held back from search deliberately (2026-08-02): this is a B2B offering
+       page on the HOMEOWNER domain, it has no inbound links, and its contact
+       number is still the (513) 555-0100 placeholder. Matches how every other
+       /sites page is handled (oaks, t/, free-guide) and the /pro/blog rationale
+       in firebase.json: X-Robots-Tag is the authoritative signal and the page
+       stays OUT of robots.txt so crawlers can SEE the noindex instead of
+       leaving a URL-only listing. Remove this meta AND the firebase.json
+       /sites header rule together when the offering is ready to launch. -->
+  <meta name="robots" content="noindex, nofollow">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>Contractor Websites by NBD | Professional Sites for Home Service Companies</title>
   <meta name="description" content="Professional, lead-generating websites for roofing, HVAC, plumbing, and home service contractors. Built in days, not months. Managed hosting starting at $197/mo.">
