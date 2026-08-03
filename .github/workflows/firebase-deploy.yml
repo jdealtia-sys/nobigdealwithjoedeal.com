@@ -220,6 +220,11 @@ jobs:
           set -e
           node scripts/check-js-syntax.js
           node scripts/check-site-integrity.js --quiet
+          # Shared-partial drift, checked against the tree that actually ships.
+          # --check writes nothing: if a region were restamped here the deploy
+          # would silently publish content that is not in the repo. Failing
+          # instead keeps docs/ the single source of truth for what is live.
+          node scripts/apply-partials.js --check
 
       # Hosting deploys FIRST — before rules / indexes / storage / functions —
       # so a transient auth-race flake on the rules deploy (the recurring

@@ -478,6 +478,14 @@ jobs:
       # unified diff). Writes nothing without --write.
       - name: Check sitemap drift (dry-run diff)
         run: node scripts/build-sitemap.js
+      # Shared-partial drift gate. The chrome inside <!-- nbd:partial --> markers
+      # is GENERATED from site-src/partials/. Without this gate the whole scheme
+      # is advisory: a page could be hand-edited inside a region, or a partial
+      # could be changed without restamping, and nothing would notice — which is
+      # exactly how 139 pages ended up claiming the wrong city. Writes nothing
+      # with --check; exits 1 and prints the offending file + region.
+      - name: Check shared-partial drift (site-src/partials vs docs/)
+        run: node scripts/apply-partials.js --check --diff
 
   syntax-check:
     name: Node syntax check
