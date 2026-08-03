@@ -70,6 +70,25 @@ service cloud.firestore {
       return !request.resource.data.diff(resource.data).affectedKeys().hasAny(fields);
     }
 
+    // WRITE-ONCE: settable while absent/blank, immutable once set.
+    //
+    // customerId cannot simply join didNotChange on /leads: the client mints
+    // it in a counter transaction and stamps it onto the lead it JUST created
+    // (customer-bootstrap.module.js:433, dashboard-bootstrap.module.js:3270
+    // and :3347), so freezing it outright breaks lead creation. What must not
+    // be possible is REPOINTING an existing lead's customerId at a value
+    // belonging to another tenant — the public referral resolver looks
+    // customers up by this field (audit 2026-08-02).
+    //
+    // .get(field, '') on BOTH sides on purpose: comparing an absent map key
+    // with == / != throws in rules rather than returning null (the NEW-5
+    // lesson from the /leads viewer gate), which would deny every legitimate
+    // update on a lead that never had the field.
+    function writeOnce(field) {
+      return resource.data.get(field, '') == ''
+        || request.resource.data.get(field, '') == resource.data.get(field, '');
+    }
+
     // Referral money fields are written ONLY by the onReferralLeadWrite trigger
     // (admin SDK). A client must never forge them on a lead (a rep could otherwise
     // fabricate an "owed" bonus or replay a credit). These are absence-safe via
@@ -196,6 +215,11 @@ service cloud.firestore {
           // admin-SDK-only; the sole client write is the rep's Mark Paid / Mark
           // Unpaid toggle (owed<->paid), carved out below. See onReferralLeadWrite.
           && didNotChange(['userId', 'companyId'])
+          // customerId is the key the PUBLIC referral resolver matches on, so
+          // a lead whose customerId can be repointed can be aimed at another
+          // tenant's customer. Write-once rather than frozen because the
+          // client stamps it onto a just-created lead (see writeOnce).
+          && writeOnce('customerId')
           && referralServerFieldsFrozen()
           && referralStatusTransitionOk()
         );
@@ -299,7 +323,7 @@ service cloud.firestore {
         allow read: if isAuth() && (
           isAdmin()
           || isOwner(resource.data.userId)
-          || (isManager()
+          || (isCompanyStaff()
               && resource.data.companyId != null
               && resource.data.companyId == myCompanyId())
         );
@@ -317,7 +341,7 @@ service cloud.firestore {
         allow read: if isAuth() && (
           isAdmin()
           || isOwner(resource.data.userId)
-          || (isManager()
+          || (isCompanyStaff()
               && resource.data.companyId != null
               && resource.data.companyId == myCompanyId())
         );
@@ -630,7 +654,15 @@ service cloud.firestore {
             && resource.data.get('companyId', '') != ''
             && resource.data.get('companyId', '') == myCompanyId())
         || docLeadInMyCompany();
-      allow update, delete: if isOwner(resource.data.userId) || isAdmin();
+      // UPDATE freezes provenance — mirrors /pins (~line 673) and /leads.
+      // Create pins companyId, but update did not, so an owner could
+      // legitimately create a photo in their OWN tenant and then issue one
+      // follow-up updateDoc moving companyId to a VICTIM tenant, planting
+      // an image in that company's shared gallery (audit 2026-08-02 — the
+      // 2026-07-08 /pins fix never reached this rule). Delete is untouched.
+      allow update: if (isOwner(resource.data.userId) || isAdmin())
+        && didNotChange(['userId', 'companyId']);
+      allow delete: if isOwner(resource.data.userId) || isAdmin();
       allow create: if isAuth() && request.resource.data.userId == request.auth.uid
         && (request.resource.data.get('companyId', '') == ''
             || request.resource.data.companyId == myCompanyId()
@@ -776,7 +808,21 @@ service cloud.firestore {
         || isOwner(get(/databases/$(database)/documents/leads/$(resource.data.leadId)).data.userId)
         || parentLeadInMyCompany(resource.data.leadId));
       allow update, delete: if isOwner(resource.data.userId) || isAdmin();
-      allow create: if isAuth() && request.resource.data.userId == request.auth.uid;
+      // CREATE must check the PARENT LEAD, not just the author (audit
+      // 2026-08-02). Pinning userId alone let ANY authenticated user —
+      // no shared company, no role at all — write a note onto someone
+      // else's lead, where it renders in that tenant's customer timeline
+      // and generated photo reports as though staff had written it.
+      // Mirrors the subcollection twin at /leads/{leadId}/notes above:
+      // lead owner, or same-company STAFF. isCompanyStaff() deliberately
+      // excludes 'viewer', so the read-only role stays read-only here too
+      // (it is enforced for /leads at ~line 165 and must not be weaker on
+      // the notes that hang off them).
+      allow create: if isAuth()
+        && request.resource.data.userId == request.auth.uid
+        && (isAdmin()
+            || isOwner(get(/databases/$(database)/documents/leads/$(request.resource.data.leadId)).data.userId)
+            || (isCompanyStaff() && parentLeadInMyCompany(request.resource.data.leadId)));
     }
 
     // ── USER SETTINGS / PROFILE ───────────────────────
@@ -1057,9 +1103,14 @@ service cloud.firestore {
 
     // ── D2D KNOCKS ────────────────────────────────────
     match /knocks/{knockId} {
+      // isCompanyStaff(), not isManager(): company_admin IS the tenant owner
+      // and is strictly more privileged everywhere else in this file. Gating
+      // team reads on manager alone locked the owner out of their own team's
+      // knocks — the D2D Team panel rendered empty, indistinguishable from
+      // "nobody is knocking today" (audit 2026-08-02).
       allow read: if isAdmin()
         || isOwner(resource.data.userId)
-        || (isManager() && sameCompanyAsResource());
+        || (isCompanyStaff() && sameCompanyAsResource());
       // Phase-1.5: companyId, if present, must be the caller's own tenant —
       // a rep can't tag a knock with another company's id (which would make
       // it readable by that company's managers). Presence not required so a
@@ -1068,7 +1119,11 @@ service cloud.firestore {
         && (!('companyId' in request.resource.data)
             || request.resource.data.companyId == myCompanyId()
             || request.resource.data.companyId == request.auth.uid);
-      allow update, delete: if isOwner(resource.data.userId) || isAdmin();
+      // Provenance frozen on update — see /photos above. Without this an
+      // owner re-stamps their own knock into a victim tenant's live D2D map.
+      allow update: if (isOwner(resource.data.userId) || isAdmin())
+        && didNotChange(['userId', 'companyId']);
+      allow delete: if isOwner(resource.data.userId) || isAdmin();
     }
 
     // ── REPS (team member profiles) ──────────────────
@@ -1098,7 +1153,11 @@ service cloud.firestore {
         && (!('companyId' in request.resource.data)
             || request.resource.data.companyId == myCompanyId()
             || request.resource.data.companyId == request.auth.uid);
-      allow update, delete: if isOwner(resource.data.userId) || isAdmin();
+      // Provenance frozen on update — see /photos above. A territory
+      // re-stamped into a victim tenant draws a polygon on their live map.
+      allow update: if (isOwner(resource.data.userId) || isAdmin())
+        && didNotChange(['userId', 'companyId']);
+      allow delete: if isOwner(resource.data.userId) || isAdmin();
     }
 
     // ── PRODUCTS ──────────────────────────────────────
@@ -1183,15 +1242,19 @@ service cloud.firestore {
 
     // ── TRAINING SESSIONS ────────────────────────────
     match /training_sessions/{sessionId} {
+      // isCompanyStaff(), not isManager() — see /knocks (audit 2026-08-02).
       allow read: if isAdmin()
         || isOwner(resource.data.userId)
-        || (isManager() && sameCompanyAsResource());
+        || (isCompanyStaff() && sameCompanyAsResource());
       // Phase-1.5: companyId, if present, must be the caller's own tenant.
       allow create: if isAuth() && request.resource.data.userId == request.auth.uid
         && (!('companyId' in request.resource.data)
             || request.resource.data.companyId == myCompanyId()
             || request.resource.data.companyId == request.auth.uid);
-      allow update, delete: if isOwner(resource.data.userId) || isAdmin();
+      // Provenance frozen on update — see /photos above.
+      allow update: if (isOwner(resource.data.userId) || isAdmin())
+        && didNotChange(['userId', 'companyId']);
+      allow delete: if isOwner(resource.data.userId) || isAdmin();
     }
 
     // ── REAL DEAL ACADEMY ────────────────────────────
