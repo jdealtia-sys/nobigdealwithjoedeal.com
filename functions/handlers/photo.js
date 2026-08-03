@@ -33,7 +33,6 @@ const ANTHROPIC_API_KEY = defineSecret('ANTHROPIC_API_KEY');
 exports.setStorageCors = onRequest(
   {
     cors: CORS_ORIGINS,
-    enforceAppCheck: true,
     maxInstances: 1,
     timeoutSeconds: 30,
     memory: '256MiB',
@@ -82,7 +81,6 @@ exports.setStorageCors = onRequest(
 exports.signImageUrl = onRequest(
   {
     cors: CORS_ORIGINS,
-    enforceAppCheck: true,
     // R-05 sizing: every photo render on every page fires one sign
     // call (the 14-minute client cache at signed-image-url.js:23
     // prevents re-signs within a session, but fresh loads all hit).
@@ -292,7 +290,6 @@ exports.analyzeRoofPhoto = onRequest(
   {
     cors: CORS_ORIGINS,
     secrets: [ANTHROPIC_API_KEY],
-    enforceAppCheck: true,
     maxInstances: 10,
     concurrency: 10,
     timeoutSeconds: 60,

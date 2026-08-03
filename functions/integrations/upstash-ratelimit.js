@@ -177,7 +177,9 @@ async function httpRateLimit(req, res, namespace, limit, windowMs) {
   if (PROVIDERS.rateLimit !== 'upstash' || !upstashConfigured()) {
     return firestoreLimiter.httpRateLimit(req, res, namespace, limit, windowMs);
   }
-  const ip = firestoreLimiter.clientIp(req);
+  // /64-keyed to match the Firestore limiter — a raw IPv6 address lets one
+  // allocation rotate through 2^64 buckets and defeat the cap entirely.
+  const ip = firestoreLimiter.rateLimitIpKey(firestoreLimiter.clientIp(req));
   try {
     await enforceRateLimit(namespace, ip, limit, windowMs);
     return true;

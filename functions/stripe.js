@@ -11,7 +11,11 @@
  *
  * No behaviour change. Every handler keeps its exact config
  * (maxInstances, concurrency, timeoutSeconds, minInstances, memory,
- * secrets, cors, enforceAppCheck) and body.
+ * secrets, cors) and body. NOTE: the onRequest handlers here previously
+ * also carried `enforceAppCheck: true`, which firebase-functions honours on
+ * onCall ONLY. It was removed 2026-08-02 as dead config — these endpoints
+ * are gated by Stripe webhook signature verification and per-IP limits, not
+ * by App Check. See handlers/ai.js for the full write-up.
  */
 
 'use strict';
@@ -223,7 +227,6 @@ exports.createCheckoutSession = onRequest(
   {
     cors: CORS_ORIGINS,
     secrets: [STRIPE_SECRET_KEY, STRIPE_PRICE_FOUNDATION, STRIPE_PRICE_PROFESSIONAL, STRIPE_PRICE_TEAM],
-    enforceAppCheck: true,
     // Explicit public ingress: browser fetch calls this directly. Declared in
     // code so a redeploy can never drop the allUsers run.invoker binding again
     // (2026-07-16: stripewebhook/getsubscriptionstatus/createcustomerportalsession
@@ -939,7 +942,6 @@ exports.createCustomerPortalSession = onRequest(
   {
     cors: CORS_ORIGINS,
     secrets: [STRIPE_SECRET_KEY],
-    enforceAppCheck: true,
     invoker: 'public', // see createCheckoutSession — auth enforced in-code
     maxInstances: 20,
     concurrency: 40,
@@ -1005,7 +1007,6 @@ exports.createCustomerPortalSession = onRequest(
 exports.getSubscriptionStatus = onRequest(
   {
     cors: CORS_ORIGINS,
-    enforceAppCheck: true,
     invoker: 'public', // see createCheckoutSession — auth enforced in-code
     // R-05 sizing: called on every pro-surface page load (the NBDAuth
     // init path at docs/pro/js/nbd-auth.js fetches the subscription
@@ -1067,7 +1068,6 @@ exports.createStripePaymentLink = onRequest(
   {
     cors: CORS_ORIGINS,
     secrets: [STRIPE_SECRET_KEY],
-    enforceAppCheck: true,
     invoker: 'public', // see createCheckoutSession — auth enforced in-code
     maxInstances: 20,
     concurrency: 40,

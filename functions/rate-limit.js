@@ -101,6 +101,38 @@ function clientIp(req) {
 }
 
 /**
+ * Collapse an IPv6 address to its /64 prefix so one allocation can't rotate
+ * through its 2^64 addresses to defeat a per-IP cap. IPv4 (no ':') and
+ * anything unparseable pass through unchanged — exact canonicalisation isn't
+ * needed, only a stable per-customer bucket.
+ *
+ * This lives here, next to clientIp, because EVERY per-IP limiter needs it:
+ * a raw-address key turns an hourly cap into no cap at all for any caller on
+ * a normal residential IPv6 allocation. httpRateLimit below applies it for
+ * you. handlers/integrations.js previously carried the only copy and applied
+ * it by hand in one endpoint, which is why the rest were unprotected.
+ *
+ * @param {string} ip
+ * @returns {string} bucket key
+ */
+function rateLimitIpKey(ip) {
+  const s = String(ip || '');
+  if (s.indexOf(':') === -1) return s; // IPv4 / empty — unchanged
+  const head = s.split('%')[0];        // strip any zone id
+  const sides = head.split('::');
+  let groups;
+  if (sides.length === 2) {
+    const left = sides[0] ? sides[0].split(':') : [];
+    const right = sides[1] ? sides[1].split(':') : [];
+    const fill = Array(Math.max(0, 8 - left.length - right.length)).fill('0');
+    groups = left.concat(fill, right);
+  } else {
+    groups = head.split(':');
+  }
+  return groups.slice(0, 4).join(':') + '::/64';
+}
+
+/**
  * Enforce a rolling window per (namespace, key). Throws if over limit.
  *
  * @param {string} namespace e.g. 'validateAccessCode' | 'claudeProxy:ip'
@@ -149,7 +181,9 @@ async function enforceRateLimit(namespace, key, limit, windowMs) {
  */
 async function httpRateLimit(req, res, namespace, limit, windowMs) {
   try {
-    await enforceRateLimit(namespace, clientIp(req), limit, windowMs);
+    // /64-keyed, not raw — see rateLimitIpKey. Applied here rather than at
+    // each call site so no endpoint can be added without it.
+    await enforceRateLimit(namespace, rateLimitIpKey(clientIp(req)), limit, windowMs);
     return true;
   } catch (e) {
     if (e.rateLimited) {
@@ -161,4 +195,4 @@ async function httpRateLimit(req, res, namespace, limit, windowMs) {
   }
 }
 
-module.exports = { enforceRateLimit, httpRateLimit, clientIp, hashKey };
+module.exports = { enforceRateLimit, httpRateLimit, clientIp, rateLimitIpKey, hashKey };

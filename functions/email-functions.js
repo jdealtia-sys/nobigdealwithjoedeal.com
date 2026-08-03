@@ -330,7 +330,6 @@ exports.sendEmail = onRequest(
   {
     cors: CORS_ORIGINS,
     secrets: [RESEND_API_KEY, EMAIL_FROM],
-    enforceAppCheck: true,
     maxInstances: 20,
     concurrency: 40,
     timeoutSeconds: 30,
@@ -432,7 +431,6 @@ exports.sendEstimateEmail = onRequest(
   {
     cors: CORS_ORIGINS,
     secrets: [RESEND_API_KEY, EMAIL_FROM],
-    enforceAppCheck: true,
     maxInstances: 20,
     concurrency: 40,
     timeoutSeconds: 30,
@@ -641,7 +639,6 @@ exports.sendTeamInviteEmail = onRequest(
   {
     cors: CORS_ORIGINS,
     secrets: [RESEND_API_KEY, EMAIL_FROM],
-    enforceAppCheck: true,
     maxInstances: 10,
     concurrency: 20,
     timeoutSeconds: 30,

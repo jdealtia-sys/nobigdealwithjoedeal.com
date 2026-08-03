@@ -41,7 +41,6 @@ exports.claudeProxy = onRequest(
   {
     cors: CORS_ORIGINS,
     secrets: [ANTHROPIC_API_KEY],
-    enforceAppCheck: true,
     // R-05 sizing: 10k-concurrent-user spike × each user firing
     // ≤1 AI call/min + 30-60s tail latency → ~10k concurrent
     // in-flight. Capped at 200 (not 300) because the us-central1
@@ -289,9 +288,24 @@ exports.claudeProxy = onRequest(
 //
 // The marketing-site visualizer.html calls this to get an AI-generated
 // assessment of a home photo. Homeowners are NOT authenticated, so we
-// cannot use the claudeProxy subscription gate. Instead:
-//   - enforceAppCheck: true (blocks curl/bot replay of the reCAPTCHA token)
-//   - per-IP rolling-window rate limit: 5 requests / hour
+// cannot use the claudeProxy subscription gate.
+//
+// ⚠️ THIS ENDPOINT IS UNAUTHENTICATED. Until 2026-08-02 the list below
+// claimed `enforceAppCheck: true` blocked curl replay. It never did:
+// firebase-functions honours enforceAppCheck on onCall ONLY — HttpsOptions
+// is declared Omit<GlobalOptions,'region'|'enforceAppCheck'>, the onRequest
+// wrapper never reads it, and it is not serialized into the deployed
+// endpoint either, so there is no platform-side fallback. The option has
+// been removed rather than left as reassuring dead config; see the same
+// finding written up at handlers/integrations.js (submitPublicLead).
+// `cors` does not gate anything either — the middleware calls next() on
+// non-OPTIONS requests regardless of Origin, so a request with no Origin
+// header reaches this handler.
+//
+// What actually protects it:
+//   - per-IP rolling-window rate limit: 5 requests / hour, keyed on the
+//     IPv6 /64 prefix (rate-limit.js rateLimitIpKey) so one allocation
+//     cannot rotate addresses to buy unlimited calls
 //   - model locked to Haiku (cheapest tier)
 //   - max_tokens hard-capped at 800
 //   - system prompt is server-owned, client cannot inject one
@@ -304,7 +318,6 @@ exports.publicVisualizerAI = onRequest(
   {
     cors: CORS_ORIGINS,
     secrets: [ANTHROPIC_API_KEY],
-    enforceAppCheck: true,
     maxInstances: 10,
     concurrency: 20,
     timeoutSeconds: 60,
@@ -390,9 +403,12 @@ exports.publicVisualizerAI = onRequest(
 // This REPLACES the `nbd-ai-proxy` Cloudflare Worker, which was an open
 // Anthropic passthrough guarded only by an Origin header (bypassable when the
 // header was absent) — no auth, no rate limit, no model/token cap. This
-// endpoint removes every one of those abuse vectors:
-//   - enforceAppCheck: true
-//   - per-IP rolling-window rate limit (the funnel makes <=2 calls per run)
+// endpoint removes most of those abuse vectors — but note it is still
+// UNAUTHENTICATED, and the `enforceAppCheck: true` this list used to claim
+// was dead config (honoured on onCall only; see the publicVisualizerAI
+// header above for the full explanation). Removed 2026-08-02.
+//   - per-IP rolling-window rate limit (the funnel makes <=2 calls per run),
+//     keyed on the IPv6 /64 prefix so address rotation cannot defeat it
 //   - the model is forced server-side to the cheapest Haiku tier (the client
 //     cannot select an expensive model)
 //   - max_tokens is capped server-side
@@ -407,7 +423,6 @@ exports.publicFunnelAI = onRequest(
   {
     cors: CORS_ORIGINS,
     secrets: [ANTHROPIC_API_KEY],
-    enforceAppCheck: true,
     maxInstances: 10,
     concurrency: 20,
     timeoutSeconds: 30,
@@ -494,7 +509,6 @@ exports.adminAI = onRequest(
   {
     cors: CORS_ORIGINS,
     secrets: [ANTHROPIC_API_KEY],
-    enforceAppCheck: true,
     maxInstances: 5,
     concurrency: 10,
     timeoutSeconds: 60,

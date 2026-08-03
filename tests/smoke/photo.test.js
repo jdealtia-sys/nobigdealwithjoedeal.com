@@ -455,8 +455,24 @@ section('Photos §2.1: two AI paths documented + analyzeRoofPhoto baseline cover
     /exports\.analyzeRoofPhoto\s*=\s*onRequest/.test(handlerPhoto));
   assert('functions/index.js re-exports analyzeRoofPhoto',
     /analyzeRoofPhoto/.test(idx));
-  assert('analyzeRoofPhoto enforces App Check',
-    /exports\.analyzeRoofPhoto[\s\S]{0,1500}enforceAppCheck:\s*true/.test(handlerPhoto));
+  // PREMISE REWRITTEN 2026-08-02 — do not read the old form as "this used to
+  // be stricter". It asserted `enforceAppCheck: true` inside the
+  // analyzeRoofPhoto options object. That option is honoured by
+  // firebase-functions on onCall ONLY; on onRequest — which this handler is,
+  // per the assertion two lines above — it is silently ignored and never even
+  // serialized into the deployed endpoint. So the assertion was pinning
+  // decorative config, and would have kept passing while the endpoint had no
+  // attestation whatsoever.
+  //
+  // What actually gates this endpoint is a real Firebase ID token: it 401s
+  // without a Bearer header, verifies it via getAuth().verifyIdToken, and then
+  // owner-matches decoded.uid against the photo (asserted below). Pin THAT,
+  // plus the absence of the misleading option.
+  assert('analyzeRoofPhoto requires a verified Firebase ID token (401 without one)',
+    /exports\.analyzeRoofPhoto[\s\S]{0,2000}verifyIdToken\(idToken\)/.test(handlerPhoto)
+    && /exports\.analyzeRoofPhoto[\s\S]{0,1500}status\(401\)/.test(handlerPhoto));
+  assert('analyzeRoofPhoto does NOT carry the dead enforceAppCheck option',
+    !/exports\.analyzeRoofPhoto\s*=\s*onRequest\([\s\S]{0,600}enforceAppCheck/.test(handlerPhoto));
   assert('analyzeRoofPhoto declares a 100/uid/day cap constant',
     /const PHOTO_AI_DAILY_CAP\s*=\s*100/.test(handlerPhoto));
   assert('analyzeRoofPhoto uses the daily cap in enforceRateLimit',
