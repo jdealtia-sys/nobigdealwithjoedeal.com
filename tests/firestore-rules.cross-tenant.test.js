@@ -235,6 +235,119 @@ async function run() {
   await check('reps create: foreign companyId',               'deny',  setDoc(doc(bob, 'reps/bob'),              { userId: 'bob', companyId: 'co-a' }));
   await check('reps create: own companyId (co-b)',            'allow', setDoc(doc(bob, 'reps/bob'),              { userId: 'bob', companyId: 'co-b' }));
 
+  // ═══════════════════════════════════════════════════════════
+  // F. RE-TENANTING VIA UPDATE (audit 2026-08-02)
+  //
+  // Section E proves companyId is pinned on CREATE. That is only half the
+  // wall, and the missing half is why this section exists: /pins and /zones
+  // were given `didNotChange(['userId','companyId'])` on update in the
+  // 2026-07-08 fix, but /photos, /knocks, /territories and /training_sessions
+  // were not. Their update rule is still bare `isOwner(resource.data.userId)`.
+  //
+  // So the attack never has to forge a create. Bob creates a document
+  // perfectly legitimately inside his OWN tenant — passing every create
+  // check — and then issues one follow-up updateDoc moving companyId to
+  // 'co-a'. He still owns it, so isOwner passes, and nothing looks at the
+  // field he just changed. The document lands in company A's shared gallery,
+  // team feed, and live D2D map.
+  //
+  // This whole class survived because the matrix above only ever tested
+  // CREATE. Deleting these cases re-opens the hole silently.
+  // ═══════════════════════════════════════════════════════════
+  await check('knocks: bob seeds own-tenant knock (setup)',       'allow', setDoc(doc(bob, 'knocks/k-retenant'),       { userId: 'bob', companyId: 'co-b', address: '9 Bob St' }));
+  await check('knocks: RE-TENANT own doc into co-a via update',   'deny',  updateDoc(doc(bob, 'knocks/k-retenant'),    { companyId: 'co-a' }));
+
+  await check('photos: bob seeds own-tenant photo (setup)',       'allow', setDoc(doc(bob, 'photos/p-retenant'),       { userId: 'bob', companyId: 'co-b', url: 'photos/bob/x.jpg' }));
+  await check('photos: RE-TENANT own doc into co-a via update',   'deny',  updateDoc(doc(bob, 'photos/p-retenant'),    { companyId: 'co-a' }));
+
+  await check('territories: bob seeds own-tenant zone (setup)',   'allow', setDoc(doc(bob, 'territories/t-retenant'),  { userId: 'bob', companyId: 'co-b', name: 'Bob Zone' }));
+  await check('territories: RE-TENANT own doc into co-a',         'deny',  updateDoc(doc(bob, 'territories/t-retenant'), { companyId: 'co-a' }));
+
+  await check('training_sessions: bob seeds own doc (setup)',     'allow', setDoc(doc(bob, 'training_sessions/ts-ret'),{ userId: 'bob', companyId: 'co-b' }));
+  await check('training_sessions: RE-TENANT own doc into co-a',   'deny',  updateDoc(doc(bob, 'training_sessions/ts-ret'), { companyId: 'co-a' }));
+
+  // Positive controls FIRST, and on their own documents. Ordering matters
+  // here: the reassign attack below currently SUCCEEDS against unfixed
+  // rules, which hands the doc to 'alice' and makes every later
+  // owner-edit assertion fail for the wrong reason — the hole masking the
+  // control. Separate docs keep each case independent of the others'
+  // outcome, so a failure always means what it says.
+  await check('knocks: owner CAN still edit a normal field',      'allow', updateDoc(doc(bob, 'knocks/k-retenant'),    { address: '10 Bob St' }));
+  await check('photos: owner CAN still edit a normal field',      'allow', updateDoc(doc(bob, 'photos/p-retenant'),    { caption: 'south slope' }));
+  await check('territories: owner CAN still rename',              'allow', updateDoc(doc(bob, 'territories/t-retenant'), { name: 'Bob Zone West' }));
+
+  // Ownership must be frozen too — handing your doc to a victim-tenant uid
+  // is the same injection with a different field. Own documents, because a
+  // successful reassign is destructive to the fixture.
+  await check('knocks: bob seeds a reassign target (setup)',      'allow', setDoc(doc(bob, 'knocks/k-reassign'),       { userId: 'bob', companyId: 'co-b', address: '11 Bob St' }));
+  await check('knocks: cannot REASSIGN userId on own doc',        'deny',  updateDoc(doc(bob, 'knocks/k-reassign'),    { userId: 'alice' }));
+  await check('photos: bob seeds a reassign target (setup)',      'allow', setDoc(doc(bob, 'photos/p-reassign'),       { userId: 'bob', companyId: 'co-b', url: 'photos/bob/y.jpg' }));
+  await check('photos: cannot REASSIGN userId on own doc',        'deny',  updateDoc(doc(bob, 'photos/p-reassign'),    { userId: 'alice' }));
+
+  // Delete must survive the freeze — didNotChange applies to update only,
+  // and a rule that accidentally blocks delete would strand every rep's
+  // own data.
+  await check('knocks: owner CAN still delete own doc',           'allow', deleteDoc(doc(bob, 'knocks/k-retenant')));
+
+  // ═══════════════════════════════════════════════════════════
+  // F2. customerId IS WRITE-ONCE (audit 2026-08-02)
+  //
+  // The public referral resolver looks customers up by customerId. While the
+  // field was freely mutable, a rep could repoint their own lead's customerId
+  // at a value belonging to ANOTHER tenant's customer and have that tenant's
+  // referrals resolve to their lead — filing a homeowner's name, phone, email
+  // and address into the wrong CRM, silently to both sides.
+  //
+  // It cannot simply be frozen: the client mints the id in a counter
+  // transaction and stamps it onto the lead it just created. So the contract
+  // is write-once, and BOTH halves need proving — the mint-then-stamp flow
+  // must still work, or lead creation breaks in production.
+  // ═══════════════════════════════════════════════════════════
+  await check('leads: bob creates own lead without customerId',   'allow', setDoc(doc(bob, 'leads/l-cid'), { userId: 'bob', companyId: 'co-b', name: 'Bob Lead' }));
+  await check('leads: client CAN stamp customerId when absent',   'allow', updateDoc(doc(bob, 'leads/l-cid'), { customerId: 'BOB-0001-Z9' }));
+  await check('leads: normal edits still work once stamped',      'allow', updateDoc(doc(bob, 'leads/l-cid'), { stage: 'contacted' }));
+  await check('leads: cannot REPOINT customerId once set',        'deny',  updateDoc(doc(bob, 'leads/l-cid'), { customerId: 'ACO-0042-Q1' }));
+  await check('leads: cannot clear customerId to re-stamp it',    'deny',  updateDoc(doc(bob, 'leads/l-cid'), { customerId: '' }));
+  // Re-writing the SAME value must stay allowed — the client re-stamps on
+  // some paths, and a rule that rejected a no-op write would surface as a
+  // random PERMISSION_DENIED in the field.
+  await check('leads: re-writing the identical customerId is ok', 'allow', updateDoc(doc(bob, 'leads/l-cid'), { customerId: 'BOB-0001-Z9' }));
+
+  // ═══════════════════════════════════════════════════════════
+  // G. FLAT /notes — create must check the PARENT LEAD (audit 2026-08-02)
+  //
+  // The create rule only pinned the author: `request.resource.data.userId ==
+  // request.auth.uid`. It never looked at leadId. So ANY authenticated user
+  // — no shared company, no role, including a same-tenant `viewer` whose
+  // read-only status the rules claim to enforce — could write a note onto
+  // someone else's lead. It then renders in that tenant's customer timeline
+  // and generated photo reports as if staff had written it.
+  //
+  // The subcollection twin at /leads/{id}/notes already does this check.
+  // ═══════════════════════════════════════════════════════════
+  await check('notes: cross-tenant user writes note on A lead', 'deny',  setDoc(doc(bob,     'notes/n-inject'), { userId: 'bob', leadId: 'leadA', text: 'call 555-0100 to re-run your card' }));
+  await check('notes: claim-less user writes note on A lead',   'deny',  setDoc(doc(noClaim, 'notes/n-inject2'),{ userId: 'nc',  leadId: 'leadA', text: 'injected' }));
+  await check('notes: lead OWNER can write on own lead',        'allow', setDoc(doc(alice,   'notes/n-ok'),     { userId: 'alice', leadId: 'leadA', text: 'legit note' }));
+  await check('notes: same-tenant manager can write on A lead', 'allow', setDoc(doc(eveMgr,  'notes/n-mgr'),    { userId: 'eve',   leadId: 'leadA', text: 'stage change' }));
+
+  // ═══════════════════════════════════════════════════════════
+  // H. company_admin IS staff (audit 2026-08-02)
+  //
+  // /knocks, /recordings, /storm_proofs and /training_sessions gated team
+  // reads on isManager() alone. company_admin — the tenant OWNER, strictly
+  // more privileged everywhere else in this file — was excluded, so the
+  // owner taps the D2D Team button and sees an empty panel indistinguishable
+  // from "nobody is knocking today". Fails closed, so it leaked nothing; it
+  // just made the product look broken to the person who pays for it.
+  // ═══════════════════════════════════════════════════════════
+  await check('knocks: same-tenant company_admin reads team knock',   'allow', getDoc(doc(aliceCA, 'knocks/knockA')));
+  await check('knocks: same-tenant manager still reads',              'allow', getDoc(doc(eveMgr,  'knocks/knockA')));
+  await check('knocks: cross-tenant company_admin still denied',      'deny',  getDoc(doc(bobCA,   'knocks/knockA')));
+  await check('training_sessions: same-tenant co_admin reads',        'allow', getDoc(doc(aliceCA, 'training_sessions/tsA')));
+  await check('training_sessions: cross-tenant co_admin denied',      'deny',  getDoc(doc(bobCA,   'training_sessions/tsA')));
+  await check('recordings: same-tenant co_admin reads team recording','allow', getDoc(doc(aliceCA, 'leads/leadA/recordings/recA')));
+  await check('recordings: cross-tenant co_admin denied',             'deny',  getDoc(doc(bobCA,   'leads/leadA/recordings/recA')));
+
   // ── Summary ────────────────────────────────────────────────
   const pass = results.filter(r => r.outcome === 'PASS').length;
   const fail = results.filter(r => r.outcome === 'FAIL').length;
