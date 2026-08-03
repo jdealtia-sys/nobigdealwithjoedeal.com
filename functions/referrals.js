@@ -120,16 +120,69 @@ exports.submitReferral = onRequest(
     const db = getFirestore();
 
     // ─── Resolve the source customer ────────────────────────────
-    // Try customerId first; if no match, fall back to raw lead id.
+    // TENANT-SCOPED, AND FAIL-CLOSED ON AMBIGUITY (audit 2026-08-02).
+    //
+    // This used to be `where('customerId','==',ref).limit(1)` — a GLOBAL
+    // query with no tenant scope. Whatever Firestore returned first won, and
+    // the new lead is filed onto sourceLead.userId's book under
+    // sourceLead.companyId (below). So if two tenants ever held the same
+    // customerId, a homeowner's name, phone, email and address were filed
+    // into the wrong company's CRM — silently to both sides. The platform
+    // tenant is the easy case to collide with: customer-id.js mints un-salted
+    // sequential 'NBD-####'.
+    //
+    // customerIds carry their tenant with them: the leading segment is a
+    // GLOBALLY-RESERVED prefix, and docPrefixes/{PREFIX}.companyId maps it
+    // back to exactly one company (see reserveCompanyPrefix). So resolve the
+    // expected tenant from the code itself and require the lead to match.
+    //
+    // The query drops .limit(1) on purpose — with a cap of 1 an ambiguous
+    // code is indistinguishable from an unambiguous one, which is precisely
+    // how this stayed invisible. Filtering happens in memory rather than as a
+    // second `where` because there is no composite index on
+    // (customerId, companyId) and this result set is 0-1 rows in practice.
     let sourceLead = null;
     try {
+      const prefix = ref.split('-')[0] || '';
+      let expectedCompanyId = null;
+      if (prefix && /^[A-Z0-9]{2,12}$/.test(prefix)) {
+        const pfxSnap = await db.doc(`docPrefixes/${prefix}`).get();
+        if (pfxSnap.exists) expectedCompanyId = pfxSnap.get('companyId') || null;
+      }
+
       const byCustId = await db.collection('leads')
         .where('customerId', '==', ref)
-        .limit(1).get();
-      if (!byCustId.empty) {
-        sourceLead = { id: byCustId.docs[0].id, ...byCustId.docs[0].data() };
+        .limit(10).get();
+
+      let candidates = byCustId.docs;
+      if (expectedCompanyId) {
+        candidates = candidates.filter(d => d.get('companyId') === expectedCompanyId);
+      }
+
+      if (candidates.length > 1) {
+        // Two leads legitimately answering to one code means we cannot know
+        // whose customer this is. Guessing is what filed PII into the wrong
+        // CRM, so refuse and surface it instead.
+        logger.error('[submitReferral] AMBIGUOUS referral code — refusing', {
+          ref,
+          expectedCompanyId,
+          matchCount: candidates.length,
+          companyIds: candidates.map(d => d.get('companyId')),
+        });
+        return bad(res, 409, 'This referral link is not unique. Please contact us directly.');
+      }
+      if (candidates.length === 1) {
+        sourceLead = { id: candidates[0].id, ...candidates[0].data() };
+      } else if (byCustId.size > 0 && expectedCompanyId) {
+        // The code resolves to a tenant that does not own any lead bearing
+        // it — i.e. someone is presenting another tenant's code shape. Treat
+        // as invalid rather than falling through to the raw-id path.
+        logger.warn('[submitReferral] code prefix tenant does not own the lead', {
+          ref, expectedCompanyId,
+        });
       } else if (ref.length >= 16 && /^[a-zA-Z0-9]+$/.test(ref)) {
-        // Looks like a raw doc id — try it.
+        // Looks like a raw doc id — try it. Document ids are unique, so this
+        // path carries no cross-tenant ambiguity.
         const snap = await db.doc(`leads/${ref}`).get();
         if (snap.exists) sourceLead = { id: snap.id, ...snap.data() };
       }
