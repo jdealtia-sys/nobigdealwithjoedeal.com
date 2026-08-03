@@ -109,8 +109,9 @@ exports.integrationStatus = onCall(
 // and could be mass-fired at Firestore's list price for ~$2/M writes.
 //
 // Defenses:
-//   - enforceAppCheck: rejects calls without a valid App Check token
-//     (curl/bot without the attestation token fails immediately).
+//   - (NOT App Check — see the option block below for why it is absent and
+//     why it never worked here. This line used to claim it rejected calls
+//     without an attestation token; it did not.)
 //   - httpRateLimit: per-IP 20/min — plenty for a human on a form,
 //     enough to stop a single-box 1000 rps attack cold.
 //   - Origin allowlist via CORS_ORIGINS matches only the two public

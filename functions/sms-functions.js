@@ -178,7 +178,6 @@ exports.sendSMS = onRequest(
   {
     cors: CORS_ORIGINS,
     secrets: [TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_PHONE_NUMBER],
-    enforceAppCheck: true,
     maxInstances: 20,
     concurrency: 40,
     timeoutSeconds: 30,
@@ -319,7 +318,6 @@ exports.sendD2DSMS = onRequest(
   {
     cors: CORS_ORIGINS,
     secrets: [TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_PHONE_NUMBER],
-    enforceAppCheck: true,
     maxInstances: 20,
     concurrency: 40,
     timeoutSeconds: 30,
