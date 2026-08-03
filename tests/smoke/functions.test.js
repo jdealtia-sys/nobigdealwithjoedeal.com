@@ -1588,8 +1588,15 @@ section('C2: Recording rules + Storage audio path + composite index');
   // Firestore: flat-path recordings subcollection, admin-SDK-only writes.
   assert('C2: /leads/{leadId}/recordings/{recordingId} rule present',
     /match \/recordings\/\{recordingId\}/.test(rules));
-  assert('C2: recordings allow read scoped to owner + admin + same-company manager',
-    /match \/recordings\/\{recordingId\}[\s\S]{0,500}resource\.data\.userId[\s\S]{0,300}isManager\(\)[\s\S]{0,300}resource\.data\.companyId == myCompanyId\(\)/.test(rules));
+  // PREMISE WIDENED 2026-08-02 — this pinned isManager() specifically, which
+  // excluded company_admin: the TENANT OWNER, strictly more privileged
+  // everywhere else in firestore.rules. The owner could not read their own
+  // team's call recordings, and the panel rendered empty rather than
+  // erroring. Now isCompanyStaff() (= isCompanyAdmin() || isManager()).
+  // The same-company clause below is the part that must never relax — it is
+  // what keeps a role claim from crossing the companyId wall.
+  assert('C2: recordings allow read scoped to owner + admin + same-company staff',
+    /match \/recordings\/\{recordingId\}[\s\S]{0,500}resource\.data\.userId[\s\S]{0,300}isCompanyStaff\(\)[\s\S]{0,300}resource\.data\.companyId == myCompanyId\(\)/.test(rules));
   assert('C2: recordings writes blocked at the rule layer (admin SDK only)',
     /match \/recordings\/\{recordingId\}[\s\S]{0,800}allow write: if false/.test(rules));
 
