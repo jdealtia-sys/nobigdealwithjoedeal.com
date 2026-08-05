@@ -782,7 +782,7 @@ jobs:
           npm run test:e2e:authed:emu
       - name: Upload Playwright traces on failure
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: playwright-authed-traces-${{ strategy.job-index }}
           path: tests/test-results/
