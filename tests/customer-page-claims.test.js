@@ -131,6 +131,32 @@ const CUSTOMER_HTML = fs.readFileSync(path.join(ROOT, 'docs/pro/customer.html'),
     /companyId: window\._userClaims\?\.companyId/.test(cprg));
 }
 
+// ── 4. Estimates two-scope + deterministic doc source (audit 2026-08-02) ──
+// The three estimate reads on this page hard-scoped to auth uid — a
+// company_admin opening a rep's job saw "No estimates yet" while the
+// dashboard shell had the team scope. And _customerEstimates carried
+// whatever order Firestore returned (doc-id ASC) while the dashboard sorts
+// createdAt DESC — doc-preflight takes [0], so the SAME lead could generate
+// a contract from a different estimate depending on entry point.
+{
+  ok('estimate scope helper exists (owner scope always + company scope for readers)',
+    /function _estimateQueryScopes\(leadId\)/.test(BOOT)
+    && /\[where\('leadId', '==', leadId\), where\('companyId', '==', claims\.companyId\)\]/.test(BOOT));
+  ok('all estimate reads go through the shared two-scope fetch (no bare uid-scoped estimate query left)',
+    !/collection\((?:window\.)?db, 'estimates'\), where\('leadId', '==', leadId\), where\('userId'/.test(BOOT)
+    && (BOOT.match(/_getEstimateDocsForLead\(leadId\)/g) || []).length >= 3);
+  ok('_customerEstimates sorts createdAt DESC (matches the dashboard shell)',
+    /window\._customerEstimates = estDocs[\s\S]{0,400}\.sort\(\(a, b\) => \{[\s\S]{0,200}return tb - ta;/.test(BOOT));
+
+  const preflight = read('doc-preflight.js');
+  ok('doc-preflight never takes a bare [0] from _customerEstimates',
+    !/\(window\._customerEstimates \|\| \[\]\)\[0\]/.test(preflight));
+  ok('doc-preflight picks the ★ Primary estimate first, newest otherwise',
+    /function pickPreflightEstimate\(\)/.test(preflight)
+    && /primaryEstimateId/.test(preflight)
+    && (preflight.match(/pickPreflightEstimate\(\)/g) || []).length >= 4);
+}
+
 console.log('\n──────────────────────────────');
 console.log(`${passed} passed, ${failed} failed`);
 if (failed) {

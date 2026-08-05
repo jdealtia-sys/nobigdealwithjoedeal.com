@@ -1578,7 +1578,7 @@
       var revertBtn = t.closest ? t.closest('[data-li-revert]') : null;
       if (revertBtn) {
         var k2 = revertBtn.getAttribute('data-li-revert');
-        var est = (window._customerEstimates || [])[0];
+        var est = pickPreflightEstimate();
         state.values[k2] = mapEstimateLineItems(est);
         state.lineItemsMode[k2] = 'locked';
         redrawField(k2);
@@ -1874,10 +1874,29 @@
   }
 
   /**
+   * Which estimate feeds document generation (audit 2026-08-02 + Jo
+   * 2026-08-05): the lead's ★ Primary estimate (#1036/#1037) when it's set
+   * and present, else [0] of _customerEstimates — which loadEstimates now
+   * sorts createdAt DESC, so the fallback is deterministically the newest.
+   * Declared once and used by ALL doc-preflight readers (revert, save-back,
+   * hydrate) so a revert can never target a different doc than the save.
+   */
+  function pickPreflightEstimate() {
+    var ests = window._customerEstimates || [];
+    var primaryId = ((window._currentLead || window._leadDoc || {}).primaryEstimateId) || null;
+    if (primaryId) {
+      for (var i = 0; i < ests.length; i++) {
+        if (String(ests[i].id) === String(primaryId)) return ests[i];
+      }
+    }
+    return ests[0];
+  }
+
+  /**
    * Save the current line-items state back onto the underlying estimate document.
    */
   async function saveLineItemsToEstimate(fieldKey) {
-    var est = (window._customerEstimates || [])[0];
+    var est = pickPreflightEstimate();
     if (!est || !est.id) {
       toast('No estimate found to update.', 'error');
       return;
@@ -1948,7 +1967,7 @@
 
     // Hydrate context
     var lead = window._leadDoc || {};
-    var estimate = (window._customerEstimates || [])[0] || null;
+    var estimate = pickPreflightEstimate() || null;
     var photos = window._allPhotos || [];
     var overrides = (lead.docOverrides && lead.docOverrides[type]) || {};
 

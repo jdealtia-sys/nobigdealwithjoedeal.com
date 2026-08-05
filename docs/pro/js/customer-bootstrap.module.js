@@ -1090,12 +1090,10 @@ async function loadTimeline(leadId, lead) {
     }
   } catch (e) { /* appointments are optional — older tenants have none */ }
 
-  // Load estimates
+  // Load estimates (two-scope: owner + company reader — see _estimateQueryScopes)
   try {
-    const estSnap = await getDocs(
-      query(collection(db, 'estimates'), where('leadId', '==', leadId), where('userId', '==', auth.currentUser?.uid))
-    );
-    estSnap.docs.forEach(d => {
+    const estDocs = await _getEstimateDocsForLead(leadId);
+    estDocs.forEach(d => {
       const est = d.data();
       if (est.createdAt) {
         timeline.push({
@@ -1466,6 +1464,33 @@ function _photoQueryScopes(leadId) {
     : [where('leadId', '==', leadId), where('userId', '==', auth.currentUser?.uid)];
 }
 
+// Team visibility for ESTIMATES (audit 2026-08-02): the three estimate reads
+// on this page hard-scoped to the signed-in uid, so a company_admin/manager
+// opening a rep's job saw "No estimates yet" — while the dashboard shell
+// already runs the two-scope shape (dashboard-bootstrap loadEstimates). The
+// /estimates rule only proves a team read when the query carries
+// companyId == the caller's claim, so unlike photos the leadId-only form
+// isn't usable here: own-userId scope ALWAYS runs (covers legacy
+// pre-companyId docs), company scope is added for company readers, results
+// dedupe by doc id.
+function _estimateQueryScopes(leadId) {
+  const claims = window._userClaims || {};
+  const scopes = [[where('leadId', '==', leadId), where('userId', '==', auth.currentUser?.uid)]];
+  if (['company_admin', 'manager', 'viewer'].includes(claims.role || '') && claims.companyId) {
+    scopes.push([where('leadId', '==', leadId), where('companyId', '==', claims.companyId)]);
+  }
+  return scopes;
+}
+
+async function _getEstimateDocsForLead(leadId) {
+  const byId = new Map();
+  for (const scope of _estimateQueryScopes(leadId)) {
+    const snap = await getDocs(query(collection(db, 'estimates'), ...scope));
+    snap.docs.forEach(d => { if (!byId.has(d.id)) byId.set(d.id, d); });
+  }
+  return [...byId.values()];
+}
+
 async function loadPhotos(leadId) {
   try {
     const photoSnap = await getDocs(
@@ -1574,11 +1599,9 @@ async function setPrimaryEstimate(estId) {
 
 async function loadEstimates(leadId) {
   try {
-    const estSnap = await getDocs(
-      query(collection(db, 'estimates'), where('leadId', '==', leadId), where('userId', '==', auth.currentUser?.uid))
-    );
-    
-    if (estSnap.empty) {
+    const estDocs = await _getEstimateDocsForLead(leadId);
+
+    if (!estDocs.length) {
       document.getElementById('estimateList').innerHTML = `
         <div class="empty">
           <div class="empty-icon"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:13px;height:13px;vertical-align:middle;"><rect x="4" y="3" width="12" height="14" rx="1.5"/><path d="M7 3V1.5h6V3"/><path d="M7 8h6M7 11h4"/></svg></div>
@@ -1587,10 +1610,19 @@ async function loadEstimates(leadId) {
       return;
     }
 
-    // Store estimates globally — filter soft-deleted records
-    window._customerEstimates = estSnap.docs
+    // Store estimates globally — filter soft-deleted records. Sort createdAt
+    // DESC to match the dashboard shell (audit 2026-08-02: this array was
+    // doc-id-ordered here but newest-first there, and doc-preflight takes
+    // [0] — the same lead could generate a contract from a DIFFERENT
+    // estimate depending on which page the rep opened it from).
+    window._customerEstimates = estDocs
       .map(d => ({ id: d.id, ...d.data() }))
-      .filter(e => !e.deleted);
+      .filter(e => !e.deleted)
+      .sort((a, b) => {
+        const ta = a.createdAt?.toDate?.()?.getTime() || 0;
+        const tb = b.createdAt?.toDate?.()?.getTime() || 0;
+        return tb - ta;
+      });
 
     if (typeof window.nbdTitleCount === 'function') {
       window.nbdTitleCount('estimatesPanelTitle', 'Estimates', window._customerEstimates.length);
@@ -3094,8 +3126,8 @@ async function _gatherTimelineForReport(leadId, lead) {
   } catch (_) { /* ignore */ }
 
   try {
-    const snap = await getDocs(query(collection(window.db, 'estimates'), where('leadId', '==', leadId), where('userId', '==', uid)));
-    snap.docs.forEach(d => {
+    const estDocs = await _getEstimateDocsForLead(leadId);
+    estDocs.forEach(d => {
       const e = d.data();
       if (!e.createdAt) return;
       const created = e.createdAt?.toDate ? e.createdAt.toDate() : new Date(e.createdAt);
