@@ -422,6 +422,33 @@ test('non-NBD tenant gets its own name, primary color and doc prefix', () => {
   if (String(rec.saved).indexOf('ACME_Estimate_') !== 0) throw new Error('tenant doc prefix missing from filename: ' + rec.saved);
 });
 
+// ── functions/ mirror (audit 2026-08-02) ────────────────────────────────
+// getEstimateForView (functions/portal.js) sanitizes the shared-estimate
+// lines through the SAME ladder, but Cloud Functions deploys only functions/,
+// so the file is byte-copied there. Drift = the homeowner link and the portal
+// PDF disagree about the customer's numbers — assert identity, not just parity.
+test('functions/customer-estimate-rows.js is a byte-identical copy of the docs file', () => {
+  const fs = require('fs');
+  const a = fs.readFileSync(path.join(__dirname, '..', 'docs', 'pro', 'js', 'customer-estimate-rows.js'), 'utf8');
+  const b = fs.readFileSync(path.join(__dirname, '..', 'functions', 'customer-estimate-rows.js'), 'utf8');
+  if (a !== b) throw new Error('functions/customer-estimate-rows.js has drifted from docs/pro/js/customer-estimate-rows.js — re-copy it');
+});
+
+test('functions copy exposes the same API and prices a cost-basis V2 row at retail', () => {
+  const FR = require(path.join('..', 'functions', 'customer-estimate-rows.js'));
+  ['buildDisplayRows', 'numFrom', 'estimateValue', 'estimateName'].forEach((k) => {
+    if (typeof FR[k] !== 'function') throw new Error('functions copy missing ' + k);
+  });
+  // The exact leak scenario the server whitelist must never reproduce:
+  // pre-sweep V2 row with cost split (mat 100, lab 50, markup .25) → 175 retail.
+  const rows = FR.buildDisplayRows({
+    materialMarkupPct: 0.25,
+    rows: [{ desc: 'Shingles', qty: 1, materialTotal: 100, laborTotal: 50, total: 150 }],
+  });
+  near(rows[0].total, 175, 0.005, 'retail total from cost split');
+  if (/\b150\b/.test(rows[0].rate)) throw new Error('cost-basis rate leaked into the display rate');
+});
+
 console.log('\n──────────────────────────────────────────────────');
 console.log(passed + ' passed, ' + failed + ' failed');
 if (failed > 0) process.exit(1);

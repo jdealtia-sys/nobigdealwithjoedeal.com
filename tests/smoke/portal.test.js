@@ -23,8 +23,11 @@ section('Push-4: homeowner portal page + token callables');
   for (const fn of ['createPortalToken', 'getHomeownerPortalView']) {
     assert('exports ' + fn, new RegExp('exports\\.' + fn + '\\s*=').test(psrc));
   }
-  assert('createPortalToken owner-scopes by lead.userId',
-    /lead\.userId !== uid && !isAdmin/.test(psrc));
+  // Audit 2026-08-02: mint/revoke authority is the shared pure module —
+  // owning rep, same-tenant company_admin, or platform admin.
+  assert('createPortalToken gates through canManageLead',
+    /require\(['"]\.\/portal-authz['"]\)/.test(psrc) &&
+    /if \(!canManageLead\(request\.auth\.token, uid, lead\)\)/.test(psrc));
   assert('getHomeownerPortalView rate-limits by IP',
     /httpRateLimit\(req, res, 'portal:ip'/.test(psrc));
   assert('view response redacts sensitive fields (no claim / notes)',
@@ -78,6 +81,65 @@ section('Wave B4+B5: revoke / regenerate portal link');
     /Revoke &amp; Regenerate/.test(dash));
   assert('_revokePortalLink helper defined',
     /window\._revokePortalLink\s*=/.test(dash));
+}
+
+section('Audit 2026-08-02: tenant-admin revoke authority (canManageLead)');
+{
+  // Behavioral matrix on the REAL pure module (zero-dep require).
+  const { canManageLead } = require(path.join(FUNCTIONS, 'portal-authz.js'));
+  const lead = { userId: 'rep1', companyId: 'coA' };
+  assert('platform admin can manage any lead',
+    canManageLead({ role: 'admin' }, 'anyone', lead) === true);
+  assert('owning rep can manage their lead',
+    canManageLead({ role: 'rep' }, 'rep1', lead) === true);
+  assert('same-tenant company_admin can manage (THE fix)',
+    canManageLead({ role: 'company_admin', companyId: 'coA' }, 'boss', lead) === true);
+  assert('cross-tenant company_admin refused',
+    canManageLead({ role: 'company_admin', companyId: 'coB' }, 'boss', lead) === false);
+  assert('same-tenant manager refused (only company_admin manages links)',
+    canManageLead({ role: 'manager', companyId: 'coA' }, 'mgr', lead) === false);
+  assert('missing companyId on claims refuses (fail-closed)',
+    canManageLead({ role: 'company_admin' }, 'boss', lead) === false);
+  assert('missing companyId on the lead refuses (fail-closed)',
+    canManageLead({ role: 'company_admin', companyId: 'coA' }, 'boss', { userId: 'rep1' }) === false);
+  assert('null claims / uid / lead refuse (never throw)',
+    canManageLead(null, 'u', lead) === false &&
+    canManageLead({}, null, lead) === false &&
+    canManageLead({}, 'u', null) === false);
+
+  // Static guards on the callable wiring.
+  const psrc = read(path.join(FUNCTIONS, 'portal.js'));
+  assert('revoke lead-path filters through canManage (not platform-admin only)',
+    /if \(!canManage && data\.ownerUid !== uid\) return;/.test(psrc));
+  assert('revoke is honest: tokens found but none flippable → permission-denied',
+    /if \(!q\.empty && revoked\.length === 0\)[\s\S]{0,120}permission-denied/.test(psrc));
+  assert('revoked:0 success carries the no_active_tokens reason',
+    /reason: 'no_active_tokens'/.test(psrc));
+  assert('legacy purge + sign-token revoke gate on canManage',
+    /if \(canManage\) \{/.test(psrc) &&
+    !/isAdmin \|\| ownerUid === uid/.test(psrc));
+}
+
+section('Audit 2026-08-02: shared-estimate whitelist emits retail rows, never raw');
+{
+  const psrc = read(path.join(FUNCTIONS, 'portal.js'));
+  assert('portal.js requires the customer-estimate-rows retail ladder',
+    /require\(['"]\.\/customer-estimate-rows['"]\)/.test(psrc) &&
+    /buildDisplayRows\(est\)/.test(psrc));
+  assert('whitelist no longer emits est.lines raw (a field no writer persists)',
+    !/lines:\s*Array\.isArray\(est\.lines\)/.test(psrc));
+  assert('whitelist no longer emits est.tiers raw',
+    !/tiers:\s*est\.tiers \|\| null/.test(psrc));
+  assert('safe tiers synthesized from persisted per-SQ prices, grandTotal-only',
+    /est\.prices && typeof est\.prices === 'object'/.test(psrc) &&
+    /safeTiers\[k\] = \{ grandTotal: Number\(v\) \}/.test(psrc));
+  assert('lines map to the estimate-view shape (name/quantity/unit/lineTotal)',
+    /lineTotal: r\.total/.test(psrc));
+  // The cost-basis fields that pre-sweep V2 rows carry must never appear in
+  // the safeEstimate block.
+  const block = psrc.slice(psrc.indexOf('const safeEstimate'), psrc.indexOf('const safeEstimate') + 1500);
+  assert('safeEstimate never emits cost-basis fields',
+    !/materialCostPerUnit|laborCostPerUnit|materialTotal|laborTotal/.test(block));
 }
 
 section('Wave B6: post-sign booking promotion');
