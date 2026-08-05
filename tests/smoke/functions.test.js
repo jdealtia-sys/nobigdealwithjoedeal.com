@@ -2285,4 +2285,29 @@ section('Phase D.3 — integrationStatus secret-readout completeness');
     'expected rotationRunbook URL in the response so admin UI can deep-link');
 }
 
+section('Visualizer image-gen provider seam (kie.ai, ships dark)');
+{
+  const vig = read(path.join(FUNCTIONS, 'visualizer-image-gen.js'));
+  assert('provider seam defaults to replicate',
+    /process\.env\.IMAGEGEN_PROVIDER \|\| 'replicate'/.test(vig),
+    'flipping providers must be an explicit env change, never a silent default');
+  assert('KIE_API_KEY declared and registered on the endpoint',
+    /defineSecret\('KIE_API_KEY'\)/.test(vig)
+    && /secrets: \[REPLICATE_API_TOKEN, KIE_API_KEY\]/.test(vig));
+  assert('kie path refuses loudly when the key is unset (no silent fallback)',
+    /provider_not_configured/.test(vig));
+  assert('both providers exist behind one response contract',
+    /async function generateViaReplicate\(/.test(vig)
+    && /async function generateViaKie\(/.test(vig)
+    && /result\.imgBuf\.toString\('base64'\)/.test(vig));
+  assert('kie staged input (homeowner PII) is deleted in a finally block',
+    /finally \{[\s\S]{0,400}file\.delete\(\{ ignoreNotFound: true \}\)/.test(vig));
+  assert('kie polling is bounded (no infinite loop inside the function timeout)',
+    /attempt < 30/.test(vig) && /sleep\(3000\)/.test(vig));
+  assert('integrationStatus surfaces the kie key',
+    /kie:\s+_hasInt\('KIE_API_KEY'\)/.test(readFunctionsIndex().includes('KIE_API_KEY')
+      ? readFunctionsIndex()
+      : read(path.join(FUNCTIONS, 'handlers', 'integrations.js'))));
+}
+
 };
