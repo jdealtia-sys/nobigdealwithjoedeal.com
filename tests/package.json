@@ -105,6 +105,6 @@
     "@playwright/test": "^1.61.1",
     "firebase": "^12.15.0",
     "firebase-tools": "^15.24.0",
-    "puppeteer-core": "^25.1.0"
+    "puppeteer-core": "^25.4.0"
   }
 }
