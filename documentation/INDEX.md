@@ -1,0 +1,80 @@
+# NBD Pro — Engineering Knowledge Base
+
+Map of content for the `documentation/` corpus (~90 files) plus the other places engineering truth lives in this repo. Built as the home note for an **Obsidian vault opened at the repo root** — every link below is a plain relative path, so it works identically on GitHub.
+
+> **Vault setup (one time):** Obsidian → Open folder as vault → this repo. Then Settings → Files & Links → set **Excluded files** to `.claude/worktrees, node_modules, docs, tests/node_modules, functions/node_modules` (`.claude/worktrees` contains a full duplicate of this tree; `docs/` is the hosting root, not notes). `.obsidian/` is gitignored — your workspace config stays local.
+
+---
+
+## Start here
+
+- [ARCHITECTURE](ARCHITECTURE.md) — system overview
+- [QUICK_START](QUICK_START.md) — orientation for a new session
+- [../SECURITY.md](../SECURITY.md) — public security posture (repo root)
+- [../functions/FUNCTIONS_INDEX.md](../functions/FUNCTIONS_INDEX.md) — canonical Cloud Functions taxonomy (CI-enforced)
+
+## Architecture & product
+
+- [MULTI-TENANT-ARCHITECTURE](architecture/MULTI-TENANT-ARCHITECTURE.md)
+- [NBD-PRO-PRODUCT-AUDIT-2026-07](architecture/NBD-PRO-PRODUCT-AUDIT-2026-07.md)
+- Pillar plans: [1 — Provisioning](architecture/PILLAR1-PROVISIONING-PLAN.md) · [4 — Billing](architecture/PILLAR4-BILLING-PLAN.md) · [5 — Domains & Sites](architecture/PILLAR5-DOMAINS-SITES-PLAN.md)
+
+## Runbooks (ops — read before touching prod)
+
+- [ALERT_RESPONSE](runbooks/ALERT_RESPONSE.md)
+- [ROLLBACK](runbooks/ROLLBACK.md)
+- [RESTORE_FROM_BACKUP](runbooks/RESTORE_FROM_BACKUP.md)
+- [SECRET_ROTATION](runbooks/SECRET_ROTATION.md) — linked from the admin integrationStatus readout
+- [SPEND_KILLSWITCH](runbooks/SPEND_KILLSWITCH.md)
+- [ONBOARD_TENANT](runbooks/ONBOARD_TENANT.md)
+- [TENANT-CUSTOM-DOMAINS](runbooks/TENANT-CUSTOM-DOMAINS.md)
+
+## Projects & planning
+
+- [BIG_ROCKS](projects/BIG_ROCKS.md) — the standing priority list
+- [KANBAN_CUSTOMER_MAP](projects/KANBAN_CUSTOMER_MAP.md)
+- Session handoffs: [NEXT_SESSION](projects/NEXT_SESSION.md) · [NEXT_SESSION-2c4a](projects/NEXT_SESSION-2c4a.md)
+
+## Audits
+
+- [AUDIT_REPORT](audit/AUDIT_REPORT.md) · [LIVE_VERIFICATION](audit/LIVE_VERIFICATION.md)
+- [OPS_AUDIT_2026-06](audit/OPS_AUDIT_2026-06.md) · [PROD_HOMEWORK_VERIFICATION_2026-07](audit/PROD_HOMEWORK_VERIFICATION_2026-07.md)
+- Themes: [THEME_SYSTEM_AUDIT_2026-06](audit/THEME_SYSTEM_AUDIT_2026-06.md) · [THEME_PHASE3_DURABILITY](audit/THEME_PHASE3_DURABILITY.md)
+
+## Brand, marketing & rebrand
+
+- [VOICE_BIBLE](brand/VOICE_BIBLE.md) — the writing voice for every customer-facing word
+- [local-seo-playbook-2026-07](marketing/local-seo-playbook-2026-07.md) · [citation-kit-2026-07](marketing/citation-kit-2026-07.md)
+- [gaf-tamko-rebrand-plan](rebrand/gaf-tamko-rebrand-plan.md) · [gaf-tamko-BUILD-BRIEF](rebrand/gaf-tamko-BUILD-BRIEF.md)
+
+## QA sweeps (dated campaign folders)
+
+Standalone reports: [tenant-lifecycle-audit-2026-07](qa/tenant-lifecycle-audit-2026-07.md) · [homeowner-content-audit-2026-07](qa/homeowner-content-audit-2026-07.md) · [homeowner-consistency-audit-2026-07-15](qa/homeowner-consistency-audit-2026-07-15.md) · [homeowner-site-audit-B-C-D-E-2026-07](qa/homeowner-site-audit-B-C-D-E-2026-07.md)
+
+Campaign folders (each has its own STATUS / BUG-LOG / CLEANUP):
+
+- [brand-sweep-2026-06-07](qa/brand-sweep-2026-06-07/STATUS.md)
+- [theme-sweep-2026-06-07](qa/theme-sweep-2026-06-07/BUG-LOG.md)
+- [live-qa-2026-06-07](qa/live-qa-2026-06-07/STATUS-MATRIX.md)
+- [estimate-qa-2026-06-08](qa/estimate-qa-2026-06-08/SUMMARY.md) → [remediation-2026-06-09](qa/remediation-2026-06-09/REMEDIATION-LOG.md) → [estimate-remediation-2026-06-09](qa/estimate-remediation-2026-06-09/VERIFICATION.md)
+- [cd-session-2026-06-08](qa/cd-session-2026-06-08/STATUS.md) · [verify-sweep-2026-06-09](qa/verify-sweep-2026-06-09/CLEANUP.md)
+- [static-audit-2026-06-10](qa/static-audit-2026-06-10/README.md)
+- [homeowner-sweep-2026-06-11](qa/homeowner-sweep-2026-06-11/STATUS.md)
+- [untested-surface-drive-2026-06-22](qa/untested-surface-drive-2026-06-22/FINDINGS.md)
+- [exhaustive-sweep](qa/exhaustive-sweep/COVERAGE-SUMMARY.md)
+- [seo-hardening-2026-07](qa/seo-hardening-2026-07/REVISED-PLAN.md) — includes [MANUAL-FOR-JO](qa/seo-hardening-2026-07/MANUAL-FOR-JO.md)
+
+## Dev notes elsewhere in the repo
+
+- [../docs/dev/](../docs/dev/) — CRM internals: [dashboard-decomposition-plan](../docs/dev/dashboard-decomposition-plan.md) · [globals-decomposition-HANDOFF](../docs/dev/globals-decomposition-HANDOFF.md) · [dashboard-actions-globals-audit](../docs/dev/dashboard-actions-globals-audit.md) · [estimate-engines-audit](../docs/dev/estimate-engines-audit.md) · [crm-responsive-map](../docs/dev/crm-responsive-map.md) · [csp-generated-docs-audit](../docs/dev/csp-generated-docs-audit.md) · [rock-4-handoff](../docs/dev/rock-4-handoff.md)
+- [../monitoring/README.md](../monitoring/README.md) · [../scripts/README.md](../scripts/README.md) · [../tests/e2e/README.md](../tests/e2e/README.md) · [../tests/visual/README.md](../tests/visual/README.md)
+- Functions-adjacent: [NPM_AUDIT_ACCEPTED](../functions/NPM_AUDIT_ACCEPTED.md) · [SEAT_BILLING_ACTIVATION](../functions/SEAT_BILLING_ACTIVATION.md) · [SEED_COMPANIES_README](../functions/SEED_COMPANIES_README.md) · [google-reviews.README](../functions/google-reviews.README.md)
+
+## Archive (historical — do not action)
+
+- [WAVES](archive/WAVES.md) — the original wave log
+- [archive/legacy/](archive/legacy/README.md) — pre-multi-tenant era docs (12 files), kept for context only
+
+---
+
+*Maintenance: when a new doc lands in `documentation/`, add it to the matching section here. This file is a navigation aid, not a registry — no CI enforcement.*

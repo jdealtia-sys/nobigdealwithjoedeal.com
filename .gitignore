@@ -64,3 +64,6 @@ Thumbs.db
 .firebase/hosting.*.cache
 firebase-debug.log
 tests/e2e/.audit-report.json
+
+# Obsidian vault workspace (documentation/ is usable as a vault; config stays local)
+.obsidian/
