@@ -72,8 +72,10 @@
         <select id="qService"><option value="">Choose one (optional)</option></select>
       </label>
       <label>What's going on?<textarea id="qMessage" rows="4" maxlength="1400"></textarea></label>
-      <!-- Honeypot: the gateway drops any submission that fills this. -->
-      <input id="qWebsite" name="website" type="text" tabindex="-1" autocomplete="off" aria-hidden="true" class="t-hp">
+      <!-- Honeypot: the gateway drops any submission that fills this. Named
+           nbd_hp, not "website" — that name matches browser URL-autofill
+           heuristics, and an autofilled honeypot silently drops a real lead. -->
+      <input id="qHoneypot" name="nbd_hp" type="text" tabindex="-1" autocomplete="off" aria-hidden="true" class="t-hp">
       <button class="t-btn t-btn-solid" type="submit" id="qSubmit">Send my request</button>
     </form>
   </section>

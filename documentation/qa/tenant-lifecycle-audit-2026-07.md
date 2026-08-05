@@ -66,22 +66,28 @@ handling; batching them with the above would bloat the diff and the risk.
 
 ## FLAGGED for Jo — pre-existing or product/architectural calls (not fixed)
 
-- **P3 — `submitPublicLead` App Check is a no-op (MED, pre-existing).**
-  `enforceAppCheck:true` only works for `onCall`; this is `onRequest`, so the
-  public lead gateway is IP-rate-limit + honeypot only (the code comment
-  already admits it). Affects ALL public forms, not just tenant sites.
-  Hardening options: verify the App Check token manually in-handler, or turn
-  on `TURNSTILE_REQUIRED=true`. Your call — it changes the posture of the main
-  lead pipeline.
+- **P3 — `submitPublicLead` App Check is a no-op (MED, pre-existing) —
+  ✅ RESOLVED 2026-08-02 (#1170).** The dead `enforceAppCheck` option was
+  removed repo-wide from `onRequest` handlers and the real gate hardened;
+  `tests/appcheck-onrequest-contract.test.js` (wired into CI 2026-08-05)
+  keeps the no-op config from coming back. The gateway's stated posture is
+  now per-IP rate limit + Turnstile-when-configured + honeypot + field
+  allowlist + CORS origin allowlist.
 - **P5 — slug lookup discloses the tenant's Firebase uid (LOW).** The template
   needs `companyId` to tag leads, so the uid is returned. A uid isn't a
   credential (claims are server-verified), so this is low-risk; a separate
   public site-id would be a design change. Accept or ask me to add the
   indirection.
-- **P6 — honeypot named `website` can be autofilled by browsers (LOW).**
-  A homeowner whose browser autofills a "website" field gets a silent
-  false-success and the lead is dropped. Renaming needs server coordination
-  (the gateway checks `website` across all forms). Worth a coordinated pass.
+- **P6 — honeypot named `website` can be autofilled by browsers (LOW) —
+  ✅ FIXED 2026-08-05.** The coordinated pass landed: every emitter
+  (quick-lead-form.js ×153 pages, tenant microsite, free-roof, free-guide ×2,
+  homepage) renames the honeypot to `nbd_hp` / `fieldNbdHp`, and the gateway
+  (`functions/handlers/integrations.js`) checks BOTH `nbd_hp` and the legacy
+  `website` key indefinitely — new pages no longer render an input named
+  `website`, so autofill can't populate what isn't there, while bots replaying
+  the old shape still trip. Pinned by
+  `tests/honeypot-autofill-contract.test.js` (chain + smoke CI) and the
+  both-keys cases in `tests/public-intake.test.js`.
 - **P8 — tenant sites shipped NBD's favicon (LOW) — ✅ FIXED (favicon).**
   docs/sites/t/ now ships a neutral slate house-glyph favicon
   (`site-icon.svg`) instead of NBD's `/favicon.svg`, closing the browser-tab

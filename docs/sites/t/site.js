@@ -143,7 +143,7 @@
           address: $('qAddress').value.trim(),
           service: $('qService').value,
           message: $('qMessage').value.trim(),
-          website: $('qWebsite').value, // honeypot — humans leave it empty
+          nbd_hp: $('qHoneypot').value, // honeypot — humans leave it empty
           companyId: cfg.companyId,
           source: 'tenant-site:' + cfg.companyId
         });
