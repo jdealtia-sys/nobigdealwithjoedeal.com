@@ -33,6 +33,11 @@ const { enforceRateLimit, httpRateLimit, clientIp } = require('./integrations/up
 // (last-10 US digits) on every lead; incomingSMS normalizes the Twilio
 // sender the same way so an E.164 inbound matches a free-form-typed lead.
 const { phoneDigits10 } = require('./phone-utils');
+// Tenant-safe inbound routing (audit 2026-08-02 HIGH-5): one shared Twilio
+// number serves every tenant, so the lead match must consider ALL candidates
+// and refuse to guess across tenants. Pure module — decision table lives (and
+// is unit-tested) there, not here.
+const { pickLeadForInbound } = require('./inbound-sms-route-logic');
 
 // Minimal HTML escaper for values we store from untrusted SMS webhooks.
 function escForStore(s) {
@@ -674,20 +679,84 @@ exports.incomingSMS = onRequest(
       // The exact-`phone` fallback covers any lead not yet backfilled with
       // phoneDigits (defense-in-depth until the backfill has fully run).
       const fromDigits = phoneDigits10(fromPhone);
-      let leadsSnap = fromDigits
-        ? await db.collection('leads').where('phoneDigits', '==', fromDigits).limit(1).get()
+      // Tenant-safe match (audit 2026-08-02 HIGH-5): the old `.limit(1)` +
+      // first-doc pick could file a homeowner's reply into ANOTHER company's
+      // lead when two tenants both hold this number. Collect ALL candidates
+      // (bounded) from both match keys, then let pickLeadForInbound decide —
+      // cross-tenant with no fresh outbound signal goes to unmatched_sms
+      // triage, never a guess.
+      const MATCH_LIMIT = 10;
+      const digitsSnap = fromDigits
+        ? await db.collection('leads').where('phoneDigits', '==', fromDigits).limit(MATCH_LIMIT).get()
         : { empty: true, docs: [] };
-      if (leadsSnap.empty) {
-        leadsSnap = await db
-          .collection('leads')
-          .where('phone', '==', fromPhone)
-          .limit(1)
-          .get();
+      // Exact-`phone` fallback still covers any lead not yet backfilled with
+      // phoneDigits — now merged in unconditionally so an un-backfilled lead
+      // in a SECOND tenant can't be invisible to the ambiguity check.
+      const phoneSnap = await db
+        .collection('leads')
+        .where('phone', '==', fromPhone)
+        .limit(MATCH_LIMIT)
+        .get();
+      const docsById = new Map();
+      for (const d of [...digitsSnap.docs, ...phoneSnap.docs]) {
+        if (!docsById.has(d.id)) docsById.set(d.id, d);
+      }
+      if (docsById.size >= MATCH_LIMIT) {
+        logger.warn('[incomingSMS] candidate cap hit — match set may be incomplete', { fromDigits });
+      }
+
+      const tsMillis = (v) => (v && typeof v.toMillis === 'function') ? v.toMillis()
+        : (typeof v === 'number' ? v : null);
+      const candidates = [];
+      for (const [id, d] of docsById) {
+        const data = d.data();
+        candidates.push({
+          id,
+          companyId: data.companyId || null,
+          userId: data.userId || null,
+          lastOutboundAt: null,
+          lastContactedAt: tsMillis(data.lastContactedAt),
+          createdAt: tsMillis(data.createdAt),
+        });
+      }
+      // Outbound-SMS recency is only needed to break ties — skip the extra
+      // reads for the common single-match case. Uses the existing
+      // {leadId, uid, date} composite (firestore.indexes.json); outbound rows
+      // are any status other than 'received'.
+      if (candidates.length > 1) {
+        for (const c of candidates) {
+          if (!c.userId) continue;
+          try {
+            const out = await db.collection('sms_log')
+              .where('leadId', '==', c.id)
+              .where('uid', '==', c.userId)
+              .orderBy('date', 'desc')
+              .limit(3)
+              .get();
+            const sent = out.docs.map(x => x.data()).find(x => x && x.status !== 'received');
+            c.lastOutboundAt = sent ? tsMillis(sent.date) : null;
+          } catch (e) {
+            // Recency is best-effort; a failed lookup just means this lead
+            // can't win a cross-tenant tiebreak (fails toward triage).
+            logger.warn('[incomingSMS] outbound-recency lookup failed', { leadId: c.id, err: e.message });
+          }
+        }
+      }
+
+      const route = pickLeadForInbound(candidates, { now: Date.now() });
+      if (route.ambiguity) {
+        logger.warn('[incomingSMS] ambiguous phone match', {
+          ambiguity: route.ambiguity,
+          decision: route.decision,
+          candidateLeadIds: candidates.map(c => c.id),
+        });
       }
 
       let leadId = null;
-      if (!leadsSnap.empty) {
-        leadId = leadsSnap.docs[0].id;
+      let lead = null;
+      if (route.decision === 'route') {
+        leadId = route.leadId;
+        lead = docsById.get(leadId).data();
 
         // Create a note on the lead with the incoming SMS. Capture the
         // ref so T-1 can link the generated draft back to the source
@@ -706,9 +775,6 @@ exports.incomingSMS = onRequest(
         await db.doc(`leads/${leadId}`).update({
           lastContactedAt: FieldValue.serverTimestamp()
         });
-
-        // Send push notification to the assigned rep
-        const lead = leadsSnap.docs[0].data();
 
         // T-1 step 2: generate an AI-suggested reply draft. Best-effort:
         // generateAIDraft() handles its own errors and returns null on
@@ -790,17 +856,35 @@ exports.incomingSMS = onRequest(
           }
         }
       } else {
-        // Phone number not found — log for admin review
-        await db.collection('unmatched_sms').add({
+        // Phone number not found (or cross-tenant ambiguous) — log for admin
+        // review. The ambiguity fields let the triage inbox show WHY a text
+        // that clearly matched leads still landed here.
+        const unmatchedRow = {
           from: fromPhone,
           body: messageBody,
           twilioSid: messageSid,
           receivedAt: FieldValue.serverTimestamp()
-        });
+        };
+        if (route.ambiguity) {
+          unmatchedRow.ambiguous = true;
+          unmatchedRow.ambiguity = route.ambiguity;
+          unmatchedRow.candidateLeadIds = candidates.map(c => c.id);
+          unmatchedRow.candidateCompanyIds = [...new Set(
+            candidates.map(c => c.companyId || c.userId).filter(Boolean))];
+        }
+        await db.collection('unmatched_sms').add(unmatchedRow);
       }
 
-      // Log SMS
-      await logSMSToFirestore(db, fromPhone, messageBody, null, leadId, 'received', messageSid);
+      // Log SMS. When routed, stamp the lead's uid + companyId — the Comm Log
+      // contract ({leadId, uid, date}) and its composite index key on uid, so
+      // the old `uid: null` rows were invisible to the per-lead
+      // Communication Log reader. companyId falls back to userId (solo-tenant
+      // convention).
+      await logSMSToFirestore(
+        db, fromPhone, messageBody,
+        lead ? (lead.userId || null) : null,
+        leadId, 'received', messageSid,
+        lead ? (lead.companyId || lead.userId || null) : null);
 
       // Return TwiML response (empty OK)
       res.type('text/xml').send(`<?xml version="1.0" encoding="UTF-8"?>
