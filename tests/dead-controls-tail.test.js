@@ -135,6 +135,35 @@ console.log('DEAD CONTROLS — palette globals, lazy bundles, maps redraw, toast
     /_msgEl\.textContent = /.test(ui));
 }
 
+// ── Audit 2026-08-02: dead toast sinks + camera-fallback silent drop ──
+// Same class as above: window._showToast was assigned NOWHERE (every
+// job-templates / product-library toast was console-only), #product-toast
+// exists on no page, and photo-engine's camera fallback routed picked files
+// to window.handlePhotoFiles (defined nowhere) with a handleFileSelect
+// backup that only exists on customer.html — while the bundle loads on the
+// dashboard. Files silently vanished.
+{
+  const jt = decomment(read('job-templates-ui.js'));
+  const pl = decomment(read('product-library.js'));
+  const pe = decomment(read('photo-engine.js'));
+
+  ok('job-templates-ui toasts through window.showToast (the real dashboard global)',
+    !/window\._showToast/.test(jt) && /window\.showToast\(msg, type\)/.test(jt));
+  ok('product-library toasts through window.showToast; dead #product-toast DOM fallback gone',
+    !/window\._showToast/.test(pl) && !/product-toast/.test(pl)
+    && /window\.showToast\(msg, type\)/.test(pl));
+  ok('the phantom handlePhotoFiles branch is gone from photo-engine',
+    !/handlePhotoFiles/.test(pe) && !/handleFileSelect\(\{ target: \{ files \} \}\)/.test(pe));
+  ok('camera fallback uploads picked files directly and always reports',
+    /uploadPhotoToFirebase\(file, leadId, \[\], '', ''\)/.test(pe)
+    && /Could not save the selected photos/.test(pe)
+    && /photo\$\{uploaded === 1 \? '' : 's'\} uploaded/.test(pe));
+  // The real toast global this all rides on must stay early on dashboard.
+  const boot = read('dashboard-ui-prefs-boot.js');
+  ok('dashboard-ui-prefs-boot still defines window.showToast (load-bearing for lazy bundles)',
+    /window\.showToast = function/.test(boot));
+}
+
 console.log('\n──────────────────────────────');
 console.log(`${passed} passed, ${failed} failed`);
 if (failed) {

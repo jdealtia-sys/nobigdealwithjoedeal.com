@@ -973,13 +973,31 @@
       fallback.accept = 'image/*,.heic,.heif,.avif';
       fallback.capture = 'environment';
       fallback.multiple = true;
-      fallback.onchange = (e) => {
+      fallback.onchange = async (e) => {
         const files = Array.from(e.target.files || []);
         if (!files.length) return;
-        if (typeof window.handlePhotoFiles === 'function') {
-          window.handlePhotoFiles(files);
-        } else if (typeof handleFileSelect === 'function') {
-          handleFileSelect({ target: { files } });
+        // Audit 2026-08-02 (silent-failure class): the old handler tried
+        // window.handlePhotoFiles — defined NOWHERE in the repo — then a bare
+        // handleFileSelect that only exists on customer.html, while this
+        // bundle loads on the dashboard. Net effect: every picked file was
+        // silently dropped. Upload directly (File extends Blob; tags can be
+        // edited in the gallery afterwards) and ALWAYS say what happened.
+        let uploaded = 0, failedCount = 0;
+        for (const file of files) {
+          try {
+            await uploadPhotoToFirebase(file, leadId, [], '', '');
+            uploaded++;
+          } catch (err) {
+            failedCount++;
+            console.error('[photo-engine] fallback upload failed:', err);
+          }
+        }
+        if (failedCount && !uploaded) {
+          showToast('Could not save the selected photos', 'error');
+        } else if (failedCount) {
+          showToast(`${uploaded} photo${uploaded === 1 ? '' : 's'} uploaded, ${failedCount} failed`, 'warning');
+        } else {
+          showToast(`${uploaded} photo${uploaded === 1 ? '' : 's'} uploaded`, 'success');
         }
       };
       fallback.click();

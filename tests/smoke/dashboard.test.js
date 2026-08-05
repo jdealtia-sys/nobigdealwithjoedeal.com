@@ -851,6 +851,46 @@ section('Audit batch 4 — admin function role-check drift guard');
   assert('every admin function in FUNCTIONS_INDEX has a role/admin gate',
     missing.length === 0,
     missing.length ? 'admin gate missing from: ' + missing.join(', ') : '');
+
+  // ── Coverage tripwire (audit 2026-08-05) ──────────────────────────
+  // The doc went 2026-07-04 → 2026-08-05 with 21 undocumented exports —
+  // including the whole Stripe Connect + seat-billing money path, which the
+  // admin-gate check above therefore never scanned. Enforce the other
+  // direction too: every export REACHABLE from functions/index.js must
+  // appear somewhere in FUNCTIONS_INDEX.md. Static, dependency-free:
+  //   1. direct `exports.name =` assignments in index.js
+  //   2. one level of `Object.assign(exports, X)` where X was
+  //      `const X = require('./mod')` — parse that module's own exports.
+  {
+    const idxSrc = read(path.join(ROOT, 'functions/index.js'));
+    const names = new Set();
+    for (const m of idxSrc.matchAll(/^exports\.(\w+)\s*=/gm)) names.add(m[1]);
+
+    // Map require-variable → module path, then follow Object.assign mounts.
+    const reqVars = {};
+    for (const m of idxSrc.matchAll(/(?:const|let|var)\s+(\w+)\s*=\s*require\(['"](\.[^'"]+)['"]\)/g)) {
+      reqVars[m[1]] = m[2];
+    }
+    const mounted = [];
+    for (const m of idxSrc.matchAll(/Object\.assign\(exports,\s*(\w+)\)/g)) {
+      if (reqVars[m[1]]) mounted.push(reqVars[m[1]]);
+    }
+    for (const m of idxSrc.matchAll(/Object\.assign\(exports,\s*require\(['"](\.[^'"]+)['"]\)\)/g)) {
+      mounted.push(m[1]);
+    }
+    for (const rel of mounted) {
+      const p = path.join(ROOT, 'functions', rel.endsWith('.js') ? rel : rel + '.js');
+      if (!fs.existsSync(p)) continue;
+      const src = read(p);
+      for (const m of src.matchAll(/^exports\.(\w+)\s*=/gm)) names.add(m[1]);
+    }
+
+    const md2 = read(path.join(ROOT, 'functions/FUNCTIONS_INDEX.md'));
+    const undocumented = [...names].filter(n => !new RegExp('\\b' + n + '\\b').test(md2));
+    assert('every index.js export appears in FUNCTIONS_INDEX (' + names.size + ' scanned)',
+      undocumented.length === 0,
+      undocumented.length ? 'undocumented exports: ' + undocumented.join(', ') : '');
+  }
 }
 
 section('Rock 4 rollback fallback (Phase 3 prep)');
