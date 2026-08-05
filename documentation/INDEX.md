@@ -28,12 +28,13 @@ Map of content for the `documentation/` corpus (~90 files) plus the other places
 - [SPEND_KILLSWITCH](runbooks/SPEND_KILLSWITCH.md)
 - [ONBOARD_TENANT](runbooks/ONBOARD_TENANT.md)
 - [TENANT-CUSTOM-DOMAINS](runbooks/TENANT-CUSTOM-DOMAINS.md)
+- [VISUALIZER-KIE-PROVIDER](runbooks/VISUALIZER-KIE-PROVIDER.md) — flip image-gen to kie.ai (config-only, Jo action)
 
 ## Projects & planning
 
 - [BIG_ROCKS](projects/BIG_ROCKS.md) — the standing priority list
 - [KANBAN_CUSTOMER_MAP](projects/KANBAN_CUSTOMER_MAP.md)
-- Session handoffs: [NEXT_SESSION](projects/NEXT_SESSION.md) · [NEXT_SESSION-2c4a](projects/NEXT_SESSION-2c4a.md)
+- Session handoffs: [NEXT_SESSION-2026-08-05](projects/NEXT_SESSION-2026-08-05.md) (current) · [NEXT_SESSION](projects/NEXT_SESSION.md) · [NEXT_SESSION-2c4a](projects/NEXT_SESSION-2c4a.md) (both executed)
 
 ## Audits
 
