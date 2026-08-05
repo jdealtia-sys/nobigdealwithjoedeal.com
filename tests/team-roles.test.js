@@ -25,7 +25,7 @@
 
 const path = require('path');
 const shared = require(path.join(__dirname, '..', 'functions', 'handlers', '_shared.js'));
-const { normalizeRole, requireTeamAdmin, callerMayManageTarget, INVITE_ALLOWED_ROLES, TEAM_ROLES, SUBORDINATE_ROLES } = shared;
+const { normalizeRole, requireTeamAdmin, teamAdminDecision, callerMayManageTarget, INVITE_ALLOWED_ROLES, TEAM_ROLES, SUBORDINATE_ROLES } = shared;
 // Remediation script's pure triage logic (import-safe — main() is require.main-guarded).
 const { classifyClaims } = require(path.join(__dirname, '..', 'scripts', 'audit-claim-escalation.js'));
 
@@ -122,6 +122,37 @@ async function passesPreReadGuard(name, p) {
     () => requireTeamAdmin({ auth: { uid: 'm1', token: { role: 'manager', companyId: 'co-X' } } }, 'co-X'));
   await passesPreReadGuard("company_admin WITH companyId managing own company",
     () => requireTeamAdmin({ auth: { uid: 'ca1', token: { role: 'company_admin', companyId: 'co-Y' } } }, 'co-Y'));
+
+  // ── Post-read decision: teamAdminDecision (audit 2026-08-02 medium) ──
+  // The old inline check accepted ONLY companies.ownerId, so an invited second
+  // company_admin was refused everywhere the client nav offers admin surfaces.
+  // Pure function → the whole matrix runs without Firestore.
+  console.log('\nteamAdminDecision — second company_admins accepted, ownerOnly carve-out holds');
+  const D = teamAdminDecision;
+  const coExists = { companyId: 'co-A', ownerId: 'owner1', companyExists: true };
+  ok('owner allowed (baseline unchanged)',
+    D({ uid: 'owner1', claims: {}, ...coExists }).allow === true
+    && D({ uid: 'owner1', claims: {}, ...coExists }).isOwner === true);
+  ok('invited second company_admin allowed (THE fix)',
+    D({ uid: 'boss2', claims: { role: 'company_admin', companyId: 'co-A' }, ...coExists }).allow === true);
+  ok('second company_admin is NOT reported as owner',
+    D({ uid: 'boss2', claims: { role: 'company_admin', companyId: 'co-A' }, ...coExists }).isOwner === false);
+  ok('ownerOnly refuses the non-owner company_admin (seat-money carve-out)',
+    D({ uid: 'boss2', claims: { role: 'company_admin', companyId: 'co-A' }, ...coExists, ownerOnly: true }).allow === false);
+  ok('ownerOnly still admits the owner',
+    D({ uid: 'owner1', claims: {}, ...coExists, ownerOnly: true }).allow === true);
+  ok('ownerOnly still admits the platform admin',
+    D({ uid: 'plat', claims: { role: 'admin' }, ...coExists, ownerOnly: true }).allow === true);
+  ok('cross-tenant company_admin refused (claims companyId ≠ target)',
+    D({ uid: 'boss2', claims: { role: 'company_admin', companyId: 'co-B' }, ...coExists }).allow === false);
+  ok('company_admin with NO companyId claim refused (fail-closed)',
+    D({ uid: 'boss2', claims: { role: 'company_admin' }, ...coExists }).allow === false);
+  ok('manager refused (not an admin role)',
+    D({ uid: 'm1', claims: { role: 'manager', companyId: 'co-A' }, ...coExists }).allow === false);
+  ok('solo owner (no company doc) passes via uid-keyed fallback',
+    D({ uid: 'solo', claims: {}, companyId: 'solo', ownerId: null, companyExists: false }).allow === true);
+  ok('null claims never throw',
+    D({ uid: 'x', claims: null, companyId: 'co-A', ownerId: 'o', companyExists: true }).allow === false);
 
   // ── Target-side guard: callerMayManageTarget (createTeamMember/updateUserRole/
   //    deactivateUser). The OLD guard `targetClaims.companyId && ... !== companyId`

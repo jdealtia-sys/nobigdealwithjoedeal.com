@@ -127,10 +127,11 @@ exports.setCompanySeatCount = onCall(
   },
   async (request) => {
     await callableRateLimit(request, 'setCompanySeatCount', 20, 3_600_000);
-    // Company OWNER (or platform admin) only — requireTeamAdmin throws for
-    // everyone else, including non-owner company_admins. Seat money is the
-    // bill-payer's call alone.
-    const { uid, companyId } = await requireTeamAdmin(request);
+    // Company OWNER (or platform admin) only — ownerOnly refuses non-owner
+    // company_admins even now that requireTeamAdmin accepts them elsewhere
+    // (audit 2026-08-02 / Jo 2026-08-05). Seat money is the bill-payer's
+    // call alone.
+    const { uid, companyId } = await requireTeamAdmin(request, null, { ownerOnly: true });
 
     // Dark gate: a placeholder secret (anything that isn't a price id) keeps
     // the whole feature off without breaking deploys.

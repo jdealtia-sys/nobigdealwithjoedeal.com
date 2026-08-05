@@ -570,7 +570,10 @@ console.log('\nPer-seat charging — gates + wiring');
     /planPriceIds\.has\(seatPriceId\)/.test(st) && /misconfigured/.test(st),
     'a copy-paste of a plan price into STRIPE_PRICE_SEAT would re-quantity the plan line');
   assert('owner/admin gate + App Check + rate limit',
-    /requireTeamAdmin\(request\)/.test(st)
+    // ownerOnly is load-bearing (2026-08-05): requireTeamAdmin now accepts
+    // same-company company_admins by default; seat money stays the
+    // bill-payer's call alone via this opt.
+    /requireTeamAdmin\(request, null, \{ ownerOnly: true \}\)/.test(st)
     && /enforceAppCheck: true/.test(st)
     && /callableRateLimit\(request, 'setCompanySeatCount'/.test(st));
   assert('extraSeats requires an actual integer (no Number() 0-coercion of null/""/[])',
