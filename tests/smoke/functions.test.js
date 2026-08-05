@@ -136,6 +136,16 @@ section('Cloud Functions exports');
     assert('exports ' + fn, new RegExp('exports\\.' + fn + '\\s*=').test(src));
   }
   assert('requireTeamAdmin helper defined', /function requireTeamAdmin\s*\(/.test(src));
+  // Audit 2026-08-02: the authority decision is the pure exported
+  // teamAdminDecision (second company_admins accepted); seat-money keeps its
+  // deliberate owner-only carve-out at the call site.
+  assert('teamAdminDecision extracted + exported (pure, test-covered)',
+    /function teamAdminDecision\s*\(/.test(src) && /teamAdminDecision,/.test(src));
+  assert('requireTeamAdmin routes through teamAdminDecision',
+    /const \{ allow, isOwner \} = teamAdminDecision\(\{/.test(src));
+  assert('setCompanySeatCount stays owner-only via ownerOnly opt',
+    /requireTeamAdmin\(request, null, \{ ownerOnly: true \}\)/.test(
+      read(path.join(FUNCTIONS, 'handlers', 'seats.js'))));
   assert('normalizeRole rejects platform admin unconditionally',
     /if \(r === 'admin'\) return null/.test(src));
   assert('TEAM_ROLES excludes platform admin',

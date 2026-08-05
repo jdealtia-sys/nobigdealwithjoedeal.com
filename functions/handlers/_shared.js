@@ -204,9 +204,27 @@ const LEGACY_ACCESS_CODES = [
 ];
 
 // ── Team-admin helpers (used by handlers/admin.js callables) ─────────
+// Post-read authority decision, extracted pure so tests can hit the whole
+// matrix without Firestore (audit 2026-08-02 medium). The old inline check
+// accepted ONLY companies.ownerId — an invited second company_admin (claims
+// { companyId, role: 'company_admin' }, server-minted by handlers/admin.js /
+// provisioning.js) was refused everywhere the client nav says they can go.
+// `ownerOnly: true` preserves the deliberate owner-only carve-outs (seat
+// money is the bill-payer's call alone — handlers/seats.js).
+function teamAdminDecision({ uid, claims, companyId, ownerId, companyExists, ownerOnly = false }) {
+  const c = claims || {};
+  const isGlobalAdmin = c.role === 'admin';
+  const isOwner = ownerId === uid || (!companyExists && companyId === uid);
+  const isCompanyAdmin = !ownerOnly
+    && c.role === 'company_admin'
+    && !!c.companyId && c.companyId === companyId;
+  return { allow: !!(isGlobalAdmin || isOwner || isCompanyAdmin), isOwner, isGlobalAdmin };
+}
+
 // Resolve the caller's company and confirm they can manage it.
 // Returns { uid, companyId, isOwner, isGlobalAdmin } or throws HttpsError.
-async function requireTeamAdmin(request, targetCompanyId = null) {
+// opts.ownerOnly: refuse non-owner company_admins (money-path carve-out).
+async function requireTeamAdmin(request, targetCompanyId = null, opts = null) {
   const uid = request.auth && request.auth.uid;
   if (!uid) throw new HttpsError('unauthenticated', 'Sign in required');
 
@@ -238,14 +256,19 @@ async function requireTeamAdmin(request, targetCompanyId = null) {
     throw new HttpsError('permission-denied', 'Cannot manage another company');
   }
 
-  // Verify ownership against the company doc if one exists.
+  // Verify authority against the company doc if one exists: owner, global
+  // admin, or (unless opts.ownerOnly) a company_admin of THIS company.
   const db = getFirestore();
   const companyRef = db.doc(`companies/${companyId}`);
   const companySnap = await companyRef.get();
   const ownerId = companySnap.exists ? (companySnap.data().ownerId || null) : null;
-  const isOwner = ownerId === uid || (!companySnap.exists && companyId === uid);
+  const { allow, isOwner } = teamAdminDecision({
+    uid, claims, companyId, ownerId,
+    companyExists: companySnap.exists,
+    ownerOnly: !!(opts && opts.ownerOnly),
+  });
 
-  if (!isGlobalAdmin && !isOwner) {
+  if (!allow) {
     // Managers can list their team but not mutate — the caller gates mutations.
     throw new HttpsError('permission-denied', 'Owner or admin access required');
   }
@@ -320,6 +343,7 @@ module.exports = {
   SUBORDINATE_ROLES,
   LEGACY_ACCESS_CODES,
   requireTeamAdmin,
+  teamAdminDecision,
   callerMayManageTarget,
   normalizeRole,
   normalizeEmail,
