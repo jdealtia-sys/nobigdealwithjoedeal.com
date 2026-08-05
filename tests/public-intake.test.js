@@ -9,7 +9,7 @@
  *   - missing required field → 400
  *   - field over maxLen → 400
  *   - exact-length violation (storm zip != 5) → 400
- *   - honeypot ('website' filled) → 200 silent success, no write
+ *   - honeypot ('nbd_hp' or legacy 'website' filled) → 200 silent success, no write
  *   - a fully valid submission passes validation (reaches the write)
  *   - estimate optional allowlist (M-04 bounded expansion): the estimator
  *     funnel's own fields persist; over-cap optionals and unknown keys are
@@ -83,10 +83,25 @@ async function run() {
   ok('storm zip != 5 chars → 400',
     (await post({ kind: 'storm', name: 'Jo', phone: '5550100', zip: '1234', source: 'web' })).status === 400);
 
-  // honeypot — 'website' filled → silent 200, no lead written
+  // honeypot — legacy 'website' key filled → silent 200, no lead written
+  // (old cached pages / bots replaying the pre-2026-08-05 form shape)
   {
     const r = await post({ kind: 'guide', name: 'Bot', email: 'b@x.com', source: 'web', website: 'http://spam.example' });
-    ok('honeypot tripped → 200 silent success', r.status === 200 && r.body && r.body.success === true);
+    ok('legacy honeypot (website) tripped → 200 silent success', r.status === 200 && r.body && r.body.success === true);
+  }
+
+  // honeypot — live 'nbd_hp' key filled → same silent 200. Renamed from
+  // 'website' (audit P6): that name matches browser URL-autofill heuristics,
+  // so autofill could fill the honeypot on a REAL form and silently drop the
+  // lead. Naive bots still fill every field, so the trap keeps working.
+  {
+    const r = await post({ kind: 'guide', name: 'Bot2', email: 'b2@x.com', source: 'web', nbd_hp: 'anything' });
+    ok('live honeypot (nbd_hp) tripped → 200 silent success', r.status === 200 && r.body && r.body.success === true);
+  }
+  // non-string truthy nbd_hp trips too (same class the website check hardened against)
+  {
+    const r = await post({ kind: 'guide', name: 'Bot3', email: 'b3@x.com', source: 'web', nbd_hp: true });
+    ok('live honeypot (nbd_hp non-string) tripped → 200 silent success', r.status === 200 && r.body && r.body.success === true);
   }
 
   // a fully valid submission passes every validation guard and reaches the write

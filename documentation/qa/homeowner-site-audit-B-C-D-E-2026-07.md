@@ -39,7 +39,11 @@ over all 202 homeowner pages, plus fixes shipped the same night. Legend:
 - 7 images missing width/height (visualizer, estimate, gaf-timberline, lumanail,
   roofivent, the-nbd-build) — CLS. LOW.
 - `/services/financing` missing BreadcrumbList (every sibling has one). LOW.
-- h2→h4 skip in the shared footer heading (~190 pages) — one template edit. LOW.
+- ~~h2→h4 skip in the shared footer heading (~190 pages) — one template edit.
+  LOW.~~ ✅ STALE (verified 2026-08-05): every shared-footer column title
+  site-wide is already `<h2 class="footer-col-title">`; the only h4 footer
+  survivor was the hand-authored oaks.html, deleted by #1166. Residue: the CSS
+  still styles the legacy `footer h4` selector — harmless.
 - Thin-blog interlinking (field-notes, gaf-timberline-vs-tamko, etc.). LOW.
 
 ## ⏳ Queued — Accessibility (lane D), verified real

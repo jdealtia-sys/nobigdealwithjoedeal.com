@@ -119,8 +119,11 @@ exports.integrationStatus = onCall(
 //     enough to stop a single-box 1000 rps attack cold.
 //   - Origin allowlist via CORS_ORIGINS matches only the two public
 //     domains. Browsers refuse to send the request otherwise.
-//   - Honeypot field 'website': bots fill every field; real forms
-//     leave it empty. Non-empty → silent 200 with no Firestore write.
+//   - Honeypot field 'nbd_hp' (legacy 'website' still checked): bots
+//     fill every field; real forms leave it empty. Non-empty → silent
+//     200 with no Firestore write. Renamed 2026-08-05 — a honeypot
+//     NAMED 'website' matches browser URL-autofill heuristics, which
+//     could fill it on a real form and silently drop the lead.
 //   - Per-shape validation + hard size caps.
 //   - Generic 200 response with opaque id so enumerating invalid
 //     payloads gives no side-channel.
@@ -318,8 +321,18 @@ exports.submitPublicLead = onRequest(
     // truthy value, not just a non-empty STRING: a bot sending website:true or
     // website:["x"] (non-string) slipped past the old `typeof === 'string'`
     // check and submitted as if legitimate.
-    if (body.website != null && String(body.website).length > 0) {
-      logger.info('submitPublicLead: honeypot tripped', { kind, ip: clientIp(req) });
+    // 2026-08-05 (audit P6): the live field is now `nbd_hp` — a field NAMED
+    // `website` matches Chromium's URL-autofill heuristic, so browser autofill
+    // could fill the honeypot on a real homeowner's form and silently drop the
+    // lead. The legacy `website` key stays checked indefinitely: new pages no
+    // longer render an input by that name (autofill can't populate what isn't
+    // there), so any request still carrying a non-empty `website` is a stale
+    // cached page (HTML max-age≤300, decaying) or a bot replaying the old shape.
+    const hpKey = ['nbd_hp', 'website'].find(
+      (k) => body[k] != null && String(body[k]).length > 0
+    );
+    if (hpKey) {
+      logger.info('submitPublicLead: honeypot tripped', { kind, key: hpKey, ip: clientIp(req) });
       res.status(200).json({ success: true });
       return;
     }

@@ -75,8 +75,8 @@ exist, so an unconverted page is a coverage gap, not a failure.
 | Partial | Pages | Notes |
 |---|---|---|
 | `footer-standard` | 107 | service+city and the pages sharing that exact footer |
+| `footer-blog` | 24 | 23 posts + blog/index; no per-page values (zero placeholders) |
 
 Not yet converted (each needs its own variant, sizes cluster tightly so each is
-a small job): **24 blog** posts (6,443–6,512 B — the tightest cluster, best next
-candidate), **26 area** pages, **28 service** hub/plain pages, 5 root pages,
+a small job): **26 area** pages, **28 service** hub/plain pages, 5 root pages,
 `the-pledge`, `sites/free-guide`.

@@ -74,6 +74,7 @@ const REQUIRED_MARKUP = {
   'mobile-nav-standard': ['id="mobileNav"'],
   'mobile-nav-blog': ['id="mobileNav"'],
   'footer-standard': ['<footer>', '</footer>'],
+  'footer-blog': ['<footer>', '</footer>'],
   'footer-extended': ['<footer>', '</footer>'],
   'footer-hub': ['<footer>', '</footer>'],
 };

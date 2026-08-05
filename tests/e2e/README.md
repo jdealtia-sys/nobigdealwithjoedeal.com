@@ -57,7 +57,8 @@ npm run test:e2e:authed:emu
 ```
 
 Cleanup is skipped in this mode (state dies with the emulators). CI runs this
-in the `e2e-authed-emulator` job (continue-on-error until proven stable).
+in the `e2e-authed-emulator` job (all five shards blocking since 2026-07-28;
+see the promotion note in ci.yml).
 
 Sandboxed environments: if the pinned Playwright browser isn't installable,
 set `PLAYWRIGHT_CHROMIUM_PATH=/path/to/chromium`; behind an egress proxy set

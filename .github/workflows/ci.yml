@@ -458,6 +458,76 @@ jobs:
       - name: Run public-surface leak tripwire
         run: node tests/public-surface-leak-tripwire.test.js
 
+      # ── Orphaned-suite wiring (2026-08-05) ─────────────────────────────
+      # The 12 suites below existed and passed locally but ran NOWHERE — not
+      # in the tests/package.json chain, not in CI. Several guard money and
+      # legal paths. Wired here in stakes order; each is dependency-free
+      # (node tests/<file>) unless noted. If one goes red only in CI, fix
+      # the step environment before touching the test.
+
+      # A signed contract must be verified against the document we served,
+      # and the original must survive. Pins stripSignatureBlocks/visibleText/
+      # signedDocMatchesOriginal in functions/remote-signing.js (#1173).
+      - name: Run signature document integrity tests
+        run: node tests/signature-document-integrity.test.js
+
+      # Referral source-customer lookups must stay scoped to one tenant and
+      # refuse when ambiguous (#1172). Extracts the real block from
+      # functions/referrals.js — an anchor drift fails loudly, not silently.
+      - name: Run referral tenant-scope tests
+        run: node tests/referral-tenant-scope.test.js
+
+      # enforceAppCheck is onCall-only; on onRequest it is dead config that
+      # reads as protection (#1170). Scans functions/ so it can't come back.
+      - name: Run App Check onRequest contract tests
+        run: node tests/appcheck-onrequest-contract.test.js
+
+      # Public-lead → CRM mirror logic (tenant routing, phone normalization).
+      # functions/lead-bridge-logic.js is deliberately firebase-free.
+      - name: Run lead-bridge logic tests
+        run: node tests/lead-bridge.test.js
+
+      # Money fields: cost vs retail must never swap or leak across surfaces.
+      - name: Run money field contract tests
+        run: node tests/money-field-contract.test.js
+      - name: Run money display consumer tests
+        run: node tests/money-display-consumers.test.js
+
+      # Homeowner portal + remote signing must render the TENANT's brand,
+      # never the platform's (the Pillar-2 "NBD bleed" rule).
+      - name: Run portal white-label contract tests
+        run: node tests/portal-whitelabel-contract.test.js
+
+      # Drives the real PipelineBuilder delete path in a fake-DOM sandbox.
+      - name: Run pipeline-builder delete tests
+        run: node tests/pipeline-builder-delete.test.js
+
+      # nbd-comms platform wiring (SMS/email surfaces).
+      - name: Run nbd-comms platform tests
+        run: node tests/nbd-comms-platform.test.js
+
+      # Login must persist plan intent through the auth flow (source contract
+      # over docs/pro/js/pages/login.js).
+      - name: Run login plan-intent tests
+        run: node tests/login-plan-intent.test.js
+
+      # Job templates: vm-loads the three real job-templates modules.
+      - name: Run job template tests
+        run: node tests/job-templates.test.js
+
+      # 2026-07-19 CRM-loop sweep certification (intro-video data-yt guard,
+      # estimate-email kill switch). Its git branch-report section is
+      # try/catch-wrapped and degrades harmlessly under fetch-depth:1.
+      - name: Run CRM loop-complete tests
+        run: node tests/crm-loop-complete.test.js
+
+      # Audit P6 (2026-08-05): a honeypot NAMED "website" matches browser
+      # URL-autofill heuristics — autofill fills it on a real homeowner's
+      # form and the gateway swallows the lead with a fake success. Pins the
+      # nbd_hp rename on every emitter + the both-keys gateway check.
+      - name: Run honeypot autofill contract tests
+        run: node tests/honeypot-autofill-contract.test.js
+
   site-integrity:
     name: Site integrity
     runs-on: ubuntu-latest
@@ -486,6 +556,17 @@ jobs:
       # with --check; exits 1 and prints the offending file + region.
       - name: Check shared-partial drift (site-src/partials vs docs/)
         run: node scripts/apply-partials.js --check --diff
+      # Inline-script gate. BIG_ROCKS.md names this checker a must-pass, but
+      # neither the checker nor its test ran anywhere in CI (2026-08-05).
+      # The checker guards the served pages; the test guards the checker.
+      - name: Check inline HTML scripts (docs/)
+        run: node scripts/check-inline-html-scripts.js
+      - name: Run inline-html-scripts checker tests
+        run: node tests/inline-html-scripts.test.js
+      # Marketing-surface polish contract (headings, empty src, alt text …)
+      # over the served docs/ pages — same zero-install shape as this job.
+      - name: Run marketing polish contract tests
+        run: node tests/marketing-polish-contract.test.js
 
   syntax-check:
     name: Node syntax check
@@ -578,9 +659,15 @@ jobs:
         # lands. Generate a .secret.local with dummy values (auto-covers new secrets)
         # so all functions load + run; the trigger under test uses no secrets. Also
         # skip the GCIP-blocked onRepSignup (prod never runs it).
+        # TURNSTILE_SECRET is deliberately excluded: a PRESENT (even dummy)
+        # secret flips verifyTurnstile into configured mode, which fail-closes
+        # every tokenless submitPublicLead call with 403 — the lead-bridge
+        # integration test's gateway leg needs the unset-secret passthrough.
+        # An unset secret loads fine under the v15 emulator (warning only).
         run: |
           grep -rhoE "defineSecret\(['\"][A-Z_]+['\"]" functions --include=*.js \
             | sed -E "s/.*defineSecret\(['\"]([A-Z_]+)['\"].*/\1=emulator-dummy/" \
+            | grep -v '^TURNSTILE_SECRET=' \
             | sort -u > functions/.secret.local
           echo "wrote $(wc -l < functions/.secret.local) dummy secrets"
           node tests/e2e/fixtures/ensure-emulator-env.js
@@ -593,6 +680,14 @@ jobs:
         run: |
           cd tests
           npx firebase-tools emulators:exec --only functions,firestore --project demo-nbd-pl 'node referral-rewards.test.js'
+      - name: Run lead-bridge integration test under functions+firestore emulator
+        # Public lead → CRM mirror, end to end through the real trigger. Was
+        # authored with this exact recipe in its RUN header but never wired
+        # anywhere (2026-08-05). Reuses this job's JDK + functions deps +
+        # dummy-secret env; a second emulators:exec session boots fresh.
+        run: |
+          cd tests
+          npx firebase-tools emulators:exec --only functions,firestore --project demo-nbd-pl 'node lead-bridge.integration.test.js'
 
   functions-parse:
     name: Functions parse + dep install
@@ -694,8 +789,9 @@ jobs:
         # '@gauntlet' = tests/e2e/gauntlet-lifecycle.spec.js — the e2e-debt
         # specs (persona resolution, lapse seat pause/restore, access-code
         # redemption, multi-rep own-only + seat cap). Boots functions like
-        # @stranger; ADVISORY at introduction (2026-07-17), promote to
-        # required once it earns the same flake track record as @stranger.
+        # @stranger; introduced advisory 2026-07-17, promoted to REQUIRED
+        # 2026-07-28 with the rest of the matrix — see the ALL FIVE ARE NOW
+        # REQUIRED note below.
         shard: ['@shard1', '@shard2', '@audit', '@stranger', '@gauntlet']
     # Rock 3: hermetic authed journey — seed a tenant in the Auth/Firestore
     # emulators, serve docs/ from the hosting emulator (the client SDK

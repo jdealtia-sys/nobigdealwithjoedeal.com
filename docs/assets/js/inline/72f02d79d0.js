@@ -104,7 +104,8 @@ async function submitForm(){
   const message = document.getElementById('fieldMessage')?.value.trim();
 
   // Honeypot — if filled, it's a bot
-  const hp = document.getElementById('fieldWebsite')?.value;
+  // (fieldNbdHp since 2026-08-05 — an id containing "website" gets autofilled)
+  const hp = document.getElementById('fieldNbdHp')?.value;
   if(hp) { console.warn('Bot detected'); return; }
 
   if(!first || !phone){
