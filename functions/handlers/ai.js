@@ -397,8 +397,8 @@ exports.publicVisualizerAI = onRequest(
 // The estimate.html instant-estimator and the storm-alerts self-check call this
 // for short, text-only Claude completions (a roof-size JSON estimate and a
 // personalized "Joe's take" note). Homeowners are NOT authenticated, so — like
-// publicVisualizerAI — we gate with App Check + a per-IP rate limit rather than
-// the claudeProxy subscription gate.
+// publicVisualizerAI — we gate with a per-IP rate limit rather than the
+// claudeProxy subscription gate (App Check does NOT apply here; see below).
 //
 // This REPLACES the `nbd-ai-proxy` Cloudflare Worker, which was an open
 // Anthropic passthrough guarded only by an Origin header (bypassable when the

@@ -55,6 +55,35 @@ function loadIIFE(file) {
   ok('default overhead pct 10% applied (overhead 1000)', near(pl2.overhead, 1000));
   ok('zero revenue → margins 0 (no NaN)', PT.computeJobPL({}).grossMargin === 0 && PT.computeJobPL({}).netMargin === 0);
 
+  // Audit 2026-08-02 (the #1139 rule): a saved 0% overhead is a REAL answer.
+  // `parseFloat(x) || DEFAULT` swallowed it on read, write and hydration —
+  // a 0%-overhead shop silently computed (and re-saved) 10%.
+  const pl0 = PT.computeJobPL({ jobValue: 10000, materialCost: 0, laborCost: 0, overheadPct: 0 });
+  ok('explicit overheadPct 0 is trusted on read (overhead 0, not 1000)', near(pl0.overhead, 0));
+  ok('overheadPct 0 → netProfit equals grossProfit', near(pl0.netProfit, pl0.grossProfit));
+  ok('non-numeric overheadPct still falls to the 10% default',
+    near(PT.computeJobPL({ jobValue: 10000, overheadPct: 'abc' }).overhead, 1000));
+
+  // Write path: saveJobCosts must persist the 0, not the default. The
+  // capture is synchronous — updateDoc is CALLED before its promise is
+  // awaited — so no async plumbing is needed in this sync section.
+  {
+    let captured = null;
+    win.db = {}; win._user = { uid: 'u1' }; win._leads = [];
+    win.doc = () => ({});
+    win.updateDoc = (_ref, data) => { captured = data; return Promise.resolve(); };
+    PT.saveJobCosts('L1', { materialCost: '100', laborCost: '50', overheadPct: '0', miscCosts: '' });
+    ok('saveJobCosts persists overheadPct 0 (old code wrote 10)', !!captured && captured.overheadPct === 0);
+    PT.saveJobCosts('L1', { overheadPct: '' });
+    ok('saveJobCosts still defaults a BLANK overhead to 10', !!captured && captured.overheadPct === 10);
+  }
+
+  // Hydration: the form input must not re-map a saved 0 back to the default.
+  const ptSrc = fs.readFileSync(path.join(__dirname, '..', 'docs/pro/js', 'profit-tracker.js'), 'utf8');
+  ok('form hydration no longer uses `lead.overheadPct || DEFAULT`',
+    !/lead\.overheadPct \|\| DEFAULT_OVERHEAD_PCT/.test(ptSrc)
+    && !/parseFloat\((?:costs|lead)\.overheadPct\) \|\| DEFAULT_OVERHEAD_PCT/.test(ptSrc));
+
   // computeMarginAnalytics aggregates only WON jobs that have costs.
   win._leads = [
     { stage: 'closed', jobValue: 20000, materialCost: 6000, laborCost: 4000, miscCosts: 1000, overheadPct: 10 },

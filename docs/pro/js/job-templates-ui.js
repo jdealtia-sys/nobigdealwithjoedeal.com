@@ -153,7 +153,11 @@
   }
 
   function toast(msg, type) {
-    if (typeof window._showToast === 'function') { window._showToast(msg, type); return; }
+    // window.showToast is guaranteed on the only page this bundle loads on
+    // (dashboard-ui-prefs-boot.js defines it before the lazy bundles). The
+    // old `window._showToast` reference was assigned NOWHERE — every toast
+    // here was console-only (audit 2026-08-02, silent-failure class).
+    if (typeof window.showToast === 'function') { window.showToast(msg, type); return; }
     try { console.log('[job-templates-ui] ' + (type || 'info') + ': ' + msg); } catch (e) {}
   }
 

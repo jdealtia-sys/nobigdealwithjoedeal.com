@@ -267,13 +267,14 @@
   }
 
   function showToast(msg, type) {
-    if (window._showToast) { window._showToast(msg, type); return; }
-    const t = document.getElementById('product-toast');
-    if (!t) return;
-    t.textContent = msg;
-    t.style.background = type === 'error' ? '#ef4444' : '#10b981';
-    t.style.opacity = '1';
-    setTimeout(() => { t.style.opacity = '0'; }, 2500);
+    // window.showToast is guaranteed on the only page this bundle loads on
+    // (dashboard-ui-prefs-boot.js defines it before the lazy bundles). The
+    // old `window._showToast` reference was assigned NOWHERE, and the old
+    // in-template toast div only existed while this panel's own HTML was
+    // mounted — every toast fired from anywhere else silently vanished
+    // (audit 2026-08-02, silent-failure class).
+    if (typeof window.showToast === 'function') { window.showToast(msg, type); return; }
+    try { console.log('[product-library] ' + (type || 'info') + ': ' + msg); } catch (e) {}
   }
 
   function catLabel(catId) {
@@ -506,8 +507,6 @@
         <!-- Products -->
         ${productsHtml || '<div style="text-align:center;padding:60px 20px;color:var(--m);font-size:15px;">No products match your search</div>'}
 
-        <!-- Toast -->
-        <div id="product-toast" style="position:fixed;bottom:20px;right:20px;padding:12px 20px;background:#10b981;color:#fff;border-radius:8px;opacity:0;transition:opacity .3s;font-size:14px;font-weight:500;z-index:9999;"></div>
       </div>
     `;
   }

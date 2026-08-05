@@ -14,6 +14,15 @@ let _NBD_PT_DELEGATE; // module-local (globals Tranche 1 — was window.*)
   // Default overhead % applied to all jobs (configurable)
   const DEFAULT_OVERHEAD_PCT = 10;
 
+  // Overhead % reader: `parseFloat(x) || DEFAULT` swallows a legit 0 (the
+  // #1139 rule) — a shop that runs 0% overhead could never save it; the value
+  // silently re-wrote itself to 10 on save, read AND form re-hydration. 0 is
+  // a real business answer here, so only non-numeric falls to the default.
+  function overheadPctFrom(v) {
+    const n = parseFloat(v);
+    return Number.isFinite(n) ? n : DEFAULT_OVERHEAD_PCT;
+  }
+
   // ═════════════════════════════════════════════════════════════
   // COST DATA MANAGEMENT
   // ═════════════════════════════════════════════════════════════
@@ -28,7 +37,7 @@ let _NBD_PT_DELEGATE; // module-local (globals Tranche 1 — was window.*)
       const data = {
         materialCost: parseFloat(costs.materialCost) || 0,
         laborCost: parseFloat(costs.laborCost) || 0,
-        overheadPct: parseFloat(costs.overheadPct) || DEFAULT_OVERHEAD_PCT,
+        overheadPct: overheadPctFrom(costs.overheadPct),
         miscCosts: parseFloat(costs.miscCosts) || 0,
         costNotes: (costs.costNotes || '').trim()
       };
@@ -55,7 +64,7 @@ let _NBD_PT_DELEGATE; // module-local (globals Tranche 1 — was window.*)
     const revenue = parseFloat(lead.jobValue) || 0;
     const materialCost = parseFloat(lead.materialCost) || 0;
     const laborCost = parseFloat(lead.laborCost) || 0;
-    const overheadPct = parseFloat(lead.overheadPct) || DEFAULT_OVERHEAD_PCT;
+    const overheadPct = overheadPctFrom(lead.overheadPct);
     const miscCosts = parseFloat(lead.miscCosts) || 0;
 
     const overhead = revenue * (overheadPct / 100);
@@ -242,7 +251,7 @@ let _NBD_PT_DELEGATE; // module-local (globals Tranche 1 — was window.*)
           </div>
           <div>
             <label style="font-size:11px;color:var(--m,#9ca3af);text-transform:uppercase;letter-spacing:.05em;">Overhead %</label>
-            <input id="ptOverhead" type="number" step="1" value="${lead.overheadPct || DEFAULT_OVERHEAD_PCT}"
+            <input id="ptOverhead" type="number" step="1" value="${overheadPctFrom(lead.overheadPct)}"
               style="width:100%;padding:10px;background:var(--s2,rgba(255,255,255,.04));border:1px solid var(--br,rgba(255,255,255,.1));border-radius:8px;color:var(--t,#fff);font-size:14px;margin-top:4px;box-sizing:border-box;">
           </div>
         </div>

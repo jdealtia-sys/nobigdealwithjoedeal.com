@@ -1,6 +1,6 @@
 # NBD Pro — Cloud Functions Taxonomy
 
-Single canonical index of every export from `functions/`. Refreshed 2026-07-04 by re-enumerating `require('./index.js')` (166 exported keys = **148 deployed Cloud Functions + 18 helper/test-only exports**; breakdown: 48 onCall, 46 onRequest, 20 scheduled, 31 Firestore triggers, 2 Storage triggers, 1 auth-blocking).
+Single canonical index of every export from `functions/`. Refreshed 2026-08-05 by re-enumerating `require('./index.js')` (189 exported keys = **170 deployed Cloud Functions + 19 helper/test-only exports**). A CI tripwire (tests/smoke/dashboard.test.js "every index.js export appears in FUNCTIONS_INDEX") now fails when an export is added without a row here — the 2026-07-04→08-05 gap was 21 undocumented exports, including the whole Stripe Connect + seat-billing money path.
 
 Classification matters because:
 - **Admin** functions must enforce `request.auth.token.role === 'admin'` (or `requireAuth({ adminOnly: true })` for `onRequest`). If one silently loses that gate, the smoke test below catches it.
@@ -8,7 +8,7 @@ Classification matters because:
 - **Rep** functions are the normal client surface — App Check + auth required, owner-scoped reads/writes.
 - **Background/trigger** functions don't take client traffic; they fire on Firestore writes, Storage uploads, or scheduled cron.
 
-Blanket posture note (verified 2026-07-04): **every `onCall` export sets `enforceAppCheck: true`** — no exceptions. The authed `onRequest` endpoints (claudeProxy, sendEmail, sendSMS, etc.) verify a Firebase ID token in the handler and also set `enforceAppCheck: true` in their options.
+Blanket posture note (re-verified 2026-08-05): **every `onCall` export sets `enforceAppCheck: true`** — no exceptions. `onRequest` endpoints do NOT carry the option any more: `enforceAppCheck` is silently ignored on `onRequest` (honoured only inside `onCall` — vendored SDK `lib/v2/providers/https.js`), so the dead config was removed 2026-08-02 (#1170). Authed `onRequest` endpoints gate on ID-token verification + rate limits in the handler body; public ones on signatures/tokens/rate limits per the PUBLIC table.
 
 If you add a new export, list it here so the next audit doesn't have to re-derive the picture.
 
@@ -53,6 +53,10 @@ If you add a new export, list it here so the next audit doesn't have to re-deriv
 | `registerDeviceFingerprint` | onCall | Device-alert integration — registers a device fingerprint, Slack-pings on anomaly |
 | `getAiTextingStats` | onCall | T-3 per-rep AI texting analytics (collectionGroup scan over ai_drafts) |
 | `previewAiPersona` | onCall | T-4 live persona preview for Settings → AI Texting |
+| `resolveAddress` | onCall | D2D address engine — geocode/normalize a knocked address (handlers/geocode.js) |
+| `attachStormProof` | onCall | Attaches hail/wind history proof to the caller's lead (handlers/storm-proof.js) |
+| `getAdjusterTacticBoard` | onCall | Adjuster tactic board read for the caller's claim (handlers/adjuster-board.js, #1137) |
+| `reserveCompanyPrefix` | onCall | Pillar 1 — reserves the tenant's unique customer-ID doc prefix (handlers/provisioning.js, claims-scoped) |
 | `sendEmail` | onRequest | Generic Resend email send — ID-token verified + 60/hr/IP rate limit |
 | `sendEstimateEmail` | onRequest | Estimate email to homeowner — ID-token verified + rate limit |
 | `sendTeamInviteEmail` | onRequest | Sends team-invite email — ID-token verified + rate limit |
@@ -97,6 +101,7 @@ If you add a new export, list it here so the next audit doesn't have to re-deriv
 | `getGoogleReviews` | onRequest | Cached Google Places reviews proxy (6-hour Firestore cache; keeps API key server-side) |
 | `shareSSR` | onRequest | Server-rendered share-link preview HTML with og:/twitter: meta (token-authed lookup) |
 | `cspReport` | onRequest | Logs only, no side effects |
+| `stripeConnectWebhook` | onRequest | Stripe **Connect** webhook — signature verified (`STRIPE_CONNECT_WEBHOOK_SECRET`), fails closed, dedupes, drops livemode mismatches (handlers/stripe-connect.js) |
 | `onRepSignup` | beforeUserCreated | Auth blocker — **exported but never deployed**: it is the sole entry in `NBD_DEPLOY_SKIP_LIST` (.github/workflows/firebase-deploy.yml). Do NOT remove the export; the skip is applied at deploy time. |
 
 ## ADMIN (role check required)
@@ -114,6 +119,14 @@ Verified by the smoke test "every admin function in FUNCTIONS_INDEX has a role/a
 | `deactivateUser` | onCall | `requireTeamAdmin` | Team management |
 | `removeMember` | onCall | `requireTeamAdmin` + `callerMayManageTarget` | Removes roster doc AND strips companyId/role claims + revokes tokens (fixes claim-persistence hole of client-side delete) |
 | `listTeamMembers` | onCall | `requireTeamAdmin` | Team management |
+| `assignSeats` | onCall | `requireTeamAdmin` | Pillar 4 — seat assignment across the roster (handlers/invites.js) |
+| `setCompanySeatCount` | onCall | `requireTeamAdmin` (**ownerOnly** — non-owner company_admins refused) | Buys/sets the paid seat count via Stripe; seat money is the bill-payer's call alone (handlers/seats.js) |
+| `createConnectAccount` | onCall | `requireTeamAdmin` | Stripe Connect — creates the tenant's Express account (handlers/stripe-connect.js) |
+| `createConnectOnboardingLink` | onCall | `requireTeamAdmin` | Stripe Connect — mints the hosted-onboarding link |
+| `createConnectDashboardLink` | onCall | `requireTeamAdmin` | Stripe Connect — mints the Express-dashboard login link |
+| `getConnectStatus` | onCall | `requireTeamAdmin` | Stripe Connect — reads capability/charges state (fail-closed bools) |
+| `reverifyCompanyKnocks` | onCall | `requireTeamAdmin` | D2D — re-geocodes/verifies the company's knock addresses (540s sweep) |
+| `convertUnmatchedSms` | onCall | `isOwnerCaller` or `role === 'admin'` | Turns an `unmatched_sms` triage row into a real lead + AI draft (handlers/inbound-sms-convert.js) |
 
 Two further exports are admin-gated but deliberately NOT rows in the table above, because the drift-guard smoke test's pattern-window heuristic can't see their gates and would fail CI:
 
@@ -145,7 +158,7 @@ These operate on the **caller's own data** (owner-scoped Firestore queries insid
 | `runMigrations` | onCall | `role === 'admin'` (see ADMIN note) | Manual versioned-migration trigger (was mislabeled "scheduler-triggered" in the previous index) |
 | `migrationsTick` | scheduled (every 24h) | n/a (server-only) | Idempotent daily migration cron (also listed in SCHEDULED) |
 
-## SCHEDULED CRONS (server-only, no client traffic) — 20
+## SCHEDULED CRONS (server-only, no client traffic) — 24
 | Export | Schedule | Purpose |
 |---|---|---|
 | `weeklyDigest` | Mon 07:00 ET | Rep recap of previous 7 days; opt-out `users/{uid}.weeklyDigestEnabled === false`; DRY-RUN unless `WEEKLY_DIGEST_ENABLED=true` |
@@ -168,8 +181,12 @@ These operate on the **caller's own data** (owner-scoped Firestore queries insid
 | `dailyFirestoreBackup` | daily 03:15 ET | Full Firestore export to `gs://nobigdeal-pro-firestore-backups/YYYY-MM-DD/` (firestore-backup.js) |
 | `firestoreBackupRetention` | daily 03:45 ET | Prunes backups older than 30 days (firestore-backup.js) |
 | `nightlyFirestoreBackup` | daily 04:00 CT | **Second, overlapping** Firestore export (compliance.js "D5") to `gs://nobigdeal-pro-backups` — see Flags below |
+| `enforceLapsedSeats` | daily 09:00 | Pillar 4 — deactivates members past their seat lapse grace window (lapse-enforcement.js) |
+| `reviewRequestNudge` | daily 08:15 ET | Google-review request nudge emails for recently-won jobs (review-request-nudge.js) |
+| `syncGbpReviews` | daily 06:00 ET | Pulls Google Business Profile reviews into the reviews widget cache (gbp-reviews-sync.js) |
+| `monthlyOverheadAlertCron` | 1st of month 09:00 | Emails the overhead-vs-margin summary for the month just ended (monthly-overhead-alert.js) |
 
-## FIRESTORE / STORAGE TRIGGERS (no direct client traffic) — 31 Firestore + 2 Storage
+## FIRESTORE / STORAGE TRIGGERS (no direct client traffic) — 34 Firestore + 2 Storage
 | Export | Watches | Purpose |
 |---|---|---|
 | `onPhotoUploaded` | Storage finalize (`nobigdeal-pro.appspot.com`) | 200/600/1600 px WebP variant pipeline; stamps `photo.urls` |
@@ -190,11 +207,15 @@ These operate on the **caller's own data** (owner-scoped Firestore queries insid
 | `audit_users` / `audit_leads` / `audit_companies` / `audit_company_members` / `audit_access_codes` / `audit_subscriptions` | respective collections, written | H-4 canonical audit_log writers (PII-redacted compact diffs, stamp `ts` for retention). Was collectively listed as `auditTriggers` |
 | `auditInvoices` | `invoices/{invoiceId}` written | audit-log.js — the only live writer left in that module (`invoices/*` is not covered by audit-triggers.js) |
 | `auditUsers` / `auditCompanies` / `auditAccessCodes` / `auditSubscriptions` | (no-ops) | **Retained dead exports** from audit-log.js — superseded by `audit_*` on 2026-06-08. Kept because the name-scoped CI deploy cannot prune orphaned functions; deleting the exports would leave old double-writing revisions live. Remove via `firebase functions:delete ...` when prod access allows. |
+| `onPortalMessageDraft` | `leads/{leadId}/portal_messages/{msgId}` created | T-series — AI reply draft for an inbound homeowner portal message (source:'homeowner' only; safe-dark when secret unset) |
+| `voiceConsumer` | `leads/{leadId}/recordings/{recordingId}` written | Turns a completed call recording's structured summary into lead field updates (voice-consumer.js) |
+| `onEstimateViewedStrike` | `customerAuditEvents/{eventId}` created | Engagement scoring — estimate-view strike counter for the almost-there widget (customer-audit.js) |
 
-## TEST-ONLY / HELPER EXPORTS (18 — NOT Cloud Functions, never deployed)
+## TEST-ONLY / HELPER EXPORTS (19 — NOT Cloud Functions, never deployed)
 Exported for unit tests or internal reuse; they carry no `__endpoint` and Firebase deploy ignores them.
 
 - `_test` (storm-watch.js and integrations/storm-briefing.js each export one), `_constants`, `_bridgeCollections` (lead-bridge.js)
+- `lookupHail` — plain async hail-history helper (integrations/hail.js) shared by `getHailHistory` + storm briefing; not a Cloud Function
 - Voice-intelligence internals: `_VoiceError`, `_analyzeTranscript`, `_checkBudget`, `_checkVerbalConsent`, `_getCompanyContext`, `_incrementVoiceUsage`, `_parseAudioPath`, `_processRecording`, `_transcribeAudio`
 - Push-notification helpers (plain async functions): `sendTeamNotification`, `sendStreakNotification`, `sendCustomNotification`
 - Slack helper: `postSlack`
@@ -208,7 +229,7 @@ Exported for unit tests or internal reuse; they carry no `__endpoint` and Fireba
 2. **`checkStormAlerts` vs `stormWatch`** both run every 30 minutes in the storm domain but are distinct: `checkStormAlerts` polls NWS *forecast alerts* per subscriber zip; `stormWatch` polls IEM *Local Storm Reports* (observed hail/wind/tornado).
 3. **`verify-functions-company-enhancement.js`** defines its own `notifyNewLead` but is **not required by index.js** — dead file; the deployed `notifyNewLead` comes from verify-functions.js.
 4. `getRecording` (listed in the 2026-05-13 index) is no longer exported; voice-intelligence now exposes `triggerProcessRecording` / `reprocessRecording` instead. `dunningEmailQueue` and `voiceMemoTrigger` from the old index also no longer exist as exports.
-5. `enforceAppCheck: true` is set on many `onRequest` options (sendEmail, sendSMS, etc.). Those handlers do their real gating via ID-token verification + rate limits in the body; treat the App Check option on onRequest as best-effort, not the primary control.
+5. ~~`enforceAppCheck: true` is set on many `onRequest` options~~ — **resolved 2026-08-02 (#1170)**: the option is silently ignored on `onRequest` (onCall-only in firebase-functions), so it was removed from every onRequest export. The handler-body gates (ID token / signature / rate limit) were always the real control and remain.
 
 ## Maintenance
 
@@ -220,4 +241,5 @@ Adding a new export?
    - `requireAuth(req, { adminOnly: true })` for `onRequest`
    - `requireTeamAdmin(...)` for team-scoped admin
 3. The smoke test `admin functions enforce role check` (see `tests/smoke.test.js`) greps for that string in the function body. If you add an admin export without a check, CI will fail.
+3b. A second smoke tripwire (`every index.js export appears in FUNCTIONS_INDEX`) fails CI whenever an export reachable from index.js — directly or via one level of `Object.assign(exports, require(...))` — has no mention in this file. Add the row in the same PR as the export.
 4. Quick re-enumeration: `cd functions && GCLOUD_PROJECT=nobigdeal-pro FIREBASE_CONFIG='{"projectId":"nobigdeal-pro","storageBucket":"nobigdeal-pro.appspot.com"}' node -e "console.log(Object.keys(require('./index.js')).join('\n'))"` (exports with `__endpoint` are deployable functions; the rest are helpers).
