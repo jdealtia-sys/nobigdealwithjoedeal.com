@@ -1,6 +1,12 @@
 # Accepted npm audit advisories
 
-Last reviewed: 2026-07-24 (brace-expansion HIGH triage)
+Last reviewed: 2026-08-05 (brace-expansion pin bumped 5.0.8 → 5.0.9 —
+GHSA-rgw5-rvv9-x895, a HIGH covering 4.0.0–5.0.8 that bypassed the
+prior CVE-2026-14257 mitigation, published upstream and turned CI red
+repo-wide on an unchanged lockfile, same pattern as 2026-07-24. The
+minimatch@^10.2.5 half of the pin pair is unchanged and 5.0.9 keeps
+the 5.x export shape, so no runtime re-verification was needed beyond
+the smoke suite.)
 
 `npm audit` currently reports **7 MODERATE** vulnerabilities in
 `functions/` (0 LOW, 0 HIGH, 0 CRITICAL). Every one is transitive
@@ -34,9 +40,11 @@ the pin is non-obvious and must not be reverted casually.
 - Chain: `google-gax → rimraf → glob → minimatch → brace-expansion`,
   locked at `brace-expansion@2.1.2`.
 
-**Why the pin is a pair.** `5.0.8` is the only non-vulnerable release
-(there is no patched 2.x/3.x/4.x backport — the advisory covers every
-version `<= 5.0.7`). But `5.x` changed its CommonJS export from a bare
+**Why the pin is a pair.** The pin now reads `5.0.9`
+(2026-08-05: GHSA-rgw5-rvv9-x895 extended the vulnerable range to
+`4.0.0–5.0.8`, so the original `5.0.8` pin itself became the finding).
+There is still no patched 2.x/3.x/4.x backport. And `5.x` changed its
+CommonJS export from a bare
 function (`module.exports = expand`) to a named object
 (`{ EXPANSION_MAX, EXPANSION_MAX_LENGTH, expand }`). Pinning
 `brace-expansion` **alone** installs cleanly and passes `npm audit`,
