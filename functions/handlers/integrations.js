@@ -91,7 +91,10 @@ exports.integrationStatus = onCall(
         // Voice transcription pair — Phase 1 uses Groq, Phase 2 may
         // add Deepgram for native diarization on Pro+.
         deepgram:           _hasInt('DEEPGRAM_API_KEY'),
-        groq:               _hasInt('GROQ_API_KEY')
+        groq:               _hasInt('GROQ_API_KEY'),
+        // Image generation — kie.ai alternate visualizer provider
+        // (dark until IMAGEGEN_PROVIDER=kie; see visualizer-image-gen.js).
+        kie:                _hasInt('KIE_API_KEY')
       },
       rateLimitProvider: rateLimitProvider(),
       // D.3 — runbook reference so the admin readout points at the

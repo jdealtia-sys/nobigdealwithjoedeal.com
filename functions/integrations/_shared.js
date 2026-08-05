@@ -52,6 +52,11 @@ const SECRETS = {
   HAILTRACE_API_KEY:     defineSecret('HAILTRACE_API_KEY'),
   CALCOM_WEBHOOK_SECRET: defineSecret('CALCOM_WEBHOOK_SECRET'),
 
+  // Image generation (visualizer) — kie.ai alternate provider
+  // (visualizer-image-gen.js; Replicate's token is declared there, not here,
+  // because it predates this registry).
+  KIE_API_KEY:           defineSecret('KIE_API_KEY'),
+
   // Voice transcription (F8)
   DEEPGRAM_API_KEY:      defineSecret('DEEPGRAM_API_KEY'),
 

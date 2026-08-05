@@ -26,12 +26,17 @@
  *
  * Model swap history:
  *   2026-04-18: Gemini 2.5 Flash Image (too conservative, color-only)
- *   2026-04-18: FLUX.1 Kontext Max via Replicate (current)
+ *   2026-04-18: FLUX.1 Kontext Max via Replicate (current default)
+ *   2026-08-05: kie.ai added as a flag-gated ALTERNATE provider for the
+ *               same Flux Kontext models (IMAGEGEN_PROVIDER=kie). Ships
+ *               dark: default stays 'replicate' until Joe adds a
+ *               KIE_API_KEY secret and QAs output quality side-by-side.
  */
 
 const { onRequest } = require('firebase-functions/v2/https');
 const { defineSecret } = require('firebase-functions/params');
 const { logger } = require('firebase-functions/v2');
+const { getStorage } = require('firebase-admin/storage');
 
 // Shared with other functions — re-use the same rate limiter
 const { httpRateLimit } = require('./rate-limit');
@@ -43,6 +48,19 @@ const { httpRateLimit } = require('./rate-limit');
 // New secret for the Replicate backend. GOOGLE_AI_API_KEY stays
 // declared elsewhere in case a future feature uses Gemini again.
 const REPLICATE_API_TOKEN = defineSecret('REPLICATE_API_TOKEN');
+// kie.ai API key — alternate image-gen provider (same Flux Kontext family,
+// typically cheaper per image; verify current pricing on kie.ai before
+// flipping). Also registered in integrations/_shared.js SECRETS so the admin
+// integration-status readout shows whether it's populated.
+const KIE_API_KEY = defineSecret('KIE_API_KEY');
+
+// Provider seam. 'replicate' (default) | 'kie'. Env-switchable so a swap
+// (or rollback) needs no code change — mirrors the FLUX_MODEL override
+// pattern below.
+function imageGenProvider() {
+  return String(process.env.IMAGEGEN_PROVIDER || 'replicate').toLowerCase() === 'kie'
+    ? 'kie' : 'replicate';
+}
 
 const CORS_ORIGINS = [
   'https://nobigdealwithjoedeal.com',
@@ -356,6 +374,213 @@ function buildPrompt(selections) {
 }
 
 // ───────────────────────────────────────────────────────────────
+// Providers
+// ───────────────────────────────────────────────────────────────
+// Both return { imgBuf, outMediaType } or throw { httpStatus, token }-shaped
+// errors the endpoint maps onto its existing error contract.
+
+function _provErr(httpStatus, token, extra) {
+  const e = new Error(token);
+  e.httpStatus = httpStatus;
+  e.token = token;
+  e.extra = extra || {};
+  return e;
+}
+
+// Replicate: single POST with Prefer: wait — the original path, unchanged.
+async function generateViaReplicate(prompt, inputDataUrl, model) {
+  const replicateBody = {
+    input: {
+      prompt,
+      input_image: inputDataUrl,
+      aspect_ratio: 'match_input_image',
+      output_format: 'jpg',
+      safety_tolerance: 2,
+    },
+  };
+
+  const response = await fetch(replicateEndpoint(model), {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': 'Bearer ' + REPLICATE_API_TOKEN.value(),
+      // Replicate returns as soon as the prediction completes OR after
+      // this many seconds, whichever comes first. FLUX Kontext Max
+      // typically returns in 8-15s.
+      'Prefer': 'wait=60',
+    },
+    body: JSON.stringify(replicateBody),
+  });
+
+  if (!response.ok) {
+    const errText = await response.text().catch(() => '');
+    logger.warn('visualizerImageGen: upstream error', {
+      provider: 'replicate', status: response.status, body: errText.slice(0, 2000),
+    });
+    throw _provErr(502, 'upstream_error', { upstream_status: response.status });
+  }
+
+  const data = await response.json();
+
+  // When Prefer: wait completes within the window, status is 'succeeded'
+  // and output contains the result. If the model took longer than 60s, we
+  // get 'processing' and would need to poll (we don't — timeout).
+  if (data.status !== 'succeeded') {
+    logger.warn('visualizerImageGen: not succeeded', {
+      provider: 'replicate', status: data.status, error: data.error,
+    });
+    throw _provErr(504, 'prediction_timeout_or_failed', { prediction_status: data.status });
+  }
+
+  // FLUX Kontext returns output as either a string URL or an array with
+  // one URL. Normalize.
+  const output = Array.isArray(data.output) ? data.output[0] : data.output;
+  if (!output || typeof output !== 'string') {
+    logger.warn('visualizerImageGen: no output in response', {
+      provider: 'replicate', outputType: typeof output, keys: Object.keys(data),
+    });
+    throw _provErr(502, 'no_image_returned');
+  }
+
+  const imgResp = await fetch(output);
+  if (!imgResp.ok) {
+    logger.warn('visualizerImageGen: output fetch failed', {
+      provider: 'replicate', status: imgResp.status, url: output,
+    });
+    throw _provErr(502, 'output_fetch_failed');
+  }
+  const imgBuf = Buffer.from(await imgResp.arrayBuffer());
+  const outMediaType = imgResp.headers.get('content-type') || 'image/jpeg';
+  return { imgBuf, outMediaType };
+}
+
+// kie.ai model ids for the same family. The Replicate names
+// ('black-forest-labs/flux-kontext-pro') map by suffix; KIE_MODEL /
+// KIE_SHINGLE_MODEL override without a redeploy (same pattern as
+// FLUX_MODEL / FLUX_SHINGLE_MODEL).
+function kieModelFor(replicateModel, isShingle) {
+  const override = isShingle ? process.env.KIE_SHINGLE_MODEL : process.env.KIE_MODEL;
+  if (override) return override;
+  return /kontext-max/.test(replicateModel || '') ? 'flux-kontext-max' : 'flux-kontext-pro';
+}
+
+const KIE_BASE = 'https://api.kie.ai/api/v1/flux/kontext';
+
+// kie.ai: task-based — create (POST /generate) then poll
+// (GET /record-info?taskId=). Two differences vs Replicate, both handled
+// here so the endpoint contract is identical:
+//   1. inputImage must be a PUBLICLY REACHABLE URL (no data-URLs), so the
+//      homeowner's photo is staged as a Storage object behind a 15-minute
+//      V4 signed URL and best-effort deleted afterwards. (Signed URLs need
+//      the runtime SA to hold iam.serviceAccounts.signBlob — the default
+//      gen2 SA does; if a future SA swap breaks this it surfaces as
+//      input_stage_failed, not a silent wrong image.)
+//   2. No 'match_input_image' aspect ratio — aspectRatio is omitted so the
+//      service default applies. QA output framing before flipping the flag.
+async function generateViaKie(prompt, imageBase64, mediaType, replicateModel, isShingle) {
+  const model = kieModelFor(replicateModel, isShingle);
+  const ext = mediaType === 'image/png' ? 'png' : mediaType === 'image/webp' ? 'webp' : 'jpg';
+  const objectPath = 'visualizer-tmp/' +
+    Date.now() + '-' + require('crypto').randomBytes(8).toString('hex') + '.' + ext;
+  const file = getStorage().bucket().file(objectPath);
+
+  try {
+    // Stage the input photo behind a short-lived signed URL.
+    let inputUrl;
+    try {
+      await file.save(Buffer.from(imageBase64, 'base64'), {
+        contentType: mediaType,
+        resumable: false,
+        metadata: { cacheControl: 'private, max-age=0' },
+      });
+      const [signed] = await file.getSignedUrl({
+        version: 'v4', action: 'read', expires: Date.now() + 15 * 60_000,
+      });
+      inputUrl = signed;
+    } catch (e) {
+      logger.warn('visualizerImageGen: kie input staging failed', { err: e && e.message });
+      throw _provErr(502, 'input_stage_failed');
+    }
+
+    const createResp = await fetch(KIE_BASE + '/generate', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + KIE_API_KEY.value(),
+      },
+      body: JSON.stringify({
+        prompt,
+        inputImage: inputUrl,
+        model,
+        outputFormat: 'jpeg',
+        safetyTolerance: 2,
+      }),
+    });
+    if (!createResp.ok) {
+      const errText = await createResp.text().catch(() => '');
+      logger.warn('visualizerImageGen: upstream error', {
+        provider: 'kie', status: createResp.status, body: errText.slice(0, 2000),
+      });
+      throw _provErr(502, 'upstream_error', { upstream_status: createResp.status });
+    }
+    const created = await createResp.json();
+    const taskId = created && created.data && created.data.taskId;
+    if (!taskId) {
+      logger.warn('visualizerImageGen: kie create returned no taskId', {
+        code: created && created.code, msg: created && created.msg,
+      });
+      throw _provErr(502, 'upstream_error');
+    }
+
+    // Poll. successFlag: 0 generating, 1 success, 2 create-failed,
+    // 3 generate-failed. Budget ~90s inside the 120s function timeout.
+    const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+    let info = null;
+    for (let attempt = 0; attempt < 30; attempt++) {
+      await sleep(3000);
+      const poll = await fetch(KIE_BASE + '/record-info?taskId=' + encodeURIComponent(taskId), {
+        headers: { 'Authorization': 'Bearer ' + KIE_API_KEY.value() },
+      });
+      if (!poll.ok) continue; // transient — keep polling inside the budget
+      const body = await poll.json().catch(() => null);
+      info = body && body.data;
+      if (info && info.successFlag !== 0) break;
+    }
+    if (!info || info.successFlag === 0) {
+      logger.warn('visualizerImageGen: kie poll timeout', { taskId });
+      throw _provErr(504, 'prediction_timeout_or_failed', { prediction_status: 'processing' });
+    }
+    if (info.successFlag !== 1) {
+      logger.warn('visualizerImageGen: kie generation failed', {
+        taskId, successFlag: info.successFlag,
+        errorCode: info.errorCode, errorMessage: info.errorMessage,
+      });
+      throw _provErr(504, 'prediction_timeout_or_failed', { prediction_status: 'failed' });
+    }
+
+    const resultUrl = info.response && info.response.resultImageUrl;
+    if (!resultUrl || typeof resultUrl !== 'string') {
+      logger.warn('visualizerImageGen: kie success without resultImageUrl', { taskId });
+      throw _provErr(502, 'no_image_returned');
+    }
+    const imgResp = await fetch(resultUrl);
+    if (!imgResp.ok) {
+      logger.warn('visualizerImageGen: output fetch failed', {
+        provider: 'kie', status: imgResp.status,
+      });
+      throw _provErr(502, 'output_fetch_failed');
+    }
+    const imgBuf = Buffer.from(await imgResp.arrayBuffer());
+    const outMediaType = imgResp.headers.get('content-type') || 'image/jpeg';
+    return { imgBuf, outMediaType };
+  } finally {
+    // The staged input is PII (the homeowner's house) — delete it as soon as
+    // the round-trip is over; the 15-minute signed URL bounds the worst case.
+    file.delete({ ignoreNotFound: true }).catch(() => {});
+  }
+}
+
+// ───────────────────────────────────────────────────────────────
 // visualizerImageGen — HTTP endpoint
 // ───────────────────────────────────────────────────────────────
 //
@@ -381,7 +606,7 @@ function buildPrompt(selections) {
 exports.visualizerImageGen = onRequest(
   {
     cors: CORS_ORIGINS,
-    secrets: [REPLICATE_API_TOKEN],
+    secrets: [REPLICATE_API_TOKEN, KIE_API_KEY],
     maxInstances: 5,
     concurrency: 10,
     timeoutSeconds: 120, // Replicate sync wait can take up to 60s + our own overhead
@@ -474,101 +699,41 @@ exports.visualizerImageGen = onRequest(
       };
 
       const prompt = buildPrompt(selections);
-      const inputDataUrl = 'data:' + mediaType + ';base64,' + imageBase64;
       const modelForRequest = pickModelForSelections(selections);
+      const isShingle = modelForRequest === (process.env.FLUX_SHINGLE_MODEL || DEFAULT_SHINGLE_MODEL);
 
-      // FLUX.1 Kontext Max input schema:
-      //   prompt            (string, required)   — natural-language edit instruction
-      //   input_image       (string, required)   — image URL or data-URL
-      //   aspect_ratio      (string, optional)   — "match_input_image" preserves source dimensions
-      //   output_format     ("jpg"|"png", opt)   — we want jpg for bandwidth
-      //   safety_tolerance  (int 1-6, optional)  — 2 is default (strict-ish)
-      const replicateBody = {
-        input: {
-          prompt,
-          input_image: inputDataUrl,
-          aspect_ratio: 'match_input_image',
-          output_format: 'jpg',
-          safety_tolerance: 2,
-        },
-      };
-
-      const response = await fetch(replicateEndpoint(modelForRequest), {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer ' + REPLICATE_API_TOKEN.value(),
-          // Replicate returns as soon as the prediction completes OR after
-          // this many seconds, whichever comes first. FLUX Kontext Max
-          // typically returns in 8-15s.
-          'Prefer': 'wait=60',
-        },
-        body: JSON.stringify(replicateBody),
-      });
-
-      if (!response.ok) {
-        const errText = await response.text().catch(() => '');
-        logger.warn('visualizerImageGen: upstream error', {
-          status: response.status,
-          body: errText.slice(0, 2000),
-        });
-        res.status(502).json({
-          error: 'upstream_error',
-          upstream_status: response.status,
-        });
-        return;
+      // Provider seam: Replicate (default) or kie.ai (IMAGEGEN_PROVIDER=kie).
+      // Both return the same { imgBuf, outMediaType } so the response shape —
+      // and therefore the frontend — never changes with the provider.
+      const provider = imageGenProvider();
+      let result;
+      if (provider === 'kie') {
+        // Refuse loudly if the flag was flipped before the key exists —
+        // a misconfig must not silently fall back to a provider Joe just
+        // switched away from.
+        let kieKey = '';
+        try { kieKey = KIE_API_KEY.value() || ''; } catch (_) { /* unset */ }
+        if (!kieKey) {
+          logger.error('visualizerImageGen: IMAGEGEN_PROVIDER=kie but KIE_API_KEY is unset');
+          res.status(503).json({ error: 'provider_not_configured' });
+          return;
+        }
+        result = await generateViaKie(prompt, imageBase64, mediaType, modelForRequest, isShingle);
+      } else {
+        const inputDataUrl = 'data:' + mediaType + ';base64,' + imageBase64;
+        result = await generateViaReplicate(prompt, inputDataUrl, modelForRequest);
       }
-
-      const data = await response.json();
-
-      // When Prefer: wait completes within the window, status is
-      // 'succeeded' and output contains the result. If the model took
-      // longer than 60s, we get 'processing' and would need to poll
-      // (we don't — we surface it as a timeout).
-      if (data.status !== 'succeeded') {
-        logger.warn('visualizerImageGen: not succeeded', {
-          status: data.status,
-          error: data.error,
-        });
-        res.status(504).json({
-          error: 'prediction_timeout_or_failed',
-          prediction_status: data.status,
-        });
-        return;
-      }
-
-      // FLUX Kontext returns output as either a string URL or an array
-      // with one URL. Normalize.
-      const output = Array.isArray(data.output) ? data.output[0] : data.output;
-      if (!output || typeof output !== 'string') {
-        logger.warn('visualizerImageGen: no output in response', {
-          outputType: typeof output,
-          keys: Object.keys(data),
-        });
-        res.status(502).json({ error: 'no_image_returned' });
-        return;
-      }
-
-      // The output is an HTTPS URL pointing at Replicate's CDN. We fetch
-      // it server-side and return base64 to the client, matching the
-      // original response shape so the frontend doesn't change.
-      const imgResp = await fetch(output);
-      if (!imgResp.ok) {
-        logger.warn('visualizerImageGen: output fetch failed', {
-          status: imgResp.status,
-          url: output,
-        });
-        res.status(502).json({ error: 'output_fetch_failed' });
-        return;
-      }
-      const imgBuf = Buffer.from(await imgResp.arrayBuffer());
-      const outMediaType = imgResp.headers.get('content-type') || 'image/jpeg';
 
       res.json({
-        imageBase64: imgBuf.toString('base64'),
-        mediaType: outMediaType,
+        imageBase64: result.imgBuf.toString('base64'),
+        mediaType: result.outMediaType,
       });
     } catch (e) {
+      // Typed provider errors keep the original per-condition contract.
+      if (e && e.httpStatus && e.token) {
+        res.status(e.httpStatus).json(Object.assign({ error: e.token }, e.extra));
+        return;
+      }
       logger.error('visualizerImageGen error', { err: e && e.message, stack: e && e.stack });
       res.status(500).json({ error: 'server_error' });
     }
