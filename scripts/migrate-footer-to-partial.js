@@ -31,6 +31,10 @@
  *   node scripts/migrate-footer-to-partial.js            # dry run + report
  *   node scripts/migrate-footer-to-partial.js --write    # apply
  *   node scripts/migrate-footer-to-partial.js --show-near  # print NEAR diffs
+ *   node scripts/migrate-footer-to-partial.js --partial footer-blog --dir docs/blog
+ *     # migrate a different cohort onto a different footer variant. A partial
+ *     # with no {{placeholders}} skips breadcrumb extraction entirely — every
+ *     # footer in the cohort is classified against the template verbatim.
  *
  * Exit codes: 0 ok / 1 nothing to do / 2 fatal.
  */
@@ -40,9 +44,15 @@
 const fs = require('node:fs');
 const path = require('node:path');
 
+function argValue(flag, fallback) {
+  const i = process.argv.indexOf(flag);
+  return i !== -1 && process.argv[i + 1] ? process.argv[i + 1] : fallback;
+}
+
 const REPO_ROOT = path.resolve(__dirname, '..');
-const DOCS = path.join(REPO_ROOT, 'docs');
-const PARTIAL = path.join(REPO_ROOT, 'site-src', 'partials', 'footer-standard.html');
+const PARTIAL_NAME = argValue('--partial', 'footer-standard');
+const DOCS = path.join(REPO_ROOT, argValue('--dir', 'docs'));
+const PARTIAL = path.join(REPO_ROOT, 'site-src', 'partials', `${PARTIAL_NAME}.html`);
 
 const WRITE = process.argv.includes('--write');
 const SHOW_NEAR = process.argv.includes('--show-near');
@@ -98,19 +108,24 @@ function main() {
 
     // The breadcrumb is the only per-page value; without it we cannot render a
     // faithful partial, so such pages are left alone rather than guessed at.
-    const cm = footer.match(CRUMB_RE);
-    if (!cm) { buckets.UNMATCHED.push({ rel, why: 'no service/city breadcrumb line' }); continue; }
+    // A template with no {{placeholders}} (e.g. footer-blog) has no per-page
+    // values at all — skip extraction and classify against it verbatim.
+    let attrs = {};
+    if (/\{\{[a-z0-9_]+\}\}/.test(template)) {
+      const cm = footer.match(CRUMB_RE);
+      if (!cm) { buckets.UNMATCHED.push({ rel, why: 'no service/city breadcrumb line' }); continue; }
 
-    const attrs = {
-      crumb_service_href: cm[2],
-      crumb_service_name: cm[3],
-      crumb_city_href: cm[4],
-      crumb_city_name: cm[5],
-    };
-    for (const [k, v] of Object.entries(attrs)) {
-      if (v.includes('"') || v.includes('--')) {
-        buckets.UNMATCHED.push({ rel, why: `breadcrumb value unsafe for an HTML comment attribute: ${k}` });
-        continue;
+      attrs = {
+        crumb_service_href: cm[2],
+        crumb_service_name: cm[3],
+        crumb_city_href: cm[4],
+        crumb_city_name: cm[5],
+      };
+      for (const [k, v] of Object.entries(attrs)) {
+        if (v.includes('"') || v.includes('--')) {
+          buckets.UNMATCHED.push({ rel, why: `breadcrumb value unsafe for an HTML comment attribute: ${k}` });
+          continue;
+        }
       }
     }
 
@@ -122,8 +137,8 @@ function main() {
     if (bucket === 'UNMATCHED') { buckets.UNMATCHED.push({ rel, why: `${d.length} differing lines — too far from canonical` }); continue; }
 
     const attrStr = Object.entries(attrs).map(([k, v]) => ` ${k}="${v}"`).join('');
-    const openMarker = `<!-- nbd:partial footer-standard${attrStr} -->`;
-    const closeMarker = `<!-- /nbd:partial footer-standard -->`;
+    const openMarker = `<!-- nbd:partial ${PARTIAL_NAME}${attrStr} -->`;
+    const closeMarker = `<!-- /nbd:partial ${PARTIAL_NAME} -->`;
     const wrapped =
       `${openMarker}${eol}${rendered.replace(/\n/g, eol)}${eol}${closeMarker}`;
     const out = src.replace(rawFooter, wrapped);
