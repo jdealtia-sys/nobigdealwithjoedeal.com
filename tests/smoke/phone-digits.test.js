@@ -95,6 +95,27 @@ module.exports.run = function run(ctx) {
       /where\(\s*['"]phone['"]\s*,\s*['"]==['"]\s*,\s*fromPhone\s*\)/.test(sms));
   }
 
+  // ── 3b. Tenant-safe routing (audit 2026-08-02 HIGH-5) ──────
+  // One shared Twilio number serves every tenant: the match must gather ALL
+  // candidates and route via the pure decision module — never first-doc-wins.
+  section('incomingSMS — tenant-safe routing');
+  {
+    const sms = read(path.join(FUNCTIONS, 'sms-functions.js'));
+    assert('requires the pure route-logic module (shared decision path, no drift)',
+      /require\(['"]\.\/inbound-sms-route-logic['"]\)/.test(sms) && /pickLeadForInbound\(/.test(sms));
+    assert('lead match is NOT limit(1) — gathers a bounded candidate set',
+      !/where\(\s*['"]phoneDigits['"][^)]*\)\.limit\(1\)/.test(sms) &&
+      /MATCH_LIMIT/.test(sms));
+    assert('cross-tenant ambiguity is flagged on the unmatched_sms row',
+      /candidateCompanyIds/.test(sms) && /['"]cross-tenant/.test(read(path.join(FUNCTIONS, 'inbound-sms-route-logic.js'))));
+    assert('received sms_log rows stamp the lead uid + companyId (Comm Log contract)',
+      /logSMSToFirestore\(\s*\n?\s*db,\s*fromPhone,\s*messageBody,\s*\n?\s*lead\s*\?\s*\(lead\.userId/.test(sms));
+    // The pure module owns the decision table; its own unit tests cover it.
+    const logic = read(path.join(FUNCTIONS, 'inbound-sms-route-logic.js'));
+    assert('route-logic stays firebase-free (requirable from tests with zero deps)',
+      !/require\(['"]firebase/.test(logic));
+  }
+
   // ── 4. Write side: every lead-create path stamps phoneDigits ─
   section('lead-write paths stamp phoneDigits');
   {
