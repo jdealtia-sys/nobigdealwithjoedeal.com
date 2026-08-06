@@ -70,8 +70,12 @@ function walkHtml(dir, out = []) {
   return out;
 }
 
+// Separator accepts the literal `·` (107-page canonical form) OR the
+// `&middot;` entity (the fairfield/lebanon services cohort, authored by an
+// earlier sweep). Rendering always emits the canonical literal, so the
+// entity pages converge as NEAR — that normalization is the point.
 const CRUMB_RE =
-  /^([ \t]*)<a href="(\/services\/[^"]+)">([^<]+)<\/a> · <a href="(\/areas\/[^"]+)">([^<]+)<\/a> · <a href="\/">nobigdealwithjoedeal\.com<\/a><br>$/m;
+  /^([ \t]*)<a href="(\/services\/[^"]+)">([^<]+)<\/a> (?:·|&middot;) <a href="(\/areas\/[^"]+)">([^<]+)<\/a> (?:·|&middot;) <a href="\/">nobigdealwithjoedeal\.com<\/a><br>$/m;
 
 function diffLines(a, b) {
   const A = a.split('\n'), B = b.split('\n');
