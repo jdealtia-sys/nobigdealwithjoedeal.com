@@ -57,7 +57,10 @@ const PARTIAL = path.join(REPO_ROOT, 'site-src', 'partials', `${PARTIAL_NAME}.ht
 const WRITE = process.argv.includes('--write');
 const SHOW_NEAR = process.argv.includes('--show-near');
 const SCAN_EXCLUDED_TOP_DIRS = new Set(['pro', 'admin', 'dev']);
-const NEAR_LINE_BUDGET = 6;
+// --near-budget N widens the NEAR window for a specific cohort run (e.g. the
+// footer-extended hubs, where 4 pages carry an inserted bogus nav item = 8
+// differing lines). Every NEAR diff is still printed for review either way.
+const NEAR_LINE_BUDGET = parseInt(argValue('--near-budget', '6'), 10) || 6;
 
 function walkHtml(dir, out = []) {
   for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
@@ -70,8 +73,33 @@ function walkHtml(dir, out = []) {
   return out;
 }
 
+// Separator accepts the literal `·` (107-page canonical form) OR the
+// `&middot;` entity (the fairfield/lebanon services cohort, authored by an
+// earlier sweep). Rendering always emits the canonical literal, so the
+// entity pages converge as NEAR — that normalization is the point.
 const CRUMB_RE =
-  /^([ \t]*)<a href="(\/services\/[^"]+)">([^<]+)<\/a> · <a href="(\/areas\/[^"]+)">([^<]+)<\/a> · <a href="\/">nobigdealwithjoedeal\.com<\/a><br>$/m;
+  /^([ \t]*)<a href="(\/services\/[^"]+)">([^<]+)<\/a> (?:·|&middot;) <a href="(\/areas\/[^"]+)">([^<]+)<\/a> (?:·|&middot;) <a href="\/">nobigdealwithjoedeal\.com<\/a><br>$/m;
+
+// Per-partial extraction: how to pull each template's {{placeholders}} out
+// of a page's existing footer. A partial with placeholders but no entry
+// here (or no match on the page) lands in UNMATCHED rather than guessed at.
+const EXTRACTORS = {
+  'footer-standard': {
+    re: CRUMB_RE,
+    attrs: (m) => ({
+      crumb_service_href: m[2],
+      crumb_service_name: m[3],
+      crumb_city_href: m[4],
+      crumb_city_name: m[5],
+    }),
+  },
+  'footer-area': {
+    // "Serving Mason, OH &amp; Greater Cincinnati" — city + state (the
+    // Northern Kentucky pages are KY).
+    re: /^[ \t]*Serving ([^,<]+), (OH|KY) &amp; Greater Cincinnati<br>$/m,
+    attrs: (m) => ({ city: m[1], state: m[2] }),
+  },
+};
 
 function diffLines(a, b) {
   const A = a.split('\n'), B = b.split('\n');
@@ -112,15 +140,12 @@ function main() {
     // values at all — skip extraction and classify against it verbatim.
     let attrs = {};
     if (/\{\{[a-z0-9_]+\}\}/.test(template)) {
-      const cm = footer.match(CRUMB_RE);
+      const extractor = EXTRACTORS[PARTIAL_NAME];
+      if (!extractor) { buckets.UNMATCHED.push({ rel, why: `no extractor defined for ${PARTIAL_NAME}` }); continue; }
+      const cm = footer.match(extractor.re);
       if (!cm) { buckets.UNMATCHED.push({ rel, why: 'no service/city breadcrumb line' }); continue; }
 
-      attrs = {
-        crumb_service_href: cm[2],
-        crumb_service_name: cm[3],
-        crumb_city_href: cm[4],
-        crumb_city_name: cm[5],
-      };
+      attrs = extractor.attrs(cm);
       for (const [k, v] of Object.entries(attrs)) {
         if (v.includes('"') || v.includes('--')) {
           buckets.UNMATCHED.push({ rel, why: `breadcrumb value unsafe for an HTML comment attribute: ${k}` });
