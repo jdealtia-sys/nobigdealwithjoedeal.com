@@ -101,11 +101,14 @@ handling; batching them with the above would bloat the diff and the risk.
   brand bleed. The roofing-trade FALLBACK_SERVICES are intentionally kept —
   NBD PRO is a roofing-focused platform, so roofing defaults are appropriate
   for an unconfigured tenant.
-- **CL8 — legacy `sendTeamInviteEmail` + `invites/{token}` collection (LOW).**
-  Dead path in email-functions.js still uses the old role vocab incl. `'owner'`
-  and writes an `invites` collection no current claim path consumes. Retire or
-  align. A few `'owner'` string refs also linger in prospects.js /
-  ai-texting-persona.js (cosmetic).
+- **CL8 — legacy `sendTeamInviteEmail` + `invites/{token}` collection (LOW) —
+  ✅ RESOLVED 2026-08-06 (#1190).** The dead endpoint (zero callers anywhere in
+  docs/, tests/, or workflows) was deleted along with its pre-claims role
+  vocabulary — the lingering `'owner'` refs lived inside it (the
+  prospects.js / ai-texting-persona.js files named here no longer exist under
+  those names). The `invites/{token}` deny-all rule stays as an annotated
+  tombstone over historical docs; the live flow remains the `createTeamInvite`
+  callable. Prod deletion deployed cleanly in run #1274.
 
 ## Verified clean (no action)
 
