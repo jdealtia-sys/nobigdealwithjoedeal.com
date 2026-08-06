@@ -22,8 +22,9 @@ shown once; it never touches chat or the repo).
   providers × two copies was drift bait. Side effect (additive): the
   fallback response now carries `maxSizeInches`, which the old inline
   fallback path dropped.
-- **parcel.js** — provider branch (`NBD_PARCEL_PROVIDER`), cross-provider
-  fallback, secrets array now mounts both keys.
+- **parcel.js** — provider branch (`NBD_PARCEL_PROVIDER`), one-way
+  fallback (swath→regrid only; the regrid default never bills Swath just
+  because the key exists), secrets array now mounts both keys.
 - **hail-cron.js** — untouched behavior + a comment making the Swath
   exclusion *deliberate* (500-lead nightly sweep ≈ the whole free plan).
 - **storm-proof.js** — mounts `SWATH_API_KEY` so `attachStormProof` can
@@ -61,6 +62,35 @@ shown once; it never touches chat or the repo).
    semantics, not exact JSON keys, for `/v1/storms` and `/v1/property`.
    Normalizers are tolerant; first live call should confirm + prune
    (runbook has the checklist).
+
+## Adversarial review (24-agent workflow, post-build)
+
+Four finder lenses (contract / integration / security / credit-burn), every
+finding attacked by two independent skeptics. 6 confirmed → all fixed in
+the follow-up commit; 4 refuted (incl. two credit-burn claims that
+misattributed pre-existing architecture). The confirmed set:
+
+1. **HIGH — `num(null)` returned 0** (`Number(null)===0`): storms without
+   a nested centroid normalized to (0,0) — poisoning the D2D territory
+   hull toward Null Island and the immutable `storm_proofs` record — and
+   sparse parcel records fabricated `$0 assessed / year-built 0`. Root
+   fix in `num()` + regression tests pinning both blast radii.
+2. **MED — normalizeSwathParcel zeros** — same root cause, same fix.
+3. **LOW — "with only the key set, nothing changes" was false**: parcel.js
+   used Swath as a regrid-fallback whenever the key existed. Fallback is
+   now one-way (swath→regrid only) so the runbook's promise holds.
+4. **LOW — `parcel_cache` merge:true left stale cross-provider keys**
+   (old Swath geometryJson/roofAge surviving under a fresh Regrid pull) —
+   cache write is now a non-merge set.
+5. **LOW — provider no-record (null) skipped the fallback** and cached the
+   miss 90 days — the loop now falls through to the next provider on null.
+6. **LOW — webhook Slack ping fired on every redelivery** — storm_events
+   ingest now uses atomic `create()` first-write detection; only the first
+   delivery pings.
+
+(One refuted finding was a harness artifact worth remembering: the Workflow
+`args` JSON reached the script as a string in one spot, so the contract
+lens ran without the vendor docs — its checkable facts still passed.)
 
 ## Open follow-ups (deliberately not in this branch)
 

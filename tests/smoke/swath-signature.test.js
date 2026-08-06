@@ -62,6 +62,37 @@ function run(ctx) {
     verifySwathSignature(Buffer.from(body), '', secret, nowMs).ok === false);
   assert('missing secret is rejected (fail closed)',
     verifySwathSignature(Buffer.from(body), sign(t, secret, body), '', nowMs).reason === 'no-secret');
+
+  section('Swath normalizers — absent fields stay null (no fabricated zeros)');
+
+  // Adversarial review 2026-08-06 finding #1: Number(null)===0, so a naive
+  // num() turned ABSENT fields into 0 — (0,0) storm coordinates poisoning
+  // the D2D territory hull, $0 assessed values, year-built 0. These pin
+  // the root fix (num(null) → null) and its two blast radii.
+  const { _test } = require(path.join(FUNCTIONS, 'integrations/swath.js'));
+
+  assert('num(null) is null, not 0', _test.num(null) === null);
+  assert('num(undefined) is null', _test.num(undefined) === null);
+  assert('num(0) is still 0', _test.num(0) === 0);
+  assert('num("1.75") parses', _test.num('1.75') === 1.75);
+
+  const bare = _test.normalizeStormEvent({ id: 'st_9', lat: 38.1, lng: -84.5, max_size: 1.5 });
+  assert('storm with top-level lat/lng (no centroid) keeps its coordinates',
+    bare.lat === 38.1 && bare.lng === -84.5 && bare.stormId === 'st_9');
+  const coordless = _test.normalizeStormEvent({ id: 'st_10', max_size: 2 });
+  assert('storm with no coordinates normalizes to null lat/lng, not (0,0)',
+    coordless.lat === null && coordless.lng === null);
+  const nested = _test.normalizeStormEvent({ storm_id: 'st_11', centroid: { lat: 37.9, lon: -84.2 }, hail_max_in: '1.25' });
+  assert('storm with nested centroid + string size normalizes',
+    nested.lat === 37.9 && nested.lng === -84.2 && nested.sizeInches === 1.25);
+
+  const sparse = _test.normalizeSwathParcel({ address: '123 Main St', owner: 'Jane Doe' });
+  assert('sparse parcel record keeps absent numerics null (no $0 assessed / year 0)',
+    sparse.yearBuilt === null && sparse.assessedValue === null && sparse.acres === null
+    && sparse.sqft === null && sparse.lat === null && sparse.lng === null
+    && sparse.roofAge === null && sparse.exposureHailIn === null);
+  assert('sparse parcel record keeps real fields',
+    sparse.owner === 'Jane Doe' && sparse.address === '123 Main St' && sparse.source === 'swath');
 }
 
 module.exports = { run };

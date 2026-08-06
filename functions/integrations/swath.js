@@ -103,6 +103,11 @@ function pick(obj, names, fallback = null) {
 }
 
 function num(v) {
+  // null/undefined must stay null — Number(null) is 0, which fabricates
+  // (0,0) coordinates and $0 assessed values out of ABSENT fields (adversarial
+  // review 2026-08-06, finding #1: a (0,0) hit poisons the D2D territory hull
+  // and the immutable storm_proofs record).
+  if (v == null) return null;
   const n = typeof v === 'string' ? parseFloat(v) : Number(v);
   return isFinite(n) ? n : null;
 }
@@ -379,30 +384,46 @@ exports.swathWebhook = onRequest(
       ? storm.stormId
       : 'sha_' + crypto.createHash('sha256').update(req.rawBody).digest('hex').slice(0, 32);
 
+    // First-write detection via create(): Swath delivery is at-least-once
+    // (retried with backoff), and a captured request can be replayed inside
+    // the ±300s signature window — every redelivery must collapse onto ONE
+    // storm_events doc AND one Slack ping (adversarial review 2026-08-06,
+    // finding #6: the ping used to fire per accepted request). create()
+    // throws ALREADY_EXISTS atomically; on that path we merge-refresh the
+    // doc and stay silent.
+    const eventDoc = {
+      stormId:     storm.stormId || null,
+      at:          storm.at || null,
+      county:      storm.county || null,
+      state:       storm.state || null,
+      sizeInches:  storm.sizeInches != null ? storm.sizeInches : null,
+      lat:         storm.lat != null ? storm.lat : null,
+      lng:         storm.lng != null ? storm.lng : null,
+      monitor:     pick(body, ['monitor', 'monitor_name', 'monitor_id']) || null,
+      // Full payload for forensics + follow-up report pulls — JSON string because
+      // swath geometry is nested arrays (see header note).
+      payloadJson: req.rawBody.toString('utf8').slice(0, 100_000),
+      source:      'swath',
+      receivedAt:  FieldValue.serverTimestamp()
+    };
+    const ref = getFirestore().doc('storm_events/' + docId);
+    let firstDelivery = false;
     try {
-      await getFirestore().doc('storm_events/' + docId).set({
-        stormId:     storm.stormId || null,
-        at:          storm.at || null,
-        county:      storm.county || null,
-        state:       storm.state || null,
-        sizeInches:  storm.sizeInches != null ? storm.sizeInches : null,
-        lat:         storm.lat != null ? storm.lat : null,
-        lng:         storm.lng != null ? storm.lng : null,
-        monitor:     pick(body, ['monitor', 'monitor_name', 'monitor_id']) || null,
-        // Full payload for forensics + follow-up report pulls — JSON string because
-        // swath geometry is nested arrays (see header note).
-        payloadJson: req.rawBody.toString('utf8').slice(0, 100_000),
-        source:      'swath',
-        receivedAt:  FieldValue.serverTimestamp()
-      }, { merge: true });
+      try {
+        await ref.create(eventDoc);
+        firstDelivery = true;
+      } catch (e) {
+        if (e.code !== 6 /* ALREADY_EXISTS */) throw e;
+        await ref.set(eventDoc, { merge: true });
+      }
     } catch (e) {
       logger.error('swathWebhook: storm_events write failed', { docId, err: e.message });
       res.status(500).json({ error: 'write failed' });
       return;
     }
 
-    await postSlackStorm(storm, docId);
-    res.status(200).json({ ok: true, id: docId });
+    if (firstDelivery) await postSlackStorm(storm, docId);
+    res.status(200).json({ ok: true, id: docId, duplicate: !firstDelivery });
   }
 );
 
@@ -591,5 +612,9 @@ exports.getSwathUsage = onCall(
 exports.fetchSwathHail = fetchSwathHail;
 exports.querySwathProperty = querySwathProperty;
 exports.verifySwathSignature = verifySwathSignature;
+// Repo _test convention (storm-watch.js, storm-briefing.js): normalizer
+// internals pinned by tests/smoke/swath-signature.test.js — notably that
+// absent numeric fields stay null (never fabricated zeros / (0,0) coords).
+exports._test = { num, pick, normalizeGeometry, normalizeStormEvent, normalizeSwathParcel };
 
 module.exports = exports;

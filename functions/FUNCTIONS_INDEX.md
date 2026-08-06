@@ -219,7 +219,7 @@ Exported for unit tests or internal reuse; they carry no `__endpoint` and Fireba
 
 - `_test` (storm-watch.js and integrations/storm-briefing.js each export one), `_constants`, `_bridgeCollections` (lead-bridge.js)
 - `lookupHail` — plain async hail-history helper (integrations/hail.js) shared by `getHailHistory` + `attachStormProof` (handlers/storm-proof.js); not a Cloud Function. (2026-08-06 correction: previously said "storm briefing", but storm-briefing.js never imports it.)
-- Swath helpers `fetchSwathHail` / `querySwathProperty` / `verifySwathSignature` — module exports of integrations/swath.js consumed by hail.js, parcel.js, and tests/smoke/swath-signature.test.js. Deliberately NOT mounted on index.js (it mounts the three Swath Cloud Functions selectively).
+- Swath helpers `fetchSwathHail` / `querySwathProperty` / `verifySwathSignature` / `_test` — module exports of integrations/swath.js consumed by hail.js, parcel.js, and tests/smoke/swath-signature.test.js. Deliberately NOT mounted on index.js (it mounts the three Swath Cloud Functions selectively).
 - Voice-intelligence internals: `_VoiceError`, `_analyzeTranscript`, `_checkBudget`, `_checkVerbalConsent`, `_getCompanyContext`, `_incrementVoiceUsage`, `_parseAudioPath`, `_processRecording`, `_transcribeAudio`
 - Push-notification helpers (plain async functions): `sendTeamNotification`, `sendStreakNotification`, `sendCustomNotification`
 - Slack helper: `postSlack`

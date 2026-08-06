@@ -14,7 +14,10 @@
  *   swath            — swathapi.com GET /v1/property (2 credits/lookup,
  *                      adds roof age + owner-occupancy; free plan serves
  *                      cached parcel data only). integrations/swath.js.
- * Whichever is preferred, the other is the fallback when its key exists.
+ * Fallback is one-way: NBD_PARCEL_PROVIDER=swath keeps Regrid as the
+ * fallback (error OR no-record), but the regrid default never falls back
+ * to Swath — a configured SWATH_API_KEY with the flag unflipped must not
+ * bill anything (billing surprise > resilience here).
  *
  * Cacheable — 90 days is fine, parcels don't change often. We cache in
  * `parcel_cache/{addressHash}` (both providers share the cache — a hit
@@ -128,15 +131,18 @@ exports.lookupParcel = onCall(
       throw new HttpsError('invalid-argument', 'Valid address required');
     }
 
-    // Provider selection (Swath wiring 2026-08-06): honor
-    // NBD_PARCEL_PROVIDER when its key is configured; the other provider
-    // is the one-shot fallback. Not configured at all → same
-    // failed-precondition the Regrid-only version threw.
+    // Provider selection (Swath wiring 2026-08-06): Swath participates
+    // ONLY when NBD_PARCEL_PROVIDER=swath — deliberately one-way. With the
+    // flag at its 'regrid' default, a configured SWATH_API_KEY changes
+    // nothing here (the runbook promises "with only the key set, nothing
+    // changes", and Swath lookups bill 2 credits each on a hard-stopping
+    // plan — no billing surprises from a fallback nobody flipped on).
+    // When the flag IS swath, Regrid remains the one-shot fallback. Not
+    // configured at all → same failed-precondition as the Regrid-only era.
     const wantSwath = PROVIDERS.parcel === 'swath' && hasSecret('SWATH_API_KEY');
     const providers = [];
     if (wantSwath) providers.push('swath');
     if (hasSecret('REGRID_API_TOKEN')) providers.push('regrid');
-    if (!wantSwath && hasSecret('SWATH_API_KEY')) providers.push('swath');
     if (providers.length === 0) {
       throw new HttpsError('failed-precondition', 'Parcel provider not configured.');
     }
@@ -162,19 +168,25 @@ exports.lookupParcel = onCall(
 
     let parcel = null;
     let lastErr = null;
+    let answered = false; // some provider returned a substantive answer (incl. a legit no-record null)
     for (const provider of providers) {
       try {
-        parcel = provider === 'swath'
+        const got = provider === 'swath'
           ? await querySwathProperty(address)
           : await queryRegrid(address);
-        lastErr = null;
-        break;
+        answered = true;
+        if (got) { parcel = got; break; }
+        // null = this provider has no record (200-with-no-match — expected
+        // on Swath's cache-only free plan). Let the fallback provider try
+        // before we conclude "no parcel" and cache the miss for 90 days.
       } catch (e) {
         logger.warn(provider + ' parcel lookup failed:', e.message);
         lastErr = e;
       }
     }
-    if (lastErr) {
+    // Throw only when we got NO substantive answer and something errored —
+    // an all-providers-miss (no errors) is a legitimate null worth caching.
+    if (!parcel && !answered && lastErr) {
       throw new HttpsError('unavailable', 'Parcel lookup failed');
     }
 
@@ -191,10 +203,14 @@ exports.lookupParcel = onCall(
         cacheParcel = { ...parcel, geometryJson: JSON.stringify(parcel.geometry) };
         delete cacheParcel.geometry;
       }
+      // Non-merge set: this write owns the whole doc. merge:true would keep
+      // provider-specific keys from a PRIOR provider's pull (e.g. a stale
+      // Swath geometryJson/roofAge surviving under a fresh Regrid result —
+      // mixed-provenance parcels; adversarial review 2026-08-06, finding #4).
       await cacheRef.set({
         parcel: cacheParcel,
         cachedAt: FieldValue.serverTimestamp()
-      }, { merge: true });
+      });
     } catch (e) {
       logger.warn('parcel cache write failed (result still returned):', e.message);
     }
