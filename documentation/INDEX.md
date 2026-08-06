@@ -8,6 +8,7 @@ Map of content for the `documentation/` corpus (~90 files) plus the other places
 
 ## Start here
 
+- [../CLAUDE.md](../CLAUDE.md) — session ground rules incl. the vault-logging convention (deep audits → dated notes here)
 - [ARCHITECTURE](ARCHITECTURE.md) — system overview
 - [QUICK_START](QUICK_START.md) — orientation for a new session
 - [../SECURITY.md](../SECURITY.md) — public security posture (repo root)
@@ -29,12 +30,13 @@ Map of content for the `documentation/` corpus (~90 files) plus the other places
 - [ONBOARD_TENANT](runbooks/ONBOARD_TENANT.md)
 - [TENANT-CUSTOM-DOMAINS](runbooks/TENANT-CUSTOM-DOMAINS.md)
 - [VISUALIZER-KIE-PROVIDER](runbooks/VISUALIZER-KIE-PROVIDER.md) — flip image-gen to kie.ai (config-only, Jo action)
+- [PUBLISH-PROJECT](runbooks/PUBLISH-PROJECT.md) — add a Featured Project to /our-work (prices, photos, consent rules)
 
 ## Projects & planning
 
 - [BIG_ROCKS](projects/BIG_ROCKS.md) — the standing priority list
 - [KANBAN_CUSTOMER_MAP](projects/KANBAN_CUSTOMER_MAP.md)
-- Session handoffs: [NEXT_SESSION-2026-08-05](projects/NEXT_SESSION-2026-08-05.md) (current) · [NEXT_SESSION](projects/NEXT_SESSION.md) · [NEXT_SESSION-2c4a](projects/NEXT_SESSION-2c4a.md) (both executed)
+- Session handoffs: [SESSION-2026-08-06-our-work-featured-projects](projects/SESSION-2026-08-06-our-work-featured-projects.md) (current — Featured Projects build + four-lane status) · [NEXT_SESSION-2026-08-05](projects/NEXT_SESSION-2026-08-05.md) (partially executed, see current) · [NEXT_SESSION](projects/NEXT_SESSION.md) · [NEXT_SESSION-2c4a](projects/NEXT_SESSION-2c4a.md) (both executed)
 
 ## Audits
 

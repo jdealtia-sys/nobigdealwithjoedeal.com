@@ -1,0 +1,184 @@
+{
+  "_readme": [
+    "Featured Projects source of truth. docs/our-work.html is GENERATED from this",
+    "file between the OURWORK-STATIC / OURWORK-HEAD-SCHEMA markers by",
+    "scripts/build-projects.mjs — edit here, then run: node scripts/build-projects.mjs",
+    "Publish procedure + field rules: documentation/runbooks/PUBLISH-PROJECT.md",
+    "HARD RULES: retail prices only (priceLow/priceHigh, both or neither, whole",
+    "dollars) — never cost/margin figures; city-level location only, never a street",
+    "address; photos must be re-encoded copies under /assets/images/projects/ (the",
+    "re-encode strips EXIF), never CRM storage URLs; consentOnFile must be true or",
+    "the build refuses the entry; a future published date stages the entry until",
+    "the first deploy after that date. Array order = display order."
+  ],
+  "projects": [
+    {
+      "slug": "brick-colonial-full-reroof",
+      "title": "Brick Colonial — Full Re-Roof",
+      "category": "replacement",
+      "tag": "Roof Replacement",
+      "city": "Greater Cincinnati, OH",
+      "description": "Architectural shingle replacement on a two-story colonial. New drip edge, starter strip, and ridge vent. Curb appeal speaks for itself.",
+      "hero": "/assets/images/projects/completed-colonial-spring.jpg",
+      "photos": [
+        { "src": "/assets/images/projects/completed-colonial-spring.jpg", "alt": "Completed roof on brick colonial home with spring landscaping" }
+      ],
+      "consentOnFile": true,
+      "published": "2026-08-06"
+    },
+    {
+      "slug": "brick-two-story-drone-verified",
+      "title": "Brick Two-Story — Drone Verified",
+      "category": "replacement",
+      "tag": "Roof Replacement",
+      "city": "Greater Cincinnati, OH",
+      "description": "Complete tear-off and replacement. Every project gets drone documentation so the homeowner can see exactly what was done — and so can the insurance company.",
+      "hero": "/assets/images/projects/completed-brick-aerial.jpg",
+      "photos": [
+        { "src": "/assets/images/projects/completed-brick-aerial.jpg", "alt": "Aerial drone view of completed brick home roof replacement" }
+      ],
+      "consentOnFile": true,
+      "published": "2026-08-06"
+    },
+    {
+      "slug": "multi-section-complex-roof",
+      "title": "Multi-Section Complex Roof",
+      "category": "replacement",
+      "tag": "Roof Replacement",
+      "city": "Greater Cincinnati, OH",
+      "description": "Large footprint with multiple roof sections, valleys, and transitions. New underlayment throughout, architectural shingles, all flashing replaced.",
+      "hero": "/assets/images/projects/completed-multisection.jpg",
+      "photos": [
+        { "src": "/assets/images/projects/completed-multisection.jpg", "alt": "Complex multi-section roof replacement completed" }
+      ],
+      "consentOnFile": true,
+      "published": "2026-08-06"
+    },
+    {
+      "slug": "wind-damage-lifted-shingles",
+      "title": "Wind Damage — Lifted & Missing Shingles",
+      "category": "storm",
+      "tag": "Storm Damage",
+      "city": "Greater Cincinnati, OH",
+      "description": "High winds peeled back shingles and exposed underlayment. Documented damage for insurance claim, full replacement approved and completed within two weeks.",
+      "hero": "/assets/images/projects/damage-lifted-shingles.jpg",
+      "photos": [
+        { "src": "/assets/images/projects/damage-lifted-shingles.jpg", "alt": "Storm damaged roof with lifted and missing shingles" }
+      ],
+      "consentOnFile": true,
+      "published": "2026-08-06"
+    },
+    {
+      "slug": "hail-impact-chalk-marked",
+      "title": "Hail Impact — Chalk-Marked Inspection",
+      "category": "storm",
+      "tag": "Hail Damage",
+      "city": "Greater Cincinnati, OH",
+      "description": "I mark every impact with chalk during inspection so the adjuster can verify. This roof had 50+ hits per test square — clear approval for full replacement.",
+      "hero": "/assets/images/projects/damage-chalk-marked.jpg",
+      "photos": [
+        { "src": "/assets/images/projects/damage-chalk-marked.jpg", "alt": "Chalk-marked hail damage during roof inspection" }
+      ],
+      "consentOnFile": true,
+      "published": "2026-08-06"
+    },
+    {
+      "slug": "cul-de-sac-full-crew-tearoff",
+      "title": "Full Crew — Cul-de-Sac Tear-Off",
+      "category": "active",
+      "tag": "Active Jobsite",
+      "city": "Greater Cincinnati, OH",
+      "description": "Branded trucks, tarps down, materials staged, crew on the roof. This is what a professional jobsite looks like. Neighbors took notice — two more estimates booked that week.",
+      "hero": "/assets/images/projects/active-culdescac-crew.jpg",
+      "photos": [
+        { "src": "/assets/images/projects/active-culdescac-crew.jpg", "alt": "NBD crew actively working on roof tear-off in residential neighborhood" }
+      ],
+      "consentOnFile": true,
+      "published": "2026-08-06"
+    },
+    {
+      "slug": "brick-underlayment-install",
+      "title": "Underlayment Install — Premium Brick Home",
+      "category": "active",
+      "tag": "Active Jobsite",
+      "city": "Greater Cincinnati, OH",
+      "description": "Hi-vis crew laying synthetic underlayment on a large brick two-story. Materials staged, safety protocols in place. The decking underneath was clean — no surprises.",
+      "hero": "/assets/images/projects/active-brick-underlayment.jpg",
+      "photos": [
+        { "src": "/assets/images/projects/active-brick-underlayment.jpg", "alt": "Crew installing synthetic underlayment on large brick home" }
+      ],
+      "consentOnFile": true,
+      "published": "2026-08-06"
+    },
+    {
+      "slug": "valley-flashing-detail",
+      "title": "Valley Flashing Detail — Precision Install",
+      "category": "replacement",
+      "tag": "Craftsmanship",
+      "city": "Greater Cincinnati, OH",
+      "description": "Metal valley flashing with tight shingle cuts on both sides, new pipe boot sealed properly. This is the kind of detail work that prevents leaks for decades. No shortcuts.",
+      "hero": "/assets/images/projects/detail-valley-shingle.jpg",
+      "photos": [
+        { "src": "/assets/images/projects/detail-valley-shingle.jpg", "alt": "Clean metal valley flashing with new architectural shingles on both sides" }
+      ],
+      "consentOnFile": true,
+      "published": "2026-08-06"
+    },
+    {
+      "slug": "two-properties-one-day",
+      "title": "Two Properties — One Day",
+      "category": "active",
+      "tag": "Drone Aerial",
+      "city": "Greater Cincinnati, OH",
+      "description": "Side-by-side tear-offs on neighboring properties. Full decking exposed, materials staged, crew running both roofs. Efficiency at scale — no wasted time.",
+      "hero": "/assets/images/projects/aerial-dual-property.jpg",
+      "photos": [
+        { "src": "/assets/images/projects/aerial-dual-property.jpg", "alt": "Aerial drone shot of two roofs being replaced simultaneously" }
+      ],
+      "consentOnFile": true,
+      "published": "2026-08-06"
+    },
+    {
+      "slug": "apartment-complex-tearoff",
+      "title": "Apartment Complex — Multi-Building Tear-Off",
+      "category": "commercial",
+      "tag": "Commercial",
+      "city": "Greater Cincinnati, OH",
+      "description": "Full-scale commercial project: multi-building apartment complex, complete tear-off down to decking, new synthetic underlayment going down while crew stages shingle bundles. Multiple buildings, one crew, zero delays.",
+      "hero": "/assets/images/projects/commercial-apartment-tearoff.jpg",
+      "photos": [
+        { "src": "/assets/images/projects/commercial-apartment-tearoff.jpg", "alt": "Aerial drone view of apartment building mid-tearoff with blue underlayment and crew working" }
+      ],
+      "consentOnFile": true,
+      "published": "2026-08-06"
+    },
+    {
+      "slug": "apartment-complex-complete",
+      "title": "Apartment Complex — All Buildings Complete",
+      "category": "commercial",
+      "tag": "Commercial",
+      "city": "Greater Cincinnati, OH",
+      "description": "Same complex, job done. Every building re-roofed with architectural shingles, new ridge vents, all flashing replaced. Drone-documented start to finish for the property management company.",
+      "hero": "/assets/images/projects/commercial-apartment-completed.jpg",
+      "photos": [
+        { "src": "/assets/images/projects/commercial-apartment-completed.jpg", "alt": "Aerial drone view of completed multi-building apartment complex with new roofs" }
+      ],
+      "consentOnFile": true,
+      "published": "2026-08-06"
+    },
+    {
+      "slug": "aframe-standing-seam-metal",
+      "title": "A-Frame Cabin — Standing Seam Metal",
+      "category": "specialty",
+      "tag": "Metal Roof",
+      "city": "Appalachian Region",
+      "description": "Not every job is shingles. This mountain A-frame got a standing seam metal roof — built for steep pitch, heavy snow loads, and decades of zero maintenance.",
+      "hero": "/assets/images/projects/metal-aframe-cabin.jpg",
+      "photos": [
+        { "src": "/assets/images/projects/metal-aframe-cabin.jpg", "alt": "A-frame cabin with standing seam metal roof" }
+      ],
+      "consentOnFile": true,
+      "published": "2026-08-06"
+    }
+  ]
+}
