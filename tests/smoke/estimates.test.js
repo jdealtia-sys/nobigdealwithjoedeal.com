@@ -214,7 +214,12 @@ section('Phase 1b: V2 builder mobile step navigation + always-visible total');
 
 section('Phase 2: template-first New Estimate front door');
 {
-  const est = read(path.join(PRO_JS, 'estimates.js'));
+  // Rock 2 PR 6 split startNewEstimate + showNewEstimateChooser into
+  // estimate-entry.js while showEstimateTypeSelector stayed in estimates.js.
+  // Concat both (same pattern as readMaps() in smoke/dashboard.test.js) so
+  // these assertions keep covering the front door wherever it lives.
+  const est = read(path.join(PRO_JS, 'estimates.js'))
+    + '\n' + read(path.join(PRO_JS, 'estimate-entry.js'));
   // startNewEstimate leads with the chooser; everything stays V2-only
   // (Classic remains deprecated for new estimates).
   // startNewEstimate takes an EXPLICIT leadId (2026-07-27). The customer-scoped

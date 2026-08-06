@@ -41,6 +41,8 @@ const syntaxFiles = [
   path.join(PRO_JS, 'sales-training-ui.js'),
   path.join(PRO_JS, 'sales-training.js'),
   path.join(PRO_JS, 'estimates.js'),
+  path.join(PRO_JS, 'estimate-entry.js'),
+  path.join(PRO_JS, 'estimate-crm-ops.js'),
   path.join(PRO_JS, 'estimate-v2-ui.js'),
   path.join(PRO_JS, 'estimate-finalization.js'),
   path.join(PRO_JS, 'nbd-doc-viewer.js'),
@@ -256,7 +258,8 @@ section('ScriptLoader contract');
   // products views. estimate-config / review-engine / property-intel stay eager.
   // Verified end-to-end by tests/e2e/estimate-engine.spec.js (engine assembles
   // to 222 products / 298 merged catalog keys / 270 xactimate).
-  const ESTMODS = ['estimates.js', 'product-data.js', 'product-library.js',
+  const ESTMODS = ['estimates.js', 'estimate-entry.js', 'estimate-crm-ops.js',
+    'product-data.js', 'product-library.js',
     'estimate-builder-v2.js', 'estimate-catalog-xactimate.js', 'estimate-v2-ui.js'];
   const estBundleSrc = (src.match(/estimates:\s*\[([\s\S]*?)\]/) || [])[1] || '';
   for (const m of ESTMODS) {

@@ -149,7 +149,14 @@
       'js/estimate-builder-v2.js?v=5',
       'js/estimate-catalog-xactimate.js?v=1',
       'js/estimate-logic-engine.js?v=5',
-      'js/estimates.js?v=6',
+      'js/estimates.js?v=7',
+      // Rock 2 PR 6: the New-Estimate front door (chooser) split out of
+      // estimates.js. Loads after it — showNewEstimateChooser falls back to
+      // estimates.js's showEstimateTypeSelector when V2 is missing.
+      'js/estimate-entry.js?v=1',
+      // Rock 2 PR 6: the estimates-list row actions (Firestore CRM ops, no
+      // pricing math) split out of estimates.js.
+      'js/estimate-crm-ops.js?v=1',
       'js/estimate-finalization.js?v=2',
       'js/estimate-v2-ui.js?v=14',
       'js/estimate-supplement.js?v=1',

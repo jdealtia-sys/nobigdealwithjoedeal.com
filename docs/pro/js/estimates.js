@@ -96,216 +96,14 @@ function _warnDeprecatedOnce(name, replacement) {
   } catch (_) {}
 }
 
-// Default pricing table (Cincinnati/Ohio market fallback)
-//
-// UNIT CONVENTION: all SF-based items (shingle, felt, tear, iws, deck)
-// are stored PER SQUARE (100 SF), not per SF. The calcTierPrices()
-// formulas multiply by `sq` (the count of 100-SF squares), so these
-// rates must be dollars per square. Historical bug: previously these
-// were stored as per-SF ($4.25/SF for shingle) but the formula used
-// squares, producing estimates ~30x below real market. Example of
-// the fix impact: a 54-sq (3900 SF raw) Good-tier reroof was quoting
-// $1,194 — now correctly quotes ~$12,000.
-//
-// LF items (starter, drip, ridge, hip, gutter) stay per LF.
-// Count items (pipe) stay per EA.
-const DEFAULT_RATES = {
-  // SF-based materials — PER SQUARE (100 SF)
-  shingle: 135,    // $/SQ — 30-yr architectural retail installed
-  felt: 35,        // $/SQ — synthetic underlayment
-  tear: 75,        // $/SQ — tear-off labor (1 layer)
-  iws: 95,         // $/SQ — ice & water shield
-  deck: 145,       // $/SQ — OSB decking material + labor
-  // LF-based — PER LINEAR FOOT
-  starter: 2.10,   // $/LF
-  drip: 1.85,      // $/LF
-  ridge: 5.50,     // $/LF ridge cap
-  hip: 5.75,       // $/LF hip cap
-  gutter: 8.50,    // $/LF seamless aluminum
-  // Count-based
-  pipe: 45.00,     // $/EA — pipe boot
-  // Fractional
-  deckPct: 0.15    // 15% deck allowance
-};
+// DEFAULT_RATES / PRODUCT_MAP / syncRatesFromProductLibrary moved to
+// product-library.js (Rock 2 PR 6). It is the only writer of window.R,
+// which eager property-intel.js reads, so it must not depend on the
+// classic engine surviving. The map is re-exported as
+// window.NBD_ESTIMATE_PRODUCT_MAP for getProductName() below.
 
-// Product Library → Estimate Rate Mapping.
-// Each entry says: "when syncRatesFromProductLibrary() runs, look up
-// product.pricing[tier].sell and multiply by unitConvert to produce
-// the value stored in window.R[key]."
-//
-// Product prices are native to their own units (per SQ for shingles,
-// per 25-LF bundle for ridge, etc.). unitConvert bridges that to the
-// rate unit required by the calcTierPrices formulas.
-//
-// For SF-based items the target unit is PER SQ (100 SF), matching
-// the DEFAULT_RATES convention above. Previously these used 1/100
-// to convert to per-SF, which produced rates the formula couldn't
-// use correctly.
-const PRODUCT_MAP = {
-  shingle: { id: 'shingle_001', unitConvert: 1 },     // product per SQ → rate per SQ
-  felt:    { id: 'under_001',   unitConvert: 1 },     // product per SQ → rate per SQ
-  tear:    null,                                        // labor only — no product mapping
-  starter: { id: 'flash_008',   unitConvert: 1/100 }, // product per 100-LF bundle → rate per LF
-  drip:    { id: 'flash_003',   unitConvert: 1 },     // product per LF → rate per LF
-  ridge:   { id: 'flash_007',   unitConvert: 1/25 },  // product per 25-LF bundle → rate per LF
-  iws:     { id: 'under_006',   unitConvert: 1/2 },   // product per 2-SQ roll (200 SF) → rate per SQ
-  hip:     { id: 'flash_007',   unitConvert: 1/25 },  // same as ridge
-  pipe:    { id: 'flash_002',   unitConvert: 1 },     // product per EA → rate per EA
-  deck:    null,                                        // decking — use default rate
-  gutter:  null                                         // gutters — use default rate
-};
-
-// Build window.R by pulling live pricing from product library, falling back to defaults
-function syncRatesFromProductLibrary(tier) {
-  tier = tier || 'better';
-  const rates = Object.assign({}, DEFAULT_RATES);
-
-  if (window._productLib && typeof window._productLib.getProducts === 'function') {
-    const products = window._productLib.getProducts();
-    for (const [key, mapping] of Object.entries(PRODUCT_MAP)) {
-      if (!mapping) continue;
-      const product = products.find(p => p.id === mapping.id);
-      if (product && product.pricing && product.pricing[tier]) {
-        // Convert product sell price to per-unit rate used by estimates
-        rates[key] = product.pricing[tier].sell * mapping.unitConvert;
-      }
-    }
-  }
-
-  window.R = rates;
-  return rates;
-}
-
-// Initialize rates — try product library first, then defaults
-if (typeof window.R === 'undefined' || !window.R) {
-  syncRatesFromProductLibrary('better');
-}
-
-function startNewEstimate(leadId) {
-  // Phase 2 (RoofLink rebuild, 2026-07-27): template-FIRST front door.
-  // W145 made V2 the unconditional default; this keeps everything V2
-  // (Classic stays deprecated for new estimates — V2-only per Jo,
-  // 2026-07-04) but leads with the fastest path: pick a job template,
-  // measurements auto-fill the quantities, land in a nearly-done
-  // estimate. "Start Blank" remains one tap away for oddball jobs.
-  //
-  // leadId is EXPLICIT here so the customer-scoped entry points (the
-  // lead-edit-modal "Send Estimate" / "Send Service Quote" / "Revise
-  // Estimate" chips) attach the estimate to their lead. Those chips call
-  // startNewEstimate(leadId) but the chooser only ever read
-  // window._cardDetailLeadId — which is null unless a card-detail modal is
-  // open — so they opened a builder with no customer on it. Falling back to
-  // the global keeps the card-detail + toolbar callers (which pass nothing)
-  // behaving exactly as before.
-  showNewEstimateChooser(leadId || window._cardDetailLeadId);
-}
-
-// Template-or-blank chooser — mobile bottom sheet (centered ≥720px),
-// built via createElement (CSP-safe, no inline handlers, matches the
-// assign-picker pattern above).
-function showNewEstimateChooser(leadId) {
-  let overlay = document.getElementById('est-new-chooser');
-  if (overlay) overlay.remove(); // rebuild fresh — matchMedia layout may differ
-
-  const desktop = window.matchMedia && window.matchMedia('(min-width: 720px)').matches;
-  overlay = document.createElement('div');
-  overlay.id = 'est-new-chooser';
-  overlay.style.cssText = 'position:fixed;inset:0;z-index:10020;background:rgba(0,0,0,.72);'
-    + 'display:flex;justify-content:center;align-items:' + (desktop ? 'center' : 'flex-end') + ';'
-    + (desktop ? 'padding:24px;' : '');
-
-  const sheet = document.createElement('div');
-  sheet.style.cssText = 'background:var(--s,#14181f);border:1px solid var(--br,#2a2d35);'
-    + 'width:100%;max-width:520px;padding:20px 18px calc(18px + env(safe-area-inset-bottom, 0));'
-    + (desktop ? 'border-radius:14px;' : 'border-radius:16px 16px 0 0;border-bottom:none;');
-
-  const title = document.createElement('div');
-  title.style.cssText = "font-family:'Barlow Condensed',sans-serif;font-size:20px;font-weight:800;"
-    + 'color:var(--t,#fff);text-transform:uppercase;letter-spacing:.05em;margin-bottom:14px;';
-  title.textContent = 'New Estimate';
-  sheet.appendChild(title);
-
-  const makeOption = (opts) => {
-    const b = document.createElement('button');
-    b.type = 'button';
-    b.style.cssText = 'display:flex;align-items:center;gap:14px;width:100%;text-align:left;'
-      + 'background:var(--s2,#1b2028);border:2px solid ' + (opts.accent || 'var(--br,#2a2d35)') + ';'
-      + 'border-radius:12px;padding:16px;margin-bottom:10px;cursor:pointer;font-family:inherit;'
-      + 'color:var(--t,#fff);-webkit-tap-highlight-color:transparent;';
-    const icon = document.createElement('div');
-    icon.style.cssText = 'font-size:26px;flex:none;';
-    icon.textContent = opts.icon;
-    const body = document.createElement('div');
-    const name = document.createElement('div');
-    name.style.cssText = "font-family:'Barlow Condensed',sans-serif;font-size:17px;font-weight:800;"
-      + 'text-transform:uppercase;letter-spacing:.04em;';
-    name.textContent = opts.name;
-    const desc = document.createElement('div');
-    desc.style.cssText = 'font-size:11px;color:var(--m,#888);line-height:1.5;margin-top:3px;';
-    desc.textContent = opts.desc;
-    body.appendChild(name);
-    body.appendChild(desc);
-    b.appendChild(icon);
-    b.appendChild(body);
-    b.addEventListener('click', () => { overlay.remove(); opts.onClick(); });
-    return b;
-  };
-
-  sheet.appendChild(makeOption({
-    icon: '🧰',
-    name: 'From Template — Fastest',
-    accent: 'var(--green, #2ecc8a)',
-    desc: 'Pick a job package. Measurements auto-fill the quantities and you land in a nearly-done estimate.',
-    onClick: () => {
-      // Job Templates ride the estimates ScriptLoader bundle — normally
-      // already loaded by the time this chooser is reachable, but a
-      // direct dashboard-tile tap can race the bundle, so load-then-run.
-      const openJT = () => {
-        if (window.JobTemplatesUI && typeof window.JobTemplatesUI.openPicker === 'function') {
-          window.JobTemplatesUI.openPicker(leadId ? { leadId: leadId } : {});
-        } else if (typeof showToast === 'function') {
-          showToast('Templates unavailable — starting a blank estimate instead', 'info');
-          if (typeof window.openEstimateV2Builder === 'function') window.openEstimateV2Builder(leadId ? { leadId: leadId } : {});
-        }
-      };
-      if (window.JobTemplatesUI) openJT();
-      else if (window.ScriptLoader && typeof window.ScriptLoader.loadBundle === 'function') {
-        window.ScriptLoader.loadBundle('estimates').then(openJT).catch(openJT);
-      } else openJT();
-    }
-  }));
-
-  sheet.appendChild(makeOption({
-    icon: '✏️',
-    name: 'Start Blank',
-    desc: 'Open the V2 builder empty — full 270-item catalog, presets, tiers.',
-    onClick: () => {
-      // opts.leadId (estimate-v2-ui.js open()) prefills from the lead and
-      // suppresses the stale-draft restore prompt — blank of LINE ITEMS, not
-      // blank of customer.
-      if (typeof window.openEstimateV2Builder === 'function') window.openEstimateV2Builder(leadId ? { leadId: leadId } : {});
-      // Defense-in-depth: V2 not loaded (mid-deploy SW cache miss) →
-      // legacy picker so the rep isn't blocked.
-      else showEstimateTypeSelector();
-    }
-  }));
-
-  const cancel = document.createElement('button');
-  cancel.type = 'button';
-  cancel.textContent = 'Cancel';
-  cancel.style.cssText = 'width:100%;background:none;border:1px solid var(--br,#2a2d35);'
-    + 'color:var(--m,#888);padding:12px;border-radius:10px;cursor:pointer;'
-    + "font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:700;"
-    + 'letter-spacing:.08em;text-transform:uppercase;';
-  cancel.addEventListener('click', () => overlay.remove());
-  sheet.appendChild(cancel);
-
-  overlay.appendChild(sheet);
-  document.body.appendChild(overlay);
-  overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
-  const escH = (e) => { if (e.key === 'Escape') { overlay.remove(); document.removeEventListener('keydown', escH); } };
-  document.addEventListener('keydown', escH);
-}
+// startNewEstimate() + showNewEstimateChooser() moved to estimate-entry.js
+// (Rock 2 PR 6) — pure V2 routing, not part of the classic engine.
 
 function startNewEstimateOriginal() {
   // Rock 2 PR 5: no UI path reaches this for NEW estimates anymore (V2-only
@@ -517,7 +315,7 @@ function calcTierPrices() {
   _warnDeprecatedOnce('calcTierPrices', 'EstimateBuilderV2.calculateAllTiers');
   // Re-sync rates from product library each time tiers are recalculated —
   // needed for the internal cost basis, not the customer price.
-  syncRatesFromProductLibrary(selectedTier || 'better');
+  if (typeof window.syncRatesFromProductLibrary === 'function') window.syncRatesFromProductLibrary(selectedTier || 'better');
   updateEstCalc();
   const sq = estData.sq || 0;
   const ridge = Math.max(0, parseFloat(document.getElementById('estRidge')?.value) || 0);
@@ -579,9 +377,10 @@ function selectTier(tier,el) {
 }
 
 function getProductName(mapKey, fallback) {
-  if (!window._productLib || !PRODUCT_MAP[mapKey]) return fallback;
+  const MAP = window.NBD_ESTIMATE_PRODUCT_MAP || {};
+  if (!window._productLib || !MAP[mapKey]) return fallback;
   const products = window._productLib.getProducts();
-  const p = products.find(pr => pr.id === PRODUCT_MAP[mapKey].id);
+  const p = products.find(pr => pr.id === MAP[mapKey].id);
   return p ? p.name : fallback;
 }
 
@@ -591,7 +390,7 @@ function getProductName(mapKey, fallback) {
 // getInternalCostBasis() and is surfaced only in the "Internal View"
 // toggle, not on the customer estimate.
 function getLineItems() {
-  syncRatesFromProductLibrary(selectedTier || 'better');
+  if (typeof window.syncRatesFromProductLibrary === 'function') window.syncRatesFromProductLibrary(selectedTier || 'better');
   const d = estData;
   const sq = d.sq || 0;
   const tier = selectedTier || 'better';
@@ -625,7 +424,7 @@ function getLineItems() {
 // NOT shown to customers. Sum of per-item rates × quantities from the
 // product library, same math the old builder used for customer price.
 function getInternalCostBasis() {
-  syncRatesFromProductLibrary(selectedTier || 'better');
+  if (typeof window.syncRatesFromProductLibrary === 'function') window.syncRatesFromProductLibrary(selectedTier || 'better');
   const d = estData;
   const sq = d.sq || 0;
   const ridge = d.ridge || 0, eave = d.eave || 0, hip = d.hip || 0, pipes = d.pipes || 0;
@@ -1260,219 +1059,12 @@ function showEstimateTypeSelector() {
   document.addEventListener('keydown', escHandler);
 }
 
-// ══════════════════════════════════════════════════════════════
-// Estimates list row actions — duplicate / rename / assign / delete
-// Called from the delegated click handler in renderEstimatesList
-// (dashboard.html). Each one reads window._estimates, mutates via
-// the window._* Firestore helpers, and the list re-renders because
-// loadEstimates() is called inside those helpers.
-// ══════════════════════════════════════════════════════════════
-
-async function duplicateEstimateAction(id) {
-  if (typeof window._duplicateEstimate !== 'function') {
-    showToast('Duplicate not available — reload the page', 'error');
-    return;
-  }
-  const src = (window._estimates || []).find(e => e.id === id);
-  if (!src) { showToast('Estimate not found', 'error'); return; }
-  const newId = await window._duplicateEstimate(id);
-  if (newId) showToast('\u2713 Estimate duplicated', 'success');
-  else showToast('Failed to duplicate', 'error');
-}
-
-async function renameEstimateAction(id) {
-  const src = (window._estimates || []).find(e => e.id === id);
-  if (!src) { showToast('Estimate not found', 'error'); return; }
-  const current = src.name || src.addr || '';
-  // QA 2026-06-21 #7: native prompt() is BLOCKED in iOS standalone (PWA) mode,
-  // so rename silently no-op'd there while delete/duplicate worked (they use
-  // nbdConfirm). Prefer the modal nbdPrompt (defined by standalone-compat.js in
-  // standalone mode) and fall back to native prompt in a normal browser.
-  // eslint-disable-next-line no-alert
-  const next = (typeof window.nbdPrompt === 'function')
-    ? await window.nbdPrompt('Rename estimate:', current)
-    : window.prompt('Rename estimate:', current);
-  if (next === null) return;  // user hit Cancel
-  const trimmed = String(next).trim();
-  if (!trimmed) { showToast('Name cannot be empty', 'error'); return; }
-  if (typeof window._renameEstimate !== 'function') {
-    showToast('Rename not available', 'error');
-    return;
-  }
-  const ok = await window._renameEstimate(id, trimmed);
-  if (ok) showToast('\u2713 Renamed', 'success');
-  else showToast('Failed to rename', 'error');
-}
-
-async function assignEstimateAction(id) {
-  const src = (window._estimates || []).find(e => e.id === id);
-  if (!src) { showToast('Estimate not found', 'error'); return; }
-  const leads = window._leads || [];
-  if (!leads.length) {
-    showToast('No customers available — add a lead first', 'error');
-    return;
-  }
-  // Show picker modal
-  showAssignLeadPicker(id, src);
-}
-
-async function deleteEstimateAction(id) {
-  const src = (window._estimates || []).find(e => e.id === id);
-  if (!src) { showToast('Estimate not found', 'error'); return; }
-  const label = src.name || src.addr || 'this estimate';
-  const _ask = window.nbdConfirm || ((m) => Promise.resolve(window.confirm(m)));
-  if (!(await _ask('Delete "' + label + '"? This cannot be undone.'))) return;
-  if (typeof window._deleteEstimate !== 'function') {
-    showToast('Delete not available', 'error');
-    return;
-  }
-  const ok = await window._deleteEstimate(id);
-  if (ok) showToast('\u2713 Estimate deleted', 'success');
-  else showToast('Failed to delete', 'error');
-}
-
-// Lead picker modal for the Assign action. Built via createElement
-// (no innerHTML string interpolation) so user-generated lead names
-// can never smuggle markup into the page.
-function showAssignLeadPicker(estimateId, estimate) {
-  const leads = window._leads || [];
-  // Reuse existing overlay if present
-  let overlay = document.getElementById('assign-lead-picker');
-  if (overlay) overlay.remove();
-
-  overlay = document.createElement('div');
-  overlay.id = 'assign-lead-picker';
-  overlay.style.cssText = 'position:fixed;inset:0;z-index:9998;'
-    + 'background:rgba(0,0,0,.75);display:flex;align-items:center;'
-    + 'justify-content:center;padding:20px;';
-
-  const sheet = document.createElement('div');
-  sheet.style.cssText = 'background:var(--s, #1a1d23);border:1px solid var(--br, #2a2d35);'
-    + 'border-radius:12px;padding:24px;max-width:500px;width:100%;'
-    + 'max-height:80vh;display:flex;flex-direction:column;'
-    + 'box-shadow:0 20px 60px rgba(0,0,0,.5);';
-
-  const hdr = document.createElement('div');
-  hdr.style.cssText = 'margin-bottom:14px;';
-  const hdrTitle = document.createElement('div');
-  hdrTitle.style.cssText = "font-family:'Barlow Condensed',sans-serif;font-size:18px;"
-    + 'font-weight:800;color:var(--t, #fff);text-transform:uppercase;letter-spacing:.04em;';
-  hdrTitle.textContent = 'Assign to Customer';
-  const hdrSub = document.createElement('div');
-  hdrSub.style.cssText = 'font-size:11px;color:var(--m, #888);margin-top:4px;';
-  hdrSub.textContent = (estimate.name || estimate.addr || 'Untitled estimate');
-  hdr.appendChild(hdrTitle);
-  hdr.appendChild(hdrSub);
-  sheet.appendChild(hdr);
-
-  // Search box
-  const search = document.createElement('input');
-  search.type = 'text';
-  search.placeholder = 'Search customers...';
-  search.style.cssText = 'background:var(--s2);border:1px solid var(--br);'
-    + 'border-radius:6px;padding:10px 12px;font-size:13px;color:var(--t);'
-    + 'margin-bottom:12px;font-family:inherit;outline:none;';
-  sheet.appendChild(search);
-
-  // Results container — scrollable
-  const results = document.createElement('div');
-  results.style.cssText = 'flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:4px;min-height:200px;';
-  sheet.appendChild(results);
-
-  const renderLeads = (filter) => {
-    results.textContent = '';
-    const q = (filter || '').toLowerCase().trim();
-    const filtered = q
-      ? leads.filter(l => {
-          const text = [l.firstName, l.lastName, l.address, l.phone].filter(Boolean).join(' ').toLowerCase();
-          return text.includes(q);
-        })
-      : leads;
-
-    if (!filtered.length) {
-      const empty = document.createElement('div');
-      empty.style.cssText = 'text-align:center;padding:30px 10px;color:var(--m);font-size:12px;';
-      empty.textContent = q ? 'No customers match "' + q + '"' : 'No customers yet';
-      results.appendChild(empty);
-      return;
-    }
-
-    // "Unassign" option at the top if currently assigned
-    if (estimate.leadId) {
-      const unassign = document.createElement('button');
-      unassign.type = 'button';
-      unassign.style.cssText = 'background:var(--s2);border:1px dashed var(--br);'
-        + 'color:var(--m);padding:10px 14px;border-radius:6px;text-align:left;'
-        + 'cursor:pointer;font-family:inherit;font-size:12px;';
-      unassign.textContent = '✕ Unassign (leave without customer)';
-      unassign.addEventListener('click', async () => {
-        overlay.remove();
-        const ok = await window._assignEstimateToLead(estimateId, null);
-        if (ok) showToast('\u2713 Estimate unassigned', 'success');
-      });
-      results.appendChild(unassign);
-    }
-
-    filtered.slice(0, 100).forEach(lead => {
-      const row = document.createElement('button');
-      row.type = 'button';
-      row.style.cssText = 'background:var(--s2);border:1px solid var(--br);'
-        + 'border-radius:6px;padding:10px 14px;text-align:left;cursor:pointer;'
-        + 'font-family:inherit;transition:border-color .15s;';
-      row.addEventListener('mouseenter', () => { row.style.borderColor = 'var(--orange)'; });
-      row.addEventListener('mouseleave', () => { row.style.borderColor = 'var(--br)'; });
-
-      const name = document.createElement('div');
-      name.style.cssText = 'font-size:13px;font-weight:600;color:var(--t);';
-      name.textContent = [lead.firstName, lead.lastName].filter(Boolean).join(' ') || '(no name)';
-      row.appendChild(name);
-
-      const addr = document.createElement('div');
-      addr.style.cssText = 'font-size:11px;color:var(--m);margin-top:2px;';
-      addr.textContent = lead.address || 'No address';
-      row.appendChild(addr);
-
-      row.addEventListener('click', async () => {
-        overlay.remove();
-        const ok = await window._assignEstimateToLead(estimateId, lead.id);
-        if (ok) showToast('\u2713 Assigned to ' + (lead.firstName || lead.address || 'customer'), 'success');
-        else showToast('Failed to assign', 'error');
-      });
-      results.appendChild(row);
-    });
-  };
-
-  renderLeads('');
-  search.addEventListener('input', () => renderLeads(search.value));
-
-  // Footer — cancel button
-  const footer = document.createElement('div');
-  footer.style.cssText = 'display:flex;justify-content:flex-end;margin-top:14px;';
-  const cancelBtn = document.createElement('button');
-  cancelBtn.type = 'button';
-  cancelBtn.textContent = 'Cancel';
-  cancelBtn.style.cssText = 'background:none;border:1px solid var(--br);'
-    + 'color:var(--m);padding:8px 18px;border-radius:6px;cursor:pointer;'
-    + "font-family:'Barlow Condensed',sans-serif;font-size:12px;"
-    + 'font-weight:700;letter-spacing:.08em;text-transform:uppercase;';
-  cancelBtn.addEventListener('click', () => overlay.remove());
-  footer.appendChild(cancelBtn);
-  sheet.appendChild(footer);
-
-  overlay.appendChild(sheet);
-  document.body.appendChild(overlay);
-
-  // Click outside + Esc to close
-  overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
-  const escHandler = (e) => {
-    if (e.key === 'Escape') { overlay.remove(); document.removeEventListener('keydown', escHandler); }
-  };
-  document.addEventListener('keydown', escHandler);
-  setTimeout(() => search.focus(), 50);
-}
+// The estimates-list row actions (duplicate / rename / assign / delete)
+// and showAssignLeadPicker moved to estimate-crm-ops.js (Rock 2 PR 6) —
+// Firestore CRM operations, no pricing math.
 
 // ══ Window Scope Exposures ══════════════════════════════════
-window.startNewEstimate = startNewEstimate;
+// window.startNewEstimate is exported by estimate-entry.js (Rock 2 PR 6).
 window.startNewEstimateOriginal = startNewEstimateOriginal;
 window.cancelEstimate = cancelEstimate;
 window.showEstStep = showEstStep;
@@ -1485,13 +1077,9 @@ window.selectTier = selectTier;
 window.saveEstimate = saveEstimate;
 window.buildReview = buildReview;
 window.getLineItems = getLineItems;
-window.syncRatesFromProductLibrary = syncRatesFromProductLibrary;
+// window.syncRatesFromProductLibrary is exported by product-library.js (Rock 2 PR 6).
 window.getProductName = getProductName;
 window.showEstimateTypeSelector = showEstimateTypeSelector;
-window.duplicateEstimateAction = duplicateEstimateAction;
-window.renameEstimateAction = renameEstimateAction;
-window.assignEstimateAction = assignEstimateAction;
-window.deleteEstimateAction = deleteEstimateAction;
 
 // ════════════════════════════════════════════════════════════
 // EBv2 — Insurance Overlay, Deposit Math, Revisions

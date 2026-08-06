@@ -2,6 +2,12 @@
 
 **Status:** Phase 1 of BIG_ROCKS Rock 2. Pure investigation, no code changes.
 
+> **Update 2026-08-06 (PR 6 partial).** The body below is the original
+> 2026-04-25 investigation and its line numbers no longer resolve. Read
+> [Status as of 2026-08-06](#status-as-of-2026-08-06) at the bottom first —
+> it records what PRs 2–6 actually shipped, and why the deletion this
+> document anticipates is still blocked.
+
 ## TL;DR
 
 Deleting `estimates.js` tomorrow breaks the classic 4-step estimate builder
@@ -276,3 +282,92 @@ grep -rn "estimates\.js\|estimate-builder-v2\.js\|estimate-logic-engine\.js" doc
 
 Re-run these before each migration PR to catch new call sites added since
 this audit.
+
+---
+
+## Status as of 2026-08-06
+
+Written during Rock 2 PR 6. Everything above this heading is the original
+2026-04-25 investigation, kept for its reasoning; its line numbers are stale.
+
+### What shipped
+
+| PR | Status | Note |
+|---|---|---|
+| 2 | done | Deprecation warns + lazy-load. `estimates.js` has no eager `<script>` in either dashboard; it rides the `estimates` ScriptLoader bundle. |
+| 3 | done | `estimate-config.js` is the canonical table; classic reads `window.NBD_ESTIMATE_CONFIG` with inline fallbacks. Closes drifts 1–5. |
+| 4 | done | Waste + deposit delegate to `EstimateBuilderV2`. Closes drifts 6–7 — the Drift 7 claim that `estimate-finalization.js` references a classic helper is stale; it has no classic references. |
+| 5 | done | V2 is the unconditional default for new estimates. |
+| 6 | **partial (this PR)** | Keeper code split out. Deletion still blocked — see below. |
+
+### PR 6, part 1 — what this PR did
+
+Three groups of code inside `estimates.js` were never classic-engine code
+and were blocking the deletion by being tangled into it. Each moved verbatim:
+
+- `estimate-entry.js` — `startNewEstimate` + `showNewEstimateChooser`. The
+  live New-Estimate front door, pure V2 routing, ~10 external callers.
+- `estimate-crm-ops.js` — duplicate / rename / assign / delete +
+  `showAssignLeadPicker`. Firestore CRM ops, no pricing math.
+- `product-library.js` (appended) — `DEFAULT_RATES`, `PRODUCT_MAP`,
+  `syncRatesFromProductLibrary`. This is the **only** writer of `window.R`,
+  which *eager* `property-intel.js` reads; leaving it in the lazy engine
+  meant deleting `estimates.js` would silently drop property-intel to its
+  hardcoded per-sqft fallback.
+
+`estimates.js` is now classic-wizard code only (1,613 → ~1,200 lines).
+
+### Why the deletion is still blocked
+
+**1. The classic 4-step wizard is still wired.** ~250 lines of markup in
+`dashboard.html` (`#est-builder` → `#estStep4`) with 14 `data-fn` handlers,
+the reopen path in `dashboard-widgets.js`, shared state declared in *eager*
+`dashboard-state.js` (`estCurrentStep` / `selectedTier` / `estData`), plus
+callers in `tools.js`, `maps-routing.js` and `close-board.js`. These must be
+deleted together or the buttons become dead controls.
+
+**2. `startNewEstimateOriginal` is NOT dead** — corrected 2026-08-06. It had
+been assessed as reachable only from the console. It is in fact reachable
+through a live fallback chain: the New-Estimate chooser's "Start Blank"
+option calls `window.showEstimateTypeSelector()` when `openEstimateV2Builder`
+is missing (mid-deploy SW cache miss), and that selector's "Classic Builder"
+card calls `startNewEstimateOriginal()`. Deleting the function alone leaves
+that card silently dead — its call site is `typeof`-guarded. It goes with
+the wizard, not before it.
+
+**3. Open product question — pre-V2 stored estimates.** `dashboard-widgets.js`
+routes docs whose `builder !== 'v2'` to the classic reopen path. Until legacy
+docs are migrated or made read-only, some classic read path must exist.
+**This is Jo's call and it gates everything else.**
+
+### Reading the deprecation-warn logs
+
+Warn format, once per page load per function:
+
+```
+[estimates.js DEPRECATED] <name> is duplicated by <replacement>. Migration plan: docs/dev/estimate-engines-audit.md
+```
+
+Only 7 of ~30 classic functions are instrumented, so absence of warns is not
+proof a surface is cold. Two traps when reading field logs:
+
+- `calcTierPrices` fires whenever a rep **opens a pre-V2 estimate**, not when
+  someone builds a classic one. A hit measures blocker 3 above, not usage.
+- `recommendedWasteForPitch` and `calcDeposit` warn only on their
+  V2-missing fallback branch — a hit there means the bundle failed to load.
+
+`startNewEstimateOriginal` is the one clean signal: a hit means a rep really
+did land in the classic wizard.
+
+### Remaining work
+
+- Delete the classic wizard as one unit: `estimates.js` remainder + the
+  `dashboard.html` markup + the `dashboard-state.js` declarations + the four
+  external callers. Note `dashboard.legacy.html` shares `script-loader.js`,
+  so this also changes what the rollback snapshot loads.
+- Then drop the four `ESTSRC` source-text assertions in
+  `tests/estimate-engine-parity.test.js` (D-1 fallback literals, D-5
+  delegation). They are deliberately **kept** while the classic fallbacks
+  still price real jobs.
+- `tests/estimate-pricing.test.js` already imports EBv2 with no aliasing —
+  the PR 6 bullet above asking for that is already satisfied.
