@@ -57,7 +57,10 @@ const PARTIAL = path.join(REPO_ROOT, 'site-src', 'partials', `${PARTIAL_NAME}.ht
 const WRITE = process.argv.includes('--write');
 const SHOW_NEAR = process.argv.includes('--show-near');
 const SCAN_EXCLUDED_TOP_DIRS = new Set(['pro', 'admin', 'dev']);
-const NEAR_LINE_BUDGET = 6;
+// --near-budget N widens the NEAR window for a specific cohort run (e.g. the
+// footer-extended hubs, where 4 pages carry an inserted bogus nav item = 8
+// differing lines). Every NEAR diff is still printed for review either way.
+const NEAR_LINE_BUDGET = parseInt(argValue('--near-budget', '6'), 10) || 6;
 
 function walkHtml(dir, out = []) {
   for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
