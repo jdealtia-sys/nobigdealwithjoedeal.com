@@ -96,90 +96,11 @@ function _warnDeprecatedOnce(name, replacement) {
   } catch (_) {}
 }
 
-// Default pricing table (Cincinnati/Ohio market fallback)
-//
-// UNIT CONVENTION: all SF-based items (shingle, felt, tear, iws, deck)
-// are stored PER SQUARE (100 SF), not per SF. The calcTierPrices()
-// formulas multiply by `sq` (the count of 100-SF squares), so these
-// rates must be dollars per square. Historical bug: previously these
-// were stored as per-SF ($4.25/SF for shingle) but the formula used
-// squares, producing estimates ~30x below real market. Example of
-// the fix impact: a 54-sq (3900 SF raw) Good-tier reroof was quoting
-// $1,194 — now correctly quotes ~$12,000.
-//
-// LF items (starter, drip, ridge, hip, gutter) stay per LF.
-// Count items (pipe) stay per EA.
-const DEFAULT_RATES = {
-  // SF-based materials — PER SQUARE (100 SF)
-  shingle: 135,    // $/SQ — 30-yr architectural retail installed
-  felt: 35,        // $/SQ — synthetic underlayment
-  tear: 75,        // $/SQ — tear-off labor (1 layer)
-  iws: 95,         // $/SQ — ice & water shield
-  deck: 145,       // $/SQ — OSB decking material + labor
-  // LF-based — PER LINEAR FOOT
-  starter: 2.10,   // $/LF
-  drip: 1.85,      // $/LF
-  ridge: 5.50,     // $/LF ridge cap
-  hip: 5.75,       // $/LF hip cap
-  gutter: 8.50,    // $/LF seamless aluminum
-  // Count-based
-  pipe: 45.00,     // $/EA — pipe boot
-  // Fractional
-  deckPct: 0.15    // 15% deck allowance
-};
-
-// Product Library → Estimate Rate Mapping.
-// Each entry says: "when syncRatesFromProductLibrary() runs, look up
-// product.pricing[tier].sell and multiply by unitConvert to produce
-// the value stored in window.R[key]."
-//
-// Product prices are native to their own units (per SQ for shingles,
-// per 25-LF bundle for ridge, etc.). unitConvert bridges that to the
-// rate unit required by the calcTierPrices formulas.
-//
-// For SF-based items the target unit is PER SQ (100 SF), matching
-// the DEFAULT_RATES convention above. Previously these used 1/100
-// to convert to per-SF, which produced rates the formula couldn't
-// use correctly.
-const PRODUCT_MAP = {
-  shingle: { id: 'shingle_001', unitConvert: 1 },     // product per SQ → rate per SQ
-  felt:    { id: 'under_001',   unitConvert: 1 },     // product per SQ → rate per SQ
-  tear:    null,                                        // labor only — no product mapping
-  starter: { id: 'flash_008',   unitConvert: 1/100 }, // product per 100-LF bundle → rate per LF
-  drip:    { id: 'flash_003',   unitConvert: 1 },     // product per LF → rate per LF
-  ridge:   { id: 'flash_007',   unitConvert: 1/25 },  // product per 25-LF bundle → rate per LF
-  iws:     { id: 'under_006',   unitConvert: 1/2 },   // product per 2-SQ roll (200 SF) → rate per SQ
-  hip:     { id: 'flash_007',   unitConvert: 1/25 },  // same as ridge
-  pipe:    { id: 'flash_002',   unitConvert: 1 },     // product per EA → rate per EA
-  deck:    null,                                        // decking — use default rate
-  gutter:  null                                         // gutters — use default rate
-};
-
-// Build window.R by pulling live pricing from product library, falling back to defaults
-function syncRatesFromProductLibrary(tier) {
-  tier = tier || 'better';
-  const rates = Object.assign({}, DEFAULT_RATES);
-
-  if (window._productLib && typeof window._productLib.getProducts === 'function') {
-    const products = window._productLib.getProducts();
-    for (const [key, mapping] of Object.entries(PRODUCT_MAP)) {
-      if (!mapping) continue;
-      const product = products.find(p => p.id === mapping.id);
-      if (product && product.pricing && product.pricing[tier]) {
-        // Convert product sell price to per-unit rate used by estimates
-        rates[key] = product.pricing[tier].sell * mapping.unitConvert;
-      }
-    }
-  }
-
-  window.R = rates;
-  return rates;
-}
-
-// Initialize rates — try product library first, then defaults
-if (typeof window.R === 'undefined' || !window.R) {
-  syncRatesFromProductLibrary('better');
-}
+// DEFAULT_RATES / PRODUCT_MAP / syncRatesFromProductLibrary moved to
+// product-library.js (Rock 2 PR 6). It is the only writer of window.R,
+// which eager property-intel.js reads, so it must not depend on the
+// classic engine surviving. The map is re-exported as
+// window.NBD_ESTIMATE_PRODUCT_MAP for getProductName() below.
 
 // startNewEstimate() + showNewEstimateChooser() moved to estimate-entry.js
 // (Rock 2 PR 6) — pure V2 routing, not part of the classic engine.
@@ -394,7 +315,7 @@ function calcTierPrices() {
   _warnDeprecatedOnce('calcTierPrices', 'EstimateBuilderV2.calculateAllTiers');
   // Re-sync rates from product library each time tiers are recalculated —
   // needed for the internal cost basis, not the customer price.
-  syncRatesFromProductLibrary(selectedTier || 'better');
+  if (typeof window.syncRatesFromProductLibrary === 'function') window.syncRatesFromProductLibrary(selectedTier || 'better');
   updateEstCalc();
   const sq = estData.sq || 0;
   const ridge = Math.max(0, parseFloat(document.getElementById('estRidge')?.value) || 0);
@@ -456,9 +377,10 @@ function selectTier(tier,el) {
 }
 
 function getProductName(mapKey, fallback) {
-  if (!window._productLib || !PRODUCT_MAP[mapKey]) return fallback;
+  const MAP = window.NBD_ESTIMATE_PRODUCT_MAP || {};
+  if (!window._productLib || !MAP[mapKey]) return fallback;
   const products = window._productLib.getProducts();
-  const p = products.find(pr => pr.id === PRODUCT_MAP[mapKey].id);
+  const p = products.find(pr => pr.id === MAP[mapKey].id);
   return p ? p.name : fallback;
 }
 
@@ -468,7 +390,7 @@ function getProductName(mapKey, fallback) {
 // getInternalCostBasis() and is surfaced only in the "Internal View"
 // toggle, not on the customer estimate.
 function getLineItems() {
-  syncRatesFromProductLibrary(selectedTier || 'better');
+  if (typeof window.syncRatesFromProductLibrary === 'function') window.syncRatesFromProductLibrary(selectedTier || 'better');
   const d = estData;
   const sq = d.sq || 0;
   const tier = selectedTier || 'better';
@@ -502,7 +424,7 @@ function getLineItems() {
 // NOT shown to customers. Sum of per-item rates × quantities from the
 // product library, same math the old builder used for customer price.
 function getInternalCostBasis() {
-  syncRatesFromProductLibrary(selectedTier || 'better');
+  if (typeof window.syncRatesFromProductLibrary === 'function') window.syncRatesFromProductLibrary(selectedTier || 'better');
   const d = estData;
   const sq = d.sq || 0;
   const ridge = d.ridge || 0, eave = d.eave || 0, hip = d.hip || 0, pipes = d.pipes || 0;
@@ -1155,7 +1077,7 @@ window.selectTier = selectTier;
 window.saveEstimate = saveEstimate;
 window.buildReview = buildReview;
 window.getLineItems = getLineItems;
-window.syncRatesFromProductLibrary = syncRatesFromProductLibrary;
+// window.syncRatesFromProductLibrary is exported by product-library.js (Rock 2 PR 6).
 window.getProductName = getProductName;
 window.showEstimateTypeSelector = showEstimateTypeSelector;
 
