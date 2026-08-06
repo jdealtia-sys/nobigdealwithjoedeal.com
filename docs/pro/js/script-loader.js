@@ -154,6 +154,9 @@
       // estimates.js. Loads after it — showNewEstimateChooser falls back to
       // estimates.js's showEstimateTypeSelector when V2 is missing.
       'js/estimate-entry.js?v=1',
+      // Rock 2 PR 6: the estimates-list row actions (Firestore CRM ops, no
+      // pricing math) split out of estimates.js.
+      'js/estimate-crm-ops.js?v=1',
       'js/estimate-finalization.js?v=2',
       'js/estimate-v2-ui.js?v=14',
       'js/estimate-supplement.js?v=1',
