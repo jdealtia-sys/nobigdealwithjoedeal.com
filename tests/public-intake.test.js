@@ -57,6 +57,18 @@ async function fetchDoc(collection, id) {
 }
 function str(fields, key) { return fields && fields[key] && fields[key].stringValue; }
 
+// Seed a doc through the same REST surface (same `Bearer owner` bypass) so
+// the siteKey-resolution cases can plant companies/{uid} fixtures without
+// the admin SDK.
+async function seedDoc(collection, id, fields) {
+  const body = { fields: Object.fromEntries(Object.entries(fields).map(([k, v]) => [k, { stringValue: String(v) }])) };
+  const res = await fetch(
+    `http://${process.env.FIRESTORE_EMULATOR_HOST}/v1/projects/${PROJECT}/databases/(default)/documents/${collection}/${id}`,
+    { method: 'PATCH', headers: { Authorization: 'Bearer owner', 'Content-Type': 'application/json' }, body: JSON.stringify(body) }
+  );
+  if (!res.ok) throw new Error(`seed ${collection}/${id} failed: ${res.status}`);
+}
+
 async function run() {
   console.log('PUBLIC LEAD INTAKE — submitPublicLead validation gateway');
 
@@ -166,6 +178,64 @@ async function run() {
     ok('over-cap estimateSummary (2001) dropped', !!fields && !fields.estimateSummary);
     ok('over-cap phone (31) dropped', !!fields && !fields.phone);
     ok('in-cap email kept alongside dropped over-caps', str(fields, 'email') === 'still-ok@example.com');
+  }
+
+  // ── siteKey tenant tagging (P5 indirection, 2026-08-06) ──
+  // The tenant microsite tags leads with its public siteKey (slug when
+  // configured); the gateway resolves it server-side via the SAME resolver
+  // as /api/site-config and persists the RESOLVED id — never the client
+  // string. Legacy client-supplied companyId keeps working (cached pages),
+  // but a resolved siteKey wins when both arrive.
+  {
+    const TENANT = 'T3stTenantUidAA1';
+    const OTHER = 'Oth3rTenantUidB2';
+    const GONE = 'Susp3ndedUidCC3';
+    await seedDoc('companies', TENANT, { name: 'Sunny Roofing', siteSlug: 'sunny-roofing', status: 'active' });
+    await seedDoc('companies', OTHER, { name: 'Other Roofing', status: 'active' });
+    await seedDoc('companies', GONE, { name: 'Gone Roofing', siteSlug: 'gone-roofing', status: 'suspended' });
+
+    const lead = (extra) => Object.assign(
+      { kind: 'contact', firstName: 'Pat', phone: '5550166', source: 'tenant-site:test' }, extra);
+
+    // slug resolves → lead tagged with the RESOLVED uid; siteKey never persists raw
+    {
+      const r = await post(lead({ siteKey: 'sunny-roofing' }));
+      const fields = (r.body && r.body.id) ? await fetchDoc('contact_leads', r.body.id) : null;
+      ok('siteKey slug resolves → lead tagged with resolved uid', str(fields, 'companyId') === TENANT);
+      ok('siteKey itself never persisted on the lead doc', !!fields && !fields.siteKey);
+    }
+    // uid-as-key still resolves (slug-less tenants are reachable only by uid URL)
+    {
+      const r = await post(lead({ siteKey: OTHER }));
+      const fields = (r.body && r.body.id) ? await fetchDoc('contact_leads', r.body.id) : null;
+      ok('siteKey uid form resolves for a slug-less tenant', str(fields, 'companyId') === OTHER);
+    }
+    // unknown key → tag dropped, lead still lands (tagging must never lose a lead)
+    {
+      const r = await post(lead({ siteKey: 'no-such-tenant' }));
+      ok(`unknown siteKey still succeeds (not 4xx; got ${r.status})`, ![400, 405].includes(r.status));
+      const fields = (r.body && r.body.id) ? await fetchDoc('contact_leads', r.body.id) : null;
+      ok('unknown siteKey → untagged (no companyId)', !!fields && !fields.companyId);
+    }
+    // suspended tenant stops resolving — strictly harder than the legacy
+    // companyId path, which only checks existence
+    {
+      const r = await post(lead({ siteKey: 'gone-roofing' }));
+      const fields = (r.body && r.body.id) ? await fetchDoc('contact_leads', r.body.id) : null;
+      ok('suspended tenant siteKey → untagged', !!fields && !fields.companyId);
+    }
+    // both keys (cache-skew window): the server-resolved siteKey wins
+    {
+      const r = await post(lead({ siteKey: 'sunny-roofing', companyId: OTHER }));
+      const fields = (r.body && r.body.id) ? await fetchDoc('contact_leads', r.body.id) : null;
+      ok('siteKey wins over legacy client companyId when both arrive', str(fields, 'companyId') === TENANT);
+    }
+    // legacy companyId-only path unchanged (cached pre-P5 pages)
+    {
+      const r = await post(lead({ companyId: TENANT }));
+      const fields = (r.body && r.body.id) ? await fetchDoc('contact_leads', r.body.id) : null;
+      ok('legacy companyId-only tagging still works (compat pin)', str(fields, 'companyId') === TENANT);
+    }
   }
 
   console.log('\n──────────────────────────────────────────────────');

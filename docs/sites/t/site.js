@@ -6,8 +6,11 @@
  * comes from /api/site-config (a server-side, whitelisted read of the
  * tenant's companyProfile), and the quote form posts through the same
  * hardened submitPublicLead gateway every public NBD form uses — tagged
- * with the tenant's companyId so the lead lands in THEIR pipeline and
- * alerts THEIR inbox (lead-alert resolveAlertTarget), never Joe's.
+ * with the tenant's public siteKey (the slug when configured; P5
+ * indirection 2026-08-06 — the uid no longer round-trips the client),
+ * which the gateway resolves server-side so the lead lands in THEIR
+ * pipeline and alerts THEIR inbox (lead-alert resolveAlertTarget),
+ * never Joe's.
  *
  * Everything tenant-typed is escaped or set via textContent; colors are
  * validated before being installed as CSS custom properties.
@@ -144,8 +147,12 @@
           service: $('qService').value,
           message: $('qMessage').value.trim(),
           nbd_hp: $('qHoneypot').value, // honeypot — humans leave it empty
-          companyId: cfg.companyId,
-          source: 'tenant-site:' + cfg.companyId
+          // P5 indirection: tag with the public siteKey (the slug when
+          // configured) — the gateway resolves it server-side. The
+          // cfg.companyId fallback covers a cached pre-P5 API response
+          // during the deploy-skew window.
+          siteKey: cfg.siteKey || cfg.companyId,
+          source: 'tenant-site:' + (cfg.siteKey || cfg.companyId)
         });
         if (!out || !out.ok) throw new Error((out && out.reason) || 'submission failed');
         form.reset();

@@ -51,6 +51,27 @@ function hex(v) {
   return /^#[0-9a-fA-F]{3,8}$/.test(c) ? c : '';
 }
 
+// Resolve a public site key (company doc id OR siteSlug) to the tenant.
+// Returns { companyId, co } for an active tenant (legacy status-less docs
+// still serve), else null. Exported so submitPublicLead's siteKey
+// lead-tagging resolves tenants IDENTICALLY to this endpoint — one
+// resolver, one notion of "a real, active tenant".
+async function resolveCompanyByKey(db, key) {
+  if (!KEY_RE.test(String(key || ''))) return null;
+  let companyId = key;
+  let coSnap = await db.doc(`companies/${key}`).get();
+  if (!coSnap.exists) {
+    const slugSnap = await db.collection('companies')
+      .where('siteSlug', '==', key).limit(1).get();
+    if (slugSnap.empty) return null;
+    coSnap = slugSnap.docs[0];
+    companyId = coSnap.id;
+  }
+  const co = coSnap.data() || {};
+  if (co.status && co.status !== 'active') return null;
+  return { companyId, co };
+}
+
 // Pure whitelist builder — exported for unit tests. Takes the RAW
 // companies/{id} + companyProfile/{id} docs and returns exactly the
 // public payload (no alert routing, no integrations, no pricing).
@@ -71,7 +92,13 @@ function buildPublicConfig(companyId, companyDoc, profileDoc) {
   const colors = b.colors || {};
   return {
     ok: true,
-    companyId,
+    // P5 indirection (tenant-lifecycle audit, resolved 2026-08-06): the
+    // template needs a stable key only to TAG leads, and the slug already
+    // is that key. Return the slug when one is configured — the tenant's
+    // Firebase uid is no longer echoed to callers who looked up by slug.
+    // A slug-less tenant is reachable only by uid URL, so returning the
+    // caller's own key discloses nothing new there.
+    siteKey: s(co.siteSlug, 64) || companyId,
     name: s(b.legalName, 80) || s(co.name, 80),
     displayName: s(b.displayName, 80) || s(b.legalName, 80) || s(co.name, 80),
     tagline: s(b.tagline, 160),
@@ -113,22 +140,11 @@ exports.getPublicSiteConfig = onRequest(
 
     try {
       const db = getFirestore();
-      let companyId = key;
-      let coSnap = await db.doc(`companies/${key}`).get();
-      if (!coSnap.exists) {
-        const slugSnap = await db.collection('companies')
-          .where('siteSlug', '==', key).limit(1).get();
-        if (slugSnap.empty) { res.status(404).json({ ok: false, reason: 'not_found' }); return; }
-        coSnap = slugSnap.docs[0];
-        companyId = coSnap.id;
-      }
-      const co = coSnap.data() || {};
-      // Superseded / disabled tenants stop resolving; legacy docs with no
-      // status field still serve.
-      if (co.status && co.status !== 'active') {
-        res.status(404).json({ ok: false, reason: 'not_found' });
-        return;
-      }
+      // Shared resolver: doc-id or siteSlug, superseded/disabled tenants
+      // stop resolving, legacy status-less docs still serve.
+      const hit = await resolveCompanyByKey(db, key);
+      if (!hit) { res.status(404).json({ ok: false, reason: 'not_found' }); return; }
+      const { companyId, co } = hit;
 
       const pSnap = await db.doc(`companyProfile/${companyId}`).get();
       const cfg = buildPublicConfig(companyId, co, pSnap.exists ? pSnap.data() : {});
@@ -241,4 +257,5 @@ exports.setSiteSlug = onCall(
   }
 );
 
-exports._test = { buildPublicConfig, validateSlug };
+exports.resolveCompanyByKey = resolveCompanyByKey;
+exports._test = { buildPublicConfig, validateSlug, resolveCompanyByKey };

@@ -23,6 +23,7 @@ const { FieldValue } = require('firebase-admin/firestore');
 
 const { httpRateLimit, enforceRateLimit, clientIp } = require('../integrations/upstash-ratelimit');
 const { CORS_ORIGINS } = require('./_shared');
+const { resolveCompanyByKey } = require('./public-site');
 
 // ═══════════════════════════════════════════════════════════════
 // integrationStatus — client-facing readout of which adapters are
@@ -400,6 +401,28 @@ exports.submitPublicLead = onRequest(
       } catch (_) { _cid = ''; }
     }
     if (_cid) data.companyId = _cid;
+
+    // P5 indirection (tenant-lifecycle audit, resolved 2026-08-06): the
+    // tenant microsite now tags leads with its public `siteKey` — the slug
+    // when one is configured — instead of round-tripping the tenant's
+    // Firebase uid through the client. Resolved with the SAME resolver the
+    // site-config endpoint uses (doc id OR siteSlug, active-status check),
+    // and the RESOLVED id — never the client's string — is what persists.
+    // This is strictly harder to abuse than the legacy companyId tag above:
+    // an inactive tenant stops resolving here. When both keys arrive (the
+    // ≤5-min cache-skew window between an old template and the new API),
+    // the server-resolved siteKey wins. siteKey itself is not in any field
+    // allowlist, so it never persists raw. Resolution failure only drops
+    // the tag (lead still lands, routed to the default pipeline) — a
+    // tagging problem must never lose a homeowner's lead.
+    let _skey = String((body.siteKey != null ? body.siteKey : '') || '').trim();
+    if (_skey && !/^[A-Za-z0-9_-]{1,64}$/.test(_skey)) _skey = '';
+    if (_skey) {
+      try {
+        const hit = await resolveCompanyByKey(getFirestore(), _skey);
+        if (hit) data.companyId = hit.companyId;
+      } catch (_) { /* tag drop only */ }
+    }
 
     try {
       const ref = await getFirestore().collection(spec.collection).add(data);
