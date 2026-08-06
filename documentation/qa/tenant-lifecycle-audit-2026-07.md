@@ -73,11 +73,18 @@ handling; batching them with the above would bloat the diff and the risk.
   keeps the no-op config from coming back. The gateway's stated posture is
   now per-IP rate limit + Turnstile-when-configured + honeypot + field
   allowlist + CORS origin allowlist.
-- **P5 — slug lookup discloses the tenant's Firebase uid (LOW).** The template
-  needs `companyId` to tag leads, so the uid is returned. A uid isn't a
-  credential (claims are server-verified), so this is low-risk; a separate
-  public site-id would be a design change. Accept or ask me to add the
-  indirection.
+- **P5 — slug lookup discloses the tenant's Firebase uid (LOW) —
+  ✅ RESOLVED 2026-08-06 (indirection, per Jo).** `getPublicSiteConfig` now
+  returns `siteKey` (the slug when configured) instead of `companyId`; the
+  template tags leads with it and `submitPublicLead` resolves it server-side
+  through the same exported `resolveCompanyByKey` the config endpoint uses
+  (doc id OR slug, active-status check) — the resolved id, never the client
+  string, is what persists. Strictly harder than the legacy client-companyId
+  tag (which stays for cached pages but loses to a resolved siteKey): a
+  suspended tenant now stops resolving at the gateway too. A slug-less
+  tenant is reachable only by uid URL, so echoing the caller's own key
+  discloses nothing new. Pinned by the siteKey block in
+  `tests/public-intake.test.js`.
 - **P6 — honeypot named `website` can be autofilled by browsers (LOW) —
   ✅ FIXED 2026-08-05.** The coordinated pass landed: every emitter
   (quick-lead-form.js ×153 pages, tenant microsite, free-roof, free-guide ×2,
