@@ -548,6 +548,11 @@ jobs:
       # unified diff). Writes nothing without --write.
       - name: Check sitemap drift (dry-run diff)
         run: node scripts/build-sitemap.js
+      # Featured Projects drift gate: the OURWORK-* regions in docs/our-work.html
+      # are generated from assets/data/projects.json. Same rationale as the
+      # partial gate below — without this the scheme is advisory.
+      - name: Check projects static-block drift (dry-run diff)
+        run: node scripts/build-projects.mjs --check
       # Shared-partial drift gate. The chrome inside <!-- nbd:partial --> markers
       # is GENERATED from site-src/partials/. Without this gate the whole scheme
       # is advisory: a page could be hand-edited inside a region, or a partial
