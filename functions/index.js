@@ -295,6 +295,17 @@ Object.assign(exports, voiceIntelligenceIntegration);
 Object.assign(exports, dictateIntegration);
 Object.assign(exports, stormBriefingIntegration);
 
+// Swath (swathapi.com) — storm-verified property intel: hail-swath +
+// parcel providers (mounted inside hail.js/parcel.js), storm.verified
+// webhook, and the quote-first Swath Report callables. Mounted
+// selectively because the module also exports plain helpers
+// (fetchSwathHail, querySwathProperty, verifySwathSignature) that don't
+// belong in the deploy surface. See runbooks/SWATH-SETUP.md.
+const swathIntegration = require('./integrations/swath');
+exports.getSwathReport = swathIntegration.getSwathReport;
+exports.getSwathUsage  = swathIntegration.getSwathUsage;
+exports.swathWebhook   = swathIntegration.swathWebhook;
+
 // ═══════════════════════════════════════════════════════════════
 // HOMEOWNER PORTAL (createPortalToken, revokePortalToken,
 // getHomeownerPortalView) — extracted to functions/portal.js

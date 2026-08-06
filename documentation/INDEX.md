@@ -30,13 +30,14 @@ Map of content for the `documentation/` corpus (~90 files) plus the other places
 - [ONBOARD_TENANT](runbooks/ONBOARD_TENANT.md)
 - [TENANT-CUSTOM-DOMAINS](runbooks/TENANT-CUSTOM-DOMAINS.md)
 - [VISUALIZER-KIE-PROVIDER](runbooks/VISUALIZER-KIE-PROVIDER.md) — flip image-gen to kie.ai (config-only, Jo action)
+- [SWATH-SETUP](runbooks/SWATH-SETUP.md) — Swath API (storm-verified property intel): signup, secrets, coverage monitor, provider flags, credit model (Jo action)
 - [PUBLISH-PROJECT](runbooks/PUBLISH-PROJECT.md) — add a Featured Project to /our-work (prices, photos, consent rules)
 
 ## Projects & planning
 
 - [BIG_ROCKS](projects/BIG_ROCKS.md) — the standing priority list
 - [KANBAN_CUSTOMER_MAP](projects/KANBAN_CUSTOMER_MAP.md)
-- Session handoffs: [SESSION-2026-08-06-our-work-featured-projects](projects/SESSION-2026-08-06-our-work-featured-projects.md) (current — Featured Projects build + four-lane status) · [NEXT_SESSION-2026-08-05](projects/NEXT_SESSION-2026-08-05.md) (partially executed, see current) · [NEXT_SESSION](projects/NEXT_SESSION.md) · [NEXT_SESSION-2c4a](projects/NEXT_SESSION-2c4a.md) (both executed)
+- Session handoffs: [SESSION-2026-08-06-our-work-featured-projects](projects/SESSION-2026-08-06-our-work-featured-projects.md) (current — Featured Projects build + four-lane status) · [SESSION-2026-08-06-swath-api-setup](projects/SESSION-2026-08-06-swath-api-setup.md) (Swath API integration — Jo's 5-min secrets to-do inside) · [NEXT_SESSION-2026-08-05](projects/NEXT_SESSION-2026-08-05.md) (partially executed, see current) · [NEXT_SESSION](projects/NEXT_SESSION.md) · [NEXT_SESSION-2c4a](projects/NEXT_SESSION-2c4a.md) (both executed)
 
 ## Audits
 
