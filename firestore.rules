@@ -1430,6 +1430,10 @@ service cloud.firestore {
     }
 
     // ── INVITES (admin-SDK only) ─────────────────────
+    // Legacy collection: its only writer (sendTeamInviteEmail) was retired
+    // 2026-08-06 (tenant-lifecycle CL8). The deny stays as a tombstone over
+    // any historical docs; the live invite flow is teamInvites via the
+    // createTeamInvite callable.
     match /invites/{token} { allow read, write: if false; }
 
     // ── AUDIT LOG (admin-only reads, admin-SDK writes) ─

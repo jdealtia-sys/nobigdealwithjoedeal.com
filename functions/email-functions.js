@@ -7,13 +7,12 @@
  *   - sendEmail (HTTP)
  *   - sendEstimateEmail (HTTP)
  *   - sendDripEmail (callable)
- *   - sendTeamInviteEmail (HTTP)
  */
 
 const { onRequest, onCall, HttpsError } = require('firebase-functions/v2/https');
 const { defineSecret } = require('firebase-functions/params');
 const { logger } = require('firebase-functions/v2');
-const { Timestamp, getFirestore } = require('firebase-admin/firestore');
+const { getFirestore } = require('firebase-admin/firestore');
 const { getAuth } = require('firebase-admin/auth');
 const { FieldValue } = require('firebase-admin/firestore');
 const { Resend } = require('resend');
@@ -631,143 +630,9 @@ exports.sendDripEmail = onCall(
   }
 );
 
-/**
- * sendTeamInviteEmail — HTTP function (POST, authenticated)
- * Sends a team invitation email with a unique invite link
- */
-exports.sendTeamInviteEmail = onRequest(
-  {
-    cors: CORS_ORIGINS,
-    secrets: [RESEND_API_KEY, EMAIL_FROM],
-    maxInstances: 10,
-    concurrency: 20,
-    timeoutSeconds: 30,
-    memory: '256MiB'
-  },
-  async (req, res) => {
-    if (req.method !== 'POST') {
-      res.status(405).json({ error: 'Method not allowed' });
-      return;
-    }
-    if (!(await httpRateLimit(req, res, 'sendTeamInviteEmail:ip', 20, 3_600_000))) return;
-
-    // Verify Firebase auth
-    const decoded = await verifyAuth(req);
-    if (!decoded) {
-      res.status(401).json({ error: 'Unauthorized' });
-      return;
-    }
-
-    const { email, role, inviterName } = req.body;
-
-    if (!email || !isValidEmail(email)) {
-      res.status(400).json({ error: 'Invalid email address' });
-      return;
-    }
-
-    if (!role || !['admin', 'rep', 'crew'].includes(role)) {
-      res.status(400).json({ error: 'Invalid role' });
-      return;
-    }
-
-    // ── Multi-tenant guard (Wave 9) ────────────────────────────────────
-    // Only admin/manager/owner of a company can mint invites, and the
-    // invite must carry the inviter's companyId so the accept flow can
-    // place the invitee in the correct tenant.
-    const callerCompanyId = decoded.companyId || null;
-    const callerRole      = decoded.role || null;
-    const ALLOWED_INVITERS = ['admin', 'company_admin', 'manager', 'owner'];
-
-    if (!callerCompanyId || !ALLOWED_INVITERS.includes(callerRole)) {
-      logger.warn('sendTeamInviteEmail unauthorized invite attempt', {
-        callerUid: decoded.uid,
-        callerRole,
-        hasCompany: !!callerCompanyId
-      });
-      res.status(403).json({ error: 'Forbidden — only company admins/managers can invite teammates' });
-      return;
-    }
-
-    // Role escalation guard: only admin/owner can mint admin invites.
-    // Managers can invite reps/crew but not other admins.
-    if (role === 'admin' && !['admin', 'company_admin', 'owner'].includes(callerRole)) {
-      logger.warn('sendTeamInviteEmail role escalation attempt', {
-        callerUid: decoded.uid,
-        callerRole,
-        attemptedRole: role
-      });
-      res.status(403).json({ error: 'Only admins/owners can invite other admins' });
-      return;
-    }
-
-    try {
-      const db = getFirestore();
-
-      // Generate invite token
-      const token = require('crypto').randomBytes(32).toString('hex');
-      const inviteRef = db.collection('invites').doc(token);
-
-      await inviteRef.set({
-        email,
-        role,
-        companyId: callerCompanyId,    // tie invite to inviter's tenant
-        inviterUid: decoded.uid,
-        inviterRole: callerRole,
-        inviterName,
-        createdAt: FieldValue.serverTimestamp(),
-        expiresAt: Timestamp.fromDate(
-          new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) // 7 days
-        ),
-        used: false
-      });
-
-      // Send invite email. inviterName is attacker-controllable (req.body), so
-      // HTML-escape it (+ role) before interpolating into the email body, and
-      // URL-encode role in the link. Otherwise a crafted inviterName injects
-      // arbitrary HTML into Joe-branded mail.
-      const escHtml = (s) => String(s == null ? '' : s)
-        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
-        .slice(0, 200);
-      const safeInviter = escHtml(inviterName);
-      const safeRole = escHtml(role);
-      const inviteUrl = `https://nobigdealwithjoedeal.com/pro/register.html?invite=${token}&role=${encodeURIComponent(role || '')}`;
-
-      const html = BRANDED_EMAIL_TEMPLATE(
-        'Team Invitation',
-        `<h2>You're Invited to Join NBD Pro!</h2>
-         <p>Hi,</p>
-         <p>${safeInviter} has invited you to join their No Big Deal Home Solutions team as a <strong>${safeRole}</strong>.</p>
-         <p><a href="${inviteUrl}" class="cta-button">Accept Invitation</a></p>
-         <p>This invitation will expire in 7 days.</p>
-         <p>If you have any questions, contact ${safeInviter} or our support team.</p>`
-      );
-
-      const resend = new Resend(RESEND_API_KEY.value());
-      const fromEmail = EMAIL_FROM.value() || 'noreply@nobigdealwithjoedeal.com';
-
-      const response = await resend.emails.send({
-        from: fromEmail,
-        to: email,
-        subject: `${inviterName} Invited You to NBD Pro`,
-        html
-      });
-
-      // Log to Firestore
-      await logEmailToFirestore(db, email, 'Team Invite', decoded.uid, 'sent');
-
-      res.json({
-        success: true,
-        id: response.data?.id || response.id,
-        token
-      });
-
-    } catch (e) {
-      logger.error('sendTeamInviteEmail error', { err: e.message });
-      res.status(500).json({
-        error: 'Failed to send team invite'
-      });
-    }
-  }
-);
+// sendTeamInviteEmail was retired 2026-08-06 (tenant-lifecycle audit CL8):
+// a dead HTTP path with zero callers, using the pre-claims role vocabulary
+// and writing an invites/{token} collection no claim path consumes. The
+// live invite flow is the createTeamInvite callable in handlers/invites.js.
 
 logger.info('email_functions_loaded');

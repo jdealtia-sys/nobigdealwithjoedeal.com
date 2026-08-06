@@ -689,6 +689,16 @@ jobs:
           cd tests
           npx firebase-tools emulators:exec --only functions,firestore --project demo-nbd-pl 'node lead-bridge.integration.test.js'
 
+      # Public-intake gateway suite (submitPublicLead: honeypot both-keys,
+      # field allowlist, contact-kind allowlist, silent-200 semantics). Ran in
+      # the local chain but not CI (NEXT_SESSION-2026-08-05 item 8). Reuses
+      # this job's recipe — the dummy-secret step above already excludes
+      # TURNSTILE_SECRET, which this suite's tokenless legs require.
+      - name: Run public-intake gateway tests under functions+firestore emulator
+        run: |
+          cd tests
+          npx firebase-tools emulators:exec --only functions,firestore --project demo-nbd-pl 'node public-intake.test.js'
+
   functions-parse:
     name: Functions parse + dep install
     runs-on: ubuntu-latest
