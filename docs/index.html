@@ -298,6 +298,9 @@ a.trust-item:focus-visible{outline:2px solid var(--orange);outline-offset:-2px}
 .form-group label{font-size:.72rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--navy-dark)}
 .form-group label .req{color:#e8720c;margin-left:2px;font-weight:800}
 .form-required-note{font-size:.7rem;color:#5d6673;margin-bottom:14px;letter-spacing:.02em;font-weight:600}
+.form-error{background:#fdecea;border:1px solid #e8720c;border-left:4px solid #c0392b;color:#8a1f11;font-size:.85rem;font-weight:600;padding:10px 12px;border-radius:6px;margin:0 0 12px}
+.form-error a{color:#8a1f11;text-decoration:underline}
+#formFields input[aria-invalid="true"],#formFields select[aria-invalid="true"]{border-color:#c0392b;box-shadow:0 0 0 2px rgba(192,57,43,.15)}
 .form-group input::placeholder,.form-group textarea::placeholder{color:#9ca3af;opacity:1}
 .form-group input:focus,.form-group textarea:focus,.form-group select:focus{outline:none;border-color:#e8720c;box-shadow:0 0 0 3px rgba(232,114,12,.15)}
 .form-group input:invalid:not(:placeholder-shown),.form-group select:invalid:not(:focus){border-color:rgba(220,60,60,.4)}
@@ -1680,8 +1683,8 @@ nav .nav-logo-text .sub{white-space:nowrap}
                 <input type="text" id="fieldFirst" placeholder="John" autocomplete="given-name" required>
               </div>
               <div class="form-group">
-                <label for="fieldLast">Last Name <span class="req">*</span></label>
-                <input type="text" id="fieldLast" placeholder="Smith" autocomplete="family-name" required>
+                <label for="fieldLast">Last Name</label>
+                <input type="text" id="fieldLast" placeholder="Smith" autocomplete="family-name">
               </div>
             </div>
             <div class="form-row">
@@ -1695,12 +1698,12 @@ nav .nav-logo-text .sub{white-space:nowrap}
               </div>
             </div>
             <div class="form-group">
-              <label for="fieldAddress">Address / Zip Code <span class="req">*</span></label>
-              <input type="text" id="fieldAddress" placeholder="Your address or zip code" autocomplete="street-address" required>
+              <label for="fieldAddress">Address / Zip Code</label>
+              <input type="text" id="fieldAddress" placeholder="Your address or zip code" autocomplete="street-address">
             </div>
             <div class="form-group">
-              <label for="fieldService">Service Needed <span class="req">*</span></label>
-              <select id="fieldService" required>
+              <label for="fieldService">Service Needed</label>
+              <select id="fieldService">
                 <option value="">— Select a Service —</option>
                 <option>Roof Replacement</option>
                 <option>Roof Repair</option>
@@ -1716,6 +1719,7 @@ nav .nav-logo-text .sub{white-space:nowrap}
               <textarea id="fieldMessage" placeholder="Describe what's going on — we'll get back to you with honest answers and a fair quote."></textarea>
             </div>
             <div style="position:absolute;left:-9999px;" aria-hidden="true"><label for="fieldNbdHp">Leave blank</label><input type="text" id="fieldNbdHp" tabindex="-1" autocomplete="off"></div>
+            <p id="formError" class="form-error" role="alert" hidden></p>
             <button class="form-submit" id="leadFormSubmit">Get My Free Estimate →</button>
             <script defer  src="/assets/js/inline/72fb917108.js"></script>
             <p class="form-note">🔒 No spam, no pressure. I will reach out personally — usually same day.</p>

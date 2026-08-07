@@ -94,24 +94,51 @@ document.querySelectorAll('a[href^="#"]').forEach(link=>{
 // copy to jd@nobigdealwithjoedeal.com but is fire-and-forget — its
 // failure is ignored. If the CRM bridge never loaded, we fall back to
 // gating on the FormSubmit response so the form keeps working.
+
+// Inline accessible errors (2026-08-07) — replaces the old alert() modals.
+// Mirrors quick-lead-form.js: role="alert" slot + aria-invalid + focus the
+// first invalid field. Only first name + phone are enforced; the markup
+// stars match (the other fields are optional).
+function _formShowError(html, invalidEls){
+  const slot = document.getElementById('formError');
+  document.querySelectorAll('#formFields [aria-invalid]').forEach(el => el.removeAttribute('aria-invalid'));
+  (invalidEls || []).forEach(el => el && el.setAttribute('aria-invalid', 'true'));
+  if (slot) { slot.innerHTML = html; slot.hidden = false; }
+  const focusTarget = (invalidEls && invalidEls[0]);
+  if (focusTarget) focusTarget.focus();
+  else if (slot && slot.focus) slot.focus();
+}
+function _formClearError(){
+  const slot = document.getElementById('formError');
+  if (slot) { slot.hidden = true; slot.textContent = ''; }
+  document.querySelectorAll('#formFields [aria-invalid]').forEach(el => el.removeAttribute('aria-invalid'));
+}
+
 async function submitForm(){
-  const first   = document.getElementById('fieldFirst')?.value.trim();
+  const firstEl = document.getElementById('fieldFirst');
+  const phoneEl = document.getElementById('fieldPhone');
+  const first   = firstEl?.value.trim();
   const last    = document.getElementById('fieldLast')?.value.trim();
-  const phone   = document.getElementById('fieldPhone')?.value.trim();
+  const phone   = phoneEl?.value.trim();
   const email   = document.getElementById('fieldEmail')?.value.trim();
   const address = document.getElementById('fieldAddress')?.value.trim();
   const service = document.getElementById('fieldService')?.value;
   const message = document.getElementById('fieldMessage')?.value.trim();
 
-  // Honeypot — if filled, it's a bot
-  // (fieldNbdHp since 2026-08-05 — an id containing "website" gets autofilled)
+  // Honeypot — if filled, it's a bot. Stays SILENT on purpose (no visible
+  // error — that's the trap). (fieldNbdHp since 2026-08-05 — an id
+  // containing "website" gets autofilled)
   const hp = document.getElementById('fieldNbdHp')?.value;
   if(hp) { console.warn('Bot detected'); return; }
 
   if(!first || !phone){
-    alert('Please enter at least your first name and phone number so Joe can reach you.');
+    const invalid = [];
+    if(!first) invalid.push(firstEl);
+    if(!phone) invalid.push(phoneEl);
+    _formShowError('Please enter at least your first name and phone number so Joe can reach you.', invalid);
     return;
   }
+  _formClearError();
 
   const btn = document.querySelector('.form-submit');
   btn.textContent = 'Sending…';
@@ -152,10 +179,16 @@ async function submitForm(){
 
   if(captured){
     document.getElementById('formFields').style.display = 'none';
-    document.getElementById('formSuccess').style.display = 'block';
+    const success = document.getElementById('formSuccess');
+    success.style.display = 'block';
+    // Move focus to the success card so screen readers land on the
+    // confirmation instead of the vanished form.
+    success.setAttribute('tabindex', '-1');
+    success.focus();
   } else {
     btn.textContent = 'Get My Free Estimate →';
     btn.disabled = false;
-    alert('Something went wrong. Please call or text Joe directly at (859) 420-7382.');
+    // Static string — no user data reaches this innerHTML.
+    _formShowError('Something went wrong. Please call or text Joe directly at <a href="tel:+18594207382">(859)&nbsp;420-7382</a>.', []);
   }
 }
