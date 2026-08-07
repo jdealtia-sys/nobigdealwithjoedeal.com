@@ -2568,8 +2568,9 @@ Object.assign(window.__NBD_CALL_REGISTRY, {
   // Tranche 2c-4h (Slice H2, 2026-07-08): 6 entangled single-defs — their only
   // entanglement was forward-ref `window.X = X` re-export shims in maps.js +
   // dashboard-actions.js, removed in this same slice. `function X` → `const X`
-  // + registered here. damagNearMe keeps resolving spyglassGoToLocation via the
-  // global lexical scope (this file's const loads before maps/actions).
+  // + registered here. (2026-08-07: damagNearMe no longer aliases
+  // spyglassGoToLocation anywhere — its single implementation registers in
+  // maps-overlays.js.)
   spyglassSearch: spyglassSearch,
   spyglassGoToLocation: spyglassGoToLocation,
   fabToggle: fabToggle,

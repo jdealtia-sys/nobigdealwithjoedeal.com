@@ -180,7 +180,10 @@ const _NBD_CALL_ALLOWLIST = new Set([
   // goToMyLocation deliberately REMAINS allowlisted below — the maps.js
   // shim still re-states it on window (failed the three-way proof;
   // Tranche 3 candidate).
-  'setPhotoMode', 'damagNearMe', 'damageNearMePhotos',
+  // (damagNearMe registry-registered in maps-overlays.js 2026-08-07 — per the
+  //  Tranche 2c-2 rule above, registered names must not keep a window
+  //  fallback entry here.)
+  'setPhotoMode', 'damageNearMePhotos',
   // Customer / lead modals
   // QA 2026-06-07 (C-1 fix): saveLead was dropped from the allowlist during the
   // CSP onclick→data-action sweep, so the Add/Edit Lead modal's Save buttons

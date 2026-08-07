@@ -448,34 +448,44 @@ window.dsApplyTheme            = nbdApplyTheme;
 window.buildTopbarThemeGrid    = nbdRenderThemes;
 window.buildWelcomeThemePicker = () => {};  // DS welcome modal — no-op, full picker replaces it
 
-/* ── EXPOSE MAP FUNCTIONS TO WINDOW ─────────────────────────────── */
-window.searchMap = searchMap;
-window.selectPin = selectPin;
-window.deletePin = deletePin;
-window.clearAllPins = clearAllPins;
-// damageNearMePhotos is defined in dashboard.html, not maps.js
-if (typeof damageNearMePhotos === 'function') window.damageNearMePhotos = damageNearMePhotos;
-if (typeof toggleMapSidebar === 'function') window.toggleMapSidebar = toggleMapSidebar;
-// spyglassSearch / spyglassGoToLocation / fabToggle / quickStormCheck →
-// __NBD_CALL_REGISTRY (dashboard-ui.js, Globals Tranche 2c-4h Slice H2). These
-// forward-ref re-exports are removed; markup dispatch resolves registry-first.
-// (damagNearMe below still reads spyglassGoToLocation via the global lexical
-//  scope — dashboard-ui.js's const loads before maps.js.)
-if (typeof updatePinStats === 'function') window.updatePinStats = updatePinStats;
-window.startZoneDraw = startZoneDraw;
-window.cancelZoneDraw = cancelZoneDraw;
-window.saveZone = saveZone;
-window.deleteZone = deleteZone;
-window.selectZoneColor = selectZoneColor;
-window.toggleOverlay = toggleOverlay;
-// Pin popup actions
-window.goToLeadFromPin = goToLeadFromPin;
-window.deleteLeadFromPin = deleteLeadFromPin;
-window.makeLeadFromPin = makeLeadFromPin;
-window.deletePinOnly = deletePinOnly;
-// Note: damagNearMe is an alias for spyglassGoToLocation
-window.damagNearMe = spyglassGoToLocation;
-window.goToMyLocation = goToMyLocation;
+/* ── EXPOSE MAP FUNCTIONS TO WINDOW ─────────────────────────────────
+   Every name below is defined in a SIBLING file (maps-overlays, maps-core,
+   maps-routing, dashboard-actions, dashboard-ui, dashboard-widgets). A bare
+   read of a missing sibling's identifier throws a ReferenceError at maps.js
+   top level, which used to kill nbdBoot() below — one failed script load
+   (deploy race, SW cache miss, 5xx) silently took down the theme/font engine.
+   So: every re-export is typeof-guarded AND the block is fenced in its own
+   try/catch so a future unguarded addition still can't reach nbdBoot.
+   spyglassSearch / spyglassGoToLocation / fabToggle / quickStormCheck →
+   __NBD_CALL_REGISTRY (dashboard-ui.js, Globals Tranche 2c-4h Slice H2);
+   markup dispatch resolves registry-first, no re-export needed here.
+   damagNearMe → single implementation + registry in maps-overlays.js
+   (the alias to spyglassGoToLocation that lived here shadowed it). */
+try {
+  // maps-overlays.js
+  if (typeof searchMap === 'function') window.searchMap = searchMap;
+  if (typeof selectPin === 'function') window.selectPin = selectPin;
+  if (typeof deletePin === 'function') window.deletePin = deletePin;
+  if (typeof clearAllPins === 'function') window.clearAllPins = clearAllPins;
+  if (typeof goToLeadFromPin === 'function') window.goToLeadFromPin = goToLeadFromPin;
+  if (typeof deleteLeadFromPin === 'function') window.deleteLeadFromPin = deleteLeadFromPin;
+  if (typeof makeLeadFromPin === 'function') window.makeLeadFromPin = makeLeadFromPin;
+  if (typeof deletePinOnly === 'function') window.deletePinOnly = deletePinOnly;
+  // dashboard-actions.js
+  if (typeof damageNearMePhotos === 'function') window.damageNearMePhotos = damageNearMePhotos;
+  if (typeof startZoneDraw === 'function') window.startZoneDraw = startZoneDraw;
+  if (typeof cancelZoneDraw === 'function') window.cancelZoneDraw = cancelZoneDraw;
+  if (typeof saveZone === 'function') window.saveZone = saveZone;
+  if (typeof deleteZone === 'function') window.deleteZone = deleteZone;
+  if (typeof selectZoneColor === 'function') window.selectZoneColor = selectZoneColor;
+  // dashboard-ui.js / dashboard-widgets.js / maps-core.js / maps-routing.js
+  if (typeof toggleMapSidebar === 'function') window.toggleMapSidebar = toggleMapSidebar;
+  if (typeof updatePinStats === 'function') window.updatePinStats = updatePinStats;
+  if (typeof toggleOverlay === 'function') window.toggleOverlay = toggleOverlay;
+  if (typeof goToMyLocation === 'function') window.goToMyLocation = goToMyLocation;
+} catch (e) {
+  console.error('[maps.js] sibling re-export failed (a maps/dashboard file did not load?):', e);
+}
 
 /* ── BOOT ─────────────────────────────────────────────────────────── */
 (function nbdBoot() {
