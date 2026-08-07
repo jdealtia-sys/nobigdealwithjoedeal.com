@@ -878,7 +878,13 @@ jobs:
         # @stranger; introduced advisory 2026-07-17, promoted to REQUIRED
         # 2026-07-28 with the rest of the matrix — see the ALL FIVE ARE NOW
         # REQUIRED note below.
-        shard: ['@shard1', '@shard2', '@audit', '@stranger', '@gauntlet']
+        # '@engines' = tests/e2e/d2d-engine.spec.js + estimate-engine.spec.js
+        # — the lazy-bundle assembly proofs (D2D shim surface, 222-product /
+        # 298-key catalog snapshot). Authored with the shard recipe but never
+        # wired (2026-08-07 audit). ADVISORY on introduction, same bar the
+        # other five earned promotion through: prove a green streak, then
+        # flip the continue-on-error expression below.
+        shard: ['@shard1', '@shard2', '@audit', '@stranger', '@gauntlet', '@engines']
     # Rock 3: hermetic authed journey — seed a tenant in the Auth/Firestore
     # emulators, serve docs/ from the hosting emulator (the client SDK
     # auto-connects to emulators on localhost via nbd-emulator-connect.js),
@@ -920,7 +926,9 @@ jobs:
     # emulator session at roughly half load, selected via PLAYWRIGHT_GREP.
     # If a rotating victim reappears, split further or slim the per-test
     # dashboard boot - do NOT chase individual tests.
-    continue-on-error: false
+    # Five shards REQUIRED (2026-07-28); @engines advisory since 2026-08-07 —
+    # promotion checklist lives in NEXT_SESSION-2026-08-07.md.
+    continue-on-error: ${{ matrix.shard == '@engines' }}
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -969,3 +977,66 @@ jobs:
           name: playwright-authed-traces-${{ strategy.job-index }}
           path: tests/test-results/
           retention-days: 7
+
+  # Public-surface E2E (2026-08-07 audit): marketing.spec.js + pro-public.
+  # spec.js existed with a ready-made npm script but were wired NOWHERE.
+  # CRITICAL RECIPE NOTE: tests/playwright.config.js defaults baseURL to
+  # PRODUCTION — PLAYWRIGHT_BASE_URL must stay pinned to the hosting
+  # emulator here or this job smoke-tests the live site. Advisory on
+  # introduction (same promotion bar as the authed shards).
+  public-e2e:
+    name: Public-surface E2E (hosting emulator)
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+      - name: Install test deps
+        run: |
+          cd tests
+          npm install --silent --no-audit --no-fund
+      - name: Install Playwright chromium
+        run: |
+          cd tests
+          npx playwright install --with-deps chromium
+      - name: Run public-surface specs against the hosting emulator
+        run: |
+          cd tests
+          npx firebase-tools emulators:exec --only hosting --project nobigdeal-pro \
+            'PLAYWRIGHT_BASE_URL=http://127.0.0.1:5000 playwright test --config=playwright.config.js --workers=1 pro-public.spec.js marketing.spec.js'
+      - name: Upload Playwright traces on failure
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: playwright-public-traces
+          path: tests/test-results/
+          retention-days: 7
+
+  # Brand-token computed-style assertions (2026-08-07 audit): the isolated
+  # tests/visual workspace (own package.json + playwright.config serving
+  # docs/ over http-server) was referenced by no workflow. These are token/
+  # computed-style checks, not pixel screenshots — no goldens involved.
+  # Advisory on introduction.
+  visual-brand-tokens:
+    name: Brand-token visual assertions
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+      - name: Install visual workspace deps
+        run: |
+          cd tests/visual
+          npm install --silent --no-audit --no-fund
+      - name: Install Playwright chromium
+        run: |
+          cd tests/visual
+          npm run install:browsers
+      - name: Run brand-token assertions
+        run: |
+          cd tests/visual
+          npm test

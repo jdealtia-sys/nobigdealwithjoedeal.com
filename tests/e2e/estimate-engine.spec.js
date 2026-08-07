@@ -45,7 +45,7 @@ async function login(page) {
   );
 }
 
-test.describe('Estimate engine — assembles identically (PR 2c)', () => {
+test.describe('Estimate engine — assembles identically (PR 2c) @engines', () => {
   test.beforeEach(async ({}, info) => {
     if (!creds.email || !creds.password) info.skip(true, 'PLAYWRIGHT_TEST_USER_* not set');
   });

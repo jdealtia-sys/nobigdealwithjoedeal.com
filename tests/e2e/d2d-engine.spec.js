@@ -34,7 +34,7 @@ async function login(page) {
   );
 }
 
-test.describe('D2D tracker — lazy load (PR 2e)', () => {
+test.describe('D2D tracker — lazy load (PR 2e) @engines', () => {
   test.beforeEach(async ({}, info) => {
     if (!creds.email || !creds.password) info.skip(true, 'PLAYWRIGHT_TEST_USER_* not set');
   });
