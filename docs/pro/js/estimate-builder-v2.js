@@ -378,6 +378,28 @@
     return Math.round(value / s) * s;
   }
 
+  // ── Cents helpers (2026-08-07) ──────────────────────────────
+  // All money math in both calculation paths runs in INTEGER CENTS and
+  // converts back to dollars only at the return boundary — mirroring the
+  // classic engine's discipline (estimates.js _toCents/_fromCents). Before
+  // this, subtotal/tax/overhead/profit/deposit were raw float products and
+  // were PERSISTED un-rounded (estimate-v2-ui save path), so stored docs
+  // carried $x.xx000000004-class artifacts into the portal/invoice/Stripe
+  // readers. Settings and inputs stay in dollars (the public contract and
+  // every tenant override are dollar-denominated); conversion happens at
+  // calculation entry. For integer cents c, c/100 is the exact same double
+  // as the 2-dp decimal literal, so returned dollars are exactly 2-dp.
+  const _toCents = (d) => Math.round((Number(d) || 0) * 100);
+  const _fromCents = (c) => c / 100;
+  function _roundToNearestCents(cents, stepCents) {
+    const s = stepCents > 0 ? stepCents : ROUND_TO_CENTS_DEFAULT;
+    return Math.round(cents / s) * s;
+  }
+  // Canonical integer defaults from estimate-config's _CENTS twins (published
+  // for exactly this purpose — "the 100x unit-mismatch trap" note there).
+  const MIN_JOB_CHARGE_CENTS_DEFAULT = (_NBD_CFG && _NBD_CFG.JOB_MINIMUM_CENTS) || _toCents(MIN_JOB_CHARGE);
+  const ROUND_TO_CENTS_DEFAULT       = (_NBD_CFG && _NBD_CFG.ROUND_TO_CENTS)    || _toCents(ROUND_TO);
+
   // Deposit math per spec (Rock 2 PR 4 — ported from classic estimates.js):
   //   • Cash mode default = 50% deposit at signing, 50% at completion
   //   • Insurance mode default = $0 down (ACV check covers the first half)
@@ -396,10 +418,14 @@
                        && Number(o.overridePct) >= 0
                        && Number(o.overridePct) <= 100);
     const pct = overrideOk ? Number(o.overridePct) : defaultPct;
-    const rawAmount = total * (pct / 100);
-    const amount = roundToNearest(rawAmount, roundTo);
-    const remainder = Math.round((total - amount) * 100) / 100;
-    return { pct, amount, remainder };
+    // Cents math (2026-08-07): the old float path needed a *100/100 repair
+    // on the remainder; in integer cents amount + remainder === total holds
+    // exactly by construction.
+    const totalCents = _toCents(total);
+    const amountCents = _roundToNearestCents(
+      Math.round(totalCents * pct / 100), _toCents(roundTo));
+    const remainderCents = totalCents - amountCents;
+    return { pct, amount: _fromCents(amountCents), remainder: _fromCents(remainderCents) };
   }
 
   // ═════════════════════════════════════════════════════════
@@ -689,12 +715,14 @@
     const g = prepGeometry(input, s);
     const sq = g.sq;
 
-    // Base from per-SQ flat rate
+    // Base from per-SQ flat rate. Money runs in integer cents from here to
+    // the return boundary (2026-08-07) — see the cents-helpers note above.
     const rate = Number(s.tierRates[tier]) || TIER_RATES[tier];
-    const baseTotal = sq * rate;
+    const baseTotalCents = _toCents(sq * rate);
 
-    // Add-ons
-    const addOns = {
+    // Add-ons — each is a customer-visible line, so each rounds to a cent
+    // at its own boundary (matches what renders on the estimate).
+    const addOnsCents = {
       permit: 0, dumpFee: 0, tearOffExtra: 0, extraPipeBoots: 0,
       valleyMetal: 0, chimneyFlash: 0, skylightFlash: 0, gutters: 0,
       // Phase 1 per-SQ complexity adders (estimate-qa-2026-06-08)
@@ -703,91 +731,95 @@
 
     const permitKey = input.city || input.county || '';
     const permitInfo = s.permits[permitKey];
-    addOns.permit = permitInfo ? Number(permitInfo.cost) : DEFAULT_PERMIT_COST; // C-1: never $0 for an unknown/blank jurisdiction
-    addOns.dumpFee = Number(input.dumpFeeOverride != null ? input.dumpFeeOverride : s.dumpFee);
+    addOnsCents.permit = _toCents(permitInfo ? Number(permitInfo.cost) : DEFAULT_PERMIT_COST); // C-1: never $0 for an unknown/blank jurisdiction
+    addOnsCents.dumpFee = _toCents(input.dumpFeeOverride != null ? input.dumpFeeOverride : s.dumpFee);
 
     const layers = Math.max(1, Number(input.tearOffLayers) || 1);
     if (layers > 1) {
-      addOns.tearOffExtra = (layers - 1) * sq * Number(s.tearOffExtraPerSq);
+      addOnsCents.tearOffExtra = _toCents((layers - 1) * sq * Number(s.tearOffExtraPerSq));
     }
 
-    addOns.extraPipeBoots = extraPipeBootCharge(
+    addOnsCents.extraPipeBoots = _toCents(extraPipeBootCharge(
       Number(input.pipes) || 0,
       s.addonPrices.extraPipeBoot
-    );
+    ));
 
-    if (input.hasChimneyFlash)  addOns.chimneyFlash  = Number(s.addonPrices.chimneyFlash);
-    if (input.hasSkylightFlash) addOns.skylightFlash = Number(s.addonPrices.skylightFlash);
+    if (input.hasChimneyFlash)  addOnsCents.chimneyFlash  = _toCents(s.addonPrices.chimneyFlash);
+    if (input.hasSkylightFlash) addOnsCents.skylightFlash = _toCents(s.addonPrices.skylightFlash);
 
     if (input.valleyMetalLf) {
-      addOns.valleyMetal = Number(input.valleyMetalLf) * Number(s.addonPrices.valleyMetalLf);
+      addOnsCents.valleyMetal = _toCents(Number(input.valleyMetalLf) * Number(s.addonPrices.valleyMetalLf));
     }
 
     if (input.guttersLf) {
       const gRate = (input.guttersRatePerLf != null)
         ? Number(input.guttersRatePerLf)
         : Number(s.addonPrices.guttersLf);
-      addOns.gutters = Number(input.guttersLf) * gRate;
+      addOnsCents.gutters = _toCents(Number(input.guttersLf) * gRate);
     }
 
     // ── Phase 1 complexity adders (estimate-qa-2026-06-08, Joe-confirmed) ──
     // Roof PITCH adders STACK (mirror the line-item LAB ADR-SS/VS gates).
     // g.pitchRatio = rise/12, so 8/12=0.667, 12/12=1.0, 16/12=1.333.
-    if (g.pitchRatio >= (8 / 12))  addOns.steep        = sq * Number(s.addonPrices.steepPerSq);
-    if (g.pitchRatio >= (12 / 12)) addOns.verySteep    = sq * Number(s.addonPrices.verySteepPerSq);
-    if (g.pitchRatio >= (16 / 12)) addOns.extremeSteep = sq * Number(s.addonPrices.extremeSteepPerSq);
+    if (g.pitchRatio >= (8 / 12))  addOnsCents.steep        = _toCents(sq * Number(s.addonPrices.steepPerSq));
+    if (g.pitchRatio >= (12 / 12)) addOnsCents.verySteep    = _toCents(sq * Number(s.addonPrices.verySteepPerSq));
+    if (g.pitchRatio >= (16 / 12)) addOnsCents.extremeSteep = _toCents(sq * Number(s.addonPrices.extremeSteepPerSq));
 
     // STORIES — tiered (a 3-story job pays the 3-story rate, NOT 2-story + 3-story).
     const stories = Number(input.stories) || 1;
-    if (stories >= 3)       addOns.story = sq * Number(s.addonPrices.threeStoryPerSq);
-    else if (stories === 2) addOns.story = sq * Number(s.addonPrices.twoStoryPerSq);
+    if (stories >= 3)       addOnsCents.story = _toCents(sq * Number(s.addonPrices.threeStoryPerSq));
+    else if (stories === 2) addOnsCents.story = _toCents(sq * Number(s.addonPrices.twoStoryPerSq));
 
     // CUT-UP cutting labor — on TOP of the +3% material waste already applied in
     // prepGeometry (waste = material, this = labor). Mirrors line-item LAB ADR-CU.
-    if (input.cutUpRoof) addOns.cutUpLabor = sq * Number(s.addonPrices.cutUpPerSq);
+    if (input.cutUpRoof) addOnsCents.cutUpLabor = _toCents(sq * Number(s.addonPrices.cutUpPerSq));
 
     // ACCESS — tiered (standard $0 / moderate / difficult). Crane/boom jobs use
     // real equipment line items, never a per-SQ guess.
-    if (input.accessLevel === 'difficult')     addOns.access = sq * Number(s.addonPrices.accessDifficultPerSq);
-    else if (input.accessLevel === 'moderate') addOns.access = sq * Number(s.addonPrices.accessModeratePerSq);
+    if (input.accessLevel === 'difficult')     addOnsCents.access = _toCents(sq * Number(s.addonPrices.accessDifficultPerSq));
+    else if (input.accessLevel === 'moderate') addOnsCents.access = _toCents(sq * Number(s.addonPrices.accessModeratePerSq));
 
-    const addOnsTotal = Object.keys(addOns).reduce((sum, k) => sum + (Number(addOns[k]) || 0), 0);
+    const addOnsTotalCents = Object.keys(addOnsCents).reduce((sum, k) => sum + (addOnsCents[k] || 0), 0);
 
     // Subtotal + tax (insurance hides tax)
-    const subtotal = baseTotal + addOnsTotal;
+    const subtotalCents = baseTotalCents + addOnsTotalCents;
     const taxRate = (mode === 'insurance')
       ? 0
       : (s.countyTax[input.county || ''] != null
           ? Number(s.countyTax[input.county])
           : Number(s.fallbackTaxRate));
-    const tax = subtotal * taxRate;
+    const taxCents = Math.round(subtotalCents * taxRate);
 
     // Grand total
-    let total = subtotal + tax;
-    total = roundToNearest(total, s.roundTo || ROUND_TO);
+    const roundToCents = _toCents(s.roundTo) || ROUND_TO_CENTS_DEFAULT;
+    let totalCents = _roundToNearestCents(subtotalCents + taxCents, roundToCents);
 
     // Minimum job
     let minJobApplied = false;
-    const minJob = Number(s.minJobCharge) || MIN_JOB_CHARGE;
-    if (total < minJob) {
-      total = minJob;
+    const minJobCents = _toCents(s.minJobCharge) || MIN_JOB_CHARGE_CENTS_DEFAULT;
+    if (totalCents < minJobCents) {
+      totalCents = minJobCents;
       minJobApplied = true;
     }
 
     // Internal margin view
     const costPerSq = Number(s.costBasis[tier]) || DEFAULT_COST_BASIS[tier];
-    const materialLaborCost = sq * costPerSq;
-    const addOnCost = addOnsTotal * 0.4;
-    const totalCost = materialLaborCost + addOnCost;
-    const margin = total - totalCost;
-    const marginPct = total > 0 ? (margin / total) * 100 : 0;
+    const materialLaborCostCents = _toCents(sq * costPerSq);
+    const addOnCostCents = Math.round(addOnsTotalCents * 0.4);
+    const totalCostCents = materialLaborCostCents + addOnCostCents;
+    const marginCents = totalCents - totalCostCents;
+    const marginPct = totalCents > 0 ? (marginCents / totalCents) * 100 : 0;
 
     // Deposit (Rock 2 PR 4 — shared calcDeposit replaces inline math)
-    const depositInfo = calcDeposit(total, mode, {
+    const depositInfo = calcDeposit(_fromCents(totalCents), mode, {
       overridePct: input.depositOverridePct,
       roundTo: s.roundTo
     });
     const deposit = depositInfo.amount;
+
+    // Return boundary: exact 2-dp dollars (integer cents / 100).
+    const addOns = {};
+    for (const k of Object.keys(addOnsCents)) addOns[k] = _fromCents(addOnsCents[k]);
 
     return {
       method: 'per-sq',
@@ -797,23 +829,23 @@
       adjustedSqft: g.adjustedSqft,
       sq,
       tier, mode, rate,
-      baseTotal,
+      baseTotal: _fromCents(baseTotalCents),
       addOns,
-      addOnsTotal,
-      subtotal,
+      addOnsTotal: _fromCents(addOnsTotalCents),
+      subtotal: _fromCents(subtotalCents),
       depositPct: depositInfo.pct,
       depositRemainder: depositInfo.remainder,
       taxRate,
-      tax,
-      total,
+      tax: _fromCents(taxCents),
+      total: _fromCents(totalCents),
       minJobApplied,
       deposit,
       internal: {
         costPerSq,
-        materialLaborCost,
-        addOnCost,
-        totalCost,
-        margin,
+        materialLaborCost: _fromCents(materialLaborCostCents),
+        addOnCost: _fromCents(addOnCostCents),
+        totalCost: _fromCents(totalCostCents),
+        margin: _fromCents(marginCents),
         marginPct
       }
     };
@@ -985,35 +1017,37 @@
       input.materialMarkupPct != null ? input.materialMarkupPct : s.materialMarkupPct
     );
 
-    // Roll up item totals
-    let materialCost = 0;
-    let laborCost = 0;
+    // Roll up item totals. Money runs in integer cents from here to the
+    // return boundary (2026-08-07) — each line rounds at its own boundary,
+    // matching what renders on the printed scope.
+    let materialCostCents = 0;
+    let laborCostCents = 0;
     const itemsWithTotals = items.map(it => {
       const qty = Number(it.qty) || 0;
       const matUnit = Number(it.materialCost) || 0;
       const labUnit = Number(it.laborCost) || 0;
-      const matTotal = qty * matUnit;
-      const labTotal = qty * labUnit;
-      materialCost += matTotal;
-      laborCost += labTotal;
+      const matTotalCents = _toCents(qty * matUnit);
+      const labTotalCents = _toCents(qty * labUnit);
+      materialCostCents += matTotalCents;
+      laborCostCents += labTotalCents;
       return Object.assign({}, it, {
-        materialTotal: matTotal,
-        laborTotal: labTotal,
-        lineTotal: matTotal + labTotal
+        materialTotal: _fromCents(matTotalCents),
+        laborTotal: _fromCents(labTotalCents),
+        lineTotal: _fromCents(matTotalCents + labTotalCents)
       });
     });
 
     // Material markup (bakes into retail)
-    const materialRetail = materialCost * (1 + materialMarkupPct);
-    const hardCost = materialCost + laborCost;
-    const retailBeforeOHP = materialRetail + laborCost;
+    const materialRetailCents = Math.round(materialCostCents * (1 + materialMarkupPct));
+    const hardCostCents = materialCostCents + laborCostCents;
+    const retailBeforeOHPCents = materialRetailCents + laborCostCents;
 
     // Overhead + profit (OH&P) — calculated on retail before OH&P
-    const overhead = retailBeforeOHP * overheadPct;
-    const profit = retailBeforeOHP * profitPct;
+    const overheadCents = Math.round(retailBeforeOHPCents * overheadPct);
+    const profitCents = Math.round(retailBeforeOHPCents * profitPct);
 
     // Subtotal
-    const subtotal = retailBeforeOHP + overhead + profit;
+    const subtotalCents = retailBeforeOHPCents + overheadCents + profitCents;
 
     // Tax (insurance hides tax)
     const taxRate = (mode === 'insurance')
@@ -1021,30 +1055,35 @@
       : (s.countyTax[input.county || ''] != null
           ? Number(s.countyTax[input.county])
           : Number(s.fallbackTaxRate));
-    const tax = subtotal * taxRate;
+    const taxCents = Math.round(subtotalCents * taxRate);
 
     // Grand total
-    let total = subtotal + tax;
-    total = roundToNearest(total, s.roundTo || ROUND_TO);
+    const roundToCents = _toCents(s.roundTo) || ROUND_TO_CENTS_DEFAULT;
+    let totalCents = _roundToNearestCents(subtotalCents + taxCents, roundToCents);
 
     // Minimum job
     let minJobApplied = false;
-    const minJob = Number(s.minJobCharge) || MIN_JOB_CHARGE;
-    if (total < minJob) {
-      total = minJob;
+    const minJobCents = _toCents(s.minJobCharge) || MIN_JOB_CHARGE_CENTS_DEFAULT;
+    if (totalCents < minJobCents) {
+      totalCents = minJobCents;
       minJobApplied = true;
     }
 
     // Margin view (internal)
-    const margin = total - hardCost;
-    const marginPct = total > 0 ? (margin / total) * 100 : 0;
+    const marginCents = totalCents - hardCostCents;
+    const marginPct = totalCents > 0 ? (marginCents / totalCents) * 100 : 0;
 
     // Deposit (Rock 2 PR 4 — shared calcDeposit replaces inline math)
-    const depositInfo = calcDeposit(total, mode, {
+    const depositInfo = calcDeposit(_fromCents(totalCents), mode, {
       overridePct: input.depositOverridePct,
       roundTo: s.roundTo
     });
     const deposit = depositInfo.amount;
+
+    // Return boundary: exact 2-dp dollars (integer cents / 100).
+    const materialCost = _fromCents(materialCostCents);
+    const laborCost = _fromCents(laborCostCents);
+    const hardCost = _fromCents(hardCostCents);
 
     return {
       method: 'line-item',
@@ -1057,23 +1096,23 @@
 
       items: itemsWithTotals,
       materialCost,
-      materialRetail,
+      materialRetail: _fromCents(materialRetailCents),
       laborCost,
       hardCost,
-      retailBeforeOHP,
+      retailBeforeOHP: _fromCents(retailBeforeOHPCents),
 
       overheadPct,
-      overhead,
+      overhead: _fromCents(overheadCents),
       profitPct,
-      profit,
+      profit: _fromCents(profitCents),
       materialMarkupPct,
 
-      subtotal,
+      subtotal: _fromCents(subtotalCents),
       depositPct: depositInfo.pct,
       depositRemainder: depositInfo.remainder,
       taxRate,
-      tax,
-      total,
+      tax: _fromCents(taxCents),
+      total: _fromCents(totalCents),
       minJobApplied,
       deposit,
 
@@ -1081,7 +1120,7 @@
         materialCost,
         laborCost,
         hardCost,
-        margin,
+        margin: _fromCents(marginCents),
         marginPct
       }
     };
