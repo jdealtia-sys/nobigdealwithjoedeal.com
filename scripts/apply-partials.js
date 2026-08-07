@@ -89,7 +89,8 @@ const REQUIRED_MARKUP = {
   'footer-blog': ['<footer>', '</footer>'],
   'footer-area': ['<footer>', '</footer>'],
   'footer-extended': ['<footer>', '</footer>'],
-  'footer-hub': ['<footer>', '</footer>'],
+  // ('footer-hub' entry removed 2026-08-07 — no such partial exists in
+  //  site-src/partials/ and no page carries the marker.)
 };
 
 let fatalCount = 0;
