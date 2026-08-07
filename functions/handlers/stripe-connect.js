@@ -39,7 +39,9 @@ const { onCall, onRequest, HttpsError } = require('firebase-functions/v2/https')
 const { logger } = require('firebase-functions/v2');
 const { getFirestore, FieldValue } = require('firebase-admin/firestore');
 const { defineSecret } = require('firebase-functions/params');
-const Stripe = require('stripe');
+// Lazy require (2026-08-07) — see stripe.js: ~20 MB SDK off the cold-start
+// path of every function; required on first client construction.
+let Stripe = null;
 
 const { CORS_ORIGINS, requireTeamAdmin } = require('./_shared');
 const { callableRateLimit } = require('../shared');
@@ -67,6 +69,7 @@ function getStripe() {
   // ERR_INVALID_CHAR inside the SDK (#774).
   const key = String(STRIPE_SECRET_KEY.value() ?? '').trim();
   if (!key) throw new HttpsError('failed-precondition', 'Payments are not configured.');
+  Stripe = Stripe || require('stripe');
   _stripeClient = new Stripe(key, {
     apiVersion: STRIPE_API_VERSION, maxNetworkRetries: 2, timeout: 20000,
   });

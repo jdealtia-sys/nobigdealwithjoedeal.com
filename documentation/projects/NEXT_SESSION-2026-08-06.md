@@ -1,5 +1,17 @@
 # Next Session — after the 2026-08-06 seven-PR power session
 
+> **EXECUTED 2026-08-07** — superseded by
+> [NEXT_SESSION-2026-08-07](NEXT_SESSION-2026-08-07.md). Two corrections for
+> the record (both bit the follow-up session's recon):
+> - **Item 1's framing was misleading**: the hail-damage footer's "46 lines
+>   adrift" was ONE inserted line (a codemod-misfire duplicate link from PR
+>   #1143) plus 45 lines of index-offset artifact from `diffLines()`.
+>   Converged + governed 2026-08-07.
+> - **Item 3's instruction was wrong**: `migrate-nav-to-partial.js` HARD-
+>   EXCLUDED docs/our-work.html, so "run it, it will classify" reported
+>   UNMATCHED and changed nothing until the stale exclusion was deleted.
+>   Both nav regions then converted EXACT (0-diff) on 2026-08-07.
+
 > Cold-start brief, written 2026-08-06 at session end. Self-contained.
 > Predecessors ([NEXT_SESSION-2026-08-05](NEXT_SESSION-2026-08-05.md) and the
 > session log

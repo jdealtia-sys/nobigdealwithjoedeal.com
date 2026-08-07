@@ -49,7 +49,22 @@
   }
 
   function onKey(e) {
-    if (e.key === 'Escape') close();
+    if (e.key === 'Escape') { close(); return; }
+    // Focus trap (a11y 2026-08-07): Tab used to walk out of the modal into
+    // the inert page behind it. Cycle within the dialog's focusables.
+    if (e.key !== 'Tab') return;
+    const focusables = modal.querySelectorAll(
+      'button:not([disabled]), [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
+    if (!focusables.length) return;
+    const first = focusables[0];
+    const last = focusables[focusables.length - 1];
+    if (e.shiftKey && document.activeElement === first) {
+      e.preventDefault(); last.focus();
+    } else if (!e.shiftKey && document.activeElement === last) {
+      e.preventDefault(); first.focus();
+    } else if (!modal.contains(document.activeElement)) {
+      e.preventDefault(); first.focus();
+    }
   }
 
   function open(project, trigger) {

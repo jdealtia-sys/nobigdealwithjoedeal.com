@@ -20,6 +20,18 @@ let _NBD_WIDGETS_DELEGATE_BOUND, _wAddTask, _wAskJoe, _wMiniHeat, _wQuickAddLead
 // Fix: define esc() at module scope and wrap every user-controlled
 // field interpolation. Caught by code-reviewer agent run after the
 // W100 milestone.
+// Leaflet vendors are a lazy bundle (mapvendor, 2026-08-07): the two home
+// widgets that draw a map load it on demand instead of silently rendering
+// an empty box (their old guard was `if(!window.L) return;`).
+function _withLeaflet(cb) {
+  if (window.L) { try { cb(); } catch (e) {} return; }
+  if (window.ScriptLoader && window.ScriptLoader.loadBundle) {
+    window.ScriptLoader.loadBundle('mapvendor').then(() => {
+      if (window.L) { try { cb(); } catch (e) {} }
+    });
+  }
+}
+
 function esc(s) {
   return String(s == null ? '' : s)
     .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
@@ -253,14 +265,14 @@ const WIDGETS = [
     render(el){
       el.innerHTML = `<div id="w-radar-map" style="height:160px;border-radius:6px;overflow:hidden;"></div>
         <div style="font-size:9px;color:var(--m);margin-top:4px;text-align:center;">Live NEXRAD radar • Updates every 10 min</div>`;
-      setTimeout(() => {
-        if(!window.L) return;
+      setTimeout(() => _withLeaflet(() => {
+        if(!document.getElementById('w-radar-map')) return; // widget re-rendered while loading
         if(_wRadarMap){try{_wRadarMap.remove();}catch(e){}}
         const map = L.map('w-radar-map',{zoomControl:false,attributionControl:false}).setView([39.07,-84.17],7);
         _wRadarMap = map;
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:10}).addTo(map);
         L.tileLayer('https://mesonet.agron.iastate.edu/cache/tile.py/1.0.0/nexrad-n0q-900913/{z}/{x}/{y}.png',{opacity:.6,maxZoom:10}).addTo(map);
-      }, 100);
+      }), 100);
     }},
 
   {id:'storm-alerts', name:'Storm Alerts', icon:'⛈️', cat:'Operations', size:'sm',
@@ -612,8 +624,8 @@ const WIDGETS = [
     render(el){
       el.innerHTML = `<div id="w-mini-heat" style="height:180px;border-radius:6px;overflow:hidden;"></div>
         <button class="w-mini-btn" style="width:100%;margin-top:6px;" data-w-goto="map">Open Full Map →</button>`;
-      setTimeout(() => {
-        if(!window.L) return;
+      setTimeout(() => _withLeaflet(() => {
+        if(!document.getElementById('w-mini-heat')) return; // widget re-rendered while loading
         if(_wMiniHeat){try{_wMiniHeat.remove();}catch(e){}}
         const leads = window._leads || [];
         const pts = leads.filter(l=>l.lat&&l.lng).map(l=>[l.lat,l.lng]);
@@ -622,7 +634,7 @@ const WIDGETS = [
         _wMiniHeat = map;
         L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{maxZoom:18}).addTo(map);
         if(pts.length && window.L.heatLayer) L.heatLayer(pts,{radius:20,blur:15,maxZoom:15}).addTo(map);
-      }, 100);
+      }), 100);
     }},
 ];
 

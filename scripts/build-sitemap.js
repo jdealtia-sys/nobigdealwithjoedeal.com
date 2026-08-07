@@ -103,7 +103,8 @@ const PREMIUM_BLOG_POSTS = [
   ['why-i-install-lumanail-on-every-elite-roof', '0.75'],
   ['why-roofivent-is-on-my-roofs',               '0.75'],
   ['the-pipe-boot-fork',                         '0.75'],
-  ['field-notes-joes-notebook-goes-public',      '0.70'],
+  // field-notes-joes-notebook-goes-public is deliberately noindexed —
+  // listing it here only produced two WARNs on every clean run.
 ];
 const GAF_TIMBERLINE_BLOG = ['why-class-4-impact-shingles', '0.7'];
 
@@ -151,6 +152,12 @@ const PRO_FOOTNOTE = [
 // Pages whose <head> carries a robots noindex meta must never be in the
 // sitemap (e.g. the field-notes placeholder post, noindexed 2026-07-04).
 const NOINDEX_RE = /<meta[^>]+name=["']robots["'][^>]*content=["'][^"']*noindex/i;
+
+// Deliberately-noindexed pages (label + slug) drop silently so a clean run
+// prints zero WARNs and the warning stays a real accident signal.
+const KNOWN_NOINDEXED = new Set([
+  'blog/field-notes-joes-notebook-goes-public',
+]);
 const isNoindexed = (file) => {
   const html = fs.readFileSync(file, 'utf8');
   const headEnd = html.indexOf('</head>');
@@ -222,7 +229,9 @@ function generate(prevLastmod, warn) {
   const dropNoindexed = (slugs, fileFor, label) =>
     slugs.filter((slug) => {
       if (!isNoindexed(fileFor(slug))) return true;
-      warn('robots noindex meta found, excluded from sitemap: ' + label + slug);
+      if (!KNOWN_NOINDEXED.has(label + slug)) {
+        warn('robots noindex meta found, excluded from sitemap: ' + label + slug);
+      }
       return false;
     });
 

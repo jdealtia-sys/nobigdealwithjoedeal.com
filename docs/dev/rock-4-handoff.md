@@ -130,6 +130,14 @@ Don't tackle this on a Friday afternoon.
 
 ### 7. CSP nonce (Item #14)
 
+> **STALE — corrected 2026-08-07 (stability audit).** The table below
+> describes the world of 2026-04. The blocker is GONE: the dashboard
+> decomposition (Phases 1–6) and the CSP sweeps extracted every inline
+> handler and every inline `<script>` — `scripts/check-inline-html-scripts.js`
+> reports **0 inline scripts across 203 files** and `script-src-attr 'none'`
+> already ships. Any remaining nonce work is a fresh design question, not
+> this extraction plan. Do not action the per-file counts below.
+
 Drop `'unsafe-inline'` from the `script-src` CSP directive. Currently blocked by inline event handlers across:
 
 | File | Inline handlers | Inline `<script>` blocks |

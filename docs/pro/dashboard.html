@@ -103,22 +103,15 @@
      can call window.nbdModal from their first render. Contract lives in
      the header comment of js/nbd-modal.js. -->
 <script src="js/nbd-modal.js?v=1"></script>
-<!-- Leaflet + plugins — ~300KB combined. Every consumer (widgets.js,
-     maps.js, d2d-tracker*, storm-center.js) is itself `defer` and a
-     waitForLeaflet() guard wraps the only inline boot path that
-     references `L` (see ~line 14182). Adding `defer` here drops them
-     from the critical render path while preserving execution order
-     (defer scripts fire in document order before DOMContentLoaded).
-     Audit B — 2026-05-13. -->
+<!-- LAZY: Leaflet + plugins (~225KB JS) load via the `mapvendor` bundle
+     (script-loader.js, 2026-08-07) — triggered by the map/draw/d2d/storm
+     views and the two map-drawing home widgets. Consumers already tolerate
+     late arrival (waitForLeaflet / self-poll / _withLeaflet). Only the tiny
+     stylesheets stay eager so the first map paint isn't unstyled. -->
 <link rel="stylesheet" href="/assets/vendor/leaflet/leaflet.css"/>
-<script defer src="/assets/vendor/leaflet/leaflet.js"></script>
-<!-- Leaflet.Draw — polygon drawing for territory boundaries -->
 <link rel="stylesheet" href="/assets/vendor/leaflet-draw/leaflet.draw.css"/>
-<script defer src="/assets/vendor/leaflet-draw/leaflet.draw.js"></script>
-<script defer src="/assets/vendor/leaflet-heat/leaflet-heat.js"></script>
 <link rel="stylesheet" href="/assets/vendor/leaflet-markercluster/MarkerCluster.css"/>
 <link rel="stylesheet" href="/assets/vendor/leaflet-markercluster/MarkerCluster.Default.css"/>
-<script defer src="/assets/vendor/leaflet-markercluster/leaflet.markercluster.js"></script>
 <!-- Centralized Auth Gate -->
 <script type="module" src="js/dashboard-auth-gate.module.js?v=1"></script>
 <script type="module" src="js/dashboard-bootstrap.module.js?v=10"></script>
@@ -6349,16 +6342,16 @@
 <!-- W154: revenue trend sparkline + top customers/sources/engaged. -->
 <script defer src="js/reports-trends.js?v=1"></script>
 <!-- LAZY: estimate-v2-ui + product-library load via the `estimates` bundle (PR 2c). -->
-<script defer src="js/theme-engine.js?v=2"></script>
+<!-- LAZY: theme-engine + overlays/sounds/achievements/gx load via the `theme`
+     bundle (script-loader.js, 2026-08-07) — kicked at boot by dashboard-state.js
+     when a saved theme exists, else with the Settings view / theme picker. -->
 <script defer src="js/prospects.js?v=4"></script>
 <script defer src="js/lead-source-roi.js?v=1"></script>
 <script defer src="js/forecast-empirical.js?v=1"></script>
 <script defer src="js/forecasting.js?v=1"></script>
 <script defer src="js/onboarding-tour.js?v=2"></script>
-<script defer src="js/theme-overlays.js?v=1"></script>
-<script defer src="js/theme-sounds.js?v=1"></script>
-<script defer src="js/theme-achievements.js?v=1"></script>
-<script defer src="js/theme-gx.js?v=1"></script>
+<!-- (theme-overlays/sounds/achievements/gx ride the lazy `theme` bundle — see
+     the note at the theme-engine slot above.) -->
 <script src="js/dashboard-sw-bootstrap.js?v=1"></script>
 <script defer src="js/mobile-nav-customizer.js?v=2"></script>
 <script defer src="js/connection-status-btn.js?v=2"></script>
