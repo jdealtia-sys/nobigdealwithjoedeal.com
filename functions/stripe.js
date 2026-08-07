@@ -26,7 +26,10 @@ const { logger } = require('firebase-functions/v2');
 const { getFirestore } = require('firebase-admin/firestore');
 const { getAuth } = require('firebase-admin/auth');
 const { FieldValue } = require('firebase-admin/firestore');
-const Stripe = require('stripe');
+// Lazy require (2026-08-07): the stripe SDK is ~20 MB of parse weight that
+// every deployed function paid at cold start (index.js pulls this module
+// eagerly). Required on first client construction instead.
+let Stripe = null;
 
 // Pin the Stripe API version explicitly. stripe-node 14.x defaults to
 // '2023-10-16'; without an explicit pin, bumping the SDK (e.g. #654 → v22)
@@ -176,6 +179,7 @@ function getStripe() {
   const raw = STRIPE_SECRET_KEY.value();
   const key = String(raw == null ? '' : raw).trim();
   if (!key) throw new Error('STRIPE_SECRET_KEY is empty/unset');
+  Stripe = Stripe || require('stripe');
   _stripeClient = new Stripe(key, {
     apiVersion: STRIPE_API_VERSION,
     maxNetworkRetries: 2,

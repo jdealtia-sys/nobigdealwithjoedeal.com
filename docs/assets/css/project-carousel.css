@@ -10,13 +10,13 @@
 .carousel-info .meta{font-size:.78rem;color:#646c7a;margin-bottom:14px;font-variant-numeric:tabular-nums}
 .carousel-info p{font-size:.92rem;color:#2a2a2a;line-height:1.65;margin-bottom:14px}
 .carousel-controls{display:flex;justify-content:space-between;align-items:center;margin-top:18px}
-.carousel-counter{font-size:.78rem;font-weight:700;color:var(--gray,#6b7280)}
+.carousel-counter{font-size:.78rem;font-weight:700;color:var(--gray,#5d6673)}
 .carousel-btns{display:flex;gap:8px}
 .carousel-btn{background:#fff;border:2px solid var(--light-gray,#e8e5e0);border-radius:8px;width:40px;height:40px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--navy-dark,#142a52);font-weight:800;transition:all .15s}
 .carousel-btn:hover:not(:disabled){border-color:var(--orange,#e8720c);color:#A64B00}
 .carousel-btn:disabled{opacity:.35;cursor:not-allowed}
 .carousel-thumbs{display:flex;gap:6px;flex-wrap:wrap;margin-top:14px;padding-top:14px;border-top:1px solid var(--light-gray,#e8e5e0)}
-.carousel-thumb{width:42px;height:42px;border-radius:6px;cursor:pointer;border:2px solid transparent;transition:all .15s;flex-shrink:0;overflow:hidden;background:var(--off-white,#f5f3ef)}
+.carousel-thumb{width:42px;height:42px;border-radius:6px;cursor:pointer;border:2px solid transparent;transition:all .15s;flex-shrink:0;overflow:hidden;background:var(--off-white,#f5f3ef);padding:0;-webkit-appearance:none;appearance:none}
 .carousel-thumb img{width:100%;height:100%;object-fit:cover;display:block}
 .carousel-thumb:hover{transform:scale(1.1)}
 .carousel-thumb.is-active{border-color:var(--orange,#e8720c);transform:scale(1.1)}

@@ -29,7 +29,10 @@ const { onSchedule } = require('firebase-functions/v2/scheduler');
 const { defineSecret } = require('firebase-functions/params');
 const { logger } = require('firebase-functions/v2');
 const { Resend } = require('resend');
-const twilio = require('twilio');
+// Lazy require (2026-08-07) — see lead-alert.js: ~21 MB SDK off the
+// cold-start path; call sites use _twilio()(...).
+let _twilioSdk = null;
+const _twilio = () => (_twilioSdk = _twilioSdk || require('twilio'));
 const { Timestamp, FieldValue, getFirestore } = require('firebase-admin/firestore');
 
 const RESEND_API_KEY = defineSecret('RESEND_API_KEY');
@@ -195,7 +198,7 @@ exports.stormWatch = onSchedule(
       `${affected.length} subscriber${affected.length === 1 ? '' : 's'} in range` +
       (textEnabled ? ' — texting them now.' : ' (texting OFF — see email).');
     try {
-      const client = twilio(TWILIO_ACCOUNT_SID.value(), TWILIO_AUTH_TOKEN.value());
+      const client = _twilio()(TWILIO_ACCOUNT_SID.value(), TWILIO_AUTH_TOKEN.value());
       await client.messages.create({ to: JOE_SMS, from: TWILIO_PHONE_NUMBER.value(), body: smsToJoe.slice(0, 480) });
     } catch (e) { logger.error('stormWatch: joe sms failed', { err: e.message }); }
     try {
@@ -220,7 +223,7 @@ exports.stormWatch = onSchedule(
     // 2) Subscriber texts — gated
     let texted = 0;
     if (textEnabled && affected.length) {
-      const client = twilio(TWILIO_ACCOUNT_SID.value(), TWILIO_AUTH_TOKEN.value());
+      const client = _twilio()(TWILIO_ACCOUNT_SID.value(), TWILIO_AUTH_TOKEN.value());
       for (const a of affected) {
         try {
           await client.messages.create({

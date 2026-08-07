@@ -608,6 +608,15 @@ function damagNearMe() {
     { enableHighAccuracy: false, timeout: 10000, maximumAge: 60000 }
   );
 }
+// Registry-first dispatch (dashboard-ui.js resolves __NBD_CALL_REGISTRY before
+// the allowlisted window fallback). This is the ONLY damagNearMe — the three
+// aliases that shadowed it (dashboard-actions.js ×2, maps.js ×1, all pointing
+// "📍 My Location" at spyglassGoToLocation) were deleted 2026-08-07, restoring
+// the per-PositionError messaging above.
+window.__NBD_CALL_REGISTRY = window.__NBD_CALL_REGISTRY || Object.create(null);
+Object.assign(window.__NBD_CALL_REGISTRY, {
+  damagNearMe: damagNearMe
+});
 
 
 // CSP-safe delegation for 5 data-mo-action attrs (maps overlays — pin popups).

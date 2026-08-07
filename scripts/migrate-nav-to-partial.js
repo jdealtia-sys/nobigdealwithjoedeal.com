@@ -51,7 +51,9 @@ const IS_MOBILE = PARTIAL_NAME.startsWith('mobile-nav');
 // (Structurally different pages classify UNMATCHED on their own; these are
 // the ones where even a NEAR match must not be taken.)
 const HARD_EXCLUDE = new Map([
-  ['docs/our-work.html', 'rebuilt in the Featured Projects branch — convert there, not here'],
+  // docs/our-work.html was excluded while the Featured Projects branch was in
+  // flight; both merged 2026-08-06 and the page converted EXACT (0-diff) on
+  // 2026-08-07.
   ['docs/sites/free-guide/index.html', 'separate microsite chrome (no mainNav, badge logo)'],
 ]);
 

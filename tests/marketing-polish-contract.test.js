@@ -102,13 +102,15 @@ console.log('MARKETING POLISH CONTRACT — batch 1 invariants');
   ok('lead-tool pages load nbd-mobile.css', bad.length === 0, bad.join(', '));
 }
 
-// 5. svg.ico pages have sizing CSS
+// 5. svg.ico pages have sizing CSS — via the shared stylesheet since
+//    2026-08-07 (an inline .ico block still satisfies the contract so a
+//    hand-authored page can't regress to black-blob icons either way).
 {
   const bad = [];
   for (const f of marketing) {
     const s = read(f);
     if (!s.includes('class="ico"')) continue;
-    if (!/\.ico\{[^}]*width:1em/.test(s)) bad.push(rel(f));
+    if (!s.includes('/assets/css/nbd-icons.css') && !/\.ico\{[^}]*width:1em/.test(s)) bad.push(rel(f));
   }
   ok('every svg.ico page has .ico sizing CSS (no black-blob regressions)', bad.length === 0, bad.slice(0, 4).join(', '));
 }

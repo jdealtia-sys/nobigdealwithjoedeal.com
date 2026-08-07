@@ -127,4 +127,21 @@ function withSentry(opName, handler) {
   };
 }
 
-module.exports = { withSentry, captureException, ensureInit };
+// Process-level safety net (2026-08-07): fire-and-forget promises that reject
+// without a .catch used to vanish — no Sentry event, no structured log. Tee
+// them to Sentry and the function logs. Deliberately NOT registering an
+// uncaughtException handler: swallowing those would keep a corrupted worker
+// alive; the platform's crash-and-replace behavior is the safer default.
+let rejectionHookInstalled = false;
+function installRejectionHook() {
+  if (rejectionHookInstalled) return;
+  rejectionHookInstalled = true;
+  process.on('unhandledRejection', (reason) => {
+    const err = reason instanceof Error ? reason : new Error(String(reason));
+    logger.error('unhandledRejection:', err);
+    captureException(err, { op: 'unhandledRejection' });
+  });
+}
+installRejectionHook();
+
+module.exports = { withSentry, captureException, ensureInit, installRejectionHook };

@@ -136,6 +136,77 @@ ok('V2 exposes calcDeposit', typeof V2.calcDeposit === 'function');
 }
 function ESTSRC_D5(){ return fs.readFileSync(path.join(__dirname, '..', 'docs/pro/js/estimates.js'), 'utf8'); }
 
+// ════════════════════════════════════════════════════════════════════
+// D-6 — V2 cents discipline (2026-08-07). The engine used to do pure
+// float money math and PERSIST the dirt (subtotal/tax/deposit like
+// 1234.5600000000001 reached stored docs → portal/invoice/Stripe).
+// Money now runs in integer cents internally; every returned dollar
+// field must be an exact 2-decimal value. These fixtures are chosen to
+// produce float dirt on the OLD engine (fractional SQ × per-unit rates,
+// 7.05% tax on an odd subtotal) — they FAIL against the float engine.
+// ════════════════════════════════════════════════════════════════════
+console.log('\nENGINE PARITY — D-6 V2 cents discipline (no float drift persists)');
+{
+  const exact2dp = (v) => typeof v === 'number' && Number.isFinite(v)
+    && Math.abs(v * 100 - Math.round(v * 100)) < 1e-9;
+  const moneyFields = (r) => ['baseTotal', 'addOnsTotal', 'subtotal', 'tax',
+    'total', 'deposit', 'depositRemainder'].map((k) => [k, r[k]]);
+
+  // Fractional-SQ cash job in a taxed county: 2437 sqft, 8/12 pitch
+  // (waste 1.20 → 29.244 SQ), 2 layers, 6 pipes, valley metal.
+  const perSq = V2.calculateEstimate({
+    method: 'per-sq', tier: 'better', mode: 'cash',
+    sqft: 2437, pitch: '8:12', tearOffLayers: 2, pipes: 6,
+    valleyMetalLf: 37, county: 'hamilton-oh', city: 'hamilton-oh',
+  });
+  for (const [k, v] of moneyFields(perSq)) {
+    ok('D-6 per-sq ' + k + ' is exact 2-dp (got ' + v + ')', exact2dp(v));
+  }
+  for (const [k, v] of Object.entries(perSq.addOns)) {
+    ok('D-6 per-sq addOn ' + k + ' is exact 2-dp (got ' + v + ')', exact2dp(v));
+  }
+  // Identities hold exactly in cents — no epsilon needed.
+  ok('D-6 per-sq subtotal === baseTotal + addOnsTotal (exact)',
+    Math.round(perSq.subtotal * 100)
+      === Math.round(perSq.baseTotal * 100) + Math.round(perSq.addOnsTotal * 100));
+  ok('D-6 per-sq deposit + remainder === total (exact)',
+    Math.round(perSq.deposit * 100) + Math.round(perSq.depositRemainder * 100)
+      === Math.round(perSq.total * 100));
+
+  // Line-item insurance scope with fractional quantities and OH&P.
+  const li = V2.calculateEstimate({
+    method: 'line-item', tier: 'better', mode: 'cash',
+    sqft: 2437, pitch: '8:12', county: 'hamilton-oh',
+    overheadPct: 0.10, profitPct: 0.10, materialMarkupPct: 0.35,
+    lineItems: [
+      { desc: 'Shingles', qty: 29.244, materialCost: 118.37, laborCost: 155.55 },
+      { desc: 'Underlayment', qty: 29.244, materialCost: 21.13, laborCost: 0 },
+      { desc: 'Drip edge', qty: 187.3, materialCost: 2.85, laborCost: 1.15 },
+    ],
+  });
+  for (const k of ['materialCost', 'materialRetail', 'laborCost', 'hardCost',
+    'retailBeforeOHP', 'overhead', 'profit', 'subtotal', 'tax', 'total',
+    'deposit', 'depositRemainder']) {
+    ok('D-6 line-item ' + k + ' is exact 2-dp (got ' + li[k] + ')', exact2dp(li[k]));
+  }
+  for (const it of li.items) {
+    ok('D-6 line "' + it.desc + '" totals are exact 2-dp',
+      exact2dp(it.materialTotal) && exact2dp(it.laborTotal) && exact2dp(it.lineTotal));
+  }
+  ok('D-6 line-item subtotal === retailBeforeOHP + overhead + profit (exact)',
+    Math.round(li.subtotal * 100) === Math.round(li.retailBeforeOHP * 100)
+      + Math.round(li.overhead * 100) + Math.round(li.profit * 100));
+  ok('D-6 line-item deposit + remainder === total (exact)',
+    Math.round(li.deposit * 100) + Math.round(li.depositRemainder * 100)
+      === Math.round(li.total * 100));
+
+  // Grand total still lands on the $25 step (customer-facing invariant).
+  ok('D-6 per-sq total is a $25 multiple (or exact min-job)',
+    perSq.minJobApplied || Math.round(perSq.total * 100) % 2500 === 0);
+  ok('D-6 line-item total is a $25 multiple (or exact min-job)',
+    li.minJobApplied || Math.round(li.total * 100) % 2500 === 0);
+}
+
 console.log('\n──────────────────────────────────────────────────');
 console.log(passed + ' passed, ' + failed + ' failed');
 if (failed) { console.log('FAILED: ' + fails.join(', ')); process.exit(1); }

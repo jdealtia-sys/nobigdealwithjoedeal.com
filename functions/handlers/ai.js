@@ -215,13 +215,18 @@ exports.claudeProxy = onRequest(
             'x-api-key': ANTHROPIC_API_KEY.value(),
           },
           body: JSON.stringify(anthropicBody),
+          // Bounded under the function's timeoutSeconds (60) so a slow
+          // upstream refunds + errors instead of burning the whole
+          // container budget and dying at the platform deadline.
+          signal: AbortSignal.timeout(50_000),
         });
         data = await response.json();
       } catch (e) {
-        // Network/parse error reaching Anthropic — refund full reservation.
+        // Network/parse/timeout error reaching Anthropic — refund full reservation.
         await adjustClaudeBudget(uidCounterRef, coCounterRef, -reservation).catch(() => {});
-        logger.error('claudeProxy upstream fetch error', { err: e.message });
-        res.status(502).json({ error: 'Upstream AI error' });
+        const isTimeout = e && (e.name === 'TimeoutError' || e.name === 'AbortError');
+        logger.error('claudeProxy upstream fetch error', { err: e.message, timeout: !!isTimeout });
+        res.status(isTimeout ? 504 : 502).json({ error: 'Upstream AI error' });
         return;
       }
       if (!response.ok) {
@@ -370,6 +375,8 @@ exports.publicVisualizerAI = onRequest(
           'x-api-key': ANTHROPIC_API_KEY.value(),
         },
         body: JSON.stringify(anthropicBody),
+        // Bounded under timeoutSeconds (60) — see claudeProxy.
+        signal: AbortSignal.timeout(50_000),
       });
 
       const data = await response.json();
@@ -385,8 +392,9 @@ exports.publicVisualizerAI = onRequest(
         : '';
       res.json({ text });
     } catch (e) {
-      logger.error('publicVisualizerAI error', { err: e.message });
-      res.status(500).json({ error: 'Internal error' });
+      const isTimeout = e && (e.name === 'TimeoutError' || e.name === 'AbortError');
+      logger.error('publicVisualizerAI error', { err: e.message, timeout: !!isTimeout });
+      res.status(isTimeout ? 504 : 500).json({ error: isTimeout ? 'Upstream AI timeout' : 'Internal error' });
     }
   }
 );
@@ -467,6 +475,8 @@ exports.publicFunnelAI = onRequest(
           'x-api-key': ANTHROPIC_API_KEY.value(),
         },
         body: JSON.stringify(anthropicBody),
+        // Bounded under timeoutSeconds (30) — see claudeProxy.
+        signal: AbortSignal.timeout(25_000),
       });
 
       const data = await response.json();
@@ -482,8 +492,9 @@ exports.publicFunnelAI = onRequest(
         : '';
       res.json({ text });
     } catch (e) {
-      logger.error('publicFunnelAI error', { err: e.message });
-      res.status(500).json({ error: 'Internal error' });
+      const isTimeout = e && (e.name === 'TimeoutError' || e.name === 'AbortError');
+      logger.error('publicFunnelAI error', { err: e.message, timeout: !!isTimeout });
+      res.status(isTimeout ? 504 : 500).json({ error: isTimeout ? 'Upstream AI timeout' : 'Internal error' });
     }
   }
 );
@@ -559,6 +570,7 @@ exports.adminAI = onRequest(
 
       const response = await fetch('https://api.anthropic.com/v1/messages', {
         method: 'POST',
+        signal: AbortSignal.timeout(50_000), // bounded under timeoutSeconds (60)
         headers: {
           'Content-Type': 'application/json',
           'anthropic-version': '2023-06-01',
@@ -579,8 +591,9 @@ exports.adminAI = onRequest(
         : '';
       res.json({ text });
     } catch (e) {
-      logger.error('adminAI error', { err: e.message });
-      res.status(500).json({ error: 'Internal error' });
+      const isTimeout = e && (e.name === 'TimeoutError' || e.name === 'AbortError');
+      logger.error('adminAI error', { err: e.message, timeout: !!isTimeout });
+      res.status(isTimeout ? 504 : 500).json({ error: isTimeout ? 'Upstream AI timeout' : 'Internal error' });
     }
   }
 );

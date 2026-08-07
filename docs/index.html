@@ -2,9 +2,6 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<!-- Google Analytics — uncomment and replace GA_MEASUREMENT_ID -->
-<script async src="https://www.googletagmanager.com/gtag/js?id=G-8PG7N9Q3DL"></script>
-<script defer  src="/assets/js/inline/2a90205f1b.js"></script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>Cincinnati Roofing & Insurance Restoration | Joe Deal NBD</title>
 <meta name="description" content="Honest roofing, siding, gutter & storm damage repair serving Greater Cincinnati. Licensed, insured, locally owned. Call Joe directly — (859) 420-7382.">
@@ -25,6 +22,11 @@
 <link rel="preload" href="/assets/fonts/bebas-neue-400-latin.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="/assets/fonts/montserrat-800-latin.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preconnect" href="https://www.googletagmanager.com">
+<!-- GA sits BELOW the LCP hero + font preloads (2026-08-07): as the first
+     resource in <head> its async fetch won the early-bandwidth race against
+     the hero image on slow links. Analytics can afford to queue behind LCP. -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-8PG7N9Q3DL"></script>
+<script defer src="/assets/js/inline/2a90205f1b.js"></script>
 <link rel="stylesheet" href="/assets/css/nbd-fonts.css">
 <link rel="stylesheet" href="/assets/css/homeowner-wall.css">
 <style>
@@ -296,6 +298,9 @@ a.trust-item:focus-visible{outline:2px solid var(--orange);outline-offset:-2px}
 .form-group label{font-size:.72rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--navy-dark)}
 .form-group label .req{color:#e8720c;margin-left:2px;font-weight:800}
 .form-required-note{font-size:.7rem;color:#5d6673;margin-bottom:14px;letter-spacing:.02em;font-weight:600}
+.form-error{background:#fdecea;border:1px solid #e8720c;border-left:4px solid #c0392b;color:#8a1f11;font-size:.85rem;font-weight:600;padding:10px 12px;border-radius:6px;margin:0 0 12px}
+.form-error a{color:#8a1f11;text-decoration:underline}
+#formFields input[aria-invalid="true"],#formFields select[aria-invalid="true"]{border-color:#c0392b;box-shadow:0 0 0 2px rgba(192,57,43,.15)}
 .form-group input::placeholder,.form-group textarea::placeholder{color:#9ca3af;opacity:1}
 .form-group input:focus,.form-group textarea:focus,.form-group select:focus{outline:none;border-color:#e8720c;box-shadow:0 0 0 3px rgba(232,114,12,.15)}
 .form-group input:invalid:not(:placeholder-shown),.form-group select:invalid:not(:focus){border-color:rgba(220,60,60,.4)}
@@ -588,13 +593,6 @@ footer{background:var(--navy-dark);border-top:3px solid var(--orange);padding:60
 }
 </script>
 <style>
-/* unified-emoji-swap injected */
-.ico{width:1em;height:1em;stroke:currentColor;stroke-width:2;fill:none;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0;display:inline-block;vertical-align:-0.14em}
-.ico-fill{fill:currentColor;stroke:none}
-.trust-icon svg.ico,.aci-icon svg.ico,.cm-icon svg.ico{width:24px;height:24px}
-.wc-phone-icon svg.ico{width:26px;height:26px}
-</style>
-<style>
 /* trust-icon fix — explicit child selectors so stroke paints even if SVG inheritance fails in some renderers */
 .trust-icon svg.ico,.aci-icon svg.ico,.cm-icon svg.ico,.wc-phone-icon svg.ico,.form-success-icon svg.ico{color:#fff}
 .trust-icon svg.ico{color:#fff}
@@ -609,21 +607,6 @@ footer{background:var(--navy-dark);border-top:3px solid var(--orange);padding:60
 .cm-icon svg.ico.ico-fill path,.cm-icon svg.ico.ico-fill polygon,
 .wc-phone-icon svg.ico.ico-fill path,.wc-phone-icon svg.ico.ico-fill polygon,
 .form-success-icon svg.ico.ico-fill path,.form-success-icon svg.ico.ico-fill polygon{fill:currentColor;stroke:none}
-</style>
-<style>
-/* nav-ico sizing (injected) */
-.nav-links .nav-ico{width:14px;height:14px;stroke:currentColor;stroke-width:2.2;fill:none;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0;display:inline-block;vertical-align:-0.18em}
-.nav-links > li > a{display:inline-flex;align-items:center;gap:5px}
-.nav-links > li > a.nav-instant{color:var(--orange-light,#f08030)!important}
-.mobile-nav .mnav-group{font-size:.65rem;font-weight:800;letter-spacing:.18em;text-transform:uppercase;color:var(--orange-light,#f08030);padding:14px 24px 6px;opacity:.75;border-bottom:none!important}
-
-/* ico sizing (injected) */
-.ico{width:1em;height:1em;stroke:currentColor;stroke-width:2;fill:none;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0;display:inline-block;vertical-align:-0.14em}
-.ico-fill{fill:currentColor;stroke:none}
-.trust-icon svg.ico,.aci-icon svg.ico,.cm-icon svg.ico{width:24px;height:24px}
-.wc-phone-icon svg.ico{width:26px;height:26px}
-.trust-icon svg.ico{color:#fff}
-.aci-icon svg.ico,.form-success-icon svg.ico{color:var(--orange,#e8720c)}
 </style>
 <style>
 /* nav base (injected) */
@@ -784,6 +767,7 @@ nav .nav-logo-text .sub{white-space:nowrap}
   nav .nav-logo-text .sub{font-size:.62rem!important}
 }
 </style>
+<link rel="stylesheet" href="/assets/css/nbd-icons.css">
 </head>
 <body><a class="nbd-skip" href="#main">Skip to content</a>
 
@@ -1699,8 +1683,8 @@ nav .nav-logo-text .sub{white-space:nowrap}
                 <input type="text" id="fieldFirst" placeholder="John" autocomplete="given-name" required>
               </div>
               <div class="form-group">
-                <label for="fieldLast">Last Name <span class="req">*</span></label>
-                <input type="text" id="fieldLast" placeholder="Smith" autocomplete="family-name" required>
+                <label for="fieldLast">Last Name</label>
+                <input type="text" id="fieldLast" placeholder="Smith" autocomplete="family-name">
               </div>
             </div>
             <div class="form-row">
@@ -1714,12 +1698,12 @@ nav .nav-logo-text .sub{white-space:nowrap}
               </div>
             </div>
             <div class="form-group">
-              <label for="fieldAddress">Address / Zip Code <span class="req">*</span></label>
-              <input type="text" id="fieldAddress" placeholder="Your address or zip code" autocomplete="street-address" required>
+              <label for="fieldAddress">Address / Zip Code</label>
+              <input type="text" id="fieldAddress" placeholder="Your address or zip code" autocomplete="street-address">
             </div>
             <div class="form-group">
-              <label for="fieldService">Service Needed <span class="req">*</span></label>
-              <select id="fieldService" required>
+              <label for="fieldService">Service Needed</label>
+              <select id="fieldService">
                 <option value="">— Select a Service —</option>
                 <option>Roof Replacement</option>
                 <option>Roof Repair</option>
@@ -1735,6 +1719,7 @@ nav .nav-logo-text .sub{white-space:nowrap}
               <textarea id="fieldMessage" placeholder="Describe what's going on — we'll get back to you with honest answers and a fair quote."></textarea>
             </div>
             <div style="position:absolute;left:-9999px;" aria-hidden="true"><label for="fieldNbdHp">Leave blank</label><input type="text" id="fieldNbdHp" tabindex="-1" autocomplete="off"></div>
+            <p id="formError" class="form-error" role="alert" hidden></p>
             <button class="form-submit" id="leadFormSubmit">Get My Free Estimate →</button>
             <script defer  src="/assets/js/inline/72fb917108.js"></script>
             <p class="form-note">🔒 No spam, no pressure. I will reach out personally — usually same day.</p>

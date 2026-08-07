@@ -323,7 +323,7 @@ section('H-6: Stripe webhook raw body + replay');
   assert('getStripe trims the secret key (kills the tainted-newline 500)',
     /getStripe[\s\S]{0,200}STRIPE_SECRET_KEY\.value\(\)[\s\S]{0,80}\.trim\(\)/.test(src));
   assert('getStripe sets maxNetworkRetries + timeout',
-    /getStripe[\s\S]{0,300}maxNetworkRetries[\s\S]{0,80}timeout/.test(src));
+    /getStripe[\s\S]{0,400}maxNetworkRetries[\s\S]{0,80}timeout/.test(src));
   assert('no per-handler raw new Stripe(SECRET.value()) — all go through getStripe()',
     !/new Stripe\(STRIPE_SECRET_KEY\.value\(\)/.test(src) &&
     (src.match(/= getStripe\(\);/g) || []).length >= 5);
@@ -1088,13 +1088,22 @@ section('E2: CI workflow present');
     /PRIVATE KEY/.test(ci) && /sk-ant-/.test(ci) && /sk_live_/.test(ci));
 
   // The E2E shards exist to catch regressions the unit suites structurally
-  // cannot. Left advisory (continue-on-error: true) they still burn ~5
-  // runners a push but a real regression merges green — the signal gets
-  // produced and then discarded. All five earned promotion on a 60-run
-  // green record; this keeps them blocking. If a shard must be re-parked,
-  // that is a deliberate call which should also update this assertion.
-  assert('E2E shards are blocking, not advisory',
-    /continue-on-error:\s*false/.test(ci) && !/continue-on-error:\s*true/.test(ci));
+  // cannot. Left advisory forever they burn runners while regressions merge
+  // green — the five promoted shards must STAY blocking. Advisory is legal
+  // only for jobs on their introduction runway (the same path @gauntlet
+  // took: advisory 2026-07-17 → required 2026-07-28). 2026-08-07: the matrix
+  // gained an @engines leg gated by an expression that keeps the five
+  // required shards blocking; three new standalone jobs (public-e2e,
+  // visual-brand-tokens, visual-regression) are on that runway — promoting
+  // one means flipping its literal AND updating this allowlist.
+  const requiredShards = ['@shard1', '@shard2', '@audit', '@stranger', '@gauntlet'];
+  assert('the five promoted E2E shards are all in the matrix',
+    requiredShards.every((s) => ci.includes("'" + s + "'")));
+  assert('matrix continue-on-error only exempts @engines (five shards stay blocking)',
+    /continue-on-error:\s*\$\{\{\s*matrix\.shard == '@engines'\s*\}\}/.test(ci)
+    && !/continue-on-error:\s*true[\s\S]{0,400}PLAYWRIGHT_GREP:\s*\$\{\{\s*matrix\.shard\s*\}\}/.test(ci));
+  assert('advisory literals are limited to the introduction-runway jobs (3)',
+    (ci.match(/continue-on-error:\s*true/g) || []).length === 3);
 }
 
 section('E2b: hosting deploy is gated');
@@ -1279,7 +1288,7 @@ section('F2 / M3: webhooks fail closed (every HTTP webhook signed)');
 
   const sms = read(path.join(FUNCTIONS, 'sms-functions.js'));
   assert('incomingSMS verifies Twilio signature via validateRequest',
-    /twilio\.validateRequest\(authToken,\s*twilioSignature/.test(sms));
+    /_twilio\(\)\.validateRequest\(authToken,\s*twilioSignature/.test(sms));
   assert('incomingSMS 403s on signature failure',
     /signature verification failed[\s\S]{0,200}res\.status\(403\)/.test(sms));
 
