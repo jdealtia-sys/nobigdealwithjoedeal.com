@@ -35,7 +35,9 @@ const { onCall, HttpsError } = require('firebase-functions/v2/https');
 const { defineSecret } = require('firebase-functions/params');
 const { logger } = require('firebase-functions/v2');
 const { getFirestore, FieldValue } = require('firebase-admin/firestore');
-const Stripe = require('stripe');
+// Lazy require (2026-08-07) — see stripe.js: ~20 MB SDK off the cold-start
+// path of every function; required on first client construction.
+let Stripe = null;
 
 const { requireTeamAdmin } = require('./_shared');
 const { callableRateLimit } = require('../shared');
@@ -75,6 +77,7 @@ function getStripe() {
   if (_stripeClient) return _stripeClient;
   const key = String(STRIPE_SECRET_KEY.value() == null ? '' : STRIPE_SECRET_KEY.value()).trim();
   if (!key) throw new Error('STRIPE_SECRET_KEY is empty/unset');
+  Stripe = Stripe || require('stripe');
   _stripeClient = new Stripe(key, {
     apiVersion: STRIPE_API_VERSION,
     maxNetworkRetries: 2,

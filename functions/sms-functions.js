@@ -24,7 +24,11 @@ const { getMessaging } = require('firebase-admin/messaging');
 // exercised against the emulator. Existing prod code in this file still uses
 // the namespaced form; new code uses this.
 const { FieldValue } = require('firebase-admin/firestore');
-const twilio = require('twilio');
+// Lazy require (2026-08-07) — see lead-alert.js: ~21 MB SDK off the
+// cold-start path; call sites use _twilio()(...) and the signature
+// validator uses _twilio().validateRequest.
+let _twilioSdk = null;
+const _twilio = () => (_twilioSdk = _twilioSdk || require('twilio'));
 // C4: use the Upstash-first rate-limit adapter so busy SMS windows
 // don't hammer the shared Firestore rate_limits doc. Falls back to
 // the Firestore limiter when Upstash isn't configured.
@@ -270,7 +274,7 @@ exports.sendSMS = onRequest(
 
     try {
       // Initialize Twilio client
-      const client = twilio(
+      const client = _twilio()(
         TWILIO_ACCOUNT_SID.value(),
         TWILIO_AUTH_TOKEN.value()
       );
@@ -499,7 +503,7 @@ exports.sendD2DSMS = onRequest(
       }
 
       // Initialize Twilio client
-      const client = twilio(
+      const client = _twilio()(
         TWILIO_ACCOUNT_SID.value(),
         TWILIO_AUTH_TOKEN.value()
       );
@@ -576,7 +580,7 @@ exports.incomingSMS = onRequest(
       // Twilio signs the sorted set of POSTed form fields as an object.
       const params = (req.body && typeof req.body === 'object') ? req.body : {};
 
-      const isValid = twilio.validateRequest(authToken, twilioSignature, url, params);
+      const isValid = _twilio().validateRequest(authToken, twilioSignature, url, params);
       if (!isValid) {
         logger.warn('incomingSMS signature verification failed', {
           host: req.get('host'),
@@ -991,7 +995,7 @@ exports.checkStormAlerts = onSchedule(
         if (ms >= startOfTodayMs) sentToday++;
       });
 
-      const client = twilio(TWILIO_ACCOUNT_SID.value(), TWILIO_AUTH_TOKEN.value());
+      const client = _twilio()(TWILIO_ACCOUNT_SID.value(), TWILIO_AUTH_TOKEN.value());
       const fromPhone = TWILIO_PHONE_NUMBER.value();
       // 2.3: hard ceiling on SMS per run. A large multi-county Severe/
       // Extreme event × many subscribers could otherwise blast thousands of
@@ -1246,7 +1250,7 @@ exports.onAiDraftApproved = onDocumentUpdated(
     }
 
     try {
-      const client = twilio(TWILIO_ACCOUNT_SID.value(), TWILIO_AUTH_TOKEN.value());
+      const client = _twilio()(TWILIO_ACCOUNT_SID.value(), TWILIO_AUTH_TOKEN.value());
       const formattedTo = formatPhoneNumber(to);
       const fromPhone = TWILIO_PHONE_NUMBER.value();
       if (!formattedTo) { await fail('unformattable_phone'); return; }

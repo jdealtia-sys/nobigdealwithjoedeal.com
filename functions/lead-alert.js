@@ -20,7 +20,11 @@ const { onDocumentCreated } = require('firebase-functions/v2/firestore');
 const { defineSecret } = require('firebase-functions/params');
 const { logger } = require('firebase-functions/v2');
 const { Resend } = require('resend');
-const twilio = require('twilio');
+// Lazy require (2026-08-07): the twilio SDK is ~21 MB of parse weight that
+// every deployed function paid at cold start (index.js pulls this module
+// eagerly). Required on first send instead; call sites use _twilio()(...).
+let _twilioSdk = null;
+const _twilio = () => (_twilioSdk = _twilioSdk || require('twilio'));
 const { getFirestore, FieldValue } = require('firebase-admin/firestore');
 const L = require('./lead-bridge-logic');
 
@@ -273,7 +277,7 @@ async function alertJoe(collection, d, leadId) {
   // Text via Twilio (works once the number is A2P 10DLC approved). Skip when
   // the tenant configured no alert SMS — never fall back to Joe's cell.
   if (target.sms) try {
-    const client = twilio(TWILIO_ACCOUNT_SID.value(), TWILIO_AUTH_TOKEN.value());
+    const client = _twilio()(TWILIO_ACCOUNT_SID.value(), TWILIO_AUTH_TOKEN.value());
     const msg = await client.messages.create({
       to: target.sms,
       from: TWILIO_PHONE_NUMBER.value(),
@@ -331,7 +335,7 @@ async function ackHomeownerSms(collection, d, leadId, target) {
   if (digits.length !== 10 && !(digits.length === 11 && digits[0] === '1')) return;
   const to = '+1' + digits.slice(-10);
   try {
-    const client = twilio(TWILIO_ACCOUNT_SID.value(), TWILIO_AUTH_TOKEN.value());
+    const client = _twilio()(TWILIO_ACCOUNT_SID.value(), TWILIO_AUTH_TOKEN.value());
     const firstName = String(d.firstName || '').trim();
     const msg = await client.messages.create({
       to,

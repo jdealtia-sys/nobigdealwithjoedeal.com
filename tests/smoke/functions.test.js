@@ -323,7 +323,7 @@ section('H-6: Stripe webhook raw body + replay');
   assert('getStripe trims the secret key (kills the tainted-newline 500)',
     /getStripe[\s\S]{0,200}STRIPE_SECRET_KEY\.value\(\)[\s\S]{0,80}\.trim\(\)/.test(src));
   assert('getStripe sets maxNetworkRetries + timeout',
-    /getStripe[\s\S]{0,300}maxNetworkRetries[\s\S]{0,80}timeout/.test(src));
+    /getStripe[\s\S]{0,400}maxNetworkRetries[\s\S]{0,80}timeout/.test(src));
   assert('no per-handler raw new Stripe(SECRET.value()) — all go through getStripe()',
     !/new Stripe\(STRIPE_SECRET_KEY\.value\(\)/.test(src) &&
     (src.match(/= getStripe\(\);/g) || []).length >= 5);
@@ -1279,7 +1279,7 @@ section('F2 / M3: webhooks fail closed (every HTTP webhook signed)');
 
   const sms = read(path.join(FUNCTIONS, 'sms-functions.js'));
   assert('incomingSMS verifies Twilio signature via validateRequest',
-    /twilio\.validateRequest\(authToken,\s*twilioSignature/.test(sms));
+    /_twilio\(\)\.validateRequest\(authToken,\s*twilioSignature/.test(sms));
   assert('incomingSMS 403s on signature failure',
     /signature verification failed[\s\S]{0,200}res\.status\(403\)/.test(sms));
 
