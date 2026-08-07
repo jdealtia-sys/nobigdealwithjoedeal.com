@@ -131,17 +131,17 @@ const POSTS = [
     url: "/blog/what-to-expect-roof-insurance-adjuster-visit",
     tag: "Insurance",
     title: "What to Expect From a Roof Insurance Adjuster Visit",
-    meta: "By Joe Deal · October 2025 · 7 min read",
+    meta: "By Joe Deal · January 2026 · 7 min read",
     excerpt: "Your adjuster is coming to inspect your roof — here is exactly what happens, what they look for, what you should have ready, and how to make sure nothing gets missed. Field-tested advice from a Cincinnati insurance restoration contractor.",
-    published: "2025-10-13",
+    published: "2026-01-14",
   },
   {
     url: "/blog/does-homeowner-insurance-cover-hail-damage-ohio",
     tag: "Insurance",
     title: "Does Homeowner Insurance Cover Hail Damage in Ohio?",
-    meta: "By Joe Deal · July 2025 · 7 min read",
+    meta: "By Joe Deal · January 2026 · 7 min read",
     excerpt: "Yes — but the details matter. ACV vs RCV policies, why claims get underpaid, how long you have to file, and what actually happens when you call your insurance company. Straight talk from a Cincinnati roofer.",
-    published: "2025-07-21",
+    published: "2026-01-06",
   },
   {
     url: "/blog/gaf-vs-owens-corning-vs-atlas-shingles",
@@ -157,7 +157,7 @@ const POSTS = [
     title: "How Much Does a New Roof Cost in Cincinnati in 2026?",
     meta: "By Joe Deal · Updated July 2026 · 7 min read",
     excerpt: "Realistic roof replacement pricing for Cincinnati homes in 2026. Cost per square, material tiers, labor rates, insurance vs. out-of-pocket, and what actually drives the final number. No fluff — just straight numbers from a local roofer.",
-    published: "2025-05-19",
+    published: "2025-12-23",
   },
   {
     url: "/blog/how-long-does-roof-replacement-take-cincinnati",
@@ -179,9 +179,9 @@ const POSTS = [
     url: "/blog/signs-your-roof-needs-replacement-vs-repair",
     tag: "Roofing",
     title: "Signs Your Roof Needs Replacement vs. Repair",
-    meta: "By Joe Deal · March 2025 · 6 min read",
+    meta: "By Joe Deal · December 2025 · 6 min read",
     excerpt: "The honest guide from a Cincinnati roofer: when to repair, when to replace, and what actually matters. Joe Deal explains what he looks for on every inspection.",
-    published: "2025-03-24",
+    published: "2025-12-01",
   }
 ];
 

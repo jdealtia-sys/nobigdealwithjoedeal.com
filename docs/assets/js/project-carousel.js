@@ -47,6 +47,10 @@
 
     const controls = el('div', 'carousel-controls');
     const counter = el('span', 'carousel-counter');
+    // Announce slide changes to screen readers — the counter repaints on
+    // every navigation, so it is the natural live region (a11y 2026-08-07).
+    counter.setAttribute('aria-live', 'polite');
+    counter.setAttribute('aria-atomic', 'true');
     const btns = el('div', 'carousel-btns');
     const prev = el('button', 'carousel-btn', '‹');
     prev.type = 'button'; prev.setAttribute('aria-label', 'Previous photo');
@@ -57,11 +61,16 @@
 
     const thumbs = el('div', 'carousel-thumbs');
     items.forEach(function (it, i) {
-      const t = el('div', 'carousel-thumb' + (i === 0 ? ' is-active' : ''));
+      // Real <button> (a11y 2026-08-07): the old <div> thumbnails were
+      // click-only — no keyboard path, no focus, invisible to AT.
+      const t = el('button', 'carousel-thumb' + (i === 0 ? ' is-active' : ''));
+      t.type = 'button';
       t.dataset.i = String(i);
+      t.setAttribute('aria-label', 'Photo ' + (i + 1) + ' of ' + items.length +
+        (it.title ? ' — ' + it.title : ''));
       if (it.title) t.title = it.title;
       const ti = document.createElement('img');
-      ti.src = it.src; ti.alt = it.alt || ''; ti.loading = 'lazy';
+      ti.src = it.src; ti.alt = ''; ti.loading = 'lazy';
       ti.width = 42; ti.height = 42;
       t.appendChild(ti);
       thumbs.appendChild(t);
