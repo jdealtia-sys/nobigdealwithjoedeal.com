@@ -487,6 +487,23 @@ const DEFAULT_THEME = 'nbd-original';
 // of force-applying inline vars that fight it (audit F-1).
 window.NBD_THEME_ENGINE = true;
 
+// The theme cluster is a lazy bundle on dashboard.html (2026-08-07). Users
+// with a saved non-default theme kick the fetch here — this file runs first
+// in the defer queue, so the download overlaps the rest of boot instead of
+// parse-blocking it. The eager-tag guard keeps dashboard.legacy.html (which
+// still ships the cluster as <script defer>) from double-loading; default-
+// theme users skip it entirely until Settings/picker.
+(function () {
+  try {
+    const saved = localStorage.getItem('nbd_pro_theme') || localStorage.getItem('nbd-theme');
+    if (saved && saved !== 'default'
+        && !document.querySelector('script[src*="theme-engine"]')
+        && window.ScriptLoader && window.ScriptLoader.loadBundle) {
+      window.ScriptLoader.loadBundle('theme');
+    }
+  } catch (e) {}
+})();
+
 // Boot the theme immediately on page load — before any UI render happens so the
 // first paint is themed. Canonical key first (nbd_pro_theme), then the legacy
 // mirror (nbd-theme), matching the <head> preboot + ThemeEngine (audit F-1/F-2).

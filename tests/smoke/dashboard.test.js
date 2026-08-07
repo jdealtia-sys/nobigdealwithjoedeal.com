@@ -344,9 +344,9 @@ section('ScriptLoader contract');
       d2dBundleSrc.includes(m),
       m + ' must be listed in the d2d bundle in script-loader.js');
   }
-  assert('PR 2e: d2d view preloads the d2d bundle',
-    /d2d:\s*\['d2d'\]/.test(src),
-    "VIEW_BUNDLES must map d2d to the d2d bundle");
+  assert('PR 2e: d2d view preloads the d2d bundle (+ mapvendor since 2026-08-07)',
+    /d2d:\s*\['mapvendor',\s*'d2d'\]/.test(src),
+    "VIEW_BUNDLES must map d2d to the mapvendor + d2d bundles");
   // The maps engine MUST stay eager — maps.js applies the saved theme/font at
   // boot (nbdBoot) and powers the theme picker; deferring it would break theming.
   assert('PR 2e: maps.js stays eager (it is also the theme engine)',

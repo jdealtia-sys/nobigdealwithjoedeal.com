@@ -252,7 +252,18 @@ function _nbdUpdateLabels(t) {
 }
 
 /* ── PICKER MODAL ─────────────────────────────────────────────────── */
-function nbdPickerOpen()  { document.getElementById('nbd-picker-modal').classList.add('open'); _nbdSyncActiveLabels(); nbdRenderCats(); nbdRenderThemes(); }
+function nbdPickerOpen()  {
+  // Dashboard's 189-theme engine is a lazy bundle (2026-08-07): opening the
+  // picker before it arrives kicks the load and re-renders the grid on
+  // resolve. Customer page (no NBD_THEME_ENGINE flag) keeps the legacy grid.
+  if (window.NBD_THEME_ENGINE && !window.ThemeEngine
+      && window.ScriptLoader && window.ScriptLoader.loadBundle) {
+    window.ScriptLoader.loadBundle('theme').then(() => {
+      try { _nbdSyncActiveLabels(); nbdRenderCats(); nbdRenderThemes(); } catch (e) {}
+    });
+  }
+  document.getElementById('nbd-picker-modal').classList.add('open'); _nbdSyncActiveLabels(); nbdRenderCats(); nbdRenderThemes();
+}
 // Re-sync the header sub-label + footer "Active:" label to the LIVE applied
 // theme. On the dashboard (window.ThemeEngine) the saved theme is applied
 // by ThemeEngine.init()/theme-init.js, NOT via nbdApplyTheme, so _nbdUpdateLabels
