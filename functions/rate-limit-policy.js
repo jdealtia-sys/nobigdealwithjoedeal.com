@@ -59,7 +59,10 @@ const HOUR   = 60 * MINUTE;
  */
 const ROUTES = {
   // ── AI / token-burning surfaces (lowest ceilings, highest abuse risk).
-  claudeProxy:        { uid:  60 / MINUTE * MINUTE, ip:  20, uidLimit:  60, uidWindow: MINUTE, ipLimit:  30, ipWindow: MINUTE },
+  // (2026-08-07: dropped the vestigial `uid: 60 / MINUTE * MINUTE, ip: 20`
+  //  keys — the expression was a no-op that read like a real limit; only the
+  //  uidLimit/ipLimit shape is consumed.)
+  claudeProxy:        { uidLimit:  60, uidWindow: MINUTE, ipLimit:  30, ipWindow: MINUTE },
   publicVisualizerAI: { uidLimit:   0, uidWindow: MINUTE, ipLimit:   3, ipWindow: MINUTE },
 
   // ── Auth / billing — fraud-adjacent, low burst legit need.

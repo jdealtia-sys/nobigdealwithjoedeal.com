@@ -36,10 +36,11 @@ Map of content for the `documentation/` corpus (~90 files) plus the other places
 
 - [BIG_ROCKS](projects/BIG_ROCKS.md) — the standing priority list
 - [KANBAN_CUSTOMER_MAP](projects/KANBAN_CUSTOMER_MAP.md)
-- Session handoffs: [NEXT_SESSION-2026-08-06](projects/NEXT_SESSION-2026-08-06.md) (current — start here) · [SESSION-2026-08-06-our-work-featured-projects](projects/SESSION-2026-08-06-our-work-featured-projects.md) (that session's log, executed) · [NEXT_SESSION-2026-08-05](projects/NEXT_SESSION-2026-08-05.md) · [NEXT_SESSION](projects/NEXT_SESSION.md) · [NEXT_SESSION-2c4a](projects/NEXT_SESSION-2c4a.md) (all executed)
+- Session handoffs: [NEXT_SESSION-2026-08-07](projects/NEXT_SESSION-2026-08-07.md) (current — start here) · [NEXT_SESSION-2026-08-06](projects/NEXT_SESSION-2026-08-06.md) · [SESSION-2026-08-06-our-work-featured-projects](projects/SESSION-2026-08-06-our-work-featured-projects.md) · [NEXT_SESSION-2026-08-05](projects/NEXT_SESSION-2026-08-05.md) · [NEXT_SESSION](projects/NEXT_SESSION.md) · [NEXT_SESSION-2c4a](projects/NEXT_SESSION-2c4a.md) (all executed)
 
 ## Audits
 
+- [SYSTEM-STABILITY-PERF-2026-08-07](audit/SYSTEM-STABILITY-PERF-2026-08-07.md) — full-system stability/perf/accuracy audit + fix wave (newest)
 - [AUDIT_REPORT](audit/AUDIT_REPORT.md) · [LIVE_VERIFICATION](audit/LIVE_VERIFICATION.md)
 - [OPS_AUDIT_2026-06](audit/OPS_AUDIT_2026-06.md) · [PROD_HOMEWORK_VERIFICATION_2026-07](audit/PROD_HOMEWORK_VERIFICATION_2026-07.md)
 - Themes: [THEME_SYSTEM_AUDIT_2026-06](audit/THEME_SYSTEM_AUDIT_2026-06.md) · [THEME_PHASE3_DURABILITY](audit/THEME_PHASE3_DURABILITY.md)

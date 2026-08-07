@@ -19,8 +19,13 @@ Run tests with `cd tests && npm install && npm test`. Smoke + pricing + address
 > is live on Firebase Hosting and serves the full CSP / Permissions-Policy /
 > Referrer-Policy from `firebase.json` (identical to `nobigdeal-pro.web.app`).
 > The "What's left" DNS/console steps below are **historical** — do not redo
-> them. Small remaining header gaps to track separately: no `Strict-Transport-
-> Security` (HSTS) and no `X-Content-Type-Options: nosniff`.
+> them.
+>
+> **Correction 2026-08-07 (stability audit):** the trailing "remaining header
+> gaps" note was stale — `Strict-Transport-Security` and
+> `X-Content-Type-Options: nosniff` are BOTH present in `firebase.json`
+> (verified at lines ~70/73). No header gap remains; do not spend a session
+> re-verifying this again.
 
 ### Goal
 Swap public `nobigdealwithjoedeal.com` from GitHub Pages → Firebase Hosting so
