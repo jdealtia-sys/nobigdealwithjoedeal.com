@@ -2,9 +2,6 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<!-- Google Analytics — uncomment and replace GA_MEASUREMENT_ID -->
-<script async src="https://www.googletagmanager.com/gtag/js?id=G-8PG7N9Q3DL"></script>
-<script defer  src="/assets/js/inline/2a90205f1b.js"></script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>Cincinnati Roofing & Insurance Restoration | Joe Deal NBD</title>
 <meta name="description" content="Honest roofing, siding, gutter & storm damage repair serving Greater Cincinnati. Licensed, insured, locally owned. Call Joe directly — (859) 420-7382.">
@@ -25,6 +22,11 @@
 <link rel="preload" href="/assets/fonts/bebas-neue-400-latin.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="/assets/fonts/montserrat-800-latin.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preconnect" href="https://www.googletagmanager.com">
+<!-- GA sits BELOW the LCP hero + font preloads (2026-08-07): as the first
+     resource in <head> its async fetch won the early-bandwidth race against
+     the hero image on slow links. Analytics can afford to queue behind LCP. -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-8PG7N9Q3DL"></script>
+<script defer src="/assets/js/inline/2a90205f1b.js"></script>
 <link rel="stylesheet" href="/assets/css/nbd-fonts.css">
 <link rel="stylesheet" href="/assets/css/homeowner-wall.css">
 <style>
@@ -588,13 +590,6 @@ footer{background:var(--navy-dark);border-top:3px solid var(--orange);padding:60
 }
 </script>
 <style>
-/* unified-emoji-swap injected */
-.ico{width:1em;height:1em;stroke:currentColor;stroke-width:2;fill:none;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0;display:inline-block;vertical-align:-0.14em}
-.ico-fill{fill:currentColor;stroke:none}
-.trust-icon svg.ico,.aci-icon svg.ico,.cm-icon svg.ico{width:24px;height:24px}
-.wc-phone-icon svg.ico{width:26px;height:26px}
-</style>
-<style>
 /* trust-icon fix — explicit child selectors so stroke paints even if SVG inheritance fails in some renderers */
 .trust-icon svg.ico,.aci-icon svg.ico,.cm-icon svg.ico,.wc-phone-icon svg.ico,.form-success-icon svg.ico{color:#fff}
 .trust-icon svg.ico{color:#fff}
@@ -609,21 +604,6 @@ footer{background:var(--navy-dark);border-top:3px solid var(--orange);padding:60
 .cm-icon svg.ico.ico-fill path,.cm-icon svg.ico.ico-fill polygon,
 .wc-phone-icon svg.ico.ico-fill path,.wc-phone-icon svg.ico.ico-fill polygon,
 .form-success-icon svg.ico.ico-fill path,.form-success-icon svg.ico.ico-fill polygon{fill:currentColor;stroke:none}
-</style>
-<style>
-/* nav-ico sizing (injected) */
-.nav-links .nav-ico{width:14px;height:14px;stroke:currentColor;stroke-width:2.2;fill:none;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0;display:inline-block;vertical-align:-0.18em}
-.nav-links > li > a{display:inline-flex;align-items:center;gap:5px}
-.nav-links > li > a.nav-instant{color:var(--orange-light,#f08030)!important}
-.mobile-nav .mnav-group{font-size:.65rem;font-weight:800;letter-spacing:.18em;text-transform:uppercase;color:var(--orange-light,#f08030);padding:14px 24px 6px;opacity:.75;border-bottom:none!important}
-
-/* ico sizing (injected) */
-.ico{width:1em;height:1em;stroke:currentColor;stroke-width:2;fill:none;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0;display:inline-block;vertical-align:-0.14em}
-.ico-fill{fill:currentColor;stroke:none}
-.trust-icon svg.ico,.aci-icon svg.ico,.cm-icon svg.ico{width:24px;height:24px}
-.wc-phone-icon svg.ico{width:26px;height:26px}
-.trust-icon svg.ico{color:#fff}
-.aci-icon svg.ico,.form-success-icon svg.ico{color:var(--orange,#e8720c)}
 </style>
 <style>
 /* nav base (injected) */
@@ -784,6 +764,7 @@ nav .nav-logo-text .sub{white-space:nowrap}
   nav .nav-logo-text .sub{font-size:.62rem!important}
 }
 </style>
+<link rel="stylesheet" href="/assets/css/nbd-icons.css">
 </head>
 <body><a class="nbd-skip" href="#main">Skip to content</a>
 

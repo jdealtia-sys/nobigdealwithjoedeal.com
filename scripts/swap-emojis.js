@@ -103,11 +103,12 @@ function swapLeadingInButtons(html) {
 }
 
 function injectCssIfMissing(html) {
-  if (/unified-emoji-swap injected/.test(html)) return html;
-  // Prefer injecting right before </head> in its own <style> block so we don't
-  // depend on </style> being adjacent to </head>.
+  // 2026-08-07: sizing rules live in the shared /assets/css/nbd-icons.css
+  // (see scripts/ensure-icon-css.js) — link it instead of stamping the
+  // inline block that used to duplicate ~1.1 KB into every page.
+  if (html.includes('/assets/css/nbd-icons.css')) return html;
   if (/<\/head>/.test(html)) {
-    return html.replace(/<\/head>/, '<style>' + ICO_CSS + '</style>\n</head>');
+    return html.replace(/<\/head>/, '<link rel="stylesheet" href="/assets/css/nbd-icons.css">\n</head>');
   }
   return html;
 }
