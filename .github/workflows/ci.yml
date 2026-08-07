@@ -1040,3 +1040,53 @@ jobs:
         run: |
           cd tests/visual
           npm test
+
+  # Pixel-diff visual regression over the public /pro pages (2026-08-07
+  # audit): the spec + npm scripts existed, appeared in zero workflows, and
+  # NO baselines were ever generated. Baselines must be CI-RENDERED —
+  # container-local font rasterization does not match ubuntu runners even at
+  # the generous thresholds. The job self-selects its mode:
+  #   • no committed snapshots dir → generates baselines + uploads them as
+  #     an artifact; a human downloads, reviews, and commits them under
+  #     tests/e2e/visual-regression.spec.js-snapshots/ (the bless step).
+  #   • snapshots dir committed → compares and reports drift.
+  # Advisory either way until the baselines are blessed and the job has a
+  # green streak (promotion checklist in NEXT_SESSION-2026-08-07.md).
+  visual-regression:
+    name: Visual regression (public pro pages)
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+      - name: Install test deps
+        run: |
+          cd tests
+          npm install --silent --no-audit --no-fund
+      - name: Install Playwright chromium
+        run: |
+          cd tests
+          npx playwright install --with-deps chromium
+      - name: Run visual regression (compare, or generate baselines on first run)
+        run: |
+          cd tests
+          if [ -d e2e/visual-regression.spec.js-snapshots ]; then
+            MODE=""
+            echo "baselines committed — compare mode"
+          else
+            MODE="--update-snapshots"
+            echo "no baselines — generating for review/bless"
+          fi
+          npx firebase-tools emulators:exec --only hosting --project nobigdeal-pro \
+            "PLAYWRIGHT_BASE_URL=http://127.0.0.1:5000 playwright test --config=playwright.config.js --workers=1 visual-regression.spec.js $MODE"
+      - name: Upload baselines / diffs
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: visual-regression-output
+          path: |
+            tests/e2e/visual-regression.spec.js-snapshots/
+            tests/test-results/
+          retention-days: 14
