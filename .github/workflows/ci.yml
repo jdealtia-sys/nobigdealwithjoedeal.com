@@ -584,11 +584,11 @@ jobs:
       - name: Check test-suite manifest completeness
         run: node scripts/run-test-manifest.js --check
 
-  # The 32 dependency-free suites the manifest owns (2026-08-07). These
-  # existed for months without gating anything — tests/package.json's
-  # `npm test` aggregate was never invoked by CI, and nobody hand-listed
-  # them. All 32 verified green at wiring time; quarantine (with a dated
-  # reason in the manifest) rather than wiring red.
+  # The 32 node suites the manifest owns (2026-08-07). These existed for
+  # months without gating anything — tests/package.json's `npm test`
+  # aggregate was never invoked by CI, and nobody hand-listed them. All 32
+  # verified green at wiring time; quarantine (with a dated reason in the
+  # manifest) rather than wiring red.
   unit-suite-manifest:
     name: Unit suites (manifest)
     runs-on: ubuntu-latest
@@ -597,6 +597,14 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: '22'
+      # Most of the bucket is dependency-free, but expenses-logic requires
+      # functions/receipt-vision.js (→ firebase-functions) and
+      # webhook-signatures requires functions/node_modules/stripe by path —
+      # same rationale as the smoke-tests job's install.
+      - name: Install functions deps
+        run: |
+          cd functions
+          npm ci --silent || npm install --silent --no-audit --no-fund
       - name: Run manifest node bucket
         run: node scripts/run-test-manifest.js
 
@@ -620,6 +628,12 @@ jobs:
         run: |
           cd tests
           npm install --silent
+      # rate-limit.test.js drives functions/rate-limit.js directly, which
+      # requires firebase deps from functions/node_modules.
+      - name: Install functions deps
+        run: |
+          cd functions
+          npm ci --silent || npm install --silent --no-audit --no-fund
       - name: Install firebase-tools globally
         run: npm install -g firebase-tools@13
       - name: Run rate-limit persistence tests under firestore emulator

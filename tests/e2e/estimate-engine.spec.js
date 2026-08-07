@@ -87,8 +87,18 @@ test.describe('Estimate engine — assembles identically (PR 2c) @engines', () =
                Array.isArray(window.NBD_PRODUCTS) && window.NBD_PRODUCTS.length > 0),
       null, { timeout: 25_000 }
     );
-    // The stub re-dispatches startNewEstimate after the bundle loads, which
-    // opens the V2 modal — give that a beat to land.
+    // The stub re-dispatches startNewEstimate after the bundle loads. Since
+    // Rock 2 PR 6 that opens the NEW-ESTIMATE CHOOSER (estimate-entry.js),
+    // not the V2 modal directly — drive the chooser's own V2 path (the same
+    // call its "Start Blank" card makes) and then wait for the modal.
+    await page.waitForFunction(() => !!document.getElementById('est-new-chooser')
+      || !!document.getElementById('estV2Modal'), null, { timeout: 10_000 }).catch(() => {});
+    await page.evaluate(() => {
+      if (!document.getElementById('estV2Modal')
+          && typeof window.openEstimateV2Builder === 'function') {
+        try { window.openEstimateV2Builder({}); } catch (e) {}
+      }
+    });
     await page.waitForFunction(() => !!document.getElementById('estV2Modal'), null, { timeout: 10_000 }).catch(() => {});
 
     const snap = await page.evaluate(() => {
