@@ -37,10 +37,12 @@ If you add a new export, list it here so the next audit doesn't have to re-deriv
 | `createDealAcceptToken` | onCall | Close Board — rep mints a deal_accept_token for a deal room they own |
 | `createReportShareToken` | onCall | Rep mints a no-login view link for a saved inspection report |
 | `trackUsage` | onCall | Plan-usage increment (atomic, server-side) |
-| `lookupParcel` | onCall | Regrid parcel lookup w/ 90-day cache |
+| `lookupParcel` | onCall | Parcel lookup w/ 90-day cache — Regrid (default) or Swath per `NBD_PARCEL_PROVIDER`, other provider is the fallback |
 | `requestMeasurement` | onCall | Hover / EagleView / Nearmap measurement request |
 | `sendEstimateForSignature` | onCall | BoldSign embedded-signing flow (was listed here as `sendForSignature` — actual export name is `sendEstimateForSignature`) |
-| `getHailHistory` | onCall | HailTrace storm history within radius |
+| `getHailHistory` | onCall | Storm history within radius — NOAA (default) / HailTrace / Swath per `NBD_HAIL_PROVIDER`, NOAA fallback (routes through shared `lookupHail`) |
+| `getSwathReport` | onCall | Swath per-property exposure report — quote-first (`confirm:true` required to spend credits), **admin/company_admin gate in-body**, 30-day Firestore cache (integrations/swath.js) |
+| `getSwathUsage` | onCall | Swath month-to-date credit meter — **admin/company_admin gate in-body**, 10/hr limiter (integrations/swath.js) |
 | `transcribeVoiceMemo` | onCall | Deepgram audio transcription |
 | `dictate` | onCall | Whisper unified transcribe + AI cleanup |
 | `triggerProcessRecording` | onCall | Voice intelligence — manually kick transcription+analysis of a recording |
@@ -76,6 +78,7 @@ If you add a new export, list it here so the next audit doesn't have to re-deriv
 | `esignWebhook` | onRequest | BoldSign webhook-secret verification |
 | `measurementWebhook` | onRequest | Hover/EagleView webhook-secret verification |
 | `calcomWebhook` | onRequest | Cal.com HMAC verification |
+| `swathWebhook` | onRequest | Swath `storm.verified` alerts — Stripe-style HMAC (`t=…,v1=…`, ±300s replay window, fails closed when secret unset), idempotent `storm_events/{id}` ingest + Slack ping |
 | `incomingSMS` | onRequest | Twilio inbound-SMS webhook — X-Twilio-Signature verified (also feeds T-1 AI-texting draft generation) |
 | `submitPublicLead` | onRequest | Turnstile token + App Check + rate limit + honeypot |
 | `publicVisualizerAI` | onRequest | App Check + 5/hr/IP, model locked to Haiku, server-owned prompt, 1.5 MB image cap |
@@ -172,7 +175,7 @@ These operate on the **caller's own data** (owner-scoped Firestore queries insid
 | `monthlyMarketingReport` | 1st of month 07:00 ET | Marketing rollup email |
 | `healthDigestCron` | daily 14:00 UTC | Ops health digest (Vision spend, Stripe webhooks, Anthropic tokens, portal engagement); gated on `HEALTH_DIGEST_ENABLED` |
 | `emailQueueWorker` | every 1 min | Drains `email_queue/` via Resend |
-| `hailMatchCron` | daily 09:00 | HailTrace storm-match sweep + Slack notify (was listed as `hailCron` — actual export name is `hailMatchCron`) |
+| `hailMatchCron` | daily 09:00 | HailTrace/NOAA storm-match sweep + Slack notify — deliberately never uses the Swath provider (a 500-lead sweep would burn the credit budget; see hail-cron.js) (was listed as `hailCron` — actual export name is `hailMatchCron`) |
 | `onAppointmentReminder` | every 15 min | Push notification 15 min before appointments |
 | `onFollowUpDue` | daily 08:00 | Push notification for due follow-ups |
 | `migrationsTick` | every 24h | Idempotent versioned-migration runner tick |
@@ -215,7 +218,8 @@ These operate on the **caller's own data** (owner-scoped Firestore queries insid
 Exported for unit tests or internal reuse; they carry no `__endpoint` and Firebase deploy ignores them.
 
 - `_test` (storm-watch.js and integrations/storm-briefing.js each export one), `_constants`, `_bridgeCollections` (lead-bridge.js)
-- `lookupHail` — plain async hail-history helper (integrations/hail.js) shared by `getHailHistory` + storm briefing; not a Cloud Function
+- `lookupHail` — plain async hail-history helper (integrations/hail.js) shared by `getHailHistory` + `attachStormProof` (handlers/storm-proof.js); not a Cloud Function. (2026-08-06 correction: previously said "storm briefing", but storm-briefing.js never imports it.)
+- Swath helpers `fetchSwathHail` / `querySwathProperty` / `verifySwathSignature` / `_test` — module exports of integrations/swath.js consumed by hail.js, parcel.js, and tests/smoke/swath-signature.test.js. Deliberately NOT mounted on index.js (it mounts the three Swath Cloud Functions selectively).
 - Voice-intelligence internals: `_VoiceError`, `_analyzeTranscript`, `_checkBudget`, `_checkVerbalConsent`, `_getCompanyContext`, `_incrementVoiceUsage`, `_parseAudioPath`, `_processRecording`, `_transcribeAudio`
 - Push-notification helpers (plain async functions): `sendTeamNotification`, `sendStreakNotification`, `sendCustomNotification`
 - Slack helper: `postSlack`

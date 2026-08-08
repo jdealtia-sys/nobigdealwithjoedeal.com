@@ -88,6 +88,11 @@ exports.integrationStatus = onCall(
         boldsignWebhook:    _hasInt('BOLDSIGN_WEBHOOK_SECRET'),
         regrid:             _hasInt('REGRID_API_TOKEN'),
         hailtrace:          _hasInt('HAILTRACE_API_KEY'),
+        // Swath (swathapi.com) — one API key serves both the hail-swath
+        // and parcel slots; the webhook secret is minted separately by
+        // POST /v1/monitors (runbooks/SWATH-SETUP.md).
+        swath:              _hasInt('SWATH_API_KEY'),
+        swathWebhook:       _hasInt('SWATH_WEBHOOK_SECRET'),
         calcom:             _hasInt('CALCOM_WEBHOOK_SECRET'),
         // Voice transcription pair — Phase 1 uses Groq, Phase 2 may
         // add Deepgram for native diarization on Pro+.

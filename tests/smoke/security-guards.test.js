@@ -23,6 +23,7 @@ function run(ctx) {
   const stripe      = read(path.join(FUNCTIONS, 'stripe.js'));
   const esign       = read(path.join(FUNCTIONS, 'integrations/esign.js'));
   const calcom      = read(path.join(FUNCTIONS, 'integrations/calcom.js'));
+  const swath       = read(path.join(FUNCTIONS, 'integrations/swath.js'));
   const measurement = read(path.join(FUNCTIONS, 'integrations/measurement.js'));
   const sms         = read(path.join(FUNCTIONS, 'sms-functions.js'));
   const ai          = read(path.join(FUNCTIONS, 'handlers/ai.js'));
@@ -43,6 +44,12 @@ function run(ctx) {
     /CALCOM_WEBHOOK_SECRET/.test(calcom) && /timingSafeEqual/.test(calcom));
   assert('calcomWebhook fails closed when its secret is unset',
     /rejecting unsigned request/i.test(calcom));
+  assert('swathWebhook HMAC-verifies (x-swath-signature + timingSafeEqual)',
+    /x-swath-signature/.test(swath) && /timingSafeEqual/.test(swath));
+  assert('swathWebhook fails closed when its secret is unset',
+    /SWATH_WEBHOOK_SECRET/.test(swath) && /rejecting unsigned request/i.test(swath));
+  assert('swathWebhook bounds the signature timestamp (replay window)',
+    /SIGNATURE_TOLERANCE_S/.test(swath) && /stale/.test(swath));
   assert('measurementWebhook HMAC-verifies (verifyWebhookHmac + timingSafeEqual)',
     /verifyWebhookHmac/.test(measurement) && /timingSafeEqual/.test(measurement));
   assert('measurementWebhook rejects on signature mismatch',
