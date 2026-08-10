@@ -18,13 +18,13 @@ If you add a new export, list it here so the next audit doesn't have to re-deriv
 
 | Export | Type | Purpose |
 |---|---|---|
-| `claudeProxy` | onRequest | Server-side Anthropic relay with daily budget reservation (Bearer ID token) |
+| `claudeProxy` | onRequest | Server-side Anthropic relay with daily budget reservation (Bearer ID token); rate-limited per-uid + per-IP via `guardHttp` (rate-limit-policy.js pilot, 2026-08-10) |
 | `signImageUrl` | onRequest | Signed Storage URL for owner/manager-scoped photo reads |
 | `imageProxy` | onRequest | **Deprecated 410 stub** (H-01 stored-XSS fix) — fails loudly for stale clients; "safe to delete outright after 7+ days of zero calls in Cloud Logs" |
 | `analyzeRoofPhoto` | onRequest | Vision over a single photo (rep view) |
 | `analyzePhotoVision` | onCall | Per-photo Claude Vision classifier ($10/lead + $50/uid-month caps, sha256 cache) |
 | `extractReceiptData` | onCall | Receipt OCR — Claude-vision extraction into structured expense-form fields |
-| `validateAccessCode` | onCall | Login flow — exchanges access code for trial access |
+| `validateAccessCode` | onCall | Login flow — exchanges access code for trial access; rate-limited per-IP + per-uid via `guardCallable` (rate-limit-policy.js pilot, 2026-08-10) |
 | `activateInvitedRep` | onCall | Team-invite acceptance (legacy access-code path) |
 | `claimInvite` | onCall | Pillar 1 phase 3 — claim a team invite on first dashboard load (replaces the never-deployable onRepSignup blocking trigger) |
 | `mintOwnerClaims` | onCall | Stamps `{ owner: true, role: 'admin' }` on the founder accounts in `handlers/_shared.js` `OWNER_EMAILS` (the single server-side owner list); called by nbd-auth.js at login when the owner claim is missing |

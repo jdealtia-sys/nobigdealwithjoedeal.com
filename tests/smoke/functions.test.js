@@ -2174,6 +2174,46 @@ section('Per-route rate-limit policy');
   // mutate live policy at runtime.
   assert('getRateLimitMatrix returns Object.freeze snapshot',
     /function getRateLimitMatrix[\s\S]{0,300}Object\.freeze/.test(policy));
+
+  // ── Wiring pilot (2026-08-10): the module is no longer dead code. ──
+  // Policy must ride the SAME provider adapter the handlers use, or a
+  // NBD_RATE_LIMIT_PROVIDER=upstash flip would silently pin the
+  // policy-guarded routes to the Firestore limiter.
+  assert('policy enforces through the provider-aware upstash adapter',
+    /require\(['"]\.\/integrations\/upstash-ratelimit['"]\)/.test(policy));
+  // Both wrappers key IP limits on the IPv6 /64 prefix — parity with the
+  // hand-rolled gates (one v6 allocation must not rotate past the cap).
+  assert('guardCallable + guardHttp bucket IPs via rateLimitIpKey',
+    (policy.match(/rateLimitIpKey\(clientIp\(/g) || []).length >= 2);
+
+  const aiH = read(path.join(ROOT, 'functions/handlers/ai.js'));
+  const portalH = read(path.join(ROOT, 'functions/handlers/portal.js'));
+  const intH = read(path.join(ROOT, 'functions/handlers/integrations.js'));
+  // claudeProxy rides guardHttp; the old inline uid call must STAY GONE —
+  // wrapper + inline share the 'claudeProxy:uid' namespace, so reintroducing
+  // the inline call would double-count every request (halved effective limit).
+  assert('claudeProxy is wrapped in guardHttp and has no inline uid limiter',
+    /guardHttp\(\s*['"]claudeProxy['"]/.test(aiH)
+    && !/enforceRateLimit\(\s*['"]claudeProxy:uid['"]/.test(aiH));
+  // claudeProxy's uid ceiling in ROUTES is the prod limit the inline call
+  // used to enforce (CLAUDE_PER_MIN_LIMIT was 20) — the wiring was
+  // behavior-preserving, and tightening/loosening it is a deliberate act.
+  assert('ROUTES.claudeProxy keeps the prod uid ceiling (20/min)',
+    /claudeProxy:\s*\{[^}]*uidLimit:\s*20\b[^}]*uidWindow:\s*MINUTE/.test(policy));
+  // validateAccessCode rides guardCallable; same no-double-count rule.
+  assert('validateAccessCode is wrapped in guardCallable and has no inline ip limiter',
+    /guardCallable\(\s*['"]validateAccessCode['"]/.test(portalH)
+    && !/enforceRateLimit\(\s*['"]validateAccessCode:ip['"]/.test(portalH));
+  assert('ROUTES.validateAccessCode keeps the prod ip gate (5 / 5 min)',
+    /validateAccessCode:\s*\{[^}]*ipLimit:\s*5\b[^}]*ipWindow:\s*5\*MINUTE/.test(policy));
+  // submitPublicLead stays hand-rolled ON PURPOSE (fail-open-to-Firestore
+  // semantics + Turnstile/honeypot interleave that guardHttp doesn't have) —
+  // but the ROUTES record must MATCH the handler's real gate, or the ops
+  // matrix lies. Cross-pin both sides.
+  assert('submitPublicLead handler gate is 20/min per-IP (hand-rolled)',
+    /enforceRateLimit\(\s*['"]publicLead:ip['"][\s\S]{0,80}?,\s*20,\s*60_000\)/.test(intH));
+  assert('ROUTES.submitPublicLead records that same 20/min per-IP gate',
+    /submitPublicLead:\s*\{[^}]*ipLimit:\s*20\b[^}]*ipWindow:\s*MINUTE/.test(policy));
 }
 
 section('Migration framework — versioned runner');

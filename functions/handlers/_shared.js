@@ -35,7 +35,8 @@ const ALLOWED_CLAUDE_MODELS = new Set([
 ]);
 const CLAUDE_MAX_TOKENS_CAP = 1024;
 const CLAUDE_DAILY_TOKEN_BUDGET = 200000; // per uid per calendar day
-const CLAUDE_PER_MIN_LIMIT = 20;
+// Per-minute claude ceiling moved to rate-limit-policy.js ROUTES.claudeProxy
+// (uidLimit: 20) when the guardHttp wrapper took over enforcement, 2026-08-10.
 // M-03 / blueprint placeholder — see header in original index.js.
 const CLAUDE_COMPANY_BUDGET = {
   lite:          10_000,
@@ -319,7 +320,6 @@ module.exports = {
   ALLOWED_CLAUDE_MODELS,
   CLAUDE_MAX_TOKENS_CAP,
   CLAUDE_DAILY_TOKEN_BUDGET,
-  CLAUDE_PER_MIN_LIMIT,
   CLAUDE_COMPANY_BUDGET,
   CLAUDE_COMPANY_BUDGET_DEFAULT,
   CLAUDE_RESERVATION_MAX,

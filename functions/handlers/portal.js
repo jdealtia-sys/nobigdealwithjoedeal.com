@@ -18,7 +18,13 @@ const { Timestamp, getFirestore } = require('firebase-admin/firestore');
 const { getAuth } = require('firebase-admin/auth');
 const { FieldValue } = require('firebase-admin/firestore');
 
-const { enforceRateLimit, clientIp } = require('../integrations/upstash-ratelimit');
+// Declarative per-route policy — guardCallable enforces the per-IP AND
+// per-uid ceilings from rate-limit-policy.js ROUTES before the handler runs.
+// validateAccessCode is a wiring pilot (2026-08-10): the ip namespace/limit
+// ('validateAccessCode:ip', 5 / 5 min) are byte-identical to the old
+// hand-rolled gate, plus a new per-uid layer for authed callers.
+const { guardCallable } = require('../rate-limit-policy');
+const { clientIp } = require('../integrations/upstash-ratelimit'); // abuse-log annotation only
 
 // ═══════════════════════════════════════════════════════════════════
 // validateAccessCode — hardened.
@@ -41,18 +47,8 @@ exports.validateAccessCode = onCall(
     timeoutSeconds: 15,
     memory: '256MiB',
   },
-  async (request) => {
-    const ip = clientIp(request.rawRequest || {});
-
-    // Per-IP rate limit — tight. 5 attempts / 5 minutes.
-    try {
-      await enforceRateLimit('validateAccessCode:ip', ip, 5, 5 * 60_000);
-    } catch (e) {
-      if (e.rateLimited) {
-        throw new HttpsError('resource-exhausted', 'Too many attempts. Try again in a few minutes.');
-      }
-      throw e;
-    }
+  guardCallable('validateAccessCode', async (request) => {
+    const ip = clientIp(request.rawRequest || {}); // for the abuse-log lines below
 
     const rawCode = (request.data && request.data.code) || '';
     if (typeof rawCode !== 'string' || rawCode.length < 3 || rawCode.length > 40) {
@@ -183,5 +179,5 @@ exports.validateAccessCode = onCall(
       logger.error('validateAccessCode error', { normalized, err: e.message });
       throw new HttpsError('internal', 'Authentication error. Please try again.');
     }
-  }
+  })
 );
