@@ -202,6 +202,17 @@ function main() {
       return `${indent}<!-- nbd:partial ${name}${attrStr} -->${eol}${want}${closeIndent}<!-- /nbd:partial ${name} -->`;
     });
 
+    // DANGLING-MARKER GUARD — REGION_RE only matches complete opener+closer
+    // pairs, so an unclosed opener (or an orphan closer, or a name-mismatched
+    // pair) never enters the loop above: its region silently leaves governance
+    // and --check stays green while the block rots as hand-editable text.
+    // Any marker still present once the paired regions are removed is broken.
+    const residue = before.replace(REGION_RE, '');
+    const stray = residue.match(/<!--\s*\/?nbd:partial\b[^>]*-->/);
+    if (stray) {
+      fatal(`${rel}: dangling partial marker ${stray[0].trim()} — opener without closer, orphan closer, or name-mismatched pair; the region it should own is NOT governed`);
+    }
+
     if (localDrift.length) drifted.push({ file, rel, regions: localDrift });
     if (!CHECK && after !== before) {
       const tmp = `${file}.tmp-partial`;
