@@ -6,6 +6,13 @@ Map of content for the `documentation/` corpus (~90 files) plus the other places
 
 ---
 
+## Standing notes — open these weekly
+
+- [WEEKLY_CADENCE](projects/WEEKLY_CADENCE.md) — the Monday-morning checklist: Jo's weekly content/marketing loop, the agent weekly sweep, and the consolidated one-off queue (sessions keep it current)
+- [BIG_ROCKS](projects/BIG_ROCKS.md) — the standing priority list
+- Current handoff: [NEXT_SESSION-2026-08-10](projects/NEXT_SESSION-2026-08-10.md)
+- Posting a job: [runbooks/PUBLISH-PROJECT](runbooks/PUBLISH-PROJECT.md) — phone-paste template inside
+
 ## Start here
 
 - [../CLAUDE.md](../CLAUDE.md) — session ground rules incl. the vault-logging convention (deep audits → dated notes here)
@@ -36,8 +43,9 @@ Map of content for the `documentation/` corpus (~90 files) plus the other places
 ## Projects & planning
 
 - [BIG_ROCKS](projects/BIG_ROCKS.md) — the standing priority list
+- [WEEKLY_CADENCE](projects/WEEKLY_CADENCE.md) — standing weekly checklist (see "Standing notes" above)
 - [KANBAN_CUSTOMER_MAP](projects/KANBAN_CUSTOMER_MAP.md)
-- Session handoffs: [NEXT_SESSION-2026-08-07](projects/NEXT_SESSION-2026-08-07.md) (current — start here) · [SESSION-2026-08-06-swath-api-setup](projects/SESSION-2026-08-06-swath-api-setup.md) (Swath API integration — Jo's 5-min secrets to-do inside) · [NEXT_SESSION-2026-08-06](projects/NEXT_SESSION-2026-08-06.md) · [SESSION-2026-08-06-our-work-featured-projects](projects/SESSION-2026-08-06-our-work-featured-projects.md) · [NEXT_SESSION-2026-08-05](projects/NEXT_SESSION-2026-08-05.md) · [NEXT_SESSION](projects/NEXT_SESSION.md) · [NEXT_SESSION-2c4a](projects/NEXT_SESSION-2c4a.md) (all executed)
+- Session handoffs: [NEXT_SESSION-2026-08-10](projects/NEXT_SESSION-2026-08-10.md) (current — start here; jobs-board taxonomy + hub strips + posting flow) · [NEXT_SESSION-2026-08-07](projects/NEXT_SESSION-2026-08-07.md) (still carries the live deferred queue) · [SESSION-2026-08-06-swath-api-setup](projects/SESSION-2026-08-06-swath-api-setup.md) (Swath API integration — Jo's 5-min secrets to-do inside) · [NEXT_SESSION-2026-08-06](projects/NEXT_SESSION-2026-08-06.md) · [SESSION-2026-08-06-our-work-featured-projects](projects/SESSION-2026-08-06-our-work-featured-projects.md) · [NEXT_SESSION-2026-08-05](projects/NEXT_SESSION-2026-08-05.md) · [NEXT_SESSION](projects/NEXT_SESSION.md) · [NEXT_SESSION-2c4a](projects/NEXT_SESSION-2c4a.md) (all executed)
 
 ## Audits
 
