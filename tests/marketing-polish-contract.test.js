@@ -377,6 +377,22 @@ const certBarTargets = marketing.filter((f) => /^services\/[a-z0-9-]+-(oh|ky)\.h
   for (const [name, src, needle] of floors) ok('a11y: ' + name, src.includes(needle));
 }
 
+// ── Featured Projects card CSS (guard for the PR #1194 regression class:
+// an icon-CSS consolidation deleted our-work.html's whole page style block
+// and nothing caught /our-work shipping unstyled) ──────────────────────────
+{
+  const cardsCss = path.join(DOCS, 'assets/css/project-cards.css');
+  ok('project-cards.css exists', fs.existsSync(cardsCss));
+  if (fs.existsSync(cardsCss)) {
+    const s = fs.readFileSync(cardsCss, 'utf8');
+    ok('project-cards.css defines .gallery grid', /\.gallery\{[^}]*display:grid/.test(s));
+    ok('project-cards.css defines .project.hidden (filter JS contract)', s.includes('.project.hidden{display:none}'));
+  }
+  const ourWork = fs.readFileSync(path.join(DOCS, 'our-work.html'), 'utf8');
+  ok('our-work.html links project-cards.css', ourWork.includes('/assets/css/project-cards.css'));
+  ok('our-work.html page styles present (.hero rule)', ourWork.includes('.hero{background:linear-gradient'));
+}
+
 console.log('\n──────────────────────────────────────────────────');
 console.log(`${passed} passed, ${failed} failed`);
 if (failed) {

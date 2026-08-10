@@ -15,19 +15,33 @@
   'use strict';
 
   // ── Filters ───────────────────────────────────────────────────
+  // Buttons carry data-service (a /services/ hub slug or "all"); cards carry
+  // space-separated data-services so one job can match several filters.
+  // #service=<slug> deep links let hub-page strips land pre-filtered.
   const filters = document.querySelector('.filters');
+  function applyFilter(svc) {
+    filters.querySelectorAll('.filter-btn').forEach(function (b) {
+      b.classList.toggle('active', b.dataset.service === svc);
+    });
+    document.querySelectorAll('.project').forEach(function (p) {
+      const list = (p.dataset.services || '').split(/\s+/);
+      p.classList.toggle('hidden', svc !== 'all' && list.indexOf(svc) === -1);
+    });
+  }
   if (filters) {
     filters.addEventListener('click', function (e) {
       const btn = e.target.closest('.filter-btn');
       if (!btn) return;
-      filters.querySelectorAll('.filter-btn').forEach(function (b) {
-        b.classList.toggle('active', b === btn);
-      });
-      const cat = btn.dataset.cat;
-      document.querySelectorAll('.project').forEach(function (p) {
-        p.classList.toggle('hidden', cat !== 'all' && p.dataset.cat !== cat);
-      });
+      applyFilter(btn.dataset.service);
+      history.replaceState(null, '',
+        btn.dataset.service === 'all' ? location.pathname : '#service=' + btn.dataset.service);
     });
+    const m = /^#service=([a-z][a-z-]*)$/.exec(location.hash);
+    if (m && filters.querySelector('.filter-btn[data-service="' + m[1] + '"]')) {
+      applyFilter(m[1]);
+      const gallery = document.getElementById('gallery');
+      if (gallery) gallery.scrollIntoView();
+    }
   }
 
   // ── Lightbox ──────────────────────────────────────────────────
