@@ -1,0 +1,121 @@
+# Weekly Cadence — the Monday-morning note
+
+> **Standing note — open this every week** (created 2026-08-10, consolidated
+> from the local-SEO playbook, MANUAL-FOR-JO, and the session handoffs; those
+> stay the source docs, this is the working checklist). Sessions: keep this
+> note current — when a one-off below gets done, check it off here AND note it
+> in the next session handoff; when a new recurring task appears, add it here.
+>
+> How to use in Obsidian: duplicate the "This week" block into your daily
+> note, or just check boxes here and un-check them Monday.
+
+---
+
+## This week — Jo (≈45 min total, phone is fine)
+
+### Content & marketing (the highest-leverage 30 minutes — [playbook](../marketing/local-seo-playbook-2026-07.md))
+
+- [ ] **1 GBP post** (Tue/Wed morning). Rotate: seasonal/storm tip → finished-job
+      photo → offer/proof. Four ready-to-paste drafts live in the
+      [citation kit](../marketing/citation-kit-2026-07.md). Attach 1–3 real job
+      photos; button = "Call now" or link `/inspect`.
+- [ ] **2–3 job photos → GBP** with the town in the caption ("Roof replacement
+      in Mason, OH") — same shots the /our-work pipeline uses.
+- [ ] **Post completed jobs to the site** — paste the phone template from
+      [PUBLISH-PROJECT](../runbooks/PUBLISH-PROJECT.md) into a Claude session,
+      one per job. It lands on /our-work AND the matching service page strip
+      (labeled by service — roof repair vs replacement, siding, gutters,
+      storm). Siding/gutter/repair strips are running on empty-state CTAs
+      until you feed them — the first siding job you post lights that page up.
+- [ ] **Review asks**: at every completed job ask in person, then text the `/r`
+      QR link same-day (CRM texting panel). Steady 2–4/month beats bursts.
+- [ ] **Reply to every new review within 48h** — including old ones and bad
+      ones; response rate is a ranking input and sales copy.
+- [ ] **One citation claim** (until the list is done): work down
+      [citation-kit](../marketing/citation-kit-2026-07.md) Tier 1 → 2 → 3 with
+      the exact NAP block. Tier 1 first: GAF locator, TAMKO, James Hardie.
+- [ ] **Search Console glance**: impressions/clicks on "roof repair covington",
+      "roofing companies mason oh", the shingle-comparison cluster.
+
+### Site & prod watch (5 min, until each gate clears)
+
+- [ ] **Prod deprecation log**: zero `[estimates.js DEPRECATED]
+      startNewEstimateOriginal` warns = classic-wizard deletion gate
+      ([BIG_ROCKS](BIG_ROCKS.md) Rock 2). A `calcTierPrices` hit only means a
+      rep reopened a pre-V2 doc.
+- [ ] **`/cspReport` sink skim** (Cloud Logging) — STEP 0 of the
+      [CSP generated-docs audit](../../docs/dev/csp-generated-docs-audit.md).
+
+## This week — agent session (kick one off and paste this list)
+
+- [ ] Run the cheap drift gates and report:
+      `apply-partials --check --diff` · `build-projects.mjs --check` ·
+      `build-sitemap.js` (dry-run) · `check-site-integrity --quiet` ·
+      `check-inline-html-scripts` · `marketing-polish-contract.test.js`
+- [ ] Check main's CI streaks for the advisory jobs (`@engines`, `public-e2e`,
+      `visual-brand-tokens`, authed-E2E): ~10 green runs → open the
+      `continue-on-error` flip PR ([handoff](NEXT_SESSION-2026-08-07.md)).
+- [ ] Any staged `published` date passed? Restamp + commit before it turns
+      `--check` red on an unrelated PR.
+- [ ] Any red PR / open post-a-job request from Jo? Land it.
+
+---
+
+## One-off queue — Jo (decisions & console; newest first, check off here when done)
+
+- [ ] **Swath activation (~5 min, most time-sensitive)** — signup, set
+      `SWATH_API_KEY` + `SWATH_WEBHOOK_SECRET`, optional provider flips —
+      [SWATH-SETUP](../runbooks/SWATH-SETUP.md)
+- [ ] **Turnstile, in this order**: mint sitekey → populate
+      `docs/assets/js/inline/7cd8e505ab.js` → deploy → THEN set
+      `TURNSTILE_SECRET` (reverse order 403s every public lead)
+- [ ] **Bless the 12 visual-regression baselines** (download CI artifact,
+      eyeball, commit snapshots) — unblocks the visual-regression streak
+- [ ] **First priced project on /our-work** (~10 min) — all 12 seed cards are
+      unpriced; also confirm the agent's service labels on the 2 commercial
+      apartment entries + the A-frame metal roof (labeled roof-replacement
+      for now) — [PUBLISH-PROJECT](../runbooks/PUBLISH-PROJECT.md)
+- [ ] **Backfill real cities on the 12 seeds** ("Greater Cincinnati, OH" ×11 →
+      real towns where consent allows)
+- [ ] **Edit the 3 blog drafts** — 25 `JO:` markers (photos, storm anecdote,
+      report screenshots) — [drafts README](../drafts/README.md); each cleared
+      post = one agent publish session
+- [ ] **TAMKO real pricing** — 8 SKUs still carry GAF-mirrored placeholders
+- [ ] **kie.ai visualizer flip** (config-only) —
+      [VISUALIZER-KIE-PROVIDER](../runbooks/VISUALIZER-KIE-PROVIDER.md)
+- [ ] **www → apex 301** (~2 min) then **DMARC** `p=none` + rua, tighten after
+      2–4 weeks — [MANUAL-FOR-JO](../qa/seo-hardening-2026-07/MANUAL-FOR-JO.md) §2, §5
+- [ ] **Lead-engine switches** — funnel-recovery dry-run review → enable;
+      Twilio A2P 10DLC (texts silently dropped until done); verify
+      `RESEND_API_KEY`; decide `LEAD_ACK_SMS` / homeowner auto-text (TCPA);
+      then `STORM_TEXT_ENABLED` — MANUAL-FOR-JO §8–9
+- [ ] **IAM fix**: `roles/iam.serviceAccountTokenCreator` on the compute SA
+      (prod access-code signup fails without it) — MANUAL-FOR-JO §10
+- [ ] **Theme/maps lazy-bundle field check** on a real phone (saved theme
+      applies, map view opens, d2d loads) — [handoff](NEXT_SESSION-2026-08-07.md)
+- [ ] **Decisions**: Firestore offline persistence (lead PII in IndexedDB —
+      unlocks a half-day agent task) · pre-V2 migration / `?legacy=1`
+      retirement (gates wizard deletion) · public pricing-table gap
+      (verify still live first) · Pillar 4 billing calls
+
+## Agent-session backlog (ranked — pick one per session)
+
+1. Jobs-posting **phase 2**: admin "Post a Job" form + PR bot (roadmap in
+   [NEXT_SESSION-2026-08-10](NEXT_SESSION-2026-08-10.md))
+2. Firestore offline persistence (after Jo's decision)
+3. rate-limit-policy.js adopt-vs-delete pilot
+4. Classic-wizard deletion (once Jo's gates clear)
+5. Functions cold-start increment 2 (lazy export proxies)
+6. Inline-CSS dedup phase 2 (~2.7 MB; needs generator design)
+7. /our-work/<slug> detail pages (needs build-sitemap rule) + Haiku blurb drafter
+8. Globals Tranche 3 plan · 404 full-chrome · emulator widening · Swath admin UI
+9. Blog publish sessions (one per draft, after Jo's edits)
+
+---
+
+*Sources: [local-seo-playbook-2026-07](../marketing/local-seo-playbook-2026-07.md) ·
+[citation-kit-2026-07](../marketing/citation-kit-2026-07.md) ·
+[MANUAL-FOR-JO](../qa/seo-hardening-2026-07/MANUAL-FOR-JO.md) ·
+[NEXT_SESSION-2026-08-07](NEXT_SESSION-2026-08-07.md) ·
+[BIG_ROCKS](BIG_ROCKS.md). Where docs disagreed (GBP monthly vs weekly), the
+newer playbook won: weekly.*

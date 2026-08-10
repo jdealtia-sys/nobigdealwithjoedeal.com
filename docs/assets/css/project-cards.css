@@ -1,0 +1,58 @@
+/* project-cards.css — shared Featured Projects card system.
+   Used by /our-work (filter bar + gallery grid + cards) and by the generated
+   "Recent jobs" strips on /services/ hub pages (OURWORK-STRIP regions stamped
+   by scripts/build-projects.mjs). Extracted from our-work.html's page style
+   block 2026-08-10 after PR #1194 deleted it wholesale; the presence of this
+   file and its .project.hidden / .gallery rules is asserted by
+   tests/marketing-polish-contract.test.js so that regression class can't
+   recur silently. Color tokens carry literal fallbacks because hub pages
+   define their own :root palettes. */
+
+/* FILTER TABS (/our-work) */
+.filters{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:28px}
+.filter-btn{background:#fff;border:1.5px solid var(--light-gray,#e8e5e0);border-radius:100px;padding:8px 18px;font-size:.78rem;font-weight:700;color:var(--navy-dark,#142a52);cursor:pointer;transition:all .2s;font-family:'Montserrat',sans-serif}
+.filter-btn:hover{border-color:var(--orange,#e8720c);color:var(--orange,#e8720c)}
+.filter-btn.active{background:#B85400;border-color:#B85400;color:#fff}
+
+/* CARD GRID */
+.gallery{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:20px}
+.project{background:#fff;border:1px solid var(--light-gray,#e8e5e0);border-radius:14px;overflow:hidden;transition:all .25s;opacity:1;transform:translateY(0)}
+.project:hover{box-shadow:0 8px 32px rgba(0,0,0,.1);transform:translateY(-3px)}
+.project.hidden{display:none}
+.project-img{width:100%;height:230px;object-fit:cover;display:block}
+.project-body{padding:20px}
+.project-tag{display:inline-block;background:rgba(232,114,12,.1);color:#A64B00;font-size:.68rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;padding:4px 12px;border-radius:100px;margin-bottom:8px}
+.project h3{font-size:1rem;font-weight:700;color:var(--navy-dark,#142a52);margin-bottom:6px}
+.project p{font-size:.82rem;color:var(--gray,#5d6673);line-height:1.6}
+.project-loc{font-size:.75rem;color:var(--gray,#5d6673);display:inline-flex;align-items:center;gap:4px}
+.project-price{font-family:'Bebas Neue',sans-serif;font-size:1.35rem;letter-spacing:.5px;color:#A64B00;margin:2px 0 6px;font-variant-numeric:tabular-nums}
+.project-meta{font-size:.75rem;color:var(--gray,#5d6673);margin-top:10px;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.project-dot{opacity:.5}
+.project-view{margin-top:12px;background:none;border:1.5px solid var(--light-gray,#e8e5e0);border-radius:8px;padding:8px 14px;font-size:.76rem;font-weight:700;color:var(--navy-dark,#142a52);cursor:pointer;font-family:'Montserrat',sans-serif;transition:all .2s}
+.project-view:hover{border-color:var(--orange,#e8720c);color:#A64B00}
+
+/* Crawlable service pills on each card → the matching /services/ hub page */
+.project-services{margin-top:10px;display:flex;flex-wrap:wrap;gap:6px}
+.project-services a{font-size:.68rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#A64B00;border:1px solid rgba(232,114,12,.35);border-radius:100px;padding:3px 10px;text-decoration:none;transition:all .2s}
+.project-services a:hover{background:rgba(232,114,12,.1);border-color:var(--orange,#e8720c)}
+
+/* RECENT-JOBS STRIPS (generated on /services/ hub pages) */
+.nbd-recent-jobs{padding:56px 5%;background:var(--off-white,#f5f3ef)}
+.nbd-recent-jobs-inner{max-width:1100px;margin:0 auto}
+.nbd-recent-jobs-head{display:flex;align-items:baseline;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:24px}
+.nbd-recent-jobs h2{font-family:'Bebas Neue',sans-serif;font-size:2rem;color:var(--navy-dark,#142a52);letter-spacing:.5px;margin:0}
+.nbd-recent-jobs h2 span{color:#DA6A05}
+.nbd-recent-jobs-all{font-size:.82rem;font-weight:700;color:#A64B00;text-decoration:none}
+.nbd-recent-jobs-all:hover{text-decoration:underline}
+.nbd-recent-jobs .gallery{grid-template-columns:repeat(auto-fill,minmax(280px,1fr))}
+a.project-link{display:block;color:inherit;text-decoration:none}
+
+/* Empty state: CTA band only — never a bare grid (homeowner-wall discipline) */
+.nbd-recent-jobs-cta{background:#fff;border:1px solid var(--light-gray,#e8e5e0);border-radius:14px;padding:28px;text-align:center}
+.nbd-recent-jobs-cta p{color:var(--gray,#5d6673);font-size:.9rem;margin:0 0 14px}
+.nbd-recent-jobs-cta a{display:inline-block;background:#B85400;color:#fff;padding:12px 24px;border-radius:8px;font-weight:700;font-size:.85rem;text-decoration:none}
+
+@media(max-width:768px){
+  .gallery,.nbd-recent-jobs .gallery{grid-template-columns:1fr}
+  .nbd-recent-jobs{padding:40px 20px}
+}
