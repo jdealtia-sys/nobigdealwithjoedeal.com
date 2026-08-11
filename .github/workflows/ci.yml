@@ -566,6 +566,12 @@ jobs:
       # The checker guards the served pages; the test guards the checker.
       - name: Check inline HTML scripts (docs/)
         run: node scripts/check-inline-html-scripts.js
+      # Image-privacy gate (2026-08-10): published images must carry no EXIF
+      # GPS — three gallery JPEGs shipped with customer-property coordinates
+      # because nothing verified the committed bytes after
+      # prepare-project-images.mjs was bypassed. Zero deps, byte-level scan.
+      - name: Check image privacy (EXIF/GPS strip invariant)
+        run: node scripts/check-image-privacy.js
       - name: Run inline-html-scripts checker tests
         run: node tests/inline-html-scripts.test.js
       # Marketing-surface polish contract (headings, empty src, alt text …)

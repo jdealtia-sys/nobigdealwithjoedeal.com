@@ -238,7 +238,8 @@ service cloud.firestore {
         // companyId onto a lead and polluting that tenant's company-scoped
         // rollups. Client always stamps `claims.companyId || uid`.
         && (request.resource.data.companyId == myCompanyId()
-            || request.resource.data.companyId == request.auth.uid);
+            || (request.auth.token.get('companyId', '') == ''
+                && request.resource.data.companyId == request.auth.uid));
 
       // D3: flat-path subcollections — the measurementWebhook +
       // esignWebhook auto-append activity here via admin SDK. Rules
@@ -470,7 +471,8 @@ service cloud.firestore {
       allow create: if isAuth() && request.resource.data.userId == request.auth.uid
         && (request.resource.data.get('companyId', '') == ''
             || request.resource.data.companyId == request.auth.token.get('companyId', '')
-            || request.resource.data.companyId == request.auth.uid);
+            || (request.auth.token.get('companyId', '') == ''
+                && request.resource.data.companyId == request.auth.uid));
     }
 
     // ── SUPPLEMENTS (insurance leverage tool) ─────────
@@ -612,7 +614,8 @@ service cloud.firestore {
       allow create: if isAuth()
         && request.resource.data.userId == request.auth.uid
         && request.resource.data.companyId is string && request.resource.data.companyId.size() > 0
-        && (request.resource.data.companyId == myCompanyId() || request.resource.data.companyId == request.auth.uid)
+        && (request.resource.data.companyId == myCompanyId()
+            || (request.auth.token.get('companyId', '') == '' && request.resource.data.companyId == request.auth.uid))
         && request.resource.data.keys().hasOnly(['userId', 'companyId', 'displayName', 'legalName',
              'taxClassification', 'is1099Eligible', 'w9Status', 'contact', 'createdAt', 'createdBy', 'updatedAt']);
       allow update: if (isOwner(resource.data.userId) && request.auth.token.get('role', '') != 'viewer'
@@ -666,7 +669,8 @@ service cloud.firestore {
       allow create: if isAuth() && request.resource.data.userId == request.auth.uid
         && (request.resource.data.get('companyId', '') == ''
             || request.resource.data.companyId == myCompanyId()
-            || request.resource.data.companyId == request.auth.uid);
+            || (request.auth.token.get('companyId', '') == ''
+                && request.resource.data.companyId == request.auth.uid));
     }
 
     // ── ALERT OUTBOX ──────────────────────────────────
@@ -713,7 +717,8 @@ service cloud.firestore {
         && request.resource.data.companyId is string
         && request.resource.data.companyId.size() > 0
         && (request.resource.data.companyId == myCompanyId()
-            || request.resource.data.companyId == request.auth.uid);
+            || (request.auth.token.get('companyId', '') == ''
+                && request.resource.data.companyId == request.auth.uid));
     }
 
     // ── TERRITORY ZONES (drawn canvassing areas, optionally rep-assigned) ──
@@ -734,7 +739,8 @@ service cloud.firestore {
         && request.resource.data.companyId is string
         && request.resource.data.companyId.size() > 0
         && (request.resource.data.companyId == myCompanyId()
-            || request.resource.data.companyId == request.auth.uid);
+            || (request.auth.token.get('companyId', '') == ''
+                && request.resource.data.companyId == request.auth.uid));
     }
 
     // ── UNLINKED DRAWINGS (draw tool, no matching lead) ──
@@ -1118,7 +1124,8 @@ service cloud.firestore {
       allow create: if isAuth() && request.resource.data.userId == request.auth.uid
         && (!('companyId' in request.resource.data)
             || request.resource.data.companyId == myCompanyId()
-            || request.resource.data.companyId == request.auth.uid);
+            || (request.auth.token.get('companyId', '') == ''
+                && request.resource.data.companyId == request.auth.uid));
       // Provenance frozen on update — see /photos above. Without this an
       // owner re-stamps their own knock into a victim tenant's live D2D map.
       allow update: if (isOwner(resource.data.userId) || isAdmin())
@@ -1137,7 +1144,8 @@ service cloud.firestore {
         // Phase-1.5: companyId, if present, must be the caller's own tenant.
         && (!('companyId' in request.resource.data)
             || request.resource.data.companyId == myCompanyId()
-            || request.resource.data.companyId == request.auth.uid);
+            || (request.auth.token.get('companyId', '') == ''
+                && request.resource.data.companyId == request.auth.uid));
       allow update: if (isOwner(repId) && didNotChange(['role','isAdmin','companyId']))
         || isAdmin();
       allow delete: if isAdmin();
@@ -1152,7 +1160,8 @@ service cloud.firestore {
       allow create: if isAuth() && request.resource.data.userId == request.auth.uid
         && (!('companyId' in request.resource.data)
             || request.resource.data.companyId == myCompanyId()
-            || request.resource.data.companyId == request.auth.uid);
+            || (request.auth.token.get('companyId', '') == ''
+                && request.resource.data.companyId == request.auth.uid));
       // Provenance frozen on update — see /photos above. A territory
       // re-stamped into a victim tenant draws a polygon on their live map.
       allow update: if (isOwner(resource.data.userId) || isAdmin())
@@ -1250,7 +1259,8 @@ service cloud.firestore {
       allow create: if isAuth() && request.resource.data.userId == request.auth.uid
         && (!('companyId' in request.resource.data)
             || request.resource.data.companyId == myCompanyId()
-            || request.resource.data.companyId == request.auth.uid);
+            || (request.auth.token.get('companyId', '') == ''
+                && request.resource.data.companyId == request.auth.uid));
       // Provenance frozen on update — see /photos above.
       allow update: if (isOwner(resource.data.userId) || isAdmin())
         && didNotChange(['userId', 'companyId']);
@@ -1338,7 +1348,8 @@ service cloud.firestore {
         && request.resource.data.companyId is string
         && request.resource.data.companyId.size() > 0
         && (request.resource.data.companyId == myCompanyId()
-            || request.resource.data.companyId == request.auth.uid);
+            || (request.auth.token.get('companyId', '') == ''
+                && request.resource.data.companyId == request.auth.uid));
       // .get('role','') — reading an absent claim with != THROWS (solo owners
       // have no role claim). Freeze owner/tenant/provenance; money fields stay
       // mutable (markPaid rewrites balanceDue/amountPaid/status).
@@ -1421,7 +1432,8 @@ service cloud.firestore {
         && request.resource.data.companyId is string
         && request.resource.data.companyId.size() > 0
         && (request.resource.data.companyId == myCompanyId()
-            || request.resource.data.companyId == request.auth.uid);
+            || (request.auth.token.get('companyId', '') == ''
+                && request.resource.data.companyId == request.auth.uid));
       allow update: if isAdmin();
       // Owners must be able to delete their own saved reports — the My
       // Reports list exposes a delete button to every owner, and admin-only

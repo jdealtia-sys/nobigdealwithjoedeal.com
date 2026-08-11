@@ -2174,6 +2174,82 @@ section('Per-route rate-limit policy');
   // mutate live policy at runtime.
   assert('getRateLimitMatrix returns Object.freeze snapshot',
     /function getRateLimitMatrix[\s\S]{0,300}Object\.freeze/.test(policy));
+
+  // ── Wiring pilot (2026-08-10): the module is no longer dead code. ──
+  // Policy must ride the SAME provider adapter the handlers use, or a
+  // NBD_RATE_LIMIT_PROVIDER=upstash flip would silently pin the
+  // policy-guarded routes to the Firestore limiter.
+  assert('policy enforces through the provider-aware upstash adapter',
+    /require\(['"]\.\/integrations\/upstash-ratelimit['"]\)/.test(policy));
+  // Both wrappers key IP limits on the IPv6 /64 prefix — parity with the
+  // hand-rolled gates (one v6 allocation must not rotate past the cap).
+  assert('guardCallable + guardHttp bucket IPs via rateLimitIpKey',
+    (policy.match(/rateLimitIpKey\(clientIp\(/g) || []).length >= 2);
+
+  const aiH = read(path.join(ROOT, 'functions/handlers/ai.js'));
+  const portalH = read(path.join(ROOT, 'functions/handlers/portal.js'));
+  const intH = read(path.join(ROOT, 'functions/handlers/integrations.js'));
+  // claudeProxy rides guardHttp; the old inline uid call must STAY GONE —
+  // wrapper + inline share the 'claudeProxy:uid' namespace, so reintroducing
+  // the inline call would double-count every request (halved effective limit).
+  assert('claudeProxy is wrapped in guardHttp and has no inline uid limiter',
+    /guardHttp\(\s*['"]claudeProxy['"]/.test(aiH)
+    && !/enforceRateLimit\(\s*['"]claudeProxy:uid['"]/.test(aiH));
+  // claudeProxy's uid ceiling in ROUTES is the prod limit the inline call
+  // used to enforce (CLAUDE_PER_MIN_LIMIT was 20) — the wiring was
+  // behavior-preserving, and tightening/loosening it is a deliberate act.
+  assert('ROUTES.claudeProxy keeps the prod uid ceiling (20/min)',
+    /claudeProxy:\s*\{[^}]*uidLimit:\s*20\b[^}]*uidWindow:\s*MINUTE/.test(policy));
+  // validateAccessCode rides guardCallable; same no-double-count rule.
+  assert('validateAccessCode is wrapped in guardCallable and has no inline ip limiter',
+    /guardCallable\(\s*['"]validateAccessCode['"]/.test(portalH)
+    && !/enforceRateLimit\(\s*['"]validateAccessCode:ip['"]/.test(portalH));
+  assert('ROUTES.validateAccessCode keeps the prod ip gate (5 / 5 min)',
+    /validateAccessCode:\s*\{[^}]*ipLimit:\s*5\b[^}]*ipWindow:\s*5\*MINUTE/.test(policy));
+  // submitPublicLead stays hand-rolled ON PURPOSE (fail-open-to-Firestore
+  // semantics + Turnstile/honeypot interleave that guardHttp doesn't have) —
+  // but the ROUTES record must MATCH the handler's real gate, or the ops
+  // matrix lies. Cross-pin both sides.
+  assert('submitPublicLead handler gate is 20/min per-IP (hand-rolled)',
+    /enforceRateLimit\(\s*['"]publicLead:ip['"][\s\S]{0,80}?,\s*20,\s*60_000\)/.test(intH));
+  assert('ROUTES.submitPublicLead records that same 20/min per-IP gate',
+    /submitPublicLead:\s*\{[^}]*ipLimit:\s*20\b[^}]*ipWindow:\s*MINUTE/.test(policy));
+
+  // ── Wave 2 (2026-08-10 audit): more wiring + record-vs-reality sync. ──
+  const monH = read(path.join(ROOT, 'functions/handlers/monitoring.js'));
+  const revH = read(path.join(ROOT, 'functions/google-reviews.js'));
+  const photoH = read(path.join(ROOT, 'functions/handlers/photo.js'));
+  // cspReport: httpRateLimit sends the 429 and returns FALSE — the handler
+  // must honor the boolean or the limit is advisory (the pre-2026-08-10 bug:
+  // limited IPs still got their full report logged + a double response).
+  assert('cspReport honors the httpRateLimit boolean (limit is enforcing, not advisory)',
+    /allowed\s*=\s*await httpRateLimit\(req,\s*res,\s*['"]cspReport:ip['"],\s*60,\s*60_000\)/.test(monH)
+    && /if\s*\(!allowed\)\s*return;/.test(monH));
+  assert('ROUTES.cspReport records the real 60/min gate',
+    /cspReport:\s*\{[^}]*ipLimit:\s*60\b[^}]*ipWindow:\s*MINUTE/.test(policy));
+  // getGoogleReviews: was the ONLY public onRequest endpoint with zero rate
+  // limiting (billable Places API behind the 6h cache). Now guardHttp-wired.
+  assert('getGoogleReviews is wrapped in guardHttp (was fully unlimited)',
+    /guardHttp\(\s*['"]getGoogleReviews['"]/.test(revH));
+  // adminAI: same wiring + no-double-count rule as claudeProxy.
+  assert('adminAI is wrapped in guardHttp and has no inline uid limiter',
+    /guardHttp\(\s*['"]adminAI['"]/.test(aiH)
+    && !/httpRateLimit\(req,\s*res,\s*['"]adminAI:/.test(aiH));
+  assert('ROUTES.adminAI keeps the prod uid ceiling (60/hr)',
+    /adminAI:\s*\{[^}]*uidLimit:\s*60\b[^}]*uidWindow:\s*HOUR/.test(policy));
+  // Record-only entries must match the hand-rolled gates they describe.
+  assert('publicVisualizerAI: handler gate is 5/hr and ROUTES agrees (was 3/min — ~36x looser/hr)',
+    /httpRateLimit\(req,\s*res,\s*['"]publicVisualizerAI:ip['"],\s*5,\s*3_600_000\)/.test(aiH)
+    && /publicVisualizerAI:\s*\{[^}]*ipLimit:\s*5\b[^}]*ipWindow:\s*HOUR/.test(policy));
+  assert('signImageUrl: handler gates are 300/min uid+ip and ROUTES agrees',
+    /httpRateLimit\(req,\s*res,\s*['"]signImageUrl:ip['"],\s*300,\s*60_000\)/.test(photoH)
+    && /enforceRateLimit\(\s*['"]signImageUrl:uid['"][\s\S]{0,60}?,\s*300,\s*60_000\)/.test(photoH)
+    && /signImageUrl:\s*\{[^}]*uidLimit:\s*300\b[^}]*ipLimit:\s*300\b/.test(policy));
+  // Phantom/retired routes stay deleted: a ROUTES entry for a function that
+  // doesn't exist (resetSubscriptionByEmail) or is a 410 stub (imageProxy)
+  // makes the ops matrix lie about the fleet.
+  assert('ROUTES carries no phantom resetSubscriptionByEmail or retired imageProxy entries',
+    !/resetSubscriptionByEmail:\s*\{/.test(policy) && !/imageProxy:\s*\{/.test(policy));
 }
 
 section('Migration framework — versioned runner');

@@ -105,11 +105,11 @@ pricing math.
 
 ### Why it matters
 Three independent pricing engines run today:
-- [estimates.js](docs/pro/js/estimates.js) — 1,276 lines, classic builder; has
+- [estimates.js](../../docs/pro/js/estimates.js) — 1,276 lines, classic builder; has
   fallback paths still wired into one menu item
-- [estimate-builder-v2.js](docs/pro/js/estimate-builder-v2.js) — 893 lines, the
+- [estimate-builder-v2.js](../../docs/pro/js/estimate-builder-v2.js) — 893 lines, the
   spec-compliant canonical engine ($545/$595/$660 per-SQ, county tax, etc.)
-- [estimate-logic-engine.js](docs/pro/js/estimate-logic-engine.js) — 898 lines,
+- [estimate-logic-engine.js](../../docs/pro/js/estimate-logic-engine.js) — 898 lines,
   formula-evaluator catalog used by the line-item path
 
 Each can drift independently. Customer A signs a $23,750 estimate; the same
@@ -117,7 +117,7 @@ inputs through the other engine produce $24,100. The Session 1 fix made
 `_saveEstimate` re-throw instead of silently returning null, so failed saves
 surface — but nothing prevents the engines themselves from disagreeing.
 
-The pricing test suite [tests/estimate-pricing.test.js](tests/estimate-pricing.test.js)
+The pricing test suite [tests/estimate-pricing.test.js](../../tests/estimate-pricing.test.js)
 locks in EBv2's behavior. Use it as the canonical reference.
 
 ### What's already done
@@ -128,6 +128,14 @@ locks in EBv2's behavior. Use it as the canonical reference.
 - Address-match regression test in `tests/address-match.test.js`
 
 ### What's left
+
+> **Correction 2026-08-10 (site audit):** PR 1 and PR 2 below are DONE —
+> the audit doc exists ([docs/dev/estimate-engines-audit.md](../../docs/dev/estimate-engines-audit.md))
+> and estimates.js emits the `[estimates.js DEPRECATED]` warns whose prod
+> log is the standing wizard-deletion gate in
+> [WEEKLY_CADENCE](WEEKLY_CADENCE.md). Part 1 of PR 6 also shipped (#1186).
+> Remaining: PRs 3-5, gated on Jo's prod deprecation-log check.
+
 This is a multi-PR migration. **Do not collapse it into one giant PR.**
 
 1. **PR 1: Audit pass — find every call site** (no code changes)
@@ -194,8 +202,10 @@ MEDIUM. Pricing math is high-stakes. Each PR must:
 > auto-convert, scheduling, and expenses. It runs in CI
 > (`e2e-authed-emulator` job) against the auth/firestore/storage/hosting
 > emulators with a seeded tenant (`tests/e2e/fixtures/seed-emulator.js`) —
-> no prod credentials. Still `continue-on-error` until proven stable; flip
-> to required after ~2 weeks green. The "What's left" below is historical.
+> no prod credentials. **Correction 2026-08-10:** the matrix is REQUIRED
+> for every shard except `@engines` (`continue-on-error: ${{ matrix.shard
+> == '@engines' }}`), and the suite has grown to ~48 test blocks — the
+> "15 journeys / still advisory" description below is historical. The "What's left" below is historical.
 
 ### Goal
 Stand up a real Playwright test suite that exercises authenticated flows end

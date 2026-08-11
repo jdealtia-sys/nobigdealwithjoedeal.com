@@ -98,8 +98,9 @@ quote form, siding empty-state CTA band.
 - **Staged dates got wider**: a passed `published` date now makes `--check`
   red across up to ~10 stamped files (one `node scripts/build-projects.mjs`
   restamp fixes all). Phone-template posts use today's date, avoiding this.
-- The hail hub page's `footer-extended` partial region has an opening marker
-  but **no closing marker** (pre-existing on main; apply-partials --check
-  passes anyway). Worth a look during the next partials sweep.
+- ~~The hail hub page's `footer-extended` partial region has an opening marker
+  but **no closing marker**~~ **FIXED 2026-08-10** (site audit): closer
+  stamped, and apply-partials --check now FAILS on dangling markers in both
+  directions (unclosed opener AND orphan closer).
 - Sandbox notes from 2026-08-07 still hold (authed e2e can't run here; use
   `npm install` not `npm ci` in tests/; scrub proxy env for emulator suites).

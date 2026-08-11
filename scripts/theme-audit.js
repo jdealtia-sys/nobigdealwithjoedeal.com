@@ -6,9 +6,11 @@
  * :root CSS variables, computes WCAG 2.x contrast ratios, and emits a defect
  * list as JSON. Includes a small floating progress panel.
  *
- * Load on dashboard.html (or any pro page that already loads theme-engine.js):
- *   <script src="js/theme-audit.js" defer></script>
- * Then in DevTools:
+ * DEV-ONLY tool — moved OUT of docs/ (2026-08-10): it shipped for two months
+ * at /pro/js/theme-audit.js with zero pages loading it (docs/ is the public
+ * hosting root; dev harnesses don't belong in the deploy). To use it, paste
+ * the file into the DevTools console on dashboard.html (or any pro page that
+ * already loads theme-engine.js), or serve it via a local override. Then:
  *   NBDThemeAudit.run().then(NBDThemeAudit.download)
  *
  * IIFE pattern, exposed as NBDThemeAudit. No external deps.

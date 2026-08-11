@@ -988,7 +988,7 @@ ${footer}
   </div>
   <div class="cost-card">
     <div class="lbl">Net Margin</div>
-    <div class="val" style="color:#065f46;">${fmtMoneyBig(estimate.internal.margin)}</div>
+    <div class="val" style="color:#065f46;">${estimate.internal.margin == null ? '—' : fmtMoneyBig(estimate.internal.margin)}</div>
   </div>
 </div>
 
@@ -996,7 +996,9 @@ ${footer}
   <div style="font-size:10px;color:#065f46;text-transform:uppercase;letter-spacing:.15em;font-weight:700;">
     MARGIN PERCENTAGE
   </div>
-  <div class="margin-big">${estimate.internal.marginPct.toFixed(1)}%</div>
+  <!-- null marginPct = no tenant cost basis configured (EBv2 ships zeros;
+       real costs are tenant data, set in Estimate Settings) -->
+  <div class="margin-big">${estimate.internal.marginPct == null ? '— set cost basis in Settings' : estimate.internal.marginPct.toFixed(1) + '%'}</div>
 </div>
 
 <h2>Cost Breakdown</h2>

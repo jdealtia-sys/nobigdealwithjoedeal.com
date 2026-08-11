@@ -605,17 +605,32 @@ jobs:
           fi
 
           FAILED_FILE=$(mktemp)
+          WHOLESALE_FILE=$(mktemp)
           # _deploy_only <comma-separated functions:NAME list> — runs the deploy,
           # echoes firebase output to the log, and appends any failed function
           # names to FAILED_FILE. firebase prints "Failed to (create|update)
           # function NAME in region ..." per failure; that's what we parse.
+          #
+          # WHOLESALE-FAILURE GUARD (2026-08-10 audit): the per-function parse
+          # is the ONLY failure signal the step used to have, so a deploy that
+          # died BEFORE per-function rollout (auth error, config parse, quota
+          # abort — exit != 0 with zero "Failed to ..." lines) produced an
+          # empty FAILED set and the step printed "✓ All functions deployed"
+          # while deploying nothing. Capture the exit code; nonzero with no
+          # parsed per-function failures = wholesale failure, recorded and
+          # fatal at the end.
           _deploy_only() {
             [ -z "$1" ] && return 0
-            local out
+            local out rc parsed
             out=$(npx firebase-tools deploy --only "$1" --project "$PRO_PROJECT" --non-interactive --force 2>&1)
+            rc=$?
             echo "$out"
-            echo "$out" | grep -oE "Failed to (create|update) function [A-Za-z_][A-Za-z0-9_]*" \
-                        | sed -E 's/.*function //' >> "$FAILED_FILE"
+            parsed=$(echo "$out" | grep -oE "Failed to (create|update) function [A-Za-z_][A-Za-z0-9_]*" \
+                                 | sed -E 's/.*function //')
+            [ -n "$parsed" ] && echo "$parsed" >> "$FAILED_FILE"
+            if [ "$rc" -ne 0 ] && [ -z "$parsed" ]; then
+              echo "wholesale deploy failure: exit $rc with no per-function failure lines (targets: $1)" >> "$WHOLESALE_FILE"
+            fi
           }
           # _deploy_batched <newline-separated names> — deploys in chunks of
           # NBD_DEPLOY_BATCH_SIZE so a large straggler set never re-creates the
@@ -652,6 +667,20 @@ jobs:
             FAILED=$(sort -u "$FAILED_FILE")
           done
 
+          if [ -s "$WHOLESALE_FILE" ] && [ -z "$FAILED" ]; then
+            echo "::error::Cloud Functions deploy failed WHOLESALE (nonzero exit before per-function rollout) — nothing or almost nothing was deployed"
+            {
+              echo "### ❌ Cloud Functions deploy — wholesale failure"
+              echo ""
+              echo "The firebase-tools deploy exited nonzero WITHOUT any per-function"
+              echo "failure lines — it died before per-function rollout (auth, config,"
+              echo "or quota abort). Until 2026-08-10 this exact mode reported"
+              echo "\"✓ All functions deployed\" and went green."
+              echo ""
+              sed 's/^/  - /' "$WHOLESALE_FILE"
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
           if [ -n "$FAILED" ]; then
             echo "::error::Cloud Functions still failing after $NBD_DEPLOY_RETRY_ROUNDS retries"
             {

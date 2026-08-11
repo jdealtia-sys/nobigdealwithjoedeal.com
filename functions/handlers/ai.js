@@ -17,14 +17,19 @@ const { logger } = require('firebase-functions/v2');
 const { getFirestore } = require('firebase-admin/firestore');
 const { FieldValue } = require('firebase-admin/firestore');
 
-const { enforceRateLimit, httpRateLimit } = require('../integrations/upstash-ratelimit');
+const { httpRateLimit } = require('../integrations/upstash-ratelimit');
+// Declarative per-route policy (rate-limit-policy.js ROUTES table) — the
+// wrapper enforces per-IP AND per-uid ceilings before the handler runs.
+// claudeProxy is the wiring pilot (2026-08-10): its uid namespace/limit are
+// byte-identical to the old hand-rolled enforceRateLimit call, plus a new
+// per-IP backstop that the hand-rolled gate never had.
+const { guardHttp } = require('../rate-limit-policy');
 const { requireAuth } = require('../shared');
 const {
   CORS_ORIGINS,
   ALLOWED_CLAUDE_MODELS,
   CLAUDE_MAX_TOKENS_CAP,
   CLAUDE_DAILY_TOKEN_BUDGET,
-  CLAUDE_PER_MIN_LIMIT,
   CLAUDE_COMPANY_BUDGET,
   CLAUDE_COMPANY_BUDGET_DEFAULT,
   CLAUDE_RESERVATION_MAX,
@@ -55,7 +60,7 @@ exports.claudeProxy = onRequest(
     timeoutSeconds: 60,
     memory: '256MiB',
   },
-  async (req, res) => {
+  guardHttp('claudeProxy', async (req, res) => {
     if (req.method !== 'POST') { res.status(405).json({ error: 'Method not allowed' }); return; }
 
     // Global AI kill-switch (Audit #4). One write to feature_flags/global
@@ -96,13 +101,11 @@ exports.claudeProxy = onRequest(
         return;
       }
 
-      // Per-uid rate limit (admin-SDK-only Firestore doc so clients cannot reset it).
-      try {
-        await enforceRateLimit('claudeProxy:uid', decoded.uid, CLAUDE_PER_MIN_LIMIT, 60_000);
-      } catch (e) {
-        if (e.rateLimited) { res.status(429).json({ error: 'Rate limit exceeded. Try again in a minute.' }); return; }
-        throw e;
-      }
+      // Rate limiting (per-uid AND per-IP) is enforced by the
+      // guardHttp('claudeProxy') wrapper before this handler runs — limits
+      // live in rate-limit-policy.js ROUTES, namespace 'claudeProxy:uid'
+      // unchanged from the old inline call (admin-SDK-only Firestore doc,
+      // clients cannot reset it).
 
       // M2: per-day token budget via materialized counters rather
       // than a range scan of api_usage.
@@ -285,7 +288,7 @@ exports.claudeProxy = onRequest(
       try { require('../integrations/sentry').captureException(e, { op: 'claudeProxy', uid: decoded?.uid }); } catch (_) {}
       res.status(500).json({ error: 'Internal server error' });
     }
-  }
+  })
 );
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -525,7 +528,7 @@ exports.adminAI = onRequest(
     timeoutSeconds: 60,
     memory: '256MiB',
   },
-  async (req, res) => {
+  guardHttp('adminAI', async (req, res) => {
     if (req.method !== 'POST') {
       res.status(405).json({ error: 'Method not allowed' });
       return;
@@ -544,8 +547,10 @@ exports.adminAI = onRequest(
       return;
     }
 
-    // Per-uid rate limit — generous for interactive admin tooling.
-    if (!(await httpRateLimit(req, res, 'adminAI:' + decoded.uid, 60, 3_600_000))) return;
+    // Rate limiting (per-uid + per-IP) is enforced by the guardHttp('adminAI')
+    // wrapper — limits in rate-limit-policy.js ROUTES. (The old inline call
+    // keyed the SCOPE on the uid — 'adminAI:<uid>' — so its counters don't
+    // carry over; limits are unchanged at 60/hr/uid, plus a new IP backstop.)
 
     try {
       const { prompt, maxTokens } = req.body || {};
@@ -595,5 +600,5 @@ exports.adminAI = onRequest(
       logger.error('adminAI error', { err: e.message, timeout: !!isTimeout });
       res.status(isTimeout ? 504 : 500).json({ error: isTimeout ? 'Upstream AI timeout' : 'Internal error' });
     }
-  }
+  })
 );

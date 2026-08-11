@@ -44,12 +44,20 @@
     best:   660    // Impact-rated + 50yr warranty package
   };
 
-  // Cost basis per SQ (Internal view margin calc)
-  // Not yet unified — V2-only; classic has no equivalent.
+  // Cost basis per SQ (Internal-view margin calc). SHIPPED AS ZEROS on
+  // purpose (2026-08-10): this file is world-readable (docs/ is the hosting
+  // root AND the repo is public), and the previous defaults were the shop's
+  // REAL per-SQ costs sitting next to the public tier rates — the same
+  // confidentiality class the 2026-06 catalog scrub removed for 187 SKUs
+  // (see tests/catalog-cost-privacy.test.js, which now pins these at 0).
+  // Real cost basis is tenant data: set it in Estimate Settings (the
+  // v2cost* fields) and it merges in via loadSettings(). A zero basis means
+  // "not configured" — the margin fields come back null and the Internal
+  // View shows an em-dash, never a fake 100% margin.
   const DEFAULT_COST_BASIS = {
-    good:   340,
-    better: 385,
-    best:   430
+    good:   0,
+    better: 0,
+    best:   0
   };
 
   const MIN_JOB_CHARGE          = (_NBD_CFG && _NBD_CFG.JOB_MINIMUM_DOLLARS)            || 2500;  // Kicks in below ~4.5 SQ
@@ -802,13 +810,16 @@
       minJobApplied = true;
     }
 
-    // Internal margin view
+    // Internal margin view. costPerSq 0 = tenant hasn't configured a cost
+    // basis (the shipped default — see DEFAULT_COST_BASIS): margin fields go
+    // null so the UI can say "set cost basis" instead of showing 100%.
     const costPerSq = Number(s.costBasis[tier]) || DEFAULT_COST_BASIS[tier];
+    const costConfigured = costPerSq > 0;
     const materialLaborCostCents = _toCents(sq * costPerSq);
-    const addOnCostCents = Math.round(addOnsTotalCents * 0.4);
+    const addOnCostCents = costConfigured ? Math.round(addOnsTotalCents * 0.4) : 0;
     const totalCostCents = materialLaborCostCents + addOnCostCents;
-    const marginCents = totalCents - totalCostCents;
-    const marginPct = totalCents > 0 ? (marginCents / totalCents) * 100 : 0;
+    const marginCents = costConfigured ? totalCents - totalCostCents : null;
+    const marginPct = costConfigured && totalCents > 0 ? ((totalCents - totalCostCents) / totalCents) * 100 : (costConfigured ? 0 : null);
 
     // Deposit (Rock 2 PR 4 — shared calcDeposit replaces inline math)
     const depositInfo = calcDeposit(_fromCents(totalCents), mode, {
@@ -845,7 +856,7 @@
         materialLaborCost: _fromCents(materialLaborCostCents),
         addOnCost: _fromCents(addOnCostCents),
         totalCost: _fromCents(totalCostCents),
-        margin: _fromCents(marginCents),
+        margin: marginCents == null ? null : _fromCents(marginCents),
         marginPct
       }
     };

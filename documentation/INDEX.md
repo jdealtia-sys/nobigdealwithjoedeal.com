@@ -1,6 +1,6 @@
 # NBD Pro — Engineering Knowledge Base
 
-Map of content for the `documentation/` corpus (~90 files) plus the other places engineering truth lives in this repo. Built as the home note for an **Obsidian vault opened at the repo root** — every link below is a plain relative path, so it works identically on GitHub.
+Map of content for the `documentation/` corpus (~115 files) plus the other places engineering truth lives in this repo. Built as the home note for an **Obsidian vault opened at the repo root** — every link below is a plain relative path, so it works identically on GitHub.
 
 > **Vault setup (one time):** Obsidian → Open folder as vault → this repo. Then Settings → Files & Links → set **Excluded files** to `.claude/worktrees, node_modules, docs, tests/node_modules, functions/node_modules` (`.claude/worktrees` contains a full duplicate of this tree; `docs/` is the hosting root, not notes). `.obsidian/` is gitignored — your workspace config stays local.
 
@@ -10,7 +10,7 @@ Map of content for the `documentation/` corpus (~90 files) plus the other places
 
 - [WEEKLY_CADENCE](projects/WEEKLY_CADENCE.md) — the Monday-morning checklist: Jo's weekly content/marketing loop, the agent weekly sweep, and the consolidated one-off queue (sessions keep it current)
 - [BIG_ROCKS](projects/BIG_ROCKS.md) — the standing priority list
-- Current handoff: [NEXT_SESSION-2026-08-10](projects/NEXT_SESSION-2026-08-10.md)
+- Current handoff: [NEXT_SESSION-2026-08-11](projects/NEXT_SESSION-2026-08-11.md)
 - Posting a job: [runbooks/PUBLISH-PROJECT](runbooks/PUBLISH-PROJECT.md) — phone-paste template inside
 
 ## Start here
@@ -25,6 +25,7 @@ Map of content for the `documentation/` corpus (~90 files) plus the other places
 
 - [MULTI-TENANT-ARCHITECTURE](architecture/MULTI-TENANT-ARCHITECTURE.md)
 - [NBD-PRO-PRODUCT-AUDIT-2026-07](architecture/NBD-PRO-PRODUCT-AUDIT-2026-07.md)
+- [RAILWAY-EVAL-2026-08](architecture/RAILWAY-EVAL-2026-08.md) — Railway hosting evaluated and deferred (trigger conditions inside)
 - Pillar plans: [1 — Provisioning](architecture/PILLAR1-PROVISIONING-PLAN.md) · [4 — Billing](architecture/PILLAR4-BILLING-PLAN.md) · [5 — Domains & Sites](architecture/PILLAR5-DOMAINS-SITES-PLAN.md)
 
 ## Runbooks (ops — read before touching prod)
@@ -45,11 +46,12 @@ Map of content for the `documentation/` corpus (~90 files) plus the other places
 - [BIG_ROCKS](projects/BIG_ROCKS.md) — the standing priority list
 - [WEEKLY_CADENCE](projects/WEEKLY_CADENCE.md) — standing weekly checklist (see "Standing notes" above)
 - [KANBAN_CUSTOMER_MAP](projects/KANBAN_CUSTOMER_MAP.md)
-- Session handoffs: [NEXT_SESSION-2026-08-10](projects/NEXT_SESSION-2026-08-10.md) (current — start here; jobs-board taxonomy + hub strips + posting flow) · [NEXT_SESSION-2026-08-07](projects/NEXT_SESSION-2026-08-07.md) (still carries the live deferred queue) · [SESSION-2026-08-06-swath-api-setup](projects/SESSION-2026-08-06-swath-api-setup.md) (Swath API integration — Jo's 5-min secrets to-do inside) · [NEXT_SESSION-2026-08-06](projects/NEXT_SESSION-2026-08-06.md) · [SESSION-2026-08-06-our-work-featured-projects](projects/SESSION-2026-08-06-our-work-featured-projects.md) · [NEXT_SESSION-2026-08-05](projects/NEXT_SESSION-2026-08-05.md) · [NEXT_SESSION](projects/NEXT_SESSION.md) · [NEXT_SESSION-2c4a](projects/NEXT_SESSION-2c4a.md) (all executed)
+- Session handoffs: [NEXT_SESSION-2026-08-11](projects/NEXT_SESSION-2026-08-11.md) (current — start here; site-wide audit + security fix wave) · [NEXT_SESSION-2026-08-10](projects/NEXT_SESSION-2026-08-10.md) (jobs-board taxonomy + hub strips + posting flow) · [NEXT_SESSION-2026-08-07](projects/NEXT_SESSION-2026-08-07.md) (deferred queue — mostly absorbed into WEEKLY_CADENCE 2026-08-11) · [SESSION-2026-08-06-swath-api-setup](projects/SESSION-2026-08-06-swath-api-setup.md) (Swath API integration — Jo's 5-min secrets to-do inside) · [NEXT_SESSION-2026-08-06](projects/NEXT_SESSION-2026-08-06.md) · [SESSION-2026-08-06-our-work-featured-projects](projects/SESSION-2026-08-06-our-work-featured-projects.md) · [NEXT_SESSION-2026-08-05](projects/NEXT_SESSION-2026-08-05.md) · [NEXT_SESSION](projects/NEXT_SESSION.md) · [NEXT_SESSION-2c4a](projects/NEXT_SESSION-2c4a.md) (all executed)
 
 ## Audits
 
-- [SYSTEM-STABILITY-PERF-2026-08-07](audit/SYSTEM-STABILITY-PERF-2026-08-07.md) — full-system stability/perf/accuracy audit + fix wave (newest)
+- [SITE-AUDIT-LOOSE-ENDS-2026-08-10](audit/SITE-AUDIT-LOOSE-ENDS-2026-08-10.md) — site-wide loose-ends & security audit + fix wave: EXIF-GPS P0, rate-limit adoption, rules #12 extension, CI hardening (newest)
+- [SYSTEM-STABILITY-PERF-2026-08-07](audit/SYSTEM-STABILITY-PERF-2026-08-07.md) — full-system stability/perf/accuracy audit + fix wave
 - [AUDIT_REPORT](audit/AUDIT_REPORT.md) · [LIVE_VERIFICATION](audit/LIVE_VERIFICATION.md)
 - [OPS_AUDIT_2026-06](audit/OPS_AUDIT_2026-06.md) · [PROD_HOMEWORK_VERIFICATION_2026-07](audit/PROD_HOMEWORK_VERIFICATION_2026-07.md)
 - Themes: [THEME_SYSTEM_AUDIT_2026-06](audit/THEME_SYSTEM_AUDIT_2026-06.md) · [THEME_PHASE3_DURABILITY](audit/THEME_PHASE3_DURABILITY.md)
@@ -57,6 +59,7 @@ Map of content for the `documentation/` corpus (~90 files) plus the other places
 ## Brand, marketing & rebrand
 
 - [VOICE_BIBLE](brand/VOICE_BIBLE.md) — the writing voice for every customer-facing word
+- [drafts/README](drafts/README.md) — the blog-draft pipeline (3 drafts awaiting Jo's `JO:` marker edits; one publish session each)
 - [local-seo-playbook-2026-07](marketing/local-seo-playbook-2026-07.md) · [citation-kit-2026-07](marketing/citation-kit-2026-07.md)
 - [gaf-tamko-rebrand-plan](rebrand/gaf-tamko-rebrand-plan.md) · [gaf-tamko-BUILD-BRIEF](rebrand/gaf-tamko-BUILD-BRIEF.md)
 

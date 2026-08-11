@@ -55,6 +55,7 @@ node scripts/apply-partials.js --check --diff
 node scripts/build-sitemap.js          # dry-run drift check
 node scripts/build-projects.mjs --check
 node scripts/check-inline-html-scripts.js
+node scripts/check-image-privacy.js       # EXIF/GPS strip invariant (images)
 node tests/smoke.test.js               # CRM changes (needs functions/ deps)
 node tests/marketing-polish-contract.test.js
 ```

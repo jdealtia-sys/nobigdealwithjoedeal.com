@@ -47,7 +47,7 @@
 - `ZZ_QA_` throwaway records only for create/mutate; real customer records are **view-only**.
 - Delete/send/e-sign/charge/publish → drive to the confirm boundary, screenshot, **cancel**. Never fire on real data.
 - Record originals of real settings before changing; **restore** after. Leave NBD's account as found.
-- Sends → `ZZ_QA_` recipient (Jo's own). Email: `jonathandeal459@gmail.com`. SMS (Jo's own cells): `859-420-7382` and `513-315-2406`. Or stop at boundary. No real charges.
+- Sends → `ZZ_QA_` recipient (Jo's own). Email: `jonathandeal459@gmail.com`. SMS (Jo's own): the published business line `859-420-7382`; the second (personal) cell lives in CRM settings — redacted here 2026-08-10, this is a public repo. Or stop at boundary. No real charges.
 - SMS caveat: prior runs noted SMS blocked at Twilio A2P / trial. If a send fails, distinguish **handler works but blocked at Twilio (BLOCKED/infra)** from **UI no-op (FAIL)** — read the network/console to tell which.
 - Claude never types a credential. Jo logs in + hands off.
 
