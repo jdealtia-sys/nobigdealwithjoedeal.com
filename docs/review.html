@@ -163,6 +163,88 @@ body{font-family:'Montserrat',sans-serif;background:var(--navy-dark);color:white
 .nav-links a:hover{color:var(--orange-light,#f08030)}
 .nav-cta{background:#B85400;color:white!important;padding:10px 20px;border-radius:8px;font-weight:700}
 </style><style>
+/* Hero */
+.review-hero{text-align:center;padding:60px 5% 40px;background:linear-gradient(180deg,var(--navy-dark) 0%,var(--navy-dark) 100%)}
+.review-hero h1{font-family:'Bebas Neue',sans-serif;font-size:clamp(2.4rem,6vw,3.6rem);letter-spacing:1px;margin-bottom:12px}
+.review-hero h1 span{color:#DA6A05}
+.review-hero .sub{color:rgba(255,255,255,.6);font-size:1rem;max-width:560px;margin:0 auto 28px;line-height:1.7}
+.score-box{display:inline-flex;align-items:center;gap:16px;background:rgba(255,255,255,.05);border:1px solid rgba(232,114,12,.3);border-radius:14px;padding:20px 36px}
+.score-num{font-family:'Bebas Neue',sans-serif;font-size:3.2rem;color:var(--orange);line-height:1}
+.score-stars{font-size:1.4rem;letter-spacing:3px;margin-bottom:4px}
+.score-label{font-size:.75rem;color:rgba(255,255,255,.5);font-weight:600;text-transform:uppercase;letter-spacing:.08em}
+/* Reviews Grid */
+.reviews-wrap{max-width:1100px;margin:0 auto;padding:48px 5%}
+.reviews-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:24px;margin-bottom:48px}
+.r-card{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:14px;padding:28px;display:flex;flex-direction:column;transition:border-color .2s,box-shadow .2s}
+.r-card:hover{border-color:rgba(232,114,12,.3);box-shadow:0 8px 32px rgba(0,0,0,.2)}
+.r-stars{color:var(--orange);font-size:1rem;letter-spacing:2px;margin-bottom:14px}
+.r-text{font-size:.88rem;line-height:1.7;color:rgba(255,255,255,.7);font-style:italic;flex:1;margin-bottom:18px}
+.r-author{font-weight:700;font-size:.85rem;color:white}
+.r-author span{font-weight:600;color:rgba(255,255,255,.4);margin-left:4px}
+.r-date{font-size:.72rem;color:rgba(255,255,255,.3);margin-top:4px}
+/* CTA Section */
+.review-cta{text-align:center;padding:48px 5%;background:rgba(232,114,12,.06);border-top:1px solid rgba(232,114,12,.15);border-bottom:1px solid rgba(232,114,12,.15)}
+.review-cta h2{font-family:'Bebas Neue',sans-serif;font-size:2rem;margin-bottom:8px;letter-spacing:1px}
+.review-cta h2 span{color:#DA6A05}
+.review-cta p{color:rgba(255,255,255,.6);font-size:.92rem;margin-bottom:28px;max-width:480px;margin-left:auto;margin-right:auto;line-height:1.6}
+.cta-buttons{display:flex;gap:16px;justify-content:center;flex-wrap:wrap}
+.btn-primary{display:inline-flex;align-items:center;gap:8px;background:#B85400;color:white;padding:16px 32px;border-radius:10px;font-weight:800;font-size:.95rem;text-decoration:none;transition:background .2s}
+.btn-primary:hover{background:#A64B00}
+.btn-outline{display:inline-flex;align-items:center;gap:8px;border:1px solid rgba(255,255,255,.2);color:rgba(255,255,255,.7);padding:14px 28px;border-radius:10px;font-weight:600;font-size:.88rem;text-decoration:none;transition:all .2s}
+.btn-outline:hover{border-color:white;color:white}/* Platform Links */
+.platforms{max-width:800px;margin:0 auto;padding:48px 5%;text-align:center}
+.platforms h3{font-family:'Bebas Neue',sans-serif;font-size:1.4rem;letter-spacing:1px;margin-bottom:24px;color:rgba(255,255,255,.8)}
+.platform-grid{display:flex;gap:16px;justify-content:center;flex-wrap:wrap}
+.p-link{display:flex;align-items:center;gap:10px;padding:14px 24px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1);border-radius:10px;text-decoration:none;color:rgba(255,255,255,.7);font-weight:600;font-size:.85rem;transition:all .2s}
+.p-link:hover{border-color:var(--orange);color:white;background:rgba(232,114,12,.08)}
+.p-icon{font-size:1.2rem}
+/* Certifications Bar */
+.cert-bar{max-width:800px;margin:0 auto;padding:0 5% 48px;text-align:center}
+.cert-bar h3{font-family:'Bebas Neue',sans-serif;font-size:1.2rem;letter-spacing:1px;margin-bottom:20px;color:rgba(255,255,255,.5)}
+.cert-logos{display:flex;gap:32px;justify-content:center;align-items:center;flex-wrap:wrap}
+.cert-logos span{font-size:.8rem;font-weight:700;color:rgba(255,255,255,.62);letter-spacing:.06em;text-transform:uppercase;padding:10px 20px;border:1px solid rgba(255,255,255,.12);border-radius:8px}
+/* Footer */
+.review-footer{text-align:center;padding:32px 5%;border-top:1px solid rgba(255,255,255,.06);font-size:.78rem;color:rgba(255,255,255,.3)}
+.review-footer a{color:var(--orange);text-decoration:none}
+/* Full footer (canonical, matches homepage) */
+footer.site-footer{background:var(--navy-dark,#142a52);border-top:3px solid var(--orange);padding:60px 40px 0}
+.site-footer .footer-inner{max-width:1200px;margin:0 auto}
+.site-footer .footer-grid{display:grid;grid-template-columns:1.4fr 1fr 1fr 1fr;gap:48px;margin-bottom:48px}
+.site-footer .footer-logo-block{display:flex;flex-direction:column;align-items:flex-start}
+.site-footer .footer-nav-logo{margin-bottom:18px;display:flex;align-items:center;gap:12px;text-decoration:none}
+.site-footer .footer-desc{font-size:.92rem;color:rgba(255,255,255,.82);line-height:1.7;margin-bottom:20px;text-align:left}
+.site-footer .footer-badges{display:flex;flex-wrap:wrap;gap:8px}
+.site-footer .footer-badge{font-size:.7rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:rgba(255,255,255,.7);padding:6px 10px;border:1px solid rgba(255,255,255,.15);border-radius:4px}
+.site-footer .footer-col-title{font-size:.68rem;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:var(--orange);margin-bottom:16px}
+.site-footer .footer-links{list-style:none;display:flex;flex-direction:column;gap:9px;padding:0;margin:0;text-align:left}
+.site-footer .footer-links a{color:rgba(255,255,255,.82);text-decoration:none;font-size:.92rem;transition:color .2s}
+.site-footer .footer-links a:hover{color:var(--orange)}
+.site-footer .footer-bottom{border-top:1px solid rgba(255,255,255,.07);padding:20px 0;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;text-align:left}
+.site-footer .footer-copy{font-size:.82rem;color:rgba(255,255,255,.55)}
+.site-footer .pro-door{font-size:.82rem;color:rgba(255,255,255,.65);text-decoration:none;border-bottom:1px solid rgba(232,114,12,.3);padding-bottom:2px;font-weight:600;letter-spacing:.03em}
+.site-footer .pro-door:hover{color:var(--orange);border-bottom-color:var(--orange)}
+@media(max-width:900px){.site-footer .footer-grid{grid-template-columns:1fr 1fr;gap:32px}}
+@media(max-width:600px){.site-footer .footer-grid{grid-template-columns:1fr;gap:28px}.site-footer .footer-bottom{flex-direction:column;gap:12px;text-align:center}}
+/* Responsive */
+@media(max-width:768px){
+  .reviews-grid{grid-template-columns:1fr}
+  .score-box{padding:16px 24px}
+  .score-num{font-size:2.4rem}
+  .cta-buttons{flex-direction:column;align-items:center}
+  .platform-grid{flex-direction:column;align-items:center}
+}
+
+/* unified-nav injected */
+.nav-links .dropdown{position:relative}
+.nav-links .dropdown-menu{display:none;position:absolute;top:100%;left:0;background:var(--navy-dark,#142a52);border:2px solid var(--orange,#e8720c);border-top:none;min-width:230px;border-radius:0 0 8px 8px;padding:8px 0;z-index:999;list-style:none;margin:0}
+.nav-links .dropdown:hover .dropdown-menu,.nav-links .dropdown:focus-within .dropdown-menu,.nav-links .dropdown.open .dropdown-menu{display:block}
+.nav-links .dropdown-menu a{display:block;padding:10px 18px;font-size:.75rem;border-bottom:1px solid rgba(255,255,255,.08);color:rgba(255,255,255,.85);text-decoration:none;letter-spacing:.06em;text-transform:uppercase;font-weight:600;transition:color .2s,background .2s}
+.nav-links .dropdown-menu a:last-child{border-bottom:none}
+.nav-links .dropdown-menu a:hover{color:var(--orange-light,#f08030);background:rgba(255,255,255,.04);border-bottom-color:rgba(255,255,255,.08)}
+.nav-links .nav-ico{width:14px;height:14px;stroke:currentColor;stroke-width:2.2;fill:none;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0;display:inline-block;vertical-align:-0.18em}
+.nav-links > li > a.nav-instant{color:var(--orange-light,#f08030)!important}
+</style>
+<style>
 /* trust-icon fix */
 .trust-icon svg.ico{color:#fff}
 .aci-icon svg.ico,.form-success-icon svg.ico{color:var(--orange,#e8720c)}

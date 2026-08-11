@@ -78,8 +78,13 @@ nav{position:sticky;top:0;z-index:1000;background:var(--navy-dark);border-bottom
 .callout strong,.prose .callout p strong,.prose .callout li strong{color:#fff}
 .callout h3{font-family:'Bebas Neue',sans-serif;font-size:1.4rem;color:var(--orange);letter-spacing:.04em;margin-bottom:10px}
 .callout p{font-size:.88rem;color:rgba(255,255,255,.82);line-height:1.65;margin:0 0 14px}
-.callout a{display:inline-block;background:#B85400;color:#fff;padding:11px 22px;border-radius:8px;font-weight:800;font-size:.85rem}
-.callout a:hover{background:var(--orange-dark)}
+/* Button styling ONLY for the callout's direct-child CTA anchors — the old
+   bare `.callout a` also hit inline links inside <p>, rendering giant
+   pills mid-sentence that broke the paragraph flow (fixed 2026-08-11). */
+.callout > a{display:inline-block;background:#B85400;color:#fff;padding:11px 22px;border-radius:8px;font-weight:800;font-size:.85rem}
+.callout > a:hover{background:var(--orange-dark)}
+.callout p a,.callout li a{color:var(--orange);font-weight:700;text-decoration:underline;text-underline-offset:2px}
+.callout p a:hover,.callout li a:hover{color:#fff}
 .author-box{display:flex;gap:20px;align-items:flex-start;background:var(--off-white);border-radius:12px;padding:28px;margin-top:48px;border:1px solid var(--light-gray)}
 .author-avatar{width:56px;height:56px;background:var(--navy);border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:'Bebas Neue',sans-serif;font-size:1.4rem;color:#fff;flex-shrink:0}
 .author-info h3{font-size:.9rem;font-weight:800;color:var(--navy);margin-bottom:4px}
@@ -124,6 +129,105 @@ footer{background:var(--navy-dark);color:rgba(255,255,255,.75);padding:56px 5% 2
 </style>
 <link rel="stylesheet" href="/assets/css/blog-midpost-cta.css"><script src="/assets/js/blog-midpost-cta.js" defer></script><link rel="stylesheet" href="/assets/css/nbd-mobile.css">
 <link rel="stylesheet" href="/assets/css/mobile-cta.css">
+<style>
+:root{--navy:#1e3a6e;--navy-dark:#142a52;--orange:#e8720c;--orange-light:#f08030;--orange-dark:#c45e08;--gray-sub:#4a4a4a;--white:#fff;--off-white:#f5f3ef;--gray:#5d6673;--light-gray:#e8e5e0}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{font-family:'Montserrat',sans-serif;color:#1a1a1a;background:#fff}
+a{text-decoration:none;color:inherit}
+.ann-bar{background:#B85400;color:#fff;text-align:center;font-size:.78rem;font-weight:700;letter-spacing:.08em;padding:9px 16px;text-transform:uppercase;min-height:38px;display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden;cursor:pointer}
+.ann-slide{position:absolute;width:100%;text-align:center;opacity:0;transform:translateY(12px);transition:opacity .5s,transform .5s;pointer-events:none}
+.ann-slide.active{opacity:1;transform:translateY(0);pointer-events:auto}
+.ann-slide.exit{opacity:0;transform:translateY(-12px)}
+.ico{width:1em;height:1em;stroke:currentColor;stroke-width:2;fill:none;stroke-linecap:round;stroke-linejoin:round;display:inline-block;vertical-align:-.14em}
+.ico-fill{fill:currentColor;stroke:none}
+nav{position:sticky;top:0;z-index:1000;background:var(--navy-dark);border-bottom:3px solid var(--orange);padding:0 5%;display:flex;align-items:center;justify-content:space-between;height:70px}
+.nav-logo{display:flex;align-items:center;gap:10px}
+.nav-logo img{height:42px;border-radius:6px}
+.nav-logo-text .brand{font-size:1rem;font-weight:800;color:#fff}
+.nav-logo-text .sub{font-size:.7rem;color:rgba(255,255,255,.6);font-weight:600}
+.nav-links{display:flex;align-items:center;gap:24px;list-style:none}
+.nav-links a{color:rgba(255,255,255,.85);font-size:.78rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase}
+.nav-links a:hover{color:var(--orange)}
+.nav-cta{background:#B85400;color:#fff!important;padding:10px 18px;border-radius:6px;font-weight:700!important;font-size:.78rem!important}
+.hamburger{display:none;flex-direction:column;gap:6px;cursor:pointer;padding:10px;background:transparent;border:none;z-index:1001}
+.hamburger span{display:block;width:26px;height:3px;background:#fff;border-radius:2px;transition:all .3s;box-shadow:0 1px 3px rgba(0,0,0,.3)}
+.mobile-nav{display:none;position:fixed;top:108px;left:0;right:0;background:var(--navy-dark);padding:24px 5%;border-bottom:3px solid var(--orange);max-height:calc(100vh - 108px);overflow-y:auto;z-index:999}
+.mobile-nav.open{display:block}
+.mobile-nav a{display:block;color:#fff;text-decoration:none;padding:10px 0;font-size:.88rem;font-weight:600;border-bottom:1px solid rgba(255,255,255,.08)}
+.mobile-nav .mnav-group{font-size:.7rem;color:var(--orange);text-transform:uppercase;letter-spacing:.12em;font-weight:800;margin-top:18px;margin-bottom:6px}
+@media(max-width:900px){.nav-links{display:none!important}.hamburger{display:flex!important}}
+.breadcrumb{background:var(--off-white);padding:12px 5%;font-size:.78rem;color:#646c7a}
+.breadcrumb a{color:var(--navy);font-weight:600}
+.breadcrumb a:hover{color:var(--orange)}
+.breadcrumb span{margin:0 6px}
+
+.article-hero{background:var(--navy-dark);padding:64px 5% 52px}
+.hero-inner{max-width:760px;margin:0 auto}
+.article-tag{display:inline-flex;align-items:center;gap:8px;background:rgba(232,114,12,.15);border:1px solid rgba(232,114,12,.4);color:#ffaf66;font-size:.72rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;padding:6px 14px;border-radius:20px;margin-bottom:20px}
+.article-hero h1{font-family:'Bebas Neue',sans-serif;font-size:clamp(2.4rem,5vw,3.8rem);color:#fff;line-height:1;margin-bottom:16px;letter-spacing:.02em}
+.article-hero h1 span{color:#DA6A05}
+.article-meta{display:flex;align-items:center;flex-wrap:wrap;gap:16px;margin-bottom:16px}
+.article-meta span{font-size:.78rem;color:rgba(255,255,255,.6)}
+.article-meta strong{color:rgba(255,255,255,.9)}
+.lede{font-size:1.05rem;color:rgba(255,255,255,.82);line-height:1.7;max-width:640px;font-weight:600}
+
+.article-wrap{max-width:1200px;margin:0 auto;padding:56px 5%;display:grid;grid-template-columns:1fr 300px;gap:56px}
+.prose{min-width:0}
+.prose h2{font-family:'Bebas Neue',sans-serif;font-size:1.9rem;color:var(--navy);letter-spacing:.03em;margin:44px 0 14px;padding-bottom:8px;border-bottom:3px solid var(--orange)}
+.prose h3{font-size:1rem;font-weight:800;color:var(--navy);margin:28px 0 10px}
+.prose p{font-size:.95rem;color:var(--gray-sub);line-height:1.78;margin-bottom:18px}
+.prose p strong{color:#1a1a1a;font-weight:700}
+.prose blockquote{background:rgba(232,114,12,.06);border-left:4px solid var(--orange);padding:18px 22px;margin:28px 0;border-radius:0 8px 8px 0}
+.prose blockquote p{font-size:.95rem;font-weight:600;color:var(--navy);font-style:italic;margin:0}
+.callout{background:var(--navy-dark);color:#fff;border-radius:12px;padding:28px 32px;margin:32px 0}
+.callout strong,.prose .callout p strong,.prose .callout li strong{color:#fff}
+.callout h3{font-family:'Bebas Neue',sans-serif;font-size:1.4rem;color:var(--orange);letter-spacing:.04em;margin-bottom:10px}
+.callout p{font-size:.88rem;color:rgba(255,255,255,.82);line-height:1.65;margin:0 0 14px}
+.callout a{display:inline-block;background:#B85400;color:#fff;padding:11px 22px;border-radius:8px;font-weight:800;font-size:.85rem}
+.callout a:hover{background:var(--orange-dark)}
+.author-box{display:flex;gap:20px;align-items:flex-start;background:var(--off-white);border-radius:12px;padding:28px;margin-top:48px;border:1px solid var(--light-gray)}
+.author-avatar{width:56px;height:56px;background:var(--navy);border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:'Bebas Neue',sans-serif;font-size:1.4rem;color:#fff;flex-shrink:0}
+.author-info h3{font-size:.9rem;font-weight:800;color:var(--navy);margin-bottom:4px}
+.author-info p{font-size:.83rem;color:var(--gray-sub);line-height:1.6}
+/* standard blog template port (blog-ports 2026-07-20): related-grid copied from
+   the canonical full-post blocks (see /blog/architectural-shingles-vs-3-tab). */
+.related-section{margin-top:52px;padding-top:40px;border-top:2px solid var(--light-gray)}
+.related-section h3{font-family:'Bebas Neue',sans-serif;font-size:1.6rem;color:var(--navy);margin-bottom:24px}
+.related-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:16px}
+.related-card{background:var(--off-white);border:1px solid var(--light-gray);border-radius:10px;padding:20px;transition:border-color .2s}
+.related-card:hover{border-color:var(--orange)}
+.related-card .rtag{font-size:.68rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#A64B00;margin-bottom:7px}
+.related-card h4{font-size:.88rem;font-weight:700;color:var(--navy);line-height:1.4}
+.related-card:hover h4{color:var(--orange)}
+
+.sidebar{display:flex;flex-direction:column;gap:28px}
+.sidebar-card{background:var(--off-white);border-radius:14px;padding:28px;border:1px solid var(--light-gray)}
+.sidebar-card h3{font-size:.9rem;font-weight:800;color:var(--navy);margin-bottom:16px;text-transform:uppercase;letter-spacing:.06em}
+.sidebar-links{list-style:none;display:flex;flex-direction:column;gap:10px}
+.sidebar-links li a{font-size:.85rem;color:var(--gray-sub);display:flex;align-items:center;gap:8px}
+.sidebar-links li a:hover{color:var(--orange)}
+.sidebar-links li a::before{content:'→';color:var(--orange);font-weight:700}
+.cta-sidebar{background:var(--navy-dark);color:#fff;border-radius:14px;padding:28px;text-align:center}
+.cta-sidebar h3{font-family:'Bebas Neue',sans-serif;font-size:1.6rem;margin-bottom:10px;color:#fff}
+.cta-sidebar p{font-size:.83rem;color:rgba(255,255,255,.75);line-height:1.6;margin-bottom:20px}
+.cta-sidebar a{display:block;background:#B85400;color:#fff;padding:13px 20px;border-radius:8px;font-weight:800;font-size:.88rem;margin-bottom:10px}
+.cta-sidebar a.phone-link{background:transparent;border:1px solid rgba(255,255,255,.3);font-size:.83rem}
+
+footer{background:var(--navy-dark);color:rgba(255,255,255,.75);padding:56px 5% 28px}
+.footer-grid{display:grid;grid-template-columns:2fr 1fr 1fr 1fr;gap:40px;max-width:1200px;margin:0 auto 40px}
+.footer-logo-text{font-weight:800;font-size:1.1rem;color:#fff;margin-bottom:4px}
+.footer-logo-sub{font-family:'Dancing Script',cursive;font-size:1rem;color:var(--orange);margin-bottom:14px}
+.footer-desc{font-size:.82rem;line-height:1.65;margin-bottom:20px;max-width:260px}
+.footer-col .footer-col-title{font-size:.75rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--orange);margin-bottom:16px}
+.footer-col ul{list-style:none;display:flex;flex-direction:column;gap:10px}
+.footer-col ul li a{font-size:.83rem;color:rgba(255,255,255,.65)}
+.footer-col ul li a:hover{color:var(--orange)}
+.footer-bottom{max-width:1200px;margin:0 auto;border-top:1px solid rgba(255,255,255,.1);padding-top:20px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;font-size:.75rem;color:rgba(255,255,255,.62)}
+.footer-bottom a{color:rgba(255,255,255,.7)}
+@media(max-width:900px){.article-wrap{grid-template-columns:1fr;gap:40px}.related-grid{grid-template-columns:1fr}.footer-grid{grid-template-columns:1fr 1fr;gap:28px}}
+@media(max-width:600px){.footer-grid{grid-template-columns:1fr}}
+</style>
 <style>.nbd-skip{position:absolute;left:-9999px;top:0;z-index:100000;background:#B85400;color:#fff;padding:10px 16px;font-weight:700;text-decoration:none;border-radius:0 0 6px 0}.nbd-skip:focus{left:0}</style>
 <style id="nbd-chrome-std">
 /* footer badges + social (copied from docs/index.html footer) */
@@ -203,7 +307,7 @@ footer .footer-bottom,footer .footer-bottom p,footer .footer-bottom a,footer .pr
 <!-- nbd:partial nav-blog cta_href="/#contact" -->
 <nav id="mainNav" class="nav">
   <a href="/" class="nav-logo">
-    <img src="/assets/images/nbd-logo.png" width="240" height="160" alt="No Big Deal Home Solutions">
+    <img src="/assets/images/nbd-logo.png" width="240" height="160" alt="No Big Deal Home Solutions" style="height:42px;width:auto;border-radius:6px;">
     <div class="nav-logo-text"><div class="brand">NO BIG DEAL</div><div class="sub">Home Solutions</div></div>
   </a>
   <ul class="nav-links" id="navLinks">
