@@ -1,6 +1,6 @@
 # NBD Pro — Cloud Functions Taxonomy
 
-Single canonical index of every export from `functions/`. Refreshed 2026-08-10 by re-enumerating `require('./index.js')` (191 exported keys = **172 deployed Cloud Functions + 19 helper/test-only exports**; the 2026-08-05 count of 189 predated Swath's +3 (#1193) and CL8's −1 `sendTeamInviteEmail` retirement (#1190)). A CI tripwire (tests/smoke/dashboard.test.js "every index.js export appears in FUNCTIONS_INDEX") now fails when an export is added without a row here — the 2026-07-04→08-05 gap was 21 undocumented exports, including the whole Stripe Connect + seat-billing money path.
+Single canonical index of every export from `functions/`. Refreshed 2026-08-11 by re-enumerating `require('./index.js')` (184 exported keys = **165 deployed Cloud Functions + 19 helper/test-only exports**; 7 dead exports retired 2026-08-11 — sendEstimateEmail, sendDripEmail, triggerProcessRecording, reprocessRecording, auditCustomerDataIntegrity, backfillCustomerData, migratePinsToKnocks (dead-surface lane, Jo-approved; console deletion queued in WEEKLY_CADENCE); the 2026-08-05 count of 189 predated Swath's +3 (#1193) and CL8's −1 `sendTeamInviteEmail` retirement (#1190)). A CI tripwire (tests/smoke/dashboard.test.js "every index.js export appears in FUNCTIONS_INDEX") now fails when an export is added without a row here — the 2026-07-04→08-05 gap was 21 undocumented exports, including the whole Stripe Connect + seat-billing money path.
 
 Classification matters because:
 - **Admin** functions must enforce `request.auth.token.role === 'admin'` (or `requireAuth({ adminOnly: true })` for `onRequest`). If one silently loses that gate, the smoke test below catches it.
@@ -45,10 +45,7 @@ If you add a new export, list it here so the next audit doesn't have to re-deriv
 | `getSwathUsage` | onCall | Swath month-to-date credit meter — **admin/company_admin gate in-body**, 10/hr limiter (integrations/swath.js) |
 | `transcribeVoiceMemo` | onCall | Deepgram audio transcription |
 | `dictate` | onCall | Whisper unified transcribe + AI cleanup |
-| `triggerProcessRecording` | onCall | Voice intelligence — manually kick transcription+analysis of a recording |
-| `reprocessRecording` | onCall | Voice intelligence — re-run analysis on an already-transcribed recording |
 | `renderPdf` | onCall | Server-side Puppeteer PDF render (warranty/inspection/estimate/etc.), 2GiB + minInstances:1 |
-| `sendDripEmail` | onCall | Drip-campaign email send via Resend |
 | `sendVerificationCode` | onCall | SMS OTP via Twilio Verify (per-phone attempt cap) |
 | `verifyCode` | onCall | Verifies a Twilio Verify OTP |
 | `notifyNewLead` | onCall | Email + SMS to Joe when a new lead comes in |
@@ -60,7 +57,6 @@ If you add a new export, list it here so the next audit doesn't have to re-deriv
 | `getAdjusterTacticBoard` | onCall | Adjuster tactic board read for the caller's claim (handlers/adjuster-board.js, #1137) |
 | `reserveCompanyPrefix` | onCall | Pillar 1 — reserves the tenant's unique customer-ID doc prefix (handlers/provisioning.js, claims-scoped) |
 | `sendEmail` | onRequest | Generic Resend email send — ID-token verified + 60/hr/IP rate limit |
-| `sendEstimateEmail` | onRequest | Estimate email to homeowner — ID-token verified + rate limit |
 | `sendSMS` | onRequest | Twilio SMS send — ID-token verified, paid-subscription gate, 30/hr/IP + 100/day/uid |
 | `sendD2DSMS` | onRequest | Door-to-door SMS send — ID-token verified + rate limits |
 | `createCheckoutSession` | onRequest | Stripe Checkout session (ID-token verified) |
@@ -141,9 +137,6 @@ These operate on the **caller's own data** (owner-scoped Firestore queries insid
 | Export | Type | Rate limit | Notes |
 |---|---|---|---|
 | `backfillAnalytics` | onCall | 1 / 10 min / uid | Backfills computed fields on caller's leads |
-| `migratePinsToKnocks` | onCall | rate-limited | One-off migration on caller's data |
-| `auditCustomerDataIntegrity` | onCall | rate-limited | Read-only audit of caller's leads |
-| `backfillCustomerData` | onCall | rate-limited | Backfill on caller's data |
 
 ## E2E TEST HELPERS (deployed, but env-gated)
 | Export | Type | Gate |
@@ -231,7 +224,7 @@ Exported for unit tests or internal reuse; they carry no `__endpoint` and Fireba
 1. **Two overlapping Firestore backup pipelines**: `dailyFirestoreBackup` + `firestoreBackupRetention` (functions/firestore-backup.js, 03:15/03:45 ET → `gs://nobigdeal-pro-firestore-backups`, 30-day retention) AND `nightlyFirestoreBackup` (integrations/compliance.js "D5", 04:00 CT → `gs://nobigdeal-pro-backups`, no retention job). Both are deployed. Consolidation candidate.
 2. **`checkStormAlerts` vs `stormWatch`** both run every 30 minutes in the storm domain but are distinct: `checkStormAlerts` polls NWS *forecast alerts* per subscriber zip; `stormWatch` polls IEM *Local Storm Reports* (observed hail/wind/tornado).
 3. **`verify-functions-company-enhancement.js`** defines its own `notifyNewLead` but is **not required by index.js** — dead file; the deployed `notifyNewLead` comes from verify-functions.js.
-4. `getRecording` (listed in the 2026-05-13 index) is no longer exported; voice-intelligence now exposes `triggerProcessRecording` / `reprocessRecording` instead. `dunningEmailQueue` and `voiceMemoTrigger` from the old index also no longer exist as exports.
+4. `getRecording` (listed in the 2026-05-13 index) is no longer exported; voice-intelligence's manual kicks (`triggerProcessRecording` / `reprocessRecording`) were retired 2026-08-11. `dunningEmailQueue` and `voiceMemoTrigger` from the old index also no longer exist as exports.
 5. ~~`enforceAppCheck: true` is set on many `onRequest` options~~ — **resolved 2026-08-02 (#1170)**: the option is silently ignored on `onRequest` (onCall-only in firebase-functions), so it was removed from every onRequest export. The handler-body gates (ID token / signature / rate limit) were always the real control and remain.
 
 ## Maintenance

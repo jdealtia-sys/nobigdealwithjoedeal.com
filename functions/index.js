@@ -12,14 +12,14 @@
  * Where the inline handlers went:
  *   handlers/ai.js          — claudeProxy, publicVisualizerAI
  *   handlers/photo.js       — analyzeRoofPhoto, signImageUrl, imageProxy, setStorageCors
- *   handlers/admin.js       — getAdminAnalytics, backfillCustomerData,
- *                             auditCustomerDataIntegrity, createTeamMember,
+ *   handlers/admin.js       — getAdminAnalytics,
+ *                             createTeamMember,
  *                             updateUserRole, deactivateUser, listTeamMembers,
  *                             rotateAccessCodes
  *   handlers/auth.js        — onRepSignup, activateInvitedRep,
  *                             provisionE2ETestUser, cleanupE2ETestData,
  *                             mintOwnerClaims
- *   handlers/migrations.js  — backfillAnalytics, migratePinsToKnocks
+ *   handlers/migrations.js  — backfillAnalytics
  *   handlers/integrations.js— integrationStatus, submitPublicLead
  *   handlers/portal.js      — validateAccessCode (the inline access-code
  *                             callable; NOT the sibling functions/portal.js)
@@ -103,8 +103,6 @@ exports.attachStormProof = stormProofHandlers.attachStormProof;
 // Admin / team-management callables
 const adminHandlers = require('./handlers/admin');
 exports.getAdminAnalytics          = adminHandlers.getAdminAnalytics;
-exports.auditCustomerDataIntegrity = adminHandlers.auditCustomerDataIntegrity;
-exports.backfillCustomerData       = adminHandlers.backfillCustomerData;
 exports.rotateAccessCodes          = adminHandlers.rotateAccessCodes;
 exports.createTeamMember           = adminHandlers.createTeamMember;
 exports.updateUserRole             = adminHandlers.updateUserRole;
@@ -163,7 +161,6 @@ exports.mintOwnerClaims      = authHandlers.mintOwnerClaims;
 // stays in functions/migrations/runner.js, re-exported below).
 const migrationsHandlers = require('./handlers/migrations');
 exports.backfillAnalytics   = migrationsHandlers.backfillAnalytics;
-exports.migratePinsToKnocks = migrationsHandlers.migratePinsToKnocks;
 
 // Integration-facing endpoints (status readout + public lead ingest)
 const integrationsHandlers = require('./handlers/integrations');

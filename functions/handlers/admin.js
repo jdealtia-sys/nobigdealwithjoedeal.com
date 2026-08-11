@@ -213,51 +213,9 @@ exports.getAdminAnalytics = onCall(
 //
 // Counterpart write fn: backfillCustomerData (next).
 // ═════════════════════════════════════════════════════════════
-exports.auditCustomerDataIntegrity = onCall(
-  {
-    region: 'us-central1',
-    cors: CORS_ORIGINS,
-    enforceAppCheck: true,
-    timeoutSeconds: 120,
-    memory: '256MiB'
-  },
-  async (request) => {
-    const uid = request.auth && request.auth.uid;
-    if (!uid) throw new HttpsError('unauthenticated', 'Not authenticated');
-
-    const db = getFirestore();
-    const snap = await db.collection('leads').where('userId', '==', uid).limit(10000).get();
-
-    let missingCompanyId = 0;
-    let missingCustomerId = 0;
-    const sampleMissingCompanyId = [];
-    const sampleMissingCustomerId = [];
-
-    for (const doc of snap.docs) {
-      const d = doc.data();
-      if (!d.companyId) {
-        missingCompanyId++;
-        if (sampleMissingCompanyId.length < 5) sampleMissingCompanyId.push(doc.id);
-      }
-      if (!d.customerId) {
-        missingCustomerId++;
-        if (sampleMissingCustomerId.length < 5) sampleMissingCustomerId.push(doc.id);
-      }
-    }
-
-    logger.info('auditCustomerDataIntegrity', {
-      uid, total: snap.size, missingCompanyId, missingCustomerId
-    });
-
-    return {
-      total: snap.size,
-      missingCompanyId,
-      sampleMissingCompanyId,
-      missingCustomerId,
-      sampleMissingCustomerId
-    };
-  }
-);
+// auditCustomerDataIntegrity was retired 2026-08-11 (dead-surface lane):
+// Rock 3 PR 2 one-shot whose job completed; zero callers. Approved by
+// Jo. Restore from git (pre-ded736f) for future data-integrity work.
 
 // ═════════════════════════════════════════════════════════════
 // backfillCustomerData (Rock 3 PR 2)
@@ -281,102 +239,8 @@ exports.auditCustomerDataIntegrity = onCall(
 //     stillMissing: <int>   // any doc the function couldn't safely patch
 //   }
 // ═════════════════════════════════════════════════════════════
-exports.backfillCustomerData = onCall(
-  {
-    region: 'us-central1',
-    cors: CORS_ORIGINS,
-    enforceAppCheck: true,
-    timeoutSeconds: 540,
-    memory: '512MiB'
-  },
-  async (request) => {
-    const uid = request.auth && request.auth.uid;
-    if (!uid) throw new HttpsError('unauthenticated', 'Not authenticated');
-
-    const db = getFirestore();
-    const callerCompanyId = (request.auth.token && request.auth.token.companyId) || uid;
-
-    const snap = await db.collection('leads').where('userId', '==', uid).limit(10000).get();
-
-    let fixedCompanyId = 0;
-    let fixedCustomerId = 0;
-    let stillMissing = 0;
-    let batch = db.batch();
-    let batchCount = 0;
-
-    // Per-tenant prefix + counter (gauntlet Batch 3): ONLY the NBD platform
-    // tenant (brand.legalName is NBD/absent) keeps the legacy shared counter +
-    // un-salted 'NBD-'. Every non-NBD tenant mints from its own counter with a
-    // reserved-or-derived, salted prefix — even if it never ran
-    // reserveCompanyPrefix. Byte-identical to the client _custIdPrefix /
-    // _custCounterId gate (customer-id.js resolveCustMint). Keying on the old
-    // docPrefix STRING ('NBD' or unset) meant a stranger who skipped the seal
-    // step got NBD-branded IDs from NBD's shared sequence.
-    let _brand = null;
-    try {
-      const _ps = await db.collection('companyProfile').doc(String(callerCompanyId)).get();
-      _brand = (_ps.exists && _ps.data().brand) || null;
-    } catch (_) { /* treat as NBD */ }
-    const { prefix: _dp, counterId: _ctrId } = resolveCustMint(_brand, callerCompanyId);
-    const counterRef = db.collection('counters').doc(_ctrId);
-
-    for (const doc of snap.docs) {
-      const d = doc.data();
-      const updates = {};
-
-      if (!d.companyId) {
-        updates.companyId = callerCompanyId;
-        fixedCompanyId++;
-      }
-
-      if (!d.customerId) {
-        // Allocate a new NBD-#### transactionally, OUTSIDE the batch,
-        // because the counter increment is global and the batch must
-        // not race with a concurrent _saveLead client write.
-        try {
-          const newCid = await db.runTransaction(async (tx) => {
-            const cs = await tx.get(counterRef);
-            const next = cs.exists ? (cs.data().next || 0) + 1 : 1;
-            tx.set(counterRef, { next }, { merge: true });
-            // Canonical formatter — salts non-NBD IDs (defense-in-depth), keeps
-            // 'NBD-####' byte-identical. Mirrors the client mint helpers.
-            return formatCustomerId(_dp, next, callerCompanyId);
-          });
-          updates.customerId = newCid;
-          fixedCustomerId++;
-        } catch (cidErr) {
-          logger.warn('backfillCustomerData: customerId alloc failed', { docId: doc.id, err: cidErr && cidErr.message });
-          stillMissing++;
-        }
-      }
-
-      if (Object.keys(updates).length > 0) {
-        updates.backfilledAt = FieldValue.serverTimestamp();
-        batch.update(doc.ref, updates);
-        batchCount++;
-
-        if (batchCount >= 400) {
-          await batch.commit();
-          batch = db.batch();
-          batchCount = 0;
-        }
-      }
-    }
-
-    if (batchCount > 0) await batch.commit();
-
-    logger.info('backfillCustomerData: done', {
-      uid, scanned: snap.size, fixedCompanyId, fixedCustomerId, stillMissing
-    });
-
-    return {
-      scanned: snap.size,
-      fixedCompanyId,
-      fixedCustomerId,
-      stillMissing
-    };
-  }
-);
+// backfillCustomerData was retired 2026-08-11 — same rationale and
+// restore path as auditCustomerDataIntegrity above.
 
 // ═════════════════════════════════════════════════════════════
 // rotateAccessCodes — platform-admin-only kill switch for legacy

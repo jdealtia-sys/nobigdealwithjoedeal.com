@@ -81,6 +81,14 @@
       deploys 429 or the site half-loads, check GCP billing first.**
       Billing notices did not reach the monitored Gmail — while in the
       console, confirm the billing account's contact email + card expiry.
+- [ ] **Delete the 7 retired functions in the Firebase console (~3 min)** —
+      code retired 2026-08-11 (Jo-approved, dead-surface lane): Console →
+      Functions → delete `sendEstimateEmail`, `sendDripEmail`,
+      `triggerProcessRecording`, `reprocessRecording`,
+      `auditCustomerDataIntegrity`, `backfillCustomerData`,
+      `migratePinsToKnocks`. They're auth-gated meanwhile; deleting stops
+      the idle billing + attack surface. (Deploys don't remove them — the
+      CI deploy targets only current exports.)
 - [ ] **Re-enter your cost basis in Estimate Settings (~1 min, now that the
       2026-08-10 audit PR is deployed)** — the three v2cost fields (good/
       better/best per-SQ). The real numbers were removed from the public
