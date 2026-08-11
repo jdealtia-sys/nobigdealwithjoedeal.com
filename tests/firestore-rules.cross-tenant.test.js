@@ -225,7 +225,12 @@ async function run() {
   // ═══════════════════════════════════════════════════════════
   await check('leads create: foreign companyId (co-a)',       'deny',  setDoc(doc(bob, 'leads/x-foreign'),       { userId: 'bob', companyId: 'co-a', name: 'x' }));
   await check('leads create: own claim companyId (co-b)',     'allow', setDoc(doc(bob, 'leads/x-own'),           { userId: 'bob', companyId: 'co-b', name: 'x' }));
-  await check('leads create: own uid as companyId',           'allow', setDoc(doc(bob, 'leads/x-uid'),           { userId: 'bob', companyId: 'bob',  name: 'x' }));
+  // #12 guard extended 2026-08-10: a CLAIM-CARRYING member stamping their own
+  // uid as companyId hides the doc from the company rollup (the expenses
+  // threat model, now applied to every rollup-feeding create). uid-as-
+  // companyId is legal ONLY for true solos (no companyId claim).
+  await check('leads create: own uid as companyId (claim-carrier — rollup evasion)', 'deny', setDoc(doc(bob, 'leads/x-uid'), { userId: 'bob', companyId: 'bob',  name: 'x' }));
+  await check('leads create: solo (no claim) pins own uid',   'allow', setDoc(doc(noClaim, 'leads/x-solo'),      { userId: 'nc', companyId: 'nc', name: 'x' }));
   await check('leads create: missing companyId (required)',   'deny',  setDoc(doc(bob, 'leads/x-none'),          { userId: 'bob', name: 'x' }));
   await check('knocks create: foreign companyId (co-a)',      'deny',  setDoc(doc(bob, 'knocks/k-foreign'),      { userId: 'bob', companyId: 'co-a' }));
   await check('knocks create: own companyId (co-b)',          'allow', setDoc(doc(bob, 'knocks/k-own'),          { userId: 'bob', companyId: 'co-b' }));
