@@ -411,6 +411,29 @@ console.log('──────────────────────�
      scanProse(mut('Required for the 160 mph wind warranty. 33.3 LF per bundle.')).length === 0);
 }
 
+// 4f. per-SQ cost basis stays out of the published tree (2026-08-10).
+// estimate-builder-v2.js shipped DEFAULT_COST_BASIS = {340, 385, 430} — the
+// shop's REAL per-SQ costs beside the public tier rates (545/595/660), i.e.
+// the margin was readable by anyone who fetched the file. Same class as the
+// 187-SKU catalog leak this suite was built for, but it slipped the strict
+// layer because EBv2 isn't a catalog file. The defaults are zeros now
+// ("not configured" — the engine nulls the margin fields); real cost basis
+// is tenant data entered in Estimate Settings. These pins stop the real
+// numbers being reintroduced as published defaults.
+{
+  const ebv2 = fs.readFileSync(path.join(ROOT, 'docs/pro/js/estimate-builder-v2.js'), 'utf8');
+  const m = ebv2.match(/DEFAULT_COST_BASIS\s*=\s*\{([\s\S]{0,200}?)\}/);
+  ok('EBv2 has a DEFAULT_COST_BASIS object (pin target present)', !!m);
+  const nums = m ? (m[1].match(/-?\d+(\.\d+)?/g) || []).map(Number) : [1];
+  ok('EBv2 DEFAULT_COST_BASIS ships all-zero values (real cost basis is tenant data)',
+     nums.length > 0 && nums.every((n) => n === 0));
+
+  const boot = fs.readFileSync(path.join(ROOT, 'docs/pro/js/dashboard-bootstrap.module.js'), 'utf8');
+  const fallbacks = [...boot.matchAll(/v2cost(?:Good|Better|Best)'\)?,?\s*(?:\.value\s*=\s*s\.costBasis\?\.\w+\s*\?\?\s*|)(\d+)/g)].map((x) => Number(x[1]));
+  ok('dashboard-bootstrap v2cost* fallbacks are all zero (6 sites: form fill + save)',
+     fallbacks.length >= 6 && fallbacks.every((n) => n === 0));
+}
+
 console.log('\n──────────────────────────────────────────────────');
 console.log(passed + ' passed, ' + failed + ' failed');
 if (failed) { console.log('\nFailures:'); fails.forEach((f) => console.log('  - ' + f)); process.exit(1); }
