@@ -48,21 +48,34 @@
 
 ## This week — agent session (kick one off and paste this list)
 
-- [ ] Run the cheap drift gates and report:
+- [x] Run the cheap drift gates and report:
       `apply-partials --check --diff` · `build-projects.mjs --check` ·
       `build-sitemap.js` (dry-run) · `check-site-integrity --quiet` ·
       `check-inline-html-scripts` · `marketing-polish-contract.test.js`
-- [ ] Check main's CI streaks for the advisory jobs (`@engines`, `public-e2e`,
-      `visual-brand-tokens`, authed-E2E): ~10 green runs → open the
+      *(2026-08-10 audit session: all green at baseline and post-fix; a new
+      gate joined the list — `check-image-privacy.js`)*
+- [ ] Check main's CI streaks for the advisory jobs (`@engines` shard, `public-e2e`,
+      `visual-brand-tokens`, `visual-regression` — the rest of authed-E2E
+      is already REQUIRED): ~10 green runs → open the
       `continue-on-error` flip PR ([handoff](NEXT_SESSION-2026-08-07.md)).
-- [ ] Any staged `published` date passed? Restamp + commit before it turns
-      `--check` red on an unrelated PR.
-- [ ] Any red PR / open post-a-job request from Jo? Land it.
+      *(2026-08-10: streak is 3/10 — all job-level green since #1194; not
+      ready, keep counting)*
+- [x] Any staged `published` date passed? *(2026-08-10: none)*
+- [x] Any red PR / open post-a-job request from Jo? Land it.
+      *(2026-08-10: dependabot #1196 green → merged; issue #546 verified
+      long-done → closed; tracker at zero)*
 
 ---
 
 ## One-off queue — Jo (decisions & console; newest first, check off here when done)
 
+- [ ] **Re-enter your cost basis in Estimate Settings (~1 min, after the
+      2026-08-10 audit PR deploys)** — the three v2cost fields (good/better/
+      best per-SQ). The real numbers were removed from the public code
+      ([audit](../audit/SITE-AUDIT-LOOSE-ENDS-2026-08-10.md) §6); until you
+      enter them the Internal View margin shows an em-dash. If you ever
+      saved V2 settings on your phone, your saved values carry over —
+      nothing to do.
 - [ ] **Swath activation (~5 min, most time-sensitive)** — signup, set
       `SWATH_API_KEY` + `SWATH_WEBHOOK_SECRET`, optional provider flips —
       [SWATH-SETUP](../runbooks/SWATH-SETUP.md)
@@ -100,16 +113,32 @@
 
 ## Agent-session backlog (ranked — pick one per session)
 
-1. Jobs-posting **phase 2**: admin "Post a Job" form + PR bot (roadmap in
+1. **Phase-2 tenant-owned cost book** — migrate the EBv2 CATALOG (28
+   entries) AND estimate-catalog-xactimate.js (276 entries) out of the
+   public tree; both are pinned in the cost-privacy KNOWN_UNMIGRATED
+   ledger ([audit 2026-08-10](../audit/SITE-AUDIT-LOOSE-ENDS-2026-08-10.md))
+2. Jobs-posting **phase 2**: admin "Post a Job" form + PR bot (roadmap in
    [NEXT_SESSION-2026-08-10](NEXT_SESSION-2026-08-10.md))
-2. Firestore offline persistence (after Jo's decision)
-3. rate-limit-policy.js adopt-vs-delete pilot
-4. Classic-wizard deletion (once Jo's gates clear)
-5. Functions cold-start increment 2 (lazy export proxies)
-6. Inline-CSS dedup phase 2 (~2.7 MB; needs generator design)
-7. /our-work/<slug> detail pages (needs build-sitemap rule) + Haiku blurb drafter
-8. Globals Tranche 3 plan · 404 full-chrome · emulator widening · Swath admin UI
-9. Blog publish sessions (one per draft, after Jo's edits)
+3. **Dead-functions wire-or-retire lane** — 7 deployed exports with no
+   caller (list + playbook in the 2026-08-10 audit note §Open items); needs
+   Jo's per-function call, then CL8-style retirement or UI wiring
+4. Firestore offline persistence (after Jo's decision)
+5. Classic-wizard deletion (once Jo's gates clear)
+6. **Rules-test coverage** — zero assertions for /invoices, /storm_proofs,
+   /supplements, /portal_messages, /connectAccounts + Storage
+   audio/galleries/reports/shared_docs; plus #12-guard cases for the 12
+   newly guarded creates (2026-08-10 audit)
+7. **Admin AI-usage endpoint** — the analytics page is labeled SAMPLE DATA;
+   claudeProxy already logs real usage, needs aggregation + page wiring
+8. Functions cold-start increment 2 (lazy export proxies)
+9. Inline-CSS dedup phase 2 (~2.7 MB; needs generator design)
+10. /our-work/<slug> detail pages (needs build-sitemap rule) + Haiku blurb drafter
+11. Globals Tranche 3 plan · 404 full-chrome · emulator widening · Swath admin UI
+12. Blog publish sessions (one per draft, after Jo's edits)
+
+*(2026-08-10: "rate-limit-policy adopt-vs-delete" left this list — ADOPTED;
+guardHttp/guardCallable now live on claudeProxy, validateAccessCode,
+getGoogleReviews, adminAI.)*
 
 ---
 

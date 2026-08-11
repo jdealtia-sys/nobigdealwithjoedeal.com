@@ -77,7 +77,7 @@ If Joe wants a dedicated alerts phone/email (recommended), set those instead.
 
 ## 6. Cloudflare Worker
 
-**Delete the `nbd-ai-proxy` worker entirely** in the Cloudflare dashboard. The file in `workers/nbd-ai-proxy.js` has been replaced with a 410 Gone stub; pushing it will leave a safe placeholder, but the correct end state is *no worker at all*.
+**Delete the `nbd-ai-proxy` worker entirely** in the Cloudflare dashboard. (Corrected 2026-08-10: the `workers/` directory was removed from the repo entirely — L-02, smoke-pinned; the Worker itself was retired in favor of `publicFunnelAI`. Nothing to push), but the correct end state is *no worker at all*.
 
 ## 7. Firebase service account (Admin SDK)
 
