@@ -26,19 +26,11 @@ function _migrateJoeKey() {
   } catch(e){}
 }
 function getJoeKey()  { _migrateJoeKey(); try { return sessionStorage.getItem(JOE_KEY_STORE)||''; } catch { return ''; } }
-function saveJoeKey() {
-  const v = document.getElementById('joeKeyInput')?.value?.trim();
-  if(!v || !v.startsWith('sk-ant')) { showToast('Paste a valid Anthropic key (starts with sk-ant)', 'error'); return; }
-  try { sessionStorage.setItem(JOE_KEY_STORE, v); localStorage.removeItem(JOE_KEY_STORE); } catch(e){}
-  // Update status display in settings
-  const status = document.getElementById('joeKeyStatus');
-  if (status) { status.textContent = '✓ Key saved — Joe AI is active'; status.style.color = 'var(--green)'; }
-  // Clear the input for security
-  const inp = document.getElementById('joeKeyInput');
-  if (inp) inp.value = '';
-  initJoeChat();
-  showToast('✓ Joe AI activated', 'success');
-}
+// saveJoeKey / saveJoeKeyFromSettings removed 2026-08-10: the key-input UI
+// solicited an sk-ant secret into storage that no reachable path could use —
+// the server proxy (claudeProxy CF) is the only working transport, the direct
+// browser path is opt-in-disabled AND CSP-blocked. getJoeKey/clearJoeKey stay
+// so previously saved keys keep working with dev overrides and can be wiped.
 function clearJoeKey() {
   try {
     sessionStorage.removeItem(JOE_KEY_STORE);
@@ -380,18 +372,6 @@ function joeQuick(msg) {
   install();
 })();
 
-// Settings page key save (reads from #joeKeyInputSettings instead of #joeKeyInput)
-function saveJoeKeyFromSettings() {
-  const v = document.getElementById('joeKeyInputSettings')?.value?.trim();
-  if(!v || !v.startsWith('sk-ant')) { showToast('Paste a valid Anthropic key (starts with sk-ant)', 'error'); return; }
-  try { sessionStorage.setItem(JOE_KEY_STORE, v); localStorage.removeItem(JOE_KEY_STORE); } catch(e){}
-  const status = document.getElementById('joeKeyStatus');
-  if (status) { status.textContent = '✓ Key saved — Joe AI is active'; status.style.color = 'var(--green)'; }
-  const inp = document.getElementById('joeKeyInputSettings');
-  if (inp) inp.value = '';
-  initJoeChat();
-  showToast('✓ Joe AI activated', 'success');
-}
 
 // Clear chat history from current session
 function clearJoeChat() {
@@ -402,8 +382,6 @@ function clearJoeChat() {
 }
 
 // Expose all AI functions to window scope (required for onclick handlers)
-window.saveJoeKey = saveJoeKey;
-window.saveJoeKeyFromSettings = saveJoeKeyFromSettings;
 window.clearJoeKey = clearJoeKey;
 window.clearJoeChat = clearJoeChat;
 window.getJoeKey = getJoeKey;

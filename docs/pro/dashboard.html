@@ -56,7 +56,6 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="preconnect" href="https://www.gstatic.com" crossorigin>
 <link rel="preconnect" href="https://server.arcgisonline.com" crossorigin>
-<link rel="dns-prefetch" href="https://api.anthropic.com">
 <link rel="dns-prefetch" href="https://us-central1-nobigdeal-pro.cloudfunctions.net">
 <link rel="dns-prefetch" href="https://nominatim.openstreetmap.org">
 <link rel="dns-prefetch" href="https://api.weather.gov">
@@ -2716,13 +2715,13 @@
     <div id="joeNoKey" style="display:none; flex:1; overflow-y:auto;">
       <div class="joe-no-key">
         <div class="joe-no-key-icon">🤖</div>
-        <p class="mb-14">To activate Joe AI, add your Anthropic API key.<br>
-        Get one free at <strong>console.anthropic.com</strong> → API Keys.</p>
-        <div class="joe-key-input-row">
-          <input type="password" id="joeKeyInput" placeholder="sk-ant-api03-..." autocomplete="off">
-          <button class="btn btn-orange" data-action="call" data-fn="saveJoeKey">Activate</button>
-        </div>
-        <p style="margin-top:10px;font-size:10px;color:var(--m);">Your key is stored locally and never leaves your browser.</p>
+        <!-- This state only appears when the server-side proxy (claude-proxy.js
+             → claudeProxy CF) failed to load. The old card here solicited an
+             sk-ant API key that NO reachable code path could use (direct
+             browser calls are disabled for key safety AND CSP-blocked) —
+             removed 2026-08-10. -->
+        <p class="mb-14">Joe AI couldn't load this session.<br>
+        Refresh the page — if it keeps happening, tell Joe (it means the AI proxy script didn't load).</p>
       </div>
     </div>
 
@@ -2888,7 +2887,6 @@
           <div class="page-title">Settings</div>
           <div class="page-sub">Account, appearance &amp; preferences</div>
         </div>
-        <span id="tierBadge" style="display:none;padding:4px 12px;background:var(--s2);border:1px solid var(--br);border-radius:12px;font-size:10px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--orange);"></span>
       </div>
 
       <!-- ── TAB BAR ── -->
@@ -3099,12 +3097,9 @@
         <div class="panel mb-md">
           <div class="panel-hdr"><div><div class="panel-label">Ask Joe AI</div><div class="panel-title">API Key</div></div></div>
           <div class="panel-body">
-            <p style="font-size:12px;color:var(--m);margin-bottom:12px;">Your Anthropic API key powers Joe AI. Get one free at <a href="https://console.anthropic.com" target="_blank" rel="noopener noreferrer" class="fg-orange">console.anthropic.com</a> → API Keys.</p>
+            <p style="font-size:12px;color:var(--m);margin-bottom:12px;">Joe AI runs through the NBD server — no API key needed, nothing to configure. (This panel used to collect an Anthropic key that the app could never actually use; removed 2026-08-10.)</p>
             <div style="display:flex;gap:8px;margin-bottom:8px;">
-              <input type="password" id="joeKeyInputSettings" placeholder="sk-ant-api03-..." autocomplete="off"
-                style="flex:1;background:var(--s2);border:1px solid var(--br);border-radius:7px;padding:10px 12px;font-family:inherit;font-size:13px;color:var(--t);outline:none;">
-              <button class="btn btn-orange" data-action="call" data-fn="saveJoeKeyFromSettings">Save Key</button>
-              <button class="btn btn-ghost fs-11" data-action="call" data-fn="clearJoeKey">Clear</button>
+              <button class="btn btn-ghost fs-11" data-action="call" data-fn="clearJoeKey">Clear previously saved key</button>
             </div>
             <div id="joeKeyStatus" class="meta-11"></div>
           </div>

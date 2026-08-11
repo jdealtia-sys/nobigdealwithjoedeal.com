@@ -208,7 +208,9 @@ const _NBD_CALL_ALLOWLIST = new Set([
   // (spyglassSearch → __NBD_CALL_REGISTRY, Tranche 2c-4h Slice H2 — off window.)
   'searchMap', 'saveZone', 'searchDraw',
   'saveDocUpload',
-  'saveJoeKey', 'sendJoeMessage', 'saveJoeKeyFromSettings',
+  // (saveJoeKey / saveJoeKeyFromSettings removed 2026-08-10 with the dead
+  //  key-collection UI — the server proxy is the only AI transport.)
+  'sendJoeMessage',
   // (shareCalViaSMS, shareCalViaEmail, saveCalSettings → __NBD_CALL_REGISTRY,
   //  Tranche 2c-4h (dashboard-ui.js Slice H1) — off window. Do NOT re-add.)
   'qaUseMyLocation', 'saveQuickLead',

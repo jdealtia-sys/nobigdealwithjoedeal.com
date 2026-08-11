@@ -163,11 +163,16 @@ const STRICT_FILES = [
 // cost in one object literal) and sweeps every published file, so the next
 // pricing catalog somebody adds cannot hide the same way.
 const COST_BASIS_RE = /(?<![.\w])cost\s*:\s*-?\d[\d.]*\s*,\s*(?<![.\w])labor\s*:\s*-?\d/;
+// Abbreviated spelling of the same shape (2026-08-10): the xactimate catalog
+// ships 276 unit-cost pairs as `mat: N, lab: N` — semantically identical to
+// cost/labor but invisible to COST_BASIS_RE, which is exactly how a 1,300-line
+// cost book sat unswept next to the guard for a month.
+const COST_BASIS_ABBREV_RE = /(?<![.\w])mat\s*:\s*-?\d[\d.]*\s*,\s*(?<![.\w])lab\s*:\s*-?\d/;
 
 function scanCostBasis(rel, src) {
   const out = [];
   stripComments(src).split(/\r?\n/).forEach((line, i) => {
-    const m = line.match(COST_BASIS_RE);
+    const m = line.match(COST_BASIS_RE) || line.match(COST_BASIS_ABBREV_RE);
     if (m) out.push(rel + ':' + (i + 1) + ': internal cost basis — ' + m[0].slice(0, 60));
   });
   return out;
@@ -183,7 +188,16 @@ const KNOWN_UNMIGRATED = {
     'DEFAULT_MATERIAL_MARKUP_PCT. Same class as the product-data.js leak, ' +
     'different subsystem (EstimateBuilderV2.CATALOG, not NBD_PRODUCTS) — it ' +
     'needs its own tenant-owned book and hydration path. NOT closed by the ' +
-    'catalogCosts migration.',
+    'catalogCosts migration. (2026-08-10: the hardcoded DEFAULT_COST_BASIS ' +
+    'per-SQ figures WERE closed — zeroed, tenant-config only — but the ' +
+    'CATALOG entries remain.)',
+  'pro/js/estimate-catalog-xactimate.js':
+    'Found 2026-08-10 audit: 276 mat/lab unit-cost line items (Cincinnati ' +
+    'regional supplier pricing + in-house productivity data, per its own ' +
+    'header) served unauthenticated. Evaded the sweep via abbreviated keys ' +
+    '(mat:/lab: — now caught by COST_BASIS_ABBREV_RE). Belongs to the same ' +
+    'Phase-2 tenant-owned cost-book migration as estimate-builder-v2.js ' +
+    'CATALOG; migrate both together, then delete both entries here.',
 };
 
 /* ── the published tree (firebase.json hosting.ignore aware) ───────────── */
@@ -386,6 +400,10 @@ console.log('──────────────────────�
      scanCostBasis('pro/js/some-new-pricing.js', "  'shingle-good': { code: 'RFG', cost: 115.00, labor: 65.00 }").length > 0);
   ok('MUTANT killed: same shape with integer literals',
      scanCostBasis('pro/js/x.js', 'a: { cost: 115, labor: 65 }').length > 0);
+  ok('MUTANT killed: the abbreviated mat/lab spelling (xactimate-catalog class)',
+     scanCostBasis('pro/js/x.js', "{ code: 'RFG 240', mat: 165, lab: 72 }").length > 0);
+  ok('control: matte/label prose is not swept by the abbreviated pattern',
+     scanCostBasis('pro/js/x.js', 'format: 1, label: 2').length === 0);
 
   ok('control: a cost with no paired labor is not swept (county permit fees are public)',
      scanCostBasis('pro/js/x.js', "'hamilton-oh': { name: 'Hamilton County, OH', cost: 185 }").length === 0);
