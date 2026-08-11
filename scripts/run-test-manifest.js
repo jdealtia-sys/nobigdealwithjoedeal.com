@@ -61,7 +61,60 @@ if (unlisted.length) {
   console.error('Add each to a bucket (node / emulator / wired-individually / quarantined).');
   process.exit(1);
 }
-console.log(`manifest: ${disk.length} suites classified — node:${buckets.node.length} emulator:${buckets.emulator.length} wired-individually:${buckets['wired-individually'].length} quarantined:${buckets.quarantined.length}`);
+
+// ── Subdirectory + workflow coverage (2026-08-10 audit) ────────────
+// The scan above is top-level *.test.js only, and the buckets are
+// self-attesting — both gaps re-open the exact orphaning class this file
+// exists to close. Four extra checks:
+//
+//   (a) every tests/smoke/*.test.js must be required by tests/smoke.test.js
+//       (that aggregator is how the smoke domains run at all);
+//   (b) every tests/e2e/*.spec.js must be named in tests/package.json or a
+//       workflow file, or carry a dated entry in UNWIRED_SPECS below;
+//   (c) every spec in the authed-emu file list must carry at least one @tag
+//       that some ci.yml PLAYWRIGHT_GREP selects — a listed-but-untagged
+//       spec matches no shard's grep and silently never runs;
+//   (d) every 'wired-individually' / 'emulator' suite name must actually
+//       appear in a workflow file — otherwise deleting a ci.yml step
+//       de-gates the suite while this tripwire stays green.
+const UNWIRED_SPECS = {
+  'screenshot-demo.spec.js': 'manual demo-capture tool — deliberately unwired (2026-08-07 audit)',
+};
+const problems = [];
+const readIf = (p) => (fs.existsSync(p) ? fs.readFileSync(p, 'utf8') : '');
+const smokeAgg = readIf(path.join(TESTS, 'smoke.test.js'));
+for (const f of fs.readdirSync(path.join(TESTS, 'smoke')).filter((f) => f.endsWith('.test.js')).sort()) {
+  if (!smokeAgg.includes(`smoke/${f}`)) problems.push(`tests/smoke/${f} is not required by tests/smoke.test.js — it runs nowhere`);
+}
+const wfDir = path.join(ROOT, '.github', 'workflows');
+const workflows = fs.readdirSync(wfDir).filter((f) => /\.ya?ml$/.test(f)).map((f) => readIf(path.join(wfDir, f))).join('\n');
+const pkgJson = readIf(path.join(TESTS, 'package.json'));
+const greps = [...workflows.matchAll(/PLAYWRIGHT_GREP[^'"\n]*['"]([^'"]+)['"]/g)].map((m) => m[1]);
+const shardTags = [...new Set(greps.flatMap((g) => g.match(/@[a-z0-9]+/gi) || []))];
+const authedList = (pkgJson.match(/"test:e2e:authed:emu":\s*"([^"]+)"/) || ['', ''])[1];
+for (const f of fs.readdirSync(path.join(TESTS, 'e2e')).filter((f) => f.endsWith('.spec.js')).sort()) {
+  if (UNWIRED_SPECS[f]) continue;
+  if (!pkgJson.includes(f) && !workflows.includes(f)) {
+    problems.push(`tests/e2e/${f} appears in no tests/package.json script and no workflow — it runs nowhere (or add it to UNWIRED_SPECS with a dated reason)`);
+    continue;
+  }
+  if (authedList.includes(f) && shardTags.length) {
+    const src = readIf(path.join(TESTS, 'e2e', f));
+    if (!shardTags.some((t) => src.includes(t))) {
+      problems.push(`tests/e2e/${f} is in the authed-emu file list but carries none of the CI shard tags (${shardTags.join(' ')}) — no shard's grep ever selects it`);
+    }
+  }
+}
+for (const f of [...buckets['wired-individually'], ...buckets.emulator]) {
+  if (!workflows.includes(f)) problems.push(`${f} is classified "${seen.get(f)}" but appears in no workflow file — the classification is self-attesting and the suite gates nothing`);
+}
+if (problems.length) {
+  console.error('MANIFEST ERROR: coverage tripwire(s):');
+  for (const p of problems) console.error('  - ' + p);
+  process.exit(1);
+}
+
+console.log(`manifest: ${disk.length} suites classified — node:${buckets.node.length} emulator:${buckets.emulator.length} wired-individually:${buckets['wired-individually'].length} quarantined:${buckets.quarantined.length}; smoke/e2e/workflow coverage clean`);
 for (const [f, reason] of Object.entries(manifest.quarantined || {})) {
   console.log(`  QUARANTINED ${f} — ${reason}`);
 }
