@@ -5,8 +5,8 @@
  * served unauthenticated at the site root — and this is a PUBLIC repo, so the
  * same bytes are readable from raw.githubusercontent.com whether hosting
  * serves them or not. docs/pro/js/product-data.js shipped wholesale COST beside
- * retail SELL for 187 SKUs (GAF Timberline HDZ: sell 240 / cost 82 → a 66%
- * margin), plus overheadMultiplier x176 and profitMarginPct x173, and
+ * retail SELL for 187 SKUs (readable margin on every product; the real
+ * figures are deliberately NOT repeated here — this file is public too), plus overheadMultiplier x176 and profitMarginPct x173, and
  * roofivent-catalog.js shipped a supplier's confidential contractor price list.
  * Worse, those were ONE company's supplier terms, handed to every other tenant
  * as their seed defaults. Cost data is now tenant-owned — it lives in
