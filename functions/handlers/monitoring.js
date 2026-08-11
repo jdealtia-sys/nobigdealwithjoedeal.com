@@ -54,10 +54,18 @@ exports.cspReport = onRequest(
         res.status(413).end(); return;
       }
       // Per-IP rate limit — 60/min/IP. Normal reporting is well below
-      // this; a page stuck in a CSP loop could exceed. Soft fail OK.
+      // this; a page stuck in a CSP loop could exceed. httpRateLimit sends
+      // the 429 itself and returns FALSE when limited (it does not throw) —
+      // until 2026-08-10 the boolean was ignored, so a limited IP still got
+      // its full body parsed and every entry logged (the exact flood the
+      // limit exists to stop) followed by a second response on an already-
+      // sent request. Limiter-BACKEND errors still fail open: dropping
+      // violation reports because the limiter broke isn't worth it.
+      let allowed = true;
       try {
-        await httpRateLimit(req, res, 'cspReport:ip', 60, 60_000);
-      } catch (_) { /* ignore rate-limit errors; log pipeline */ }
+        allowed = await httpRateLimit(req, res, 'cspReport:ip', 60, 60_000);
+      } catch (_) { /* fail open on limiter backend error */ }
+      if (!allowed) return;
 
       const body = req.body || {};
       // `report-uri` shape: { "csp-report": { ... } }

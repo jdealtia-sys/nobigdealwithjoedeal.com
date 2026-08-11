@@ -2214,6 +2214,42 @@ section('Per-route rate-limit policy');
     /enforceRateLimit\(\s*['"]publicLead:ip['"][\s\S]{0,80}?,\s*20,\s*60_000\)/.test(intH));
   assert('ROUTES.submitPublicLead records that same 20/min per-IP gate',
     /submitPublicLead:\s*\{[^}]*ipLimit:\s*20\b[^}]*ipWindow:\s*MINUTE/.test(policy));
+
+  // ── Wave 2 (2026-08-10 audit): more wiring + record-vs-reality sync. ──
+  const monH = read(path.join(ROOT, 'functions/handlers/monitoring.js'));
+  const revH = read(path.join(ROOT, 'functions/google-reviews.js'));
+  const photoH = read(path.join(ROOT, 'functions/handlers/photo.js'));
+  // cspReport: httpRateLimit sends the 429 and returns FALSE — the handler
+  // must honor the boolean or the limit is advisory (the pre-2026-08-10 bug:
+  // limited IPs still got their full report logged + a double response).
+  assert('cspReport honors the httpRateLimit boolean (limit is enforcing, not advisory)',
+    /allowed\s*=\s*await httpRateLimit\(req,\s*res,\s*['"]cspReport:ip['"],\s*60,\s*60_000\)/.test(monH)
+    && /if\s*\(!allowed\)\s*return;/.test(monH));
+  assert('ROUTES.cspReport records the real 60/min gate',
+    /cspReport:\s*\{[^}]*ipLimit:\s*60\b[^}]*ipWindow:\s*MINUTE/.test(policy));
+  // getGoogleReviews: was the ONLY public onRequest endpoint with zero rate
+  // limiting (billable Places API behind the 6h cache). Now guardHttp-wired.
+  assert('getGoogleReviews is wrapped in guardHttp (was fully unlimited)',
+    /guardHttp\(\s*['"]getGoogleReviews['"]/.test(revH));
+  // adminAI: same wiring + no-double-count rule as claudeProxy.
+  assert('adminAI is wrapped in guardHttp and has no inline uid limiter',
+    /guardHttp\(\s*['"]adminAI['"]/.test(aiH)
+    && !/httpRateLimit\(req,\s*res,\s*['"]adminAI:/.test(aiH));
+  assert('ROUTES.adminAI keeps the prod uid ceiling (60/hr)',
+    /adminAI:\s*\{[^}]*uidLimit:\s*60\b[^}]*uidWindow:\s*HOUR/.test(policy));
+  // Record-only entries must match the hand-rolled gates they describe.
+  assert('publicVisualizerAI: handler gate is 5/hr and ROUTES agrees (was 3/min — ~36x looser/hr)',
+    /httpRateLimit\(req,\s*res,\s*['"]publicVisualizerAI:ip['"],\s*5,\s*3_600_000\)/.test(aiH)
+    && /publicVisualizerAI:\s*\{[^}]*ipLimit:\s*5\b[^}]*ipWindow:\s*HOUR/.test(policy));
+  assert('signImageUrl: handler gates are 300/min uid+ip and ROUTES agrees',
+    /httpRateLimit\(req,\s*res,\s*['"]signImageUrl:ip['"],\s*300,\s*60_000\)/.test(photoH)
+    && /enforceRateLimit\(\s*['"]signImageUrl:uid['"][\s\S]{0,60}?,\s*300,\s*60_000\)/.test(photoH)
+    && /signImageUrl:\s*\{[^}]*uidLimit:\s*300\b[^}]*ipLimit:\s*300\b/.test(policy));
+  // Phantom/retired routes stay deleted: a ROUTES entry for a function that
+  // doesn't exist (resetSubscriptionByEmail) or is a 410 stub (imageProxy)
+  // makes the ops matrix lie about the fleet.
+  assert('ROUTES carries no phantom resetSubscriptionByEmail or retired imageProxy entries',
+    !/resetSubscriptionByEmail:\s*\{/.test(policy) && !/imageProxy:\s*\{/.test(policy));
 }
 
 section('Migration framework — versioned runner');

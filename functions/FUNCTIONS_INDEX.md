@@ -1,6 +1,6 @@
 # NBD Pro — Cloud Functions Taxonomy
 
-Single canonical index of every export from `functions/`. Refreshed 2026-08-05 by re-enumerating `require('./index.js')` (189 exported keys = **170 deployed Cloud Functions + 19 helper/test-only exports**). A CI tripwire (tests/smoke/dashboard.test.js "every index.js export appears in FUNCTIONS_INDEX") now fails when an export is added without a row here — the 2026-07-04→08-05 gap was 21 undocumented exports, including the whole Stripe Connect + seat-billing money path.
+Single canonical index of every export from `functions/`. Refreshed 2026-08-10 by re-enumerating `require('./index.js')` (191 exported keys = **172 deployed Cloud Functions + 19 helper/test-only exports**; the 2026-08-05 count of 189 predated Swath's +3 (#1193) and CL8's −1 `sendTeamInviteEmail` retirement (#1190)). A CI tripwire (tests/smoke/dashboard.test.js "every index.js export appears in FUNCTIONS_INDEX") now fails when an export is added without a row here — the 2026-07-04→08-05 gap was 21 undocumented exports, including the whole Stripe Connect + seat-billing money path.
 
 Classification matters because:
 - **Admin** functions must enforce `request.auth.token.role === 'admin'` (or `requireAuth({ adminOnly: true })` for `onRequest`). If one silently loses that gate, the smoke test below catches it.
@@ -61,7 +61,6 @@ If you add a new export, list it here so the next audit doesn't have to re-deriv
 | `reserveCompanyPrefix` | onCall | Pillar 1 — reserves the tenant's unique customer-ID doc prefix (handlers/provisioning.js, claims-scoped) |
 | `sendEmail` | onRequest | Generic Resend email send — ID-token verified + 60/hr/IP rate limit |
 | `sendEstimateEmail` | onRequest | Estimate email to homeowner — ID-token verified + rate limit |
-| `sendTeamInviteEmail` | onRequest | Sends team-invite email — ID-token verified + rate limit |
 | `sendSMS` | onRequest | Twilio SMS send — ID-token verified, paid-subscription gate, 30/hr/IP + 100/day/uid |
 | `sendD2DSMS` | onRequest | Door-to-door SMS send — ID-token verified + rate limits |
 | `createCheckoutSession` | onRequest | Stripe Checkout session (ID-token verified) |
@@ -80,9 +79,9 @@ If you add a new export, list it here so the next audit doesn't have to re-deriv
 | `calcomWebhook` | onRequest | Cal.com HMAC verification |
 | `swathWebhook` | onRequest | Swath `storm.verified` alerts — Stripe-style HMAC (`t=…,v1=…`, ±300s replay window, fails closed when secret unset), idempotent `storm_events/{id}` ingest + Slack ping |
 | `incomingSMS` | onRequest | Twilio inbound-SMS webhook — X-Twilio-Signature verified (also feeds T-1 AI-texting draft generation) |
-| `submitPublicLead` | onRequest | Turnstile token + App Check + rate limit + honeypot |
-| `publicVisualizerAI` | onRequest | App Check + 5/hr/IP, model locked to Haiku, server-owned prompt, 1.5 MB image cap |
-| `publicFunnelAI` | onRequest | App Check + per-IP rate limit; replaces the open `nbd-ai-proxy` CF Worker; Haiku forced, tokens capped, text-only |
+| `submitPublicLead` | onRequest | Turnstile token + per-IP rate limit (IPv6 /64) + honeypot + M-04 field allowlist (NO App Check — onRequest can't enforce it, see posture note) |
+| `publicVisualizerAI` | onRequest | 5/hr/IP, model locked to Haiku, server-owned prompt, 1.5 MB image cap (NO App Check — see posture note) |
+| `publicFunnelAI` | onRequest | Per-IP rate limit; replaces the open `nbd-ai-proxy` CF Worker; Haiku forced, tokens capped, text-only (NO App Check — see posture note) |
 | `visualizerImageGen` | onRequest | FLUX.1 Kontext Max via Replicate (~$0.08/call); gated by `VISUALIZER_IMAGEGEN_ENABLED` (default OFF), 15/hr/IP |
 | `saveFunnelProgress` | onRequest | Anonymous funnel-step persistence (rate-limited; feeds runAbandonRecovery) |
 | `getHomeownerPortalView` | onRequest | Portal token validation, IP rate-limit, length check |
@@ -101,9 +100,9 @@ If you add a new export, list it here so the next audit doesn't have to re-deriv
 | `getPublicSiteConfig` | onRequest | Pillar 5 tenant-microsite config read — strict public-marketing whitelist, active-tenant check, rate-limited |
 | `submitReferral` | onRequest | Per-IP (5/10min) + per-source-customer (10/24h) rate limit, phone/email validation |
 | `stormReport` | onRequest | Public IEM storm-history proxy for /storm-report — server-side yearly chunking + Firestore cache (no API key needed) |
-| `getGoogleReviews` | onRequest | Cached Google Places reviews proxy (6-hour Firestore cache; keeps API key server-side) |
+| `getGoogleReviews` | onRequest | Cached Google Places reviews proxy (6-hour Firestore cache; keeps API key server-side); 60/min/IP via `guardHttp` (2026-08-10 — previously the ONLY unlimited public endpoint) |
 | `shareSSR` | onRequest | Server-rendered share-link preview HTML with og:/twitter: meta (token-authed lookup) |
-| `cspReport` | onRequest | Logs only, no side effects |
+| `cspReport` | onRequest | Logs only, no side effects; 60/min/IP (boolean honored 2026-08-10 — was advisory-only) |
 | `stripeConnectWebhook` | onRequest | Stripe **Connect** webhook — signature verified (`STRIPE_CONNECT_WEBHOOK_SECRET`), fails closed, dedupes, drops livemode mismatches (handlers/stripe-connect.js) |
 | `onRepSignup` | beforeUserCreated | Auth blocker — **exported but never deployed**: it is the sole entry in `NBD_DEPLOY_SKIP_LIST` (.github/workflows/firebase-deploy.yml). Do NOT remove the export; the skip is applied at deploy time. |
 
@@ -133,7 +132,7 @@ Verified by the smoke test "every admin function in FUNCTIONS_INDEX has a role/a
 
 Two further exports are admin-gated but deliberately NOT rows in the table above, because the drift-guard smoke test's pattern-window heuristic can't see their gates and would fail CI:
 
-- **adminAI** (onRequest, handlers/ai.js) — verifies a Firebase ID token then requires `ADMIN_AI_ROLES.has(role)` with roles {admin, company_admin, manager}. Claude relay for the admin tools (project-codex assistant, vault session-parsers); model forced to Haiku, 60k-char prompt / 2048-token caps, per-uid rate limit.
+- **adminAI** (onRequest, handlers/ai.js) — verifies a Firebase ID token then requires `ADMIN_AI_ROLES.has(role)` with roles {admin, company_admin, manager}. Claude relay for the admin tools (project-codex assistant, vault session-parsers); model forced to Haiku, 60k-char prompt / 2048-token caps; per-uid + per-IP rate limits via `guardHttp` (rate-limit-policy.js, 2026-08-10).
 - **runMigrations** (onCall, migrations/runner.js) — `req.auth?.token?.role !== 'admin'` → permission-denied. Listed in the MIGRATIONS section below. (The smoke test doesn't scan `functions/migrations/`.)
 
 ## REP UTILITY (authed but expensive — strong rate limits compensate for lack of admin gate)

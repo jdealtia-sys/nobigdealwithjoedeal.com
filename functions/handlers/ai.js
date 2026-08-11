@@ -528,7 +528,7 @@ exports.adminAI = onRequest(
     timeoutSeconds: 60,
     memory: '256MiB',
   },
-  async (req, res) => {
+  guardHttp('adminAI', async (req, res) => {
     if (req.method !== 'POST') {
       res.status(405).json({ error: 'Method not allowed' });
       return;
@@ -547,8 +547,10 @@ exports.adminAI = onRequest(
       return;
     }
 
-    // Per-uid rate limit — generous for interactive admin tooling.
-    if (!(await httpRateLimit(req, res, 'adminAI:' + decoded.uid, 60, 3_600_000))) return;
+    // Rate limiting (per-uid + per-IP) is enforced by the guardHttp('adminAI')
+    // wrapper — limits in rate-limit-policy.js ROUTES. (The old inline call
+    // keyed the SCOPE on the uid — 'adminAI:<uid>' — so its counters don't
+    // carry over; limits are unchanged at 60/hr/uid, plus a new IP backstop.)
 
     try {
       const { prompt, maxTokens } = req.body || {};
@@ -598,5 +600,5 @@ exports.adminAI = onRequest(
       logger.error('adminAI error', { err: e.message, timeout: !!isTimeout });
       res.status(isTimeout ? 504 : 500).json({ error: isTimeout ? 'Upstream AI timeout' : 'Internal error' });
     }
-  }
+  })
 );

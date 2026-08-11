@@ -21,8 +21,10 @@
  *      Each enforces both per-uid (when authed) AND per-IP automatically,
  *      using the limits from ROUTES. Handlers stop hand-rolling the
  *      enforceRateLimit calls.
- *   3. Surfaces the ROUTES table to ops via getRateLimitMatrix() — used
- *      by integrationStatus + the smoke-test that pins limits.
+ *   3. Surfaces the ROUTES table to ops via getRateLimitMatrix() — no
+ *      runtime consumer yet (2026-08-10: the smoke suite pins the table by
+ *      source scan, not through this accessor; integrationStatus does not
+ *      call it). Kept as the intended ops surface.
  *
  * If a handler is missing from ROUTES, the wrapper applies a SAFE
  * DEFAULT (60 req/min per IP, 300 req/min per uid) and logs a warning
@@ -79,7 +81,14 @@ const ROUTES = {
   // heavy legit users never trips it before their individual uid limits do,
   // while a bot rotating fresh tokens from one allocation gets clamped.
   claudeProxy:        { uidLimit:  20, uidWindow: MINUTE, ipLimit:  60, ipWindow: MINUTE },
-  publicVisualizerAI: { uidLimit:   0, uidWindow: MINUTE, ipLimit:   3, ipWindow: MINUTE },
+  // adminAI WIRED (2026-08-10): guardHttp('adminAI') in handlers/ai.js. uid
+  // ceiling matches the old inline gate (60/hr); ip backstop is new. (The
+  // old inline call keyed its scope on the uid, so counters start fresh.)
+  adminAI:            { uidLimit:  60, uidWindow: HOUR,   ipLimit: 180, ipWindow: HOUR    },
+  // RECORD-ONLY: hand-rolled in handlers/ai.js (httpRateLimit
+  // 'publicVisualizerAI:ip', 5/HOUR). Synced 2026-08-10 — the old entry
+  // here claimed 3/min (~36x looser per hour than the real gate).
+  publicVisualizerAI: { uidLimit:   0, uidWindow: MINUTE, ipLimit:   5, ipWindow: HOUR   },
 
   // ── Auth / billing — fraud-adjacent, low burst legit need.
   // validateAccessCode is WIRED (2026-08-10 pilot): handlers/portal.js wraps
@@ -88,8 +97,9 @@ const ROUTES = {
   // namespace 'validateAccessCode:ip' — counters carried over); the uid
   // layer is new defense-in-depth (callable may be invoked pre-auth, in
   // which case guardCallable skips it by design).
+  // (resetSubscriptionByEmail entry deleted 2026-08-10: no such export
+  //  exists anywhere in functions/ — it was a phantom route.)
   validateAccessCode: { uidLimit:  10, uidWindow: HOUR,    ipLimit:   5, ipWindow: 5*MINUTE },
-  resetSubscriptionByEmail: { uidLimit: 20, uidWindow: HOUR, ipLimit: 30, ipWindow: HOUR  },
 
   // ── Public lead intake — stripped of auth, gate hard on IP.
   // submitPublicLead is NOT wrapper-wired on purpose: its hand-rolled gate in
@@ -99,15 +109,27 @@ const ROUTES = {
   // This entry is the canonical RECORD of that gate's limits (kept in sync by
   // the smoke suite) so the ops matrix doesn't lie about the fleet.
   submitPublicLead:   { uidLimit:   0, uidWindow: MINUTE, ipLimit:  20, ipWindow: MINUTE },
-  cspReport:          { uidLimit:   0, uidWindow: MINUTE, ipLimit: 100, ipWindow: MINUTE },
+  // RECORD-ONLY: hand-rolled in handlers/monitoring.js (60/min — synced
+  // 2026-08-10; the old entry here claimed 100/min).
+  cspReport:          { uidLimit:   0, uidWindow: MINUTE, ipLimit:  60, ipWindow: MINUTE },
 
   // ── Authenticated CRM — generous; legit reps make hundreds of writes/day.
-  signImageUrl:       { uidLimit: 600, uidWindow: HOUR,   ipLimit: 1500, ipWindow: HOUR    },
-  imageProxy:         { uidLimit: 1500, uidWindow: HOUR,  ipLimit: 3000, ipWindow: HOUR    },
+  // RECORD-ONLY: hand-rolled in handlers/photo.js (300/min uid + 300/min ip
+  // — synced 2026-08-10; the old entry here claimed 600/hr + 1500/hr).
+  signImageUrl:       { uidLimit: 300, uidWindow: MINUTE, ipLimit: 300, ipWindow: MINUTE  },
+  // (imageProxy entry deleted 2026-08-10: retired to a 410 stub in
+  //  handlers/photo.js — no auth, no limiter, nothing to police.)
+  // RECORD-ONLY, UNVERIFIED against handlers (no hand-rolled gate found for
+  // setStorageCors / integrationStatus; getAdminAnalytics's real gate is
+  // callableRateLimit 30/hr uid in handlers/admin.js). Wire these through
+  // guardCallable/guardHttp or sync them in the next pilot increment.
   setStorageCors:     { uidLimit:  10, uidWindow: HOUR,   ipLimit:  20, ipWindow: HOUR    },
   integrationStatus:  { uidLimit: 120, uidWindow: HOUR,   ipLimit: 300, ipWindow: HOUR    },
-  getAdminAnalytics:  { uidLimit:  60, uidWindow: HOUR,   ipLimit: 120, ipWindow: HOUR    },
-  getGoogleReviews:   { uidLimit: 120, uidWindow: HOUR,   ipLimit: 300, ipWindow: HOUR    },
+  getAdminAnalytics:  { uidLimit:  30, uidWindow: HOUR,   ipLimit: 120, ipWindow: HOUR    },
+  // getGoogleReviews WIRED (2026-08-10): guardHttp in google-reviews.js —
+  // was the only public onRequest endpoint with NO limiter (billable Places
+  // API behind a 6h cache). Anonymous widget → uid 0, per-IP only.
+  getGoogleReviews:   { uidLimit:   0, uidWindow: MINUTE, ipLimit:  60, ipWindow: MINUTE  },
 
   // ── Migration runner — admin-only, runs rarely.
   runMigrations:      { uidLimit:  10, uidWindow: HOUR,   ipLimit:  10, ipWindow: HOUR    },

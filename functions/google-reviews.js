@@ -115,7 +115,11 @@ exports.getGoogleReviews = onRequest(
     maxInstances: 3,
     secrets: [GOOGLE_PLACES_API_KEY, NBD_PLACE_ID],
   },
-  async (req, res) => {
+  // 2026-08-10: was the only public onRequest endpoint with NO rate limit at
+  // all — each cache-miss/refresh request cost 2 Firestore reads plus (stale
+  // cache) an unsynchronized billed Places API call. guardHttp enforces the
+  // ROUTES ceilings (per-IP; uid 0 — anonymous marketing-page widget).
+  require('./rate-limit-policy').guardHttp('getGoogleReviews', async (req, res) => {
     const db = getFirestore();
     const ref = db.doc(CACHE_DOC_PATH);
     const now = Date.now();
@@ -221,5 +225,5 @@ exports.getGoogleReviews = onRequest(
         fetchedAt: now,
       });
     }
-  }
+  })
 );
