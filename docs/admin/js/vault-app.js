@@ -302,8 +302,10 @@ function startNextSession() {
 }
 
 function viewSession(num) {
+  // Was a TODO no-op that discarded the clicked session number — the working
+  // detail view existed all along under the view-session-detail action.
   navTo('sessions');
-  // TODO: Implement session detail view
+  viewSessionDetail(num);
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -325,7 +327,8 @@ function toast(message, type = 'info') {
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   PLACEHOLDER RENDER FUNCTIONS (Will be built in next iteration)
+   RENDER FUNCTIONS (banner previously said "placeholder / next iteration" —
+   stale: everything below has been implemented for some time)
    ═══════════════════════════════════════════════════════════════════════════ */
 
 function renderSessions() {

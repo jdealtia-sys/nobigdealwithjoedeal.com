@@ -89,7 +89,11 @@ async function loadAnalytics() {
     renderFeatures(mockData.features);
     
     // Update timestamp
-    document.getElementById('lastRefresh').textContent = `Last refreshed: ${now.toLocaleTimeString()}`;
+    // Honest labeling (2026-08-10 audit): every number on this page is
+    // fabricated sample data — the aggregation endpoint was never built
+    // (claudeProxy DOES log real usage server-side; wiring it is the fix).
+    // A bare "Last refreshed" timestamp made the fakes look live.
+    document.getElementById('lastRefresh').textContent = `SAMPLE DATA — usage endpoint not built yet (nothing on this page is real). Rendered ${now.toLocaleTimeString()}`;
     
   } catch (error) {
     console.error('Analytics load error:', error);

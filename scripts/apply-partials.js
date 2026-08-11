@@ -170,7 +170,10 @@ function main() {
 
   for (const file of files) {
     const before = fs.readFileSync(file, 'utf8');
-    if (!before.includes('<!-- nbd:partial')) continue;
+    // Prefilter matches the bare token, not '<!-- nbd:partial': a file whose
+    // ONLY marker is an orphan CLOSER (<!-- /nbd:partial … -->) lacks the
+    // opener substring and would skip the dangling-marker guard below.
+    if (!before.includes('nbd:partial')) continue;
     fileCount++;
 
     const rel = path.relative(REPO_ROOT, file).replace(/\\/g, '/');
