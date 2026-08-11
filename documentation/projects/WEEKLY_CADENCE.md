@@ -69,23 +69,25 @@
 
 ## One-off queue — Jo (decisions & console; newest first, check off here when done)
 
-- [ ] **🔴 UNBLOCK PROD DEPLOYS (~2 min, DO THIS FIRST — every deploy since
-      2026-08-10 has failed)** — Firebase Hosting rejects all deploys with
-      `429: exceeded the Hosting storage quota` (1,100+ stored releases hit
-      the cap). Firebase Console → `nobigdeal-pro` → Hosting → ⋮ next to the
-      site → **Release storage settings** → set "releases to keep" (e.g. 10)
-      — Firebase then auto-deletes old versions, now and forever. After
-      saving, re-run the newest failed "Firebase deploy" run in GitHub
-      Actions (or ask an agent session to). **Until this is done, prod is
-      frozen at the 2026-08-08 state**: the jobs-board work (#1195), the
-      2026-08-10 audit's security fixes (EXIF-GPS strip, rules hardening,
-      rate limits), and everything after are merged but NOT live.
-      2026-08-10 audit PR deploys)** — the three v2cost fields (good/better/
-      best per-SQ). The real numbers were removed from the public code
-      ([audit](../audit/SITE-AUDIT-LOOSE-ENDS-2026-08-10.md) §6); until you
-      enter them the Internal View margin shows an em-dash. If you ever
-      saved V2 settings on your phone, your saved values carry over —
-      nothing to do.
+- [x] **~~🔴 UNBLOCK PROD DEPLOYS~~ RESOLVED 2026-08-11 ~01:47 UTC.**
+      Post-mortem: the hosting-storage `429` was a SYMPTOM — the real root
+      cause was **billing disabled on the `nobigdeal-pro` GCP project**
+      (lapsed ~2026-08-08/10), which dropped the project to free-tier
+      limits: the 1 GB release-storage cap killed deploys, and the daily
+      bandwidth cap caused the glitchy half-loaded live pages. Jo set
+      release retention AND restored billing; deploy run #1284 attempt 3
+      then went green end-to-end (hosting + rules + all functions — first
+      live pass of the wholesale-failure guard). **Standing lesson: if
+      deploys 429 or the site half-loads, check GCP billing first.**
+      Billing notices did not reach the monitored Gmail — while in the
+      console, confirm the billing account's contact email + card expiry.
+- [ ] **Re-enter your cost basis in Estimate Settings (~1 min, now that the
+      2026-08-10 audit PR is deployed)** — the three v2cost fields (good/
+      better/best per-SQ). The real numbers were removed from the public
+      code ([audit](../audit/SITE-AUDIT-LOOSE-ENDS-2026-08-10.md) §6);
+      until you enter them the Internal View margin shows an em-dash. If
+      you ever saved V2 settings on your phone, your saved values carry
+      over — nothing to do.
 - [ ] **Swath activation (~5 min, most time-sensitive)** — signup, set
       `SWATH_API_KEY` + `SWATH_WEBHOOK_SECRET`, optional provider flips —
       [SWATH-SETUP](../runbooks/SWATH-SETUP.md)
