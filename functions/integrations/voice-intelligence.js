@@ -717,87 +717,18 @@ exports.onAudioUploaded = onObjectFinalized(
 // lead/recording IDs and runs the pipeline. Used for curl-testing
 // C1 end-to-end before the UI lands. Rejects non-admin callers and
 // refuses paths outside the audio/ prefix.
-exports.triggerProcessRecording = onCall(
-  {
-    region: 'us-central1',
-    secrets: [SECRETS.GROQ_API_KEY, ANTHROPIC_API_KEY_FOR_VOICE],
-    enforceAppCheck: true,
-    memory: '512MiB',
-    timeoutSeconds: 540
-  },
-  async (request) => {
-    const uid = request.auth && request.auth.uid;
-    if (!uid) throw new HttpsError('unauthenticated', 'Sign in required');
-    if (request.auth.token.role !== 'admin') {
-      throw new HttpsError('permission-denied', 'Platform admin required');
-    }
-
-    const path = String((request.data && request.data.path) || '');
-    const parsed = parseAudioPath(path);
-    if (!parsed) {
-      throw new HttpsError('invalid-argument',
-        'path must match audio/{uid}/{leadId}/{recordingId}.{ext}');
-    }
-
-    const result = await processRecording({
-      uid:           parsed.uid,
-      leadId:        parsed.leadId,
-      recordingId:   parsed.recordingId,
-      path,
-      contentType:   String((request.data && request.data.contentType) || 'audio/webm'),
-      size:          Number((request.data && request.data.size) || 0),
-      forceReanalyze: Boolean(request.data && request.data.forceReanalyze)
-    });
-    return result;
-  }
-);
+// triggerProcessRecording was retired 2026-08-11 (dead-surface lane):
+// the manual admin kick UI never shipped; the automatic recording
+// pipeline below is unaffected. Approved by Jo. Restore from git
+// (pre-ded736f) with the admin UI lane. Prod instance console-deleted.
 
 // Admin-only reanalyze: re-runs the Claude analysis against the
 // existing transcript without re-downloading or re-transcribing the
 // audio. Cheap. Used when iterating on the prompt in
 // functions/voice-prompts.js — bump CURRENT_VERSION, deploy, then
 // batch-call this to rewrite summaries.
-exports.reprocessRecording = onCall(
-  {
-    region: 'us-central1',
-    secrets: [ANTHROPIC_API_KEY_FOR_VOICE],
-    enforceAppCheck: true,
-    memory: '512MiB',
-    timeoutSeconds: 120
-  },
-  async (request) => {
-    const uid = request.auth && request.auth.uid;
-    if (!uid) throw new HttpsError('unauthenticated', 'Sign in required');
-    if (request.auth.token.role !== 'admin') {
-      throw new HttpsError('permission-denied', 'Platform admin required');
-    }
-
-    const leadId      = String((request.data && request.data.leadId) || '');
-    const recordingId = String((request.data && request.data.recordingId) || '');
-    if (!leadId || !recordingId) {
-      throw new HttpsError('invalid-argument', 'leadId + recordingId required');
-    }
-
-    const db = getFirestore();
-    const snap = await db.doc('leads/' + leadId + '/recordings/' + recordingId).get();
-    if (!snap.exists) throw new HttpsError('not-found', 'recording not found');
-    const rec = snap.data();
-    if (!rec.transcript) {
-      throw new HttpsError('failed-precondition',
-        'recording has no transcript to reanalyze');
-    }
-
-    return processRecording({
-      uid:           rec.userId || uid,
-      leadId,
-      recordingId,
-      path:          rec.audioPath,
-      contentType:   rec.contentType,
-      size:          rec.audioBytes || 0,
-      forceReanalyze: true
-    });
-  }
-);
+// reprocessRecording was retired 2026-08-11 — same rationale and
+// restore path as triggerProcessRecording above.
 
 // ─── Retention cron (C5) ────────────────────────────────────────
 //

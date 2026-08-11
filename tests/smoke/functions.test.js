@@ -1163,24 +1163,20 @@ section('E4: service-worker kill switch');
 section('AUTHZ: email-send callables gate role + rate-limit + escape');
 {
   const src = read(path.join(FUNCTIONS, 'email-functions.js'));
-  // sendDripEmail was an open branded-mail relay: any authed user (incl.
-  // read-only viewer / access-code member) could send to an arbitrary
-  // recipient with unescaped template variables. It must now (a) block
-  // viewer/member like sendEmail, (b) escape template values.
-  const drip = (src.match(/exports\.sendDripEmail = onCall\([\s\S]*?\n\);/) || [''])[0];
-  assert('sendDripEmail blocks viewer/member role',
-    /_dripRole === 'viewer' \|\| _dripRole === 'member'/.test(drip));
-  assert('sendDripEmail keeps its per-uid rate limit',
-    /enforceRateLimit\('sendDripEmail:uid'/.test(drip));
+  // sendDripEmail + sendEstimateEmail were RETIRED 2026-08-11 (dead-surface
+  // lane: zero callers anywhere; both were branded-mail relays that had
+  // needed hardening once already). Pin them GONE so a revert can't quietly
+  // resurrect billable dead surface — mirrors the sendTeamInviteEmail (CL8)
+  // retirement pattern. Restore-from-git note lives at the removal site.
+  assert('sendDripEmail stays retired (no export)',
+    !/exports\.sendDripEmail\s*=/.test(src));
+  assert('sendEstimateEmail stays retired (no export)',
+    !/exports\.sendEstimateEmail\s*=/.test(src));
+  // The escape helper survives the retirement — sendEmail's template path
+  // still uses it.
   assert('populateTemplate HTML-escapes variable values',
     /function escapeTemplateValue/.test(src) &&
     /const value = escapeTemplateValue\(variables\[key\]\)/.test(src));
-  // sendEstimateEmail keeps its ownership/tenant guard AND now a per-uid cap.
-  const est = (src.match(/exports\.sendEstimateEmail = onRequest\([\s\S]*?\n\);/) || [''])[0];
-  assert('sendEstimateEmail has a per-uid rate limit (not just per-IP)',
-    /enforceRateLimit\('sendEstimateEmail:uid'/.test(est));
-  assert('sendEstimateEmail keeps the ownership+tenant guard',
-    /ownsLead && !sameCompanyMgr/.test(est) || /!ownsLead && !sameCompanyMgr/.test(est));
 }
 
 section('F1: email queue worker');
@@ -1666,10 +1662,12 @@ section('C1: Voice Intelligence backend pipeline');
     /async function processRecording\(/.test(src));
   assert('C1: onAudioUploaded Storage trigger exported',
     /exports\.onAudioUploaded\s*=\s*onObjectFinalized/.test(src));
-  assert('C1: triggerProcessRecording admin-only callable',
-    /exports\.triggerProcessRecording\s*=\s*onCall[\s\S]{0,500}role !== 'admin'/.test(src));
-  assert('C1: reprocessRecording admin-only callable',
-    /exports\.reprocessRecording\s*=\s*onCall[\s\S]{0,500}role !== 'admin'/.test(src));
+  // The manual admin kicks were RETIRED 2026-08-11 (their UI never shipped;
+  // the automatic pipeline below is untouched). Pin them gone.
+  assert('C1: triggerProcessRecording stays retired (no export)',
+    !/exports\.triggerProcessRecording\s*=/.test(src));
+  assert('C1: reprocessRecording stays retired (no export)',
+    !/exports\.reprocessRecording\s*=/.test(src));
 
   // Critical idempotency + fail-closed behaviour
   assert('C1: idempotent on already-complete recording',
