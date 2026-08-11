@@ -61,6 +61,17 @@ adversarial verification) and a fix wave — 10 commits. Highlights:
 
 ## Watch-outs
 
+- **🔴 PROD DEPLOYS ARE DEAD (discovered post-merge, PRE-EXISTING):** every
+  `firebase-deploy` run on main since 2026-08-10 01:49 fails at Deploy
+  Hosting with `429: exceeded the Hosting storage quota` — the last green
+  deploy was 2026-08-08 (#1193). Hosting fails FIRST, so rules/functions
+  steps are skipped too: **nothing merged since — including this session's
+  security fixes — is live.** Fix is a 2-minute Jo console action (top of
+  the WEEKLY_CADENCE queue: Hosting → Release storage settings → keep N
+  releases), then re-run the failed deploy. First agent session after that:
+  verify the deploy went green end-to-end (the new wholesale-failure guard
+  in the functions step gets its first real run there too).
+
 - The rules change tightens creates: a claim-carrying member stamping
   companyId=own-uid is now DENIED (was allowed). All shipped clients stamp
   `claims.companyId || uid` off the same token, so nothing legit breaks —
