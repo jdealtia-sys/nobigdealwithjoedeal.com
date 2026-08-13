@@ -1,0 +1,13 @@
+American Operator — "Locally Owned & Operated" certification badge.
+
+Source: official digital badge kit (LocallyOwnedandOperatedBadgeKit.zip)
+supplied by American Operator to No Big Deal Home Solutions with the
+certification confirmation email, 2026-08-11. Provided for certified
+businesses to display digitally.
+
+Files here are sharp re-encodes of the kit's Badge.png (649x739):
+  american-operator-badge.png      649x739 (full)
+  american-operator-badge-320.png  320x364 (cards, ~96px render)
+  american-operator-badge-120.png  120x137 (footer cert bar, ~40px render)
+Re-encode strips source metadata; palette PNG for size. The kit's wide
+banner variants and print PDFs are deliberately not committed (unused).

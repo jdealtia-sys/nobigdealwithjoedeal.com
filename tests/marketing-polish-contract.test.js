@@ -234,15 +234,18 @@ const certBarTargets = marketing.filter((f) => /^services\/[a-z0-9-]+-(oh|ky)\.h
   ok('cert bar injected exactly once per page', bad.length === 0, bad.slice(0, 3).join(', '));
 }
 {
-  // 3. Cert bar carries both verify links + the full independent-contractor
+  // 3. Cert bar carries all badge verify links + the full independent-contractor
   //    disclaimer with the license IDs (the legal reason the bar exists).
+  //    american-operator (Locally Owned & Operated cert, added 2026-08-13) has
+  //    no ID number — the badge + link is the whole credential.
   const bad = certBarTargets.filter((f) => {
     const s = read(f);
     return !(s.includes('gaf-certified-badge-120.png') && s.includes('tamko-pro-gold-badge-120.png')
+      && s.includes('american-operator-badge-120.png')
       && s.includes('GAF ID 1162011') && s.includes('TAMKO Pro ID 181382')
       && s.includes('Independent Contractor'));
   }).map(rel);
-  ok('cert bar carries both badges + IDs + disclaimer', bad.length === 0, bad.slice(0, 3).join(', '));
+  ok('cert bar carries all three badges + IDs + disclaimer', bad.length === 0, bad.slice(0, 3).join(', '));
 }
 {
   // 4. CERT CLAIM GUARD — Joe is GAF Certified (System Plus) and TAMKO only.
