@@ -81,5 +81,38 @@ on homepage "How It Works", Service/FAQPage on area pages,
 `drone-completed-brick.webp` recompress, addressLocality check,
 `/pro/sandbox` robots decision.
 
-*(Implementation decisions pending discussion with Jo — this note records
-verification only.)*
+## Update 2026-08-15 (same session): Jo approved — fix wave shipped
+
+Jo greenlit the recommended shortlist; shipped on the same branch:
+
+1. **GA4 conversion events** — central `generate_lead` in
+   `public-lead-submit.js` success path (covers all six public lead
+   kinds; the estimate funnel's `_saveLead` routes through it too);
+   `estimate_phone_verified` on OTP success; `visualizer_result`
+   (with `ai_image` flag); GA4 bootstrap + `tool_click` tracker added
+   to `/free-tools` (page had no analytics at all).
+2. **privacy.html** — new "Free Tools and Interactive Features"
+   subsection (Roof Score capture, estimate OTP flow, storm tools) +
+   verification-codes paragraph in §5; Last Updated → August 2026.
+3. **Homepage tools band** — in-body section after "How It Works":
+   Roof Score / Instant Estimate / Storm Check / Visualizer cards +
+   "all 7 free tools" link.
+4. **review.html** — comment at ~:522 corrected to state the real
+   policy: Review objects kept for AI readability; AggregateRating
+   deliberately omitted (Google ignores self-serving rating markup).
+5. **Footer pro door** — quiet "Are you a contractor? → NBD Pro" line
+   added to `footer-standard` + `footer-area` partials, restamped into
+   142 pages (matches footer-extended/footer-blog posture).
+6. **Free-guide entrance** — linked from both navs, footer resources,
+   and sidebar CTA of all 5 pro blog posts + index; "Masterclass"
+   nav/footer labels for /pro/landing relabeled (in-app Real Deal
+   Academy masterclass references untouched); `/pro/sandbox` added to
+   the firebase.json app-shell noindex enumeration.
+
+**Left open (deliberate, for Jo):** index the free guide or keep it
+noindexed (kept noindexed for now); visible Google review count via
+`getGoogleReviews` (needs a JS fetch on /review — worth its own pass);
+Turnstile sitekey still empty (queued in WEEKLY_CADENCE); location-page
+depth drip; HowTo schema + area-page Service/FAQPage;
+`drone-completed-brick.webp` recompress; `addressLocality: "Goshen"`
+in all 25 area pages' JSON-LD (verify HQ intent).

@@ -10,7 +10,7 @@ Map of content for the `documentation/` corpus (~115 files) plus the other place
 
 - [WEEKLY_CADENCE](projects/WEEKLY_CADENCE.md) — the Monday-morning checklist: Jo's weekly content/marketing loop, the agent weekly sweep, and the consolidated one-off queue (sessions keep it current)
 - [BIG_ROCKS](projects/BIG_ROCKS.md) — the standing priority list
-- Current handoff: [NEXT_SESSION-2026-08-11](projects/NEXT_SESSION-2026-08-11.md)
+- Current handoff: [NEXT_SESSION-2026-08-15](projects/NEXT_SESSION-2026-08-15.md)
 - Posting a job: [runbooks/PUBLISH-PROJECT](runbooks/PUBLISH-PROJECT.md) — phone-paste template inside
 
 ## Start here
@@ -46,7 +46,7 @@ Map of content for the `documentation/` corpus (~115 files) plus the other place
 - [BIG_ROCKS](projects/BIG_ROCKS.md) — the standing priority list
 - [WEEKLY_CADENCE](projects/WEEKLY_CADENCE.md) — standing weekly checklist (see "Standing notes" above)
 - [KANBAN_CUSTOMER_MAP](projects/KANBAN_CUSTOMER_MAP.md)
-- Session handoffs: [NEXT_SESSION-2026-08-11](projects/NEXT_SESSION-2026-08-11.md) (current — start here; site-wide audit + security fix wave) · [SESSION-2026-08-13-american-operator-badge](projects/SESSION-2026-08-13-american-operator-badge.md) (Locally Owned & Operated cert badge rollout — footers site-wide + homepage card + About chip) · [NEXT_SESSION-2026-08-10](projects/NEXT_SESSION-2026-08-10.md) (jobs-board taxonomy + hub strips + posting flow) · [NEXT_SESSION-2026-08-07](projects/NEXT_SESSION-2026-08-07.md) (deferred queue — mostly absorbed into WEEKLY_CADENCE 2026-08-11) · [SESSION-2026-08-06-swath-api-setup](projects/SESSION-2026-08-06-swath-api-setup.md) (Swath API integration — Jo's 5-min secrets to-do inside) · [NEXT_SESSION-2026-08-06](projects/NEXT_SESSION-2026-08-06.md) · [SESSION-2026-08-06-our-work-featured-projects](projects/SESSION-2026-08-06-our-work-featured-projects.md) · [NEXT_SESSION-2026-08-05](projects/NEXT_SESSION-2026-08-05.md) · [NEXT_SESSION](projects/NEXT_SESSION.md) · [NEXT_SESSION-2c4a](projects/NEXT_SESSION-2c4a.md) (all executed)
+- Session handoffs: [NEXT_SESSION-2026-08-15](projects/NEXT_SESSION-2026-08-15.md) (current — start here; designer-audit verification + GA4/privacy/pro-funnel fix wave) · [NEXT_SESSION-2026-08-11](projects/NEXT_SESSION-2026-08-11.md) (site-wide audit + security fix wave) · [SESSION-2026-08-13-american-operator-badge](projects/SESSION-2026-08-13-american-operator-badge.md) (Locally Owned & Operated cert badge rollout — footers site-wide + homepage card + About chip) · [NEXT_SESSION-2026-08-10](projects/NEXT_SESSION-2026-08-10.md) (jobs-board taxonomy + hub strips + posting flow) · [NEXT_SESSION-2026-08-07](projects/NEXT_SESSION-2026-08-07.md) (deferred queue — mostly absorbed into WEEKLY_CADENCE 2026-08-11) · [SESSION-2026-08-06-swath-api-setup](projects/SESSION-2026-08-06-swath-api-setup.md) (Swath API integration — Jo's 5-min secrets to-do inside) · [NEXT_SESSION-2026-08-06](projects/NEXT_SESSION-2026-08-06.md) · [SESSION-2026-08-06-our-work-featured-projects](projects/SESSION-2026-08-06-our-work-featured-projects.md) · [NEXT_SESSION-2026-08-05](projects/NEXT_SESSION-2026-08-05.md) · [NEXT_SESSION](projects/NEXT_SESSION.md) · [NEXT_SESSION-2c4a](projects/NEXT_SESSION-2c4a.md) (all executed)
 
 ## Audits
 
