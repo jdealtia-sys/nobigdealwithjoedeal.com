@@ -50,7 +50,8 @@ Map of content for the `documentation/` corpus (~115 files) plus the other place
 
 ## Audits
 
-- [SITE-AUDIT-LOOSE-ENDS-2026-08-10](audit/SITE-AUDIT-LOOSE-ENDS-2026-08-10.md) — site-wide loose-ends & security audit + fix wave: EXIF-GPS P0, rate-limit adoption, rules #12 extension, CI hardening (newest)
+- [DESIGNER-AUDIT-VERIFICATION-2026-08-15](audit/DESIGNER-AUDIT-VERIFICATION-2026-08-15.md) — claim-by-claim verification of the external designer-handoff audit: schema claim false, real gaps are conversion analytics / privacy tool-disclosure / area-page sameness; pro-visibility take (newest)
+- [SITE-AUDIT-LOOSE-ENDS-2026-08-10](audit/SITE-AUDIT-LOOSE-ENDS-2026-08-10.md) — site-wide loose-ends & security audit + fix wave: EXIF-GPS P0, rate-limit adoption, rules #12 extension, CI hardening
 - [SYSTEM-STABILITY-PERF-2026-08-07](audit/SYSTEM-STABILITY-PERF-2026-08-07.md) — full-system stability/perf/accuracy audit + fix wave
 - [AUDIT_REPORT](audit/AUDIT_REPORT.md) · [LIVE_VERIFICATION](audit/LIVE_VERIFICATION.md)
 - [OPS_AUDIT_2026-06](audit/OPS_AUDIT_2026-06.md) · [PROD_HOMEWORK_VERIFICATION_2026-07](audit/PROD_HOMEWORK_VERIFICATION_2026-07.md)
