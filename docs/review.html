@@ -519,10 +519,15 @@ nav .nav-logo-text .sub{white-space:nowrap}
      stays retired. Three cards are marked verbatim EXCERPTS: Google shows
      them truncated at “…more”; extend them only with the exact remaining
      GBP text — never invent or embellish review text.
-     Deliberately NO Review/AggregateRating JSON-LD: Google ignores
-     self-serving review markup on a business's own site; the win here is
-     crawlable/AI-readable review text. LocalBusiness schema is already on
-     the page. -->
+     Schema policy (corrected 2026-08-15 — the old note here contradicted
+     the actual markup): the head's LocalBusiness JSON-LD DOES carry the 8
+     featured reviews as nested Review objects — kept deliberately for
+     AI/LLM readability, not for Google stars. Google ignores self-serving
+     review markup on a business's own site, which is why we deliberately
+     omit AggregateRating (it would never render as rich results and reads
+     as gaming). The win on this page is crawlable review text + the
+     Review objects; don't add AggregateRating without revisiting that
+     call. -->
 <section class="reviews-wrap" style="padding-top:40px;padding-bottom:8px;background:#fff;border-radius:16px;margin-top:28px">
   <div style="max-width:1100px;margin:0 auto;padding:0 20px">
 
