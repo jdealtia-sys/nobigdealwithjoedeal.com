@@ -139,6 +139,94 @@ ok('registered as an external source', L.EXTERNAL_SOURCE_COLLECTIONS.indexOf('th
   ok('contact form still webLead true', web.webLead === true);
 }
 
+// ── THE REAL PAYLOAD ────────────────────────────────────────────
+// Captured 2026-08-16 from an actual Thumbtack "Test your webhooks" delivery
+// to the live endpoint. Thumbtack publishes no schema, so this fixture IS the
+// spec. Trimmed only of the CDN image URL. Do not "tidy" the shape — if these
+// assertions fail, Thumbtack changed their contract and the parser must follow.
+const REAL = {
+  event: {
+    triggeredAt: '2026-08-16T17:13:05Z',
+    description: '',
+    eventType: 'NegotiationCreatedV4',
+    webhookID: '587754774977404932',
+  },
+  data: {
+    business: { name: 'Test Business for Webhooks', businessID: '586102014464466945' },
+    customer: { phone: '1234567890', customerID: '587754780290080776', firstName: 'Test', lastName: 'Customer' },
+    status: 'Open',
+    leadPriceBreakdown: { subtotal: '$23.15', salesTax: '$1.85' },
+    request: {
+      details: [
+        { answer: 'One time only', question: 'Frequency of services' },
+        { answer: '95010, 78901', question: 'Zip code' },
+        { answer: 'The lawn professional travels to me', question: 'Travel Preferences' },
+      ],
+      location: { state: 'CA', city: 'San Francisco', address1: '123 Main St', zipCode: '94103', address2: 'Apt 4B' },
+      requestID: '587754780288884748',
+      customerID: '587754780290080776',
+      description: 'Need Full Service Lawn Care',
+      category: { categoryID: '240123621172183344', name: 'Full Service Lawn Care' },
+    },
+    leadPrice: '$25.00',
+    chargeState: 'Created',
+    estimate: { unitName: 'service', unitQuantity: 1, total: '$150.00', type: 'Fixed', pricePerUnit: '150.00' },
+    createdAt: '2026-08-16T17:13:00Z',
+    negotiationID: '587754780285493250',
+  },
+};
+
+console.log('\nTHUMBTACK — the REAL payload (regression lock)');
+ok('classifies as a lead (eventType NegotiationCreatedV4)', T.classifyEvent(REAL) === T.EVENT.LEAD);
+ok('detected as a TEST delivery (no flag — business name is the only tell)', T.isTestPayload(REAL) === true);
+ok('event id = negotiationID', T.extractEventId(REAL) === '587754780285493250');
+ok('negotiationID outranks requestID (request can fan out to many pros)',
+  T.extractEventId(REAL) !== REAL.data.request.requestID);
+{
+  const n = T.normalizeLead(REAL);
+  ok('firstName from data.customer', n.firstName === 'Test');
+  ok('lastName from data.customer', n.lastName === 'Customer');
+  ok('phone from data.customer', n.phone === '1234567890');
+  // Thumbtack's FIXTURE number is '1234567890', whose leading 1 phone-utils
+  // strips as a US country code — leaving 9 digits. That is correct behaviour,
+  // not a bug: real NANP area codes are [2-9]xx, so a genuine 10-digit number
+  // never starts with 1 and never loses a digit here. Asserted explicitly so
+  // nobody "fixes" phoneDigits10 to satisfy a fake number.
+  ok('phoneDigits strips the fixture\'s leading 1 (country-code rule)', n.phoneDigits === '234567890');
+  ok('a real NANP number keeps all 10 digits',
+    T.normalizeLead({ data: { customer: { phone: '(513) 257-5875' } } }).phoneDigits === '5132575875');
+  ok('address assembled from structured location',
+    n.address === '123 Main St Apt 4B, San Francisco, CA 94103');
+  ok('service from data.request.category.name', n.service === 'Full Service Lawn Care');
+  ok('details from data.request.description', n.details === 'Need Full Service Lawn Care');
+  ok('leadPrice captured (audit had to rebuild this by hand)', n.leadPrice === '$25.00');
+  ok('thumbtack status captured', n.thumbtackStatus === 'Open');
+  ok('questionnaire Q&A captured', n.qa.length === 3);
+  ok('Q&A pairs intact', n.qa[0].question === 'Frequency of services' && n.qa[0].answer === 'One time only');
+  ok('no email, as Thumbtack documents', n.email === '');
+
+  const notes = T.leadNotes(n);
+  ok('notes carry the service', /Full Service Lawn Care/.test(notes));
+  ok('notes carry the lead cost', notes.includes('Lead cost: $25.00'));
+  ok('notes carry the questionnaire', /Frequency of services: One time only/.test(notes));
+  ok('notes carry the no-email caveat', /does not provide customer email/i.test(notes));
+}
+{
+  // A REAL (non-test) lead differs only in the business name — assert it then
+  // classifies as a genuine lead and would bridge.
+  const live = JSON.parse(JSON.stringify(REAL));
+  live.data.business.name = 'No Big Deal Home Solutions';
+  ok('same payload with the real business name is NOT a test', T.isTestPayload(live) === false);
+  ok('...and still classifies as a lead', T.classifyEvent(live) === T.EVENT.LEAD);
+}
+
+console.log('\nTHUMBTACK — location assembly edge cases');
+ok('empty location → empty string', T.joinLocation({}) === '');
+ok('null-safe', T.joinLocation(null) === '');
+ok('zip only', T.joinLocation({ zipCode: '45216' }) === '45216');
+ok('no address2', T.joinLocation({ address1: '133 W Seymour Ave', city: 'Cincinnati', state: 'OH', zipCode: '45216' })
+  === '133 W Seymour Ave, Cincinnati, OH 45216');
+
 console.log('\nTHUMBTACK — deterministic idempotency id');
 ok('same source+id → same doc id', L.bridgeDocId('thumbtack_leads', 'tt-1') === L.bridgeDocId('thumbtack_leads', 'tt-1'));
 ok('different id → different doc id', L.bridgeDocId('thumbtack_leads', 'tt-1') !== L.bridgeDocId('thumbtack_leads', 'tt-2'));
