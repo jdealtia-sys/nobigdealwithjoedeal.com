@@ -56,6 +56,10 @@ const SECRETS = {
   // comes back from POST /v1/monitors (see runbooks/SWATH-SETUP.md).
   SWATH_API_KEY:         defineSecret('SWATH_API_KEY'),
   SWATH_WEBHOOK_SECRET:  defineSecret('SWATH_WEBHOOK_SECRET'),
+  // Shared token Thumbtack presents on every webhook delivery (Custom Header
+  // auth — Thumbtack offers no HMAC signing, so this is a bearer-style secret
+  // and the receiver fails closed without it). See integrations/thumbtack.js.
+  THUMBTACK_WEBHOOK_SECRET: defineSecret('THUMBTACK_WEBHOOK_SECRET'),
 
   // Image generation (visualizer) — kie.ai alternate provider
   // (visualizer-image-gen.js; Replicate's token is declared there, not here,

@@ -27,6 +27,7 @@ Map of content for the `documentation/` corpus (~115 files) plus the other place
 - [NBD-PRO-PRODUCT-AUDIT-2026-07](architecture/NBD-PRO-PRODUCT-AUDIT-2026-07.md)
 - [RAILWAY-EVAL-2026-08](architecture/RAILWAY-EVAL-2026-08.md) — Railway hosting evaluated and deferred (trigger conditions inside)
 - Pillar plans: [1 — Provisioning](architecture/PILLAR1-PROVISIONING-PLAN.md) · [4 — Billing](architecture/PILLAR4-BILLING-PLAN.md) · [5 — Domains & Sites](architecture/PILLAR5-DOMAINS-SITES-PLAN.md)
+- [THUMBTACK-WEBHOOK-2026-08](architecture/THUMBTACK-WEBHOOK-2026-08.md) — marketplace lead/message/review ingest; built, not yet connected
 
 ## Runbooks (ops — read before touching prod)
 

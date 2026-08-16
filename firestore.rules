@@ -1625,6 +1625,26 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
+    // Thumbtack webhook landing collections (integrations/thumbtack.js).
+    // Admin-SDK only: thumbtackWebhook is the sole writer, and the CRM never
+    // reads these directly — lead events reach the pipeline via the
+    // leadBridgeThumbtack mirror into `leads`, which carries its own tenant
+    // scoping. They hold raw customer names and phone numbers, so keeping them
+    // closed to clients is deliberate, not incidental. Covered by the default
+    // deny below; spelled out so the intent survives a future rules edit.
+    match /thumbtack_leads/{docId} {
+      allow read, write: if false;
+    }
+    match /thumbtack_messages/{docId} {
+      allow read, write: if false;
+    }
+    match /thumbtack_reviews/{docId} {
+      allow read, write: if false;
+    }
+    match /thumbtack_events/{docId} {
+      allow read, write: if false;
+    }
+
     // ── DEFAULT DENY ─────────────────────────────────
     match /{document=**} {
       allow read, write: if false;
