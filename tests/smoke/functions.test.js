@@ -1096,7 +1096,17 @@ section('F-10b: strict functions deploy — all three false-green guards');
   assert('F-10b mode 3: ANSI is stripped before parsing',
     /_strip_ansi/.test(strict) && /ESC=\$\(printf/.test(strict));
   assert('F-10b mode 3: the gap feeds the existing straggler retry',
-    /"\$missing" >> "\$FAILED_FILE"/.test(strict));
+    /"\$silent" >> "\$FAILED_FILE"/.test(strict));
+  // Regression from run 32079768048, the first prod deploy to carry this step:
+  // `targeted − accounted` ALSO contains every function that reported a failure
+  // (a failed function has no success line either), so all 22 ordinary
+  // stragglers were announced as "printed NO completion line" — flatly untrue.
+  // Retry behavior was correct; the diagnosis was not. On a step whose whole
+  // job is telling failure modes apart, a warning that fires on the ~5-10% that
+  // fail loudly every deploy is worse than no warning at all.
+  assert('F-10b mode 3: the silent set subtracts functions that REPORTED a failure',
+    /grep -F -x -v -f "\$PARSED_FILE"/.test(strict)
+    && /grep -F -x -v -f "\$ACCOUNTED_FILE"/.test(strict));
   assert('F-10b mode 3: the gap is surfaced distinctly from a reported failure',
     /printed NO completion line/.test(strict));
   // Each retry round must start from a clean slate or the final summary

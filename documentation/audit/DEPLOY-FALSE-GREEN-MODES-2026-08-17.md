@@ -146,8 +146,44 @@ per-function failure still parsed and retried · delete lines not counting ·
 `Skipped` counting · `NBD_DEPLOY_WAVE1_MAX` chunking while still targeting all
 167.
 
-Pinned in `tests/smoke/functions.test.js` §`F-10b` (16 assertions) so all three
-guards have to be deleted deliberately, not by accident.
+Pinned in `tests/smoke/functions.test.js` §`F-10b` so all three guards have to
+be deleted deliberately, not by accident.
+
+### First production run — and the diagnostic bug it exposed
+
+Run **32079768048** (merge of PR #1233) was the first deploy carrying this step.
+It went green, correctly, and the log is worth reading precisely:
+
+- wave 1: 167 `updating…` starts → **145** `Successful update operation`, **22**
+  `Failed to update function …`
+- 2 straggler-retry rounds → the 22 succeeded, **167/167** accounted for
+- final line: `✓ All 167 targeted function(s) accounted for by a completion
+  line (after 2 straggler-retry round(s))`
+
+**Completion accounting caught nothing here that the old parse would have
+missed.** All 22 announced themselves as failures; this was the ordinary
+CPU-quota straggler mode, and the pre-existing parse would have retried them
+identically. Mode 3 has not recurred since 32074172766.
+
+It did expose a bug in the new code, though. `missing = targeted − accounted`
+**also contains every function that reported a failure** — a failed function has
+no success line either — so the step announced all 22 as *"printed NO completion
+line (no success, no failure)"*, which was flatly untrue. Behavior was right
+(they were retried either way); the **diagnosis** was wrong. On a step whose
+entire purpose is telling failure modes apart, a warning that fires on the
+~5-10% that fail loudly on every deploy would have been trained out as noise
+within a week — and the one time it meant something, nobody would have looked.
+
+Fixed by subtracting the parsed failures as well, so `MISSING` means only the
+silent case: targeted, and no line of any kind. Two regression scenarios were
+added to the harness (a reported failure must not be labeled unaccounted-for;
+silent drops and reported failures in the same pass must be separated but both
+retried), bringing it to **37 assertions across 9 scenarios**.
+
+Lesson, and it rhymes with the rest of this note: the guard was verified against
+*reproduced* failure shapes, and the shape it got wrong was the **common** one —
+the ordinary straggler that shows up on almost every deploy and that no scenario
+had asserted the absence of a warning for.
 
 ## Open items found alongside
 

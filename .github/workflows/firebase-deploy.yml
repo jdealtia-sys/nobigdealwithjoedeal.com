@@ -664,6 +664,7 @@ jobs:
           WHOLESALE_FILE=$(mktemp)
           MISSING_FILE=$(mktemp)
           ACCOUNTED_FILE=$(mktemp)
+          PARSED_FILE=$(mktemp)
 
           # firebase-tools colorizes its output whenever CI is set in the
           # environment (colorette enables color on "CI" in env — TTY or not),
@@ -705,7 +706,7 @@ jobs:
           # behavior (or our --only shape) ever changes.
           _deploy_only() {
             [ -z "$1" ] && return 0
-            local out rc clean parsed targeted missing
+            local out rc clean parsed targeted silent
             out=$(npx firebase-tools deploy --only "$1" --project "$PRO_PROJECT" --non-interactive --force 2>&1)
             rc=$?
             echo "$out"
@@ -734,12 +735,25 @@ jobs:
               | grep -oE "functions\[[^]]+\] (Successful (create|update) operation|Skipped \(No changes detected\))" \
               | sed -E 's/^functions\[//; s/\].*$//; s/\([^)]*\)$//; s/^.*://' \
               | grep -v '^$' | sort -u > "$ACCOUNTED_FILE"
+            # A function that REPORTED a failure is an ordinary straggler — it is
+            # already in FAILED_FILE from the parse above. Subtract those too, so
+            # MISSING means only the silent case: targeted, no line of any kind.
+            # (Run 32079768048, the first deploy carrying this step, printed 22
+            # "Failed to update function" lines in wave 1 and this filter was not
+            # here yet — so all 22 were announced as "printed NO completion line",
+            # which was flatly untrue. Retry behavior was right; the diagnosis was
+            # not, and on a step whose whole purpose is telling failure modes
+            # apart, crying wolf on the ~5-10% that fail loudly every deploy would
+            # have made the new warning worthless within a week.)
+            printf '%s\n' "$parsed" | grep -v '^$' | sort -u > "$PARSED_FILE"
             # grep -F -x -v, not comm: comm compares bytes while sort honours
             # the locale's collation, and these names are mixed-case.
-            missing=$(printf '%s\n' "$targeted" | grep -F -x -v -f "$ACCOUNTED_FILE")
-            if [ -n "$missing" ]; then
-              printf '%s\n' "$missing" >> "$MISSING_FILE"
-              printf '%s\n' "$missing" >> "$FAILED_FILE"
+            silent=$(printf '%s\n' "$targeted" \
+              | grep -F -x -v -f "$ACCOUNTED_FILE" \
+              | grep -F -x -v -f "$PARSED_FILE")
+            if [ -n "$silent" ]; then
+              printf '%s\n' "$silent" >> "$MISSING_FILE"
+              printf '%s\n' "$silent" >> "$FAILED_FILE"
             fi
           }
           # _deploy_batched <newline-separated names> [size] [pause] — deploys in
