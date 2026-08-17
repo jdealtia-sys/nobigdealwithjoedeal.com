@@ -300,6 +300,36 @@
       ],
       "consentOnFile": true,
       "published": "2026-08-17"
+    },
+    {
+      "slug": "cincinnati-oh-gutter-screens-2026",
+      "title": "Seamless Gutters + Screens for Tree Cover",
+      "services": [
+        "gutter-replacement"
+      ],
+      "tag": "Gutter Screens",
+      "city": "Cincinnati, OH",
+      "priceLow": 2000,
+      "priceHigh": 2500,
+      "year": 2026,
+      "description": "New 5-inch seamless aluminum with fascia wood included — and screens sized run-by-run: the tree-covered runs got protection, the open runs did not get padded onto the bill.",
+      "hero": "/assets/images/projects/cincinnati-oh-gutter-screens-2026-1.jpg",
+      "photos": [
+        {
+          "src": "/assets/images/projects/cincinnati-oh-gutter-screens-2026-1.jpg",
+          "alt": "New seamless gutter with mesh screens running the full eave of a home surrounded by woods, seen from the roof"
+        },
+        {
+          "src": "/assets/images/projects/cincinnati-oh-gutter-screens-2026-2.jpg",
+          "alt": "Close-up along the new gutter screens installed tight to the shingle edge beneath overhanging tree branches"
+        },
+        {
+          "src": "/assets/images/projects/cincinnati-oh-gutter-screens-2026-3.jpg",
+          "alt": "Two-story brick and siding home mid-installation with ladders set and the old gutter removed above the garage"
+        }
+      ],
+      "consentOnFile": true,
+      "published": "2026-08-17"
     }
   ]
 }
