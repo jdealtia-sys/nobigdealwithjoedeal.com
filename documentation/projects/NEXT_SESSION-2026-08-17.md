@@ -5,6 +5,34 @@ Cold-start brief. Previous handoff: [NEXT_SESSION-2026-08-11](NEXT_SESSION-2026-
 coverage, admin AI-usage endpoint, advisory-CI flip — are all still open and
 unchanged; this handoff adds the marketing/AEO lane on top).
 
+## ⚡ Close-out update — 2026-08-17 evening (session archived)
+
+The backlinks/AEO session that wrote this handoff is **archived**; all its PRs
+are merged and live: #1205 (main wave), #1209 (GAF sameAs + account guide),
+#1214 (Bing baseline log), #1217 (www-redirect workflow), #1220 (301 fixed),
+#1224 (financing post published), #1226 (drafts status + Bing Places tick).
+Items 1–3 of the Jo list below are DONE except: TAMKO locator (rep email
+drafted, in the archived session's transcript and re-creatable from
+rush-week doc facts), Apple Business Connect, GSC Request Indexing on the 3
+new post URLs. Jo follow-ups (hail photos ×3, inspection screenshots ×3,
+new listing URLs → `sameAs`) go to a **fresh session pointed at this doc**.
+
+**FIRST PICKUP for the next session — create the weekly measurement Routine**
+(could not be created 2026-08-17: the claude-code-remote scheduler tools were
+down all evening). Spec: `create_trigger` with cron `0 13 * * 1` (Mon 13:00
+UTC), **`create_new_session_on_fire: true`** (must not depend on any one
+session), standalone prompt covering: (a) health probes — `feed.xml`,
+`sitemap.xml`, `https://www.nobigdealwithjoedeal.com/` must 301 to apex, and
+the three 2026-08-17 post URLs must 200; (b) Bing indexation probe via public
+search vs the baseline in
+[rush-week-2026-08 §Baseline](../marketing/rush-week-2026-08.md) (201
+discovered / 0 indexed) — bot-degraded results are "inconclusive", never "not
+indexed"; (c) one AI-answer spot check on a shingle-comparison query, noting
+any nobigdealwithjoedeal.com citation; (d) on change or failure only: append a
+dated delta to the rush-week doc's Measuring section via branch/PR/merge-on-
+green; (e) message Jo only on failures or wins (first indexed pages, first AI
+citation).
+
 ## State as of this handoff
 
 PR **#1205** (branch `claude/backlinks-internet-presence-02qlij`) carries the whole
