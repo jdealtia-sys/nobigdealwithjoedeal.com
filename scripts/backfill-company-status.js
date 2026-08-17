@@ -10,7 +10,7 @@
  * so /sites/t/<id> answered 200 for any company doc that existed at all. As of
  * 2026-08-17 it fails CLOSED: only `status:'active'` is published
  * (functions/handlers/public-site.js → isPublishedCompany). Docs written by
- * scripts/provision-tenant.js and functions/seed-companies.js never set a
+ * scripts/provision-tenant.js and the deleted seed-companies.js never set a
  * status, so without this backfill those tenants go dark the moment the gate
  * deploys.
  *
@@ -21,7 +21,7 @@
  *   4. deploy functions
  *
  * ⚠ THIS WRITES TO PROD FIRESTORE. Jo runs this (Claude does not write prod).
- *   Auth: GOOGLE_APPLICATION_CREDENTIALS env var (same as seed-companies.js).
+ *   Auth: GOOGLE_APPLICATION_CREDENTIALS env var (same as seed-demo.js).
  *
  * ── Scope ──────────────────────────────────────────────────────────────────
  * ONLY touches docs with no `status` field at all. A doc that already carries
