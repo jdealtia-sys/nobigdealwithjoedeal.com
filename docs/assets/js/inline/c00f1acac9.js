@@ -8,6 +8,22 @@
 // ──────────────────────────────────────────────────────────────────
 const POSTS = [
   {
+    url: "/blog/gaf-timberline-hdz-vs-tamko-stormfighter-flex",
+    tag: "Reader Questions",
+    title: "GAF Timberline HDZ vs. TAMKO StormFighter Flex: A Reader Asked",
+    meta: "By Joe Deal · August 2026 · 7 min read",
+    excerpt: "A homeowner outside hail country asked which to pick for looks and longevity. If hail isn't your problem, don't pay for the hail solution — the honest breakdown from a roofer certified on both brands.",
+    published: "2026-08-17",
+  },
+  {
+    url: "/blog/owens-corning-duration-vs-tamko-hailguard",
+    tag: "Reader Questions",
+    title: "OC Duration vs. TAMKO HailGuard — and the $9,000 Question",
+    meta: "By Joe Deal · August 2026 · 8 min read",
+    excerpt: "A Colorado Springs homeowner was quoted $9,000 more for HailGuard over Duration and asked if that's reasonable. The itemization test, the insurance math, and when a Class 4 upsell is fair vs. padding.",
+    published: "2026-08-17",
+  },
+  {
     url: "/blog/how-to-choose-a-roofer-after-a-storm",
     tag: "Roofing",
     title: "How to Choose a Roofer After a Storm (Before the Trucks Show Up)",
@@ -131,17 +147,17 @@ const POSTS = [
     url: "/blog/what-to-expect-roof-insurance-adjuster-visit",
     tag: "Insurance",
     title: "What to Expect From a Roof Insurance Adjuster Visit",
-    meta: "By Joe Deal · January 2026 · 7 min read",
+    meta: "By Joe Deal · October 2025 · 7 min read",
     excerpt: "Your adjuster is coming to inspect your roof — here is exactly what happens, what they look for, what you should have ready, and how to make sure nothing gets missed. Field-tested advice from a Cincinnati insurance restoration contractor.",
-    published: "2026-01-14",
+    published: "2025-10-13",
   },
   {
     url: "/blog/does-homeowner-insurance-cover-hail-damage-ohio",
     tag: "Insurance",
     title: "Does Homeowner Insurance Cover Hail Damage in Ohio?",
-    meta: "By Joe Deal · January 2026 · 7 min read",
+    meta: "By Joe Deal · July 2025 · 7 min read",
     excerpt: "Yes — but the details matter. ACV vs RCV policies, why claims get underpaid, how long you have to file, and what actually happens when you call your insurance company. Straight talk from a Cincinnati roofer.",
-    published: "2026-01-06",
+    published: "2025-07-21",
   },
   {
     url: "/blog/gaf-vs-owens-corning-vs-atlas-shingles",
@@ -155,9 +171,9 @@ const POSTS = [
     url: "/blog/how-much-does-roof-cost-cincinnati-2026",
     tag: "Pricing Guide",
     title: "How Much Does a New Roof Cost in Cincinnati in 2026?",
-    meta: "By Joe Deal · Updated July 2026 · 7 min read",
+    meta: "By Joe Deal · May 2025 · 7 min read",
     excerpt: "Realistic roof replacement pricing for Cincinnati homes in 2026. Cost per square, material tiers, labor rates, insurance vs. out-of-pocket, and what actually drives the final number. No fluff — just straight numbers from a local roofer.",
-    published: "2025-12-23",
+    published: "2025-05-19",
   },
   {
     url: "/blog/how-long-does-roof-replacement-take-cincinnati",
@@ -179,9 +195,9 @@ const POSTS = [
     url: "/blog/signs-your-roof-needs-replacement-vs-repair",
     tag: "Roofing",
     title: "Signs Your Roof Needs Replacement vs. Repair",
-    meta: "By Joe Deal · December 2025 · 6 min read",
+    meta: "By Joe Deal · March 2025 · 6 min read",
     excerpt: "The honest guide from a Cincinnati roofer: when to repair, when to replace, and what actually matters. Joe Deal explains what he looks for on every inspection.",
-    published: "2025-12-01",
+    published: "2025-03-24",
   }
 ];
 
