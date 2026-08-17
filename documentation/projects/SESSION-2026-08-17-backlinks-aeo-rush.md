@@ -73,3 +73,29 @@ post without an existing on-site source — **Jo verifies before merge**:
 ## Not done / carried forward
 
 See [NEXT_SESSION-2026-08-17](NEXT_SESSION-2026-08-17.md).
+
+## Post-merge verification sweep — 2026-08-17 (later session)
+
+All checks run against LIVE prod after #1205 + the same-day fix PRs (#1216/#1222)
+deployed:
+
+- **`/feed.xml`**: HTTP 200, `Content-Type: application/xml`, valid RSS 2.0
+  opening with correct `atom:link rel=self`, `lastBuildDate` current. W3C
+  validator UI couldn't be driven from the headless pane (bot-challenge
+  interstitial) — feed verified structurally instead (parses as XML, correct
+  channel/self-link shape). Re-run the W3C UI from a normal browser if wanted.
+- **Structured data** (fetched live, every `ld+json` block parsed, zero errors):
+  - `/blog/gaf-timberline-hdz-vs-tamko-stormfighter-flex` — BlogPosting +
+    BreadcrumbList + FAQPage (4 Qs)
+  - `/blog/owens-corning-duration-vs-tamko-hailguard` — BlogPosting +
+    BreadcrumbList + FAQPage (4 Qs)
+  - `/services/gaf-timberline` — Service + BreadcrumbList + FAQPage (4 Qs)
+  - `/services/tamko-storm-series` — Service + BreadcrumbList + FAQPage (4 Qs)
+  - `/blog/why-class-4-impact-shingles` (retrofit spot-check) — BlogPosting +
+    BreadcrumbList + FAQPage (4 Qs)
+  - Google Rich Results Test UI not driven headless; structural validation
+    above is the substantive check.
+- **`/areas` og:url**: now `https://nobigdealwithjoedeal.com/areas` — canonical,
+  extensionless, no 301 hop. Fix confirmed live.
+- **AirOps**: still blocked — `list_brand_kits` returns 0 workspaces as of
+  2026-08-17; waiting on Jo's one-time workspace creation (handoff Jo-item #5).
