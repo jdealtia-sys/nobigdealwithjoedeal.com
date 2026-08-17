@@ -272,9 +272,9 @@
         "roof-replacement"
       ],
       "tag": "Designer Shingles",
-      "city": "Greater Cincinnati, OH",
+      "city": "Cincinnati, OH",
       "year": 2026,
-      "description": "Full tear-off on a brick Tudor duplex: designer-blend shingles over fresh underlayment, the original built-in box gutters relined, and new chimney flashing cut in. Old-bones buildings deserve to be done right.",
+      "description": "Three layers of old shingles came off this brick Tudor duplex before the designer-blend went on — plus the built-in box gutters restored, the low-slope section coated, and new chimney flashing cut in. Old-bones buildings deserve to be done right.",
       "hero": "/assets/images/projects/brick-duplex-designer-reroof-2026-3.jpg",
       "photos": [
         {
@@ -299,7 +299,9 @@
         }
       ],
       "consentOnFile": true,
-      "published": "2026-08-17"
+      "published": "2026-08-17",
+      "priceLow": 22000,
+      "priceHigh": 23000
     },
     {
       "slug": "cincinnati-oh-gutter-screens-2026",
