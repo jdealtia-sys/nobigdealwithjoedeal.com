@@ -6,6 +6,26 @@ bottom; Tier 1 alone is worth more than anything an agency link package delivers
 
 ---
 
+## 2026-08-17 update (backlinks/AEO session — PR #1205)
+
+- **Execution now lives in [rush-week-2026-08.md](rush-week-2026-08.md)** — a
+  sequenced Day 1–2 / Day 3–4 / Week 2 sprint over this playbook's items, with a
+  measurable baseline. Work from that doc; this one stays the strategy reference.
+- **Stale: the TAMKO Tier 1 item below.** Two days after this playbook was written,
+  Jo was certified **TAMKO Pro Gold™ (ID 181382, 2026-07-08)** — no rep needed; the
+  locator is `tamko.com/locate-a-contractor`. Still unclaimed as of 2026-08-17.
+- **Yelp note:** the profile page already exists
+  (`yelp.com/biz/no-big-deal-home-solutions-cincinnati`) and is now in the site's
+  schema `sameAs`; it still needs claiming at biz.yelp.com.
+- **New fast levers shipped on-site** (not in the July plan): RSS feed at
+  `/feed.xml`, an IndexNow key, FAQPage schema across the shingle money cluster, and
+  two "Reader Questions" posts answering real national inbound leads. Bing Webmaster
+  Tools + IndexNow are now the top of the speed list — Bing's index feeds ChatGPT
+  search, which is where the national leads are coming from.
+- Everything else below still stands, including the SKIP list.
+
+---
+
 ## Rule 0 — one identity, everywhere (NAP consistency)
 
 Every listing below must use EXACTLY this, character for character:

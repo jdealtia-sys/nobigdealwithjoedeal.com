@@ -31,9 +31,12 @@
       QR link same-day (CRM texting panel). Steady 2–4/month beats bursts.
 - [ ] **Reply to every new review within 48h** — including old ones and bad
       ones; response rate is a ranking input and sales copy.
-- [ ] **One citation claim** (until the list is done): work down
-      [citation-kit](../marketing/citation-kit-2026-07.md) Tier 1 → 2 → 3 with
-      the exact NAP block. Tier 1 first: GAF locator, TAMKO, James Hardie.
+- [ ] **One citation claim** (until the list is done): follow the sequenced
+      sprint in [rush-week-2026-08](../marketing/rush-week-2026-08.md) with the
+      exact NAP block from [citation-kit](../marketing/citation-kit-2026-07.md).
+      Day 1–2 first: GAF locator, TAMKO Pro Gold locator, James Hardie, Bing
+      Places + Bing Webmaster Tools, Apple. Then append each live profile URL
+      to the site's `sameAs` (procedure in the rush-week doc).
 - [ ] **Search Console glance**: impressions/clicks on "roof repair covington",
       "roofing companies mason oh", the shingle-comparison cluster.
 

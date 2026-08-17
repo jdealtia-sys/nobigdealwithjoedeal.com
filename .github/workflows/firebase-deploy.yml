@@ -169,6 +169,15 @@ jobs:
           node scripts/build-sitemap.js --write \
             || echo "::warning::sitemap regeneration failed — deploying the committed sitemap as-is"
 
+      # Same soft-fail shape for the RSS feed. Reads the same POSTS array as
+      # the blog index above, so this is what flips a future-dated post into
+      # the feed on its first post-date deploy.
+      - name: Regenerate RSS feed
+        if: ${{ github.event_name == 'push' || github.event.inputs.scope == 'all' || github.event.inputs.scope == 'hosting' }}
+        run: |
+          node scripts/build-feed.mjs --write \
+            || echo "::warning::feed regeneration failed — deploying the committed feed as-is"
+
       - name: Install Cloud Functions dependencies
         working-directory: functions
         run: |
