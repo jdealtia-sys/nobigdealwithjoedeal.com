@@ -573,6 +573,24 @@ jobs:
           NBD_DEPLOY_RETRY_PAUSE: "45"   # let wave-1 revisions settle + old ones tear down (frees CPU)
           NBD_DEPLOY_BATCH_SIZE: "20"    # cap concurrent new revisions per retry chunk
           NBD_DEPLOY_BATCH_PAUSE: "20"
+          # Wave-1 burst cap (0 = single bulk pass, the fast default).
+          #
+          # There is NO firebase-tools knob for this — checked against the v15
+          # source: `src/deploy/functions/release/index.ts` hardcodes the
+          # deploy queue at `concurrency: 40` with no env override and no CLI
+          # flag (`firebase deploy` takes only --public/--message/--only/
+          # --except/--dry-run/--force). The only lever we control is how many
+          # functions a single invocation is asked to mutate, so the "cap" has
+          # to be our own chunking of the --only list — which is also exactly
+          # what firebase-tools' own 429 handler recommends ("please deploy
+          # your functions in batches by using the --only flag").
+          #
+          # Left at 0 because chunking costs a full re-package + re-discovery
+          # per chunk (~1 min each) on EVERY deploy, and the straggler retries
+          # below already drop to batches of 20 automatically when a burst goes
+          # wrong. Set to ~60 if the 429 mutation-rate mode recurs often enough
+          # that paying that cost up front beats the retry rounds.
+          NBD_DEPLOY_WAVE1_MAX: "0"
         run: |
           # WHY THIS STEP RETRIES (root cause, diagnosed 2026-07-23):
           # We deploy ~160 Gen2 functions. A single bulk `firebase deploy` rolls
@@ -623,42 +641,97 @@ jobs:
 
           FAILED_FILE=$(mktemp)
           WHOLESALE_FILE=$(mktemp)
+          MISSING_FILE=$(mktemp)
+          ACCOUNTED_FILE=$(mktemp)
+
+          # firebase-tools colorizes its output whenever CI is set in the
+          # environment (colorette enables color on "CI" in env — TTY or not),
+          # so every line parsed below arrives wrapped in ANSI escapes. Strip
+          # them first: an unstripped parse matches nothing, which would make
+          # every function look unaccounted-for and trigger a retry storm.
+          ESC=$(printf '\033')
+          _strip_ansi() { sed -E "s/${ESC}\[[0-9;]*[a-zA-Z]//g"; }
+
           # _deploy_only <comma-separated functions:NAME list> — runs the deploy,
-          # echoes firebase output to the log, and appends any failed function
-          # names to FAILED_FILE. firebase prints "Failed to (create|update)
-          # function NAME in region ..." per failure; that's what we parse.
+          # echoes firebase output to the log, and appends any function that did
+          # not demonstrably deploy to FAILED_FILE. Three independent signals,
+          # because this pipeline has now produced three distinct false-greens:
           #
-          # WHOLESALE-FAILURE GUARD (2026-08-10 audit): the per-function parse
-          # is the ONLY failure signal the step used to have, so a deploy that
-          # died BEFORE per-function rollout (auth error, config parse, quota
-          # abort — exit != 0 with zero "Failed to ..." lines) produced an
-          # empty FAILED set and the step printed "✓ All functions deployed"
-          # while deploying nothing. Capture the exit code; nonzero with no
-          # parsed per-function failures = wholesale failure, recorded and
-          # fatal at the end.
+          #  1. PER-FUNCTION PARSE. firebase prints "Failed to (create|update)
+          #     function NAME in region ..." per failure.
+          #  2. WHOLESALE-FAILURE GUARD (2026-08-10 audit): a deploy that died
+          #     BEFORE per-function rollout (auth error, config parse, quota
+          #     abort — exit != 0 with zero "Failed to ..." lines) produced an
+          #     empty FAILED set and the step printed "✓ All functions deployed"
+          #     while deploying nothing. Nonzero exit with no parsed per-function
+          #     failures = wholesale failure, recorded and fatal at the end.
+          #  3. COMPLETION ACCOUNTING (run 32074172766, 2026-08-17): an env-var
+          #     change made all 167 functions need updates at once, the burst
+          #     tripped "Per project mutation requests per minute" (HTTP 429),
+          #     and ~17 functions (healthDigestCron among them) got an
+          #     "updating..." line but NO completion line — no success, no
+          #     "Failed to ...", exit 0. Both guards above passed and the job
+          #     went green with stale code live. So: reconcile the set we ASKED
+          #     to deploy against the set that actually reported a terminal
+          #     result, and treat the difference as stragglers.
+          #
+          # Why the reconciliation is exact rather than heuristic: firebase-tools
+          # skips unchanged functions (planner.ts `toSkipPredicate`) ONLY when
+          # `!targetedByOnly` — and we name every function explicitly via
+          # `--only functions:NAME`, so nothing is ever skip-eligible here and
+          # every target owes us a create/update line. The Skipped line is
+          # accepted as terminal anyway, so this stays correct if that filtering
+          # behavior (or our --only shape) ever changes.
           _deploy_only() {
             [ -z "$1" ] && return 0
-            local out rc parsed
+            local out rc clean parsed targeted missing
             out=$(npx firebase-tools deploy --only "$1" --project "$PRO_PROJECT" --non-interactive --force 2>&1)
             rc=$?
             echo "$out"
-            parsed=$(echo "$out" | grep -oE "Failed to (create|update) function [A-Za-z_][A-Za-z0-9_]*" \
+            clean=$(printf '%s\n' "$out" | _strip_ansi)
+            parsed=$(printf '%s\n' "$clean" | grep -oE "Failed to (create|update) function [A-Za-z_][A-Za-z0-9_]*" \
                                  | sed -E 's/.*function //')
-            [ -n "$parsed" ] && echo "$parsed" >> "$FAILED_FILE"
+            [ -n "$parsed" ] && printf '%s\n' "$parsed" >> "$FAILED_FILE"
             if [ "$rc" -ne 0 ] && [ -z "$parsed" ]; then
               echo "wholesale deploy failure: exit $rc with no per-function failure lines (targets: $1)" >> "$WHOLESALE_FILE"
+              # Deliberately no completion accounting on this path: nothing
+              # rolled out, so every target would land in MISSING and we'd burn
+              # the retry rounds re-running a deploy that died on auth/config.
+              # Wholesale is fatal on its own below.
+              return 0
+            fi
+            # ── completion accounting (mode 3) ──
+            # A target is accounted for by a terminal per-function line:
+            #   functions[NAME(region)] Successful (create|update) operation.
+            #   functions[NAME(region)] Skipped (No changes detected)
+            # The label may carry a "codebase:" prefix; the seds below drop the
+            # region suffix and any prefix. Explicitly NOT accepted: "Successful
+            # delete operation" (orphan cleanup, never a target) — so a delete
+            # can't paper over a missing update.
+            targeted=$(printf '%s' "$1" | tr ',' '\n' | sed -E 's/^functions://' | grep -v '^$' | sort -u)
+            printf '%s\n' "$clean" \
+              | grep -oE "functions\[[^]]+\] (Successful (create|update) operation|Skipped \(No changes detected\))" \
+              | sed -E 's/^functions\[//; s/\].*$//; s/\([^)]*\)$//; s/^.*://' \
+              | grep -v '^$' | sort -u > "$ACCOUNTED_FILE"
+            # grep -F -x -v, not comm: comm compares bytes while sort honours
+            # the locale's collation, and these names are mixed-case.
+            missing=$(printf '%s\n' "$targeted" | grep -F -x -v -f "$ACCOUNTED_FILE")
+            if [ -n "$missing" ]; then
+              printf '%s\n' "$missing" >> "$MISSING_FILE"
+              printf '%s\n' "$missing" >> "$FAILED_FILE"
             fi
           }
-          # _deploy_batched <newline-separated names> — deploys in chunks of
-          # NBD_DEPLOY_BATCH_SIZE so a large straggler set never re-creates the
-          # all-at-once CPU spike.
+          # _deploy_batched <newline-separated names> [size] [pause] — deploys in
+          # chunks (default NBD_DEPLOY_BATCH_SIZE) so a large straggler set never
+          # re-creates the all-at-once CPU spike / mutation-rate burst.
           _deploy_batched() {
+            local names="$1" size="${2:-$NBD_DEPLOY_BATCH_SIZE}" pause="${3:-$NBD_DEPLOY_BATCH_PAUSE}"
             local batch="" n=0 fn only
-            for fn in $1; do
+            for fn in $names; do
               batch="$batch $fn"; n=$((n+1))
-              if [ "$n" -ge "$NBD_DEPLOY_BATCH_SIZE" ]; then
+              if [ "$n" -ge "$size" ]; then
                 only=$(echo $batch | tr ' ' '\n' | grep -v '^$' | sed 's/^/functions:/' | paste -sd, -)
-                _deploy_only "$only"; batch=""; n=0; sleep "$NBD_DEPLOY_BATCH_PAUSE"
+                _deploy_only "$only"; batch=""; n=0; sleep "$pause"
               fi
             done
             if [ -n "$(echo $batch | tr -d ' ')" ]; then
@@ -667,10 +740,26 @@ jobs:
             fi
           }
 
-          # ── wave 1: the fast single bulk deploy (unchanged behavior) ──
-          echo "Deploying $(echo "$INCLUDE" | awk -F',' '{print NF}') function(s) in one pass"
-          _deploy_only "$INCLUDE"
+          # ── wave 1: the fast single bulk deploy (chunked only if capped) ──
+          COUNT=$(echo "$INCLUDE" | awk -F',' '{print NF}')
+          if [ "${NBD_DEPLOY_WAVE1_MAX:-0}" -gt 0 ] && [ "$COUNT" -gt "$NBD_DEPLOY_WAVE1_MAX" ]; then
+            echo "Deploying $COUNT function(s) in chunks of $NBD_DEPLOY_WAVE1_MAX (mutation-burst cap)"
+            _deploy_batched "$(echo "$INCLUDE" | tr ',' '\n' | sed -E 's/^functions://')" \
+              "$NBD_DEPLOY_WAVE1_MAX" "$NBD_DEPLOY_BATCH_PAUSE"
+          else
+            echo "Deploying $COUNT function(s) in one pass"
+            _deploy_only "$INCLUDE"
+          fi
           FAILED=$(sort -u "$FAILED_FILE")
+
+          # Surface the new mode distinctly BEFORE the retries: a function that
+          # silently lost its update is a different (and until now invisible)
+          # failure from one that reported an error.
+          MISSING_WAVE1=$(sort -u "$MISSING_FILE")
+          if [ -n "$MISSING_WAVE1" ]; then
+            echo "::warning::$(echo "$MISSING_WAVE1" | grep -c .) function(s) were targeted but printed NO completion line (no success, no failure) — the quota-dropped-update mode from run 32074172766. Retrying them as stragglers."
+            echo "$MISSING_WAVE1" | sed 's/^/    unaccounted-for: /'
+          fi
 
           # ── retry rounds: only the stragglers, batched + paused ──
           round=0
@@ -680,9 +769,11 @@ jobs:
             echo "$FAILED" | sed 's/^/    straggler: /'
             sleep "$NBD_DEPLOY_RETRY_PAUSE"
             : > "$FAILED_FILE"
+            : > "$MISSING_FILE"
             _deploy_batched "$FAILED"
             FAILED=$(sort -u "$FAILED_FILE")
           done
+          MISSING=$(sort -u "$MISSING_FILE")
 
           if [ -s "$WHOLESALE_FILE" ] && [ -z "$FAILED" ]; then
             echo "::error::Cloud Functions deploy failed WHOLESALE (nonzero exit before per-function rollout) — nothing or almost nothing was deployed"
@@ -707,6 +798,26 @@ jobs:
               echo ""
               echo "$FAILED" | sed 's/^/  - /'
               echo ""
+              if [ -n "$MISSING" ]; then
+                echo "Of those, these printed NO completion line at all in the final"
+                echo "round — no success, no error. That is the **quota-dropped update**"
+                echo "mode (run 32074172766, 2026-08-17): a mutation-rate 429"
+                echo "(\`Per project mutation requests per minute\`) during a large burst"
+                echo "loses the update while firebase-tools still exits 0. Before this"
+                echo "guard existed the job went GREEN with stale code live."
+                echo ""
+                echo "$MISSING" | sed 's/^/  - /'
+                echo ""
+                echo "Deploy them by hand to confirm, e.g.:"
+                echo ""
+                echo '```'
+                echo "npx firebase-tools deploy --only $(echo "$MISSING" | sed 's/^/functions:/' | paste -sd, -) --project $PRO_PROJECT --force"
+                echo '```'
+                echo ""
+                echo "If this recurs, set \`NBD_DEPLOY_WAVE1_MAX: \"60\"\` in this"
+                echo "workflow to chunk wave 1 and flatten the mutation burst."
+                echo ""
+              fi
               echo "If the per-function error is \`Container Healthcheck failed. Quota"
               echo "exceeded for total allowable CPU per project per region\`, the batched"
               echo "retry wasn't enough headroom — the durable fix is a **Cloud Run CPU"
@@ -716,7 +827,9 @@ jobs:
             } >> "$GITHUB_STEP_SUMMARY"
             exit 1
           fi
-          echo "✓ All functions deployed$( [ "$round" -gt 0 ] && echo " (after $round straggler-retry round(s))" )."
+          # Deliberately reports what was VERIFIED, not what was attempted: every
+          # targeted function was reconciled against a terminal per-function line.
+          echo "✓ All $COUNT targeted function(s) accounted for by a completion line$( [ "$round" -gt 0 ] && echo " (after $round straggler-retry round(s))" )."
 
       # Second pass: retry the skip-list with tolerance. If IAM has
       # since been granted, these succeed. If not, the warning is
