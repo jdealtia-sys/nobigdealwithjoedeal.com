@@ -46,8 +46,9 @@ resolveTenant(uid|companyId) → {
 - **Server:** a `functions/lib/tenant.js` that loads `companies/{companyId}` + `companyProfile/{companyId}` once per request and hands the merged context to handlers (renderPdf, lead-alert, stripe, etc.).
 - **Client:** generalize the planned `_brand()` into `window._tenant()` reading the same docs.
 - **Source of truth:** `companyProfile/{companyId}` (already per-tenant + already loaded). Fold the
-  authoritative bits of `companies/{companyId}` into it or reference it; **retire the stale
-  `seed-companies.js` colors/phone**. Decide one source — don't keep two.
+  authoritative bits of `companies/{companyId}` into it or reference it. Decide one source —
+  don't keep two. (**Done:** the stale `seed-companies.js` colors/phone were retired along with
+  the script itself.)
 
 > Once this exists, every pillar is "make surface X read from `TenantContext` instead of a hardcoded NBD literal."
 

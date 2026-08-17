@@ -7,7 +7,7 @@
  * the NBD defaults client-side, so only the fields set here change for Oaks.
  *
  * ⚠ THIS WRITES TO PROD FIRESTORE. Jo runs this (Claude does not write prod).
- *   Auth: GOOGLE_APPLICATION_CREDENTIALS env var (same as seed-companies.js).
+ *   Auth: GOOGLE_APPLICATION_CREDENTIALS env var (same as functions/seed-demo.js).
  *   Run:  node scripts/backfill-oaks-brand.js
  *
  * Tenant key note: `companyProfile/{companyId}`. Oaks users carry companyId

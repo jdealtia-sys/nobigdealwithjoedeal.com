@@ -363,14 +363,12 @@
       "ignore": [
         "node_modules",
         ".git",
-        "seed-companies.js",
         "seed-demo.js",
         "find-secrets.js",
         "migrate-companyprofile-per-tenant.js",
         "migrate-companyid-backfill.js",
         "migrate-docprefixes.js",
-        "verify-functions-company-enhancement.js",
-        "SEED_COMPANIES_README.md"
+        "verify-functions-company-enhancement.js"
       ]
     }
   ],

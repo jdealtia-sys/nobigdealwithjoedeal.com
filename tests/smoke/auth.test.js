@@ -400,7 +400,7 @@ section('Q6: deploy bundle excludes seed / find-secrets helpers');
   // hygiene. (verify-functions.js was mistakenly included in this
   // list in commit 0ed6274, which broke the whole deploy batch;
   // it IS require()'d by index.js:1901 and must remain in source.)
-  for (const name of ['seed-companies.js', 'seed-demo.js', 'find-secrets.js',
+  for (const name of ['seed-demo.js', 'find-secrets.js',
                       'verify-functions-company-enhancement.js']) {
     assert('Q6: functions.ignore contains ' + name, ignore.includes(name));
   }

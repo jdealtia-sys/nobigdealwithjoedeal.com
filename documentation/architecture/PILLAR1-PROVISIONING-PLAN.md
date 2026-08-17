@@ -11,7 +11,7 @@
 > self-serve and hardens what's already shaky.
 
 ## Current state (grounded)
-- **Tenant registry:** `companies/{companyId}` (`functions/seed-companies.js`) — hand-seeded today (NBD, Oaks). Stale colors/phone (the brand sweep retired them as source of truth).
+- **Tenant registry:** `companies/{companyId}` — hand-seeded when this plan was written (NBD, Oaks) by a `functions/seed-companies.js` script, **since deleted**; provisioning is now self-serve via `createCompany` (Phase 2 below). Its colors/phone were stale (the brand sweep retired them as source of truth).
 - **Per-tenant config:** `companyProfile/{companyId}` — now the brand source of truth (Pillar 2). Per-tenant, rules-scoped.
 - **Identity:** `companyId` custom claim; solo-op convention `companyId == uid`. Read ad-hoc (the `_tenant()` resolver from Pillar A is the start of a single read path).
 - **Invited-rep signup:** `onRepSignup` (beforeUserCreated **blocking** trigger, `functions/handlers/auth.js`) — **can't deploy until GCIP upgrade** (in `NBD_DEPLOY_SKIP_LIST`). `activateInvitedRep` finalizes invites.
@@ -25,7 +25,7 @@
 
 ### Phase 1 — Foundation (unblock)
 - Clear Phase-0 blockers (IAM grant; pick GCIP path).
-- Generalize the `_tenant()` resolver into the single server+client tenant-context read path (started in Pillar A). Retire the stale `seed-companies.js` as a source of truth.
+- Generalize the `_tenant()` resolver into the single server+client tenant-context read path (started in Pillar A). Retire the stale `seed-companies.js` as a source of truth — ✅ DONE: script deleted outright once `createCompany` superseded it.
 
 ### Phase 2 — Self-serve company creation (the core) — ✅ SHIPPED 2026-07-03
 > `functions/handlers/provisioning.js` createCompany. Deviations from the sketch
