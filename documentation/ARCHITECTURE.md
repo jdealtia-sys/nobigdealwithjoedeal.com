@@ -179,7 +179,7 @@ COMPONENT ARCHITECTURE
   │  │  • warranty: '...'          │  │                              │   │
   │  │  • subscription: {...}      │  │                              │   │
   │  │  • createdAt: Timestamp     │  │                              │   │
-  │  │  • siteUrl: '/sites/...'    │  │                              │   │
+  │  │  • siteSlug: 'acme'         │  │                              │   │
   │  └─────────────────────────────┘  └──────────────────────────────┘   │
   │                                                                          │
   │  ┌─────────────────────────────┐  ┌──────────────────────────────┐   │
@@ -199,27 +199,6 @@ COMPONENT ARCHITECTURE
   │  firestore.rules (live — see SECURITY & ISOLATION below). Companies    │
   │  are created self-serve via the createCompany callable; a company's    │
   │  siteSlug field drives its tenant microsite at /sites/t/<slug>.        │
-  │                                                                          │
-  └──────────────────────────────────────────────────────────────────────────┘
-
-  ┌─────────────────────────────────────────────────────────────────────────┐
-  │                    DATABASE SEEDING SCRIPT                              │
-  │           (functions/seed-companies.js - 123 lines)                     │
-  │─────────────────────────────────────────────────────────────────────────│
-  │                                                                          │
-  │  Setup: set GOOGLE_APPLICATION_CREDENTIALS=path/to/key.json            │
-  │  Run:   node seed-companies.js                                          │
-  │                                                                          │
-  │  Creates:                                                               │
-  │  • companies/nbd → No Big Deal Home Solutions                           │
-  │  • companies/oaks → Oaks Roofing & Construction                        │
-  │                                                                          │
-  │  Status: Executable, ready to run                                       │
-  │                                                                          │
-  │  [2026-07-04] Dev/bootstrap tool only. Production companies are        │
-  │  provisioned self-serve via the createCompany callable                 │
-  │  (functions/handlers/provisioning.js); team members join via           │
-  │  createTeamInvite / claimInvite (functions/handlers/invites.js).       │
   │                                                                          │
   └──────────────────────────────────────────────────────────────────────────┘
 

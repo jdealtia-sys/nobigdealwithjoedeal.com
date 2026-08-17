@@ -20,7 +20,7 @@
  *     30/min) — bounded compute, acceptable for a demo.
  *
  * ⚠ THIS WRITES TO PROD FIRESTORE. Jo runs this (Claude does not write prod).
- *   Auth: GOOGLE_APPLICATION_CREDENTIALS env var (same as seed-companies.js).
+ *   Auth: GOOGLE_APPLICATION_CREDENTIALS env var (same as functions/seed-demo.js).
  *   Run:  node scripts/seed-demo-access.js
  *
  * This is ALSO the agent-access path: the demo button is click-only (no

@@ -22,7 +22,7 @@
 ## Current state (grounded)
 - **Per-USER, not per-company:** subscriptions live at `subscriptions/{uid}` (firestore.rules:371-374). The Stripe webhook (`functions/.../stripe`) writes by `client_reference_id = uid`; `customer.subscription.updated` finds the uid by `stripeCustomerId`.
 - **Feature gating:** `docs/pro/js/billing-gate.js` `loadSubscription()` reads `subscriptions/{uid}` and checks the plan vs per-tier limits (free 10 leads/mo, starter 50, growth 500, enterprise ∞). There's a **hardcoded owner-email bypass**. Usage via a `trackUsage` callable → `subscriptions/{uid}.usage`.
-- **`companies/{companyId}.subscription`** exists (`seed-companies.js`) but is **denormalized metadata, not the source of truth.**
+- **`companies/{companyId}.subscription`** was written only by the since-deleted `seed-companies.js` and is **denormalized metadata, not the source of truth** — no code writes or reads it now (seat/plan resolution uses `subscriptions/{companyId}`, falling back to top-level `companies/{companyId}.plan`). Legacy seeded docs may still carry the field.
 - **Net:** team members all inherit the owner's plan only by accident (each user has their own `subscriptions/{uid}`); there's no seat model and no company-level billing.
 
 ## Target

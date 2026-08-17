@@ -27,8 +27,8 @@ companyProfile/oaks = {
   createdAt: <serverTimestamp>
 }
 ```
-(`functions/seed-companies.js` is the pattern for batch-seeding companies with
-an admin SDK credential.)
+(`functions/seed-demo.js` is the pattern for batch-seeding with an admin SDK
+credential.)
 
 ## 2. Create the owner user + set claims
 The owner must end up with claims `{ role: 'company_admin', companyId: 'oaks' }`.

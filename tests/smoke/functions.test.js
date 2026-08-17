@@ -164,7 +164,7 @@ section('firebase-admin v14: legacy namespace is dead');
   // Files allowed to keep `const admin = require('firebase-admin')` —
   // they only call admin.initializeApp(), which v14 still exports.
   const REQUIRE_ALLOWLIST = new Set([
-    'index.js', 'seed-demo.js', 'seed-companies.js', 'rate-limit-policy.js',
+    'index.js', 'seed-demo.js', 'rate-limit-policy.js',
     'migrations/runner.js', 'migrate-companyprofile-per-tenant.js',
     'migrate-companyid-backfill.js', 'migrate-docprefixes.js',
   ]);
