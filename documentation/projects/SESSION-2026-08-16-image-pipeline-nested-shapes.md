@@ -1,5 +1,15 @@
 # Session 2026-08-16 — image pipeline: accept nested upload shapes
 
+> **Update 2026-08-17 — SHIPPED AND VERIFIED IN PROD.** Merged as #1206
+> (`75c3740d`). Getting it to prod surfaced a second drift bug: the
+> auto-deploy workflow's function-discovery list lacked
+> `onObjectFinalized`, so the first (green!) deploy never touched
+> `onPhotoUploaded`. Fixed in #1210; deploy then verified at the revision
+> level, and a live dashboard-shape upload probe confirmed the trigger
+> stamps nested docs in ~5s with variants at the `{sourceDir}/_variants/`
+> layout. Full account:
+> [SESSION-2026-08-17-deploy-list-drift-and-verification](SESSION-2026-08-17-deploy-list-drift-and-verification.md).
+
 **Branch:** `claude/gallant-joliot-14e790` (worktree). **Trigger:** live recon
 (2026-08-16) showed only customer-page uploads got `variantsGeneratedAt` +
 `urls` stamped; dashboard/photo-engine/photo-editor/d2d uploads never got

@@ -1,5 +1,14 @@
 # Session 2026-08-16 — §2.2 backfill: photos storagePath + WebP variants
 
+> **Update 2026-08-17 — APPLY RAN; CONVERGENCE VERIFIED.** The apply was
+> executed on Jo's machine after this note was written. A read-only
+> dry-run re-run (2026-08-17) confirms: 111 docs scanned, 71 fully
+> stamped, **0 need storagePath, 0 need variants** — the whole 70-object
+> backlog converged. Exclusions unchanged (39 legacy 2-segment docs,
+> 1 homeowner-portal url). `metrics/imagePipeline` still absent, which is
+> expected until a no-match fires. Deploy + live-probe details:
+> [SESSION-2026-08-17-deploy-list-drift-and-verification](SESSION-2026-08-17-deploy-list-drift-and-verification.md).
+
 **Branch:** `claude/kind-wing-284968` (worktree), stacked on
 `claude/gallant-joliot-14e790` (`c39e4288`, the nested-shapes pipeline fix —
 this session fast-forwarded onto it because the script depends on its
