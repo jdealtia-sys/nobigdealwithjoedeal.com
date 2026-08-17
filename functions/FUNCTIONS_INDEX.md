@@ -74,6 +74,7 @@ If you add a new export, list it here so the next audit doesn't have to re-deriv
 | `measurementWebhook` | onRequest | Hover/EagleView webhook-secret verification |
 | `calcomWebhook` | onRequest | Cal.com HMAC verification |
 | `swathWebhook` | onRequest | Swath `storm.verified` alerts — Stripe-style HMAC (`t=…,v1=…`, ±300s replay window, fails closed when secret unset), idempotent `storm_events/{id}` ingest + Slack ping |
+| `thumbtackWebhook` | onRequest | Thumbtack shared-token verification (Custom Header; Thumbtack offers no HMAC signing) — fails closed when `THUMBTACK_WEBHOOK_SECRET` is unset, constant-time compare, 256 KB body cap, idempotent via Thumbtack's event id |
 | `incomingSMS` | onRequest | Twilio inbound-SMS webhook — X-Twilio-Signature verified (also feeds T-1 AI-texting draft generation) |
 | `submitPublicLead` | onRequest | Turnstile token + per-IP rate limit (IPv6 /64) + honeypot + M-04 field allowlist (NO App Check — onRequest can't enforce it, see posture note) |
 | `publicVisualizerAI` | onRequest | 5/hr/IP, model locked to Haiku, server-owned prompt, 1.5 MB image cap (NO App Check — see posture note) |
@@ -194,6 +195,7 @@ These operate on the **caller's own data** (owner-scoped Firestore queries insid
 | `teamInviteEmail` | `companies/{companyId}/members/{memberId}` created | Sends the invite email when a roster invite doc is created |
 | `leadAlertContact` / `leadAlertEstimate` / `leadAlertFreeRoof` / `leadAlertInspect` / `leadAlertStorm` | `contact_leads` / `estimate_leads` / `free_roof_entries` / `inspect_leads` / `storm_alert_subscribers` created | Text + email Joe the moment a public marketing lead lands |
 | `leadBridgeContact` / `leadBridgeEstimate` / `leadBridgeFreeRoof` / `leadBridgeInspect` / `leadBridgeStorm` | same five collections | Mirror each high-intent public lead into the tenant's CRM `leads` pipeline (tenant-aware, idempotent) |
+| `leadBridgeThumbtack` | `thumbtack_leads/{leadId}` | Mirror a Thumbtack webhook lead into the CRM pipeline. Source reads `Thumbtack` (not `Website — …`) so marketplace spend is attributed to the channel; Thumbtack **test** deliveries are stored but never bridged |
 | `slack_onLeadWon` | `leads/{leadId}` written | Slack ping on won deal |
 | `onReferralLeadWrite` | `leads/{leadId}` written | Referral-code redemption: attribute a redeemed `redeemReferralCode` to its referrer, then record the $200 bonus as OWED + notify the rep when the referred project reaches a closed stage (idempotent) |
 | `slack_onStormAlert` | `storm_alerts_sent/{id}` created | Slack ping on storm alert |

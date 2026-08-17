@@ -68,5 +68,7 @@ Disallow: /sites/oaks.html
 Sitemap: https://nobigdealwithjoedeal.com/sitemap.xml
 Sitemap: https://nobigdealwithjoedeal.com/sitemap-pro.xml
 
+# Blog feed (RSS 2.0): https://nobigdealwithjoedeal.com/feed.xml
+
 # LLM context file (see https://llmstxt.org)
 # Additional context: https://nobigdealwithjoedeal.com/llms.txt

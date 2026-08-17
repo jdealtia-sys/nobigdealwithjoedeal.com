@@ -135,6 +135,27 @@ function onStormBridge() {
   };
 }
 
+// Thumbtack bridge — CONDITIONAL on the payload not being a test delivery.
+// Thumbtack's "Test this webhook" button fires a tagged test lead at every
+// enabled webhook on the profile. Storing it is useful (the delivery is
+// auditable in thumbtack_leads); mirroring it into the pipeline is not — a test
+// card is indistinguishable from a real one once you're looking at the kanban,
+// and Joe would chase a customer who doesn't exist.
+function onThumbtackBridge() {
+  return async (event) => {
+    const snap = event.data;
+    if (!snap) return;
+    const data = snap.data() || {};
+    if (data.isTest) {
+      logger.info('leadBridge: Thumbtack test delivery — stored, not bridged', {
+        sourceId: event.params && event.params.leadId,
+      });
+      return;
+    }
+    await bridgeToCrm('thumbtack_leads', data, event.params && event.params.leadId);
+  };
+}
+
 // IMPORTANT: each export assigns onDocumentCreated(...) DIRECTLY (not via a
 // makeTrigger() wrapper). The CI auto-deploy builds its --only allowlist by
 // grepping `^exports.<name> = (onRequest|onCall|onDocumentCreated|...)` in
@@ -148,6 +169,7 @@ exports.leadBridgeEstimate = onDocumentCreated({ ...TRIGGER_OPTS, document: 'est
 exports.leadBridgeInspect  = onDocumentCreated({ ...TRIGGER_OPTS, document: 'inspect_leads/{leadId}' },      onLeadCreated('inspect_leads'));
 exports.leadBridgeFreeRoof = onDocumentCreated({ ...TRIGGER_OPTS, document: 'free_roof_entries/{leadId}' }, onLeadCreated('free_roof_entries'));
 exports.leadBridgeStorm    = onDocumentCreated({ ...TRIGGER_OPTS, document: 'storm_alert_subscribers/{leadId}' }, onStormBridge());
+exports.leadBridgeThumbtack = onDocumentCreated({ ...TRIGGER_OPTS, document: 'thumbtack_leads/{leadId}' }, onThumbtackBridge());
 
 // Exposed for tests / wiring sanity.
 exports._bridgeCollections = BRIDGE_COLLECTIONS;

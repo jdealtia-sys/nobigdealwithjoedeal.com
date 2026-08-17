@@ -41,7 +41,17 @@ const BRIDGE_KINDS = {
   inspect_leads:           { kind: 'inspect',   label: 'Inspection / Storm tool' },
   free_roof_entries:       { kind: 'free_roof', label: 'Free Roof entry' },
   storm_alert_subscribers: { kind: 'storm',     label: 'Storm Alert' },
+  // Thumbtack webhook pushes (integrations/thumbtack.js). NOT a website form —
+  // see EXTERNAL_SOURCE_LABEL below for why its `source` is spelled differently.
+  thumbtack_leads:         { kind: 'thumbtack', label: 'Thumbtack' },
 };
+
+// Collections whose leads arrive from an EXTERNAL marketplace rather than an
+// NBD web form. Their CRM `source` must read as the channel itself ("Thumbtack")
+// — not "Website — Thumbtack" — because channel attribution is what the lead
+// scorecard buckets on, and a mislabelled source silently credits paid
+// marketplace spend to the website. `webLead` stays false for the same reason.
+const EXTERNAL_SOURCE_COLLECTIONS = ['thumbtack_leads'];
 
 // Storm-form "What are you most concerned about?" values. 'hail' is the form's
 // PRE-SELECTED default (passive newsletter intent), so it is NOT a deliberate
@@ -142,6 +152,7 @@ function mapPublicLeadToLead(args) {
   const collection = args.collection;
   const data = args.data || {};
   const meta = BRIDGE_KINDS[collection] || { kind: collection, label: collection };
+  const isExternal = EXTERNAL_SOURCE_COLLECTIONS.indexOf(collection) !== -1;
   const { firstName, lastName } = splitName(data);
 
   const notesParts = [];
@@ -183,10 +194,12 @@ function mapPublicLeadToLead(args) {
     email: String(data.email || ''),
     stage: 'New',
     status: 'new',
-    source: 'Website — ' + meta.label,
-    notes: notesParts.join('\n'),
+    source: isExternal ? meta.label : 'Website — ' + meta.label,
+    // External sources (thumbtack.js) precompute a richer note than the generic
+    // story/message/details assembly below can reach — prefer it when present.
+    notes: (isExternal && data.notes) ? String(data.notes) : notesParts.join('\n'),
     // provenance + idempotency anchor
-    webLead: true,
+    webLead: !isExternal,
     publicLeadKind: meta.kind || collection,
     publicLeadCollection: collection,
     publicLeadId: String(args.sourceId || ''),
@@ -212,6 +225,7 @@ function mapPublicLeadToLead(args) {
 
 module.exports = {
   BRIDGE_KINDS,
+  EXTERNAL_SOURCE_COLLECTIONS,
   ESTIMATE_EVENT_TYPES,
   HIGH_INTENT_STORM_CONCERNS,
   STORM_CONCERN_LABEL,

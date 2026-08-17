@@ -1,6 +1,6 @@
 /**
  * image-pipeline.js — Storage trigger that generates responsive
- * variants for every photo uploaded to `photos/{uid}/{filename}`.
+ * variants for every photo uploaded under `photos/{uid}/**`.
  *
  * Why this exists
  * ───────────────
@@ -16,19 +16,29 @@
  *
  * Pipeline
  * ────────
- *   1. Storage write at `photos/{uid}/{filename}` fires this
- *      trigger.
+ *   1. Storage write under `photos/{uid}/...` fires this trigger.
+ *      Every upload surface is owner-rooted at segment [1] but the
+ *      depth varies (see the path-shape comment in the handler):
+ *      customer page writes photos/{uid}/{filename}, the dashboard
+ *      and photo-engine write photos/{uid}/{leadId}/..., D2D writes
+ *      photos/{uid}/d2d/{knockId}/....
  *   2. Skip variants we generated ourselves (path contains
  *      `/_variants/`) so we don't recurse and bill ourselves
- *      forever.
+ *      forever, and photo-engine's client-generated `/thumbs/`
+ *      copies (variants of a thumbnail are pure waste).
  *   3. Download the original to /tmp.
  *   4. Sharp pipeline: auto-orient via EXIF (`.rotate()`), resize
  *      (no enlargement — small images stay small), encode as WebP
  *      with quality tuned per variant.
- *   5. Upload three variants to
- *        `photos/{uid}/_variants/{base}_{thumb,med,full}.webp`
- *      with a random `firebaseStorageDownloadTokens` so the URL is
- *      long-lived without needing signed URLs.
+ *   5. Upload three variants next to the source:
+ *        `{sourceDir}/_variants/{base}_{thumb,med,full}.webp`
+ *      (for the canonical customer-page shape that is
+ *      `photos/{uid}/_variants/...`, unchanged from the original
+ *      rollout). Deriving the destination from the full source dir —
+ *      not just the basename — keeps same-named files in different
+ *      leads/knocks from clobbering each other's variants.
+ *      Each variant gets a random `firebaseStorageDownloadTokens`
+ *      so the URL is long-lived without needing signed URLs.
  *   6. Stamp the matching Firestore photo doc with
  *        `urls: { thumb, med, full }` + `variantsGeneratedAt`.
  *      The customer.html render uses `<img srcset>` to pull the
@@ -51,11 +61,16 @@
  * update is also a write-through. If a stale variant exists it is
  * replaced.
  *
- * Doc lookup uses `storagePath` (set by the upload code in
- * customer.html, see Photo typedef in docs/pro/js/types.js). If a
- * legacy photo doc lacks `storagePath`, the trigger logs
- * `no_doc_matched` and exits cleanly — the variants still exist
- * in Storage and a backfill migration can stamp them later.
+ * Doc lookup uses `storagePath` (set by every /photos doc writer —
+ * customer.html, dashboard _uploadPhoto, photo-engine, photo-editor;
+ * see Photo typedef in docs/pro/js/types.js). If a photo doc lacks
+ * `storagePath` (legacy docs), the trigger logs `no_doc_matched`
+ * and exits cleanly — the variants still exist in Storage (with
+ * `sourcePath` in their metadata) and a backfill migration can
+ * stamp them later. D2D knock photos have NO /photos doc at all by
+ * design (their URLs live on the knock entry), so their no-match
+ * case is counted under a separate metrics key to keep the §2.2
+ * orphan-rate signal clean.
  */
 
 const { onObjectFinalized } = require('firebase-functions/v2/storage');
@@ -104,18 +119,33 @@ exports.onPhotoUploaded = onObjectFinalized(
     if (!objectName.startsWith('photos/')) return;
     // Recursion guard — we write variants back to Storage, which
     // would re-fire this trigger on each one without this check.
+    // Substring match, so it covers variants at any nesting depth.
     if (objectName.includes('/_variants/')) return;
+    // photo-engine uploads its own client-generated 200px thumbnail
+    // next to each original (photos/{uid}/{leadId}/thumbs/...).
+    // Variants of a thumbnail are pure waste — skip them like our
+    // own _variants output.
+    if (objectName.includes('/thumbs/')) return;
     if (!contentType.startsWith('image/')) return;
 
-    // Path shape: photos/{uid}/{filename} — variants live one
-    // level deeper at photos/{uid}/_variants/..., already filtered
-    // above. Anything other than the canonical 3-segment shape is
-    // either nested folders we don't recognize or the legacy
-    // `photos/{file}` form (already blocked by Storage rules).
+    // Path shape: photos/{uid}/... — owner uid is ALWAYS segment
+    // [1] (storage.rules matches photos/{uid}/{allPaths=**}), but
+    // depth varies by upload surface:
+    //   customer page  photos/{uid}/{custId}_{ts}_{name}      (3 seg)
+    //   dashboard      photos/{uid}/{leadId}/{ts}_{name}      (4 seg)
+    //   photo-engine   photos/{uid}/{leadId}/{ts}_{preset}.jpg (4 seg)
+    //   photo-editor   photos/{uid}/{leadId}/photo_{id}.jpg   (3-4 seg)
+    //   d2d tracker    photos/{uid}/d2d/{knockId}/{ts}_{name} (5 seg)
+    // Accept any depth >= 3. (Until 2026-08 this required exactly 3
+    // segments — written for the customer-page shape before the
+    // nested surfaces existed — which silently skipped every nested
+    // upload.) The legacy 2-segment `photos/{file}` form stays
+    // excluded; Storage rules block it anyway.
     const parts = objectName.split('/');
-    if (parts.length !== 3) return;
+    if (parts.length < 3) return;
     const uid = parts[1];
-    const filename = parts[2];
+    if (!uid) return;
+    const filename = parts[parts.length - 1];
 
     const sizeBytes = Number((object && object.size) || 0);
     if (sizeBytes > MAX_SOURCE_BYTES) {
@@ -131,6 +161,13 @@ exports.onPhotoUploaded = onObjectFinalized(
     // original filename so backfill / debugging can correlate
     // variants to source by lexical match.
     const baseName = filename.replace(/\.[^.]+$/, '');
+
+    // Variants land NEXT TO their source: {sourceDir}/_variants/....
+    // For the canonical 3-segment shape that is photos/{uid}/_variants/
+    // (unchanged from the original rollout); for nested shapes the
+    // lead/knock segment stays in the key, so two same-named files in
+    // different leads can't clobber each other's variants.
+    const sourceDir = parts.slice(0, -1).join('/');
 
     const localSource = path.join(
       os.tmpdir(),
@@ -171,7 +208,7 @@ exports.onPhotoUploaded = onObjectFinalized(
           .webp({ quality: v.quality })
           .toFile(localVariant);
 
-        const variantPath = `photos/${uid}/_variants/${variantBase}`;
+        const variantPath = `${sourceDir}/_variants/${variantBase}`;
         const downloadToken = crypto.randomUUID();
 
         await bucket.upload(localVariant, {
@@ -222,15 +259,22 @@ exports.onPhotoUploaded = onObjectFinalized(
         logger.info('image_pipeline_no_doc_matched', { objectName, uid });
         // Bump a metrics counter so we know if this branch is hot
         // enough to warrant a full backfill function (audit §2.2).
-        // Variants are already in Storage at photos/{uid}/_variants/...
+        // Variants are already in Storage at {sourceDir}/_variants/...
         // with the originating sourcePath in their metadata — a future
         // backfill can read those + stamp the matching photo doc — but
         // we'd rather not build that until we know the orphan rate.
+        // D2D knock photos have NO /photos doc by design (their URLs
+        // live on the knock entry doc), so they land here on every
+        // upload — count them under a separate key so noDocMatched
+        // keeps measuring genuine orphans.
         // Best-effort: a failed metrics write must not break the
         // trigger, so this is fire-and-forget with a swallowed catch.
         try {
+          const counter = objectName.includes('/d2d/')
+            ? { noDocMatchedD2d: FieldValue.increment(1) }
+            : { noDocMatched:    FieldValue.increment(1) };
           await db.doc('metrics/imagePipeline').set({
-            noDocMatched:    FieldValue.increment(1),
+            ...counter,
             lastNoMatchAt:   FieldValue.serverTimestamp(),
             lastNoMatchPath: objectName,
             lastNoMatchUid:  uid,
@@ -280,3 +324,10 @@ function cleanupTempFiles(paths) {
     try { fs.unlinkSync(p); } catch (_) {}
   }
 }
+
+// Reused by scripts/backfill-photos-variants.js (the §2.2 backfill) so the
+// script's sharp encode spec and size cap can never drift from the
+// trigger's. Invisible to deploy — functions/index.js re-exports only
+// onPhotoUploaded, and the Firebase CLI reads the entry module's exports.
+exports.VARIANTS = VARIANTS;
+exports.MAX_SOURCE_BYTES = MAX_SOURCE_BYTES;

@@ -17,6 +17,7 @@
     "expenses-logic.test.js",
     "gauntlet-brand-guard.test.js",
     "inbound-sms-route.test.js",
+    "lead-dedup.test.js",
     "lead-pipeline-logic.test.js",
     "money-dashboard.test.js",
     "monthly-overhead-logic.test.js",
@@ -31,6 +32,7 @@
     "tenant-hardening.test.js",
     "tenant-legal.test.js",
     "theme-contrast.test.js",
+    "thumbtack-webhook.test.js",
     "turnstile-contract.test.js",
     "webhook-signatures.test.js"
   ],
