@@ -407,15 +407,27 @@
     // (partial import beats all-or-nothing for onboarding). Owners resolve
     // to enterprise (limits Infinity) so they're exempt automatically; an
     // unloaded plan fails open, matching enforceGate above.
+    // Owner accounts are NEVER limit-gated — billing-gate.js says so in three
+    // separate places (_isOwner short-circuits hasCapacity, enforceGate and
+    // softGate), and enforceGate above has already let this caller through on
+    // that basis. Re-deriving the cap from getPlan() contradicted that decision:
+    // loadSubscription()'s owner short-circuit can lose a race with the claims
+    // read (its own comment calls this out as "rare and self-limiting"), which
+    // leaves _plan at 'free'. When that happened the founder's own import was
+    // silently capped at the free tier's 10 leads — enforceGate said yes, then
+    // `remaining` said 0, and 51 of 55 rows were dropped as "plan limit
+    // reached". Key the cap on the same owner claim the gate uses.
+    const _isOwnerAcct = !!(window._userClaims && window._userClaims.owner === true);
     let remaining = Infinity;
-    if (window.NBDBilling && typeof window.NBDBilling.getPlan === 'function') {
+    if (!_isOwnerAcct && window.NBDBilling && typeof window.NBDBilling.getPlan === 'function') {
       const p = window.NBDBilling.getPlan();
       if (p.loaded && p.limits && p.limits.leads !== Infinity) {
         remaining = Math.max(0, p.limits.leads - (p.usage.leads || 0));
       }
     }
     // LITE (trial-expired free): mirror _saveLead's blunt total-leads stop.
-    if (window._userPlan === 'lite') {
+    // Owner-exempt for the same reason as the plan cap above.
+    if (!_isOwnerAcct && window._userPlan === 'lite') {
       remaining = Math.min(remaining, Math.max(0, 10 - existingLeads.length));
     }
 

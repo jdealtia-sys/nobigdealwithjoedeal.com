@@ -277,6 +277,10 @@ const dictateIntegration     = require('./dictate');
 // trigger + atomic sentinel dedup. See functions/integrations/storm-
 // briefing.js for the call-order scoring formula.
 const stormBriefingIntegration = require('./integrations/storm-briefing');
+// Thumbtack webhook receiver (leads / messages / reviews). One-way ingest —
+// Thumbtack pushes, we cannot push back. Lead events land in thumbtack_leads
+// and are mirrored into the CRM pipeline by leadBridgeThumbtack (lead-bridge.js).
+const thumbtackIntegration   = require('./integrations/thumbtack');
 Object.assign(exports, slackIntegration);
 Object.assign(exports, measurementIntegration);
 Object.assign(exports, esignIntegration);
@@ -291,6 +295,7 @@ Object.assign(exports, voiceMemoIntegration);
 Object.assign(exports, voiceIntelligenceIntegration);
 Object.assign(exports, dictateIntegration);
 Object.assign(exports, stormBriefingIntegration);
+Object.assign(exports, thumbtackIntegration);
 
 // Swath (swathapi.com) — storm-verified property intel: hail-swath +
 // parcel providers (mounted inside hail.js/parcel.js), storm.verified
