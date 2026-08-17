@@ -324,3 +324,10 @@ function cleanupTempFiles(paths) {
     try { fs.unlinkSync(p); } catch (_) {}
   }
 }
+
+// Reused by scripts/backfill-photos-variants.js (the §2.2 backfill) so the
+// script's sharp encode spec and size cap can never drift from the
+// trigger's. Invisible to deploy — functions/index.js re-exports only
+// onPhotoUploaded, and the Firebase CLI reads the entry module's exports.
+exports.VARIANTS = VARIANTS;
+exports.MAX_SOURCE_BYTES = MAX_SOURCE_BYTES;

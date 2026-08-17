@@ -87,5 +87,14 @@ them.
   The §2.2 backfill decision now has clean metrics to watch; a backfill
   would re-touch Storage objects (re-upload or metadata write) to re-fire
   the trigger, and needs a `storagePath` backfill for old dashboard docs.
+  **Update 2026-08-16 (same day, follow-up session):** built as
+  `scripts/backfill-photos-variants.js` — see
+  [SESSION-2026-08-16-photos-variants-backfill](SESSION-2026-08-16-photos-variants-backfill.md).
+  Correction to the sentence above: a *metadata write does NOT re-fire*
+  `onObjectFinalized` (GCS emits `metadataUpdated`; `finalized` needs a new
+  object generation), so the script generates variants directly with sharp
+  (reusing the pipeline's exported `VARIANTS` spec) and stamps the docs
+  itself. It also does the `storagePath` repair, owner-checked. Not yet run
+  against prod.
 - Photo-editor save-over leaves the doc's old `urls` stale for the seconds
   until the pipeline re-stamps — renderers fall back sanely; accepted.
