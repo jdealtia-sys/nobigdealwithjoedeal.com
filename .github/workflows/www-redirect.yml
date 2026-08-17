@@ -1,0 +1,125 @@
+# www → apex redirect management via the Firebase Hosting REST API.
+#
+# The Firebase console has no CLI/API-free way for a session to flip
+# www.nobigdealwithjoedeal.com from "serves duplicate content" to
+# "301 → nobigdealwithjoedeal.com" (MANUAL-FOR-JO §2, verified broken
+# 2026-08-17 — and the Bing Webmaster property imported as the www host,
+# so the duplicate is now actively crawled). This workflow does it with
+# the same FIREBASE_SERVICE_ACCOUNT the deploys use (Firebase Hosting
+# Admin covers projects.sites.customDomains).
+#
+# Run it twice from the Actions tab (or API):
+#   mode=inspect  — read-only: lists Hosting sites + custom domains and
+#                   each domain's current redirectTarget/cert state.
+#   mode=apply    — finds the www custom domain and PATCHes
+#                   redirectTarget=nobigdealwithjoedeal.com, then re-reads
+#                   it and probes the live host. Refuses to run if the www
+#                   domain resource is not found.
+
+name: www-redirect
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "inspect (read-only) or apply (set redirectTarget)"
+        type: choice
+        options: [inspect, apply]
+        default: inspect
+
+concurrency:
+  group: www-redirect
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  PRO_PROJECT: nobigdeal-pro
+  WWW_DOMAIN: www.nobigdealwithjoedeal.com
+  APEX_DOMAIN: nobigdealwithjoedeal.com
+
+jobs:
+  www-redirect:
+    name: ${{ github.event.inputs.mode }} www custom domain
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Write service-account JSON to a temp file
+        id: sa
+        env:
+          SA_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+        run: |
+          SA_FILE="$RUNNER_TEMP/firebase-sa.json"
+          printf '%s' "$SA_JSON" > "$SA_FILE"
+          if [ ! -s "$SA_FILE" ]; then
+            echo "::error::FIREBASE_SERVICE_ACCOUNT resolved to empty."
+            exit 1
+          fi
+          echo "sa_path=$SA_FILE" >> "$GITHUB_OUTPUT"
+
+      - name: Mint access token
+        id: token
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ steps.sa.outputs.sa_path }}
+        run: |
+          set -e
+          gcloud auth activate-service-account --key-file="$GOOGLE_APPLICATION_CREDENTIALS" --quiet
+          TOKEN="$(gcloud auth print-access-token)"
+          echo "::add-mask::$TOKEN"
+          echo "token=$TOKEN" >> "$GITHUB_OUTPUT"
+
+      - name: List sites and custom domains
+        id: inspect
+        env:
+          TOKEN: ${{ steps.token.outputs.token }}
+        run: |
+          set -e
+          API="https://firebasehosting.googleapis.com/v1beta1"
+          AUTH="Authorization: Bearer $TOKEN"
+          echo "== Hosting sites in $PRO_PROJECT"
+          curl -sS -H "$AUTH" "$API/projects/$PRO_PROJECT/sites" | tee sites.json
+          echo
+          # Collect every site name, then list each site's custom domains and
+          # remember the full resource name of the www domain if present.
+          WWW_RESOURCE=""
+          for SITE in $(jq -r '.sites[].name' sites.json); do
+            echo "== Custom domains for $SITE"
+            curl -sS -H "$AUTH" "$API/$SITE/customDomains" | tee -a domains.json
+            echo
+            FOUND=$(curl -sS -H "$AUTH" "$API/$SITE/customDomains" \
+              | jq -r --arg d "$WWW_DOMAIN" '.customDomains[]? | select(.name | endswith("/" + $d)) | .name')
+            if [ -n "$FOUND" ]; then WWW_RESOURCE="$FOUND"; fi
+          done
+          echo "www_resource=$WWW_RESOURCE" >> "$GITHUB_OUTPUT"
+          if [ -n "$WWW_RESOURCE" ]; then
+            echo "== Current state of $WWW_RESOURCE"
+            curl -sS -H "$AUTH" "$API/$WWW_RESOURCE" \
+              | jq '{name, hostState, ownershipState, redirectTarget, certState: (.cert.state // null)}'
+          else
+            echo "::warning::No customDomains resource found for $WWW_DOMAIN (it may be attached via the legacy domain API — see run output above)."
+          fi
+
+      - name: Apply redirectTarget
+        if: ${{ github.event.inputs.mode == 'apply' }}
+        env:
+          TOKEN: ${{ steps.token.outputs.token }}
+          WWW_RESOURCE: ${{ steps.inspect.outputs.www_resource }}
+        run: |
+          set -e
+          API="https://firebasehosting.googleapis.com/v1beta1"
+          AUTH="Authorization: Bearer $TOKEN"
+          if [ -z "$WWW_RESOURCE" ]; then
+            echo "::error::www custom-domain resource not found — cannot PATCH. Inspect output above shows what the API sees; the console path (Hosting → Custom domains) is the fallback."
+            exit 1
+          fi
+          echo "== PATCH $WWW_RESOURCE → redirectTarget=$APEX_DOMAIN"
+          curl -sS -X PATCH -H "$AUTH" -H "Content-Type: application/json" \
+            "$API/$WWW_RESOURCE?updateMask=redirectTarget" \
+            -d "{\"redirectTarget\": \"$APEX_DOMAIN\"}" | jq '{name, redirectTarget, hostState, error: (.error // null)}'
+          echo "== Re-read"
+          curl -sS -H "$AUTH" "$API/$WWW_RESOURCE" \
+            | jq '{name, hostState, redirectTarget}'
+          echo "== Live probe (CDN may lag a few minutes)"
+          curl -s -o /dev/null -w 'https://%{url_effective} -> HTTP %{http_code}, location: %{redirect_url}\n' \
+            "https://$WWW_DOMAIN/" || true
