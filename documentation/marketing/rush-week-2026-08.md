@@ -75,7 +75,9 @@ Places** (that trio is the AI-answer lever), then Apple, then the rest.
    Gold™, ID 181382** (upgraded 2026-07-08 — the July playbook's "Team tier" note is
    stale; corrected in its addendum). Claim/verify the listing, link the site.
 3. **James Hardie Alliance** — Alliance portal → claim the contractor listing, link the site.
-4. **Bing Places** — bingplaces.com → **"Import from Google Business Profile"** (10 min).
+4. ✅ **Bing Places — DONE 2026-08-17** via GBP import, dashboard-verified by Jo.
+   Public Bing propagation pending (normal: days); automated public checks from
+   sessions are bot-walled and inconclusive — the dashboard is the source of truth.
 5. ✅ **Bing Webmaster Tools** — DONE 2026-08-17 via GSC import. Sitemap already
    imported and processed: **Success, 201/201 discovered, 0 errors/warnings.**
    Baseline captured (see snapshot table). Caveat: the property came over as
