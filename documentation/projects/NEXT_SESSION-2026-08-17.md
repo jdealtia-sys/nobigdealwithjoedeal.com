@@ -42,6 +42,12 @@ rush-week marketing kit. Hosting deploys ~minutes after merge (path-filtered).
    `sameAs` arrays (procedure in citation-kit addendum). Bing/Apple/Nextdoor/BBB
    listings each add one line; restamp nothing (plain schema edit), run
    marketing-polish + integrity, ship.
+   - ✅ **GAF — claimed + appended 2026-08-17**
+     (`gaf.com/en-us/roofing-contractors/residential/usa/oh/goshen/no-big-deal-home-solutions-1162011`).
+     **Two profile gaps for Jo in the GAF portal:** (a) the profile shows **no
+     website link** — add `https://nobigdealwithjoedeal.com` (the link IS the
+     backlink); (b) the profile displays the street address — NAP policy is
+     service-area/hidden address; hide it if GAF's settings allow.
 3. **AirOps AEO setup** (once Jo creates the workspace — decision #3, approved):
    build the Brand Kit from [VOICE_BIBLE](../brand/VOICE_BIBLE.md) + llms.txt facts,
    then add tracked AEO prompts: "gaf timberline hdz vs tamko stormfighter flex",

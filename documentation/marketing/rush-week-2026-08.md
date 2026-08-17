@@ -40,6 +40,26 @@ unexecuted half, and most of it has been sitting unchecked since July.
 
 ---
 
+## Making the accounts (first-time setup — added 2026-08-17 after Day-1 start)
+
+None of these platforms had accounts yet. One rule before creating any of them:
+**every account uses `jd@nobigdealwithjoedeal.com`** — domain email is a stronger
+ownership signal, and one inbox catches every verification mail. Save each password
+as you go; turn on 2FA where offered. Only Jo can do these (they verify identity).
+
+| Account | Create it | Then | Verification to expect |
+|---|---|---|---|
+| **Microsoft account** (unlocks BOTH Bing surfaces) | account.microsoft.com → Create one → use jd@ as the sign-in email | — | Email code |
+| Bing Places | bingplaces.com → sign in with that Microsoft account → **"Import from Google Business Profile"** → sign into the Google account that owns the GBP | Confirm imported NAP matches the citation kit | Usually instant via GBP import |
+| Bing Webmaster Tools | bing.com/webmasters → same Microsoft account → **"Import from Google Search Console"** → sign into the GSC Google account | Sitemaps → submit `https://nobigdealwithjoedeal.com/sitemap.xml` | None beyond the GSC import |
+| Apple Business Connect | businessconnect.apple.com → sign in with your existing Apple ID (the iPhone one is fine) → Add your business → paste the citation-kit block | Hide street address (service-area) | May take days; sometimes a phone call or a document ask |
+| Nextdoor | business.nextdoor.com → Create business account with jd@ → find/create the No Big Deal Home Solutions page | Paste kit; set service areas | Email + sometimes phone |
+| BBB | bbb.org → "Get Listed" form with jd@ | Free listing only; ignore accreditation sales calls | They call or email to confirm |
+| Yelp | biz.yelp.com → "Manage my free listing" → search "No Big Deal Home Solutions" Cincinnati → claim the existing page | Paste kit | Phone call or email to (859) 420-7382 |
+
+Priority if time is short: **Microsoft account → Bing Webmaster Tools → Bing
+Places** (that trio is the AI-answer lever), then Apple, then the rest.
+
 ## Day 1–2 — the earned-authority sprint (~2 hours, Jo)
 
 1. **GAF contractor locator** — gaf.com → claim via your GAF account. Verify cert
