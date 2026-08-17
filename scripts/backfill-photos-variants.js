@@ -85,6 +85,10 @@
  *   node scripts/backfill-photos-variants.js                          # dry-run
  *   node scripts/backfill-photos-variants.js --apply --yes --limit 5  # canary
  *   node scripts/backfill-photos-variants.js --apply --yes            # full run
+ *   node scripts/backfill-photos-variants.js --include-legacy ...     # also sweep
+ *     the pre-2026-04-11 2-segment photos/{file} docs (ownership judged
+ *     from doc userId + createdAt cutoff; variants land in the shared
+ *     photos/_variants/ dir, duplicate basenames refused)
  *
  * Run AFTER the widened pipeline (c39e4288) is deployed, so the trigger
  * covers fresh uploads while this sweeps the backlog. VERIFY: the script
@@ -109,6 +113,17 @@ const LIMIT = (() => {
   const n = Number(args[i + 1]);
   return Number.isFinite(n) && n > 0 ? Math.floor(n) : Infinity;
 })();
+// Opt-in sweep of the pre-hardening 2-segment `photos/{file}` docs
+// (2026-04-09/10 era, before storage.rules owner-scoped the layout).
+// Their paths carry NO uid segment, so ownership is judged from the
+// doc's own userId field plus a createdAt-before-hardening cutoff, and
+// their variants all land in the single shared `photos/_variants/`
+// dir (duplicate basenames are refused, they would clobber).
+const INCLUDE_LEGACY = args.includes('--include-legacy');
+// Docs created on/after the 2026-04-11 storage-rules hardening cannot
+// legitimately have a 2-segment path — treat them as suspect, skip.
+const LEGACY_CUTOFF_MS = Date.parse('2026-04-11T00:00:00Z');
+
 const PROJECT = process.env.NBD_PROJECT || 'nobigdeal-pro';
 const BUCKET = process.env.NBD_BUCKET || 'nobigdeal-pro.firebasestorage.app';
 
@@ -144,17 +159,30 @@ function storagePathFromUrl(url) {
  * Mirror of the trigger's own source gates: returns a skip-reason string,
  * or null when the path is a legitimate variant source. Order and
  * semantics match functions/image-pipeline.js (substring guards included).
+ * With opts.includeLegacy, a well-formed 2-segment `photos/{file}` path is
+ * accepted (backfill-only — the deployed trigger keeps excluding it);
+ * `photos/` with an empty filename and 1-segment paths stay 'too-shallow'
+ * unconditionally.
  */
-function skipReasonForSource(objectPath) {
+function skipReasonForSource(objectPath, opts) {
   if (typeof objectPath !== 'string' || !objectPath) return 'empty';
   if (!objectPath.startsWith('photos/')) return 'not-photos';
   if (objectPath.includes('/_variants/')) return 'variants-output';
   if (objectPath.includes('/thumbs/')) return 'client-thumb';
   if (objectPath.includes('/d2d/')) return 'd2d';
   const parts = objectPath.split('/');
-  if (parts.length < 3) return 'too-shallow';
+  if (parts.length < 3) {
+    const includeLegacy = !!(opts && opts.includeLegacy);
+    if (includeLegacy && parts.length === 2 && parts[1]) return null;
+    return 'too-shallow';
+  }
   if (!parts[1]) return 'empty-uid';
   return null;
+}
+
+/** A pre-hardening 2-segment photos/{file} path (no uid segment). */
+function isLegacyPath(objectPath) {
+  return String(objectPath || '').split('/').length === 2;
 }
 
 /** Owner uid is ALWAYS path segment [1] (storage.rules contract). */
@@ -268,8 +296,24 @@ async function main() {
   let ownerMismatch = 0;    // path uid ≠ doc.userId (DI-02) — never stamped
   const skippedByReason = {}; // d2d / thumbs / _variants / not-photos / ...
 
-  const stampJobs = [];               // { ref, id, sp } — Phase A
+  // --include-legacy bookkeeping (all zero / empty when the flag is off).
+  let legacyIncluded = 0;    // 2-segment docs accepted for processing
+  let legacyNoOwner = 0;     // legacy doc without a string userId — never stamped
+  let legacyPostCutoff = 0;  // legacy doc created on/after the 2026-04-11 hardening — suspect, skipped
+  const legacyOwners = new Set(); // distinct userIds across accepted legacy docs (for eyeball confirmation)
+  // EVERY accepted legacy source's extension-stripped basename → Set(sp),
+  // including docs whose variants are already complete — a collision with
+  // an ALREADY-PROCESSED doc (e.g. the pair was split across a --limit
+  // canary and a later full run) would clobber its variants and invalidate
+  // the tokens its urls embed, so pending-only dedup is not enough.
+  const legacyBasesAll = new Map();
+
+  const stampJobs = [];               // { ref, id, sp, legacy } — Phase A
   const variantJobsByPath = new Map(); // sp → [ref] — Phase B (grouped like the trigger's multi-match stamp)
+  // Legacy Phase B jobs kept separate so they order AFTER standard jobs
+  // (deterministic --limit canaries) and can be collision-checked against
+  // the single shared photos/_variants/ destination dir.
+  const legacyVariantJobsByPath = new Map();
 
   let last = null;
   while (true) {
@@ -302,20 +346,44 @@ async function main() {
         needsStamp = true;
       }
 
-      const reason = skipReasonForSource(sp);
+      const reason = skipReasonForSource(sp, { includeLegacy: INCLUDE_LEGACY });
       if (reason) {
         skippedByReason[reason] = (skippedByReason[reason] || 0) + 1;
         continue;
       }
 
-      if (uidFromPath(sp) !== data.userId) {
+      const legacy = isLegacyPath(sp);
+      if (legacy) {
+        // 2-segment path carries no uid segment — ownership evidence is
+        // the doc's own userId (server-pinned only in the post-hardening
+        // rules era, hence the createdAt cutoff below).
+        if (!(typeof data.userId === 'string' && data.userId)) {
+          legacyNoOwner++;
+          console.warn('  ! [legacy] no userId on ' + doc.id + ' — NOT stamping');
+          continue;
+        }
+        const created = data.createdAt || data.uploadedAt || data.date;
+        const createdMs = created && typeof created.toDate === 'function'
+          ? created.toDate().getTime() : NaN;
+        if (!(createdMs < LEGACY_CUTOFF_MS)) {
+          legacyPostCutoff++;
+          console.warn('  ! [legacy] created on/after the 2026-04-11 hardening (or undated) on '
+            + doc.id + ' — suspect, NOT stamping');
+          continue;
+        }
+        legacyOwners.add(data.userId);
+        legacyIncluded++;
+        const legacyBase = sp.split('/').pop().replace(/\.[^.]+$/, '');
+        if (!legacyBasesAll.has(legacyBase)) legacyBasesAll.set(legacyBase, new Set());
+        legacyBasesAll.get(legacyBase).add(sp);
+      } else if (uidFromPath(sp) !== data.userId) {
         ownerMismatch++;
         console.warn('  ! owner mismatch — NOT stamping ' + doc.id
           + ' (path uid ' + uidFromPath(sp) + ' ≠ doc userId ' + (data.userId || null) + ')');
         continue;
       }
 
-      if (needsStamp) stampJobs.push({ ref: doc.ref, id: doc.id, sp });
+      if (needsStamp) stampJobs.push({ ref: doc.ref, id: doc.id, sp, legacy });
       else storagePathOk++;
 
       const complete = data.urls && data.urls.thumb && data.urls.med && data.urls.full
@@ -323,8 +391,9 @@ async function main() {
       if (complete) {
         variantsOk++;
       } else {
-        if (!variantJobsByPath.has(sp)) variantJobsByPath.set(sp, []);
-        variantJobsByPath.get(sp).push(doc.ref);
+        const jobMap = legacy ? legacyVariantJobsByPath : variantJobsByPath;
+        if (!jobMap.has(sp)) jobMap.set(sp, []);
+        jobMap.get(sp).push(doc.ref);
       }
     }
 
@@ -338,7 +407,7 @@ async function main() {
   let stampFailures = 0;
   if (!APPLY) {
     for (const j of stampJobs.slice(0, 20)) {
-      console.log('  would set ' + j.id + '.storagePath = \'' + j.sp + '\'');
+      console.log('  ' + (j.legacy ? '[legacy] ' : '') + 'would set ' + j.id + '.storagePath = \'' + j.sp + '\'');
     }
     if (stampJobs.length > 20) console.log('  … and ' + (stampJobs.length - 20) + ' more');
   } else {
@@ -366,9 +435,37 @@ async function main() {
   }
 
   // ── Phase B — generate variants + stamp docs ─────────────────────
-  const allJobs = Array.from(variantJobsByPath.entries()); // [sp, [refs]]
+  // Legacy variants all land in ONE shared photos/_variants/ dir —
+  // two legacy files with the same extension-stripped basename would
+  // clobber each other's variants, so duplicate bases are refused
+  // outright (counted, listed, and left for a manual rename). The
+  // check runs against ALL accepted legacy docs (legacyBasesAll), not
+  // just pending jobs: a pending job whose base is shared with an
+  // already-completed doc would overwrite that doc's variant objects
+  // and invalidate the download tokens its stamped urls embed.
+  let legacyBaseCollision = 0;
+  if (legacyVariantJobsByPath.size) {
+    for (const sp of Array.from(legacyVariantJobsByPath.keys())) {
+      const base = sp.split('/').pop().replace(/\.[^.]+$/, '');
+      const holders = legacyBasesAll.get(base);
+      if (holders && holders.size > 1) {
+        console.warn('  ! [legacy] basename collision on \'' + base + '\' ('
+          + holders.size + ' object(s) share it, some possibly already processed)'
+          + ' — refusing; rename in Storage and re-run');
+        legacyVariantJobsByPath.delete(sp);
+        legacyBaseCollision++;
+      }
+    }
+  }
+
+  // Legacy jobs run AFTER the standard backlog so --limit canaries stay
+  // deterministic and a partial run never leaves standard docs pending
+  // behind legacy ones.
+  const allJobs = Array.from(variantJobsByPath.entries())
+    .concat(Array.from(legacyVariantJobsByPath.entries())); // [sp, [refs]]
   const jobs = allJobs.slice(0, LIMIT === Infinity ? allJobs.length : LIMIT);
   console.log('\nPhase B — variant generation: ' + allJobs.length + ' object(s) need variants'
+    + (legacyVariantJobsByPath.size ? ' (' + legacyVariantJobsByPath.size + ' legacy)' : '')
     + (jobs.length < allJobs.length ? ' (processing ' + jobs.length + ' — --limit canary; the rest stays pending)' : ''));
 
   let generated = 0;
@@ -380,7 +477,7 @@ async function main() {
 
   if (!APPLY) {
     for (const [sp, refs] of jobs.slice(0, 20)) {
-      console.log('  would generate ' + VARIANTS.map((v) => v.name).join('+')
+      console.log('  ' + (isLegacyPath(sp) ? '[legacy] ' : '') + 'would generate ' + VARIANTS.map((v) => v.name).join('+')
         + ' for ' + sp + ' → ' + refs.length + ' doc(s)');
     }
     if (jobs.length > 20) console.log('  … and ' + (jobs.length - 20) + ' more');
@@ -481,7 +578,17 @@ async function main() {
   console.log('  foreign bucket         : ' + foreignBucket);
   console.log('  owner mismatch (DI-02) : ' + ownerMismatch);
   for (const [reason, n] of Object.entries(skippedByReason)) {
-    console.log(('  skipped (' + reason + ')').padEnd(25) + ': ' + n);
+    const hint = reason === 'too-shallow' && !INCLUDE_LEGACY
+      ? '  (re-run with --include-legacy to process)' : '';
+    console.log(('  skipped (' + reason + ')').padEnd(25) + ': ' + n + hint);
+  }
+  if (INCLUDE_LEGACY) {
+    console.log('  legacy included        : ' + legacyIncluded);
+    console.log('  legacy skipped (no userId)   : ' + legacyNoOwner);
+    console.log('  legacy skipped (post-cutoff) : ' + legacyPostCutoff);
+    console.log('  legacy skipped (base clash)  : ' + legacyBaseCollision);
+    console.log('  legacy distinct owners : ' + (legacyOwners.size
+      ? Array.from(legacyOwners).join(', ') : '(none)'));
   }
   if (APPLY) {
     console.log('  storagePath stamped    : ' + stamped + ' (failures ' + stampFailures + ')');
@@ -500,7 +607,7 @@ async function main() {
   process.exit(stampFailures + genFailures > 0 ? 1 : 0);
 }
 
-module.exports = { storagePathFromUrl, skipReasonForSource, uidFromPath, variantDestinations };
+module.exports = { storagePathFromUrl, skipReasonForSource, uidFromPath, variantDestinations, isLegacyPath };
 
 if (require.main === module) {
   main().catch((e) => { console.error(e); process.exit(1); });

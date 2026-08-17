@@ -2061,6 +2061,12 @@
         insCarrier: data.insCarrier || '',
         claimNumber: data.claimNumber || '',
         photoUrls: data.photoUrls || [],
+        // Storage paths index-aligned with photoUrls — the image
+        // pipeline finds this knock by array-contains on photoPaths and
+        // stamps photoVariants[idx] = {thumb,med,full} (admin-side; the
+        // client never writes photoVariants). Renderers null-check both:
+        // pre-feature knocks have neither field.
+        photoPaths: Array.isArray(data.photoPaths) ? data.photoPaths : [],
         voiceUrl: data.voiceUrl || '',
         followUpTime: data.followUpTime || '',
         // ── Door-number accuracy provenance ──
@@ -2277,9 +2283,13 @@
         lng: knock.lng || null,
         // Carry photos from the knock onto the freshly-minted lead so
         // the rep doesn't lose the property/damage shots when the lead
-        // is auto-created. The CRM card render pulls from this same
-        // field, so they appear immediately on the kanban tile.
+        // is auto-created (prospect cards + doc generators read
+        // lead.photoUrls). photoPaths/photoVariants ride along so the
+        // variant thumbs survive conversion — without the copy,
+        // converted leads regress to full-size originals.
         photoUrls: Array.isArray(knock.photoUrls) ? knock.photoUrls.slice() : [],
+        photoPaths: Array.isArray(knock.photoPaths) ? knock.photoPaths.slice() : [],
+        photoVariants: Array.isArray(knock.photoVariants) ? knock.photoVariants.slice() : [],
         followUp: followUpStr,
         // Prospect flag: appointments land in the kanban immediately,
         // everything else waits for manual promotion.
@@ -4507,8 +4517,25 @@
   }
 
   async function uploadPhotos(files, knockId) {
-    if (!files || !files.length) return [];
+    // RETURN SHAPE: an ARRAY of download URLs carrying a non-index `paths`
+    // property (index-aligned storage paths). NOT a {urls, paths} object —
+    // the service worker can pair a stale cached UI bundle with this fresh
+    // core, and the pre-2026-08-17 UI assigns the return value straight to
+    // knock.photoUrls. An array keeps that pairing harmless (Firestore
+    // serializes arrays by their indexed elements, so the extra property is
+    // silently dropped and the knock just misses variants); an object would
+    // have persisted a map into a field six consumers read as an array.
     const urls = [];
+    if (!files || !files.length) { urls.paths = []; return urls; }
+    // Storage object paths, index-aligned with `urls`. Persisted on the
+    // knock doc as `photoPaths` so the image pipeline
+    // (functions/image-pipeline.js) can find the knock by
+    // array-contains lookup and stamp `photoVariants[idx]` — knock
+    // photos have no /photos doc, so the path is the only join key.
+    // (The {knockId} path segment is the client tempId, NOT the
+    // Firestore doc id, so the pipeline cannot derive the doc from the
+    // path alone.)
+    const paths = [];
     // Storage rules only permit photos under `photos/{uid}/...`.
     // Route door-knock photos through `photos/{uid}/d2d/{knockId}/...`
     // so they inherit the existing photos rule instead of hitting
@@ -4517,7 +4544,8 @@
     const uid = window._user && window._user.uid;
     if (!uid) {
       console.error('d2d photo upload: not signed in');
-      return [];
+      urls.paths = [];
+      return urls;
     }
     let rejected = 0;
     for (const file of files) {
@@ -4531,7 +4559,8 @@
           continue;
         }
         const safeName = String(file.name || 'knock').replace(/[^A-Za-z0-9._-]+/g, '_').substring(0, 120);
-        const storageRef = ref(window._storage, `photos/${uid}/d2d/${knockId}/${Date.now()}_${safeName}`);
+        const storagePath = `photos/${uid}/d2d/${knockId}/${Date.now()}_${safeName}`;
+        const storageRef = ref(window._storage, storagePath);
         // Pass contentType explicitly so Storage doesn't infer
         // application/octet-stream for HEIC files where Safari left
         // file.type empty.
@@ -4541,6 +4570,7 @@
         await _withTimeout(window.uploadBytes(storageRef, file, { contentType }), 20000, 'uploadBytes(photo)');
         const url = await _withTimeout(getDownloadURL(storageRef), 10000, 'getDownloadURL(photo)');
         urls.push(url);
+        paths.push(storagePath);
       } catch(e) {
         console.error('Photo upload failed:', e && e.code, e && e.message, file && file.name, file && file.type);
         rejected++;
@@ -4554,6 +4584,7 @@
         window.showToast(`${rejected} of ${files.length} photo${files.length > 1 ? 's' : ''} failed to upload`, 'warning');
       }
     }
+    urls.paths = paths;
     return urls;
   }
 

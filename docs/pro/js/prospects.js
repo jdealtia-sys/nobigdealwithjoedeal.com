@@ -389,7 +389,11 @@
     const disp = DISP_BY_KEY[dispositionKey(p)] || DISP_BY_KEY.other;
     const att = attemptCount(p);
     const days = ageInDays(p);
-    const photos = Array.isArray(p.photoUrls) ? p.photoUrls.slice(0, 3) : [];
+    // Prefer the pipeline's 200px WebP thumb (photoVariants is
+    // index-aligned with photoUrls, copied from the knock at
+    // conversion); fall back to the full original for pre-variant leads.
+    const photos = (Array.isArray(p.photoUrls) ? p.photoUrls.slice(0, 3) : [])
+      .map((url, i) => (Array.isArray(p.photoVariants) && p.photoVariants[i] && p.photoVariants[i].thumb) || url);
     const fuDue = isFollowUpDue(p);
     return `
       <div class="prosp-card" data-lead-id="${escapeAttr(p.id)}">
