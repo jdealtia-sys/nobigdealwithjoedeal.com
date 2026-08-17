@@ -22,7 +22,8 @@ unexecuted half, and most of it has been sitting unchecked since July.
 | Real backlinks | **≈ zero.** The agency report's inventory was toplikevideo.com, metamagic.top, and a Fiverr testimonial page — all junk, all nofollow. |
 | Manufacturer profiles | GAF locator / TAMKO locator / James Hardie Alliance — **all unclaimed** despite the certs being earned. |
 | Live profiles | Google Business Profile ✓ · Facebook ✓ · Instagram ✓ · Yelp page **exists but unclaimed** (yelp.com/biz/no-big-deal-home-solutions-cincinnati — already linked from the site footer + schema `sameAs`). |
-| Not present anywhere | Bing Places, Bing Webmaster Tools, Apple Business Connect, Nextdoor, BBB, chambers, supplier locators, YouTube, LinkedIn. |
+| Not present anywhere | Bing Places, ~~Bing Webmaster Tools~~ (✅ 2026-08-17), Apple Business Connect, Nextdoor, BBB, chambers, supplier locators, YouTube, LinkedIn. |
+| **Bing baseline — 2026-08-17** | BWT property live (imported from GSC — note: property is **www.**nobigdealwithjoedeal.com, see Day 1–2 item 7). Sitemap: **Success, 201/201 URLs discovered, 0 errors, 0 warnings, crawled same day.** Site Explorer → Indexed URLs: **"No data available" — 0 indexed.** That zero is the official before picture; recheck weekly. |
 | Qualitative baseline | Two national inbound leads in one week from the shingle cluster (NoVA text 2026-08-14-ish, Colorado Springs call same week). Now published as the first two Reader Questions posts. |
 | GSC baseline | **Jo: before starting, screenshot Search Console → Performance filtered to the last 28 days** for queries containing `timberline`, `stormfighter`, `hailguard`, `duration`, `class 4` — save to this folder as `gsc-baseline-2026-08.png`. That's the before picture. |
 
@@ -62,27 +63,35 @@ Places** (that trio is the AI-answer lever), then Apple, then the rest.
 
 ## Day 1–2 — the earned-authority sprint (~2 hours, Jo)
 
-1. **GAF contractor locator** — gaf.com → claim via your GAF account. Verify cert
-   **#1162011** shows **System Plus** (not Master Elite — directories mis-tag this),
-   website set to `https://nobigdealwithjoedeal.com`, photos + service area filled.
+1. ✅ **GAF contractor locator** — CLAIMED 2026-08-17. Live profile:
+   `gaf.com/en-us/roofing-contractors/residential/usa/oh/goshen/no-big-deal-home-solutions-1162011`
+   (in site `sameAs` since PR #1209). **Two gaps still open in the GAF portal:**
+   (a) profile shows **no website link** — add `https://nobigdealwithjoedeal.com`,
+   that link is the backlink; (b) street address is displayed — hide it if GAF
+   allows (service-area NAP policy).
 2. **TAMKO contractor locator** — tamko.com/locate-a-contractor. You're **TAMKO Pro
    Gold™, ID 181382** (upgraded 2026-07-08 — the July playbook's "Team tier" note is
    stale; corrected in its addendum). Claim/verify the listing, link the site.
 3. **James Hardie Alliance** — Alliance portal → claim the contractor listing, link the site.
 4. **Bing Places** — bingplaces.com → **"Import from Google Business Profile"** (10 min).
-5. **Bing Webmaster Tools** — bing.com/webmasters → **"Import from Google Search
-   Console"** (one click, uses the existing GSC verification) → submit
-   `https://nobigdealwithjoedeal.com/sitemap.xml`. This is the single fastest
-   AI-answer-engine lever on this list.
+5. ✅ **Bing Webmaster Tools** — DONE 2026-08-17 via GSC import. Sitemap already
+   imported and processed: **Success, 201/201 discovered, 0 errors/warnings.**
+   Baseline captured (see snapshot table). Caveat: the property came over as
+   **www.**nobigdealwithjoedeal.com → makes item 7 a real priority, not housekeeping.
 6. **Apple Business Connect** — businessconnect.apple.com (any Apple ID). Paste the
    citation-kit identity block.
-7. **www → apex 301 check** (2 min, from the July manual, still open): visit
-   `https://www.nobigdealwithjoedeal.com` — it should land on the apex with a 301.
-   If it doesn't resolve or doesn't redirect: Firebase console → Hosting →
-   `nobigdeal-pro` → Custom domains → add `www.nobigdealwithjoedeal.com` as a
-   **redirect** to the apex, and add the DNS records it asks for at your registrar.
-   Until this works, any external link pointing at `www.` leaks its equity.
-8. **IndexNow pings** — the key file is already live at
+7. **www → apex 301 — VERIFIED BROKEN 2026-08-17, now priority** (from the July
+   manual): `https://www.nobigdealwithjoedeal.com` serves the full site as an
+   HTTP 200 duplicate — no redirect (checked root + deep URLs). And the new BWT
+   property is the **www** host, so Bing is now actively crawling the duplicate.
+   Canonical tags point at the apex, which keeps this from being harmful, but
+   fix it: Firebase console → Hosting → `nobigdeal-pro` → Custom domains → set
+   `www.nobigdealwithjoedeal.com` to **redirect** to the apex (adjust DNS at the
+   registrar if prompted). Until then any `www.` link leaks equity through a
+   canonical hop instead of a 301.
+8. ✅ **IndexNow pings** — DONE 2026-08-17 by the session, bulk POST of all 9 URLs
+   accepted with **HTTP 202** (~1 hour after the content went live). BWT's IndexNow
+   tab should list them. Keep the command for future posts — the key file stays live at
    `https://nobigdealwithjoedeal.com/b947f682ee5aa172a0005d5440a7bfcf.txt`.
    From any terminal (or ask a Claude session to run it post-merge):
 
