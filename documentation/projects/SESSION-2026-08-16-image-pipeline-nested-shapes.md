@@ -104,7 +104,9 @@ them.
   `onObjectFinalized` (GCS emits `metadataUpdated`; `finalized` needs a new
   object generation), so the script generates variants directly with sharp
   (reusing the pipeline's exported `VARIANTS` spec) and stamps the docs
-  itself. It also does the `storagePath` repair, owner-checked. Not yet run
-  against prod.
+  itself. It also does the `storagePath` repair, owner-checked.
+  **Executed 2026-08-17:** 70 storagePaths repaired + 70 variant sets
+  generated against prod, 0 failures — backlog zero (numbers in the
+  backfill note).
 - Photo-editor save-over leaves the doc's old `urls` stale for the seconds
   until the pipeline re-stamps — renderers fall back sanely; accepted.

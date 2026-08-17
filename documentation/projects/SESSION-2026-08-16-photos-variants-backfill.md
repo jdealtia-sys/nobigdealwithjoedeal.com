@@ -1,13 +1,17 @@
 # Session 2026-08-16 — §2.2 backfill: photos storagePath + WebP variants
 
-> **Update 2026-08-17 — APPLY RAN; CONVERGENCE VERIFIED.** The apply was
-> executed on Jo's machine after this note was written. A read-only
-> dry-run re-run (2026-08-17) confirms: 111 docs scanned, 71 fully
-> stamped, **0 need storagePath, 0 need variants** — the whole 70-object
-> backlog converged. Exclusions unchanged (39 legacy 2-segment docs,
-> 1 homeowner-portal url). `metrics/imagePipeline` still absent, which is
-> expected until a no-match fires. Deploy + live-probe details:
+> **Update 2026-08-17 — EXECUTED TO COMPLETION; convergence independently
+> verified.** Canary + full sweep ran against prod after #1207 merged
+> (first-person numbers in "Prod run results" below); a separate session's
+> read-only re-run independently confirmed convergence — 111 docs scanned,
+> 71 fully stamped, **0 need storagePath, 0 need variants**, exclusions
+> unchanged (39 legacy 2-segment docs, 1 homeowner-portal url).
+> `metrics/imagePipeline` still absent — expected until a no-match fires.
+> Deploy + live-probe details (incl. the onObjectFinalized deploy-list
+> drift, fixed #1210):
 > [SESSION-2026-08-17-deploy-list-drift-and-verification](SESSION-2026-08-17-deploy-list-drift-and-verification.md).
+> Nothing remains except the deliberate leftovers (legacy 2-segment docs,
+> d2d variants feature) and the passive `noDocMatched` watch.
 
 **Branch:** `claude/kind-wing-284968` (worktree), stacked on
 `claude/gallant-joliot-14e790` (`c39e4288`, the nested-shapes pipeline fix —
@@ -72,7 +76,7 @@ recursion guard skips, so the script can't re-fire the pipeline on its own
 output. (The nested-shapes note's "Known gaps" wording was corrected in
 place.)
 
-## Run order (for Jo / next session)
+## Run order (EXECUTED 2026-08-17 — kept as the re-run procedure)
 
 1. Merge + deploy the widened pipeline (`c39e4288`) so fresh uploads are
    covered by the trigger.
@@ -105,7 +109,35 @@ to `nobigdeal-pro.firebasestorage.app`, overridable via `NBD_BUCKET`.
   scan set; the script is `node --check`-clean), full `tests/smoke.test.js`
   **3359 ✓ / 0 ✗**.
 
-## Prod dry-run results (2026-08-16, read-only — apply still pending)
+## Prod run results (dry-run 2026-08-16 · canary + full sweep 2026-08-17)
+
+**Apply runs (2026-08-17, after #1207 merged + its Firebase deploy went
+green — caveat discovered later that day: that "green" run did NOT deploy
+the storage trigger, because the workflow's function-discovery regex
+silently excluded `onObjectFinalized` exports until #1210. The backfill
+was unaffected: it generates variants directly and never depended on the
+deployed trigger — see the deploy-list-drift note):**
+
+- **Canary** (`--apply --yes --limit 5`): Phase A stamped `storagePath` on
+  **all 70** legacy docs (Phase A is deliberately not capped by `--limit`),
+  Phase B generated variants for 5 objects — 0 failures. Spot-check on a
+  stamped doc: `thumb`/`med`/`full` all served **HTTP 200, `image/webp`,
+  `public,max-age=31536000,immutable`**; thumb ~19 KB vs the multi-MB
+  original (med ~283 KB, full ~2.1 MB).
+- **Full sweep** (`--apply --yes`): remaining **65/65 objects generated,
+  65 docs stamped — 0 failures**, 0 missing/oversize/non-image sources.
+  Idempotency held: the 5 canary objects + all 70 storagePaths were
+  correctly skipped as already done.
+- **Closing dry-run: backlog is ZERO** — 111 docs scanned, 71 with
+  storagePath + complete variants, 0 needing anything. The remaining
+  buckets are the deliberate skips (39 legacy 2-segment, 1 non-photos
+  homeowner-upload url).
+- `metrics/imagePipeline` still doesn't exist after the runs — correct:
+  the script writes docs directly and its variant uploads land under
+  `/_variants/`, which the deployed trigger skips. The doc first appears
+  when a docless upload (d2d) hits the widened trigger.
+
+**Dry-run findings (2026-08-16, read-only — kept for the record):**
 
 Ran on Jo's machine via gcloud ADC (no `~/.nbd` SA key present — ADC worked
 fine) with a scratch firebase-admin **v12** install on `NODE_PATH` (the
@@ -135,5 +167,5 @@ no identifiers (public repo):
   docs — so the §2.2 counter never had a chance to fire. It starts counting
   once the widened pipeline (#1206) deploys.
 
-Apply run still pending (canary `--limit 5` first, per the run order
-above). Scale is small: 70 downloads + 210 WebP encodes/uploads.
+(Scale estimate held: 70 downloads + 210 WebP encodes/uploads, a few
+minutes total.)
