@@ -149,9 +149,25 @@ const WIDGETS = [
       const leads = window._leads || [];
       const now = new Date();
       const WON = ['closed','Complete','install_complete','final_photos','final_payment','deductible_collected'];
+      // Which date counts as "when this job earned its money".
+      //
+      // This used to read updatedAt, which is LAST-TOUCHED, not when the job
+      // closed — so any edit to an old won lead silently moved its revenue into
+      // the current month. A CSV import of historical wins made it obvious:
+      // every backfilled job landed in "this month" at once and the widget
+      // reported months of revenue as if it were all earned in August.
+      //
+      // Order of preference:
+      //   closedAt       — explicit close date (set on backfilled/imported wins)
+      //   stageStartedAt — when the lead ENTERED its current stage; for a won
+      //                    lead that is the moment it closed, and it does not
+      //                    move when someone edits a note
+      //   updatedAt      — last resort, for legacy docs predating both
+      const asDate = v => v?.toDate ? v.toDate() : v?.seconds ? new Date(v.seconds*1000) : (v ? new Date(v) : null);
+      const closedDate = l => asDate(l.closedAt) || asDate(l.stageStartedAt) || asDate(l.updatedAt) || new Date(0);
       const thisMonth = leads.filter(l => {
         if(!WON.includes(l.stage||l._stageKey||'')) return false;
-        const d = l.updatedAt?.toDate ? l.updatedAt.toDate() : l.updatedAt?.seconds ? new Date(l.updatedAt.seconds*1000) : new Date(l.updatedAt||0);
+        const d = closedDate(l);
         return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
       });
       const rev = thisMonth.reduce((s,l) => s + parseFloat(l.jobValue || l.estValue || l.value || 0), 0);

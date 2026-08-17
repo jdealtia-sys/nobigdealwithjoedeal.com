@@ -94,6 +94,10 @@ exports.integrationStatus = onCall(
         swath:              _hasInt('SWATH_API_KEY'),
         swathWebhook:       _hasInt('SWATH_WEBHOOK_SECRET'),
         calcom:             _hasInt('CALCOM_WEBHOOK_SECRET'),
+        // Thumbtack lead/message/review webhook — Custom Header shared
+        // token (no HMAC offered); receiver fails closed without it
+        // (integrations/thumbtack.js).
+        thumbtackWebhook:   _hasInt('THUMBTACK_WEBHOOK_SECRET'),
         // Voice transcription pair — Phase 1 uses Groq, Phase 2 may
         // add Deepgram for native diarization on Pro+.
         deepgram:           _hasInt('DEEPGRAM_API_KEY'),

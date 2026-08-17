@@ -157,6 +157,65 @@ section('Image pipeline (Storage trigger → WebP variants → srcset)');
     && /@property \{\{ thumb: string, med: string, full: string \}=\} urls/.test(types));
 }
 
+section('Image pipeline: nested upload shapes (2026-08-16)');
+{
+  const pipeline = read(path.join(ROOT, 'functions/image-pipeline.js'));
+
+  // The trigger was written for the customer page's 3-segment
+  // photos/{uid}/{file} shape and silently skipped every nested
+  // upload surface (dashboard photos/{uid}/{leadId}/..., photo-engine,
+  // photo-editor, d2d photos/{uid}/d2d/{knockId}/...) — those photos
+  // never got variants and their grids pulled full-size originals.
+  assert('pipeline accepts nested paths (depth >= 3, not exactly 3)',
+    /parts\.length\s*<\s*3/.test(pipeline)
+    && !/parts\.length\s*!==\s*3/.test(pipeline));
+  assert('owner uid still read from path segment [1]',
+    /const uid = parts\[1\]/.test(pipeline));
+  assert('filename is the LAST segment (works at any depth)',
+    /parts\[parts\.length - 1\]/.test(pipeline));
+
+  // Collision guard: variants derive from the FULL source dir, not the
+  // uid + basename — two leads sharing a filename must not clobber each
+  // other's variants at a common photos/{uid}/_variants/ key.
+  assert('variant destination derived from the full source dir',
+    /const sourceDir = parts\.slice\(0, -1\)\.join\('\/'\)/.test(pipeline)
+    && /`\$\{sourceDir\}\/_variants\/\$\{variantBase\}`/.test(pipeline));
+
+  // photo-engine uploads a client-generated 200px thumb alongside each
+  // original — variants of a thumbnail are pure waste.
+  assert('client-generated /thumbs/ copies are skipped',
+    /includes\(['"]\/thumbs\/['"]\)/.test(pipeline));
+
+  // d2d knock photos have no /photos doc by design (URLs live on the
+  // knock entry) — their no-match case must not pollute the §2.2
+  // noDocMatched orphan-rate counter.
+  assert('docless d2d no-match counts under noDocMatchedD2d',
+    /noDocMatchedD2d:\s*FieldValue\.increment\(1\)/.test(pipeline)
+    && /includes\(['"]\/d2d\/['"]\)/.test(pipeline));
+
+  // Every /photos doc writer must stamp storagePath or the pipeline
+  // has nothing to match. customer.html is asserted in the section
+  // above; pin the dashboard + photo-editor writers that joined in
+  // the nested-shapes fix.
+  const dashboardBoot = read(path.join(PRO_JS, 'dashboard-bootstrap.module.js'));
+  assert('dashboard _uploadPhoto uploads to a storagePath var and stamps it on the doc',
+    /const storagePath = `photos\/\$\{uid\}\/\$\{leadId\}\/\$\{Date\.now\(\)\}_\$\{safeName\}`/.test(dashboardBoot)
+    && /addDoc\(collection\(db,'photos'\),\s*\{leadId, url, name:file\.name, userId:uid, createdAt:serverTimestamp\(\),[\s\S]{0,400}\bstoragePath,/.test(dashboardBoot));
+
+  const editor = read(path.join(PRO_JS, 'photo-editor.js'));
+  assert('photo-editor stamps storagePath on save-as (addDoc)',
+    /addDoc\(window\.collection\(window\.db, 'photos'\), \{ url, storagePath,/.test(editor));
+  assert('photo-editor save-over moves storagePath with the url (updateDoc)',
+    /updateDoc\(window\.doc\(window\.db, 'photos', S\.photoId\), \{ url, storagePath,/.test(editor));
+
+  // Render side: the dashboard photo-modal grid was the "full-size
+  // originals in a thumbnail grid" symptom — it must prefer the 200px
+  // variant and fall back to url for unstamped docs.
+  const widgets = read(path.join(PRO_JS, 'dashboard-widgets.js'));
+  assert('dashboard photo grid prefers urls.thumb over the full original',
+    /img\.src = \(p\.urls && p\.urls\.thumb\) \|\| p\.url/.test(widgets));
+}
+
 section('Phase C.4 photo-engine — inline actions in rendered templates');
 {
   const pe = read(path.join(ROOT, 'docs/pro/js/photo-engine.js'));

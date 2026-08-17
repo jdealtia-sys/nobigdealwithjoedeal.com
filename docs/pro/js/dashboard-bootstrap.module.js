@@ -4025,10 +4025,15 @@
       const uid = window._user?.uid;
       if (!uid) throw new Error('Not signed in');
       const safeName = (file.name || 'upload').replace(/[^A-Za-z0-9._-]+/g, '_').substring(0, 120);
-      const r = ref(storage, `photos/${uid}/${leadId}/${Date.now()}_${safeName}`);
+      const storagePath = `photos/${uid}/${leadId}/${Date.now()}_${safeName}`;
+      const r = ref(storage, storagePath);
       await uploadBytes(r, file);
       const url = await getDownloadURL(r);
       await addDoc(collection(db,'photos'), {leadId, url, name:file.name, userId:uid, createdAt:serverTimestamp(),
+        // Canonical Storage object name — the image pipeline
+        // (functions/image-pipeline.js) finds this doc by storagePath
+        // equality to stamp `urls:{thumb,med,full}` variants.
+        storagePath,
         // Tenant key (claims.companyId || uid) — company-scoped photo reads.
         companyId: (window._userClaims && window._userClaims.companyId) || uid});
       return url;

@@ -49,8 +49,26 @@
     // Strip city/state/zip after the first comma so "123 Main St,
     // Cincinnati, OH 45202" matches "123 Main St" entered without
     // the city.
-    const firstComma = s.indexOf(',');
-    if (firstComma > -1) s = s.slice(0, firstComma);
+    //
+    // ONLY when the leading segment actually looks like a street — it needs a
+    // house number AND a street name (both a digit and a letter).
+    //
+    // Marketplace leads frequently carry NO street at all: Thumbtack hands over
+    // city + zip when the homeowner didn't give one, and the thumbtackWebhook
+    // bridge writes exactly that. Under the old unconditional slice,
+    // "Cincinnati, OH 45211" normalized to "cincinnati", so EVERY lead in the
+    // same city collapsed to one key and matched at HIGH confidence as "Same
+    // address" — a CSV import of 37 Cincinnati leads imported 1 and silently
+    // skipped 36 as duplicates.
+    //
+    // A city + zip is a SERVICE AREA, not a physical address: two different
+    // homeowners in 45211 are not the same person. So a street-less address is
+    // treated as non-identifying ('') and simply never produces an address
+    // match — dedup still catches those leads by phone or by name.
+    const head = (s.split(',')[0] || '').trim();
+    const looksLikeStreet = /\d/.test(head) && /[a-z]/.test(head);
+    if (!looksLikeStreet) return '';
+    if (s.indexOf(',') > -1) s = head;
     // Strip apt/unit/# suffixes — same physical residence.
     s = s.replace(/\s+(apt|apartment|unit|suite|ste|#)\.?\s*[\w-]+$/i, '');
     // Common street-type abbreviations → canonical form so
