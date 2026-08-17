@@ -2410,6 +2410,26 @@
       : !remote         ? local
       : (remote.savedAt || 0) > (local.savedAt || 0) ? remote : local;
     if (!pick) return false;
+    // F7 (finished 2026-08-16): the comment at the call site always said
+    // "OFFER to restore" — but the implementation restored silently, with only
+    // an easy-to-miss toast. A rep opening "new estimate" days later landed in
+    // a stale session (old customer, old scope) without realizing it, and the
+    // only way out was hand-deleting line items. A draft saved in the last few
+    // minutes is almost certainly an accidental close/reopen — keep restoring
+    // that seamlessly. Anything older is a genuine "resume or start fresh?"
+    // decision that belongs to the rep.
+    const ageMs = Date.now() - (pick.savedAt || 0);
+    if (ageMs > 10 * 60 * 1000) {
+      const mins = Math.round(ageMs / 60000);
+      const when = mins < 120 ? mins + ' minutes ago'
+        : mins < 2880 ? Math.round(mins / 60) + ' hours ago'
+        : Math.round(mins / 1440) + ' days ago';
+      const who = pick.customer && pick.customer.name ? ' (' + pick.customer.name + ')' : '';
+      if (!window.confirm('Resume your unsaved estimate draft from ' + when + who + '?\n\nOK resumes it — Cancel starts fresh and discards the draft.')) {
+        clearDraft();
+        return false;
+      }
+    }
     // Apply without clobbering fields that aren't in the draft.
     Object.keys(pick).forEach(k => {
       if (k === 'savedAt') return;
