@@ -375,6 +375,7 @@ exports.migrationsTick = _migrations.migrationsTick;
 // ═══════════════════════════════════════════════════════════════
 const _imagePipeline = require('./image-pipeline');
 exports.onPhotoUploaded = _imagePipeline.onPhotoUploaded;
+exports.onKnockCreated = _imagePipeline.onKnockCreated;
 
 // ═══════════════════════════════════════════════════════════════
 // SHARE SSR — server-rendered preview at /share/:token. Renders

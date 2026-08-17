@@ -39,11 +39,19 @@
  *      leads/knocks from clobbering each other's variants.
  *      Each variant gets a random `firebaseStorageDownloadTokens`
  *      so the URL is long-lived without needing signed URLs.
- *   6. Stamp the matching Firestore photo doc with
- *        `urls: { thumb, med, full }` + `variantsGeneratedAt`.
- *      The customer.html render uses `<img srcset>` to pull the
- *      right size for the rendered cell — typically the 200px
- *      thumb for grid tiles, jumping to 1600px for lightbox/print.
+ *   6. Stamp the doc of record:
+ *      - Normal photos: the matching /photos doc (found by
+ *        `storagePath` equality) gets `urls: { thumb, med, full }` +
+ *        `variantsGeneratedAt`. customer.html renders `<img srcset>`
+ *        from it — typically the 200px thumb for grid tiles, jumping
+ *        to 1600px for lightbox/print.
+ *      - D2D knock photos (path contains `/d2d/`): no /photos doc
+ *        exists — the knocks entry is the doc of record. Found by
+ *        array-contains on its `photoPaths` field (client-persisted,
+ *        index-aligned with photoUrls, since 2026-08-17);
+ *        `photoVariants[idx]` is transaction-stamped with the same
+ *        {thumb,med,full} map. The d2d detail modal and prospect
+ *        cards prefer photoVariants[i].thumb over the original.
  *
  * Sizes were chosen against the actual render code:
  *   - 200 px  → covers the phase-grid + overview-strip thumbnails
@@ -67,13 +75,17 @@
  * `storagePath` (legacy docs), the trigger logs `no_doc_matched`
  * and exits cleanly — the variants still exist in Storage (with
  * `sourcePath` in their metadata) and a backfill migration can
- * stamp them later. D2D knock photos have NO /photos doc at all by
- * design (their URLs live on the knock entry), so their no-match
- * case is counted under a separate metrics key to keep the §2.2
- * orphan-rate signal clean.
+ * stamp them later. D2D knock photos have no /photos doc; their
+ * stamping goes to the knocks entry via photoPaths (see step 6).
+ * Pre-feature knocks (uploaded before the client persisted
+ * photoPaths, or from a stale cached bundle) have no join key and
+ * count under the separate `noDocMatchedD2d` metrics key, keeping
+ * the §2.2 genuine-orphan signal (`noDocMatched` +
+ * `lastGenuineNoMatchAt/Path`, consumed by healthDigestCron) clean.
  */
 
 const { onObjectFinalized } = require('firebase-functions/v2/storage');
+const { onDocumentCreated } = require('firebase-functions/v2/firestore');
 const { logger } = require('firebase-functions/v2');
 const { getFirestore } = require('firebase-admin/firestore');
 const { getStorage } = require('firebase-admin/storage');
@@ -244,10 +256,71 @@ exports.onPhotoUploaded = onObjectFinalized(
 
     cleanupTempFiles(tempFiles);
 
+    const db = getFirestore();
+
+    // ── D2D knock photos: stamp the KNOCK doc, not /photos ──────────
+    // Knock photos have no /photos doc — their doc of record is the
+    // knocks entry, which (since 2026-08-17) persists each upload's
+    // object path in `photoPaths` (index-aligned with photoUrls). The
+    // path's {knockId} segment is a client tempId, not the doc id, so
+    // the only join key is an array-contains lookup on the persisted
+    // path. Stamping is a transaction because one knock's photos fire
+    // N concurrent triggers that all rewrite the same photoVariants
+    // array. Pre-feature knocks (no photoPaths) fall through to the
+    // noDocMatchedD2d counter, same as before.
+    if (objectName.includes('/d2d/')) {
+      try {
+        const snap = await db
+          .collection('knocks')
+          .where('photoPaths', 'array-contains', objectName)
+          .limit(5)
+          .get();
+
+        let stampedDocs = 0;
+        for (const doc of snap.docs) {
+          // Owner-scope guard, mirroring the /photos DI-02 check: the
+          // knocks create rule pins userId, but never stamp a queried
+          // doc whose owner doesn't match the Storage path owner.
+          if (doc.data().userId !== uid) {
+            logger.warn('image_pipeline_knock_owner_mismatch_skipped', { objectName, uid, docOwner: doc.data().userId || null });
+            continue;
+          }
+          const didStamp = await stampKnockVariant(db, doc.ref, objectName, generated);
+          if (didStamp) stampedDocs++;
+        }
+
+        if (stampedDocs === 0) {
+          logger.info('image_pipeline_no_doc_matched', { objectName, uid });
+          // Docless-by-design counter (pre-feature knocks / stale client
+          // bundles without photoPaths). Best-effort: a failed metrics
+          // write must not break the trigger.
+          try {
+            await db.doc('metrics/imagePipeline').set({
+              noDocMatchedD2d: FieldValue.increment(1),
+              lastNoMatchAt:   FieldValue.serverTimestamp(),
+              lastNoMatchPath: objectName,
+              lastNoMatchUid:  uid,
+            }, { merge: true });
+          } catch (_) { /* metrics write is best-effort */ }
+        } else {
+          logger.info('image_pipeline_knock_variants_stamped', {
+            objectName,
+            uid,
+            docs: stampedDocs,
+          });
+        }
+      } catch (err) {
+        logger.error('image_pipeline_knock_update_failed', {
+          objectName,
+          error: String(err),
+        });
+      }
+      return;
+    }
+
     // Stamp the photo doc. The upload code in customer.html writes
     // `storagePath` alongside the doc; we use that to find the
     // record without needing to crack the URL.
-    const db = getFirestore();
     try {
       const snap = await db
         .collection('photos')
@@ -258,26 +331,24 @@ exports.onPhotoUploaded = onObjectFinalized(
       if (snap.empty) {
         logger.info('image_pipeline_no_doc_matched', { objectName, uid });
         // Bump a metrics counter so we know if this branch is hot
-        // enough to warrant a full backfill function (audit §2.2).
-        // Variants are already in Storage at {sourceDir}/_variants/...
-        // with the originating sourcePath in their metadata — a future
-        // backfill can read those + stamp the matching photo doc — but
-        // we'd rather not build that until we know the orphan rate.
-        // D2D knock photos have NO /photos doc by design (their URLs
-        // live on the knock entry doc), so they land here on every
-        // upload — count them under a separate key so noDocMatched
-        // keeps measuring genuine orphans.
+        // enough to warrant a backfill sweep (audit §2.2). Variants are
+        // already in Storage at {sourceDir}/_variants/... with the
+        // originating sourcePath in their metadata, so a backfill can
+        // stamp them later. D2D paths never reach here (stamped or
+        // counted in the knock branch above), so this counter measures
+        // GENUINE orphans only — the healthDigestCron warning keys off
+        // the lastGenuineNoMatch* fields below, which unlike the shared
+        // lastNoMatch* pair are never touched by d2d noise.
         // Best-effort: a failed metrics write must not break the
         // trigger, so this is fire-and-forget with a swallowed catch.
         try {
-          const counter = objectName.includes('/d2d/')
-            ? { noDocMatchedD2d: FieldValue.increment(1) }
-            : { noDocMatched:    FieldValue.increment(1) };
           await db.doc('metrics/imagePipeline').set({
-            ...counter,
+            noDocMatched:    FieldValue.increment(1),
             lastNoMatchAt:   FieldValue.serverTimestamp(),
             lastNoMatchPath: objectName,
             lastNoMatchUid:  uid,
+            lastGenuineNoMatchAt:   FieldValue.serverTimestamp(),
+            lastGenuineNoMatchPath: objectName,
           }, { merge: true });
         } catch (_) { /* metrics write is best-effort */ }
         return;
@@ -325,9 +396,130 @@ function cleanupTempFiles(paths) {
   }
 }
 
+/**
+ * Transaction-stamp photoVariants[idx] on a knock doc for one source
+ * object, and mirror the whole array onto the converted lead when the
+ * knock carries a leadId. Returns true only when a stamp was actually
+ * written (the caller's noDocMatchedD2d metric must not be suppressed
+ * by a no-op transaction — e.g. the doc vanished or the path was pulled
+ * from photoPaths between query and transaction).
+ *
+ * The lead mirror closes the auto-convert race: convertToLead copies
+ * photoVariants from the CLIENT's stale knock snapshot, which on the
+ * hot-disposition auto path is always pre-stamp (empty). Mirroring at
+ * stamp time reaches the lead regardless of conversion order. The
+ * residual window — stamping between the convertedToLead flip and the
+ * leadId write-back — self-heals on the next photo's stamp or the
+ * onKnockCreated sweep, since the mirror rewrites the full array.
+ */
+async function stampKnockVariant(db, knockRef, objectName, urls) {
+  return db.runTransaction(async (tx) => {
+    const fresh = await tx.get(knockRef);
+    if (!fresh.exists) return false;
+    const data = fresh.data() || {};
+    const paths = Array.isArray(data.photoPaths) ? data.photoPaths : [];
+    const idx = paths.indexOf(objectName);
+    if (idx === -1) return false;
+
+    const leadId = (typeof data.leadId === 'string' && data.leadId) ? data.leadId : null;
+    const leadRef = leadId ? db.collection('leads').doc(leadId) : null;
+    // All transaction reads must precede writes.
+    const leadSnap = leadRef ? await tx.get(leadRef) : null;
+
+    const count = Math.max(paths.length, Array.isArray(data.photoUrls) ? data.photoUrls.length : 0);
+    const variants = Array.isArray(data.photoVariants) ? data.photoVariants.slice() : [];
+    while (variants.length < count) variants.push(null);
+    variants[idx] = urls;
+
+    tx.update(knockRef, { photoVariants: variants, updatedAt: FieldValue.serverTimestamp() });
+    if (leadSnap && leadSnap.exists) {
+      // Lead photoUrls is a verbatim copy of the knock's (convertToLead
+      // .slice()), so the index alignment carries over unchanged.
+      tx.update(leadRef, { photoVariants: variants });
+    }
+    return true;
+  });
+}
+
 // Reused by scripts/backfill-photos-variants.js (the §2.2 backfill) so the
 // script's sharp encode spec and size cap can never drift from the
 // trigger's. Invisible to deploy — functions/index.js re-exports only
 // onPhotoUploaded, and the Firebase CLI reads the entry module's exports.
+// ── Race-heal trigger: knock created AFTER its photos finished ─────
+// The d2d client uploads every photo (and the voice memo) BEFORE
+// addDoc creates the knock doc — on slow connections the earliest
+// photos' onPhotoUploaded runs finish minutes before the doc exists,
+// their knocks query misses, and (pre-2026-08-17) the variants were
+// permanently orphaned under the docless-by-design metric. This
+// trigger closes the race from the doc side: on knock create, any
+// photoPaths entry whose variants ALREADY exist in Storage is stamped
+// here — the download tokens are recoverable from the variant objects'
+// own firebaseStorageDownloadTokens metadata, so the URLs rebuilt here
+// are byte-identical to what the Storage trigger would have written.
+// Whichever event fires last completes the join; both stamp through
+// stampKnockVariant, so double-stamping is idempotent.
+exports.onKnockCreated = onDocumentCreated(
+  {
+    region: 'us-central1',
+    document: 'knocks/{knockId}',
+    memory: '256MiB',
+    timeoutSeconds: 60,
+  },
+  async (event) => {
+    const snap = event.data;
+    if (!snap) return;
+    const data = snap.data() || {};
+    const paths = Array.isArray(data.photoPaths) ? data.photoPaths : [];
+    if (!paths.length) return;
+
+    const db = getFirestore();
+    const bucket = getStorage().bucket();
+    let healed = 0;
+
+    for (const p of paths) {
+      if (typeof p !== 'string' || !p.includes('/d2d/')) continue;
+      // Owner guard (DI-02 mirror): photoPaths is a client-written,
+      // rules-unconstrained field. Without this check, a knock doc
+      // listing a VICTIM's object path would get the victim's variant
+      // download tokens minted onto the attacker's doc.
+      if (p.split('/')[1] !== data.userId) {
+        logger.warn('image_pipeline_knock_create_owner_mismatch', { path: p, docOwner: data.userId || null });
+        continue;
+      }
+      try {
+        const parts = p.split('/');
+        const baseName = parts[parts.length - 1].replace(/\.[^.]+$/, '');
+        const sourceDir = parts.slice(0, -1).join('/');
+
+        const urls = {};
+        let complete = true;
+        for (const v of VARIANTS) {
+          const variantPath = `${sourceDir}/_variants/${baseName}_${v.name}.webp`;
+          const file = bucket.file(variantPath);
+          const [exists] = await file.exists();
+          if (!exists) { complete = false; break; }
+          const [meta] = await file.getMetadata();
+          const tokens = meta && meta.metadata && meta.metadata.firebaseStorageDownloadTokens;
+          if (!tokens) { complete = false; break; }
+          urls[v.name] =
+            `https://firebasestorage.googleapis.com/v0/b/${bucket.name}/o/${encodeURIComponent(variantPath)}` +
+            `?alt=media&token=${String(tokens).split(',')[0]}`;
+        }
+        // Variants not (fully) there yet → the Storage trigger is still
+        // running (or failed); it stamps on completion, nothing to heal.
+        if (!complete) continue;
+
+        if (await stampKnockVariant(db, snap.ref, p, urls)) healed++;
+      } catch (err) {
+        logger.warn('image_pipeline_knock_create_heal_failed', { path: p, error: String(err) });
+      }
+    }
+
+    if (healed) {
+      logger.info('image_pipeline_knock_create_healed', { knockId: event.params.knockId, healed });
+    }
+  }
+);
+
 exports.VARIANTS = VARIANTS;
 exports.MAX_SOURCE_BYTES = MAX_SOURCE_BYTES;

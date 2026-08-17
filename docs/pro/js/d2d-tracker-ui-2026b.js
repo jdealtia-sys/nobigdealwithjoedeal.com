@@ -603,17 +603,28 @@
 
     // Upload photos and voice before saving
     let photoUrls = [];
+    let photoPaths = [];
     let voiceUrl = '';
     const tempId = Date.now().toString();
 
     if (state.currentKnockEntry.photoFiles?.length > 0 && state.isOnline) {
-      photoUrls = await state.uploadPhotos(state.currentKnockEntry.photoFiles, tempId);
+      // uploadPhotos returns an ARRAY of urls carrying a `paths` property
+      // (index-aligned storage paths, persisted so the image pipeline can
+      // stamp photoVariants on the knock doc). The array-with-property
+      // shape is deliberate: it stays harmless under service-worker
+      // version skew in BOTH directions — a stale core returns a plain
+      // array (paths comes back undefined → []), and a stale UI paired
+      // with the fresh core still assigns a real array to photoUrls.
+      const uploaded = await state.uploadPhotos(state.currentKnockEntry.photoFiles, tempId);
+      photoUrls = Array.isArray(uploaded) ? uploaded.slice() : [];
+      photoPaths = (uploaded && Array.isArray(uploaded.paths)) ? uploaded.paths : [];
     }
     if (state.voiceBlob && state.isOnline) {
       voiceUrl = await state.uploadVoiceMemo(state.voiceBlob, tempId);
     }
 
     state.currentKnockEntry.photoUrls = photoUrls;
+    state.currentKnockEntry.photoPaths = photoPaths;
     state.currentKnockEntry.voiceUrl = voiceUrl;
 
     const savedDispo = state.currentKnockEntry.disposition;
@@ -779,7 +790,7 @@
           </div>
         </div>
 
-        ${knock.photoUrls?.length ? `<div class="d2d-detail-section"><label class="d2d-detail-label">Photos (${knock.photoUrls.length})</label><div class="d2d-photo-grid">${knock.photoUrls.map(url => `<img src="${esc(url)}" class="d2d-photo-thumb" loading="lazy" data-d2d-action="openImage" data-d2d-id="${esc(url)}" data-d2d-on-error="brokenPhoto">`).join('')}</div></div>` : ''}
+        ${knock.photoUrls?.length ? `<div class="d2d-detail-section"><label class="d2d-detail-label">Photos (${knock.photoUrls.length})</label><div class="d2d-photo-grid">${knock.photoUrls.map((url, i) => `<img src="${esc(knock.photoVariants?.[i]?.thumb || url)}" class="d2d-photo-thumb" loading="lazy" data-d2d-action="openImage" data-d2d-id="${esc(url)}" data-d2d-on-error="brokenPhoto">`).join('')}</div></div>` : ''}
 
         ${knock.voiceUrl ? `<div class="d2d-detail-section"><label class="d2d-detail-label">Voice Memo</label><audio controls src="${esc(knock.voiceUrl)}" class="d2d-audio-player"></audio></div>` : ''}
 
