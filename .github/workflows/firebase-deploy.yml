@@ -597,7 +597,15 @@ jobs:
           # us-central1 in the GCP console — see the step summary on failure.
           set +e   # we manage exit codes explicitly by parsing per-pass failures
 
-          ALL=$(grep -rhE "^exports\.[a-zA-Z_][a-zA-Z0-9_]* *= *(onRequest|onCall|beforeUserCreated|beforeUserSignedIn|onSchedule|onDocumentCreated|onDocumentUpdated|onDocumentWritten|onDocumentDeleted|functions\.https\.onRequest|functions\.https\.onCall|functions\.firestore|functions\.auth|functions\.pubsub)" functions/*.js functions/integrations/*.js functions/handlers/*.js functions/migrations/runner.js 2>/dev/null \
+          # onObjectFinalized added 2026-08-17: the alternation predates the
+          # first Storage-trigger export (image-pipeline's onPhotoUploaded,
+          # 2026-04-26; voice-intelligence's onAudioUploaded later) — both
+          # were silently EXCLUDED from every auto-deploy, so merged changes
+          # to them never reached prod until deployed manually. If a new
+          # v2 trigger wrapper type is ever introduced (onMessagePublished,
+          # onValueWritten, ...), it must be added here or its functions
+          # will not deploy.
+          ALL=$(grep -rhE "^exports\.[a-zA-Z_][a-zA-Z0-9_]* *= *(onRequest|onCall|beforeUserCreated|beforeUserSignedIn|onSchedule|onObjectFinalized|onDocumentCreated|onDocumentUpdated|onDocumentWritten|onDocumentDeleted|functions\.https\.onRequest|functions\.https\.onCall|functions\.firestore|functions\.auth|functions\.pubsub)" functions/*.js functions/integrations/*.js functions/handlers/*.js functions/migrations/runner.js 2>/dev/null \
                 | sed -E 's/^exports\.([a-zA-Z_][a-zA-Z0-9_]*) *=.*/\1/' \
                 | sort -u)
           INCLUDE=""
