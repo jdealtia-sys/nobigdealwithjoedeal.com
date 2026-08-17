@@ -1,16 +1,20 @@
-# Blog drafts awaiting Jo's review — 2026-07
+# Blog drafts awaiting Jo's review — 2026-07 (status updated 2026-08-17)
 
-Three complete, ready-to-deploy blog post drafts written from the outlines in
+Three complete drafts were written from the outlines in
 `documentation/qa/seo-hardening-2026-07/BLOG-OUTLINES-FOR-JO.md`. They live
 here — **not** in `docs/` — on purpose: nothing in this folder deploys.
-Firebase Hosting serves only `docs/`, and these are not in the sitemap or the
-blog index until the publish steps below are run.
 
-| File | Target URL (after publish) | Needs from Jo |
+**2026-08-17 update:** the financing post is **PUBLISHED** (PR #1224 — its two
+optional markers were resolved per their own instructions, merge = approval
+under the convention Jo set for the Reader Questions posts). The two remaining
+drafts are genuinely blocked on Jo-only inputs — the published Featured
+Projects gallery was checked and covers only the chalk-square figure:
+
+| File | Target URL (after publish) | Needs from Jo (~10 min each) |
 |---|---|---|
-| `what-hail-damage-looks-like-cincinnati.html` | `/blog/what-hail-damage-looks-like-cincinnati` | 3–4 inspection photos, real storm anecdote details |
-| `what-a-real-roof-inspection-report-looks-like.html` | `/blog/what-a-real-roof-inspection-report-looks-like` | 3 redacted report screenshots, confirm report sections/codes |
-| `roof-financing-cincinnati-explained.html` | `/blog/roof-financing-cincinnati-explained` | confirm payment-mix sentence, optional real worked example |
+| `what-hail-damage-looks-like-cincinnati.html` | `/blog/what-hail-damage-looks-like-cincinnati` | **3 photos** from his inspection archive: (1) close-up hail bruise on a shingle, (2) granules collecting in a gutter/downspout, (3) dents on soft metal (gutter lip, AC fins, or window capping). The chalk-square figure can be filled from the published gallery (`damage-chalk-marked.jpg`). Photos must go through the EXIF-strip pipeline before use. Plus: real storm anecdote (date, town, what he found) or approve de-specifying it. |
+| `what-a-real-roof-inspection-report-looks-like.html` | `/blog/what-a-real-roof-inspection-report-looks-like` | 3 redacted report screenshots (cover, photo page, measurements page) + confirm section names/order, cover-page fields, and condition-rating codes |
+| ~~`roof-financing-cincinnati-explained.html`~~ | `/blog/roof-financing-cincinnati-explained` | ✅ **Published 2026-08-17** (PR #1224) |
 
 ## How Jo reviews these
 

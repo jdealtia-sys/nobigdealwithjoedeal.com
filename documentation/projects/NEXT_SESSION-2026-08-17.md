@@ -58,8 +58,13 @@ rush-week marketing kit. Hosting deploys ~minutes after merge (path-filtered).
 4. **Reader Questions pipeline is live** — any new out-of-area question from Jo
    becomes a post within the week (spec = the two 2026-08-17 posts; pipeline steps
    in rush-week §pipeline).
-5. **Still stalled, needs Jo, unchanged since July**: the 3 drafts in
-   [drafts/README](../drafts/README.md) with 25 `JO:` markers.
+5. **Drafts pipeline — 1 of 3 unstalled 2026-08-17**: the financing post is
+   published (PR #1224; its markers were self-resolvable). The 2 remaining
+   drafts in [drafts/README](../drafts/README.md) are genuinely blocked on
+   Jo-only inputs, now itemized precisely there: 3 hail photos (+ optional
+   anecdote) for the hail post, 3 redacted report screenshots + 3 confirms
+   for the inspection post. Gallery reuse was checked — it covers only the
+   chalk-square figure.
 
 ## Watch-outs
 
