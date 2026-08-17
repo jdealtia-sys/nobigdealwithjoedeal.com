@@ -14,6 +14,17 @@
 > send-ready drafts, Aug 16 2026") and its **KIT ADDENDUM — D2D whales**
 > companion. When this note says "see the kit", that's where.
 
+> **UPDATE 2026-08-17 — iCloud Mail sweep ran as the next session in this
+> lane** ([SESSION-2026-08-17-icloud-mail-sweep](SESSION-2026-08-17-icloud-mail-sweep.md)).
+> Net effect on this note: the Jo action queue below is superseded by the
+> combined queue in that log — **five send-ready customer replies now sit in
+> Drive ("KIT ADDENDUM 2"), priority above everything except the Stripe key
+> roll**. 9 CRM records were enriched with verified emails/phones; the
+> missing change-order paperwork flagged in "What this session did" was
+> located (customer's scanned-docs email of 7/20); the D2D-whale contact
+> info gap flagged in Jo action #4 is now closed. Also: PR #1204's items and
+> the queue below otherwise stand.
+
 ## What this session did
 
 A long operator session, mostly in the live browser + prod Firestore, plus two
@@ -88,8 +99,9 @@ merged PRs. Three tracks:
 4. **Send the follow-up kit** — 25 drafts, sectioned: today's 7 (including
    the two webhook-caught leads), 3 approved-money follow-ups, 12 cold
    proposals, 3 marked DO-NOT-SEND-YET. Fill the [BRACKETED] placeholders.
-   The addendum has the 3 D2D whale texts (one target's contact info still
-   needs adding to their CRM record first).
+   The addendum has the 3 D2D whale texts (~~one target's contact info still
+   needs adding to their CRM record first~~ — done 2026-08-17, found in the
+   iCloud sweep along with the full claim-correspondence history).
 5. **Aug 24, 8pm ET:** lower the Thumbtack budget (see above).
 6. Small: delete the orange test photo left on one lead's Photos tab during
    CRM verification (noted in the kit); one webhook lead is waiting on an
@@ -97,6 +109,11 @@ merged PRs. Three tracks:
 
 ## Next session candidates
 
+0. **Email-ingest lane** (new, from the 08-17 sweep): the inbox is the CRM's
+   remaining blind spot — acceptances and warranty complaints stall unread
+   in mail (one paying customer sat in JUNK for a month). Same play as the
+   Thumbtack webhook: forward-to-CRM address or IMAP poller → leads/notes.
+   Scope it before building.
 1. Watch the webhook end-to-end on the next organic Thumbtack lead
    (receiver → bridge → kanban → follow-up); it's new in prod.
 2. ~~Image-pipeline nested-path fix~~ ✅ **DONE in its own session** (PR
