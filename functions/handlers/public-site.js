@@ -18,8 +18,11 @@
  *
  * Lookup key: the companyId itself (an unguessable auth uid) or a
  * human slug via companies/{id}.siteSlug (equality query, auto-indexed).
- * Only companies with status 'active' (or legacy docs with no status)
- * are served — a tenant superseded by a team invite stops resolving.
+ * Only companies EXPLICITLY marked status:'active' are served — publishing
+ * a tenant microsite is a deliberate release to that company, and an absent
+ * status means unpublished (see isPublishedCompany; this fails closed as of
+ * 2026-08-17, where it previously served). A tenant superseded by a team
+ * invite stops resolving for lead tagging too.
  *
  * The raw companyProfile doc stores only what the tenant actually set
  * (Pillar 2 override semantics), so nothing NBD-branded can leak into
@@ -70,6 +73,33 @@ async function resolveCompanyByKey(db, key) {
   const co = coSnap.data() || {};
   if (co.status && co.status !== 'active') return null;
   return { companyId, co };
+}
+
+// ── Publication gate (Jo, 2026-08-17) ──────────────────────────
+// A tenant microsite is a DELIBERATE RELEASE to that company, not a side
+// effect of the tenant existing. Only companies explicitly marked
+// status:'active' are served to the public web.
+//
+// FAIL CLOSED: an absent status means unpublished. Until this gate, absent
+// status SERVED — /sites/t/oaks answered 200 with the tenant's name, phone
+// and address to anyone who guessed the id (they are short words like
+// 'oaks'/'nbd', not the unguessable auth uids this file's header assumes).
+// X-Robots-Tag noindex kept those pages out of search results but never made
+// them private. Any company doc predating this gate must therefore be stamped
+// by scripts/backfill-company-status.js BEFORE this deploys, or its site goes
+// dark at cutover.
+//
+// Deliberately NOT folded into resolveCompanyByKey above. That resolver
+// answers "is this a real, non-superseded tenant" and is shared with
+// submitPublicLead's lead tagging (handlers/integrations.js) — gating it
+// there too would untag a real tenant's inbound leads and misroute them to
+// the default pipeline, which is exactly the P1 HIGH regression the 2026-07
+// tenant-lifecycle audit fixed. Three states, kept separate on purpose:
+//   status 'active'               → real tenant, PUBLISHED   (site + tagging)
+//   status absent                 → real tenant, unpublished (tagging only)
+//   'superseded-by-invite' / etc. → not a tenant at all      (neither)
+function isPublishedCompany(co) {
+  return String((co || {}).status || '') === 'active';
 }
 
 // Pure whitelist builder — exported for unit tests. Takes the RAW
@@ -145,6 +175,16 @@ exports.getPublicSiteConfig = onRequest(
       const hit = await resolveCompanyByKey(db, key);
       if (!hit) { res.status(404).json({ ok: false, reason: 'not_found' }); return; }
       const { companyId, co } = hit;
+
+      // Publication gate — see isPublishedCompany. The SAME opaque 404 as an
+      // unknown key, deliberately: a prober must not be able to tell "this
+      // tenant exists but isn't released yet" from "no such tenant". Reusing
+      // reason:'not_found' is what keeps an unreleased partner's existence
+      // from leaking through the error channel.
+      if (!isPublishedCompany(co)) {
+        res.status(404).json({ ok: false, reason: 'not_found' });
+        return;
+      }
 
       const pSnap = await db.doc(`companyProfile/${companyId}`).get();
       const cfg = buildPublicConfig(companyId, co, pSnap.exists ? pSnap.data() : {});
@@ -258,4 +298,5 @@ exports.setSiteSlug = onCall(
 );
 
 exports.resolveCompanyByKey = resolveCompanyByKey;
-exports._test = { buildPublicConfig, validateSlug, resolveCompanyByKey };
+exports.isPublishedCompany = isPublishedCompany;
+exports._test = { buildPublicConfig, validateSlug, resolveCompanyByKey, isPublishedCompany };
