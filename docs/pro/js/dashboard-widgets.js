@@ -557,7 +557,10 @@ function renderPhotoGrid(photos){
     const wrap = document.createElement('div');
     wrap.className = 'photo-thumb';
     const img = document.createElement('img');
-    img.src = p.url;
+    // Grid tiles render at thumbnail size — prefer the pipeline's 200px
+    // WebP variant over the multi-MB original; fall back for docs the
+    // pipeline hasn't stamped (legacy / variants still generating).
+    img.src = (p.urls && p.urls.thumb) || p.url;
     img.alt = p.name || '';
     img.addEventListener('click', () => {
       // Validate url before opening to avoid javascript: schemes.
