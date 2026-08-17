@@ -13,7 +13,8 @@
 
     const fd = new FormData(form);
     // Honeypot — if the hidden field is filled, silently pretend success.
-    if ((fd.get('website') || '').toString().trim() !== '') {
+    // (nbd_hp since 2026-08-05; a field named "website" gets browser-autofilled.)
+    if ((fd.get('nbd_hp') || '').toString().trim() !== '') {
       out.className = 'form-result success';
       out.textContent = 'Thanks — entry received.';
       form.reset();
@@ -22,7 +23,7 @@
 
     const payload = {};
     for (const [k, v] of fd.entries()) {
-      if (k === 'website') continue;
+      if (k === 'nbd_hp' || k === 'website') continue;
       payload[k] = (v || '').toString().trim();
     }
 

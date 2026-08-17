@@ -49,6 +49,7 @@
   <url><loc>https://nobigdealwithjoedeal.com/services/storm-damage</loc><lastmod>2026-07-13</lastmod><changefreq>monthly</changefreq><priority>0.8</priority></url>
 
   <!-- Service + City Combos (Tier 1: 0.75 | Tier 2: 0.70 | Tier 3: 0.65) -->
+  <url><loc>https://nobigdealwithjoedeal.com/services/emergency-roof-tarping</loc><lastmod>2026-08-17</lastmod><changefreq>monthly</changefreq><priority>0.65</priority></url>
   <url><loc>https://nobigdealwithjoedeal.com/services/gutter-replacement-anderson-township-oh</loc><lastmod>2026-07-13</lastmod><changefreq>monthly</changefreq><priority>0.70</priority></url>
   <url><loc>https://nobigdealwithjoedeal.com/services/gutter-replacement-batavia-oh</loc><lastmod>2026-07-13</lastmod><changefreq>monthly</changefreq><priority>0.75</priority></url>
   <url><loc>https://nobigdealwithjoedeal.com/services/gutter-replacement-blue-ash-oh</loc><lastmod>2026-07-13</lastmod><changefreq>monthly</changefreq><priority>0.70</priority></url>
@@ -198,7 +199,8 @@
   <url><loc>https://nobigdealwithjoedeal.com/blog/can-i-keep-insurance-check-not-fix-roof</loc><lastmod>2026-07-13</lastmod><changefreq>monthly</changefreq><priority>0.6</priority></url>
   <url><loc>https://nobigdealwithjoedeal.com/blog/cincinnati-hail-season-2026</loc><lastmod>2026-07-13</lastmod><changefreq>monthly</changefreq><priority>0.6</priority></url>
   <url><loc>https://nobigdealwithjoedeal.com/blog/does-homeowner-insurance-cover-hail-damage-ohio</loc><lastmod>2026-07-13</lastmod><changefreq>monthly</changefreq><priority>0.6</priority></url>
-  <url><loc>https://nobigdealwithjoedeal.com/blog/gaf-timberline-vs-tamko-storm-series</loc><lastmod>2026-07-13</lastmod><changefreq>monthly</changefreq><priority>0.6</priority></url>
+  <url><loc>https://nobigdealwithjoedeal.com/blog/gaf-timberline-hdz-vs-tamko-stormfighter-flex</loc><lastmod>2026-08-17</lastmod><changefreq>monthly</changefreq><priority>0.6</priority></url>
+  <url><loc>https://nobigdealwithjoedeal.com/blog/gaf-timberline-vs-tamko-storm-series</loc><lastmod>2026-08-17</lastmod><changefreq>monthly</changefreq><priority>0.6</priority></url>
   <url><loc>https://nobigdealwithjoedeal.com/blog/gaf-vs-owens-corning-vs-atlas-shingles</loc><lastmod>2026-07-13</lastmod><changefreq>monthly</changefreq><priority>0.6</priority></url>
   <url><loc>https://nobigdealwithjoedeal.com/blog/hail-season-prep-checklist</loc><lastmod>2026-07-14</lastmod><changefreq>monthly</changefreq><priority>0.6</priority></url>
   <url><loc>https://nobigdealwithjoedeal.com/blog/how-long-does-roof-replacement-take-cincinnati</loc><lastmod>2026-07-13</lastmod><changefreq>monthly</changefreq><priority>0.6</priority></url>
@@ -208,15 +210,17 @@
   <url><loc>https://nobigdealwithjoedeal.com/blog/how-to-choose-a-roofer-after-a-storm</loc><lastmod>2026-07-14</lastmod><changefreq>monthly</changefreq><priority>0.6</priority></url>
   <url><loc>https://nobigdealwithjoedeal.com/blog/how-to-file-storm-damage-insurance-claim-ohio</loc><lastmod>2026-07-13</lastmod><changefreq>monthly</changefreq><priority>0.6</priority></url>
   <url><loc>https://nobigdealwithjoedeal.com/blog/my-roof-is-too-old-will-insurance-still-pay</loc><lastmod>2026-07-13</lastmod><changefreq>monthly</changefreq><priority>0.6</priority></url>
+  <url><loc>https://nobigdealwithjoedeal.com/blog/owens-corning-duration-vs-tamko-hailguard</loc><lastmod>2026-08-17</lastmod><changefreq>monthly</changefreq><priority>0.6</priority></url>
+  <url><loc>https://nobigdealwithjoedeal.com/blog/roof-financing-cincinnati-explained</loc><lastmod>2026-08-17</lastmod><changefreq>monthly</changefreq><priority>0.6</priority></url>
   <url><loc>https://nobigdealwithjoedeal.com/blog/signs-your-roof-needs-replacement-vs-repair</loc><lastmod>2026-07-13</lastmod><changefreq>monthly</changefreq><priority>0.6</priority></url>
   <url><loc>https://nobigdealwithjoedeal.com/blog/state-farm-allstate-roof-claims-ohio</loc><lastmod>2026-07-13</lastmod><changefreq>monthly</changefreq><priority>0.6</priority></url>
-  <url><loc>https://nobigdealwithjoedeal.com/blog/tamko-hailguard-first-shingle-with-hail-warranty</loc><lastmod>2026-07-13</lastmod><changefreq>monthly</changefreq><priority>0.6</priority></url>
+  <url><loc>https://nobigdealwithjoedeal.com/blog/tamko-hailguard-first-shingle-with-hail-warranty</loc><lastmod>2026-08-17</lastmod><changefreq>monthly</changefreq><priority>0.6</priority></url>
   <url><loc>https://nobigdealwithjoedeal.com/blog/what-to-expect-roof-insurance-adjuster-visit</loc><lastmod>2026-07-13</lastmod><changefreq>monthly</changefreq><priority>0.6</priority></url>
 
   <!-- GAF Timberline product page + Class 4 blog -->
-  <url><loc>https://nobigdealwithjoedeal.com/services/gaf-timberline</loc><lastmod>2026-07-13</lastmod><changefreq>monthly</changefreq><priority>0.85</priority></url>
-  <url><loc>https://nobigdealwithjoedeal.com/services/tamko-storm-series</loc><lastmod>2026-07-13</lastmod><changefreq>monthly</changefreq><priority>0.85</priority></url>
-  <url><loc>https://nobigdealwithjoedeal.com/blog/why-class-4-impact-shingles</loc><lastmod>2026-07-13</lastmod><changefreq>monthly</changefreq><priority>0.7</priority></url>
+  <url><loc>https://nobigdealwithjoedeal.com/services/gaf-timberline</loc><lastmod>2026-08-17</lastmod><changefreq>monthly</changefreq><priority>0.85</priority></url>
+  <url><loc>https://nobigdealwithjoedeal.com/services/tamko-storm-series</loc><lastmod>2026-08-17</lastmod><changefreq>monthly</changefreq><priority>0.85</priority></url>
+  <url><loc>https://nobigdealwithjoedeal.com/blog/why-class-4-impact-shingles</loc><lastmod>2026-08-17</lastmod><changefreq>monthly</changefreq><priority>0.7</priority></url>
 
   <!-- /pro/ B2B content is intentionally NOT in this sitemap. If contractor SEO needs
        sitemap visibility, host it at /sitemap-pro.xml and reference it separately. Mixing

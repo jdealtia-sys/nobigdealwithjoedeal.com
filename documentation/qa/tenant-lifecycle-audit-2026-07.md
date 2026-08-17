@@ -66,33 +66,49 @@ handling; batching them with the above would bloat the diff and the risk.
 
 ## FLAGGED for Jo — pre-existing or product/architectural calls (not fixed)
 
-- **P3 — `submitPublicLead` App Check is a no-op (MED, pre-existing).**
-  `enforceAppCheck:true` only works for `onCall`; this is `onRequest`, so the
-  public lead gateway is IP-rate-limit + honeypot only (the code comment
-  already admits it). Affects ALL public forms, not just tenant sites.
-  Hardening options: verify the App Check token manually in-handler, or turn
-  on `TURNSTILE_REQUIRED=true`. Your call — it changes the posture of the main
-  lead pipeline.
-- **P5 — slug lookup discloses the tenant's Firebase uid (LOW).** The template
-  needs `companyId` to tag leads, so the uid is returned. A uid isn't a
-  credential (claims are server-verified), so this is low-risk; a separate
-  public site-id would be a design change. Accept or ask me to add the
-  indirection.
-- **P6 — honeypot named `website` can be autofilled by browsers (LOW).**
-  A homeowner whose browser autofills a "website" field gets a silent
-  false-success and the lead is dropped. Renaming needs server coordination
-  (the gateway checks `website` across all forms). Worth a coordinated pass.
+- **P3 — `submitPublicLead` App Check is a no-op (MED, pre-existing) —
+  ✅ RESOLVED 2026-08-02 (#1170).** The dead `enforceAppCheck` option was
+  removed repo-wide from `onRequest` handlers and the real gate hardened;
+  `tests/appcheck-onrequest-contract.test.js` (wired into CI 2026-08-05)
+  keeps the no-op config from coming back. The gateway's stated posture is
+  now per-IP rate limit + Turnstile-when-configured + honeypot + field
+  allowlist + CORS origin allowlist.
+- **P5 — slug lookup discloses the tenant's Firebase uid (LOW) —
+  ✅ RESOLVED 2026-08-06 (indirection, per Jo).** `getPublicSiteConfig` now
+  returns `siteKey` (the slug when configured) instead of `companyId`; the
+  template tags leads with it and `submitPublicLead` resolves it server-side
+  through the same exported `resolveCompanyByKey` the config endpoint uses
+  (doc id OR slug, active-status check) — the resolved id, never the client
+  string, is what persists. Strictly harder than the legacy client-companyId
+  tag (which stays for cached pages but loses to a resolved siteKey): a
+  suspended tenant now stops resolving at the gateway too. A slug-less
+  tenant is reachable only by uid URL, so echoing the caller's own key
+  discloses nothing new. Pinned by the siteKey block in
+  `tests/public-intake.test.js`.
+- **P6 — honeypot named `website` can be autofilled by browsers (LOW) —
+  ✅ FIXED 2026-08-05.** The coordinated pass landed: every emitter
+  (quick-lead-form.js ×153 pages, tenant microsite, free-roof, free-guide ×2,
+  homepage) renames the honeypot to `nbd_hp` / `fieldNbdHp`, and the gateway
+  (`functions/handlers/integrations.js`) checks BOTH `nbd_hp` and the legacy
+  `website` key indefinitely — new pages no longer render an input named
+  `website`, so autofill can't populate what isn't there, while bots replaying
+  the old shape still trip. Pinned by
+  `tests/honeypot-autofill-contract.test.js` (chain + smoke CI) and the
+  both-keys cases in `tests/public-intake.test.js`.
 - **P8 — tenant sites shipped NBD's favicon (LOW) — ✅ FIXED (favicon).**
   docs/sites/t/ now ships a neutral slate house-glyph favicon
   (`site-icon.svg`) instead of NBD's `/favicon.svg`, closing the browser-tab
   brand bleed. The roofing-trade FALLBACK_SERVICES are intentionally kept —
   NBD PRO is a roofing-focused platform, so roofing defaults are appropriate
   for an unconfigured tenant.
-- **CL8 — legacy `sendTeamInviteEmail` + `invites/{token}` collection (LOW).**
-  Dead path in email-functions.js still uses the old role vocab incl. `'owner'`
-  and writes an `invites` collection no current claim path consumes. Retire or
-  align. A few `'owner'` string refs also linger in prospects.js /
-  ai-texting-persona.js (cosmetic).
+- **CL8 — legacy `sendTeamInviteEmail` + `invites/{token}` collection (LOW) —
+  ✅ RESOLVED 2026-08-06 (#1190).** The dead endpoint (zero callers anywhere in
+  docs/, tests/, or workflows) was deleted along with its pre-claims role
+  vocabulary — the lingering `'owner'` refs lived inside it (the
+  prospects.js / ai-texting-persona.js files named here no longer exist under
+  those names). The `invites/{token}` deny-all rule stays as an annotated
+  tombstone over historical docs; the live flow remains the `createTeamInvite`
+  callable. Prod deletion deployed cleanly in run #1274.
 
 ## Verified clean (no action)
 

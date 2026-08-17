@@ -41,6 +41,8 @@ const syntaxFiles = [
   path.join(PRO_JS, 'sales-training-ui.js'),
   path.join(PRO_JS, 'sales-training.js'),
   path.join(PRO_JS, 'estimates.js'),
+  path.join(PRO_JS, 'estimate-entry.js'),
+  path.join(PRO_JS, 'estimate-crm-ops.js'),
   path.join(PRO_JS, 'estimate-v2-ui.js'),
   path.join(PRO_JS, 'estimate-finalization.js'),
   path.join(PRO_JS, 'nbd-doc-viewer.js'),
@@ -256,7 +258,8 @@ section('ScriptLoader contract');
   // products views. estimate-config / review-engine / property-intel stay eager.
   // Verified end-to-end by tests/e2e/estimate-engine.spec.js (engine assembles
   // to 222 products / 298 merged catalog keys / 270 xactimate).
-  const ESTMODS = ['estimates.js', 'product-data.js', 'product-library.js',
+  const ESTMODS = ['estimates.js', 'estimate-entry.js', 'estimate-crm-ops.js',
+    'product-data.js', 'product-library.js',
     'estimate-builder-v2.js', 'estimate-catalog-xactimate.js', 'estimate-v2-ui.js'];
   const estBundleSrc = (src.match(/estimates:\s*\[([\s\S]*?)\]/) || [])[1] || '';
   for (const m of ESTMODS) {
@@ -341,9 +344,9 @@ section('ScriptLoader contract');
       d2dBundleSrc.includes(m),
       m + ' must be listed in the d2d bundle in script-loader.js');
   }
-  assert('PR 2e: d2d view preloads the d2d bundle',
-    /d2d:\s*\['d2d'\]/.test(src),
-    "VIEW_BUNDLES must map d2d to the d2d bundle");
+  assert('PR 2e: d2d view preloads the d2d bundle (+ mapvendor since 2026-08-07)',
+    /d2d:\s*\['mapvendor',\s*'d2d'\]/.test(src),
+    "VIEW_BUNDLES must map d2d to the mapvendor + d2d bundles");
   // The maps engine MUST stay eager — maps.js applies the saved theme/font at
   // boot (nbdBoot) and powers the theme picker; deferring it would break theming.
   assert('PR 2e: maps.js stays eager (it is also the theme engine)',
@@ -851,6 +854,46 @@ section('Audit batch 4 — admin function role-check drift guard');
   assert('every admin function in FUNCTIONS_INDEX has a role/admin gate',
     missing.length === 0,
     missing.length ? 'admin gate missing from: ' + missing.join(', ') : '');
+
+  // ── Coverage tripwire (audit 2026-08-05) ──────────────────────────
+  // The doc went 2026-07-04 → 2026-08-05 with 21 undocumented exports —
+  // including the whole Stripe Connect + seat-billing money path, which the
+  // admin-gate check above therefore never scanned. Enforce the other
+  // direction too: every export REACHABLE from functions/index.js must
+  // appear somewhere in FUNCTIONS_INDEX.md. Static, dependency-free:
+  //   1. direct `exports.name =` assignments in index.js
+  //   2. one level of `Object.assign(exports, X)` where X was
+  //      `const X = require('./mod')` — parse that module's own exports.
+  {
+    const idxSrc = read(path.join(ROOT, 'functions/index.js'));
+    const names = new Set();
+    for (const m of idxSrc.matchAll(/^exports\.(\w+)\s*=/gm)) names.add(m[1]);
+
+    // Map require-variable → module path, then follow Object.assign mounts.
+    const reqVars = {};
+    for (const m of idxSrc.matchAll(/(?:const|let|var)\s+(\w+)\s*=\s*require\(['"](\.[^'"]+)['"]\)/g)) {
+      reqVars[m[1]] = m[2];
+    }
+    const mounted = [];
+    for (const m of idxSrc.matchAll(/Object\.assign\(exports,\s*(\w+)\)/g)) {
+      if (reqVars[m[1]]) mounted.push(reqVars[m[1]]);
+    }
+    for (const m of idxSrc.matchAll(/Object\.assign\(exports,\s*require\(['"](\.[^'"]+)['"]\)\)/g)) {
+      mounted.push(m[1]);
+    }
+    for (const rel of mounted) {
+      const p = path.join(ROOT, 'functions', rel.endsWith('.js') ? rel : rel + '.js');
+      if (!fs.existsSync(p)) continue;
+      const src = read(p);
+      for (const m of src.matchAll(/^exports\.(\w+)\s*=/gm)) names.add(m[1]);
+    }
+
+    const md2 = read(path.join(ROOT, 'functions/FUNCTIONS_INDEX.md'));
+    const undocumented = [...names].filter(n => !new RegExp('\\b' + n + '\\b').test(md2));
+    assert('every index.js export appears in FUNCTIONS_INDEX (' + names.size + ' scanned)',
+      undocumented.length === 0,
+      undocumented.length ? 'undocumented exports: ' + undocumented.join(', ') : '');
+  }
 }
 
 section('Rock 4 rollback fallback (Phase 3 prep)');
@@ -3285,10 +3328,23 @@ section('Globals Tranche 2c: __NBD_CALL_REGISTRY dispatch layer');
     assert('dashboard-actions no longer re-exports window.' + n + ' (2c-4h H2 shim removed)',
       !new RegExp('window\\.' + n + '\\s*=').test(dashActions));
   }
-  // damagNearMe stays functional — the maps.js alias still assigns from the
-  // spyglassGoToLocation const via the global lexical scope (must NOT be deleted).
-  assert('maps.js keeps window.damagNearMe = spyglassGoToLocation (lexical-scope alias)',
-    /window\.damagNearMe = spyglassGoToLocation;/.test(mapsSrc));
+  // damagNearMe dedup (2026-08-07, deferred-queue item 5): the single
+  // implementation lives in maps-overlays.js (per-PositionError messaging) and
+  // registers in __NBD_CALL_REGISTRY; the three shadowing aliases
+  // (dashboard-actions ×2, maps.js ×1 → spyglassGoToLocation) are deleted and
+  // the allowlist entry dropped (registry-registered names must not keep a
+  // window fallback).
+  const moSrc = read(path.join(PRO_JS, 'maps-overlays.js'));
+  assert('maps-overlays defines the damagNearMe implementation',
+    /function damagNearMe\(\)/.test(moSrc));
+  assert('maps-overlays registers damagNearMe in __NBD_CALL_REGISTRY',
+    /damagNearMe:\s*damagNearMe/.test(moSrc));
+  assert('maps.js no longer aliases window.damagNearMe',
+    !/window\.damagNearMe\s*=/.test(mapsSrc));
+  assert('dashboard-actions no longer aliases window.damagNearMe',
+    !/window\.damagNearMe\s*=/.test(dashActions));
+  assert('allowlist no longer carries damagNearMe (registry replaced it)',
+    !/'damagNearMe'/.test(stateSrc));
 
   // ── Tranche 2c-4h Slice H2 part 2: property-intel twin dedup (4 of 10) ──
   // The selective-pull cluster was byte-identical in dashboard-ui.js AND

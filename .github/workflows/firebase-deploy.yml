@@ -130,7 +130,7 @@ jobs:
         uses: actions/checkout@v7
 
       - name: Setup Node
-        uses: actions/setup-node@v5
+        uses: actions/setup-node@v7
         with:
           node-version: ${{ env.NODE_VERSION }}
 
@@ -151,6 +151,15 @@ jobs:
           node scripts/build-blog-index.mjs docs/assets/js/inline/c00f1acac9.js docs/blog/index.html \
             || echo "::warning::static blog index regeneration failed — deploying the committed static block as-is"
 
+      # Same shape for the Featured Projects gallery (docs/our-work.html is
+      # generated from assets/data/projects.json). Restamping here is what
+      # flips a future-dated project live on the first deploy after its date.
+      - name: Regenerate static projects gallery
+        if: ${{ github.event_name == 'push' || github.event.inputs.scope == 'all' || github.event.inputs.scope == 'hosting' }}
+        run: |
+          node scripts/build-projects.mjs \
+            || echo "::warning::static projects regeneration failed — deploying the committed static block as-is"
+
       # Same soft-fail rationale. --write only syncs the URL SET (new/removed
       # pages); existing lastmods are preserved by design and the git-date
       # mode is local-only (CI checkout is shallow, git dates would be wrong).
@@ -159,6 +168,15 @@ jobs:
         run: |
           node scripts/build-sitemap.js --write \
             || echo "::warning::sitemap regeneration failed — deploying the committed sitemap as-is"
+
+      # Same soft-fail shape for the RSS feed. Reads the same POSTS array as
+      # the blog index above, so this is what flips a future-dated post into
+      # the feed on its first post-date deploy.
+      - name: Regenerate RSS feed
+        if: ${{ github.event_name == 'push' || github.event.inputs.scope == 'all' || github.event.inputs.scope == 'hosting' }}
+        run: |
+          node scripts/build-feed.mjs --write \
+            || echo "::warning::feed regeneration failed — deploying the committed feed as-is"
 
       - name: Install Cloud Functions dependencies
         working-directory: functions
@@ -390,7 +408,7 @@ jobs:
       # silently broke EVERY deploy after #551 merged. Pin Temurin 21 here.
       - name: Set up JDK 21 (firebase-tools 15 emulator requirement)
         if: ${{ github.event_name == 'push' || github.event.inputs.scope == 'all' || github.event.inputs.scope == 'rules' }}
-        uses: actions/setup-java@v5
+        uses: actions/setup-java@v5.6.0
         with:
           distribution: 'temurin'
           java-version: '21'
@@ -579,7 +597,15 @@ jobs:
           # us-central1 in the GCP console — see the step summary on failure.
           set +e   # we manage exit codes explicitly by parsing per-pass failures
 
-          ALL=$(grep -rhE "^exports\.[a-zA-Z_][a-zA-Z0-9_]* *= *(onRequest|onCall|beforeUserCreated|beforeUserSignedIn|onSchedule|onDocumentCreated|onDocumentUpdated|onDocumentWritten|onDocumentDeleted|functions\.https\.onRequest|functions\.https\.onCall|functions\.firestore|functions\.auth|functions\.pubsub)" functions/*.js functions/integrations/*.js functions/handlers/*.js functions/migrations/runner.js 2>/dev/null \
+          # onObjectFinalized added 2026-08-17: the alternation predates the
+          # first Storage-trigger export (image-pipeline's onPhotoUploaded,
+          # 2026-04-26; voice-intelligence's onAudioUploaded later) — both
+          # were silently EXCLUDED from every auto-deploy, so merged changes
+          # to them never reached prod until deployed manually. If a new
+          # v2 trigger wrapper type is ever introduced (onMessagePublished,
+          # onValueWritten, ...), it must be added here or its functions
+          # will not deploy.
+          ALL=$(grep -rhE "^exports\.[a-zA-Z_][a-zA-Z0-9_]* *= *(onRequest|onCall|beforeUserCreated|beforeUserSignedIn|onSchedule|onObjectFinalized|onDocumentCreated|onDocumentUpdated|onDocumentWritten|onDocumentDeleted|functions\.https\.onRequest|functions\.https\.onCall|functions\.firestore|functions\.auth|functions\.pubsub)" functions/*.js functions/integrations/*.js functions/handlers/*.js functions/migrations/runner.js 2>/dev/null \
                 | sed -E 's/^exports\.([a-zA-Z_][a-zA-Z0-9_]*) *=.*/\1/' \
                 | sort -u)
           INCLUDE=""
@@ -596,17 +622,32 @@ jobs:
           fi
 
           FAILED_FILE=$(mktemp)
+          WHOLESALE_FILE=$(mktemp)
           # _deploy_only <comma-separated functions:NAME list> — runs the deploy,
           # echoes firebase output to the log, and appends any failed function
           # names to FAILED_FILE. firebase prints "Failed to (create|update)
           # function NAME in region ..." per failure; that's what we parse.
+          #
+          # WHOLESALE-FAILURE GUARD (2026-08-10 audit): the per-function parse
+          # is the ONLY failure signal the step used to have, so a deploy that
+          # died BEFORE per-function rollout (auth error, config parse, quota
+          # abort — exit != 0 with zero "Failed to ..." lines) produced an
+          # empty FAILED set and the step printed "✓ All functions deployed"
+          # while deploying nothing. Capture the exit code; nonzero with no
+          # parsed per-function failures = wholesale failure, recorded and
+          # fatal at the end.
           _deploy_only() {
             [ -z "$1" ] && return 0
-            local out
+            local out rc parsed
             out=$(npx firebase-tools deploy --only "$1" --project "$PRO_PROJECT" --non-interactive --force 2>&1)
+            rc=$?
             echo "$out"
-            echo "$out" | grep -oE "Failed to (create|update) function [A-Za-z_][A-Za-z0-9_]*" \
-                        | sed -E 's/.*function //' >> "$FAILED_FILE"
+            parsed=$(echo "$out" | grep -oE "Failed to (create|update) function [A-Za-z_][A-Za-z0-9_]*" \
+                                 | sed -E 's/.*function //')
+            [ -n "$parsed" ] && echo "$parsed" >> "$FAILED_FILE"
+            if [ "$rc" -ne 0 ] && [ -z "$parsed" ]; then
+              echo "wholesale deploy failure: exit $rc with no per-function failure lines (targets: $1)" >> "$WHOLESALE_FILE"
+            fi
           }
           # _deploy_batched <newline-separated names> — deploys in chunks of
           # NBD_DEPLOY_BATCH_SIZE so a large straggler set never re-creates the
@@ -643,6 +684,20 @@ jobs:
             FAILED=$(sort -u "$FAILED_FILE")
           done
 
+          if [ -s "$WHOLESALE_FILE" ] && [ -z "$FAILED" ]; then
+            echo "::error::Cloud Functions deploy failed WHOLESALE (nonzero exit before per-function rollout) — nothing or almost nothing was deployed"
+            {
+              echo "### ❌ Cloud Functions deploy — wholesale failure"
+              echo ""
+              echo "The firebase-tools deploy exited nonzero WITHOUT any per-function"
+              echo "failure lines — it died before per-function rollout (auth, config,"
+              echo "or quota abort). Until 2026-08-10 this exact mode reported"
+              echo "\"✓ All functions deployed\" and went green."
+              echo ""
+              sed 's/^/  - /' "$WHOLESALE_FILE"
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
           if [ -n "$FAILED" ]; then
             echo "::error::Cloud Functions still failing after $NBD_DEPLOY_RETRY_ROUNDS retries"
             {

@@ -282,12 +282,21 @@ console.log('\nCI gate — @stranger shard is required');
   // encoded is strictly better satisfied, and a test that fails on a change
   // which over-satisfies it is testing the wrong thing.
   //
-  // What must stay true: no shard, and specifically not @stranger, is exempt
-  // from blocking. `continue-on-error: true` anywhere in this job would let a
-  // red shard merge green, which is exactly the hole this guards.
-  assert('no E2E shard is exempted from blocking (incl. @stranger)',
-    /continue-on-error:\s*false/.test(ci) && !/continue-on-error:\s*true/.test(ci),
+  // What must stay true: no PROMOTED shard, and specifically not @stranger,
+  // is exempt from blocking. 2026-08-07: the matrix gained an @engines leg
+  // on the introduction runway (the same advisory→required path @gauntlet
+  // took), gated by an expression — so the check is now that the matrix
+  // exemption names ONLY @engines (never @stranger or the other four), and
+  // that bare `continue-on-error: true` literals are confined to the three
+  // named runway jobs (public-e2e, visual-brand-tokens, visual-regression).
+  // Promoting a runway job means flipping its literal AND this count.
+  assert('no promoted E2E shard is exempted from blocking (incl. @stranger)',
+    /continue-on-error:\s*\$\{\{\s*matrix\.shard == '@engines'\s*\}\}/.test(ci)
+    && !/continue-on-error:[^\n]*@stranger/.test(ci),
     'the only runtime proof of stranger self-provisioning must gate merges');
+  assert('advisory literals confined to the introduction-runway jobs (3)',
+    (ci.match(/continue-on-error:\s*true/g) || []).length === 3,
+    'a promoted job regaining continue-on-error: true is the hole this guards');
   assert('this suite runs in CI',
     /gauntlet-regressions\.test\.js/.test(ci),
     'add a node tests/gauntlet-regressions.test.js step to ci.yml');
@@ -570,7 +579,10 @@ console.log('\nPer-seat charging — gates + wiring');
     /planPriceIds\.has\(seatPriceId\)/.test(st) && /misconfigured/.test(st),
     'a copy-paste of a plan price into STRIPE_PRICE_SEAT would re-quantity the plan line');
   assert('owner/admin gate + App Check + rate limit',
-    /requireTeamAdmin\(request\)/.test(st)
+    // ownerOnly is load-bearing (2026-08-05): requireTeamAdmin now accepts
+    // same-company company_admins by default; seat money stays the
+    // bill-payer's call alone via this opt.
+    /requireTeamAdmin\(request, null, \{ ownerOnly: true \}\)/.test(st)
     && /enforceAppCheck: true/.test(st)
     && /callableRateLimit\(request, 'setCompanySeatCount'/.test(st));
   assert('extraSeats requires an actual integer (no Number() 0-coercion of null/""/[])',

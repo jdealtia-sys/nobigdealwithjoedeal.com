@@ -51,6 +51,16 @@ const { httpRateLimit } = require('./integrations/upstash-ratelimit');
 // duplicated copy was first flagged.
 const { callableRateLimit } = require('./shared');
 const { applyRepReplyEffects } = require('./portal-reply-effects');
+// Customer-safe line items for the shared-estimate view. This is a byte-copy
+// of docs/pro/js/customer-estimate-rows.js (Functions deploys only functions/;
+// a smoke drift guard in tests/customer-estimate-rows.test.js asserts the two
+// stay identical). NEVER emit est.rows raw — pre-sweep V2 rows carry the
+// contractor's COST basis.
+const { buildDisplayRows } = require('./customer-estimate-rows');
+// Single authority check for portal-link mint/revoke: platform admin, owning
+// rep, or a company_admin of the lead's tenant. Pure module — decision is
+// unit-tested there, not here.
+const { canManageLead } = require('./portal-authz');
 
 // CORS origins — identical to the list in functions/index.js. The
 // duplication is deliberate: portal.js is meant to be importable on
@@ -151,9 +161,9 @@ exports.createPortalToken = onCall(
     const leadSnap = await db.doc(`leads/${leadId}`).get();
     if (!leadSnap.exists) throw new HttpsError('not-found', 'Lead not found');
     const lead = leadSnap.data();
-    // Owner-scope: rep who owns the lead OR platform admin.
-    const isAdmin = request.auth.token.role === 'admin';
-    if (lead.userId !== uid && !isAdmin) {
+    // Owning rep, same-tenant company_admin, or platform admin. The tenant
+    // admin needs mint too — revoke→re-mint is one workflow in the dashboard.
+    if (!canManageLead(request.auth.token, uid, lead)) {
       throw new HttpsError('permission-denied', 'Not your lead');
     }
 
@@ -205,38 +215,59 @@ exports.revokePortalToken = onCall(
     }
 
     const db = getFirestore();
-    const isAdmin = request.auth.token.role === 'admin';
+    const claims = request.auth.token || {};
+    const isAdmin = claims.role === 'admin';
     let revoked = [];
     // The legacy-portal purge below is lead-level; when the caller passes
     // only a token id, derive the lead from the token doc.
     let resolvedLeadId = leadId;
 
+    // Resolve the token first (when given) so the lead — and therefore the
+    // authority check — is known BEFORE anything is flipped.
+    let tokenRef = null;
+    let tokenData = null;
     if (tokenId) {
-      const ref = db.doc(`portal_tokens/${tokenId}`);
-      const snap = await ref.get();
+      tokenRef = db.doc(`portal_tokens/${tokenId}`);
+      const snap = await tokenRef.get();
       if (!snap.exists) throw new HttpsError('not-found', 'Token not found');
-      const tokenData = snap.data();
-      if (!isAdmin && tokenData.ownerUid !== uid) {
+      tokenData = snap.data();
+      if (!resolvedLeadId && typeof tokenData.leadId === 'string') {
+        resolvedLeadId = tokenData.leadId;
+      }
+    }
+
+    // One lead read up front: the gate, the batch filter, and the legacy
+    // purge below all key off it.
+    let lead = null;
+    let leadRef = null;
+    if (resolvedLeadId) {
+      leadRef = db.doc(`leads/${resolvedLeadId}`);
+      const ls = await leadRef.get();
+      if (ls.exists) lead = ls.data();
+    }
+    // Lead gone (deleted): tenant membership can't be proven, so only the
+    // platform admin — or, below, the token's own minter — may still clean up.
+    const canManage = lead ? canManageLead(claims, uid, lead) : isAdmin;
+
+    if (tokenRef) {
+      if (!canManage && tokenData.ownerUid !== uid) {
         throw new HttpsError('permission-denied', 'Not your token');
       }
-      await ref.update({
+      await tokenRef.update({
         expiresAt: Timestamp.fromMillis(Date.now() - 1),
         revokedAt: FieldValue.serverTimestamp(),
         revokedBy: uid
       });
       revoked = [tokenId];
-      if (!resolvedLeadId && typeof tokenData.leadId === 'string') {
-        resolvedLeadId = tokenData.leadId;
-      }
     } else {
-      // Revoke every token for this lead owned by the caller.
+      // Revoke every token for this lead the caller has authority over.
       const q = await db.collection('portal_tokens')
         .where('leadId', '==', leadId)
         .get();
       const batch = db.batch();
       q.forEach(d => {
         const data = d.data();
-        if (!isAdmin && data.ownerUid !== uid) return;
+        if (!canManage && data.ownerUid !== uid) return;
         batch.update(d.ref, {
           expiresAt: Timestamp.fromMillis(Date.now() - 1),
           revokedAt: FieldValue.serverTimestamp(),
@@ -245,6 +276,13 @@ exports.revokePortalToken = onCall(
         revoked.push(d.id);
       });
       if (revoked.length) await batch.commit();
+      // Honesty (audit 2026-08-02): tokens exist but the caller could flip
+      // none → that's a permission failure, not `{success:true, revoked:0}`.
+      // The old silent skip made a tenant owner believe a departed rep's
+      // link was dead when it was still live.
+      if (!q.empty && revoked.length === 0) {
+        throw new HttpsError('permission-denied', 'Not your lead');
+      }
     }
 
     // ── Legacy baked-HTML Storage purge ──────────────────────────────
@@ -258,14 +296,13 @@ exports.revokePortalToken = onCall(
     // above left those already-shared links live forever. Delete the objects
     // and clear the dead fields so a revoke actually revokes. Owner-or-admin
     // gated — never touch another tenant's artifacts or lead doc.
-    if (resolvedLeadId) {
+    if (resolvedLeadId && lead && leadRef) {
       try {
-        const leadRef = db.doc(`leads/${resolvedLeadId}`);
-        const leadSnap = await leadRef.get();
-        if (leadSnap.exists) {
-          const lead = leadSnap.data();
+        // (bare block: the lead was already read for the gate above; keeps
+        // the purge body's original indentation for a reviewable diff)
+        {
           const ownerUid = lead.userId;
-          if (isAdmin || ownerUid === uid) {
+          if (canManage) {
             // Collect every baked-HTML object path recorded for this lead.
             const paths = new Set();
             if (typeof lead.portalPath === 'string' && lead.portalPath) {
@@ -331,7 +368,7 @@ exports.revokePortalToken = onCall(
               logger.warn('revokePortalToken: sign-token revoke failed', { leadId: resolvedLeadId, err: e.message });
             }
           } else {
-            logger.warn('revokePortalToken: legacy purge skipped — caller not lead owner',
+            logger.warn('revokePortalToken: legacy purge skipped — caller lacks authority on this lead',
               { leadId: resolvedLeadId });
           }
         }
@@ -344,7 +381,11 @@ exports.revokePortalToken = onCall(
     }
 
     logger.info('revokePortalToken', { leadId: resolvedLeadId, count: revoked.length });
-    return { success: true, revoked: revoked.length };
+    // revoked: 0 now ONLY means "nothing was active" — a caller without
+    // authority throws above instead of getting a success-shaped no-op.
+    return revoked.length
+      ? { success: true, revoked: revoked.length }
+      : { success: true, revoked: 0, reason: 'no_active_tokens' };
   }
 );
 
@@ -1819,24 +1860,55 @@ exports.getEstimateForView = onRequest(
 
     // Return a redacted view of the estimate. We strip internal
     // fields (margin, costBasis, internalNotes) that the homeowner
-    // shouldn't see; the formatRetailQuote on the client side will
-    // render only the consumer-facing surface.
+    // shouldn't see; the client renders only the consumer-facing surface.
+    //
+    // Audit 2026-08-02 (medium): the old whitelist emitted `est.lines` and
+    // `est.tiers` — fields NO writer persists (classic + V2 both save `rows`,
+    // per-SQ saves `prices`), so every homeowner saw an empty scope. And the
+    // naive fix (emit rows) would leak the contractor's cost basis: pre-sweep
+    // V2 rows carry material/labor COST in rate/total. buildDisplayRows is
+    // the exact retail ladder the customer-portal PDF already uses
+    // (retailTotal → cost×(1+markup) → face; per-SQ → no rows; O&P footer),
+    // mapped here onto the shape estimate-view.js renders
+    // ({name, quantity, unit, lineTotal}).
+    const displayRows = buildDisplayRows(est);
+    // Per-SQ docs persist retail tier totals in `prices` — synthesize the
+    // tier cards the client expects ({good|better|best: {grandTotal}}). If a
+    // doc ever carries a real `tiers` payload, sanitize to grandTotal-only
+    // per key rather than passing raw (tiers objects can embed cost splits).
+    let safeTiers = null;
+    const rawTiers = (est.prices && typeof est.prices === 'object') ? est.prices
+      : (est.tiers && typeof est.tiers === 'object') ? est.tiers : null;
+    if (rawTiers) {
+      safeTiers = {};
+      for (const k of ['good', 'better', 'best']) {
+        const t = rawTiers[k];
+        const v = (t && typeof t === 'object') ? (t.grandTotal ?? t.total) : t;
+        if (v != null && Number.isFinite(Number(v))) safeTiers[k] = { grandTotal: Number(v) };
+      }
+      if (!Object.keys(safeTiers).length) safeTiers = null;
+    }
     const safeEstimate = {
       id: estSnap.id,
       tier:        est.tier || null,
       mode:        est.mode || null,
       grandTotal:  est.grandTotal || est.total || null,
       total:       est.total || est.grandTotal || null,
-      lines:       Array.isArray(est.lines) ? est.lines : [],
+      lines:       displayRows.map(r => ({
+        name:      r.desc || r.code || 'Line item',
+        // buildDisplayRows' qty is a display string that may embed the unit
+        // ('20.00 SQ') — pass it whole, leave unit empty.
+        quantity:  r.qty || null,
+        unit:      '',
+        lineTotal: r.total,
+      })),
       tierName:    est.tierName || null,
       addr:        est.addr || est.address || null,
       owner:       est.owner || null,
       createdAt:   est.createdAt?.toDate?.()?.toISOString() || null,
       number:      est.number || null,
       meas:        est.meas || est.measurements || null,
-      // Allow the formatter to render tier comparison if the doc
-      // already carries the tiers payload (per-SQ retail quotes do).
-      tiers:       est.tiers || null,
+      tiers:       safeTiers,
       // Photo embeds (2026-07): the rep-selected photos ride the shared
       // view. URL-only pass-through — {url} per entry, ids and any other
       // photo-doc fields stay server-side.

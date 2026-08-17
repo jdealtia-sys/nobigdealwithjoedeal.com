@@ -54,7 +54,7 @@ Fire, Water & Smoke Damage Restoration
 |---|---|---|---|
 | 1 | GAF contractor locator | gaf.com/en-us/roofing-contractors → claim via your GAF account | Verify cert #1162011 shows **System Plus** and the website URL is set |
 | 2 | James Hardie | jameshardie.com → "Find a Contractor" / Alliance portal | Link the site on your Alliance profile |
-| 3 | TAMKO | Ask your TAMKO rep about the Team-tier contractor listing | Storm Series lane |
+| 3 | TAMKO | tamko.com/locate-a-contractor | **Pro Gold™, ID 181382** (certified 2026-07-08 — supersedes the old "ask your rep about Team tier" note) |
 | 4 | Bing Places | bingplaces.com | "Import from Google Business Profile" — 10 minutes total |
 | 5 | Apple Business Connect | businessconnect.apple.com | Sign in with an Apple ID; feeds Apple Maps/Siri |
 | 6 | Nextdoor | business.nextdoor.com | Free claim; neighbors ask for roofer recs here weekly |
@@ -62,6 +62,13 @@ Fire, Water & Smoke Damage Restoration
 | 8 | Yelp | biz.yelp.com | Claim the free page; ignore their ad calls |
 | 9 | Clermont County Chamber | Membership = directory link | Goshen home turf |
 | 10 | Supplier locators | Ask SRS / ABC / Beacon rep | Dealer-locator links where offered |
+| 11 | Bing Webmaster Tools | bing.com/webmasters | *(added 2026-08-17)* "Import from Google Search Console" + submit sitemap.xml — indexing, not a citation, but Bing feeds ChatGPT search |
+
+**sameAs append rule (added 2026-08-17):** every time a listing above goes live,
+have the next Claude session append the live profile URL to the `sameAs` arrays in
+`docs/index.html` (~line 481) and `docs/review.html` (~line 26) — that's what ties
+each citation back to one entity. Yelp is already there
+(`yelp.com/biz/no-big-deal-home-solutions-cincinnati` — page exists, still unclaimed).
 
 ---
 

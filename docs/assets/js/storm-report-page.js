@@ -118,7 +118,7 @@
     $('sr-rep-rows').innerHTML = notable.map(function (e) {
       return '<tr><td>' + fmtDate(e.date) + '</td><td><span class="sr-tag sr-' + e.type + '">' + e.type + '</span></td><td>' +
         (e.magnitude ? e.magnitude + (e.unit ? e.unit : '') : '—') + '</td><td>' + e.distanceMi + ' mi</td></tr>';
-    }).join('') || '<tr><td colspan="4" style="text-align:center;color:#6b7280">No individual reports on file near this address.</td></tr>';
+    }).join('') || '<tr><td colspan="4" style="text-align:center;color:#5d6673">No individual reports on file near this address.</td></tr>';
     $('sr-rep-source').textContent = 'Source: ' + (S.data.source || 'NWS Local Storm Reports (NOAA)') + '. Report range: ' + (S.data.years || 5) + ' years within ' + (S.data.radiusMi || 30) + ' miles.';
     if (!saved) { var w = $('sr-rep-warn'); w.style.display = 'block'; w.textContent = 'Note: we couldn’t auto-save your info — please call/text Joe at (859) 420-7382 so your report request isn’t lost.'; }
     show('sr-report');

@@ -1,14 +1,19 @@
 /**
  * integrations/hail.js — hail / storm swath data source
  *
- * Two providers, both live:
+ * Three providers, all live:
  *   hailtrace (premium)    — paid subscription, polygon swaths per storm
+ *   swath     (metered)    — swathapi.com radar-measured events + swath
+ *                            polygons (integrations/swath.js; Firestore-
+ *                            cached because the free plan hard-stops at
+ *                            100 credits/month)
  *   noaa      (free)       — NOAA Storm Prediction Center Storm Events
  *                            database. Free, but ~3-month delay on
  *                            verified data.
  *
  * NOAA is the default so the feature works out-of-the-box. HailTrace
- * provides real-time within ~15 min of storm end.
+ * provides real-time within ~15 min of storm end; Swath is
+ * measured-events-only (never forecasts). Select via NBD_HAIL_PROVIDER.
  *
  * Used for the D2D pitch: "your neighborhood had verified 1.5"+ hail
  * 6 weeks ago — here's the polygon and the timestamp."
@@ -19,6 +24,7 @@
 const { onCall, HttpsError } = require('firebase-functions/v2/https');
 const { logger } = require('firebase-functions/v2');
 const { getSecret, hasSecret, PROVIDERS, SECRETS } = require('./_shared');
+const { fetchSwathHail } = require('./swath');
 
 const CORS_ORIGINS = [
   'https://nobigdealwithjoedeal.com',
@@ -98,19 +104,31 @@ async function fetchHailTrace(lat, lng, radiusMi, daysBack) {
 // Extracted so both getHailHistory (below) and the server-side attachStormProof
 // callable (handlers/storm-proof.js, idea #1 Phase 2) resolve hail the same
 // way. Returns { provider, hits, count, maxSizeInches }. Throws on total
-// failure (caller maps to an HttpsError). getHailHistory keeps its own inline
-// provider block byte-identical — this is additive.
+// failure (caller maps to an HttpsError). getHailHistory now routes through
+// this too (Swath wiring, 2026-08-06) — three providers × two inline copies
+// was drift waiting to happen.
+const HAIL_FETCHERS = {
+  hailtrace: fetchHailTrace,
+  swath:     fetchSwathHail,
+  noaa:      fetchNoaaHail,
+};
+
+function preferredHailProvider() {
+  if (PROVIDERS.hail === 'hailtrace' && hasSecret('HAILTRACE_API_KEY')) return 'hailtrace';
+  if (PROVIDERS.hail === 'swath' && hasSecret('SWATH_API_KEY')) return 'swath';
+  return 'noaa';
+}
+
 async function lookupHail(lat, lng, radiusMi, daysBack) {
-  const preferredProvider = PROVIDERS.hail === 'hailtrace' && hasSecret('HAILTRACE_API_KEY')
-    ? 'hailtrace' : 'noaa';
+  const preferredProvider = preferredHailProvider();
   let hits;
   let provider = preferredProvider;
   try {
-    hits = preferredProvider === 'hailtrace'
-      ? await fetchHailTrace(lat, lng, radiusMi, daysBack)
-      : await fetchNoaaHail(lat, lng, radiusMi, daysBack);
+    hits = await HAIL_FETCHERS[preferredProvider](lat, lng, radiusMi, daysBack);
   } catch (e) {
-    if (preferredProvider === 'hailtrace') {
+    if (preferredProvider !== 'noaa') {
+      // Keep the historical 'noaa-fallback' label regardless of which paid
+      // provider failed — client code only distinguishes fallback-vs-not.
       hits = await fetchNoaaHail(lat, lng, radiusMi, daysBack); // fallback (may throw → caller handles)
       provider = 'noaa-fallback';
     } else {
@@ -135,7 +153,7 @@ exports.getHailHistory = onCall(
     enforceAppCheck: true,
     timeoutSeconds: 20,
     memory: '256MiB',
-    secrets: [SECRETS.HAILTRACE_API_KEY]
+    secrets: [SECRETS.HAILTRACE_API_KEY, SECRETS.SWATH_API_KEY]
   },
   async (request) => {
     const uid = request.auth && request.auth.uid;
@@ -160,30 +178,23 @@ exports.getHailHistory = onCall(
       throw new HttpsError('invalid-argument', 'Valid lat/lng required');
     }
 
-    const preferredProvider = PROVIDERS.hail === 'hailtrace' && hasSecret('HAILTRACE_API_KEY')
-      ? 'hailtrace' : 'noaa';
-
+    // Swath wiring (2026-08-06): route through the shared lookupHail so the
+    // three-provider selection + NOAA fallback lives in exactly one place.
+    // Behavior notes vs the old inline block: identical selection and
+    // fallback order; the fallback response now also carries maxSizeInches
+    // (the inline copy dropped it on that path — additive fix).
     try {
-      const hits = preferredProvider === 'hailtrace'
-        ? await fetchHailTrace(lat, lng, radiusMi, daysBack)
-        : await fetchNoaaHail(lat, lng, radiusMi, daysBack);
+      const result = await lookupHail(lat, lng, radiusMi, daysBack);
       return {
         success: true,
-        provider: preferredProvider,
+        provider: result.provider,
         lat, lng, radiusMi, daysBack,
-        hits,
-        count: hits.length,
-        maxSizeInches: hits.reduce((m, h) => Math.max(m, h.sizeInches || 0), 0)
+        hits: result.hits,
+        count: result.count,
+        maxSizeInches: result.maxSizeInches
       };
     } catch (e) {
       logger.warn('getHailHistory failed:', e.message);
-      // Try fallback once if primary was hailtrace.
-      if (preferredProvider === 'hailtrace') {
-        try {
-          const hits = await fetchNoaaHail(lat, lng, radiusMi, daysBack);
-          return { success: true, provider: 'noaa-fallback', lat, lng, radiusMi, daysBack, hits, count: hits.length };
-        } catch (e2) { /* fall through */ }
-      }
       throw new HttpsError('unavailable', 'Hail lookup failed');
     }
   }

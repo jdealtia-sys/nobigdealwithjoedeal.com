@@ -8,6 +8,30 @@
 // ──────────────────────────────────────────────────────────────────
 const POSTS = [
   {
+    url: "/blog/gaf-timberline-hdz-vs-tamko-stormfighter-flex",
+    tag: "Reader Questions",
+    title: "GAF Timberline HDZ vs. TAMKO StormFighter Flex: A Reader Asked",
+    meta: "By Joe Deal · August 2026 · 7 min read",
+    excerpt: "A homeowner outside hail country asked which to pick for looks and longevity. If hail isn't your problem, don't pay for the hail solution — the honest breakdown from a roofer certified on both brands.",
+    published: "2026-08-17",
+  },
+  {
+    url: "/blog/owens-corning-duration-vs-tamko-hailguard",
+    tag: "Reader Questions",
+    title: "OC Duration vs. TAMKO HailGuard — and the $9,000 Question",
+    meta: "By Joe Deal · August 2026 · 8 min read",
+    excerpt: "A Colorado Springs homeowner was quoted $9,000 more for HailGuard over Duration and asked if that's reasonable. The itemization test, the insurance math, and when a Class 4 upsell is fair vs. padding.",
+    published: "2026-08-17",
+  },
+  {
+    url: "/blog/roof-financing-cincinnati-explained",
+    tag: "Financing",
+    title: "Roof Financing in Cincinnati: What I Tell Homeowners at the Kitchen Table",
+    meta: "By Joe Deal · August 2026 · 7 min read",
+    excerpt: "When financing a roof makes sense, when it doesn't, and the deductible-plus-financing combo most homeowners have never heard of — explained the way Joe explains it in person, with zero lender boilerplate.",
+    published: "2026-08-17",
+  },
+  {
     url: "/blog/how-to-choose-a-roofer-after-a-storm",
     tag: "Roofing",
     title: "How to Choose a Roofer After a Storm (Before the Trucks Show Up)",
@@ -155,7 +179,7 @@ const POSTS = [
     url: "/blog/how-much-does-roof-cost-cincinnati-2026",
     tag: "Pricing Guide",
     title: "How Much Does a New Roof Cost in Cincinnati in 2026?",
-    meta: "By Joe Deal · Updated July 2026 · 7 min read",
+    meta: "By Joe Deal · May 2025 · 7 min read",
     excerpt: "Realistic roof replacement pricing for Cincinnati homes in 2026. Cost per square, material tiers, labor rates, insurance vs. out-of-pocket, and what actually drives the final number. No fluff — just straight numbers from a local roofer.",
     published: "2025-05-19",
   },

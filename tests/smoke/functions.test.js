@@ -136,6 +136,16 @@ section('Cloud Functions exports');
     assert('exports ' + fn, new RegExp('exports\\.' + fn + '\\s*=').test(src));
   }
   assert('requireTeamAdmin helper defined', /function requireTeamAdmin\s*\(/.test(src));
+  // Audit 2026-08-02: the authority decision is the pure exported
+  // teamAdminDecision (second company_admins accepted); seat-money keeps its
+  // deliberate owner-only carve-out at the call site.
+  assert('teamAdminDecision extracted + exported (pure, test-covered)',
+    /function teamAdminDecision\s*\(/.test(src) && /teamAdminDecision,/.test(src));
+  assert('requireTeamAdmin routes through teamAdminDecision',
+    /const \{ allow, isOwner \} = teamAdminDecision\(\{/.test(src));
+  assert('setCompanySeatCount stays owner-only via ownerOnly opt',
+    /requireTeamAdmin\(request, null, \{ ownerOnly: true \}\)/.test(
+      read(path.join(FUNCTIONS, 'handlers', 'seats.js'))));
   assert('normalizeRole rejects platform admin unconditionally',
     /if \(r === 'admin'\) return null/.test(src));
   assert('TEAM_ROLES excludes platform admin',
@@ -313,7 +323,7 @@ section('H-6: Stripe webhook raw body + replay');
   assert('getStripe trims the secret key (kills the tainted-newline 500)',
     /getStripe[\s\S]{0,200}STRIPE_SECRET_KEY\.value\(\)[\s\S]{0,80}\.trim\(\)/.test(src));
   assert('getStripe sets maxNetworkRetries + timeout',
-    /getStripe[\s\S]{0,300}maxNetworkRetries[\s\S]{0,80}timeout/.test(src));
+    /getStripe[\s\S]{0,400}maxNetworkRetries[\s\S]{0,80}timeout/.test(src));
   assert('no per-handler raw new Stripe(SECRET.value()) — all go through getStripe()',
     !/new Stripe\(STRIPE_SECRET_KEY\.value\(\)/.test(src) &&
     (src.match(/= getStripe\(\);/g) || []).length >= 5);
@@ -1078,13 +1088,22 @@ section('E2: CI workflow present');
     /PRIVATE KEY/.test(ci) && /sk-ant-/.test(ci) && /sk_live_/.test(ci));
 
   // The E2E shards exist to catch regressions the unit suites structurally
-  // cannot. Left advisory (continue-on-error: true) they still burn ~5
-  // runners a push but a real regression merges green — the signal gets
-  // produced and then discarded. All five earned promotion on a 60-run
-  // green record; this keeps them blocking. If a shard must be re-parked,
-  // that is a deliberate call which should also update this assertion.
-  assert('E2E shards are blocking, not advisory',
-    /continue-on-error:\s*false/.test(ci) && !/continue-on-error:\s*true/.test(ci));
+  // cannot. Left advisory forever they burn runners while regressions merge
+  // green — the five promoted shards must STAY blocking. Advisory is legal
+  // only for jobs on their introduction runway (the same path @gauntlet
+  // took: advisory 2026-07-17 → required 2026-07-28). 2026-08-07: the matrix
+  // gained an @engines leg gated by an expression that keeps the five
+  // required shards blocking; three new standalone jobs (public-e2e,
+  // visual-brand-tokens, visual-regression) are on that runway — promoting
+  // one means flipping its literal AND updating this allowlist.
+  const requiredShards = ['@shard1', '@shard2', '@audit', '@stranger', '@gauntlet'];
+  assert('the five promoted E2E shards are all in the matrix',
+    requiredShards.every((s) => ci.includes("'" + s + "'")));
+  assert('matrix continue-on-error only exempts @engines (five shards stay blocking)',
+    /continue-on-error:\s*\$\{\{\s*matrix\.shard == '@engines'\s*\}\}/.test(ci)
+    && !/continue-on-error:\s*true[\s\S]{0,400}PLAYWRIGHT_GREP:\s*\$\{\{\s*matrix\.shard\s*\}\}/.test(ci));
+  assert('advisory literals are limited to the introduction-runway jobs (3)',
+    (ci.match(/continue-on-error:\s*true/g) || []).length === 3);
 }
 
 section('E2b: hosting deploy is gated');
@@ -1144,24 +1163,20 @@ section('E4: service-worker kill switch');
 section('AUTHZ: email-send callables gate role + rate-limit + escape');
 {
   const src = read(path.join(FUNCTIONS, 'email-functions.js'));
-  // sendDripEmail was an open branded-mail relay: any authed user (incl.
-  // read-only viewer / access-code member) could send to an arbitrary
-  // recipient with unescaped template variables. It must now (a) block
-  // viewer/member like sendEmail, (b) escape template values.
-  const drip = (src.match(/exports\.sendDripEmail = onCall\([\s\S]*?\n\);/) || [''])[0];
-  assert('sendDripEmail blocks viewer/member role',
-    /_dripRole === 'viewer' \|\| _dripRole === 'member'/.test(drip));
-  assert('sendDripEmail keeps its per-uid rate limit',
-    /enforceRateLimit\('sendDripEmail:uid'/.test(drip));
+  // sendDripEmail + sendEstimateEmail were RETIRED 2026-08-11 (dead-surface
+  // lane: zero callers anywhere; both were branded-mail relays that had
+  // needed hardening once already). Pin them GONE so a revert can't quietly
+  // resurrect billable dead surface — mirrors the sendTeamInviteEmail (CL8)
+  // retirement pattern. Restore-from-git note lives at the removal site.
+  assert('sendDripEmail stays retired (no export)',
+    !/exports\.sendDripEmail\s*=/.test(src));
+  assert('sendEstimateEmail stays retired (no export)',
+    !/exports\.sendEstimateEmail\s*=/.test(src));
+  // The escape helper survives the retirement — sendEmail's template path
+  // still uses it.
   assert('populateTemplate HTML-escapes variable values',
     /function escapeTemplateValue/.test(src) &&
     /const value = escapeTemplateValue\(variables\[key\]\)/.test(src));
-  // sendEstimateEmail keeps its ownership/tenant guard AND now a per-uid cap.
-  const est = (src.match(/exports\.sendEstimateEmail = onRequest\([\s\S]*?\n\);/) || [''])[0];
-  assert('sendEstimateEmail has a per-uid rate limit (not just per-IP)',
-    /enforceRateLimit\('sendEstimateEmail:uid'/.test(est));
-  assert('sendEstimateEmail keeps the ownership+tenant guard',
-    /ownsLead && !sameCompanyMgr/.test(est) || /!ownsLead && !sameCompanyMgr/.test(est));
 }
 
 section('F1: email queue worker');
@@ -1269,7 +1284,7 @@ section('F2 / M3: webhooks fail closed (every HTTP webhook signed)');
 
   const sms = read(path.join(FUNCTIONS, 'sms-functions.js'));
   assert('incomingSMS verifies Twilio signature via validateRequest',
-    /twilio\.validateRequest\(authToken,\s*twilioSignature/.test(sms));
+    /_twilio\(\)\.validateRequest\(authToken,\s*twilioSignature/.test(sms));
   assert('incomingSMS 403s on signature failure',
     /signature verification failed[\s\S]{0,200}res\.status\(403\)/.test(sms));
 
@@ -1588,8 +1603,15 @@ section('C2: Recording rules + Storage audio path + composite index');
   // Firestore: flat-path recordings subcollection, admin-SDK-only writes.
   assert('C2: /leads/{leadId}/recordings/{recordingId} rule present',
     /match \/recordings\/\{recordingId\}/.test(rules));
-  assert('C2: recordings allow read scoped to owner + admin + same-company manager',
-    /match \/recordings\/\{recordingId\}[\s\S]{0,500}resource\.data\.userId[\s\S]{0,300}isManager\(\)[\s\S]{0,300}resource\.data\.companyId == myCompanyId\(\)/.test(rules));
+  // PREMISE WIDENED 2026-08-02 — this pinned isManager() specifically, which
+  // excluded company_admin: the TENANT OWNER, strictly more privileged
+  // everywhere else in firestore.rules. The owner could not read their own
+  // team's call recordings, and the panel rendered empty rather than
+  // erroring. Now isCompanyStaff() (= isCompanyAdmin() || isManager()).
+  // The same-company clause below is the part that must never relax — it is
+  // what keeps a role claim from crossing the companyId wall.
+  assert('C2: recordings allow read scoped to owner + admin + same-company staff',
+    /match \/recordings\/\{recordingId\}[\s\S]{0,500}resource\.data\.userId[\s\S]{0,300}isCompanyStaff\(\)[\s\S]{0,300}resource\.data\.companyId == myCompanyId\(\)/.test(rules));
   assert('C2: recordings writes blocked at the rule layer (admin SDK only)',
     /match \/recordings\/\{recordingId\}[\s\S]{0,800}allow write: if false/.test(rules));
 
@@ -1640,10 +1662,12 @@ section('C1: Voice Intelligence backend pipeline');
     /async function processRecording\(/.test(src));
   assert('C1: onAudioUploaded Storage trigger exported',
     /exports\.onAudioUploaded\s*=\s*onObjectFinalized/.test(src));
-  assert('C1: triggerProcessRecording admin-only callable',
-    /exports\.triggerProcessRecording\s*=\s*onCall[\s\S]{0,500}role !== 'admin'/.test(src));
-  assert('C1: reprocessRecording admin-only callable',
-    /exports\.reprocessRecording\s*=\s*onCall[\s\S]{0,500}role !== 'admin'/.test(src));
+  // The manual admin kicks were RETIRED 2026-08-11 (their UI never shipped;
+  // the automatic pipeline below is untouched). Pin them gone.
+  assert('C1: triggerProcessRecording stays retired (no export)',
+    !/exports\.triggerProcessRecording\s*=/.test(src));
+  assert('C1: reprocessRecording stays retired (no export)',
+    !/exports\.reprocessRecording\s*=/.test(src));
 
   // Critical idempotency + fail-closed behaviour
   assert('C1: idempotent on already-complete recording',
@@ -2148,6 +2172,82 @@ section('Per-route rate-limit policy');
   // mutate live policy at runtime.
   assert('getRateLimitMatrix returns Object.freeze snapshot',
     /function getRateLimitMatrix[\s\S]{0,300}Object\.freeze/.test(policy));
+
+  // ── Wiring pilot (2026-08-10): the module is no longer dead code. ──
+  // Policy must ride the SAME provider adapter the handlers use, or a
+  // NBD_RATE_LIMIT_PROVIDER=upstash flip would silently pin the
+  // policy-guarded routes to the Firestore limiter.
+  assert('policy enforces through the provider-aware upstash adapter',
+    /require\(['"]\.\/integrations\/upstash-ratelimit['"]\)/.test(policy));
+  // Both wrappers key IP limits on the IPv6 /64 prefix — parity with the
+  // hand-rolled gates (one v6 allocation must not rotate past the cap).
+  assert('guardCallable + guardHttp bucket IPs via rateLimitIpKey',
+    (policy.match(/rateLimitIpKey\(clientIp\(/g) || []).length >= 2);
+
+  const aiH = read(path.join(ROOT, 'functions/handlers/ai.js'));
+  const portalH = read(path.join(ROOT, 'functions/handlers/portal.js'));
+  const intH = read(path.join(ROOT, 'functions/handlers/integrations.js'));
+  // claudeProxy rides guardHttp; the old inline uid call must STAY GONE —
+  // wrapper + inline share the 'claudeProxy:uid' namespace, so reintroducing
+  // the inline call would double-count every request (halved effective limit).
+  assert('claudeProxy is wrapped in guardHttp and has no inline uid limiter',
+    /guardHttp\(\s*['"]claudeProxy['"]/.test(aiH)
+    && !/enforceRateLimit\(\s*['"]claudeProxy:uid['"]/.test(aiH));
+  // claudeProxy's uid ceiling in ROUTES is the prod limit the inline call
+  // used to enforce (CLAUDE_PER_MIN_LIMIT was 20) — the wiring was
+  // behavior-preserving, and tightening/loosening it is a deliberate act.
+  assert('ROUTES.claudeProxy keeps the prod uid ceiling (20/min)',
+    /claudeProxy:\s*\{[^}]*uidLimit:\s*20\b[^}]*uidWindow:\s*MINUTE/.test(policy));
+  // validateAccessCode rides guardCallable; same no-double-count rule.
+  assert('validateAccessCode is wrapped in guardCallable and has no inline ip limiter',
+    /guardCallable\(\s*['"]validateAccessCode['"]/.test(portalH)
+    && !/enforceRateLimit\(\s*['"]validateAccessCode:ip['"]/.test(portalH));
+  assert('ROUTES.validateAccessCode keeps the prod ip gate (5 / 5 min)',
+    /validateAccessCode:\s*\{[^}]*ipLimit:\s*5\b[^}]*ipWindow:\s*5\*MINUTE/.test(policy));
+  // submitPublicLead stays hand-rolled ON PURPOSE (fail-open-to-Firestore
+  // semantics + Turnstile/honeypot interleave that guardHttp doesn't have) —
+  // but the ROUTES record must MATCH the handler's real gate, or the ops
+  // matrix lies. Cross-pin both sides.
+  assert('submitPublicLead handler gate is 20/min per-IP (hand-rolled)',
+    /enforceRateLimit\(\s*['"]publicLead:ip['"][\s\S]{0,80}?,\s*20,\s*60_000\)/.test(intH));
+  assert('ROUTES.submitPublicLead records that same 20/min per-IP gate',
+    /submitPublicLead:\s*\{[^}]*ipLimit:\s*20\b[^}]*ipWindow:\s*MINUTE/.test(policy));
+
+  // ── Wave 2 (2026-08-10 audit): more wiring + record-vs-reality sync. ──
+  const monH = read(path.join(ROOT, 'functions/handlers/monitoring.js'));
+  const revH = read(path.join(ROOT, 'functions/google-reviews.js'));
+  const photoH = read(path.join(ROOT, 'functions/handlers/photo.js'));
+  // cspReport: httpRateLimit sends the 429 and returns FALSE — the handler
+  // must honor the boolean or the limit is advisory (the pre-2026-08-10 bug:
+  // limited IPs still got their full report logged + a double response).
+  assert('cspReport honors the httpRateLimit boolean (limit is enforcing, not advisory)',
+    /allowed\s*=\s*await httpRateLimit\(req,\s*res,\s*['"]cspReport:ip['"],\s*60,\s*60_000\)/.test(monH)
+    && /if\s*\(!allowed\)\s*return;/.test(monH));
+  assert('ROUTES.cspReport records the real 60/min gate',
+    /cspReport:\s*\{[^}]*ipLimit:\s*60\b[^}]*ipWindow:\s*MINUTE/.test(policy));
+  // getGoogleReviews: was the ONLY public onRequest endpoint with zero rate
+  // limiting (billable Places API behind the 6h cache). Now guardHttp-wired.
+  assert('getGoogleReviews is wrapped in guardHttp (was fully unlimited)',
+    /guardHttp\(\s*['"]getGoogleReviews['"]/.test(revH));
+  // adminAI: same wiring + no-double-count rule as claudeProxy.
+  assert('adminAI is wrapped in guardHttp and has no inline uid limiter',
+    /guardHttp\(\s*['"]adminAI['"]/.test(aiH)
+    && !/httpRateLimit\(req,\s*res,\s*['"]adminAI:/.test(aiH));
+  assert('ROUTES.adminAI keeps the prod uid ceiling (60/hr)',
+    /adminAI:\s*\{[^}]*uidLimit:\s*60\b[^}]*uidWindow:\s*HOUR/.test(policy));
+  // Record-only entries must match the hand-rolled gates they describe.
+  assert('publicVisualizerAI: handler gate is 5/hr and ROUTES agrees (was 3/min — ~36x looser/hr)',
+    /httpRateLimit\(req,\s*res,\s*['"]publicVisualizerAI:ip['"],\s*5,\s*3_600_000\)/.test(aiH)
+    && /publicVisualizerAI:\s*\{[^}]*ipLimit:\s*5\b[^}]*ipWindow:\s*HOUR/.test(policy));
+  assert('signImageUrl: handler gates are 300/min uid+ip and ROUTES agrees',
+    /httpRateLimit\(req,\s*res,\s*['"]signImageUrl:ip['"],\s*300,\s*60_000\)/.test(photoH)
+    && /enforceRateLimit\(\s*['"]signImageUrl:uid['"][\s\S]{0,60}?,\s*300,\s*60_000\)/.test(photoH)
+    && /signImageUrl:\s*\{[^}]*uidLimit:\s*300\b[^}]*ipLimit:\s*300\b/.test(policy));
+  // Phantom/retired routes stay deleted: a ROUTES entry for a function that
+  // doesn't exist (resetSubscriptionByEmail) or is a 410 stub (imageProxy)
+  // makes the ops matrix lie about the fleet.
+  assert('ROUTES carries no phantom resetSubscriptionByEmail or retired imageProxy entries',
+    !/resetSubscriptionByEmail:\s*\{/.test(policy) && !/imageProxy:\s*\{/.test(policy));
 }
 
 section('Migration framework — versioned runner');
@@ -2276,6 +2376,31 @@ section('Phase D.3 — integrationStatus secret-readout completeness');
   assert('integrationStatus exposes rotationRunbook URL',
     /rotationRunbook:\s*'https:\/\/github\.com\/jdealtia-sys\/nobigdealwithjoedeal\.com\/blob\/main\/documentation\/runbooks\/SECRET_ROTATION\.md'/.test(idx),
     'expected rotationRunbook URL in the response so admin UI can deep-link');
+}
+
+section('Visualizer image-gen provider seam (kie.ai, ships dark)');
+{
+  const vig = read(path.join(FUNCTIONS, 'visualizer-image-gen.js'));
+  assert('provider seam defaults to replicate',
+    /process\.env\.IMAGEGEN_PROVIDER \|\| 'replicate'/.test(vig),
+    'flipping providers must be an explicit env change, never a silent default');
+  assert('KIE_API_KEY declared and registered on the endpoint',
+    /defineSecret\('KIE_API_KEY'\)/.test(vig)
+    && /secrets: \[REPLICATE_API_TOKEN, KIE_API_KEY\]/.test(vig));
+  assert('kie path refuses loudly when the key is unset (no silent fallback)',
+    /provider_not_configured/.test(vig));
+  assert('both providers exist behind one response contract',
+    /async function generateViaReplicate\(/.test(vig)
+    && /async function generateViaKie\(/.test(vig)
+    && /result\.imgBuf\.toString\('base64'\)/.test(vig));
+  assert('kie staged input (homeowner PII) is deleted in a finally block',
+    /finally \{[\s\S]{0,400}file\.delete\(\{ ignoreNotFound: true \}\)/.test(vig));
+  assert('kie polling is bounded (no infinite loop inside the function timeout)',
+    /attempt < 30/.test(vig) && /sleep\(3000\)/.test(vig));
+  assert('integrationStatus surfaces the kie key',
+    /kie:\s+_hasInt\('KIE_API_KEY'\)/.test(readFunctionsIndex().includes('KIE_API_KEY')
+      ? readFunctionsIndex()
+      : read(path.join(FUNCTIONS, 'handlers', 'integrations.js'))));
 }
 
 };

@@ -4025,10 +4025,15 @@
       const uid = window._user?.uid;
       if (!uid) throw new Error('Not signed in');
       const safeName = (file.name || 'upload').replace(/[^A-Za-z0-9._-]+/g, '_').substring(0, 120);
-      const r = ref(storage, `photos/${uid}/${leadId}/${Date.now()}_${safeName}`);
+      const storagePath = `photos/${uid}/${leadId}/${Date.now()}_${safeName}`;
+      const r = ref(storage, storagePath);
       await uploadBytes(r, file);
       const url = await getDownloadURL(r);
       await addDoc(collection(db,'photos'), {leadId, url, name:file.name, userId:uid, createdAt:serverTimestamp(),
+        // Canonical Storage object name — the image pipeline
+        // (functions/image-pipeline.js) finds this doc by storagePath
+        // equality to stamp `urls:{thumb,med,full}` variants.
+        storagePath,
         // Tenant key (claims.companyId || uid) — company-scoped photo reads.
         companyId: (window._userClaims && window._userClaims.companyId) || uid});
       return url;
@@ -4232,9 +4237,9 @@
     if (byId('v2rateBetter')) byId('v2rateBetter').value = s.tierRates?.better ?? 595;
     if (byId('v2rateBest'))   byId('v2rateBest').value   = s.tierRates?.best   ?? 660;
 
-    if (byId('v2costGood'))   byId('v2costGood').value   = s.costBasis?.good   ?? 340;
-    if (byId('v2costBetter')) byId('v2costBetter').value = s.costBasis?.better ?? 385;
-    if (byId('v2costBest'))   byId('v2costBest').value   = s.costBasis?.best   ?? 430;
+    if (byId('v2costGood'))   byId('v2costGood').value   = s.costBasis?.good   ?? 0;
+    if (byId('v2costBetter')) byId('v2costBetter').value = s.costBasis?.better ?? 0;
+    if (byId('v2costBest'))   byId('v2costBest').value   = s.costBasis?.best   ?? 0;
 
     if (byId('v2minJob'))   byId('v2minJob').value   = s.minJobCharge ?? 2500;
     if (byId('v2roundTo'))  byId('v2roundTo').value  = s.roundTo ?? 25;
@@ -4461,9 +4466,11 @@
         best:   num('v2rateBest', 660)
       },
       costBasis: {
-        good:   num('v2costGood', 340),
-        better: num('v2costBetter', 385),
-        best:   num('v2costBest', 430)
+        // 0 = not configured (EBv2 ships zero defaults on purpose — real
+        // cost basis is tenant data, never published in the public tree)
+        good:   num('v2costGood', 0),
+        better: num('v2costBetter', 0),
+        best:   num('v2costBest', 0)
       },
       minJobCharge: num('v2minJob', 2500),
       roundTo: num('v2roundTo', 25),

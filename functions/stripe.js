@@ -11,7 +11,11 @@
  *
  * No behaviour change. Every handler keeps its exact config
  * (maxInstances, concurrency, timeoutSeconds, minInstances, memory,
- * secrets, cors, enforceAppCheck) and body.
+ * secrets, cors) and body. NOTE: the onRequest handlers here previously
+ * also carried `enforceAppCheck: true`, which firebase-functions honours on
+ * onCall ONLY. It was removed 2026-08-02 as dead config — these endpoints
+ * are gated by Stripe webhook signature verification and per-IP limits, not
+ * by App Check. See handlers/ai.js for the full write-up.
  */
 
 'use strict';
@@ -22,7 +26,10 @@ const { logger } = require('firebase-functions/v2');
 const { getFirestore } = require('firebase-admin/firestore');
 const { getAuth } = require('firebase-admin/auth');
 const { FieldValue } = require('firebase-admin/firestore');
-const Stripe = require('stripe');
+// Lazy require (2026-08-07): the stripe SDK is ~20 MB of parse weight that
+// every deployed function paid at cold start (index.js pulls this module
+// eagerly). Required on first client construction instead.
+let Stripe = null;
 
 // Pin the Stripe API version explicitly. stripe-node 14.x defaults to
 // '2023-10-16'; without an explicit pin, bumping the SDK (e.g. #654 → v22)
@@ -172,6 +179,7 @@ function getStripe() {
   const raw = STRIPE_SECRET_KEY.value();
   const key = String(raw == null ? '' : raw).trim();
   if (!key) throw new Error('STRIPE_SECRET_KEY is empty/unset');
+  Stripe = Stripe || require('stripe');
   _stripeClient = new Stripe(key, {
     apiVersion: STRIPE_API_VERSION,
     maxNetworkRetries: 2,
@@ -223,7 +231,6 @@ exports.createCheckoutSession = onRequest(
   {
     cors: CORS_ORIGINS,
     secrets: [STRIPE_SECRET_KEY, STRIPE_PRICE_FOUNDATION, STRIPE_PRICE_PROFESSIONAL, STRIPE_PRICE_TEAM],
-    enforceAppCheck: true,
     // Explicit public ingress: browser fetch calls this directly. Declared in
     // code so a redeploy can never drop the allUsers run.invoker binding again
     // (2026-07-16: stripewebhook/getsubscriptionstatus/createcustomerportalsession
@@ -939,7 +946,6 @@ exports.createCustomerPortalSession = onRequest(
   {
     cors: CORS_ORIGINS,
     secrets: [STRIPE_SECRET_KEY],
-    enforceAppCheck: true,
     invoker: 'public', // see createCheckoutSession — auth enforced in-code
     maxInstances: 20,
     concurrency: 40,
@@ -1005,7 +1011,6 @@ exports.createCustomerPortalSession = onRequest(
 exports.getSubscriptionStatus = onRequest(
   {
     cors: CORS_ORIGINS,
-    enforceAppCheck: true,
     invoker: 'public', // see createCheckoutSession — auth enforced in-code
     // R-05 sizing: called on every pro-surface page load (the NBDAuth
     // init path at docs/pro/js/nbd-auth.js fetches the subscription
@@ -1067,7 +1072,6 @@ exports.createStripePaymentLink = onRequest(
   {
     cors: CORS_ORIGINS,
     secrets: [STRIPE_SECRET_KEY],
-    enforceAppCheck: true,
     invoker: 'public', // see createCheckoutSession — auth enforced in-code
     maxInstances: 20,
     concurrency: 40,

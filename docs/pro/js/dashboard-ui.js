@@ -2083,16 +2083,24 @@ function _isCrmAutoCollapseOn() {
 // Load saved theme when user auth resolves
 document.addEventListener('DOMContentLoaded', () => {
   loadSavedTheme();
-  // Boot Theme Engine (overlays, sounds, achievements)
-  setTimeout(() => {
-    if(window.ThemeEngine) {
-      window.ThemeEngine.init();
-      if(window.ThemeOverlays) window.ThemeOverlays.init();
-      if(window.ThemeSounds) window.ThemeSounds.init();
-      if(window.ThemeGX) window.ThemeGX.init({ intensity: 0.6, glow: true, animatedBg: true });
-      if(window.ThemeGXPanel) ThemeGXPanel.render('gx-settings-panel');
-    }
-  }, 500);
+  // Boot Theme Engine (overlays, sounds, achievements). The cluster is a
+  // lazy bundle (2026-08-07): loadBundle('theme') calls this hook when the
+  // files arrive — whichever path loaded them (dashboard-state boot kick,
+  // Settings view, theme picker). Idempotent; also runs on the legacy page
+  // where the cluster is still eager (ThemeEngine present at DCL).
+  const initThemeStack = () => {
+    if (initThemeStack._done || !window.ThemeEngine) return;
+    initThemeStack._done = true;
+    loadSavedTheme();   // re-apply through the engine path (legacy CSS
+                        // fallback painted first while the bundle loaded)
+    window.ThemeEngine.init();
+    if(window.ThemeOverlays) window.ThemeOverlays.init();
+    if(window.ThemeSounds) window.ThemeSounds.init();
+    if(window.ThemeGX) window.ThemeGX.init({ intensity: 0.6, glow: true, animatedBg: true });
+    if(window.ThemeGXPanel) ThemeGXPanel.render('gx-settings-panel');
+  };
+  window._nbdInitThemeStack = initThemeStack;
+  if (window.ThemeEngine) setTimeout(initThemeStack, 500);
   // Boot achievements after leads load
   setTimeout(() => {
     if(window.ThemeAchievements && window._user) {
@@ -2568,8 +2576,9 @@ Object.assign(window.__NBD_CALL_REGISTRY, {
   // Tranche 2c-4h (Slice H2, 2026-07-08): 6 entangled single-defs — their only
   // entanglement was forward-ref `window.X = X` re-export shims in maps.js +
   // dashboard-actions.js, removed in this same slice. `function X` → `const X`
-  // + registered here. damagNearMe keeps resolving spyglassGoToLocation via the
-  // global lexical scope (this file's const loads before maps/actions).
+  // + registered here. (2026-08-07: damagNearMe no longer aliases
+  // spyglassGoToLocation anywhere — its single implementation registers in
+  // maps-overlays.js.)
   spyglassSearch: spyglassSearch,
   spyglassGoToLocation: spyglassGoToLocation,
   fabToggle: fabToggle,

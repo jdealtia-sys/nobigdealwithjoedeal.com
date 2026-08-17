@@ -516,7 +516,11 @@ TESTING & CI (added 2026-07-05)
     (companyId + customerId), stage move (timeline + stageStartedAt),
     estimate parity (browser V2 math vs the Node engine), invoice
     (totals + deposit + balanceDue), photo upload (original + thumb via
-    the STORAGE emulator), doc generation (metadata + rendered HTML),
+    the STORAGE emulator; since 2026-08-16 the same journey also runs
+    the dashboard quick-upload and pins its NESTED
+    photos/{uid}/{leadId}/... storagePath shape — the shape the
+    image pipeline's doc lookup keys on), doc generation (metadata +
+    rendered HTML),
     D2D knock (transaction-guarded auto-convert: exactly one linked
     lead), scheduling (date-only scheduledDate, no UTC day-shift), and
     expenses (integer cents + IRS-rate mileage).

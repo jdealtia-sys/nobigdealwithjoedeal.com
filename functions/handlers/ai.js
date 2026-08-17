@@ -17,14 +17,19 @@ const { logger } = require('firebase-functions/v2');
 const { getFirestore } = require('firebase-admin/firestore');
 const { FieldValue } = require('firebase-admin/firestore');
 
-const { enforceRateLimit, httpRateLimit } = require('../integrations/upstash-ratelimit');
+const { httpRateLimit } = require('../integrations/upstash-ratelimit');
+// Declarative per-route policy (rate-limit-policy.js ROUTES table) — the
+// wrapper enforces per-IP AND per-uid ceilings before the handler runs.
+// claudeProxy is the wiring pilot (2026-08-10): its uid namespace/limit are
+// byte-identical to the old hand-rolled enforceRateLimit call, plus a new
+// per-IP backstop that the hand-rolled gate never had.
+const { guardHttp } = require('../rate-limit-policy');
 const { requireAuth } = require('../shared');
 const {
   CORS_ORIGINS,
   ALLOWED_CLAUDE_MODELS,
   CLAUDE_MAX_TOKENS_CAP,
   CLAUDE_DAILY_TOKEN_BUDGET,
-  CLAUDE_PER_MIN_LIMIT,
   CLAUDE_COMPANY_BUDGET,
   CLAUDE_COMPANY_BUDGET_DEFAULT,
   CLAUDE_RESERVATION_MAX,
@@ -41,7 +46,6 @@ exports.claudeProxy = onRequest(
   {
     cors: CORS_ORIGINS,
     secrets: [ANTHROPIC_API_KEY],
-    enforceAppCheck: true,
     // R-05 sizing: 10k-concurrent-user spike × each user firing
     // ≤1 AI call/min + 30-60s tail latency → ~10k concurrent
     // in-flight. Capped at 200 (not 300) because the us-central1
@@ -56,7 +60,7 @@ exports.claudeProxy = onRequest(
     timeoutSeconds: 60,
     memory: '256MiB',
   },
-  async (req, res) => {
+  guardHttp('claudeProxy', async (req, res) => {
     if (req.method !== 'POST') { res.status(405).json({ error: 'Method not allowed' }); return; }
 
     // Global AI kill-switch (Audit #4). One write to feature_flags/global
@@ -97,13 +101,11 @@ exports.claudeProxy = onRequest(
         return;
       }
 
-      // Per-uid rate limit (admin-SDK-only Firestore doc so clients cannot reset it).
-      try {
-        await enforceRateLimit('claudeProxy:uid', decoded.uid, CLAUDE_PER_MIN_LIMIT, 60_000);
-      } catch (e) {
-        if (e.rateLimited) { res.status(429).json({ error: 'Rate limit exceeded. Try again in a minute.' }); return; }
-        throw e;
-      }
+      // Rate limiting (per-uid AND per-IP) is enforced by the
+      // guardHttp('claudeProxy') wrapper before this handler runs — limits
+      // live in rate-limit-policy.js ROUTES, namespace 'claudeProxy:uid'
+      // unchanged from the old inline call (admin-SDK-only Firestore doc,
+      // clients cannot reset it).
 
       // M2: per-day token budget via materialized counters rather
       // than a range scan of api_usage.
@@ -216,13 +218,18 @@ exports.claudeProxy = onRequest(
             'x-api-key': ANTHROPIC_API_KEY.value(),
           },
           body: JSON.stringify(anthropicBody),
+          // Bounded under the function's timeoutSeconds (60) so a slow
+          // upstream refunds + errors instead of burning the whole
+          // container budget and dying at the platform deadline.
+          signal: AbortSignal.timeout(50_000),
         });
         data = await response.json();
       } catch (e) {
-        // Network/parse error reaching Anthropic — refund full reservation.
+        // Network/parse/timeout error reaching Anthropic — refund full reservation.
         await adjustClaudeBudget(uidCounterRef, coCounterRef, -reservation).catch(() => {});
-        logger.error('claudeProxy upstream fetch error', { err: e.message });
-        res.status(502).json({ error: 'Upstream AI error' });
+        const isTimeout = e && (e.name === 'TimeoutError' || e.name === 'AbortError');
+        logger.error('claudeProxy upstream fetch error', { err: e.message, timeout: !!isTimeout });
+        res.status(isTimeout ? 504 : 502).json({ error: 'Upstream AI error' });
         return;
       }
       if (!response.ok) {
@@ -281,7 +288,7 @@ exports.claudeProxy = onRequest(
       try { require('../integrations/sentry').captureException(e, { op: 'claudeProxy', uid: decoded?.uid }); } catch (_) {}
       res.status(500).json({ error: 'Internal server error' });
     }
-  }
+  })
 );
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -289,9 +296,24 @@ exports.claudeProxy = onRequest(
 //
 // The marketing-site visualizer.html calls this to get an AI-generated
 // assessment of a home photo. Homeowners are NOT authenticated, so we
-// cannot use the claudeProxy subscription gate. Instead:
-//   - enforceAppCheck: true (blocks curl/bot replay of the reCAPTCHA token)
-//   - per-IP rolling-window rate limit: 5 requests / hour
+// cannot use the claudeProxy subscription gate.
+//
+// ⚠️ THIS ENDPOINT IS UNAUTHENTICATED. Until 2026-08-02 the list below
+// claimed `enforceAppCheck: true` blocked curl replay. It never did:
+// firebase-functions honours enforceAppCheck on onCall ONLY — HttpsOptions
+// is declared Omit<GlobalOptions,'region'|'enforceAppCheck'>, the onRequest
+// wrapper never reads it, and it is not serialized into the deployed
+// endpoint either, so there is no platform-side fallback. The option has
+// been removed rather than left as reassuring dead config; see the same
+// finding written up at handlers/integrations.js (submitPublicLead).
+// `cors` does not gate anything either — the middleware calls next() on
+// non-OPTIONS requests regardless of Origin, so a request with no Origin
+// header reaches this handler.
+//
+// What actually protects it:
+//   - per-IP rolling-window rate limit: 5 requests / hour, keyed on the
+//     IPv6 /64 prefix (rate-limit.js rateLimitIpKey) so one allocation
+//     cannot rotate addresses to buy unlimited calls
 //   - model locked to Haiku (cheapest tier)
 //   - max_tokens hard-capped at 800
 //   - system prompt is server-owned, client cannot inject one
@@ -304,7 +326,6 @@ exports.publicVisualizerAI = onRequest(
   {
     cors: CORS_ORIGINS,
     secrets: [ANTHROPIC_API_KEY],
-    enforceAppCheck: true,
     maxInstances: 10,
     concurrency: 20,
     timeoutSeconds: 60,
@@ -357,6 +378,8 @@ exports.publicVisualizerAI = onRequest(
           'x-api-key': ANTHROPIC_API_KEY.value(),
         },
         body: JSON.stringify(anthropicBody),
+        // Bounded under timeoutSeconds (60) — see claudeProxy.
+        signal: AbortSignal.timeout(50_000),
       });
 
       const data = await response.json();
@@ -372,8 +395,9 @@ exports.publicVisualizerAI = onRequest(
         : '';
       res.json({ text });
     } catch (e) {
-      logger.error('publicVisualizerAI error', { err: e.message });
-      res.status(500).json({ error: 'Internal error' });
+      const isTimeout = e && (e.name === 'TimeoutError' || e.name === 'AbortError');
+      logger.error('publicVisualizerAI error', { err: e.message, timeout: !!isTimeout });
+      res.status(isTimeout ? 504 : 500).json({ error: isTimeout ? 'Upstream AI timeout' : 'Internal error' });
     }
   }
 );
@@ -384,15 +408,18 @@ exports.publicVisualizerAI = onRequest(
 // The estimate.html instant-estimator and the storm-alerts self-check call this
 // for short, text-only Claude completions (a roof-size JSON estimate and a
 // personalized "Joe's take" note). Homeowners are NOT authenticated, so — like
-// publicVisualizerAI — we gate with App Check + a per-IP rate limit rather than
-// the claudeProxy subscription gate.
+// publicVisualizerAI — we gate with a per-IP rate limit rather than the
+// claudeProxy subscription gate (App Check does NOT apply here; see below).
 //
 // This REPLACES the `nbd-ai-proxy` Cloudflare Worker, which was an open
 // Anthropic passthrough guarded only by an Origin header (bypassable when the
 // header was absent) — no auth, no rate limit, no model/token cap. This
-// endpoint removes every one of those abuse vectors:
-//   - enforceAppCheck: true
-//   - per-IP rolling-window rate limit (the funnel makes <=2 calls per run)
+// endpoint removes most of those abuse vectors — but note it is still
+// UNAUTHENTICATED, and the `enforceAppCheck: true` this list used to claim
+// was dead config (honoured on onCall only; see the publicVisualizerAI
+// header above for the full explanation). Removed 2026-08-02.
+//   - per-IP rolling-window rate limit (the funnel makes <=2 calls per run),
+//     keyed on the IPv6 /64 prefix so address rotation cannot defeat it
 //   - the model is forced server-side to the cheapest Haiku tier (the client
 //     cannot select an expensive model)
 //   - max_tokens is capped server-side
@@ -407,7 +434,6 @@ exports.publicFunnelAI = onRequest(
   {
     cors: CORS_ORIGINS,
     secrets: [ANTHROPIC_API_KEY],
-    enforceAppCheck: true,
     maxInstances: 10,
     concurrency: 20,
     timeoutSeconds: 30,
@@ -452,6 +478,8 @@ exports.publicFunnelAI = onRequest(
           'x-api-key': ANTHROPIC_API_KEY.value(),
         },
         body: JSON.stringify(anthropicBody),
+        // Bounded under timeoutSeconds (30) — see claudeProxy.
+        signal: AbortSignal.timeout(25_000),
       });
 
       const data = await response.json();
@@ -467,8 +495,9 @@ exports.publicFunnelAI = onRequest(
         : '';
       res.json({ text });
     } catch (e) {
-      logger.error('publicFunnelAI error', { err: e.message });
-      res.status(500).json({ error: 'Internal error' });
+      const isTimeout = e && (e.name === 'TimeoutError' || e.name === 'AbortError');
+      logger.error('publicFunnelAI error', { err: e.message, timeout: !!isTimeout });
+      res.status(isTimeout ? 504 : 500).json({ error: isTimeout ? 'Upstream AI timeout' : 'Internal error' });
     }
   }
 );
@@ -494,13 +523,12 @@ exports.adminAI = onRequest(
   {
     cors: CORS_ORIGINS,
     secrets: [ANTHROPIC_API_KEY],
-    enforceAppCheck: true,
     maxInstances: 5,
     concurrency: 10,
     timeoutSeconds: 60,
     memory: '256MiB',
   },
-  async (req, res) => {
+  guardHttp('adminAI', async (req, res) => {
     if (req.method !== 'POST') {
       res.status(405).json({ error: 'Method not allowed' });
       return;
@@ -519,8 +547,10 @@ exports.adminAI = onRequest(
       return;
     }
 
-    // Per-uid rate limit — generous for interactive admin tooling.
-    if (!(await httpRateLimit(req, res, 'adminAI:' + decoded.uid, 60, 3_600_000))) return;
+    // Rate limiting (per-uid + per-IP) is enforced by the guardHttp('adminAI')
+    // wrapper — limits in rate-limit-policy.js ROUTES. (The old inline call
+    // keyed the SCOPE on the uid — 'adminAI:<uid>' — so its counters don't
+    // carry over; limits are unchanged at 60/hr/uid, plus a new IP backstop.)
 
     try {
       const { prompt, maxTokens } = req.body || {};
@@ -545,6 +575,7 @@ exports.adminAI = onRequest(
 
       const response = await fetch('https://api.anthropic.com/v1/messages', {
         method: 'POST',
+        signal: AbortSignal.timeout(50_000), // bounded under timeoutSeconds (60)
         headers: {
           'Content-Type': 'application/json',
           'anthropic-version': '2023-06-01',
@@ -565,8 +596,9 @@ exports.adminAI = onRequest(
         : '';
       res.json({ text });
     } catch (e) {
-      logger.error('adminAI error', { err: e.message });
-      res.status(500).json({ error: 'Internal error' });
+      const isTimeout = e && (e.name === 'TimeoutError' || e.name === 'AbortError');
+      logger.error('adminAI error', { err: e.message, timeout: !!isTimeout });
+      res.status(isTimeout ? 504 : 500).json({ error: isTimeout ? 'Upstream AI timeout' : 'Internal error' });
     }
-  }
+  })
 );

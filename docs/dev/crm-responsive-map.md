@@ -27,8 +27,9 @@ Later = stronger at equal specificity.
 | 10 | `/assets/css/nbd-mobile.css` | **late/strong** shared mobile | — |
 | 11 | `css/dashboard-nav.css` | universal nav (`#nbd-pro-nav`, hidden on dashboard) | 13 |
 
-Plus **7 inline `<style>` blocks** in dashboard.html (highest priority in
-document order).
+Plus **4 inline `<style>` blocks** in dashboard.html (highest priority in
+document order). *(Corrected from 7 on 2026-08-07 — recount: 4 blocks,
+2,662 chars, 2 `@media`.)*
 
 ## Component ownership (target state)
 

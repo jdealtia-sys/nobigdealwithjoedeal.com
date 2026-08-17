@@ -122,6 +122,29 @@ function roundTo25(n) {
   return Math.round(n / 25) * 25;
 }
 
+/* ── Monthly-payment framing on the results card ──
+ * Same published Acorn marketplace APR band and amortization formula as
+ * /services/financing (financing-estimator.js) so both surfaces always show
+ * identical numbers. Illustration only — the on-page small print carries the
+ * not-an-offer disclosure. Hidden for storm claims (the range shown there is
+ * a deductible, which keeps its own framing) and for sub-$3k projects
+ * (financing-page FAQ: financing generally fits $3,000+). */
+const FIN_APR_LO = 0.1149, FIN_APR_HI = 0.1999, FIN_TERM_MONTHS = 120, FIN_MIN_PROJECT = 3000;
+function finPay(P, apr, n) { const r = apr / 12; return P * r / (1 - Math.pow(1 + r, -n)); }
+function renderMonthlyLine(min, max) {
+  const wrap = document.getElementById('resultMonthly');
+  if (!wrap) return;
+  if (funnelData.service === 'storm-damage' || !min || min < FIN_MIN_PROJECT) {
+    wrap.hidden = true;
+    return;
+  }
+  const lo = Math.round(finPay(min, FIN_APR_LO, FIN_TERM_MONTHS));
+  const hi = Math.round(finPay(max, FIN_APR_HI, FIN_TERM_MONTHS));
+  document.getElementById('resultMonthlyFigs').textContent =
+    '$' + lo.toLocaleString('en-US') + ' – $' + hi.toLocaleString('en-US');
+  wrap.hidden = false;
+}
+
 /* ── Progress Bar ── */
 function updateProgress(step) {
   const pct = ((step - 1) / 4) * 100;
@@ -718,6 +741,7 @@ async function verifyOTPCode() {
     // Verified — the skip-verification escape hatch is now pointless.
     var skipWrap = document.getElementById('otpSkip');
     if (skipWrap) skipWrap.style.display = 'none';
+    trackEvent('estimate_phone_verified', { service: funnelData.service });
     checkSubmitReady();
   } else {
     otpStatus.className = 'otp-status error';
@@ -1176,6 +1200,7 @@ function showResults(est) {
   if (single) {
     document.getElementById('resultPrice').innerHTML = '$' + est.range.min.toLocaleString() + ' <span>&#8211; $' + est.range.max.toLocaleString() + '</span>';
     document.getElementById('detailTier').textContent = est.serviceLabel || '—';
+    renderMonthlyLine(est.range.min, est.range.max);
   } else {
     // Default to "better" tier
     switchTier('better');
@@ -1225,6 +1250,7 @@ function switchTier(tier) {
   var t = est.tiers[tier];
   document.getElementById('resultPrice').innerHTML = '$' + t.min.toLocaleString() + ' <span>&#8211; $' + t.max.toLocaleString() + '</span>';
   document.getElementById('detailTier').textContent = TIER_LABELS[tier] || tier;
+  renderMonthlyLine(t.min, t.max);
 
   document.querySelectorAll('.tier-tab').forEach(function(btn) {
     if (btn.getAttribute('data-tier') === tier) {
@@ -1282,6 +1308,13 @@ function buildEstimateSummary(est) {
   }
   if (est && est.roofSqft) {
     msg += '\nRoof size: ~' + est.roofSqft.toLocaleString() + ' sq ft';
+  }
+  // Mirror the on-screen financing line (same hide rules) so the emailed
+  // number keeps the monthly-payment framing the homeowner just saw.
+  var finMin = est && est._singleRange && est.range ? est.range.min
+    : est && est.tiers && est.tiers.better ? est.tiers.better.min : 0;
+  if (funnelData.service !== 'storm-damage' && finMin >= FIN_MIN_PROJECT) {
+    msg += '\n\nA project this size can usually be spread into a monthly payment instead of paid all at once — check real offers with a soft credit pull (no impact to your score): https://nobigdealwithjoedeal.com/services/financing';
   }
   msg += '\n\nFor your exact price, schedule a free inspection with Joe: https://cal.com/nobigdeal/roof-inspection';
   msg += '\nOr call: (859) 420-7382';

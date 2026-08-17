@@ -4935,3 +4935,14 @@ body {
 /* Certification: with the always-flex parent, the card entrance must be
    scoped to .open or it runs once (invisibly) at page load. */
 .modal-bg.open .modal{animation:modalSlideIn .3s cubic-bezier(.16,1,.3,1)}
+
+/* Hover border-color utilities — replaced the 16 inline onmouseenter/
+   onmouseleave handlers (2026-08-10). Under script-src-attr 'none' those
+   handlers never ran and every hover fired a CSP violation report into the
+   /cspReport sink. !important because the base border ships in the elements'
+   inline style attribute, which otherwise outranks any selector. */
+.hov-blue:hover{border-color:var(--blue)!important}
+.hov-gold:hover{border-color:var(--gold)!important}
+.hov-green:hover{border-color:var(--green)!important}
+.hov-purple:hover{border-color:var(--purple)!important}
+.hov-border2:hover{border-color:var(--border2)!important}

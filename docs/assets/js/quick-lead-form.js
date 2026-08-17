@@ -48,8 +48,10 @@
           '<label class="qlf-field"><span>Mobile phone *</span><input id="' + uid + '-ph" type="tel" name="tel" autocomplete="tel" inputmode="tel" required></label>' +
         '</div>' +
         '<label class="qlf-field"><span>Property address <em>(optional)</em></span><input id="' + uid + '-ad" type="text" name="street-address" autocomplete="street-address"></label>' +
-        // Honeypot — the gateway drops any submission that fills this.
-        '<input class="qlf-hp" id="' + uid + '-hp" type="text" name="website" tabindex="-1" autocomplete="off" aria-hidden="true">' +
+        // Honeypot — the gateway drops any submission that fills this. Named
+        // nbd_hp, NOT "website": that name matches browser URL-autofill
+        // heuristics, and an autofilled honeypot silently drops a real lead.
+        '<input class="qlf-hp" id="' + uid + '-hp" type="text" name="nbd_hp" tabindex="-1" autocomplete="off" aria-hidden="true">' +
         '<button class="qlf-btn" type="submit" id="' + uid + '-btn">Send &mdash; Joe calls you back</button>' +
         '<div class="qlf-alt">Rather talk now? <a href="tel:+18594207382">Call or text (859) 420-7382</a></div>' +
       '</form>';
@@ -73,7 +75,7 @@
           address: document.getElementById(uid + '-ad').value.trim(),
           service: service,
           message: (service || city) ? ('Page: ' + [service, city].filter(Boolean).join(' — ')) : '',
-          website: document.getElementById(uid + '-hp').value, // honeypot
+          nbd_hp: document.getElementById(uid + '-hp').value, // honeypot
           source: 'page-form:' + (window.location.pathname || '')
         });
       }).then(function (out) {

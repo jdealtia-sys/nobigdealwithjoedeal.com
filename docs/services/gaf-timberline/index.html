@@ -19,8 +19,9 @@
 <link rel="stylesheet" href="/assets/css/nbd-fonts.css">
 <script type="application/ld+json">{"@context":"https://schema.org","@type":"Service","name":"GAF Timberline Shingle Installation","description":"GAF Certified Contractor installing GAF Timberline NS, HDZ, and UHDZ architectural asphalt shingles in Greater Cincinnati.","provider":{"@type":"RoofingContractor","name":"No Big Deal Home Solutions","telephone":"+18594207382","url":"https://nobigdealwithjoedeal.com"},"areaServed":"Greater Cincinnati, OH and Northern Kentucky","brand":[{"@type":"Brand","name":"GAF Timberline NS"},{"@type":"Brand","name":"GAF Timberline HDZ"},{"@type":"Brand","name":"GAF Timberline UHDZ"}],"url":"https://nobigdealwithjoedeal.com/services/gaf-timberline"}</script>
 <script type="application/ld+json">{"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Home","item":"https://nobigdealwithjoedeal.com/"},{"@type":"ListItem","position":2,"name":"Services","item":"https://nobigdealwithjoedeal.com/services/roof-replacement"},{"@type":"ListItem","position":3,"name":"GAF Timberline","item":"https://nobigdealwithjoedeal.com/services/gaf-timberline"}]}</script>
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"Is GAF Timberline HDZ a Class 4 impact shingle?","acceptedAnswer":{"@type":"Answer","text":"No — Timberline HDZ carries a UL 2218 Class 3 impact rating. Timberline UHDZ is the Class 4 shingle in the GAF lineup, and a documented UHDZ install can qualify for an insurance discount on the wind/hail portion of your premium."}},{"@type":"Question","name":"What is GAF's WindProven wind warranty?","acceptedAnswer":{"@type":"Answer","text":"Timberline HDZ carries the WindProven limited wind warranty with no maximum wind speed when installed with the GAF starter strip and ridge cap. Timberline NS caps out at 130 mph."}},{"@type":"Question","name":"How many colors does Timberline HDZ come in?","acceptedAnswer":{"@type":"Answer","text":"22 stocked colors — the broadest palette in the Timberline lineup, from Charcoal and Pewter Gray through Weathered Wood and Barkwood."}},{"@type":"Question","name":"Can any roofer register the GAF System Plus warranty?","acceptedAnswer":{"@type":"Answer","text":"No — only GAF Certified contractors can register the System Plus Limited Warranty, which carries a 50-year non-prorated period on materials (manufacturing defects) on qualifying full-system Timberline installs."}}]}</script>
 <style>
-:root{--navy:#1e3a6e;--navy-dark:#142a52;--orange:#e8720c;--orange-light:#f08030;--orange-dark:#c45e08;--white:#fff;--off-white:#f5f3ef;--gray:#6b7280;--gray-sub:#4a4a4a;--light-gray:#e8e5e0;--success:#22a06b}
+:root{--navy:#1e3a6e;--navy-dark:#142a52;--orange:#e8720c;--orange-light:#f08030;--orange-dark:#c45e08;--white:#fff;--off-white:#f5f3ef;--gray:#5d6673;--gray-sub:#4a4a4a;--light-gray:#e8e5e0;--success:#22a06b}
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 html{scroll-behavior:smooth}
 body{font-family:'Montserrat',sans-serif;color:#1a1a1a;background:#fff}
@@ -266,6 +267,23 @@ footer.foot .nbd-social a,.review-footer .nbd-social a{background:rgba(255,255,2
 .footer-badge{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:100px;padding:4px 12px;font-size:.64rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:rgba(255,255,255,.7)}
 </style>
 <style>/* nav-collapse normalize (visual audit 2026-07-19): hamburger threshold is 1024px site-wide */@media(max-width:1024px){.nav-links{display:none!important}.hamburger{display:flex!important}}</style>
+<link rel="stylesheet" href="/assets/css/nbd-icons.css">
+<style>
+/* nav base (injected) */
+.nav-links .dropdown{position:relative}
+.nav-links .dropdown-menu{display:none;position:absolute;top:100%;left:0;background:var(--navy-dark,#142a52);border:2px solid var(--orange,#e8720c);border-top:none;min-width:230px;border-radius:0 0 8px 8px;padding:8px 0;z-index:999;list-style:none;margin:0}
+.nav-links .dropdown:hover .dropdown-menu,.nav-links .dropdown:focus-within .dropdown-menu,.nav-links .dropdown.open .dropdown-menu{display:block}
+.nav-links .dropdown-menu a{display:block;padding:10px 18px;font-size:.75rem;border-bottom:1px solid rgba(255,255,255,.08);color:rgba(255,255,255,.85);text-decoration:none;letter-spacing:.06em;text-transform:uppercase;font-weight:600;transition:color .2s,background .2s}
+.nav-links .dropdown-menu a:last-child{border-bottom:none}
+.nav-links .dropdown-menu a:hover{color:var(--orange-light,#f08030);background:rgba(255,255,255,.04);border-bottom-color:rgba(255,255,255,.08)}
+.mobile-nav{display:none;position:fixed;top:70px;left:0;right:0;background:var(--navy-dark,#142a52);z-index:999;border-top:2px solid var(--orange,#e8720c);max-height:calc(100vh - 70px);overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,.4);padding-top:0}
+.mobile-nav.open{display:block}
+.mobile-nav > a{display:block;padding:12px 24px;color:rgba(255,255,255,.85);text-decoration:none;font-size:.82rem;font-weight:600;letter-spacing:.05em;text-transform:uppercase;border-bottom:1px solid rgba(255,255,255,.06)}
+.mobile-nav > a:hover{color:var(--orange-light,#f08030);background:rgba(255,255,255,.04)}
+.hamburger{display:none;flex-direction:column;gap:6px;cursor:pointer;padding:10px;background:transparent;border:none;z-index:1001}
+.hamburger span{display:block;width:26px;height:3px;background:#fff;border-radius:2px;transition:all .3s;box-shadow:0 1px 3px rgba(0,0,0,.3)}
+@media (max-width:1024px){.nav-links{display:none}.hamburger{display:flex}}
+</style>
 </head>
 <body><a class="nbd-skip" href="#main">Skip to content</a>
 
@@ -273,7 +291,7 @@ footer.foot .nbd-social a,.review-footer .nbd-social a{background:rgba(255,255,2
   <div class="ann-slide active"><svg class="ico" viewBox="0 0 24 24"><path d="M12 2 L4 6 V12 C4 17 8 21 12 22 C16 21 20 17 20 12 V6 Z"/></svg> <span class="ann-text" data-long="NBD Lifetime Pledge — I stand behind every install personally" data-short="NBD Lifetime Pledge — Backed by Joe">NBD Lifetime Pledge — I stand behind every install personally</span></div>
   <div class="ann-slide"><svg class="ico" viewBox="0 0 24 24"><path d="M3 11 L12 3 L21 11"/><path d="M5 10 V20 H19 V10"/></svg> <a href="tel:+18594207382" style="color:inherit;text-decoration:none"><span class="ann-text" data-long="Free Roof Inspections — Call or Text Joe: (859) 420-7382" data-short="Free Inspections — (859) 420-7382">Free Roof Inspections — Call or Text Joe: (859) 420-7382</span></a></div>
   <div class="ann-slide"><svg class="ico ico-fill" viewBox="0 0 24 24"><path d="M13 2 L4 14 L11 14 L10 22 L20 10 L13 10 Z"/></svg> <span class="ann-text" data-long="Storm Damage? I Handle the Insurance Claim for You — No Big Deal" data-short="Storm Damage? I Handle the Claim">Storm Damage? I Handle the Insurance Claim for You — No Big Deal</span></div>
-  <div class="ann-slide" data-nbd-freeroof-ann="v1"><a href="/free-roof/" style="color:inherit;text-decoration:none"><svg class="ico" viewBox="0 0 24 24" style="margin-right:6px"><path d="M3 11 L12 3 L21 11"/><path d="M5 10 V20 H19 V10"/></svg><span class="ann-text" data-long="One free roof a year — nominate a Cincinnati neighbor &rarr;" data-short="One free roof a year &rarr;">One free roof a year &rarr;</span></a></div>
+  <div class="ann-slide" data-nbd-freeroof-ann="v1"><a href="/free-roof" style="color:inherit;text-decoration:none"><svg class="ico" viewBox="0 0 24 24" style="margin-right:6px"><path d="M3 11 L12 3 L21 11"/><path d="M5 10 V20 H19 V10"/></svg><span class="ann-text" data-long="One free roof a year — nominate a Cincinnati neighbor &rarr;" data-short="One free roof a year &rarr;">One free roof a year &rarr;</span></a></div>
 </div>
 
 <nav>
@@ -554,7 +572,7 @@ footer.foot .nbd-social a,.review-footer .nbd-social a{background:rgba(255,255,2
       </div>
       <h2>Class 4 + Your <span>Insurance.</span></h2>
     </div>
-    <p class="class4-body">Class 4 is the highest impact rating an asphalt shingle can earn — UL&nbsp;2218 — and many homeowner-insurance carriers in Ohio and Kentucky offer a <strong>premium discount on the wind/hail portion of your policy</strong> when Class&nbsp;4 shingles are installed and documented. The exact discount varies by carrier and ZIP code, but I've seen homeowners save anywhere from <strong>$60 to $300+ per year</strong> on premium after switching to a Class 4 roof.</p>
+    <p class="class4-body">Class 4 is the highest impact rating an asphalt shingle can earn — UL&nbsp;2218 — and many homeowner-insurance carriers in Ohio and Kentucky offer a <strong>premium discount on the wind/hail portion of your policy</strong> when Class&nbsp;4 shingles are installed and documented. The exact discount varies by carrier and ZIP code, but I've seen homeowners save anywhere from <strong>$60 to $300+ per year</strong> on premium after switching to a Class 4 roof. Wondering how HDZ stacks up against TAMKO's Class 4 lane instead? <a href="/blog/gaf-timberline-hdz-vs-tamko-stormfighter-flex">A reader asked exactly that — here's my straight answer</a>.</p>
     <p class="class4-body">It's not automatic — you have to (1) ask your carrier whether they offer it, (2) get the savings figure in writing, and (3) submit your install certificate after the roof is on. I provide the GAF certification documentation as part of every UHDZ install, no extra cost.</p>
 
     <div class="class4-grid">
@@ -627,7 +645,7 @@ footer.foot .nbd-social a,.review-footer .nbd-social a{background:rgba(255,255,2
       <ul>
         <li><a href="/about">About Joe</a></li>
         <li><a href="/review">Reviews</a></li>
-        <li><a href="/areas/">Service Areas</a></li>
+        <li><a href="/areas">Service Areas</a></li>
         <li><a href="/blog">Blog</a></li>
       </ul>
     </div>

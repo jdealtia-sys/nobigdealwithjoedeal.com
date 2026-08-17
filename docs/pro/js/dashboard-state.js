@@ -180,7 +180,10 @@ const _NBD_CALL_ALLOWLIST = new Set([
   // goToMyLocation deliberately REMAINS allowlisted below — the maps.js
   // shim still re-states it on window (failed the three-way proof;
   // Tranche 3 candidate).
-  'setPhotoMode', 'damagNearMe', 'damageNearMePhotos',
+  // (damagNearMe registry-registered in maps-overlays.js 2026-08-07 — per the
+  //  Tranche 2c-2 rule above, registered names must not keep a window
+  //  fallback entry here.)
+  'setPhotoMode', 'damageNearMePhotos',
   // Customer / lead modals
   // QA 2026-06-07 (C-1 fix): saveLead was dropped from the allowlist during the
   // CSP onclick→data-action sweep, so the Add/Edit Lead modal's Save buttons
@@ -205,7 +208,9 @@ const _NBD_CALL_ALLOWLIST = new Set([
   // (spyglassSearch → __NBD_CALL_REGISTRY, Tranche 2c-4h Slice H2 — off window.)
   'searchMap', 'saveZone', 'searchDraw',
   'saveDocUpload',
-  'saveJoeKey', 'sendJoeMessage', 'saveJoeKeyFromSettings',
+  // (saveJoeKey / saveJoeKeyFromSettings removed 2026-08-10 with the dead
+  //  key-collection UI — the server proxy is the only AI transport.)
+  'sendJoeMessage',
   // (shareCalViaSMS, shareCalViaEmail, saveCalSettings → __NBD_CALL_REGISTRY,
   //  Tranche 2c-4h (dashboard-ui.js Slice H1) — off window. Do NOT re-add.)
   'qaUseMyLocation', 'saveQuickLead',
@@ -483,6 +488,23 @@ const DEFAULT_THEME = 'nbd-original';
 // loads before maps.js) so maps.js's legacy boot defers to the engine instead
 // of force-applying inline vars that fight it (audit F-1).
 window.NBD_THEME_ENGINE = true;
+
+// The theme cluster is a lazy bundle on dashboard.html (2026-08-07). Users
+// with a saved non-default theme kick the fetch here — this file runs first
+// in the defer queue, so the download overlaps the rest of boot instead of
+// parse-blocking it. The eager-tag guard keeps dashboard.legacy.html (which
+// still ships the cluster as <script defer>) from double-loading; default-
+// theme users skip it entirely until Settings/picker.
+(function () {
+  try {
+    const saved = localStorage.getItem('nbd_pro_theme') || localStorage.getItem('nbd-theme');
+    if (saved && saved !== 'default'
+        && !document.querySelector('script[src*="theme-engine"]')
+        && window.ScriptLoader && window.ScriptLoader.loadBundle) {
+      window.ScriptLoader.loadBundle('theme');
+    }
+  } catch (e) {}
+})();
 
 // Boot the theme immediately on page load — before any UI render happens so the
 // first paint is themed. Canonical key first (nbd_pro_theme), then the legacy

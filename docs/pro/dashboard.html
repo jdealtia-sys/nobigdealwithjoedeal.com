@@ -56,7 +56,6 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="preconnect" href="https://www.gstatic.com" crossorigin>
 <link rel="preconnect" href="https://server.arcgisonline.com" crossorigin>
-<link rel="dns-prefetch" href="https://api.anthropic.com">
 <link rel="dns-prefetch" href="https://us-central1-nobigdeal-pro.cloudfunctions.net">
 <link rel="dns-prefetch" href="https://nominatim.openstreetmap.org">
 <link rel="dns-prefetch" href="https://api.weather.gov">
@@ -97,28 +96,21 @@
      See docs/pro/js/state-store.js. -->
 <script src="js/state-store.js?v=1"></script>
 <!-- Lazy script loader — must load BEFORE any code that calls goTo(). -->
-<script src="js/script-loader.js?v=1"></script>
+<script src="js/script-loader.js?v=2"></script>
 <!-- nbdModal — canonical .modal-bg/.modal open/close/confirm helper.
      Eager (like the other small utilities above) so converted subsystems
      can call window.nbdModal from their first render. Contract lives in
      the header comment of js/nbd-modal.js. -->
 <script src="js/nbd-modal.js?v=1"></script>
-<!-- Leaflet + plugins — ~300KB combined. Every consumer (widgets.js,
-     maps.js, d2d-tracker*, storm-center.js) is itself `defer` and a
-     waitForLeaflet() guard wraps the only inline boot path that
-     references `L` (see ~line 14182). Adding `defer` here drops them
-     from the critical render path while preserving execution order
-     (defer scripts fire in document order before DOMContentLoaded).
-     Audit B — 2026-05-13. -->
+<!-- LAZY: Leaflet + plugins (~225KB JS) load via the `mapvendor` bundle
+     (script-loader.js, 2026-08-07) — triggered by the map/draw/d2d/storm
+     views and the two map-drawing home widgets. Consumers already tolerate
+     late arrival (waitForLeaflet / self-poll / _withLeaflet). Only the tiny
+     stylesheets stay eager so the first map paint isn't unstyled. -->
 <link rel="stylesheet" href="/assets/vendor/leaflet/leaflet.css"/>
-<script defer src="/assets/vendor/leaflet/leaflet.js"></script>
-<!-- Leaflet.Draw — polygon drawing for territory boundaries -->
 <link rel="stylesheet" href="/assets/vendor/leaflet-draw/leaflet.draw.css"/>
-<script defer src="/assets/vendor/leaflet-draw/leaflet.draw.js"></script>
-<script defer src="/assets/vendor/leaflet-heat/leaflet-heat.js"></script>
 <link rel="stylesheet" href="/assets/vendor/leaflet-markercluster/MarkerCluster.css"/>
 <link rel="stylesheet" href="/assets/vendor/leaflet-markercluster/MarkerCluster.Default.css"/>
-<script defer src="/assets/vendor/leaflet-markercluster/leaflet.markercluster.js"></script>
 <!-- Centralized Auth Gate -->
 <script type="module" src="js/dashboard-auth-gate.module.js?v=1"></script>
 <script type="module" src="js/dashboard-bootstrap.module.js?v=10"></script>
@@ -126,7 +118,7 @@
 <!-- Main app CSS — extracted to css/dashboard-app.css (Rock 4 Phase 2b).
      Was a 4,500-line anonymous inline <style>; external file caches per the
      /pro/css revalidation policy instead of shipping in every HTML load. -->
-<link rel="stylesheet" href="css/dashboard-app.css?v=2">
+<link rel="stylesheet" href="css/dashboard-app.css?v=3">
 <!-- Kanban force CSS — extracted to css/kanban-force.css (Rock 4 Phase 2c). -->
 <link rel="stylesheet" href="css/kanban-force.css?v=1" id="kanban-force-css-link">
 <!-- v5→DS theme bridge — extracted to css/theme-bridge.css (Rock 4 Phase 2d). -->
@@ -854,19 +846,19 @@
         </div>
         <div class="panel-body">
           <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;">
-            <div style="background:var(--s2);border:1px solid var(--br);border-radius:8px;padding:12px;cursor:pointer;transition:border-color .15s;" data-action="goTo" data-target="crm" onmouseenter="this.style.borderColor='var(--blue)'" onmouseleave="this.style.borderColor='var(--br)'">
+            <div style="background:var(--s2);border:1px solid var(--br);border-radius:8px;padding:12px;cursor:pointer;transition:border-color .15s;" data-action="goTo" data-target="crm" class="hov-blue">
               <div style="font-size:10px;color:var(--m);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px;">New Leads</div>
               <div style="font-size:24px;font-weight:700;color:var(--blue);" id="weekNewLeads">0</div>
             </div>
-            <div style="background:var(--s2);border:1px solid var(--br);border-radius:8px;padding:12px;cursor:pointer;transition:border-color .15s;" data-action="goTo" data-target="est" onmouseenter="this.style.borderColor='var(--gold)'" onmouseleave="this.style.borderColor='var(--br)'">
+            <div style="background:var(--s2);border:1px solid var(--br);border-radius:8px;padding:12px;cursor:pointer;transition:border-color .15s;" data-action="goTo" data-target="est" class="hov-gold">
               <div style="font-size:10px;color:var(--m);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px;">Estimates Created</div>
               <div style="font-size:24px;font-weight:700;color:var(--gold);" id="weekEstimates">0</div>
             </div>
-            <div style="background:var(--s2);border:1px solid var(--br);border-radius:8px;padding:12px;cursor:pointer;transition:border-color .15s;" data-action="goTo" data-target="crm" onmouseenter="this.style.borderColor='var(--green)'" onmouseleave="this.style.borderColor='var(--br)'">
+            <div style="background:var(--s2);border:1px solid var(--br);border-radius:8px;padding:12px;cursor:pointer;transition:border-color .15s;" data-action="goTo" data-target="crm" class="hov-green">
               <div style="font-size:10px;color:var(--m);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px;">Revenue Added</div>
               <div style="font-size:24px;font-weight:700;color:var(--green);" id="weekRevenue">$0</div>
             </div>
-            <div style="background:var(--s2);border:1px solid var(--br);border-radius:8px;padding:12px;cursor:pointer;transition:border-color .15s;" data-action="goTo" data-target="crm" onmouseenter="this.style.borderColor='var(--purple)'" onmouseleave="this.style.borderColor='var(--br)'">
+            <div style="background:var(--s2);border:1px solid var(--br);border-radius:8px;padding:12px;cursor:pointer;transition:border-color .15s;" data-action="goTo" data-target="crm" class="hov-purple">
               <div style="font-size:10px;color:var(--m);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px;">Tasks Completed</div>
               <div style="font-size:24px;font-weight:700;color:var(--purple);" id="weekTasks">0</div>
             </div>
@@ -2723,13 +2715,13 @@
     <div id="joeNoKey" style="display:none; flex:1; overflow-y:auto;">
       <div class="joe-no-key">
         <div class="joe-no-key-icon">🤖</div>
-        <p class="mb-14">To activate Joe AI, add your Anthropic API key.<br>
-        Get one free at <strong>console.anthropic.com</strong> → API Keys.</p>
-        <div class="joe-key-input-row">
-          <input type="password" id="joeKeyInput" placeholder="sk-ant-api03-..." autocomplete="off">
-          <button class="btn btn-orange" data-action="call" data-fn="saveJoeKey">Activate</button>
-        </div>
-        <p style="margin-top:10px;font-size:10px;color:var(--m);">Your key is stored locally and never leaves your browser.</p>
+        <!-- This state only appears when the server-side proxy (claude-proxy.js
+             → claudeProxy CF) failed to load. The old card here solicited an
+             sk-ant API key that NO reachable code path could use (direct
+             browser calls are disabled for key safety AND CSP-blocked) —
+             removed 2026-08-10. -->
+        <p class="mb-14">Joe AI couldn't load this session.<br>
+        Refresh the page — if it keeps happening, tell Joe (it means the AI proxy script didn't load).</p>
       </div>
     </div>
 
@@ -2895,7 +2887,6 @@
           <div class="page-title">Settings</div>
           <div class="page-sub">Account, appearance &amp; preferences</div>
         </div>
-        <span id="tierBadge" style="display:none;padding:4px 12px;background:var(--s2);border:1px solid var(--br);border-radius:12px;font-size:10px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--orange);"></span>
       </div>
 
       <!-- ── TAB BAR ── -->
@@ -3106,12 +3097,9 @@
         <div class="panel mb-md">
           <div class="panel-hdr"><div><div class="panel-label">Ask Joe AI</div><div class="panel-title">API Key</div></div></div>
           <div class="panel-body">
-            <p style="font-size:12px;color:var(--m);margin-bottom:12px;">Your Anthropic API key powers Joe AI. Get one free at <a href="https://console.anthropic.com" target="_blank" rel="noopener noreferrer" class="fg-orange">console.anthropic.com</a> → API Keys.</p>
+            <p style="font-size:12px;color:var(--m);margin-bottom:12px;">Joe AI runs through the NBD server — no API key needed, nothing to configure. (This panel used to collect an Anthropic key that the app could never actually use; removed 2026-08-10.)</p>
             <div style="display:flex;gap:8px;margin-bottom:8px;">
-              <input type="password" id="joeKeyInputSettings" placeholder="sk-ant-api03-..." autocomplete="off"
-                style="flex:1;background:var(--s2);border:1px solid var(--br);border-radius:7px;padding:10px 12px;font-family:inherit;font-size:13px;color:var(--t);outline:none;">
-              <button class="btn btn-orange" data-action="call" data-fn="saveJoeKeyFromSettings">Save Key</button>
-              <button class="btn btn-ghost fs-11" data-action="call" data-fn="clearJoeKey">Clear</button>
+              <button class="btn btn-ghost fs-11" data-action="call" data-fn="clearJoeKey">Clear previously saved key</button>
             </div>
             <div id="joeKeyStatus" class="meta-11"></div>
           </div>
@@ -5247,9 +5235,8 @@
     <div style="font-size:var(--fs-base);color:var(--text3);margin-bottom:24px;">Select data sources to pull. Cost shown per lookup.</div>
     
     <div style="display:flex;flex-direction:column;gap:12px;margin-bottom:24px;">
-      <label style="display:flex;align-items:center;gap:12px;padding:12px;background:var(--lift);border-radius:var(--r);cursor:pointer;border:1px solid transparent;transition:all 0.2s;" 
-        onmouseenter="this.style.borderColor='var(--border2)'"
-        onmouseleave="this.style.borderColor='transparent'">
+      <label style="display:flex;align-items:center;gap:12px;padding:12px;background:var(--lift);border-radius:var(--r);cursor:pointer;border:1px solid transparent;transition:all 0.2s;"
+        class="hov-border2">
         <input type="checkbox" id="piOwnerContact" data-on-change="updatePropertyIntelCost" 
           style="width:18px;height:18px;cursor:pointer;">
         <div class="f1">
@@ -5260,8 +5247,7 @@
       </label>
 
       <label style="display:flex;align-items:center;gap:12px;padding:12px;background:var(--lift);border-radius:var(--r);cursor:pointer;border:1px solid transparent;transition:all 0.2s;"
-        onmouseenter="this.style.borderColor='var(--border2)'"
-        onmouseleave="this.style.borderColor='transparent'">
+        class="hov-border2">
         <input type="checkbox" id="piPropertyDetails" data-on-change="updatePropertyIntelCost"
           style="width:18px;height:18px;cursor:pointer;">
         <div class="f1">
@@ -5272,8 +5258,7 @@
       </label>
 
       <label style="display:flex;align-items:center;gap:12px;padding:12px;background:var(--lift);border-radius:var(--r);cursor:pointer;border:1px solid transparent;transition:all 0.2s;"
-        onmouseenter="this.style.borderColor='var(--border2)'"
-        onmouseleave="this.style.borderColor='transparent'">
+        class="hov-border2">
         <input type="checkbox" id="piZestimate" data-on-change="updatePropertyIntelCost"
           style="width:18px;height:18px;cursor:pointer;">
         <div class="f1">
@@ -5284,8 +5269,7 @@
       </label>
 
       <label style="display:flex;align-items:center;gap:12px;padding:12px;background:var(--lift);border-radius:var(--r);cursor:pointer;border:1px solid transparent;transition:all 0.2s;"
-        onmouseenter="this.style.borderColor='var(--border2)'"
-        onmouseleave="this.style.borderColor='transparent'">
+        class="hov-border2">
         <input type="checkbox" id="piTaxData" data-on-change="updatePropertyIntelCost"
           style="width:18px;height:18px;cursor:pointer;">
         <div class="f1">
@@ -6349,16 +6333,16 @@
 <!-- W154: revenue trend sparkline + top customers/sources/engaged. -->
 <script defer src="js/reports-trends.js?v=1"></script>
 <!-- LAZY: estimate-v2-ui + product-library load via the `estimates` bundle (PR 2c). -->
-<script defer src="js/theme-engine.js?v=2"></script>
+<!-- LAZY: theme-engine + overlays/sounds/achievements/gx load via the `theme`
+     bundle (script-loader.js, 2026-08-07) — kicked at boot by dashboard-state.js
+     when a saved theme exists, else with the Settings view / theme picker. -->
 <script defer src="js/prospects.js?v=4"></script>
 <script defer src="js/lead-source-roi.js?v=1"></script>
 <script defer src="js/forecast-empirical.js?v=1"></script>
 <script defer src="js/forecasting.js?v=1"></script>
 <script defer src="js/onboarding-tour.js?v=2"></script>
-<script defer src="js/theme-overlays.js?v=1"></script>
-<script defer src="js/theme-sounds.js?v=1"></script>
-<script defer src="js/theme-achievements.js?v=1"></script>
-<script defer src="js/theme-gx.js?v=1"></script>
+<!-- (theme-overlays/sounds/achievements/gx ride the lazy `theme` bundle — see
+     the note at the theme-engine slot above.) -->
 <script src="js/dashboard-sw-bootstrap.js?v=1"></script>
 <script defer src="js/mobile-nav-customizer.js?v=2"></script>
 <script defer src="js/connection-status-btn.js?v=2"></script>

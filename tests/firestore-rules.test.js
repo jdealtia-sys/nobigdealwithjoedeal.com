@@ -849,13 +849,18 @@ async function run() {
     { kind: 'lead-alert', companyId: 'co-a', target: { emails: ['x@y.z'] } }));
   await assertFails(updateDoc(doc(coAdmin, 'alert_outbox/obxA'), { emailStatus: 'scrubbed' }));
 
-  // ✅ CREATE pins companyId to the caller's tenant (claim or solo uid —
-  // the Phase-1.5 /leads shape) but still accepts its absence (cached
-  // pre-stamp bundles keep uploading).
+  // ✅ CREATE pins companyId to the caller's tenant but still accepts its
+  // absence (cached pre-stamp bundles keep uploading). #12 guard extended
+  // 2026-08-10: uid-as-companyId is now legal ONLY for true solos (no
+  // companyId claim) — a claim-carrying member stamping their own uid would
+  // hide the photo from the company gallery/rollup (the expenses threat
+  // model applied to every rollup-feeding create).
   await assertSucceeds(setDoc(doc(alice, 'photos/newStamped'),
     { userId: 'alice', companyId: 'co-a', url: 'p/n1.jpg' }));
-  await assertSucceeds(setDoc(doc(alice, 'photos/newSoloKey'),
+  await assertFails(setDoc(doc(alice, 'photos/newSoloKey'),
     { userId: 'alice', companyId: 'alice', url: 'p/n2.jpg' }));
+  await assertSucceeds(setDoc(doc(solo, 'photos/newTrueSolo'),
+    { userId: 'solo1', companyId: 'solo1', url: 'p/n2b.jpg' }));
   await assertSucceeds(setDoc(doc(alice, 'photos/newLegacy'),
     { userId: 'alice', url: 'p/n3.jpg' }));
   await assertFails(setDoc(doc(alice, 'photos/newForeign'),
@@ -947,6 +952,15 @@ async function run() {
   // Legacy estimate (no companyId) stays owner-only — sameCompany needs both non-null.
   await assertSucceeds(getDoc(doc(alice,   'estimates/est-legacy')));
   await assertFails(getDoc(doc(coAdmin,    'estimates/est-legacy')));
+  // The customer-page two-scope LIST query (audit 2026-08-02 fix): a company
+  // reader's {leadId, companyId} pair is provable under the rule; the same
+  // shape aimed at a foreign tenant is denied outright.
+  await assertSucceeds(getDocs(query(collection(coAdmin, 'estimates'),
+    where('leadId', '==', 'leadTeamA'), where('companyId', '==', 'co-a'))));
+  await assertSucceeds(getDocs(query(collection(viewerA, 'estimates'),
+    where('leadId', '==', 'leadTeamA'), where('companyId', '==', 'co-a'))));
+  await assertFails(getDocs(query(collection(bob, 'estimates'),
+    where('leadId', '==', 'leadTeamA'), where('companyId', '==', 'co-a'))));
   // Create pins companyId to the caller's tenant — can't inject into a victim tenant.
   await assertFails(setDoc(doc(alice, 'estimates/est-forge'), { userId: 'alice', companyId: 'co-b', grandTotal: 1 }));
   await assertSucceeds(setDoc(doc(alice, 'estimates/est-ok'),  { userId: 'alice', companyId: 'co-a', grandTotal: 1 }));

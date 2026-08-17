@@ -20,6 +20,18 @@ let _NBD_WIDGETS_DELEGATE_BOUND, _wAddTask, _wAskJoe, _wMiniHeat, _wQuickAddLead
 // Fix: define esc() at module scope and wrap every user-controlled
 // field interpolation. Caught by code-reviewer agent run after the
 // W100 milestone.
+// Leaflet vendors are a lazy bundle (mapvendor, 2026-08-07): the two home
+// widgets that draw a map load it on demand instead of silently rendering
+// an empty box (their old guard was `if(!window.L) return;`).
+function _withLeaflet(cb) {
+  if (window.L) { try { cb(); } catch (e) {} return; }
+  if (window.ScriptLoader && window.ScriptLoader.loadBundle) {
+    window.ScriptLoader.loadBundle('mapvendor').then(() => {
+      if (window.L) { try { cb(); } catch (e) {} }
+    });
+  }
+}
+
 function esc(s) {
   return String(s == null ? '' : s)
     .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
@@ -137,9 +149,25 @@ const WIDGETS = [
       const leads = window._leads || [];
       const now = new Date();
       const WON = ['closed','Complete','install_complete','final_photos','final_payment','deductible_collected'];
+      // Which date counts as "when this job earned its money".
+      //
+      // This used to read updatedAt, which is LAST-TOUCHED, not when the job
+      // closed — so any edit to an old won lead silently moved its revenue into
+      // the current month. A CSV import of historical wins made it obvious:
+      // every backfilled job landed in "this month" at once and the widget
+      // reported months of revenue as if it were all earned in August.
+      //
+      // Order of preference:
+      //   closedAt       — explicit close date (set on backfilled/imported wins)
+      //   stageStartedAt — when the lead ENTERED its current stage; for a won
+      //                    lead that is the moment it closed, and it does not
+      //                    move when someone edits a note
+      //   updatedAt      — last resort, for legacy docs predating both
+      const asDate = v => v?.toDate ? v.toDate() : v?.seconds ? new Date(v.seconds*1000) : (v ? new Date(v) : null);
+      const closedDate = l => asDate(l.closedAt) || asDate(l.stageStartedAt) || asDate(l.updatedAt) || new Date(0);
       const thisMonth = leads.filter(l => {
         if(!WON.includes(l.stage||l._stageKey||'')) return false;
-        const d = l.updatedAt?.toDate ? l.updatedAt.toDate() : l.updatedAt?.seconds ? new Date(l.updatedAt.seconds*1000) : new Date(l.updatedAt||0);
+        const d = closedDate(l);
         return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
       });
       const rev = thisMonth.reduce((s,l) => s + parseFloat(l.jobValue || l.estValue || l.value || 0), 0);
@@ -253,14 +281,14 @@ const WIDGETS = [
     render(el){
       el.innerHTML = `<div id="w-radar-map" style="height:160px;border-radius:6px;overflow:hidden;"></div>
         <div style="font-size:9px;color:var(--m);margin-top:4px;text-align:center;">Live NEXRAD radar • Updates every 10 min</div>`;
-      setTimeout(() => {
-        if(!window.L) return;
+      setTimeout(() => _withLeaflet(() => {
+        if(!document.getElementById('w-radar-map')) return; // widget re-rendered while loading
         if(_wRadarMap){try{_wRadarMap.remove();}catch(e){}}
         const map = L.map('w-radar-map',{zoomControl:false,attributionControl:false}).setView([39.07,-84.17],7);
         _wRadarMap = map;
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:10}).addTo(map);
         L.tileLayer('https://mesonet.agron.iastate.edu/cache/tile.py/1.0.0/nexrad-n0q-900913/{z}/{x}/{y}.png',{opacity:.6,maxZoom:10}).addTo(map);
-      }, 100);
+      }), 100);
     }},
 
   {id:'storm-alerts', name:'Storm Alerts', icon:'⛈️', cat:'Operations', size:'sm',
@@ -612,8 +640,8 @@ const WIDGETS = [
     render(el){
       el.innerHTML = `<div id="w-mini-heat" style="height:180px;border-radius:6px;overflow:hidden;"></div>
         <button class="w-mini-btn" style="width:100%;margin-top:6px;" data-w-goto="map">Open Full Map →</button>`;
-      setTimeout(() => {
-        if(!window.L) return;
+      setTimeout(() => _withLeaflet(() => {
+        if(!document.getElementById('w-mini-heat')) return; // widget re-rendered while loading
         if(_wMiniHeat){try{_wMiniHeat.remove();}catch(e){}}
         const leads = window._leads || [];
         const pts = leads.filter(l=>l.lat&&l.lng).map(l=>[l.lat,l.lng]);
@@ -622,7 +650,7 @@ const WIDGETS = [
         _wMiniHeat = map;
         L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{maxZoom:18}).addTo(map);
         if(pts.length && window.L.heatLayer) L.heatLayer(pts,{radius:20,blur:15,maxZoom:15}).addTo(map);
-      }, 100);
+      }), 100);
     }},
 ];
 

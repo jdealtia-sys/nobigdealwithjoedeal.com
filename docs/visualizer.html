@@ -32,7 +32,7 @@
 :root {
   --navy: #1e3a6e; --navy-dark: #142a52; --navy-mid: #1a3260;
   --orange: #e8720c; --orange-dark: #c45e08; --orange-light: #f08030;
-  --white: #ffffff; --off-white: #f5f3ef; --gray: #6b7280;
+  --white: #ffffff; --off-white: #f5f3ef; --gray: #5d6673;
   --gray-sub: #4a4a4a; --light-gray: #e8e5e0; --success: #22a06b;
 }
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -280,13 +280,6 @@ footer { background: var(--navy-dark); color: rgba(255,255,255,0.75); padding: 5
 </style>
 <script type="application/ld+json">{"@context": "https://schema.org", "@type": "WebApplication", "name": "AI Home Visualizer", "description": "Upload a photo and see new roofing, siding, or gutters on your home.", "url": "https://nobigdealwithjoedeal.com/visualizer", "applicationCategory": "HomeImprovement", "offers": {"@type": "Offer", "price": "0", "priceCurrency": "USD"}, "provider": {"@type": "RoofingContractor", "name": "No Big Deal Home Solutions", "telephone": "+18594207382"}}</script>
 <style>
-/* nav-ico sizing (injected) */
-.nav-links .nav-ico{width:14px;height:14px;stroke:currentColor;stroke-width:2.2;fill:none;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0;display:inline-block;vertical-align:-0.18em}
-.nav-links > li > a{display:inline-flex;align-items:center;gap:5px}
-.nav-links > li > a.nav-instant{color:var(--orange-light,#f08030)!important}
-.mobile-nav .mnav-group{font-size:.65rem;font-weight:800;letter-spacing:.18em;text-transform:uppercase;color:var(--orange-light,#f08030);padding:14px 24px 6px;opacity:.75;border-bottom:none!important}
-</style>
-<style>
 /* nav base (injected) */
 .nav-links .dropdown{position:relative}
 .nav-links .dropdown-menu{display:none;position:absolute;top:100%;left:0;background:var(--navy-dark,#142a52);border:2px solid var(--orange,#e8720c);border-top:none;min-width:230px;border-radius:0 0 8px 8px;padding:8px 0;z-index:999;list-style:none;margin:0}
@@ -386,11 +379,13 @@ nav .nav-logo-text .sub{white-space:nowrap}
 @media(max-width:640px){.nbd-social{margin-left:0;margin-top:8px;display:flex;gap:8px}}
 footer.foot .nbd-social a,.review-footer .nbd-social a{background:rgba(255,255,255,.1)}
 </style>
+<link rel="stylesheet" href="/assets/css/nbd-icons.css">
 </head>
 <body><a class="nbd-skip" href="#main">Skip to content</a>
 
 <div class="ann-bar">⭐ <span class="ann-text" data-long="See Your New Exterior Before You Spend a Dollar — Free Roof Visualizer" data-short="Free AI Exterior Visualizer">See Your New Exterior Before You Spend a Dollar — Free Roof Visualizer</span></div>
 
+<!-- nbd:partial nav-tool -->
 <nav id="mainNav" class="nav tool-nav">
   <a href="/" class="nav-logo">
     <img src="/assets/images/nbd-logo.png" width="240" height="160" alt="No Big Deal Home Solutions" style="height:42px;width:auto;border-radius:6px;">
@@ -410,12 +405,14 @@ footer.foot .nbd-social a,.review-footer .nbd-social a{background:rgba(255,255,2
   <button class="hamburger" id="hamburger" aria-label="Open menu" aria-expanded="false" aria-controls="mobileNav"><span></span><span></span><span></span></button>
   <script defer  src="/assets/js/inline/479bd49556.js"></script>
 </nav>
+<!-- /nbd:partial nav-tool -->
 <main id="main">
+<!-- nbd:partial mobile-nav-hub -->
 <div class="mobile-nav" id="mobileNav">
   <div class="mnav-group">The Guarantee</div>
   <a href="/the-pledge" style="color:#f08030;font-weight:800;">The Lifetime Pledge</a>
   <a href="/services/the-nbd-guarantee" style="color:#f08030;font-weight:800;">The NBD Guarantee</a>
-  <a href="/services/lumanail" style="color:#f08030;font-weight:800;">LumaNail™ Upgrade (Elite)</a>
+  <a href="/services/lumanail" style="color:#f08030;font-weight:800;">LumaNail™ Upgrade (Elite)</a>  <a href="/services/gaf-timberline">GAF Timberline Lineup</a>
   <div class="mnav-group">Services</div>
   <a href="/services/roof-replacement">Roof Replacement</a>
   <a href="/services/roof-repair">Roof Repair</a>
@@ -432,7 +429,7 @@ footer.foot .nbd-social a,.review-footer .nbd-social a{background:rgba(255,255,2
   <a href="/about">About Joe</a>
   <a href="/review">Reviews</a>
   <a href="/our-work">Our Work</a>
-  <a href="/areas/">Service Areas</a>
+  <a href="/areas">Service Areas</a>
   <a href="/blog">Blog</a>
   <div class="mnav-group">Tools</div>
   <a href="/estimate" style="color:var(--orange-light,#f08030)">Instant Estimate</a>
@@ -441,6 +438,7 @@ footer.foot .nbd-social a,.review-footer .nbd-social a{background:rgba(255,255,2
   <a href="/storm-check" style="color:var(--orange-light,#f08030)">Is It Worth a Claim?</a>
   <a href="/#contact" style="color:var(--orange,#e8720c);font-weight:800;">Free Estimate &rarr;</a>
 </div>
+<!-- /nbd:partial mobile-nav-hub -->
 <!-- HERO -->
 <section class="viz-hero">
   <div class="hero-badge">✨ AI-Powered — Free to Use</div>
@@ -519,7 +517,7 @@ footer.foot .nbd-social a,.review-footer .nbd-social a{background:rgba(255,255,2
         <!-- ROOF: COLOR -->
         <div class="option-group" id="roofColorGroup" style="grid-column:1 / -1;">
           <label class="group-label"><span id="roofColorLabel">Roof Color · GAF Timberline HDZ Palette</span><span class="color-selected-label" id="roofColorSelected" hidden></span></label>
-          <p style="font-size:.72rem;color:#6b7280;line-height:1.5;margin:2px 0 8px">Colors shown model the GAF Timberline lines. Shopping the <a href="/services/tamko-storm-series" style="color:var(--orange);font-weight:700">TAMKO Storm Series</a>? These shades preview the same look &mdash; we match your exact TAMKO color from a physical sample at your estimate.</p>
+          <p style="font-size:.72rem;color:#5d6673;line-height:1.5;margin:2px 0 8px">Colors shown model the GAF Timberline lines. Shopping the <a href="/services/tamko-storm-series" style="color:var(--orange);font-weight:700">TAMKO Storm Series</a>? These shades preview the same look &mdash; we match your exact TAMKO color from a physical sample at your estimate.</p>
           <div class="color-swatches" id="roofColors"></div>
         </div>
 
@@ -699,7 +697,7 @@ footer.foot .nbd-social a,.review-footer .nbd-social a{background:rgba(255,255,2
       <ul>
         <li><a href="/about">About Joe</a></li>
         <li><a href="/review">Reviews</a></li>
-        <li><a href="/areas/">Service Areas</a></li>
+        <li><a href="/areas">Service Areas</a></li>
         <li><a href="/blog">Blog</a></li>
         <li><a href="/visualizer">Roof Visualizer</a></li>
         <li><a href="/estimate" style="color:var(--orange);">Instant Estimate</a></li>
@@ -722,6 +720,10 @@ footer.foot .nbd-social a,.review-footer .nbd-social a{background:rgba(255,255,2
     <a href="https://www.tamko.com/locate-a-contractor" target="_blank" rel="noopener" style="display:flex;align-items:center;gap:10px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:8px;padding:8px 12px;text-decoration:none;line-height:1.2">
       <img src="/assets/tamko/tamko-pro-gold-badge-120.png" alt="TAMKO Pro Gold™ Certified Roofing Contractor badge" width="36" height="40" loading="lazy" style="display:block;height:40px;width:auto">
       <span style="color:rgba(255,255,255,.8);font-size:.72rem;font-weight:700">TAMKO Pro Gold™ Certified<br><span style="color:rgba(255,255,255,.62);font-weight:600;font-size:.65rem">Verify on TAMKO.com →</span></span>
+    </a>
+    <a href="https://www.americanoperator.com/" target="_blank" rel="noopener" style="display:flex;align-items:center;gap:10px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:8px;padding:8px 12px;text-decoration:none;line-height:1.2">
+      <img src="/assets/american-operator/american-operator-badge-120.png" alt="Locally Owned &amp; Operated — Certified by American Operator badge" width="35" height="40" loading="lazy" style="display:block;height:40px;width:auto">
+      <span style="color:rgba(255,255,255,.8);font-size:.72rem;font-weight:700">Locally Owned &amp; Operated<br><span style="color:rgba(255,255,255,.62);font-weight:600;font-size:.65rem">Certified by American Operator →</span></span>
     </a>
     <p style="font-size:.62rem;color:rgba(255,255,255,.62);line-height:1.6;flex:1;min-width:280px">Independent Contractor. Not an employee or agent of GAF Materials LLC or TAMKO Building Products LLC. Contractors enrolled in GAF or TAMKO certification programs are not employees or agents of those manufacturers, and neither controls or otherwise supervises these independent businesses. GAF® and GAF Certified™ are either registered trademarks or trademarks of BMIC LLC in the United States and/or other countries. GAF ID 1162011. TAMKO®, TAMKO Pro™, ProShield® and HailGuard™ are trademarks or registered trademarks of TAMKO Building Products LLC. TAMKO Pro ID 181382.</p>
   </div>

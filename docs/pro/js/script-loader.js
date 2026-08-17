@@ -149,7 +149,14 @@
       'js/estimate-builder-v2.js?v=5',
       'js/estimate-catalog-xactimate.js?v=1',
       'js/estimate-logic-engine.js?v=5',
-      'js/estimates.js?v=6',
+      'js/estimates.js?v=7',
+      // Rock 2 PR 6: the New-Estimate front door (chooser) split out of
+      // estimates.js. Loads after it — showNewEstimateChooser falls back to
+      // estimates.js's showEstimateTypeSelector when V2 is missing.
+      'js/estimate-entry.js?v=1',
+      // Rock 2 PR 6: the estimates-list row actions (Firestore CRM ops, no
+      // pricing math) split out of estimates.js.
+      'js/estimate-crm-ops.js?v=1',
       'js/estimate-finalization.js?v=2',
       'js/estimate-v2-ui.js?v=14',
       'js/estimate-supplement.js?v=1',
@@ -200,6 +207,35 @@
     // Warranty cert wizard — opened from the Docs view only.
     warranty: [
       'js/warranty-cert.js?v=4'
+    ],
+    // Theme engine cluster (2026-08-07). The 189-theme engine (162 KB) + its
+    // four cosmetic companions were eager on every boot; they are a Settings/
+    // picker concern. dashboard-state.js kicks this bundle at boot for users
+    // with a saved theme (fetch off the parse path); default-theme users load
+    // it with the Settings view or the theme picker. Order: engine first —
+    // companions read window.ThemeEngine at init. After this bundle resolves,
+    // loadBundle() calls window._nbdInitThemeStack (dashboard-ui.js owns the
+    // init sequence; the hook is idempotent).
+    theme: [
+      'js/theme-engine.js?v=2',
+      'js/theme-overlays.js?v=1',
+      'js/theme-sounds.js?v=1',
+      'js/theme-achievements.js?v=1',
+      'js/theme-gx.js?v=1'
+    ],
+    // Leaflet vendor stack (~225 KB, 2026-08-07) — was eager on every boot for
+    // a Maps view most sessions never open. Order is load-bearing: plugins
+    // extend window.L. Consumers already tolerate late arrival: goTo('map'/
+    // 'draw') sits behind waitForLeaflet(), storm-center's initMap self-polls,
+    // d2d retries with a friendly failure state, and the two home widgets
+    // (weather-radar, territory-mini) load-then-run via widgets.js
+    // _withLeaflet. The maps *app* chain (maps-core→…→maps.js) stays eager —
+    // maps.js doubles as the theme/font appearance engine.
+    mapvendor: [
+      '/assets/vendor/leaflet/leaflet.js',
+      '/assets/vendor/leaflet-draw/leaflet.draw.js',
+      '/assets/vendor/leaflet-heat/leaflet-heat.js',
+      '/assets/vendor/leaflet-markercluster/leaflet.markercluster.js'
     ]
   };
 
@@ -211,22 +247,35 @@
     products:    ['estimates'],
     'job-templates': ['estimates'],
     photos:      ['photos'],
-    d2d:         ['d2d'],
+    d2d:         ['mapvendor', 'd2d'],
     academy:     ['academy'],
     training:    ['training'],
-    storm:       ['storm'],
+    storm:       ['mapvendor', 'storm'],
     closeboard:  ['closeboard'],
     expenses:    ['expenses'],
     money:       ['money'],
     repos:       ['repos'],
     aitree:      ['decision'],
     understand:  ['decision'],
-    reports:     ['reports']
+    reports:     ['reports'],
+    map:         ['mapvendor'],
+    draw:        ['mapvendor'],
+    settings:    ['theme']
   };
 
   function load(src) {
     if (loaded.has(src)) return Promise.resolve();
     if (pending.has(src)) return pending.get(src);
+    // A page may already ship this file as an eager <script> tag
+    // (dashboard.legacy.html keeps Leaflet + the theme cluster eager) —
+    // never double-inject. If the eager tag is still queued (defer), the
+    // consumer's own guard/poll covers the gap, same as a slow fetch.
+    try {
+      if (document.querySelector('script[src="' + src + '"]')) {
+        loaded.add(src);
+        return Promise.resolve();
+      }
+    } catch (e) {}
 
     const p = new Promise((resolve) => {
       const el = document.createElement('script');
@@ -255,7 +304,16 @@
     const bundle = BUNDLES[name];
     if (!bundle) return Promise.resolve();
     // Sequential load to preserve dependency order (engine before UI).
-    return bundle.reduce((prev, src) => prev.then(() => load(src)), Promise.resolve());
+    const p = bundle.reduce((prev, src) => prev.then(() => load(src)), Promise.resolve());
+    // Theme cluster needs a one-shot init after arrival, whichever path
+    // loaded it (boot kick, Settings view, picker). dashboard-ui.js owns
+    // the sequence and the hook is idempotent.
+    if (name === 'theme') {
+      return p.then(() => {
+        try { if (window._nbdInitThemeStack) window._nbdInitThemeStack(); } catch (e) {}
+      });
+    }
+    return p;
   }
 
   function preloadForView(name) {

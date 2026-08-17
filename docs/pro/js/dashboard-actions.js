@@ -887,8 +887,9 @@ function damageNearMePhotos(){
   },()=>showToast('Location access denied','error'));
 }
 
-// ── Override damagNearMe to use enhanced location ──────────────
-window.damagNearMe = function() { spyglassGoToLocation(); };
+// (damagNearMe override removed 2026-08-07 — the single implementation lives
+//  in maps-overlays.js and registers in __NBD_CALL_REGISTRY; the aliases here
+//  and in maps.js shadowed its per-PositionError user messaging.)
 
 // ══════════════════════════════════════════════
 // FORWARD-REFERENCE BLOCK — surface other modules' globals onto window
@@ -1023,7 +1024,6 @@ if(typeof searchMap!=='undefined') window.searchMap = searchMap;
 if(typeof selectPin!=='undefined') window.selectPin = selectPin;
 if(typeof deletePin!=='undefined') window.deletePin = deletePin;
 if(typeof clearAllPins!=='undefined') window.clearAllPins = clearAllPins;
-if(typeof spyglassGoToLocation!=='undefined') window.damagNearMe = spyglassGoToLocation;
 if(typeof damageNearMePhotos!=='undefined') window.damageNearMePhotos = damageNearMePhotos;
 if(typeof toggleMapSidebar!=='undefined') window.toggleMapSidebar = toggleMapSidebar;
 if(typeof renderSavedZones!=='undefined') window.renderSavedZones = renderSavedZones;

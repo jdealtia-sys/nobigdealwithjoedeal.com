@@ -41,8 +41,8 @@
             form.addEventListener('submit', async (e) => {
                 e.preventDefault();
 
-                // Honeypot check
-                const hp = form.querySelector('input[name="website"]');
+                // Honeypot check (nbd_hp since 2026-08-05 — "website" gets autofilled)
+                const hp = form.querySelector('input[name="nbd_hp"]');
                 if (hp && hp.value) { console.warn('Bot detected'); return; }
 
                 // Get form data

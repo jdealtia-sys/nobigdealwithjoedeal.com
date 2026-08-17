@@ -267,13 +267,14 @@
   }
 
   function showToast(msg, type) {
-    if (window._showToast) { window._showToast(msg, type); return; }
-    const t = document.getElementById('product-toast');
-    if (!t) return;
-    t.textContent = msg;
-    t.style.background = type === 'error' ? '#ef4444' : '#10b981';
-    t.style.opacity = '1';
-    setTimeout(() => { t.style.opacity = '0'; }, 2500);
+    // window.showToast is guaranteed on the only page this bundle loads on
+    // (dashboard-ui-prefs-boot.js defines it before the lazy bundles). The
+    // old `window._showToast` reference was assigned NOWHERE, and the old
+    // in-template toast div only existed while this panel's own HTML was
+    // mounted — every toast fired from anywhere else silently vanished
+    // (audit 2026-08-02, silent-failure class).
+    if (typeof window.showToast === 'function') { window.showToast(msg, type); return; }
+    try { console.log('[product-library] ' + (type || 'info') + ': ' + msg); } catch (e) {}
   }
 
   function catLabel(catId) {
@@ -506,8 +507,6 @@
         <!-- Products -->
         ${productsHtml || '<div style="text-align:center;padding:60px 20px;color:var(--m);font-size:15px;">No products match your search</div>'}
 
-        <!-- Toast -->
-        <div id="product-toast" style="position:fixed;bottom:20px;right:20px;padding:12px 20px;background:#10b981;color:#fff;border-radius:8px;opacity:0;transition:opacity .3s;font-size:14px;font-weight:500;z-index:9999;"></div>
       </div>
     `;
   }
@@ -964,3 +963,105 @@
   loadProducts();
 
 })();
+
+// ════════════════════════════════════════════════════════════
+// Estimate rate table + product-library sync (Rock 2 PR 6)
+// ════════════════════════════════════════════════════════════
+//
+// Moved verbatim out of estimates.js. This block is the ONLY writer of
+// window.R, which eager property-intel.js reads for its project-value
+// estimate — so it cannot live inside the classic engine that is being
+// retired. It belongs here because it reads window._productLib, which
+// this file defines, and this file already loads earlier in the
+// estimates bundle than estimates.js did.
+
+// Default pricing table (Cincinnati/Ohio market fallback)
+//
+// UNIT CONVENTION: all SF-based items (shingle, felt, tear, iws, deck)
+// are stored PER SQUARE (100 SF), not per SF. The calcTierPrices()
+// formulas multiply by `sq` (the count of 100-SF squares), so these
+// rates must be dollars per square. Historical bug: previously these
+// were stored as per-SF ($4.25/SF for shingle) but the formula used
+// squares, producing estimates ~30x below real market. Example of
+// the fix impact: a 54-sq (3900 SF raw) Good-tier reroof was quoting
+// $1,194 — now correctly quotes ~$12,000.
+//
+// LF items (starter, drip, ridge, hip, gutter) stay per LF.
+// Count items (pipe) stay per EA.
+const DEFAULT_RATES = {
+  // SF-based materials — PER SQUARE (100 SF)
+  shingle: 135,    // $/SQ — 30-yr architectural retail installed
+  felt: 35,        // $/SQ — synthetic underlayment
+  tear: 75,        // $/SQ — tear-off labor (1 layer)
+  iws: 95,         // $/SQ — ice & water shield
+  deck: 145,       // $/SQ — OSB decking material + labor
+  // LF-based — PER LINEAR FOOT
+  starter: 2.10,   // $/LF
+  drip: 1.85,      // $/LF
+  ridge: 5.50,     // $/LF ridge cap
+  hip: 5.75,       // $/LF hip cap
+  gutter: 8.50,    // $/LF seamless aluminum
+  // Count-based
+  pipe: 45.00,     // $/EA — pipe boot
+  // Fractional
+  deckPct: 0.15    // 15% deck allowance
+};
+
+// Product Library → Estimate Rate Mapping.
+// Each entry says: "when syncRatesFromProductLibrary() runs, look up
+// product.pricing[tier].sell and multiply by unitConvert to produce
+// the value stored in window.R[key]."
+//
+// Product prices are native to their own units (per SQ for shingles,
+// per 25-LF bundle for ridge, etc.). unitConvert bridges that to the
+// rate unit required by the calcTierPrices formulas.
+//
+// For SF-based items the target unit is PER SQ (100 SF), matching
+// the DEFAULT_RATES convention above. Previously these used 1/100
+// to convert to per-SF, which produced rates the formula couldn't
+// use correctly.
+const PRODUCT_MAP = {
+  shingle: { id: 'shingle_001', unitConvert: 1 },     // product per SQ → rate per SQ
+  felt:    { id: 'under_001',   unitConvert: 1 },     // product per SQ → rate per SQ
+  tear:    null,                                        // labor only — no product mapping
+  starter: { id: 'flash_008',   unitConvert: 1/100 }, // product per 100-LF bundle → rate per LF
+  drip:    { id: 'flash_003',   unitConvert: 1 },     // product per LF → rate per LF
+  ridge:   { id: 'flash_007',   unitConvert: 1/25 },  // product per 25-LF bundle → rate per LF
+  iws:     { id: 'under_006',   unitConvert: 1/2 },   // product per 2-SQ roll (200 SF) → rate per SQ
+  hip:     { id: 'flash_007',   unitConvert: 1/25 },  // same as ridge
+  pipe:    { id: 'flash_002',   unitConvert: 1 },     // product per EA → rate per EA
+  deck:    null,                                        // decking — use default rate
+  gutter:  null                                         // gutters — use default rate
+};
+
+// Build window.R by pulling live pricing from product library, falling back to defaults
+function syncRatesFromProductLibrary(tier) {
+  tier = tier || 'better';
+  const rates = Object.assign({}, DEFAULT_RATES);
+
+  if (window._productLib && typeof window._productLib.getProducts === 'function') {
+    const products = window._productLib.getProducts();
+    for (const [key, mapping] of Object.entries(PRODUCT_MAP)) {
+      if (!mapping) continue;
+      const product = products.find(p => p.id === mapping.id);
+      if (product && product.pricing && product.pricing[tier]) {
+        // Convert product sell price to per-unit rate used by estimates
+        rates[key] = product.pricing[tier].sell * mapping.unitConvert;
+      }
+    }
+  }
+
+  window.R = rates;
+  return rates;
+}
+
+// Initialize rates — try product library first, then defaults
+if (typeof window.R === 'undefined' || !window.R) {
+  syncRatesFromProductLibrary('better');
+}
+
+// getProductName() in estimates.js resolves product display names through
+// this map. Exported explicitly rather than leaning on cross-file global
+// const scoping, so the dependency is greppable and survives file moves.
+window.NBD_ESTIMATE_PRODUCT_MAP = PRODUCT_MAP;
+window.syncRatesFromProductLibrary = syncRatesFromProductLibrary;

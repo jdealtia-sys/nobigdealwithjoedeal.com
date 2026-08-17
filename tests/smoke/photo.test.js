@@ -157,6 +157,164 @@ section('Image pipeline (Storage trigger → WebP variants → srcset)');
     && /@property \{\{ thumb: string, med: string, full: string \}=\} urls/.test(types));
 }
 
+section('Image pipeline: nested upload shapes (2026-08-16)');
+{
+  const pipeline = read(path.join(ROOT, 'functions/image-pipeline.js'));
+
+  // The trigger was written for the customer page's 3-segment
+  // photos/{uid}/{file} shape and silently skipped every nested
+  // upload surface (dashboard photos/{uid}/{leadId}/..., photo-engine,
+  // photo-editor, d2d photos/{uid}/d2d/{knockId}/...) — those photos
+  // never got variants and their grids pulled full-size originals.
+  assert('pipeline accepts nested paths (depth >= 3, not exactly 3)',
+    /parts\.length\s*<\s*3/.test(pipeline)
+    && !/parts\.length\s*!==\s*3/.test(pipeline));
+  assert('owner uid still read from path segment [1]',
+    /const uid = parts\[1\]/.test(pipeline));
+  assert('filename is the LAST segment (works at any depth)',
+    /parts\[parts\.length - 1\]/.test(pipeline));
+
+  // Collision guard: variants derive from the FULL source dir, not the
+  // uid + basename — two leads sharing a filename must not clobber each
+  // other's variants at a common photos/{uid}/_variants/ key.
+  assert('variant destination derived from the full source dir',
+    /const sourceDir = parts\.slice\(0, -1\)\.join\('\/'\)/.test(pipeline)
+    && /`\$\{sourceDir\}\/_variants\/\$\{variantBase\}`/.test(pipeline));
+
+  // photo-engine uploads a client-generated 200px thumb alongside each
+  // original — variants of a thumbnail are pure waste.
+  assert('client-generated /thumbs/ copies are skipped',
+    /includes\(['"]\/thumbs\/['"]\)/.test(pipeline));
+
+  // d2d knock photos have no /photos doc by design (URLs live on the
+  // knock entry) — their no-match case must not pollute the §2.2
+  // noDocMatched orphan-rate counter.
+  assert('docless d2d no-match counts under noDocMatchedD2d',
+    /noDocMatchedD2d:\s*FieldValue\.increment\(1\)/.test(pipeline)
+    && /includes\(['"]\/d2d\/['"]\)/.test(pipeline));
+
+  // Every /photos doc writer must stamp storagePath or the pipeline
+  // has nothing to match. customer.html is asserted in the section
+  // above; pin the dashboard + photo-editor writers that joined in
+  // the nested-shapes fix.
+  const dashboardBoot = read(path.join(PRO_JS, 'dashboard-bootstrap.module.js'));
+  assert('dashboard _uploadPhoto uploads to a storagePath var and stamps it on the doc',
+    /const storagePath = `photos\/\$\{uid\}\/\$\{leadId\}\/\$\{Date\.now\(\)\}_\$\{safeName\}`/.test(dashboardBoot)
+    && /addDoc\(collection\(db,'photos'\),\s*\{leadId, url, name:file\.name, userId:uid, createdAt:serverTimestamp\(\),[\s\S]{0,400}\bstoragePath,/.test(dashboardBoot));
+
+  const editor = read(path.join(PRO_JS, 'photo-editor.js'));
+  assert('photo-editor stamps storagePath on save-as (addDoc)',
+    /addDoc\(window\.collection\(window\.db, 'photos'\), \{ url, storagePath,/.test(editor));
+  assert('photo-editor save-over moves storagePath with the url (updateDoc)',
+    /updateDoc\(window\.doc\(window\.db, 'photos', S\.photoId\), \{ url, storagePath,/.test(editor));
+
+  // Render side: the dashboard photo-modal grid was the "full-size
+  // originals in a thumbnail grid" symptom — it must prefer the 200px
+  // variant and fall back to url for unstamped docs.
+  const widgets = read(path.join(PRO_JS, 'dashboard-widgets.js'));
+  assert('dashboard photo grid prefers urls.thumb over the full original',
+    /img\.src = \(p\.urls && p\.urls\.thumb\) \|\| p\.url/.test(widgets));
+}
+
+section('Image pipeline §2.2: photos variants backfill script (2026-08-16)');
+{
+  const fs = require('fs');
+  const scriptPath = path.join(ROOT, 'scripts/backfill-photos-variants.js');
+  assert('scripts/backfill-photos-variants.js exists', fs.existsSync(scriptPath));
+
+  // ── REAL unit tests of the pure helpers (module top is dep-free) ──
+  const { storagePathFromUrl, skipReasonForSource, uidFromPath, variantDestinations } =
+    require(scriptPath);
+
+  const BUCKET = 'nobigdeal-pro.firebasestorage.app';
+  const nestedPath = 'photos/uidA/lead42/1712345678_roof photo.jpg';
+  const nestedUrl = 'https://firebasestorage.googleapis.com/v0/b/' + BUCKET
+    + '/o/' + encodeURIComponent(nestedPath) + '?alt=media&token=tok-1';
+  const got = storagePathFromUrl(nestedUrl);
+  assert('storagePathFromUrl decodes the nested dashboard shape (spaces included)',
+    !!got && got.bucket === BUCKET && got.path === nestedPath,
+    'got ' + JSON.stringify(got));
+
+  const custPath = 'photos/uidA/cust1_1712345678_deck.jpg';
+  const custUrl = 'https://firebasestorage.googleapis.com/v0/b/' + BUCKET
+    + '/o/' + encodeURIComponent(custPath) + '?alt=media&token=tok-2';
+  assert('storagePathFromUrl handles the 3-segment customer shape',
+    (storagePathFromUrl(custUrl) || {}).path === custPath);
+  assert('storagePathFromUrl works without a query string',
+    (storagePathFromUrl('https://firebasestorage.googleapis.com/v0/b/' + BUCKET
+      + '/o/' + encodeURIComponent(custPath)) || {}).path === custPath);
+  assert('storagePathFromUrl rejects non-Firebase hosts',
+    storagePathFromUrl('https://example.com/v0/b/' + BUCKET + '/o/photos%2Fu%2Ff.jpg') === null);
+  assert('storagePathFromUrl rejects URLs without an /o/ segment',
+    storagePathFromUrl('https://firebasestorage.googleapis.com/v0/b/' + BUCKET + '/photos%2Fu%2Ff.jpg') === null);
+  assert('storagePathFromUrl rejects undecodable percent-encoding',
+    storagePathFromUrl('https://firebasestorage.googleapis.com/v0/b/' + BUCKET + '/o/%ZZbad') === null);
+  for (const bad of [null, undefined, '', 42, 'not a url']) {
+    assert('storagePathFromUrl(' + JSON.stringify(bad) + ') === null',
+      storagePathFromUrl(bad) === null);
+  }
+
+  // Skip gates mirror the trigger's: _variants, thumbs, d2d, shape checks.
+  const skipCases = [
+    ['photos/uid/lead/f.jpg', null, 'nested dashboard source is accepted'],
+    ['photos/uid/f.jpg', null, '3-segment customer source is accepted'],
+    ['photos/uid/d2d/knock/f.jpg', 'd2d', 'd2d knock photos left alone (docless by design)'],
+    ['photos/uid/lead/thumbs/f.jpg', 'client-thumb', 'photo-engine client thumbs skipped'],
+    ['photos/uid/_variants/f_thumb.webp', 'variants-output', 'pipeline output skipped'],
+    ['photos/f.jpg', 'too-shallow', 'legacy 2-segment form skipped'],
+    ['audio/uid/lead/f.m4a', 'not-photos', 'non-photos roots skipped'],
+    ['photos//lead/f.jpg', 'empty-uid', 'empty uid segment skipped'],
+    ['', 'empty', 'empty path skipped'],
+  ];
+  for (const [p, expected, label] of skipCases) {
+    assert('skipReasonForSource(' + JSON.stringify(p) + ') === ' + JSON.stringify(expected)
+      + ' — ' + label, skipReasonForSource(p) === expected,
+      'got ' + JSON.stringify(skipReasonForSource(p)));
+  }
+  assert('uidFromPath reads segment [1] (storage.rules contract)',
+    uidFromPath('photos/uidA/lead42/f.jpg') === 'uidA' && uidFromPath('') === '');
+
+  // Destination layout must be byte-identical to the trigger's:
+  // {sourceDir}/_variants/{base}_{name}.webp, extension stripped at last dot.
+  const spec = [{ name: 'thumb', width: 200, quality: 70 }];
+  assert('variantDestinations keeps the lead segment in the destination dir',
+    variantDestinations('photos/u/l/a.b.jpg', spec)[0].destination
+      === 'photos/u/l/_variants/a.b_thumb.webp');
+  assert('variantDestinations lands 3-segment sources at photos/{uid}/_variants/',
+    variantDestinations('photos/u/x.jpg', spec)[0].destination
+      === 'photos/u/_variants/x_thumb.webp');
+
+  // ── STATIC guards: no-drift wiring + the house safety rails ──
+  const bf = read(scriptPath);
+  assert('backfill imports VARIANTS + MAX_SOURCE_BYTES from the pipeline (no drift)',
+    /require\(['"]\.\.\/functions\/image-pipeline['"]\)/.test(bf)
+    && /\{\s*VARIANTS,\s*MAX_SOURCE_BYTES\s*\}/.test(bf));
+  // Requiring the pipeline constructs its onObjectFinalized trigger, which
+  // needs FIREBASE_CONFIG for the default bucket — the script must stamp a
+  // fallback BEFORE that require or it throws outside the CF runtime.
+  assert('backfill stamps a FIREBASE_CONFIG fallback before importing the pipeline',
+    bf.indexOf('process.env.FIREBASE_CONFIG = JSON.stringify(') > -1
+    && bf.indexOf('process.env.FIREBASE_CONFIG = JSON.stringify(')
+       < bf.indexOf("require('../functions/image-pipeline')"));
+  assert('backfill is dry-run-by-default + --apply needs --yes',
+    /APPLY && !YES/.test(bf) && /--apply --yes/.test(bf));
+  assert('backfill is idempotent (skips docs with complete urls + variantsGeneratedAt)',
+    /urls\.thumb && data\.urls\.med && data\.urls\.full/.test(bf)
+    && /variantsGeneratedAt/.test(bf));
+  assert('backfill owner-checks path uid vs doc userId (DI-02 mirror)',
+    /uidFromPath\(sp\) !== data\.userId/.test(bf));
+  assert('backfill variant uploads carry the trigger\'s metadata contract',
+    /firebaseStorageDownloadTokens/.test(bf)
+    && /public,max-age=31536000,immutable/.test(bf)
+    && /sourcePath:/.test(bf) && /variantSize:/.test(bf));
+
+  // The pipeline must actually export what the script imports.
+  const pipeline = read(path.join(ROOT, 'functions/image-pipeline.js'));
+  assert('image-pipeline.js exports VARIANTS + MAX_SOURCE_BYTES for the backfill',
+    /exports\.VARIANTS\s*=\s*VARIANTS/.test(pipeline)
+    && /exports\.MAX_SOURCE_BYTES\s*=\s*MAX_SOURCE_BYTES/.test(pipeline));
+}
+
 section('Phase C.4 photo-engine — inline actions in rendered templates');
 {
   const pe = read(path.join(ROOT, 'docs/pro/js/photo-engine.js'));
@@ -455,8 +613,24 @@ section('Photos §2.1: two AI paths documented + analyzeRoofPhoto baseline cover
     /exports\.analyzeRoofPhoto\s*=\s*onRequest/.test(handlerPhoto));
   assert('functions/index.js re-exports analyzeRoofPhoto',
     /analyzeRoofPhoto/.test(idx));
-  assert('analyzeRoofPhoto enforces App Check',
-    /exports\.analyzeRoofPhoto[\s\S]{0,1500}enforceAppCheck:\s*true/.test(handlerPhoto));
+  // PREMISE REWRITTEN 2026-08-02 — do not read the old form as "this used to
+  // be stricter". It asserted `enforceAppCheck: true` inside the
+  // analyzeRoofPhoto options object. That option is honoured by
+  // firebase-functions on onCall ONLY; on onRequest — which this handler is,
+  // per the assertion two lines above — it is silently ignored and never even
+  // serialized into the deployed endpoint. So the assertion was pinning
+  // decorative config, and would have kept passing while the endpoint had no
+  // attestation whatsoever.
+  //
+  // What actually gates this endpoint is a real Firebase ID token: it 401s
+  // without a Bearer header, verifies it via getAuth().verifyIdToken, and then
+  // owner-matches decoded.uid against the photo (asserted below). Pin THAT,
+  // plus the absence of the misleading option.
+  assert('analyzeRoofPhoto requires a verified Firebase ID token (401 without one)',
+    /exports\.analyzeRoofPhoto[\s\S]{0,2000}verifyIdToken\(idToken\)/.test(handlerPhoto)
+    && /exports\.analyzeRoofPhoto[\s\S]{0,1500}status\(401\)/.test(handlerPhoto));
+  assert('analyzeRoofPhoto does NOT carry the dead enforceAppCheck option',
+    !/exports\.analyzeRoofPhoto\s*=\s*onRequest\([\s\S]{0,600}enforceAppCheck/.test(handlerPhoto));
   assert('analyzeRoofPhoto declares a 100/uid/day cap constant',
     /const PHOTO_AI_DAILY_CAP\s*=\s*100/.test(handlerPhoto));
   assert('analyzeRoofPhoto uses the daily cap in enforceRateLimit',
@@ -1004,6 +1178,181 @@ section('Photo-report PDF filename never leaks NBD onto a tenant download (2026-
     /_custIdPrefix[\s\S]{0,300}Photo_Report_/.test(gen));
   assert('blank prefix drops cleanly (no leading underscore filename)',
     /_fnPrefix \? _fnPrefix \+ '_' : ''/.test(gen));
+}
+
+section('D2D photo variants: knock-doc stamping end-to-end (2026-08-17)');
+{
+  const pipeline = read(path.join(ROOT, 'functions/image-pipeline.js'));
+  const d2dCore = read(path.join(PRO_JS, 'd2d-tracker-core-2026b.js'));
+  const d2dUi = read(path.join(PRO_JS, 'd2d-tracker-ui-2026b.js'));
+  const prospects = read(path.join(PRO_JS, 'prospects.js'));
+
+  // Client leg: uploadPhotos must return {urls, paths} and the knock doc
+  // must persist photoPaths — the object path is the ONLY join key the
+  // pipeline has (the path's {knockId} segment is the client tempId, not
+  // the Firestore doc id).
+  // uploadPhotos returns an ARRAY carrying a `paths` property — NOT an
+  // object. The array shape is the version-skew contract: a stale cached
+  // UI assigning the return straight to photoUrls must still persist a
+  // real array (Firestore drops non-index array properties silently),
+  // and a stale core returning a plain array must leave the fresh UI's
+  // photoPaths safely empty. Regressing to `return { urls, paths }`
+  // corrupts knock.photoUrls for every mixed-bundle rep.
+  assert('d2d uploadPhotos collects index-aligned storage paths on an ARRAY return',
+    /const storagePath = `photos\/\$\{uid\}\/d2d\/\$\{knockId\}\/\$\{Date\.now\(\)\}_\$\{safeName\}`/.test(d2dCore)
+    && /paths\.push\(storagePath\)/.test(d2dCore)
+    && /urls\.paths = paths;\s*\n\s*return urls;/.test(d2dCore)
+    && !/return \{ urls, paths \}/.test(d2dCore));
+  assert('knock doc persists photoPaths (index-aligned with photoUrls)',
+    /photoPaths:\s*Array\.isArray\(data\.photoPaths\)\s*\?\s*data\.photoPaths\s*:\s*\[\]/.test(d2dCore));
+  assert('handleSubmitKnock reads the array + paths property (skew-safe both directions)',
+    /photoUrls = Array\.isArray\(uploaded\) \? uploaded\.slice\(\) : \[\]/.test(d2dUi)
+    && /Array\.isArray\(uploaded\.paths\)\) \? uploaded\.paths : \[\]/.test(d2dUi));
+
+  // Pipeline leg: /d2d/ sources stamp the KNOCK doc via array-contains on
+  // photoPaths + a transaction (N per-photo triggers rewrite one array),
+  // with the same owner-scope guard as the /photos path.
+  assert('pipeline queries knocks by array-contains on photoPaths for /d2d/ sources',
+    /collection\(['"]knocks['"]\)[\s\S]{0,120}array-contains['"],\s*objectName/.test(pipeline));
+  assert('knock stamping runs in a transaction (concurrent per-photo triggers)',
+    /runTransaction[\s\S]{0,900}photoVariants/.test(pipeline));
+  assert('knock stamp is owner-guarded like DI-02',
+    /image_pipeline_knock_owner_mismatch_skipped/.test(pipeline));
+  assert('photoVariants is stamped index-aligned (indexOf on photoPaths)',
+    /paths\.indexOf\(objectName\)/.test(pipeline)
+    && /variants\[idx\] = urls/.test(pipeline));
+  // The transaction reports whether it actually wrote — a no-op (doc
+  // vanished, path removed between query and tx) must NOT suppress the
+  // noDocMatchedD2d metric or log a phantom stamp.
+  assert('no-op transactions are not counted as stamps',
+    /const didStamp = await stampKnockVariant\(/.test(pipeline)
+    && /if \(didStamp\) stampedDocs\+\+/.test(pipeline)
+    && /if \(idx === -1\) return false/.test(pipeline));
+  assert('unmatched d2d uploads still count under noDocMatchedD2d',
+    /stampedDocs === 0[\s\S]{0,700}noDocMatchedD2d:\s*FieldValue\.increment\(1\)/.test(pipeline));
+
+  // Auto-convert race: convertToLead copies photoVariants from the
+  // client's STALE knock snapshot (always [] on the hot-disposition auto
+  // path) — the stamp transaction must mirror the array onto the
+  // converted lead so prospect cards get variants regardless of order.
+  assert('stamp transaction mirrors photoVariants onto the converted lead',
+    /leadId[\s\S]{0,200}collection\(['"]leads['"]\)\.doc\(leadId\)/.test(pipeline)
+    && /leadSnap && leadSnap\.exists[\s\S]{0,400}tx\.update\(leadRef, \{ photoVariants: variants \}\)/.test(pipeline));
+
+  // Upload-before-addDoc race: photos (and voice) finish uploading BEFORE
+  // the knock doc exists, so early photos' Storage triggers miss the
+  // query. onKnockCreated heals from the doc side — variant tokens are
+  // recovered from the variant objects' own metadata, so the rebuilt
+  // urls match what the Storage trigger would have stamped.
+  assert('onKnockCreated heal trigger exists and is wired',
+    /^exports\.onKnockCreated = onDocumentCreated\(/m.test(pipeline)
+    && /document:\s*'knocks\/\{knockId\}'/.test(pipeline)
+    && /exports\.onKnockCreated = _imagePipeline\.onKnockCreated/.test(read(FUNCTIONS + '/index.js')));
+  assert('heal trigger recovers tokens from variant object metadata',
+    /firebaseStorageDownloadTokens/.test(pipeline)
+    && /String\(tokens\)\.split\(','\)\[0\]/.test(pipeline));
+  assert('heal trigger owner-guards client-written photoPaths',
+    /image_pipeline_knock_create_owner_mismatch/.test(pipeline)
+    && /p\.split\('\/'\)\[1\] !== data\.userId/.test(pipeline));
+  assert('heal trigger defers to the Storage trigger when variants are incomplete',
+    /if \(!complete\) continue/.test(pipeline));
+
+  // Conversion + render legs: variants survive knock→lead conversion and
+  // both thumb grids prefer the 200px variant over the full original.
+  assert('convertToLead copies photoPaths + photoVariants onto the lead',
+    /photoPaths:\s*Array\.isArray\(knock\.photoPaths\)[\s\S]{0,80}\.slice\(\)/.test(d2dCore)
+    && /photoVariants:\s*Array\.isArray\(knock\.photoVariants\)[\s\S]{0,80}\.slice\(\)/.test(d2dCore));
+  assert('d2d detail modal thumb prefers photoVariants[i].thumb (lightbox keeps original)',
+    /photoVariants\?\.\[i\]\?\.thumb \|\| url/.test(d2dUi)
+    && /data-d2d-id="\$\{esc\(url\)\}"/.test(d2dUi));
+  assert('prospect card thumbs prefer photoVariants[i].thumb',
+    /p\.photoVariants\[i\] && p\.photoVariants\[i\]\.thumb\) \|\| url/.test(prospects));
+}
+
+section('healthDigestCron: image-pipeline orphan watch (2026-08-17)');
+{
+  const digest = read(path.join(FUNCTIONS, 'health-digest.js'));
+  const pipeline = read(path.join(ROOT, 'functions/image-pipeline.js'));
+
+  // The pipeline stamps GENUINE-orphan timestamps only in the non-d2d
+  // no-match branch — the digest's warning must key off these, never the
+  // shared lastNoMatch* pair that d2d noise also touches.
+  assert('pipeline stamps lastGenuineNoMatchAt/Path on non-d2d misses',
+    /lastGenuineNoMatchAt:\s*FieldValue\.serverTimestamp\(\)/.test(pipeline)
+    && /lastGenuineNoMatchPath:\s*objectName/.test(pipeline));
+  // Scope the negative check to the d2d metric WRITE object (the header
+  // docstring legitimately mentions both names in prose).
+  assert('d2d metric write does NOT stamp the genuine-orphan fields',
+    !/noDocMatchedD2d:\s*FieldValue\.increment\(1\)[\s\S]{0,300}lastGenuine/.test(pipeline));
+
+  assert('digest gathers metrics/imagePipeline with an exists guard',
+    /gatherImagePipeline[\s\S]{0,700}doc\(['"]metrics\/imagePipeline['"]\)\.get\(\)/.test(digest)
+    && /gatherImagePipeline[\s\S]{0,900}snap\.exists/.test(digest));
+  assert('digest warning keys off lastGenuineNoMatchAt within the window',
+    /lastGenuineNoMatchAt[\s\S]{0,400}getTime\(\)\s*>=\s*cutoffMs/.test(digest));
+  assert('gatherImagePipeline duck-types the timestamp (emulator/admin parity)',
+    /typeof m\.lastGenuineNoMatchAt\.toDate === 'function'/.test(digest));
+  assert('digest renders an Image Pipeline section with the warning branch',
+    /Image Pipeline<\/h3>/.test(digest)
+    && /imagePipe\.genuineRecent/.test(digest));
+  assert('interpolated storage paths are HTML-escaped in the email body',
+    /escHtml\(imagePipe\.lastGenuinePath\)/.test(digest));
+  assert('gatherer failure degrades to safe zeros (Promise.all catch)',
+    /gatherImagePipeline\(db, cutoffMs\)\.catch\(/.test(digest));
+  assert('orphan warning surfaces in the subject line',
+    /imagePipe\.genuineRecent \? ' · ⚠ pipeline orphan' : ''/.test(digest));
+}
+
+section('Backfill --include-legacy: pre-hardening 2-segment sweep (2026-08-17)');
+{
+  const bf = require(path.join(ROOT, 'scripts', 'backfill-photos-variants.js'));
+  const src = read(path.join(ROOT, 'scripts/backfill-photos-variants.js'));
+
+  // Default behavior is byte-identical: 2-segment paths stay skipped.
+  assert('legacy paths still skip by default',
+    bf.skipReasonForSource('photos/f.jpg') === 'too-shallow');
+  // Opted in: well-formed 2-segment accepted; degenerate shapes never.
+  assert('opting in accepts photos/{file}',
+    bf.skipReasonForSource('photos/f.jpg', { includeLegacy: true }) === null);
+  assert('opting in still rejects empty filename',
+    bf.skipReasonForSource('photos/', { includeLegacy: true }) === 'too-shallow');
+  // A bare 'photos' (no slash) fails the prefix gate before depth is
+  // ever considered — the flag must not bypass that gate either.
+  assert('opting in never bypasses the photos/ prefix gate',
+    bf.skipReasonForSource('photos', { includeLegacy: true }) === 'not-photos');
+  assert('opting in never affects 3+-segment gates',
+    bf.skipReasonForSource('photos/uid/d2d/k/f.jpg', { includeLegacy: true }) === 'd2d');
+  assert('isLegacyPath identifies exactly the 2-segment shape',
+    bf.isLegacyPath('photos/f.jpg') === true
+    && bf.isLegacyPath('photos/uid/f.jpg') === false);
+  // Legacy variants land in the shared top-level photos/_variants/ dir.
+  const spec = [{ name: 'thumb', width: 200, quality: 70 }];
+  assert('legacy variant destination is photos/_variants/{base}_thumb.webp',
+    bf.variantDestinations('photos/x.jpg', spec)[0].destination === 'photos/_variants/x_thumb.webp');
+
+  // Static guards: the legacy branch must be flag-gated and evidence-gated.
+  assert('legacy processing is gated on the --include-legacy flag',
+    /INCLUDE_LEGACY = args\.includes\('--include-legacy'\)/.test(src)
+    && /includeLegacy:\s*INCLUDE_LEGACY/.test(src));
+  assert('legacy docs require a string userId (no path-side owner evidence)',
+    /legacy[\s\S]{0,400}typeof data\.userId === 'string' && data\.userId/.test(src));
+  assert('legacy docs require createdAt before the 2026-04-11 hardening',
+    /LEGACY_CUTOFF_MS = Date\.parse\('2026-04-11T00:00:00Z'\)/.test(src)
+    && /createdMs < LEGACY_CUTOFF_MS/.test(src));
+  assert('duplicate legacy basenames are refused (shared _variants dir clobber)',
+    /basename collision[\s\S]{0,200}refusing/.test(src));
+  assert('collision guard checks ALL accepted legacy docs, not just pending jobs',
+    /legacyBasesAll/.test(src)
+    && /holders && holders\.size > 1/.test(src));
+  assert('legacy jobs order AFTER the standard backlog (deterministic canaries)',
+    /Array\.from\(variantJobsByPath\.entries\(\)\)\s*\n?\s*\.concat\(Array\.from\(legacyVariantJobsByPath\.entries\(\)\)\)/.test(src));
+  assert('dry-run flags legacy work with a [legacy] prefix',
+    /\[legacy\] ' : ''\) \+ 'would set/.test(src)
+    && /isLegacyPath\(sp\) \? '\[legacy\] ' : ''/.test(src));
+  assert('flagless summary hints at --include-legacy on the too-shallow line',
+    /re-run with --include-legacy to process/.test(src));
+  assert('summary prints distinct legacy owners for eyeball confirmation',
+    /legacy distinct owners/.test(src));
 }
 
 };

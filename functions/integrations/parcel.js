@@ -1,19 +1,31 @@
 /**
- * integrations/parcel.js — Regrid parcel intel adapter
+ * integrations/parcel.js — parcel intel adapter (Regrid | Swath)
  *
  * `property-intel.js` currently uses OSM Nominatim + whatever it
- * can scrape. Regrid gives us structured nationwide parcel data:
+ * can scrape. A parcel provider gives us structured nationwide data:
  *   - Owner name
  *   - Deed/APN/parcel number
  *   - Lot size (acres + sqft)
  *   - Year built / last sale / assessed value
  *   - School district, flood zone, zoning
  *
- * ~$0.01/lookup on their Tier 2 plan. Cacheable — 90 days is fine,
- * parcels don't change often. We cache in `parcel_cache/{addressHash}`.
+ * Providers (NBD_PARCEL_PROVIDER):
+ *   regrid (default) — ~$0.01/lookup on their Tier 2 plan
+ *   swath            — swathapi.com GET /v1/property (2 credits/lookup,
+ *                      adds roof age + owner-occupancy; free plan serves
+ *                      cached parcel data only). integrations/swath.js.
+ * Fallback is one-way: NBD_PARCEL_PROVIDER=swath keeps Regrid as the
+ * fallback (error OR no-record), but the regrid default never falls back
+ * to Swath — a configured SWATH_API_KEY with the flag unflipped must not
+ * bill anything (billing surprise > resilience here).
+ *
+ * Cacheable — 90 days is fine, parcels don't change often. We cache in
+ * `parcel_cache/{addressHash}` (both providers share the cache — a hit
+ * is a hit no matter who fetched it).
  *
  * SETUP:
  *   regrid.com → API → generate token → firebase functions:secrets:set REGRID_API_TOKEN
+ *   and/or documentation/runbooks/SWATH-SETUP.md → firebase functions:secrets:set SWATH_API_KEY
  */
 
 'use strict';
@@ -23,7 +35,8 @@ const { logger } = require('firebase-functions/v2');
 const { getFirestore } = require('firebase-admin/firestore');
 const { FieldValue } = require('firebase-admin/firestore');
 const crypto = require('crypto');
-const { getSecret, hasSecret, SECRETS } = require('./_shared');
+const { getSecret, hasSecret, PROVIDERS, SECRETS } = require('./_shared');
+const { querySwathProperty } = require('./swath');
 
 const CORS_ORIGINS = [
   'https://nobigdealwithjoedeal.com',
@@ -94,7 +107,7 @@ exports.lookupParcel = onCall(
     enforceAppCheck: true,
     timeoutSeconds: 15,
     memory: '256MiB',
-    secrets: [SECRETS.REGRID_API_TOKEN]
+    secrets: [SECRETS.REGRID_API_TOKEN, SECRETS.SWATH_API_KEY]
   },
   async (request) => {
     const uid = request.auth && request.auth.uid;
@@ -118,7 +131,19 @@ exports.lookupParcel = onCall(
       throw new HttpsError('invalid-argument', 'Valid address required');
     }
 
-    if (!hasSecret('REGRID_API_TOKEN')) {
+    // Provider selection (Swath wiring 2026-08-06): Swath participates
+    // ONLY when NBD_PARCEL_PROVIDER=swath — deliberately one-way. With the
+    // flag at its 'regrid' default, a configured SWATH_API_KEY changes
+    // nothing here (the runbook promises "with only the key set, nothing
+    // changes", and Swath lookups bill 2 credits each on a hard-stopping
+    // plan — no billing surprises from a fallback nobody flipped on).
+    // When the flag IS swath, Regrid remains the one-shot fallback. Not
+    // configured at all → same failed-precondition as the Regrid-only era.
+    const wantSwath = PROVIDERS.parcel === 'swath' && hasSecret('SWATH_API_KEY');
+    const providers = [];
+    if (wantSwath) providers.push('swath');
+    if (hasSecret('REGRID_API_TOKEN')) providers.push('regrid');
+    if (providers.length === 0) {
       throw new HttpsError('failed-precondition', 'Parcel provider not configured.');
     }
 
@@ -130,23 +155,65 @@ exports.lookupParcel = onCall(
       const d = cache.data();
       if (d.cachedAt && d.cachedAt.toMillis
           && Date.now() - d.cachedAt.toMillis() < CACHE_TTL_MS) {
-        return { success: true, cached: true, parcel: d.parcel || null };
+        const cachedParcel = d.parcel || null;
+        // Geometry is cached JSON-stringified (Firestore rejects the
+        // nested arrays of raw GeoJSON) — rehydrate for callers.
+        if (cachedParcel && !cachedParcel.geometry && typeof cachedParcel.geometryJson === 'string') {
+          try { cachedParcel.geometry = JSON.parse(cachedParcel.geometryJson); } catch (_) { /* leave null */ }
+          delete cachedParcel.geometryJson;
+        }
+        return { success: true, cached: true, parcel: cachedParcel };
       }
     }
 
     let parcel = null;
-    try {
-      parcel = await queryRegrid(address);
-    } catch (e) {
-      logger.warn('Regrid lookup failed:', e.message);
+    let lastErr = null;
+    let answered = false; // some provider returned a substantive answer (incl. a legit no-record null)
+    for (const provider of providers) {
+      try {
+        const got = provider === 'swath'
+          ? await querySwathProperty(address)
+          : await queryRegrid(address);
+        answered = true;
+        if (got) { parcel = got; break; }
+        // null = this provider has no record (200-with-no-match — expected
+        // on Swath's cache-only free plan). Let the fallback provider try
+        // before we conclude "no parcel" and cache the miss for 90 days.
+      } catch (e) {
+        logger.warn(provider + ' parcel lookup failed:', e.message);
+        lastErr = e;
+      }
+    }
+    // Throw only when we got NO substantive answer and something errored —
+    // an all-providers-miss (no errors) is a legitimate null worth caching.
+    if (!parcel && !answered && lastErr) {
       throw new HttpsError('unavailable', 'Parcel lookup failed');
     }
 
-    // Cache even nulls so repeat misses don't re-bill Regrid.
-    await cacheRef.set({
-      parcel,
-      cachedAt: FieldValue.serverTimestamp()
-    }, { merge: true });
+    // Cache even nulls so repeat misses don't re-bill the provider.
+    // GeoJSON coordinates are nested arrays, which Firestore REJECTS —
+    // store geometry as a JSON string and rehydrate on cache read. (The
+    // pre-Swath version wrote `parcel.geometry` raw: any geometry-bearing
+    // Regrid result made this set() throw after the paid lookup had
+    // already succeeded, 500ing the request. Best-effort now — a cache
+    // failure must never fail a lookup we already paid for.)
+    try {
+      let cacheParcel = parcel;
+      if (parcel && parcel.geometry) {
+        cacheParcel = { ...parcel, geometryJson: JSON.stringify(parcel.geometry) };
+        delete cacheParcel.geometry;
+      }
+      // Non-merge set: this write owns the whole doc. merge:true would keep
+      // provider-specific keys from a PRIOR provider's pull (e.g. a stale
+      // Swath geometryJson/roofAge surviving under a fresh Regrid result —
+      // mixed-provenance parcels; adversarial review 2026-08-06, finding #4).
+      await cacheRef.set({
+        parcel: cacheParcel,
+        cachedAt: FieldValue.serverTimestamp()
+      });
+    } catch (e) {
+      logger.warn('parcel cache write failed (result still returned):', e.message);
+    }
 
     return { success: true, cached: false, parcel };
   }

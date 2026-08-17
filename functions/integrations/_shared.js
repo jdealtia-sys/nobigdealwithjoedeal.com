@@ -51,6 +51,20 @@ const SECRETS = {
   REGRID_API_TOKEN:      defineSecret('REGRID_API_TOKEN'),
   HAILTRACE_API_KEY:     defineSecret('HAILTRACE_API_KEY'),
   CALCOM_WEBHOOK_SECRET: defineSecret('CALCOM_WEBHOOK_SECRET'),
+  // Swath (swathapi.com) — storm-verified property intel. One key for
+  // both the hail-swath and property-lookup surfaces; the webhook secret
+  // comes back from POST /v1/monitors (see runbooks/SWATH-SETUP.md).
+  SWATH_API_KEY:         defineSecret('SWATH_API_KEY'),
+  SWATH_WEBHOOK_SECRET:  defineSecret('SWATH_WEBHOOK_SECRET'),
+  // Shared token Thumbtack presents on every webhook delivery (Custom Header
+  // auth — Thumbtack offers no HMAC signing, so this is a bearer-style secret
+  // and the receiver fails closed without it). See integrations/thumbtack.js.
+  THUMBTACK_WEBHOOK_SECRET: defineSecret('THUMBTACK_WEBHOOK_SECRET'),
+
+  // Image generation (visualizer) — kie.ai alternate provider
+  // (visualizer-image-gen.js; Replicate's token is declared there, not here,
+  // because it predates this registry).
+  KIE_API_KEY:           defineSecret('KIE_API_KEY'),
 
   // Voice transcription (F8)
   DEEPGRAM_API_KEY:      defineSecret('DEEPGRAM_API_KEY'),
@@ -67,6 +81,9 @@ const SECRETS = {
 const PROVIDERS = {
   measurement:       (process.env.NBD_MEASUREMENT_PROVIDER  || 'hover').toLowerCase(),
   esign:             (process.env.NBD_ESIGN_PROVIDER        || 'boldsign').toLowerCase(),
+  // parcel: 'regrid' (default) | 'swath'  ·  hail: 'noaa' (default,
+  // free) | 'hailtrace' | 'swath'. Swath is one key for both slots —
+  // integrations/swath.js.
   parcel:            (process.env.NBD_PARCEL_PROVIDER       || 'regrid').toLowerCase(),
   hail:              (process.env.NBD_HAIL_PROVIDER         || 'noaa').toLowerCase(),
   rateLimit:         (process.env.NBD_RATE_LIMIT_PROVIDER   || 'firestore').toLowerCase(),

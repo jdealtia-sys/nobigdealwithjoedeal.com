@@ -31,7 +31,10 @@ const { defineSecret } = require('firebase-functions/params');
 const { logger } = require('firebase-functions/v2');
 const { getFirestore } = require('firebase-admin/firestore');
 const { FieldValue } = require('firebase-admin/firestore');
-const twilio = require('twilio');
+// Lazy require (2026-08-07) — see lead-alert.js: ~21 MB SDK off the
+// cold-start path; call sites use _twilio()(...).
+let _twilioSdk = null;
+const _twilio = () => (_twilioSdk = _twilioSdk || require('twilio'));
 const { enforceRateLimit, clientIp } = require('./rate-limit');
 
 // Secrets (some already defined in sms-functions.js — Firebase deduplicates)
@@ -128,7 +131,7 @@ exports.sendVerificationCode = onCall(
       });
 
       // Send verification via Twilio Verify
-      const client = twilio(
+      const client = _twilio()(
         TWILIO_ACCOUNT_SID.value(),
         TWILIO_AUTH_TOKEN.value()
       );
@@ -195,7 +198,7 @@ exports.verifyCode = onCall(
     }
 
     try {
-      const client = twilio(
+      const client = _twilio()(
         TWILIO_ACCOUNT_SID.value(),
         TWILIO_AUTH_TOKEN.value()
       );
@@ -325,7 +328,7 @@ exports.notifyNewLead = onCall(
           `📧 ${email || 'No email'}`;
           if (requestLabel) smsBody += `\n${requestLabel}`;
 
-        const client = twilio(
+        const client = _twilio()(
           TWILIO_ACCOUNT_SID.value(),
           TWILIO_AUTH_TOKEN.value()
         );

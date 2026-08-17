@@ -120,6 +120,11 @@ exports.hailMatchCron = onSchedule(
       .limit(500)
       .get();
 
+    // DELIBERATE: this cron never uses the Swath provider even when
+    // NBD_HAIL_PROVIDER=swath — a 500-lead sweep would burn the whole
+    // 100-credit/month free plan in one run (and real money on paid
+    // tiers). Interactive lookups get Swath; the nightly sweep stays on
+    // HailTrace/NOAA. See integrations/swath.js header.
     const fetcher = PROVIDERS.hail === 'hailtrace' && hasSecret('HAILTRACE_API_KEY')
       ? fetchHailTrace
       : fetchNoaaHail;

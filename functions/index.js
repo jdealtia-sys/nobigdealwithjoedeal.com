@@ -12,14 +12,14 @@
  * Where the inline handlers went:
  *   handlers/ai.js          — claudeProxy, publicVisualizerAI
  *   handlers/photo.js       — analyzeRoofPhoto, signImageUrl, imageProxy, setStorageCors
- *   handlers/admin.js       — getAdminAnalytics, backfillCustomerData,
- *                             auditCustomerDataIntegrity, createTeamMember,
+ *   handlers/admin.js       — getAdminAnalytics,
+ *                             createTeamMember,
  *                             updateUserRole, deactivateUser, listTeamMembers,
  *                             rotateAccessCodes
  *   handlers/auth.js        — onRepSignup, activateInvitedRep,
  *                             provisionE2ETestUser, cleanupE2ETestData,
  *                             mintOwnerClaims
- *   handlers/migrations.js  — backfillAnalytics, migratePinsToKnocks
+ *   handlers/migrations.js  — backfillAnalytics
  *   handlers/integrations.js— integrationStatus, submitPublicLead
  *   handlers/portal.js      — validateAccessCode (the inline access-code
  *                             callable; NOT the sibling functions/portal.js)
@@ -103,8 +103,6 @@ exports.attachStormProof = stormProofHandlers.attachStormProof;
 // Admin / team-management callables
 const adminHandlers = require('./handlers/admin');
 exports.getAdminAnalytics          = adminHandlers.getAdminAnalytics;
-exports.auditCustomerDataIntegrity = adminHandlers.auditCustomerDataIntegrity;
-exports.backfillCustomerData       = adminHandlers.backfillCustomerData;
 exports.rotateAccessCodes          = adminHandlers.rotateAccessCodes;
 exports.createTeamMember           = adminHandlers.createTeamMember;
 exports.updateUserRole             = adminHandlers.updateUserRole;
@@ -163,7 +161,6 @@ exports.mintOwnerClaims      = authHandlers.mintOwnerClaims;
 // stays in functions/migrations/runner.js, re-exported below).
 const migrationsHandlers = require('./handlers/migrations');
 exports.backfillAnalytics   = migrationsHandlers.backfillAnalytics;
-exports.migratePinsToKnocks = migrationsHandlers.migratePinsToKnocks;
 
 // Integration-facing endpoints (status readout + public lead ingest)
 const integrationsHandlers = require('./handlers/integrations');
@@ -280,6 +277,10 @@ const dictateIntegration     = require('./dictate');
 // trigger + atomic sentinel dedup. See functions/integrations/storm-
 // briefing.js for the call-order scoring formula.
 const stormBriefingIntegration = require('./integrations/storm-briefing');
+// Thumbtack webhook receiver (leads / messages / reviews). One-way ingest —
+// Thumbtack pushes, we cannot push back. Lead events land in thumbtack_leads
+// and are mirrored into the CRM pipeline by leadBridgeThumbtack (lead-bridge.js).
+const thumbtackIntegration   = require('./integrations/thumbtack');
 Object.assign(exports, slackIntegration);
 Object.assign(exports, measurementIntegration);
 Object.assign(exports, esignIntegration);
@@ -294,6 +295,18 @@ Object.assign(exports, voiceMemoIntegration);
 Object.assign(exports, voiceIntelligenceIntegration);
 Object.assign(exports, dictateIntegration);
 Object.assign(exports, stormBriefingIntegration);
+Object.assign(exports, thumbtackIntegration);
+
+// Swath (swathapi.com) — storm-verified property intel: hail-swath +
+// parcel providers (mounted inside hail.js/parcel.js), storm.verified
+// webhook, and the quote-first Swath Report callables. Mounted
+// selectively because the module also exports plain helpers
+// (fetchSwathHail, querySwathProperty, verifySwathSignature) that don't
+// belong in the deploy surface. See runbooks/SWATH-SETUP.md.
+const swathIntegration = require('./integrations/swath');
+exports.getSwathReport = swathIntegration.getSwathReport;
+exports.getSwathUsage  = swathIntegration.getSwathUsage;
+exports.swathWebhook   = swathIntegration.swathWebhook;
 
 // ═══════════════════════════════════════════════════════════════
 // HOMEOWNER PORTAL (createPortalToken, revokePortalToken,
@@ -362,6 +375,7 @@ exports.migrationsTick = _migrations.migrationsTick;
 // ═══════════════════════════════════════════════════════════════
 const _imagePipeline = require('./image-pipeline');
 exports.onPhotoUploaded = _imagePipeline.onPhotoUploaded;
+exports.onKnockCreated = _imagePipeline.onKnockCreated;
 
 // ═══════════════════════════════════════════════════════════════
 // SHARE SSR — server-rendered preview at /share/:token. Renders

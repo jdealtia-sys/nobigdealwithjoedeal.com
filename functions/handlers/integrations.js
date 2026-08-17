@@ -23,6 +23,7 @@ const { FieldValue } = require('firebase-admin/firestore');
 
 const { httpRateLimit, enforceRateLimit, clientIp } = require('../integrations/upstash-ratelimit');
 const { CORS_ORIGINS } = require('./_shared');
+const { resolveCompanyByKey } = require('./public-site');
 
 // ═══════════════════════════════════════════════════════════════
 // integrationStatus — client-facing readout of which adapters are
@@ -87,11 +88,23 @@ exports.integrationStatus = onCall(
         boldsignWebhook:    _hasInt('BOLDSIGN_WEBHOOK_SECRET'),
         regrid:             _hasInt('REGRID_API_TOKEN'),
         hailtrace:          _hasInt('HAILTRACE_API_KEY'),
+        // Swath (swathapi.com) — one API key serves both the hail-swath
+        // and parcel slots; the webhook secret is minted separately by
+        // POST /v1/monitors (runbooks/SWATH-SETUP.md).
+        swath:              _hasInt('SWATH_API_KEY'),
+        swathWebhook:       _hasInt('SWATH_WEBHOOK_SECRET'),
         calcom:             _hasInt('CALCOM_WEBHOOK_SECRET'),
+        // Thumbtack lead/message/review webhook — Custom Header shared
+        // token (no HMAC offered); receiver fails closed without it
+        // (integrations/thumbtack.js).
+        thumbtackWebhook:   _hasInt('THUMBTACK_WEBHOOK_SECRET'),
         // Voice transcription pair — Phase 1 uses Groq, Phase 2 may
         // add Deepgram for native diarization on Pro+.
         deepgram:           _hasInt('DEEPGRAM_API_KEY'),
-        groq:               _hasInt('GROQ_API_KEY')
+        groq:               _hasInt('GROQ_API_KEY'),
+        // Image generation — kie.ai alternate visualizer provider
+        // (dark until IMAGEGEN_PROVIDER=kie; see visualizer-image-gen.js).
+        kie:                _hasInt('KIE_API_KEY')
       },
       rateLimitProvider: rateLimitProvider(),
       // D.3 — runbook reference so the admin readout points at the
@@ -109,14 +122,18 @@ exports.integrationStatus = onCall(
 // and could be mass-fired at Firestore's list price for ~$2/M writes.
 //
 // Defenses:
-//   - enforceAppCheck: rejects calls without a valid App Check token
-//     (curl/bot without the attestation token fails immediately).
+//   - (NOT App Check — see the option block below for why it is absent and
+//     why it never worked here. This line used to claim it rejected calls
+//     without an attestation token; it did not.)
 //   - httpRateLimit: per-IP 20/min — plenty for a human on a form,
 //     enough to stop a single-box 1000 rps attack cold.
 //   - Origin allowlist via CORS_ORIGINS matches only the two public
 //     domains. Browsers refuse to send the request otherwise.
-//   - Honeypot field 'website': bots fill every field; real forms
-//     leave it empty. Non-empty → silent 200 with no Firestore write.
+//   - Honeypot field 'nbd_hp' (legacy 'website' still checked): bots
+//     fill every field; real forms leave it empty. Non-empty → silent
+//     200 with no Firestore write. Renamed 2026-08-05 — a honeypot
+//     NAMED 'website' matches browser URL-autofill heuristics, which
+//     could fill it on a real form and silently drop the lead.
 //   - Per-shape validation + hard size caps.
 //   - Generic 200 response with opaque id so enumerating invalid
 //     payloads gives no side-channel.
@@ -314,8 +331,18 @@ exports.submitPublicLead = onRequest(
     // truthy value, not just a non-empty STRING: a bot sending website:true or
     // website:["x"] (non-string) slipped past the old `typeof === 'string'`
     // check and submitted as if legitimate.
-    if (body.website != null && String(body.website).length > 0) {
-      logger.info('submitPublicLead: honeypot tripped', { kind, ip: clientIp(req) });
+    // 2026-08-05 (audit P6): the live field is now `nbd_hp` — a field NAMED
+    // `website` matches Chromium's URL-autofill heuristic, so browser autofill
+    // could fill the honeypot on a real homeowner's form and silently drop the
+    // lead. The legacy `website` key stays checked indefinitely: new pages no
+    // longer render an input by that name (autofill can't populate what isn't
+    // there), so any request still carrying a non-empty `website` is a stale
+    // cached page (HTML max-age≤300, decaying) or a bot replaying the old shape.
+    const hpKey = ['nbd_hp', 'website'].find(
+      (k) => body[k] != null && String(body[k]).length > 0
+    );
+    if (hpKey) {
+      logger.info('submitPublicLead: honeypot tripped', { kind, key: hpKey, ip: clientIp(req) });
       res.status(200).json({ success: true });
       return;
     }
@@ -383,6 +410,28 @@ exports.submitPublicLead = onRequest(
       } catch (_) { _cid = ''; }
     }
     if (_cid) data.companyId = _cid;
+
+    // P5 indirection (tenant-lifecycle audit, resolved 2026-08-06): the
+    // tenant microsite now tags leads with its public `siteKey` — the slug
+    // when one is configured — instead of round-tripping the tenant's
+    // Firebase uid through the client. Resolved with the SAME resolver the
+    // site-config endpoint uses (doc id OR siteSlug, active-status check),
+    // and the RESOLVED id — never the client's string — is what persists.
+    // This is strictly harder to abuse than the legacy companyId tag above:
+    // an inactive tenant stops resolving here. When both keys arrive (the
+    // ≤5-min cache-skew window between an old template and the new API),
+    // the server-resolved siteKey wins. siteKey itself is not in any field
+    // allowlist, so it never persists raw. Resolution failure only drops
+    // the tag (lead still lands, routed to the default pipeline) — a
+    // tagging problem must never lose a homeowner's lead.
+    let _skey = String((body.siteKey != null ? body.siteKey : '') || '').trim();
+    if (_skey && !/^[A-Za-z0-9_-]{1,64}$/.test(_skey)) _skey = '';
+    if (_skey) {
+      try {
+        const hit = await resolveCompanyByKey(getFirestore(), _skey);
+        if (hit) data.companyId = hit.companyId;
+      } catch (_) { /* tag drop only */ }
+    }
 
     try {
       const ref = await getFirestore().collection(spec.collection).add(data);

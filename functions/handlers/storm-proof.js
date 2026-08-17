@@ -42,7 +42,7 @@ exports.attachStormProof = onCall(
     enforceAppCheck: true,
     timeoutSeconds: 30,
     memory: '256MiB',
-    secrets: [SECRETS.HAILTRACE_API_KEY, GOOGLE_GEOCODING_API_KEY],
+    secrets: [SECRETS.HAILTRACE_API_KEY, SECRETS.SWATH_API_KEY, GOOGLE_GEOCODING_API_KEY],
   },
   async (request) => {
     const uid = request.auth && request.auth.uid;

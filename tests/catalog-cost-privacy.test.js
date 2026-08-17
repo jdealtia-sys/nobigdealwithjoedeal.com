@@ -5,8 +5,8 @@
  * served unauthenticated at the site root — and this is a PUBLIC repo, so the
  * same bytes are readable from raw.githubusercontent.com whether hosting
  * serves them or not. docs/pro/js/product-data.js shipped wholesale COST beside
- * retail SELL for 187 SKUs (GAF Timberline HDZ: sell 240 / cost 82 → a 66%
- * margin), plus overheadMultiplier x176 and profitMarginPct x173, and
+ * retail SELL for 187 SKUs (readable margin on every product; the real
+ * figures are deliberately NOT repeated here — this file is public too), plus overheadMultiplier x176 and profitMarginPct x173, and
  * roofivent-catalog.js shipped a supplier's confidential contractor price list.
  * Worse, those were ONE company's supplier terms, handed to every other tenant
  * as their seed defaults. Cost data is now tenant-owned — it lives in
@@ -163,11 +163,16 @@ const STRICT_FILES = [
 // cost in one object literal) and sweeps every published file, so the next
 // pricing catalog somebody adds cannot hide the same way.
 const COST_BASIS_RE = /(?<![.\w])cost\s*:\s*-?\d[\d.]*\s*,\s*(?<![.\w])labor\s*:\s*-?\d/;
+// Abbreviated spelling of the same shape (2026-08-10): the xactimate catalog
+// ships 276 unit-cost pairs as `mat: N, lab: N` — semantically identical to
+// cost/labor but invisible to COST_BASIS_RE, which is exactly how a 1,300-line
+// cost book sat unswept next to the guard for a month.
+const COST_BASIS_ABBREV_RE = /(?<![.\w])mat\s*:\s*-?\d[\d.]*\s*,\s*(?<![.\w])lab\s*:\s*-?\d/;
 
 function scanCostBasis(rel, src) {
   const out = [];
   stripComments(src).split(/\r?\n/).forEach((line, i) => {
-    const m = line.match(COST_BASIS_RE);
+    const m = line.match(COST_BASIS_RE) || line.match(COST_BASIS_ABBREV_RE);
     if (m) out.push(rel + ':' + (i + 1) + ': internal cost basis — ' + m[0].slice(0, 60));
   });
   return out;
@@ -183,7 +188,16 @@ const KNOWN_UNMIGRATED = {
     'DEFAULT_MATERIAL_MARKUP_PCT. Same class as the product-data.js leak, ' +
     'different subsystem (EstimateBuilderV2.CATALOG, not NBD_PRODUCTS) — it ' +
     'needs its own tenant-owned book and hydration path. NOT closed by the ' +
-    'catalogCosts migration.',
+    'catalogCosts migration. (2026-08-10: the hardcoded DEFAULT_COST_BASIS ' +
+    'per-SQ figures WERE closed — zeroed, tenant-config only — but the ' +
+    'CATALOG entries remain.)',
+  'pro/js/estimate-catalog-xactimate.js':
+    'Found 2026-08-10 audit: 276 mat/lab unit-cost line items (Cincinnati ' +
+    'regional supplier pricing + in-house productivity data, per its own ' +
+    'header) served unauthenticated. Evaded the sweep via abbreviated keys ' +
+    '(mat:/lab: — now caught by COST_BASIS_ABBREV_RE). Belongs to the same ' +
+    'Phase-2 tenant-owned cost-book migration as estimate-builder-v2.js ' +
+    'CATALOG; migrate both together, then delete both entries here.',
 };
 
 /* ── the published tree (firebase.json hosting.ignore aware) ───────────── */
@@ -386,6 +400,10 @@ console.log('──────────────────────�
      scanCostBasis('pro/js/some-new-pricing.js', "  'shingle-good': { code: 'RFG', cost: 115.00, labor: 65.00 }").length > 0);
   ok('MUTANT killed: same shape with integer literals',
      scanCostBasis('pro/js/x.js', 'a: { cost: 115, labor: 65 }').length > 0);
+  ok('MUTANT killed: the abbreviated mat/lab spelling (xactimate-catalog class)',
+     scanCostBasis('pro/js/x.js', "{ code: 'RFG 240', mat: 165, lab: 72 }").length > 0);
+  ok('control: matte/label prose is not swept by the abbreviated pattern',
+     scanCostBasis('pro/js/x.js', 'format: 1, label: 2').length === 0);
 
   ok('control: a cost with no paired labor is not swept (county permit fees are public)',
      scanCostBasis('pro/js/x.js', "'hamilton-oh': { name: 'Hamilton County, OH', cost: 185 }").length === 0);
@@ -409,6 +427,29 @@ console.log('──────────────────────�
      scanProse(mut('Includes a photo report to the customer portal.')).length === 0);
   ok('control: ordinary product prose is not flagged',
      scanProse(mut('Required for the 160 mph wind warranty. 33.3 LF per bundle.')).length === 0);
+}
+
+// 4f. per-SQ cost basis stays out of the published tree (2026-08-10).
+// estimate-builder-v2.js shipped DEFAULT_COST_BASIS = {340, 385, 430} — the
+// shop's REAL per-SQ costs beside the public tier rates (545/595/660), i.e.
+// the margin was readable by anyone who fetched the file. Same class as the
+// 187-SKU catalog leak this suite was built for, but it slipped the strict
+// layer because EBv2 isn't a catalog file. The defaults are zeros now
+// ("not configured" — the engine nulls the margin fields); real cost basis
+// is tenant data entered in Estimate Settings. These pins stop the real
+// numbers being reintroduced as published defaults.
+{
+  const ebv2 = fs.readFileSync(path.join(ROOT, 'docs/pro/js/estimate-builder-v2.js'), 'utf8');
+  const m = ebv2.match(/DEFAULT_COST_BASIS\s*=\s*\{([\s\S]{0,200}?)\}/);
+  ok('EBv2 has a DEFAULT_COST_BASIS object (pin target present)', !!m);
+  const nums = m ? (m[1].match(/-?\d+(\.\d+)?/g) || []).map(Number) : [1];
+  ok('EBv2 DEFAULT_COST_BASIS ships all-zero values (real cost basis is tenant data)',
+     nums.length > 0 && nums.every((n) => n === 0));
+
+  const boot = fs.readFileSync(path.join(ROOT, 'docs/pro/js/dashboard-bootstrap.module.js'), 'utf8');
+  const fallbacks = [...boot.matchAll(/v2cost(?:Good|Better|Best)'\)?,?\s*(?:\.value\s*=\s*s\.costBasis\?\.\w+\s*\?\?\s*|)(\d+)/g)].map((x) => Number(x[1]));
+  ok('dashboard-bootstrap v2cost* fallbacks are all zero (6 sites: form fill + save)',
+     fallbacks.length >= 6 && fallbacks.every((n) => n === 0));
 }
 
 console.log('\n──────────────────────────────────────────────────');

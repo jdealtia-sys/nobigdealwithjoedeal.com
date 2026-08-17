@@ -56,6 +56,94 @@ function mintSignToken() {
   return s;
 }
 
+// ═══════════════════════════════════════════════════════════════
+// SIGNED-DOCUMENT INTEGRITY (audit 2026-08-02)
+//
+// submitSignature receives a whole HTML document from the browser and used to
+// write it straight over the original in Storage. Two separate problems:
+// the counterparty controlled every byte of the document that becomes the
+// executed record, and the unsigned original was destroyed by the same write,
+// so nothing was left to compare against.
+//
+// The signing page legitimately needs to return HTML — the widget converts
+// each <canvas> to an <img> and reserialises documentElement — so we cannot
+// simply refuse it. What we CAN do is prove the submitted document says the
+// same thing as the one we served.
+//
+// Comparing HTML byte-for-byte does not work: a browser round-trip
+// legitimately reorders attributes, changes quoting, normalises void tags and
+// re-encodes entities. Comparing the VISIBLE TEXT does work — none of those
+// transformations alter it, while every meaningful tamper (a price, a scope
+// line, a name) does.
+// ═══════════════════════════════════════════════════════════════
+
+/** End index (exclusive) of the tag whose opening `<div` starts at `open`. */
+function endOfDivAt(src, open) {
+  const re = /<\/?div\b[^>]*>/gi;
+  re.lastIndex = open;
+  let depth = 0, m;
+  while ((m = re.exec(src))) {
+    depth += m[0][1] === '/' ? -1 : 1;
+    if (depth === 0) return m.index + m[0].length;
+  }
+  return -1;
+}
+
+/**
+ * Remove every <div data-nbd-sig="..."> block. Those are the ONLY regions the
+ * signer is allowed to change: the widget swaps the canvas for an <img>,
+ * replaces the controls with a "Signed <date>" stamp, and stamps
+ * data-nbd-sig-finalized. Everything outside them must survive untouched.
+ */
+function stripSignatureBlocks(html) {
+  let out = html;
+  for (;;) {
+    const m = /<div\b[^>]*\bdata-nbd-sig\s*=/i.exec(out);
+    if (!m) break;
+    const end = endOfDivAt(out, m.index);
+    if (end < 0) break;               // unbalanced — leave it, comparison will catch it
+    out = out.slice(0, m.index) + out.slice(end);
+  }
+  return out;
+}
+
+/**
+ * The human-readable content of a document, normalised so that a browser
+ * round-trip is a no-op but any edit to what the document SAYS is not.
+ */
+function visibleText(html) {
+  return String(html)
+    .replace(/<script\b[\s\S]*?<\/script>/gi, ' ')
+    .replace(/<style\b[\s\S]*?<\/style>/gi, ' ')
+    .replace(/<!--[\s\S]*?-->/g, ' ')
+    .replace(/<[^>]*>/g, ' ')
+    // Entity normalisation — a round-trip may write &amp; where the source had
+    // & (or the reverse), which must not read as tampering.
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/&amp;/gi, '&')
+    .replace(/&lt;/gi, '<')
+    .replace(/&gt;/gi, '>')
+    .replace(/&quot;/gi, '"')
+    .replace(/&#0*39;|&apos;/gi, "'")
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+/**
+ * True when `signed` says the same thing as `original`.
+ * Returns { ok, reason } so the caller can log WHY without leaking document
+ * content into logs.
+ */
+function signedDocMatchesOriginal(originalHtml, signedHtml) {
+  const a = visibleText(stripSignatureBlocks(originalHtml));
+  const b = visibleText(stripSignatureBlocks(signedHtml));
+  if (a === b) return { ok: true };
+  // Report only sizes and the first divergence offset — never the text.
+  let i = 0;
+  while (i < a.length && i < b.length && a[i] === b[i]) i++;
+  return { ok: false, reason: `content differs at offset ${i} (original ${a.length} chars, submitted ${b.length})` };
+}
+
 function escHtml(s) {
   return String(s == null ? '' : s)
     .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
@@ -272,6 +360,46 @@ exports.submitSignature = onRequest(
     const db = getFirestore();
     const tokRef = db.doc(`doc_sign_tokens/${token}`);
 
+    // ── INTEGRITY GATE — runs BEFORE the burn on purpose ──────────────
+    // A tampered submission must not consume the homeowner's one-shot token:
+    // if we burned first and rejected after, an attacker could grief a real
+    // signing by firing one bad payload, and a legitimate signer hitting a
+    // false positive could never retry. Reading the token here is cheap and
+    // the transaction below re-reads it authoritatively, so this adds no
+    // TOCTOU risk — the worst case is wasted work on a doomed request.
+    let originalHtml = null;
+    {
+      const pre = await tokRef.get();
+      if (!pre.exists) { res.status(404).json({ error: 'Invalid link' }); return; }
+      const p = pre.data();
+      if (p.status === 'pending' && p.htmlPath) {
+        try {
+          const [buf] = await getStorage().bucket().file(p.htmlPath).download();
+          originalHtml = buf.toString('utf8');
+        } catch (e) {
+          // Cannot verify what we cannot read. Fail CLOSED: this endpoint
+          // mints the executed record of a contract, so "store it unchecked"
+          // is not an acceptable degradation.
+          logger.error('[submitSignature] original unreadable — refusing', {
+            token: token.slice(0, 6), htmlPath: p.htmlPath, err: e.message,
+          });
+          res.status(503).json({ error: 'Could not verify the document right now. Please try again shortly.' });
+          return;
+        }
+        const verdict = signedDocMatchesOriginal(originalHtml, signedHtml);
+        if (!verdict.ok) {
+          logger.error('[submitSignature] SUBMITTED DOCUMENT DOES NOT MATCH THE ORIGINAL — refusing', {
+            token: token.slice(0, 6),
+            leadId: p.leadId || null,
+            docId: p.docId || null,
+            reason: verdict.reason,
+          });
+          res.status(422).json({ error: 'This document could not be verified. Please reload the page and sign again.' });
+          return;
+        }
+      }
+    }
+
     // ATOMIC single-use burn: flip pending → signed inside a transaction
     // so two concurrent submits can't both sign (TOCTOU). Mirrors the
     // portal.js write-once pattern.
@@ -299,9 +427,32 @@ exports.submitSignature = onRequest(
     // Token is now burned. Persist the signed HTML + notify the rep.
     // A failure here can't double-sign (status already flipped); we log
     // and still return success so the homeowner isn't asked to re-sign.
+    // ARCHIVE THE ORIGINAL FIRST, then overwrite. The old code overwrote
+    // htmlPath directly, which destroyed the only artifact a later dispute
+    // could be settled against — and did so with bytes supplied by the
+    // counterparty.
+    //
+    // htmlPath is deliberately still the object that ends up holding the
+    // signed copy: the document record's htmlUrl is a download URL for THAT
+    // object, and it is what the rep opens from the documents tab. Writing
+    // the signed copy somewhere else instead would have left every rep
+    // looking at an unsigned contract — a security fix that silently breaks
+    // the feature. So the original is copied aside, and the overwrite now
+    // carries content the integrity gate above has already proven matches it.
+    let archivePath = null;
     try {
-      // Overwrite the doc's Storage object with the signed version so the
-      // rep re-opens the signed copy from the documents tab.
+      if (originalHtml != null) {
+        archivePath = info.htmlPath.replace(/(\.html?)?$/i, '') + `.original-${Date.now()}.html`;
+        await getStorage().bucket().file(archivePath).save(
+          Buffer.from(originalHtml, 'utf8'),
+          { contentType: 'text/html', resumable: false }
+        );
+      }
+    } catch (e) {
+      archivePath = null;
+      logger.warn('[submitSignature] original archive failed', { msg: e.message });
+    }
+    try {
       const file = getStorage().bucket().file(info.htmlPath);
       await file.save(Buffer.from(signedHtml, 'utf8'), { contentType: 'text/html', resumable: false });
     } catch (e) {
@@ -312,6 +463,15 @@ exports.submitSignature = onRequest(
         signedAt: FieldValue.serverTimestamp(),
         signedRemotely: true,
         remoteSignerName: info.signerName || null,
+        // htmlPath now holds the signed copy (unchanged behaviour for the
+        // documents tab); this is the untouched original we served.
+        originalHtmlPath: archivePath,
+        // Digest of the document we SERVED, so a later dispute can prove what
+        // was put in front of the signer without trusting either party's copy.
+        originalSha256: originalHtml
+          ? require('crypto').createHash('sha256').update(originalHtml, 'utf8').digest('hex')
+          : null,
+        signedSha256: require('crypto').createHash('sha256').update(signedHtml, 'utf8').digest('hex'),
       }, { merge: true });
     } catch (e) { logger.warn('[submitSignature] doc meta stamp failed', { msg: e.message }); }
     try {

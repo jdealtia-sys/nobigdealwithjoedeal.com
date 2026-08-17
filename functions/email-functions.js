@@ -7,13 +7,12 @@
  *   - sendEmail (HTTP)
  *   - sendEstimateEmail (HTTP)
  *   - sendDripEmail (callable)
- *   - sendTeamInviteEmail (HTTP)
  */
 
 const { onRequest, onCall, HttpsError } = require('firebase-functions/v2/https');
 const { defineSecret } = require('firebase-functions/params');
 const { logger } = require('firebase-functions/v2');
-const { Timestamp, getFirestore } = require('firebase-admin/firestore');
+const { getFirestore } = require('firebase-admin/firestore');
 const { getAuth } = require('firebase-admin/auth');
 const { FieldValue } = require('firebase-admin/firestore');
 const { Resend } = require('resend');
@@ -330,7 +329,6 @@ exports.sendEmail = onRequest(
   {
     cors: CORS_ORIGINS,
     secrets: [RESEND_API_KEY, EMAIL_FROM],
-    enforceAppCheck: true,
     maxInstances: 20,
     concurrency: 40,
     timeoutSeconds: 30,
@@ -428,349 +426,24 @@ exports.sendEmail = onRequest(
  * sendEstimateEmail — HTTP function (POST, authenticated)
  * Sends an estimate email with branded template
  */
-exports.sendEstimateEmail = onRequest(
-  {
-    cors: CORS_ORIGINS,
-    secrets: [RESEND_API_KEY, EMAIL_FROM],
-    enforceAppCheck: true,
-    maxInstances: 20,
-    concurrency: 40,
-    timeoutSeconds: 30,
-    memory: '256MiB'
-  },
-  async (req, res) => {
-    if (req.method !== 'POST') {
-      res.status(405).json({ error: 'Method not allowed' });
-      return;
-    }
-    if (!(await httpRateLimit(req, res, 'sendEstimateEmail:ip', 60, 3_600_000))) return;
-
-    // Verify Firebase auth
-    const decoded = await verifyAuth(req);
-    if (!decoded) {
-      res.status(401).json({ error: 'Unauthorized' });
-      return;
-    }
-    // Per-uid daily cap (the IP limit above doesn't bound a single
-    // account behind rotating IPs). Matches sendEmail's per-uid cap.
-    try {
-      await enforceRateLimit('sendEstimateEmail:uid', decoded.uid, 200, 86_400_000);
-    } catch (e) {
-      if (e.rateLimited) { res.status(429).json({ error: 'Daily email limit exceeded' }); return; }
-      throw e;
-    }
-
-    const { leadId, estimateHtml, subject } = req.body;
-
-    if (!leadId || !estimateHtml) {
-      res.status(400).json({ error: 'leadId and estimateHtml required' });
-      return;
-    }
-
-    try {
-      const db = getFirestore();
-
-      // Look up lead
-      const leadSnap = await db.doc(`leads/${leadId}`).get();
-      if (!leadSnap.exists) {
-        res.status(404).json({ error: 'Lead not found' });
-        return;
-      }
-
-      const lead = leadSnap.data();
-
-      // ── Multi-tenant isolation guard ─────────────────────────────
-      // Without this check, an authenticated user could supply any
-      // leadId and trigger an email to that lead's address — turning
-      // sendEstimateEmail into an arbitrary cross-tenant email relay.
-      // Allow when the caller is the lead's owner OR the caller is a
-      // manager/company_admin in the lead's company. Reject otherwise.
-      const callerUid       = decoded.uid;
-      const callerCompanyId = decoded.companyId || null;
-      const callerRole      = decoded.role || null;
-      const ownsLead        = lead.userId === callerUid;
-      const sameCompanyMgr  = (callerRole === 'manager' || callerRole === 'company_admin' || callerRole === 'admin')
-                              && lead.companyId
-                              && callerCompanyId
-                              && lead.companyId === callerCompanyId;
-      if (!ownsLead && !sameCompanyMgr) {
-        logger.warn('sendEstimateEmail unauthorized cross-tenant attempt', {
-          callerUid, leadId, leadOwner: lead.userId, leadCompany: lead.companyId
-        });
-        res.status(403).json({ error: 'Forbidden' });
-        return;
-      }
-
-      const to = lead.email;
-      const customerName = `${lead.firstName || ''} ${lead.lastName || ''}`.trim() || 'Customer';
-
-      if (!to || !isValidEmail(to)) {
-        res.status(400).json({ error: 'Lead email is invalid' });
-        return;
-      }
-
-      // Escape lead-sourced fields (address/name originate from public lead
-      // forms) before interpolating into the email HTML — defense-in-depth,
-      // matching the sibling estimate-email.js. NOTE: estimateHtml is
-      // CLIENT-supplied (req.body) rich estimate markup, not server-built —
-      // it is inserted as-is by design so the rep's formatted estimate
-      // renders. The ownership+tenant guard above bounds the recipient to a
-      // lead the caller owns/manages (lead.email), so any markup the caller
-      // injects only reaches their own customer, never a cross-tenant target.
-      const escHtml = (s) => String(s == null ? '' : s)
-        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-      const html = BRANDED_EMAIL_TEMPLATE(
-        subject,
-        `<h2>Estimate for ${escHtml(lead.address || 'Your Property')}</h2>
-         <p>Hi ${escHtml(customerName)},</p>
-         <p>Your estimate is ready for review. Please see the details below:</p>
-         ${estimateHtml}
-         <p>If you have any questions, please reach out!</p>`
-      );
-
-      // Send via Resend
-      const resend = new Resend(RESEND_API_KEY.value());
-      const fromEmail = EMAIL_FROM.value() || 'noreply@nobigdealwithjoedeal.com';
-
-      const response = await resend.emails.send({
-        from: fromEmail,
-        to,
-        subject: subject || `Estimate for ${lead.address || 'Your Property'}`,
-        html
-      });
-
-      // Update lead with lastEmailSent
-      await db.doc(`leads/${leadId}`).update({
-        lastEmailSent: FieldValue.serverTimestamp()
-      });
-
-      // Log to Firestore
-      await logEmailToFirestore(db, to, subject || 'Estimate', decoded.uid, 'sent', leadId, decoded.companyId || null);
-
-      res.json({
-        success: true,
-        id: response.data?.id || response.id
-      });
-
-    } catch (e) {
-      logger.error('sendEstimateEmail error', { err: e.message });
-      res.status(500).json({
-        error: 'Failed to send estimate email'
-      });
-    }
-  }
-);
+// sendEstimateEmail was retired 2026-08-11 (dead-surface lane, audit
+// follow-up): zero client callers anywhere under docs/ — estimate emails
+// go through the working flows, not this branded relay. Approved by Jo.
+// Restore from git (pre-ded736f) if a dedicated estimate-mail path ships.
+// Prod instance deleted via console — see WEEKLY_CADENCE.
 
 /**
  * sendDripEmail — Callable function (not HTTP)
  * Internal helper for drip campaign automation
  */
-exports.sendDripEmail = onCall(
-  {
-    secrets: [RESEND_API_KEY, EMAIL_FROM],
-    enforceAppCheck: true,
-    maxInstances: 20,
-    concurrency: 20,
-  },
-  async (request) => {
-    const { to, templateId, variables } = request.data || {};
+// sendDripEmail was retired 2026-08-11 (dead-surface lane, audit
+// follow-up): zero client callers — the drip UI never shipped. Approved
+// by Jo. Restore from git (pre-ded736f) when a drip-campaign UI lands.
+// Prod instance deleted via console — see WEEKLY_CADENCE.
 
-    // Verify auth (user calling this function)
-    if (!request.auth) {
-      throw new HttpsError('unauthenticated', 'Unauthorized');
-    }
-    // Block read-only / access-code-only accounts from using this as a
-    // branded-mail relay: `viewer` is the read-only team role, `member`
-    // the access-code-only login. Neither should emit company-domain mail
-    // to an arbitrary recipient. Mirrors the sendEmail gate (AUTHZ-2).
-    const _dripRole = (request.auth.token && request.auth.token.role) || '';
-    if (_dripRole === 'viewer' || _dripRole === 'member') {
-      throw new HttpsError('permission-denied', 'Your account role cannot send email');
-    }
-    // Per-uid daily drip cap.
-    try {
-      await enforceRateLimit('sendDripEmail:uid', request.auth.uid, 500, 86_400_000);
-    } catch (e) {
-      if (e.rateLimited) throw new HttpsError('resource-exhausted', 'Daily drip limit exceeded');
-      throw e;
-    }
-
-    if (!to || !isValidEmail(to)) {
-      throw new HttpsError('invalid-argument', 'Invalid recipient email');
-    }
-
-    if (!templateId || !DRY_TEMPLATES[templateId]) {
-      throw new Error('Invalid template ID');
-    }
-
-    try {
-      const template = DRY_TEMPLATES[templateId];
-      const html = populateTemplate(template, variables || {});
-
-      const resend = new Resend(RESEND_API_KEY.value());
-      const fromEmail = EMAIL_FROM.value() || 'noreply@nobigdealwithjoedeal.com';
-
-      const response = await resend.emails.send({
-        from: fromEmail,
-        to,
-        subject: template.subject,
-        html
-      });
-
-      // Log to Firestore — owner is ALWAYS the authenticated caller.
-      const db = getFirestore();
-      await logEmailToFirestore(db, to, template.subject, request.auth.uid, 'sent', (variables && variables.leadId) || null);
-
-      return {
-        success: true,
-        id: response.data?.id || response.id
-      };
-
-    } catch (e) {
-      logger.error('sendDripEmail error', { uid: request.auth?.uid, err: e.message });
-      throw new HttpsError('internal', 'Failed to send drip email');
-    }
-  }
-);
-
-/**
- * sendTeamInviteEmail — HTTP function (POST, authenticated)
- * Sends a team invitation email with a unique invite link
- */
-exports.sendTeamInviteEmail = onRequest(
-  {
-    cors: CORS_ORIGINS,
-    secrets: [RESEND_API_KEY, EMAIL_FROM],
-    enforceAppCheck: true,
-    maxInstances: 10,
-    concurrency: 20,
-    timeoutSeconds: 30,
-    memory: '256MiB'
-  },
-  async (req, res) => {
-    if (req.method !== 'POST') {
-      res.status(405).json({ error: 'Method not allowed' });
-      return;
-    }
-    if (!(await httpRateLimit(req, res, 'sendTeamInviteEmail:ip', 20, 3_600_000))) return;
-
-    // Verify Firebase auth
-    const decoded = await verifyAuth(req);
-    if (!decoded) {
-      res.status(401).json({ error: 'Unauthorized' });
-      return;
-    }
-
-    const { email, role, inviterName } = req.body;
-
-    if (!email || !isValidEmail(email)) {
-      res.status(400).json({ error: 'Invalid email address' });
-      return;
-    }
-
-    if (!role || !['admin', 'rep', 'crew'].includes(role)) {
-      res.status(400).json({ error: 'Invalid role' });
-      return;
-    }
-
-    // ── Multi-tenant guard (Wave 9) ────────────────────────────────────
-    // Only admin/manager/owner of a company can mint invites, and the
-    // invite must carry the inviter's companyId so the accept flow can
-    // place the invitee in the correct tenant.
-    const callerCompanyId = decoded.companyId || null;
-    const callerRole      = decoded.role || null;
-    const ALLOWED_INVITERS = ['admin', 'company_admin', 'manager', 'owner'];
-
-    if (!callerCompanyId || !ALLOWED_INVITERS.includes(callerRole)) {
-      logger.warn('sendTeamInviteEmail unauthorized invite attempt', {
-        callerUid: decoded.uid,
-        callerRole,
-        hasCompany: !!callerCompanyId
-      });
-      res.status(403).json({ error: 'Forbidden — only company admins/managers can invite teammates' });
-      return;
-    }
-
-    // Role escalation guard: only admin/owner can mint admin invites.
-    // Managers can invite reps/crew but not other admins.
-    if (role === 'admin' && !['admin', 'company_admin', 'owner'].includes(callerRole)) {
-      logger.warn('sendTeamInviteEmail role escalation attempt', {
-        callerUid: decoded.uid,
-        callerRole,
-        attemptedRole: role
-      });
-      res.status(403).json({ error: 'Only admins/owners can invite other admins' });
-      return;
-    }
-
-    try {
-      const db = getFirestore();
-
-      // Generate invite token
-      const token = require('crypto').randomBytes(32).toString('hex');
-      const inviteRef = db.collection('invites').doc(token);
-
-      await inviteRef.set({
-        email,
-        role,
-        companyId: callerCompanyId,    // tie invite to inviter's tenant
-        inviterUid: decoded.uid,
-        inviterRole: callerRole,
-        inviterName,
-        createdAt: FieldValue.serverTimestamp(),
-        expiresAt: Timestamp.fromDate(
-          new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) // 7 days
-        ),
-        used: false
-      });
-
-      // Send invite email. inviterName is attacker-controllable (req.body), so
-      // HTML-escape it (+ role) before interpolating into the email body, and
-      // URL-encode role in the link. Otherwise a crafted inviterName injects
-      // arbitrary HTML into Joe-branded mail.
-      const escHtml = (s) => String(s == null ? '' : s)
-        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
-        .slice(0, 200);
-      const safeInviter = escHtml(inviterName);
-      const safeRole = escHtml(role);
-      const inviteUrl = `https://nobigdealwithjoedeal.com/pro/register.html?invite=${token}&role=${encodeURIComponent(role || '')}`;
-
-      const html = BRANDED_EMAIL_TEMPLATE(
-        'Team Invitation',
-        `<h2>You're Invited to Join NBD Pro!</h2>
-         <p>Hi,</p>
-         <p>${safeInviter} has invited you to join their No Big Deal Home Solutions team as a <strong>${safeRole}</strong>.</p>
-         <p><a href="${inviteUrl}" class="cta-button">Accept Invitation</a></p>
-         <p>This invitation will expire in 7 days.</p>
-         <p>If you have any questions, contact ${safeInviter} or our support team.</p>`
-      );
-
-      const resend = new Resend(RESEND_API_KEY.value());
-      const fromEmail = EMAIL_FROM.value() || 'noreply@nobigdealwithjoedeal.com';
-
-      const response = await resend.emails.send({
-        from: fromEmail,
-        to: email,
-        subject: `${inviterName} Invited You to NBD Pro`,
-        html
-      });
-
-      // Log to Firestore
-      await logEmailToFirestore(db, email, 'Team Invite', decoded.uid, 'sent');
-
-      res.json({
-        success: true,
-        id: response.data?.id || response.id,
-        token
-      });
-
-    } catch (e) {
-      logger.error('sendTeamInviteEmail error', { err: e.message });
-      res.status(500).json({
-        error: 'Failed to send team invite'
-      });
-    }
-  }
-);
+// sendTeamInviteEmail was retired 2026-08-06 (tenant-lifecycle audit CL8):
+// a dead HTTP path with zero callers, using the pre-claims role vocabulary
+// and writing an invites/{token} collection no claim path consumes. The
+// live invite flow is the createTeamInvite callable in handlers/invites.js.
 
 logger.info('email_functions_loaded');

@@ -47,7 +47,14 @@ responsible reporters in the release notes for the fix (with permission).
 - **Auth:** Firebase Auth + custom-claim roles (`admin`, `company_admin`, `manager`, `sales_rep`, `viewer`).
   `admin` is platform-global and NEVER grantable through any UI path — only via
   `scripts/grant-admin-claim.js` run manually.
-- **App Check:** every callable + onRequest function declares `enforceAppCheck: true`.
+- **App Check:** every **callable** (`onCall`) declares `enforceAppCheck: true`, and that
+  is where the option is honoured. It is **NOT** an `onRequest` control:
+  firebase-functions reads `enforceAppCheck` only in the callable wrapper
+  (`HttpsOptions` is declared `Omit<GlobalOptions,'region'|'enforceAppCheck'>`), and it is
+  not serialized into the deployed endpoint, so there is no platform-side fallback either.
+  16 `onRequest` handlers carried the option as dead config until 2026-08-02; it was removed
+  rather than left in place looking like a protection. HTTP endpoints are gated by webhook
+  signature verification, ID-token checks, or per-IP rate limits — see each handler's header.
   Site key is set in `window.__NBD_APP_CHECK_KEY`.
 - **Firestore rules:** default-deny, explicit per-collection allowlists. Rules tests in
   `tests/firestore-rules.test.js` run on every PR.
@@ -115,9 +122,11 @@ accident:
 
   - **Public funnels (migrated 2026-06-17):** the `estimate.html`
     instant-estimator and the storm self-check now call the gated
-    Firebase `publicFunnelAI` (App Check + per-IP rate limit +
-    server-forced cheap Claude model + capped `max_tokens` +
-    text-only).
+    Firebase `publicFunnelAI` (per-IP rate limit keyed on the IPv6 /64
+    prefix + server-forced cheap Claude model + capped `max_tokens` +
+    text-only). **This endpoint is unauthenticated** — it previously
+    claimed App Check here, which was never in effect on `onRequest`
+    (see the App Check note above).
   - **Admin tools (migrated 2026-06-17):** the vault session-parsers
     (`vault.html`, `vault-page.js`) and `project-codex` now call the
     gated `adminAI` Cloud Function (Firebase ID token + admin-tier

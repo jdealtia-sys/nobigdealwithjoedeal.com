@@ -61,7 +61,7 @@
           ${photo}
           <div style="flex:1;min-width:0">
             <div style="font-weight:700;color:#142a52;font-size:.95rem">${name}</div>
-            <div style="font-size:.78rem;color:#6b7280">${when}</div>
+            <div style="font-size:.78rem;color:#5d6673">${when}</div>
           </div>
           <div>${stars(review.rating)}</div>
         </div>
@@ -79,7 +79,7 @@
           ${GOOGLE_G(26)}
           <span style="text-align:left">
             <span style="display:block;font-weight:800;color:#142a52;font-size:.95rem">Read our reviews on Google &rarr;</span>
-            <span style="display:block;font-size:.78rem;color:#6b7280">Every review, straight from our profile.</span>
+            <span style="display:block;font-size:.78rem;color:#5d6673">Every review, straight from our profile.</span>
           </span>
         </a>
       </div>`;
@@ -91,7 +91,7 @@
     const reviews = Array.isArray(data.reviews) ? data.reviews : [];
     const profileUrl = data.profileUrl || '';
     const staleBadge = data.stale
-      ? '<span style="font-size:.7rem;color:#6b7280;margin-left:8px">(showing last-known reviews)</span>'
+      ? '<span style="font-size:.7rem;color:#5d6673;margin-left:8px">(showing last-known reviews)</span>'
       : '';
 
     if (!reviews.length) {
@@ -106,14 +106,14 @@
             ${GOOGLE_G(22)}
             <div style="text-align:left">
               <div style="font-weight:800;color:#142a52;font-size:.95rem">Google Reviews</div>
-              <div style="font-size:.78rem;color:#6b7280">Live from our profile${staleBadge}</div>
+              <div style="font-size:.78rem;color:#5d6673">Live from our profile${staleBadge}</div>
             </div>
           </div>
           <div style="display:inline-flex;align-items:center;gap:10px;background:#fff;border:1px solid #e8e5e0;border-radius:100px;padding:10px 20px">
             <div style="font-family:'Bebas Neue',sans-serif;font-size:2.2rem;color:#142a52;line-height:1">${rating.toFixed(1)}</div>
             <div style="display:flex;flex-direction:column;gap:2px">
               <div>${stars(rating)}</div>
-              <div style="font-size:.75rem;color:#6b7280">${total} review${total === 1 ? '' : 's'}</div>
+              <div style="font-size:.75rem;color:#5d6673">${total} review${total === 1 ? '' : 's'}</div>
             </div>
           </div>
           ${
@@ -139,18 +139,34 @@
     });
   }
 
+  // Hydrate any static rating/count hooks elsewhere on the page (e.g. the
+  // /review hero score box) from the same payload. The hooks ship with
+  // static fallback text, so a failed fetch simply leaves them untouched.
+  function hydrateStaticHooks(data) {
+    const rating = data.rating || 0;
+    const total = data.total || 0;
+    if (!total) return;
+    document.querySelectorAll('[data-nbd-gr-rating]').forEach((el) => {
+      el.textContent = rating.toFixed(1);
+    });
+    document.querySelectorAll('[data-nbd-gr-count]').forEach((el) => {
+      el.textContent = total + ' Google review' + (total === 1 ? '' : 's') + ' • tap to see them all';
+    });
+  }
+
   async function load() {
     const container = document.querySelector('[data-nbd-google-reviews]');
     if (!container) return;
 
     container.innerHTML =
-      '<div style="text-align:center;padding:32px;color:#6b7280;font-size:.9rem">Loading Google reviews&hellip;</div>';
+      '<div style="text-align:center;padding:32px;color:#5d6673;font-size:.9rem">Loading Google reviews&hellip;</div>';
 
     try {
       const res = await fetch(ENDPOINT, { credentials: 'omit' });
       if (!res.ok) throw new Error('bad_status:' + res.status);
       const data = await res.json();
       if (data && data.error) throw new Error(data.error);
+      hydrateStaticHooks(data || {});
       renderAll(container, data || {});
     } catch (err) {
       console.warn('[google-reviews] load failed:', err);

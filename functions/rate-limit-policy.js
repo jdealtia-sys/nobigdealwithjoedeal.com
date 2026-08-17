@@ -21,8 +21,10 @@
  *      Each enforces both per-uid (when authed) AND per-IP automatically,
  *      using the limits from ROUTES. Handlers stop hand-rolling the
  *      enforceRateLimit calls.
- *   3. Surfaces the ROUTES table to ops via getRateLimitMatrix() — used
- *      by integrationStatus + the smoke-test that pins limits.
+ *   3. Surfaces the ROUTES table to ops via getRateLimitMatrix() — no
+ *      runtime consumer yet (2026-08-10: the smoke suite pins the table by
+ *      source scan, not through this accessor; integrationStatus does not
+ *      call it). Kept as the intended ops surface.
  *
  * If a handler is missing from ROUTES, the wrapper applies a SAFE
  * DEFAULT (60 req/min per IP, 300 req/min per uid) and logs a warning
@@ -35,7 +37,15 @@
 
 'use strict';
 
-const { enforceRateLimit, clientIp, hashKey } = require('./rate-limit');
+// Provider-aware limiter: honours NBD_RATE_LIMIT_PROVIDER=upstash and falls
+// back to the Firestore limiter — the same adapter the handlers require.
+// Requiring ./rate-limit directly here would silently pin policy-guarded
+// routes to Firestore while the rest of the fleet rides Upstash.
+const { enforceRateLimit, clientIp, hashKey } = require('./integrations/upstash-ratelimit');
+// Pure key derivation (no I/O, provider-independent): buckets IPv6 callers by
+// /64 prefix so one allocation can't rotate addresses past the cap. Same
+// keying the hand-rolled gates in handlers/integrations.js use.
+const { rateLimitIpKey } = require('./rate-limit');
 let _logger;
 function logger() {
   if (_logger) return _logger;
@@ -59,24 +69,67 @@ const HOUR   = 60 * MINUTE;
  */
 const ROUTES = {
   // ── AI / token-burning surfaces (lowest ceilings, highest abuse risk).
-  claudeProxy:        { uid:  60 / MINUTE * MINUTE, ip:  20, uidLimit:  60, uidWindow: MINUTE, ipLimit:  30, ipWindow: MINUTE },
-  publicVisualizerAI: { uidLimit:   0, uidWindow: MINUTE, ipLimit:   3, ipWindow: MINUTE },
+  // (2026-08-07: dropped the vestigial `uid: 60 / MINUTE * MINUTE, ip: 20`
+  //  keys — the expression was a no-op that read like a real limit; only the
+  //  uidLimit/ipLimit shape is consumed.)
+  //
+  // claudeProxy is WIRED (2026-08-10 pilot): handlers/ai.js wraps the
+  // handler in guardHttp('claudeProxy'); the uid ceiling below IS the prod
+  // limit (formerly CLAUDE_PER_MIN_LIMIT=20 hand-rolled inline — same
+  // namespace 'claudeProxy:uid', so live counters carried over). The ip
+  // ceiling is the NEW backstop layer: 3× the uid limit so an office NAT of
+  // heavy legit users never trips it before their individual uid limits do,
+  // while a bot rotating fresh tokens from one allocation gets clamped.
+  claudeProxy:        { uidLimit:  20, uidWindow: MINUTE, ipLimit:  60, ipWindow: MINUTE },
+  // adminAI WIRED (2026-08-10): guardHttp('adminAI') in handlers/ai.js. uid
+  // ceiling matches the old inline gate (60/hr); ip backstop is new. (The
+  // old inline call keyed its scope on the uid, so counters start fresh.)
+  adminAI:            { uidLimit:  60, uidWindow: HOUR,   ipLimit: 180, ipWindow: HOUR    },
+  // RECORD-ONLY: hand-rolled in handlers/ai.js (httpRateLimit
+  // 'publicVisualizerAI:ip', 5/HOUR). Synced 2026-08-10 — the old entry
+  // here claimed 3/min (~36x looser per hour than the real gate).
+  publicVisualizerAI: { uidLimit:   0, uidWindow: MINUTE, ipLimit:   5, ipWindow: HOUR   },
 
   // ── Auth / billing — fraud-adjacent, low burst legit need.
-  validateAccessCode: { uidLimit:  10, uidWindow: HOUR,    ipLimit:  20, ipWindow: HOUR    },
-  resetSubscriptionByEmail: { uidLimit: 20, uidWindow: HOUR, ipLimit: 30, ipWindow: HOUR  },
+  // validateAccessCode is WIRED (2026-08-10 pilot): handlers/portal.js wraps
+  // the handler in guardCallable('validateAccessCode'). The ip ceiling
+  // matches the previous hand-rolled gate exactly (5 attempts / 5 min,
+  // namespace 'validateAccessCode:ip' — counters carried over); the uid
+  // layer is new defense-in-depth (callable may be invoked pre-auth, in
+  // which case guardCallable skips it by design).
+  // (resetSubscriptionByEmail entry deleted 2026-08-10: no such export
+  //  exists anywhere in functions/ — it was a phantom route.)
+  validateAccessCode: { uidLimit:  10, uidWindow: HOUR,    ipLimit:   5, ipWindow: 5*MINUTE },
 
   // ── Public lead intake — stripped of auth, gate hard on IP.
-  submitPublicLead:   { uidLimit:   0, uidWindow: MINUTE, ipLimit:  10, ipWindow: 10*MINUTE },
-  cspReport:          { uidLimit:   0, uidWindow: MINUTE, ipLimit: 100, ipWindow: MINUTE },
+  // submitPublicLead is NOT wrapper-wired on purpose: its hand-rolled gate in
+  // handlers/integrations.js is richer than guardHttp — on limiter-backend
+  // error it deliberately fails OPEN to the Firestore limiter rather than
+  // dropping a legitimate lead, and it interleaves with Turnstile/honeypot.
+  // This entry is the canonical RECORD of that gate's limits (kept in sync by
+  // the smoke suite) so the ops matrix doesn't lie about the fleet.
+  submitPublicLead:   { uidLimit:   0, uidWindow: MINUTE, ipLimit:  20, ipWindow: MINUTE },
+  // RECORD-ONLY: hand-rolled in handlers/monitoring.js (60/min — synced
+  // 2026-08-10; the old entry here claimed 100/min).
+  cspReport:          { uidLimit:   0, uidWindow: MINUTE, ipLimit:  60, ipWindow: MINUTE },
 
   // ── Authenticated CRM — generous; legit reps make hundreds of writes/day.
-  signImageUrl:       { uidLimit: 600, uidWindow: HOUR,   ipLimit: 1500, ipWindow: HOUR    },
-  imageProxy:         { uidLimit: 1500, uidWindow: HOUR,  ipLimit: 3000, ipWindow: HOUR    },
+  // RECORD-ONLY: hand-rolled in handlers/photo.js (300/min uid + 300/min ip
+  // — synced 2026-08-10; the old entry here claimed 600/hr + 1500/hr).
+  signImageUrl:       { uidLimit: 300, uidWindow: MINUTE, ipLimit: 300, ipWindow: MINUTE  },
+  // (imageProxy entry deleted 2026-08-10: retired to a 410 stub in
+  //  handlers/photo.js — no auth, no limiter, nothing to police.)
+  // RECORD-ONLY, UNVERIFIED against handlers (no hand-rolled gate found for
+  // setStorageCors / integrationStatus; getAdminAnalytics's real gate is
+  // callableRateLimit 30/hr uid in handlers/admin.js). Wire these through
+  // guardCallable/guardHttp or sync them in the next pilot increment.
   setStorageCors:     { uidLimit:  10, uidWindow: HOUR,   ipLimit:  20, ipWindow: HOUR    },
   integrationStatus:  { uidLimit: 120, uidWindow: HOUR,   ipLimit: 300, ipWindow: HOUR    },
-  getAdminAnalytics:  { uidLimit:  60, uidWindow: HOUR,   ipLimit: 120, ipWindow: HOUR    },
-  getGoogleReviews:   { uidLimit: 120, uidWindow: HOUR,   ipLimit: 300, ipWindow: HOUR    },
+  getAdminAnalytics:  { uidLimit:  30, uidWindow: HOUR,   ipLimit: 120, ipWindow: HOUR    },
+  // getGoogleReviews WIRED (2026-08-10): guardHttp in google-reviews.js —
+  // was the only public onRequest endpoint with NO limiter (billable Places
+  // API behind a 6h cache). Anonymous widget → uid 0, per-IP only.
+  getGoogleReviews:   { uidLimit:   0, uidWindow: MINUTE, ipLimit:  60, ipWindow: MINUTE  },
 
   // ── Migration runner — admin-only, runs rarely.
   runMigrations:      { uidLimit:  10, uidWindow: HOUR,   ipLimit:  10, ipWindow: HOUR    },
@@ -107,14 +160,16 @@ function guardCallable(name, handler) {
   const policy = policyFor(name);
   return async function (req) {
     // Per-IP first — cheaper to deny obviously bad traffic without
-    // touching auth.
+    // touching auth. IPv6 keyed on the /64 prefix (rateLimitIpKey).
     if (policy.ipLimit > 0) {
       try {
-        await enforceRateLimit(name + ':ip', clientIp(req.rawRequest || {}) || 'unknown', policy.ipLimit, policy.ipWindow);
+        await enforceRateLimit(name + ':ip', rateLimitIpKey(clientIp(req.rawRequest || {}) || 'unknown'), policy.ipLimit, policy.ipWindow);
       } catch (e) {
         if (e.rateLimited) {
           const HttpsError = require('firebase-functions/v2/https').HttpsError;
-          throw new HttpsError('resource-exhausted', 'rate_limited:ip', { retryAfterMs: e.retryAfterMs });
+          // Human-readable message — clients surface e.message; machine
+          // consumers read details.reason / the 'resource-exhausted' code.
+          throw new HttpsError('resource-exhausted', 'Too many attempts. Try again in a few minutes.', { reason: 'rate_limited:ip', retryAfterMs: e.retryAfterMs });
         }
         throw e;
       }
@@ -126,7 +181,7 @@ function guardCallable(name, handler) {
       } catch (e) {
         if (e.rateLimited) {
           const HttpsError = require('firebase-functions/v2/https').HttpsError;
-          throw new HttpsError('resource-exhausted', 'rate_limited:uid', { retryAfterMs: e.retryAfterMs });
+          throw new HttpsError('resource-exhausted', 'Too many requests. Try again shortly.', { reason: 'rate_limited:uid', retryAfterMs: e.retryAfterMs });
         }
         throw e;
       }
@@ -148,14 +203,14 @@ function guardCallable(name, handler) {
 function guardHttp(name, handler) {
   const policy = policyFor(name);
   return async function (req, res) {
-    // Per-IP
+    // Per-IP — IPv6 keyed on the /64 prefix (rateLimitIpKey).
     if (policy.ipLimit > 0) {
       try {
-        await enforceRateLimit(name + ':ip', clientIp(req) || 'unknown', policy.ipLimit, policy.ipWindow);
+        await enforceRateLimit(name + ':ip', rateLimitIpKey(clientIp(req) || 'unknown'), policy.ipLimit, policy.ipWindow);
       } catch (e) {
         if (e.rateLimited) {
           res.set('Retry-After', Math.ceil((e.retryAfterMs || policy.ipWindow) / 1000));
-          res.status(429).json({ error: 'rate_limited:ip', retryAfterMs: e.retryAfterMs });
+          res.status(429).json({ error: 'Rate limit exceeded. Try again shortly.', code: 'rate_limited:ip', retryAfterMs: e.retryAfterMs });
           return;
         }
         throw e;
@@ -178,7 +233,7 @@ function guardHttp(name, handler) {
       } catch (e) {
         if (e.rateLimited) {
           res.set('Retry-After', Math.ceil((e.retryAfterMs || policy.uidWindow) / 1000));
-          res.status(429).json({ error: 'rate_limited:uid', retryAfterMs: e.retryAfterMs });
+          res.status(429).json({ error: 'Rate limit exceeded. Try again in a minute.', code: 'rate_limited:uid', retryAfterMs: e.retryAfterMs });
           return;
         }
         // Token verification errors are non-fatal — just skip uid clamp.

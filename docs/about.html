@@ -54,7 +54,7 @@
   --gray-sub: #4a4a4a;
   --white: #ffffff;
   --off-white: #f5f3ef;
-  --gray: #6b7280;
+  --gray: #5d6673;
   --light-gray: #e8e5e0;
   --success: #22a06b;
 }
@@ -410,29 +410,9 @@ footer { background: var(--navy-dark); color: rgba(255,255,255,0.75); padding: 5
   section { page-break-inside: avoid; }
   @page { margin: 0.75in; }
 }
-
-/* unified-emoji-swap injected */
-.ico{width:1em;height:1em;stroke:currentColor;stroke-width:2;fill:none;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0;display:inline-block;vertical-align:-0.14em}
-.ico-fill{fill:currentColor;stroke:none}
-.trust-icon svg.ico,.aci-icon svg.ico,.cm-icon svg.ico{width:24px;height:24px}
-.wc-phone-icon svg.ico{width:26px;height:26px}
-</style><style>
-/* trust-icon fix */
-.trust-icon svg.ico{color:#fff}
-.aci-icon svg.ico,.form-success-icon svg.ico{color:var(--orange,#e8720c)}
 </style>
 <style>
-/* nav-ico sizing (injected) */
-.nav-links .nav-ico{width:14px;height:14px;stroke:currentColor;stroke-width:2.2;fill:none;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0;display:inline-block;vertical-align:-0.18em}
-.nav-links > li > a{display:inline-flex;align-items:center;gap:5px}
-.nav-links > li > a.nav-instant{color:var(--orange-light,#f08030)!important}
-.mobile-nav .mnav-group{font-size:.65rem;font-weight:800;letter-spacing:.18em;text-transform:uppercase;color:var(--orange-light,#f08030);padding:14px 24px 6px;opacity:.75;border-bottom:none!important}
-
-/* ico sizing (injected) */
-.ico{width:1em;height:1em;stroke:currentColor;stroke-width:2;fill:none;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0;display:inline-block;vertical-align:-0.14em}
-.ico-fill{fill:currentColor;stroke:none}
-.trust-icon svg.ico,.aci-icon svg.ico,.cm-icon svg.ico{width:24px;height:24px}
-.wc-phone-icon svg.ico{width:26px;height:26px}
+/* trust-icon fix */
 .trust-icon svg.ico{color:#fff}
 .aci-icon svg.ico,.form-success-icon svg.ico{color:var(--orange,#e8720c)}
 </style>
@@ -549,6 +529,7 @@ nav .nav-logo-text .sub{white-space:nowrap}
 @media(max-width:640px){.nbd-social{margin-left:0;margin-top:8px;display:flex;gap:8px}}
 footer.foot .nbd-social a,.review-footer .nbd-social a{background:rgba(255,255,255,.1)}
 </style>
+<link rel="stylesheet" href="/assets/css/nbd-icons.css">
 </head>
 <body><a class="nbd-skip" href="#main">Skip to content</a>
 
@@ -556,9 +537,10 @@ footer.foot .nbd-social a,.review-footer .nbd-social a{background:rgba(255,255,2
   <div class="ann-slide active"><svg class="ico" viewBox="0 0 24 24"><path d="M12 2 L4 6 V12 C4 17 8 21 12 22 C16 21 20 17 20 12 V6 Z"/></svg> <span class="ann-text" data-long="NBD Lifetime Pledge — I stand behind every install personally" data-short="NBD Lifetime Pledge — Backed by Joe">NBD Lifetime Pledge — I stand behind every install personally</span></div>
   <div class="ann-slide"><svg class="ico" viewBox="0 0 24 24"><path d="M3 11 L12 3 L21 11"/><path d="M5 10 V20 H19 V10"/></svg> <a href="tel:+18594207382" style="color:inherit;text-decoration:none"><span class="ann-text" data-long="Free Roof Inspections — Call or Text Joe: (859) 420-7382" data-short="Free Inspections — (859) 420-7382">Free Roof Inspections — Call or Text Joe: (859) 420-7382</span></a></div>
   <div class="ann-slide"><svg class="ico ico-fill" viewBox="0 0 24 24"><path d="M13 2 L4 14 L11 14 L10 22 L20 10 L13 10 Z"/></svg> <span class="ann-text" data-long="Storm Damage? I Handle the Insurance Claim for You — No Big Deal" data-short="Storm Damage? I Handle the Claim">Storm Damage? I Handle the Insurance Claim for You — No Big Deal</span></div>
-  <div class="ann-slide" data-nbd-freeroof-ann="v1"><a href="/free-roof/" style="color:inherit;text-decoration:none"><svg class="ico" viewBox="0 0 24 24" style="margin-right:6px"><path d="M3 11 L12 3 L21 11"/><path d="M5 10 V20 H19 V10"/></svg><span class="ann-text" data-long="One free roof a year — nominate a Cincinnati neighbor &rarr;" data-short="One free roof a year &rarr;">One free roof a year &rarr;</span></a></div>
+  <div class="ann-slide" data-nbd-freeroof-ann="v1"><a href="/free-roof" style="color:inherit;text-decoration:none"><svg class="ico" viewBox="0 0 24 24" style="margin-right:6px"><path d="M3 11 L12 3 L21 11"/><path d="M5 10 V20 H19 V10"/></svg><span class="ann-text" data-long="One free roof a year — nominate a Cincinnati neighbor &rarr;" data-short="One free roof a year &rarr;">One free roof a year &rarr;</span></a></div>
 </div>
 
+<!-- nbd:partial nav-standard cta_href="/#contact" -->
 <nav id="mainNav" class="nav">
   <a href="/" class="nav-logo">
     <img src="/assets/images/nbd-logo.png" width="240" height="160" alt="No Big Deal Home Solutions" style="height:42px;width:auto;border-radius:6px;">
@@ -598,7 +580,7 @@ footer.foot .nbd-social a,.review-footer .nbd-social a{background:rgba(255,255,2
     <li><a href="/about">About Joe</a></li>
     <li><a href="/review">Reviews</a></li>
     <li><a href="/our-work">Our Work</a></li>
-    <li><a href="/areas/">Service Areas</a></li>
+    <li><a href="/areas">Service Areas</a></li>
     <li><a href="/blog">Blog</a></li>
     <li><a href="/estimate" class="nav-instant">Instant Estimate
       <svg class="nav-ico" viewBox="0 0 24 24" style="fill:currentColor;stroke:none"><path d="M13 2 L4 14 L11 14 L10 22 L20 10 L13 10 Z"/></svg></a></li>
@@ -609,7 +591,9 @@ footer.foot .nbd-social a,.review-footer .nbd-social a{background:rgba(255,255,2
   </button>
   <script defer  src="/assets/js/inline/479bd49556.js"></script>
 </nav>
+<!-- /nbd:partial nav-standard -->
 <main id="main">
+<!-- nbd:partial mobile-nav-hub -->
 <div class="mobile-nav" id="mobileNav">
   <div class="mnav-group">The Guarantee</div>
   <a href="/the-pledge" style="color:#f08030;font-weight:800;">The Lifetime Pledge</a>
@@ -631,7 +615,7 @@ footer.foot .nbd-social a,.review-footer .nbd-social a{background:rgba(255,255,2
   <a href="/about">About Joe</a>
   <a href="/review">Reviews</a>
   <a href="/our-work">Our Work</a>
-  <a href="/areas/">Service Areas</a>
+  <a href="/areas">Service Areas</a>
   <a href="/blog">Blog</a>
   <div class="mnav-group">Tools</div>
   <a href="/estimate" style="color:var(--orange-light,#f08030)">Instant Estimate</a>
@@ -640,6 +624,7 @@ footer.foot .nbd-social a,.review-footer .nbd-social a{background:rgba(255,255,2
   <a href="/storm-check" style="color:var(--orange-light,#f08030)">Is It Worth a Claim?</a>
   <a href="/#contact" style="color:var(--orange,#e8720c);font-weight:800;">Free Estimate &rarr;</a>
 </div>
+<!-- /nbd:partial mobile-nav-hub -->
 <div class="breadcrumb"><a href="/">Home</a><span>›</span><span>About Joe</span></div>
 
 <!-- HERO -->
@@ -651,6 +636,7 @@ footer.foot .nbd-social a,.review-footer .nbd-social a{background:rgba(255,255,2
       <p class="about-intro">No Big Deal Home Solutions isn't a franchise, a private equity rollup, or a company where the original founder checked out 20 years ago and someone's nephew is running it now. It's me. Joe Deal. I answer my own phone. I get on your roof. I know your name when you call back.</p>
       <div class="credential-strip">
         <div class="cred hl">Owner &amp; Operator</div>
+        <div class="cred">Certified Locally Owned &amp; Operated</div>
         <div class="cred">7+ Years Insurance Restoration</div>
         <div class="cred">Greater Cincinnati, OH</div>
         <div class="cred">GAF® Certified Contractor</div>
@@ -821,12 +807,13 @@ footer.foot .nbd-social a,.review-footer .nbd-social a{background:rgba(255,255,2
       <a href="/areas/west-chester-oh" style="background:white;border:1px solid #e8e5e0;border-radius:100px;padding:8px 16px;text-decoration:none;font-size:.82rem;font-weight:600;color:#142a52;">West Chester</a>
       <a href="/areas/goshen-oh" style="background:white;border:1px solid #e8e5e0;border-radius:100px;padding:8px 16px;text-decoration:none;font-size:.82rem;font-weight:600;color:#142a52;">Goshen</a>
       <a href="/areas/florence-ky" style="background:white;border:1px solid #e8e5e0;border-radius:100px;padding:8px 16px;text-decoration:none;font-size:.82rem;font-weight:600;color:#142a52;">Florence, KY</a>
-      <a href="/areas/" style="background:white;border:1px solid #e8e5e0;border-radius:100px;padding:8px 16px;text-decoration:none;font-size:.82rem;font-weight:600;color:#A64B00;">All 25+ Cities →</a>
+      <a href="/areas" style="background:white;border:1px solid #e8e5e0;border-radius:100px;padding:8px 16px;text-decoration:none;font-size:.82rem;font-weight:600;color:#A64B00;">All 25+ Cities →</a>
     </div>
   </div>
 </section>
 
 </main>
+<!-- nbd:partial footer-extended -->
 <footer>
   <div class="footer-grid">
     <div class="footer-brand">
@@ -862,7 +849,7 @@ footer.foot .nbd-social a,.review-footer .nbd-social a{background:rgba(255,255,2
       <ul>
         <li><a href="/#about">About Joe</a></li>
         <li><a href="/review">Reviews</a></li>
-        <li><a href="/areas/">Service Areas</a></li>
+        <li><a href="/areas">Service Areas</a></li>
         <li><a href="/#process">How It Works</a></li>
         <li><a href="/blog">Blog</a></li>
         <li><a href="/estimate" style="color:var(--orange);">Instant Estimate</a></li>
@@ -893,7 +880,7 @@ footer.foot .nbd-social a,.review-footer .nbd-social a{background:rgba(255,255,2
       </div>
     </div>
   </div>
-  <div style="border-top:1px solid rgba(255,255,255,.08);padding:18px 0 0;margin-top:8px;display:flex;align-items:center;gap:14px;flex-wrap:wrap">
+  <div style="border-top:1px solid rgba(255,255,255,.08);padding:18px 0 4px;margin-top:8px;display:flex;align-items:center;gap:14px;flex-wrap:wrap">
     <a href="https://www.gaf.com/en-us/roofing-contractors/residential" target="_blank" rel="noopener" style="display:flex;align-items:center;gap:10px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:8px;padding:8px 12px;text-decoration:none;line-height:1.2">
       <img src="/assets/gaf/gaf-certified-badge-120.png" alt="GAF Certified™ Residential Roofing Contractor" width="40" height="40" loading="lazy" style="display:block">
       <span style="color:rgba(255,255,255,.8);font-size:.72rem;font-weight:700">GAF Certified™ Contractor<br><span style="color:rgba(255,255,255,.62);font-weight:600;font-size:.65rem">Verify on GAF.com →</span></span>
@@ -901,6 +888,10 @@ footer.foot .nbd-social a,.review-footer .nbd-social a{background:rgba(255,255,2
     <a href="https://www.tamko.com/locate-a-contractor" target="_blank" rel="noopener" style="display:flex;align-items:center;gap:10px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:8px;padding:8px 12px;text-decoration:none;line-height:1.2">
       <img src="/assets/tamko/tamko-pro-gold-badge-120.png" alt="TAMKO Pro Gold™ Certified Roofing Contractor badge" width="36" height="40" loading="lazy" style="display:block;height:40px;width:auto">
       <span style="color:rgba(255,255,255,.8);font-size:.72rem;font-weight:700">TAMKO Pro Gold™ Certified<br><span style="color:rgba(255,255,255,.62);font-weight:600;font-size:.65rem">Verify on TAMKO.com →</span></span>
+    </a>
+    <a href="https://www.americanoperator.com/" target="_blank" rel="noopener" style="display:flex;align-items:center;gap:10px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:8px;padding:8px 12px;text-decoration:none;line-height:1.2">
+      <img src="/assets/american-operator/american-operator-badge-120.png" alt="Locally Owned &amp; Operated — Certified by American Operator badge" width="35" height="40" loading="lazy" style="display:block;height:40px;width:auto">
+      <span style="color:rgba(255,255,255,.8);font-size:.72rem;font-weight:700">Locally Owned &amp; Operated<br><span style="color:rgba(255,255,255,.62);font-weight:600;font-size:.65rem">Certified by American Operator →</span></span>
     </a>
     <p style="font-size:.62rem;color:rgba(255,255,255,.62);line-height:1.6;flex:1;min-width:280px">Independent Contractor. Not an employee or agent of GAF Materials LLC or TAMKO Building Products LLC. Contractors enrolled in GAF or TAMKO certification programs are not employees or agents of those manufacturers, and neither controls or otherwise supervises these independent businesses. GAF® and GAF Certified™ are either registered trademarks or trademarks of BMIC LLC in the United States and/or other countries. GAF ID 1162011. TAMKO®, TAMKO Pro™, ProShield® and HailGuard™ are trademarks or registered trademarks of TAMKO Building Products LLC. TAMKO Pro ID 181382.</p>
   </div>
@@ -914,6 +905,7 @@ footer.foot .nbd-social a,.review-footer .nbd-social a{background:rgba(255,255,2
     <a href="/pro/">Are you a contractor or entrepreneur? → NBD Pro</a>
   </div>
 </footer>
+<!-- /nbd:partial footer-extended -->
 
 <script defer  src="/assets/js/inline/b1d1695580.js"></script>
 <script defer src="/assets/js/ann-bar.js"></script>

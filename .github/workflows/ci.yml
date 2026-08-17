@@ -14,7 +14,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      - uses: actions/setup-node@v5
+      - uses: actions/setup-node@v7
         with:
           node-version: '22'
           cache: npm
@@ -458,12 +458,82 @@ jobs:
       - name: Run public-surface leak tripwire
         run: node tests/public-surface-leak-tripwire.test.js
 
+      # ── Orphaned-suite wiring (2026-08-05) ─────────────────────────────
+      # The 12 suites below existed and passed locally but ran NOWHERE — not
+      # in the tests/package.json chain, not in CI. Several guard money and
+      # legal paths. Wired here in stakes order; each is dependency-free
+      # (node tests/<file>) unless noted. If one goes red only in CI, fix
+      # the step environment before touching the test.
+
+      # A signed contract must be verified against the document we served,
+      # and the original must survive. Pins stripSignatureBlocks/visibleText/
+      # signedDocMatchesOriginal in functions/remote-signing.js (#1173).
+      - name: Run signature document integrity tests
+        run: node tests/signature-document-integrity.test.js
+
+      # Referral source-customer lookups must stay scoped to one tenant and
+      # refuse when ambiguous (#1172). Extracts the real block from
+      # functions/referrals.js — an anchor drift fails loudly, not silently.
+      - name: Run referral tenant-scope tests
+        run: node tests/referral-tenant-scope.test.js
+
+      # enforceAppCheck is onCall-only; on onRequest it is dead config that
+      # reads as protection (#1170). Scans functions/ so it can't come back.
+      - name: Run App Check onRequest contract tests
+        run: node tests/appcheck-onrequest-contract.test.js
+
+      # Public-lead → CRM mirror logic (tenant routing, phone normalization).
+      # functions/lead-bridge-logic.js is deliberately firebase-free.
+      - name: Run lead-bridge logic tests
+        run: node tests/lead-bridge.test.js
+
+      # Money fields: cost vs retail must never swap or leak across surfaces.
+      - name: Run money field contract tests
+        run: node tests/money-field-contract.test.js
+      - name: Run money display consumer tests
+        run: node tests/money-display-consumers.test.js
+
+      # Homeowner portal + remote signing must render the TENANT's brand,
+      # never the platform's (the Pillar-2 "NBD bleed" rule).
+      - name: Run portal white-label contract tests
+        run: node tests/portal-whitelabel-contract.test.js
+
+      # Drives the real PipelineBuilder delete path in a fake-DOM sandbox.
+      - name: Run pipeline-builder delete tests
+        run: node tests/pipeline-builder-delete.test.js
+
+      # nbd-comms platform wiring (SMS/email surfaces).
+      - name: Run nbd-comms platform tests
+        run: node tests/nbd-comms-platform.test.js
+
+      # Login must persist plan intent through the auth flow (source contract
+      # over docs/pro/js/pages/login.js).
+      - name: Run login plan-intent tests
+        run: node tests/login-plan-intent.test.js
+
+      # Job templates: vm-loads the three real job-templates modules.
+      - name: Run job template tests
+        run: node tests/job-templates.test.js
+
+      # 2026-07-19 CRM-loop sweep certification (intro-video data-yt guard,
+      # estimate-email kill switch). Its git branch-report section is
+      # try/catch-wrapped and degrades harmlessly under fetch-depth:1.
+      - name: Run CRM loop-complete tests
+        run: node tests/crm-loop-complete.test.js
+
+      # Audit P6 (2026-08-05): a honeypot NAMED "website" matches browser
+      # URL-autofill heuristics — autofill fills it on a real homeowner's
+      # form and the gateway swallows the lead with a fake success. Pins the
+      # nbd_hp rename on every emitter + the both-keys gateway check.
+      - name: Run honeypot autofill contract tests
+        run: node tests/honeypot-autofill-contract.test.js
+
   site-integrity:
     name: Site integrity
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      - uses: actions/setup-node@v5
+      - uses: actions/setup-node@v7
         with:
           node-version: '22'
       # Gate the defect classes the 2026-06 manual QC sweep fixed by hand:
@@ -478,6 +548,16 @@ jobs:
       # unified diff). Writes nothing without --write.
       - name: Check sitemap drift (dry-run diff)
         run: node scripts/build-sitemap.js
+      # Feed drift gate: build-feed.mjs dry-runs by default and exits 1 when
+      # the generated RSS feed differs from docs/feed.xml (same POSTS source
+      # and live-post filter as the blog index, deterministic timestamps).
+      - name: Check feed drift (dry-run diff)
+        run: node scripts/build-feed.mjs
+      # Featured Projects drift gate: the OURWORK-* regions in docs/our-work.html
+      # are generated from assets/data/projects.json. Same rationale as the
+      # partial gate below — without this the scheme is advisory.
+      - name: Check projects static-block drift (dry-run diff)
+        run: node scripts/build-projects.mjs --check
       # Shared-partial drift gate. The chrome inside <!-- nbd:partial --> markers
       # is GENERATED from site-src/partials/. Without this gate the whole scheme
       # is advisory: a page could be hand-edited inside a region, or a partial
@@ -486,13 +566,114 @@ jobs:
       # with --check; exits 1 and prints the offending file + region.
       - name: Check shared-partial drift (site-src/partials vs docs/)
         run: node scripts/apply-partials.js --check --diff
+      # Inline-script gate. BIG_ROCKS.md names this checker a must-pass, but
+      # neither the checker nor its test ran anywhere in CI (2026-08-05).
+      # The checker guards the served pages; the test guards the checker.
+      - name: Check inline HTML scripts (docs/)
+        run: node scripts/check-inline-html-scripts.js
+      # Image-privacy gate (2026-08-10): published images must carry no EXIF
+      # GPS — three gallery JPEGs shipped with customer-property coordinates
+      # because nothing verified the committed bytes after
+      # prepare-project-images.mjs was bypassed. Zero deps, byte-level scan.
+      - name: Check image privacy (EXIF/GPS strip invariant)
+        run: node scripts/check-image-privacy.js
+      - name: Run inline-html-scripts checker tests
+        run: node tests/inline-html-scripts.test.js
+      # Marketing-surface polish contract (headings, empty src, alt text …)
+      # over the served docs/ pages — same zero-install shape as this job.
+      - name: Run marketing polish contract tests
+        run: node tests/marketing-polish-contract.test.js
+      # Icon-CSS link contract (2026-08-07): every page using svg.ico /
+      # svg.nav-ico must link the shared /assets/css/nbd-icons.css (the old
+      # per-page injected <style> duplicated ~1.1 KB × 185 pages).
+      - name: Check icon-CSS links (assert mode)
+        run: node scripts/ensure-icon-css.js
+      # Nav-CSS block contract (2026-08-17): every page with header-nav markup
+      # (dropdown-menu / mobile-nav / hamburger) must carry the "nav base
+      # (injected)" style block. 18 hand-built pages (the-pledge, areas index,
+      # 7 product pages, 9 blog posts) shipped without it — the Services
+      # dropdown rendered permanently expanded over the page header and the
+      # mobile hamburger/collapse never worked.
+      - name: Check nav-CSS blocks (assert mode)
+        run: node scripts/ensure-nav-css.js
+      # Manifest completeness tripwire (2026-08-07): every tests/*.test.js
+      # must be classified in tests/ci-manifest.json — a new suite that isn't
+      # bucketed fails here instead of silently never running (35 suites,
+      # including every money/pricing suite, were orphaned this way).
+      - name: Check test-suite manifest completeness
+        run: node scripts/run-test-manifest.js --check
+
+  # The 32 node suites the manifest owns (2026-08-07). These existed for
+  # months without gating anything — tests/package.json's `npm test`
+  # aggregate was never invoked by CI, and nobody hand-listed them. All 32
+  # verified green at wiring time; quarantine (with a dated reason in the
+  # manifest) rather than wiring red.
+  unit-suite-manifest:
+    name: Unit suites (manifest)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+      # Most of the bucket is dependency-free, but expenses-logic requires
+      # functions/receipt-vision.js (→ firebase-functions) and
+      # webhook-signatures requires functions/node_modules/stripe by path —
+      # same rationale as the smoke-tests job's install.
+      - name: Install functions deps
+        run: |
+          cd functions
+          npm ci --silent || npm install --silent --no-audit --no-fund
+      - name: Run manifest node bucket
+        run: node scripts/run-test-manifest.js
+
+  # The three auth/firestore-emulator suites the manifest classifies as
+  # emulator-bucket (2026-08-07; the fourth, portal-token, rides the
+  # referral-trigger job's functions-emulator recipe). Same v13 global
+  # firebase-tools shape as the firestore-rules job — none boots functions.
+  emulator-orphan-suites:
+    name: Auth/Firestore emulator suites (rate-limit, auth-access, lead-lifecycle)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+      - uses: actions/setup-java@v5.6.0
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+      - name: Install test deps
+        run: |
+          cd tests
+          npm install --silent
+      # rate-limit.test.js drives functions/rate-limit.js directly, which
+      # requires firebase deps from functions/node_modules.
+      - name: Install functions deps
+        run: |
+          cd functions
+          npm ci --silent || npm install --silent --no-audit --no-fund
+      - name: Install firebase-tools globally
+        run: npm install -g firebase-tools@13
+      - name: Run rate-limit persistence tests under firestore emulator
+        run: |
+          cd tests
+          firebase emulators:exec --only firestore --project nbd-test-ratelimit 'node ./rate-limit.test.js'
+      - name: Run auth-access matrix tests under auth+firestore emulator
+        run: |
+          cd tests
+          firebase emulators:exec --only auth,firestore --project nbd-test-authaccess 'node ./auth-access.test.js'
+      - name: Run lead-lifecycle tests under auth+firestore emulator
+        run: |
+          cd tests
+          firebase emulators:exec --only auth,firestore --project nbd-test-leadlifecycle 'node ./lead-lifecycle.test.js'
 
   syntax-check:
     name: Node syntax check
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      - uses: actions/setup-node@v5
+      - uses: actions/setup-node@v7
         with:
           node-version: '22'
       # Parse-checks every FIRST-PARTY shipped .js under functions/ + docs/.
@@ -515,7 +696,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      - uses: actions/setup-node@v5
+      - uses: actions/setup-node@v7
         with:
           node-version: '22'
       - name: Install test deps
@@ -554,12 +735,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      - uses: actions/setup-node@v5
+      - uses: actions/setup-node@v7
         with:
           node-version: '22'
       # Firestore emulator runs on the JVM; firebase-tools needs a modern JDK
       # (same setup as the @stranger E2E shard that boots the functions emulator).
-      - uses: actions/setup-java@v5
+      - uses: actions/setup-java@v5.6.0
         with:
           distribution: 'temurin'
           java-version: '21'
@@ -578,9 +759,15 @@ jobs:
         # lands. Generate a .secret.local with dummy values (auto-covers new secrets)
         # so all functions load + run; the trigger under test uses no secrets. Also
         # skip the GCIP-blocked onRepSignup (prod never runs it).
+        # TURNSTILE_SECRET is deliberately excluded: a PRESENT (even dummy)
+        # secret flips verifyTurnstile into configured mode, which fail-closes
+        # every tokenless submitPublicLead call with 403 — the lead-bridge
+        # integration test's gateway leg needs the unset-secret passthrough.
+        # An unset secret loads fine under the v15 emulator (warning only).
         run: |
           grep -rhoE "defineSecret\(['\"][A-Z_]+['\"]" functions --include=*.js \
             | sed -E "s/.*defineSecret\(['\"]([A-Z_]+)['\"].*/\1=emulator-dummy/" \
+            | grep -v '^TURNSTILE_SECRET=' \
             | sort -u > functions/.secret.local
           echo "wrote $(wc -l < functions/.secret.local) dummy secrets"
           node tests/e2e/fixtures/ensure-emulator-env.js
@@ -593,13 +780,40 @@ jobs:
         run: |
           cd tests
           npx firebase-tools emulators:exec --only functions,firestore --project demo-nbd-pl 'node referral-rewards.test.js'
+      - name: Run lead-bridge integration test under functions+firestore emulator
+        # Public lead → CRM mirror, end to end through the real trigger. Was
+        # authored with this exact recipe in its RUN header but never wired
+        # anywhere (2026-08-05). Reuses this job's JDK + functions deps +
+        # dummy-secret env; a second emulators:exec session boots fresh.
+        run: |
+          cd tests
+          npx firebase-tools emulators:exec --only functions,firestore --project demo-nbd-pl 'node lead-bridge.integration.test.js'
+
+      # Public-intake gateway suite (submitPublicLead: honeypot both-keys,
+      # field allowlist, contact-kind allowlist, silent-200 semantics). Ran in
+      # the local chain but not CI (NEXT_SESSION-2026-08-05 item 8). Reuses
+      # this job's recipe — the dummy-secret step above already excludes
+      # TURNSTILE_SECRET, which this suite's tokenless legs require.
+      - name: Run public-intake gateway tests under functions+firestore emulator
+        run: |
+          cd tests
+          npx firebase-tools emulators:exec --only functions,firestore --project demo-nbd-pl 'node public-intake.test.js'
+
+      # Portal token-surface suite (mintPortalLink → validate → revoke).
+      # Manifest emulator-bucket (2026-08-07): needs the functions emulator,
+      # so it reuses this job's JDK + functions deps + dummy-secret env
+      # exactly like the two suites above; a fresh emulators:exec boots it.
+      - name: Run portal-token tests under functions+firestore emulator
+        run: |
+          cd tests
+          npx firebase-tools emulators:exec --only functions,firestore --project demo-nbd-portal 'node portal-token.test.js'
 
   functions-parse:
     name: Functions parse + dep install
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      - uses: actions/setup-node@v5
+      - uses: actions/setup-node@v7
         with:
           node-version: '22'
           cache: npm
@@ -694,9 +908,16 @@ jobs:
         # '@gauntlet' = tests/e2e/gauntlet-lifecycle.spec.js — the e2e-debt
         # specs (persona resolution, lapse seat pause/restore, access-code
         # redemption, multi-rep own-only + seat cap). Boots functions like
-        # @stranger; ADVISORY at introduction (2026-07-17), promote to
-        # required once it earns the same flake track record as @stranger.
-        shard: ['@shard1', '@shard2', '@audit', '@stranger', '@gauntlet']
+        # @stranger; introduced advisory 2026-07-17, promoted to REQUIRED
+        # 2026-07-28 with the rest of the matrix — see the ALL FIVE ARE NOW
+        # REQUIRED note below.
+        # '@engines' = tests/e2e/d2d-engine.spec.js + estimate-engine.spec.js
+        # — the lazy-bundle assembly proofs (D2D shim surface, 222-product /
+        # 298-key catalog snapshot). Authored with the shard recipe but never
+        # wired (2026-08-07 audit). ADVISORY on introduction, same bar the
+        # other five earned promotion through: prove a green streak, then
+        # flip the continue-on-error expression below.
+        shard: ['@shard1', '@shard2', '@audit', '@stranger', '@gauntlet', '@engines']
     # Rock 3: hermetic authed journey — seed a tenant in the Auth/Firestore
     # emulators, serve docs/ from the hosting emulator (the client SDK
     # auto-connects to emulators on localhost via nbd-emulator-connect.js),
@@ -738,15 +959,17 @@ jobs:
     # emulator session at roughly half load, selected via PLAYWRIGHT_GREP.
     # If a rotating victim reappears, split further or slim the per-test
     # dashboard boot - do NOT chase individual tests.
-    continue-on-error: false
+    # Five shards REQUIRED (2026-07-28); @engines advisory since 2026-08-07 —
+    # promotion checklist lives in NEXT_SESSION-2026-08-07.md.
+    continue-on-error: ${{ matrix.shard == '@engines' }}
     steps:
       - uses: actions/checkout@v7
-      - uses: actions/setup-node@v5
+      - uses: actions/setup-node@v7
         with:
           node-version: '22'
       # The Firestore emulator runs on the JVM; firebase-tools 15+ (the tests
       # devDependency) requires JDK 21 — same setup as firebase-deploy.yml.
-      - uses: actions/setup-java@v5
+      - uses: actions/setup-java@v5.6.0
         with:
           distribution: 'temurin'
           java-version: '21'
@@ -782,8 +1005,121 @@ jobs:
           npm run test:e2e:authed:emu
       - name: Upload Playwright traces on failure
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: playwright-authed-traces-${{ strategy.job-index }}
           path: tests/test-results/
           retention-days: 7
+
+  # Public-surface E2E (2026-08-07 audit): marketing.spec.js + pro-public.
+  # spec.js existed with a ready-made npm script but were wired NOWHERE.
+  # CRITICAL RECIPE NOTE: tests/playwright.config.js defaults baseURL to
+  # PRODUCTION — PLAYWRIGHT_BASE_URL must stay pinned to the hosting
+  # emulator here or this job smoke-tests the live site. Advisory on
+  # introduction (same promotion bar as the authed shards).
+  public-e2e:
+    name: Public-surface E2E (hosting emulator)
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+      - name: Install test deps
+        run: |
+          cd tests
+          npm install --silent --no-audit --no-fund
+      - name: Install Playwright chromium
+        run: |
+          cd tests
+          npx playwright install --with-deps chromium
+      - name: Run public-surface specs against the hosting emulator
+        run: |
+          cd tests
+          npx firebase-tools emulators:exec --only hosting --project nobigdeal-pro \
+            'PLAYWRIGHT_BASE_URL=http://127.0.0.1:5000 playwright test --config=playwright.config.js --workers=1 pro-public.spec.js marketing.spec.js'
+      - name: Upload Playwright traces on failure
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: playwright-public-traces
+          path: tests/test-results/
+          retention-days: 7
+
+  # Brand-token computed-style assertions (2026-08-07 audit): the isolated
+  # tests/visual workspace (own package.json + playwright.config serving
+  # docs/ over http-server) was referenced by no workflow. These are token/
+  # computed-style checks, not pixel screenshots — no goldens involved.
+  # Advisory on introduction.
+  visual-brand-tokens:
+    name: Brand-token visual assertions
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+      - name: Install visual workspace deps
+        run: |
+          cd tests/visual
+          npm install --silent --no-audit --no-fund
+      - name: Install Playwright chromium
+        run: |
+          cd tests/visual
+          npm run install:browsers
+      - name: Run brand-token assertions
+        run: |
+          cd tests/visual
+          npm test
+
+  # Pixel-diff visual regression over the public /pro pages (2026-08-07
+  # audit): the spec + npm scripts existed, appeared in zero workflows, and
+  # NO baselines were ever generated. Baselines must be CI-RENDERED —
+  # container-local font rasterization does not match ubuntu runners even at
+  # the generous thresholds. The job self-selects its mode:
+  #   • no committed snapshots dir → generates baselines + uploads them as
+  #     an artifact; a human downloads, reviews, and commits them under
+  #     tests/e2e/visual-regression.spec.js-snapshots/ (the bless step).
+  #   • snapshots dir committed → compares and reports drift.
+  # Advisory either way until the baselines are blessed and the job has a
+  # green streak (promotion checklist in NEXT_SESSION-2026-08-07.md).
+  visual-regression:
+    name: Visual regression (public pro pages)
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+      - name: Install test deps
+        run: |
+          cd tests
+          npm install --silent --no-audit --no-fund
+      - name: Install Playwright chromium
+        run: |
+          cd tests
+          npx playwright install --with-deps chromium
+      - name: Run visual regression (compare, or generate baselines on first run)
+        run: |
+          cd tests
+          if [ -d e2e/visual-regression.spec.js-snapshots ]; then
+            MODE=""
+            echo "baselines committed — compare mode"
+          else
+            MODE="--update-snapshots"
+            echo "no baselines — generating for review/bless"
+          fi
+          npx firebase-tools emulators:exec --only hosting --project nobigdeal-pro \
+            "PLAYWRIGHT_BASE_URL=http://127.0.0.1:5000 playwright test --config=playwright.config.js --workers=1 visual-regression.spec.js $MODE"
+      - name: Upload baselines / diffs
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: visual-regression-output
+          path: |
+            tests/e2e/visual-regression.spec.js-snapshots/
+            tests/test-results/
+          retention-days: 14

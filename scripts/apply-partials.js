@@ -69,13 +69,28 @@ const ATTR_RE = /([a-z0-9_]+)="([^"]*)"/g;
  * a bad partial edit fails loudly instead of 200 pages later.
  */
 const REQUIRED_MARKUP = {
-  'nav-standard': ['id="mainNav"', 'id="navLinks"', 'id="hamburger"'],
-  'nav-blog': ['id="mainNav"', 'id="navLinks"'],
+  // Beyond the ids, the desktop nav carries three structural contracts the
+  // ids don't cover: nav-faq.js opens the Services dropdown only through
+  // ul.nav-links > li.dropdown; the hamburger↔mobileNav toggle script tag
+  // lives INSIDE <nav> (drop it and every mobile menu dies silently); and
+  // that toggle animates the hamburger's three <span> children.
+  'nav-standard': ['id="mainNav"', 'id="navLinks"', 'id="hamburger"',
+    'class="nav-links"', 'class="dropdown"',
+    'src="/assets/js/inline/479bd49556.js"',
+    '<span></span><span></span><span></span>'],
+  'nav-blog': ['id="mainNav"', 'id="navLinks"',
+    'class="nav-links"', 'class="dropdown"',
+    'src="/assets/js/inline/479bd49556.js"'],
+  'nav-tool': ['id="mainNav"'],
   'mobile-nav-standard': ['id="mobileNav"'],
   'mobile-nav-blog': ['id="mobileNav"'],
+  'mobile-nav-hub': ['id="mobileNav"'],
   'footer-standard': ['<footer>', '</footer>'],
+  'footer-blog': ['<footer>', '</footer>'],
+  'footer-area': ['<footer>', '</footer>'],
   'footer-extended': ['<footer>', '</footer>'],
-  'footer-hub': ['<footer>', '</footer>'],
+  // ('footer-hub' entry removed 2026-08-07 — no such partial exists in
+  //  site-src/partials/ and no page carries the marker.)
 };
 
 let fatalCount = 0;
@@ -155,7 +170,10 @@ function main() {
 
   for (const file of files) {
     const before = fs.readFileSync(file, 'utf8');
-    if (!before.includes('<!-- nbd:partial')) continue;
+    // Prefilter matches the bare token, not '<!-- nbd:partial': a file whose
+    // ONLY marker is an orphan CLOSER (<!-- /nbd:partial … -->) lacks the
+    // opener substring and would skip the dangling-marker guard below.
+    if (!before.includes('nbd:partial')) continue;
     fileCount++;
 
     const rel = path.relative(REPO_ROOT, file).replace(/\\/g, '/');
@@ -186,6 +204,17 @@ function main() {
       if (current !== want) localDrift.push({ name, want, have: current, indent });
       return `${indent}<!-- nbd:partial ${name}${attrStr} -->${eol}${want}${closeIndent}<!-- /nbd:partial ${name} -->`;
     });
+
+    // DANGLING-MARKER GUARD — REGION_RE only matches complete opener+closer
+    // pairs, so an unclosed opener (or an orphan closer, or a name-mismatched
+    // pair) never enters the loop above: its region silently leaves governance
+    // and --check stays green while the block rots as hand-editable text.
+    // Any marker still present once the paired regions are removed is broken.
+    const residue = before.replace(REGION_RE, '');
+    const stray = residue.match(/<!--\s*\/?nbd:partial\b[^>]*-->/);
+    if (stray) {
+      fatal(`${rel}: dangling partial marker ${stray[0].trim()} — opener without closer, orphan closer, or name-mismatched pair; the region it should own is NOT governed`);
+    }
 
     if (localDrift.length) drifted.push({ file, rel, regions: localDrift });
     if (!CHECK && after !== before) {

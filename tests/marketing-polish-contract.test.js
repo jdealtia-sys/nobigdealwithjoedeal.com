@@ -102,13 +102,15 @@ console.log('MARKETING POLISH CONTRACT — batch 1 invariants');
   ok('lead-tool pages load nbd-mobile.css', bad.length === 0, bad.join(', '));
 }
 
-// 5. svg.ico pages have sizing CSS
+// 5. svg.ico pages have sizing CSS — via the shared stylesheet since
+//    2026-08-07 (an inline .ico block still satisfies the contract so a
+//    hand-authored page can't regress to black-blob icons either way).
 {
   const bad = [];
   for (const f of marketing) {
     const s = read(f);
     if (!s.includes('class="ico"')) continue;
-    if (!/\.ico\{[^}]*width:1em/.test(s)) bad.push(rel(f));
+    if (!s.includes('/assets/css/nbd-icons.css') && !/\.ico\{[^}]*width:1em/.test(s)) bad.push(rel(f));
   }
   ok('every svg.ico page has .ico sizing CSS (no black-blob regressions)', bad.length === 0, bad.slice(0, 4).join(', '));
 }
@@ -232,15 +234,18 @@ const certBarTargets = marketing.filter((f) => /^services\/[a-z0-9-]+-(oh|ky)\.h
   ok('cert bar injected exactly once per page', bad.length === 0, bad.slice(0, 3).join(', '));
 }
 {
-  // 3. Cert bar carries both verify links + the full independent-contractor
+  // 3. Cert bar carries all badge verify links + the full independent-contractor
   //    disclaimer with the license IDs (the legal reason the bar exists).
+  //    american-operator (Locally Owned & Operated cert, added 2026-08-13) has
+  //    no ID number — the badge + link is the whole credential.
   const bad = certBarTargets.filter((f) => {
     const s = read(f);
     return !(s.includes('gaf-certified-badge-120.png') && s.includes('tamko-pro-gold-badge-120.png')
+      && s.includes('american-operator-badge-120.png')
       && s.includes('GAF ID 1162011') && s.includes('TAMKO Pro ID 181382')
       && s.includes('Independent Contractor'));
   }).map(rel);
-  ok('cert bar carries both badges + IDs + disclaimer', bad.length === 0, bad.slice(0, 3).join(', '));
+  ok('cert bar carries all three badges + IDs + disclaimer', bad.length === 0, bad.slice(0, 3).join(', '));
 }
 {
   // 4. CERT CLAIM GUARD — Joe is GAF Certified (System Plus) and TAMKO only.
@@ -334,6 +339,61 @@ const certBarTargets = marketing.filter((f) => /^services\/[a-z0-9-]+-(oh|ky)\.h
       && s.includes('Independent Contractor &mdash; not an employee or agent');
   }).map(rel);
   ok('superseded short disclaimer removed where cert bar landed', bad.length === 0, bad.slice(0, 3).join(', '));
+}
+
+{
+  // 13. A11y lane D (2026-08-06): the muted-gray text token. #6b7280 was
+  //     4.36:1 on the site's --off-white — an AA fail for normal text.
+  //     Swept to #5d6673 (5.24:1 off-white / 5.81 white / 4.63 light-gray).
+  //     Guard both directions: the old literal must not creep back into any
+  //     homeowner page, and the token definition stays at the passing value.
+  //     docs/pro|admin|dev excluded — the CRM theme system has its own gates.
+  const pages = ALL.filter((f) => !/^dev\//.test(rel(f)));  // ALL already skips pro/admin
+  const stale = pages.filter((f) => read(f).includes('#6b7280')).map(rel);
+  ok('a11y: no #6b7280 literal on homeowner pages (token is #5d6673)',
+    stale.length === 0, stale.slice(0, 3).join(', '));
+  const untoken = pages.filter((f) => /--gray:\s*#(?!5d6673)[0-9a-f]{6}/i.test(read(f))).map(rel);
+  ok('a11y: every --gray token definition is #5d6673',
+    untoken.length === 0, untoken.slice(0, 3).join(', '));
+}
+{
+  // 14. A11y lane D: navy-page muted text floors. These rgba alphas were
+  //     raised to clear 4.5:1 composited over their real backgrounds
+  //     (worst case: input fill over --navy-dark #142a52 needs >=.56; the
+  //     values below all land 4.9:1+). String-pinned — the values are fixed,
+  //     so a regression is a literal revert, not a math question.
+  const estimate = read(path.join(DOCS, 'estimate.html'));
+  const storm = read(path.join(DOCS, 'storm-alerts.html'));
+  const floors = [
+    ['estimate.html placeholder >= .6', estimate, '.input-group input::placeholder{color:rgba(255,255,255,.6);}'],
+    ['estimate.html .tile-desc >= .64', estimate, '.tile-desc{font-size:.65rem;color:rgba(255,255,255,.64);'],
+    ['estimate.html .nav-sub >= .68', estimate, '.nav-sub{font-size:.65rem;color:rgba(255,255,255,.68);}'],
+    ['estimate.html .step-subtitle >= .68', estimate, '.step-subtitle{color:rgba(255,255,255,.68);'],
+    ['estimate.html .progress-label >= .7', estimate, 'text-transform:uppercase;color:rgba(255,255,255,.7);'],
+    ['estimate.html .otp-skip-btn >= .7', estimate, '.otp-skip-btn{background:none;border:none;padding:4px;color:rgba(255,255,255,.7);'],
+    ['estimate.html .otp-skip-status >= .72', estimate, '.otp-skip-status{font-size:.78rem;margin-top:6px;color:rgba(255,255,255,.72);}'],
+    ['estimate.html .unlock-prompt p >= .72', estimate, '.unlock-prompt p{font-size:.88rem;color:rgba(255,255,255,.72);'],
+    ['estimate.html .ns-card-desc >= .7', estimate, '.ns-card-desc{font-size:.82rem;color:rgba(255,255,255,.7);'],
+    ['estimate.html .tier-tab text >= .68', estimate, 'background:rgba(255,255,255,.04);color:rgba(255,255,255,.68);'],
+    ['storm-alerts.html placeholder >= .6', storm, '.field input::placeholder { color:rgba(255,255,255,.6); }'],
+  ];
+  for (const [name, src, needle] of floors) ok('a11y: ' + name, src.includes(needle));
+}
+
+// ── Featured Projects card CSS (guard for the PR #1194 regression class:
+// an icon-CSS consolidation deleted our-work.html's whole page style block
+// and nothing caught /our-work shipping unstyled) ──────────────────────────
+{
+  const cardsCss = path.join(DOCS, 'assets/css/project-cards.css');
+  ok('project-cards.css exists', fs.existsSync(cardsCss));
+  if (fs.existsSync(cardsCss)) {
+    const s = fs.readFileSync(cardsCss, 'utf8');
+    ok('project-cards.css defines .gallery grid', /\.gallery\{[^}]*display:grid/.test(s));
+    ok('project-cards.css defines .project.hidden (filter JS contract)', s.includes('.project.hidden{display:none}'));
+  }
+  const ourWork = fs.readFileSync(path.join(DOCS, 'our-work.html'), 'utf8');
+  ok('our-work.html links project-cards.css', ourWork.includes('/assets/css/project-cards.css'));
+  ok('our-work.html page styles present (.hero rule)', ourWork.includes('.hero{background:linear-gradient'));
 }
 
 console.log('\n──────────────────────────────────────────────────');
