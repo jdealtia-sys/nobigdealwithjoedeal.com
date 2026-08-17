@@ -33,10 +33,13 @@ rush-week marketing kit. Hosting deploys ~minutes after merge (path-filtered).
 
 ## Next session — first pickups
 
-1. **Post-merge verification sweep** (15 min): `curl -sI` the live `/feed.xml`
-   (200 + XML) → W3C feed validator; Rich Results Test on the 2 new posts + 2
-   product pages + 1 retrofitted post; confirm og:url fix on /areas via a share
-   debugger. Log results in the session note.
+1. ✅ **Post-merge verification sweep — done 2026-08-17**: feed 200 + valid
+   RSS 2.0; all 5 pages carry parsing FAQPage (+BlogPosting/Service +
+   BreadcrumbList) JSON-LD; /areas og:url canonical, no hop. Results logged in
+   [SESSION-2026-08-17-backlinks-aeo-rush](SESSION-2026-08-17-backlinks-aeo-rush.md)
+   §Post-merge verification sweep. (W3C + Rich Results web UIs couldn't be
+   driven headless — structural validation done instead; optional to re-run
+   from a normal browser.)
 2. **sameAs append queue**: as Jo's claims from rush-week go live, append each
    profile URL to `docs/index.html` (~line 482) + `docs/review.html` (~line 27)
    `sameAs` arrays (procedure in citation-kit addendum). Bing/Apple/Nextdoor/BBB

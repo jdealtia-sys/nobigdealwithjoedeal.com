@@ -59,6 +59,20 @@ wired into ci.yml after the icon-CSS gate. Verified locally: dropdown
 `/the-pledge/`, `/services/lumanail/`, `/blog/the-pipe-boot-fork.html`,
 `/areas/`.
 
+## Third find, same day: homepage head CSS duplicated wholesale
+
+`docs/index.html` carried its main page `<style>` block **twice** (lines
+33-468 and 599-1031, separated only by JSON-LD scripts). The copies were
+byte-identical except three `.form-error` / `aria-invalid` rules present only
+in the FIRST copy — meaning the later copy won every collision but changed
+nothing. Fix: deleted the second (stale, strict-subset) copy — 433 lines off
+the most-visited page. Verified rendering-identical: 18-selector computed-style
+snapshot diffed empty against live prod (including a synthetic `.form-error`
+element), stylesheet count 23→22, all gates green. Lesson: with duplicated
+equal-specificity blocks, edits to the FIRST copy are silently dead until the
+duplicate is removed — the form-error rules only worked because they had no
+counterpart in copy two.
+
 ## Durable lesson
 
 The end-of-head `<link>` position makes `nbd-icons.css` the **cascade
