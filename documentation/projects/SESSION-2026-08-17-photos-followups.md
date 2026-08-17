@@ -108,6 +108,12 @@ per-function: `onKnockCreated` **Successful create** (first deploy),
   - Heal path: knock created AFTER variants existed → `onKnockCreated`
     recovered tokens from variant object metadata and stamped.
 - Remaining watch: the digest's Image Pipeline section rides the next
-  14:00 UTC `healthDigestCron` run (requires `HEALTH_DIGEST_ENABLED`).
+  14:00 UTC `healthDigestCron` run. **Follow-up finding (same day):**
+  `HEALTH_DIGEST_ENABLED` was never set in prod — the cron had skipped
+  itself daily since it shipped (`health_digest.skipped` in the logs;
+  no digest was ever sent). Flipped on via the committed
+  `functions/.env.nobigdeal-pro` (project-scoped dotenv; bare `.env` is
+  gitignored, and gcloud-set env vars would be wiped by the next
+  firebase deploy). First real digest expected at the next 14:00 UTC.
   `metrics/imagePipeline` still absent in prod — correct: no genuine
   no-match has ever fired.
