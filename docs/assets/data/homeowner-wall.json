@@ -1,5 +1,10 @@
 [
   {
+    "image": "/assets/images/projects/brick-duplex-designer-reroof-2026-3.jpg",
+    "city": "Greater Cincinnati, OH",
+    "alt": "Overhead drone view of the finished designer-blend shingle roof on a brick Tudor duplex with relined box gutters and coated porch roof"
+  },
+  {
     "image": "/assets/images/projects/completed-colonial-spring.jpg",
     "city": "Greater Cincinnati, OH",
     "alt": "Completed roof on brick colonial home with spring landscaping"
@@ -53,10 +58,5 @@
     "image": "/assets/images/projects/commercial-apartment-completed.jpg",
     "city": "Greater Cincinnati, OH",
     "alt": "Aerial drone view of completed multi-building apartment complex with new roofs"
-  },
-  {
-    "image": "/assets/images/projects/metal-aframe-cabin.jpg",
-    "city": "Appalachian Region",
-    "alt": "A-frame cabin with standing seam metal roof"
   }
 ]

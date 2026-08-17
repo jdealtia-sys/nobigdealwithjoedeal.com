@@ -264,6 +264,42 @@
       ],
       "consentOnFile": true,
       "published": "2026-08-06"
+    },
+    {
+      "slug": "brick-duplex-designer-reroof-2026",
+      "title": "Brick Tudor Duplex — Designer Re-Roof",
+      "services": [
+        "roof-replacement"
+      ],
+      "tag": "Designer Shingles",
+      "city": "Greater Cincinnati, OH",
+      "year": 2026,
+      "description": "Full tear-off on a brick Tudor duplex: designer-blend shingles over fresh underlayment, the original built-in box gutters relined, and new chimney flashing cut in. Old-bones buildings deserve to be done right.",
+      "hero": "/assets/images/projects/brick-duplex-designer-reroof-2026-3.jpg",
+      "photos": [
+        {
+          "src": "/assets/images/projects/brick-duplex-designer-reroof-2026-3.jpg",
+          "alt": "Overhead drone view of the finished designer-blend shingle roof on a brick Tudor duplex with relined box gutters and coated porch roof"
+        },
+        {
+          "src": "/assets/images/projects/brick-duplex-designer-reroof-2026-1.jpg",
+          "alt": "Top-down view of underlayment day: synthetic underlayment field with staged shingle bundles and safety lines on the duplex roof"
+        },
+        {
+          "src": "/assets/images/projects/brick-duplex-designer-reroof-2026-2.jpg",
+          "alt": "Crew member sealing new chimney flashing at the ridge of the freshly shingled designer-blend hip roof"
+        },
+        {
+          "src": "/assets/images/projects/brick-duplex-designer-reroof-2026-4.jpg",
+          "alt": "Close-up of the relined built-in box gutter running along the edge of the new designer shingles"
+        },
+        {
+          "src": "/assets/images/projects/brick-duplex-designer-reroof-2026-5.jpg",
+          "alt": "New black step and counter-flashing worked into the brick chimney beside the designer-blend shingles"
+        }
+      ],
+      "consentOnFile": true,
+      "published": "2026-08-17"
     }
   ]
 }
