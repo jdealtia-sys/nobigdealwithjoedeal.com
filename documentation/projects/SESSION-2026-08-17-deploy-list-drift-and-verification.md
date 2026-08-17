@@ -9,6 +9,15 @@ false-green failure mode; fixed it (PR #1210), verified the deploy at the
 revision level, confirmed backfill convergence, and live-probed the trigger
 end-to-end in prod.
 
+> **Update 2026-08-17 (later same day):** the drift below turned out to be
+> **one of three** distinct false-green modes in this same deploy step. A third
+> mode surfaced hours later — functions targeted, started, and then silently
+> dropped by a mutation-rate 429, with firebase-tools exiting 0. All three are
+> inventoried, with the fixes, in
+> [DEPLOY-FALSE-GREEN-MODES-2026-08-17](../audit/DEPLOY-FALSE-GREEN-MODES-2026-08-17.md).
+> The lesson recorded in "Deploy verification" below — *a green run is not
+> evidence for a specific function* — is now enforced by the workflow itself.
+
 ## The deploy-list drift (the load-bearing finding)
 
 `#1206`'s merge triggered a **green** `firebase-deploy.yml` run
