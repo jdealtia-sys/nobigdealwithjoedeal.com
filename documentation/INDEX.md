@@ -10,7 +10,7 @@ Map of content for the `documentation/` corpus (~115 files) plus the other place
 
 - [WEEKLY_CADENCE](projects/WEEKLY_CADENCE.md) — the Monday-morning checklist: Jo's weekly content/marketing loop, the agent weekly sweep, and the consolidated one-off queue (sessions keep it current)
 - [BIG_ROCKS](projects/BIG_ROCKS.md) — the standing priority list
-- Current handoff: [NEXT_SESSION-2026-08-11](projects/NEXT_SESSION-2026-08-11.md)
+- Current handoff: [NEXT_SESSION-2026-08-17](projects/NEXT_SESSION-2026-08-17.md)
 - Posting a job: [runbooks/PUBLISH-PROJECT](runbooks/PUBLISH-PROJECT.md) — phone-paste template inside
 
 ## Start here
@@ -46,7 +46,7 @@ Map of content for the `documentation/` corpus (~115 files) plus the other place
 - [BIG_ROCKS](projects/BIG_ROCKS.md) — the standing priority list
 - [WEEKLY_CADENCE](projects/WEEKLY_CADENCE.md) — standing weekly checklist (see "Standing notes" above)
 - [KANBAN_CUSTOMER_MAP](projects/KANBAN_CUSTOMER_MAP.md)
-- Session handoffs: [NEXT_SESSION-2026-08-11](projects/NEXT_SESSION-2026-08-11.md) (current — start here; site-wide audit + security fix wave) · [SESSION-2026-08-13-american-operator-badge](projects/SESSION-2026-08-13-american-operator-badge.md) (Locally Owned & Operated cert badge rollout — footers site-wide + homepage card + About chip) · [NEXT_SESSION-2026-08-10](projects/NEXT_SESSION-2026-08-10.md) (jobs-board taxonomy + hub strips + posting flow) · [NEXT_SESSION-2026-08-07](projects/NEXT_SESSION-2026-08-07.md) (deferred queue — mostly absorbed into WEEKLY_CADENCE 2026-08-11) · [SESSION-2026-08-06-swath-api-setup](projects/SESSION-2026-08-06-swath-api-setup.md) (Swath API integration — Jo's 5-min secrets to-do inside) · [NEXT_SESSION-2026-08-06](projects/NEXT_SESSION-2026-08-06.md) · [SESSION-2026-08-06-our-work-featured-projects](projects/SESSION-2026-08-06-our-work-featured-projects.md) · [NEXT_SESSION-2026-08-05](projects/NEXT_SESSION-2026-08-05.md) · [NEXT_SESSION](projects/NEXT_SESSION.md) · [NEXT_SESSION-2c4a](projects/NEXT_SESSION-2c4a.md) (all executed)
+- Session handoffs: [NEXT_SESSION-2026-08-17](projects/NEXT_SESSION-2026-08-17.md) (current — start here; backlinks/AEO rush: Jo's off-site sprint + post-merge sweep + AirOps lane) · [SESSION-2026-08-17-backlinks-aeo-rush](projects/SESSION-2026-08-17-backlinks-aeo-rush.md) (Reader Questions posts + FAQ schema wave + RSS/IndexNow + rush-week kit, PR #1205) · [NEXT_SESSION-2026-08-11](projects/NEXT_SESSION-2026-08-11.md) (site-wide audit + security fix wave — engineering lanes still open) · [SESSION-2026-08-13-american-operator-badge](projects/SESSION-2026-08-13-american-operator-badge.md) (Locally Owned & Operated cert badge rollout — footers site-wide + homepage card + About chip) · [NEXT_SESSION-2026-08-10](projects/NEXT_SESSION-2026-08-10.md) (jobs-board taxonomy + hub strips + posting flow) · [NEXT_SESSION-2026-08-07](projects/NEXT_SESSION-2026-08-07.md) (deferred queue — mostly absorbed into WEEKLY_CADENCE 2026-08-11) · [SESSION-2026-08-06-swath-api-setup](projects/SESSION-2026-08-06-swath-api-setup.md) (Swath API integration — Jo's 5-min secrets to-do inside) · [NEXT_SESSION-2026-08-06](projects/NEXT_SESSION-2026-08-06.md) · [SESSION-2026-08-06-our-work-featured-projects](projects/SESSION-2026-08-06-our-work-featured-projects.md) · [NEXT_SESSION-2026-08-05](projects/NEXT_SESSION-2026-08-05.md) · [NEXT_SESSION](projects/NEXT_SESSION.md) · [NEXT_SESSION-2c4a](projects/NEXT_SESSION-2c4a.md) (all executed)
 
 ## Audits
 
@@ -60,7 +60,8 @@ Map of content for the `documentation/` corpus (~115 files) plus the other place
 
 - [VOICE_BIBLE](brand/VOICE_BIBLE.md) — the writing voice for every customer-facing word
 - [drafts/README](drafts/README.md) — the blog-draft pipeline (3 drafts awaiting Jo's `JO:` marker edits; one publish session each)
-- [local-seo-playbook-2026-07](marketing/local-seo-playbook-2026-07.md) · [citation-kit-2026-07](marketing/citation-kit-2026-07.md)
+- [rush-week-2026-08](marketing/rush-week-2026-08.md) — the sequenced off-site placement sprint (baseline, manufacturer claims, Bing/IndexNow, pitch templates, Reader Questions pipeline) — **work from this one**
+- [local-seo-playbook-2026-07](marketing/local-seo-playbook-2026-07.md) · [citation-kit-2026-07](marketing/citation-kit-2026-07.md) — strategy + paste-ready copy (both carry 2026-08-17 addenda)
 - [gaf-tamko-rebrand-plan](rebrand/gaf-tamko-rebrand-plan.md) · [gaf-tamko-BUILD-BRIEF](rebrand/gaf-tamko-BUILD-BRIEF.md)
 
 ## QA sweeps (dated campaign folders)
