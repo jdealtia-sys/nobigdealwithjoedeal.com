@@ -548,6 +548,11 @@ jobs:
       # unified diff). Writes nothing without --write.
       - name: Check sitemap drift (dry-run diff)
         run: node scripts/build-sitemap.js
+      # Feed drift gate: build-feed.mjs dry-runs by default and exits 1 when
+      # the generated RSS feed differs from docs/feed.xml (same POSTS source
+      # and live-post filter as the blog index, deterministic timestamps).
+      - name: Check feed drift (dry-run diff)
+        run: node scripts/build-feed.mjs
       # Featured Projects drift gate: the OURWORK-* regions in docs/our-work.html
       # are generated from assets/data/projects.json. Same rationale as the
       # partial gate below — without this the scheme is advisory.
