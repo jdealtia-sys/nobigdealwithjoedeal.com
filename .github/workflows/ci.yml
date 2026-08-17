@@ -588,6 +588,14 @@ jobs:
       # per-page injected <style> duplicated ~1.1 KB × 185 pages).
       - name: Check icon-CSS links (assert mode)
         run: node scripts/ensure-icon-css.js
+      # Nav-CSS block contract (2026-08-17): every page with header-nav markup
+      # (dropdown-menu / mobile-nav / hamburger) must carry the "nav base
+      # (injected)" style block. 18 hand-built pages (the-pledge, areas index,
+      # 7 product pages, 9 blog posts) shipped without it — the Services
+      # dropdown rendered permanently expanded over the page header and the
+      # mobile hamburger/collapse never worked.
+      - name: Check nav-CSS blocks (assert mode)
+        run: node scripts/ensure-nav-css.js
       # Manifest completeness tripwire (2026-08-07): every tests/*.test.js
       # must be classified in tests/ci-manifest.json — a new suite that isn't
       # bucketed fails here instead of silently never running (35 suites,
