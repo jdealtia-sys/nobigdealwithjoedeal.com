@@ -21,6 +21,35 @@ const db = getFirestore();
 
 /**
  * Company data to seed
+ *
+ * `siteUrl` is DESCRIPTIVE ONLY — nothing in the codebase reads it. It records
+ * where a company's public site lives. Until Jo's 2026-07-04 Pillar 5 cutover
+ * that was a hand-authored page under docs/sites/; both entries still pointed
+ * at that era (`/sites/oaks.html`, deleted with the retired page, and
+ * `/sites/nbd.html`, which never existed on disk at all). Both now name the
+ * data-driven tenant microsite at /sites/t/<companyId>.
+ *
+ * Why `/sites/t/<id>` resolves: getPublicSiteConfig looks the key up as the
+ * companies/{id} DOC ID first and only falls back to a siteSlug equality query
+ * (functions/handlers/public-site.js:117-121), so the doc id alone is enough.
+ *
+ * ⚠ RUNNING THIS SEED PUBLISHES THE MICROSITE. getPublicSiteConfig serves any
+ * companies/{id} whose `status` is 'active' or ABSENT (public-site.js:126-131),
+ * and neither record below sets `status`. So seeding makes /sites/t/nbd and
+ * /sites/t/oaks answer to anyone who requests them — the ids are short guessable
+ * words, not the unguessable auth uids the endpoint's header assumes. The pages
+ * are X-Robots-Tag noindex (firebase.json), which keeps them out of search
+ * results but does NOT make them private. A tenant site is a deliberate release
+ * to that company; until then set `status` to anything other than 'active' on
+ * its record. The payload is a public-marketing whitelist (name, tagline, logo,
+ * colors, serviceArea, contact, services) — no lead routing, integrations,
+ * pricing, or CRM data — but the tenant's existence and contact details are the
+ * disclosure.
+ *
+ * Do NOT "improve" this by seeding a `siteSlug` here to get a prettier URL.
+ * siteSlug is the optional alias and is claimed transactionally against
+ * siteSlugs/{slug} by setSiteSlug; writing it directly bypasses the uniqueness
+ * claim that exists to stop two owners taking the same slug.
  */
 const companiesData = [
   {
@@ -50,7 +79,7 @@ const companiesData = [
       plan: 'growth',
       status: 'active'
     },
-    siteUrl: '/sites/nbd.html',
+    siteUrl: '/sites/t/nbd',
     createdAt: Timestamp.now(),
     updatedAt: Timestamp.now()
   },
@@ -81,7 +110,7 @@ const companiesData = [
       plan: 'growth',
       status: 'active'
     },
-    siteUrl: '/sites/oaks.html',
+    siteUrl: '/sites/t/oaks',
     createdAt: Timestamp.now(),
     updatedAt: Timestamp.now()
   }

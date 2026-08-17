@@ -139,10 +139,21 @@ const companiesData = [
       plan: 'growth',
       status: 'active'
     },
-    siteUrl: '/sites/company-id.html'
+    siteUrl: '/sites/t/your-company-id'
   }
 ];
 ```
+
+`siteUrl` is descriptive only — nothing reads it. It records where the company's
+public site lives, which since the 2026-07-04 Pillar 5 cutover is the
+data-driven tenant microsite at `/sites/t/<companyId>`, not a hand-authored
+page under `docs/sites/`.
+
+> **Seeding a company publishes its microsite.** `getPublicSiteConfig` serves
+> any `companies/{id}` doc whose `status` is `'active'` or absent, and these
+> records set no `status`. Once seeded, `/sites/t/<id>` answers to anyone who
+> requests it. Set `status` to something other than `'active'` on records that
+> are not cleared for release yet.
 
 Then run the script again:
 
