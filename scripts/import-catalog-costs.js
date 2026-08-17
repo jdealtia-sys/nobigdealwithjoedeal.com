@@ -137,13 +137,20 @@ if (!WRITE) {
 // ── write ───────────────────────────────────────────────────────────────────
 // firebase-admin lives in functions/node_modules (scripts/ has none), so a bare
 // require fails when run from the repo root. Resolve it from functions/.
-let admin;
-try { admin = require('firebase-admin'); }
-catch (_) { admin = require('module').createRequire(path.join(ROOT, 'functions', 'package.json'))('firebase-admin'); }
-if (!admin.apps.length) admin.initializeApp();
+let req = require;
+try { require.resolve('firebase-admin'); }
+catch (_) { req = require('module').createRequire(path.join(ROOT, 'functions', 'package.json')); }
+
+const admin = req('firebase-admin');
+// firebase-admin v14 removed admin.apps, admin.firestore() AND the
+// admin.firestore.* namespace (so admin.firestore.FieldValue is gone too).
+// getApps()/getFirestore()/FieldValue come from the modular subpaths.
+const { getApps } = req('firebase-admin/app');
+const { getFirestore, FieldValue } = req('firebase-admin/firestore');
+if (!getApps().length) admin.initializeApp();
 
 (async () => {
-  const db = admin.firestore();
+  const db = getFirestore();
   const ref = db.doc(COLLECTION + '/' + COMPANY);
   const before = await ref.get();
   const beforeCount = before.exists ? Object.keys(before.data().costs || {}).length : 0;
@@ -170,7 +177,7 @@ if (!admin.apps.length) admin.initializeApp();
     version: overlay.version,
     defaults: overlay.defaults || {},
     costs: overlay.costs,
-    importedAt: admin.firestore.FieldValue.serverTimestamp(),
+    importedAt: FieldValue.serverTimestamp(),
   }, { merge: true });
 
   console.log('\nImported ' + entries + ' cost entries into ' + COLLECTION + '/' + COMPANY + '.');

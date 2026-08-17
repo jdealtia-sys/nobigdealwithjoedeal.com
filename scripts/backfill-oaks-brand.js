@@ -19,10 +19,16 @@
 const path = require('path');
 // firebase-admin lives in functions/node_modules (scripts/ has none), so a bare
 // require fails when run from the repo root. Resolve it from functions/.
-let admin;
-try { admin = require('firebase-admin'); }
-catch (_) { admin = require('module').createRequire(path.join(__dirname, '..', 'functions', 'package.json'))('firebase-admin'); }
-if (!admin.apps.length) admin.initializeApp();
+let req = require;
+try { require.resolve('firebase-admin'); }
+catch (_) { req = require('module').createRequire(path.join(__dirname, '..', 'functions', 'package.json')); }
+
+const admin = req('firebase-admin');
+// firebase-admin v14 removed admin.apps / admin.firestore() from the default
+// export; getApps() and getFirestore() are the modular equivalents.
+const { getApps } = req('firebase-admin/app');
+const { getFirestore } = req('firebase-admin/firestore');
+if (!getApps().length) admin.initializeApp();
 
 const OAKS_KEY = 'oaks';
 
@@ -76,7 +82,7 @@ const OAKS_BRAND = {
 };
 
 (async () => {
-  const db = admin.firestore();
+  const db = getFirestore();
   await db.collection('companyProfile').doc(OAKS_KEY).set(OAKS_BRAND, { merge: true });
   console.log(`✅ Backfilled companyProfile/${OAKS_KEY}.brand (Oaks)`);
   await db.terminate();
