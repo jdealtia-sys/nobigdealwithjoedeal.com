@@ -481,6 +481,34 @@
             deleted: false,
           }
         );
+        // Mint the human-facing customer ID (NBD-#### / tenant-prefixed) the
+        // same way _saveLead does — transactional counter, then stamp the
+        // lead. Without this, imported leads carried NO customerId while
+        // hand-entered ones did (found on the 2026-08-16 backfill of 57
+        // rows), so document numbering and portal references were
+        // inconsistent across the two populations. Fail open per row: a mint
+        // failure logs and moves on, exactly like _saveLead's catch — the
+        // lead itself is already saved.
+        try {
+          if (window._companyProfileLoaded === true
+              && typeof window._custCounterId === 'function'
+              && typeof window._custIdPrefix === 'function'
+              && typeof window._formatCustomerId === 'function'
+              && typeof window.runTransaction === 'function'
+              && typeof window.updateDoc === 'function') {
+            const _ctrId = window._custCounterId(companyId);
+            const _pfx = window._custIdPrefix();
+            const counterRef = window.doc(window.db, 'counters', _ctrId);
+            const custId = await window.runTransaction(window.db, async (tx) => {
+              const snap = await tx.get(counterRef);
+              const nextNum = (snap.exists() ? (snap.data().next || 0) : 0) + 1;
+              tx.set(counterRef, { next: nextNum }, { merge: true });
+              return window._formatCustomerId(_pfx, nextNum, companyId);
+            });
+            await window.updateDoc(window.doc(window.db, 'leads', ref.id), { customerId: custId });
+          }
+        } catch (cidErr) { console.warn('[import] customer ID mint failed for row', i, cidErr); }
+
         // Push into in-memory cache so subsequent dedup checks within
         // this same import run catch dupes from earlier rows.
         existingLeads.push({ id: ref.id, ...lead, userId: uid, companyId });
