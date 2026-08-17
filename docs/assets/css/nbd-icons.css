@@ -10,8 +10,12 @@
 .ico-fill{fill:currentColor;stroke:none}
 .trust-icon svg.ico,.aci-icon svg.ico,.cm-icon svg.ico{width:24px;height:24px}
 .wc-phone-icon svg.ico{width:26px;height:26px}
-.trust-icon svg.ico{color:#fff}
-.aci-icon svg.ico,.cm-icon svg.ico,.wc-phone-icon svg.ico,.form-success-icon svg.ico{color:var(--orange,#e8720c)}
+/* Chip contract: trust-icon, cm-icon and wc-phone-icon chips are solid orange, so
+   their icons must be white; aci-icon (navy chip) and form-success-icon (tinted
+   ring) take orange. This sheet is linked at the end of <head>, so these colors
+   out-cascade the per-page "trust-icon fix" blocks — they must be correct here. */
+.trust-icon svg.ico,.cm-icon svg.ico,.wc-phone-icon svg.ico{color:#fff}
+.aci-icon svg.ico,.form-success-icon svg.ico{color:var(--orange,#e8720c)}
 
 /* nav-ico sizing */
 .nav-links .nav-ico{width:14px;height:14px;stroke:currentColor;stroke-width:2.2;fill:none;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0;display:inline-block;vertical-align:-0.18em}
