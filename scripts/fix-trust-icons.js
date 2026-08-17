@@ -1,9 +1,11 @@
 #!/usr/bin/env node
 /*
- * Fix: trust-icon containers have an orange background on most pages, so
- * orange-stroked icons render invisible. Strip the inline orange style and
- * inject CSS that forces icon color white on trust-icon, orange on the other
- * icon containers.
+ * Fix: trust-icon, cm-icon and wc-phone-icon containers have a solid orange
+ * background, so orange-stroked icons render invisible. Strip the inline orange
+ * style and inject CSS that forces icon color white on those containers, orange
+ * on the light/navy-chip ones. Keep EXTRA_CSS in sync with
+ * docs/assets/css/nbd-icons.css — that sheet links at the end of <head> and
+ * wins the cascade over this injected block.
  */
 const fs = require('fs');
 const path = require('path');
@@ -12,8 +14,8 @@ const ROOT = path.resolve(__dirname, '..', 'docs');
 
 const EXTRA_CSS = `
 /* trust-icon fix */
-.trust-icon svg.ico{color:#fff}
-.aci-icon svg.ico,.cm-icon svg.ico,.wc-phone-icon svg.ico,.form-success-icon svg.ico{color:var(--orange,#e8720c)}
+.trust-icon svg.ico,.cm-icon svg.ico,.wc-phone-icon svg.ico{color:#fff}
+.aci-icon svg.ico,.form-success-icon svg.ico{color:var(--orange,#e8720c)}
 `;
 
 function walk(dir, out = []) {

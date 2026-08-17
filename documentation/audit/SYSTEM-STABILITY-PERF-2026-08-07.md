@@ -6,6 +6,12 @@ marketing surface) followed by a dependency-ordered fix wave. This note is the
 durable record: what was found, what shipped, what the recon got wrong, and
 what stayed parked.
 
+> **2026-08-17 correction:** the nbd-icons.css extraction below shipped a
+> visual regression — the end-of-head `<link>` out-cascades the per-page
+> "trust-icon fix" blocks, turning the homepage `.cm-icon`/`.wc-phone-icon`
+> icons orange-on-orange (invisible). Root cause + fix:
+> [ICON-CASCADE-REGRESSION-2026-08-17](ICON-CASCADE-REGRESSION-2026-08-17.md).
+
 ## Headline findings → fixes (all shipped this PR)
 
 | Finding | Fix |
