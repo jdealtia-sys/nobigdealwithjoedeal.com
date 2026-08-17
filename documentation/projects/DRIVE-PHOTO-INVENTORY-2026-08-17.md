@@ -58,11 +58,29 @@ repo's sharp build can't read HEVC**; some .HEIC files are secretly JPEG.
 ## Scan status / queue
 
 - ✅ Sampled + harvested: SDXC-240GB 100/101MEDIA, 64GB 107MEDIA, Gutters
-  folder, loose damaged-gutter JPEGs (6 photos published via PR #1227).
-- 🔄 In flight (2026-08-17 evening): ASUS ROG July-2026 roll (Gary's
-  screen-job window) · Ty Mom 269-HEIC set.
+  folder, loose damaged-gutter JPEGs (7 photos published via PR #1227).
+- ✅ ASUS ROG E:/DCIM/101MEDIA — **actually ~937 files (DJI_0001–0944,
+  Jun 1–Jul 6 2026), not the 235 the inventory pass counted** (pagination
+  jitter). 21 hits kept in scratchpad. Verdicts: Gary's "7980" house
+  appears in the **Jul 4 pre-job survey** (0712 existing screens,
+  0714/0716 failing gutters) — completed-install afters are NOT in this
+  roll (ends Jul 6, proposal dated Jul 9); the 20MB full-res frames
+  DJI_0705–0709 exceed the Drive-MCP 10MB cap and remain unviewed.
+  Second tarp job found (0305/0309, Jun 7 — spares). **Featured-project
+  candidate, gallery-ready: the July brick Tudor duplex re-roof** —
+  process 0728 (FeltBuster + staged HDZ), action 0842, finished 0880,
+  box-gutter reline 0888/0904, flashing 0896. Needs Jo: customer name,
+  city, consentOnFile, price-range-or-skip → then a PUBLISH-PROJECT run.
+- ✅ Ty Mom Phone shots — 145 unique of 269 records (half are duplicate
+  uploads). Moss macro published; guards close-ups (IMG_6391/6426) and a
+  15-shot inspection-storytelling series banked as spares.
+- 🔔 NBD > INTERNAL > Content > **Soft Wash** folder created by Jo
+  2026-08-17 22:02Z — empty at 22:10Z, watch armed; first real
+  soft-wash job photos expected to land there.
 - ⏭ Next best: SDXC Card 102MEDIA (878) → covers its 64GB twin ·
   103MEDIA (546) · MICRO SD 103MEDIA (168, 2025 archive) · thermal set
   (marketing content, not the current three categories).
 - Dedup rule of thumb: scan "SDXC Card" rolls, skip "SDXC 64GB" twins;
   prefer customer-named folders over raw rolls when both exist.
+- Tooling caps to remember: Drive-MCP downloads fail >10MB (48MP DJI
+  frames); use the laptop/Drive web for those. HEIC → `heic-convert`.
