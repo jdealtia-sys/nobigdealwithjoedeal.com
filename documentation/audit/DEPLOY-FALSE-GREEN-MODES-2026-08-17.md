@@ -151,16 +151,46 @@ guards have to be deleted deliberately, not by accident.
 
 ## Open items found alongside
 
-- **`beforeAdminSignIn` has been in state `FAILED` in prod since
-  2026-08-11T01:32Z** (`gcloud functions list --project nobigdeal-pro`). It is a
-  blocking `beforeUserSignedIn` trigger and it is **not** on
-  `NBD_DEPLOY_SKIP_LIST` (only `onRepSignup` is), so the strict step has been
-  targeting it. Unexamined here: whether deploys have been reporting that, and
-  what a FAILED blocking trigger does to admin sign-in. Worth its own look.
+- ~~**`beforeAdminSignIn` has been in state `FAILED` in prod since
+  2026-08-11T01:32Z**~~ — **RESOLVED 2026-08-17**, and the hypothesis recorded
+  here was wrong on both counts. Full investigation:
+  [BLOCKING-TRIGGERS-NOT-GCIP-2026-08-17](BLOCKING-TRIGGERS-NOT-GCIP-2026-08-17.md)
+  (lands with PR #1235, so the link resolves once both merge). Summary:
+  - **Admin sign-in was never impaired.** The project's Identity Platform
+    `blockingFunctions` config is `{}` — no blocker was ever registered, so
+    there was no path from a sign-in to the failed function. It also had no
+    backing Cloud Run service and is not in the source tree (it is a private
+    `const`, not an `export`). Inert orphan from a 2026-04-14 registration
+    attempt that was reverted 7 minutes later in `d8dee687`; the 2026-08-11
+    timestamp is a control-plane state refresh with no API caller. Record
+    deleted; the non-`ACTIVE` sweep is clean.
+  - **"The strict step has been targeting it" was false.** The `--only` list is
+    built by grepping `^exports\.NAME = <wrapper>`, and a private const never
+    enters the candidate list — `NBD_DEPLOY_SKIP_LIST` is irrelevant to it.
+    That is why six days of deploys said nothing, *not* the narrow failure
+    parse. See the accounting caveat below.
+  - **The real find was larger:** blocking triggers have never worked in this
+    project at all. Every deploy's `identitytoolkit` `UpdateConfig` fails with
+    `OPERATION_NOT_ALLOWED : Blocking Functions may only be configured for GCIP
+    projects` (162 consecutive failures in 30 days) because `nobigdeal-pro` is
+    subtype `FIREBASE_AUTH`. So `onRepSignup` is `ACTIVE` but has **never been
+    invoked**, and the `roles/identityplatform.admin` story in the workflow and
+    `auth.js` comments — which is also the stated reason `onRepSignup` sits on
+    `NBD_DEPLOY_SKIP_LIST` — was a misdiagnosis. Corrected in place by #1235.
+- **Completion accounting has a blind spot this episode exposed.** It verifies
+  that every *targeted* function printed a terminal line, so it cannot see a
+  function that is missing from the `--only` list in the first place — exactly
+  the failure mode above, and the same shape as the `onObjectFinalized` drift
+  in [SESSION-2026-08-17-deploy-list-drift-and-verification](../projects/SESSION-2026-08-17-deploy-list-drift-and-verification.md).
+  Catching that class needs a state sweep
+  (`gcloud functions list | grep -v ACTIVE`) as a post-deploy step, not
+  deploy-log parsing. Not implemented here.
 - The `--only` failure parse still misses 13 of the 15 `OperationType`s (above).
-  Now benign, because completion accounting covers targeted functions, but a
-  failure to *delete* an orphan still surfaces as "wholesale" rather than as
-  what it is.
+  Now benign for targeted functions, because completion accounting covers them,
+  but a failure to *delete* an orphan still surfaces as "wholesale" rather than
+  as what it is. Note `Failed to register blocking trigger function NAME` is one
+  of the unmatched shapes — it did not bite here (nothing targeted the
+  function), but it would if a blocking trigger were ever re-exported.
 
 ## Incident note — an accidental prod deploy during this work
 
