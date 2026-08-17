@@ -376,6 +376,14 @@ footer { background: var(--navy-dark); color: rgba(255,255,255,0.75); padding: 5
     },
     {
       "@type": "Question",
+      "name": "Wouldn't a cheap repair now be smarter than financing a replacement?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Sometimes — and when it is, that's exactly what I'll quote you. If a repair genuinely solves it, a repair is the right call and there's nothing to finance. The trap is patching a roof that's already at the end of its life: those checks buy you months, not a roof, and none of that money counts toward the replacement you'll still need. When the roof is done, financing lets the project match what the house needs instead of what this month's cash allows. Check your real options with a soft pull and decide with actual numbers."
+      }
+    },
+    {
+      "@type": "Question",
       "name": "Who is the actual lender?",
       "acceptedAnswer": {
         "@type": "Answer",
@@ -705,6 +713,82 @@ footer.foot a,.review-footer a{color:#e8720c!important}
     </div>
   </div>
 </section>
+<!-- OUTCOME COMPARISON (financing-benefits session 2026-08-17) — the
+     "right-size the payment, not the project" argument. The $14,000 example is
+     the tool's own typical-home architectural range midpoint (20 sq × $665–745,
+     inline/4053149b2f.js PRICING); repair range is the same file's roofRepair
+     band. Monthly figures use the identical amortization formula + published
+     Acorn APR band (11.49–19.99%) as financing-estimator.js, so sliding the
+     estimator below to $14,000 / 10 yr reproduces them exactly. Illustration
+     only — layered disclosure in .oc-disc + estimator + page small print. -->
+<style>
+.oc-wrap{max-width:960px;margin:0 auto}
+.oc-grid{display:grid;grid-template-columns:1fr 56px 1fr;gap:14px;align-items:stretch;margin-top:40px}
+.oc-card{border-radius:16px;padding:30px 28px;display:flex;flex-direction:column;gap:14px}
+.oc-card.settle{background:var(--white);border:1px solid var(--light-gray)}
+.oc-card.want{background:var(--navy-dark);border:1px solid var(--navy-dark);box-shadow:0 12px 36px rgba(20,42,82,.16)}
+.oc-tag{font-size:.66rem;font-weight:800;letter-spacing:.12em;text-transform:uppercase;padding:5px 12px;border-radius:20px;align-self:flex-start}
+.oc-card.settle .oc-tag{background:var(--off-white);color:var(--gray);border:1px solid var(--light-gray)}
+.oc-card.want .oc-tag{background:rgba(232,114,12,.16);color:var(--orange-light);border:1px solid rgba(232,114,12,.45)}
+.oc-price{font-family:'Bebas Neue',sans-serif;font-size:2.5rem;line-height:1;color:var(--navy)}
+.oc-card.want .oc-price{color:var(--orange-light)}
+.oc-price small{font-family:'Montserrat',sans-serif;font-size:.76rem;font-weight:700;color:var(--gray);letter-spacing:.02em}
+.oc-card.want .oc-price small{color:rgba(255,255,255,.65)}
+.oc-sub{font-size:.9rem;font-weight:700;line-height:1.5;color:var(--navy)}
+.oc-card.want .oc-sub{color:#fff}
+.oc-list{list-style:none;margin:2px 0 0;padding:0;display:flex;flex-direction:column;gap:10px}
+.oc-list li{display:flex;gap:10px;align-items:flex-start;font-size:.86rem;line-height:1.55;color:var(--gray-sub)}
+.oc-card.want .oc-list li{color:rgba(255,255,255,.85)}
+.oc-list li::before{content:'✕';font-weight:800;flex-shrink:0;margin-top:1px;color:#b0543e}
+.oc-card.want .oc-list li::before{content:'✓';color:var(--orange-light)}
+.oc-vs{display:flex;align-items:center;justify-content:center}
+.oc-vs span{width:46px;height:46px;border-radius:50%;background:var(--navy-dark);color:#fff;font-family:'Bebas Neue',sans-serif;font-size:1.05rem;letter-spacing:.06em;display:flex;align-items:center;justify-content:center;border:3px solid var(--orange)}
+.oc-quote{margin:36px auto 0;max-width:640px;text-align:center;font-size:1.08rem;font-weight:700;color:var(--navy);line-height:1.6}
+.oc-quote strong{color:#A64B00}
+.oc-bridge{margin:14px auto 0;max-width:640px;text-align:center;font-size:.92rem;color:var(--gray-sub);line-height:1.7}
+.oc-bridge a{color:#A64B00;font-weight:700;text-decoration:underline}
+.oc-disc{font-size:.72rem;color:var(--gray);line-height:1.65;margin:22px auto 0;max-width:720px;text-align:center}
+@media (max-width:760px){
+  .oc-grid{grid-template-columns:1fr;gap:12px}
+  .oc-vs{padding:2px 0}
+  .oc-vs span{width:40px;height:40px;font-size:.95rem}
+}
+</style>
+<section class="section section-alt">
+  <div class="oc-wrap">
+    <span class="section-label" style="text-align:center;display:block">The Real Math</span>
+    <h2 class="section-title" style="text-align:center">Don't Shrink the Project.<br>Shrink the Payment.</h2>
+    <p class="section-intro" style="text-align:center;margin:0 auto">Here's the trap I watch homeowners fall into every year: the roof needs $14,000 of work, the checking account says $2,000 — so the $2,000 patch wins. Not because it solves anything. Because it's what today's cash can reach. When a repair genuinely fixes it, I'll quote you the repair and shake your hand. But on a roof that's at the end of its life, patch money is rent, not equity. It buys months. It never counts toward the roof you'll still have to buy.</p>
+    <div class="oc-grid">
+      <div class="oc-card settle">
+        <span class="oc-tag">Sized to today's cash</span>
+        <div class="oc-price">$350&#8211;$2,500 <small>per patch, per visit</small></div>
+        <div class="oc-sub">The patch-and-pray plan on a roof that's already done.</div>
+        <ul class="oc-list">
+          <li>Fixes the leak you can see &#8212; the next weak spot is already forming</li>
+          <li>Another storm season, another visit, another check</li>
+          <li>None of it counts toward the replacement you'll buy anyway</li>
+          <li>Interior damage risk keeps compounding while you wait</li>
+        </ul>
+      </div>
+      <div class="oc-vs"><span>VS</span></div>
+      <div class="oc-card want">
+        <span class="oc-tag">Sized to what the house needs</span>
+        <div class="oc-price">$197&#8211;$270<small>/mo &#183; illustrative*</small></div>
+        <div class="oc-sub">A typical $14,000 architectural replacement, spread over a 10-year term at the marketplace's published APR range.*</div>
+        <ul class="oc-list">
+          <li>The full tear-off replacement &#8212; done once, warrantied</li>
+          <li>Same price as cash &#8212; my price is my price, financed or not</li>
+          <li>Your emergency fund stays an emergency fund</li>
+          <li>Backed by the NBD Lifetime Pledge either way</li>
+        </ul>
+      </div>
+    </div>
+    <p class="oc-quote">The most expensive roof out there is the one you pay for twice &#8212; <strong>once in patches, then again in full.</strong></p>
+    <p class="oc-bridge">Your number isn't $14,000? Slide your real project into the estimator below, then <a href="https://www.acornfinance.com/pre-qualify/?d=QU6WZ" target="_blank" rel="noopener noreferrer">check actual offers</a> with a soft pull that never touches your score.</p>
+    <p class="oc-disc">*Illustration only, not an offer of credit &#8212; a fixed, fully-amortizing loan at the Acorn Finance marketplace's published 11.49%&#8211;19.99% APR range over 120 months. Your actual rate, term, and payment are set by a third-party lender based on your credit. And if a repair is truly all your roof needs, that's what I'll tell you &#8212; and quote.</p>
+  </div>
+</section>
 <!-- FINANCING ESTIMATOR (T9) — illustrative only; layered disclosure in-widget + page small print. Acorn published range: 11.49–19.99% APR / 2–15 yr. -->
 <style>
 .fe-wrap{max-width:640px;margin:0 auto}
@@ -765,6 +849,7 @@ footer.foot a,.review-footer a{color:#e8720c!important}
       <div class="faq-item"><div class="faq-q">What credit score do I need?</div><div class="faq-a"><p>Acorn's lender network works with a wide range of credit profiles — that's the point of a marketplace. What you're offered depends on your credit, income, and the lender. Since checking is free and doesn't touch your score, the honest answer is: check, then decide. If financing isn't the right fit, Joe will tell you straight instead of pushing you into something that doesn't make sense.</p></div></div>
       <div class="faq-item"><div class="faq-q">Can I finance insurance work too?</div><div class="faq-a"><p>Yes — financing can cover your deductible or any out-of-pocket portion of an insurance-covered project. This is one of the most common uses.</p></div></div>
       <div class="faq-item"><div class="faq-q">Is there a minimum project size for financing?</div><div class="faq-a"><p>Generally financing makes the most sense for projects $3,000 and above. Ask Joe about your specific project and he'll give you a straight answer on whether it makes financial sense to finance.</p></div></div>
+      <div class="faq-item"><div class="faq-q">Wouldn't a cheap repair now be smarter than financing a replacement?</div><div class="faq-a"><p>Sometimes — and when it is, that's exactly what I'll quote you. If a repair genuinely solves it, a repair is the right call and there's nothing to finance. The trap is patching a roof that's already at the end of its life: those checks buy you months, not a roof, and none of that money counts toward the replacement you'll still need. When the roof is done, financing lets the project match what the house needs instead of what this month's cash allows. Check your real options with a soft pull and decide with actual numbers.</p></div></div>
       <div class="faq-item"><div class="faq-q">Who is the actual lender?</div><div class="faq-a"><p>Acorn Finance is a lending marketplace, not a lender. Your loan comes from one of the vetted lending partners in their network — and you'll see that lender's name, rate, and full terms before you commit to anything.</p></div></div>
     </div>
   </div>

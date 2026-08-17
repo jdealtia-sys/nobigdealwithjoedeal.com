@@ -264,6 +264,74 @@
       ],
       "consentOnFile": true,
       "published": "2026-08-06"
+    },
+    {
+      "slug": "brick-duplex-designer-reroof-2026",
+      "title": "Brick Tudor Duplex — Designer Re-Roof",
+      "services": [
+        "roof-replacement"
+      ],
+      "tag": "Designer Shingles",
+      "city": "Cincinnati, OH",
+      "year": 2026,
+      "description": "Three layers of old shingles came off this brick Tudor duplex before the designer-blend went on — plus the built-in box gutters restored, the low-slope section coated, and new chimney flashing cut in. Old-bones buildings deserve to be done right.",
+      "hero": "/assets/images/projects/brick-duplex-designer-reroof-2026-3.jpg",
+      "photos": [
+        {
+          "src": "/assets/images/projects/brick-duplex-designer-reroof-2026-3.jpg",
+          "alt": "Overhead drone view of the finished designer-blend shingle roof on a brick Tudor duplex with relined box gutters and coated porch roof"
+        },
+        {
+          "src": "/assets/images/projects/brick-duplex-designer-reroof-2026-1.jpg",
+          "alt": "Top-down view of underlayment day: synthetic underlayment field with staged shingle bundles and safety lines on the duplex roof"
+        },
+        {
+          "src": "/assets/images/projects/brick-duplex-designer-reroof-2026-2.jpg",
+          "alt": "Crew member sealing new chimney flashing at the ridge of the freshly shingled designer-blend hip roof"
+        },
+        {
+          "src": "/assets/images/projects/brick-duplex-designer-reroof-2026-4.jpg",
+          "alt": "Close-up of the relined built-in box gutter running along the edge of the new designer shingles"
+        },
+        {
+          "src": "/assets/images/projects/brick-duplex-designer-reroof-2026-5.jpg",
+          "alt": "New black step and counter-flashing worked into the brick chimney beside the designer-blend shingles"
+        }
+      ],
+      "consentOnFile": true,
+      "published": "2026-08-17",
+      "priceLow": 22000,
+      "priceHigh": 23000
+    },
+    {
+      "slug": "cincinnati-oh-gutter-screens-2026",
+      "title": "Seamless Gutters + Screens for Tree Cover",
+      "services": [
+        "gutter-replacement"
+      ],
+      "tag": "Gutter Screens",
+      "city": "Cincinnati, OH",
+      "priceLow": 2000,
+      "priceHigh": 2500,
+      "year": 2026,
+      "description": "New 5-inch seamless aluminum with fascia wood included — and screens sized run-by-run: the tree-covered runs got protection, the open runs did not get padded onto the bill.",
+      "hero": "/assets/images/projects/cincinnati-oh-gutter-screens-2026-1.jpg",
+      "photos": [
+        {
+          "src": "/assets/images/projects/cincinnati-oh-gutter-screens-2026-1.jpg",
+          "alt": "New seamless gutter with mesh screens running the full eave of a home surrounded by woods, seen from the roof"
+        },
+        {
+          "src": "/assets/images/projects/cincinnati-oh-gutter-screens-2026-2.jpg",
+          "alt": "Close-up along the new gutter screens installed tight to the shingle edge beneath overhanging tree branches"
+        },
+        {
+          "src": "/assets/images/projects/cincinnati-oh-gutter-screens-2026-3.jpg",
+          "alt": "Two-story brick and siding home mid-installation with ladders set and the old gutter removed above the garage"
+        }
+      ],
+      "consentOnFile": true,
+      "published": "2026-08-17"
     }
   ]
 }
