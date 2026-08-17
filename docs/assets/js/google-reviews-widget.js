@@ -139,6 +139,21 @@
     });
   }
 
+  // Hydrate any static rating/count hooks elsewhere on the page (e.g. the
+  // /review hero score box) from the same payload. The hooks ship with
+  // static fallback text, so a failed fetch simply leaves them untouched.
+  function hydrateStaticHooks(data) {
+    const rating = data.rating || 0;
+    const total = data.total || 0;
+    if (!total) return;
+    document.querySelectorAll('[data-nbd-gr-rating]').forEach((el) => {
+      el.textContent = rating.toFixed(1);
+    });
+    document.querySelectorAll('[data-nbd-gr-count]').forEach((el) => {
+      el.textContent = total + ' Google review' + (total === 1 ? '' : 's') + ' • tap to see them all';
+    });
+  }
+
   async function load() {
     const container = document.querySelector('[data-nbd-google-reviews]');
     if (!container) return;
@@ -151,6 +166,7 @@
       if (!res.ok) throw new Error('bad_status:' + res.status);
       const data = await res.json();
       if (data && data.error) throw new Error(data.error);
+      hydrateStaticHooks(data || {});
       renderAll(container, data || {});
     } catch (err) {
       console.warn('[google-reviews] load failed:', err);
