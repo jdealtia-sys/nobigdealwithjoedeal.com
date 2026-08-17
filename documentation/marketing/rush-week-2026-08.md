@@ -229,3 +229,26 @@ Every out-of-area call or text with a real question =  a post within the week:
   log citations of nobigdealwithjoedeal.com in the vault (AirOps AEO tracking is the
   systematic version of this — see NEXT_SESSION).
 - Profile-claim checklist above: every claimed profile appended to `sameAs`.
+
+## 2026-08-17 addendum — service word-coverage "power plays" (on-site lane)
+
+Jo's call (photo-credibility session, 2026-08-17): widen the service-keyword
+footprint alongside the off-site sprint. Status:
+
+- ✅ **Emergency roof tarping** — dedicated hub SHIPPED:
+  `/services/emergency-roof-tarping` (mitigation-duty + claim-documentation
+  angle, tarp→claim→roof frame, real tarp→replacement before/after pair).
+  Linked from storm-damage + roof-repair bodies, llms.txt, sitemap. Target
+  queries: *emergency roof tarping cincinnati*, *roof tarp service near me*,
+  *does insurance pay for roof tarping*, *emergency roof cover storm*.
+- **Gutter guards / gutter screens** — next candidate page once install
+  photos land (Gary Yeates job = the anchor story; "sized for tree coverage"
+  angle from the proposal). Target queries: *gutter guards cincinnati*,
+  *gutter screen installation*, *gutter guards worth it*. Until then, the
+  guards story lives on `/services/gutter-replacement`.
+- **Soft wash** — page exists (`/services/roof-cleaning-soft-wash`) but has
+  ZERO real photos; needs one documented job (before/after) before any
+  featured-project claim. Do not fabricate; first soft-wash job gets the
+  full photo treatment.
+- City-clone expansion for tarping (storm-damage-{city} pattern): only after
+  the hub proves impressions in GSC — don't stamp 25 thin clones on day one.
