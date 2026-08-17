@@ -89,8 +89,25 @@ the race/skew/collision fixes pinned as contracts; full suite 3404 ✓;
 syntax/inline/integrity clean; `functions/index.js` loads with all three
 exports.
 
-## Run/verify state
+## Run/verify state (2026-08-17, all complete)
 
-See the PR + follow-up entries in this note's future updates for: deploy
-verification (per-function lines), the `--include-legacy` apply run, and
-the prod d2d probe.
+Shipped as PR #1223 (`34e6595b`); deploy run 32047767413 verified
+per-function: `onKnockCreated` **Successful create** (first deploy),
+`onPhotoUploaded` + `healthDigestCron` **Successful update**.
+
+- **Legacy apply ran clean**: canary `--limit 1` then full run — 39/39
+  storagePaths repaired, 39/39 variant sets generated + stamped, zero
+  failures. Post-apply convergence dry-run: **110 of 111 /photos docs
+  fully stamped**; the single holdout is the homeowner-portal doc whose
+  url is not a `photos/` object (excluded by design). Every real photo
+  in prod now has thumb/med/full variants.
+- **Prod probe, both d2d orderings** (synthetic uid, doc-first AND
+  photos-first, artifacts fully cleaned up):
+  - Storage-trigger path: knock stamped in seconds AND the lead mirror
+    delivered the same `photoVariants` array to the converted lead.
+  - Heal path: knock created AFTER variants existed → `onKnockCreated`
+    recovered tokens from variant object metadata and stamped.
+- Remaining watch: the digest's Image Pipeline section rides the next
+  14:00 UTC `healthDigestCron` run (requires `HEALTH_DIGEST_ENABLED`).
+  `metrics/imagePipeline` still absent in prod — correct: no genuine
+  no-match has ever fired.
