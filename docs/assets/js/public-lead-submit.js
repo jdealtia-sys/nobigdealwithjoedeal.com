@@ -129,6 +129,17 @@
       if (!res.ok) {
         return { ok: false, reason: data.error || 'Submission failed', status: res.status };
       }
+      // Central conversion event: every public lead form routes through
+      // here (guide/contact/inspect/estimate/storm/free_roof), so this is
+      // the one place GA4 sees all of them. No PII in params.
+      try {
+        if (typeof window.gtag === 'function') {
+          window.gtag('event', 'generate_lead', {
+            lead_kind: kind,
+            lead_source: (fields && fields.source) || ''
+          });
+        }
+      } catch (e) {}
       return { ok: true, id: data.id || null };
     } catch (e) {
       return { ok: false, reason: 'Network error: ' + (e.message || 'unknown') };

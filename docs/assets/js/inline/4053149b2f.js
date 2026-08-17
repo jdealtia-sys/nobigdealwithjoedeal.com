@@ -718,6 +718,7 @@ async function verifyOTPCode() {
     // Verified — the skip-verification escape hatch is now pointless.
     var skipWrap = document.getElementById('otpSkip');
     if (skipWrap) skipWrap.style.display = 'none';
+    trackEvent('estimate_phone_verified', { service: funnelData.service });
     checkSubmitReady();
   } else {
     otpStatus.className = 'otp-status error';

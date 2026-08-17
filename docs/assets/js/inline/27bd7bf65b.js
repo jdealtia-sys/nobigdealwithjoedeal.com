@@ -868,6 +868,16 @@ async function runVisualizer() {
   await new Promise(r => setTimeout(r, 600));
   document.getElementById('resultsLoading').style.display = 'none';
   document.getElementById('resultsContent').style.display = 'block';
+  // Result-shown event: ai_image distinguishes a real Gemini render from
+  // the canvas color-filter fallback.
+  try {
+    if (typeof window.gtag === 'function') {
+      window.gtag('event', 'visualizer_result', {
+        ai_image: imageResult.status === 'fulfilled',
+        roof_line: state.roofLine || ''
+      });
+    }
+  } catch (e) {}
 
   // Set original image
   document.getElementById('resultOriginalImg').src = uploadedDataUrl;
