@@ -65,7 +65,8 @@ No deletions, no stage changes.
   complaints, and claim correspondence all arrived as email and stalled
   unread. The Thumbtack webhook closed the marketplace gap; an email-ingest
   lane (forward-to-CRM address or IMAP poller → leads/notes) is the same
-  play for the inbox. Candidate big rock — NOT started.
+  play for the inbox. Candidate big rock — scoped same day:
+  [EMAIL-INGEST-2026-08](../architecture/EMAIL-INGEST-2026-08.md).
 - Mail app iframes defeat text extraction in the in-app browser
   (get_page_text returns the shell) — screenshot-driven reading works.
 
