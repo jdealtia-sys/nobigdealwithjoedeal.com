@@ -463,33 +463,70 @@ exports.onRepSignup = beforeUserCreated(
 );
 
 // ═════════════════════════════════════════════════════════════
-// Q3: beforeAdminSignIn — TEMPORARILY DISABLED.
+// Q3: beforeAdminSignIn — DISABLED. Blocked on a GCIP upgrade,
+// NOT on an IAM grant (corrected 2026-08-17 — see below).
 //
 // The trigger code below is functionally correct; the problem is
-// deploy-time registration. This project has only ever used
-// beforeUserCreated as a blocking trigger. Adding a brand-new
-// trigger TYPE (beforeUserSignedIn) requires a one-time Identity
-// Platform config update, which the GitHub Actions deploy SA
-// lacks the role for. Result: batch function-update rolls back
-// and 32 unrelated functions can't redeploy.
+// deploy-time registration.
+//
+// ── CORRECTION 2026-08-17 (verified against prod) ────────────
+// The original note (kept below for history) blamed a missing
+// `roles/identityplatform.admin` on the deploy SA. That was wrong.
+// The real error, from this project's identitytoolkit audit logs:
+//
+//   OPERATION_NOT_ALLOWED : Blocking Functions may only be
+//   configured for GCIP projects.
+//
+// `nobigdeal-pro` is subtype FIREBASE_AUTH — it has never been
+// upgraded to Google Cloud Identity Platform, and blocking
+// functions are a GCIP-only feature. No IAM grant can fix this.
+// The same call fails on EVERY deploy for the already-shipped
+// beforeUserCreated trigger too (162 consecutive failures in 30
+// days), which is why this project's Identity Platform
+// `blockingFunctions` config is `{}` and `onRepSignup` has never
+// actually been invoked. Blocking triggers do not work here at
+// all — this one is not a special case.
+//
+// Corollary: an orphaned `beforeAdminSignIn` Cloud Functions
+// record sat in prod in state FAILED from the 2026-04-14 deploy
+// that first tried to register it (created 19:34:59Z; the export
+// was reverted 7 minutes later in d8dee687). It had no Cloud Run
+// service and no Identity Platform registration, so it was inert
+// — admin sign-in was never affected.
+//
+// Full writeup:
+// documentation/audit/BLOCKING-TRIGGERS-NOT-GCIP-2026-08-17.md
 //
 // Re-enablement runbook (must land before uncommenting `exports.`
 // below):
-//   1. Firebase Console → Authentication → Settings → Blocking
-//      functions → confirm "Enabled" for the `beforeUserSignedIn`
-//      event. If disabled, enable it (sends you to Identity
-//      Platform upgrade if the project hasn't been upgraded yet).
-//   2. Grant the GitHub Actions deploy SA
-//      `roles/identityplatform.admin` on the project (or the
-//      narrower blocking-function-config role once GCP ships it).
+//   1. Upgrade `nobigdeal-pro` to Google Cloud Identity Platform
+//      (Firebase Console → Authentication → Settings, or the GCP
+//      Identity Platform marketplace page). This is a paid-tier
+//      product decision, not an ops IAM tweak — it also gates the
+//      MFA that this trigger is meant to enforce (`mfa.state` is
+//      currently DISABLED for the same reason).
+//   2. Confirm `roles/identityplatform.admin` on the GitHub
+//      Actions deploy SA — necessary once GCIP is on, but NOT
+//      sufficient before it.
 //   3. Uncomment the `exports.beforeAdminSignIn = ...` line below.
 //   4. Deploy. On first deploy the CLI may still emit a one-time
 //      "blocking function configured" notice — expected.
 //
+// ── original note, superseded ────────────────────────────────
+// "This project has only ever used beforeUserCreated as a blocking
+// trigger. Adding a brand-new trigger TYPE (beforeUserSignedIn)
+// requires a one-time Identity Platform config update, which the
+// GitHub Actions deploy SA lacks the role for. Result: batch
+// function-update rolls back and 32 unrelated functions can't
+// redeploy."
+// ─────────────────────────────────────────────────────────────
+//
 // Until then: the feature-flag + mfa-enroll.html + login.js
-// guidance still ship. Admins can self-enroll, and the runtime
-// enforcement at the blocking-trigger layer is the only piece
-// that's deferred.
+// guidance still ship. NOTE: admins cannot actually self-enroll a
+// second factor while the project is off GCIP — `mfa.state` is
+// DISABLED — so the enrolment UI is currently guidance only, and
+// the runtime enforcement at the blocking-trigger layer is
+// deferred alongside it.
 //
 // Threat model context (same as the active version would apply):
 // admin email is findable via OSINT; password is guessable via
@@ -621,19 +658,24 @@ exports.activateInvitedRep = onCall(
 // fallback during the rollout.
 //
 // WHY A CALLABLE AND NOT A BLOCKING AUTH TRIGGER: minting must run
-// on a code path that actually DEPLOYS.
+// on a code path that actually DEPLOYS *and* actually FIRES.
 //   - beforeUserCreated (onRepSignup) is in NBD_DEPLOY_SKIP_LIST
-//     (.github/workflows/firebase-deploy.yml — the deploy SA lacks
-//     identityplatform.admin, so the strict pass skips it and the
-//     tolerant retry fails). It also only fires at account CREATION
-//     — Joe's accounts already exist.
+//     (.github/workflows/firebase-deploy.yml). Corrected 2026-08-17:
+//     this is not an IAM gap. Blocking functions are GCIP-only and
+//     `nobigdeal-pro` is subtype FIREBASE_AUTH, so the registration
+//     call fails with OPERATION_NOT_ALLOWED on every deploy and the
+//     project's `blockingFunctions` config is `{}`. onRepSignup is
+//     deployed and ACTIVE but has NEVER been invoked (zero Cloud Run
+//     requests in 30d). It also only fires at account CREATION —
+//     Joe's accounts already exist.
 //   - beforeUserSignedIn was never exported (see the Q3 header on
-//     _beforeAdminSignInHandler above): registering a new blocking-
-//     trigger TYPE needs a one-time Identity Platform config change
-//     the deploy SA can't make. If/when that trigger is re-enabled,
-//     this minting can move into it (return { sessionClaims } /
+//     _beforeAdminSignInHandler above) — same GCIP blocker. If/when
+//     the project is upgraded and that trigger is re-enabled, this
+//     minting can move into it (return { sessionClaims } /
 //     { customClaims } from the handler) and this callable becomes
 //     a no-op safety net.
+//   Until GCIP lands, these callables are not a belt-and-braces
+//   backup — they are the ONLY claim-minting path that runs.
 // A plain onCall in handlers/*.js IS deployed: the workflow greps
 // `^exports.<name> = onCall` across functions/handlers/*.js, and
 // mintOwnerClaims is not in NBD_DEPLOY_SKIP_LIST, so it ships in

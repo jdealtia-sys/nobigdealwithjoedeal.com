@@ -522,25 +522,46 @@ jobs:
 
       # F-10 + Q8: functions deploy is strict by default — any failure
       # fails the workflow. But there's an explicit exception list for
-      # functions whose DEPLOY blocks on IAM the GitHub Actions deploy
-      # SA doesn't have:
+      # functions whose DEPLOY blocks on something the GitHub Actions
+      # deploy SA can't do:
       #
       #   cloudscheduler.jobs.update  → schedule-function binding update
-      #   identityplatform.admin      → blocking-trigger registration
+      #   blocking-trigger registration → see the CORRECTION below
       #
-      # These 8 functions have no code changes in the normal case; the
+      # CORRECTION 2026-08-17 (verified against prod audit logs — the
+      # "identityplatform.admin" story below was WRONG for three years
+      # of comments and is kept only to explain the skip-list's shape):
+      # blocking-trigger registration does NOT fail on IAM. Every deploy
+      # emits an identitytoolkit UpdateConfig call that fails with
+      #
+      #   OPERATION_NOT_ALLOWED : Blocking Functions may only be
+      #   configured for GCIP projects.
+      #
+      # 162 consecutive failures in the last 30 days, principal
+      # firebase-adminsdk-fbsvc@nobigdeal-pro. `nobigdeal-pro` is
+      # subtype FIREBASE_AUTH — it has never been upgraded to Google
+      # Cloud Identity Platform, and blocking functions are a GCIP-only
+      # feature. Granting roles/identityplatform.admin CANNOT fix this;
+      # the project has to be upgraded to Identity Platform first
+      # (a paid-tier product decision, Jo's call — not an ops IAM tweak).
+      # Consequence: the project's Identity Platform blockingFunctions
+      # config is `{}`, so onRepSignup has NEVER been invoked (zero
+      # Cloud Run requests in 30d) and claim-minting runs through the
+      # callable fallbacks (claimInvite / activateInvitedRep /
+      # mintOwnerClaims) instead. Full writeup:
+      # documentation/audit/BLOCKING-TRIGGERS-NOT-GCIP-2026-08-17.md
+      #
+      # These functions have no code changes in the normal case; the
       # SA just can't refresh their Cloud Scheduler job / Identity
-      # Platform config. Previous deploys succeeded because the SA
-      # had broader roles; IAM drift revoked them at some point.
+      # Platform config.
       #
       # Strategy:
-      #  1. Main deploy = everything EXCEPT the 8 known-blocked names.
+      #  1. Main deploy = everything EXCEPT the known-blocked names.
       #     Strict — failure fails the workflow.
-      #  2. Second step (tolerant) retries ONLY the 8. Permission
-      #     errors there produce a warning, not a failure. When ops
-      #     grants roles/cloudscheduler.admin + roles/identityplatform.admin
-      #     to the deploy SA, empty NBD_DEPLOY_SKIP_LIST and the main
-      #     step handles them.
+      #  2. Second step (tolerant) retries ONLY those. Errors there
+      #     produce a warning, not a failure. Granting
+      #     roles/cloudscheduler.admin unsticks the scheduler half;
+      #     the blocking-trigger half stays stuck until GCIP.
       #
       # Full remediation runbook: see POST_DEPLOY_CHECKLIST §16.
       #
@@ -752,17 +773,29 @@ jobs:
             {
               echo "### ⚠ Some scheduled / blocking-trigger functions couldn't update"
               echo ""
-              echo "The GitHub Actions deploy service account is missing either"
-              echo "\`roles/cloudscheduler.admin\` or \`roles/identityplatform.admin\`"
-              echo "(or both). The following functions were NOT updated this deploy:"
+              echo "The following functions were NOT updated this deploy:"
               echo ""
               for fn in $(echo "$NBD_DEPLOY_SKIP_LIST" | tr ',' ' '); do
                 echo "  - $fn"
               done
               echo ""
               echo "Their last-deployed revisions are still live in Cloud Run."
-              echo "Grant the missing IAM roles to unstick them — runbook:"
-              echo "POST_DEPLOY_CHECKLIST.md §16."
+              echo ""
+              echo "Two DIFFERENT causes hide behind this one warning:"
+              echo ""
+              echo "- **Scheduled** functions: the deploy SA is missing"
+              echo "  \`roles/cloudscheduler.admin\`. Granting it fixes them."
+              echo "- **Blocking triggers** (\`onRepSignup\`): NOT an IAM problem."
+              echo "  \`nobigdeal-pro\` is subtype FIREBASE_AUTH, and blocking"
+              echo "  functions are GCIP-only, so the registration call fails with"
+              echo "  \`OPERATION_NOT_ALLOWED : Blocking Functions may only be"
+              echo "  configured for GCIP projects\`. No IAM grant fixes this —"
+              echo "  the project must be upgraded to Identity Platform. The"
+              echo "  trigger is inert in the meantime (blockingFunctions is"
+              echo "  \`{}\`); claim-minting runs through the callable fallbacks."
+              echo "  See documentation/audit/BLOCKING-TRIGGERS-NOT-GCIP-2026-08-17.md"
+              echo ""
+              echo "Runbook: POST_DEPLOY_CHECKLIST.md §16."
             } >> "$GITHUB_STEP_SUMMARY"
             echo "::warning::Scheduled/blocking functions deferred — see summary"
           else
