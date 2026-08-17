@@ -967,7 +967,11 @@
       if (!authUid) throw new Error('Not signed in');
       const leadSegment = S.leadId ? (S.leadId + '/') : '';
       const fileName = overwrite ? `photo_${S.photoId}.jpg` : `photo_${uid()}.jpg`;
-      const storageRef = window.ref(window.storage, `photos/${authUid}/${leadSegment}${fileName}`);
+      // storagePath mirrors the upload key so the image pipeline
+      // (functions/image-pipeline.js) can find this doc by equality
+      // and stamp fresh `urls` variants for the flattened image.
+      const storagePath = `photos/${authUid}/${leadSegment}${fileName}`;
+      const storageRef = window.ref(window.storage, storagePath);
       await window.uploadBytes(storageRef, blob);
       const url = await window.getDownloadURL(storageRef);
       // Flatten bakes the current brightness/contrast into the pixels, so
@@ -975,7 +979,12 @@
       // would double-apply them on top of the already-adjusted image.
       const meta = { damageType: S.damageType, severity: S.severity, location: S.location, phase: S.phase, notes: S.notes, tags: S.tags, isAnnotated: true, annotatedAt: window.serverTimestamp(), brightness: 0, contrast: 0 };
       if (overwrite && S.photoId) {
-        await window.updateDoc(window.doc(window.db, 'photos', S.photoId), { url, ...meta });
+        // storagePath moves with the save-over: url and storagePath must
+        // point at the SAME object (deletion + pipeline stamping both key
+        // off storagePath). The doc's old `urls` variants go stale for the
+        // seconds until the pipeline re-stamps them from the new object —
+        // acceptable; renderers fall back sanely either way.
+        await window.updateDoc(window.doc(window.db, 'photos', S.photoId), { url, storagePath, ...meta });
       } else {
         // Use the resolved authUid (guaranteed non-empty above), not the raw
         // S.userId — S.userId is '' when the editor was opened while
@@ -989,7 +998,7 @@
         // edit timestamp — distinct from doc-create time.)
         // companyId: tenant key (claims.companyId || uid) so the annotated
         // copy is visible to company-scoped team reads like the original.
-        await window.addDoc(window.collection(window.db, 'photos'), { url, originalPhotoId: S.photoId, leadId: S.leadId, userId: authUid, companyId: (window._userClaims && window._userClaims.companyId) || authUid, createdAt: window.serverTimestamp(), ...meta });
+        await window.addDoc(window.collection(window.db, 'photos'), { url, storagePath, originalPhotoId: S.photoId, leadId: S.leadId, userId: authUid, companyId: (window._userClaims && window._userClaims.companyId) || authUid, createdAt: window.serverTimestamp(), ...meta });
       }
       S.hasUnsaved = false;
       toast('Saved!', 'success');

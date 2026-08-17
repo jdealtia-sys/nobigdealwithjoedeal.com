@@ -157,11 +157,16 @@
  *   present and fall back to `url` for legacy docs.
  *
  * @property {string=} storagePath
- *   Canonical Storage object name (e.g.
- *   `photos/{uid}/{leadId}_{ts}_{name}.jpg`). Used by the
- *   image-pipeline Cloud Function to find this doc after it
- *   generates `_thumb/_med/_full.webp` variants. Set on every
- *   write since the image-pipeline rollout (PR #75); legacy docs
+ *   Canonical Storage object name. Shape varies by upload surface:
+ *   customer page `photos/{uid}/{custId}_{ts}_{name}.jpg`,
+ *   dashboard + photo-engine `photos/{uid}/{leadId}/{ts}_{name}.jpg`,
+ *   photo-editor `photos/{uid}/{leadId}/photo_{id}.jpg` — always
+ *   owner-rooted at segment [1]. Used by the image-pipeline Cloud
+ *   Function to find this doc after it generates
+ *   `_thumb/_med/_full.webp` variants, and by delete paths to
+ *   remove the Storage object without cracking the download URL.
+ *   Set on every write since the image-pipeline rollout (PR #75;
+ *   dashboard/photo-editor writers joined 2026-08-16); legacy docs
  *   may be missing it until the backfill migration runs.
  *
  * @property {{ thumb: string, med: string, full: string }=} urls

@@ -556,7 +556,7 @@ test.describe.serial('Authenticated destructive flows @shard1', () => {
     expect(inv.items.length, 'row-shaped estimate keeps its line items').toBe(EST.rows.length);
   });
 
-  test('photo: uploadFromFile stores original + thumb, derives phase from the before tag', async ({ page }) => {
+  test('photo: uploadFromFile stores original + thumb, derives phase; dashboard _uploadPhoto pins the nested storagePath shape', async ({ page }) => {
     await loginAs(page, creds);
     await page.waitForFunction(() => window._user && window._user.uid, null, { timeout: 15_000 });
 
@@ -574,6 +574,7 @@ test.describe.serial('Authenticated destructive flows @shard1', () => {
     await page.waitForFunction(() =>
       window.PhotoEngine && !window.PhotoEngine.__nbdLazyPhotosStub
       && typeof window.PhotoEngine.uploadFromFile === 'function'
+      && typeof window._uploadPhoto === 'function'
       && window._storage && window._db, null, { timeout: 20_000 });
 
     const stamp = Date.now();
@@ -624,6 +625,49 @@ test.describe.serial('Authenticated destructive flows @shard1', () => {
     expect(doc.thumbStoragePath, 'thumb rooted under .../thumbs/')
       .toMatch(new RegExp('^photos/' + out.uid + '/' + out.leadId + '/thumbs/'));
     expect(doc.createdAt, 'createdAt serverTimestamp (canonical ordering field)').toBeTruthy();
+
+    // ── Dashboard quick-upload leg ──────────────────────────────
+    // window._uploadPhoto (dashboard-bootstrap.module.js) writes the
+    // NESTED shape photos/{uid}/{leadId}/{ts}_{name} — one of the
+    // shapes the image pipeline silently skipped until 2026-08-16
+    // (its trigger required exactly 3 path segments). Pin two things
+    // through the real Storage emulator + storage.rules:
+    //   1. the nested write is accepted by the rules, and
+    //   2. the doc stamps storagePath in the exact nested shape the
+    //      pipeline's equality lookup keys on.
+    const dash = await page.evaluate(async (args) => {
+      const canvas = document.createElement('canvas');
+      canvas.width = 60; canvas.height = 40;
+      const ctx = canvas.getContext('2d');
+      ctx.fillStyle = '#1e6fd2'; ctx.fillRect(0, 0, 60, 40);
+      const blob = await new Promise((res) => canvas.toBlob(res, 'image/jpeg', 0.8));
+      const file = new File([blob], 'e2e_dash.jpg', { type: 'image/jpeg' });
+
+      const leadId = 'e2e-dash-photo-lead-' + args.stamp;
+      const url = await window._uploadPhoto(leadId, file);
+
+      // _uploadPhoto returns only the download URL — re-query for the
+      // doc to tag it for cleanup + read back its persisted shape.
+      // Two equality filters (leadId + userId) → merge join, no
+      // composite index needed.
+      const fsMod = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
+      const db = window.db || window._db;
+      const snap = await fsMod.getDocs(fsMod.query(
+        fsMod.collection(db, 'photos'),
+        fsMod.where('leadId', '==', leadId),
+        fsMod.where('userId', '==', window._user.uid)));
+      let id = null, data = null;
+      snap.forEach(d => { if (!id) { id = d.id; data = d.data(); } });
+      if (id) await fsMod.updateDoc(fsMod.doc(db, 'photos', id), { e2eTestData: true });
+      return { url, doc: data, leadId, uid: window._user.uid };
+    }, { stamp });
+
+    expect(dash.url, 'dashboard _uploadPhoto returns a download URL').toBeTruthy();
+    expect(dash.doc, 'dashboard upload persisted a photos doc').toBeTruthy();
+    expect(dash.doc.storagePath, 'nested shape pinned: photos/<uid>/<leadId>/<ts>_<name>')
+      .toMatch(new RegExp('^photos/' + dash.uid + '/' + dash.leadId + '/\\d+_e2e_dash\\.jpg$'));
+    expect(dash.doc.userId, 'userId stamped').toBe(dash.uid);
+    expect(dash.doc.companyId, 'tenant key stamped (solo convention: uid)').toBeTruthy();
   });
 
 });
