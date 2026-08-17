@@ -96,9 +96,35 @@ to `nobigdeal-pro.firebasestorage.app`, overridable via `NBD_BUCKET`.
   scan set; the script is `node --check`-clean), full `tests/smoke.test.js`
   **3359 ✓ / 0 ✗**.
 
-## Not run here
+## Prod dry-run results (2026-08-16, read-only — apply still pending)
 
-The script was **not executed against prod** — it needs the admin SA
-credentials (`~/.nbd/nobigdeal-pro-sa.json`), which this sandbox doesn't
-have, and a prod write run needs Jo's go-ahead. Dry-run first, per the run
-order above.
+Ran on Jo's machine via gcloud ADC (no `~/.nbd` SA key present — ADC worked
+fine) with a scratch firebase-admin **v12** install on `NODE_PATH` (the
+v14 in `functions/node_modules` throws `admin.credential` undefined — the
+namespaced API is gone in v14, exactly the house SETUP warning). Numbers,
+no identifiers (public repo):
+
+- **111 `/photos` docs scanned.**
+- **70 need both storagePath + variants** — all dashboard-shape
+  (`photos/{uid}/{leadId}/{ts}_{name}`), timestamps ≈ April 2026. This IS
+  the expected backlog; each maps to exactly 1 doc (no shared-path groups).
+- **1 doc already complete** (customer-page shape, pipeline-stamped) and
+  1 more already carried storagePath.
+- **39 skipped `too-shallow`** — legacy 2-segment `photos/{file}` docs
+  from before the 2026-04-11 storage-rules hardening. Deliberately outside
+  both the trigger and the backfill (as the original pipeline comment
+  documented); their grids keep rendering plain `url`. Decision for Jo:
+  leave them (recommended — they predate the CRM photo surfaces) or extend
+  the backfill later.
+- **1 unparseable url** — a `storage.googleapis.com`-style URL under a
+  `homeowner-uploads/` root: not a `photos/` object at all (portal
+  homeowner upload), correctly excluded.
+- **0 owner mismatches, 0 foreign buckets.**
+- **`metrics/imagePipeline` doc does not exist in prod.** Consistent, not
+  alarming: the old narrow trigger early-returned on nested paths *before*
+  the no-match branch, and 3-segment customer uploads always matched their
+  docs — so the §2.2 counter never had a chance to fire. It starts counting
+  once the widened pipeline (#1206) deploys.
+
+Apply run still pending (canary `--limit 5` first, per the run order
+above). Scale is small: 70 downloads + 210 WebP encodes/uploads.
