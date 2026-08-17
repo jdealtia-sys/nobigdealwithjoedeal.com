@@ -136,3 +136,13 @@ in all 25 area pages' JSON-LD (verify HQ intent).
   stats per VOICE_BIBLE. **Remaining drip queue:** loveland, milford,
   anderson-township, blue-ash, cincinnati (already deepest), then the rest
   at 2-3 pages per session.
+- **Round 2 (2026-08-17, same day):** `loveland-oh` (river-streets tree
+  cover, subdivision side, three-county permit wrinkle), `milford-oh`
+  (Old Milford decking/flashing, SR 131 / Day Heights claim clustering,
+  river tree cover), `anderson-township-oh` (60s-80s second/third-roof
+  stock, tree canopy claims, Turpin Hills / Coldstream complexity),
+  `blue-ash-oh` (mid-century low-slope sections need membrane not
+  shingles, Summit Park renovation sequencing, canopy streak-vs-strike).
+  **Remaining queue:** the other 18 area pages at 2-3 per session —
+  next natural picks: montgomery? (no page), amelia, goshen, monroe,
+  lebanon, springboro. Cincinnati already has its extra section.
