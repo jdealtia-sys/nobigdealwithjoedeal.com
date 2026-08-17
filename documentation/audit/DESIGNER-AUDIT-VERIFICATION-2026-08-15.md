@@ -146,3 +146,17 @@ in all 25 area pages' JSON-LD (verify HQ intent).
   **Remaining queue:** the other 18 area pages at 2-3 per session —
   next natural picks: montgomery? (no page), amelia, goshen, monroe,
   lebanon, springboro. Cincinnati already has its extra section.
+- **Round 3 (2026-08-17, same day):** `amelia-oh` (2019 village
+  dissolution → Pierce/Batavia Twp permit jurisdiction, Ohio Pike
+  corridor claims, layered-roof code caps), `goshen-oh` (2022 tornado
+  re-inspection angle, rural farmhouse/ranch/manufactured mix, wooded
+  lots — leans on Goshen being NBD's home base), `monroe-oh` (2000s
+  first-cycle subdivisions on the convergence line, old village core,
+  Solid Rock statue lightning strike as local weather color),
+  `lebanon-oh` (Broadway/Golden Lamb Victorian stock + historic-district
+  review, ring growth, Warren county-seat permits), `springboro-oh`
+  (historic Main Street district, 80s/90s vs 2000s waves,
+  Warren/Montgomery county line). **Now 12/26 deepened + Cincinnati.
+  Remaining:** blanchester, clarksville, covington-ky, erlanger-ky,
+  fairfield, fayetteville, florence-ky, fort-mitchell-ky, indian-hill,
+  maineville, mt-orab, wilmington, and the rest.
