@@ -111,9 +111,11 @@ merged PRs. Three tracks:
 
 0. **Email-ingest lane** (new, from the 08-17 sweep): the inbox is the CRM's
    remaining blind spot — acceptances and warranty complaints stall unread
-   in mail (one paying customer sat in JUNK for a month). Same play as the
-   Thumbtack webhook: forward-to-CRM address or IMAP poller → leads/notes.
-   Scope it before building.
+   in mail (one paying customer sat in JUNK for a month). ~~Scope it before
+   building~~ → **SCOPED 2026-08-17:
+   [EMAIL-INGEST-2026-08](../architecture/EMAIL-INGEST-2026-08.md)** (IMAP
+   poller chosen over forward-address for Junk/unseen coverage; build is
+   one Thumbtack-webhook-sized session + a 5-min Jo setup).
 1. Watch the webhook end-to-end on the next organic Thumbtack lead
    (receiver → bridge → kanban → follow-up); it's new in prod.
 2. ~~Image-pipeline nested-path fix~~ ✅ **DONE in its own session** (PR

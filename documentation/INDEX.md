@@ -28,6 +28,7 @@ Map of content for the `documentation/` corpus (~115 files) plus the other place
 - [RAILWAY-EVAL-2026-08](architecture/RAILWAY-EVAL-2026-08.md) — Railway hosting evaluated and deferred (trigger conditions inside)
 - Pillar plans: [1 — Provisioning](architecture/PILLAR1-PROVISIONING-PLAN.md) · [4 — Billing](architecture/PILLAR4-BILLING-PLAN.md) · [5 — Domains & Sites](architecture/PILLAR5-DOMAINS-SITES-PLAN.md)
 - [THUMBTACK-WEBHOOK-2026-08](architecture/THUMBTACK-WEBHOOK-2026-08.md) — marketplace lead/message/review ingest; LIVE in prod since 2026-08-16, real leads flowing
+- [EMAIL-INGEST-2026-08](architecture/EMAIL-INGEST-2026-08.md) — business-mailbox → CRM lane (IMAP poller, Junk coverage, attach-vs-create matching); SCOPED 2026-08-17, not built
 
 ## Runbooks (ops — read before touching prod)
 
