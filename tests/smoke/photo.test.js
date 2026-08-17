@@ -216,6 +216,105 @@ section('Image pipeline: nested upload shapes (2026-08-16)');
     /img\.src = \(p\.urls && p\.urls\.thumb\) \|\| p\.url/.test(widgets));
 }
 
+section('Image pipeline §2.2: photos variants backfill script (2026-08-16)');
+{
+  const fs = require('fs');
+  const scriptPath = path.join(ROOT, 'scripts/backfill-photos-variants.js');
+  assert('scripts/backfill-photos-variants.js exists', fs.existsSync(scriptPath));
+
+  // ── REAL unit tests of the pure helpers (module top is dep-free) ──
+  const { storagePathFromUrl, skipReasonForSource, uidFromPath, variantDestinations } =
+    require(scriptPath);
+
+  const BUCKET = 'nobigdeal-pro.firebasestorage.app';
+  const nestedPath = 'photos/uidA/lead42/1712345678_roof photo.jpg';
+  const nestedUrl = 'https://firebasestorage.googleapis.com/v0/b/' + BUCKET
+    + '/o/' + encodeURIComponent(nestedPath) + '?alt=media&token=tok-1';
+  const got = storagePathFromUrl(nestedUrl);
+  assert('storagePathFromUrl decodes the nested dashboard shape (spaces included)',
+    !!got && got.bucket === BUCKET && got.path === nestedPath,
+    'got ' + JSON.stringify(got));
+
+  const custPath = 'photos/uidA/cust1_1712345678_deck.jpg';
+  const custUrl = 'https://firebasestorage.googleapis.com/v0/b/' + BUCKET
+    + '/o/' + encodeURIComponent(custPath) + '?alt=media&token=tok-2';
+  assert('storagePathFromUrl handles the 3-segment customer shape',
+    (storagePathFromUrl(custUrl) || {}).path === custPath);
+  assert('storagePathFromUrl works without a query string',
+    (storagePathFromUrl('https://firebasestorage.googleapis.com/v0/b/' + BUCKET
+      + '/o/' + encodeURIComponent(custPath)) || {}).path === custPath);
+  assert('storagePathFromUrl rejects non-Firebase hosts',
+    storagePathFromUrl('https://example.com/v0/b/' + BUCKET + '/o/photos%2Fu%2Ff.jpg') === null);
+  assert('storagePathFromUrl rejects URLs without an /o/ segment',
+    storagePathFromUrl('https://firebasestorage.googleapis.com/v0/b/' + BUCKET + '/photos%2Fu%2Ff.jpg') === null);
+  assert('storagePathFromUrl rejects undecodable percent-encoding',
+    storagePathFromUrl('https://firebasestorage.googleapis.com/v0/b/' + BUCKET + '/o/%ZZbad') === null);
+  for (const bad of [null, undefined, '', 42, 'not a url']) {
+    assert('storagePathFromUrl(' + JSON.stringify(bad) + ') === null',
+      storagePathFromUrl(bad) === null);
+  }
+
+  // Skip gates mirror the trigger's: _variants, thumbs, d2d, shape checks.
+  const skipCases = [
+    ['photos/uid/lead/f.jpg', null, 'nested dashboard source is accepted'],
+    ['photos/uid/f.jpg', null, '3-segment customer source is accepted'],
+    ['photos/uid/d2d/knock/f.jpg', 'd2d', 'd2d knock photos left alone (docless by design)'],
+    ['photos/uid/lead/thumbs/f.jpg', 'client-thumb', 'photo-engine client thumbs skipped'],
+    ['photos/uid/_variants/f_thumb.webp', 'variants-output', 'pipeline output skipped'],
+    ['photos/f.jpg', 'too-shallow', 'legacy 2-segment form skipped'],
+    ['audio/uid/lead/f.m4a', 'not-photos', 'non-photos roots skipped'],
+    ['photos//lead/f.jpg', 'empty-uid', 'empty uid segment skipped'],
+    ['', 'empty', 'empty path skipped'],
+  ];
+  for (const [p, expected, label] of skipCases) {
+    assert('skipReasonForSource(' + JSON.stringify(p) + ') === ' + JSON.stringify(expected)
+      + ' — ' + label, skipReasonForSource(p) === expected,
+      'got ' + JSON.stringify(skipReasonForSource(p)));
+  }
+  assert('uidFromPath reads segment [1] (storage.rules contract)',
+    uidFromPath('photos/uidA/lead42/f.jpg') === 'uidA' && uidFromPath('') === '');
+
+  // Destination layout must be byte-identical to the trigger's:
+  // {sourceDir}/_variants/{base}_{name}.webp, extension stripped at last dot.
+  const spec = [{ name: 'thumb', width: 200, quality: 70 }];
+  assert('variantDestinations keeps the lead segment in the destination dir',
+    variantDestinations('photos/u/l/a.b.jpg', spec)[0].destination
+      === 'photos/u/l/_variants/a.b_thumb.webp');
+  assert('variantDestinations lands 3-segment sources at photos/{uid}/_variants/',
+    variantDestinations('photos/u/x.jpg', spec)[0].destination
+      === 'photos/u/_variants/x_thumb.webp');
+
+  // ── STATIC guards: no-drift wiring + the house safety rails ──
+  const bf = read(scriptPath);
+  assert('backfill imports VARIANTS + MAX_SOURCE_BYTES from the pipeline (no drift)',
+    /require\(['"]\.\.\/functions\/image-pipeline['"]\)/.test(bf)
+    && /\{\s*VARIANTS,\s*MAX_SOURCE_BYTES\s*\}/.test(bf));
+  // Requiring the pipeline constructs its onObjectFinalized trigger, which
+  // needs FIREBASE_CONFIG for the default bucket — the script must stamp a
+  // fallback BEFORE that require or it throws outside the CF runtime.
+  assert('backfill stamps a FIREBASE_CONFIG fallback before importing the pipeline',
+    bf.indexOf('process.env.FIREBASE_CONFIG = JSON.stringify(') > -1
+    && bf.indexOf('process.env.FIREBASE_CONFIG = JSON.stringify(')
+       < bf.indexOf("require('../functions/image-pipeline')"));
+  assert('backfill is dry-run-by-default + --apply needs --yes',
+    /APPLY && !YES/.test(bf) && /--apply --yes/.test(bf));
+  assert('backfill is idempotent (skips docs with complete urls + variantsGeneratedAt)',
+    /urls\.thumb && data\.urls\.med && data\.urls\.full/.test(bf)
+    && /variantsGeneratedAt/.test(bf));
+  assert('backfill owner-checks path uid vs doc userId (DI-02 mirror)',
+    /uidFromPath\(sp\) !== data\.userId/.test(bf));
+  assert('backfill variant uploads carry the trigger\'s metadata contract',
+    /firebaseStorageDownloadTokens/.test(bf)
+    && /public,max-age=31536000,immutable/.test(bf)
+    && /sourcePath:/.test(bf) && /variantSize:/.test(bf));
+
+  // The pipeline must actually export what the script imports.
+  const pipeline = read(path.join(ROOT, 'functions/image-pipeline.js'));
+  assert('image-pipeline.js exports VARIANTS + MAX_SOURCE_BYTES for the backfill',
+    /exports\.VARIANTS\s*=\s*VARIANTS/.test(pipeline)
+    && /exports\.MAX_SOURCE_BYTES\s*=\s*MAX_SOURCE_BYTES/.test(pipeline));
+}
+
 section('Phase C.4 photo-engine — inline actions in rendered templates');
 {
   const pe = read(path.join(ROOT, 'docs/pro/js/photo-engine.js'));
