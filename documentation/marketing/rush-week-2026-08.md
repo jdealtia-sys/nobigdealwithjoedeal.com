@@ -65,10 +65,12 @@ Places** (that trio is the AI-answer lever), then Apple, then the rest.
 
 1. ✅ **GAF contractor locator** — CLAIMED 2026-08-17. Live profile:
    `gaf.com/en-us/roofing-contractors/residential/usa/oh/goshen/no-big-deal-home-solutions-1162011`
-   (in site `sameAs` since PR #1209). **Two gaps still open in the GAF portal:**
-   (a) profile shows **no website link** — add `https://nobigdealwithjoedeal.com`,
-   that link is the backlink; (b) street address is displayed — hide it if GAF
-   allows (service-area NAP policy).
+   (in site `sameAs` since PR #1209). **Gap (a) website link: SKIPPED per Jo
+   2026-08-17** — no website field found in his GAF portal access, so this
+   profile counts as a citation + cert verification, not a followed link. The
+   TAMKO locator (item 2) carries the website field and is now the top
+   manufacturer-backlink target. Gap (b) street address still displayed — hide
+   if a setting ever appears.
 2. **TAMKO contractor locator** — tamko.com/locate-a-contractor. You're **TAMKO Pro
    Gold™, ID 181382** (upgraded 2026-07-08 — the July playbook's "Team tier" note is
    stale; corrected in its addendum). Claim/verify the listing, link the site.
@@ -80,15 +82,15 @@ Places** (that trio is the AI-answer lever), then Apple, then the rest.
    **www.**nobigdealwithjoedeal.com → makes item 7 a real priority, not housekeeping.
 6. **Apple Business Connect** — businessconnect.apple.com (any Apple ID). Paste the
    citation-kit identity block.
-7. **www → apex 301 — VERIFIED BROKEN 2026-08-17, now priority** (from the July
-   manual): `https://www.nobigdealwithjoedeal.com` serves the full site as an
-   HTTP 200 duplicate — no redirect (checked root + deep URLs). And the new BWT
-   property is the **www** host, so Bing is now actively crawling the duplicate.
-   Canonical tags point at the apex, which keeps this from being harmful, but
-   fix it: Firebase console → Hosting → `nobigdeal-pro` → Custom domains → set
-   `www.nobigdealwithjoedeal.com` to **redirect** to the apex (adjust DNS at the
-   registrar if prompted). Until then any `www.` link leaks equity through a
-   canonical hop instead of a 301.
+7. ✅ **www → apex 301 — FIXED 2026-08-17** (open since the July manual; verified
+   broken same morning, then repaired same day). Done via the new
+   `.github/workflows/www-redirect.yml` (PR #1217): Jo dispatched `mode=apply`,
+   which PATCHed `redirectTarget=nobigdealwithjoedeal.com` onto the www custom
+   domain through the Hosting API using the deploy service account. Verified
+   live from two networks: root and deep URLs both `301 → apex` with path
+   preserved. Bing's www property now follows redirects to the canonical host.
+   The workflow stays in the repo for future domain-redirect needs (inspect
+   mode is read-only).
 8. ✅ **IndexNow pings** — DONE 2026-08-17 by the session, bulk POST of all 9 URLs
    accepted with **HTTP 202** (~1 hour after the content went live). BWT's IndexNow
    tab should list them. Keep the command for future posts — the key file stays live at
