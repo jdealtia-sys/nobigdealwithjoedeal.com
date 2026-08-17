@@ -41,13 +41,23 @@
 
 const path = require('path');
 // firebase-admin lives in functions/node_modules (scripts/ has none), so a bare
-// require fails when run from the repo root. Resolve it from functions/.
-let admin;
-try { admin = require('firebase-admin'); }
-catch (_) { admin = require('module').createRequire(path.join(__dirname, '..', 'functions', 'package.json'))('firebase-admin'); }
-if (!admin.apps.length) admin.initializeApp();
+// require fails when run from the repo root. Resolve every firebase-admin
+// entrypoint through the same resolver so they all come from one install.
+let req = require;
+try { require.resolve('firebase-admin'); }
+catch (_) { req = require('module').createRequire(path.join(__dirname, '..', 'functions', 'package.json')); }
 
-const { FieldValue } = require('firebase-admin/firestore');
+const admin = req('firebase-admin');
+// firebase-admin v14 REMOVED the legacy `admin.apps` array — reading
+// `admin.apps.length` throws "Cannot read properties of undefined". getApps()
+// is the modular equivalent. Several other scripts/ still use the old pattern
+// and are latently broken on v14 (backfill-oaks-brand, provision-tenant,
+// import-catalog-costs, seed-demo-access); fix them the same way when touched.
+const { getApps } = req('firebase-admin/app');
+// getFirestore(), not admin.firestore() — v14 dropped that namespace accessor
+// too. Same modular import the functions use (see handlers/public-site.js).
+const { getFirestore, FieldValue } = req('firebase-admin/firestore');
+if (!getApps().length) admin.initializeApp();
 
 const APPLY = process.argv.includes('--write');
 const onlyArg = process.argv.find((a) => a.startsWith('--only='));
@@ -56,7 +66,7 @@ const ONLY = onlyArg
   : null;
 
 async function main() {
-  const db = admin.firestore();
+  const db = getFirestore();
   const snap = await db.collection('companies').get();
 
   const willStamp = [];
