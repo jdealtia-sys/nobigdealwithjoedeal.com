@@ -64,12 +64,12 @@ power play list."
 
 ## Follow-ups
 
-- **Jo at PR review**: (a) confirm the 3 gutter failure shots + algae crop +
-  guards after-shot + tarp crop are all from your own inspections/jobs and
-  fine to show (city-anonymous, EXIF-clean); (b) if DJI_0306 is your tarp,
-  upgrade the caption to first person; (c) confirm Gary's job completed —
-  then a session can build the featured project + a dedicated gutter-guards
-  page (next power-play candidate, per rush-week addendum).
+- ~~(a) photo ownership / (b) tarp attribution~~ — **CONFIRMED by Jo in-session
+  2026-08-17: "Every photo is mine."** Tarp + guards captions upgraded to
+  first person on the strength of that attestation.
+- **Jo at PR review**: confirm Gary's job completed — then a session can
+  build the featured project + a dedicated gutter-guards page (next
+  power-play candidate, per rush-week addendum).
 - Unexamined: Been Lisner (27), Alison Coleman (11), Pat S (3) customer
   HEICs — **HEIC decode needs `npm i heic-convert`** (repo sharp lacks HEVC;
   system libheif+libde265 exists). Also two 101MEDIA blocks (DJI_0685–0709,
