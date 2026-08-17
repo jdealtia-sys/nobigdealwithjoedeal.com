@@ -116,3 +116,23 @@ Turnstile sitekey still empty (queued in WEEKLY_CADENCE); location-page
 depth drip; HowTo schema + area-page Service/FAQPage;
 `drone-completed-brick.webp` recompress; `addressLocality: "Goshen"`
 in all 25 area pages' JSON-LD (verify HQ intent).
+
+## Update 2026-08-17 (follow-up wave, second PR): review count + location depth
+
+- **Live review count on /review** — discovery: `google-reviews-widget.js`
+  was already wired on /review + 13 service pages and already renders the
+  live total *in its own section*; the gap was only the static hero score
+  box. The widget's existing fetch now also hydrates `[data-nbd-gr-rating]`
+  / `[data-nbd-gr-count]` hooks on the hero (static "Verified on Google"
+  text stays as the no-API fallback — count is never hardcoded).
+- **Location-page depth drip, round 1** — "The <City> Roofs I Actually
+  See" local-knowledge section added to `mason-oh` (Mason-Montgomery
+  corridor boom subdivisions, Heritage Club / Crooked Tree HOA work,
+  downtown core decking), `west-chester-oh` (Beckett Ridge second-roof
+  cycle, Wetherington, Tylersville/Union Centre corridors, Olde West
+  Chester), `batavia-oh` (village-core layered roofs + code limits, SR 32
+  corridor claims, rural outbuildings on the same claim, county-seat
+  permit office). Real place names, qualitative claims only — no invented
+  stats per VOICE_BIBLE. **Remaining drip queue:** loveland, milford,
+  anderson-township, blue-ash, cincinnati (already deepest), then the rest
+  at 2-3 pages per session.
