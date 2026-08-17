@@ -145,7 +145,41 @@ async function gatherActivity(db, cutoffMs) {
   return { photos, portalEvents };
 }
 
-function buildEmailBody({ vision, stripe, api, activity, periodLabel }) {
+async function gatherImagePipeline(db, cutoffMs) {
+  // metrics/imagePipeline holds LIFETIME counters (FieldValue.increment,
+  // never reset) written by functions/image-pipeline.js when a variant
+  // set has no doc to land on. `noDocMatched` + `lastGenuineNoMatchAt/
+  // Path` are the genuine-orphan signal; `noDocMatchedD2d` is
+  // docless-by-design noise (pre-photoPaths knocks) shown for context
+  // only. Because the counters never reset, "is it climbing" is judged
+  // by lastGenuineNoMatchAt falling inside the digest window — no
+  // baseline snapshot needed. The doc does not exist until the first
+  // no-match ever fires; absence is healthy zeros, not an error.
+  const snap = await db.doc('metrics/imagePipeline').get();
+  const empty = { noDocMatched: 0, noDocMatchedD2d: 0, genuineRecent: false, lastGenuinePath: '', lastGenuineAtIso: '' };
+  if (!snap.exists) return empty;
+  const m = snap.data() || {};
+  const at = m.lastGenuineNoMatchAt && typeof m.lastGenuineNoMatchAt.toDate === 'function'
+    ? m.lastGenuineNoMatchAt.toDate() : null;
+  return {
+    noDocMatched: m.noDocMatched || 0,
+    noDocMatchedD2d: m.noDocMatchedD2d || 0,
+    genuineRecent: !!(at && at.getTime() >= cutoffMs),
+    lastGenuinePath: m.lastGenuineNoMatchPath || '',
+    lastGenuineAtIso: at ? at.toISOString() : '',
+  };
+}
+
+// Minimal HTML escaper for values that reach the email body. Storage
+// object names are client-influenced (the filename segment), so they
+// must not be interpolated raw into HTML.
+function escHtml(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
+function buildEmailBody({ vision, stripe, api, activity, imagePipe, periodLabel }) {
   const topLeadsRows = vision.topLeads.length
     ? vision.topLeads.map(l =>
         '<tr><td style="padding:6px 12px;border-bottom:1px solid #eee;font-family:monospace;font-size:11px;">' + l.leadId.slice(0, 14) + '…</td>' +
@@ -191,6 +225,11 @@ function buildEmailBody({ vision, stripe, api, activity, periodLabel }) {
     '<strong>' + fmtNum(activity.portalEvents) + '</strong> homeowner portal events',
     '</div>',
 
+    '<h3 style="font-size:14px;color:#1a1612;margin:18px 0 8px;border-bottom:2px solid #e8720c;padding-bottom:4px;">Image Pipeline</h3>',
+    imagePipe.genuineRecent
+      ? '<div style="font-size:13px;margin-bottom:8px;color:#c0392b;"><strong>⚠ Orphaned variants in the last 24h</strong> — a photo got WebP variants but no /photos doc matched its storagePath (last: <code style="font-size:11px;">' + escHtml(imagePipe.lastGenuinePath) + '</code> at ' + escHtml(imagePipe.lastGenuineAtIso) + '). Lifetime genuine orphans: <strong>' + fmtNum(imagePipe.noDocMatched) + '</strong>. Sweep with <code>scripts/backfill-photos-variants.js</code>.</div>'
+      : '<div style="font-size:13px;margin-bottom:8px;">No orphaned variants in the last 24h. Lifetime: <strong>' + fmtNum(imagePipe.noDocMatched) + '</strong> genuine · <strong>' + fmtNum(imagePipe.noDocMatchedD2d) + '</strong> d2d docless-by-design.</div>',
+
     '<div style="margin-top:24px;padding-top:14px;border-top:1px solid #ddd;font-size:11px;color:#888;">Auto-generated daily. Source: <code>functions/health-digest.js</code>. To pause: unset HEALTH_DIGEST_ENABLED in the function env.</div>',
     '</div>'
   ].join('\n');
@@ -217,16 +256,18 @@ exports.healthDigestCron = onSchedule(
     const cutoffMs = now - WINDOW_MS;
     const cutoff = new Date(cutoffMs);
 
-    const [vision, stripe, api, activity] = await Promise.all([
+    const [vision, stripe, api, activity, imagePipe] = await Promise.all([
       gatherVisionSpend(db, cutoffMs).catch(e => { logger.warn('health_digest.vision_failed', e.message); return { userTotal: 0, userCount: 0, topLeads: [] }; }),
       gatherStripe(db, cutoffMs).catch(e => { logger.warn('health_digest.stripe_failed', e.message); return { total: 0, recentTypes: {} }; }),
       gatherApiUsage(db).catch(e => { logger.warn('health_digest.api_failed', e.message); return { total: 0, topUsers: [] }; }),
       gatherActivity(db, cutoffMs).catch(e => { logger.warn('health_digest.activity_failed', e.message); return { photos: 0, portalEvents: 0 }; }),
+      gatherImagePipeline(db, cutoffMs).catch(e => { logger.warn('health_digest.image_pipeline_failed', e.message); return { noDocMatched: 0, noDocMatchedD2d: 0, genuineRecent: false, lastGenuinePath: '', lastGenuineAtIso: '' }; }),
     ]);
 
     const periodLabel = cutoff.toUTCString() + ' → ' + new Date(now).toUTCString();
-    const bodyHtml = buildEmailBody({ vision, stripe, api, activity, periodLabel });
-    const subject = 'NBD Pro · Health Digest · ' + fmtUsd(vision.userTotal) + ' Vision · ' + fmtNum(activity.photos) + ' photos';
+    const bodyHtml = buildEmailBody({ vision, stripe, api, activity, imagePipe, periodLabel });
+    const subject = 'NBD Pro · Health Digest · ' + fmtUsd(vision.userTotal) + ' Vision · ' + fmtNum(activity.photos) + ' photos'
+      + (imagePipe.genuineRecent ? ' · ⚠ pipeline orphan' : '');
 
     await db.collection('email_queue').add({
       to: RECIPIENT,
@@ -248,4 +289,4 @@ exports.healthDigestCron = onSchedule(
   }
 );
 
-exports._test = { buildEmailBody, fmtUsd, fmtNum };
+exports._test = { buildEmailBody, fmtUsd, fmtNum, escHtml, gatherImagePipeline };

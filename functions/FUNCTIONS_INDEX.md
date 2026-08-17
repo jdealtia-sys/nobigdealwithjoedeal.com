@@ -182,10 +182,11 @@ These operate on the **caller's own data** (owner-scoped Firestore queries insid
 | `syncGbpReviews` | daily 06:00 ET | Pulls Google Business Profile reviews into the reviews widget cache (gbp-reviews-sync.js) |
 | `monthlyOverheadAlertCron` | 1st of month 09:00 | Emails the overhead-vs-margin summary for the month just ended (monthly-overhead-alert.js) |
 
-## FIRESTORE / STORAGE TRIGGERS (no direct client traffic) — 34 Firestore + 2 Storage
+## FIRESTORE / STORAGE TRIGGERS (no direct client traffic) — 35 Firestore + 2 Storage
 | Export | Watches | Purpose |
 |---|---|---|
-| `onPhotoUploaded` | Storage finalize (`nobigdeal-pro.appspot.com`) | 200/600/1600 px WebP variant pipeline; stamps `photo.urls` |
+| `onPhotoUploaded` | Storage finalize (`nobigdeal-pro.appspot.com`) | 200/600/1600 px WebP variant pipeline; stamps `photo.urls` (or `knock.photoVariants[idx]` for `/d2d/` sources, mirrored to the converted lead) |
+| `onKnockCreated` | `knocks/{knockId}` created | Race-heal for d2d photo variants: photos upload BEFORE the knock doc exists, so early photos' Storage triggers miss — this stamps `photoVariants` for any `photoPaths` entry whose variants already exist (tokens recovered from variant object metadata) |
 | `onAudioUploaded` | Storage finalize (`nobigdeal-pro.firebasestorage.app`) | Voice intelligence — recording → transcribe + analyze (was listed as `voiceIntelligenceTrigger`) |
 | `onNewLead` | `leads/{leadId}` created | Push notification to assigned rep |
 | `onClaimStageChange` | `leads/{leadId}` updated | Push notification on claim-stage transitions |
