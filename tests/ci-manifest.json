@@ -19,6 +19,7 @@
     "inbound-sms-route.test.js",
     "lead-dedup.test.js",
     "lead-pipeline-logic.test.js",
+    "microsite-publication-gate.test.js",
     "money-dashboard.test.js",
     "monthly-overhead-logic.test.js",
     "notif-bell-merge.test.js",
