@@ -40,6 +40,25 @@ roof-replacement spot-check; gates green (`check-js-syntax` 465 files,
 `check-site-integrity` 208 pages, `ensure-icon-css` clean,
 `marketing-polish-contract` 51/51).
 
+## Same-day follow-up: nav-base CSS missing on 18 hand-built pages
+
+Jo then spotted the Services dropdown rendering as a permanently-expanded
+unstyled bullet list splattered over the header on `/the-pledge`. Different
+mechanism, same family: the `nav base (injected)` `<style>` block (dropdown
+hide/position rules + mobile-nav/hamburger + the ≤1024px collapse) had **no
+owning generator** — 177 pages carry one byte-identical copy, but 18
+hand-built pages (the-pledge, the areas index, the 7 directory-style product
+pages under `services/*/`, and 9 blog posts) were created without it, so the
+dropdown was never hidden and mobile nav never worked there.
+
+Fix: new `scripts/ensure-nav-css.js` (mirrors ensure-icon-css.js — assert by
+default, `--write` stamps the canonical block before `</head>`; presence
+contract, so the one deliberate variant page is untouched). Stamped all 18,
+wired into ci.yml after the icon-CSS gate. Verified locally: dropdown
+`display:none`/`position:absolute`, hamburger hidden at desktop, on
+`/the-pledge/`, `/services/lumanail/`, `/blog/the-pipe-boot-fork.html`,
+`/areas/`.
+
 ## Durable lesson
 
 The end-of-head `<link>` position makes `nbd-icons.css` the **cascade
