@@ -141,9 +141,21 @@ premise did not survive measurement.
   it as a "soft signal" from stylesheet-coverage counting; reading the file it
   named would have resolved it. A page differing from its cohort is a question,
   not a finding.
-- **`sitemap.xml` drift** — `build-sitemap.js` reports differences. Verified
-  **pre-existing** (drift persists with this branch's changes stashed), so it was
-  left alone. Someone should run `--write` deliberately.
+- ~~**`sitemap.xml` drift** — someone should run `--write` deliberately.~~
+  **Investigated: nothing to fix. Do NOT run `--write`.** The dry-run reports all
+  230 lines changed, which looks alarming and is almost entirely an artifact of
+  this being a Windows checkout: `git ls-files --eol` reports `i/lf w/crlf`, so
+  the working-tree file is CRLF while the generator emits LF and every line
+  mismatches. `cat -A` on the dry-run output shows the `-` side ending `^M$`.
+
+  Normalize both sides and the *entire* real difference is **two blank lines**
+  (one after `<urlset>`, one at EOF). URL sets are identical (203 vs 203, zero
+  set difference), every `<lastmod>` matches, and both carry the same 10
+  grouping comments.
+
+  Two consequences worth knowing: this gate is **unreliable on a Windows working
+  tree** and will read clean on a Linux CI runner, and running `--write` to
+  "fix" it would churn the file for zero SEO benefit.
 - **`docs/pro/**` and `docs/admin/**` (43 pages) remain outside
   `check-site-integrity`. `scripts/crm-audit.js` covers `/pro` statically but is
   wired into no workflow.
