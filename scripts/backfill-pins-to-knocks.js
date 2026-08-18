@@ -55,7 +55,7 @@
  * place, so there is no hard ordering requirement and no data loss risk.
  */
 
-const admin = require('firebase-admin');
+const { initAdmin, getFirestore, FieldValue, FieldPath } = require('./_admin');
 
 const args = process.argv.slice(2);
 const APPLY = args.includes('--apply');
@@ -99,11 +99,11 @@ function knockFromPin(pin, pinId) {
     convertedToLead: false,
     // Preserve when the pin was originally dropped so the knock lands in the
     // right place in history; fall back to now if the legacy pin lacked it.
-    createdAt: pin.createdAt || admin.firestore.FieldValue.serverTimestamp(),
-    updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    createdAt: pin.createdAt || FieldValue.serverTimestamp(),
+    updatedAt: FieldValue.serverTimestamp(),
     // Provenance + idempotency key.
     migratedFromPinId: pinId,
-    migratedAt: admin.firestore.FieldValue.serverTimestamp()
+    migratedAt: FieldValue.serverTimestamp()
   };
   return doc;
 }
@@ -113,8 +113,8 @@ async function main() {
     console.error('Refusing to --apply without --yes. Re-run with: --apply --yes');
     process.exit(2);
   }
-  admin.initializeApp({ projectId: PROJECT });
-  const db = admin.firestore();
+  initAdmin({ projectId: PROJECT });
+  const db = getFirestore();
   console.log(`[backfill-pins-to-knocks] project=${PROJECT} mode=${APPLY ? 'APPLY' : 'DRY-RUN'}`);
 
   let scanned = 0, eligible = 0, migrated = 0, skippedAlready = 0, skippedNotKnock = 0, skippedNoOwner = 0;
@@ -123,7 +123,7 @@ async function main() {
 
   /* eslint-disable no-await-in-loop */
   while (true) {
-    let q = db.collection('pins').orderBy(admin.firestore.FieldPath.documentId()).limit(PAGE);
+    let q = db.collection('pins').orderBy(FieldPath.documentId()).limit(PAGE);
     if (last) q = q.startAfter(last);
     const snap = await q.get();
     if (snap.empty) break;

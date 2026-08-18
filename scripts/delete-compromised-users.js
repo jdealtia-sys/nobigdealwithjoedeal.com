@@ -25,7 +25,7 @@
  * Safe to re-run — already-deleted users are reported as "not found".
  */
 
-const admin = require('firebase-admin');
+const { initAdmin, getAuth } = require('./_admin');
 
 const compromised = [
   'demo@nobigdeal.pro',
@@ -35,11 +35,9 @@ const compromised = [
 ];
 
 function init() {
-  try {
-    admin.initializeApp({ credential: admin.credential.applicationDefault() });
-  } catch (e) {
-    if (!String(e.message || '').includes('already exists')) throw e;
-  }
+  // initAdmin is idempotent (ADC credential by default), so the old
+  // "already exists" message-matching catch is no longer needed.
+  initAdmin();
 }
 
 async function main() {
@@ -51,8 +49,8 @@ async function main() {
 
   for (const email of compromised) {
     try {
-      const user = await admin.auth().getUserByEmail(email);
-      await admin.auth().deleteUser(user.uid);
+      const user = await getAuth().getUserByEmail(email);
+      await getAuth().deleteUser(user.uid);
       console.log('✓ deleted  ' + email + ' (uid=' + user.uid + ')');
       deleted++;
     } catch (e) {

@@ -39,25 +39,11 @@
  */
 'use strict';
 
-const path = require('path');
-// firebase-admin lives in functions/node_modules (scripts/ has none), so a bare
-// require fails when run from the repo root. Resolve every firebase-admin
-// entrypoint through the same resolver so they all come from one install.
-let req = require;
-try { require.resolve('firebase-admin'); }
-catch (_) { req = require('module').createRequire(path.join(__dirname, '..', 'functions', 'package.json')); }
-
-const admin = req('firebase-admin');
-// firebase-admin v14 REMOVED the legacy `admin.apps` array — reading
-// `admin.apps.length` throws "Cannot read properties of undefined". getApps()
-// is the modular equivalent. Several other scripts/ still use the old pattern
-// and are latently broken on v14 (backfill-oaks-brand, provision-tenant,
-// import-catalog-costs, seed-demo-access); fix them the same way when touched.
-const { getApps } = req('firebase-admin/app');
-// getFirestore(), not admin.firestore() — v14 dropped that namespace accessor
-// too. Same modular import the functions use (see handlers/public-site.js).
-const { getFirestore, FieldValue } = req('firebase-admin/firestore');
-if (!getApps().length) admin.initializeApp();
+// firebase-admin resolution + the modular v14 API live in scripts/_admin.js.
+// This script had its own inline copy of that block; it now shares the one
+// module, so there is a single place the next firebase-admin change lands.
+const { initAdmin, getFirestore, FieldValue } = require('./_admin');
+initAdmin();
 
 const APPLY = process.argv.includes('--write');
 const onlyArg = process.argv.find((a) => a.startsWith('--only='));

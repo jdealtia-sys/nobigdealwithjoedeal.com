@@ -53,22 +53,18 @@
 
 'use strict';
 
-// Resolve firebase-admin from functions/ (no node_modules in scripts/ or repo
-// root) — mirrors scripts/grant-admin-claim.js.
-let admin;
-try { admin = require(require.resolve('firebase-admin', { paths: [require('path').join(__dirname, '..', 'functions')] })); }
-catch (_) { admin = require('firebase-admin'); }
+// firebase-admin resolution + the modular API live in scripts/_admin.js
+// (scripts/ and the repo root both have no node_modules).
+const { initAdmin, projectId, getFirestore, getAuth } = require('./_admin');
 
 const APPLY = process.argv.includes('--apply');
 const CONFIRMED = process.argv.includes('--yes');
 const SUBORDINATE = new Set(['member', 'manager', 'sales_rep', 'viewer']);
 
 function init() {
-  try {
-    admin.initializeApp({ credential: admin.credential.applicationDefault() });
-  } catch (e) {
-    if (!String(e.message || '').includes('already exists')) throw e;
-  }
+  // initAdmin is idempotent (ADC credential by default), so the old
+  // "already exists" message-matching catch is no longer needed.
+  initAdmin();
 }
 
 // Build uid → { intendedRole } for every access-code-sourced subscription.
@@ -131,12 +127,10 @@ function classifyClaims({ uid, role, companyId, isAccessCode, expectedRole }) {
 
 async function main() {
   init();
-  const db = admin.firestore();
-  const projectId = (admin.app().options.credential && admin.app().options.projectId)
-    || process.env.GOOGLE_CLOUD_PROJECT || process.env.GCLOUD_PROJECT || '(default ADC project)';
+  const db = getFirestore();
 
   console.log('═══════════════════════════════════════════════════════════');
-  console.log(' Claim-escalation audit  —  project:', projectId);
+  console.log(' Claim-escalation audit  —  project:', projectId());
   console.log(' mode:', APPLY ? (CONFIRMED ? 'APPLY (will modify claims)' : 'APPLY requested but --yes missing → DRY RUN') : 'DRY RUN (report only)');
   console.log('═══════════════════════════════════════════════════════════\n');
 
@@ -149,7 +143,7 @@ async function main() {
 
   let pageToken;
   do {
-    const page = await admin.auth().listUsers(1000, pageToken);
+    const page = await getAuth().listUsers(1000, pageToken);
     for (const u of page.users) {
       scanned++;
       const claims = u.customClaims || {};
@@ -208,8 +202,8 @@ async function main() {
   for (const c of remediable) {
     const intended = acUsers.get(c.uid).intendedRole;
     try {
-      await admin.auth().setCustomUserClaims(c.uid, { role: intended });
-      await admin.auth().revokeRefreshTokens(c.uid);
+      await getAuth().setCustomUserClaims(c.uid, { role: intended });
+      await getAuth().revokeRefreshTokens(c.uid);
       console.log(`  ✓ reset uid=${c.uid} → { role: '${intended}' }, sessions revoked`);
       fixed++;
     } catch (e) {
