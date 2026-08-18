@@ -234,12 +234,12 @@ Two costs were accepted knowingly. **The first one turned out to be backwards**
   A transient auth flake in any chunk is fatal by design. If deploys start
   going red on auth rather than on real problems, this is the cause, and
   setting the knob back to `0` restores the previous behavior. Unrealized so
-  far (all 4 invocations clean on the first chunked run), but unproven.
+  far (8 clean invocations across both chunked runs), but unproven.
 
 ### Measured: chunking is cheaper, not more expensive
 
-Run **32085658469**, the first deploy with the cap on, against the three
-unchunked deploys that preceded it — strict-step wall clock, same 167 functions:
+Five consecutive deploys, same 167 functions, split cleanly on one variable —
+strict-step wall clock:
 
 | Run | Config | Stragglers | Strict step |
 |---|---|---|---|
@@ -247,24 +247,36 @@ unchunked deploys that preceded it — strict-step wall clock, same 167 function
 | 32080455395 | unchunked | **28 silent** | 13m44s |
 | 32082377217 | unchunked | 24 loud | 16m07s |
 | **32085658469** | **chunked 60** | **0** | **11m26s** |
+| **32088029222** | **chunked 60** | **0** | **10m34s** |
 
-`Deploying 167 function(s) in chunks of 60 (mutation-burst cap)` → 167
-`Successful update operation`, zero failure lines, zero silent drops, **zero
-retry rounds** — the final line carried no `(after N straggler-retry round(s))`
-suffix for the first time in the sequence.
+Both chunked runs: `Deploying 167 function(s) in chunks of 60 (mutation-burst
+cap)` → 167 `Successful update operation`, zero failure lines, zero silent
+drops, **zero retry rounds** — the verdict line carried no `(after N
+straggler-retry round(s))` suffix, which had never happened before the cap.
 
-**4m41s faster than the previous deploy, not 2-3 min slower.** The estimate
+**Every unchunked run lost functions; neither chunked run lost any.**
+
+**3-5½ min FASTER, not the 2-3 min slower first estimated here.** The estimate
 missed because it counted the cost of chunking and ignored the cost of *not*
 chunking: `NBD_DEPLOY_RETRY_PAUSE` is 45s, batch pauses are 20s, and every retry
 round re-invokes the CLI anyway — so the retry machinery was itself the
 expensive path. Not tripping the quota is cheaper than recovering from it. Three
-clean chunks beat one burst plus two rounds of cleanup.
+clean chunks beat one burst plus two rounds of cleanup. Both chunked runs beat
+all three unchunked ones, so the speed result reproduced too.
 
-Caveat on how much this proves: **one observation**, and the mode was
-intermittent (22 / 28 / 24 stragglers across three consecutive unchunked runs,
-differing in kind as well as count). This shows the mechanism is plausible, not
-that mode 3 is eliminated. Completion accounting remains the detector if it
-returns.
+Caveat on how much this proves: **two observations** (was one when this section
+was first written), and they are usefully independent — the first chunked run
+followed three deploys that had been churning revisions, so its quota headroom
+could be argued as incidental; the second ran from a different starting state
+and came back identical. Against that, the mode was intermittent (22 / 28 / 24
+stragglers across three consecutive unchunked runs, differing in kind as well as
+count), and 2-for-2 is not proof. Read it as: the mechanism is well supported
+and no longer a single lucky run, but mode 3 is not *proven* eliminated.
+Completion accounting remains the detector if it returns.
+
+The tripled wholesale-auth-flake exposure stayed unrealized across both chunked
+runs — 8 clean CLI invocations. Unproven rather than disproven, and still the
+first thing to suspect if a deploy goes red on auth.
 
 The durable fix remains the quota increase, which would make the cap
 unnecessary rather than merely tolerable.
