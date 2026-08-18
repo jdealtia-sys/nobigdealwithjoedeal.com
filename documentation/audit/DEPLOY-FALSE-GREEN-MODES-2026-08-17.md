@@ -225,15 +225,46 @@ occurrence is a window in which prod runs stale code, and the recovery depends
 on a guard that is one regex away from breaking. 167 functions now deploy as
 chunks of 60/60/47.
 
-Two costs were accepted knowingly, and both are worth recognising if a deploy
-misbehaves later:
+Two costs were accepted knowingly. **The first one turned out to be backwards**
+— see the measurement below — and the second is still live:
 
-- **~2-3 min added to every deploy** — a full re-package + re-discovery per
-  chunk. The step ran ~10-17 min against a 40-min job cap, so there is room.
+- ~~**~2-3 min added to every deploy**~~ — **wrong; it is FASTER.** Kept here
+  because the reasoning failed in an instructive way.
 - **3 invocations instead of 1 triples the exposure to a wholesale failure.**
   A transient auth flake in any chunk is fatal by design. If deploys start
   going red on auth rather than on real problems, this is the cause, and
-  setting the knob back to `0` restores the previous behavior.
+  setting the knob back to `0` restores the previous behavior. Unrealized so
+  far (all 4 invocations clean on the first chunked run), but unproven.
+
+### Measured: chunking is cheaper, not more expensive
+
+Run **32085658469**, the first deploy with the cap on, against the three
+unchunked deploys that preceded it — strict-step wall clock, same 167 functions:
+
+| Run | Config | Stragglers | Strict step |
+|---|---|---|---|
+| 32079768048 | unchunked | 22 loud | 15m36s |
+| 32080455395 | unchunked | **28 silent** | 13m44s |
+| 32082377217 | unchunked | 24 loud | 16m07s |
+| **32085658469** | **chunked 60** | **0** | **11m26s** |
+
+`Deploying 167 function(s) in chunks of 60 (mutation-burst cap)` → 167
+`Successful update operation`, zero failure lines, zero silent drops, **zero
+retry rounds** — the final line carried no `(after N straggler-retry round(s))`
+suffix for the first time in the sequence.
+
+**4m41s faster than the previous deploy, not 2-3 min slower.** The estimate
+missed because it counted the cost of chunking and ignored the cost of *not*
+chunking: `NBD_DEPLOY_RETRY_PAUSE` is 45s, batch pauses are 20s, and every retry
+round re-invokes the CLI anyway — so the retry machinery was itself the
+expensive path. Not tripping the quota is cheaper than recovering from it. Three
+clean chunks beat one burst plus two rounds of cleanup.
+
+Caveat on how much this proves: **one observation**, and the mode was
+intermittent (22 / 28 / 24 stragglers across three consecutive unchunked runs,
+differing in kind as well as count). This shows the mechanism is plausible, not
+that mode 3 is eliminated. Completion accounting remains the detector if it
+returns.
 
 The durable fix remains the quota increase, which would make the cap
 unnecessary rather than merely tolerable.
