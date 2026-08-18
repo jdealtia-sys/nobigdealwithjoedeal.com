@@ -627,6 +627,18 @@ jobs:
       - name: Run manifest node bucket
         run: node scripts/run-test-manifest.js
 
+      # Behavioral tests for the strict functions-deploy step in
+      # firebase-deploy.yml — it is shell inside YAML, so nothing else can
+      # actually execute it. Three false-green modes have shipped from that
+      # step, two of them found by deploying to prod and noticing afterwards.
+      # Dependency-free, no network, no credentials, runs in seconds; it
+      # extracts the real run: block and drives it against a stand-in CLI.
+      # Rides this job rather than its own because it needs neither the deps
+      # installed above nor a runner of its own.
+      # See tests/deploy-step/README.md.
+      - name: Deploy-step guards (false-green regressions)
+        run: bash tests/deploy-step/run.sh
+
   # The three auth/firestore-emulator suites the manifest classifies as
   # emulator-bucket (2026-08-07; the fourth, portal-token, rides the
   # referral-trigger job's functions-emulator recipe). Same v13 global
