@@ -551,12 +551,14 @@ jobs:
           exit 1
 
       # F-10 + Q8: functions deploy is strict by default — any failure
-      # fails the workflow. But there's an explicit exception list for
-      # functions whose DEPLOY blocks on something the GitHub Actions
-      # deploy SA can't do:
+      # fails the workflow. But there's an explicit exception list
+      # (NBD_DEPLOY_SKIP_LIST) for functions that cannot deploy.
       #
-      #   cloudscheduler.jobs.update  → schedule-function binding update
-      #   blocking-trigger registration → see the CORRECTION below
+      # TODAY THE LIST HAS EXACTLY ONE ENTRY: onRepSignup, a
+      # beforeUserCreated blocking trigger, blocked on GCIP (below).
+      # NOTHING SCHEDULED IS ON IT, and nothing scheduled has failed
+      # since 2026-04-14. See "the scheduled half is long fixed" below
+      # before adding anything here.
       #
       # CORRECTION 2026-08-17 (verified against prod audit logs — the
       # "identityplatform.admin" story below was WRONG for three years
@@ -575,10 +577,11 @@ jobs:
       # the project has to be upgraded to Identity Platform first
       # (a paid-tier product decision, Jo's call — not an ops IAM tweak).
       # CONFIRMED 2026-08-17: the deploy SA ALREADY HOLDS
-      # roles/identityplatform.admin (and roles/cloudscheduler.admin),
-      # granted 2026-06-09 — the role is present and registration still
-      # fails, which settles it. Check the IAM policy before ever
-      # granting an auth role here; the answer is "already there".
+      # roles/identityplatform.admin (and roles/cloudscheduler.admin).
+      # Both were granted 2026-04-14 at 22:02 UTC (project SetIamPolicy
+      # audit log) — the role is present and registration still fails,
+      # which settles it. Check the IAM policy before ever granting an
+      # auth role here; the answer is "already there".
       # Consequence: the project's Identity Platform blockingFunctions
       # config is `{}`, so onRepSignup has NEVER been invoked (zero
       # Cloud Run requests in 30d) and claim-minting runs through the
@@ -586,19 +589,31 @@ jobs:
       # mintOwnerClaims) instead. Full writeup:
       # documentation/audit/BLOCKING-TRIGGERS-NOT-GCIP-2026-08-17.md
       #
-      # These functions have no code changes in the normal case; the
-      # SA just can't refresh their Cloud Scheduler job / Identity
-      # Platform config.
+      # ── the scheduled half is long fixed (diagnosed 2026-08-17) ──
+      # This block used to describe a Cloud Scheduler IAM gap and list
+      # "8 functions". That gap closed 2026-04-14T22:02 — HOURS after
+      # the skip list was first written — when roles/cloudscheduler.admin
+      # was granted. What happened next is why the story outlived it:
+      #   - 2026-04-15: recordingRetentionCron was ADDED to the list
+      #     blaming the "same SA gap", which had been fixed the day
+      #     before. Whatever actually broke it is unrecoverable now
+      #     (logs are past retention); it was NOT this.
+      #   - 2026-05-16: the list was emptied and onRepSignup re-added
+      #     alone, via two GitHub web-editor commits. The scheduled
+      #     names were correctly dropped — the prose around them was
+      #     never touched.
+      # Verified 2026-08-17: all 24 onSchedule exports are ACTIVE and
+      # update on every deploy, all 24 Cloud Scheduler jobs are ENABLED,
+      # and there are zero cloudscheduler API errors in 30 days.
+      # If a scheduled function ever DOES fail here, diagnose it fresh.
+      # It is not IAM, and it has no precedent since 2026-04-14.
       #
       # Strategy:
       #  1. Main deploy = everything EXCEPT the known-blocked names.
       #     Strict — failure fails the workflow.
-      #  2. Second step (tolerant) retries ONLY those. Errors there
-      #     produce a warning, not a failure. NOTE: both roles the
-      #     skip-list blames are already granted (see above), so if a
-      #     scheduled function still fails to update, that needs its own
-      #     diagnosis rather than an IAM grant. The blocking-trigger
-      #     half stays stuck until GCIP regardless.
+      #  2. Second step (tolerant) retries ONLY those — in practice just
+      #     onRepSignup. Errors there produce a warning, not a failure.
+      #     It stays stuck until GCIP; no IAM grant changes that.
       #
       # Full remediation runbook: see POST_DEPLOY_CHECKLIST §16.
       #
@@ -620,11 +635,14 @@ jobs:
         if: ${{ github.event_name == 'push' || github.event.inputs.scope == 'all' || github.event.inputs.scope == 'functions' }}
         env:
           GOOGLE_APPLICATION_CREDENTIALS: ${{ steps.sa.outputs.sa_path }}
-          # Names that fail with cloudscheduler.jobs.update or
-          # identityplatform.admin denials. Clear this list once
-          # those roles are granted.
-          # recordingRetentionCron added 2026-04-15: scheduled fn from
-          # voice-intelligence.js fails on update (same SA gap).
+          # Functions that cannot deploy. NOT an IAM list — both roles
+          # this used to blame (cloudscheduler.admin,
+          # identityplatform.admin) have been granted since
+          # 2026-04-14T22:02. onRepSignup is here because blocking
+          # triggers need GCIP and this project is FIREBASE_AUTH.
+          # Empty it only when the project is upgraded to Identity
+          # Platform. Do not add scheduled functions — see the block
+          # above the strict step.
           NBD_DEPLOY_SKIP_LIST: "onRepSignup"
           # Batched-retry knobs for the Cloud Run CPU-quota mitigation below.
           NBD_DEPLOY_RETRY_ROUNDS: "3"   # extra passes over just the stragglers
@@ -903,13 +921,16 @@ jobs:
           # targeted function was reconciled against a terminal per-function line.
           echo "✓ All $COUNT targeted function(s) accounted for by a completion line$( [ "$round" -gt 0 ] && echo " (after $round straggler-retry round(s))" )."
 
-      # Second pass: retry the skip-list with tolerance. If IAM has
-      # since been granted, these succeed. If not, the warning is
-      # surfaced in the workflow summary and the rest of the
-      # deploy (Hosting, etc.) continues. Scheduled + blocking
-      # functions still run their LAST deployed revision — it's the
-      # update that fails, not the runtime.
-      - name: Deploy Cloud Functions (tolerant — IAM-blocked retry)
+      # Second pass: retry the skip-list with tolerance. If the blocker
+      # has since cleared (i.e. the project was upgraded to GCIP), these
+      # succeed. If not, the warning is surfaced in the workflow summary
+      # and the rest of the deploy (Hosting, etc.) continues. A skipped
+      # function still runs its LAST deployed revision — it's the update
+      # that fails, not the runtime.
+      # Renamed 2026-08-17: was "IAM-blocked retry", which was wrong on
+      # both counts — the roles are granted, and the actual blocker is
+      # the project not being on Identity Platform.
+      - name: Deploy Cloud Functions (tolerant — skip-list retry)
         # ROOT-CAUSE FIX (deploy run 27631207476 starved Hosting): this retry
         # of the GCIP/IAM-blocked skip-list (onRepSignup) had NO step timeout,
         # so it ran until the job timeout-minutes cap canceled the WHOLE job —
@@ -935,7 +956,7 @@ jobs:
           EXIT=$?
           if [ $EXIT -ne 0 ]; then
             {
-              echo "### ⚠ Some scheduled / blocking-trigger functions couldn't update"
+              echo "### ⚠ Blocking-trigger function couldn't update (expected until GCIP)"
               echo ""
               echo "The following functions were NOT updated this deploy:"
               echo ""
@@ -945,27 +966,26 @@ jobs:
               echo ""
               echo "Their last-deployed revisions are still live in Cloud Run."
               echo ""
-              echo "Two DIFFERENT causes hide behind this one warning:"
+              echo "\`onRepSignup\` is a **blocking trigger**, and this is NOT an IAM"
+              echo "problem. \`nobigdeal-pro\` is subtype FIREBASE_AUTH, and blocking"
+              echo "functions are GCIP-only, so the registration call fails with"
+              echo "\`OPERATION_NOT_ALLOWED : Blocking Functions may only be configured"
+              echo "for GCIP projects\`. No IAM grant fixes this — the project must be"
+              echo "upgraded to Identity Platform. The trigger is inert in the meantime"
+              echo "(blockingFunctions is \`{}\`); claim-minting runs through the"
+              echo "callable fallbacks."
+              echo "See documentation/audit/BLOCKING-TRIGGERS-NOT-GCIP-2026-08-17.md"
               echo ""
-              echo "- **Scheduled** functions: historically attributed to a missing"
-              echo "  \`roles/cloudscheduler.admin\`, but that role IS granted"
-              echo "  (verified 2026-08-17). If a scheduled function is listed"
-              echo "  above, diagnose it fresh — do not grant an IAM role."
-              echo "- **Blocking triggers** (\`onRepSignup\`): NOT an IAM problem."
-              echo "  \`nobigdeal-pro\` is subtype FIREBASE_AUTH, and blocking"
-              echo "  functions are GCIP-only, so the registration call fails with"
-              echo "  \`OPERATION_NOT_ALLOWED : Blocking Functions may only be"
-              echo "  configured for GCIP projects\`. No IAM grant fixes this —"
-              echo "  the project must be upgraded to Identity Platform. The"
-              echo "  trigger is inert in the meantime (blockingFunctions is"
-              echo "  \`{}\`); claim-minting runs through the callable fallbacks."
-              echo "  See documentation/audit/BLOCKING-TRIGGERS-NOT-GCIP-2026-08-17.md"
+              echo "**If anything OTHER than a blocking trigger is listed above**"
+              echo "(e.g. a scheduled function), that is new. Scheduled functions have"
+              echo "deployed cleanly since 2026-04-14 and \`roles/cloudscheduler.admin\`"
+              echo "is granted — diagnose it fresh rather than reaching for IAM."
               echo ""
               echo "Runbook: POST_DEPLOY_CHECKLIST.md §16."
             } >> "$GITHUB_STEP_SUMMARY"
-            echo "::warning::Scheduled/blocking functions deferred — see summary"
+            echo "::warning::Blocking-trigger function deferred (GCIP, not IAM) — see summary"
           else
-            echo "✓ All previously-IAM-blocked functions deployed cleanly. Remove NBD_DEPLOY_SKIP_LIST in the workflow."
+            echo "✓ Skip-list functions deployed cleanly — the GCIP blocker is gone. Empty NBD_DEPLOY_SKIP_LIST in the workflow."
           fi
           exit 0
 
