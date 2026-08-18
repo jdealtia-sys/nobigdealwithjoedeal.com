@@ -661,12 +661,37 @@ jobs:
           # what firebase-tools' own 429 handler recommends ("please deploy
           # your functions in batches by using the --only flag").
           #
-          # Left at 0 because chunking costs a full re-package + re-discovery
-          # per chunk (~1 min each) on EVERY deploy, and the straggler retries
-          # below already drop to batches of 20 automatically when a burst goes
-          # wrong. Set to ~60 if the 429 mutation-rate mode recurs often enough
-          # that paying that cost up front beats the retry rounds.
-          NBD_DEPLOY_WAVE1_MAX: "0"
+          # TURNED ON 2026-08-17 (was 0 = single bulk pass). Chunking costs a
+          # full re-package + re-discovery per chunk (~1 min each) on EVERY
+          # deploy, which is why it shipped off. Two things changed that trade:
+          #
+          #  - The burst mode is not rare. Run 32083185787 lost 75 of ~168
+          #    functions to it in wave 1 (retried down to 3, then 0 — green,
+          #    but three extra rounds of ~45s pause + re-deploy, which costs
+          #    more than the chunking does).
+          #  - The cause is now confirmed rather than inferred. GCP audit log
+          #    for that run: "Could not create or update Cloud Run service
+          #    <name>, Container Healthcheck failed. Quota exceeded for total
+          #    allowable CPU per project per region." That is
+          #    run.googleapis.com/cpu_allocation, which for us-central1 sits at
+          #    the flat default 200000 (1/min/{project}/{region}) with no
+          #    override — verified via the Service Usage API 2026-08-17.
+          #
+          # 60 keeps each wave's simultaneous new-revision count well under the
+          # peak that trips it, while costing ~2 extra minutes per deploy
+          # (3 chunks over ~168 functions) instead of 3 straggler rounds.
+          #
+          # Safe with completion accounting: _deploy_only reconciles per
+          # INVOCATION (`targeted` comes from its own $1, ACCOUNTED/PARSED are
+          # per-call scratch) and accumulates into MISSING_FILE/FAILED_FILE with
+          # >>. So each chunk audits its own targets and the mode-3 guard still
+          # covers all 168 — verified by simulation before enabling.
+          #
+          # THE DURABLE FIX IS STILL A QUOTA INCREASE for Cloud Run CPU in
+          # us-central1 — a Console request (IAM & Admin -> Quotas -> "Total
+          # CPU allocation") that goes to Google for review. Once that lands,
+          # set this back to "0" and reclaim the chunking time.
+          NBD_DEPLOY_WAVE1_MAX: "60"
         run: |
           # WHY THIS STEP RETRIES (root cause, diagnosed 2026-07-23):
           # We deploy ~160 Gen2 functions. A single bulk `firebase deploy` rolls
