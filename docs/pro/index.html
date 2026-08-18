@@ -1361,7 +1361,11 @@
               <span style="background: var(--orange); color: #fff; padding: 5px 12px; border-radius: 4px; font-size: 11px; font-weight: 600;">Approve &amp; Send</span>
               <span style="border: 1px solid rgba(255, 255, 255, 0.25); padding: 5px 12px; border-radius: 4px; font-size: 11px;">Edit</span>
             </div>
-            <div style="margin-top: 14px; font-size: 10px; color: rgba(255, 255, 255, 0.55);">
+            <!-- 2026-08-18: was 10px at rgba(…,.55). This is a real onboarding
+                 obligation the buyer needs to read, not mockup chrome — the only
+                 sub-11px string on the page that carries actual information.
+                 Bumped to 12px and lifted the contrast. -->
+            <div style="margin-top: 14px; font-size: 12px; line-height: 1.5; color: rgba(255, 255, 255, 0.72);">
               SMS delivery requires one-time carrier (A2P) registration for your business number — set up during onboarding.
             </div>
           </div>
