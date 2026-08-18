@@ -56,11 +56,16 @@
  */
 
 const { initAdmin, getFirestore, FieldValue, FieldPath } = require('./_admin');
+const { assertNotCompleted, recordCompletion } = require('./_migration-guard');
+
 
 const args = process.argv.slice(2);
 const APPLY = args.includes('--apply');
 const YES = args.includes('--yes');
 const PROJECT = process.env.NBD_PROJECT || 'nobigdeal-pro';
+// --force overrides the run-once guard (see scripts/_migration-guard.js).
+const FORCE = args.includes('--force');
+const MIGRATION = 'backfill-pins-to-knocks';
 
 const PAGE = 500;   // read page size
 const BATCH = 200;  // 2 writes per migrated pin (create knock + flag pin); stay < 500
@@ -115,6 +120,8 @@ async function main() {
   }
   initAdmin({ projectId: PROJECT });
   const db = getFirestore();
+  // One-shot: refuse a second --apply unless --force.
+  await assertNotCompleted(MIGRATION, { apply: APPLY, force: FORCE });
   console.log(`[backfill-pins-to-knocks] project=${PROJECT} mode=${APPLY ? 'APPLY' : 'DRY-RUN'}`);
 
   let scanned = 0, eligible = 0, migrated = 0, skippedAlready = 0, skippedNotKnock = 0, skippedNoOwner = 0;
@@ -168,6 +175,9 @@ async function main() {
     for (const s of sample) console.log(`  pin ${s.pinId}  ${s.status} → ${s.disposition}  ${s.address}`);
   }
   if (!APPLY) console.log('\nDRY-RUN — nothing written. Re-run with --apply --yes to migrate.');
+
+  if (APPLY) await recordCompletion(MIGRATION, { scanned, eligible, migrated });
+
   process.exit(0);
 }
 

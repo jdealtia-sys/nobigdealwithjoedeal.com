@@ -48,11 +48,16 @@
  */
 
 const { initAdmin, getFirestore } = require('./_admin');
+const { assertNotCompleted, recordCompletion } = require('./_migration-guard');
+
 const { phoneDigits10 } = require('../functions/phone-utils');
 
 const args = process.argv.slice(2);
 const APPLY = args.includes('--apply');
 const YES = args.includes('--yes');
+// --force overrides the run-once guard (see scripts/_migration-guard.js).
+const FORCE = args.includes('--force');
+const MIGRATION = 'backfill-leads-phoneDigits';
 const PROJECT = process.env.NBD_PROJECT || 'nobigdeal-pro';
 
 const PAGE = 500;   // read page size
@@ -72,6 +77,8 @@ async function main() {
 
   init();
   const db = getFirestore();
+  // One-shot: refuse a second --apply unless --force.
+  await assertNotCompleted(MIGRATION, { apply: APPLY, force: FORCE });
 
   console.log('═══════════════════════════════════════════════════════════');
   console.log('Backfill leads.phoneDigits');
@@ -153,6 +160,8 @@ async function main() {
     console.log('  (dry-run — re-run with --apply --yes to write)');
   }
   console.log('───────────────────────────────────────────────────────────');
+
+  if (APPLY && failures === 0) await recordCompletion(MIGRATION, { scanned, toFix, written });
 
   process.exit(failures > 0 ? 1 : 0);
 }
