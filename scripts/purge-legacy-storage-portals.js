@@ -46,7 +46,7 @@
  * Coordinate with Jo before --apply: this deletes customer-facing artifacts.
  */
 
-const admin = require('firebase-admin');
+const { initAdmin, getFirestore, getStorage, FieldValue } = require('./_admin');
 
 const args = process.argv.slice(2);
 const APPLY = args.includes('--apply');
@@ -56,15 +56,9 @@ const PROJECT = process.env.NBD_PROJECT || 'nobigdeal-pro';
 const BUCKET = process.env.NBD_STORAGE_BUCKET || 'nobigdeal-pro.firebasestorage.app';
 
 function init() {
-  try {
-    admin.initializeApp({
-      credential: admin.credential.applicationDefault(),
-      projectId: PROJECT,
-      storageBucket: BUCKET,
-    });
-  } catch (e) {
-    if (!String(e.message || '').includes('already exists')) throw e;
-  }
+  // initAdmin is idempotent (ADC credential by default), so the old
+  // "already exists" message-matching catch is no longer needed.
+  initAdmin({ projectId: PROJECT, storageBucket: BUCKET });
 }
 
 // Collect every legacy baked-HTML object path recorded on a lead doc.
@@ -151,8 +145,8 @@ async function main() {
   }
 
   init();
-  const db = admin.firestore();
-  const bucket = admin.storage().bucket();
+  const db = getFirestore();
+  const bucket = getStorage().bucket();
 
   console.log('═══════════════════════════════════════════════════════════');
   console.log('Legacy Storage-portal purge');
@@ -214,12 +208,12 @@ async function main() {
     } else {
       try {
         await leadSnap.ref.update({
-          portalUrl: admin.firestore.FieldValue.delete(),
-          portalPath: admin.firestore.FieldValue.delete(),
-          portalHistory: admin.firestore.FieldValue.delete(),
-          portalGeneratedAt: admin.firestore.FieldValue.delete(),
-          photoPortalUrl: admin.firestore.FieldValue.delete(),
-          photoPortalGeneratedAt: admin.firestore.FieldValue.delete(),
+          portalUrl: FieldValue.delete(),
+          portalPath: FieldValue.delete(),
+          portalHistory: FieldValue.delete(),
+          portalGeneratedAt: FieldValue.delete(),
+          photoPortalUrl: FieldValue.delete(),
+          photoPortalGeneratedAt: FieldValue.delete(),
         });
         fieldsCleared++;
       } catch (e) {

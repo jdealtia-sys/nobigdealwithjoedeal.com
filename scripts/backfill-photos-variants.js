@@ -210,16 +210,11 @@ function variantDestinations(objectPath, variants) {
 
 // ── Runtime wiring ─────────────────────────────────────────────────
 
-function init(admin) {
-  try {
-    admin.initializeApp({
-      credential: admin.credential.applicationDefault(),
-      projectId: PROJECT,
-      storageBucket: BUCKET,
-    });
-  } catch (e) {
-    if (!String(e.message || '').includes('already exists')) throw e;
-  }
+// Takes the lazily-required ./_admin module rather than requiring it itself —
+// see the "Lazy deps" note in main(). initAdmin is idempotent (ADC credential
+// by default), so the old "already exists" message-matching catch is gone.
+function init(adminMod) {
+  adminMod.initAdmin({ projectId: PROJECT, storageBucket: BUCKET });
 }
 
 function loadSharp() {
@@ -259,7 +254,9 @@ async function main() {
   }
 
   // Lazy deps — keep the module top requirable with zero deps (smoke tests).
-  const admin = require('firebase-admin');
+  // ./_admin resolves firebase-admin at ITS require time, so it must stay in
+  // here rather than moving to the module top.
+  const adminMod = require('./_admin');
   // Requiring functions/image-pipeline.js constructs its onObjectFinalized
   // trigger, and firebase-functions resolves the default bucket from
   // FIREBASE_CONFIG at that moment — absent in a plain admin-script env, so
@@ -271,10 +268,10 @@ async function main() {
   const { VARIANTS, MAX_SOURCE_BYTES } = require('../functions/image-pipeline');
   const sharpLib = APPLY ? loadSharp() : null; // dry-run never encodes
 
-  init(admin);
-  const db = admin.firestore();
-  const bucket = admin.storage().bucket(BUCKET);
-  const FieldValue = admin.firestore.FieldValue;
+  init(adminMod);
+  const db = adminMod.getFirestore();
+  const bucket = adminMod.getStorage().bucket(BUCKET);
+  const FieldValue = adminMod.FieldValue;
 
   console.log('═══════════════════════════════════════════════════════════');
   console.log('Backfill photos storagePath + WebP variants (§2.2)');

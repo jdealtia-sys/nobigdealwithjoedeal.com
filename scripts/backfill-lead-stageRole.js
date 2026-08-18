@@ -52,7 +52,7 @@
  * tenant-declared role.
  */
 
-const admin = require('firebase-admin');
+const { initAdmin, getFirestore } = require('./_admin');
 const { roleFromKey, normKey, ROLE } = require('../functions/stage-roles');
 
 const args = process.argv.slice(2);
@@ -66,14 +66,9 @@ const BATCH = 400;  // Firestore batch write cap is 500; stay under it
 const VALID_ROLES = new Set(Object.keys(ROLE).map((k) => ROLE[k]));
 
 function init() {
-  try {
-    admin.initializeApp({
-      credential: admin.credential.applicationDefault(),
-      projectId: PROJECT,
-    });
-  } catch (e) {
-    if (!String(e.message || '').includes('already exists')) throw e;
-  }
+  // initAdmin is idempotent, so the old "already exists" message-matching
+  // catch is no longer needed.
+  initAdmin({ projectId: PROJECT });
 }
 
 // Per-tenant pipeline config, lazily loaded + cached. companyProfile is keyed
@@ -121,7 +116,7 @@ async function main() {
   }
 
   init();
-  const db = admin.firestore();
+  const db = getFirestore();
   const tenantCfg = makeTenantCfgLoader(db);
 
   console.log('═══════════════════════════════════════════════════════════');

@@ -117,9 +117,27 @@ section('QA sweep fixes (F4/F5)');
   // that never existed, and nothing consumed its API or synced data).
   const auth = read(path.join(PRO_JS, 'nbd-auth.js'));
   assert('F4: nbd-auth falls back client role to the custom claim', /_claimRole/.test(auth) && /userData\.role\s*\|\|\s*_claimRole/.test(auth));
+  // F5 originally required each script to inline the functions/ resolution.
+  // They now delegate to scripts/_admin.js, which owns it centrally (added
+  // with the firebase-admin v14 port — v14 removed admin.apps/.firestore()/
+  // .auth()/.credential, and nineteen scripts had copy-pasted the dead
+  // pattern). The invariant is unchanged: never a bare require that would
+  // need a root node_modules, which does not exist. So accept either shape —
+  // and pin that _admin itself really does resolve out of functions/,
+  // otherwise the indirection could hide a regression.
+  const adminHelper = read(path.join(ROOT, 'scripts', '_admin.js'));
+  assert('F5: scripts/_admin.js resolves firebase-admin from functions/',
+    /require\.resolve\(['"]firebase-admin['"]/.test(adminHelper)
+    && /createRequire\(/.test(adminHelper)
+    && /'functions'/.test(adminHelper));
+  assert('F5: scripts/_admin.js exports the modular API the scripts need',
+    /getFirestore/.test(adminHelper) && /getAuth/.test(adminHelper)
+    && /applicationDefault/.test(adminHelper));
   for (const s of ['seed-access-codes.js', 'grant-admin-claim.js', 'grant-demo-claim.js']) {
     const src = read(path.join(ROOT, 'scripts', s));
-    assert('F5: ' + s + ' resolves firebase-admin from functions/', /require\.resolve\(['"]firebase-admin['"]/.test(src));
+    assert('F5: ' + s + ' resolves firebase-admin from functions/ (inline or via _admin)',
+      /require\.resolve\(['"]firebase-admin['"]/.test(src)
+      || /require\(['"]\.\/_admin['"]\)/.test(src));
   }
 }
 

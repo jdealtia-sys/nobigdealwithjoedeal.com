@@ -41,11 +41,9 @@
 
 'use strict';
 
-// F5: resolve firebase-admin from functions/ (no node_modules in scripts/ or repo
-// root); fall back to a normally-resolvable copy if present.
-let admin;
-try { admin = require(require.resolve('firebase-admin', { paths: [require('path').join(__dirname, '..', 'functions')] })); }
-catch (_) { admin = require('firebase-admin'); }
+// firebase-admin resolution + the modular API live in scripts/_admin.js
+// (scripts/ and the repo root both have no node_modules).
+const { initAdmin, getAuth } = require('./_admin');
 
 const DEFAULT_EMAIL = 'demo@nobigdeal.pro';
 
@@ -62,18 +60,16 @@ function parseArgs(argv) {
 }
 
 function init() {
-  try {
-    admin.initializeApp({ credential: admin.credential.applicationDefault() });
-  } catch (e) {
-    if (!String(e.message || '').includes('already exists')) throw e;
-  }
+  // initAdmin is idempotent (ADC credential by default), so the old
+  // "already exists" message-matching catch is no longer needed.
+  initAdmin();
 }
 
 async function main() {
   const { email, remove } = parseArgs(process.argv);
   init();
 
-  const user = await admin.auth().getUserByEmail(email);
+  const user = await getAuth().getUserByEmail(email);
   console.log('Found user:', user.uid, user.email);
 
   // Preserve any other custom claims already set (e.g. role, companyId
@@ -87,7 +83,7 @@ async function main() {
     next.demo = true;
   }
 
-  await admin.auth().setCustomUserClaims(user.uid, next);
+  await getAuth().setCustomUserClaims(user.uid, next);
   console.log(
     (remove ? '✓ demo claim REMOVED on uid=' : '✓ demo claim SET on uid=')
     + user.uid
@@ -97,11 +93,11 @@ async function main() {
   // Without revocation, an already-signed-in browser tab would keep
   // the old token (no / stale demo flag) until it naturally expires
   // in ~1 hour.
-  await admin.auth().revokeRefreshTokens(user.uid);
+  await getAuth().revokeRefreshTokens(user.uid);
   console.log('✓ existing sessions revoked — user must sign out + sign in again');
 
   // Verify by reading back the claim.
-  const refreshed = await admin.auth().getUser(user.uid);
+  const refreshed = await getAuth().getUser(user.uid);
   const claims = refreshed.customClaims || {};
   const actual = !!claims.demo;
   const expected = !remove;

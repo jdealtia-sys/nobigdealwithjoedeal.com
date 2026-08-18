@@ -47,7 +47,7 @@
  * missing from the feed/gallery.
  */
 
-const admin = require('firebase-admin');
+const { initAdmin, getFirestore, Timestamp } = require('./_admin');
 
 const args = process.argv.slice(2);
 const APPLY = args.includes('--apply');
@@ -58,17 +58,12 @@ const PAGE = 500;   // read page size
 const BATCH = 400;  // Firestore batch write cap is 500; stay under it
 
 function init() {
-  try {
-    admin.initializeApp({
-      credential: admin.credential.applicationDefault(),
-      projectId: PROJECT,
-    });
-  } catch (e) {
-    if (!String(e.message || '').includes('already exists')) throw e;
-  }
+  // initAdmin is idempotent (ADC credential by default), so the old
+  // "already exists" message-matching catch is no longer needed.
+  initAdmin({ projectId: PROJECT });
 }
 
-const Timestamp = admin.firestore.Timestamp;
+
 
 // Derive a canonical createdAt Timestamp for a doc that lacks one.
 // Returns a Firestore Timestamp, or null if nothing usable (the caller
@@ -95,7 +90,7 @@ async function main() {
   }
 
   init();
-  const db = admin.firestore();
+  const db = getFirestore();
 
   console.log('═══════════════════════════════════════════════════════════');
   console.log('Backfill photos.createdAt');
