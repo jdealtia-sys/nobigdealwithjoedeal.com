@@ -919,8 +919,19 @@ jobs:
                 echo "npx firebase-tools deploy --only $(echo "$MISSING" | sed 's/^/functions:/' | paste -sd, -) --project $PRO_PROJECT --force"
                 echo '```'
                 echo ""
-                echo "If this recurs, set \`NBD_DEPLOY_WAVE1_MAX: \"60\"\` in this"
-                echo "workflow to chunk wave 1 and flatten the mutation burst."
+                # Report the LIVE knob value rather than hardcoding advice.
+                # This block used to say 'set it to "60"' and went stale the day
+                # it was actually set to 60 — telling an operator mid-incident to
+                # do something already done.
+                if [ "${NBD_DEPLOY_WAVE1_MAX:-0}" -gt 0 ]; then
+                  echo "Wave 1 was ALREADY chunked (\`NBD_DEPLOY_WAVE1_MAX\` = ${NBD_DEPLOY_WAVE1_MAX}),"
+                  echo "so the burst cap did not prevent this. Lower it (40, then 20) if drops"
+                  echo "persist — but the durable fix is a **Cloud Functions per-project"
+                  echo "mutation-rate quota increase**, which removes the need to chunk at all."
+                else
+                  echo "Wave 1 is NOT chunked (\`NBD_DEPLOY_WAVE1_MAX\` = 0). Set it to ~60 in"
+                  echo "this workflow to flatten the mutation burst."
+                fi
                 echo ""
               fi
               echo "If the per-function error is \`Container Healthcheck failed. Quota"
