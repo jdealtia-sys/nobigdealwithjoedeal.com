@@ -58,9 +58,18 @@ const LIMIT = Number(flag('--limit', '0')) || 0;
 const MOBILE_W = 390;
 
 // Directories that are not part of the homeowner marketing surface.
-// 'pro'/'admin' are app surfaces with their own auth + audit (crm-audit.js);
-// sweeping them here would mostly report login-wall noise.
+// 'pro'/'admin' are app surfaces behind auth; sweeping them wholesale would
+// mostly report login-wall noise.
 const SKIP_DIRS = new Set(['assets', 'admin', 'pro', 'deploy', '_archive', 'archive']);
+
+// …but the PUBLIC /pro acquisition pages render for anonymous visitors and are
+// exactly as regression-prone as the homeowner surface, while sitting outside
+// check-site-integrity too (it skips docs/pro/** entirely). Re-include them by
+// name. Anything requiring a session stays out — see crm-audit.js for those.
+const PRO_PUBLIC = [
+  'index.html', 'pricing.html', 'how-to.html', 'terms.html',
+  'register.html', 'login.html', 'demo.html', 'sandbox.html',
+].map((f) => path.join(DOCS, 'pro', f));
 // Pages that are intentionally bare or non-visual.
 const SKIP_FILES = new Set(['404.html', 'offline.html', 'googlee5b8f461f0f8e74b.html']);
 
@@ -195,7 +204,7 @@ function probe() {
 
 /* ---------- main ------------------------------------------------------ */
 (async () => {
-  let files = walk(DOCS);
+  let files = walk(DOCS).concat(PRO_PUBLIC.filter((f) => fs.existsSync(f)));
   files.sort();
   if (LIMIT) files = files.slice(0, LIMIT);
 
