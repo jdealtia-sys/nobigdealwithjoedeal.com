@@ -52,7 +52,8 @@ Map of content for the `documentation/` corpus (~115 files) plus the other place
 
 ## Audits
 
-- [ICON-CASCADE-REGRESSION-2026-08-17](audit/ICON-CASCADE-REGRESSION-2026-08-17.md) — invisible orange icon chips on the homepage (nbd-icons.css end-of-head link out-cascaded the per-page white-icon fix, #1194 regression) + nav-base CSS missing on 18 hand-built pages (dropdown splatter on /the-pledge etc.; new ensure-nav-css.js gate) (newest)
+- [SITE-QC-SWEEP-2026-08-18](audit/SITE-QC-SWEEP-2026-08-18.md) — `/sites/free-guide` shipped `svg.ico` at 1227px because ensure-icon-css.js's walk skipped `sites`/`pro`/a stale `free-guide` entry; 4th eye-caught cascade bug in two days, so adds `qc-render-sweep.js`, the first *rendered* gate (208 pages × 2 viewports, validated against the real defect). Also folds the byte-identical `/pro/landing` duplicate into `/pro`, labels the invented "89% close rate" hero figures, and ships the first real product screenshots on `/pro` (newest)
+- [ICON-CASCADE-REGRESSION-2026-08-17](audit/ICON-CASCADE-REGRESSION-2026-08-17.md) — invisible orange icon chips on the homepage (nbd-icons.css end-of-head link out-cascaded the per-page white-icon fix, #1194 regression) + nav-base CSS missing on 18 hand-built pages (dropdown splatter on /the-pledge etc.; new ensure-nav-css.js gate)
 - [DESIGNER-AUDIT-VERIFICATION-2026-08-15](audit/DESIGNER-AUDIT-VERIFICATION-2026-08-15.md) — claim-by-claim verification of the external designer-handoff audit: schema claim false, real gaps are conversion analytics / privacy tool-disclosure / area-page sameness; pro-visibility take
 - [SITE-AUDIT-LOOSE-ENDS-2026-08-10](audit/SITE-AUDIT-LOOSE-ENDS-2026-08-10.md) — site-wide loose-ends & security audit + fix wave: EXIF-GPS P0, rate-limit adoption, rules #12 extension, CI hardening
 - [SYSTEM-STABILITY-PERF-2026-08-07](audit/SYSTEM-STABILITY-PERF-2026-08-07.md) — full-system stability/perf/accuracy audit + fix wave
