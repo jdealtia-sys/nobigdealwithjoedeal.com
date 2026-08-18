@@ -1327,7 +1327,10 @@
         <div class="feature-content">
           <h3>Door-to-Door Tracker</h3>
           <ul>
-            <li>GPS pin on every knock — 15 outcomes, and hot ones auto-create leads</li>
+            <!-- 16, not 15: DISPOSITIONS in d2d-tracker-core-2026b.js has 16 keys and
+                 the picker renders all 16 ungated. "15" was accurate the day it shipped
+                 (2026-07-19); `revisit` landed 2026-07-21, two days later. -->
+            <li>GPS pin on every knock — 16 outcomes, and hot ones auto-create leads</li>
             <li>Draw territories, watch team coverage, toggle the knock heatmap</li>
             <li>Route optimizer turns your not-homes into an efficient walking loop</li>
             <li>Live NOAA radar + hail history overlays right on the map</li>
@@ -1458,7 +1461,15 @@
           <h3>AI Assistant ("Ask Joe")</h3>
           <ul>
             <li>Chat with an AI that talks like a roofer, not a chatbot (paid plans)</li>
-            <li>Property intel: parcel data, owner history, and a 0&ndash;100 roof score</li>
+            <!-- 2026-08-18: was "parcel data, owner history, and a 0-100 roof score".
+                 There is no owner-history feature in the codebase at all. What ships is
+                 one current owner-of-record plus one last-sale date/amount. And
+                 authoritative Regrid parcel data only reaches admin/company_admin roles
+                 with REGRID_API_TOKEN set — for a rep the client never asks the server
+                 (integrations-client.js) and the lookup falls through to a Claude Haiku
+                 estimate (property-intel.js). Unqualified "parcel data" read as sourced
+                 fact when the shipped default for a rep is an LLM guess. -->
+            <li>Property intel: owner of record, last sale, and a 0&ndash;100 roof score &mdash; parcel data from Regrid where connected, AI estimates otherwise (verify against county records)</li>
             <li>Deep photo analysis: damage, severity, materials, recommendations</li>
             <li>Morning briefing surfaces overdue follow-ups and hot leads</li>
           </ul>
@@ -1517,7 +1528,14 @@
           <h3>Documents &amp; E-Signatures</h3>
           <ul>
             <li>25 branded document types: contracts, AOBs, change orders, warranties</li>
-            <li>9 are e-sign ready — homeowner signs on their phone, no login, no app</li>
+            <!-- 2026-08-18: was "9 are e-sign ready". Only 3 carry defaultSigners at
+                 runtime (proposal, contract, inspectionHomeowner) — the other 6 are
+                 overwritten by document-generator-templates.js before the generator
+                 opens, so this was never 9 in a shipped build. A signer CAN be added
+                 to any of the 25 by hand, which is what the second clause now says.
+                 Restoring the 9 is a code fix (merge rather than replace in
+                 document-generator-templates.js), tracked separately. -->
+            <li>3 are e-sign ready out of the box, and a signer can be added to any of the 25 — homeowner signs on their phone, no login, no app</li>
             <li>Single-use signing links that expire, multi-signer support built in</li>
             <li>Deal Room: customer picks a tier and signs remotely, tracked end to end</li>
           </ul>
@@ -1540,7 +1558,7 @@
               </div>
             </div>
             <div style="margin-top: 14px; font-size: 11px; color: rgba(255, 255, 255, 0.7);">
-              25 document types • 9 e-sign ready • branded to your company
+              25 document types • 3 e-sign ready out of the box • branded to your company
             </div>
           </div>
         </div>
@@ -1589,7 +1607,16 @@
             <li>Live NWS severe-weather alerts, filtered to roofing-relevant storms</li>
             <li>Turn an alert into a storm zone and canvass plan in two taps</li>
             <li>Hail history for any address — stone size and date, on the map</li>
-            <li>5-year storm report for any US address — proof that opens doors</li>
+            <!-- 2026-08-18: this bullet read "5-year storm report for any US address".
+                 Wrong on three counts. Storm Center has no report generator; its hail
+                 window is hard-clamped to 730 days (functions/handlers/storm-proof.js,
+                 functions/integrations/hail.js) and every shipped caller asks for 365.
+                 The real 5-year report (functions/storm-report.js) is a separate
+                 homeowner lead magnet at /storm-report, scoped to OH/KY/IN over a
+                 30-mile radius — unreachable from the CRM. Replaced with a capability
+                 Storm Center genuinely ships. The hail-history bullet above is sound:
+                 that lookup really is nationwide (functions/integrations/hail.js). -->
+            <li>Server-verified storm proof stamped onto the lead — a NOAA/NWS hail record you can hand an adjuster</li>
           </ul>
         </div>
         <div class="feature-mockup">
@@ -1839,7 +1866,16 @@
             <span class="faq-toggle" aria-hidden="true">+</span>
           </button>
           <div class="faq-answer">
-            Yes. NBD Pro runs on Google's Firebase infrastructure with encryption in transit and at rest, hosted in Google Cloud's SOC 2–certified data centers, and your data is backed up. We never share or sell your data, and you can export everything anytime.
+            <!-- 2026-08-18: this ended "…and your data is backed up", unqualified.
+                 Firestore documents are (nightly 03:15 ET export, 30-day retention,
+                 7-snapshot floor — functions/firestore-backup.js, wired at
+                 functions/index.js). Cloud Storage binaries are NOT: job photos,
+                 signed warranties, contracts, estimate PDFs and voice recordings have
+                 no backup, per the repo's own runbook. On a security FAQ that is the
+                 one sentence a buyer would rely on, so it now states the scope that is
+                 actually true. The SOC 2 clause is left alone — it is correctly
+                 attributed to Google Cloud, not claimed for NBD Pro. -->
+            Yes. NBD Pro runs on Google's Firebase infrastructure with encryption in transit and at rest, hosted in Google Cloud's SOC 2–certified data centers. Your CRM records — leads, customers, jobs, and estimates — are exported to a private backup bucket every night, with a 30-day rolling history. We never share or sell your data, and you can export everything anytime.
           </div>
         </div>
 
