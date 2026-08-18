@@ -113,8 +113,14 @@
       color: #fff;
     }
 
+    /* 2026-08-18: hover was var(--orange-light) #f08030, which puts white text
+       at 2.68:1 — the hover state was LESS legible than the 4.88:1 resting
+       state, so the button degraded the moment you pointed at it. Brightening
+       cannot work here: every shade lighter than #B85400 fails AA against
+       white. Hover goes deeper instead (5.60:1); the lift and shadow below
+       already carry the interactive affordance. */
     .btn-primary:hover {
-      background-color: var(--orange-light);
+      background-color: #A94D00;
       transform: translateY(-2px);
       box-shadow: 0 8px 20px rgba(232, 114, 12, 0.4);
     }
@@ -257,8 +263,12 @@
       color: var(--orange);
     }
 
+    /* 2026-08-18: was var(--orange) #e8720c, 3.07:1 with white — the header's
+       "Start Free Trial" is the highest-intent control on the page and it was
+       the least legible. #B85400 is not a new colour: .btn-primary above
+       already uses it for exactly this reason. 4.88:1. */
     .nav-cta {
-      background-color: var(--orange) !important;
+      background-color: #B85400 !important;
       color: #fff !important;
       padding: 10px 24px !important;
       border-radius: 4px;
@@ -1082,7 +1092,7 @@
     }
 
     /* a11y: skip-to-main link (site-wide .nbd-skip pattern, see storm-check.html) */
-    .nbd-skip{position:absolute;left:-9999px;top:0;z-index:100000;background:#e8720c;color:#fff;padding:10px 16px;font-weight:700;text-decoration:none;border-radius:0 0 6px 0}
+    .nbd-skip{position:absolute;left:-9999px;top:0;z-index:100000;background:#B85400;color:#fff;padding:10px 16px;font-weight:700;text-decoration:none;border-radius:0 0 6px 0}
     .nbd-skip:focus{left:0}
   </style>
 <link rel="stylesheet" href="/assets/css/nbd-mobile.css">
@@ -1292,7 +1302,7 @@
               </div>
             </div>
             <div style="display: flex; gap: 8px; margin-top: 12px;">
-              <span style="background: var(--orange); color: #fff; padding: 5px 12px; border-radius: 4px; font-size: 11px; font-weight: 600;">Create estimate</span>
+              <span style="background: #B85400; color: #fff; padding: 5px 12px; border-radius: 4px; font-size: 11px; font-weight: 600;">Create estimate</span>
               <span style="border: 1px solid rgba(255, 255, 255, 0.25); padding: 5px 12px; border-radius: 4px; font-size: 11px;">Preview proposal</span>
             </div>
             <div style="margin-top: 14px; font-size: 11px; color: rgba(255, 255, 255, 0.7);">
@@ -1358,7 +1368,7 @@
               "Tuesday works on my end, Sandra. I'll confirm the exact time with you Monday — sound good?"
             </div>
             <div style="display: flex; gap: 8px; margin-top: 12px;">
-              <span style="background: var(--orange); color: #fff; padding: 5px 12px; border-radius: 4px; font-size: 11px; font-weight: 600;">Approve &amp; Send</span>
+              <span style="background: #B85400; color: #fff; padding: 5px 12px; border-radius: 4px; font-size: 11px; font-weight: 600;">Approve &amp; Send</span>
               <span style="border: 1px solid rgba(255, 255, 255, 0.25); padding: 5px 12px; border-radius: 4px; font-size: 11px;">Edit</span>
             </div>
             <!-- 2026-08-18: was 10px at rgba(…,.55). This is a real onboarding
