@@ -612,6 +612,22 @@
       white-space: nowrap;
     }
 
+    /* Panels backed by a real capture from /pro/sandbox.html say so — the
+       whole point of shipping screenshots is that they are NOT illustrations. */
+    .feature-mockup-title--real::after {
+      content: 'Live UI';
+      color: var(--orange);
+      border-color: rgba(232, 114, 12, .5);
+    }
+
+    .feature-shot {
+      display: block;
+      width: 100%;
+      height: auto;
+      border-radius: 8px;
+      border: 1px solid rgba(255, 255, 255, .1);
+    }
+
     .mockup-items {
       display: flex;
       flex-direction: column;
@@ -1204,20 +1220,15 @@
           </ul>
         </div>
         <div class="feature-mockup">
-          <div class="feature-mockup-title">Kanban Pipeline</div>
+          <div class="feature-mockup-title feature-mockup-title--real">Kanban Pipeline</div>
           <div class="feature-mockup-content">
-            <div class="mockup-items">
-              <div class="mockup-item"><span class="mockup-item-dot"></span> Lead Intake</div>
-              <div class="mockup-item"><span class="mockup-item-dot"></span> Pitched</div>
-              <div class="mockup-item"><span class="mockup-item-dot"></span> Estimate Sent</div>
-              <div class="mockup-item"><span class="mockup-item-dot"></span> Closed</div>
-            </div>
-            <div class="mockup-chart">
-              <div class="chart-bar" style="height: 100%;"></div>
-              <div class="chart-bar" style="height: 75%;"></div>
-              <div class="chart-bar" style="height: 60%;"></div>
-              <div class="chart-bar" style="height: 40%;"></div>
-            </div>
+            <!-- Real product UI, captured from /pro/sandbox.html (2026-08-18).
+                 The sandbox is public and its leads are hardcoded sample data in
+                 pro/js/sandbox-demo.js — no Firestore read, so no customer names
+                 or addresses are exposed. Values shown are retail, never cost. -->
+            <img src="/assets/images/pro/pro-pipeline.webp" width="1128" height="315"
+                 loading="lazy" decoding="async" class="feature-shot"
+                 alt="NBD Pro kanban board with five stages — New Lead, Inspected, Claim Filed, Adjuster Mtg, Contract Signed — each lead card showing homeowner name, job type, address, retail value and a lead score.">
           </div>
         </div>
       </div>
@@ -1234,16 +1245,13 @@
           </ul>
         </div>
         <div class="feature-mockup">
-          <div class="feature-mockup-title">Estimate Templates</div>
+          <div class="feature-mockup-title feature-mockup-title--real">Estimate Templates</div>
           <div class="feature-mockup-content">
-            <div class="mockup-items">
-              <div class="mockup-item"><span class="mockup-item-dot"></span> Good - $8,500</div>
-              <div class="mockup-item"><span class="mockup-item-dot"></span> Better - $12,000</div>
-              <div class="mockup-item"><span class="mockup-item-dot"></span> Best - $15,200</div>
-            </div>
-            <div style="margin-top: 20px; padding: 12px; background: rgba(232, 114, 12, 0.2); border-radius: 4px; font-size: 12px;">
-              Total Roof Area: 2,400 sq ft | Pitch: 8/12 | Material: GAF Timberline
-            </div>
+            <!-- Real product UI from /pro/sandbox.html (2026-08-18). Retail
+                 package pricing only — cost basis never leaves the CRM. -->
+            <img src="/assets/images/pro/pro-estimate.webp" width="1128" height="125"
+                 loading="lazy" decoding="async" class="feature-shot"
+                 alt="NBD Pro Good/Better/Best estimate packages — Good $8,450 architectural shingles with 10-year workmanship, Better $12,300 GAF Timberline HDZ with ridge vent and 15-year, Best $15,900 GAF UHDZ with full ice and water and 25-year.">
           </div>
         </div>
       </div>
