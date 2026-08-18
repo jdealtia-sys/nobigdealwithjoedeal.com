@@ -69,6 +69,38 @@ of which say the deploy SA is missing `roles/identityplatform.admin`.
 **Granting that role cannot fix this.** The error is `OPERATION_NOT_ALLOWED`,
 not `PERMISSION_DENIED`; the API is refusing the *project*, not the caller.
 
+**Update 2026-08-17 — the role was already granted the whole time.** Checked
+directly while looking at an unrelated IAM question:
+
+```
+$ gcloud projects get-iam-policy nobigdeal-pro \
+    --flatten="bindings[].members" \
+    --filter="bindings.members:firebase-adminsdk-fbsvc@nobigdeal-pro.iam.gserviceaccount.com" \
+    --format="value(bindings.role)"
+…
+roles/cloudscheduler.admin
+…
+roles/identityplatform.admin
+…
+```
+
+So the deploy SA holds **both** roles the skip-list blames for `onRepSignup`,
+and the registration still fails. That closes the question the paragraph above
+had to argue from the error code alone: it is not that granting the role
+*wouldn't* help — it is granted, and it doesn't. The project IAM policy was
+last modified 2026-06-09; the failures continue daily.
+
+Two consequences worth acting on separately:
+
+- `NBD_DEPLOY_SKIP_LIST`'s stated justification is stale on **both** counts.
+  `onRepSignup` still cannot deploy its trigger registration, but not for
+  either reason recorded. The skip itself remains correct; only the reason is
+  wrong.
+- The scheduler half of the tolerant-retry summary ("grant
+  `roles/cloudscheduler.admin`") is also stale — already granted. If scheduled
+  functions still fail to update, that needs its own diagnosis rather than an
+  IAM grant. Not investigated here.
+
 ### Blast radius: `onRepSignup` has never been invoked
 
 The failing call above is for `beforeCreate` → `onRepSignup`, the blocking
@@ -145,9 +177,12 @@ deploy-log parsing — see the recommendation below.
    in a non-`ACTIVE` state, something re-exported the trigger — see the
    re-enablement runbook in `functions/handlers/auth.js`, and note it will
    keep failing until the GCIP decision below is made.
-2. **Do not grant `roles/identityplatform.admin` expecting a fix.** It is
-   necessary-but-not-sufficient, and only after a GCIP upgrade. Granting it
-   now changes nothing and would leave a misleading "we fixed it" trail.
+2. ~~**Do not grant `roles/identityplatform.admin` expecting a fix.**~~
+   **Moot — it is already granted** (see the 2026-08-17 update above), along
+   with `roles/cloudscheduler.admin`. Nothing to do here; the recommendation
+   is now simply *don't re-litigate IAM for this*. If a future session finds
+   itself about to grant an auth-related role to the deploy SA, check the
+   policy first — the answer has been "already there" since 2026-06-09.
 3. **Decide on GCIP explicitly.** Upgrading unblocks blocking triggers *and*
    MFA together. It is a paid-tier product decision (Jo's), not an ops task.
    If the answer is "not now", say so in the code comments so the next

@@ -505,9 +505,11 @@ exports.onRepSignup = beforeUserCreated(
 //      product decision, not an ops IAM tweak — it also gates the
 //      MFA that this trigger is meant to enforce (`mfa.state` is
 //      currently DISABLED for the same reason).
-//   2. Confirm `roles/identityplatform.admin` on the GitHub
-//      Actions deploy SA — necessary once GCIP is on, but NOT
-//      sufficient before it.
+//   2. Nothing to do — `roles/identityplatform.admin` is ALREADY
+//      on the deploy SA (verified 2026-08-17; granted 2026-06-09,
+//      along with `roles/cloudscheduler.admin`). That is the proof
+//      the correction above is right: the role is present and the
+//      registration still fails. Do not re-litigate IAM here.
 //   3. Uncomment the `exports.beforeAdminSignIn = ...` line below.
 //   4. Deploy. On first deploy the CLI may still emit a one-time
 //      "blocking function configured" notice — expected.
