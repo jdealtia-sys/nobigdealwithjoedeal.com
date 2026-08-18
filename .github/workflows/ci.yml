@@ -31,10 +31,24 @@ permissions:
 #                                  functions-parse, unit-manifest, smoke
 #   medium    15    1.2 - 5.0 min  firestore-rules, referral-trigger,
 #                                  emulator-orphan, visual-brand-tokens
-#   heavy     20    1.4 - 2.3 min  public-e2e, visual-regression
-#                                  (loose despite low max: both install
-#                                   Playwright, the step that wedged)
+#   heavy     20    1.4 - 5.0 min  public-e2e, visual-regression,
+#                                  visual-brand-tokens (loose despite
+#                                  low maxima: all three install
+#                                  Playwright, the step that wedged)
 #   e2e       25    11.5 min       e2e-authed-emulator matrix
+#
+# FOUR jobs install Playwright, not three: e2e-authed-emulator,
+# public-e2e, visual-regression, and visual-brand-tokens. The last one
+# does it via `npm run install:browsers` rather than a literal
+# `npx playwright install`, so grep for the STEP NAME ("Install
+# Playwright chromium") when auditing — matching on the command misses it.
+#
+# These caps are not theoretical. On the very first run carrying them
+# (32088697255), visual-regression and visual-brand-tokens BOTH hit their
+# ceiling on `Install Playwright chromium` — the same step that wedged
+# @shard1 an hour earlier. Three separate jobs, one evening. Without a
+# cap all three would have sat until GitHub's 6-hour default, and the two
+# continue-on-error ones would have done it silently.
 #
 # If a job starts timing out legitimately, RAISE the cap — do not
 # remove it. A job with no ceiling is the failure mode this fixes.
@@ -1107,9 +1121,13 @@ jobs:
   visual-brand-tokens:
     name: Brand-token visual assertions
     runs-on: ubuntu-latest
-    # 15: no Playwright install, but the measured spread is wide for
-    # its size (1.6 min average, 5.0 min max).
-    timeout-minutes: 15
+    # 20, same tier as the other Playwright jobs. First cut of this file
+    # put it at 15 on the belief it had no Playwright install — wrong: it
+    # installs via `npm run install:browsers` (tests/visual), which a
+    # grep for "playwright install" does not match. It then timed out on
+    # exactly that step at 15m14s. Match on the STEP NAME, not the
+    # command, when auditing this.
+    timeout-minutes: 20
     continue-on-error: true
     steps:
       - uses: actions/checkout@v7
