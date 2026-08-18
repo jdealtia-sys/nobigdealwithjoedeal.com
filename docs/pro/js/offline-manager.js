@@ -468,7 +468,7 @@
     '/pro/login.html', '/pro/register.html', '/pro/analytics.html',
     '/pro/leaderboard.html', '/pro/ask-joe.html', '/pro/project-codex.html',
     '/pro/ai-tree.html', '/pro/ai-tool-finder.html', '/pro/understand.html',
-    '/pro/stripe-success.html', '/pro/landing.html',
+    '/pro/stripe-success.html',
   ]);
 
   function isOnAuthGatedPath() {

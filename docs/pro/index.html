@@ -590,6 +590,26 @@
       font-weight: 600;
       margin-bottom: 16px;
       text-transform: uppercase;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    /* 2026-08-18: all 13 feature panels are hand-built UI illustrations with
+       stand-in figures ("247 knocks | Conversion: 12%", template prices, …).
+       One rule tags every panel rather than editing 13 titles, so the numbers
+       can't be read as sourced results — the same bar the social-proof section
+       sets when it refuses invented ratings and quotes. */
+    .feature-mockup-title::after {
+      content: 'Illustration';
+      font-size: 9px;
+      font-weight: 700;
+      letter-spacing: .1em;
+      color: rgba(255, 255, 255, .5);
+      border: 1px solid rgba(255, 255, 255, .22);
+      border-radius: 999px;
+      padding: 2px 7px;
+      white-space: nowrap;
     }
 
     .mockup-items {
@@ -1097,9 +1117,19 @@
         </a>
       </div>
 
+      <!-- Sample data, labelled as such (2026-08-18). This strip previously read
+           247 Leads / $2.4M Pipeline / 89% Close Rate with nothing marking it as
+           illustrative — an 89% close rate is roughly triple a strong real one,
+           and it sat two screens above the social-proof section that promises
+           "I won't show you invented star ratings or made-up customer quotes."
+           Same bar as the 2026-07-04 sweep that removed "50+ Active Contractors"
+           and "4.9★ Average Rating": nothing we can't source. The mockup stays
+           (it shows what the dashboard looks like) with plausible figures and an
+           explicit Sample label, so it reads as UI, not as a results claim. -->
       <div class="hero-mockup" id="see-it-live">
         <div class="mockup-header">
           <h2 class="mockup-title" style="font-size:14px;color:var(--orange)">Your Pipeline at a Glance</h2>
+          <span style="font-size:10px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:rgba(255,255,255,.55);border:1px solid rgba(255,255,255,.25);border-radius:999px;padding:3px 9px;white-space:nowrap">Sample data</span>
           <div class="mockup-dots">
             <span class="mockup-dot"></span>
             <span class="mockup-dot"></span>
@@ -1116,7 +1146,7 @@
             <span class="stat-label">Pipeline</span>
           </div>
           <div class="stat">
-            <span class="stat-value">89%</span>
+            <span class="stat-value">31%</span>
             <span class="stat-label">Close Rate</span>
           </div>
         </div>
