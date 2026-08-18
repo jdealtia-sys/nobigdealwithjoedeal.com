@@ -218,12 +218,25 @@ warning was right. Only subtracting the parsed failures distinguishes them — a
 without that distinction the true positive here would have been indistinguishable
 from the false alarm one run earlier.
 
-**Recommendation, now that mode 3 is confirmed recurrent:** set
-`NBD_DEPLOY_WAVE1_MAX` to ~60. The burst cap was left at `0` when the mode had
-been seen once; two occurrences in consecutive deploys — 17 and 28 functions —
-change that calculus. The retries do recover, but every occurrence is a window
-in which prod runs stale code, and the recovery depends on a guard that is one
-regex away from breaking.
+**`NBD_DEPLOY_WAVE1_MAX` raised 0 → 60** (Jo's call, 2026-08-17). The burst cap
+was left off while the mode had been seen once; two occurrences in consecutive
+deploys — 17 and 28 functions — changed that. The retries do recover, but every
+occurrence is a window in which prod runs stale code, and the recovery depends
+on a guard that is one regex away from breaking. 167 functions now deploy as
+chunks of 60/60/47.
+
+Two costs were accepted knowingly, and both are worth recognising if a deploy
+misbehaves later:
+
+- **~2-3 min added to every deploy** — a full re-package + re-discovery per
+  chunk. The step ran ~10-17 min against a 40-min job cap, so there is room.
+- **3 invocations instead of 1 triples the exposure to a wholesale failure.**
+  A transient auth flake in any chunk is fatal by design. If deploys start
+  going red on auth rather than on real problems, this is the cause, and
+  setting the knob back to `0` restores the previous behavior.
+
+The durable fix remains the quota increase, which would make the cap
+unnecessary rather than merely tolerable.
 
 ## Open items found alongside
 
