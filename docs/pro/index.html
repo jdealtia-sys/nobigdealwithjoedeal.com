@@ -1121,7 +1121,12 @@
         <li><a href="#pricing">Pricing</a></li>
         <li><a href="#faq">FAQ</a></li>
         <li><a href="/pro/login.html">Log In</a></li>
-        <li><a href="#" class="btn nav-cta" data-pl-action="goRegister">Start Free Trial</a></li>
+        <!-- 2026-08-18: label was "Start Free Trial". This control carries no
+             data-plan, so landing-page.js sends it to /pro/register.html with no
+             plan param — a free-tier signup, not a trial. Trials are Team and
+             Growth only (functions/stripe.js:354; Starter has none, per the
+             comment there). "Start Free" is what actually happens. -->
+        <li><a href="#" class="btn nav-cta" data-pl-action="goRegister">Start Free</a></li>
       </ul>
       <a href="#" class="btn nav-cta" style="display: none;" data-pl-action="goRegister">Sign Up</a>
     </div>
@@ -1139,8 +1144,10 @@
       </p>
 
       <div class="hero-ctas">
+        <!-- Same correction as the nav CTA: no data-plan means this is a
+             free-tier signup, not a trial. See functions/stripe.js:354. -->
         <button class="btn btn-primary" data-pl-action="goRegister">
-          Start Free Trial
+          Start Free
         </button>
         <a class="btn btn-ghost" href="/pro/sandbox.html">
           See It Live — Try the Sandbox
@@ -1846,7 +1853,15 @@
             <span class="faq-toggle" aria-hidden="true">+</span>
           </button>
           <div class="faq-answer">
-            Built by a contractor with $10M+ in claims experience. Priced 1/3 less than competitors. Includes training (Real Deal Academy) built-in. No complex integrations required — D2D tracking, estimates, and CRM are all unified. Designed for the roofing workflow, not adapted from generic project management.
+            <!-- 2026-08-18: read "Priced 1/3 less than competitors", which
+                 contradicts the other three places the ratio appears (meta
+                 description, hero, trust badge) — those all say one-third THE
+                 PRICE, i.e. you pay ~33%. "1/3 less" means you pay ~67%. The
+                 two cannot both be true; aligned to the dominant claim. The
+                 ratio itself is unverifiable from this repo (no competitor
+                 pricing in code), so it stays a marketing claim either way —
+                 but it should at least not contradict itself. -->
+            Built by a contractor with $10M+ in claims experience. Priced at about one-third what JobNimbus and AccuLynx charge. Includes training (Real Deal Academy) built-in. No complex integrations required — D2D tracking, estimates, and CRM are all unified. Designed for the roofing workflow, not adapted from generic project management.
           </div>
         </div>
 
