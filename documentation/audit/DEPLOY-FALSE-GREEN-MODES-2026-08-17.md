@@ -163,7 +163,7 @@ It went green, correctly, and the log is worth reading precisely:
 **Completion accounting caught nothing here that the old parse would have
 missed.** All 22 announced themselves as failures; this was the ordinary
 CPU-quota straggler mode, and the pre-existing parse would have retried them
-identically. Mode 3 has not recurred since 32074172766.
+identically.
 
 It did expose a bug in the new code, though. `missing = targeted − accounted`
 **also contains every function that reported a failure** — a failed function has
@@ -184,6 +184,59 @@ Lesson, and it rhymes with the rest of this note: the guard was verified against
 *reproduced* failure shapes, and the shape it got wrong was the **common** one —
 the ordinary straggler that shows up on almost every deploy and that no scenario
 had asserted the absence of a warning for.
+
+### Second production run — mode 3 recurred, and the guard caught it
+
+Run **32080455395** (merge of PR #1235), the very next deploy. This is the one
+that justifies the change, and it corrects a claim made an hour earlier in this
+same note ("mode 3 has not recurred since 32074172766" — **wrong**, it recurred
+within the hour):
+
+- wave 1: 167 `updating…` starts → **139** `Successful update operation`,
+  **0** `Failed to …` lines anywhere in the run
+- **28 functions printed nothing at all** — no success, no failure
+- firebase-tools exited **0**; the wholesale guard did not fire (it had no
+  reason to — the exit code was clean)
+- 1 straggler-retry round recovered all 28 → **167/167**, job green
+
+**Under the pre-2026-08-17 logic this deploy goes GREEN with 28 functions
+running stale code**, because there was nothing for the failure parse to find
+and nothing for the wholesale guard to trip on. That is precisely mode 3, and it
+is now confirmed as **recurring**, not a one-off: 32074172766 (~17 functions) and
+32080455395 (28 functions), eight days apart in wall-clock but one deploy apart
+in practice.
+
+The 28 included `healthDigestCron` — the same function hand-fixed after the
+original incident — plus `thumbtackWebhook` and `swathWebhook` (live lead
+ingest), `sendEmail`, `submitSignature`, `onAudioUploaded`, `analyzeRoofPhoto`,
+`createPortalToken`, and `weeklyDigest`. Not a tail of unimportant crons.
+
+Note the two runs together are the complete argument for the #1238 fix: in
+32079768048 every straggler was **loud** (22 failure lines) and the warning was
+wrong; in 32080455395 every straggler was **silent** (0 failure lines) and the
+warning was right. Only subtracting the parsed failures distinguishes them — and
+without that distinction the true positive here would have been indistinguishable
+from the false alarm one run earlier.
+
+**`NBD_DEPLOY_WAVE1_MAX` raised 0 → 60** (Jo's call, 2026-08-17). The burst cap
+was left off while the mode had been seen once; two occurrences in consecutive
+deploys — 17 and 28 functions — changed that. The retries do recover, but every
+occurrence is a window in which prod runs stale code, and the recovery depends
+on a guard that is one regex away from breaking. 167 functions now deploy as
+chunks of 60/60/47.
+
+Two costs were accepted knowingly, and both are worth recognising if a deploy
+misbehaves later:
+
+- **~2-3 min added to every deploy** — a full re-package + re-discovery per
+  chunk. The step ran ~10-17 min against a 40-min job cap, so there is room.
+- **3 invocations instead of 1 triples the exposure to a wholesale failure.**
+  A transient auth flake in any chunk is fatal by design. If deploys start
+  going red on auth rather than on real problems, this is the cause, and
+  setting the knob back to `0` restores the previous behavior.
+
+The durable fix remains the quota increase, which would make the cap
+unnecessary rather than merely tolerable.
 
 ## Open items found alongside
 

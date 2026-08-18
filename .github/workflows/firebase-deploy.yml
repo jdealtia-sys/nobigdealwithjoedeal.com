@@ -649,7 +649,7 @@ jobs:
           NBD_DEPLOY_RETRY_PAUSE: "45"   # let wave-1 revisions settle + old ones tear down (frees CPU)
           NBD_DEPLOY_BATCH_SIZE: "20"    # cap concurrent new revisions per retry chunk
           NBD_DEPLOY_BATCH_PAUSE: "20"
-          # Wave-1 burst cap (0 = single bulk pass, the fast default).
+          # Wave-1 burst cap (0 = single bulk pass; 60 = chunk the --only list).
           #
           # There is NO firebase-tools knob for this — checked against the v15
           # source: `src/deploy/functions/release/index.ts` hardcodes the
@@ -661,12 +661,27 @@ jobs:
           # what firebase-tools' own 429 handler recommends ("please deploy
           # your functions in batches by using the --only flag").
           #
-          # Left at 0 because chunking costs a full re-package + re-discovery
-          # per chunk (~1 min each) on EVERY deploy, and the straggler retries
-          # below already drop to batches of 20 automatically when a burst goes
-          # wrong. Set to ~60 if the 429 mutation-rate mode recurs often enough
-          # that paying that cost up front beats the retry rounds.
-          NBD_DEPLOY_WAVE1_MAX: "0"
+          # SET TO 60 on 2026-08-17 (was 0). It was left off while the
+          # mutation-rate 429 mode had been seen once; it then recurred on the
+          # next two deploys carrying this step:
+          #   32074172766  ~17 functions silently dropped
+          #   32080455395   28 functions silently dropped (139/167 completed,
+          #                 ZERO "Failed to ..." lines, firebase-tools exit 0)
+          # Two occurrences one deploy apart is a pattern, and every occurrence
+          # is a window where prod runs stale code until the retries heal it.
+          # 167 functions -> chunks of 60, 60, 47.
+          #
+          # Known costs, accepted deliberately:
+          #  - ~2-3 min added to every deploy (a full re-package + re-discovery
+          #    per chunk). The step ran ~10-17 min against a 40-min job cap.
+          #  - 3 firebase invocations instead of 1 TRIPLES the per-deploy
+          #    exposure to a wholesale failure (a transient auth flake in any
+          #    chunk is fatal by design — see the wholesale guard below). If
+          #    deploys start going red on auth rather than on real problems,
+          #    that is this tradeoff, and 0 restores the old behavior.
+          #
+          # Durable fix is still a quota increase, which makes this unnecessary.
+          NBD_DEPLOY_WAVE1_MAX: "60"
         run: |
           # WHY THIS STEP RETRIES (root cause, diagnosed 2026-07-23):
           # We deploy ~160 Gen2 functions. A single bulk `firebase deploy` rolls
