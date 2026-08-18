@@ -669,7 +669,22 @@ jobs:
           #                 ZERO "Failed to ..." lines, firebase-tools exit 0)
           # Two occurrences one deploy apart is a pattern, and every occurrence
           # is a window where prod runs stale code until the retries heal it.
-          # 167 functions -> chunks of 60, 60, 47.
+          # ~168 functions -> chunks of 60, 60, 48.
+          #
+          # SECOND, DISTINCT MODE this also mitigates (added 2026-08-17): the
+          # CPU-quota healthcheck failures. Run 32083185787 lost 75 of ~168 in
+          # wave 1 — LOUD failures ("Failed to update function X"), not silent
+          # drops, retried 75 -> 3 -> 0. Cause confirmed from the GCP audit log
+          # rather than inferred, which the "likely CPU-quota" comments elsewhere
+          # in this file never were:
+          #   "Could not create or update Cloud Run service <name>, Container
+          #    Healthcheck failed. Quota exceeded for total allowable CPU per
+          #    project per region."
+          # That is run.googleapis.com/cpu_allocation. Read via the Service
+          # Usage API 2026-08-17: us-central1 sits at the flat default 200000
+          # (1/min/{project}/{region}) with NO override — identical to every
+          # other region, so nothing here has ever been tuned. Chunking helps
+          # both modes because both are burst-driven.
           #
           # MEASURED on the first chunked run (32085658469): 167 functions,
           # ZERO stragglers of any kind, zero retry rounds, strict step 11m26s
@@ -688,7 +703,16 @@ jobs:
           #    deploys start going red on auth rather than on real problems,
           #    that is this tradeoff, and 0 restores the old behavior.
           #
-          # Durable fix is still a quota increase, which makes this unnecessary.
+          # Safe with completion accounting (verified by simulation before
+          # enabling): _deploy_only reconciles per INVOCATION — `targeted` comes
+          # from its own $1, ACCOUNTED_FILE/PARSED_FILE are per-call scratch (>),
+          # while MISSING_FILE/FAILED_FILE accumulate (>>). Each chunk audits its
+          # own targets, so the mode-3 guard still covers the full set. Chunking
+          # does NOT blind the guard.
+          #
+          # Durable fix is still a quota increase (IAM & Admin -> Quotas ->
+          # "Total CPU allocation", a Console request Google reviews), which
+          # makes this unnecessary — set back to "0" once it lands.
           NBD_DEPLOY_WAVE1_MAX: "60"
         run: |
           # WHY THIS STEP RETRIES (root cause, diagnosed 2026-07-23):
