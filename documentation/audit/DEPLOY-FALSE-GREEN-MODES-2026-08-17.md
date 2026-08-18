@@ -137,17 +137,30 @@ and the Cloud Functions per-project mutation rate).
 
 ## Verification
 
-The step is shell embedded in YAML, so it was tested by extracting the real
-`run:` block and running it against a stand-in `npx` that reproduces the CLI's
-line shapes (ANSI included). 30 assertions across 8 scenarios, all passing:
-clean deploy · mode 3 self-healing on retry · mode 3 persisting ⇒ job RED with
-the residual named · wholesale still fatal and *not* retry-storming · classic
-per-function failure still parsed and retried · delete lines not counting ·
-`Skipped` counting · `NBD_DEPLOY_WAVE1_MAX` chunking while still targeting all
-167.
+The step is shell embedded in YAML, so nothing in the repo could execute it —
+which is why two of the three modes were found by deploying to prod and noticing
+afterwards. It now has a harness, **committed at
+[tests/deploy-step/](../../tests/deploy-step/)** (PR #1254):
 
-Pinned in `tests/smoke/functions.test.js` §`F-10b` so all three guards have to
-be deleted deliberately, not by accident.
+```bash
+bash tests/deploy-step/run.sh    # 46 assertions, 11 scenarios, ~6s
+```
+
+It **extracts the real `run:` block** from the workflow rather than copying a
+fixture — a fixture drifts silently, which is the same class of bug this step
+exists to catch — and drives it against a stand-in `npx` reproducing the CLI's
+line shapes, ANSI included. Wired into the `Unit suites (manifest)` CI job, so
+it runs on every PR.
+
+Two layers, and they catch different things. Neither substitutes for the other:
+
+| | `tests/smoke/functions.test.js` §`F-10b` | `tests/deploy-step/` |
+|---|---|---|
+| checks | the guard strings **exist** | the guards **behave** |
+| catches | a guard being deleted | a guard's logic being broken |
+
+F-10b caught neither of the two bugs the harness caught (the `MISSING`
+mislabeling below, and the chunked-drop case being untestable).
 
 ### First production run — and the diagnostic bug it exposed
 
