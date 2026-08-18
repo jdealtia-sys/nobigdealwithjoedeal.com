@@ -24,6 +24,7 @@ Map of content for the `documentation/` corpus (~115 files) plus the other place
 ## Architecture & product
 
 - [MULTI-TENANT-ARCHITECTURE](architecture/MULTI-TENANT-ARCHITECTURE.md)
+- [SHARED-PARTIALS-SYSTEM](architecture/SHARED-PARTIALS-SYSTEM.md) — the homeowner site's build step: why marker regions and not an SSG, the CRLF rule that makes codemods silently no-op, how to review a migration diff, and the designed-but-unbuilt Phase 2 (~3.5 MB of duplicated CSS + the font-preload fix)
 - [NBD-PRO-PRODUCT-AUDIT-2026-07](architecture/NBD-PRO-PRODUCT-AUDIT-2026-07.md)
 - [RAILWAY-EVAL-2026-08](architecture/RAILWAY-EVAL-2026-08.md) — Railway hosting evaluated and deferred (trigger conditions inside)
 - Pillar plans: [1 — Provisioning](architecture/PILLAR1-PROVISIONING-PLAN.md) · [4 — Billing](architecture/PILLAR4-BILLING-PLAN.md) · [5 — Domains & Sites](architecture/PILLAR5-DOMAINS-SITES-PLAN.md)
@@ -59,7 +60,7 @@ Map of content for the `documentation/` corpus (~115 files) plus the other place
 - [DESIGNER-AUDIT-VERIFICATION-2026-08-15](audit/DESIGNER-AUDIT-VERIFICATION-2026-08-15.md) — claim-by-claim verification of the external designer-handoff audit: schema claim false, real gaps are conversion analytics / privacy tool-disclosure / area-page sameness; pro-visibility take
 - [SITE-AUDIT-LOOSE-ENDS-2026-08-10](audit/SITE-AUDIT-LOOSE-ENDS-2026-08-10.md) — site-wide loose-ends & security audit + fix wave: EXIF-GPS P0, rate-limit adoption, rules #12 extension, CI hardening
 - [SYSTEM-STABILITY-PERF-2026-08-07](audit/SYSTEM-STABILITY-PERF-2026-08-07.md) — full-system stability/perf/accuracy audit + fix wave
-- [AUDIT_REPORT](audit/AUDIT_REPORT.md) · [LIVE_VERIFICATION](audit/LIVE_VERIFICATION.md)
+- [CRM-SECURITY-AUDIT-2026-08-02](audit/CRM-SECURITY-AUDIT-2026-08-02.md) — 40-agent adversarial audit of `docs/pro` + `docs/admin` + `functions/` (21 confirmed of 33; all fixed in #1170–#1180). Durable copy of the delivered artifact. Read for: `enforceAppCheck` is a NO-OP on `onRequest`; rules tests that only exercised CREATE; why `customerId` is write-once and not frozen. Includes the **refuted** list and the live-console checks still open for Jo- [AUDIT_REPORT](audit/AUDIT_REPORT.md) · [LIVE_VERIFICATION](audit/LIVE_VERIFICATION.md)
 - [OPS_AUDIT_2026-06](audit/OPS_AUDIT_2026-06.md) · [PROD_HOMEWORK_VERIFICATION_2026-07](audit/PROD_HOMEWORK_VERIFICATION_2026-07.md)
 - Themes: [THEME_SYSTEM_AUDIT_2026-06](audit/THEME_SYSTEM_AUDIT_2026-06.md) · [THEME_PHASE3_DURABILITY](audit/THEME_PHASE3_DURABILITY.md)
 
