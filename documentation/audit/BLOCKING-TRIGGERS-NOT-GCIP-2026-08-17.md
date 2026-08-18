@@ -87,19 +87,55 @@ roles/identityplatform.admin
 So the deploy SA holds **both** roles the skip-list blames for `onRepSignup`,
 and the registration still fails. That closes the question the paragraph above
 had to argue from the error code alone: it is not that granting the role
-*wouldn't* help — it is granted, and it doesn't. The project IAM policy was
-last modified 2026-06-09; the failures continue daily.
+*wouldn't* help — it is granted, and it doesn't. The failures continue daily.
 
-Two consequences worth acting on separately:
+Both roles were added **2026-04-14 at 22:02 UTC**, per the project's
+`SetIamPolicy` audit log. (An earlier draft of this note said 2026-06-09 —
+that was the date the IAM policy was last *modified*, not when these bindings
+were created. Corrected 2026-08-17; the conclusion is unchanged and stronger,
+since the grants predate almost the entire history of the skip list.)
 
-- `NBD_DEPLOY_SKIP_LIST`'s stated justification is stale on **both** counts.
-  `onRepSignup` still cannot deploy its trigger registration, but not for
-  either reason recorded. The skip itself remains correct; only the reason is
-  wrong.
-- The scheduler half of the tolerant-retry summary ("grant
-  `roles/cloudscheduler.admin`") is also stale — already granted. If scheduled
-  functions still fail to update, that needs its own diagnosis rather than an
-  IAM grant. Not investigated here.
+Consequence: `NBD_DEPLOY_SKIP_LIST`'s stated justification is stale on **both**
+counts. `onRepSignup` still cannot deploy its trigger registration, but not for
+either reason recorded. The skip itself remains correct; only the reason is
+wrong.
+
+### The scheduled half: fixed 2026-04-14, believed broken until 2026-08-17
+
+Chased down separately after the above; the answer is that **scheduled
+functions do not fail to update and have not since 2026-04-14.** Verified four
+ways:
+
+- All **24** `onSchedule` exports are present in prod, `ACTIVE`, and updated by
+  the current deploy.
+- All **24** Cloud Scheduler jobs are `ENABLED`.
+- **Zero** `cloudscheduler.googleapis.com` errors in 30 days.
+- The deploy SA holds `roles/cloudscheduler.admin`.
+
+The gap was real once and closed within hours of being written down:
+
+| When | What |
+| --- | --- |
+| 2026-04-14 | Skip list created (`80937b1a`) with 8 entries — 7 scheduled functions + `onRepSignup` |
+| 2026-04-14 **22:02:30** | `roles/cloudscheduler.admin` granted — the scheduled half is fixed here |
+| 2026-04-14 22:02:45 | `roles/identityplatform.admin` granted |
+| 2026-04-15 | `recordingRetentionCron` **added** to the list (`49a88d29`) blaming the "same SA gap" — already fixed the day before |
+| 2026-05-16 | List emptied (`aba60935`), then `onRepSignup` re-added alone (`0bac2687`) |
+
+Two things kept the story alive. `recordingRetentionCron` was added *after* the
+fix, so whatever actually broke it that day was misattributed to IAM — the real
+cause is unrecoverable now (logs are long past retention), but it was not this.
+And the 2026-05-16 edits were made through the GitHub web editor (`Update
+firebase-deploy.yml`): someone emptied the list, found `onRepSignup` still
+failed, and put that one back. The scheduled names were correctly dropped; the
+prose describing them was never touched, so the comment block still claimed
+"These 8 functions" and a Cloud Scheduler IAM gap four months later.
+
+The live symptom was the tolerant-retry step's annotation, titled `Scheduled/
+blocking functions deferred` on every deploy while only ever covering
+`onRepSignup`. Same failure mode as the API-enable false alarm in the section
+below: **a warning describing a condition that stopped existing, left in place
+long enough to read as evidence.**
 
 ### Blast radius: `onRepSignup` has never been invoked
 
@@ -182,7 +218,7 @@ deploy-log parsing — see the recommendation below.
    with `roles/cloudscheduler.admin`. Nothing to do here; the recommendation
    is now simply *don't re-litigate IAM for this*. If a future session finds
    itself about to grant an auth-related role to the deploy SA, check the
-   policy first — the answer has been "already there" since 2026-06-09.
+   policy first — the answer has been "already there" since 2026-04-14.
 3. **Decide on GCIP explicitly.** Upgrading unblocks blocking triggers *and*
    MFA together. It is a paid-tier product decision (Jo's), not an ops task.
    If the answer is "not now", say so in the code comments so the next
