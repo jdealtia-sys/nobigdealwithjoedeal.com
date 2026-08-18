@@ -8,10 +8,43 @@ on:
 permissions:
   contents: read
 
+# ─────────────────────────────────────────────────────────────
+# JOB TIMEOUTS (added 2026-08-18)
+#
+# Every job here previously ran with NO timeout-minutes, so it
+# inherited GitHub's 6-hour default. On 2026-08-18 the @shard1 job
+# wedged in `npx playwright install --with-deps chromium` (that flag
+# shells out to apt-get) and sat there 24+ minutes with the test step
+# never starting; it had to be cancelled by hand. On a re-run the same
+# job passed in 3m32s. Nothing bounded it, and nothing would have.
+#
+# Caps below are set from MEASURED durations — 90 job samples across
+# the last 10 successful ci.yml runs — not from guesses. The relevant
+# statistic is the MAX, not the mean: runner congestion (8+ concurrent
+# runs on a busy evening) routinely pushes a job to 2-3x its average,
+# and a cap tight enough to catch a hang quickly is also tight enough
+# to fail honest jobs on a slow night. These are deliberately loose;
+# the goal is to bound a hang, not to police performance.
+#
+#   tier      cap   observed max   jobs
+#   fast      10    0.2 - 0.9 min  syntax, site-integrity, secret-scan,
+#                                  functions-parse, unit-manifest, smoke
+#   medium    15    1.2 - 5.0 min  firestore-rules, referral-trigger,
+#                                  emulator-orphan, visual-brand-tokens
+#   heavy     20    1.4 - 2.3 min  public-e2e, visual-regression
+#                                  (loose despite low max: both install
+#                                   Playwright, the step that wedged)
+#   e2e       25    11.5 min       e2e-authed-emulator matrix
+#
+# If a job starts timing out legitimately, RAISE the cap — do not
+# remove it. A job with no ceiling is the failure mode this fixes.
+# ─────────────────────────────────────────────────────────────
+
 jobs:
   smoke-tests:
     name: Smoke tests
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -531,6 +564,7 @@ jobs:
   site-integrity:
     name: Site integrity
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -611,6 +645,7 @@ jobs:
   unit-suite-manifest:
     name: Unit suites (manifest)
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -634,6 +669,7 @@ jobs:
   emulator-orphan-suites:
     name: Auth/Firestore emulator suites (rate-limit, auth-access, lead-lifecycle)
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -671,6 +707,7 @@ jobs:
   syntax-check:
     name: Node syntax check
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -694,6 +731,7 @@ jobs:
   firestore-rules:
     name: Firestore rules tests
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -733,6 +771,7 @@ jobs:
   referral-trigger:
     name: Referral trigger tests
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -811,6 +850,7 @@ jobs:
   functions-parse:
     name: Functions parse + dep install
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -863,6 +903,7 @@ jobs:
   secret-scan:
     name: Secret scan
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v7
         with:
@@ -895,6 +936,11 @@ jobs:
   e2e-authed-emulator:
     name: Authed E2E (emulators, ${{ matrix.shard }})
     runs-on: ubuntu-latest
+    # Highest cap in the file: this matrix owns the widest spread
+    # (measured max 11.5 min on @shard1) AND installs Playwright, the
+    # step that wedged on 2026-08-18. 25 leaves >2x headroom over the
+    # worst honest run while still killing a hang inside the hour.
+    timeout-minutes: 25
     strategy:
       fail-fast: false
       matrix:
@@ -1020,6 +1066,12 @@ jobs:
   public-e2e:
     name: Public-surface E2E (hosting emulator)
     runs-on: ubuntu-latest
+    # 20 despite a 2.3 min measured max: this job installs Playwright,
+    # so it is exposed to the same wedge as the E2E matrix. Note
+    # continue-on-error means a hang here never reddens the run — it
+    # just burns a runner slot silently, which is why the ceiling
+    # matters MORE here, not less.
+    timeout-minutes: 20
     continue-on-error: true
     steps:
       - uses: actions/checkout@v7
@@ -1055,6 +1107,9 @@ jobs:
   visual-brand-tokens:
     name: Brand-token visual assertions
     runs-on: ubuntu-latest
+    # 15: no Playwright install, but the measured spread is wide for
+    # its size (1.6 min average, 5.0 min max).
+    timeout-minutes: 15
     continue-on-error: true
     steps:
       - uses: actions/checkout@v7
@@ -1088,6 +1143,9 @@ jobs:
   visual-regression:
     name: Visual regression (public pro pages)
     runs-on: ubuntu-latest
+    # 20: installs Playwright (same wedge exposure as public-e2e), and
+    # is likewise continue-on-error, so a hang here is silent.
+    timeout-minutes: 20
     continue-on-error: true
     steps:
       - uses: actions/checkout@v7
