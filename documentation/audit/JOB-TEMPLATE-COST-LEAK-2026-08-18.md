@@ -166,7 +166,16 @@ from rare into universal. So the leak fix has a prerequisite.
 - [x] Leak identified, measured, and root-caused
 - [x] Git-history exposure assessed — forward-fix + rotate, no rewrite
 - [x] Migration designed and adversarially verified (3 designs, all killed, plan corrected)
-- [ ] **PR-A** — reopen preserves saved cost basis (prerequisite; ships first)
+- [x] **PR-A — LANDED 2026-08-18** (`d8afd7e3`). `state.scope[].savedCost` +
+      a single `withSavedCost()` helper on both paths feeding `resolveEstimate`.
+      New `tests/estimate-reopen-cost-basis.test.js` (10 assertions) drives the
+      real `estimate-v2-ui.js` and `estimate-logic-engine.js` in a vm — and was
+      validated against the defect itself: with the fix reverted, 7 of 10 fail.
+      Two corrections to the design brief while implementing: `triTierTotals`
+      delegates to `getCurrentEstimate()` so it inherits the fix rather than
+      needing its own overlay, and the row-preview map at `:2153` is display-only
+      (catalog used for name/unit fallback, saved line preferred for money) so it
+      was left alone.
 - [ ] **PR-B** — strip the 146 values, `jtCosts` on the tenant cost book
 - [ ] `job-templates-data.js` brought under the privacy guard
 - [ ] Guard changed from allowlist to scan-by-default
