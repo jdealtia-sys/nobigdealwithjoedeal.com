@@ -1047,6 +1047,43 @@ jobs:
           path: tests/test-results/
           retention-days: 7
 
+  # Rendered QC sweep over the 208-page homeowner surface (2026-08-18).
+  # Every other docs/ gate is grep-shaped and cannot compute a style, so
+  # cascade-order and layout defects have shipped four times and were caught
+  # by eye, not CI — most recently svg.ico rendering at 1227px on
+  # /sites/free-guide. This renders each page at 1280px and 390px and asserts
+  # the signatures those four share: oversized inline SVG, icon ink matching
+  # its own chip background, dropdowns open at rest, horizontal overflow, and
+  # duplicated <style> blocks. Advisory on introduction, same as the two jobs
+  # below; promote once it has a green streak.
+  qc-render-sweep:
+    name: Rendered QC sweep (docs/)
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+      - name: Install Playwright (tests workspace)
+        run: |
+          cd tests
+          npm install --silent --no-audit --no-fund playwright
+          npx playwright install --with-deps chromium
+      - name: Serve docs/
+        run: |
+          npx --yes http-server docs -p 5000 -c-1 --silent &
+          npx --yes wait-on http://localhost:5000/ --timeout 60000
+      - name: Sweep
+        run: node scripts/qc-render-sweep.js --base http://localhost:5000 --json qc-render-sweep.json
+      - name: Upload report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: qc-render-sweep-report
+          path: qc-render-sweep.json
+          retention-days: 7
+
   # Brand-token computed-style assertions (2026-08-07 audit): the isolated
   # tests/visual workspace (own package.json + playwright.config serving
   # docs/ over http-server) was referenced by no workflow. These are token/
