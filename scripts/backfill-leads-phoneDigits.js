@@ -47,7 +47,7 @@
  * runs, the sooner legacy leads get the fast-path match.
  */
 
-const admin = require('firebase-admin');
+const { initAdmin, getFirestore } = require('./_admin');
 const { phoneDigits10 } = require('../functions/phone-utils');
 
 const args = process.argv.slice(2);
@@ -59,14 +59,9 @@ const PAGE = 500;   // read page size
 const BATCH = 400;  // Firestore batch write cap is 500; stay under it
 
 function init() {
-  try {
-    admin.initializeApp({
-      credential: admin.credential.applicationDefault(),
-      projectId: PROJECT,
-    });
-  } catch (e) {
-    if (!String(e.message || '').includes('already exists')) throw e;
-  }
+  // initAdmin is idempotent (ADC credential by default), so the old
+  // "already exists" message-matching catch is no longer needed.
+  initAdmin({ projectId: PROJECT });
 }
 
 async function main() {
@@ -76,7 +71,7 @@ async function main() {
   }
 
   init();
-  const db = admin.firestore();
+  const db = getFirestore();
 
   console.log('═══════════════════════════════════════════════════════════');
   console.log('Backfill leads.phoneDigits');

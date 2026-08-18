@@ -33,11 +33,9 @@
  *   BETA_COUNT=10 DEMO_COUNT=3 node scripts/seed-access-codes.js
  */
 
-// F5: resolve firebase-admin from functions/ (no node_modules in scripts/ or repo
-// root); fall back to a normally-resolvable copy if present.
-let admin;
-try { admin = require(require.resolve('firebase-admin', { paths: [require('path').join(__dirname, '..', 'functions')] })); }
-catch (_) { admin = require('firebase-admin'); }
+// firebase-admin resolution + the modular API live in scripts/_admin.js
+// (scripts/ and the repo root both have no node_modules).
+const { initAdmin, getFirestore, FieldValue, Timestamp } = require('./_admin');
 const crypto = require('crypto');
 
 const BETA_COUNT = Number(process.env.BETA_COUNT || 0);
@@ -63,12 +61,9 @@ function mintCode(prefix) {
 }
 
 async function main() {
-  try {
-    admin.initializeApp({ credential: admin.credential.applicationDefault() });
-  } catch (e) {
-    if (!String(e.message || '').includes('already exists')) throw e;
-  }
-  const db = admin.firestore();
+  // initAdmin is idempotent (ADC credential by default).
+  initAdmin();
+  const db = getFirestore();
 
   // Step 1: deactivate any existing `active: true` codes that look like
   // legacy hardcoded ones. This renders every pre-rotation code dead.
@@ -79,7 +74,7 @@ async function main() {
     if (snap.exists) {
       await ref.update({
         active: false,
-        rotatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        rotatedAt: FieldValue.serverTimestamp(),
         rotatedReason: 'legacy hardcoded code — auto-disabled on rotation'
       });
       console.log('✗ deactivated legacy code ' + legacy);
@@ -100,8 +95,8 @@ async function main() {
       displayName: 'Beta Member',
       maxUses: MAX_USES,
       useCount: 0,
-      expiresAt: admin.firestore.Timestamp.fromMillis(now + EXPIRE_BETA_DAYS * 86_400_000),
-      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      expiresAt: Timestamp.fromMillis(now + EXPIRE_BETA_DAYS * 86_400_000),
+      createdAt: FieldValue.serverTimestamp(),
       kind: 'beta'
     });
     minted.push({ id, kind: 'beta', expiresInDays: EXPIRE_BETA_DAYS });
@@ -118,8 +113,8 @@ async function main() {
       displayName: 'Demo User',
       maxUses: MAX_USES,
       useCount: 0,
-      expiresAt: admin.firestore.Timestamp.fromMillis(now + EXPIRE_DEMO_DAYS * 86_400_000),
-      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      expiresAt: Timestamp.fromMillis(now + EXPIRE_DEMO_DAYS * 86_400_000),
+      createdAt: FieldValue.serverTimestamp(),
       kind: 'demo'
     });
     minted.push({ id, kind: 'demo', expiresInDays: EXPIRE_DEMO_DAYS });
