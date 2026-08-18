@@ -12,6 +12,7 @@
     "estimate-formula-eval.test.js",
     "estimate-pricing.test.js",
     "estimate-profit.test.js",
+    "estimate-reopen-cost-basis.test.js",
     "estimate-render.test.js",
     "estimate-v2-payload.test.js",
     "expenses-logic.test.js",
