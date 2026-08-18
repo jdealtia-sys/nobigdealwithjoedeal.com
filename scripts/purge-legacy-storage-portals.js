@@ -44,6 +44,29 @@
  *   node scripts/purge-legacy-storage-portals.js --all --apply --yes
  *
  * Coordinate with Jo before --apply: this deletes customer-facing artifacts.
+ *
+ * ─────────────────────────────────────────────────────────────────────
+ * 2026-08-18 — KNOWN BLIND SPOTS. Use sweep-orphan-lead-artifacts.js too.
+ *
+ * A prod run of `--all --apply` left 10 objects behind, and the cause is this
+ * script's discovery model, not a bug in it. Discovery here is LEAD-DRIVEN:
+ * enumerate leads, derive paths. That cannot see:
+ *
+ *   1. Artifacts of DELETED leads. `if (!leadSnap.exists) continue;` below
+ *      skips them by construction — and those are the worst case, because
+ *      deleting the lead destroyed the only pointer while leaving the
+ *      customer-facing HTML live under a permanent download token.
+ *   2. Objects at path shapes collectPaths() does not know. Two were found
+ *      (JoKt4d0yJeF51MTmjaJh.html, pptQX1KZWSXYBs7oTTMO.html).
+ *   3. Anything outside portals/. The same orphan pattern was confirmed in
+ *      documents/ and galleries/.
+ *
+ * scripts/sweep-orphan-lead-artifacts.js inverts the discovery — it enumerates
+ * the BUCKET and asks Firestore whether each object's lead still exists — so
+ * nothing can hide from it. Going forward, functions/lead-artifact-cleanup.js
+ * reaps on delete so the backlog stops growing. Full write-up:
+ * documentation/audit/ORPHANED-STORAGE-ARTIFACTS-2026-08-18.md
+ * ─────────────────────────────────────────────────────────────────────
  */
 
 const { initAdmin, getFirestore, getStorage, FieldValue } = require('./_admin');

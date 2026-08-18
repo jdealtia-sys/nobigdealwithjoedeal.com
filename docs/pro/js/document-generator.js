@@ -443,18 +443,26 @@ window.NBDDocGen = {
       let _persistPromise = null;
       if (_leadIdEarly && window.db && window.addDoc && window.collection) {
         _persistPromise = (async () => {
-          let htmlUrl = null;
           // Upload the rendered HTML to Storage so we can re-open it
           // from the documents tab later. Best-effort — if Storage
           // isn't wired on this page we still record metadata.
+          //
+          // Deliberately NO getDownloadURL here. That call stamps a
+          // firebaseStorageDownloadTokens value on the object and returns a
+          // URL that bypasses Storage rules, never expires and cannot be
+          // revoked — for a document carrying the homeowner's name, address,
+          // price and signature. The old code persisted that URL as
+          // `htmlUrl`, so it also leaked into every export and backup of the
+          // lead. Re-opening now goes through the authed getDocumentHtml
+          // callable (functions/document-view.js), which reads the object
+          // over the admin SDK after checking the caller owns the lead.
           try {
-            if (window.storage && window.ref && window.uploadBytes && window.getDownloadURL && window._user?.uid) {
+            if (window.storage && window.ref && window.uploadBytes && window._user?.uid) {
               const docId = 'd-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8);
               _htmlPath = `documents/${window._user.uid}/${_leadIdEarly}/${docId}.html`;
               const sRef = window.ref(window.storage, _htmlPath);
               const blob = new Blob([html], { type: 'text/html' });
               await window.uploadBytes(sRef, blob, { contentType: 'text/html' });
-              htmlUrl = await window.getDownloadURL(sRef);
             }
           } catch (e) {
             console.warn('Document HTML upload failed:', e && e.message);
@@ -468,7 +476,6 @@ window.NBDDocGen = {
                 customerName: customerName || null,
                 filename: _filename,
                 htmlPath: _htmlPath,
-                htmlUrl: htmlUrl,
                 createdAt: window.serverTimestamp ? window.serverTimestamp() : new Date(),
                 createdBy: window.auth?.currentUser?.email || window._user?.email || 'unknown',
                 userId: window.auth?.currentUser?.uid || window._user?.uid || null,
