@@ -102,8 +102,19 @@ placeholder text, accessibility handled. Last meaningful edit 2026-07-29.
   labelled **Sample data** with a plausible 31%; the other 12 panels carry an
   **Illustration** badge via one `::after` rule.
 - **Real screenshots.** The page had **zero `<img>`** — every visual was CSS
-  fakery. The kanban board and Good/Better/Best estimate panels now show real UI
-  captured from `/pro/sandbox.html`, tagged **Live UI**.
+  fakery. The kanban board and Good/Better/Best estimate panels now show screen
+  captures of `/pro/sandbox.html`, tagged **Live sandbox**.
+
+  > **Corrected later the same day.** These first shipped tagged "Live UI" and
+  > described in-file as "real product UI". That overstated it.
+  > `docs/pro/js/sandbox-demo.js` has **zero imports** and hand-builds the board
+  > with `innerHTML` from a local array of six leads — it is a purpose-built
+  > re-implementation, not the dashboard's own `crm-pipeline.js`. What IS true:
+  > it is a real, running, interactive page a visitor can go click, and it loads
+  > the product's own `theme-system.css`, so the visual language is authentic.
+  > Badge and comments now say "Live sandbox". Publishing an unsourceable claim
+  > while removing unsourceable claims would have been the exact failure this
+  > sweep exists to prevent.
   - Captured from the sandbox, not the CRM, on purpose: the board shows
     homeowner names and street addresses. Verified they are hardcoded in
     `pro/js/sandbox-demo.js` with no Firestore read before publishing. Figures

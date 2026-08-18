@@ -622,10 +622,14 @@
       white-space: nowrap;
     }
 
-    /* Panels backed by a real capture from /pro/sandbox.html say so — the
-       whole point of shipping screenshots is that they are NOT illustrations. */
+    /* Panels backed by a real screen capture say so. Deliberately "Live
+       sandbox", not "Live UI": these are captures of /pro/sandbox.html, which
+       is a real running page a visitor can go click, styled from the product's
+       own theme-system.css — but sandbox-demo.js hand-renders it rather than
+       driving the dashboard's crm-pipeline.js. Claiming "Live UI" would imply
+       this is the shipped CRM's own rendering, which it is not. */
     .feature-mockup-title--real::after {
-      content: 'Live UI';
+      content: 'Live sandbox';
       color: var(--orange);
       border-color: rgba(232, 114, 12, .5);
     }
@@ -1232,9 +1236,13 @@
         <div class="feature-mockup">
           <div class="feature-mockup-title feature-mockup-title--real">Kanban Pipeline</div>
           <div class="feature-mockup-content">
-            <!-- Real product UI, captured from /pro/sandbox.html (2026-08-18).
-                 The sandbox is public and its leads are hardcoded sample data in
-                 pro/js/sandbox-demo.js — no Firestore read, so no customer names
+            <!-- Screen capture of /pro/sandbox.html (2026-08-18) — a real,
+                 running, interactive page a visitor can go click, styled from
+                 the product's own theme-system.css. NOT the dashboard's own
+                 renderer: sandbox-demo.js hand-builds this board from a local
+                 array rather than driving crm-pipeline.js, which is why the
+                 badge reads "Live sandbox" and not "Live UI". Its leads are
+                 hardcoded sample data — no Firestore read, so no customer names
                  or addresses are exposed. Values shown are retail, never cost. -->
             <img src="/assets/images/pro/pro-pipeline.webp" width="1128" height="315"
                  loading="lazy" decoding="async" class="feature-shot"
@@ -1257,8 +1265,10 @@
         <div class="feature-mockup">
           <div class="feature-mockup-title feature-mockup-title--real">Estimate Templates</div>
           <div class="feature-mockup-content">
-            <!-- Real product UI from /pro/sandbox.html (2026-08-18). Retail
-                 package pricing only — cost basis never leaves the CRM. -->
+            <!-- Screen capture of /pro/sandbox.html (2026-08-18); see the
+                 pipeline panel above for what "Live sandbox" does and does not
+                 claim. Retail package pricing only — cost basis never leaves
+                 the CRM. -->
             <img src="/assets/images/pro/pro-estimate.webp" width="1128" height="125"
                  loading="lazy" decoding="async" class="feature-shot"
                  alt="NBD Pro Good/Better/Best estimate packages — Good $8,450 architectural shingles with 10-year workmanship, Better $12,300 GAF Timberline HDZ with ridge vent and 15-year, Best $15,900 GAF UHDZ with full ice and water and 25-year.">
