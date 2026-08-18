@@ -117,11 +117,60 @@ is the durable answer; a history rewrite is high-collateral and incomplete.
 
 Do not execute any history rewrite without Jo's explicit instruction.
 
+## The migration is designed — and it is NOT a one-line strip
+
+Full plan:
+[JOB-TEMPLATE-COST-MIGRATION-PLAN-2026-08-18](../projects/JOB-TEMPLATE-COST-MIGRATION-PLAN-2026-08-18.md).
+
+Three independent designs were produced and **an adversarial pass killed all
+three**, twice on silent money-math data loss. Two findings there are
+counter-intuitive enough that anyone attempting this fix will otherwise repeat
+them:
+
+**1. Omitting a cost key is WORSE than emitting an explicit zero.** The obvious
+design — leave `materialCost`/`laborCost` absent when a tenant has no cost book,
+so nothing reads as "$0" — silently activates a dormant inference path.
+`estimate-logic-engine.js:803` computes `laborId = item.laborId || inferLaborId(item)`
+*before* the `!= null` gate, and `inferLaborId` resolves against
+`estimate-labor-catalog.js`, **which is still public**. Measured on the real
+stack: 14 of the 84 items land on live `LABOR_BY_SUB` keys and reprice
+themselves — "Attic insulation baffles" goes from retail 142.50 to **500.00**,
+"Bath exhaust roof cap" from 117.50 to 25.00. A confidently wrong number wearing
+a "Cost not set" badge, re-derived from a file we did not close. **Emit explicit
+`materialCost: 0, laborCost: 0`** and carry the unknown state in a separate
+`costUnset: true` flag that presentation reads and the engine ignores.
+
+**2. Reopening a saved estimate already re-prices it — today, before any of
+this.** `estimate-v2-ui.js:3013-3018` rebuilds scope from **codes only**,
+discarding the persisted `materialCostPerUnit`/`laborCostPerUnit`;
+`getCurrentEstimate()` then re-resolves against the live catalog, and
+`_reopenedClean` is flipped false at 17 different sites (any measurement edit,
+county change, tier click). With `window._editingEstimateId` set, the next save
+overwrites the same customer doc. This is a **pre-existing hole** — a rep
+editing a forked template's costs hits it now — but stripping the costs turns it
+from rare into universal. So the leak fix has a prerequisite.
+
+**Shape: two PRs, in order.**
+- **PR-A** — make reopen carry the saved cost basis. Contains no leak change, is
+  independently correct, fixes a real existing bug, and is what makes PR-B safe.
+- **PR-B** — the strip: `jtCosts` on the existing `catalogCosts/{companyId}` doc,
+  keyed by the `jt-<slug>-<index>` that `job-templates.js:384` already computes.
+  Reuses the existing rules (`firestore.rules:1061-1066` already governs every
+  field of that doc, so **zero rules changes** — a rules typo being the failure
+  mode that locks tenants out of their own money data), and the existing
+  `catalog-costs.js` load order (`script-loader.js:146`, fourteen entries ahead
+  of `job-templates-data.js` at `:170`).
+
 ## Status
 
 - [x] Leak identified, measured, and root-caused
-- [x] Git-history exposure assessed
-- [ ] Migration implemented (design in progress at time of writing)
+- [x] Git-history exposure assessed — forward-fix + rotate, no rewrite
+- [x] Migration designed and adversarially verified (3 designs, all killed, plan corrected)
+- [ ] **PR-A** — reopen preserves saved cost basis (prerequisite; ships first)
+- [ ] **PR-B** — strip the 146 values, `jtCosts` on the tenant cost book
 - [ ] `job-templates-data.js` brought under the privacy guard
 - [ ] Guard changed from allowlist to scan-by-default
-- [ ] Cost figures rotated
+- [ ] Cost figures rotated (this is what actually devalues the historical copies)
+
+Jo runs the extract/import scripts; a production Firestore migration is not
+something to execute unattended.
