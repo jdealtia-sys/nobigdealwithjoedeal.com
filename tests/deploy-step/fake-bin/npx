@@ -1,0 +1,111 @@
+#!/usr/bin/env bash
+# Stand-in for `npx firebase-tools deploy --only ...`.
+#
+# Reproduces the real CLI's line shapes, ANSI included — colorette colorizes
+# whenever CI is set in the environment, TTY or not, so the shipped step has to
+# strip escapes before parsing and this shim must emit them.
+#
+# Line formats (firebase-tools v15, src/deploy/functions/release/fabricator.ts):
+#   functions[NAME(region)] Successful <op> operation.
+#   functions[NAME(region)] Skipped (No changes detected)
+#   Failed to <op> function NAME in region <region>
+#
+# Driven by FAKE_MODE; see run.sh for the scenarios.
+ONLY=""
+prev=""
+for a in "$@"; do
+  if [ "$prev" = "--only" ]; then ONLY="$a"; fi
+  prev="$a"
+done
+
+CALL=$(( $(cat "$CALLS_FILE" 2>/dev/null || echo 0) + 1 ))
+echo "$CALL" > "$CALLS_FILE"
+
+NAMES=$(printf '%s' "$ONLY" | tr ',' '\n' | sed -E 's/^functions://' | grep -v '^$')
+echo "$NAMES" >> "$TARGETS_LOG"
+
+G=$'\033[1m\033[32m'
+M=$'\033[1m\033[35m'
+R=$'\033[39m\033[22m'
+
+emit_success() { printf '%sfunctions[%s(us-central1)]%s Successful update operation.\n' "$G" "$1" "$R"; }
+emit_skip()    { printf '%sfunctions[%s(us-central1)]%s Skipped (No changes detected)\n' "$M" "$1" "$R"; }
+emit_start()   { printf 'i  functions: updating Node.js 22 function %s(us-central1)...\n' "$1"; }
+
+case "$FAKE_MODE" in
+  wholesale)
+    echo "Error: Failed to authenticate, have you run firebase login?"
+    exit 1
+    ;;
+  ok)
+    for n in $NAMES; do emit_start "$n"; done
+    for n in $NAMES; do emit_success "$n"; done
+    echo "+  Deploy complete!"
+    exit 0
+    ;;
+  skipall)
+    for n in $NAMES; do emit_skip "$n"; done
+    echo "+  Deploy complete!"
+    exit 0
+    ;;
+  drop|persistdrop)
+    # Mode 3: every target logs "updating...", but DROP_NAMES never get a
+    # completion line — and the CLI still exits 0.
+    #
+    # Healing keys on BATCH SIZE, not invocation count: with a chunked wave 1
+    # (NBD_DEPLOY_WAVE1_MAX) the 2nd and 3rd chunks are still wave 1 and must
+    # still drop. Retry batches are <= NBD_DEPLOY_BATCH_SIZE (20); wave-1 chunks
+    # are 47-60 (or the full 167 uncapped), so 30 separates them cleanly.
+    # Keying on invocation count made the chunked+drop case silently untestable.
+    NCOUNT=$(printf '%s\n' "$NAMES" | grep -c .)
+    for n in $NAMES; do emit_start "$n"; done
+    for n in $NAMES; do
+      if echo " $DROP_NAMES " | grep -q " $n "; then
+        if [ "$FAKE_MODE" = "drop" ] && [ "$NCOUNT" -le 30 ]; then emit_success "$n"; fi
+      else
+        emit_success "$n"
+      fi
+    done
+    echo "+  Deploy complete!"
+    exit 0
+    ;;
+  parsefail)
+    # Ordinary straggler: reports a failure and the CLI exits nonzero.
+    for n in $NAMES; do
+      if echo " $DROP_NAMES " | grep -q " $n "; then
+        if [ "$CALL" -gt 1 ]; then emit_success "$n"; else
+          echo "Failed to update function $n in region us-central1"
+        fi
+      else
+        emit_success "$n"
+      fi
+    done
+    [ "$CALL" -gt 1 ] && exit 0
+    exit 2
+    ;;
+  mixed)
+    # Both modes in one pass: DROP_NAMES vanish silently, FAIL_NAMES report a
+    # failure. The step must tell them apart in its diagnosis while retrying both.
+    for n in $NAMES; do emit_start "$n"; done
+    for n in $NAMES; do
+      if echo " $DROP_NAMES " | grep -q " $n "; then
+        if [ "$CALL" -gt 1 ]; then emit_success "$n"; fi
+      elif echo " $FAIL_NAMES " | grep -q " $n "; then
+        if [ "$CALL" -gt 1 ]; then emit_success "$n"
+        else echo "Failed to update function $n in region us-central1"; fi
+      else
+        emit_success "$n"
+      fi
+    done
+    [ "$CALL" -gt 1 ] && exit 0
+    exit 2
+    ;;
+  deleteonly)
+    # A delete line must NOT account for a targeted function.
+    for n in $NAMES; do
+      printf '%sfunctions[%s(us-central1)]%s Successful delete operation.\n' "$G" "$n" "$R"
+    done
+    exit 0
+    ;;
+esac
+exit 0
