@@ -107,6 +107,9 @@ const crypto = require('crypto');
 const args = process.argv.slice(2);
 const APPLY = args.includes('--apply');
 const YES = args.includes('--yes');
+// --force overrides the run-once guard (see scripts/_migration-guard.js).
+const FORCE = args.includes('--force');
+const MIGRATION = 'backfill-photos-variants';
 const LIMIT = (() => {
   const i = args.indexOf('--limit');
   if (i === -1) return Infinity;
@@ -269,6 +272,10 @@ async function main() {
   const sharpLib = APPLY ? loadSharp() : null; // dry-run never encodes
 
   init(adminMod);
+  // One-shot: refuse a second --apply unless --force. Required lazily for the
+  // same reason as ./_admin — it pulls firebase-admin at ITS require time.
+  const { assertNotCompleted, recordCompletion } = require('./_migration-guard');
+  await assertNotCompleted(MIGRATION, { apply: APPLY, force: FORCE });
   const db = adminMod.getFirestore();
   const bucket = adminMod.getStorage().bucket(BUCKET);
   const FieldValue = adminMod.FieldValue;
@@ -600,6 +607,10 @@ async function main() {
   console.log('───────────────────────────────────────────────────────────\n');
 
   if (APPLY) await printMetrics(db, 'AFTER');
+
+  if (APPLY && stampFailures + genFailures === 0) {
+    await recordCompletion(MIGRATION, { stampFailures, genFailures });
+  }
 
   process.exit(stampFailures + genFailures > 0 ? 1 : 0);
 }
