@@ -133,9 +133,14 @@ premise did not survive measurement.
   site-wide pattern already logged in
   `qa/homeowner-sweep-2026-06-11/PHASE3-VISUAL.md` as needing Jo's call; not
   changed unilaterally.
-- **`docs/the-pledge/index.html` is missing `mobile-cta.css`** — the same page
-  that was missing nav-base CSS on 2026-08-17. It keeps falling outside
-  injection sweeps.
+- ~~`docs/the-pledge/index.html` is missing `mobile-cta.css`.~~ **Not a defect —
+  retracted the same day.** `mobile-cta.css`'s own header states *"The homepage
+  and /the-pledge keep their own bottom bars and don't load this."* Verified:
+  `/the-pledge` renders its own `.stickybar` ("📞 Call Joe / Text") and carries
+  zero `mobile-cta-strip` markup, as does `docs/index.html`. The recon flagged
+  it as a "soft signal" from stylesheet-coverage counting; reading the file it
+  named would have resolved it. A page differing from its cohort is a question,
+  not a finding.
 - **`sitemap.xml` drift** — `build-sitemap.js` reports differences. Verified
   **pre-existing** (drift persists with this branch's changes stashed), so it was
   left alone. Someone should run `--write` deliberately.
