@@ -55,6 +55,26 @@ const EXEMPT = {
   'sites/index.html': '/sites B2B surface — separate design system (Barlow, #C8541A), noindex',
   'sites/free-guide/index.html': '/sites B2B lead magnet — separate design system; badge logo on record at scripts/migrate-nav-to-partial.js:53-58',
 
+  // --- Oaks Roofing & Construction microsite (rebuilt 2026-08-19) ---
+  // A CLIENT's site, not an NBD surface: its own brand (#fa6404, Montserrat/Open
+  // Sans), its own orc-* class namespace, and its own self-contained chrome. NBD
+  // partials here would be a cross-brand leak, exactly as for sites/t/index.html.
+  // It is also a hand-off deliverable — the folder must stay portable and
+  // hand-editable after Scott takes it to his own host, so it deliberately has no
+  // build step and no dependency on this repo's generators. Delete these 11 entries
+  // if the microsite is ever removed.
+  'sites/oaks/index.html': 'Oaks client microsite — separate brand + design system, portable hand-off deliverable',
+  'sites/oaks/about.html': 'Oaks client microsite — separate brand + design system, portable hand-off deliverable',
+  'sites/oaks/contact.html': 'Oaks client microsite — separate brand + design system, portable hand-off deliverable',
+  'sites/oaks/gallery.html': 'Oaks client microsite — separate brand + design system, portable hand-off deliverable',
+  'sites/oaks/service-areas.html': 'Oaks client microsite — separate brand + design system, portable hand-off deliverable',
+  'sites/oaks/privacy.html': 'Oaks client microsite — separate brand + design system, portable hand-off deliverable',
+  'sites/oaks/services/roof-replacement.html': 'Oaks client microsite — separate brand + design system, portable hand-off deliverable',
+  'sites/oaks/services/roof-repair.html': 'Oaks client microsite — separate brand + design system, portable hand-off deliverable',
+  'sites/oaks/services/siding-replacement.html': 'Oaks client microsite — separate brand + design system, portable hand-off deliverable',
+  'sites/oaks/services/siding-repair.html': 'Oaks client microsite — separate brand + design system, portable hand-off deliverable',
+  'sites/oaks/services/gutter-replacement.html': 'Oaks client microsite — separate brand + design system, portable hand-off deliverable',
+
   // --- hub pages that predate the partial migration ---
   'index.html': 'homepage — hand-built nav mirrors nav-blog; predates the partials',
   'areas/index.html': 'areas hub — 4-column grid footer, no partial variant covers it yet',

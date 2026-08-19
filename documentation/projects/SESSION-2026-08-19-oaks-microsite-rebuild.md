@@ -1,0 +1,174 @@
+# Session 2026-08-19 — Oaks Roofing & Construction microsite, rebuilt as a hand-off deliverable
+
+**Ask (Jo):** "oaks roofing and construction microsite full build out — I want to make it
+ready and fully built so I can ship it over to him whenever he's ready to host it — I have
+his whole site in this folder from what it used to look like, I want to almost mirror it
+identically."
+
+**Source material:** ten print-to-PDF captures of the retired
+oaksroofingandconstruction.com, in `G:\My Drive\COMPANIES\ORC\ORC SITE\`.
+
+**Outcome:** an 11-page, self-contained, portable static site at `docs/sites/oaks/`,
+rebuilt from the archived pages — real copy, real photography, real logo. All gates green.
+
+---
+
+## 1. The two decisions Jo made up front
+
+| Question | Decision |
+|---|---|
+| Where does it live? | `docs/sites/oaks/`, **kept portable** — relative paths throughout so the same folder serves from `/sites/oaks` here AND from the domain root on Scott's own host. Stays `noindex` until he launches. |
+| What does the quote form do? | **Static-host-safe, no backend.** It validates, then tells the visitor to call. A clearly-marked config block at the top of `assets/js/site.js` turns on either a POST endpoint or a `mailto:` fallback in one edit. It never pretends to have sent something. |
+
+## 2. What was recovered, and how
+
+The live site is **gone** — `oaksroofingandconstruction.com` is a Squarespace *"Coming
+Soon"* parking page as of today. The PDFs are the only record. Two recovery lanes:
+
+**Copy** — `pdftotext -layout` over all ten PDFs → `orc-txt/*.txt`. Print capture
+interleaves columns, so reading order is scrambled but the sentences are intact. Every
+heading, paragraph and CTA label on the rebuilt site comes from these files.
+
+**Assets** — no `pdftoppm`/`pdfimages` in this environment and the PDF-Tools MCP is
+sandboxed to `Documents/Downloads/Desktop` *and* has no page renderer. So: a hand-written
+Node extractor walking the PDF object table for `/Subtype /Image` XObjects, inflating
+`/FlateDecode` streams and re-wrapping the samples as PNG, plus a second pass that
+resolves each image's `/SMask` and composites it into true RGBA.
+
+That produced **82 unique images**, including:
+- the **real ORC logo** (900×366, orange wordmark + white tagline, transparent) — the
+  repo's `logo-orange.svg` is a hand-drawn approximation in `#e8720c`; the real brand
+  orange sampled from the artwork is **`#fa6404`**;
+- the **service-area map** with all 15 city pins and the dashed coverage boundary;
+- ~19 genuine job photos (drone tear-offs, crews on underlayment, Owens Corning Oakridge
+  and Atlas Pinnacle Pristine packaging, finished roofs, siding walls).
+
+`sharp` (from `functions/node_modules`) resized these into **60 files / 6.8 MB** of
+WebP + JPEG pairs under `docs/sites/oaks/assets/img/`.
+
+> **Reusable:** the extractor and the compositor are in the session scratchpad pattern —
+> if another client hands over PDFs instead of a site, this is a ~30-minute recovery.
+
+## 3. What shipped
+
+```
+docs/sites/oaks/
+  index.html  about.html  service-areas.html  gallery.html  contact.html  privacy.html
+  services/{roof-replacement,roof-repair,siding-replacement,siding-repair,gutter-replacement}.html
+  assets/css/site.css      one stylesheet, no NBD dependency, no icon font (icons are inline SVG)
+  assets/js/site.js        one script, no dependencies, no inline handlers
+  assets/img/              60 files
+  logo-orange.svg          UNCHANGED — companyProfile/oaks brand.logoUrl points here
+  README.md                hand-off instructions for Scott (docs/ ignores **/*.md, so it never serves)
+```
+
+Design system is the company's own, in an `orc-*` class namespace so nothing collides with
+NBD CSS: `#fa6404` orange, `#16181b` ink, Montserrat + Open Sans.
+
+## 4. Three things that were genuinely wrong, and what fixed them
+
+### 4a. The relative-path / `cleanUrls` trap — a real production bug, caught by a gate
+
+`check-site-integrity.js` failed the homepage with 60+ dead refs. It was **right**.
+
+With `cleanUrls: true` + `trailingSlash: false`, a directory index is served at its
+**slash-less** URL: `docs/sites/oaks/index.html` → `/sites/oaks`. The browser then resolves
+that page's relative links against `/sites/` — one segment too shallow — so `about.html`
+became `/sites/about.html` and every asset 404'd. **Subpages are unaffected**
+(`/sites/oaks/about` keeps the `/sites/oaks/` base), so only the directory index breaks.
+This is the same defect class as the `/admin` relative-src bug recorded in that checker's
+own header comment.
+
+Fix: a 301 `/sites/oaks → /sites/oaks/index`, which restores the correct base without
+making the folder non-portable.
+
+The checker then still failed, because it models a page's base as `cleanUrlOf(file)` and
+knew nothing about the redirect. That is a **general gap**, not an Oaks quirk: redirects
+outrank static files in Hosting priority, so any page whose clean URL is a redirect
+`source` never serves there, and checking its relative refs against that URL is checking
+against a URL that returns a 301. Added `servedUrlOf()` to
+`scripts/check-site-integrity.js` — it follows a matching redirect and uses the
+destination as the base. No other page's result changed (213 pages, still 0 failures
+elsewhere).
+
+> **Do not "simplify" this away.** Deleting `servedUrlOf()` silently reintroduces a
+> 60-broken-link homepage that the gate will report as clean.
+
+### 4b. An invented service promise — caught by the fidelity pass
+
+I wrote "Call **or text** (513) 827-5297" into the shared form block, and it propagated to
+four pages plus three JS messages plus the privacy policy. **No source page anywhere says
+the line accepts SMS.** For a contractor's published contact route that is a real claim,
+not a copy nit. Removed everywhere; the wording is now just "Call".
+
+### 4c. Heading-level jump on the contact page
+
+`contact.html` went `h1` → `h3` (the three contact cards had no section heading above
+them), so screen-reader heading navigation skipped a level on the site's primary contact
+page. Added a `Reach Us Directly` `h2`, matching how `service-areas.html` already did it.
+
+## 5. Deliberate deviations from the original (all recorded)
+
+- **Gallery has 9 photos, the original was paginated (1 2 3 4).** Nine is all the archived
+  PDFs contain. Rendered as one grid with a keyboard-navigable lightbox rather than faking
+  pagination over a short set.
+- **Section eyebrows** ("What We Do", "Get Started", …) are added design furniture, not
+  source copy. They carry no claims.
+- **Zip placeholder is `45122`** (Goshen) where the original said `12345`.
+- **`privacy.html` has no source page** — the archived footer linked to one we do not
+  have. Written fresh and **verified against the actual build**: no analytics, no ad
+  pixels, no cookies; one `sessionStorage` flag for the dismissed banner; Google Fonts is
+  the only third-party request, and the policy discloses it. Still flagged for Scott's
+  review in the README before launch.
+- **`logo-orange.svg` left alone** at `#e8720c` even though the real mark is `#fa6404` —
+  `companyProfile/oaks` `brand.logoUrl` and generated documents point at it, and recolouring
+  it is a separate, wider change. **Open item** (§7).
+
+## 6. Verification
+
+- Gates: site-integrity **223 pages / 0 failures**; chrome-governance clean (11 Oaks pages
+  added to `EXEMPT` — client brand, own namespace, portable by design); js-syntax 467 clean;
+  inline-html-scripts 0; image-privacy 144 scanned / 0 failures; `apply-partials --check` clean.
+- CSP: zero `<script>` blocks and zero `on*=` handlers across all 11 pages (only a
+  JSON-LD block, which is not executable).
+- Playwright: **35/35** interaction assertions — lightbox open/next/wrap/Escape/focus
+  restore, Load More 5→15, service jump menu, mobile drawer + `aria-expanded` + Escape,
+  form refusing to claim a false success, banner dismissal persisting across pages, and a
+  **JavaScript-disabled** pass confirming chrome, copy and phone links all still render.
+- Screenshots at 1440 and 390 px on every page; no horizontal overflow anywhere.
+
+## 7. Open items for Jo
+
+1. **Form destination.** Nothing is wired. One line in `assets/js/site.js` — either
+   Scott's email (opens the visitor's mail app pre-filled) or a form-relay endpoint.
+   Until then the phone number is the working route, on every page.
+2. **`logo-orange.svg` is the wrong orange** (`#e8720c` vs the real `#fa6404`) and is a
+   hand-drawn approximation of a logo we now have properly. It is referenced by
+   `companyProfile/oaks` `brand.logoUrl` and by generated documents, so swapping it changes
+   Scott's paperwork too — worth doing, deliberately, in its own change.
+3. **Scott has no published email address** anywhere in the archived site. Needed for the
+   form fallback and for the privacy policy's contact section.
+4. **At launch:** delete the `<meta name="robots">` from all 11 pages, uncomment
+   `canonical`/`og:url` and point them at the real domain, and drop the two
+   `/sites/oaks` `X-Robots-Tag` rules in `firebase.json` together.
+5. **Photos.** Nine gallery images is thin for a roofer. Scott almost certainly has more on
+   his phone; the README explains how to add them.
+
+## 8. Files touched outside `docs/sites/oaks/`
+
+- `firebase.json` — removed the eight `/sites/oaks* → /sites/t/oaks` 301s from the
+  2026-07-04 cutover (they would have shadowed every rebuilt page); added the
+  `/sites/oaks → /sites/oaks/index` base fix and a `/sites/oaks/services` convenience
+  301; expanded the `/sites/oaks` noindex rule's comment with the keep-until-launch rationale.
+- `scripts/check-site-integrity.js` — new `servedUrlOf()` (§4a).
+- `scripts/check-chrome-governance.js` — 11 `EXEMPT` entries with a stated reason.
+- `documentation/architecture/PILLAR5-DOMAINS-SITES-PLAN.md` — dated correction on the
+  now-partly-reversed 2026-07-04 cutover decision.
+- `documentation/architecture/MULTI-TENANT-ARCHITECTURE.md` — Pillar 5 "Now" section
+  corrected to describe both Oaks surfaces.
+
+## 9. Related
+
+- [PILLAR5-DOMAINS-SITES-PLAN](../architecture/PILLAR5-DOMAINS-SITES-PLAN.md)
+- [MULTI-TENANT-ARCHITECTURE](../architecture/MULTI-TENANT-ARCHITECTURE.md)
+- [TENANT-CUSTOM-DOMAINS](../runbooks/TENANT-CUSTOM-DOMAINS.md)
