@@ -44,6 +44,30 @@ Measured directly, not inferred:
 > `docs/pro/js/job-templates-data.js` while they are still there; after the
 > migration they live in `catalogCosts/{companyId}`, which is what this note is
 > for. Same rule applies to any follow-up note.
+>
+> **Extended 2026-08-18, because the rule as prose was not enough — it failed
+> again within hours, in the PR that implements this fix.** The follow-up work
+> reproduced real cost pairs in TEST FIXTURES: a legacy-fork case built on a
+> real item's figures, and four mutation strings in the privacy suite itself
+> carrying real pairs lifted from `estimate-builder-v2.js` and
+> `estimate-catalog-xactimate.js`. All replaced with synthetic values; none was
+> ever load-bearing, since those assertions test a regex SHAPE and never a
+> value.
+>
+> **The rule is now enforced, not written down** — `catalog-cost-privacy.test.js`
+> gained a value-based layer that loads the still-published catalogs, collects
+> every cost pair they actually contain (185 today), and refuses to find any of
+> them quoted anywhere in the tracked tree outside `docs/` (597 files). It
+> reports the file:line only and never the figure, because CI logs on a public
+> repo are public too. Validated against a real injected pair.
+>
+> A SHAPE scan was measured first and rejected: it flags 12 files whose fixtures
+> are legitimately synthetic round numbers. "Is this number real?" is the only
+> question worth asking and shape cannot answer it. **The limit is that it can
+> only see values still in the tree** — it would not have caught the
+> job-template pairs, which had already left. It covers exactly what Phase 2 is
+> about to move, and starts earning its keep the moment those files are
+> stripped.
 
 The file's own header says it plainly: *"custom items carry explicit contractor
 costs (markup/OH&P applied downstream)."* This was documented behaviour, just

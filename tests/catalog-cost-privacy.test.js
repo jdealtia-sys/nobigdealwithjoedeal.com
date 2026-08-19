@@ -235,7 +235,7 @@ const STRICT_EXEMPT = {
 //
 // Added after the product-data.js migration, because that migration was not
 // the whole leak. docs/pro/js/estimate-builder-v2.js holds a SECOND, parallel
-// cost catalog (`cost: 115.00, labor: 65.00` per SKU) that layers 1-3 all
+// cost catalog (a `cost:`/`labor:` pair per SKU) that layers 1-3 all
 // missed: it has no `sell` key for the signature scan to pair against, and it
 // was not on the STRICT_FILES list. It is also the catalog that actually
 // prices homeowner estimates — `materialCost: Number(spec.cost)` marked up by
@@ -464,6 +464,104 @@ ok('job-templates-data.js reports ZERO cost-basis entries in the tree sweep (' +
    ((basisByFile.get('pro/js/job-templates-data.js') || []).length) + ')',
    (basisByFile.get('pro/js/job-templates-data.js') || []).length === 0);
 
+/* ── 2b. THE REPO IS PUBLIC TOO — no real cost pair outside docs/ ───────── */
+//
+// Every layer above scans docs/, the Hosting root. But this is a PUBLIC GitHub
+// repo, so tests/ and documentation/ publish whatever they quote — and they
+// publish it in a MORE legible form than a 188KB minified data file.
+//
+// This layer exists because that failed twice in one day (2026-08-18). First
+// the two cost-leak vault notes quoted the very figures they were written to
+// protect — an audit with three worked examples, a migration plan with a table
+// pairing each item's cost with its retail — caught by hand while pushing.
+// Then the follow-up PR did it again in test FIXTURES: a legacy-fork case and
+// four mutation strings carrying real pairs lifted from the catalogs. A
+// standing prose rule was not enough, twice.
+//
+// VALUE-based, not shape-based, and that distinction is the whole design. A
+// shape scan over tests/ + documentation/ was measured first: 12 files, almost
+// all legitimately synthetic round numbers, which is noise rather than a guard.
+// The only question worth asking is "is this number REAL", and shape cannot
+// answer it. So: load the still-published catalogs, collect every cost pair
+// they actually contain, and refuse to find any of them quoted outside docs/.
+// Zero false positives by construction — a synthetic fixture that collides
+// with a real pair is a fixture worth changing anyway.
+//
+// LIMIT, stated so nobody over-trusts this: it can only see values that are
+// STILL in the tree. It would not have caught the job-template pairs, which
+// had already left. What it does cover is every value Phase 2 is about to
+// move, and it goes to work the moment those files are stripped.
+
+console.log('\ncatalog cost privacy — the repo is public too (nothing outside docs/)');
+console.log('──────────────────────────────────────────────────');
+
+const REAL_PAIRS = (() => {
+  const win2 = {};
+  win2.window = win2;
+  const sb = { window: win2, Date, Math, JSON, Set, Map, Object, console: { log() {}, warn() {} } };
+  vm.createContext(sb);
+  ['product-data.js', 'roofivent-catalog.js', 'estimate-labor-catalog.js',
+   'estimate-builder-v2.js', 'estimate-catalog-xactimate.js'].forEach((f) => {
+    const p = path.join(HOSTING_ROOT, 'pro', 'js', f);
+    if (!fs.existsSync(p)) return;
+    try { vm.runInContext(fs.readFileSync(p, 'utf8'), sb, { filename: f }); } catch (e) { /* a catalog that won't load is layer 1's problem */ }
+  });
+  const out = new Set();
+  const add = (a, b) => { if (Number(a) > 0 && Number(b) > 0) out.add(Number(a) + '/' + Number(b)); };
+  Object.values((win2.EstimateBuilderV2 && win2.EstimateBuilderV2.CATALOG) || {}).forEach((e) => e && add(e.cost, e.labor));
+  const xc = win2.NBD_XACT_CATALOG;
+  if (xc && xc.byCode) Object.values(xc.byCode).forEach((e) => { if (e) { add(e.mat, e.lab); add(e.materialCost, e.laborCost); } });
+  return out;
+})();
+
+// Non-vacuity: a loader that silently returns nothing would make the sweep
+// below pass forever. Phase 2 will legitimately shrink this as catalogs are
+// migrated — when it reaches zero this whole layer is obsolete, and that is a
+// deliberate decision to make, not a threshold to quietly lower.
+ok('collected real cost pairs from the still-published catalogs (' + REAL_PAIRS.size + ')',
+   REAL_PAIRS.size >= 100);
+
+const PAIR_RE = /(?:materialCost|mat|cost)["']?\s*[:=]\s*(-?[\d.]+)\s*,\s*["']?(?:laborCost|lab|labor)["']?\s*[:=]\s*(-?[\d.]+)/g;
+function scanRealPairs(rel, src) {
+  const out = [];
+  src.split(/\r?\n/).forEach((line, i) => {
+    for (const m of line.matchAll(PAIR_RE)) {
+      // Report the LOCATION only. CI logs on a public repo are public, so a
+      // guard against republishing figures must not print the figures to fail.
+      if (REAL_PAIRS.has(Number(m[1]) + '/' + Number(m[2]))) out.push(rel + ':' + (i + 1));
+    }
+  });
+  return out;
+}
+
+let trackedOutsideDocs = [];
+try {
+  trackedOutsideDocs = execFileSync('git', ['ls-files'], { cwd: ROOT, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 })
+    .split('\n').filter(Boolean)
+    .filter((f) => !f.startsWith('docs/') && /\.(js|mjs|json|md|html)$/i.test(f));
+} catch (e) { trackedOutsideDocs = []; }
+
+ok('enumerated the tracked non-docs tree (' + trackedOutsideDocs.length + ' files)', trackedOutsideDocs.length > 100);
+const republished = [];
+trackedOutsideDocs.forEach((rel) => {
+  let src;
+  try { src = fs.readFileSync(path.join(ROOT, rel), 'utf8'); } catch (e) { return; }
+  republished.push(...scanRealPairs(rel, src));
+});
+ok('no file outside docs/ quotes a real published cost pair (' +
+   (republished.slice(0, 4).join(', ') || 'clean') + ')', republished.length === 0);
+
+// The guard must be watched failing, like every other layer here.
+{
+  const anyReal = Array.from(REAL_PAIRS)[0] || '1/1';
+  const [rm, rl] = anyReal.split('/');
+  ok('MUTANT killed: a real catalog pair pasted into a note or fixture',
+     scanRealPairs('documentation/x.md', 'e.g. materialCost: ' + rm + ', laborCost: ' + rl).length > 0);
+  ok('control: an obviously synthetic pair is not flagged',
+     scanRealPairs('tests/x.test.js', 'materialCost: 13, laborCost: 37').length === 0 ||
+     REAL_PAIRS.has('13/37'));
+}
+
 /* ── 3. the extracted cost book must never be committed ────────────────── */
 
 console.log('\ncatalog cost privacy — seed stays out of the repo');
@@ -581,11 +679,11 @@ console.log('──────────────────────�
 // 4d. cost-basis sweep
 {
   ok('MUTANT killed: the estimate-builder CATALOG shape in a NEW file',
-     scanCostBasis('pro/js/some-new-pricing.js', "  'shingle-good': { code: 'RFG', cost: 115.00, labor: 65.00 }").length > 0);
+     scanCostBasis('pro/js/some-new-pricing.js', "  'shingle-good': { code: 'RFG', cost: 11.00, labor: 22.00 }").length > 0);
   ok('MUTANT killed: same shape with integer literals',
-     scanCostBasis('pro/js/x.js', 'a: { cost: 115, labor: 65 }').length > 0);
+     scanCostBasis('pro/js/x.js', 'a: { cost: 11, labor: 22 }').length > 0);
   ok('MUTANT killed: the abbreviated mat/lab spelling (xactimate-catalog class)',
-     scanCostBasis('pro/js/x.js', "{ code: 'RFG 240', mat: 165, lab: 72 }").length > 0);
+     scanCostBasis('pro/js/x.js', "{ code: 'RFG 240', mat: 13, lab: 37 }").length > 0);
   ok('MUTANT killed: the named materialCost/laborCost spelling (job-template class)',
      scanCostBasis('pro/js/x.js', '{"name":"Synthetic sealer line","materialCost":13,"laborCost":37}').length > 0);
   ok('MUTANT killed: named spelling, unquoted keys with decimals',
