@@ -134,14 +134,26 @@ check \
   bash -c "echo \"$t_headers\" | grep -iE '^location'"
 
 # The homepage is reached at the SLASHLESS /sites/oaks, where relative paths
-# would resolve one segment too shallow; the 301 to the explicit /sites/oaks/index
-# is what keeps the portable relative-path build working here. If this ever
-# stops redirecting, every link and asset on the Oaks homepage silently 404s.
+# would resolve one segment too shallow; the 301 to /sites/oaks/home (a rewrite,
+# so the address bar keeps the /sites/oaks/ base) is what keeps the portable
+# relative-path build working here. If this stops redirecting, every link and
+# asset on the Oaks homepage silently 404s.
 home_headers="$(curl -sS -I "$SITE/sites/oaks" 2>&1 || true)"
 check \
-  "/sites/oaks 301s to /sites/oaks/index (relative-path base fix)" \
-  "/sites/oaks/index" \
+  "/sites/oaks 301s to /sites/oaks/home (relative-path base fix)" \
+  "/sites/oaks/home" \
   bash -c "echo \"$home_headers\" | grep -iE '^location'"
+
+# The assertion that actually matters, and whose absence let a redirect LOOP
+# reach production on 2026-08-19: the first attempt pointed /sites/oaks at
+# /sites/oaks/index, but cleanUrls canonicalises the "index" segment of a
+# directory index straight back off, so Hosting bounced between the two forever.
+# Every header check above still passed — only FOLLOWING the redirects catches
+# it. curl exits non-zero on too-many-redirects, so a loop reports LOOP here.
+check \
+  "/sites/oaks resolves to a real page (no redirect loop)" \
+  "200" \
+  bash -c "curl -sS -o /dev/null -L --max-redirs 5 -w '%{http_code}' \"$SITE/sites/oaks\" 2>/dev/null || echo LOOP"
 
 oaks_page="$(curl -sS -I "$SITE/sites/oaks/about" 2>&1 || true)"
 check \
