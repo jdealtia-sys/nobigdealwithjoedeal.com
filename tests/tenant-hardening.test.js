@@ -129,7 +129,13 @@ ok('_docPrefix never NBD for a stranger', dgU._docPrefix() !== 'NBD');
 
 console.log('\nNBD — document-generator.js byte-identical');
 const dgN = loadDocGen({ legalName: 'No Big Deal Home Solutions' });
-ok('_resolveCompany returns base COMPANY', dgN._resolveCompany() === dgN.COMPANY);
+// _resolveCompany builds a fresh object for every tenant now, NBD included, so
+// the profile is the single source of truth. Byte-identical output is asserted
+// on VALUES rather than reference identity — the guarantee that actually
+// matters, and the one the render suite exercises end-to-end.
+ok('_resolveCompany returns base COMPANY values',
+  ['name', 'phone', 'email', 'website', 'tagline', 'address']
+    .every((k) => dgN._resolveCompany()[k] === dgN.COMPANY[k]));
 ok('_logoSrc returns NBD logo', /nbd-logo/.test(dgN._logoSrc()));
 ok('renderNBDLogo renders <img class="nbd-logo-img"> for NBD', /<img class="nbd-logo-img"/.test(dgN.renderNBDLogo()));
 eq('_docPrefix is NBD', dgN._docPrefix(), 'NBD');

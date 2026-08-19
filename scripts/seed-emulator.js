@@ -28,7 +28,7 @@
  */
 'use strict';
 
-const admin = require('../functions/node_modules/firebase-admin');
+const { initAdmin, getFirestore, getAuth, Timestamp } = require('./_admin');
 
 // ── RULE 0 SAFETY GUARD ──────────────────────────────────────
 // Refuse to run against anything but the emulator.
@@ -42,10 +42,13 @@ if (!FS_HOST || !AUTH_HOST) {
 console.log(`[seed-emulator] Firestore emulator: ${FS_HOST}`);
 console.log(`[seed-emulator] Auth emulator:      ${AUTH_HOST}`);
 
-admin.initializeApp({ projectId: process.env.GCLOUD_PROJECT || 'nobigdeal-pro' });
-const db = admin.firestore();
-const auth = admin.auth();
-const TS = admin.firestore.Timestamp;
+// credential:null — emulator only (see the RULE 0 guard above). ADC must never
+// be presented here; the guard has already refused to run without the emulator
+// hosts set, and _admin would otherwise default to applicationDefault().
+initAdmin({ projectId: process.env.GCLOUD_PROJECT || 'nobigdeal-pro', credential: null });
+const db = getFirestore();
+const auth = getAuth();
+const TS = Timestamp;
 
 const COMPANY_ID = 'demo-co';
 const PASSWORD = 'Test123!';

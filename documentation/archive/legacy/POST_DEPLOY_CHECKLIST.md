@@ -297,6 +297,29 @@ first real-customer revenue._
 
 ## 16. IAM grants required to re-enable the 8 IAM-blocked functions
 
+> **⚠ SUPERSEDED 2026-08-17 — DO NOT FOLLOW THIS SECTION.**
+>
+> Both roles below were granted **2026-04-14 at 22:02 UTC**, hours after
+> this section was written (project `SetIamPolicy` audit log). Everything
+> from §16.1 onward is already done. Running it again is harmless but
+> pointless, and the "currently-blocked" list is four months stale.
+>
+> - **The 7 scheduled functions are not blocked and have not been since
+>   2026-04-14.** All 24 `onSchedule` exports are `ACTIVE`, update on every
+>   deploy, and their Cloud Scheduler jobs are all `ENABLED`. They were
+>   dropped from `NBD_DEPLOY_SKIP_LIST` on 2026-05-16; only the prose
+>   describing them survived.
+> - **`onRepSignup` is still blocked, but not by IAM.** Blocking functions
+>   are GCIP-only and `nobigdeal-pro` is subtype `FIREBASE_AUTH`, so the
+>   registration call fails with `OPERATION_NOT_ALLOWED` regardless of
+>   roles. Granting `roles/identityplatform.admin` does not fix it — it is
+>   already granted and it still fails. Only a GCIP upgrade would.
+>
+> This section is the origin of a misdiagnosis that cost two sessions;
+> `.github/workflows/firebase-deploy.yml` still links here, which is why
+> it is corrected in place rather than deleted. Current analysis:
+> [BLOCKING-TRIGGERS-NOT-GCIP-2026-08-17](../../audit/BLOCKING-TRIGGERS-NOT-GCIP-2026-08-17.md).
+
 The 2026-04-14 deploy sweep (branch
 `claude/security-infrastructure-review-5GRpD`) surfaced two IAM
 gaps on the GitHub Actions deploy SA that had crept in through

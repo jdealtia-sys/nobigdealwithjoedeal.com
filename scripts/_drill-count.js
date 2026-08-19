@@ -39,9 +39,9 @@ if (!process.env.FIRESTORE_EMULATOR_HOST) {
   process.exit(1);
 }
 
-const admin = require('../functions/node_modules/firebase-admin');
-admin.initializeApp({ projectId: 'nobigdeal-pro' });
-const db = admin.firestore();
+const { initAdmin, getFirestore } = require('./_admin');
+initAdmin({ projectId: 'nobigdeal-pro' });
+const db = getFirestore();
 
 (async () => {
   const counts = {};

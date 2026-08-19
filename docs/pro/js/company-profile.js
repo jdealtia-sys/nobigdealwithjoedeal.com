@@ -148,7 +148,10 @@
       legalName:   'No Big Deal Home Solutions',
       seal:        'NBD',
       docPrefix:   'NBD',   // customer IDs / doc numbers: NBD-0001, NBD-WC-…
-      tagline:     "No Big Deal with Joe Deal — seriously, it's in the name.",
+      // The tagline documents actually carry. Was "No Big Deal with Joe Deal —
+      // seriously, it's in the name.", which matched neither the document
+      // generator's literal nor the stored companyProfile — stale default.
+      tagline:     "No Big Deal — We've Got You Covered",
       smsSignOff:  'Joe from No Big Deal Roofing',
       logoUrl:     'https://nobigdealwithjoedeal.com/assets/images/nbd-logo.png',
       colors: {
@@ -167,9 +170,16 @@
       },
       contact: {
         phone:      '(859) 420-7382',
-        email:      'jd@nobigdealwithjoedeal.com',
+        // The DOCUMENTS/portal address, not the marketing one. NBD runs two on
+        // purpose: jd@ is the public marketing contact (docs/ pages, lead
+        // alerts), info@ is what customer documents carry — including the Zelle
+        // payment instruction on invoices. Do not unify these.
+        email:      'info@nobigdealwithjoedeal.com',
         website:    'nobigdealwithjoedeal.com',
-        address:    'Greater Cincinnati, OH',
+        // Documents have never printed a company address; keep that. The
+        // letterhead address lives on companyProfile.businessAddress and feeds
+        // the public microsite payload, not the document letterhead.
+        address:    '',
         alertEmail: 'jd@nobigdealwithjoedeal.com', // Phase C: public-lead alert recipient
         alertSms:   '+18594207382',                // Phase C: per-tenant alert SMS
         slackWebhook: ''                           // Phase C: optional per-tenant Slack lead alert (empty = none)

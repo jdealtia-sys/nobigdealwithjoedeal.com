@@ -8,10 +8,57 @@ on:
 permissions:
   contents: read
 
+# ─────────────────────────────────────────────────────────────
+# JOB TIMEOUTS (added 2026-08-18)
+#
+# Every job here previously ran with NO timeout-minutes, so it
+# inherited GitHub's 6-hour default. On 2026-08-18 the @shard1 job
+# wedged in `npx playwright install --with-deps chromium` (that flag
+# shells out to apt-get) and sat there 24+ minutes with the test step
+# never starting; it had to be cancelled by hand. On a re-run the same
+# job passed in 3m32s. Nothing bounded it, and nothing would have.
+#
+# Caps below are set from MEASURED durations — 90 job samples across
+# the last 10 successful ci.yml runs — not from guesses. The relevant
+# statistic is the MAX, not the mean: runner congestion (8+ concurrent
+# runs on a busy evening) routinely pushes a job to 2-3x its average,
+# and a cap tight enough to catch a hang quickly is also tight enough
+# to fail honest jobs on a slow night. These are deliberately loose;
+# the goal is to bound a hang, not to police performance.
+#
+#   tier      cap   observed max   jobs
+#   fast      10    0.2 - 0.9 min  syntax, site-integrity, secret-scan,
+#                                  functions-parse, unit-manifest, smoke
+#   medium    15    1.2 - 5.0 min  firestore-rules, referral-trigger,
+#                                  emulator-orphan, visual-brand-tokens
+#   heavy     20    1.4 - 5.0 min  public-e2e, visual-regression,
+#                                  visual-brand-tokens (loose despite
+#                                  low maxima: all three install
+#                                  Playwright, the step that wedged)
+#   e2e       25    11.5 min       e2e-authed-emulator matrix
+#
+# FOUR jobs install Playwright, not three: e2e-authed-emulator,
+# public-e2e, visual-regression, and visual-brand-tokens. The last one
+# does it via `npm run install:browsers` rather than a literal
+# `npx playwright install`, so grep for the STEP NAME ("Install
+# Playwright chromium") when auditing — matching on the command misses it.
+#
+# These caps are not theoretical. On the very first run carrying them
+# (32088697255), visual-regression and visual-brand-tokens BOTH hit their
+# ceiling on `Install Playwright chromium` — the same step that wedged
+# @shard1 an hour earlier. Three separate jobs, one evening. Without a
+# cap all three would have sat until GitHub's 6-hour default, and the two
+# continue-on-error ones would have done it silently.
+#
+# If a job starts timing out legitimately, RAISE the cap — do not
+# remove it. A job with no ceiling is the failure mode this fixes.
+# ─────────────────────────────────────────────────────────────
+
 jobs:
   smoke-tests:
     name: Smoke tests
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       # fetch-depth: 0 because tests/catalog-cost-privacy.test.js verifies a
       # recorded cost ROTATION by re-reading the published catalog at the commit
@@ -561,6 +608,7 @@ jobs:
   site-integrity:
     name: Site integrity
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -641,6 +689,7 @@ jobs:
   unit-suite-manifest:
     name: Unit suites (manifest)
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -657,6 +706,18 @@ jobs:
       - name: Run manifest node bucket
         run: node scripts/run-test-manifest.js
 
+      # Behavioral tests for the strict functions-deploy step in
+      # firebase-deploy.yml — it is shell inside YAML, so nothing else can
+      # actually execute it. Three false-green modes have shipped from that
+      # step, two of them found by deploying to prod and noticing afterwards.
+      # Dependency-free, no network, no credentials, runs in seconds; it
+      # extracts the real run: block and drives it against a stand-in CLI.
+      # Rides this job rather than its own because it needs neither the deps
+      # installed above nor a runner of its own.
+      # See tests/deploy-step/README.md.
+      - name: Deploy-step guards (false-green regressions)
+        run: bash tests/deploy-step/run.sh
+
   # The three auth/firestore-emulator suites the manifest classifies as
   # emulator-bucket (2026-08-07; the fourth, portal-token, rides the
   # referral-trigger job's functions-emulator recipe). Same v13 global
@@ -664,6 +725,7 @@ jobs:
   emulator-orphan-suites:
     name: Auth/Firestore emulator suites (rate-limit, auth-access, lead-lifecycle)
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -701,6 +763,7 @@ jobs:
   syntax-check:
     name: Node syntax check
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -724,6 +787,7 @@ jobs:
   firestore-rules:
     name: Firestore rules tests
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -763,6 +827,7 @@ jobs:
   referral-trigger:
     name: Referral trigger tests
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -841,6 +906,7 @@ jobs:
   functions-parse:
     name: Functions parse + dep install
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -893,6 +959,7 @@ jobs:
   secret-scan:
     name: Secret scan
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v7
         with:
@@ -925,6 +992,11 @@ jobs:
   e2e-authed-emulator:
     name: Authed E2E (emulators, ${{ matrix.shard }})
     runs-on: ubuntu-latest
+    # Highest cap in the file: this matrix owns the widest spread
+    # (measured max 11.5 min on @shard1) AND installs Playwright, the
+    # step that wedged on 2026-08-18. 25 leaves >2x headroom over the
+    # worst honest run while still killing a hang inside the hour.
+    timeout-minutes: 25
     strategy:
       fail-fast: false
       matrix:
@@ -1050,6 +1122,12 @@ jobs:
   public-e2e:
     name: Public-surface E2E (hosting emulator)
     runs-on: ubuntu-latest
+    # 20 despite a 2.3 min measured max: this job installs Playwright,
+    # so it is exposed to the same wedge as the E2E matrix. Note
+    # continue-on-error means a hang here never reddens the run — it
+    # just burns a runner slot silently, which is why the ceiling
+    # matters MORE here, not less.
+    timeout-minutes: 20
     continue-on-error: true
     steps:
       - uses: actions/checkout@v7
@@ -1135,6 +1213,13 @@ jobs:
   visual-brand-tokens:
     name: Brand-token visual assertions
     runs-on: ubuntu-latest
+    # 20, same tier as the other Playwright jobs. First cut of this file
+    # put it at 15 on the belief it had no Playwright install — wrong: it
+    # installs via `npm run install:browsers` (tests/visual), which a
+    # grep for "playwright install" does not match. It then timed out on
+    # exactly that step at 15m14s. Match on the STEP NAME, not the
+    # command, when auditing this.
+    timeout-minutes: 20
     continue-on-error: true
     steps:
       - uses: actions/checkout@v7
@@ -1168,6 +1253,9 @@ jobs:
   visual-regression:
     name: Visual regression (public pro pages)
     runs-on: ubuntu-latest
+    # 20: installs Playwright (same wedge exposure as public-e2e), and
+    # is likewise continue-on-error, so a hang here is silent.
+    timeout-minutes: 20
     continue-on-error: true
     steps:
       - uses: actions/checkout@v7

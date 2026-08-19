@@ -343,11 +343,14 @@ section('Q3: admin MFA enforcement (feature-flag gated)');
   const src = readFunctionsIndex();
   assert('Q3: beforeUserSignedIn imported',
     /beforeUserSignedIn\s*[,}]/.test(src));
-  // Q3 trigger body is present but NOT exported — Identity Platform
-  // blocking-function registration for beforeUserSignedIn needs a
-  // one-time console/IAM action (see SECURITY_SWEEP + in-file
-  // runbook). The body is preserved as a private const so
-  // re-enablement is a one-line diff.
+  // Q3 trigger body is present but NOT exported. Corrected 2026-08-17:
+  // this is NOT a "one-time console/IAM action" away. Blocking functions
+  // are GCIP-only and nobigdeal-pro is subtype FIREBASE_AUTH, so the
+  // registration call fails with OPERATION_NOT_ALLOWED on every deploy —
+  // for the already-shipped beforeUserCreated trigger too. See
+  // documentation/audit/BLOCKING-TRIGGERS-NOT-GCIP-2026-08-17.md.
+  // The body is preserved as a private const so re-enablement (after a
+  // GCIP upgrade) is a one-line diff.
   assert('Q3: trigger body preserved as private const (not exported)',
     /_beforeAdminSignInHandler\s*=\s*beforeUserSignedIn/.test(src));
   // Strip comments before checking — the runbook text mentions
@@ -356,8 +359,18 @@ section('Q3: admin MFA enforcement (feature-flag gated)');
   const codeOnly = src.replace(/\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
   assert('Q3: trigger NOT on exports (deploy-unblocking)',
     !/exports\.beforeAdminSignIn\s*=/.test(codeOnly));
+  // Window widened 2026-08-17: the header now carries the GCIP
+  // correction between the DISABLED marker and the runbook.
   assert('Q3: re-enablement runbook documented in-file',
-    /TEMPORARILY DISABLED[\s\S]{0,1500}Re-enablement runbook/.test(src));
+    /Q3: beforeAdminSignIn — DISABLED[\s\S]{0,4000}Re-enablement runbook/.test(src));
+  // The runbook must lead with the GCIP upgrade, not the IAM grant —
+  // the old "grant roles/identityplatform.admin" step was a dead end
+  // and cost two sessions. Guard against it regressing.
+  // Comment prose wraps across `//` lines, so collapse before matching.
+  const prose = src.replace(/\n\s*\/\/\s?/g, ' ').replace(/\s+/g, ' ');
+  assert('Q3: runbook names the real blocker (GCIP upgrade, not IAM)',
+    /Blocking Functions may only be configured for GCIP projects/.test(prose) &&
+    /Upgrade `nobigdeal-pro` to Google Cloud Identity Platform/.test(prose));
   assert('Q3: trigger body early-returns for non-admin sessions',
     /_beforeAdminSignInHandler[\s\S]{0,1500}claims\.role !== 'admin'[\s\S]{0,60}return/.test(src));
   assert('Q3: feature-flag gate via feature_flags/_default doc',
@@ -400,7 +413,7 @@ section('Q6: deploy bundle excludes seed / find-secrets helpers');
   // hygiene. (verify-functions.js was mistakenly included in this
   // list in commit 0ed6274, which broke the whole deploy batch;
   // it IS require()'d by index.js:1901 and must remain in source.)
-  for (const name of ['seed-companies.js', 'seed-demo.js', 'find-secrets.js',
+  for (const name of ['seed-demo.js', 'find-secrets.js',
                       'verify-functions-company-enhancement.js']) {
     assert('Q6: functions.ignore contains ' + name, ignore.includes(name));
   }

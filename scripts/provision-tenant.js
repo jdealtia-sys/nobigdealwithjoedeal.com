@@ -51,16 +51,19 @@ const path = require('path');
 // firebase-admin lives in functions/node_modules (scripts/ has none), so a
 // bare require fails when run from the repo root. Resolve it from functions/
 // via createRequire so this script runs from anywhere.
-let admin, FieldValue;
-try {
-  admin = require('firebase-admin');
-  ({ FieldValue } = require('firebase-admin/firestore'));
-} catch (_) {
-  const fnReq = require('module').createRequire(path.join(__dirname, '..', 'functions', 'package.json'));
-  admin = fnReq('firebase-admin');
-  ({ FieldValue } = fnReq('firebase-admin/firestore'));
-}
-if (!admin.apps.length) admin.initializeApp();
+let req = require;
+try { require.resolve('firebase-admin'); }
+catch (_) { req = require('module').createRequire(path.join(__dirname, '..', 'functions', 'package.json')); }
+
+const admin = req('firebase-admin');
+// firebase-admin v14 removed the whole legacy namespace off the default export
+// — admin.apps / admin.firestore() / admin.auth() are all undefined and throw.
+// initializeApp is the only survivor; everything else moved to the modular
+// subpath entrypoints, which is what the functions already use.
+const { getApps } = req('firebase-admin/app');
+const { getFirestore, FieldValue } = req('firebase-admin/firestore');
+const { getAuth } = req('firebase-admin/auth');
+if (!getApps().length) admin.initializeApp();
 
 const argv = process.argv.slice(2);
 const arg = (flag) => { const i = argv.indexOf(flag); return i >= 0 ? argv[i + 1] : null; };
@@ -98,8 +101,8 @@ async function main() {
     process.exit(1);
   }
 
-  const db = admin.firestore();
-  const auth = admin.auth();
+  const db = getFirestore();
+  const auth = getAuth();
 
   // ── State report (always) ──
   const companySnap = await db.collection('companies').doc(companyId).get();

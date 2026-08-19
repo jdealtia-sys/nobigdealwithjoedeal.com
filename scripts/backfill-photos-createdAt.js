@@ -47,28 +47,28 @@
  * missing from the feed/gallery.
  */
 
-const admin = require('firebase-admin');
+const { initAdmin, getFirestore, Timestamp } = require('./_admin');
+const { assertNotCompleted, recordCompletion } = require('./_migration-guard');
+
 
 const args = process.argv.slice(2);
 const APPLY = args.includes('--apply');
 const YES = args.includes('--yes');
+// --force overrides the run-once guard (see scripts/_migration-guard.js).
+const FORCE = args.includes('--force');
+const MIGRATION = 'backfill-photos-createdAt';
 const PROJECT = process.env.NBD_PROJECT || 'nobigdeal-pro';
 
 const PAGE = 500;   // read page size
 const BATCH = 400;  // Firestore batch write cap is 500; stay under it
 
 function init() {
-  try {
-    admin.initializeApp({
-      credential: admin.credential.applicationDefault(),
-      projectId: PROJECT,
-    });
-  } catch (e) {
-    if (!String(e.message || '').includes('already exists')) throw e;
-  }
+  // initAdmin is idempotent (ADC credential by default), so the old
+  // "already exists" message-matching catch is no longer needed.
+  initAdmin({ projectId: PROJECT });
 }
 
-const Timestamp = admin.firestore.Timestamp;
+
 
 // Derive a canonical createdAt Timestamp for a doc that lacks one.
 // Returns a Firestore Timestamp, or null if nothing usable (the caller
@@ -95,7 +95,9 @@ async function main() {
   }
 
   init();
-  const db = admin.firestore();
+  const db = getFirestore();
+  // One-shot: refuse a second --apply unless --force.
+  await assertNotCompleted(MIGRATION, { apply: APPLY, force: FORCE });
 
   console.log('═══════════════════════════════════════════════════════════');
   console.log('Backfill photos.createdAt');
@@ -180,6 +182,8 @@ async function main() {
     console.log('  (dry-run — re-run with --apply --yes to write)');
   }
   console.log('───────────────────────────────────────────────────────────');
+
+  if (APPLY && failures === 0) await recordCompletion(MIGRATION, { scanned, toFix, written });
 
   process.exit(failures > 0 ? 1 : 0);
 }

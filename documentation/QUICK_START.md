@@ -1,5 +1,12 @@
 # Quick Start — orientation for a new session
 
+> **Restored 2026-08-18.** PR #1236 (a seed-companies cleanup) moved this file
+> to `archive/legacy/` unchanged. That looks like a mis-sweep: this file has no
+> seed-companies content, `CLAUDE.md` names it as a read-first doc, and nothing
+> — not even `archive/legacy/README.md` — pointed at the archived copy, so the
+> read-first chain was simply broken. Note the 2026-08-10 header below: the
+> LEGACY orientation guide was archived then; this is its replacement, not it.
+
 > **Rewritten 2026-08-10** (site-wide audit): the previous content here was
 > the original multi-tenant bolt-on integration guide from the legacy era —
 > it walked through wiring files (`pro/js/company-admin.js`,

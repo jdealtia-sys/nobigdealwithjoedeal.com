@@ -325,8 +325,38 @@ jobs:
             artifactregistry.googleapis.com \
             --project "$PRO_PROJECT" --quiet
           EXIT=$?
-          if [ $EXIT -ne 0 ]; then
-            echo "::warning::gcloud services enable returned $EXIT (SA likely lacks roles/serviceusage.serviceUsageAdmin). Manually enable in Cloud Console: cloudscheduler, identitytoolkit, pubsub, eventarc, run, cloudbuild, artifactregistry."
+          # VERIFY THE OUTCOME, NOT THE EXIT CODE (2026-08-17).
+          # The deploy SA deliberately does NOT hold
+          # roles/serviceusage.serviceUsageAdmin, so `services enable`
+          # returns 1 on every run — including when all seven APIs are
+          # already enabled, which they are and have been. Warning on the
+          # exit code alone printed a scary, actionable-looking annotation
+          # ("Manually enable in Cloud Console…") on EVERY deploy for what
+          # is a complete no-op, and that false alarm sat in the log long
+          # enough to be mistaken for the cause of a real incident.
+          #
+          # Same lesson as the completion-accounting guard further down:
+          # assert the END STATE you actually care about, not whatever the
+          # tool volunteers. Here the end state is "are these APIs on?",
+          # which is readable with the roles the SA already has.
+          ENABLED=$(gcloud services list --enabled --project "$PRO_PROJECT" \
+                      --format="value(config.name)" 2>/dev/null)
+          if [ -z "$ENABLED" ]; then
+            # Couldn't read the list at all — can't distinguish "all fine"
+            # from "everything off", so surface it rather than guess.
+            echo "::warning::Could not read enabled-API list for $PRO_PROJECT (services enable exited $EXIT). Verify in Cloud Console: cloudscheduler, identitytoolkit, pubsub, eventarc, run, cloudbuild, artifactregistry."
+          else
+            MISSING=""
+            for api in cloudscheduler identitytoolkit pubsub eventarc run cloudbuild artifactregistry; do
+              echo "$ENABLED" | grep -qx "${api}.googleapis.com" || MISSING="$MISSING $api"
+            done
+            if [ -n "$MISSING" ]; then
+              # A REAL problem: an API the deploy depends on is off and the
+              # SA can't turn it on. This is the only case worth alarming.
+              echo "::warning::Required API(s) NOT enabled on $PRO_PROJECT:$MISSING — the deploy SA lacks roles/serviceusage.serviceUsageAdmin, so enable them in Cloud Console (or grant that role)."
+            else
+              echo "✓ All 7 required APIs already enabled (services enable exited $EXIT — expected; the SA can read API state but not change it)."
+            fi
           fi
           # Generate the service identity for Pub/Sub. Gen-2 Storage
           # triggers (onAudioUploaded in voice-intelligence.js) fail
@@ -521,26 +551,69 @@ jobs:
           exit 1
 
       # F-10 + Q8: functions deploy is strict by default — any failure
-      # fails the workflow. But there's an explicit exception list for
-      # functions whose DEPLOY blocks on IAM the GitHub Actions deploy
-      # SA doesn't have:
+      # fails the workflow. But there's an explicit exception list
+      # (NBD_DEPLOY_SKIP_LIST) for functions that cannot deploy.
       #
-      #   cloudscheduler.jobs.update  → schedule-function binding update
-      #   identityplatform.admin      → blocking-trigger registration
+      # TODAY THE LIST HAS EXACTLY ONE ENTRY: onRepSignup, a
+      # beforeUserCreated blocking trigger, blocked on GCIP (below).
+      # NOTHING SCHEDULED IS ON IT, and nothing scheduled has failed
+      # since 2026-04-14. See "the scheduled half is long fixed" below
+      # before adding anything here.
       #
-      # These 8 functions have no code changes in the normal case; the
-      # SA just can't refresh their Cloud Scheduler job / Identity
-      # Platform config. Previous deploys succeeded because the SA
-      # had broader roles; IAM drift revoked them at some point.
+      # CORRECTION 2026-08-17 (verified against prod audit logs — the
+      # "identityplatform.admin" story below was WRONG for three years
+      # of comments and is kept only to explain the skip-list's shape):
+      # blocking-trigger registration does NOT fail on IAM. Every deploy
+      # emits an identitytoolkit UpdateConfig call that fails with
+      #
+      #   OPERATION_NOT_ALLOWED : Blocking Functions may only be
+      #   configured for GCIP projects.
+      #
+      # 162 consecutive failures in the last 30 days, principal
+      # firebase-adminsdk-fbsvc@nobigdeal-pro. `nobigdeal-pro` is
+      # subtype FIREBASE_AUTH — it has never been upgraded to Google
+      # Cloud Identity Platform, and blocking functions are a GCIP-only
+      # feature. Granting roles/identityplatform.admin CANNOT fix this;
+      # the project has to be upgraded to Identity Platform first
+      # (a paid-tier product decision, Jo's call — not an ops IAM tweak).
+      # CONFIRMED 2026-08-17: the deploy SA ALREADY HOLDS
+      # roles/identityplatform.admin (and roles/cloudscheduler.admin).
+      # Both were granted 2026-04-14 at 22:02 UTC (project SetIamPolicy
+      # audit log) — the role is present and registration still fails,
+      # which settles it. Check the IAM policy before ever granting an
+      # auth role here; the answer is "already there".
+      # Consequence: the project's Identity Platform blockingFunctions
+      # config is `{}`, so onRepSignup has NEVER been invoked (zero
+      # Cloud Run requests in 30d) and claim-minting runs through the
+      # callable fallbacks (claimInvite / activateInvitedRep /
+      # mintOwnerClaims) instead. Full writeup:
+      # documentation/audit/BLOCKING-TRIGGERS-NOT-GCIP-2026-08-17.md
+      #
+      # ── the scheduled half is long fixed (diagnosed 2026-08-17) ──
+      # This block used to describe a Cloud Scheduler IAM gap and list
+      # "8 functions". That gap closed 2026-04-14T22:02 — HOURS after
+      # the skip list was first written — when roles/cloudscheduler.admin
+      # was granted. What happened next is why the story outlived it:
+      #   - 2026-04-15: recordingRetentionCron was ADDED to the list
+      #     blaming the "same SA gap", which had been fixed the day
+      #     before. Whatever actually broke it is unrecoverable now
+      #     (logs are past retention); it was NOT this.
+      #   - 2026-05-16: the list was emptied and onRepSignup re-added
+      #     alone, via two GitHub web-editor commits. The scheduled
+      #     names were correctly dropped — the prose around them was
+      #     never touched.
+      # Verified 2026-08-17: all 24 onSchedule exports are ACTIVE and
+      # update on every deploy, all 24 Cloud Scheduler jobs are ENABLED,
+      # and there are zero cloudscheduler API errors in 30 days.
+      # If a scheduled function ever DOES fail here, diagnose it fresh.
+      # It is not IAM, and it has no precedent since 2026-04-14.
       #
       # Strategy:
-      #  1. Main deploy = everything EXCEPT the 8 known-blocked names.
+      #  1. Main deploy = everything EXCEPT the known-blocked names.
       #     Strict — failure fails the workflow.
-      #  2. Second step (tolerant) retries ONLY the 8. Permission
-      #     errors there produce a warning, not a failure. When ops
-      #     grants roles/cloudscheduler.admin + roles/identityplatform.admin
-      #     to the deploy SA, empty NBD_DEPLOY_SKIP_LIST and the main
-      #     step handles them.
+      #  2. Second step (tolerant) retries ONLY those — in practice just
+      #     onRepSignup. Errors there produce a warning, not a failure.
+      #     It stays stuck until GCIP; no IAM grant changes that.
       #
       # Full remediation runbook: see POST_DEPLOY_CHECKLIST §16.
       #
@@ -562,17 +635,85 @@ jobs:
         if: ${{ github.event_name == 'push' || github.event.inputs.scope == 'all' || github.event.inputs.scope == 'functions' }}
         env:
           GOOGLE_APPLICATION_CREDENTIALS: ${{ steps.sa.outputs.sa_path }}
-          # Names that fail with cloudscheduler.jobs.update or
-          # identityplatform.admin denials. Clear this list once
-          # those roles are granted.
-          # recordingRetentionCron added 2026-04-15: scheduled fn from
-          # voice-intelligence.js fails on update (same SA gap).
+          # Functions that cannot deploy. NOT an IAM list — both roles
+          # this used to blame (cloudscheduler.admin,
+          # identityplatform.admin) have been granted since
+          # 2026-04-14T22:02. onRepSignup is here because blocking
+          # triggers need GCIP and this project is FIREBASE_AUTH.
+          # Empty it only when the project is upgraded to Identity
+          # Platform. Do not add scheduled functions — see the block
+          # above the strict step.
           NBD_DEPLOY_SKIP_LIST: "onRepSignup"
           # Batched-retry knobs for the Cloud Run CPU-quota mitigation below.
           NBD_DEPLOY_RETRY_ROUNDS: "3"   # extra passes over just the stragglers
           NBD_DEPLOY_RETRY_PAUSE: "45"   # let wave-1 revisions settle + old ones tear down (frees CPU)
           NBD_DEPLOY_BATCH_SIZE: "20"    # cap concurrent new revisions per retry chunk
           NBD_DEPLOY_BATCH_PAUSE: "20"
+          # Wave-1 burst cap (0 = single bulk pass; 60 = chunk the --only list).
+          #
+          # There is NO firebase-tools knob for this — checked against the v15
+          # source: `src/deploy/functions/release/index.ts` hardcodes the
+          # deploy queue at `concurrency: 40` with no env override and no CLI
+          # flag (`firebase deploy` takes only --public/--message/--only/
+          # --except/--dry-run/--force). The only lever we control is how many
+          # functions a single invocation is asked to mutate, so the "cap" has
+          # to be our own chunking of the --only list — which is also exactly
+          # what firebase-tools' own 429 handler recommends ("please deploy
+          # your functions in batches by using the --only flag").
+          #
+          # SET TO 60 on 2026-08-17 (was 0). It was left off while the
+          # mutation-rate 429 mode had been seen once; it then recurred on the
+          # next two deploys carrying this step:
+          #   32074172766  ~17 functions silently dropped
+          #   32080455395   28 functions silently dropped (139/167 completed,
+          #                 ZERO "Failed to ..." lines, firebase-tools exit 0)
+          # Two occurrences one deploy apart is a pattern, and every occurrence
+          # is a window where prod runs stale code until the retries heal it.
+          # ~168 functions -> chunks of 60, 60, 48.
+          #
+          # SECOND, DISTINCT MODE this also mitigates (added 2026-08-17): the
+          # CPU-quota healthcheck failures. Run 32083185787 lost 75 of ~168 in
+          # wave 1 — LOUD failures ("Failed to update function X"), not silent
+          # drops, retried 75 -> 3 -> 0. Cause confirmed from the GCP audit log
+          # rather than inferred, which the "likely CPU-quota" comments elsewhere
+          # in this file never were:
+          #   "Could not create or update Cloud Run service <name>, Container
+          #    Healthcheck failed. Quota exceeded for total allowable CPU per
+          #    project per region."
+          # That is run.googleapis.com/cpu_allocation. Read via the Service
+          # Usage API 2026-08-17: us-central1 sits at the flat default 200000
+          # (1/min/{project}/{region}) with NO override — identical to every
+          # other region, so nothing here has ever been tuned. Chunking helps
+          # both modes because both are burst-driven.
+          #
+          # MEASURED on the first chunked run (32085658469): 167 functions,
+          # ZERO stragglers of any kind, zero retry rounds, strict step 11m26s
+          # vs 15m36s / 13m44s / 16m07s for the three unchunked runs before it.
+          # Chunking is ~4-5 min FASTER, not the ~2-3 min slower first estimated
+          # here — that estimate priced the chunking and ignored the price of
+          # NOT chunking: RETRY_PAUSE is 45s, batch pauses 20s, and every retry
+          # round re-invokes the CLI anyway. Not tripping the quota is cheaper
+          # than recovering from it. Don't "optimize" this back to 0 on the
+          # assumption that one bulk pass must be faster; it measurably isn't.
+          #
+          # Remaining cost, real but so far unrealized:
+          #  - 3 firebase invocations instead of 1 TRIPLES the per-deploy
+          #    exposure to a wholesale failure (a transient auth flake in any
+          #    chunk is fatal by design — see the wholesale guard below). If
+          #    deploys start going red on auth rather than on real problems,
+          #    that is this tradeoff, and 0 restores the old behavior.
+          #
+          # Safe with completion accounting (verified by simulation before
+          # enabling): _deploy_only reconciles per INVOCATION — `targeted` comes
+          # from its own $1, ACCOUNTED_FILE/PARSED_FILE are per-call scratch (>),
+          # while MISSING_FILE/FAILED_FILE accumulate (>>). Each chunk audits its
+          # own targets, so the mode-3 guard still covers the full set. Chunking
+          # does NOT blind the guard.
+          #
+          # Durable fix is still a quota increase (IAM & Admin -> Quotas ->
+          # "Total CPU allocation", a Console request Google reviews), which
+          # makes this unnecessary — set back to "0" once it lands.
+          NBD_DEPLOY_WAVE1_MAX: "60"
         run: |
           # WHY THIS STEP RETRIES (root cause, diagnosed 2026-07-23):
           # We deploy ~160 Gen2 functions. A single bulk `firebase deploy` rolls
@@ -623,42 +764,111 @@ jobs:
 
           FAILED_FILE=$(mktemp)
           WHOLESALE_FILE=$(mktemp)
+          MISSING_FILE=$(mktemp)
+          ACCOUNTED_FILE=$(mktemp)
+          PARSED_FILE=$(mktemp)
+
+          # firebase-tools colorizes its output whenever CI is set in the
+          # environment (colorette enables color on "CI" in env — TTY or not),
+          # so every line parsed below arrives wrapped in ANSI escapes. Strip
+          # them first: an unstripped parse matches nothing, which would make
+          # every function look unaccounted-for and trigger a retry storm.
+          ESC=$(printf '\033')
+          _strip_ansi() { sed -E "s/${ESC}\[[0-9;]*[a-zA-Z]//g"; }
+
           # _deploy_only <comma-separated functions:NAME list> — runs the deploy,
-          # echoes firebase output to the log, and appends any failed function
-          # names to FAILED_FILE. firebase prints "Failed to (create|update)
-          # function NAME in region ..." per failure; that's what we parse.
+          # echoes firebase output to the log, and appends any function that did
+          # not demonstrably deploy to FAILED_FILE. Three independent signals,
+          # because this pipeline has now produced three distinct false-greens:
           #
-          # WHOLESALE-FAILURE GUARD (2026-08-10 audit): the per-function parse
-          # is the ONLY failure signal the step used to have, so a deploy that
-          # died BEFORE per-function rollout (auth error, config parse, quota
-          # abort — exit != 0 with zero "Failed to ..." lines) produced an
-          # empty FAILED set and the step printed "✓ All functions deployed"
-          # while deploying nothing. Capture the exit code; nonzero with no
-          # parsed per-function failures = wholesale failure, recorded and
-          # fatal at the end.
+          #  1. PER-FUNCTION PARSE. firebase prints "Failed to (create|update)
+          #     function NAME in region ..." per failure.
+          #  2. WHOLESALE-FAILURE GUARD (2026-08-10 audit): a deploy that died
+          #     BEFORE per-function rollout (auth error, config parse, quota
+          #     abort — exit != 0 with zero "Failed to ..." lines) produced an
+          #     empty FAILED set and the step printed "✓ All functions deployed"
+          #     while deploying nothing. Nonzero exit with no parsed per-function
+          #     failures = wholesale failure, recorded and fatal at the end.
+          #  3. COMPLETION ACCOUNTING (run 32074172766, 2026-08-17): an env-var
+          #     change made all 167 functions need updates at once, the burst
+          #     tripped "Per project mutation requests per minute" (HTTP 429),
+          #     and ~17 functions (healthDigestCron among them) got an
+          #     "updating..." line but NO completion line — no success, no
+          #     "Failed to ...", exit 0. Both guards above passed and the job
+          #     went green with stale code live. So: reconcile the set we ASKED
+          #     to deploy against the set that actually reported a terminal
+          #     result, and treat the difference as stragglers.
+          #
+          # Why the reconciliation is exact rather than heuristic: firebase-tools
+          # skips unchanged functions (planner.ts `toSkipPredicate`) ONLY when
+          # `!targetedByOnly` — and we name every function explicitly via
+          # `--only functions:NAME`, so nothing is ever skip-eligible here and
+          # every target owes us a create/update line. The Skipped line is
+          # accepted as terminal anyway, so this stays correct if that filtering
+          # behavior (or our --only shape) ever changes.
           _deploy_only() {
             [ -z "$1" ] && return 0
-            local out rc parsed
+            local out rc clean parsed targeted silent
             out=$(npx firebase-tools deploy --only "$1" --project "$PRO_PROJECT" --non-interactive --force 2>&1)
             rc=$?
             echo "$out"
-            parsed=$(echo "$out" | grep -oE "Failed to (create|update) function [A-Za-z_][A-Za-z0-9_]*" \
+            clean=$(printf '%s\n' "$out" | _strip_ansi)
+            parsed=$(printf '%s\n' "$clean" | grep -oE "Failed to (create|update) function [A-Za-z_][A-Za-z0-9_]*" \
                                  | sed -E 's/.*function //')
-            [ -n "$parsed" ] && echo "$parsed" >> "$FAILED_FILE"
+            [ -n "$parsed" ] && printf '%s\n' "$parsed" >> "$FAILED_FILE"
             if [ "$rc" -ne 0 ] && [ -z "$parsed" ]; then
               echo "wholesale deploy failure: exit $rc with no per-function failure lines (targets: $1)" >> "$WHOLESALE_FILE"
+              # Deliberately no completion accounting on this path: nothing
+              # rolled out, so every target would land in MISSING and we'd burn
+              # the retry rounds re-running a deploy that died on auth/config.
+              # Wholesale is fatal on its own below.
+              return 0
+            fi
+            # ── completion accounting (mode 3) ──
+            # A target is accounted for by a terminal per-function line:
+            #   functions[NAME(region)] Successful (create|update) operation.
+            #   functions[NAME(region)] Skipped (No changes detected)
+            # The label may carry a "codebase:" prefix; the seds below drop the
+            # region suffix and any prefix. Explicitly NOT accepted: "Successful
+            # delete operation" (orphan cleanup, never a target) — so a delete
+            # can't paper over a missing update.
+            targeted=$(printf '%s' "$1" | tr ',' '\n' | sed -E 's/^functions://' | grep -v '^$' | sort -u)
+            printf '%s\n' "$clean" \
+              | grep -oE "functions\[[^]]+\] (Successful (create|update) operation|Skipped \(No changes detected\))" \
+              | sed -E 's/^functions\[//; s/\].*$//; s/\([^)]*\)$//; s/^.*://' \
+              | grep -v '^$' | sort -u > "$ACCOUNTED_FILE"
+            # A function that REPORTED a failure is an ordinary straggler — it is
+            # already in FAILED_FILE from the parse above. Subtract those too, so
+            # MISSING means only the silent case: targeted, no line of any kind.
+            # (Run 32079768048, the first deploy carrying this step, printed 22
+            # "Failed to update function" lines in wave 1 and this filter was not
+            # here yet — so all 22 were announced as "printed NO completion line",
+            # which was flatly untrue. Retry behavior was right; the diagnosis was
+            # not, and on a step whose whole purpose is telling failure modes
+            # apart, crying wolf on the ~5-10% that fail loudly every deploy would
+            # have made the new warning worthless within a week.)
+            printf '%s\n' "$parsed" | grep -v '^$' | sort -u > "$PARSED_FILE"
+            # grep -F -x -v, not comm: comm compares bytes while sort honours
+            # the locale's collation, and these names are mixed-case.
+            silent=$(printf '%s\n' "$targeted" \
+              | grep -F -x -v -f "$ACCOUNTED_FILE" \
+              | grep -F -x -v -f "$PARSED_FILE")
+            if [ -n "$silent" ]; then
+              printf '%s\n' "$silent" >> "$MISSING_FILE"
+              printf '%s\n' "$silent" >> "$FAILED_FILE"
             fi
           }
-          # _deploy_batched <newline-separated names> — deploys in chunks of
-          # NBD_DEPLOY_BATCH_SIZE so a large straggler set never re-creates the
-          # all-at-once CPU spike.
+          # _deploy_batched <newline-separated names> [size] [pause] — deploys in
+          # chunks (default NBD_DEPLOY_BATCH_SIZE) so a large straggler set never
+          # re-creates the all-at-once CPU spike / mutation-rate burst.
           _deploy_batched() {
+            local names="$1" size="${2:-$NBD_DEPLOY_BATCH_SIZE}" pause="${3:-$NBD_DEPLOY_BATCH_PAUSE}"
             local batch="" n=0 fn only
-            for fn in $1; do
+            for fn in $names; do
               batch="$batch $fn"; n=$((n+1))
-              if [ "$n" -ge "$NBD_DEPLOY_BATCH_SIZE" ]; then
+              if [ "$n" -ge "$size" ]; then
                 only=$(echo $batch | tr ' ' '\n' | grep -v '^$' | sed 's/^/functions:/' | paste -sd, -)
-                _deploy_only "$only"; batch=""; n=0; sleep "$NBD_DEPLOY_BATCH_PAUSE"
+                _deploy_only "$only"; batch=""; n=0; sleep "$pause"
               fi
             done
             if [ -n "$(echo $batch | tr -d ' ')" ]; then
@@ -667,10 +877,26 @@ jobs:
             fi
           }
 
-          # ── wave 1: the fast single bulk deploy (unchanged behavior) ──
-          echo "Deploying $(echo "$INCLUDE" | awk -F',' '{print NF}') function(s) in one pass"
-          _deploy_only "$INCLUDE"
+          # ── wave 1: the fast single bulk deploy (chunked only if capped) ──
+          COUNT=$(echo "$INCLUDE" | awk -F',' '{print NF}')
+          if [ "${NBD_DEPLOY_WAVE1_MAX:-0}" -gt 0 ] && [ "$COUNT" -gt "$NBD_DEPLOY_WAVE1_MAX" ]; then
+            echo "Deploying $COUNT function(s) in chunks of $NBD_DEPLOY_WAVE1_MAX (mutation-burst cap)"
+            _deploy_batched "$(echo "$INCLUDE" | tr ',' '\n' | sed -E 's/^functions://')" \
+              "$NBD_DEPLOY_WAVE1_MAX" "$NBD_DEPLOY_BATCH_PAUSE"
+          else
+            echo "Deploying $COUNT function(s) in one pass"
+            _deploy_only "$INCLUDE"
+          fi
           FAILED=$(sort -u "$FAILED_FILE")
+
+          # Surface the new mode distinctly BEFORE the retries: a function that
+          # silently lost its update is a different (and until now invisible)
+          # failure from one that reported an error.
+          MISSING_WAVE1=$(sort -u "$MISSING_FILE")
+          if [ -n "$MISSING_WAVE1" ]; then
+            echo "::warning::$(echo "$MISSING_WAVE1" | grep -c .) function(s) were targeted but printed NO completion line (no success, no failure) — the quota-dropped-update mode from run 32074172766. Retrying them as stragglers."
+            echo "$MISSING_WAVE1" | sed 's/^/    unaccounted-for: /'
+          fi
 
           # ── retry rounds: only the stragglers, batched + paused ──
           round=0
@@ -680,9 +906,11 @@ jobs:
             echo "$FAILED" | sed 's/^/    straggler: /'
             sleep "$NBD_DEPLOY_RETRY_PAUSE"
             : > "$FAILED_FILE"
+            : > "$MISSING_FILE"
             _deploy_batched "$FAILED"
             FAILED=$(sort -u "$FAILED_FILE")
           done
+          MISSING=$(sort -u "$MISSING_FILE")
 
           if [ -s "$WHOLESALE_FILE" ] && [ -z "$FAILED" ]; then
             echo "::error::Cloud Functions deploy failed WHOLESALE (nonzero exit before per-function rollout) — nothing or almost nothing was deployed"
@@ -707,6 +935,37 @@ jobs:
               echo ""
               echo "$FAILED" | sed 's/^/  - /'
               echo ""
+              if [ -n "$MISSING" ]; then
+                echo "Of those, these printed NO completion line at all in the final"
+                echo "round — no success, no error. That is the **quota-dropped update**"
+                echo "mode (run 32074172766, 2026-08-17): a mutation-rate 429"
+                echo "(\`Per project mutation requests per minute\`) during a large burst"
+                echo "loses the update while firebase-tools still exits 0. Before this"
+                echo "guard existed the job went GREEN with stale code live."
+                echo ""
+                echo "$MISSING" | sed 's/^/  - /'
+                echo ""
+                echo "Deploy them by hand to confirm, e.g.:"
+                echo ""
+                echo '```'
+                echo "npx firebase-tools deploy --only $(echo "$MISSING" | sed 's/^/functions:/' | paste -sd, -) --project $PRO_PROJECT --force"
+                echo '```'
+                echo ""
+                # Report the LIVE knob value rather than hardcoding advice.
+                # This block used to say 'set it to "60"' and went stale the day
+                # it was actually set to 60 — telling an operator mid-incident to
+                # do something already done.
+                if [ "${NBD_DEPLOY_WAVE1_MAX:-0}" -gt 0 ]; then
+                  echo "Wave 1 was ALREADY chunked (\`NBD_DEPLOY_WAVE1_MAX\` = ${NBD_DEPLOY_WAVE1_MAX}),"
+                  echo "so the burst cap did not prevent this. Lower it (40, then 20) if drops"
+                  echo "persist — but the durable fix is a **Cloud Functions per-project"
+                  echo "mutation-rate quota increase**, which removes the need to chunk at all."
+                else
+                  echo "Wave 1 is NOT chunked (\`NBD_DEPLOY_WAVE1_MAX\` = 0). Set it to ~60 in"
+                  echo "this workflow to flatten the mutation burst."
+                fi
+                echo ""
+              fi
               echo "If the per-function error is \`Container Healthcheck failed. Quota"
               echo "exceeded for total allowable CPU per project per region\`, the batched"
               echo "retry wasn't enough headroom — the durable fix is a **Cloud Run CPU"
@@ -716,15 +975,20 @@ jobs:
             } >> "$GITHUB_STEP_SUMMARY"
             exit 1
           fi
-          echo "✓ All functions deployed$( [ "$round" -gt 0 ] && echo " (after $round straggler-retry round(s))" )."
+          # Deliberately reports what was VERIFIED, not what was attempted: every
+          # targeted function was reconciled against a terminal per-function line.
+          echo "✓ All $COUNT targeted function(s) accounted for by a completion line$( [ "$round" -gt 0 ] && echo " (after $round straggler-retry round(s))" )."
 
-      # Second pass: retry the skip-list with tolerance. If IAM has
-      # since been granted, these succeed. If not, the warning is
-      # surfaced in the workflow summary and the rest of the
-      # deploy (Hosting, etc.) continues. Scheduled + blocking
-      # functions still run their LAST deployed revision — it's the
-      # update that fails, not the runtime.
-      - name: Deploy Cloud Functions (tolerant — IAM-blocked retry)
+      # Second pass: retry the skip-list with tolerance. If the blocker
+      # has since cleared (i.e. the project was upgraded to GCIP), these
+      # succeed. If not, the warning is surfaced in the workflow summary
+      # and the rest of the deploy (Hosting, etc.) continues. A skipped
+      # function still runs its LAST deployed revision — it's the update
+      # that fails, not the runtime.
+      # Renamed 2026-08-17: was "IAM-blocked retry", which was wrong on
+      # both counts — the roles are granted, and the actual blocker is
+      # the project not being on Identity Platform.
+      - name: Deploy Cloud Functions (tolerant — skip-list retry)
         # ROOT-CAUSE FIX (deploy run 27631207476 starved Hosting): this retry
         # of the GCIP/IAM-blocked skip-list (onRepSignup) had NO step timeout,
         # so it ran until the job timeout-minutes cap canceled the WHOLE job —
@@ -750,23 +1014,36 @@ jobs:
           EXIT=$?
           if [ $EXIT -ne 0 ]; then
             {
-              echo "### ⚠ Some scheduled / blocking-trigger functions couldn't update"
+              echo "### ⚠ Blocking-trigger function couldn't update (expected until GCIP)"
               echo ""
-              echo "The GitHub Actions deploy service account is missing either"
-              echo "\`roles/cloudscheduler.admin\` or \`roles/identityplatform.admin\`"
-              echo "(or both). The following functions were NOT updated this deploy:"
+              echo "The following functions were NOT updated this deploy:"
               echo ""
               for fn in $(echo "$NBD_DEPLOY_SKIP_LIST" | tr ',' ' '); do
                 echo "  - $fn"
               done
               echo ""
               echo "Their last-deployed revisions are still live in Cloud Run."
-              echo "Grant the missing IAM roles to unstick them — runbook:"
-              echo "POST_DEPLOY_CHECKLIST.md §16."
+              echo ""
+              echo "\`onRepSignup\` is a **blocking trigger**, and this is NOT an IAM"
+              echo "problem. \`nobigdeal-pro\` is subtype FIREBASE_AUTH, and blocking"
+              echo "functions are GCIP-only, so the registration call fails with"
+              echo "\`OPERATION_NOT_ALLOWED : Blocking Functions may only be configured"
+              echo "for GCIP projects\`. No IAM grant fixes this — the project must be"
+              echo "upgraded to Identity Platform. The trigger is inert in the meantime"
+              echo "(blockingFunctions is \`{}\`); claim-minting runs through the"
+              echo "callable fallbacks."
+              echo "See documentation/audit/BLOCKING-TRIGGERS-NOT-GCIP-2026-08-17.md"
+              echo ""
+              echo "**If anything OTHER than a blocking trigger is listed above**"
+              echo "(e.g. a scheduled function), that is new. Scheduled functions have"
+              echo "deployed cleanly since 2026-04-14 and \`roles/cloudscheduler.admin\`"
+              echo "is granted — diagnose it fresh rather than reaching for IAM."
+              echo ""
+              echo "Runbook: POST_DEPLOY_CHECKLIST.md §16."
             } >> "$GITHUB_STEP_SUMMARY"
-            echo "::warning::Scheduled/blocking functions deferred — see summary"
+            echo "::warning::Blocking-trigger function deferred (GCIP, not IAM) — see summary"
           else
-            echo "✓ All previously-IAM-blocked functions deployed cleanly. Remove NBD_DEPLOY_SKIP_LIST in the workflow."
+            echo "✓ Skip-list functions deployed cleanly — the GCIP blocker is gone. Empty NBD_DEPLOY_SKIP_LIST in the workflow."
           fi
           exit 0
 

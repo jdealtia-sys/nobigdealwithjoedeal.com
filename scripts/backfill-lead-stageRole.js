@@ -52,12 +52,17 @@
  * tenant-declared role.
  */
 
-const admin = require('firebase-admin');
+const { initAdmin, getFirestore } = require('./_admin');
+const { assertNotCompleted, recordCompletion } = require('./_migration-guard');
+
 const { roleFromKey, normKey, ROLE } = require('../functions/stage-roles');
 
 const args = process.argv.slice(2);
 const APPLY = args.includes('--apply');
 const YES = args.includes('--yes');
+// --force overrides the run-once guard (see scripts/_migration-guard.js).
+const FORCE = args.includes('--force');
+const MIGRATION = 'backfill-lead-stageRole';
 const PROJECT = process.env.NBD_PROJECT || 'nobigdeal-pro';
 
 const PAGE = 500;   // read page size
@@ -66,14 +71,9 @@ const BATCH = 400;  // Firestore batch write cap is 500; stay under it
 const VALID_ROLES = new Set(Object.keys(ROLE).map((k) => ROLE[k]));
 
 function init() {
-  try {
-    admin.initializeApp({
-      credential: admin.credential.applicationDefault(),
-      projectId: PROJECT,
-    });
-  } catch (e) {
-    if (!String(e.message || '').includes('already exists')) throw e;
-  }
+  // initAdmin is idempotent, so the old "already exists" message-matching
+  // catch is no longer needed.
+  initAdmin({ projectId: PROJECT });
 }
 
 // Per-tenant pipeline config, lazily loaded + cached. companyProfile is keyed
@@ -121,7 +121,9 @@ async function main() {
   }
 
   init();
-  const db = admin.firestore();
+  const db = getFirestore();
+  // One-shot: refuse a second --apply unless --force.
+  await assertNotCompleted(MIGRATION, { apply: APPLY, force: FORCE });
   const tenantCfg = makeTenantCfgLoader(db);
 
   console.log('═══════════════════════════════════════════════════════════');
@@ -207,6 +209,8 @@ async function main() {
     console.log('  (dry-run — re-run with --apply --yes to write)');
   }
   console.log('───────────────────────────────────────────────────────────');
+
+  if (APPLY && failures === 0) await recordCompletion(MIGRATION, { scanned, toFix, written });
 
   process.exit(failures > 0 ? 1 : 0);
 }
