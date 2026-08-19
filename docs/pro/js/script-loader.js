@@ -130,7 +130,7 @@
     //   catalog-costs (merges the private cost/labor half back in) →
     //   product-library (reads NBD_* + defines _productLib, before estimates.js) →
     //   estimate-builder-v2 (defines EstimateBuilderV2.CATALOG) BEFORE
-    //   estimate-catalog-xactimate (merges 270 items into that CATALOG at load) →
+    //   estimate-catalog-xactimate (merges 277 items into that CATALOG at load) →
     //   estimates (window.R, startNewEstimate) → finalization → v2-ui (last).
     // estimate-config, review-engine, property-intel stay EAGER.
     //
@@ -158,7 +158,7 @@
       'js/product-library.js?v=4',
       'js/estimate-labor-catalog.js?v=1',
       'js/estimate-builder-v2.js?v=5',
-      'js/estimate-catalog-xactimate.js?v=1',
+      'js/estimate-catalog-xactimate.js?v=2',
       'js/estimate-logic-engine.js?v=5',
       'js/estimates.js?v=7',
       // Rock 2 PR 6: the New-Estimate front door (chooser) split out of

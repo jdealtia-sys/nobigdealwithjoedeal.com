@@ -98,6 +98,36 @@ Independent of rotation, and cheaper than it:
    (priced per box, catalog per SQ). One call to the SRS/ABC contacts closes
    those.
 
+## Update 2026-08-19 — corrections prepared, and a delivery line added
+
+**Correction path built.** `scripts/import-cost-rotation.js --correction` writes
+named keys to the tenant book and deliberately does NOT touch
+`tests/cost-basis-ledger.js`. A rotation-stamped seed is refused under
+`--correction`, and an unstamped seed is still refused on the normal path.
+
+**Basis: sales tax only.** Jo's call. Corrected value = bare supplier price x
+1.06. Delivery and fuel are excluded from the unit cost and carried at job level
+instead; waste stays excluded because the engine applies it to QUANTITY.
+All four lines now clear cost — the box vent goes from a per-unit loss to a
+healthy margin.
+
+**New line: `MAT DEL` — Material Delivery & Fuel Surcharge (JOB).** Taking
+delivery out of the unit load only works if it is billed somewhere, and it was
+not: `LAB MOB` is CREW mobilization and the `DSP *` lines are waste going OUT.
+There was no line for materials coming IN, so supplier delivery came straight
+out of margin on every job. It carries the material markup, consistent with how
+dumpsters and permits already behave in this catalog.
+
+Its figure is a BASELINE like every other cost in this file — a plausible
+regional two-supplier trip, not any company's negotiated rate. A tenant's real
+delivery cost belongs in `catalogCosts/{companyId}.xactCosts`, where
+`NBD_XACT_CATALOG.find()` overlays it.
+
+**Still open:** nothing ADDS `MAT DEL` automatically. It is available to select,
+but no default job template includes it, so delivery is still not recovered
+unless a rep adds the line. Wiring it into the reroof templates changes what
+every quote charges and is a product decision, not a bug fix.
+
 Fixing these is **not** a rotation and must not be recorded as one in
 `tests/cost-basis-ledger.js` — correcting a drifted baseline toward current
 supplier pricing moves the published figures *closer* to NBD's actuals, which is

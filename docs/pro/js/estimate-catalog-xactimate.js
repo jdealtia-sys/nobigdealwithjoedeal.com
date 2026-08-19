@@ -932,6 +932,31 @@
       tags:['disposal','overage','weight'] });
 
   // ═════════════════════════════════════════════════════════
+  // 12b. MATERIAL DELIVERY (1)
+  //
+  // Materials coming IN. Everything above in section 12 is waste going OUT
+  // (dumpsters, haul-away), and LAB MOB is the CREW arriving — so before this
+  // line there was no place at all to recover what the supplier charges to put
+  // materials on the roof. Suppliers bill it per trip plus a fuel surcharge,
+  // and a reroof routinely takes deliveries from two of them.
+  //
+  // It exists because the material unit costs in this file are quoted EX-TAX
+  // and EX-DELIVERY: tax rides the estimate's own tax line and delivery rides
+  // here. Fold it back into the per-unit costs and it double-counts.
+  //
+  // BASELINE FIGURE, like every other cost in this file — a plausible regional
+  // two-supplier trip, not any company's negotiated rate. A tenant's real
+  // delivery cost belongs in catalogCosts/{companyId}.xactCosts, where
+  // NBD_XACT_CATALOG.find() overlays it. See
+  // documentation/audit/CATALOG-UNDER-COST-2026-08-19.md.
+  // ═════════════════════════════════════════════════════════
+
+  A({ code:'MAT DEL', name:'Material Delivery & Fuel Surcharge', sub:'delivery', cat:'materials', unit:'JOB', mat:275, lab:0,
+      desc:'Supplier delivery to site plus fuel surcharge. Typical reroof draws from two suppliers (shingles/accessories and metal/vents), each billing a per-trip charge.',
+      tier:'any', reason:'Supplier delivery and fuel surcharge to place materials at the job site.',
+      tags:['delivery','freight','fuel','materials','logistics'] });
+
+  // ═════════════════════════════════════════════════════════
   // 13. PERMITS & INSPECTION (8)
   // ═════════════════════════════════════════════════════════
 
