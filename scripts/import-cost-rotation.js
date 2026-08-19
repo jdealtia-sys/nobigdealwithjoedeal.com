@@ -68,6 +68,9 @@ const COMPANY = arg('--company', null);
 const WRITE = process.argv.includes('--yes');
 const FORCE = process.argv.includes('--force');
 const UNROTATED_OK = process.argv.includes('--unrotated');
+// A correction fixes drifted baseline figures in the tenant book. It is NOT a
+// rotation and never signs the ledger — see the CORRECTION block below.
+const CORRECTION = process.argv.includes('--correction');
 const COLLECTION = 'catalogCosts';
 
 if (!WHICH) {
@@ -132,7 +135,37 @@ console.log('target          : ' + COLLECTION + '/' + COMPANY + '.' + catalog.bo
 console.log('rotation        : ' + (seed.rotatedAt ? 'rotated ' + seed.rotatedAt +
             ' (' + Math.round((seed.rotationCoverage || 0) * 100) + '% of the basis)' : 'NOT ROTATED'));
 
-if (!seed.rotatedAt && !UNROTATED_OK) {
+// ── CORRECTION mode ─────────────────────────────────────────────────────────
+//
+// A CORRECTION is not a rotation and must never be recorded as one. It fixes a
+// published baseline figure that has drifted — most urgently one that has drifted
+// BELOW what the supplier now charges, where the markup no longer covers cost and
+// the line loses money on every estimate (documentation/audit/
+// CATALOG-UNDER-COST-2026-08-19.md).
+//
+// The two point in OPPOSITE directions, which is why they cannot share a path:
+//   ROTATION   moves the tenant's actuals AWAY from the published figures, so
+//              the published set goes stale and the historical copies lose value.
+//   CORRECTION moves the tenant's book TOWARD current supplier reality, so
+//              quoting stops losing money. It says nothing about staleness.
+//
+// So a correction writes the tenant book and leaves tests/cost-basis-ledger.js
+// untouched — `rotation: null` stays null, ROTATION OUTSTANDING keeps printing.
+// Signing a correction into the ledger would be a false claim that the actuals
+// have moved on when they have moved closer.
+//
+// It merges: Firestore deep-merges nested maps, so keys absent from the seed are
+// preserved. That is exactly right here — a correction touches named lines and
+// must leave the rest of the tenant's book alone.
+if (CORRECTION) {
+  if (seed.rotatedAt) {
+    console.error('\nFATAL: this seed is stamped rotatedAt — it is a ROTATION, not a correction.');
+    console.error('Import it without --correction so the rotation is recorded properly.');
+    process.exit(2);
+  }
+  console.log('mode            : CORRECTION — writes ' + entries + ' named key(s), merges with the rest');
+  console.log('                  the rotation ledger is NOT touched and stays OUTSTANDING');
+} else if (!seed.rotatedAt && !UNROTATED_OK) {
   console.error('\nREFUSING: this seed carries the published figures unchanged.');
   console.error('They are readable forever at every pre-strip commit — in this repo, in every');
   console.error('clone and in every fork. Importing them unchanged closes nothing that matters:');
@@ -175,7 +208,11 @@ if (!admin.apps.length) admin.initializeApp();
     .filter((f) => f !== catalog.bookField && beforeData[f])
     .forEach((f) => console.log('  (untouched)   : ' + f + ' — ' + Object.keys(beforeData[f]).length + ' entries'));
 
-  if (beforeCount > 0 && !FORCE) {
+  // A CORRECTION legitimately merges into an existing book — it names specific
+  // keys and Firestore's deep-merge preserves the rest. This refusal exists to
+  // stop a WHOLE-BOOK re-import silently reverting tenant edits, which is a
+  // different operation.
+  if (beforeCount > 0 && !FORCE && !CORRECTION) {
     console.error('\nREFUSING: ' + COLLECTION + '/' + COMPANY + ' already holds ' + beforeCount + ' ' + catalog.bookField + ' entries.');
     console.error('This import OVERWRITES every key it carries — Firestore merges nested maps, so');
     console.error('anything the tenant has edited since would be reverted.');
@@ -217,6 +254,14 @@ if (!admin.apps.length) admin.initializeApp();
     if (st) dirty = '   // ⚠ docs/ is DIRTY — commit the published catalog first, then use that sha';
   } catch (e) { /* the operator can fill it in */ }
 
+  if (CORRECTION) {
+    console.log('\n── NOT A ROTATION ─────────────────────────────────────────');
+    console.log('These keys now carry corrected figures in this tenant\'s book.');
+    console.log('tests/cost-basis-ledger.js is deliberately UNCHANGED: a correction moves');
+    console.log('the book TOWARD current supplier pricing, while rotation moves it AWAY');
+    console.log('from the published baseline. ROTATION OUTSTANDING still applies.');
+    process.exit(0);
+  }
   console.log('\n── RECORD IT ──────────────────────────────────────────────');
   console.log('Nothing in the repo can see that you just did this. In');
   console.log('tests/cost-basis-ledger.js, on LEDGER.' + catalog.id + ', replace `rotation: null` with:\n');
