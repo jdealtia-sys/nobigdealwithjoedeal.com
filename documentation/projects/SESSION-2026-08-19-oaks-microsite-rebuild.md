@@ -107,6 +107,46 @@ not a copy nit. Removed everywhere; the wording is now just "Call".
 them), so screen-reader heading navigation skipped a level on the site's primary contact
 page. Added a `Reach Us Directly` `h2`, matching how `service-areas.html` already did it.
 
+## 4d. The tenant placeholder, retired (Jo, 2026-08-19)
+
+Jo's follow-up: *"I want the microsite to hold the full site clone we just built. We can
+remove the old placeholder."*
+
+**`/sites/t/oaks` was never dark.** `companies/oaks` already carried `status:'active'` in
+prod and the URL answered 200 — the publication gate in
+`functions/handlers/public-site.js` was already satisfied. Only the `X-Robots-Tag` noindex
+held it back. What was actually live was the universal tenant template rendering a
+**one-page, 96-word, 5-link stub**: emoji service icons (🏠🧱🌧️) because
+`services` was `[]`, an **empty "Where we work"** section because `serviceArea` was `""`,
+accent `#C2410C` instead of the real `#fa6404`, and no photography at all.
+
+`/sites/t/oaks` now **301s to `/sites/oaks`**, and the stub no longer renders for this
+tenant.
+
+> **Done as a redirect, NOT by moving the 11 pages under `/sites/t/oaks`.** `/sites/t/` is
+> the *universal* multi-tenant template — one template, N tenants, rendered from Firestore.
+> Dropping per-tenant hand-authored files into it would fork that design at its first real
+> use and re-create precisely what the 2026-07-04 Pillar 5 decision retired. `/sites/oaks`
+> is already the correct home for a single-tenant hand-authored site.
+> `companies/oaks` **keeps `status:'active'`** — that flag also drives tenant tagging, and
+> the redirect fires ahead of the `/sites/t/**` rewrite, so the template is simply never
+> reached for oaks. No prod write was needed.
+
+Two things this surfaced that had gone unnoticed:
+
+- **`scripts/verify-deploy.sh` was still asserting the 2026-07-04 arrangement** — that
+  `/sites/oaks/` 301s *to* `/sites/t/oaks`. Those 301s were deleted earlier in this same
+  session, so the first post-deploy verification after the rebuild would have failed on a
+  stale assertion. Rewritten for the new direction, plus a new assertion that
+  `/sites/oaks` still 301s to `/sites/oaks/index` — if that ever stops, every link and
+  asset on the Oaks homepage silently 404s (§4a).
+- **`docs/robots.txt` carries `Disallow: /sites/oaks/`**, which stops crawlers *fetching*
+  the pages at all — so the `noindex` on them could never be seen. Harmless while
+  unlaunched (both hide it), but it means **three things must drop together at launch**:
+  the `X-Robots-Tag` rules, the `<meta name=robots>` in all 11 pages, and the robots.txt
+  Disallow. Any one alone does nothing. This is the same failure mode the `/pro/blog` and
+  `/tools` comments in `firebase.json` already record.
+
 ## 5. Deliberate deviations from the original (all recorded)
 
 - **Gallery has 9 photos, the original was paginated (1 2 3 4).** Nine is all the archived
@@ -163,10 +203,35 @@ page. Added a `Reach Us Directly` `h2`, matching how `service-areas.html` alread
    privacy policy routes deletion requests through the phone number instead. It *is*
    readable in `assets/js/site.js`, so this reduces exposure rather than eliminating it —
    offered to Jo to surface on /contact if he'd rather.
-2. **`logo-orange.svg` is the wrong orange** (`#e8720c` vs the real `#fa6404`) and is a
-   hand-drawn approximation of a logo we now have properly. It is referenced by
-   `companyProfile/oaks` `brand.logoUrl` and by generated documents, so swapping it changes
-   Scott's paperwork too — worth doing, deliberately, in its own change.
+1b. **`companyProfile/oaks` `contact.email` is `joe@oaksrfc.com` — UNRESOLVED, and it is
+   not just a website field.** Jo gave Scott's address as
+   `scott@oaksroofingandconstruction.com`, which disagrees. `contact.email` is read by
+   `document-generator.js`, `estimate-finalization.js`, `estimate-supplement.js`,
+   `inspection-report-engine.js`, `photo-report.js`, `customer-portal.js` and
+   `customer-tasks-ui.js` — so whatever is in that field is printing on **Scott's
+   estimates, inspection reports and photo reports**, not only on a web page. If
+   `joe@oaksrfc.com` is dead, his customers have a bad contact on real paperwork. Left
+   alone deliberately: it could be an intentional ops alias, and guessing between two
+   plausible addresses on customer-facing documents is not a call to make unasked.
+   **Needs one word from Jo, then a one-field prod write.**
+1c. **`companyProfile/oaks` brand data is thin and off-brand** — `colors.accent` is
+   `#C2410C` (real brand orange is `#fa6404`), `services` is `[]` and `serviceArea` is
+   `""`. These only fed the retired stub, so nothing renders them today, but the same
+   record drives tenant-branded documents. Worth a cleanup pass; the real values (5
+   services, 15 cities) are in §2 of this note and in the rebuilt site.
+2. ~~**`logo-orange.svg` is the wrong orange.**~~ **DONE (Jo, 2026-08-19).** Rebuilt
+   against the real artwork: `#e8720c` → `#fa6404`, the hammer changed from solid black to
+   a knockout (negative space, as in the real mark), portrait 200×232 → the real landscape
+   900×366, and the missing "ROOFING, SIDING, GUTTERS" tagline added. Path unchanged, so
+   `companyProfile/oaks` `brand.logoUrl` and the generated documents pick the correction up
+   with no data change.
+   **Trap worth keeping:** the wordmark was first fitted with `textLength` +
+   `lengthAdjust`. **librsvg does not honour those** — and librsvg renders the generated
+   PDFs — so it looked correct in a browser and clipped at both ends in a document. Type is
+   now sized for the widest fallback (Arial Black) instead. Verified by rendering the SVG,
+   not by reading it.
+   Favicons across the 11 pages were repointed to a new square `assets/img/icon.svg`: at
+   16–32px the landscape lockup collapses into unreadable mush. Checked at 32px.
 3. ~~**Scott has no published email address.**~~ **RESOLVED (Jo, 2026-08-19):**
    `scott@oaksroofingandconstruction.com`. The archived site never published one, so this
    came from Jo directly — it is not in any source page.
