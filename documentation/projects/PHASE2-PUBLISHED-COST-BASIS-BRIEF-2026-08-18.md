@@ -202,6 +202,63 @@ code can — that part is data entry.
 
 ---
 
+## 10. Xactimate + EstimateBuilderV2 — override paths built 2026-08-19
+
+**Nothing was stripped, and nothing could be.** Unlike the labor catalog's crew
+productivity, neither of these has a field that can leave: the 276 `mat`/`lab`
+pairs and the 28 `cost`/`labor` pairs **are** the pricing, with no public retail
+half to fall back on. §2's measurement stands — strip them and a full reroof
+drops to the minimum-job floor with every line at 0.
+
+What shipped is the other half of the labor pattern: **the override path**.
+
+| catalog | pricing choke point | book map |
+|---|---|---|
+| xactimate | `NBD_XACT_CATALOG.find(code)` | `xactCosts` |
+| EstimateBuilderV2 | `calculateLineItem` / `calculateEstimate` via `_withTenantCosts` | `v2Costs` |
+
+Both overlay **on read**, never mutating the shared catalog — otherwise one
+tenant's costs would survive an account switch on a shared device. Verified:
+with a book the engine prices off the tenant's figure; without one, off the
+baseline; `byCode` stays intact underneath.
+
+This closes **no values today**. It is the prerequisite that makes rotation
+land: without it, importing a rotated book would change nothing. Both files
+stay on `KNOWN_UNMIGRATED` with rewritten reasons — they close when the
+published baseline is no longer anyone's actual cost, which is rotation, not
+deletion.
+
+**Three things this turned up:**
+
+1. **Both overlays trusted the book's shape.** A corrupt entry wrote `NaN`
+   straight over a good baseline — i.e. priced a line at `NaN` rather than
+   falling back. Found with a deliberate corrupt-book probe. Both now validate
+   at the point of **use** as well as in `catalog-costs.js`: this is the last
+   step before a number becomes a customer total. The labor overlay had the
+   same hole and got the same fix, and it drops a *bad field* rather than the
+   whole entry, so a book with a broken rate still delivers its good
+   productivity value.
+
+2. **`loadSettings()` is contractually PURE and I broke it.**
+   `tests/custom-jurisdictions.test.js` pins that the county overlay is applied
+   at calc time, not baked into `loadSettings` — so a late-arriving
+   companyProfile is honoured. I had wired the cost overlay into `loadSettings`
+   and an existing suite caught it immediately. The cost overlay now rides
+   exactly the same rule, at the same two pricing entry points, for exactly the
+   same reason: a cost book that lands after boot must still reach the next
+   price.
+
+3. **A new tripwire: the override paths are asserted to exist.** Every
+   "deliberately published baseline" argument in this codebase depends on the
+   tenant book actually winning. If an override path is removed or renamed, the
+   baseline silently goes back to being simply the price — the leak restored,
+   with a reassuring comment on top. Three static assertions in
+   `catalog-cost-privacy.test.js` now guard that.
+
+**What remains for these two:** rotation. Nothing else.
+
+---
+
 **It will not generate a number, and that is deliberate.** A blanket "scale
 everything by 7%" would devalue the leaked copies and simultaneously put the
 shop on fabricated money for live quoting — a worse failure than the leak. The

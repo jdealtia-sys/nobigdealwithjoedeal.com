@@ -372,6 +372,114 @@ test('find() is get() — both consult the book', () => {
   eq(win.NBD_LABOR.find(SAMPLE_LABOR).rate, 99, 'find()');
 });
 
+/* ── 6. xactimate + EBv2: baseline published, tenant book overrides ─────── */
+
+console.log('\nxactimate + EBv2: baseline published, tenant book overrides');
+console.log('──────────────────────────────────────────────────');
+
+const SAMPLE_XACT = 'RFG 3T20';
+const SAMPLE_V2 = 'shingle-good';
+const bookStub = (over) => Object.assign({
+  laborOp: () => null,
+  xactCost: () => null,
+  v2Costs: () => null,
+}, over || {});
+
+test('NOTHING was stripped from either catalog — both still price with no book', () => {
+  // Unlike the labor catalog's crew productivity, neither of these had a field
+  // that could simply leave: the mat/lab and cost/labor values ARE the pricing
+  // and there is no public retail half. Asserted as a POSITIVE so nobody
+  // "finishes the migration" by deleting them and turns the estimator off.
+  const win = bootPricing(null);
+  ok(Number(win.NBD_XACT_CATALOG.find(SAMPLE_XACT).materialCost) > 0, 'xact baseline missing');
+  ok(Number(win.EstimateBuilderV2.loadSettings().catalog[SAMPLE_V2].cost) > 0, 'v2 baseline missing');
+});
+
+test('XACT: the tenant book overrides the published baseline', () => {
+  const win = bootPricing(bookStub({ xactCost: (c) => (c === SAMPLE_XACT ? { materialCost: 11, laborCost: 22 } : null) }));
+  const e = win.NBD_XACT_CATALOG.find(SAMPLE_XACT);
+  eq(e.materialCost, 11, 'materialCost');
+  eq(e.laborCost, 22, 'laborCost');
+});
+
+test('XACT: an un-priced code keeps the baseline, and byCode stays intact underneath', () => {
+  const win = bootPricing(bookStub({ xactCost: (c) => (c === SAMPLE_XACT ? { materialCost: 11, laborCost: 22 } : null) }));
+  const bare = bootPricing(null).NBD_XACT_CATALOG.find('RFG 3T25').materialCost;
+  eq(win.NBD_XACT_CATALOG.find('RFG 3T25').materialCost, bare, 'other code');
+  // Overlay on READ, never a mutation of the shared catalog — otherwise one
+  // tenant's costs would survive an account switch on a shared device.
+  ok(Number(win.NBD_XACT_CATALOG.byCode[SAMPLE_XACT].materialCost) !== 11, 'byCode was mutated');
+});
+
+/**
+ * V2 applies its tenant overlays at CALC time, not in loadSettings() — that
+ * function is contractually PURE (tests/custom-jurisdictions.test.js pins it),
+ * so a late-arriving companyProfile or cost book still reaches the next price.
+ * These assertions therefore go through the pricing entry point, which is also
+ * the only thing that matters: what the customer is charged.
+ */
+function v2Price(win, input) {
+  return win.EstimateBuilderV2.calculateLineItem(Object.assign({
+    rawSqft: 2000, pitch: 6, stories: 1, tearOffLayers: 1, tier: 'good', county: 'hamilton-oh',
+  }, input || {}));
+}
+
+test('V2: loadSettings() stays PURE — the overlay is applied at calc time', () => {
+  const overlay = {}; overlay[SAMPLE_V2] = { cost: 7, labor: 8 };
+  const win = bootPricing(bookStub({ v2Costs: () => overlay }));
+  const bare = bootPricing(null).EstimateBuilderV2.loadSettings().catalog[SAMPLE_V2].cost;
+  eq(win.EstimateBuilderV2.loadSettings().catalog[SAMPLE_V2].cost, bare,
+     'loadSettings must not bake the cost overlay in');
+});
+
+test('V2: the tenant book DOES reach pricing', () => {
+  const cheap = {}; cheap[SAMPLE_V2] = { cost: 1, labor: 1 };
+  const dear = {}; dear[SAMPLE_V2] = { cost: 900, labor: 900 };
+  const lo = v2Price(bootPricing(bookStub({ v2Costs: () => cheap })));
+  const hi = v2Price(bootPricing(bookStub({ v2Costs: () => dear })));
+  const base = v2Price(bootPricing(null));
+  ok(Number(hi.total) > Number(base.total), 'a dearer book must raise the price (' + hi.total + ' vs ' + base.total + ')');
+  ok(Number(lo.total) < Number(base.total), 'a cheaper book must lower it (' + lo.total + ' vs ' + base.total + ')');
+});
+
+test('a CORRUPT book never prices work — every overlay falls back to the baseline', () => {
+  // Validated at the point of USE as well as in catalog-costs.js: this is the
+  // last step before the number becomes a customer total, and an unchecked
+  // Object.assign writes NaN over a good baseline rather than falling back.
+  const overlay = {}; overlay[SAMPLE_V2] = { cost: 'x', labor: 2 };
+  const win = bootPricing(bookStub({
+    xactCost: () => ({ materialCost: NaN, laborCost: 1 }),
+    v2Costs: () => overlay,
+    laborOp: () => ({ rate: NaN, hoursPerUnit: 0.5 }),
+  }));
+  const bare = bootPricing(null);
+  eq(win.NBD_XACT_CATALOG.find(SAMPLE_XACT).materialCost, bare.NBD_XACT_CATALOG.find(SAMPLE_XACT).materialCost, 'xact');
+  eq(Number(v2Price(win).total), Number(v2Price(bare).total), 'v2 priced off the baseline');
+  eq(win.NBD_LABOR.get(SAMPLE_LABOR).rate, bare.NBD_LABOR.get(SAMPLE_LABOR).rate, 'labor rate');
+  // A bad field is dropped, not the whole entry — a book with a broken rate
+  // must still deliver its good productivity value.
+  eq(win.NBD_LABOR.get(SAMPLE_LABOR).hoursPerUnit, 0.5, 'the good field survives');
+});
+
+test('a THROWING book never breaks pricing on any of the three', () => {
+  const win = bootPricing({
+    xactCost: () => { throw new Error('boom'); },
+    v2Costs: () => { throw new Error('boom'); },
+    laborOp: () => { throw new Error('boom'); },
+  });
+  ok(Number(win.NBD_XACT_CATALOG.find(SAMPLE_XACT).materialCost) > 0, 'xact');
+  ok(Number(v2Price(win).total) > 0, 'v2 still prices');
+  ok(Number(win.NBD_LABOR.get(SAMPLE_LABOR).rate) > 0, 'labor');
+});
+
+test('the XACT override reaches PRICING, not just the accessor', () => {
+  const win = bootPricing(bookStub({ xactCost: (c) => (c === SAMPLE_XACT ? { materialCost: 11, laborCost: 22 } : null) }));
+  const MEAS = { rawSqft: 2000, pitch: 6, waste: 1.12, ridgeLf: 40, eaveLf: 120, rakeLf: 60, hipLf: 0, valleyLf: 20, wallLf: 0, pipes: 3, chimneys: 1, skylights: 0, stories: 1, tearOffLayers: 1, deckReplacePct: 0.15, cutUpRoof: false };
+  const item = Object.assign({}, win.NBD_XACT_CATALOG.find(SAMPLE_XACT), { qtyOverride: 10 });
+  const res = win.EstimateLogic.resolveEstimate([item], MEAS, { tier: 'better', mode: 'cash' });
+  eq(res.lines[0].materialCostPerUnit, 11, 'engine priced off the book');
+});
+
 console.log('\n──────────────────────────────────────────────────');
 console.log(passed + ' passed, ' + failed + ' failed');
 if (failed) { console.log('\nFailures:'); fails.forEach((f) => console.log('  - ' + f)); process.exit(1); }

@@ -287,6 +287,22 @@ function scanCostBasis(rel, src) {
 // commit message, and each is asserted to STILL be leaking below — so when one
 // is migrated the guard fails and tells you to delete the line, and the list
 // can never quietly rot into a permanent exemption.
+// 2026-08-19 — READ THIS BEFORE "FINISHING" EITHER ENTRY BELOW.
+//
+// Both remaining files now have a tenant-book OVERRIDE path
+// (NBD_XACT_CATALOG.find → xactCosts, EstimateBuilderV2 settings.catalog →
+// v2Costs), so a company's own figures win at every pricing site. What they
+// still publish is a STARTER BASELINE, and that is deliberate: unlike the
+// labor catalog's crew productivity, neither has a field that can simply
+// leave. These values ARE the pricing, there is no public retail half to fall
+// back on, and stripping them leaves a new tenant unable to produce an
+// estimate at all — measured, a full reroof drops to the minimum-job floor
+// with every line at 0.
+//
+// So these entries do NOT close by deleting figures. They close when the
+// published baseline is no longer anyone's actual cost — i.e. after rotation
+// (scripts/cost-rotation.js). Until then the assertion below is honest: the
+// file is still leaking, because the baseline IS NBD's real number today.
 const KNOWN_UNMIGRATED = {
   'pro/js/estimate-builder-v2.js':
     'Phase 2 (2026-07-30): 28 CATALOG entries carry cost + labor, plus ' +
@@ -458,6 +474,28 @@ ok('the migrated catalogs are NOT in the known-unmigrated list',
 ok('job-templates-data.js reports ZERO cost-basis entries in the tree sweep (' +
    ((basisByFile.get('pro/js/job-templates-data.js') || []).length) + ')',
    (basisByFile.get('pro/js/job-templates-data.js') || []).length === 0);
+
+/* ── 2a0. THE OVERRIDE PATHS EXIST — a baseline you cannot override is a leak ── */
+//
+// Every "deliberately published baseline" argument in this file depends on the
+// tenant book actually winning at pricing. If an override path is ever removed
+// or renamed, the baseline stops being a starting point and goes back to being
+// simply the price — which is the leak, restored, with a reassuring comment on
+// top. Static, because the behavioural assertions live in
+// tests/cost-basis-registry.test.js; this is the tripwire.
+
+console.log('\ncatalog cost privacy — tenant override paths are wired');
+console.log('──────────────────────────────────────────────────');
+
+[
+  ['pro/js/estimate-labor-catalog.js', /laborOp\s*\(/, 'NBD_LABOR.get → laborOps'],
+  ['pro/js/estimate-catalog-xactimate.js', /xactCost\s*\(/, 'NBD_XACT_CATALOG.find → xactCosts'],
+  ['pro/js/estimate-builder-v2.js', /_withTenantCosts\s*\(/, 'EstimateBuilderV2 settings.catalog → v2Costs'],
+].forEach(([rel, re, what]) => {
+  const abs = path.join(HOSTING_ROOT, rel);
+  const src = fs.existsSync(abs) ? fs.readFileSync(abs, 'utf8') : '';
+  ok('override path wired: ' + what, /NBDCatalogCosts/.test(src) && re.test(src));
+});
 
 /* ── 2a. LABOR CATALOG — half migrated, so asserted per-file ────────────── */
 //
