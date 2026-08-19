@@ -176,10 +176,39 @@ it affects NBD and not a fresh tenant. It is a margin-DISPLAY error rather than
 a charging error — the homeowner is billed correctly; the shop is told it made
 more than it did.
 
-**Neither is fixed here.** Both change money the shop reads and one changes the
-settings UI, so they are findings, not drive-by edits. Recommended order:
-correct the 40% assumption first (bigger, one function, no UI), then add
-delivery as a flat per-SQ add-on.
+### Finding 2 is FIXED (same day, Jo's call) — finding 1 is not
+
+`docs/pro/js/estimate-builder-v2.js`. The blanket ratio is replaced by a
+per-add-on one: the two pass-throughs cost **face value**, the other twelve keep
+**0.4 unchanged**. Nothing the homeowner is charged moves — the change is
+entirely inside `internal`, which `estimate-v2-ui.js` renders.
+
+Costing the permit and the dump fee at face value is not a new estimate of
+anything. It is what LINE-ITEM mode has always done:
+`generateLineItemsFromMeasurements` sets the permit line's `materialCost` to the
+permit fee itself, and the v2 `CATALOG` entries for `dump-fee` and `permit-fee`
+both carry a `cost` equal to the fee. Per-SQ was the lone outlier; the two modes
+now agree.
+
+The remaining 0.4 is still an **assumption and is labelled as one in the code**.
+No measured cost basis for per-SQ add-on work exists anywhere in the repo, and
+none was invented — a shop that knows better sets `addonCostRatios` in settings,
+per key, alongside `costBasis` and private for the same reason. Nothing
+sensitive is published by the change: that a permit is remitted in full is a
+fact about permits, not about NBD.
+
+**A bug was caught by its own test while writing this.** The first override
+reader accepted any finite number, and `Number('')` and `Number(null)` are both
+`0` — so a blank ratio field would have read as "this add-on costs nothing",
+understating cost, which is the very defect being fixed. It now drops blanks and
+honours a literal `0`, mirroring `applyCompanyPricing`'s `sane()` and the same
+L-1 rule that exists for add-on prices. Guarded by
+`tests/estimate-pricing.test.js` (13 new assertions; the three mutations —
+restore the blanket 0.4, empty the pass-through list, drop the blank guard —
+fail 8, 9 and 1 assertion respectively).
+
+**Finding 1 is still open.** Delivery in per-SQ needs a new flat add-on with its
+price, form field and save path, so it is a UI change rather than a constant.
 
 Fixing these is **not** a rotation and must not be recorded as one in
 `tests/cost-basis-ledger.js` — correcting a drifted baseline toward current

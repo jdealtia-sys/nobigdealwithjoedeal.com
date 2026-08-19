@@ -60,6 +60,51 @@
     best:   0
   };
 
+  // Add-on COST ratio (Internal-view margin calc, 2026-08-19).
+  //
+  // What this replaces: a single blanket `addOnsTotal * 0.4`, i.e. "every
+  // add-on carries a 60% margin". Two of the fourteen are third-party
+  // PASS-THROUGHS and carry none — the permit is remitted to the jurisdiction
+  // in full, and the dump fee is the hauler's invoice. LINE-ITEM mode has
+  // always costed both at face value: generateLineItemsFromMeasurements sets
+  // the permit line's materialCost to the permit fee itself, and the CATALOG
+  // entries below carry `cost` equal to the fee for 'dump-fee' and
+  // 'permit-fee'. Per-SQ was the outlier, and on a job carrying both it
+  // assumed well under half their real cost — overstating margin by several
+  // hundred dollars in the view the shop prices against. Nothing the homeowner
+  // is charged changes; this is the internal number only.
+  //
+  // The other twelve are real work (steep/story/cut-up/access labour,
+  // flashing, valley metal, gutters, extra boots) and keep 0.4 — the
+  // pre-existing figure, unchanged, now named instead of inline. It is still
+  // an ASSUMPTION: no measured cost basis for per-SQ add-on work exists
+  // anywhere in the repo, and none was invented here.
+  //
+  // Per-key overrides live in settings (`addonCostRatios`), the same home as
+  // costBasis and for the same reason — a shop's real ratios are tenant data
+  // and this file is world-readable. Nothing sensitive is published here: that
+  // a permit is remitted in full is a fact about permits, not about NBD.
+  const ADDON_COST_PASS_THROUGH = ['permit', 'dumpFee'];
+  const DEFAULT_ADDON_COST_RATIO = 0.4;
+
+  /** Cost-to-charge ratio for one per-SQ add-on. Tenant override wins. */
+  function _addonCostRatio(s, key) {
+    const raw = s && s.addonCostRatios ? s.addonCostRatios[key] : undefined;
+    // Same rule as applyCompanyPricing's sane(): a blank or missing editor
+    // field ('' / null / undefined / NaN) is DROPPED so the default stands,
+    // but a literal 0 IS honored. Number('') and Number(null) are both 0, so
+    // testing finiteness alone would read an empty field as "this add-on costs
+    // nothing" — understating cost, which is the very defect being fixed here.
+    if (raw === '' || raw == null) return _addonCostRatioDefault(key);
+    const n = Number(raw);
+    if (!Number.isFinite(n) || n < 0) return _addonCostRatioDefault(key);
+    return n;
+  }
+
+  function _addonCostRatioDefault(key) {
+    return ADDON_COST_PASS_THROUGH.indexOf(key) >= 0 ? 1 : DEFAULT_ADDON_COST_RATIO;
+  }
+
   const MIN_JOB_CHARGE          = (_NBD_CFG && _NBD_CFG.JOB_MINIMUM_DOLLARS)            || 2500;  // Kicks in below ~4.5 SQ
   const ROUND_TO                = (_NBD_CFG && _NBD_CFG.ROUND_TO_DOLLARS)               || 25;    // Round grand total to nearest $25
   const TEAR_OFF_EXTRA_PER_SQ   = (_NBD_CFG && _NBD_CFG.TEAR_OFF_EXTRA_PER_SQ_DOLLARS)  || 50;    // $50/SQ per extra layer
@@ -460,6 +505,7 @@
       // Per-SQ mode
       tierRates:  Object.assign({}, TIER_RATES),
       costBasis:  Object.assign({}, DEFAULT_COST_BASIS),
+      addonCostRatios: {},             // per-add-on cost/charge overrides (tenant data)
       tearOffExtraPerSq: TEAR_OFF_EXTRA_PER_SQ,
       addonPrices: Object.assign({}, ADDON_PRICES),
 
@@ -490,6 +536,7 @@
       const merged = Object.assign({}, defaults, saved, {
         tierRates:   Object.assign({}, defaults.tierRates, saved.tierRates || {}),
         costBasis:   Object.assign({}, defaults.costBasis, saved.costBasis || {}),
+        addonCostRatios: Object.assign({}, defaults.addonCostRatios, saved.addonCostRatios || {}),
         permits:     Object.assign({}, defaults.permits, saved.permits || {}),
         countyTax:   Object.assign({}, defaults.countyTax, saved.countyTax || {}),
         catalog:     Object.assign({}, defaults.catalog, saved.catalog || {})
@@ -870,7 +917,14 @@
     const costPerSq = Number(s.costBasis[tier]) || DEFAULT_COST_BASIS[tier];
     const costConfigured = costPerSq > 0;
     const materialLaborCostCents = _toCents(sq * costPerSq);
-    const addOnCostCents = costConfigured ? Math.round(addOnsTotalCents * 0.4) : 0;
+    // Per-add-on, not one blanket ratio — pass-throughs cost what they charge.
+    // See ADDON_COST_PASS_THROUGH for why, and for what is still assumed.
+    const addOnCostCents = costConfigured
+      ? Object.keys(addOnsCents).reduce(function (sum, k) {
+          const chargedCents = addOnsCents[k] || 0;
+          return chargedCents ? sum + Math.round(chargedCents * _addonCostRatio(s, k)) : sum;
+        }, 0)
+      : 0;
     const totalCostCents = materialLaborCostCents + addOnCostCents;
     const marginCents = costConfigured ? totalCents - totalCostCents : null;
     const marginPct = costConfigured && totalCents > 0 ? ((totalCents - totalCostCents) / totalCents) * 100 : (costConfigured ? 0 : null);
@@ -1315,6 +1369,8 @@
     // Constants
     TIER_RATES,
     DEFAULT_COST_BASIS,
+    ADDON_COST_PASS_THROUGH,
+    DEFAULT_ADDON_COST_RATIO,
     MIN_JOB_CHARGE,
     PERMIT_COSTS,
     COUNTY_TAX,

@@ -367,6 +367,133 @@ test('rates: explicit companyProfile 0 IS honored (free add-on)', () => {
   } finally { delete global.window; }
 });
 
+// ══════════════════════════════════════════════════════════
+// Internal-view ADD-ON COST (2026-08-19)
+//
+// Guards the fix for a margin-DISPLAY defect: per-SQ costed every add-on at a
+// blanket 40% of its charge, including the permit (remitted to the
+// jurisdiction in full) and the dump fee (the hauler's invoice). Line-item
+// mode has always costed both at face value; per-SQ was the outlier and told
+// the shop it made several hundred dollars more than it did on any job
+// carrying both. Nothing the homeowner is charged is affected — every
+// assertion below is on r.internal.
+//
+// Costs here are synthetic. Real per-SQ cost basis is tenant data and ships
+// as zeros (tests/catalog-cost-privacy.test.js pins that).
+// ══════════════════════════════════════════════════════════
+
+const COST_PER_SQ = 300;                 // synthetic basis, not a real figure
+function costedSettings(extra) {
+  const s = EBv2.getDefaultSettings();
+  s.costBasis = Object.assign({}, s.costBasis, { better: COST_PER_SQ });
+  return Object.assign(s, extra || {});
+}
+// 20 SQ, blank jurisdiction (permit falls back to $150), insurance so tax is 0,
+// 8/12 so exactly ONE work adder (steep) fires and nothing else does.
+function persqJob(settings) {
+  return EBv2.calculatePerSq({
+    tier: 'better', mode: 'insurance', rawSqft: 2000, pitch: '8/12',
+    wasteFactorOverride: 1.0, county: '', settingsOverride: settings
+  });
+}
+const PERMIT = 150, DUMP = 550, STEEP = 20 * 25;   // 150 + 550 + 500 = 1200
+
+test('add-on cost: the fixture fires permit + dump + steep and nothing else', () => {
+  const r = persqJob(costedSettings());
+  eq(r.addOns.permit,   PERMIT, 'permit (blank jurisdiction fallback)');
+  eq(r.addOns.dumpFee,  DUMP,   'dump fee');
+  eq(r.addOns.steep,    STEEP,  'steep adder');
+  Object.keys(r.addOns).forEach((k) => {
+    if (k === 'permit' || k === 'dumpFee' || k === 'steep') return;
+    eq(r.addOns[k], 0, 'add-on ' + k + ' must be 0 in this fixture');
+  });
+  eq(r.addOnsTotal, PERMIT + DUMP + STEEP, 'add-ons total');
+});
+
+test('add-on cost: pass-throughs cost face value, work adders keep 0.4', () => {
+  const r = persqJob(costedSettings());
+  eq(r.internal.addOnCost, PERMIT + DUMP + (STEEP * 0.4), 'permit+dump at 1.0, steep at 0.4');
+});
+
+test('add-on cost: a pass-through-only job costs exactly what it charges', () => {
+  // Flat pitch → no work adders at all, so cost must equal charge.
+  const r = EBv2.calculatePerSq({
+    tier: 'better', mode: 'insurance', rawSqft: 2000, pitch: '4/12',
+    wasteFactorOverride: 1.0, county: '', settingsOverride: costedSettings()
+  });
+  eq(r.addOnsTotal, PERMIT + DUMP, 'permit + dump only');
+  eq(r.internal.addOnCost, r.addOnsTotal, 'no margin is assumed on either');
+});
+
+test('add-on cost: the old blanket 40% cannot silently come back', () => {
+  const r = persqJob(costedSettings());
+  const blanket = r.addOnsTotal * 0.4;
+  eq(r.internal.addOnCost === blanket, false, 'must NOT be addOnsTotal * 0.4');
+  eq(r.internal.addOnCost > blanket, true, 'the correction can only RAISE assumed cost');
+});
+
+test('add-on cost: margin falls by exactly the under-counted pass-throughs', () => {
+  const r = persqJob(costedSettings());
+  // Old model assumed 40% of everything; the gap is the 60% it skipped on the
+  // two pass-throughs. Margin is overstated by precisely that much.
+  near(r.margin != null ? 0 : 0, 0, 0, 'margin is on internal, not the root');
+  eq(r.internal.totalCost, (20 * COST_PER_SQ) + r.internal.addOnCost, 'total cost composition');
+  eq(r.internal.margin, r.total - r.internal.totalCost, 'margin = total - cost');
+  const overstatedBy = (PERMIT + DUMP) * 0.6;
+  eq(r.internal.margin + overstatedBy, r.total - ((20 * COST_PER_SQ) + (r.addOnsTotal * 0.4)), 'exactly the old figure, no more');
+});
+
+test('add-on cost: a tenant ratio override wins', () => {
+  const r = persqJob(costedSettings({ addonCostRatios: { dumpFee: 0.5, steep: 1 } }));
+  eq(r.internal.addOnCost, PERMIT + (DUMP * 0.5) + STEEP, 'overrides applied per key');
+});
+
+test('add-on cost: an explicit 0 ratio IS honored (a donated add-on)', () => {
+  const r = persqJob(costedSettings({ addonCostRatios: { dumpFee: 0 } }));
+  eq(r.internal.addOnCost, PERMIT + (STEEP * 0.4), 'dump fee costed at nothing');
+});
+
+test('add-on cost: junk/negative ratios are IGNORED, never reach the money', () => {
+  // null/'' are the L-1 class: Number('') and Number(null) are both 0, so a
+  // blank editor field must NOT read as "this add-on costs nothing" — that
+  // understates cost, the exact defect this section exists to prevent.
+  const junk = { permit: 'abc', dumpFee: -1, steep: null };
+  const r = persqJob(costedSettings({ addonCostRatios: junk }));
+  eq(r.internal.addOnCost, PERMIT + DUMP + (STEEP * 0.4), 'falls back to the defaults');
+  eq(Number.isFinite(r.internal.addOnCost), true, 'no NaN reaches the internal view');
+  const blank = persqJob(costedSettings({ addonCostRatios: { permit: '', dumpFee: undefined } }));
+  eq(blank.internal.addOnCost, PERMIT + DUMP + (STEEP * 0.4), "blank '' / undefined are dropped, not read as 0");
+});
+
+test('add-on cost: a settingsOverride with no addonCostRatios at all is safe', () => {
+  const s = EBv2.getDefaultSettings();
+  s.costBasis = Object.assign({}, s.costBasis, { better: COST_PER_SQ });
+  delete s.addonCostRatios;
+  const r = persqJob(s);
+  eq(r.internal.addOnCost, PERMIT + DUMP + (STEEP * 0.4), 'defaults still apply');
+});
+
+test('add-on cost: an unconfigured cost basis still shows no margin at all', () => {
+  const r = persqJob(EBv2.getDefaultSettings());   // costBasis ships as zeros
+  eq(r.internal.addOnCost, 0, 'no cost is assumed when none is configured');
+  eq(r.internal.margin, null, 'margin stays null, never a fake 100%');
+});
+
+test('add-on cost: loadSettings merges a saved addonCostRatios map', () => {
+  global.localStorage = {
+    _d: { 'nbd_est_settings_v3': JSON.stringify({ addonCostRatios: { dumpFee: 0.9 } }) },
+    getItem(k) { return this._d[k] || null; }, setItem() {}, removeItem() {}
+  };
+  try {
+    eq(EBv2.loadSettings().addonCostRatios.dumpFee, 0.9, 'saved ratio survives the merge');
+  } finally { delete global.localStorage; }
+});
+
+test('add-on cost: the pass-through list is the permit and the dump fee', () => {
+  eq(EBv2.ADDON_COST_PASS_THROUGH.slice().sort().join(','), 'dumpFee,permit');
+  eq(EBv2.DEFAULT_ADDON_COST_RATIO, 0.4, 'work adders keep the pre-existing assumption');
+});
+
 console.log('──────────────────────────────────────────────────');
 console.log(passed + ' passed, ' + failed + ' failed');
 process.exit(failed > 0 ? 1 : 0);
