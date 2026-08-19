@@ -163,11 +163,11 @@ const { classify } = loadExports();
       /no live lead-scoped rows/.test(out));
   }
   {
-    // Present in both stores under the same name → the store double-renders it.
+    // Present in both stores under the same Storage URL → already migrated.
     const { out } = await runAudit(
-      [{ id: 'D1', leadId: 'L1', filename: 'both.pdf' }],
-      { L1: { exists: true, docs: [{ name: 'both.pdf' }] } });
-    ok('a row present in both stores is reported as a duplicate', /1 of them also exist/.test(out));
+      [{ id: 'D1', leadId: 'L1', filename: 'both.pdf', url: 'https://x.test/both.pdf' }],
+      { L1: { exists: true, docs: [{ url: 'https://x.test/both.pdf' }] } });
+    ok('a row already migrated (same Storage URL) is reported as such', /1 of them already exist/.test(out));
   }
   {
     // Parent lead gone — the row is unreachable from any customer page.

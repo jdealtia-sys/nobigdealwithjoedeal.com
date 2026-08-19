@@ -118,7 +118,37 @@
       .filter(function (r) { return !r.deleted; })
       .sort(function (a, b) {
         return (b.date ? b.date.getTime() : 0) - (a.date ? a.date.getTime() : 0);
-      });
+      })
+      .filter(dedupe());
+  }
+
+  // A document migrated from the top-level collection into the subcollection
+  // exists in BOTH reads, and without this it renders twice on the record.
+  //
+  // The key is the Storage URL, NOT the name. Two rows pointing at the same
+  // object are the same document by any reading; two rows sharing a filename
+  // are NOT necessarily the same file, and collapsing those would HIDE a real
+  // document. Hiding one is far worse than showing one twice — that asymmetry
+  // is why this errs toward keeping rows. Rows with no URL are never deduped,
+  // because there is nothing to prove sameness with.
+  //
+  // Applied after the sort, so the survivor is the newest of the pair; and
+  // canonical rows win ties over legacy ones, since deletes and every future
+  // write target the subcollection.
+  function dedupe() {
+    var seen = Object.create(null);
+    return function (r) {
+      if (!r.url) return true;
+      var prior = seen[r.url];
+      if (!prior) { seen[r.url] = r; return true; }
+      // Already kept one. If we kept the legacy copy and this is canonical,
+      // swap in place so the retained row is the one deletes can reach.
+      if (prior.legacy && !r.legacy) {
+        prior.id = r.id;
+        prior.legacy = false;
+      }
+      return false;
+    };
   }
 
   // ── Render ────────────────────────────────────────────────────────

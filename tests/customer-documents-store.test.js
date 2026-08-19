@@ -159,6 +159,42 @@ const UPLOADED = {
     ok('newest first', els.docList.innerHTML.indexOf('NBD-contract') < els.docList.innerHTML.indexOf('signed-scan'));
   }
   {
+    // A document migrated from the top-level collection into the subcollection
+    // is returned by BOTH reads. Without deduping it renders twice.
+    const SAME = 'https://x.test/same.pdf';
+    const { win, els, counts } = loadEnv(
+      [{ id: 'S1', name: 'moved.pdf', url: SAME, uploadedAt: ts('2026-08-18T10:00:00Z') }],
+      [{ id: 'L1', filename: 'moved.pdf', url: SAME, uploadedAt: ts('2026-01-01T00:00:00Z') }]);
+    await win.NBDCustomerDocs.load('LEAD1');
+    // Count ROWS, not name occurrences — each row prints the name twice
+    // (the label, and the delete button's data-arg2).
+    const rows = (els.docList.innerHTML.match(/data-doc-id="/g) || []).length;
+    ok('a row in BOTH stores renders once, not twice', rows === 1);
+    ok('and is counted once', counts.navCountDocs === 1);
+    ok('the surviving row is the canonical one, so delete can reach it',
+      win._customerDocs[0].id === 'S1' && win._customerDocs[0].legacy === false);
+  }
+  {
+    // The dangerous direction: two DIFFERENT files that happen to share a
+    // name must both survive. Hiding a real document is worse than a dupe.
+    const { win, els, counts } = loadEnv([
+      { id: 'A1', name: 'invoice.pdf', url: 'https://x.test/a.pdf', uploadedAt: ts('2026-08-18T10:00:00Z') },
+      { id: 'A2', name: 'invoice.pdf', url: 'https://x.test/b.pdf', uploadedAt: ts('2026-08-17T10:00:00Z') },
+    ]);
+    await win.NBDCustomerDocs.load('LEAD1');
+    ok('same name + different file = both kept (never hide a document)', counts.navCountDocs === 2);
+    ok('both rows render', (els.docList.innerHTML.match(/data-doc-id="/g) || []).length === 2);
+  }
+  {
+    // Nothing to prove sameness with — must not collapse.
+    const { win, counts } = loadEnv([
+      { id: 'N1', name: 'one.pdf', uploadedAt: ts('2026-08-18T10:00:00Z') },
+      { id: 'N2', name: 'two.pdf', uploadedAt: ts('2026-08-17T10:00:00Z') },
+    ]);
+    await win.NBDCustomerDocs.load('LEAD1');
+    ok('rows with no URL are never deduped', counts.navCountDocs === 2);
+  }
+  {
     // Rows that predate the consolidation still live in the top-level
     // collection. They must show, not be orphaned.
     const { win, els } = loadEnv([], [{ id: 'L1', filename: 'old.pdf', url: 'https://x.test/o.pdf', uploadedAt: ts('2026-01-01T00:00:00Z') }]);

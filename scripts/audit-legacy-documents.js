@@ -97,6 +97,7 @@ async function main() {
         id: doc.id,
         leadId: d.leadId || null,
         name: d.filename || d.name || '(unnamed)',
+        url: String(d.url || d.htmlUrl || d.signedDocumentUrl || ''),
         userId: d.userId || null,
       });
     }
@@ -106,24 +107,30 @@ async function main() {
   }
 
   // For the live lead-scoped rows, the useful follow-up is whether each one is
-  // already duplicated in the canonical subcollection — a row that exists in
-  // both places is shown twice today (the store merges, it does not dedupe).
-  const dupes = [];
+  // ALREADY in the canonical subcollection — i.e. already migrated, so the
+  // merge read is carrying nothing for it.
+  //
+  // Matched on Storage URL, matching the store's dedupe key (customer-documents.js
+  // `dedupe()`). Not on name: two rows sharing a filename are not necessarily
+  // the same file, and the store deliberately keeps both rather than risk
+  // hiding a real document. Counting a name match as "already migrated" here
+  // would report a row as safe to drop when the store still needs it.
+  const migrated = [];
   const orphans = [];
   for (const r of buckets.leadScoped) {
+    const leadDoc = await db.collection('leads').doc(r.leadId).get();
+    if (!leadDoc.exists) { orphans.push(r); continue; }
     let sub = null;
     try {
       sub = await db.collection('leads').doc(r.leadId).collection('documents').get();
     } catch (e) {
       continue;
     }
-    const leadDoc = await db.collection('leads').doc(r.leadId).get();
-    if (!leadDoc.exists) { orphans.push(r); continue; }
-    const names = sub.docs.map(s => {
+    const urls = sub.docs.map(s => {
       const sd = s.data() || {};
-      return String(sd.name || sd.filename || '');
-    });
-    if (names.includes(r.name)) dupes.push(r);
+      return String(sd.url || sd.htmlUrl || sd.signedDocumentUrl || '');
+    }).filter(Boolean);
+    if (r.url && urls.includes(r.url)) migrated.push(r);
   }
 
   console.log('\n═══════════════════════════════════════════════════════════');
@@ -136,14 +143,14 @@ async function main() {
 
   if (buckets.leadScoped.length) {
     console.log('\n  of the live lead-scoped rows:');
-    console.log('    already duplicated in leads/{id}/documents  ' + String(dupes.length).padStart(4));
+    console.log('    already migrated into leads/{id}/documents  ' + String(migrated.length).padStart(4));
     console.log('    parent lead no longer exists                ' + String(orphans.length).padStart(4));
   }
 
   if (LIST && buckets.leadScoped.length) {
     console.log('\n─── live lead-scoped rows ───');
     for (const r of buckets.leadScoped) {
-      const flag = dupes.includes(r) ? ' [DUPLICATE]'
+      const flag = migrated.includes(r) ? ' [ALREADY MIGRATED]'
         : orphans.includes(r) ? ' [ORPHAN LEAD]' : '';
       console.log('  ' + r.id + '  lead=' + r.leadId + '  ' + r.name + flag);
     }
@@ -164,10 +171,15 @@ async function main() {
     console.log('  ' + buckets.leadScoped.length + ' live document(s) exist only in the top-level');
     console.log('  collection. Removing the merge read would make them vanish');
     console.log('  from their customers\' records.');
-    if (dupes.length) {
-      console.log('\n  ' + dupes.length + ' of them also exist in the subcollection under the same');
-      console.log('  name, so those customers see the row twice — the store merges');
-      console.log('  but does not dedupe. Worth a one-off cleanup.');
+    if (migrated.length) {
+      console.log('\n  ' + migrated.length + ' of them already exist in the subcollection under the');
+      console.log('  same Storage URL. The store dedupes those, so they render once —');
+      console.log('  but the top-level copies are redundant and could be soft-deleted,');
+      console.log('  shrinking what the merge read has to carry.');
+    }
+    if (orphans.length) {
+      console.log('\n  ' + orphans.length + ' belong to a lead that no longer exists — unreachable from');
+      console.log('  any customer page, and safe to retire.');
     }
   }
   console.log('───────────────────────────────────────────────────────────\n');

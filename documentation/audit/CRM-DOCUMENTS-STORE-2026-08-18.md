@@ -153,9 +153,23 @@ node scripts/audit-legacy-documents.js
 It buckets the collection into live lead-scoped rows (the merge read's whole
 reason to exist), soft-deleted lead rows (filtered by the store, so they don't
 count), and the company library (not ours — it never proposes touching those).
-It also flags rows duplicated across both stores, which render twice today
-since the store merges without deduping. Read-only, always exits 0, not a CI
-gate. Guarded by `tests/legacy-documents-audit.test.js`.
+It also flags rows already migrated into the subcollection and rows whose
+parent lead is gone. Read-only, always exits 0, not a CI gate. Guarded by
+`tests/legacy-documents-audit.test.js`.
+
+### The double-render this would have caused is already fixed
+
+A row present in both stores was returned by both reads and rendered twice.
+`fetchAll` now dedupes, so whichever way the audit lands, nobody sees doubles.
+
+The dedupe key is the **Storage URL, not the name**. Two rows pointing at the
+same object are the same document; two rows sharing a filename are not
+necessarily the same file — and collapsing those would *hide* a real document.
+Hiding one is far worse than showing one twice, so the rule errs toward keeping
+rows, and rows with no URL are never deduped at all. Dedupe runs after the
+sort, so the survivor is the newer of the pair, and a canonical row wins over a
+legacy one so deletes can still reach it. The audit script matches on the same
+key for the same reason.
 
 ## Related
 
