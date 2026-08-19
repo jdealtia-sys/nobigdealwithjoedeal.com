@@ -189,6 +189,36 @@ function cleanUrlOf(rel) {
   return '/' + rel;
 }
 
+/**
+ * The URL a page is actually REACHED at — the base every relative reference in
+ * it resolves against.
+ *
+ * cleanUrlOf() gives the URL Hosting would serve the file at, but redirects
+ * outrank static files in Hosting priority: if some redirect's `source` matches
+ * that URL, the URL 301s and never returns this page's HTML at all. The browser
+ * lands on the destination, and THAT is the base the page's relative refs
+ * resolve against.
+ *
+ * This is load-bearing for directory indexes. With trailingSlash:false,
+ * docs/x/y/index.html serves at /x/y — whose base directory is /x/, one segment
+ * shallower than the file actually lives. A relative "about.html" in it then
+ * points at /x/about.html and 404s. Redirecting /x/y → /x/y/index restores the
+ * correct base, and without this function the checker would keep resolving
+ * against a URL that no longer serves the page. Added 2026-08-19 for the Oaks
+ * microsite, which is deliberately relative-pathed so the folder stays portable
+ * to the client's own host; it is the same defect class as the /admin
+ * relative-src bug recorded in this file's header.
+ */
+function servedUrlOf(rel) {
+  const clean = cleanUrlOf(rel);
+  for (const { rx, destination } of redirectRules) {
+    if (rx.test(clean) && typeof destination === 'string' && destination.startsWith('/')) {
+      return destination;
+    }
+  }
+  return clean;
+}
+
 /* ── HTML extraction (regex; no DOM lib) ────────────────────────────────── */
 
 function decodeEntities(s) {
@@ -299,7 +329,7 @@ let anchorsChecked = 0;
 
 for (const rel of pages) {
   const html = pageHtml.get(rel);
-  const base = new URL(cleanUrlOf(rel), 'https://nobigdealwithjoedeal.com');
+  const base = new URL(servedUrlOf(rel), 'https://nobigdealwithjoedeal.com');
 
   for (const { ref, why } of extractRefs(html)) {
     if (SKIP_SCHEME.test(ref)) continue;

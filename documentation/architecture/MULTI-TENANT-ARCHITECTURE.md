@@ -95,9 +95,15 @@ resolveTenant(uid|companyId) → {
   aren't hardcoded to the NBD domain; entitlements resolved via `TenantContext.plan`.
 
 ### Pillar 5 — Hosting & domains · **PARTIAL (hand-authored, single project)**
-- **Now:** one Firebase Hosting target (`nobigdeal-pro`, serving `docs/`) with path rewrites. Oaks is a
-  **hand-authored static folder** (`docs/sites/oaks/`) served at `/sites/oaks/`. **Firebase Hosting has
-  no Host-header rewrites** → custom per-tenant domains aren't natively supported.
+- **Now:** one Firebase Hosting target (`nobigdeal-pro`, serving `docs/`) with path rewrites. **Firebase
+  Hosting has no Host-header rewrites** → custom per-tenant domains aren't natively supported.
+  Two Oaks surfaces exist deliberately (as of 2026-08-19):
+  - `/sites/t/oaks` — the runtime-rendered tenant microsite (one template + `getPublicSiteConfig`
+    reading `companyProfile`). This is the product path and the model for tenant #3+.
+  - `/sites/oaks/` — a **hand-authored 11-page static folder**, rebuilt 2026-08-19 as a portable
+    hand-off deliverable for Scott's own host (its own brand, `orc-*` namespace, no build step, no
+    Firestore dependency). Not a template; do not treat it as the provisioning path. See
+    [SESSION-2026-08-19-oaks-microsite-rebuild](../projects/SESSION-2026-08-19-oaks-microsite-rebuild.md).
 - **Build (two sub-problems):**
   1. **Templated tenant sites** — replace hand-authored microsites with a data-driven generator
      (your city-page template system is the model): one template + `TenantContext` → N branded sites.

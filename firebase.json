@@ -33,15 +33,9 @@
         "source": "/free-guide", "destination": "/sites/free-guide", "type": 301 },
       { "_comment": "/financing (root) was a client-side meta-refresh stub to the canonical /services/financing. Replaced with a proper server 301 (better SEO, no redirect flash); the stub file was removed.",
         "source": "/financing", "destination": "/services/financing", "type": 301 },
-      { "_comment": "Pillar 5 Oaks cutover (Jo, 2026-07-04): the hand-authored /sites/oaks pages are retired; the data-driven tenant microsite at /sites/t/oaks (rendered from companyProfile via getPublicSiteConfig) is canonical. Page paths are ENUMERATED rather than /sites/oaks/** because redirects outrank static files in Hosting priority and logo-orange.svg must keep serving — companyProfile/oaks brand.logoUrl (and generated documents) point at it. Trailing * catches both the .html and cleanUrls extensionless forms.",
-        "source": "/sites/oaks", "destination": "/sites/t/oaks", "type": 301 },
-      { "source": "/sites/oaks/index*", "destination": "/sites/t/oaks", "type": 301 },
-      { "source": "/sites/oaks/about*", "destination": "/sites/t/oaks", "type": 301 },
-      { "source": "/sites/oaks/contact*", "destination": "/sites/t/oaks", "type": 301 },
-      { "source": "/sites/oaks/gallery*", "destination": "/sites/t/oaks", "type": 301 },
-      { "source": "/sites/oaks/service-areas*", "destination": "/sites/t/oaks", "type": 301 },
-      { "source": "/sites/oaks/services", "destination": "/sites/t/oaks", "type": 301 },
-      { "source": "/sites/oaks/services/**", "destination": "/sites/t/oaks", "type": 301 }
+      { "_comment": "Oaks microsite (2026-08-19). The site is a PORTABLE hand-off deliverable, so every path inside it is relative — that is what lets the same folder serve from /sites/oaks here and from the domain root on Scott's own host. Relative paths and cleanUrls collide on exactly one page: with trailingSlash:false a directory index is served at the SLASHLESS url /sites/oaks, so the browser resolves its relative links against /sites/ and every one of them 404s. (Subpages are unaffected — /sites/oaks/about keeps the /sites/oaks/ base, and /sites/oaks/services/roof-repair keeps /sites/oaks/services/.) Sending /sites/oaks to the explicit /sites/oaks/index restores the correct base without making the folder non-portable. Same defect class as the /admin relative-src bug recorded in scripts/check-site-integrity.js's header.",
+        "source": "/sites/oaks", "destination": "/sites/oaks/index", "type": 301 },
+      { "source": "/sites/oaks/services", "destination": "/sites/oaks/services/roof-replacement", "type": 301 }
     ],
     "rewrites": [
       { "_comment": "Bots, link previewers, and old browsers probe /favicon.ico by reflex. We don't ship a .ico file (favicon.svg covers modern browsers via <link rel=icon>). Rewriting the .ico URL to favicon.svg returns the SVG bytes with Content-Type image/svg+xml — modern browsers accept that fine. The alternative was a 404 every time a crawler hits the URL.",
@@ -191,6 +185,7 @@
         ]
       },
       {
+        "_comment": "Oaks microsite (rebuilt 2026-08-19, Jo). /sites/oaks is a hand-authored 11-page mirror of Scott's retired site, built as a portable hand-off deliverable he hosts himself. The eight /sites/oaks* → /sites/t/oaks 301s from the 2026-07-04 Pillar 5 cutover were REMOVED in the redirects array above — redirects outrank static files in Hosting priority, so leaving them would have shadowed every rebuilt page. The data-driven /sites/t/oaks is untouched and still renders from companyProfile via getPublicSiteConfig; the two coexist for different jobs. logo-orange.svg still serves from this same directory, so companyProfile/oaks brand.logoUrl and generated documents are unaffected. KEEP this noindex until the site launches on its own domain: it is an unlaunched client site sitting on the HOMEOWNER domain, and indexing it here would compete with his own domain for the same Goshen keywords. At launch, drop these two rules together with the <meta name=robots> in each page.",
         "source": "/sites/oaks",
         "headers": [
           { "key": "X-Robots-Tag", "value": "noindex, nofollow" }
