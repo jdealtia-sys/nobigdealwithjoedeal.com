@@ -74,14 +74,15 @@ const EXEMPT = {
   'storm-check.html': 'slim one-line funnel footer; nav IS nav-tool-governed. No footer partial variant covers this shape',
   'storm-report.html': 'slim one-line funnel footer; nav IS nav-tool-governed. No footer partial variant covers this shape',
 
-  // --- brand microsites (open follow-up: define nav-microsite) ---
-  'services/gaf-pivot-boot/index.html': 'brand microsite — product nav family; nav-microsite partial is an open follow-up',
-  'services/gaf-timberline/index.html': 'brand microsite — product nav family; nav-microsite partial is an open follow-up',
-  'services/lumanail/index.html': 'brand microsite — product nav family; nav-microsite partial is an open follow-up',
-  'services/roofivent/index.html': 'brand microsite — product nav family; nav-microsite partial is an open follow-up',
-  'services/tamko-storm-series/index.html': 'brand microsite — product nav family; nav-microsite partial is an open follow-up',
-  'services/the-nbd-build/index.html': 'brand microsite — product nav family; nav-microsite partial is an open follow-up',
-  'services/the-nbd-guarantee/index.html': 'brand microsite — product nav family; nav-microsite partial is an open follow-up',
+  // --- brand microsites (nav-microsite stamped 2026-08-19; only the
+  //     4-column grid footer is still hand-built) ---
+  'services/gaf-pivot-boot/index.html': '4-column grid footer; nav IS nav-microsite-governed. No footer partial variant covers this shape',
+  'services/gaf-timberline/index.html': '4-column grid footer; nav IS nav-microsite-governed. No footer partial variant covers this shape',
+  'services/lumanail/index.html': '4-column grid footer; nav IS nav-microsite-governed. No footer partial variant covers this shape',
+  'services/roofivent/index.html': '4-column grid footer; nav IS nav-microsite-governed. No footer partial variant covers this shape',
+  'services/tamko-storm-series/index.html': '4-column grid footer; nav IS nav-microsite-governed. No footer partial variant covers this shape',
+  'services/the-nbd-build/index.html': '4-column grid footer; nav IS nav-microsite-governed. No footer partial variant covers this shape',
+  'services/the-nbd-guarantee/index.html': '4-column grid footer; nav IS nav-microsite-governed. No footer partial variant covers this shape',
 };
 
 function walk(dir, acc) {

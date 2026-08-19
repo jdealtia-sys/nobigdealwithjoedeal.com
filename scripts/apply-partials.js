@@ -82,6 +82,14 @@ const REQUIRED_MARKUP = {
     'class="nav-links"', 'class="dropdown"',
     'src="/assets/js/inline/479bd49556.js"'],
   'nav-tool': ['id="mainNav"'],
+  // The 7 brand microsites (LumaNail, Roofivent, GAF Pivot Boot, GAF Timberline,
+  // TAMKO Storm Series + the two promise pages) ran 4 divergent link sets before
+  // 2026-08-19 — two of them dropped Pledge/Guarantee/Build entirely and pointed
+  // "Services" at a leaf page. Same contracts as nav-standard minus the dropdown,
+  // which this family does not have.
+  'nav-microsite': ['id="mainNav"', 'id="navLinks"', 'id="hamburger"',
+    'class="nav-links"', 'src="/assets/js/inline/479bd49556.js"',
+    '<span></span><span></span><span></span>'],
   'mobile-nav-standard': ['id="mobileNav"'],
   'mobile-nav-blog': ['id="mobileNav"'],
   'footer-standard': ['<footer>', '</footer>'],
