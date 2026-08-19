@@ -13,20 +13,29 @@
   /* ════════════════════════════════════════════════════════════════════
      ▼▼▼  HAND-OFF CONFIG — this is the only block you need to edit.  ▼▼▼
 
-     formEndpoint : where the quote form POSTs. Leave '' until a backend
-                    exists. Any endpoint that accepts a POST works, e.g.
-                    'https://formsubmit.co/ajax/you@oaksroofing.com'.
-     formEmail    : fallback inbox. With no endpoint set, submitting opens
-                    the visitor's mail app with every field filled in and
-                    addressed here, so the form still does its job on a
-                    plain static host.
+     formEmail    : ACTIVE. Submitting opens the visitor's mail app with every
+                    field filled in and addressed here, then they hit send.
+                    Needs no account, no server and no signup, and the details
+                    never pass through anyone else's system on the way — which
+                    is also what privacy.html tells visitors.
+
+     formEndpoint : optional upgrade, and it WINS over formEmail when set. Any
+                    URL that accepts a POST works. A relay means the lead
+                    arrives even when the visitor has no mail app configured
+                    (mostly desktop webmail users). E.g. uncomment:
+                      formEndpoint: 'https://formsubmit.co/ajax/scott@oaksroofingandconstruction.com',
+                    FormSubmit emails Scott a one-time activation link on the
+                    first submission — until he clicks it, nothing is relayed.
+                    If you switch to a relay, update the "Third parties"
+                    section of privacy.html, which currently states that
+                    submissions are not routed through an outside service.
 
      Set NEITHER and the form stays honest: it validates, then tells the
      visitor to call. It never pretends to have sent something.
      ════════════════════════════════════════════════════════════════════ */
   var CONFIG = {
     formEndpoint: '',
-    formEmail: '',
+    formEmail: 'scott@oaksroofingandconstruction.com',
     phone: '(513) 827-5297',
     phoneHref: 'tel:+15138275297'
   };
@@ -193,13 +202,20 @@
         }
 
         if (CONFIG.formEmail) {
-          var order = ['first_name', 'last_name', 'email', 'phone', 'zip', 'service', 'message'];
-          var lines = order.filter(function (k) { return data[k]; })
-            .map(function (k) { return k.replace(/_/g, ' ').replace(/\b\w/g, function (c) { return c.toUpperCase(); }) + ': ' + data[k]; });
+          var name = [data.first_name, data.last_name].filter(Boolean).join(' ');
+          var LABELS = [
+            ['phone', 'Phone'], ['email', 'Email'], ['zip', 'ZIP'],
+            ['service', 'Service'], ['message', 'Message'],
+          ];
+          var lines = (name ? ['Name: ' + name] : []).concat(
+            LABELS.filter(function (p) { return data[p[0]]; })
+              .map(function (p) { return p[1] + ': ' + data[p[0]]; })
+          );
           window.location.href = 'mailto:' + CONFIG.formEmail
-            + '?subject=' + encodeURIComponent('Website quote request — ' + (data.service || 'General'))
-            + '&body=' + encodeURIComponent(lines.join('\n'));
-          say('ok', 'Opening your email app so you can send this through. If nothing happens, call ' + CONFIG.phone + '.');
+            + '?subject=' + encodeURIComponent(
+              (data.service || 'Quote request') + (name ? ' — ' + name : '') + ' (website)')
+            + '&body=' + encodeURIComponent(lines.join('\n') + '\n\n— Sent from the website quote form.');
+          say('ok', 'Opening your email app so you can send this through — press send and it comes straight to us. If nothing opens, call ' + CONFIG.phone + '.');
           return;
         }
 
