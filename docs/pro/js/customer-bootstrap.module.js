@@ -812,22 +812,17 @@ async function loadCustomerData(id) {
       if (pl) pl.innerHTML = '<div class="empty"><div class="empty-icon">No photos yet</div></div>';
     }
     
+    // Documents. window.loadDocuments is customer-documents.js — it paints
+    // the Overview list, the Generated and Uploaded panels, and the nav
+    // count from one read of leads/{id}/documents, and renders its own
+    // error state on failure (deliberately NOT an empty state, which is
+    // what used to make a broken read look like a customer with no docs).
     try {
       await window.loadDocuments(id);
     } catch (e) {
       console.error('Documents load failed:', e);
-      // Real ID is docList (the loadDocuments fn writes into #docList).
-      // The catch fallback used to target #documentList which doesn't
-      // exist, throwing a TypeError on top of the documents-load failure.
-      const dl = document.getElementById('docList');
-      if (dl) dl.innerHTML = `
-        <div class="upload-zone" data-action="openDocUploadModal">
-          <div class="upload-icon"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:32px;height:32px;"><path d="M5 2h7l4 4v11a1 1 0 01-1 1H5a1 1 0 01-1-1V3a1 1 0 011-1z"/><path d="M12 2v4h4"/></svg></div>
-          <div class="upload-text">Click to upload documents</div>
-          <div class="upload-hint">Drag & drop PDFs, contracts, or images</div>
-        </div>`;
     }
-    
+
     try { await window.loadEstimates(id); } 
     catch (e) { console.error('Estimates load failed:', e); }
     

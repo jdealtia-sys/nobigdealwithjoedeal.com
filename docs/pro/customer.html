@@ -1776,6 +1776,8 @@ body.nbd-photo-selecting .nbd-photo-checkbox,
         </div>
         <input type="file" id="signedDocFileInput" accept="image/*,.pdf" capture="environment" style="display:none;" data-change-action="handleSignedDocUpload" data-pass-el="true">
         <input type="file" id="signedDocBrowseInput" accept="image/*,.pdf,.doc,.docx" style="display:none;" data-change-action="handleSignedDocUpload" data-pass-el="true">
+        <!-- Filled by customer-documents.js with every NON-generated document
+             on this lead (camera scans, file uploads, drag-and-drop). -->
         <div id="signedDocsList" style="margin-top:12px;"></div>
       </div>
 
@@ -1805,28 +1807,11 @@ body.nbd-photo-selecting .nbd-photo-checkbox,
         </div>
 
         <div>
-          <!-- DOCUMENTS -->
-          <div class="panel">
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;gap:8px;flex-wrap:wrap;">
-              <div class="panel-title" style="margin:0;">Shared Documents</div>
-              <div style="display:flex;gap:6px;flex-wrap:wrap;">
-                <button class="btn btn-orange" data-action="openDocCreateModal" style="font-size:11px;padding:6px 12px;">📝 Create</button>
-                <button class="btn btn-orange" data-action="openDocUploadModal" style="font-size:11px;padding:6px 12px;">📤 Upload</button>
-              </div>
-            </div>
-            <div id="sharedDocList">
-              <div class="empty">
-                <div class="empty-icon">&#128196;</div>
-                No documents shared yet
-                <div style="margin-top:14px;">
-                  <button class="btn btn-orange" data-action="openDocCreateModal" style="font-size:11px;padding:8px 16px;">
-                    📝 Create your first document
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-
+          <!-- The "Shared Documents" panel that sat here read the
+               top-level lead_documents collection, which nothing in this
+               app has ever written — it could only render its empty state.
+               Removed 2026-08-18; the two panels that remain are fed from
+               the real store by customer-documents.js. -->
           <!-- GENERATED DOCS -->
           <div class="panel">
             <div class="panel-title">Generated Documents</div>
@@ -2163,6 +2148,12 @@ body.nbd-photo-selecting .nbd-photo-checkbox,
 <script defer src="js/nbd-input-guards.js?v=1"></script>
 <script defer src="js/email_system.js"></script>
 <script defer src="js/customer-gallery-share.js?v=1"></script>
+<!-- Documents store — the SINGLE source of truth for every documents
+     surface on this page (Overview list, Generated, Uploaded, nav count).
+     Reads leads/{leadId}/documents and publishes window.loadDocuments, which
+     the bootstrap calls from loadCustomerData once the lead resolves. Must
+     load before the upload modules that call NBDCustomerDocs.refresh(). -->
+<script defer src="js/customer-documents.js?v=1"></script>
 <script defer src="js/customer-signed-doc-upload.js?v=1"></script>
 <script defer src="js/customer-portal.js?v=3"></script>
 <script defer src="js/clipboard-fix.js?v=1"></script>

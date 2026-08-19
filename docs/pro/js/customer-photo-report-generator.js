@@ -377,7 +377,7 @@ window.uploadDocuments = async function() {
     
     alert(`Successfully uploaded ${window._docUploadQueue.length} document(s)!`);
     closeDocUploadModal();
-    await loadDocuments(window._customerId);
+    if (window.NBDCustomerDocs) await window.NBDCustomerDocs.refresh();
     
   } catch (error) {
     console.error('Document upload error:', error);
@@ -417,14 +417,18 @@ async function uploadSingleDocument(item, index) {
         try {
           const downloadURL = await window.getDownloadURL(uploadTask.snapshot.ref);
           
-          await window.addDoc(window.collection(window.db, 'documents'), {
-            leadId: window._customerId,
+          // leads/{leadId}/documents is the canonical store (see
+          // customer-documents.js). This used to write the top-level
+          // `documents` collection, which no other surface on the page read.
+          await window.addDoc(window.collection(window.db, 'leads', window._customerId, 'documents'), {
             userId: window.auth.currentUser.uid,
+            uploadedBy: window.auth.currentUser.uid,
             url: downloadURL,
             filename: file.name,
             size: file.size,
             type: file.type,
             uploadedAt: window.serverTimestamp(),
+            source: 'overview_upload',
             category: 'General'
           });
           
@@ -437,98 +441,13 @@ async function uploadSingleDocument(item, index) {
   });
 }
 
-async function loadDocuments(leadId) {
-  try {
-    const docSnap = await getDocs(
-      query(collection(db, 'documents'), where('leadId', '==', leadId), where('userId', '==', auth.currentUser?.uid), orderBy('uploadedAt', 'desc'))
-    );
-    
-    if (typeof window.nbdNavCount === 'function') {
-      window.nbdNavCount('navCountDocs', docSnap.empty ? 0 : docSnap.docs.length);
-      window.nbdTitleCount('docsPanelTitle', 'Documents', docSnap.empty ? 0 : docSnap.docs.length);
-    }
-
-    if (docSnap.empty) {
-      document.getElementById('docList').innerHTML = `
-        <div class="empty">
-          <div class="empty-icon"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:13px;height:13px;vertical-align:middle;"><path d="M5 2h7l4 4v11a1 1 0 01-1 1H5a1 1 0 01-1-1V3a1 1 0 011-1z"/><path d="M12 2v4h4"/></svg></div>
-          No documents yet
-          <div style="margin-top:14px;">
-            <button class="btn btn-orange" data-action="openDocCreateModal" style="font-size:11px;padding:8px 16px;">
-              📝 Create your first document
-            </button>
-          </div>
-        </div>`;
-      return;
-    }
-
-    window._customerDocs = docSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-
-    const esc = window.nbdEsc || (s => String(s == null ? '' : s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])));
-    const html = window._customerDocs.map((doc, idx) => {
-      const uploadDate = doc.uploadedAt?.toDate ? doc.uploadedAt.toDate().toLocaleDateString() : '—';
-      const filename = String(doc.filename || '');
-      const fileType = (filename.split('.').pop() || '').toUpperCase();
-      const sizeKb = Number.isFinite(+doc.size) ? (+doc.size / 1024).toFixed(1) : '0.0';
-
-      return `
-        <div class="document-item nbd-doc-row" data-doc-idx="${idx}" style="
-          display:flex;
-          align-items:center;
-          gap:12px;
-          padding:12px;
-          background:var(--s2);
-          border:1px solid var(--br);
-          border-radius:6px;
-          margin-bottom:8px;
-          cursor:pointer;
-          transition:all .2s;
-        ">
-          <div style="opacity:.6;"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:32px;height:32px;"><path d="M5 2h7l4 4v11a1 1 0 01-1 1H5a1 1 0 01-1-1V3a1 1 0 011-1z"/><path d="M12 2v4h4"/></svg></div>
-          <div style="flex:1;overflow:hidden;">
-            <div style="font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
-              ${esc(filename)}
-            </div>
-            <div style="font-size:11px;color:var(--m);">
-              ${esc(fileType)} • ${esc(uploadDate)} • ${esc(sizeKb)}KB
-            </div>
-          </div>
-          <div style="opacity:.5;"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:12px;height:12px;vertical-align:middle;"><path d="M4 10h12M12 6l4 4-4 4"/></svg></div>
-        </div>
-      `;
-    }).join('');
-
-    document.getElementById('docList').innerHTML = html;
-    
-    // Add hover effect
-    document.querySelectorAll('.document-item').forEach(item => {
-      item.addEventListener('mouseenter', () => {
-        item.style.background = 'var(--s3)';
-        item.style.borderColor = 'var(--orange)';
-      });
-      item.addEventListener('mouseleave', () => {
-        item.style.background = 'var(--s2)';
-        item.style.borderColor = 'var(--br)';
-      });
-    });
-    // Click to open — validate URL scheme first, no inline onclick.
-    document.querySelectorAll('.nbd-doc-row').forEach(row => {
-      row.addEventListener('click', () => {
-        const idx = Number(row.dataset.docIdx);
-        const d = (window._customerDocs || [])[idx];
-        const url = d && d.url;
-        if (/^https?:/i.test(url)) window.open(url, '_blank', 'noopener,noreferrer');
-      });
-    });
-  } catch (e) {
-    console.error('Error loading documents:', e);
-    document.getElementById('docList').innerHTML = `
-      <div class="empty">
-        <div class="empty-icon"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:13px;height:13px;vertical-align:middle;"><path d="M5 2h7l4 4v11a1 1 0 01-1 1H5a1 1 0 01-1-1V3a1 1 0 011-1z"/><path d="M12 2v4h4"/></svg></div>
-        No documents yet
-      </div>`;
-  }
-}
+// loadDocuments used to live here, reading the TOP-LEVEL `documents`
+// collection (leadId + userId). None of the page's three real document
+// writers ever wrote there, so this panel showed "No documents yet" for
+// customers with a full stack of contracts and invoices. The store now
+// lives in customer-documents.js, which reads leads/{id}/documents and
+// merges any surviving legacy rows from the old collection. It publishes
+// window.loadDocuments, so the bootstrap call site is unchanged.
 
 // ============================================
 // NOTES SYSTEM
@@ -908,7 +827,6 @@ window.saveEstimate = async function() {
 
 // Expose loader functions defined in THIS script block to window scope
 // NOTE: loadEstimates and loadTimeline are in the module script — exposed there
-window.loadDocuments = loadDocuments;
 window.loadNotes = loadNotes;
 window.fetchImageAsBase64 = fetchImageAsBase64;
 
