@@ -671,6 +671,71 @@ test('the editor\'s write path lands in the COMPANY book, not the template doc',
   });
 });
 
+test('REGRESSION: a template saved WITH costs never prices at zero, even for one tick', () => {
+  // The bug this pins, measured before the fix: liftCustomCosts() strips the
+  // costs off the clone (correctly — they must not reach the uid-scoped
+  // template doc) and the book write is ASYNC, so the immediate re-registration
+  // found neither a book entry nor an embedded cost. A template the user had
+  // just given costs to registered as costUnset and PRICED AT ZERO for the rest
+  // of the session, correcting only on the next page load.
+  const docs = {};
+  docs[BOOK_PATH] = { version: SEED_VERSION, jtCosts: {} };
+  const env = boot({ docs });
+  return env.win.NBDCatalogCosts.hydrate().then(() => {
+    env.win.JobTemplates.saveCustom({
+      id: 'jt_zero_probe', name: 'Zero probe', category: 'roof_repair', jobType: 'repair',
+      items: [{ code: 'LAB MOB' }, { custom: { name: 'Item', unit: 'EA', qty: 1, materialCost: 5, laborCost: 9, category: 'roofing' } }],
+    });
+    const code = 'JT ' + slugify('jt_zero_probe').toUpperCase() + '-1';
+    // SYNCHRONOUSLY after save — before any await lets the write land.
+    const now = env.xactFind(code);
+    ok(now, 'item did not register at all');
+    eq(now.materialCost, 5, 'priced immediately');
+    eq(now.costUnset, false, 'must not be flagged unset');
+    return new Promise((r) => setTimeout(r, 0)).then(() => new Promise((r) => setTimeout(r, 0))).then(() => {
+      const after = env.xactFind(code);
+      eq(after.materialCost, 5, 'still priced after the write');
+      // Provenance flips to the book once the write lands, so later reads
+      // resolve through it rather than a snapshot that cannot see another
+      // device's edit.
+      eq(after.costSource, 'book', 'costSource after the write');
+      eq(env.bookDoc().jtCosts[jtKey('jt_zero_probe', 1)].materialCost, 5, 'book entry');
+    });
+  });
+});
+
+test('REGRESSION: a REP whose write is refused keeps their costs, never a zero', () => {
+  const docs = {};
+  docs[BOOK_PATH] = { version: SEED_VERSION, jtCosts: {} };
+  const env = boot({ docs, fs: { denyWrite: true } });
+  return env.win.NBDCatalogCosts.hydrate().then(() => {
+    env.win.JobTemplates.saveCustom({
+      id: 'jt_rep_probe', name: 'Rep probe', category: 'roof_repair', jobType: 'repair',
+      items: [{ code: 'LAB MOB' }, { custom: { name: 'Item', unit: 'EA', qty: 1, materialCost: 5, laborCost: 9, category: 'roofing' } }],
+    });
+    const code = 'JT ' + slugify('jt_rep_probe').toUpperCase() + '-1';
+    return new Promise((r) => setTimeout(r, 0)).then(() => new Promise((r) => setTimeout(r, 0))).then(() => {
+      const after = env.xactFind(code);
+      // Same deal product-library gives a rep: the edit stays local for the
+      // session rather than silently becoming zero.
+      eq(after.materialCost, 5, 'rep keeps their value');
+      eq(after.costUnset, false, 'never flagged unset');
+      eq(after.costSource, 'legacy-template', 'stays local — the book write was refused');
+      eq(env.bookDoc().jtCosts['jt-jtrepprobe-1'], undefined, 'nothing reached the company book');
+    });
+  });
+});
+
+test('NBD_LABOR.find survives being detached from its receiver', () => {
+  // `find: function(id) { return this.get(id); }` throws for
+  // `const f = NBD_LABOR.find; f('LAB TO1')`. No caller does that today, which
+  // is exactly when it is cheap to make impossible.
+  const env = boot({});
+  const detached = env.win.NBD_LABOR.find;
+  ok(detached('LAB TO1'), 'detached find() returned nothing');
+  eq(detached('LAB TO1').id, 'LAB TO1', 'detached find() id');
+});
+
 test('a REP\'s write is refused and reported, never silently dropped', () => {
   const docs = {};
   docs[BOOK_PATH] = { version: SEED_VERSION, jtCosts: {} };
