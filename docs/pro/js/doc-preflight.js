@@ -217,6 +217,8 @@
         return lead.jobValue || est.grandTotal || est.total || est.amount || 0;
       case 'invoiceNumber':
         return 'INV-' + new Date().getFullYear() + '-' + String(Date.now()).slice(-5);
+      case 'receiptNumber':
+        return 'RCT-' + new Date().getFullYear() + '-' + String(Date.now()).slice(-5);
       case 'depositAmount':
         var jv = parseFloat(lead.jobValue || est.grandTotal || 0);
         return jv ? (jv * 0.5).toFixed(2) : '';
@@ -690,6 +692,73 @@
       ]
     },
 
+    // ── 10b. RECEIPT ────────────────────────────────────────────
+    //
+    // The closing document for a job that has been paid. Kept separate from
+    // the invoice on purpose: handing someone who has already paid a document
+    // headed INVOICE, with payment terms and a late-fee clause, reads as
+    // another bill.
+    //
+    // `paidInFull` is an explicit checkbox rather than something inferred.
+    // Contract Total is optional — when it is left blank the receipt states
+    // only what was received and shows no balance line, because a balance we
+    // were not told is a balance we must not assert.
+    receipt: {
+      title: 'Receipt',
+      subtitle: 'Proof of payment for a job that has been paid.',
+      sections: [
+        CUSTOMER_SECTION,
+        {
+          id: 'payment', title: 'Payment', collapsed: false,
+          fields: [
+            { key: 'receiptNumber', label: 'Receipt Number', type: 'text', required: true,
+              source: 'computed.receiptNumber', persist: PERSIST.DOCUMENT },
+            { key: 'paymentDate', label: 'Date Paid', type: 'date', required: true,
+              source: 'computed.todayISO', persist: PERSIST.DOCUMENT },
+            { key: 'amountPaid', label: 'Amount Received', type: 'currency', required: true,
+              source: 'computed.jobValue', persist: PERSIST.DOCUMENT },
+            { key: 'paymentMethod', label: 'Payment Method', type: 'select', required: true,
+              source: 'literal:', persist: PERSIST.DOCUMENT,
+              options: [
+                { value: '', label: 'Select…' },
+                { value: 'PayPal', label: 'PayPal' },
+                { value: 'Venmo', label: 'Venmo' },
+                { value: 'Zelle', label: 'Zelle' },
+                { value: 'Check', label: 'Check' },
+                { value: 'Cash', label: 'Cash' },
+                { value: 'Credit Card', label: 'Credit Card' },
+                { value: 'Bank Transfer / ACH', label: 'Bank Transfer / ACH' },
+                { value: 'Financing', label: 'Financing' }
+              ] },
+            { key: 'paymentReference', label: 'Reference (check no. / transaction ID)', type: 'text',
+              source: 'literal:', persist: PERSIST.DOCUMENT, placeholder: 'optional' },
+            { key: 'paidInFull', label: 'This settles the job in full', type: 'checkbox',
+              source: 'literal:', persist: PERSIST.DOCUMENT }
+          ]
+        },
+        {
+          id: 'work', title: 'What This Covers', collapsed: false,
+          fields: [
+            { key: 'workPerformed', label: 'Work Performed', type: 'textarea', rows: 3, required: true,
+              source: 'literal:', persist: PERSIST.DOCUMENT,
+              placeholder: 'What the customer paid for, in their words as much as yours.' },
+            { key: 'lineItems', label: 'Line Items (optional)', type: 'line-items',
+              source: 'estimate.lineItems', persist: PERSIST.DOCUMENT }
+          ]
+        },
+        {
+          id: 'balance', title: 'Balance (optional)', collapsed: true,
+          fields: [
+            { key: 'contractTotal', label: 'Contract Total', type: 'currency',
+              source: 'literal:', persist: PERSIST.DOCUMENT,
+              placeholder: 'leave blank to omit the balance section entirely' },
+            { key: 'priorPayments', label: 'Previous Payments', type: 'currency',
+              source: 'literal:', persist: PERSIST.DOCUMENT }
+          ]
+        }
+      ]
+    },
+
     // ── 11. CHANGE ORDER ────────────────────────────────────────
     change_order: {
       title: 'Change Order',
@@ -1044,7 +1113,9 @@
     fieldIndex: {},    // { fieldKey: fieldDefinition }
     showAll: false,
     lineItemsMode: {}, // { fieldKey: 'locked' | 'override' }
-    signers: []        // [{ role, label, required, enabled, removable }]
+    signers: [],       // [{ role, label, required, enabled, removable }]
+    softAck: false,    // address-completeness warning acknowledged this open()
+    softIssues: []     // [{ label, message }] from FIELD_VALIDATORS
   };
 
   // ═══════════════════════════════════════════════════════════════
@@ -1272,6 +1343,50 @@
     return false;
   }
 
+  // ── ADDRESS COMPLETENESS ────────────────────────────────────────
+  // `required` only asserts non-empty, so "Fairfield, OH 45014" — a
+  // Thumbtack lead that never shared its street — passed the gate and
+  // five invoices generated on 2026-08-18 carrying no street address.
+  // These check the address is actually deliverable. See
+  // documentation/audit/CRM-ADDRESS-INTEGRITY-2026-08-18.md.
+  var ADDR_HOUSE_NUMBER = /^\s*\d+[a-zA-Z]?\s+\S/;   // "1944 Kentucky Ave"
+  var ADDR_LEGACY_MANGLED = /^\s*\d+[a-zA-Z]?\s*,/;   // "7003, Greenstone Trace, ..."
+  var ADDR_ZIP = /\b\d{5}(-\d{4})?\b/;
+  var ADDR_STATE = /\b(OH|KY|IN)\b/i;
+
+  function validateAddressCompleteness(v) {
+    var t = String(v == null ? '' : v).trim();
+    if (!t) return null;  // `required` already covers empty
+    if (ADDR_LEGACY_MANGLED.test(t)) {
+      return 'looks mangled (comma straight after the house number) — check it against the customer folder';
+    }
+    var gaps = [];
+    if (!ADDR_HOUSE_NUMBER.test(t)) gaps.push('street number');
+    if (!ADDR_STATE.test(t)) gaps.push('state');
+    if (!ADDR_ZIP.test(t)) gaps.push('ZIP');
+    if (!gaps.length) return null;
+    return 'missing ' + gaps.join(' + ');
+  }
+
+  // Field-key → validator. Runs on submit, after the required check.
+  var FIELD_VALIDATORS = {
+    address: validateAddressCompleteness,
+    projectAddress: validateAddressCompleteness,
+    homeownerAddress: validateAddressCompleteness,
+    propertyAddress: validateAddressCompleteness
+  };
+
+  function collectSoftIssues() {
+    var out = [];
+    Object.keys(state.fieldIndex).forEach(function (k) {
+      var fn = FIELD_VALIDATORS[k];
+      if (typeof fn !== 'function') return;
+      var msg = fn(state.values[k]);
+      if (msg) out.push({ label: state.fieldIndex[k].label || k, message: msg });
+    });
+    return out;
+  }
+
   // ── LINE ITEMS RENDERER ─────────────────────────────────────
   function renderLineItems(field, value) {
     var items = Array.isArray(value) ? value : [];
@@ -1468,6 +1583,17 @@
       ? '<div class="dpf-required-banner"><span style="font-size:14px;">&#9888;</span><span><strong>' + missingCount + ' required field' + (missingCount > 1 ? 's' : '') + '</strong> need attention before generating.</span></div>'
       : '<div class="dpf-required-banner hidden"></div>';
 
+    // Address-completeness warning. Soft-blocks the first submit; the
+    // button becomes GENERATE ANYWAY so a thin address can never leave
+    // silently, but a genuinely street-less Thumbtack lead is not a
+    // dead end.
+    var softHTML = state.softIssues.length
+      ? '<div class="dpf-required-banner" style="border-color:color-mix(in srgb, var(--red,#E05252) 35%, transparent);color:var(--red,#E05252);">' +
+          '<span style="font-size:14px;">&#9888;</span><span><strong>Check the address before this goes out.</strong> ' +
+          state.softIssues.map(function (i) { return esc(i.label) + ' ' + esc(i.message); }).join('; ') +
+          '.</span></div>'
+      : '';
+
     var html =
       '<div class="dpf-overlay" id="' + MODAL_ID + '" data-dpf-overlay>' +
         '<div class="dpf-card" role="dialog" aria-labelledby="dpf-title">' +
@@ -1483,12 +1609,13 @@
           '</div>' +
           '<div class="dpf-body">' +
             bannerHTML +
+            softHTML +
             sectionsHTML +
             renderSignersSection() +
           '</div>' +
           '<div class="dpf-footer">' +
             '<button type="button" class="dpf-btn-cancel" data-dpf-close>Cancel</button>' +
-            '<button type="button" class="dpf-btn-submit" data-dpf-submit>Generate Document &rarr;</button>' +
+            '<button type="button" class="dpf-btn-submit" data-dpf-submit>' + (state.softIssues.length ? 'Generate Anyway &rarr;' : 'Generate Document &rarr;') + '</button>' +
           '</div>' +
         '</div>' +
       '</div>';
@@ -1993,6 +2120,10 @@
     state.fieldIndex = fieldIndex;
     state.lineItemsMode = lineItemsMode;
     state.showAll = false;
+    // Per-open reset: an address warning acknowledged on the last document
+    // must never carry into this one.
+    state.softAck = false;
+    state.softIssues = [];
 
     // Seed signers from the template's defaultSigners (declared on the
     // NBDDocGen.DOCUMENT_TYPES entry). Each becomes a toggleable row;
@@ -2047,6 +2178,20 @@
       toast('Missing required fields: ' + missing.join(', '), 'error');
       // Re-run render to highlight missing and expand their sections
       state.showAll = true;
+      renderModal();
+      return;
+    }
+
+    // Address completeness. Present but undeliverable addresses used to
+    // sail through because `required` only tests non-empty. First submit
+    // surfaces the problem and re-renders; a second, deliberate click
+    // proceeds. Acknowledgement is per-open(), so it cannot carry over.
+    var soft = collectSoftIssues();
+    if (soft.length && !state.softAck) {
+      state.softIssues = soft;
+      state.softAck = true;
+      state.showAll = true;
+      toast('Address looks incomplete — review, then click again to generate anyway', 'error');
       renderModal();
       return;
     }
@@ -2134,6 +2279,19 @@
     // Address aliases
     data.homeownerAddress = data.address || data.homeownerAddress || '';
     data.propertyAddress = data.address || '';
+
+    // Extra properties worked under one job (Anthony Scandariato: 1944 AND
+    // 1942 Kentucky Ave on invoice NBD-2026-0810-RK). Sourced from the lead
+    // — the rep maintains them on the customer record, documents just
+    // reflect them — so there is no per-document copy to drift. Always an
+    // array; renderers omit the SERVICE LOCATIONS block when it is empty.
+    if (!Array.isArray(data.serviceAddresses)) {
+      var _lead = window._leadDoc || {};
+      data.serviceAddresses = Array.isArray(_lead.serviceAddresses) ? _lead.serviceAddresses : [];
+    }
+    data.serviceAddresses = data.serviceAddresses
+      .map(function (a) { return String(a == null ? '' : a).trim(); })
+      .filter(Boolean);
 
     // Date fallback
     if (!data.date) {

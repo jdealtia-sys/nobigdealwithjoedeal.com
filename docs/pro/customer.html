@@ -2298,6 +2298,17 @@ body.nbd-photo-selecting .nbd-photo-checkbox,
         <input id="editAddress" type="text" style="width:100%;padding:10px 12px;background:var(--s);border:1px solid var(--br);border-radius:8px;color:var(--t);font-size:14px;box-sizing:border-box;" />
       </div>
       <div>
+        <label style="display:block;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--m);margin-bottom:4px;">Additional Service Locations</label>
+        <!-- A job can cover more than one property. Invoice NBD-2026-0810-RK
+             (Red Knight Properties) bills 1944 AND 1942 Kentucky Ave on one
+             document; before this field the second building had nowhere to
+             live and was lost. `address` stays the primary/billing address;
+             these are extra properties worked under the same job and print
+             in the SERVICE LOCATIONS block. -->
+        <div id="editServiceAddresses"></div>
+        <button type="button" data-action="addServiceAddressRow" class="btn" style="margin-top:6px;padding:7px 12px;font-size:11px;text-transform:uppercase;letter-spacing:.05em;">+ Add another property</button>
+      </div>
+      <div>
         <label style="display:block;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--m);margin-bottom:4px;">Damage Type</label>
         <input id="editDamageType" type="text" aria-label="Damage type" style="width:100%;padding:10px 12px;background:var(--s);border:1px solid var(--br);border-radius:8px;color:var(--t);font-size:14px;box-sizing:border-box;" placeholder="e.g. Roof - Hail, Siding - Wind" />
       </div>
