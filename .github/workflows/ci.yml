@@ -543,6 +543,15 @@ jobs:
       # config changes can't desync the checker.
       - name: Check links, assets, and anchors (docs/, excluding /pro + /admin)
         run: node scripts/check-site-integrity.js --quiet
+      # Chrome governance: apply-partials.js only sees pages that carry a
+      # marker, so a page with hand-built nav/footer is invisible to its
+      # --check forever. 22 of 211 marketing pages were in that state, which is
+      # why every sitewide chrome sweep since 2026-06 left residue on the same
+      # ~29 files. This walks the tree and treats its EXEMPT list as a denylist
+      # of known-good, so a NEW page defaults to failing — the inversion the
+      # three prior guard failures got backwards. Stale exemptions fail too.
+      - name: Check chrome governance (nav/footer are generator-owned)
+        run: node scripts/check-chrome-governance.js
       # Sitemap drift gate: build-sitemap.js dry-runs by default and exits 1
       # when the generated sitemap differs from docs/sitemap.xml (prints the
       # unified diff). Writes nothing without --write.

@@ -46,7 +46,13 @@ function walk(dir, out = []) {
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
     const full = path.join(dir, entry.name);
     if (entry.isDirectory()) {
-      if (['admin', 'pro', 'sites', 'assets', 'deploy', 'free-guide', 'tools'].includes(entry.name)) continue;
+      // 2026-08-19: this list still carried the exact stale entries that
+      // ensure-icon-css.js was widened out of one day earlier — including a
+      // dead 'free-guide' (that page moved under docs/sites/ in 6e499a38), so
+      // docs/sites/** was never walked. 'pro' stays excluded on purpose:
+      // unlike ensure-icon-css this script INJECTS marketing nav-base CSS, and
+      // the CRM runs its own nav systems.
+      if (['admin', 'pro', 'assets', 'deploy', 'tools'].includes(entry.name)) continue;
       walk(full, out);
     } else if (entry.name.endsWith('.html')) out.push(full);
   }
@@ -59,6 +65,11 @@ for (const file of walk(ROOT)) {
   const orig = fs.readFileSync(file, 'utf8');
   if (!NAV_MARKUP_RE.test(orig)) continue;
   if (orig.includes(MARKER)) continue;
+  // Satisfied by the page's own CSS rather than the injected block:
+  // dropdown hidden at rest AND a nav-collapse breakpoint. docs/sites/
+  // free-guide meets the contract this way (its own design system).
+  if (/\.dropdown-menu\s*\{[^}]*display:\s*none/.test(orig)
+      && /@media[^{]*max-width:\s*(?:768|900|1024)px/.test(orig)) continue;
 
   if (!WRITE) {
     offenders.push(path.relative(ROOT, file));

@@ -248,6 +248,29 @@ const certBarTargets = marketing.filter((f) => /^services\/[a-z0-9-]+-(oh|ky)\.h
   ok('cert bar carries all three badges + IDs + disclaimer', bad.length === 0, bad.slice(0, 3).join(', '));
 }
 {
+  // 4. THE SAME INVARIANT, KEYED ON THE ASSET RATHER THAN A FILE LIST.
+  //    Checks 1-3 scope to certBarTargets — city service pages + area leaves —
+  //    so on 2026-08-19 eight pages carrying a real cert bar sat outside every
+  //    one of them: areas/index.html is explicitly excluded by that filter, and
+  //    the 7 brand microsites are services/<name>/index.html, which the
+  //    services/<slug>-(oh|ky).html pattern never matches. All eight shipped two
+  //    badges where 187 pages shipped three, and this suite stayed green. Third
+  //    'guard defeated by its own list' failure logged in this repo.
+  //
+  //    So: forget who is *supposed* to have a cert bar. Any page shipping the GAF
+  //    badge image has one, and it must be complete. A new page cannot opt out by
+  //    not being on a list.
+  const withGafBadge = marketing.filter((f) => read(f).includes('gaf-certified-badge-120.png'));
+  const bad = withGafBadge.filter((f) => {
+    const s = read(f);
+    return !(s.includes('tamko-pro-gold-badge-120.png')
+      && s.includes('american-operator-badge-120.png')
+      && s.includes('data-nbd-certbar="v1"'));
+  }).map(rel);
+  ok(`cert bar is complete WHEREVER it appears (${withGafBadge.length} pages)`, bad.length === 0,
+    `${bad.length} incomplete: ` + bad.slice(0, 5).join(', '));
+}
+{
   // 4. CERT CLAIM GUARD — Joe is GAF Certified (System Plus) and TAMKO only.
   //    "Master Elite" is a higher GAF tier he does NOT hold; he holds no Owens
   //    Corning certification at all. Both names legitimately appear as honest
