@@ -212,39 +212,62 @@ diff contains zero `OURWORK` markers and touches neither `projects.json` nor
 `our-work.html`. Either pre-existing drift on `qc/site-sweep-2026-08-18` or a
 parallel session's in-flight state — **do not restamp it blind.**
 
-## Still open (from the 83 confirmed)
+## Shipped (continued) — waves 5, 4b, 6
 
-1. **Wave 6 gate widening — the highest-value item left.** Nothing requires a
-   marketing page to carry chrome markers, which is *why* the same ~29 files
-   keep coming back. New `check-chrome-governance.js`: walk `docs/` minus
-   `pro|admin|dev|assets`; every page with `<footer` or `class="nav-links"`
-   needs an `nbd:partial` marker **or** an `EXEMPT` entry with a reason. Seed
-   with today's list so page #23 fails CI. Also: assert the cert bar on the
-   *asset* not the marker (`gaf-certified-badge-120.png` ⇒
-   `american-operator-badge-120.png` + `data-nbd-certbar`) — ~4 lines that
-   would have caught both defects this session fixed.
-2. **Bytes:** Montserrat ships 6× under 6 filenames, byte-identical — 12 files,
-   594 KB, on 206 pages, and it is already a variable font. `quick-lead-form.css`
-   asks for Barlow Condensed, which no marketing page loads. 22 orphan assets
-   (~2.99 MiB).
-3. **`nav-tool` stamping** on the 5 hand-rolled funnel headers
-   (`.fr-`/`.sc-`/`.sr-`/`.topbar`). Not a drop-in — needs the mobile-nav
-   partial and its CSS block. Own commit.
-4. **Footer logo:** no footer *variant* uses the real `nbd-logo.png`; 56 pages
+| Commit | What |
+|---|---|
+| `4c12422b` | **copy + claims.** 4 unsourced stats cut (the GAF "2%" was worse than unsourced — that is GAF's *Master Elite* figure and the page claims GAF *Certified*, a lower tier). The 1–3% home-value claim lived only in JSON-LD with no visible answer, which breaks Google's FAQPage policy too. `login.html` sold an **"Infused" tier that exists in no plan table**; rewritten against pricing.html's real Free/Starter/Team/Growth/Enterprise. `support@`/`pro@` (12 instances, exist nowhere else) → `jd@`. Profanity back inside the documented 1–2 budget. "Text Us" → "Text Joe" ×201. 4 lead forms stopped using NBD's own number as the homeowner placeholder |
+| `5342bbe7` | **`/pro` chrome.** `terms.html` wore the full homeowner nav above a contractor footer; `pricing.html` had **no navigation at all** despite being sitemapped. `how-to.html` shipped `visibility:hidden` with a **non-deferred** reveal at line 1300 and no auth gate — an indexable page that renders nothing if that script fails. Canonical added, "NB" → "NBD", favicons un-crossed |
+| `52b311d8` | **fonts −594 KB.** 12 byte-identical duplicates. Verified they are *variable* fonts (fvar/gvar/STAT in the woff2 table directory) before collapsing, then proved in-browser that 400/700/900 still render three distinct widths. Caught a preload pointing at a deleted file on the way out. `.qlf-btn` on 154 pages asked for Barlow Condensed, **which no marketing page loads** |
+| `23e2290e` | **the gates** — see below |
+| `b21e0b99` | last `http-equiv="refresh"` in `docs/` → server 301, using the `/financing` precedent already in `firebase.json` |
+
+## The gate work (`23e2290e`) — read this one
+
+Three guards had failed the same way (list-based selection). All three fixed by
+attacking the shape:
+
+- **NEW `scripts/check-chrome-governance.js`**, wired into the zero-install
+  `site-integrity` CI job. Walks the tree; `EXEMPT` is a denylist of known-good
+  with a reason per entry, so **a new page defaults to failing**. Seeded with 24.
+  **Stale exemptions fail too** — and that check immediately rejected three
+  entries I had over-seeded, which is the point.
+- **`marketing-polish-contract.test.js`** gained a 4th cert-bar assertion keyed
+  on the *asset* not a file list (196 pages). `certBarTargets` never matched
+  `areas/index.html` or the 7 microsites, which is exactly how 8 pages shipped
+  two badges for six days with the suite green.
+- **`ensure-nav-css.js`** still carried the stale exclusion list
+  `ensure-icon-css.js` was widened out of **one day earlier**, including a dead
+  `free-guide` entry, so `docs/sites/**` was never walked.
+
+All three mutation-tested — each fails on the real defect and names the file.
+
+## Still open
+
+1. **`nav-tool` stamping** on the 5 hand-rolled funnel headers, and a
+   **`nav-microsite`** partial for the 7 brand microsites. Both are already
+   named in `check-chrome-governance.js`'s EXEMPT reasons; landing either one
+   makes the gate demand its own exemption be deleted.
+2. **Footer logo:** no footer *variant* uses the real `nbd-logo.png`; 56 pages
    show a text wordmark, only 4 hand-roll the image. Fix in the partials.
-5. **`/pro`:** `terms.html` wears the full homeowner nav above a contractor
-   footer; `pricing.html` has no nav at all and is in `sitemap-pro.xml`;
-   `how-to.html` starts `visibility:hidden` with a non-deferred reveal at line
-   1300 and no canonical; brand mark reads "NB". `qc-render-sweep` skips
-   `docs/pro` entirely.
-6. **Copy/claims:** "Text Us" → "Text Joe" (202 pages), two blog bios claiming
-   20+/15+ years against the canonical "7+", 4 unsourced statistics, invented
-   `support@`/`pro@` aliases, an "Infused" tier `login.html` sells that exists
-   in no plan table, 4 lead forms using NBD's own number as the homeowner
-   placeholder.
-7. **Deferred deliberately:** the footer "pro door" contrast (3.36:1) lives in
-   `footer-standard.html`, which `nbd-wt-fstd` is rewriting on
-   `feat/footer-standard-careers-partners`. Rebase first.
-8. **Jo's call, not mine:** "The Pledge" is a top-level nav item on 32 pages
-   and absent from 162. Adding it to `nav-standard` changes the primary nav on
-   159 pages — a product decision, left alone.
+3. **17 orphan assets, 1.87 MiB — deliberately NOT deleted.** Most are brand
+   *masters* (`gaf-certified-badge.png`, `-800`, the TAMKO logo set) that the
+   `-120`/`-320` variants in use were cut from, plus `roofing-3/4.jpg|webp`
+   (~950 KB) and 6 project WebP variants. Deleting a master to save bytes
+   nobody downloads is a bad trade; `hosting.ignore` is the better lever if the
+   goal is deploy size. Jo's call.
+4. **`/our-work` ships the same photo as two different jobs** —
+   `after-brick-completed.jpg` and `completed-multisection.jpg` are md5-identical
+   (`839995285c…`). Fixing it needs a *different* photo of that job, so it is a
+   content decision, not a code one. Also note `build-projects.mjs --check`
+   already fails at `cfb627bc` (pre-existing, see above) — do not restamp blind.
+5. **`dashboard.legacy.html`** still sits beside `dashboard.html`, ~670 diff
+   lines apart.
+6. **`qc-render-sweep` skips `docs/pro` entirely** (`SKIP_DIRS`, line 63). Now
+   that the public funnel has stable chrome, adding the 4 sitemapped pro pages
+   + `docs/pro/blog/*` to `PRO_PUBLIC` is cheap coverage.
+7. **Deferred for collision:** the footer "pro door" contrast (3.36:1) is in
+   `footer-standard.html`, which `nbd-wt-fstd` is rewriting. Rebase first.
+8. **Jo's call, untouched:** "The Pledge" is top-level nav on 32 pages and
+   absent from 162. Adding it to `nav-standard` changes the primary nav on 159
+   pages — a product decision.
