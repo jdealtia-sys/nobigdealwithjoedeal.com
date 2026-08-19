@@ -136,10 +136,25 @@
 
 ## Agent-session backlog (ranked — pick one per session)
 
-1. **Phase-2 tenant-owned cost book** — migrate the EBv2 CATALOG (28
-   entries) AND estimate-catalog-xactimate.js (276 entries) out of the
-   public tree; both are pinned in the cost-privacy KNOWN_UNMIGRATED
-   ledger ([audit 2026-08-10](../audit/SITE-AUDIT-LOOSE-ENDS-2026-08-10.md))
+1. **ROTATE the three published cost baselines** — NOT a migration. Nothing
+   can be stripped from `estimate-builder-v2.js` (28), `estimate-catalog-
+   xactimate.js` (276) or `estimate-labor-catalog.js` (66): those figures ARE
+   the pricing and removing them turns the estimator off. The override paths
+   shipped 2026-08-19, so all that remains is Jo filling a worksheet and one
+   import per catalog. **This is the only forcing function there is** — no
+   test can see a Firestore write, so nothing in CI will ever nag about it,
+   deliberately (a scheduled red on the cost-privacy guard is a countdown on
+   the guard). Every run prints `ROTATION OUTSTANDING — 3 of 3`; the state
+   lives in `tests/cost-basis-ledger.js`.
+   ```
+   node scripts/cost-rotation.js --catalog all --worksheet
+   node scripts/cost-rotation.js --catalog <id> --apply .local/rotation-<id>.json
+   node scripts/import-cost-rotation.js --catalog <id> --company <id> --yes
+   ```
+   The last command prints the `rotation:` block to paste into the ledger, and
+   pasting it is what closes the item ([Phase-2
+   brief](PHASE2-PUBLISHED-COST-BASIS-BRIEF-2026-08-18.md) ·
+   [audit 2026-08-10](../audit/SITE-AUDIT-LOOSE-ENDS-2026-08-10.md))
 2. Jobs-posting **phase 2**: admin "Post a Job" form + PR bot (roadmap in
    [NEXT_SESSION-2026-08-10](NEXT_SESSION-2026-08-10.md))
 3. **Dead-functions wire-or-retire lane** — 7 deployed exports with no

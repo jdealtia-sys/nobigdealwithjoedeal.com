@@ -55,6 +55,8 @@ const { execFileSync } = require('child_process');
 
 const ROOT = path.join(__dirname, '..');
 const { hasPrivateFields } = require(path.join(ROOT, 'functions', 'catalog-cost-logic.js'));
+const REG = require(path.join(ROOT, 'functions', 'cost-basis-registry.js'));
+const LED = require(path.join(__dirname, 'cost-basis-ledger.js'));
 
 let passed = 0, failed = 0;
 const fails = [];
@@ -223,6 +225,24 @@ const STRICT_EXEMPT = {
          'not a job cost basis and not tied to any quoted line item.',
     allow: /doorHangers|postcards|facebookAds|suggestedBudget/,
   },
+  'pro/js/estimate-builder-v2.js': {
+    why: 'Replaces the WHOLESALE layer-3 skip this file used to get for being on ' +
+         'KNOWN_UNMIGRATED. Three declared line shapes, measured: 37 raw hits = ' +
+         'the 28 CATALOG `cost: N, labor: N` pairs that ARE this file\'s published ' +
+         'starter baseline (owned by the ledger in section 2c and by the layer-4 ' +
+         'sweep, which see the PAIR rather than the word); the 7 county permit ' +
+         'fees, the identical shape already exempted in estimate-config.js; and ' +
+         'two explicit `materialCost: 0` / `laborCost: 0` zeros, which are a ' +
+         'default and not a cost basis. Naming the shapes is strictly narrower ' +
+         'than skipping the file, so a bare `cost: 340` with no paired labor — ' +
+         'the real 2026-08-10 DEFAULT_COST_BASIS leak class — now FAILS here ' +
+         'where it used to be invisible.',
+    allow: /\bcost:\s*-?[\d.]+\s*,\s*labor:\s*-?[\d.]+|County,\s*(?:OH|KY)|(?:material|labor)Cost:\s*0\b/,
+  },
+  // estimate-catalog-xactimate.js deliberately gets NO entry. It was skipped
+  // wholesale until 2026-08-19 and, measured, scores ZERO raw strict hits — the
+  // skip bought nothing. An exemption here would be vacuous and would fail the
+  // non-vacuity assertion below, which is the correct outcome.
   'blog/owens-corning-duration-vs-tamko-hailguard.html': {
     why: 'Prose false positive: "…through a TAMKO Pro Gold certified contractor: ' +
          '20-year Full Start…". A sentence colon before a numeral, not a ' +
@@ -283,52 +303,38 @@ function scanCostBasis(rel, src) {
   return out;
 }
 
-// KNOWN, UNCLOSED leaks. Each entry is debt recorded in code rather than in a
-// commit message, and each is asserted to STILL be leaking below — so when one
-// is migrated the guard fails and tells you to delete the line, and the list
-// can never quietly rot into a permanent exemption.
-// 2026-08-19 — READ THIS BEFORE "FINISHING" EITHER ENTRY BELOW.
+// PUBLISHED STARTER BASELINES — what replaced KNOWN_UNMIGRATED (2026-08-19).
 //
-// Both remaining files now have a tenant-book OVERRIDE path
-// (NBD_XACT_CATALOG.find → xactCosts, EstimateBuilderV2 settings.catalog →
-// v2Costs), so a company's own figures win at every pricing site. What they
-// still publish is a STARTER BASELINE, and that is deliberate: unlike the
-// labor catalog's crew productivity, neither has a field that can simply
-// leave. These values ARE the pricing, there is no public retail half to fall
-// back on, and stripping them leaves a new tenant unable to produce an
-// estimate at all — measured, a full reroof drops to the minimum-job floor
-// with every line at 0.
+// KNOWN_UNMIGRATED asked ONE question of TWO different things, and only one of
+// them is answerable from this repo:
 //
-// So these entries do NOT close by deleting figures. They close when the
-// published baseline is no longer anyone's actual cost — i.e. after rotation
-// (scripts/cost-rotation.js). Until then the assertion below is honest: the
-// file is still leaking, because the baseline IS NBD's real number today.
-const KNOWN_UNMIGRATED = {
-  'pro/js/estimate-builder-v2.js':
-    'Phase 2 (2026-07-30): 28 CATALOG entries carry cost + labor, plus ' +
-    'DEFAULT_MATERIAL_MARKUP_PCT. Same class as the product-data.js leak, ' +
-    'different subsystem (EstimateBuilderV2.CATALOG, not NBD_PRODUCTS) — it ' +
-    'needs its own tenant-owned book and hydration path. NOT closed by the ' +
-    'catalogCosts migration. (2026-08-10: the hardcoded DEFAULT_COST_BASIS ' +
-    'per-SQ figures WERE closed — zeroed, tenant-config only — but the ' +
-    'CATALOG entries remain.)',
-  'pro/js/estimate-catalog-xactimate.js':
-    'Found 2026-08-10 audit: 276 mat/lab unit-cost line items (Cincinnati ' +
-    'regional supplier pricing + in-house productivity data, per its own ' +
-    'header) served unauthenticated. Evaded the sweep via abbreviated keys ' +
-    '(mat:/lab: — now caught by COST_BASIS_ABBREV_RE). Belongs to the same ' +
-    'Phase-2 tenant-owned cost-book migration as estimate-builder-v2.js ' +
-    'CATALOG; migrate both together, then delete both entries here.',
-  // pro/js/estimate-labor-catalog.js was here from 2026-08-18 until the
-  // productivity migration the next day. It is NOT tracked by the shape sweep
-  // any more, and that is not an oversight — see LABOR CATALOG below, which
-  // replaces it with a file-scoped pair of assertions. Removing hoursPerUnit
-  // made COST_BASIS_LABOR_RE (which matches `rate:` PAIRED with it) go blind
-  // on this file while 66 published `rate:` values remained. Pairing is what
-  // makes these patterns precise enough to run tree-wide; the price is that
-  // removing one half blinds it. A shape-based list was the wrong tool once
-  // the file became half-migrated.
-};
+//   (a) does this file publish a contractor cost basis? OBSERVABLE, and for
+//       these files PERMANENT — the baseline IS the product. Strip it and the
+//       estimator does not degrade, it turns OFF (measured: a full reroof drops
+//       from $12,425 to the $2,500 minimum-job floor with every line at 0,
+//       because these values are the pricing and there is no public retail half).
+//
+//   (b) is that published basis still the shop's ACTUAL cost? NOT OBSERVABLE.
+//       It stops being true at ROTATION, which writes catalogCosts/{companyId}
+//       in Firestore and does not move one byte of this repo.
+//
+// The non-vacuity assertion below only ever checked (a) — "the sweep still
+// finds pairs here" — while its LABEL claimed (b): "still leaking, keep
+// tracking it". The day rotation lands the file is byte-identical, the sweep
+// still finds 276 pairs, the assertion still passes, and the guard goes on
+// printing a sentence that has become false with nothing anywhere prompting a
+// revisit. That is a tracked debt rotting into a permanent carve-out by a route
+// non-vacuity structurally cannot see: the file still matches, and the REASON
+// changed.
+//
+// So (a) is asserted here and (b) is SIGNED, per catalog, in
+// tests/cost-basis-ledger.js — a dated, named, per-tenant record a human pastes
+// from what scripts/import-cost-rotation.js prints after a successful write.
+// `rotation: null` is the honest default and is what a green run PRINTS. See
+// section 2c below, and the ledger's header for why the pin is a commit rather
+// than a digest.
+const LEDGER = LED.LEDGER;
+const LEDGER_FILES = new Set(Object.keys(LEDGER).map((id) => LEDGER[id].publishedIn));
 
 /* ── the published tree (firebase.json hosting.ignore aware) ───────────── */
 
@@ -408,10 +414,15 @@ const exemptHits = new Map();
 let strictScanned = 0;
 scannable.forEach((rel) => {
   const src = fs.readFileSync(path.join(HOSTING_ROOT, rel), 'utf8');
-  // A file already tracked as a KNOWN, UNCLOSED leak is exempt here — it is
-  // asserted to be STILL leaking at layer 4, so re-reporting it at layer 3
-  // adds noise without adding a single bit of information.
-  if (rel in KNOWN_UNMIGRATED) return;
+  // 2026-08-19: the wholesale skip for KNOWN_UNMIGRATED files is GONE. It was
+  // a two-name blanket exemption — the shape this suite has twice been beaten
+  // by — and it was mostly unnecessary: measured, estimate-catalog-xactimate.js
+  // scores ZERO raw strict hits, so its skip bought nothing at all, and
+  // estimate-builder-v2.js scores 37, every one of which is a nameable line
+  // shape (see STRICT_EXEMPT). Naming the shapes is strictly narrower than
+  // skipping the file, so layer 3 gains coverage it never had: a bare
+  // `cost: 340` with no paired labor inside EBv2 now FAILS where it was
+  // invisible. strictScanned 606 → 608, no skips left.
   strictScanned++;
   const exempt = STRICT_EXEMPT[rel];
   const hits = scanStrict(rel, src, exempt && exempt.allow);
@@ -440,7 +451,7 @@ Object.keys(STRICT_EXEMPT).forEach((f) => {
 ['pro/js/product-data.js', 'pro/js/roofivent-catalog.js', 'pro/js/catalog-costs.js',
  'pro/js/product-library.js', 'pro/js/job-templates-data.js'].forEach((f) => {
   ok('pricing-data file is published and in strict scope: ' + f,
-     scannable.includes(f) && !(f in STRICT_EXEMPT) && !(f in KNOWN_UNMIGRATED));
+     scannable.includes(f) && !(f in STRICT_EXEMPT));
 });
 
 // ── layer 4: cost-basis sweep over the whole published tree ──────────────
@@ -450,86 +461,226 @@ scannable.forEach((rel) => {
   if (hits.length) basisByFile.set(rel, hits);
 });
 
-const unexpected = Array.from(basisByFile.keys()).filter((f) => !(f in KNOWN_UNMIGRATED));
-ok('no UNKNOWN published file carries an internal cost basis (' +
+const unexpected = Array.from(basisByFile.keys()).filter((f) => !LEDGER_FILES.has(f));
+ok('no UNDECLARED published file carries an internal cost basis (' +
    (unexpected.join(', ') || 'none') + ')', unexpected.length === 0);
 
-// Non-vacuity, both directions. The sweep must actually be finding the known
-// leak (otherwise the regex is broken and the guard is theatre), and a known
-// entry that has stopped leaking must be deleted from the list.
-Object.keys(KNOWN_UNMIGRATED).forEach((f) => {
-  ok('KNOWN UNMIGRATED still leaking, keep tracking it: ' + f +
-     ' (' + ((basisByFile.get(f) || []).length) + ' entries)',
-     (basisByFile.get(f) || []).length > 0);
+// The migrated catalogs, asserted as POSITIVES (zero entries in the sweep),
+// never as an absence from a list — an absence is what let job-templates-data.js
+// leak for a month. These three are DONE: nothing published, nothing to rotate,
+// and they are not ledger rows because there is nothing left to declare.
+['pro/js/product-data.js', 'pro/js/roofivent-catalog.js', 'pro/js/job-templates-data.js'].forEach((f) => {
+  ok('MIGRATED catalog reports ZERO cost-basis entries in the tree sweep: ' + f +
+     ' (' + ((basisByFile.get(f) || []).length) + ')',
+     (basisByFile.get(f) || []).length === 0 && !LEDGER_FILES.has(f));
 });
 
-ok('the migrated catalogs are NOT in the known-unmigrated list',
-   !('pro/js/product-data.js' in KNOWN_UNMIGRATED) &&
-   !('pro/js/roofivent-catalog.js' in KNOWN_UNMIGRATED) &&
-   !('pro/js/job-templates-data.js' in KNOWN_UNMIGRATED));
-
-// The migration this suite was extended for. Asserted as a POSITIVE (zero
-// entries in the sweep), not as an absence from a list — an absence is what
-// let this file leak for a month.
-ok('job-templates-data.js reports ZERO cost-basis entries in the tree sweep (' +
-   ((basisByFile.get('pro/js/job-templates-data.js') || []).length) + ')',
-   (basisByFile.get('pro/js/job-templates-data.js') || []).length === 0);
-
-/* ── 2a0. THE OVERRIDE PATHS EXIST — a baseline you cannot override is a leak ── */
+/* ── 2c. THE ROTATION LEDGER — what is published, and who signed for it ─── */
 //
-// Every "deliberately published baseline" argument in this file depends on the
-// tenant book actually winning at pricing. If an override path is ever removed
-// or renamed, the baseline stops being a starting point and goes back to being
-// simply the price — which is the leak, restored, with a reassuring comment on
-// top. Static, because the behavioural assertions live in
-// tests/cost-basis-registry.test.js; this is the tripwire.
+// This section replaces the KNOWN_UNMIGRATED non-vacuity loop, the hardcoded
+// three-row override-path table that used to be 2a0, and two thirds of the
+// hand-written labor-catalog block. One table, derived from
+// functions/cost-basis-registry.js (files, fields and entry loaders) and
+// tests/cost-basis-ledger.js (the human half). A fourth catalog is a registry
+// entry plus a ledger row, not another filename pasted into this file.
+//
+// TWO PROPOSITIONS, AND ONLY ONE OF THEM IS ASSERTABLE.
+//
+//   OBSERVABLE — the baseline is still published, whatever the registry says
+//   must LEAVE has left, the tenant override path is still wired, and layer 4's
+//   shape sweep still sees exactly the files it is declared to see. All
+//   asserted below, per row, off a STRUCTURAL entry count (REG.pricedEntries)
+//   rather than a regex hit count — which is the direct fix for the bug that
+//   knocked the labor catalog off the old list: removing hoursPerUnit blinded
+//   COST_BASIS_LABOR_RE on 66 still-published rates, and a shape-based list
+//   cannot express "this half is closed and that half is deliberately open".
+//
+//   NOT OBSERVABLE — whether the shop's figures have been ROTATED. That happens
+//   in catalogCosts/{companyId}, in Firestore. There is nothing in this repo to
+//   read, and any mechanism claiming to detect it automatically is lying about
+//   what it can do. So it is a signed human record, and while it is null the
+//   guard says the true thing on every green run: these published figures ARE
+//   the shop's cost basis today.
+//
+// WHY THERE IS NO REVIEW CLOCK HERE, since it is the obvious instrument and was
+// deliberately rejected. A deadline that only Jo can legitimately clear turns
+// this suite — the one thing standing between the cost book and the public tree
+// — into a scheduled red on every unrelated PR. tests/ci-manifest.json already
+// ships a `quarantined` bucket ("known-red with a dated reason, not run"), so
+// the cheapest response to that red is one line that disables all ~100
+// assertions here, including the tree-wide sweep. A countdown on the guard is
+// not a forcing function; it is a countdown on the guard. The deadline belongs
+// where Jo plans from — documentation/projects/WEEKLY_CADENCE.md and the
+// handoff brief — and this file's job is to make sure that when the work IS
+// done, saying so is one paste, and that nothing here claims it was done until
+// somebody does.
+//
+// WHAT DOES FIRE, and it is the only repo-observable event that matters here:
+// a line item being REPRICED while a rotation claim stands. That is the innocuous
+// PR — "update the catalog to current pricing" — that silently re-publishes the
+// actuals and un-stales a rotated baseline. Measured across the entire history
+// of all three catalogs (24 commits: two refactors, a security strip, the TAMKO
+// preset, two warranty-accuracy corrections, the county-permit unification, the
+// globals tranche, the crew-productivity migration): items were ADDED 9 times
+// and REMOVED 3 times, and an existing key's published cost value was repriced
+// exactly ZERO times. So composition change is reported, never failed, and the
+// repricing check has a measured false-positive rate of zero over the whole
+// history — which is what stops it being loosened by the next person the way a
+// syntax-pinned guard was on 2026-08-19.
 
-console.log('\ncatalog cost privacy — tenant override paths are wired');
+console.log('\ncatalog cost privacy — the rotation ledger (published baselines, per catalog)');
 console.log('──────────────────────────────────────────────────');
 
-[
-  ['pro/js/estimate-labor-catalog.js', /laborOp\s*\(/, 'NBD_LABOR.get → laborOps'],
-  ['pro/js/estimate-catalog-xactimate.js', /xactCost\s*\(/, 'NBD_XACT_CATALOG.find → xactCosts'],
-  ['pro/js/estimate-builder-v2.js', /_withTenantCosts\s*\(/, 'EstimateBuilderV2 settings.catalog → v2Costs'],
-].forEach(([rel, re, what]) => {
+const rotationDebt = [];
+// Proof this section actually RAN against the real tree. LED.rotationFindings
+// is a pure function, so section 4g can drive every branch of it on synthetic
+// rows — and a pure function that nothing calls is a mechanism that has been
+// unwired while all its mutation tests stay green. Delete the loop below and
+// this goes empty; delete the whole block and 4g throws. Either way it cannot
+// go quietly green, which is the one thing a bolt-on must not be able to do.
+const ledgerChecked = [];
+
+Object.keys(LEDGER).forEach((id) => {
+  const row = LEDGER[id];
+  const rel = row.publishedIn;
   const abs = path.join(HOSTING_ROOT, rel);
   const src = fs.existsSync(abs) ? fs.readFileSync(abs, 'utf8') : '';
-  ok('override path wired: ' + what, /NBDCatalogCosts/.test(src) && re.test(src));
+  const code = stripComments(src);
+  const catalog = REG.CATALOGS[id];
+  const figures = catalog ? LED.publishedFigures(catalog, 'worktree') : null;
+  const nEntries = figures ? Object.keys(figures).length : 0;
+  const swept = (basisByFile.get(rel) || []).length;
+
+  // (0) NON-VACUITY FOR EVERYTHING BELOW IT. The row names a real catalog, the
+  //     file is really published, and it really loads into priced entries. A
+  //     catalog that stopped loading would make every assertion under it pass
+  //     silently, which is the failure mode this whole section exists to end.
+  ok('ledger row "' + id + '" names a registered catalog whose file is published and loads (' +
+     rel + ', ' + nEntries + ' priced entries)',
+     !!catalog && published.includes(rel) && nEntries > 0);
+
+  // (a) THE CLOSED HALF — whatever the registry declares must LEAVE has left,
+  //     structurally AND textually, because a shared constant that feeds no
+  //     entry parses clean while still publishing the figure (the CRLF
+  //     near-miss of 2026-08-19). `unpublished: []` is itself a declaration and
+  //     PRINTS as one, so an empty loop never passes as a silent green.
+  const gone = (catalog && catalog.unpublished) || [];
+  const still = gone.reduce((acc, f) => {
+    const n = (code.match(new RegExp('\\b' + f + '\\s*:', 'g')) || []).length;
+    return n ? acc.concat([f + ' ×' + n]) : acc;
+  }, []);
+  ok('ledger row "' + id + '" publishes nothing the registry says must leave (' +
+     (gone.length
+       ? (still.join(', ') || 'clean: ' + gone.join(', '))
+       : 'registry declares unpublished: [] — nothing here CAN leave, the figures ARE the pricing')
+     + ')', still.length === 0);
+
+  // (b) THE OPEN HALF — asserted PRESENT, on purpose. If a baseline ever
+  //     vanishes, a tenant with no cost book can no longer price anything.
+  //     Whoever removes one should have to come here and say so.
+  ok('ledger row "' + id + '" still publishes its starter price book (' + nEntries +
+     ' entries, floor ' + row.minEntries + ') — DELIBERATE: stripping it turns the ' +
+     'estimator off rather than degrading it, and rotation is what makes it safe',
+     nEntries >= row.minEntries);
+
+  // (c) THE OVERRIDE PATH — a baseline you cannot override is not a baseline,
+  //     it is simply the price. Two independent tokens, no proximity window.
+  ok('ledger row "' + id + '" is actually overridable: ' + row.overrideWhat,
+     /NBDCatalogCosts/.test(src) && row.overrideMarker.test(src));
+
+  // (d) THE SHAPE SWEEP SEES WHAT IT IS DECLARED TO SEE — both directions.
+  //     Declared visible and finding nothing means a layer-4 pattern broke;
+  //     declared invisible and finding something means a migrated field came
+  //     back. Neither can pass as the other, and neither can pass as "fine".
+  ok('ledger row "' + id + '" matches its declared layer-4 visibility (' + swept +
+     ' swept, expected ' + (row.sweptByShape ? '>0' : '0 — the paired regex is blind here since ' +
+     'the productivity half migrated out, which is why this row is tracked structurally') + ')',
+     row.sweptByShape ? swept > 0 : swept === 0);
+
+  // (e) ROTATION — the one fact no test can observe, so it is a signed CLAIM,
+  //     and a claim can only be checked for being well formed, for clearing the
+  //     same coverage floor scripts/cost-rotation.js refuses below, and for
+  //     still covering the figures it was made about.
+  const r = row.rotation;
+  let ctx = {};
+  if (r && typeof r === 'object' && typeof r.basisAt === 'string' && /^[0-9a-f]{7,40}$/.test(r.basisAt)) {
+    const basisDate = LED.commitDate(r.basisAt);
+    const then = basisDate && catalog ? LED.publishedFigures(catalog, r.basisAt) : null;
+    ctx = { basisDate, drift: (then && figures) ? LED.comparePublished(then, figures) : null };
+  }
+  const findings = LED.rotationFindings(id, row, ctx);
+  findings.forEach((x) => console.log('  ! ' + x));
+  ledgerChecked.push(id + ':' + nEntries);
+
+  if (r === null || r === undefined) {
+    rotationDebt.push(id + ' — ' + rel.split('/').pop() + ', open since ' + row.opened);
+    ok('ledger row "' + id + '" — NOT ROTATED (open since ' + row.opened + '): the ' + nEntries +
+       ' published figures in ' + rel + ' ARE the shop\'s cost basis today, and nothing in ' +
+       'this repo can see when that stops being true',
+       findings.length === 0);
+  } else {
+    const d = ctx.drift;
+    ok('ledger row "' + id + '" — ROTATED ' + (r.at || '?') + ' by ' + (r.by || '?') +
+       ' for company ' + (r.company || '?') + ' (' + Math.round((r.coverage || 0) * 100) +
+       '% of the basis), signed against ' + (r.basisAt || '?') +
+       (d ? '; since then +' + d.added.length + ' / -' + d.removed.length + ' line items, ' +
+            d.repriced.length + ' repriced' : ''),
+       findings.length === 0);
+  }
 });
 
-/* ── 2a. LABOR CATALOG — half migrated, so asserted per-file ────────────── */
-//
-// estimate-labor-catalog.js is the first file to be PARTIALLY migrated, and it
-// needs its own treatment because the shape sweep cannot express "this half is
-// closed and that half is deliberately open".
-//
-//   crew productivity (hoursPerUnit / crewSize / ratePerManHour) — GONE. Read
-//   at two sites, both a pass-through in resolveLabor; nothing customer-facing
-//   consumed it, so removing it cost a tenant nothing. Now tenant-owned at
-//   catalogCosts/{companyId}.laborOps.
-//
-//   `rate` — DELIBERATELY STILL PUBLISHED, as a starter baseline. Stripping it
-//   would turn the estimator off rather than degrade it (no public retail half
-//   to price from). What makes it safe is staleness, not secrecy: the values
-//   are readable at every past commit regardless, and the shop's ROTATED
-//   figures live in the tenant book and override them.
-//
-// Both halves are asserted, in both directions, so neither can drift: the
-// productivity half cannot come back, and the baseline half cannot quietly
-// vanish (which would break onboarding) or quietly stop being a baseline.
+// THE LEDGER CANNOT BECOME THE NEXT INCOMPLETE LIST — closed in both
+// directions, because a hole in an inclusion list is indistinguishable from a
+// pass and this suite has learned that twice.
+//   forward   every file the SWEEP finds must be a ledger row (asserted above,
+//             at layer 4: "no UNDECLARED published file carries a cost basis").
+//   backward  every catalog the ROTATION TOOLING can rotate must have a row, so
+//             a fifth cost catalog cannot get tooling without a declared state.
+Object.keys(REG.CATALOGS).forEach((id) => {
+  ok('rotation catalog "' + id + '" has a ledger row (functions/cost-basis-registry.js can ' +
+     'rotate it, so something here must say what its published file is doing)',
+     Object.prototype.hasOwnProperty.call(LEDGER, id));
+});
 
-console.log('\ncatalog cost privacy — labor catalog (half migrated, per-file)');
+// NOT an assertion, deliberately. An open obligation is not a failing build:
+// CI would be red on main for as long as it takes Jo to do data entry, and a
+// permanently red gate is a gate that gets quarantined. This is a line with a
+// number in it, printed on every run, that only shrinks when the work is done.
+if (rotationDebt.length) {
+  console.log('\n  ROTATION OUTSTANDING — ' + rotationDebt.length + ' of ' +
+              Object.keys(LEDGER).length + ' published baselines:');
+  rotationDebt.forEach((d) => console.log('    · ' + d));
+  console.log('  The published baseline is not the problem; its ACCURACY is. To close one:');
+  console.log('    node scripts/cost-rotation.js --catalog <id> --worksheet');
+  console.log('    node scripts/cost-rotation.js --catalog <id> --apply .local/rotation-<id>.json');
+  console.log('    node scripts/import-cost-rotation.js --catalog <id> --company <id> --yes');
+  console.log('  That last command prints the exact `rotation:` block to paste into');
+  console.log('  tests/cost-basis-ledger.js, on success. NOTHING HERE CAN DETECT THAT YOU DID');
+  console.log('  IT — rotation changes Firestore, not this repo. Recording it IS the job.');
+}
+
+/* ── 2a. LABOR CATALOG — the half that CLOSED (the open half is a ledger row) ── */
+//
+// estimate-labor-catalog.js was this codebase's first PARTIAL migration.
+// Everything generic about it — the baseline still present, the override path,
+// the layer-4 visibility, the rotation state — is now a ledger row above, in one
+// table with the other two, and duplicating it here would only invite the two
+// copies to disagree. What stays is the genuinely file-specific half: the
+// productivity strip, asserted structurally AND textually, because a shared
+// constant that feeds no entry parses clean while still publishing the figure.
+// That is the CRLF near-miss (`const CREW = 4` / `const RATE_PER_MH = 35`
+// survived a codemod whose `.*` tail never matched across `\r\n`), and it
+// belongs nowhere else.
+
+console.log('\ncatalog cost privacy — labor catalog (the closed half)');
 console.log('──────────────────────────────────────────────────');
 
 {
   const rel = 'pro/js/estimate-labor-catalog.js';
   const abs = path.join(HOSTING_ROOT, rel);
   ok('labor catalog is published (the assertions below are not vacuous)', fs.existsSync(abs));
-  const src = fs.existsSync(abs) ? fs.readFileSync(abs, 'utf8') : '';
-  const code = stripComments(src);
+  const code = stripComments(fs.existsSync(abs) ? fs.readFileSync(abs, 'utf8') : '');
 
-  // (a) the closed half — structural AND textual, because a shared constant
-  // that feeds no entry parses clean while still publishing the figure.
   const PRODUCTIVITY = ['hoursPerUnit', 'crewSize', 'ratePerManHour'];
   const prodHits = PRODUCTIVITY.reduce((acc, f) => {
     const n = (code.match(new RegExp('\\b' + f + '\\s*:', 'g')) || []).length;
@@ -539,19 +690,6 @@ console.log('──────────────────────�
      prodHits.length === 0);
   ok('no orphaned crew/man-hour constant survives the strip',
      !/\bconst\s+(?:CREW|RATE_PER_MH)\s*=/.test(code));
-
-  // (b) the open half — asserted PRESENT. If these rates ever vanish, a tenant
-  // with no cost book can no longer price anything, which is the failure the
-  // baseline exists to prevent. Whoever removes them should have to come here
-  // and say so.
-  const rateCount = (code.match(/\brate\s*:\s*-?\d/g) || []).length;
-  ok('labor catalog still publishes its starter baseline (' + rateCount + ' rates) — ' +
-     'deliberate: stripping it turns the estimator off, and rotation is what makes it safe',
-     rateCount >= 60);
-
-  // (c) the tenant override path exists, so the baseline is actually
-  // overridable rather than merely described as such.
-  ok('NBD_LABOR.get() consults the tenant cost book', /NBDCatalogCosts[\s\S]{0,200}laborOp\s*\(/.test(src));
 }
 
 /* ── 2b. THE REPO IS PUBLIC TOO — no real cost pair outside docs/ ───────── */
@@ -843,6 +981,146 @@ console.log('──────────────────────�
   const fallbacks = [...boot.matchAll(/v2cost(?:Good|Better|Best)'\)?,?\s*(?:\.value\s*=\s*s\.costBasis\?\.\w+\s*\?\?\s*|)(\d+)/g)].map((x) => Number(x[1]));
   ok('dashboard-bootstrap v2cost* fallbacks are all zero (6 sites: form fill + save)',
      fallbacks.length >= 6 && fallbacks.every((n) => n === 0));
+}
+
+// 4g. THE ROTATION LEDGER. This one needs mutation testing more than any layer
+// above it, because in normal operation every row is `rotation: null` and the
+// drift machinery does nothing at all — a mechanism whose real behaviour first
+// runs months from now, on a day nobody is watching, is a mechanism nobody has
+// ever seen work. Driven here on synthetic rows AND on the real git history.
+{
+  // A well-formed record, in the shape import-cost-rotation.js prints.
+  const GOOD = () => ({ rotation: {
+    at: '2026-09-02T14:11:03.918Z', by: 'jo', company: 'nbd', coverage: 0.83, basisAt: '0d188325',
+  } });
+  const CLEAN = { added: [], removed: [], repriced: [] };
+  const CTX = (drift) => ({ basisDate: '2026-08-19T05:05:31-04:00', drift: drift || CLEAN });
+
+  // THE MECHANISM IS WIRED. LED.rotationFindings is pure, so everything below
+  // this line would pass just as happily with section 2c deleted. This is the
+  // assertion that says it was actually applied to the real rows.
+  ok('the ledger is WIRED: section 2c evaluated every row against the real tree (' +
+     (ledgerChecked.join(', ') || 'NOTHING') + ')',
+     ledgerChecked.length === Object.keys(LEDGER).length &&
+     Object.keys(LEDGER).every((id) => ledgerChecked.some((c) => c.split(':')[0] === id)) &&
+     ledgerChecked.every((c) => Number(c.split(':')[1]) > 0));
+
+  ok('control: rotation: null is a legal, permanent, honest state and never fails',
+     LED.rotationFindings('xact', { rotation: null }, {}).length === 0);
+  ok('control: a well-formed rotation record over undrifted figures is clean',
+     LED.rotationFindings('xact', GOOD(), CTX()).length === 0);
+
+  // ── THE EVENT THE PIN EXISTS FOR ────────────────────────────────────────
+  // "update the catalog to current pricing" — the innocuous PR that
+  // re-publishes the actuals and silently un-stales a rotated baseline. Under
+  // the old counting assertion this was invisible: 276 pairs before, 276
+  // after, green throughout.
+  ok('MUTANT killed: a line item REPRICED while a rotation claim stands',
+     LED.rotationFindings('xact', GOOD(), CTX({ added: [], removed: [], repriced: ['RFG 240'] })).length === 1);
+  // …and the negative control that decides whether this mechanism survives its
+  // third catalog PR. Measured over the entire history of all three catalogs:
+  // 9 additions, 3 removals, ZERO repricings. A whole-multiset digest reds on
+  // all twelve; this reds on none of them.
+  ok('control: line items ADDED and REMOVED do NOT fire — measured, that is 100% of ' +
+     'what has ever moved these catalogs',
+     LED.rotationFindings('xact', GOOD(),
+       CTX({ added: ['RFG 998', 'RFG 999'], removed: ['RFG 001'], repriced: [] })).length === 0);
+
+  // ── THE PASTE-OVER, which is how a pinned-HASH design gets defeated ──────
+  // With a stored digest, the cheapest response to a drift failure is to paste
+  // the hex the failure just printed. There is no equivalent here: re-pointing
+  // basisAt at the commit that CONTAINS the reprice makes the recorded date
+  // precede its own basis.
+  {
+    const evade = GOOD();
+    evade.rotation.basisAt = 'fef0f560';
+    ok('MUTANT killed: basisAt re-pointed at a later commit to clear a reprice, without ' +
+       'moving rotation.at (the hash-paste evasion, refused by arithmetic)',
+       LED.rotationFindings('xact', evade,
+         { basisDate: '2027-03-14T09:00:00-04:00', drift: CLEAN }).length === 1);
+  }
+  {
+    const ghost = GOOD();
+    ghost.rotation.basisAt = 'deadbee';
+    ok('MUTANT killed: basisAt names a commit that is not in this repo',
+       LED.rotationFindings('xact', ghost, { basisDate: null, drift: null }).length === 1);
+  }
+  ok('MUTANT killed: the figures at basisAt cannot be read, so the claim is unverifiable ' +
+     '(a shallow checkout — add fetch-depth: 0 to the job in .github/workflows/ci.yml)',
+     LED.rotationFindings('xact', GOOD(), { basisDate: '2026-08-19T05:05:31-04:00', drift: null }).length === 1);
+
+  // ── A CLAIM IS A PERSON, A TENANT, A DATE AND A NUMBER ──────────────────
+  ok('MUTANT killed: rotation: true — a claim nobody signed',
+     LED.rotationFindings('xact', { rotation: true }, {}).length === 1);
+  { const m = GOOD(); delete m.rotation.by;
+    ok('MUTANT killed: an unsigned rotation', LED.rotationFindings('xact', m, CTX()).length === 1); }
+  { const m = GOOD(); delete m.rotation.company;
+    ok('MUTANT killed: a rotation with no tenant — catalogCosts/{companyId} is PER COMPANY, ' +
+       'and every other tenant keeps the published baseline as their live pricing',
+       LED.rotationFindings('xact', m, CTX()).length === 1); }
+  { const m = GOOD(); m.rotation.coverage = 0.11;
+    ok('MUTANT killed: coverage below the 50% floor cost-rotation.js itself refuses at',
+       LED.rotationFindings('xact', m, CTX()).length === 1); }
+  { const m = GOOD(); m.rotation.coverage = 'lots';
+    ok('MUTANT killed: coverage that is not a fraction', LED.rotationFindings('xact', m, CTX()).length === 1); }
+  { const m = GOOD(); m.rotation.at = 'last Tuesday';
+    ok('MUTANT killed: rotation.at is prose rather than seed.rotatedAt',
+       LED.rotationFindings('xact', m, CTX()).length === 1); }
+  { const m = GOOD(); m.rotation.basisAt = 'HEAD';
+    ok('MUTANT killed: basisAt is a moving ref rather than a commit sha — a pin that moves ' +
+       'with the branch pins nothing',
+       LED.rotationFindings('xact', m, CTX()).length === 1); }
+
+  // ── THE DRIFT DETECTOR, ON REAL HISTORY ─────────────────────────────────
+  // Everything above runs on hand-built drift objects. These two run
+  // LED.comparePublished over real commits of the real catalogs, because the
+  // published-FIELD derivation is the piece that is easy to get wrong and
+  // impossible to see wrong.
+  {
+    const laborCat = REG.CATALOGS.labor;
+    const before = LED.publishedFigures(laborCat, '225c0d8c');   // pre-productivity-migration
+    const now = LED.publishedFigures(laborCat, 'worktree');
+    ok('the drift detector can read real history (labor catalog at 225c0d8c: ' +
+       (before ? Object.keys(before).length : 0) + ' entries)',
+       !!before && Object.keys(before).length > 0 && !!now);
+    const d = before && now ? LED.comparePublished(before, now) : null;
+    // 4ab95fa6 removed hoursPerUnit/crewSize/ratePerManHour — 198 values. If
+    // the pin used the registry's raw `fields` it would call that 66
+    // repricings and red on a MIGRATION. It pins `fields` minus `unpublished`,
+    // so a field leaving the tree is correctly a no-op.
+    ok('control: the crew-productivity MIGRATION is not a repricing (published fields are ' +
+       'derived as `fields` minus `unpublished`, so a field leaving cannot fire this)',
+       !!d && d.repriced.length === 0 && d.added.length === 0 && d.removed.length === 0);
+
+    // And a synthetic reprice of one real key, to prove the comparison bites.
+    const mutated = JSON.parse(JSON.stringify(now));
+    const k = Object.keys(mutated)[0];
+    const f = Object.keys(mutated[k])[0];
+    mutated[k][f] = mutated[k][f] + 1;
+    ok('MUTANT killed: one real labor rate moved by $1 → reported as repriced (' + k + ')',
+       LED.comparePublished(now, mutated).repriced.length === 1);
+  }
+  {
+    // The three real xact composition changes, replayed. Each is a legitimate
+    // catalog edit — a TAMKO preset, two warranty-accuracy corrections — and
+    // each is exactly the false positive that would get this loosened.
+    const xactCat = REG.CATALOGS.xact;
+    const then = LED.publishedFigures(xactCat, '99288405');
+    const now = LED.publishedFigures(xactCat, 'worktree');
+    const d = (then && now) ? LED.comparePublished(then, now) : null;
+    ok('control: the real TAMKO-preset + warranty-accuracy history (+' +
+       (d ? d.added.length : '?') + ' / -' + (d ? d.removed.length : '?') +
+       ' line items) is composition, not repricing, and does NOT fire',
+       !!d && (d.added.length + d.removed.length) > 0 && d.repriced.length === 0);
+  }
+
+  // The ledger publishes no figure, ever. Layer 2b enforces this tree-wide, but
+  // this file is the one most likely to be tempted, so it is said here too.
+  ok('the ledger file itself quotes no real cost pair',
+     scanRealPairs('tests/cost-basis-ledger.js',
+       fs.readFileSync(path.join(__dirname, 'cost-basis-ledger.js'), 'utf8')).length === 0 &&
+     scanCostBasis('tests/cost-basis-ledger.js',
+       fs.readFileSync(path.join(__dirname, 'cost-basis-ledger.js'), 'utf8')).length === 0);
 }
 
 console.log('\n──────────────────────────────────────────────────');

@@ -45,6 +45,7 @@
 const fs = require('fs');
 const path = require('path');
 const vm = require('vm');
+const { execFileSync } = require('child_process');
 
 const ROOT = path.join(__dirname, '..');
 const REG = require(path.join(ROOT, 'functions', 'cost-basis-registry.js'));
@@ -193,6 +194,43 @@ if (!admin.apps.length) admin.initializeApp();
   console.log('\nImported ' + entries + ' entries into ' + COLLECTION + '/' + COMPANY + '.' + catalog.bookField + '.');
   console.log('That company\'s reps pick it up on their next Estimates view.');
   console.log('No other tenant is affected, and no sibling cost map on this document changed.');
+
+  // ── RECORD IT ────────────────────────────────────────────────────────────
+  //
+  // POST-flight, on purpose. This is the ONE moment anybody in the universe
+  // knows the rotation happened, and the person who did it is standing here.
+  // tests/catalog-cost-privacy.test.js cannot see a Firestore write — the book
+  // is tenant data — so it reads a signed human record instead, and until it is
+  // pasted the guard goes on truthfully reporting these published figures as
+  // NOT ROTATED.
+  //
+  // Deliberately NOT a pre-flight refusal. A gate before the write would demand
+  // that you commit a dated public claim that the actuals have moved BEFORE
+  // they have — and if the write then failed on any of the refusals above, the
+  // repo would be left carrying a signed falsehood over live cost figures. A
+  // claim made before the fact is a lie whichever way the write goes.
+  let sha = '<commit>';
+  let dirty = '';
+  try {
+    sha = execFileSync('git', ['rev-parse', '--short', 'HEAD'], { cwd: ROOT, encoding: 'utf8' }).trim();
+    const st = execFileSync('git', ['status', '--porcelain', '--', 'docs/'], { cwd: ROOT, encoding: 'utf8' }).trim();
+    if (st) dirty = '   // ⚠ docs/ is DIRTY — commit the published catalog first, then use that sha';
+  } catch (e) { /* the operator can fill it in */ }
+
+  console.log('\n── RECORD IT ──────────────────────────────────────────────');
+  console.log('Nothing in the repo can see that you just did this. In');
+  console.log('tests/cost-basis-ledger.js, on LEDGER.' + catalog.id + ', replace `rotation: null` with:\n');
+  console.log('    rotation: {');
+  console.log('      at:       \'' + (seed.rotatedAt || new Date().toISOString()) + '\',');
+  console.log('      by:       \'<who ran this>\',');
+  console.log('      company:  \'' + COMPANY + '\',');
+  console.log('      coverage: ' + (seed.rotationCoverage || 0) + ',');
+  console.log('      basisAt:  \'' + sha + '\',' + dirty);
+  console.log('    },\n');
+  console.log('`basisAt` is the commit whose PUBLISHED figures this rotation moved away from.');
+  console.log('The guard re-reads that commit on every run and fails if a line item is later');
+  console.log('REPRICED — i.e. if somebody re-publishes current costs and quietly un-stales');
+  console.log('the baseline this claim was made about.');
   process.exit(0);
 })().catch((e) => {
   console.error('FATAL: write failed — ' + e.message);

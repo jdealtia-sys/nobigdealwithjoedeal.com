@@ -13,7 +13,17 @@ jobs:
     name: Smoke tests
     runs-on: ubuntu-latest
     steps:
+      # fetch-depth: 0 because tests/catalog-cost-privacy.test.js verifies a
+      # recorded cost ROTATION by re-reading the published catalog at the commit
+      # the rotation was signed against (tests/cost-basis-ledger.js `basisAt`).
+      # A depth-1 checkout does not have that blob, and the guard would fail
+      # with "the figures at basisAt cannot be read" — a red about clone depth
+      # on the suite that stands between the cost book and the public tree. The
+      # secret-scan job already pays this fetch; paying it here too is the price
+      # of a pin that cannot be silenced by editing the pin.
       - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
       - uses: actions/setup-node@v7
         with:
           node-version: '22'
