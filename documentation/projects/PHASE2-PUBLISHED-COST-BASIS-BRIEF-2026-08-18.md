@@ -1,0 +1,225 @@
+# Phase 2 — the cost basis still published (brief, 2026-08-18)
+
+Follows [SESSION-2026-08-18-job-template-cost-migration-prb](SESSION-2026-08-18-job-template-cost-migration-prb.md) ·
+Leak context: [JOB-TEMPLATE-COST-LEAK-2026-08-18](../audit/JOB-TEMPLATE-COST-LEAK-2026-08-18.md)
+
+PR-B closed the job-template surface. Three published files still carry a cost
+basis. This brief exists because **the PR-B design does not transfer to them**,
+and I would rather say that with measurements than discover it mid-migration.
+
+Every figure below I ran against the real bundle. Nothing here is transcribed.
+
+**Nothing in this brief is built. It needs one product decision from Jo (§5)
+before any of it should be.**
+
+---
+
+## 1. What is exposed
+
+| file | entries | shape | guard status |
+|---|---|---|---|
+| `docs/pro/js/estimate-catalog-xactimate.js` | **276** items — 238 with material > 0, 254 with labor > 0 | `mat:`/`lab:` | `KNOWN_UNMIGRATED`, asserted still leaking |
+| `docs/pro/js/estimate-labor-catalog.js` | **66** entries | `rate:` + `hoursPerUnit` | `KNOWN_UNMIGRATED` since today |
+| `docs/pro/js/estimate-builder-v2.js` | **28** native CATALOG entries, all priced | `cost:`/`labor:` | `KNOWN_UNMIGRATED` |
+
+370 entries. All three feed one object — `NBD_XACT_CATALOG.byCode` — which
+after PR-B also holds tenant-owned job-template costs. **Public and private
+cost data now sit side by side in the same map.** That is the strongest
+argument for doing all three together rather than one at a time.
+
+Thirteen client files read at least one of the three (`dashboard-bootstrap`,
+`estimate-finalization`, `estimate-supplement`, `estimate-v2-ui`,
+`supplement-ui`, `job-templates*`, `catalog-costs`, `script-loader`, and the
+catalogs themselves).
+
+---
+
+## 2. The finding that changes the design
+
+**A naive strip does not degrade the estimator. It turns it off.**
+
+Measured on a representative full-reroof scope of nine real codes (`LAB MOB`,
+`LAB TO1`, `RFG 240-GAF-HDZ`, `RFG IWS`, `RFG SYN`, `RFG RIDG`, `RFG DRIP-AL`,
+`RFG PIPE-STD`, `LAB CLN-M`, `DSP HAUL`) at the typical-house context:
+
+| | total |
+|---|---|
+| today | **$12,425.00** |
+| after a PR-B-style strip, tenant with no book | **$2,500.00** — and that is purely the minimum-job floor binding; every line resolved at 0 |
+
+Two measurements explain why, and both were surprises:
+
+**(a) The already-migrated product book never governs a coded line.**
+`estimate-catalog-xactimate.js:1206-1207` assigns `item.materialCost = item.mat`
+on every item, and `resolveLineItem` prefers an explicit cost over a
+`materialId` lookup. Measured: **0 of 276** xact items carry a `materialId` or
+a `laborId` at all. So the July product migration — which did move
+`NBD_PRODUCTS` costs to the tenant book (measured: **0 of 276** products carry
+a cost in-tree, that migration held) — has no effect on estimate pricing
+whatsoever. The 276 explicit pairs are the sole source.
+
+**(b) There is no public retail half to fall back on.**
+This is the whole reason the July design worked. `product-data.js` kept a
+public retail `sell` on **276 of 276** products, so stripping cost cost the
+tenant nothing they could see. The xact catalog has a public retail field on
+**0 of 276** items — retail there is *derived* (`cost × markup`), not stored.
+
+So: job templates could lose their costs and stay useful, because a template's
+value is the scope of work and the price columns could honestly read `—`. The
+estimator has no equivalent — an estimate with no prices is not an estimate.
+A new tenant would face **370 numbers to enter before producing anything**,
+which is not an onboarding path, it is a wall.
+
+---
+
+## 3. Why "publish retail, hide cost" also fails here
+
+The obvious repair — publish a retail price per line, keep cost private — works
+for products only because `sell` is an *independently set* number that reveals
+nothing about cost.
+
+For xact items, retail **is** cost × markup, and the markup defaults are public
+literals at `estimate-logic-engine.js:877-879` (`materialMarkupPct` 0.25,
+`overheadPct` 0.10, `profitPct` 0.10). Publish per-line retail beside a public
+markup and you have published the cost. **You cannot have both**, and any
+design that assumes otherwise is arithmetic away from the leak it closes.
+
+---
+
+## 4. Three separable pieces, in increasing order of product risk
+
+Splitting these is the point of the brief. Two of them need no product decision
+at all and can ship whenever; only the third is genuinely hard.
+
+### P2-a — the labor productivity block. No product risk. Do it first.
+
+`hoursPerUnit` and `crewSize` are read at exactly **two sites**, both inside
+`resolveLabor`'s pass-through at `estimate-logic-engine.js:396-397`. Nothing
+customer-facing, nothing in pricing, nothing in the payload consumes them —
+they are scheduling data.
+
+`functions/catalog-cost-logic.js` already makes precisely this argument for the
+product catalog: *"hoursPerUnit and crewSize ride the private half for that
+reason alone; they are scheduling data, not price, and nothing public-facing
+reads them."* The same sentence applies here unchanged.
+
+This also removes the "in-house productivity data" that the xact catalog's own
+header instructs authors not to disclose — a rule the file has been quietly
+breaking by publishing the productivity figures themselves.
+
+**Cost to a tenant with no book: zero.** Pricing is unaffected; `rate:` stays.
+
+### P2-b — the margin, not the cost basis. Small change, biggest ratio.
+
+Worth being precise about what is actually damaging here. "A tear-off costs
+about this much per square" is close to industry-general — Xactimate, RSMeans
+and every competitor publish comparable figures commercially. **"NBD makes Y on
+this job" is not**, and that is what the current tree discloses, because cost
+is public *and* the markup defaults are public.
+
+Moving those three defaults out of the public engine into tenant config breaks
+the derivation for anyone who does not know a specific tenant's settings. They
+are already tenant-overridable (`settings.materialMarkupPct`, wired through
+`dashboard-bootstrap.module.js:4247/4477`); only the fallbacks are public. This
+is a small, low-risk change that closes the sharper half of the exposure
+without touching onboarding.
+
+> **Verify before claiming this closes the derivation.** Saved estimate
+> documents persist `materialMarkupPct` — `customer-estimate-rows.js:51` reads
+> it off the doc, and that file is served on `docs/pro/customer.html`. That is
+> the authenticated CRM view, but whether the same doc reaches a *homeowner*
+> surface (portal, emailed PDF, signed copy) needs checking before P2-b is
+> called done. If it does, the markup is disclosed per-estimate regardless of
+> what the public JS carries, and that is a separate and more urgent finding
+> than anything else in this brief.
+
+### P2-c — the cost baseline itself. Needs a product decision.
+
+Four options considered; three disqualify on measurement.
+
+| option | verdict |
+|---|---|
+| **Strip to nothing, tenant book only** (the PR-B shape) | **No.** Measured §2: the estimator goes inert, 370 values to onboard. |
+| **Publish retail, hide cost** (the July shape) | **No.** §3: retail = cost × public markup. Publishing retail publishes cost. |
+| **Seed every tenant with NBD's book** | **No.** Closes the URL, leaves the second leak — one company's supplier terms as everyone's starting pricing — fully intact, just relocated into private docs. This is the exact failure `import-catalog-costs.js` was written to avoid. |
+| **Rotate, then publish the rotated figures as a platform BASELINE; NBD's actuals live in their tenant book** | **Recommended.** |
+
+The recommendation resolves the tension the original audit named but did not
+settle: *"these figures are platform seed data, while `catalogCosts` is
+deliberately tenant-owned."* For 84 NBD-specific job-template lines, that
+tension resolves toward tenant-owned — which is what PR-B did. For a 276-item
+industry estimating catalog, **the starter price book is the product**. A
+contractor who signs up and finds an empty catalog has not been sold anything.
+
+So the split is not public-vs-private, it is **generic-vs-actual**:
+
+- **Public:** a de-identified regional baseline. Rounded, normalised, and
+  explicitly labelled a starting point to edit — not NBD's negotiated terms.
+  Same rotation machinery PR-B already ships (`rotate-job-template-costs.js`
+  generalises to a worksheet over any of the three files).
+- **Private (`catalogCosts/{companyId}`):** NBD's actual figures, and every
+  other tenant's, via the book that already exists.
+
+What that buys: onboarding survives, NBD's real numbers stop being public, and
+the historical copies in git are devalued by the same rotation that PR-B needs
+anyway. What it costs: the baseline is public, so a competitor can read a
+plausible regional cost structure — but not *yours*.
+
+---
+
+## 5. The decision I need from Jo
+
+**Is a public, de-identified starter price book acceptable as a product
+feature?**
+
+- **Yes** → P2-c is the rotate-and-publish-baseline design above, and it can be
+  scoped properly. This is my recommendation.
+- **No, all cost data must leave the tree** → then the estimator needs a
+  *different* onboarding story before Phase 2 can ship at all (a guided setup,
+  a per-trade template pack, an import). That is a product project, not a leak
+  fix, and it should be scheduled as one rather than discovered halfway
+  through a migration.
+
+Either way, **P2-a and P2-b do not depend on this answer** and can ship first.
+
+---
+
+## 6. What I am not recommending
+
+- **A history rewrite.** Unchanged from the original assessment: one commit,
+  235 to rewrite, 10 live worktrees, incomplete against forks. Rotation is the
+  durable answer. If the decision ever flips, do it once, covering all four
+  files, with the fork-network GC request.
+- **Migrating the three files separately.** They share
+  `NBD_XACT_CATALOG.byCode`. Doing one at a time leaves that map half-private
+  for longer and triples the regression surface.
+- **Starting to cut before §5 is answered.** Three designs were killed by the
+  adversarial pass last time, both times on silent money-math data loss. The
+  measurement in §2 is the same class of finding, caught before implementation
+  rather than after.
+
+---
+
+## 7. Verification plan when it does ship
+
+The proof-of-work checks that mattered in PR-B, adapted:
+
+1. **The guard must go RED first.** `catalog-cost-privacy.test.js` already
+   asserts all three files are still leaking. When one is migrated its
+   `KNOWN_UNMIGRATED` assertion fails by design and the entry gets deleted —
+   that is the signal, not a nuisance.
+2. **A no-book tenant must never see a fabricated price.** The PR-B rule
+   applies unchanged and for the same measured reason: emit explicit zeros,
+   never omit keys, because `inferLaborId` resolves before the `!= null` gate.
+   With `estimate-labor-catalog.js` migrated, the inference target itself moves
+   — re-measure, do not assume the 14-item figure still holds.
+3. **`Σ retailTotal == retailBeforeOHP`** must still hold, and no downstream
+   consumer (`estimate-finalization`, `estimate-supplement`, `invoice-pipeline`,
+   `profit-tracker`) may see a shape change.
+4. **The reopen contract from PR-A must survive** — a saved estimate must not
+   re-price itself when the catalog it was priced from moves.
+   `tests/estimate-reopen-cost-basis.test.js` is the pin.
+5. **`tests/catalog-cost-privacy.test.js` layer 2b** (added today) reports zero
+   real cost pairs outside `docs/`. Its real-pair set shrinks as each file
+   migrates; when it reaches zero the layer is obsolete and should be removed
+   deliberately, not left to pass vacuously.
