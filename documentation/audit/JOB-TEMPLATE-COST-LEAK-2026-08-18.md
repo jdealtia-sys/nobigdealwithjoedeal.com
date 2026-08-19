@@ -6,9 +6,17 @@
 > scans by default instead of by allowlist. **Two things remain, both
 > deliberate:** the cost figures are not yet rotated (mechanism shipped, the
 > numbers are Jo's — see "The rotation" below), and three other published files
-> still carry a cost basis, one of them invisible to every guard regex we have
-> (see "What this does NOT close"). Everything below the fold is the original
-> finding, unedited — it is what the fix was built against.
+> still carry a cost basis (see "What this does NOT close").
+>
+> **Follow-up the same day:** the fourth cost spelling
+> (`rate:`/`hoursPerUnit`, `estimate-labor-catalog.js`) now has a regex and is
+> on `KNOWN_UNMIGRATED`. Phase 2's exposure is therefore **measured**:
+> 28 + 276 + 66 = **370 cost-basis entries across three published files**, all
+> asserted still-leaking so each one fails the guard the day it is fixed.
+> Nothing was migrated — but nothing is invisible any more.
+>
+> Everything below the fold is the original finding, unedited — it is what the
+> fix was built against.
 
 `docs/pro/js/job-templates-data.js` ships **84 contractor cost pairs** to the
 public internet. Found while assessing an unrelated demo-route idea; it is a
@@ -367,13 +375,29 @@ Stated plainly, because each of these is a decision rather than an oversight:
   asserted to be leaking.
 - **`docs/pro/js/estimate-catalog-xactimate.js`** — 276 `mat:`/`lab:` unit-cost
   line items. Same list, same status.
-- **`docs/pro/js/estimate-labor-catalog.js`** — ~67 `rate:` entries plus
-  `crewSize`/`hoursPerUnit`. **A FOURTH spelling, on no list, invisible to all
-  four regexes** — measured: zero matches against every pattern the guard has.
-  It is deliberately NOT added to `KNOWN_UNMIGRATED`, because that list carries
-  a still-leaking non-vacuity assertion and a file the sweep cannot see would
-  fail it on merge. It is the highest-value item in Phase 2 and it is exactly
-  the file the explicit-zero rule above exists to protect against.
+- **`docs/pro/js/estimate-labor-catalog.js`** — **66** entries carrying
+  `rate: <$/unit>` beside `hoursPerUnit`: this shop's labor cost basis and the
+  crew productivity that produces it. It is the file `inferLaborId()` resolves
+  against, which is exactly why unpriced job-template items must emit an
+  explicit 0 rather than omit the keys.
+
+  > **Corrected 2026-08-18 (later same day).** This entry originally read "a
+  > fourth spelling, on no list, invisible to all four regexes… deliberately
+  > NOT added to `KNOWN_UNMIGRATED`, because that list carries a still-leaking
+  > non-vacuity assertion and a file the sweep cannot see would fail it on
+  > merge." That reasoning was circular and it has been closed:
+  > **`COST_BASIS_LABOR_RE` now sees it (66 lines) and it IS on
+  > `KNOWN_UNMIGRATED`.** The file still leaks — nothing was migrated — but the
+  > leak is now measured, tracked, and asserted, so the day it is fixed the
+  > guard fails and tells you to delete the line.
+  >
+  > The pattern is `rate: N` **paired with** `hoursPerUnit: N`, not a bare
+  > `rate:`. Measured across all 608 published files: paired hits exactly one
+  > file with zero false positives; bare hits five, including sales-tax rates
+  > in `estimate-config.js` and close rates in `close-board.js`. A percentage
+  > is not a cost basis. **Pairing is what has made every pattern in this suite
+  > precise enough to run tree-wide — reach for it first the next time this
+  > list grows.**
 - **The margin derivation is still open.** `estimate-logic-engine.js` remains
   public with `materialMarkupPct` 0.25 / `overheadPct` 0.10 / `profitPct` 0.10.
   Git history plus the current tree still yields a full derivation for the

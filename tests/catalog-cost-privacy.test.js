@@ -20,6 +20,13 @@
  *   2. SIGNATURE (every published file) — the retail-beside-wholesale pattern,
  *      `sell: N` and `cost: N` in the same object literal. Deliberately narrow
  *      so it can run over the whole hosting tree without false positives.
+ *
+ *   …plus layer 4 below, the COST-BASIS SWEEP, which now knows FOUR spellings
+ *   of the same shape: cost/labor → mat/lab → materialCost/laborCost →
+ *   rate/hoursPerUnit. Each was found only after it had already shipped. Every
+ *   one of them is a number PAIRED with its partner, which is what lets these
+ *   patterns run over 600 files without noise — and the reason to reach for a
+ *   pairing rather than a keyword the next time this list grows.
  *   3. STRICT (EVERY published file, exemptions explicit) — any numeric cost /
  *      contractor / materialCost / laborCost / overheadMultiplier /
  *      profitMarginPct literal at all. Catches a cost table that never reaches
@@ -251,11 +258,26 @@ const COST_BASIS_ABBREV_RE = /(?<![.\w])mat\s*:\s*-?\d[\d.]*\s*,\s*(?<![.\w])lab
 // and the fourth spelling (`rate:` + crewSize/hoursPerUnit, in the still-public
 // estimate-labor-catalog.js) is on no list at all. See the audit note.
 const COST_BASIS_NAMED_RE = /(?<![.\w])["']?materialCost["']?\s*:\s*-?\d[\d.]*\s*,\s*["']?laborCost["']?\s*:\s*-?\d/;
+// FOURTH spelling (2026-08-18, same day as the third). estimate-labor-catalog.js
+// ships 66 entries as `rate: 65, hoursPerUnit: 0.4` — a per-unit LABOR DOLLAR
+// paired with the crew productivity that produces it, which is a labor cost
+// basis by any other name. It matched none of the three patterns above, so it
+// sat unswept and un-listed while the job-template migration that depends on it
+// shipped.
+//
+// PAIRED, not bare. Measured across all 608 published files: this shape hits
+// exactly one file (66 lines, zero false positives), while a bare `rate:\s*\d`
+// hits five — sales-tax rates in estimate-config.js, close rates in
+// close-board.js. A percentage is not a cost basis; a dollar-per-unit beside
+// hours-per-unit is. Pairing is what has made every pattern in this file
+// precise enough to run tree-wide.
+const COST_BASIS_LABOR_RE = /(?<![.\w])["']?rate["']?\s*:\s*-?\d[\d.]*\s*,[\s\S]{0,120}?["']?hoursPerUnit["']?\s*:\s*-?\d/;
 
 function scanCostBasis(rel, src) {
   const out = [];
   stripComments(src).split(/\r?\n/).forEach((line, i) => {
-    const m = line.match(COST_BASIS_RE) || line.match(COST_BASIS_ABBREV_RE) || line.match(COST_BASIS_NAMED_RE);
+    const m = line.match(COST_BASIS_RE) || line.match(COST_BASIS_ABBREV_RE)
+           || line.match(COST_BASIS_NAMED_RE) || line.match(COST_BASIS_LABOR_RE);
     if (m) out.push(rel + ':' + (i + 1) + ': internal cost basis — ' + m[0].slice(0, 60));
   });
   return out;
@@ -281,6 +303,20 @@ const KNOWN_UNMIGRATED = {
     '(mat:/lab: — now caught by COST_BASIS_ABBREV_RE). Belongs to the same ' +
     'Phase-2 tenant-owned cost-book migration as estimate-builder-v2.js ' +
     'CATALOG; migrate both together, then delete both entries here.',
+  'pro/js/estimate-labor-catalog.js':
+    'Found 2026-08-18 while migrating the job-template costs: 66 NBD_LABOR ' +
+    'entries carry `rate: <$/unit>` beside `hoursPerUnit`, i.e. this shop\'s ' +
+    'labor cost basis and its crew productivity, served unauthenticated. It ' +
+    'was the FOURTH spelling of the same shape (cost/labor → mat/lab → ' +
+    'materialCost/laborCost → rate/hoursPerUnit) and matched none of the ' +
+    'other three patterns, so it was invisible to this sweep AND absent from ' +
+    'this list — the worst of both. COST_BASIS_LABOR_RE now sees it. ' +
+    'It is load-bearing for the job-template fix: inferLaborId() resolves ' +
+    'against this file, which is exactly why unpriced JT custom items must ' +
+    'emit an EXPLICIT materialCost/laborCost 0 rather than omit the keys ' +
+    '(omitting them reprices 14 of 84 items off these public rates). Belongs ' +
+    'to the same Phase-2 migration as the two entries above; it shares ' +
+    'NBD_XACT_CATALOG.byCode with them, so migrate all three together.',
 };
 
 /* ── the published tree (firebase.json hosting.ignore aware) ───────────── */
@@ -556,6 +592,21 @@ console.log('──────────────────────�
      scanCostBasis('pro/js/x.js', 'custom: { materialCost: 0.13, laborCost: 0.37 }').length > 0);
   ok('control: a resolved LINE carrying per-unit costs is a read, not a literal',
      scanCostBasis('pro/js/x.js', 'materialCostPerUnit: matCostPerUnit, laborCostPerUnit: labCostPerUnit').length === 0);
+
+  // The FOURTH spelling (labor catalog class). The pairing is the whole
+  // design: a dollar-per-unit beside a productivity metric is a cost basis; a
+  // bare `rate:` is usually a percentage and sweeping it tree-wide would have
+  // flagged sales tax and close rates in four unrelated files.
+  ok('MUTANT killed: the labor-catalog rate/hoursPerUnit shape',
+     scanCostBasis('pro/js/x.js', "'LAB TO1': L({ id:'LAB TO1', unit:'SQ', rate:65, hoursPerUnit:0.4 })").length > 0);
+  ok('MUTANT killed: same shape with the keys quoted and reordered fields between them',
+     scanCostBasis('pro/js/x.js', '{ "rate": 185, "unit": "SQ", "category": "tear-off", "hoursPerUnit": 1.2 }').length > 0);
+  ok('control: a sales-tax RATE is not a cost basis (estimate-config.js class)',
+     scanCostBasis('pro/js/x.js', "'hamilton-oh': { name: 'Hamilton County, OH', rate: 0.0725 }").length === 0);
+  ok('control: a close RATE is not a cost basis (close-board.js class)',
+     scanCostBasis('pro/js/x.js', 'summary: { won: 12, lost: 30, rate: 0.28 }').length === 0);
+  ok('control: hoursPerUnit alone (scheduling data, no dollar beside it) is not swept',
+     scanCostBasis('pro/js/x.js', '{ crewSize: 4, hoursPerUnit: 0.4 }').length === 0);
   ok('control: matte/label prose is not swept by the abbreviated pattern',
      scanCostBasis('pro/js/x.js', 'format: 1, label: 2').length === 0);
 

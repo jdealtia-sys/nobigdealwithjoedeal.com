@@ -192,16 +192,32 @@ because that suite is exactly what failed to look at this file for a month.
 
 ## Still open
 
-Named here so it is not rediscovered: the cost figures are **not yet rotated**;
-`estimate-builder-v2.js` (28 pairs) and `estimate-catalog-xactimate.js` (276
-pairs) remain on `KNOWN_UNMIGRATED`; and **`estimate-labor-catalog.js` (~67
-`rate:` entries) is a fourth spelling that matches none of the guard's four
-regexes** — measured zero hits — so it is on no list at all. It is the file
-the explicit-zero rule exists to protect against, which makes it the
-highest-value item in Phase 2. Those three share `NBD_XACT_CATALOG.byCode` with
-JT custom items, so migrate them together and add the `rate:`-shaped regex with
-a non-vacuity partner in the same PR. Full list, with reasoning, under "What
-this does NOT close" in the audit note.
+The cost figures are **not yet rotated** — that is the open item that needs Jo.
+
+**Phase 2's exposure is now measured rather than estimated**, which was the
+follow-up to this PR: `estimate-builder-v2.js` **28** · 
+`estimate-catalog-xactimate.js` **276** · `estimate-labor-catalog.js` **66** =
+**370 cost-basis entries across three published files**, every one on
+`KNOWN_UNMIGRATED` and asserted still-leaking, so each fails the guard the day
+it is fixed. Nothing was migrated; nothing is invisible any more.
+
+That last file was the point of the follow-up. It was a fourth spelling —
+`rate: <$/unit>` beside `hoursPerUnit` — matching none of the three existing
+patterns, so it was simultaneously unswept *and* unlisted. The original note
+here said it could not be listed because `KNOWN_UNMIGRATED` asserts each entry
+is still detectably leaking; that was circular, and the way out was to write
+the regex first. `COST_BASIS_LABOR_RE` does that.
+
+**The transferable bit: pair the number with its partner.** Measured across all
+608 published files, `rate:` + `hoursPerUnit` hits one file with zero false
+positives; a bare `rate:\s*\d` hits five, including sales-tax rates and close
+rates. Every pattern in that suite that survives tree-wide scanning is a
+pairing — cost/labor, mat/lab, materialCost/laborCost, rate/hoursPerUnit.
+Reach for a pairing, not a keyword, when this list grows again.
+
+The three files share `NBD_XACT_CATALOG.byCode` with JT custom items, so
+migrate them **together**. Full reasoning under "What this does NOT close" in
+the audit note.
 
 Git history is deliberately intact (one commit, 235 to rewrite, 10 live
 worktrees). Rotation instead. Do not rewrite without Jo's explicit instruction.
