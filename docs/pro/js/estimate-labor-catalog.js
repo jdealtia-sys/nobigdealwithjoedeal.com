@@ -190,7 +190,20 @@
       try {
         const cc = window.NBDCatalogCosts;
         const op = (cc && typeof cc.laborOp === 'function') ? cc.laborOp(id) : null;
-        if (op) return Object.assign({}, base, op);
+        // Validate HERE as well as in catalog-costs.js. This is the last point
+        // before the number becomes a customer total, and an unchecked
+        // Object.assign will write NaN over a good baseline rather than fall
+        // back to it. A field that fails the check is dropped, not the whole
+        // entry — a book with a bad crewSize must still deliver its rate.
+        if (op) {
+          const clean = {};
+          ['rate', 'hoursPerUnit', 'crewSize'].forEach(function (k) {
+            if (!(k in op)) return;
+            const v = Number(op[k]);
+            if (isFinite(v) && v >= 0) clean[k] = v;
+          });
+          if (Object.keys(clean).length) return Object.assign({}, base, clean);
+        }
       } catch (e) { /* no book is a normal state, not an error */ }
       return base;
     },

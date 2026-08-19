@@ -476,6 +476,13 @@
       const raw = typeof localStorage !== 'undefined'
         ? localStorage.getItem(SETTINGS_KEY)
         : null;
+      // loadSettings() STAYS PURE — no tenant overlay here, by contract
+      // (tests/custom-jurisdictions.test.js: "getCountyTaxMap does not bake the
+      // overlay into loadSettings"). The county overlay is applied at CALC time
+      // so a late-arriving companyProfile is honored, and the cost overlay
+      // rides exactly the same rule for exactly the same reason: a cost book
+      // that lands after boot must still reach the next price. Both are applied
+      // at the two pricing entry points below.
       if (!raw) return getDefaultSettings();
       const saved = JSON.parse(raw);
       const defaults = getDefaultSettings();
@@ -567,6 +574,53 @@
   // depending on which path computed it. Read at CALL time behind the same
   // typeof-window guard as applyCompanyPricing — in Node (no window) this is a
   // no-op by construction, so the harnesses' neutral-county behavior is intact.
+  /**
+   * Overlay the tenant's own package costs onto a settings catalog copy.
+   *
+   * CATALOG's published cost/labor figures are a STARTER BASELINE, not any
+   * company's real numbers. They stay published because nothing else prices a
+   * per-tier package — strip them and a tenant with no cost book cannot
+   * produce an estimate at all. What makes a published baseline safe is the
+   * tenant's actual figures being different (rotation), not the baseline being
+   * hidden; it is readable at every past commit regardless. See
+   * documentation/projects/PHASE2-PUBLISHED-COST-BASIS-BRIEF-2026-08-18.md.
+   *
+   * Applied at the same choke point as _withTenantCounties so every pricing
+   * path inherits it, and applied to a COPY — `settings.catalog` is already a
+   * per-user deep copy in localStorage, and mutating the shared CATALOG
+   * constant would leak one tenant's costs into the next account on a shared
+   * device.
+   *
+   * The book WINS over a saved local catalog on cost/labor only. That is the
+   * point: per-device cost drift is the exact problem the company book exists
+   * to end. Every other field the user may have edited (names, units) survives.
+   */
+  function _withTenantCosts(s) {
+    if (!s || !s.catalog || typeof s.catalog !== 'object') return s;
+    let costs = null;
+    try {
+      const cc = (typeof window !== 'undefined') && window.NBDCatalogCosts;
+      costs = (cc && typeof cc.v2Costs === 'function') ? cc.v2Costs() : null;
+    } catch (e) { return s; }
+    if (!costs) return s;
+
+    let touched = false;
+    const catalog = {};
+    Object.keys(s.catalog).forEach((k) => {
+      const spec = s.catalog[k];
+      const entry = costs[k];
+      if (!spec || !entry || typeof entry !== 'object') { catalog[k] = spec; return; }
+      const cost = Number(entry.cost);
+      const labor = Number(entry.labor);
+      // A corrupted book must not price work: fall through to the baseline
+      // rather than writing NaN into a customer total.
+      if (!Number.isFinite(cost) || !Number.isFinite(labor) || cost < 0 || labor < 0) { catalog[k] = spec; return; }
+      catalog[k] = Object.assign({}, spec, { cost: cost, labor: labor });
+      touched = true;
+    });
+    return touched ? Object.assign({}, s, { catalog: catalog }) : s;
+  }
+
   function _withTenantCounties(s) {
     const cp = (typeof window !== 'undefined' && window._companyProfile && window._companyProfile.pricing) || null;
     const tj = _tenantJurisdictions();
@@ -876,7 +930,7 @@
     // generated scope prices the permit off this DEVICE's numbers while the
     // per-SQ total uses the company's. Idempotent when the caller already
     // passed overlaid settings (calculateLineItem does).
-    const s = _withTenantCounties(settings || loadSettings());
+    const s = _withTenantCosts(_withTenantCounties(settings || loadSettings()));
     const g = prepGeometry(input, s);
     const tier = input.tier || 'better';
     const map = TIER_MATERIAL_MAP[tier] || TIER_MATERIAL_MAP.better;
@@ -1007,7 +1061,7 @@
     // tierRates/addonPrices, so applyCompanyPricing is intentionally NOT applied here.
     // ONLY the tenant jurisdictions overlay applies (permits/countyTax — a Node
     // no-op), so custom counties price the permit line + cash tax on this path too.
-    const s = _withTenantCounties(input.settingsOverride || loadSettings());
+    const s = _withTenantCosts(_withTenantCounties(input.settingsOverride || loadSettings()));
     const tier = input.tier || 'better';
     const mode = input.mode || 'cash';
     const g = prepGeometry(input, s);

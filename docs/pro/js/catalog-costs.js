@@ -660,6 +660,48 @@
       return writeEntries('laborOps', entries);
     },
 
+    /**
+     * One xactimate line item's tenant-owned cost, keyed by its catalog code
+     * ('RFG 3T20'). Returns null when this tenant has no entry, so
+     * NBD_XACT_CATALOG.find() falls through to the PUBLISHED starter baseline
+     * rather than pricing at zero.
+     *
+     * Returns engine-shaped keys (materialCost/laborCost) because that is what
+     * resolveLineItem reads — the catalog's own `mat`/`lab` are mapped to these
+     * at load (estimate-catalog-xactimate.js:1206-1207) and no longer exist on
+     * the item by the time anything looks it up.
+     */
+    xactCost: function (code) {
+      const map = book && book.xactCosts;
+      const entry = code && map && map[code];
+      if (!entry || typeof entry !== 'object') return null;
+      const mat = Number(entry.materialCost);
+      const lab = Number(entry.laborCost);
+      if (!isFinite(mat) || !isFinite(lab) || mat < 0 || lab < 0) return null;
+      return { materialCost: mat, laborCost: lab };
+    },
+
+    /**
+     * One EstimateBuilderV2 package entry's tenant-owned cost, keyed by its
+     * CATALOG key ('shingle-good'). Keys are `cost`/`labor` here because that
+     * is the shape EBv2's own catalog uses.
+     */
+    v2Cost: function (key) {
+      const map = book && book.v2Costs;
+      const entry = key && map && map[key];
+      if (!entry || typeof entry !== 'object') return null;
+      const cost = Number(entry.cost);
+      const labor = Number(entry.labor);
+      if (!isFinite(cost) || !isFinite(labor) || cost < 0 || labor < 0) return null;
+      return { cost: cost, labor: labor };
+    },
+
+    /** The whole v2 map, for overlaying a settings.catalog copy in one pass. */
+    v2Costs: function () {
+      const map = book && book.v2Costs;
+      return (map && typeof map === 'object') ? map : null;
+    },
+
     /** Bulk form of recordLaborOp — one write for a whole adopted override set. */
     recordLaborOps: function (entries) {
       const clean = {};
