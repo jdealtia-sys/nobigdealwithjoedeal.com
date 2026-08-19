@@ -32,13 +32,21 @@ But **all three designs are fatal as written on the same two points, and the att
 
 **(a) "Omit the keys, never emit 0" fabricates prices on 14 of 84 items.** `estimate-logic-engine.js:803` computes `const laborId = item.laborId || inferLaborId(item)` *before* the `item.laborCost != null` test, and `inferLaborId` (:561-573) falls through to `LABOR_BY_SUB[item.category]`. `customLineItem` passes `category: custom.category || 'custom'` straight through. Measured category census of the 84 custom items: `gutters` 6, `ventilation` 5, `downspout` 1, `trim` 1, `soffit` 1 — **14 items** land on live keys in `LABOR_BY_SUB` (`estimate-logic-engine.js:448-457`). Executed on the real stack:
 
-| item | today | with keys omitted |
-|---|---|---|
-| Attic insulation baffles (`jt_vt_soffit_intake_retrofit`) | matPU 2.5 / labPU 4, **retail 142.50** | matPU 0 / labPU 25 via `NBD_LABOR:LAB INST-BV`, **retail 500.00** |
-| Gutter seam & end-cap reseal (`jt_mt_gutter_plan_visit`) | 18 / 65, **87.50** | 0 / 3.65 via `LAB INST-GTR5`, **3.65** |
-| Downspout elbows & straps (`jt_gi_downspout_only`) | 4.5 / 3, **155.25** | 0 / 2.15 via `LAB INST-DSP`, **38.70** |
-| Exterior trim paint (`jt_sf_refresh_combo`) | 0.65 / 1.6, **289.50** | 0 / 3.25 via `LAB INST-FSC`, **390.00** |
-| Bath exhaust roof cap (`jt_vt_bath_fan_termination`) | 42 / 65, **117.50** | 0 / 25 via `LAB INST-BV`, **25.00** |
+> **Cost figures redacted 2026-08-18.** The original table paired each item's
+> real `materialCost`/`laborCost` with its retail. `documentation/` sits in the
+> same public repo as `docs/`, so a plan for un-publishing those numbers must not
+> publish them itself — in a *more* legible form than the minified source, no
+> less. The template ids below are enough to re-derive the table locally from
+> `docs/pro/js/job-templates-data.js` while the values are still there; the
+> retail deltas are kept because retail is publishable by design.
+
+| item | retail today | retail with keys omitted | inferred via |
+|---|---|---|---|
+| Attic insulation baffles (`jt_vt_soffit_intake_retrofit`) | **142.50** | **500.00** | `NBD_LABOR:LAB INST-BV` |
+| Gutter seam & end-cap reseal (`jt_mt_gutter_plan_visit`) | **87.50** | **3.65** | `LAB INST-GTR5` |
+| Downspout elbows & straps (`jt_gi_downspout_only`) | **155.25** | **38.70** | `LAB INST-DSP` |
+| Exterior trim paint (`jt_sf_refresh_combo`) | **289.50** | **390.00** | `LAB INST-FSC` |
+| Bath exhaust roof cap (`jt_vt_bath_fan_termination`) | **117.50** | **25.00** | `LAB INST-BV` |
 
 That is a confidently wrong number wearing a "Cost not set" badge — strictly worse than the `$0.00` the omission was designed to avoid, and it re-derives the cost basis from `estimate-labor-catalog.js`, a file that is *still public*. **Emit explicit `materialCost: 0, laborCost: 0`.** Measured: with explicit zeros every JT custom line resolves `labSource: 'explicit'`, `retail 0`, no inference. Carry the "unknown" signal in a separate `costUnset: true` field that presentation reads and the engine ignores.
 

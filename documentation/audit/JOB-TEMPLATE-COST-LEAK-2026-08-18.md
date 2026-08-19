@@ -17,7 +17,15 @@ Measured directly, not inferred:
 | File | `docs/pro/js/job-templates-data.js` — 200 OK, ~188 KB, unauthenticated |
 | `custom` blocks | **84**, each with `materialCost` **and** `laborCost` |
 | Non-zero cost values | **146** |
-| Examples | `Siding patch at kickout` mat 40 / lab 120 · `Masonry water repellent` mat 35 / lab 65 · `Minor tuckpointing` mat 4 / lab 18 |
+| Shape | every `custom` block is `{name, desc, unit, qty, materialCost, laborCost, category}` — e.g. a siding-patch line, a masonry-sealer line, a tuckpointing line, each carrying both a material and a labor figure |
+
+> **The actual figures are deliberately not reproduced here.** `documentation/`
+> is in the same public repo as `docs/`, so pasting the values into the audit
+> that exists to protect them would republish them in a *more* legible form than
+> the minified data file. Read them from
+> `docs/pro/js/job-templates-data.js` while they are still there; after the
+> migration they live in `catalogCosts/{companyId}`, which is what this note is
+> for. Same rule applies to any follow-up note.
 
 The file's own header says it plainly: *"custom items carry explicit contractor
 costs (markup/OH&P applied downstream)."* This was documented behaviour, just
