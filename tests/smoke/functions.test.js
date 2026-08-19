@@ -1096,14 +1096,21 @@ section('E2: CI workflow present');
   // required shards blocking; three new standalone jobs (public-e2e,
   // visual-brand-tokens, visual-regression) are on that runway — promoting
   // one means flipping its literal AND updating this allowlist.
+  //
+  // 2026-08-19: FOUR, not three. qc-render-sweep (the rendered docs/ gate that
+  // shipped with the site-QC lane) joined the runway and this count was not
+  // updated with it — so the guard was red on the qc branch before this PR
+  // branched off it. Working exactly as designed: it noticed the list changed.
+  // The four on the runway are public-e2e, qc-render-sweep,
+  // visual-brand-tokens and visual-regression.
   const requiredShards = ['@shard1', '@shard2', '@audit', '@stranger', '@gauntlet'];
   assert('the five promoted E2E shards are all in the matrix',
     requiredShards.every((s) => ci.includes("'" + s + "'")));
   assert('matrix continue-on-error only exempts @engines (five shards stay blocking)',
     /continue-on-error:\s*\$\{\{\s*matrix\.shard == '@engines'\s*\}\}/.test(ci)
     && !/continue-on-error:\s*true[\s\S]{0,400}PLAYWRIGHT_GREP:\s*\$\{\{\s*matrix\.shard\s*\}\}/.test(ci));
-  assert('advisory literals are limited to the introduction-runway jobs (3)',
-    (ci.match(/continue-on-error:\s*true/g) || []).length === 3);
+  assert('advisory literals are limited to the introduction-runway jobs (4)',
+    (ci.match(/continue-on-error:\s*true/g) || []).length === 4);
 }
 
 section('E2b: hosting deploy is gated');
