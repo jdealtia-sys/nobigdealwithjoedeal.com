@@ -139,15 +139,28 @@ page. Added a `Reach Us Directly` `h2`, matching how `service-areas.html` alread
 
 ## 7. Open items for Jo
 
-1. **Form destination.** Nothing is wired. One line in `assets/js/site.js` — either
-   Scott's email (opens the visitor's mail app pre-filled) or a form-relay endpoint.
-   Until then the phone number is the working route, on every page.
+1. ~~**Form destination.**~~ **DONE (Jo, 2026-08-19).** Wired to
+   `scott@oaksroofingandconstruction.com` via the `formEmail` route: submitting composes a
+   pre-filled email in the visitor's own mail client, addressed to Scott, and they press
+   send. No account, no relay, and — importantly — **the details never pass through any
+   third party**, which is what `privacy.html` already told visitors, so the policy stayed
+   true. Known weak spot: a desktop visitor with no mail client configured sees nothing
+   happen; the form says so and points at the phone. If that shows up in practice, one
+   commented line in `assets/js/site.js` switches to a FormSubmit relay —
+   **and that change requires editing privacy.html's "Third parties" section**, which
+   currently states submissions are not routed through an outside service. `formEndpoint`
+   wins over `formEmail` when both are set.
+   The address is deliberately NOT printed as visible page copy (spam harvesting); the
+   privacy policy routes deletion requests through the phone number instead. It *is*
+   readable in `assets/js/site.js`, so this reduces exposure rather than eliminating it —
+   offered to Jo to surface on /contact if he'd rather.
 2. **`logo-orange.svg` is the wrong orange** (`#e8720c` vs the real `#fa6404`) and is a
    hand-drawn approximation of a logo we now have properly. It is referenced by
    `companyProfile/oaks` `brand.logoUrl` and by generated documents, so swapping it changes
    Scott's paperwork too — worth doing, deliberately, in its own change.
-3. **Scott has no published email address** anywhere in the archived site. Needed for the
-   form fallback and for the privacy policy's contact section.
+3. ~~**Scott has no published email address.**~~ **RESOLVED (Jo, 2026-08-19):**
+   `scott@oaksroofingandconstruction.com`. The archived site never published one, so this
+   came from Jo directly — it is not in any source page.
 4. **At launch:** delete the `<meta name="robots">` from all 11 pages, uncomment
    `canonical`/`og:url` and point them at the real domain, and drop the two
    `/sites/oaks` `X-Robots-Tag` rules in `firebase.json` together.

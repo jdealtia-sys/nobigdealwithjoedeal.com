@@ -45,32 +45,34 @@ root or inside a subfolder without editing anything.
 
 ---
 
-## Three things to do before launch
+## Two things to do before launch
 
-### 1. Connect the quote form
+### The quote form — already connected
 
-The form appears on Home, About, Service Areas and Contact. Right now it
-validates, then tells the visitor to call — it does not silently pretend to
-send. Open **`assets/js/site.js`** and edit the config block at the top:
+The form appears on Home, About, Service Areas and Contact, and it is wired to
+**scott@oaksroofingandconstruction.com**. When someone presses *Send Message*,
+their own mail app opens with every field filled in and addressed to you; they
+press send and it lands in your inbox. No account, no monthly fee, nothing to
+set up, and the details never pass through anyone else's system.
+
+The one weak spot: a visitor on a desktop with no mail app configured (someone
+who only uses webmail in a browser) may see nothing happen. The form tells them
+so and points them at the phone number, but that lead needs the phone.
+
+If that becomes a real problem, switch to a form relay — one line in
+**`assets/js/site.js`**:
 
 ```js
-var CONFIG = {
-  formEndpoint: '',   // a POST endpoint, if you have one
-  formEmail: '',      // or just your email address
-  ...
-};
+formEndpoint: 'https://formsubmit.co/ajax/scott@oaksroofingandconstruction.com',
 ```
 
-- **Simplest:** put your email in `formEmail`. Submitting then opens the
-  visitor's mail app with every field filled in, addressed to you.
-- **Better:** sign up for a form service (Formspree, FormSubmit, Basin, or your
-  host's own form handler) and paste its URL into `formEndpoint`. Leads then
-  arrive by email without the visitor doing anything extra.
+FormSubmit will email you a one-time activation link the first time someone
+submits; until you click it nothing is relayed. `formEndpoint` overrides
+`formEmail` when both are set. **If you do switch, update the "Third parties"
+section of `privacy.html`** — it currently tells visitors their details are not
+routed through an outside service, which would stop being true.
 
-Until one of those is set, the phone number is the working contact route — and
-it is on every page, in the header, the footer, and beside every form.
-
-### 2. Turn on search engines
+### 1. Turn on search engines
 
 Every page currently carries this line in its `<head>`, which tells Google to
 **stay away**:
@@ -93,12 +95,16 @@ While you're in each `<head>`, uncomment the two lines below it and swap
 Those control which URL Google treats as official, and what shows up when
 someone shares a link on Facebook or in a text message.
 
-### 3. Check the Privacy Policy
+### 2. Check the Privacy Policy
 
-`privacy.html` is an honest, plain-English starting point describing what this
-site actually does (a form, no trackers, no cookies beyond one that remembers
-you closed the top banner). Have someone you trust read it, and add a contact
-email once you have one.
+`privacy.html` is an honest, plain-English description of what this site
+actually does (a form, no trackers, no cookies beyond one that remembers you
+closed the top banner) and how the form delivers. Have someone you trust read it
+before launch.
+
+It points people at the phone number for a deletion request rather than at your
+email address, so the address is not sitting on a page for spam bots to scrape.
+Say the word if you'd rather it were listed there and on the Contact page.
 
 ---
 
