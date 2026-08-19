@@ -1167,6 +1167,15 @@ jobs:
   qc-render-sweep:
     name: Rendered QC sweep (docs/)
     runs-on: ubuntu-latest
+    # Matches the two other Playwright jobs below. This job was added AFTER
+    # 42e4a003 gave every job a timeout, so it inherited GitHub's 6-hour
+    # default and was the only job in this file without one. Found the hard
+    # way on 2026-08-19: a Playwright CDN stall cancelled four sibling jobs at
+    # their 20m timeouts while this one sat on the same dead download for 50+
+    # minutes and would have held a runner for six hours. The sweep itself
+    # renders 218 pages in ~2 min, so 20m is ~10x headroom — it exists to fail
+    # fast on a hung download, not to bound normal work.
+    timeout-minutes: 20
     continue-on-error: true
     steps:
       - uses: actions/checkout@v7
