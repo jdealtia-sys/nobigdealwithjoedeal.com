@@ -149,8 +149,25 @@ const sheetFor = (mut) => {
 test('an UNTOUCHED worksheet changes nothing (this is what the coverage floor catches)', () => {
   const res = REG.applyRotation(LAB, LABWIN, sheetFor(null));
   eq(res.changed, 0, 'changed');
-  ok(res.total > 100, 'total values (' + res.total + ')');
+  // Derived from the catalog, not a magic number. This assertion read
+  // `total > 100` until the productivity strip took the labor worksheet from
+  // 198 values to 66 — a correct failure that a hardcoded floor turned into a
+  // puzzle. The count is now whatever the published file actually offers.
+  const rows = REG.pricedEntries(LAB, LABWIN);
+  const expected = rows.reduce((n, e) => n + LAB.fields.filter((f) => Number.isFinite(e.values[f])).length, 0);
+  eq(res.total, expected, 'total values');
+  ok(res.total >= rows.length, 'every priced row contributes at least one value');
   eq(res.badValues.length, 0, 'badValues');
+});
+
+test('the published labor worksheet offers RATE only — productivity is not there to rotate', () => {
+  // After the strip, hoursPerUnit/crewSize exist only in git history. Rotating
+  // them needs `--from <pre-strip-ref>`; a worksheet built from the working
+  // tree cannot offer a current value it can no longer read, and must not
+  // pretend to by emitting a blank column that silently writes nothing.
+  const rows = REG.buildWorksheet(LAB, LABWIN);
+  ok(rows.every((r) => r.current_rate != null), 'every row must carry its baseline rate');
+  ok(rows.every((r) => r.current_hoursPerUnit == null), 'productivity must not appear from the published file');
 });
 
 test('a fully filled worksheet moves (nearly) every value', () => {
@@ -264,6 +281,95 @@ test('get() refuses an unknown catalog rather than returning undefined', () => {
   let threw = false;
   try { REG.get('nope'); } catch (e) { threw = /unknown catalog/.test(e.message); }
   ok(threw, 'expected a throw naming the valid catalogs');
+});
+
+/* ── 5. the labor split, end to end ────────────────────────────────────── */
+
+console.log('\nlabor catalog: baseline published, tenant book overrides');
+console.log('──────────────────────────────────────────────────');
+
+/** Boot the pricing stack, optionally with a stub cost book installed first. */
+function bootPricing(book) {
+  const win = {};
+  win.window = win;
+  const sandbox = {
+    window: win,
+    localStorage: { getItem: () => null, setItem() {}, removeItem() {} },
+    document: {
+      addEventListener() {}, removeEventListener() {},
+      getElementById: () => null, querySelector: () => null, querySelectorAll: () => [],
+      createElement: () => ({ style: {}, classList: { add() {}, remove() {} }, appendChild() {}, addEventListener() {}, setAttribute() {} }),
+      body: { appendChild() {} },
+    },
+    console: { log() {}, warn() {}, error() {}, info() {}, debug() {} },
+    navigator: {},
+    Date, Math, JSON, Set, Map, Object, isFinite, setTimeout, clearTimeout, setInterval, clearInterval,
+  };
+  vm.createContext(sandbox);
+  if (book) win.NBDCatalogCosts = book;
+  ['estimate-config.js', 'product-data.js', 'roofivent-catalog.js', 'estimate-labor-catalog.js',
+   'estimate-builder-v2.js', 'estimate-catalog-xactimate.js', 'estimate-logic-engine.js'].forEach((f) => {
+    const p = path.join(ROOT, 'docs', 'pro', 'js', f);
+    if (fs.existsSync(p)) vm.runInContext(fs.readFileSync(p, 'utf8'), sandbox, { filename: f });
+  });
+  return win;
+}
+
+const SAMPLE_LABOR = 'LAB TO1';
+
+test('NO BOOK: the published starter baseline prices normally', () => {
+  // The whole reason `rate` stayed published. A tenant with no cost book must
+  // still be able to produce an estimate — stripping it would turn the
+  // estimator off rather than degrade it.
+  const win = bootPricing(null);
+  const e = win.NBD_LABOR.get(SAMPLE_LABOR);
+  ok(e, 'labor action missing');
+  ok(Number(e.rate) > 0, 'baseline rate must be present and positive, got ' + e.rate);
+});
+
+test('NO BOOK: crew productivity is ABSENT (it left the published tree)', () => {
+  const win = bootPricing(null);
+  const e = win.NBD_LABOR.get(SAMPLE_LABOR);
+  eq(e.hoursPerUnit, undefined, 'hoursPerUnit');
+  eq(e.crewSize, undefined, 'crewSize');
+  eq(e.ratePerManHour, undefined, 'ratePerManHour');
+});
+
+test('WITH BOOK: the tenant\'s rate OVERRIDES the published baseline', () => {
+  const win = bootPricing({ laborOp: (id) => (id === SAMPLE_LABOR ? { rate: 99, hoursPerUnit: 0.9, crewSize: 3 } : null) });
+  const e = win.NBD_LABOR.get(SAMPLE_LABOR);
+  eq(e.rate, 99, 'overridden rate');
+  eq(e.hoursPerUnit, 0.9, 'restored hoursPerUnit');
+  eq(e.crewSize, 3, 'restored crewSize');
+});
+
+test('WITH BOOK: an action the tenant has NOT priced keeps the baseline', () => {
+  const win = bootPricing({ laborOp: (id) => (id === SAMPLE_LABOR ? { rate: 99 } : null) });
+  const bare = bootPricing(null).NBD_LABOR.get('LAB TO2').rate;
+  eq(win.NBD_LABOR.get('LAB TO2').rate, bare, 'untouched action');
+});
+
+test('the override reaches PRICING, not just the accessor', () => {
+  // resolveLabor goes through NBD_LABOR.get(), so this is the assertion that
+  // says a tenant's own figure actually decides the money.
+  const win = bootPricing({ laborOp: (id) => (id === SAMPLE_LABOR ? { rate: 99 } : null) });
+  const MEAS = { rawSqft: 2000, pitch: 6, waste: 1.12, ridgeLf: 40, eaveLf: 120, rakeLf: 60, hipLf: 0, valleyLf: 20, wallLf: 0, pipes: 3, chimneys: 1, skylights: 0, stories: 1, tearOffLayers: 1, deckReplacePct: 0.15, cutUpRoof: false };
+  const res = win.EstimateLogic.resolveEstimate(
+    [{ code: 'X', name: 'x', unit: 'SQ', laborId: SAMPLE_LABOR, qtyOverride: 10 }], MEAS,
+    { tier: 'better', mode: 'cash' });
+  eq(res.lines[0].laborCostPerUnit, 99, 'engine priced off the book');
+});
+
+test('a THROWING cost book never breaks pricing', () => {
+  // No book is a normal state; a broken one must degrade to the baseline
+  // rather than take the estimator down with it.
+  const win = bootPricing({ laborOp: () => { throw new Error('boom'); } });
+  ok(Number(win.NBD_LABOR.get(SAMPLE_LABOR).rate) > 0, 'fell back to baseline');
+});
+
+test('find() is get() — both consult the book', () => {
+  const win = bootPricing({ laborOp: (id) => (id === SAMPLE_LABOR ? { rate: 99 } : null) });
+  eq(win.NBD_LABOR.find(SAMPLE_LABOR).rate, 99, 'find()');
 });
 
 console.log('\n──────────────────────────────────────────────────');

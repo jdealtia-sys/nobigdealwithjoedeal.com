@@ -303,20 +303,15 @@ const KNOWN_UNMIGRATED = {
     '(mat:/lab: — now caught by COST_BASIS_ABBREV_RE). Belongs to the same ' +
     'Phase-2 tenant-owned cost-book migration as estimate-builder-v2.js ' +
     'CATALOG; migrate both together, then delete both entries here.',
-  'pro/js/estimate-labor-catalog.js':
-    'Found 2026-08-18 while migrating the job-template costs: 66 NBD_LABOR ' +
-    'entries carry `rate: <$/unit>` beside `hoursPerUnit`, i.e. this shop\'s ' +
-    'labor cost basis and its crew productivity, served unauthenticated. It ' +
-    'was the FOURTH spelling of the same shape (cost/labor → mat/lab → ' +
-    'materialCost/laborCost → rate/hoursPerUnit) and matched none of the ' +
-    'other three patterns, so it was invisible to this sweep AND absent from ' +
-    'this list — the worst of both. COST_BASIS_LABOR_RE now sees it. ' +
-    'It is load-bearing for the job-template fix: inferLaborId() resolves ' +
-    'against this file, which is exactly why unpriced JT custom items must ' +
-    'emit an EXPLICIT materialCost/laborCost 0 rather than omit the keys ' +
-    '(omitting them reprices 14 of 84 items off these public rates). Belongs ' +
-    'to the same Phase-2 migration as the two entries above; it shares ' +
-    'NBD_XACT_CATALOG.byCode with them, so migrate all three together.',
+  // pro/js/estimate-labor-catalog.js was here from 2026-08-18 until the
+  // productivity migration the next day. It is NOT tracked by the shape sweep
+  // any more, and that is not an oversight — see LABOR CATALOG below, which
+  // replaces it with a file-scoped pair of assertions. Removing hoursPerUnit
+  // made COST_BASIS_LABOR_RE (which matches `rate:` PAIRED with it) go blind
+  // on this file while 66 published `rate:` values remained. Pairing is what
+  // makes these patterns precise enough to run tree-wide; the price is that
+  // removing one half blinds it. A shape-based list was the wrong tool once
+  // the file became half-migrated.
 };
 
 /* ── the published tree (firebase.json hosting.ignore aware) ───────────── */
@@ -463,6 +458,63 @@ ok('the migrated catalogs are NOT in the known-unmigrated list',
 ok('job-templates-data.js reports ZERO cost-basis entries in the tree sweep (' +
    ((basisByFile.get('pro/js/job-templates-data.js') || []).length) + ')',
    (basisByFile.get('pro/js/job-templates-data.js') || []).length === 0);
+
+/* ── 2a. LABOR CATALOG — half migrated, so asserted per-file ────────────── */
+//
+// estimate-labor-catalog.js is the first file to be PARTIALLY migrated, and it
+// needs its own treatment because the shape sweep cannot express "this half is
+// closed and that half is deliberately open".
+//
+//   crew productivity (hoursPerUnit / crewSize / ratePerManHour) — GONE. Read
+//   at two sites, both a pass-through in resolveLabor; nothing customer-facing
+//   consumed it, so removing it cost a tenant nothing. Now tenant-owned at
+//   catalogCosts/{companyId}.laborOps.
+//
+//   `rate` — DELIBERATELY STILL PUBLISHED, as a starter baseline. Stripping it
+//   would turn the estimator off rather than degrade it (no public retail half
+//   to price from). What makes it safe is staleness, not secrecy: the values
+//   are readable at every past commit regardless, and the shop's ROTATED
+//   figures live in the tenant book and override them.
+//
+// Both halves are asserted, in both directions, so neither can drift: the
+// productivity half cannot come back, and the baseline half cannot quietly
+// vanish (which would break onboarding) or quietly stop being a baseline.
+
+console.log('\ncatalog cost privacy — labor catalog (half migrated, per-file)');
+console.log('──────────────────────────────────────────────────');
+
+{
+  const rel = 'pro/js/estimate-labor-catalog.js';
+  const abs = path.join(HOSTING_ROOT, rel);
+  ok('labor catalog is published (the assertions below are not vacuous)', fs.existsSync(abs));
+  const src = fs.existsSync(abs) ? fs.readFileSync(abs, 'utf8') : '';
+  const code = stripComments(src);
+
+  // (a) the closed half — structural AND textual, because a shared constant
+  // that feeds no entry parses clean while still publishing the figure.
+  const PRODUCTIVITY = ['hoursPerUnit', 'crewSize', 'ratePerManHour'];
+  const prodHits = PRODUCTIVITY.reduce((acc, f) => {
+    const n = (code.match(new RegExp('\\b' + f + '\\s*:', 'g')) || []).length;
+    return n ? acc.concat([f + ' ×' + n]) : acc;
+  }, []);
+  ok('labor catalog publishes NO crew productivity (' + (prodHits.join(', ') || 'clean') + ')',
+     prodHits.length === 0);
+  ok('no orphaned crew/man-hour constant survives the strip',
+     !/\bconst\s+(?:CREW|RATE_PER_MH)\s*=/.test(code));
+
+  // (b) the open half — asserted PRESENT. If these rates ever vanish, a tenant
+  // with no cost book can no longer price anything, which is the failure the
+  // baseline exists to prevent. Whoever removes them should have to come here
+  // and say so.
+  const rateCount = (code.match(/\brate\s*:\s*-?\d/g) || []).length;
+  ok('labor catalog still publishes its starter baseline (' + rateCount + ' rates) — ' +
+     'deliberate: stripping it turns the estimator off, and rotation is what makes it safe',
+     rateCount >= 60);
+
+  // (c) the tenant override path exists, so the baseline is actually
+  // overridable rather than merely described as such.
+  ok('NBD_LABOR.get() consults the tenant cost book', /NBDCatalogCosts[\s\S]{0,200}laborOp\s*\(/.test(src));
+}
 
 /* ── 2b. THE REPO IS PUBLIC TOO — no real cost pair outside docs/ ───────── */
 //

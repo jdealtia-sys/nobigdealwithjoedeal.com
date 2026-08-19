@@ -102,6 +102,16 @@
   if (window.NBDCatalogCosts && window.NBDCatalogCosts.__sentinel === 'nbd-catalog-costs-v2') return;
 
   const COLLECTION = 'catalogCosts';
+  // Every map this document can hold. `costs` (products, 2026-07-30) and
+  // `jtCosts` (job templates, PR-B) shipped first; each Phase-2 catalog owns
+  // one more. Listed once so "is this a real book?" has a single answer — a
+  // tenant legitimately holds some of these and not others, and requiring any
+  // particular one has already thrown a valid cache away once.
+  const BOOK_MAPS = ['costs', 'jtCosts', 'laborOps', 'xactCosts', 'v2Costs'];
+  const hasAnyMap = function (o) {
+    return !!o && typeof o === 'object' &&
+      BOOK_MAPS.some(function (f) { return o[f] && typeof o[f] === 'object'; });
+  };
   const CACHE_PREFIX = 'nbd_catalog_costs';
   const TIERS = ['good', 'better', 'best'];
   const FS_SDK = 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
@@ -137,11 +147,12 @@
       const raw = localStorage.getItem(cacheKeyFor(key));
       if (!raw) return null;
       const parsed = JSON.parse(raw);
-      // EITHER half is a real book. A tenant can legitimately hold jtCosts and
-      // no product `costs` (they use job templates but have never filled in the
-      // Product Library) — insisting on `costs` would throw that cache away on
-      // every load and leave their templates unpriced until Firestore answered.
-      return (parsed && (parsed.costs || parsed.jtCosts)) ? parsed : null;
+      // ANY map makes it a real book. A tenant can legitimately hold jtCosts
+      // and no product `costs` (they use job templates but have never filled in
+      // the Product Library) — insisting on `costs` would throw that cache away
+      // on every load and leave their templates unpriced until Firestore
+      // answered.
+      return hasAnyMap(parsed) ? parsed : null;
     } catch (e) {
       return null;
     }
@@ -325,9 +336,7 @@
     const snap = await retry(function () { return getDoc(doc(window.db, COLLECTION, key)); });
     if (!snap || !snap.exists()) return null;
     const data = snap.data() || {};
-    const hasCosts = !!(data.costs && typeof data.costs === 'object');
-    const hasJt = !!(data.jtCosts && typeof data.jtCosts === 'object');
-    return (hasCosts || hasJt) ? data : null;
+    return hasAnyMap(data) ? data : null;
   }
 
   /**
@@ -494,6 +503,16 @@
       // book still needs this call, because it is what adopts a pre-strip
       // fork's embedded costs into the company book.
       pushToJobTemplates(book);
+
+      // Same one-time upgrade for labor rates: `NBD_LABOR.updateRate` wrote
+      // only to per-device localStorage before this book existed, so two reps
+      // in one company could silently disagree about a rate. Guarded and
+      // never throwing; a rep whose write is refused keeps their local value.
+      try {
+        const lab = window.NBD_LABOR;
+        if (lab && typeof lab.adoptLocalOverrides === 'function') lab.adoptLocalOverrides();
+      } catch (e) { /* best-effort */ }
+
       return book;
     })().then(function (r) { inflight = null; return r; },
              function (e) {
@@ -595,6 +614,66 @@
       const entries = {};
       entries[key] = { materialCost: mat, laborCost: lab };
       return writeEntries('jtCosts', entries);
+    },
+
+    /**
+     * One labor action's tenant-owned figures, keyed by its NBD_LABOR id
+     * ('LAB TO1'). Returns null when this tenant has no entry, which is what
+     * lets estimate-labor-catalog.js fall through to the PUBLISHED starter
+     * baseline rather than pricing at zero.
+     *
+     * Note the asymmetry with jobItem(), and it is deliberate: a job-template
+     * custom item with no book entry has NO price and says so, because its
+     * costs left the published file entirely. A labor action always has a
+     * price, because `rate` is still published as the baseline — what the book
+     * does here is OVERRIDE it with the tenant's own figure. Crew productivity
+     * (hoursPerUnit/crewSize) is the half that genuinely left, so that half is
+     * absent until a tenant fills it in, and nothing reads it anyway.
+     */
+    laborOp: function (id) {
+      const map = book && book.laborOps;
+      const entry = id && map && map[id];
+      if (!entry || typeof entry !== 'object') return null;
+      const out = {};
+      ['rate', 'hoursPerUnit', 'crewSize'].forEach(function (k) {
+        const v = Number(entry[k]);
+        if (isFinite(v) && v >= 0) out[k] = v;
+      });
+      return Object.keys(out).length ? out : null;
+    },
+
+    /**
+     * Persist one labor action's figures to the tenant book. Resolves false
+     * for a caller without write permission (owner/company_admin only), which
+     * is the expected outcome for a sales_rep and must not throw.
+     */
+    recordLaborOp: function (id, entry) {
+      if (!id || !entry || typeof entry !== 'object') return Promise.resolve(false);
+      const clean = {};
+      ['rate', 'hoursPerUnit', 'crewSize'].forEach(function (k) {
+        const v = Number(entry[k]);
+        if (isFinite(v) && v >= 0) clean[k] = v;
+      });
+      if (!Object.keys(clean).length) return Promise.resolve(false);
+      const entries = {};
+      entries[id] = clean;
+      return writeEntries('laborOps', entries);
+    },
+
+    /** Bulk form of recordLaborOp — one write for a whole adopted override set. */
+    recordLaborOps: function (entries) {
+      const clean = {};
+      Object.keys(entries || {}).forEach(function (id) {
+        const src = entries[id] || {};
+        const one = {};
+        ['rate', 'hoursPerUnit', 'crewSize'].forEach(function (k) {
+          const v = Number(src[k]);
+          if (isFinite(v) && v >= 0) one[k] = v;
+        });
+        if (Object.keys(one).length) clean[id] = one;
+      });
+      if (!Object.keys(clean).length) return Promise.resolve(false);
+      return writeEntries('laborOps', clean);
     },
 
     /** Bulk form of recordJobItem — one write for a whole duplicated template. */

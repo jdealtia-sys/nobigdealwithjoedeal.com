@@ -144,6 +144,64 @@ The v2 adapter **excludes** the `xact-` and `jt-` bridge rows that
 `EstimateBuilderV2.CATALOG` at load. Rotating them there would double-count and
 produce two books that disagree about the same line; there is a test for it.
 
+---
+
+## 9. Labor catalog — MIGRATED 2026-08-19
+
+The first of the three, and this codebase's first *partial* migration.
+
+**What left:** crew productivity — `hoursPerUnit` per entry plus the `crewSize`
+and `ratePerManHour` the `L()` helper injected. **198 values**, gone from the
+published tree, now tenant-owned at `catalogCosts/{companyId}.laborOps`. They
+were read at exactly two sites, both a pass-through in `resolveLabor`, so
+removing them costs a tenant nothing — and the file's own header instructs
+authors not to disclose the source of the productivity figures, a rule it had
+been breaking by publishing the figures themselves.
+
+**What deliberately stayed:** all **66 `rate:` values**, as a labelled starter
+baseline. Stripping them turns the estimator off rather than degrading it. What
+makes them safe is staleness, not secrecy — and `NBD_LABOR.get()` now overlays
+the tenant book on read, so a company's own rate wins at the one place pricing
+consults (`estimate-logic-engine.js:resolveLabor`). Verified end to end: with a
+book the engine prices off the tenant's figure, without one off the baseline,
+and with a *throwing* book off the baseline rather than crashing.
+
+`updateRate()` now writes to the company book as well as localStorage, and
+`adoptLocalOverrides()` lifts pre-existing per-device overrides into it once —
+the same drift fix `adoptLocal()` did for products, with the same caveat: a
+`sales_rep` cannot write the book, so their edits stay local.
+
+**Three things this turned up that are worth keeping:**
+
+1. **The paired regex went blind, exactly as revision (2) predicted.**
+   `COST_BASIS_LABOR_RE` matches `rate:` beside `hoursPerUnit:`; removing one
+   half left 66 published rates matching nothing. So
+   `estimate-labor-catalog.js` is **off** `KNOWN_UNMIGRATED` and covered
+   instead by four file-scoped assertions — productivity absent (structural
+   *and* textual), no orphaned constant, the baseline still **present** so
+   nobody strips it and breaks onboarding, and the override path wired. A shape
+   list cannot express "this half is closed and that half is deliberately open".
+
+2. **A CRLF bug nearly shipped a silent partial strip.** The codemod removed the
+   per-entry fields but left `const CREW = 4` and `const RATE_PER_MH = 35`,
+   because a `.*` tail never matches across a `\r\n` line ending — no error, no
+   diff, just a leftover published figure that parses clean and is invisible to
+   a structural check. Fixed, and the verification pass now asserts textual
+   absence too rather than trusting the replace to have fired.
+
+3. **A migrated field is unreachable from the working tree**, so
+   `cost-rotation.js` gained `--from <git-ref>`. Without it NBD's real
+   productivity data would have been stranded in history with no tool to
+   recover it. Measured: `--worksheet` yields 66 values from the working tree,
+   198 from a pre-strip ref.
+
+**Still open here:** the 66 published rates are NBD's actual rates until
+rotation lands. This migration closed the productivity half outright and built
+the override path for the other half. It did not close the rate half, and no
+code can — that part is data entry.
+
+---
+
 **It will not generate a number, and that is deliberate.** A blanket "scale
 everything by 7%" would devalue the leaked copies and simultaneously put the
 shop on fabricated money for live quoting — a worse failure than the leak. The

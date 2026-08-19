@@ -46,6 +46,7 @@
 const fs = require('fs');
 const path = require('path');
 const vm = require('vm');
+const { execFileSync } = require('child_process');
 
 const ROOT = path.join(__dirname, '..');
 const REG = require(path.join(ROOT, 'functions', 'cost-basis-registry.js'));
@@ -68,6 +69,9 @@ const WHICH = arg('--catalog', null);
 // nothing, which is the only reason this step exists. The floor is arguable;
 // having one is not.
 const MIN_COVERAGE = Number(arg('--min-coverage', '0.5'));
+// Read the catalog from a git ref instead of disk. Needed once a field has
+// been migrated OUT of the published file — see readSource().
+const FROM = arg('--from', 'worktree');
 
 if (!WHICH) {
   console.error('FATAL: --catalog <' + Object.keys(REG.CATALOGS).join('|') + '|all> is required.');
@@ -84,6 +88,32 @@ if (APPLY && WHICH === 'all') {
 
 const IDS = WHICH === 'all' ? Object.keys(REG.CATALOGS) : [WHICH];
 IDS.forEach((id) => { try { REG.get(id); } catch (e) { console.error('FATAL: ' + e.message); process.exit(2); } });
+
+/**
+ * Read one catalog file, from the working tree or from a git ref.
+ *
+ * `--from <ref>` exists because a MIGRATED field is no longer readable from
+ * disk. The labor catalog's crew productivity left the published tree on
+ * 2026-08-19, so a worksheet built from the working tree can only offer
+ * `rate` — and the tenant's real hoursPerUnit/crewSize, which they may well
+ * want in their book, survive only at a pre-strip commit. Without this flag
+ * that data is stranded in history with no tool to recover it.
+ *
+ *   node scripts/cost-rotation.js --catalog labor --worksheet --from <pre-strip-sha>
+ */
+function readSource(rel) {
+  if (FROM === 'worktree') {
+    const p = path.join(ROOT, 'docs', rel);
+    if (!fs.existsSync(p)) { console.error('FATAL: missing ' + rel); process.exit(2); }
+    return fs.readFileSync(p, 'utf8');
+  }
+  try {
+    return execFileSync('git', ['show', FROM + ':docs/' + rel], { cwd: ROOT, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
+  } catch (e) {
+    console.error('FATAL: cannot read docs/' + rel + ' at ' + FROM + ' — ' + e.message);
+    process.exit(2);
+  }
+}
 
 /** Load one catalog's files into a bare window sandbox. */
 function loadCatalog(catalog) {
@@ -104,10 +134,8 @@ function loadCatalog(catalog) {
   };
   vm.createContext(sandbox);
   catalog.files.forEach((rel) => {
-    const p = path.join(ROOT, 'docs', rel);
-    if (!fs.existsSync(p)) { console.error('FATAL: missing ' + rel); process.exit(2); }
-    try { vm.runInContext(fs.readFileSync(p, 'utf8'), sandbox, { filename: path.basename(rel) }); }
-    catch (e) { console.error('FATAL: ' + rel + ' threw while loading — ' + e.message); process.exit(2); }
+    try { vm.runInContext(readSource(rel), sandbox, { filename: path.basename(rel) }); }
+    catch (e) { console.error('FATAL: ' + rel + ' threw while loading at ' + FROM + ' — ' + e.message); process.exit(2); }
   });
   return win;
 }

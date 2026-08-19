@@ -71,11 +71,30 @@ function isFiniteNum(n) { return typeof n === 'number' && Number.isFinite(n); }
  *   label      human description
  *   files      docs/-relative sources, in load order (a bare window sandbox)
  *   bookField  the map on catalogCosts/{companyId} it owns
- *   fields     the private numeric fields, in worksheet column order
+ *   fields     the numeric fields, in worksheet column order
+ *   unpublished fields that must NOT appear in the published file at all
  *   entries    (win) => [{ key, name, unit, values: {field: number} }]
  *
  * `entries` reads the LOADED catalog rather than parsing source, so a change
  * to how a file is authored cannot silently drop rows.
+ *
+ * ── `fields` vs `unpublished`, because they are not the same question ──────
+ *
+ * `fields` is everything the tenant book can hold and a worksheet can rotate.
+ * `unpublished` is the strictly smaller set that must LEAVE the published tree
+ * outright, and the distinction is the revised Phase-2 design:
+ *
+ *   A figure stays PUBLISHED when removing it would break onboarding and
+ *   publishing it costs little once rotated — a starter price book is a
+ *   product feature, and the historical values are already public anyway.
+ *   Rotation is what makes those harmless: stale, not secret.
+ *
+ *   A figure is UNPUBLISHED when nothing customer-facing reads it, so removing
+ *   it costs a tenant nothing. There is no onboarding argument for keeping it
+ *   and no reason to publish it. `functions/catalog-cost-logic.js` already made
+ *   exactly this call for the product catalog: "hoursPerUnit and crewSize ride
+ *   the private half for that reason alone; they are scheduling data, not
+ *   price, and nothing public-facing reads them."
  */
 const CATALOGS = {
   labor: {
@@ -84,6 +103,14 @@ const CATALOGS = {
     files: ['pro/js/estimate-labor-catalog.js'],
     bookField: 'laborOps',
     fields: ['rate', 'hoursPerUnit', 'crewSize'],
+    // rate STAYS published as the starter baseline (see the header). crew
+    // productivity leaves outright: measured, hoursPerUnit and crewSize are
+    // read at exactly two sites, both a pass-through in
+    // estimate-logic-engine.js resolveLabor (:396-397) — nothing customer-
+    // facing, nothing in pricing, nothing in the payload. This file's own
+    // header also instructs authors not to disclose the source of the
+    // productivity figures, a rule it was breaking by publishing them.
+    unpublished: ['hoursPerUnit', 'crewSize', 'ratePerManHour'],
     entries(win) {
       const items = (win.NBD_LABOR && win.NBD_LABOR.items) || {};
       return Object.keys(items).map((id) => {
@@ -108,6 +135,11 @@ const CATALOGS = {
     ],
     bookField: 'xactCosts',
     fields: ['materialCost', 'laborCost'],
+    // Nothing leaves this file yet: strip either field and the estimator goes
+    // inert (measured — a full reroof drops to the minimum-job floor with
+    // every line at 0), because there is no public retail half to price from.
+    // Rotation first; see the Phase 2 brief.
+    unpublished: [],
     entries(win) {
       const items = (win.NBD_XACT_CATALOG && win.NBD_XACT_CATALOG.items) || [];
       return items.map((e) => ({
@@ -125,6 +157,7 @@ const CATALOGS = {
     files: ['pro/js/estimate-config.js', 'pro/js/estimate-builder-v2.js'],
     bookField: 'v2Costs',
     fields: ['cost', 'labor'],
+    unpublished: [],
     entries(win) {
       const cat = (win.EstimateBuilderV2 && win.EstimateBuilderV2.CATALOG) || {};
       // Native keys only. The xact and job-template bridges write into this
