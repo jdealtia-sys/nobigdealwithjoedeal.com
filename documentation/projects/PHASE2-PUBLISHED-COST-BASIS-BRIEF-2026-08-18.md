@@ -78,6 +78,77 @@ before any of it should be.**
 > labor catalog as one unit → xactimate + estimate-builder-v2 together. P2-b is
 > withdrawn. Nothing should start until rotation has, because (1) makes it the
 > dependency for all of it.
+>
+> **The rotation tooling is now built** (2026-08-19) — see §8. That was the
+> only part of the blocking step that did not need Jo's figures, so it is done
+> and rotation is now data entry rather than a project.
+
+---
+
+## 8. Rotation — built, and how to run it
+
+Rotation went from "a parallel nicety" to **the prerequisite for all of Phase 2**
+per revision (1). Everything that could be built without Jo's actual figures
+now is:
+
+- `functions/cost-basis-registry.js` — one description of every catalog that
+  publishes a cost basis, so the third and fourth migrations are a config entry
+  rather than another hand-written script. It also states the rotation
+  rationale once, in the place the tooling reads from.
+- `scripts/cost-rotation.js` — worksheets and application.
+- `scripts/import-cost-rotation.js` — one company, one catalog, dry-run default.
+- `tests/cost-basis-registry.test.js` — 25 assertions, wired into CI.
+
+| catalog | rows | values | book field |
+|---|---|---|---|
+| `labor` — NBD_LABOR | 66 | 198 | `laborOps` |
+| `xact` — NBD_XACT_CATALOG | 276 | 552 | `xactCosts` |
+| `v2` — EstimateBuilderV2.CATALOG (native only) | 28 | 56 | `v2Costs` |
+
+806 values across three worksheets. Each map lands on the tenant's **existing**
+`catalogCosts/{companyId}` document beside `costs` and `jtCosts`, so — as with
+PR-B — **no `firestore.rules` change is needed**.
+
+```bash
+node scripts/cost-rotation.js --catalog all --worksheet
+```
+
+Writes `.local/rotation-<catalog>.json` and a `.csv` beside it, each row
+carrying the key, item name, unit and current figures with a blank column per
+field. Fill in the blanks; leave a cell blank to keep the current value and be
+told how many you kept.
+
+```bash
+node scripts/cost-rotation.js --catalog labor --apply .local/rotation-labor.json
+```
+
+```bash
+node scripts/import-cost-rotation.js --catalog labor --company <NBD companyId>
+```
+
+Dry run is the default; add `--yes` to write.
+
+**What it refuses**, all exercised end to end and asserted in the suite:
+
+| | |
+|---|---|
+| an untouched worksheet | refused — 0% coverage against a 50% floor |
+| a partial fill | refused, with the exact coverage reported (measured: 3.0%) |
+| a non-numeric or negative cell | refused, listed by row and key, never coerced |
+| a sheet applied to the wrong catalog | refused — the seed is stamped with its catalog |
+| importing an unrotated seed | refused unless `--unrotated` is passed deliberately |
+| importing over an existing book | refused unless `--force` — Firestore deep-merges nested maps, so a re-import silently reverts tenant edits |
+
+The v2 adapter **excludes** the `xact-` and `jt-` bridge rows that
+`estimate-catalog-xactimate.js` and `job-templates.js` write into
+`EstimateBuilderV2.CATALOG` at load. Rotating them there would double-count and
+produce two books that disagree about the same line; there is a test for it.
+
+**It will not generate a number, and that is deliberate.** A blanket "scale
+everything by 7%" would devalue the leaked copies and simultaneously put the
+shop on fabricated money for live quoting — a worse failure than the leak. The
+tooling's job is to make supplying real figures cheap, to prove the rotation
+happened, and to refuse to let a no-op pass as one.
 
 ---
 

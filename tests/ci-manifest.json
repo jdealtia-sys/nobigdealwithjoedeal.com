@@ -52,6 +52,7 @@
     "buying-intent-strike.test.js",
     "catalog-cost-privacy.test.js",
     "catalog-cost-seed.test.js",
+    "cost-basis-registry.test.js",
     "communication-log-contract.test.js",
     "county-tenant-policy.test.js",
     "crm-loop-complete.test.js",
