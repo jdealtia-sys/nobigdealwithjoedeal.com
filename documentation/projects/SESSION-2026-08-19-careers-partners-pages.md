@@ -110,3 +110,29 @@ collapses with hamburger at 1024px, footer carries both links, **0 CSP violation
 
 `qc-render-sweep.js` was not run — it does not exist on `main` (it is unmerged work on
 `qc/site-sweep-2026-08-18`). It is `continue-on-error` in CI regardless.
+
+---
+
+## Update 2026-08-19 (same day) — footer-standard added
+
+Jo asked for the links on `footer-standard` too, so the "left alone deliberately"
+decision above is superseded for that partial. `footer-area` (25 pages) is still
+without them.
+
+`footer-standard` has **no column structure at all** — it is a compact block (cert
+bar, one copyright/link `<p>`, breadcrumb line, quiet pro door). Adding a "Company
+column" would have meant inventing one. Instead the two links joined the existing
+inline row, matching its own idiom exactly:
+
+> © 2026 No Big Deal Home Solutions — Greater Cincinnati · Privacy ·
+> Free Roof Program · **Careers** · **Partners & Sponsorships**
+
+One line changed in the partial, 117 pages restamped, no new CSS. Verified on three
+`footer-standard` pages (`/our-work`, a service+city combo, a gutter combo): links
+visible with correct labels, **zero horizontal overflow at 1280px and 390px** (the
+longer row wraps rather than overflowing), 0 CSP violations, 0 page errors.
+
+Footer reach is now ~160 pages: `footer-standard` (117) + `footer-blog` (26) +
+`footer-extended` (16) + the hand-rolled homepage. Still uncovered: `footer-area`
+(25 pages) and 12 hand-rolled top-level pages (`/estimate`, `/review`, `/inspect`,
+`/roof-score`, the `storm-*` family, `/visualizer`, `/privacy`, `404`, `offline`).
