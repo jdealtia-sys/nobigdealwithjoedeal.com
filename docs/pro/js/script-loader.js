@@ -178,8 +178,8 @@
       // inserts into the V2 builder — end-of-bundle satisfies all three.
       // entity-resolver.js (the lead search/quick-create picker) must load
       // before job-templates-ui.js, which calls it from paintModal.
-      'js/job-templates-data.js?v=2',
-      'js/job-templates.js?v=3',
+      'js/job-templates-data.js?v=3',
+      'js/job-templates.js?v=4',
       'js/entity-resolver.js?v=1',
       'js/job-templates-ui.js?v=5'
     ],

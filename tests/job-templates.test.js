@@ -620,7 +620,32 @@ if (fullRoof) {
 // 4. MULTI-SELECT — shared-overhead dedupe on a two-repair selection
 // ════════════════════════════════════════════════════════════════════
 section('MULTI-SELECT — overhead dedupe (two repair templates)');
-const DEDUPE_CODES = ['LAB MOB', 'LAB DEMOB', 'LAB CLN-M', 'DSP HAUL', 'PRM RES-OH'];
+const DEDUPE_CODES = ['LAB MOB', 'LAB DEMOB', 'LAB CLN-M', 'DSP HAUL', 'PRM RES-OH', 'MAT DEL'];
+
+// MAT DEL (2026-08-19) carries the supplier delivery + fuel charge on every
+// reroof. It MUST dedupe: merging two reroofs into one estimate is one trip to
+// the site, and billing the homeowner twice for it is a real overcharge — the
+// mirror of the under-charge that created the line. The pair used by the
+// generic dedupe check above is two REPAIRS, which carry no MAT DEL at all, so
+// that assertion would pass vacuously for this code. This one uses reroofs.
+(function () {
+  const reroofs = TPLS.filter((t) => t && (t.items || []).some((i) => i && i.code === 'MAT DEL'));
+  ok('reroof templates carry MAT DEL (' + reroofs.length + ' of them)', reroofs.length >= 15);
+  if (reroofs.length >= 2) {
+    const sel = [{ templateId: reroofs[0].id }, { templateId: reroofs[1].id }];
+    const merged = JT.resolveSelection(sel, { tier: 'better' });
+    const n = (merged.lines || []).filter((l) => l && l.code === 'MAT DEL').length;
+    ok('TWO reroofs merged bill delivery ONCE (' + reroofs[0].id + ' + ' + reroofs[1].id + ')',
+      n === 1, 'got ' + n + ' MAT DEL lines — the homeowner is being charged twice for one trip');
+  }
+  // ...and a template that is not a reroof must not carry it at all.
+  const repair = TPLS.find((t) => t && t.jobType === 'repair');
+  if (repair) {
+    const n = (JT.resolveSelection([{ templateId: repair.id }], { tier: 'better' }).lines || [])
+      .filter((l) => l && l.code === 'MAT DEL').length;
+    ok('a repair template carries no delivery line (' + repair.id + ')', n === 0, 'got ' + n);
+  }
+})();
 if (repairsWithMob.length >= 2) {
   const a = repairsWithMob[0], b = repairsWithMob[1];
   const pairLabel = 'pair (' + a.id + ' + ' + b.id + ')';

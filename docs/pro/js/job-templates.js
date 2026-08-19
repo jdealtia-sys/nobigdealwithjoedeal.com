@@ -50,7 +50,13 @@
   // fixed qty is the MAX across occurrences (see resolveSelection).
   const SINGLETON_CODES = {
     'LAB MOB': 1, 'LAB DEMOB': 1, 'LAB CLN-M': 1, 'DSP HAUL': 1,
-    'PRM RES-OH': 1, 'LAB PHOTO': 1, 'LAB WALK': 1
+    'PRM RES-OH': 1, 'LAB PHOTO': 1, 'LAB WALK': 1,
+    // MAT DEL is a per-JOB supplier delivery + fuel charge (2026-08-19). It has
+    // to be a singleton for the same reason LAB MOB is: merging a reroof with a
+    // gutter job into one estimate is ONE trip to the site, not two, and
+    // billing the homeowner twice for the same delivery is a real overcharge —
+    // the mirror of the under-charge that created this line.
+    'MAT DEL': 1
   };
 
   // Typical-house measurement context — the BASE of the resolveSelection
