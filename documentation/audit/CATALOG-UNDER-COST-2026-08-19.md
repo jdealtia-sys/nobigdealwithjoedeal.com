@@ -123,10 +123,63 @@ regional two-supplier trip, not any company's negotiated rate. A tenant's real
 delivery cost belongs in `catalogCosts/{companyId}.xactCosts`, where
 `NBD_XACT_CATALOG.find()` overlays it.
 
-**Still open:** nothing ADDS `MAT DEL` automatically. It is available to select,
-but no default job template includes it, so delivery is still not recovered
-unless a rep adds the line. Wiring it into the reroof templates changes what
-every quote charges and is a product decision, not a bug fix.
+**Wired into the reroof templates** (same day, Jo's call): the 10
+`roof_replacement` entries plus the 6 `specialty_roofing` replacements, 16 in
+all. Measured impact +1.8% to +3.2% per reroof — delivery the shop was already
+paying and not recovering. It is a SINGLETON, so merging two reroofs into one
+estimate bills one trip rather than two; the dedupe is asserted against two
+reroofs specifically, because the generic multi-select check uses two repairs
+which carry no `MAT DEL` and would have passed vacuously.
+
+It is APPENDED at the end of each `items[]`, never inserted mid-array. Cost keys
+are `jt-<slug>-<INDEX>`, so shifting an existing index re-keys that item and
+orphans the tenant's cost-book entry — the first attempt inserted after
+`LAB MOB` and orphaned 7 keys across the specialty reroofs, caught by the frozen
+key-set assertion in `tests/job-template-cost-seed.test.js`. Appending moves
+nothing.
+
+## Update 2026-08-19 — the per-SQ path has the same gap, and a bigger one beside it
+
+`MAT DEL` covers line-item mode only. Checking the per-SQ path
+(`EstimateBuilderV2.calculatePerSq`) found two things.
+
+**1. Per-SQ bills no delivery either, and folding it into the cost basis cannot
+work.** Per-SQ already bills flat per-job add-ons — permit and dump fee — so the
+shape exists; delivery simply is not one of them. The only cost input is
+`costBasis[tier]`, a single **per-SQ** number, and delivery is a **flat per-job**
+charge. Amortising a flat charge over a per-SQ basis is right at exactly one job
+size and wrong either side of it: sized for a 20-SQ job it under-recovers by half
+on a 10-SQ roof and over-recovers by the full amount again on a 40-SQ one.
+
+So delivery belongs in per-SQ as a flat add-on beside permit and dump fee, not
+inside the per-SQ cost basis. That is a settings-UI change (a new add-on price,
+its form field and save path), not a constant, which is why it is recorded here
+rather than done.
+
+**2. Add-on COST is hardcoded at 40% of add-on PRICE**, and that is the larger
+error. `calculatePerSq` computes `addOnCostCents = addOnsTotalCents * 0.4` — a
+flat assumption that every add-on carries a 60% margin. It does not hold for the
+two biggest ones, which are near pass-throughs:
+
+| add-on | charged | catalog cost | implied cost ratio | model assumes |
+|---|---|---|---|---|
+| permit `PRM RES-OH` | ~165 | 210 | **>100%** | 40% |
+| dump fee `DSP 20YD` | 550 | 425 | ~77% | 40% |
+
+On a job carrying both, the model assumes roughly 286 of add-on cost against
+something closer to 635 — **margin overstated by several hundred dollars per
+job**, in the internal view the shop prices against.
+
+This only bites a tenant who has configured a per-SQ cost basis
+(`DEFAULT_COST_BASIS` ships as zeros and renders margin as null until set), so
+it affects NBD and not a fresh tenant. It is a margin-DISPLAY error rather than
+a charging error — the homeowner is billed correctly; the shop is told it made
+more than it did.
+
+**Neither is fixed here.** Both change money the shop reads and one changes the
+settings UI, so they are findings, not drive-by edits. Recommended order:
+correct the 40% assumption first (bigger, one function, no UI), then add
+delivery as a flat per-SQ add-on.
 
 Fixing these is **not** a rotation and must not be recorded as one in
 `tests/cost-basis-ledger.js` — correcting a drifted baseline toward current
