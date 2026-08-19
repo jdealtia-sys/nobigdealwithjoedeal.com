@@ -93,6 +93,28 @@ if (!fs.existsSync(JT_DATA_PATH) || !fs.existsSync(JT_ENGINE_PATH)) {
 // (NBD_PRODUCTS → NBD_LABOR → EstimateBuilderV2.CATALOG → xact bridge →
 // EstimateLogic → JobTemplates) all resolve exactly like in the app.
 // ════════════════════════════════════════════════════════════════════
+// ════════════════════════════════════════════════════════════════════
+// TWO PASSES OVER THE SAME STACK (2026-08-18).
+//
+// Custom-item costs left the published data file — they are tenant-owned now
+// (catalogCosts/{companyId}.jtCosts). This harness has no window.db and no
+// _resolveCompanyKey, so by construction it IS "a tenant with no cost book".
+// That is the state most of this suite should run in, and §9's inference lock
+// depends on it.
+//
+// But three checks are cost-DEPENDENT and go vacuous or red without numbers:
+// §3's cost-leak trap (needs materialTotal > 0 to have anything to compare),
+// §8's scale floor (measured: with no costs jt_ex_siding_replace_elevation
+// resolves 2525 against a 3750 floor), and §9's "the tenant's own numbers
+// reach the bridge" direction. So the whole browser stack is booted TWICE:
+// once bare, once with a fixture book installed as window.NBDCatalogCosts.
+//
+// The fixture values are INVENTED (flat 1/2) and live in tests/ only, never
+// under docs/. Flat {1,2} was measured to clear every scale floor.
+// ════════════════════════════════════════════════════════════════════
+const JT_FIXTURE_MATERIAL = 1;
+const JT_FIXTURE_LABOR = 2;
+
 function makeSandbox() {
   const win = {};
   win.window = win;
@@ -123,8 +145,6 @@ function makeSandbox() {
   return { win, sandbox };
 }
 
-const { win, sandbox } = makeSandbox();
-
 // estimate-config.js is loaded first when present — it's what the browser
 // does (estimate-builder-v2.js reads window.NBD_ESTIMATE_CONFIG, falling
 // back to inline constants otherwise). Guarded: absence is non-fatal.
@@ -141,22 +161,38 @@ const LOAD_ORDER = [
   JT_ENGINE_PATH,
 ];
 
-for (const file of LOAD_ORDER) {
-  if (file === CONFIG_PATH && !fs.existsSync(file)) continue; // optional
-  let src;
-  try { src = fs.readFileSync(file, 'utf8'); }
-  catch (e) {
-    console.log('FATAL: cannot read ' + path.basename(file) + ' — ' + e.message);
-    process.exit(1);
+/**
+ * Boot the whole browser stack in a fresh context.
+ * `book` (optional) is installed as window.NBDCatalogCosts BEFORE
+ * job-templates.js evaluates — its load-time registerAllCustomItems() is what
+ * reads jobItem(), so installing it afterwards would prove nothing.
+ */
+function loadStack(book) {
+  const { win, sandbox } = makeSandbox();
+  if (book) win.NBDCatalogCosts = book;
+  for (const file of LOAD_ORDER) {
+    if (file === CONFIG_PATH && !fs.existsSync(file)) continue; // optional
+    let src;
+    try { src = fs.readFileSync(file, 'utf8'); }
+    catch (e) {
+      console.log('FATAL: cannot read ' + path.basename(file) + ' — ' + e.message);
+      process.exit(1);
+    }
+    try { vm.runInContext(src, sandbox, { filename: path.basename(file) }); }
+    catch (e) {
+      // A file that EXISTS but throws at load is a real defect (a missing
+      // file already soft-skipped above) — surface it loudly.
+      console.log('FATAL: ' + path.basename(file) + ' threw during load — ' + e.message);
+      process.exit(1);
+    }
   }
-  try { vm.runInContext(src, sandbox, { filename: path.basename(file) }); }
-  catch (e) {
-    // A file that EXISTS but throws at load is a real defect (a missing
-    // file already soft-skipped above) — surface it loudly.
-    console.log('FATAL: ' + path.basename(file) + ' threw during load — ' + e.message);
-    process.exit(1);
-  }
+  return { win, sandbox };
 }
+
+// PASS 1 — bare. No cost book: the state every tenant except the imported one
+// is in on deploy day. This is the stack the whole suite runs against unless a
+// section says otherwise.
+const { win, sandbox } = loadStack(null);
 
 // ── Contract globals ──
 const TPLS = win.NBD_JOB_TEMPLATES;
@@ -166,6 +202,32 @@ const EL = win.EstimateLogic;
 const XACT = win.NBD_XACT_CATALOG;
 const LABOR = win.NBD_LABOR;
 const V2 = win.EstimateBuilderV2;
+
+// PASS 2 — priced. The fixture book is keyed with the SHARED jtKey() from
+// functions/job-template-cost-logic.js, deliberately: if the client's
+// jtCostKey() and the module's jtKey() ever drift, this book resolves nothing
+// and the §9 priced assertion goes red — which is the drift alarm.
+const { jtKey: JT_KEY } = require(path.join(ROOT, 'functions', 'job-template-cost-logic.js'));
+const JT_FIXTURE_BOOK = {};
+if (Array.isArray(TPLS)) {
+  TPLS.forEach(function (t) {
+    if (!t || !t.id || !Array.isArray(t.items)) return;
+    t.items.forEach(function (it, i) {
+      if (it && it.custom && it.custom.name) {
+        JT_FIXTURE_BOOK[JT_KEY(t.id, i)] = { materialCost: JT_FIXTURE_MATERIAL, laborCost: JT_FIXTURE_LABOR };
+      }
+    });
+  });
+}
+const PRICED = loadStack({
+  __sentinel: 'test-fixture-book',
+  jobItem: function (k) { return JT_FIXTURE_BOOK[k] || null; },
+  jobItemKeys: function () { return Object.keys(JT_FIXTURE_BOOK); },
+  recordJobItems: function () { return Promise.resolve(false); },
+  hydrate: function () { return Promise.resolve(null); },
+});
+const JT_P = PRICED.win.JobTemplates;
+const XACT_P = PRICED.win.NBD_XACT_CATALOG;
 
 // ════════════════════════════════════════════════════════════════════
 // Test scaffold — ✗ lines only + per-section counts + grand summary.
@@ -247,6 +309,10 @@ const eId = [], eDupId = [], eCat = [], eJobType = [], eText = [], eTags = [],
       eItemsMin = [], eItemShape = [], eCode = [], eBrand = [], eBrandFirst = [],
       eCustom = [], eMeas = [], eConvention = [];
 const seenIds = new Set();
+// Non-vacuity counter for the inverted custom-item guard below. Without it,
+// "no custom item carries a cost key" passes trivially the day custom items
+// stop existing — the exact way an inverted assertion rots.
+let nCustomScanned = 0;
 
 TPLS.forEach(function (t, idx) {
   const id = (t && t.id) ? t.id : '<template #' + idx + '>';
@@ -315,16 +381,22 @@ TPLS.forEach(function (t, idx) {
     } else { // custom
       const c = it.custom;
       const qty = Number(c.qty);
-      const mat = Number(c.materialCost);
-      const lab = Number(c.laborCost);
       if (typeof c.name !== 'string' || !c.name.trim()) eCustom.push(label + ' custom name empty');
       if (typeof c.unit !== 'string' || !c.unit.trim()) eCustom.push(label + ' custom unit empty');
       if (!Number.isFinite(qty) || qty <= 0) eCustom.push(label + ' custom qty must be > 0 (got ' + c.qty + ')');
-      if (!Number.isFinite(mat) || mat < 0) eCustom.push(label + ' custom materialCost must be >= 0 (got ' + c.materialCost + ')');
-      if (!Number.isFinite(lab) || lab < 0) eCustom.push(label + ' custom laborCost must be >= 0 (got ' + c.laborCost + ')');
-      if (Number.isFinite(mat) && Number.isFinite(lab) && !(mat > 0 || lab > 0)) {
-        eCustom.push(label + ' custom material+labor both 0 (at least one must be > 0)');
-      }
+      // 2026-08-18: this assertion is INVERTED from what it used to be.
+      //
+      // It used to read "materialCost/laborCost >= 0, at least one > 0" — i.e.
+      // it REQUIRED contractor cost data to be present in a file served
+      // unauthenticated from the Hosting root of a public repo. 84 items, 146
+      // non-zero values, for a month. Cost data is tenant-owned now
+      // (catalogCosts/{companyId}.jtCosts); the "at least one > 0" invariant
+      // did not disappear, it moved to validateJtCostOverlay(), where it runs
+      // at extract time AND again at import time against the real book.
+      // documentation/audit/JOB-TEMPLATE-COST-LEAK-2026-08-18.md
+      if ('materialCost' in c) eCustom.push(label + ' custom carries materialCost — cost data is tenant-owned');
+      if ('laborCost' in c) eCustom.push(label + ' custom carries laborCost — cost data is tenant-owned');
+      nCustomScanned++;
     }
   });
 
@@ -361,7 +433,8 @@ ok('every item is exactly one of coded {code} / {custom} with sane qty', eItemSh
 ok('every coded item resolves in the merged catalog (xact.find / NBD_LABOR.get / V2 CATALOG codes)', eCode.length === 0); listOffenders(eCode);
 ok('every brandOption code resolves in the merged catalog', eBrand.length === 0); listOffenders(eBrand);
 ok('first brandOption equals the item\'s own code (the default)', eBrandFirst.length === 0); listOffenders(eBrandFirst);
-ok('custom items: name/unit non-empty, qty > 0, costs >= 0, at least one > 0', eCustom.length === 0); listOffenders(eCustom);
+ok('custom items: name/unit non-empty, qty > 0, NO cost keys (tenant-owned)', eCustom.length === 0); listOffenders(eCustom);
+ok('custom-item guard is non-vacuous (' + nCustomScanned + ' custom items scanned)', nCustomScanned >= 80);
 ok('measurements: null or keys ⊆ engine MEASUREMENT_VARS whitelist', eMeas.length === 0); listOffenders(eMeas);
 ok('repair/maintenance/inspection/emergency templates bake measurements + minJobCharge', eConvention.length === 0); listOffenders(eConvention);
 
@@ -438,10 +511,13 @@ if (smokeWarnings.length) {
 // ════════════════════════════════════════════════════════════════════
 section('PAYLOAD CONTRACT — buildEstimatePayload (repair / full roof / multi-select)');
 
-function resolveAndBuild(label, selection, opts) {
+// `engine` defaults to the BARE stack; §3 passes the PRICED one so the
+// cost-leak trap below has material-bearing rows to bite on.
+function resolveAndBuild(label, selection, opts, engineOverride) {
+  const E = engineOverride || JT;
   try {
-    const res = JT.resolveSelection(selection, opts);
-    const payload = JT.buildEstimatePayload(res, {
+    const res = E.resolveSelection(selection, opts);
+    const payload = E.buildEstimatePayload(res, {
       name: 'Harness ' + label,
       customer: { name: 'Test Customer', address: '1 Test St' },
     });
@@ -467,6 +543,7 @@ function checkPayload(label, built) {
 
   const markup = Number(totals.materialMarkupPct != null ? totals.materialMarkupPct : 0.25);
   const rowErrs = [];
+  let nMaterialRows = 0;
   rows.forEach(function (r, i) {
     const rid = 'row[' + i + '] ' + ((r && r.code) || '?');
     if (!r || typeof r !== 'object') { rowErrs.push(rid + ': not an object'); return; }
@@ -491,6 +568,7 @@ function checkPayload(label, built) {
     if (markup > 0 &&
         Number.isFinite(r.materialTotal) && r.materialTotal > 0 &&
         Number.isFinite(r.laborTotal) && Number.isFinite(r.total)) {
+      nMaterialRows++;
       if (!(r.total > r.materialTotal + r.laborTotal + 0.005)) {
         rowErrs.push(rid + ': COST LEAK — total ' + r.total + ' does not exceed cost basis ' +
           (r.materialTotal + r.laborTotal) + ' despite markup ' + markup);
@@ -500,6 +578,10 @@ function checkPayload(label, built) {
   ok(label + ': every row satisfies classic shape + B-8 fields + retail/cost-leak rules (' + rows.length + ' rows)',
     rowErrs.length === 0, rowErrs.length + ' row error(s)');
   listOffenders(rowErrs, 20);
+  // The trap is `materialTotal > 0`-gated, so a zero-cost design would make it
+  // pass by never firing. Say out loud how many rows it actually bit on.
+  ok(label + ': cost-leak trap was non-vacuous (' + nMaterialRows + ' material-bearing rows checked)',
+    nMaterialRows > 0);
 }
 
 // Representative picks.
@@ -518,14 +600,19 @@ ok('found a full-roof template', !!fullRoof, 'no roof_replacement/replacement te
 ok('found two repair templates carrying LAB MOB (for the dedupe check)', repairsWithMob.length >= 2,
   'got ' + repairsWithMob.length);
 
+// PRICED PASS. The cost-leak trap compares a row's customer total against its
+// cost basis; with no cost book every JT custom row is 0/0 and the trap has
+// nothing to bite on. Run the payload contract against a tenant that HAS a
+// book, which is also the configuration a real customer document is produced
+// in. (The bare stack's behaviour is covered by §9's inference lock.)
 if (repairA) {
-  const built = resolveAndBuild('repair (' + repairA.id + ')', [{ templateId: repairA.id }], { tier: 'better' });
+  const built = resolveAndBuild('repair (' + repairA.id + ')', [{ templateId: repairA.id }], { tier: 'better' }, JT_P);
   checkPayload('repair (' + repairA.id + ')', built);
 }
 if (fullRoof) {
   const opts = { tier: 'better' };
   if (fullRoof.measurements == null) opts.measurements = SMOKE_MEASUREMENTS;
-  const built = resolveAndBuild('full roof (' + fullRoof.id + ')', [{ templateId: fullRoof.id }], opts);
+  const built = resolveAndBuild('full roof (' + fullRoof.id + ')', [{ templateId: fullRoof.id }], opts, JT_P);
   checkPayload('full roof (' + fullRoof.id + ')', built);
 }
 
@@ -537,7 +624,7 @@ const DEDUPE_CODES = ['LAB MOB', 'LAB DEMOB', 'LAB CLN-M', 'DSP HAUL', 'PRM RES-
 if (repairsWithMob.length >= 2) {
   const a = repairsWithMob[0], b = repairsWithMob[1];
   const pairLabel = 'pair (' + a.id + ' + ' + b.id + ')';
-  const built = resolveAndBuild(pairLabel, [{ templateId: a.id }, { templateId: b.id }], { tier: 'better' });
+  const built = resolveAndBuild(pairLabel, [{ templateId: a.id }, { templateId: b.id }], { tier: 'better' }, JT_P);
   if (built) {
     checkPayload(pairLabel, built);
     const countIn = function (arr, code) {
@@ -697,6 +784,25 @@ if (uiExists) {
   ok("UI code contains 'unitPriceOverride' (canonical price key)", /\bunitPriceOverride\b/.test(uiCode));
   ok("UI code never emits legacy 'priceOverride' key", !/\bpriceOverride\b/.test(uiCode),
     "found /\\bpriceOverride\\b/ outside comments — the engine only reads 'unitPriceOverride'");
+
+  // ── "Cost not set" surfacing (2026-08-18) ──────────────────────────
+  // The engine now marks an unpriced job-template line `costUnset` and still
+  // resolves it at an explicit 0. If the UI stops reading that flag, every
+  // one of those lines silently renders as $0.00 — a price, on a proposal.
+  // These are static because the UI needs a real DOM; the behaviour they
+  // stand in for is asserted end-to-end in tests/job-template-cost-seed.test.js.
+  ok("UI code reads the 'costUnset' flag (else unpriced lines render as $0.00)",
+    /\bcostUnset\b/.test(uiCode));
+  ok('UI suppresses the card price band for an unpriced template',
+    /unpricedCount\s*\(/.test(uiCode));
+  ok('UI exports clearBandCache (catalog-costs → applyJtCostSeed repaints cold-device cards)',
+    /clearBandCache:\s*clearBandCache/.test(uiCode));
+  // The UI has never had a cost INPUT and this PR did not add one — costs are
+  // company-scoped and writing them needs owner/company_admin. Recorded as an
+  // assertion so "we'll add the editor later" cannot become "someone quietly
+  // added an ungated one".
+  ok('UI still emits no materialCost/laborCost write field (no ungated cost editor)',
+    !/data-jt-edi="(?:materialCost|laborCost)"/.test(uiCode));
 }
 
 // ════════════════════════════════════════════════════════════════════
@@ -763,20 +869,42 @@ const formulaPop = TPLS.filter(function (t) {
      !Object.prototype.hasOwnProperty.call(t.measurements, 'rawSqft')));
 });
 ok('formula/partial population non-empty (got ' + formulaPop.length + ')', formulaPop.length > 0);
+
+// The two halves of this check are NOT the same kind of assertion, and after
+// the 2026-08-18 cost migration they can no longer share a pass.
+//
+//   qsum > 0  is cost-INDEPENDENT — it catches the zero-scope class (a
+//             template whose formulas resolve to nothing at the default
+//             context). It must hold for EVERY tenant, priced or not, so it
+//             runs on the bare stack.
+//   sTotal > floor  is cost-DEPENDENT by construction: it is a money floor.
+//             With no cost book, measured, jt_ex_siding_replace_elevation
+//             resolves 2525 against a 3750 floor — correctly, because an
+//             unpriced tenant's total legitimately excludes the unpriced
+//             lines. Asserting it on the bare stack would be asserting that
+//             "Cost not set" is a bug. It runs on the priced stack.
 const scaleErrs = [];
+const floorErrs = [];
 formulaPop.forEach(function (t) {
   let sRes;
   try { sRes = JT.resolveSelection([{ templateId: t.id }], { tier: 'better' }); } // NO measurements
   catch (e) { scaleErrs.push(t.id + ': resolveSelection THREW — ' + e.message); return; }
   const qsum = (sRes.lines || []).reduce(function (s, l) { return s + (Number(l && l.quantity) || 0); }, 0);
-  const scaleFloor = 1.5 * (Number(t.minJobCharge) || 2500);
-  const sTotal = sRes.totals && Number(sRes.totals.total);
   if (!(qsum > 0)) scaleErrs.push(t.id + ': sum of line quantities is 0 at default context');
-  if (!(sTotal > scaleFloor)) scaleErrs.push(t.id + ': total ' + sTotal + ' <= scale floor ' + scaleFloor);
+
+  let pRes;
+  try { pRes = JT_P.resolveSelection([{ templateId: t.id }], { tier: 'better' }); }
+  catch (e) { floorErrs.push(t.id + ': priced resolveSelection THREW — ' + e.message); return; }
+  const scaleFloor = 1.5 * (Number(t.minJobCharge) || 2500);
+  const pTotal = pRes.totals && Number(pRes.totals.total);
+  if (!(pTotal > scaleFloor)) floorErrs.push(t.id + ': total ' + pTotal + ' <= scale floor ' + scaleFloor);
 });
-ok('every formula/partial template resolves real scope at default context (qty sum > 0, total > 1.5 × (minJobCharge || 2500))',
+ok('every formula/partial template resolves real scope at default context (qty sum > 0) — NO cost book',
   scaleErrs.length === 0, scaleErrs.length + ' failure(s)');
 listOffenders(scaleErrs, 20);
+ok('every formula/partial template clears its scale floor (total > 1.5 × (minJobCharge || 2500)) — WITH a cost book',
+  floorErrs.length === 0, floorErrs.length + ' failure(s)');
+listOffenders(floorErrs, 20);
 
 // ════════════════════════════════════════════════════════════════════
 // 9. CUSTOM-ITEM REGISTRATION — 'JT ' + slug(templateId) + '-' + index
@@ -812,11 +940,88 @@ if (customPick) {
     'code=' + (rLine && rLine.code) + ' expected one of [' + keyCandidates.join(', ') + ']');
   const rFound = rLine && XACT && typeof XACT.find === 'function' ? XACT.find(rLine.code) : null;
   ok(rLabel + ': NBD_XACT_CATALOG.find(code) resolves WITHOUT insertIntoV2 ever running', !!rFound);
-  ok(rLabel + ': registered entry carries the custom costs',
-    !!rFound && nearly(rFound.materialCost, Number(rc.materialCost) || 0) &&
-    nearly(rFound.laborCost, Number(rc.laborCost) || 0),
-    rFound && ('got m=' + rFound.materialCost + '/l=' + rFound.laborCost +
-      ' want m=' + rc.materialCost + '/l=' + rc.laborCost));
+
+  // ── the cost bridge, both directions (2026-08-18) ────────────────────
+  // This used to compare the registered entry against the data file's
+  // custom.materialCost. After the strip that is a comparison with no
+  // operands: the data file carries no costs, so it asserted 0 === 0.
+
+  // (a) NO BOOK. The harness has no window.db and no _resolveCompanyKey, so
+  //     it IS a tenant with no cost book. The entry must price at an EXPLICIT
+  //     zero and say so.
+  ok(rLabel + ': no book ⇒ registered entry prices at explicit ZERO and is flagged unset',
+    !!rFound && rFound.materialCost === 0 && rFound.laborCost === 0 && rFound.costUnset === true,
+    rFound && ('got m=' + rFound.materialCost + '/l=' + rFound.laborCost + ' unset=' + rFound.costUnset));
+
+  // (b) THE INFERENCE TRAP — the single assertion standing between this design
+  //     and a $500 line labelled "Cost not set".
+  //
+  //     estimate-logic-engine.js:803 computes
+  //         const laborId = item.laborId || inferLaborId(item);
+  //     BEFORE it tests `item.laborCost != null` at :806, and inferLaborId
+  //     falls through to LABOR_BY_SUB[item.category] against
+  //     estimate-labor-catalog.js — still a public file. So OMITTING the cost
+  //     key does not produce "no price", it produces a price re-derived from
+  //     data this migration did not close: measured, 14 of the 84 custom items
+  //     (gutters/ventilation/downspout/trim/soffit) land on a live NBD_LABOR
+  //     rate, and "Attic insulation baffles" prices at 500.00 instead of
+  //     142.50. An explicit 0 is what keeps labSource 'explicit'.
+  //
+  //     If anyone ever changes `materialCost: 0` back to an omitted key, this
+  //     fails. That is its whole job.
+  const rResolved = (JT.resolveSelection([{ templateId: rt.id }], smokeOpts(rt)).lines || [])
+    .find(function (l) { return l && l.code === rLine.code; });
+  ok(rLabel + ': no book ⇒ engine does NOT infer a labor rate (labSource stays explicit)',
+    !!rResolved && rResolved.laborCostPerUnit === 0 && rResolved.materialCostPerUnit === 0 &&
+    rResolved.labSource === 'explicit' && !/^NBD_LABOR:/.test(String(rResolved.labSource || '')),
+    rResolved && ('labSource=' + rResolved.labSource + ' lab/unit=' + rResolved.laborCostPerUnit));
+
+  // (b2) The trap, swept across the WHOLE population rather than one item —
+  //      the 14 at-risk categories are the ones that matter and a single
+  //      sample would very likely miss them.
+  const inferErrs = [];
+  let nJtLines = 0;
+  TPLS.forEach(function (t) {
+    if (!t || !Array.isArray(t.items) || !t.items.some(function (x) { return x && x.custom; })) return;
+    let res;
+    try { res = JT.resolveSelection([{ templateId: t.id }], smokeOpts(t)); } catch (e) { return; }
+    (res.lines || []).forEach(function (l) {
+      if (!l || !/^JT /.test(String(l.code))) return;
+      nJtLines++;
+      if (l.labSource !== 'explicit') inferErrs.push(t.id + ' ' + l.code + ': labSource=' + l.labSource);
+      if (l.matSource !== 'explicit') inferErrs.push(t.id + ' ' + l.code + ': matSource=' + l.matSource);
+      if (Number(l.retailTotal) !== 0) inferErrs.push(t.id + ' ' + l.code + ': retailTotal=' + l.retailTotal + ' (expected 0)');
+      if (l.costUnset !== true) inferErrs.push(t.id + ' ' + l.code + ': costUnset=' + l.costUnset);
+    });
+  });
+  ok('no book ⇒ ALL ' + nJtLines + ' JT custom lines resolve explicit/0/unset — no labor inference anywhere',
+    inferErrs.length === 0 && nJtLines >= 80, inferErrs.length + ' offender(s), ' + nJtLines + ' lines swept');
+  listOffenders(inferErrs, 12);
+
+  // (c) WITH A BOOK. The tenant's own numbers reach the bridge end to end:
+  //     jtCosts key → NBDCatalogCosts.jobItem → customLineItem →
+  //     NBD_XACT_CATALOG.byCode. The fixture book is keyed with the SHARED
+  //     jtKey() from functions/job-template-cost-logic.js, so this failing is
+  //     also how key drift between the client and the module gets caught.
+  const rFoundPriced = XACT_P && typeof XACT_P.find === 'function' ? XACT_P.find(rLine.code) : null;
+  ok(rLabel + ': book ⇒ registered entry carries the TENANT cost, unset cleared',
+    !!rFoundPriced && nearly(rFoundPriced.materialCost, JT_FIXTURE_MATERIAL) &&
+    nearly(rFoundPriced.laborCost, JT_FIXTURE_LABOR) && rFoundPriced.costUnset === false,
+    rFoundPriced && ('got m=' + rFoundPriced.materialCost + '/l=' + rFoundPriced.laborCost +
+      ' unset=' + rFoundPriced.costUnset));
+  ok(rLabel + ': book ⇒ costSource is "book" (not the legacy fork branch)',
+    !!rFoundPriced && rFoundPriced.costSource === 'book',
+    rFoundPriced && ('got ' + rFoundPriced.costSource));
+
+  // (d) The escape hatch a tenant with no book actually uses. §5(c) already
+  //     asserts unitPriceOverride prices the line exactly on the typed value;
+  //     this records WHY that test is now load-bearing rather than incidental.
+  const escChoices = {}; escChoices[ri] = { unitPriceOverride: 75 };
+  const escLine = (JT.resolveSelection([{ templateId: rt.id, itemChoices: escChoices }], smokeOpts(rt)).lines || [])
+    .find(function (l) { return l && l.code === rLine.code; });
+  ok(rLabel + ': no book ⇒ a typed $/unit still prices the line exactly (the primary escape hatch)',
+    !!escLine && nearly(escLine.retailPerUnit, 75) && escLine.costUnset === false,
+    escLine && ('retailPerUnit=' + escLine.retailPerUnit + ' unset=' + escLine.costUnset));
 } else {
   ok('custom-item registration exercised', false, 'no default template with a custom item found');
 }

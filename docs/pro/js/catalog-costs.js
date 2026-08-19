@@ -54,13 +54,52 @@
  * name, so NBDAuth.purgeAccountStorage() drops it on sign-out and on account
  * switch — a shared device never hands the next rep the previous tenant's cost
  * book. Same cleanup the product library itself already relies on.
+ *
+ * ── JOB TEMPLATE COSTS (2026-08-18) ─────────────────────────────────────────
+ *
+ * The same leak, in a second subsystem. docs/pro/js/job-templates-data.js
+ * shipped 84 `custom` line items carrying materialCost + laborCost — 146
+ * non-zero contractor figures on a public URL and a public repo, beside a
+ * public estimate-logic-engine.js carrying the markup constants. Same fix,
+ * same document: this book now also carries a `jtCosts` map, keyed
+ * 'jt-<slug(templateId)>-<index>' — the key job-templates.js has already been
+ * computing for its EstimateBuilderV2.CATALOG bridge since v1, so the strip
+ * was a pure deletion and no new identifier was minted.
+ *
+ * It rides catalogCosts/{companyId} rather than a new collection ON PURPOSE:
+ * firestore.rules already governs every field of that document, so the
+ * migration needed ZERO rules changes — and a rules typo is the failure mode
+ * that locks a live tenant out of their own money data.
+ *
+ * Same two paths as products. WARM: the tenant-keyed cache is applied at parse
+ * time, fourteen bundle entries before job-templates-data.js, so
+ * job-templates.js's load-time registerAllCustomItems() already sees the
+ * tenant's numbers. COLD: hydrate() reads Firestore and pushToJobTemplates()
+ * calls JobTemplates.applyJtCostSeed(), which re-registers every custom item
+ * at the real cost and drops the UI's price-band cache.
+ *
+ * A TENANT WITH NO COST BOOK HAS NO COSTS applies here too, with one
+ * counter-intuitive twist worth stating where people will read it: the
+ * unpriced state is an EXPLICIT ZERO plus a `costUnset` flag, never an omitted
+ * key. estimate-logic-engine.js:803 resolves `laborId = item.laborId ||
+ * inferLaborId(item)` BEFORE it tests `item.laborCost != null`, and
+ * inferLaborId falls through to LABOR_BY_SUB[item.category] against the still-
+ * public labor catalog. Omitting the key routes 14 of the 84 items to a real
+ * labor rate and prices them confidently wrong — "Attic insulation baffles" at
+ * $500 instead of $142.50, wearing a "Cost not set" badge. The zero keeps
+ * labSource 'explicit'; `costUnset` is what presentation reads.
+ *
+ * See functions/job-template-cost-logic.js and
+ * documentation/audit/JOB-TEMPLATE-COST-LEAK-2026-08-18.md.
  */
 
 (function () {
   'use strict';
 
   if (typeof window === 'undefined') return;
-  if (window.NBDCatalogCosts && window.NBDCatalogCosts.__sentinel === 'nbd-catalog-costs-v1') return;
+  // v2 (2026-08-18): the book gained a `jtCosts` map. A page that somehow
+  // loaded a v1 build first must be re-initialised, not short-circuited.
+  if (window.NBDCatalogCosts && window.NBDCatalogCosts.__sentinel === 'nbd-catalog-costs-v2') return;
 
   const COLLECTION = 'catalogCosts';
   const CACHE_PREFIX = 'nbd_catalog_costs';
@@ -84,7 +123,7 @@
   const NEUTRAL_MARGIN = 0;   // percent
   const NEUTRAL_DEFAULTS = { overheadMultiplier: NEUTRAL_OVERHEAD, profitMarginPct: NEUTRAL_MARGIN };
 
-  let book = null;        // { version, defaults, costs }
+  let book = null;        // { version, defaults, costs, jtCosts }
   let tenantKey = null;   // resolved companyId
   let inflight = null;
   let loaded = false;     // a Firestore read completed (exists or not)
@@ -98,7 +137,11 @@
       const raw = localStorage.getItem(cacheKeyFor(key));
       if (!raw) return null;
       const parsed = JSON.parse(raw);
-      return (parsed && parsed.costs) ? parsed : null;
+      // EITHER half is a real book. A tenant can legitimately hold jtCosts and
+      // no product `costs` (they use job templates but have never filled in the
+      // Product Library) — insisting on `costs` would throw that cache away on
+      // every load and leave their templates unpriced until Firestore answered.
+      return (parsed && (parsed.costs || parsed.jtCosts)) ? parsed : null;
     } catch (e) {
       return null;
     }
@@ -204,6 +247,29 @@
     return 0;
   }
 
+  /**
+   * COLD-PATH bridge for job templates. job-templates.js reads jobItem() at
+   * ITS load time (registerAllCustomItems), which on a warm device already
+   * sees the cache — this is what makes the cold device catch up once the
+   * Firestore read lands: re-register every custom item at the tenant's real
+   * numbers and drop the UI's price-band cache so the cards repaint.
+   *
+   * Deliberately called on EVERY hydrate outcome, including "this tenant has
+   * no book", because applyJtCostSeed also runs the legacy adoption: a
+   * template forked before the 2026-08-18 strip still carries embedded costs
+   * in users/{uid}/jobTemplates, and JobTemplates owns that store, so it is
+   * the module that lifts them into the company book.
+   */
+  function pushToJobTemplates(overlay) {
+    try {
+      const jt = window.JobTemplates;
+      if (jt && typeof jt.applyJtCostSeed === 'function') return jt.applyJtCostSeed(overlay);
+    } catch (e) {
+      console.warn('[catalog-costs] applyJtCostSeed failed:', e.message);
+    }
+    return 0;
+  }
+
   // ── extract (the inverse of mergeInto) ───────────────────────────────────
 
   /**
@@ -259,7 +325,9 @@
     const snap = await retry(function () { return getDoc(doc(window.db, COLLECTION, key)); });
     if (!snap || !snap.exists()) return null;
     const data = snap.data() || {};
-    return (data && data.costs && typeof data.costs === 'object') ? data : null;
+    const hasCosts = !!(data.costs && typeof data.costs === 'object');
+    const hasJt = !!(data.jtCosts && typeof data.jtCosts === 'object');
+    return (hasCosts || hasJt) ? data : null;
   }
 
   /**
@@ -286,7 +354,14 @@
    * firestore.rules limits writes to owner/company_admin, and a rep editing
    * their own local copy is a legitimate, non-fatal case.
    */
-  async function writeEntries(entries, extra) {
+  /**
+   * `field` selects which map on the document is being written: 'costs' (per
+   * product SKU) or 'jtCosts' (per job-template custom item). Everything else
+   * — dotted-path REPLACE, the setDoc fallback for a first write, the local
+   * mirror, the permission-denied path — is identical for both, which is why
+   * they share one function rather than growing a near-copy that drifts.
+   */
+  async function writeEntries(field, entries, extra) {
     const key = tenantKey || await resolveKey();
     if (!key || !window.db || !entries || !Object.keys(entries).length) return false;
     try {
@@ -295,7 +370,7 @@
       const ref = doc(window.db, COLLECTION, key);
 
       const paths = {};
-      Object.keys(entries).forEach(function (id) { paths['costs.' + id] = entries[id]; });
+      Object.keys(entries).forEach(function (id) { paths[field + '.' + id] = entries[id]; });
       if (extra && extra.defaults) paths.defaults = extra.defaults;
 
       let wrote = false;
@@ -304,17 +379,18 @@
         catch (e) { if (!/not-found|No document to update/i.test((e && (e.code || e.message)) || '')) throw e; }
       }
       if (!wrote) {
-        const payload = { version: SEED_VERSION, costs: {} };
-        Object.keys(entries).forEach(function (id) { payload.costs[id] = entries[id]; });
+        const payload = { version: SEED_VERSION };
+        payload[field] = {};
+        Object.keys(entries).forEach(function (id) { payload[field][id] = entries[id]; });
         if (extra && extra.defaults) payload.defaults = extra.defaults;
         await setDoc(ref, payload, { merge: true });
       }
 
       // Keep the local view consistent with what we just wrote — REPLACE the
-      // per-SKU entry here too, so a cleared cost disappears locally as well.
-      book = book || { costs: {} };
-      book.costs = book.costs || {};
-      Object.keys(entries).forEach(function (id) { book.costs[id] = entries[id]; });
+      // per-entry value here too, so a cleared cost disappears locally as well.
+      book = book || {};
+      book[field] = book[field] || {};
+      Object.keys(entries).forEach(function (id) { book[field][id] = entries[id]; });
       if (extra && extra.defaults) book.defaults = extra.defaults;
       writeCache(key, book);
       return true;
@@ -355,7 +431,7 @@
       if (entry) { entries[p.id] = entry; n++; }
     });
     if (!n) return 0;
-    const wrote = await writeEntries(entries);
+    const wrote = await writeEntries('costs', entries);
     if (wrote) console.info('[catalog-costs] adopted ' + n + ' local product costs into this company\'s cost book');
     return wrote ? n : 0;
   }
@@ -382,7 +458,7 @@
 
       if (!book) {
         const cached = readCache(key);
-        if (cached) { book = cached; applyToCatalog(book); pushToLibrary(book); }
+        if (cached) { book = cached; applyToCatalog(book); pushToLibrary(book); pushToJobTemplates(book); }
       }
 
       let remote = null;
@@ -399,9 +475,25 @@
         writeCache(key, book);
         applyToCatalog(book);
         pushToLibrary(book);
-      } else {
-        await adoptLocal();
       }
+
+      // adoptLocal() runs on BOTH branches, not only the no-remote one.
+      //
+      // It used to sit in the `else`, which was correct while `costs` was the
+      // only map on the document. It stopped being correct the moment readBook
+      // started accepting a jtCosts-only book (2026-08-18): a tenant seeded
+      // with job-template costs but no product costs would take the `remote`
+      // branch and PERMANENTLY skip the one-time upgrade that lifts their
+      // product costs out of per-device localStorage. adoptLocal's own guard
+      // ("book.costs is non-empty ⇒ return 0") already makes the
+      // already-adopted case a no-op, so calling it unconditionally is
+      // strictly safer than gating it on which half of the book came back.
+      await adoptLocal();
+
+      // Always, on every outcome — see pushToJobTemplates. A tenant with NO
+      // book still needs this call, because it is what adopts a pre-strip
+      // fork's embedded costs into the company book.
+      pushToJobTemplates(book);
       return book;
     })().then(function (r) { inflight = null; return r; },
              function (e) {
@@ -416,6 +508,13 @@
   // ── boot: cache-first synchronous apply ──────────────────────────────────
   // Runs BEFORE product-library.js executes, so on any device this tenant has
   // used before, the catalog is whole by the time the store is seeded.
+  //
+  // It is also what makes `jobItem()` answer correctly on the warm path: this
+  // file sits at `estimates` position 3, fourteen entries ahead of
+  // job-templates-data.js, so `book` is already populated by the time
+  // job-templates.js runs its load-time registerAllCustomItems(). No
+  // pushToJobTemplates() here — window.JobTemplates does not exist yet, and
+  // does not need to: it pulls.
 
   const guess = syncTenantGuess();
   if (guess) {
@@ -424,7 +523,7 @@
   }
 
   window.NBDCatalogCosts = {
-    __sentinel: 'nbd-catalog-costs-v1',
+    __sentinel: 'nbd-catalog-costs-v2',
     hydrate,
     mergeInto,
     applyToProducts,
@@ -453,7 +552,63 @@
       if (!product || !product.id || !entry) return Promise.resolve(false);
       const entries = {};
       entries[product.id] = entry;
-      return writeEntries(entries);
+      return writeEntries('costs', entries);
+    },
+
+    /**
+     * One job-template custom item's cost, keyed 'jt-<slug(templateId)>-<index>'
+     * (functions/job-template-cost-logic.js:jtKey — job-templates.js computes
+     * the identical string for the V2 catalog bridge).
+     *
+     * Returns null when this tenant has no entry, which is what makes
+     * "Cost not set" a real, distinguishable state rather than a zero.
+     * A stored entry that is not two finite numbers is treated as absent —
+     * a corrupted book must not price work.
+     */
+    jobItem: function (key) {
+      const map = book && book.jtCosts;
+      const entry = key && map && map[key];
+      if (!entry || typeof entry !== 'object') return null;
+      const mat = Number(entry.materialCost);
+      const lab = Number(entry.laborCost);
+      if (!isFinite(mat) || !isFinite(lab)) return null;
+      return { materialCost: mat, laborCost: lab };
+    },
+
+    /** Every job-template key this tenant has priced. Used by the adoption pass. */
+    jobItemKeys: function () {
+      const map = book && book.jtCosts;
+      return map ? Object.keys(map) : [];
+    },
+
+    /**
+     * Persist one job-template custom item's cost to the tenant book.
+     * Fire-and-forget; resolves false for a caller without write permission
+     * (firestore.rules limits writes to owner/company_admin — a sales_rep
+     * forking a template is a legitimate, non-fatal case, and the caller is
+     * expected to leave the item showing "Cost not set" rather than a 0).
+     */
+    recordJobItem: function (key, entry) {
+      const mat = Number(entry && entry.materialCost);
+      const lab = Number(entry && entry.laborCost);
+      if (!key || !isFinite(mat) || !isFinite(lab) || mat < 0 || lab < 0) return Promise.resolve(false);
+      const entries = {};
+      entries[key] = { materialCost: mat, laborCost: lab };
+      return writeEntries('jtCosts', entries);
+    },
+
+    /** Bulk form of recordJobItem — one write for a whole duplicated template. */
+    recordJobItems: function (entries) {
+      const clean = {};
+      Object.keys(entries || {}).forEach(function (k) {
+        const mat = Number(entries[k] && entries[k].materialCost);
+        const lab = Number(entries[k] && entries[k].laborCost);
+        if (isFinite(mat) && isFinite(lab) && mat >= 0 && lab >= 0) {
+          clean[k] = { materialCost: mat, laborCost: lab };
+        }
+      });
+      if (!Object.keys(clean).length) return Promise.resolve(false);
+      return writeEntries('jtCosts', clean);
     },
 
     /** Add-Product form prefill: the tenant's own policy, or neutral. */

@@ -1041,8 +1041,10 @@ service cloud.firestore {
 
     // ── PER-TENANT CATALOG COST BOOK ──────────────────
     // catalogCosts/{companyId} → { costs: { [productId]: { cost: {good,
-    // better,best}, labor: {…} } } } — every tenant's OWN wholesale cost
-    // and labor/margin model.
+    // better,best}, labor: {…} } },
+    //                              jtCosts: { [jt-<slug>-<index>]:
+    //                                { materialCost, laborCost } } }
+    // — every tenant's OWN wholesale cost and labor/margin model.
     //
     // This data used to ship inside docs/pro/js/product-data.js, which
     // hosting serves unauthenticated from a public repo: one company's
@@ -1058,6 +1060,24 @@ service cloud.firestore {
     // A rep's own edits still land in their local product store; they just
     // don't propagate. Scope key: companyId claim, or uid for solo
     // operators (the companyId == uid convention).
+    //
+    // `jtCosts` (2026-08-18) is the SAME class of data from a second
+    // subsystem: the 84 job-template custom line items that used to ship
+    // materialCost/laborCost inside the public docs/pro/js/
+    // job-templates-data.js. It rides this document deliberately — the rule
+    // below already governs every field of it, so that migration needed NO
+    // rules change, and a rules typo is the failure mode that locks a live
+    // tenant out of their own money data. Do not split it out.
+    //
+    // Note the scoping split it introduces, because it is not accidental:
+    // template DEFINITIONS stay uid-scoped (users/{uid}/jobTemplates, above)
+    // because a fork is one rep's working copy, while template COSTS are
+    // company-scoped here because a buy price is tenant-wide, money-bearing
+    // pricing policy a sales_rep must not rewrite for everyone. Two reps who
+    // each forked the same default template therefore share ONE cost entry,
+    // keyed jt-<slug(templateId)>-<index>. That is correct — a company has one
+    // buy price for "Masonry water repellent" — and it is a behaviour change
+    // from the per-device drift that preceded it.
     match /catalogCosts/{companyId} {
       allow read: if isAuth() && (companyId == myCompanyId() || companyId == request.auth.uid);
       allow write: if isAdmin()

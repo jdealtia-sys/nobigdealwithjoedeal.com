@@ -11,6 +11,19 @@ estimate already re-prices it today.
 
 Context and the leak measurements: [JOB-TEMPLATE-COST-LEAK-2026-08-18](../audit/JOB-TEMPLATE-COST-LEAK-2026-08-18.md)
 
+> **Update 2026-08-18 — BOTH PRs LANDED. This plan is now history, not a
+> to-do.** PR-A: `d8afd7e3`. PR-B: see
+> [SESSION-2026-08-18-job-template-cost-migration-prb](SESSION-2026-08-18-job-template-cost-migration-prb.md)
+> for what was built, where it deviated from this brief, and the ordered
+> runbook Jo still has to execute (extract → rotate → import).
+> The two counter-intuitive findings in §1 both **reproduced exactly** when
+> re-measured against the real stack before implementing — 14 items, "Attic
+> insulation baffles" at 500.00 vs 142.50. Do not relitigate them.
+> Known deviations from §2 are listed in the session note; the substantive ones
+> are that the strip codemod self-verifies structurally, the rotation grew a
+> real toolchain with a coverage floor, and layer 3 of the privacy guard became
+> scan-by-default rather than a fifth allowlist entry.
+
 Designs considered: Job-template costs join the tenant cost book (catalogCosts/{companyId}.jobItemCosts) (L) · Adopt-Then-Strip: jtCosts on the existing tenant cost book (L) · priceKey + tenant-owned jobTemplateCosts, with a blocking "Needs price" state (L)
 
 Attack verdicts: survives=false, survives=false, survives=false — i.e. none survived as written.
@@ -232,7 +245,7 @@ Install it as `win.NBDCatalogCosts = { jobItem: (k) => JT_FIXTURE_BOOK[k] || nul
       if (!Number.isFinite(qty) || qty <= 0) eCustom.push(label + ' custom qty must be > 0 (got ' + c.qty + ')');
       // 2026-08-18: cost data is TENANT-OWNED (catalogCosts/{companyId}.jtCosts).
       // A cost key in this PUBLISHED file is the leak this migration closed —
-      // see documentation/audit/JT-COST-LEAK-2026-08-18.md. The old assertion
+      // see documentation/audit/JOB-TEMPLATE-COST-LEAK-2026-08-18.md. The old assertion
       // here ("costs >= 0, at least one > 0") REQUIRED the leak to be present;
       // the "at least one > 0" invariant now lives in validateJtCostOverlay(),
       // enforced at extract time AND again at import time.
@@ -332,7 +345,7 @@ const COST_BASIS_NAMED_RE = /(?<![.\w])["']?materialCost["']?\s*:\s*-?\d[\d.]*\s
 
 **`tests/ci-manifest.json`** — register `"job-template-cost-seed.test.js"` and `"estimate-reopen-cost-basis.test.js"` in `wired-individually`, alphabetically adjacent to `"job-templates.test.js"` (`:84`).
 
-**`documentation/audit/JT-COST-LEAK-2026-08-18.md` (NEW)** and **`documentation/INDEX.md`** — dated audit note per the standing vault rule, linked in the same PR with a plain relative markdown link. It must record: the measured leak (187,993 bytes, 84 items, 146 values, 49 lines, two public surfaces); the guard-bypass mechanism including the measured finding that `STRICT_FILES` alone catches zero; the labor-inference trap with the five measured before/after prices; the reopen re-pricing hole and its fix; and a **"what this does NOT close"** section naming `estimate-builder-v2.js` (28 cost/labor), `estimate-catalog-xactimate.js` (276 mat/lab), `estimate-labor-catalog.js` (67 `rate:` — a fourth spelling, on no list, invisible to all four regexes), and the git-history residue.
+**`documentation/audit/JOB-TEMPLATE-COST-LEAK-2026-08-18.md` (NEW)** and **`documentation/INDEX.md`** — dated audit note per the standing vault rule, linked in the same PR with a plain relative markdown link. It must record: the measured leak (187,993 bytes, 84 items, 146 values, 49 lines, two public surfaces); the guard-bypass mechanism including the measured finding that `STRICT_FILES` alone catches zero; the labor-inference trap with the five measured before/after prices; the reopen re-pricing hole and its fix; and a **"what this does NOT close"** section naming `estimate-builder-v2.js` (28 cost/labor), `estimate-catalog-xactimate.js` (276 mat/lab), `estimate-labor-catalog.js` (67 `rate:` — a fourth spelling, on no list, invisible to all four regexes), and the git-history residue.
 
 ---
 

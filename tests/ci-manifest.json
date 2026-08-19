@@ -79,6 +79,7 @@
     "inline-html-scripts.test.js",
     "invoice-payment-webhook.test.js",
     "invoice-pipeline.test.js",
+    "job-template-cost-seed.test.js",
     "job-templates.test.js",
     "lead-bridge.integration.test.js",
     "lead-bridge.test.js",

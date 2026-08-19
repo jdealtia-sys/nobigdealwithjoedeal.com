@@ -1,5 +1,15 @@
 # Job-template contractor costs are published — 2026-08-18
 
+> **Update 2026-08-18 (end of day): CLOSED at HEAD.** PR-A and PR-B both
+> landed. `docs/pro/js/job-templates-data.js` now carries zero cost keys, the
+> figures live at `catalogCosts/{companyId}.jtCosts`, and the privacy guard
+> scans by default instead of by allowlist. **Two things remain, both
+> deliberate:** the cost figures are not yet rotated (mechanism shipped, the
+> numbers are Jo's — see "The rotation" below), and three other published files
+> still carry a cost basis, one of them invisible to every guard regex we have
+> (see "What this does NOT close"). Everything below the fold is the original
+> finding, unedited — it is what the fix was built against.
+
 `docs/pro/js/job-templates-data.js` ships **84 contractor cost pairs** to the
 public internet. Found while assessing an unrelated demo-route idea; it is a
 live leak of the exact class `CLAUDE.md` names a hard invariant, and the guard
@@ -184,10 +194,211 @@ from rare into universal. So the leak fix has a prerequisite.
       needing its own overlay, and the row-preview map at `:2153` is display-only
       (catalog used for name/unit fallback, saved line preferred for money) so it
       was left alone.
-- [ ] **PR-B** — strip the 146 values, `jtCosts` on the tenant cost book
-- [ ] `job-templates-data.js` brought under the privacy guard
-- [ ] Guard changed from allowlist to scan-by-default
-- [ ] Cost figures rotated (this is what actually devalues the historical copies)
+- [x] **PR-B — LANDED 2026-08-18.** 84 `custom` blocks stripped (168 keys, 49
+      of 179 lines); `jtCosts` on the existing `catalogCosts/{companyId}` doc,
+      **zero rules changes**. See "What PR-B shipped" below.
+- [x] `job-templates-data.js` brought under the privacy guard — and the guard
+      itself proved to fail on the un-stripped file first (49 line hits) before
+      it was allowed to go green.
+- [x] Guard changed from allowlist to scan-by-default — layer 3 now sweeps all
+      608 published files; 7 explicit, reasoned, non-vacuity-asserted exemptions.
+- [ ] **Cost figures rotated** — the mechanism shipped and the import script
+      REFUSES an unrotated seed, but the figures themselves are Jo's to supply.
+      See "The rotation, and why this box is still open".
 
 Jo runs the extract/import scripts; a production Firestore migration is not
 something to execute unattended.
+
+---
+
+## What PR-B shipped (2026-08-18)
+
+**The strip.** `docs/pro/js/job-templates-data.js` — 84 `custom` blocks, 168
+cost keys, 146 non-zero values, 49 of 179 lines. Remaining custom key set is
+exactly `{name, desc, unit, qty, category}`. Done by a codemod
+(`scripts/strip-job-template-costs.js`) that is textual so the diff stays one
+line per template, but which then re-loads its own output and asserts, template
+by template, that the result is exactly `stripJtCosts(original)` by
+`JSON.stringify` equality — key order included. `--check` is now a pre-push and
+CI gate.
+
+**Where the costs went.** `catalogCosts/{companyId}.jtCosts`, keyed
+`jt-<slug(templateId)>-<index>` — the key `job-templates.js` had already been
+computing for its `EstimateBuilderV2.CATALOG` bridge since v1, so no new
+identifier was minted anywhere and the data diff is pure deletion.
+`firestore.rules` gained a COMMENT ONLY: `match /catalogCosts/{companyId}`
+already governs every field of that document.
+
+**The explicit-zero rule, re-measured on the real stack before implementing.**
+The plan's counter-intuitive finding reproduces exactly. With the cost keys
+OMITTED, **14 of the 84** items resolve a labor rate through
+`inferLaborId → LABOR_BY_SUB[category]` against the still-public
+`estimate-labor-catalog.js`:
+
+| item | category | omitted-key retail | via |
+|---|---|---|---|
+| Attic insulation baffles (×2 templates) | ventilation | **500.00** | `LAB INST-BV` |
+| Exterior Trim Paint — Soffit & Fascia | trim | **390.00** | `LAB INST-FSC` |
+| Pest Exclusion Vent Screening | soffit | 114.00 | `LAB INST-SFT` |
+| Blank off existing box/gable vents | ventilation | 50.00 | `LAB INST-BV` |
+| Downspout elbows & straps | downspout | 38.70 | `LAB INST-DSP` |
+| Gutter seam & miter reseal | gutters | 36.50 | `LAB INST-GTR5` |
+| Bath exhaust roof cap 4" | ventilation | 25.00 | `LAB INST-BV` |
+| …7 more (gutters ×4, ventilation ×1, downspout/trim) | | 3.65 – 21.90 | |
+
+With an **explicit 0**, all 84 resolve `matSource`/`labSource` `'explicit'` at
+retail 0. The unknown state rides a separate `costUnset: true` flag that
+presentation reads and the engine ignores. `tests/job-templates.test.js` locks
+this across the whole population, not one sample: *"no book ⇒ ALL 84 JT custom
+lines resolve explicit/0/unset — no labor inference anywhere."*
+
+**The guard, rebuilt.** Layer 3 was a four-entry `STRICT_FILES` allowlist —
+which is *how this leak survived*, and the reason "just add the file" was the
+wrong fix twice over: measured, adding `job-templates-data.js` to that list
+would have caught **zero**, because `STRICT_RES[0]` is
+`/(?<![.\w])["']?cost["']?…/` and the lookbehind that makes `p.pricing[t].cost`
+safe also rejects the `l` of `materialCost`. Two changes, both needed:
+
+1. a named-cost pattern (`materialCost:`/`laborCost:`) in `STRICT_RES`, and a
+   third cost-basis shape `COST_BASIS_NAMED_RE` in the layer-4 tree sweep;
+2. layer 3 now **scans by default** — all 608 published js/json/html files —
+   with 7 explicit exemptions, each carrying a `why`, each narrowed by an
+   `allow` regex matched against the source line (so a real cost basis on an
+   un-allowed line of an exempt file still fails), and each asserted
+   **non-vacuous** so a dead exemption fails the suite and tells you to delete
+   it. Exempted: permit fees by county, four AI-usage accumulators, a
+   canvassing budget, and one blog sentence ("certified contractor: 20-year").
+
+The suite went 48 → 72 assertions, and it was **proved to fail first**: run
+against the un-stripped file it reported 49 line hits in
+`job-templates-data.js` and 3 red assertions.
+
+**Behaviour for a tenant with no book.** A complete scope of work — name, qty,
+unit, description — with no price on the affected lines: no card price band
+(rather than a plausible-looking total computed from missing costs), `—` in the
+proposal's rate/total columns, a "Cost not set" chip, and a banner naming how
+many items are excluded from the total. Never `$0.00`. The rep prices each line
+with the existing `$ / unit` override, which already sets `materialCost = 0`
+explicitly and so neither leaks nor trips inference.
+
+**Files:** `functions/job-template-cost-logic.js` (new, pure),
+`scripts/{extract,rotate,import,strip}-job-template-costs.js` (new),
+`tests/job-template-cost-seed.test.js` (new, 35 assertions),
+`docs/pro/js/{job-templates-data,job-templates,job-templates-ui,catalog-costs,estimate-logic-engine,script-loader}.js`,
+`tests/{job-templates,catalog-cost-privacy,ci-manifest}`, `.github/workflows/ci.yml`,
+`firestore.rules` (comment).
+
+**One fix that is not cosmetic and is easy to miss.** `catalog-costs.js` called
+`adoptLocal()` inside hydrate's `else` branch. Once `readBook()` started
+accepting a `jtCosts`-only document, a tenant holding job-template costs but no
+product costs would take the `if (remote)` branch and **permanently skip** the
+one-time upgrade that lifts product costs out of per-device localStorage —
+silent, unrecoverable data loss. `adoptLocal` now runs on both branches; its
+own guard already made the already-adopted case a no-op. Pinned by
+*"THE adoptLocal FIX: a jtCosts-ONLY document still triggers the product-cost
+upgrade."*
+
+**Verification run:** `check-js-syntax` (467 files) · `job-templates.test.js`
+127 → **141** · `catalog-cost-privacy.test.js` 48 → **72** ·
+`job-template-cost-seed.test.js` **35** (new) · `estimate-reopen-cost-basis`
+10 (PR-A, still green) · `estimate-v2-payload` 90 · `estimate-profit` 54 ·
+`estimate-pricing` 52 · `estimate-render` 74 · `invoice-pipeline` 33 ·
+`money-display-consumers` 8 · `money-field-contract` 7 ·
+`public-surface-leak-tripwire` 10 · `catalog-cost-seed` 56 · `product-data` 22 ·
+the whole node bucket 35/35 · `run-test-manifest --check` ·
+`check-site-integrity` · `check-inline-html-scripts` ·
+`apply-partials --check`. `grep -c '"materialCost"' docs/pro/js/job-templates-data.js`
+→ **0**, and the file still parses to 107 templates / 11 categories.
+
+*(Pre-existing on the base branch, untouched by this PR: `build-sitemap.js` and
+`build-projects.mjs --check` both report drift on a clean tree too — that
+belongs to the `qc/site-sweep-2026-08-18` lane.)*
+
+---
+
+## The rotation, and why this box is still open
+
+Rotation is the half of this fix that actually addresses the copies already
+out there. The strip stops NEW exposure; it does not un-publish a blob that has
+been readable at a fixed commit for a month, in every clone and every fork.
+Making the figures inaccurate is what devalues those copies, and it is the only
+remedy fully within Jo's control.
+
+What shipped is the **mechanism**, wired so a no-op cannot pass as a rotation:
+
+```bash
+node scripts/extract-job-template-costs.js --from <pre-strip-sha>
+node scripts/rotate-job-template-costs.js --worksheet     # 84 rows, JSON + CSV
+# fill in current real figures
+node scripts/rotate-job-template-costs.js --overrides .local/jt-cost-rotation.json
+node scripts/import-job-template-costs.js --company <NBD companyId>        # dry run
+node scripts/import-job-template-costs.js --company <NBD companyId> --yes
+```
+
+- the worksheet carries each key's template, item name, unit and current
+  figures, so filling it in is data entry rather than archaeology;
+- applying it **refuses below 50% coverage** — a rotation that leaves most
+  values at their leaked numbers has devalued nothing, and the floor is only
+  movable with an explicit `--min-coverage` you then have to record here;
+- the rotated seed is stamped `rotatedAt` + `rotationCoverage`, and
+  `import-job-template-costs.js` **refuses an unstamped seed** unless you pass
+  `--unrotated`. "We meant to rotate and forgot" cannot quietly become the
+  outcome.
+
+**What Claude deliberately did not do: invent the numbers.** A blanket "scale
+everything by 7%" would devalue the leaked copies and simultaneously put NBD on
+fabricated money for live quoting — a worse failure than the leak. The figures
+are Jo's. The box stays unticked until the worksheet is filled and imported.
+
+`.local/jt-cost-seed.json` was extracted on this machine before the strip
+(84 entries / 146 non-zero values, validated) and is the rollback insurance;
+`.local/` is gitignored and the privacy suite asserts no extracted book is ever
+tracked. After merge the same extract works from history with
+`--from <pre-strip-sha>`.
+
+---
+
+## What this does NOT close
+
+Stated plainly, because each of these is a decision rather than an oversight:
+
+- **`docs/pro/js/estimate-builder-v2.js`** — 28 CATALOG entries with
+  `cost:`/`labor:`. Already on `KNOWN_UNMIGRATED`, still leaking, still
+  asserted to be leaking.
+- **`docs/pro/js/estimate-catalog-xactimate.js`** — 276 `mat:`/`lab:` unit-cost
+  line items. Same list, same status.
+- **`docs/pro/js/estimate-labor-catalog.js`** — ~67 `rate:` entries plus
+  `crewSize`/`hoursPerUnit`. **A FOURTH spelling, on no list, invisible to all
+  four regexes** — measured: zero matches against every pattern the guard has.
+  It is deliberately NOT added to `KNOWN_UNMIGRATED`, because that list carries
+  a still-leaking non-vacuity assertion and a file the sweep cannot see would
+  fail it on merge. It is the highest-value item in Phase 2 and it is exactly
+  the file the explicit-zero rule above exists to protect against.
+- **The margin derivation is still open.** `estimate-logic-engine.js` remains
+  public with `materialMarkupPct` 0.25 / `overheadPct` 0.10 / `profitPct` 0.10.
+  Git history plus the current tree still yields a full derivation for the
+  three files above, and will until Phase 2 lands. Those three share
+  `NBD_XACT_CATALOG.byCode` with JT custom items, so after this PR that one
+  object holds tenant-owned and still-public costs side by side. **Migrate them
+  together**, and add the `rate:`-shaped regex with a non-vacuity partner in
+  the same PR.
+- **Git history** — deliberately intact. One commit (`5b747d0b`), 235 commits
+  to rewrite, 10 active worktrees. Rotation instead. Do not rewrite without
+  Jo's explicit instruction; if it ever happens, do it once, covering all four
+  files, and file the fork-network GC request.
+- **No in-app cost editor.** `job-templates-ui.js` had zero cost references
+  before this PR, so nothing was removed — but it means "enter your own costs"
+  is not an action a non-NBD tenant can take in-product. They price per line
+  with `$ / unit`. If a second live tenant uses job templates, this becomes
+  PR-C immediately, before any comms. A test now asserts no ungated cost input
+  has appeared in the meantime.
+- **A rep's forks never migrate.** `adoptLegacyCosts()` writes to
+  `catalogCosts/{companyId}`, which rules restrict to owner/company_admin. A
+  tenant whose pre-strip forks live on a `sales_rep`'s device keeps pricing
+  from the embedded legacy costs, per-device, forever. Not "automatic for
+  everyone".
+- **Floats, not cents.** This path is float dollars end to end (24 of the 84
+  items carry sub-dollar decimals, minimum 0.12), diverging from the CLAUDE.md
+  money-in-cents invariant the same way `estimate-logic-engine.js` already
+  does. Converting inside a leak fix would multiply the blast radius against
+  live pricing. Recorded, not done.
