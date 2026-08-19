@@ -84,11 +84,17 @@ const REQUIRED_MARKUP = {
   'nav-tool': ['id="mainNav"'],
   'mobile-nav-standard': ['id="mobileNav"'],
   'mobile-nav-blog': ['id="mobileNav"'],
-  'mobile-nav-hub': ['id="mobileNav"'],
   'footer-standard': ['<footer>', '</footer>'],
   'footer-blog': ['<footer>', '</footer>'],
   'footer-area': ['<footer>', '</footer>'],
   'footer-extended': ['<footer>', '</footer>'],
+  // ('mobile-nav-hub' removed 2026-08-19 — it was a stale fork of
+  //  mobile-nav-standard, 7 destinations short (/visualizer, /roof-score,
+  //  /inspect, /free-tools, /services/the-nbd-build, /roofivent,
+  //  /gaf-pivot-boot were unreachable from mobile chrome on the 15 pillar
+  //  pages that used it) and with a hardcoded CTA that ignored cta_href.
+  //  Those pages now carry mobile-nav-standard. See
+  //  documentation/audit/DESIGN-CONSISTENCY-SWEEP-2026-08-19.md)
   // ('footer-hub' entry removed 2026-08-07 — no such partial exists in
   //  site-src/partials/ and no page carries the marker.)
 };
