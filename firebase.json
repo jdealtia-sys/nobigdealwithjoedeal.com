@@ -33,6 +33,8 @@
         "source": "/free-guide", "destination": "/sites/free-guide", "type": 301 },
       { "_comment": "/financing (root) was a client-side meta-refresh stub to the canonical /services/financing. Replaced with a proper server 301 (better SEO, no redirect flash); the stub file was removed.",
         "source": "/financing", "destination": "/services/financing", "type": 301 },
+      { "_comment": "/pro/codex was a client-side meta-refresh stub to the AI Selection Codex at /pro/ai-tool-finder — the last http-equiv=refresh in docs/. Same treatment as /financing above: a proper server 301, and the stub file removed. Internal links and the nav pageMaps now point straight at the target.",
+        "source": "/pro/codex", "destination": "/pro/ai-tool-finder", "type": 301 },
       { "_comment": "Pillar 5 Oaks cutover (Jo, 2026-07-04): the hand-authored /sites/oaks pages are retired; the data-driven tenant microsite at /sites/t/oaks (rendered from companyProfile via getPublicSiteConfig) is canonical. Page paths are ENUMERATED rather than /sites/oaks/** because redirects outrank static files in Hosting priority and logo-orange.svg must keep serving — companyProfile/oaks brand.logoUrl (and generated documents) point at it. Trailing * catches both the .html and cleanUrls extensionless forms.",
         "source": "/sites/oaks", "destination": "/sites/t/oaks", "type": 301 },
       { "source": "/sites/oaks/index*", "destination": "/sites/t/oaks", "type": 301 },

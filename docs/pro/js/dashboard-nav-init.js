@@ -28,7 +28,7 @@ const NBD_NAV_CONFIG = {
     '/pro/daily-success/': 'daily-success',
     '/pro/daily-success/index.html': 'daily-success',
     '/pro/ai-tree.html': 'ai-tree',
-    '/pro/codex.html': 'codex',
+    '/pro/ai-tool-finder.html': 'codex',
     '/pro/understand.html': 'understand',
     '/pro/demo.html': 'demo',
   };
