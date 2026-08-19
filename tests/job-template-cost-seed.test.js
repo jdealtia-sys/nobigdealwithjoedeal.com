@@ -596,6 +596,96 @@ test('a FAILED read never adopts (a flaky boot must not upload a half-empty book
 
 /* ── 4. the key is the contract ────────────────────────────────────────── */
 
+/* ── 3b. the in-product cost editor (PR-C) ─────────────────────────────── */
+
+section('the cost editor writes the COMPANY book, and only for those who may');
+
+/**
+ * The editor lives in job-templates-ui.js, which needs a DOM. Rather than
+ * stand up a fake one, these drive the two things that actually matter and are
+ * testable without it: the write path it calls (recordJobItems, already the
+ * subject of §3) and the ROLE GATE, which is pure claims logic lifted out of
+ * the UI source and evaluated directly. The static shape of the gate — that
+ * the inputs are rendered only inside it — is asserted in
+ * tests/job-templates.test.js §6.
+ */
+const UI_SRC = fs.readFileSync(path.join(PRO_JS, 'job-templates-ui.js'), 'utf8');
+
+function evalGate(win) {
+  const m = UI_SRC.match(/function canEditCosts\(\)\s*\{[\s\S]*?\n  \}/);
+  if (!m) throw new Error('canEditCosts() not found in job-templates-ui.js');
+  const sandbox = { window: win, console: { warn() {}, error() {} } };
+  vm.createContext(sandbox);
+  vm.runInContext(m[0] + '; canEditCosts();', sandbox, { filename: 'gate' });
+  return vm.runInContext('canEditCosts()', sandbox);
+}
+
+test('GATE: a platform admin may edit costs', () => {
+  ok(evalGate({ _userClaims: { admin: true } }));
+});
+
+test('GATE: a company_admin may edit costs', () => {
+  ok(evalGate({ _userClaims: { role: 'company_admin', companyId: 'co_x' } }));
+});
+
+test('GATE: a solo operator (companyId === uid) may edit costs', () => {
+  ok(evalGate({ _userClaims: { companyId: 'u1' }, _user: { uid: 'u1' } }));
+});
+
+test('GATE: a SALES REP may NOT — the rule would refuse the write anyway', () => {
+  // firestore.rules limits catalogCosts writes to owner/company_admin. Showing
+  // a rep the field would hand them one whose Save cannot stick, and they would
+  // find out at quote time.
+  eq(evalGate({ _userClaims: { role: 'sales_rep', companyId: 'co_x' }, _user: { uid: 'u2' } }), false);
+});
+
+test('GATE: a viewer may NOT', () => {
+  eq(evalGate({ _userClaims: { role: 'viewer', companyId: 'co_x' }, _user: { uid: 'u3' } }), false);
+});
+
+test('GATE: unknown/absent claims default to NO (conservative)', () => {
+  eq(evalGate({}), false, 'no claims');
+  eq(evalGate({ _userClaims: null }), false, 'null claims');
+});
+
+test('the editor\'s write path lands in the COMPANY book, not the template doc', () => {
+  // The end state the editor produces: costs under catalogCosts/{companyId}
+  // .jtCosts, and NOTHING written back onto the uid-scoped template document
+  // — re-embedding them there is the leak this whole migration removed.
+  const docs = {};
+  docs[BOOK_PATH] = { version: SEED_VERSION, jtCosts: {} };
+  const env = boot({ docs });
+  return env.win.NBDCatalogCosts.hydrate().then(() => {
+    const edits = {};
+    edits[SAMPLE.key] = { materialCost: 6, laborCost: 9 };
+    return env.win.NBDCatalogCosts.recordJobItems(edits).then((wrote) => {
+      ok(wrote, 'write reported failure');
+      eq(env.bookDoc().jtCosts[SAMPLE.key].materialCost, 6, 'materialCost');
+      eq(env.bookDoc().jtCosts[SAMPLE.key].laborCost, 9, 'laborCost');
+      // and the item re-prices immediately, which is what applyJtCostSeed does
+      env.win.JobTemplates.applyJtCostSeed();
+      const found = env.xactFind(SAMPLE_CODE);
+      eq(found.materialCost, 6, 're-registered materialCost');
+      eq(found.costUnset, false, 'costUnset cleared');
+    });
+  });
+});
+
+test('a REP\'s write is refused and reported, never silently dropped', () => {
+  const docs = {};
+  docs[BOOK_PATH] = { version: SEED_VERSION, jtCosts: {} };
+  const env = boot({ docs, fs: { denyWrite: true } });
+  return env.win.NBDCatalogCosts.hydrate().then(() => {
+    const edits = {};
+    edits[SAMPLE.key] = { materialCost: 6, laborCost: 9 };
+    return env.win.NBDCatalogCosts.recordJobItems(edits).then((wrote) => {
+      // false, not a throw — the UI turns this into an honest error toast
+      // rather than a success it cannot back up.
+      eq(wrote, false, 'must resolve false');
+    });
+  });
+});
+
 section('the key is the contract (jtKey / slugify parity + a frozen key set)');
 
 test('slugify() is character-identical to job-templates.js:slugify', () => {

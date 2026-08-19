@@ -181,7 +181,7 @@
       'js/job-templates-data.js?v=2',
       'js/job-templates.js?v=3',
       'js/entity-resolver.js?v=1',
-      'js/job-templates-ui.js?v=4'
+      'js/job-templates-ui.js?v=5'
     ],
     // Photo + inspection engine (PR 2d). Camera capture / gallery / lightbox /
     // bulk-analyze (photo-engine), the photo-report doc (photo-report), and the
