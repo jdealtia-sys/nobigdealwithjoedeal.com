@@ -13,7 +13,7 @@
 .qlf-field input{width:100%;border:1px solid #d7dbe0;border-radius:8px;padding:11px 13px;font:inherit;font-size:16px;color:#14181f;background:#fff}
 .qlf-field input:focus{outline:3px solid #e8720c;outline-offset:0;border-color:transparent}
 .qlf-hp{position:absolute!important;left:-9999px!important;width:1px;height:1px;opacity:0}
-.qlf-btn{width:100%;margin-top:4px;background:#B85400;color:#fff;border:0;border-radius:8px;padding:14px;font-family:'Barlow Condensed',sans-serif;font-size:1.05rem;font-weight:800;letter-spacing:.05em;text-transform:uppercase;cursor:pointer}
+.qlf-btn{width:100%;margin-top:4px;background:#B85400;color:#fff;border:0;border-radius:8px;padding:14px;font-family:'Bebas Neue','Barlow Condensed',sans-serif;font-size:1.05rem;font-weight:800;letter-spacing:.05em;text-transform:uppercase;cursor:pointer}
 .qlf-btn:hover:not(:disabled){background:#A64B00}
 .qlf-btn:disabled{opacity:.65;cursor:default}
 .qlf-alt{text-align:center;font-size:.82rem;color:#5b6572;margin-top:12px}
