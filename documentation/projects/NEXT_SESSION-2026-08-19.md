@@ -250,9 +250,10 @@ All three mutation-tested — each fails on the real defect and names the file.
    hand-build a nav:** `index.html` and `the-pledge/index.html` (pre-migration
    hubs), plus `sites/index.html` and `sites/free-guide/index.html` (the /sites
    B2B design system, deliberately out of scope).
-2. **No footer partial variant covers the slim one-line funnel footer.** The 8
-   nav-tool pages now have generator-governed navs but still hand-build that
-   footer — that is what their remaining exemptions are for.
+2. ~~`footer-slim`~~ — **done** (`a675286a`), 5 pages. **`footer-grid` was
+   deliberately NOT built** — see the section below; the data does not support
+   it and the drift it would have fixed was fixed directly instead
+   (`762471ce`).
 3. **17 orphan assets, 1.87 MiB — deliberately NOT deleted.** Most are brand
    *masters* (`gaf-certified-badge.png`, `-800`, the TAMKO logo set) that the
    `-120`/`-320` variants in use were cut from, plus `roofing-3/4.jpg|webp`
@@ -344,3 +345,45 @@ the audit is either shipped or a judgement call recorded below.
 > checks whether an exemption is still *needed*. Both groups' reasons were
 > rewritten by hand this session after the navs became governed — check them
 > whenever chrome moves.
+
+## Why `footer-grid` does not exist (and should not)
+
+`footer-slim` shipped (`a675286a`): `.sc-foot`, `.sr-foot` and `.fr-foot` were
+three names for one footer, differing only in the two contextual links each page
+put between Home and Reviews. Those became `link1_`/`link2_` pairs; 5 pages now
+render one partial and one style block.
+
+`footer-grid` was scoped and rejected on the evidence:
+
+| Measure | Result |
+|---|---|
+| grid-footer pages | 13 |
+| **distinct link sets among them** | **9 of 9 sampled — every one unique** |
+| links per footer | 10 – 32 |
+| pages putting product-specific trademark text in the copyright | 2 (gaf-timberline, tamko-storm-series) |
+
+`apply-partials`' `render()` makes every `{{key}}` mandatory, so a partial
+covering those columns needs roughly 60 required placeholders and becomes a
+worse, more brittle version of the hand-authored HTML it replaced. **A footer's
+column links are legitimately per-page content.** That is not drift.
+
+What the 13 *do* share is the block below the columns — and that is where the
+real drift was, so it was fixed directly rather than wrapped:
+
+- the `/pro` door had **4 wordings and 3 absences**. `footer-extended` carried
+  the minority wording, which is how 14 pages inherited a fork from one source —
+  the same mechanism as the cert-bar marker and the TAMKO disclaimer earlier in
+  this branch. All 200 instances now read one thing.
+- `review.html` was the only fork of the "All rights reserved." copyright line.
+
+Locked by a new contract assertion that checks the **wording, not the presence**:
+a page may legitimately have no door (404, offline, and the tenant template must
+not carry one), but if it has one it says the same thing. Mutation-tested.
+
+**If a footer partial is ever revisited,** the shape worth extracting is the
+cert bar + disclaimer + social + copyright + pro door as a `footer-certbar`
+region for the 13 hand-built grid footers. It was measured this session and the
+blocks are near-identical — but three different wrapper elements are in use
+(`<p>`, `<div class="footer-copy">`, `<span>`) and page CSS targets them, so it
+needs a careful pass, and its remaining value is now small because the cert bar,
+the disclaimer, the pro door and the copyright are each individually gated.
