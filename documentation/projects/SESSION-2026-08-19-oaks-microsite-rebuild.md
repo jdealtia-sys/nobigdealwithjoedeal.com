@@ -129,6 +129,15 @@ page. Added a `Reach Us Directly` `h2`, matching how `service-areas.html` alread
 - Gates: site-integrity **223 pages / 0 failures**; chrome-governance clean (11 Oaks pages
   added to `EXEMPT` — client brand, own namespace, portable by design); js-syntax 467 clean;
   inline-html-scripts 0; image-privacy 144 scanned / 0 failures; `apply-partials --check` clean.
+- **`qc-render-sweep` (the CI-only rendered gate added 2026-08-18): 229 pages at 1280px and
+  390px, 0 findings.** This one is not in CLAUDE.md's pre-push list and was nearly missed —
+  it is the only gate that can compute a style, and it checks exactly what these pages are
+  full of: oversized inline SVG, icon ink matching its own chip background, dropdowns open
+  at rest, horizontal overflow, duplicated `<style>` blocks. All 11 Oaks pages are in its
+  scope (`sites/` is not in its `SKIP_DIRS`) — verified by replicating its walk, not assumed
+  from the clean result. Run it for any new page-heavy surface:
+  `npx http-server docs -p 5000 -c-1 --silent &` then
+  `node scripts/qc-render-sweep.js --base http://localhost:5000` (~4 min for the full set).
 - CSP: zero `<script>` blocks and zero `on*=` handlers across all 11 pages (only a
   JSON-LD block, which is not executable).
 - Playwright: **35/35** interaction assertions — lightbox open/next/wrap/Escape/focus
