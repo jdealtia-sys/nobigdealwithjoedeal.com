@@ -12,6 +12,73 @@ Every figure below I ran against the real bundle. Nothing here is transcribed.
 **Nothing in this brief is built. It needs one product decision from Jo (§5)
 before any of it should be.**
 
+> ## Revision 2026-08-18 (same day) — Jo approved §5, then three measurements changed the plan
+>
+> Jo answered §5 **yes** (a public de-identified starter price book is
+> acceptable). Implementation started on that basis and stopped again, three
+> times, before writing code. Each correction is below in full; §4 and §5 are
+> superseded where they conflict.
+>
+> **(1) De-identifying the baseline by transforming the leaked figures is
+> theatre, and it invalidates my own §4 recommendation.**
+> The proposed de-identification — round to a coarse per-magnitude grid —
+> measured well on its face: 66 labor rates, **67% of values moved, median
+> drift 3.4%, max 20%**, still usable for onboarding. But the pre-transform
+> values are in git history forever, so *any* deterministic transform is
+> invertible by anyone with a clone. Rounding does not hide a number whose
+> original is one `git show` away. (It is also only 67% — the other 22 values
+> sit on the grid already and would publish unchanged, indistinguishably.)
+>
+> **What actually makes a published baseline safe is the same thing that makes
+> the git history harmless: NBD's CURRENT figures having moved on.** The
+> historical set is already public and cannot be recalled. So the baseline does
+> not need to be secret — it needs to be *stale*.
+>
+> That simplifies P2-c considerably and re-couples it to work already planned:
+> - publish the historical figures as the labelled starter baseline, rounded
+>   for looks rather than for concealment — they are already public, so this
+>   costs nothing;
+> - put NBD's **rotated, current** figures in their tenant book.
+>
+> The leak closes because NBD's actuals are no longer the published ones — not
+> because the published ones are obscured. **This makes rotation a hard
+> prerequisite for P2-c rather than a parallel nicety**, exactly as it already
+> is for PR-B, and it means no elaborate de-identification machinery is needed.
+>
+> **(2) P2-a cannot ship alone — it blinds the guard added today.**
+> `COST_BASIS_LABOR_RE` matches `rate:` **paired with** `hoursPerUnit:`. P2-a
+> removes `hoursPerUnit` while leaving 66 `rate:` values published — still a
+> labor cost basis, now matching nothing. The `KNOWN_UNMIGRATED` non-vacuity
+> assertion would then fail, and the obvious "fix" is to delete the entry,
+> leaving the remaining leak untracked. That is the pairing design's one
+> weakness, and it is worth naming: **pairing is precise, but removing the
+> partner makes it blind.** So the labor catalog migrates as ONE unit, with a
+> file-scoped assertion replacing the shape-based one at the same commit.
+>
+> **(3) P2-b is not worth doing, and I am withdrawing it.** §4 called it "the
+> biggest ratio of exposure closed to risk taken". Checking it properly says
+> otherwise:
+> - The homeowner path is **already clean** — verified: `portal.js:683-700`
+>   emits an explicit allowlist (id, builder, grandTotal, tierName, signature
+>   fields, lineCount, createdAt) with no markup and no cost split, and the
+>   shared-estimate view goes through `buildDisplayRows`, which returns
+>   `{code, desc, qty, rate, total}` at retail only. The 2026-08-02 audit
+>   closed this. The flagged verification in §4 resolves **negative**.
+> - 25% material markup and 10/10 OH&P are industry-typical round numbers. A
+>   competitor does not need to read them off our JS.
+> - Any change to a pricing default is a live-money change for every tenant
+>   relying on it, across at least three sites
+>   (`estimate-logic-engine.js:877-879`, `estimate-builder-v2.js:469`,
+>   `dashboard-bootstrap.module.js:4247`).
+>
+> Real risk, negligible benefit. **The margin derivation is closed by removing
+> the cost basis, not by hiding a standard markup.** Dropped.
+>
+> **Revised sequence:** rotate NBD's figures (already required, now blocking) →
+> labor catalog as one unit → xactimate + estimate-builder-v2 together. P2-b is
+> withdrawn. Nothing should start until rotation has, because (1) makes it the
+> dependency for all of it.
+
 ---
 
 ## 1. What is exposed
