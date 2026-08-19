@@ -63,16 +63,10 @@ const EXEMPT = {
   'the-pledge/index.html': 'pledge landing — hand-built grid footer + its own sticky CTA',
   'visualizer.html': 'tool page — hand-built grid footer',
 
-  // --- slim funnel footers (nav-tool stamped 2026-08-19; only the
-  //     one-line footer is still hand-built) ---
+  // --- funnel pages whose footer is still hand-built ---
   'estimate.html': 'slim one-line funnel footer; nav IS nav-tool-governed. No footer partial variant covers this shape',
   'inspect.html': 'QR-code capture funnel — the header is deliberately logo-only, on record in the page: "no nav (QR funnel: keep them on the page)". nav-tool would add Back-to-site + a 32-link menu, so it is NOT stamped here',
-  'free-roof/index.html': 'slim one-line funnel footer; nav IS nav-tool-governed. No footer partial variant covers this shape',
-  'free-tools/index.html': 'slim one-line funnel footer; nav IS nav-tool-governed. No footer partial variant covers this shape',
-  'roof-score.html': 'slim one-line funnel footer; nav IS nav-tool-governed. No footer partial variant covers this shape',
   'storm-alerts.html': 'slim one-line funnel footer; nav IS nav-tool-governed. No footer partial variant covers this shape',
-  'storm-check.html': 'slim one-line funnel footer; nav IS nav-tool-governed. No footer partial variant covers this shape',
-  'storm-report.html': 'slim one-line funnel footer; nav IS nav-tool-governed. No footer partial variant covers this shape',
 
   // --- brand microsites (nav-microsite stamped 2026-08-19; only the
   //     4-column grid footer is still hand-built) ---

@@ -104,9 +104,8 @@ section{padding:72px 5%}
    footer at all — funnel-family topbar + phone-first footer, copied from
    storm-check.html (.sc-head/.sc-foot) to match the funnel siblings. */
 .fr-head{background:var(--navy-dark);border-bottom:3px solid var(--orange);padding:12px 20px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100}
-.fr-foot{background:var(--navy-dark);color:rgba(255,255,255,.7);text-align:center;padding:26px 20px;font-size:.8rem;line-height:1.7}
-.fr-foot a{color:var(--orange-light);text-decoration:none}
-.fr-foot .ph{font-family:'Bebas Neue',sans-serif;font-size:1.5rem;color:#fff;letter-spacing:.03em;display:block;margin-bottom:6px}
+.foot-slim{background:var(--navy-dark);color:rgba(255,255,255,.7);text-align:center;padding:26px 20px;font-size:.8rem;line-height:1.7}
+.foot-slim .ph{font-family:'Bebas Neue',sans-serif;font-size:1.5rem;color:#fff;letter-spacing:.03em;display:block;margin-bottom:6px}
 
 /* RESPONSIVE */
 @media(max-width:640px){
@@ -239,6 +238,15 @@ nav.tool-nav .nav-cta:hover{background:#A64B00}
 .hamburger{display:none;flex-direction:column;gap:6px;cursor:pointer;padding:10px;background:transparent;border:none;z-index:1001}
 .hamburger span{display:block;width:26px;height:3px;background:#fff;border-radius:2px;transition:all .3s;box-shadow:0 1px 3px rgba(0,0,0,.3)}
 @media (max-width:1024px){.nav-links{display:none}.hamburger{display:flex}}
+</style>
+<style>
+/* slim funnel footer (shared) — replaces the .sc-foot / .sr-foot / .fr-foot
+   forks, which carried the same declarations under three names. */
+.foot-slim{background:var(--navy-dark,#142a52);color:rgba(255,255,255,.7);text-align:center;padding:26px 20px;font-size:.8rem;line-height:1.7}
+.foot-slim a{color:var(--orange-light,#f08030);text-decoration:none}
+.foot-slim a:hover{color:#ffaf66}
+.foot-slim .ph{font-family:'Bebas Neue',sans-serif;font-size:1.5rem;color:#fff;letter-spacing:.03em;display:block;margin-bottom:6px}
+.foot-slim .ph a{color:#fff}
 </style>
 </head>
 <body><a class="nbd-skip" href="#main">Skip to content</a>
@@ -476,12 +484,14 @@ nav.tool-nav .nav-cta:hover{background:#A64B00}
   </div>
 </section>
 </main>
-<footer class="fr-foot">
-  <span class="ph"><a href="tel:+18594207382" style="color:#fff">(859) 420-7382</a></span>
-  Owner-operated roofing &amp; storm restoration · Greater Cincinnati &amp; N. Kentucky<br>
-  <a href="/">Home</a> · <a href="/about">About Joe</a> · <a href="/inspect">Free Inspection</a> · <a href="/review">Reviews</a> · <a href="/privacy">Privacy</a><br>
+<!-- nbd:partial footer-slim link1_href="/about" link1_name="About Joe" link2_href="/inspect" link2_name="Free Inspection" -->
+<footer class="foot-slim">
+  <span class="ph"><a href="tel:+18594207382">(859) 420-7382</a></span>
+  Owner-operated roofing &amp; storm restoration &middot; Greater Cincinnati &amp; N. Kentucky<br>
+  <a href="/">Home</a> &middot; <a href="/about">About Joe</a> &middot; <a href="/inspect">Free Inspection</a> &middot; <a href="/review">Reviews</a> &middot; <a href="/privacy" data-nbd-privacy="1">Privacy</a><br>
   &copy; 2026 No Big Deal Home Solutions
 </footer>
+<!-- /nbd:partial footer-slim -->
 <script defer src="/assets/js/public-lead-submit.js"></script>
 <script defer  src="/assets/js/inline/0a394536a8.js"></script>
 <!-- STICKY MOBILE CTA STRIP (site-wide, conversion audit 2026-07-03) -->

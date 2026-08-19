@@ -96,6 +96,7 @@ const REQUIRED_MARKUP = {
   'footer-blog': ['<footer>', '</footer>'],
   'footer-area': ['<footer>', '</footer>'],
   'footer-extended': ['<footer>', '</footer>'],
+  'footer-slim': ['<footer', '</footer>', 'tel:+18594207382', '/privacy'],
   // ('mobile-nav-hub' removed 2026-08-19 — it was a stale fork of
   //  mobile-nav-standard, 7 destinations short (/visualizer, /roof-score,
   //  /inspect, /free-tools, /services/the-nbd-build, /roofivent,

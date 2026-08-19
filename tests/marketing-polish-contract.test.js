@@ -321,12 +321,15 @@ const certBarTargets = marketing.filter((f) => /^services\/[a-z0-9-]+-(oh|ky)\.h
   // 8. free-roof.html shipped with no chrome at all — lock header + footer.
   //    The header check used to pin the literal `<header class="fr-head">`,
   //    which is the hand-rolled fork this page carried until 2026-08-19, when it
-  //    was stamped with the shared nav-tool partial. The intent — "this page has
-  //    a header" — is unchanged, so assert THAT and let the implementation move.
+  //    was stamped with the shared nav-tool partial. The footer check pinned
+  //    `class="fr-foot"` the same way, until footer-slim replaced that fork too.
+  //    The intent — "this page has a header and a footer" — is unchanged, so
+  //    assert THAT and let the implementation move.
   const s = fs.readFileSync(path.join(DOCS, 'free-roof', 'index.html'), 'utf8');
   const hasHeader = /nbd:partial nav-tool/.test(s) || /<header class="fr-head"/.test(s);
+  const hasFooter = /nbd:partial footer-slim/.test(s) || /class="fr-foot"/.test(s);
   ok('free-roof carries header + footer chrome',
-    hasHeader && /class="fr-foot"/.test(s) && s.includes('tel:+18594207382'));
+    hasHeader && hasFooter && s.includes('tel:+18594207382'));
 }
 {
   // 9. inspect mini-footer carries the phone (funnel-family parity).
