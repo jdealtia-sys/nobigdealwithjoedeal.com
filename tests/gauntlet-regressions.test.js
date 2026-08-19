@@ -287,15 +287,25 @@ console.log('\nCI gate — @stranger shard is required');
   // on the introduction runway (the same advisory→required path @gauntlet
   // took), gated by an expression — so the check is now that the matrix
   // exemption names ONLY @engines (never @stranger or the other four), and
-  // that bare `continue-on-error: true` literals are confined to the three
-  // named runway jobs (public-e2e, visual-brand-tokens, visual-regression).
-  // Promoting a runway job means flipping its literal AND this count.
+  // that bare `continue-on-error: true` literals are confined to the named
+  // runway jobs. Promoting a runway job means flipping its literal AND this
+  // count.
+  //
+  // 2026-08-19: FOUR, not three. qc-render-sweep (the rendered docs/ gate that
+  // shipped with the site-QC lane) joined the runway and neither copy of this
+  // count was updated with it — this suite and tests/smoke/functions.test.js
+  // both pin the same invariant, and both were red on the qc branch before the
+  // cost-migration branch forked off it. The runway is now public-e2e,
+  // qc-render-sweep, visual-brand-tokens and visual-regression.
+  //
+  // Two suites pinning one invariant is deliberate redundancy, not an
+  // accident — but it does mean a change here needs the same change there.
   assert('no promoted E2E shard is exempted from blocking (incl. @stranger)',
     /continue-on-error:\s*\$\{\{\s*matrix\.shard == '@engines'\s*\}\}/.test(ci)
     && !/continue-on-error:[^\n]*@stranger/.test(ci),
     'the only runtime proof of stranger self-provisioning must gate merges');
-  assert('advisory literals confined to the introduction-runway jobs (3)',
-    (ci.match(/continue-on-error:\s*true/g) || []).length === 3,
+  assert('advisory literals confined to the introduction-runway jobs (4)',
+    (ci.match(/continue-on-error:\s*true/g) || []).length === 4,
     'a promoted job regaining continue-on-error: true is the hole this guards');
   assert('this suite runs in CI',
     /gauntlet-regressions\.test\.js/.test(ci),
