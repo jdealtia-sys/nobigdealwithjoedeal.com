@@ -2,8 +2,8 @@
    OAKS ROOFING & CONSTRUCTION — site stylesheet
    ──────────────────────────────────────────────────────────────────────
    Self-contained on purpose. This folder is a deliverable: it must render
-   identically whether it is served from /sites/oaks/ on nobigdealwithjoedeal.com
-   or dropped at the domain root of Oaks' own host. So: no NBD stylesheets,
+   identically whether it is served from a staging subdirectory or dropped at
+   the domain root of Oaks' own host. So: no borrowed stylesheets,
    no icon-font CDN (icons are inline SVG in the markup), and every internal
    path is RELATIVE. The only external request is Google Fonts.
 
@@ -16,6 +16,7 @@
   --orange:       #fa6404;   /* brand — fills, and text on dark only */
   --orange-ink:   #b84a02;   /* same hue, AA-safe as TEXT on light: 5.23:1 on white, 4.55:1 on the tint */
   --orange-dark:  #d55103;
+  --orange-lift:  #ff7a1f;   /* hover for DARK-on-orange: brightening raises contrast, darkening lowers it */
   --orange-soft:  rgba(250, 100, 4, .12);
   --orange-line:  rgba(250, 100, 4, .32);
 
@@ -68,8 +69,12 @@ button { font: inherit; cursor: pointer; }
   text-align: center;
 }
 .btn svg { width: 15px; height: 15px; flex: none; }
-.btn-primary { background: var(--orange); color: var(--white); border-color: var(--orange); }
-.btn-primary:hover { background: var(--orange-dark); border-color: var(--orange-dark); transform: translateY(-1px); }
+/* White on the brand orange is only 3.05:1. Dark ink on the SAME orange is
+   5.84:1 — so Scott's colour is kept exactly and only the text changes. Hover
+   BRIGHTENS rather than darkens, because with dark text a lighter fill raises
+   contrast (#d55103 would have dropped it back to 4.24:1). */
+.btn-primary { background: var(--orange); color: var(--ink); border-color: var(--orange); }
+.btn-primary:hover { background: var(--orange-lift); border-color: var(--orange-lift); transform: translateY(-1px); }
 .btn-outline { background: transparent; color: var(--white); border-color: rgba(255,255,255,.45); }
 .btn-outline:hover { border-color: var(--white); background: rgba(255,255,255,.08); }
 .btn-dark { background: var(--ink); color: var(--white); border-color: var(--ink); }
@@ -78,7 +83,7 @@ button { font: inherit; cursor: pointer; }
 
 /* ── Announcement bar ────────────────────────────────────────────────── */
 .orc-banner {
-  background: var(--orange); color: var(--white);
+  background: var(--orange); color: var(--ink);
   font-family: var(--head); font-size: .78rem; font-weight: 600; letter-spacing: .02em;
   display: flex; align-items: center; justify-content: center; gap: 10px;
   padding: 9px 46px 9px 22px; position: relative; text-align: center;
@@ -87,7 +92,7 @@ button { font: inherit; cursor: pointer; }
 .orc-banner a { text-decoration: underline; text-underline-offset: 3px; font-weight: 700; white-space: nowrap; }
 .orc-banner-close {
   position: absolute; right: 14px; top: 50%; transform: translateY(-50%);
-  background: none; border: 0; color: var(--white); opacity: .85;
+  background: none; border: 0; color: var(--ink); opacity: .75;
   line-height: 0; padding: 6px; border-radius: 4px;
 }
 .orc-banner-close:hover { opacity: 1; background: rgba(0,0,0,.12); }
@@ -130,11 +135,11 @@ button { font: inherit; cursor: pointer; }
 
 .orc-header-cta { flex: none; display: flex; align-items: center; gap: 12px; }
 .orc-header-phone {
-  display: inline-flex; align-items: center; gap: 9px; background: var(--orange); color: var(--white);
+  display: inline-flex; align-items: center; gap: 9px; background: var(--orange); color: var(--ink);
   font-family: var(--head); font-weight: 700; font-size: .86rem; padding: 12px 20px; border-radius: var(--radius-s);
   white-space: nowrap; transition: background .18s;
 }
-.orc-header-phone:hover { background: var(--orange-dark); }
+.orc-header-phone:hover { background: var(--orange-lift); }
 .orc-header-phone svg { width: 15px; height: 15px; }
 
 .orc-burger {
@@ -280,7 +285,7 @@ button { font: inherit; cursor: pointer; }
 .orc-review { max-width: 620px; margin: 0 auto; text-align: center; background: var(--white); border: 1px solid var(--line); border-radius: var(--radius); padding: 38px 32px; box-shadow: var(--shadow); }
 .orc-review-avatar {
   width: 56px; height: 56px; margin: 0 auto 14px; border-radius: 50%; background: var(--orange);
-  color: var(--white); display: flex; align-items: center; justify-content: center;
+  color: var(--ink); display: flex; align-items: center; justify-content: center;
   font-family: var(--head); font-weight: 800; font-size: 1.4rem;
 }
 .orc-review-name { font-family: var(--head); font-weight: 700; color: var(--ink); margin-bottom: 8px; }
@@ -423,8 +428,12 @@ button { font: inherit; cursor: pointer; }
   display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 22px;
   padding: 38px 0; border-bottom: 1px solid rgba(255,255,255,.1);
 }
-.orc-footer-brand { display: flex; flex-direction: column; gap: 16px; }
-.orc-footer-brand img { height: 54px; width: auto; }
+/* align-items MUST stay start. This is a column flexbox, whose default
+   align-items:stretch overrides the img's width:auto and pulls the logo to the
+   full column width — it rendered 264x54 against a natural 900x366, i.e.
+   stretched almost exactly 2x horizontally. Spotted by eye by Jo, 2026-08-19. */
+.orc-footer-brand { display: flex; flex-direction: column; align-items: flex-start; gap: 16px; }
+.orc-footer-brand img { height: 54px; width: auto; aspect-ratio: 900 / 366; object-fit: contain; }
 .orc-footer-contact { display: flex; flex-wrap: wrap; gap: 10px 26px; }
 .orc-footer-contact span { display: inline-flex; align-items: center; gap: 9px; font-family: var(--head); font-weight: 600; color: rgba(255,255,255,.86); }
 .orc-footer-contact svg { width: 15px; height: 15px; color: var(--orange); flex: none; }
