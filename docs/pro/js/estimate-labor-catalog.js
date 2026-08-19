@@ -43,12 +43,24 @@
 // face hundreds of numbers before producing a single estimate.
 // What makes a published baseline safe is not secrecy but
 // STALENESS: these values are already readable at every past
-// commit, so obscuring them now buys nothing, while the shop's
-// ROTATED current figures live in the tenant book and override
-// them at NBD_LABOR.get(). See
+// commit, so obscuring them now buys nothing. The mechanism for
+// that is in place — NBD_LABOR.get() overlays the tenant's own
+// book from catalogCosts/{companyId}.laborOps, so a company's
+// figures win at the one place pricing consults.
+//
+// CORRECTION 2026-08-19 (same day): the two paragraphs above
+// used to end "the shop's ROTATED current figures live in the
+// tenant book and override them" — present tense, about work
+// that has not happened. THE ROTATION HAS NOT LANDED. Until it
+// does, these rates are the shop's real rates and this header
+// said otherwise to everyone who viewed source. The state is now
+// recorded in one place, tests/cost-basis-ledger.js, and the
+// privacy guard prints it on every run; when rotation lands, the
+// same paste that records it there is the moment to correct this
+// paragraph. See
 // documentation/projects/PHASE2-PUBLISHED-COST-BASIS-BRIEF-2026-08-18.md.
 //
-// So: treat the rates in this file as a generic regional
+// Either way: treat the rates in this file as a generic regional
 // starting point to be edited, NOT as any company's real cost.
 // ============================================================
 

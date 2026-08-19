@@ -223,10 +223,32 @@ with a book the engine prices off the tenant's figure; without one, off the
 baseline; `byCode` stays intact underneath.
 
 This closes **no values today**. It is the prerequisite that makes rotation
-land: without it, importing a rotated book would change nothing. Both files
-stay on `KNOWN_UNMIGRATED` with rewritten reasons — they close when the
-published baseline is no longer anyone's actual cost, which is rotation, not
-deletion.
+land: without it, importing a rotated book would change nothing. They close
+when the published baseline is no longer anyone's actual cost, which is
+rotation, not deletion.
+
+> **Correction 2026-08-19 (later the same day).** This paragraph said "both
+> files stay on `KNOWN_UNMIGRATED` with rewritten reasons". **`KNOWN_UNMIGRATED`
+> is gone**, and rewriting its reasons was the wrong fix. That map asked one
+> question of two different things: "does this file publish a cost basis"
+> (observable, and for these files permanent) and "is that basis still the
+> shop's real cost" (not observable — it changes in Firestore). Its non-vacuity
+> assertion only ever checked the first while its label claimed the second, so
+> the day rotation lands the file is byte-identical, the sweep still finds 276
+> pairs, the assertion still passes, and the guard goes on printing "still
+> leaking, keep tracking it" about figures nobody uses. Green, wrong, and
+> nothing prompts a revisit.
+>
+> Replaced by `tests/cost-basis-ledger.js` — one row per catalog, keyed off
+> `functions/cost-basis-registry.js`, carrying `rotation: null` or a signed
+> record `{ at, by, company, coverage, basisAt }`. Nothing detects rotation;
+> `scripts/import-cost-rotation.js` prints the block to paste **after** a
+> successful write. `basisAt` is the commit the claim was made against, and the
+> guard re-reads it every run: if a line item is later REPRICED, the claim no
+> longer covers what is published. Measured over the full history of all three
+> catalogs, that check has a false-positive rate of zero (9 additions, 3
+> removals, **0** repricings). The labor catalog is a ledger row too, so the
+> half-migrated case lives in the same table instead of a bespoke section.
 
 **Three things this turned up:**
 
@@ -461,6 +483,19 @@ The proof-of-work checks that mattered in PR-B, adapted:
    asserts all three files are still leaking. When one is migrated its
    `KNOWN_UNMIGRATED` assertion fails by design and the entry gets deleted —
    that is the signal, not a nuisance.
+
+   > **Correction 2026-08-19.** Wrong for these three files, and the mistake is
+   > worth keeping visible: **the entry is never deleted.** Deleting it is what
+   > revision (2) above warned about — it leaves a real, still-published leak
+   > untracked, and it would additionally fail layer 4 outright, because the
+   > ledger *is* that layer's exemption list. A published starter price book is
+   > a permanent product feature, not debt with a deletion date. What changes on
+   > rotation is the row's `rotation` field in `tests/cost-basis-ledger.js`,
+   > from `null` to a signed record — and the guard's green line changes with
+   > it, from "these published figures ARE the shop's cost basis today" to
+   > "ROTATED &lt;date&gt; by &lt;who&gt; for company &lt;id&gt;". Nothing here can prove the
+   > rotation happened; that limit is stated in the guard's own output rather
+   > than papered over.
 2. **A no-book tenant must never see a fabricated price.** The PR-B rule
    applies unchanged and for the same measured reason: emit explicit zeros,
    never omit keys, because `inferLaborId` resolves before the `!= null` gate.
