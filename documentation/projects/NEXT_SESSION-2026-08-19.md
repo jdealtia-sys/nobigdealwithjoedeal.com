@@ -156,3 +156,95 @@ so they cannot diverge. **Documents was the only broken one.**
   lists**, never `git add -A` — this session had to split `customer.html`,
   `ci-manifest.json` and `INDEX.md` by hunk because two lanes were entangled in
   all three.
+
+---
+
+# Lane: design & brand consistency sweep (2026-08-19, later session)
+
+Branch **`qc/design-consistency-2026-08-19`** off `qc/site-sweep-2026-08-18`
+@ `cfb627bc`. 6 commits, 83 files, unpushed.
+
+Evidence base: [DESIGN-CONSISTENCY-SWEEP-2026-08-19](../audit/DESIGN-CONSISTENCY-SWEEP-2026-08-19.md)
+— 253 pages, 8 dimensions, 141 findings → 83 confirmed after one adversarial
+verifier per finding. It carries **the variant reference tables** (every
+legitimate header and footer variant, who uses it, why it differs) and the
+page-to-variant map. Read that before touching chrome.
+
+## Shipped
+
+| Commit | What |
+|---|---|
+| `bdc0d52c` | the audit note + INDEX link |
+| `d616bd30` | **142 contrast rules.** CTA `:hover` was *lighter* than rest and below AA (4.88:1 → 4.24:1) on every primary CTA incl. the homepage and every funnel entry. 122 rules already used the correct `#A64B00`; 110 never got it. Plus 14 white-on-`#e8720c` controls (3.07:1) and two new CRM tokens |
+| `c41031ec` | **cert bar completed.** American Operator badge added to the 8 pages that shipped 2 badges where 187 shipped 3; `data-nbd-certbar` added to 53 unmarked bars (23 via 2 partial sources); 4 trademark-disclaimer variants collapsed to 1 across 199 pages; GAF marks reattributed BMIC LLC on 5 self-contradicting pages; "Locally Owned" + "5-Star Rated" chips dropped (105 chips, 55 files) |
+| `0eb2d704` | **`mobile-nav-hub` deleted.** It was a stale fork, one whole group short — 7 destinations unreachable from mobile chrome on the 15 pillar pages. 13 service pages' nav CTA retargeted `/#contact` → `#quote` per the rule at `migrate-nav-to-partial.js:20`. 7 microsite navs unified to one spine. 9 blog pages given the `nav-faq.js` their dead `.dropdown.open` CSS was written for |
+| `37df69a4` | **privacy reachability.** 18 marketing pages had no route to `/privacy`, five of them lead-capture pages, four collecting name/address/phone → now 8, all deliberate. `blog/roof-financing-cincinnati-explained.html` (the only blog page with zero markers) adopted into all three partials. 7 bare `tel:` → E.164 **and the generator that stamped them fixed**. `/the-pledge` sticky CTA 680 → 768px + safe-area inset |
+| `423bb65f` | **the placeholder logo badge** — `index.html:1574` Acorn Finance Arial text card → the real mark, imported from Drive |
+
+Verification each wave: `check-js-syntax`, `check-site-integrity --quiet`,
+`apply-partials --check`, `check-inline-html-scripts`, `check-image-privacy`,
+`ensure-nav-css`, `ensure-icon-css`, `marketing-polish-contract` (51/51), and
+**`qc-render-sweep` — 216 pages × 2 viewports, clean.**
+
+To run the render sweep locally it needs a server; there is no `http-server` in
+`tests/`. A 25-line static server with clean-URL fallback is enough:
+`node <server> "$(pwd)/docs" 5002` then
+`node scripts/qc-render-sweep.js --base http://localhost:5002`.
+
+## Two corrections to the audit note
+
+- **"146 hand-built cert bars" is wrong.** 138 of those are IN-ARTICLE CTA
+  verify-links — a different component that must NOT carry `data-nbd-certbar`.
+  The real hand-built footer cert bars number **13**. Distinguishing test: a
+  footer cert bar has the badge *image* AND the Independent Contractor
+  disclaimer; the CTA link has neither.
+- **`/sites/free-guide` must NOT get `nav-faq.js`** even though it greps
+  identically to the 9 blog pages that needed it. It has no `.dropdown.open`
+  rule and opens on hover; adding the script would `preventDefault` the click
+  with nothing to show.
+
+## Not mine — pre-existing, verify before touching
+
+`node scripts/build-projects.mjs --check` **fails at `cfb627bc`**, my branch
+point, listing `our-work.html`, 8 services pages and `homeowner-wall.json`.
+Confirmed by running it in a throwaway worktree at that commit. This branch's
+diff contains zero `OURWORK` markers and touches neither `projects.json` nor
+`our-work.html`. Either pre-existing drift on `qc/site-sweep-2026-08-18` or a
+parallel session's in-flight state — **do not restamp it blind.**
+
+## Still open (from the 83 confirmed)
+
+1. **Wave 6 gate widening — the highest-value item left.** Nothing requires a
+   marketing page to carry chrome markers, which is *why* the same ~29 files
+   keep coming back. New `check-chrome-governance.js`: walk `docs/` minus
+   `pro|admin|dev|assets`; every page with `<footer` or `class="nav-links"`
+   needs an `nbd:partial` marker **or** an `EXEMPT` entry with a reason. Seed
+   with today's list so page #23 fails CI. Also: assert the cert bar on the
+   *asset* not the marker (`gaf-certified-badge-120.png` ⇒
+   `american-operator-badge-120.png` + `data-nbd-certbar`) — ~4 lines that
+   would have caught both defects this session fixed.
+2. **Bytes:** Montserrat ships 6× under 6 filenames, byte-identical — 12 files,
+   594 KB, on 206 pages, and it is already a variable font. `quick-lead-form.css`
+   asks for Barlow Condensed, which no marketing page loads. 22 orphan assets
+   (~2.99 MiB).
+3. **`nav-tool` stamping** on the 5 hand-rolled funnel headers
+   (`.fr-`/`.sc-`/`.sr-`/`.topbar`). Not a drop-in — needs the mobile-nav
+   partial and its CSS block. Own commit.
+4. **Footer logo:** no footer *variant* uses the real `nbd-logo.png`; 56 pages
+   show a text wordmark, only 4 hand-roll the image. Fix in the partials.
+5. **`/pro`:** `terms.html` wears the full homeowner nav above a contractor
+   footer; `pricing.html` has no nav at all and is in `sitemap-pro.xml`;
+   `how-to.html` starts `visibility:hidden` with a non-deferred reveal at line
+   1300 and no canonical; brand mark reads "NB". `qc-render-sweep` skips
+   `docs/pro` entirely.
+6. **Copy/claims:** "Text Us" → "Text Joe" (202 pages), two blog bios claiming
+   20+/15+ years against the canonical "7+", 4 unsourced statistics, invented
+   `support@`/`pro@` aliases, an "Infused" tier `login.html` sells that exists
+   in no plan table, 4 lead forms using NBD's own number as the homeowner
+   placeholder.
+7. **Deferred deliberately:** the footer "pro door" contrast (3.36:1) lives in
+   `footer-standard.html`, which `nbd-wt-fstd` is rewriting on
+   `feat/footer-standard-careers-partners`. Rebase first.
+8. **Jo's call, not mine:** "The Pledge" is a top-level nav item on 32 pages
+   and absent from 162. Adding it to `nav-standard` changes the primary nav on
+   159 pages — a product decision, left alone.
