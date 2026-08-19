@@ -20,11 +20,18 @@
  *   2. SIGNATURE (every published file) — the retail-beside-wholesale pattern,
  *      `sell: N` and `cost: N` in the same object literal. Deliberately narrow
  *      so it can run over the whole hosting tree without false positives.
- *   3. STRICT (catalog + catalog-adjacent files only) — any numeric cost /
- *      contractor / overheadMultiplier / profitMarginPct literal at all, in a
- *      file whose job is data. Catches a cost table that never reaches a
- *      product object, and the two margin-policy constants that used to sit in
- *      product-library.js as `|| 1.35` / `|| 25`.
+ *   3. STRICT (EVERY published file, exemptions explicit) — any numeric cost /
+ *      contractor / materialCost / laborCost / overheadMultiplier /
+ *      profitMarginPct literal at all. Catches a cost table that never reaches
+ *      a product object, and the two margin-policy constants that used to sit
+ *      in product-library.js as `|| 1.35` / `|| 25`.
+ *      This layer ran over a four-entry ALLOWLIST until 2026-08-18, which is
+ *      exactly how job-templates-data.js published 84 contractor cost pairs for
+ *      a month while this suite reported 48/48 green: it was on neither the
+ *      allowlist nor the exception list, and a hole in an inclusion list is
+ *      indistinguishable from a pass. It now scans by default; see
+ *      STRICT_EXEMPT, where every non-scan is named, reasoned, narrowed to a
+ *      line shape where possible, and asserted non-vacuous.
  *
  * Every layer is MUTATION-TESTED below: the scanner is fed a source that
  * reintroduces the leak and must flag it, and fed legitimate non-catalog code
@@ -82,6 +89,14 @@ const STRICT_RES = [
   [/(?<![.\w])["']?profitMarginPct["']?\s*:\s*-?\d/, 'profitMarginPct literal'],
   [/overheadMultiplier\s*(?:\|\||\?\?)\s*-?\d/, 'overheadMultiplier fallback literal'],
   [/profitMarginPct\s*(?:\|\||\?\?)\s*-?\d/, 'profitMarginPct fallback literal'],
+  // 2026-08-18. job-templates-data.js spelled the same thing a THIRD way:
+  // "materialCost":N,"laborCost":N inside a `custom` line item, 84 times.
+  // Adding that file to a scan list alone would have caught NOTHING —
+  // measured: STRICT_RES[0] is /(?<![.\w])["']?cost["']?…/, and the lookbehind
+  // that makes `p.pricing[t].cost` safe also rejects the `l` of "materialCost",
+  // so the leaked file scored ZERO hits against the guard's own strict layer.
+  // This pattern is what actually bites.
+  [/(?<![.\w])["']?(?:material|labor)Cost["']?\s*:\s*-?\d/, 'named cost literal (materialCost/laborCost)'],
 ];
 
 function stripComments(src) {
@@ -128,25 +143,86 @@ function scanProse(products) {
   return out;
 }
 
-function scanStrict(rel, src) {
+// `allow` (optional) is matched against the SOURCE LINE, so an exemption can
+// name the benign shape instead of blanket-clearing the file.
+function scanStrict(rel, src, allow) {
   const out = [];
   stripComments(src).split(/\r?\n/).forEach((line, i) => {
     STRICT_RES.forEach(([re, what]) => {
       const m = line.match(re);
-      if (m) out.push(rel + ':' + (i + 1) + ': ' + what + ' — ' + m[0].slice(0, 60));
+      if (!m) return;
+      if (allow && allow.test(line)) return;
+      out.push(rel + ':' + (i + 1) + ': ' + what + ' — ' + m[0].slice(0, 60));
     });
   });
   return out;
 }
 
-// Files whose entire job is catalog/pricing data or its client. A cost literal
-// in ANY of these is a leak, not a coincidence.
-const STRICT_FILES = [
-  'pro/js/product-data.js',
-  'pro/js/roofivent-catalog.js',
-  'pro/js/catalog-costs.js',
-  'pro/js/product-library.js',
-];
+// ── layer 3 scope: SCAN BY DEFAULT, EXEMPT EXPLICITLY (2026-08-18) ─────────
+//
+// This layer used to run over a four-entry STRICT_FILES allowlist. That is how
+// docs/pro/js/job-templates-data.js — 84 custom line items carrying
+// materialCost + laborCost, 146 non-zero contractor values, served 200 at
+// ~188 KB — sat unscanned for a month while this suite reported 48/48 green.
+// It was on neither the allowlist nor the exception list, and a hole in an
+// inclusion list is indistinguishable from a pass.
+//
+// That was the SECOND guard defeated by its own list in a single day (the
+// morning's svg.ico bug got through because ensure-icon-css.js skipped
+// sites/pro/a stale free-guide entry). The durable answer is not "add one more
+// file": it is to scan every published file and make every non-scan an
+// explicit, reasoned, self-expiring entry below.
+//
+// Each exemption carries `why` and, where the benign shape is nameable, an
+// `allow` regex — a finding on a line that does NOT match `allow` still fails.
+// Every exemption is also asserted NON-VACUOUS: if a file stops matching
+// entirely, the guard fails and tells you to delete the entry, so this list
+// can never rot into a permanent carve-out the way the allowlist did.
+const STRICT_EXEMPT = {
+  'pro/js/estimate-config.js': {
+    why: 'PERMIT_COSTS_BY_COUNTY — municipal permit fees (Hamilton OH 185, ' +
+         'Boone KY 135). Public record, printed on the homeowner estimate as a ' +
+         'line item, and deliberately published: they are not a supplier buy ' +
+         'price and carry no margin. Layer 4 already exempts the same shape ' +
+         '("a cost with no paired labor is not swept").',
+    allow: /County,?\s*(?:OH|KY)/,
+  },
+  'admin/js/pages/analytics.js': {
+    why: 'Claude API spend on MOCK admin dashboard data (cost: 0.0158 against ' +
+         'tokens/requests). Vendor spend on our own AI calls, not a contractor ' +
+         'cost basis, and these particular figures are placeholders — the file ' +
+         'already carries a do-not-put-real-data-here note (F-04).',
+    allow: /tokens|requests|cost:\s*0\b/,
+  },
+  'pro/js/pages/pro-analytics.js': {
+    why: 'AI-usage accumulator initialisers ({ requests: 0, tokens: 0, cost: 0 }). ' +
+         'Zero-valued seeds for a per-model token-spend rollup.',
+    allow: /tokens|requests|input|output/,
+  },
+  'pro/js/claude-proxy.js': {
+    why: 'AI-usage accumulator initialiser ({ calls: 0, tokens: 0, cost: 0 }) in ' +
+         'the localStorage month bucket.',
+    allow: /calls|tokens/,
+  },
+  'pro/js/dashboard-bootstrap.module.js': {
+    why: 'The read side of the same AI-usage month bucket ({ calls: 0, tokens: 0, ' +
+         'cost: 0 } fallback). The file\'s REAL cost-basis risk — the v2cost* ' +
+         'estimate-settings fallbacks — is pinned separately at layer 4f.',
+    allow: /calls|tokens/,
+  },
+  'pro/js/storm-integration.js': {
+    why: 'suggestedBudget for a storm-response CANVASSING campaign (door hangers ' +
+         '500 @ 85, postcards, Facebook ads). Our own marketing spend suggestion, ' +
+         'not a job cost basis and not tied to any quoted line item.',
+    allow: /doorHangers|postcards|facebookAds|suggestedBudget/,
+  },
+  'blog/owens-corning-duration-vs-tamko-hailguard.html': {
+    why: 'Prose false positive: "…through a TAMKO Pro Gold certified contractor: ' +
+         '20-year Full Start…". A sentence colon before a numeral, not a ' +
+         '`contractor:` buy-price key. Marketing copy, no figure.',
+    allow: /certified contractor/i,
+  },
+};
 
 // Layer 4. THE COST-BASIS SWEEP — the whole published tree, not a fixed list.
 //
@@ -168,11 +244,18 @@ const COST_BASIS_RE = /(?<![.\w])cost\s*:\s*-?\d[\d.]*\s*,\s*(?<![.\w])labor\s*:
 // cost/labor but invisible to COST_BASIS_RE, which is exactly how a 1,300-line
 // cost book sat unswept next to the guard for a month.
 const COST_BASIS_ABBREV_RE = /(?<![.\w])mat\s*:\s*-?\d[\d.]*\s*,\s*(?<![.\w])lab\s*:\s*-?\d/;
+// THIRD spelling of the same shape (2026-08-18): job-templates-data.js shipped
+// 84 `"materialCost":N,"laborCost":N` pairs inside custom line items.
+// cost/labor → mat/lab → materialCost/laborCost. Each recurrence is the
+// argument for sweeping on SHAPE rather than maintaining a list of spellings —
+// and the fourth spelling (`rate:` + crewSize/hoursPerUnit, in the still-public
+// estimate-labor-catalog.js) is on no list at all. See the audit note.
+const COST_BASIS_NAMED_RE = /(?<![.\w])["']?materialCost["']?\s*:\s*-?\d[\d.]*\s*,\s*["']?laborCost["']?\s*:\s*-?\d/;
 
 function scanCostBasis(rel, src) {
   const out = [];
   stripComments(src).split(/\r?\n/).forEach((line, i) => {
-    const m = line.match(COST_BASIS_RE) || line.match(COST_BASIS_ABBREV_RE);
+    const m = line.match(COST_BASIS_RE) || line.match(COST_BASIS_ABBREV_RE) || line.match(COST_BASIS_NAMED_RE);
     if (m) out.push(rel + ':' + (i + 1) + ': internal cost basis — ' + m[0].slice(0, 60));
   });
   return out;
@@ -272,17 +355,46 @@ ok('scanned a real tree (' + scannable.length + ' published js/json/html files)'
 ok('no published file pairs sell with cost (' + (sigFindings.slice(0, 3).join(' | ') || 'clean') + ')',
    sigFindings.length === 0);
 
+// ── layer 3: strict scan over EVERY published file, exemptions explicit ──
 const strictFindings = [];
-STRICT_FILES.forEach((rel) => {
-  const abs = path.join(HOSTING_ROOT, rel);
-  if (!fs.existsSync(abs)) { strictFindings.push(rel + ': MISSING — strict list is stale'); return; }
-  strictFindings.push(...scanStrict(rel, fs.readFileSync(abs, 'utf8')));
+const exemptHits = new Map();
+let strictScanned = 0;
+scannable.forEach((rel) => {
+  const src = fs.readFileSync(path.join(HOSTING_ROOT, rel), 'utf8');
+  // A file already tracked as a KNOWN, UNCLOSED leak is exempt here — it is
+  // asserted to be STILL leaking at layer 4, so re-reporting it at layer 3
+  // adds noise without adding a single bit of information.
+  if (rel in KNOWN_UNMIGRATED) return;
+  strictScanned++;
+  const exempt = STRICT_EXEMPT[rel];
+  const hits = scanStrict(rel, src, exempt && exempt.allow);
+  if (exempt) {
+    // Non-vacuity: an exemption that no longer matches anything is dead and
+    // must be deleted, or the list rots into a permanent carve-out.
+    exemptHits.set(rel, scanStrict(rel, src).length);
+  }
+  strictFindings.push(...hits);
 });
-ok('catalog files carry no cost/contractor/margin literals (' +
+ok('strict layer scans BY DEFAULT (' + strictScanned + ' published files, not a 4-entry allowlist)',
+   strictScanned > 500);
+ok('no published file carries a cost/contractor/margin/named-cost literal (' +
    (strictFindings.slice(0, 3).join(' | ') || 'clean') + ')',
    strictFindings.length === 0);
-ok('all ' + STRICT_FILES.length + ' strict-scanned files are actually published',
-   STRICT_FILES.every((f) => published.includes(f)));
+ok('every strict exemption names a file that is actually published',
+   Object.keys(STRICT_EXEMPT).every((f) => published.includes(f)));
+Object.keys(STRICT_EXEMPT).forEach((f) => {
+  ok('strict exemption is non-vacuous, keep it: ' + f + ' (' + (exemptHits.get(f) || 0) + ' raw hits)',
+     (exemptHits.get(f) || 0) > 0);
+});
+// The four files the old allowlist named are pricing data by definition. They
+// are in scope now by default rather than by enumeration — assert that, so a
+// future refactor that moves one out of docs/ is noticed rather than silently
+// dropping it from the sweep.
+['pro/js/product-data.js', 'pro/js/roofivent-catalog.js', 'pro/js/catalog-costs.js',
+ 'pro/js/product-library.js', 'pro/js/job-templates-data.js'].forEach((f) => {
+  ok('pricing-data file is published and in strict scope: ' + f,
+     scannable.includes(f) && !(f in STRICT_EXEMPT) && !(f in KNOWN_UNMIGRATED));
+});
 
 // ── layer 4: cost-basis sweep over the whole published tree ──────────────
 const basisByFile = new Map();
@@ -306,7 +418,15 @@ Object.keys(KNOWN_UNMIGRATED).forEach((f) => {
 
 ok('the migrated catalogs are NOT in the known-unmigrated list',
    !('pro/js/product-data.js' in KNOWN_UNMIGRATED) &&
-   !('pro/js/roofivent-catalog.js' in KNOWN_UNMIGRATED));
+   !('pro/js/roofivent-catalog.js' in KNOWN_UNMIGRATED) &&
+   !('pro/js/job-templates-data.js' in KNOWN_UNMIGRATED));
+
+// The migration this suite was extended for. Asserted as a POSITIVE (zero
+// entries in the sweep), not as an absence from a list — an absence is what
+// let this file leak for a month.
+ok('job-templates-data.js reports ZERO cost-basis entries in the tree sweep (' +
+   ((basisByFile.get('pro/js/job-templates-data.js') || []).length) + ')',
+   (basisByFile.get('pro/js/job-templates-data.js') || []).length === 0);
 
 /* ── 3. the extracted cost book must never be committed ────────────────── */
 
@@ -392,6 +512,34 @@ console.log('──────────────────────�
      scanStrict('pro/js/product-data.js', 'pricing: { good: { sell: 240, cost: 82 } }').length > 0);
   ok('MUTANT still killed after the ternary carve-out: a quoted JSON key',
      scanStrict('pro/js/product-data.js', '{"pricing":{"good":{"cost":82}}}').length > 0);
+
+  // The named spelling (2026-08-18). The FIRST of these is the assertion that
+  // matters: it is the exact byte sequence that sat published for a month and
+  // scored zero against every pattern above it.
+  ok('MUTANT killed: the job-template custom-item shape (the real 2026-08-18 leak)',
+     scanStrict('pro/js/job-templates-data.js',
+       '{"custom":{"name":"Synthetic probe item","unit":"EA","qty":1,"materialCost":13,"laborCost":37}}').length > 0);
+  ok('MUTANT killed: laborCost alone, unquoted',
+     scanStrict('pro/js/job-templates-data.js', 'custom: { laborCost: 37 }').length > 0);
+  ok('MUTANT killed: sub-dollar decimal (24 of the 84 leaked items carried one)',
+     scanStrict('pro/js/job-templates-data.js', '"materialCost":0.13').length > 0);
+  ok('control: the engine READING an item\'s cost is not flagged',
+     scanStrict('pro/js/estimate-logic-engine.js',
+       'matCostPerUnit = Number(item.materialCost); labCostPerUnit = Number(item.laborCost);').length === 0);
+  ok('control: the EXPLICIT ZERO the strip emits is a cost of 0, not a cost basis — but it is still an object key, so it IS flagged in a data file',
+     scanStrict('pro/js/job-templates-data.js', '"materialCost":0,"laborCost":0').length > 0);
+
+  // Exemptions must NARROW, never blanket. A real leak on an un-allowed line
+  // of an exempt file has to survive the carve-out.
+  {
+    const cfgAllow = STRICT_EXEMPT['pro/js/estimate-config.js'].allow;
+    ok('control: an exempt file\'s allowed line stays clean (permit fee)',
+       scanStrict('pro/js/estimate-config.js',
+         "'hamilton-oh': Object.freeze({ name: 'Hamilton County, OH', cost: 185 })", cfgAllow).length === 0);
+    ok('MUTANT killed: a REAL cost basis smuggled into an exempt file',
+       scanStrict('pro/js/estimate-config.js',
+         'DEFAULT_TEAROFF: { cost: 111, labor: 222 }', cfgAllow).length > 0);
+  }
 }
 
 // 4d. cost-basis sweep
@@ -402,6 +550,12 @@ console.log('──────────────────────�
      scanCostBasis('pro/js/x.js', 'a: { cost: 115, labor: 65 }').length > 0);
   ok('MUTANT killed: the abbreviated mat/lab spelling (xactimate-catalog class)',
      scanCostBasis('pro/js/x.js', "{ code: 'RFG 240', mat: 165, lab: 72 }").length > 0);
+  ok('MUTANT killed: the named materialCost/laborCost spelling (job-template class)',
+     scanCostBasis('pro/js/x.js', '{"name":"Synthetic sealer line","materialCost":13,"laborCost":37}').length > 0);
+  ok('MUTANT killed: named spelling, unquoted keys with decimals',
+     scanCostBasis('pro/js/x.js', 'custom: { materialCost: 0.13, laborCost: 0.37 }').length > 0);
+  ok('control: a resolved LINE carrying per-unit costs is a read, not a literal',
+     scanCostBasis('pro/js/x.js', 'materialCostPerUnit: matCostPerUnit, laborCostPerUnit: labCostPerUnit').length === 0);
   ok('control: matte/label prose is not swept by the abbreviated pattern',
      scanCostBasis('pro/js/x.js', 'format: 1, label: 2').length === 0);
 

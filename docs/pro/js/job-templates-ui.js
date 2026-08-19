@@ -7,8 +7,19 @@
  *
  * Contract (job-template-spec.md, "Runtime architecture" item 3):
  *   window.JobTemplatesUI = { render, reRender, openPicker,
- *                             openPickerForScope, openPreconfirm, closeModal }
+ *                             openPickerForScope, openPreconfirm, closeModal,
+ *                             clearBandCache }
  *   window.renderJobTemplatesLibrary = render
+ *
+ * "COST NOT SET" IS A REAL STATE (2026-08-18). Job-template custom-item costs
+ * are tenant-owned now (catalogCosts/{companyId}.jtCosts — they used to ship
+ * in the public data file). A tenant with no cost book gets a complete scope
+ * of work with NO price on those lines: no card price band, '—' in the
+ * proposal's rate/total columns, a "Cost not set" chip, and a banner saying
+ * how many items are excluded from the total. Never $0.00, never a fabricated
+ * margin. This file has no cost INPUT and never had one; entering costs
+ * in-product is follow-up work, and until it ships the per-line $ / unit
+ * override is how an unpriced tenant quotes.
  *
  * Repo rules honored here:
  *  - CSP: ZERO inline handlers anywhere (incl. JS-generated markup). ONE
@@ -458,6 +469,21 @@
     return [];
   }
 
+  // A line the tenant has no cost basis for (job-template custom item with no
+  // catalogCosts/{companyId}.jtCosts entry). It resolves at an EXPLICIT 0 —
+  // see job-templates.js:customLineItem for why omitting the key would be
+  // worse — so the numeric fields are all present and all meaningless. This
+  // flag is the only way to tell that apart from a genuine zero-cost line.
+  function isCostUnset(line) { return !!(line && line.costUnset); }
+
+  // Prefer the engine's own tally; fall back to counting lines for a stub or
+  // an older cached result that predates costUnsetCount.
+  function unpricedCount(res) {
+    var t = res && res.totals;
+    if (t && typeof t.costUnsetCount === 'number') return t.costUnsetCount;
+    return readLines(res).filter(isCostUnset).length;
+  }
+
   function lineRetailTotal(line) {
     var r = num(line && line.retailTotal);
     if (r != null) return r;
@@ -502,6 +528,14 @@
   }
 
   // Card price band: single-template resolve at good & best tier, cached.
+  //
+  // Returns '' — NO BAND AT ALL — for a template with any unpriced custom item
+  // (2026-08-18). Cost data is tenant-owned now, so a tenant with no cost book
+  // resolves those lines at an explicit 0. Printing the resulting total would
+  // be a real-looking number computed from a missing cost basis, which is the
+  // single most misleading thing this screen could show a rep about to quote.
+  // Absent is honest; "$0" and "$1,240 (but actually missing three items)" are
+  // not. Post-import for a seeded tenant, the band comes straight back.
   function priceBand(tpl) {
     if (!tpl || !tpl.id) return '';
     if (bandCache[tpl.id] !== undefined) return bandCache[tpl.id];
@@ -513,8 +547,11 @@
       var sel = [{ templateId: tpl.id, itemChoices: (tpl.items || []).map(function (it, i) {
         return { index: i, include: true, qty: (it && it.qty != null) ? it.qty : null, brandCode: (it && it.code) || null, unitPriceOverride: null };
       }) }];
-      var lo = readTotals(JT.resolveSelection(sel, { tier: 'good', jobMode: 'cash', measurements: meas }));
-      var hi = readTotals(JT.resolveSelection(sel, { tier: 'best', jobMode: 'cash', measurements: meas }));
+      var loRes = JT.resolveSelection(sel, { tier: 'good', jobMode: 'cash', measurements: meas });
+      var hiRes = JT.resolveSelection(sel, { tier: 'best', jobMode: 'cash', measurements: meas });
+      if (unpricedCount(loRes) > 0) { bandCache[tpl.id] = ''; return ''; }
+      var lo = readTotals(loRes);
+      var hi = readTotals(hiRes);
       if (lo && hi && lo.total != null && hi.total != null) {
         out = (Math.round(lo.total) === Math.round(hi.total))
           ? moneyShort(lo.total)
@@ -574,6 +611,11 @@
       '.jt-card-desc{font-size:12px;color:var(--m,#9aa3ad);line-height:1.45;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}',
       '.jt-chip{display:inline-block;font-size:10.5px;font-weight:600;padding:2px 8px;border-radius:10px;background:var(--s2,#181c22);color:var(--m,#9aa3ad);border:1px solid var(--br,#2a2f35);white-space:nowrap;}',
       '.jt-chips{display:flex;flex-wrap:wrap;gap:5px;align-items:center;}',
+      // "Cost not set" — a job-template custom item with no entry in this
+      // tenant's cost book (catalogCosts/{companyId}.jtCosts). Amber, not red:
+      // it is a setup step, not an error.
+      '.jt-chip-warn{color:#f0a92e;border-color:#f0a92e55;background:#f0a92e14;}',
+      '.jt-unpriced-note{margin-top:8px;font-size:12px;color:#f0a92e;line-height:1.45;}',
       '.jt-band{font-size:13px;font-weight:800;color:var(--orange,#e8720c);}',
       // Bottom action block: primary "Use" CTA over the band + edit/dupe row.
       // margin-top:auto pins it to the card bottom (grid cards stretch equal).
@@ -1283,11 +1325,15 @@
       }
       groups[g].forEach(function (l) {
         var q = lineQty(l);
-        var per = lineRetailPerUnit(l);
-        var rt = lineRetailTotal(l);
+        // An unpriced line resolves at 0, and money(0) is "$0.00" — a number
+        // the rep would read as "this is free". Render '—' regardless of the
+        // numeric, exactly as a missing value is rendered.
+        var unset = isCostUnset(l);
+        var per = unset ? null : lineRetailPerUnit(l);
+        var rt = unset ? null : lineRetailTotal(l);
         var nm = l.name || l.desc || l.description || l.code || 'Item';
         rowsHtml += '<tr>' +
-          '<td>' + esc(nm) + '</td>' +
+          '<td>' + esc(nm) + (unset ? ' <span class="jt-chip jt-chip-warn">Cost not set</span>' : '') + '</td>' +
           '<td class="num">' + esc(q % 1 ? q.toFixed(1) : q) + '</td>' +
           '<td>' + esc(l.unit || '') + '</td>' +
           '<td class="num">' + (per != null ? esc(money(per)) : '—') + '</td>' +
@@ -1312,6 +1358,19 @@
       if (totals.minApplied) totsHtml += '<div class="r" style="font-size:11px;color:#94a3b8;"><span>Minimum job charge applied</span><span></span></div>';
     } else {
       totsHtml = '<div class="r g"><span>Total</span><span>—</span></div>';
+    }
+
+    // The total above EXCLUDES every unpriced line (they resolve at 0). Say so
+    // where the number is, not somewhere else on the page — a rep who reads
+    // this total as complete will quote low. Cost data is tenant-owned
+    // (2026-08-18); until this company's book is filled in, the per-line
+    // $/unit field is how these get priced.
+    var nUnset = lines.filter(isCostUnset).length;
+    if (nUnset > 0) {
+      totsHtml += '<div class="jt-unpriced-note">⚠ ' + nUnset + ' of ' + lines.length +
+        ' item' + (nUnset === 1 ? '' : 's') + ' ha' + (nUnset === 1 ? 's' : 've') +
+        ' no cost set and ' + (nUnset === 1 ? 'is' : 'are') +
+        ' excluded from this total — type a $ / unit on each, or fill in your company\'s cost book.</div>';
     }
 
     var d = new Date();
@@ -1482,8 +1541,26 @@
         ? '<input type="text" class="jt-in code" data-jt-edi="customName" data-idx="' + i + '" value="' + esc(it.custom.name || '') + '" placeholder="Custom item name">'
         : '<input type="text" class="jt-in code" list="jtCodeList" data-jt-edi="code" data-idx="' + i + '" value="' + esc(it.code || '') + '" placeholder="Catalog code">';
       var q = (isCustomItem ? it.custom.qty : it.qty);
+      // Read-only surfacing, deliberately: there is no cost INPUT in this
+      // editor and there never has been — job-templates-ui.js carried zero
+      // cost references before 2026-08-18, so nothing was removed here. The
+      // badge tells a rep why a template has no price band. Entering costs
+      // in-product is follow-up work (PR-C); today it is the $/unit override
+      // on the insert modal, or an owner importing the company's book.
+      var unsetBadge = '';
+      if (isCustomItem) {
+        var cc = window.NBDCatalogCosts;
+        var JTe = engine();
+        var priced = !!(cc && typeof cc.jobItem === 'function' && JTe && typeof JTe.jtCostKey === 'function'
+          && cc.jobItem(JTe.jtCostKey(t.id, i)));
+        // A pre-strip fork still carries its own embedded costs; that counts
+        // as priced (customLineItem's legacy branch reads them).
+        if (!priced && (it.custom.materialCost != null || it.custom.laborCost != null)) priced = true;
+        if (!priced) unsetBadge = ' <span class="jt-chip jt-chip-warn">Cost not set</span>';
+      }
       return '<div class="jt-ed-item">' +
         '<span class="jt-chip" style="min-width:52px;text-align:center;">' + (isCustomItem ? 'CUSTOM' : 'CODE') + '</span>' +
+        unsetBadge +
         codeField +
         '<div><span class="jt-mini-lbl">Qty</span>' +
           '<input type="number" step="any" min="0" class="jt-in jt-in-qty" placeholder="auto" data-jt-edi="qty" data-idx="' + i + '" value="' + esc(q == null ? '' : q) + '"></div>' +
@@ -2017,7 +2094,13 @@
     openPicker: openPicker,
     openPickerForScope: openPickerForScope,
     openPreconfirm: openPreconfirm,
-    closeModal: closeModal
+    closeModal: closeModal,
+    // Exported for catalog-costs.js → JobTemplates.applyJtCostSeed(): when a
+    // cold device's cost book lands AFTER the library has painted, every
+    // cached price band was computed against an empty book and is wrong (an
+    // empty band where there should be a range). Dropping the cache is what
+    // makes the cards repaint at the tenant's real numbers.
+    clearBandCache: clearBandCache
   };
 
   window.renderJobTemplatesLibrary = render;

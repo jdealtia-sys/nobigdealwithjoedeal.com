@@ -443,6 +443,19 @@ jobs:
         run: node tests/catalog-cost-privacy.test.js
       - name: Run catalog cost seed + hydration tests
         run: node tests/catalog-cost-seed.test.js
+      # The same split for the JOB TEMPLATE library (2026-08-18): the lossless
+      # strip of 84 custom-item cost pairs out of the published data file, the
+      # "at least one cost > 0" invariant that moved out of job-templates.test
+      # when it stopped being allowed to live in a public file, the
+      # catalog-costs → job-templates hydration bridge, and the frozen
+      # 'jt-<slug>-<index>' key set (a silent re-key orphans a tenant's book).
+      - name: Run job-template cost seed + hydration tests
+        run: node tests/job-template-cost-seed.test.js
+      # Cheap second spelling of the leak gate, independent of the privacy
+      # suite's regexes — that suite is exactly what failed to look at this
+      # file for a month.
+      - name: Assert job-templates-data.js carries no contractor costs
+        run: node scripts/strip-job-template-costs.js --check
       # Catalog integrity + the product-library DATA_VERSION migration. Was
       # local-only; gated here because the cost split touches both.
       - name: Run product catalog + library migration tests
