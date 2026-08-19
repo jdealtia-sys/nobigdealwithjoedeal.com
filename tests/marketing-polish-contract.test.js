@@ -271,6 +271,24 @@ const certBarTargets = marketing.filter((f) => /^services\/[a-z0-9-]+-(oh|ky)\.h
     `${bad.length} incomplete: ` + bad.slice(0, 5).join(', '));
 }
 {
+  // 5. The quiet /pro door had FOUR wordings before 2026-08-19 — "Are you a
+  //    contractor?" (178), "...or entrepreneur?" (17), an &rarr; entity variant,
+  //    and "Contractor or entrepreneur?" — plus 3 grid footers with no door at
+  //    all. Three of the four footer partials already used the majority wording;
+  //    footer-extended was the outlier, which is how 14 pages inherited a fork.
+  //    Assert the wording rather than the presence: a page is free not to carry
+  //    the door (404, offline, the tenant template must not), but if it does, it
+  //    says one thing.
+  const CANON = 'Are you a contractor? → NBD Pro';
+  const bad = marketing.filter((f) => {
+    const s = read(f);
+    const doors = [...s.matchAll(/<a href="\/pro\/"[^>]*>([^<]*)<\/a>/g)].map((m) => m[1].trim());
+    return doors.some((d) => /contractor|entrepreneur/i.test(d) && d !== CANON);
+  }).map(rel);
+  ok('pro door uses one wording site-wide', bad.length === 0,
+    `${bad.length} forked: ` + bad.slice(0, 5).join(', '));
+}
+{
   // 4. CERT CLAIM GUARD — Joe is GAF Certified (System Plus) and TAMKO only.
   //    "Master Elite" is a higher GAF tier he does NOT hold; he holds no Owens
   //    Corning certification at all. Both names legitimately appear as honest
