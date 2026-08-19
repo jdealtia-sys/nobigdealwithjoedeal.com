@@ -63,7 +63,7 @@
   // Add-on COST ratio (Internal-view margin calc, 2026-08-19).
   //
   // What this replaces: a single blanket `addOnsTotal * 0.4`, i.e. "every
-  // add-on carries a 60% margin". Two of the fourteen are third-party
+  // add-on carries a 60% margin". Two of the fifteen are third-party
   // PASS-THROUGHS and carry none — the permit is remitted to the jurisdiction
   // in full, and the dump fee is the hauler's invoice. LINE-ITEM mode has
   // always costed both at face value: generateLineItemsFromMeasurements sets
@@ -95,13 +95,14 @@
     // but a literal 0 IS honored. Number('') and Number(null) are both 0, so
     // testing finiteness alone would read an empty field as "this add-on costs
     // nothing" — understating cost, which is the very defect being fixed here.
-    if (raw === '' || raw == null) return _addonCostRatioDefault(key);
+    if (raw === '' || raw == null) return _addonCostRatioDefault(key, s);
     const n = Number(raw);
-    if (!Number.isFinite(n) || n < 0) return _addonCostRatioDefault(key);
+    if (!Number.isFinite(n) || n < 0) return _addonCostRatioDefault(key, s);
     return n;
   }
 
-  function _addonCostRatioDefault(key) {
+  function _addonCostRatioDefault(key, s) {
+    if (key === 'matDelivery') return _matDeliveryCostRatio(s);
     return ADDON_COST_PASS_THROUGH.indexOf(key) >= 0 ? 1 : DEFAULT_ADDON_COST_RATIO;
   }
 
@@ -152,7 +153,7 @@
   // Per-SQ mode add-on unit prices.
   // chimneyFlash + skylightFlash are unified with classic via
   // estimate-config.js (Rock 2 PR 4b — chimney $425, skylight $350,
-  // Joe-confirmed). The other three remain engine-local pending
+  // Joe-confirmed). The other two (valleyMetalLf, guttersLf) remain engine-local pending
   // a separate decision; Joe flagged them as "low margin" so the
   // value drift isn't material yet.
   const ADDON_PRICES = {
@@ -172,7 +173,12 @@
     threeStoryPerSq:       (_NBD_CFG && _NBD_CFG.ADDON_THREE_STORY_PER_SQ)      || 30,
     cutUpPerSq:            (_NBD_CFG && _NBD_CFG.ADDON_CUTUP_PER_SQ)            || 15,
     accessModeratePerSq:   (_NBD_CFG && _NBD_CFG.ADDON_ACCESS_MODERATE_PER_SQ)  || 15,
-    accessDifficultPerSq:  (_NBD_CFG && _NBD_CFG.ADDON_ACCESS_DIFFICULT_PER_SQ) || 35
+    accessDifficultPerSq:  (_NBD_CFG && _NBD_CFG.ADDON_ACCESS_DIFFICULT_PER_SQ) || 35,
+    // Material delivery + fuel surcharge — FLAT per JOB, never per SQ. A
+    // delivery trip does not scale with roof size, and amortising a flat fee
+    // into costBasis[tier] (a per-SQ number) is exact at exactly one job size
+    // — see documentation/audit/CATALOG-UNDER-COST-2026-08-19.md finding 1.
+    matDelivery:    (_NBD_CFG && _NBD_CFG.ADDON_MAT_DELIVERY)    || 412.50
   };
 
   // ═════════════════════════════════════════════════════════
@@ -395,6 +401,33 @@
   const DEFAULT_OVERHEAD_PCT = 0.10;  // 10% overhead
   const DEFAULT_PROFIT_PCT   = 0.10;  // 10% profit
   const DEFAULT_MATERIAL_MARKUP_PCT = 0.25; // 25% baked into materials
+
+  // Material-delivery COST. Neither shipped bucket fits, and a fixed FRACTION
+  // of the charge does not fit either: the charge is shop-editable
+  // (applyCompanyPricing merges companyProfile.pricing.addonPrices) and the
+  // add-on reducer scales the ratio by the CHARGED cents, so a shop that
+  // lowered the price would silently book less cost than the supplier bills.
+  // A delivery invoice does not shrink because the shop discounted the job.
+  // So cost is PINNED to the baseline the charge was built from and the ratio
+  // is derived per call: in integer cents it lands dead on the baseline at any
+  // charge, and a charge of 0 books 0 because the reducer skips zero-charge
+  // keys. Nothing about NBD is published — the baseline is the already-public
+  // 'MAT DEL' figure divided back out by two already-published rates.
+  // Tenant escape hatch, unchanged: settings.addonCostRatios.matDelivery.
+  //
+  // Declared HERE, not beside ADDON_COST_PASS_THROUGH where it reads more
+  // naturally: the three rates above are declared ~290 lines below that block,
+  // so a top-level const there would throw a TDZ ReferenceError at load.
+  const MAT_DELIVERY_MARKUP_CHAIN =
+    (1 + DEFAULT_MATERIAL_MARKUP_PCT) * (1 + DEFAULT_OVERHEAD_PCT + DEFAULT_PROFIT_PCT);
+  const MAT_DELIVERY_BASELINE = ADDON_PRICES.matDelivery / MAT_DELIVERY_MARKUP_CHAIN;
+
+  /** Default cost/charge ratio for material delivery: baseline / what we charge. */
+  function _matDeliveryCostRatio(s) {
+    const charged = Number(s && s.addonPrices ? s.addonPrices.matDelivery : NaN);
+    if (!Number.isFinite(charged) || charged <= 0) return 1 / MAT_DELIVERY_MARKUP_CHAIN;
+    return MAT_DELIVERY_BASELINE / charged;
+  }
 
   // ═════════════════════════════════════════════════════════
   // SECTION 4 — Pure Helpers
@@ -832,7 +865,7 @@
     // Add-ons — each is a customer-visible line, so each rounds to a cent
     // at its own boundary (matches what renders on the estimate).
     const addOnsCents = {
-      permit: 0, dumpFee: 0, tearOffExtra: 0, extraPipeBoots: 0,
+      permit: 0, dumpFee: 0, matDelivery: 0, tearOffExtra: 0, extraPipeBoots: 0,
       valleyMetal: 0, chimneyFlash: 0, skylightFlash: 0, gutters: 0,
       // Phase 1 per-SQ complexity adders (estimate-qa-2026-06-08)
       steep: 0, verySteep: 0, extremeSteep: 0, story: 0, cutUpLabor: 0, access: 0
@@ -842,6 +875,15 @@
     const permitInfo = s.permits[permitKey];
     addOnsCents.permit = _toCents(permitInfo ? Number(permitInfo.cost) : DEFAULT_PERMIT_COST); // C-1: never $0 for an unknown/blank jurisdiction
     addOnsCents.dumpFee = _toCents(input.dumpFeeOverride != null ? input.dumpFeeOverride : s.dumpFee);
+
+    // Flat per JOB, like the permit and the dump fee — never x sq. Per-SQ is
+    // the reroof model and every reroof draws material, so this is
+    // unconditional; a rep can zero it per estimate (customer hauls their own,
+    // supplier waives the trip). `!= null` admits a literal 0 and rejects
+    // undefined — same rule as dumpFeeOverride above.
+    addOnsCents.matDelivery = _toCents(
+      input.matDeliveryOverride != null ? input.matDeliveryOverride : s.addonPrices.matDelivery
+    );
 
     const layers = Math.max(1, Number(input.tearOffLayers) || 1);
     if (layers > 1) {

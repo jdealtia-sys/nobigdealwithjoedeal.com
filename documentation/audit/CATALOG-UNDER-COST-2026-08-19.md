@@ -176,7 +176,7 @@ it affects NBD and not a fresh tenant. It is a margin-DISPLAY error rather than
 a charging error — the homeowner is billed correctly; the shop is told it made
 more than it did.
 
-### Finding 2 is FIXED (same day, Jo's call) — finding 1 is not
+### Both findings are now FIXED (same day, Jo's call)
 
 `docs/pro/js/estimate-builder-v2.js`. The blanket ratio is replaced by a
 per-add-on one: the two pass-throughs cost **face value**, the other twelve keep
@@ -207,8 +207,51 @@ L-1 rule that exists for add-on prices. Guarded by
 restore the blanket 0.4, empty the pass-through list, drop the blank guard —
 fail 8, 9 and 1 assertion respectively).
 
-**Finding 1 is still open.** Delivery in per-SQ needs a new flat add-on with its
-price, form field and save path, so it is a UI change rather than a constant.
+### Finding 1 is fixed too — `matDelivery`
+
+Shipped as a flat per-job add-on, **not** folded into `costBasis[tier]`, for the
+reason stated above: amortising a flat charge over a per-SQ basis is right at
+exactly one job size.
+
+**Charged $412.50** — `ADDON_MAT_DELIVERY` in `estimate-config.js`, mirrored as
+`ADDON_PRICES.matDelivery`. That figure is the line-item `MAT DEL` line carried
+through the same chain `calculateLineItem` applies (material markup 25%, then
+overhead 10% + profit 10%), measured through the real engine at 11.5 / 23 / 46 SQ
+with no size dependence. Per-SQ applies no markup of its own — its add-on prices
+ARE the charged figure — so the price has to be the already-marked-up number, not
+the catalog cost. The two modes now quote the same delivery money at the subtotal.
+
+Always on and unconditional: per-SQ is the reroof model and every reroof draws
+material. `input.matDeliveryOverride` zeroes it per estimate for the waived-trip
+and customer-hauls-their-own cases, using the same `!= null` rule as
+`dumpFeeOverride` so a literal 0 is honoured and `undefined` is not.
+
+**Costed at the published baseline itself, PINNED** — neither a pass-through
+(1.0) nor the 0.4 work-adder default. Delivery is charged at a marked-up figure,
+so it is not "charged at cost"; but a fixed FRACTION would have been worse. The
+add-on reducer scales the ratio by the CHARGED cents and the charge is
+shop-editable, so a fraction would let a shop that discounted the job silently
+book less cost than the supplier invoices — the same overstate-margin defect
+finding 2 removed, re-created on a new key. The ratio is therefore derived per
+call as `baseline / charge`, which books the baseline at any price (verified at
+412.50 / 300 / 500 / 275 / 1000; a charge of 0 books 0).
+
+Settings field `v2addonMatDelivery` on both dashboards, in the Flat Add-ons row.
+Guarded by 13 assertions in `tests/estimate-pricing.test.js`; five mutations —
+make it a pass-through, use a fixed ratio, scale it by SQ, fall to the 0.4
+default, drop the override — fail 2 / 1 / 3 / 6 / 2 assertions respectively.
+
+**One consequence worth knowing:** the `$25` grid and the `$2,500` minimum-job
+clamp both run AFTER add-ons, so on a sub-floor job the customer total does not
+move even though the trip is real. The subtotal moves; the total cannot. That is
+asserted rather than left to be discovered.
+
+**Assumption, stated plainly:** that the per-SQ tier rates do not already include
+delivery. Nothing in the repo records this either way, and the opposite reading —
+that a retail per-square rate is all-in — is the natural one. If the tier rates
+DO absorb delivery, this add-on double-bills and the right move is to revert the
+charge and keep only the cost-side work. Worth confirming against one recent job
+before a quote goes out.
 
 Fixing these is **not** a rotation and must not be recorded as one in
 `tests/cost-basis-ledger.js` — correcting a drifted baseline toward current

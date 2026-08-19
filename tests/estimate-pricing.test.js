@@ -112,8 +112,9 @@ test('39 SQ Better tier ≈ $23,900 (rawSqft pre-baked, waste=1)', () => {
   });
   // 39 × $595 = $23,205. Insurance hides tax.
   // Base + dumpFee default ($550) = $23,755. C-1 fail-safe: no county set →
-  // DEFAULT_PERMIT_COST $150 (was a silent $0). $23,905 → rounds to $23,900.
-  near(r.total, 23900, 30, 'insurance Better total');
+  // DEFAULT_PERMIT_COST $150 (was a silent $0) = $23,905.
+  // + material delivery $412.50 (flat per job) = $24,317.50 → rounds to $24,325.
+  near(r.total, 24325, 30, 'insurance Better total');
 });
 test('C-1: blank/unknown jurisdiction → default permit $150, not $0 (per-SQ)', () => {
   const base = { method: 'per-sq', tier: 'better', mode: 'insurance', rawSqft: 3900, pitch: '6/12', wasteFactorOverride: 1.0 };
@@ -250,10 +251,11 @@ test('ADDON_PRICES: chimney flash = $425 (Joe pick over V2 default $285)', () =>
 test('ADDON_PRICES: skylight flash = $350 (Joe pick over classic $275)', () => {
   eq(EBv2.ADDON_PRICES.skylightFlash, 350);
 });
-test('ADDON_PRICES: chimney+skylight match estimate-config source of truth', () => {
+test('ADDON_PRICES: chimney+skylight+delivery match estimate-config source of truth', () => {
   const cfg = require(require('path').join('..', 'docs', 'pro', 'js', 'estimate-config.js'));
   eq(EBv2.ADDON_PRICES.chimneyFlash,  cfg.ADDON_CHIMNEY_FLASH,  'chimney');
   eq(EBv2.ADDON_PRICES.skylightFlash, cfg.ADDON_SKYLIGHT_FLASH, 'skylight');
+  eq(EBv2.ADDON_PRICES.matDelivery,   cfg.ADDON_MAT_DELIVERY,   'material delivery');
 });
 test('calculateEstimate: chimney add-on adds $425 to subtotal', () => {
   const common = { method:'per-sq', tier:'better', mode:'insurance',
@@ -397,29 +399,47 @@ function persqJob(settings) {
   });
 }
 const PERMIT = 150, DUMP = 550, STEEP = 20 * 25;   // 150 + 550 + 500 = 1200
+// Material delivery: flat per job, always on. Charged at the line-item retail
+// figure (275 × 1.25 markup × 1.20 OH&P); its cost is PINNED to that baseline
+// regardless of what the shop charges, so it lands on 275 in integer cents.
+// MATDEL_COST is the literal 275 on purpose — 412.50/1.5 in floating point is
+// 274.99999999999994, while the engine rounds in cents and returns exactly 275,
+// and eq() is a strict !==.
+const MATDEL = 412.50;
+const MATDEL_COST = 275;
 
-test('add-on cost: the fixture fires permit + dump + steep and nothing else', () => {
+test('add-on cost: the fixture fires permit + dump + delivery + steep and nothing else', () => {
   const r = persqJob(costedSettings());
-  eq(r.addOns.permit,   PERMIT, 'permit (blank jurisdiction fallback)');
-  eq(r.addOns.dumpFee,  DUMP,   'dump fee');
-  eq(r.addOns.steep,    STEEP,  'steep adder');
+  eq(r.addOns.permit,      PERMIT, 'permit (blank jurisdiction fallback)');
+  eq(r.addOns.dumpFee,     DUMP,   'dump fee');
+  eq(r.addOns.matDelivery, MATDEL, 'material delivery');
+  eq(r.addOns.steep,       STEEP,  'steep adder');
+  const EXPECTED = { permit: PERMIT, dumpFee: DUMP, matDelivery: MATDEL, steep: STEEP };
   Object.keys(r.addOns).forEach((k) => {
-    if (k === 'permit' || k === 'dumpFee' || k === 'steep') return;
-    eq(r.addOns[k], 0, 'add-on ' + k + ' must be 0 in this fixture');
+    eq(r.addOns[k], EXPECTED[k] || 0, 'add-on ' + k);
   });
-  eq(r.addOnsTotal, PERMIT + DUMP + STEEP, 'add-ons total');
+  // The inverse direction too: a key silently dropped from the engine would
+  // otherwise sail through the loop above.
+  Object.keys(EXPECTED).forEach((k) => {
+    eq(k in r.addOns, true, 'expected add-on ' + k + ' is missing from the engine output');
+  });
+  eq(r.addOnsTotal, PERMIT + DUMP + MATDEL + STEEP, 'add-ons total');   // 1612.50
 });
 
-test('add-on cost: pass-throughs cost face value, work adders keep 0.4', () => {
+test('add-on cost: pass-throughs at face, delivery at its baseline, work adders keep 0.4', () => {
   const r = persqJob(costedSettings());
-  eq(r.internal.addOnCost, PERMIT + DUMP + (STEEP * 0.4), 'permit+dump at 1.0, steep at 0.4');
+  eq(r.internal.addOnCost, PERMIT + DUMP + MATDEL_COST + (STEEP * 0.4),
+     'permit+dump at 1.0, delivery pinned to its baseline, steep at 0.4');
 });
 
 test('add-on cost: a pass-through-only job costs exactly what it charges', () => {
-  // Flat pitch → no work adders at all, so cost must equal charge.
+  // Flat pitch → no work adders at all, and delivery waived on this job (the
+  // customer hauls their own material), so cost must equal charge. The literal
+  // 0 also proves the override honours 0 rather than dropping it as blank.
   const r = EBv2.calculatePerSq({
     tier: 'better', mode: 'insurance', rawSqft: 2000, pitch: '4/12',
-    wasteFactorOverride: 1.0, county: '', settingsOverride: costedSettings()
+    wasteFactorOverride: 1.0, county: '', matDeliveryOverride: 0,
+    settingsOverride: costedSettings()
   });
   eq(r.addOnsTotal, PERMIT + DUMP, 'permit + dump only');
   eq(r.internal.addOnCost, r.addOnsTotal, 'no margin is assumed on either');
@@ -432,37 +452,38 @@ test('add-on cost: the old blanket 40% cannot silently come back', () => {
   eq(r.internal.addOnCost > blanket, true, 'the correction can only RAISE assumed cost');
 });
 
-test('add-on cost: margin falls by exactly the under-counted pass-throughs', () => {
+test('add-on cost: margin falls by exactly the under-counted third-party charges', () => {
   const r = persqJob(costedSettings());
-  // Old model assumed 40% of everything; the gap is the 60% it skipped on the
-  // two pass-throughs. Margin is overstated by precisely that much.
+  // Old model assumed 40% of everything. The gap, per line: 60% on each
+  // pass-through, and (baseline − 40% of the marked-up charge) on delivery.
+  // 700 × 0.6 = 420; 275 − 165 = 110; 530 in total.
   near(r.margin != null ? 0 : 0, 0, 0, 'margin is on internal, not the root');
   eq(r.internal.totalCost, (20 * COST_PER_SQ) + r.internal.addOnCost, 'total cost composition');
   eq(r.internal.margin, r.total - r.internal.totalCost, 'margin = total - cost');
-  const overstatedBy = (PERMIT + DUMP) * 0.6;
+  const overstatedBy = (PERMIT + DUMP) * 0.6 + (MATDEL_COST - (MATDEL * 0.4));
   eq(r.internal.margin + overstatedBy, r.total - ((20 * COST_PER_SQ) + (r.addOnsTotal * 0.4)), 'exactly the old figure, no more');
 });
 
 test('add-on cost: a tenant ratio override wins', () => {
-  const r = persqJob(costedSettings({ addonCostRatios: { dumpFee: 0.5, steep: 1 } }));
-  eq(r.internal.addOnCost, PERMIT + (DUMP * 0.5) + STEEP, 'overrides applied per key');
+  const r = persqJob(costedSettings({ addonCostRatios: { dumpFee: 0.5, steep: 1, matDelivery: 0.6 } }));
+  eq(r.internal.addOnCost, PERMIT + (DUMP * 0.5) + (MATDEL * 0.6) + STEEP, 'overrides applied per key');
 });
 
 test('add-on cost: an explicit 0 ratio IS honored (a donated add-on)', () => {
   const r = persqJob(costedSettings({ addonCostRatios: { dumpFee: 0 } }));
-  eq(r.internal.addOnCost, PERMIT + (STEEP * 0.4), 'dump fee costed at nothing');
+  eq(r.internal.addOnCost, PERMIT + MATDEL_COST + (STEEP * 0.4), 'dump fee costed at nothing');
 });
 
 test('add-on cost: junk/negative ratios are IGNORED, never reach the money', () => {
   // null/'' are the L-1 class: Number('') and Number(null) are both 0, so a
   // blank editor field must NOT read as "this add-on costs nothing" — that
   // understates cost, the exact defect this section exists to prevent.
-  const junk = { permit: 'abc', dumpFee: -1, steep: null };
+  const junk = { permit: 'abc', dumpFee: -1, steep: null, matDelivery: 'abc' };
   const r = persqJob(costedSettings({ addonCostRatios: junk }));
-  eq(r.internal.addOnCost, PERMIT + DUMP + (STEEP * 0.4), 'falls back to the defaults');
+  eq(r.internal.addOnCost, PERMIT + DUMP + MATDEL_COST + (STEEP * 0.4), 'falls back to the defaults');
   eq(Number.isFinite(r.internal.addOnCost), true, 'no NaN reaches the internal view');
   const blank = persqJob(costedSettings({ addonCostRatios: { permit: '', dumpFee: undefined } }));
-  eq(blank.internal.addOnCost, PERMIT + DUMP + (STEEP * 0.4), "blank '' / undefined are dropped, not read as 0");
+  eq(blank.internal.addOnCost, PERMIT + DUMP + MATDEL_COST + (STEEP * 0.4), "blank '' / undefined are dropped, not read as 0");
 });
 
 test('add-on cost: a settingsOverride with no addonCostRatios at all is safe', () => {
@@ -470,7 +491,7 @@ test('add-on cost: a settingsOverride with no addonCostRatios at all is safe', (
   s.costBasis = Object.assign({}, s.costBasis, { better: COST_PER_SQ });
   delete s.addonCostRatios;
   const r = persqJob(s);
-  eq(r.internal.addOnCost, PERMIT + DUMP + (STEEP * 0.4), 'defaults still apply');
+  eq(r.internal.addOnCost, PERMIT + DUMP + MATDEL_COST + (STEEP * 0.4), 'defaults still apply');
 });
 
 test('add-on cost: an unconfigured cost basis still shows no margin at all', () => {
@@ -492,6 +513,84 @@ test('add-on cost: loadSettings merges a saved addonCostRatios map', () => {
 test('add-on cost: the pass-through list is the permit and the dump fee', () => {
   eq(EBv2.ADDON_COST_PASS_THROUGH.slice().sort().join(','), 'dumpFee,permit');
   eq(EBv2.DEFAULT_ADDON_COST_RATIO, 0.4, 'work adders keep the pre-existing assumption');
+});
+
+test('add-on cost: material delivery is NOT a pass-through, and its cost is PINNED', () => {
+  // A pass-through means "charged AT cost". Delivery is charged at the
+  // marked-up figure, so it is not one. And because the reducer scales the
+  // ratio by the CHARGED cents, a fixed fraction would let a shop that
+  // discounted the job silently book less cost than the supplier invoices —
+  // the exact overstate-margin defect this whole section exists to prevent.
+  eq(EBv2.ADDON_COST_PASS_THROUGH.indexOf('matDelivery'), -1,
+     'delivery is not charged AT cost, so it is not a pass-through');
+  const priced = (p) => persqJob(costedSettings({
+    addonPrices: Object.assign({}, EBv2.getDefaultSettings().addonPrices, { matDelivery: p })
+  }));
+  [300, 500, 1000, MATDEL].forEach((p) => {
+    const r = priced(p);
+    eq(r.addOns.matDelivery, p, 'the edited charge at ' + p + ' is what is billed');
+    eq(r.internal.addOnCost, PERMIT + DUMP + MATDEL_COST + (STEEP * 0.4),
+       'charge ' + p + ' still books the baseline — the invoice is the invoice');
+  });
+});
+
+test('delivery: a flat per-job charge does NOT scale with roof size', () => {
+  const c = { tier:'better', mode:'insurance', pitch:'4/12', wasteFactorOverride:1.0, county:'' };
+  const small = EBv2.calculatePerSq(Object.assign({}, c, { rawSqft: 1000 }));   // 10 SQ
+  const big   = EBv2.calculatePerSq(Object.assign({}, c, { rawSqft: 6000 }));   // 60 SQ
+  eq(small.addOns.matDelivery, big.addOns.matDelivery,
+     'per JOB — a 60 SQ roof takes the same trip as a 10 SQ roof');
+  eq(small.addOns.matDelivery, MATDEL, 'and it is the flat figure');
+});
+
+test('delivery: the flat charge is NOT amortised into the per-SQ cost basis', () => {
+  // Finding 1 of the audit note: folding a flat per-job fee into costBasis[tier]
+  // (a per-SQ number) is exact at exactly one job size. It must stay an add-on.
+  const r = persqJob(costedSettings());
+  eq(r.internal.materialLaborCost, 20 * COST_PER_SQ,
+     'materialLaborCost is sq × costBasis and nothing else');
+  eq(r.internal.totalCost, r.internal.materialLaborCost + r.internal.addOnCost,
+     'cost composition');
+});
+
+test('delivery: a shop-wide companyProfile override reaches the charge', () => {
+  global.window = { _companyProfile: { pricing: { addonPrices: { matDelivery: 500 } } } };
+  try {
+    const r = EBv2.calculatePerSq({ tier:'better', mode:'insurance', rawSqft:2000,
+                                    pitch:'4/12', wasteFactorOverride:1.0, county:'' });
+    eq(r.addOns.matDelivery, 500, 'companyProfile override honored');
+  } finally { delete global.window; }
+});
+
+test('delivery: a blank/garbage companyProfile price is IGNORED, not a silent $0', () => {
+  global.window = { _companyProfile: { pricing: { addonPrices: { matDelivery: '' } } } };
+  try {
+    const r = EBv2.calculatePerSq({ tier:'better', mode:'insurance', rawSqft:2000,
+                                    pitch:'4/12', wasteFactorOverride:1.0, county:'' });
+    eq(r.addOns.matDelivery, MATDEL, "blank '' dropped → config figure stands (L-1)");
+  } finally { delete global.window; }
+});
+
+test('delivery: on a sub-minimum job the floor absorbs it — the shop still pays', () => {
+  // The $25 grid and the $2,500 min-job clamp both run AFTER add-ons, so on a
+  // tiny job the customer total does not move even though the trip is real.
+  const c = { tier:'good', mode:'insurance', pitch:'4/12', rawSqft: 200 };
+  const on  = EBv2.calculatePerSq(c);
+  const off = EBv2.calculatePerSq(Object.assign({}, c, { matDeliveryOverride: 0 }));
+  eq(on.minJobApplied, true, 'fixture is under the floor');
+  eq(on.total, off.total, 'clamped total is identical — delivery is absorbed');
+  eq(on.addOns.matDelivery, MATDEL, 'but it IS charged into the subtotal');
+  eq(on.subtotal > off.subtotal, true, 'the subtotal moves even when the total cannot');
+});
+
+test('delivery: the per-SQ charge equals what line-item already bills', () => {
+  // Mode parity is the whole reason for the figure: MAT DEL is mat 275 in the
+  // xactimate catalog, carried through material markup 25% then OH 10% +
+  // profit 10%. Per-SQ applies no markup, so its price must BE that product.
+  const chain = (1 + EBv2.DEFAULT_MATERIAL_MARKUP_PCT)
+              * (1 + EBv2.DEFAULT_OVERHEAD_PCT + EBv2.DEFAULT_PROFIT_PCT);
+  eq(Math.round(MATDEL_COST * chain * 100) / 100, MATDEL,
+     '275 × 1.25 × 1.20 = the per-SQ delivery price');
 });
 
 console.log('──────────────────────────────────────────────────');
