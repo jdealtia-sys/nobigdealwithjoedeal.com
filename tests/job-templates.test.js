@@ -797,12 +797,41 @@ if (uiExists) {
     /unpricedCount\s*\(/.test(uiCode));
   ok('UI exports clearBandCache (catalog-costs → applyJtCostSeed repaints cold-device cards)',
     /clearBandCache:\s*clearBandCache/.test(uiCode));
-  // The UI has never had a cost INPUT and this PR did not add one — costs are
-  // company-scoped and writing them needs owner/company_admin. Recorded as an
-  // assertion so "we'll add the editor later" cannot become "someone quietly
-  // added an ungated one".
-  ok('UI still emits no materialCost/laborCost write field (no ungated cost editor)',
-    !/data-jt-edi="(?:materialCost|laborCost)"/.test(uiCode));
+  // ── the cost editor, and its gate (PR-C, 2026-08-19) ────────────────
+  // This assertion used to read "the UI emits NO cost write field", holding the
+  // line until an editor could be built properly. The editor now exists, so the
+  // assertion inverts: it must exist AND it must be gated. An ungated cost
+  // input is worse than none — costs are company-wide, so a sales_rep would be
+  // handed a field whose Save cannot stick (firestore.rules allows the write to
+  // owner/company_admin only) and would have to discover that by not being
+  // believed at quote time.
+  ok('UI emits the cost write fields (the in-product editor exists)',
+    /data-jt-edi="materialCost"/.test(uiCode) && /data-jt-edi="laborCost"/.test(uiCode));
+  ok('UI defines a role gate for cost editing', /function canEditCosts\s*\(/.test(uiCode));
+  // Both inputs must sit inside the nearest preceding canEditCosts() branch.
+  // Measured by OFFSET rather than a character-window regex: a window is a
+  // magic number that silently stops proving anything the moment the markup
+  // grows past it, and the property here ("nothing else opens between the gate
+  // and the field") is exactly what an offset comparison states.
+  (function () {
+    const gates = [...uiCode.matchAll(/canEditCosts\s*\(\s*\)/g)].map((m) => m.index);
+    ['materialCost', 'laborCost'].forEach((f) => {
+      const at = uiCode.indexOf('data-jt-edi="' + f + '"');
+      const gate = gates.filter((g) => g < at).pop();
+      const between = gate == null ? '' : uiCode.slice(gate, at);
+      ok('the ' + f + ' field sits inside a canEditCosts() branch',
+        gate != null && !/\n\s*(?:function|return\s+['"])/.test(between),
+        gate == null ? 'no preceding gate at all' : 'a function/return boundary sits between the gate and the field');
+    });
+  })();
+  // The gate mirrors firestore.rules for catalogCosts/{companyId}; if it stops
+  // consulting claims it has stopped being a gate.
+  ok('the gate reads auth claims (not a hardcoded true)',
+    /canEditCosts[\s\S]{0,900}?_userClaims/.test(uiCode));
+  // Costs must never be written back onto the template document — that is
+  // uid-scoped, and re-embedding them there is the leak this migration removed.
+  ok('the editor never writes cost onto item.custom',
+    !/item\.custom\.(?:materialCost|laborCost)\s*=/.test(uiCode));
 }
 
 // ════════════════════════════════════════════════════════════════════

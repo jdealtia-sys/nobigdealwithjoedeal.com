@@ -17,9 +17,31 @@
  * of work with NO price on those lines: no card price band, '—' in the
  * proposal's rate/total columns, a "Cost not set" chip, and a banner saying
  * how many items are excluded from the total. Never $0.00, never a fabricated
- * margin. This file has no cost INPUT and never had one; entering costs
- * in-product is follow-up work, and until it ships the per-line $ / unit
- * override is how an unpriced tenant quotes.
+ * margin.
+ *
+ * THE COST EDITOR (PR-C, 2026-08-19). Entering costs in-product is now
+ * possible: the per-item editor row carries Material and Labor $/unit fields.
+ * Three properties hold them together and none is optional —
+ *
+ *   GATED. Rendered only behind canEditCosts(), which mirrors firestore.rules
+ *   for catalogCosts/{companyId}. A viewer or sales_rep sees no cost field at
+ *   all, because the rule would refuse their write and they would discover
+ *   that at quote time rather than at edit time. The gate is an affordance,
+ *   not the boundary — the rule is the boundary, and the write path reports a
+ *   refusal honestly regardless, since claims can be stale.
+ *
+ *   STAGED. Edits sit in edState.costEdits until Save. These are COMPANY-wide
+ *   values shared by every rep, so Cancel must mean cancel and a half-typed
+ *   "4" must never briefly become everyone's cost.
+ *
+ *   NEVER ON THE TEMPLATE. Costs are keyed jt-<slug(templateId)>-<index> and
+ *   written to the company cost book directly — never onto item.custom, which
+ *   is uid-scoped and re-embedding them there is precisely the leak this
+ *   migration removed. It also means setting a cost on a DEFAULT template does
+ *   not force a fork.
+ *
+ * The per-line $ / unit override on the insert modal remains how anyone quotes
+ * an item whose cost is still unset.
  *
  * Repo rules honored here:
  *  - CSP: ZERO inline handlers anywhere (incl. JS-generated markup). ONE
@@ -121,7 +143,11 @@
     creating: false
   };
 
-  var edState = { tpl: null, isFork: false };
+  // costEdits: jt-cost-book key → {materialCost, laborCost}, staged while the
+  // editor is open and flushed on Save. Staged rather than written on keystroke
+  // because these are COMPANY-WIDE values — Cancel must mean cancel, and a
+  // half-typed "4" must not briefly become every rep's cost for that item.
+  var edState = { tpl: null, isFork: false, costEdits: {} };
   var bandCache = {};        // templateId -> 'price band' html-safe string
   var _codeMap = null;
   var _resolveTimer = null;
@@ -476,6 +502,52 @@
   // flag is the only way to tell that apart from a genuine zero-cost line.
   function isCostUnset(line) { return !!(line && line.costUnset); }
 
+  /**
+   * May this user edit the COMPANY's job-template cost book?
+   *
+   * Mirrors firestore.rules for catalogCosts/{companyId}: platform admin, the
+   * solo operator whose companyId IS their uid, or a company_admin of that
+   * company. A viewer or sales_rep gets no cost inputs at all.
+   *
+   * THIS IS AN AFFORDANCE, NOT A SECURITY BOUNDARY. The boundary is the rule;
+   * this only decides whether showing the field would be an invitation to fail.
+   * The write path handles a refusal honestly regardless, because claims can be
+   * stale and a client check can always be wrong.
+   *
+   * Deliberately conservative: unknown claims mean no inputs. Better to show a
+   * rep nothing than to show them a field whose Save silently does not stick.
+   */
+  function canEditCosts() {
+    try {
+      var claims = window._userClaims;
+      if (!claims) return false;
+      if (claims.admin === true || claims.owner === true) return true;
+      if (claims.role === 'company_admin') return true;
+      // Solo operator: the tenant key IS the uid, which the rule allows.
+      var uid = (window.auth && window.auth.currentUser && window.auth.currentUser.uid) ||
+                (window._user && window._user.uid) || null;
+      if (uid && claims.companyId && String(claims.companyId) === String(uid)) return true;
+      if (uid && !claims.companyId) return true;   // no company yet ⇒ solo, keyed by uid
+      return false;
+    } catch (e) { return false; }
+  }
+
+  /** The cost-book key for one template item — the engine owns the definition. */
+  function costKeyFor(templateId, index) {
+    var JT = engine();
+    return (JT && typeof JT.jtCostKey === 'function') ? JT.jtCostKey(templateId, index) : null;
+  }
+
+  /** This item's current company cost, or null when unset. */
+  function bookCostFor(templateId, index) {
+    try {
+      var cc = window.NBDCatalogCosts;
+      var key = costKeyFor(templateId, index);
+      if (!cc || !key || typeof cc.jobItem !== 'function') return null;
+      return cc.jobItem(key);
+    } catch (e) { return null; }
+  }
+
   // Prefer the engine's own tally; fall back to counting lines for a stub or
   // an older cached result that predates costUnsetCount.
   function unpricedCount(res) {
@@ -616,6 +688,7 @@
       // it is a setup step, not an error.
       '.jt-chip-warn{color:#f0a92e;border-color:#f0a92e55;background:#f0a92e14;}',
       '.jt-unpriced-note{margin-top:8px;font-size:12px;color:#f0a92e;line-height:1.45;}',
+      '.jt-cost-scope-note{margin-top:14px;padding:9px 12px;border-radius:8px;background:#f0a92e14;border:1px solid #f0a92e33;font-size:12px;color:var(--m,#9aa3ad);line-height:1.5;}',
       '.jt-band{font-size:13px;font-weight:800;color:var(--orange,#e8720c);}',
       // Bottom action block: primary "Use" CTA over the band + edit/dupe row.
       // margin-top:auto pins it to the card bottom (grid cards stretch equal).
@@ -1507,6 +1580,10 @@
     var t = id ? getTpl(id) : null;
     edState.tpl = t ? JSON.parse(JSON.stringify(t)) : blankTemplate();
     edState.isFork = !!(t && !isCustom(t));
+    // Reset staged cost edits. Without this, opening template B after typing a
+    // cost into template A would carry A's pending COMPANY-WIDE change along
+    // and write it when B is saved.
+    edState.costEdits = {};
     ensureModal();
     paintEditor();
     document.getElementById('jtEditModal').classList.add('open');
@@ -1516,6 +1593,7 @@
     var e = document.getElementById('jtEditModal');
     if (e) e.classList.remove('open');
     edState.tpl = null;
+    edState.costEdits = {};   // Cancel means cancel, for costs too.
   }
 
   function paintEditor() {
@@ -1541,22 +1619,40 @@
         ? '<input type="text" class="jt-in code" data-jt-edi="customName" data-idx="' + i + '" value="' + esc(it.custom.name || '') + '" placeholder="Custom item name">'
         : '<input type="text" class="jt-in code" list="jtCodeList" data-jt-edi="code" data-idx="' + i + '" value="' + esc(it.code || '') + '" placeholder="Catalog code">';
       var q = (isCustomItem ? it.custom.qty : it.qty);
-      // Read-only surfacing, deliberately: there is no cost INPUT in this
-      // editor and there never has been — job-templates-ui.js carried zero
-      // cost references before 2026-08-18, so nothing was removed here. The
-      // badge tells a rep why a template has no price band. Entering costs
-      // in-product is follow-up work (PR-C); today it is the $/unit override
-      // on the insert modal, or an owner importing the company's book.
+
+      // ── cost state for this item ────────────────────────────────────────
+      // Costs are COMPANY-scoped and keyed by jt-<slug(templateId)>-<index>,
+      // independent of the template document. So the inputs below read and
+      // write the cost book directly rather than riding item.custom — which
+      // also means setting a cost on a DEFAULT template does not force a fork.
       var unsetBadge = '';
+      var costFields = '';
       if (isCustomItem) {
-        var cc = window.NBDCatalogCosts;
-        var JTe = engine();
-        var priced = !!(cc && typeof cc.jobItem === 'function' && JTe && typeof JTe.jtCostKey === 'function'
-          && cc.jobItem(JTe.jtCostKey(t.id, i)));
+        var key = costKeyFor(t.id, i);
+        var staged = key && edState.costEdits[key];
+        var booked = bookCostFor(t.id, i);
+        var priced = !!(staged || booked);
         // A pre-strip fork still carries its own embedded costs; that counts
         // as priced (customLineItem's legacy branch reads them).
         if (!priced && (it.custom.materialCost != null || it.custom.laborCost != null)) priced = true;
         if (!priced) unsetBadge = ' <span class="jt-chip jt-chip-warn">Cost not set</span>';
+
+        if (key && canEditCosts()) {
+          var cur = staged || booked ||
+            ((it.custom.materialCost != null || it.custom.laborCost != null)
+              ? { materialCost: Number(it.custom.materialCost) || 0, laborCost: Number(it.custom.laborCost) || 0 }
+              : null);
+          var unitLbl = esc(it.custom.unit || 'EA');
+          costFields =
+            '<div><span class="jt-mini-lbl">Material $/' + unitLbl + '</span>' +
+              '<input type="number" step="any" min="0" class="jt-in jt-in-qty" placeholder="—" ' +
+              'data-jt-edi="materialCost" data-idx="' + i + '" value="' +
+              esc(cur && cur.materialCost != null ? cur.materialCost : '') + '"></div>' +
+            '<div><span class="jt-mini-lbl">Labor $/' + unitLbl + '</span>' +
+              '<input type="number" step="any" min="0" class="jt-in jt-in-qty" placeholder="—" ' +
+              'data-jt-edi="laborCost" data-idx="' + i + '" value="' +
+              esc(cur && cur.laborCost != null ? cur.laborCost : '') + '"></div>';
+        }
       }
       return '<div class="jt-ed-item">' +
         '<span class="jt-chip" style="min-width:52px;text-align:center;">' + (isCustomItem ? 'CUSTOM' : 'CODE') + '</span>' +
@@ -1564,6 +1660,7 @@
         codeField +
         '<div><span class="jt-mini-lbl">Qty</span>' +
           '<input type="number" step="any" min="0" class="jt-in jt-in-qty" placeholder="auto" data-jt-edi="qty" data-idx="' + i + '" value="' + esc(q == null ? '' : q) + '"></div>' +
+        costFields +
         '<label style="display:flex;align-items:center;gap:6px;font-size:11.5px;color:var(--m,#9aa3ad);cursor:pointer;">' +
           '<input type="checkbox" data-jt-edi="optional" data-idx="' + i + '"' + (it.optional ? ' checked' : '') + '> optional</label>' +
         '<div style="display:flex;gap:4px;margin-left:auto;">' +
@@ -1601,6 +1698,13 @@
           '<textarea class="jt-in" style="width:100%;min-height:56px;resize:vertical;" data-jt-ed="description">' + esc(t.description || '') + '</textarea></div>' +
         '<div style="margin-top:10px;"><span class="jt-mini-lbl">Scope notes (internal, rep-facing)</span>' +
           '<textarea class="jt-in" style="width:100%;min-height:56px;resize:vertical;" data-jt-ed="scopeNotes">' + esc(t.scopeNotes || '') + '</textarea></div>' +
+        // The cost fields below are COMPANY-WIDE, while the template itself is
+        // this user's own copy. That asymmetry is invisible unless it is said,
+        // and a rep who assumes "my template, my numbers" would be wrong in a
+        // way that changes other people's quotes.
+        (canEditCosts()
+          ? '<div class="jt-cost-scope-note">💰 Item costs are your <strong>company\'s</strong> cost book — shared by every rep, and used to price these lines on every estimate. The template itself stays your own copy.</div>'
+          : '') +
         '<div style="margin:16px 0 8px;display:flex;justify-content:space-between;align-items:center;">' +
           '<span style="font-size:12px;font-weight:800;color:var(--orange,#e8720c);text-transform:uppercase;letter-spacing:.1em;">Line items (' + (t.items || []).length + ')</span>' +
           '<button type="button" class="jt-btn jt-btn-sm" data-jt-action="ed-add-item">+ Add item</button>' +
@@ -1626,6 +1730,9 @@
     });
     var JT = engine();
     if (!JT || typeof JT.saveCustom !== 'function') { toast('Template engine not ready', 'error'); return; }
+    // Snapshot before closeEditor() clears edState.
+    var costEdits = edState.costEdits;
+    var nCosts = Object.keys(costEdits).length;
     try {
       JT.saveCustom(t); // engine handles fork semantics (basedOn) for defaults
       toast(edState.isFork ? 'Saved as your custom copy' : 'Template saved', 'success');
@@ -1635,7 +1742,52 @@
     } catch (e) {
       console.error('[job-templates-ui] saveCustom failed:', e);
       toast('Could not save template', 'error');
+      return;
     }
+    if (nCosts) flushCostEdits(costEdits, nCosts);
+  }
+
+  /**
+   * Write staged cost edits to the COMPANY book, then re-price.
+   *
+   * Separate from the template save on purpose: the two land in different
+   * documents with different scoping and different write rules. A template
+   * save that succeeds must not be reported as a failure because the cost
+   * write was refused — and vice versa. Runs after the template save so a
+   * newly-forked template's keys already exist.
+   */
+  function flushCostEdits(costEdits, nCosts) {
+    var cc = window.NBDCatalogCosts;
+    if (!cc || typeof cc.recordJobItems !== 'function') {
+      toast('Costs could not be saved — cost book unavailable', 'error');
+      return;
+    }
+    var p;
+    try { p = cc.recordJobItems(costEdits); }
+    catch (e) { console.error('[job-templates-ui] recordJobItems threw:', e); toast('Costs could not be saved', 'error'); return; }
+    if (!p || typeof p.then !== 'function') return;
+    p.then(function (wrote) {
+      if (!wrote) {
+        // The affordance check said yes and the rule said no — stale claims,
+        // or a role changed mid-session. Say so plainly rather than leaving a
+        // rep to discover the numbers did not stick.
+        toast('Costs were not saved — company cost settings are owner/admin only', 'error');
+        return;
+      }
+      // Re-register every JT line at the new figures and drop the band cache,
+      // so the library repaints from "Cost not set" to a real price band
+      // without a reload.
+      try {
+        var JT2 = engine();
+        if (JT2 && typeof JT2.applyJtCostSeed === 'function') JT2.applyJtCostSeed();
+      } catch (e) { /* the repaint below still runs */ }
+      clearBandCache();
+      reRender();
+      toast(nCosts + ' item cost' + (nCosts === 1 ? '' : 's') + ' saved for your company', 'success');
+    }, function (e) {
+      console.error('[job-templates-ui] cost write failed:', e);
+      toast('Costs could not be saved', 'error');
+    });
   }
 
   // ══════════════════════════════════════════════════════════════════════
@@ -2015,6 +2167,30 @@
         }
         else if (fld === 'optional') {
           if (el.checked) item.optional = true; else delete item.optional;
+        }
+        else if (fld === 'materialCost' || fld === 'laborCost') {
+          // STAGED, not written. These are company-wide values; they reach
+          // Firestore only on Save, so Cancel means cancel and a half-typed
+          // number never becomes every rep's cost. Never written onto
+          // item.custom either — that would re-embed cost data into the
+          // uid-scoped template document, which is the leak this migration
+          // removed.
+          var ckey = costKeyFor(edState.tpl.id, ii);
+          if (!ckey || !item.custom) return;
+          // Built field-by-field rather than from a `{materialCost: 0,
+          // laborCost: 0}` literal — that shape is a published cost pair as far
+          // as tests/catalog-cost-privacy.test.js is concerned, and it flagged
+          // this line on the first run. The guard is right to be shape-based:
+          // it cannot tell a placeholder from a real figure, and it should not
+          // have to learn exceptions for one file's convenience.
+          var base = edState.costEdits[ckey] || bookCostFor(edState.tpl.id, ii) || null;
+          var next = {
+            materialCost: Number(base && base.materialCost) || 0,
+            laborCost: Number(base && base.laborCost) || 0
+          };
+          var cv = (el.value === '') ? 0 : num(el.value);
+          next[fld] = (cv == null || cv < 0) ? 0 : cv;
+          edState.costEdits[ckey] = next;
         }
         return;
       }

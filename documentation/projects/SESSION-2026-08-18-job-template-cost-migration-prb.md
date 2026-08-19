@@ -98,9 +98,16 @@ columns, a "Cost not set" chip, and a banner naming how many items are excluded
 from the total. Never `$0.00`, never a fabricated margin. They quote by typing
 a `$ / unit` per line, which prices the line exactly on the typed number.
 
-**Until an in-app cost editor ships, "enter your own costs" is not an action a
-non-NBD tenant can take in-product.** If you have a second live tenant using
-job templates, that editor is PR-C and it goes before any comms.
+~~**Until an in-app cost editor ships, "enter your own costs" is not an action a
+non-NBD tenant can take in-product.**~~ **PR-C shipped 2026-08-19.** An owner or
+`company_admin` can now enter Material and Labor $/unit per item in the template
+editor, writing the company cost book directly. A viewer or `sales_rep` sees no
+cost field at all, because `firestore.rules` would refuse their write and they
+would find out at quote time rather than at edit time. Anyone still quotes an
+unpriced item with the per-line `$ / unit` override.
+
+That removes the blocker on comms: a second live tenant using job templates can
+now price them without an owner running an import.
 
 **Also new, and worth knowing before a support ticket arrives:** template
 *definitions* stay uid-scoped, template *costs* are now company-scoped. Two

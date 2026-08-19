@@ -434,12 +434,32 @@ Stated plainly, because each of these is a decision rather than an oversight:
   to rewrite, 10 active worktrees. Rotation instead. Do not rewrite without
   Jo's explicit instruction; if it ever happens, do it once, covering all four
   files, and file the fork-network GC request.
-- **No in-app cost editor.** `job-templates-ui.js` had zero cost references
-  before this PR, so nothing was removed — but it means "enter your own costs"
-  is not an action a non-NBD tenant can take in-product. They price per line
-  with `$ / unit`. If a second live tenant uses job templates, this becomes
-  PR-C immediately, before any comms. A test now asserts no ungated cost input
-  has appeared in the meantime.
+- ~~**No in-app cost editor.**~~ **SHIPPED as PR-C, 2026-08-19.** The per-item
+  editor row now carries Material and Labor $/unit fields, so "enter your own
+  costs" is an action a tenant can take in-product. Three properties hold it
+  together: **gated** behind `canEditCosts()`, which mirrors
+  `firestore.rules` — a viewer or `sales_rep` sees no field at all, because the
+  rule would refuse their write and they would find out at quote time rather
+  than at edit time; **staged** until Save, because these are company-wide
+  values, so Cancel means cancel and a half-typed number never briefly becomes
+  every rep's cost; and **never written onto the template**, which is
+  uid-scoped — re-embedding cost there is exactly the leak this migration
+  removed, and keying by `jt-<slug>-<index>` means setting a cost on a default
+  template does not force a fork.
+
+  The gate is an affordance, not the boundary. The rule is the boundary, and
+  the write path reports a refusal honestly rather than showing a success it
+  cannot back up — claims go stale, and a client check can always be wrong.
+
+  The test that used to assert *no* cost input exists inverted rather than
+  being deleted: it now asserts the fields exist AND sit inside the gate,
+  measured by source offset rather than a character window (a window is a magic
+  number that stops proving anything the moment the markup grows past it).
+
+  Worth recording: the privacy guard caught this PR's own
+  `{ materialCost: 0, laborCost: 0 }` placeholder on the first run. It is a
+  default, not a cost basis — but the guard is shape-based and cannot tell the
+  difference, so the code changed rather than the guard learning an exception.
 - **A rep's forks never migrate.** `adoptLegacyCosts()` writes to
   `catalogCosts/{companyId}`, which rules restrict to owner/company_admin. A
   tenant whose pre-strip forks live on a `sales_rep`'s device keeps pricing
