@@ -118,30 +118,46 @@ check \
 echo
 echo "── Oaks cutover + tenant microsite hiding ──"
 
-# Pillar 5 Oaks cutover (2026-07-04): the hand-authored pages 301 to the
-# tenant microsite; the logo asset must keep serving for companyProfile
-# brand.logoUrl + generated documents.
-oaks_headers="$(curl -sS -I "$SITE/sites/oaks/" 2>&1 || true)"
+# Oaks microsite (Jo, 2026-08-19). Direction of travel REVERSED from the
+# 2026-07-04 Pillar 5 cutover: the hand-authored 11-page site at /sites/oaks is
+# now the real site, and the one-page tenant stub at /sites/t/oaks 301s TO it.
+# These assertions were still testing the old arrangement and would have failed
+# the first post-deploy run after the rebuild.
+t_headers="$(curl -sS -I "$SITE/sites/t/oaks" 2>&1 || true)"
 check \
-  "/sites/oaks/ 301s to the tenant microsite" \
+  "/sites/t/oaks 301s to the real site (tenant stub retired)" \
   "301" \
-  bash -c "echo \"$oaks_headers\" | head -1"
+  bash -c "echo \"$t_headers\" | head -1"
 check \
-  "301 Location is /sites/t/oaks" \
-  "/sites/t/oaks" \
-  bash -c "echo \"$oaks_headers\" | grep -iE '^location'"
+  "301 Location is /sites/oaks" \
+  "/sites/oaks" \
+  bash -c "echo \"$t_headers\" | grep -iE '^location'"
+
+# The homepage is reached at the SLASHLESS /sites/oaks, where relative paths
+# would resolve one segment too shallow; the 301 to the explicit /sites/oaks/index
+# is what keeps the portable relative-path build working here. If this ever
+# stops redirecting, every link and asset on the Oaks homepage silently 404s.
+home_headers="$(curl -sS -I "$SITE/sites/oaks" 2>&1 || true)"
+check \
+  "/sites/oaks 301s to /sites/oaks/index (relative-path base fix)" \
+  "/sites/oaks/index" \
+  bash -c "echo \"$home_headers\" | grep -iE '^location'"
+
+oaks_page="$(curl -sS -I "$SITE/sites/oaks/about" 2>&1 || true)"
+check \
+  "an interior Oaks page serves 200" \
+  "200" \
+  bash -c "echo \"$oaks_page\" | head -1"
+check \
+  "X-Robots-Tag: noindex on the Oaks pages (unlaunched client site)" \
+  "noindex" \
+  bash -c "echo \"$oaks_page\" | grep -iE '^x-robots-tag'"
 
 logo_headers="$(curl -sS -I "$SITE/sites/oaks/logo-orange.svg" 2>&1 || true)"
 check \
   "logo-orange.svg still serves (200, not redirected)" \
   "200" \
   bash -c "echo \"$logo_headers\" | head -1"
-
-t_headers="$(curl -sS -I "$SITE/sites/t/oaks" 2>&1 || true)"
-check \
-  "X-Robots-Tag: noindex on /sites/t/oaks" \
-  "noindex" \
-  bash -c "echo \"$t_headers\" | grep -iE '^x-robots-tag'"
 
 robots="$(curl -sS "$SITE/robots.txt" 2>&1 || true)"
 check \
