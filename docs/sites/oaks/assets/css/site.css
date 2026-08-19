@@ -346,7 +346,13 @@ button { font: inherit; cursor: pointer; }
 .orc-lightbox-count { position: absolute; bottom: 22px; left: 50%; transform: translateX(-50%); color: rgba(255,255,255,.7); font-family: var(--head); font-size: .82rem; font-weight: 600; }
 
 /* ── Service page layout (sidebar + body) ────────────────────────────── */
+/* The aside comes AFTER the content column in the source, so that a screen
+   reader, a keyboard and a phone all meet the service copy before 617px of
+   service nav. Desktop puts it back on the left with explicit grid placement
+   rather than `order`, so the two-column look does not depend on source order. */
 .orc-svc-layout { display: grid; grid-template-columns: 300px 1fr; gap: 46px; align-items: start; }
+.orc-svc-layout > .orc-svc-aside { grid-column: 1; grid-row: 1; }
+.orc-svc-layout > :not(.orc-svc-aside) { grid-column: 2; grid-row: 1; }
 .orc-svc-aside { position: sticky; top: 100px; display: grid; gap: 22px; }
 .orc-svc-box { border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; background: var(--white); }
 .orc-svc-box h2 { background: var(--ink); color: var(--white); font-size: 1.05rem; padding: 20px 22px; }
@@ -458,8 +464,15 @@ button { font: inherit; cursor: pointer; }
 @media (max-width: 1040px) {
   .orc-nav { display: none; }
   .orc-burger { display: inline-flex; }
+  /* One column: drop the explicit placement so both children flow in source
+     order, which is now content-then-aside. Before this, the aside stacked on
+     top and a visitor landing on "Roof Replacement" from a search met a 617px
+     nav list and a quote form before a single word about roof replacement —
+     the content did not start until 1135px down. Reported by Jo, 2026-08-19. */
   .orc-svc-layout { grid-template-columns: 1fr; }
-  .orc-svc-aside { position: static; }
+  .orc-svc-layout > .orc-svc-aside,
+  .orc-svc-layout > :not(.orc-svc-aside) { grid-column: auto; grid-row: auto; }
+  .orc-svc-aside { position: static; margin-top: 10px; }
 }
 @media (max-width: 860px) {
   .orc-split { grid-template-columns: 1fr; gap: 34px; }
