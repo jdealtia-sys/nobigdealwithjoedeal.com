@@ -244,11 +244,12 @@ All three mutation-tested — each fails on the real defect and names the file.
 
 ## Still open
 
-1. ~~`nav-tool` stamping~~ and ~~footer logo~~ — **both done**, see
-   `a1ed170e` and `1601bc5b`. A **`nav-microsite`** partial for the 7 brand
-   microsites is still open; its EXEMPT reasons in
-   `check-chrome-governance.js` name it, so landing it will make the gate
-   demand those exemptions be deleted.
+1. ~~`nav-tool` stamping~~, ~~footer logo~~, ~~`nav-microsite`~~ — **all done**
+   (`a1ed170e`, `1601bc5b`, `8f5070ef`). Every nav in the services / areas /
+   blog / funnel / microsite families is generator-owned. **Four pages still
+   hand-build a nav:** `index.html` and `the-pledge/index.html` (pre-migration
+   hubs), plus `sites/index.html` and `sites/free-guide/index.html` (the /sites
+   B2B design system, deliberately out of scope).
 2. **No footer partial variant covers the slim one-line funnel footer.** The 8
    nav-tool pages now have generator-governed navs but still hand-build that
    footer — that is what their remaining exemptions are for.
@@ -301,3 +302,45 @@ gate work is about:
   hand-built. The stale-exemption check would not have caught that (they still
   legitimately need an exemption) — the *reason text* going stale is a failure
   mode the gate cannot see, so it needs a human to keep honest.
+
+## `nav-microsite` (`8f5070ef`) — the last hand-built nav family
+
+`site-src/partials/nav-microsite.html`:
+`The Pledge | The NBD Guarantee | The NBD Build | {{focus}} | Services | About Joe | Blog | Book Inspection →`
+
+One placeholder pair (`focus_href`/`focus_name`) fills the 4th slot — the
+product's own page on the 5 product microsites, `/our-work` on the two promise
+pages, which already sit in the fixed spine and would otherwise render a
+duplicate link. `apply-partials`' `render()` makes every `{{key}}` mandatory, so
+there is no half-set optional to get wrong.
+
+Two per-page extras were dropped for uniformity **after checking neither is
+stranded**: `/visualizer` is still in gaf-timberline's and tamko-storm-series'
+mobile navs (plus 3 and 6 in-body links), and `/services/gaf-timberline` is
+still in lumanail's footer and mobile nav.
+
+Also fixed on the way: gaf-timberline and tamko-storm-series opened with a bare
+`<nav>` where the other five used `<nav id="mainNav" class="nav">` — the last
+structural split in the family, and the reason `ensure-nav-css` and the
+hamburger contract treated them differently.
+
+## Chrome governance — where it stands now
+
+**24 exemptions.** 20 are footer-only; 4 pages still hand-build a nav as well
+(`index`, `the-pledge`, `sites/index`, `sites/free-guide`). Groups:
+
+| Group | Pages | Why still exempt |
+|---|---|---|
+| slim funnel footer | 8 (`estimate`, `inspect`, `free-roof`, `free-tools`, `roof-score`, `storm-alerts`, `storm-check`, `storm-report`) | one-line phone + link row; no footer partial variant covers that shape |
+| 4-column grid footer | 7 microsites + `index`, `areas/index`, `privacy`, `review`, `the-pledge`, `visualizer` | no partial variant covers the grid footer either |
+| separate design system | 3 (`sites/index`, `sites/free-guide`, `sites/t`) | B2B surface / tenant template — must stay out |
+
+**So the single remaining consolidation is a footer partial for the two shapes
+that have no variant** — a `footer-grid` and a `footer-slim`. That would empty
+most of the exemption list. It is the last structural item; everything else in
+the audit is either shipped or a judgement call recorded below.
+
+> Reminder from last pass: the gate cannot see a **stale reason**. It only
+> checks whether an exemption is still *needed*. Both groups' reasons were
+> rewritten by hand this session after the navs became governed — check them
+> whenever chrome moves.
