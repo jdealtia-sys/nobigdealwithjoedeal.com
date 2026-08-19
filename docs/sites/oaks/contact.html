@@ -7,14 +7,17 @@
 <meta name="description" content="Contact Oaks Roofing &amp; Construction in Goshen, OH. Call (513) 827-5297 or send a message to request a quote for roofing, siding, or gutters.">
 <meta name="robots" content="noindex, nofollow">
 <!-- HAND-OFF: when this site goes live on its own domain, (1) delete the robots
-     line above, (2) uncomment the canonical/og:url lines and point them at the
-     real domain, (3) set the form destination in assets/js/site.js. -->
+     line above, (2) uncomment the canonical, og:url AND og:image lines and point
+     them at the real domain (og:image MUST be absolute — a relative one is
+     unresolvable by every link previewer), (3) set the form destination in
+     assets/js/site.js, and (4) drop the Disallow: /sites/oaks/ lines from
+     robots.txt if this is still served from nobigdealwithjoedeal.com. -->
 <!-- <link rel="canonical" href="https://example.com/contact.html"> -->
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Oaks Roofing &amp; Construction">
 <meta property="og:title" content="Contact Us | Oaks Roofing &amp; Construction — Goshen, OH">
 <meta property="og:description" content="Contact Oaks Roofing &amp; Construction in Goshen, OH. Call (513) 827-5297 or send a message to request a quote for roofing, siding, or gutters.">
-<meta property="og:image" content="assets/img/work-05-crew-aerial.jpg">
+<!-- <meta property="og:image" content="https://example.com/assets/img/work-05-crew-aerial.jpg"> -->
 <!-- <meta property="og:url" content="https://example.com/contact.html"> -->
 <meta name="twitter:card" content="summary_large_image">
 <link rel="icon" href="assets/img/icon.svg" type="image/svg+xml">
@@ -162,8 +165,9 @@
         </div>
       </div>
       <div class="orc-form-panel">
-        <form data-orc-form novalidate>
+        <form data-orc-form method="post" novalidate>
           <p class="orc-form-msg" role="status" aria-live="polite"></p>
+    <noscript><p class="orc-form-msg err">This form needs JavaScript to reach us. Please call <a href="tel:+15138275297">(513) 827-5297</a> instead — we answer Monday to Saturday, 7:00 AM to 4:00 PM.</p></noscript>
           <div class="orc-form-grid">
             <label class="orc-field"><span>First Name <i class="req" aria-hidden="true">*</i></span>
               <input type="text" name="first_name" autocomplete="given-name" placeholder="John" required></label>
@@ -191,8 +195,8 @@
               <span>Company Website</span>
               <input type="text" name="company_website" tabindex="-1" autocomplete="off"></label>
           </div>
-          <button type="submit" class="btn btn-primary btn-block" style="margin-top:20px;">Send Message</button>
-          <p class="orc-form-note">Prefer to talk it through? Call <a href="tel:+15138275297" style="color:var(--orange);font-weight:700;">(513) 827-5297</a>.</p>
+          <button type="submit" class="btn btn-primary btn-block u-mt-20">Send Message</button>
+          <p class="orc-form-note">Prefer to talk it through? Call <a href="tel:+15138275297">(513) 827-5297</a>.</p>
         </form>
       </div>
     </div>

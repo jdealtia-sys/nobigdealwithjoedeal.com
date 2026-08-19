@@ -13,7 +13,8 @@
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 :root {
-  --orange:       #fa6404;
+  --orange:       #fa6404;   /* brand — fills, and text on dark only */
+  --orange-ink:   #b84a02;   /* same hue, AA-safe as TEXT on light: 5.23:1 on white, 4.55:1 on the tint */
   --orange-dark:  #d55103;
   --orange-soft:  rgba(250, 100, 4, .12);
   --orange-line:  rgba(250, 100, 4, .32);
@@ -22,7 +23,7 @@
   --ink-2:        #21252a;
   --ink-3:        #2c3138;
   --body:         #4a5159;
-  --muted:        #737b85;
+  --muted:        #667080;   /* was #737b85 — 4.28:1, under the AA floor */
   --line:         #e2e5e9;
   --soft:         #f6f7f8;
   --white:        #ffffff;
@@ -164,8 +165,12 @@ button { font: inherit; cursor: pointer; }
 .orc-pagehead h1 { color: var(--white); font-size: clamp(1.9rem, 4.4vw, 2.9rem); }
 .orc-eyebrow {
   display: inline-block; font-family: var(--head); font-size: .74rem; font-weight: 700;
-  letter-spacing: .18em; text-transform: uppercase; color: var(--orange); margin-bottom: 12px;
+  letter-spacing: .18em; text-transform: uppercase; color: var(--orange-ink); margin-bottom: 12px;
 }
+/* On the dark chrome the full-strength brand orange is correct and has ample
+   contrast, so put it back there. */
+.orc-pagehead .orc-eyebrow, .orc-hero .orc-eyebrow,
+.orc-section-dark .orc-eyebrow, .orc-band .orc-eyebrow { color: var(--orange); }
 
 /* ── Home hero ───────────────────────────────────────────────────────── */
 .orc-hero { position: relative; background: var(--ink); color: var(--white); overflow: hidden; }
@@ -217,10 +222,10 @@ button { font: inherit; cursor: pointer; }
 /* checklist */
 .orc-check { list-style: none; margin: 22px 0 0; display: grid; gap: 12px; }
 .orc-check li { display: flex; gap: 12px; align-items: flex-start; font-size: .96rem; }
-.orc-check svg { width: 20px; height: 20px; flex: none; color: var(--orange); margin-top: 3px; }
+.orc-check svg { width: 20px; height: 20px; flex: none; color: var(--orange-ink); margin-top: 3px; }
 
 /* ── Service cards ───────────────────────────────────────────────────── */
-.orc-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 24px; }
+.orc-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(260px, 100%), 1fr)); gap: 24px; }
 .orc-card {
   background: var(--white); border: 1px solid var(--line); border-radius: var(--radius);
   overflow: hidden; display: flex; flex-direction: column; transition: transform .2s, box-shadow .2s, border-color .2s;
@@ -235,18 +240,18 @@ button { font: inherit; cursor: pointer; }
 .orc-card-link {
   display: inline-flex; align-items: center; gap: 8px; margin-top: 16px;
   font-family: var(--head); font-size: .78rem; font-weight: 700; letter-spacing: .08em;
-  text-transform: uppercase; color: var(--orange);
+  text-transform: uppercase; color: var(--orange-ink);
 }
 .orc-card-link svg { width: 13px; height: 13px; transition: transform .2s; }
 .orc-card:hover .orc-card-link svg { transform: translateX(4px); }
 
 /* ── Info cards (HQ / phone / hours) ─────────────────────────────────── */
-.orc-info { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 22px; }
+.orc-info { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(240px, 100%), 1fr)); gap: 22px; }
 .orc-info-card { background: var(--white); border: 1px solid var(--line); border-radius: var(--radius); padding: 30px 26px; text-align: center; }
 .orc-section-dark .orc-info-card { background: var(--ink-2); border-color: rgba(255,255,255,.1); }
 .orc-info-icon {
   width: 52px; height: 52px; margin: 0 auto 16px; border-radius: 50%;
-  background: var(--orange-soft); color: var(--orange);
+  background: var(--orange-soft); color: var(--orange-ink);
   display: flex; align-items: center; justify-content: center;
 }
 .orc-info-icon svg { width: 22px; height: 22px; }
@@ -254,17 +259,22 @@ button { font: inherit; cursor: pointer; }
 .orc-info-card p { font-size: .9rem; margin-bottom: 8px; }
 .orc-info-card .val { font-family: var(--head); font-weight: 700; font-size: 1rem; color: var(--ink); }
 .orc-section-dark .orc-info-card .val { color: var(--white); }
-.orc-info-card a.val:hover { color: var(--orange); }
+.orc-info-card a.val:hover { color: var(--orange-ink); }
+.orc-section-dark .orc-info-card a.val:hover { color: var(--orange); }
+.orc-section-dark .orc-info-icon { color: var(--orange); }
 .orc-info-card .val + .val { margin-top: 2px; }
 
 /* ── Warranty / CTA band ─────────────────────────────────────────────── */
 .orc-band { background: var(--ink); color: rgba(255,255,255,.8); text-align: center; padding: 70px 0; }
 .orc-band h2 { color: var(--white); font-size: clamp(1.5rem, 3.4vw, 2.15rem); margin-bottom: 16px; }
 .orc-band p { max-width: 620px; margin: 0 auto 28px; }
-.orc-band-accent { background: var(--orange); color: rgba(255,255,255,.94); }
-.orc-band-accent h2 { color: var(--white); }
-.orc-band-accent .btn-primary { background: var(--white); color: var(--orange); border-color: var(--white); }
-.orc-band-accent .btn-primary:hover { background: var(--ink); color: var(--white); border-color: var(--ink); }
+/* Dark ink on the brand orange is 5.84:1; the near-white it replaced was 2.86:1
+   on 16px body copy. Keeps Scott's actual orange rather than darkening the band
+   away from his logo. */
+.orc-band-accent { background: var(--orange); color: var(--ink); }
+.orc-band-accent h2 { color: var(--ink); }
+.orc-band-accent .btn-primary { background: var(--ink); color: var(--white); border-color: var(--ink); }
+.orc-band-accent .btn-primary:hover { background: var(--white); color: var(--orange-ink); border-color: var(--white); }
 
 /* ── Reviews ─────────────────────────────────────────────────────────── */
 .orc-review { max-width: 620px; margin: 0 auto; text-align: center; background: var(--white); border: 1px solid var(--line); border-radius: var(--radius); padding: 38px 32px; box-shadow: var(--shadow); }
@@ -279,15 +289,15 @@ button { font: inherit; cursor: pointer; }
 .orc-review-src { display: inline-flex; align-items: center; gap: 8px; margin-top: 18px; font-family: var(--head); font-size: .72rem; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
 
 /* ── Service-area list ───────────────────────────────────────────────── */
-.orc-areas { list-style: none; display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 12px; }
+.orc-areas { list-style: none; display: grid; grid-template-columns: repeat(auto-fill, minmax(min(190px, 100%), 1fr)); gap: 12px; }
 .orc-areas li a, .orc-areas li span {
   display: flex; align-items: center; gap: 10px; padding: 14px 16px; background: var(--white);
   border: 1px solid var(--line); border-radius: var(--radius-s);
   font-family: var(--head); font-weight: 600; font-size: .9rem; color: var(--ink);
   transition: border-color .18s, color .18s, background .18s;
 }
-.orc-areas li a:hover { border-color: var(--orange); color: var(--orange); }
-.orc-areas svg { width: 15px; height: 15px; color: var(--orange); flex: none; }
+.orc-areas li a:hover { border-color: var(--orange); color: var(--orange-ink); }
+.orc-areas svg { width: 15px; height: 15px; color: var(--orange-ink); flex: none; }
 .orc-areas li[hidden] { display: none; }
 .orc-areas-more { text-align: center; margin-top: 26px; }
 
@@ -301,7 +311,7 @@ button { font: inherit; cursor: pointer; }
 .orc-map-note { margin-top: 12px; font-size: .8rem; color: var(--muted); font-family: var(--head); font-weight: 600; letter-spacing: .06em; text-transform: uppercase; }
 
 /* ── Gallery ─────────────────────────────────────────────────────────── */
-.orc-gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 20px; }
+.orc-gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(300px, 100%), 1fr)); gap: 20px; }
 .orc-gallery button {
   padding: 0; border: 0; background: var(--soft); border-radius: var(--radius); overflow: hidden;
   aspect-ratio: 4 / 3; display: block; width: 100%; position: relative;
@@ -341,8 +351,10 @@ button { font: inherit; cursor: pointer; }
   display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 14px 22px;
   font-family: var(--head); font-weight: 600; font-size: .88rem; color: var(--ink); transition: background .18s, color .18s;
 }
-.orc-svc-list a:hover { background: var(--soft); color: var(--orange); }
-.orc-svc-list a[aria-current="page"] { background: var(--orange-soft); color: var(--orange); border-left: 3px solid var(--orange); }
+.orc-svc-list a:hover { background: var(--soft); color: var(--orange-ink); }
+/* Was orange-on-pale-orange at 2.66:1 — the lowest contrast on the site, marking
+   the one item a visitor most needs to find. */
+.orc-svc-list a[aria-current="page"] { background: var(--orange-soft); color: var(--orange-ink); border-left: 3px solid var(--orange); font-weight: 700; }
 .orc-svc-list svg { width: 13px; height: 13px; flex: none; opacity: .5; }
 .orc-svc-select { padding: 18px 22px; }
 .orc-svc-quote { background: var(--ink); color: rgba(255,255,255,.78); padding: 30px 24px; text-align: center; border-radius: var(--radius); }
@@ -368,7 +380,7 @@ button { font: inherit; cursor: pointer; }
   display: block; font-family: var(--head); font-size: .78rem; font-weight: 700;
   letter-spacing: .06em; text-transform: uppercase; color: var(--ink); margin-bottom: 7px;
 }
-.orc-field > span .req { color: var(--orange); }
+.orc-field > span .req { color: var(--orange-ink); }
 .orc-field input, .orc-field select, .orc-field textarea {
   width: 100%; font: inherit; font-size: .95rem; color: var(--ink); background: var(--white);
   border: 1px solid var(--line); border-radius: var(--radius-s); padding: 13px 14px;
@@ -390,10 +402,20 @@ button { font: inherit; cursor: pointer; }
   display: flex; flex-wrap: wrap; align-items: center; gap: 10px 18px; font-size: .9rem;
 }
 .orc-form-alt b { font-family: var(--head); color: var(--ink); }
-.orc-form-alt a { color: var(--orange); font-weight: 700; }
+.orc-form-alt a { color: var(--orange-ink); font-weight: 700; }
 .orc-form-alt a:hover { text-decoration: underline; }
 
 .orc-form-panel { background: var(--white); border: 1px solid var(--line); border-radius: var(--radius); padding: 38px; box-shadow: var(--shadow); }
+
+/* ── Small utilities (replacing inline style="" — the Report-Only CSP drops
+      style-src 'unsafe-inline', so inline styles are staged breakage) ── */
+.u-mt-15 { margin-top: 15px; }
+.u-mt-20 { margin-top: 20px; }
+.u-mt-24 { margin-top: 24px; }
+.u-center-cta { text-align: center; margin-top: 34px; }
+.orc-prose-narrow { max-width: 760px; margin-left: auto; margin-right: auto; }
+.orc-check-title { font-size: 1.2rem; margin-bottom: 4px; }
+.orc-form-note a { color: var(--orange-ink); font-weight: 700; }
 
 /* ── Footer ──────────────────────────────────────────────────────────── */
 .orc-footer { background: var(--ink); color: rgba(255,255,255,.66); font-size: .9rem; }

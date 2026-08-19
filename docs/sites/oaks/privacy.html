@@ -7,14 +7,17 @@
 <meta name="description" content="How Oaks Roofing &amp; Construction collects, uses, and protects information submitted through this website.">
 <meta name="robots" content="noindex, nofollow">
 <!-- HAND-OFF: when this site goes live on its own domain, (1) delete the robots
-     line above, (2) uncomment the canonical/og:url lines and point them at the
-     real domain, (3) set the form destination in assets/js/site.js. -->
+     line above, (2) uncomment the canonical, og:url AND og:image lines and point
+     them at the real domain (og:image MUST be absolute — a relative one is
+     unresolvable by every link previewer), (3) set the form destination in
+     assets/js/site.js, and (4) drop the Disallow: /sites/oaks/ lines from
+     robots.txt if this is still served from nobigdealwithjoedeal.com. -->
 <!-- <link rel="canonical" href="https://example.com/privacy.html"> -->
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Oaks Roofing &amp; Construction">
 <meta property="og:title" content="Privacy Policy | Oaks Roofing &amp; Construction">
 <meta property="og:description" content="How Oaks Roofing &amp; Construction collects, uses, and protects information submitted through this website.">
-<meta property="og:image" content="assets/img/hero-home.jpg">
+<!-- <meta property="og:image" content="https://example.com/assets/img/hero-home.jpg"> -->
 <!-- <meta property="og:url" content="https://example.com/privacy.html"> -->
 <meta name="twitter:card" content="summary_large_image">
 <link rel="icon" href="assets/img/icon.svg" type="image/svg+xml">
@@ -109,9 +112,9 @@
 <!-- ══ POLICY ══ -->
 <section class="orc-section">
   <div class="wrap">
-    <div class="orc-prose" style="max-width:760px;margin:0 auto;">
+    <div class="orc-prose orc-prose-narrow">
 
-      <p style="color:var(--muted);font-size:.9rem;">Last updated: August 19, 2026</p>
+      <p class="orc-form-note">Last updated: August 19, 2026</p>
 
       <p>Oaks Roofing &amp; Construction is a small roofing, siding, and gutter company in Goshen, OH. This website is a brochure: it tells you what we do and gives you a way to reach us. It is not a store, there are no accounts to create, and there is nothing to log in to. This page explains, in plain language, the only information this site handles.</p>
 
@@ -125,7 +128,7 @@
         <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"></path></svg><span>The service you picked from the list</span></li>
         <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"></path></svg><span>Whatever you write in the message box</span></li>
       </ul>
-      <p style="margin-top:15px;">That is the whole list. The form also carries one hidden field that is there to catch spam robots &mdash; if you are a person it stays empty, and its contents are thrown away either way. Calling us instead collects nothing on this website at all.</p>
+      <p class="u-mt-15">That is the whole list. The form also carries one hidden field that is there to catch spam robots &mdash; if you are a person it stays empty, and its contents are thrown away either way. Calling us instead collects nothing on this website at all.</p>
 
       <h2>How we use it</h2>
       <p>We use what you send for one purpose: to answer your request and to quote the work. In practice that means calling or emailing you back, and often coming out to look at the roof, siding, or gutters in person. If you hire us, your contact details become part of the ordinary paperwork for your job.</p>
@@ -141,15 +144,15 @@
 
       <h2>Third parties</h2>
       <p>Anything you send through the quote form comes to Oaks Roofing &amp; Construction. It is not routed through a lead-generation service, a customer database, or a marketing platform, and we do not hand it on to anyone. If that ever changes &mdash; if we start using an outside scheduling or form service, for example &mdash; this page will say so before it does.</p>
-      <p style="margin-top:15px;">Worth knowing how that actually works: the quote form does not send anything by itself. When you press <em>Send Message</em>, it fills out a new email in whatever mail app you already use, addressed to us, and leaves it for you to send. Nothing leaves your device until you press send in your own mail app, and the details do not pass through this website or any third party on the way. It also means we see the email address you send from, which may not be the one you typed into the form.</p>
+      <p class="u-mt-15">Worth knowing how that actually works: the quote form does not send anything by itself. When you press <em>Send Message</em>, it fills out a new email in whatever mail app you already use, addressed to us, and leaves it for you to send. Nothing leaves your device until you press send in your own mail app, and the details do not pass through this website or any third party on the way. It also means we see the email address you send from, which may not be the one you typed into the form.</p>
       <p>The one outside request these pages make is for the typefaces they are set in, which load from Google Fonts. Your browser asks Google's servers for those font files the same way it asks any web server for a file. We receive nothing from that request and do not use it to identify you.</p>
 
       <h2>Your choices</h2>
-      <p>You can ask us to delete what you sent. Call <a href="tel:+15138275297" style="color:var(--orange);font-weight:700;">(513) 827-5297</a>, tell us you would like your quote request removed, and we will delete it. You do not need to give a reason, and it does not cost anything.</p>
+      <p>You can ask us to delete what you sent. Call <a href="tel:+15138275297">(513) 827-5297</a>, tell us you would like your quote request removed, and we will delete it. You do not need to give a reason, and it does not cost anything.</p>
       <p>You can also just not use the form. The phone works every bit as well, and nothing on this site requires you to fill anything in to read it.</p>
 
       <h2>Contact</h2>
-      <p>Questions about this policy, or about information you have already sent us? Call <a href="tel:+15138275297" style="color:var(--orange);font-weight:700;">(513) 827-5297</a>. We are based in Goshen, OH, and we answer Monday through Saturday, 7:00 AM to 4:00 PM, and Sunday, 7:00 AM to 8:00 PM.</p>
+      <p>Questions about this policy, or about information you have already sent us? Call <a href="tel:+15138275297">(513) 827-5297</a>. We are based in Goshen, OH, and we answer Monday through Saturday, 7:00 AM to 4:00 PM, and Sunday, 7:00 AM to 8:00 PM.</p>
 
       <h2>Changes to this policy</h2>
       <p>If we change how this site handles your information, we will update this page and change the date at the top. We are not going to bury a change somewhere else.</p>

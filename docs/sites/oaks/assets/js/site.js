@@ -124,19 +124,42 @@
       img.alt = items[at].alt;
       if (count) count.textContent = (at + 1) + ' / ' + items.length;
     }
+    // The dialog claims aria-modal="true", so the rest of the page must actually
+    // be inert while it is open — otherwise Tab walks focus onto content sitting
+    // behind an opaque overlay, invisible but still reachable. inert is the modern
+    // answer; aria-hidden covers browsers that do not support it yet.
+    var siblings = Array.prototype.filter.call(document.body.children, function (el) { return el !== box; });
+    function setBackground(inert) {
+      siblings.forEach(function (el) {
+        if (inert) { el.setAttribute('inert', ''); el.setAttribute('aria-hidden', 'true'); }
+        else { el.removeAttribute('inert'); el.removeAttribute('aria-hidden'); }
+      });
+    }
     function open(i) {
       lastFocus = document.activeElement;
       show(i);
       box.hidden = false;
       document.body.style.overflow = 'hidden';
+      setBackground(true);
       var close = $('.orc-lightbox-close', box);
       if (close) close.focus();
     }
     function close() {
       box.hidden = true;
       document.body.style.overflow = '';
+      setBackground(false);
       if (lastFocus) lastFocus.focus();
     }
+
+    // Keep Tab inside the dialog for browsers without inert.
+    box.addEventListener('keydown', function (ev) {
+      if (ev.key !== 'Tab') return;
+      var f = $$('button, [href], img[tabindex]', box).filter(function (el) { return el.offsetParent !== null; });
+      if (!f.length) return;
+      var first = f[0], last = f[f.length - 1];
+      if (ev.shiftKey && document.activeElement === first) { ev.preventDefault(); last.focus(); }
+      else if (!ev.shiftKey && document.activeElement === last) { ev.preventDefault(); first.focus(); }
+    });
 
     grid.addEventListener('click', function (ev) {
       var btn = ev.target.closest('button');
