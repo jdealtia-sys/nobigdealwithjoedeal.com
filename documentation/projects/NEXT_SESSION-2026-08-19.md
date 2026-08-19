@@ -244,12 +244,14 @@ All three mutation-tested — each fails on the real defect and names the file.
 
 ## Still open
 
-1. **`nav-tool` stamping** on the 5 hand-rolled funnel headers, and a
-   **`nav-microsite`** partial for the 7 brand microsites. Both are already
-   named in `check-chrome-governance.js`'s EXEMPT reasons; landing either one
-   makes the gate demand its own exemption be deleted.
-2. **Footer logo:** no footer *variant* uses the real `nbd-logo.png`; 56 pages
-   show a text wordmark, only 4 hand-roll the image. Fix in the partials.
+1. ~~`nav-tool` stamping~~ and ~~footer logo~~ — **both done**, see
+   `a1ed170e` and `1601bc5b`. A **`nav-microsite`** partial for the 7 brand
+   microsites is still open; its EXEMPT reasons in
+   `check-chrome-governance.js` name it, so landing it will make the gate
+   demand those exemptions be deleted.
+2. **No footer partial variant covers the slim one-line funnel footer.** The 8
+   nav-tool pages now have generator-governed navs but still hand-build that
+   footer — that is what their remaining exemptions are for.
 3. **17 orphan assets, 1.87 MiB — deliberately NOT deleted.** Most are brand
    *masters* (`gaf-certified-badge.png`, `-800`, the TAMKO logo set) that the
    `-120`/`-320` variants in use were cut from, plus `roofing-3/4.jpg|webp`
@@ -271,3 +273,31 @@ All three mutation-tested — each fails on the real defect and names the file.
 8. **Jo's call, untouched:** "The Pledge" is top-level nav on 32 pages and
    absent from 162. Adding it to `nav-standard` changes the primary nav on 159
    pages — a product decision.
+
+## Late additions (same session)
+
+| Commit | What |
+|---|---|
+| `1601bc5b` | **footer logo on 54 pages.** No footer *variant* used the real mark; 54 pages rendered a bold text wordmark, only 4 hand-rolled the image. Fixed at the source for 41 (footer-blog + footer-extended) and by hand on 13. The homepage block was **not** transplanted — it depends on `.footer-nav-logo`/`.nav-logo` rules none of those pages define, so the injected anchor carries its own inline sizing |
+| `a1ed170e` | **`nav-tool` stamped on 5 funnel headers** (`.sc-`/`.sr-`/`.fr-` forks), 44 dead rules removed, and a `--orange-light` CTA hover at **2.68:1** caught inside the lifted CSS block and back-ported to the 3 pages already on nav-tool |
+
+**`inspect.html` was deliberately NOT stamped.** Its CSS carried an on-record
+reason — *"Minimal top bar — logo only, no nav (QR funnel: keep them on the
+page)"* — and nav-tool would add a Back-to-site link plus a 32-link menu to a
+QR capture page. The other five carried no such note. It instead got the defect
+it actually had (`position:sticky`, which it was the only funnel header
+missing), and its governance exemption now quotes that reason. **If you ever do
+want inspect unified, that is a conversion decision, not a consistency one.**
+
+Two contracts had to move with the code, both list-shaped in the same way the
+gate work is about:
+
+- `marketing-polish-contract`'s free-roof check pinned the literal
+  `<header class="fr-head">`. Its stated intent ("free-roof shipped with no
+  chrome at all — lock header + footer") is unchanged, so it now accepts the
+  partial or the old class. Mutation-tested.
+- `check-chrome-governance`'s EXEMPT reasons for the 8 funnel pages were
+  rewritten: their **navs are governed now**, only the slim one-line footer is
+  hand-built. The stale-exemption check would not have caught that (they still
+  legitimately need an exemption) — the *reason text* going stale is a failure
+  mode the gate cannot see, so it needs a human to keep honest.
