@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" fill="none" role="img" aria-label="Oaks Roofing &amp; Construction">
+  <!--
+    Favicon / square app mark: the house-and-hammer icon ONLY.
+
+    logo-orange.svg is the full landscape lockup (icon + wordmark + tagline) and
+    is what companyProfile/oaks brand.logoUrl and the generated documents use.
+    At 16-32px that lockup collapses into unreadable mush, so browser tabs get
+    this instead. Same #fa6404 sampled from the company's real artwork, same
+    hammer-as-negative-space construction.
+  -->
+  <defs>
+    <mask id="orcIconKnockout">
+      <rect x="0" y="0" width="256" height="256" fill="#fff"/>
+      <g stroke="#000" fill="#000" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="86" y1="196" x2="176" y2="80" stroke-width="20"/>
+        <path d="M156 54 L196 94 L182 108 L142 68 Z"/>
+        <path d="M196 94 L210 79 Q218 70 210 60 L200 50" stroke-width="14" fill="none"/>
+      </g>
+    </mask>
+  </defs>
+
+  <g mask="url(#orcIconKnockout)">
+    <path d="M52 128 L128 52 L204 128 L204 220 L52 220 Z" fill="#fa6404"/>
+    <path d="M30 134 L128 36 L226 134" stroke="#fa6404" stroke-width="22" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+    <rect x="170" y="48" width="24" height="50" fill="#fa6404"/>
+  </g>
+</svg>
