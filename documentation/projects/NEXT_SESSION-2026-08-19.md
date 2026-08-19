@@ -5,12 +5,43 @@ for the cost lane; the backlinks/AEO lanes in that note are untouched and still 
 
 ---
 
-## 0. Read this first — the branch is not in a PR
+## 0. Read this first — MERGED AND LIVE, and what that means for you
 
-`qc/site-sweep-2026-08-18` carries **42 commits that are not on `main` and not in
-any open pull request** (25 dated 08-18, 17 dated 08-19). Everything below is on
-that branch and nowhere else. Opening the PR is the first action of the next
-session unless Jo has done it.
+*(This section said "42 commits sit on a branch with no PR" for about an hour.
+It shipped in the same session: [#1264](https://github.com/jdealtia-sys/nobigdealwithjoedeal.com/pull/1264),
+merge commit `ebd673b8`, 44 commits, 19/19 checks. Corrected in place rather than
+appended to, per the vault rule — a stale §0 would send the next session hunting
+for a PR that no longer exists.)*
+
+**Merged with a merge commit, not squashed, on purpose.** The PR-B runbook
+extracts the cost seed with `--from <pre-strip-sha>`; squashing would orphan
+those SHAs. `qc/site-sweep-2026-08-18` is deliberately NOT deleted for the same
+reason — do not tidy it away.
+
+**Merging auto-deploys.** `.github/workflows/firebase-deploy.yml` fires on every
+push to `main`, so the merge shipped straight to production. Verified against
+`nobigdealwithjoedeal.com` rather than trusting the green check (this repo has
+three documented false-green deploy modes):
+
+| checked in prod | result |
+|---|---|
+| `pro/js/job-templates-data.js` — `"materialCost"` | **0** |
+| same file — `"laborCost"` | **0** |
+| `MAT DEL` in the reroof templates | 16 |
+| `ADDON_MAT_DELIVERY: 412.50` in `estimate-config.js` | live |
+
+The leak is closed in production, not just at HEAD.
+
+**Still yours, and deliberately manual — step 4 of the PR-B runbook.** Nothing in
+that PR was ever clicked in the real app; the tests drive the engine in a `vm`,
+which is not the same thing. Estimates → Job Templates, insert a template with a
+known custom item, confirm it prices at your figure with no "Cost not set" chip.
+Then reopen a saved estimate carrying a `JT *` row, nudge one measurement, and
+confirm the grand total does not move (that is PR-A still holding).
+
+**Live pricing changed.** Per-SQ quotes are $412.50 higher and reroof templates
+1.8–3.2% higher, both intended — but they are on real paper now, so watch the
+first quote out the door.
 
 ---
 
