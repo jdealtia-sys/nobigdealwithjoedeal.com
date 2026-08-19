@@ -23,6 +23,7 @@
     "gauntlet-brand-guard.test.js",
     "inbound-sms-route.test.js",
     "lead-dedup.test.js",
+    "legacy-documents-audit.test.js",
     "lead-pipeline-logic.test.js",
     "money-dashboard.test.js",
     "monthly-overhead-logic.test.js",

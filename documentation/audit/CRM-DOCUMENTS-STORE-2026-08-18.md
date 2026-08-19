@@ -134,6 +134,29 @@ legacy merge query (`where('leadId','==',leadId)`) excludes them. Don't
 "clean up" that collection assuming it is dead — it isn't, it is just a
 different feature.
 
+## Open question: is the legacy merge read still load-bearing?
+
+The store does a second, best-effort read against the top-level collection so
+rows written by the old Overview upload modal aren't orphaned. That costs a
+query on every customer-page load. If no live lead-scoped rows survive in prod,
+it can be deleted along with the `legacy` flag and the split delete path in
+`deleteCustomerDoc`.
+
+Unanswered as of this note — it needs prod credentials, which the session that
+wrote this didn't have. **`scripts/audit-legacy-documents.js`** answers it in
+one read-only run:
+
+```bash
+node scripts/audit-legacy-documents.js
+```
+
+It buckets the collection into live lead-scoped rows (the merge read's whole
+reason to exist), soft-deleted lead rows (filtered by the store, so they don't
+count), and the company library (not ours — it never proposes touching those).
+It also flags rows duplicated across both stores, which render twice today
+since the store merges without deduping. Read-only, always exits 0, not a CI
+gate. Guarded by `tests/legacy-documents-audit.test.js`.
+
 ## Related
 
 - [SITE-QC-SWEEP-2026-08-18](SITE-QC-SWEEP-2026-08-18.md) — same branch
