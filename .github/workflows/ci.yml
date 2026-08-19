@@ -456,6 +456,13 @@ jobs:
       # file for a month.
       - name: Assert job-templates-data.js carries no contractor costs
         run: node scripts/strip-job-template-costs.js --check
+      # The rotation toolchain for the catalogs that STILL publish a cost basis
+      # (labor 66 / xactimate 276 / EBv2 28). What it guards is the property
+      # that makes rotation meaningful: a no-op cannot pass as a rotation, so
+      # every refusal path — untouched sheet, blank cell, bad value, wrong
+      # catalog, unrotated seed — is asserted.
+      - name: Run cost-basis registry + rotation tests
+        run: node tests/cost-basis-registry.test.js
       # Catalog integrity + the product-library DATA_VERSION migration. Was
       # local-only; gated here because the cost split touches both.
       - name: Run product catalog + library migration tests
