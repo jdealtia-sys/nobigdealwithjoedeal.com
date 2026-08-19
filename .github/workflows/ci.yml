@@ -1095,10 +1095,23 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: '22'
+      # NO bare `playwright` argument here — install the workspace AS PINNED,
+      # the same two lines visual-regression and visual-brand-tokens use (and
+      # which pass). `npm install … playwright` adds playwright@latest ON TOP of
+      # the pinned @playwright/test@^1.61.1, and BOTH packages ship a bin named
+      # `playwright`. Whichever npm links last owns .bin/playwright, so
+      # `npx playwright install` fetched browsers for one version while
+      # scripts/qc-render-sweep.js (testRequire('playwright')) resolved the
+      # other — the job died at browserType.launch with "Executable doesn't
+      # exist at …/chromium_headless_shell-<rev>" and never rendered a page.
+      # It had failed that way on every run since it shipped, so this gate has
+      # never actually run. @playwright/test depends on playwright at the same
+      # version, so the pinned install gives require('playwright') the exact
+      # version whose browsers were just downloaded.
       - name: Install Playwright (tests workspace)
         run: |
           cd tests
-          npm install --silent --no-audit --no-fund playwright
+          npm install --silent --no-audit --no-fund
           npx playwright install --with-deps chromium
       - name: Serve docs/
         run: |
