@@ -246,12 +246,18 @@ clamp both run AFTER add-ons, so on a sub-floor job the customer total does not
 move even though the trip is real. The subtotal moves; the total cannot. That is
 asserted rather than left to be discovered.
 
-**Assumption, stated plainly:** that the per-SQ tier rates do not already include
-delivery. Nothing in the repo records this either way, and the opposite reading —
-that a retail per-square rate is all-in — is the natural one. If the tier rates
-DO absorb delivery, this add-on double-bills and the right move is to revert the
-charge and keep only the cost-side work. Worth confirming against one recent job
-before a quote goes out.
+**Premise CONFIRMED by Jo, 2026-08-19: the tier rates do not include delivery —
+it is billed on top.** This had been shipped as a stated assumption, because
+nothing in the repo records it either way and the opposite reading (a retail
+per-square rate is all-in) is the natural one. Had it gone the other way the
+add-on would have double-billed the homeowner and the charge would have needed
+reverting, keeping only the cost-side work. It did not; no change is required.
+
+Worth keeping visible, because it is the kind of fact that is invisible in code
+and expensive to re-derive: `TIER_RATES` (good 545 / better 595 / best 660 per
+SQ) cover materials + labour + OH&P and **assume delivery is billed separately**.
+Anything else flat and per-job that reaches per-SQ pricing should be checked the
+same way before it is billed — ask whether the tier rate already absorbs it.
 
 Fixing these is **not** a rotation and must not be recorded as one in
 `tests/cost-basis-ledger.js` — correcting a drifted baseline toward current
