@@ -43,22 +43,25 @@
  *   node scripts/backfill-pins-companyId.js --apply --yes # actually write
  */
 
-const admin = require('firebase-admin');
+const { initAdmin, getFirestore, getAuth } = require('./_admin');
+const { assertNotCompleted, recordCompletion } = require('./_migration-guard');
+
 
 const args = process.argv.slice(2);
 const APPLY = args.includes('--apply');
 const YES = args.includes('--yes');
+// --force overrides the run-once guard (see scripts/_migration-guard.js).
+const FORCE = args.includes('--force');
+const MIGRATION = 'backfill-pins-companyId';
 const PROJECT = process.env.NBD_PROJECT || 'nobigdeal-pro';
 
 const PAGE = 500;
 const BATCH = 400;
 
 function init() {
-  try {
-    admin.initializeApp({ credential: admin.credential.applicationDefault(), projectId: PROJECT });
-  } catch (e) {
-    if (!String(e.message || '').includes('already exists')) throw e;
-  }
+  // initAdmin is idempotent (ADC credential by default), so the old
+  // "already exists" message-matching catch is no longer needed.
+  initAdmin({ projectId: PROJECT });
 }
 
 // Build userId → companyId (most common) and leadId → companyId maps from the
@@ -106,7 +109,9 @@ async function main() {
     process.exit(2);
   }
   init();
-  const db = admin.firestore();
+  const db = getFirestore();
+  // One-shot: refuse a second --apply unless --force.
+  await assertNotCompleted(MIGRATION, { apply: APPLY, force: FORCE });
 
   // Resolve a user's authoritative tenant from their companyId custom claim
   // (admin auth), cached. Mirrors _savePin's `claims.companyId || uid`: a company
@@ -115,7 +120,7 @@ async function main() {
   // company claim (genuine solo operator) or the user is gone — caller falls back
   // to uid in that case. Only hit for pins the lead book can't resolve, so this is
   // a handful of getUser() calls, not one per pin.
-  const auth = admin.auth();
+  const auth = getAuth();
   const claimCache = new Map();
   async function claimCompanyFor(uid) {
     if (!uid) return null;
@@ -217,6 +222,8 @@ async function main() {
   if (APPLY) { console.log('  written         : ' + written); console.log('  failures        : ' + failures); }
   else { console.log('  (dry-run — re-run with --apply --yes to write)'); }
   console.log('───────────────────────────────────────────────────────────');
+
+  if (APPLY && failures === 0) await recordCompletion(MIGRATION, { scanned, toFix, written, ambiguous });
 
   process.exit(failures > 0 ? 1 : 0);
 }

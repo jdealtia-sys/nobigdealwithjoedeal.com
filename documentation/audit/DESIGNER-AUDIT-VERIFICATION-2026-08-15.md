@@ -37,7 +37,14 @@ Incidental findings from the sweep (not in the audit):
 
 - All 25 area pages hardcode `"addressLocality": "Goshen"` in JSON-LD while
   `geo`/`areaServed` vary correctly. Fine if intended as business HQ;
-  verify it wasn't meant to be the page city.
+  verify it wasn't meant to be the page city. **Update 2026-08-18:** likely
+  wrong, not "fine if intended" — Jo confirmed he does not live in Goshen
+  (works there, doesn't reside there), and a much larger false-residency
+  claim built on that same premise was found and removed from marketing
+  prose across 9 files, see
+  [HOMEOWNER-SITE-AUDIT-AND-GOSHEN-FIXES-2026-08-18](HOMEOWNER-SITE-AUDIT-AND-GOSHEN-FIXES-2026-08-18.md).
+  This JSON-LD field is still open pending Jo's actual business address —
+  don't guess at it, it's structured data, not prose.
 - `/pro/sandbox` is indexable **by accident** — not in the
   `firebase.json:235` noindex enumeration, no meta robots, in no sitemap.
 - Free-guide opt-in: `window.__NBD_TURNSTILE_SITEKEY = ""` is still

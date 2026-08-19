@@ -107,6 +107,9 @@ const crypto = require('crypto');
 const args = process.argv.slice(2);
 const APPLY = args.includes('--apply');
 const YES = args.includes('--yes');
+// --force overrides the run-once guard (see scripts/_migration-guard.js).
+const FORCE = args.includes('--force');
+const MIGRATION = 'backfill-photos-variants';
 const LIMIT = (() => {
   const i = args.indexOf('--limit');
   if (i === -1) return Infinity;
@@ -210,16 +213,11 @@ function variantDestinations(objectPath, variants) {
 
 // ── Runtime wiring ─────────────────────────────────────────────────
 
-function init(admin) {
-  try {
-    admin.initializeApp({
-      credential: admin.credential.applicationDefault(),
-      projectId: PROJECT,
-      storageBucket: BUCKET,
-    });
-  } catch (e) {
-    if (!String(e.message || '').includes('already exists')) throw e;
-  }
+// Takes the lazily-required ./_admin module rather than requiring it itself —
+// see the "Lazy deps" note in main(). initAdmin is idempotent (ADC credential
+// by default), so the old "already exists" message-matching catch is gone.
+function init(adminMod) {
+  adminMod.initAdmin({ projectId: PROJECT, storageBucket: BUCKET });
 }
 
 function loadSharp() {
@@ -259,7 +257,9 @@ async function main() {
   }
 
   // Lazy deps — keep the module top requirable with zero deps (smoke tests).
-  const admin = require('firebase-admin');
+  // ./_admin resolves firebase-admin at ITS require time, so it must stay in
+  // here rather than moving to the module top.
+  const adminMod = require('./_admin');
   // Requiring functions/image-pipeline.js constructs its onObjectFinalized
   // trigger, and firebase-functions resolves the default bucket from
   // FIREBASE_CONFIG at that moment — absent in a plain admin-script env, so
@@ -271,10 +271,14 @@ async function main() {
   const { VARIANTS, MAX_SOURCE_BYTES } = require('../functions/image-pipeline');
   const sharpLib = APPLY ? loadSharp() : null; // dry-run never encodes
 
-  init(admin);
-  const db = admin.firestore();
-  const bucket = admin.storage().bucket(BUCKET);
-  const FieldValue = admin.firestore.FieldValue;
+  init(adminMod);
+  // One-shot: refuse a second --apply unless --force. Required lazily for the
+  // same reason as ./_admin — it pulls firebase-admin at ITS require time.
+  const { assertNotCompleted, recordCompletion } = require('./_migration-guard');
+  await assertNotCompleted(MIGRATION, { apply: APPLY, force: FORCE });
+  const db = adminMod.getFirestore();
+  const bucket = adminMod.getStorage().bucket(BUCKET);
+  const FieldValue = adminMod.FieldValue;
 
   console.log('═══════════════════════════════════════════════════════════');
   console.log('Backfill photos storagePath + WebP variants (§2.2)');
@@ -603,6 +607,10 @@ async function main() {
   console.log('───────────────────────────────────────────────────────────\n');
 
   if (APPLY) await printMetrics(db, 'AFTER');
+
+  if (APPLY && stampFailures + genFailures === 0) {
+    await recordCompletion(MIGRATION, { stampFailures, genFailures });
+  }
 
   process.exit(stampFailures + genFailures > 0 ? 1 : 0);
 }

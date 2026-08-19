@@ -164,7 +164,7 @@ section('firebase-admin v14: legacy namespace is dead');
   // Files allowed to keep `const admin = require('firebase-admin')` —
   // they only call admin.initializeApp(), which v14 still exports.
   const REQUIRE_ALLOWLIST = new Set([
-    'index.js', 'seed-demo.js', 'seed-companies.js', 'rate-limit-policy.js',
+    'index.js', 'seed-demo.js', 'rate-limit-policy.js',
     'migrations/runner.js', 'migrate-companyprofile-per-tenant.js',
     'migrate-companyid-backfill.js', 'migrate-docprefixes.js',
   ]);
@@ -1047,6 +1047,90 @@ section('F-10: deploy workflow fails loudly on rules/functions errors');
     assert('F-10: storage-rules deploy fails loudly',
       !/set \+e[\s\S]{0,200}deploy --only storage[\s\S]{0,300}exit 0/.test(storageBlock[0]));
   }
+}
+
+section('F-10b: strict functions deploy — all three false-green guards');
+{
+  // This step has now shipped THREE distinct ways to report success while
+  // functions did not deploy. Each guard is pinned here because each one is a
+  // few lines of shell that a future edit could quietly drop, and the failure
+  // mode is invisible by construction — the job goes GREEN.
+  // Full inventory: documentation/audit/DEPLOY-FALSE-GREEN-MODES-2026-08-17.md
+  const wf = read(path.join(ROOT, '.github/workflows/firebase-deploy.yml'));
+  const m = wf.match(/name: Deploy Cloud Functions \(strict[\s\S]*?\n      - name: /);
+  const strict = m ? m[0] : '';
+  assert('F-10b: strict step block found', strict.length > 2000);
+
+  // ── Mode 1 (2026-08-17, PR #1210): DISCOVERY-LIST DRIFT ──
+  // The --only list is built by grepping exports for a hand-maintained
+  // alternation of trigger wrappers. Storage triggers were missing from it for
+  // ~4 months, so onPhotoUploaded/onAudioUploaded never auto-deployed at all.
+  assert('F-10b mode 1: discovery alternation covers Storage triggers',
+    /onObjectFinalized/.test(strict));
+  assert('F-10b mode 1: discovery alternation covers Firestore triggers',
+    /onDocumentCreated/.test(strict) && /onDocumentWritten/.test(strict));
+
+  // ── Mode 2 (2026-08-10 audit): WHOLESALE FAILURE ──
+  // Nonzero exit with zero "Failed to ..." lines (auth/config/quota abort)
+  // produced an empty failure set and printed success while deploying nothing.
+  assert('F-10b mode 2: wholesale-failure guard present',
+    /WHOLESALE_FILE/.test(strict) && /wholesale deploy failure/.test(strict));
+  assert('F-10b mode 2: wholesale failure is fatal',
+    /failed WHOLESALE/.test(strict));
+
+  // ── Mode 3 (run 32074172766, 2026-08-17): QUOTA-DROPPED UPDATE ──
+  // ~17 of 167 functions got an "updating..." line and NO terminal line — no
+  // success, no failure, exit 0. Both guards above passed. The fix reconciles
+  // the set we ASKED to deploy against the set that reported a terminal result.
+  assert('F-10b mode 3: completion lines are parsed',
+    strict.includes('Successful (create|update) operation'));
+  assert('F-10b mode 3: the Skipped line counts as terminal',
+    strict.includes('Skipped \\(No changes detected\\)'));
+  // A delete line must never account for a targeted function, or orphan
+  // cleanup could paper over a missing update.
+  assert('F-10b mode 3: delete lines do NOT account for a target',
+    !/Successful \(create\|update\|delete\)/.test(strict)
+    && !/Successful \[a-z\]\+ operation/.test(strict));
+  // firebase-tools colorizes whenever CI is set, so the parse MUST strip ANSI.
+  // Without this every line misses and all 167 look unaccounted-for.
+  assert('F-10b mode 3: ANSI is stripped before parsing',
+    /_strip_ansi/.test(strict) && /ESC=\$\(printf/.test(strict));
+  assert('F-10b mode 3: the gap feeds the existing straggler retry',
+    /"\$silent" >> "\$FAILED_FILE"/.test(strict));
+  // Regression from run 32079768048, the first prod deploy to carry this step:
+  // `targeted − accounted` ALSO contains every function that reported a failure
+  // (a failed function has no success line either), so all 22 ordinary
+  // stragglers were announced as "printed NO completion line" — flatly untrue.
+  // Retry behavior was correct; the diagnosis was not. On a step whose whole
+  // job is telling failure modes apart, a warning that fires on the ~5-10% that
+  // fail loudly every deploy is worse than no warning at all.
+  assert('F-10b mode 3: the silent set subtracts functions that REPORTED a failure',
+    /grep -F -x -v -f "\$PARSED_FILE"/.test(strict)
+    && /grep -F -x -v -f "\$ACCOUNTED_FILE"/.test(strict));
+  assert('F-10b mode 3: the gap is surfaced distinctly from a reported failure',
+    /printed NO completion line/.test(strict));
+  // Each retry round must start from a clean slate or the final summary
+  // reports stragglers that an earlier round already fixed.
+  assert('F-10b mode 3: the missing set resets between retry rounds',
+    /: > "\$MISSING_FILE"/.test(strict));
+  // Wholesale must NOT feed the retry rounds — otherwise an auth failure burns
+  // three batched re-deploys of all 167 functions before failing.
+  assert('F-10b mode 3: a wholesale failure short-circuits before accounting',
+    /wholesale deploy failure[\s\S]{0,400}return 0/.test(strict));
+
+  // A gap that survives the retries must still fail the job — the whole point.
+  assert('F-10b: an unresolved gap fails the job',
+    /::error::Cloud Functions still failing/.test(strict)
+    && /exit 1/.test(strict));
+  // Success is reported in terms of what was VERIFIED, not what was attempted.
+  assert('F-10b: the success line reports functions accounted for',
+    /accounted for by a completion line/.test(strict));
+
+  // The burst that tripped the 429 was 167 simultaneous mutations. There is no
+  // firebase-tools concurrency flag (v15 hardcodes concurrency: 40 with no env
+  // override), so the only lever is chunking our own --only list.
+  assert('F-10b: a wave-1 burst cap exists',
+    /NBD_DEPLOY_WAVE1_MAX/.test(strict) && /mutation-burst cap/.test(strict));
 }
 
 section('D9: new-device sign-in alert');

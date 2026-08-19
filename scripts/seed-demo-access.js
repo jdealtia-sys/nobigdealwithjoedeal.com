@@ -20,7 +20,7 @@
  *     30/min) — bounded compute, acceptable for a demo.
  *
  * ⚠ THIS WRITES TO PROD FIRESTORE. Jo runs this (Claude does not write prod).
- *   Auth: GOOGLE_APPLICATION_CREDENTIALS env var (same as seed-companies.js).
+ *   Auth: GOOGLE_APPLICATION_CREDENTIALS env var (same as functions/seed-demo.js).
  *   Run:  node scripts/seed-demo-access.js
  *
  * This is ALSO the agent-access path: the demo button is click-only (no
@@ -28,10 +28,21 @@
  */
 'use strict';
 
-const admin = require('firebase-admin');
-if (!admin.apps.length) admin.initializeApp();
+const path = require('path');
+// firebase-admin lives in functions/node_modules (scripts/ has none), so a bare
+// require fails when run from the repo root — there is no root node_modules.
+// Resolve it from functions/, same as the other scripts/ entrypoints.
+let req = require;
+try { require.resolve('firebase-admin'); }
+catch (_) { req = require('module').createRequire(path.join(__dirname, '..', 'functions', 'package.json')); }
 
-const Timestamp = admin.firestore.Timestamp;
+const admin = req('firebase-admin');
+// firebase-admin v14 removed admin.apps, admin.app(), admin.firestore() AND
+// the admin.firestore.* namespace (so admin.firestore.Timestamp is gone too).
+// getApps()/getApp()/getFirestore()/Timestamp come from the modular subpaths.
+const { getApps, getApp } = req('firebase-admin/app');
+const { getFirestore, Timestamp } = req('firebase-admin/firestore');
+if (!getApps().length) admin.initializeApp();
 
 const DEMO_CODE = {
   active:      true,
@@ -47,8 +58,8 @@ const DEMO_CODE = {
 };
 
 (async () => {
-  const db = admin.firestore();
-  const projectId = (admin.app().options && admin.app().options.projectId)
+  const db = getFirestore();
+  const projectId = (getApp().options && getApp().options.projectId)
     || process.env.GOOGLE_CLOUD_PROJECT || process.env.GCLOUD_PROJECT || '(inferred from ADC)';
   console.log('Project:', projectId);
   const ref = db.collection('access_codes').doc('DEMO');

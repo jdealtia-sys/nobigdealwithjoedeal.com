@@ -27,8 +27,8 @@ companyProfile/oaks = {
   createdAt: <serverTimestamp>
 }
 ```
-(`functions/seed-companies.js` is the pattern for batch-seeding companies with
-an admin SDK credential.)
+(`functions/seed-demo.js` is the pattern for batch-seeding with an admin SDK
+credential.)
 
 ## 2. Create the owner user + set claims
 The owner must end up with claims `{ role: 'company_admin', companyId: 'oaks' }`.
@@ -78,7 +78,34 @@ Owner (company_admin) adds reps/viewers via `createTeamMember` (roles:
 - Confirm a `sales_rep` sees only their own leads; a `viewer` is read-only.
 - Create one test lead → confirm it's stamped `companyId: 'oaks'`.
 
-## 7. Hand-off
+## 7. Release the public microsite (separate, deliberate step)
+Onboarding a tenant does **not** put their microsite on the public web, and must
+not. Since the 2026-08-17 publication gate, `getPublicSiteConfig` serves only
+companies explicitly marked `status: 'active'`; anything else — including an
+absent status, which is what `provision-tenant.js` leaves behind — 404s at
+`/sites/t/<companyId>`.
+
+Release it only once the tenant has actually signed off on their site content:
+
+```bash
+node scripts/backfill-company-status.js --only=oaks --write
+```
+
+Check first with a dry run (omit `--write`). To take a site back down, set
+`status` to `'unpublished'` on `companies/{id}`.
+
+> **Do not park an unreleased tenant at `status: 'suspended'`** (or any other
+> non-`active` value) just to keep it dark — leave the field absent. An absent
+> status means "real tenant, not published", and `resolveCompanyByKey` still
+> tags their inbound leads to them. A status that is *set* but not `'active'`
+> makes the resolver treat the company as gone, and their leads misroute to the
+> default pipeline.
+
+Confirm both directions after releasing:
+- `curl -sI https://nobigdealwithjoedeal.com/sites/t/<companyId>` → 200
+- an unreleased tenant's id → the same opaque 404 as a nonexistent one
+
+## 8. Hand-off
 Send the owner the login URL + a 2-line "add your team / import leads" note.
 Watch their first week in Cloud Logging for permission-denied spikes (a claims
 misconfig shows up there).
