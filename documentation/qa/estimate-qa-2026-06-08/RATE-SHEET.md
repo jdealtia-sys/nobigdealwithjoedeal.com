@@ -87,8 +87,16 @@ Values identical; **key shapes differ** ("Hamilton" vs "hamilton-oh"). Wrong-sha
 | Gutters | $8.50/LF | $8.50/LF ✓ |
 | Valley | `eave × 0.25 × $12/LF` | `valleyMetalLf × $8.50/LF` (different input) |
 | Extra pipe boot (>4) | `(pipes-4) × $45` (`window.R.pipe`) | `(pipes-4) × $85` |
+| Material delivery (flat/job) | — (not billed) | $412.50 (config) — per-SQ only ¹ |
 | Deposit (cash) | 50% | 50% |
 | Deposit (insurance) | $0 | $0 |
+
+¹ Added 2026-08-19. The EBv2 figure is the line-item `MAT DEL` line carried
+through the same chain `calculateLineItem` applies — material markup 25%, then
+overhead 10% + profit 10% — so the two modes quote the same delivery money at
+the subtotal. Per-SQ applies no markup of its own, which is why the add-on price
+is the already-marked-up figure rather than the catalog cost. Classic
+(`docs/pro/js/estimates.js`) still bills no delivery at all.
 
 ## G. Third path — line-item engine `estimate-logic-engine.js`
 `resolveEstimate()` does **not** read `window.NBD_ESTIMATE_CONFIG`; it hardcodes

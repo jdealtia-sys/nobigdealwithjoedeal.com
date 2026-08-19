@@ -454,7 +454,7 @@ exports.createTeamMember = onCall(
       return { occupied, reuses };
     };
     const overCapError = () => new HttpsError('resource-exhausted', seatLimit === 0
-      ? 'Team seats need the Team plan ($149/mo) or higher — your current plan is solo. Upgrade at /pro/landing.html#pricing.'
+      ? 'Team seats need the Team plan ($149/mo) or higher — your current plan is solo. Upgrade at /pro#pricing.'
       : `Your plan includes ${seatLimit} team seat${seatLimit === 1 ? '' : 's'} and they're all taken. Remove a member or upgrade to add more.`);
 
     // Fast pre-check BEFORE creating an Auth user so an over-cap add fails cheap

@@ -317,6 +317,14 @@ footer { background: var(--navy-dark); color: rgba(255,255,255,0.75); padding: 5
   .footer-grid { grid-template-columns: 1fr 1fr; }
 }
 @media (max-width: 680px) {
+  /* ── CONTENT CARD ──
+     qc-render-sweep 2026-08-18: this page overflowed 20px at 390px. The card's
+     min-content was 379px = 72px of padding + a 307px two-column .stat-grid,
+     whose widest cell ("Seamless / No Joints") can't wrap below 152px. Grid
+     items default to min-width:auto, so the 1fr track was pushed past the
+     viewport. Trimming the padding is enough; the two stat columns are
+     deliberate on mobile (see .stat-grid below) and still fit. */
+  .content-card { padding: 24px; }
   /* ── NAV ── */
   .nav-links { display: none; }
   .hamburger { display: block; }

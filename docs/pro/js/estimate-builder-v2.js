@@ -60,6 +60,52 @@
     best:   0
   };
 
+  // Add-on COST ratio (Internal-view margin calc, 2026-08-19).
+  //
+  // What this replaces: a single blanket `addOnsTotal * 0.4`, i.e. "every
+  // add-on carries a 60% margin". Two of the fifteen are third-party
+  // PASS-THROUGHS and carry none — the permit is remitted to the jurisdiction
+  // in full, and the dump fee is the hauler's invoice. LINE-ITEM mode has
+  // always costed both at face value: generateLineItemsFromMeasurements sets
+  // the permit line's materialCost to the permit fee itself, and the CATALOG
+  // entries below carry `cost` equal to the fee for 'dump-fee' and
+  // 'permit-fee'. Per-SQ was the outlier, and on a job carrying both it
+  // assumed well under half their real cost — overstating margin by several
+  // hundred dollars in the view the shop prices against. Nothing the homeowner
+  // is charged changes; this is the internal number only.
+  //
+  // The other twelve are real work (steep/story/cut-up/access labour,
+  // flashing, valley metal, gutters, extra boots) and keep 0.4 — the
+  // pre-existing figure, unchanged, now named instead of inline. It is still
+  // an ASSUMPTION: no measured cost basis for per-SQ add-on work exists
+  // anywhere in the repo, and none was invented here.
+  //
+  // Per-key overrides live in settings (`addonCostRatios`), the same home as
+  // costBasis and for the same reason — a shop's real ratios are tenant data
+  // and this file is world-readable. Nothing sensitive is published here: that
+  // a permit is remitted in full is a fact about permits, not about NBD.
+  const ADDON_COST_PASS_THROUGH = ['permit', 'dumpFee'];
+  const DEFAULT_ADDON_COST_RATIO = 0.4;
+
+  /** Cost-to-charge ratio for one per-SQ add-on. Tenant override wins. */
+  function _addonCostRatio(s, key) {
+    const raw = s && s.addonCostRatios ? s.addonCostRatios[key] : undefined;
+    // Same rule as applyCompanyPricing's sane(): a blank or missing editor
+    // field ('' / null / undefined / NaN) is DROPPED so the default stands,
+    // but a literal 0 IS honored. Number('') and Number(null) are both 0, so
+    // testing finiteness alone would read an empty field as "this add-on costs
+    // nothing" — understating cost, which is the very defect being fixed here.
+    if (raw === '' || raw == null) return _addonCostRatioDefault(key, s);
+    const n = Number(raw);
+    if (!Number.isFinite(n) || n < 0) return _addonCostRatioDefault(key, s);
+    return n;
+  }
+
+  function _addonCostRatioDefault(key, s) {
+    if (key === 'matDelivery') return _matDeliveryCostRatio(s);
+    return ADDON_COST_PASS_THROUGH.indexOf(key) >= 0 ? 1 : DEFAULT_ADDON_COST_RATIO;
+  }
+
   const MIN_JOB_CHARGE          = (_NBD_CFG && _NBD_CFG.JOB_MINIMUM_DOLLARS)            || 2500;  // Kicks in below ~4.5 SQ
   const ROUND_TO                = (_NBD_CFG && _NBD_CFG.ROUND_TO_DOLLARS)               || 25;    // Round grand total to nearest $25
   const TEAR_OFF_EXTRA_PER_SQ   = (_NBD_CFG && _NBD_CFG.TEAR_OFF_EXTRA_PER_SQ_DOLLARS)  || 50;    // $50/SQ per extra layer
@@ -107,7 +153,7 @@
   // Per-SQ mode add-on unit prices.
   // chimneyFlash + skylightFlash are unified with classic via
   // estimate-config.js (Rock 2 PR 4b — chimney $425, skylight $350,
-  // Joe-confirmed). The other three remain engine-local pending
+  // Joe-confirmed). The other two (valleyMetalLf, guttersLf) remain engine-local pending
   // a separate decision; Joe flagged them as "low margin" so the
   // value drift isn't material yet.
   const ADDON_PRICES = {
@@ -127,7 +173,12 @@
     threeStoryPerSq:       (_NBD_CFG && _NBD_CFG.ADDON_THREE_STORY_PER_SQ)      || 30,
     cutUpPerSq:            (_NBD_CFG && _NBD_CFG.ADDON_CUTUP_PER_SQ)            || 15,
     accessModeratePerSq:   (_NBD_CFG && _NBD_CFG.ADDON_ACCESS_MODERATE_PER_SQ)  || 15,
-    accessDifficultPerSq:  (_NBD_CFG && _NBD_CFG.ADDON_ACCESS_DIFFICULT_PER_SQ) || 35
+    accessDifficultPerSq:  (_NBD_CFG && _NBD_CFG.ADDON_ACCESS_DIFFICULT_PER_SQ) || 35,
+    // Material delivery + fuel surcharge — FLAT per JOB, never per SQ. A
+    // delivery trip does not scale with roof size, and amortising a flat fee
+    // into costBasis[tier] (a per-SQ number) is exact at exactly one job size
+    // — see documentation/audit/CATALOG-UNDER-COST-2026-08-19.md finding 1.
+    matDelivery:    (_NBD_CFG && _NBD_CFG.ADDON_MAT_DELIVERY)    || 412.50
   };
 
   // ═════════════════════════════════════════════════════════
@@ -351,6 +402,33 @@
   const DEFAULT_PROFIT_PCT   = 0.10;  // 10% profit
   const DEFAULT_MATERIAL_MARKUP_PCT = 0.25; // 25% baked into materials
 
+  // Material-delivery COST. Neither shipped bucket fits, and a fixed FRACTION
+  // of the charge does not fit either: the charge is shop-editable
+  // (applyCompanyPricing merges companyProfile.pricing.addonPrices) and the
+  // add-on reducer scales the ratio by the CHARGED cents, so a shop that
+  // lowered the price would silently book less cost than the supplier bills.
+  // A delivery invoice does not shrink because the shop discounted the job.
+  // So cost is PINNED to the baseline the charge was built from and the ratio
+  // is derived per call: in integer cents it lands dead on the baseline at any
+  // charge, and a charge of 0 books 0 because the reducer skips zero-charge
+  // keys. Nothing about NBD is published — the baseline is the already-public
+  // 'MAT DEL' figure divided back out by two already-published rates.
+  // Tenant escape hatch, unchanged: settings.addonCostRatios.matDelivery.
+  //
+  // Declared HERE, not beside ADDON_COST_PASS_THROUGH where it reads more
+  // naturally: the three rates above are declared ~290 lines below that block,
+  // so a top-level const there would throw a TDZ ReferenceError at load.
+  const MAT_DELIVERY_MARKUP_CHAIN =
+    (1 + DEFAULT_MATERIAL_MARKUP_PCT) * (1 + DEFAULT_OVERHEAD_PCT + DEFAULT_PROFIT_PCT);
+  const MAT_DELIVERY_BASELINE = ADDON_PRICES.matDelivery / MAT_DELIVERY_MARKUP_CHAIN;
+
+  /** Default cost/charge ratio for material delivery: baseline / what we charge. */
+  function _matDeliveryCostRatio(s) {
+    const charged = Number(s && s.addonPrices ? s.addonPrices.matDelivery : NaN);
+    if (!Number.isFinite(charged) || charged <= 0) return 1 / MAT_DELIVERY_MARKUP_CHAIN;
+    return MAT_DELIVERY_BASELINE / charged;
+  }
+
   // ═════════════════════════════════════════════════════════
   // SECTION 4 — Pure Helpers
   // ═════════════════════════════════════════════════════════
@@ -460,6 +538,7 @@
       // Per-SQ mode
       tierRates:  Object.assign({}, TIER_RATES),
       costBasis:  Object.assign({}, DEFAULT_COST_BASIS),
+      addonCostRatios: {},             // per-add-on cost/charge overrides (tenant data)
       tearOffExtraPerSq: TEAR_OFF_EXTRA_PER_SQ,
       addonPrices: Object.assign({}, ADDON_PRICES),
 
@@ -476,6 +555,13 @@
       const raw = typeof localStorage !== 'undefined'
         ? localStorage.getItem(SETTINGS_KEY)
         : null;
+      // loadSettings() STAYS PURE — no tenant overlay here, by contract
+      // (tests/custom-jurisdictions.test.js: "getCountyTaxMap does not bake the
+      // overlay into loadSettings"). The county overlay is applied at CALC time
+      // so a late-arriving companyProfile is honored, and the cost overlay
+      // rides exactly the same rule for exactly the same reason: a cost book
+      // that lands after boot must still reach the next price. Both are applied
+      // at the two pricing entry points below.
       if (!raw) return getDefaultSettings();
       const saved = JSON.parse(raw);
       const defaults = getDefaultSettings();
@@ -483,6 +569,7 @@
       const merged = Object.assign({}, defaults, saved, {
         tierRates:   Object.assign({}, defaults.tierRates, saved.tierRates || {}),
         costBasis:   Object.assign({}, defaults.costBasis, saved.costBasis || {}),
+        addonCostRatios: Object.assign({}, defaults.addonCostRatios, saved.addonCostRatios || {}),
         permits:     Object.assign({}, defaults.permits, saved.permits || {}),
         countyTax:   Object.assign({}, defaults.countyTax, saved.countyTax || {}),
         catalog:     Object.assign({}, defaults.catalog, saved.catalog || {})
@@ -567,6 +654,53 @@
   // depending on which path computed it. Read at CALL time behind the same
   // typeof-window guard as applyCompanyPricing — in Node (no window) this is a
   // no-op by construction, so the harnesses' neutral-county behavior is intact.
+  /**
+   * Overlay the tenant's own package costs onto a settings catalog copy.
+   *
+   * CATALOG's published cost/labor figures are a STARTER BASELINE, not any
+   * company's real numbers. They stay published because nothing else prices a
+   * per-tier package — strip them and a tenant with no cost book cannot
+   * produce an estimate at all. What makes a published baseline safe is the
+   * tenant's actual figures being different (rotation), not the baseline being
+   * hidden; it is readable at every past commit regardless. See
+   * documentation/projects/PHASE2-PUBLISHED-COST-BASIS-BRIEF-2026-08-18.md.
+   *
+   * Applied at the same choke point as _withTenantCounties so every pricing
+   * path inherits it, and applied to a COPY — `settings.catalog` is already a
+   * per-user deep copy in localStorage, and mutating the shared CATALOG
+   * constant would leak one tenant's costs into the next account on a shared
+   * device.
+   *
+   * The book WINS over a saved local catalog on cost/labor only. That is the
+   * point: per-device cost drift is the exact problem the company book exists
+   * to end. Every other field the user may have edited (names, units) survives.
+   */
+  function _withTenantCosts(s) {
+    if (!s || !s.catalog || typeof s.catalog !== 'object') return s;
+    let costs = null;
+    try {
+      const cc = (typeof window !== 'undefined') && window.NBDCatalogCosts;
+      costs = (cc && typeof cc.v2Costs === 'function') ? cc.v2Costs() : null;
+    } catch (e) { return s; }
+    if (!costs) return s;
+
+    let touched = false;
+    const catalog = {};
+    Object.keys(s.catalog).forEach((k) => {
+      const spec = s.catalog[k];
+      const entry = costs[k];
+      if (!spec || !entry || typeof entry !== 'object') { catalog[k] = spec; return; }
+      const cost = Number(entry.cost);
+      const labor = Number(entry.labor);
+      // A corrupted book must not price work: fall through to the baseline
+      // rather than writing NaN into a customer total.
+      if (!Number.isFinite(cost) || !Number.isFinite(labor) || cost < 0 || labor < 0) { catalog[k] = spec; return; }
+      catalog[k] = Object.assign({}, spec, { cost: cost, labor: labor });
+      touched = true;
+    });
+    return touched ? Object.assign({}, s, { catalog: catalog }) : s;
+  }
+
   function _withTenantCounties(s) {
     const cp = (typeof window !== 'undefined' && window._companyProfile && window._companyProfile.pricing) || null;
     const tj = _tenantJurisdictions();
@@ -731,7 +865,7 @@
     // Add-ons — each is a customer-visible line, so each rounds to a cent
     // at its own boundary (matches what renders on the estimate).
     const addOnsCents = {
-      permit: 0, dumpFee: 0, tearOffExtra: 0, extraPipeBoots: 0,
+      permit: 0, dumpFee: 0, matDelivery: 0, tearOffExtra: 0, extraPipeBoots: 0,
       valleyMetal: 0, chimneyFlash: 0, skylightFlash: 0, gutters: 0,
       // Phase 1 per-SQ complexity adders (estimate-qa-2026-06-08)
       steep: 0, verySteep: 0, extremeSteep: 0, story: 0, cutUpLabor: 0, access: 0
@@ -741,6 +875,15 @@
     const permitInfo = s.permits[permitKey];
     addOnsCents.permit = _toCents(permitInfo ? Number(permitInfo.cost) : DEFAULT_PERMIT_COST); // C-1: never $0 for an unknown/blank jurisdiction
     addOnsCents.dumpFee = _toCents(input.dumpFeeOverride != null ? input.dumpFeeOverride : s.dumpFee);
+
+    // Flat per JOB, like the permit and the dump fee — never x sq. Per-SQ is
+    // the reroof model and every reroof draws material, so this is
+    // unconditional; a rep can zero it per estimate (customer hauls their own,
+    // supplier waives the trip). `!= null` admits a literal 0 and rejects
+    // undefined — same rule as dumpFeeOverride above.
+    addOnsCents.matDelivery = _toCents(
+      input.matDeliveryOverride != null ? input.matDeliveryOverride : s.addonPrices.matDelivery
+    );
 
     const layers = Math.max(1, Number(input.tearOffLayers) || 1);
     if (layers > 1) {
@@ -816,7 +959,14 @@
     const costPerSq = Number(s.costBasis[tier]) || DEFAULT_COST_BASIS[tier];
     const costConfigured = costPerSq > 0;
     const materialLaborCostCents = _toCents(sq * costPerSq);
-    const addOnCostCents = costConfigured ? Math.round(addOnsTotalCents * 0.4) : 0;
+    // Per-add-on, not one blanket ratio — pass-throughs cost what they charge.
+    // See ADDON_COST_PASS_THROUGH for why, and for what is still assumed.
+    const addOnCostCents = costConfigured
+      ? Object.keys(addOnsCents).reduce(function (sum, k) {
+          const chargedCents = addOnsCents[k] || 0;
+          return chargedCents ? sum + Math.round(chargedCents * _addonCostRatio(s, k)) : sum;
+        }, 0)
+      : 0;
     const totalCostCents = materialLaborCostCents + addOnCostCents;
     const marginCents = costConfigured ? totalCents - totalCostCents : null;
     const marginPct = costConfigured && totalCents > 0 ? ((totalCents - totalCostCents) / totalCents) * 100 : (costConfigured ? 0 : null);
@@ -876,7 +1026,7 @@
     // generated scope prices the permit off this DEVICE's numbers while the
     // per-SQ total uses the company's. Idempotent when the caller already
     // passed overlaid settings (calculateLineItem does).
-    const s = _withTenantCounties(settings || loadSettings());
+    const s = _withTenantCosts(_withTenantCounties(settings || loadSettings()));
     const g = prepGeometry(input, s);
     const tier = input.tier || 'better';
     const map = TIER_MATERIAL_MAP[tier] || TIER_MATERIAL_MAP.better;
@@ -1007,7 +1157,7 @@
     // tierRates/addonPrices, so applyCompanyPricing is intentionally NOT applied here.
     // ONLY the tenant jurisdictions overlay applies (permits/countyTax — a Node
     // no-op), so custom counties price the permit line + cash tax on this path too.
-    const s = _withTenantCounties(input.settingsOverride || loadSettings());
+    const s = _withTenantCosts(_withTenantCounties(input.settingsOverride || loadSettings()));
     const tier = input.tier || 'better';
     const mode = input.mode || 'cash';
     const g = prepGeometry(input, s);
@@ -1261,6 +1411,8 @@
     // Constants
     TIER_RATES,
     DEFAULT_COST_BASIS,
+    ADDON_COST_PASS_THROUGH,
+    DEFAULT_ADDON_COST_RATIO,
     MIN_JOB_CHARGE,
     PERMIT_COSTS,
     COUNTY_TAX,

@@ -843,6 +843,15 @@
       materialId:     item.materialId || null,
       matSource:      matSource,
       labSource:      labSource,
+      // PRESENTATION ONLY — the engine never reads it back and no math above
+      // branches on it. It marks a line whose cost basis this tenant has not
+      // set (job-template custom items whose catalogCosts/{companyId}.jtCosts
+      // entry is missing), so the UI can render "—" rather than "$0.00".
+      // The line still carries an EXPLICIT materialCost/laborCost of 0, which
+      // is what keeps labSource 'explicit' and stops inferLaborId (computed at
+      // :803, BEFORE the laborCost != null test) resolving a public NBD_LABOR
+      // rate for it. See docs/pro/js/job-templates.js:customLineItem.
+      costUnset:      !!item.costUnset,
       tier:           item.tier || tier,
       codeRefs:       item.codeRefs || {},
       reason:         item.reason || '',
@@ -974,6 +983,13 @@
       tax,
       total,
       minJobApplied,
+      // How many resolved lines carry no tenant cost basis. Additive and
+      // presentation-only — nothing above reads it, so Σ retailTotal ==
+      // retailBeforeOHP still holds and no downstream consumer
+      // (estimate-finalization, estimate-supplement, invoice-pipeline,
+      // profit-tracker) sees a shape change. It exists so a caller can say
+      // "3 items need a cost" without re-walking lines[].
+      costUnsetCount: resolved.reduce(function (n, l) { return n + (l.costUnset ? 1 : 0); }, 0),
       internal: {
         materialCost,
         laborCost,
