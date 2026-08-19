@@ -208,8 +208,10 @@
       return base;
     },
 
+    // Not `this.get(id)` — a detached reference (`const f = NBD_LABOR.find`)
+    // would lose the binding and throw. Same lookup, no receiver.
     find: function(id) {
-      return this.get(id);
+      return window.NBD_LABOR ? window.NBD_LABOR.get(id) : (LABOR[id] || null);
     },
 
     byCategory: function(category) {

@@ -320,6 +320,35 @@ explicitly and so neither leaks nor trips inference.
 `tests/{job-templates,catalog-cost-privacy,ci-manifest}`, `.github/workflows/ci.yml`,
 `firestore.rules` (comment).
 
+**A money bug found by self-review, not by a test (2026-08-19).** Worth reading
+before touching the save path, because nothing about it looked wrong.
+
+`saveCustom()` does three things in order: `liftCustomCosts()` strips the costs
+off the clone (correct — they must not reach the uid-scoped template document),
+`writeLiftedCosts()` sends them to the company book (**async**), and
+`registerCustomItems()` re-bridges the item into the pricing catalogs
+(**synchronous**). So the re-bridge ran against a clone with no costs and a book
+that did not have them yet, found neither, and registered the item `costUnset`.
+
+Measured: **a template the user had just given costs to showed "Cost not set"
+and priced at ZERO** — and stayed that way for the rest of the session, since
+nothing re-registered when the write landed. It corrected only on the next page
+load.
+
+Fixed by registering from a snapshot that still carries the lifted values
+(resolving via the `legacy-template` branch for the moment before the write
+lands), and re-registering on write success so provenance flips to `book`. A
+refused write (a `sales_rep`) now keeps the rep's value locally rather than
+zeroing it — the same deal `product-library` already gives them.
+
+Two regression tests pin it, and were **validated against the defect**: with the
+fix reverted, both fail with `priced immediately = 0 (expected 5)`.
+
+The general lesson: every individual step here was right, and the bug lived
+entirely in the ORDER of one sync call against one async one. Tests that assert
+end state after `await` would never have seen it — both new tests deliberately
+assert **synchronously after save**, before any await lets the write land.
+
 **One fix that is not cosmetic and is easy to miss.** `catalog-costs.js` called
 `adoptLocal()` inside hydrate's `else` branch. Once `readBook()` started
 accepting a `jtCosts`-only document, a tenant holding job-template costs but no

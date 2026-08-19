@@ -317,8 +317,43 @@
     // the book write succeeds — a rep whose write was refused still sees their
     // own edit for the rest of the session.
     writeLiftedCosts(clean.id, lifted);
-    registerCustomItems(clean);
+
+    // Re-bridge from a snapshot that STILL CARRIES the costs, not from `clean`.
+    //
+    // liftCustomCosts() has just deleted them off `clean` (correctly — they
+    // must not reach the uid-scoped template document), and the book write
+    // above is ASYNC. Registering `clean` here therefore found neither a book
+    // entry nor an embedded cost and registered the item as costUnset — so a
+    // template the user had just given costs to showed "Cost not set" and
+    // PRICED AT ZERO for the rest of the session, correcting only on the next
+    // page load. Measured before this fix.
+    //
+    // The snapshot re-attaches the lifted values for registration only. It
+    // resolves via customLineItem's legacy branch (costSource
+    // 'legacy-template'), which is exactly right for the half-second before
+    // the write lands; writeLiftedCosts re-registers on success and the source
+    // becomes 'book'.
+    registerCustomItems(withLiftedCosts(clean, lifted));
     return clean;
+  }
+
+  /**
+   * A registration-only copy of `tpl` with lifted costs re-attached. Never
+   * persisted and never returned to a caller — the whole point of lifting is
+   * that these values do not live on the template document.
+   */
+  function withLiftedCosts(tpl, lifted) {
+    const keys = Object.keys(lifted || {});
+    if (!keys.length) return tpl;
+    const copy = JSON.parse(JSON.stringify(tpl));
+    keys.forEach(function (i) {
+      const item = copy.items && copy.items[Number(i)];
+      if (item && item.custom) {
+        item.custom.materialCost = lifted[i].materialCost;
+        item.custom.laborCost = lifted[i].laborCost;
+      }
+    });
+    return copy;
   }
 
   /**
@@ -352,7 +387,23 @@
     keys.forEach(function (i) { entries[jtCostKey(templateId, Number(i))] = lifted[i]; });
     try {
       const p = cc.recordJobItems(entries);
-      if (p && typeof p.catch === 'function') p.catch(function () { /* refusal is expected for a rep */ });
+      if (p && typeof p.then === 'function') {
+        // RE-REGISTER once the write lands, so the entry's costSource flips
+        // from the transitional 'legacy-template' to 'book' and every later
+        // read resolves through the company book. Without this the session
+        // keeps pricing off the snapshot, which is right by value but wrong by
+        // provenance — and would silently diverge the moment another device
+        // edits the same item.
+        p.then(function (wrote) {
+          if (!wrote) return;              // a rep's refusal: keep the local view
+          try {
+            const tpl = get(templateId);
+            if (tpl) registerCustomItems(tpl);
+            const ui = window.JobTemplatesUI;
+            if (ui && typeof ui.clearBandCache === 'function') ui.clearBandCache();
+          } catch (e) { /* best-effort repaint */ }
+        }, function () { /* refusal is expected for a rep */ });
+      }
     } catch (e) { return false; }
     return true;
   }
