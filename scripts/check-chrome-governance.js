@@ -63,15 +63,16 @@ const EXEMPT = {
   'the-pledge/index.html': 'pledge landing — hand-built grid footer + its own sticky CTA',
   'visualizer.html': 'tool page — hand-built grid footer',
 
-  // --- slim funnel chrome (open follow-up: stamp nav-tool) ---
-  'estimate.html': 'funnel tool — slim conversion chrome; nav-tool stamping is an open follow-up',
-  'inspect.html': 'funnel tool — slim conversion chrome; nav-tool stamping is an open follow-up',
-  'free-roof/index.html': 'funnel capture page — slim chrome; nav-tool stamping is an open follow-up',
-  'free-tools/index.html': 'funnel hub — slim chrome; nav-tool stamping is an open follow-up',
-  'roof-score.html': 'funnel tool — slim chrome; nav-tool stamping is an open follow-up',
-  'storm-alerts.html': 'funnel tool — slim chrome; nav-tool stamping is an open follow-up',
-  'storm-check.html': 'funnel tool — slim chrome; nav-tool stamping is an open follow-up',
-  'storm-report.html': 'funnel tool — slim chrome; nav-tool stamping is an open follow-up',
+  // --- slim funnel footers (nav-tool stamped 2026-08-19; only the
+  //     one-line footer is still hand-built) ---
+  'estimate.html': 'slim one-line funnel footer; nav IS nav-tool-governed. No footer partial variant covers this shape',
+  'inspect.html': 'QR-code capture funnel — the header is deliberately logo-only, on record in the page: "no nav (QR funnel: keep them on the page)". nav-tool would add Back-to-site + a 32-link menu, so it is NOT stamped here',
+  'free-roof/index.html': 'slim one-line funnel footer; nav IS nav-tool-governed. No footer partial variant covers this shape',
+  'free-tools/index.html': 'slim one-line funnel footer; nav IS nav-tool-governed. No footer partial variant covers this shape',
+  'roof-score.html': 'slim one-line funnel footer; nav IS nav-tool-governed. No footer partial variant covers this shape',
+  'storm-alerts.html': 'slim one-line funnel footer; nav IS nav-tool-governed. No footer partial variant covers this shape',
+  'storm-check.html': 'slim one-line funnel footer; nav IS nav-tool-governed. No footer partial variant covers this shape',
+  'storm-report.html': 'slim one-line funnel footer; nav IS nav-tool-governed. No footer partial variant covers this shape',
 
   // --- brand microsites (open follow-up: define nav-microsite) ---
   'services/gaf-pivot-boot/index.html': 'brand microsite — product nav family; nav-microsite partial is an open follow-up',
