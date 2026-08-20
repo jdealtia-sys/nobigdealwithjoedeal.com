@@ -128,7 +128,15 @@
     // be inert while it is open — otherwise Tab walks focus onto content sitting
     // behind an opaque overlay, invisible but still reachable. inert is the modern
     // answer; aria-hidden covers browsers that do not support it yet.
-    var siblings = Array.prototype.filter.call(document.body.children, function (el) { return el !== box; });
+    // NEVER inert an element that CONTAINS the dialog. The first version of this
+    // filtered on `el !== box`, which is only correct while the dialog is a direct
+    // child of <body>. It was not — it sat inside <main>, so <main> got inert and
+    // took the dialog's own Close/Prev/Next with it. The buttons were dead in
+    // production and only Escape still worked. `contains()` is true for the
+    // element itself too, so this covers both cases.
+    var siblings = Array.prototype.filter.call(document.body.children, function (el) {
+      return !el.contains(box);
+    });
     function setBackground(inert) {
       siblings.forEach(function (el) {
         if (inert) { el.setAttribute('inert', ''); el.setAttribute('aria-hidden', 'true'); }
