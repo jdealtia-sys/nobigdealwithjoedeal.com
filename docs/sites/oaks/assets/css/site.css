@@ -464,6 +464,15 @@ button { font: inherit; cursor: pointer; }
 @media (max-width: 1040px) {
   .orc-nav { display: none; }
   .orc-burger { display: inline-flex; }
+  /* What pushed the header controls to the right edge was `margin-left:auto` on
+     .orc-nav — and .orc-nav is display:none here. With it gone nothing claimed
+     the slack, so the logo, phone button and burger all bunched up on the left
+     with dead space beside them: 161px at 390px, 386px at 768px. The auto margin
+     has to move to the element that is still visible. Scoped to this breakpoint
+     because on desktop .orc-nav already does the job, and two auto margins would
+     split the free space and pull the nav away from the controls.
+     Reported by Jo, 2026-08-19. */
+  .orc-header-cta { margin-left: auto; }
   /* One column: drop the explicit placement so both children flow in source
      order, which is now content-then-aside. Before this, the aside stacked on
      top and a visitor landing on "Roof Replacement" from a search met a 617px
@@ -483,8 +492,7 @@ button { font: inherit; cursor: pointer; }
 }
 @media (max-width: 620px) {
   .orc-form-grid { grid-template-columns: 1fr; }
-  .orc-header-phone span { display: none; }
-  .orc-header-phone { padding: 12px 14px; }
+  .orc-header-phone { padding: 12px 16px; font-size: .82rem; }
   .orc-header-inner { min-height: 66px; gap: 12px; }
   .orc-logo img { height: 40px; }
   .orc-banner { font-size: .72rem; padding: 8px 40px 8px 16px; }
@@ -493,6 +501,15 @@ button { font: inherit; cursor: pointer; }
   .orc-hero-actions .btn { width: 100%; }
   .orc-lightbox-prev { left: 8px; }
   .orc-lightbox-next { right: 8px; }
+}
+
+/* The phone NUMBER stays visible on phones — it is the conversion route on a
+   contractor site, and reclaiming the header's dead space left room for it.
+   Only below ~380px does the logo + number + burger stop fitting on one line,
+   and there the button falls back to the icon alone. */
+@media (max-width: 380px) {
+  .orc-header-phone span { display: none; }
+  .orc-header-phone { padding: 12px 14px; }
 }
 
 @media (prefers-reduced-motion: reduce) {
