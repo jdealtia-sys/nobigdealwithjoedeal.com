@@ -155,6 +155,33 @@ check \
   "200" \
   bash -c "curl -sS -o /dev/null -L --max-redirs 5 -w '%{http_code}' \"$SITE/sites/oaks\" 2>/dev/null || echo LOOP"
 
+# The trailing-slash form of the homepage. trailingSlash:false strips the slash
+# off a real file, but the homepage is served by a REWRITE and a rewrite source
+# matches the slashed form AND skips that normalisation — so this url answered
+# 200 with the page while every relative asset 404'd (no css, no js, 11 of 11
+# images broken). Found on live production, 2026-08-19. Following the redirect
+# is the only way to see it; a header check passes either way.
+check \
+  "/sites/oaks/home/ normalises instead of serving an asset-less page" \
+  "200" \
+  bash -c "curl -sS -o /dev/null -L --max-redirs 5 -w '%{http_code}' \"$SITE/sites/oaks/home/\" 2>/dev/null || echo LOOP"
+check \
+  "  ...and lands on the canonical slashless url" \
+  "/sites/oaks/home" \
+  bash -c "curl -sS -o /dev/null -L --max-redirs 5 -w '%{url_effective}' \"$SITE/sites/oaks/home/\" 2>/dev/null"
+
+# A miss anywhere under the client's url space must render the CLIENT's 404, not
+# NBD's — it is the one cross-brand surface reachable from /sites/oaks/.
+oaks_404="$(curl -sS "$SITE/sites/oaks/this-page-does-not-exist" 2>&1 || true)"
+check \
+  "a missed Oaks url renders the Oaks 404, not the NBD one" \
+  "Oaks Roofing" \
+  bash -c "echo \"$oaks_404\" | grep -o '<title>[^<]*</title>'"
+check \
+  "the Oaks 404 carries no NBD branding" \
+  "0" \
+  bash -c "echo \"$oaks_404\" | grep -ci 'no big deal' || true"
+
 oaks_page="$(curl -sS -I "$SITE/sites/oaks/about" 2>&1 || true)"
 check \
   "an interior Oaks page serves 200" \
