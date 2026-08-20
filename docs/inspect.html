@@ -39,7 +39,7 @@ a{text-decoration:none;color:inherit}
 img{max-width:100%;height:auto;display:block}
 
 /* Minimal top bar — logo only, no nav (QR funnel: keep them on the page) */
-.topbar{background:var(--navy-dark);padding:14px 24px;display:flex;align-items:center;justify-content:space-between;border-bottom:3px solid var(--orange)}
+.topbar{position:sticky;top:0;z-index:1000;background:var(--navy-dark);padding:14px 24px;display:flex;align-items:center;justify-content:space-between;border-bottom:3px solid var(--orange)}
 .topbar .logo{display:flex;align-items:center;gap:10px;color:#fff}
 .topbar .logo img{height:38px;width:auto;border-radius:6px}
 .topbar .logo .brand{font-family:'Bebas Neue',sans-serif;font-size:1.15rem;letter-spacing:.04em;line-height:1}
@@ -68,7 +68,7 @@ h1 span{color:#DA6A05}
 .owner-line strong{color:#fff}
 
 .phone-cta{display:inline-flex;align-items:center;gap:10px;background:#B85400;color:#fff;padding:14px 22px;border-radius:8px;font-weight:800;font-size:1.02rem;letter-spacing:.02em;transition:background .2s,transform .15s}
-.phone-cta:hover{background:var(--orange-dark);transform:translateY(-1px)}
+.phone-cta:hover{background:#A64B00;transform:translateY(-1px)}
 .phone-cta .ico{font-size:1.15rem}
 .phone-sub{display:block;font-size:.74rem;color:rgba(255,255,255,.55);margin-top:8px;letter-spacing:.04em}
 
@@ -86,7 +86,7 @@ h1 span{color:#DA6A05}
 .form-row input[type=file]:hover{border-color:var(--orange)}
 
 .submit-btn{width:100%;background:#B85400;color:#fff;border:none;padding:16px;border-radius:8px;font-family:inherit;font-weight:800;font-size:1rem;letter-spacing:.04em;text-transform:uppercase;cursor:pointer;transition:background .2s,transform .15s;margin-top:6px}
-.submit-btn:hover:not(:disabled){background:var(--orange-dark);transform:translateY(-1px)}
+.submit-btn:hover:not(:disabled){background:#A64B00;transform:translateY(-1px)}
 .submit-btn:disabled{opacity:.6;cursor:wait}
 
 .form-success{display:none;text-align:center;padding:24px 18px;background:rgba(34,160,107,.08);border:1.5px solid var(--success);border-radius:10px;color:var(--navy)}
@@ -247,7 +247,7 @@ nav .nav-logo{margin-right:clamp(12px,1.5vw,28px)}
 <!-- STICKY MOBILE CTA STRIP (site-wide, conversion audit 2026-07-03) -->
 <div class="mobile-cta-strip" aria-label="Quick contact options">
   <a href="tel:+18594207382" class="mobile-cta-call"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M6.6 10.8c1.4 2.8 3.8 5.1 6.6 6.6l2.2-2.2c.3-.3.7-.4 1-.2 1.1.4 2.3.6 3.6.6.6 0 1 .4 1 1V20c0 .6-.4 1-1 1-9.4 0-17-7.6-17-17 0-.6.4-1 1-1h3.5c.6 0 1 .4 1 1 0 1.3.2 2.5.6 3.6.1.3 0 .7-.2 1L6.6 10.8z"/></svg>Call Joe</a>
-  <a href="sms:+18594207382" class="mobile-cta-text"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/></svg>Text Us</a>
+  <a href="sms:+18594207382" class="mobile-cta-text"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/></svg>Text Joe</a>
 </div>
 </body>
 </html>

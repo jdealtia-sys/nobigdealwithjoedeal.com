@@ -870,6 +870,9 @@ section('Count badges: customer-page modules print their numbers (RoofLink "Phot
   const gen     = read(path.join(ROOT, 'docs/pro/js/customer-photo-report-generator.js'));
   const boot    = read(path.join(ROOT, 'docs/pro/js/customer-bootstrap.module.js'));
   const html    = readCustomer();
+  // The documents count moved out of customer-photo-report-generator.js with
+  // the 2026-08-18 documents consolidation (see customer-documents.js header).
+  const docsStore = read(path.join(ROOT, 'docs/pro/js/customer-documents.js'));
 
   // Helpers: window-exposed (cross-module callers), zero hides, 99+ cap.
   assert('nbdNavCount + nbdTitleCount exposed on window with zero-hides + 99+ cap',
@@ -894,9 +897,17 @@ section('Count badges: customer-page modules print their numbers (RoofLink "Phot
   assert('invoices + comms loaders stamp their panel titles',
     /nbdTitleCount\('invoicesPanelTitle', 'Invoices & Payments', invoices\.length\)/.test(tasksUi)
     && /nbdTitleCount\('commsPanelTitle', 'Recent Communications', comms\.length\)/.test(tasksUi));
-  assert('notes + documents loaders stamp counts (typeof-guarded — script order varies)',
-    /typeof window\.nbdTitleCount === 'function'[\s\S]{0,120}notesPanelTitle', 'Notes', notes\.length/.test(gen)
-    && /nbdNavCount\('navCountDocs', docSnap\.empty \? 0 : docSnap\.docs\.length\)/.test(gen));
+  assert('notes loader stamps its count (typeof-guarded — script order varies)',
+    /typeof window\.nbdTitleCount === 'function'[\s\S]{0,120}notesPanelTitle', 'Notes', notes\.length/.test(gen));
+  // Both documents counts now come off the ONE merged list the store holds.
+  // They used to be stamped from a query against a collection none of the
+  // page's three document writers wrote to, so a customer with a stack of
+  // generated contracts got no badge and an empty panel.
+  assert('the documents store stamps the nav chip + panel title from the merged list',
+    /nbdNavCount\('navCountDocs', docs\.length\)/.test(docsStore)
+    && /nbdTitleCount\('docsPanelTitle', 'Documents', docs\.length\)/.test(docsStore));
+  assert('the stale documents count is gone from the photo-report module',
+    !/navCountDocs/.test(gen));
   // Feature 6 tightened the filter: Add-Event entries (type:'event') live
   // in the same subcollection but are milestones, not todos.
   assert('timeline stamps OPEN-task count on the nav (done tasks + events excluded)',

@@ -248,6 +248,47 @@ const certBarTargets = marketing.filter((f) => /^services\/[a-z0-9-]+-(oh|ky)\.h
   ok('cert bar carries all three badges + IDs + disclaimer', bad.length === 0, bad.slice(0, 3).join(', '));
 }
 {
+  // 4. THE SAME INVARIANT, KEYED ON THE ASSET RATHER THAN A FILE LIST.
+  //    Checks 1-3 scope to certBarTargets — city service pages + area leaves —
+  //    so on 2026-08-19 eight pages carrying a real cert bar sat outside every
+  //    one of them: areas/index.html is explicitly excluded by that filter, and
+  //    the 7 brand microsites are services/<name>/index.html, which the
+  //    services/<slug>-(oh|ky).html pattern never matches. All eight shipped two
+  //    badges where 187 pages shipped three, and this suite stayed green. Third
+  //    'guard defeated by its own list' failure logged in this repo.
+  //
+  //    So: forget who is *supposed* to have a cert bar. Any page shipping the GAF
+  //    badge image has one, and it must be complete. A new page cannot opt out by
+  //    not being on a list.
+  const withGafBadge = marketing.filter((f) => read(f).includes('gaf-certified-badge-120.png'));
+  const bad = withGafBadge.filter((f) => {
+    const s = read(f);
+    return !(s.includes('tamko-pro-gold-badge-120.png')
+      && s.includes('american-operator-badge-120.png')
+      && s.includes('data-nbd-certbar="v1"'));
+  }).map(rel);
+  ok(`cert bar is complete WHEREVER it appears (${withGafBadge.length} pages)`, bad.length === 0,
+    `${bad.length} incomplete: ` + bad.slice(0, 5).join(', '));
+}
+{
+  // 5. The quiet /pro door had FOUR wordings before 2026-08-19 — "Are you a
+  //    contractor?" (178), "...or entrepreneur?" (17), an &rarr; entity variant,
+  //    and "Contractor or entrepreneur?" — plus 3 grid footers with no door at
+  //    all. Three of the four footer partials already used the majority wording;
+  //    footer-extended was the outlier, which is how 14 pages inherited a fork.
+  //    Assert the wording rather than the presence: a page is free not to carry
+  //    the door (404, offline, the tenant template must not), but if it does, it
+  //    says one thing.
+  const CANON = 'Are you a contractor? → NBD Pro';
+  const bad = marketing.filter((f) => {
+    const s = read(f);
+    const doors = [...s.matchAll(/<a href="\/pro\/"[^>]*>([^<]*)<\/a>/g)].map((m) => m[1].trim());
+    return doors.some((d) => /contractor|entrepreneur/i.test(d) && d !== CANON);
+  }).map(rel);
+  ok('pro door uses one wording site-wide', bad.length === 0,
+    `${bad.length} forked: ` + bad.slice(0, 5).join(', '));
+}
+{
   // 4. CERT CLAIM GUARD — Joe is GAF Certified (System Plus) and TAMKO only.
   //    "Master Elite" is a higher GAF tier he does NOT hold; he holds no Owens
   //    Corning certification at all. Both names legitimately appear as honest
@@ -296,9 +337,17 @@ const certBarTargets = marketing.filter((f) => /^services\/[a-z0-9-]+-(oh|ky)\.h
 }
 {
   // 8. free-roof.html shipped with no chrome at all — lock header + footer.
+  //    The header check used to pin the literal `<header class="fr-head">`,
+  //    which is the hand-rolled fork this page carried until 2026-08-19, when it
+  //    was stamped with the shared nav-tool partial. The footer check pinned
+  //    `class="fr-foot"` the same way, until footer-slim replaced that fork too.
+  //    The intent — "this page has a header and a footer" — is unchanged, so
+  //    assert THAT and let the implementation move.
   const s = fs.readFileSync(path.join(DOCS, 'free-roof', 'index.html'), 'utf8');
+  const hasHeader = /nbd:partial nav-tool/.test(s) || /<header class="fr-head"/.test(s);
+  const hasFooter = /nbd:partial footer-slim/.test(s) || /class="fr-foot"/.test(s);
   ok('free-roof carries header + footer chrome',
-    /<header class="fr-head"/.test(s) && /class="fr-foot"/.test(s) && s.includes('tel:+18594207382'));
+    hasHeader && hasFooter && s.includes('tel:+18594207382'));
 }
 {
   // 9. inspect mini-footer carries the phone (funnel-family parity).

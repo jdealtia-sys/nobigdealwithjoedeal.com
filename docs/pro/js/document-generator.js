@@ -496,6 +496,13 @@ window.NBDDocGen = {
           } catch (e) {
             console.warn('Document metadata persist failed:', e && e.message);
           }
+          // The write has landed (or definitively failed) — repaint the
+          // documents surfaces from the store rather than leaving the page
+          // showing a stale list until the next full load.
+          if (_docMetaRef && window.NBDCustomerDocs) {
+            try { await window.NBDCustomerDocs.refresh(); }
+            catch (e) { console.warn('Documents refresh failed:', e && e.message); }
+          }
         })();
       }
       // PR3b: load this lead's saved signatures (if any) so the viewer
@@ -575,6 +582,11 @@ window.NBDDocGen = {
             }
           } catch (e) {
             console.warn('Signed metadata update failed:', e && e.message);
+          }
+          // Repaint so the row picks up its '✓ Signed' state immediately.
+          if (window.NBDCustomerDocs) {
+            try { await window.NBDCustomerDocs.refresh(); }
+            catch (e) { console.warn('Documents refresh failed:', e && e.message); }
           }
 
           // PR3a — saved-signature reuse store. Persist each captured
