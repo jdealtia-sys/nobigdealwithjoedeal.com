@@ -147,6 +147,67 @@ Two things this surfaced that had gone unnoticed:
   Disallow. Any one alone does nothing. This is the same failure mode the `/pro/blog` and
   `/tools` comments in `firebase.json` already record.
 
+## 4e. Adversarial verification over live production — and what it found
+
+After the site was live, a six-lens adversarial pass (routing, rendering, content
+fidelity, SEO/privacy, a11y/CSP, portability) plus a coverage critic ran against
+**production**, not against the repo. **0 blockers, 9 major, 9 minor.** Own checks had
+already passed cleanly on a site that was in an infinite redirect loop, which is exactly
+why this pass existed.
+
+The findings worth remembering:
+
+1. **A THIRD instance of the relative-path trap, live.** `/sites/oaks/home/` (trailing
+   slash) answered 200 with the full homepage while every relative asset resolved one
+   directory too deep and 404'd. `trailingSlash:false` strips the slash off a *real file*
+   — but the homepage is served by a **rewrite**, and a rewrite source matches the slashed
+   form *and* bypasses that normalisation. See [[cleanurls-directory-index-relative-paths]];
+   all three variants are now recorded there.
+2. **A fabricated rating claim.** The JSON-LD carried `aggregateRating reviewCount:13`.
+   The archive says "Over 13 Happy **Customers**" — a customer count, not reviews — and the
+   page shows exactly one review. `noindex` masked it, and §7's launch checklist removes
+   `noindex`. Removed. *Written by me, in the same session in which I stripped an invented
+   SMS claim from an agent's work; the check has to point inward too.*
+3. **PII in the URL.** The quote form declared no `method`, so with JS unavailable it GETs
+   and serialises name, email, phone, ZIP and message into the query string — into server
+   logs, history and `Referer`. Now `method="post"` with an honest `<noscript>`.
+4. **Contrast.** White on the brand orange was 3.05:1 on every CTA; the current-item marker
+   in the service sidebar was 2.66:1. Dark ink on the *same* orange is 5.84:1, so Scott's
+   colour is kept and only the text changed (Jo confirmed: "make it the right orange").
+   `--orange-ink #b84a02` added for orange-as-text on light. Hover now BRIGHTENS — with
+   dark text a darker hover *lowers* contrast.
+5. **The lightbox** claimed `aria-modal` without inert, so Tab reached content behind an
+   opaque overlay.
+6. **Reflow at 320px** (WCAG 1.4.10) — the gallery's fixed 300px track overflowed below ~344px.
+7. **The footer logo was stretched 2×** — 264×54 against a natural 900×366.
+   `.orc-footer-brand` is a column flexbox, and `align-items:stretch` overrode the img's
+   `width:auto`. **Spotted by Jo by eye.** An earlier probe of mine had printed
+   `boxW 264 boxH 54` and never divided the two — instrumentation is not observation.
+8. A mistyped `/sites/oaks/` url rendered the **NBD-branded 404**, the only cross-brand
+   surface in the client's url space. Now an Oaks 404 via a `/sites/oaks/**` rewrite.
+9. `/api/site-config` carried no `X-Robots-Tag` — a tenant-branded surface outside every
+   protection applied to the pages it feeds. Fixed for all tenants.
+
+> **Measuring contrast: composite the alpha.** A naive reader treats
+> `rgba(250,100,4,.12)` as solid orange and reports both false failures (a passing 4.55:1
+> as 1.71:1) and false passes. Resolve the stack to an opaque base first.
+
+## 4f. Standing rule earned the hard way
+
+**Never validate Firebase URL semantics by reasoning — deploy to a preview channel.**
+
+```
+npx firebase-tools hosting:channel:deploy <name> --project nobigdeal-pro --expires 1d
+curl -sIL --max-redirs 5 <channel-url>/<path>          # FOLLOW, do not just read headers
+npx firebase-tools hosting:channel:delete <name> --project nobigdeal-pro --force
+```
+
+Nothing local reproduces it: `npx http-server` normalises a directory URL the *opposite*
+way, `firebase serve` ignores redirects, and `check-site-integrity.js` models redirects
+rather than following them. Header checks pass on a looping site because headers only ever
+show **one hop**. `scripts/verify-deploy.sh` now follows redirects and asserts a 200, and
+covers the trailing-slash form and the Oaks 404.
+
 ## 5. Deliberate deviations from the original (all recorded)
 
 - **Gallery has 9 photos, the original was paginated (1 2 3 4).** Nine is all the archived

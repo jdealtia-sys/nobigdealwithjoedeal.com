@@ -17,6 +17,7 @@ service-areas.html      Service Areas
 gallery.html            Our Work
 contact.html            Contact Us
 privacy.html            Privacy Policy
+404.html                shown for a bad/typo'd address
 services/
   roof-replacement.html
   roof-repair.html
@@ -130,6 +131,13 @@ right there. Some notes:
   pages. Search-and-replace across files handles it.
 - **The service-area map** (`assets/img/service-area-map.jpg`) is an image, not
   a live map. Replace it if your coverage changes.
+- **`404.html`** is what visitors see if they mistype an address or follow a dead
+  link. Netlify, Cloudflare Pages, GitHub Pages, Vercel and most cPanel/Apache
+  setups pick it up automatically — nothing to configure. It is deliberately
+  self-contained (its styling and logo are inside the file) because a 404 gets
+  served in place of *any* missing address, at any depth, so it cannot rely on
+  the shared stylesheet the way the other pages do. It offers the phone number
+  rather than a "back to homepage" link, for the same reason.
 
 ## Adding gallery photos
 

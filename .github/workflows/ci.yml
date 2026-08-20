@@ -60,7 +60,17 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
+      # fetch-depth: 0 because tests/catalog-cost-privacy.test.js verifies a
+      # recorded cost ROTATION by re-reading the published catalog at the commit
+      # the rotation was signed against (tests/cost-basis-ledger.js `basisAt`).
+      # A depth-1 checkout does not have that blob, and the guard would fail
+      # with "the figures at basisAt cannot be read" — a red about clone depth
+      # on the suite that stands between the cost book and the public tree. The
+      # secret-scan job already pays this fetch; paying it here too is the price
+      # of a pin that cannot be silenced by editing the pin.
       - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
       - uses: actions/setup-node@v7
         with:
           node-version: '22'
@@ -490,6 +500,26 @@ jobs:
         run: node tests/catalog-cost-privacy.test.js
       - name: Run catalog cost seed + hydration tests
         run: node tests/catalog-cost-seed.test.js
+      # The same split for the JOB TEMPLATE library (2026-08-18): the lossless
+      # strip of 84 custom-item cost pairs out of the published data file, the
+      # "at least one cost > 0" invariant that moved out of job-templates.test
+      # when it stopped being allowed to live in a public file, the
+      # catalog-costs → job-templates hydration bridge, and the frozen
+      # 'jt-<slug>-<index>' key set (a silent re-key orphans a tenant's book).
+      - name: Run job-template cost seed + hydration tests
+        run: node tests/job-template-cost-seed.test.js
+      # Cheap second spelling of the leak gate, independent of the privacy
+      # suite's regexes — that suite is exactly what failed to look at this
+      # file for a month.
+      - name: Assert job-templates-data.js carries no contractor costs
+        run: node scripts/strip-job-template-costs.js --check
+      # The rotation toolchain for the catalogs that STILL publish a cost basis
+      # (labor 66 / xactimate 276 / EBv2 28). What it guards is the property
+      # that makes rotation meaningful: a no-op cannot pass as a rotation, so
+      # every refusal path — untouched sheet, blank cell, bad value, wrong
+      # catalog, unrotated seed — is asserted.
+      - name: Run cost-basis registry + rotation tests
+        run: node tests/cost-basis-registry.test.js
       # Catalog integrity + the product-library DATA_VERSION migration. Was
       # local-only; gated here because the cost split touches both.
       - name: Run product catalog + library migration tests
@@ -1146,16 +1176,38 @@ jobs:
   qc-render-sweep:
     name: Rendered QC sweep (docs/)
     runs-on: ubuntu-latest
+    # Matches the two other Playwright jobs below. This job was added AFTER
+    # 42e4a003 gave every job a timeout, so it inherited GitHub's 6-hour
+    # default and was the only job in this file without one. Found the hard
+    # way on 2026-08-19: a Playwright CDN stall cancelled four sibling jobs at
+    # their 20m timeouts while this one sat on the same dead download for 50+
+    # minutes and would have held a runner for six hours. The sweep itself
+    # renders 218 pages in ~2 min, so 20m is ~10x headroom — it exists to fail
+    # fast on a hung download, not to bound normal work.
+    timeout-minutes: 20
     continue-on-error: true
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
         with:
           node-version: '22'
+      # NO bare `playwright` argument here — install the workspace AS PINNED,
+      # the same two lines visual-regression and visual-brand-tokens use (and
+      # which pass). `npm install … playwright` adds playwright@latest ON TOP of
+      # the pinned @playwright/test@^1.61.1, and BOTH packages ship a bin named
+      # `playwright`. Whichever npm links last owns .bin/playwright, so
+      # `npx playwright install` fetched browsers for one version while
+      # scripts/qc-render-sweep.js (testRequire('playwright')) resolved the
+      # other — the job died at browserType.launch with "Executable doesn't
+      # exist at …/chromium_headless_shell-<rev>" and never rendered a page.
+      # It had failed that way on every run since it shipped, so this gate has
+      # never actually run. @playwright/test depends on playwright at the same
+      # version, so the pinned install gives require('playwright') the exact
+      # version whose browsers were just downloaded.
       - name: Install Playwright (tests workspace)
         run: |
           cd tests
-          npm install --silent --no-audit --no-fund playwright
+          npm install --silent --no-audit --no-fund
           npx playwright install --with-deps chromium
       - name: Serve docs/
         run: |

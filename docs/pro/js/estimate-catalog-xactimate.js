@@ -932,6 +932,31 @@
       tags:['disposal','overage','weight'] });
 
   // ═════════════════════════════════════════════════════════
+  // 12b. MATERIAL DELIVERY (1)
+  //
+  // Materials coming IN. Everything above in section 12 is waste going OUT
+  // (dumpsters, haul-away), and LAB MOB is the CREW arriving — so before this
+  // line there was no place at all to recover what the supplier charges to put
+  // materials on the roof. Suppliers bill it per trip plus a fuel surcharge,
+  // and a reroof routinely takes deliveries from two of them.
+  //
+  // It exists because the material unit costs in this file are quoted EX-TAX
+  // and EX-DELIVERY: tax rides the estimate's own tax line and delivery rides
+  // here. Fold it back into the per-unit costs and it double-counts.
+  //
+  // BASELINE FIGURE, like every other cost in this file — a plausible regional
+  // two-supplier trip, not any company's negotiated rate. A tenant's real
+  // delivery cost belongs in catalogCosts/{companyId}.xactCosts, where
+  // NBD_XACT_CATALOG.find() overlays it. See
+  // documentation/audit/CATALOG-UNDER-COST-2026-08-19.md.
+  // ═════════════════════════════════════════════════════════
+
+  A({ code:'MAT DEL', name:'Material Delivery & Fuel Surcharge', sub:'delivery', cat:'materials', unit:'JOB', mat:275, lab:0,
+      desc:'Supplier delivery to site plus fuel surcharge. Typical reroof draws from two suppliers (shingles/accessories and metal/vents), each billing a per-trip charge.',
+      tier:'any', reason:'Supplier delivery and fuel surcharge to place materials at the job site.',
+      tags:['delivery','freight','fuel','materials','logistics'] });
+
+  // ═════════════════════════════════════════════════════════
   // 13. PERMITS & INSPECTION (8)
   // ═════════════════════════════════════════════════════════
 
@@ -1245,8 +1270,48 @@
     byCode: BY_CODE,
     count: ITEMS.length,
 
-    // Lookup by code
-    find: function(code) { return BY_CODE[code] || null; },
+    // THE tenant-aware lookup. Every pricing consumer goes through here —
+    // estimate-v2-ui (getCurrentEstimate, the tier paths), job-templates
+    // (resolveSelection), estimate-finalization, estimate-supplement — so this
+    // is the single point where a company's own figures reach the money.
+    // Verified: nothing reads BY_CODE directly for pricing.
+    //
+    // The published mat/lab values are a STARTER BASELINE, not any company's
+    // real cost. Unlike the labor catalog's crew productivity, nothing here
+    // could simply be deleted: these figures ARE the pricing, there is no
+    // public retail half to fall back on, and stripping them would leave a new
+    // tenant unable to produce an estimate at all rather than merely unable to
+    // see a margin. So the baseline stays published and the tenant's book
+    // OVERRIDES it — what makes that safe is the tenant's real figures being
+    // different (rotation), not the baseline being hidden. It cannot be hidden:
+    // it is readable at every past commit regardless.
+    // documentation/projects/PHASE2-PUBLISHED-COST-BASIS-BRIEF-2026-08-18.md
+    //
+    // Overlay on READ rather than mutating BY_CODE at load, so a cost book that
+    // lands late (cold device, Firestore still in flight) is picked up on the
+    // next lookup with no re-registration step — and so the published baseline
+    // stays intact underneath for a tenant who has no book.
+    find: function(code) {
+      const base = BY_CODE[code] || null;
+      if (!base) return null;
+      try {
+        const cc = window.NBDCatalogCosts;
+        const entry = (cc && typeof cc.xactCost === 'function') ? cc.xactCost(code) : null;
+        // Validate HERE as well as in catalog-costs.js. Not belt-and-braces:
+        // this is the last point before the number becomes a customer total,
+        // and an unchecked Object.assign will happily write NaN over a good
+        // baseline — which prices a line at NaN rather than falling back.
+        // Caught by a corrupt-book probe while wiring this up.
+        if (entry) {
+          const mat = Number(entry.materialCost);
+          const lab = Number(entry.laborCost);
+          if (isFinite(mat) && isFinite(lab) && mat >= 0 && lab >= 0) {
+            return Object.assign({}, base, { materialCost: mat, laborCost: lab });
+          }
+        }
+      } catch (e) { /* no book is a normal state, not an error */ }
+      return base;
+    },
 
     // Filter by category
     byCat: function(cat) { return BY_CATEGORY[cat] || []; },

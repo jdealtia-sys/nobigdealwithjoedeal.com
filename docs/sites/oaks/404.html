@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Page Not Found | Oaks Roofing &amp; Construction</title>
+<meta name="robots" content="noindex, nofollow">
+<!--
+  Deliberately SELF-CONTAINED: no stylesheet link, no image files, no script.
+
+  Every other page in this folder uses relative paths, which is what makes the
+  folder portable. A 404 cannot: it is served in place of whatever URL was
+  missed, so it can appear at any depth (/services/typo, /a/b/c/typo) and a
+  relative "assets/css/site.css" would resolve differently — and mostly wrongly —
+  each time. Inlining the handful of styles and the logo is the only way this
+  page looks right at every depth AND on any host.
+
+  On Scott's own host most static platforms (Netlify, Cloudflare Pages, GitHub
+  Pages, Vercel, Apache with ErrorDocument) serve /404.html automatically.
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Montserrat:wght@700;900&amp;family=Open+Sans:wght@400;600&amp;display=swap">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    min-height: 100vh; display: flex; align-items: center; justify-content: center;
+    background: #16181b; color: rgba(255,255,255,.72);
+    font-family: 'Open Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
+    line-height: 1.75; padding: 40px 22px; text-align: center;
+  }
+  .wrap { max-width: 560px; }
+  svg.mark { width: 88px; height: 88px; margin: 0 auto 26px; display: block; }
+  h1 {
+    font-family: 'Montserrat', system-ui, sans-serif; font-weight: 900; color: #fff;
+    font-size: clamp(1.7rem, 5vw, 2.4rem); line-height: 1.15; margin-bottom: 14px;
+  }
+  p { font-size: 1rem; margin-bottom: 12px; }
+  .actions { margin-top: 30px; display: flex; gap: 13px; justify-content: center; flex-wrap: wrap; }
+  a.btn {
+    display: inline-flex; align-items: center; justify-content: center;
+    font-family: 'Montserrat', system-ui, sans-serif; font-weight: 700; font-size: .8rem;
+    letter-spacing: .09em; text-transform: uppercase; padding: 15px 30px; border-radius: 6px;
+    text-decoration: none; border: 2px solid transparent; transition: background .18s, color .18s;
+  }
+  /* Dark ink on the brand orange is 5.84:1; white would be 3.05:1. */
+  a.solid { background: #fa6404; color: #16181b; border-color: #fa6404; }
+  a.solid:hover { background: #ff7a1f; border-color: #ff7a1f; }
+  a.ghost { color: #fff; border-color: rgba(255,255,255,.45); }
+  a.ghost:hover { border-color: #fff; background: rgba(255,255,255,.08); }
+  a:focus-visible { outline: 3px solid #fa6404; outline-offset: 3px; }
+  @media (max-width: 560px) { .actions a { width: 100%; } }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <svg class="mark" viewBox="0 0 256 256" role="img" aria-label="Oaks Roofing &amp; Construction">
+      <defs>
+        <mask id="k">
+          <rect width="256" height="256" fill="#fff"/>
+          <g stroke="#000" fill="#000" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="86" y1="196" x2="176" y2="80" stroke-width="20"/>
+            <path d="M156 54 L196 94 L182 108 L142 68 Z"/>
+            <path d="M196 94 L210 79 Q218 70 210 60 L200 50" stroke-width="14" fill="none"/>
+          </g>
+        </mask>
+      </defs>
+      <g mask="url(#k)">
+        <path d="M52 128 L128 52 L204 128 L204 220 L52 220 Z" fill="#fa6404"/>
+        <path d="M30 134 L128 36 L226 134" stroke="#fa6404" stroke-width="22" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+        <rect x="170" y="48" width="24" height="50" fill="#fa6404"/>
+      </g>
+    </svg>
+
+    <h1>We couldn't find that page</h1>
+    <p>The link may be old, or the address may have a typo in it.</p>
+    <p>Either way, we can still help with your roof, siding, or gutters &mdash; give us a call and we'll pick it up from there.</p>
+
+    <!--
+      Phone only, and no "back to the homepage" link, on purpose. This page is
+      served in place of a missed URL at whatever depth that URL had, so there
+      is no href that is correct in both places: "/" is Oaks' homepage on Scott's
+      own host but somebody else's homepage while the site is staged in a
+      subdirectory, and a relative link resolves differently at every depth.
+      A tel: link has no such ambiguity and is the route that actually converts.
+    -->
+    <div class="actions">
+      <a class="btn solid" href="tel:+15138275297">Call (513) 827-5297</a>
+    </div>
+  </div>
+</body>
+</html>

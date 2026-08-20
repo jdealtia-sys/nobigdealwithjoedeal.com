@@ -130,7 +130,7 @@
     //   catalog-costs (merges the private cost/labor half back in) →
     //   product-library (reads NBD_* + defines _productLib, before estimates.js) →
     //   estimate-builder-v2 (defines EstimateBuilderV2.CATALOG) BEFORE
-    //   estimate-catalog-xactimate (merges 270 items into that CATALOG at load) →
+    //   estimate-catalog-xactimate (merges 277 items into that CATALOG at load) →
     //   estimates (window.R, startNewEstimate) → finalization → v2-ui (last).
     // estimate-config, review-engine, property-intel stay EAGER.
     //
@@ -140,14 +140,25 @@
     // load. Its cache-first pass patches window.NBD_PRODUCTS in time on any
     // device that has hydrated before; the async fetch behind it calls
     // _productLib.applyCostSeed for the cold-device case.
+    //
+    // catalog-costs ALSO feeds the job-template custom-item bridge
+    // (2026-08-18). job-templates-data.js no longer carries the 84 custom
+    // items' materialCost/laborCost either; job-templates.js reads them from
+    // NBDCatalogCosts.jobItem() at its own load time. It sits fourteen entries
+    // BELOW catalog-costs here, so on a warm device the book is already in
+    // memory when registerAllCustomItems() runs; on a cold device
+    // catalog-costs calls JobTemplates.applyJtCostSeed() once Firestore
+    // answers, which re-registers every item and drops the UI band cache.
+    // 'job-templates': ['estimates'] below is the ONLY entry point, so there
+    // is no page where job templates load without the cost book.
     estimates: [
       'js/product-data.js?v=2',
       'js/roofivent-catalog.js?v=2',
-      'js/catalog-costs.js?v=1',
+      'js/catalog-costs.js?v=2',
       'js/product-library.js?v=4',
       'js/estimate-labor-catalog.js?v=1',
-      'js/estimate-builder-v2.js?v=5',
-      'js/estimate-catalog-xactimate.js?v=1',
+      'js/estimate-builder-v2.js?v=6',
+      'js/estimate-catalog-xactimate.js?v=2',
       'js/estimate-logic-engine.js?v=5',
       'js/estimates.js?v=7',
       // Rock 2 PR 6: the New-Estimate front door (chooser) split out of
@@ -167,10 +178,10 @@
       // inserts into the V2 builder — end-of-bundle satisfies all three.
       // entity-resolver.js (the lead search/quick-create picker) must load
       // before job-templates-ui.js, which calls it from paintModal.
-      'js/job-templates-data.js?v=1',
-      'js/job-templates.js?v=2',
+      'js/job-templates-data.js?v=3',
+      'js/job-templates.js?v=4',
       'js/entity-resolver.js?v=1',
-      'js/job-templates-ui.js?v=3'
+      'js/job-templates-ui.js?v=5'
     ],
     // Photo + inspection engine (PR 2d). Camera capture / gallery / lightbox /
     // bulk-analyze (photo-engine), the photo-report doc (photo-report), and the

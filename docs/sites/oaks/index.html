@@ -7,14 +7,17 @@
 <meta name="description" content="Trusted roofing company in Goshen, OH offering affordable roof replacement, roof repair, siding, and seamless gutters — backed by a 5-year labor warranty.">
 <meta name="robots" content="noindex, nofollow">
 <!-- HAND-OFF: when this site goes live on its own domain, (1) delete the robots
-     line above, (2) uncomment the canonical/og:url lines and point them at the
-     real domain, (3) set the form destination in assets/js/site.js. -->
+     line above, (2) uncomment the canonical, og:url AND og:image lines and point
+     them at the real domain (og:image MUST be absolute — a relative one is
+     unresolvable by every link previewer), (3) set the form destination in
+     assets/js/site.js, and (4) drop the Disallow: /sites/oaks/ lines from
+     robots.txt if this is still served from nobigdealwithjoedeal.com. -->
 <!-- <link rel="canonical" href="https://example.com/"> -->
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Oaks Roofing &amp; Construction">
 <meta property="og:title" content="Roofing Company Goshen, OH | Oaks Roofing &amp; Construction">
 <meta property="og:description" content="Affordable roof replacement, roof repair, siding, and seamless gutters in Goshen, OH — backed by a 5-year labor warranty.">
-<meta property="og:image" content="assets/img/hero-home.jpg">
+<!-- <meta property="og:image" content="https://example.com/assets/img/hero-home.jpg"> -->
 <!-- <meta property="og:url" content="https://example.com/"> -->
 <meta name="twitter:card" content="summary_large_image">
 <link rel="icon" href="assets/img/icon.svg" type="image/svg+xml">
@@ -23,6 +26,11 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Montserrat:wght@500;600;700;800;900&amp;family=Open+Sans:wght@400;600;700&amp;display=swap">
 <link rel="stylesheet" href="assets/css/site.css">
 <script defer src="assets/js/site.js"></script>
+<!-- No aggregateRating here on purpose. The archived site said "Over 13 Happy
+     Customers!" — that is a CUSTOMER count, not a review count, and "over 13"
+     is not 13. This page shows exactly one review. Publishing
+     reviewCount:13 would be a machine-readable star-rating claim to Google
+     that nothing supports. Add it back only from Scott's real Google profile. -->
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
@@ -35,8 +43,7 @@
   "openingHoursSpecification": [
     { "@type": "OpeningHoursSpecification", "dayOfWeek": ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"], "opens": "07:00", "closes": "16:00" },
     { "@type": "OpeningHoursSpecification", "dayOfWeek": "Sunday", "opens": "07:00", "closes": "20:00" }
-  ],
-  "aggregateRating": { "@type": "AggregateRating", "ratingValue": "5.0", "reviewCount": "13" }
+  ]
 }
 </script>
 </head>
@@ -166,7 +173,7 @@
       <div class="orc-split-media">
         <div class="orc-form-panel">
           <span class="orc-eyebrow">Roof Replacement</span>
-          <h3 style="font-size:1.2rem;margin-bottom:4px;">Here's what you can expect:</h3>
+          <h3 class="orc-check-title">Here's what you can expect:</h3>
           <ul class="orc-check">
             <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"></path></svg> Free roof inspection</li>
             <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"></path></svg> Complete tear-off and install</li>
@@ -174,7 +181,7 @@
             <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"></path></svg> Insurance claim support</li>
             <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"></path></svg> Structural repairs if needed</li>
           </ul>
-          <a class="btn btn-primary btn-block" href="services/roof-replacement.html" style="margin-top:24px;">Read More</a>
+          <a class="btn btn-primary btn-block u-mt-24" href="services/roof-replacement.html">Read More</a>
         </div>
       </div>
     </div>
@@ -310,7 +317,7 @@
         <p>Manufacturer coverage on new siding installations.</p>
       </div>
     </div>
-    <div style="text-align:center;margin-top:34px;">
+    <div class="u-center-cta">
       <a class="btn btn-primary" href="#quote">Start Your Project</a>
     </div>
   </div>
@@ -399,8 +406,9 @@
       </div>
 
       <div class="orc-form-panel">
-        <form data-orc-form novalidate>
+        <form data-orc-form method="post" novalidate>
           <p class="orc-form-msg" role="status" aria-live="polite"></p>
+    <noscript><p class="orc-form-msg err">This form needs JavaScript to reach us. Please call <a href="tel:+15138275297">(513) 827-5297</a> instead — we answer Monday to Saturday, 7:00 AM to 4:00 PM.</p></noscript>
           <div class="orc-form-grid">
             <label class="orc-field"><span>First Name <i class="req" aria-hidden="true">*</i></span>
               <input type="text" name="first_name" autocomplete="given-name" placeholder="John" required></label>
@@ -428,8 +436,8 @@
               <span>Company Website</span>
               <input type="text" name="company_website" tabindex="-1" autocomplete="off"></label>
           </div>
-          <button type="submit" class="btn btn-primary btn-block" style="margin-top:20px;">Send Message</button>
-          <p class="orc-form-note">Prefer to talk it through? Call <a href="tel:+15138275297" style="color:var(--orange);font-weight:700;">(513) 827-5297</a>.</p>
+          <button type="submit" class="btn btn-primary btn-block u-mt-20">Send Message</button>
+          <p class="orc-form-note">Prefer to talk it through? Call <a href="tel:+15138275297">(513) 827-5297</a>.</p>
         </form>
       </div>
     </div>
