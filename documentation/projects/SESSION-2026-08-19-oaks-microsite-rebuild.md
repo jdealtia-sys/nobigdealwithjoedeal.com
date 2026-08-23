@@ -208,6 +208,46 @@ rather than following them. Header checks pass on a looping site because headers
 show **one hop**. `scripts/verify-deploy.sh` now follows redirects and asserts a 200, and
 covers the trailing-slash form and the Oaks 404.
 
+## 4g. Three more regressions found AFTER it went live — two by Jo, by eye
+
+Everything above was written while the site was believed correct. It then shipped, and
+three further defects surfaced. All are fixed and live; recorded here because the pattern
+matters more than the individual bugs.
+
+1. **`/sites/oaks/home/` (trailing slash) served an asset-less page.** The THIRD instance
+   of the `cleanUrls` trap — `trailingSlash:false` strips the slash off a real file, but
+   the homepage is served by a **rewrite**, and a rewrite source matches the slashed form
+   *and* bypasses that normalisation. Fixed with a `301 /sites/oaks/home/ → /sites/oaks/home`.
+   All three variants are in [[cleanurls-directory-index-relative-paths]].
+2. **The header controls bunched left below 1040px** (161px dead space at 390px, 386px at
+   768px). `margin-left:auto` lived on `.orc-nav`, which is `display:none` at that
+   breakpoint, so nothing claimed the slack. Moved to `.orc-header-cta`. **Reported by Jo
+   from a phone screenshot.** With the space reclaimed the phone *number* now stays visible
+   on phones instead of collapsing to a bare icon.
+3. **The gallery lightbox controls were dead** — my own regression from the `aria-modal`
+   fix in 4e. `setBackground` inerted every direct child of `<body>` filtering on
+   `el !== box`, which is only correct if the dialog IS a body child. It sat inside
+   `<main>`, so `<main>` went inert and took Close/Prev/Next with it; only Escape worked.
+   Dialog moved to body level AND the filter changed to `!el.contains(box)`.
+   **Reported by Jo.**
+
+> ### The real lesson: three false greens in my own tooling
+>
+> Each of these was *already visible* in output I had generated and not read properly:
+>
+> | tooling | what it claimed | what was true |
+> |---|---|---|
+> | contrast harness | "all measured pairs pass" | every selector was `NOT FOUND` |
+> | screenshot probe | 2 images broken | probe ran after `fullPage` reset lazy state |
+> | lightbox test | "background made inert" ✓ | `<main>` inert, every button dead |
+> | header probe | printed `boxW 264 boxH 54` | ratio 4.886 vs natural 2.459 — never divided |
+>
+> The common fault is **asserting a precondition instead of an outcome.** "The background
+> is inert" is not "the buttons work". "The selector matched" is not "the contrast passes".
+> Every one of these tests now performs the user's action — clicks next, clicks close,
+> follows the redirect — and fails when the outcome is wrong. Each new assertion was
+> verified to FAIL against the broken build before being trusted.
+
 ## 5. Deliberate deviations from the original (all recorded)
 
 - **Gallery has 9 photos, the original was paginated (1 2 3 4).** Nine is all the archived
@@ -221,9 +261,8 @@ covers the trailing-slash form and the Oaks 404.
   pixels, no cookies; one `sessionStorage` flag for the dismissed banner; Google Fonts is
   the only third-party request, and the policy discloses it. Still flagged for Scott's
   review in the README before launch.
-- **`logo-orange.svg` left alone** at `#e8720c` even though the real mark is `#fa6404` —
-  `companyProfile/oaks` `brand.logoUrl` and generated documents point at it, and recolouring
-  it is a separate, wider change. **Open item** (§7).
+- ~~**`logo-orange.svg` left alone**~~ — **DONE later the same day** (§7 item 2): rebuilt
+  against the real artwork. Path unchanged, so generated documents picked it up.
 
 ## 6. Verification
 
@@ -314,6 +353,42 @@ covers the trailing-slash form and the Oaks 404.
   now-partly-reversed 2026-07-04 cutover decision.
 - `documentation/architecture/MULTI-TENANT-ARCHITECTURE.md` — Pillar 5 "Now" section
   corrected to describe both Oaks surfaces.
+
+## 8b. FINAL STATE — everything below is live and verified on production
+
+Merged and deployed in this order, each with 19/19 CI and its own deploy:
+
+| PR | what |
+|---|---|
+| #1265 | the 11-page rebuild, split out of #1263 so it could ship alone |
+| #1266 | homepage redirect **loop** hotfix (`/index` → `/home` + rewrite) |
+| #1268 | nine adversarial-pass findings + logo mark + trailing-slash form |
+| #1263 | the 83-finding design sweep (merged after resolving 19 Oaks conflicts to main) |
+| #1270 | header controls bunched left below 1040px |
+| #1271 | gallery lightbox controls dead — regression from #1268's focus trap |
+
+Verified against **production**, not a model of it:
+
+- `/sites/oaks`, `/sites/oaks/home/`, `/sites/t/oaks`, `/sites/oaks/about/` — all resolve
+  200 in at most two hops, no loops.
+- All 11 pages 200; the Oaks 404 fires at shallow and deep paths with **zero** NBD strings.
+- Gallery: all nine photos walked one at a time at desktop and mobile, each decoding at
+  full resolution, counter wrapping 9→1, prev and close working, dialog not inert.
+- Header at 320/360/390/430/768/1040/1400: dead space 22px (the wrap padding) at every
+  width, no overlap, no overflow.
+- Contrast: all nine measured pairs pass AA. Footer logo ratio 2.459 = natural 2.459.
+- The NBD marketing surface after the sweep: 12 pages checked, all 200, nav + footer
+  rendering, **no font 404s** after the 594KB duplicate dedup, zero non-GA HTTP errors.
+
+Prod data on `companyProfile/oaks`, each written and read back:
+`brand.contact.email` and `brand.contact.alertEmail` → `scott@oaksroofingandconstruction.com`
+(both were `joe@oaksrfc.com`, a domain Jo confirmed wrong — and `contact.email` prints on
+Scott's estimates, inspection reports and photo reports, not just a web page);
+`brand.colors.accent` `#C2410C` → `#fa6404`.
+
+**Only remaining action is Jo's:** send Scott the current zip. An earlier build was handed
+over before the fixes and must not be the one that ships — it has the stretched footer
+logo, the fabricated `reviewCount`, the form that leaks PII into the URL, and no 404 page.
 
 ## 9. Related
 
