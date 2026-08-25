@@ -37,6 +37,10 @@ const COORDS = {
   'monroe-oh': [39.44, -84.36], 'mt-orab-oh': [39.03, -83.92],
   'springboro-oh': [39.55, -84.23], 'west-chester-oh': [39.33, -84.40],
   'wilmington-oh': [39.45, -83.83],
+  // Central Kentucky expansion (2026-08-25): Lexington flagship + Bluegrass ring.
+  'lexington-ky': [38.05, -84.50], 'georgetown-ky': [38.21, -84.56],
+  'nicholasville-ky': [37.88, -84.57], 'winchester-ky': [37.99, -84.18],
+  'richmond-ky': [37.75, -84.29], 'versailles-ky': [38.05, -84.73],
 };
 
 const FAMILIES = [

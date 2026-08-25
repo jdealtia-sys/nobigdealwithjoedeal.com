@@ -113,9 +113,10 @@
       for now) — [PUBLISH-PROJECT](../runbooks/PUBLISH-PROJECT.md)
 - [ ] **Backfill real cities on the 12 seeds** ("Greater Cincinnati, OH" ×11 →
       real towns where consent allows)
-- [ ] **Edit the 3 blog drafts** — 25 `JO:` markers (photos, storm anecdote,
-      report screenshots) — [drafts README](../drafts/README.md); each cleared
-      post = one agent publish session
+- [ ] **Edit the 2 remaining blog drafts** — `JO:` markers (photos, storm
+      anecdote, report screenshots) — [drafts README](../drafts/README.md);
+      each cleared post = one agent publish session *(was "3 drafts": the
+      financing post published 2026-08-17, PR #1224; corrected 2026-08-25)*
 - [ ] **TAMKO real pricing** — 8 SKUs still carry GAF-mirrored placeholders
 - [ ] **kie.ai visualizer flip** (config-only) —
       [VISUALIZER-KIE-PROVIDER](../runbooks/VISUALIZER-KIE-PROVIDER.md)
@@ -155,24 +156,30 @@
    pasting it is what closes the item ([Phase-2
    brief](PHASE2-PUBLISHED-COST-BASIS-BRIEF-2026-08-18.md) ·
    [audit 2026-08-10](../audit/SITE-AUDIT-LOOSE-ENDS-2026-08-10.md))
-2. Jobs-posting **phase 2**: admin "Post a Job" form + PR bot (roadmap in
+2. **Lexington launch ops (Jo, ~15 min)** — the site claims Central KY as of
+   2026-08-25: (a) add Lexington, Georgetown, Nicholasville, Winchester,
+   Richmond, Versailles to the Google Business Profile service area; (b) confirm
+   Lexington–Fayette / local permit or licensing requirements before the first
+   job; (c) text the Lexington caller `/areas/lexington-ky` + the two posts
+   ([session note Part 2](SESSION-2026-08-25-lexington-call-posts.md))
+3. Jobs-posting **phase 2**: admin "Post a Job" form + PR bot (roadmap in
    [NEXT_SESSION-2026-08-10](NEXT_SESSION-2026-08-10.md))
-3. **Dead-functions wire-or-retire lane** — 7 deployed exports with no
+4. **Dead-functions wire-or-retire lane** — 7 deployed exports with no
    caller (list + playbook in the 2026-08-10 audit note §Open items); needs
    Jo's per-function call, then CL8-style retirement or UI wiring
-4. Firestore offline persistence (after Jo's decision)
-5. Classic-wizard deletion (once Jo's gates clear)
-6. **Rules-test coverage** — zero assertions for /invoices, /storm_proofs,
+5. Firestore offline persistence (after Jo's decision)
+6. Classic-wizard deletion (once Jo's gates clear)
+7. **Rules-test coverage** — zero assertions for /invoices, /storm_proofs,
    /supplements, /portal_messages, /connectAccounts + Storage
    audio/galleries/reports/shared_docs; plus #12-guard cases for the 12
    newly guarded creates (2026-08-10 audit)
-7. **Admin AI-usage endpoint** — the analytics page is labeled SAMPLE DATA;
+8. **Admin AI-usage endpoint** — the analytics page is labeled SAMPLE DATA;
    claudeProxy already logs real usage, needs aggregation + page wiring
-8. Functions cold-start increment 2 (lazy export proxies)
-9. Inline-CSS dedup phase 2 (~2.7 MB; needs generator design)
-10. /our-work/<slug> detail pages (needs build-sitemap rule) + Haiku blurb drafter
-11. Globals Tranche 3 plan · 404 full-chrome · emulator widening · Swath admin UI
-12. Blog publish sessions (one per draft, after Jo's edits)
+9. Functions cold-start increment 2 (lazy export proxies)
+10. Inline-CSS dedup phase 2 (~2.7 MB; needs generator design)
+11. /our-work/<slug> detail pages (needs build-sitemap rule) + Haiku blurb drafter
+12. Globals Tranche 3 plan · 404 full-chrome · emulator widening · Swath admin UI
+13. Blog publish sessions (one per draft, after Jo's edits)
 
 *(2026-08-10: "rate-limit-policy adopt-vs-delete" left this list — ADOPTED;
 guardHttp/guardCallable now live on claudeProxy, validateAccessCode,
