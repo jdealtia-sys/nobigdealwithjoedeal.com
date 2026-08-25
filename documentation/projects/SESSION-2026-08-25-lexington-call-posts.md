@@ -65,11 +65,68 @@ to the voice bible (driveway register, no invented figures, honest-caveat closer
 
 1. **Say the word if you'd rather not name State Farm** in post A — removal spots
    listed above, five-minute edit.
-2. The Lexington caller sounds like live pipeline (he can't buy materials himself,
-   and Lexington is reachable for the right job). If he calls back, both posts are
-   ready to text him.
+2. ~~The Lexington caller sounds like live pipeline~~ **Superseded same day:** Jo
+   confirmed the caller asked point-blank whether NBD services Lexington, Jo said
+   yes, and the caller said the conversation earned his business. Lexington is now
+   claimed territory — see Part 2 below.
 3. This is the second call proving the comparison posts convert phone-first.
    The obvious next entries in the series when calls supply the facts: "Duration
    FLEX vs HailGuard" (the two Class-4-with-polymer lanes head-to-head) and
    "what a Class 4 certificate actually looks like" (photo post, needs a real
    certificate scan through the EXIF pipeline).
+
+---
+
+# Part 2 (same session) — the Central Kentucky expansion
+
+Jo's follow-up turned the call into territory: expand page coverage south toward
+Lexington and "start trying to close that territory." Jo also released his
+backstory for site use (grew up in eastern Kentucky ~15 min from the Red River
+Gorge → lived in Lexington 2–4 years → a stretch in Omaha, NE → **first** arrived
+in Cincinnati after Omaha, "moved to Cincinnati and never left" — Jo confirmed the
+sequence when asked). Scope choices were put to Jo directly (AskUserQuestion) and
+he picked: **Lexington flagship + 5-city ring · site-wide service-area line update
+· backstory on About + Lexington + one blog line · vague-free "never left"
+wording.**
+
+## What shipped
+
+- **6 area pages**: `/areas/lexington-ky` (flagship — personal "New to Serving
+  Lexington, Not New to Lexington" section, honest new-territory framing, no
+  fabricated job history) + georgetown, nicholasville, winchester, richmond,
+  versailles — each with its own county, storm profile, and hero copy (no clone
+  sameness; the 2026-08-19 design-sweep lesson).
+- **Lexington service trio** (outer-ring tier, same as Mt. Orab/Wilmington):
+  `hail-damage- / roof-replacement- / storm-damage-lexington-ky` with
+  Kentucky-correct FAQ copy (wind = covered peril *in Kentucky*; honest
+  scheduled-trips response-time answers, no same-day claims).
+- **Wiring**: 6 cities added to `add-location-interlinks.js` COORDS and the script
+  run (nearby sections stamped on the trio); Lexington pills hand-inserted into
+  the three hub `data-nbd-cities` sections at the generator's sort position (the
+  script only adds when the marker is absent — it never restamps, so a manual
+  insert matching its output is the correct move); areas index got a **Central
+  Kentucky (6 cities)** block, 31-city counts, new hero badge/lede, and schema
+  areaServed additions; sitemap +9.
+- **Site-wide service-area line** via the footer partials (footer-blog /
+  footer-extended / footer-slim → "Greater Cincinnati, Northern Kentucky & the
+  Lexington area"), restamped across 50 pages by apply-partials; homepage meta,
+  LocalBusiness description + areaServed, areas strip (+6 tags), and the
+  what-areas FAQ (visible + JSON-LD twin) updated; llms.txt territory lines and
+  Common Questions updated with the scheduled-trips caveat.
+- **Backstory placements** (exactly three, per Jo's pick): About page origin
+  paragraph ("Kentucky roots, Midwest miles, Cincinnati home" + an Eastern
+  Kentucky Roots cred chip), the Lexington flagship section, and post A's Kentucky
+  section — which now records the real ending: Jo said yes, and the caller said
+  the conversation earned his business.
+
+## Decisions a future session should know
+
+- **New KY pages omit the JSON-LD `address` block** instead of replicating the
+  known-wrong hardcoded `addressLocality: "Goshen"` (open item from the
+  2026-08-18 Goshen audit). areaServed + per-city geo carry the local signal.
+  When Jo supplies the real base address, add it to all 31 area pages together.
+- **Honesty rails on every Central KY page**: scheduled trips from Cincinnati,
+  exact windows not maybes, no 24-48h response claims, no invented job history —
+  "my Lexington job list is young" is stated, not hidden.
+- Ring cities have **area pages only** for now; their service clusters are the
+  named follow-up once Lexington produces jobs.
