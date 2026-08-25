@@ -8,6 +8,22 @@
 // ──────────────────────────────────────────────────────────────────
 const POSTS = [
   {
+    url: "/blog/is-the-class-4-upgrade-worth-it",
+    tag: "Reader Questions",
+    title: "The Same Question, a 12% Answer — Is Class 4 Worth It?",
+    meta: "By Joe Deal · August 2026 · 7 min read",
+    excerpt: "A Lexington homeowner had the same Duration-vs-HailGuard question as the Colorado caller — but he'd already phoned his insurance agent: 12% off his premium for a Class 4 roof. How a real discount changes the upgrade math, and the fine print to read first.",
+    published: "2026-08-25",
+  },
+  {
+    url: "/blog/why-wont-roofing-suppliers-sell-to-homeowners",
+    tag: "Reader Questions",
+    title: "He Tried to Buy His Own Shingles. Every Counter Said No.",
+    meta: "By Joe Deal · August 2026 · 7 min read",
+    excerpt: "He tried to buy TAMKO HailGuard himself and hire labor separately. SRS and QXO don't carry it; ABC Supply is account-only now. Why the counters closed to homeowners, what owner-supplied really costs you, and the honest way to get a premium roof.",
+    published: "2026-08-25",
+  },
+  {
     url: "/blog/gaf-timberline-hdz-vs-tamko-stormfighter-flex",
     tag: "Reader Questions",
     title: "GAF Timberline HDZ vs. TAMKO StormFighter Flex: A Reader Asked",
