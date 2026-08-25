@@ -67,6 +67,13 @@
 - [x] Any red PR / open post-a-job request from Jo? Land it.
       *(2026-08-10: dependabot #1196 green → merged; issue #546 verified
       long-done → closed; tracker at zero)*
+- [ ] **Lead address audit workflow is red daily** (spotted 2026-08-25): the
+      scheduled run has failed all 6 fires since it first fired 2026-08-20,
+      each dying in ~20s — smells like a missing Actions secret/credential,
+      not code (head shas predate any recent change). Pull the run logs,
+      diagnose, fix or tell Jo which secret it needs —
+      [CRM-ADDRESS-INTEGRITY-2026-08-18](../audit/CRM-ADDRESS-INTEGRITY-2026-08-18.md)
+      is the lane it belongs to.
 
 ---
 

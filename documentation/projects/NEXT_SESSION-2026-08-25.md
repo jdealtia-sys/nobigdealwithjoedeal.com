@@ -28,8 +28,9 @@ Part 2 of the [session note](SESSION-2026-08-25-lexington-call-posts.md)).
 
 ## Jo's queue (nothing blocking)
 
-1. **Post A names State Farm** (as the carrier who quoted the caller's 12%) — the
-   session note lists the exact spots if you'd rather de-name it; five-minute edit.
+1. ~~Post A names State Farm — keep or de-name?~~ **RESOLVED 2026-08-25**: Jo
+   confirmed the name stays. No action for anyone; rationale recorded in the
+   session note.
 2. **Close the Lexington caller** — the site now backs up the "yes" you gave him:
    text him `/areas/lexington-ky` + both posts. His job is the first entry on the
    Lexington job list.
@@ -64,6 +65,9 @@ Part 2 of the [session note](SESSION-2026-08-25-lexington-call-posts.md)).
   the moment a job closes — a real local job photo beats every word on those
   pages. Decisions log is in the session note's Part 2 (incl. why new KY pages
   omit the JSON-LD address block).
+- **The scheduled "Lead address audit" workflow is red on every daily fire since
+  2026-08-20** (~20s failures, likely a missing Actions secret — pre-existing,
+  unrelated to this session's PR). Queued in WEEKLY_CADENCE's agent list.
 - Standing rules from 08-20 still stand: verify hosting behavior by following
   redirects on a preview channel, never by reading config; assert the outcome, not
   the precondition.

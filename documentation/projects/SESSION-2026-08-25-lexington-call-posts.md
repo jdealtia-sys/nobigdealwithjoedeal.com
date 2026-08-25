@@ -63,8 +63,11 @@ to the voice bible (driveway register, no invented figures, honest-caveat closer
 
 ## For Jo
 
-1. **Say the word if you'd rather not name State Farm** in post A — removal spots
-   listed above, five-minute edit.
+1. ~~Say the word if you'd rather not name State Farm~~ **RESOLVED 2026-08-25,
+   same day**: Jo reviewed the naming rationale (attributed-not-asserted, already
+   site canon via two older posts, publicly verifiable program, carrier-name
+   search intent) and confirmed — State Farm stays named. Decision closed; the
+   removal-spots list above stays only as documentation of where the name lives.
 2. ~~The Lexington caller sounds like live pipeline~~ **Superseded same day:** Jo
    confirmed the caller asked point-blank whether NBD services Lexington, Jo said
    yes, and the caller said the conversation earned his business. Lexington is now
