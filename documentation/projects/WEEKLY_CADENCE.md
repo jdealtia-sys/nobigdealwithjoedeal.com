@@ -113,9 +113,10 @@
       for now) — [PUBLISH-PROJECT](../runbooks/PUBLISH-PROJECT.md)
 - [ ] **Backfill real cities on the 12 seeds** ("Greater Cincinnati, OH" ×11 →
       real towns where consent allows)
-- [ ] **Edit the 3 blog drafts** — 25 `JO:` markers (photos, storm anecdote,
-      report screenshots) — [drafts README](../drafts/README.md); each cleared
-      post = one agent publish session
+- [ ] **Edit the 2 remaining blog drafts** — `JO:` markers (photos, storm
+      anecdote, report screenshots) — [drafts README](../drafts/README.md);
+      each cleared post = one agent publish session *(was "3 drafts": the
+      financing post published 2026-08-17, PR #1224; corrected 2026-08-25)*
 - [ ] **TAMKO real pricing** — 8 SKUs still carry GAF-mirrored placeholders
 - [ ] **kie.ai visualizer flip** (config-only) —
       [VISUALIZER-KIE-PROVIDER](../runbooks/VISUALIZER-KIE-PROVIDER.md)
