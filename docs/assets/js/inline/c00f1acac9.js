@@ -11,7 +11,7 @@ const POSTS = [
     url: "/blog/is-the-class-4-upgrade-worth-it",
     tag: "Reader Questions",
     title: "The Same Question, a 12% Answer — Is Class 4 Worth It?",
-    meta: "By Joe Deal · August 2026 · 7 min read",
+    meta: "By Joe Deal · August 2026 · 8 min read",
     excerpt: "A Lexington homeowner had the same Duration-vs-HailGuard question as the Colorado caller — but he'd already phoned his insurance agent: 12% off his premium for a Class 4 roof. How a real discount changes the upgrade math, and the fine print to read first.",
     published: "2026-08-25",
   },
