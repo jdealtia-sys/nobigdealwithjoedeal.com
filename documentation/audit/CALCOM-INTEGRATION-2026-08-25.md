@@ -43,13 +43,15 @@ event types, `2024-06-11` for schedules).
   a ~30-min build and two PATCHes.
 - **SMS reminder workflows**: paid feature; the email reminder ships instead.
 
-## Still open — Jo's finish steps (webhook is registered but the function
-fails closed until the secret lands)
+## Jo's finish steps (updated 2026-08-26 — the webhook is LIVE end-to-end)
 
-1. `firebase functions:secrets:set CALCOM_WEBHOOK_SECRET` with the value from
-   chat, then a functions redeploy so v2 binds the new secret version (any
-   functions-touching merge triggers it, or
-   `firebase deploy --only functions:calcomWebhook`).
+1. ~~Set `CALCOM_WEBHOOK_SECRET` + redeploy~~ **DONE 2026-08-26, verified
+   live at 03:41Z**: unsigned POST → 400 "Missing signature" (was 503
+   fail-closed), HMAC-signed PING → 200 `{"ok":true}`. Jo set the secret via
+   the interactive prompt; the #1276 merge deploy bound it (chunk 1 of run
+   32925767669 — that run shows red overall from an unrelated
+   `onAiDraftApproved` polling transient; calcomWebhook itself deployed,
+   its URL printed, and both probes confirm the binding).
 2. NBD Pro → Settings → Profile → set Cal.com username `nobigdeal` (the webhook
    maps organizer→rep via `users/{uid}.calcomUsername`; without it bookings
    arrive but can't attach to Jo).

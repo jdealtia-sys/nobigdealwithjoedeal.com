@@ -348,6 +348,41 @@ generation blocks on an incomplete address, the corrections are data rather
 than hand-edits, and the gate now runs on its own every morning. The remaining
 38 thin addresses are customer contact, which no workflow can do.
 
+## 2026-08-26 — the daily gate is red for the right reasons
+
+The Wave-4 workflow has fired six times (2026-08-20 → 08-25, daily ~11:15Z)
+and failed every fire, ~20s per run. A WEEKLY_CADENCE queue item written
+2026-08-25 guessed "missing Actions secret" from the durations alone — wrong
+twice over, corrected here and there. The workflow skips **green** when
+`FIREBASE_SERVICE_ACCOUNT` is unset (its designed convention, §Wave 4), so a
+red run can only be the audit itself failing. The logs of run 32841361980
+(08-25 fire) confirm the gate is doing exactly what it was built to do, and
+the four failures are the **same four records this doc inventoried at ship
+time** ("Live-record state after Wave 4"). Nothing broke; the gate is
+waiting on the records.
+
+The four, from the run output (all $0 leads):
+
+| id | lead | class |
+|---|---|---|
+| `DpjsBG8qzrJKLwhrU9oj` | Kevin Dewald | the pre-Wave-141 placeholder the backfill guard refuses to geocode (§Wave 2) |
+| `9WWbu37dEHt7u6MfiihW` | George Broderick | blank |
+| `KQASizQhFLDH0tjgfFf1` | Jerry Sharkey | blank (parked at Jo's request, §Wave 4) |
+| `kBNTUsTFSE7hBY8u5ukU` | AJ | blank |
+
+The fix is Jo's, in NBD Pro, ~2 min: open each lead and either complete the
+address or retire the lead (retired rows are skipped by design — §Wave 4's
+soft-delete fix). The gate self-greens on the first 11:00 UTC fire after.
+
+Rest of the 08-25 snapshot, for the trendline: scanned 174 live (+19
+retired), 118 complete ($381,893 of pipeline), 50 street-less rows
+($12,476.25 — Thumbtack shape, grown from 38 at Wave 4: a week of new
+inbound lands thin), and 2 no-state rows — Sofia Moriarty ($0) and
+`vs8xdVKbFT3g8rzhkIuf` **Nick/Gabby Galfrey at $23,600, missing only its
+state**. Those two are exactly the rows Wave 4's re-geocode correctly
+rejected, so they need a human. Galfrey is the money item: one field from
+mailable on the biggest thin job in the book.
+
 ## Source
 
 Full customer-facing breakdown with per-record detail lives in the Cowork
