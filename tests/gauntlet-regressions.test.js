@@ -316,9 +316,21 @@ console.log('\nCI gate — @stranger shard is required');
   assert('every ci.yml job gates merges — no continue-on-error key of any shape',
     (ci.match(/^\s*continue-on-error:/gm) || []).length === 0,
     'a job regaining continue-on-error (literal or expression) is the hole this guards');
-  assert('this suite runs in CI',
-    /gauntlet-regressions\.test\.js/.test(ci),
-    'add a node tests/gauntlet-regressions.test.js step to ci.yml');
+  // 2026-08-23: this used to grep ci.yml for the suite's own filename, which
+  // stopped being the truth when the smoke job's 65 hand-written steps
+  // collapsed into one aggregated `--bucket smoke` runner. The invariant is
+  // unchanged — "this suite gates merges" — but it now takes two facts: the
+  // suite is classified into a RUNNABLE bucket, and ci.yml still has a step
+  // that executes that bucket. Grepping ci.yml alone would now be satisfied by
+  // a comment; grepping the manifest alone would be satisfied by a bucket
+  // nothing runs.
+  const mf = JSON.parse(read('tests/ci-manifest.json'));
+  assert('this suite is classified into a runnable manifest bucket',
+    Object.prototype.hasOwnProperty.call(mf.smoke || {}, 'gauntlet-regressions.test.js'),
+    'add gauntlet-regressions.test.js to the "smoke" bucket of tests/ci-manifest.json');
+  assert('ci.yml executes the runnable bucket this suite is in',
+    /^\s*run:\s*node scripts\/run-test-manifest\.js --bucket smoke\s*$/m.test(ci),
+    'restore the "Run smoke bucket" step in ci.yml — without it 65 suites gate nothing');
 }
 
 console.log('\nStripe webhook idempotency — marker cleared on failure so retries recover');
