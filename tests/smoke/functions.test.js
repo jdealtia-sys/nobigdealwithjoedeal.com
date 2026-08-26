@@ -1212,8 +1212,9 @@ section('E2: CI workflow present');
   const requiredShards = ['@shard1', '@shard2', '@audit', '@stranger', '@gauntlet', '@engines'];
   assert('all six promoted E2E shards are in the matrix',
     requiredShards.every((s) => ci.includes("'" + s + "'")));
-  assert('no continue-on-error of any shape anywhere in ci.yml',
-    (ci.match(/continue-on-error:/g) || []).length === 0);
+  // Line-anchored: the YAML key, not the substring — comments may name it.
+  assert('no continue-on-error key of any shape anywhere in ci.yml',
+    (ci.match(/^\s*continue-on-error:/gm) || []).length === 0);
 }
 
 section('E2b: hosting deploy is gated');

@@ -311,8 +311,10 @@ console.log('\nCI gate — @stranger shard is required');
   // "@stranger is never exempt". Re-parking a flaking job stays legitimate,
   // at the price every promotion paid: a dated WHY note in ci.yml plus this
   // pin and its functions.test.js twin.
-  assert('every ci.yml job gates merges — no continue-on-error of any shape',
-    (ci.match(/continue-on-error:/g) || []).length === 0,
+  // Line-anchored: count the YAML KEY, not the substring — doctrine comments
+  // are allowed to say "continue-on-error:" (the smoke-runner note does).
+  assert('every ci.yml job gates merges — no continue-on-error key of any shape',
+    (ci.match(/^\s*continue-on-error:/gm) || []).length === 0,
     'a job regaining continue-on-error (literal or expression) is the hole this guards');
   assert('this suite runs in CI',
     /gauntlet-regressions\.test\.js/.test(ci),
