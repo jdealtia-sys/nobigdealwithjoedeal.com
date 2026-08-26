@@ -38,9 +38,13 @@ Part 2 of the [session note](SESSION-2026-08-25-lexington-call-posts.md)).
    Georgetown, Nicholasville, Winchester, Richmond, Versailles — the site claims
    the territory now, GBP should match (also added to WEEKLY_CADENCE's one-off
    queue).
-4. **Before the first Lexington job**: confirm any Lexington–Fayette / local
-   permit or licensing requirements for roofing work there — I made no licensing
-   claims on the new pages, but the paperwork question is real and yours.
+4. **Before the first Lexington job**: the paperwork research is done —
+   [LEXINGTON-CONTRACTOR-SETUP](../runbooks/LEXINGTON-CONTRACTOR-SETUP.md)
+   (2026-08-26). Short version: no KY state roofing license; LFUCG requires
+   contractor registration (occupational license + COI, workers-comp-exempt
+   path for solo operators). What's left is yours: one call to Building
+   Inspection at (859) 258-3770 to settle the conflicting reroof-permit
+   answers, then the registration steps in the runbook's checklist.
 5. **Finish the Cal.com→CRM wiring** (same evening: the whole Cal.com account was
    audited and rebuilt — [CALCOM-INTEGRATION-2026-08-25](../audit/CALCOM-INTEGRATION-2026-08-25.md)):
    (a) ~~set `CALCOM_WEBHOOK_SECRET` + redeploy~~ **DONE — verified live
@@ -94,8 +98,9 @@ Part 2 of the [session note](SESSION-2026-08-25-lexington-call-posts.md)).
   updated (calcomWebhook among them — probe-verified) and hosting shipped
   (Lexington booking links serving). No site action needed; `onAiDraftApproved`
   keeps serving its previous revision of identical code and re-deploys on the
-  next functions-touching merge. Guard-regex fix is queued in WEEKLY_CADENCE's
-  agent list.
+  next functions-touching merge. Guard-regex fix **shipped the same night**
+  (mode 1b — [DEPLOY-FALSE-GREEN-MODES-2026-08-17](../audit/DEPLOY-FALSE-GREEN-MODES-2026-08-17.md)
+  §2026-08-26).
 - Standing rules from 08-20 still stand: verify hosting behavior by following
   redirects on a preview channel, never by reading config; assert the outcome, not
   the precondition.
