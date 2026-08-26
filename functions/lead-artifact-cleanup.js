@@ -153,6 +153,17 @@ exports.onLeadDeleted = onDocumentDeleted(
       const meta = d.data() || {};
       for (const p of [meta.htmlPath, meta.archivePath]) {
         if (!p || typeof p !== 'string') continue;
+        // htmlPath is CLIENT-written. Unconfined, this loop is an arbitrary-
+        // object delete running over the admin SDK: plant any bucket path in
+        // your own lead's documents subcollection, hard-delete the lead, and
+        // the trigger deletes an object Storage rules would never let you
+        // touch. Same confinement rule as getDocumentHtml's read, loosened
+        // only enough for the legacy flat shapes: a lead-artifact prefix, and
+        // the path must reference THIS lead.
+        if (!/^(documents|portals|galleries|audio)\//.test(p) || !p.includes(leadId)) {
+          failures.push(`object ${p}: outside lead-artifact prefixes — skipped`);
+          continue;
+        }
         try {
           await bucket.file(p).delete({ ignoreNotFound: true });
           objectsDeleted++;

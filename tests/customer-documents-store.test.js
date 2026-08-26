@@ -127,10 +127,20 @@ function loadEnv(subDocs, legacyDocs, opts) {
 const ts = iso => ({ toDate: () => new Date(iso) });
 
 // The three writers stamp three different field shapes for the same thing.
+// GENERATED is the PRE-MIGRATION generator shape: htmlUrl was a
+// getDownloadURL — a permanent, no-auth, unrevocable token URL — persisted
+// to Firestore. GENERATED_V2 is the current shape: htmlPath only, re-opened
+// through the authed getDocumentHtml callable (functions/document-view.js).
 const GENERATED = {
   id: 'G1', type: 'contract', typeName: 'Roofing Contract',
   filename: 'NBD-contract-2026-08-18.pdf', htmlUrl: 'https://x.test/c.html',
   createdAt: ts('2026-08-18T10:00:00Z'),
+};
+const GENERATED_V2 = {
+  id: 'G2', type: 'contract', typeName: 'Roofing Contract',
+  filename: 'NBD-contract-2026-08-26.pdf',
+  htmlPath: 'documents/U1/LEAD1/d-123.html',
+  createdAt: ts('2026-08-26T10:00:00Z'),
 };
 const UPLOADED = {
   id: 'U1', name: 'signed-scan.pdf', url: 'https://x.test/s.pdf',
@@ -148,7 +158,7 @@ const UPLOADED = {
       /NBD-contract-2026-08-18\.pdf/.test(els.docList.innerHTML));
     ok('an UPLOADED doc renders on the Overview too',
       /signed-scan\.pdf/.test(els.docList.innerHTML));
-    ok('the generated doc uses its htmlUrl for View (not a dead url field)',
+    ok('a PRE-MIGRATION generated doc (htmlUrl, no htmlPath) still links its htmlUrl',
       /href="https:\/\/x\.test\/c\.html"/.test(els.docList.innerHTML));
     ok('generated docs land in the Generated panel',
       /NBD-contract/.test(els.generatedDocList.innerHTML) && !/signed-scan/.test(els.generatedDocList.innerHTML));
@@ -157,6 +167,30 @@ const UPLOADED = {
     ok('the nav badge counts the merged set', counts.navCountDocs === 2);
     ok('the panel title counts the merged set', counts.docsPanelTitle === 2);
     ok('newest first', els.docList.innerHTML.indexOf('NBD-contract') < els.docList.innerHTML.indexOf('signed-scan'));
+  }
+  {
+    // The tokenless shape (2026-08-18 fix): htmlPath only. No anchor to a
+    // permanent token URL — a data-doc-view button routed through the authed
+    // getDocumentHtml callable instead.
+    const { win, els, counts } = loadEnv([GENERATED_V2]);
+    await win.NBDCustomerDocs.load('LEAD1');
+    ok('an htmlPath-only generated doc renders',
+      /NBD-contract-2026-08-26\.pdf/.test(els.docList.innerHTML));
+    ok('…with a callable View button, not an anchor',
+      /data-doc-view="G2"/.test(els.docList.innerHTML));
+    ok('…and no href at all — there is no URL to leak',
+      !/href=/.test(els.docList.innerHTML));
+    ok('…and is counted', counts.navCountDocs === 1);
+  }
+  {
+    // A row that recorded BOTH (late pre-migration) prefers the callable —
+    // its token may already have been revoked by the orphan sweep.
+    const BOTH = Object.assign({}, GENERATED, { id: 'G3', htmlPath: 'documents/U1/LEAD1/d-9.html' });
+    const { win, els } = loadEnv([BOTH]);
+    await win.NBDCustomerDocs.load('LEAD1');
+    ok('a row with htmlPath AND htmlUrl prefers the callable',
+      /data-doc-view="G3"/.test(els.docList.innerHTML));
+    ok('…and never links the token URL', !/x\.test\/c\.html/.test(els.docList.innerHTML));
   }
   {
     // A document migrated from the top-level collection into the subcollection
