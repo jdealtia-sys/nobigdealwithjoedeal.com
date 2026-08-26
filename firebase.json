@@ -13,6 +13,9 @@
       "**/CREDIT.txt"
     ],
     "redirects": [
+      { "_comment": "Pro landing de-duplication (2026-08-18): docs/pro/landing.html and docs/pro/index.html were byte-identical (same md5) — one page on two URLs, BOTH listed in sitemap-pro.xml, while landing.html's own rel=canonical already pointed at /pro. The sitemap was therefore advertising a 0.9-priority URL that disowned itself. index.html is the survivor because /pro is the canonical everything already references; landing.html is deleted and folded in here so the ~78 external/internal inbound links keep resolving. Trailing * catches both the .html and cleanUrls extensionless forms, same as the Oaks cutover below. Filed unfixed in audit/DESIGNER-AUDIT-VERIFICATION-2026-08-15.md line 48.",
+        "source": "/pro/landing", "destination": "/pro", "type": 301 },
+      { "source": "/pro/landing*", "destination": "/pro", "type": 301 },
       { "_comment": "QR-stable yard sign link. /yardsign is printed on physical yard signs with a QR code; this redirect points scanners to the current GBP listing. 302 (not 301) on purpose: the destination is meant to be swappable without re-printing signs, and 301 would let browsers cache an old target. To repoint: change `destination` below and redeploy.",
         "source": "/yardsign", "destination": "https://g.page/r/CXzIjLwvtRPdEBM", "type": 302 },
       { "_comment": "QR-stable 'leave a review' link for print tracking pieces (card-back, sticker). Lands directly on the Google review form so scanners can rate without an extra tap. Same 302-not-301 rationale as /yardsign: destination must stay swappable. UTM query strings (utm_source/medium/campaign) pass through to the destination automatically, so we can see in Google's referrer + any downstream tooling which printed piece drove the scan. We deliberately use /r (not /review) because /review is the canonical reviews landing page (live Google Reviews widget + schema.org aggregateRating). Don't merge them.",
@@ -30,21 +33,26 @@
         "source": "/free-guide", "destination": "/sites/free-guide", "type": 301 },
       { "_comment": "/financing (root) was a client-side meta-refresh stub to the canonical /services/financing. Replaced with a proper server 301 (better SEO, no redirect flash); the stub file was removed.",
         "source": "/financing", "destination": "/services/financing", "type": 301 },
-      { "_comment": "Pillar 5 Oaks cutover (Jo, 2026-07-04): the hand-authored /sites/oaks pages are retired; the data-driven tenant microsite at /sites/t/oaks (rendered from companyProfile via getPublicSiteConfig) is canonical. Page paths are ENUMERATED rather than /sites/oaks/** because redirects outrank static files in Hosting priority and logo-orange.svg must keep serving — companyProfile/oaks brand.logoUrl (and generated documents) point at it. Trailing * catches both the .html and cleanUrls extensionless forms.",
-        "source": "/sites/oaks", "destination": "/sites/t/oaks", "type": 301 },
-      { "source": "/sites/oaks/index*", "destination": "/sites/t/oaks", "type": 301 },
-      { "source": "/sites/oaks/about*", "destination": "/sites/t/oaks", "type": 301 },
-      { "source": "/sites/oaks/contact*", "destination": "/sites/t/oaks", "type": 301 },
-      { "source": "/sites/oaks/gallery*", "destination": "/sites/t/oaks", "type": 301 },
-      { "source": "/sites/oaks/service-areas*", "destination": "/sites/t/oaks", "type": 301 },
-      { "source": "/sites/oaks/services", "destination": "/sites/t/oaks", "type": 301 },
-      { "source": "/sites/oaks/services/**", "destination": "/sites/t/oaks", "type": 301 }
+      { "_comment": "/pro/codex was a client-side meta-refresh stub to the AI Selection Codex at /pro/ai-tool-finder — the last http-equiv=refresh in docs/. Same treatment as /financing above: a proper server 301, and the stub file removed. Internal links and the nav pageMaps now point straight at the target.",
+        "source": "/pro/codex", "destination": "/pro/ai-tool-finder", "type": 301 },
+      { "_comment": "Oaks microsite homepage base fix (2026-08-19). The site is a PORTABLE hand-off deliverable, so every path inside it is relative — that is what lets the same folder serve from /sites/oaks here AND from the domain root on Scott own host. Relative paths collide with cleanUrls on exactly one page: with trailingSlash:false a directory index is served at the SLASHLESS url /sites/oaks, so the browser resolves that page relative links against /sites/ and every one of them 404s. Interior pages are unaffected (/sites/oaks/about keeps the /sites/oaks/ base). FIRST ATTEMPT SHIPPED A REDIRECT LOOP: /sites/oaks -> /sites/oaks/index looks right, but cleanUrls canonicalises the index segment of a directory index straight back off again, so Hosting answered /sites/oaks/index with a 301 to /sites/oaks and the homepage ping-ponged until the browser gave up. Verified live, not modelled. The working shape is a redirect to a url that is NOT a directory-index alias, served by a REWRITE — a rewrite does not change the address bar, so the browser base stays /sites/oaks/ and every relative link resolves. /sites/oaks/home is a preview-only url; Scott own host serves index.html at his domain root and needs none of this.",
+        "source": "/sites/oaks", "destination": "/sites/oaks/home", "type": 301 },
+      { "_comment": "THIRD instance of the same relative-path trap, found by an adversarial pass over live production. trailingSlash:false normalises the slash off a real file or directory index, which is why /sites/oaks/about/ correctly 301s to /sites/oaks/about — but the homepage is served by a REWRITE, and a rewrite source matches the trailing-slash form too AND bypasses that normalisation. So /sites/oaks/home/ answered 200 with the full homepage while every relative asset resolved one directory too deep and 404'd: no stylesheet, no script, 11 of 11 images broken. Redirects are evaluated before rewrites, so this entry takes the url back to the canonical form before the rewrite can see it.",
+        "source": "/sites/oaks/home/", "destination": "/sites/oaks/home", "type": 301 },
+      { "_comment": "Oaks placeholder retired (Jo, 2026-08-19). /sites/t/oaks used to render the universal tenant template from companyProfile — a ONE-page, 96-word stub with emoji service icons, an empty 'Where we work' section (serviceArea was ''), and the wrong accent colour. The real Oaks site is the hand-authored 11-page build at /sites/oaks, so the tenant URL now forwards to it and the stub no longer renders for this tenant. Done as a REDIRECT rather than by moving the 11 pages under /sites/t/oaks on purpose: /sites/t/ is the UNIVERSAL multi-tenant template (one template, N tenants, rendered from Firestore), and dropping per-tenant hand-authored files into it would fork that design at its first real use and re-create exactly what the 2026-07-04 Pillar 5 decision retired. companies/oaks keeps status:'active' — that flag also drives tenant tagging, and the redirect fires ahead of the /sites/t/** rewrite anyway, so the template is simply never reached for oaks. Enumerated (not /sites/t/oaks*) so a future tenant id that merely starts with 'oaks' is unaffected.",
+        "source": "/sites/t/oaks", "destination": "/sites/oaks", "type": 301 },
+      { "source": "/sites/t/oaks/**", "destination": "/sites/oaks", "type": 301 },
+      { "source": "/sites/oaks/services", "destination": "/sites/oaks/services/roof-replacement", "type": 301 }
     ],
     "rewrites": [
       { "_comment": "Bots, link previewers, and old browsers probe /favicon.ico by reflex. We don't ship a .ico file (favicon.svg covers modern browsers via <link rel=icon>). Rewriting the .ico URL to favicon.svg returns the SVG bytes with Content-Type image/svg+xml — modern browsers accept that fine. The alternative was a 404 every time a crawler hits the URL.",
         "source": "/favicon.ico", "destination": "/favicon.svg" },
       { "_comment": "Pillar 5 phase 1: universal tenant microsite. /sites/t/<companyId-or-slug> serves the one static template (rewrites only fire when no real file matches, so site.js/site.css still serve directly); /api/site-config is the whitelisted server-side companyProfile read behind it.",
         "source": "/api/site-config", "function": { "functionId": "getPublicSiteConfig", "region": "us-central1" } },
+      { "_comment": "Serves the Oaks homepage at a url whose base directory is /sites/oaks/. A rewrite (not a redirect) on purpose: it leaves the address bar alone, which is the entire point — the relative links in index.html must resolve against /sites/oaks/. See the /sites/oaks redirect above for the loop this replaced.",
+        "source": "/sites/oaks/home", "destination": "/sites/oaks/index.html" },
+      { "_comment": "A mistyped or stale url anywhere under /sites/oaks/ used to render the NBD-branded 404 — the one cross-brand surface reachable from a client's url space. This serves Oaks' own 404 instead. It MUST sit after the /sites/oaks/home rewrite above (first matching rewrite wins) and it only fires when no real file matches, so the 11 pages and every asset are untouched. Known tradeoff: Hosting rewrites always answer 200, so this is a soft-404. Acceptable here because the whole path is noindexed and robots-disallowed while the site is staged; on Scott's own host the same file is picked up automatically as a real 404 by Netlify, Cloudflare Pages, GitHub Pages, Vercel and Apache ErrorDocument.",
+        "source": "/sites/oaks/**", "destination": "/sites/oaks/404.html" },
       { "source": "/sites/t/**", "destination": "/sites/t/index.html" },
       { "source": "/tools", "destination": "/tools/index.html" },
       { "source": "/privacy", "destination": "/privacy.html" },
@@ -181,6 +189,13 @@
         ]
       },
       {
+        "_comment": "getPublicSiteConfig is an Oaks/tenant-branded content surface on the homeowner domain, and it sat outside every protection applied to the pages it feeds: no X-Robots-Tag and no robots.txt coverage. It returns each published tenant name, phone, address and branding as JSON. Same noindex convention as its sibling surfaces. Applies to every tenant, not just Oaks. Found by an adversarial sweep of the live site, 2026-08-19.",
+        "source": "/api/site-config",
+        "headers": [
+          { "key": "X-Robots-Tag", "value": "noindex, nofollow" }
+        ]
+      },
+      {
         "_comment": "The /sites index (2026-08-02): a B2B 'Contractor Websites by NBD' offering page sitting on the HOMEOWNER domain. It was the one /sites page with no noindex of any kind — fully crawlable, yet with zero inbound links from anywhere on the site and a (513) 555-0100 placeholder phone. Jo's call: hold it back until the offering is deliberately launched. Same convention as its siblings and /pro/blog — X-Robots-Tag is authoritative and the page stays OUT of robots.txt so crawlers can SEE the noindex instead of leaving a URL-only listing. Drop this rule and the <meta name=robots> in docs/sites/index.html together at launch.",
         "source": "/sites",
         "headers": [
@@ -188,6 +203,7 @@
         ]
       },
       {
+        "_comment": "Oaks microsite (rebuilt 2026-08-19, Jo). /sites/oaks is a hand-authored 11-page mirror of Scott's retired site, built as a portable hand-off deliverable he hosts himself, and is now the ONLY Oaks site: the eight /sites/oaks* → /sites/t/oaks 301s from the 2026-07-04 Pillar 5 cutover were removed (redirects outrank static files, so leaving them would have shadowed every rebuilt page), and /sites/t/oaks now 301s the other way — the one-page tenant stub is retired for this tenant. logo-orange.svg still serves from this same directory, so companyProfile/oaks brand.logoUrl and generated documents are unaffected. KEEP this noindex until the site launches on its own domain: it is an unlaunched client site sitting on the HOMEOWNER domain, and indexing it here would compete with his own domain for the same Goshen keywords. AT LAUNCH, three things drop together and none of them works alone: these two X-Robots-Tag rules, the <meta name=robots> in all 11 pages, AND the 'Disallow: /sites/oaks/' + '/sites/oaks.html' lines in docs/robots.txt — that Disallow currently stops crawlers even fetching the pages, so on its own the noindex would never be seen (the failure mode this repo has hit repeatedly; see the /pro/blog and /tools comments below).",
         "source": "/sites/oaks",
         "headers": [
           { "key": "X-Robots-Tag", "value": "noindex, nofollow" }
@@ -231,7 +247,7 @@
         ]
       },
       {
-        "_comment": "Private /pro APP pages (2026-07-16): robots.txt's old Disallow lines used the .html forms, which NEVER match under cleanUrls (the served canonical URL is extensionless, and RFC 9309 prefix-matching means 'Disallow: /pro/dashboard.html' does not cover '/pro/dashboard') — so the CRM app shells were crawlable AND indexable, polluting brand search results. Same fix rationale as /pro/blog above: X-Robots-Tag noindex is the authoritative signal, and the pages deliberately stay OUT of robots.txt so crawlers can SEE the noindex instead of leaving a URL-only listing. Enumerated (not /pro/**) because /pro, /pro/landing, /pro/pricing, /pro/how-to and /pro/terms are the public B2B pages in sitemap-pro.xml and must stay indexable.",
+        "_comment": "Private /pro APP pages (2026-07-16): robots.txt's old Disallow lines used the .html forms, which NEVER match under cleanUrls (the served canonical URL is extensionless, and RFC 9309 prefix-matching means 'Disallow: /pro/dashboard.html' does not cover '/pro/dashboard') — so the CRM app shells were crawlable AND indexable, polluting brand search results. Same fix rationale as /pro/blog above: X-Robots-Tag noindex is the authoritative signal, and the pages deliberately stay OUT of robots.txt so crawlers can SEE the noindex instead of leaving a URL-only listing. Enumerated (not /pro/**) because /pro, /pro/pricing, /pro/how-to and /pro/terms are the public B2B pages in sitemap-pro.xml and must stay indexable. (/pro/landing was a byte-identical duplicate of /pro and was folded into it with a 301 on 2026-08-18.)",
         "source": "/pro/@(dashboard|dashboard.legacy|vault|codex|analytics|leaderboard|demo|sandbox|diagnostic|daily-success|stripe-success|ask-joe|ai-tree|ai-tool-finder|project-codex|understand|customer|estimate-view|photo-review|portal|onboarding|refer|sign|login|register)",
         "headers": [
           { "key": "X-Robots-Tag", "value": "noindex, nofollow" }

@@ -437,11 +437,14 @@ const BOOT_CODE = decomment(BOOT);
 
   // (c) AND THE PUBLIC SURFACES SAY SO TOO. Ownership of this used to fall
   //     between the UI and the docs slices; it lands here. Terms is the
-  //     contract, pricing/index/landing are what a contractor reads before
-  //     signing up — and index.html/landing.html are byte-copies of each other,
-  //     so a half-landed edit shows up as one of these failing alone.
+  //     contract, pricing/index are what a contractor reads before signing up.
+  //     2026-08-18: docs/pro/landing.html was dropped from this list because
+  //     the file is gone — it was a byte-identical duplicate of index.html
+  //     serving a second indexed URL, now deleted and 301'd to /pro. The old
+  //     comment here noted the two were byte-copies; that is exactly why only
+  //     index.html needs checking now.
   if (feeCharged) {
-    ['docs/pro/terms.html', 'docs/pro/pricing.html', 'docs/pro/index.html', 'docs/pro/landing.html']
+    ['docs/pro/terms.html', 'docs/pro/pricing.html', 'docs/pro/index.html']
       .forEach((p) => {
         ok('the platform fee is disclosed in ' + p, /3\.4%/.test(read(p)),
           'we take a cut of a homeowner payment; every surface a contractor reads before'

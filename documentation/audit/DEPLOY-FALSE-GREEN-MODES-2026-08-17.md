@@ -137,17 +137,30 @@ and the Cloud Functions per-project mutation rate).
 
 ## Verification
 
-The step is shell embedded in YAML, so it was tested by extracting the real
-`run:` block and running it against a stand-in `npx` that reproduces the CLI's
-line shapes (ANSI included). 30 assertions across 8 scenarios, all passing:
-clean deploy · mode 3 self-healing on retry · mode 3 persisting ⇒ job RED with
-the residual named · wholesale still fatal and *not* retry-storming · classic
-per-function failure still parsed and retried · delete lines not counting ·
-`Skipped` counting · `NBD_DEPLOY_WAVE1_MAX` chunking while still targeting all
-167.
+The step is shell embedded in YAML, so nothing in the repo could execute it —
+which is why two of the three modes were found by deploying to prod and noticing
+afterwards. It now has a harness, **committed at
+[tests/deploy-step/](../../tests/deploy-step/)** (PR #1254):
 
-Pinned in `tests/smoke/functions.test.js` §`F-10b` so all three guards have to
-be deleted deliberately, not by accident.
+```bash
+bash tests/deploy-step/run.sh    # 46 assertions, 11 scenarios, ~6s
+```
+
+It **extracts the real `run:` block** from the workflow rather than copying a
+fixture — a fixture drifts silently, which is the same class of bug this step
+exists to catch — and drives it against a stand-in `npx` reproducing the CLI's
+line shapes, ANSI included. Wired into the `Unit suites (manifest)` CI job, so
+it runs on every PR.
+
+Two layers, and they catch different things. Neither substitutes for the other:
+
+| | `tests/smoke/functions.test.js` §`F-10b` | `tests/deploy-step/` |
+|---|---|---|
+| checks | the guard strings **exist** | the guards **behave** |
+| catches | a guard being deleted | a guard's logic being broken |
+
+F-10b caught neither of the two bugs the harness caught (the `MISSING`
+mislabeling below, and the chunked-drop case being untestable).
 
 ### First production run — and the diagnostic bug it exposed
 
@@ -234,12 +247,12 @@ Two costs were accepted knowingly. **The first one turned out to be backwards**
   A transient auth flake in any chunk is fatal by design. If deploys start
   going red on auth rather than on real problems, this is the cause, and
   setting the knob back to `0` restores the previous behavior. Unrealized so
-  far (all 4 invocations clean on the first chunked run), but unproven.
+  far (8 clean invocations across both chunked runs), but unproven.
 
 ### Measured: chunking is cheaper, not more expensive
 
-Run **32085658469**, the first deploy with the cap on, against the three
-unchunked deploys that preceded it — strict-step wall clock, same 167 functions:
+Five consecutive deploys, same 167 functions, split cleanly on one variable —
+strict-step wall clock:
 
 | Run | Config | Stragglers | Strict step |
 |---|---|---|---|
@@ -247,24 +260,36 @@ unchunked deploys that preceded it — strict-step wall clock, same 167 function
 | 32080455395 | unchunked | **28 silent** | 13m44s |
 | 32082377217 | unchunked | 24 loud | 16m07s |
 | **32085658469** | **chunked 60** | **0** | **11m26s** |
+| **32088029222** | **chunked 60** | **0** | **10m34s** |
 
-`Deploying 167 function(s) in chunks of 60 (mutation-burst cap)` → 167
-`Successful update operation`, zero failure lines, zero silent drops, **zero
-retry rounds** — the final line carried no `(after N straggler-retry round(s))`
-suffix for the first time in the sequence.
+Both chunked runs: `Deploying 167 function(s) in chunks of 60 (mutation-burst
+cap)` → 167 `Successful update operation`, zero failure lines, zero silent
+drops, **zero retry rounds** — the verdict line carried no `(after N
+straggler-retry round(s))` suffix, which had never happened before the cap.
 
-**4m41s faster than the previous deploy, not 2-3 min slower.** The estimate
+**Every unchunked run lost functions; neither chunked run lost any.**
+
+**3-5½ min FASTER, not the 2-3 min slower first estimated here.** The estimate
 missed because it counted the cost of chunking and ignored the cost of *not*
 chunking: `NBD_DEPLOY_RETRY_PAUSE` is 45s, batch pauses are 20s, and every retry
 round re-invokes the CLI anyway — so the retry machinery was itself the
 expensive path. Not tripping the quota is cheaper than recovering from it. Three
-clean chunks beat one burst plus two rounds of cleanup.
+clean chunks beat one burst plus two rounds of cleanup. Both chunked runs beat
+all three unchunked ones, so the speed result reproduced too.
 
-Caveat on how much this proves: **one observation**, and the mode was
-intermittent (22 / 28 / 24 stragglers across three consecutive unchunked runs,
-differing in kind as well as count). This shows the mechanism is plausible, not
-that mode 3 is eliminated. Completion accounting remains the detector if it
-returns.
+Caveat on how much this proves: **two observations** (was one when this section
+was first written), and they are usefully independent — the first chunked run
+followed three deploys that had been churning revisions, so its quota headroom
+could be argued as incidental; the second ran from a different starting state
+and came back identical. Against that, the mode was intermittent (22 / 28 / 24
+stragglers across three consecutive unchunked runs, differing in kind as well as
+count), and 2-for-2 is not proof. Read it as: the mechanism is well supported
+and no longer a single lucky run, but mode 3 is not *proven* eliminated.
+Completion accounting remains the detector if it returns.
+
+The tripled wholesale-auth-flake exposure stayed unrealized across both chunked
+runs — 8 clean CLI invocations. Unproven rather than disproven, and still the
+first thing to suspect if a deploy goes red on auth.
 
 The durable fix remains the quota increase, which would make the cap
 unnecessary rather than merely tolerable.
@@ -334,3 +359,52 @@ Assessed blast radius:
 The harness now converts paths with `cygpath`, **proves** `npx` resolves inside
 the fake bin before running, and points `PRO_PROJECT` at a nonexistent project so
 a future leak cannot target prod.
+
+## 2026-08-26 — mode 1b, the false RED (run 32925767669)
+
+The inventory above is three ways this step reported success while functions
+did not deploy. The #1276 merge deploy produced the inverse: **a red run
+with a wrong diagnosis while everything (bar one) deployed fine** — and the
+one real straggler was never retried.
+
+What happened: chunk 2 of 3 (167 functions, `NBD_DEPLOY_WAVE1_MAX=60`) lost
+exactly one function, `onAiDraftApproved`, to a GCP transient — the CLI's
+poll of its Cloud Run update operation returned "Could not get operation
+details … **Deadline Exceeded.**" That failure shape prints **no "Failed to
+(create|update) function NAME" line**; the only per-function record is the
+CLI's trailing summary block:
+
+```
+Functions deploy had errors with the following functions:
+	onAiDraftApproved(us-central1)
+Error: There was an error deploying functions
+```
+
+The mode-1 parse matched nothing, so the nonzero exit fell through to the
+mode-2 wholesale guard: "nothing or almost nothing was deployed" — flatly
+untrue (166/167 updated; chunk 3 ran clean after). Worse than the wrong
+message: the wholesale path **skips completion accounting by design**, so
+`onAiDraftApproved` never entered the straggler retry. Production impact was
+zero only by luck — the merge was docs+vault, so the function's prior
+revision was identical code.
+
+**Fix (same night):** `_deploy_only` now parses that trailing block — awk
+extracts the indented `NAME(region)` lines after the header, sed strips
+region + any codebase prefix — and merges the names into `parsed` **before**
+the wholesale check. Consequences, in order: the shape counts as ordinary
+per-function failure(s); completion accounting runs for the chunk; the named
+functions feed the straggler retry; wholesale now means what it says (exit
+nonzero with NO per-function record of any kind). On normal loud failures
+the same names already arrive via the "Failed to" parse and `sort -u`
+dedupes, so nothing changes there.
+
+Verified: parse simulated against the run's actual bytes (extracts
+`onAiDraftApproved`), a loud-failure+summary dedupe case, a genuine
+wholesale (auth abort → parsed stays empty), and a codebase-prefixed name.
+Three new F-10b "mode 1b" pins in `tests/smoke/functions.test.js`; full
+smoke suite 3433/0.
+
+Diagnostic rule this incident adds: **a red on this step is not evidence
+that nothing deployed — verify by outcome** (fetch served pages, probe the
+functions) before re-deploying anything. That is how this one was caught:
+the calcomWebhook probes flipped healthy while the run sat red.

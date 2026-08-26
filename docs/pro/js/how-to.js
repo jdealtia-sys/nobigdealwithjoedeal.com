@@ -1,9 +1,6 @@
 /* /pro/how-to page logic — extracted from inline <script> because CSP
    `script-src-elem 'self'` blocks inline blocks. */
 
-// ── Reveal page once styles paint ──
-document.documentElement.style.visibility = 'visible';
-
 // ── Restart-tour button ──
 document.getElementById('restartTourBtn').addEventListener('click', () => {
   try { localStorage.removeItem('nbd-onboarding-complete'); } catch (e) {}

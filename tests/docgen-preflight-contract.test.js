@@ -140,6 +140,164 @@ function renderViaPreflight(method, preflightData) {
   ok('invoice: line amount + subtotal total correctly (30 x 50 = 1,500)', /1,500/.test(html));
 }
 
+// ── invoice SERVICE LOCATIONS: a customer with more than one building (Anthony
+//    Scandariato, 1944 + 1942 Kentucky Ave) must see BOTH addresses on the
+//    invoice. Before multi-address support the second building existed nowhere in
+//    the schema, so the invoice named only one of the two roofs it billed for. ──
+{
+  const html = renderViaPreflight('renderInvoice', {
+    address: '1944 Kentucky Ave, Cincinnati, OH 45223',
+    serviceAddresses: ['1942 Kentucky Ave, Cincinnati, OH 45223'],
+    lineItems: [{ description: 'EPDM restoration', qty: 1, unit: 'EA', rate: 100 }],
+  });
+  console.log('PREFLIGHT CONTRACT — invoice service locations');
+  ok('svcaddr: renders (no error)', html.indexOf('RENDER_ERROR') !== 0);
+  ok('svcaddr: SERVICE LOCATIONS block present when extra addresses exist', /Service Locations/i.test(html));
+  ok('svcaddr: primary address 1944 Kentucky Ave reaches doc', html.indexOf('1944 Kentucky Ave, Cincinnati, OH 45223') !== -1);
+  ok('svcaddr: second building 1942 Kentucky Ave reaches doc', html.indexOf('1942 Kentucky Ave, Cincinnati, OH 45223') !== -1);
+}
+{
+  const html = renderViaPreflight('renderInvoice', {
+    address: '1944 Kentucky Ave, Cincinnati, OH 45223',
+    lineItems: [{ description: 'EPDM restoration', qty: 1, unit: 'EA', rate: 100 }],
+  });
+  ok('svcaddr: single-property invoice omits the block entirely', !/Service Locations/i.test(html));
+  ok('svcaddr: single-property invoice still renders (no error)', html.indexOf('RENDER_ERROR') !== 0);
+}
+{
+  const html = renderViaPreflight('renderInvoice', {
+    address: '1944 Kentucky Ave, Cincinnati, OH 45223',
+    serviceAddresses: ['', '   ', null],
+    lineItems: [{ description: 'EPDM restoration', qty: 1, unit: 'EA', rate: 100 }],
+  });
+  ok('svcaddr: blank/whitespace extra addresses are filtered, block omitted', !/Service Locations/i.test(html));
+}
+{
+  const html = renderViaPreflight('renderInvoice', {
+    address: '1944 Kentucky Ave, Cincinnati, OH 45223',
+    serviceAddresses: ['<script>alert(1)</script>'],
+    lineItems: [{ description: 'EPDM restoration', qty: 1, unit: 'EA', rate: 100 }],
+  });
+  ok('svcaddr: extra addresses are HTML-escaped (no raw <script>)', html.indexOf('<script>alert(1)</script>') === -1);
+}
+
+// ── receipt: a job that is PAID needs a closing document that is not an
+//    invoice with the balance zeroed. `receipt` existed in _buildPremiumData
+//    and the server-render map but was never registered in DOCUMENT_TYPES, so
+//    paid-in-full jobs (Higgins, Philpot) had no closing document at all.
+{
+  const html = renderViaPreflight('renderReceipt', {
+    receiptNumber: 'RCT-2026-0818-HIG', paymentDate: '2026-07-30',
+    amountPaid: 400, paymentMethod: 'PayPal', paidInFull: true,
+    workPerformed: 'SENTINELsidingrepair',
+  });
+  console.log('PREFLIGHT CONTRACT — receipt');
+  ok('receipt: renders (no error)', html.indexOf('RENDER_ERROR') !== 0);
+  ok('receipt: is headed RECEIPT, not INVOICE', /RECEIPT/.test(html) && !/>INVOICE</.test(html));
+  ok('receipt: rep amount $400 reaches doc', /400\.00/.test(html));
+  ok('receipt: payment method reaches doc', /PayPal/.test(html));
+  ok('receipt: date paid reaches doc', /2026-07-30/.test(html));
+  ok('receipt: work performed reaches doc', html.indexOf('SENTINELsidingrepair') !== -1);
+  ok('receipt: PAID IN FULL stamp shows when the rep ticked it', /PAID IN FULL/.test(html));
+  ok('receipt: carries NO late-payment / due-date language (it is not a bill)',
+    !/Late Payment/i.test(html) && !/finance charge/i.test(html) && !/Balance Due/i.test(html));
+}
+{
+  // The rule that matters most: with no contractTotal supplied, the receipt
+  // must state only what was received. Inventing a $0 balance would tell a
+  // customer their job is settled when we were never told that.
+  const html = renderViaPreflight('renderReceipt', {
+    receiptNumber: 'RCT-1', paymentDate: '2026-08-01', amountPaid: 1500,
+    paymentMethod: 'Check', workPerformed: 'Partial payment',
+  });
+  ok('receipt: no contract total → NO balance section at all', !/Balance Remaining/.test(html));
+  ok('receipt: no contract total → NO unearned PAID IN FULL stamp', !/PAID IN FULL/.test(html));
+  ok('receipt: still shows what was received', /1,500\.00/.test(html));
+}
+{
+  const html = renderViaPreflight('renderReceipt', {
+    receiptNumber: 'RCT-2', paymentDate: '2026-08-01',
+    amountPaid: 1515, contractTotal: 3145, priorPayments: 1630,
+    paymentMethod: 'Check', workPerformed: 'Final payment',
+  });
+  ok('receipt: contract total supplied → balance section appears', /Balance Remaining/.test(html));
+  ok('receipt: balance computes to $0.00 (3145 - 1630 - 1515)', /Balance Remaining<\/span><span>\$0\.00/.test(html.replace(/\s+/g, '')) || /0\.00/.test(html));
+  ok('receipt: a computed zero balance DOES earn the PAID IN FULL stamp', /PAID IN FULL/.test(html));
+}
+{
+  const html = renderViaPreflight('renderReceipt', {
+    receiptNumber: 'RCT-3', paymentDate: '2026-08-01',
+    amountPaid: 1000, contractTotal: 3000,
+    paymentMethod: 'Venmo', workPerformed: 'Deposit',
+  });
+  ok('receipt: an outstanding balance is shown, not hidden', /2,000\.00/.test(html));
+  ok('receipt: an outstanding balance does NOT get a PAID IN FULL stamp', !/PAID IN FULL/.test(html));
+}
+
+// ── roof_assessment: the deliverable for a PAID inspection. The existing
+//    inspection template is insurance-shaped (carrier + claim # + date of loss
+//    all required), so a homeowner who simply paid for an opinion had no
+//    document at all — three such inspections were outstanding on 2026-08-18.
+{
+  const html = renderViaPreflight('renderRoofAssessment', {
+    reportNumber: 'ASM-1', inspectionDate: '2026-08-10',
+    inspectorName: 'Joe Deal', roofSystem: 'EPDM low-slope',
+    summary: 'SENTINELsummary',
+    findings: [
+      { title: 'SENTINELponding', observed: 'SENTINELobserved', whyItMatters: 'SENTINELwhy', severity: 'urgent' },
+      { title: 'SENTINELseams', observed: 'obs2', whyItMatters: 'why2', severity: 'monitor' },
+    ],
+    recommendations: ['SENTINELrec1', 'SENTINELrec2'],
+    nextSteps: 'SENTINELnext',
+  });
+  console.log('PREFLIGHT CONTRACT — roof_assessment');
+  ok('assessment: renders (no error)', html.indexOf('RENDER_ERROR') !== 0);
+  ok('assessment: rep summary reaches doc', html.indexOf('SENTINELsummary') !== -1);
+  ok('assessment: every finding title reaches doc',
+    html.indexOf('SENTINELponding') !== -1 && html.indexOf('SENTINELseams') !== -1);
+  ok('assessment: observed + why-it-matters both reach doc',
+    html.indexOf('SENTINELobserved') !== -1 && html.indexOf('SENTINELwhy') !== -1);
+  ok('assessment: findings are numbered in order', /1\. SENTINELponding/.test(html) && /2\. SENTINELseams/.test(html));
+  ok('assessment: rep-set severity drives the badge, both levels render',
+    /Address Now/.test(html) && /Monitor/.test(html));
+  ok('assessment: every recommendation reaches doc',
+    html.indexOf('SENTINELrec1') !== -1 && html.indexOf('SENTINELrec2') !== -1);
+  ok('assessment: next steps reach doc', html.indexOf('SENTINELnext') !== -1);
+  ok('assessment: roof system + inspector reach doc', /EPDM low-slope/.test(html) && /Joe Deal/.test(html));
+}
+{
+  // A report padded with empty placeholder boxes reads as unfinished work —
+  // and this template is sent to a customer who has already paid for it.
+  const html = renderViaPreflight('renderRoofAssessment', {
+    reportNumber: 'ASM-2', summary: 'nothing else supplied',
+  });
+  ok('assessment: no findings → no "What I Found" section', !/What I Found/.test(html));
+  // NB: assert against the BODY, not the whole file — `.photo-zone` lives in
+  // the shared stylesheet page() emits for every template, so grepping the
+  // raw HTML for it tests the stylesheet rather than this document.
+  const _body = html.replace(/<style[\s\S]*?<\/style>/gi, '');
+  ok('assessment: no photos → no photo grid, no <img>, no placeholder boxes',
+    !/Photos<\/div>/.test(_body) && !/<img\s/i.test(_body.replace(/<img[^>]*logo[^>]*>/gi, '')));
+  ok('assessment: no recommendations → no empty list', !/What I Recommend/.test(html));
+  ok('assessment: still renders cleanly with almost nothing supplied', html.indexOf('RENDER_ERROR') !== 0);
+}
+{
+  const html = renderViaPreflight('renderRoofAssessment', {
+    reportNumber: 'ASM-3',
+    photos: [
+      { url: 'https://photos.example/ASM-REAL.jpg', caption: 'SENTINELcaption' },
+      { url: 'javascript:alert(1)', caption: 'hostile' },
+      { url: '', caption: 'empty' },
+    ],
+    findings: [{ title: '<script>alert(1)</script>', observed: 'x', severity: 'note' }],
+  });
+  ok('assessment: real photo renders as <img src>', /<img src="https:\/\/photos\.example\/ASM-REAL\.jpg"/.test(html));
+  ok('assessment: caption reaches doc', html.indexOf('SENTINELcaption') !== -1);
+  ok('assessment: non-http photo URLs are dropped, not rendered', html.indexOf('javascript:alert(1)') === -1);
+  ok('assessment: finding titles are HTML-escaped', html.indexOf('<script>alert(1)</script>') === -1);
+  ok('assessment: unknown/absent severity falls back to the neutral badge', /For Your Records/.test(html));
+}
+
 // ── warranty_certificate: installDate→issueDate; coverageDetails + transferable
 //    wired; roof-specific workPerformed default no longer fabricated ──
 {

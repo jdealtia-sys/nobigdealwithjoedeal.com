@@ -368,7 +368,7 @@ function seatLimitForPlan(plan) {
 // Growth ($299).
 function seatCapMessage(seats) {
   return seats === 0
-    ? 'Team invites need the Team plan ($149/mo) or higher — your current plan is solo. Upgrade at /pro/landing.html#pricing.'
+    ? 'Team invites need the Team plan ($149/mo) or higher — your current plan is solo. Upgrade at /pro#pricing.'
     : `Your plan includes ${seats} team seat${seats === 1 ? '' : 's'} and they're all taken. Remove a member or upgrade to add more.`;
 }
 

@@ -8,6 +8,10 @@ function openEditCustomerModal() {
   document.getElementById('editEmail').value = lead.email || '';
   document.getElementById('editAddress').value = lead.address || '';
   document.getElementById('editDamageType').value = lead.damageType || lead.serviceType || '';
+  // Extra properties worked under the same job (see the SERVICE LOCATIONS
+  // block on generated documents). Legacy leads have no array — render zero
+  // rows rather than one empty one, so an untouched modal saves [] and not ['']. 
+  renderServiceAddressRows(Array.isArray(lead.serviceAddresses) ? lead.serviceAddresses : []);
   // Job Value is now a type="number" input, so it must be SEEDED with a bare
   // number. Legacy leads hold display strings like "$45,000"; assigning one to
   // a number input makes the browser sanitize .value to '' — the field looks
@@ -25,6 +29,67 @@ function closeEditCustomerModal() {
   window.nbdModal.close('editCustomerModal');
 }
 
+// ── ADDITIONAL SERVICE LOCATIONS ────────────────────────────────────
+// A job can span several properties (Anthony Scandariato: 1944 AND 1942
+// Kentucky Ave on one invoice). `address` remains the primary/billing
+// address; these are extras. Values are read back off the DOM at save
+// time rather than mirrored into JS state, so there is one source of
+// truth and no keystroke syncing to drift.
+
+function _svcAddrRowHTML(value, idx) {
+  var esc = window.nbdEsc || function (v) {
+    return String(v == null ? '' : v).replace(/[&<>"']/g, function (c) {
+      return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c];
+    });
+  };
+  return '<div class="svc-addr-row" style="display:flex;gap:6px;margin-bottom:6px;">' +
+    '<input type="text" class="svc-addr-input" aria-label="Additional service address ' + (idx + 1) + '"' +
+    ' value="' + esc(value) + '"' +
+    ' placeholder="1942 Kentucky Ave, Cincinnati, OH 45223"' +
+    ' style="flex:1;padding:10px 12px;background:var(--s);border:1px solid var(--br);border-radius:8px;color:var(--t);font-size:14px;box-sizing:border-box;" />' +
+    '<button type="button" data-action="removeServiceAddressRow" data-arg="' + idx + '"' +
+    ' aria-label="Remove this service address" title="Remove"' +
+    ' class="btn" style="padding:0 12px;font-size:16px;line-height:1;">&times;</button>' +
+    '</div>';
+}
+
+function _readServiceAddressRows() {
+  var host = document.getElementById('editServiceAddresses');
+  if (!host) return [];
+  return Array.prototype.map.call(
+    host.querySelectorAll('.svc-addr-input'),
+    function (el) { return String(el.value || '').trim(); }
+  );
+}
+
+function renderServiceAddressRows(values) {
+  var host = document.getElementById('editServiceAddresses');
+  if (!host) return;
+  var list = Array.isArray(values) ? values : [];
+  host.innerHTML = list.map(_svcAddrRowHTML).join('');
+}
+
+function addServiceAddressRow() {
+  // Keep what's already typed, then append a blank row.
+  renderServiceAddressRows(_readServiceAddressRows().concat(['']));
+  var host = document.getElementById('editServiceAddresses');
+  var inputs = host ? host.querySelectorAll('.svc-addr-input') : [];
+  if (inputs.length) inputs[inputs.length - 1].focus();
+}
+
+function removeServiceAddressRow(idx) {
+  var i = parseInt(idx, 10);
+  var vals = _readServiceAddressRows();
+  if (!isFinite(i) || i < 0 || i >= vals.length) return;
+  vals.splice(i, 1);
+  renderServiceAddressRows(vals);
+}
+
+// data-action dispatch resolves these off window.
+window.renderServiceAddressRows = renderServiceAddressRows;
+window.addServiceAddressRow = addServiceAddressRow;
+window.removeServiceAddressRow = removeServiceAddressRow;
+
 async function saveCustomerEdits() {
   const btn = document.getElementById('saveEditBtn');
   btn.disabled = true;
@@ -36,6 +101,10 @@ async function saveCustomerEdits() {
       phone: document.getElementById('editPhone').value.trim(),
       email: document.getElementById('editEmail').value.trim(),
       address: document.getElementById('editAddress').value.trim(),
+      // Blank rows are dropped so an untouched modal never writes ['']; the
+      // field is always an array so downstream .map/.length are safe without
+      // a guard on every consumer.
+      serviceAddresses: _readServiceAddressRows().filter(function (a) { return a; }),
       damageType: document.getElementById('editDamageType').value.trim(),
       // Coerce to a NUMBER before writing. Every downstream consumer
       // (kanban column totals, dashboard KPI tiles, leaderboard, the profit
@@ -55,7 +124,9 @@ async function saveCustomerEdits() {
     await window.updateDoc(window.doc(window.db, 'leads', window._customerId), updates);
     // Update display
     document.getElementById('customerName').textContent = ((updates.firstName + ' ' + updates.lastName).trim()) || 'Unknown';
-    document.getElementById('customerAddress').textContent = updates.address || '—';
+    var _extra = (updates.serviceAddresses || []).length;
+    document.getElementById('customerAddress').textContent =
+      (updates.address || '—') + (_extra ? '  (+' + _extra + ' more ' + (_extra === 1 ? 'property' : 'properties') + ')' : '');
     document.getElementById('customerPhone').textContent = updates.phone || '—';
     document.getElementById('customerEmail').textContent = updates.email || '—';
     const callLink = document.getElementById('callLink');

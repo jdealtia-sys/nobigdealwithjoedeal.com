@@ -8,12 +8,69 @@ on:
 permissions:
   contents: read
 
+# ─────────────────────────────────────────────────────────────
+# JOB TIMEOUTS (added 2026-08-18)
+#
+# Every job here previously ran with NO timeout-minutes, so it
+# inherited GitHub's 6-hour default. On 2026-08-18 the @shard1 job
+# wedged in `npx playwright install --with-deps chromium` (that flag
+# shells out to apt-get) and sat there 24+ minutes with the test step
+# never starting; it had to be cancelled by hand. On a re-run the same
+# job passed in 3m32s. Nothing bounded it, and nothing would have.
+#
+# Caps below are set from MEASURED durations — 90 job samples across
+# the last 10 successful ci.yml runs — not from guesses. The relevant
+# statistic is the MAX, not the mean: runner congestion (8+ concurrent
+# runs on a busy evening) routinely pushes a job to 2-3x its average,
+# and a cap tight enough to catch a hang quickly is also tight enough
+# to fail honest jobs on a slow night. These are deliberately loose;
+# the goal is to bound a hang, not to police performance.
+#
+#   tier      cap   observed max   jobs
+#   fast      10    0.2 - 0.9 min  syntax, site-integrity, secret-scan,
+#                                  functions-parse, unit-manifest, smoke
+#   medium    15    1.2 - 5.0 min  firestore-rules, referral-trigger,
+#                                  emulator-orphan, visual-brand-tokens
+#   heavy     20    1.4 - 5.0 min  public-e2e, visual-regression,
+#                                  visual-brand-tokens (loose despite
+#                                  low maxima: all three install
+#                                  Playwright, the step that wedged)
+#   e2e       25    11.5 min       e2e-authed-emulator matrix
+#
+# FOUR jobs install Playwright, not three: e2e-authed-emulator,
+# public-e2e, visual-regression, and visual-brand-tokens. The last one
+# does it via `npm run install:browsers` rather than a literal
+# `npx playwright install`, so grep for the STEP NAME ("Install
+# Playwright chromium") when auditing — matching on the command misses it.
+#
+# These caps are not theoretical. On the very first run carrying them
+# (32088697255), visual-regression and visual-brand-tokens BOTH hit their
+# ceiling on `Install Playwright chromium` — the same step that wedged
+# @shard1 an hour earlier. Three separate jobs, one evening. Without a
+# cap all three would have sat until GitHub's 6-hour default, and the two
+# continue-on-error ones would have done it silently.
+#
+# If a job starts timing out legitimately, RAISE the cap — do not
+# remove it. A job with no ceiling is the failure mode this fixes.
+# ─────────────────────────────────────────────────────────────
+
 jobs:
   smoke-tests:
     name: Smoke tests
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
+      # fetch-depth: 0 because tests/catalog-cost-privacy.test.js verifies a
+      # recorded cost ROTATION by re-reading the published catalog at the commit
+      # the rotation was signed against (tests/cost-basis-ledger.js `basisAt`).
+      # A depth-1 checkout does not have that blob, and the guard would fail
+      # with "the figures at basisAt cannot be read" — a red about clone depth
+      # on the suite that stands between the cost book and the public tree. The
+      # secret-scan job already pays this fetch; paying it here too is the price
+      # of a pin that cannot be silenced by editing the pin.
       - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
       - uses: actions/setup-node@v7
         with:
           node-version: '22'
@@ -443,6 +500,26 @@ jobs:
         run: node tests/catalog-cost-privacy.test.js
       - name: Run catalog cost seed + hydration tests
         run: node tests/catalog-cost-seed.test.js
+      # The same split for the JOB TEMPLATE library (2026-08-18): the lossless
+      # strip of 84 custom-item cost pairs out of the published data file, the
+      # "at least one cost > 0" invariant that moved out of job-templates.test
+      # when it stopped being allowed to live in a public file, the
+      # catalog-costs → job-templates hydration bridge, and the frozen
+      # 'jt-<slug>-<index>' key set (a silent re-key orphans a tenant's book).
+      - name: Run job-template cost seed + hydration tests
+        run: node tests/job-template-cost-seed.test.js
+      # Cheap second spelling of the leak gate, independent of the privacy
+      # suite's regexes — that suite is exactly what failed to look at this
+      # file for a month.
+      - name: Assert job-templates-data.js carries no contractor costs
+        run: node scripts/strip-job-template-costs.js --check
+      # The rotation toolchain for the catalogs that STILL publish a cost basis
+      # (labor 66 / xactimate 276 / EBv2 28). What it guards is the property
+      # that makes rotation meaningful: a no-op cannot pass as a rotation, so
+      # every refusal path — untouched sheet, blank cell, bad value, wrong
+      # catalog, unrotated seed — is asserted.
+      - name: Run cost-basis registry + rotation tests
+        run: node tests/cost-basis-registry.test.js
       # Catalog integrity + the product-library DATA_VERSION migration. Was
       # local-only; gated here because the cost split touches both.
       - name: Run product catalog + library migration tests
@@ -531,6 +608,7 @@ jobs:
   site-integrity:
     name: Site integrity
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -543,6 +621,15 @@ jobs:
       # config changes can't desync the checker.
       - name: Check links, assets, and anchors (docs/, excluding /pro + /admin)
         run: node scripts/check-site-integrity.js --quiet
+      # Chrome governance: apply-partials.js only sees pages that carry a
+      # marker, so a page with hand-built nav/footer is invisible to its
+      # --check forever. 22 of 211 marketing pages were in that state, which is
+      # why every sitewide chrome sweep since 2026-06 left residue on the same
+      # ~29 files. This walks the tree and treats its EXEMPT list as a denylist
+      # of known-good, so a NEW page defaults to failing — the inversion the
+      # three prior guard failures got backwards. Stale exemptions fail too.
+      - name: Check chrome governance (nav/footer are generator-owned)
+        run: node scripts/check-chrome-governance.js
       # Sitemap drift gate: build-sitemap.js dry-runs by default and exits 1
       # when the generated sitemap differs from docs/sitemap.xml (prints the
       # unified diff). Writes nothing without --write.
@@ -611,6 +698,7 @@ jobs:
   unit-suite-manifest:
     name: Unit suites (manifest)
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -627,6 +715,18 @@ jobs:
       - name: Run manifest node bucket
         run: node scripts/run-test-manifest.js
 
+      # Behavioral tests for the strict functions-deploy step in
+      # firebase-deploy.yml — it is shell inside YAML, so nothing else can
+      # actually execute it. Three false-green modes have shipped from that
+      # step, two of them found by deploying to prod and noticing afterwards.
+      # Dependency-free, no network, no credentials, runs in seconds; it
+      # extracts the real run: block and drives it against a stand-in CLI.
+      # Rides this job rather than its own because it needs neither the deps
+      # installed above nor a runner of its own.
+      # See tests/deploy-step/README.md.
+      - name: Deploy-step guards (false-green regressions)
+        run: bash tests/deploy-step/run.sh
+
   # The three auth/firestore-emulator suites the manifest classifies as
   # emulator-bucket (2026-08-07; the fourth, portal-token, rides the
   # referral-trigger job's functions-emulator recipe). Same v13 global
@@ -634,6 +734,7 @@ jobs:
   emulator-orphan-suites:
     name: Auth/Firestore emulator suites (rate-limit, auth-access, lead-lifecycle)
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -671,6 +772,7 @@ jobs:
   syntax-check:
     name: Node syntax check
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -694,6 +796,7 @@ jobs:
   firestore-rules:
     name: Firestore rules tests
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -733,6 +836,7 @@ jobs:
   referral-trigger:
     name: Referral trigger tests
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -811,6 +915,7 @@ jobs:
   functions-parse:
     name: Functions parse + dep install
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -863,6 +968,7 @@ jobs:
   secret-scan:
     name: Secret scan
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v7
         with:
@@ -895,6 +1001,11 @@ jobs:
   e2e-authed-emulator:
     name: Authed E2E (emulators, ${{ matrix.shard }})
     runs-on: ubuntu-latest
+    # Highest cap in the file: this matrix owns the widest spread
+    # (measured max 11.5 min on @shard1) AND installs Playwright, the
+    # step that wedged on 2026-08-18. 25 leaves >2x headroom over the
+    # worst honest run while still killing a hang inside the hour.
+    timeout-minutes: 25
     strategy:
       fail-fast: false
       matrix:
@@ -1020,6 +1131,12 @@ jobs:
   public-e2e:
     name: Public-surface E2E (hosting emulator)
     runs-on: ubuntu-latest
+    # 20 despite a 2.3 min measured max: this job installs Playwright,
+    # so it is exposed to the same wedge as the E2E matrix. Note
+    # continue-on-error means a hang here never reddens the run — it
+    # just burns a runner slot silently, which is why the ceiling
+    # matters MORE here, not less.
+    timeout-minutes: 20
     continue-on-error: true
     steps:
       - uses: actions/checkout@v7
@@ -1047,6 +1164,65 @@ jobs:
           path: tests/test-results/
           retention-days: 7
 
+  # Rendered QC sweep over the 208-page homeowner surface (2026-08-18).
+  # Every other docs/ gate is grep-shaped and cannot compute a style, so
+  # cascade-order and layout defects have shipped four times and were caught
+  # by eye, not CI — most recently svg.ico rendering at 1227px on
+  # /sites/free-guide. This renders each page at 1280px and 390px and asserts
+  # the signatures those four share: oversized inline SVG, icon ink matching
+  # its own chip background, dropdowns open at rest, horizontal overflow, and
+  # duplicated <style> blocks. Advisory on introduction, same as the two jobs
+  # below; promote once it has a green streak.
+  qc-render-sweep:
+    name: Rendered QC sweep (docs/)
+    runs-on: ubuntu-latest
+    # Matches the two other Playwright jobs below. This job was added AFTER
+    # 42e4a003 gave every job a timeout, so it inherited GitHub's 6-hour
+    # default and was the only job in this file without one. Found the hard
+    # way on 2026-08-19: a Playwright CDN stall cancelled four sibling jobs at
+    # their 20m timeouts while this one sat on the same dead download for 50+
+    # minutes and would have held a runner for six hours. The sweep itself
+    # renders 218 pages in ~2 min, so 20m is ~10x headroom — it exists to fail
+    # fast on a hung download, not to bound normal work.
+    timeout-minutes: 20
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+      # NO bare `playwright` argument here — install the workspace AS PINNED,
+      # the same two lines visual-regression and visual-brand-tokens use (and
+      # which pass). `npm install … playwright` adds playwright@latest ON TOP of
+      # the pinned @playwright/test@^1.61.1, and BOTH packages ship a bin named
+      # `playwright`. Whichever npm links last owns .bin/playwright, so
+      # `npx playwright install` fetched browsers for one version while
+      # scripts/qc-render-sweep.js (testRequire('playwright')) resolved the
+      # other — the job died at browserType.launch with "Executable doesn't
+      # exist at …/chromium_headless_shell-<rev>" and never rendered a page.
+      # It had failed that way on every run since it shipped, so this gate has
+      # never actually run. @playwright/test depends on playwright at the same
+      # version, so the pinned install gives require('playwright') the exact
+      # version whose browsers were just downloaded.
+      - name: Install Playwright (tests workspace)
+        run: |
+          cd tests
+          npm install --silent --no-audit --no-fund
+          npx playwright install --with-deps chromium
+      - name: Serve docs/
+        run: |
+          npx --yes http-server docs -p 5000 -c-1 --silent &
+          npx --yes wait-on http://localhost:5000/ --timeout 60000
+      - name: Sweep
+        run: node scripts/qc-render-sweep.js --base http://localhost:5000 --json qc-render-sweep.json
+      - name: Upload report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: qc-render-sweep-report
+          path: qc-render-sweep.json
+          retention-days: 7
+
   # Brand-token computed-style assertions (2026-08-07 audit): the isolated
   # tests/visual workspace (own package.json + playwright.config serving
   # docs/ over http-server) was referenced by no workflow. These are token/
@@ -1055,6 +1231,13 @@ jobs:
   visual-brand-tokens:
     name: Brand-token visual assertions
     runs-on: ubuntu-latest
+    # 20, same tier as the other Playwright jobs. First cut of this file
+    # put it at 15 on the belief it had no Playwright install — wrong: it
+    # installs via `npm run install:browsers` (tests/visual), which a
+    # grep for "playwright install" does not match. It then timed out on
+    # exactly that step at 15m14s. Match on the STEP NAME, not the
+    # command, when auditing this.
+    timeout-minutes: 20
     continue-on-error: true
     steps:
       - uses: actions/checkout@v7
@@ -1088,6 +1271,9 @@ jobs:
   visual-regression:
     name: Visual regression (public pro pages)
     runs-on: ubuntu-latest
+    # 20: installs Playwright (same wedge exposure as public-e2e), and
+    # is likewise continue-on-error, so a hang here is silent.
+    timeout-minutes: 20
     continue-on-error: true
     steps:
       - uses: actions/checkout@v7

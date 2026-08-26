@@ -709,9 +709,25 @@ section('Custom jurisdictions: per-tenant rows reach both pickers + the engine (
   // _withTenantJurisdictions -> _withTenantCounties when the canonical-7
   // overrides joined it (per-tenant county migration); the pin follows the
   // INTENT — both call sites go through the one overlay.
+  // 2026-08-19: the pin now matches the CALL, not the whole statement. The
+  // cost overlay (_withTenantCosts, tenant job/labor/xact/v2 cost books) wraps
+  // these same call sites — `_withTenantCosts(_withTenantCounties(...))` — and
+  // an exact-statement pin failed on a change that preserved the invariant it
+  // exists to protect. Pinning the surrounding syntax rather than the property
+  // makes a guard cry wolf, which is how guards get loosened for real.
   assert('the tenant county overlay applies in applyCompanyPricing AND calculateLineItem',
-    /return _withTenantCounties\(out\);/.test(engine)
-    && /const s = _withTenantCounties\(input\.settingsOverride \|\| loadSettings\(\)\);/.test(engine));
+    /_withTenantCounties\(out\)/.test(engine)
+    && /_withTenantCounties\(input\.settingsOverride \|\| loadSettings\(\)\)/.test(engine));
+  // Same invariant, same reason, for the cost overlay: an estimate must not
+  // price differently depending on which path computed it.
+  assert('the tenant COST overlay applies at both pricing entry points',
+    /_withTenantCosts\(_withTenantCounties\(settings \|\| loadSettings\(\)\)\)/.test(engine)
+    && /_withTenantCosts\(_withTenantCounties\(input\.settingsOverride \|\| loadSettings\(\)\)\)/.test(engine));
+  // ...and NOT inside loadSettings(), which is contractually pure so a
+  // late-arriving companyProfile or cost book still reaches the next price
+  // (tests/custom-jurisdictions.test.js pins the county half of this).
+  assert('loadSettings() stays pure — neither overlay is baked in',
+    !/if \(!raw\) return _withTenant/.test(engine));
   assert('getCountyTaxMap routes through the SAME overlay (JT / EstimateLogic parity)',
     /return _withTenantCounties\(loadSettings\(\)\)\.countyTax;/.test(engine));
   assert('engine exports getCountyTaxMap (loadSettings().countyTax + tenant overlay)',

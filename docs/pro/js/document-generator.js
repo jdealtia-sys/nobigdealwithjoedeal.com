@@ -38,36 +38,46 @@ window.NBDDocGen = {
 
   /**
    * Resolve the active tenant's branding into the COMPANY shape this
-   * generator renders from (Phase B — TenantContext). NBD, and any tenant
-   * whose brand still matches the NBD default, renders from the unchanged
-   * COMPANY literal above — byte-identical. A tenant with its own
-   * companyProfile.brand (a different legalName) renders from that brand.
-   * Reads window._brand() (docs/pro/js/company-profile.js); falls back to
-   * the NBD base whenever the resolver isn't loaded or errors.
+   * generator renders from (Phase B — TenantContext). EVERY tenant, NBD
+   * included, now renders from companyProfile.brand via window._brand()
+   * (docs/pro/js/company-profile.js) — the profile is the single source of
+   * truth, so editing it changes documents. Falls back to the NBD base
+   * whenever the resolver isn't loaded or errors.
+   *
+   * The fallback differs by tenant, and that difference is the security
+   * property (review M1):
+   *   NBD      → falls back to base.*  (it IS NBD; inheriting its own values
+   *              cannot be a cross-tenant leak)
+   *   non-NBD  → falls back to BLANK, never base.*  — a partially-configured
+   *              tenant must not inherit NBD's phone/email/website/logo/
+   *              tagline onto its documents.
+   * colors are cosmetic and may inherit either way.
+   *
+   * NBD renders byte-identically because the brand defaults carry exactly the
+   * base values (email info@, the document tagline, no address).
    */
   _resolveCompany() {
     const base = this.COMPANY;
     try {
       const b = (typeof window !== 'undefined' && window._brand) ? window._brand() : null;
-      if (b && b.legalName && b.legalName !== base.name) {
+      if (b && b.legalName) {
+        const isNbd = b.legalName === base.name;
         const c = b.colors || {};
-        // Identity fields fall back to BLANK, never to NBD's (base.*) — a
-        // partially-configured tenant must not inherit NBD's phone/email/
-        // website/logo onto its documents (review M1). window._brand() has
-        // already blanked anything this tenant didn't set; the '' fallbacks
-        // here just make sure a missing field never reaches back to base.
-        // colors are cosmetic and may still inherit. tagline must NOT — NBD's
-        // tagline ("No Big Deal — We've Got You Covered") carries the NBD name,
-        // so an unset tenant tagline would leak it (review M1, adversarial pass).
-        // NBD takes the early `return base` below, so this branch never runs for NBD.
+        const contact = b.contact || {};
+        const fb = isNbd
+          ? base
+          : { phone: '', email: '', website: '', tagline: '', address: '' };
         return {
           name:    b.legalName,
-          phone:   (b.contact && b.contact.phone)   || '',
-          email:   (b.contact && b.contact.email)   || '',
-          website: (b.contact && b.contact.website) || '',
-          tagline: b.tagline || '',
-          address: (b.contact && b.contact.address) || '',
-          logoUrl: b.logoUrl || null,
+          phone:   contact.phone   || fb.phone,
+          email:   contact.email   || fb.email,
+          website: contact.website || fb.website,
+          tagline: b.tagline       || fb.tagline,
+          address: contact.address || fb.address,
+          // NBD keeps logoUrl null so _logoSrc serves the INLINE data URI it
+          // always has. brand.logoUrl is a remote URL, and a remote fetch is
+          // exactly what can fail mid-PDF-render. A tenant uses its own or none.
+          logoUrl: isNbd ? null : (b.logoUrl || null),
           colors: {
             primary:    c.primary    || base.colors.primary,
             secondary:  c.secondary  || base.colors.secondary,
@@ -89,9 +99,11 @@ window.NBDDocGen = {
     const c = this._resolveCompany();
     if (c.logoUrl) return c.logoUrl;
     // A non-NBD tenant with no logo of its own gets NO logo — never NBD's
-    // (cross-tenant leak, M1). _resolveCompany returns the COMPANY literal
-    // itself only for NBD, so c !== COMPANY means an active tenant.
-    if (c !== this.COMPANY) return '';
+    // (cross-tenant leak, M1). Gate on the brand, NOT on object identity:
+    // _resolveCompany now BUILDS an object for NBD too, so the old
+    // `c !== this.COMPANY` test would have been true for NBD and silently
+    // dropped its logo.
+    if (!this._nbdGate().isNbd) return '';
     return (typeof window !== 'undefined' && window.NBD_LOGO_DATA_URI)
       ? window.NBD_LOGO_DATA_URI
       : this._assetOrigin() + '/assets/images/nbd-logo.png';
@@ -491,6 +503,13 @@ window.NBDDocGen = {
           } catch (e) {
             console.warn('Document metadata persist failed:', e && e.message);
           }
+          // The write has landed (or definitively failed) — repaint the
+          // documents surfaces from the store rather than leaving the page
+          // showing a stale list until the next full load.
+          if (_docMetaRef && window.NBDCustomerDocs) {
+            try { await window.NBDCustomerDocs.refresh(); }
+            catch (e) { console.warn('Documents refresh failed:', e && e.message); }
+          }
         })();
       }
       // PR3b: load this lead's saved signatures (if any) so the viewer
@@ -570,6 +589,11 @@ window.NBDDocGen = {
             }
           } catch (e) {
             console.warn('Signed metadata update failed:', e && e.message);
+          }
+          // Repaint so the row picks up its '✓ Signed' state immediately.
+          if (window.NBDCustomerDocs) {
+            try { await window.NBDCustomerDocs.refresh(); }
+            catch (e) { console.warn('Documents refresh failed:', e && e.message); }
           }
 
           // PR3a — saved-signature reuse store. Persist each captured

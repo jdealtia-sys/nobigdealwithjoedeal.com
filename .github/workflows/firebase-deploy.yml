@@ -669,7 +669,22 @@ jobs:
           #                 ZERO "Failed to ..." lines, firebase-tools exit 0)
           # Two occurrences one deploy apart is a pattern, and every occurrence
           # is a window where prod runs stale code until the retries heal it.
-          # 167 functions -> chunks of 60, 60, 47.
+          # ~168 functions -> chunks of 60, 60, 48.
+          #
+          # SECOND, DISTINCT MODE this also mitigates (added 2026-08-17): the
+          # CPU-quota healthcheck failures. Run 32083185787 lost 75 of ~168 in
+          # wave 1 — LOUD failures ("Failed to update function X"), not silent
+          # drops, retried 75 -> 3 -> 0. Cause confirmed from the GCP audit log
+          # rather than inferred, which the "likely CPU-quota" comments elsewhere
+          # in this file never were:
+          #   "Could not create or update Cloud Run service <name>, Container
+          #    Healthcheck failed. Quota exceeded for total allowable CPU per
+          #    project per region."
+          # That is run.googleapis.com/cpu_allocation. Read via the Service
+          # Usage API 2026-08-17: us-central1 sits at the flat default 200000
+          # (1/min/{project}/{region}) with NO override — identical to every
+          # other region, so nothing here has ever been tuned. Chunking helps
+          # both modes because both are burst-driven.
           #
           # MEASURED on the first chunked run (32085658469): 167 functions,
           # ZERO stragglers of any kind, zero retry rounds, strict step 11m26s
@@ -688,7 +703,16 @@ jobs:
           #    deploys start going red on auth rather than on real problems,
           #    that is this tradeoff, and 0 restores the old behavior.
           #
-          # Durable fix is still a quota increase, which makes this unnecessary.
+          # Safe with completion accounting (verified by simulation before
+          # enabling): _deploy_only reconciles per INVOCATION — `targeted` comes
+          # from its own $1, ACCOUNTED_FILE/PARSED_FILE are per-call scratch (>),
+          # while MISSING_FILE/FAILED_FILE accumulate (>>). Each chunk audits its
+          # own targets, so the mode-3 guard still covers the full set. Chunking
+          # does NOT blind the guard.
+          #
+          # Durable fix is still a quota increase (IAM & Admin -> Quotas ->
+          # "Total CPU allocation", a Console request Google reviews), which
+          # makes this unnecessary — set back to "0" once it lands.
           NBD_DEPLOY_WAVE1_MAX: "60"
         run: |
           # WHY THIS STEP RETRIES (root cause, diagnosed 2026-07-23):
@@ -791,6 +815,24 @@ jobs:
             clean=$(printf '%s\n' "$out" | _strip_ansi)
             parsed=$(printf '%s\n' "$clean" | grep -oE "Failed to (create|update) function [A-Za-z_][A-Za-z0-9_]*" \
                                  | sed -E 's/.*function //')
+            # Mode 1b (run 32925767669, 2026-08-26): when a function's Cloud Run
+            # operation poll times out ("Could not get operation details ...
+            # Deadline Exceeded."), firebase prints NO "Failed to ..." line for
+            # it — the only per-function record is the trailing summary block:
+            #   Functions deploy had errors with the following functions:
+            #   	onAiDraftApproved(us-central1)
+            # Without this parse that shape fell through to the wholesale guard,
+            # which declared "nothing or almost nothing was deployed" while
+            # 166/167 functions were verifiably live — and the one real
+            # straggler never reached the retry rounds, because completion
+            # accounting is skipped on the wholesale path. Parse the block's
+            # indented NAME(region) lines (it ends at the first non-indented
+            # line); on the normal loud-failure deploys the same names already
+            # arrive via the "Failed to ..." parse and sort -u dedupes.
+            summary=$(printf '%s\n' "$clean" \
+              | awk 'flag { if ($0 ~ /^[[:space:]]/) print; else flag=0 } /^Functions deploy had errors with the following functions:/ { flag=1 }' \
+              | sed -E 's/^[[:space:]]+//; s/\(.*$//; s/^.*://' | grep -E '^[A-Za-z_][A-Za-z0-9_]*$')
+            parsed=$(printf '%s\n%s\n' "$parsed" "$summary" | grep -v '^$' | sort -u)
             [ -n "$parsed" ] && printf '%s\n' "$parsed" >> "$FAILED_FILE"
             if [ "$rc" -ne 0 ] && [ -z "$parsed" ]; then
               echo "wholesale deploy failure: exit $rc with no per-function failure lines (targets: $1)" >> "$WHOLESALE_FILE"

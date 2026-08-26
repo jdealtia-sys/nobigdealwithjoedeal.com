@@ -1071,12 +1071,29 @@ section('F-10b: strict functions deploy — all three false-green guards');
     /onDocumentCreated/.test(strict) && /onDocumentWritten/.test(strict));
 
   // ── Mode 2 (2026-08-10 audit): WHOLESALE FAILURE ──
-  // Nonzero exit with zero "Failed to ..." lines (auth/config/quota abort)
-  // produced an empty failure set and printed success while deploying nothing.
+  // Nonzero exit with zero parsed per-function failures (no "Failed to ..."
+  // lines AND no error-summary block — see mode 1b) produced an empty failure
+  // set and printed success while deploying nothing.
   assert('F-10b mode 2: wholesale-failure guard present',
     /WHOLESALE_FILE/.test(strict) && /wholesale deploy failure/.test(strict));
   assert('F-10b mode 2: wholesale failure is fatal',
     /failed WHOLESALE/.test(strict));
+
+  // ── Mode 1b (run 32925767669, 2026-08-26): OPERATION-POLL TIMEOUT ──
+  // A "Could not get operation details ... Deadline Exceeded." failure prints
+  // NO "Failed to ..." line — the only per-function record is the trailing
+  // "Functions deploy had errors with the following functions:" block. Until
+  // this parse existed, that shape was recorded as WHOLESALE ("nothing or
+  // almost nothing was deployed") while 166/167 functions were live, and the
+  // one real straggler was never retried (accounting is skipped on the
+  // wholesale path). This is the inverse defect of the false-greens: a false
+  // RED that hides a single real straggler behind a wrong diagnosis.
+  assert('F-10b mode 1b: the trailing error-summary block is parsed',
+    strict.includes('Functions deploy had errors with the following functions:'));
+  assert('F-10b mode 1b: summary names merge into the parsed failure set',
+    /parsed=\$\(printf '%s\\n%s\\n' "\$parsed" "\$summary"/.test(strict));
+  assert('F-10b mode 1b: the merge happens BEFORE the wholesale check',
+    /"\$summary"[\s\S]*wholesale deploy failure: exit/.test(strict));
 
   // ── Mode 3 (run 32074172766, 2026-08-17): QUOTA-DROPPED UPDATE ──
   // ~17 of 167 functions got an "updating..." line and NO terminal line — no
@@ -1180,14 +1197,21 @@ section('E2: CI workflow present');
   // required shards blocking; three new standalone jobs (public-e2e,
   // visual-brand-tokens, visual-regression) are on that runway — promoting
   // one means flipping its literal AND updating this allowlist.
+  //
+  // 2026-08-19: FOUR, not three. qc-render-sweep (the rendered docs/ gate that
+  // shipped with the site-QC lane) joined the runway and this count was not
+  // updated with it — so the guard was red on the qc branch before this PR
+  // branched off it. Working exactly as designed: it noticed the list changed.
+  // The four on the runway are public-e2e, qc-render-sweep,
+  // visual-brand-tokens and visual-regression.
   const requiredShards = ['@shard1', '@shard2', '@audit', '@stranger', '@gauntlet'];
   assert('the five promoted E2E shards are all in the matrix',
     requiredShards.every((s) => ci.includes("'" + s + "'")));
   assert('matrix continue-on-error only exempts @engines (five shards stay blocking)',
     /continue-on-error:\s*\$\{\{\s*matrix\.shard == '@engines'\s*\}\}/.test(ci)
     && !/continue-on-error:\s*true[\s\S]{0,400}PLAYWRIGHT_GREP:\s*\$\{\{\s*matrix\.shard\s*\}\}/.test(ci));
-  assert('advisory literals are limited to the introduction-runway jobs (3)',
-    (ci.match(/continue-on-error:\s*true/g) || []).length === 3);
+  assert('advisory literals are limited to the introduction-runway jobs (4)',
+    (ci.match(/continue-on-error:\s*true/g) || []).length === 4);
 }
 
 section('E2b: hosting deploy is gated');
