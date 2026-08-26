@@ -300,13 +300,22 @@ console.log('\nCI gate — @stranger shard is required');
   //
   // Two suites pinning one invariant is deliberate redundancy, not an
   // accident — but it does mean a change here needs the same change there.
-  assert('no promoted E2E shard is exempted from blocking (incl. @stranger)',
-    /continue-on-error:\s*\$\{\{\s*matrix\.shard == '@engines'\s*\}\}/.test(ci)
-    && !/continue-on-error:[^\n]*@stranger/.test(ci),
-    'the only runtime proof of stranger self-provisioning must gate merges');
-  assert('advisory literals confined to the introduction-runway jobs (4)',
-    (ci.match(/continue-on-error:\s*true/g) || []).length === 4,
-    'a promoted job regaining continue-on-error: true is the hole this guards');
+  // 2026-08-26: the runway is EMPTY. @engines reached 10/10 on the
+  // WEEKLY_CADENCE ledger and its matrix expression is gone; the four runway
+  // literals (public-e2e, qc-render-sweep, visual-brand-tokens,
+  // visual-regression) were promoted the same day on the same evidence. The
+  // two assertions this block used to carry (matrix exemption names ONLY
+  // @engines; exactly 4 runway literals) collapsed into one strictly
+  // stronger pin, same reasoning as the 2026-07-28 note above: no
+  // continue-on-error of ANY shape, anywhere in ci.yml — which subsumes
+  // "@stranger is never exempt". Re-parking a flaking job stays legitimate,
+  // at the price every promotion paid: a dated WHY note in ci.yml plus this
+  // pin and its functions.test.js twin.
+  // Line-anchored: count the YAML KEY, not the substring — doctrine comments
+  // are allowed to say "continue-on-error:" (the smoke-runner note does).
+  assert('every ci.yml job gates merges — no continue-on-error key of any shape',
+    (ci.match(/^\s*continue-on-error:/gm) || []).length === 0,
+    'a job regaining continue-on-error (literal or expression) is the hole this guards');
   assert('this suite runs in CI',
     /gauntlet-regressions\.test\.js/.test(ci),
     'add a node tests/gauntlet-regressions.test.js step to ci.yml');
