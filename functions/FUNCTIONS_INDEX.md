@@ -1,6 +1,6 @@
 # NBD Pro — Cloud Functions Taxonomy
 
-Single canonical index of every export from `functions/`. Refreshed 2026-08-11 by re-enumerating `require('./index.js')` (184 exported keys = **165 deployed Cloud Functions + 19 helper/test-only exports**; 7 dead exports retired 2026-08-11 — sendEstimateEmail, sendDripEmail, triggerProcessRecording, reprocessRecording, auditCustomerDataIntegrity, backfillCustomerData, migratePinsToKnocks (dead-surface lane, Jo-approved; console deletion queued in WEEKLY_CADENCE); the 2026-08-05 count of 189 predated Swath's +3 (#1193) and CL8's −1 `sendTeamInviteEmail` retirement (#1190)). A CI tripwire (tests/smoke/dashboard.test.js "every index.js export appears in FUNCTIONS_INDEX") now fails when an export is added without a row here — the 2026-07-04→08-05 gap was 21 undocumented exports, including the whole Stripe Connect + seat-billing money path.
+Single canonical index of every export from `functions/`. Refreshed 2026-08-11 by re-enumerating `require('./index.js')` (184 exported keys = **165 deployed Cloud Functions + 19 helper/test-only exports** [re-enumerated 2026-08-26: **189 keys = 170 deployed + 19 helper**]; 7 dead exports retired 2026-08-11 — sendEstimateEmail, sendDripEmail, triggerProcessRecording, reprocessRecording, auditCustomerDataIntegrity, backfillCustomerData, migratePinsToKnocks (dead-surface lane, Jo-approved; console deletion queued in WEEKLY_CADENCE); the 2026-08-05 count of 189 predated Swath's +3 (#1193) and CL8's −1 `sendTeamInviteEmail` retirement (#1190)). A CI tripwire (tests/smoke/dashboard.test.js "every index.js export appears in FUNCTIONS_INDEX") now fails when an export is added without a row here — the 2026-07-04→08-05 gap was 21 undocumented exports, including the whole Stripe Connect + seat-billing money path.
 
 Classification matters because:
 - **Admin** functions must enforce `request.auth.token.role === 'admin'` (or `requireAuth({ adminOnly: true })` for `onRequest`). If one silently loses that gate, the smoke test below catches it.
@@ -9,6 +9,8 @@ Classification matters because:
 - **Background/trigger** functions don't take client traffic; they fire on Firestore writes, Storage uploads, or scheduled cron.
 
 Blanket posture note (re-verified 2026-08-05): **every `onCall` export sets `enforceAppCheck: true`** — no exceptions. `onRequest` endpoints do NOT carry the option any more: `enforceAppCheck` is silently ignored on `onRequest` (honoured only inside `onCall` — vendored SDK `lib/v2/providers/https.js`), so the dead config was removed 2026-08-02 (#1170). Authed `onRequest` endpoints gate on ID-token verification + rate limits in the handler body; public ones on signatures/tokens/rate limits per the PUBLIC table.
+
+**2026-08-18, landed 2026-08-26 (+2 → 189 keys = 170 deployed + 19 helper, re-enumerated at merge; the base had drifted +3 past the 08-11 refresh while this PR sat open — calcomWebhook among them):** `getDocumentHtml` (REP) and `onLeadDeleted` (TRIGGERS) landed with the orphaned-Storage-artifact fix. Deleting a lead removed the Firestore doc and nothing else, leaving generated customer HTML live in Storage under a permanent, unrevocable download token — 10 such orphans found in prod across `portals/`, `documents/` and `galleries/`. See `documentation/audit/ORPHANED-STORAGE-ARTIFACTS-2026-08-18.md`.
 
 If you add a new export, list it here so the next audit doesn't have to re-derive the picture.
 
@@ -36,6 +38,7 @@ If you add a new export, list it here so the next audit doesn't have to re-deriv
 | `createSignRequest` | onCall | Remote signing — rep mints a doc_sign_token + emails the homeowner the sign link |
 | `createDealAcceptToken` | onCall | Close Board — rep mints a deal_accept_token for a deal room they own |
 | `createReportShareToken` | onCall | Rep mints a no-login view link for a saved inspection report |
+| `getDocumentHtml` | onCall | Reads a generated document's HTML back for the Documents tab (owner/manager/admin, admin-SDK read of `htmlPath`). Replaces the permanent `getDownloadURL` that docgen used to persist as `documents/{id}.htmlUrl` — an unrevocable no-auth URL for a signed contract. A signed URL is NOT the alternative: HTML fetched from `storage.googleapis.com` executes in that origin, which is why `signImageUrl` excludes every HTML prefix (its H-01 note) |
 | `trackUsage` | onCall | Plan-usage increment (atomic, server-side) |
 | `lookupParcel` | onCall | Parcel lookup w/ 90-day cache — Regrid (default) or Swath per `NBD_PARCEL_PROVIDER`, other provider is the fallback |
 | `requestMeasurement` | onCall | Hover / EagleView / Nearmap measurement request |
@@ -182,7 +185,7 @@ These operate on the **caller's own data** (owner-scoped Firestore queries insid
 | `syncGbpReviews` | daily 06:00 ET | Pulls Google Business Profile reviews into the reviews widget cache (gbp-reviews-sync.js) |
 | `monthlyOverheadAlertCron` | 1st of month 09:00 | Emails the overhead-vs-margin summary for the month just ended (monthly-overhead-alert.js) |
 
-## FIRESTORE / STORAGE TRIGGERS (no direct client traffic) — 35 Firestore + 2 Storage
+## FIRESTORE / STORAGE TRIGGERS (no direct client traffic) — 36 Firestore + 2 Storage
 | Export | Watches | Purpose |
 |---|---|---|
 | `onPhotoUploaded` | Storage finalize (`nobigdeal-pro.appspot.com`) | 200/600/1600 px WebP variant pipeline; stamps `photo.urls` (or `knock.photoVariants[idx]` for `/d2d/` sources, mirrored to the converted lead) |
@@ -208,6 +211,7 @@ These operate on the **caller's own data** (owner-scoped Firestore queries insid
 | `onPortalMessageDraft` | `leads/{leadId}/portal_messages/{msgId}` created | T-series — AI reply draft for an inbound homeowner portal message (source:'homeowner' only; safe-dark when secret unset) |
 | `voiceConsumer` | `leads/{leadId}/recordings/{recordingId}` written | Turns a completed call recording's structured summary into lead field updates (voice-consumer.js) |
 | `onEstimateViewedStrike` | `customerAuditEvents/{eventId}` created | Engagement scoring — estimate-view strike counter for the almost-there widget (customer-audit.js) |
+| `onLeadDeleted` | `leads/{leadId}` deleted | Reaps the lead's Storage artifacts (`documents/` `portals/` `galleries/` `audio/` under `{uid}/{leadId}/`), its orphaned `documents` subcollection, and its outstanding `portal_tokens` / `doc_sign_tokens`. Hard-deleting a lead previously removed the Firestore doc and nothing else, leaving customer-facing HTML live under a permanent download token with the only pointer to it destroyed (10 prod orphans, 2026-08-18). Fires on hard delete only — the trash bin is `deleted: true` and must keep its artifacts (lead-artifact-cleanup.js) |
 
 ## TEST-ONLY / HELPER EXPORTS (19 — NOT Cloud Functions, never deployed)
 Exported for unit tests or internal reuse; they carry no `__endpoint` and Firebase deploy ignores them.

@@ -833,11 +833,16 @@ test.describe.serial('Authenticated destructive flows @shard2', () => {
     expect(meta.typeName, 'human-readable type name recorded').toBeTruthy();
     expect(meta.filename, 'filename recorded for the PDF flow').toMatch(/\.pdf$/);
     // Storage leg: the rendered HTML must land under the owner-scoped
-    // documents/ prefix (storage.rules isHtmlOnly path) with a resolvable
-    // download URL — this is what the customer-page documents tab reopens.
+    // documents/ prefix (storage.rules isHtmlOnly path). htmlPath is the only
+    // pointer recorded — the customer-page documents tab reopens it through
+    // the authed getDocumentHtml callable.
     expect(meta.htmlPath, 'HTML uploaded under documents/<uid>/<leadId>/')
       .toMatch(new RegExp('^documents/[^/]+/' + leadId + '/'));
-    expect(meta.htmlUrl, 'download URL resolved for the uploaded HTML').toBeTruthy();
+    // Regression guard: htmlUrl was a getDownloadURL — a permanent, no-auth,
+    // unrevocable URL for a document carrying the homeowner's name, address
+    // and signature, persisted into Firestore where it leaked into every
+    // export of the lead. It must never come back. See functions/document-view.js.
+    expect(meta.htmlUrl, 'no permanent Storage download token persisted').toBeFalsy();
 
     // Tag the metadata doc for prod-run cleanup (subcollection docs don't
     // cascade-delete with the lead). Owner write allowed via the parent-get
