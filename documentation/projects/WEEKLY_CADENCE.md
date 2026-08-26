@@ -58,7 +58,7 @@
       *(2026-08-10 audit session: all green at baseline and post-fix; a new
       gate joined the list — `check-image-privacy.js`)*
 - [x] **~~Check main's CI streaks for the advisory jobs~~ BAR REACHED —
-      FLIPPED 2026-08-26.** (`@engines` shard, `public-e2e`,
+      FLIPPED 2026-08-26 (PR #1279).** (`@engines` shard, `public-e2e`,
       `visual-brand-tokens`, `visual-regression` — the rest of authed-E2E
       is already REQUIRED): ~10 green runs → open the
       `continue-on-error` flip PR ([handoff](NEXT_SESSION-2026-08-07.md)).
