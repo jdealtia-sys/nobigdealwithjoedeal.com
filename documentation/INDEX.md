@@ -47,6 +47,7 @@ Map of content for the `documentation/` corpus (~115 files) plus the other place
 - [SWATH-SETUP](runbooks/SWATH-SETUP.md) — Swath API (storm-verified property intel): signup, secrets, coverage monitor, provider flags, credit model (Jo action)
 - [PUBLISH-PROJECT](runbooks/PUBLISH-PROJECT.md) — add a Featured Project to /our-work (prices, photos, consent rules)
 - [LEXINGTON-CONTRACTOR-SETUP](runbooks/LEXINGTON-CONTRACTOR-SETUP.md) — Fayette County paperwork before the first Lexington job: no KY state roofing license (HB 150 pending), LFUCG registration steps, the one reroof-permit question to settle by phone (Jo action)
+- [CLOUD-RUN-CPU-QUOTA-REQUEST](runbooks/CLOUD-RUN-CPU-QUOTA-REQUEST.md) — the exact Console path + justification text for the us-central1 CPU quota increase (Jo action, one of the two open deploy-lane decisions from [NEXT_SESSION-2026-08-18](projects/NEXT_SESSION-2026-08-18.md)); when it lands, set `NBD_DEPLOY_WAVE1_MAX` back to `"0"`
 
 ## Projects & planning
 
