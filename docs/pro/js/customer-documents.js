@@ -51,11 +51,19 @@
   }
 
   // The three writers stamp three different field names for the same thing.
-  // Generated docs: {filename, typeName, htmlUrl, createdAt}. Signed/DnD
+  // Generated docs: {filename, typeName, htmlPath, createdAt}. Signed/DnD
   // uploads: {name, url, uploadedAt}. Legacy top-level: {filename, url,
   // uploadedAt}. Normalize once here so no renderer has to know that.
+  //
+  // Generated docs deliberately carry NO direct URL: `htmlUrl` was a
+  // getDownloadURL result — a permanent, no-auth, unrevocable token URL for
+  // a document holding the homeowner's name, address, price and signature
+  // (see functions/document-view.js). Rows with an htmlPath re-open through
+  // the authed getDocumentHtml callable instead; htmlUrl is honored only for
+  // pre-migration rows that never recorded a path, since rows that recorded
+  // both may have had their token revoked by the orphan sweep.
   function normalize(id, d, legacy) {
-    var url = d.url || d.htmlUrl || d.signedDocumentUrl || '';
+    var url = d.url || d.signedDocumentUrl || (d.htmlPath ? '' : (d.htmlUrl || ''));
     var signedAt = toDate(d.signedAt);
     return {
       id: id,
@@ -67,6 +75,7 @@
       typeName: d.typeName || null,
       generated: !!(d.typeName || (d.type && !/\//.test(String(d.type)))),
       url: /^https?:/i.test(url) ? url : '',
+      htmlPath: (typeof d.htmlPath === 'string' && d.htmlPath) ? d.htmlPath : null,
       size: Number.isFinite(+d.size) ? +d.size : null,
       date: toDate(d.uploadedAt) || toDate(d.createdAt) || toDate(d.date) || signedAt,
       signed: !!(d.signedRemotely || d.signedAt || /signed/i.test(String(d.source || ''))),
@@ -190,7 +199,10 @@
       + '<div class="doc-actions">'
       + (doc.url
           ? '<a href="' + esc(doc.url) + '" target="_blank" rel="noopener noreferrer" class="doc-btn">View</a>'
-          : '')
+          : (doc.htmlPath
+              ? '<button type="button" class="doc-btn" data-doc-view="' + esc(doc.id) + '"'
+                + ' style="background:none;border:0;cursor:pointer;font:inherit;">View</button>'
+              : ''))
       + '<button type="button" class="btn" data-action="deleteCustomerDoc"'
       + ' data-arg="' + esc(doc.id) + '" data-arg2="' + label + '"'
       + ' title="Remove this document from the customer record"'
@@ -297,6 +309,50 @@
       if (typeof showToast === 'function') showToast('Could not remove: ' + (e.message || 'unknown'), 'error');
     }
   };
+
+  // Re-open a generated document. Its HTML never had a public URL — fetch it
+  // through the authed getDocumentHtml callable and render it in the same
+  // sandboxed viewer the generator uses, first-party. Delegated (not inline)
+  // because the CSP sets script-src-attr 'none'.
+  async function viewGeneratedDoc(docId, btn) {
+    if (!docId || !window._customerId) return;
+    var label = btn ? btn.textContent : '';
+    if (btn) { btn.disabled = true; btn.textContent = 'Opening…'; }
+    try {
+      if (!window._functions || !window._httpsCallable) {
+        var mod = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-functions.js');
+        window._functions = window._functions || mod.getFunctions();
+        window._httpsCallable = window._httpsCallable || mod.httpsCallable;
+      }
+      var fn = window._httpsCallable(window._functions, 'getDocumentHtml');
+      var res = await fn({ leadId: window._customerId, docId: docId });
+      var data = (res && res.data) || {};
+      if (!data.html) throw new Error('Document is empty');
+      if (window.NBDDocViewer && typeof window.NBDDocViewer.open === 'function') {
+        window.NBDDocViewer.open({
+          html: data.html,
+          title: data.typeName || 'Document',
+          filename: data.filename || 'document.pdf'
+        });
+      } else {
+        throw new Error('Document viewer is not loaded');
+      }
+    } catch (e) {
+      console.warn('viewGeneratedDoc failed:', e && e.message);
+      if (typeof showToast === 'function') {
+        showToast('Could not open document: ' + ((e && e.message) || 'unknown'), 'error');
+      }
+    } finally {
+      if (btn) { btn.disabled = false; btn.textContent = label || 'View'; }
+    }
+  }
+
+  document.addEventListener('click', function (e) {
+    var btn = e.target && e.target.closest && e.target.closest('[data-doc-view]');
+    if (!btn) return;
+    e.preventDefault();
+    viewGeneratedDoc(btn.getAttribute('data-doc-view'), btn);
+  });
 
   window.NBDCustomerDocs = {
     load: load,

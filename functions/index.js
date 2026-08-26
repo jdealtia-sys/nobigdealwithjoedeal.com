@@ -337,6 +337,21 @@ Object.assign(exports, dealAcceptanceFunctions);
 const reportSharingFunctions = require('./report-sharing');
 Object.assign(exports, reportSharingFunctions);
 
+// Generated-document read-back. Replaces the permanent getDownloadURL that
+// document-generator.js used to persist as documents/{id}.htmlUrl — an
+// unrevocable no-auth URL for a signed contract. Authed callable + admin-SDK
+// read; see functions/document-view.js for why a signed URL is not the fix.
+const documentViewFunctions = require('./document-view');
+Object.assign(exports, documentViewFunctions);
+
+// Lead-delete artifact reaping: hard-deleting a lead removed the Firestore doc
+// and left its baked HTML live in Storage under a permanent download token
+// (found 2026-08-18 — 10 orphans across portals/, documents/, galleries/).
+// onDocumentDeleted sweeps every leadId-keyed prefix. See
+// functions/lead-artifact-cleanup.js.
+const leadArtifactCleanup = require('./lead-artifact-cleanup');
+Object.assign(exports, leadArtifactCleanup);
+
 // L-03 cont.: Stripe handlers (createCheckoutSession, stripeWebhook,
 // createCustomerPortalSession, getSubscriptionStatus,
 // createStripePaymentLink, invoiceWebhook) live in functions/stripe.js.

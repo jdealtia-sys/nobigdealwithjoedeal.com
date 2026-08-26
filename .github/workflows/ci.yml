@@ -531,9 +531,9 @@ jobs:
         # '@engines' = tests/e2e/d2d-engine.spec.js + estimate-engine.spec.js
         # — the lazy-bundle assembly proofs (D2D shim surface, 222-product /
         # 298-key catalog snapshot). Authored with the shard recipe but never
-        # wired (2026-08-07 audit). ADVISORY on introduction, same bar the
-        # other five earned promotion through: prove a green streak, then
-        # flip the continue-on-error expression below.
+        # wired (2026-08-07 audit). Advisory on introduction; PROMOTED
+        # 2026-08-26 on a 10/10 green streak (ledger in
+        # documentation/projects/WEEKLY_CADENCE.md).
         shard: ['@shard1', '@shard2', '@audit', '@stranger', '@gauntlet', '@engines']
     # Rock 3: hermetic authed journey — seed a tenant in the Auth/Firestore
     # emulators, serve docs/ from the hosting emulator (the client SDK
@@ -576,9 +576,12 @@ jobs:
     # emulator session at roughly half load, selected via PLAYWRIGHT_GREP.
     # If a rotating victim reappears, split further or slim the per-test
     # dashboard boot - do NOT chase individual tests.
-    # Five shards REQUIRED (2026-07-28); @engines advisory since 2026-08-07 —
-    # promotion checklist lives in NEXT_SESSION-2026-08-07.md.
-    continue-on-error: ${{ matrix.shard == '@engines' }}
+    # ALL SIX shards REQUIRED — five since 2026-07-28; @engines promoted
+    # 2026-08-26 after 10/10 green on main (streak deliberately recounted
+    # from the 2026-08-19 Playwright-CDN cancellations: a required job that
+    # hangs on a CDN stall is a blocked merge, and only the 20-min caps
+    # make that a fast red instead of a wedge). Ledger in
+    # documentation/projects/WEEKLY_CADENCE.md.
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -633,17 +636,16 @@ jobs:
   # CRITICAL RECIPE NOTE: tests/playwright.config.js defaults baseURL to
   # PRODUCTION — PLAYWRIGHT_BASE_URL must stay pinned to the hosting
   # emulator here or this job smoke-tests the live site. Advisory on
-  # introduction (same promotion bar as the authed shards).
+  # introduction; PROMOTED 2026-08-26 on a 10/10 green streak (ledger in
+  # documentation/projects/WEEKLY_CADENCE.md).
   public-e2e:
     name: Public-surface E2E (hosting emulator)
     runs-on: ubuntu-latest
     # 20 despite a 2.3 min measured max: this job installs Playwright,
-    # so it is exposed to the same wedge as the E2E matrix. Note
-    # continue-on-error means a hang here never reddens the run — it
-    # just burns a runner slot silently, which is why the ceiling
-    # matters MORE here, not less.
+    # so it is exposed to the same wedge as the E2E matrix. Now that the
+    # job is required, this cap is what turns a hung install into a
+    # 20-minute red instead of a 6-hour blocked merge.
     timeout-minutes: 20
-    continue-on-error: true
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -678,7 +680,10 @@ jobs:
   # the signatures those four share: oversized inline SVG, icon ink matching
   # its own chip background, dropdowns open at rest, horizontal overflow, and
   # duplicated <style> blocks. Advisory on introduction, same as the two jobs
-  # below; promote once it has a green streak.
+  # below; PROMOTED 2026-08-26 — green on every completed main run since
+  # introduction (2026-08-18), including the full post-cancellation window
+  # the four ledgered jobs were recounted over. Promotion evidence in
+  # documentation/projects/WEEKLY_CADENCE.md.
   qc-render-sweep:
     name: Rendered QC sweep (docs/)
     runs-on: ubuntu-latest
@@ -691,7 +696,6 @@ jobs:
     # renders 218 pages in ~2 min, so 20m is ~10x headroom — it exists to fail
     # fast on a hung download, not to bound normal work.
     timeout-minutes: 20
-    continue-on-error: true
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -733,7 +737,8 @@ jobs:
   # tests/visual workspace (own package.json + playwright.config serving
   # docs/ over http-server) was referenced by no workflow. These are token/
   # computed-style checks, not pixel screenshots — no goldens involved.
-  # Advisory on introduction.
+  # Advisory on introduction; PROMOTED 2026-08-26 on a 10/10 green streak
+  # (ledger in documentation/projects/WEEKLY_CADENCE.md).
   visual-brand-tokens:
     name: Brand-token visual assertions
     runs-on: ubuntu-latest
@@ -744,7 +749,6 @@ jobs:
     # exactly that step at 15m14s. Match on the STEP NAME, not the
     # command, when auditing this.
     timeout-minutes: 20
-    continue-on-error: true
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -772,15 +776,15 @@ jobs:
   #     an artifact; a human downloads, reviews, and commits them under
   #     tests/e2e/visual-regression.spec.js-snapshots/ (the bless step).
   #   • snapshots dir committed → compares and reports drift.
-  # Advisory either way until the baselines are blessed and the job has a
-  # green streak (promotion checklist in NEXT_SESSION-2026-08-07.md).
+  # Baselines blessed and the streak proven — PROMOTED 2026-08-26 on a
+  # 10/10 green run (ledger in documentation/projects/WEEKLY_CADENCE.md).
   visual-regression:
     name: Visual regression (public pro pages)
     runs-on: ubuntu-latest
-    # 20: installs Playwright (same wedge exposure as public-e2e), and
-    # is likewise continue-on-error, so a hang here is silent.
+    # 20: installs Playwright (same wedge exposure as public-e2e); now
+    # that the job is required, the cap is what makes a hung install a
+    # fast red instead of a blocked merge.
     timeout-minutes: 20
-    continue-on-error: true
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7

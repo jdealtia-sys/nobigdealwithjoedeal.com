@@ -57,7 +57,8 @@
       `check-inline-html-scripts` · `marketing-polish-contract.test.js`
       *(2026-08-10 audit session: all green at baseline and post-fix; a new
       gate joined the list — `check-image-privacy.js`)*
-- [ ] Check main's CI streaks for the advisory jobs (`@engines` shard, `public-e2e`,
+- [x] **~~Check main's CI streaks for the advisory jobs~~ BAR REACHED —
+      FLIPPED 2026-08-26 (PR #1279).** (`@engines` shard, `public-e2e`,
       `visual-brand-tokens`, `visual-regression` — the rest of authed-E2E
       is already REQUIRED): ~10 green runs → open the
       `continue-on-error` flip PR ([handoff](NEXT_SESSION-2026-08-07.md)).
@@ -70,6 +71,17 @@
       is a blocked merge, which is exactly what the streak bar is protecting
       against (#1269 since capped that risk at 20 min). Two more green main
       merges reach the bar.)*
+      *(2026-08-26, later: #1277 and #1278 both merged with all four
+      advisory jobs green at job level — **10/10, bar reached**. The flip
+      PR removes ALL FIVE `continue-on-error` flags in ci.yml: the four
+      ledgered jobs above PLUS `qc-render-sweep`, which shipped 2026-08-18
+      with its own "promote once it has a green streak" note in ci.yml and
+      is green on every completed main run since introduction, including
+      the entire post-cancellation window this ledger was recounted over
+      (9 completed runs checked #1263→#1278, 9 green). Every job in ci.yml
+      is now blocking; the advisory tier is empty. If a promoted job starts
+      flaking, the doctrine holds: fix the race at the source — re-parking
+      a job requires recording WHY in ci.yml, as the @stranger note does.)*
 - [x] Any staged `published` date passed? *(2026-08-10: none)*
 - [x] Any red PR / open post-a-job request from Jo? Land it.
       *(2026-08-10: dependabot #1196 green → merged; issue #546 verified
