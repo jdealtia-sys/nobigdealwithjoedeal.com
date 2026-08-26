@@ -1204,14 +1204,16 @@ section('E2: CI workflow present');
   // branched off it. Working exactly as designed: it noticed the list changed.
   // The four on the runway are public-e2e, qc-render-sweep,
   // visual-brand-tokens and visual-regression.
-  const requiredShards = ['@shard1', '@shard2', '@audit', '@stranger', '@gauntlet'];
-  assert('the five promoted E2E shards are all in the matrix',
+  // 2026-08-26: the runway is EMPTY — @engines and all four runway jobs
+  // promoted on the WEEKLY_CADENCE 10/10 ledger. The exemption-shape and
+  // count-of-4 assertions collapsed into the strictly stronger zero pin,
+  // twin of gauntlet-regressions' (a change here needs the same change
+  // there). Re-parking requires a dated WHY in ci.yml plus both pins.
+  const requiredShards = ['@shard1', '@shard2', '@audit', '@stranger', '@gauntlet', '@engines'];
+  assert('all six promoted E2E shards are in the matrix',
     requiredShards.every((s) => ci.includes("'" + s + "'")));
-  assert('matrix continue-on-error only exempts @engines (five shards stay blocking)',
-    /continue-on-error:\s*\$\{\{\s*matrix\.shard == '@engines'\s*\}\}/.test(ci)
-    && !/continue-on-error:\s*true[\s\S]{0,400}PLAYWRIGHT_GREP:\s*\$\{\{\s*matrix\.shard\s*\}\}/.test(ci));
-  assert('advisory literals are limited to the introduction-runway jobs (4)',
-    (ci.match(/continue-on-error:\s*true/g) || []).length === 4);
+  assert('no continue-on-error of any shape anywhere in ci.yml',
+    (ci.match(/continue-on-error:/g) || []).length === 0);
 }
 
 section('E2b: hosting deploy is gated');
