@@ -43,6 +43,9 @@ immediately — poll checks yourself):
      `node scripts/run-test-manifest.js --check` · `--bucket smoke` ·
      `--bucket node` · `node tests/smoke.test.js` · YAML parse. All were
      green on the dry-run equivalent.
+6. **#1282 — this archive** (docs-only). Last on purpose: two of its links
+   (the quota runbook, the orphaned-storage audit) resolve only once #1255
+   and #1253 have landed.
 
 Then the advisory-flip aftermath: the next few main merges run with every job
 blocking for the first time — watch the first one or two rather than assuming.

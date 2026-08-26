@@ -6,11 +6,13 @@ turned out to be productive scheduling: everything below was built and locally
 verified while waiting, and lands in one sequenced merge pass at recovery
 ([NEXT_SESSION-2026-08-26](NEXT_SESSION-2026-08-26.md) §0 is that sequence).
 
-State at close: **five open PRs, all locally green, none CI-checked** —
-#1279 (advisory flip), #1253 (storage-orphan rescue), #1255 (quota runbook
-salvage), #1280 (pro auth fonts), #1281 (ci-suite-runner). #1273 (dependabot)
-merged before the outage; its post-merge CI/deploy run sat queued when this
-note was written.
+State at close: **five open engineering PRs, all locally green, none
+CI-checked** — #1279 (advisory flip), #1253 (storage-orphan rescue), #1255
+(quota runbook salvage), #1280 (pro auth fonts), #1281 (ci-suite-runner) —
+plus #1282, this archive. #1273 (dependabot) merged before the outage; its
+post-merge CI/deploy run sat queued when this note was written. Every
+checkable claim below was verified against live git/gh state by a six-agent
+workflow before the archive shipped (34 confirmed, 0 wrong).
 
 ---
 
