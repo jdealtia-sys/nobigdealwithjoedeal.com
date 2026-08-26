@@ -67,13 +67,27 @@
 - [x] Any red PR / open post-a-job request from Jo? Land it.
       *(2026-08-10: dependabot #1196 green → merged; issue #546 verified
       long-done → closed; tracker at zero)*
-- [ ] **Lead address audit workflow is red daily** (spotted 2026-08-25): the
-      scheduled run has failed all 6 fires since it first fired 2026-08-20,
-      each dying in ~20s — smells like a missing Actions secret/credential,
-      not code (head shas predate any recent change). Pull the run logs,
-      diagnose, fix or tell Jo which secret it needs —
+- [x] **~~Lead address audit workflow is red daily~~ DIAGNOSED 2026-08-26 —
+      now a Jo item.** The "missing Actions secret" guess above was wrong
+      twice over: an unset secret makes the workflow skip *green*, and the
+      red is the audit **correctly failing** on the same 4 records it
+      inventoried the day it shipped. Record IDs, fix paths and the 08-25
+      trendline:
       [CRM-ADDRESS-INTEGRITY-2026-08-18](../audit/CRM-ADDRESS-INTEGRITY-2026-08-18.md)
-      is the lane it belongs to.
+      §2026-08-26. Moved to Jo's one-off queue below; agent lane closed.
+- [ ] **firebase-deploy wholesale-guard misclassification** (found 2026-08-26,
+      run 32925767669): chunk 2 of 3 lost exactly one function to a GCP
+      transient — `onAiDraftApproved`'s Cloud Run operation poll hit
+      "Deadline Exceeded", so the CLI reported the failure only as a
+      trailing "Functions deploy had errors with the following functions:"
+      block, with no per-function ✖ line. The guard's per-function regex
+      missed that shape → recorded WHOLESALE ("nothing or almost nothing
+      was deployed") while 166/167 functions verifiably updated and chunk 3
+      still ran green after. Fix: parse that trailing block into the FAILED
+      set so this shape feeds the existing straggler retry instead of a
+      fatal wholesale record; add the F-10b test mode for it. Until then,
+      this failure shape = a red run with everything actually deployed —
+      verify by outcome before re-deploying anything.
 
 ---
 
@@ -91,6 +105,15 @@
       deploys 429 or the site half-loads, check GCP billing first.**
       Billing notices did not reach the monitored Gmail — while in the
       console, confirm the billing account's contact email + card expiry.
+- [ ] **Clear the address-audit gate (~2 min in NBD Pro)** — open the 4
+      failing leads (Kevin Dewald, George Broderick, Jerry Sharkey, AJ —
+      all $0) and either complete the address or retire the lead; the
+      daily gate self-greens on the next 11:00 UTC fire. While you're in
+      there: the Nick/Gabby Galfrey lead ($23,600) is missing only its
+      **state** — one field completes the biggest thin record in the book.
+      IDs + detail:
+      [CRM-ADDRESS-INTEGRITY-2026-08-18](../audit/CRM-ADDRESS-INTEGRITY-2026-08-18.md)
+      §2026-08-26.
 - [ ] **Delete the 7 retired functions in the Firebase console (~3 min)** —
       code retired 2026-08-11 (Jo-approved, dead-surface lane): Console →
       Functions → delete `sendEstimateEmail`, `sendDripEmail`,

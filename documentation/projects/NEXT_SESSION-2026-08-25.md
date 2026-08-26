@@ -43,14 +43,23 @@ Part 2 of the [session note](SESSION-2026-08-25-lexington-call-posts.md)).
    claims on the new pages, but the paperwork question is real and yours.
 5. **Finish the Cal.com→CRM wiring** (same evening: the whole Cal.com account was
    audited and rebuilt — [CALCOM-INTEGRATION-2026-08-25](../audit/CALCOM-INTEGRATION-2026-08-25.md)):
-   (a) set `CALCOM_WEBHOOK_SECRET` in Firebase with the value from chat + redeploy
-   the function; (b) NBD Pro → Settings → Profile → Cal.com username `nobigdeal`;
+   (a) ~~set `CALCOM_WEBHOOK_SECRET` + redeploy~~ **DONE — verified live
+   2026-08-26 03:41Z** (unsigned probe → 400 "Missing signature", HMAC-signed
+   probe → 200 ok; bookings now reach the CRM);
+   (b) NBD Pro → Settings → Profile → Cal.com username `nobigdeal` — until set,
+   bookings arrive but can't attach to you;
    (c) optional: restrict the "Central Kentucky days" schedule to real trip days;
-   (d) revoke the session API key if it has no expiry.
+   (d) **revoke the session API key** if it has no expiry.
 6. Carried from 08-20 if not yet done: **send Scott the CURRENT Oaks zip** (7-Zip,
    not PowerShell Compress-Archive).
 7. Still yours from the drafts pipeline: the 2 remaining blog drafts need your
    `JO:` inputs (photos / report screenshots) — [drafts README](../drafts/README.md).
+8. **Clear the address-audit gate** (~2 min in NBD Pro): complete or retire the
+   4 failing leads (Dewald, Broderick, Sharkey, AJ — all $0), and add the
+   missing state on Nick/Gabby Galfrey ($23,600 — one field from mailable).
+   IDs + detail:
+   [CRM-ADDRESS-INTEGRITY-2026-08-18](../audit/CRM-ADDRESS-INTEGRITY-2026-08-18.md)
+   §2026-08-26.
 
 ## For the next engineering session
 
@@ -72,8 +81,21 @@ Part 2 of the [session note](SESSION-2026-08-25-lexington-call-posts.md)).
   pages. Decisions log is in the session note's Part 2 (incl. why new KY pages
   omit the JSON-LD address block).
 - **The scheduled "Lead address audit" workflow is red on every daily fire since
-  2026-08-20** (~20s failures, likely a missing Actions secret — pre-existing,
-  unrelated to this session's PR). Queued in WEEKLY_CADENCE's agent list.
+  2026-08-20** — diagnosed 2026-08-26: NOT a missing secret (an unset secret
+  skips green); the gate is *correctly* failing on the same 4 records it
+  inventoried the day it shipped. Now Jo's queue item 8 above —
+  [CRM-ADDRESS-INTEGRITY-2026-08-18](../audit/CRM-ADDRESS-INTEGRITY-2026-08-18.md)
+  §2026-08-26 has record IDs and the trendline (50 street-less rows at
+  $12,476, Galfrey $23,600 missing one field).
+- **Main's Firebase-deploy run for the #1276 merge shows red but the deploy
+  landed** (run 32925767669): one GCP "Deadline Exceeded" polling
+  `onAiDraftApproved`'s update in chunk 2/3, and the wholesale guard misread
+  that failure shape as "nothing deployed" while 166/167 functions verifiably
+  updated (calcomWebhook among them — probe-verified) and hosting shipped
+  (Lexington booking links serving). No site action needed; `onAiDraftApproved`
+  keeps serving its previous revision of identical code and re-deploys on the
+  next functions-touching merge. Guard-regex fix is queued in WEEKLY_CADENCE's
+  agent list.
 - Standing rules from 08-20 still stand: verify hosting behavior by following
   redirects on a preview channel, never by reading config; assert the outcome, not
   the precondition.
