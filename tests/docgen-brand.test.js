@@ -36,12 +36,22 @@ function loadDocGen(brand) {
 
 console.log('DOCGEN BRAND — _resolveCompany()');
 
-// ── NBD default brand → unchanged COMPANY literal (byte-identical) ──
+// ── NBD default brand → same VALUES as the COMPANY literal (byte-identical) ──
 const NBD_BRAND = { legalName: 'No Big Deal Home Solutions', colors: {}, contact: {} };
 const dgNBD = loadDocGen(NBD_BRAND);
 ok('NBDDocGen loaded', !!(dgNBD && typeof dgNBD._resolveCompany === 'function'));
 const cNBD = dgNBD._resolveCompany();
-ok('NBD: returns the exact COMPANY base (identity)', cNBD === dgNBD.COMPANY);
+// _resolveCompany now BUILDS a fresh object for every tenant, NBD included, so
+// the profile is the single source of truth. Reference identity is therefore no
+// longer the contract — equal VALUES are, which is the stronger guarantee and
+// the one customers actually see on a document.
+ok('NBD: resolves to the COMPANY base VALUES',
+  ['name', 'phone', 'email', 'website', 'tagline', 'address']
+    .every((k) => cNBD[k] === dgNBD.COMPANY[k]));
+// Regression lock: _logoSrc used to detect NBD by object identity
+// (c !== this.COMPANY). Now that NBD gets a built object, that test would have
+// been true for NBD and silently stripped its logo off every document.
+ok('NBD: still gets a logo (identity-check regression)', !!dgNBD._logoSrc());
 ok('NBD: name unchanged', cNBD.name === 'No Big Deal Home Solutions');
 ok('NBD: email unchanged (info@)', cNBD.email === 'info@nobigdealwithjoedeal.com');
 ok('NBD: primary navy unchanged', cNBD.colors.primary === '#1e3a6e');

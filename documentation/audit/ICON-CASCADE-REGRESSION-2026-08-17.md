@@ -81,3 +81,34 @@ override either needs higher specificity or (better) belongs in the shared
 sheet itself. See also
 [SYSTEM-STABILITY-PERF-2026-08-07](SYSTEM-STABILITY-PERF-2026-08-07.md)
 (the session that shipped the extraction).
+
+---
+
+## Update 2026-08-18 — a fourth instance shipped, and why the guard missed it
+
+`/sites/free-guide` was found rendering `svg.ico` at **1227×1227px**. Same
+family as the three above, same cause shape: the page never linked
+`nbd-icons.css`, so `.ico{width:1em;height:1em}` never applied and the
+`fill:none;stroke:currentColor` defaults were absent too — the open `<path>`
+outlines painted as solid black blobs. Its five `.mnav-group` mobile-nav
+headers were unstyled for the same reason.
+
+`ensure-icon-css.js` did not catch it because its directory walk skipped
+`'sites'`, `'pro'`, and a stale `'free-guide'` entry left over from before
+commit `6e499a38` relocated the page under `docs/sites/`. **The guard had never
+inspected this page in either location.** The walk is now widened to
+`['admin', 'assets', 'deploy', 'tools']`; that surfaced 6 more pages carrying
+the legacy inline block, since normalized.
+
+The durable lesson above still stands, and gains a second half:
+
+> A guard with an exclusion list is only as good as that list. When a page
+> moves, the skip entry naming its old home silently becomes a hole — and a
+> hole in a guard is indistinguishable from a passing check.
+
+The broader conclusion is recorded in
+[SITE-QC-SWEEP-2026-08-18](SITE-QC-SWEEP-2026-08-18.md): all four of these
+defects were caught by eye rather than by CI, because every gate in this repo is
+grep-shaped and none computes a style. That sweep adds `qc-render-sweep.js`, the
+first rendered check, and validates it by confirming it reports the free-guide
+defect when the fix is reverted.

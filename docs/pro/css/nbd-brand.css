@@ -52,6 +52,11 @@
   --nbd-orange-glow:  rgba(232, 114, 12, 0.25);
   --nbd-orange-deep:  #c8541a;  /* hover / pressed state */
   --nbd-orange-ink:   #8a4a10;  /* orange-flavored dark text (badge text on orange-soft) */
+  /* Text-bearing orange surfaces. --nbd-orange is 3.07:1 against
+     --nbd-ink-on-orange and --nbd-orange-deep is 4.43:1 — both fail WCAG AA.
+     Any surface that sets color:var(--nbd-ink-on-orange) must use these. */
+  --nbd-orange-cta:      #b85400;  /* 4.88:1 on white ink */
+  --nbd-orange-cta-deep: #a64b00;  /* its hover/pressed — 5.79:1 */
 
   /* ── Status colors (light-mode tuned) ── */
   --nbd-success:      #16a34a;

@@ -40,6 +40,17 @@ Firebase Hosting has no Host-based rewrites, so pick one:
 - **Who owns DNS/TLS** per tenant, and whether domains are a paid add-on (ties to Pillar 4).
 - **Oaks cutover:** when to move `oaksroofingandconstruction.com` off the parked Squarespace page.
   > **DECIDED (Jo, 2026-07-04):** cut over now — the hand-authored `/sites/oaks` pages are being retired in favor of `/sites/t/oaks` this session.
+  >
+  > **PARTLY REVERSED (Jo, 2026-08-19)** — see [SESSION-2026-08-19-oaks-microsite-rebuild](../projects/SESSION-2026-08-19-oaks-microsite-rebuild.md).
+  > `oaksroofingandconstruction.com` never actually moved: it is *still* a Squarespace
+  > "Coming Soon" parking page as of 2026-08-19, so the cutover's premise — that
+  > `/sites/t/oaks` would become Scott's public site — never came true. Jo's ask is now a
+  > **portable hand-off deliverable Scott hosts himself**, which the runtime renderer cannot
+  > be (it needs `getPublicSiteConfig` + Firestore). So `/sites/oaks` is a hand-authored
+  > 11-page site again and its eight 301s to `/sites/t/oaks` are deleted.
+  > **`/sites/t/oaks` is untouched and still canonical for the CRM-backed one-pager** — the
+  > two coexist for different jobs. This does NOT reopen the generation-model decision above:
+  > no build-time generator was built, and the Oaks folder deliberately has no build step.
 
 ---
 **Roadmap now fully scoped:** Backbone (shipped) · Pillar 2 Brand (shipped) · [Pillar 1 Provisioning](PILLAR1-PROVISIONING-PLAN.md) · [Pillar 4 Billing](PILLAR4-BILLING-PLAN.md) · Pillar 5 (this). Recommended build order: 1 → 4 → 5, with Pillar 3 (data tenancy) hardening folded into 1.

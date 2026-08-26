@@ -26,7 +26,11 @@ function walk(dir, out = []) {
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
     const full = path.join(dir, entry.name);
     if (entry.isDirectory()) {
-      if (['admin', 'pro', 'sites', 'assets', 'deploy', 'free-guide', 'tools'].includes(entry.name)) continue;
+      // 2026-08-18: 'sites', 'pro' and a stale 'free-guide' entry (left from
+      // before 6e499a38 relocated the page under docs/sites/) meant this walk
+      // never visited /sites/free-guide — which shipped a 1227px svg.ico.
+      // Widened to cover them; see audit/SITE-QC-SWEEP-2026-08-18.md.
+      if (['admin', 'assets', 'deploy', 'tools'].includes(entry.name)) continue;
       walk(full, out);
     } else if (entry.name.endsWith('.html')) out.push(full);
   }

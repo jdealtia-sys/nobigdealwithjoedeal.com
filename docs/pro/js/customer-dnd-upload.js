@@ -186,10 +186,10 @@
       });
 
       _toast(`${file.name} uploaded`, 'success');
-      // Refresh the documents list if that loader is exposed.
-      if (typeof window.loadSignedDocs === 'function') {
-        try { window.loadSignedDocs(); }
-        catch (e) { console.warn('[customer-dnd] loadSignedDocs refresh failed:', e); }
+      // Repaint every documents surface from the store (customer-documents.js).
+      if (window.NBDCustomerDocs) {
+        try { await window.NBDCustomerDocs.refresh(); }
+        catch (e) { console.warn('[customer-dnd] documents refresh failed:', e); }
       }
       return true;
     } catch (e) {

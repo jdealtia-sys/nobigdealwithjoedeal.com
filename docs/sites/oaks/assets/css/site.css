@@ -1,0 +1,523 @@
+/* ══════════════════════════════════════════════════════════════════════
+   OAKS ROOFING & CONSTRUCTION — site stylesheet
+   ──────────────────────────────────────────────────────────────────────
+   Self-contained on purpose. This folder is a deliverable: it must render
+   identically whether it is served from a staging subdirectory or dropped at
+   the domain root of Oaks' own host. So: no borrowed stylesheets,
+   no icon-font CDN (icons are inline SVG in the markup), and every internal
+   path is RELATIVE. The only external request is Google Fonts.
+
+   Palette is sampled from the company's own logo artwork: #fa6404.
+   ══════════════════════════════════════════════════════════════════════ */
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --orange:       #fa6404;   /* brand — fills, and text on dark only */
+  --orange-ink:   #b84a02;   /* same hue, AA-safe as TEXT on light: 5.23:1 on white, 4.55:1 on the tint */
+  --orange-dark:  #d55103;
+  --orange-lift:  #ff7a1f;   /* hover for DARK-on-orange: brightening raises contrast, darkening lowers it */
+  --orange-soft:  rgba(250, 100, 4, .12);
+  --orange-line:  rgba(250, 100, 4, .32);
+
+  --ink:          #16181b;   /* nav / footer / headings */
+  --ink-2:        #21252a;
+  --ink-3:        #2c3138;
+  --body:         #4a5159;
+  --muted:        #667080;   /* was #737b85 — 4.28:1, under the AA floor */
+  --line:         #e2e5e9;
+  --soft:         #f6f7f8;
+  --white:        #ffffff;
+
+  --head: 'Montserrat', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --text: 'Open Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
+
+  --radius:   10px;
+  --radius-s: 6px;
+  --shadow:    0 2px 14px rgba(18, 22, 28, .08);
+  --shadow-lg: 0 14px 44px rgba(18, 22, 28, .16);
+  --wrap: 1140px;
+}
+
+html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; background: var(--ink); }
+body {
+  font-family: var(--text);
+  color: var(--body);
+  line-height: 1.75;
+  background: var(--white);
+  overflow-x: hidden;
+}
+h1, h2, h3, h4, h5, h6 { font-family: var(--head); line-height: 1.18; color: var(--ink); font-weight: 800; }
+a { color: inherit; text-decoration: none; }
+img, svg { max-width: 100%; }
+img { display: block; height: auto; }
+button { font: inherit; cursor: pointer; }
+:focus-visible { outline: 3px solid var(--orange); outline-offset: 2px; border-radius: 3px; }
+
+.wrap { max-width: var(--wrap); margin: 0 auto; padding: 0 22px; }
+.sr-only {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+}
+
+/* ── Buttons ─────────────────────────────────────────────────────────── */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 9px;
+  font-family: var(--head); font-weight: 700; font-size: .8rem; letter-spacing: .09em;
+  text-transform: uppercase; padding: 15px 30px; border-radius: var(--radius-s);
+  border: 2px solid transparent; transition: background .18s, color .18s, border-color .18s, transform .18s;
+  text-align: center;
+}
+.btn svg { width: 15px; height: 15px; flex: none; }
+/* White on the brand orange is only 3.05:1. Dark ink on the SAME orange is
+   5.84:1 — so Scott's colour is kept exactly and only the text changes. Hover
+   BRIGHTENS rather than darkens, because with dark text a lighter fill raises
+   contrast (#d55103 would have dropped it back to 4.24:1). */
+.btn-primary { background: var(--orange); color: var(--ink); border-color: var(--orange); }
+.btn-primary:hover { background: var(--orange-lift); border-color: var(--orange-lift); transform: translateY(-1px); }
+.btn-outline { background: transparent; color: var(--white); border-color: rgba(255,255,255,.45); }
+.btn-outline:hover { border-color: var(--white); background: rgba(255,255,255,.08); }
+.btn-dark { background: var(--ink); color: var(--white); border-color: var(--ink); }
+.btn-dark:hover { background: var(--orange); border-color: var(--orange); }
+.btn-block { width: 100%; }
+
+/* ── Announcement bar ────────────────────────────────────────────────── */
+.orc-banner {
+  background: var(--orange); color: var(--ink);
+  font-family: var(--head); font-size: .78rem; font-weight: 600; letter-spacing: .02em;
+  display: flex; align-items: center; justify-content: center; gap: 10px;
+  padding: 9px 46px 9px 22px; position: relative; text-align: center;
+}
+.orc-banner svg { width: 14px; height: 14px; flex: none; }
+.orc-banner a { text-decoration: underline; text-underline-offset: 3px; font-weight: 700; white-space: nowrap; }
+.orc-banner-close {
+  position: absolute; right: 14px; top: 50%; transform: translateY(-50%);
+  background: none; border: 0; color: var(--ink); opacity: .75;
+  line-height: 0; padding: 6px; border-radius: 4px;
+}
+.orc-banner-close:hover { opacity: 1; background: rgba(0,0,0,.12); }
+.orc-banner-close svg { width: 13px; height: 13px; }
+.orc-banner[hidden] { display: none; }
+
+/* ── Header ──────────────────────────────────────────────────────────── */
+.orc-header { position: sticky; top: 0; z-index: 900; background: var(--ink); box-shadow: 0 2px 18px rgba(0,0,0,.34); }
+.orc-header-inner { max-width: var(--wrap); margin: 0 auto; padding: 0 22px; display: flex; align-items: center; gap: 20px; min-height: 78px; }
+.orc-logo { display: flex; align-items: center; flex: none; padding: 10px 0; }
+.orc-logo img { height: 50px; width: auto; }
+
+.orc-nav { margin-left: auto; }
+.orc-nav-list { display: flex; align-items: center; list-style: none; gap: 2px; }
+.orc-nav-list > li { position: relative; }
+.orc-nav-list > li > a {
+  display: flex; align-items: center; gap: 6px; padding: 10px 13px;
+  font-family: var(--head); font-size: .82rem; font-weight: 600; color: rgba(255,255,255,.9);
+  border-radius: var(--radius-s); transition: color .18s, background .18s; white-space: nowrap;
+}
+.orc-nav-list > li > a:hover { color: var(--orange); }
+.orc-nav-list > li > a[aria-current="page"] { color: var(--orange); }
+.orc-nav-list .caret { width: 9px; height: 9px; transition: transform .2s; }
+
+.orc-drop {
+  position: absolute; top: calc(100% + 2px); left: 0; min-width: 246px;
+  background: var(--ink-2); border-top: 3px solid var(--orange);
+  border-radius: 0 0 var(--radius-s) var(--radius-s); box-shadow: var(--shadow-lg);
+  list-style: none; padding: 6px 0; opacity: 0; visibility: hidden; transform: translateY(-6px);
+  transition: opacity .18s, transform .18s, visibility .18s;
+}
+.orc-drop a {
+  display: block; padding: 11px 20px; font-size: .82rem; font-family: var(--head);
+  font-weight: 500; color: rgba(255,255,255,.86);
+}
+.orc-drop a:hover { background: var(--orange-soft); color: var(--orange); }
+.orc-has-drop:hover .orc-drop,
+.orc-has-drop:focus-within .orc-drop { opacity: 1; visibility: visible; transform: translateY(0); }
+.orc-has-drop:hover .caret { transform: rotate(180deg); }
+
+.orc-header-cta { flex: none; display: flex; align-items: center; gap: 12px; }
+.orc-header-phone {
+  display: inline-flex; align-items: center; gap: 9px; background: var(--orange); color: var(--ink);
+  font-family: var(--head); font-weight: 700; font-size: .86rem; padding: 12px 20px; border-radius: var(--radius-s);
+  white-space: nowrap; transition: background .18s;
+}
+.orc-header-phone:hover { background: var(--orange-lift); }
+.orc-header-phone svg { width: 15px; height: 15px; }
+
+.orc-burger {
+  display: none; background: none; border: 0; color: var(--white);
+  padding: 9px; border-radius: var(--radius-s); line-height: 0;
+}
+.orc-burger:hover { background: rgba(255,255,255,.1); }
+.orc-burger svg { width: 24px; height: 24px; }
+
+/* mobile drawer */
+.orc-mobile { display: none; background: var(--ink-2); border-top: 1px solid rgba(255,255,255,.08); }
+.orc-mobile.is-open { display: block; }
+.orc-mobile ul { list-style: none; padding: 8px 0 16px; }
+.orc-mobile li + li { border-top: 1px solid rgba(255,255,255,.06); }
+.orc-mobile a {
+  display: block; padding: 14px 22px; color: rgba(255,255,255,.9);
+  font-family: var(--head); font-size: .9rem; font-weight: 600;
+}
+.orc-mobile a:hover, .orc-mobile a[aria-current="page"] { color: var(--orange); }
+.orc-mobile .sub a { padding-left: 40px; font-weight: 500; font-size: .84rem; color: rgba(255,255,255,.72); }
+
+/* ── Page hero (interior pages) ──────────────────────────────────────── */
+.orc-pagehead { background: var(--ink); color: var(--white); padding: 54px 0 58px; text-align: center; position: relative; }
+.orc-crumbs { font-size: .78rem; color: rgba(255,255,255,.6); margin-bottom: 14px; font-family: var(--head); font-weight: 500; }
+.orc-crumbs a:hover { color: var(--orange); }
+.orc-crumbs span { color: var(--orange); }
+.orc-crumbs .sep { margin: 0 8px; opacity: .5; }
+.orc-pagehead h1 { color: var(--white); font-size: clamp(1.9rem, 4.4vw, 2.9rem); }
+.orc-eyebrow {
+  display: inline-block; font-family: var(--head); font-size: .74rem; font-weight: 700;
+  letter-spacing: .18em; text-transform: uppercase; color: var(--orange-ink); margin-bottom: 12px;
+}
+/* On the dark chrome the full-strength brand orange is correct and has ample
+   contrast, so put it back there. */
+.orc-pagehead .orc-eyebrow, .orc-hero .orc-eyebrow,
+.orc-section-dark .orc-eyebrow, .orc-band .orc-eyebrow { color: var(--orange); }
+
+/* ── Home hero ───────────────────────────────────────────────────────── */
+.orc-hero { position: relative; background: var(--ink); color: var(--white); overflow: hidden; }
+.orc-hero-bg { position: absolute; inset: 0; }
+.orc-hero-bg img { width: 100%; height: 100%; object-fit: cover; opacity: .5; }
+.orc-hero::after {
+  content: ''; position: absolute; inset: 0;
+  background: linear-gradient(100deg, rgba(12,14,17,.94) 0%, rgba(12,14,17,.82) 46%, rgba(12,14,17,.55) 100%);
+}
+.orc-hero-inner { position: relative; z-index: 2; max-width: var(--wrap); margin: 0 auto; padding: 82px 22px 88px; }
+.orc-hero-copy { max-width: 660px; }
+.orc-rating {
+  display: inline-flex; align-items: center; gap: 11px; background: rgba(250,100,4,.15);
+  border: 1px solid var(--orange-line); border-radius: 999px; padding: 7px 18px 7px 14px; margin-bottom: 22px;
+}
+.orc-stars { display: inline-flex; gap: 2px; color: #ffb020; }
+.orc-stars svg { width: 14px; height: 14px; }
+.orc-rating-text { font-family: var(--head); font-size: .78rem; font-weight: 600; color: var(--white); }
+.orc-rating-text b { color: var(--orange); }
+.orc-hero h1 { color: var(--white); font-size: clamp(2.1rem, 5.2vw, 3.4rem); font-weight: 900; margin-bottom: 18px; }
+.orc-hero h1 em { font-style: normal; color: var(--orange); }
+.orc-hero-lead { font-size: 1.03rem; color: rgba(255,255,255,.82); max-width: 560px; margin-bottom: 30px; }
+.orc-hero-actions { display: flex; flex-wrap: wrap; gap: 13px; margin-bottom: 30px; }
+.orc-hero-meta { display: flex; flex-wrap: wrap; gap: 12px 30px; font-family: var(--head); font-weight: 600; font-size: .88rem; color: rgba(255,255,255,.86); }
+.orc-hero-meta span { display: inline-flex; align-items: center; gap: 9px; }
+.orc-hero-meta svg { width: 15px; height: 15px; color: var(--orange); flex: none; }
+.orc-hero-meta a:hover { color: var(--orange); }
+
+/* ── Generic section rhythm ──────────────────────────────────────────── */
+.orc-section { padding: 76px 0; }
+.orc-section-sm { padding: 56px 0; }
+.orc-section-soft { background: var(--soft); }
+.orc-section-dark { background: var(--ink); color: rgba(255,255,255,.78); }
+.orc-section-dark h2, .orc-section-dark h3 { color: var(--white); }
+
+.orc-head { max-width: 720px; margin-bottom: 42px; }
+.orc-head.center { margin-left: auto; margin-right: auto; text-align: center; }
+.orc-head h2 { font-size: clamp(1.55rem, 3.4vw, 2.25rem); margin-bottom: 14px; }
+.orc-head p { font-size: 1rem; }
+
+/* ── Split (image + copy) ────────────────────────────────────────────── */
+.orc-split { display: grid; grid-template-columns: 1fr 1fr; gap: 56px; align-items: center; }
+.orc-split.reverse .orc-split-media { order: 2; }
+.orc-split-media img { border-radius: var(--radius); box-shadow: var(--shadow-lg); width: 100%; }
+.orc-split-copy h2 { font-size: clamp(1.5rem, 3.2vw, 2.15rem); margin-bottom: 16px; }
+.orc-split-copy p + p { margin-top: 14px; }
+.orc-split-copy .btn { margin-top: 26px; }
+
+/* checklist */
+.orc-check { list-style: none; margin: 22px 0 0; display: grid; gap: 12px; }
+.orc-check li { display: flex; gap: 12px; align-items: flex-start; font-size: .96rem; }
+.orc-check svg { width: 20px; height: 20px; flex: none; color: var(--orange-ink); margin-top: 3px; }
+
+/* ── Service cards ───────────────────────────────────────────────────── */
+.orc-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(260px, 100%), 1fr)); gap: 24px; }
+.orc-card {
+  background: var(--white); border: 1px solid var(--line); border-radius: var(--radius);
+  overflow: hidden; display: flex; flex-direction: column; transition: transform .2s, box-shadow .2s, border-color .2s;
+}
+.orc-card:hover { transform: translateY(-4px); box-shadow: var(--shadow-lg); border-color: var(--orange-line); }
+.orc-card-img { aspect-ratio: 16 / 10; overflow: hidden; background: var(--soft); }
+.orc-card-img img { width: 100%; height: 100%; object-fit: cover; transition: transform .35s; }
+.orc-card:hover .orc-card-img img { transform: scale(1.05); }
+.orc-card-body { padding: 24px; display: flex; flex-direction: column; flex: 1; }
+.orc-card-body h3 { font-size: 1.12rem; margin-bottom: 9px; }
+.orc-card-body p { font-size: .92rem; flex: 1; }
+.orc-card-link {
+  display: inline-flex; align-items: center; gap: 8px; margin-top: 16px;
+  font-family: var(--head); font-size: .78rem; font-weight: 700; letter-spacing: .08em;
+  text-transform: uppercase; color: var(--orange-ink);
+}
+.orc-card-link svg { width: 13px; height: 13px; transition: transform .2s; }
+.orc-card:hover .orc-card-link svg { transform: translateX(4px); }
+
+/* ── Info cards (HQ / phone / hours) ─────────────────────────────────── */
+.orc-info { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(240px, 100%), 1fr)); gap: 22px; }
+.orc-info-card { background: var(--white); border: 1px solid var(--line); border-radius: var(--radius); padding: 30px 26px; text-align: center; }
+.orc-section-dark .orc-info-card { background: var(--ink-2); border-color: rgba(255,255,255,.1); }
+.orc-info-icon {
+  width: 52px; height: 52px; margin: 0 auto 16px; border-radius: 50%;
+  background: var(--orange-soft); color: var(--orange-ink);
+  display: flex; align-items: center; justify-content: center;
+}
+.orc-info-icon svg { width: 22px; height: 22px; }
+.orc-info-card h3 { font-size: 1.02rem; margin-bottom: 8px; }
+.orc-info-card p { font-size: .9rem; margin-bottom: 8px; }
+.orc-info-card .val { font-family: var(--head); font-weight: 700; font-size: 1rem; color: var(--ink); }
+.orc-section-dark .orc-info-card .val { color: var(--white); }
+.orc-info-card a.val:hover { color: var(--orange-ink); }
+.orc-section-dark .orc-info-card a.val:hover { color: var(--orange); }
+.orc-section-dark .orc-info-icon { color: var(--orange); }
+.orc-info-card .val + .val { margin-top: 2px; }
+
+/* ── Warranty / CTA band ─────────────────────────────────────────────── */
+.orc-band { background: var(--ink); color: rgba(255,255,255,.8); text-align: center; padding: 70px 0; }
+.orc-band h2 { color: var(--white); font-size: clamp(1.5rem, 3.4vw, 2.15rem); margin-bottom: 16px; }
+.orc-band p { max-width: 620px; margin: 0 auto 28px; }
+/* Dark ink on the brand orange is 5.84:1; the near-white it replaced was 2.86:1
+   on 16px body copy. Keeps Scott's actual orange rather than darkening the band
+   away from his logo. */
+.orc-band-accent { background: var(--orange); color: var(--ink); }
+.orc-band-accent h2 { color: var(--ink); }
+.orc-band-accent .btn-primary { background: var(--ink); color: var(--white); border-color: var(--ink); }
+.orc-band-accent .btn-primary:hover { background: var(--white); color: var(--orange-ink); border-color: var(--white); }
+
+/* ── Reviews ─────────────────────────────────────────────────────────── */
+.orc-review { max-width: 620px; margin: 0 auto; text-align: center; background: var(--white); border: 1px solid var(--line); border-radius: var(--radius); padding: 38px 32px; box-shadow: var(--shadow); }
+.orc-review-avatar {
+  width: 56px; height: 56px; margin: 0 auto 14px; border-radius: 50%; background: var(--orange);
+  color: var(--ink); display: flex; align-items: center; justify-content: center;
+  font-family: var(--head); font-weight: 800; font-size: 1.4rem;
+}
+.orc-review-name { font-family: var(--head); font-weight: 700; color: var(--ink); margin-bottom: 8px; }
+.orc-review .orc-stars { justify-content: center; margin-bottom: 14px; }
+.orc-review blockquote { font-size: 1.02rem; font-style: italic; color: var(--body); }
+.orc-review-src { display: inline-flex; align-items: center; gap: 8px; margin-top: 18px; font-family: var(--head); font-size: .72rem; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
+
+/* ── Service-area list ───────────────────────────────────────────────── */
+.orc-areas { list-style: none; display: grid; grid-template-columns: repeat(auto-fill, minmax(min(190px, 100%), 1fr)); gap: 12px; }
+.orc-areas li a, .orc-areas li span {
+  display: flex; align-items: center; gap: 10px; padding: 14px 16px; background: var(--white);
+  border: 1px solid var(--line); border-radius: var(--radius-s);
+  font-family: var(--head); font-weight: 600; font-size: .9rem; color: var(--ink);
+  transition: border-color .18s, color .18s, background .18s;
+}
+.orc-areas li a:hover { border-color: var(--orange); color: var(--orange-ink); }
+.orc-areas svg { width: 15px; height: 15px; color: var(--orange-ink); flex: none; }
+.orc-areas li[hidden] { display: none; }
+.orc-areas-more { text-align: center; margin-top: 26px; }
+
+/* ── Map ─────────────────────────────────────────────────────────────── */
+.orc-map { text-align: center; }
+.orc-map-frame {
+  display: inline-block; border: 1px solid var(--line); border-radius: var(--radius);
+  padding: 10px; background: var(--white); box-shadow: var(--shadow); max-width: 100%;
+}
+.orc-map-frame img { border-radius: var(--radius-s); max-height: 620px; width: auto; margin: 0 auto; }
+.orc-map-note { margin-top: 12px; font-size: .8rem; color: var(--muted); font-family: var(--head); font-weight: 600; letter-spacing: .06em; text-transform: uppercase; }
+
+/* ── Gallery ─────────────────────────────────────────────────────────── */
+.orc-gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(300px, 100%), 1fr)); gap: 20px; }
+.orc-gallery button {
+  padding: 0; border: 0; background: var(--soft); border-radius: var(--radius); overflow: hidden;
+  aspect-ratio: 4 / 3; display: block; width: 100%; position: relative;
+}
+.orc-gallery img { width: 100%; height: 100%; object-fit: cover; transition: transform .35s; }
+.orc-gallery button:hover img { transform: scale(1.06); }
+.orc-gallery button::after {
+  content: ''; position: absolute; inset: 0; background: rgba(18,22,28,0); transition: background .25s;
+}
+.orc-gallery button:hover::after { background: rgba(18,22,28,.22); }
+
+.orc-lightbox {
+  position: fixed; inset: 0; z-index: 2000; background: rgba(10,12,15,.94);
+  display: flex; align-items: center; justify-content: center; padding: 26px;
+}
+.orc-lightbox[hidden] { display: none; }
+.orc-lightbox img { max-width: 100%; max-height: 86vh; border-radius: var(--radius-s); }
+.orc-lightbox-close, .orc-lightbox-prev, .orc-lightbox-next {
+  position: absolute; background: rgba(255,255,255,.12); border: 0; color: var(--white);
+  width: 46px; height: 46px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+}
+.orc-lightbox-close:hover, .orc-lightbox-prev:hover, .orc-lightbox-next:hover { background: var(--orange); }
+.orc-lightbox-close { top: 20px; right: 20px; }
+.orc-lightbox-prev { left: 20px; top: 50%; transform: translateY(-50%); }
+.orc-lightbox-next { right: 20px; top: 50%; transform: translateY(-50%); }
+.orc-lightbox svg { width: 20px; height: 20px; }
+.orc-lightbox-count { position: absolute; bottom: 22px; left: 50%; transform: translateX(-50%); color: rgba(255,255,255,.7); font-family: var(--head); font-size: .82rem; font-weight: 600; }
+
+/* ── Service page layout (sidebar + body) ────────────────────────────── */
+/* The aside comes AFTER the content column in the source, so that a screen
+   reader, a keyboard and a phone all meet the service copy before 617px of
+   service nav. Desktop puts it back on the left with explicit grid placement
+   rather than `order`, so the two-column look does not depend on source order. */
+.orc-svc-layout { display: grid; grid-template-columns: 300px 1fr; gap: 46px; align-items: start; }
+.orc-svc-layout > .orc-svc-aside { grid-column: 1; grid-row: 1; }
+.orc-svc-layout > :not(.orc-svc-aside) { grid-column: 2; grid-row: 1; }
+.orc-svc-aside { position: sticky; top: 100px; display: grid; gap: 22px; }
+.orc-svc-box { border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; background: var(--white); }
+.orc-svc-box h2 { background: var(--ink); color: var(--white); font-size: 1.05rem; padding: 20px 22px; }
+.orc-svc-list { list-style: none; }
+.orc-svc-list li + li { border-top: 1px solid var(--line); }
+.orc-svc-list a {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 14px 22px;
+  font-family: var(--head); font-weight: 600; font-size: .88rem; color: var(--ink); transition: background .18s, color .18s;
+}
+.orc-svc-list a:hover { background: var(--soft); color: var(--orange-ink); }
+/* Was orange-on-pale-orange at 2.66:1 — the lowest contrast on the site, marking
+   the one item a visitor most needs to find. */
+.orc-svc-list a[aria-current="page"] { background: var(--orange-soft); color: var(--orange-ink); border-left: 3px solid var(--orange); font-weight: 700; }
+.orc-svc-list svg { width: 13px; height: 13px; flex: none; opacity: .5; }
+.orc-svc-select { padding: 18px 22px; }
+.orc-svc-quote { background: var(--ink); color: rgba(255,255,255,.78); padding: 30px 24px; text-align: center; border-radius: var(--radius); }
+.orc-svc-quote h3 { color: var(--white); font-size: 1.08rem; margin-bottom: 14px; }
+
+.orc-svc-banner { border-radius: var(--radius); overflow: hidden; margin-bottom: 34px; box-shadow: var(--shadow-lg); }
+.orc-svc-banner img { width: 100%; aspect-ratio: 2 / 1; object-fit: cover; }
+/* The service pages put a lead paragraph + its own CTA button above .orc-prose,
+   so the block needs its own top gap — h2:first-child zeroes the heading margin
+   that would otherwise have provided it, and the button ends up jammed against
+   the first section heading. */
+.orc-prose { margin-top: 40px; }
+.orc-prose h2 { font-size: clamp(1.4rem, 3vw, 1.95rem); margin: 44px 0 16px; }
+.orc-prose h2:first-child { margin-top: 0; }
+.orc-svc-lead { margin-bottom: 22px; }
+.orc-prose p + p { margin-top: 15px; }
+
+/* ── Form ────────────────────────────────────────────────────────────── */
+.orc-form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+.orc-field { display: block; }
+.orc-field.full { grid-column: 1 / -1; }
+.orc-field > span {
+  display: block; font-family: var(--head); font-size: .78rem; font-weight: 700;
+  letter-spacing: .06em; text-transform: uppercase; color: var(--ink); margin-bottom: 7px;
+}
+.orc-field > span .req { color: var(--orange-ink); }
+.orc-field input, .orc-field select, .orc-field textarea {
+  width: 100%; font: inherit; font-size: .95rem; color: var(--ink); background: var(--white);
+  border: 1px solid var(--line); border-radius: var(--radius-s); padding: 13px 14px;
+  transition: border-color .18s, box-shadow .18s;
+}
+.orc-field textarea { min-height: 132px; resize: vertical; }
+.orc-field input:focus, .orc-field select:focus, .orc-field textarea:focus {
+  outline: 0; border-color: var(--orange); box-shadow: 0 0 0 3px var(--orange-soft);
+}
+.orc-field input::placeholder, .orc-field textarea::placeholder { color: #a8aeb6; }
+.orc-hp { position: absolute !important; left: -9999px !important; width: 1px; height: 1px; opacity: 0; }
+.orc-form-note { font-size: .82rem; color: var(--muted); margin-top: 14px; }
+.orc-form-msg { border-radius: var(--radius-s); padding: 13px 15px; font-size: .92rem; margin-bottom: 18px; }
+.orc-form-msg:empty { display: none; }
+.orc-form-msg.err { background: #fdeceb; color: #98241d; border: 1px solid #f3c9c6; }
+.orc-form-msg.ok  { background: #e9f7ef; color: #1c6b3c; border: 1px solid #c4e8d3; }
+.orc-form-alt {
+  margin-top: 26px; padding-top: 22px; border-top: 1px solid var(--line);
+  display: flex; flex-wrap: wrap; align-items: center; gap: 10px 18px; font-size: .9rem;
+}
+.orc-form-alt b { font-family: var(--head); color: var(--ink); }
+.orc-form-alt a { color: var(--orange-ink); font-weight: 700; }
+.orc-form-alt a:hover { text-decoration: underline; }
+
+.orc-form-panel { background: var(--white); border: 1px solid var(--line); border-radius: var(--radius); padding: 38px; box-shadow: var(--shadow); }
+
+/* ── Small utilities (replacing inline style="" — the Report-Only CSP drops
+      style-src 'unsafe-inline', so inline styles are staged breakage) ── */
+.u-mt-15 { margin-top: 15px; }
+.u-mt-20 { margin-top: 20px; }
+.u-mt-24 { margin-top: 24px; }
+.u-center-cta { text-align: center; margin-top: 34px; }
+.orc-prose-narrow { max-width: 760px; margin-left: auto; margin-right: auto; }
+.orc-check-title { font-size: 1.2rem; margin-bottom: 4px; }
+.orc-form-note a { color: var(--orange-ink); font-weight: 700; }
+
+/* ── Footer ──────────────────────────────────────────────────────────── */
+.orc-footer { background: var(--ink); color: rgba(255,255,255,.66); font-size: .9rem; }
+.orc-footer-top {
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 22px;
+  padding: 38px 0; border-bottom: 1px solid rgba(255,255,255,.1);
+}
+/* align-items MUST stay start. This is a column flexbox, whose default
+   align-items:stretch overrides the img's width:auto and pulls the logo to the
+   full column width — it rendered 264x54 against a natural 900x366, i.e.
+   stretched almost exactly 2x horizontally. Spotted by eye by Jo, 2026-08-19. */
+.orc-footer-brand { display: flex; flex-direction: column; align-items: flex-start; gap: 16px; }
+.orc-footer-brand img { height: 54px; width: auto; aspect-ratio: 900 / 366; object-fit: contain; }
+.orc-footer-contact { display: flex; flex-wrap: wrap; gap: 10px 26px; }
+.orc-footer-contact span { display: inline-flex; align-items: center; gap: 9px; font-family: var(--head); font-weight: 600; color: rgba(255,255,255,.86); }
+.orc-footer-contact svg { width: 15px; height: 15px; color: var(--orange); flex: none; }
+.orc-footer-contact a:hover { color: var(--orange); }
+
+.orc-footer-cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 34px; padding: 40px 0; }
+.orc-footer-cols h3 {
+  color: var(--white); font-size: .8rem; letter-spacing: .14em; text-transform: uppercase;
+  margin-bottom: 16px; font-weight: 700;
+}
+.orc-footer-cols ul { list-style: none; display: grid; gap: 10px; }
+.orc-footer-cols a { color: rgba(255,255,255,.66); }
+.orc-footer-cols a:hover { color: var(--orange); }
+.orc-footer-bottom {
+  border-top: 1px solid rgba(255,255,255,.1); padding: 20px 0 26px;
+  display: flex; flex-wrap: wrap; gap: 10px 20px; align-items: center; justify-content: space-between;
+  font-size: .82rem; color: rgba(255,255,255,.5);
+}
+.orc-footer-bottom a:hover { color: var(--orange); }
+
+/* ── Responsive ──────────────────────────────────────────────────────── */
+@media (max-width: 1040px) {
+  .orc-nav { display: none; }
+  .orc-burger { display: inline-flex; }
+  /* What pushed the header controls to the right edge was `margin-left:auto` on
+     .orc-nav — and .orc-nav is display:none here. With it gone nothing claimed
+     the slack, so the logo, phone button and burger all bunched up on the left
+     with dead space beside them: 161px at 390px, 386px at 768px. The auto margin
+     has to move to the element that is still visible. Scoped to this breakpoint
+     because on desktop .orc-nav already does the job, and two auto margins would
+     split the free space and pull the nav away from the controls.
+     Reported by Jo, 2026-08-19. */
+  .orc-header-cta { margin-left: auto; }
+  /* One column: drop the explicit placement so both children flow in source
+     order, which is now content-then-aside. Before this, the aside stacked on
+     top and a visitor landing on "Roof Replacement" from a search met a 617px
+     nav list and a quote form before a single word about roof replacement —
+     the content did not start until 1135px down. Reported by Jo, 2026-08-19. */
+  .orc-svc-layout { grid-template-columns: 1fr; }
+  .orc-svc-layout > .orc-svc-aside,
+  .orc-svc-layout > :not(.orc-svc-aside) { grid-column: auto; grid-row: auto; }
+  .orc-svc-aside { position: static; margin-top: 10px; }
+}
+@media (max-width: 860px) {
+  .orc-split { grid-template-columns: 1fr; gap: 34px; }
+  .orc-split.reverse .orc-split-media { order: 0; }
+  .orc-section { padding: 56px 0; }
+  .orc-hero-inner { padding: 60px 22px 64px; }
+  .orc-form-panel { padding: 26px; }
+}
+@media (max-width: 620px) {
+  .orc-form-grid { grid-template-columns: 1fr; }
+  .orc-header-phone { padding: 12px 16px; font-size: .82rem; }
+  .orc-header-inner { min-height: 66px; gap: 12px; }
+  .orc-logo img { height: 40px; }
+  .orc-banner { font-size: .72rem; padding: 8px 40px 8px 16px; }
+  .orc-footer-top { padding: 30px 0; }
+  .btn { width: 100%; }
+  .orc-hero-actions .btn { width: 100%; }
+  .orc-lightbox-prev { left: 8px; }
+  .orc-lightbox-next { right: 8px; }
+}
+
+/* The phone NUMBER stays visible on phones — it is the conversion route on a
+   contractor site, and reclaiming the header's dead space left room for it.
+   Only below ~380px does the logo + number + burger stop fitting on one line,
+   and there the button falls back to the icon alone. */
+@media (max-width: 380px) {
+  .orc-header-phone span { display: none; }
+  .orc-header-phone { padding: 12px 14px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * { animation-duration: .01ms !important; transition-duration: .01ms !important; scroll-behavior: auto !important; }
+}
+
+/* Print — the quote form and chrome are noise on paper. */
+@media print {
+  .orc-banner, .orc-header, .orc-mobile, .orc-lightbox, .orc-form-panel form { display: none !important; }
+  body { color: #000; }
+}

@@ -1248,53 +1248,13 @@ window.loadReports = async function(leadId) {
   }
 };
 
-// ── Shared Documents ───────────────────────────
-window.loadSharedDocuments = async function(leadId) {
-  try {
-    const docsRef = window.collection(window.db, 'lead_documents');
-    const q = window.query(docsRef, window.where('leadId', '==', leadId), window.where('userId', '==', window.auth?.currentUser?.uid), window.orderBy('date', 'desc'));
-    const snap = await window.getDocs(q);
-
-    if (snap.empty) {
-      document.getElementById('sharedDocList').innerHTML = '<div class="empty"><div class="empty-icon">📄</div>No shared documents<div style="margin-top:14px;"><button class="btn btn-orange" data-action="openDocCreateModal" style="font-size:11px;padding:8px 16px;">📝 Create your first document</button></div></div>';
-      return;
-    }
-
-    const esc = window.nbdEsc || (s => String(s == null ? '' : s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])));
-    let html = '';
-    snap.forEach(doc => {
-      const docData = doc.data();
-      const date = docData.date?.toDate ? docData.date.toDate() : new Date(docData.date);
-      const icons = {
-        'estimate': '💰',
-        'contract': '📝',
-        'warranty': '✅',
-        'insurance': '📋'
-      };
-      const icon = icons[docData.type] || '📄';
-      const safeUrl = /^https?:/i.test(String(docData.url || '')) ? docData.url : '#';
-
-      html += `
-        <div class="doc-item">
-          <div class="doc-icon">${icon}</div>
-          <div class="doc-content">
-            <div class="doc-type">${esc(docData.type || 'Document')}</div>
-            <div class="doc-name">${esc(docData.name || 'Document')}</div>
-            <div class="doc-date">${esc(date.toLocaleDateString())}</div>
-          </div>
-          <div class="doc-actions">
-            <a href="${esc(safeUrl)}" target="_blank" rel="noopener noreferrer" class="doc-btn">View</a>
-          </div>
-        </div>
-      `;
-    });
-
-    document.getElementById('sharedDocList').innerHTML = html;
-  } catch (error) {
-    console.error('Documents load error:', error);
-    document.getElementById('sharedDocList').innerHTML = '<div class="empty"><div class="empty-icon">⚠️</div>Failed to load documents</div>';
-  }
-};
+// ── Shared Documents — REMOVED (2026-08-18) ───────────────────
+// window.loadSharedDocuments read the top-level `lead_documents`
+// collection. Nothing in this app has ever written that collection —
+// not the client, not functions/ — so the "Shared Documents" panel it
+// fed could only ever render its empty state. The panel is gone from
+// customer.html and the documents surfaces are now fed from the one
+// real store by customer-documents.js.
 
 // ── Communication Log ──────────────────────────
 // Team thread: company_admin / manager / viewer with a companyId claim
@@ -2013,7 +1973,7 @@ window.generateCustomerDoc = function(type) {
     return;
   }
   window.NBDDocGen.generate(type, data);
-  logGeneratedDoc(type, data);
+  window.logGeneratedDoc(type, data);
 };
 
 // ─────────────────────────────────────────────────────────────────
@@ -2166,31 +2126,22 @@ document.addEventListener('change', function _nbdCustomerChangeDelegate(e) {
   _nbdCustomerActionDispatch(action, el);
 });
 
-// Expose logGeneratedDoc globally so doc-preflight.js can call it
-// after successful generation.
-window.logGeneratedDoc = function(type, data) { return logGeneratedDoc(type, data); };
-
-function logGeneratedDoc(type, data) {
-  var esc = window.nbdEsc || function(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]});};
-  var typeName = (window.NBDDocGen.DOCUMENT_TYPES[type] || {}).name || type;
-  var listEl = document.getElementById('generatedDocList');
-  if (!listEl) return;
-
-  // Remove empty state
-  var empty = listEl.querySelector('.empty');
-  if (empty) listEl.innerHTML = '';
-
-  var item = document.createElement('div');
-  item.style.cssText = 'display:flex;justify-content:space-between;align-items:center;padding:10px 14px;border-bottom:1px solid var(--br);';
-  item.innerHTML = '<div>' +
-    '<div style="font-size:13px;font-weight:600;color:var(--t);">' + esc(typeName) + '</div>' +
-    '<div style="font-size:11px;color:var(--m);">' + esc(data.homeownerName || 'Customer') + ' &middot; ' + esc(new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})) + '</div>' +
-    '</div>' +
-    '<button type="button" class="btn nbd-regen-doc" data-doc-type="' + esc(type) + '" style="font-size:11px;padding:4px 10px;">Regenerate</button>';
-  item.querySelector('.nbd-regen-doc').addEventListener('click', function(){ generateCustomerDoc(type); });
-
-  listEl.insertBefore(item, listEl.firstChild);
-}
+// Called by doc-preflight.js after a successful generation.
+//
+// This used to build a DOM row and insertBefore it into #generatedDocList —
+// pure DOM, never read back from Firestore. The list therefore emptied itself
+// on every reload, so a rep who generated a contract on Monday saw "Generate a
+// document above to see it here" on Tuesday. The generator DOES persist to
+// leads/{leadId}/documents (document-generator.js), so the honest fix is to
+// re-read the store and let it paint the row from what was actually saved.
+window.logGeneratedDoc = function (type, data) {
+  if (!window.NBDCustomerDocs) return;
+  // The generator persists in the background and resolves the viewer before
+  // the write necessarily lands. Refresh now for the common case, and once
+  // more shortly after to pick up a slow write. Both are idempotent re-reads.
+  window.NBDCustomerDocs.refresh();
+  setTimeout(function () { window.NBDCustomerDocs.refresh(); }, 2500);
+};
 
 window.openDocUploadModal = function() {
   window.nbdModal.open('docUploadModal');
@@ -2208,7 +2159,6 @@ window.loadNewPortalSections = async function(leadId) {
       window.loadPhotosByPhase(leadId),
       window.loadInvoices(leadId),
       window.loadReports(leadId),
-      window.loadSharedDocuments(leadId),
       window.loadCommunicationLog(leadId)
     ]);
   } catch (error) {

@@ -33,8 +33,6 @@ User-agent: Meta-ExternalAgent
 User-agent: Diffbot
 User-agent: Timpibot
 Allow: /
-Allow: /pro/landing.html
-Allow: /pro/landing
 
 # Block private app pages.
 #

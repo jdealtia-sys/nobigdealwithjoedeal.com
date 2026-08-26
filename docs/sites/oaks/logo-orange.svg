@@ -1,16 +1,54 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 220" fill="none">
-  <!-- House body -->
-  <path d="M40 110 L100 50 L160 110 L160 190 L40 190 Z" fill="#e8720c"/>
-  <!-- Roof overhang -->
-  <path d="M25 115 L100 40 L175 115" stroke="#e8720c" stroke-width="12" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
-  <!-- Chimney -->
-  <rect x="130" y="55" width="18" height="40" fill="#e8720c"/>
-  <!-- Hammer handle (diagonal) -->
-  <line x1="65" y1="165" x2="135" y2="75" stroke="#1a1a1a" stroke-width="8" stroke-linecap="round"/>
-  <!-- Hammer head -->
-  <path d="M122 62 L148 88 L140 96 L114 70 Z" fill="#1a1a1a"/>
-  <!-- Hammer claw -->
-  <path d="M148 88 L158 78 Q162 74 158 68 L152 62" stroke="#1a1a1a" stroke-width="6" stroke-linecap="round" fill="none"/>
-  <!-- Text: OAKS ROOFING & CONSTRUCTION -->
-  <text x="100" y="210" text-anchor="middle" font-family="'Montserrat',sans-serif" font-weight="900" font-size="16" fill="#e8720c" letter-spacing="2">OAKS ROOFING &amp; CONSTRUCTION</text>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 366" fill="none" role="img" aria-label="Oaks Roofing &amp; Construction">
+  <!--
+    Oaks Roofing & Construction — vector mark.
+
+    Rebuilt 2026-08-19 against the company's real artwork, recovered from their
+    archived site. Three things were wrong before: the orange was #e8720c (a
+    guess — the real value sampled from the artwork is #fa6404), the hammer was
+    drawn in solid black when it is actually knocked OUT of the house as
+    negative space, and the whole mark was portrait (200x232) when the real
+    lockup is landscape (900x366) with a "ROOFING, SIDING, GUTTERS" tagline.
+
+    Type is sized to fit the WIDEST fallback (Arial Black), not to match
+    Montserrat exactly. textLength/lengthAdjust was tried first and is not
+    honoured by librsvg — which is what renders the generated PDFs — so the
+    wordmark clipped at both ends there while looking fine in a browser. In a
+    browser with Montserrat loaded the wordmark therefore sits a little narrower
+    than the real lockup; that is the deliberate trade for never clipping in a
+    document.
+
+    This file is referenced by companyProfile/oaks brand.logoUrl and by
+    generated documents — its PATH must not change.
+
+    AUTHORITATIVE ARTWORK: assets/img/logo.png (900x366, transparent).
+    Prefer the PNG wherever the real lockup is reproduced at size; this SVG is
+    a faithful-but-simplified vector of it.
+  -->
+  <defs>
+    <mask id="orcHammerKnockout">
+      <!-- white keeps, black cuts -->
+      <rect x="0" y="0" width="900" height="240" fill="#fff"/>
+      <g stroke="#000" fill="#000" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="404" y1="212" x2="512" y2="72" stroke-width="19"/>
+        <path d="M488 50 L534 96 L518 112 L472 66 Z"/>
+        <path d="M534 96 L550 79 Q557 71 550 61 L540 50" stroke-width="13" fill="none"/>
+      </g>
+    </mask>
+  </defs>
+
+  <g mask="url(#orcHammerKnockout)">
+    <!-- House body -->
+    <path d="M362 118 L450 34 L538 118 L538 226 L362 226 Z" fill="#fa6404"/>
+    <!-- Roof overhang -->
+    <path d="M340 124 L450 20 L560 124" stroke="#fa6404" stroke-width="19" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+    <!-- Chimney -->
+    <rect x="506" y="42" width="26" height="56" fill="#fa6404"/>
+  </g>
+
+  <text x="450" y="300" text-anchor="middle"
+        font-family="Montserrat, 'Arial Black', Impact, sans-serif" font-weight="900"
+        font-size="38" fill="#fa6404">OAKS ROOFING &amp; CONSTRUCTION</text>
+  <text x="450" y="338" text-anchor="middle"
+        font-family="Montserrat, Arial, sans-serif" font-weight="700" font-style="italic"
+        font-size="21" letter-spacing="1" fill="#fa6404">ROOFING, SIDING, GUTTERS</text>
 </svg>

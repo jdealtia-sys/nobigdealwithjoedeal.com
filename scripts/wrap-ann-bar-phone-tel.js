@@ -5,7 +5,7 @@
  * Most pages carry an .ann-slide whose .ann-text reads "Free Roof Inspections
  * — Call or Text Joe: (859) 420-7382" but the number is plain text — on mobile
  * you can't tap it to dial. Wrap that <span class="ann-text"> in
- * <a href="tel:8594207382" style="color:inherit;text-decoration:none">.
+ * <a href="tel:+18594207382" style="color:inherit;text-decoration:none">.
  * ann-bar.js swaps textContent on the .ann-text span itself, so wrapping the
  * span does not break the short/long swap.
  *
@@ -16,7 +16,7 @@ const fs = require('fs');
 const path = require('path');
 
 const ROOT = path.resolve(__dirname, '..', 'docs');
-const TEL_OPEN = '<a href="tel:8594207382" style="color:inherit;text-decoration:none">';
+const TEL_OPEN = '<a href="tel:+18594207382" style="color:inherit;text-decoration:none">';
 
 function walk(dir, out = []) {
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {

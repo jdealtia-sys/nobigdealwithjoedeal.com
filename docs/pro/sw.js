@@ -37,7 +37,6 @@ const NO_CACHE_HTML = new Set([
   '/pro/ai-tool-finder.html',
   '/pro/understand.html',
   '/pro/stripe-success.html',
-  '/pro/landing.html',
   // GDPR erasure confirmation: hosting rewrite → cloud function. Its
   // response is token-specific and destructive; a cached "already
   // processed" response could leak across users or get replayed.

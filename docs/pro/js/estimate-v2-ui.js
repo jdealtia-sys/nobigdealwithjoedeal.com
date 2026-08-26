@@ -1676,6 +1676,16 @@
     };
   }
 
+  // Overlay a reopened line's SAVED cost basis onto the live catalog item.
+  // resolveLineItem takes explicit item.materialCost / item.laborCost ahead of
+  // any catalog or inferred value (estimate-logic-engine.js:787, :806), so this
+  // pins a reopened line to what it was quoted at. Non-destructive: always a
+  // fresh object, never a mutation of the shared catalog entry. Used by every
+  // path that feeds resolveEstimate — keep them in sync.
+  function withSavedCost(base, s) {
+    return (s && s.savedCost) ? Object.assign({}, base, s.savedCost) : base;
+  }
+
   function getCurrentEstimate() {
     const cat = window.NBD_XACT_CATALOG;
     if (!cat) return null;
@@ -1684,8 +1694,9 @@
     // we spread a fresh object so the catalog's original item stays
     // untouched and other consumers see clean data.
     const items = state.scope.map(s => {
-      const base = cat.find(s.code);
-      if (!base) return null;
+      const found = cat.find(s.code);
+      if (!found) return null;
+      const base = withSavedCost(found, s);
       const ov = s.overrides && s.overrides.qty;
       if (ov !== undefined && ov !== null && ov !== '') {
         return Object.assign({}, base, { _qtyOverride: Number(ov) });
@@ -3010,12 +3021,31 @@
     };
     // Rebuild the scope from the saved catalog codes (skip pass-through/service
     // rows, which aren't catalog items). Quantities re-resolve from measurements.
+    //
+    // savedCost (2026-08-18): carry the cost basis the row was SAVED at. Without
+    // it, reopening re-resolves every line from the LIVE catalog
+    // (getCurrentEstimate → cat.find(code)), and because _reopenedClean flips
+    // false on any measurement/county/tier edit while _editingEstimateId still
+    // points at the same doc, the next save rewrites signed work at today's
+    // catalog price. The catalog is a source of defaults for NEW lines, not a
+    // re-pricer of work already quoted. Same failure this file already fixes for
+    // pass-through fees immediately below — this is that fix applied to cost.
+    // Only trusted when BOTH halves are finite: a partially-written legacy row
+    // must fall through to the catalog rather than resolve at half its cost.
     state.scope = (doc.rows || [])
       .filter((r) => r && r.code && !/^SVC /.test(r.code) && r.source !== 'passthru')
-      .map((r) => ({ code: r.code, overrides: Object.assign(
-        (r.qtyOverride != null ? { qty: Number(r.qtyOverride) } : {}),
-        (r.note ? { note: String(r.note) } : {})
-      ) }));
+      .map((r) => ({
+        code: r.code,
+        savedCost: (Number.isFinite(Number(r.materialCostPerUnit))
+                 && Number.isFinite(Number(r.laborCostPerUnit)))
+          ? { materialCost: Number(r.materialCostPerUnit),
+              laborCost:    Number(r.laborCostPerUnit) }
+          : null,
+        overrides: Object.assign(
+          (r.qtyOverride != null ? { qty: Number(r.qtyOverride) } : {}),
+          (r.note ? { note: String(r.note) } : {})
+        )
+      }));
     // Repopulate pass-through fees (measurement report, e-sign, permit upcharge)
     // from the saved SVC/passthru rows — else the FIRST edit after reopen drops
     // them from the live re-resolve (getCurrentEstimate reads state.passThru)
@@ -3118,7 +3148,12 @@
         // Fallback to the (identical-per-tier) line-item calc if
         // the per-SQ engine is unavailable for some reason
         const cat = window.NBD_XACT_CATALOG;
-        const items = state.scope.map(s => cat.find(s.code)).filter(Boolean);
+        // Same saved-cost pin as getCurrentEstimate — this fallback also feeds
+        // resolveEstimate, so without it the non-selected tier cards would price
+        // a reopened estimate off today's catalog.
+        const items = state.scope
+          .map(s => { const f = cat.find(s.code); return f ? withSavedCost(f, s) : null; })
+          .filter(Boolean);
         meta.tiers = {
           good:   window.EstimateLogic.resolveEstimate(items, state.measurements, { tier: 'good',   mode: state.jobMode, county: state.county }),
           better: window.EstimateLogic.resolveEstimate(items, state.measurements, { tier: 'better', mode: state.jobMode, county: state.county }),

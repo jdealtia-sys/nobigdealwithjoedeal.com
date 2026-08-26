@@ -1,0 +1,168 @@
+name: Lead address audit
+
+# ─────────────────────────────────────────────────────────────
+# WHY THIS EXISTS
+# ─────────────────────────────────────────────────────────────
+# A pre-Wave-141 bug in the address autocomplete stored mangled strings
+# ("7003, Greenstone Trace, O'Bannon Creek" — comma after the house number,
+# no ZIP, no state, a Nominatim hamlet where the post town belongs). The write
+# path is fixed, doc generation now blocks on an incomplete address, and the
+# 2026-08-18 backfill repaired every affected record.
+#
+# None of that is a guarantee. The corruption lived in DATA, not code, and the
+# repo's own test suite structurally cannot see Firestore. Without this
+# workflow, "every address stays fixed" is a claim somebody has to keep
+# re-verifying by hand — which means, eventually, nobody does.
+#
+# So: run the audit on a schedule, and fail loudly when a mangled or blank
+# address reappears. `noStreet` (city + ZIP but no street) does NOT fail the
+# run — that data is missing rather than broken, and only the customer can
+# supply it.
+#
+# ─────────────────────────────────────────────────────────────
+# SECRET (shared with firebase-deploy.yml — no new setup needed)
+# ─────────────────────────────────────────────────────────────
+# Name:  FIREBASE_SERVICE_ACCOUNT
+# Needs: Cloud Datastore User (read is enough — this script never writes).
+#
+# Until that secret is set, every run is a quick "skipped" notice, NOT a
+# failure email. Same convention as the deploy workflow.
+#
+# ─────────────────────────────────────────────────────────────
+# firebase-admin PIN
+# ─────────────────────────────────────────────────────────────
+# Pinned to v12 deliberately. v14 changed Timestamp handling in a way that
+# breaks the admin scripts in scripts/. Installed into a scratch directory and
+# reached via NODE_PATH so it cannot perturb the repo's own dependency tree.
+
+on:
+  schedule:
+    # 11:00 UTC daily — around 6-7am Cincinnati, so a failure is sitting in
+    # the inbox before the first customer call of the day rather than after.
+    - cron: '0 11 * * *'
+  workflow_dispatch:
+    inputs:
+      list:
+        description: 'Print every offending record, not just the summary'
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    name: Audit lead addresses
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      NODE_VERSION: '22'
+      NBD_PROJECT: nobigdeal-pro
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Check the service-account secret is configured
+        id: gate
+        env:
+          SA: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+        run: |
+          if [ -n "$SA" ]; then
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+            echo "::notice::FIREBASE_SERVICE_ACCOUNT is set — running the address audit."
+          else
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+            {
+              echo "### Lead address audit — skipped"
+              echo ""
+              echo "The \`FIREBASE_SERVICE_ACCOUNT\` repository secret is not configured,"
+              echo "so there are no credentials to read Firestore with."
+              echo ""
+              echo "Set it under **Settings → Secrets and variables → Actions**"
+              echo "(the same secret the deploy workflow uses) and this audit"
+              echo "starts running on its own."
+            } >> "$GITHUB_STEP_SUMMARY"
+            echo "::notice::FIREBASE_SERVICE_ACCOUNT is not set — skipping the audit (not a failure)."
+          fi
+
+      - name: Set up Node
+        if: steps.gate.outputs.configured == 'true'
+        uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      # Written via an env var rather than shell interpolation — the pattern
+      # GitHub recommends, and it keeps the secret out of the run log.
+      - name: Write service-account JSON to a temp file
+        if: steps.gate.outputs.configured == 'true'
+        id: sa
+        env:
+          SA_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+        run: |
+          SA_FILE="$RUNNER_TEMP/nbd-audit-sa.json"
+          printf '%s' "$SA_JSON" > "$SA_FILE"
+          if [ ! -s "$SA_FILE" ]; then
+            echo "::error::FIREBASE_SERVICE_ACCOUNT resolved to empty."
+            exit 1
+          fi
+          echo "sa_path=$SA_FILE" >> "$GITHUB_OUTPUT"
+
+      - name: Install firebase-admin@12 (scratch dir, off the repo tree)
+        if: steps.gate.outputs.configured == 'true'
+        id: fa
+        run: |
+          FA_DIR="$RUNNER_TEMP/fa12"
+          mkdir -p "$FA_DIR"
+          cd "$FA_DIR"
+          npm init -y >/dev/null 2>&1
+          npm install --no-audit --no-fund firebase-admin@12
+          echo "node_path=$FA_DIR/node_modules" >> "$GITHUB_OUTPUT"
+
+      # The gate itself. audit-lead-addresses.js exits non-zero when any
+      # `legacyMangled` or `blank` address remains, so a regression turns this
+      # job red and GitHub emails the repo owner. Output is captured so the
+      # offending records land in the run summary — a red check with no names
+      # in it is a red check nobody acts on.
+      - name: Run the audit
+        if: steps.gate.outputs.configured == 'true'
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ steps.sa.outputs.sa_path }}
+          NODE_PATH: ${{ steps.fa.outputs.node_path }}
+        run: |
+          set -o pipefail
+          FLAGS=""
+          if [ "${{ github.event_name }}" != 'workflow_dispatch' ] || [ "${{ inputs.list }}" = 'true' ]; then
+            FLAGS="--list"
+          fi
+          {
+            echo "### Lead address audit"
+            echo ""
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          set +e
+          node scripts/audit-lead-addresses.js $FLAGS 2>&1 | tee "$RUNNER_TEMP/audit.txt"
+          STATUS=${PIPESTATUS[0]}
+          set -e
+
+          cat "$RUNNER_TEMP/audit.txt" >> "$GITHUB_STEP_SUMMARY"
+          {
+            echo '```'
+            echo ""
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          if [ "$STATUS" -ne 0 ]; then
+            {
+              echo "**A mangled or blank address is back in the CRM.**"
+              echo ""
+              echo "Fix it in NBD Pro, or add a verified correction to"
+              echo "\`scripts/legacy-address-corrections.json\` and run:"
+              echo ""
+              echo '```'
+              echo "node scripts/backfill-legacy-addresses.js            # dry run"
+              echo "node scripts/backfill-legacy-addresses.js --apply --yes"
+              echo '```'
+            } >> "$GITHUB_STEP_SUMMARY"
+            echo "::error::Address audit failed — see the job summary for the offending records."
+          fi
+          exit "$STATUS"

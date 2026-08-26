@@ -5,6 +5,16 @@
  * Data: window.NBD_JOB_TEMPLATES / NBD_JOB_TEMPLATE_CATEGORIES (job-templates-data.js).
  * Custom/forked templates only in localStorage 'nbd_job_templates_v1' —
  * defaults are NEVER persisted (data file is the source of truth).
+ *
+ * COSTS ARE NOT IN THE DATA FILE (2026-08-18). Custom line items publish
+ * their scope only; materialCost/laborCost come from the tenant's own book at
+ * catalogCosts/{companyId}.jtCosts via window.NBDCatalogCosts.jobItem(), keyed
+ * by the 'jt-<slug>-<index>' this file already computed for the V2 catalog
+ * bridge. Template DEFINITIONS stay uid-scoped (a fork is personal); template
+ * COSTS are company-scoped (a buy price is tenant-wide money policy a
+ * sales_rep must not rewrite for everyone). A tenant with no book gets an
+ * explicit 0 flagged costUnset — never an omitted key, see customLineItem.
+ * documentation/audit/JOB-TEMPLATE-COST-LEAK-2026-08-18.md
  */
 
 (function() {
@@ -40,7 +50,13 @@
   // fixed qty is the MAX across occurrences (see resolveSelection).
   const SINGLETON_CODES = {
     'LAB MOB': 1, 'LAB DEMOB': 1, 'LAB CLN-M': 1, 'DSP HAUL': 1,
-    'PRM RES-OH': 1, 'LAB PHOTO': 1, 'LAB WALK': 1
+    'PRM RES-OH': 1, 'LAB PHOTO': 1, 'LAB WALK': 1,
+    // MAT DEL is a per-JOB supplier delivery + fuel charge (2026-08-19). It has
+    // to be a singleton for the same reason LAB MOB is: merging a reroof with a
+    // gutter job into one estimate is ONE trip to the site, not two, and
+    // billing the homeowner twice for the same delivery is a real overcharge —
+    // the mirror of the under-charge that created this line.
+    'MAT DEL': 1
   };
 
   // Typical-house measurement context — the BASE of the resolveSelection
@@ -276,6 +292,18 @@
     delete clean.useCount;
     delete clean.lastUsedAt;
     if (!clean.id) clean.id = genId(clean.name);
+    // COST DATA NEVER LANDS IN THE TEMPLATE DOC (2026-08-18). Templates are
+    // uid-scoped (users/{uid}/jobTemplates); costs are company-scoped
+    // (catalogCosts/{companyId}.jtCosts) because a buy price is tenant-wide
+    // money policy, not one rep's preference. Without this split, forking a
+    // default template re-embedded the very figures the strip removed — into
+    // a doc with different scoping and a different write rule.
+    //
+    // Lifted out BEFORE persistCustoms, and forwarded to the book, so an
+    // owner's edit still reaches their other devices. A rep's write is refused
+    // by rules and resolves false; their edit stays local, which is the same
+    // deal product-library.js already gives them.
+    const lifted = liftCustomCosts(clean);
     const isDefaultId = defaults().some(d => d && d.id === clean.id);
     if (isDefaultId && !clean.basedOn) clean.basedOn = clean.id;
     clean.custom = true;
@@ -289,10 +317,101 @@
       customs.push(clean);
     }
     persistCustoms(customs);
-    // Re-bridge immediately (last-write-wins) so edited custom-item costs/
-    // names resolve at the NEW values in this session's catalogs.
-    registerCustomItems(clean);
+    // Write the lifted costs to the company book, then re-bridge
+    // (last-write-wins) so edited custom-item costs/names resolve at the NEW
+    // values in this session's catalogs. The bridge runs regardless of whether
+    // the book write succeeds — a rep whose write was refused still sees their
+    // own edit for the rest of the session.
+    writeLiftedCosts(clean.id, lifted);
+
+    // Re-bridge from a snapshot that STILL CARRIES the costs, not from `clean`.
+    //
+    // liftCustomCosts() has just deleted them off `clean` (correctly — they
+    // must not reach the uid-scoped template document), and the book write
+    // above is ASYNC. Registering `clean` here therefore found neither a book
+    // entry nor an embedded cost and registered the item as costUnset — so a
+    // template the user had just given costs to showed "Cost not set" and
+    // PRICED AT ZERO for the rest of the session, correcting only on the next
+    // page load. Measured before this fix.
+    //
+    // The snapshot re-attaches the lifted values for registration only. It
+    // resolves via customLineItem's legacy branch (costSource
+    // 'legacy-template'), which is exactly right for the half-second before
+    // the write lands; writeLiftedCosts re-registers on success and the source
+    // becomes 'book'.
+    registerCustomItems(withLiftedCosts(clean, lifted));
     return clean;
+  }
+
+  /**
+   * A registration-only copy of `tpl` with lifted costs re-attached. Never
+   * persisted and never returned to a caller — the whole point of lifting is
+   * that these values do not live on the template document.
+   */
+  function withLiftedCosts(tpl, lifted) {
+    const keys = Object.keys(lifted || {});
+    if (!keys.length) return tpl;
+    const copy = JSON.parse(JSON.stringify(tpl));
+    keys.forEach(function (i) {
+      const item = copy.items && copy.items[Number(i)];
+      if (item && item.custom) {
+        item.custom.materialCost = lifted[i].materialCost;
+        item.custom.laborCost = lifted[i].laborCost;
+      }
+    });
+    return copy;
+  }
+
+  /**
+   * Remove materialCost/laborCost from every custom item on `tpl` (mutating
+   * the already-detached clone) and hand them back keyed by item index.
+   * Returns {} when the template carries none.
+   */
+  function liftCustomCosts(tpl) {
+    const out = {};
+    if (!tpl || !Array.isArray(tpl.items)) return out;
+    tpl.items.forEach(function (item, i) {
+      const c = item && item.custom;
+      if (!c || typeof c !== 'object') return;
+      if (c.materialCost == null && c.laborCost == null) return;
+      const mat = Number(c.materialCost) || 0;
+      const lab = Number(c.laborCost) || 0;
+      delete c.materialCost;
+      delete c.laborCost;
+      out[i] = { materialCost: mat, laborCost: lab };
+    });
+    return out;
+  }
+
+  /** Push lifted costs into the tenant book under this template's keys. */
+  function writeLiftedCosts(templateId, lifted) {
+    const keys = Object.keys(lifted || {});
+    if (!templateId || !keys.length) return false;
+    const cc = window.NBDCatalogCosts;
+    if (!cc || typeof cc.recordJobItems !== 'function') return false;
+    const entries = {};
+    keys.forEach(function (i) { entries[jtCostKey(templateId, Number(i))] = lifted[i]; });
+    try {
+      const p = cc.recordJobItems(entries);
+      if (p && typeof p.then === 'function') {
+        // RE-REGISTER once the write lands, so the entry's costSource flips
+        // from the transitional 'legacy-template' to 'book' and every later
+        // read resolves through the company book. Without this the session
+        // keeps pricing off the snapshot, which is right by value but wrong by
+        // provenance — and would silently diverge the moment another device
+        // edits the same item.
+        p.then(function (wrote) {
+          if (!wrote) return;              // a rep's refusal: keep the local view
+          try {
+            const tpl = get(templateId);
+            if (tpl) registerCustomItems(tpl);
+            const ui = window.JobTemplatesUI;
+            if (ui && typeof ui.clearBandCache === 'function') ui.clearBandCache();
+          } catch (e) { /* best-effort repaint */ }
+        }, function () { /* refusal is expected for a rep */ });
+      }
+    } catch (e) { return false; }
+    return true;
   }
 
   function duplicate(id) {
@@ -302,7 +421,23 @@
     copy.id = genId(src.name);
     copy.name = (src.name || 'Template') + ' (copy)';
     copy.basedOn = src.id;
-    return saveCustom(copy);
+    // genId() mints a NEW template id, so every cost-book key changes and the
+    // duplicate would otherwise resolve entirely unpriced. Carry the SOURCE's
+    // book entries onto the new keys. If the write is refused (a sales_rep),
+    // the copy shows "Cost not set" — which is the honest outcome, and never
+    // a silent $0.
+    const carried = {};
+    const cc = window.NBDCatalogCosts;
+    if (cc && typeof cc.jobItem === 'function' && Array.isArray(src.items)) {
+      src.items.forEach(function (item, i) {
+        if (!item || !item.custom) return;
+        const entry = cc.jobItem(jtCostKey(src.id, i));
+        if (entry) carried[i] = entry;
+      });
+    }
+    const saved = saveCustom(copy);
+    if (saved) writeLiftedCosts(saved.id, carried);
+    return saved;
   }
 
   // Removes a CUSTOM entry only. Removing a shadow restores the default.
@@ -357,18 +492,75 @@
     return 'JT ' + slugify(templateId).toUpperCase() + '-' + itemIndex;
   }
 
+  // The tenant cost-book key for one custom item. Same string
+  // registerCustomItems has always used for the EstimateBuilderV2.CATALOG
+  // bridge, now also the Firestore key under catalogCosts/{companyId}.jtCosts.
+  // MUST stay identical to jtKey() in functions/job-template-cost-logic.js —
+  // tests/job-template-cost-seed.test.js pins both sides against the live data.
+  function jtCostKey(templateId, itemIndex) {
+    return 'jt-' + slugify(templateId) + '-' + itemIndex;
+  }
+
   // Line-item shape resolveLineItem expects. Costs are CONTRACTOR COST —
   // explicit materialCost/laborCost win inside the engine, which then
   // stamps retail (+25% material markup, 10/10 OH&P at rollup).
+  //
+  // The costs no longer come from the data file (2026-08-18). They come from
+  // the TENANT's own cost book — catalogCosts/{companyId}.jtCosts, keyed by
+  // the same 'jt-<slug>-<index>' this file already computes for the V2 catalog
+  // bridge. docs/ is the Firebase Hosting root on a public repo, and this
+  // library shipped 84 contractor cost pairs to anyone who fetched the URL.
+  // See documentation/audit/JOB-TEMPLATE-COST-LEAK-2026-08-18.md.
   function customLineItem(custom, templateId, itemIndex) {
+    const key = jtCostKey(templateId, itemIndex);
+    let mat = null, lab = null, costSource = null;
+
+    const cc = window.NBDCatalogCosts;
+    const entry = (cc && typeof cc.jobItem === 'function') ? cc.jobItem(key) : null;
+    if (entry) {
+      mat = Number(entry.materialCost);
+      lab = Number(entry.laborCost);
+      costSource = 'book';
+    } else if (custom.materialCost != null || custom.laborCost != null) {
+      // LEGACY. A template forked BEFORE the strip still carries embedded
+      // costs in users/{uid}/jobTemplates — saveCustom's deep clone has been
+      // persisting them all along. Read them so that tenant's pricing does not
+      // fall over on deploy day; adoptLegacyCosts() lifts them into the
+      // company book on the next hydrate. DELETE THIS BRANCH once no tenant
+      // hits it. (2026-08-18)
+      mat = Number(custom.materialCost) || 0;
+      lab = Number(custom.laborCost) || 0;
+      costSource = 'legacy-template';
+    }
+
     return {
       code:         customCode(templateId, itemIndex),
       name:         custom.name || 'Custom item',
       description:  custom.desc || '',
       category:     custom.category || 'custom',
       unit:         custom.unit || 'EA',
-      materialCost: Number(custom.materialCost) || 0,
-      laborCost:    Number(custom.laborCost) || 0,
+      // EXPLICIT ZERO. NEVER AN OMITTED KEY.
+      //
+      // estimate-logic-engine.js:803 computes
+      //   const laborId = item.laborId || inferLaborId(item);
+      // BEFORE it tests `item.laborCost != null` at :806, and inferLaborId
+      // falls through to LABOR_BY_SUB[item.category] against
+      // estimate-labor-catalog.js — a file that is still public. Omitting the
+      // key therefore does not produce "no price"; it produces a price
+      // re-derived from data we did not close. Measured across the 84 items:
+      // 14 of them (categories gutters/ventilation/downspout/trim/soffit) land
+      // on a live NBD_LABOR rate. "Attic insulation baffles" prices at $500.00
+      // instead of $142.50 — a confidently wrong number wearing a
+      // "Cost not set" badge, which is strictly worse than the $0.00 the
+      // omission was meant to avoid.
+      //
+      // An explicit 0 keeps labSource 'explicit' and prices the line at 0.
+      // `costUnset` is what the UI reads to render "—" instead of "$0.00";
+      // the engine ignores it.
+      materialCost: Number.isFinite(mat) ? mat : 0,
+      laborCost:    Number.isFinite(lab) ? lab : 0,
+      costUnset:    costSource === null,
+      costSource:   costSource,
       tier:         'any',
       source:       'job-template'
     };
@@ -380,18 +572,21 @@
     tpl.items.forEach((item, i) => {
       if (!item || !item.custom || !item.custom.name) return;
       const line = customLineItem(item.custom, tpl.id, i);
-      const key = 'jt-' + slugify(tpl.id) + '-' + i;
+      const key = jtCostKey(tpl.id, i);
       // V2 catalog bridge — LAST write wins: saveCustom edits (new costs,
       // renamed items) must take effect immediately; first-registration-wins
       // kept resolving inserts at stale pre-edit prices.
       if (window.EstimateBuilderV2 && window.EstimateBuilderV2.CATALOG) {
         window.EstimateBuilderV2.CATALOG[key] = {
-          code:     line.code,
-          name:     line.name,
-          category: line.category,
-          unit:     line.unit,
-          cost:     line.materialCost,
-          labor:    line.laborCost
+          code:      line.code,
+          name:      line.name,
+          category:  line.category,
+          unit:      line.unit,
+          cost:      line.materialCost,
+          labor:     line.laborCost,
+          // Carried so a consumer of the V2 catalog can tell "this tenant has
+          // not priced it" from "this tenant prices it at zero".
+          costUnset: line.costUnset
         };
       }
       // The V2 UI resolves scope by NBD_XACT_CATALOG.find(code) — the JT
@@ -412,6 +607,83 @@
   // session that happened to run insertIntoV2. Re-run after saveCustom.
   function registerAllCustomItems() {
     list().forEach(registerCustomItems);
+  }
+
+  /**
+   * Called by catalog-costs.js once the tenant's cost book has landed (the
+   * COLD-device path: the Firestore read finishes long after this file ran its
+   * load-time bridge against an empty book).
+   *
+   * Re-runs the whole registration — LAST-WRITE-WINS is already this bridge's
+   * documented contract — so every 'JT *' entry in EstimateBuilderV2.CATALOG
+   * and NBD_XACT_CATALOG.byCode is rebuilt at the tenant's real numbers, then
+   * drops the UI's price-band cache so the library cards repaint from "no
+   * band" to a real range.
+   *
+   * Also runs the legacy adoption, because this is the one moment when both
+   * the book and the template store are known to exist.
+   */
+  function applyJtCostSeed() {
+    let n = 0;
+    try {
+      n = list().reduce(function (acc, t) { return acc + registerCustomItems(t).length; }, 0);
+    } catch (e) {
+      console.error('[JobTemplates] applyJtCostSeed re-registration failed:', e);
+    }
+    try {
+      const ui = window.JobTemplatesUI;
+      if (ui && typeof ui.clearBandCache === 'function') ui.clearBandCache();
+    } catch (e) { /* the UI may not be loaded; nothing to repaint */ }
+    try { adoptLegacyCosts(); } catch (e) { /* best-effort, see below */ }
+    return n;
+  }
+
+  /**
+   * ONE-TIME UPGRADE for a tenant who forked a template BEFORE the 2026-08-18
+   * strip. Their fork still carries materialCost/laborCost inside
+   * users/{uid}/jobTemplates (saveCustom's deep clone persisted them), so it
+   * prices correctly on this device via customLineItem's `legacy-template`
+   * branch — but only on this device, and only until the branch is deleted.
+   * Lift those figures into the company book so the tenant's other devices
+   * converge, exactly as catalog-costs.adoptLocal() does for product costs.
+   *
+   * Never overwrites an entry the book already holds: the book is the
+   * authority, a stale fork is not.
+   *
+   * CAVEAT worth knowing before you read a support ticket about it: this write
+   * targets catalogCosts/{companyId}, which firestore.rules restricts to
+   * owner/company_admin. A tenant whose forks live on a SALES REP's device
+   * never migrates — recordJobItems resolves false and nothing throws. Their
+   * templates keep pricing from the embedded legacy costs; they just stay
+   * per-device. This is not "automatic for everyone".
+   */
+  function adoptLegacyCosts() {
+    const cc = window.NBDCatalogCosts;
+    if (!cc || typeof cc.recordJobItems !== 'function' || typeof cc.jobItem !== 'function') return 0;
+    const entries = {};
+    let n = 0;
+    loadCustoms().forEach(function (tpl) {
+      if (!tpl || !tpl.id || !Array.isArray(tpl.items)) return;
+      tpl.items.forEach(function (item, i) {
+        const c = item && item.custom;
+        if (!c || (c.materialCost == null && c.laborCost == null)) return;
+        const key = jtCostKey(tpl.id, i);
+        if (cc.jobItem(key)) return;              // the book already knows better
+        const mat = Number(c.materialCost) || 0;
+        const lab = Number(c.laborCost) || 0;
+        if (!(mat > 0 || lab > 0)) return;        // never adopt a row of zeroes
+        entries[key] = { materialCost: mat, laborCost: lab };
+        n++;
+      });
+    });
+    if (!n) return 0;
+    const p = cc.recordJobItems(entries);
+    if (p && typeof p.then === 'function') {
+      p.then(function (wrote) {
+        if (wrote) console.info('[JobTemplates] adopted ' + n + ' legacy forked-template costs into this company\'s cost book');
+      }, function () { /* refused writes are expected for a rep */ });
+    }
+    return n;
   }
 
   // ═════════════════════════════════════════════════════════
@@ -599,6 +871,11 @@
     opts = opts || {};
     const sel = normalizeSelection(selection);
     const warnings = [];
+    // Custom items this tenant has no cost book entry for. Surfaced as ONE
+    // warning at the end rather than N — job-templates-ui.js truncates the
+    // warning list to ~3 lines, and "12 items need a cost" is the actionable
+    // sentence anyway.
+    const unpricedLines = [];
     const lineItems = [];
     const sourceTemplates = [];
     const seenSingleton = {};   // code → { line, qty: effective fixed qty }
@@ -642,10 +919,19 @@
           if (choice && choice.unitPriceOverride != null) {
             // Override = customer per-unit retail. Priced as labor (no
             // material markup) so retailPerUnit lands exactly on it.
+            //
+            // This is ALSO the escape hatch for a tenant with no cost book:
+            // typing a $/unit here prices the line exactly on the typed
+            // number, so an unpriced template is still quotable today. Note it
+            // already sets materialCost explicitly — it neither leaks a cost
+            // basis nor trips the engine's labor inference — and the line is
+            // no longer "unset" once a human has typed a price on it.
             line.materialCost = 0;
             line.laborCost = Number(choice.unitPriceOverride) || 0;
+            line.costUnset = false;
             warnings.push('Priced manually: ' + line.name);
           }
+          if (line.costUnset) unpricedLines.push(line.name);
           lineItems.push(line);
           return;
         }
@@ -697,6 +983,15 @@
 
     if (opts.measurements && typeof opts.measurements === 'object') {
       Object.assign(measurements, opts.measurements);
+    }
+
+    // ONE warning, naming the action. A tenant with no cost book still gets a
+    // complete scope of work — name, qty, unit, description — with no price on
+    // the affected lines. Typing a $/unit per line (unitPriceOverride, above)
+    // is how they quote it today; the in-app cost editor is follow-up work.
+    if (unpricedLines.length) {
+      warnings.push(unpricedLines.length + ' item' + (unpricedLines.length === 1 ? '' : 's') +
+        ' need a cost — set your cost book or type a $/unit per line');
     }
 
     const county = opts.county || ''; // neutral default (estimate-v2-ui.js parity) — engine taxes at the 7% fallback
@@ -1007,6 +1302,9 @@
 
     registerCustomItems,
     registerAllCustomItems,
+    applyJtCostSeed,
+    adoptLegacyCosts,
+    jtCostKey,
     hydrateFromCloud,
     resolveSelection,
     buildEstimatePayload,

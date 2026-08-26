@@ -100,6 +100,8 @@
     certificate_of_completion: { name: 'Certificate of Completion', template: 'renderCertificateOfCompletion' },
     change_order: { name: 'Change Order', template: 'renderChangeOrder' },
     invoice: { name: 'Invoice', template: 'renderInvoice' },
+    receipt: { name: 'Receipt', template: 'renderReceipt' },
+    roof_assessment: { name: 'Roof Assessment Report', template: 'renderRoofAssessment' },
     company_intro: { name: 'Company Introduction', template: 'renderCompanyIntro' },
     before_after_report: { name: 'Before & After Report', template: 'renderBeforeAfterReport' },
     financing_options: { name: 'Financing Options', template: 'renderFinancingOptions' },
@@ -771,6 +773,10 @@
       lineItems:[],
       taxRate:0, paymentsReceived:0,
       claimNumber:'', insuranceCompany:'',
+      // Extra properties worked under one job. Invoice NBD-2026-0810-RK bills
+      // 1944 AND 1942 Kentucky Ave together; before this the second building
+      // could not be shown at all. Empty array = block is omitted entirely.
+      serviceAddresses:[],
       notes:'Thank you for choosing ' + C.name + '. We appreciate your business and trust in our team.' }, data);
 
     let subtotal = 0;
@@ -814,6 +820,13 @@
         ${d.homeownerPhone ? `<div style="font-size:14px;color:#555;">${esc(d.homeownerPhone)}</div>` : ''}
         ${d.homeownerEmail ? `<div style="font-size:14px;color:#555;">${esc(d.homeownerEmail)}</div>` : ''}
       </div>
+
+      ${(Array.isArray(d.serviceAddresses) && d.serviceAddresses.filter(Boolean).length) ? `
+      <div class="section" style="background:#f8f8f8;padding:20px;border-radius:8px;margin-top:12px;">
+        <div style="font-size:11px;color:#666;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:8px;">Service Locations</div>
+        <div style="font-size:14px;color:#555;">${esc(d.address)}</div>
+        ${d.serviceAddresses.filter(Boolean).map(a => `<div style="font-size:14px;color:#555;">${esc(a)}</div>`).join('')}
+      </div>` : ''}
 
       <div class="section">
         <table class="items">
@@ -861,6 +874,247 @@
         padding:16px;border-top:1px solid #eee;margin-top:20px;">${esc(d.notes)}</div>` : ''}
 
       ${footer('Invoice #'+d.invoiceNumber)}
+    `);
+  };
+
+  // ═══════════════════════════════════════════════════════════════
+  // TEMPLATE 7b: RECEIPT
+  // ═══════════════════════════════════════════════════════════════
+  //
+  // A receipt is NOT an invoice with the balance zeroed out. A customer who
+  // has already paid and is handed a document headed INVOICE with payment
+  // terms and a late-fee clause reads it as another bill. This is its own
+  // template: PAID mark, what was paid, how, when, and an explicit balance
+  // line so there is no ambiguity about whether anything is still owed.
+  //
+  // document-generator.js already had a `receipt` branch in _buildPremiumData
+  // and in the server-render map, but `receipt` was never registered in
+  // DOCUMENT_TYPES — so there was no way to produce one from the app. Jobs
+  // that were paid in full (Higgins, Philpot) had no closing document at all.
+  DG.renderReceipt = function(data) {
+    const d = Object.assign({
+      homeownerName:'[Homeowner Name]', address:'[Property Address]',
+      homeownerPhone:'', homeownerEmail:'',
+      receiptNumber:'RCT-'+(Date.now()%100000),
+      paymentDate: today(),
+      paymentMethod:'',            // PayPal / Venmo / Check / Zelle / Card / Cash
+      paymentReference:'',         // check no., transaction id, last 4 — optional
+      // Only rep-entered figures. amountPaid drives the document; contractTotal
+      // and priorPayments are optional and only shown when supplied, so a blank
+      // field can never imply a balance that does not exist.
+      amountPaid:0, contractTotal:0, priorPayments:0,
+      workPerformed:'',
+      lineItems:[],
+      serviceAddresses:[],
+      notes:'Thank you for your business. Please keep this receipt with your project records for warranty and tax purposes.'
+    }, data);
+
+    const amountPaid = Number(d.amountPaid || d.amount || d.paymentAmount || 0);
+    const contractTotal = Number(d.contractTotal || 0);
+    const priorPayments = Number(d.priorPayments || 0);
+    // Balance is only asserted when we were told the contract total. Guessing
+    // "PAID IN FULL" from a single payment is how a customer ends up believing
+    // a job is settled when it is not.
+    const knowsTotal = contractTotal > 0;
+    const balance = knowsTotal ? Math.max(0, contractTotal - priorPayments - amountPaid) : null;
+    const paidInFull = knowsTotal ? (balance === 0) : (d.paidInFull === true);
+
+    const rows = (d.lineItems || []).map(i => {
+      const unitPrice = (i.unitPrice != null ? i.unitPrice : (i.rate != null ? i.rate : i.price)) || 0;
+      const amt = (i.qty || 0) * unitPrice;
+      return `<tr><td>${esc(i.description || i.item)}</td><td class="right">${i.qty}</td><td>${esc(i.unit)}</td>
+        <td class="right">${money(unitPrice)}</td><td class="right">${money(amt)}</td></tr>`;
+    }).join('');
+
+    return page('Receipt', `
+      <style>
+        .rct-paid { background:#16a34a; color:#fff; padding:20px 28px; border-radius:8px; text-align:center; margin:20px 0; }
+        .rct-paid-label { font-size:12px; text-transform:uppercase; letter-spacing:0.1em; opacity:0.92; }
+        .rct-paid-amount { font-size:36px; font-weight:700; margin-top:4px; }
+        .rct-stamp { display:inline-block; border:3px solid #16a34a; color:#16a34a; font-weight:800;
+          letter-spacing:0.12em; font-size:15px; padding:6px 16px; border-radius:6px; transform:rotate(-4deg); }
+      </style>
+      ${letterhead()}
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:28px;">
+        <div>
+          <h1 style="font-size:36px;color:${S};margin:0;">RECEIPT</h1>
+          <p style="color:#666;font-size:13px;margin:4px 0 0;">#${esc(d.receiptNumber)}</p>
+        </div>
+        <div style="text-align:right;font-size:14px;">
+          <div><strong>Date Paid:</strong> ${esc(d.paymentDate)}</div>
+          ${d.paymentMethod ? `<div><strong>Method:</strong> ${esc(d.paymentMethod)}</div>` : ''}
+          ${d.paymentReference ? `<div><strong>Reference:</strong> ${esc(d.paymentReference)}</div>` : ''}
+          ${paidInFull ? `<div style="margin-top:12px;"><span class="rct-stamp">PAID IN FULL</span></div>` : ''}
+        </div>
+      </div>
+
+      <div class="section" style="background:#f8f8f8;padding:20px;border-radius:8px;">
+        <div style="font-size:11px;color:#666;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:8px;">Received From</div>
+        <div style="font-size:16px;font-weight:700;color:${S};">${esc(d.homeownerName)}</div>
+        <div style="font-size:14px;color:#555;">${esc(d.address)}</div>
+        ${d.homeownerPhone ? `<div style="font-size:14px;color:#555;">${esc(d.homeownerPhone)}</div>` : ''}
+        ${d.homeownerEmail ? `<div style="font-size:14px;color:#555;">${esc(d.homeownerEmail)}</div>` : ''}
+      </div>
+
+      ${(Array.isArray(d.serviceAddresses) && d.serviceAddresses.filter(Boolean).length) ? `
+      <div class="section" style="background:#f8f8f8;padding:20px;border-radius:8px;margin-top:12px;">
+        <div style="font-size:11px;color:#666;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:8px;">Service Locations</div>
+        <div style="font-size:14px;color:#555;">${esc(d.address)}</div>
+        ${d.serviceAddresses.filter(Boolean).map(a => `<div style="font-size:14px;color:#555;">${esc(a)}</div>`).join('')}
+      </div>` : ''}
+
+      ${d.workPerformed ? `<div class="section">
+        <div style="font-size:11px;color:#666;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:8px;">Work Performed</div>
+        <div style="font-size:14px;line-height:1.7;color:#333;">${esc(d.workPerformed)}</div>
+      </div>` : ''}
+
+      ${rows ? `<div class="section">
+        <table class="items">
+          <thead><tr><th>Description</th><th>Qty</th><th>Unit</th><th>Rate</th><th>Amount</th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>` : ''}
+
+      <div class="rct-paid">
+        <div class="rct-paid-label">Amount Received</div>
+        <div class="rct-paid-amount">${money(amountPaid)}</div>
+      </div>
+
+      ${knowsTotal ? `<div class="section">
+        <div style="max-width:320px;margin-left:auto;font-size:14px;">
+          <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #eee;">
+            <span>Contract Total</span><span>${money(contractTotal)}</span></div>
+          ${priorPayments ? `<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #eee;color:#16a34a;">
+            <span>Previous Payments</span><span>-${money(priorPayments)}</span></div>` : ''}
+          <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #eee;color:#16a34a;">
+            <span>This Payment</span><span>-${money(amountPaid)}</span></div>
+          <div style="display:flex;justify-content:space-between;padding:10px 0;font-weight:700;
+            ${balance === 0 ? 'color:#16a34a;' : ''}">
+            <span>Balance Remaining</span><span>${money(balance)}</span></div>
+        </div>
+      </div>` : ''}
+
+      ${d.notes ? `<div class="section" style="text-align:center;font-style:italic;color:#555;font-size:14px;
+        padding:16px;border-top:1px solid #eee;margin-top:20px;">${esc(d.notes)}</div>` : ''}
+
+      ${footer('Receipt #'+d.receiptNumber)}
+    `);
+  };
+
+  // ═══════════════════════════════════════════════════════════════
+  // TEMPLATE 7c: ROOF ASSESSMENT REPORT
+  // ═══════════════════════════════════════════════════════════════
+  //
+  // The deliverable for a PAID inspection. The existing inspection template is
+  // insurance-shaped — it requires a carrier, claim number and date of loss —
+  // so a homeowner who simply pays for an opinion on their roof had no
+  // document at all. Three such inspections were outstanding on 2026-08-18.
+  //
+  // Structure follows how a finding is actually explained on a roof:
+  // what was observed → why it matters → what it leads to if left. Severity is
+  // rep-set, never inferred: this template will not decide for itself that
+  // something is urgent.
+  DG.renderRoofAssessment = function(data) {
+    const SEV = {
+      urgent:   { label: 'Address Now',    bg: '#fdecea', fg: '#c0392b', br: '#f0c0ba' },
+      monitor:  { label: 'Monitor',        bg: '#fdf3e0', fg: '#9a6510', br: '#eedcb8' },
+      note:     { label: 'For Your Records', bg: '#eef1f6', fg: '#4a5768', br: '#dbe1ea' }
+    };
+    const d = Object.assign({
+      homeownerName:'[Homeowner Name]', address:'[Property Address]',
+      homeownerPhone:'', homeownerEmail:'',
+      reportNumber:'ASM-'+(Date.now()%100000),
+      inspectionDate: today(),
+      inspectorName:'',
+      roofSystem:'',              // e.g. "EPDM (rubber) low-slope"
+      summary:'',
+      findings:[],                // [{ title, observed, whyItMatters, severity }]
+      recommendations:[],         // [string]
+      photos:[],                  // [{ url, caption }]
+      nextSteps:'',
+      notes:''
+    }, data);
+
+    const findingsHTML = (d.findings || []).filter(Boolean).map((f, i) => {
+      const sev = SEV[String(f.severity || 'note').toLowerCase()] || SEV.note;
+      return `
+      <div style="border:1px solid ${sev.br};background:${sev.bg};border-radius:8px;padding:16px 18px;margin-bottom:14px;">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:14px;margin-bottom:8px;">
+          <div style="font-size:15px;font-weight:700;color:${S};">${i + 1}. ${esc(f.title)}</div>
+          <span class="badge" style="background:#fff;color:${sev.fg};border:1px solid ${sev.br};white-space:nowrap;">${sev.label}</span>
+        </div>
+        ${f.observed ? `<div style="font-size:14px;line-height:1.7;color:#333;margin-bottom:8px;">
+          <strong style="color:${sev.fg};">What I saw — </strong>${esc(f.observed)}</div>` : ''}
+        ${f.whyItMatters ? `<div style="font-size:14px;line-height:1.7;color:#333;">
+          <strong style="color:${sev.fg};">Why it matters — </strong>${esc(f.whyItMatters)}</div>` : ''}
+      </div>`;
+    }).join('');
+
+    const recsHTML = (d.recommendations || []).filter(Boolean)
+      .map(r => `<li style="margin-bottom:8px;line-height:1.7;">${esc(r)}</li>`).join('');
+
+    // Only real photo URLs render. An empty array produces no grid at all —
+    // a report padded with empty placeholder boxes reads as unfinished work.
+    const photosHTML = (d.photos || [])
+      .filter(p => p && /^https?:/i.test(String(p.url || '')))
+      .map(p => `
+      <div style="margin-bottom:16px;">
+        <img src="${esc(p.url)}" alt="${esc(p.caption || 'Roof photo')}"
+          style="width:100%;border-radius:8px;border:1px solid #ddd;display:block;">
+        ${p.caption ? `<div style="font-size:12px;color:#666;margin-top:6px;font-style:italic;">${esc(p.caption)}</div>` : ''}
+      </div>`).join('');
+
+    return page('Roof Assessment Report', `
+      ${letterhead()}
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:28px;">
+        <div>
+          <h1 style="font-size:32px;color:${S};margin:0;">ROOF ASSESSMENT</h1>
+          <p style="color:#666;font-size:13px;margin:4px 0 0;">#${esc(d.reportNumber)}</p>
+        </div>
+        <div style="text-align:right;font-size:14px;">
+          <div><strong>Inspected:</strong> ${esc(d.inspectionDate)}</div>
+          ${d.inspectorName ? `<div><strong>Inspected by:</strong> ${esc(d.inspectorName)}</div>` : ''}
+          ${d.roofSystem ? `<div><strong>Roof system:</strong> ${esc(d.roofSystem)}</div>` : ''}
+        </div>
+      </div>
+
+      <div class="section" style="background:#f8f8f8;padding:20px;border-radius:8px;">
+        <div style="font-size:11px;color:#666;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:8px;">Prepared For</div>
+        <div style="font-size:16px;font-weight:700;color:${S};">${esc(d.homeownerName)}</div>
+        <div style="font-size:14px;color:#555;">${esc(d.address)}</div>
+        ${d.homeownerPhone ? `<div style="font-size:14px;color:#555;">${esc(d.homeownerPhone)}</div>` : ''}
+        ${d.homeownerEmail ? `<div style="font-size:14px;color:#555;">${esc(d.homeownerEmail)}</div>` : ''}
+      </div>
+
+      ${d.summary ? `<div class="section">
+        <div class="section-title">The Short Version</div>
+        <div style="font-size:15px;line-height:1.8;color:#333;">${esc(d.summary)}</div>
+      </div>` : ''}
+
+      ${findingsHTML ? `<div class="section">
+        <div class="section-title">What I Found</div>
+        ${findingsHTML}
+      </div>` : ''}
+
+      ${photosHTML ? `<div class="section">
+        <div class="section-title">Photos</div>
+        ${photosHTML}
+      </div>` : ''}
+
+      ${recsHTML ? `<div class="section">
+        <div class="section-title">What I Recommend</div>
+        <ol style="font-size:14px;color:#333;padding-left:22px;margin:0;">${recsHTML}</ol>
+      </div>` : ''}
+
+      ${d.nextSteps ? `<div class="section" style="background:#fff8f5;border:1px solid #f0d0c0;border-radius:8px;padding:18px 20px;">
+        <div style="font-size:11px;color:#666;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:8px;">Next Steps</div>
+        <div style="font-size:14px;line-height:1.8;color:#333;">${esc(d.nextSteps)}</div>
+      </div>` : ''}
+
+      ${d.notes ? `<div class="section" style="text-align:center;font-style:italic;color:#555;font-size:14px;
+        padding:16px;border-top:1px solid #eee;margin-top:20px;">${esc(d.notes)}</div>` : ''}
+
+      ${footer('Assessment #'+d.reportNumber)}
     `);
   };
 

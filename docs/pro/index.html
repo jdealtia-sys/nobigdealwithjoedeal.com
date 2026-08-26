@@ -113,8 +113,14 @@
       color: #fff;
     }
 
+    /* 2026-08-18: hover was var(--orange-light) #f08030, which puts white text
+       at 2.68:1 — the hover state was LESS legible than the 4.88:1 resting
+       state, so the button degraded the moment you pointed at it. Brightening
+       cannot work here: every shade lighter than #B85400 fails AA against
+       white. Hover goes deeper instead (5.60:1); the lift and shadow below
+       already carry the interactive affordance. */
     .btn-primary:hover {
-      background-color: var(--orange-light);
+      background-color: #A94D00;
       transform: translateY(-2px);
       box-shadow: 0 8px 20px rgba(232, 114, 12, 0.4);
     }
@@ -257,8 +263,12 @@
       color: var(--orange);
     }
 
+    /* 2026-08-18: was var(--orange) #e8720c, 3.07:1 with white — the header's
+       "Start Free Trial" is the highest-intent control on the page and it was
+       the least legible. #B85400 is not a new colour: .btn-primary above
+       already uses it for exactly this reason. 4.88:1. */
     .nav-cta {
-      background-color: var(--orange) !important;
+      background-color: #B85400 !important;
       color: #fff !important;
       padding: 10px 24px !important;
       border-radius: 4px;
@@ -590,6 +600,46 @@
       font-weight: 600;
       margin-bottom: 16px;
       text-transform: uppercase;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    /* 2026-08-18: all 13 feature panels are hand-built UI illustrations with
+       stand-in figures ("247 knocks | Conversion: 12%", template prices, …).
+       One rule tags every panel rather than editing 13 titles, so the numbers
+       can't be read as sourced results — the same bar the social-proof section
+       sets when it refuses invented ratings and quotes. */
+    .feature-mockup-title::after {
+      content: 'Illustration';
+      font-size: 9px;
+      font-weight: 700;
+      letter-spacing: .1em;
+      color: rgba(255, 255, 255, .5);
+      border: 1px solid rgba(255, 255, 255, .22);
+      border-radius: 999px;
+      padding: 2px 7px;
+      white-space: nowrap;
+    }
+
+    /* Panels backed by a real screen capture say so. Deliberately "Live
+       sandbox", not "Live UI": these are captures of /pro/sandbox.html, which
+       is a real running page a visitor can go click, styled from the product's
+       own theme-system.css — but sandbox-demo.js hand-renders it rather than
+       driving the dashboard's crm-pipeline.js. Claiming "Live UI" would imply
+       this is the shipped CRM's own rendering, which it is not. */
+    .feature-mockup-title--real::after {
+      content: 'Live sandbox';
+      color: var(--orange);
+      border-color: rgba(232, 114, 12, .5);
+    }
+
+    .feature-shot {
+      display: block;
+      width: 100%;
+      height: auto;
+      border-radius: 8px;
+      border: 1px solid rgba(255, 255, 255, .1);
     }
 
     .mockup-items {
@@ -1046,7 +1096,7 @@
     }
 
     /* a11y: skip-to-main link (site-wide .nbd-skip pattern, see storm-check.html) */
-    .nbd-skip{position:absolute;left:-9999px;top:0;z-index:100000;background:#e8720c;color:#fff;padding:10px 16px;font-weight:700;text-decoration:none;border-radius:0 0 6px 0}
+    .nbd-skip{position:absolute;left:-9999px;top:0;z-index:100000;background:#B85400;color:#fff;padding:10px 16px;font-weight:700;text-decoration:none;border-radius:0 0 6px 0}
     .nbd-skip:focus{left:0}
   </style>
 <link rel="stylesheet" href="/assets/css/nbd-mobile.css">
@@ -1071,7 +1121,12 @@
         <li><a href="#pricing">Pricing</a></li>
         <li><a href="#faq">FAQ</a></li>
         <li><a href="/pro/login.html">Log In</a></li>
-        <li><a href="#" class="btn nav-cta" data-pl-action="goRegister">Start Free Trial</a></li>
+        <!-- 2026-08-18: label was "Start Free Trial". This control carries no
+             data-plan, so landing-page.js sends it to /pro/register.html with no
+             plan param — a free-tier signup, not a trial. Trials are Team and
+             Growth only (functions/stripe.js:354; Starter has none, per the
+             comment there). "Start Free" is what actually happens. -->
+        <li><a href="#" class="btn nav-cta" data-pl-action="goRegister">Start Free</a></li>
       </ul>
       <a href="#" class="btn nav-cta" style="display: none;" data-pl-action="goRegister">Sign Up</a>
     </div>
@@ -1089,17 +1144,29 @@
       </p>
 
       <div class="hero-ctas">
+        <!-- Same correction as the nav CTA: no data-plan means this is a
+             free-tier signup, not a trial. See functions/stripe.js:354. -->
         <button class="btn btn-primary" data-pl-action="goRegister">
-          Start Free Trial
+          Start Free
         </button>
         <a class="btn btn-ghost" href="/pro/sandbox.html">
           See It Live — Try the Sandbox
         </a>
       </div>
 
+      <!-- Sample data, labelled as such (2026-08-18). This strip previously read
+           247 Leads / $2.4M Pipeline / 89% Close Rate with nothing marking it as
+           illustrative — an 89% close rate is roughly triple a strong real one,
+           and it sat two screens above the social-proof section that promises
+           "I won't show you invented star ratings or made-up customer quotes."
+           Same bar as the 2026-07-04 sweep that removed "50+ Active Contractors"
+           and "4.9★ Average Rating": nothing we can't source. The mockup stays
+           (it shows what the dashboard looks like) with plausible figures and an
+           explicit Sample label, so it reads as UI, not as a results claim. -->
       <div class="hero-mockup" id="see-it-live">
         <div class="mockup-header">
           <h2 class="mockup-title" style="font-size:14px;color:var(--orange)">Your Pipeline at a Glance</h2>
+          <span style="font-size:10px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:rgba(255,255,255,.55);border:1px solid rgba(255,255,255,.25);border-radius:999px;padding:3px 9px;white-space:nowrap">Sample data</span>
           <div class="mockup-dots">
             <span class="mockup-dot"></span>
             <span class="mockup-dot"></span>
@@ -1116,7 +1183,7 @@
             <span class="stat-label">Pipeline</span>
           </div>
           <div class="stat">
-            <span class="stat-value">89%</span>
+            <span class="stat-value">31%</span>
             <span class="stat-label">Close Rate</span>
           </div>
         </div>
@@ -1174,20 +1241,19 @@
           </ul>
         </div>
         <div class="feature-mockup">
-          <div class="feature-mockup-title">Kanban Pipeline</div>
+          <div class="feature-mockup-title feature-mockup-title--real">Kanban Pipeline</div>
           <div class="feature-mockup-content">
-            <div class="mockup-items">
-              <div class="mockup-item"><span class="mockup-item-dot"></span> Lead Intake</div>
-              <div class="mockup-item"><span class="mockup-item-dot"></span> Pitched</div>
-              <div class="mockup-item"><span class="mockup-item-dot"></span> Estimate Sent</div>
-              <div class="mockup-item"><span class="mockup-item-dot"></span> Closed</div>
-            </div>
-            <div class="mockup-chart">
-              <div class="chart-bar" style="height: 100%;"></div>
-              <div class="chart-bar" style="height: 75%;"></div>
-              <div class="chart-bar" style="height: 60%;"></div>
-              <div class="chart-bar" style="height: 40%;"></div>
-            </div>
+            <!-- Screen capture of /pro/sandbox.html (2026-08-18) — a real,
+                 running, interactive page a visitor can go click, styled from
+                 the product's own theme-system.css. NOT the dashboard's own
+                 renderer: sandbox-demo.js hand-builds this board from a local
+                 array rather than driving crm-pipeline.js, which is why the
+                 badge reads "Live sandbox" and not "Live UI". Its leads are
+                 hardcoded sample data — no Firestore read, so no customer names
+                 or addresses are exposed. Values shown are retail, never cost. -->
+            <img src="/assets/images/pro/pro-pipeline.webp" width="1128" height="315"
+                 loading="lazy" decoding="async" class="feature-shot"
+                 alt="NBD Pro kanban board with five stages — New Lead, Inspected, Claim Filed, Adjuster Mtg, Contract Signed — each lead card showing homeowner name, job type, address, retail value and a lead score.">
           </div>
         </div>
       </div>
@@ -1204,16 +1270,15 @@
           </ul>
         </div>
         <div class="feature-mockup">
-          <div class="feature-mockup-title">Estimate Templates</div>
+          <div class="feature-mockup-title feature-mockup-title--real">Estimate Templates</div>
           <div class="feature-mockup-content">
-            <div class="mockup-items">
-              <div class="mockup-item"><span class="mockup-item-dot"></span> Good - $8,500</div>
-              <div class="mockup-item"><span class="mockup-item-dot"></span> Better - $12,000</div>
-              <div class="mockup-item"><span class="mockup-item-dot"></span> Best - $15,200</div>
-            </div>
-            <div style="margin-top: 20px; padding: 12px; background: rgba(232, 114, 12, 0.2); border-radius: 4px; font-size: 12px;">
-              Total Roof Area: 2,400 sq ft | Pitch: 8/12 | Material: GAF Timberline
-            </div>
+            <!-- Screen capture of /pro/sandbox.html (2026-08-18); see the
+                 pipeline panel above for what "Live sandbox" does and does not
+                 claim. Retail package pricing only — cost basis never leaves
+                 the CRM. -->
+            <img src="/assets/images/pro/pro-estimate.webp" width="1128" height="125"
+                 loading="lazy" decoding="async" class="feature-shot"
+                 alt="NBD Pro Good/Better/Best estimate packages — Good $8,450 architectural shingles with 10-year workmanship, Better $12,300 GAF Timberline HDZ with ridge vent and 15-year, Best $15,900 GAF UHDZ with full ice and water and 25-year.">
           </div>
         </div>
       </div>
@@ -1254,7 +1319,7 @@
               </div>
             </div>
             <div style="display: flex; gap: 8px; margin-top: 12px;">
-              <span style="background: var(--orange); color: #fff; padding: 5px 12px; border-radius: 4px; font-size: 11px; font-weight: 600;">Create estimate</span>
+              <span style="background: #B85400; color: #fff; padding: 5px 12px; border-radius: 4px; font-size: 11px; font-weight: 600;">Create estimate</span>
               <span style="border: 1px solid rgba(255, 255, 255, 0.25); padding: 5px 12px; border-radius: 4px; font-size: 11px;">Preview proposal</span>
             </div>
             <div style="margin-top: 14px; font-size: 11px; color: rgba(255, 255, 255, 0.7);">
@@ -1269,7 +1334,10 @@
         <div class="feature-content">
           <h3>Door-to-Door Tracker</h3>
           <ul>
-            <li>GPS pin on every knock — 15 outcomes, and hot ones auto-create leads</li>
+            <!-- 16, not 15: DISPOSITIONS in d2d-tracker-core-2026b.js has 16 keys and
+                 the picker renders all 16 ungated. "15" was accurate the day it shipped
+                 (2026-07-19); `revisit` landed 2026-07-21, two days later. -->
+            <li>GPS pin on every knock — 16 outcomes, and hot ones auto-create leads</li>
             <li>Draw territories, watch team coverage, toggle the knock heatmap</li>
             <li>Route optimizer turns your not-homes into an efficient walking loop</li>
             <li>Live NOAA radar + hail history overlays right on the map</li>
@@ -1320,10 +1388,14 @@
               "Tuesday works on my end, Sandra. I'll confirm the exact time with you Monday — sound good?"
             </div>
             <div style="display: flex; gap: 8px; margin-top: 12px;">
-              <span style="background: var(--orange); color: #fff; padding: 5px 12px; border-radius: 4px; font-size: 11px; font-weight: 600;">Approve &amp; Send</span>
+              <span style="background: #B85400; color: #fff; padding: 5px 12px; border-radius: 4px; font-size: 11px; font-weight: 600;">Approve &amp; Send</span>
               <span style="border: 1px solid rgba(255, 255, 255, 0.25); padding: 5px 12px; border-radius: 4px; font-size: 11px;">Edit</span>
             </div>
-            <div style="margin-top: 14px; font-size: 10px; color: rgba(255, 255, 255, 0.55);">
+            <!-- 2026-08-18: was 10px at rgba(…,.55). This is a real onboarding
+                 obligation the buyer needs to read, not mockup chrome — the only
+                 sub-11px string on the page that carries actual information.
+                 Bumped to 12px and lifted the contrast. -->
+            <div style="margin-top: 14px; font-size: 12px; line-height: 1.5; color: rgba(255, 255, 255, 0.72);">
               SMS delivery requires one-time carrier (A2P) registration for your business number — set up during onboarding.
             </div>
           </div>
@@ -1396,7 +1468,15 @@
           <h3>AI Assistant ("Ask Joe")</h3>
           <ul>
             <li>Chat with an AI that talks like a roofer, not a chatbot (paid plans)</li>
-            <li>Property intel: parcel data, owner history, and a 0&ndash;100 roof score</li>
+            <!-- 2026-08-18: was "parcel data, owner history, and a 0-100 roof score".
+                 There is no owner-history feature in the codebase at all. What ships is
+                 one current owner-of-record plus one last-sale date/amount. And
+                 authoritative Regrid parcel data only reaches admin/company_admin roles
+                 with REGRID_API_TOKEN set — for a rep the client never asks the server
+                 (integrations-client.js) and the lookup falls through to a Claude Haiku
+                 estimate (property-intel.js). Unqualified "parcel data" read as sourced
+                 fact when the shipped default for a rep is an LLM guess. -->
+            <li>Property intel: owner of record, last sale, and a 0&ndash;100 roof score &mdash; parcel data from Regrid where connected, AI estimates otherwise (verify against county records)</li>
             <li>Deep photo analysis: damage, severity, materials, recommendations</li>
             <li>Morning briefing surfaces overdue follow-ups and hot leads</li>
           </ul>
@@ -1455,7 +1535,14 @@
           <h3>Documents &amp; E-Signatures</h3>
           <ul>
             <li>25 branded document types: contracts, AOBs, change orders, warranties</li>
-            <li>9 are e-sign ready — homeowner signs on their phone, no login, no app</li>
+            <!-- 2026-08-18: was "9 are e-sign ready". Only 3 carry defaultSigners at
+                 runtime (proposal, contract, inspectionHomeowner) — the other 6 are
+                 overwritten by document-generator-templates.js before the generator
+                 opens, so this was never 9 in a shipped build. A signer CAN be added
+                 to any of the 25 by hand, which is what the second clause now says.
+                 Restoring the 9 is a code fix (merge rather than replace in
+                 document-generator-templates.js), tracked separately. -->
+            <li>3 are e-sign ready out of the box, and a signer can be added to any of the 25 — homeowner signs on their phone, no login, no app</li>
             <li>Single-use signing links that expire, multi-signer support built in</li>
             <li>Deal Room: customer picks a tier and signs remotely, tracked end to end</li>
           </ul>
@@ -1478,7 +1565,7 @@
               </div>
             </div>
             <div style="margin-top: 14px; font-size: 11px; color: rgba(255, 255, 255, 0.7);">
-              25 document types • 9 e-sign ready • branded to your company
+              25 document types • 3 e-sign ready out of the box • branded to your company
             </div>
           </div>
         </div>
@@ -1527,7 +1614,16 @@
             <li>Live NWS severe-weather alerts, filtered to roofing-relevant storms</li>
             <li>Turn an alert into a storm zone and canvass plan in two taps</li>
             <li>Hail history for any address — stone size and date, on the map</li>
-            <li>5-year storm report for any US address — proof that opens doors</li>
+            <!-- 2026-08-18: this bullet read "5-year storm report for any US address".
+                 Wrong on three counts. Storm Center has no report generator; its hail
+                 window is hard-clamped to 730 days (functions/handlers/storm-proof.js,
+                 functions/integrations/hail.js) and every shipped caller asks for 365.
+                 The real 5-year report (functions/storm-report.js) is a separate
+                 homeowner lead magnet at /storm-report, scoped to OH/KY/IN over a
+                 30-mile radius — unreachable from the CRM. Replaced with a capability
+                 Storm Center genuinely ships. The hail-history bullet above is sound:
+                 that lookup really is nationwide (functions/integrations/hail.js). -->
+            <li>Server-verified storm proof stamped onto the lead — a NOAA/NWS hail record you can hand an adjuster</li>
           </ul>
         </div>
         <div class="feature-mockup">
@@ -1757,7 +1853,15 @@
             <span class="faq-toggle" aria-hidden="true">+</span>
           </button>
           <div class="faq-answer">
-            Built by a contractor with $10M+ in claims experience. Priced 1/3 less than competitors. Includes training (Real Deal Academy) built-in. No complex integrations required — D2D tracking, estimates, and CRM are all unified. Designed for the roofing workflow, not adapted from generic project management.
+            <!-- 2026-08-18: read "Priced 1/3 less than competitors", which
+                 contradicts the other three places the ratio appears (meta
+                 description, hero, trust badge) — those all say one-third THE
+                 PRICE, i.e. you pay ~33%. "1/3 less" means you pay ~67%. The
+                 two cannot both be true; aligned to the dominant claim. The
+                 ratio itself is unverifiable from this repo (no competitor
+                 pricing in code), so it stays a marketing claim either way —
+                 but it should at least not contradict itself. -->
+            Built by a contractor with $10M+ in claims experience. Priced at about one-third what JobNimbus and AccuLynx charge. Includes training (Real Deal Academy) built-in. No complex integrations required — D2D tracking, estimates, and CRM are all unified. Designed for the roofing workflow, not adapted from generic project management.
           </div>
         </div>
 
@@ -1777,7 +1881,16 @@
             <span class="faq-toggle" aria-hidden="true">+</span>
           </button>
           <div class="faq-answer">
-            Yes. NBD Pro runs on Google's Firebase infrastructure with encryption in transit and at rest, hosted in Google Cloud's SOC 2–certified data centers, and your data is backed up. We never share or sell your data, and you can export everything anytime.
+            <!-- 2026-08-18: this ended "…and your data is backed up", unqualified.
+                 Firestore documents are (nightly 03:15 ET export, 30-day retention,
+                 7-snapshot floor — functions/firestore-backup.js, wired at
+                 functions/index.js). Cloud Storage binaries are NOT: job photos,
+                 signed warranties, contracts, estimate PDFs and voice recordings have
+                 no backup, per the repo's own runbook. On a security FAQ that is the
+                 one sentence a buyer would rely on, so it now states the scope that is
+                 actually true. The SOC 2 clause is left alone — it is correctly
+                 attributed to Google Cloud, not claimed for NBD Pro. -->
+            Yes. NBD Pro runs on Google's Firebase infrastructure with encryption in transit and at rest, hosted in Google Cloud's SOC 2–certified data centers. Your CRM records — leads, customers, jobs, and estimates — are exported to a private backup bucket every night, with a 30-day rolling history. We never share or sell your data, and you can export everything anytime.
           </div>
         </div>
 
@@ -1800,7 +1913,7 @@
       <h2>I BUILT IT FOR ME.<br>I'M SHARING IT WITH YOU.</h2>
       <p>Free tier forever — no credit card. 14 days free on Team &amp; Growth. No BS. If it's not the best roofing software you've used, walk away — no harm done.</p>
       <button class="btn btn-primary" style="font-size: 16px; padding: 14px 40px;" data-pl-action="goRegister">
-        Start Your Free Trial
+        Start Free
       </button>
     </div>
   </section>

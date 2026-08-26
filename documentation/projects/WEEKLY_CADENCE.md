@@ -63,10 +63,39 @@
       `continue-on-error` flip PR ([handoff](NEXT_SESSION-2026-08-07.md)).
       *(2026-08-10: streak is 3/10 — all job-level green since #1194; not
       ready, keep counting)*
+      *(2026-08-26: streak is **8/10** — job-level conclusions pulled for all
+      8 main runs since the 08-19 Playwright-CDN cancellations (#1268 →
+      #1276): all four advisory jobs green in every one. The cancellations
+      reset the count on purpose — a required job that hangs on a CDN stall
+      is a blocked merge, which is exactly what the streak bar is protecting
+      against (#1269 since capped that risk at 20 min). Two more green main
+      merges reach the bar.)*
 - [x] Any staged `published` date passed? *(2026-08-10: none)*
 - [x] Any red PR / open post-a-job request from Jo? Land it.
       *(2026-08-10: dependabot #1196 green → merged; issue #546 verified
       long-done → closed; tracker at zero)*
+- [x] **~~Lead address audit workflow is red daily~~ DIAGNOSED 2026-08-26 —
+      now a Jo item.** The "missing Actions secret" guess above was wrong
+      twice over: an unset secret makes the workflow skip *green*, and the
+      red is the audit **correctly failing** on the same 4 records it
+      inventoried the day it shipped. Record IDs, fix paths and the 08-25
+      trendline:
+      [CRM-ADDRESS-INTEGRITY-2026-08-18](../audit/CRM-ADDRESS-INTEGRITY-2026-08-18.md)
+      §2026-08-26. Moved to Jo's one-off queue below; agent lane closed.
+- [x] **~~firebase-deploy wholesale-guard misclassification~~ FIX SHIPPED
+      same night (2026-08-26)**: chunk 2 of 3 lost exactly one function to a
+      GCP transient — `onAiDraftApproved`'s Cloud Run operation poll hit
+      "Deadline Exceeded", so the CLI reported the failure only as a
+      trailing "Functions deploy had errors with the following functions:"
+      block, with no per-function ✖ line. The guard's regex missed that
+      shape → recorded WHOLESALE ("nothing or almost nothing was deployed")
+      while 166/167 functions verifiably updated. The fix parses that
+      trailing block into the parsed-failure set, so the shape now feeds
+      the straggler retry instead of a fatal wholesale record; 3 new F-10b
+      "mode 1b" test pins; parse simulated against the actual run-32925767669
+      bytes plus loud-failure/dedupe, genuine-wholesale, and codebase-prefix
+      shapes. Details: [DEPLOY-FALSE-GREEN-MODES-2026-08-17](../audit/DEPLOY-FALSE-GREEN-MODES-2026-08-17.md)
+      §2026-08-26.
 
 ---
 
@@ -84,6 +113,15 @@
       deploys 429 or the site half-loads, check GCP billing first.**
       Billing notices did not reach the monitored Gmail — while in the
       console, confirm the billing account's contact email + card expiry.
+- [ ] **Clear the address-audit gate (~2 min in NBD Pro)** — open the 4
+      failing leads (Kevin Dewald, George Broderick, Jerry Sharkey, AJ —
+      all $0) and either complete the address or retire the lead; the
+      daily gate self-greens on the next 11:00 UTC fire. While you're in
+      there: the Nick/Gabby Galfrey lead ($23,600) is missing only its
+      **state** — one field completes the biggest thin record in the book.
+      IDs + detail:
+      [CRM-ADDRESS-INTEGRITY-2026-08-18](../audit/CRM-ADDRESS-INTEGRITY-2026-08-18.md)
+      §2026-08-26.
 - [ ] **Delete the 7 retired functions in the Firebase console (~3 min)** —
       code retired 2026-08-11 (Jo-approved, dead-surface lane): Console →
       Functions → delete `sendEstimateEmail`, `sendDripEmail`,
@@ -113,9 +151,10 @@
       for now) — [PUBLISH-PROJECT](../runbooks/PUBLISH-PROJECT.md)
 - [ ] **Backfill real cities on the 12 seeds** ("Greater Cincinnati, OH" ×11 →
       real towns where consent allows)
-- [ ] **Edit the 3 blog drafts** — 25 `JO:` markers (photos, storm anecdote,
-      report screenshots) — [drafts README](../drafts/README.md); each cleared
-      post = one agent publish session
+- [ ] **Edit the 2 remaining blog drafts** — `JO:` markers (photos, storm
+      anecdote, report screenshots) — [drafts README](../drafts/README.md);
+      each cleared post = one agent publish session *(was "3 drafts": the
+      financing post published 2026-08-17, PR #1224; corrected 2026-08-25)*
 - [ ] **TAMKO real pricing** — 8 SKUs still carry GAF-mirrored placeholders
 - [ ] **kie.ai visualizer flip** (config-only) —
       [VISUALIZER-KIE-PROVIDER](../runbooks/VISUALIZER-KIE-PROVIDER.md)
@@ -136,28 +175,49 @@
 
 ## Agent-session backlog (ranked — pick one per session)
 
-1. **Phase-2 tenant-owned cost book** — migrate the EBv2 CATALOG (28
-   entries) AND estimate-catalog-xactimate.js (276 entries) out of the
-   public tree; both are pinned in the cost-privacy KNOWN_UNMIGRATED
-   ledger ([audit 2026-08-10](../audit/SITE-AUDIT-LOOSE-ENDS-2026-08-10.md))
-2. Jobs-posting **phase 2**: admin "Post a Job" form + PR bot (roadmap in
+1. **ROTATE the three published cost baselines** — NOT a migration. Nothing
+   can be stripped from `estimate-builder-v2.js` (28), `estimate-catalog-
+   xactimate.js` (276) or `estimate-labor-catalog.js` (66): those figures ARE
+   the pricing and removing them turns the estimator off. The override paths
+   shipped 2026-08-19, so all that remains is Jo filling a worksheet and one
+   import per catalog. **This is the only forcing function there is** — no
+   test can see a Firestore write, so nothing in CI will ever nag about it,
+   deliberately (a scheduled red on the cost-privacy guard is a countdown on
+   the guard). Every run prints `ROTATION OUTSTANDING — 3 of 3`; the state
+   lives in `tests/cost-basis-ledger.js`.
+   ```
+   node scripts/cost-rotation.js --catalog all --worksheet
+   node scripts/cost-rotation.js --catalog <id> --apply .local/rotation-<id>.json
+   node scripts/import-cost-rotation.js --catalog <id> --company <id> --yes
+   ```
+   The last command prints the `rotation:` block to paste into the ledger, and
+   pasting it is what closes the item ([Phase-2
+   brief](PHASE2-PUBLISHED-COST-BASIS-BRIEF-2026-08-18.md) ·
+   [audit 2026-08-10](../audit/SITE-AUDIT-LOOSE-ENDS-2026-08-10.md))
+2. **Lexington launch ops (Jo, ~15 min)** — the site claims Central KY as of
+   2026-08-25: (a) add Lexington, Georgetown, Nicholasville, Winchester,
+   Richmond, Versailles to the Google Business Profile service area; (b) confirm
+   Lexington–Fayette / local permit or licensing requirements before the first
+   job; (c) text the Lexington caller `/areas/lexington-ky` + the two posts
+   ([session note Part 2](SESSION-2026-08-25-lexington-call-posts.md))
+3. Jobs-posting **phase 2**: admin "Post a Job" form + PR bot (roadmap in
    [NEXT_SESSION-2026-08-10](NEXT_SESSION-2026-08-10.md))
-3. **Dead-functions wire-or-retire lane** — 7 deployed exports with no
+4. **Dead-functions wire-or-retire lane** — 7 deployed exports with no
    caller (list + playbook in the 2026-08-10 audit note §Open items); needs
    Jo's per-function call, then CL8-style retirement or UI wiring
-4. Firestore offline persistence (after Jo's decision)
-5. Classic-wizard deletion (once Jo's gates clear)
-6. **Rules-test coverage** — zero assertions for /invoices, /storm_proofs,
+5. Firestore offline persistence (after Jo's decision)
+6. Classic-wizard deletion (once Jo's gates clear)
+7. **Rules-test coverage** — zero assertions for /invoices, /storm_proofs,
    /supplements, /portal_messages, /connectAccounts + Storage
    audio/galleries/reports/shared_docs; plus #12-guard cases for the 12
    newly guarded creates (2026-08-10 audit)
-7. **Admin AI-usage endpoint** — the analytics page is labeled SAMPLE DATA;
+8. **Admin AI-usage endpoint** — the analytics page is labeled SAMPLE DATA;
    claudeProxy already logs real usage, needs aggregation + page wiring
-8. Functions cold-start increment 2 (lazy export proxies)
-9. Inline-CSS dedup phase 2 (~2.7 MB; needs generator design)
-10. /our-work/<slug> detail pages (needs build-sitemap rule) + Haiku blurb drafter
-11. Globals Tranche 3 plan · 404 full-chrome · emulator widening · Swath admin UI
-12. Blog publish sessions (one per draft, after Jo's edits)
+9. Functions cold-start increment 2 (lazy export proxies)
+10. Inline-CSS dedup phase 2 (~2.7 MB; needs generator design)
+11. /our-work/<slug> detail pages (needs build-sitemap rule) + Haiku blurb drafter
+12. Globals Tranche 3 plan · 404 full-chrome · emulator widening · Swath admin UI
+13. Blog publish sessions (one per draft, after Jo's edits)
 
 *(2026-08-10: "rate-limit-policy adopt-vs-delete" left this list — ADOPTED;
 guardHttp/guardCallable now live on claudeProxy, validateAccessCode,
