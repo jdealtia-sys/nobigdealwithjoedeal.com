@@ -63,6 +63,13 @@
       `continue-on-error` flip PR ([handoff](NEXT_SESSION-2026-08-07.md)).
       *(2026-08-10: streak is 3/10 — all job-level green since #1194; not
       ready, keep counting)*
+      *(2026-08-26: streak is **8/10** — job-level conclusions pulled for all
+      8 main runs since the 08-19 Playwright-CDN cancellations (#1268 →
+      #1276): all four advisory jobs green in every one. The cancellations
+      reset the count on purpose — a required job that hangs on a CDN stall
+      is a blocked merge, which is exactly what the streak bar is protecting
+      against (#1269 since capped that risk at 20 min). Two more green main
+      merges reach the bar.)*
 - [x] Any staged `published` date passed? *(2026-08-10: none)*
 - [x] Any red PR / open post-a-job request from Jo? Land it.
       *(2026-08-10: dependabot #1196 green → merged; issue #546 verified
@@ -75,19 +82,20 @@
       trendline:
       [CRM-ADDRESS-INTEGRITY-2026-08-18](../audit/CRM-ADDRESS-INTEGRITY-2026-08-18.md)
       §2026-08-26. Moved to Jo's one-off queue below; agent lane closed.
-- [ ] **firebase-deploy wholesale-guard misclassification** (found 2026-08-26,
-      run 32925767669): chunk 2 of 3 lost exactly one function to a GCP
-      transient — `onAiDraftApproved`'s Cloud Run operation poll hit
+- [x] **~~firebase-deploy wholesale-guard misclassification~~ FIX SHIPPED
+      same night (2026-08-26)**: chunk 2 of 3 lost exactly one function to a
+      GCP transient — `onAiDraftApproved`'s Cloud Run operation poll hit
       "Deadline Exceeded", so the CLI reported the failure only as a
       trailing "Functions deploy had errors with the following functions:"
-      block, with no per-function ✖ line. The guard's per-function regex
-      missed that shape → recorded WHOLESALE ("nothing or almost nothing
-      was deployed") while 166/167 functions verifiably updated and chunk 3
-      still ran green after. Fix: parse that trailing block into the FAILED
-      set so this shape feeds the existing straggler retry instead of a
-      fatal wholesale record; add the F-10b test mode for it. Until then,
-      this failure shape = a red run with everything actually deployed —
-      verify by outcome before re-deploying anything.
+      block, with no per-function ✖ line. The guard's regex missed that
+      shape → recorded WHOLESALE ("nothing or almost nothing was deployed")
+      while 166/167 functions verifiably updated. The fix parses that
+      trailing block into the parsed-failure set, so the shape now feeds
+      the straggler retry instead of a fatal wholesale record; 3 new F-10b
+      "mode 1b" test pins; parse simulated against the actual run-32925767669
+      bytes plus loud-failure/dedupe, genuine-wholesale, and codebase-prefix
+      shapes. Details: [DEPLOY-FALSE-GREEN-MODES-2026-08-17](../audit/DEPLOY-FALSE-GREEN-MODES-2026-08-17.md)
+      §2026-08-26.
 
 ---
 

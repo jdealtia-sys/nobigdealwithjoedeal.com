@@ -815,6 +815,24 @@ jobs:
             clean=$(printf '%s\n' "$out" | _strip_ansi)
             parsed=$(printf '%s\n' "$clean" | grep -oE "Failed to (create|update) function [A-Za-z_][A-Za-z0-9_]*" \
                                  | sed -E 's/.*function //')
+            # Mode 1b (run 32925767669, 2026-08-26): when a function's Cloud Run
+            # operation poll times out ("Could not get operation details ...
+            # Deadline Exceeded."), firebase prints NO "Failed to ..." line for
+            # it — the only per-function record is the trailing summary block:
+            #   Functions deploy had errors with the following functions:
+            #   	onAiDraftApproved(us-central1)
+            # Without this parse that shape fell through to the wholesale guard,
+            # which declared "nothing or almost nothing was deployed" while
+            # 166/167 functions were verifiably live — and the one real
+            # straggler never reached the retry rounds, because completion
+            # accounting is skipped on the wholesale path. Parse the block's
+            # indented NAME(region) lines (it ends at the first non-indented
+            # line); on the normal loud-failure deploys the same names already
+            # arrive via the "Failed to ..." parse and sort -u dedupes.
+            summary=$(printf '%s\n' "$clean" \
+              | awk 'flag { if ($0 ~ /^[[:space:]]/) print; else flag=0 } /^Functions deploy had errors with the following functions:/ { flag=1 }' \
+              | sed -E 's/^[[:space:]]+//; s/\(.*$//; s/^.*://' | grep -E '^[A-Za-z_][A-Za-z0-9_]*$')
+            parsed=$(printf '%s\n%s\n' "$parsed" "$summary" | grep -v '^$' | sort -u)
             [ -n "$parsed" ] && printf '%s\n' "$parsed" >> "$FAILED_FILE"
             if [ "$rc" -ne 0 ] && [ -z "$parsed" ]; then
               echo "wholesale deploy failure: exit $rc with no per-function failure lines (targets: $1)" >> "$WHOLESALE_FILE"

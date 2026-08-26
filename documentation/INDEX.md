@@ -46,6 +46,7 @@ Map of content for the `documentation/` corpus (~115 files) plus the other place
 - [VISUALIZER-KIE-PROVIDER](runbooks/VISUALIZER-KIE-PROVIDER.md) — flip image-gen to kie.ai (config-only, Jo action)
 - [SWATH-SETUP](runbooks/SWATH-SETUP.md) — Swath API (storm-verified property intel): signup, secrets, coverage monitor, provider flags, credit model (Jo action)
 - [PUBLISH-PROJECT](runbooks/PUBLISH-PROJECT.md) — add a Featured Project to /our-work (prices, photos, consent rules)
+- [LEXINGTON-CONTRACTOR-SETUP](runbooks/LEXINGTON-CONTRACTOR-SETUP.md) — Fayette County paperwork before the first Lexington job: no KY state roofing license (HB 150 pending), LFUCG registration steps, the one reroof-permit question to settle by phone (Jo action)
 
 ## Projects & planning
 

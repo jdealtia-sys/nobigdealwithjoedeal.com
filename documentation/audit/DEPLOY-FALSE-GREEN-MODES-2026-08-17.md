@@ -359,3 +359,52 @@ Assessed blast radius:
 The harness now converts paths with `cygpath`, **proves** `npx` resolves inside
 the fake bin before running, and points `PRO_PROJECT` at a nonexistent project so
 a future leak cannot target prod.
+
+## 2026-08-26 — mode 1b, the false RED (run 32925767669)
+
+The inventory above is three ways this step reported success while functions
+did not deploy. The #1276 merge deploy produced the inverse: **a red run
+with a wrong diagnosis while everything (bar one) deployed fine** — and the
+one real straggler was never retried.
+
+What happened: chunk 2 of 3 (167 functions, `NBD_DEPLOY_WAVE1_MAX=60`) lost
+exactly one function, `onAiDraftApproved`, to a GCP transient — the CLI's
+poll of its Cloud Run update operation returned "Could not get operation
+details … **Deadline Exceeded.**" That failure shape prints **no "Failed to
+(create|update) function NAME" line**; the only per-function record is the
+CLI's trailing summary block:
+
+```
+Functions deploy had errors with the following functions:
+	onAiDraftApproved(us-central1)
+Error: There was an error deploying functions
+```
+
+The mode-1 parse matched nothing, so the nonzero exit fell through to the
+mode-2 wholesale guard: "nothing or almost nothing was deployed" — flatly
+untrue (166/167 updated; chunk 3 ran clean after). Worse than the wrong
+message: the wholesale path **skips completion accounting by design**, so
+`onAiDraftApproved` never entered the straggler retry. Production impact was
+zero only by luck — the merge was docs+vault, so the function's prior
+revision was identical code.
+
+**Fix (same night):** `_deploy_only` now parses that trailing block — awk
+extracts the indented `NAME(region)` lines after the header, sed strips
+region + any codebase prefix — and merges the names into `parsed` **before**
+the wholesale check. Consequences, in order: the shape counts as ordinary
+per-function failure(s); completion accounting runs for the chunk; the named
+functions feed the straggler retry; wholesale now means what it says (exit
+nonzero with NO per-function record of any kind). On normal loud failures
+the same names already arrive via the "Failed to" parse and `sort -u`
+dedupes, so nothing changes there.
+
+Verified: parse simulated against the run's actual bytes (extracts
+`onAiDraftApproved`), a loud-failure+summary dedupe case, a genuine
+wholesale (auth abort → parsed stays empty), and a codebase-prefixed name.
+Three new F-10b "mode 1b" pins in `tests/smoke/functions.test.js`; full
+smoke suite 3433/0.
+
+Diagnostic rule this incident adds: **a red on this step is not evidence
+that nothing deployed — verify by outcome** (fetch served pages, probe the
+functions) before re-deploying anything. That is how this one was caught:
+the calcomWebhook probes flipped healthy while the run sat red.
