@@ -41,9 +41,15 @@ Part 2 of the [session note](SESSION-2026-08-25-lexington-call-posts.md)).
 4. **Before the first Lexington job**: confirm any Lexington–Fayette / local
    permit or licensing requirements for roofing work there — I made no licensing
    claims on the new pages, but the paperwork question is real and yours.
-5. Carried from 08-20 if not yet done: **send Scott the CURRENT Oaks zip** (7-Zip,
+5. **Finish the Cal.com→CRM wiring** (same evening: the whole Cal.com account was
+   audited and rebuilt — [CALCOM-INTEGRATION-2026-08-25](../audit/CALCOM-INTEGRATION-2026-08-25.md)):
+   (a) set `CALCOM_WEBHOOK_SECRET` in Firebase with the value from chat + redeploy
+   the function; (b) NBD Pro → Settings → Profile → Cal.com username `nobigdeal`;
+   (c) optional: restrict the "Central Kentucky days" schedule to real trip days;
+   (d) revoke the session API key if it has no expiry.
+6. Carried from 08-20 if not yet done: **send Scott the CURRENT Oaks zip** (7-Zip,
    not PowerShell Compress-Archive).
-6. Still yours from the drafts pipeline: the 2 remaining blog drafts need your
+7. Still yours from the drafts pipeline: the 2 remaining blog drafts need your
    `JO:` inputs (photos / report screenshots) — [drafts README](../drafts/README.md).
 
 ## For the next engineering session
