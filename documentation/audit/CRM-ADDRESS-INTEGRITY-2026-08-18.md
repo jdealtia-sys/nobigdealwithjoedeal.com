@@ -383,6 +383,39 @@ state**. Those two are exactly the rows Wave 4's re-geocode correctly
 rejected, so they need a human. Galfrey is the money item: one field from
 mailable on the biggest thin job in the book.
 
+## 2026-08-27 — script ported to `_admin`, and the gate is green
+
+Two updates, one code and one data.
+
+**Code.** `scripts/audit-lead-addresses.js` still initialised firebase-admin
+through the legacy namespace (`admin.credential.applicationDefault()` /
+`admin.firestore()`), which v14 removed — `functions/node_modules` now holds
+14.3.0, so every local run threw `Cannot read properties of undefined
+(reading 'applicationDefault')` before scanning anything. The daily workflow
+never noticed because its scratch NODE_PATH install is pinned to v12, where
+the namespace still exists. Ported to the shared entrypoint
+(`scripts/_admin.js`: `initAdmin` + `getFirestore`), same as the other
+nineteen scripts; classify regexes, `--list`/`--csv`, exit codes and the
+`deleted === true` skip are untouched. Verified against prod both ways:
+v14.3.0 out of `functions/`, and a scratch firebase-admin@12.7.0 via
+NODE_PATH replicating the workflow's invocation — identical output, exit 0.
+The Wave-4 note above ("stubbed `firebase-admin` at the loader") is stale as
+of this port: `tests/address-audit-script.test.js` now stubs `./_admin` at
+the loader instead, same hermetic contract, all 11 assertions green with no
+firebase-admin installed at all. The workflow's v12 pin is now compatibility
+padding rather than a requirement for THIS script — it uses no Timestamps —
+but is left alone; other scripts it might someday share the scratch install
+with still care.
+
+**Data.** The 08-27 prod run (read-only) is the first GREEN snapshot: the
+four broken records inventoried on 2026-08-26 are gone (retired rows went
+19 → 23 — completed or retired in NBD Pro, exactly the fix that section
+prescribed), so the daily gate self-greens on its next 11:00 UTC fire.
+Trendline: 173 live (+23 retired), 119 complete ($405,493.19 of pipeline),
+53 street-less ($12,476.25), and **one** `noState` row left — Sofia Moriarty
+($0). The Galfrey record ($23,600, 08-26's money item) got its state and now
+sits in the OK bucket.
+
 ## Source
 
 Full customer-facing breakdown with per-record detail lives in the Cowork
