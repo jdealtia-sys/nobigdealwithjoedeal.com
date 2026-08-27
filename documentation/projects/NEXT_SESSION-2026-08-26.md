@@ -80,9 +80,13 @@ blocking for the first time — watch the first one or two rather than assuming.
   requested∩used weights; page-scoped CSP tightening as pages migrate; the
   global CSP's font hosts come out only when the last page is done. Note
   #1280 already removed the known sandbox-E2E timeout cause for login/register.
-- **Prod orphan sweep run** (after #1253 deploys): Jo-authorized session runs
-  `sweep-orphan-lead-artifacts.js` against the 10 known orphans —
+- ~~**Prod orphan sweep run**~~ **EXECUTED 2026-08-26, same evening**
+  (Jo-authorized): 0 orphans (the trigger landed before it was ever needed),
+  and 8 window-period invoices found carrying permanent public tokens — all
+  revoked (Jo-approved; verified by re-count and a 403 on a revoked URL).
+  Result section appended to
   [ORPHANED-STORAGE-ARTIFACTS-2026-08-18](../audit/ORPHANED-STORAGE-ARTIFACTS-2026-08-18.md).
+  Still open there: the 2 tokened d2d audio files (hand-review class).
 - Carried, still gated: Central KY phase 2 (needs a Lexington job), blog
   series (needs call facts), email-ingest build (scoped 08-17, not started).
 

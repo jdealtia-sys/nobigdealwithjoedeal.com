@@ -250,3 +250,32 @@ they generated have no retrievable artifact.
 - `scripts/purge-legacy-storage-portals.js` — the one-time backfill whose blind
   spots this audit documents
 - `functions/FUNCTIONS_INDEX.md` — rows for `getDocumentHtml`, `onLeadDeleted`
+
+## Prod sweep result (2026-08-26, APPLIED — Jo-authorized)
+
+Run the evening #1253 deployed, against `nobigdeal-pro` /
+`nobigdeal-pro.firebasestorage.app` (ADC). Dry-run first, then
+`--revoke-tokens --apply --yes`.
+
+- **Orphans: 0.** No lead hard-deleted in the 08-18→08-26 window left
+  artifacts — `onLeadDeleted` landed before it was ever needed. Nothing
+  deleted; the backup dir stayed empty and was removed.
+- The 08-18 leftovers resolved themselves: the two soft-deleted-lead tokened
+  documents and the retired gallery artifact are gone from the bucket.
+- **New finding: 8 window-period invoices carried permanent public tokens** —
+  generated 08-18→08-26 by the pre-#1253 `document-generator.js`, which was
+  still minting `getDownloadURL` tokens until today's deploy. All 8 rows
+  verified (read-only) to carry `htmlPath`, so the CRM reads them through the
+  authed `getDocumentHtml` callable and the tokens were pure exposure.
+  **All 8 revoked** (Jo-approved same evening); re-run counts
+  `active w/ token: 0`, and a direct fetch of a revoked `htmlUrl` returns
+  **HTTP 403**. The stale `htmlUrl` field values persisted in Firestore now
+  point at dead URLs, which is the intended end state.
+- Still open, deliberately: the 2 unparsed `audio/{uid}/d2d/*.webm` objects
+  with public tokens (hand-review class — this script never auto-touches
+  unparsed paths), and the broader flat-prefix token exposure documented in
+  the storage-tokens memory (photos/ etc.), which is not this sweep's scope.
+
+With this, the artifact-leak class this audit opened is CLOSED end-to-end:
+trigger live, callable live, generator tokenless, backlog swept, window
+cleaned, verified by fetch.
