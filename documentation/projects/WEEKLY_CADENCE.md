@@ -125,15 +125,15 @@
       deploys 429 or the site half-loads, check GCP billing first.**
       Billing notices did not reach the monitored Gmail — while in the
       console, confirm the billing account's contact email + card expiry.
-- [ ] **Clear the address-audit gate (~2 min in NBD Pro)** — open the 4
-      failing leads (Kevin Dewald, George Broderick, Jerry Sharkey, AJ —
-      all $0) and either complete the address or retire the lead; the
-      daily gate self-greens on the next 11:00 UTC fire. While you're in
-      there: the Nick/Gabby Galfrey lead ($23,600) is missing only its
-      **state** — one field completes the biggest thin record in the book.
-      IDs + detail:
-      [CRM-ADDRESS-INTEGRITY-2026-08-18](../audit/CRM-ADDRESS-INTEGRITY-2026-08-18.md)
-      §2026-08-26.
+- [x] **~~Clear the address-audit gate~~ DONE 2026-08-27, Jo-delegated to a
+      session.** The four $0 leads retired (recoverable soft-delete, reason
+      stamped); Galfrey turned out to be blocked by a one-letter road-name
+      typo (Murdoch → **Murdock**) — corrected, geocoded unambiguously, and
+      written FULLY mailable (`10595 Cozaddale-Murdock Rd, Goshen, OH
+      45122`), not just state-patched. Replicated gate scan confirms
+      `legacyMangled: 0, blank: 0` → the 11:00Z fire self-greens.
+      Details: [CRM-ADDRESS-INTEGRITY-2026-08-18](../audit/CRM-ADDRESS-INTEGRITY-2026-08-18.md)
+      §2026-08-27.
 - [ ] **Delete the 7 retired functions in the Firebase console (~3 min)** —
       code retired 2026-08-11 (Jo-approved, dead-surface lane): Console →
       Functions → delete `sendEstimateEmail`, `sendDripEmail`,

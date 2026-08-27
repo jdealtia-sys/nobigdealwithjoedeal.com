@@ -387,3 +387,31 @@ mailable on the biggest thin job in the book.
 
 Full customer-facing breakdown with per-record detail lives in the Cowork
 artifacts `nbd-address-audit` and `nbd-address-ledger` (2026-08-18).
+
+## 2026-08-27 — gate CLEARED (Jo-directed, executed from a session)
+
+Jo delegated the queue item. All writes verify-before-write, prod, ADC:
+
+- **The four $0 gate-failers retired** (soft-delete: `deleted: true` +
+  `deletedAt` + a `deletedReason` naming this action — recoverable, and the
+  shape the gate's skip predicate reads): Dewald `DpjsBG8qzrJKLwhrU9oj`
+  (the legacyMangled placeholder), Broderick `9WWbu37dEHt7u6MfiihW`,
+  Sharkey `KQASizQhFLDH0tjgfFf1`, AJ `kBNTUsTFSE7hBY8u5ukU` (blanks).
+  Identities confirmed against this doc's table before writing.
+- **Galfrey `vs8xdVKbFT3g8rzhkIuf` ($23,600) is now fully MAILABLE**, not
+  just state-patched. The reason Wave 4's re-geocode rejected it was a
+  one-letter typo: the road is Cozaddale **Murdock** Rd, not Murdoch.
+  Corrected spelling geocodes unambiguously (single road, single postcode:
+  Cozaddale, Hamilton Twp, Warren County, OH 45122; USPS post town Goshen).
+  Written: `10595 Cozaddale-Murdock Rd, Goshen, OH 45122`; prior string
+  preserved in `addressPrev`. Classifies `ok`.
+- **Read-back by replicated gate scan** (same classify/skip logic, full
+  collection): 173 live scanned, 23 retired skipped,
+  `legacyMangled: 0, blank: 0` → **the 11:00Z fire self-greens**.
+  Remaining non-gating trendline: 53 noStreet (thin Thumbtack inbound),
+  1 noState (Sofia Moriarty, $0 — still the one human-review row).
+
+Also noted for the next tooling pass: `audit-lead-addresses.js` still uses
+the legacy firebase-admin namespace (`admin.credential.applicationDefault`),
+which v14 removed — it runs in CI but throws locally; migrating it to
+`scripts/_admin.js` is the one-line-per-import fix its header prescribes.

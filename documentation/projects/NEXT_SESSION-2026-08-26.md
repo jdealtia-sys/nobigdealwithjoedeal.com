@@ -62,10 +62,11 @@ blocking for the first time — watch the first one or two rather than assuming.
 5. **Send Scott the CURRENT Oaks zip** (7-Zip, not Compress-Archive).
 6. **2 blog drafts** still need your `JO:` inputs
    ([drafts README](../drafts/README.md)).
-7. **Clear the address-audit gate** (~2 min in NBD Pro): 4 failing $0 leads
-   (Dewald, Broderick, Sharkey, AJ) + the missing state on Galfrey ($23,600)
+7. ~~**Clear the address-audit gate**~~ **DONE 2026-08-27** (Jo-delegated):
+   four $0 leads retired, Galfrey written fully mailable (the blocker was a
+   Murdoch→Murdock road-name typo). Gate confirmed green by replicated scan
    — [CRM-ADDRESS-INTEGRITY-2026-08-18](../audit/CRM-ADDRESS-INTEGRITY-2026-08-18.md)
-   §2026-08-26. The daily gate self-greens on the next 11:00Z fire.
+   §2026-08-27.
 8. **Cloud Run CPU quota request** — the runbook lands with #1255
    ([CLOUD-RUN-CPU-QUOTA-REQUEST](../runbooks/CLOUD-RUN-CPU-QUOTA-REQUEST.md));
    when granted, set `NBD_DEPLOY_WAVE1_MAX` back to `"0"`.
