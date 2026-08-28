@@ -1,5 +1,20 @@
 [
   {
+    "image": "/assets/images/projects/cincinnati-oh-full-tearoff-reroof-2026-1.jpg",
+    "city": "Cincinnati, OH",
+    "alt": "Drone view of the crew stripping two layers of shingles down to plank decking on a two-story hip roof"
+  },
+  {
+    "image": "/assets/images/projects/blue-ash-oh-roof-vents-thermal-2026-1.jpg",
+    "city": "Blue Ash, OH",
+    "alt": "Overhead drone view of a gray shingle roof with seven new low-profile vents and turbines installed, large fenced backyard below"
+  },
+  {
+    "image": "/assets/images/projects/cincinnati-oh-siding-repair-2026-1.jpg",
+    "city": "Cincinnati, OH",
+    "alt": "Extension ladder reaching a second-story gable while a technician re-secures a piece of vinyl siding at the top"
+  },
+  {
     "image": "/assets/images/projects/brick-duplex-designer-reroof-2026-3.jpg",
     "city": "Cincinnati, OH",
     "alt": "Overhead drone view of the finished designer-blend shingle roof on a brick Tudor duplex with relined box gutters and coated porch roof"
@@ -11,52 +26,37 @@
   },
   {
     "image": "/assets/images/projects/completed-colonial-spring.jpg",
-    "city": "Greater Cincinnati, OH",
+    "city": "Union, KY",
     "alt": "Completed roof on brick colonial home with spring landscaping"
   },
   {
     "image": "/assets/images/projects/completed-brick-aerial.jpg",
-    "city": "Greater Cincinnati, OH",
+    "city": "Milford, OH",
     "alt": "Aerial drone view of completed brick home roof replacement"
   },
   {
     "image": "/assets/images/projects/completed-multisection.jpg",
-    "city": "Greater Cincinnati, OH",
+    "city": "Sycamore Township, OH",
     "alt": "Complex multi-section roof replacement completed"
   },
   {
     "image": "/assets/images/projects/damage-lifted-shingles.jpg",
-    "city": "Greater Cincinnati, OH",
+    "city": "Miamisburg, OH",
     "alt": "Storm damaged roof with lifted and missing shingles"
   },
   {
     "image": "/assets/images/projects/damage-chalk-marked.jpg",
-    "city": "Greater Cincinnati, OH",
+    "city": "Mason, OH",
     "alt": "Chalk-marked hail damage during roof inspection"
   },
   {
     "image": "/assets/images/projects/active-culdescac-crew.jpg",
-    "city": "Greater Cincinnati, OH",
+    "city": "Cincinnati, OH",
     "alt": "NBD crew actively working on roof tear-off in residential neighborhood"
   },
   {
     "image": "/assets/images/projects/active-brick-underlayment.jpg",
-    "city": "Greater Cincinnati, OH",
+    "city": "Sycamore Township, OH",
     "alt": "Crew installing synthetic underlayment on large brick home"
-  },
-  {
-    "image": "/assets/images/projects/detail-valley-shingle.jpg",
-    "city": "Greater Cincinnati, OH",
-    "alt": "Clean metal valley flashing with new architectural shingles on both sides"
-  },
-  {
-    "image": "/assets/images/projects/aerial-dual-property.jpg",
-    "city": "Greater Cincinnati, OH",
-    "alt": "Aerial drone shot of two roofs being replaced simultaneously"
-  },
-  {
-    "image": "/assets/images/projects/commercial-apartment-tearoff.jpg",
-    "city": "Greater Cincinnati, OH",
-    "alt": "Aerial drone view of apartment building mid-tearoff with blue underlayment and crew working"
   }
 ]
