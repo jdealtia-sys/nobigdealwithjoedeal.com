@@ -28,6 +28,23 @@ kit + posters first (`../marketing/gbp-post-kit-2026-08-28.md` +
 so. When he does: add the Central-KY towns to the GBP service area BEFORE
 the Lexington announcement.
 
+## §0b — Same-day round 2 (PR #1286): expansion + corrections + Dindar
+
+#1285 merged and VERIFIED LIVE same day (deploy green; served /our-work
+carries the towns/prices, zero "Greater Cincinnati" left). Jo then, live in
+session: (a) flagged that Hatley's third photo was **Ty Nicodemus's roof**
+(neighbor, ANOTHER customer — future card candidate) → replaced with
+Roofivent Roto-turbine/Eco-vent close-ups per his ask; (b) corrected Higgins
+to THIRD-story; (c) asked for **5–10 photos per project** → Goddard 3→6,
+Hatley 3→5, Higgins 2→4, A-frame/Evansville +1 each (Photo Library
+companions); (d) approved **Dindar** (Sharonville, $1,000–1,500,
+siding-repair + storm-damage, 4 photos; crew-face close-up excluded, his
+call to add). The second Drive sweep's full report (Dindar find, soft-wash
+job description, McGlynn hold-until-invoice-sent, SD-roll GPS fixes) is in
+the sweep agent record; top leads folded into §5 below. Mesh-screens Content
+photos were REJECTED for Gary's card — they read as pre-job existing
+screens, not the new install.
+
 ## Fast lanes queued by the Drive survey (session note §5)
 
 - Soft Wash: 16 new HEICs in INTERNAL/Content/Soft Wash → heic-convert →
