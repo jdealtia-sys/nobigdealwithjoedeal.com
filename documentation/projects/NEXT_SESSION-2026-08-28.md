@@ -14,17 +14,19 @@ projects (Goddard $22.5–23.5k re-roof · Hatley $3–3.5k thermal+vents ·
 Higgins $300–500 same-day siding), a 2nd photo on the apartment-tearoff
 card, and the [GBP post kit](../marketing/gbp-post-kit-2026-08-28.md).
 
-**Blocked on Jo's three answers (asked in-session):**
-1. Consent per new project (Goddard / Hatley / Higgins) — `consentOnFile`
-   is staged but the attestation is his.
-2. Towns table sign-off — esp. Evansville IN, West Liberty KY, Gatlinburg
-   TN (out-of-market reveals) and the Sycamore Twp / Miamisburg GPS reads.
-3. Price ranges as staged.
+**Jo answered same day (2026-08-28):** consent ✓ for all three projects
+("yes, I gave you permission"); towns unchallenged; Higgins re-priced to
+**$600–1,000** per Jo (applied). He noted the Goddard tear-off and the
+existing Tudor-duplex card are similar — both stay ("either great"), but
+**keep hunting more job variety** (a second Drive sweep of the unreached
+folders was launched that session). PR flipped to ready; **merge is Jo's
+tap** per the publish runbook, deploy verification follows.
 
-On his yes: mark PR ready, merge, verify deploy, then the GBP/FB/IG posts
-(kit + posters are ready to paste; posters were delivered in-chat and live
-in `documentation/marketing/gbp-kit-2026-08-28/`). Add the Central-KY towns
-to the GBP service area BEFORE posting the Lexington announcement.
+**GBP/FB/IG posting is HELD on Jo's explicit instruction** — he reviews the
+kit + posters first (`../marketing/gbp-post-kit-2026-08-28.md` +
+`../marketing/gbp-kit-2026-08-28/`). Nothing posts anywhere until he says
+so. When he does: add the Central-KY towns to the GBP service area BEFORE
+the Lexington announcement.
 
 ## Fast lanes queued by the Drive survey (session note §5)
 
