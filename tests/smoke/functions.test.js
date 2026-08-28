@@ -557,6 +557,16 @@ section('Cal.com webhook');
   // no longer assert it.
   assert('creates appointments doc',
     /appointments\/\$\{bookingId\}/.test(src));
+  // M-2: a cold organic booking (no pre-existing lead to match against) was
+  // silently dropped — appointments/{id} got written but nothing appeared in
+  // Pipeline. Regression guard so this doesn't quietly regress back to that.
+  assert('creates a CRM lead when no existing lead matches the booking',
+    /if \(!leadId\) \{[\s\S]{0,600}collection\('leads'\)\.doc\(newLeadId\)\.create\(/.test(src));
+  assert('new-lead id is deterministic (idempotent against retried webhook delivery)',
+    /bridgeDocId\('calcom', bookingId\)/.test(src));
+  assert('new lead is scoped to the rep and stamps phoneDigits',
+    /companyId:\s*repCompanyId \|\| repUid/.test(src) &&
+    /phoneDigits:\s*phoneDigits10\(phone\)/.test(src));
 }
 
 section('Unified client + status endpoint');
