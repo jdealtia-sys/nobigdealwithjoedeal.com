@@ -1,0 +1,50 @@
+# NEXT SESSION — 2026-08-28
+
+Handoff from the /our-work content session
+([session note](SESSION-2026-08-28-ourwork-areas-galleries-gbp.md)). The
+08-26 handoff's §0 merge queue is DONE (main log shows #1279–#1284 merged);
+[NEXT_SESSION-2026-08-26](NEXT_SESSION-2026-08-26.md) still carries Jo's
+broader queue — nothing there is superseded except as noted.
+
+## §0 — THE LIVE ITEM: the content PR gate
+
+Branch `content/our-work-areas-galleries-2026-08-28` (draft PR) holds:
+real towns on all 12 legacy /our-work cards (EXIF-verified), 3 new priced
+projects (Goddard $22.5–23.5k re-roof · Hatley $3–3.5k thermal+vents ·
+Higgins $300–500 same-day siding), a 2nd photo on the apartment-tearoff
+card, and the [GBP post kit](../marketing/gbp-post-kit-2026-08-28.md).
+
+**Blocked on Jo's three answers (asked in-session):**
+1. Consent per new project (Goddard / Hatley / Higgins) — `consentOnFile`
+   is staged but the attestation is his.
+2. Towns table sign-off — esp. Evansville IN, West Liberty KY, Gatlinburg
+   TN (out-of-market reveals) and the Sycamore Twp / Miamisburg GPS reads.
+3. Price ranges as staged.
+
+On his yes: mark PR ready, merge, verify deploy, then the GBP/FB/IG posts
+(kit + posters are ready to paste; posters were delivered in-chat and live
+in `documentation/marketing/gbp-kit-2026-08-28/`). Add the Central-KY towns
+to the GBP service area BEFORE posting the Lexington announcement.
+
+## Fast lanes queued by the Drive survey (session note §5)
+
+- Soft Wash: 16 new HEICs in INTERNAL/Content/Soft Wash → heic-convert →
+  feature/imagery (needs Jo's job ID).
+- Walgreens commercial set + Schumacher "New Build" set — Jo's call on
+  third-party branding, then easy features.
+- Coleman (Loveland) feature auto-unlocks when her proposal books.
+- A-frame card: two recognizable people on the live photo — swap candidate
+  `REAL_2026-03-06_DJI_0680` if Jo wants.
+
+## Reusable infrastructure learned this session
+
+- **NBD Photo Library** in Drive (id `1j8eAvgQldNEeRARlXiJiXUXvZtEbEoT9`):
+  `REAL_<date>_DJI_<num>_<published-slug>.JPG` originals WITH EXIF for the
+  whole legacy gallery — the provenance index; check it before any hunt.
+- Drive MCP: `read_file_content` is EMPTY for images; use
+  `download_file_content` → decode the saved base64 JSON locally; >10MB
+  fails; `get_file_metadata` carries no EXIF.
+- `build-projects.mjs --check` reds on a clean Windows checkout (CRLF
+  false-fail, same as build-sitemap) — content-identical; trust CI.
+- Prod read-only cross-ref pattern: `leads.jobValue` is the money field;
+  `photos` isn't keyed by leadId; `estimates` root is sparse.

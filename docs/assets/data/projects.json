@@ -29,7 +29,7 @@
         "roof-replacement"
       ],
       "tag": "Roof Replacement",
-      "city": "Greater Cincinnati, OH",
+      "city": "Union, KY",
       "description": "Architectural shingle replacement on a two-story colonial. New drip edge, starter strip, and ridge vent. Curb appeal speaks for itself.",
       "hero": "/assets/images/projects/completed-colonial-spring.jpg",
       "photos": [
@@ -50,7 +50,7 @@
         "roof-inspection"
       ],
       "tag": "Roof Replacement",
-      "city": "Greater Cincinnati, OH",
+      "city": "Milford, OH",
       "description": "Complete tear-off and replacement. Every project gets drone documentation so the homeowner can see exactly what was done — and so can the insurance company.",
       "hero": "/assets/images/projects/completed-brick-aerial.jpg",
       "photos": [
@@ -70,7 +70,7 @@
         "roof-replacement"
       ],
       "tag": "Roof Replacement",
-      "city": "Greater Cincinnati, OH",
+      "city": "Sycamore Township, OH",
       "description": "Large footprint with multiple roof sections, valleys, and transitions. New underlayment throughout, architectural shingles, all flashing replaced.",
       "hero": "/assets/images/projects/completed-multisection.jpg",
       "photos": [
@@ -91,7 +91,7 @@
         "roof-replacement"
       ],
       "tag": "Storm Damage",
-      "city": "Greater Cincinnati, OH",
+      "city": "Miamisburg, OH",
       "description": "High winds peeled back shingles and exposed underlayment. Documented damage for insurance claim, full replacement approved and completed within two weeks.",
       "hero": "/assets/images/projects/damage-lifted-shingles.jpg",
       "photos": [
@@ -112,7 +112,7 @@
         "roof-inspection"
       ],
       "tag": "Hail Damage",
-      "city": "Greater Cincinnati, OH",
+      "city": "Mason, OH",
       "description": "I mark every impact with chalk during inspection so the adjuster can verify. This roof had 50+ hits per test square — clear approval for full replacement.",
       "hero": "/assets/images/projects/damage-chalk-marked.jpg",
       "photos": [
@@ -132,7 +132,7 @@
         "roof-replacement"
       ],
       "tag": "Active Jobsite",
-      "city": "Greater Cincinnati, OH",
+      "city": "Cincinnati, OH",
       "description": "Branded trucks, tarps down, materials staged, crew on the roof. This is what a professional jobsite looks like. Neighbors took notice — two more estimates booked that week.",
       "hero": "/assets/images/projects/active-culdescac-crew.jpg",
       "photos": [
@@ -152,7 +152,7 @@
         "roof-replacement"
       ],
       "tag": "Active Jobsite",
-      "city": "Greater Cincinnati, OH",
+      "city": "Sycamore Township, OH",
       "description": "Hi-vis crew laying synthetic underlayment on a large brick two-story. Materials staged, safety protocols in place. The decking underneath was clean — no surprises.",
       "hero": "/assets/images/projects/active-brick-underlayment.jpg",
       "photos": [
@@ -173,7 +173,7 @@
         "roof-repair"
       ],
       "tag": "Craftsmanship",
-      "city": "Greater Cincinnati, OH",
+      "city": "Maineville, OH",
       "description": "Metal valley flashing with tight shingle cuts on both sides, new pipe boot sealed properly. This is the kind of detail work that prevents leaks for decades. No shortcuts.",
       "hero": "/assets/images/projects/detail-valley-shingle.jpg",
       "photos": [
@@ -193,7 +193,7 @@
         "roof-replacement"
       ],
       "tag": "Drone Aerial",
-      "city": "Greater Cincinnati, OH",
+      "city": "Evansville, IN",
       "description": "Side-by-side tear-offs on neighboring properties. Full decking exposed, materials staged, crew running both roofs. Efficiency at scale — no wasted time.",
       "hero": "/assets/images/projects/aerial-dual-property.jpg",
       "photos": [
@@ -213,13 +213,17 @@
         "roof-replacement"
       ],
       "tag": "Commercial",
-      "city": "Greater Cincinnati, OH",
+      "city": "West Liberty, KY",
       "description": "Full-scale commercial project: multi-building apartment complex, complete tear-off down to decking, new synthetic underlayment going down while crew stages shingle bundles. Multiple buildings, one crew, zero delays.",
       "hero": "/assets/images/projects/commercial-apartment-tearoff.jpg",
       "photos": [
         {
           "src": "/assets/images/projects/commercial-apartment-tearoff.jpg",
           "alt": "Aerial drone view of apartment building mid-tearoff with blue underlayment and crew working"
+        },
+        {
+          "src": "/assets/images/projects/commercial-apartment-underlayment.jpg",
+          "alt": "Drone view of the apartment building mid-install with synthetic underlayment rows going down over the decking"
         }
       ],
       "consentOnFile": true,
@@ -233,7 +237,7 @@
         "roof-replacement"
       ],
       "tag": "Commercial",
-      "city": "Greater Cincinnati, OH",
+      "city": "West Liberty, KY",
       "description": "Same complex, job done. Every building re-roofed with architectural shingles, new ridge vents, all flashing replaced. Drone-documented start to finish for the property management company.",
       "hero": "/assets/images/projects/commercial-apartment-completed.jpg",
       "photos": [
@@ -253,7 +257,7 @@
         "roof-replacement"
       ],
       "tag": "Metal Roof",
-      "city": "Appalachian Region",
+      "city": "Gatlinburg, TN",
       "description": "Not every job is shingles. This mountain A-frame got a standing seam metal roof — built for steep pitch, heavy snow loads, and decades of zero maintenance.",
       "hero": "/assets/images/projects/metal-aframe-cabin.jpg",
       "photos": [
@@ -332,6 +336,94 @@
       ],
       "consentOnFile": true,
       "published": "2026-08-17"
+    },
+    {
+      "slug": "cincinnati-oh-full-tearoff-reroof-2026",
+      "title": "Two Layers Off — Full Tear-Off Re-Roof",
+      "services": [
+        "roof-replacement"
+      ],
+      "tag": "Full Tear-Off",
+      "city": "Cincinnati, OH",
+      "priceLow": 22500,
+      "priceHigh": 23500,
+      "year": 2026,
+      "description": "Two layers of old three-tab came off this Cincinnati two-story, and both old dormers came off with them. New GAF Timberline system on the slopes, chimneys re-flashed with new crickets, and the flat sections sealed under a fresh aluminum coating. The whole job, documented start to finish.",
+      "hero": "/assets/images/projects/cincinnati-oh-full-tearoff-reroof-2026-1.jpg",
+      "photos": [
+        {
+          "src": "/assets/images/projects/cincinnati-oh-full-tearoff-reroof-2026-1.jpg",
+          "alt": "Drone view of the crew stripping two layers of shingles down to plank decking on a two-story hip roof"
+        },
+        {
+          "src": "/assets/images/projects/cincinnati-oh-full-tearoff-reroof-2026-2.jpg",
+          "alt": "Top-down view of exposed plank roof decking and the dormer opening beside remaining old shingles and a brick chimney"
+        },
+        {
+          "src": "/assets/images/projects/cincinnati-oh-full-tearoff-reroof-2026-3.jpg",
+          "alt": "Freshly silver-coated flat roof section in front of the new architectural shingle slope and brick chimney"
+        }
+      ],
+      "consentOnFile": true,
+      "published": "2026-08-28"
+    },
+    {
+      "slug": "blue-ash-oh-roof-vents-thermal-2026",
+      "title": "Thermal Scan → Ventilation Overhaul",
+      "services": [
+        "roof-repair",
+        "roof-inspection"
+      ],
+      "tag": "Thermal Imaging",
+      "city": "Blue Ash, OH",
+      "priceLow": 3000,
+      "priceHigh": 3500,
+      "year": 2026,
+      "description": "The thermal camera found the damp rafter bays before we opened anything up. Then the fix: seven new Roofivent units — low-profile vents, turbines, new pipe boots — and the bath fan finally vented outside where it belongs. Moisture problems you can see are moisture problems you can solve.",
+      "hero": "/assets/images/projects/blue-ash-oh-roof-vents-thermal-2026-1.jpg",
+      "photos": [
+        {
+          "src": "/assets/images/projects/blue-ash-oh-roof-vents-thermal-2026-1.jpg",
+          "alt": "Overhead drone view of a gray shingle roof with seven new low-profile vents and turbines installed, large fenced backyard below"
+        },
+        {
+          "src": "/assets/images/projects/blue-ash-oh-roof-vents-thermal-2026-2.jpg",
+          "alt": "Thermal camera image of attic rafter bays glowing yellow and orange, with the temperature color scale on the right"
+        },
+        {
+          "src": "/assets/images/projects/blue-ash-oh-roof-vents-thermal-2026-3.jpg",
+          "alt": "Top-down drone view of the opposite roof slope with two skylights and the old box vents before the ventilation upgrade"
+        }
+      ],
+      "consentOnFile": true,
+      "published": "2026-08-28"
+    },
+    {
+      "slug": "cincinnati-oh-siding-repair-2026",
+      "title": "Second-Story Siding — Same-Day Fix",
+      "services": [
+        "siding-repair"
+      ],
+      "tag": "Same-Day Repair",
+      "city": "Cincinnati, OH",
+      "priceLow": 300,
+      "priceHigh": 500,
+      "year": 2026,
+      "duration": "Same day",
+      "description": "One piece of siding worked loose two stories up — the kind of small job plenty of outfits won't schedule. We set the ladder, re-secured the piece, sealed the J-channel, and resealed the ridge vent while we were up there. Called in and closed out the same day.",
+      "hero": "/assets/images/projects/cincinnati-oh-siding-repair-2026-1.jpg",
+      "photos": [
+        {
+          "src": "/assets/images/projects/cincinnati-oh-siding-repair-2026-1.jpg",
+          "alt": "Extension ladder reaching a second-story gable while a technician re-secures a piece of vinyl siding at the top"
+        },
+        {
+          "src": "/assets/images/projects/cincinnati-oh-siding-repair-2026-2.jpg",
+          "alt": "View up the extension ladder to the tan vinyl siding gable during the same-day repair"
+        }
+      ],
+      "consentOnFile": true,
+      "published": "2026-08-28"
     }
   ]
 }
