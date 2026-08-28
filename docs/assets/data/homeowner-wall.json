@@ -12,7 +12,12 @@
   {
     "image": "/assets/images/projects/cincinnati-oh-siding-repair-2026-1.jpg",
     "city": "Cincinnati, OH",
-    "alt": "Extension ladder reaching a second-story gable while a technician re-secures a piece of vinyl siding at the top"
+    "alt": "Extension ladder reaching a third-story gable while a technician re-secures a piece of vinyl siding at the top"
+  },
+  {
+    "image": "/assets/images/projects/sharonville-oh-storm-siding-repair-2026-1.jpg",
+    "city": "Sharonville, OH",
+    "alt": "Three extension ladders set against the tall gable while a crew member installs new vinyl siding over fresh house wrap"
   },
   {
     "image": "/assets/images/projects/brick-duplex-designer-reroof-2026-3.jpg",
@@ -53,10 +58,5 @@
     "image": "/assets/images/projects/active-culdescac-crew.jpg",
     "city": "Cincinnati, OH",
     "alt": "NBD crew actively working on roof tear-off in residential neighborhood"
-  },
-  {
-    "image": "/assets/images/projects/active-brick-underlayment.jpg",
-    "city": "Sycamore Township, OH",
-    "alt": "Crew installing synthetic underlayment on large brick home"
   }
 ]
