@@ -29,6 +29,8 @@ const { getAuth } = require('firebase-admin/auth');
 const { FieldValue } = require('firebase-admin/firestore');
 const crypto = require('crypto');
 const { getSecret, hasSecret, SECRETS } = require('./_shared');
+const { phoneDigits10 } = require('../phone-utils');
+const L = require('../lead-bridge-logic');
 
 exports.calcomWebhook = onRequest(
   {
@@ -72,18 +74,33 @@ exports.calcomWebhook = onRequest(
     const organizerUsername = (payload.organizer && payload.organizer.username) || null;
     const attendee = Array.isArray(payload.attendees) ? payload.attendees[0] : null;
 
-    // Resolve rep uid by username or email.
+    // Resolve rep uid (+ their companyId, for the M-2 lead creation below)
+    // by username or email.
     const db = getFirestore();
     let repUid = null;
+    let repCompanyId = null;
     if (organizerUsername) {
       const q = await db.collection('users').where('calcomUsername', '==', organizerUsername).limit(1).get();
-      if (!q.empty) repUid = q.docs[0].id;
+      if (!q.empty) {
+        repUid = q.docs[0].id;
+        repCompanyId = q.docs[0].data().companyId || null;
+      }
     }
     if (!repUid && organizerEmail) {
       try {
         const u = await getAuth().getUserByEmail(organizerEmail);
         repUid = u.uid;
       } catch (e) { /* no matching user */ }
+    }
+    if (repUid && !repCompanyId) {
+      // Matched via Auth email (or the username lookup's doc had no
+      // companyId yet) — one more read. Solo-op convention (companyId ==
+      // uid; see handlers/auth.js) covers NBD; a multi-rep tenant's
+      // users/{uid}.companyId overrides it when present.
+      try {
+        const userSnap = await db.doc(`users/${repUid}`).get();
+        repCompanyId = (userSnap.exists && userSnap.data().companyId) || repUid;
+      } catch (e) { repCompanyId = repUid; }
     }
     if (!repUid) {
       // Return 200 so Cal.com doesn't retry-storm an unmappable booking, but
@@ -121,14 +138,62 @@ exports.calcomWebhook = onRequest(
           if (email || phone.length >= 10) {
             const mine = await db.collection('leads').where('userId', '==', repUid).get();
             const hit = mine.docs.find(d => {
-              const L = d.data() || {};
-              if (email && (L.email || '').toLowerCase().trim() === email) return true;
-              if (phone.length >= 10 && (L.phone || '').replace(/\D/g, '').endsWith(phone.slice(-10))) return true;
+              const leadData = d.data() || {};
+              if (email && (leadData.email || '').toLowerCase().trim() === email) return true;
+              if (phone.length >= 10 && (leadData.phone || '').replace(/\D/g, '').endsWith(phone.slice(-10))) return true;
               return false;
             });
             if (hit) leadId = hit.id;
           }
         } catch (e) { logger.warn('calcomWebhook: lead-link lookup failed', { err: e && e.message }); }
+
+        // M-2: no existing lead matched — this is a new/organic booker, not
+        // someone already in the pipeline. Without this, the booking only
+        // ever exists as an appointments/{id} doc, which the Pipeline view
+        // never reads — the lead is silently dropped from the CRM even
+        // though the appointment itself was written correctly. Deterministic
+        // id + create() (not set()) makes this idempotent against Cal.com's
+        // at-least-once webhook delivery, mirroring the public-lead bridge
+        // (lead-bridge.js).
+        if (!leadId) {
+          try {
+            const { firstName, lastName } = L.splitName({ name: attendee && attendee.name });
+            const phone = (attendee && attendee.phoneNumber) || '';
+            const newLeadId = L.bridgeDocId('calcom', bookingId);
+            await db.collection('leads').doc(newLeadId).create({
+              userId: repUid,
+              companyId: repCompanyId || repUid,
+              firstName,
+              lastName,
+              address: String(payload.location || ''),
+              phone: String(phone),
+              phoneDigits: phoneDigits10(phone),
+              email: String((attendee && attendee.email) || ''),
+              stage: 'New',
+              status: 'new',
+              source: 'Website — Cal.com booking',
+              notes: String(payload.additionalNotes || payload.description || ''),
+              webLead: true,
+              publicLeadKind: 'calcom_booking',
+              calcomBookingId: bookingId,
+              calcomEventTitle: payload.title || null,
+              createdAt: FieldValue.serverTimestamp(),
+              stageStartedAt: FieldValue.serverTimestamp(),
+            });
+            leadId = newLeadId;
+            logger.info('calcomWebhook: created CRM lead for unmatched booking', { bookingId, leadId, repUid });
+          } catch (e) {
+            if (e && (e.code === 6 || /already exists/i.test(e.message || ''))) {
+              // Retried delivery — the lead already exists from a prior
+              // attempt at this same booking; link to it instead of leaving
+              // this appointment's leadId null.
+              leadId = L.bridgeDocId('calcom', bookingId);
+            } else {
+              logger.warn('calcomWebhook: lead creation failed', { bookingId, err: e && e.message });
+            }
+          }
+        }
+
         await apptRef.set({
           bookingId,
           userId: repUid,                 // owner scope for Firestore rules
