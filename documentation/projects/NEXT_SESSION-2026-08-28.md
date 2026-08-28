@@ -1,5 +1,34 @@
 # NEXT SESSION — 2026-08-28
 
+## §FINAL STATE (session end — read this first)
+
+Four content PRs **merged and verified live** the same day: #1285 (real towns
++ 3 new priced projects), #1286 (photo expansion + Dindar), #1287 (Goddard
+three-layer fix, real Roofivent close-ups, Dindar panels-off), #1289 (gallery
+expansion: 46 photos across 14 cards → Jo's "10 per reel" target met on the
+four flagship cards). `/our-work` now carries 18 projects, zero "Greater
+Cincinnati" placeholders.
+
+**Two things are waiting on Jo, nothing else is blocked:**
+
+1. **GBP + Facebook posts — HELD for his review** (his explicit instruction,
+   twice). Kit: [gbp-post-kit-2026-08-28](../marketing/gbp-post-kit-2026-08-28.md)
+   + 4 posters in `../marketing/gbp-kit-2026-08-28/`. Nothing has been posted
+   anywhere. Before the Lexington post goes up, add the six Central-KY towns
+   to the GBP service area.
+2. **Two photo judgment calls** he hasn't answered: the Goddard coating frame
+   with an identifiable crew face, and a Hatley "before" aerial that could not
+   be confirmed as Rita's roof vs a neighbor's (he already caught one
+   neighbor-roof mix-up on that card — the Ty Nicodemus one, itself a future
+   card candidate).
+
+**Next session's obvious first move:** work
+[ourwork-candidate-pipeline-2026-08-28](../marketing/ourwork-candidate-pipeline-2026-08-28.md)
+top-down. Jo said "perfect let's do it" to that queue; its staging agents died
+on a session limit before producing anything, so **nothing is staged for those
+cards yet** — start fresh from the pipeline doc (rank 1 = Srijan N. Milford
+flagship, CRM-matched $24,975 → proposed $24,500–25,500).
+
 Handoff from the /our-work content session
 ([session note](SESSION-2026-08-28-ourwork-areas-galleries-gbp.md)). The
 08-26 handoff's §0 merge queue is DONE (main log shows #1279–#1284 merged);

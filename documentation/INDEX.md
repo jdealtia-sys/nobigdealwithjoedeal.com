@@ -86,7 +86,8 @@ Map of content for the `documentation/` corpus (~115 files) plus the other place
 
 - [VOICE_BIBLE](brand/VOICE_BIBLE.md) — the writing voice for every customer-facing word
 - [drafts/README](drafts/README.md) — the blog-draft pipeline (3 drafts awaiting Jo's `JO:` marker edits; one publish session each)
-- [gbp-post-kit-2026-08-28](marketing/gbp-post-kit-2026-08-28.md) — 4 ready-to-paste GBP updates + 2 Facebook variants + branded posters (in `marketing/gbp-kit-2026-08-28/`), built from published /our-work jobs
+- [gbp-post-kit-2026-08-28](marketing/gbp-post-kit-2026-08-28.md) — 4 ready-to-paste GBP updates + 2 Facebook variants + branded posters (in `marketing/gbp-kit-2026-08-28/`), built from published /our-work jobs — **held for Jo's review, nothing posted**
+- [ourwork-candidate-pipeline-2026-08-28](marketing/ourwork-candidate-pipeline-2026-08-28.md) — ranked publish queue from the all-company Drive sweep (MLR/JKRC/ORC/SPR archives + SD rolls); customer detail deliberately kept in gitignored `.local/`
 - [rush-week-2026-08](marketing/rush-week-2026-08.md) — the sequenced off-site placement sprint (baseline, manufacturer claims, Bing/IndexNow, pitch templates, Reader Questions pipeline) — **work from this one**
 - [local-seo-playbook-2026-07](marketing/local-seo-playbook-2026-07.md) · [citation-kit-2026-07](marketing/citation-kit-2026-07.md) — strategy + paste-ready copy (both carry 2026-08-17 addenda)
 - [gaf-tamko-rebrand-plan](rebrand/gaf-tamko-rebrand-plan.md) · [gaf-tamko-BUILD-BRIEF](rebrand/gaf-tamko-BUILD-BRIEF.md)
