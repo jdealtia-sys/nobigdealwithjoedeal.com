@@ -1,6 +1,41 @@
 # NEXT SESSION — 2026-08-28
 
-## §FINAL STATE (session end — read this first)
+## §FINAL STATE — round 2 (supersedes the §FINAL STATE below)
+
+**/our-work now carries 29 live projects** (was 12 unpriced seeds this
+morning). PR #1291 added 11 new cards from the all-company sweep, all
+CRM- or document-verified for town, retail range and scope: Milford
+$24.5-25.5k · Cincinnati storm-tarp $17.5-18.5k · Norwood Victorian
+$15-16k · Franklin $14.5-15.5k · Batavia $11-12k · Newtown $9.5-10.5k ·
+Amelia $1.5-2k · Cincinnati soffit $600-900 · Montgomery rot $400-700 ·
+Newport KY $300-500 (first NKY card) · Montgomery shake $200-400. Four
+Foley frames also merged into the two Sycamore Twp cards, giving the
+multi-section card its first BEFORE.
+
+**Two cards HELD, both needing Jo:**
+- **Robert Wilson** (JKRC wind repair) — no town appears in ANY document;
+  photos and facts are staged and verified, it just needs the town. Two
+  frames with visible faces were excluded regardless.
+- **By Golly's Bar & Grill**, 714 Lila Ave, Milford — commercial flat-roof
+  rebuild, $64,011.90, JKRC 2023. Identifiable named business, so Jo's
+  courtesy call before publishing; also only 2 usable frames.
+
+**Findings worth not re-deriving:**
+- The Milford "curated" Drive folder is a raw MULTI-JOB SD dump — several
+  frame IDs recorded in the 08-28 sweep point at a different property.
+  Verify frames visually before trusting any ID from that folder.
+- Milford's crew-face problem covers ALL of DJI_0304-0308, which is the only
+  completed-front-elevation burst; there is no usable true "after" of the
+  money shot. Jo could reshoot it.
+- **Lynch and Stith have NO after-state photos anywhere in Drive** (verified
+  by exhaustive folder walks, not sampling). Both jobs are complete and paid,
+  so an after-shoot on either would finish those cards.
+- Waters' photo subfolders are genuinely empty; her photos were located by
+  reading the completion date off the receipt and matching SD-card drone
+  rolls. Same trick will work for other photo-less jobs.
+- Some job docs 404 by ID even when they exist — fall back to folder listing.
+
+## §FINAL STATE (round 1 — earlier the same day)
 
 Four content PRs **merged and verified live** the same day: #1285 (real towns
 + 3 new priced projects), #1286 (photo expansion + Dindar), #1287 (Goddard
