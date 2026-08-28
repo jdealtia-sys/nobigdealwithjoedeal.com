@@ -8,6 +8,14 @@
 
 ## Why (the evidence)
 
+> **Updated 2026-08-28:** the intake list below is now four paths, not three
+> — add **Cal.com bookings** (`functions/integrations/calcom.js`,
+> `source: 'Website — Cal.com booking'`, #1288). The original sentence was
+> also optimistic: online bookings were a blind spot of their own until
+> 08-28, because the webhook wrote `appointments/{id}` and never a lead, so
+> cold bookers were dropped without an error. Email remains unbuilt. See
+> [SESSION-2026-08-28-calcom-lead-drop](../projects/SESSION-2026-08-28-calcom-lead-drop.md).
+
 The CRM's intake covers web forms (lead-bridge), marketplace webhooks
 (Thumbtack), and inbound SMS. **Email is the remaining blind spot**, and the
 Aug-17 mailbox sweep measured what that costs: five customer threads stalled

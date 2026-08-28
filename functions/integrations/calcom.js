@@ -7,7 +7,21 @@
  *   2. Look up the rep (by calcom username → mapped via
  *      users/{uid}.calcomUsername or reps/{uid}.calcomUsername).
  *   3. Create an `appointments/{id}` doc scoped to that rep.
- *   4. Create a `tasks/{id}` reminder 1 hour before.
+ *   4. Link it to an EXISTING CRM lead when the attendee's email or
+ *      last-10 phone matches one in that rep's pipeline (M-1).
+ *   5. Otherwise CREATE the lead (M-2, added 2026-08-28 / PR #1288):
+ *      `leads/{calcom__<bookingId>}`, same doc shape as the public-lead
+ *      bridge, source 'Website — Cal.com booking', deterministic id +
+ *      .create() so Cal.com's at-least-once redelivery is idempotent.
+ *      Without this a cold online booking exists ONLY in `appointments`,
+ *      which the Pipeline never queries — invisible in the CRM. That was
+ *      a live bug from this file's creation until 2026-08-28; see
+ *      documentation/projects/SESSION-2026-08-28-calcom-lead-drop.md.
+ *
+ * No `tasks/{id}` reminder is written — that step was dead code and was
+ * removed (see the note at the end of the BOOKING_CREATED branch);
+ * push-functions.js `onAppointmentReminder` reminds off the appointments
+ * doc instead.
  *
  * SETUP:
  *   cal.com → Settings → Developer → Webhooks → new
@@ -44,8 +58,9 @@ exports.calcomWebhook = onRequest(
     if (req.method !== 'POST') { res.status(405).end(); return; }
 
     // F2: fail closed when the secret isn't configured. Accepting
-    // unsigned Cal.com calls means an attacker who knows the URL
-    // can create appointment rows + tasks in any rep's calendar.
+    // unsigned Cal.com calls means an attacker who knows the URL can
+    // create appointment rows — and, since 2026-08-28 (PR #1288), CRM
+    // lead docs — in any rep's calendar and pipeline.
     if (!hasSecret('CALCOM_WEBHOOK_SECRET')) {
       logger.error('calcomWebhook: CALCOM_WEBHOOK_SECRET not set — rejecting unsigned request');
       res.status(503).json({ error: 'Webhook not configured' });
