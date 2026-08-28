@@ -200,6 +200,10 @@
         {
           "src": "/assets/images/projects/aerial-dual-property.jpg",
           "alt": "Aerial drone shot of two roofs being replaced simultaneously"
+        },
+        {
+          "src": "/assets/images/projects/aerial-dual-property-2.jpg",
+          "alt": "Top-down drone view of one roof stripped to bare decking with tear-off debris on tarps in the yard"
         }
       ],
       "consentOnFile": true,
@@ -264,6 +268,10 @@
         {
           "src": "/assets/images/projects/metal-aframe-cabin.jpg",
           "alt": "A-frame cabin with standing seam metal roof"
+        },
+        {
+          "src": "/assets/images/projects/metal-aframe-cabin-2.jpg",
+          "alt": "Aerial view of the cabin community on the misty mountainside, metal roofs among the bare trees"
         }
       ],
       "consentOnFile": true,
@@ -362,6 +370,18 @@
         {
           "src": "/assets/images/projects/cincinnati-oh-full-tearoff-reroof-2026-3.jpg",
           "alt": "Freshly silver-coated flat roof section in front of the new architectural shingle slope and brick chimney"
+        },
+        {
+          "src": "/assets/images/projects/cincinnati-oh-full-tearoff-reroof-2026-4.jpg",
+          "alt": "Wide drone view of the crew stripping the hip roof to plank decking, old shingles piling at the eaves"
+        },
+        {
+          "src": "/assets/images/projects/cincinnati-oh-full-tearoff-reroof-2026-5.jpg",
+          "alt": "Angled overhead view of the stripped slopes, dormer opening, and the chimney rebuilt between fresh wood forms"
+        },
+        {
+          "src": "/assets/images/projects/cincinnati-oh-full-tearoff-reroof-2026-6.jpg",
+          "alt": "The bare low-slope roof section from above the rake, prepped before its new aluminum coating"
         }
       ],
       "consentOnFile": true,
@@ -379,7 +399,7 @@
       "priceLow": 3000,
       "priceHigh": 3500,
       "year": 2026,
-      "description": "The thermal camera found the damp rafter bays before we opened anything up. Then the fix: seven new Roofivent units — low-profile vents, turbines, new pipe boots — and the bath fan finally vented outside where it belongs. Moisture problems you can see are moisture problems you can solve.",
+      "description": "The thermal camera found the damp rafter bays before we opened anything up. Then the fix: upgraded with Roofivent — seven new units, Roto turbines and Eco vents, plus new pipe boots — and the bath fan finally vented outside where it belongs. Moisture problems you can see are moisture problems you can solve.",
       "hero": "/assets/images/projects/blue-ash-oh-roof-vents-thermal-2026-1.jpg",
       "photos": [
         {
@@ -391,8 +411,16 @@
           "alt": "Thermal camera image of attic rafter bays glowing yellow and orange, with the temperature color scale on the right"
         },
         {
-          "src": "/assets/images/projects/blue-ash-oh-roof-vents-thermal-2026-3.jpg",
-          "alt": "Top-down drone view of the opposite roof slope with two skylights and the old box vents before the ventilation upgrade"
+          "src": "/assets/images/projects/blue-ash-oh-roof-vents-thermal-2026-4.jpg",
+          "alt": "Close-up of two new black Roofivent vents installed flush on the gray shingle slope"
+        },
+        {
+          "src": "/assets/images/projects/blue-ash-oh-roof-vents-thermal-2026-5.jpg",
+          "alt": "New pipe boots and vents along the freshly shingled slope, with the repainted chimney and its new caps behind"
+        },
+        {
+          "src": "/assets/images/projects/blue-ash-oh-roof-vents-thermal-2026-6.jpg",
+          "alt": "Inside the attic: rafter bays over fresh blown-in insulation after the ventilation fix"
         }
       ],
       "consentOnFile": true,
@@ -400,7 +428,7 @@
     },
     {
       "slug": "cincinnati-oh-siding-repair-2026",
-      "title": "Second-Story Siding — Same-Day Fix",
+      "title": "Third-Story Siding — Same-Day Fix",
       "services": [
         "siding-repair"
       ],
@@ -410,16 +438,59 @@
       "priceHigh": 1000,
       "year": 2026,
       "duration": "Same day",
-      "description": "One piece of siding worked loose two stories up — the kind of small job plenty of outfits won't schedule. We set the ladder, re-secured the piece, sealed the J-channel, and resealed the ridge vent while we were up there. Called in and closed out the same day.",
+      "description": "One piece of siding worked loose three stories up — the kind of small job plenty of outfits won't schedule. We set the ladder, re-secured the piece, sealed the J-channel, and resealed the ridge vent while we were up there. Called in and closed out the same day.",
       "hero": "/assets/images/projects/cincinnati-oh-siding-repair-2026-1.jpg",
       "photos": [
         {
           "src": "/assets/images/projects/cincinnati-oh-siding-repair-2026-1.jpg",
-          "alt": "Extension ladder reaching a second-story gable while a technician re-secures a piece of vinyl siding at the top"
+          "alt": "Extension ladder reaching a third-story gable while a technician re-secures a piece of vinyl siding at the top"
         },
         {
           "src": "/assets/images/projects/cincinnati-oh-siding-repair-2026-2.jpg",
           "alt": "View up the extension ladder to the tan vinyl siding gable during the same-day repair"
+        },
+        {
+          "src": "/assets/images/projects/cincinnati-oh-siding-repair-2026-3.jpg",
+          "alt": "Technician at the top of the long extension ladder working the loose siding piece back into place"
+        },
+        {
+          "src": "/assets/images/projects/cincinnati-oh-siding-repair-2026-4.jpg",
+          "alt": "Two extension ladders set side by side against the tall tan gable during the repair"
+        }
+      ],
+      "consentOnFile": true,
+      "published": "2026-08-28"
+    },
+    {
+      "slug": "sharonville-oh-storm-siding-repair-2026",
+      "title": "Storm-Torn Gable — Siding Restored",
+      "services": [
+        "siding-repair",
+        "storm-damage"
+      ],
+      "tag": "Storm Damage",
+      "city": "Sharonville, OH",
+      "priceLow": 1000,
+      "priceHigh": 1500,
+      "year": 2026,
+      "description": "Wind ripped this gable open two-and-a-half stories up — siding gone, the foam sheathing behind it punctured, gutter bent. We wrapped it fresh, worked in new panels to match, and straightened the gutter line. Storm damage doesn't always mean a whole new wall — sometimes it just needs someone willing to climb.",
+      "hero": "/assets/images/projects/sharonville-oh-storm-siding-repair-2026-1.jpg",
+      "photos": [
+        {
+          "src": "/assets/images/projects/sharonville-oh-storm-siding-repair-2026-1.jpg",
+          "alt": "Three extension ladders set against the tall gable while a crew member installs new vinyl siding over fresh house wrap"
+        },
+        {
+          "src": "/assets/images/projects/sharonville-oh-storm-siding-repair-2026-2.jpg",
+          "alt": "The wind damage up close: torn siding, punctured foam sheathing, and a bent gutter above the porch roof"
+        },
+        {
+          "src": "/assets/images/projects/sharonville-oh-storm-siding-repair-2026-3.jpg",
+          "alt": "Overhead drone view of the home's gray shingle roof and white flat-roof section on inspection day"
+        },
+        {
+          "src": "/assets/images/projects/sharonville-oh-storm-siding-repair-2026-4.jpg",
+          "alt": "Crew member on an extension ladder fitting a replacement siding panel high on the gable"
         }
       ],
       "consentOnFile": true,
