@@ -87,7 +87,7 @@
       ],
       "tag": "Roof Replacement",
       "city": "Sycamore Township, OH",
-      "description": "Large footprint with multiple roof sections, valleys, and transitions. New underlayment throughout, architectural shingles, all flashing replaced.",
+      "description": "Large footprint with multiple roof sections, valleys, and transitions. New underlayment throughout, architectural shingles, all flashing replaced. Same job as the underlayment card — this is the finished side of it.",
       "hero": "/assets/images/projects/completed-multisection.jpg",
       "photos": [
         {
@@ -120,7 +120,9 @@
         }
       ],
       "consentOnFile": true,
-      "published": "2026-08-06"
+      "published": "2026-08-06",
+      "priceLow": 30000,
+      "priceHigh": 35000
     },
     {
       "slug": "wind-damage-lifted-shingles",
@@ -226,7 +228,9 @@
         }
       ],
       "consentOnFile": true,
-      "published": "2026-08-06"
+      "published": "2026-08-06",
+      "priceLow": 18000,
+      "priceHigh": 22000
     },
     {
       "slug": "brick-underlayment-install",
@@ -237,7 +241,7 @@
       ],
       "tag": "Active Jobsite",
       "city": "Sycamore Township, OH",
-      "description": "Hi-vis crew laying synthetic underlayment on a large brick two-story. Materials staged, safety protocols in place. The decking underneath was clean — no surprises.",
+      "description": "Hi-vis crew laying synthetic underlayment on a large brick two-story. Materials staged, safety protocols in place. The decking underneath was clean — no surprises. Same job as the multi-section card — this is install day on it.",
       "hero": "/assets/images/projects/active-brick-underlayment.jpg",
       "photos": [
         {
@@ -270,7 +274,9 @@
         }
       ],
       "consentOnFile": true,
-      "published": "2026-08-06"
+      "published": "2026-08-06",
+      "priceLow": 30000,
+      "priceHigh": 35000
     },
     {
       "slug": "valley-flashing-detail",
@@ -315,7 +321,9 @@
         }
       ],
       "consentOnFile": true,
-      "published": "2026-08-06"
+      "published": "2026-08-06",
+      "priceLow": 25000,
+      "priceHigh": 30000
     },
     {
       "slug": "apartment-complex-tearoff",
@@ -326,7 +334,7 @@
       ],
       "tag": "Commercial",
       "city": "West Liberty, KY",
-      "description": "Full-scale commercial project: multi-building apartment complex, complete tear-off down to decking, new synthetic underlayment going down while crew stages shingle bundles. Multiple buildings, one crew, zero delays.",
+      "description": "Full-scale commercial project: multi-building apartment complex, complete tear-off down to decking, new synthetic underlayment going down while crew stages shingle bundles. Multiple buildings, one crew, zero delays. Same project as the completed-buildings card; the range covers the whole complex.",
       "hero": "/assets/images/projects/commercial-apartment-tearoff.jpg",
       "photos": [
         {
@@ -347,7 +355,9 @@
         }
       ],
       "consentOnFile": true,
-      "published": "2026-08-06"
+      "published": "2026-08-06",
+      "priceLow": 100000,
+      "priceHigh": 125000
     },
     {
       "slug": "apartment-complex-complete",
@@ -358,7 +368,7 @@
       ],
       "tag": "Commercial",
       "city": "West Liberty, KY",
-      "description": "Same complex, job done. Every building re-roofed with architectural shingles, new ridge vents, all flashing replaced. Drone-documented start to finish for the property management company.",
+      "description": "Same complex, job done. Every building re-roofed with architectural shingles, new ridge vents, all flashing replaced. Drone-documented start to finish for the property management company. Same project as the tear-off card; the range covers the whole complex.",
       "hero": "/assets/images/projects/commercial-apartment-completed.jpg",
       "photos": [
         {
@@ -371,7 +381,9 @@
         }
       ],
       "consentOnFile": true,
-      "published": "2026-08-06"
+      "published": "2026-08-06",
+      "priceLow": 100000,
+      "priceHigh": 125000
     },
     {
       "slug": "aframe-standing-seam-metal",
