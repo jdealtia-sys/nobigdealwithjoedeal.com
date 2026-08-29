@@ -401,8 +401,24 @@
       "tag": "Metal Roof",
       "city": "Gatlinburg, TN",
       "description": "Not every job is shingles. This mountain A-frame got a standing seam metal roof — built for steep pitch, heavy snow loads, and decades of zero maintenance.",
-      "hero": "/assets/images/projects/aframe-standing-seam-metal-1.jpg",
+      "hero": "/assets/images/projects/aframe-standing-seam-metal-2.jpg",
       "photos": [
+        {
+          "src": "/assets/images/projects/aframe-standing-seam-metal-2.jpg",
+          "alt": "Three-quarter aerial of the A-frame cabin with the full sweep of its ribbed metal roof running down to the eave"
+        },
+        {
+          "src": "/assets/images/projects/aframe-standing-seam-metal-3.jpg",
+          "alt": "Straight-on view of the A-frame front gable, the metal roof running symmetrically to both eaves"
+        },
+        {
+          "src": "/assets/images/projects/aframe-standing-seam-metal-4.jpg",
+          "alt": "Close view of the metal roof field with the panel ribs running eave to ridge"
+        },
+        {
+          "src": "/assets/images/projects/aframe-standing-seam-metal-5.jpg",
+          "alt": "Looking out from above the cabin across the wooded hillside setting"
+        },
         {
           "src": "/assets/images/projects/aframe-standing-seam-metal-1.jpg",
           "alt": "Directly overhead view of the A-frame cabin’s completed standing seam metal roof"
