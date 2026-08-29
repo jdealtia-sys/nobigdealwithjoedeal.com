@@ -1,5 +1,15 @@
 # /our-work candidate pipeline — 2026-08-28 all-company sweep
 
+> **STATUS 2026-08-29 — THIS QUEUE IS WORKED OUT.** Ranks 1–12 below and most
+> of 13–28 were staged and published the same session; /our-work went 12 → 39
+> cards. Do not re-mine this list from the top. What actually remains is the
+> short "waiting on Jo" list in
+> [NEXT_SESSION-2026-08-28](../projects/NEXT_SESSION-2026-08-28.md)
+> §TRUE FINAL STATE — four held cards, five orphaned photos, and a settled
+> finding that no full siding replacement exists in Drive. The wells are close
+> to dry: a later sweep of ~150 unopened JKRC folders, both unscanned drone
+> cards, and the SPR/MLR trees yielded only what is already published.
+
 Result of the 10-agent sweep of EVERY company folder tree (MLR, JKRC, ORC,
 SPR/THP/GRANDIR, remaining NBD customers, deep SD rolls), Jo-authorized.
 **The full report — exact addresses, GPS fixes, per-file IDs, claim/doc

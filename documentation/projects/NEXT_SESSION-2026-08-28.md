@@ -1,6 +1,99 @@
 # NEXT SESSION — 2026-08-28
 
-## §FINAL STATE — round 2 (supersedes the §FINAL STATE below)
+## §TRUE FINAL STATE (session closed 2026-08-29 — READ ONLY THIS SECTION)
+
+Everything below this section is an earlier snapshot from the same session
+and is superseded. Eight content PRs merged and verified live: #1285, #1286,
+#1287, #1289, #1291, #1293, #1294, #1295, #1296.
+
+**/our-work carries 39 live projects, 34 with retail price ranges** (started
+the day at 12 unpriced seeds). Zero "Greater Cincinnati" placeholders; every
+card has a real town. Biggest card $100,000–125,000 (West Liberty apartments),
+smallest $100–200 (Bethel second-opinion inspection).
+
+**The five deliberately unpriced** (Jo's call, 2026-08-29): Mason chalk-marked
+(an inspection), Maineville valley-flashing (a craftsmanship detail, not a
+job), the Gatlinburg A-frame, and the two 2024 GRANDIR jobs whose folders hold
+photos but no invoice.
+
+**Paired-card note:** Sycamore Twp (multi-section + underlayment) and West
+Liberty (tear-off + complete) are each ONE job on TWO cards. Both cards carry
+the same range and each description names its sibling so the money is not read
+twice. Do not "fix" this by summing them.
+
+### Open, all waiting on Jo — nothing is blocked on engineering
+
+1. **GBP + Facebook posts — STILL HELD for his review** (his explicit
+   instruction, three times). Kit + 4 posters:
+   [gbp-post-kit-2026-08-28](../marketing/gbp-post-kit-2026-08-28.md) and
+   `../marketing/gbp-kit-2026-08-28/`. Nothing posted anywhere. Jo's stated
+   plan: build the site out first, then do a per-platform posting session
+   with all 39 cards to draw from. Add the six Central-KY towns to the GBP
+   service area BEFORE the Lexington post.
+2. **Five photos with no home**: the frames wrongly attributed to Higgins are
+   a DIFFERENT customer's 2026-07-29 job (one-piece siding repair plus a
+   walk-and-caulk). Jo identified the error; EXIF confirmed it (07-29 13:39–
+   13:47 vs Higgins closing 07-30). No closed 07-29 job exists in the CRM, so
+   they cannot be attributed. Staged in the session scratchpad. **Ask Jo who
+   the customer was — it is a ready-made card.**
+3. **Four cards held with reasons**: Robert Wilson (no town in ANY document —
+   just needs the town) · By Golly's Bar & Grill, Milford, $64,011.90
+   commercial flat roof (identifiable named business — courtesy call first;
+   only 2 usable frames) · Dan Philpot TAMKO sample pull (brand-sensitive
+   against the Pro Gold partnership) · Diane Garrity (invoice and photos both
+   good, no town on any document).
+4. **Sharon Batavia gutters is NOT a job** — an agent pulled EXIF and proved
+   the supposed "after" is a different eave photographed 2.3 seconds later,
+   from a 26-minute visit with no debris, bucket or blower. It is an estimate
+   walk. Five clean frames are staged and are good generic illustration for
+   the thin gutter service page, but must never carry a completion date.
+
+### The siding-replacement gap — settled, do not re-run this search
+
+`/services/siding-replacement` has an EMPTY recent-jobs strip and **it cannot
+be filled from Drive**. Five agents ran Drive-wide content searches (siding,
+James Hardie, LP SmartSide, vinyl siding, re-side, house wrap, fanfold,
+soffit and fascia, Dutch lap, Alside/Mastic/Royal, J channel) plus walks of
+NBD, ORC, MLR, JKRC, SPR, THP and Spagnotti. Findings:
+
+- **No completed full siding replacement exists with photos, in any brand
+  era.** All six published siding cards are repairs. That is the true answer.
+- **"James Hardie" is a false-positive magnet** — it matches only the
+  boilerplate "James Hardie Alliance Installer" credential line in every NBD
+  estimate footer. Zero actual Hardie jobs.
+- **JKRC DID do big full re-sides, document-only, zero photos**: 1116 Fuller
+  St (~6,570 SF across four elevations, siding 56% of an $80,657 RCV job) and
+  Howland, 6482 E Gingham Rd, Loveland (1,611 SF four-elevation aluminum,
+  $42,888 total). Capability is proven; photography never happened.
+- **The live path to filling the gap is a SALE, not a search**: Southman,
+  West Chester, proposal NBD-2026-0811-STH Option B "full half-wall re-side"
+  **$4,600** — strip to sheathing, new weather barrier, flashing integration,
+  ~280 LF LP SmartSide. Unsold as of 2026-08-28. If Jo closes it, document it
+  as it happens.
+- Content/"New Build" is NOT usable: still in green wrap (no completed
+  elevation), EXIF stripped (no town), builder yard sign, a readable plate,
+  and nothing ties it to NBD — it sits beside a "Bad install" reference
+  folder and may be someone else's job.
+
+### Techniques proven this session (reusable)
+
+- **GPS→CRM matching is the highest-leverage trick found.** 108 of 198 leads
+  carry `lat`/`lng`. Haversine an unattributed drone job's EXIF GPS against
+  them and unattributed SD-card sets resolve to named, priced customers. This
+  is how **Jen Stith's "missing" after-photos were found** (an "unattributed
+  Norwood EPDM set" sat 17 m from her address; confirmed visually by twin
+  chimneys, rear deck and the neighbouring turreted Victorian) and how the
+  Seymour Ave set was confirmed as Goddard's. Script pattern:
+  `scripts/_admin.js` → read `leads`, compare `lat`/`lng`.
+- **EXIF beats assumption for attribution.** Two separate errors this session
+  were caught by timestamps alone (the Higgins mix-up; the Batavia "after").
+  Check capture times before grouping frames into one job.
+- **Drive folders are frequently multi-job SD dumps.** Never group adjacent
+  frames without confirming architectural details match.
+- Phone-shot EXIF DOES survive upload to Drive (GPS included) — an older
+  vault note claiming otherwise was wrong and is corrected here.
+
+## §FINAL STATE — round 2 (superseded snapshot, kept for history)
 
 **/our-work now carries 29 live projects** (was 12 unpriced seeds this
 morning). PR #1291 added 11 new cards from the all-company sweep, all
