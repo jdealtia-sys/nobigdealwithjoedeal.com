@@ -70,18 +70,30 @@ only readers of `appointments` are `docs/pro/js/smart-calendar.js` (today's
 timeline, by `repUid`/`userId`) and `customer-bootstrap.module.js` (by
 `leadId`) — neither is the Pipeline.
 
-So the shape of the bug was:
+There are in fact **two** distinct drop points, and which one a booking hit
+depends on whether the rep resolved at all:
 
-| Booker | `leadId` resolved | Appointment doc | Pipeline card |
-|---|---|---|---|
-| Already a lead in the CRM | matched | written, linked | already existed |
-| **Cold / organic (Kevin)** | **`null`** | **written correctly** | **none, ever** |
+| Booker | Rep lookup | `leadId` | Appointment doc | Pipeline card |
+|---|---|---|---|---|
+| Already a lead in the CRM | ok | matched | written, linked | already existed |
+| Cold / organic, rep resolves | ok | **`null`** | written, orphaned | **none, ever** |
+| **Any booking, `calcomUsername` unset** | **fails** | — | **never written** | **none, ever** |
 
-The appointment doc itself was written correctly every time. That is exactly
-what made this invisible: **nothing errored, nothing 500'd, nothing logged a
-failure.** The webhook returned `200 {ok:true, matched:true}` on a booking
-that produced no CRM record. The feature whose entire purpose is letting
-strangers book without talking to Jo first was the one case it dropped.
+The third row is the one that almost certainly caught Kevin: he booked at
+11:35, and Jo did not set `calcomUsername` until later the same afternoon
+(§4). With the lookup failing, the handler logs
+`no matching rep — booking dropped`, returns 200, and returns **before** the
+appointment write — so for that booking neither a lead nor an
+`appointments/{uid}` doc exists. (Not verified against prod: the Auth-email
+fallback `getUserByEmail(jdeal.tia@gmail.com)` could in principle have
+resolved. The backfill tool below handles both states rather than assuming
+one.)
+
+Both paths share the property that made this invisible: **nothing errored,
+nothing 500'd, nothing logged a failure a human would see.** The webhook
+returned `200 {ok:true}` on a booking that produced no CRM record. The
+feature whose entire purpose is letting strangers book without talking to Jo
+first was the one case it dropped.
 
 ---
 
@@ -173,11 +185,29 @@ reading the code and on unit-level asserts, not on an executed booking.
 
 ## §6 — Open — in priority order
 
-1. **Kevin Choi was never backfilled.** The fix is forward-only; his booking
-   predates it, so no lead exists for tomorrow's 10:00 inspection. Two
-   options were put to Jo and neither was chosen: a one-off script pulling
-   the booking from the Cal.com API and minting the lead, or handling him
-   manually. **Left open deliberately — Jo's call, not the agent's.**
+1. **Kevin Choi is not backfilled yet — the tool exists, the run is Jo's.**
+   The fix is forward-only, so his booking (and any other taken while
+   `calcomUsername` was unset) still has no CRM record.
+   `scripts/backfill-calcom-dropped-leads.js` repairs both drop states from
+   §2: it creates the lead, creates the `appointments/{uid}` doc when the
+   rep-lookup drop meant one was never written, and links the two. Run it
+   dry first — it writes nothing without `--apply --yes`:
+
+   ```bash
+   # needs the uid — last path segment of the booking's Cal.com link
+   node scripts/backfill-calcom-dropped-leads.js --booking-uid=<uid> \
+     --name="…" --email=… --phone=+1… --start=2026-08-29T14:00:00Z \
+     --location="…" --notes="…" --organizer-username=nobigdeal
+   ```
+
+   Two properties worth knowing before running it: the lead id is
+   `L.bridgeDocId('calcom', <uid>)` — the **same** derivation the live
+   webhook uses, so a later reschedule of that booking is a no-op rather
+   than a second card; and an attendee already in the pipeline is **linked**
+   to, never duplicated (same email / last-10-phone rule as M-1). Both
+   properties, plus dry-run safety and re-run idempotency, are
+   emulator-verified. No customer PII is committed — details are passed at
+   run time or pulled from the Cal.com API.
 2. **Fire one real test booking post-deploy** through
    `cal.com/nobigdeal/roof-inspection` and confirm a Pipeline card with
    `source: "Website — Cal.com booking"`. This is the only assertion that

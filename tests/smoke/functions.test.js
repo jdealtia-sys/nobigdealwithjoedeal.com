@@ -569,6 +569,37 @@ section('Cal.com webhook');
     /phoneDigits:\s*phoneDigits10\(phone\)/.test(src));
 }
 
+section('backfill — dropped Cal.com bookings repair tool');
+{
+  // scripts/** is deliberately outside check-js-syntax's ROOTS, so these
+  // asserts are the only CI guard on this tool. They pin the properties that
+  // make it safe to point at PROD: dry-run default, and a lead id derived by
+  // the SAME helper the webhook uses (an invented id would silently defeat
+  // reschedule idempotency and mint a duplicate pipeline card).
+  const fs = require('fs');
+  const p = path.join(ROOT, 'scripts/backfill-calcom-dropped-leads.js');
+  assert('scripts/backfill-calcom-dropped-leads.js exists', fs.existsSync(p));
+  if (fs.existsSync(p)) {
+    const bf = read(p);
+    assert('backfill is dry-run-by-default + --apply needs --yes',
+      /APPLY && !YES/.test(bf) && /--apply --yes/.test(bf));
+    assert('backfill derives the lead id via the shared bridgeDocId (no drift vs webhook)',
+      /require\(['"]\.\.\/functions\/lead-bridge-logic['"]\)/.test(bf) &&
+      /bridgeDocId\('calcom', b\.uid\)/.test(bf));
+    assert('backfill stamps phoneDigits via the shared transform',
+      /require\(['"]\.\.\/functions\/phone-utils['"]\)/.test(bf) &&
+      /phoneDigits:\s*phoneDigits10\(phone\)/.test(bf));
+    assert('backfill uses .create() so a concurrent webhook delivery is not clobbered',
+      /leadRef\.create\(/.test(bf));
+    assert('backfill links an already-known attendee instead of duplicating',
+      /findExistingLead/.test(bf) && /linked to existing/.test(bf));
+    assert('backfill omits credentials against the emulator (never presents real ADC)',
+      /FIRESTORE_EMULATOR_HOST/.test(bf) && /credential:\s*null/.test(bf));
+    assert('backfill hardcodes no customer PII',
+      !/seiya256|8594663151|Moock/i.test(bf));
+  }
+}
+
 section('Unified client + status endpoint');
 {
   const src = read(path.join(PRO_JS, 'integrations-client.js'));
