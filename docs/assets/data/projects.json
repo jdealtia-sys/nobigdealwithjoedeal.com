@@ -383,19 +383,15 @@
       "tag": "Metal Roof",
       "city": "Gatlinburg, TN",
       "description": "Not every job is shingles. This mountain A-frame got a standing seam metal roof — built for steep pitch, heavy snow loads, and decades of zero maintenance.",
-      "hero": "/assets/images/projects/metal-aframe-cabin.jpg",
+      "hero": "/assets/images/projects/aframe-standing-seam-metal-1.jpg",
       "photos": [
         {
-          "src": "/assets/images/projects/metal-aframe-cabin.jpg",
-          "alt": "A-frame cabin with standing seam metal roof"
+          "src": "/assets/images/projects/aframe-standing-seam-metal-1.jpg",
+          "alt": "Directly overhead view of the A-frame cabin’s completed standing seam metal roof"
         },
         {
           "src": "/assets/images/projects/metal-aframe-cabin-2.jpg",
           "alt": "Aerial view of the cabin community on the misty mountainside, metal roofs among the bare trees"
-        },
-        {
-          "src": "/assets/images/projects/aframe-standing-seam-metal-1.jpg",
-          "alt": "Directly overhead view of the A-frame cabin’s completed standing seam metal roof"
         }
       ],
       "consentOnFile": true,
@@ -640,26 +636,6 @@
         {
           "src": "/assets/images/projects/cincinnati-oh-siding-repair-2026-4.jpg",
           "alt": "Two extension ladders set side by side against the tall tan gable during the repair"
-        },
-        {
-          "src": "/assets/images/projects/cincinnati-oh-siding-repair-2026-5.jpg",
-          "alt": "Gloved hand pointing out the failed trim joint at the gable peak above the J-channel"
-        },
-        {
-          "src": "/assets/images/projects/cincinnati-oh-siding-repair-2026-6.jpg",
-          "alt": "Sealant worked into the open gable-peak joint where the J-channels meet"
-        },
-        {
-          "src": "/assets/images/projects/cincinnati-oh-siding-repair-2026-7.jpg",
-          "alt": "The finished gable peak with the J-channel seated and the fascia joint caulked clean"
-        },
-        {
-          "src": "/assets/images/projects/cincinnati-oh-siding-repair-2026-8.jpg",
-          "alt": "Close-up of a freshly sealed fastener on the ridge flashing against the shingle line"
-        },
-        {
-          "src": "/assets/images/projects/cincinnati-oh-siding-repair-2026-9.jpg",
-          "alt": "Sealed shingle patch bridging two metal flashing runs with the sealant bead visible"
         }
       ],
       "consentOnFile": true,
