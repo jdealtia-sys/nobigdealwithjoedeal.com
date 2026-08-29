@@ -47,7 +47,9 @@
         }
       ],
       "consentOnFile": true,
-      "published": "2026-08-06"
+      "published": "2026-08-06",
+      "priceLow": 14000,
+      "priceHigh": 17000
     },
     {
       "slug": "brick-two-story-drone-verified",
@@ -76,7 +78,9 @@
         }
       ],
       "consentOnFile": true,
-      "published": "2026-08-06"
+      "published": "2026-08-06",
+      "priceLow": 17000,
+      "priceHigh": 21000
     },
     {
       "slug": "multi-section-complex-roof",
@@ -87,7 +91,7 @@
       ],
       "tag": "Roof Replacement",
       "city": "Sycamore Township, OH",
-      "description": "Large footprint with multiple roof sections, valleys, and transitions. New underlayment throughout, architectural shingles, all flashing replaced.",
+      "description": "Large footprint with multiple roof sections, valleys, and transitions. New underlayment throughout, architectural shingles, all flashing replaced. Same job as the underlayment card — this is the finished side of it.",
       "hero": "/assets/images/projects/completed-multisection.jpg",
       "photos": [
         {
@@ -120,7 +124,9 @@
         }
       ],
       "consentOnFile": true,
-      "published": "2026-08-06"
+      "published": "2026-08-06",
+      "priceLow": 30000,
+      "priceHigh": 35000
     },
     {
       "slug": "wind-damage-lifted-shingles",
@@ -149,7 +155,9 @@
         }
       ],
       "consentOnFile": true,
-      "published": "2026-08-06"
+      "published": "2026-08-06",
+      "priceLow": 15000,
+      "priceHigh": 18000
     },
     {
       "slug": "hail-impact-chalk-marked",
@@ -226,7 +234,9 @@
         }
       ],
       "consentOnFile": true,
-      "published": "2026-08-06"
+      "published": "2026-08-06",
+      "priceLow": 18000,
+      "priceHigh": 22000
     },
     {
       "slug": "brick-underlayment-install",
@@ -237,7 +247,7 @@
       ],
       "tag": "Active Jobsite",
       "city": "Sycamore Township, OH",
-      "description": "Hi-vis crew laying synthetic underlayment on a large brick two-story. Materials staged, safety protocols in place. The decking underneath was clean — no surprises.",
+      "description": "Hi-vis crew laying synthetic underlayment on a large brick two-story. Materials staged, safety protocols in place. The decking underneath was clean — no surprises. Same job as the multi-section card — this is install day on it.",
       "hero": "/assets/images/projects/active-brick-underlayment.jpg",
       "photos": [
         {
@@ -270,7 +280,9 @@
         }
       ],
       "consentOnFile": true,
-      "published": "2026-08-06"
+      "published": "2026-08-06",
+      "priceLow": 30000,
+      "priceHigh": 35000
     },
     {
       "slug": "valley-flashing-detail",
@@ -315,7 +327,9 @@
         }
       ],
       "consentOnFile": true,
-      "published": "2026-08-06"
+      "published": "2026-08-06",
+      "priceLow": 25000,
+      "priceHigh": 30000
     },
     {
       "slug": "apartment-complex-tearoff",
@@ -326,7 +340,7 @@
       ],
       "tag": "Commercial",
       "city": "West Liberty, KY",
-      "description": "Full-scale commercial project: multi-building apartment complex, complete tear-off down to decking, new synthetic underlayment going down while crew stages shingle bundles. Multiple buildings, one crew, zero delays.",
+      "description": "Full-scale commercial project: multi-building apartment complex, complete tear-off down to decking, new synthetic underlayment going down while crew stages shingle bundles. Multiple buildings, one crew, zero delays. Same project as the completed-buildings card; the range covers the whole complex.",
       "hero": "/assets/images/projects/commercial-apartment-tearoff.jpg",
       "photos": [
         {
@@ -347,7 +361,9 @@
         }
       ],
       "consentOnFile": true,
-      "published": "2026-08-06"
+      "published": "2026-08-06",
+      "priceLow": 100000,
+      "priceHigh": 125000
     },
     {
       "slug": "apartment-complex-complete",
@@ -358,7 +374,7 @@
       ],
       "tag": "Commercial",
       "city": "West Liberty, KY",
-      "description": "Same complex, job done. Every building re-roofed with architectural shingles, new ridge vents, all flashing replaced. Drone-documented start to finish for the property management company.",
+      "description": "Same complex, job done. Every building re-roofed with architectural shingles, new ridge vents, all flashing replaced. Drone-documented start to finish for the property management company. Same project as the tear-off card; the range covers the whole complex.",
       "hero": "/assets/images/projects/commercial-apartment-completed.jpg",
       "photos": [
         {
@@ -371,7 +387,9 @@
         }
       ],
       "consentOnFile": true,
-      "published": "2026-08-06"
+      "published": "2026-08-06",
+      "priceLow": 100000,
+      "priceHigh": 125000
     },
     {
       "slug": "aframe-standing-seam-metal",
@@ -383,19 +401,15 @@
       "tag": "Metal Roof",
       "city": "Gatlinburg, TN",
       "description": "Not every job is shingles. This mountain A-frame got a standing seam metal roof — built for steep pitch, heavy snow loads, and decades of zero maintenance.",
-      "hero": "/assets/images/projects/metal-aframe-cabin.jpg",
+      "hero": "/assets/images/projects/aframe-standing-seam-metal-1.jpg",
       "photos": [
         {
-          "src": "/assets/images/projects/metal-aframe-cabin.jpg",
-          "alt": "A-frame cabin with standing seam metal roof"
+          "src": "/assets/images/projects/aframe-standing-seam-metal-1.jpg",
+          "alt": "Directly overhead view of the A-frame cabin’s completed standing seam metal roof"
         },
         {
           "src": "/assets/images/projects/metal-aframe-cabin-2.jpg",
           "alt": "Aerial view of the cabin community on the misty mountainside, metal roofs among the bare trees"
-        },
-        {
-          "src": "/assets/images/projects/aframe-standing-seam-metal-1.jpg",
-          "alt": "Directly overhead view of the A-frame cabin’s completed standing seam metal roof"
         }
       ],
       "consentOnFile": true,
@@ -640,26 +654,6 @@
         {
           "src": "/assets/images/projects/cincinnati-oh-siding-repair-2026-4.jpg",
           "alt": "Two extension ladders set side by side against the tall tan gable during the repair"
-        },
-        {
-          "src": "/assets/images/projects/cincinnati-oh-siding-repair-2026-5.jpg",
-          "alt": "Gloved hand pointing out the failed trim joint at the gable peak above the J-channel"
-        },
-        {
-          "src": "/assets/images/projects/cincinnati-oh-siding-repair-2026-6.jpg",
-          "alt": "Sealant worked into the open gable-peak joint where the J-channels meet"
-        },
-        {
-          "src": "/assets/images/projects/cincinnati-oh-siding-repair-2026-7.jpg",
-          "alt": "The finished gable peak with the J-channel seated and the fascia joint caulked clean"
-        },
-        {
-          "src": "/assets/images/projects/cincinnati-oh-siding-repair-2026-8.jpg",
-          "alt": "Close-up of a freshly sealed fastener on the ridge flashing against the shingle line"
-        },
-        {
-          "src": "/assets/images/projects/cincinnati-oh-siding-repair-2026-9.jpg",
-          "alt": "Sealed shingle patch bridging two metal flashing runs with the sealant bead visible"
         }
       ],
       "consentOnFile": true,
