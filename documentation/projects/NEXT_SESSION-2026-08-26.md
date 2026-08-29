@@ -57,8 +57,12 @@ blocking for the first time — watch the first one or two rather than assuming.
    Richmond, Versailles.
 3. **LFUCG call** — (859) 258-3770, the reroof-permit question
    ([runbook](../runbooks/LEXINGTON-CONTRACTOR-SETUP.md)).
-4. **Cal.com finish steps**: NBD Pro → Settings → Profile → username
-   `nobigdeal`; revoke the session API key if it has no expiry.
+4. **Cal.com finish steps**: ~~NBD Pro → Settings → Profile → username
+   `nobigdeal`~~ **DONE 2026-08-28**; still yours: revoke the session API key
+   if it has no expiry. (Correction 2026-08-28: these config steps were never
+   the whole gap — the webhook had no code path that created a lead for a
+   first-time booker, so cold bookings were silently dropped until #1288. See
+   [SESSION-2026-08-28-calcom-lead-drop](SESSION-2026-08-28-calcom-lead-drop.md).)
 5. **Send Scott the CURRENT Oaks zip** (7-Zip, not Compress-Archive).
 6. **2 blog drafts** still need your `JO:` inputs
    ([drafts README](../drafts/README.md)).

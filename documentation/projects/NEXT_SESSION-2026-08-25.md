@@ -49,9 +49,18 @@ Part 2 of the [session note](SESSION-2026-08-25-lexington-call-posts.md)).
    audited and rebuilt — [CALCOM-INTEGRATION-2026-08-25](../audit/CALCOM-INTEGRATION-2026-08-25.md)):
    (a) ~~set `CALCOM_WEBHOOK_SECRET` + redeploy~~ **DONE — verified live
    2026-08-26 03:41Z** (unsigned probe → 400 "Missing signature", HMAC-signed
-   probe → 200 ok; bookings now reach the CRM);
-   (b) NBD Pro → Settings → Profile → Cal.com username `nobigdeal` — until set,
-   bookings arrive but can't attach to you;
+   probe → 200 ok). **Correction 2026-08-28: "bookings now reach the CRM"
+   was wrong.** They reached `appointments/{bookingId}`, which the Pipeline
+   never queries; any attendee not already a lead was dropped silently. A
+   signature probe proves the door opens, not that a lead lands — assert the
+   outcome, not the precondition. Cold bookings became CRM leads only with
+   #1288 (`f44f346a`, 2026-08-28); see
+   [SESSION-2026-08-28-calcom-lead-drop](SESSION-2026-08-28-calcom-lead-drop.md);
+   (b) ~~NBD Pro → Settings → Profile → Cal.com username `nobigdeal`~~
+   **DONE 2026-08-28.** The old wording was wrong twice over: unset, the
+   booking is *dropped* (`no matching rep — booking dropped`, HTTP 200), not
+   "arrived but unattached"; and setting it was necessary but **not**
+   sufficient — cold bookings still needed #1288 to become CRM leads;
    (c) optional: restrict the "Central Kentucky days" schedule to real trip days;
    (d) **revoke the session API key** if it has no expiry.
 6. Carried from 08-20 if not yet done: **send Scott the CURRENT Oaks zip** (7-Zip,
