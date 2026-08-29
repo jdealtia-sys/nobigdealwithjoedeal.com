@@ -47,7 +47,9 @@
         }
       ],
       "consentOnFile": true,
-      "published": "2026-08-06"
+      "published": "2026-08-06",
+      "priceLow": 14000,
+      "priceHigh": 17000
     },
     {
       "slug": "brick-two-story-drone-verified",
@@ -76,7 +78,9 @@
         }
       ],
       "consentOnFile": true,
-      "published": "2026-08-06"
+      "published": "2026-08-06",
+      "priceLow": 17000,
+      "priceHigh": 21000
     },
     {
       "slug": "multi-section-complex-roof",
@@ -151,7 +155,9 @@
         }
       ],
       "consentOnFile": true,
-      "published": "2026-08-06"
+      "published": "2026-08-06",
+      "priceLow": 15000,
+      "priceHigh": 18000
     },
     {
       "slug": "hail-impact-chalk-marked",
