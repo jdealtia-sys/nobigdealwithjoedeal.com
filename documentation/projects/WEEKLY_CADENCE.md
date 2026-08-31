@@ -46,6 +46,14 @@
       startNewEstimateOriginal` warns = classic-wizard deletion gate
       ([BIG_ROCKS](BIG_ROCKS.md) Rock 2). A `calcTierPrices` hit only means a
       rep reopened a pre-V2 doc.
+      *(2026-08-31 correction — where to look and when the clock starts:
+      until today these warns NEVER left the rep's browser — Sentry had no
+      console capture, so a solo `console.warn` only rode along as a
+      breadcrumb if an unrelated error fired. "Zero warns" was vacuous.
+      Fixed: `_warnDeprecatedOnce` now also ships a real Sentry **warning
+      event**. Check Sentry → Issues, filter `estimates.js DEPRECATED`.
+      The 30-day zero-warn clock starts at this fix's deploy date, not
+      earlier.)*
 - [ ] **`/cspReport` sink skim** (Cloud Logging) — STEP 0 of the
       [CSP generated-docs audit](../../docs/dev/csp-generated-docs-audit.md).
 

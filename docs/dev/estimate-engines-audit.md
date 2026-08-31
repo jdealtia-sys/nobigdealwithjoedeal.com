@@ -371,3 +371,35 @@ did land in the classic wizard.
   still price real jobs.
 - `tests/estimate-pricing.test.js` already imports EBv2 with no aliasing —
   the PR 6 bullet above asking for that is already satisfied.
+
+---
+
+## 2026-08-31 update — the warn channel was a dead-end; now fixed
+
+The "Reading the deprecation-warn logs" section above assumed the warns were
+readable somewhere in prod. They were not: `sentry-init.js` configures no
+console-capture integration, so a solo `console.warn` never created a Sentry
+event — it only rode along as a breadcrumb when an unrelated *error* fired on
+the same page load. There is no other client log shipper (the only monitoring
+HTTP sink is `/cspReport`). The wizard-deletion gate's "zero warns" signal was
+therefore vacuous — unobservable, not cold.
+
+**Fix (this date):** `_warnDeprecatedOnce` in `estimates.js` now also calls
+`window.Sentry.captureMessage(msg, 'warning')` when the SDK is loaded. Each
+instrumented function ships at most one warning event per page load, and only
+when the deprecated path actually runs. PII redaction is already covered —
+`beforeSend` in `sentry-init.js` redacts `event.message`.
+
+**Where to read:** Sentry → Issues → search `estimates.js DEPRECATED`.
+The interpretation guidance above (calcTierPrices trap, fallback-branch
+warns, `startNewEstimateOriginal` as the one clean signal) is unchanged.
+
+**The 30-day zero-warn clock starts at this fix's deploy date.** Any prior
+"no warns observed" claim carries no evidence weight.
+
+One reachability nuance found while auditing this: besides console/legacy
+bookmarks, `showEstimateTypeSelector` (the chooser whose Classic card calls
+`startNewEstimateOriginal`) is still reachable via the defense-in-depth
+fallback in `estimate-entry.js` when the V2 bundle fails to load mid-deploy.
+A warn burst that coincides with a deploy window is that fallback, not real
+classic usage.
