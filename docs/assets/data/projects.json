@@ -1633,6 +1633,71 @@
       ],
       "consentOnFile": true,
       "published": "2026-08-31"
+    },
+    {
+      "slug": "loveland-oh-epdm-inspection-2026",
+      "title": "Rain-Day Flat Roof Inspection",
+      "services": [
+        "roof-inspection"
+      ],
+      "tag": "Flat Roof",
+      "city": "Loveland, OH",
+      "priceLow": 100,
+      "priceHigh": 200,
+      "year": 2026,
+      "description": "You inspect a flat roof right after the rain, because that is when it shows itself. We walked this EPDM roof in the wet — mapped the ponding, an un-taped lap seam, a torn corner at the drain, and what was still holding — and delivered a 13-photo written report.",
+      "hero": "/assets/images/projects/loveland-oh-epdm-inspection-2026-1.jpg",
+      "photos": [
+        {
+          "src": "/assets/images/projects/loveland-oh-epdm-inspection-2026-1.jpg",
+          "alt": "Standing water across a flat EPDM roof after rain, with twigs and leaf debris pinned in the ponding and an inspector’s boot at the water’s edge for scale"
+        },
+        {
+          "src": "/assets/images/projects/loveland-oh-epdm-inspection-2026-2.jpg",
+          "alt": "Close-up of a horizontal EPDM lap seam without cover tape, the membrane edge lifting slightly above the rain-wet field"
+        },
+        {
+          "src": "/assets/images/projects/loveland-oh-epdm-inspection-2026-3.jpg",
+          "alt": "Fingertip pointing to torn, bunched EPDM membrane at a corner drain fitting on a flat roof edge, where the sheet should lap flat and sealed"
+        },
+        {
+          "src": "/assets/images/projects/loveland-oh-epdm-inspection-2026-4.jpg",
+          "alt": "Rubber pipe boot flashing sealed tight around a cast-iron plumbing vent penetration on an EPDM roof, ringed by standing water after rain"
+        },
+        {
+          "src": "/assets/images/projects/loveland-oh-epdm-inspection-2026-5.jpg",
+          "alt": "Metal step flashing bedded in a continuous sealant bead where a flat EPDM roof meets brick masonry, photographed wet after rain"
+        }
+      ],
+      "consentOnFile": true,
+      "published": "2026-08-31"
+    },
+    {
+      "slug": "milford-oh-commercial-epdm-rebuild-2023",
+      "title": "Emergency Calls to Full Commercial Rebuild",
+      "services": [
+        "storm-damage",
+        "roof-replacement"
+      ],
+      "tag": "Commercial",
+      "city": "Milford, OH",
+      "priceLow": 63500,
+      "priceHigh": 64500,
+      "year": 2023,
+      "description": "A Milford bar & grill with active leaks after wind damage: four emergency calls including a same-day tarp to keep the business open, then the real fix — 32 squares of old rubber roof torn off, new insulation board down, 60-mil EPDM over the whole low-slope section, with the rooftop HVAC craned off and reset to do it right.",
+      "hero": "/assets/images/projects/milford-oh-commercial-epdm-rebuild-2023-1.jpg",
+      "photos": [
+        {
+          "src": "/assets/images/projects/milford-oh-commercial-epdm-rebuild-2023-1.jpg",
+          "alt": "Crew tearing off a commercial low-slope roof, with the old EPDM membrane peeled back over water-stained recovery board and rotted layers exposed beside new parapet framing"
+        },
+        {
+          "src": "/assets/images/projects/milford-oh-commercial-epdm-rebuild-2023-2.jpg",
+          "alt": "Exposed roof deck during an EPDM tear-off beside a rooftop exhaust unit, showing weathered wood-fiber board and rusted fastener plates as the crew re-fastens the deck before new insulation and membrane go down"
+        }
+      ],
+      "consentOnFile": true,
+      "published": "2026-08-31"
     }
   ]
 }
