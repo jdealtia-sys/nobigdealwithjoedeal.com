@@ -32,10 +32,13 @@
    Start with T3-0 (zone-draw shim unwind at `maps.js:464-468` +
    `damagNearMe` dedup), then T3-A slice 1 (dashboard-actions.js's 33
    mechanically-safe names). Census re-runs via `scripts/globals-xref.js`.
-3. **The posting session Jo planned** — GBP + Facebook, per-platform, with
-   all 43 cards to draw from. Kit: [gbp-post-kit-2026-08-28](../marketing/gbp-post-kit-2026-08-28.md)
-   + 4 posters. STILL deliberately unposted. Add the six Central-KY towns
-   to the GBP service area BEFORE the Lexington post.
+3. **Posting — HALF DONE 2026-08-31.** GBP posts 3 (Lexington announcement)
+   and 4 (storm check, 2 photos) are LIVE; the service-area prerequisite was
+   handled by swapping Hyde Park → Lexington at the 20-area cap. **Tuesday
+   or Wednesday morning: publish posts 1 + 2** (duplex re-roof, gutters) and
+   the two Facebook variants — full state, copy, photo filenames and the
+   browser mechanics are in [POSTING-LOG](../marketing/POSTING-LOG.md).
+   Also confirm Google approved the pending service-area edit.
 4. ~~Housekeeping: PR #1299~~ DONE — it auto-merged 08-31 after its
    branch caught up with main; its vault-index CI gate is live.
 
