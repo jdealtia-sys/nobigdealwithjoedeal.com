@@ -83,16 +83,29 @@ const _roundNearest25 = (cents) => Math.round(cents / ROUND_TO_CENTS) * ROUND_TO
 // still hot before deleting them. console.warn passes through
 // console-quiet.js (Sentry needs warnings).
 //
+// 2026-08-31: console.warn alone never reaches Sentry as an event —
+// the SDK only records it as a breadcrumb attached to *error* events
+// (no captureConsoleIntegration is configured), so the wizard-deletion
+// gate ("zero warns in the prod log") could never observe its signal.
+// We now also ship each warn as a real Sentry warning event when the
+// SDK is loaded. Volume is bounded: once per page load per function
+// name, and only when a deprecated path actually runs.
+//
 // Migration plan: docs/dev/estimate-engines-audit.md
 const _deprecationsWarned = new Set();
 function _warnDeprecatedOnce(name, replacement) {
   if (_deprecationsWarned.has(name)) return;
   _deprecationsWarned.add(name);
+  const msg =
+    '[estimates.js DEPRECATED] ' + name + ' is duplicated by ' + replacement +
+    '. Migration plan: docs/dev/estimate-engines-audit.md';
   try {
-    console.warn(
-      '[estimates.js DEPRECATED] ' + name + ' is duplicated by ' + replacement +
-      '. Migration plan: docs/dev/estimate-engines-audit.md'
-    );
+    console.warn(msg);
+  } catch (_) {}
+  try {
+    if (window.Sentry && typeof window.Sentry.captureMessage === 'function') {
+      window.Sentry.captureMessage(msg, 'warning');
+    }
   } catch (_) {}
 }
 
