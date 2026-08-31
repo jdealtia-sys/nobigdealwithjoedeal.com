@@ -1,5 +1,23 @@
 # GBP + Facebook post kit — 2026-08-28
 
+> **UPDATE 2026-08-31 — partly posted, and three things below are WRONG.**
+> Posting state and the corrected text live in [POSTING-LOG](POSTING-LOG.md);
+> read it before using anything here.
+>
+> - **Posted:** GBP posts 3 and 4, and both Facebook variants (FB1/FB2).
+>   **Still pending:** GBP posts 1 and 2.
+> - **Both Facebook variants below are STALE.** The live posts carry three
+>   Jo-approved edits: FB1's "somebody re-roofed over a re-roof instead of
+>   doing it right" was replaced (competitor-bashing — see the log), FB2's
+>   price was anchored to the specific house, and FB2's "nothing to catch"
+>   was softened. Copy the live wording from the posting log, not from here.
+> - **Photo label error:** `cincinnati-oh-gutter-screens-2026-1` is described
+>   below as "screens along the eave." It is **bare new gutter, no mesh** —
+>   verified at 7× zoom. `-2` is the only frame that shows screens.
+> - **Photo orders below are backwards for social.** Use **2, 3, 1** for the
+>   duplex and **2, 1, 3** for the gutters (reasoning in the log). This
+>   applies to GBP posts 1 and 2 when they go out.
+
 Four Google Business Profile updates + two Facebook variants, built from jobs
 already published on /our-work (photos are the EXIF-stripped site copies —
 safe to attach as-is from `docs/assets/images/projects/`). Voice per
