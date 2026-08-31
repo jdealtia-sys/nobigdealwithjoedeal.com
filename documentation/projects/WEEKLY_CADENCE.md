@@ -65,6 +65,10 @@
       `check-inline-html-scripts` · `marketing-polish-contract.test.js`
       *(2026-08-10 audit session: all green at baseline and post-fix; a new
       gate joined the list — `check-image-privacy.js`)*
+      *(2026-08-31 sweep: all 8 gates green at baseline; staged dates none;
+      dependabot #1301/#1302 merged 19/19 green; both visible main-CI reds
+      were the already-diagnosed pair — no new rot. Full record:
+      [SESSION-2026-08-31](SESSION-2026-08-31-sweep-rocks-and-four-cards.md).)*
 - [x] **~~Check main's CI streaks for the advisory jobs~~ BAR REACHED —
       FLIPPED 2026-08-26 (PR #1279).** (`@engines` shard, `public-e2e`,
       `visual-brand-tokens`, `visual-regression` — the rest of authed-E2E
