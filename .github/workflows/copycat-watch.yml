@@ -1,0 +1,126 @@
+name: Copycat watch
+
+# ─────────────────────────────────────────────────────────────
+# WHY THIS EXISTS
+# ─────────────────────────────────────────────────────────────
+# This repo is deliberately public (docs/ IS the hosting root and the
+# product is built in the open), which means anyone can clone it. The
+# 2026-08-31 copy-posture audit (documentation/audit/
+# PUBLIC-REPO-COPY-POSTURE-2026-08-31.md) established a clean baseline:
+# 0 forks, 0 stars, 0 watchers, and no foreign repo containing any of the
+# codebase's unique fingerprint strings. Nobody re-checks a baseline by
+# hand forever — so this workflow re-checks it monthly and goes red (which
+# emails the repo owner) the moment any of it changes.
+#
+# WHAT A RED RUN MEANS: someone forked/starred the repo, or a fingerprint
+# string appeared in someone else's public code. That is a signal to look,
+# not proof of abuse — a fork is permitted by GitHub's ToS; reuse of the
+# code is not (see LICENSE; the repo grants no license). If a hit turns
+# out to be benign, acknowledge it below (baseline env vars / ALLOWLIST)
+# and the run goes green again.
+#
+# KNOWN LIMITATION (measured, not assumed): GitHub's code-search API did
+# not index even THIS repo at baseline, so zero code-search hits is weak
+# evidence — the check exists because a HIT is a strong signal, not
+# because a miss proves anything. Fork/star counts and repo-name search
+# are real-time and reliable. A private copy is invisible to all of this.
+#
+# No secrets needed — everything here is public data read with the
+# workflow's own GITHUB_TOKEN.
+
+on:
+  schedule:
+    # 12:15 UTC on the 1st of each month — morning Cincinnati time, and
+    # offset from the on-the-hour rush GitHub deprioritizes.
+    - cron: '15 12 1 * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  watch:
+    name: Check for forks, stars, and fingerprint hits
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      GH_TOKEN: ${{ github.token }}
+      REPO: jdealtia-sys/nobigdealwithjoedeal.com
+      # Acknowledged-benign baseline. When a known-friendly fork/star
+      # appears, bump the number here (with a comment saying whose) and
+      # the alert clears.
+      BASELINE_FORKS: '0'
+      BASELINE_STARS: '0'
+      BASELINE_WATCHERS: '0'
+      # Space-separated full_name regexes for known-noise repos that
+      # legitimately match a search term (none at baseline).
+      ALLOWLIST: '^$'
+
+    steps:
+      - name: Sweep public signals
+        run: |
+          set -u
+          FINDINGS="$RUNNER_TEMP/findings.txt"
+          : > "$FINDINGS"
+          note() { echo "$1" >> "$FINDINGS"; echo "::warning::$1"; }
+
+          echo "### Copycat watch — $(date -u +%F)" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+
+          # ── 1. Social counters vs acknowledged baseline ────────────
+          META=$(gh api "repos/$REPO") || { note "repo metadata read FAILED"; META='{}'; }
+          FORKS=$(jq -r '.forks_count // "err"' <<< "$META")
+          STARS=$(jq -r '.stargazers_count // "err"' <<< "$META")
+          WATCH=$(jq -r '.subscribers_count // "err"' <<< "$META")
+          echo "- forks: $FORKS (baseline $BASELINE_FORKS) · stars: $STARS (baseline $BASELINE_STARS) · watchers: $WATCH (baseline $BASELINE_WATCHERS)" >> "$GITHUB_STEP_SUMMARY"
+          [ "$FORKS" != "$BASELINE_FORKS" ] && { note "fork count changed: $FORKS (baseline $BASELINE_FORKS)"; gh api "repos/$REPO/forks" --jq '.[].full_name' >> "$GITHUB_STEP_SUMMARY" || true; }
+          [ "$STARS" != "$BASELINE_STARS" ] && note "star count changed: $STARS (baseline $BASELINE_STARS)"
+          [ "$WATCH" != "$BASELINE_WATCHERS" ] && note "watcher count changed: $WATCH (baseline $BASELINE_WATCHERS)"
+
+          # ── 2. Repo-name search (near-real-time index) ─────────────
+          for TERM in nobigdealwithjoedeal roofivent; do
+            HITS=$(gh api -X GET search/repositories -f q="$TERM" --jq \
+              '[.items[].full_name] | join(" ")') || { note "repo-name search '$TERM' FAILED"; continue; }
+            for R in $HITS; do
+              [ "$R" = "$REPO" ] && continue
+              echo "$R" | grep -Eq "$ALLOWLIST" && continue
+              note "repo-name search '$TERM' hit foreign repo: https://github.com/$R"
+            done
+            sleep 3
+          done
+
+          # ── 3. Code-search fingerprints (weak when 0, strong when >0)
+          # Unique-to-this-codebase strings, verified present locally at
+          # baseline. Keep in sync with the copy-posture audit note.
+          run_code_search() {
+            gh api -X GET search/code -f q="$1" --jq \
+              '[.items[].repository.full_name] | unique | join(" ")'
+          }
+          for TERM in 'Roofivent' 'NBD_ESTIMATE_CONFIG' 'nobigdeal-pro' 'site_wide_spec_20260410' '"no big deal with joe deal"'; do
+            HITS=$(run_code_search "$TERM") \
+              || { sleep 30; HITS=$(run_code_search "$TERM") || { note "code search $TERM FAILED twice"; sleep 7; continue; }; }
+            for R in $HITS; do
+              [ "$R" = "$REPO" ] && continue
+              echo "$R" | grep -Eq "$ALLOWLIST" && continue
+              note "code search $TERM hit foreign repo: https://github.com/$R"
+            done
+            sleep 7   # authenticated code search allows 10 req/min
+          done
+
+          # ── verdict ────────────────────────────────────────────────
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          if [ -s "$FINDINGS" ]; then
+            {
+              echo "**Signals found — look at each, then either act or acknowledge:**"
+              echo ""
+              sed 's/^/- /' "$FINDINGS"
+              echo ""
+              echo "Benign? Bump the BASELINE_* env vars / extend ALLOWLIST in"
+              echo '`.github/workflows/copycat-watch.yml` with a comment saying why.'
+              echo "Abuse? The repo grants no license (see LICENSE) — a GitHub DMCA"
+              echo "takedown of the copy is the enforcement path."
+            } >> "$GITHUB_STEP_SUMMARY"
+            echo "::error::Copycat watch found $(wc -l < "$FINDINGS") signal(s) — see the job summary."
+            exit 1
+          fi
+          echo "All quiet: counters at baseline, no foreign search hits." >> "$GITHUB_STEP_SUMMARY"

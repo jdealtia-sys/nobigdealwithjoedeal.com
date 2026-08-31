@@ -1,6 +1,7 @@
 {
   "name": "nbd-pro-rules-tests",
   "private": true,
+  "license": "UNLICENSED",
   "version": "1.0.0",
   "description": "Firestore rules + rate-limit unit tests for NBD Pro. Run against the Firebase emulator.",
   "engines": {
