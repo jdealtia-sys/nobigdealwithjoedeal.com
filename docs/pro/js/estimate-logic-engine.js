@@ -1,3 +1,4 @@
+/*! © 2026 No Big Deal Home Solutions — All Rights Reserved. Proprietary; no license granted — see LICENSE at the repo root. https://nobigdealwithjoedeal.com */
 // ============================================================
 // NBD Pro — Estimate Logic Engine
 //

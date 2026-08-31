@@ -87,18 +87,31 @@ these strings themselves, so the counts include them.
   (works cleanly against pushed clones precisely because no license was
   ever granted), plus the LICENSE makes the position explicit.
 
-## Options considered, not (yet) taken
+## Options considered — decided 2026-08-31 (same day, Jo's call)
 
 1. **Split the crown jewels out** — move `docs/pro/` + `functions/` to a
    private repo, keep the marketing site public, merge at deploy in CI.
    The only *structural* fix: today the public tree hands any copycat the
    full CRM source, the Firestore data model, and `firestore.rules`.
-   Real migration effort (CI, partials, gates all assume one tree) — needs
-   its own planned session if Jo wants it.
-2. **Make the whole repo private** — rejected: being public is deliberate.
-3. **`/*! © */` banner headers in flagship JS** (`nbd-auth.js`, `crm.js`,
-   estimate engines) so provenance travels inside any copy — cheap,
-   slightly churny (~5 files), offered and pending Jo's call.
+   **SHELVED on cost — the CI is the cost, not the repo.** Private repos
+   are free, but private-repo Actions minutes are metered (2,000
+   free/month on this plan) while public-repo minutes are unlimited-free.
+   This repo ran **344 workflow runs in 15 days** (Aug 17–31 count from
+   the traffic lane) including ~18-minute deploys — the heavy CRM/deploy
+   suites are exactly what would move to the metered repo, so the split
+   converts currently-free CI into a recurring bill (Actions overage
+   ~$0.008/min). Jo's constraint is $0. Revisit only with budget or after
+   drastically pruning CI. (Verify current GitHub pricing at that time.)
+2. **Make the whole repo private** — rejected: being public is
+   deliberate, and the same metered-minutes math applies.
+3. **`/*! © */` banner headers in flagship JS** so provenance travels
+   inside any copy — **DONE 2026-08-31**, 7 files: `nbd-auth.js`,
+   `crm.js`, `dashboard-bootstrap.module.js`, `estimate-logic-engine.js`,
+   `estimate-builder-v2.js`, `estimate-catalog-xactimate.js`,
+   `estimate-labor-catalog.js`. Deterrence + DMCA evidence, not
+   prevention. `functions/index.js` deliberately skipped again (comment
+   edit would trigger a functions deploy) — add its banner with the next
+   real functions change, same as the manifest field.
 
 ## Re-run procedure (manual, any time)
 

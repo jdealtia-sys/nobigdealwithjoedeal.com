@@ -1,3 +1,4 @@
+/*! © 2026 No Big Deal Home Solutions — All Rights Reserved. Proprietary; no license granted — see LICENSE at the repo root. https://nobigdealwithjoedeal.com */
 // Firebase bootstrap module + dashboard top-level wiring (extracted
 // from an inline <script type="module"> in dashboard.html for CSP
 // compliance — production `script-src-elem 'self'` blocks inline
