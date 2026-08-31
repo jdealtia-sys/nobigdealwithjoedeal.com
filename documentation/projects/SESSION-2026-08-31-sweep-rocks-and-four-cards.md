@@ -94,3 +94,37 @@ call) · draft PR #1299 (INDEX handoff consolidation — needs rebase over
 this session's INDEX edit; finish or close) · Sharon Batavia gutter
 frames for the thin gutter page (generic illustration only, never
 completion-dated).
+
+## Addendum — same-day queue sweep (Jo: "take care of everything here")
+
+Jo answered the four held calls in-session and the sweep executed:
+
+- **Philpot → PUBLISHED, manufacturer unnamed** (Jo's pick): 44th card,
+  `loveland-oh-shingle-samples-2026`, $300–500, roof-inspection. The
+  second-look QA caught a background pool + the home's entry ensemble in
+  the staging frame (top-30% crop applied) — and flagged that the
+  filenames themselves leaked the surname and manufacturer (fixed by the
+  re-slug pipeline, a check worth keeping on every future set).
+- **Batavia gutter frames → 2 shipped** into the gutter page's "What
+  Failing Gutters Look Like" grid as `gutter-condition-closeups-1/2`
+  (education imagery, no town, no dates). The two WIDE frames were
+  refused — both mapped the prospect's private backyard (covered pool,
+  deck, pergola) — same flat/low-angle-leaks-the-neighbors pattern as
+  Garrity; the packed-run frame shipped as a tight 4:3 window instead,
+  and the "clear run" frame died in cropping (no story left).
+- **Rock 2 pre-V2 docs → READ-ONLY** (no migration) — recorded in
+  [estimate-engines-audit item 3](../../docs/dev/estimate-engines-audit.md);
+  the deletion PR must keep a minimal viewer for `builder !== 'v2'` docs.
+- **Legacy rollback snapshot refreshed** (July 4 → Aug 31 dashboard) per
+  the documented `cp` convention; post-decomposition copy is inline-free.
+- **PR #1299 self-resolved** — it auto-merged after its branch caught up
+  with main; its vault-index CI gate is live (this addendum passes it).
+  One stale "Current handoffs (two live lanes)" line it missed was
+  demoted here.
+- **Photo evidence preserved off the temp drive**: 1.7 GB / 682 files →
+  `C:\Users\jonat\NBD-photo-staging-2026-08-31` (EXIF-bearing originals;
+  never commit or publish directly).
+
+/our-work ends the day at **44 live projects, 37 priced**. Still open
+after the sweep: only the posting session (Jo's review) and the Rock 4
+Tranche 3 execution lanes.
