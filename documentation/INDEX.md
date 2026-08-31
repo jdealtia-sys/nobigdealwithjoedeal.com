@@ -111,7 +111,7 @@ Campaign folders (each has its own STATUS / BUG-LOG / CLEANUP):
 
 ## Dev notes elsewhere in the repo
 
-- [../docs/dev/](../docs/dev/) — CRM internals: [dashboard-decomposition-plan](../docs/dev/dashboard-decomposition-plan.md) · [globals-decomposition-HANDOFF](../docs/dev/globals-decomposition-HANDOFF.md) · [dashboard-actions-globals-audit](../docs/dev/dashboard-actions-globals-audit.md) · [estimate-engines-audit](../docs/dev/estimate-engines-audit.md) · [crm-responsive-map](../docs/dev/crm-responsive-map.md) · [csp-generated-docs-audit](../docs/dev/csp-generated-docs-audit.md) · [rock-4-handoff](../docs/dev/rock-4-handoff.md)
+- [../docs/dev/](../docs/dev/) — CRM internals: [dashboard-decomposition-plan](../docs/dev/dashboard-decomposition-plan.md) · [globals-tranche3-plan](../docs/dev/globals-tranche3-plan.md) · [globals-decomposition-HANDOFF](../docs/dev/globals-decomposition-HANDOFF.md) · [dashboard-actions-globals-audit](../docs/dev/dashboard-actions-globals-audit.md) · [estimate-engines-audit](../docs/dev/estimate-engines-audit.md) · [crm-responsive-map](../docs/dev/crm-responsive-map.md) · [csp-generated-docs-audit](../docs/dev/csp-generated-docs-audit.md) · [rock-4-handoff](../docs/dev/rock-4-handoff.md)
 - [../monitoring/README.md](../monitoring/README.md) · [../scripts/README.md](../scripts/README.md) · [../tests/e2e/README.md](../tests/e2e/README.md) · [../tests/visual/README.md](../tests/visual/README.md)
 - Functions-adjacent: [NPM_AUDIT_ACCEPTED](../functions/NPM_AUDIT_ACCEPTED.md) · [SEAT_BILLING_ACTIVATION](../functions/SEAT_BILLING_ACTIVATION.md) · [google-reviews.README](../functions/google-reviews.README.md)
 
