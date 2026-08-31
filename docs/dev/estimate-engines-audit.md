@@ -335,10 +335,15 @@ card calls `startNewEstimateOriginal()`. Deleting the function alone leaves
 that card silently dead — its call site is `typeof`-guarded. It goes with
 the wizard, not before it.
 
-**3. Open product question — pre-V2 stored estimates.** `dashboard-widgets.js`
-routes docs whose `builder !== 'v2'` to the classic reopen path. Until legacy
-docs are migrated or made read-only, some classic read path must exist.
-**This is Jo's call and it gates everything else.**
+**3. ~~Open product question~~ DECIDED (Jo, 2026-08-31) — pre-V2 stored
+estimates stay READ-ONLY.** No migration. `dashboard-widgets.js` routes docs
+whose `builder !== 'v2'` to the classic reopen path; when the wizard is
+deleted, the deletion PR must keep (or carve out) a minimal read-only
+viewer for those docs — view/print/PDF, no editing — rather than rewriting
+stored data. Same session, Jo also approved refreshing the
+`dashboard.legacy.html` rollback snapshot (done in the same PR as this
+edit). The deletion gate itself is unchanged: zero Sentry deprecation
+events for 30 days from 2026-08-31.
 
 ### Reading the deprecation-warn logs
 

@@ -5,7 +5,8 @@
 
 ## State of the world
 
-- **/our-work: 43 live projects, 36 priced** (was 39/34). New: Kalb
+- **/our-work: 44 live projects, 37 priced** (was 39/34; the same-day
+  queue sweep added Philpot — see the session note's Addendum). New: Kalb
   (Loveland, siding-repair — the first siding card since the strip gap
   analysis), Wilson (Loveland, storm/repair), Garrity (Loveland,
   **first flat-roof/EPDM card**), By Golly's (Milford, commercial,
@@ -22,9 +23,10 @@
 1. **Rock 2 — the 30-day clock is finally real.** Deprecation warns now
    reach Sentry as events (#1303, deployed 2026-08-31). The wizard-deletion
    gate = zero `startNewEstimateOriginal` warns in Sentry → Issues through
-   ~2026-09-30. Two Jo decisions still needed before deletion: pre-V2
-   stored docs (migrate vs read-only) and the `dashboard.legacy.html`
-   rollback-snapshot refresh. Weekly check is one Sentry search.
+   ~2026-09-30. Jo decided same-day (session-note Addendum): pre-V2 docs
+   stay READ-ONLY (the deletion PR keeps a minimal viewer), and the
+   `dashboard.legacy.html` snapshot was refreshed 2026-08-31. Weekly
+   check is one Sentry search — nothing else blocks the deletion now.
 2. **Rock 4 — execute the Tranche 3 plan**:
    [globals-tranche3-plan](../../docs/dev/globals-tranche3-plan.md).
    Start with T3-0 (zone-draw shim unwind at `maps.js:464-468` +
@@ -34,18 +36,16 @@
    all 43 cards to draw from. Kit: [gbp-post-kit-2026-08-28](../marketing/gbp-post-kit-2026-08-28.md)
    + 4 posters. STILL deliberately unposted. Add the six Central-KY towns
    to the GBP service area BEFORE the Lexington post.
-4. **Housekeeping**: draft PR #1299 (INDEX handoff consolidation) is
-   OPEN and now needs a rebase over this session's INDEX edits — finish
-   it or close it, don't let it rot.
+4. ~~Housekeeping: PR #1299~~ DONE — it auto-merged 08-31 after its
+   branch caught up with main; its vault-index CI gate is live.
 
 ## Held content (Jo's calls, no agent action)
 
-- **Philpot TAMKO sample pull** — publishable evidence is complete
-  ($400 receipt, Loveland, EXIF-confirmed) but brand-sensitive against
-  the Pro Gold partnership. Jo decides.
-- **Sharon Batavia gutter frames** — five clean frames staged (08-28
-  session scratchpad); good generic illustration for the thin gutter
-  service page; NEVER with a completion date (it was an estimate walk).
+- ~~Philpot~~ PUBLISHED 08-31, manufacturer unnamed (Jo's call) — card
+  `loveland-oh-shingle-samples-2026`, $300–500.
+- ~~Sharon Batavia gutter frames~~ SHIPPED 08-31 — two frames into the
+  gutter page's failing-gutters grid (`gutter-condition-closeups-1/2`);
+  the wide frames were refused for backyard exposure.
 - **Siding-replacement strip is still empty and unfillable from Drive**
   (settled 08-28 — do not re-run the search). Live path: the Southman
   proposal (NBD-2026-0811-STH Option B, $4,600) — if Jo closes it,
@@ -53,11 +53,9 @@
 
 ## Watch-outs
 
-- The 08-28 session scratchpad
-  (`…\Temp\claude\C--Users-jonat-nobigdealwithjoedeal-com\966f9031-…\scratchpad`)
-  still holds all staged photo sets + the round6/round7 JSON fact records.
-  Windows temp is not forever — anything still-wanted should be pulled to
-  Drive or published before it evaporates.
+- ~~Scratchpad evaporation~~ HANDLED 08-31 — everything preserved to
+  `C:\Users\jonat\NBD-photo-staging-2026-08-31` (1.7 GB, README inside;
+  EXIF-bearing originals — never commit or publish directly).
 - Wilson town doctrine: when a job folder has no town, check the ERA'S
   CUSTOMER BOOK in Drive (street → ZIP → mailing town). Details in the
   session note's techniques section.

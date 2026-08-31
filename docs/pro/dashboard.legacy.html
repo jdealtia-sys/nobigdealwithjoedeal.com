@@ -47,7 +47,7 @@
 <link rel="apple-touch-icon" href="/pro/img/nbd-icon-192.png">
 <title>NBD Pro — Dashboard</title>
 <link rel="preload" href="js/crm-leads.js?v=1" as="script">
-<link rel="preload" href="js/crm-pipeline.js?v=1" as="script">
+<link rel="preload" href="js/crm-pipeline.js?v=2" as="script">
 <link rel="preload" href="js/crm-snooze.js?v=1" as="script">
 <link rel="preload" href="js/crm-portal-bridge.js?v=2" as="script">
 <link rel="preload" href="js/crm.js?v=32" as="script">
@@ -56,7 +56,6 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="preconnect" href="https://www.gstatic.com" crossorigin>
 <link rel="preconnect" href="https://server.arcgisonline.com" crossorigin>
-<link rel="dns-prefetch" href="https://api.anthropic.com">
 <link rel="dns-prefetch" href="https://us-central1-nobigdeal-pro.cloudfunctions.net">
 <link rel="dns-prefetch" href="https://nominatim.openstreetmap.org">
 <link rel="dns-prefetch" href="https://api.weather.gov">
@@ -98,30 +97,28 @@
 <script src="js/state-store.js?v=1"></script>
 <!-- Lazy script loader — must load BEFORE any code that calls goTo(). -->
 <script src="js/script-loader.js?v=2"></script>
-<!-- Leaflet + plugins — ~300KB combined. Every consumer (widgets.js,
-     maps.js, d2d-tracker*, storm-center.js) is itself `defer` and a
-     waitForLeaflet() guard wraps the only inline boot path that
-     references `L` (see ~line 14182). Adding `defer` here drops them
-     from the critical render path while preserving execution order
-     (defer scripts fire in document order before DOMContentLoaded).
-     Audit B — 2026-05-13. -->
+<!-- nbdModal — canonical .modal-bg/.modal open/close/confirm helper.
+     Eager (like the other small utilities above) so converted subsystems
+     can call window.nbdModal from their first render. Contract lives in
+     the header comment of js/nbd-modal.js. -->
+<script src="js/nbd-modal.js?v=1"></script>
+<!-- LAZY: Leaflet + plugins (~225KB JS) load via the `mapvendor` bundle
+     (script-loader.js, 2026-08-07) — triggered by the map/draw/d2d/storm
+     views and the two map-drawing home widgets. Consumers already tolerate
+     late arrival (waitForLeaflet / self-poll / _withLeaflet). Only the tiny
+     stylesheets stay eager so the first map paint isn't unstyled. -->
 <link rel="stylesheet" href="/assets/vendor/leaflet/leaflet.css"/>
-<script defer src="/assets/vendor/leaflet/leaflet.js"></script>
-<!-- Leaflet.Draw — polygon drawing for territory boundaries -->
 <link rel="stylesheet" href="/assets/vendor/leaflet-draw/leaflet.draw.css"/>
-<script defer src="/assets/vendor/leaflet-draw/leaflet.draw.js"></script>
-<script defer src="/assets/vendor/leaflet-heat/leaflet-heat.js"></script>
 <link rel="stylesheet" href="/assets/vendor/leaflet-markercluster/MarkerCluster.css"/>
 <link rel="stylesheet" href="/assets/vendor/leaflet-markercluster/MarkerCluster.Default.css"/>
-<script defer src="/assets/vendor/leaflet-markercluster/leaflet.markercluster.js"></script>
 <!-- Centralized Auth Gate -->
 <script type="module" src="js/dashboard-auth-gate.module.js?v=1"></script>
-<script type="module" src="js/dashboard-bootstrap.module.js?v=4"></script>
+<script type="module" src="js/dashboard-bootstrap.module.js?v=11"></script>
 
 <!-- Main app CSS — extracted to css/dashboard-app.css (Rock 4 Phase 2b).
      Was a 4,500-line anonymous inline <style>; external file caches per the
      /pro/css revalidation policy instead of shipping in every HTML load. -->
-<link rel="stylesheet" href="css/dashboard-app.css?v=2">
+<link rel="stylesheet" href="css/dashboard-app.css?v=3">
 <!-- Kanban force CSS — extracted to css/kanban-force.css (Rock 4 Phase 2c). -->
 <link rel="stylesheet" href="css/kanban-force.css?v=1" id="kanban-force-css-link">
 <!-- v5→DS theme bridge — extracted to css/theme-bridge.css (Rock 4 Phase 2d). -->
@@ -315,7 +312,7 @@
       <button class="hdr-tool" data-action="toggle" data-target="recentDropdown" title="Recent Customers" aria-label="Recent customers" id="recentBtn">
         <svg class="nbd-icon" aria-hidden="true"><use href="#nbd-icon-clock"/></svg>
       </button>
-      <div id="recentDropdown" style="display:none;position:absolute;top:100%;right:0;background:var(--s);border:1px solid var(--br);border-radius:8px;padding:8px;min-width:220px;margin-top:4px;box-shadow:0 4px 12px rgba(0,0,0,0.3);z-index:9999;">
+      <div id="recentDropdown" style="display:none;position:absolute;top:100%;right:0;background:var(--s);border:1px solid var(--br);border-radius:8px;padding:8px;min-width:220px;margin-top:4px;box-shadow:0 4px 12px rgba(0,0,0,0.3);z-index:2600;">
         <div style="font-size:10px;color:var(--m);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;">Recent Customers</div>
         <div id="recentList"></div>
       </div>
@@ -325,7 +322,7 @@
         <svg class="nbd-icon" aria-hidden="true"><use href="#nbd-icon-bell"/></svg>
         <span id="notifBadge" class="hdr-tool-badge dn">0</span>
       </button>
-      <div id="notifDropdown" style="display:none;position:absolute;top:100%;right:0;background:var(--s);border:1px solid var(--br);border-radius:8px;padding:0;min-width:320px;max-width:400px;margin-top:4px;box-shadow:0 4px 12px rgba(0,0,0,0.3);z-index:9999;max-height:400px;overflow:hidden;flex-direction:column;">
+      <div id="notifDropdown" style="display:none;position:absolute;top:100%;right:0;background:var(--s);border:1px solid var(--br);border-radius:8px;padding:0;min-width:320px;max-width:400px;margin-top:4px;box-shadow:0 4px 12px rgba(0,0,0,0.3);z-index:2600;max-height:400px;overflow:hidden;flex-direction:column;">
         <div style="font-size:11px;color:var(--t);font-weight:600;padding:12px 14px;border-bottom:1px solid var(--br);display:flex;justify-content:space-between;align-items:center;">
           <span>Notifications</span>
           <div style="display:flex;gap:8px;align-items:center;">
@@ -702,11 +699,11 @@
 <nav class="sidebar">
   
   <!-- TIER 1: PRIMARY WORKFLOW -->
-  <div class="ni active" data-action="goTo" data-target="home" id="nav-home"><span class="ni-icon">🏠</span>Home</div>
-  <div class="ni" data-action="goTo" data-target="dash" id="nav-dash"><span class="ni-icon">📊</span>Dashboard</div>
-  <div class="ni" data-action="goTo" data-target="crm"  id="nav-crm"><span class="ni-icon">👥</span>Pipeline <span class="nbadge" id="leadBadge">0</span><span class="health-indicator" id="crmHealthBadge" title="CRM connection status"></span></div>
-  <div class="ni" data-action="goTo" data-target="prospects" id="nav-prospects"><span class="ni-icon">👀</span>Prospects <span class="nbadge dn" id="prospectsNavBadge">0</span></div>
-  <div class="ni" data-action="goTo" data-target="est"  id="nav-est"><span class="ni-icon">📋</span>Estimates</div>
+  <div class="ni active" role="button" tabindex="0" data-action="goTo" data-target="home" id="nav-home"><span class="ni-icon">🏠</span>Home</div>
+  <div class="ni" role="button" tabindex="0" data-action="goTo" data-target="dash" id="nav-dash"><span class="ni-icon">📊</span>Dashboard</div>
+  <div class="ni" role="button" tabindex="0" data-action="goTo" data-target="crm"  id="nav-crm"><span class="ni-icon">👥</span>Pipeline <span class="nbadge" id="leadBadge">0</span><span class="health-indicator" id="crmHealthBadge" title="CRM connection status"></span></div>
+  <div class="ni" role="button" tabindex="0" data-action="goTo" data-target="prospects" id="nav-prospects"><span class="ni-icon">👀</span>Prospects <span class="nbadge dn" id="prospectsNavBadge">0</span></div>
+  <div class="ni" role="button" tabindex="0" data-action="goTo" data-target="est"  id="nav-est"><span class="ni-icon">📋</span>Estimates</div>
 
   <div class="nav-divider"></div>
 
@@ -717,14 +714,15 @@
       <span class="nav-section-toggle open" id="toggle-tools">▶</span>
     </div>
     <div class="nav-section-content open" id="section-tools">
-      <div class="ni" data-action="goTo" data-target="d2d" id="nav-d2d"><span class="ni-icon">🚪</span>Door-to-Door</div>
-      <div class="ni" data-action="call" data-fn="goToD2DFromMaps" id="nav-map"><span class="ni-icon">🗺️</span>Maps & Pins</div>
-      <div class="ni" data-action="goTo" data-target="photos" id="nav-photos"><span class="ni-icon">📸</span>Photos</div>
-      <div class="ni" data-action="goTo" data-target="docs" id="nav-docs"><span class="ni-icon">📁</span>Templates</div>
-      <div class="ni" data-action="goTo" data-target="products" id="nav-products"><span class="ni-icon">📦</span>Products</div>
-      <div class="ni" data-action="goTo" data-target="draw" id="nav-draw"><span class="ni-icon">✏️</span>Drawing</div>
-      <div class="ni" data-action="goTo" data-target="training" id="nav-training"><span class="ni-icon">🎯</span>Sales Training</div>
-      <div class="ni" data-action="goTo" data-target="academy" id="nav-academy"><span class="ni-icon">🎓</span>Real Deal Academy</div>
+      <div class="ni" role="button" tabindex="0" data-action="goTo" data-target="d2d" id="nav-d2d"><span class="ni-icon">🚪</span>Door-to-Door</div>
+      <div class="ni" role="button" tabindex="0" data-action="call" data-fn="goToD2DFromMaps" id="nav-map"><span class="ni-icon">🗺️</span>Maps & Pins</div>
+      <div class="ni" role="button" tabindex="0" data-action="goTo" data-target="photos" id="nav-photos"><span class="ni-icon">📸</span>Photos</div>
+      <div class="ni" role="button" tabindex="0" data-action="goTo" data-target="docs" id="nav-docs"><span class="ni-icon">📁</span>Templates</div>
+      <div class="ni" role="button" tabindex="0" data-action="goTo" data-target="products" id="nav-products"><span class="ni-icon">📦</span>Products</div>
+      <div class="ni" role="button" tabindex="0" data-action="goTo" data-target="job-templates" id="nav-job-templates"><span class="ni-icon">🧰</span>Job Templates</div>
+      <div class="ni" role="button" tabindex="0" data-action="goTo" data-target="draw" id="nav-draw"><span class="ni-icon">✏️</span>Drawing</div>
+      <div class="ni" role="button" tabindex="0" data-action="goTo" data-target="training" id="nav-training"><span class="ni-icon">🎯</span>Sales Training</div>
+      <div class="ni" role="button" tabindex="0" data-action="goTo" data-target="academy" id="nav-academy"><span class="ni-icon">🎓</span>Real Deal Academy</div>
     </div>
   </div>
 
@@ -735,22 +733,23 @@
       <span class="nav-section-toggle open" id="toggle-insights">▶</span>
     </div>
     <div class="nav-section-content open" id="section-insights">
-      <div class="ni" data-action="goTo" data-target="board" id="nav-board"><span class="ni-icon">🏆</span>Leaderboard</div>
-      <div class="ni" data-action="goTo" data-target="reports" id="nav-reports"><span class="ni-icon">📈</span>Reports</div>
-      <div class="ni" data-action="goTo" data-target="expenses" id="nav-expenses"><span class="ni-icon">🧾</span>Expenses</div>
-      <div class="ni" data-action="goTo" data-target="money" id="nav-money"><span class="ni-icon">💵</span>Money</div>
-      <div class="ni" data-action="windowOpen" data-target="/pro/daily-success/" id="nav-daily"><span class="ni-icon">📅</span>Success Tracker</div>
-      <div class="ni" data-action="goTo" data-target="storm" id="nav-storm"><span class="ni-icon">⛈️</span>Storm Watch</div>
-      <div class="ni" data-action="goTo" data-target="closeboard" id="nav-closeboard"><span class="ni-icon">📋</span>Close Board</div>
-      <div class="ni" data-action="goTo" data-target="repos" id="nav-repos"><span class="ni-icon">🧠</span>Rep OS</div>
-      <div class="ni" data-action="goTo" data-target="talk-tank" id="nav-talk-tank"><span class="ni-icon">🎙️</span>Talk Tank</div>
+      <div class="ni" role="button" tabindex="0" data-action="goTo" data-target="board" id="nav-board"><span class="ni-icon">🏆</span>Leaderboard</div>
+      <div class="ni" role="button" tabindex="0" data-action="goTo" data-target="reports" id="nav-reports"><span class="ni-icon">📈</span>Reports</div>
+      <div class="ni" role="button" tabindex="0" data-action="goTo" data-target="expenses" id="nav-expenses"><span class="ni-icon">🧾</span>Expenses</div>
+      <div class="ni" role="button" tabindex="0" data-action="goTo" data-target="money" id="nav-money"><span class="ni-icon">💵</span>Money</div>
+      <div class="ni" role="button" tabindex="0" data-action="goTo" data-target="refrewards" id="nav-refrewards"><span class="ni-icon">🎁</span>Referrals</div>
+      <div class="ni" role="button" tabindex="0" data-action="windowOpen" data-target="/pro/daily-success/" id="nav-daily"><span class="ni-icon">📅</span>Success Tracker</div>
+      <div class="ni" role="button" tabindex="0" data-action="goTo" data-target="storm" id="nav-storm"><span class="ni-icon">⛈️</span>Storm Watch</div>
+      <div class="ni" role="button" tabindex="0" data-action="goTo" data-target="closeboard" id="nav-closeboard"><span class="ni-icon">📋</span>Close Board</div>
+      <div class="ni" role="button" tabindex="0" data-action="goTo" data-target="repos" id="nav-repos"><span class="ni-icon">🧠</span>Rep OS</div>
+      <div class="ni" role="button" tabindex="0" data-action="goTo" data-target="talk-tank" id="nav-talk-tank"><span class="ni-icon">🎙️</span>Talk Tank</div>
     </div>
   </div>
 
   <div class="nav-divider"></div>
 
   <!-- TIER 4: SYSTEM (Always Visible) -->
-  <div class="ni" data-action="goTo" data-target="joe" id="nav-joe"><span class="ni-icon">🤖</span>Ask Joe AI <span class="nbadge" style="background:var(--green);margin-left:auto;font-size:8px;padding:1px 5px;">AI</span></div>
+  <div class="ni" role="button" tabindex="0" data-action="goTo" data-target="joe" id="nav-joe"><span class="ni-icon">🤖</span>Ask Joe AI <span class="nbadge" style="background:var(--green);margin-left:auto;font-size:8px;padding:1px 5px;">AI</span></div>
 
   <!-- AI TOOLS (Collapsible — matches TOOLS + INSIGHTS pattern) -->
   <div class="nav-section" style="margin-top:4px;">
@@ -759,15 +758,15 @@
       <span class="nav-section-toggle open" id="toggle-ai-tools">▶</span>
     </div>
     <div class="nav-section-content open" id="section-ai-tools">
-      <div class="ni" data-action="goTo" data-target="aitree" id="nav-aitree"><span class="ni-icon">⚡</span>Decision Engine</div>
-      <div class="ni" data-action="goTo" data-target="understand" id="nav-understand"><span class="ni-icon">🔬</span>Deep Dive</div>
-      <div class="ni" data-action="goTo" data-target="projectcodex" id="nav-projectcodex"><span class="ni-icon">📋</span>Project Intel</div>
-      <div class="ni" data-action="goTo" data-target="aiusage" id="nav-aiusage"><span class="ni-icon">📊</span>AI Usage</div>
+      <div class="ni" role="button" tabindex="0" data-action="goTo" data-target="aitree" id="nav-aitree"><span class="ni-icon">⚡</span>Decision Engine</div>
+      <div class="ni" role="button" tabindex="0" data-action="goTo" data-target="understand" id="nav-understand"><span class="ni-icon">🔬</span>Deep Dive</div>
+      <div class="ni" role="button" tabindex="0" data-action="goTo" data-target="projectcodex" id="nav-projectcodex"><span class="ni-icon">📋</span>Project Intel</div>
+      <div class="ni" role="button" tabindex="0" data-action="goTo" data-target="aiusage" id="nav-aiusage"><span class="ni-icon">📊</span>AI Usage</div>
     </div>
   </div>
 
-  <div class="ni" data-action="windowOpen" data-target="how-to.html" id="nav-howto" title="Step-by-step instructions"><span class="ni-icon">📖</span>How To</div>
-  <div class="ni" data-action="goTo" data-target="settings" id="nav-settings"><span class="ni-icon">⚙️</span>Settings</div>
+  <div class="ni" role="button" tabindex="0" data-action="windowOpen" data-target="how-to.html" id="nav-howto" title="Step-by-step instructions"><span class="ni-icon">📖</span>How To</div>
+  <div class="ni" role="button" tabindex="0" data-action="goTo" data-target="settings" id="nav-settings"><span class="ni-icon">⚙️</span>Settings</div>
   <div class="ni dn" data-action="goTo" data-target="admin" id="nav-admin"><span class="ni-icon">🛡️</span>Team Manager</div>
 
 </nav>
@@ -847,19 +846,19 @@
         </div>
         <div class="panel-body">
           <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;">
-            <div style="background:var(--s2);border:1px solid var(--br);border-radius:8px;padding:12px;cursor:pointer;transition:border-color .15s;" data-action="goTo" data-target="crm" onmouseenter="this.style.borderColor='var(--blue)'" onmouseleave="this.style.borderColor='var(--br)'">
+            <div style="background:var(--s2);border:1px solid var(--br);border-radius:8px;padding:12px;cursor:pointer;transition:border-color .15s;" data-action="goTo" data-target="crm" class="hov-blue">
               <div style="font-size:10px;color:var(--m);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px;">New Leads</div>
               <div style="font-size:24px;font-weight:700;color:var(--blue);" id="weekNewLeads">0</div>
             </div>
-            <div style="background:var(--s2);border:1px solid var(--br);border-radius:8px;padding:12px;cursor:pointer;transition:border-color .15s;" data-action="goTo" data-target="est" onmouseenter="this.style.borderColor='var(--gold)'" onmouseleave="this.style.borderColor='var(--br)'">
+            <div style="background:var(--s2);border:1px solid var(--br);border-radius:8px;padding:12px;cursor:pointer;transition:border-color .15s;" data-action="goTo" data-target="est" class="hov-gold">
               <div style="font-size:10px;color:var(--m);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px;">Estimates Created</div>
               <div style="font-size:24px;font-weight:700;color:var(--gold);" id="weekEstimates">0</div>
             </div>
-            <div style="background:var(--s2);border:1px solid var(--br);border-radius:8px;padding:12px;cursor:pointer;transition:border-color .15s;" data-action="goTo" data-target="crm" onmouseenter="this.style.borderColor='var(--green)'" onmouseleave="this.style.borderColor='var(--br)'">
+            <div style="background:var(--s2);border:1px solid var(--br);border-radius:8px;padding:12px;cursor:pointer;transition:border-color .15s;" data-action="goTo" data-target="crm" class="hov-green">
               <div style="font-size:10px;color:var(--m);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px;">Revenue Added</div>
               <div style="font-size:24px;font-weight:700;color:var(--green);" id="weekRevenue">$0</div>
             </div>
-            <div style="background:var(--s2);border:1px solid var(--br);border-radius:8px;padding:12px;cursor:pointer;transition:border-color .15s;" data-action="goTo" data-target="crm" onmouseenter="this.style.borderColor='var(--purple)'" onmouseleave="this.style.borderColor='var(--br)'">
+            <div style="background:var(--s2);border:1px solid var(--br);border-radius:8px;padding:12px;cursor:pointer;transition:border-color .15s;" data-action="goTo" data-target="crm" class="hov-purple">
               <div style="font-size:10px;color:var(--m);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px;">Tasks Completed</div>
               <div style="font-size:24px;font-weight:700;color:var(--purple);" id="weekTasks">0</div>
             </div>
@@ -1079,6 +1078,10 @@
             <div class="overlay-toggle" id="tog-jobs" data-action="mapOverlay" data-target="jobs" title="In Progress / Complete / Finalizing leads"></div>
           </div>
           <div class="overlay-row">
+            <div class="overlay-label"><div class="overlay-dot" style="background:#22C55E;"></div>All Customers</div>
+            <div class="overlay-toggle" id="tog-customers" data-action="mapOverlay" data-target="customers" title="Every customer &amp; lead, colour-coded by pipeline stage"></div>
+          </div>
+          <div class="overlay-row">
             <div class="overlay-label"><div class="overlay-dot" style="background:var(--gold);"></div>Storm Activity</div>
             <div class="overlay-toggle" id="tog-storm" data-action="mapOverlay" data-target="storm" title="NOAA hail & wind data"></div>
           </div>
@@ -1092,14 +1095,20 @@
         <div class="slabel2">Territory Zones</div>
         <div class="zone-panel" id="zonePanel">
           <input class="zone-name-input" id="zoneNameInput" placeholder="Zone name (e.g. North Territory)">
+          <!-- data-target is a HEX literal (not var(--x)): zones persist their
+               color to Firestore + reload through safeColor(), which only
+               accepts hex — a CSS-var value reverted every saved zone to blue. -->
           <div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:6px;" id="zoneColorPicker">
-            <div data-action="zoneColor" data-target="var(--blue)" style="width:18px;height:18px;border-radius:50%;background:var(--blue);cursor:pointer;border:2px solid transparent;"></div>
-            <div data-action="zoneColor" data-target="var(--green)" style="width:18px;height:18px;border-radius:50%;background:var(--green);cursor:pointer;border:2px solid transparent;"></div>
-            <div data-action="zoneColor" data-target="var(--orange)" style="width:18px;height:18px;border-radius:50%;background:var(--orange);cursor:pointer;border:2px solid transparent;"></div>
-            <div data-action="zoneColor" data-target="var(--purple)" style="width:18px;height:18px;border-radius:50%;background:var(--purple);cursor:pointer;border:2px solid transparent;"></div>
-            <div data-action="zoneColor" data-target="var(--gold)" style="width:18px;height:18px;border-radius:50%;background:var(--gold);cursor:pointer;border:2px solid transparent;"></div>
-            <div data-action="zoneColor" data-target="var(--red)" style="width:18px;height:18px;border-radius:50%;background:var(--red);cursor:pointer;border:2px solid transparent;border-width:2px;" id="zoneColorActive"></div>
+            <div data-action="zoneColor" data-target="#4A9EFF" style="width:18px;height:18px;border-radius:50%;background:#4A9EFF;cursor:pointer;border:2px solid transparent;"></div>
+            <div data-action="zoneColor" data-target="#22C55E" style="width:18px;height:18px;border-radius:50%;background:#22C55E;cursor:pointer;border:2px solid transparent;"></div>
+            <div data-action="zoneColor" data-target="#e8720c" style="width:18px;height:18px;border-radius:50%;background:#e8720c;cursor:pointer;border:2px solid transparent;"></div>
+            <div data-action="zoneColor" data-target="#9B6DFF" style="width:18px;height:18px;border-radius:50%;background:#9B6DFF;cursor:pointer;border:2px solid transparent;"></div>
+            <div data-action="zoneColor" data-target="#D4A017" style="width:18px;height:18px;border-radius:50%;background:#D4A017;cursor:pointer;border:2px solid transparent;"></div>
+            <div data-action="zoneColor" data-target="#E05252" style="width:18px;height:18px;border-radius:50%;background:#E05252;cursor:pointer;border:2px solid transparent;border-width:2px;" id="zoneColorActive"></div>
           </div>
+          <select class="zone-name-input" id="zoneRepSelect" style="margin-bottom:6px;" title="Assign this territory to a rep — shades the zone in their colour">
+            <option value="">Assign to rep (optional)…</option>
+          </select>
           <div style="display:flex;gap:5px;">
             <button class="btn btn-orange" style="flex:1;justify-content:center;font-size:11px;" data-action="call" data-fn="saveZone">💾 Save Zone</button>
             <button class="btn btn-ghost" style="font-size:11px;padding:6px 10px;" data-action="call" data-fn="cancelZoneDraw">✕</button>
@@ -1162,6 +1171,7 @@
           <button class="map-fab" id="fab-heat"    data-action="call" data-fn="fabToggle" data-arg="heat" data-pass-el    title="Heat Map"><span class="map-fab-icon">🔥</span><span>Heat</span></button>
           <button class="map-fab" id="fab-pins"    data-action="call" data-fn="fabToggle" data-arg="pins" data-pass-el    title="All Pins"><span class="map-fab-icon">📌</span><span>Pins</span></button>
           <button class="map-fab" id="fab-jobs"    data-action="call" data-fn="fabToggle" data-arg="jobs" data-pass-el    title="Jobs"><span class="map-fab-icon">💰</span><span>Jobs</span></button>
+          <button class="map-fab" id="fab-customers" data-action="call" data-fn="fabToggle" data-arg="customers" data-pass-el title="All Customers"><span class="map-fab-icon">🏠</span><span>Customers</span></button>
           <button class="map-fab" id="fab-storm"   data-action="call" data-fn="fabToggle" data-arg="storm" data-pass-el   title="Storm Radar"><span class="map-fab-icon">⛈</span><span>Storm</span></button>
           <button class="map-fab" id="fab-weather" data-action="call" data-fn="fabToggle" data-arg="weather" data-pass-el title="Live Weather"><span class="map-fab-icon">🌧</span><span>Weather</span></button>
           <div class="map-fab-div"></div>
@@ -1332,7 +1342,7 @@
         <button class="btn btn-ghost" style="width:100%;justify-content:center;margin-bottom:6px;" data-action="call" data-fn="generateScopeFromDrawing">📋 Scope of Work</button>
         <button class="btn btn-ghost" style="width:100%;justify-content:center;margin-bottom:6px;border-color:var(--green);color:var(--green);" data-action="call" data-fn="showMaterialTakeoff">🧱 Material Takeoff</button>
         <button class="btn btn-ghost" style="width:100%;justify-content:center;margin-bottom:6px;border-color:var(--gold);color:var(--gold);" data-action="call" data-fn="exportXactimateESX">📎 Xactimate Export (ESX)</button>
-        <button class="btn btn-ghost" style="width:100%;justify-content:center;margin-bottom:6px;border-color:#EAB308;color:#EAB308;" data-action="call" data-fn="runSolarAnalysis">☀️ Solar Analysis</button>
+        <button class="btn btn-ghost" style="width:100%;justify-content:center;margin-bottom:6px;border-color:var(--gold,#EAB308);color:var(--gold,#EAB308);" data-action="call" data-fn="runSolarAnalysis">☀️ Solar Analysis</button>
 
         <!-- ACCESSORIES -->
         <div class="slabel2">Accessories</div>
@@ -1463,7 +1473,7 @@
                to default — every new estimate goes through the
                consolidated config (estimate-config.js) instead of
                the parallel Classic constants. -->
-          <button class="btn btn-orange" data-action="call" data-fn="openEstimateV2Builder" title="Build a new estimate with the V2 builder (270 line items, presets, tier comparison, BoldSign signing)">＋ New Estimate</button>
+          <button class="btn btn-orange" data-action="call" data-fn="startNewEstimate" title="New estimate — start from a job template (fastest) or a blank V2 build">＋ New Estimate</button>
           <!-- Rock 2 PR 5 (Jo, 2026-07-04): the "Classic" ghost button is gone —
                new estimates are V2-only. The classic wizard code stays loaded
                solely so viewEstimate() can still open LEGACY classic-format
@@ -2032,11 +2042,22 @@
       <div id="followUpAlerts"></div>
     </div>
 
+    <!-- HIDDEN-STAGE LEADS CHIP — populated by renderHiddenStageChip() in
+         crm-pipeline.js. Shows leads sitting on a stage the admin hid from the
+         board (whose $ is excluded from the column totals) and expands to a
+         filtered list. Hidden by default; the renderer shows it only when there
+         are such leads. -->
+    <div id="hiddenStageWrap" style="display:none;padding:0 16px 8px;"></div>
+
     <!-- DIAGNOSTIC PANEL (shows when loadLeads fails) -->
     <div id="crmDiagnostic" style="display:none;margin:16px;padding:20px;background:var(--s2);border:2px solid var(--orange);border-radius:8px;">
-      <!-- Dual-mode — mirrors dashboard.html. crm-pipeline.js is shared, so
-           these IDs must exist here too or the legacy page keeps the alarming
-           heading with its details hidden. -->
+      <!-- Dual-mode. renderLeads() rewrites the title/lede and hides the debug
+           tools when the board is merely EMPTY rather than broken: a brand-new
+           account has zero leads by definition, and telling that user his
+           kanban "isn't loading" — over a dump of his own Firebase UID and a
+           line blaming Firestore rules — is the single most alarming thing the
+           product can say to someone on day one. The diagnostic itself is
+           genuinely useful when a read actually fails, so it stays. -->
       <div id="crmDiagnosticTitle" style="font-size:16px;font-weight:700;color:var(--orange);margin-bottom:12px;">⚠️ CRM Diagnostic</div>
       <div id="crmDiagnosticLede" style="font-size:13px;color:var(--t);line-height:1.6;margin-bottom:16px;">
         Your kanban isn't loading. Here's what we're seeing:
@@ -2056,6 +2077,8 @@
       </div>
       
       <div class="flex-g8">
+        <!-- Load Sample Data is useful in BOTH modes — an empty account is
+             exactly who wants to see what a populated board looks like. -->
         <button class="btn btn-orange" data-action="call" data-fn="loadSampleData">🎲 Load Sample Data</button>
         <span id="crmDiagnosticDebugTools" style="display:contents;">
           <button class="btn btn-ghost" data-action="call" data-fn="retryLoadLeads">🔄 Retry Load</button>
@@ -2193,16 +2216,21 @@
          Visible only on mobile (≤768px); on desktop the inline "📷 Open
          Camera" button in the page header is the entry point. Tapping
          this fires the same hidden file-input as the create popover's
-         Photo row, so capture flow is one consistent path. -->
-    <!-- data-nbd-corner-claim mirrors dashboard.html. This snapshot loads the
-         same mobile-polish.css (:45) and fab-stack-coordinator.js (:6067), so
-         declaring the claim here is all it takes: the coordinator measures the
-         shutter and the FAB stack translates clear of it. Without the mirror a
-         ?legacy=1 rollback would reinstate the 96% #nbd-fab-dial ∩ #mShutterFab
-         overlap — both were hard-coded to bottom:78px by two authors who never
-         met — i.e. the rollback path would be more broken than the thing it
-         rolls back to. Attribute goes AFTER id so the class/id adjacency the
-         smoke assertions match stays intact. -->
+         Photo row, so capture flow is one consistent path.
+
+         data-nbd-corner-claim: this button and #nbd-fab-dial were given
+         bottom:78px by two authors who never met, so on #/photos the dial
+         sat on top of the shutter (~96% overlap) and the camera was
+         untappable. Rather than hard-code yet another offset, the shutter
+         declares that it OWNS the bottom-right corner while it is visible;
+         fab-stack-coordinator.js measures it and publishes
+         --nbd-corner-claimed, and the shared rule in mobile-polish.css
+         translates the whole FAB stack up out of the way. Nothing here
+         needs teardown: the button lives in a <template>, and an
+         un-hydrated template's contents are invisible to
+         document.querySelectorAll, so a never-visited photos view claims
+         nothing. Keep the attribute AFTER id= — the smoke test at
+         tests/smoke/dashboard.test.js matches class= then id= in order. -->
     <button class="m-shutter-fab" id="mShutterFab" data-nbd-corner-claim type="button"
       data-action="call" data-fn="openPhotoEngineOrClickProxy" data-arg="mCreatePhotoInput"
       aria-label="Capture photo">
@@ -2256,6 +2284,9 @@
   <!-- Money: template-hydrated mount; money-dashboard.js renders the P&L into .view-scroll on init. -->
   <div class="view" id="view-money" data-view-template="tpl-view-money"></div>
   <template id="tpl-view-money"><div class="view-scroll"></div></template>
+  <!-- Referral Rewards: template-hydrated mount; referral-rewards-ui.js renders owed/paid $200 bonuses into .view-scroll on init. -->
+  <div class="view" id="view-refrewards" data-view-template="tpl-view-refrewards"></div>
+  <template id="tpl-view-refrewards"><div class="view-scroll" id="refrewardsScroll"></div></template>
   <template id="tpl-view-closeboard">
     <div class="view-scroll">
       <div class="page-hdr">
@@ -2328,10 +2359,20 @@
             <span class="bc-meta-cp" data-action="goTo" data-target="crm">← Back to CRM</span>
           </div>
           <div class="page-title">Template Library</div>
-          <!-- Matches dashboard.html — see the note there. -->
+          <!-- Was "24 NBD-branded documents". The documents themselves ARE
+               correctly re-branded per tenant (document-generator.js
+               _deBrandSignerLabel is the chokepoint), so this subtitle was the
+               only thing telling a non-NBD contractor that his own template
+               library belongs to someone else. The accurate wording is also
+               the better pitch. -->
           <div class="page-sub">24 documents, branded with your company details — ready to generate, print, and present</div>
         </div>
-        <button class="btn btn-orange" data-action="call" data-fn="openUploadDoc">＋ Upload</button>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+          <button class="btn btn-ghost" title="Saved SMS / email snippets that auto-fill the composer when you share a portal link"
+                  data-action="module" data-target="TemplatesLibrary.openManager"
+                  data-fallback-toast="Message templates are still loading — try again in a moment">📝 Message Templates</button>
+          <button class="btn btn-orange" data-action="call" data-fn="openUploadDoc">＋ Upload</button>
+        </div>
       </div>
       <div style="font-size:11px;color:var(--m);padding:0 0 10px;display:flex;gap:12px;align-items:center;">
         <span>Click a template to fill & generate. Use the <strong>Blank</strong> button to print an empty copy for hand-fill.</span>
@@ -2674,26 +2715,30 @@
     <div id="joeNoKey" style="display:none; flex:1; overflow-y:auto;">
       <div class="joe-no-key">
         <div class="joe-no-key-icon">🤖</div>
-        <p class="mb-14">To activate Joe AI, add your Anthropic API key.<br>
-        Get one free at <strong>console.anthropic.com</strong> → API Keys.</p>
-        <div class="joe-key-input-row">
-          <input type="password" id="joeKeyInput" placeholder="sk-ant-api03-..." autocomplete="off">
-          <button class="btn btn-orange" data-action="call" data-fn="saveJoeKey">Activate</button>
-        </div>
-        <p style="margin-top:10px;font-size:10px;color:var(--m);">Your key is stored locally and never leaves your browser.</p>
+        <!-- This state only appears when the server-side proxy (claude-proxy.js
+             → claudeProxy CF) failed to load. The old card here solicited an
+             sk-ant API key that NO reachable code path could use (direct
+             browser calls are disabled for key safety AND CSP-blocked) —
+             removed 2026-08-10. -->
+        <p class="mb-14">Joe AI couldn't load this session.<br>
+        Refresh the page — if it keeps happening, tell Joe (it means the AI proxy script didn't load).</p>
       </div>
     </div>
 
     <!-- Chat messages -->
     <div class="joe-messages dn" id="joeMessages"></div>
 
-    <!-- Input area -->
-    <!-- data-nbd-corner-claim mirrors dashboard.html: this box sits on the
-         bottom edge inside the FAB rail, so fab-stack-coordinator.js lifts the
-         stack above it. It is the fix for the mic FAB landing on #joeSendBtn —
-         the dictation button covering the send button of the thing you dictate
-         into. The claim evaporates on views that never hydrate, so nothing
-         else moves. -->
+    <!-- Input area.
+         data-nbd-corner-claim: this bar is pinned to the bottom of the Ask
+         Joe pane and #joeSendBtn is its right-most control, which is
+         exactly where #nbd-whisper-fab parks — the dictation button was
+         covering the send button of the thing you dictate into. The bar
+         declares the claim instead of the FAB hard-coding a per-view
+         offset; fab-stack-coordinator.js measures it into
+         --nbd-corner-claimed and mobile-polish.css lifts the stack. It
+         qualifies as a claimant (short, on the bottom edge, inside the
+         right rail) — do NOT copy this onto a tall panel, which the
+         coordinator's height gate would silently drop anyway. -->
     <div class="joe-input-area dn" id="joeInputArea" data-nbd-corner-claim>
       <div class="joe-quick-btns" id="joeQuickBtns">
         <button class="joe-quick" data-action="call" data-fn="joeQuick" data-arg="What should I focus on today?">📋 Today's priorities</button>
@@ -2842,7 +2887,6 @@
           <div class="page-title">Settings</div>
           <div class="page-sub">Account, appearance &amp; preferences</div>
         </div>
-        <span id="tierBadge" style="display:none;padding:4px 12px;background:var(--s2);border:1px solid var(--br);border-radius:12px;font-size:10px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--orange);"></span>
       </div>
 
       <!-- ── TAB BAR ── -->
@@ -2850,6 +2894,7 @@
         <button class="stab-btn stab-active" data-action="settingsTab" data-target="profile" id="stab-profile">👤 Profile</button>
         <button class="stab-btn" data-action="settingsTab" data-target="appearance" id="stab-appearance">🎨 Appearance</button>
         <button class="stab-btn" data-action="settingsTab" data-target="estimates" id="stab-estimates">📋 Estimates</button>
+        <button class="stab-btn" data-action="settingsTab" data-target="pipelines" id="stab-pipelines">🔀 Pipelines</button>
         <button class="stab-btn" data-action="settingsTab" data-target="daily" id="stab-daily">⚡ Daily OS</button>
         <button class="stab-btn" data-action="settingsTab" data-target="company" id="stab-company">🏢 Company</button>
         <button class="stab-btn" data-action="settingsTab" data-target="company-profile" id="stab-company-profile">📜 Company Profile</button>
@@ -2931,6 +2976,23 @@
                     Send me dormant-lead reminders
                     <span style="display:block;font-size:11px;color:var(--m);font-weight:400;margin-top:2px;">
                       Wednesday email when leads have been stuck >30 days at the same stage
+                    </span>
+                  </span>
+                </label>
+              </div>
+            </div>
+            <!-- Review-nudge opt-in/out (2026-07-14). Default ON; only
+                 sent when a recently-won job hasn't been asked yet.
+                 Same default-ON semantics as the two toggles above. -->
+            <div class="sf-row" style="margin-top:6px;">
+              <div class="sf f1">
+                <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-weight:500;">
+                  <input type="checkbox" id="settingsReviewNudge" checked
+                    style="width:16px;height:16px;cursor:pointer;accent-color:var(--orange);">
+                  <span>
+                    Send me review-ask reminders
+                    <span style="display:block;font-size:11px;color:var(--m);font-weight:400;margin-top:2px;">
+                      Morning email when a recently-won job hasn't been asked for a Google review yet
                     </span>
                   </span>
                 </label>
@@ -3035,12 +3097,9 @@
         <div class="panel mb-md">
           <div class="panel-hdr"><div><div class="panel-label">Ask Joe AI</div><div class="panel-title">API Key</div></div></div>
           <div class="panel-body">
-            <p style="font-size:12px;color:var(--m);margin-bottom:12px;">Your Anthropic API key powers Joe AI. Get one free at <a href="https://console.anthropic.com" target="_blank" rel="noopener noreferrer" class="fg-orange">console.anthropic.com</a> → API Keys.</p>
+            <p style="font-size:12px;color:var(--m);margin-bottom:12px;">Joe AI runs through the NBD server — no API key needed, nothing to configure. (This panel used to collect an Anthropic key that the app could never actually use; removed 2026-08-10.)</p>
             <div style="display:flex;gap:8px;margin-bottom:8px;">
-              <input type="password" id="joeKeyInputSettings" placeholder="sk-ant-api03-..." autocomplete="off"
-                style="flex:1;background:var(--s2);border:1px solid var(--br);border-radius:7px;padding:10px 12px;font-family:inherit;font-size:13px;color:var(--t);outline:none;">
-              <button class="btn btn-orange" data-action="call" data-fn="saveJoeKeyFromSettings">Save Key</button>
-              <button class="btn btn-ghost fs-11" data-action="call" data-fn="clearJoeKey">Clear</button>
+              <button class="btn btn-ghost fs-11" data-action="call" data-fn="clearJoeKey">Clear previously saved key</button>
             </div>
             <div id="joeKeyStatus" class="meta-11"></div>
           </div>
@@ -3445,6 +3504,14 @@
 
       </div><!-- /stab-panel-estimates -->
 
+      <!-- ══ TAB: PIPELINES (freeform kanban stage editor) ══ -->
+      <div class="stab-panel dn" id="stab-panel-pipelines">
+        <div style="font-size:15px;font-weight:700;color:var(--t);margin-bottom:4px;">🔀 Pipelines</div>
+        <div style="font-size:12px;color:var(--m);margin-bottom:14px;">Customize the kanban stages for each job type. Changes apply to your whole team.</div>
+        <div id="pipelineBuilderRoot"></div>
+      </div><!-- /stab-panel-pipelines -->
+      <script src="js/pipeline-builder.js?v=4"></script>
+
       <!-- ══ TAB: DAILY OS ══ -->
       <div class="stab-panel dn" id="stab-panel-daily">
 
@@ -3499,7 +3566,7 @@
             <div style="display:flex;align-items:center;gap:10px;margin-top:10px;">
               <label class="ob-toggle" style="position:relative;width:38px;height:20px;flex-shrink:0;">
                 <input type="checkbox" id="ds-showgoose" checked>
-                <span style="position:absolute;cursor:pointer;top:0;left:0;right:0;bottom:0;background:#334;border-radius:20px;transition:.3s;"></span>
+                <span style="position:absolute;cursor:pointer;top:0;left:0;right:0;bottom:0;background:var(--s3,#334);border-radius:20px;transition:.3s;"></span>
               </label>
               <span style="font-size:12px;color:var(--m);">Show goose reward on daily tracker</span>
             </div>
@@ -3590,6 +3657,39 @@
 
       <!-- ══ TAB: COMPANY PROFILE (doc-constants editable from UI) ══ -->
       <div class="stab-panel dn" id="stab-panel-company-profile">
+
+        <div class="panel mb-md">
+          <div class="panel-hdr"><div><div class="panel-label">Your company name, logo, brand colors, and contact info. Drives your customer portal, texts, lead alerts, and every generated document. Change what the setup wizard first collected — no need to re-run it.</div><div class="panel-title">Brand Identity</div></div></div>
+          <div class="panel-body">
+            <div class="sf-row">
+              <div class="sf"><label>Legal / Company Name</label>
+                <input type="text" id="cp_brand_legalName" placeholder="No Big Deal Home Solutions"></div>
+              <div class="sf"><label>Display Name (short, shown in headers)</label>
+                <input type="text" id="cp_brand_displayName" placeholder="No Big Deal"></div>
+            </div>
+            <div class="sf"><label>Logo URL</label>
+              <input type="text" id="cp_brand_logoUrl" placeholder="https://yourdomain.com/logo.png"></div>
+            <div class="sf-row">
+              <div class="sf" style="flex:0 0 160px;"><label>Primary Color</label>
+                <input type="color" id="cp_brand_colorPrimary" value="#1E3A6E"></div>
+              <div class="sf" style="flex:0 0 160px;"><label>Accent Color</label>
+                <input type="color" id="cp_brand_colorAccent" value="#E8720C"></div>
+            </div>
+            <div style="margin:14px 0 6px;font-size:11px;font-family:'Barlow Condensed',sans-serif;letter-spacing:.08em;text-transform:uppercase;color:var(--m);">Contact — used on your portal, texts &amp; lead alerts</div>
+            <div class="sf-row">
+              <div class="sf"><label>Phone</label>
+                <input type="text" id="cp_brand_phone" placeholder="(859) 420-7382"></div>
+              <div class="sf"><label>Email</label>
+                <input type="text" id="cp_brand_email" placeholder="info@yourdomain.com"></div>
+            </div>
+            <div class="sf-row">
+              <div class="sf"><label>Website</label>
+                <input type="text" id="cp_brand_website" placeholder="yourdomain.com"></div>
+              <div class="sf"><label>Address (one line)</label>
+                <input type="text" id="cp_brand_address" placeholder="City, ST"></div>
+            </div>
+          </div>
+        </div>
 
         <div class="panel mb-md">
           <div class="panel-hdr"><div><div class="panel-label">Company identity shown on every generated document letterhead and footer.</div><div class="panel-title">Letterhead</div></div></div>
@@ -3780,6 +3880,18 @@
           </div>
         </div>
 
+        <div class="panel mb-md">
+          <div class="panel-hdr"><div><div class="panel-label">When Expenses flags a job: amber ⚠ once direct costs pass the warning %, red ⚠ once projected gross margin drops below the floor. Blank = industry defaults (65 / 30).</div><div class="panel-title">Job Budget Alerts</div></div></div>
+          <div class="panel-body">
+            <div class="sf-row">
+              <div class="sf"><label>Cost warning at (% of contract value)</label>
+                <input type="number" id="cp_budget_directCostPctWarn" min="1" max="99" step="1" placeholder="65"></div>
+              <div class="sf"><label>Margin floor (% gross margin)</label>
+                <input type="number" id="cp_budget_marginFloorPct" min="1" max="99" step="1" placeholder="30"></div>
+            </div>
+          </div>
+        </div>
+
         <!-- Pillar 5: tenant microsite address + wizard re-run -->
         <div class="panel mb-md">
           <div class="panel-hdr"><div><div class="panel-label">Your free one-page site renders live from this profile. Share the link in your GBP, truck decals, and door hangers — its quote form feeds YOUR pipeline.</div><div class="panel-title">Your Website</div></div></div>
@@ -3853,7 +3965,19 @@
                 </div>
                 <button class="btn btn-orange" style="padding:10px 16px;white-space:nowrap;" data-action="call" data-fn="inviteTeamMember">Send Invite</button>
               </div>
-              <div style="font-size:10px;color:var(--m);margin-top:6px;">Invited reps receive an email with a sign-up link scoped to your company. They see only their own leads and territory.</div>
+              <div style="font-size:10px;color:var(--m);margin-top:6px;">Invited reps receive an email with a sign-up link. When they create an account with the invited email address (and verify it), they join your team automatically on their first dashboard visit.</div>
+            </div>
+
+            <!-- Manual invite-claim recovery: for a rep whose automatic join
+                 didn't fire (signed up before the invite existed, pre-existing
+                 account, shared device). Delegate lives in
+                 js/dashboard-team-tab.js (data-team-action). -->
+            <div style="border-top:1px solid var(--br);padding-top:12px;margin-top:14px;">
+              <div style="font-size:11px;color:var(--m);">
+                Were you invited to someone else's team?
+                <button data-team-action="checkMyInvite" class="btn btn-ghost" style="font-size:11px;padding:6px 12px;margin-left:8px;">Check my invite now</button>
+              </div>
+              <div id="inviteCheckResult" style="font-size:11px;margin-top:6px;"></div>
             </div>
           </div>
         </div>
@@ -4034,12 +4158,11 @@
             </div>
             <div class="flex-g8">
               <a href="/pro/pricing.html" class="btn btn-orange" style="font-size:11px;padding:8px 14px;text-decoration:none;">View All Plans</a>
-              <!-- Stripe customer-portal session opener (openCustomerPortalSession)
-                   isn't wired yet, so this used to call an undefined function and
-                   fall back to a toast that just told you to go to the pricing
-                   page. Now we link directly there. When the Stripe Cloud
-                   Function ships, swap this <a> for the proper opener. -->
-              <a href="/pro/pricing.html" class="btn btn-ghost" style="font-size:11px;padding:8px 14px;text-decoration:none;">Manage Subscription</a>
+              <!-- Opens a Stripe customer-portal session (card update / cancel /
+                   invoices) via createCustomerPortalSession. Delegate lives in
+                   js/dashboard-billing-tab.js (data-billing-action). Free-tier
+                   users with no subscription get routed to the pricing page. -->
+              <button data-billing-action="managePortal" class="btn btn-ghost" style="font-size:11px;padding:8px 14px;">Manage Subscription</button>
             </div>
           </div>
         </div>
@@ -4081,9 +4204,30 @@
             </div>
           </div>
         </div>
+
+        <!-- STRIPE CONNECT / PAYOUTS (Connect phases 2-3) -->
+        <!-- Starts display:none and is only revealed by renderConnectCard(), for
+             the platform owner OR a company_admin — the same pair the server's
+             requireTeamAdmin lets create and onboard a Connect account.
+             The display:none in MARKUP is load-bearing (test-pinned): without it
+             the card flashes for every other role in the moment before JS runs.
+             Phase 2 kept this owner-only because the #1123 payment gate was
+             closed, so Express onboarding would have asked a contractor for SSN
+             + bank details in exchange for nothing. Phase 3 lifted that gate and
+             widened this card in the SAME PR — they always move together.
+             Capability truth and the per-payment fee line are rendered by
+             js/dashboard-connect-tab.js from getConnectStatus's
+             onlinePaymentsEnabled, never from this markup. -->
+        <div class="panel" id="connectPayoutsCard" style="display:none;">
+          <div class="panel-hdr"><div><div class="panel-label">Payouts</div><div class="panel-title">Stripe Connect</div></div></div>
+          <div class="panel-body" id="connectPayoutsBody">
+            <div style="padding:14px;color:var(--m);font-size:12px;">Loading payout status…</div>
+          </div>
+        </div>
       </div><!-- /stab-panel-billing -->
 
       <script src="js/dashboard-billing-tab.js?v=1"></script>
+      <script src="js/dashboard-connect-tab.js?v=1"></script>
 
       <!-- ══ TAB: NOTIFICATIONS ══ -->
       <div class="stab-panel dn" id="stab-panel-notifications">
@@ -4306,6 +4450,9 @@
           <button class="btn btn-ghost" style="font-size:11px;padding:8px 12px;"
                   title="Disable legacy hardcoded access codes in one click"
                   data-action="module" data-target="AdminManager.rotateAccessCodes">🔐 Rotate Access Codes</button>
+          <button class="btn btn-ghost" style="font-size:11px;padding:8px 12px;"
+                  title="Apply any deployed-but-unrun data migration immediately (idempotent)"
+                  data-action="module" data-target="AdminManager.runMigrationsNow">🗄 Run Migrations</button>
           <button class="btn btn-orange" style="font-size:11px;padding:8px 14px;" data-action="module" data-target="AdminManager.openCreate">+ New User</button>
         </div>
       </div>
@@ -4377,11 +4524,27 @@
           <div id="adminActivityFeed" style="font-size:12px;color:var(--m);">Select a team member to view recent activity (leads, knocks, logins).</div>
         </div>
       </div>
+
+      <!-- Inbound Texts — texts from numbers with no matching lead (unmatched_sms) -->
+      <div class="panel mb-lg">
+        <div class="panel-hdr">
+          <div>
+            <div class="panel-label">Inbound</div>
+            <div class="panel-title">New Inbound Texts</div>
+          </div>
+          <div id="adminInboundCount" style="font-size:11px;color:var(--m);"></div>
+        </div>
+        <div class="panel-body" style="padding:0;">
+          <div id="adminInboundContainer">
+            <div class="empty" style="padding:24px;"><div class="empty-icon">💬</div>Texts from unknown numbers show up here to triage into leads.</div>
+          </div>
+        </div>
+      </div>
     </div><!-- /view-scroll -->
   </template>
 
   <!-- ══ ADMIN — Create User Modal ══ -->
-  <div id="adminCreateModal" class="modal-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px);z-index:9999;align-items:center;justify-content:center;">
+  <div id="adminCreateModal" class="modal-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px);z-index:2600;align-items:center;justify-content:center;">
     <div style="background:var(--s1);border:1px solid var(--br);border-radius:10px;padding:24px;width:min(480px,92vw);">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
         <div>
@@ -4421,7 +4584,7 @@
   </div>
 
   <!-- ══ ADMIN — Edit User Modal ══ -->
-  <div id="adminEditModal" class="modal-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px);z-index:9999;align-items:center;justify-content:center;">
+  <div id="adminEditModal" class="modal-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px);z-index:2600;align-items:center;justify-content:center;">
     <div style="background:var(--s1);border:1px solid var(--br);border-radius:10px;padding:24px;width:min(520px,92vw);">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
         <div>
@@ -4457,6 +4620,7 @@
 
   <!-- Phase C.1: PRODUCTS / D2D / TRAINING / ACADEMY — empty mounts. -->
   <div class="view" id="view-products" data-view-template="tpl-view-products"></div>
+  <div class="view" id="view-job-templates" data-view-template="tpl-view-job-templates"></div>
   <div class="view" id="view-d2d"      data-view-template="tpl-view-d2d"></div>
   <div class="view" id="view-training" data-view-template="tpl-view-training"></div>
   <div class="view" id="view-academy"  data-view-template="tpl-view-academy"></div>
@@ -4474,6 +4638,22 @@
       </div>
       <div id="productLibraryContainer">
         <div class="empty"><div class="empty-icon">📦</div>Loading product library...</div>
+      </div>
+    </div>
+  </template>
+  <template id="tpl-view-job-templates">
+    <div class="view-scroll">
+      <div class="page-hdr">
+        <div>
+          <div class="row-tight">
+            <span class="bc-meta-cp" data-action="goTo" data-target="dash">← Back to Dashboard</span>
+          </div>
+          <div class="page-title">Job Templates</div>
+          <div class="page-sub">Pre-built quotes for every job — pick, customize, and generate an estimate</div>
+        </div>
+      </div>
+      <div id="jobTemplatesContainer">
+        <div class="empty"><div class="empty-icon">🧰</div>Loading job templates...</div>
       </div>
     </div>
   </template>
@@ -4684,6 +4864,58 @@
   </div>
 </div>
 
+<!-- ══ GAF QUICK MEASURE IMPORT ══════════════════════════════════════
+     The parser (tools.js: handleQMFile → renderQMPreview → applyQMData)
+     shipped without this markup, so the "📎 Import Quick Measure" button
+     threw a null-lookup on every click (QA wiring audit, 2026-07-27).
+     Every id here is the contract tools.js already expects:
+       #qmImportModal #qmDropZone #qmFileInput #qmStatus #qmStatusText
+       #qmPreview #qmPreviewGrid #qmApplyBtn
+     Drop-zone drag events are CSP-safe (data-on-* handled by the
+     dashboard-ui delegate); the file input uses data-change-action. -->
+<div class="modal-bg" id="qmImportModal">
+  <div class="modal m-modal-has-bar" style="max-width:560px;">
+    <button class="modal-close" data-action="call" data-fn="closeQMImportModal">✕</button>
+    <div class="m-modal-bar">
+      <button class="m-modal-bar-x" data-action="call" data-fn="closeQMImportModal" aria-label="Close">✕</button>
+      <div class="m-modal-bar-titles">
+        <span class="m-modal-bar-eyebrow">Quick Measure</span>
+        <span class="m-modal-bar-title">Import PDF</span>
+      </div>
+      <span class="m-modal-bar-spacer" aria-hidden="true"></span>
+    </div>
+    <div style="font-size:11px;color:var(--m);margin-bottom:14px;">
+      Drop a GAF Quick Measure report — AI pulls the measurements straight into your estimate.
+    </div>
+
+    <div id="qmDropZone" data-action="clickProxy" data-target="qmFileInput"
+      style="border:2px dashed var(--br);border-radius:10px;padding:26px 16px;text-align:center;cursor:pointer;transition:border-color .15s;">
+      <div style="font-size:30px;line-height:1;margin-bottom:8px;">📄</div>
+      <div style="font-family:'Barlow Condensed',sans-serif;font-size:15px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--t);">
+        Tap to choose a PDF
+      </div>
+      <div style="font-size:11px;color:var(--m);margin-top:5px;">or drag it here · max 7.5 MB</div>
+    </div>
+    <input type="file" id="qmFileInput" accept="application/pdf,.pdf" class="dn">
+
+    <div id="qmStatus" style="display:none;margin-top:14px;background:var(--s2);border:1px solid var(--br);border-radius:8px;padding:12px;">
+      <div id="qmStatusText" style="font-size:12px;color:var(--t);line-height:1.5;"></div>
+    </div>
+
+    <div id="qmPreview" style="display:none;margin-top:14px;">
+      <div style="font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--m);margin-bottom:8px;">
+        Extracted measurements
+      </div>
+      <div id="qmPreviewGrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:6px;"></div>
+    </div>
+
+    <button id="qmApplyBtn" data-action="call" data-fn="applyQMData"
+      style="display:none;width:100%;margin-top:14px;background:var(--orange);color:var(--accent-fg,#fff);border:none;border-radius:8px;padding:14px;font-family:'Barlow Condensed',sans-serif;font-size:15px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;cursor:pointer;align-items:center;justify-content:center;gap:8px;">
+      ✓ Apply to Estimate
+    </button>
+  </div>
+</div>
+
 <div class="modal-bg" id="leadModal">
   <div class="modal m-modal-has-bar" style="max-width:600px;max-height:90vh;overflow-y:auto;">
     <button class="modal-close" data-action="closeModal" data-target="leadModal">✕</button>
@@ -4716,6 +4948,11 @@
     </div>
     <div class="mrow">
       <div class="mfield"><label>Stage</label>
+        <!-- The options below are the BUILT-IN pipeline only, kept as the
+             pre-module fallback. openLeadModal calls window.refreshStageOptions
+             on every open and replaces them with the resolved tenant pipeline —
+             editing this list does NOT change what a tenant with a custom
+             pipeline sees (dashboard-bootstrap.module.js). -->
         <select id="lStage">
           <!-- Lead stages — shared -->
           <optgroup label="Lead Pipeline">
@@ -4802,6 +5039,9 @@
     <div class="mrow">
       <div class="mfield"><label>Source</label>
         <select id="lSource"><option>Door Knock</option><option>Storm Canvass</option><option>Referral</option><option>Online</option><option>Other</option></select>
+      </div>
+      <div class="mfield"><label>Referral Code <span style="opacity:.6;font-weight:400;">(if referred)</span></label>
+        <input type="text" id="lReferralCode" placeholder="e.g. JOHN-AB12" autocapitalize="characters" maxlength="32">
       </div>
     </div>
     <div class="mrow">
@@ -4996,9 +5236,8 @@
     <div style="font-size:var(--fs-base);color:var(--text3);margin-bottom:24px;">Select data sources to pull. Cost shown per lookup.</div>
     
     <div style="display:flex;flex-direction:column;gap:12px;margin-bottom:24px;">
-      <label style="display:flex;align-items:center;gap:12px;padding:12px;background:var(--lift);border-radius:var(--r);cursor:pointer;border:1px solid transparent;transition:all 0.2s;" 
-        onmouseenter="this.style.borderColor='var(--border2)'"
-        onmouseleave="this.style.borderColor='transparent'">
+      <label style="display:flex;align-items:center;gap:12px;padding:12px;background:var(--lift);border-radius:var(--r);cursor:pointer;border:1px solid transparent;transition:all 0.2s;"
+        class="hov-border2">
         <input type="checkbox" id="piOwnerContact" data-on-change="updatePropertyIntelCost" 
           style="width:18px;height:18px;cursor:pointer;">
         <div class="f1">
@@ -5009,8 +5248,7 @@
       </label>
 
       <label style="display:flex;align-items:center;gap:12px;padding:12px;background:var(--lift);border-radius:var(--r);cursor:pointer;border:1px solid transparent;transition:all 0.2s;"
-        onmouseenter="this.style.borderColor='var(--border2)'"
-        onmouseleave="this.style.borderColor='transparent'">
+        class="hov-border2">
         <input type="checkbox" id="piPropertyDetails" data-on-change="updatePropertyIntelCost"
           style="width:18px;height:18px;cursor:pointer;">
         <div class="f1">
@@ -5021,8 +5259,7 @@
       </label>
 
       <label style="display:flex;align-items:center;gap:12px;padding:12px;background:var(--lift);border-radius:var(--r);cursor:pointer;border:1px solid transparent;transition:all 0.2s;"
-        onmouseenter="this.style.borderColor='var(--border2)'"
-        onmouseleave="this.style.borderColor='transparent'">
+        class="hov-border2">
         <input type="checkbox" id="piZestimate" data-on-change="updatePropertyIntelCost"
           style="width:18px;height:18px;cursor:pointer;">
         <div class="f1">
@@ -5033,8 +5270,7 @@
       </label>
 
       <label style="display:flex;align-items:center;gap:12px;padding:12px;background:var(--lift);border-radius:var(--r);cursor:pointer;border:1px solid transparent;transition:all 0.2s;"
-        onmouseenter="this.style.borderColor='var(--border2)'"
-        onmouseleave="this.style.borderColor='transparent'">
+        class="hov-border2">
         <input type="checkbox" id="piTaxData" data-on-change="updatePropertyIntelCost"
           style="width:18px;height:18px;cursor:pointer;">
         <div class="f1">
@@ -5203,18 +5439,23 @@
 <!-- Canonical customer URL builder (window.NBDUrl). Loaded BEFORE
      dashboard-actions.js because that file calls NBDUrl.customer(). -->
 <script defer src="js/nbd-url.js?v=1"></script>
-<script defer src="js/dashboard-state.js?v=1"></script>
+<script defer src="js/dashboard-state.js?v=2"></script>
 <script defer src="js/dashboard-api.js?v=3"></script>
 <!-- Canonical two-shape estimate money reader (window.NBDCustomerEstimateRows).
-     Must load BEFORE its consumers below — see the matching note in
-     dashboard.html. Without it those consumers silently run their weaker
-     inline fallback ladders. -->
+     Must load BEFORE its consumers below (customer-estimate-hub, invoice-pipeline,
+     dashboard-widgets), which all read V2 grandTotal / Classic total|amount.
+     Those consumers guard with `window.NBDCustomerEstimateRows && ...` and fall
+     back to a weaker inline ladder — on this page the guard never matched,
+     because this file was only ever loaded on customer.html, so the dashboard
+     silently ran the fallbacks. Dependency-free and already unit-tested
+     (tests/customer-estimate-rows.test.js). -->
 <script defer src="js/customer-estimate-rows.js?v=1"></script>
 <script defer src="js/customer-estimate-hub.js?v=1"></script>
 <script defer src="js/customer-photo-hub.js?v=1"></script>
-<script defer src="js/dashboard-widgets.js?v=2"></script>
+<script defer src="js/estimate-preview.js?v=1"></script>
+<script defer src="js/dashboard-widgets.js?v=4"></script>
 <script defer src="js/dashboard-ui.js?v=2"></script>
-<script defer src="js/dashboard-actions.js?v=3"></script>
+<script defer src="js/dashboard-actions.js?v=10"></script>
 <script defer src="js/dashboard-main.js?v=4"></script>
 
 <!-- DOC VIEWER MODAL -->
@@ -5367,6 +5608,9 @@
   </div>
   <div class="mm-item" data-action="mobileNav" data-target="products" data-close-more>
     <span class="mm-item-icon">📦</span>Products
+  </div>
+  <div class="mm-item" data-action="mobileNav" data-target="job-templates" data-close-more>
+    <span class="mm-item-icon">🧰</span>Job Templates
   </div>
   <div class="mm-item" data-action="mobileNav" data-target="draw" data-close-more>
     <span class="mm-item-icon">✏️</span>Drawing Tool
@@ -5701,6 +5945,11 @@
         <span class="m-jd-act-lbl">Estimate</span>
       </button>
     </div>
+    <!-- Phase 1c: Estimates is a TAB, not a destination. The ESTIMATE action
+         ring button switches to it rather than closing this overlay and
+         navigating to the generic estimates view — the customer's hero, name,
+         address and quick actions stay directly above it in the same scroll.
+         CustomerEstimateHub mounts into #mJdTabEstimates. -->
     <div class="m-jd-tabs" role="tablist" aria-label="Lead detail sections">
       <button class="m-jd-tab active" data-tab="activity" role="tab" aria-selected="true" data-action="call" data-fn="_mJdSwitchTab" data-arg="activity">Activity</button>
       <button class="m-jd-tab" data-tab="estimates" role="tab" aria-selected="false" data-action="call" data-fn="_mJdSwitchTab" data-arg="estimates">Estimates</button>
@@ -5842,9 +6091,12 @@
       </div>
     </div>
 
-    <!-- Single 6-button action grid — uniform sizing, ghost styling.
-         Three rows of 2 on mobile, two rows of 3 on tablet+, one row of 6
-         on wide screens. Driven by .cd-actions auto-fill. -->
+    <!-- Single 7-button action grid — uniform sizing, ghost styling.
+         Wraps by .cd-actions auto-fill (2-up mobile → full row wide).
+         "Template Quote" = Job Templates lead-context entry: opens the
+         template picker with this lead pre-selected in the create step
+         (openJobTemplatesForLead, dashboard-widgets.js — load-then-run
+         over the lazy estimates bundle). -->
     <div class="cd-actions">
       <button class="cd-action-btn" data-action="call" data-fn="openPhotosForLead">
         <span class="cd-action-icon">📸</span><span>Photos</span>
@@ -5858,11 +6110,17 @@
       <button class="cd-action-btn" data-action="call" data-fn="cdaPhotos">
         <span class="cd-action-icon">📷</span><span>Camera</span>
       </button>
+      <button class="cd-action-btn" data-action="call" data-fn="openJobTemplatesForLead" title="Quote from a job template — pre-built scope, this customer pre-selected">
+        <span class="cd-action-icon">🧾</span><span>Template Quote</span>
+      </button>
       <button class="cd-action-btn" data-action="call" data-fn="cdaInvoice">
         <span class="cd-action-icon">💰</span><span>Invoice</span>
       </button>
       <button class="cd-action-btn" data-action="call" data-fn="cdaInspectionDeep">
         <span class="cd-action-icon">📋</span><span>Report</span>
+      </button>
+      <button class="cd-action-btn" data-action="call" data-fn="verifyStormProofForLead" title="Look up verified hail near this address and attach an adjuster-grade, server-stamped storm proof">
+        <span class="cd-action-icon">🛡️</span><span>Storm Proof</span>
       </button>
     </div>
 
@@ -5950,7 +6208,7 @@
      of window.* exports in the shim can reach functions defined
      in the split files via classic-script sibling-scope globals. -->
 <script defer src="js/crm-leads.js?v=1"></script>
-<script defer src="js/crm-pipeline.js?v=1"></script>
+<script defer src="js/crm-pipeline.js?v=2"></script>
 <script defer src="js/crm-snooze.js?v=1"></script>
 <!-- FCM Web Push token registration — registers the messaging SW, mints a
      push token via getToken({vapidKey}), and persists it to
@@ -6005,8 +6263,9 @@
      loaded in order before the thin maps.js shim. See maps.js
      header for the full split rationale. Each module is a classic
      <script> (non-ESM) and shares sibling-scope globals. -->
-<script defer src="js/maps-core.js?v=3"></script>
-<script defer src="js/maps-overlays.js?v=2"></script>
+<script defer src="js/maps-core.js?v=7"></script>
+<script defer src="js/maps-overlays.js?v=7"></script>
+<script defer src="js/maps-customers.js?v=11"></script>
 <script defer src="js/maps-routing.js?v=3"></script>
 <script defer src="js/maps.js?v=10"></script>
 <!-- Smart Calendar — Today's Schedule with travel-time + priority. Reads
@@ -6029,7 +6288,8 @@
      at load by the builder). -->
 
 <script defer src="js/ai.js?v=5"></script>
-<script defer src="js/review-engine.js?v=2"></script>
+<script defer src="js/review-engine.js?v=3"></script>
+<script defer src="js/referral-rewards-ui.js?v=1"></script>
 <script defer src="js/company-profile.js?v=1"></script>
 <!-- LAZY: doc-generation cluster (nbd-logo-asset, document-generator,
      document-generator-templates, doc-preflight) loaded via ScriptLoader's
@@ -6042,10 +6302,7 @@
 <script defer src="js/analytics-kpi.js?v=5"></script>
 <!-- T-3: AI texting analytics card (renders on the board/analytics view) -->
 <script defer src="js/ai-texting-stats-card.js?v=1"></script>
-<!-- idea #2 follow-up: adjuster-tactic board (renders on the board/analytics view).
-     dashboard-actions.js is SHARED by both dashboards and calls
-     AdjusterTacticCard.render() behind a truthiness guard, so omitting this tag
-     here made the card silently absent on the legacy page. -->
+<!-- idea #2 follow-up: adjuster-tactic board (renders on the board/analytics view) -->
 <script defer src="js/adjuster-tactic-card.js?v=2"></script>
 <!-- T-4: AI texting persona editor (Settings → AI Texting tab) -->
 <script defer src="js/ai-texting-persona.js?v=1"></script>
@@ -6077,16 +6334,16 @@
 <!-- W154: revenue trend sparkline + top customers/sources/engaged. -->
 <script defer src="js/reports-trends.js?v=1"></script>
 <!-- LAZY: estimate-v2-ui + product-library load via the `estimates` bundle (PR 2c). -->
-<script defer src="js/theme-engine.js?v=2"></script>
+<!-- LAZY: theme-engine + overlays/sounds/achievements/gx load via the `theme`
+     bundle (script-loader.js, 2026-08-07) — kicked at boot by dashboard-state.js
+     when a saved theme exists, else with the Settings view / theme picker. -->
 <script defer src="js/prospects.js?v=4"></script>
 <script defer src="js/lead-source-roi.js?v=1"></script>
 <script defer src="js/forecast-empirical.js?v=1"></script>
 <script defer src="js/forecasting.js?v=1"></script>
 <script defer src="js/onboarding-tour.js?v=2"></script>
-<script defer src="js/theme-overlays.js?v=1"></script>
-<script defer src="js/theme-sounds.js?v=1"></script>
-<script defer src="js/theme-achievements.js?v=1"></script>
-<script defer src="js/theme-gx.js?v=1"></script>
+<!-- (theme-overlays/sounds/achievements/gx ride the lazy `theme` bundle — see
+     the note at the theme-engine slot above.) -->
 <script src="js/dashboard-sw-bootstrap.js?v=1"></script>
 <script defer src="js/mobile-nav-customizer.js?v=2"></script>
 <script defer src="js/connection-status-btn.js?v=2"></script>
@@ -6112,7 +6369,7 @@
 <!-- W132: Quick Capture inbox — past captures, search, re-link, archive -->
 <script defer src="js/quick-capture-inbox.js?v=1"></script>
 <!-- W133: Cmd+K command palette — fuzzy search leads, actions, views -->
-<script defer src="js/command-palette.js?v=1"></script>
+<script defer src="js/command-palette.js?v=2"></script>
 <!-- W149: FAB stack coordinator — hides voice/inbox FABs when a
      modal is open so they don't float over the modal content. -->
 <script defer src="js/fab-stack-coordinator.js?v=1"></script>
@@ -6133,6 +6390,11 @@
 <!-- W151: offline banner — shows a yellow strip across the top
      when navigator.onLine === false. -->
 <script defer src="js/offline-banner.js?v=1"></script>
+<!-- Alert-delivery health: red strip for owners/admins when alert_outbox
+     shows failed:* email/SMS deliveries in the last 48h (a dead Resend/
+     Twilio key otherwise fails silently — email can't announce its own
+     outage). Fail-quiet; never affects boot. -->
+<script defer src="js/alert-health-banner.js?v=1"></script>
 <!-- W157: What's New / discoverability bell — surfaces recently-
      shipped tools so they don't sit invisible behind hotkeys. -->
 <script defer src="js/whats-new.js?v=1"></script>
@@ -6161,6 +6423,9 @@
      gets ground truth: code version, _leadsLoaded, error code, retry
      count, online state. Trivial to dismiss; auto-fades to ~30%
      opacity when leads finally load. -->
-<!-- v2: matches dashboard.html — see the note there. The banner script is a
-     classic script cached hard by the browser, so the fix needs the bump. -->
+<!-- v2: the "Data not loaded" false-positive fix. The version query is the
+     cache-bust convention here, and it is load-bearing for THIS change — the
+     banner script is a plain (non-module) classic script that browsers cache
+     hard, so shipping the fix without bumping it leaves every warm cache
+     showing the old false error. -->
 <script src="js/dashboard-load-status-banner.js?v=2"></script>

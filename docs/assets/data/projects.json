@@ -1698,6 +1698,40 @@
       ],
       "consentOnFile": true,
       "published": "2026-08-31"
+    },
+    {
+      "slug": "loveland-oh-shingle-samples-2026",
+      "title": "Warranty-Claim Shingle Samples, Pulled Right",
+      "services": [
+        "roof-inspection"
+      ],
+      "tag": "Warranty Support",
+      "city": "Loveland, OH",
+      "priceLow": 300,
+      "priceHigh": 500,
+      "year": 2026,
+      "description": "The shingle manufacturer’s claims department needed samples pulled a specific way, in a specific condition. We made the site visit, documented the leak area, pulled the samples per spec, sealed every removal spot with a temporary weather-tight patch, and left the homeowner a written field summary for their claim file.",
+      "hero": "/assets/images/projects/loveland-oh-shingle-samples-2026-1.jpg",
+      "photos": [
+        {
+          "src": "/assets/images/projects/loveland-oh-shingle-samples-2026-1.jpg",
+          "alt": "Full strip of aged three-tab asphalt shingle laid on a concrete walkway after removal from the roof, showing heavy granule loss, a worn seam line, and torn spots along one edge"
+        },
+        {
+          "src": "/assets/images/projects/loveland-oh-shingle-samples-2026-2.jpg",
+          "alt": "A roofer’s hand lifts the corner of an unsealed asphalt shingle tab to show the unbonded underside and trapped debris, the other hand holding a stick of white marking chalk"
+        },
+        {
+          "src": "/assets/images/projects/loveland-oh-shingle-samples-2026-3.jpg",
+          "alt": "White chalk arrow drawn on a gray asphalt shingle roof pointing to a spot of granule loss and surface damage marked for warranty documentation"
+        },
+        {
+          "src": "/assets/images/projects/loveland-oh-shingle-samples-2026-4.jpg",
+          "alt": "Removed asphalt shingle sample strips laid flat on gray-painted porch decking against the home’s light siding, staged for warranty-claim documentation"
+        }
+      ],
+      "consentOnFile": true,
+      "published": "2026-08-31"
     }
   ]
 }
