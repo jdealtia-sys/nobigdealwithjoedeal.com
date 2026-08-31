@@ -25,8 +25,15 @@ name: Copycat watch
 # because a miss proves anything. Fork/star counts and repo-name search
 # are real-time and reliable. A private copy is invisible to all of this.
 #
-# No secrets needed — everything here is public data read with the
-# workflow's own GITHUB_TOKEN.
+# Everything here is public data. It is read with the workflow's own
+# GITHUB_TOKEN, and it is NOT a given that that installation-scoped token
+# may run GLOBAL code search — so the code-search section starts with a
+# positive CONTROL query against a foreign repo known to be indexed
+# (jquery/jquery, the same control the baseline audit used). If the
+# control returns nothing, the run goes red saying the channel is blind
+# rather than letting a scoped-token zero read as "all clear" forever.
+# If that happens, switch GH_TOKEN to a classic-PAT secret or drop the
+# code-search section — do not let it silently no-op.
 
 on:
   schedule:
@@ -73,7 +80,7 @@ jobs:
           STARS=$(jq -r '.stargazers_count // "err"' <<< "$META")
           WATCH=$(jq -r '.subscribers_count // "err"' <<< "$META")
           echo "- forks: $FORKS (baseline $BASELINE_FORKS) · stars: $STARS (baseline $BASELINE_STARS) · watchers: $WATCH (baseline $BASELINE_WATCHERS)" >> "$GITHUB_STEP_SUMMARY"
-          [ "$FORKS" != "$BASELINE_FORKS" ] && { note "fork count changed: $FORKS (baseline $BASELINE_FORKS)"; gh api "repos/$REPO/forks" --jq '.[].full_name' >> "$GITHUB_STEP_SUMMARY" || true; }
+          [ "$FORKS" != "$BASELINE_FORKS" ] && { note "fork count changed: $FORKS (baseline $BASELINE_FORKS)"; gh api "repos/$REPO/forks" --jq '.[].full_name' | sed 's/^/  - fork: /' >> "$GITHUB_STEP_SUMMARY" || true; }
           [ "$STARS" != "$BASELINE_STARS" ] && note "star count changed: $STARS (baseline $BASELINE_STARS)"
           [ "$WATCH" != "$BASELINE_WATCHERS" ] && note "watcher count changed: $WATCH (baseline $BASELINE_WATCHERS)"
 
@@ -92,10 +99,23 @@ jobs:
           # ── 3. Code-search fingerprints (weak when 0, strong when >0)
           # Unique-to-this-codebase strings, verified present locally at
           # baseline. Keep in sync with the copy-posture audit note.
+          # The quoted multi-word term is AND-of-words under the legacy
+          # search API (no exact-phrase support) — a hit on it deserves a
+          # look, not an assumption of verbatim copying.
           run_code_search() {
             gh api -X GET search/code -f q="$1" --jq \
               '[.items[].repository.full_name] | unique | join(" ")'
           }
+
+          # Positive control FIRST: a term guaranteed to exist in an
+          # indexed foreign public repo. Zero/err here means this token
+          # cannot see foreign code and every fingerprint zero below is
+          # meaningless — say so loudly instead of going green.
+          CONTROL=$(run_code_search 'addClass repo:jquery/jquery') || CONTROL=''
+          if [ -z "$CONTROL" ]; then
+            note "code-search CONTROL returned nothing — the token cannot search foreign repos; code-search channel is BLIND this run (see workflow header for the fix)"
+          fi
+          sleep 7
           for TERM in 'Roofivent' 'NBD_ESTIMATE_CONFIG' 'nobigdeal-pro' 'site_wide_spec_20260410' '"no big deal with joe deal"'; do
             HITS=$(run_code_search "$TERM") \
               || { sleep 30; HITS=$(run_code_search "$TERM") || { note "code search $TERM FAILED twice"; sleep 7; continue; }; }

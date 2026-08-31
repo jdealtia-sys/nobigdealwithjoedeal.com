@@ -23,6 +23,15 @@ The only exceptions are:
 2. Viewing the deployed website at https://nobigdealwithjoedeal.com in a
    web browser, the way any visitor does.
 
+3. Third-party components bundled in this repository — the libraries under
+   docs/assets/vendor/ (Leaflet and its plugins, Chart.js, ApexCharts,
+   jsPDF, html2pdf, Font Awesome Free, EmailJS) and the font files under
+   docs/assets/fonts/ — are NOT owned by No Big Deal Home Solutions and
+   remain under their own upstream licenses (MIT, BSD, SIL OFL 1.1,
+   CC BY 4.0, as stated in each file or by its publisher). The copyright
+   claim and the no-license statement above cover only the original
+   content of this repository.
+
 "No Big Deal with Joe Deal", "No Big Deal Home Solutions", "NBD Pro",
 "Roofivent", and "Real Deal Academy" are names and brands of this business.
 They may not be used to name, brand, or promote any other product or

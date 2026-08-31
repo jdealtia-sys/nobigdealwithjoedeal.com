@@ -38,30 +38,38 @@ family, in spirit: a guard whose empty result gets read as a pass.)
 ### Fingerprint list (verified present locally at baseline)
 
 Keep `.github/workflows/copycat-watch.yml` in sync with this table.
+Counts are repo-wide over tracked files at this PR's HEAD, measured as
+`git grep -o -F '<string>' | wc -l` (occurrences) and
+`git grep -l -F '<string>' | wc -l` (files) — re-measure the same way or
+the diff reads as phantom drift. The new audit note and workflow contain
+these strings themselves, so the counts include them.
 
-| String | Local occurrences (files) | Notes |
+| String | Occurrences (files) | Notes |
 | --- | --- | --- |
-| `Roofivent` | 603 (223) | coined word — best single fingerprint |
-| `nobigdeal-pro` | 422 (196) | Firebase project id |
-| `No Big Deal with Joe Deal` | 61 (59) | exact phrase |
-| `NBD_ESTIMATE_CONFIG` | 15 (9) | estimate config global |
-| `nbd_kanban_view` | 9 (6) | prefs key |
-| `site_wide_spec_20260410` | 3 (3) | locked-spec comment marker |
+| `Roofivent` | 640 (239) | coined word — best single fingerprint |
+| `nobigdeal-pro` | 433 (198) | Firebase project id |
+| `No Big Deal with Joe Deal` | 74 (71) | phrase — but the legacy code-search API tokenizes (AND-of-words, no exact-phrase), so treat a hit as look-worthy, not proof of verbatim copy |
+| `NBD_ESTIMATE_CONFIG` | 29 (20) | estimate config global |
+| `nbd_kanban_view` | 10 (7) | prefs key — manual-sweep-only, not in the workflow's TERM list (rate-limit budget) |
+| `site_wide_spec_20260410` | 7 (7) | locked-spec comment marker |
 | `RealDealAcademy`, `AskJoe` | — | **do not use**: noisy (domain-name lists, word datasets) |
 
 ## What shipped (this PR)
 
 - **`LICENSE`** — proprietary, all-rights-reserved, plain English. Names
-  the two real carve-outs (GitHub-ToS view/fork rights that attach to any
-  public repo; viewing the deployed site) and claims the brand names.
-  Before this the repo had *no* license file — legally already
-  all-rights-reserved by default, but silent about it.
+  the real carve-outs (GitHub-ToS view/fork rights that attach to any
+  public repo; viewing the deployed site; the bundled third-party
+  libraries under `docs/assets/vendor/` and fonts under
+  `docs/assets/fonts/`, which keep their upstream licenses and are not
+  NBD's to claim) and claims the brand names. Before this the repo had
+  *no* license file — legally already all-rights-reserved by default, but
+  silent about it.
 - **`README.md`** — "source-visible, not open source" notice up top + a
   License section; licensing contact jd@nobigdealwithjoedeal.com.
 - **`tests/package.json`** — `"license": "UNLICENSED"` alongside the
   existing `"private": true`. `functions/package.json` was deliberately
   **left alone** this round: editing it triggers a functions deploy on
-  merge (see DEPLOY-FALSE-GREEN-MODES-2026-08-17) for a purely cosmetic
+  merge (see [DEPLOY-FALSE-GREEN-MODES-2026-08-17](DEPLOY-FALSE-GREEN-MODES-2026-08-17.md)) for a purely cosmetic
   field — add it whenever the next real functions change ships.
 - **`.github/workflows/copycat-watch.yml`** — monthly scheduled re-check
   of the baseline (counters vs acknowledged baseline, repo-name search,
