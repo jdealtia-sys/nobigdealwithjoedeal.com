@@ -43,8 +43,19 @@ Incidental findings from the sweep (not in the audit):
   claim built on that same premise was found and removed from marketing
   prose across 9 files, see
   [HOMEOWNER-SITE-AUDIT-AND-GOSHEN-FIXES-2026-08-18](HOMEOWNER-SITE-AUDIT-AND-GOSHEN-FIXES-2026-08-18.md).
-  This JSON-LD field is still open pending Jo's actual business address —
-  don't guess at it, it's structured data, not prose.
+  **RESOLVED 2026-08-18 — KEEP `"Goshen"`, no change.** Jo has no office
+  address: he lives in Cincinnati and **the warehouse is in Goshen**, so the
+  field names a real business premises and is true. The block is also already
+  the correct service-area-business shape — `addressLocality` + `addressRegion`
+  only, **no `streetAddress`, no `postalCode`** — plus `areaServed` and `geo`,
+  which is what Google recommends for a business that does not receive
+  customers at its address. NAP is already consistent (`docs/index.html` carries
+  the same locality). The alternatives are worse: **Cincinnati** is Jo's
+  *residence*, so putting it here is a privacy exposure and repeats the exact
+  error class #1155/#1256 removed (asserting business location from where Jo
+  personally is); **per-page city** across 25 pages is fabrication — the
+  doorway-page pattern. Only caveat: if Google Business Profile ever shows a
+  different locality, GBP wins and the site follows.
 - `/pro/sandbox` is indexable **by accident** — not in the
   `firebase.json:235` noindex enumeration, no meta robots, in no sitemap.
 - Free-guide opt-in: `window.__NBD_TURNSTILE_SITEKEY = ""` is still

@@ -135,6 +135,13 @@ locks in EBv2's behavior. Use it as the canonical reference.
 > log is the standing wizard-deletion gate in
 > [WEEKLY_CADENCE](WEEKLY_CADENCE.md). Part 1 of PR 6 also shipped (#1186).
 > Remaining: PRs 3-5, gated on Jo's prod deprecation-log check.
+>
+> **Correction 2026-08-31:** the deprecation-log gate was UNOBSERVABLE as
+> shipped — console.warn never reached Sentry as an event (breadcrumb-only,
+> no console capture), so "zero warns" proved nothing. Fixed this date:
+> `_warnDeprecatedOnce` now ships a real Sentry warning event. The 30-day
+> zero-warn clock starts at the fix's deploy. Details:
+> [estimate-engines-audit.md §2026-08-31](../../docs/dev/estimate-engines-audit.md).
 
 This is a multi-PR migration. **Do not collapse it into one giant PR.**
 

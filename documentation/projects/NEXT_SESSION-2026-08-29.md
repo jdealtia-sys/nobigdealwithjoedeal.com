@@ -1,10 +1,18 @@
 # NEXT SESSION — 2026-08-29
 
+> **Superseded 2026-08-31.** The live brief is
+> [NEXT_SESSION-2026-08-31](NEXT_SESSION-2026-08-31.md) (see the **Current
+> handoff** pointer at the top of [INDEX](../INDEX.md)). This note is kept
+> for the Cal.com lane it records — **§0 is still open**: Kevin Choi's
+> backfill has not been run, and it is still the one command that needs Jo's
+> prod credentials. §3's carried-forward items have moved on; trust 08-31
+> over this note wherever they disagree.
+
 Handoff from the Cal.com lead-drop session
 ([session note](SESSION-2026-08-28-calcom-lead-drop.md)) plus the still-open
-lanes from [NEXT_SESSION-2026-08-28](NEXT_SESSION-2026-08-28.md), which is
-**not superseded** — its /our-work queue and Jo's two photo judgment calls
-are still live and are not repeated in full here.
+lanes from [NEXT_SESSION-2026-08-28](NEXT_SESSION-2026-08-28.md). *(Updated
+2026-08-31: 08-28 is now partly superseded — read only its §TRUE FINAL STATE
+section, per INDEX; the rest are mid-session snapshots.)*
 
 ---
 
@@ -93,8 +101,11 @@ different-dated snapshot of the same running list, and **five** competing
 "current — start here" claims across them. A session reading the wrong line
 would have started from a 10-day-stale brief.
 
-Consolidated to **one** list under *Projects & planning*, newest first, with a
-single explicit start-here pointer. All 37 links were preserved — the merge
+Consolidated to **one** list under *Projects & planning*, newest first. The
+08-31 session independently added a **Current handoff** pointer at the top of
+INDEX, which is now the single source of "which brief is live" — so the
+consolidated list deliberately carries **no** start-here claim of its own and
+defers to that pointer. All 37 links were preserved — the merge
 was diffed link-by-link, and the six cost-lane notes that existed only on the
 second line are still there. The stray line under *Audits* was fully
 subsumed and is gone.

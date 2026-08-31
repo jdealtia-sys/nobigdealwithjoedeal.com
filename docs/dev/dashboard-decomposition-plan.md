@@ -515,6 +515,12 @@ adjusted accordingly.
    Needs a dependency-ordered plan of its own once Tranches 0–2 prove
    the pattern; candidates convert to NBD-prefixed singleton APIs
    (house convention) rather than ad-hoc cross-file globals.
+   **→ PLAN WRITTEN 2026-08-31: [globals-tranche3-plan.md](globals-tranche3-plan.md).**
+   Fresh census (reproducible: `scripts/globals-xref.js`): the real 2–5
+   band is **131 names**, not ~515 — plus 277 mechanically-safe
+   zero-external names and 176 one-consumer names. The 6+ spine is
+   mostly keep-as-API (Firebase compat re-exports, `_leads`/`_user`
+   state, `goTo`, house singletons) — see the plan's keep list.
 
 Verification per tranche: full smoke battery + the sharded authed E2E
 matrix in CI (advisory job must be green, not just "ran") + a manual
