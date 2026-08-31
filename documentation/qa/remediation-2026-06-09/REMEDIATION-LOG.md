@@ -110,3 +110,11 @@ Jo's action (Stripe Dashboard, test mode first, then live):
 - 2026-06-09 — Artifact verification over HTTP (cache-busted): all fixes present in served prod content (see Fix ledger). Ledger: 5 FAIL → FIXED, notes added to 5 PASS rows (`ledger-patch.json`), tallies recomputed via `ledger-update.js` (137/1363, FAIL 0, FIXED 5).
 - 2026-06-09 — Behavioral round-trips NOT run: Chrome extension connected but tab-group creation failed all session (PWA/incognito window focus). Checklist above; ~5 min once a normal Chrome window is focused.
 - 2026-06-09 — Spawned follow-up task: HTML-escape member fields in the newly-live Team-tab renderer (+ sibling #597 renderers).
+
+---
+
+## Companion docs in this folder
+
+The rest of this campaign, linked so each doc is reachable from the vault:
+
+- [CLEANUP](CLEANUP.md) — Remediation 2026-06-09 — Cleanup Manifest

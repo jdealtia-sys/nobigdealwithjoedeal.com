@@ -126,3 +126,11 @@ each internally coherent; server-PDF works; all three estimate types preserved &
   hamilton-oh (the blank/desync was the inactive *classic* `estCounty` select in the DOM).
 - **IAM grant** ([IAM-RUNBOOK.md](IAM-RUNBOOK.md)) and **launch blockers** ([LAUNCH-BLOCKERS.md](LAUNCH-BLOCKERS.md))
   written up for Jo/devops.
+
+---
+
+## Companion docs in this folder
+
+The rest of this campaign, linked so each doc is reachable from the vault:
+
+- [CLEANUP](CLEANUP.md) — Cleanup Manifest — estimate-remediation-2026-06-09

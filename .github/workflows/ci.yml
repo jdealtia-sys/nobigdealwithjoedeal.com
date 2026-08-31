@@ -125,6 +125,17 @@ jobs:
       # config changes can't desync the checker.
       - name: Check links, assets, and anchors (docs/, excluding /pro + /admin)
         run: node scripts/check-site-integrity.js --quiet
+      # Vault integrity: INDEX.md grew THREE "- Session handoffs:" lines with
+      # five competing "current — start here" claims, because sessions kept
+      # prepending to a copy of the line instead of editing the one list — and
+      # a session reading the wrong one started from a 10-day-stale brief.
+      # Separately, 49 notes had drifted out of reach of INDEX (entry docs
+      # named their siblings in backticks, not links), silently breaking
+      # CLAUDE.md's "an unlinked note is invisible" rule. Both are valid
+      # markdown, so nothing detected either. Archive docs are exempt from the
+      # broken-link half only — some dangle on purpose.
+      - name: Check vault index (one handoff list, no invisible notes)
+        run: node scripts/check-vault-index.js --quiet
       # Chrome governance: apply-partials.js only sees pages that carry a
       # marker, so a page with hand-built nav/footer is invisible to its
       # --check forever. 22 of 211 marketing pages were in that state, which is

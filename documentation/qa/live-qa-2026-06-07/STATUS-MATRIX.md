@@ -48,3 +48,12 @@ PASS · PARTIAL · FAIL · BLOCKED · DEAD · ⏳ pending
 | Company admin (read-only) | ⏳ | | Do NOT change access/billing config |
 | AI features (Ask-Joe, ai_review_system, visualizer) | 🟡 PARTIAL | 09-phase2/ | **Ask Joe AI round-trip WORKS** — auto-greeting generated from live pipeline data ("17 active leads worth $95,700…", Claude Haiku via proxy). BUT **H-4: the SEND button (`sendJoeMessage`) + key-activate (`saveJoeKey`) were dead** (allowlist) — fixed + deployed (fe1f06c8). ai_review_system + visualizer not yet tested. |
 | Additional tools (Products, Templates, Sales Training, Success Tracker) | 🟢 PASS | 09-phase2/ | Products: 222-item library/16 cats/23% margin. Templates: 24 NBD-branded docs (5 cats). Sales Training: Objection Obliterator + 6 scenario simulators. Success Tracker: `windowOpen` → /pro/daily-success/ (opens separate page; not deep-tested). All render, console clean. |
+
+---
+
+## Companion docs in this folder
+
+The rest of this campaign, linked so each doc is reachable from the vault:
+
+- [BUG-LOG](BUG-LOG.md) — NBD Pro — LIVE QA — Bug Log (2026-06-07)
+- [CLEANUP](CLEANUP.md) — NBD Pro — LIVE QA — Cleanup Manifest (2026-06-07)

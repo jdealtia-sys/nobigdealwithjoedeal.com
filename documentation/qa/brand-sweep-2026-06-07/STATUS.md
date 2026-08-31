@@ -56,3 +56,15 @@ tenant" initiative**, not a pile of token fixes. Only trivial swap available: pr
 - **Oaks artifact path = CODE-INSPECTION ONLY.** No Oaks live handoff. Will still render
   live NBD `ZZ_QA_` PDFs in Phase 3 for the baseline + color check.
 - **Phase 1 = GO.** Live NBD public walk, desktop + mobile, via Claude-in-Chrome.
+
+---
+
+## Companion docs in this folder
+
+The rest of this campaign, linked so each doc is reachable from the vault:
+
+- [BRAND-MATRIX](BRAND-MATRIX.md) — BRAND-MATRIX.md — Brand Fidelity Matrix
+- [BRAND-SPEC](BRAND-SPEC.md) — BRAND-SPEC.md — Locked brand source of truth (per tenant)
+- [BUG-LOG](BUG-LOG.md) — BUG-LOG.md — ranked brand findings
+- [CLEANUP](CLEANUP.md) — CLEANUP.md — ZZ_QA_ artifact manifest
+- [SEPARATION](SEPARATION.md) — SEPARATION.md — Tenant brand separation / bleed verdict

@@ -150,3 +150,13 @@ BLOCKED to revisit: 015/017/019/020-d1 notif/recent (need ZZ_QA notification), 0
   - **d3-pipeline 15/101 (cont.):** dedup overlay PASS (HIGH-match on shared address → match-row + Cancel + **Create-anyway** override which stamps `duplicateOf`); **Edit lead** PASS (overflow→Edit prefills edit mode, update persists in place); **Snooze** PASS (modal w/ reason chips + presets + custom date; applies snoozeCount/snoozedUntil); **search FAIL (CO-M-1 confirmed)** — corrupts all matching cards with leaked markup. Created 2 ZZ_QA dedup leads + soft-deleted both (count 21→19); pipeline fully restored. **3 FAIL total: NEW-1 (×2 widget rows), CO-M-1.**
   - **d3 toolbar (cont.):** type filter / Needs Attention / Stale Shares PASS (filter+restore); Snoozed + Hot-first BLOCKED (no snoozed leads / equal engagement tiers — no observable delta). Bulk: enter bulk mode + Select-all-visible + selected-count PASS (13 selected). **Bulk-delete boundary NOT cleanly tested** — selector ambiguity opened the Deleted-Leads drawer, whose pending load kept the page off `document_idle` and hung CDP (screenshot/navigate/eval all timed out); recovered via reload. **No leads deleted (19 intact).**
   - **METHODOLOGY:** heavy async drawers (Deleted-Leads bin) + repeated bulk re-renders keep the page non-idle → CDP `executeScript`/screenshot/navigate hang at 45s. `get_page_text` is idle-independent (use it to inspect a hung page); reload recovers. Do bulk/delete tests as single atomic actions; never `selectAllVisibleLeads` then delete on real data.
+
+---
+
+## Companion docs in this folder
+
+The rest of this campaign, linked so each doc is reachable from the vault:
+
+- [BUG-LOG](BUG-LOG.md) — NBD Pro — Exhaustive QA — Ranked Bug Log
+- [CLEANUP](CLEANUP.md) — Exhaustive QA — Cleanup Manifest
+- [README](README.md) — NBD Pro — Exhaustive Functional QA (Inventory-Driven, Resumable)
