@@ -1,3 +1,4 @@
+/*! © 2026 No Big Deal Home Solutions — All Rights Reserved. Proprietary; no license granted — see LICENSE at the repo root. https://nobigdealwithjoedeal.com */
 // ============================================================
 // NBD Pro — Estimate Builder v2 Pricing Engine
 // Locked spec: memory/site_wide_spec_20260410.md
