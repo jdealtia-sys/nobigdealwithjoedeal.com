@@ -32,13 +32,17 @@
    Start with T3-0 (zone-draw shim unwind at `maps.js:464-468` +
    `damagNearMe` dedup), then T3-A slice 1 (dashboard-actions.js's 33
    mechanically-safe names). Census re-runs via `scripts/globals-xref.js`.
-3. **Posting — HALF DONE 2026-08-31.** GBP posts 3 (Lexington announcement)
-   and 4 (storm check, 2 photos) are LIVE; the service-area prerequisite was
-   handled by swapping Hyde Park → Lexington at the 20-area cap. **Tuesday
-   or Wednesday morning: publish posts 1 + 2** (duplex re-roof, gutters) and
-   the two Facebook variants — full state, copy, photo filenames and the
-   browser mechanics are in [POSTING-LOG](../marketing/POSTING-LOG.md).
-   Also confirm Google approved the pending service-area edit.
+3. **Posting — 4 of 6 done 2026-08-31.** LIVE: GBP post 3 (Lexington
+   announcement), GBP post 4 (storm check), and **both Facebook variants**
+   — the FB page's first posts ever. The service-area prerequisite was
+   handled by swapping Hyde Park → Lexington at the 20-area cap.
+   **Remaining: GBP posts 1 + 2** (duplex re-roof, gutters) on a Tue/Wed
+   morning. Before you do: read [POSTING-LOG](../marketing/POSTING-LOG.md)
+   — the kit's photo ORDER is wrong for both of those posts (use 2,3,1 and
+   2,1,3), one kit photo label is flat wrong (`gutter-screens-2026-1` shows
+   BARE gutter, not screens), and the Facebook copy in the kit is stale
+   versus what actually went live. Also confirm Google approved the pending
+   service-area edit.
 4. ~~Housekeeping: PR #1299~~ DONE — it auto-merged 08-31 after its
    branch caught up with main; its vault-index CI gate is live.
 

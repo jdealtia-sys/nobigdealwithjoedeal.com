@@ -4,6 +4,40 @@
 > is the truth of what shipped. Add newest at the top. Keeping this means the
 > next session never has to guess whether a kit was posted.
 
+## 2026-08-31 (Sun, later) — Facebook, both variants from the [08-28 kit](gbp-post-kit-2026-08-28.md)
+
+Page: **No Big Deal Home Solutions** (facebook.com/people/No-Big-Deal-Home-Solutions/61577416645584), 9 followers, **zero prior posts** — these are the page's first two. Both published Public, "Publish now", **Boost post left OFF** (no ad spend), Facebook's offered "Call Now" button declined since the number is already in the copy.
+
+| Post | Photos (attach order) | Status |
+|---|---|---|
+| **FB1 — duplex re-roof** | `brick-duplex-designer-reroof-2026-` **2, 3, 1** | ✅ Live |
+| **FB2 — gutters priced honestly** | `cincinnati-oh-gutter-screens-2026-2`, a **cropped** copy of `-1`, then `-3` | ✅ Live |
+
+### A pre-publication review ran first, and it changed three things
+
+**Copy edits Jo approved before posting** (the kit text is now stale — the live posts differ):
+
+1. **FB1's competitor line is gone.** Was: "which means somebody re-roofed over a re-roof instead of doing it right." The Voice Bible explicitly lists competitor-bashing as something NBD is never mistaken for — and practically, the homeowner and neighbors know who did that roof, so one comment naming the company would have turned Jo's unnamed "somebody" into a named public accusation on his own page. Now reads: **"Two is the limit — so that third layer was going on top of a roof that should have come off years ago."** Same expertise, nobody to name.
+2. **FB2's price is anchored to the house.** Was "$2,000–2,500 for the whole job" under the header "everything about how I price," which reads as a rate card — a caller with three times the gutter run would anchor to $2,500 and hear the real quote as a bait-and-switch. Now: **"$2,000–2,500 for this one — yours depends on how much gutter you've got."**
+3. **FB2's absolute softened.** "no trees, nothing to catch" → **"no tree cover, nothing dropping into them"** — open runs still collect granules and seed pods, and the original put Jo on record saying otherwise.
+
+**A kit photo label was flat wrong.** The kit calls `cincinnati-oh-gutter-screens-2026-1` "screens along the eave." It is **bare new gutter with no mesh on it at all** — verified by cropping the run at three points and upscaling 7×. The only frame that actually shows the screened product is `-2`. Any future copy pairing `-1` with a screens claim is wrong.
+
+**Both kit photo orders were backwards for social.** Facebook renders three attachments as a grid where slots 2 and 3 are visible thumbnails, not hidden behind a swipe, so the dullest frame must go last and the scroll-stopper must lead:
+- Duplex: kit said 3, 1, 2 → **use 2, 3, 1.** `-2` (blue sky, red brick, a person mid-craft) stops a thumb; `-3` is the finished result but is a straight-down shot of gray shingles on an overcast day with the building itself invisible; `-1` (dried-in deck) is unreadable as a roof at thumbnail size.
+- Gutters: kit said 1, 3, 2 → **use 2, 1, 3.** `-2` is the only frame showing mesh, and it carries a fallen leaf sitting right above the screen — product and reason in one image.
+- **This applies to GBP posts 1 and 2 as well** — same photos, same reasoning. Use the corrected orders when those go out.
+
+**One photo was cropped for the post.** `cincinnati-oh-gutter-screens-2026-1` has the homeowner's patio clutter (grill, buckets, stored lumber) in the bottom-left. Cropped to the top 450px for Facebook — keeps the full gutter run and the tree canopy that justifies the screens, drops the clutter. The site copy is unchanged; consider cropping it there too.
+
+### Mechanics: Facebook is easier than GBP
+
+**Facebook exposes its file input in the accessibility tree** (`find` → "file input in create post dialog" → a `ref`), so photos can be attached programmatically with `file_upload` — **no native picker, no human hands needed**, unlike GBP. This is the single biggest difference between the two platforms for an agent session.
+
+Two other quirks: pressing Ctrl+A in the composer can leave Ctrl sticky so the next scroll zooms the page (use element refs instead of coordinates when that happens — they survive any zoom), and after clicking Post, Facebook shows a "Speak With People Directly / Add Button" upsell that must be dismissed with **Not now** before the post finishes publishing.
+
+---
+
 ## 2026-08-31 (Sun) — GBP, 2 of 4 from the [08-28 kit](gbp-post-kit-2026-08-28.md)
 
 Driven live in Jo's Chrome with him present. Profile: No Big Deal Home
