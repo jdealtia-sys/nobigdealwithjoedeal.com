@@ -110,6 +110,40 @@ was diffed link-by-link, and the six cost-lane notes that existed only on the
 second line are still there. The stray line under *Audits* was fully
 subsumed and is gone.
 
+*(Added 2026-08-31, second pass — the findings above are now closed.)*
+
+**The 49 invisible notes.** A reachability walk from INDEX (following relative
+links to any depth, not just literal INDEX mentions) found **49 notes that
+nothing could navigate to**: all of `archive/legacy/` plus companion docs in
+ten QA campaign folders. The cause was a convention mismatch, not neglect —
+each campaign's entry doc *is* linked from INDEX, but those entry docs named
+their siblings as backticked filenames (`` `PROPOSALS.md` ``) rather than
+relative links, which CLAUDE.md's "plain relative markdown links only" rule
+already forbade. Fixed by giving each entry doc a **Companion docs in this
+folder** section, labelled with each file's own H1. Vault is now 173/173
+reachable.
+
+Two things that surfaced only because those files became reachable:
+
+- `archive/legacy/` carries **11 dangling links**, and some are *deliberate*:
+  `GO_LIVE_CHECKLIST.md` says in its own header that its `docs/deploy/**`
+  links are "retained for historical context" after those files were deleted
+  (`firebase.json` sets `hosting.public: "docs"`, so anything under `docs/`
+  would have been published). They are left alone; rewriting them would
+  destroy the record.
+- `README_MULTI_TENANT.md`'s `QUICK_START.md` link is a stale-path artifact of
+  the move out of the repo root, not a deliberate one — also left as-is, being
+  a frozen archive doc.
+
+**Both findings are now CI-enforced** by `scripts/check-vault-index.js`:
+exactly one `- Session handoffs` line, exactly one `**Current handoff:`
+pointer, zero legacy "current — start here" markers, every note reachable from
+INDEX, and no broken relative links (with `archive/` exempt from that last
+check only, for the reason above). Mutation-tested against four separate
+breakages — main's real three-line state, an added duplicate line, an unlinked
+new note, and a dangling link — each fails it, so the gate asserts rather than
+decorates.
+
 **The rot pattern to avoid repeating:** each session prepended its note to a
 copy of the line rather than editing the one list, so the old copies survived
 with their stale start-here markers intact. Edit the list; don't add a line.

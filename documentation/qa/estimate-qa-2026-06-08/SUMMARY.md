@@ -41,3 +41,20 @@ Three estimate paths coexist and are all reachable: **V2** (per-SQ + line-item, 
 
 ## Deliverables in this folder
 RATE-SHEET.md · MATH-RECONCILIATION.md · ENGINE-AGREEMENT.md · BUG-LOG.md · STATUS-MATRIX.md · PROPOSED-FIXES.md · CLEANUP.md · SUMMARY.md (this)
+
+---
+
+## Companion docs in this folder
+
+The rest of this campaign, linked so each doc is reachable from the vault:
+
+- [BUG-LOG](BUG-LOG.md) — Bug Log — Estimate Engine QA (live-confirmed)
+- [BUILD-PLAN](BUILD-PLAN.md) — Estimate Builder — "Best of Both Worlds" Build Plan
+- [CANONICAL-TOTAL-DESIGN](CANONICAL-TOTAL-DESIGN.md) — Canonical-Total Design (V2-2 / V2-pkb) — investigation + fix design
+- [CLEANUP](CLEANUP.md) — Cleanup Manifest — estimate-qa-2026-06-08
+- [ENGINE-AGREEMENT](ENGINE-AGREEMENT.md) — Engine-Agreement Report — Classic vs EBv2 (LIVE-CONFIRMED)
+- [MATH-RECONCILIATION](MATH-RECONCILIATION.md) — Math Reconciliation — UI vs Code vs Intent
+- [PHASE2-DESIGN](PHASE2-DESIGN.md) — Phase 2 Design — settings editor + single-per-SQ + Xactimate formats
+- [PROPOSED-FIXES](PROPOSED-FIXES.md) — Proposed Fixes — estimate-qa-2026-06-08
+- [RATE-SHEET](RATE-SHEET.md) — NBD Estimate Engine — Canonical Rate Sheet (code-extracted)
+- [STATUS-MATRIX](STATUS-MATRIX.md) — Estimate Engine — Status Matrix

@@ -75,3 +75,13 @@ Other Phase-0 facts:
 - Lighthouse (local server) homepage + our-work + one service page, before vs after — perf/accessibility must not regress.
 - `node scripts/build-sitemap.js` (dry-run) and `node scripts/check-site-integrity.js` if runnable, before commit.
 - Live-header/redirect curl matrices: **deferred to post-deploy** (documented for Jo).
+
+---
+
+## Companion docs in this folder
+
+The rest of this campaign, linked so each doc is reachable from the vault:
+
+- [BLOG-OUTLINES-FOR-JO](BLOG-OUTLINES-FOR-JO.md) — Three blog outlines for Jo — 2026-07
+- [FIX-LOG](FIX-LOG.md) — SEO/Tech Hardening — Fix Log
+- [FOLLOWUP-LOG](FOLLOWUP-LOG.md) — SEO/Tech Hardening — Follow-up round (items 1–5)

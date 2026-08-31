@@ -78,3 +78,15 @@ light end; lower priority (still readable). Confirm + fold into the B-1 fix.
   Product decision, not a defect.
 - **`ghost`** is intentionally ultra-low-chroma (washed by design) — legible, low emphasis.
 - **synthwave / cyberpunk / neon** share a pink-purple family — distinguishable but visually close.
+
+---
+
+## Companion docs in this folder
+
+The rest of this campaign, linked so each doc is reachable from the vault:
+
+- [COMPUTED-AXIS-A](COMPUTED-AXIS-A.md) — Axis A (Legibility) — Computational Sweep, all 186 themes × {dark, light}
+- [PATTERNS](PATTERNS.md) — Theme Sweep — Systemic Patterns (2026-06-07)
+- [PHASE-0-GROUND-TRUTH](PHASE-0-GROUND-TRUTH.md) — Theme Visual Sweep — Phase 0 Ground Truth (2026-06-07)
+- [RESTORE](RESTORE.md) — Theme Sweep — Restore Record (2026-06-07)
+- [THEME-MATRIX](THEME-MATRIX.md) — Theme Status Matrix — 2026-06-07 (full live sweep, 186 themes × light+dark)

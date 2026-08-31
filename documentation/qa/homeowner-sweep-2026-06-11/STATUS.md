@@ -41,3 +41,16 @@ delete; external-link liveness pass (246 URLs); prod Lighthouse re-baseline.
 ## Commits this session (all on the PR branch)
 inventory → 4× Phase-1 fixes → P1 report → P2 report+evidence → visual fixes → P3
 report+evidence → seo/a11y fixes + P4 report → proposals + this handoff.
+
+---
+
+## Companion docs in this folder
+
+The rest of this campaign, linked so each doc is reachable from the vault:
+
+- [INVENTORY](INVENTORY.md) — Homeowner Site QC Sweep — Page Inventory Ledger
+- [PHASE1-SWEEP](PHASE1-SWEEP.md) — Phase 1 — Automated Full-Coverage Sweep (all 220 pages)
+- [PHASE2-FUNCTIONAL](PHASE2-FUNCTIONAL.md) — Phase 2 — Functional Deep QC (tools, forms, lead flow)
+- [PHASE3-VISUAL](PHASE3-VISUAL.md) — Phase 3 — Visual, Brand & Mobile Sweep
+- [PHASE4-SEO-PERF](PHASE4-SEO-PERF.md) — Phase 4 — SEO & Performance Baseline
+- [PROPOSALS](PROPOSALS.md) — Big-Fix Proposals — Homeowner QC Sweep 2026-06-11

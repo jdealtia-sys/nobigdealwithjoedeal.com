@@ -24,10 +24,18 @@ or recon-heavy session **writes its findings back**:
 - **Dated note** under `documentation/` — session logs and handoffs in
   `projects/`, audits in `audit/`, QA sweeps in `qa/<campaign>/`.
 - **Link it from `INDEX.md` in the same PR** — an unlinked note is invisible.
+  Reaching it via a folder's entry doc counts; being linked from *nothing*
+  does not. Now CI-enforced (`check-vault-index.js`).
+- **Adding a handoff? Edit the one list — never add a second
+  `- Session handoffs:` line.** INDEX once carried three of them with five
+  competing "current — start here" claims, so sessions started from stale
+  briefs. Exactly one list, and exactly one `**Current handoff:` pointer
+  names the live brief; older ones become `Prior handoff:`. CI-enforced.
 - **Correct stale docs in place** when your recon contradicts them (dated
   update section at the top or bottom) — append-only rot is how the
   2026-07 audit doc cost a session hours of re-verification.
-- Plain relative markdown links only (they work in Obsidian AND on GitHub).
+- Plain relative markdown links only (they work in Obsidian AND on GitHub) —
+  a sibling named in backticks is not reachable and will fail the gate.
 - End multi-lane sessions with a fresh `NEXT_SESSION-<date>.md` handoff.
 
 ## Hard invariants (each is CI-enforced — don't fight the gates)
@@ -56,6 +64,7 @@ node scripts/build-sitemap.js          # dry-run drift check
 node scripts/build-projects.mjs --check
 node scripts/check-inline-html-scripts.js
 node scripts/check-image-privacy.js       # EXIF/GPS strip invariant (images)
+node scripts/check-vault-index.js         # documentation/ edits (see logging rule above)
 node tests/smoke.test.js               # CRM changes (needs functions/ deps)
 node tests/marketing-polish-contract.test.js
 ```

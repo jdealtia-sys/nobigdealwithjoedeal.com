@@ -180,3 +180,12 @@ module-resolution bug, see below — so `companyProfile/oaks` may also be absent
   (`leads`, `subscriptions`) + Stripe TEST-mode confirmation. Say "Phase D" to start.
 - Loose ends (non-blocking): re-point Oaks `--owner` to Scott's real account when ready (purge the test owner per
   CLEANUP.md); per-tenant `OAK-####` customer-ID prefix; retire the old marketing-project Oaks lead path.
+
+---
+
+## Companion docs in this folder
+
+The rest of this campaign, linked so each doc is reachable from the vault:
+
+- [CLEANUP](CLEANUP.md) — Cleanup Manifest — ZZ_QA artifacts (purge on Jo's OK)
+- [MIGRATION-PLAN](MIGRATION-PLAN.md) — Migration Plan — backups + Phase D re-key
