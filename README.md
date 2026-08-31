@@ -6,6 +6,12 @@ customer portal that walks homeowners through the install lifecycle.
 
 Live at https://nobigdealwithjoedeal.com.
 
+> **Source-visible, not open source.** Everything original in this
+> repository is © 2026 No Big Deal Home Solutions — all rights reserved
+> (bundled third-party libraries and fonts keep their own upstream
+> licenses). Public visibility is not a grant of rights; see
+> [LICENSE](LICENSE).
+
 ## Tech stack
 
 - **Frontend** — vanilla JavaScript + HTML/CSS, served as static assets from
@@ -49,3 +55,14 @@ merge.
 - `documentation/QUICK_START.md` — local-dev setup walkthrough
 - `documentation/runbooks/SECRET_ROTATION.md` — secret rotation procedure
 - `SECURITY.md` — security policy and disclosure contact
+
+## License
+
+Proprietary — all rights reserved. This repo is public so the product can
+be built in the open, not so it can be reused: no license is granted to
+copy, modify, host, or redistribute any of its original content.
+[LICENSE](LICENSE) spells out exactly what that means, including the
+narrow GitHub-ToS view/fork carve-out that applies to every public repo
+and the bundled third-party components (docs/assets/vendor/,
+docs/assets/fonts/) that keep their own upstream licenses. Licensing
+inquiries: jd@nobigdealwithjoedeal.com.

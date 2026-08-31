@@ -1,0 +1,44 @@
+Copyright (c) 2026 No Big Deal Home Solutions (Joe Deal). All rights reserved.
+
+This repository is source-visible, NOT open source. It is published in a
+public repository so the site and product can be built in the open; public
+visibility is not a grant of rights.
+
+NO LICENSE IS GRANTED. No permission is given to use, copy, reproduce,
+modify, adapt, translate, merge, publish, distribute, sublicense, sell,
+host, or create derivative works from any part of this repository — the
+website content, the NBD Pro CRM application code, the Cloud Functions
+source, the designs, text, images, data files, documentation, or anything
+else in this tree — in whole or in part, for any purpose, commercial or
+otherwise.
+
+The only exceptions are:
+
+1. Whatever rights GitHub's Terms of Service grant every GitHub user for
+   any public repository (viewing this repository through GitHub's website
+   and forking it within GitHub). A fork made under those Terms carries no
+   right to use the code or content beyond what those Terms themselves
+   allow.
+
+2. Viewing the deployed website at https://nobigdealwithjoedeal.com in a
+   web browser, the way any visitor does.
+
+3. Third-party components bundled in this repository — the libraries under
+   docs/assets/vendor/ (Leaflet and its plugins, Chart.js, ApexCharts,
+   jsPDF, html2pdf, Font Awesome Free, EmailJS) and the font files under
+   docs/assets/fonts/ — are NOT owned by No Big Deal Home Solutions and
+   remain under their own upstream licenses (MIT, BSD, SIL OFL 1.1,
+   CC BY 4.0, as stated in each file or by its publisher). The copyright
+   claim and the no-license statement above cover only the original
+   content of this repository.
+
+"No Big Deal with Joe Deal", "No Big Deal Home Solutions", "NBD Pro",
+"Roofivent", and "Real Deal Academy" are names and brands of this business.
+They may not be used to name, brand, or promote any other product or
+service.
+
+THE CONTENTS OF THIS REPOSITORY ARE PROVIDED "AS IS", WITHOUT WARRANTY OF
+ANY KIND. No support, maintenance, or fitness for any purpose is promised
+to anyone reading it.
+
+Licensing inquiries: jd@nobigdealwithjoedeal.com
