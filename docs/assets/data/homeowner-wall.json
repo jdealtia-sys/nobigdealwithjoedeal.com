@@ -1,5 +1,15 @@
 [
   {
+    "image": "/assets/images/projects/loveland-oh-siding-peak-reseal-2026-1.jpg",
+    "city": "Loveland, OH",
+    "alt": "Close-up before photo at a gable peak: a gloved hand points to an open gap where the painted fascia trim and J-channel meet above vinyl siding"
+  },
+  {
+    "image": "/assets/images/projects/loveland-oh-wind-repair-2023-1.jpg",
+    "city": "Loveland, OH",
+    "alt": "Looking down a gray asphalt shingle roof at a long strip of wind-torn, missing shingles beside the exposed area during inspection"
+  },
+  {
     "image": "/assets/images/projects/cincinnati-oh-full-tearoff-reroof-2026-1.jpg",
     "city": "Cincinnati, OH",
     "alt": "Drone view of the crew stripping two layers of shingles down to plank decking on a two-story hip roof"
@@ -48,15 +58,5 @@
     "image": "/assets/images/projects/montgomery-oh-shake-reattachment-2026-1.jpg",
     "city": "Montgomery, OH",
     "alt": "Front gable fiber-cement shake field with one shake missing, the bare patch and old adhesive residue visible mid-field"
-  },
-  {
-    "image": "/assets/images/projects/franklin-oh-color-matched-shingle-repair-2023-1.jpg",
-    "city": "Franklin, OH",
-    "alt": "Wide view across the main roof plane in late-afternoon light with the repair area under way"
-  },
-  {
-    "image": "/assets/images/projects/batavia-oh-full-replacement-2025-1.jpg",
-    "city": "Batavia, OH",
-    "alt": "Drone view of the original roof: worn, curling three-tab with several mismatched lighter patch repairs"
   }
 ]
