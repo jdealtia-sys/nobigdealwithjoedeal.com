@@ -182,6 +182,44 @@ change the mangled count**, which is already 0. The brief's verification step
 ("confirm the mangled count dropped by the number written") therefore does not
 apply to it. There is no urgency: the gate is already green.
 
+## 5b. Bonus: the legacy-documents question now has an answer
+
+`audit-legacy-documents.js` exists to decide one thing — is the legacy merge
+read in `docs/pro/js/customer-documents.js` still load-bearing? Porting it made
+it runnable, so it was run:
+
+```
+  LEAD-SCOPED  live, needs the merge read       0
+  lead-scoped  soft-deleted (filtered out)      0
+  company doc library (NOT ours, leave it)      0
+  scanned: 0
+  VERDICT — no live lead-scoped rows survive.
+```
+
+**A zero here produces the expensive verdict** ("safe to delete"), which is
+exactly failure mode #1 the test suite was written to guard against — so it was
+verified independently rather than taken at face value:
+
+| Probe | Result |
+| --- | --- |
+| Control read of `/leads` | 3 docs — credentials and read path work |
+| `/documents` direct probe | 0 docs |
+| `db.listCollections()` | **`documents` is not in the list at all** (Firestore only lists collections holding ≥1 document) |
+
+The zero is real. The top-level `documents` collection holds nothing in
+`nobigdeal-pro`.
+
+**The docstring's `⚠ NOT DEAD` warning still stands, though** — do not
+"clean up" the collection. `docs/pro/js/dashboard-api.js:358` writes it and
+`:371` reads it back for the company-wide document library. (Spelled
+`collection(window._db,'documents')` with no space after the comma, which a
+`collection('documents')` grep misses — worth knowing before concluding from a
+grep that nothing writes it.) The collection is empty because that upload
+feature has not been used yet, not because it is unwired.
+
+So the merge read is deletable on the evidence, but that is a separate change
+with its own blast radius, and this session did not make it.
+
 ## 6. Open items this session did not close
 
 | Item | Where | Why it is left |
