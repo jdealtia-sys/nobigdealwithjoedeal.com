@@ -73,11 +73,18 @@
  *   • Source objects that no longer exist (photo-editor save-over deletes
  *     the old object) are counted and skipped, never fabricated.
  *
- * SETUP (admin-script-runner pattern — prod nobigdeal-pro via ADC, with
- * NODE_PATH pointed at a firebase-admin v12 install; sharp is reused from
- * functions/node_modules — run `cd functions && npm ci` once):
+ * SETUP (admin-script-runner pattern — prod nobigdeal-pro via ADC).
+ * BOTH firebase-admin and sharp come out of functions/node_modules, so
+ * `cd functions && npm ci` once is still required. firebase-admin arrives via
+ * scripts/_admin.js; do NOT set NODE_PATH for it — _admin tries a bare
+ * require.resolve FIRST, so a NODE_PATH install satisfies it and overrides the
+ * functions/ resolution _admin exists to centralise. Runs on v12 and v14
+ * alike: this script only calls `.toDate()` on Timestamps Firestore itself
+ * returned and writes FieldValue.serverTimestamp() sentinels — it never
+ * instanceof-checks one, which is the only thing a version split actually
+ * breaks. (The v12 pin was inherited boilerplate; see
+ * documentation/audit/ADMIN-SCRIPTS-ADMIN-PORT-2026-09-01.md.)
  *   export GOOGLE_APPLICATION_CREDENTIALS=~/.nbd/nobigdeal-pro-sa.json
- *   export NODE_PATH=/path/to/fa12/node_modules    # firebase-admin@12
  *   export NBD_PROJECT=nobigdeal-pro               # optional override
  *   export NBD_BUCKET=nobigdeal-pro.firebasestorage.app  # optional override
  *

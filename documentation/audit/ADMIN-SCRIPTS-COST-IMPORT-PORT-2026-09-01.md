@@ -228,7 +228,7 @@ correct there — `import-catalog-costs.js` legitimately does exactly that.
 | Item | Where | Why it is left |
 | --- | --- | --- |
 | ~~`firebase-admin@12` pinned via `NODE_PATH` for the scheduled audit~~ | `.github/workflows/address-audit.yml` | **CLOSED in a follow-up PR — see §10.** |
-| Stale `export NODE_PATH=<v12>` docstrings | the six scripts in §7 | Doc-only, no runtime effect, and touching six files would bury this port's diff. |
+| ~~Stale `export NODE_PATH=<v12>` docstrings~~ | the six scripts in §7 | **CLOSED in a follow-up PR — see §11.** Deferred here for the right reason (six doc-only files would have buried this port's diff); done separately. |
 | Neither cost importer has a unit test | `tests/` | §6 pins their *wiring*; nothing exercises their refusal logic (`--force`, `--correction`, the unrotated-seed gate). `tests/address-audit-script.test.js` is the template if it is ever wanted. |
 | Neither importer echoes the target **project** | both scripts | They print `catalogCosts/{companyId}` but not which Firestore. The project comes silently from ADC, and `_admin` exports `projectId()` for exactly this. Left out to keep the port pure. |
 
@@ -273,9 +273,52 @@ header warns about:
 | one `legacyMangled` address present | `FAIL — 1 address(es) are broken, not merely thin.`, offending record named in the output | **1** |
 | addresses clean | `PASS — no mangled or blank addresses remain.` | **0** |
 
+## 11. The six docstrings, cleared — and why the count kept moving
+
+§8 deferred these; a follow-up PR did them. All six now say **"Do NOT set
+NODE_PATH"** and why, and the `export NODE_PATH=/path/to/fa12/node_modules`
+line is deleted rather than amended — §2 showed that following it defeats
+`_admin`'s single resolver.
+
+**The reason this inventory was wrong twice is a grep artifact, and it is the
+useful part.** The tranche-4 note said one script; §7 above said six. Both
+counts were produced by grepping the *warning text*, and the warning text had
+**drifted in transit**:
+
+| Wording found | Where |
+| --- | --- |
+| `v14 breaks Timestamps` | the two tranche-4 scripts |
+| `v14 breaks Timestamp` (singular) | `backfill-calcom-dropped-leads` |
+| `v14 breaks` / `* Timestamp handling` (line-wrapped mid-phrase) | `backfill-lead-stageRole`, `backfill-leads-phoneDigits` |
+| v12 pin with **no Timestamp claim at all** | `backfill-pins-companyId` |
+| v12 pin justified by **`sharp`**, not Timestamps | `backfill-photos-variants` |
+
+A copy-paste that is edited slightly at each hop defeats a phrase grep by
+construction — and the drift *is* the propagation signature. **Grep
+`export NODE_PATH`**, the payload, not the prose around it. That grep finds all
+of them and is how this sweep was scoped.
+
+Each replacement was written to what its own file actually does. Pasting one
+corrected block six times would have re-committed the exact failure being
+fixed, and it would also have been **false** for two of them:
+
+| Script | What it really does with Timestamps |
+| --- | --- |
+| `backfill-lead-stageRole`, `backfill-leads-phoneDigits`, `backfill-pins-companyId` | nothing at all |
+| `backfill-pins-to-knocks` | writes `serverTimestamp()` sentinels; passes `pin.createdAt` straight through, never read |
+| `backfill-calcom-dropped-leads` | builds them via `Timestamp.fromDate()` off `_admin`'s single resolver — one class in play |
+| `backfill-photos-variants` | **genuinely calls `.toDate()`** on Timestamps Firestore returned — safe, but only because it never `instanceof`-checks one, which is the one thing a version split actually breaks |
+
+`backfill-photos-variants` also had a **legitimate** reason to point at
+`functions/node_modules`: `sharp` loads from there and `cd functions && npm ci`
+really is required. That half was preserved and clarified, not deleted along
+with the firebase-admin half — the two claims had been welded into one
+sentence.
+
 ---
 
 **The `scripts/_admin.js` migration is finished.** Nineteen scripts had the dead
 pattern; `scripts/` now has none, `tests/smoke/functions.test.js` fails if one
-comes back, and the last `NODE_PATH` override that could have re-split the
-resolver in CI is gone.
+comes back, the last `NODE_PATH` override that could have re-split the resolver
+in CI is gone, and no docstring under `scripts/` still tells a reader to
+recreate one.
