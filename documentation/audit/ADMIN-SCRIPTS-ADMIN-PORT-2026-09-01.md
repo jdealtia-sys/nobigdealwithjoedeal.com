@@ -129,9 +129,22 @@ whose comment reads: the old `updatedAt` proxy "re-attributed a March close to
 July the moment you added a note to it." `monthlyTrend` never received the same
 `stageStartedAt || updatedAt` fallback.
 
-**`monthlyTrend` is still unfixed.** Dropping the write avoids *provoking* the
-bug; it does not repair it. Any other code path that stamps `updatedAt` on a
-won lead still mis-attributes its revenue. That is a live open item — see §6.
+**`monthlyTrend` was then fixed in this same PR** (Jo's call, after the dry-run
+made the stakes concrete) — one line, `l.stageStartedAt || l.updatedAt`,
+identical to its sibling. Dropping the write only avoided *provoking* the bug;
+any other path that stamps `updatedAt` on a won lead was still mis-attributing
+revenue. Regression test added to `tests/dashboard-kpi.test.js` (already in
+`ci-manifest.json`); the discriminator is a lead that closed **last** month and
+was edited **this** month, and a fourth case pins the fallback so
+pre-migration rows with no `stageStartedAt` still date by `updatedAt` instead
+of dropping off the chart. Verified by negative control: revert the one line
+and 3 assertions fail.
+
+This was not hypothetical. The single lead this branch corrected in prod
+(`HEiG1d11LRfpaMyIgqNq`) is `stage: closed`, `jobValue: 2500` — stamping
+`updatedAt` would have moved **$2,500 from August into September** on the trend
+chart. The read-back after the apply confirms `updatedAt` still reads
+`2026-08-18T03:55:15.479Z`.
 
 Side benefit: the docstring's SAFETY claim gets strictly stronger, from
 "only ever writes `address` (+ `updatedAt`)" to "only ever writes `address`".
@@ -168,7 +181,7 @@ Two specific worries in the brief both cleared:
 - **`inspect_leads__GgomiGANIbdd8zPmzqwH`**, whose id looks like a
   copy-paste artifact, is a real document — reported `ALREADY`, not `MISSING`.
 
-The single remaining correction is **Anthony Scandariato**
+The single remaining correction was **Anthony Scandariato**
 (`HEiG1d11LRfpaMyIgqNq`, jobValue $2,500):
 
 ```
@@ -176,11 +189,22 @@ The single remaining correction is **Anthony Scandariato**
   →  "1944 Kentucky Ave, Cincinnati, OH 45223"     src: Invoice NBD-2026-0810-RK
 ```
 
-Note it is classified **`noStreet`**, not `legacyMangled` — it is one of the 60
-THIN rows, not corruption. Applying it moves one row THIN → OK and **cannot
-change the mangled count**, which is already 0. The brief's verification step
-("confirm the mangled count dropped by the number written") therefore does not
-apply to it. There is no urgency: the gate is already green.
+Note it is classified **`noStreet`**, not `legacyMangled` — one of the 60 THIN
+rows, not corruption. So applying it **cannot change the mangled count**, which
+was already 0; the brief's verification step ("confirm the mangled count
+dropped by the number written") does not apply. What it does is move one row
+THIN → OK.
+
+**Applied 2026-09-01** on Jo's go-ahead: `written: 1, failures: 0`. Verified
+three ways rather than trusting the script's own summary —
+
+| Check | Result |
+| --- | --- |
+| Read-back of the doc | `address` = `"1944 Kentucky Ave, Cincinnati, OH 45223"` ✅ |
+| `updatedAt` after the write | still `2026-08-18T03:55:15.479Z` — **untouched**, so the $2,500 stays in August ✅ |
+| Re-run of the audit | `noStreet` 60 → 59, `OK` 119 → 120, and exactly $2,500 moved between the two buckets ✅ |
+
+The audit still reports **PASS**. Nothing else in prod was written.
 
 ## 5b. Bonus: the legacy-documents question now has an answer
 
@@ -224,7 +248,7 @@ with its own blast radius, and this session did not make it.
 
 | Item | Where | Why it is left |
 | --- | --- | --- |
-| `monthlyTrend` has no `stageStartedAt` fallback | `docs/pro/js/analytics-kpi.js:496-499` | Real bug, independent of these scripts. The fix is the one already at `:171-177`. Needs its own change + test. |
+| ~~`monthlyTrend` has no `stageStartedAt` fallback~~ | `docs/pro/js/analytics-kpi.js` | **CLOSED in this PR** — see §4. One line + a 4-assertion regression test. |
 | `admin.apps` / `admin.firestore()` on v14 | `scripts/import-cost-rotation.js:196`, `scripts/import-job-template-costs.js:170` | **Next migration tranche.** These two *do* resolve (they carry a `functions/` `createRequire` fallback), so they are not `MODULE_NOT_FOUND` — but they use the v14-removed namespace off the default export, and `functions/` pins `^14.3.0`. They fail *later* and *differently*, which is exactly why the "bare require fails" framing missed them. |
 | Stale Timestamp boilerplate | `scripts/backfill-pins-to-knocks.js`, `.github/workflows/address-audit.yml` | Not touched this session. The workflow additionally pins firebase-admin v12 via `NODE_PATH` on the stated rationale that "v14 changed Timestamp handling in a way that breaks the admin scripts in `scripts/`" — §1 and §2 say that pin is both unnecessary and actively counterproductive. Unpinning it is a CI change deserving its own PR. |
 | No test for `backfill-legacy-addresses.js` | `tests/` | The audit has one; the script that *writes prod* does not. |
