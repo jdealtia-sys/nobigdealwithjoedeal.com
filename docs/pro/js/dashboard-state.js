@@ -159,7 +159,11 @@ const _NBD_CALL_ALLOWLIST = new Set([
   // Joe AI quick prompts + chat lifecycle
   'joeQuick', 'clearJoeChat', 'clearJoeKey',
   // Draw / zone / pin tools
-  'setDrawMode', 'startZoneDraw', 'cancelZoneDraw', 'clearDraw',
+  // (selectZoneColor, startZoneDraw, cancelZoneDraw, saveZone, deleteZone →
+  //  __NBD_CALL_REGISTRY, Globals Tranche 3 slice T3-0 (2026-08-31) — the whole
+  //  zone cluster is IIFE-scoped in dashboard-actions.js. Do NOT re-add: a
+  //  stale window fallback would shadow-resurrect the globals it removed.)
+  'setDrawMode', 'clearDraw',
   'clearAllPins', 'commitPin', 'cancelPinConfirm',
   // Estimate flow
   'estNext', 'estBack', 'saveEstimate', 'exportEstimate', 'cancelEstimate',
@@ -183,7 +187,9 @@ const _NBD_CALL_ALLOWLIST = new Set([
   // (damagNearMe registry-registered in maps-overlays.js 2026-08-07 — per the
   //  Tranche 2c-2 rule above, registered names must not keep a window
   //  fallback entry here.)
-  'setPhotoMode', 'damageNearMePhotos',
+  // (damageNearMePhotos → __NBD_CALL_REGISTRY, Tranche 3 T3-0 2026-08-31 —
+  //  same rule as damagNearMe above: registered names keep no window fallback.)
+  'setPhotoMode',
   // Customer / lead modals
   // QA 2026-06-07 (C-1 fix): saveLead was dropped from the allowlist during the
   // CSP onclick→data-action sweep, so the Add/Edit Lead modal's Save buttons
@@ -206,7 +212,9 @@ const _NBD_CALL_ALLOWLIST = new Set([
   // photo auto-detect — are registry-registered now; see the Tranche
   // 2c-2 note above.)
   // (spyglassSearch → __NBD_CALL_REGISTRY, Tranche 2c-4h Slice H2 — off window.)
-  'searchMap', 'saveZone', 'searchDraw',
+  // (saveZone → __NBD_CALL_REGISTRY with the rest of the zone cluster,
+  //  Globals Tranche 3 slice T3-0, 2026-08-31 — do NOT re-add.)
+  'searchMap', 'searchDraw',
   'saveDocUpload',
   // (saveJoeKey / saveJoeKeyFromSettings removed 2026-08-10 with the dead
   //  key-collection UI — the server proxy is the only AI transport.)

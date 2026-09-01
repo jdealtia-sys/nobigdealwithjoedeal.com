@@ -350,11 +350,16 @@ document.addEventListener('click', function _nbdActionDelegate(e) {
   // C.4 zone-color cluster — D2D zone color swatches. Original inline
   // was selectZoneColor(<css-var-or-hex>, this). Delegate passes the
   // string from data-target and the resolved element.
+  // Globals Tranche 3 T3-0 (2026-08-31): selectZoneColor is module-scoped in
+  // dashboard-actions.js now, so the old bare `typeof selectZoneColor` probe
+  // would evaluate false and silently kill the swatches. Resolve it the same
+  // way every other converted handler resolves — registry first.
   if (action === 'zoneColor') {
     const target = el.dataset.target;
     if (!target) return;
     e.preventDefault();
-    if (typeof selectZoneColor === 'function') selectZoneColor(target, el);
+    const zoneColorFn = _nbdResolveCall('selectZoneColor');
+    if (zoneColorFn) zoneColorFn(target, el);
     return;
   }
   // C.4 pin-status cluster — D2D pin status buttons (not-home /

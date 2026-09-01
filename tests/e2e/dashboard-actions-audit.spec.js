@@ -182,7 +182,13 @@ test('dashboard-actions-audit @audit', async ({ page }) => {
           case 'tradeChip': fnCheck('toggleTradeChip'); break;
           case 'crmToolsMenu': fnCheck('toggleCrmToolsMenu'); break;
           case 'kanbanView': fnCheck('switchKanbanView'); break;
-          case 'zoneColor': fnCheck('selectZoneColor'); break;
+          // Globals Tranche 3 T3-0: the zoneColor branch in dashboard-ui.js
+          // resolves through _nbdResolveCall now (selectZoneColor is
+          // module-scoped in dashboard-actions.js), so this must mirror the
+          // registry-FIRST order or the swatches audit as a false DEAD.
+          case 'zoneColor':
+            if (!registered('selectZoneColor')) fnCheck('selectZoneColor');
+            break;
           case 'selectPin': fnCheck('selectPin'); break;
           case 'selLineType': fnCheck('selLT'); break;
           case 'settingsTab': fnCheck('switchSettingsTab'); break;

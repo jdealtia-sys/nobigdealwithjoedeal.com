@@ -10,6 +10,45 @@
 > Census reproducible with `node scripts/globals-xref.js docs/pro out.json`
 > (committed alongside this doc). Numbers below are from the 2026-08-31 run.
 
+## Update 2026-08-31 (execution session) — T3-0 SHIPPED; its stated blockers were already gone
+
+**T3-0 is done.** See
+[SESSION-2026-08-31-t3-0-zone-draw-unwind](../../documentation/projects/SESSION-2026-08-31-t3-0-zone-draw-unwind.md).
+Two corrections a later session should not have to re-derive:
+
+1. **T3-0's blockers had been resolved 24 days before this plan was
+   written.** The slice below describes "the `maps.js:464-468` unguarded
+   window shims" and a "`damagNearMe` 4-way dedup" as open work. Both closed
+   on **2026-08-07** (commit `caab17ec`, PR #1194 — recorded in
+   [SYSTEM-STABILITY-PERF-2026-08-07](../../documentation/audit/SYSTEM-STABILITY-PERF-2026-08-07.md)):
+   the maps.js re-export block became `typeof`-guarded AND try/catch-fenced,
+   and `damagNearMe` was deduped to one implementation in `maps-overlays.js`
+   with registry registration and smoke pins. This plan inherited the
+   July wording verbatim from `dashboard-actions-globals-audit.md` and
+   `globals-decomposition-HANDOFF.md` without re-checking it.
+2. **`maps.js:464-468` has pointed at comment text, not code, since
+   2026-08-07.** The line reference is repeated in four docs. Chasing it is a
+   dead end — the block it names now begins at `maps.js:475`.
+
+So T3-0's real content was never the blockers; it was **the conversion the
+blockers had deferred**: the zone-draw cluster (`selectZoneColor`,
+`startZoneDraw`, `cancelZoneDraw`, `saveZone`, `deleteZone`) plus the
+"borderline" `damageNearMePhotos` — 6 names, now IIFE-scoped in
+`dashboard-actions.js` and dispatched through `__NBD_CALL_REGISTRY`.
+`renderSavedZones` stays on `window` deliberately (real cross-file API:
+`maps-core.js` + `dashboard-bootstrap.module.js` both call it).
+
+**Census re-run confirms the table below**, with one correction: the
+`withHtmlHits` figure is **231**, not 233. Bands (454 / 176 / 131 / 66), the
+827 total and the single bracket-dispatch name all reproduce exactly.
+
+**The lesson worth carrying:** the "~515 → 131" correction that prompted this
+plan was a *count* being stale. This one was a *status* being stale, which is
+worse — it makes finished work look blocked and buys a session's worth of
+re-verification. Both came from copying a prior doc's framing forward instead
+of re-measuring. Re-run the census AND re-read the cited lines before
+starting any slice below.
+
 ## Fresh census — the middle band shrank
 
 The 2026-07-05 inventory estimated **~515 globals** in the 2–5-consumer
@@ -72,10 +111,14 @@ the spine is a state-store question, not a globals-hygiene question.
 ## Ordered slices
 
 **T3-0 — the shim-blocked residual (precondition, 1 short session).**
-Zone-draw unwind (the `maps.js:464-468` unguarded window shims),
-`damagNearMe` 4-way dedup vs `maps-overlays.js`. Blocks nothing below
-mechanically, but it is the last open item of Tranche 2 and touches the same
-files as T3-C/D slices — land it first so later slices rebase cleanly.
+✅ **SHIPPED 2026-08-31** — see the update section at the top of this doc.
+6 names off window (zone-draw cluster + `damageNearMePhotos`), 2 cross-file
+bare calls rewired, 32 smoke pins added. ~~Zone-draw unwind (the
+`maps.js:464-468` unguarded window shims), `damagNearMe` 4-way dedup vs
+`maps-overlays.js`.~~ Both of those blockers had in fact closed on 2026-08-07;
+the residual was the deferred conversion itself. Blocks nothing below
+mechanically, but it was the last open item of Tranche 2 and touches the same
+files as T3-C/D slices — landed first so later slices rebase cleanly.
 
 **T3-A — mechanically-safe zero-external names (277, ~3 mechanical PRs).**
 Single assigner + zero external consumer files + zero HTML hits + zero

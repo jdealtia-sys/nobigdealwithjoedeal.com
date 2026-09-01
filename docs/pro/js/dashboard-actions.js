@@ -619,6 +619,23 @@ function goTo(name, params = {}) {
 // ══════════════════════════════════════════════
 // TERRITORY ZONES — draw / save / delete
 // ══════════════════════════════════════════════
+// Globals Tranche 3 slice T3-0 (2026-08-31): the whole zone cluster is
+// wrapped in this in-file IIFE so its top-level declarations stop becoming
+// auto-globals. The five markup/cross-file entry points register in
+// __NBD_CALL_REGISTRY (dashboard-ui.js resolves it BEFORE the allowlisted
+// window fallback); the eight helpers below them have no external caller and
+// stay private. renderSavedZones is the one deliberate export — maps-core.js
+// and dashboard-bootstrap.module.js both invoke it through window after their
+// own async work resolves, so it keeps its window binding at the foot of this
+// IIFE.
+//
+// This slice was unblocked, not merely deferred: the audit deferred zone-draw
+// because maps.js re-stated these names with an UNGUARDED right-hand side, so
+// scoping them would ReferenceError at maps.js load and take the map surface
+// down. That block became typeof-guarded and try/catch-fenced on 2026-08-07
+// (PR #1194), so the guards simply evaluate false now and the re-export lines
+// were deleted with this slice.
+(function () {
 function selectZoneColor(color, el) {
   zoneColor = color;
   document.querySelectorAll('#zoneColorPicker > div').forEach(d => d.style.borderColor = 'transparent');
@@ -858,6 +875,28 @@ function renderSavedZones() {
   if (typeof renderZoneList === 'function') renderZoneList();
 }
 
+// Registry-first dispatch for the five zone entry points (Tranche 3, T3-0).
+// startZoneDraw / cancelZoneDraw / saveZone are markup-dispatched from
+// dashboard.html; deleteZone is dispatched from the delete button that
+// renderZoneList generates; selectZoneColor is reached through the
+// dashboard-ui.js `zoneColor` action. All five dropped their
+// _NBD_CALL_ALLOWLIST entries in the same change — per the Tranche 2c-2 rule,
+// a registered name must not keep a window fallback, or the stale fallback
+// shadow-resurrects the global the tranche removed.
+window.__NBD_CALL_REGISTRY = window.__NBD_CALL_REGISTRY || Object.create(null);
+Object.assign(window.__NBD_CALL_REGISTRY, {
+  selectZoneColor: selectZoneColor,
+  startZoneDraw: startZoneDraw,
+  cancelZoneDraw: cancelZoneDraw,
+  saveZone: saveZone,
+  deleteZone: deleteZone
+});
+// Deliberate export (NOT a vestigial alias): maps-core.js re-draws zones 400ms
+// after map init and dashboard-bootstrap.module.js re-draws them once the
+// /zones read resolves — both call it off window, from outside this file.
+window.renderSavedZones = renderSavedZones;
+})();
+
 // ══════════════════════════════════════════════
 // SAMPLE DATA + damage-near-me overrides
 // ══════════════════════════════════════════════
@@ -879,6 +918,12 @@ async function loadSampleData() {
   }
 }
 
+// Globals Tranche 3 slice T3-0 (2026-08-31): scoped to this IIFE + registered.
+// Its only external reference was maps.js's typeof-GUARDED re-export (the
+// audit's "borderline" case — convertible iff that shim went in the same
+// change, which it did), plus the dashboard.html "📍 Near Me" button, which
+// dispatches through the registry now.
+(function () {
 function damageNearMePhotos(){
   navigator.geolocation?.getCurrentPosition(async pos=>{
     showToast('Finding nearby inspections...');
@@ -886,6 +931,11 @@ function damageNearMePhotos(){
     if(mainMap) mainMap.setView([pos.coords.latitude,pos.coords.longitude],14);
   },()=>showToast('Location access denied','error'));
 }
+window.__NBD_CALL_REGISTRY = window.__NBD_CALL_REGISTRY || Object.create(null);
+Object.assign(window.__NBD_CALL_REGISTRY, {
+  damageNearMePhotos: damageNearMePhotos
+});
+})();
 
 // (damagNearMe override removed 2026-08-07 — the single implementation lives
 //  in maps-overlays.js and registers in __NBD_CALL_REGISTRY; the aliases here
@@ -1024,17 +1074,15 @@ if(typeof searchMap!=='undefined') window.searchMap = searchMap;
 if(typeof selectPin!=='undefined') window.selectPin = selectPin;
 if(typeof deletePin!=='undefined') window.deletePin = deletePin;
 if(typeof clearAllPins!=='undefined') window.clearAllPins = clearAllPins;
-if(typeof damageNearMePhotos!=='undefined') window.damageNearMePhotos = damageNearMePhotos;
+// damageNearMePhotos → __NBD_CALL_REGISTRY (own IIFE above, Tranche 3 T3-0) — re-export removed.
 if(typeof toggleMapSidebar!=='undefined') window.toggleMapSidebar = toggleMapSidebar;
-if(typeof renderSavedZones!=='undefined') window.renderSavedZones = renderSavedZones;
+// renderSavedZones is exported from inside the zone IIFE above (Tranche 3 T3-0);
+// this forward-reference copy was redundant once the cluster owned its export.
 // spyglassSearch / spyglassGoToLocation / fabToggle / quickStormCheck →
 // __NBD_CALL_REGISTRY (dashboard-ui.js, Tranche 2c-4h Slice H2) — re-exports removed.
 if(typeof updatePinStats!=='undefined') window.updatePinStats = updatePinStats;
-if(typeof startZoneDraw!=='undefined') window.startZoneDraw = startZoneDraw;
-if(typeof cancelZoneDraw!=='undefined') window.cancelZoneDraw = cancelZoneDraw;
-if(typeof saveZone!=='undefined') window.saveZone = saveZone;
-if(typeof deleteZone!=='undefined') window.deleteZone = deleteZone;
-if(typeof selectZoneColor!=='undefined') window.selectZoneColor = selectZoneColor;
+// selectZoneColor / startZoneDraw / cancelZoneDraw / saveZone / deleteZone →
+// __NBD_CALL_REGISTRY (zone IIFE above, Globals Tranche 3 T3-0) — re-exports removed.
 if(typeof loadSampleData!=='undefined') window.loadSampleData = loadSampleData;
 if(typeof handleCardClick!=='undefined') window.handleCardClick = handleCardClick; // Exposed by crm.js
 // Map Overlay System
