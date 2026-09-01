@@ -33,12 +33,25 @@
  *     it by hand, the entry no-ops instead of overwriting their work.
  *   • Idempotent — re-running after a successful apply reports "already
  *     correct" and writes nothing.
- *   • Only ever writes `address` (+ `updatedAt`). No other field is touched.
+ *   • Only ever writes `address`. No other field is touched — not even
+ *     `updatedAt`: this is a data correction, not a customer interaction, and
+ *     the analytics monthly-trend chart buckets won-lead revenue by updatedAt.
  *
- * SETUP (admin-script-runner pattern — prod nobigdeal-pro via ADC, with
- * NODE_PATH pointed at a firebase-admin v12 install; v14 breaks Timestamps):
+ * SETUP (admin-script-runner pattern — prod nobigdeal-pro via ADC).
+ * firebase-admin arrives through scripts/_admin.js, which resolves it out of
+ * functions/node_modules — scripts/ and the repo root have none of their own.
+ * Do NOT set NODE_PATH: _admin tries a bare require.resolve FIRST, so a
+ * NODE_PATH install satisfies it and silently decides which firebase-admin
+ * this script gets, which is the single-resolver guarantee _admin exists to
+ * provide. Runs on v12 and v14 alike.
+ *
+ * (This docstring used to warn "v14 breaks Timestamps". That was inherited
+ * boilerplate — it appeared verbatim in seven sibling scripts, the exact
+ * copy-paste propagation _admin.js's own docstring describes. This script
+ * reads only `address`, `firstName` and `lastName`, all strings, and orders by
+ * the '__name__' string literal. It neither reads nor writes a Timestamp at
+ * all. See documentation/audit/ADMIN-SCRIPTS-ADMIN-PORT-2026-09-01.md.)
  *   export GOOGLE_APPLICATION_CREDENTIALS=~/.nbd/nobigdeal-pro-sa.json
- *   export NODE_PATH=/path/to/fa12/node_modules    # firebase-admin@12
  *   export NBD_PROJECT=nobigdeal-pro               # optional override
  *
  * RUN
@@ -47,7 +60,7 @@
  *   node scripts/audit-lead-addresses.js --list             # verify
  */
 
-const admin = require('firebase-admin');
+const { initAdmin, getFirestore } = require('./_admin');
 
 const args = process.argv.slice(2);
 const APPLY = args.includes('--apply');
@@ -93,17 +106,6 @@ const CORRECTIONS = GEOCODED.concat([
   },
 ]);
 
-function init() {
-  try {
-    admin.initializeApp({
-      credential: admin.credential.applicationDefault(),
-      projectId: PROJECT,
-    });
-  } catch (e) {
-    if (!String(e.message || '').includes('already exists')) throw e;
-  }
-}
-
 // Same signature the audit uses — a leading house number then a comma.
 const LEGACY_MANGLED = /^\s*\d+[a-zA-Z]?\s*,/;
 
@@ -113,8 +115,11 @@ async function main() {
     process.exit(2);
   }
 
-  init();
-  const db = admin.firestore();
+  // initAdmin's default credential IS applicationDefault(), and its
+  // `if (!getApps().length)` guard replaces the old hand-rolled try/catch that
+  // string-matched 'already exists' — that swallowed unrelated init errors too.
+  initAdmin({ projectId: PROJECT });
+  const db = getFirestore();
 
   console.log('═══════════════════════════════════════════════════════════');
   console.log('Repair legacy mangled lead addresses');
@@ -156,7 +161,23 @@ async function main() {
 
     if (APPLY) {
       try {
-        await ref.set({ address: c.correct, updatedAt: new Date() }, { merge: true });
+        // `address` ONLY — deliberately no `updatedAt`. An address repair is a
+        // data correction, not a customer interaction, and three consumers read
+        // updatedAt as if it were one:
+        //
+        //   analytics-kpi.js monthlyTrend buckets won-lead revenue by
+        //     updatedAt with NO stageStartedAt fallback, so stamping it would
+        //     move a corrected lead's jobValue out of its real close month
+        //     into the month this script ran. The sibling closedThisMonth KPI
+        //     already carries that fallback (F3) — monthlyTrend never got it.
+        //   ask-joe-proactive.js _lastTouch falls through to updatedAt, so a
+        //     cold lead would look freshly contacted and its follow-up nudge
+        //     would stop firing.
+        //   crm-list-view.js _activity sorts on it.
+        //
+        // Writing one field also makes the SAFETY claim above strictly
+        // stronger, which is the point.
+        await ref.set({ address: c.correct }, { merge: true });
         applied++;
       } catch (e) {
         failed++;
@@ -178,6 +199,13 @@ async function main() {
     for (const doc of snap.docs) {
       if (known.has(doc.id)) continue;
       const d = doc.data() || {};
+      // Skip soft-deleted rows, matching audit-lead-addresses.js:100. The app
+      // soft-deletes rather than destroying, so merged duplicates and test
+      // records still sit in the collection with their old mangled addresses.
+      // Counting them here made this script's "unresolved mangled" total read
+      // higher than the audit's — while this script's own docstring calls that
+      // audit its acceptance test. The two numbers now mean the same thing.
+      if (d.deleted === true) continue;
       const addr = String(d.address || '').trim();
       if (!LEGACY_MANGLED.test(addr)) continue;
       unresolved++;

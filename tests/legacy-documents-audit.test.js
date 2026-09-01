@@ -59,18 +59,28 @@ function runAudit(topLevel, leads, argv) {
   });
 
   const adminStub = {
-    initializeApp() {},
-    credential: { applicationDefault: () => ({}) },
-    firestore: () => ({
+    initAdmin() {},
+    getFirestore: () => ({
       collection: (name) => (name === 'leads'
         ? { doc: leadDocRef }
         : pagedQuery()),
     }),
   };
 
+  // Stub scripts/_admin.js at the loader — the real module resolves
+  // firebase-admin out of functions/ and mints ADC credentials.
+  //
+  // This MUST track what the script actually requires. It used to intercept
+  // 'firebase-admin'; when the script moved to './_admin' that string stopped
+  // being requested, so the stub went dead and the real _admin loaded. In CI
+  // that throws (no ADC) and fails loudly, but on a machine with
+  // GOOGLE_APPLICATION_CREDENTIALS set — exactly how the script's docstring
+  // says to run it — this suite would instead do live prod reads and assert
+  // against real data instead of these fixtures. Read-only, so nothing breaks;
+  // the test just quietly stops being a test.
   const realLoad = Module._load;
   Module._load = function (request) {
-    if (request === 'firebase-admin') return adminStub;
+    if (request === './_admin') return adminStub;
     return realLoad.apply(this, arguments);
   };
 
@@ -103,16 +113,16 @@ function runAudit(topLevel, leads, argv) {
   })();
 }
 
-// The script requires firebase-admin at module scope, which is not installed
-// at the repo root (it lives in the admin-script-runner's NODE_PATH). Pull its
-// exports through the same loader stub so this suite stays credential-free and
-// runs in the ordinary CI bucket. main() does not fire — it is guarded by
-// require.main === module.
+// The script requires scripts/_admin.js at module scope, which resolves
+// firebase-admin out of functions/ and mints ADC credentials. Pull its exports
+// through the same loader stub so this suite stays credential-free and runs in
+// the ordinary CI bucket. main() does not fire — it is guarded by
+// require.main === module. (Second stub site: keep it in step with runAudit's.)
 function loadExports() {
   const realLoad = Module._load;
   Module._load = function (request) {
-    if (request === 'firebase-admin') {
-      return { initializeApp() {}, credential: { applicationDefault: () => ({}) }, firestore: () => ({}) };
+    if (request === './_admin') {
+      return { initAdmin() {}, getFirestore: () => ({}) };
     }
     return realLoad.apply(this, arguments);
   };

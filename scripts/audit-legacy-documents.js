@@ -28,10 +28,24 @@
  * non-zero exit means the script itself failed). It reads and reports only —
  * it writes nothing and deletes nothing.
  *
- * SETUP (admin-script-runner pattern — prod nobigdeal-pro via ADC, with
- * NODE_PATH pointed at a firebase-admin v12 install; v14 breaks Timestamps):
+ * SETUP (admin-script-runner pattern — prod nobigdeal-pro via ADC).
+ * firebase-admin arrives through scripts/_admin.js, which resolves it out of
+ * functions/node_modules — scripts/ and the repo root have none of their own.
+ * Do NOT set NODE_PATH: _admin tries a bare require.resolve FIRST, so a
+ * NODE_PATH install satisfies it and silently decides which firebase-admin
+ * this script gets, which is the single-resolver guarantee _admin exists to
+ * provide. Runs on v12 and v14 alike.
+ *
+ * (This docstring used to warn "v14 breaks Timestamps". That was inherited
+ * boilerplate — it appeared verbatim in seven sibling scripts, the exact
+ * copy-paste propagation _admin.js's own docstring describes. Timestamps do
+ * sit on these documents (uploadedAt, createdAt, signedAt, date), but this
+ * script reads only leadId, deleted, filename, name, url, htmlUrl,
+ * signedDocumentUrl and userId — strings and one boolean — and orders by the
+ * '__name__' string literal, so it never touches one. Verified against real
+ * v14 Timestamp objects: no throw, no [object Object] leak, identical
+ * verdict. See documentation/audit/ADMIN-SCRIPTS-ADMIN-PORT-2026-09-01.md.)
  *   export GOOGLE_APPLICATION_CREDENTIALS=~/.nbd/nobigdeal-pro-sa.json
- *   export NODE_PATH=/path/to/fa12/node_modules    # firebase-admin@12
  *   export NBD_PROJECT=nobigdeal-pro               # optional override
  *
  * RUN
@@ -39,7 +53,7 @@
  *   node scripts/audit-legacy-documents.js --list   # every lead-scoped row
  */
 
-const admin = require('firebase-admin');
+const { initAdmin, getFirestore } = require('./_admin');
 
 const args = process.argv.slice(2);
 const LIST = args.includes('--list');
@@ -65,20 +79,12 @@ function classify(d) {
   return 'leadScoped';
 }
 
-function init() {
-  try {
-    admin.initializeApp({
-      credential: admin.credential.applicationDefault(),
-      projectId: PROJECT,
-    });
-  } catch (e) {
-    if (!String(e.message || '').includes('already exists')) throw e;
-  }
-}
-
 async function main() {
-  init();
-  const db = admin.firestore();
+  // initAdmin's default credential IS applicationDefault(), and its
+  // `if (!getApps().length)` guard replaces the old hand-rolled try/catch that
+  // string-matched 'already exists' — that swallowed unrelated init errors too.
+  initAdmin({ projectId: PROJECT });
+  const db = getFirestore();
 
   const buckets = { leadScoped: [], softDeleted: [], companyLibrary: [] };
   let scanned = 0;

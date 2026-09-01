@@ -212,6 +212,46 @@ ok('topSource = referral (3 non-deleted)', k.topSource === 'referral' && k.topSo
   });
   ok('analytics over-collected ledger: no negative synthetic (1100 stands)',
     overA.totalRevenue === 1100);
+
+  // ── monthlyTrend attributes a won lead to its CLOSE month, not its edit month ──
+  //
+  // monthlyTrend used to bucket won-lead revenue by updatedAt with no
+  // stageStartedAt fallback, so any later write to a won lead — a note, an
+  // address repair, a list re-save — moved its revenue into the month of the
+  // edit. closedThisMonth already had the fallback (analytics-kpi.js F3); this
+  // chart was missed. Discriminator: close LAST month, edit THIS month. A
+  // regression puts the revenue in the current bucket.
+  console.log('\nANALYTICS monthlyTrend — close-month attribution');
+  const mk = (d) => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
+  const thisKey = mk(N), prevKey = mk(prevMonth);
+
+  const trend = CFA({
+    knocks: [], photos: [], estimates: [], expenses: [], invoices: [],
+    leads: [{
+      id: 'won-last-month-edited-today', stage: 'closed', jobValue: 2500,
+      createdAt: prevMonth,
+      stageStartedAt: prevMonth,  // actually closed LAST month
+      updatedAt: inMonth,         // but touched THIS month
+    }],
+  }).monthlyTrend;
+
+  ok('revenue lands in the close month, not the edit month',
+    trend[prevKey] && trend[prevKey].revenue === 2500);
+  ok('the edit month gets nothing',
+    trend[thisKey] && trend[thisKey].revenue === 0);
+  ok('the close is counted once, in the close month',
+    trend[prevKey].closed === 1 && trend[thisKey].closed === 0);
+
+  // Fallback still holds for pre-migration rows that have no stageStartedAt.
+  const legacyTrend = CFA({
+    knocks: [], photos: [], estimates: [], expenses: [], invoices: [],
+    leads: [{
+      id: 'won-no-stageStartedAt', stage: 'closed', jobValue: 700,
+      createdAt: prevMonth, updatedAt: prevMonth,
+    }],
+  }).monthlyTrend;
+  ok('a row with no stageStartedAt still falls back to updatedAt',
+    legacyTrend[prevKey] && legacyTrend[prevKey].revenue === 700);
 }
 
 console.log('\n──────────────────────────────────────────────────');
