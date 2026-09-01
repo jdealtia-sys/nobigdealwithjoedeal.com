@@ -135,8 +135,19 @@ Two controlled experiments, both empty diffs. That is the proof the deletion is
 behaviour-neutral.
 
 Other gates: `check-js-syntax` (471 clean), `check-inline-html-scripts`,
-`check-site-integrity` (235 pages, 0 failures), **smoke 3478 passed / 0 failed**.
+`check-site-integrity` (235 pages, 0 failures), **smoke 3479 passed / 0 failed**.
 Census: 821 → 782 rows, zero-external band 448 → 410.
+
+**Gate missed on the first push, worth adding to the mental list:**
+`scripts/run-test-manifest.js` is not in CLAUDE.md's pre-push list, and it
+failed three CI jobs at once (Site integrity, Smoke tests, Unit suites) with a
+single message — a new `tests/e2e/*.spec.js` must be named in
+`tests/package.json` or a workflow, or carry a dated `UNWIRED_SPECS` entry. That
+tripwire is the 2026-08-26 session's own fix for specs that were wired nowhere,
+so it did exactly its job. The snapshot harness is now registered as
+deliberately unwired, with the reason: it is a *differential* tool, and a single
+unattended run has nothing to compare against. **Run
+`node scripts/run-test-manifest.js` locally whenever a test file is added.**
 
 **That census drop is not a real reduction** and must not be reported as one.
 The 39 names remain auto-globals in their own files; the census simply stopped
@@ -159,9 +170,39 @@ cd tests && PLAYWRIGHT_BASE_URL=http://127.0.0.1:5000 PLAYWRIGHT_TEST_USER_EMAIL
 | `closeMobileMore` | map + bare calls (`dashboard-ui.js:436`, `mobile-nav-customizer.js:388`) | same + rewire 2 call sites |
 | `toggleMobileMore` | `_NBD_TOGGLE_FNS` + `mobile-nav-customizer.js:800` | same |
 | `dsRemoveFloor` | bare call `dashboard-ui.js:2165` | known MUST-STAY from 2c-4d |
-| `_mJdOpenEstimate` | 2 generated `data-fn` hits | register + de-allowlist |
+| `_mJdOpenEstimate` | ⚠ cross-IIFE ordering trap — see below | move registry entry, *then* drop the export |
 | `confirmPromoteProspect` | allowlisted, read via `window.` in-file | the one genuine registry candidate |
 | `openMobileInspection` | deliberate `window` export (2c-4b) + smoke-pinned | **MUST STAY** |
+
+### ⚠ The landmine in that list: `_mJdOpenEstimate`
+
+Surfaced by a fan-out of per-name auditors and then verified by hand. It is the
+one export in the file that *looks* vestigial and is actually load-bearing:
+
+- `_mJdOpenEstimate` is defined at `dashboard-actions.js:1550`, inside the 2c-4b
+  IIFE that spans **1284–1668**. It is already module-scoped.
+- `window._mJdOpenEstimate = _mJdOpenEstimate;` sits at **1575**, inside that
+  same IIFE — which reads exactly like a leftover self-export to delete.
+- But its `__NBD_CALL_REGISTRY` entry is at **2146**, inside a *different* IIFE
+  spanning **1932–2157**. The bare identifier on that line's right-hand side is
+  **not lexically in scope there** — it resolves through the global object, i.e.
+  through the property line 1575 creates.
+
+Delete 1575 on its own and line 2146 throws a `ReferenceError` at load, which
+aborts the entire 1932–2157 IIFE and takes **all 19 registry entries in it**
+down with it: `cdaReport`, `cdaEnrich`, `cdaPhotos`, `cdaInvoice`,
+`cdaInspection`, `cdPickStage`, `cdPickType`, `cdaInspectionDeep`, `cdaMjdAct`,
+`cdaEditLead`, `cdaOpenMobileInspection`, `cdaVoiceMemo`, `cdaOpenVoicemail`,
+`cdaSharePortalLink`, `cdaRevokePortalLink`, `cdaConfirmPromote`,
+`cdaOpenTaskModal`, `_mCreatePhotoPicked`. That is the whole customer-detail
+action bar going silently dead, not one button.
+
+Safe order: **move the registry entry into the defining IIFE first, then delete
+the export.** A ⚠ comment now sits on line 1575 and a smoke assertion pins the
+relationship, so the ordering cannot be rediscovered the hard way.
+
+It also means the file currently violates the house rule "a registered name must
+never keep a window fallback" — deliberately, and now visibly.
 
 **The obvious next slice is not more T3-A — it is making the two dispatch maps
 registry-aware.** `_NBD_TOGGLE_FNS` / `_NBD_MODAL_CLOSE_FNS` resolve through

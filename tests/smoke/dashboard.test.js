@@ -3509,6 +3509,40 @@ section('Globals Tranche 2c: __NBD_CALL_REGISTRY dispatch layer');
         + (hits.slice(0, 4).join(', ') || 'clean'), hits.length === 0);
   }
 
+  // ⚠ The one export in this file that LOOKS vestigial but is load-bearing.
+  // `_mJdOpenEstimate` is IIFE-scoped (2c-4b), so `window._mJdOpenEstimate = …`
+  // reads as a leftover self-export — but its __NBD_CALL_REGISTRY entry sits in
+  // a DIFFERENT IIFE, where the bare identifier is not lexically in scope and
+  // resolves through the global object instead. Removing the window export
+  // alone makes that registry line throw at load, aborting its whole IIFE and
+  // silently killing all 19 registry entries in it (the customer-detail action
+  // bar). Retiring it safely means moving the registry entry into the defining
+  // IIFE FIRST. This pin exists so that ordering cannot be discovered the hard
+  // way; delete it only together with the line it guards.
+  {
+    const exportLine = /window\._mJdOpenEstimate\s*=\s*_mJdOpenEstimate\s*;/.test(dashActions);
+    const regEntry = /_mJdOpenEstimate:\s*_mJdOpenEstimate/.test(dashActions);
+    const iifeOpens = [...dashActions.matchAll(/^\(function \(\)\s*\{/gm)].map(m => m.index);
+    const iifeCloses = [...dashActions.matchAll(/^\}\)\(\);/gm)].map(m => m.index);
+    const blockOf = (idx) => {
+      for (let i = 0; i < iifeOpens.length; i++) {
+        if (iifeOpens[i] < idx && idx < (iifeCloses[i] !== undefined ? iifeCloses[i] : Infinity)) return i;
+      }
+      return -1;
+    };
+    const expIdx = dashActions.search(/window\._mJdOpenEstimate\s*=\s*_mJdOpenEstimate\s*;/);
+    const regIdx = dashActions.search(/_mJdOpenEstimate:\s*_mJdOpenEstimate/);
+    const sameBlock = expIdx >= 0 && regIdx >= 0 && blockOf(expIdx) === blockOf(regIdx);
+    assert('_mJdOpenEstimate: the window export survives while its registry entry '
+        + 'is in a different IIFE (removing it alone kills 19 registry entries)',
+      sameBlock || exportLine,
+      regEntry && !exportLine && !sameBlock
+        ? 'the registry entry is in another IIFE and the window export it depends on is GONE — '
+          + 'the customer-detail action bar will be dead at runtime'
+        : 'expected either the export to remain, or the registry entry to have moved '
+          + 'into the same IIFE as the definition');
+  }
+
   // The resolver's window fallback is allowlist-gated; keep state ahead of
   // dashboard-ui in the defer queue so the gate exists when dispatch runs.
   const dashRaw = read(path.join(ROOT, 'docs/pro/dashboard.html'));

@@ -175,7 +175,7 @@ session.
 > | `closeMobileMore` | `_NBD_MODAL_CLOSE_FNS` + bare calls in `dashboard-ui.js:436`, `mobile-nav-customizer.js:388` |
 > | `toggleMobileMore` | `_NBD_TOGGLE_FNS` + bare call `mobile-nav-customizer.js:800` |
 > | `dsRemoveFloor` | bare call `dashboard-ui.js:2165` (already a known MUST-STAY from 2c-4d) |
-> | `_mJdOpenEstimate` | 2 generated `data-fn` markup hits → needs registry |
+> | `_mJdOpenEstimate` | ⚠ **ordering trap — read the code comment before touching it.** Already IIFE-scoped, so its `window._mJdOpenEstimate = …` line reads as a vestigial self-export. It is not: the `__NBD_CALL_REGISTRY` entry for it lives in a **different IIFE**, where the bare identifier is not lexically in scope and resolves through the global object instead. Deleting the export alone makes that registry line throw at load, aborting its whole IIFE and silently killing **all 19 registry entries in it** — the entire customer-detail action bar. Move the registry entry into the defining IIFE **first**. Smoke-pinned. |
 > | `confirmPromoteProspect` | allowlisted + read via `window.` in-file; the only genuine registry candidate |
 > | `openMobileInspection` | deliberate `window` export (2c-4b) + smoke-pinned → **MUST STAY** |
 >

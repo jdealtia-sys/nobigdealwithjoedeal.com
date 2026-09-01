@@ -1572,6 +1572,21 @@ function _mJdOpenEstimate(estimateId) {
   if (typeof goTo === 'function') goTo('est');
   if (typeof window.viewEstimate === 'function') window.viewEstimate(estimateId);
 }
+// ⚠ LOAD-BEARING — DO NOT DELETE THIS LINE ON ITS OWN. It looks like a
+// vestigial self-export (the function is already IIFE-scoped by 2c-4b), but the
+// __NBD_CALL_REGISTRY entry `_mJdOpenEstimate: _mJdOpenEstimate` lives in a
+// DIFFERENT IIFE further down this file. `_mJdOpenEstimate` is not lexically in
+// scope there — that bare identifier resolves through the global object, i.e.
+// through the property THIS line creates. Delete this alone and that entry
+// throws a ReferenceError at load, which aborts its entire IIFE and silently
+// takes ALL 19 registry entries in that block down with it — the whole
+// customer-detail action bar (cdaReport, cdaEnrich, cdaPhotos, cdaInvoice,
+// cdaInspection, cdPickStage, cdPickType, cdaInspectionDeep, cdaMjdAct,
+// cdaEditLead, cdaOpenMobileInspection, cdaVoiceMemo, cdaOpenVoicemail,
+// cdaSharePortalLink, cdaRevokePortalLink, cdaConfirmPromote, cdaOpenTaskModal,
+// _mCreatePhotoPicked). To retire it safely: FIRST move the registry entry into
+// this IIFE's own registration block below, THEN delete this line. In that
+// order. (Found by the Tranche 3 T3-A slice-1 audit, 2026-08-31.)
 window._mJdOpenEstimate = _mJdOpenEstimate;
 
 // ══════════════════════════════════════════════════════════════════════
