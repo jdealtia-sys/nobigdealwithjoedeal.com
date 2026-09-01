@@ -192,6 +192,55 @@ section('firebase-admin v14: legacy namespace is dead');
     (offendersLegacy.join(', ') || 'clean'), offendersLegacy.length === 0);
   assert('bare require(firebase-admin) only in initializeApp allowlist — ' +
     (offendersRequire.join(', ') || 'clean'), offendersRequire.length === 0);
+
+  // ── the same tripwire over scripts/, which had none until 2026-09-01 ──
+  //
+  // This guard walked functions/ ONLY, and that is exactly how scripts/
+  // drifted: nineteen scripts copy-pasted a dead init block, four earlier
+  // migration tranches fixed them a few at a time, and the last two
+  // (import-cost-rotation.js, import-job-template-costs.js) survived every
+  // sweep because they FAILED DIFFERENTLY. They carried their own
+  // createRequire fallback, so they resolved firebase-admin fine and never
+  // threw MODULE_NOT_FOUND — the break was three v14-removed namespace
+  // spellings that only fire at write time, past the dry-run exit, on the
+  // most sensitive collection in the repo (catalogCosts/{companyId}).
+  //
+  // A grep is the only cheap tripwire for a runtime-only break, and scripts/
+  // is now clean, so pin it. `admin.apps` / `admin.app` are in this pattern
+  // and not in the functions/ one because the scripts' dead init guard was
+  // `if (!admin.apps.length)`.
+  //
+  // NOT applied to scripts/: the bare-require allowlist. scripts/ has no
+  // node_modules of its own, so resolving firebase-admin out of functions/
+  // — whether via scripts/_admin.js or an inline createRequire — is correct
+  // there and must not be flagged.
+  const SCRIPTS = path.join(ROOT, 'scripts');
+  const LEGACY_SCRIPTS = /\badmin\s*\.\s*(firestore|auth|storage|messaging|database|credential|appCheck|remoteConfig|instanceId|projectManagement|securityRules|machineLearning|apps|app)\b/;
+  const offendersScripts = [];
+  for (const name of fs.readdirSync(SCRIPTS)) {
+    if (!name.endsWith('.js')) continue;
+    const src = fs.readFileSync(path.join(SCRIPTS, name), 'utf8');
+    // Strip comments — every remaining mention in scripts/ is prose EXPLAINING
+    // the dead pattern, and that prose is worth keeping.
+    const code = src.replace(/\/\/[^\n]*/g, '').replace(/\/\*[\s\S]*?\*\//g, '');
+    const m = code.match(LEGACY_SCRIPTS);
+    if (m) offendersScripts.push(name + ' (' + m[0] + ')');
+  }
+  assert('no legacy admin.<service>/admin.apps accessors anywhere under scripts/ — ' +
+    (offendersScripts.join(', ') || 'clean'), offendersScripts.length === 0);
+
+  // The two scripts the 2026-09-01 tranche ported, pinned by name. Division of
+  // labour with the sweep above: the sweep catches a bad SPELLING coming back,
+  // this catches the resolver being reintroduced — a script could go back to
+  // its own createRequire fallback while still using modular calls, and the
+  // sweep would not notice.
+  for (const s of ['import-cost-rotation.js', 'import-job-template-costs.js']) {
+    const src = read(path.join(SCRIPTS, s));
+    const code = src.replace(/\/\/[^\n]*/g, '').replace(/\/\*[\s\S]*?\*\//g, '');
+    assert('F5: ' + s + ' takes firebase-admin through scripts/_admin.js',
+      /require\(['"]\.\/_admin['"]\)/.test(code)
+      && !/createRequire\(/.test(code));
+  }
 }
 
 // ── rotateAccessCodes: opt-in revocation cascade (2026-07 audit) ──
