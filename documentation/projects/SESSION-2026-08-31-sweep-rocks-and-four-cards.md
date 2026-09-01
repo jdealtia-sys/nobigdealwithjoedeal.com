@@ -88,7 +88,7 @@ call cleared, naming approved, Oct invoices same job · merge #1305.
 
 ## Still open (all carried to the 08-31 handoff)
 
-GBP/Facebook posting session (kit still deliberately unposted) · Rock 2
+~~GBP/Facebook posting session~~ (DONE — see Addendum 2) · Rock 2
 side-decisions (above) · Philpot card (TAMKO brand-sensitivity, Jo's
 call) · draft PR #1299 (INDEX handoff consolidation — needs rebase over
 this session's INDEX edit; finish or close) · Sharon Batavia gutter
@@ -125,6 +125,27 @@ Jo answered the four held calls in-session and the sweep executed:
   `C:\Users\jonat\NBD-photo-staging-2026-08-31` (EXIF-bearing originals;
   never commit or publish directly).
 
-/our-work ends the day at **44 live projects, 37 priced**. Still open
-after the sweep: only the posting session (Jo's review) and the Rock 4
-Tranche 3 execution lanes.
+/our-work ends the day at **44 live projects, 37 priced**.
+
+## Addendum 2 — the marketing lane ran too (same day)
+
+The "still open" list above was written mid-session and is now stale. The
+posting session happened, and then some. Full detail in
+[POSTING-LOG](../marketing/POSTING-LOG.md); the short version:
+
+- **The whole 08-28 kit shipped, 6 of 6** — all four GBP posts and both
+  Facebook variants (the FB page's first posts ever), with three copy
+  edits Jo approved after an adversarial review (a competitor-bashing
+  line removed, a price anchored to its house, an absolute softened).
+- **GBP service area**: at the 20-area hard cap, so Hyde Park was swapped
+  out for Lexington, KY. Google has since approved it.
+- **All 12 unreplied Google reviews answered**, deliberately claim-free.
+  A review-authenticity concern was raised and Jo's answer is recorded.
+- **Photo gallery refreshed** — 12 curated images, first in 147 days.
+  Photos turn out to be the highest-reach surface on the profile (one is
+  past 1,000 views), which reorders the priorities for next time.
+- **Two website card heroes swapped** (#1313) after the photo curation
+  graded them actively harmful — one was bare decking with a hole in it.
+
+Nine PRs merged today: #1301–#1305, #1310–#1314. **Only lane still open
+is Rock 4 Tranche 3 execution.**
