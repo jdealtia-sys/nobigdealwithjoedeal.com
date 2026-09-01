@@ -7,13 +7,20 @@
 // window surface. Run it once before the change and once after, then diff the
 // two JSON files — an empty diff is the proof.
 //
-// Written for Globals Tranche 3 slice T3-A (2026-08-31): dashboard-actions.js
-// carries 75 guarded forward-reference re-exports, and static analysis says
-// every one is either dead (the subject is defined in a LATER-loading script,
-// so the typeof guard is false at this file's execution time) or redundant
-// (the subject is already an auto-global from an earlier classic script).
-// Static reasoning about classic-script load order is exactly the kind of
-// claim that deserves an empirical check, so this makes one.
+// Written for Globals Tranche 3 slice T3-A (2026-08-31), when dashboard-actions.js
+// still carried 86 guarded forward-reference re-exports and static analysis said
+// every one was either dead (subject defined in a LATER-loading script, so the
+// typeof guard is false at this file's execution time) or redundant (subject
+// already an auto-global from an earlier classic script). Static reasoning about
+// classic-script load order is exactly the kind of claim that deserves an
+// empirical check, so this makes one. All 86 are now deleted; the PINNED list
+// below keeps their names covered so a re-export cannot creep back unnoticed.
+//
+// Extended 2026-09-01 (slice T3-M) to also exercise the LIVE dispatch path:
+// it calls the real _nbdResolveMapped for every _NBD_TOGGLE_FNS /
+// _NBD_MODAL_CLOSE_FNS entry and for every modalBackdropClose target, and
+// reports what each resolves through. That part is not a before/after diff —
+// it is a standalone assertion that no map-dispatched control is dead.
 //
 // Run against the emulator suite:
 //   cd tests && npx firebase emulators:exec --only auth,firestore,storage,hosting \
@@ -100,6 +107,12 @@ test('globals-surface-snapshot @globals', async ({ page }) => {
   const snap = await page.evaluate((ns) => {
     /* eslint-disable no-undef */
     const out = {};
+    const fingerprint = (v) => {
+      const s = String(v);
+      let h = 0;
+      for (let i = 0; i < s.length; i++) { h = ((h << 5) - h + s.charCodeAt(i)) | 0; }
+      return 'len' + s.length + ':h' + h;
+    };
     for (const n of ns) {
       let t = 'missing';
       let src = '';
@@ -109,23 +122,77 @@ test('globals-surface-snapshot @globals', async ({ page }) => {
         // A function's source text is a stable identity fingerprint: if the
         // deletion accidentally rebound a name to a DIFFERENT function, the
         // hash changes even though typeof does not.
-        if (typeof v === 'function') {
-          const s = String(v);
-          let h = 0;
-          for (let i = 0; i < s.length; i++) { h = ((h << 5) - h + s.charCodeAt(i)) | 0; }
-          src = 'len' + s.length + ':h' + h;
-        }
+        if (typeof v === 'function') src = fingerprint(v);
       } catch (e) { t = 'threw'; }
       out[n] = t + (src ? ' ' + src : '');
     }
+
+    // ── Dispatch-map resolution (Globals Tranche 3, 2026-09-01) ──
+    // A name reachable only through _NBD_TOGGLE_FNS / _NBD_MODAL_CLOSE_FNS is
+    // now allowed to live in __NBD_CALL_REGISTRY instead of on window, so
+    // "is it on window" is no longer the question that matters for it. Call the
+    // REAL shipped resolver — _nbdResolveMapped is a top-level declaration in
+    // dashboard-ui.js, so it is reachable here — and record what each map entry
+    // actually resolves to. Any 'UNRESOLVED' is a control the user cannot
+    // operate: for the modal map specifically, a dialog that will not close.
+    const resolveMapped = (typeof _nbdResolveMapped === 'function') ? _nbdResolveMapped : null;
+    out.__resolver = resolveMapped ? 'present' : 'MISSING — dispatch maps cannot resolve';
+    const reg = window.__NBD_CALL_REGISTRY || {};
+    for (const [mapName, map] of [
+      ['TOGGLE', typeof _NBD_TOGGLE_FNS !== 'undefined' ? _NBD_TOGGLE_FNS : null],
+      ['MODAL', typeof _NBD_MODAL_CLOSE_FNS !== 'undefined' ? _NBD_MODAL_CLOSE_FNS : null],
+    ]) {
+      if (!map) { out['__map_' + mapName] = 'MAP UNREACHABLE'; continue; }
+      for (const key of Object.keys(map)) {
+        const fnName = map[key];
+        const via = (typeof reg[fnName] === 'function') ? 'registry'
+          : (typeof window[fnName] === 'function') ? 'window' : 'NOWHERE';
+        const fn = resolveMapped ? resolveMapped(fnName) : null;
+        out['__map_' + mapName + '_' + key] = (typeof fn === 'function')
+          ? 'resolved via ' + via + ' ' + fingerprint(fn)
+          : 'UNRESOLVED (' + fnName + ' found in ' + via + ')';
+      }
+    }
+    // ── modalBackdropClose (Globals Tranche 3, 2026-09-01) ──
+    // A THIRD dispatcher over the same closeXxx namespace, and the only one
+    // where data-target is the RAW function name straight out of the page. It
+    // had no allowlist gate at all; it is now gated on _NBD_MODAL_CLOSE_FNS's
+    // values and resolved registry-first. The @audit spec cannot see this
+    // branch — 'modalBackdropClose' is in its UI_ACTIONS set but has no case in
+    // its switch, so it falls through to default and always reports ok. Check
+    // the real markup against the real gate here instead.
+    const closeVals = (typeof _NBD_MODAL_CLOSE_FNS !== 'undefined')
+      ? Object.keys(_NBD_MODAL_CLOSE_FNS).map(k => _NBD_MODAL_CLOSE_FNS[k]) : [];
+    document.querySelectorAll('[data-action="modalBackdropClose"]').forEach((el, i) => {
+      const t = el.dataset.target || '(none)';
+      const gated = closeVals.indexOf(t) !== -1;
+      const fn = resolveMapped ? resolveMapped(t) : null;
+      out['__backdrop_' + i + '_' + t] = !gated
+        ? 'BLOCKED BY GATE (not a _NBD_MODAL_CLOSE_FNS value) — backdrop click is now inert'
+        : (typeof fn === 'function' ? 'ok (gated + resolves)' : 'UNRESOLVED after gate');
+    });
+
     return out;
   }, names);
 
   const outFile = process.env.GLOBALS_SNAPSHOT_OUT || '.globals-snapshot.json';
   const dest = path.join(__dirname, outFile);
   fs.writeFileSync(dest, JSON.stringify(snap, null, 1));
-  const present = Object.values(snap).filter(v => !String(v).startsWith('missing')).length;
+  const nameEntries = Object.entries(snap).filter(([k]) => !k.startsWith('__'));
+  const present = nameEntries.filter(([, v]) => !String(v).startsWith('missing')).length;
+  const mapEntries = Object.entries(snap).filter(([k]) => k.startsWith('__map_'));
+  const backdrops = Object.entries(snap).filter(([k]) => k.startsWith('__backdrop_'));
+  const badBackdrops = backdrops.filter(([, v]) => !String(v).startsWith('ok'));
+  const unresolved = mapEntries.filter(([, v]) => String(v).startsWith('UNRESOLVED') || String(v).includes('UNREACHABLE'))
+    .concat(badBackdrops);
   console.log('GLOBALS_SNAPSHOT_WRITTEN ' + dest
-    + ' names=' + names.length + ' present=' + present
-    + ' missing=' + (names.length - present));
+    + ' names=' + nameEntries.length + ' present=' + present
+    + ' missing=' + (nameEntries.length - present)
+    + ' | mapEntries=' + mapEntries.length + ' backdrops=' + backdrops.length
+    + ' unresolved=' + unresolved.length
+    + ' resolver=' + snap.__resolver);
+  if (unresolved.length) {
+    console.log('UNRESOLVED DISPATCH-MAP ENTRIES (each is a control the user cannot operate):');
+    for (const [k, v] of unresolved) console.log('  ' + k + ' -> ' + v);
+  }
 });

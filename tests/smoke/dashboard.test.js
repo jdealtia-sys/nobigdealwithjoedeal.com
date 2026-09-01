@@ -1807,6 +1807,28 @@ section('Phase C.4 cluster 4 — no-arg toggle handlers via toggle action');
     /if \(action === 'toggle'\)[\s\S]{0,400}_NBD_TOGGLE_FNS\[target\]/.test(mainJs),
     'expected toggle branch + _NBD_TOGGLE_FNS registry');
 
+  // ── Globals Tranche 3 dispatch-map slice (2026-09-01) ──
+  // Both name-string maps used to resolve with a bare `window[fnName]`, which
+  // made every handler reachable only through them permanently un-convertible:
+  // a module-scoped function is invisible to a string lookup on the global
+  // object. They resolve via _nbdResolveMapped now — registry first, window
+  // second. If either branch regresses to window[fnName], every handler already
+  // converted to registry-only goes silently dead (a modal that will not close).
+  assert('toggle branch resolves via _nbdResolveMapped, not a bare window[fnName]',
+    /if \(action === 'toggle'\)[\s\S]{0,600}_nbdResolveMapped\(fnName\)/.test(mainJs)
+      && !/if \(action === 'toggle'\)[\s\S]{0,600}const fn = window\[fnName\]/.test(mainJs),
+    'registry-first resolution is what lets map-dispatched handlers leave window');
+  assert('_nbdResolveMapped checks __NBD_CALL_REGISTRY before window',
+    /function _nbdResolveMapped\(fnName\)[\s\S]{0,400}__NBD_CALL_REGISTRY[\s\S]{0,200}window\[fnName\]/.test(mainJs));
+  // It must NOT gate on _NBD_CALL_ALLOWLIST. The name came from a curated
+  // in-code map, not from markup, so the map IS the allowlist — and 35 of the
+  // 36 map names are absent from _NBD_CALL_ALLOWLIST (only closeQuickAddLead
+  // appears in both, and that entry serves its separate data-fn dispatch), so
+  // adding that gate would kill nearly every toggle and modal-close button.
+  assert('_nbdResolveMapped does NOT gate on _NBD_CALL_ALLOWLIST',
+    !/function _nbdResolveMapped\(fnName\)[\s\S]{0,400}_NBD_CALL_ALLOWLIST/.test(mainJs),
+    'the curated map is the allowlist; gating again would break all 36 names');
+
   for (const target of ['bulkMode','kanbanFullscreen','sidebarCollapse','engagementSort','needsAttention','showSnoozed','staleShares','notifications','mobileMore']) {
     assert('_NBD_TOGGLE_FNS registers ' + target,
       new RegExp("\\b" + target + ":\\s+'toggle").test(mainJs),
@@ -1837,6 +1859,14 @@ section('Phase C.4 cluster 3 — modal-close handlers via closeModal action');
   assert("delegate handles action='closeModal'",
     /if \(action === 'closeModal'\)[\s\S]{0,400}_NBD_MODAL_CLOSE_FNS\[target\]/.test(mainJs),
     'expected closeModal branch in _nbdActionDelegate using _NBD_MODAL_CLOSE_FNS registry');
+
+  // Globals Tranche 3 dispatch-map slice (2026-09-01) — see the matching pin in
+  // the toggle section. Regressing this branch to a bare window[fnName] would
+  // leave the two converted handlers (closeMobileInspection,
+  // closeMobileCreatePopover) unreachable, i.e. modals the user cannot close.
+  assert('closeModal branch resolves via _nbdResolveMapped, not a bare window[fnName]',
+    /if \(action === 'closeModal'\)[\s\S]{0,600}_nbdResolveMapped\(fnName\)/.test(mainJs)
+      && !/if \(action === 'closeModal'\)[\s\S]{0,600}const fn = window\[fnName\]/.test(mainJs));
 
   // Registry exposes the function mapping
   for (const target of ['leadModal','taskModal','photoModal','propertyIntelModal','quickAddModal','docViewerModal','cardDetailModal','comparisonModal']) {
@@ -2306,12 +2336,17 @@ section('Wave 2D — Mobile inspection overlay');
   assert('mobile job-detail Activity tab has a .m-jd-cta Start Inspection button',
     /class="m-jd-cta"[\s\S]*data-action="call" data-fn="cdaOpenMobileInspection"/.test(dash),
     'expected a .m-jd-cta wired to cdaOpenMobileInspection');
-  // 4. JS hooks exposed.
-  for (const fn of ['openMobileInspection','closeMobileInspection']) {
-    assert('window.' + fn + ' exposed',
-      new RegExp('window\\.' + fn + '\\s*=').test(mainJs),
-      'expected window.' + fn);
-  }
+  // 4. JS hooks exposed. Split by disposition: openMobileInspection is read as
+  //    window.openMobileInspection by the 2c-4a cdaOpenMobileInspection wrapper
+  //    (a different IIFE), so it stays. closeMobileInspection was only ever
+  //    reached through _NBD_MODAL_CLOSE_FNS, which became registry-first on
+  //    2026-09-01 — it is registry-only now.
+  assert('window.openMobileInspection exposed (2c-4a cross-IIFE read)',
+    /window\.openMobileInspection\s*=/.test(mainJs));
+  assert('closeMobileInspection is registry-only, not on window (Tranche 3, 2026-09-01)',
+    /closeMobileInspection:\s*closeMobileInspection/.test(mainJs)
+      && !/window\.closeMobileInspection\s*=/.test(mainJs),
+    'expected the modal-close handler to register and drop its window export');
   // 5. openMobileInspection delegates to InspectionReportEngine.openBuilder.
   assert('openMobileInspection mounts the existing InspectionReportEngine',
     /InspectionReportEngine\.openBuilder\(['"]mInspectionContainer['"]/.test(mainJs),
@@ -2381,16 +2416,20 @@ section('Wave 2C.1 — Mobile create popover');
   assert('hidden camera input #mCreatePhotoInput with capture=environment',
     /<input type="file" id="mCreatePhotoInput"[^>]*capture="environment"/.test(dash),
     'expected hidden <input type="file" capture="environment"> for the Photo row');
-  // 4. Handler exposure — split by Tranche 2c-4b disposition.
-  //   closeMobileCreatePopover + toggleMobileCreatePopover KEEP their window
-  //   export (the first is _NBD_MODAL_CLOSE_FNS window[fn]-dispatched, the
-  //   second is called by mCreateFabRoute outside the IIFE); _mCreate moved to
-  //   the registry; openMobileCreatePopover is fully private (module-local).
-  for (const fn of ['closeMobileCreatePopover','toggleMobileCreatePopover']) {
-    assert('window.' + fn + ' exposed (2c-4b MUST-STAY)',
-      new RegExp('window\\.' + fn + '\\s*=').test(mainJs),
-      'expected window.' + fn);
-  }
+  // 4. Handler exposure — split by disposition.
+  //   toggleMobileCreatePopover KEEPS its window export: mCreateFabRoute, which
+  //   lives outside this IIFE, calls window.toggleMobileCreatePopover.
+  //   closeMobileCreatePopover was a 2c-4b MUST-STAY only because
+  //   _NBD_MODAL_CLOSE_FNS dispatched it via a bare window[fnName]; that map
+  //   became registry-first on 2026-09-01, so it is registry-only now.
+  //   _mCreate moved to the registry in 2c-4b; openMobileCreatePopover is
+  //   fully private (module-local, no export, no registry entry).
+  assert('window.toggleMobileCreatePopover exposed (mCreateFabRoute, outside the IIFE)',
+    /window\.toggleMobileCreatePopover\s*=/.test(mainJs));
+  assert('closeMobileCreatePopover is registry-only, not on window (Tranche 3, 2026-09-01)',
+    /closeMobileCreatePopover:\s*closeMobileCreatePopover/.test(mainJs)
+      && !/window\.closeMobileCreatePopover\s*=/.test(mainJs),
+    'expected the modal-close handler to register and drop its window export');
   assert('_mCreate registered in __NBD_CALL_REGISTRY (2c-4b, off window)',
     /_mCreate:\s*_mCreate/.test(mainJs) && !/window\._mCreate\s*=/.test(mainJs),
     'expected _mCreate registered and NOT window-exported');
@@ -2790,10 +2829,19 @@ section('Globals Tranches 0+1: converted names stay off window');
     // Tranche 2c-4b (2026-07-07): the dashboard-actions.js mobile create/
     // job-detail cluster is IIFE-wrapped; these three lost their window export
     // (markup→registry for _mJdShare/_mCreate; openMobileCreatePopover is
-    // private). NOT here: the 7 MUST-STAY window re-exports (_mJdSwitchTab,
-    // _mJdAct, openMobileInspection, closeMobileInspection,
-    // closeMobileCreatePopover, toggleMobileCreatePopover, openLeadDetail).
+    // private). NOT here: the 5 remaining MUST-STAY window re-exports
+    // (_mJdSwitchTab, _mJdAct, openMobileInspection, toggleMobileCreatePopover,
+    // openLeadDetail) — each read cross-IIFE or by a bare caller.
     '_mJdShare', '_mCreate', 'openMobileCreatePopover',
+    // Tranche 3 dispatch-map slice (2026-09-01): these two WERE on that
+    // MUST-STAY list, for one reason only — _NBD_MODAL_CLOSE_FNS dispatched
+    // them through a bare window[fnName], which a module-scoped function is
+    // invisible to. dashboard-ui.js's _nbdResolveMapped checks
+    // __NBD_CALL_REGISTRY first now, so they are registry-only. They belong in
+    // THIS list (a docs/-wide walk) and not only in the narrower
+    // dashboard-actions.js pin, or a re-export added in some other file under
+    // docs/ would go unnoticed.
+    'closeMobileInspection', 'closeMobileCreatePopover',
     // Tranche 2c-4c (2026-07-07): the 20 one-off compound-rewrite openers in
     // dashboard-actions.js (incl. the two 2c-4b mobile-routing tail names
     // mCreateFabRoute/mQuickAddRoute) moved OFF window into one in-file IIFE,
@@ -3211,19 +3259,36 @@ section('Globals Tranche 2c: __NBD_CALL_REGISTRY dispatch layer');
   // window._mJdAct from the 2c-4a cdaMjdAct wrapper).
   assert("allowlist no longer carries _mJdAct (reached via window._mJdAct only)",
     !/'_mJdAct'/.test(stateSrc));
-  // The 7 load-bearing window re-exports — each pinned to its consumer. Dropping
-  // any one is a silent dead control (modal-close / cross-slice / bare caller),
+  // The load-bearing window re-exports — each pinned to its consumer. Dropping
+  // any one is a silent dead control (cross-IIFE read or bare caller),
   // invisible to the data-fn wiring audit.
+  //
+  // This list was 7 until 2026-09-01. The two modal-close handlers left it that
+  // day: they were load-bearing ONLY because _NBD_MODAL_CLOSE_FNS resolved with
+  // a bare window[fnName], and dashboard-ui.js's _nbdResolveMapped now checks
+  // __NBD_CALL_REGISTRY first. That is the whole point of the dispatch-map
+  // slice — "MUST-STAY because a name-string map can't see module scope" was
+  // never a property of these handlers, only of the map.
   for (const [n, why] of [
     ['_mJdSwitchTab', 'dashboard-widgets.js bare call'],
     ['_mJdAct', '2c-4a cdaMjdAct window._mJdAct'],
     ['openMobileInspection', '2c-4a cdaOpenMobileInspection window.openMobileInspection'],
-    ['closeMobileInspection', '_NBD_MODAL_CLOSE_FNS window[fn]'],
-    ['closeMobileCreatePopover', '_NBD_MODAL_CLOSE_FNS window[fn]'],
     ['toggleMobileCreatePopover', 'mCreateFabRoute (outside IIFE)'],
     ['openLeadDetail', 'crm-pipeline.js bare call']]) {
     assert('dashboard-actions keeps window.' + n + ' re-export (' + why + ')',
       new RegExp('window\\.' + n + '\\s*=\\s*' + n + ';').test(dashActions));
+  }
+  // The two that graduated: registered AND off window. Both are dispatched
+  // solely through _NBD_MODAL_CLOSE_FNS, so the registry entry is now the only
+  // thing keeping their modals closable — losing it is a trap-the-user bug.
+  for (const [n, key] of [['closeMobileInspection', 'mobileInspection'],
+    ['closeMobileCreatePopover', 'mobileCreatePopover']]) {
+    assert(n + ' registered in __NBD_CALL_REGISTRY + off window (Tranche 3 dispatch-map slice)',
+      new RegExp('\\b' + n + ':\\s*' + n + '\\b').test(daRegBlock)
+        && !new RegExp('window\\.' + n + '\\s*=').test(dashActions));
+    assert('_NBD_MODAL_CLOSE_FNS still maps ' + key + ' -> ' + n,
+      new RegExp(key + ':\\s*\'' + n + '\'').test(stateSrc),
+      'the map entry is the only dispatch path left for this handler');
   }
   // openMobileCreatePopover is private — no registry entry, no window export.
   assert('openMobileCreatePopover is neither registered nor window-exported (2c-4b private)',

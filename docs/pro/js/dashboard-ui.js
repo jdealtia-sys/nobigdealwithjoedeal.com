@@ -179,6 +179,47 @@ function _nbdResolveCall(fnName) {
   return typeof fn === 'function' ? fn : null;
 }
 
+// Resolve a handler name that came from one of the CURATED dispatch maps —
+// _NBD_TOGGLE_FNS or _NBD_MODAL_CLOSE_FNS in dashboard-state.js. Registry
+// first, then window, same precedence as _nbdResolveCall.
+//
+// Deliberately NO _NBD_CALL_ALLOWLIST gate, and that is the whole difference
+// from _nbdResolveCall: there, `fnName` arrives from markup (data-fn=) and the
+// allowlist is what stops arbitrary markup invoking an arbitrary global. Here
+// the name never came from the page — the delegate read a data-target key and
+// looked it up in an in-code map, so the map IS the allowlist. Adding an
+// allowlist gate would break 35 of the 36 current names: only closeQuickAddLead
+// happens to appear in both _NBD_CALL_ALLOWLIST and a map, and it is there for
+// its separate data-fn dispatch, not for this path.
+//
+// Globals Tranche 3 (2026-09-01). Before this, both maps dispatched via a bare
+// `window[fnName]`, which meant a handler reachable ONLY through one of these
+// maps could never be taken off window: a module-scoped function is invisible
+// to a string lookup on the global object. That pinned ~10 names — nearly all
+// of them modal-CLOSE handlers — permanently outside the tranche. Now they can
+// register like any other converted handler.
+//
+// Why this could ship safely: BEFORE this change the intersection of {36 names
+// in the two maps} and {the __NBD_CALL_REGISTRY keys} was EMPTY, so `reg[fnName]`
+// was undefined for every existing name and resolution fell straight through to
+// window[fnName] exactly as before — a strict no-op. Had any name been in both,
+// flipping the order would have silently swapped which implementation runs.
+//
+// AFTER this change the intersection is 2 of 36, on purpose: the same commit
+// registers closeMobileInspection and closeMobileCreatePopover and deletes their
+// window exports, so those two now resolve from the registry. That makes this
+// file and dashboard-actions.js HARD-COUPLED — ship dashboard-actions.js without
+// this helper and _NBD_MODAL_CLOSE_FNS, their only dispatch path, resolves
+// nothing: the mobile inspection overlay and the m-create popover become
+// impossible to close. tests/smoke/dashboard.test.js pins both halves.
+function _nbdResolveMapped(fnName) {
+  if (!fnName) return null;
+  const reg = window.__NBD_CALL_REGISTRY;
+  if (reg && typeof reg[fnName] === 'function') return reg[fnName];
+  const fn = window[fnName];
+  return typeof fn === 'function' ? fn : null;
+}
+
 function _nbdOnChangeDelegate(e, attrName) {
   const el = e.target && e.target.closest && e.target.closest('[' + attrName + ']');
   if (!el) return;
@@ -314,8 +355,9 @@ document.addEventListener('click', function _nbdActionDelegate(e) {
     const fnName = _NBD_TOGGLE_FNS[target];
     if (!fnName) return;
     e.preventDefault();
-    const fn = window[fnName];
-    if (typeof fn === 'function') fn();
+    // Registry-first (Globals Tranche 3, 2026-09-01) — see _nbdResolveMapped.
+    const fn = _nbdResolveMapped(fnName);
+    if (fn) fn();
     // Keep the mobile Tools menu's active-state indicators in sync
     // whenever any filter toggles (whether tapped from the menu, the
     // inline button on desktop, or a keyboard shortcut). Cheap: a few
@@ -613,9 +655,20 @@ document.addEventListener('click', function _nbdActionDelegate(e) {
     if (e.target !== el) return;
     const fnName = el.dataset.target;
     if (!fnName) return;
+    // Unlike the toggle / closeModal branches, data-target here is the RAW
+    // FUNCTION NAME straight out of the page, and this branch had no allowlist
+    // gate at all — markup could name any global and the delegate would call
+    // it. Gate it on the curated modal-close map, which is the same boundary
+    // action='closeModal' already relies on, then resolve registry-first so a
+    // converted handler keeps working. (Globals Tranche 3, 2026-09-01: found
+    // while auditing the dispatch-map slice — this was a THIRD dispatcher over
+    // the same closeXxx namespace and would have silently broken the moment
+    // closeCardDetailModal, its only current caller, was converted.)
+    if (typeof _NBD_MODAL_CLOSE_FNS === 'undefined'
+      || Object.keys(_NBD_MODAL_CLOSE_FNS).every(k => _NBD_MODAL_CLOSE_FNS[k] !== fnName)) return;
     e.preventDefault();
-    const fn = window[fnName];
-    if (typeof fn === 'function') fn();
+    const fn = _nbdResolveMapped(fnName);
+    if (fn) fn();
     return;
   }
   // C.4 cluster 3 — modal-close handlers. Every modal carries its own
@@ -629,8 +682,9 @@ document.addEventListener('click', function _nbdActionDelegate(e) {
     const fnName = _NBD_MODAL_CLOSE_FNS[target];
     if (!fnName) return;       // not on the allowlist; ignore
     e.preventDefault();
-    const fn = window[fnName];
-    if (typeof fn === 'function') fn();
+    // Registry-first (Globals Tranche 3, 2026-09-01) — see _nbdResolveMapped.
+    const fn = _nbdResolveMapped(fnName);
+    if (fn) fn();
     return;
   }
 });

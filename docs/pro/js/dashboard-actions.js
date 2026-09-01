@@ -942,13 +942,27 @@ Object.assign(window.__NBD_CALL_REGISTRY, {
 //  and in maps.js shadowed its per-PositionError user messaging.)
 
 // ══════════════════════════════════════════════
-// OWN EXPORTS — names this file actually defines
+// (nothing to export here)
 // ══════════════════════════════════════════════
-// (The forward-reference re-exports that used to be interleaved here were
-//  deleted in Globals Tranche 3 slice T3-A part 1 — see the block below.)
-window.mobileNav = mobileNav;
-window.toggleMobileMore = toggleMobileMore;
-window.closeMobileMore = closeMobileMore;
+// Slice T3-A part 1 (2026-08-31) deleted the 86 *guarded* forward-reference
+// re-exports that used to fill this region — see the block further down.
+// Three UNGUARDED ones survived that sweep because its regex only matched the
+// `if (typeof X …)` form, and the header left behind called them "OWN EXPORTS",
+// which was wrong:
+//     window.mobileNav = mobileNav;
+//     window.toggleMobileMore = toggleMobileMore;
+//     window.closeMobileMore = closeMobileMore;
+// All three are defined in dashboard-ui.js (mobileNav:2231, toggleMobileMore:2250,
+// closeMobileMore:2259), each a TOP-LEVEL declaration — verified by brace depth,
+// not indentation, since the house style puts IIFE bodies at column 0 too.
+// dashboard-ui.js loads first (dashboard.html:5457 before :5458), so all three
+// were already window properties when these lines ran: `window.X = window.X`.
+// Deleted 2026-09-01. Verified by running tests/e2e/globals-surface-snapshot.spec.js
+// against the live emulator-backed dashboard AFTER the deletion: all three still
+// resolve as functions on window (via dashboard-ui.js's auto-globals), which is
+// what the spec pins them for. Note this is an after-state check, not a
+// before/after diff — the BEFORE7/AFTER7 pair on disk belongs to slice T3-A
+// part 1, which did NOT touch these three lines.
 
 // ══ REMOVED: Duplicate QM Import, QuickAddLead, Warranty Cert, Lead Export CSV ══
 // Canonical definitions live in js/tools.js and js/warranty-cert.js (both loaded above)
@@ -1276,7 +1290,9 @@ document.addEventListener('DOMContentLoaded', () => {
 //   _mJdSwitchTab        → dashboard-widgets.js:1176 bare call
 //   _mJdAct              → 2c-4a cdaMjdAct calls window._mJdAct
 //   openMobileInspection → 2c-4a cdaOpenMobileInspection calls window.openMobileInspection
-//   closeMobileInspection, closeMobileCreatePopover → _NBD_MODAL_CLOSE_FNS window[fn] dispatch
+//   (closeMobileInspection, closeMobileCreatePopover WERE here for
+//    _NBD_MODAL_CLOSE_FNS window[fn] dispatch — converted 2026-09-01 once that
+//    map became registry-first; they register below and are off window now)
 //   toggleMobileCreatePopover → mCreateFabRoute (outside this IIFE) calls window.toggleMobileCreatePopover
 //   openLeadDetail       → crm-pipeline.js:1267 bare call
 // openMobileCreatePopover is fully PRIVATE — its only caller (toggleMobileCreatePopover)
@@ -1441,7 +1457,11 @@ function closeMobileInspection() {
   const jd = document.getElementById('mJobDetail');
   if (!jd || jd.hidden) document.body.style.overflow = '';
 }
-window.closeMobileInspection = closeMobileInspection;
+// closeMobileInspection → __NBD_CALL_REGISTRY (block at the foot of this IIFE),
+// Globals Tranche 3 2026-09-01. Reached ONLY through _NBD_MODAL_CLOSE_FNS
+// (key `mobileInspection`), which resolves the registry first now — so the
+// window export is gone. Was a MUST-STAY until the map learned about the
+// registry; see the note at dashboard-actions.js's 2c-4b header.
 
 // Wave 2C.2 — Mobile share, through the canonical minter.
 //
@@ -1619,7 +1639,13 @@ function toggleMobileCreatePopover() {
 }
 // openMobileCreatePopover is PRIVATE (Tranche 2c-4b) — sole caller
 // toggleMobileCreatePopover is co-located in this IIFE; no window export.
-window.closeMobileCreatePopover = closeMobileCreatePopover;
+// closeMobileCreatePopover → __NBD_CALL_REGISTRY (block at the foot of this
+// IIFE), Globals Tranche 3 2026-09-01. Its only external reach was
+// _NBD_MODAL_CLOSE_FNS (key `mobileCreatePopover`), which is registry-first
+// now; its other two callers (toggleMobileCreatePopover just above, _mCreate
+// just below) are co-located in this IIFE. Window export deleted.
+// toggleMobileCreatePopover KEEPS its export — mCreateFabRoute, outside this
+// IIFE, calls window.toggleMobileCreatePopover (see the 2c-4b header note).
 window.toggleMobileCreatePopover = toggleMobileCreatePopover;
 
 function _mCreate(kind) {
@@ -1674,11 +1700,20 @@ window.openLeadDetail = openLeadDetail;
   // Registration IS the security opt-in. The three markup-dispatched (data-fn=)
   // convertibles register here; the window re-exports above stay for the
   // cross-boundary consumers. tests/smoke/dashboard.test.js pins both sides.
+  //
+  // Globals Tranche 3 (2026-09-01) added the two modal-close handlers below.
+  // They are dispatched through _NBD_MODAL_CLOSE_FNS (keys `mobileInspection`
+  // and `mobileCreatePopover`), which used to resolve with a bare
+  // window[fnName] — so they had to stay on window no matter how private they
+  // were. dashboard-ui.js's _nbdResolveMapped now checks this registry first,
+  // which is what let their window exports go.
   window.__NBD_CALL_REGISTRY = window.__NBD_CALL_REGISTRY || Object.create(null);
   Object.assign(window.__NBD_CALL_REGISTRY, {
     _mJdSwitchTab: _mJdSwitchTab,
     _mJdShare: _mJdShare,
     _mCreate: _mCreate,
+    closeMobileInspection: closeMobileInspection,
+    closeMobileCreatePopover: closeMobileCreatePopover,
   });
 })();
 
