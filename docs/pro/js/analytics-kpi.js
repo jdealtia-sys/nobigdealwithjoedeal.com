@@ -494,7 +494,13 @@
       }
     });
     wonLeads.forEach(function (l) {
-      var ud = toJSDate(l.updatedAt);
+      // stageStartedAt is stamped on every stage move (+ backfilled by
+      // migrations 002/003) — for a won lead it IS the close date. Same
+      // fallback closedThisMonth uses (F3); this chart was missed when that
+      // one was fixed, so until now ANY later write to a won lead — a note, an
+      // address repair, a list re-save — moved its revenue out of the month it
+      // actually closed in and into the month of the edit.
+      var ud = toJSDate(l.stageStartedAt || l.updatedAt);
       if (ud) {
         var mk = monthKey(ud);
         if (monthlyTrend[mk]) {
