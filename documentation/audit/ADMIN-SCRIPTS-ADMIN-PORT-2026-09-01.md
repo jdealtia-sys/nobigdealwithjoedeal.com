@@ -1,5 +1,25 @@
 # Finishing the `scripts/_admin.js` migration — and killing the Timestamp myth (2026-09-01)
 
+> **Update 2026-09-01 (same day, later session):** the "next migration tranche"
+> §6 names — `import-cost-rotation.js` and `import-job-template-costs.js` — is
+> **done**, and the `scripts/_admin.js` migration is now **complete**: zero
+> legacy-namespace calls remain anywhere under `scripts/`, and
+> `tests/smoke/functions.test.js` now fails if one comes back (it had only ever
+> walked `functions/`). See
+> [ADMIN-SCRIPTS-COST-IMPORT-PORT-2026-09-01](ADMIN-SCRIPTS-COST-IMPORT-PORT-2026-09-01.md).
+>
+> Two corrections to this note fall out of that work, both detailed there:
+>
+> - **§1's finding does not generalise the way it reads.** "Check what the
+>   script reads first" was right, but both cost importers *do* write a server
+>   timestamp, so the question had to be re-asked — and answered affirmatively
+>   this time. It cost nothing: on v12, `admin.firestore.FieldValue` is `===`
+>   the modular `FieldValue`, so v14 removed the *accessor*, not the class.
+>   `ServerTimestampTransform.toProto()` is byte-identical across both, and a
+>   v12 write and a v14 write read back as the same `Timestamp`.
+> - **§6's boilerplate inventory undercounts.** `export NODE_PATH=<v12>`
+>   survives in **six** scripts, not one — see that note's §7 for the list.
+
 **Trigger:** the last two scripts in `scripts/` still doing a bare
 `require('firebase-admin')` — `audit-legacy-documents.js` (read-only) and
 `backfill-legacy-addresses.js` (writes prod `/leads`). Both died with
@@ -249,8 +269,8 @@ with its own blast radius, and this session did not make it.
 | Item | Where | Why it is left |
 | --- | --- | --- |
 | ~~`monthlyTrend` has no `stageStartedAt` fallback~~ | `docs/pro/js/analytics-kpi.js` | **CLOSED in this PR** — see §4. One line + a 4-assertion regression test. |
-| `admin.apps` / `admin.firestore()` on v14 | `scripts/import-cost-rotation.js:196`, `scripts/import-job-template-costs.js:170` | **Next migration tranche.** These two *do* resolve (they carry a `functions/` `createRequire` fallback), so they are not `MODULE_NOT_FOUND` — but they use the v14-removed namespace off the default export, and `functions/` pins `^14.3.0`. They fail *later* and *differently*, which is exactly why the "bare require fails" framing missed them. |
-| Stale Timestamp boilerplate | `scripts/backfill-pins-to-knocks.js`, `.github/workflows/address-audit.yml` | Not touched this session. The workflow additionally pins firebase-admin v12 via `NODE_PATH` on the stated rationale that "v14 changed Timestamp handling in a way that breaks the admin scripts in `scripts/`" — §1 and §2 say that pin is both unnecessary and actively counterproductive. Unpinning it is a CI change deserving its own PR. |
+| ~~`admin.apps` / `admin.firestore()` on v14~~ | `scripts/import-cost-rotation.js`, `scripts/import-job-template-costs.js` | **CLOSED — [ADMIN-SCRIPTS-COST-IMPORT-PORT-2026-09-01](ADMIN-SCRIPTS-COST-IMPORT-PORT-2026-09-01.md).** These two *did* resolve (they carried a `functions/` `createRequire` fallback), so they were not `MODULE_NOT_FOUND` — they used the v14-removed namespace off the default export, failing *later* and *differently*, which is exactly why the "bare require fails" framing missed them. **Three** breakages each, not one: the third was `admin.firestore.FieldValue.serverTimestamp()` at `:227` / `:201`. Both ported; the migration is complete and now CI-pinned. |
+| Stale Timestamp boilerplate | six scripts (list in the companion note's §7), `.github/workflows/address-audit.yml` | Not touched this session, and **still open** — the inventory here undercounted; `export NODE_PATH=<v12>` survives in six scripts, not one. The workflow additionally pins firebase-admin v12 via `NODE_PATH` on the stated rationale that "v14 changed Timestamp handling in a way that breaks the admin scripts in `scripts/`" — §1 and §2 say that pin is both unnecessary and actively counterproductive. Unpinning it is a CI change deserving its own PR. |
 | No test for `backfill-legacy-addresses.js` | `tests/` | The audit has one; the script that *writes prod* does not. |
 
 ## 7. Gates run
