@@ -3470,6 +3470,79 @@ section('Globals Tranche 2c: __NBD_CALL_REGISTRY dispatch layer');
   assert('the zoneColor action no longer probes a bare typeof selectZoneColor',
     !/typeof selectZoneColor === 'function'/.test(ui));
 
+  // ── Tranche 3 slice T3-A part 1 (2026-08-31): the forward-reference block ──
+  // dashboard-actions.js carried 86 guarded re-exports left over from the
+  // monolith split, of the form `if (typeof X !== 'undefined') window.X = X;`.
+  // ALL of them were inert: 62 dead (the subject is defined in a script that
+  // loads AFTER this one — or, for the estimates.js names, only ever arrives via
+  // the lazy ScriptLoader bundle — so the typeof read was always 'undefined'),
+  // and 24 redundant (the subject is a top-level `function` in an EARLIER
+  // classic script, so it was already a window property). A live before/after
+  // snapshot of all 85 distinct names was byte-identical, twice — see
+  // tests/e2e/globals-surface-snapshot.spec.js.
+  //
+  // They are pinned at zero because the block was actively harmful: the globals
+  // census (scripts/globals-xref.js) infers ownership from the literal text
+  // `window.X =`, so these lines made dashboard-actions.js look like the
+  // assigner of names it does not define. That is where the Tranche 3 plan's
+  // "dashboard-actions.js (33) mechanically-safe" figure came from — 26 of
+  // those 34 names were phantoms, and deleting the block dropped the census
+  // from 821 rows to 782 without changing one byte of behaviour.
+  // Strictly single-line: [ \t] rather than \s, because \s matches newlines and
+  // would otherwise swallow the legitimate multi-line lazy-stub installer
+  //   if (typeof startNewEstimate === 'function') { window.startNewEstimate = ... }
+  //   else { ...install load-then-run stubs for the estimates bundle... }
+  // whose else-branch is load-bearing and must stay.
+  const FWD_GUARD = /^[ \t]*if[ \t]*\([ \t]*typeof[ \t]+([A-Za-z_$][\w$]*)[ \t]*(?:!==|!=|===|==)[ \t]*['"](?:undefined|function)['"][ \t]*\)[ \t]*\{?[ \t]*window\.\1[ \t]*=[ \t]*\1[ \t]*;[ \t]*\}?[ \t]*$/gm;
+  const fwdLeft = [...dashActions.matchAll(FWD_GUARD)].map(m => m[1]);
+  assert('dashboard-actions.js has NO `typeof X` forward-reference re-exports left — '
+      + (fwdLeft.slice(0, 6).join(', ') || 'clean'),
+    fwdLeft.length === 0,
+    'a module exposes its own API; a forward reference here is either dead (subject '
+    + 'loads later) or redundant (subject is already an auto-global), and it corrupts '
+    + 'the globals census either way');
+  // The same anti-pattern must not migrate into the other big dashboard files.
+  for (const f of ['dashboard-ui.js', 'dashboard-widgets.js', 'dashboard-state.js']) {
+    const s = read(path.join(PRO_JS, f));
+    const hits = [...s.matchAll(FWD_GUARD)].map(m => m[1]);
+    assert('no forward-reference re-export block in ' + f + ' — '
+        + (hits.slice(0, 4).join(', ') || 'clean'), hits.length === 0);
+  }
+
+  // ⚠ The one export in this file that LOOKS vestigial but is load-bearing.
+  // `_mJdOpenEstimate` is IIFE-scoped (2c-4b), so `window._mJdOpenEstimate = …`
+  // reads as a leftover self-export — but its __NBD_CALL_REGISTRY entry sits in
+  // a DIFFERENT IIFE, where the bare identifier is not lexically in scope and
+  // resolves through the global object instead. Removing the window export
+  // alone makes that registry line throw at load, aborting its whole IIFE and
+  // silently killing all 19 registry entries in it (the customer-detail action
+  // bar). Retiring it safely means moving the registry entry into the defining
+  // IIFE FIRST. This pin exists so that ordering cannot be discovered the hard
+  // way; delete it only together with the line it guards.
+  {
+    const exportLine = /window\._mJdOpenEstimate\s*=\s*_mJdOpenEstimate\s*;/.test(dashActions);
+    const regEntry = /_mJdOpenEstimate:\s*_mJdOpenEstimate/.test(dashActions);
+    const iifeOpens = [...dashActions.matchAll(/^\(function \(\)\s*\{/gm)].map(m => m.index);
+    const iifeCloses = [...dashActions.matchAll(/^\}\)\(\);/gm)].map(m => m.index);
+    const blockOf = (idx) => {
+      for (let i = 0; i < iifeOpens.length; i++) {
+        if (iifeOpens[i] < idx && idx < (iifeCloses[i] !== undefined ? iifeCloses[i] : Infinity)) return i;
+      }
+      return -1;
+    };
+    const expIdx = dashActions.search(/window\._mJdOpenEstimate\s*=\s*_mJdOpenEstimate\s*;/);
+    const regIdx = dashActions.search(/_mJdOpenEstimate:\s*_mJdOpenEstimate/);
+    const sameBlock = expIdx >= 0 && regIdx >= 0 && blockOf(expIdx) === blockOf(regIdx);
+    assert('_mJdOpenEstimate: the window export survives while its registry entry '
+        + 'is in a different IIFE (removing it alone kills 19 registry entries)',
+      sameBlock || exportLine,
+      regEntry && !exportLine && !sameBlock
+        ? 'the registry entry is in another IIFE and the window export it depends on is GONE — '
+          + 'the customer-detail action bar will be dead at runtime'
+        : 'expected either the export to remain, or the registry entry to have moved '
+          + 'into the same IIFE as the definition');
+  }
+
   // The resolver's window fallback is allowlist-gated; keep state ahead of
   // dashboard-ui in the defer queue so the gate exists when dispatch runs.
   const dashRaw = read(path.join(ROOT, 'docs/pro/dashboard.html'));
