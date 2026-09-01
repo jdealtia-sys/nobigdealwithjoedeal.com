@@ -30,11 +30,14 @@
  *     edited but key not refreshed) is corrected.
  *   • Leads with no usable phone are left untouched (no empty key written).
  *
- * SETUP (per the admin-script-runner pattern — prod nobigdeal-pro via ADC,
- * with NODE_PATH pointed at a firebase-admin v12 install; v14 breaks
- * Timestamp handling):
+ * SETUP (per the admin-script-runner pattern — prod nobigdeal-pro via ADC).
+ * firebase-admin arrives through scripts/_admin.js. Do NOT set NODE_PATH:
+ * _admin tries a bare require.resolve FIRST, so a NODE_PATH install satisfies
+ * it and overrides the functions/ resolution _admin exists to centralise.
+ * Runs on v12 and v14 alike — this script handles no Timestamp at all. ("v14
+ * breaks Timestamp handling" here was inherited boilerplate; see
+ * documentation/audit/ADMIN-SCRIPTS-ADMIN-PORT-2026-09-01.md.)
  *   export GOOGLE_APPLICATION_CREDENTIALS=~/.nbd/nobigdeal-pro-sa.json
- *   export NODE_PATH=/path/to/fa12/node_modules    # firebase-admin@12
  *   export NBD_PROJECT=nobigdeal-pro               # optional override
  *
  * RUN
