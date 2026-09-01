@@ -33,13 +33,35 @@ several of them from background sessions working in parallel.
 
 1. **Rock 4 Tranche 3 — keep going.**
    [globals-tranche3-plan](../../docs/dev/globals-tranche3-plan.md) is the
-   map and it is being kept current as slices land. Remaining: the rest of
-   **T3-A** (~2 more mechanical PRs), then **T3-B** (177 names with HTML hits
-   or twin assigners), **T3-C** (176 one-consumer by edge, ~5–6 PRs),
-   **T3-D** (the 131-name 2–5 band → NBD-prefixed singleton APIs), and
-   **T3-E** (docs-only spine disposition, half a session). Re-run
-   `node scripts/globals-xref.js` before trusting any number in the plan —
-   that habit already caught a 4× overestimate once.
+   map and it is being kept current as slices land.
+
+   **Do not start from "the rest of T3-A (~2 more mechanical PRs)".** Slice 1
+   disproved that framing and the plan now carries a ⚠ CORRECTION block saying
+   so: of the 34 candidate names the census produced for `dashboard-actions.js`,
+   **zero were mechanically safe** and 26 were not even owned by that file. The
+   filter behind the "277 mechanically-safe" band cannot see bare cross-file
+   calls or `window[fnName]` map dispatch, so its output is a starting list, not
+   a work list. Re-derive any T3-A slice with a checker that tests both — see
+   [SESSION-2026-08-31-t3-a-slice1](SESSION-2026-08-31-t3-a-slice1.md).
+
+   **The concrete next work is the 15 names T3-M just unblocked.** Making the
+   two dispatch maps registry-first freed 17 of their 36 names; 2 landed with
+   that slice, and the other 15 are grouped by owning file, one slice each:
+   `dashboard-ui.js` (8), `maps-routing.js` (6), `crm-portal-bridge.js` (1).
+   Each is measured, not estimated — the map is their only reach. Expect real
+   work rather than a one-line move: they are top-level auto-globals, so
+   converting them means IIFE-wrapping regions of large files.
+
+   After that: **T3-B** (177 names with HTML hits or twin assigners), **T3-C**
+   (176 one-consumer by edge, ~5–6 PRs), **T3-D** (the 131-name 2–5 band →
+   NBD-prefixed singleton APIs), **T3-E** (docs-only spine disposition, half a
+   session).
+
+   Re-run `node scripts/globals-xref.js` before trusting any number in the plan
+   — that habit already caught a 4× overestimate once. **But the census alone is
+   not enough**: it reproduces the plan's numbers exactly and still missed all
+   three defects slice 1 found. When a slice is defined by a tool's output,
+   audit the tool before executing the slice.
 
 2. **Dependabot — two merged, two awaiting a rebase.** #1321 (setup-java)
    and #1322 (firebase) went in green on 09-01. Merging those two moved
