@@ -10,7 +10,7 @@
 const fs = require('fs');
 const path = require('path');
 const { execSync } = require('child_process');
-const { ROOT, PRO_JS, FUNCTIONS, read, readDashboard, readDashboardStyles, readCustomer, readDashboardMain, readCrm, readMaps, readD2DLive, readFunctionsIndex, syntaxCheck } = require('./_shared');
+const { ROOT, PRO_JS, FUNCTIONS, read, readDashboard, readDashboardStyles, readCustomer, readDashboardMain, readCrm, readMaps, readD2DLive, readFunctionsIndex, syntaxCheck, jsSegments } = require('./_shared');
 
 module.exports.run = function run(ctx) {
   const { assert, section, bumpPassed, bumpFailed } = ctx;
@@ -3627,18 +3627,131 @@ section('Globals Tranche 2c: __NBD_CALL_REGISTRY dispatch layer');
       for (const k of m[1].matchAll(/([A-Za-z_$][\w$]*)\s*:/g)) registered.add(k[1]);
     }
   }
+  const DISPATCH_RE = /data-(?:fn|on-change|on-input|on-after|enter-action)="([A-Za-z_$][\w$]*)"/g;
   const dispatchNames = new Set();
   // data-enter-action is included: its keydown delegate (dashboard-ui.js) now
   // resolves registry-first via _nbdResolveCall, so an enter-action name that is
   // neither allowlisted nor registered is a silent dead control on Enter — the
   // exact gap that hid the spyglassSearch Enter-key regression (Tranche 2c-4h H2).
-  for (const m of dashRaw.matchAll(/data-(?:fn|on-change|on-input|on-after|enter-action)="([A-Za-z_$][\w$]*)"/g)) {
+  for (const m of dashRaw.matchAll(DISPATCH_RE)) {
     dispatchNames.add(m[1]);
   }
   const unresolved = [...dispatchNames].filter(n => !registered.has(n) && stateSrc.indexOf("'" + n + "'") === -1);
   assert('every markup-dispatched name in dashboard.html is allowlisted or registered — '
       + (unresolved.slice(0, 5).join(', ') || 'clean'), unresolved.length === 0);
   assert('wiring audit saw the real markup surface (sanity floor)', dispatchNames.size > 150);
+
+  // (e) FULL wiring audit, part 2 — the markup JS GENERATES ────────────────
+  // dashboard.html is only half the dispatch surface. docs/pro/js/*.js emits
+  // markup from string and template literals (the load-status banner buttons,
+  // the referral rows, the zone-delete control, the hotkey/sidebar toggle
+  // rows, the font cards), and every one of those names lands in the very
+  // same delegate — so an unregistered one is the very same silently dead
+  // control. Scan (d) reads only dashboard.html and cannot see any of it.
+  // docs/dev/dashboard-actions-globals-audit.md has carried this as a known
+  // hole in its 2c-4c row since hardResetTest/gstaticTest moved into a
+  // generated banner ("invisible to the wiring audit → their registry
+  // assertions are the only guard").
+  //
+  // Why it stayed unwritten until now: a plain grep over the .js files
+  // reports five names that exist ONLY in dashboard-ui.js's delegate
+  // documentation — setFoo, setBar, setBaz, handleUpload, fnName — as dead
+  // controls. Hardcoding those five as exclusions would be a gate that stops
+  // matching the day someone rewords a comment, and silently starts passing
+  // real markup through the hole. So instead of naming them, jsSegments()
+  // classifies every byte of each file as code / string / comment / regex and
+  // we read the string segments only: prose is excluded because of WHERE it
+  // sits, not because of what it happens to be called. (Selector strings like
+  // `[data-fn="selectTier"]` count too — a querySelector for a name nothing
+  // resolves is dead from the other end.)
+  //
+  // Escapes are resolved inside string literals so "<b data-fn=\"x\">" is
+  // read the same as '<b data-fn="x">'.
+  const segText = (src, s) => {
+    const raw = src.slice(s.start, s.end);
+    return s.kind === 'string' ? raw.replace(/\\(.)/g, '$1') : raw;
+  };
+
+  // The scanner is the load-bearing half of this gate, so it is checked
+  // against its own fixture before it is pointed at the corpus. A later edit
+  // that breaks the lexer fails HERE, with a name-set diff, instead of
+  // quietly blinding the audit — the failure mode a grep-based gate has no
+  // way to detect at all. Every line below is a case that a naive
+  // strip-the-comments regex gets wrong.
+  const SCANNER_FIXTURE = [
+    '// doc comment: <input data-on-change="wDocLine" data-on-pass="checked">',
+    '/* block doc — mentions data-fn="wDocBlock" and an apostrophe: don\'t',
+    '   plus a stray backtick ` and a "quote" that must not open anything */',
+    'var a = \'<b data-fn="wSingle">\';',
+    'var b = "<b data-fn=\\"wDouble\\">";',
+    'var c = `<b data-fn="wTemplate" data-arg="${id}">`;',
+    'var d = `${cond ? \'<b data-fn="wInHole">\' : \'\'}`;',
+    'var e = "https://example.com/x"; var e2 = \'<b data-fn="wAfterUrl">\';',
+    'var f = s.replace(/["\']/g, \'\'); var f2 = \'<b data-fn="wAfterRegex">\';',
+    'function g(s) { return /data-fn="wRegexLiteral"/.test(s); }',
+    'var h = (p + q) / r; var h2 = \'<b data-fn="wAfterDivide">\';',
+    'var i = "/* not a comment */"; var i2 = \'<b data-fn="wAfterStarSlash">\';',
+    'var j = `${ /* data-fn="wHoleComment" */ k }<b data-fn="wAfterHoleComment">`;',
+    'var l = `${ fn({ a: 1 }) }<b data-fn="wAfterNestedBraces">`;',
+  ].join('\n');
+  const fixSegs = jsSegments(SCANNER_FIXTURE);
+  const fixSeen = { string: new Set(), comment: new Set(), code: new Set(), regex: new Set() };
+  for (const s of fixSegs) {
+    for (const m of segText(SCANNER_FIXTURE, s).matchAll(DISPATCH_RE)) fixSeen[s.kind].add(m[1]);
+  }
+  const list = (names) => [...names].sort().join(',');
+  assert('jsSegments returns a gapless partition of its input (fixture)',
+    fixSegs.every((s, k) => s.start === (k ? fixSegs[k - 1].end : 0))
+      && fixSegs.reduce((a, s) => a + (s.end - s.start), 0) === SCANNER_FIXTURE.length);
+  assert('jsSegments sees generated markup in every literal form (fixture)',
+    list(fixSeen.string) === list(['wAfterDivide', 'wAfterHoleComment', 'wAfterNestedBraces',
+      'wAfterRegex', 'wAfterStarSlash', 'wAfterUrl', 'wDouble', 'wInHole', 'wSingle', 'wTemplate']),
+    'got: ' + list(fixSeen.string));
+  assert('jsSegments keeps doc-comment placeholders out of the markup surface (fixture)',
+    list(fixSeen.comment) === 'wDocBlock,wDocLine,wHoleComment', 'got: ' + list(fixSeen.comment));
+  assert('jsSegments keeps regex literals out of the markup surface (fixture)',
+    list(fixSeen.regex) === 'wRegexLiteral', 'got: ' + list(fixSeen.regex));
+  assert('jsSegments leaves no dispatch attribute stranded in bare code (fixture)',
+    fixSeen.code.size === 0, 'got: ' + list(fixSeen.code));
+
+  const genNames = new Map();      // name → 'file:line' of its first emit site
+  const commentOnly = new Set();   // names seen ONLY in prose
+  const scanDrift = new Set();     // files the partition failed to cover
+  for (const file of fs.readdirSync(PRO_JS)) {
+    if (!file.endsWith('.js')) continue;
+    const src = fs.readFileSync(path.join(PRO_JS, file), 'utf8');
+    const segs = jsSegments(src);
+    let cursor = 0;
+    for (const s of segs) { if (s.start !== cursor) scanDrift.add(file); cursor = s.end; }
+    if (cursor !== src.length) scanDrift.add(file);
+    for (const s of segs) {
+      if (s.kind !== 'string' && s.kind !== 'comment') continue;
+      for (const m of segText(src, s).matchAll(DISPATCH_RE)) {
+        if (s.kind === 'comment') { commentOnly.add(m[1]); continue; }
+        if (!genNames.has(m[1])) {
+          genNames.set(m[1], file + ':' + (src.slice(0, s.start + m.index).split('\n').length));
+        }
+      }
+    }
+  }
+  for (const n of genNames.keys()) commentOnly.delete(n);
+
+  assert('jsSegments covers every byte of every docs/pro/js file (no scanner drift) — '
+      + ([...scanDrift].slice(0, 3).join(', ') || 'clean'), scanDrift.size === 0);
+  const genUnresolved = [...genNames]
+    .filter(([n]) => !registered.has(n) && stateSrc.indexOf("'" + n + "'") === -1)
+    .map(([n, where]) => n + ' (' + where + ')');
+  assert('every JS-generated dispatch name is allowlisted or registered — '
+      + (genUnresolved.slice(0, 5).join(', ') || 'clean'), genUnresolved.length === 0);
+  assert('generated-markup audit saw the real generated surface (sanity floor)',
+    genNames.size >= 12, 'found ' + genNames.size);
+  // The canary for the whole approach. If this ever reads NONE, the
+  // code/prose split stopped being load-bearing on the real corpus — which is
+  // exactly what a regression to a plain grep looks like, and the five
+  // dashboard-ui.js delegate placeholders would then sail into the assertion
+  // above as phantom dead controls.
+  assert('doc-comment-only dispatch names are excluded by position, not by name — '
+      + ([...commentOnly].sort().slice(0, 5).join(', ') || 'NONE'), commentOnly.size > 0);
 }
 
 section('Mobile lead detail — Estimate opens the lead; Activity shows estimates');

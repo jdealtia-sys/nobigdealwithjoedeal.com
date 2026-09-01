@@ -9,6 +9,9 @@
  *                      so smoke tests grepping for inline handlers find
  *                      them regardless of which file the handler lives in)
  *   - syntaxCheck(file): { ok, err } via `node --check`
+ *   - jsSegments(src): partition JS source into code/string/comment/regex
+ *                      segments, so a scan can tell markup that SHIPS from
+ *                      markup that only appears in a doc comment
  *   - makeContext(): returns a fresh { assert, section, getResults } triple
  *                    bound to its own pass/fail counters. Used by the
  *                    orchestrator to thread one shared counter through
@@ -268,6 +271,104 @@ function syntaxCheck(file) {
   }
 }
 
+// ── jsSegments: split JS source into code / string / comment / regex ──────
+//
+// Why this exists
+// ───────────────
+// The wiring audit in dashboard.test.js has to tell markup that SHIPS
+// (`el.innerHTML = '<button data-fn="deleteZone">'`) apart from markup that
+// only DOCUMENTS the delegate (`// <input data-on-change="setFoo" ...>` in
+// dashboard-ui.js's header comment). A plain grep over the file conflates
+// them, which is why the generated-markup half of the audit sat unwritten:
+// a naive scan reports five doc-comment placeholders (setFoo/setBar/setBaz/
+// handleUpload/fnName) as dead controls. Excluding them by name would be a
+// gate that lies the moment someone renames a placeholder — so we classify
+// by POSITION instead, and the exclusion falls out of the classification.
+//
+// Returns a contiguous, gapless partition of `src`:
+//   [{ kind: 'code'|'string'|'comment'|'regex', start, end }, ...]
+// Delimiters belong to their own segment (the quotes are part of the string,
+// `//` is part of the comment). Callers can therefore assert
+// `sum(end - start) === src.length` as a cheap scanner-drift canary.
+// `string` covers '…', "…" and `…` template literals; the `${ }` holes inside
+// a template are re-classified as `code` (with brace nesting tracked), so a
+// dispatch name in an interpolated sub-expression's own string still counts.
+//
+// The one genuine ambiguity in JS lexing is `/`: regex literal or division.
+// It is resolved the standard way — `/` is division when the previous
+// significant character is a value ender (`\w`, `$`, `)`, `]`, or the end of
+// a string/regex) UNLESS the identifier before it is a keyword that can only
+// be followed by an expression (`return /re/.test(x)`). Two things keep a
+// wrong call from going anywhere: single-quoted, double-quoted and regex
+// modes all bail at a newline (none of them may legally span one), so a
+// misread is contained to a single line and can never eat a real markup
+// string further down the file; and multi-line modes — template literals and
+// block comments — are entered unambiguously by ` and /*, never by `/`.
+const REGEX_ONLY_AFTER = new Set(['return', 'typeof', 'instanceof', 'in', 'of',
+  'new', 'delete', 'void', 'throw', 'case', 'do', 'else', 'yield', 'await']);
+const SEGMENT_KIND = { code: 'code', line: 'comment', block: 'comment',
+  "'": 'string', '"': 'string', '`': 'string', regex: 'regex' };
+
+function jsSegments(src) {
+  const segs = [];
+  const n = src.length;
+  let i = 0;
+  let start = 0;
+  let mode = 'code';
+  let depth = 0;          // brace depth inside the current `${ }` hole
+  let inClass = false;    // inside a regex [...] character class
+  const frames = [];      // brace depth saved on entry to each `${ }`
+  let prevChar = '';      // last non-space character seen in code
+  let prevWord = '';      // identifier ending at prevChar ('' if not a word)
+  const cut = (kind, end) => { if (end > start) segs.push({ kind, start, end }); start = end; };
+
+  while (i < n) {
+    const c = src[i];
+    if (mode === 'code') {
+      if (c === '/' && src[i + 1] === '/') { cut('code', i); mode = 'line'; i += 2; continue; }
+      if (c === '/' && src[i + 1] === '*') { cut('code', i); mode = 'block'; i += 2; continue; }
+      if (c === "'" || c === '"' || c === '`') { cut('code', i); mode = c; i++; continue; }
+      if (c === '/' && !(/[\w$)\]]/.test(prevChar) && !REGEX_ONLY_AFTER.has(prevWord))) {
+        cut('code', i); mode = 'regex'; inClass = false; i++; continue;
+      }
+      if (c === '{') depth++;
+      else if (c === '}') {
+        // A `}` that closes a `${ }` hole hands control back to the template.
+        if (frames.length && depth === 0) { cut('code', i); mode = '`'; depth = frames.pop(); i++; continue; }
+        depth--;
+      }
+      if (!/\s/.test(c)) { prevChar = c; prevWord = /[\w$]/.test(c) ? prevWord + c : ''; }
+      i++; continue;
+    }
+    if (mode === 'line') { if (c === '\n') { cut('comment', i); mode = 'code'; } else i++; continue; }
+    if (mode === 'block') {
+      if (c === '*' && src[i + 1] === '/') { i += 2; cut('comment', i); mode = 'code'; } else i++;
+      continue;
+    }
+    if (mode === "'" || mode === '"') {
+      if (c === '\\') { i += 2; continue; }
+      if (c === mode) { i++; cut('string', i); mode = 'code'; prevChar = '0'; prevWord = ''; continue; }
+      if (c === '\n') { cut('string', i); mode = 'code'; continue; }  // malformed — stop the bleed
+      i++; continue;
+    }
+    if (mode === '`') {
+      if (c === '\\') { i += 2; continue; }
+      if (c === '$' && src[i + 1] === '{') { cut('string', i); frames.push(depth); depth = 0; mode = 'code'; i += 2; continue; }
+      if (c === '`') { i++; cut('string', i); mode = 'code'; prevChar = '0'; prevWord = ''; continue; }
+      i++; continue;
+    }
+    // regex
+    if (c === '\\') { i += 2; continue; }
+    if (c === '\n') { cut('regex', i); mode = 'code'; continue; }   // not a regex after all
+    if (inClass) { if (c === ']') inClass = false; i++; continue; }
+    if (c === '[') { inClass = true; i++; continue; }
+    if (c === '/') { i++; cut('regex', i); mode = 'code'; prevChar = '0'; prevWord = ''; continue; }
+    i++;
+  }
+  cut(SEGMENT_KIND[mode], n);
+  return segs;
+}
+
 function makeContext() {
   let passed = 0;
   let failed = 0;
@@ -313,5 +414,6 @@ module.exports = {
   readD2DLive,
   readFunctionsIndex,
   syntaxCheck,
+  jsSegments,
   makeContext,
 };
