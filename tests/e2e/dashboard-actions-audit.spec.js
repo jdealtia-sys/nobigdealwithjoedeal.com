@@ -1,6 +1,14 @@
 // @ts-check
-// Full data-action wiring audit of the dashboard (opt-in; not part of the
-// pinned CI e2e job). Logs in, hydrates every view, then cross-references
+// Full data-action wiring audit of the dashboard.
+//
+// NOTE (corrected 2026-09-01): this header used to say "opt-in; not part of the
+// pinned CI e2e job". That is FALSE and has been for a while — '@audit' is one
+// of the six REQUIRED shards in the Authed E2E matrix (.github/workflows/ci.yml,
+// the `shard:` list). Treat every change here as CI-blocking, and note that the
+// spec's own tap sequence is load-bearing: a helper that silently no-ops can
+// leave a backdrop swallowing later taps while the suite still reports green.
+//
+// Logs in, hydrates every view, then cross-references
 // every [data-action] element in the DOM against the live delegate state
 // (dashboard-ui.js switch + dashboard-state.js allowlists + window globals) —
 // the class of regression where a CSP sweep or globals tranche drops an
@@ -192,15 +200,19 @@ test('dashboard-actions-audit @audit', async ({ page }) => {
           case 'selectPin': fnCheck('selectPin'); break;
           case 'selLineType': fnCheck('selLT'); break;
           case 'settingsTab': fnCheck('switchSettingsTab'); break;
+          // Globals Tranche 3 (2026-09-01): both maps resolve through
+          // _nbdResolveMapped now — __NBD_CALL_REGISTRY first, then window. A
+          // handler that has been converted to registry-only is NOT on window
+          // and would audit as a false DEAD if we only checked `has()`.
           case 'toggle':
             if (!TOGGLES) { status = 'DEAD'; why = '_NBD_TOGGLE_FNS unreachable'; }
             else if (!TOGGLES[target]) { status = 'DEAD'; why = 'target "' + target + '" not in _NBD_TOGGLE_FNS'; }
-            else if (!has(TOGGLES[target])) { status = 'DEAD'; why = 'window.' + TOGGLES[target] + ' missing'; }
+            else if (!registered(TOGGLES[target]) && !has(TOGGLES[target])) { status = 'DEAD'; why = TOGGLES[target] + ' is in neither __NBD_CALL_REGISTRY nor window'; }
             break;
           case 'closeModal':
             if (!CLOSES) { status = 'DEAD'; why = '_NBD_MODAL_CLOSE_FNS unreachable'; }
             else if (!CLOSES[target]) { status = 'DEAD'; why = 'target "' + target + '" not in _NBD_MODAL_CLOSE_FNS'; }
-            else if (!has(CLOSES[target])) { status = 'DEAD'; why = 'window.' + CLOSES[target] + ' missing'; }
+            else if (!registered(CLOSES[target]) && !has(CLOSES[target])) { status = 'DEAD'; why = CLOSES[target] + ' is in neither __NBD_CALL_REGISTRY nor window'; }
             break;
           case 'call':
             if (registered(fn)) break; // registry-first, same as _nbdResolveCall
@@ -279,7 +291,16 @@ test('dashboard-actions-audit @audit', async ({ page }) => {
       // The bottom-nav create FAB opens the m-create bottom sheet; its
       // backdrop sits ABOVE the nav (z 1900+) and would swallow every later
       // forced tap as a backdrop-close if left open.
-      if (typeof window.closeMobileCreatePopover === 'function') window.closeMobileCreatePopover();
+      // Registry-first: closeMobileCreatePopover moved off window on 2026-09-01
+      // (Globals Tranche 3 dispatch-map slice). Left as a bare window read this
+      // would silently no-op, the m-create backdrop would stay up, and it sits
+      // above the nav at z 1900+ — every later forced tap would land on the
+      // backdrop instead of its target and the whole tap sweep would go green
+      // while testing nothing.
+      const _closeCreate = (window.__NBD_CALL_REGISTRY
+        && window.__NBD_CALL_REGISTRY.closeMobileCreatePopover)
+        || window.closeMobileCreatePopover;
+      if (typeof _closeCreate === 'function') _closeCreate();
       document.getElementById('estV2Modal')?.classList.remove('open');
       document.querySelectorAll('.modal.open').forEach((m) => m.classList.remove('open'));
     }).catch(() => {});

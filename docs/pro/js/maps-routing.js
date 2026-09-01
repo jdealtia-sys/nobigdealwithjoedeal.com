@@ -3516,6 +3516,12 @@ td{font-size:12px;}.note{background:#fff8f0;border-left:4px solid #e8720c;paddin
 //     toggleVoiceControl — dispatched by _NBD_TOGGLE_FNS as window[fn]
 //   • closeComparisonMode / closeHistoricalImagery — dispatched by
 //     _NBD_MODAL_CLOSE_FNS as window[fn]
+//     ^^ THOSE SIX ARE NO LONGER PINNED (2026-09-01). Both maps resolve
+//     __NBD_CALL_REGISTRY before window now (dashboard-ui.js
+//     _nbdResolveMapped, Globals Tranche 3), and a static check found the map
+//     to be these six names' ONLY reach. They are ready to convert: register
+//     them in a __NBD_CALL_REGISTRY block here and delete their window
+//     exports. That is this file's next tranche slice.
 //   • goToMyLocation — FAILED the tranche's three-way proof: the maps.js
 //     shim re-states it on window (real cross-file code reference), so
 //     it also keeps its _NBD_CALL_ALLOWLIST entry. Tranche 3 candidate.

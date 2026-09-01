@@ -191,6 +191,33 @@ session.
 > naive filter has a **100% false-positive rate** on the one file tested. The
 > per-name script used for slice 1 is described in the session note.
 
+**T3-M — make the two name-string dispatch maps registry-aware (SHIPPED 2026-09-01).**
+Not in the original plan; added because T3-A slice 1 found it gating ~10 names
+and the shape recurs. `_NBD_TOGGLE_FNS` and `_NBD_MODAL_CLOSE_FNS`
+(`dashboard-state.js`) hold handler names as **strings**, and `dashboard-ui.js`
+resolved them with a bare `window[fnName]`. A module-scoped function is
+invisible to a string lookup on the global object, so any handler reachable
+only through one of those maps could **never** leave `window` — no amount of
+per-name proof helps. `_nbdResolveMapped()` now checks `__NBD_CALL_REGISTRY`
+first, exactly as `_nbdResolveCall()` already did for `data-fn` markup.
+
+Deliberately **no `_NBD_CALL_ALLOWLIST` gate** on the new resolver: there the
+name arrives from markup and the allowlist is the security boundary; here it
+came from a curated in-code map, which *is* the boundary. None of the 36 map
+names are in `_NBD_CALL_ALLOWLIST`, so adding the gate would kill every toggle
+and modal-close button at once.
+
+Shipped as a strict no-op — the intersection of {36 map names} and {154
+registry keys} was empty, so every pre-existing name still fell through to
+`window`. Proof: the real resolver was called for all 36 entries against the
+live emulator-backed dashboard.
+
+**Two conversions landed on top**, both previously MUST-STAY *only* because of
+the map: `closeMobileInspection` and `closeMobileCreatePopover` are
+registry-only now. The remaining map-blocked names (`closeMobileMore`,
+`toggleMobileMore`, and the wider band) also need their **bare cross-file
+callers** rewired — the map was necessary but not sufficient for those.
+
 **T3-B — zero-external names with HTML hits or twin assigners (177).**
 Each needs either delegate-then-scope (the H-1 house pattern — migrate the
 generated inline handler to `data-action`, THEN scope the global) or a
