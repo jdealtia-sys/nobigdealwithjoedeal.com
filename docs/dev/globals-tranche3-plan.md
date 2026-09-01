@@ -168,15 +168,22 @@ session.
 >
 > **What is actually left in this file: 8 names, and every one needs real work.**
 >
+> *(Status refreshed 2026-09-01. Two are now converted by T3-M — 6 remain. The
+> `toggleMobileMore` and `confirmPromoteProspect` rows were re-derived from the
+> tree the same day and both understated the work; the corrected reasons are in
+> the rows themselves. Treat this table as the per-name source of truth and keep
+> it in step with the slice entries below — a stale row here is exactly the
+> failure mode this whole correction block exists to document.)*
+>
 > | Name | Why it is not mechanical |
 > |---|---|
-> | `closeMobileCreatePopover` | `_NBD_MODAL_CLOSE_FNS` → `window[fnName]` |
-> | `closeMobileInspection` | `_NBD_MODAL_CLOSE_FNS` |
+> | ~~`closeMobileCreatePopover`~~ ✅ | ~~`_NBD_MODAL_CLOSE_FNS` → `window[fnName]`~~ **CONVERTED by T3-M, 2026-09-01** (see the T3-M entry below) — registry-only, off `window`. The map blocker was the dispatcher, never the handler. |
+> | ~~`closeMobileInspection`~~ ✅ | ~~`_NBD_MODAL_CLOSE_FNS`~~ **CONVERTED by T3-M, 2026-09-01** — registry-only, off `window`. |
 > | `closeMobileMore` | `_NBD_MODAL_CLOSE_FNS` + bare calls in `dashboard-ui.js:436`, `mobile-nav-customizer.js:388` |
-> | `toggleMobileMore` | `_NBD_TOGGLE_FNS` + bare call `mobile-nav-customizer.js:800` |
+> | `toggleMobileMore` | `_NBD_TOGGLE_FNS` + bare call `mobile-nav-customizer.js:800`. **Re-derived 2026-09-01 — the map is only HALF its dispatch.** `renderBottomNav()` does `nav.innerHTML = html` (`mobile-nav-customizer.js:337`), replacing the static More tile (`dashboard.html:5511`, `data-action="toggle" data-target="mobileMore"`) with one carrying `data-mnc-action="toggleMore"` (`:332`). So the map path is live only until a user customizes their tab bar; after that, dispatch goes through the mnc delegate's bare `toggleMobileMore()` at `:800` — behind `typeof … === 'function'`, so a scoped name **no-ops silently** on the customized nav while every static-markup audit stays green. Fix shape is already in that file: the `mCreateFabRoute` case at `:795-798` resolves registry-first. Same applies to its `mobileNav` case. |
 > | `dsRemoveFloor` | bare call `dashboard-ui.js:2165` (already a known MUST-STAY from 2c-4d) |
 > | `_mJdOpenEstimate` | ⚠ **ordering trap — read the code comment before touching it.** Already IIFE-scoped, so its `window._mJdOpenEstimate = …` line reads as a vestigial self-export. It is not: the `__NBD_CALL_REGISTRY` entry for it lives in a **different IIFE**, where the bare identifier is not lexically in scope and resolves through the global object instead. Deleting the export alone makes that registry line throw at load, aborting its whole IIFE and silently killing **all 19 registry entries in it** — the entire customer-detail action bar. Move the registry entry into the defining IIFE **first**. Smoke-pinned. |
-> | `confirmPromoteProspect` | allowlisted + read via `window.` in-file; the only genuine registry candidate |
+> | `confirmPromoteProspect` | ~~allowlisted + read via `window.` in-file; the only genuine registry candidate~~ **Re-derived 2026-09-01 — not the freebie this row implies.** It is `window.confirmPromoteProspect = async function(leadId)` at `dashboard-actions.js:1745`: an anonymous function **expression**, at file top level (between the IIFEs closing at 1718 and opening at 1880), so **no lexical binding exists at all** — the name lives only as a window property. Its two reads (`:2151-2152`, inside `cdaConfirmPromote`) sit in the **1982-2207 IIFE**, a different scope, and are `window.`-qualified. Converting therefore needs three changes, not one: give it a real binding, register it, and rewrite both reads. Still allowlisted at `dashboard-state.js:282`. |
 > | `openMobileInspection` | deliberate `window` export (2c-4b) + smoke-pinned → **MUST STAY** |
 >
 > **3. And the census undercounts the surface by ~40%.** It only sees explicit
