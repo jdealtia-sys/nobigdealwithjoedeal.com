@@ -164,15 +164,22 @@ if (!WRITE) {
 }
 
 // ── write ───────────────────────────────────────────────────────────────────
-// firebase-admin lives in functions/node_modules (scripts/ has none), so a bare
-// require fails when run from the repo root. Resolve it from functions/.
-let admin;
-try { admin = require('firebase-admin'); }
-catch (_) { admin = require('module').createRequire(path.join(ROOT, 'functions', 'package.json'))('firebase-admin'); }
-if (!admin.apps.length) admin.initializeApp();
+// firebase-admin comes through scripts/_admin.js, which resolves it out of
+// functions/node_modules (scripts/ has none) and hands back the modular
+// entrypoints. v14 removed `admin.apps`, `admin.firestore()` AND the whole
+// `admin.firestore.*` namespace from the default export, so the old spelling
+// here — including `admin.firestore.FieldValue` below — was three separate
+// undefined-throws waiting on the first --yes run.
+//
+// KEEP THIS REQUIRE HERE, below the dry-run exit. Hoisting it to the top of
+// the file reads tidier but makes a DRY RUN depend on firebase-admin
+// resolving, which it currently does not — dry runs work on a checkout with
+// no functions/node_modules installed, and that is worth preserving.
+const { initAdmin, getFirestore, FieldValue } = require('./_admin');
+initAdmin();
 
 (async () => {
-  const db = admin.firestore();
+  const db = getFirestore();
   const ref = db.doc(COLLECTION + '/' + COMPANY);
   const before = await ref.get();
   const beforeData = before.exists ? (before.data() || {}) : {};
@@ -198,7 +205,7 @@ if (!admin.apps.length) admin.initializeApp();
 
   // Field-path write, so the tenant's PRODUCT cost book on the same document
   // is provably untouched — this script has no business rewriting `costs`.
-  const payload = { jtCosts: overlay.jtCosts, jtImportedAt: admin.firestore.FieldValue.serverTimestamp() };
+  const payload = { jtCosts: overlay.jtCosts, jtImportedAt: FieldValue.serverTimestamp() };
   if (!before.exists) payload.version = overlay.version || SEED_VERSION;
   await ref.set(payload, { merge: true });
 
