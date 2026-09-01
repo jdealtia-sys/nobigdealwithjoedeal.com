@@ -38,10 +38,15 @@ several of them from background sessions working in parallel.
    `node scripts/globals-xref.js` before trusting any number in the plan —
    that habit already caught a 4× overestimate once.
 
-2. **Four dependabot PRs are open and unreviewed** — #1321 (setup-java),
-   #1322 (firebase), #1323 (firebase-tools), #1324 (playwright). All opened
-   09-01, all still running checks. These are the weekly-sweep item; merge on
-   green.
+2. **Dependabot — two merged, two awaiting a rebase.** #1321 (setup-java)
+   and #1322 (firebase) went in green on 09-01. Merging those two moved
+   `tests/package-lock.json`, which put **#1323** (firebase-tools) and
+   **#1324** (playwright) into CONFLICTING/DIRTY. `@dependabot rebase` has
+   been requested on both — they should come back clean on their own; merge
+   on green. Do **not** hand-resolve the lockfile (see the standing rule
+   about `proxy-agent-negotiate` drift). If a future sweep has several
+   dependabot PRs touching the same lockfile, merge one and rebase the rest
+   rather than firing them all at once.
 
 3. **Finish the `_admin` migration** — a chip is queued for the last two
    (`import-cost-rotation.js`, `import-job-template-costs.js`). **They break
