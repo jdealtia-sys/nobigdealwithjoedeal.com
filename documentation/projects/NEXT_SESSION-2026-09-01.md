@@ -23,8 +23,11 @@ several of them from background sessions working in parallel.
 - **Rock 4 Tranche 3** — moving fast: **T3-0 ✅** (#1316), **T3-A slice 1 ✅**
   (#1319, 86 inert re-exports deleted), **T3-M ✅** (#1326), plus a wiring
   test (#1320).
-- **The `_admin` migration is nearly done** — four of six scripts ported
-  (#1318, #1325), with a real bug fixed along the way.
+- **The `_admin` migration is DONE** — all six scripts ported (#1318, #1325,
+  **#1329**), with a real bug fixed along the way. `scripts/` now holds zero
+  legacy-namespace calls and `tests/smoke/functions.test.js` fails if one comes
+  back. The last `NODE_PATH` override in CI is gone too (**#1330**). See
+  [ADMIN-SCRIPTS-COST-IMPORT-PORT-2026-09-01](../audit/ADMIN-SCRIPTS-COST-IMPORT-PORT-2026-09-01.md).
 
 ## Lanes, in priority order
 
@@ -48,22 +51,34 @@ several of them from background sessions working in parallel.
    dependabot PRs touching the same lockfile, merge one and rebase the rest
    rather than firing them all at once.
 
-3. **Finish the `_admin` migration** — a chip is queued for the last two
-   (`import-cost-rotation.js`, `import-job-template-costs.js`). **They break
-   differently from the first four:** they resolve fine via their own
-   `createRequire` fallback and then die at first use of `admin.apps`,
-   `admin.firestore()` and `admin.firestore.FieldValue.serverTimestamp()`.
-   And unlike the previous pair, **these two genuinely write a server
-   timestamp**, so the "the Timestamp warning is false" finding from #1325
-   must NOT be copy-pasted onto them. They write tenant cost data to
-   `catalogCosts/{companyId}` — the most sensitive data in the repo.
+3. ~~**Finish the `_admin` migration**~~ — **DONE, #1329.** Both scripts
+   ported; the migration is complete. The framing above held up: they resolved
+   fine and died at first use of the namespace, and they really do write a
+   server timestamp — but that turned out to cost nothing, because v14 removed
+   the *accessor*, not the class (v12's `admin.firestore.FieldValue` is `===`
+   the modular one, `toProto` is byte-identical, and a v12 and a v14 write read
+   back as the same `Timestamp`). Nothing in the repo reads either field.
 
-4. **`.github/workflows/address-audit.yml` still pins firebase-admin@12 via
-   `NODE_PATH`** on a rationale that #1325 disproved. `_admin` tries a bare
-   `require.resolve` FIRST, so `NODE_PATH` *beats* `functions/` and defeats
-   the single-resolver guarantee that pin was meant to protect. Fix as its
-   own PR — quietly breaking a scheduled job nobody watches is its own
-   failure mode.
+4. ~~**`.github/workflows/address-audit.yml` pins firebase-admin@12 via
+   `NODE_PATH`**~~ — **DONE, #1330.** Confirmed by a `workflow_dispatch` run
+   that read prod on 14.3.0 and passed. Note the fix was *not* deleting the
+   `NODE_PATH` line: the workflow never installed `functions/` deps at all, so
+   that alone would have left `_admin`'s fallback with nothing to resolve to
+   and killed the next scheduled run with `MODULE_NOT_FOUND`.
+
+> **Two findings from #1329 worth carrying forward, both the kind that make a
+> check stop meaning anything:**
+>
+> - **A dry run on those two importers verifies nothing.** They exit above the
+>   firebase-admin require, so `--dry-run` never loads `_admin`, never
+>   authenticates and never reaches Firestore (proved with a loader spy). Use
+>   the Firestore emulator to exercise an admin script's write path — it is
+>   cheap, and it is the only thing short of a prod write that proves anything.
+> - **Check that a negative control actually ran.** The first one here patched
+>   sources with `python`, which is not installed on this machine; every patch
+>   silently no-opped and all five cases printed `exit=0` — a control that
+>   "passed" while testing nothing. Make the patcher fail loudly on a missing
+>   anchor.
 
 ## Marketing — what the 08-31 run learned
 
