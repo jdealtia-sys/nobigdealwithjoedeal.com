@@ -899,13 +899,16 @@ function renderZoneList() {
     <div class="zone-item">
       <div class="zone-dot" style="background:${safeColor(z.color)};"></div>
       <span>${esc(z.name)}${z.repLabel ? ` · <span style="color:var(--m);font-size:11px;">${esc(z.repLabel)}</span>` : ''}</span>
-      <button class="zone-del nbd-zone-del" data-zone-id="${esc(z.id)}">✕</button>
+      <button class="zone-del nbd-zone-del" data-zone-id="${esc(z.id)}" data-action="call" data-fn="deleteZone" data-arg="${esc(z.id)}">✕</button>
     </div>`).join('');
-  el.querySelectorAll('.nbd-zone-del').forEach(btn => {
-    // Zone ids are now Firestore doc strings (persisted zones) or a 'd-' local
-    // fallback — pass the raw string; deleteZone String()-compares both sides.
-    btn.addEventListener('click', () => deleteZone(btn.dataset.zoneId));
-  });
+  // Globals Tranche 3 T3-0 (2026-08-31): this used to re-bind a click listener
+  // per row that called deleteZone as a bare cross-file identifier. deleteZone
+  // is module-scoped in dashboard-actions.js now, so the row delegates through
+  // the document-level `call` action instead (the H-1 pattern: migrate the
+  // generated handler to data-action, THEN scope the global). Zone ids are
+  // Firestore doc strings (or a 'd-' local fallback) — data-arg carries the raw
+  // string and deleteZone String()-compares both sides. data-zone-id stays for
+  // the CSS/selector identity.
 }
 
 // ══════════════════════════════════════════════

@@ -2883,7 +2883,14 @@ section('Globals Tranches 0+1: converted names stay off window');
     '_saveSettings', '_saveNotifSettings', '_saveCompanySettings', '_testNotif',
     '_resetEstimateDefaultsV2', '_saveSiteSlug', '_saveCompanyProfileSettings',
     '_resetCompanyProfileSettings', '_exportAllData', '_exportEstimates',
-    '_exportPhotos'];
+    '_exportPhotos',
+    // Tranche 3 slice T3-0 (2026-08-31): the shim-blocked residual — the
+    // dashboard-actions.js zone cluster + damageNearMePhotos, IIFE-scoped and
+    // dispatched via __NBD_CALL_REGISTRY. maps.js's six re-exports are gone.
+    // NOT here: renderSavedZones (a real cross-file API — maps-core.js and
+    // dashboard-bootstrap.module.js both invoke it off window).
+    'selectZoneColor', 'startZoneDraw', 'cancelZoneDraw', 'saveZone',
+    'deleteZone', 'damageNearMePhotos'];
   const NAMES = [...T1_NAMES, 'ActivityFeed', 'AlmostThere', 'AskJoeProactive',
     'CustomerAiDraftsPanel', 'CustomerDnDUpload', 'CustomerLastSharedChip',
     'CustomerQuickActionBar', 'CustomerSiblingSnooze',
@@ -3412,6 +3419,56 @@ section('Globals Tranche 2c: __NBD_CALL_REGISTRY dispatch layer');
     assert('dashboard-bootstrap keeps window.' + n + ' (' + why + ')',
       new RegExp('window\\.' + n + '\\s*=').test(bootReg) && new RegExp("'" + n + "'").test(stateSrc));
   }
+
+  // ── Tranche 3 slice T3-0 (2026-08-31): the shim-blocked residual ──
+  // The last open item of Tranche 2. The zone-draw cluster was deferred
+  // because maps.js re-stated its names with an UNGUARDED right-hand side —
+  // scoping them would ReferenceError at maps.js load and take the whole map
+  // surface down. That block became typeof-guarded + try/catch-fenced on
+  // 2026-08-07, which unblocked the conversion: the cluster is IIFE-scoped in
+  // dashboard-actions.js and the six re-exports in maps.js are deleted.
+  // Two cross-file BARE calls had to be rewired first, or scoping the names
+  // would have silently killed live controls:
+  //   - dashboard-widgets.js's generated zone-delete button called deleteZone
+  //     as a bare identifier → now dispatches via data-action="call".
+  //   - dashboard-ui.js's `zoneColor` action probed `typeof selectZoneColor`
+  //     → now resolves through _nbdResolveCall (registry first).
+  const T30_NAMES = ['selectZoneColor', 'startZoneDraw', 'cancelZoneDraw',
+    'saveZone', 'deleteZone', 'damageNearMePhotos'];
+  const daRegBlocks = (dashActions.match(/Object\.assign\(window\.__NBD_CALL_REGISTRY,\s*\{[\s\S]*?\}\);/g) || []).join('\n');
+  for (const n of T30_NAMES) {
+    assert('dashboard-actions registers ' + n + ' in __NBD_CALL_REGISTRY (T3-0)',
+      new RegExp('\\b' + n + ':\\s*' + n + '\\b').test(daRegBlocks));
+    assert('allowlist no longer carries ' + n + ' (T3-0 — registry replaced it)',
+      !new RegExp("'" + n + "'").test(stateSrc));
+    assert('maps.js no longer re-exports window.' + n + ' (T3-0 shim unwound)',
+      !new RegExp('window\\.' + n + '\\s*=').test(mapsSrc));
+    assert('dashboard-actions no longer re-exports window.' + n + ' (T3-0 off window)',
+      !new RegExp('window\\.' + n + '\\s*=').test(dashActions));
+  }
+  // The zone cluster must stay inside its IIFE — an unwrapped declaration
+  // re-grows every one of these as an auto-global at file top level.
+  assert('the zone cluster is IIFE-wrapped in dashboard-actions.js (T3-0)',
+    /\(function \(\)\s*\{\s*\nfunction selectZoneColor\(color, el\)/.test(dashActions),
+    'selectZoneColor must be the first declaration inside the zone IIFE');
+  assert('damageNearMePhotos is IIFE-wrapped in dashboard-actions.js (T3-0)',
+    /\(function \(\)\s*\{\s*\nfunction damageNearMePhotos\(\)/.test(dashActions));
+  // MUST-STAY: renderSavedZones is a real cross-file API — maps-core.js redraws
+  // zones 400ms after map init and dashboard-bootstrap.module.js redraws them
+  // when the /zones read resolves. Both reach it off window.
+  assert('renderSavedZones keeps its window export (maps-core + bootstrap call it)',
+    /window\.renderSavedZones = renderSavedZones/.test(dashActions));
+  // The two rewired call sites. Without these the controls die silently:
+  // the delegate/probe returns early and no error is thrown anywhere.
+  const widgetsSrc = read(path.join(PRO_JS, 'dashboard-widgets.js'));
+  assert('renderZoneList delegates delete via data-action="call" (T3-0, H-1 pattern)',
+    /data-action="call" data-fn="deleteZone" data-arg="\$\{esc\(z\.id\)\}"/.test(widgetsSrc));
+  assert('renderZoneList no longer calls deleteZone as a bare cross-file identifier',
+    !/addEventListener\('click', \(\) => deleteZone\(/.test(widgetsSrc));
+  assert('the zoneColor action resolves selectZoneColor through the registry (T3-0)',
+    /action === 'zoneColor'[\s\S]{0,260}_nbdResolveCall\('selectZoneColor'\)/.test(ui));
+  assert('the zoneColor action no longer probes a bare typeof selectZoneColor',
+    !/typeof selectZoneColor === 'function'/.test(ui));
 
   // The resolver's window fallback is allowlist-gated; keep state ahead of
   // dashboard-ui in the defer queue so the gate exists when dispatch runs.

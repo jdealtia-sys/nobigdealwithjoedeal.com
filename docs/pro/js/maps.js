@@ -471,7 +471,13 @@ window.buildWelcomeThemePicker = () => {};  // DS welcome modal — no-op, full 
    __NBD_CALL_REGISTRY (dashboard-ui.js, Globals Tranche 2c-4h Slice H2);
    markup dispatch resolves registry-first, no re-export needed here.
    damagNearMe → single implementation + registry in maps-overlays.js
-   (the alias to spyglassGoToLocation that lived here shadowed it). */
+   (the alias to spyglassGoToLocation that lived here shadowed it).
+   The zone-draw cluster (selectZoneColor / startZoneDraw / cancelZoneDraw /
+   saveZone / deleteZone) and damageNearMePhotos → __NBD_CALL_REGISTRY in
+   dashboard-actions.js, Globals Tranche 3 slice T3-0 (2026-08-31) — the six
+   re-exports that lived here are deleted. Those were the shims the Tranche 2
+   audit called "unguarded"; the 2026-08-07 rework above already made them
+   typeof-guarded, which is what finally made the cluster convertible. */
 try {
   // maps-overlays.js
   if (typeof searchMap === 'function') window.searchMap = searchMap;
@@ -482,13 +488,6 @@ try {
   if (typeof deleteLeadFromPin === 'function') window.deleteLeadFromPin = deleteLeadFromPin;
   if (typeof makeLeadFromPin === 'function') window.makeLeadFromPin = makeLeadFromPin;
   if (typeof deletePinOnly === 'function') window.deletePinOnly = deletePinOnly;
-  // dashboard-actions.js
-  if (typeof damageNearMePhotos === 'function') window.damageNearMePhotos = damageNearMePhotos;
-  if (typeof startZoneDraw === 'function') window.startZoneDraw = startZoneDraw;
-  if (typeof cancelZoneDraw === 'function') window.cancelZoneDraw = cancelZoneDraw;
-  if (typeof saveZone === 'function') window.saveZone = saveZone;
-  if (typeof deleteZone === 'function') window.deleteZone = deleteZone;
-  if (typeof selectZoneColor === 'function') window.selectZoneColor = selectZoneColor;
   // dashboard-ui.js / dashboard-widgets.js / maps-core.js / maps-routing.js
   if (typeof toggleMapSidebar === 'function') window.toggleMapSidebar = toggleMapSidebar;
   if (typeof updatePinStats === 'function') window.updatePinStats = updatePinStats;

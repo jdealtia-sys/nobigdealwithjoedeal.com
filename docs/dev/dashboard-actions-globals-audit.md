@@ -80,6 +80,19 @@ exact "shim" shape that pinned `goToMyLocation` (2c-2) and `clearBulkSelection`
 (2c-3) on `window`. Zone-draw is deferred until the `maps.js` shim block is
 unwound (see Residual).
 
+> **RESOLVED 2026-08-07, converted 2026-08-31 — this paragraph and the
+> `maps.js:464-468` / `:456-457` / `:476` line references above are historical.**
+> The re-export block became `typeof`-guarded AND try/catch-fenced on
+> 2026-08-07 (`caab17ec`, PR #1194), which removed the ReferenceError risk
+> this finding is about; the line numbers have pointed at *comment text* ever
+> since. Tranche 3 slice **T3-0** then converted the whole cluster
+> (2026-08-31): `selectZoneColor` / `startZoneDraw` / `cancelZoneDraw` /
+> `saveZone` / `deleteZone` / `damageNearMePhotos` are IIFE-scoped in
+> `dashboard-actions.js` and registered in `__NBD_CALL_REGISTRY`, and the six
+> `maps.js` re-export lines are deleted. `damagNearMe` was deduped to one
+> implementation on 2026-08-07. See
+> [globals-tranche3-plan](globals-tranche3-plan.md)'s update section.
+
 ### CONVERTIBLE (owned, allowlisted/markup-wired)
 
 Grouped by cohesive cluster (= the slice boundaries below). All passed the
@@ -177,7 +190,7 @@ lexical global — because the callee may itself be IIFE-local now or later.
 | **2c-4c** ✅ | One-off compound rewrites + openers (+ the `mCreateFabRoute`/`mQuickAddRoute` mobile-route tail) | 20 | LOW | **SHIPPED 2026-07-07.** All 20 REGISTER_ONLY — one IIFE over the contiguous L48-195 run, registered, de-allowlisted, none window-re-exported. Absorbed the two 2c-4b tail names. `hardResetTest`/`gstaticTest` dispatch from generated banner markup (invisible to the wiring audit) → their registry assertions are the only guard. |
 | **2c-4d** ✅ | Daily-program config (`ds*`) | 7 | LOW | **SHIPPED 2026-07-07.** Wrapped the cluster + its two callers (goTo hook + DOMContentLoaded). `dsAddFloor`/`dsSaveConfig`/`dsResetDefaults` registered; 3 helpers private; `dsRemoveFloor` window-re-export relocated inside the IIFE (dashboard-ui.js:2208 bare call). Deleted the load-time typeof-guarded re-export block (would read undefined post-wrap). |
 | **2c-4e** ✅ | Customer-page handoff | 5 | LOW | **SHIPPED 2026-07-07.** `openPhotosForLead`/`openDocsForLead`/`openFullCustomerDetails`/`editCardDetails` registered + off window; `_stashLeadForCustomerPage` MUST-STAY (7 widget callers) keeps its export inside the wrap. |
-| **Residual / Tranche 3** | shim-blocked clusters | — | — | `goTo` (router — never convert). Zone-draw (`startZoneDraw`/`cancelZoneDraw`/`saveZone`/`deleteZone`/`selectZoneColor`) — blocked on unwinding `maps.js:464-468` unguarded shims. `damagNearMe` — blocked on de-duping vs `maps-overlays.js:460`. `damageNearMePhotos` — convert only alongside deleting the stale `maps.js:456-457` shim. |
+| **Residual / Tranche 3 (T3-0)** ✅ | shim-blocked clusters | 6 | MED | **SHIPPED 2026-08-31** as Tranche 3 slice T3-0. The two stated blockers had already closed on 2026-08-07 (guarded shim block + `damagNearMe` dedup, PR #1194) — the residual was the deferred conversion itself. All 6 registered + off window: `selectZoneColor`, `startZoneDraw`, `cancelZoneDraw`, `saveZone`, `deleteZone`, `damageNearMePhotos`. Two cross-file **bare** calls had to be rewired first or the controls would have gone silently dead: `dashboard-widgets.js`'s generated zone-delete button (→ `data-action="call"`, the H-1 pattern) and `dashboard-ui.js`'s `zoneColor` action (→ `_nbdResolveCall`). `renderSavedZones` MUST-STAY (`maps-core.js` + `dashboard-bootstrap.module.js` call it off window); `goTo` still never converts. |
 
 ### Per-slice mechanical checklist
 
