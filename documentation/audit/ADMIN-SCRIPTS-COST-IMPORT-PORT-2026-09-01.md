@@ -227,7 +227,7 @@ correct there — `import-catalog-costs.js` legitimately does exactly that.
 
 | Item | Where | Why it is left |
 | --- | --- | --- |
-| `firebase-admin@12` pinned via `NODE_PATH` for the scheduled audit | `.github/workflows/address-audit.yml` (~110-130) | Unchanged on purpose. §2 of the tranche-4 note showed `NODE_PATH` *beats* `functions/`, so the pin now defeats `_admin`'s single resolver for the one run nobody watches. Changing a scheduled workflow deserves its own PR and its own confirmation that the job still passes. |
+| ~~`firebase-admin@12` pinned via `NODE_PATH` for the scheduled audit~~ | `.github/workflows/address-audit.yml` | **CLOSED in a follow-up PR — see §10.** |
 | Stale `export NODE_PATH=<v12>` docstrings | the six scripts in §7 | Doc-only, no runtime effect, and touching six files would bury this port's diff. |
 | Neither cost importer has a unit test | `tests/` | §6 pins their *wiring*; nothing exercises their refusal logic (`--force`, `--correction`, the unrotated-seed gate). `tests/address-audit-script.test.js` is the template if it is ever wanted. |
 | Neither importer echoes the target **project** | both scripts | They print `catalogCosts/{companyId}` but not which Firestore. The project comes silently from ADC, and `_admin` exports `projectId()` for exactly this. Left out to keep the port pure. |
@@ -240,8 +240,42 @@ correct there — `import-catalog-costs.js` legitimately does exactly that.
 `tests/legacy-documents-audit.test.js` (14/14) · live emulator E2E of both
 scripts' `--yes` write path with independent read-back.
 
+## 10. Follow-up: the scheduled audit is off the v12 pin (separate PR)
+
+`.github/workflows/address-audit.yml` installed `firebase-admin@12` into a
+scratch dir and exported `NODE_PATH` at it, on the two claims the tranche-4 note
+disproved. By 2026-09 the pin was the thing most likely to break the job, so it
+is gone.
+
+**The fix is not "delete the `NODE_PATH` line."** The workflow never installed
+`functions/` deps at all — it relied entirely on the scratch tree. Remove only
+the pin and `_admin`'s fallback resolver has nothing to resolve *to*, and the
+audit dies with `MODULE_NOT_FOUND` on the next scheduled run. So the scratch
+install was replaced with the repo's canonical `cd functions && npm ci` step
+(the one `ci.yml` already uses, with the same `npm install` fallback and npm
+caching keyed on `functions/package-lock.json`, which pins **14.3.0**).
+
+Both halves demonstrated on a tree in the runner's exact post-install state
+(`functions/node_modules` present, none at the root or in `scripts/`):
+
+| Condition | `require.resolve('firebase-admin')` from `scripts/` | Which install decides |
+| --- | --- | --- |
+| No `NODE_PATH` (new) | throws `MODULE_NOT_FOUND` | falls back to `functions/` → **14.3.0** ✅ |
+| `NODE_PATH` at the v12 scratch (old) | resolves to `…/nbd-fa12/node_modules/firebase-admin` | **12.7.0 — `functions/` never consulted** ❌ |
+
+Then the workflow's final step was rehearsed end to end against the emulator on
+the unpinned path, seeding leads to drive the gate **both ways** — because a
+scheduled gate that can only go green is the failure mode this workflow's own
+header warns about:
+
+| Fixture | Verdict | Exit |
+| --- | --- | --- |
+| one `legacyMangled` address present | `FAIL — 1 address(es) are broken, not merely thin.`, offending record named in the output | **1** |
+| addresses clean | `PASS — no mangled or blank addresses remain.` | **0** |
+
 ---
 
 **The `scripts/_admin.js` migration is finished.** Nineteen scripts had the dead
-pattern; `scripts/` now has none, and `tests/smoke/functions.test.js` fails if
-one comes back.
+pattern; `scripts/` now has none, `tests/smoke/functions.test.js` fails if one
+comes back, and the last `NODE_PATH` override that could have re-split the
+resolver in CI is gone.

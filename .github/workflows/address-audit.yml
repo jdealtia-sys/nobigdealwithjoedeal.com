@@ -29,11 +29,35 @@ name: Lead address audit
 # failure email. Same convention as the deploy workflow.
 #
 # ─────────────────────────────────────────────────────────────
-# firebase-admin PIN
+# firebase-admin — UNPINNED 2026-09-01 (was v12 via NODE_PATH)
 # ─────────────────────────────────────────────────────────────
-# Pinned to v12 deliberately. v14 changed Timestamp handling in a way that
-# breaks the admin scripts in scripts/. Installed into a scratch directory and
-# reached via NODE_PATH so it cannot perturb the repo's own dependency tree.
+# This used to install firebase-admin@12 into a scratch dir and point NODE_PATH
+# at it, on the stated rationale that "v14 changed Timestamp handling in a way
+# that breaks the admin scripts in scripts/". Both halves of that were wrong,
+# and by 2026-09 the pin had become the thing most likely to break this job.
+#
+# 1. The Timestamp claim was inherited boilerplate. audit-lead-addresses.js
+#    reads `address`, `firstName` and `lastName` — all strings — and orders by
+#    the string literal '__name__'. It touches no Timestamp at all. Measured
+#    against real v14 Timestamp objects: no throw, byte-identical verdict.
+#    (documentation/audit/ADMIN-SCRIPTS-ADMIN-PORT-2026-09-01.md §1)
+#
+# 2. NODE_PATH DEFEATS scripts/_admin.js rather than feeding it. _admin tries a
+#    bare `require.resolve('firebase-admin')` FIRST and only falls back to the
+#    functions/ resolver when that throws. A NODE_PATH tree satisfies the bare
+#    resolve, so the pin silently decided which firebase-admin the script got —
+#    overriding the single-resolver guarantee _admin exists to provide, for the
+#    one run nobody is watching. (§2 of the same note.)
+#
+# So the scratch install is gone and the audit now runs on the SAME
+# firebase-admin the CRM does: functions/package-lock.json, currently 14.3.0.
+# No NODE_PATH is set — _admin's bare resolve fails on the runner (neither
+# scripts/ nor the repo root has node_modules) and it falls back to
+# functions/, which is the designed path.
+#
+# Do not reintroduce NODE_PATH here. If this job ever needs a specific
+# firebase-admin, change functions/package.json so the whole repo moves
+# together.
 
 on:
   schedule:
@@ -90,6 +114,8 @@ jobs:
         uses: actions/setup-node@v7
         with:
           node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: functions/package-lock.json
 
       # Written via an env var rather than shell interpolation — the pattern
       # GitHub recommends, and it keeps the secret out of the run log.
@@ -107,16 +133,22 @@ jobs:
           fi
           echo "sa_path=$SA_FILE" >> "$GITHUB_OUTPUT"
 
-      - name: Install firebase-admin@12 (scratch dir, off the repo tree)
+      # scripts/_admin.js resolves firebase-admin out of functions/, so that is
+      # where it has to be installed. Same step as ci.yml's "Functions parse +
+      # dep install", including the `npm ci` → `npm install` fallback for a
+      # branch that adds a dep before the lock is regenerated.
+      - name: Install functions deps (supplies firebase-admin to scripts/_admin.js)
         if: steps.gate.outputs.configured == 'true'
-        id: fa
         run: |
-          FA_DIR="$RUNNER_TEMP/fa12"
-          mkdir -p "$FA_DIR"
-          cd "$FA_DIR"
-          npm init -y >/dev/null 2>&1
-          npm install --no-audit --no-fund firebase-admin@12
-          echo "node_path=$FA_DIR/node_modules" >> "$GITHUB_OUTPUT"
+          cd functions
+          if [ -f package-lock.json ]; then
+            npm ci --silent || npm install --silent --no-audit --no-fund
+          else
+            npm install --silent --no-audit --no-fund
+          fi
+          # Relative path on purpose: firebase-admin's exports map does not
+          # expose ./package.json, so a bare require of it throws.
+          echo "::notice::audit will run on firebase-admin $(node -p "require('./node_modules/firebase-admin/package.json').version")"
 
       # The gate itself. audit-lead-addresses.js exits non-zero when any
       # `legacyMangled` or `blank` address remains, so a regression turns this
@@ -127,7 +159,8 @@ jobs:
         if: steps.gate.outputs.configured == 'true'
         env:
           GOOGLE_APPLICATION_CREDENTIALS: ${{ steps.sa.outputs.sa_path }}
-          NODE_PATH: ${{ steps.fa.outputs.node_path }}
+          # No NODE_PATH. scripts/_admin.js resolves firebase-admin out of
+          # functions/ on its own; setting NODE_PATH would override that.
         run: |
           set -o pipefail
           FLAGS=""
