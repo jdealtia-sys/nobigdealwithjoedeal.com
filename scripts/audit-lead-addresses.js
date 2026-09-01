@@ -35,10 +35,11 @@
  *   NOT fail the run — that data is missing, not broken, and only the
  *   customer can supply it.
  *
- * SETUP (admin-script-runner pattern — prod nobigdeal-pro via ADC, with
- * NODE_PATH pointed at a firebase-admin v12 install; v14 breaks Timestamps):
+ * SETUP (admin-script-runner pattern — prod nobigdeal-pro via ADC).
+ * firebase-admin comes through scripts/_admin.js: functions/node_modules by
+ * default, or whatever NODE_PATH points at — which is how the daily workflow
+ * supplies its pinned v12 install. Runs on v12 and v14 (no Timestamps here).
  *   export GOOGLE_APPLICATION_CREDENTIALS=~/.nbd/nobigdeal-pro-sa.json
- *   export NODE_PATH=/path/to/fa12/node_modules    # firebase-admin@12
  *   export NBD_PROJECT=nobigdeal-pro               # optional override
  *
  * RUN
@@ -47,7 +48,7 @@
  *   node scripts/audit-lead-addresses.js --csv      # machine-readable
  */
 
-const admin = require('firebase-admin');
+const { initAdmin, getFirestore } = require('./_admin');
 
 const args = process.argv.slice(2);
 const LIST = args.includes('--list');
@@ -73,20 +74,9 @@ function classify(addr) {
   return 'ok';
 }
 
-function init() {
-  try {
-    admin.initializeApp({
-      credential: admin.credential.applicationDefault(),
-      projectId: PROJECT,
-    });
-  } catch (e) {
-    if (!String(e.message || '').includes('already exists')) throw e;
-  }
-}
-
 async function main() {
-  init();
-  const db = admin.firestore();
+  initAdmin({ projectId: PROJECT });
+  const db = getFirestore();
 
   const buckets = { legacyMangled: [], blank: [], noStreet: [], noState: [], noZip: [], ok: [] };
   let scanned = 0;

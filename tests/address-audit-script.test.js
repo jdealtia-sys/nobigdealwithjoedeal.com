@@ -14,8 +14,10 @@
  *   2. It goes permanently GREEN, by classifying something broken as fine.
  *
  * This suite drives the REAL script against a stubbed Firestore and asserts
- * the exit code both ways. firebase-admin is stubbed at the module loader, so
- * no credentials, no network, and it can run in the ordinary CI bucket.
+ * the exit code both ways. scripts/_admin.js (the shared firebase-admin
+ * entrypoint the script imports) is stubbed at the module loader, so no
+ * credentials, no network, no functions/ install, and it can run in the
+ * ordinary CI bucket.
  *
  * Run: node tests/address-audit-script.test.js
  */
@@ -50,16 +52,16 @@ function runAudit(rows, argv) {
   };
 
   const adminStub = {
-    initializeApp() {},
-    credential: { applicationDefault: () => ({}) },
-    firestore: () => ({ collection: () => makeQuery() }),
+    initAdmin() {},
+    getFirestore: () => ({ collection: () => makeQuery() }),
   };
 
-  // Stub firebase-admin at the loader, and clear the script from the cache so
-  // each case re-executes it from scratch.
+  // Stub scripts/_admin.js at the loader — the real module would require
+  // firebase-admin out of functions/ and mint ADC credentials — and clear the
+  // script from the cache so each case re-executes it from scratch.
   const realLoad = Module._load;
   Module._load = function (request, parent, isMain) {
-    if (request === 'firebase-admin') return adminStub;
+    if (request === './_admin') return adminStub;
     return realLoad.apply(this, arguments);
   };
 

@@ -123,6 +123,14 @@ if (unlisted.length) {
 //   (e) every suite in the smoke bucket must carry non-empty documentation.
 const UNWIRED_SPECS = {
   'screenshot-demo.spec.js': 'manual demo-capture tool — deliberately unwired (2026-08-07 audit)',
+  // A DIFFERENTIAL harness, not an assertion suite: it records typeof
+  // window[name] + a source-hash for a name list and writes a JSON file. It
+  // proves nothing on its own — the signal is diffing a run from BEFORE a
+  // globals refactor against one from AFTER, which no single CI job can do
+  // (one job, one tree). Wiring it into a shard would just produce a snapshot
+  // nobody compares. Run it by hand around a globals change; the invocation is
+  // in its header and in the T3-A slice-1 session note (2026-08-31).
+  'globals-surface-snapshot.spec.js': 'manual before/after differential harness for globals refactors — a single unattended run has nothing to compare against (2026-08-31, Tranche 3 T3-A slice 1)',
 };
 const problems = [];
 const readIf = (p) => (fs.existsSync(p) ? fs.readFileSync(p, 'utf8') : '');
