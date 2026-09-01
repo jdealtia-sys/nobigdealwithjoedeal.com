@@ -1821,9 +1821,10 @@ section('Phase C.4 cluster 4 — no-arg toggle handlers via toggle action');
   assert('_nbdResolveMapped checks __NBD_CALL_REGISTRY before window',
     /function _nbdResolveMapped\(fnName\)[\s\S]{0,400}__NBD_CALL_REGISTRY[\s\S]{0,200}window\[fnName\]/.test(mainJs));
   // It must NOT gate on _NBD_CALL_ALLOWLIST. The name came from a curated
-  // in-code map, not from markup, so the map IS the allowlist — and none of the
-  // 36 map names are listed in _NBD_CALL_ALLOWLIST, so adding that gate would
-  // kill every toggle and every modal-close button at once.
+  // in-code map, not from markup, so the map IS the allowlist — and 35 of the
+  // 36 map names are absent from _NBD_CALL_ALLOWLIST (only closeQuickAddLead
+  // appears in both, and that entry serves its separate data-fn dispatch), so
+  // adding that gate would kill nearly every toggle and modal-close button.
   assert('_nbdResolveMapped does NOT gate on _NBD_CALL_ALLOWLIST',
     !/function _nbdResolveMapped\(fnName\)[\s\S]{0,400}_NBD_CALL_ALLOWLIST/.test(mainJs),
     'the curated map is the allowlist; gating again would break all 36 names');

@@ -188,8 +188,9 @@ function _nbdResolveCall(fnName) {
 // allowlist is what stops arbitrary markup invoking an arbitrary global. Here
 // the name never came from the page — the delegate read a data-target key and
 // looked it up in an in-code map, so the map IS the allowlist. Adding an
-// allowlist gate would break all 36 current names, none of which are listed in
-// _NBD_CALL_ALLOWLIST.
+// allowlist gate would break 35 of the 36 current names: only closeQuickAddLead
+// happens to appear in both _NBD_CALL_ALLOWLIST and a map, and it is there for
+// its separate data-fn dispatch, not for this path.
 //
 // Globals Tranche 3 (2026-09-01). Before this, both maps dispatched via a bare
 // `window[fnName]`, which meant a handler reachable ONLY through one of these

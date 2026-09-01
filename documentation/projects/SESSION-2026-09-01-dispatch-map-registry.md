@@ -46,10 +46,11 @@ gate.** There, `fnName` arrives from page markup (`data-fn=`) and the allowlist
 is the security boundary that stops arbitrary markup invoking an arbitrary
 global. Here the name never came from the page — the delegate read a
 `data-target` key and looked it up in a curated in-code map, so **the map is the
-boundary**. This is not a shortcut: none of the 36 map names appear in
-`_NBD_CALL_ALLOWLIST`, so adding the gate would have killed every toggle and
-every modal-close button at once. A smoke assertion pins the absence of that
-gate, with the reason, so it does not get "fixed" later.
+boundary**. This is not a shortcut: **35 of the 36** map names are absent from
+`_NBD_CALL_ALLOWLIST` (only `closeQuickAddLead` appears in both, and that entry
+serves its separate `data-fn` dispatch), so adding the gate would have killed
+nearly every toggle and modal-close button at once. A smoke assertion pins the
+absence of that gate, with the reason, so it does not get "fixed" later.
 
 ### Why it could ship as a no-op
 
