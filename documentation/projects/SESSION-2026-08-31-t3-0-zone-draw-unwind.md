@@ -161,7 +161,7 @@ Fixed for `zoneColor`; **the other dedicated-action branches
 the same latent trap** and will each need the same one-line change the first
 time their target is converted. Worth knowing before T3-A.
 
-## Gap found, not closed (deliberate)
+## Gap found, not closed (deliberate) — **closed 2026-08-31, same day**
 
 **Generated `data-fn` markup is not covered by any wiring audit.** The smoke
 "FULL wiring audit" scans `dashboard.html` only; `data-fn` attributes emitted
@@ -176,6 +176,43 @@ live in `dashboard-ui.js` **doc comments**, so a naive gate needs
 comment-stripping — exactly the kind of heuristic that becomes a flaky gate for
 a later session. Scoped out rather than rushed; T3-0's own assertions pin the
 `deleteZone` pair directly.
+
+### Update 2026-08-31 (follow-up PR) — gate shipped
+
+Closed as scan **(e)** in the same `tests/smoke/dashboard.test.js` block. The
+comment problem was solved by **position, not by name** — no exclusion list.
+A new `jsSegments(src)` in `tests/smoke/_shared.js` partitions a file into
+`code` / `string` / `comment` / `regex` segments and the audit reads the
+string segments only, so prose is excluded because of *where* it sits. A name
+that only ever appears in a doc comment is invisible to the gate no matter what
+it is called, and renaming a placeholder cannot re-open the hole.
+
+The one real ambiguity in JS lexing (`/` = regex or division) is resolved the
+standard way, and is **contained**: single-quoted, double-quoted and regex
+modes all bail at a newline, so a misread can never reach past its own line —
+and the two multi-line modes (template literals, block comments) are entered
+unambiguously by `` ` `` and `/*`, never by `/`.
+
+Three guards keep the scanner from silently going blind, which is the failure
+mode a grep-based gate cannot detect at all:
+
+1. a **fixture self-test** (14 lines, one per case a naive comment-stripper
+   gets wrong: `//` inside a URL string, a quote inside a regex character
+   class, `return /re/`, `(a+b) / c`, `/*` inside a string, a comment inside a
+   `${ }` hole, nested braces in a hole, escaped quotes) asserting the exact
+   name set per segment kind;
+2. a **partition invariant** — every byte of every scanned file lands in
+   exactly one segment;
+3. a **corpus canary** asserting doc-comment-only dispatch names still exist
+   and are still being excluded, so a regression to a plain grep fails loudly.
+
+**Correction to the count above:** the shipped scan measures **18** generated
+names (19 sites — `selectTier` is emitted twice) over the same attribute set
+the `dashboard.html` scan uses, not 20. All 18 resolve: 10 via
+`__NBD_CALL_REGISTRY`, 8 via the `dashboard-state.js` allowlist. The gate
+passed on its first run, as intended — it prevents future breakage rather than
+fixing a live bug. Verified by mutation: an unresolvable generated name fails
+with its `file:line`, while the same name added to a doc comment does not.
 
 ## Where Rock 4 stands now
 
