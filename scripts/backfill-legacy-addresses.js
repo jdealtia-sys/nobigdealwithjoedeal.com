@@ -199,6 +199,13 @@ async function main() {
     for (const doc of snap.docs) {
       if (known.has(doc.id)) continue;
       const d = doc.data() || {};
+      // Skip soft-deleted rows, matching audit-lead-addresses.js:100. The app
+      // soft-deletes rather than destroying, so merged duplicates and test
+      // records still sit in the collection with their old mangled addresses.
+      // Counting them here made this script's "unresolved mangled" total read
+      // higher than the audit's — while this script's own docstring calls that
+      // audit its acceptance test. The two numbers now mean the same thing.
+      if (d.deleted === true) continue;
       const addr = String(d.address || '').trim();
       if (!LEGACY_MANGLED.test(addr)) continue;
       unresolved++;
