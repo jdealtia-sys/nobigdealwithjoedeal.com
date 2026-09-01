@@ -64,6 +64,11 @@ Thumbs.db
 .firebase/hosting.*.cache
 firebase-debug.log
 tests/e2e/.audit-report.json
+# globals-surface-snapshot.spec.js output (run it before AND after a globals
+# refactor and diff the two files; the snapshots themselves are throwaway)
+tests/e2e/.globals-*.json
+# default output path of scripts/globals-xref.js when no out-file is given
+globals-xref.json
 
 # Obsidian vault workspace (documentation/ is usable as a vault; config stays local)
 .obsidian/

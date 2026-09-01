@@ -942,21 +942,13 @@ Object.assign(window.__NBD_CALL_REGISTRY, {
 //  and in maps.js shadowed its per-PositionError user messaging.)
 
 // ══════════════════════════════════════════════
-// FORWARD-REFERENCE BLOCK — surface other modules' globals onto window
+// OWN EXPORTS — names this file actually defines
 // ══════════════════════════════════════════════
-// Expose ALL functions to global scope for inline onclick handlers
-// (required because type="module" script above affects global scope in some browsers)
+// (The forward-reference re-exports that used to be interleaved here were
+//  deleted in Globals Tranche 3 slice T3-A part 1 — see the block below.)
 window.mobileNav = mobileNav;
 window.toggleMobileMore = toggleMobileMore;
 window.closeMobileMore = closeMobileMore;
-// CRM / Leads - functions exposed by crm.js
-// Tasks — these are now defined and exposed in js/tasks.js
-// Guard against ReferenceError if tasks.js hasn't loaded yet
-if (typeof openTaskModal === 'function') window.openTaskModal = openTaskModal;
-if (typeof closeTaskModal === 'function') window.closeTaskModal = closeTaskModal;
-if (typeof addTask === 'function') window.addTask = addTask;
-if (typeof removeTask === 'function') window.removeTask = removeTask;
-// Estimates
 
 // ══ REMOVED: Duplicate QM Import, QuickAddLead, Warranty Cert, Lead Export CSV ══
 // Canonical definitions live in js/tools.js and js/warranty-cert.js (both loaded above)
@@ -1012,9 +1004,6 @@ if (typeof startNewEstimate === 'function') {
     window[n].__nbdLazyEstimateStub = true;
   });
 }
-if(typeof saveEstimate==='function'){window.saveEstimate=saveEstimate;}
-if(typeof cancelEstimate==='function'){window.cancelEstimate=cancelEstimate;}
-if(typeof viewEstimate==='function'){window.viewEstimate=viewEstimate;}
 
 // PR 2d: the photo + inspection engine is lazy (ScriptLoader 'photos' bundle).
 // Install load-then-run stubs for the entry points (camera, gallery, upload,
@@ -1065,136 +1054,54 @@ if (typeof window.PhotoEngine === 'undefined' || typeof window.InspectionReportE
     window.generatePhotoReport.__nbdLazyPhotosStub = true;
   }
 }
-if(typeof exportEstimate==='function'){window.exportEstimate=exportEstimate;}
-if(typeof estNext==='function'){window.estNext=estNext;}
-if(typeof estBack==='function'){window.estBack=estBack;}
-if(typeof selectTier==='function'){window.selectTier=selectTier;}
-// Map functions - exposed by maps.js after it loads (line 8217)
-if(typeof searchMap!=='undefined') window.searchMap = searchMap;
-if(typeof selectPin!=='undefined') window.selectPin = selectPin;
-if(typeof deletePin!=='undefined') window.deletePin = deletePin;
-if(typeof clearAllPins!=='undefined') window.clearAllPins = clearAllPins;
-// damageNearMePhotos → __NBD_CALL_REGISTRY (own IIFE above, Tranche 3 T3-0) — re-export removed.
-if(typeof toggleMapSidebar!=='undefined') window.toggleMapSidebar = toggleMapSidebar;
-// renderSavedZones is exported from inside the zone IIFE above (Tranche 3 T3-0);
-// this forward-reference copy was redundant once the cluster owned its export.
-// spyglassSearch / spyglassGoToLocation / fabToggle / quickStormCheck →
-// __NBD_CALL_REGISTRY (dashboard-ui.js, Tranche 2c-4h Slice H2) — re-exports removed.
-if(typeof updatePinStats!=='undefined') window.updatePinStats = updatePinStats;
-// selectZoneColor / startZoneDraw / cancelZoneDraw / saveZone / deleteZone →
-// __NBD_CALL_REGISTRY (zone IIFE above, Globals Tranche 3 T3-0) — re-exports removed.
-if(typeof loadSampleData!=='undefined') window.loadSampleData = loadSampleData;
-if(typeof handleCardClick!=='undefined') window.handleCardClick = handleCardClick; // Exposed by crm.js
-// Map Overlay System
-if(typeof toggleOverlay!=='undefined') window.toggleOverlay = toggleOverlay;
 // ══════════════════════════════════════════════════════════════════
-// FORWARD REFERENCES REMOVED - Functions exposed by their own modules
-// All assignments below moved to crm.js, maps.js, etc.
-// ══════════════════════════════════════════════════════════════════
-// Delete confirm + deleted drawer: owned by crm-portal-bridge.js, which
-// loads AFTER this file — so these typeof-guards were always 'undefined'
-// here and no-op'd (dead since the crm.js split). Globals Tranche 2c-3
-// wrapped that module: cancelDeleteConfirm/confirmDeleteLead/openDeletedDrawer
-// register in __NBD_CALL_REGISTRY, closeDeletedDrawer re-exports itself —
-// none need a forward-reference here. (restoreDeletedLead/permanentDeleteLead
-// remain crm.js window aliases; their guards stay below.)
-if(typeof restoreDeletedLead!=='undefined') window.restoreDeletedLead = restoreDeletedLead;
-if(typeof permanentDeleteLead!=='undefined') window.permanentDeleteLead = permanentDeleteLead;
-// Pin popup actions - in maps.js
-if(typeof goToLeadFromPin!=='undefined') window.goToLeadFromPin = goToLeadFromPin;
-if(typeof deleteLeadFromPin!=='undefined') window.deleteLeadFromPin = deleteLeadFromPin;
-if(typeof makeLeadFromPin!=='undefined') window.makeLeadFromPin = makeLeadFromPin;
-if(typeof deletePinOnly!=='undefined') window.deletePinOnly = deletePinOnly;
-if(typeof dropPinByAddress!=='undefined') window.dropPinByAddress = dropPinByAddress;
-if(typeof drop!=='undefined') window.drop = drop;
-if(typeof openPinConfirm!=='undefined') window.openPinConfirm = openPinConfirm;
-if(typeof cancelPinConfirm!=='undefined') window.cancelPinConfirm = cancelPinConfirm;
-if(typeof commitPin!=='undefined') window.commitPin = commitPin;
-// Autocomplete - in dashboard.html below
-if(typeof selectAcItem!=='undefined') window.selectAcItem = selectAcItem;
-if(typeof hideAcDrop!=='undefined') window.hideAcDrop = hideAcDrop;
-// Make Lead from Map - in maps.js
-if(typeof makeLeadFromSearch!=='undefined') window.makeLeadFromSearch = makeLeadFromSearch;
-if(typeof fetchPropertyIntel!=='undefined') window.fetchPropertyIntel = fetchPropertyIntel;
-// pullIntelForModal → __NBD_CALL_REGISTRY via property-intel.js (Tranche 2c-4h Slice H2 pt2) — re-export removed.
-// Drawing tool - in maps.js
-if(typeof searchDraw!=='undefined') window.searchDraw = searchDraw;
-if(typeof selLT!=='undefined') window.selLT = selLT;
-if(typeof toggleDraw!=='undefined') window.toggleDraw = toggleDraw;
-if(typeof clearDraw!=='undefined') window.clearDraw = clearDraw;
-if(typeof undoLine!=='undefined') window.undoLine = undoLine;
-if(typeof deleteLine!=='undefined') window.deleteLine = deleteLine;
-if(typeof exportDrawReport!=='undefined') window.exportDrawReport = exportDrawReport;
-if(typeof importToEstimate!=='undefined') window.importToEstimate = importToEstimate;
+// FORWARD-REFERENCE BLOCK — DELETED (Globals Tranche 3, slice T3-A part 1,
+// 2026-08-31). 86 guarded re-exports of the shape
+//     if (typeof X !== 'undefined') window.X = X;
+// lived here (in two separate runs), left over from the original monolith
+// split. Every one of them was inert, and a live before/after snapshot of all
+// 85 distinct names was byte-identical — same typeof, same function-source
+// fingerprint (tests/e2e/globals-surface-snapshot.spec.js):
+//
+//   • 62 were DEAD. The subject is defined in a script that loads AFTER this
+//     one (maps-overlays, maps-routing, maps, ai, ui, crm, crm-portal-bridge,
+//     tasks) or, for the estimates.js names, only ever arrives through the
+//     lazy ScriptLoader bundle and is never a static <script> at all. A
+//     `typeof` read at THIS file's execution time therefore always saw
+//     'undefined' and the assignment never ran. Four names (drop, saveJoeKey,
+//     markAllNotificationsRead, markNotificationRead) have no definition
+//     anywhere in the tree.
+//   • 24 were REDUNDANT. The subject is a top-level `function` declaration in
+//     an EARLIER classic script, which already makes it a window property, so
+//     `window.X = X` re-assigned a name to the value it already held.
+//
+// KEPT DELIBERATELY: the `if (typeof startNewEstimate === 'function') { … }
+// else { … }` block above only LOOKS like one of these. Its else-branch is
+// load-bearing — it installs the load-then-run stubs for the whole lazy
+// estimates bundle — and that branch is in fact the one that always runs.
+//
+// Deleting the block changes no behaviour. What it does change is the globals
+// census: scripts/globals-xref.js infers ownership from the literal text
+// `window.X =`, so this block made dashboard-actions.js look like the assigner
+// of ~60 names it does not define. That mis-attribution is what produced the
+// Tranche 3 plan's "dashboard-actions.js (33) mechanically-safe" figure — of
+// those 33, only a handful were even owned by this file. See
+// docs/dev/globals-tranche3-plan.md.
+//
+// DO NOT RE-ADD A FORWARD REFERENCE HERE. A module exposes its own API; if a
+// name needs to cross a file boundary, register it in __NBD_CALL_REGISTRY or
+// export it from the module that defines it. tests/smoke/dashboard.test.js
+// pins this block at zero.
+//
+// Names previously listed here that earlier tranches moved to the registry —
+// do not resurrect these on window either: spyglassSearch, spyglassGoToLocation,
+// fabToggle, quickStormCheck, openUploadDoc, printDoc (Tranche 2c-4h H2);
+// pullIntelForModal, executePullPropertyIntel, confirmPropertyIntelPull
+// (2c-4h H2 pt2); the ds* daily-settings cluster (2c-4d); damageNearMePhotos,
+// selectZoneColor, startZoneDraw, cancelZoneDraw, saveZone, deleteZone (T3-0).
+// renderSavedZones is exported from inside the zone IIFE above, deliberately.
 // ══════════════════════════════════════════════════════════════════
 
-// ══════════════════════════════════════════════════════════════════
-// ALL FORWARD REFERENCES BELOW COMMENTED OUT - FUNCTIONS NOT DEFINED YET
-// These assignments will be moved to their respective JS files or
-// added AFTER function definitions later in this file
-// ══════════════════════════════════════════════════════════════════
-// Drawing tool functions - in maps.js
-if(typeof setDrawMode!=='undefined') window.setDrawMode = setDrawMode;
-if(typeof perimChooseType!=='undefined') window.perimChooseType = perimChooseType;
-if(typeof selectLine!=='undefined') window.selectLine = selectLine;
-if(typeof deselectLine!=='undefined') window.deselectLine = deselectLine;
-if(typeof retypeLine!=='undefined') window.retypeLine = retypeLine;
-if(typeof erToggleSegment!=='undefined') window.erToggleSegment = erToggleSegment;
-// Photos - defined later in this file
-if(typeof openPhotoFor!=='undefined') window.openPhotoFor = openPhotoFor;
-if(typeof closePhotoModal!=='undefined') window.closePhotoModal = closePhotoModal;
-if(typeof uploadPhotos!=='undefined') window.uploadPhotos = uploadPhotos;
-if(typeof renderPhotoLeads!=='undefined') window.renderPhotoLeads = renderPhotoLeads;
-if(typeof renderPhotoGrid!=='undefined') window.renderPhotoGrid = renderPhotoGrid;
-// Documents - defined later in this file
-// openUploadDoc → __NBD_CALL_REGISTRY (dashboard-ui.js, Tranche 2c-4h Slice H2) — re-export removed.
-if(typeof closeUploadDoc!=='undefined') window.closeUploadDoc = closeUploadDoc;
-if(typeof saveDocUpload!=='undefined') window.saveDocUpload = saveDocUpload;
-if(typeof openDocTemplate!=='undefined') window.openDocTemplate = openDocTemplate;
-// printDoc → __NBD_CALL_REGISTRY (dashboard-ui.js, Tranche 2c-4h Slice H2) — re-export removed.
-if(typeof closeDocViewer!=='undefined') window.closeDocViewer = closeDocViewer;
-// Ask Joe AI - in ai.js
-if(typeof sendJoeMessage!=='undefined') window.sendJoeMessage = sendJoeMessage;
-if(typeof joeQuick!=='undefined') window.joeQuick = joeQuick;
-if(typeof saveJoeKey!=='undefined') window.saveJoeKey = saveJoeKey;
-if(typeof clearJoeKey!=='undefined') window.clearJoeKey = clearJoeKey;
-// Misc - defined later in this file
-if(typeof openTips!=='undefined') window.openTips = openTips;
-if(typeof closeTips!=='undefined') window.closeTips = closeTips;
-if(typeof applyTheme!=='undefined') window.applyTheme = applyTheme;
-if(typeof goToWithTheme!=='undefined') window.goToWithTheme = goToWithTheme;
-if(typeof showToast!=='undefined') window.showToast = showToast;
-// Daily settings — the ds* cluster is IIFE-wrapped (Globals Tranche 2c-4d,
-// 2026-07-07); its window exports moved INSIDE that IIFE (dsRemoveFloor stays,
-// the rest go to the registry). This load-time typeof block would read
-// 'undefined' post-wrap (the decls are module-local now), so it is gone.
-// NBD Unified Appearance Picker - in maps.js or dashboard
-if(typeof nbdPickerOpen!=='undefined') window.nbdPickerOpen = nbdPickerOpen;
-if(typeof nbdPickerClose!=='undefined') window.nbdPickerClose = nbdPickerClose;
-if(typeof nbdPickerTab!=='undefined') window.nbdPickerTab = nbdPickerTab;
-if(typeof nbdHowtoOpen!=='undefined') window.nbdHowtoOpen = nbdHowtoOpen;
-if(typeof nbdHowtoClose!=='undefined') window.nbdHowtoClose = nbdHowtoClose;
-if(typeof nbdApplyTheme!=='undefined') window.nbdApplyTheme = nbdApplyTheme;
-if(typeof nbdApplyFont!=='undefined') window.nbdApplyFont = nbdApplyFont;
-if(typeof nbdRandom!=='undefined') window.nbdRandom = nbdRandom;
-if(typeof nbdSaveCustom!=='undefined') window.nbdSaveCustom = nbdSaveCustom;
-if(typeof nbdSetCat!=='undefined') window.nbdSetCat = nbdSetCat;
-// Navigation - defined later in this file
-if(typeof toggleNavSection!=='undefined') window.toggleNavSection = toggleNavSection;
-if(typeof toggleSettingsSection!=='undefined') window.toggleSettingsSection = toggleSettingsSection;
-// CRM Search - already in crm.js
-if(typeof clearCrmSearch!=='undefined') window.clearCrmSearch = clearCrmSearch;
-// Property Intel - defined later in this file
-// executePullPropertyIntel / confirmPropertyIntelPull → __NBD_CALL_REGISTRY via
-// property-intel.js (Tranche 2c-4h Slice H2 pt2) — re-exports removed.
-if(typeof closePropertyIntelModal!=='undefined') window.closePropertyIntelModal = closePropertyIntelModal;
-if(typeof closePropertyIntelConfirmModal!=='undefined') window.closePropertyIntelConfirmModal = closePropertyIntelConfirmModal;
-// Notifications - defined later in this file
-if(typeof markAllNotificationsRead!=='undefined') window.markAllNotificationsRead = markAllNotificationsRead;
-if(typeof markNotificationRead!=='undefined') window.markNotificationRead = markNotificationRead;
-if(typeof dsPickTheme!=='undefined') window.dsPickTheme = dsPickTheme;
-if(typeof renderLeaderboard!=='undefined') window.renderLeaderboard = renderLeaderboard;
-// ══════════════════════════════════════════════════════════════════
 
 // ══════════════════════════════════════════════
 // DAILY PROGRAM — config logic — Globals Tranche 2c-4d (2026-07-07)

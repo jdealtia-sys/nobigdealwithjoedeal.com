@@ -3470,6 +3470,45 @@ section('Globals Tranche 2c: __NBD_CALL_REGISTRY dispatch layer');
   assert('the zoneColor action no longer probes a bare typeof selectZoneColor',
     !/typeof selectZoneColor === 'function'/.test(ui));
 
+  // ── Tranche 3 slice T3-A part 1 (2026-08-31): the forward-reference block ──
+  // dashboard-actions.js carried 86 guarded re-exports left over from the
+  // monolith split, of the form `if (typeof X !== 'undefined') window.X = X;`.
+  // ALL of them were inert: 62 dead (the subject is defined in a script that
+  // loads AFTER this one — or, for the estimates.js names, only ever arrives via
+  // the lazy ScriptLoader bundle — so the typeof read was always 'undefined'),
+  // and 24 redundant (the subject is a top-level `function` in an EARLIER
+  // classic script, so it was already a window property). A live before/after
+  // snapshot of all 85 distinct names was byte-identical, twice — see
+  // tests/e2e/globals-surface-snapshot.spec.js.
+  //
+  // They are pinned at zero because the block was actively harmful: the globals
+  // census (scripts/globals-xref.js) infers ownership from the literal text
+  // `window.X =`, so these lines made dashboard-actions.js look like the
+  // assigner of names it does not define. That is where the Tranche 3 plan's
+  // "dashboard-actions.js (33) mechanically-safe" figure came from — 26 of
+  // those 34 names were phantoms, and deleting the block dropped the census
+  // from 821 rows to 782 without changing one byte of behaviour.
+  // Strictly single-line: [ \t] rather than \s, because \s matches newlines and
+  // would otherwise swallow the legitimate multi-line lazy-stub installer
+  //   if (typeof startNewEstimate === 'function') { window.startNewEstimate = ... }
+  //   else { ...install load-then-run stubs for the estimates bundle... }
+  // whose else-branch is load-bearing and must stay.
+  const FWD_GUARD = /^[ \t]*if[ \t]*\([ \t]*typeof[ \t]+([A-Za-z_$][\w$]*)[ \t]*(?:!==|!=|===|==)[ \t]*['"](?:undefined|function)['"][ \t]*\)[ \t]*\{?[ \t]*window\.\1[ \t]*=[ \t]*\1[ \t]*;[ \t]*\}?[ \t]*$/gm;
+  const fwdLeft = [...dashActions.matchAll(FWD_GUARD)].map(m => m[1]);
+  assert('dashboard-actions.js has NO `typeof X` forward-reference re-exports left — '
+      + (fwdLeft.slice(0, 6).join(', ') || 'clean'),
+    fwdLeft.length === 0,
+    'a module exposes its own API; a forward reference here is either dead (subject '
+    + 'loads later) or redundant (subject is already an auto-global), and it corrupts '
+    + 'the globals census either way');
+  // The same anti-pattern must not migrate into the other big dashboard files.
+  for (const f of ['dashboard-ui.js', 'dashboard-widgets.js', 'dashboard-state.js']) {
+    const s = read(path.join(PRO_JS, f));
+    const hits = [...s.matchAll(FWD_GUARD)].map(m => m[1]);
+    assert('no forward-reference re-export block in ' + f + ' — '
+        + (hits.slice(0, 4).join(', ') || 'clean'), hits.length === 0);
+  }
+
   // The resolver's window fallback is allowlist-gated; keep state ahead of
   // dashboard-ui in the defer queue so the gate exists when dispatch runs.
   const dashRaw = read(path.join(ROOT, 'docs/pro/dashboard.html'));

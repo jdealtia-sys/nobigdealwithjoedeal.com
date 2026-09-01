@@ -132,6 +132,65 @@ one PR per 2–3 files, three-way proof per name, smoke + advisory E2E green.
 This is the same shape as Tranche 0/1 and can be background work in any
 session.
 
+> ### ⚠ CORRECTION 2026-08-31 — "mechanically safe" is NOT safe. Read this before touching T3-A.
+>
+> Slice 1 (`dashboard-actions.js`, "33") was executed and the premise did not
+> survive contact. **Of its 34 names — the count is 34, not 33, post-T3-0 —
+> exactly zero were mechanically safe.** Full record:
+> [SESSION-2026-08-31-t3-a-slice1](../../documentation/projects/SESSION-2026-08-31-t3-a-slice1.md).
+>
+> **Two independent defects, both in the filter, not in the data.**
+>
+> **1. The filter is blind to the two commonest cross-file paths.**
+> `scripts/globals-xref.js` detects consumers only by matching the literal text
+> `window.<name>`. It cannot see:
+> - a **bare identifier call** — `foo(x)` in another classic script. 21 of the
+>   34 had at least one.
+> - **`window[fnName]` map dispatch** — a name that appears as a *value* in
+>   `_NBD_TOGGLE_FNS` / `_NBD_MODAL_CLOSE_FNS` (`dashboard-state.js`), resolved
+>   in `dashboard-ui.js`. 10 of the 34 were in those maps, all modal-close
+>   handlers. This is blind spot #1 named at the top of this doc — but the
+>   T3-A slice definition then contradicts it by calling the filter's output
+>   "mechanically safe" and "background work in any session". **It is neither.**
+>
+> Scoping any of those names produces a *silent* failure: the map lookup or the
+> `typeof` probe returns undefined, the delegate returns early, and nothing
+> throws. A modal Joe cannot close mid-job is the failure mode.
+>
+> **2. The filter mis-attributes ownership, and that is where the "33" came from.**
+> `dashboard-actions.js` carried **86 inert forward-reference re-exports**
+> (`if (typeof X !== 'undefined') window.X = X;`) left from the monolith split.
+> The census read each one as "dashboard-actions.js assigns X". **26 of the 34
+> were phantoms** — names defined in `dashboard-ui.js`, `dashboard-widgets.js`,
+> `dashboard-api.js`, `maps-routing.js`, `maps.js`, `ui.js`, or nowhere at all.
+> Slice 1 deleted the block (proved inert by a live before/after snapshot); all
+> 26 vanished from the census.
+>
+> **What is actually left in this file: 8 names, and every one needs real work.**
+>
+> | Name | Why it is not mechanical |
+> |---|---|
+> | `closeMobileCreatePopover` | `_NBD_MODAL_CLOSE_FNS` → `window[fnName]` |
+> | `closeMobileInspection` | `_NBD_MODAL_CLOSE_FNS` |
+> | `closeMobileMore` | `_NBD_MODAL_CLOSE_FNS` + bare calls in `dashboard-ui.js:436`, `mobile-nav-customizer.js:388` |
+> | `toggleMobileMore` | `_NBD_TOGGLE_FNS` + bare call `mobile-nav-customizer.js:800` |
+> | `dsRemoveFloor` | bare call `dashboard-ui.js:2165` (already a known MUST-STAY from 2c-4d) |
+> | `_mJdOpenEstimate` | 2 generated `data-fn` markup hits → needs registry |
+> | `confirmPromoteProspect` | allowlisted + read via `window.` in-file; the only genuine registry candidate |
+> | `openMobileInspection` | deliberate `window` export (2c-4b) + smoke-pinned → **MUST STAY** |
+>
+> **3. And the census undercounts the surface by ~40%.** It only sees explicit
+> `window.X =`. A classic script's top-level `function foo(){}` is *also* a
+> window property with no such text: **355 auto-globals exist that the census
+> has never counted.** Top owners: `dashboard-ui.js` (64), `maps-customers.js`
+> (45), `vault-page.js` (40), `ai-tool-finder-page-2.js` (39), `ui.js` (35).
+> Every band figure in the table at the top of this doc is a floor, not a total.
+>
+> **Before running any further T3-A slice**, re-derive its name list with a
+> filter that also checks bare cross-file calls and the two dispatch maps — the
+> naive filter has a **100% false-positive rate** on the one file tested. The
+> per-name script used for slice 1 is described in the session note.
+
 **T3-B — zero-external names with HTML hits or twin assigners (177).**
 Each needs either delegate-then-scope (the H-1 house pattern — migrate the
 generated inline handler to `data-action`, THEN scope the global) or a
