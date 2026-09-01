@@ -33,7 +33,9 @@
  *     it by hand, the entry no-ops instead of overwriting their work.
  *   • Idempotent — re-running after a successful apply reports "already
  *     correct" and writes nothing.
- *   • Only ever writes `address` (+ `updatedAt`). No other field is touched.
+ *   • Only ever writes `address`. No other field is touched — not even
+ *     `updatedAt`: this is a data correction, not a customer interaction, and
+ *     the analytics monthly-trend chart buckets won-lead revenue by updatedAt.
  *
  * SETUP (admin-script-runner pattern — prod nobigdeal-pro via ADC).
  * firebase-admin arrives through scripts/_admin.js, which resolves it out of
@@ -46,11 +48,9 @@
  * (This docstring used to warn "v14 breaks Timestamps". That was inherited
  * boilerplate — it appeared verbatim in seven sibling scripts, the exact
  * copy-paste propagation _admin.js's own docstring describes. This script
- * READS only `address`, `firstName` and `lastName`, all strings, and orders by
- * the '__name__' string literal — no Timestamp is ever read, compared or
- * printed. The only one it produces is `updatedAt: new Date()`, a JS Date the
- * Firestore serializer converts identically on v12 and v14. See
- * documentation/audit/ADMIN-SCRIPTS-ADMIN-PORT-2026-09-01.md.)
+ * reads only `address`, `firstName` and `lastName`, all strings, and orders by
+ * the '__name__' string literal. It neither reads nor writes a Timestamp at
+ * all. See documentation/audit/ADMIN-SCRIPTS-ADMIN-PORT-2026-09-01.md.)
  *   export GOOGLE_APPLICATION_CREDENTIALS=~/.nbd/nobigdeal-pro-sa.json
  *   export NBD_PROJECT=nobigdeal-pro               # optional override
  *
@@ -161,7 +161,23 @@ async function main() {
 
     if (APPLY) {
       try {
-        await ref.set({ address: c.correct, updatedAt: new Date() }, { merge: true });
+        // `address` ONLY — deliberately no `updatedAt`. An address repair is a
+        // data correction, not a customer interaction, and three consumers read
+        // updatedAt as if it were one:
+        //
+        //   analytics-kpi.js monthlyTrend buckets won-lead revenue by
+        //     updatedAt with NO stageStartedAt fallback, so stamping it would
+        //     move a corrected lead's jobValue out of its real close month
+        //     into the month this script ran. The sibling closedThisMonth KPI
+        //     already carries that fallback (F3) — monthlyTrend never got it.
+        //   ask-joe-proactive.js _lastTouch falls through to updatedAt, so a
+        //     cold lead would look freshly contacted and its follow-up nudge
+        //     would stop firing.
+        //   crm-list-view.js _activity sorts on it.
+        //
+        // Writing one field also makes the SAFETY claim above strictly
+        // stronger, which is the point.
+        await ref.set({ address: c.correct }, { merge: true });
         applied++;
       } catch (e) {
         failed++;
