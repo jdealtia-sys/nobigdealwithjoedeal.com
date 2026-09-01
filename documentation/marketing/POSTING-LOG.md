@@ -4,6 +4,42 @@
 > is the truth of what shipped. Add newest at the top. Keeping this means the
 > next session never has to guess whether a kit was posted.
 
+## 2026-08-31 (Sun, last) — GBP photo gallery refreshed (12 added, first in 147 days)
+
+Google's own dashboard was prompting: *"You last added photos 147 days ago."* Twelve curated photos went up, chosen from the 243 published, EXIF-stripped images already in `docs/assets/images/projects/`.
+
+**Photos may be the highest-reach surface on this profile.** Existing gallery images show view counts of 188, 308, and **one over 1,000** — more reach than a typical post earns. Keeping this gallery fed is worth more per unit of effort than another post, and it was the most neglected surface on the profile.
+
+### What went up, in order
+
+`completed-colonial-spring` · `active-culdescac-crew` · `aframe-standing-seam-metal-2` · `norwood-oh-victorian-three-system-2026-1` · `loveland-oh-single-day-replacement-2024-1` · `aerial-dual-property` · `blue-ash-oh-roof-vents-thermal-2026-1` · `detail-valley-shingle` · `cincinnati-oh-gutter-screens-2026-2` · `brick-duplex-designer-reroof-2026-3` · `sharonville-oh-storm-siding-repair-2026-1` · `commercial-apartment-completed`
+
+Ordered to alternate finished-result and proof-of-work so the grid never shows two similar tiles side by side, and to get one of each service into the first twelve.
+
+### Curation method — 21 candidates in, 12 out
+
+A visual pass graded every candidate hero/solid/weak/reject. **Three were rejected outright** and are worth not re-uploading later:
+
+- `cincinnati-oh-hillside-charcoal-2023-1` — bare decking, torn shingle scraps, a visible hole. Reads as an abandoned job.
+- `damage-lifted-shingles` — so deep in shadow the defect is invisible; a dark gray rectangle at thumbnail size.
+- `loveland-oh-epdm-inspection-2026-1` — "a wet gray field, sticks, and a boot."
+
+**Two of those three were live card heroes on the website** — fixed the same day in PR #1313 by promoting a better frame from each set (the finished charcoal hip, and the fingertip-on-torn-membrane shot). The originals stay in their carousels; only the lead frame changed.
+
+Six more graded *weak* and were held back: four are damage-documentation frames (`10` even carries a drawn-on yellow annotation circle, which reads as an insurance exhibit) that would work **only** paired with their finished-repair counterparts; one is redundant with a better gutter shot; one is killed by flat overcast light.
+
+### Gaps to close on future jobs — worth more than any re-shuffle
+
+1. **No human faces anywhere.** Google's Team / At-work / Identity buckets are empty. For an owner-operator brand built on "Talk to Joe — not a salesman," this is the single biggest miss. Jo's professional headshot already exists at `docs/assets/images/joe-hero.jpg` and is the easy fill.
+2. **No readable branding in any photo** — no logo, no signage. **Note the constraint: Jo drives an unbranded work wagon and has no magnets**, so the usual "shoot your truck door" advice does not apply. Magnetic door signs (~$30–60/pair, removable) are the only cheap path if he ever wants it. Don't put a truck-photo task in a handoff without acknowledging this.
+3. **The storefront slot is not applicable** — the profile is correctly set to "No location; deliveries and home services only." Google's completion flow still asks for a storefront photo, so Profile Strength may never read full. That is fine; do not upload a customer's house to satisfy it.
+4. **No true before/after pairs on the same address** — damage frames and finished roofs are different houses. Three matched pairs would unlock the six "weak" damage frames.
+5. **Two paid categories have zero photos**: gutter *cleaning* (the two on file are installs) and water-damage restoration.
+6. **No video at all** — a slot Google weights and local competitors ignore.
+7. **Too aerial-heavy.** Almost no ground-level, eye-height finished-house shots; `completed-colonial-spring` is carrying that whole register alone. Two or three sidewalk-level front elevations on a sunny day would strengthen the set more than another drone frame.
+
+---
+
 ## 2026-08-31 (Sun, latest) — GBP posts 1 + 2, and every review replied
 
 **The 08-28 kit is now fully published: 6 of 6.** GBP posts 1 (duplex re-roof) and 2 (gutters) went out with Jo picking photos from a pre-named Desktop folder; both carry **Call now**.
