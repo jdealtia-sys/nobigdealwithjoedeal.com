@@ -38,6 +38,13 @@
  *
  * Dry run is the DEFAULT. Exit codes: 0 = ok, 1 = validation failed / refused,
  * 2 = fatal.
+ *
+ * ⚠ A DRY RUN VERIFIES NOTHING ABOUT THE WRITE PATH. It exits above the
+ *   firebase-admin require, so it never loads scripts/_admin.js, never
+ *   authenticates and never reaches Firestore — measured, not assumed
+ *   (documentation/audit/ADMIN-SCRIPTS-COST-IMPORT-PORT-2026-09-01.md). To
+ *   exercise this script end to end without touching prod, point it at the
+ *   Firestore emulator: FIRESTORE_EMULATOR_HOST + a demo GCLOUD_PROJECT.
  */
 
 'use strict';
@@ -191,14 +198,29 @@ if (!WRITE) {
   process.exit(0);
 }
 
-// firebase-admin lives in functions/node_modules (scripts/ has none).
-let admin;
-try { admin = require('firebase-admin'); }
-catch (_) { admin = require('module').createRequire(path.join(ROOT, 'functions', 'package.json'))('firebase-admin'); }
-if (!admin.apps.length) admin.initializeApp();
+// firebase-admin arrives through scripts/_admin.js, which resolves it out of
+// functions/node_modules (scripts/ and the repo root have none) and re-exports
+// the modular API. The local createRequire fallback this replaces was one of
+// the duplicated resolvers _admin.js exists to collapse.
+//
+// v14 removed the whole legacy namespace off the default export, so all three
+// of the old spellings here were dead: admin.apps, admin.firestore() and
+// admin.firestore.FieldValue. getApps()/getFirestore()/FieldValue come from
+// the modular subpaths, which _admin re-exports.
+//
+// Required HERE rather than at the top of the file, on purpose: everything
+// above this line runs on a dry run, and keeping the require below the
+// dry-run exit means `node scripts/import-cost-rotation.js --catalog …` needs
+// nothing installed at all.
+const { initAdmin, getFirestore, FieldValue } = require('./_admin');
+// No projectId argument: the target project comes from ADC, exactly as the
+// bare admin.initializeApp() this replaces resolved it. initAdmin's default
+// credential IS applicationDefault(), which is what initializeApp() picks
+// when passed no options.
+initAdmin();
 
 (async () => {
-  const db = admin.firestore();
+  const db = getFirestore();
   const ref = db.doc(COLLECTION + '/' + COMPANY);
   const before = await ref.get();
   const beforeData = before.exists ? (before.data() || {}) : {};
@@ -224,7 +246,7 @@ if (!admin.apps.length) admin.initializeApp();
   // untouched. This script has no business rewriting a sibling catalog.
   const payload = {};
   payload[catalog.bookField] = seed[catalog.bookField];
-  payload[catalog.bookField + 'ImportedAt'] = admin.firestore.FieldValue.serverTimestamp();
+  payload[catalog.bookField + 'ImportedAt'] = FieldValue.serverTimestamp();
   if (!before.exists) payload.version = seed.version || REG.SEED_VERSION;
   await ref.set(payload, { merge: true });
 
