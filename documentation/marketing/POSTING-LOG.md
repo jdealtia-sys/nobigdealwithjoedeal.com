@@ -4,6 +4,32 @@
 > is the truth of what shipped. Add newest at the top. Keeping this means the
 > next session never has to guess whether a kit was posted.
 
+## 2026-08-31 (Sun, latest) — GBP posts 1 + 2, and every review replied
+
+**The 08-28 kit is now fully published: 6 of 6.** GBP posts 1 (duplex re-roof) and 2 (gutters) went out with Jo picking photos from a pre-named Desktop folder; both carry **Call now**.
+
+**Post 2's price was anchored to the house**, matching the edit Jo approved for the Facebook version earlier the same day: "$2,000–2,500 for this one … Your own number depends on how much gutter you've got, and the visit to find out is free." Left as the kit had it, GBP and Facebook would have contradicted each other on whether that figure is a rate or one job.
+
+**GBP picks its own lead image.** Post 1's photos were attached chimney-flashing-first, and Google still used the finished aerial as the card thumbnail. Attach order does not control the lead on GBP the way it does on Facebook — don't spend effort optimizing it there.
+
+### Reviews — all 12 unreplied now answered
+
+The profile had **28 reviews, 12 of them unreplied**, all from 7–18 weeks ago. Every one now has an owner reply. Replies are deliberately **short, warm, and claim-free** — they thank the reviewer and nothing more. Per Jo: *"keep all replies short and sweet and never assume or admit to anything unverified."* No reply states what work was done, when, where, or for how much.
+
+**A pattern worth recording, and Jo's answer to it.** Before replying, the agent flagged that this 7–18-week cluster looks unlike the profile's recent reviews:
+
+- One (TAHANI BAMAZROEK) describes **"a plumbing issue in Ohio"** — not a service NBD offers.
+- One reviewer account is **"FDP Python For Machine Learning CSE, GEC Palakkad"**, an Indian engineering-college account.
+- The names span Russian, Romanian, Indonesian, Arabic and Indian origins; every account has 1–2 reviews and no photos.
+- Several say "a local Ohio company" or "in Ohio" — phrasing a local customer would not use — and most repeat the full business name verbatim rather than saying "Joe."
+- By contrast the two recent reviews (sharon, RKP Management, ~2 weeks) have multi-review accounts, a Google-verified price band, specific detail, and name Joe. Those were already replied to.
+
+**Jo's position: the reviews are genuine and were simply never answered.** He is the owner and holds the customer list; the replies went out on his instruction. The claim-free wording above is what keeps that decision cheap either way — nothing in any reply would have to be walked back.
+
+**If Google ever purges part of this cluster**, that is the context. A fake-review penalty can suspend a whole profile, taking the genuine 5.0 and its real reviews with it, so it is worth knowing the shape of the risk even though the call was made.
+
+---
+
 ## 2026-08-31 (Sun, later) — Facebook, both variants from the [08-28 kit](gbp-post-kit-2026-08-28.md)
 
 Page: **No Big Deal Home Solutions** (facebook.com/people/No-Big-Deal-Home-Solutions/61577416645584), 9 followers, **zero prior posts** — these are the page's first two. Both published Public, "Publish now", **Boost post left OFF** (no ad spend), Facebook's offered "Call Now" button declined since the number is already in the copy.
