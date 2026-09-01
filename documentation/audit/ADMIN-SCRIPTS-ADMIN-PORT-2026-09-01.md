@@ -19,7 +19,9 @@ which shipped the audit + backfill scripts this session finishes wiring up.
 
 ## 1. The "v14 breaks Timestamps" warning is false — and was never true here
 
-Seven scripts carried this verbatim in their SETUP block:
+Seven scripts carried this in their SETUP block — *near*-verbatim, which turned
+out to matter (§7: the wording had drifted, so grepping the exact phrase finds
+only two of the seven; grep `export NODE_PATH` instead):
 
 ```
  * SETUP (admin-script-runner pattern — prod nobigdeal-pro via ADC, with
@@ -46,9 +48,8 @@ process, across which `instanceof` fails. `_admin`'s single resolver is what
 removes it. The warning had attached itself to the wrong thing.
 
 > **If you meet this line in another script, do not re-litigate it.** Check
-> what the script reads first. As of this session it survives in
-> `scripts/backfill-pins-to-knocks.js` and `.github/workflows/address-audit.yml`
-> — see §6.
+> what the script reads first. All seven copies in `scripts/` are now corrected
+> (§7); the last survivor is `.github/workflows/address-audit.yml` — see §6.
 
 ## 2. `NODE_PATH` defeats `_admin`, it does not feed it — verified
 
@@ -249,11 +250,87 @@ with its own blast radius, and this session did not make it.
 | Item | Where | Why it is left |
 | --- | --- | --- |
 | ~~`monthlyTrend` has no `stageStartedAt` fallback~~ | `docs/pro/js/analytics-kpi.js` | **CLOSED in this PR** — see §4. One line + a 4-assertion regression test. |
-| `admin.apps` / `admin.firestore()` on v14 | `scripts/import-cost-rotation.js:196`, `scripts/import-job-template-costs.js:170` | **Next migration tranche.** These two *do* resolve (they carry a `functions/` `createRequire` fallback), so they are not `MODULE_NOT_FOUND` — but they use the v14-removed namespace off the default export, and `functions/` pins `^14.3.0`. They fail *later* and *differently*, which is exactly why the "bare require fails" framing missed them. |
-| Stale Timestamp boilerplate | `scripts/backfill-pins-to-knocks.js`, `.github/workflows/address-audit.yml` | Not touched this session. The workflow additionally pins firebase-admin v12 via `NODE_PATH` on the stated rationale that "v14 changed Timestamp handling in a way that breaks the admin scripts in `scripts/`" — §1 and §2 say that pin is both unnecessary and actively counterproductive. Unpinning it is a CI change deserving its own PR. |
+| ~~`admin.apps` / `admin.firestore()` on v14~~ | `scripts/import-cost-rotation.js`, `scripts/import-job-template-costs.js` | **CLOSED — see §7.** |
+| ~~Stale Timestamp boilerplate in `scripts/`~~ | seven files | **CLOSED — see §7.** All seven corrected. |
+| Stale Timestamp boilerplate in CI | `.github/workflows/address-audit.yml` | **STILL OPEN.** It pins firebase-admin v12 via `NODE_PATH` on the stated rationale that "v14 changed Timestamp handling in a way that breaks the admin scripts in `scripts/`" — §1 and §2 say that pin is both unnecessary and actively counterproductive. Unpinning it is a CI change deserving its own PR, and it would want a green scheduled run to confirm. |
 | No test for `backfill-legacy-addresses.js` | `tests/` | The audit has one; the script that *writes prod* does not. |
 
-## 7. Gates run
+## 7. Tranche 2 (same day) — the migration is now actually finished
+
+### The two cost-import scripts
+
+`import-cost-rotation.js` and `import-job-template-costs.js` were the last
+broken callers, and they show why "port the scripts that fail at require" was
+the wrong frame. **Both already resolved firebase-admin fine** — each carried
+its own `functions/` `createRequire` fallback. What broke was the namespace
+they reached for *afterwards*. Confirmed against the real 14.3.0 in
+`functions/node_modules`:
+
+| Old spelling | On v14.3.0 |
+| --- | --- |
+| `admin.apps` | `undefined` |
+| `admin.firestore` | `undefined` |
+| `admin.firestore.FieldValue` | unreachable |
+| `if (!admin.apps.length)` | `TypeError: Cannot read properties of undefined (reading 'length')` |
+
+Three undefined-throws each, sitting unexercised because **the dry run is the
+default and never reaches them** — only the first `--yes` would have hit them.
+`functions/` pins `^14.3.0`, so this was live, not theoretical.
+
+**The load-bearing detail: the require must stay BELOW the dry-run exit.**
+Both scripts require firebase-admin mid-file, after `if (!WRITE) process.exit(0)`.
+Hoisting it to the top is the obvious tidy-up and it is wrong — it would make a
+dry run depend on firebase-admin resolving, which today it does not. Dry runs
+work on a checkout with no `functions/node_modules` installed. Both files now
+carry a comment saying so.
+
+Verified rather than assumed, with a `Module._load` probe: a full dry run of
+each script on a checkout with **no** `functions/node_modules` completes exit 0
+with `_admin` never loaded. Write paths were then driven with `--yes` against a
+**stubbed** `_admin` (nothing touched prod) over a synthetic all-ones seed
+generated from the live catalogs — both call `initAdmin`/`getFirestore`/
+`serverTimestamp` exactly once and emit an unchanged payload to
+`catalogCosts/<company>` with `{merge:true}`.
+
+### The seven-sibling docstring sweep
+
+All seven files carrying the copy-pasted `export NODE_PATH=<v12>` instruction
+are corrected. **A grep for the exact phrase finds only two of them** — the
+wording had drifted in transit ("v14 breaks Timestamp", "v14 breaks\n *
+Timestamp handling", and one carrying the v12 pin with no Timestamp claim at
+all). That drift *is* the propagation signature, and it is why the count looked
+smaller than it was. Grep for `export NODE_PATH` instead.
+
+Each replacement was written to what its own file actually does — pasting one
+corrected block seven times would have repeated the exact failure being fixed:
+
+| Script | What it really does with Timestamps |
+| --- | --- |
+| `backfill-lead-stageRole`, `backfill-leads-phoneDigits`, `backfill-pins-companyId` | nothing at all |
+| `backfill-pins-to-knocks` | writes `serverTimestamp()` sentinels; passes `pin.createdAt` straight through, never read |
+| `backfill-calcom-dropped-leads` | builds them via `Timestamp.fromDate()` off `_admin`'s single resolver — one class in play |
+| `backfill-photos-variants` | **genuinely calls `.toDate()`** on Timestamps Firestore returned — safe, because it never `instanceof`-checks one, which is the only thing a version split actually breaks |
+
+`backfill-photos-variants` also had a *legitimate* reason to mention
+`functions/node_modules`: `sharp` loads from there and `cd functions && npm ci`
+really is required. That advice was preserved, not deleted along with the
+firebase-admin half.
+
+> **`scripts/bootstrap.sh:71` still exports `NODE_PATH` and that one is correct.**
+> It points at `functions/node_modules` — the same tree `_admin` resolves from —
+> so the bare `require.resolve` wins but lands on the identical install. No
+> second copy, no version split. Don't "fix" it to match the docstrings.
+
+### Still not ported (different class, not broken)
+
+Five scripts keep their own inline `createRequire` resolver instead of using
+`_admin`: `backfill-oaks-brand.js`, `import-catalog-costs.js`,
+`prepare-project-images.mjs`, `provision-tenant.js`, `seed-demo-access.js`.
+These **work** — they resolve correctly and use the modular APIs. They are
+duplicated plumbing, not bugs, so they were left alone rather than folded in
+unasked. 25 scripts now go through `_admin`.
+
+## 8. Gates run
 
 `check-js-syntax.js` (471 files clean) · `tests/legacy-documents-audit.test.js`
 (14/14) · `tests/address-audit-script.test.js` (11/11) · live dry-run against
