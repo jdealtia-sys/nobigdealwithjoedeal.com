@@ -1,0 +1,198 @@
+# Finishing the `scripts/_admin.js` migration — and killing the Timestamp myth (2026-09-01)
+
+**Trigger:** the last two scripts in `scripts/` still doing a bare
+`require('firebase-admin')` — `audit-legacy-documents.js` (read-only) and
+`backfill-legacy-addresses.js` (writes prod `/leads`). Both died with
+`MODULE_NOT_FOUND` before reaching Firestore, because neither `scripts/` nor
+the repo root has `node_modules`.
+
+**Outcome in one line:** both ported to `scripts/_admin.js`; a copy-pasted
+docstring warning that had propagated to seven scripts was disproved and
+corrected; a test that would have silently stopped testing was caught; and the
+backfill turned out to be **already 12/13 applied in prod**, not 0/13 as the
+brief assumed.
+
+Companion note: [CRM-ADDRESS-INTEGRITY-2026-08-18](CRM-ADDRESS-INTEGRITY-2026-08-18.md),
+which shipped the audit + backfill scripts this session finishes wiring up.
+
+---
+
+## 1. The "v14 breaks Timestamps" warning is false — and was never true here
+
+Seven scripts carried this verbatim in their SETUP block:
+
+```
+ * SETUP (admin-script-runner pattern — prod nobigdeal-pro via ADC, with
+ * NODE_PATH pointed at a firebase-admin v12 install; v14 breaks Timestamps):
+ *   export NODE_PATH=/path/to/fa12/node_modules    # firebase-admin@12
+```
+
+It is inherited boilerplate — the exact copy-paste propagation
+`_admin.js`'s own docstring was written to describe. **Neither script it was
+attached to reads a Timestamp at all:**
+
+| Script | Fields actually read | Ordering |
+| --- | --- | --- |
+| `audit-legacy-documents.js` | `leadId`, `deleted`, `filename`, `name`, `url`, `htmlUrl`, `signedDocumentUrl`, `userId` — strings + one boolean | `.orderBy('__name__')`, a string literal — no `FieldPath.documentId()` |
+| `backfill-legacy-addresses.js` | `address`, `firstName`, `lastName` — all strings | same |
+
+Timestamps genuinely **do** sit on those documents (`uploadedAt`, `createdAt`,
+`signedAt`, `date`). The scripts just never touch them. Run against real
+firebase-admin **14.3.0** `Timestamp` objects with `--list`: no throw, no
+`[object Object]` leak, byte-identical verdict.
+
+The real v12/v14 hazard is **dual-install**: two `Timestamp` classes in one
+process, across which `instanceof` fails. `_admin`'s single resolver is what
+removes it. The warning had attached itself to the wrong thing.
+
+> **If you meet this line in another script, do not re-litigate it.** Check
+> what the script reads first. As of this session it survives in
+> `scripts/backfill-pins-to-knocks.js` and `.github/workflows/address-audit.yml`
+> — see §6.
+
+## 2. `NODE_PATH` defeats `_admin`, it does not feed it — verified
+
+`_admin.js` tries a **bare `require.resolve` first** and only falls back to the
+`functions/` resolver on failure:
+
+```js
+let req = require;
+try { require.resolve('firebase-admin'); }
+catch (_) { req = require('module').createRequire(.../functions/package.json); }
+```
+
+Tested directly rather than reasoned about:
+
+| Condition | `require.resolve('firebase-admin')` from `scripts/` | Which install wins |
+| --- | --- | --- |
+| No `NODE_PATH` | throws `MODULE_NOT_FOUND` | falls back to `functions/` ✅ |
+| `NODE_PATH` set to a v12 tree | **resolves** to the `NODE_PATH` copy | `NODE_PATH` silently wins ❌ |
+
+So telling a reader to `export NODE_PATH=<v12>` instructs them to override the
+single-resolver guarantee `_admin` exists to provide. The `export NODE_PATH=`
+line was **deleted**, not merely updated, and the replacement docstring says
+"Do NOT set NODE_PATH" and why.
+
+Note this makes the wording inherited from `audit-lead-addresses.js:38-42`
+("or whatever `NODE_PATH` points at — which is how the daily workflow supplies
+its pinned v12 install") an accurate description of what CI does but a bad
+instruction for a human. The new scripts do not repeat it.
+
+## 3. The two-file trap: a stub that stops stubbing
+
+`tests/legacy-documents-audit.test.js` intercepts the module loader on
+`request === 'firebase-admin'` at **two** sites — `runAudit()` and
+`loadExports()`. The moment the script stops requiring that string, both stubs
+go dead and the **real** `_admin` loads.
+
+Failure modes are asymmetric, and that is the danger:
+
+- **In CI** (no ADC, no `functions/node_modules`) → throws, fails loudly. Fine.
+- **On a developer machine with `GOOGLE_APPLICATION_CREDENTIALS` set** —
+  exactly how the script's own docstring says to run it — → the suite performs
+  **live prod reads** and asserts against real data instead of its fixtures.
+  Read-only, so nothing is damaged. The test simply stops being a test while
+  continuing to print green.
+
+Both sites now intercept `'./_admin'` with an
+`{ initAdmin(){}, getFirestore: () => ({...}) }` stub, matching the working
+template at `tests/address-audit-script.test.js:54-66` (whose comment already
+named this hazard).
+
+**Proved live by negative control** rather than assumed: point the intercept at
+a string the script does not require, and the real `scripts/_admin.js` loads
+and crashes at line 46. With the correct string, 14/14 pass and `_admin` never
+enters the require cache.
+
+> Generalisable: a loader stub keyed on a module *string* is coupled to an
+> implementation detail of the file under test. Any refactor of the import
+> silently unhooks it. If you change what a script requires, grep the test for
+> the old string — there may be more than one site.
+
+## 4. `updatedAt` dropped from the backfill write (Jo's call)
+
+The write was `{ address: c.correct, updatedAt: new Date() }`. It is now
+`{ address: c.correct }` only.
+
+An address repair is a **data correction, not a customer interaction**, and
+three consumers read `updatedAt` as though it were one:
+
+| Consumer | What it does with `updatedAt` | Consequence of stamping it |
+| --- | --- | --- |
+| `analytics-kpi.js:496-499` — `monthlyTrend` | buckets won-lead revenue by `updatedAt`, **no `stageStartedAt` fallback** | a closed-won lead's `jobValue` moves out of its real close month into the month the backfill ran |
+| `ask-joe-proactive.js:56` — `_lastTouch` | falls through to `updatedAt` | a cold lead looks freshly contacted; its follow-up nudge stops firing |
+| `crm-list-view.js:77` — `_activity` | sorts on it | reorders the list |
+
+The first one is the expensive one, and the repo **already fixed this exact
+bug** for the sibling `closedThisMonth` KPI at `analytics-kpi.js:171-177`,
+whose comment reads: the old `updatedAt` proxy "re-attributed a March close to
+July the moment you added a note to it." `monthlyTrend` never received the same
+`stageStartedAt || updatedAt` fallback.
+
+**`monthlyTrend` is still unfixed.** Dropping the write avoids *provoking* the
+bug; it does not repair it. Any other code path that stamps `updatedAt` on a
+won lead still mis-attributes its revenue. That is a live open item — see §6.
+
+Side benefit: the docstring's SAFETY claim gets strictly stronger, from
+"only ever writes `address` (+ `updatedAt`)" to "only ever writes `address`".
+
+## 5. What prod actually looked like — the brief's premise was stale
+
+The brief predicted 13 `FIX` lines against a collection full of mangled
+addresses. Reality, measured this session against `nobigdeal-pro`:
+
+**Baseline — `audit-lead-addresses.js`:**
+
+```
+  BROKEN  pre-Wave-141 mangled           0     0%   $0
+  BROKEN  no address at all              0     0%   $0
+  THIN    city/ZIP only, no street      60    33%   $12,476.25
+  THIN    no state                       1     1%   $0
+  OK      complete                     119    66%   $405,493.19
+  scanned: 180   (plus 23 retired/soft-deleted, not counted)
+  PASS — no mangled or blank addresses remain.
+```
+
+**Dry-run — `backfill-legacy-addresses.js`:** 12 `ALREADY`, **1** `FIX`,
+0 drifted, 0 missing, 0 unresolved mangled.
+
+So the 2026-08-18 backfill **did** land — on v12, back when the `NODE_PATH`
+path still worked. The script has never run on v14, but "never run" was not the
+same as "never applied", and the two got conflated.
+
+Two specific worries in the brief both cleared:
+
+- **`JoKt4d0yJeF51MTmjaJh`** (Morgan-McCane), whose byte-equality gate depends
+  on a `U+2019` in `scripts/legacy-address-corrections.json`, reported
+  `ALREADY` — not `SKIPPED`. The apostrophe survived. JSON is git-clean.
+- **`inspect_leads__GgomiGANIbdd8zPmzqwH`**, whose id looks like a
+  copy-paste artifact, is a real document — reported `ALREADY`, not `MISSING`.
+
+The single remaining correction is **Anthony Scandariato**
+(`HEiG1d11LRfpaMyIgqNq`, jobValue $2,500):
+
+```
+"Red Knight Properties - Kentucky Ave, Cincinnati, OH 45223"
+  →  "1944 Kentucky Ave, Cincinnati, OH 45223"     src: Invoice NBD-2026-0810-RK
+```
+
+Note it is classified **`noStreet`**, not `legacyMangled` — it is one of the 60
+THIN rows, not corruption. Applying it moves one row THIN → OK and **cannot
+change the mangled count**, which is already 0. The brief's verification step
+("confirm the mangled count dropped by the number written") therefore does not
+apply to it. There is no urgency: the gate is already green.
+
+## 6. Open items this session did not close
+
+| Item | Where | Why it is left |
+| --- | --- | --- |
+| `monthlyTrend` has no `stageStartedAt` fallback | `docs/pro/js/analytics-kpi.js:496-499` | Real bug, independent of these scripts. The fix is the one already at `:171-177`. Needs its own change + test. |
+| `admin.apps` / `admin.firestore()` on v14 | `scripts/import-cost-rotation.js:196`, `scripts/import-job-template-costs.js:170` | **Next migration tranche.** These two *do* resolve (they carry a `functions/` `createRequire` fallback), so they are not `MODULE_NOT_FOUND` — but they use the v14-removed namespace off the default export, and `functions/` pins `^14.3.0`. They fail *later* and *differently*, which is exactly why the "bare require fails" framing missed them. |
+| Stale Timestamp boilerplate | `scripts/backfill-pins-to-knocks.js`, `.github/workflows/address-audit.yml` | Not touched this session. The workflow additionally pins firebase-admin v12 via `NODE_PATH` on the stated rationale that "v14 changed Timestamp handling in a way that breaks the admin scripts in `scripts/`" — §1 and §2 say that pin is both unnecessary and actively counterproductive. Unpinning it is a CI change deserving its own PR. |
+| No test for `backfill-legacy-addresses.js` | `tests/` | The audit has one; the script that *writes prod* does not. |
+
+## 7. Gates run
+
+`check-js-syntax.js` (471 files clean) · `tests/legacy-documents-audit.test.js`
+(14/14) · `tests/address-audit-script.test.js` (11/11) · live dry-run against
+`nobigdeal-pro`. Both scripts confirmed to reach Firestore and complete.
