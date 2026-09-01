@@ -37,14 +37,21 @@
    first posts ever), and **all 12 previously-unreplied Google reviews now
    have owner replies**. The service-area prerequisite was handled by
    swapping Hyde Park → Lexington at the 20-area cap.
-   **Two things still worth a look:** confirm Google approved the pending
-   service-area edit, and read the review-pattern note in
-   [POSTING-LOG](../marketing/POSTING-LOG.md) — the 7–18-week review
-   cluster has hallmarks of purchased reviews (one describes a *plumbing*
-   job; one account is an Indian engineering college). Jo says they are
-   genuine and the replies went out on his instruction, deliberately
-   worded to claim nothing. Recorded because a fake-review purge can
-   suspend an entire profile.
+   **Also done:** Lexington service-area edit confirmed approved by
+   Google, and the **photo gallery refreshed with 12 curated images**
+   (first in 147 days). Two website card heroes that the curation pass
+   graded actively harmful were swapped in PR #1313.
+   **Still worth reading** in [POSTING-LOG](../marketing/POSTING-LOG.md):
+   (a) the review-pattern note — the 7–18-week cluster has hallmarks of
+   purchased reviews (one describes a *plumbing* job; one account is an
+   Indian engineering college); Jo says they are genuine and the replies
+   went out on his instruction, worded to claim nothing. Recorded because
+   a fake-review purge can suspend an entire profile. (b) the seven
+   photo-gap items — **photos out-reach posts on this profile** (one
+   gallery image is past 1,000 views), and the biggest miss is that no
+   photo shows a human face. Note the constraint before assigning any
+   "photograph your truck" task: **Jo drives an unbranded work wagon and
+   has no magnets.**
 4. ~~Housekeeping: PR #1299~~ DONE — it auto-merged 08-31 after its
    branch caught up with main; its vault-index CI gate is live.
 
