@@ -179,7 +179,7 @@ session.
 > |---|---|
 > | ~~`closeMobileCreatePopover`~~ ✅ | ~~`_NBD_MODAL_CLOSE_FNS` → `window[fnName]`~~ **CONVERTED by T3-M, 2026-09-01** (see the T3-M entry below) — registry-only, off `window`. The map blocker was the dispatcher, never the handler. |
 > | ~~`closeMobileInspection`~~ ✅ | ~~`_NBD_MODAL_CLOSE_FNS`~~ **CONVERTED by T3-M, 2026-09-01** — registry-only, off `window`. |
-> | `closeMobileMore` | `_NBD_MODAL_CLOSE_FNS` + bare calls in `dashboard-ui.js:436`, `mobile-nav-customizer.js:388` |
+> | `closeMobileMore` | `_NBD_MODAL_CLOSE_FNS` + bare calls in `dashboard-ui.js:478`, `mobile-nav-customizer.js:388` *(line ref re-derived 2026-09-02; was :436)* |
 > | `toggleMobileMore` | `_NBD_TOGGLE_FNS` + bare call `mobile-nav-customizer.js:800`. **Re-derived 2026-09-01 — the map is only HALF its dispatch.** `renderBottomNav()` does `nav.innerHTML = html` (`mobile-nav-customizer.js:337`), replacing the static More tile (`dashboard.html:5511`, `data-action="toggle" data-target="mobileMore"`) with one carrying `data-mnc-action="toggleMore"` (`:332`). So the map path is live only until a user customizes their tab bar; after that, dispatch goes through the mnc delegate's bare `toggleMobileMore()` at `:800` — behind `typeof … === 'function'`, so a scoped name **no-ops silently** on the customized nav while every static-markup audit stays green. Fix shape is already in that file: the `mCreateFabRoute` case at `:795-798` resolves registry-first. Same applies to its `mobileNav` case. |
 > | `dsRemoveFloor` | bare call `dashboard-ui.js:2165` (already a known MUST-STAY from 2c-4d) |
 > | `_mJdOpenEstimate` | ⚠ **ordering trap — read the code comment before touching it.** Already IIFE-scoped, so its `window._mJdOpenEstimate = …` line reads as a vestigial self-export. It is not: the `__NBD_CALL_REGISTRY` entry for it lives in a **different IIFE**, where the bare identifier is not lexically in scope and resolves through the global object instead. Deleting the export alone makes that registry line throw at load, aborting its whole IIFE and silently killing **all 19 registry entries in it** — the entire customer-detail action bar. Move the registry entry into the defining IIFE **first**. Smoke-pinned. |
@@ -224,6 +224,50 @@ the map: `closeMobileInspection` and `closeMobileCreatePopover` are
 registry-only now. The remaining map-blocked names (`closeMobileMore`,
 `toggleMobileMore`, and the wider band) also need their **bare cross-file
 callers** rewired — the map was necessary but not sufficient for those.
+
+> ### ✅ UPDATE 2026-09-02 — the freed 15 are ALL CONVERTED (#1338, #1339, #1340)
+>
+> The three slices landed in one evening, each evidence-first: a 70-agent
+> derive→prove→refute workflow re-derived the freed list from the ground and
+> adversarially proved every name's reach before any edit; each slice shipped
+> with a BEFORE/AFTER differential emulator snapshot (all names `typeof
+> undefined` on window, every map key flipped resolved-via-window →
+> resolved-via-registry, zero drift elsewhere) and graduate smoke pins
+> (registered + off-window + map-entry-stays). 17 of the maps' 36 entries now
+> resolve registry-only. Corrections the workflow forced, recorded so the next
+> session inherits measurements rather than folklore:
+>
+> - **The "IIFE-wrapping regions of large files" framing was true only for the
+>   dashboard-ui.js 8** (depth-0 auto-globals → top-level consts). The
+>   maps-routing 6 and closeDeletedDrawer were already IIFE-scoped with
+>   explicit exports — their conversion was registry-entry + export-line-delete.
+> - **The property-intel twins**: `closePropertyIntelModal` /
+>   `closePropertyIntelConfirmModal` were OWNED by `property-intel.js`
+>   (byte-identical dashboard-ui twins, property-intel winning the window slot
+>   by load order). Both dashboard-ui copies are deleted; converting only the
+>   table's attributed owner would have left a silent window fallback.
+> - **Refuters killed two edit plans before they shipped a red**: a new
+>   registry block ahead of dashboard-ui's existing one would have broken the
+>   smoke `duRegBlock` first-match extraction (18 pinned names), and adding
+>   map-dispatched names to `T2C2_NAMES` trips its allowlist-absence pin on
+>   the map VALUES in dashboard-state.js — graduates get the bespoke pin
+>   block, never the T2C2 list.
+> - **Eight MORE map names look map-only-convertible** and are absent from the
+>   17-freed ledger: `toggleDebugConsole`, `toggleRecentDropdown`,
+>   `toggleDismissedNotifications`, `toggleNotificationDropdown`,
+>   `toggleNeedsAttention`, `toggleShowSnoozed`, `toggleStaleShares`,
+>   `toggleEngagementSort` (owners: dashboard-bootstrap.module.js, notif-bell,
+>   crm.js, needs-attention-filter, lead-snooze, stale-shares-filter). Each
+>   was individually proven map-only by the same workflow (two have test-side
+>   reads to update; toggleEngagementSort has an in-file double-assignment,
+>   crm.js:65 vs :133/:160). The "still blocked (19)" claim in the T3-M
+>   session note overcounts — a measured next slice, not folklore.
+> - **Undocumented twin assigners among the genuinely blocked names**:
+>   `closeTaskModal` (customer-tasks-ui.js:184 vs tasks.js — DISTINCT
+>   implementations), `closeShortcutsPanel` (shortcuts-help.js:188 vs
+>   ui.js:460) and `closeCmdPalette` (global-search.js:698 vs ui.js:27) each
+>   have two implementations racing for the window slot — resolve ownership
+>   before converting any of them.
 
 **T3-B — zero-external names with HTML hits or twin assigners (177).**
 Each needs either delegate-then-scope (the H-1 house pattern — migrate the
