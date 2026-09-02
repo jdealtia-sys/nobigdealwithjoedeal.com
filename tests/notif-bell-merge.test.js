@@ -21,9 +21,11 @@
  *      delegate now lives inside the module IIFE. This test drives the
  *      per-item actions THROUGH that delegate so the fix is covered.
  *
- * NotifBell is intentionally NOT on window (globals Tranche-0 guard), so
- * the API is reached via the window.* bindings + the click delegate,
- * exactly as the dashboard does.
+ * NotifBell is intentionally NOT on window (globals Tranche-0 guard). The
+ * dropdown toggle is registry-only since the Tranche 3 map-graduate slice
+ * (2026-09-02) — reached via __NBD_CALL_REGISTRY + the click delegate,
+ * exactly as the dashboard's _nbdResolveMapped does; the two data-fn
+ * handlers keep their window.* bindings.
  *
  * Zero deps. Run: node tests/notif-bell-merge.test.js
  */
@@ -134,11 +136,13 @@ win._notifications = [
 
 console.log('NOTIF-BELL SINGLE-OWNER MERGE');
 ok('captured the data-nb-action click delegate (no ReferenceError at load)', clickHandlers.length === 1);
-ok('exposes window.toggleNotificationDropdown', typeof win.toggleNotificationDropdown === 'function');
+ok('registers toggleNotificationDropdown in __NBD_CALL_REGISTRY, off window (Tranche 3)',
+  win.__NBD_CALL_REGISTRY && typeof win.__NBD_CALL_REGISTRY.toggleNotificationDropdown === 'function'
+    && typeof win.toggleNotificationDropdown === 'undefined');
 ok('does NOT leak NotifBell onto window (Tranche-0 guard)', typeof win.NotifBell === 'undefined');
 
 // ── Step 1: open the dropdown → render unions both sources ──
-win.toggleNotificationDropdown();
+win.__NBD_CALL_REGISTRY.toggleNotificationDropdown();
 const derivedTaskId = 'task:L1:t1';
 ok('list shows derived overdue task', els.notifList.innerHTML.includes('Overdue task'));
 ok('list shows server deal_accepted notif', els.notifList.innerHTML.includes('Deal accepted'));

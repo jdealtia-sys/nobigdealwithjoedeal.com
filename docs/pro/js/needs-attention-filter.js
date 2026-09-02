@@ -21,8 +21,10 @@
  * — a number reps can glance at across the day to know if their
  * pipeline is on the rails or going stale.
  *
- * Exposes: NeedsAttention.{compute, isActive, toggle, recount}
- *          window.toggleNeedsAttention (for inline onclick)
+ * Exposes: __NBD_CALL_REGISTRY.toggleNeedsAttention — _NBD_TOGGLE_FNS key
+ *          'needsAttention' via _nbdResolveMapped (registry-only, Tranche 3
+ *          2026-09-02). The NeedsAttention namespace const below is
+ *          IIFE-local, never window-exposed.
  */
 (function () {
   'use strict';
@@ -212,7 +214,10 @@
     recount,
     needsAttentionReason,
   };
-  window.toggleNeedsAttention = toggle;
+  // _NBD_TOGGLE_FNS key 'needsAttention' — resolved registry-first by
+  // dashboard-ui.js _nbdResolveMapped (Tranche 3 map-graduate, 2026-09-02).
+  window.__NBD_CALL_REGISTRY = window.__NBD_CALL_REGISTRY || Object.create(null);
+  Object.assign(window.__NBD_CALL_REGISTRY, { toggleNeedsAttention: toggle });
 
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', () => setTimeout(init, 1500));

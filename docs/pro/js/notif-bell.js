@@ -26,7 +26,9 @@
  *     loadLeads / loadEstimates / loadAllTasks)
  *
  * Exposes:
- *   window.toggleNotificationDropdown()
+ *   __NBD_CALL_REGISTRY.toggleNotificationDropdown — _NBD_TOGGLE_FNS
+ *     'notifications' dispatch via _nbdResolveMapped (registry-only,
+ *     Tranche 3 2026-09-02; same for .toggleDismissedNotifications)
  *   window.markAllNotificationsRead()
  *   window.clearAllNotifications()
  *   NotifBell.render()        — force re-render
@@ -945,11 +947,19 @@
     _actionUnsnooze,
   };
 
-  // Wire the legacy onclick handlers expected by dashboard.html
-  window.toggleNotificationDropdown = toggleDropdown;
+  // The two map-dispatched toggles are registry-only (Tranche 3 map-graduate
+  // follow-on, 2026-09-02): reached solely through _NBD_TOGGLE_FNS keys
+  // 'notifications' / 'dismissedNotifications' via _nbdResolveMapped
+  // (registry-first since T3-M). Keys are the DISPATCHED name strings; the
+  // values are the IIFE-local functions, lexically in scope here.
+  window.__NBD_CALL_REGISTRY = window.__NBD_CALL_REGISTRY || Object.create(null);
+  Object.assign(window.__NBD_CALL_REGISTRY, {
+    toggleNotificationDropdown: toggleDropdown,
+    toggleDismissedNotifications: toggleDismissedView
+  });
+  // The two data-fn markup handlers keep their window exposure (allowlisted).
   window.markAllNotificationsRead = markAllRead;
   window.clearAllNotifications = clearAll;
-  window.toggleDismissedNotifications = toggleDismissedView;
 
   // Defer init until after other modules have populated their caches.
   if (document.readyState === 'loading') {
