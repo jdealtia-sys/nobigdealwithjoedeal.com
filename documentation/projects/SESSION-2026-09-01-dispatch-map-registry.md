@@ -209,6 +209,15 @@ slice each:
 Note these are auto-globals declared at file top level, so converting them means
 IIFE-wrapping regions of large files — real work, not a one-line move.
 
+> **2026-09-02: ALL 15 CONVERTED** (#1338 dashboard-ui, #1339 maps-routing,
+> #1340 crm-portal-bridge), and the note above was measured to be true only
+> for the dashboard-ui 8 — the other 7 were already IIFE-scoped and converted
+> as registry-entry + export-delete. Corrections, the twin-ownership finding,
+> and the eight ADDITIONAL map-only convertibles the "still blocked (19)"
+> figure below overcounts are recorded in
+> [globals-tranche3-plan](../../docs/dev/globals-tranche3-plan.md) §UPDATE
+> 2026-09-02 — read that before trusting this section's counts.
+
 **Still blocked (19)** — each has a bare cross-file call or a `window.X` read
 that the map change does not touch. The heaviest:
 `closeCardDetailModal` (8 bare calls), `closeMobileJobDetail` (3 + a window
