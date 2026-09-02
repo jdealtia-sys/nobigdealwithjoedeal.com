@@ -125,6 +125,16 @@
 
 ## One-off queue — Jo (decisions & console; newest first, check off here when done)
 
+- [ ] **Copycat watch: optionally enable the code-search channel (~3 min,
+      or decide to skip)** — the monthly watch's first fire (2026-09-01)
+      proved the built-in Actions token cannot run global code search, so
+      that channel is now gated on a `COPYCAT_CODE_SEARCH_TOKEN` repo
+      secret: GitHub → Settings → Developer settings → classic PAT with
+      **no scopes** → repo Settings → Secrets → Actions. Skipping is
+      legitimate (weakest channel; forks/stars/watchers/repo-name stay
+      fully watched) — the run summary simply names it OFF each month.
+      Context: [PUBLIC-REPO-COPY-POSTURE-2026-08-31](../audit/PUBLIC-REPO-COPY-POSTURE-2026-08-31.md)
+      §2026-09-01.
 - [x] **~~🔴 UNBLOCK PROD DEPLOYS~~ RESOLVED 2026-08-11 ~01:47 UTC.**
       Post-mortem: the hosting-storage `429` was a SYMPTOM — the real root
       cause was **billing disabled on the `nobigdeal-pro` GCP project**
