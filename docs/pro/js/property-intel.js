@@ -514,13 +514,13 @@ const pullIntelForModal = async function() {
   (function(){var m=document.getElementById('propertyIntelModal');m.style.display='flex';m.classList.add('open');})();
 };
 
-function closePropertyIntelModal() {
+const closePropertyIntelModal = function () {
   (function(){var m=document.getElementById('propertyIntelModal');m.style.display='none';m.classList.remove('open');})();
-}
+};
 
-function closePropertyIntelConfirmModal() {
+const closePropertyIntelConfirmModal = function () {
   (function(){var m=document.getElementById('propertyIntelConfirmModal');m.style.display='none';m.classList.remove('open');})();
-}
+};
 
 const updatePropertyIntelCost = function() {
   const prices = {
@@ -753,12 +753,19 @@ window.fetchPropertyIntelModal = fetchPropertyIntelModal;
 // 4 move off window into __NBD_CALL_REGISTRY, which the dashboard-ui.js dispatchers
 // resolve FIRST; their _NBD_CALL_ALLOWLIST entries are dropped. The lone explicit
 // window export (of executePullPropertyIntel) is dropped with them.
+// Tranche 3 dispatch-map slice (2026-09-02): the last two twins followed —
+// closePropertyIntelModal / closePropertyIntelConfirmModal are sole-owned here
+// as top-level consts and registered below; their only dispatch is the
+// _NBD_MODAL_CLOSE_FNS map (registry-first since T3-M), plus one in-file bare
+// call to the confirm-close which resolves lexically.
 window.__NBD_CALL_REGISTRY = window.__NBD_CALL_REGISTRY || Object.create(null);
 Object.assign(window.__NBD_CALL_REGISTRY, {
   pullIntelForModal: pullIntelForModal,
   updatePropertyIntelCost: updatePropertyIntelCost,
   confirmPropertyIntelPull: confirmPropertyIntelPull,
-  executePullPropertyIntel: executePullPropertyIntel
+  executePullPropertyIntel: executePullPropertyIntel,
+  closePropertyIntelModal: closePropertyIntelModal,
+  closePropertyIntelConfirmModal: closePropertyIntelConfirmModal
 });
 
 

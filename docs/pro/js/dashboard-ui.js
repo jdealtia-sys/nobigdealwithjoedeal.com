@@ -961,7 +961,7 @@ function processToastQueue() {
 // ══════════════════════════════════════════════
 // DAMAGE PHOTOS — modal close + photo mode toggle
 // ══════════════════════════════════════════════
-function closePhotoModal(){if(window.nbdModal){window.nbdModal.close('photoModal');}else{document.getElementById('photoModal').classList.remove('open');}}
+const closePhotoModal = function(){if(window.nbdModal){window.nbdModal.close('photoModal');}else{document.getElementById('photoModal').classList.remove('open');}};
 document.getElementById('photoModal').addEventListener('click',e=>{if(e.target===document.getElementById('photoModal'))closePhotoModal();});
 
 // Photo search — filters the photo leads list by name/address
@@ -995,7 +995,7 @@ window.setPhotoMode = setPhotoMode;
 // TIPS modal
 // ══════════════════════════════════════════════
 function openTips(){if(window.nbdModal){window.nbdModal.open('tipsModal');}else{document.getElementById('tipsModal').classList.add('open');}}
-function closeTips(){if(window.nbdModal){window.nbdModal.close('tipsModal');}else{document.getElementById('tipsModal').classList.remove('open');}}
+const closeTips = function(){if(window.nbdModal){window.nbdModal.close('tipsModal');}else{document.getElementById('tipsModal').classList.remove('open');}};
 document.getElementById('tipsModal').addEventListener('click',e=>{if(e.target===document.getElementById('tipsModal'))closeTips();});
 
 // ══════════════════════════════════════════════
@@ -1006,16 +1006,13 @@ document.getElementById('tipsModal').addEventListener('click',e=>{if(e.target===
 // js/property-intel.js (byte-identical logic; property-intel.js loads last and
 // already won on window). Globals Tranche 2c-4h Slice H2 part 2 removed the
 // dashboard-ui.js copies — property-intel.js is the sole owner and registers them
-// in __NBD_CALL_REGISTRY. closePropertyIntelModal / closePropertyIntelConfirmModal
-// stay here (separate handlers, not part of the dedup).
-
-function closePropertyIntelModal() {
-  (function(){var m=document.getElementById('propertyIntelModal');m.style.display='none';m.classList.remove('open');})();
-}
-
-function closePropertyIntelConfirmModal() {
-  (function(){var m=document.getElementById('propertyIntelConfirmModal');m.style.display='none';m.classList.remove('open');})();
-}
+// in __NBD_CALL_REGISTRY. The last two twins, closePropertyIntelModal /
+// closePropertyIntelConfirmModal, followed in the Tranche 3 dispatch-map slice
+// (2026-09-02): property-intel.js is now their sole owner too, as scoped consts
+// registered there — property-intel.js's copies were already the on-window
+// winners by load order, so deleting the copies here changed which text runs
+// for NOTHING (byte-identical bodies) while closing the fallback that would
+// have silently shadowed a registered name.
 
 // ══════════════════════════════════════════════
 // ADDRESS AUTOCOMPLETE — UI wiring
@@ -1459,7 +1456,7 @@ function openDocTemplate(key){
     .split('{{COMPANY}}').join(co.name);
   if(window.nbdModal){window.nbdModal.open('docViewerModal');}else{document.getElementById('docViewerModal').classList.add('open');}
 }
-function closeDocViewer(){ if(window.nbdModal){window.nbdModal.close('docViewerModal');}else{document.getElementById('docViewerModal').classList.remove('open');} }
+const closeDocViewer = function(){ if(window.nbdModal){window.nbdModal.close('docViewerModal');}else{document.getElementById('docViewerModal').classList.remove('open');} };
 const printDoc = function(){ window.print(); };
 const openUploadDoc = function(){
   // docUploadArea lives inside tpl-view-docs (lazy-hydrated). Guard
@@ -1872,7 +1869,7 @@ document.addEventListener('DOMContentLoaded', () => {
 // FAB visibility, scroll-collapse, ESC handling.
 // One self-contained block so future changes touch one place.
 // ══════════════════════════════════════════════════════════════════
-function toggleSidebarCollapse() {
+const toggleSidebarCollapse = function () {
   const collapsed = document.body.classList.toggle('sidebar-collapsed');
   try { localStorage.setItem(SIDEBAR_COLLAPSED_KEY, collapsed ? '1' : '0'); } catch (e) {}
   // Sync the button's `active` state
@@ -1887,16 +1884,18 @@ function toggleSidebarCollapse() {
     if (window.mainMap?.invalidateSize) window.mainMap.invalidateSize();
     if (window.d2dMap?.invalidateSize)  window.d2dMap.invalidateSize();
   }, 200);
-}
-window.toggleSidebarCollapse = toggleSidebarCollapse;
+};
 
-function toggleKanbanFullscreen() {
+const toggleKanbanFullscreen = function () {
   const fullscreen = document.body.classList.toggle('kanban-fullscreen');
   // Sync the icon button's active state when present
   const btn = document.getElementById('kanbanFullscreenBtn');
   if (btn) btn.classList.toggle('active', fullscreen);
-}
-window.toggleKanbanFullscreen = toggleKanbanFullscreen;
+};
+// The bootPageBreathe Esc listener (further down this file) bare-calls
+// toggleKanbanFullscreen from inside its own IIFE — a top-level const is a
+// script-level lexical binding, visible there without any global-object hop,
+// so Esc-to-exit keeps working with the name off window.
 
 // Tools dropdown (collapsed secondary toolbar)
 function toggleCrmToolsMenu(ev) {
@@ -1965,7 +1964,7 @@ window.closeCrmFiltersMenu = closeCrmFiltersMenu;
 // into a single dropdown on ≤768px. Same shape as toggleCrmToolsMenu
 // (click-outside-to-close, aria-expanded sync), kept separate so the
 // two menus can be open independently if a user ever resizes mid-session.
-function toggleHdrMobileMenu(ev) {
+const toggleHdrMobileMenu = function (ev) {
   const menu = document.getElementById('hdrMobileMenu');
   const btn  = document.getElementById('hdrMobileBtn');
   if (!menu) return;
@@ -1983,12 +1982,11 @@ function toggleHdrMobileMenu(ev) {
     }, 0);
   }
   if (ev && ev.stopPropagation) ev.stopPropagation();
-}
+};
 function closeHdrMobileMenu() {
   document.getElementById('hdrMobileMenu')?.classList.remove('open');
   document.getElementById('hdrMobileBtn')?.setAttribute('aria-expanded', 'false');
 }
-window.toggleHdrMobileMenu = toggleHdrMobileMenu;
 
 // Mobile Tools menu — mirror filter active-state from the (hidden-on-mobile)
 // inline source buttons into the dropdown menu items. PR #508 hid the inline
@@ -2643,5 +2641,21 @@ Object.assign(window.__NBD_CALL_REGISTRY, {
   fabToggle: fabToggle,
   quickStormCheck: quickStormCheck,
   openUploadDoc: openUploadDoc,
-  printDoc: printDoc
+  printDoc: printDoc,
+  // Tranche 3 dispatch-map slice (2026-09-02): six handlers whose ONLY reach
+  // is _NBD_TOGGLE_FNS / _NBD_MODAL_CLOSE_FNS (registry-first since T3-M).
+  // Each converted from an auto-global declaration to a top-level const in
+  // this classic script + registered here — same scope as the definitions,
+  // so no cross-IIFE ordering trap. Their map entries in dashboard-state.js
+  // are now the only dispatch path: losing either half of a pair is a
+  // modal-Joe-cannot-close bug, and the graduate pins in
+  // tests/smoke/dashboard.test.js lock both halves. Per-name reach proofs
+  // were adversarially verified 2026-09-02 (zero bare cross-file calls, zero
+  // HTML or generated-markup name hits, no allowlist entries).
+  toggleHdrMobileMenu: toggleHdrMobileMenu,
+  toggleKanbanFullscreen: toggleKanbanFullscreen,
+  toggleSidebarCollapse: toggleSidebarCollapse,
+  closePhotoModal: closePhotoModal,
+  closeDocViewer: closeDocViewer,
+  closeTips: closeTips
 });

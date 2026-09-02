@@ -2938,7 +2938,14 @@ section('Globals Tranches 0+1: converted names stay off window');
     // NOT here: renderSavedZones (a real cross-file API — maps-core.js and
     // dashboard-bootstrap.module.js both invoke it off window).
     'selectZoneColor', 'startZoneDraw', 'cancelZoneDraw', 'saveZone',
-    'deleteZone', 'damageNearMePhotos'];
+    'deleteZone', 'damageNearMePhotos',
+    // Tranche 3 dispatch-map slice (2026-09-02): the T3-M-freed dashboard-ui
+    // band + the property-intel twin pair — top-level consts registered in
+    // their owning file's __NBD_CALL_REGISTRY block, dispatched only through
+    // the two name-string maps. Any re-export under docs/ fails this walk.
+    'toggleHdrMobileMenu', 'toggleKanbanFullscreen', 'toggleSidebarCollapse',
+    'closePhotoModal', 'closeDocViewer', 'closeTips',
+    'closePropertyIntelModal', 'closePropertyIntelConfirmModal'];
   const NAMES = [...T1_NAMES, 'ActivityFeed', 'AlmostThere', 'AskJoeProactive',
     'CustomerAiDraftsPanel', 'CustomerDnDUpload', 'CustomerLastSharedChip',
     'CustomerQuickActionBar', 'CustomerSiblingSnooze',
@@ -3294,6 +3301,43 @@ section('Globals Tranche 2c: __NBD_CALL_REGISTRY dispatch layer');
   assert('openMobileCreatePopover is neither registered nor window-exported (2c-4b private)',
     !/openMobileCreatePopover:\s*openMobileCreatePopover/.test(daRegBlock)
       && !/window\.openMobileCreatePopover\s*=/.test(dashActions));
+
+  // ── Tranche 3 dispatch-map slice (2026-09-02): eight more graduates ──
+  // Six dashboard-ui.js handlers + the two property-intel twins, each
+  // dispatched SOLELY through _NBD_TOGGLE_FNS / _NBD_MODAL_CLOSE_FNS
+  // (registry-first since T3-M). Same trap-the-user stakes as the pair
+  // above: registry entry + map entry are now the only dispatch path —
+  // losing either half is a control Joe cannot use, thrown by nothing.
+  // The twins' dashboard-ui.js copies are DELETED (property-intel.js is
+  // sole owner); a reappearing copy there would be a silent window
+  // fallback shadowing a registered name.
+  {
+    const dashUi = read(path.join(PRO_JS, 'dashboard-ui.js'));
+    const propIntel = read(path.join(PRO_JS, 'property-intel.js'));
+    const T3_MAP_GRADS = [
+      ['toggleHdrMobileMenu', 'hdrMobileMenu', dashUi, 'dashboard-ui.js'],
+      ['toggleKanbanFullscreen', 'kanbanFullscreen', dashUi, 'dashboard-ui.js'],
+      ['toggleSidebarCollapse', 'sidebarCollapse', dashUi, 'dashboard-ui.js'],
+      ['closePhotoModal', 'photoModal', dashUi, 'dashboard-ui.js'],
+      ['closeDocViewer', 'docViewerModal', dashUi, 'dashboard-ui.js'],
+      ['closeTips', 'tipsModal', dashUi, 'dashboard-ui.js'],
+      ['closePropertyIntelModal', 'propertyIntelModal', propIntel, 'property-intel.js'],
+      ['closePropertyIntelConfirmModal', 'propertyIntelConfirmModal', propIntel, 'property-intel.js'],
+    ];
+    for (const [n, key, src, owner] of T3_MAP_GRADS) {
+      assert(n + ' registered in ' + owner + ' __NBD_CALL_REGISTRY + off window (Tranche 3 dispatch-map slice)',
+        new RegExp('\\b' + n + ':\\s*' + n + '\\b').test(src)
+          && !new RegExp('window\\.' + n + '\\s*=').test(src));
+      assert('dispatch map still routes ' + key + ' -> ' + n,
+        new RegExp(key + ':\\s*\'' + n + '\'').test(stateSrc),
+        'the map entry is the only dispatch path left for this handler');
+    }
+    for (const n of ['closePropertyIntelModal', 'closePropertyIntelConfirmModal']) {
+      assert('dashboard-ui.js twin of ' + n + ' stays deleted (property-intel.js sole owner)',
+        !new RegExp('function ' + n + '\\b').test(dashUi)
+          && !new RegExp('\\b' + n + ':\\s*' + n + '\\b').test(dashUi));
+    }
+  }
 
   // ── Tranche 2c-4c: the dashboard-actions.js one-off compound-rewrite openers ──
   // Third slice: 20 markup-dispatched openers (incl. the 2c-4b mobile-routing
