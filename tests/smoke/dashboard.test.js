@@ -2945,7 +2945,10 @@ section('Globals Tranches 0+1: converted names stay off window');
     // the two name-string maps. Any re-export under docs/ fails this walk.
     'toggleHdrMobileMenu', 'toggleKanbanFullscreen', 'toggleSidebarCollapse',
     'closePhotoModal', 'closeDocViewer', 'closeTips',
-    'closePropertyIntelModal', 'closePropertyIntelConfirmModal'];
+    'closePropertyIntelModal', 'closePropertyIntelConfirmModal',
+    // Slice 2 (2026-09-02): the maps-routing band of six, same conversion.
+    'toggleDraw', 'toggleMapLayer', 'toggleHistoricalImagery',
+    'toggleVoiceControl', 'closeComparisonMode', 'closeHistoricalImagery'];
   const NAMES = [...T1_NAMES, 'ActivityFeed', 'AlmostThere', 'AskJoeProactive',
     'CustomerAiDraftsPanel', 'CustomerDnDUpload', 'CustomerLastSharedChip',
     'CustomerQuickActionBar', 'CustomerSiblingSnooze',
@@ -3144,15 +3147,16 @@ section('Globals Tranche 2c: __NBD_CALL_REGISTRY dispatch layer');
     /'goToMyLocation'/.test(stateSrc));
   assert('maps-routing re-exports goToMyLocation for the maps.js shim',
     /window\.goToMyLocation = goToMyLocation;/.test(mapsRouting));
-  // The IIFE wrap must not orphan the toggle/close-map dispatch targets
-  // or the cross-file bare-name consumers — those resolve as window[fn]
-  // or bare globals (never via the registry), so each needs its explicit
-  // export.
+  // The IIFE wrap must not orphan the allowlisted data-fn targets or the
+  // cross-file bare-name consumers — those still resolve as window[fn] or
+  // bare globals, so each keeps its explicit export. (The six map-dispatched
+  // names that used to sit in this list graduated in the Tranche 3
+  // dispatch-map slice, 2026-09-02 — their pins moved to the graduate block
+  // in the 2c-4b section, which asserts the OPPOSITE: registered + off
+  // window.)
   for (const n of ['initDrawMap', 'selLT', 'renderAccessoryPanel',
     'setDrawMode', 'clearDraw', 'undoLine', 'exportDrawReport',
-    'importToEstimate', 'perimChooseType', 'searchDraw', 'toggleDraw',
-    'toggleMapLayer', 'toggleHistoricalImagery', 'toggleVoiceControl',
-    'closeComparisonMode', 'closeHistoricalImagery']) {
+    'importToEstimate', 'perimChooseType', 'searchDraw']) {
     assert('maps-routing window-exports ' + n + ' (window[fn]-dispatched or bare-called cross-file)',
       new RegExp('window\\.' + n + ' = ' + n + ';').test(mapsRouting));
   }
@@ -3323,6 +3327,16 @@ section('Globals Tranche 2c: __NBD_CALL_REGISTRY dispatch layer');
       ['closeTips', 'tipsModal', dashUi, 'dashboard-ui.js'],
       ['closePropertyIntelModal', 'propertyIntelModal', propIntel, 'property-intel.js'],
       ['closePropertyIntelConfirmModal', 'propertyIntelConfirmModal', propIntel, 'property-intel.js'],
+      // Slice 2 (maps-routing band, same day): the six the file's own export-
+      // block comment had queued. Their old export pins in the 2c-2 section's
+      // IIFE-wrap loop were removed in the same commit — these assertions are
+      // their replacements, inverted.
+      ['toggleDraw', 'drawing', mapsRouting, 'maps-routing.js'],
+      ['toggleMapLayer', 'mapLayer', mapsRouting, 'maps-routing.js'],
+      ['toggleHistoricalImagery', 'historicalImagery', mapsRouting, 'maps-routing.js'],
+      ['toggleVoiceControl', 'voiceControl', mapsRouting, 'maps-routing.js'],
+      ['closeComparisonMode', 'comparisonModal', mapsRouting, 'maps-routing.js'],
+      ['closeHistoricalImagery', 'historicalImagery', mapsRouting, 'maps-routing.js'],
     ];
     for (const [n, key, src, owner] of T3_MAP_GRADS) {
       assert(n + ' registered in ' + owner + ' __NBD_CALL_REGISTRY + off window (Tranche 3 dispatch-map slice)',

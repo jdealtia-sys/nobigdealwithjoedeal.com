@@ -3513,15 +3513,15 @@ td{font-size:12px;}.note{background:#fff8f0;border-left:4px solid #e8720c;paddin
 //     dashboard-actions.js cluster (searchDraw is also window-guard
 //     called from widgets.js and wired to data-enter-action)
 //   • toggleDraw / toggleMapLayer / toggleHistoricalImagery /
-//     toggleVoiceControl — dispatched by _NBD_TOGGLE_FNS as window[fn]
-//   • closeComparisonMode / closeHistoricalImagery — dispatched by
-//     _NBD_MODAL_CLOSE_FNS as window[fn]
-//     ^^ THOSE SIX ARE NO LONGER PINNED (2026-09-01). Both maps resolve
-//     __NBD_CALL_REGISTRY before window now (dashboard-ui.js
-//     _nbdResolveMapped, Globals Tranche 3), and a static check found the map
-//     to be these six names' ONLY reach. They are ready to convert: register
-//     them in a __NBD_CALL_REGISTRY block here and delete their window
-//     exports. That is this file's next tranche slice.
+//     toggleVoiceControl / closeComparisonMode / closeHistoricalImagery —
+//     CONVERTED (Tranche 3 dispatch-map slice, 2026-09-02): registered in
+//     this file's __NBD_CALL_REGISTRY block, window exports deleted. Both
+//     maps resolve the registry first (dashboard-ui.js _nbdResolveMapped,
+//     since T3-M) and an adversarially-verified reach proof confirmed the
+//     map is each name's only consumer. The smoke graduate pins lock
+//     registration + off-window + the surviving map entries — the 2026-09-01
+//     note here claiming the six were "no longer pinned" was ahead of the
+//     tree (the export pins lived until this slice; trust the test).
 //   • goToMyLocation — FAILED the tranche's three-way proof: the maps.js
 //     shim re-states it on window (real cross-file code reference), so
 //     it also keeps its _NBD_CALL_ALLOWLIST entry. Tranche 3 candidate.
@@ -3535,12 +3535,6 @@ window.exportDrawReport = exportDrawReport;
 window.importToEstimate = importToEstimate;
 window.perimChooseType = perimChooseType;
 window.searchDraw = searchDraw;
-window.toggleDraw = toggleDraw;
-window.toggleMapLayer = toggleMapLayer;
-window.toggleHistoricalImagery = toggleHistoricalImagery;
-window.toggleVoiceControl = toggleVoiceControl;
-window.closeComparisonMode = closeComparisonMode;
-window.closeHistoricalImagery = closeHistoricalImagery;
 window.goToMyLocation = goToMyLocation;
 
 // ── Delegate registration (Globals Tranche 2c-2) ──
@@ -3573,6 +3567,18 @@ Object.assign(window.__NBD_CALL_REGISTRY, {
   startPresentation: startPresentation,
   startShadowPitch: startShadowPitch,
   updateHistoryOpacity: updateHistoryOpacity,
-  zoomToFit: zoomToFit
+  zoomToFit: zoomToFit,
+  // Tranche 3 dispatch-map slice (2026-09-02): the six names whose ONLY
+  // reach is _NBD_TOGGLE_FNS / _NBD_MODAL_CLOSE_FNS (registry-first since
+  // T3-M) — the conversion the comment above the export block queued.
+  // Same IIFE as the definitions, so the bare identifiers bind lexically;
+  // their map entries in dashboard-state.js are now the only dispatch
+  // path, locked by the graduate pins in tests/smoke/dashboard.test.js.
+  toggleDraw: toggleDraw,
+  toggleMapLayer: toggleMapLayer,
+  toggleHistoricalImagery: toggleHistoricalImagery,
+  toggleVoiceControl: toggleVoiceControl,
+  closeComparisonMode: closeComparisonMode,
+  closeHistoricalImagery: closeHistoricalImagery
 });
 })();
