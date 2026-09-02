@@ -36,9 +36,10 @@
  *   customer can supply it.
  *
  * SETUP (admin-script-runner pattern — prod nobigdeal-pro via ADC).
- * firebase-admin comes through scripts/_admin.js: functions/node_modules by
- * default, or whatever NODE_PATH points at — which is how the daily workflow
- * supplies its pinned v12 install. Runs on v12 and v14 (no Timestamps here).
+ * firebase-admin comes through scripts/_admin.js, resolving out of
+ * functions/node_modules — the same `cd functions && npm ci` install the
+ * daily workflow uses. Set no NODE_PATH: it would silently override that
+ * single resolver (the v12 pin it once carried is gone; no Timestamps here).
  *   export GOOGLE_APPLICATION_CREDENTIALS=~/.nbd/nobigdeal-pro-sa.json
  *   export NBD_PROJECT=nobigdeal-pro               # optional override
  *
