@@ -22,17 +22,14 @@
 
 ## Lanes, in priority order
 
-1. **T3: the eight bonus map-only convertibles** — measured by this
-   session's workflow, absent from every prior ledger: `toggleDebugConsole`,
-   `toggleRecentDropdown`, `toggleDismissedNotifications`,
-   `toggleNotificationDropdown`, `toggleNeedsAttention`, `toggleShowSnoozed`,
-   `toggleStaleShares`, `toggleEngagementSort`. Scattered owners (one or two
-   names per file), so slice by convenience, not by file. Two carry test-side
-   reads to update (tests/e2e/pro-authed.spec.js:1723,
-   tests/notif-bell-merge.test.js:137/141); toggleEngagementSort has an
-   in-file double-assignment to collapse first (crm.js:65 vs :133/:160).
-   Re-prove reach before editing (the house rule stands) — but these eight
-   already survived one prover+refuter pass each; see the plan's §UPDATE.
+1. ~~**T3: the eight bonus map-only convertibles**~~ — **DONE same evening
+   (#1342)**: all eight registry-only across six owner files, both test-side
+   reads rewired to the registry, crm.js's dead W93 twin deleted and its
+   auto-global converted to a const. Differential-proven (8/8 off window,
+   8 map probes flipped to registry, zero drift). 25 of the maps' 36
+   entries resolve registry-only now; what remains blocked is the
+   genuinely-entangled 11 (bare cross-file calls / twin implementations) —
+   see T3-B and the twin-ownership warning below.
 2. **T3-B and beyond** per the plan — with the twin-ownership warning: three
    blocked names (closeTaskModal, closeShortcutsPanel, closeCmdPalette) have
    two DISTINCT implementations racing for the window slot; resolving

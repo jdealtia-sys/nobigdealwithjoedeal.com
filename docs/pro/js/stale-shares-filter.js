@@ -20,7 +20,9 @@
  * renderLeads(leads, filtered) hook in crm.js handles the rest.
  *
  * Exposes: window.StaleShares.{compute, isActive, toggle, recount}
- *          window.toggleStaleShares (for inline onclick)
+ *          __NBD_CALL_REGISTRY.toggleStaleShares — data-action="toggle"
+ *          data-target="staleShares" → _NBD_TOGGLE_FNS dispatch via
+ *          _nbdResolveMapped (registry-only, Tranche 3 2026-09-02)
  */
 (function () {
   'use strict';
@@ -164,7 +166,10 @@
     recount,
     isStaleShare,
   };
-  window.toggleStaleShares = toggle;
+  // Tranche 3 map-graduate (2026-09-02): registry-only — the map entry in
+  // dashboard-state.js is the sole dispatch path for #staleSharesBtn.
+  window.__NBD_CALL_REGISTRY = window.__NBD_CALL_REGISTRY || Object.create(null);
+  Object.assign(window.__NBD_CALL_REGISTRY, { toggleStaleShares: toggle });
 
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', () => setTimeout(init, 1500));

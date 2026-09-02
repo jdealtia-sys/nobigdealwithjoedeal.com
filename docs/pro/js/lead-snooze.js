@@ -854,5 +854,10 @@
     getDefaultPresetLabel,
     setDefaultPresetLabel,
   };
-  window.toggleShowSnoozed = toggleShowSnoozed;
+  // Tranche 3 map-graduate (2026-09-02): toggleShowSnoozed is reached ONLY
+  // via _NBD_TOGGLE_FNS.showSnoozed → _nbdResolveMapped (registry-first
+  // since T3-M) — registry-only now; the LeadSnooze namespace member above
+  // stays as the keep-as-API surface.
+  window.__NBD_CALL_REGISTRY = window.__NBD_CALL_REGISTRY || Object.create(null);
+  Object.assign(window.__NBD_CALL_REGISTRY, { toggleShowSnoozed: toggleShowSnoozed });
 })();

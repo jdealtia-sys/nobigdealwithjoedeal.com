@@ -2952,7 +2952,15 @@ section('Globals Tranches 0+1: converted names stay off window');
     'toggleDraw', 'toggleMapLayer', 'toggleHistoricalImagery',
     'toggleVoiceControl', 'closeComparisonMode', 'closeHistoricalImagery',
     // Slice 3 (2026-09-02): the crm-portal-bridge singleton.
-    'closeDeletedDrawer'];
+    'closeDeletedDrawer',
+    // The bonus eight (2026-09-02, same evening): the map-only names the
+    // "still blocked (19)" ledger overcounted, registry-only across six
+    // owner files. crm.js's needed the auto-global→const conversion; every
+    // stale window-qualified comment was scrubbed in the same commit (the
+    // walk scans comments — the :3883 lesson).
+    'toggleDebugConsole', 'toggleRecentDropdown', 'toggleDismissedNotifications',
+    'toggleNotificationDropdown', 'toggleNeedsAttention', 'toggleShowSnoozed',
+    'toggleStaleShares', 'toggleEngagementSort'];
   const NAMES = [...T1_NAMES, 'ActivityFeed', 'AlmostThere', 'AskJoeProactive',
     'CustomerAiDraftsPanel', 'CustomerDnDUpload', 'CustomerLastSharedChip',
     'CustomerQuickActionBar', 'CustomerSiblingSnooze',
@@ -3324,6 +3332,14 @@ section('Globals Tranche 2c: __NBD_CALL_REGISTRY dispatch layer');
   {
     const dashUi = read(path.join(PRO_JS, 'dashboard-ui.js'));
     const propIntel = read(path.join(PRO_JS, 'property-intel.js'));
+    const bootMod = read(path.join(PRO_JS, 'dashboard-bootstrap.module.js'));
+    const notifBell = read(path.join(PRO_JS, 'notif-bell.js'));
+    const naFilter = read(path.join(PRO_JS, 'needs-attention-filter.js'));
+    const snooze = read(path.join(PRO_JS, 'lead-snooze.js'));
+    const staleShares = read(path.join(PRO_JS, 'stale-shares-filter.js'));
+    const crmSrc = read(path.join(PRO_JS, 'crm.js'));
+    // Rows: [dispatched name, map key, owner source, owner label, registry
+    // VALUE identifier when it differs from the name (IIFE-local aliases)].
     const T3_MAP_GRADS = [
       ['toggleHdrMobileMenu', 'hdrMobileMenu', dashUi, 'dashboard-ui.js'],
       ['toggleKanbanFullscreen', 'kanbanFullscreen', dashUi, 'dashboard-ui.js'],
@@ -3347,10 +3363,24 @@ section('Globals Tranche 2c: __NBD_CALL_REGISTRY dispatch layer');
       // line's own comment had queued exactly this conversion.
       ['closeDeletedDrawer', 'deletedDrawer',
         read(path.join(PRO_JS, 'crm-portal-bridge.js')), 'crm-portal-bridge.js'],
+      // The bonus eight (2026-09-02, same evening): map-only names the T3-M
+      // ledger's "still blocked (19)" overcounted — each individually
+      // prover+refuter verified. Four register an IIFE-local alias (5th
+      // column); crm.js's needed the auto-global→const conversion and the
+      // dead W93 block deleted.
+      ['toggleDebugConsole', 'debugConsole', bootMod, 'dashboard-bootstrap.module.js'],
+      ['toggleRecentDropdown', 'recentDropdown', bootMod, 'dashboard-bootstrap.module.js'],
+      ['toggleNotificationDropdown', 'notifications', notifBell, 'notif-bell.js', 'toggleDropdown'],
+      ['toggleDismissedNotifications', 'dismissedNotifications', notifBell, 'notif-bell.js', 'toggleDismissedView'],
+      ['toggleNeedsAttention', 'needsAttention', naFilter, 'needs-attention-filter.js', 'toggle'],
+      ['toggleShowSnoozed', 'showSnoozed', snooze, 'lead-snooze.js'],
+      ['toggleStaleShares', 'staleShares', staleShares, 'stale-shares-filter.js', 'toggle'],
+      ['toggleEngagementSort', 'engagementSort', crmSrc, 'crm.js'],
     ];
-    for (const [n, key, src, owner] of T3_MAP_GRADS) {
+    for (const [n, key, src, owner, valIdent] of T3_MAP_GRADS) {
+      const val = valIdent || n;
       assert(n + ' registered in ' + owner + ' __NBD_CALL_REGISTRY + off window (Tranche 3 dispatch-map slice)',
-        new RegExp('\\b' + n + ':\\s*' + n + '\\b').test(src)
+        new RegExp('\\b' + n + ':\\s*' + val + '\\b').test(src)
           && !new RegExp('window\\.' + n + '\\s*=').test(src));
       assert('dispatch map still routes ' + key + ' -> ' + n,
         new RegExp(key + ':\\s*\'' + n + '\'').test(stateSrc),

@@ -262,6 +262,11 @@ callers** rewired — the map was necessary but not sufficient for those.
 >   reads to update; toggleEngagementSort has an in-file double-assignment,
 >   crm.js:65 vs :133/:160). The "still blocked (19)" claim in the T3-M
 >   session note overcounts — a measured next slice, not folklore.
+>   **DONE same evening (2026-09-02, #1342): all eight converted** —
+>   registry-only across six owner files, test-side reads rewired to the
+>   registry, crm.js's dead W93 twin deleted and its auto-global made a
+>   const. 25 of the maps' 36 entries now resolve registry-only; the
+>   window fallback carries only the genuinely-blocked 11.
 > - **Undocumented twin assigners among the genuinely blocked names**:
 >   `closeTaskModal` (customer-tasks-ui.js:184 vs tasks.js — DISTINCT
 >   implementations), `closeShortcutsPanel` (shortcuts-help.js:188 vs

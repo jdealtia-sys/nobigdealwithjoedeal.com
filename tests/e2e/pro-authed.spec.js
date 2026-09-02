@@ -1715,12 +1715,16 @@ test.describe.serial('CSP-fix regressions @shard2', () => {
       document.getElementById('crmFiltersBtn').click();
       return menu.classList.contains('open');
     }, { timeout: 10_000 });
-    // toggleNeedsAttention ships with the lazily-loaded CRM bundle — a
-    // click before it exists silently no-ops in the toggle delegate (the
-    // 1e47f2b CI failure, one step past the menu-open race). Gate on the
-    // function, then click-until-active: the predicate clicks only while
+    // toggleNeedsAttention ships with needs-attention-filter.js (a plain
+    // <script defer>, not a ScriptLoader bundle) — a click before it runs
+    // silently no-ops in the toggle delegate (the 1e47f2b CI failure, one
+    // step past the menu-open race). Since the Tranche 3 map-graduate slice
+    // (2026-09-02) the handler is registry-only, so gate on the REGISTRY
+    // entry, then click-until-active: the predicate clicks only while
     // INACTIVE so it can never toggle the filter back off.
-    await safeWaitForFunction(page, () => typeof window.toggleNeedsAttention === 'function', { timeout: 15_000 });
+    await safeWaitForFunction(page,
+      () => !!(window.__NBD_CALL_REGISTRY && typeof window.__NBD_CALL_REGISTRY.toggleNeedsAttention === 'function'),
+      { timeout: 15_000 });
     // Click-until-active with a COOLDOWN. The filter module stamps
     // .active synchronously inside its toggle, so one landed click is
     // enough — but a click during the SW storm can no-op before the

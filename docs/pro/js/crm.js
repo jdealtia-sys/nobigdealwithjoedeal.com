@@ -57,28 +57,12 @@ window.saveLead = saveLead;
 window.moveCard = moveCard;
 window.changeLeadType = changeLeadType;
 
-// W93 — engagement-sort toggle. The sort logic was already wired into
-// renderLeads (gated by localStorage 'nbd_crm_sort_engagement'). The
-// kanban header button (#engagementSortBtn) was calling
-// window.toggleEngagementSort which was never defined, so the button
-// silently did nothing. This wires it.
-window.toggleEngagementSort = function () {
-  const flagKey = 'nbd_crm_sort_engagement';
-  const wasOn = (() => { try { return localStorage.getItem(flagKey) === '1'; } catch (_) { return false; } })();
-  const nextOn = !wasOn;
-  try { localStorage.setItem(flagKey, nextOn ? '1' : '0'); } catch (_) {}
-  // Reflect state on the button (visual "active" toggle uses the same
-  // class the rest of the crm-hdr buttons use).
-  const btn = document.getElementById('engagementSortBtn');
-  if (btn) btn.classList.toggle('active', nextOn);
-  // Re-render the kanban so the new sort order takes effect.
-  if (Array.isArray(window._leads)) {
-    try { renderLeads(window._leads, window._filteredLeads); } catch (e) { console.warn('engagement-sort re-render failed:', e.message); }
-  }
-  if (typeof showToast === 'function') {
-    showToast(nextOn ? '🔥 Hot leads sorted first' : 'Default order restored', 'info');
-  }
-};
+// W93's original anonymous engagement-sort toggle was DELETED here
+// (Tranche 3 map-graduate, 2026-09-02): it was unreachable dead code — the
+// real declaration further down was synchronously re-assigned over it at
+// load, before any click could occur — and its comment carried the
+// window-qualified name the T1 off-window walk now forbids. The live
+// implementation is the const below (:~130), registry-only.
 
 // Restore the visual active state on page load if the flag was set
 // in a previous session, so the button reflects current behavior.
@@ -130,7 +114,7 @@ window.permanentDeleteLead = (id) => window._permanentDeleteLead(id);
 // backed (per-device, like the W37 show-snoozed toggle). When
 // flipped on, renderLeads sorts each stage column descending by
 // W91/W92 engagement tier so Hot leads bubble to the top.
-function toggleEngagementSort() {
+const toggleEngagementSort = function () {
   const cur = localStorage.getItem('nbd_crm_sort_engagement') === '1';
   const next = !cur;
   if (next) localStorage.setItem('nbd_crm_sort_engagement', '1');
@@ -139,7 +123,7 @@ function toggleEngagementSort() {
   if (typeof window.renderLeads === 'function') {
     try { window.renderLeads(window._leads, window._filteredLeads); } catch (_) {}
   }
-}
+};
 function updateEngagementSortToggle() {
   const btn = document.getElementById('engagementSortBtn');
   if (!btn) return;
@@ -157,7 +141,12 @@ function updateEngagementSortToggle() {
   // (see needs-attention-filter.js updateButton for the full note).
   btn.classList.toggle('active', on);
 }
-window.toggleEngagementSort = toggleEngagementSort;
+// Tranche 3 map-graduate (2026-09-02): toggleEngagementSort is a top-level
+// const (a function DECLARATION in this classic non-IIFE script would be an
+// auto-global — the census-invisible trap) + registry-only; its sole dispatch
+// is _NBD_TOGGLE_FNS.engagementSort via _nbdResolveMapped.
+window.__NBD_CALL_REGISTRY = window.__NBD_CALL_REGISTRY || Object.create(null);
+Object.assign(window.__NBD_CALL_REGISTRY, { toggleEngagementSort: toggleEngagementSort });
 window.updateEngagementSortToggle = updateEngagementSortToggle;
 // Initial styling on load.
 if (document.readyState === 'loading') {

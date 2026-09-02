@@ -2082,7 +2082,6 @@
     dropdown.style.display = isOpen ? 'none' : 'block';
     if (!isOpen) renderRecentCustomers();
   }
-  window.toggleRecentDropdown = toggleRecentDropdown;
   
   function renderRecentCustomers() {
     try {
@@ -2831,7 +2830,6 @@
       }
     }
   }
-  window.toggleDebugConsole = toggleDebugConsole;
   
   function retryLoadLeads() {
     const healthBadge = document.getElementById('crmHealthBadge');
@@ -5483,7 +5481,7 @@
   };
 
 // ── Delegate registration (Globals Tranche 2c-4f — 2026-07-07) ──
-// These 15 settings/debug/export handlers are dispatched ONLY from markup
+// The settings/debug/export handlers here are dispatched ONLY from markup
 // (data-action="call" data-fn) through dashboard-ui.js _nbdResolveCall, which
 // resolves window.__NBD_CALL_REGISTRY FIRST. Registration here replaces each
 // name's _NBD_CALL_ALLOWLIST entry as the security opt-in; the functions stay
@@ -5491,11 +5489,17 @@
 // keep their window.X exposure: _saveEstimateDefaultsV2 (intra-module self-read),
 // _loadCompanySettings / _loadCompanyProfileSettings (ui.js cross-file window
 // calls), and loadSampleData (dashboard-actions.js:913 also exports it).
+// Tranche 3 map-graduate follow-on (2026-09-02): toggleDebugConsole and
+// toggleRecentDropdown joined — dispatched via _NBD_TOGGLE_FNS through
+// _nbdResolveMapped (registry-first since T3-M), never data-fn, so they have
+// no allowlist history; their window exports are deleted.
 window.__NBD_CALL_REGISTRY = window.__NBD_CALL_REGISTRY || Object.create(null);
 Object.assign(window.__NBD_CALL_REGISTRY, {
   runLeadAction: runLeadAction,
   retryLoadLeads: retryLoadLeads,
   copyDebugInfo: copyDebugInfo,
+  toggleDebugConsole: toggleDebugConsole,
+  toggleRecentDropdown: toggleRecentDropdown,
   testFirestoreRules: testFirestoreRules,
   _saveSettings: _saveSettings,
   _saveNotifSettings: _saveNotifSettings,
