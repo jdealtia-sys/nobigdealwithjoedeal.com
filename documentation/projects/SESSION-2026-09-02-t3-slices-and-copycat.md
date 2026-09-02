@@ -78,6 +78,16 @@ The score after the slices: **17 of the two maps' 36 entries resolve
 registry-only**; the maps' window fallback carries only the genuinely-blocked
 names.
 
+> **Same-evening addendum (#1342): the bonus eight followed.** All eight
+> ledger-miscounted names converted registry-only across six owner files,
+> from their already-upheld proofs — including crm.js's auto-global trap
+> (const conversion + dead W93 twin deleted) and the two test-side consumers
+> rewired to the registry. Differential: 8/8 off window, 8 map probes
+> flipped, zero drift. Final evening score: **25 of 36 registry-only, 23
+> names off window in one night.** The peer session ended cleanly and every
+> transient worktree was gate-checked and pruned — the repo closed at 2
+> worktrees, 2 branches, 0 open PRs.
+
 ## 4 · Coordination and housekeeping
 
 - The parallel session picked up the (stale) audit-script migration chip,

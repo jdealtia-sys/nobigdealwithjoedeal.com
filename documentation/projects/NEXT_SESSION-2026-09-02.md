@@ -9,9 +9,11 @@
 - **Rock 4 Tranche 3: the T3-M freed 15 are ALL converted** (#1338 dashboard-ui
   band of 8, #1339 maps-routing band of 6, #1340 crm-portal-bridge singleton),
   each evidence-first (70-agent derive/prove/refute workflow) with differential
-  emulator snapshots and graduate smoke pins. 17 of the dispatch maps' 36
-  entries resolve registry-only. The plan carries a fresh §UPDATE 2026-09-02 —
-  read it before the next slice.
+  emulator snapshots and graduate smoke pins — **and the bonus eight followed
+  the same evening (#1342)**, so **25 of the dispatch maps' 36 entries resolve
+  registry-only**; the window fallback carries only the genuinely-entangled
+  11. The plan carries a fresh §UPDATE 2026-09-02 — read it before the next
+  slice.
 - **Copycat watch fixed** (#1337): its first fire's "6 signals" were 100% API
   noise; signal/infra split shipped, code search is now a declared PAT-gated
   channel, proof run green. Monthly greens are trustworthy again.
