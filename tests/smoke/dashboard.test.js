@@ -2809,8 +2809,10 @@ section('Globals Tranches 0+1: converted names stay off window');
     // here: clearBulkSelection (lead-snooze.js calls it directly on window —
     // MUST-STAY, allowlisted like goToMyLocation) and this file's deliberate
     // window re-exports (editLead, deleteLead, showDeleteConfirm,
-    // toggleBulkMode, toggleCardSelection, closeDeletedDrawer,
-    // updateBulkToolbar, scrollToFollowUps, restoreCrmSearch, refreshTrashBadge).
+    // toggleBulkMode, toggleCardSelection,
+    // updateBulkToolbar, scrollToFollowUps, restoreCrmSearch,
+    // refreshTrashBadge; closeDeletedDrawer graduated off window in the
+    // Tranche 3 dispatch-map slice, 2026-09-02).
     'selectAllVisibleLeads', 'openDeletedDrawer', 'confirmDeleteLead',
     'cancelDeleteConfirm', 'bulkSnoozeLeads', 'bulkMoveStage', 'bulkDelete',
     'bulkAssignSource', 'bulkAssignJobType', 'bulkAssignDamage', 'bulkAssignCarrier',
@@ -2948,7 +2950,9 @@ section('Globals Tranches 0+1: converted names stay off window');
     'closePropertyIntelModal', 'closePropertyIntelConfirmModal',
     // Slice 2 (2026-09-02): the maps-routing band of six, same conversion.
     'toggleDraw', 'toggleMapLayer', 'toggleHistoricalImagery',
-    'toggleVoiceControl', 'closeComparisonMode', 'closeHistoricalImagery'];
+    'toggleVoiceControl', 'closeComparisonMode', 'closeHistoricalImagery',
+    // Slice 3 (2026-09-02): the crm-portal-bridge singleton.
+    'closeDeletedDrawer'];
   const NAMES = [...T1_NAMES, 'ActivityFeed', 'AlmostThere', 'AskJoeProactive',
     'CustomerAiDraftsPanel', 'CustomerDnDUpload', 'CustomerLastSharedChip',
     'CustomerQuickActionBar', 'CustomerSiblingSnooze',
@@ -3197,11 +3201,13 @@ section('Globals Tranche 2c: __NBD_CALL_REGISTRY dispatch layer');
   assert('clearBulkSelection is NOT registered (window path only)',
     !/\bclearBulkSelection:\s*clearBulkSelection\b/.test(cpbRegBlock));
   // The IIFE wrap must not orphan the cross-file consumers — these resolve
-  // as bare globals, window.X(), or window[fn] dispatch (never via the
-  // registry), so each needs an explicit re-export from this file now that
-  // crm.js no longer provides it.
+  // as bare globals or window.X() calls, so each needs an explicit re-export
+  // from this file now that crm.js no longer provides it. (closeDeletedDrawer
+  // left this list in the Tranche 3 dispatch-map slice, 2026-09-02 — its only
+  // reach was the registry-first _NBD_MODAL_CLOSE_FNS entry; its inverted pin
+  // lives in the graduate block.)
   for (const n of ['editLead', 'deleteLead', 'showDeleteConfirm',
-    'toggleBulkMode', 'toggleCardSelection', 'closeDeletedDrawer',
+    'toggleBulkMode', 'toggleCardSelection',
     'updateBulkToolbar', 'scrollToFollowUps', 'restoreCrmSearch',
     'refreshTrashBadge']) {
     assert('crm-portal-bridge window-exports ' + n + ' (cross-file consumer)',
@@ -3337,6 +3343,10 @@ section('Globals Tranche 2c: __NBD_CALL_REGISTRY dispatch layer');
       ['toggleVoiceControl', 'voiceControl', mapsRouting, 'maps-routing.js'],
       ['closeComparisonMode', 'comparisonModal', mapsRouting, 'maps-routing.js'],
       ['closeHistoricalImagery', 'historicalImagery', mapsRouting, 'maps-routing.js'],
+      // Slice 3 (2026-09-02): the crm-portal-bridge singleton — the export
+      // line's own comment had queued exactly this conversion.
+      ['closeDeletedDrawer', 'deletedDrawer',
+        read(path.join(PRO_JS, 'crm-portal-bridge.js')), 'crm-portal-bridge.js'],
     ];
     for (const [n, key, src, owner] of T3_MAP_GRADS) {
       assert(n + ' registered in ' + owner + ' __NBD_CALL_REGISTRY + off window (Tranche 3 dispatch-map slice)',

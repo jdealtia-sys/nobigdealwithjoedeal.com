@@ -801,7 +801,6 @@ window.showDeleteConfirm = showDeleteConfirm;      // maps-overlays.js:358 (bare
 window.toggleBulkMode = toggleBulkMode;            // lead-snooze.js:774 — STILL required. (The _NBD_TOGGLE_FNS half of this reason expired 2026-09-01: that map is registry-first now.)
 window.toggleCardSelection = toggleCardSelection;  // crm-pipeline.js:2007
 window.clearBulkSelection = clearBulkSelection;    // lead-snooze.js:773 (direct window.clearBulkSelection()) — stays allowlisted too
-window.closeDeletedDrawer = closeDeletedDrawer;    // _NBD_MODAL_CLOSE_FNS — NO LONGER a reason to stay: that map resolves __NBD_CALL_REGISTRY first as of 2026-09-01, so this is a T3 conversion candidate (register it, then delete this line)
 window.updateBulkToolbar = updateBulkToolbar;      // internal callers + smoke pin (crm.test.js)
 window.scrollToFollowUps = scrollToFollowUps;      // analytics-kpi.js:841
 window.restoreCrmSearch = restoreCrmSearch;        // dashboard-bootstrap.module.js:1253,2068
@@ -809,7 +808,10 @@ window.refreshTrashBadge = refreshTrashBadge;      // dashboard-bootstrap.module
 // (exitBulkMode, toggleProspectsView, promoteProspect, _repBookingUrl,
 //  sendBookingSMS, sendFollowUpSMS keep their in-file window.* assignments above.)
 
-// (b) The 11 markup-dispatched handlers register in __NBD_CALL_REGISTRY —
+// (b) The 12 markup-dispatched handlers register in __NBD_CALL_REGISTRY —
+// (closeDeletedDrawer joined 2026-09-02, Tranche 3 dispatch-map slice: its
+// only reach is the _NBD_MODAL_CLOSE_FNS entry, registry-first since T3-M,
+// so its export above is gone — the conversion the old comment there queued.)
 // dashboard-ui.js's _nbdResolveCall checks the registry BEFORE the
 // allowlisted-window fallback, so registration IS the security opt-in the
 // _NBD_CALL_ALLOWLIST entry used to be. Their allowlist entries are removed
@@ -821,6 +823,7 @@ window.__NBD_CALL_REGISTRY = window.__NBD_CALL_REGISTRY || Object.create(null);
 Object.assign(window.__NBD_CALL_REGISTRY, {
   selectAllVisibleLeads: selectAllVisibleLeads,
   openDeletedDrawer: openDeletedDrawer,
+  closeDeletedDrawer: closeDeletedDrawer,
   confirmDeleteLead: confirmDeleteLead,
   cancelDeleteConfirm: cancelDeleteConfirm,
   bulkSnoozeLeads: bulkSnoozeLeads,
