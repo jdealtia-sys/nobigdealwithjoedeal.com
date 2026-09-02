@@ -102,7 +102,14 @@ test('globals-surface-snapshot @globals', async ({ page }) => {
   // Let the deferred script queue finish and the dashboard hydrate.
   await page.waitForTimeout(6000);
 
-  const names = Array.from(new Set([...forwardRefNames(), ...PINNED])).sort();
+  // GLOBALS_SNAPSHOT_EXTRA: comma-separated extra names to record — lets a
+  // conversion slice run the SAME list before and after its change without
+  // editing this file mid-measurement (Tranche 3 dispatch-map slice,
+  // 2026-09-02). A converted name is EXPECTED to read 'missing' in the
+  // after-run; the differential is the proof.
+  const extra = (process.env.GLOBALS_SNAPSHOT_EXTRA || '')
+    .split(',').map((s) => s.trim()).filter(Boolean);
+  const names = Array.from(new Set([...forwardRefNames(), ...PINNED, ...extra])).sort();
 
   const snap = await page.evaluate((ns) => {
     /* eslint-disable no-undef */
