@@ -122,3 +122,31 @@ these strings themselves, so the counts include them.
    fingerprint table (with the index caveat), and web search for newly
    deployed lookalikes.
 3. Baseline to diff against is the table above.
+
+## 2026-09-01 — first scheduled fire: red, but 100% infrastructure
+
+The watch's first cron fire (12:15Z schedule, ran 16:37Z) went red with
+"6 signal(s)" — **every one was API noise, zero copycat indicators**: the
+five fingerprint code-searches failed and the jquery/jquery positive control
+returned nothing, i.e. the workflow's own control proved the installation
+token cannot run global code search at all (the header suspected this; now
+it is measured). Forks/stars/watchers all read clean at baseline 0/0/0.
+
+Two defects fixed the same day (branch `claude/copycat-infra-vs-signal`):
+
+1. **`note()` conflated infra failures with signals** — a rate-limited
+   search emailed the same red as a genuine copycat hit. Split into
+   `signal()` (→ red) and `infra()` (→ annotation + a "Channel notes (not
+   signals)" summary section). A latent variant also fixed: a failed
+   metadata read set counters to `err`, which compared unequal to baseline
+   and would have filed a fake "count changed" signal.
+2. **Code search is now a DECLARED channel**, gated on a
+   `COPYCAT_CODE_SEARCH_TOKEN` secret (classic PAT, no scopes). Absent →
+   named as OFF in every summary, not red, not silent. Present → the
+   positive control must see, and a blind configured channel IS a signal.
+
+**Jo's optional call** (queued in WEEKLY_CADENCE): mint the no-scope PAT to
+turn fingerprint search on. Reasonable to skip — the header already records
+that code search never indexed even this repo at baseline, so it is the
+weakest channel; forks/stars/watchers/repo-name remain fully watched either
+way.
