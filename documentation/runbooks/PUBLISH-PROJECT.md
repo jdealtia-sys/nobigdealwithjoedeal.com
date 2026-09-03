@@ -115,7 +115,7 @@ you review the PR preview and merge.
      `siding-replacement`, `siding-repair`, `wood-siding-repair`,
      `shed-roof-replacement`, `gutter-replacement`,
      `storm-damage` (covers hail — that strip also stamps the hail-claims
-     hub), `roof-inspection`. The last two were added 2026-09-03 — see
+     hub), `roof-inspection`. `wood-siding-repair` and `shed-roof-replacement` were added 2026-09-03 — see
      [WOOD-SIDING-GAP](../audit/WOOD-SIDING-GAP-2026-09-03.md) and
      [SHED-OUTBUILDING-GAP](../audit/SHED-OUTBUILDING-GAP-2026-09-03.md). A job may carry several — a hail-claim tear-off
      is `["storm-damage","roof-replacement"]` and appears on BOTH hub pages'

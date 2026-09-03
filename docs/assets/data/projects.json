@@ -7,7 +7,8 @@
     "then run: node scripts/build-projects.mjs — and commit ALL stamped files.",
     "Publish procedure + field rules: documentation/runbooks/PUBLISH-PROJECT.md",
     "TAXONOMY: services[] is required — 1+ of roof-replacement|roof-repair|",
-    "siding-replacement|siding-repair|gutter-replacement|storm-damage|",
+    "siding-replacement|siding-repair|wood-siding-repair|shed-roof-replacement|",
+    "gutter-replacement|storm-damage|",
     "roof-inspection (the /services/ hub filenames). It drives the /our-work",
     "filter buttons, #service= deep links, schema serviceType, the card pills,",
     "and which hub-page strips a job appears in. category is legacy/optional.",
@@ -1747,7 +1748,7 @@
       ],
       "tag": "Shed Re-Roof",
       "city": "Mason, OH",
-      "description": "Barn-style backyard shed in Mason — old black rolled roofing, torn off completely rather than covered over. We took it down to the original OSB, and that is when the water staining around the old fasteners showed; you don't see that through a layer left in place. Blue synthetic underlayment, a starter course, charcoal architectural shingles and a shingle ridge cap across both roof planes, with the old roofing bagged and staged on tarps so the yard was clear when the ladders came down. Same shingle that goes on a house.",
+      "description": "Barn-style backyard shed in Mason — old rolled roofing, torn off completely rather than covered over. With it off we could actually look at the deck: original OSB with old asphalt still stuck to it, sound underneath. Then synthetic underlayment, charcoal architectural shingles and a shingle ridge cap. Same shingle that goes on a house.",
       "hero": "/assets/images/projects/mason-oh-shed-reroof-2026-6.jpg",
       "photos": [
         {
@@ -1756,11 +1757,11 @@
         },
         {
           "src": "/assets/images/projects/mason-oh-shed-reroof-2026-2.jpg",
-          "alt": "Close-up of bare OSB roof decking, dark water stains around old fastener holes, torn black roll roofing at right"
+          "alt": "Close-up of bare OSB roof decking with old black asphalt residue stuck to the strands and torn roll roofing at the right edge"
         },
         {
           "src": "/assets/images/projects/mason-oh-shed-reroof-2026-3.jpg",
-          "alt": "Shed with a blue tarp over its stripped roof, two ladders leaning against it, torn-off black roofing piled on the grass"
+          "alt": "Shed mid-job with new charcoal shingles on the lower slope, a blue tarp over the unfinished upper roof, and torn-off roll roofing on the grass"
         },
         {
           "src": "/assets/images/projects/mason-oh-shed-reroof-2026-4.jpg",

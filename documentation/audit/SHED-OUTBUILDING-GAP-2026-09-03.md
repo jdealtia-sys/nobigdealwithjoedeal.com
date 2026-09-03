@@ -143,6 +143,75 @@ none reached the final text. One judge flagged *"both roof planes"* as a small e
 confirming; it was confirmed against the finished photo (the lower attached plane carries the same
 new shingles, continuous with the gambrel) rather than taken on trust.
 
+## §4b — The card shipped with four false claims. Here is how, and how they were caught.
+
+**This is the most useful thing in this note.** The first published version of the description said
+the tear-off revealed *"water staining around the old fasteners"*, that the old roofing was
+*"bagged and staged on tarps"*, and that *"the yard was clear when the ladders came down."* **All
+three are false**, and a fourth claim — *"across both roof planes"* — is wrong for a gambrel, which
+has four. It went to `main`'s PR branch as commit `bcacd43` before it was caught.
+
+What the photos actually show, verified by cropping and enlarging each disputed region:
+
+| Claim as published | What the frame actually shows |
+|---|---|
+| "water staining around the old fasteners" | Glossy, opaque **black asphalt residue sitting on top of the strands**, plus chalk lines. The OSB is pale, dry and sound — no diffuse halo soaking in, no swelling, no delamination, no rust rings. No decking was replaced on this job. |
+| "bagged and staged on tarps" | The torn-off roofing lies **loose on the grass and in the leaf litter**. No bags. No tarp under any of it. |
+| "the yard was clear when the ladders came down" | The **hero frame itself** — the card thumbnail — still shows shingle-bundle wrappers open on the lawn at the fence line. |
+| alt #3 "a blue tarp over its stripped roof" | The lower slope in that frame is **already shingled**; the tarp covers only the unfinished upper section. |
+
+### Root cause — and it is a process bug, not a bad agent
+
+The drafting workflow was seeded with a `FACTS` block **written by the session from its own quick
+first read of the photos**. That block asserted water staining, tarps and a clear yard. Four
+drafting agents and three judges then worked *faithfully and well* — the judges caught every
+fabrication the drafters introduced **on top of** the brief, and the winning draft invented nothing.
+They simply had no mandate to doubt the brief itself. Garbage in the premise propagates through a
+judge panel untouched, because a judge panel measures candidates against each other and against
+the brief, not against reality.
+
+**The verification workflow caught all four** precisely because its agents were pointed at the
+*images* and told to refute, with no access to the drafting brief's framing. Three independent
+lenses (truth-vs-photos, runbook, voice-and-claims) converged on the cleanup claim without
+coordinating.
+
+### The rules that come out of this
+
+1. **A drafting brief written from your own impressions is a hypothesis, not a fact sheet.** Label
+   it as such in the prompt, or verify it before you hand it to a fan-out that will amplify it.
+2. **Verification must read the primary source, not the brief.** If the verifier and the drafter
+   share a premise, the verifier cannot catch a wrong premise.
+3. **Never publish a claim the accompanying photo refutes.** A cleanup line disproven by the very
+   frame chosen to sell the job is worse than no cleanup line: the reader can see it.
+4. **"It probably happened off camera" is not a defence.** If the shed really was tidied after the
+   last frame, the honest fix is a seventh photo, not a sentence.
+
+### The corrected description
+
+Now: *"Barn-style backyard shed in Mason — old rolled roofing, torn off completely rather than
+covered over. With it off we could actually look at the deck: original OSB with old asphalt still
+stuck to it, sound underneath. Then synthetic underlayment, charcoal architectural shingles and a
+shingle ridge cap. Same shingle that goes on a house."*
+
+524 → 337 characters, which also closes a separate advisory: the original was 57% longer than any
+other card and `.project p` has **no line-clamp**, so it was stretching the whole top row of the
+`/our-work` grid. The tear-off rationale survives and is *better* honest — the deck turned out
+sound, and you only know that because somebody looked.
+
+Two documentation fixes fell out of the same pass: `projects.json`'s own `_readme` TAXONOMY list
+still named **7** service keys after this session added two (it is the list an editor actually reads,
+and it declared this very entry's only key invalid), and PUBLISH-PROJECT.md's "The last two were
+added 2026-09-03" pointed, read literally, at `storm-damage` and `roof-inspection`. Both corrected.
+
+### Known, pre-existing, NOT fixed here
+
+`build-projects.mjs` stamps hub-strip links as `/our-work#svc-<slug>` (39 of them across `docs/`),
+but `docs/assets/js/our-work.js` only parses `#service=<slug>` — its own comment says
+*"#service=<slug> deep links let hub-page strips land pre-filtered."* There is no `#svc-` handler,
+so **every hub strip link lands on the unfiltered gallery**. `check-site-integrity` passes because
+the anchor resolves to the filter button's id. Zero `#service=` links exist anywhere. Out of scope
+for a publish; worth a small PR of its own.
+
 ## §5 — Open
 
 **Jo:** nothing outstanding on this card — all four answers landed and it shipped. Still open
