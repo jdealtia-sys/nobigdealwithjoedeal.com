@@ -231,6 +231,41 @@ each agent with a 4-attempt loop was enough; the second run lost nothing.
 
 ---
 
+## The worst thing found all day was not in the code
+
+Jo asked for the Cloud Storage backup (queue #4). Checking where Firestore
+backups went turned up that **there were none, and never had been.**
+
+Three functions — `dailyFirestoreBackup`, `nightlyFirestoreBackup`,
+`firestoreBackupRetention` — were ACTIVE, scheduled nightly, and failing every
+night on two independent causes: the destination bucket had never been created
+(the function's own docstring says the operator must, and nobody did), and the
+runtime service account holds `roles/editor`, which deliberately **excludes**
+`datastore.databases.export`. Both fixed; the first real export landed 7.3 MB
+with its `overall_export_metadata` completion marker.
+
+This is the repo's silently-green pattern escaped into production
+infrastructure. The CI version of it costs a red build nobody sees. This
+version was every lead, estimate, invoice and customer record, un-backed-up,
+behind three green-looking scheduled functions.
+
+**Two generalisable lessons:**
+
+1. **"It is scheduled" is not "it runs."** Nothing checked the outcome. The
+   fix that stops this recurring is not another backup — it is an alert on the
+   absence of a fresh `overall_export_metadata` object, which is exactly the
+   artifact the function's own comment says "operator checks there" for. No
+   operator ever did. Carried into the 09-04 brief.
+2. **Verify the fix, do not declare it.** The first trigger after the IAM
+   grant still returned `PERMISSION_DENIED` — IAM propagation takes a couple
+   of minutes. Declaring victory on the grant alone would have left the
+   backups broken and the brief claiming otherwise.
+
+Two false premises died with it: the brief's "photos and contracts are
+unrecoverable today" (the bucket already had 7-day soft delete), and its "tell
+a session which of the two Firestore backup buckets is canonical" (there are
+no two — both appspot buckets are empty and neither was ever a backup target).
+
 ## Worth knowing next time
 
 - **`git status` lies about your cwd.** `cd tests && node smoke.test.js` persists
