@@ -1318,7 +1318,13 @@ section('Pipeline one-row toolbar (2026-07-06) — three controls, ids intact');
   assert('sync function counts stamped .active classes into the badge',
     /crmFiltersActiveBadge/.test(ui)
     && /\['needsAttentionBtn', 'staleSharesBtn', 'snoozedToggleBtn', 'engagementSortBtn'\]/.test(ui));
-  for (const [f, flag] of [['needs-attention-filter.js', 'active'], ['stale-shares-filter.js', 'active'],
+  // The two kanban filters read their state from NBDLeadFilters now
+  // (lead-filter-registry.js, 2026-09-03) instead of a private `active`
+  // boolean, so their stamp reads `isActive()`. The assertion's intent is
+  // unchanged — the module must still stamp .active on its own button — only
+  // the expression it stamps FROM moved.
+  for (const [f, flag] of [['needs-attention-filter.js', 'isActive\\(\\)'],
+                           ['stale-shares-filter.js', 'isActive\\(\\)'],
                            ['lead-snooze.js', 'showing'], ['crm.js', 'on']]) {
     assert(f + " stamps .active on its filter button",
       new RegExp("classList\\.toggle\\('active', " + flag + "\\)").test(read(path.join(PRO_JS, f))));
