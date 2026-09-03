@@ -2,15 +2,11 @@
 <!-- NBD-BUILD-20260410-DEPLOY-TEST-XYZ789 -->
 <html lang="en" data-theme="nbd-original">
 <head>
-<!-- Rock 4 Phase 3 prep: emergency rollback via ?legacy=1 query string.
-     Loads /pro/dashboard.legacy.html, which is a snapshot of the
-     previous phase's dashboard.html. Each Phase 3+ PR's first step is
-     to refresh the snapshot (cp dashboard.html dashboard.legacy.html)
-     BEFORE applying its extraction. Convention documented in
-     docs/dev/dashboard-decomposition-plan.md. The pathname check
-     prevents the legacy snapshot from re-redirecting to itself if a
-     bookmarked URL still carries ?legacy=1. -->
-<script src="js/dashboard-legacy-redirect.js?v=1"></script>
+<!-- The ?legacy=1 rollback twin (dashboard.legacy.html + js/dashboard-legacy-redirect.js)
+     was retired 2026-09-02: it had become byte-identical to this file and was being
+     updated by every dashboard commit, so it provided no rollback and doubled the edit
+     surface. /pro/dashboard.legacy 301s here (firebase.json redirects); ?legacy=1 is
+     simply ignored. History: docs/dev/dashboard-decomposition-plan.md. -->
 <!-- Stamp <html data-mode="light|dark"> from localStorage before the first
      paint, so theme-system.css mode-keyed rules don't FOUC. Must run sync
      in <head> before theme-system.css. ThemeEngine.init() takes over later. -->

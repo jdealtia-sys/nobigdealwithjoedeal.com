@@ -93,7 +93,7 @@ console.log('EMPTY TENANT — a zero-lead account must not be reported as a load
 // false error — confirmed live: the browser kept serving ?v=1 from cache until
 // the query changed.
 {
-  for (const page of ['docs/pro/dashboard.html', 'docs/pro/dashboard.legacy.html']) {
+  for (const page of ['docs/pro/dashboard.html']) {
     const html = fs.readFileSync(path.join(ROOT, page), 'utf8');
     const m = html.match(/dashboard-load-status-banner\.js\?v=(\d+)/);
     ok(`${page} cache-busts the banner past v1`,

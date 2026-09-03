@@ -278,7 +278,7 @@
     if (loaded.has(src)) return Promise.resolve();
     if (pending.has(src)) return pending.get(src);
     // A page may already ship this file as an eager <script> tag
-    // (dashboard.legacy.html keeps Leaflet + the theme cluster eager) —
+    // (the legacy twin, retired 2026-09-02, kept Leaflet + the theme cluster eager) —
     // never double-inject. If the eager tag is still queued (defer), the
     // consumer's own guard/poll covers the gap, same as a slow fetch.
     try {

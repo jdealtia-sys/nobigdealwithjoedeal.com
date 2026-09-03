@@ -46,7 +46,6 @@ const DASHBOARD_EXTRACTED_SHARDS = [
   'dashboard-widgets.js',
   'dashboard-ui.js',
   'dashboard-actions.js',
-  'dashboard-legacy-redirect.js',
   'dashboard-appcheck-config.js',
   'dashboard-auth-gate.module.js',
   'dashboard-bootstrap.module.js',

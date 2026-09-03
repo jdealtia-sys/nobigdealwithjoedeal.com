@@ -738,11 +738,10 @@ section('Custom jurisdictions: per-tenant rows reach both pickers + the engine (
     /typeof window\.EstimateBuilderV2\.getCountyTaxMap === 'function'/.test(logic)
     && /window\.EstimateBuilderV2\.loadSettings\(\)\.countyTax \|\| \{\}/.test(logic));
 
-  // (d) Settings markup on BOTH dashboards. The dashboard.test.js wiring
-  // audit scans dashboard.html ONLY — legacy drift would be a silent
-  // page-scoped failure, so legacy parity is pinned explicitly here.
+  // (d) Settings markup on the dashboard. (This loop used to pin parity
+  // across both dashboard twins; the legacy twin was retired 2026-09-02.)
   const bootSrc = read(path.join(PRO_JS, 'dashboard-bootstrap.module.js'));
-  for (const page of ['docs/pro/dashboard.html', 'docs/pro/dashboard.legacy.html']) {
+  for (const page of ['docs/pro/dashboard.html']) {
     const src = read(path.join(ROOT, page));
     assert(page + ' has the #jurRows container + Add Jurisdiction data-fn wiring',
       /id="jurRows"/.test(src)

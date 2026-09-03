@@ -59,7 +59,7 @@ section('Quick Measure import: modal markup + wiring + V2 apply path');
   assert('_qmWireDropZone binds drop + change once (idempotent)',
     /function _qmWireDropZone\(\)[\s\S]{0,900}dataset\.qmWired !== '1'[\s\S]{0,900}addEventListener\('drop'[\s\S]{0,600}addEventListener\('change'/.test(tools));
   assert('openQMImportModal wires the zone on open', /_qmWireDropZone\(\);/.test(tools));
-  // 4. Guards survive: dashboard.legacy.html has no modal, must not crash.
+  // 4. Guards survive: a page without the modal must not crash (the legacy twin, retired 2026-09-02, was that page).
   assert('openQMImportModal still guards a missing modal with a toast',
     /const modal = document\.getElementById\('qmImportModal'\);\s*if \(!modal\)/.test(tools)
     && /Quick Measure import isn\\?'t available on this page/.test(tools));

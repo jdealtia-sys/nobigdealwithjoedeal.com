@@ -342,8 +342,11 @@ deleted, the deletion PR must keep (or carve out) a minimal read-only
 viewer for those docs — view/print/PDF, no editing — rather than rewriting
 stored data. Same session, Jo also approved refreshing the
 `dashboard.legacy.html` rollback snapshot (done in the same PR as this
-edit). The deletion gate itself is unchanged: zero Sentry deprecation
-events for 30 days from 2026-08-31.
+edit). *(2026-09-02: that snapshot was retired outright — it had become
+byte-identical to `dashboard.html`; see
+`docs/dev/dashboard-decomposition-plan.md` item 7. The wizard-deletion PR
+no longer has a second page to keep in step.)* The deletion gate itself is
+unchanged: zero Sentry deprecation events for 30 days from 2026-08-31.
 
 ### Reading the deprecation-warn logs
 
@@ -368,8 +371,9 @@ did land in the classic wizard.
 
 - Delete the classic wizard as one unit: `estimates.js` remainder + the
   `dashboard.html` markup + the `dashboard-state.js` declarations + the four
-  external callers. Note `dashboard.legacy.html` shares `script-loader.js`,
-  so this also changes what the rollback snapshot loads.
+  external callers. ~~Note `dashboard.legacy.html` shares `script-loader.js`,
+  so this also changes what the rollback snapshot loads.~~ *(Moot since
+  2026-09-02 — the snapshot was retired.)*
 - Then drop the four `ESTSRC` source-text assertions in
   `tests/estimate-engine-parity.test.js` (D-1 fallback literals, D-5
   delegation). They are deliberately **kept** while the classic fallbacks

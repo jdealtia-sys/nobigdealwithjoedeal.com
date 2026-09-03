@@ -1015,7 +1015,7 @@ function openCardDetailModal(leadId) {
 
   // Show modal — use the cached `modal` ref from the entry-guard above.
   // nbdModal owns Esc/backdrop/focus on dashboard.html; classList fallback on
-  // dashboard.legacy.html. onClose clears the working lead id on every dismiss.
+  // pages without nbd-modal.js (none since the legacy twin retired 2026-09-02). onClose clears the working lead id on every dismiss.
   if (window.nbdModal) { window.nbdModal.open('cardDetailModal', { onClose: _cardDetailReset }); }
   else { modal.classList.add('open'); }
 }

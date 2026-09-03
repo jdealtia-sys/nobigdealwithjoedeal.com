@@ -106,7 +106,7 @@ let _NBD_IP_DELEGATE_BOUND; // module-local (globals Tranche 1 — was window.*)
    * Prefers the nbdModal helper (dashboard.html loads js/nbd-modal.js, which
    * owns Esc + backdrop-click for managed modals); falls back to a local
    * .open toggle + its own backdrop/Esc close on pages that don't load it
-   * (dashboard.legacy.html). Returns a close() function; `onClose` fires
+   * (none since the legacy twin retired 2026-09-02). Returns a close() function; `onClose` fires
    * exactly once however the modal is dismissed (button, backdrop, Esc).
    */
   function openOverlay(el, onClose) {

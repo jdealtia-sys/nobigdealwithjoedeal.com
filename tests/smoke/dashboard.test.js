@@ -154,7 +154,6 @@ section('Template-suite removal + TemplatesLibrary manager wiring');
 {
   const dash = readDashboard();
   const dashHtml = read(path.join(ROOT, 'docs/pro/dashboard.html'));
-  const legacyHtml = read(path.join(ROOT, 'docs/pro/dashboard.legacy.html'));
   const tl = read(path.join(PRO_JS, 'templates-library.js'));
 
   // 1. The dead module stays dead — no file, no script tag, no guard branch.
@@ -162,8 +161,6 @@ section('Template-suite removal + TemplatesLibrary manager wiring');
     !fs.existsSync(path.join(PRO_JS, 'template-suite.js')),
     'template-suite.js came back — its UI was unreachable dead code, see PR');
   assert('dashboard.html does not load template-suite.js', !/template-suite\.js/.test(dashHtml));
-  assert('dashboard.legacy.html does not load template-suite.js (deleted file would 404 the rollback snapshot)',
-    !/template-suite\.js/.test(legacyHtml));
   assert('no NBDTemplateSuite references remain in dashboard shards', !/NBDTemplateSuite/.test(dash));
 
   // 2. The docs view header wires the TemplatesLibrary manager via the
@@ -914,36 +911,36 @@ section('Audit batch 4 — admin function role-check drift guard');
   }
 }
 
-section('Rock 4 rollback fallback (Phase 3 prep)');
+section('Rock 4 rollback twin retired (2026-09-02)');
 {
-  // CSP hotfix (2026-05-16): the redirect script was inline; now it
-  // lives in docs/pro/js/dashboard-legacy-redirect.js. dashboard.html
-  // still ships the <script src> reference, and readDashboard() rolls
-  // in the new shard so the body assertions still match.
-  const dash = readDashboard();
+  // The ?legacy=1 rollback (dashboard.legacy.html + dashboard-legacy-redirect.js,
+  // Phase 3 prep, 2026-05) was byte-identical to dashboard.html by 2026-09-02
+  // and was being refreshed by every dashboard commit — including all four
+  // Globals Tranche 3 slices — so it offered no rollback, doubled the edit
+  // surface, and lacked the no-store header its twin gets. Retired: both
+  // files deleted, /pro/dashboard.legacy 301s to /pro/dashboard. These pins
+  // keep it retired and keep the redirect honest.
   const dashHtml = read(path.join(ROOT, 'docs/pro/dashboard.html'));
-  const legacyPath = path.join(ROOT, 'docs/pro/dashboard.legacy.html');
-  // 1. dashboard ships the ?legacy=1 redirect logic (inline or external).
-  assert('dashboard.html has ?legacy=1 redirect to dashboard.legacy.html',
-    /URLSearchParams\(location\.search\)\.has\(['"]legacy['"]\)[\s\S]{0,200}location\.replace\(['"]\/pro\/dashboard\.legacy\.html/.test(dash),
-    'expected a <script> (inline or external) that redirects when ?legacy=1 is present');
-  // 2. The redirect's pathname guard prevents an infinite loop on the
-  //    legacy snapshot itself. The script must compare against
-  //    '/pro/dashboard' (no .legacy suffix) so that location.pathname
-  //    of '/pro/dashboard.legacy' fails the check and the page renders.
-  assert('dashboard.html redirect guards against /pro/dashboard.legacy loop',
-    /p === ['"]\/pro\/dashboard['"]/.test(dash),
-    'pathname check must be strict equality with /pro/dashboard (not startsWith)');
-  // 3. The legacy snapshot must exist and be non-trivial.
-  assert('dashboard.legacy.html exists and is non-empty',
-    fs.existsSync(legacyPath) && fs.statSync(legacyPath).size > 100000,
-    'expected docs/pro/dashboard.legacy.html with >100KB of content');
-  // 4. dashboard.html itself still references the redirect script, so
-  //    the rollback path can never silently disappear in a future edit.
-  assert('dashboard.html references the legacy-redirect script',
-    /dashboard-legacy-redirect\.js/.test(dashHtml) ||
-    /URLSearchParams\(location\.search\)\.has\(['"]legacy['"]\)/.test(dashHtml),
-    'expected dashboard.html to ship the redirect either inline or via <script src>');
+  const fb = read(path.join(ROOT, 'firebase.json'));
+  assert('dashboard.legacy.html stays deleted',
+    !fs.existsSync(path.join(ROOT, 'docs/pro/dashboard.legacy.html')),
+    'the twin came back — it was retired 2026-09-02 as a byte-identical duplicate');
+  assert('dashboard-legacy-redirect.js stays deleted',
+    !fs.existsSync(path.join(PRO_JS, 'dashboard-legacy-redirect.js')));
+  // Script tags only — the retirement note in <head> names the deleted file.
+  assert('dashboard.html no longer ships a ?legacy=1 redirect',
+    !/<script[^>]*dashboard-legacy-redirect\.js/.test(dashHtml)
+    && !/URLSearchParams\(location\.search\)\.has\(['"]legacy['"]\)/.test(dashHtml));
+  assert('firebase.json 301s /pro/dashboard.legacy (and *) to /pro/dashboard',
+    /"source":\s*"\/pro\/dashboard\.legacy",\s*"destination":\s*"\/pro\/dashboard",\s*"type":\s*301/.test(fb)
+    && /"source":\s*"\/pro\/dashboard\.legacy\*",\s*"destination":\s*"\/pro\/dashboard",\s*"type":\s*301/.test(fb));
+  assert('the noindex header glob no longer lists dashboard.legacy',
+    !/@\([^)]*dashboard\.legacy[^)]*\)/.test(fb));
+  // readDashboard() concatenates DASHBOARD_EXTRACTED_SHARDS; a stale entry for
+  // the deleted redirect shard would throw inside every dashboard section.
+  const shared = read(path.join(__dirname, '_shared.js'));
+  assert('_shared.js no longer lists dashboard-legacy-redirect.js as a dashboard shard',
+    !/dashboard-legacy-redirect\.js/.test(shared));
 }
 
 section('Wave 6b (A.2) — Pro Chrome on login.html + vault.html');
@@ -3945,9 +3942,9 @@ section('Embedded per-customer estimate hub (CustomerEstimateHub)');
   const actions = read(path.join(PRO_JS, 'dashboard-actions.js'));
   const widgets = read(path.join(PRO_JS, 'dashboard-widgets.js'));
 
-  // ── The tab exists on BOTH dashboard twins, wired to the already-registered
-  //    _mJdSwitchTab (no new call-registry entry needed).
-  for (const page of ['dashboard.html', 'dashboard.legacy.html']) {
+  // ── The tab exists on the dashboard (the legacy twin was retired 2026-09-02),
+  //    wired to the already-registered _mJdSwitchTab (no new call-registry entry needed).
+  for (const page of ['dashboard.html']) {
     const html = read(path.join(ROOT, 'docs/pro', page));
     assert(`${page}: Estimates tab button dispatches _mJdSwitchTab('estimates')`,
       /data-tab="estimates"[^>]*data-fn="_mJdSwitchTab" data-arg="estimates"/.test(html));
@@ -4117,7 +4114,7 @@ section('Customer-surface sweep — blockers caught in review (regression pins)'
     minter.length > 0 &&
     !/navigator\.clipboard|window\.open\(|recordShare|showToast/.test(minter) &&
     /return location\.origin \+ '\/pro\/portal\.html\?token='/.test(minter));
-  for (const page of ['dashboard.html', 'dashboard.legacy.html']) {
+  for (const page of ['dashboard.html']) {
     assert(`${page} still does NOT load customer-portal.js (the minter must not depend on it)`,
       !/customer-portal\.js/.test(read(path.join(ROOT, 'docs/pro', page))));
   }
@@ -4174,8 +4171,8 @@ section('Embedded per-customer photo hub (CustomerPhotoHub)');
   assert('openMobileJobDetail unmounts the photo hub when the lead changes',
     /CustomerPhotoHub\.leadId\(\) !== leadId[\s\S]{0,120}\.unmount\(\)/.test(openFn));
 
-  // ── Both dashboards load it.
-  for (const page of ['dashboard.html', 'dashboard.legacy.html']) {
+  // ── The dashboard loads it (the legacy twin was retired 2026-09-02).
+  for (const page of ['dashboard.html']) {
     const html = read(path.join(ROOT, 'docs/pro', page));
     assert(`${page}: loads customer-photo-hub.js`, /customer-photo-hub\.js/.test(html));
   }
@@ -4440,7 +4437,7 @@ section('Canonical estimate money reader ships with its consumers');
     'invoice-pipeline.js',
     'dashboard-widgets.js',
   ];
-  const PAGES = ['docs/pro/dashboard.html', 'docs/pro/dashboard.legacy.html', 'docs/pro/customer.html'];
+  const PAGES = ['docs/pro/dashboard.html', 'docs/pro/customer.html'];
 
   for (const page of PAGES) {
     const html = read(path.join(ROOT, page));
@@ -4485,10 +4482,9 @@ section('First-run tour: anchors resolve + direction-aware skip (first-run audit
   const tour = read(path.join(PRO_JS, 'onboarding-tour.js'));
   const pages = {
     'docs/pro/dashboard.html': read(path.join(ROOT, 'docs/pro/dashboard.html')),
-    'docs/pro/dashboard.legacy.html': read(path.join(ROOT, 'docs/pro/dashboard.legacy.html')),
   };
 
-  // (a) every #id anchor in the tour must exist in BOTH dashboard pages —
+  // (a) every #id anchor in the tour must exist in the dashboard page —
   // the exact class of markup drift that caused the defect.
   const anchorLiterals = [...tour.matchAll(/anchor:\s*'([^']+)'/g)].map((m) => m[1]);
   assert('tour declares anchored steps', anchorLiterals.length >= 2);

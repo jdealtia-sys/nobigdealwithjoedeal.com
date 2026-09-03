@@ -403,7 +403,7 @@ function openCustomizeModal() {
   // Prefers nbdModal (open/close + focus-lite/Esc/backdrop — dashboard.html
   // loads js/nbd-modal.js eagerly before this file). Falls back to a local
   // .open toggle + its own Esc close on pages that don't load nbd-modal.js
-  // (dashboard.legacy.html) — mirrors invoice-pipeline.js's openOverlay().
+  // (none since the legacy twin retired 2026-09-02) — mirrors invoice-pipeline.js's openOverlay().
   if (window.nbdModal && typeof window.nbdModal.open === 'function') {
     window.nbdModal.open(modal, { onClose: function () { document.body.style.overflow = ''; } });
   } else {

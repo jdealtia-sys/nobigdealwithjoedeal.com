@@ -163,7 +163,7 @@ async function openTaskModal(leadId,event){
   document.getElementById('taskInput').value='';
   document.getElementById('taskDue').value='';
   // nbdModal owns Esc/backdrop/focus on dashboard.html; classList fallback on
-  // dashboard.legacy.html. onClose runs the lead-id reset + list re-render.
+  // pages without nbd-modal.js (none since the legacy twin retired 2026-09-02). onClose runs the lead-id reset + list re-render.
   if(window.nbdModal){window.nbdModal.open('taskModal',{onClose:_taskModalReset});}else{var _tm=document.getElementById("taskModal");if(_tm)_tm.classList.add("open");}
   renderTaskList(await _loadTasks(leadId));
 }

@@ -96,11 +96,12 @@ console.log('EMPTY IS NOT FAILED — kanban columns render, diagnostic keys off 
     'the old panel never showed what actually failed');
 }
 
-// ── 3. Both dashboards carry the IDs the shared JS drives ─────────────
-// crm-pipeline.js is loaded by both pages. If the legacy page lacks these,
-// it keeps the alarming heading with its details hidden — worse than before.
+// ── 3. The dashboard carries the IDs the shared JS drives ─────────────
+// (This used to pin both dashboard twins; the legacy twin was retired
+// 2026-09-02.) If the page lacks these, it keeps the alarming heading
+// with its details hidden — worse than before.
 {
-  for (const page of ['docs/pro/dashboard.html', 'docs/pro/dashboard.legacy.html']) {
+  for (const page of ['docs/pro/dashboard.html']) {
     const html = fs.readFileSync(path.join(ROOT, page), 'utf8');
     for (const id of ['crmDiagnosticTitle', 'crmDiagnosticLede', 'crmDiagnosticDebugTools', 'crmDiagnosticDebugToggle']) {
       ok(`${page} has #${id}`, html.includes('id="' + id + '"'));

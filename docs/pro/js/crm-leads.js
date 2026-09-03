@@ -83,7 +83,7 @@ function openLeadModal(){
   const modal = document.getElementById('leadModal');
   if (!modal) return; // standalone compat — modal not in DOM
   // nbdModal owns Esc/backdrop/focus on dashboard.html; classList fallback on
-  // dashboard.legacy.html. onClose runs the full form reset on every dismiss.
+  // pages without nbd-modal.js (none since the legacy twin retired 2026-09-02). onClose runs the full form reset on every dismiss.
   if (window.nbdModal) { window.nbdModal.open('leadModal', { onClose: _leadModalReset }); }
   else { modal.classList.add('open'); }
   // Auto-infer jobType from current view: when user is on Cash view and clicks Add Lead,
@@ -119,7 +119,7 @@ function openLeadModal(){
 }
 function closeLeadModal(){
   // Visibility toggle is dual-path (nbdModal on dashboard.html, classList on
-  // dashboard.legacy.html). The form reset lives in _leadModalReset so it runs
+  // pages without nbd-modal.js (none since the legacy twin retired 2026-09-02)). The form reset lives in _leadModalReset so it runs
   // on EVERY dismiss — nbdModal fires it via onClose (button/backdrop/Esc), and
   // the legacy branch calls it directly.
   if (window.nbdModal) { window.nbdModal.close('leadModal'); return; }
