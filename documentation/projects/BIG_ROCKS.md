@@ -213,6 +213,8 @@ MEDIUM. Pricing math is high-stakes. Each PR must:
 > for every shard except `@engines` (`continue-on-error: ${{ matrix.shard
 > == '@engines' }}`), and the suite has grown to ~48 test blocks — the
 > "15 journeys / still advisory" description below is historical. The "What's left" below is historical.
+> **Correction 2026-09-02:** `@engines` was promoted too (2026-08-26, #1279);
+> `ci.yml` carries zero `continue-on-error` flags — all six shards block.
 
 ### Goal
 Stand up a real Playwright test suite that exercises authenticated flows end

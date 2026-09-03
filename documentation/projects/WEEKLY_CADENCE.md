@@ -125,6 +125,30 @@
 
 ## One-off queue — Jo (decisions & console; newest first, check off here when done)
 
+- [ ] **Grant `roles/iam.serviceAccountTokenCreator` on the compute SA (~2 min,
+      GCP Console → IAM)** — the same item as the older "IAM fix" below, now
+      the highest-leverage console task there is: `signImageUrl` has no
+      fallback without it, so the public-photo-token fix (every photo variant
+      carries a permanent public URL) cannot start until it lands. Then tell a
+      session; it probes `POST /signImageUrl` and starts the cutover.
+      Context: [NEXT_SESSION-2026-09-03](NEXT_SESSION-2026-09-03.md).
+- [ ] **Turn on branch protection for `main` (~2 min)** — verified OFF on
+      2026-09-02 (`gh api …/branches/main/protection` → 404, no rulesets), so
+      CODEOWNERS enforces nothing and every merge deploys immediately.
+      Require at least the `Smoke tests` and `Firestore rules tests` checks.
+- [ ] **Cloud Storage backup (OPS_AUDIT P0 #2)** — Object Versioning on
+      `nobigdeal-pro.firebasestorage.app` + a daily Storage Transfer to a
+      second bucket; photos and signed contracts are unrecoverable today.
+      Also: which of the two Firestore backup buckets is canonical
+      (`nobigdeal-pro-backups` vs `nobigdeal-pro-firestore-backups`)?
+- [ ] **Free-API wave 1 prerequisites (all free)** — Healthchecks.io and
+      Better Stack accounts; a Census API key (instant); enable the Solar API
+      on the GCP project; **start Meta App Review** for Lead Ads and the
+      **GBP API access request** now (both have review queues). Optional:
+      an ArcGIS Location Platform free key.
+      Context: [FREE-API-INTEGRATIONS-RESEARCH-2026-09-02](../audit/FREE-API-INTEGRATIONS-RESEARCH-2026-09-02.md).
+- [ ] **Which payment handles belong on invoices?** Zelle is deliberately
+      `info@`; PayPal/Venmo are absent. Needed before the invoice block is touched.
 - [ ] **Copycat watch: optionally enable the code-search channel (~3 min,
       or decide to skip)** — the monthly watch's first fire (2026-09-01)
       proved the built-in Actions token cannot run global code search, so
@@ -177,8 +201,11 @@
 - [ ] **Turnstile, in this order**: mint sitekey → populate
       `docs/assets/js/inline/7cd8e505ab.js` → deploy → THEN set
       `TURNSTILE_SECRET` (reverse order 403s every public lead)
-- [ ] **Bless the 12 visual-regression baselines** (download CI artifact,
-      eyeball, commit snapshots) — unblocks the visual-regression streak
+- [x] **~~Bless the 12 visual-regression baselines~~ DONE 2026-09-02 (#1349)**
+      — a session downloaded the artifact, viewed all 12, committed them, and
+      pinned the matrix in smoke; the job compared for the first time on that
+      PR. (Found on the way: the login page overflows at 375/768 — fix and
+      re-bless together.)
 - [ ] **First priced project on /our-work** (~10 min) — all 12 seed cards are
       unpriced; also confirm the agent's service labels on the 2 commercial
       apartment entries + the A-frame metal roof (labeled roof-replacement
@@ -243,10 +270,21 @@
    Jo's per-function call, then CL8-style retirement or UI wiring
 5. Firestore offline persistence (after Jo's decision)
 6. Classic-wizard deletion (once Jo's gates clear)
-7. **Rules-test coverage** — zero assertions for /invoices, /storm_proofs,
+7. ~~**Rules-test coverage** — zero assertions for /invoices, /storm_proofs,
    /supplements, /portal_messages, /connectAccounts + Storage
-   audio/galleries/reports/shared_docs; plus #12-guard cases for the 12
-   newly guarded creates (2026-08-10 audit)
+   audio/galleries/reports/shared_docs~~ **DONE 2026-09-02 (#1350: 87
+   assertions; Storage suite gates the deploy)** — still open from that item:
+   #12-guard cases for the 12 newly guarded creates (2026-08-10 audit)
+7b. **Free-API wave 1** (one evening, five PRs) — the verified shortlist in
+   [FREE-API-INTEGRATIONS-RESEARCH-2026-09-02](../audit/FREE-API-INTEGRATIONS-RESEARCH-2026-09-02.md);
+   lane 1 of the current handoff
+7c. **Photo tokens, engineering half** — `onLeadDeleted` reaps photo originals
+   + variants + thumbs + docs; 30-day `pdf-renders/` reaper (the signed-URL
+   cutover waits on the IAM grant above)
+7d. **Cron-gate durability** — all 12 `*_ENABLED` names in
+   `functions/.env.nobigdeal-pro` + smoke drift pin + health-digest gate table
+7e. **Bound the four unbounded reads** + tests for storm-watch / data-export /
+   killswitch + `invoice-pipeline.js` onto cents + wire `crm-audit.js` into CI
 8. **Admin AI-usage endpoint** — the analytics page is labeled SAMPLE DATA;
    claudeProxy already logs real usage, needs aggregation + page wiring
 9. Functions cold-start increment 2 (lazy export proxies)

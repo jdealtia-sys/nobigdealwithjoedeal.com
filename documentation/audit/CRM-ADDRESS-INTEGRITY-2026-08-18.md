@@ -448,3 +448,6 @@ Also noted for the next tooling pass: `audit-lead-addresses.js` still uses
 the legacy firebase-admin namespace (`admin.credential.applicationDefault`),
 which v14 removed — it runs in CI but throws locally; migrating it to
 `scripts/_admin.js` is the one-line-per-import fix its header prescribes.
+*(2026-09-02: done — ported in #1318/#1329 and the workflow's `NODE_PATH`
+pin removed in #1330; `scripts/audit-lead-addresses.js:52` now requires
+`./_admin`. Nothing left to do here.)*
