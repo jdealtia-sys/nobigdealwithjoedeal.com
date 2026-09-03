@@ -20,6 +20,7 @@
     "customer-doc-delete.test.js",
     "customer-documents-store.test.js",
     "dashboard-kpi.test.js",
+    "data-export.test.js",
     "docgen-brand.test.js",
     "docgen-address-guard.test.js",
     "estimate-engine-parity.test.js",

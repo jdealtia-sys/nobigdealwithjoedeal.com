@@ -15,7 +15,8 @@
  * Properly RFC-4180 quoted: fields containing comma, quote, or
  * newline get wrapped in double quotes with internal quotes
  * doubled. Excel-safe BOM prepended so non-ASCII names don't get
- * mojibake'd in Excel for Windows.
+ * mojibake'd in Excel for Windows. Formula-leading fields are
+ * neutralized before quoting — see csvEscape.
  *
  * Filename pattern: nbd-{type}-YYYY-MM-DD.csv (date in local TZ
  * so the rep recognizes it).
@@ -34,6 +35,29 @@
   __NBD_LOADED['data-export'] = true;
 
   // ─── CSV serialization ───────────────────────────────────────────
+  // Excel and Sheets treat a cell whose FIRST character is one of
+  // = + - @ TAB CR as a formula and evaluate it the moment the file
+  // is double-clicked. Lead names and notes arrive from the PUBLIC
+  // intake form, so without this a hostile submission is code that
+  // runs on the owner's own machine, in his own spreadsheet, from an
+  // export he made himself. Prefixing the spreadsheet text marker
+  // (a single quote) demotes the cell to text.
+  const FORMULA_LEAD = /^[=+\-@\t\r]/;
+  // ...but a plain signed number is a legitimate cell — jobValue can
+  // be -1500 (a credit) and Total can be negative, and those still
+  // have to sum and sort for the rep, not sit there as text with a
+  // stray apostrophe. So wholly-numeric values are exempt. That's
+  // safe rather than a compromise: a string Number() would accept has
+  // no room left for an expression — "-1500" cannot call anything,
+  // while "-2+3+cmd|' /C calc'!A0" is not a number and does get the
+  // marker.
+  const PLAIN_NUMBER = /^[-+]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][-+]?\d+)?$/;
+  function neutralizeFormula(s) {
+    if (!FORMULA_LEAD.test(s)) return s;
+    if (PLAIN_NUMBER.test(s)) return s;
+    return "'" + s;
+  }
+
   function csvEscape(v) {
     if (v == null) return '';
     let s;
@@ -48,11 +72,14 @@
     } else {
       s = String(v);
     }
-    // Quote if contains separator, quote, or newline.
-    if (/[",\n\r]/.test(s)) {
-      return '"' + s.replace(/"/g, '""') + '"';
+    const marked = neutralizeFormula(s);
+    // Quote if contains separator, quote, or newline — and ALWAYS
+    // when we added the marker, so the apostrophe can't be read as
+    // anything but the first character of this one cell.
+    if (marked !== s || /[",\n\r]/.test(marked)) {
+      return '"' + marked.replace(/"/g, '""') + '"';
     }
-    return s;
+    return marked;
   }
 
   function toCsv(rows, headers) {

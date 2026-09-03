@@ -3284,8 +3284,16 @@
                   await window._savePin({ id: window._pendingPinId, leadId: leadRef.id });
                 } catch (pinErr) { console.warn('Could not link pin:', pinErr); }
                 window._pendingPinId = null;
-                window._pendingPinLatLng = null;
               }
+              // The coordinate latch is consumed by THIS create and must not
+              // outlive it. It was only ever cleared inside the _pendingPinId
+              // block above — but Quick-Add's "Use my location" arms the coords
+              // with no pin id, so the latch survived, and every later lead
+              // whose address failed to geocode (Nominatim rate-limit, flaky
+              // field connection) was silently stamped with the FIRST house's
+              // location. Cleared before the refresh awaits so a loadPins/
+              // loadLeads failure can't leave it armed.
+              window._pendingPinLatLng = null;
 
               await loadPins(); // Refresh map pins
               await loadLeads();
@@ -3356,8 +3364,11 @@
         if (window._pendingPinId) {
           try { await window._savePin({ id: window._pendingPinId, leadId: fallbackRef.id }); } catch (pe) {}
           window._pendingPinId = null;
-          window._pendingPinLatLng = null;
         }
+        // Consumed by this create — see the geocoded branch above. This is the
+        // branch that READ the latch (line ~3305), so leaving it armed here is
+        // what handed the next un-geocodable lead the wrong coordinates.
+        window._pendingPinLatLng = null;
         await loadLeads();
         // Return the newly-created lead's id (no-geocode fallback path).
         return fallbackRef.id;
@@ -5360,8 +5371,19 @@
   // convenience CSVs for the common ops workflows.
   function _csvEscape(v) {
     if (v == null) return '';
-    const s = String(v);
-    return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+    let s = String(v);
+    // Same formula-injection neutralizer as data-export.js's csvEscape and
+    // expenses.js's. This is the OTHER "Export All Leads (CSV)" button — the
+    // one in Settings → Access → Data Retention — and it maps firstName /
+    // lastName / address / notes straight off window._leads, all of which
+    // arrive from the PUBLIC intake form. Fixing only the first export left
+    // this one live over the same data, one panel away.
+    // Character class and the plain-number exemption are pinned across all
+    // three copies by tests/data-export.test.js.
+    if (/^[=+\-@\t\r]/.test(s) && !/^[-+]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][-+]?\d+)?$/.test(s)) {
+      s = "'" + s;
+    }
+    return /[",\n\r]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
   }
   function _downloadCsv(rows, filename) {
     if (!rows || !rows.length) {
