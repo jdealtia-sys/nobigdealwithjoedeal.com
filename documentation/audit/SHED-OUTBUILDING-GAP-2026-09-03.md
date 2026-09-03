@@ -29,9 +29,10 @@ between stages. Old roofing is bagged on tarps, not dumped on the grass. Two roo
 planes — the main gambrel plus a lower attached section. White T1-11 siding, dark
 green trim, chain-link fenced wooded lot.
 
-Proposed 6-frame carousel: `IMG_0095` (hero, finished) → `IMG_9510` (during, tarped
-+ torn-off roofing staged) → `IMG_9484` (tear-off) → `IMG_9493` (stained decking) →
-`IMG_9496` (underlayment + first courses) → `IMG_9506` (clean site).
+The 6 frames that actually shipped, in carousel order (see §4 for why):
+`IMG_9490` tear-off → `IMG_9493` stained decking → `IMG_9510` tarped + roofing staged →
+`IMG_9497` shingles going on → `IMG_9505` slope finished → `IMG_0095` the finished shed,
+which is also the `hero`.
 
 ---
 
@@ -88,50 +89,73 @@ under a separate limit, and it is the line carriers most often leave out of a sc
 
 ---
 
-## §4 — The Scott shed card is NOT shipped, and why
+## §4 — The shed card: raised, decided, shipped
 
-Jo's answer to "whose job is this": **joint — "I helped on it."** That is the reason
-the card is held, and it is not a formality:
+The card was held on first pass. Jo's answer to "whose job is this" was **joint —
+"I helped on it"** — and the vault has Scott as a contractor peer
+(`scott@oaksroofingandconstruction.com`, the
+[Oaks microsite](../projects/SESSION-2026-08-19-oaks-microsite-rebuild.md)), so publishing it
+flat risked misstating who did the work. Two things were put to Jo:
 
-1. **Attribution.** The vault has Scott as `scott@oaksroofingandconstruction.com` —
-   a contractor peer Jo built the Oaks microsite for
-   ([SESSION-2026-08-19](../projects/SESSION-2026-08-19-oaks-microsite-rebuild.md)),
-   also the source of the "2023 JK Roofing Customers (Scott's only)" book. So this is
-   not a homeowner job with a customer named Scott, and publishing it flat as NBD work
-   would misstate who did it.
+1. **Attribution** — is this NBD's job to publish at all?
+2. **The claim on 120 pages** — the transparency strip says *"I don't subcontract."*
 
-2. **It collides with a claim on 120 pages.** The transparency strip says
-   **"I don't subcontract"** on 120 homeowner pages. A joint job is not subcontracting
-   — subcontracting is selling a job and handing it to someone else's crew — but a
-   homeowner reading both deserves the distinction stated rather than left to inference.
-   The site's own blog already takes the nuanced position
-   (`how-to-choose-a-roofer-after-a-storm`: *"Subcontracting isn't automatically bad,
-   but the answer should be immediate and specific"*), so the honest move is available
-   and on-brand: publish it and say in the card what the arrangement was. That is the
-   same move as "rot is usually not an insurance claim."
+**Jo's decision: run it as a regular project, no note.** That is the right call and it is his to
+make. A joint job is **not** subcontracting — subcontracting is selling a job and handing it to
+someone else's crew, which is not what happened. The site's own blog already holds the nuanced
+position (`how-to-choose-a-roofer-after-a-storm`: *"Subcontracting isn't automatically bad, but the
+answer should be immediate and specific"*). The card names no other company and makes no claim
+about who swung the hammer; it describes the work.
 
-3. **Still missing, and only Jo has them:** the town (city-level only — never a street
-   address), consent to publish, the retail range (or "skip"), and one line on how to
-   describe the joint work honestly.
+The lesson kept in the runbook is the *asking*, not the disclosing: **surface provenance before
+publishing, then let the owner decide.** Rule 3 of PUBLISH-PROJECT.md was reworded accordingly —
+it originally read "needs the arrangement stated in the card — or it stays off," which was a
+session inventing policy for the business rather than flagging a decision to its owner.
 
-**Do not publish this card until all four land.** Everything in §3 is independent of
-it and shipped on the already-consented jobs.
+Jo's other three answers closed the rest: town **Mason**, **consent given**, retail **$2,000–$2,500**.
+The range as first typed was "200-2500"; every other card on the site uses a tight range
+($400–$700, $1,500–$2,000, $11,000–$12,000), so a 12× spread was queried rather than published —
+it was a dropped digit.
 
----
+### What shipped
+
+`mason-oh-shed-reroof-2026` — "Barn-Style Shed, Down to the OSB", tag *Shed Re-Roof*,
+Mason OH, $2,000–$2,500, 6 photos, `consentOnFile: true`. Tagged `shed-roof-replacement` only:
+tagging it `roof-replacement` as well would have put a $2k shed at the head of the roof-replacement
+hub's proof strip (the strip sorts newest-first), pushing house-scale work down. It now leads the
+shed hub's own strip, ahead of the Batavia and Amelia jobs.
+
+**Photo handling.** Selected from all 28 uniques, not a sample. Story order — tear-off → the
+stained deck → tarped and staged → shingles going on → slope finished → the finished shed — with
+`hero` pointed at photo **6** so the card thumbnail is the finished building. `hero` need not be
+`photos[0]`: `heroAlt()` matches on `src`, and two existing entries already point at photo 3.
+One frame was swapped late (`IMG_9506` → `IMG_9505`) because a fingertip intruded at the bottom
+edge. `IMG_0095` needed a real 90° pixel rotation before re-encoding — it is stored rotated with
+**no EXIF orientation tag**, so anything trusting the tag bakes it in sideways.
+
+**Copy.** Drafted by a 14-agent workflow: 4 candidate descriptions from distinct angles, 6 alt
+strings written against the actual images, 3 judges scoring on separate lenses (voice / truth /
+pull), then a synthesis. `same-discipline` won 25–22–19–19. All three judges independently flagged
+the same fabrications in the losing candidates — *"Most roofing companies won't put a shed on the
+schedule"* (unverifiable claim about other contractors), *"water had been working in at each one
+for a long time"* (invents duration from a stain), and an *"every old fastener"* quantifier — and
+none reached the final text. One judge flagged *"both roof planes"* as a small extrapolation worth
+confirming; it was confirmed against the finished photo (the lower attached plane carries the same
+new shingles, continuous with the gambrel) rather than taken on trust.
 
 ## §5 — Open
 
-**Jo:** the four answers in §4. Also — the runbook's phone-paste template
-([PUBLISH-PROJECT](../runbooks/PUBLISH-PROJECT.md)) lists the seven old service keys;
-it now needs `wood-siding-repair` and `shed-roof-replacement` added, and a line about
-consent when a job was not solely NBD's.
+**Jo:** nothing outstanding on this card — all four answers landed and it shipped. Still open
+from the companion note: the **GBP service list** (the site now claims wood siding, fascia/soffit
+and shed/outbuilding roofing; GBP does not list them), and the Mason caller's own photos, which
+still need consent before they can be published.
 
 **Next session:**
-1. Publish the Scott card once §4 clears — photos re-encoded through
-   `prepare-project-images.mjs` (note: `sharp` loads from `functions/node_modules`, so
-   `cd functions && npm install` first; it was absent in this sandbox), the three
-   `IMG_009x` frames rotated 90° **before** re-encoding.
-2. City pages for `shed-roof-replacement` in the tier-1 towns, once the hub has data.
+1. City pages for `shed-roof-replacement` in the tier-1 towns — the hub now has a real Mason job
+   to anchor a Mason page.
+2. Tooling note for next time: `prepare-project-images.mjs` loads `sharp` from
+   `functions/node_modules`, which was absent in this sandbox — `cd functions && npm install`
+   first (~1 min). `pillow-heif` is needed to read the HEIC originals at all.
 3. The three roof/siding hubs still carry roof-specific copy in the shared process
    module (*"Getting a new roof shouldn't feel like a negotiation"*, *"gets on the
    roof"*). Corrected on the two new hubs, still wrong on the originals.

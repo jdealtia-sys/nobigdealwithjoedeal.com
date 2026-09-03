@@ -1738,6 +1738,48 @@
       ],
       "consentOnFile": true,
       "published": "2026-08-31"
+    },
+    {
+      "slug": "mason-oh-shed-reroof-2026",
+      "title": "Barn-Style Shed, Down to the OSB",
+      "services": [
+        "shed-roof-replacement"
+      ],
+      "tag": "Shed Re-Roof",
+      "city": "Mason, OH",
+      "description": "Barn-style backyard shed in Mason — old black rolled roofing, torn off completely rather than covered over. We took it down to the original OSB, and that is when the water staining around the old fasteners showed; you don't see that through a layer left in place. Blue synthetic underlayment, a starter course, charcoal architectural shingles and a shingle ridge cap across both roof planes, with the old roofing bagged and staged on tarps so the yard was clear when the ladders came down. Same shingle that goes on a house.",
+      "hero": "/assets/images/projects/mason-oh-shed-reroof-2026-6.jpg",
+      "photos": [
+        {
+          "src": "/assets/images/projects/mason-oh-shed-reroof-2026-1.jpg",
+          "alt": "Worker on a gambrel shed roof tearing black rolled roofing off, bare OSB decking exposed and green-trimmed gable below"
+        },
+        {
+          "src": "/assets/images/projects/mason-oh-shed-reroof-2026-2.jpg",
+          "alt": "Close-up of bare OSB roof decking, dark water stains around old fastener holes, torn black roll roofing at right"
+        },
+        {
+          "src": "/assets/images/projects/mason-oh-shed-reroof-2026-3.jpg",
+          "alt": "Shed with a blue tarp over its stripped roof, two ladders leaning against it, torn-off black roofing piled on the grass"
+        },
+        {
+          "src": "/assets/images/projects/mason-oh-shed-reroof-2026-4.jpg",
+          "alt": "New charcoal architectural shingles run up the shed's roof slope, blue synthetic underlayment still exposed along the top edge"
+        },
+        {
+          "src": "/assets/images/projects/mason-oh-shed-reroof-2026-5.jpg",
+          "alt": "New charcoal shingles and ridge cap on the shed's gambrel slope, ladders leaning against the white siding, old black roofing piled below"
+        },
+        {
+          "src": "/assets/images/projects/mason-oh-shed-reroof-2026-6.jpg",
+          "alt": "White gambrel shed with dark green trim and double doors under a new charcoal shingle roof, chain-link fence and woods behind"
+        }
+      ],
+      "consentOnFile": true,
+      "published": "2026-09-03",
+      "priceLow": 2000,
+      "priceHigh": 2500,
+      "year": 2026
     }
   ]
 }

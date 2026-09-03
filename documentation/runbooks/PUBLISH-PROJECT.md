@@ -46,10 +46,16 @@ you review the PR preview and merge.
 2. **City-level location only.** `"Mason, OH"`, never a street address. The
    photos show the house; the price is a range; the city keeps a neighbor
    from computing what a specific household spent.
-3. **Whose job was it?** `/our-work` is NBD's portfolio and 120 pages carry the
-   "I don't subcontract" strip, so a job that was joint, subbed, or another
-   company's needs the arrangement stated in the card — or it stays off. Added
-   2026-09-03 after a joint shed job was offered for publication; see
+3. **Whose job was it? Ask before you publish — the answer is Jo's call, not
+   the session's.** `/our-work` is NBD's portfolio and 120 pages carry the
+   "I don't subcontract" strip, so when a job was joint, subbed, or another
+   company's, surface it and let Jo decide how it is presented. Do not publish
+   a job whose provenance you never asked about, and do not unilaterally add
+   or withhold an attribution line. Added 2026-09-03: the first job this rule
+   fired on was a joint shed re-roof, and **Jo's decision was to run it as a
+   regular project with no note** — a joint job is not subcontracting (which
+   is selling a job and handing it to someone else's crew), and the call
+   belongs to the owner. See
    [SHED-OUTBUILDING-GAP §4](../audit/SHED-OUTBUILDING-GAP-2026-09-03.md).
 4. **Consent + clean photos.** `consentOnFile: true` is you attesting the
    homeowner is fine with their (unidentified) house being shown. Photos must
