@@ -209,6 +209,42 @@ async function run() {
     { contentType: 'image/jpeg' }
   ));
 
+
+  // ── UNTESTED-FOR-A-MONTH PREFIXES (2026-09-02) ───────────────────────
+  // galleries/, reports/, shared_docs/ and audio/ carried owner-only rules
+  // with ZERO assertions; a regression there would have shipped unseen.
+  // 23. galleries/: owner image ok; PDF blocked; 11MB blocked; cross-user blocked;
+  //     bob/anon can't read, admin can.
+  await assertSucceeds(uploadBytes(ref(alice, 'galleries/alice/lead42/g1.jpg'), buf(1024), { contentType: 'image/jpeg' }));
+  await assertFails(uploadBytes(ref(alice, 'galleries/alice/lead42/g2.pdf'), buf(1024), { contentType: 'application/pdf' }));
+  await assertFails(uploadBytes(ref(alice, 'galleries/alice/lead42/huge.jpg'), buf(11 * 1024 * 1024), { contentType: 'image/jpeg' }));
+  await assertFails(uploadBytes(ref(bob,   'galleries/alice/lead42/sneak.jpg'), buf(1024), { contentType: 'image/jpeg' }));
+  await assertFails(getBytes(ref(bob,   'galleries/alice/lead42/g1.jpg')));
+  await assertFails(getBytes(ref(anon,  'galleries/alice/lead42/g1.jpg')));
+  await assertSucceeds(getBytes(ref(admin, 'galleries/alice/lead42/g1.jpg')));
+  // 24. reports/: PDF ok; HTML blocked (isDocType excludes text/html); 11MB blocked; cross-user blocked.
+  await assertSucceeds(uploadBytes(ref(alice, 'reports/alice/r1.pdf'), buf(2048), { contentType: 'application/pdf' }));
+  await assertFails(uploadBytes(ref(alice, 'reports/alice/r1.html'), buf(1024), { contentType: 'text/html' }));
+  await assertFails(uploadBytes(ref(alice, 'reports/alice/huge.pdf'), buf(11 * 1024 * 1024), { contentType: 'application/pdf' }));
+  await assertFails(uploadBytes(ref(bob,   'reports/alice/sneak.pdf'), buf(1024), { contentType: 'application/pdf' }));
+  await assertFails(getBytes(ref(bob, 'reports/alice/r1.pdf')));
+  // 25. shared_docs/: PDF ok; exe blocked; 26MB blocked; cross-user blocked.
+  await assertSucceeds(uploadBytes(ref(alice, 'shared_docs/alice/s1.pdf'), buf(2048), { contentType: 'application/pdf' }));
+  await assertFails(uploadBytes(ref(alice, 'shared_docs/alice/mal.exe'), buf(1024), { contentType: 'application/x-msdownload' }));
+  await assertFails(uploadBytes(ref(alice, 'shared_docs/alice/huge.pdf'), buf(26 * 1024 * 1024), { contentType: 'application/pdf' }));
+  await assertFails(uploadBytes(ref(bob,   'shared_docs/alice/sneak.pdf'), buf(1024), { contentType: 'application/pdf' }));
+  await assertFails(getBytes(ref(bob, 'shared_docs/alice/s1.pdf')));
+  // 26. audio/: MediaRecorder (webm) + Safari (mp4) ok; image blocked; cross-user
+  //     blocked; bob can't read, admin can; owner deletes. The 200MB cap is
+  //     deliberately not exercised — a >200MB emulator upload is too slow for CI.
+  await assertSucceeds(uploadBytes(ref(alice, 'audio/alice/lead42/rec1.webm'), buf(4096), { contentType: 'audio/webm' }));
+  await assertSucceeds(uploadBytes(ref(alice, 'audio/alice/lead42/rec2.m4a'),  buf(4096), { contentType: 'audio/mp4' }));
+  await assertFails(uploadBytes(ref(alice, 'audio/alice/lead42/not-audio.jpg'), buf(1024), { contentType: 'image/jpeg' }));
+  await assertFails(uploadBytes(ref(bob,   'audio/alice/lead42/sneak.webm'), buf(1024), { contentType: 'audio/webm' }));
+  await assertFails(getBytes(ref(bob, 'audio/alice/lead42/rec1.webm')));
+  await assertSucceeds(getBytes(ref(admin, 'audio/alice/lead42/rec1.webm')));
+  await assertSucceeds(deleteObject(ref(alice, 'audio/alice/lead42/rec1.webm')));
+
   console.log('✓ All storage rules tests passed');
   await env.cleanup();
 }

@@ -449,7 +449,12 @@ jobs:
       # a non-zero exit stops the job HERE — before any rules (or the
       # functions/hosting steps below) deploy. Same `if:` condition as
       # the rules-deploy step so it only runs when we're deploying rules.
-      - name: Gate — Firestore rules tests must pass before deploy
+      # 2026-09-02: the Storage suite joined the gate. storage.rules deploys
+      # from this same job ("Deploy Storage rules" below) but its tests ran
+      # only in ci.yml, which this workflow does not wait for — a bad
+      # storage.rules could ship. Same emulator suite as ci.yml's
+      # firestore-rules job.
+      - name: Gate — Firestore + Storage rules tests must pass before deploy
         if: ${{ github.event_name == 'push' || github.event.inputs.scope == 'all' || github.event.inputs.scope == 'rules' }}
         run: |
           set -e
@@ -458,6 +463,7 @@ jobs:
           npx firebase-tools emulators:exec --only firestore --project nbd-rules-test 'node firestore-rules.test.js'
           npx firebase-tools emulators:exec --only firestore --project nbd-xtenant-test 'node firestore-rules.cross-tenant.test.js'
           npx firebase-tools emulators:exec --only firestore --project nbd-commlog-test 'node communication-log-contract.test.js'
+          npx firebase-tools emulators:exec --only storage --project nbd-storage-test 'node storage-rules.test.js'
 
       # Rules deploy is idempotent. The CLI intermittently fails the FIRST
       # attempt with a transient auth race ("Failed to authenticate, have you
