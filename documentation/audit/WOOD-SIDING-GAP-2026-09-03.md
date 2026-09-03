@@ -176,9 +176,23 @@ storm-chaser in the market says.
    cedar rots where water sits and repairs board by board, wood fiber swells and
    delaminates from the bottom edge and will not hold a patch). Six FAQs, none
    overlapping the hub's or Mason's — 18 distinct questions across the three.
-   **Still to do: Cincinnati, West Chester, Batavia.** Write each from that
-   city's actual housing stock, not from a template — the three shipped pages
-   share nav/footer chrome and essentially nothing else.
+   ✅ **West Chester shipped 2026-09-03** — the newest stock of the three, so it
+   leads on something neither of the others could: **on a house this young the rot
+   is a missed construction detail, not wood wearing out.** Unsealed butt joints,
+   gable trim that went up unprimed on its back, a kick-out flashing left off — and
+   the one the area page handed over, that much of Beckett Ridge and Wetherington is
+   **on its second roof**, where drip edge gets skipped and gutters get re-hung into
+   soft wood. Plus the HOA angle: architectural review boards, and matching an
+   approved color rather than a faded wall.
+   **Still to do: Cincinnati and Batavia.** Write each from that city's actual
+   housing stock, not from a template — the four shipped pages carry **24 distinct
+   FAQ questions with zero repeats**, and share nav/footer chrome and essentially
+   nothing else.
+
+   The per-city angle so far, so the next one does not repeat them: Mason = *where*
+   the wood is (behind the vinyl). Loveland = *what material* it is (cedar vs wood
+   fiber) and the valley's shade and grade. West Chester = *why* it rotted (a missed
+   detail, a past re-roof) and what the HOA needs.
 5. **Put an `OURWORK-STRIP` marker on the other city pages.** The mechanism works
    on any `docs/services/*.html` (proved here). ~90 city pages currently show a
    homeowner no photographs. Each needs the marker **and** the
