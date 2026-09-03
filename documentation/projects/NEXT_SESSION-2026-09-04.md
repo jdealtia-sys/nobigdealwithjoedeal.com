@@ -27,8 +27,14 @@
   `lead-photo-reaping` (41), `pwa-confirm-guard` (76), `route-truth` (36).
   Node bucket 45 → 47. Every one had a deliberate breakage staged and reverted
   byte-exactly — see the session note's table.
-- **Branch protection on `main` is still OFF.** Every merge deploys
-  immediately; poll checks yourself.
+- **Branch protection on `main` is ON** as of 2026-09-03 (it had been OFF for
+  the whole history before that). Seven required checks; direct pushes, force
+  pushes and branch deletion are blocked. `gh pr merge --auto` now genuinely
+  defers instead of merging on the spot. Full config and the three deliberate
+  settings are in Jo's queue #3 — **two of them lock Jo out if "tightened"
+  without reading why.** Keep polling checks yourself regardless:
+  `enforce_admins` is false by design, so an admin can still push a merge
+  through. Every merge still deploys immediately.
 
 ## Corrections — briefed claims that are FALSE
 
@@ -92,10 +98,10 @@ this before picking up any lane below.** Each cost a session otherwise.
 > deploy window, so it sequences with the other deploy-gated items rather than
 > going first by default.
 >
-> **The single highest-leverage thing left is not code:** branch protection on
-> `main` is still OFF (queue #3). Fourteen PRs merged today, every one green,
-> and not one of those checks was *required*. #1365 added a real CRM gate and
-> it, too, blocks nothing until that toggle is flipped.
+> **Branch protection on `main` is now ON** (queue #3, done the same evening)
+> with seven required checks, so every gate added today finally enforces
+> something. Its three deliberate settings are in queue #3 — two of them would
+> lock Jo out if "tightened" without reading why.
 
 1. ~~**Lead entry stops losing data on a phone**~~ **SHIPPED #1360.** Backdrop
    dismiss now asks when anything has been typed (Esc and ✕ still close in one
@@ -311,10 +317,32 @@ client-only PR.**
    16 files remain; the worst is `customer-signed-doc-upload.js:46-56`
    (a signed contract). **The reaping half already shipped as #1353 — do not
    rebuild it.**
-3. **Turn on branch protection for `main`** (~2 min): require at least
-   `Smoke tests` and `Unit suites (manifest)`. Verified OFF again today — until
-   it exists, every CI gate is signal, not enforcement, and `gh pr merge --auto`
-   merges immediately.
+3. ~~**Turn on branch protection for `main`**~~ **DONE 2026-09-03 — Jo asked
+   for it and it is enabled and verified.** Seven required checks:
+   `Smoke tests`, `Unit suites (manifest)`, `Site integrity`,
+   `Node syntax check`, `Secret scan`, `Firestore rules tests`,
+   `Functions parse + dep install`. Direct pushes to `main` are blocked; force
+   pushes and branch deletion are off.
+   **Three settings are deliberate — read this before "tightening" any of
+   them, because two of the three would lock Jo out:**
+   - `required_approving_review_count: 0` — this is what forces the PR flow
+     without demanding an approval. **Setting it to 1 locks Jo out
+     permanently:** he is the sole admin and GitHub does not let anyone
+     approve their own PR.
+   - `enforce_admins: false` — an escape hatch. A one-person business cannot
+     afford "a required check is stuck, so nothing ships". It means an admin
+     CAN still force a merge through, so treat the required checks as a strong
+     speed bump rather than an absolute bar, and keep polling checks before
+     merging.
+   - `strict: false` — main moves several times an evening here; `strict: true`
+     would force a rebase and a full CI re-run on every open PR each time.
+   The 12 emulator/browser checks (the Authed E2E shards, visual regression,
+   Public-surface E2E, Rendered QC, Brand-token) are deliberately NOT required
+   — they are the flake-prone class, and a Playwright-install flake already
+   forced a rerun on #1351. Promote one only after it has been reliably green
+   for a while.
+   Read the live config rather than trusting this note:
+   `gh api repos/jdealtia-sys/nobigdealwithjoedeal.com/branches/main/protection`
 4. **Cloud Storage backup**: Object Versioning on
    `nobigdeal-pro.firebasestorage.app` + a daily Storage Transfer to a second
    bucket (photos and contracts are unrecoverable today) — and tell a session
