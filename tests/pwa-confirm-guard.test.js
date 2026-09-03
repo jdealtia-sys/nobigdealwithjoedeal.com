@@ -86,7 +86,27 @@ function rawConfirmSites(src) {
   return out;
 }
 
-const files = fs.readdirSync(JS_DIR).filter((f) => f.endsWith('.js')).sort();
+// RECURSIVE since 2026-09-03. This was `fs.readdirSync(JS_DIR)` — one level —
+// so the whole of docs/pro/js/pages/ (20 files) was never scanned, and it
+// contained two live destructive raw confirms the guard structurally could not
+// see: photo-review.js ("Delete N photos? This can't be undone.") and
+// understand.js ("Delete all saved insights?"). photo-review is the exact
+// surface this suite's own docblock names as the motivating bug.
+//
+// The anti-vacuity assertion below (files.length > 100) passed the whole time
+// and read as proof of coverage while a subtree was invisible — a gate that
+// counts what it looked at, not what exists. Walk everything, and let the
+// count assertion cover the walk.
+function walkJs(dir, base) {
+  const out = [];
+  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    const rel = base ? base + '/' + entry.name : entry.name;
+    if (entry.isDirectory()) out.push(...walkJs(path.join(dir, entry.name), rel));
+    else if (entry.name.endsWith('.js')) out.push(rel);
+  }
+  return out;
+}
+const files = walkJs(JS_DIR, '').sort();
 // standalone-compat.js DEFINES the patch and nbd-modal.js defines the modal —
 // both legitimately contain the word.
 const EXEMPT = new Set(['standalone-compat.js', 'nbd-modal.js']);

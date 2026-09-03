@@ -54,7 +54,14 @@ const RUNNABLE = ['node', 'smoke'];
 // measured sizes at the 2026-08-23 collapse. They live in the script rather
 // than the manifest on purpose — a one-line JSON edit must not be able to
 // lower the bar it is being measured against. Raise them when a bucket grows.
-const FLOORS = { node: 44, smoke: 65, disk: 122 };
+// Raised 44/65/122 -> 51/65/130 on 2026-09-03. The floors had NOT been
+// raised when seven suites landed that day, so the slack was exactly seven:
+// delete all seven (files plus manifest entries) and node lands back on 44,
+// disk on 123, and this check stays green. A ratchet that is not tightened
+// after each addition protects only what it was set against — it silently
+// stopped covering everything added since.
+// KEEP THESE IN STEP with the real counts whenever a suite is added.
+const FLOORS = { node: 51, smoke: 65, disk: 130 };
 
 // ── Argument parsing ───────────────────────────────────────────────
 const argv = process.argv.slice(2);
