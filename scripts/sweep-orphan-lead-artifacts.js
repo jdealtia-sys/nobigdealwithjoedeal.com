@@ -28,9 +28,15 @@
  *   {prefix}/{uid}/{leadId}.html       → same, flat legacy shape
  *   {prefix}/{uid}/{leadId}-photos.html
  *
- * Prefixes swept: portals, documents, galleries, audio. photos/ and docs/ are
- * NOT leadId-keyed ({uid}/{file} and {uid}/{leadId}/{file} respectively) —
- * docs/ IS swept, photos/ cannot be and is reported as unswept.
+ * Prefixes swept: portals, documents, galleries, audio, docs, photos.
+ *
+ * photos/ joined 2026-09-03. Its leadId-keyed shape
+ * `photos/{uid}/{leadId}/...` — which is the dominant one, and which carries
+ * originals, `thumbs/` and `_variants/` under the same leadId segment — parses
+ * like any other directory shape. Only the legacy flat `photos/{uid}/{file}`
+ * stays unsweepable here; onLeadDeleted reaps that one through the /photos
+ * collection instead. The older claim that photos/ "cannot be" swept was
+ * simply wrong, and it kept a real backlog invisible.
  *
  * SAFETY
  *   • Dry-run by default — prints what WOULD happen, touches nothing.
@@ -101,6 +107,11 @@ const LEAD_KEYED_PREFIXES = {
   documents: { flat: [] },
   audio: { flat: [] },
   docs: { flat: [] },
+  // `photos/{uid}/{leadId}/...` — originals, `thumbs/` and `_variants/` all
+  // sit under the leadId segment, so the dir shape parses like any other. The
+  // flat `photos/{uid}/{file}` shape stays out (no `flat` entry): parsing a
+  // filename as a leadId is the false positive this parser exists to refuse.
+  photos: { flat: [] },
 };
 
 // Firestore auto-IDs are 20 chars of [A-Za-z0-9]. Anything outside this shape
@@ -112,9 +123,17 @@ const LEAD_ID_RE = /^[A-Za-z0-9_-]{16,40}$/;
 // Prefixes that hold per-lead customer data but are NOT leadId-keyed, so this
 // sweep structurally cannot check them. Reported, never guessed at.
 const UNSWEEPABLE = {
-  photos: 'photos/{uid}/{file} — flat per-uid. Orphans need a photos-collection '
-    + 'query by leadId. Reachable only via signImageUrl (15-min signed URL, no '
-    + 'permanent token), so an orphan there is not publicly fetchable.',
+  // 2026-09-03: this entry used to claim photos were flat-only AND
+  // token-free. Both were wrong — `photos/{uid}/{leadId}/...` is the dominant
+  // shape (and IS sweepable, see LEAD_KEYED_PREFIXES above), and
+  // image-pipeline.js stamps a permanent firebaseStorageDownloadTokens on
+  // every variant it writes. Only the legacy flat shape is genuinely
+  // unsweepable here, and onLeadDeleted now reaps it via the /photos
+  // collection going forward. What is left below is a true backlog statement.
+  photos: 'photos/{uid}/{file} — the LEGACY flat shape only; the leadId-keyed '
+    + 'shape is swept above. Flat orphans predating the 2026-09-03 reaper need '
+    + 'a photos-collection query by leadId. They carry permanent download '
+    + 'tokens, so an orphan here IS publicly fetchable.',
   reports: 'reports/{uid}/{file} — flat per-uid, same as photos/.',
   deal_rooms: 'deal_rooms/{uid}/{dealId}.html — keyed by dealId, not leadId.',
   receipts: 'receipts/{uid}/{file} — flat per-uid; expense-keyed, not lead-keyed.',

@@ -53,6 +53,11 @@ console.log('\nRESOLVES — real lead-keyed shapes must be sweepable');
   ['galleries flat legacy', `galleries/UID1/${GONE_C}.html`, GONE_C],
   ['audio recording', `audio/UID1/${GONE_D}/rec-1.webm`, GONE_D],
   ['docs lead-scoped upload', `docs/UID1/${GONE_D}/1755_signed.pdf`, GONE_D],
+  // photos/ joined the map 2026-09-03. The leadId-keyed shape carries the id
+  // in a whole path segment, so originals, thumbs and variants all parse.
+  ['photos original', `photos/UID1/${GONE_A}/1755000000_IMG_0001.jpg`, GONE_A],
+  ['photos thumb', `photos/UID1/${GONE_A}/thumbs/abc_thumb.jpg`, GONE_A],
+  ['photos variant', `photos/UID1/${GONE_A}/_variants/IMG_0001_full.webp`, GONE_A],
   ['deeply nested under a lead', `documents/UID1/${GONE_A}/sub/dir/x.html`, GONE_A],
 ].forEach(([label, p, want]) => {
   const got = parseObjectPath(p);
@@ -69,7 +74,12 @@ console.log('\nREFUSES — anything that would delete a live file must not parse
   ['portals flat with a filename, not an id', 'portals/UID1/summary.html'],
   ['portals flat with a short token', 'portals/UID1/abc.html'],
   // Prefixes outside the map must never be swept.
-  ['photos/ is not lead-keyed', 'photos/UID1/1755_IMG_0001.jpg'],
+  // photos/ IS in the map now, but only its directory shape. These three are
+  // the ways a photo path can look lead-keyed without being it — each would
+  // delete a live file if the parser guessed.
+  ['photos flat legacy shape is a filename, not a leadId', 'photos/UID1/1755_IMG_0001.jpg'],
+  ['photos d2d knock is knockId-keyed, not leadId-keyed', 'photos/UID1/d2d/KNOCK1234567890AB/1755_x.jpg'],
+  ['photos uid-wide _variants dir is not a leadId', 'photos/UID1/_variants/IMG_0001_full.webp'],
   ['reports/ is not lead-keyed', 'reports/UID1/inspection.pdf'],
   ['receipts/ is not in the map', `receipts/UID1/${GONE_A}/r.jpg`],
   ['deal_rooms/ is dealId-keyed', 'deal_rooms/UID1/DEALID1234567890AB.html'],
@@ -101,6 +111,15 @@ console.log('\nLOCKSTEP — sweep prefixes must match the delete trigger');
   const missing = trigPrefixes.filter((p) => !sweepPrefixes.includes(p));
   ok('every trigger prefix is also swept (missing: ' + (missing.join(', ') || 'none') + ')',
      missing.length === 0);
+
+  // ...and the REVERSE. This assertion is here because its absence let a real
+  // drift sit unnoticed: `docs` was swept but never reaped, so from the day it
+  // was added every hard delete quietly handed the sweep script a fresh
+  // backlog instead of cleaning up after itself. One-directional lockstep is
+  // half a gate — it only catches the drift you thought of first.
+  const unreaped = sweepPrefixes.filter((p) => !trigPrefixes.includes(p));
+  ok('every swept prefix is also reaped by the trigger (unreaped: '
+     + (unreaped.join(', ') || 'none') + ')', unreaped.length === 0);
 }
 
 console.log('\nNO SIDE EFFECTS — requiring the script must not start a sweep');

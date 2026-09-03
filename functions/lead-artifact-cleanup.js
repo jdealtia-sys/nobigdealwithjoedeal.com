@@ -34,12 +34,36 @@
  * the deterministic prefixes miss), and revoke the lead's outstanding portal /
  * doc-sign tokens.
  *
+ * UPDATE 2026-09-03 — the photos carve-out above was wrong twice over.
+ * ─────────────────────────────────────────────────────────────────
+ * This docblock used to say photos were "NOT covered here, deliberately",
+ * because `photos/{uid}/...` was flat per-uid and photo objects were
+ * "reachable only through signImageUrl (15-min v4 signed URL, no permanent
+ * token), so an orphan there is not publicly fetchable". Both halves are false:
+ *
+ *   1. NOT FLAT. The dominant modern shape IS leadId-keyed —
+ *      `photos/{uid}/{leadId}/{ts}_{name}` (photo-engine.js, the dashboard
+ *      quick-upload, photo-editor), with thumbs at
+ *      `photos/{uid}/{leadId}/thumbs/` and variants at
+ *      `photos/{uid}/{leadId}/_variants/`. All three reap by prefix. Only the
+ *      legacy customer-page shape `photos/{uid}/{file}` is genuinely flat, and
+ *      that one is reachable through the /photos collection's leadId field.
+ *   2. NOT TOKEN-FREE. image-pipeline.js stamps a fresh
+ *      `firebaseStorageDownloadTokens` on EVERY variant it writes (see its
+ *      upload metadata). A permanent, unrevokable, rules-bypassing URL — the
+ *      same leak class this trigger exists to close. A prod check found 446
+ *      photos/ objects carrying one.
+ *
+ * So a hard-deleted lead left its entire photo set publicly fetchable forever.
+ * Both shapes are now reaped below. `docs/` was also missing from the prefix
+ * list while scripts/sweep-orphan-lead-artifacts.js already swept it — the
+ * exact drift that script's comment warns about, in the opposite direction.
+ *
  * NOT covered here, deliberately:
- *   - photos/{uid}/... is flat per-uid, not leadId-keyed, so it cannot be
- *     reaped by prefix. Photo objects are reachable only through signImageUrl
- *     (15-min v4 signed URL, no permanent token), so an orphan there is not
- *     publicly fetchable. Reaping them needs a photos-collection query by
- *     leadId — separate change, tracked in the sweep script's report.
+ *   - D2D knock photos (`photos/{uid}/d2d/{knockId}/...`). They belong to the
+ *     knock, not the lead, and carry no /photos doc at all (image-pipeline.js
+ *     routes them to the knock branch), so neither sweep below can reach them.
+ *     A converted knock's lead deletion must not destroy the knock's record.
  *   - Soft delete (`deleted: true`) does NOT fire this. That is the trash bin;
  *     the lead is restorable and its artifacts must survive.
  *
@@ -66,7 +90,26 @@ const LEAD_KEYED_PREFIXES = [
   { prefix: 'portals', flat: ['.html', '-photos.html'] },
   { prefix: 'galleries', flat: ['.html', '-photos.html'] },
   { prefix: 'audio', flat: [] },
+  // `docs/{uid}/{leadId}/{file}` — signed-doc uploads. Swept by
+  // scripts/sweep-orphan-lead-artifacts.js since it was written, but never
+  // reaped here, so every hard delete since has left a backlog for that
+  // script. No `flat` entry: docs/ legitimately holds `{uid}/{file}` objects
+  // whose filename must never be parsed as a leadId.
+  { prefix: 'docs', flat: [] },
+  // `photos/{uid}/{leadId}/...` — originals, plus `thumbs/` and `_variants/`
+  // beneath the same leadId directory, so one prefix reaps all three. The flat
+  // legacy shape `photos/{uid}/{file}` is not reachable this way and is handled
+  // by the /photos collection sweep below.
+  { prefix: 'photos', flat: [] },
 ];
+
+// Pure path logic lives next door, deliberately. index.js mounts this module
+// with Object.assign(exports, ...), so anything exported here joins the
+// deployed Cloud Functions surface — these helpers would be test scaffolding
+// in the deploy index. Keeping them in a firebase-free module also means the
+// confinement check below is unit-tested for real, with no mocking:
+// tests/lead-photo-reaping.test.js.
+const { variantPathsFor, isReapablePhotoPath } = require('./lead-artifact-paths');
 
 // Token collections that carry a leadId. A live token pointing at a deleted
 // lead is the same leak class as an orphaned object: it grants a no-login
@@ -103,9 +146,13 @@ exports.onLeadDeleted = onDocumentDeleted(
   {
     document: 'leads/{leadId}',
     region: 'us-central1',
-    // Prefix deletes fan out one HTTP call per object. A lead with a long
-    // portal history plus a few hours of call audio is still well inside this.
-    timeoutSeconds: 300,
+    // Prefix deletes fan out one HTTP call per object, sequentially. Photos
+    // (2026-09-03) raised the ceiling by an order of magnitude: a 300-photo
+    // reroof is ~1500 objects once thumbs and the three variants are counted,
+    // and at a ~50 ms round trip that is ~75 s of deletes alone. 540 s is the
+    // gen-2 event-function maximum and buys the headroom, because `retry` is
+    // false — a timeout here is a permanent partial sweep, not a retry.
+    timeoutSeconds: 540,
     memory: '256MiB',
     retry: false,
   },
@@ -125,7 +172,12 @@ exports.onLeadDeleted = onDocumentDeleted(
     let objectsDeleted = 0;
     let docsDeleted = 0;
     let tokensRevoked = 0;
+    let photoDocsDeleted = 0;
     const failures = [];
+    // Every object path already deleted, so the /photos sweep does not re-issue
+    // a delete for something the prefix sweep just removed. Cheap insurance: a
+    // 300-photo job is ~1200 objects and each redundant call is a round trip.
+    const deletedPaths = new Set();
 
     // ── 1. The orphaned documents subcollection ────────────────────
     // Read it BEFORE deleting anything: its htmlPath values are the only
@@ -160,7 +212,7 @@ exports.onLeadDeleted = onDocumentDeleted(
         // touch. Same confinement rule as getDocumentHtml's read, loosened
         // only enough for the legacy flat shapes: a lead-artifact prefix, and
         // the path must reference THIS lead.
-        if (!/^(documents|portals|galleries|audio)\//.test(p) || !p.includes(leadId)) {
+        if (!/^(documents|portals|galleries|audio|docs)\//.test(p) || !p.includes(leadId)) {
           failures.push(`object ${p}: outside lead-artifact prefixes — skipped`);
           continue;
         }
@@ -197,6 +249,7 @@ exports.onLeadDeleted = onDocumentDeleted(
           for (const f of files) {
             try {
               await f.delete({ ignoreNotFound: true });
+              deletedPaths.add(f.name);
               objectsDeleted++;
             } catch (e) {
               failures.push(`object ${f.name}: ${e.message}`);
@@ -218,7 +271,100 @@ exports.onLeadDeleted = onDocumentDeleted(
       }
     }
 
-    // ── 3. Outstanding tokens ──────────────────────────────────────
+    // ── 3. The /photos collection: flat-shape objects + orphaned docs ──
+    // Two jobs the prefix sweep above cannot do:
+    //
+    //   a. The legacy customer-page shape `photos/{uid}/{file}` carries no
+    //      leadId in its path. The only record tying it to this lead is the
+    //      /photos doc, which is also the only thing that can find its
+    //      `_variants/` siblings — those sit in the uid-wide
+    //      `photos/{uid}/_variants/` directory SHARED with every other lead's
+    //      flat photos, so it can never be prefix-deleted. They have to be
+    //      named one by one, derived from the source filename.
+    //   b. /photos is a TOP-LEVEL collection, not a subcollection of the lead,
+    //      so Firestore cascades nothing. Without this, every hard delete
+    //      leaves photo docs pointing at objects that are now gone — which is
+    //      what makes a gallery render broken tiles for a customer who was
+    //      never deleted, if the ids are ever reused.
+    //
+    // CONFINEMENT: paths are confined to `photos/{uid}/` for a uid resolved
+    // from the LEAD (never from the photo doc). storagePath is client-written,
+    // so trusting the doc's own userId would let anyone plant a photo doc
+    // naming a victim's object, delete their own lead, and have this trigger
+    // delete it for them with admin credentials. A lead with no resolvable uid
+    // reaps no photos and says so, which is the safe direction to fail.
+    const photoPathFields = ['storagePath', 'path', 'thumbStoragePath'];
+    if (ownerUids.size) {
+      let cursor = null;
+      let scanned = 0;
+      // A big reroof is a few hundred photos; 5000 is far past any real job and
+      // exists only so a corrupt leadId cannot spin this trigger forever.
+      const PHOTO_SCAN_CAP = 5000;
+      let capped = false;
+
+      while (scanned < PHOTO_SCAN_CAP) {
+        let batch;
+        try {
+          let q = db.collection('photos').where('leadId', '==', leadId).limit(300);
+          if (cursor) q = q.startAfter(cursor);
+          batch = await q.get();
+        } catch (e) {
+          failures.push(`photos query: ${e.message}`);
+          break;
+        }
+        if (batch.empty) break;
+        cursor = batch.docs[batch.docs.length - 1];
+        scanned += batch.docs.length;
+
+        for (const photo of batch.docs) {
+          const meta = photo.data() || {};
+          const targets = [];
+          for (const field of photoPathFields) {
+            const p = meta[field];
+            if (!p || typeof p !== 'string') continue;
+            targets.push(p);
+            targets.push(...variantPathsFor(p));
+          }
+
+          for (const p of targets) {
+            if (deletedPaths.has(p)) continue;
+            if (!isReapablePhotoPath(p, ownerUids)) {
+              failures.push(`photo object ${p}: outside this lead's photos/{uid}/ — skipped`);
+              continue;
+            }
+            try {
+              await bucket.file(p).delete({ ignoreNotFound: true });
+              deletedPaths.add(p);
+              objectsDeleted++;
+            } catch (e) {
+              failures.push(`photo object ${p}: ${e.message}`);
+            }
+          }
+
+          try {
+            await photo.ref.delete();
+            photoDocsDeleted++;
+          } catch (e) {
+            failures.push(`photo doc ${photo.id}: ${e.message}`);
+          }
+        }
+
+        if (batch.docs.length < 300) break;
+        if (scanned >= PHOTO_SCAN_CAP) capped = true;
+      }
+
+      if (capped) {
+        // Silent truncation is how the original orphans hid. Say it loudly.
+        logger.error('[onLeadDeleted] photo scan hit its cap — photos may remain', {
+          leadId, scanned, cap: PHOTO_SCAN_CAP,
+        });
+        failures.push(`photos scan capped at ${PHOTO_SCAN_CAP}`);
+      }
+    } else {
+      failures.push('photos: no owner uid resolvable — /photos NOT swept');
+    }
+
+    // ── 4. Outstanding tokens ──────────────────────────────────────
     for (const coll of LEAD_TOKEN_COLLECTIONS) {
       try {
         const snap = await db.collection(coll).where('leadId', '==', leadId).limit(200).get();
@@ -236,6 +382,7 @@ exports.onLeadDeleted = onDocumentDeleted(
       ownerUids: [...ownerUids],
       objectsDeleted,
       docsDeleted,
+      photoDocsDeleted,
       tokensRevoked,
       failures: failures.length,
     };
