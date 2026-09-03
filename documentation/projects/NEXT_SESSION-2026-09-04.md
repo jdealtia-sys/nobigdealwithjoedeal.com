@@ -432,11 +432,21 @@ client-only PR.**
    photos rather than the first — and the higher-value version of it is
    getting the *Firestore* export off-project, since that is the data that
    cannot be re-photographed.
-5. **Raise the Cloud Run CPU quota for us-central1** (GCP console > IAM &
-   Admin > Quotas). firebase-deploy.yml has named this as the real fix since
-   2026-07-23. It causes chronic red deploys, and on 2026-09-03 it silently
-   ate the CREATE of a brand-new function — see the backup-alarm section
-   above for why that is worse than the red job it usually causes.
+5. ~~**Raise the Cloud Run CPU quota for us-central1**~~ **DONE 2026-09-03,
+   auto-approved.** 200,000 -> 600,000 mCPU (200 -> 600 vCPU), verified live
+   with us-east1 left at 200,000 as a control. The numbers explain why this
+   was never survivable: **179 Cloud Run services x 1 vCPU = 179 vCPU at rest,
+   90% of the old 200 limit**, and a full rollout doubles that to ~358 vCPU —
+   i.e. a complete deploy could not fit under any circumstances, and the
+   project sat ~21 functions away from breaking without deploying at all.
+   Now 30% at rest, ~60% mid-rollout.
+   The retry/chunking machinery in firebase-deploy.yml was KEPT on purpose —
+   it is what made these failures legible, it guards three documented
+   false-greens, and a quota is a ceiling not a guarantee. Thin it only after
+   a long run of clean deploys.
+   **Still unproven behaviourally:** the config is verified, but the real
+   proof is the next functions deploy going green on the FIRST attempt.
+   Watch that one.
 6. **For free-API wave 1**: a Healthchecks.io account and a Better Stack
    account; a Census API key (instant); enable the Solar API on the GCP project;
    **start Meta App Review** for Lead Ads (mandatory, days-to-weeks) and the
