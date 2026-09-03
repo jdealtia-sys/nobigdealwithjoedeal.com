@@ -45,6 +45,7 @@
     "prefix-reservation.test.js",
     "pwa-confirm-guard.test.js",
     "pwa-manifest.test.js",
+    "route-truth.test.js",
     "scheduling-logic.test.js",
     "state-store.test.js",
     "storm-geo.test.js",
