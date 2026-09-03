@@ -212,6 +212,69 @@ so **every hub strip link lands on the unfiltered gallery**. `check-site-integri
 the anchor resolves to the filter button's id. Zero `#service=` links exist anywhere. Out of scope
 for a publish; worth a small PR of its own.
 
+## §4c — What the completeness critic found that six skeptics missed
+
+A seventh agent was asked only *"what did the other six miss?"* — and verified its own hypotheses
+with real tool calls rather than asserting them. It is the highest-yield agent in either workflow.
+
+**Acted on:**
+
+- **The card silently rewrote the homepage.** `homeowner-wall.json` is `live.slice(0, 12)`,
+  newest-first, and it mounts in exactly one place: `docs/index.html`, under
+  *"Real Roofs. Real Neighbors. — Actual jobs on actual homes around Greater Cincinnati."*
+  Publishing the shed made **a backyard outbuilding the lead proof tile of the homepage.** Nobody —
+  including the session — looked at what appending to `projects.json` does three surfaces away.
+  Left in place deliberately (the wall is date-ordered by design and self-corrects as jobs publish;
+  faking the `published` date to demote it would be worse), but **flagged for Jo** rather than
+  decided silently.
+- **The lightbox opened on the wrong photo.** `project-carousel.js` opens at `let idx = 0` and never
+  seeks to the hero. With `hero` pointed at photo 6, a visitor clicked the finished shed and the
+  lightbox opened on the tear-off — the image swapped out from under the click. Two other entries
+  have `hero !== photos[0]` but sit at index 2; this was at index 5, the maximum possible distance.
+  **Fixed** by reordering so the finished shot is photo 1 *and* the hero.
+- **The strip provenance comment could never tell the truth.** `stripBlock()` computed
+  `matches.length` *after* `.slice(0, STRIP_MAX)`, so every capped strip reported "3 live project(s)"
+  regardless. The shed hub said 3 while 4 carried the service. **Fixed in the generator** — it now
+  counts before the cap and names what was left out. The fix immediately revealed the
+  roof-replacement hub has been showing **3 of 28** with no indication.
+- **A claim the judges rejected in the card was live on the hub.** The copy judges threw out
+  *"Most roofing companies won't put a shed on the schedule"* as an unverifiable claim about other
+  contractors — while that same claim was shipped in **8 places** (3 meta tags, an FAQ in both HTML
+  and JSON-LD, body copy, an H2, and `llms.txt`) on the page hosting the card. Softened to Jo's own
+  published phrasing, *"plenty of outfits won't schedule"*, which makes the point as an observation
+  rather than a quantified claim about the market.
+- **§6 of this note certified the wrong artifact.** It recorded 26,158 internal refs; the tree
+  reports 26,161. The 3-ref delta *is* the new card. The evidence had been captured before the card
+  was stamped.
+
+**Checked and genuinely clean** (worth recording, because each was a real hazard):
+
+- The new key `shed-roof-replacement` **contains** `roof-replacement` as a substring, but
+  `our-work.js` does `split(/\s+/)` then `Array.indexOf` — exact token match, not a string search.
+  Clicking "Roof Replacement" does not pull in the shed card. Same for `siding-repair` vs
+  `wood-siding-repair`.
+- "Charcoal" was measured, not assumed: the Mason roof's median luminance is 94 against 145 for
+  `cincinnati-oh-hillside-charcoal-2023`, the site's own existing "charcoal" reference. Darker than
+  the job already called charcoal, so the word holds.
+- The 12 new binaries came through the sanctioned pipeline — progressive SOF2 with quantization
+  tables hashing identically to corpus images from 2023, 2025 and 2026. Not a hand-rolled export.
+- One verifier was caught overreaching: it claimed the page "contradicts itself" calling the same
+  blue material both a tarp and underlayment. At 5× the blue in photo 4 is underlayment and the blue
+  in photo 3 is a **glossy draped poly tarp with a rope and bundles weighted on it** — two different
+  things. Acting on that finding would have introduced an error. *Adversarial verifiers need
+  verifying too.*
+
+**Logged, not fixed** (each deserves its own change):
+
+- All six new `.webp` files are **larger** than their `.jpg` twins (1.04–1.14×), so a modern browser
+  downloads ~9% more bytes than the fallback it is avoiding — and five of the six are referenced by
+  nothing, since the lightbox serves `.jpg` only. Site-wide: **139 of 229** existing pairs are the
+  same way.
+- `docs/sitemap.xml` still stamps `/our-work` with `lastmod 2026-07-13` though the page changed four
+  times today. That is the generator's documented lastmod-preservation policy, working as designed,
+  but it means the sitemap understates freshness on the one page that changes most.
+- The `#svc-` deep-link bug from §4b.
+
 ## §5 — Open
 
 **Jo:** nothing outstanding on this card — all four answers landed and it shipped. Still open
@@ -245,7 +308,7 @@ Everything else clean: `check-js-syntax`, `check-inline-html-scripts`,
 `check-image-privacy`, `apply-partials --check --diff` (632 regions / 217 files),
 `build-projects --check` (11 hub strips), `build-sitemap` (219 URLs, +1),
 `check-chrome-governance`, `marketing-polish-contract` (53 passed),
-`check-site-integrity` (238 pages, 26,158 refs, 0 failures).
+`check-site-integrity` (238 pages, **26,161** refs, 0 failures — re-measured after the card was stamped; an earlier draft of this note recorded 26,158, which was captured *before* it and so certified something other than what shipped).
 
 One copy note: a British-spelling pass caught `colour` and `mobilisation` in this
 session's new copy — each appeared in **both** the visible HTML and the JSON-LD, which
