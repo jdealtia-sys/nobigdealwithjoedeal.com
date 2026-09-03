@@ -3,38 +3,141 @@
 > Supersedes [NEXT_SESSION-2026-09-03](NEXT_SESSION-2026-09-03.md).
 > Session record:
 > [SESSION-2026-09-03-photo-reaping-and-phone-truth](SESSION-2026-09-03-photo-reaping-and-phone-truth.md).
+>
+> **Rewritten in place at 2026-09-03 close.** Every lane and every queue item
+> the previous version carried was executed during that session, so the list
+> that used to be here was entirely struck through. What survives below is
+> what is still live — plus, at the top, the claims from that session that did
+> NOT survive an adversarial re-check. Read §Do not rebuild on these first.
 
-## State of the world
+## Start here
 
-- **A deleted lead's photos are reaped** (#1353). `onLeadDeleted` skipped
-  `photos/` on a docblock premise that was wrong twice over — the dominant
-  shape *is* leadId-keyed, and `image-pipeline.js` stamps a permanent
-  `firebaseStorageDownloadTokens` on every variant it writes (446 such objects
-  found in prod earlier). A hard delete used to leave the whole photo set
-  publicly fetchable forever. `docs/` was also missing from the trigger's
-  prefix list while the sweep script already swept it; the lockstep test now
-  asserts **both** directions.
-- **The installed app stopped answering its own "are you sure?"** (#1354).
-  `standalone-compat.js` replaces `window.confirm` with a `return true` stub in
-  home-screen mode. 31 sites across 19 files converted. The worst was not a
-  delete: generating a photo report **silently emailed it to the homeowner**,
-  because that confirm was an OK=email / Cancel=download choice.
-- **The phone's navigation tells the truth** (#1355). `goTo()` writes `#/crm`
-  with a leading slash; the bottom bar stripped only the `#` and so lit nothing
-  after any navigation, Back landed on a Dashboard the user never opened, and
-  the upgrade modal's billing CTA went to the pipeline.
-- **Three new suites, all proven able to fail before being trusted**:
-  `lead-photo-reaping` (41), `pwa-confirm-guard` (76), `route-truth` (36).
-  Node bucket 45 → 47. Every one had a deliberate breakage staged and reverted
-  byte-exactly — see the session note's table.
-- **Branch protection on `main` is ON** as of 2026-09-03 (it had been OFF for
-  the whole history before that). Seven required checks; direct pushes, force
-  pushes and branch deletion are blocked. `gh pr merge --auto` now genuinely
-  defers instead of merging on the spot. Full config and the three deliberate
-  settings are in Jo's queue #3 — **two of them lock Jo out if "tightened"
-  without reading why.** Keep polling checks yourself regardless:
-  `enforce_admins` is false by design, so an admin can still push a merge
-  through. Every merge still deploys immediately.
+**The single most useful fact about this session: it shipped 25 PRs, and a
+verification sweep at the end refuted several of its own claims.** The pattern
+it kept finding — things that look green and are not — showed up in its own
+work three times (a CI gate that deadlocked merges, a confirm guard blind to a
+whole subtree, a test-count ratchet protecting nothing it had added). Assume
+the same is true of anything below that is not marked as measured.
+
+**Nothing is losing data or money right now.** For the first time in this
+project's history the database has a real, byte-verified backup, in two
+separate Google Cloud projects.
+
+## Do not rebuild on these — refuted 2026-09-03
+
+These were written into commits, docs and workflow comments as fact during the
+session, then disproved the same night. They are corrected at source; listed
+here because a wrong number that sounds precise is the kind that gets reused.
+
+1. **"The deploy could never have fit under the old CPU quota."** FALSE.
+   Deploy run 33792001186 (18:41–19:12Z) finished 13 minutes BEFORE the quota
+   was raised (19:25Z) and SUCCEEDED — 169 updates plus 1 create, peak 175
+   concurrent instances against the 200 ceiling. Complete deploys fit, twice,
+   that afternoon.
+2. **"179 services × 1 vCPU = 179 vCPU at rest, ~90% of the limit; a rollout
+   needs ~358."** FALSE on both counts. 175 of the 179 services carry no
+   `minScale` and scale to ZERO; only 4 set it, totalling 8 instances.
+   Measured quiet concurrency is 9–14 — about **5–7%** of the old ceiling. The
+   quota meters **peak concurrent running-instance CPU**, not provisioned CPU
+   (proved by the real 2026-08-18 failure landing exactly as concurrency hit
+   208 vs 200). All-time peak here is 208; nothing supports 358.
+   The raise to 600,000 is still defensible — "~88% of ceiling at deploy peak
+   with no margin, and the fleet grows" — but the arithmetic that justified it
+   was fiction and the right answer was reached by coincidence.
+   **Trap:** the two `allowable CPU per project per region` strings in the
+   deploy logs are the workflow's own echoed comment, not error output. They
+   read exactly like evidence for the wrong version.
+3. **"The daily Firestore backup now runs."** The SCHEDULED path has never
+   once succeeded. Today's 03:15 ET fire failed with `PERMISSION_DENIED`; a
+   manual run at 18:06Z failed the same way even after the bucket existed (IAM
+   propagation); only the hand-triggered 18:17Z run produced the export.
+   Exactly one successful export exists and a human caused it.
+4. **"The backup system is fixed end to end."** `firestoreBackupRetention` has
+   still **never succeeded, ever**. Its only run today logged
+   `firestoreBackupRetention.failed` and its scheduler `lastAttemptTime` has
+   not moved since 07:45:16Z. `functions/firestore-backup.js` catches every
+   error and logs at **WARNING** ("swallow so the scheduler doesn't retry
+   forever") — below the `severity>=ERROR` filter any operator uses, with zero
+   alert policies to catch it, and `backupFreshnessCron` only checks marker
+   age, never that pruning happened. A permanently broken retention job is
+   silent forever while the bucket grows ~94 objects/day.
+
+## The three dates that matter
+
+- **2026-09-04 07:15Z** — `dailyFirestoreBackup` runs unattended for the first
+  time ever. Nothing has proved the scheduled path works.
+- **2026-09-04 10:00Z** — `backupFreshnessCron` fires and **will report `ok`
+  whether that export succeeded, failed, or never ran.** The only marker in
+  the bucket was written 18:18Z by a manual run; at 10:00Z it is 15.7h old
+  against a 26h threshold. **Do not read tomorrow's green as proof.**
+- **2026-09-05 10:00Z** — the first honest verdict from the alarm.
+
+## Top of the list
+
+1. **Confirm the scheduled backup actually ran** (see the dates above). If
+   2026-09-04's 07:15Z tick failed, the alarm will not tell you until the 5th.
+   `gcloud storage ls gs://nobigdeal-pro-firestore-backups/` — a `2026-09-04/`
+   folder with an `overall_export_metadata` inside is the proof.
+2. **Fix `firestoreBackupRetention`, or delete it.** It has never worked, it
+   fails silently at WARNING, and nothing watches it. Deciding it is not worth
+   fixing is a perfectly good outcome — leaving it as-is is not.
+3. **Deploy the ten monitoring policies that already exist.** `monitoring/`
+   contains ten alert-policy JSON files — including
+   `alert-backup-cron-stale.json` and `alert-functions-error-rate.json` — and
+   **the project has ZERO live alert policies** (`alertPolicies` returns `{}`).
+   Two notification channels (email + SMS) are enabled and wired to nothing.
+   Pre-existing, not caused by this session, but it is the same species: a
+   directory that looks like monitoring. `backupFreshnessCron` is currently
+   the **only** functioning alarm in the project.
+4. **Eight functions are three weeks stale.** `sendEstimateEmail`,
+   `migratePinsToKnocks`, `sendDripEmail`, `auditCustomerDataIntegrity`,
+   `triggerProcessRecording`, `reprocessRecording`, `backfillCustomerData`,
+   `sendTeamInviteEmail` all carry `updateTime 2026-08-11` and appear in none
+   of the three deploy logs from 2026-09-03. Their live code is behind `main`
+   and a green deploy says nothing about them. (`onRepSignup` is a known
+   skip-list entry and did land via the tolerant path.)
+5. **Nothing watches the off-project copy.** `grep -rniE
+   'nobigdeal-offsite|nobigdeal-backups' functions/ scripts/` returns zero.
+   `backup-freshness.js` watches only the in-project bucket and runs inside
+   `nobigdeal-pro`, where it cannot see the backups project. Neither transfer
+   job has a `notificationConfig`. Both have run exactly once — the immediate
+   run at creation. **"Repeats daily" is configuration, not observed
+   behaviour**; proof is a second operation appearing after ~2026-09-04 19:34Z.
+6. **The DR runbook has a hole.** In a real restore its first command
+   (`scripts/verify-backup.sh`) fails against a dead bucket, and the runbook
+   never mentions the offsite copy — the only copy that survives losing the
+   project. Documentation fix, cheap.
+
+## Also true, lower priority
+
+- **12 of the 19 CI checks are advisory** and can go red while a PR merges:
+  all six Authed E2E shards, Public-surface E2E, the emulator suites, Referral
+  triggers, both visual jobs, and Rendered QC sweep. That last one actually
+  concluded FAILURE on real content in PR #1373 — the only job all session to
+  catch a live defect — and it does not block. The required seven are the six
+  fastest jobs plus Firestore rules; essentially the whole behavioural test
+  surface sits outside the gate.
+- **Branch protection binds nobody who currently merges.** With
+  `enforce_admins: false` and required reviews 0, the one account that merges
+  everything can bypass. That was deliberate (a solo operator must not be
+  locked out) — just do not mistake it for enforcement.
+- **`nightlyFirestoreBackup` errors nightly at 09:00Z on purpose**, against a
+  bucket deliberately not created (it has no retention job; creating it would
+  grow unbounded). Harmless, but it is exactly the standing red that trains
+  people to ignore logs. Retiring it is the clean end state.
+- **`crm-audit.js` has never gone red in real CI.** Proved capable of exit 1
+  locally against fixtures; every CI run on main since it merged is green, so
+  the exit-code-to-red-check wiring is untested in anger.
+- **The 600,000 mCPU quota is not load-bearing yet.** Peak during the
+  post-quota deploy was 177 — inside the old ceiling too.
+- **The export is not proven RESTORABLE.** The 98-byte completion marker and
+  92 output shards exist; nobody decoded the protobuf or attempted
+  `gcloud firestore import`. Marker presence proves the export reported
+  completion, not that a restore works.
+- **`getgooglereviews` has been erroring at a steady rate for 7 days**
+  (45 entries in a 3h window), unchanged before and after every deploy today.
+  Pre-existing; an invalid Places API key produces rejected requests, not
+  billed ones.
 
 ## Corrections — briefed claims that are FALSE
 
@@ -87,150 +190,6 @@ this before picking up any lane below.** Each cost a session otherwise.
 14. **The audit doc's `~:78` for `fetchNoaaHail` is an insertion-point
     citation**, not drift. "Correcting" it to `:38` makes the doc worse.
 
-## Lanes, in priority order
-
-> **Status 2026-09-03 (close):** **every lane in this list shipped**
-> (#1359–#1363, #1365). Nothing here is open. The next session's work is in
-> the two blocked sections below and in §Corrections — start there, not here.
->
-> **The top item is now the signed-URL cutover**, which Jo's IAM grant
-> unblocked the same evening (queue #2, verified). It needs a Cloud Functions
-> deploy window, so it sequences with the other deploy-gated items rather than
-> going first by default.
->
-> **Branch protection on `main` is now ON** (queue #3, done the same evening)
-> with seven required checks, so every gate added today finally enforces
-> something. Its three deliberate settings are in queue #3 — two of them would
-> lock Jo out if "tightened" without reading why.
-
-1. ~~**Lead entry stops losing data on a phone**~~ **SHIPPED #1360.** Backdrop
-   dismiss now asks when anything has been typed (Esc and ✕ still close in one
-   action — it guards the accident, not the intent), and the GPS latch clears
-   on every completed create, on form reset, and on Quick-Add open/close.
-   Three things worth carrying, all found by the adversarial pass rather than
-   the brief: the dismiss-side clear covered **one path in three** until it was
-   registered as an `onClose` (nbd-modal's backdrop and Esc handlers call its
-   internal `close()` directly, which only runs a cleanup callback if one was
-   registered at `open()` — a trap for any future modal cleanup); a late
-   geolocation callback could re-arm the latch up to 12s after dismissal, so
-   there is now a generation counter checked after both awaits; and
-   `stopPropagation` on the backdrop silently broke the address autocomplete's
-   document-level bubble listener, which now gets an explicit dismiss.
-2. ~~**A ticked task that did not save says so**~~ **SHIPPED #1359.** Plus the
-   bug the revert logic uncovered, which is the reusable part: the
-   `data-tk-action` delegate was bound to BOTH `click` and `change`, and a
-   checkbox fires both — so every tick ran its handler **twice**. Harmless
-   while the handlers were idempotent fire-and-forget writes (it just doubled
-   the Firestore traffic), fatal the moment one snapshots state to revert on
-   failure, because the second invocation snapshots the already-flipped value
-   and its revert undoes the first one's. Dispatch now routes by event type.
-   **If you add any other optimistic-then-revert handler, check its delegate
-   first.**
-3. ~~**One owner for the kanban filters**~~ **SHIPPED #1363.**
-   `docs/pro/js/lead-filter-registry.js` (`window.NBDLeadFilters`) now holds
-   the active filter; both modules register a `compute()` and a paint callback
-   and keep no state. `deactivate()` is a no-op unless that filter is actually
-   the active one — that single guard is the whole bug — and `refresh()`
-   recomputes only the active filter, so the 60s poll can no longer resurrect
-   one the rep switched off.
-   **The brief's framing was wrong in a way worth remembering:** it asked for
-   "a registry that is the only writer" of `window._filteredLeads`. But
-   `renderLeads()` (`crm-pipeline.js:72`) **already** sets that global from its
-   own second argument — the filter modules were writing it *as well*, which is
-   what made ownership unanswerable. The fix was removing two writers, not
-   adding a better one. The registry never touches the global; it passes
-   `filtered` to `renderLeads`. Pinned at the source in
-   `tests/lead-filter-registry.test.js`.
-   Also carried: a pre-existing smoke assertion pinned
-   `classList.toggle('active', active)` **by the literal variable name**, so it
-   went red on a semantically identical refactor. If you rename a state
-   variable in a filter module, check `tests/smoke/dashboard.test.js` around
-   the filter-badge block.
-4. ~~**CSV formula injection + `data-export.js`'s first test**~~ **SHIPPED
-   #1361** (36 assertions, node bucket). Two findings the brief did not have:
-   there are **TWO** export paths, not one — `_csvEscape` in
-   `dashboard-bootstrap.module.js` backs the Settings → Data Retention "Export
-   All Leads (CSV)" button over the same `window._leads`, and fixing only
-   `data-export.js` would have shipped a PR claiming a closed hole with the
-   other button still live. And the fix introduced a **round-trip regression**:
-   `data-import.js` never stripped the marker, so an ordinary note like
-   `- called 3x` re-imported as `'- called 3x`, permanently, with CI green.
-   Both fixed; the test now pins all **three** copies of the neutralizer
-   (including `expenses.js`) to one character class, and pins the import strip
-   as lookahead-guarded so a genuine leading apostrophe survives.
-5. ~~**`crm-audit.js` into CI**~~ **SHIPPED #1365.** Both false-green paths
-   were fixed before the step was added (`--json` computed the verdict below
-   its own early return and always exited 0; zero matched pages exited 0), and
-   the step is blocking with no `if:` / `continue-on-error` / `|| true`. It ran
-   green in CI on its own PR — the step itself, not just the job around it —
-   and was proven able to fail by planting a real broken `<script src>` in
-   `dashboard.html`. 32 assertions in `tests/crm-audit.test.js`.
-   **Two follow-ups, both deliberately excluded and both written into the
-   ci.yml comment so nobody reads more coverage into it than exists:**
-   - **The gate makes the CRM pages visible, not protected.** The deploy runs
-     from `firebase-deploy.yml`, which has no `needs:` on `ci.yml` and whose
-     own pre-flight runs only check-js-syntax / check-site-integrity /
-     apply-partials. **A broken CRM page still deploys**; this step just turns
-     red beside it. Adding it to that pre-flight is the real fix — after this
-     has run green on main a few times, because a false positive there blocks
-     the entire site.
-   - **Only the 27 top-level `docs/pro/*.html` are read.** The 7 nested pages
-     (`docs/pro/blog/*`, `docs/pro/daily-success/`) and all of `docs/admin/**`
-     are still guarded by nothing. None is broken today (checked), so this is
-     a blind spot rather than a live break — but widening discovery may
-     surface findings, so it needs its own attributable red.
-   One more thing worth carrying: making `--json` exit honestly created a new
-   contradiction, since `findings` is display-filtered while the verdict counts
-   over all findings — `--json --severity=info` exited 1 with `findings: []`.
-   Closed with an unfiltered `counts` object. **If you add a display filter to
-   any gate, check it cannot make a failing run serialize as clean.**
-6. ~~**Finish the `confirm()` allowlist question.**~~ **CLOSED same session by
-   #1357.** The root cause is gone: the `confirm` and `prompt` overrides in
-   `standalone-compat.js` are deleted, because their premise — that iOS blocks
-   dialogs in standalone mode — is false and appears never to have been true.
-   `alert` stays (no return value, so it cannot answer for the user). Five raw
-   `confirm()` sites remain and all five are still legitimate. **Do not
-   reintroduce the overrides**; `tests/pwa-confirm-guard.test.js` now asserts
-   they stay dead, and the full argument sits next to the code. Details in the
-   session note's §#1354 UPDATE.
-
-## The backup alarm — live, and the deploy lesson that came with it
-
-`backupFreshnessCron` (#1369) is **deployed, ACTIVE and verified running**:
-scheduler `firebase-schedule-backupFreshnessCron-us-central1` at 06:00 ET,
-ENABLED. A live trigger read the real bucket and logged
-`backup_freshness.ok  ageHours 0.92  marker 2026-09-03/2026-09-03.overall_export_metadata`
-— it found the real marker, computed the real age, and correctly stayed
-quiet. The alarm side is covered by 36 unit assertions, proven able to fail.
-
-**BUT THE FIRST DEPLOY SILENTLY DID NOT CREATE IT**, and this is the
-carry-forward:
-
-- The run reported 110 **successful updates** and **zero creates**. firebase
-  printed `✔ Deploy complete!`. The function did not exist afterwards.
-- It WAS targeted — re-running the workflow's own discovery grep locally finds
-  `backupFreshnessCron` among 169 functions, so this was not a discovery gap.
-- `firebase-deploy.yml`'s own comment claimed the chronic CPU-quota race hits
-  updates "never a create". **That is now disproven and corrected in place.** A
-  create needs a brand-new Cloud Run service rather than a revision swap, so it
-  is the *most* likely thing to lose the race.
-- A plain `gh run rerun --failed` created it.
-
-**Why a create losing is worse than an update losing:** an update that loses
-leaves the previous revision serving, so nothing breaks. A create that loses
-leaves *nothing* — and neither the workflow summary nor a later green deploy
-will tell you which function is missing.
-
-> **After deploying a NEW function, verify it exists.**
-> `gcloud functions describe <NAME> --gen2 --region=us-central1`
-> A merged PR is not a deployed function. This was caught only because the
-> deploy was checked rather than trusted — the same habit the alarm exists to
-> institutionalise.
-
-The durable fix is Jo's: **raise the Cloud Run CPU quota for us-central1**
-(GCP console → IAM & Admin → Quotas). `firebase-deploy.yml` has named this as
-the real fix since 2026-07-23 and it has been causing chronic red deploys ever
-since.
 
 ## Blocked on a Cloud Functions deploy window
 
@@ -307,189 +266,6 @@ client-only PR.**
   "day cells" and `smart-calendar.js` renders **today only**. Placement is Jo's
   call: a chip per appointment row, or one tile in the 3-tile summary header.
 
-## Jo's queue — the precise asks (newest first)
-
-1. ~~Do you open the CRM from the home-screen icon or in Safari, and does
-   native `confirm()` still fail there?~~ **WITHDRAWN — answered without him.**
-   The research settled it in a way that made his answer unnecessary: WebKit
-   has no standalone gate on dialogs, and every suppression path returns
-   `false`, so `true` was the one value the platform cannot produce. The
-   overrides are deleted (#1357). Two loose ends if anyone wants certainty
-   rather than inference:
-   - **No first-hand post-2023 report exists in either direction** of running
-     `confirm()` in an installed iOS web app. The conclusion rests on current
-     WebKit source plus a very well-structured absence, not a measurement. It
-     does not need to be closed — the decision is the same in both worlds —
-     but a device reading would convert "inferred" into "observed".
-   - Getting one needs a **top-level** page: a Claude artifact is served in a
-     sandboxed iframe, which blocks modals for an unrelated reason and reads
-     as a false negative (confirmed on Jo's iOS 18.7 — `false`/`null`/
-     `undefined`, which incidentally demonstrated the fail-closed direction).
-     Use a Firebase preview channel with an external-JS page, per the repo's
-     usual hosting-verification route. Low priority.
-2. ~~**Grant `roles/iam.serviceAccountTokenCreator` on the compute SA**~~
-   **DONE 2026-09-03 — Jo granted it in the console, and it is verified.**
-   Not taken on trust: a grant on the wrong account looks identical to no
-   grant, so all three halves were checked. `gcloud` is on PATH here and
-   already authed as jonathandeal459@gmail.com, so these are one-line reads —
-   **do this before believing any future console ask is done:**
-   ```
-   gcloud iam service-accounts get-iam-policy \
-     717435841570-compute@developer.gserviceaccount.com --project=nobigdeal-pro
-     → roles/iam.serviceAccountTokenCreator, member = that SAME SA
-       (self-impersonation, which is correct — signing means impersonating
-       yourself via the IAM Credentials API)
-   gcloud functions describe renderPdf --gen2 --region=us-central1 \
-     --format='value(serviceConfig.serviceAccountEmail)'
-     → 717435841570-compute@developer.gserviceaccount.com  ← the granted SA
-       IS the runtime identity, which is the half that is easy to get wrong
-   gcloud services list --enabled --filter=config.name:iamcredentials.googleapis.com
-     → enabled
-   ```
-   **What this unblocks, and what it does NOT.** `render-pdf.js` already
-   self-heals — it tries `getSignedUrl` and falls back to a download token —
-   so it starts issuing signed URLs with no redeploy. The cutover itself is
-   still to do: stop `image-pipeline.js:224-243` minting a permanent token per
-   variant, stop `render-pdf.js:455-462` doing it for `pdf-renders/`, then reap
-   the 446 existing tokened objects. 29 client `getDownloadURL` call sites in
-   16 files remain; the worst is `customer-signed-doc-upload.js:46-56`
-   (a signed contract). **The reaping half already shipped as #1353 — do not
-   rebuild it.**
-3. ~~**Turn on branch protection for `main`**~~ **DONE 2026-09-03 — Jo asked
-   for it and it is enabled and verified.** Seven required checks:
-   `Smoke tests`, `Unit suites (manifest)`, `Site integrity`,
-   `Node syntax check`, `Secret scan`, `Firestore rules tests`,
-   `Functions parse + dep install`. Direct pushes to `main` are blocked; force
-   pushes and branch deletion are off.
-   **Three settings are deliberate — read this before "tightening" any of
-   them, because two of the three would lock Jo out:**
-   - `required_approving_review_count: 0` — this is what forces the PR flow
-     without demanding an approval. **Setting it to 1 locks Jo out
-     permanently:** he is the sole admin and GitHub does not let anyone
-     approve their own PR.
-   - `enforce_admins: false` — an escape hatch. A one-person business cannot
-     afford "a required check is stuck, so nothing ships". It means an admin
-     CAN still force a merge through, so treat the required checks as a strong
-     speed bump rather than an absolute bar, and keep polling checks before
-     merging.
-   - `strict: false` — main moves several times an evening here; `strict: true`
-     would force a rebase and a full CI re-run on every open PR each time.
-   The 12 emulator/browser checks (the Authed E2E shards, visual regression,
-   Public-surface E2E, Rendered QC, Brand-token) are deliberately NOT required
-   — they are the flake-prone class, and a Playwright-install flake already
-   forced a rerun on #1351. Promote one only after it has been reliably green
-   for a while.
-   Read the live config rather than trusting this note:
-   `gh api repos/jdealtia-sys/nobigdealwithjoedeal.com/branches/main/protection`
-4. ~~**Cloud Storage backup**~~ **MOSTLY DONE 2026-09-03 — and it uncovered
-   something far worse than the thing it asked for.**
-
-   **THE FIRESTORE BACKUPS HAD NEVER ONCE RUN.** Three functions
-   (`dailyFirestoreBackup` 03:15, `nightlyFirestoreBackup` 04:00,
-   `firestoreBackupRetention` 03:45) were ACTIVE and scheduled, and every one
-   failed every night, for two independent reasons:
-   - **The destination bucket never existed.** `firestore-backup.js` writes to
-     `gs://${PROJECT}-firestore-backups`, and its own docstring says the
-     operator must create it. Nobody had. FIXED: created
-     `gs://nobigdeal-pro-firestore-backups`, **US multi-region** — the
-     docstring's `-l us-central1` advice is WRONG for this project, because
-     the database is `nam5` (US multi-region) and an export wants a
-     location-compatible bucket.
-   - **The runtime SA could not export.** It holds `roles/editor`, which
-     deliberately **excludes** `datastore.databases.export` — verified against
-     the role definition, not assumed. That was the `PERMISSION_DENIED` / 403.
-     FIXED: granted `roles/datastore.importExportAdmin` to
-     `717435841570-compute@developer.gserviceaccount.com`.
-
-   Proven, not declared: triggered the real scheduler job and watched
-   `dailyFirestoreBackup.started` with no error, then confirmed
-   `2026-09-03/2026-09-03.overall_export_metadata` (the completion marker the
-   function's own comment says to check for) plus `output-0…13` land in the
-   bucket. 7.3 MB. **That is the first Firestore backup this project has ever
-   had.** The first trigger right after the grant still 403'd — IAM
-   propagation takes a couple of minutes, so re-run before diagnosing.
-
-   **The "two Firestore backup buckets" question in the old brief was a false
-   premise.** There are no two. `nobigdeal-pro.appspot.com` and
-   `staging.nobigdeal-pro.appspot.com` both exist and are both **empty**;
-   neither was ever a backup target. The real one is the one just created.
-
-   **Photos** (`nobigdeal-pro.firebasestorage.app`, 583 MB): Object Versioning
-   is ON and verified. Also a correction — the brief said photos were
-   "unrecoverable today", and they were not: the bucket already carried a
-   **7-day soft-delete policy** (a GCS default since 2024). Versioning adds
-   overwrite protection, which soft delete does not cover, and removes the
-   7-day cliff. Cost is about a penny a month at this size.
-   No lifecycle rule was added on purpose: it would save ~$0.01/month, and any
-   lifecycle rule on the bucket holding every customer photo and signed
-   contract is a place where one typo is unrecoverable. Revisit if storage
-   grows 100x.
-
-   **THE OFF-PROJECT COPY IS DONE 2026-09-03, and verified by byte parity.**
-   Everything used to live in one project, so every protection above defended
-   against mistakes *inside* `nobigdeal-pro` and none against losing the
-   project itself.
-
-   New project **`nobigdeal-backups`** (org `jonathandeal459-org`, billing
-   `01090D-87C689-0FE40E`), holding two buckets, both US multi-region with
-   versioning:
-
-   | job (daily, `86400s`, ENABLED) | source | destination |
-   |---|---|---|
-   | `nbd-firestore-offsite` | `gs://nobigdeal-pro-firestore-backups` | `gs://nobigdeal-offsite-firestore` |
-   | `nbd-photos-offsite` | `gs://nobigdeal-pro.firebasestorage.app` | `gs://nobigdeal-offsite-photos` |
-
-   Both have completed a REAL run, not just been scheduled — which is exactly
-   the distinction that hid the broken backups all day:
-   - Firestore: **94 objects source / 94 offsite**, 7,275,641 bytes both sides,
-     and the `overall_export_metadata` completion marker is present in the
-     copy, so it is a restorable export rather than a partial one.
-   - Photos: **610,852,034 bytes both sides.**
-
-   The Storage Transfer service agent
-   (`project-760414839970@storage-transfer-service.iam.gserviceaccount.com`)
-   holds only `objectViewer` + `legacyBucketReader`, and only **on the two
-   source buckets** — not project-wide. It cannot write to or delete anything
-   in `nobigdeal-pro`.
-
-   **WHAT THIS STILL DOES NOT PROTECT AGAINST — be honest about it.** Both
-   projects sit under the same Google account and the same billing account. It
-   defends against project deletion, a bad script, and a bucket-level mistake.
-   It does NOT defend against losing the Google account itself, or billing
-   lapsing across the org. If that matters, the next rung is a copy under a
-   different account or off Google entirely — a decision for Jo, not an
-   engineering task.
-
-   Cost: ~600 MB duplicated, so cents per month.
-5. ~~**Raise the Cloud Run CPU quota for us-central1**~~ **DONE 2026-09-03,
-   auto-approved.** 200,000 -> 600,000 mCPU (200 -> 600 vCPU), verified live
-   with us-east1 left at 200,000 as a control. The numbers explain why this
-   was never survivable: **179 Cloud Run services x 1 vCPU = 179 vCPU at rest,
-   90% of the old 200 limit**, and a full rollout doubles that to ~358 vCPU —
-   i.e. a complete deploy could not fit under any circumstances, and the
-   project sat ~21 functions away from breaking without deploying at all.
-   Now 30% at rest, ~60% mid-rollout.
-   The retry/chunking machinery in firebase-deploy.yml was KEPT on purpose —
-   it is what made these failures legible, it guards three documented
-   false-greens, and a quota is a ceiling not a guarantee. Thin it only after
-   a long run of clean deploys.
-   **Still unproven behaviourally:** the config is verified, but the real
-   proof is the next functions deploy going green on the FIRST attempt.
-   Watch that one.
-6. **For free-API wave 1**: a Healthchecks.io account and a Better Stack
-   account; a Census API key (instant); enable the Solar API on the GCP project;
-   **start Meta App Review** for Lead Ads (mandatory, days-to-weeks) and the
-   **GBP API access request** (blocks Local Posts) so wave 2 is not blocked.
-   Optional: an ArcGIS Location Platform free key. Also: confirm
-   `GROQ_API_KEY` is actually provisioned in `nobigdeal-pro`.
-6. Which payment handles belong on invoices (Zelle is deliberately `info@`;
-   PayPal/Venmo absent) — needed before touching the invoice block.
-8. Do you want an **offline write queue** at all? `OfflineManager.queueWrite`
-   has zero callers, so the UI and IndexedDB machinery imply a queue that does
-   not exist. That is a product decision, not a bug.
-9. Unchanged: seat price + `STRIPE_PRICE_SEAT`, App Check console enforce,
-   delete the 7 retired functions, cost-basis rotation, Turnstile order,
-   Copycat PAT (optional), Cal.com real booking.
 
 ## Watch-outs (carried + new)
 
