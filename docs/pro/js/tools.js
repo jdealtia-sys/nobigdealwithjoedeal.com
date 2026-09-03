@@ -356,19 +356,55 @@ function applyQMData() {
 }
 
 // ══ QUICK ADD LEAD (mobile field tool) ════════════════════════════════
+
+// Bumped on every open and close. qaUseMyLocation's geolocation callback can
+// land up to 12s after the sheet is gone (that is its timeout), and it writes
+// the latch unconditionally — so a late fix could silently re-arm coordinates
+// the dismiss just cleared. Capture the generation before awaiting GPS and
+// drop the result if it no longer matches.
+let _qaGpsGen = 0;
+function _qaClearGpsLatch() {
+  _qaGpsGen++;
+  window._pendingPinLatLng = null;
+}
+
 function openQuickAddLead() {
   // nbdModal owns Esc/backdrop/focus on dashboard.html; classList fallback on
-  // pages without nbd-modal.js (none since the legacy twin retired 2026-09-02). quickAddModal has no close-side
-  // cleanup, so no onClose is needed.
-  if (window.nbdModal) { window.nbdModal.open('quickAddModal'); }
+  // pages without nbd-modal.js (none since the legacy twin retired 2026-09-02).
+  //
+  // The GPS latch MUST be cleared through onClose, not only in
+  // closeQuickAddLead(). nbd-modal's backdrop and Esc handlers call its
+  // internal close() directly, and close() only runs a cleanup callback when
+  // one was registered at open() — so a dismissal by tap-outside or Esc never
+  // reaches closeQuickAddLead at all. Only the two ✕ buttons do. Without this,
+  // the "cleared on dismiss" half of the latch fix covers one path in three.
+  if (window.nbdModal) {
+    window.nbdModal.open('quickAddModal', { onClose: _qaClearGpsLatch });
+  }
   else { document.getElementById('quickAddModal').classList.add('open'); }
   document.getElementById('qaAddr').value = '';
   document.getElementById('qaPhone').value = '';
   document.getElementById('qaErr').style.display = 'none';
+  // The two selects were missing from this reset, so the previous lead's damage
+  // type and source rode along into the next one — a rep working a hail street
+  // then taking a referral call filed it as "Door Knock / Roof - Hail". Back to
+  // the first option, which is what the markup ships as the default.
+  const qaDamage = document.getElementById('qaDamage'); if (qaDamage) qaDamage.selectedIndex = 0;
+  const qaSource = document.getElementById('qaSource'); if (qaSource) qaSource.selectedIndex = 0;
+  // Start from no coordinates: an abandoned "Use my location" from an earlier
+  // Quick-Add would otherwise still be armed and stamp this lead with the old
+  // house's location if the address doesn't geocode.
+  _qaClearGpsLatch();
   _qaResetGpsBtn();
   setTimeout(() => document.getElementById('qaAddr').focus(), 120);
 }
 function closeQuickAddLead() {
+  // Field resets live in openQuickAddLead, not here — deliberately. This modal
+  // is reset on OPEN, so dismissing it loses nothing that a reopen wouldn't
+  // clear anyway; don't "fix" it by moving them down here.
+  // The GPS latch is the exception: it lives on window, outlives the modal, and
+  // _saveLead will happily apply it to whatever lead is created next.
+  _qaClearGpsLatch();
   if (window.nbdModal) { window.nbdModal.close('quickAddModal'); }
   else { document.getElementById('quickAddModal').classList.remove('open'); }
 }
@@ -391,6 +427,12 @@ async function qaUseMyLocation() {
   if (btn) btn.disabled = true;
   if (lbl) lbl.textContent = 'Locating…';
 
+  // The GPS fix can land up to 12s from here (that is the timeout below), and
+  // the sheet can be dismissed or reopened in that window. Without this the
+  // late callback re-arms the latch the dismiss just cleared, and writes an
+  // address into a form the rep has already moved on from — so the
+  // "cleared on dismiss" guarantee would hold only until the radio answered.
+  const _gen = _qaGpsGen;
   try {
     const pos = await new Promise((resolve, reject) => {
       navigator.geolocation.getCurrentPosition(resolve, reject, {
@@ -399,6 +441,7 @@ async function qaUseMyLocation() {
         maximumAge: 30000
       });
     });
+    if (_gen !== _qaGpsGen) return; // sheet closed or reopened — drop the fix
     const lat = pos.coords.latitude;
     const lng = pos.coords.longitude;
     // Stash for _saveLead so the new lead gets accurate lat/lng even
@@ -408,6 +451,7 @@ async function qaUseMyLocation() {
 
     if (lbl) lbl.textContent = 'Resolving address…';
     const addr = await _qaReverseGeocode(lat, lng);
+    if (_gen !== _qaGpsGen) return; // second await, same staleness risk
     if (addr && addrInput) {
       addrInput.value = addr;
       if (lbl) lbl.textContent = '✓ Address set';

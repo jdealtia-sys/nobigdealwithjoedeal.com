@@ -153,6 +153,13 @@ function _leadModalReset(){
   // Hide conditional field blocks
   ['insuranceFieldsBlock','financeFieldsBlock','jobFieldsBlock'].forEach(id=>{ const e=document.getElementById(id); if(e) e.style.display='none'; });
   window._modalIntel = null;
+  // Drop the map-pin / GPS latch with the form it belongs to. maps-overlays
+  // sets _pendingPinId + _pendingPinLatLng ~100ms AFTER openLeadModal, so this
+  // reset (dismiss-only) never races the flow that populates them — but an
+  // abandoned pin-lead used to leave the coordinates armed, and the next lead
+  // that failed to geocode inherited that house's location silently.
+  window._pendingPinId = null;
+  window._pendingPinLatLng = null;
   const mir = document.getElementById('modalIntelResult');
   if(mir) { mir.classList.remove('visible'); mir.innerHTML=''; }
   const pib = document.getElementById('pullIntelBtn');
@@ -162,7 +169,62 @@ function _leadModalReset(){
 // running before DOM is fully painted in web app standalone mode),
 // this would crash and kill ALL of crm.js including renderLeads().
 const _leadModal = document.getElementById('leadModal');
-if (_leadModal) _leadModal.addEventListener('click',e=>{if(e.target===document.getElementById('leadModal'))closeLeadModal();});
+
+// The free-text fields the rep fills in by hand. Selects are deliberately
+// LEFT OUT: openLeadModal auto-infers #lJobType from the current view and
+// _leadModalReset parks #lStage on 'new', so both read non-empty on a form
+// nobody has touched — counting them would prompt on every single dismiss.
+const _LEAD_TYPED_FIELDS = [
+  'lFname','lLname','lAddr','lPhone','lEmail','lNotes','lJobValue','lFollowUp',
+  'lInsCarrier','lReferralCode','lClaimNumber','lEstimateAmount','lDeductible',
+  'lScopeOfWork','lFinanceCompany','lLoanAmount','lPreQualLink','lScheduledDate','lCrew'
+];
+function _leadFormHasContent(){
+  return _LEAD_TYPED_FIELDS.some(id => {
+    const el = document.getElementById(id);
+    return !!(el && String(el.value || '').trim());
+  });
+}
+
+// Backdrop dismiss, guarded. On a phone the lead modal is a bottom sheet, so a
+// live strip of backdrop sits above it exactly where a thumb lands — and the
+// dismiss path runs _leadModalReset, which blanks ~25 fields with no undo. A
+// half-typed lead at the door was disappearing on a stray tap. Empty form still
+// closes instantly (nothing to lose); a form with typed work asks first.
+//
+// This has to be fixed HERE, on the element listener. Opening with
+// { static: true } only silences nbdModal's own delegated backdrop handler —
+// and it silences its Esc handler too, which must keep working. So we guard
+// this listener and stopPropagation the backdrop click so nbdModal's delegated
+// handler (which would close unguarded) never sees it. The explicit ✕ buttons
+// and Esc still close in one action, deliberately: this guards the ACCIDENT.
+let _leadDiscardAsking = false;
+if (_leadModal) _leadModal.addEventListener('click', async (e) => {
+  if (e.target !== _leadModal) return;
+  // The address autocomplete closes itself from a document-level BUBBLE
+  // listener (dashboard-ui.js, initAddressAutocomplete on #lAddr), so the
+  // stopPropagation below would leave its suggestion dropdown hanging open
+  // over the sheet. There is no per-listener stop, so dismiss it explicitly
+  // first — a backdrop tap should close the dropdown whichever way the rest
+  // of this handler goes.
+  if (typeof window.hideAcDrop === 'function') { try { window.hideAcDrop('lAddr'); } catch (_) {} }
+  e.stopPropagation();
+  if (!_leadFormHasContent()) { closeLeadModal(); return; }
+  if (_leadDiscardAsking) return; // a second backdrop tap while the prompt is up
+  _leadDiscardAsking = true;
+  try {
+    // Edit mode arrives pre-filled, so "has content" can't tell an untouched
+    // edit from a modified one — we ask either way and word it honestly.
+    const isEdit = !!(document.getElementById('lEditId')?.value);
+    const title = isEdit ? 'Discard your changes?' : 'Discard this lead?';
+    const body  = isEdit ? 'Edits made here have not been saved yet.'
+                         : 'Nothing here has been saved yet, and it cannot be recovered.';
+    const ok = window.nbdModal
+      ? await window.nbdModal.confirm({ title: title, body: body, okLabel: 'Discard', cancelLabel: 'Keep editing', danger: true })
+      : await (window.nbdConfirm || ((m) => Promise.resolve(window.confirm(m))))(title + ' ' + body);
+    if (ok) closeLeadModal();
+  } finally { _leadDiscardAsking = false; }
+});
 document.addEventListener('DOMContentLoaded',()=>{const tm=document.getElementById('taskModal');if(tm)tm.addEventListener('click',e=>{if(e.target===tm)closeTaskModal();});});
 
 async function saveLead(){

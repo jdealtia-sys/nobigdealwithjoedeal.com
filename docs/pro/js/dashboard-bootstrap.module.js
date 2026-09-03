@@ -3284,8 +3284,16 @@
                   await window._savePin({ id: window._pendingPinId, leadId: leadRef.id });
                 } catch (pinErr) { console.warn('Could not link pin:', pinErr); }
                 window._pendingPinId = null;
-                window._pendingPinLatLng = null;
               }
+              // The coordinate latch is consumed by THIS create and must not
+              // outlive it. It was only ever cleared inside the _pendingPinId
+              // block above — but Quick-Add's "Use my location" arms the coords
+              // with no pin id, so the latch survived, and every later lead
+              // whose address failed to geocode (Nominatim rate-limit, flaky
+              // field connection) was silently stamped with the FIRST house's
+              // location. Cleared before the refresh awaits so a loadPins/
+              // loadLeads failure can't leave it armed.
+              window._pendingPinLatLng = null;
 
               await loadPins(); // Refresh map pins
               await loadLeads();
@@ -3356,8 +3364,11 @@
         if (window._pendingPinId) {
           try { await window._savePin({ id: window._pendingPinId, leadId: fallbackRef.id }); } catch (pe) {}
           window._pendingPinId = null;
-          window._pendingPinLatLng = null;
         }
+        // Consumed by this create — see the geocoded branch above. This is the
+        // branch that READ the latch (line ~3305), so leaving it armed here is
+        // what handed the next un-geocodable lead the wrong coordinates.
+        window._pendingPinLatLng = null;
         await loadLeads();
         // Return the newly-created lead's id (no-geocode fallback path).
         return fallbackRef.id;
