@@ -20,19 +20,26 @@ orientation flag, so they render sideways in anything that trusts the tag. They 
 a real pixel rotation, not a metadata fix — `prepare-project-images.mjs` will bake in
 whatever orientation it is handed.
 
-**What the photos show** (read end to end, not sampled): a gambrel "barn-style"
-backyard shed, complete roof tear-off. Old black rolled roofing stripped to the
-original OSB deck; the deck is visibly water-stained around the old fasteners
-(`IMG_9493` is the "what we found" frame). Blue synthetic underlayment, starter
-course, charcoal architectural shingles, ridge cap. A blue tarp covers the open roof
-between stages. Old roofing is bagged on tarps, not dumped on the grass. Two roof
-planes — the main gambrel plus a lower attached section. White T1-11 siding, dark
+**What the photos show.** ⚠️ **This paragraph originally recorded the session's first
+reading, and three of its claims were wrong — see [§4b](#4b--the-card-shipped-with-four-false-claims-here-is-how-and-how-they-were-caught).
+Corrected in place rather than appended to.** What is actually there: a gambrel
+"barn-style" backyard shed, complete roof tear-off. Old black rolled roofing stripped
+to the original OSB deck; with it off, the deck carries **black asphalt residue stuck
+to the strands and chalk lines** — it is pale, dry and sound, and **no decking was
+replaced** (`IMG_9493` is that frame; it is NOT water staining, which was the original
+misreading). Blue synthetic underlayment, charcoal architectural shingles, shingle
+ridge cap. A blue poly tarp covers the open roof between stages — distinct from the
+underlayment, which is the blue visible at the ridge in `IMG_9497`. The torn-off roofing
+lies **loose on the grass and in the leaf litter — not bagged, and not on tarps** — and
+bundle wrappers are still on the lawn in the final frame. A gambrel has **four** roof
+planes (two pitches per side), plus a lower attached section. White T1-11 siding, dark
 green trim, chain-link fenced wooded lot.
 
-The 6 frames that actually shipped, in carousel order (see §4 for why):
-`IMG_9490` tear-off → `IMG_9493` stained decking → `IMG_9510` tarped + roofing staged →
-`IMG_9497` shingles going on → `IMG_9505` slope finished → `IMG_0095` the finished shed,
-which is also the `hero`.
+The 6 frames that shipped, in final carousel order (reordered after §4c — the
+finished shot leads so that `hero == photos[0]` and the lightbox opens on the frame the
+visitor clicked): `IMG_0095` finished shed (**hero**) → `IMG_9490` tear-off →
+`IMG_9493` the bare deck → `IMG_9510` tarped, roofing on the grass → `IMG_9497` shingles
+going on → `IMG_9505` slope finished.
 
 ---
 
@@ -82,9 +89,11 @@ exact-matches the highest-intent query and fits the existing service-slug conven
 houses and lean-tos are carried in the title, H1, scope list and FAQs instead. Noted
 because it was a real fork, not an obvious call.
 
-**The two angles worth keeping.** *"The job most roofers won't schedule"* — homeowners
-say they called three or four companies first, and declining sheds is an industry norm
-rather than a rule. And *detached-structure coverage*: most policies cover outbuildings
+**The two angles worth keeping.** *"The job plenty of outfits won't schedule"* —
+homeowners say they called three or four companies first. Phrased as an observation, not
+as a quantified claim about the market: the hub originally said *"most roofers"* in 8
+places, which §4c cut back to Jo's own published wording after the copy judges rejected
+the same claim in a draft card. And *detached-structure coverage*: most policies cover outbuildings
 under a separate limit, and it is the line carriers most often leave out of a scope.
 
 ---
@@ -125,10 +134,12 @@ tagging it `roof-replacement` as well would have put a $2k shed at the head of t
 hub's proof strip (the strip sorts newest-first), pushing house-scale work down. It now leads the
 shed hub's own strip, ahead of the Batavia and Amelia jobs.
 
-**Photo handling.** Selected from all 28 uniques, not a sample. Story order — tear-off → the
-stained deck → tarped and staged → shingles going on → slope finished → the finished shed — with
-`hero` pointed at photo **6** so the card thumbnail is the finished building. `hero` need not be
-`photos[0]`: `heroAlt()` matches on `src`, and two existing entries already point at photo 3.
+**Photo handling.** Selected from all 28 uniques, not a sample. The first cut ran the story
+in job order with `hero` pointed at photo **6** so the card thumbnail was the finished building —
+`heroAlt()` matches on `src`, and two existing entries already point at photo 3, so it validates.
+**That was wrong for a different reason: the lightbox opens at `idx = 0` and never seeks the hero**
+(§4c). Final order leads with the finished shot, so `hero == photos[0]` and the thumbnail, the strip,
+the homepage tile and the lightbox all agree.
 One frame was swapped late (`IMG_9506` → `IMG_9505`) because a fingertip intruded at the bottom
 edge. `IMG_0095` needed a real 90° pixel rotation before re-encoding — it is stored rotated with
 **no EXIF orientation tag**, so anything trusting the tag bakes it in sideways.
