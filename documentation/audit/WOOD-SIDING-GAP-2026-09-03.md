@@ -167,10 +167,18 @@ storm-chaser in the market says.
    franchise"* instead. Six files, one decision.
 
 **Next session:**
-4. **Wood city pages for the other four tier-1 cities.** Loveland first — the July
-   playbook already has cedar demand evidence there, and the replacement page
-   documents 1970s–80s original cedar. Then Cincinnati, West Chester, Batavia.
-   Write each from that city's actual housing stock, not from a template.
+4. **Wood city pages for the tier-1 cities.** ✅ **Loveland shipped 2026-09-03** —
+   `/services/wood-siding-repair-loveland-oh`, written from Loveland's own stock
+   rather than Mason's: three counties, the Little Miami valley microclimate,
+   mature tree cover that keeps north elevations from ever drying, near-grade
+   splashback on valley-floor lots, and the **cedar-vs-wood-fiber distinction**
+   that is the page's real differentiator (they look alike from the driveway;
+   cedar rots where water sits and repairs board by board, wood fiber swells and
+   delaminates from the bottom edge and will not hold a patch). Six FAQs, none
+   overlapping the hub's or Mason's — 18 distinct questions across the three.
+   **Still to do: Cincinnati, West Chester, Batavia.** Write each from that
+   city's actual housing stock, not from a template — the three shipped pages
+   share nav/footer chrome and essentially nothing else.
 5. **Put an `OURWORK-STRIP` marker on the other city pages.** The mechanism works
    on any `docs/services/*.html` (proved here). ~90 city pages currently show a
    homeowner no photographs. Each needs the marker **and** the
