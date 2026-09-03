@@ -8,8 +8,11 @@ giant one), and verify each step on the live site at `https://nobigdealwithjoede
 before moving to the next. All previous fixes (PRs #28–#42) are live on main —
 do not re-do work that's already shipped.
 
-Run tests with `cd tests && npm install && npm test`. Smoke + pricing + address
-+ inline-html-scripts should all pass green before opening any PR.
+Run tests with `cd tests && npm install && npm test` — since 2026-09-02 that
+delegates to `scripts/run-test-manifest.js` (node + smoke buckets, the same
+123-suite registry CI runs; the old hand-chained aggregate silently skipped 22
+suites including every cost-privacy guard). Smoke + pricing + address +
+inline-html-scripts should all pass green before opening any PR.
 
 ---
 
@@ -91,7 +94,7 @@ Pages records restores the prior state immediately.
 ### Definition of done
 - `curl -sI https://nobigdealwithjoedeal.com/pro/js/ai.js | grep Referrer-Policy` returns the header
 - `curl -sI https://nobigdealwithjoedeal.com | grep "^Server"` returns Google, not GitHub
-- All 769 tests still pass
+- All tests still pass (`npm test` in tests/; "769" was the 2026-05 count — smoke alone is ~3,500 assertions now)
 - A test PR (no app changes) confirms the firebase deploy still completes
 
 ---
