@@ -179,7 +179,8 @@ These operate on the **caller's own data** (owner-scoped Firestore queries insid
 | `recordingRetentionCron` | daily 05:00 | Prunes aged voice-intelligence recordings |
 | `dailyFirestoreBackup` | daily 03:15 ET | Full Firestore export to `gs://nobigdeal-pro-firestore-backups/YYYY-MM-DD/` (firestore-backup.js) |
 | `firestoreBackupRetention` | daily 03:45 ET | Prunes backups older than 30 days (firestore-backup.js) |
-| `nightlyFirestoreBackup` | daily 04:00 CT | **Second, overlapping** Firestore export (compliance.js "D5") to `gs://nobigdeal-pro-backups` — see Flags below |
+| `nightlyFirestoreBackup` | daily 04:00 CT | **Second, overlapping** Firestore export (compliance.js "D5") to `gs://nobigdeal-pro-backups` — **that bucket does not exist and this has never once succeeded**; retire it rather than fix it, see Flags below |
+| `backupFreshnessCron` | daily 06:00 ET | **The alarm for the above.** Emails if no `overall_export_metadata` newer than 26h is in the backup bucket. No enable-gate on purpose (backup-freshness.js) |
 | `enforceLapsedSeats` | daily 09:00 | Pillar 4 — deactivates members past their seat lapse grace window (lapse-enforcement.js) |
 | `reviewRequestNudge` | daily 08:15 ET | Google-review request nudge emails for recently-won jobs (review-request-nudge.js) |
 | `syncGbpReviews` | daily 06:00 ET | Pulls Google Business Profile reviews into the reviews widget cache (gbp-reviews-sync.js) |
@@ -229,6 +230,10 @@ Exported for unit tests or internal reuse; they carry no `__endpoint` and Fireba
 ## Flags / ambiguities (2026-07-04 refresh)
 
 1. **Two overlapping Firestore backup pipelines**: `dailyFirestoreBackup` + `firestoreBackupRetention` (functions/firestore-backup.js, 03:15/03:45 ET → `gs://nobigdeal-pro-firestore-backups`, 30-day retention) AND `nightlyFirestoreBackup` (integrations/compliance.js "D5", 04:00 CT → `gs://nobigdeal-pro-backups`, no retention job). Both are deployed. Consolidation candidate.
+
+   **UPDATE 2026-09-03 — neither had ever run, and only one is worth fixing.** Both destination buckets were missing, and the runtime SA holds `roles/editor`, which deliberately excludes `datastore.databases.export`. The `dailyFirestoreBackup` pipeline is now WORKING: `gs://nobigdeal-pro-firestore-backups` created (US multi-region — the docstring's `us-central1` is wrong for this `nam5` database), `roles/datastore.importExportAdmin` granted, first real export verified with its `overall_export_metadata` marker.
+
+   `nightlyFirestoreBackup` was deliberately left broken. Its bucket `gs://nobigdeal-pro-backups` was NOT created, because it has **no retention job** — creating it would grow unbounded forever, and it duplicates a pipeline that already works and already prunes. **Retire it rather than fix it.** Until then it errors nightly, which `backupFreshnessCron` correctly ignores: that alarm watches the artifact in the working bucket, not the function logs.
 2. **`checkStormAlerts` vs `stormWatch`** both run every 30 minutes in the storm domain but are distinct: `checkStormAlerts` polls NWS *forecast alerts* per subscriber zip; `stormWatch` polls IEM *Local Storm Reports* (observed hail/wind/tornado).
 3. **`verify-functions-company-enhancement.js`** defines its own `notifyNewLead` but is **not required by index.js** — dead file; the deployed `notifyNewLead` comes from verify-functions.js.
 4. `getRecording` (listed in the 2026-05-13 index) is no longer exported; voice-intelligence's manual kicks (`triggerProcessRecording` / `reprocessRecording`) were retired 2026-08-11. `dunningEmailQueue` and `voiceMemoTrigger` from the old index also no longer exist as exports.
