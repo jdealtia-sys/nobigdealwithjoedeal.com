@@ -40,7 +40,14 @@
     'final_payment', 'deductible_collected',
   ]);
 
-  let active = false;
+  // The registry owns active-state now (lead-filter-registry.js). Reading it
+  // through a function rather than caching a boolean is deliberate: the stale
+  // copy is exactly what let this button stay lit while another filter had
+  // taken the board.
+  const FILTER_NAME = 'needsAttention';
+  function isActive() {
+    return !!(window.NBDLeadFilters && window.NBDLeadFilters.isActive(FILTER_NAME));
+  }
 
   // ─── Helpers ─────────────────────────────────────────────────────
   function toMillis(v) {
@@ -147,7 +154,7 @@
     badge.textContent = c;
     badge.style.display = c > 0 ? 'inline-block' : 'none';
 
-    if (active) {
+    if (isActive()) {
       btn.style.background = 'rgba(239,68,68,0.12)';
       btn.style.borderColor = '#ef4444';
       btn.style.color = '#ef4444';
@@ -161,45 +168,44 @@
     // sync (dashboard-ui.js), and the E2E all key on the class. None of
     // the filter modules ever set it before, which is also why the old
     // mobile tools-menu active mirrors never lit up.
-    btn.classList.toggle('active', active);
+    btn.classList.toggle('active', isActive());
   }
 
   // ─── Apply the filter ────────────────────────────────────────────
-  function applyFilter() {
-    if (!active) {
-      // Restore default rendering (no filter override).
-      window._filteredLeads = null;
-      if (typeof window.renderLeads === 'function') {
-        window.renderLeads(window._leads, null);
-      }
-      updateButton();
-      return;
-    }
-    const subset = compute();
-    window._filteredLeads = subset;
-    if (typeof window.renderLeads === 'function') {
-      window.renderLeads(window._leads, subset);
-    }
-    updateButton();
-
+  // Board state belongs to NBDLeadFilters (lead-filter-registry.js), not to
+  // this module. It used to own a private `active` flag AND write
+  // window._filteredLeads directly, and its deactivate path nulled the board
+  // unconditionally — so turning Stale Shares off blanked this filter's
+  // subset while this button stayed lit, and the recount below silently
+  // re-applied it seconds later. Two toggles, one surface, two sources of
+  // truth. The registry is now the only one that decides and the only one
+  // that calls renderLeads.
+  function toggle() {
+    if (!window.NBDLeadFilters) return; // registry missing — do nothing rather than fight over the board
+    const nowActive = window.NBDLeadFilters.toggle(FILTER_NAME);
     // Friendly toast on activation if there's nothing to act on.
-    if (subset.length === 0 && typeof window.showToast === 'function') {
+    if (nowActive && count() === 0 && typeof window.showToast === 'function') {
       window.showToast('Nothing needs attention right now — clean pipeline.', 'success');
     }
   }
 
-  function toggle() {
-    active = !active;
-    applyFilter();
-  }
-
+  // Data changed underneath us. The registry re-applies ONLY if this filter
+  // is the active one; otherwise this is just a button-count repaint, which
+  // is the behaviour the 60s poll was always supposed to have.
   function recount() {
-    if (active) applyFilter();
-    else updateButton();
+    if (window.NBDLeadFilters) window.NBDLeadFilters.refresh();
+    updateButton();
   }
 
   // ─── Init ────────────────────────────────────────────────────────
   function init() {
+    // Hand compute + button-painting to the registry and keep nothing local.
+    // `paint` is called for BOTH states, including when another filter takes
+    // over — which is what unlights this button instead of leaving it lit
+    // over a board it no longer controls.
+    if (window.NBDLeadFilters) {
+      window.NBDLeadFilters.register(FILTER_NAME, { compute: compute, paint: updateButton });
+    }
     updateButton();
     window.addEventListener('nbd:data-refreshed', recount);
     setInterval(recount, 60_000);
@@ -209,7 +215,7 @@
   const NeedsAttention = {
     compute,
     count,
-    isActive: () => active,
+    isActive: isActive,
     toggle,
     recount,
     needsAttentionReason,

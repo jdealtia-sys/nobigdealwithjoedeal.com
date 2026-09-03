@@ -6225,8 +6225,12 @@
 <script defer src="js/shortcuts-help.js?v=1"></script>
 <script defer src="js/data-import.js?v=1"></script>
 <script defer src="js/activity-feed.js?v=1"></script>
-<script defer src="js/needs-attention-filter.js?v=2"></script>
-<script defer src="js/stale-shares-filter.js?v=2"></script>
+<!-- Single owner of kanban filter state. MUST load before the two filter
+     modules below: each registers with it at init, and without it they
+     deliberately no-op rather than fight over the board. -->
+<script defer src="js/lead-filter-registry.js?v=1"></script>
+<script defer src="js/needs-attention-filter.js?v=3"></script>
+<script defer src="js/stale-shares-filter.js?v=3"></script>
 <script defer src="js/lead-snooze.js?v=2"></script>
 <script defer src="js/prefs-sync.js?v=1"></script>
 <!-- Wave 42: portal-link helpers must load BEFORE kanban-context-menu

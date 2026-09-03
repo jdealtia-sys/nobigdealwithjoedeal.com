@@ -36,7 +36,12 @@
     'final_payment', 'deductible_collected',
   ]);
 
-  let active = false;
+  // Active-state lives in the registry (lead-filter-registry.js); a cached
+  // local copy is exactly what let this button disagree with the board.
+  const FILTER_NAME = 'staleShares';
+  function isActive() {
+    return !!(window.NBDLeadFilters && window.NBDLeadFilters.isActive(FILTER_NAME));
+  }
 
   // ─── Helpers ─────────────────────────────────────────────────────
   function toMillis(v) {
@@ -103,7 +108,7 @@
     badge.textContent = c;
     badge.style.display = c > 0 ? 'inline-block' : 'none';
 
-    if (active) {
+    if (isActive()) {
       btn.style.background = 'rgba(155,109,255,0.18)';
       btn.style.borderColor = '#9b6dff';
       btn.style.color = '#cab8ff';
@@ -114,44 +119,37 @@
     }
     // .active stamped for the Filters-menu highlight + badge sync
     // (see needs-attention-filter.js updateButton for the full note).
-    btn.classList.toggle('active', active);
+    btn.classList.toggle('active', isActive());
+    // Mirror kept truthful from the one place that repaints on every
+    // state change, so it can never disagree with the registry.
+    window._staleSharesActive = isActive();
   }
 
-  function applyFilter() {
-    if (!active) {
-      window._filteredLeads = null;
-      window._staleSharesActive = false;
-      if (typeof window.renderLeads === 'function') {
-        window.renderLeads(window._leads, null);
-      }
-      updateButton();
-      return;
-    }
-    const subset = compute();
-    window._filteredLeads = subset;
-    window._staleSharesActive = true;
-    if (typeof window.renderLeads === 'function') {
-      window.renderLeads(window._leads, subset);
-    }
-    updateButton();
-
-    if (subset.length === 0 && typeof window.showToast === 'function') {
+  // Board state belongs to NBDLeadFilters (lead-filter-registry.js). This
+  // module used to keep a private `active` flag AND null window._filteredLeads
+  // unconditionally on deactivate — which blanked the board even when Needs
+  // Attention was the filter actually showing, and left that button lit until
+  // its own 60s poll silently re-applied it. One owner now.
+  function toggle() {
+    if (!window.NBDLeadFilters) return; // registry missing — do not fight over the board
+    const nowActive = window.NBDLeadFilters.toggle(FILTER_NAME);
+    if (nowActive && count() === 0 && typeof window.showToast === 'function') {
       window.showToast('No stale shares — every shared link has been responded to or is fresh.', 'success');
     }
   }
 
-  function toggle() {
-    active = !active;
-    applyFilter();
-  }
-
   function recount() {
-    if (active) applyFilter();
-    else updateButton();
+    // Re-applies ONLY if this filter is the active one; otherwise it is just a
+    // count repaint, which is all the poll was ever meant to do.
+    if (window.NBDLeadFilters) window.NBDLeadFilters.refresh();
+    updateButton();
   }
 
   // ─── Init ────────────────────────────────────────────────────────
   function init() {
+    if (window.NBDLeadFilters) {
+      window.NBDLeadFilters.register(FILTER_NAME, { compute: compute, paint: updateButton });
+    }
     updateButton();
     window.addEventListener('nbd:data-refreshed', recount);
     setInterval(recount, 60_000);
@@ -161,7 +159,7 @@
     __sentinel: 'nbd-stale-shares-v1',
     compute,
     count,
-    isActive: () => active,
+    isActive: isActive,
     toggle,
     recount,
     isStaleShare,
