@@ -787,8 +787,16 @@ jobs:
   #     an artifact; a human downloads, reviews, and commits them under
   #     tests/e2e/visual-regression.spec.js-snapshots/ (the bless step).
   #   • snapshots dir committed → compares and reports drift.
-  # Baselines blessed and the streak proven — PROMOTED 2026-08-26 on a
-  # 10/10 green run (ledger in documentation/projects/WEEKLY_CADENCE.md).
+  # PROMOTED 2026-08-26 on a 10/10 green run (ledger in
+  # documentation/projects/WEEKLY_CADENCE.md) — but the baselines had NOT
+  # been blessed at that point: the snapshots dir was never committed, so
+  # every one of those "green" runs took the --update-snapshots branch and
+  # asserted nothing. Blessed 2026-09-02 from run 33652262168's artifact
+  # (12 PNGs: login/register/pricing/landing × mobile-375/tablet-768/
+  # desktop-1280, chromium-linux). tests/smoke/dashboard.test.js pins the
+  # directory so the job can't silently fall back to generate mode again;
+  # to re-bless on purpose, delete the directory in the same PR that
+  # changes the pages and commit the artifact from that PR's run.
   visual-regression:
     name: Visual regression (public pro pages)
     runs-on: ubuntu-latest
