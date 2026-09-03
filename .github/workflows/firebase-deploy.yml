@@ -759,8 +759,30 @@ jobs:
           # revisions rolls out under quota once wave 1 has settled. If functions
           # STILL fail after the retries, that's a REAL failure and the job fails
           # (with the residual list) instead of hiding behind the chronic red.
-          # DURABLE FIX (not in this workflow): raise the Cloud Run CPU quota for
-          # us-central1 in the GCP console — see the step summary on failure.
+          # DURABLE FIX — DONE 2026-09-03. The Cloud Run "Total allowable CPU
+          # per project per region" quota for us-central1 was raised from
+          # 200,000 to 600,000 mCPU (200 -> 600 vCPU), auto-approved, verified
+          # (us-east1 left at 200,000 as a control). The numbers that justified
+          # it, because they explain why this was never survivable:
+          #
+          #   179 Cloud Run services x 1 vCPU  = 179 vCPU AT REST = 90% of 200
+          #   a full rollout doubles that      = ~358 vCPU        = 179% of 200
+          #
+          # So a complete rollout could not fit under the old ceiling under any
+          # circumstances, and even at rest the project sat 21 vCPU from the
+          # limit — roughly 21 more functions from breaking without deploying
+          # at all. At 600 vCPU: 30% at rest, ~60% mid-rollout.
+          #
+          # The retry/chunking machinery below is KEPT deliberately. It is what
+          # made the failures legible in the first place, it still guards the
+          # three distinct false-greens documented above, and the quota is a
+          # ceiling rather than a guarantee. If deploys go clean for a good
+          # while, thin it then — not before.
+          #
+          # Re-check the live value with:
+          #   gcloud beta quotas info describe CpuAllocPerProjectRegion \
+          #     --service=run.googleapis.com --project=nobigdeal-pro
+          # and note the headroom shrinks by 1 vCPU per function added.
           set +e   # we manage exit codes explicitly by parsing per-pass failures
 
           # onObjectFinalized added 2026-08-17: the alternation predates the
