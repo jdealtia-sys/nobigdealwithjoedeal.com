@@ -126,9 +126,15 @@ this before picking up any lane below.** Each cost a session otherwise.
    then wire it bare (no `--json`, no `--severity`). Do **not** include the
    recursion widening into `docs/pro/blog` and `docs/pro/daily-success` — that
    surfaces new findings and deserves its own attributable red.
-6. **Finish the `confirm()` allowlist question.** Five raw sites remain and all
-   five are legitimate today (see `tests/pwa-confirm-guard.test.js`). The open
-   item is the root cause, not the sites — see Jo's queue #1.
+6. ~~**Finish the `confirm()` allowlist question.**~~ **CLOSED same session by
+   #1357.** The root cause is gone: the `confirm` and `prompt` overrides in
+   `standalone-compat.js` are deleted, because their premise — that iOS blocks
+   dialogs in standalone mode — is false and appears never to have been true.
+   `alert` stays (no return value, so it cannot answer for the user). Five raw
+   `confirm()` sites remain and all five are still legitimate. **Do not
+   reintroduce the overrides**; `tests/pwa-confirm-guard.test.js` now asserts
+   they stay dead, and the full argument sits next to the code. Details in the
+   session note's §#1354 UPDATE.
 
 ## Blocked on a Cloud Functions deploy window
 
@@ -207,14 +213,24 @@ client-only PR.**
 
 ## Jo's queue — the precise asks (newest first)
 
-1. **NEW — one sentence, unblocks a whole lane:** do you open the CRM from the
-   **iOS home-screen icon**, or in Safari? Everything in #1354 assumes the
-   home-screen app (that is the only place the `confirm` patch runs). If you
-   use Safari, that urgency drops. And a related question worth two minutes on
-   your phone: **does a normal `confirm()` still fail in the home-screen app?**
-   The patch dates from an old iOS bug. If dialogs work now, the whole patch can
-   be deleted and the idiom retired — `tests/pwa-confirm-guard.test.js` will go
-   red on purpose the day someone tries, so it will not be lost.
+1. ~~Do you open the CRM from the home-screen icon or in Safari, and does
+   native `confirm()` still fail there?~~ **WITHDRAWN — answered without him.**
+   The research settled it in a way that made his answer unnecessary: WebKit
+   has no standalone gate on dialogs, and every suppression path returns
+   `false`, so `true` was the one value the platform cannot produce. The
+   overrides are deleted (#1357). Two loose ends if anyone wants certainty
+   rather than inference:
+   - **No first-hand post-2023 report exists in either direction** of running
+     `confirm()` in an installed iOS web app. The conclusion rests on current
+     WebKit source plus a very well-structured absence, not a measurement. It
+     does not need to be closed — the decision is the same in both worlds —
+     but a device reading would convert "inferred" into "observed".
+   - Getting one needs a **top-level** page: a Claude artifact is served in a
+     sandboxed iframe, which blocks modals for an unrelated reason and reads
+     as a false negative (confirmed on Jo's iOS 18.7 — `false`/`null`/
+     `undefined`, which incidentally demonstrated the fail-closed direction).
+     Use a Firebase preview channel with an external-JS page, per the repo's
+     usual hosting-verification route. Low priority.
 2. **Grant `roles/iam.serviceAccountTokenCreator` on the compute SA** (~2 min,
    GCP Console → IAM). Still the highest-leverage console item: it unblocks
    signed photo URLs, `renderPdf` signed URLs and the whole token migration.
