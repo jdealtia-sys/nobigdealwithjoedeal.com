@@ -2,12 +2,21 @@
  * standalone-compat.js — Safari "Add to Home Screen" compatibility layer
  *
  * Fixes:
- *  1. alert() / confirm() / prompt() — blocked in iOS standalone mode
+ *  1. alert() — turned into a non-blocking toast (see the note by the override)
  *  2. window.open() — exits to Safari, breaking the app experience
  *  3. 100vh — doesn't account for status bar in standalone
  *  4. Scroll/keyboard issues on iOS
+ *  5. nbdAlert / nbdConfirm / nbdPrompt — real promise-based modals, which is
+ *     what call sites should use for anything that decides something
  *
- * Load EARLY — before any other scripts that might call alert/confirm/prompt.
+ * CORRECTED 2026-09-03: this header used to read "alert() / confirm() /
+ * prompt() — blocked in iOS standalone mode". That premise is not true and
+ * appears never to have been — WebKit has no standalone gate on dialogs. The
+ * confirm() and prompt() overrides written against it answered on the user's
+ * behalf and have been removed; the full argument is at the override site
+ * below. Do not reintroduce them without new evidence.
+ *
+ * Load EARLY — before any other scripts that might call alert.
  */
 let nbdAlert; // module-local (globals Tranche 1 — was window.*)
 (function() {
@@ -130,15 +139,67 @@ let nbdAlert; // module-local (globals Tranche 1 — was window.*)
     });
   }
 
-  // Override native functions
-  // NOTE: These become async (return Promises), but most call sites don't use the return value.
-  // For confirm() calls used in if-statements, we patch them to work synchronously
-  // where possible by using showToast as a fallback for simple alerts.
+  // ── confirm() and prompt() are NO LONGER OVERRIDDEN (2026-09-03) ──
+  //
+  // This file used to replace window.confirm with a stub that toasted the
+  // message and unconditionally `return true`, and window.prompt with one that
+  // returned the default value without ever showing a box. Both answered on
+  // the user's behalf. Both are gone. The reasoning, because the original was
+  // written down confidently and was wrong:
+  //
+  // THE STATED PREMISE WAS NEVER TRUE. The header claimed dialogs are "blocked
+  // in iOS standalone mode". No such rule exists in WebKit. Source/WebCore/
+  // page/LocalDOMWindow.cpp gates alert/confirm/prompt on exactly four things
+  // — no frame, an iframe sandboxed without allow-modals, no page, and page
+  // dismissal — and none of them is display-mode, navigator.standalone, or
+  // "web clip". bugs.webkit.org carries ~28 open "Home Screen" bugs filed
+  // through 2026 and not one is about dialogs. Apple has run a dedicated
+  // "Home Screen Web Apps" release-note section since Safari 16.4 documenting
+  // exactly this class of standalone-only defect (Wake Lock 18.4, camera
+  // re-prompt 17.2, audio-on-reopen 26.2) and has never listed a dialog one.
+  //
+  // The comment on the old confirm stub gave the real reason away: "it's used
+  // synchronously in if-statements. We CANNOT make it async without rewriting
+  // call sites." That is an async/sync mismatch with this file's own
+  // promise-based modal, not a platform limitation — and _origConfirm was
+  // captured here and never called, which nobody does to a function they
+  // believe is dead.
+  //
+  // AND `true` IS THE ONE VALUE THE PLATFORM CANNOT PRODUCE. Every suppression
+  // path at every layer resolves confirm to FALSE: the sandbox and unload
+  // branches above, WKWebView's APIUIClient defaults when a host does not
+  // implement the dialog delegate, a backgrounded tab, the browser's
+  // suppress-further-dialogs UI, and the still-unfixed pushState+back bug
+  // (turbolinks#336, 2017 → Apple Forums 684407, still live 2025). Native
+  // confirm fails CLOSED — the guard cancels. The stub inverted that into
+  // fail-OPEN. It did not defend against the destructive-action problem; it
+  // WAS the destructive-action problem, and it is what emailed a photo report
+  // to a homeowner and wiped the product library on a mis-tap.
+  //
+  // prompt() had the same shape with a quieter failure: returning defaultVal
+  // meant "Copy this link" boxes never appeared (clipboard-fix.js,
+  // dashboard-api.js, customer-bootstrap.module.js) and
+  // `prompt('Rename estimate:', current)` returned the current name, so rename
+  // silently did nothing (estimate-crm-ops.js).
+  //
+  // NOTE the gate at the top of this file is `navigator.standalone === true ||
+  // matchMedia('(display-mode: standalone)').matches` — so this was also
+  // firing on installed Android and desktop PWAs, where nobody has ever
+  // claimed a dialog bug at all.
+  //
+  // alert() IS still overridden, deliberately — see below.
+  //
+  // Destructive guards should not depend on native confirm regardless: it is a
+  // blocking API the engine may resolve to false on any of the paths above.
+  // Use window.nbdConfirm (defined below), which is a real DOM modal and
+  // immune to all of them. tests/pwa-confirm-guard.test.js holds the line.
 
-  const _origAlert = window.alert;
-  const _origConfirm = window.confirm;
-  const _origPrompt = window.prompt;
-
+  // alert() stays patched. It has no return value, so it cannot answer
+  // anything on the user's behalf — the failure mode the two above had is
+  // structurally impossible here. Turning a blocking OS dialog into a toast is
+  // a deliberate improvement on a phone, and if a suppression path ever does
+  // fire, a toast still shows the message where a native alert would show
+  // nothing. Removing it would be a UX regression, not a fix.
   window.alert = function(msg) {
     // Use showToast if available for simple alerts (non-blocking)
     if (window.showToast) {
@@ -146,29 +207,6 @@ let nbdAlert; // module-local (globals Tranche 1 — was window.*)
       return;
     }
     createModal(msg, { type: 'alert' });
-  };
-
-  // confirm() is tricky — it's used synchronously in if-statements.
-  // We CANNOT make it async without rewriting call sites.
-  // Best approach: let it return true (proceed) and show a non-blocking toast.
-  // For destructive actions, the Firestore rules should be the real guard.
-  window.confirm = function(msg) {
-    // Show a brief toast so user sees what happened
-    if (window.showToast) {
-      window.showToast(String(msg).slice(0, 80), 'info');
-    }
-    // Return true so the action proceeds (same as user clicking OK)
-    // This is a pragmatic trade-off: most confirms are "are you sure?" guards.
-    return true;
-  };
-
-  window.prompt = function(msg, defaultVal) {
-    // prompt() is also synchronous. We can't async it.
-    // Return the default value if provided, or null.
-    if (window.showToast) {
-      window.showToast('Input requested: ' + String(msg).slice(0, 60), 'info');
-    }
-    return defaultVal != null ? String(defaultVal) : null;
   };
 
   // Also provide async versions for code that CAN use them

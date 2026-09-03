@@ -156,20 +156,47 @@ console.log('\nDESKTOP STILL WORKS — every nbdConfirm use keeps a native fallb
   ok('found nbdConfirm uses to check (' + checked + ')', checked > 20);
 }
 
-console.log('\nTHE ESCAPE HATCH ITSELF');
+console.log('\nTHE NATIVE OVERRIDES MUST STAY DEAD');
 {
   const src = fs.readFileSync(path.join(JS_DIR, 'standalone-compat.js'), 'utf8');
+
+  // This block used to assert the OPPOSITE — that the confirm stub still
+  // returned true — as a deliberate tripwire saying "if anyone makes this
+  // honest, come back and revisit the migration". On 2026-09-03 it did its
+  // job: the premise it was built on turned out to be false, the overrides
+  // were removed, and the assertions flipped. Kept flipped, because
+  // reintroducing them is the regression now.
+  ok('window.confirm is NOT overridden', !/window\.confirm\s*=\s*function/.test(src));
+  ok('window.prompt is NOT overridden', !/window\.prompt\s*=\s*function/.test(src));
+  // The dead captures went with them; a fresh one is a sign someone is
+  // rebuilding the stub. Match a DECLARATION, not the identifier — the
+  // explanatory comment above the removal names _origConfirm in prose, and
+  // the first cut of this assertion flagged that comment as the bug it was
+  // describing. (_origOpen is a different thing and is still live: the
+  // window.open patch genuinely calls through to it.)
+  ok('no _origConfirm / _origPrompt captures remain',
+     !/(?:const|let|var)\s+_orig(?:Confirm|Prompt|Alert)\b/.test(src));
+
+  // alert() is deliberately still overridden: no return value, so it cannot
+  // answer for the user, and a toast beats a blocking OS dialog on a phone.
+  ok('window.alert IS still overridden (deliberate — it returns nothing)',
+     /window\.alert\s*=\s*function/.test(src));
+
+  // The landing pad for the whole migration lives in this file, inside the
+  // standalone guard. Deleting the file — which an earlier plan proposed —
+  // would silently revert all 61 migrated call sites to raw native confirm.
   ok('standalone-compat still defines window.nbdConfirm',
      /window\.nbdConfirm\s*=/.test(src));
-  ok('the confirm patch is still gated on standalone mode',
+  ok('standalone-compat still defines window.nbdPrompt',
+     /window\.nbdPrompt\s*=/.test(src));
+  ok('the file is still gated on standalone mode',
      /if\s*\(\s*!\s*isStandalone\s*\)\s*return/.test(src));
-  // If someone makes the patch honest (or deletes it), this goes red on
-  // purpose: the whole allowlist above was reasoned against a stub that
-  // returns true, and that reasoning would need revisiting.
-  const patch = src.match(/window\.confirm\s*=\s*function[\s\S]{0,600}?\n\s{2}\};/);
-  ok('the confirm patch still unconditionally returns true (if this fails, '
-     + 'revisit the migration — it may no longer be needed)',
-     !!patch && /return true;/.test(patch[0]));
+
+  // The corrected reasoning must stay with the code. A future reader who
+  // finds a bare deletion will re-add the stub; one who finds the argument
+  // will not.
+  ok('the correction is documented at the override site',
+     /NO LONGER OVERRIDDEN/.test(src) && /LocalDOMWindow/.test(src));
 }
 
 console.log('\n──────────────────────────────────');
