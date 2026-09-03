@@ -84,6 +84,64 @@ if (noCache) {
   ok('NO_CACHE_HTML excludes destructive account-erasure', /account-erasure/.test(block));
 }
 
+// ── One scriptURL per scope ──
+// A different scriptURL for the same scope is a NEW registration, not an
+// update: the browser installs it, sw.js calls skipWaiting + clients.claim,
+// and dashboard-sw-bootstrap.js reloads the page on SW_UPDATE_AVAILABLE /
+// controllerchange. Until 2026-09-02 offline-manager.js (customer/login)
+// registered '/pro/sw.js?v=13' while the dashboard registered '/pro/sw.js',
+// so every dashboard ↔ customer hop churned the worker and force-reloaded
+// the dashboard on arrival. Every register() call under docs/pro must name
+// the identical URL, with no query string.
+console.log('\nSERVICE WORKER — one scriptURL across docs/pro');
+{
+  const walk = (dir, out = []) => {
+    for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+      const p = path.join(dir, e.name);
+      if (e.isDirectory()) { if (e.name !== 'node_modules') walk(p, out); }
+      else if (/\.(js|html)$/.test(e.name)) out.push(p);
+    }
+    return out;
+  };
+  const files = walk(path.join(ROOT, 'docs/pro'));
+  const calls = [];
+  const re = /serviceWorker\s*\.\s*register\(\s*([^,)]+)(?:,\s*(\{[^}]*\}))?/g;
+  for (const f of files) {
+    // Drop comment lines first — pages/sw-register.js documents the inline
+    // snippet it replaced, and that prose would otherwise match.
+    const src = fs.readFileSync(f, 'utf8').split('\n')
+      .filter(l => !/^\s*(\/\/|\*|\/\*)/.test(l)).join('\n');
+    let m;
+    while ((m = re.exec(src)) !== null) {
+      calls.push({ file: path.relative(ROOT, f).split(path.sep).join('/'), arg: m[1].trim(), opts: (m[2] || '').trim(), src });
+    }
+  }
+  ok('found the SW register() call sites (>= 3)', calls.length >= 3);
+  // The offline/PWA worker: every registration must be the identical literal.
+  const pwa = calls.filter(c => /sw\.js/.test(c.arg) && !/messaging/.test(c.arg));
+  ok('offline worker is registered from >= 3 pages (dashboard, customer/login, simple pages)', pwa.length >= 3);
+  const urls = new Set(pwa.map(c => c.arg));
+  ok('every offline-worker register() names the same scriptURL literal: ' + [...urls].join(' | '),
+    urls.size === 1 && (urls.has("'/pro/sw.js'") || urls.has('"/pro/sw.js"')));
+  for (const c of pwa) {
+    ok(`${c.file} registers /pro/sw.js with no query string or concatenation`,
+      /^['"]\/pro\/sw\.js['"]$/.test(c.arg));
+  }
+  // Any OTHER worker (today: the FCM messaging worker in push-registration.js)
+  // must claim its own sub-scope, or it competes with sw.js for '/pro/'.
+  for (const c of calls.filter(c => !pwa.includes(c))) {
+    const scopeVar = /scope\s*:\s*([A-Za-z_$][\w$]*)/.exec(c.opts);
+    const scopeLit = /scope\s*:\s*['"]([^'"]+)['"]/.exec(c.opts);
+    let scope = scopeLit ? scopeLit[1] : null;
+    if (!scope && scopeVar) {
+      const decl = new RegExp('(?:var|let|const)\\s+' + scopeVar[1] + '\\s*=\\s*[\'"]([^\'"]+)[\'"]').exec(c.src);
+      scope = decl ? decl[1] : null;
+    }
+    ok(`${c.file} registers ${c.arg} on a dedicated sub-scope (got ${scope || 'none'})`,
+      !!scope && scope.startsWith('/pro/') && scope !== '/pro/');
+  }
+}
+
 console.log('\n──────────────────────────────────────────────────');
 console.log(`${passed} passed, ${failed} failed`);
 if (failed) { console.log('\nFailures:'); fails.forEach(f => console.log('  - ' + f)); process.exit(1); }

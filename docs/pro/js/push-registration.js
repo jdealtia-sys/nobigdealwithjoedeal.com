@@ -7,7 +7,8 @@
  * but NOTHING on the client ever registered a push token: no getToken(), no
  * users/{uid}/fcmTokens write, and the messaging SW was never registered. So
  * every push landed on ZERO recipients. This module closes that last gap:
- *   1. Registers /pro/firebase-messaging-sw.js (scope /pro/).
+ *   1. Registers /pro/firebase-messaging-sw.js on its own dedicated scope
+ *      (SW_SCOPE below — NOT '/pro/', which sw.js owns).
  *   2. Mints an FCM token via getToken({ vapidKey }).
  *   3. Persists it to users/{uid}/fcmTokens/{sha256(token)} — the exact shape
  *      getUserFCMTokens() reads ({ token, lastActive }). The owner-write is

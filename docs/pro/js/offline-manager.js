@@ -53,9 +53,20 @@
         // updateViaCache: 'none' forces the browser to bypass its own HTTP
         // cache when fetching sw.js itself, so a deployed SW update is seen
         // on the next page load instead of being pinned for hours by the
-        // default 'imports' policy. The script file gets a ?v= bust too so
-        // proxies/CDNs revalidate.
-        swRegistration = await navigator.serviceWorker.register('/pro/sw.js?v=' + (window.__NBD_BUILD || '13'), {
+        // default 'imports' policy.
+        //
+        // 2026-09-02: this used to register '/pro/sw.js?v=13' while
+        // dashboard-sw-bootstrap.js and pages/sw-register.js register
+        // '/pro/sw.js'. A different scriptURL for the same scope is a NEW
+        // registration, not an update, so every dashboard ↔ customer/login
+        // hop installed a fresh worker → skipWaiting → clients.claim →
+        // SW_UPDATE_AVAILABLE / controllerchange → the dashboard's forced
+        // reload (dashboard-sw-bootstrap.js:42-57). That was the
+        // "dashboard reloads itself" on arrival. The ?v= bust bought
+        // nothing updateViaCache:'none' doesn't already guarantee, and
+        // window.__NBD_BUILD is assigned nowhere. One URL everywhere; the
+        // pin lives in tests/pwa-manifest.test.js.
+        swRegistration = await navigator.serviceWorker.register('/pro/sw.js', {
           scope: '/pro/',
           updateViaCache: 'none'
         });
