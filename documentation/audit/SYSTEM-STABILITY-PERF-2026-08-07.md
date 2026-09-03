@@ -72,6 +72,10 @@ Three new runners per push (unit-manifest is seconds; emulator-orphans ~4 min;
 public-e2e ~5 min; brand-tokens ~4 min; visual-regression ~6 min; @engines
 rides the existing matrix as a 6th leg). All new e2e/visual jobs are
 **advisory** with the repo's documented promotion bar.
+*(2026-09-02: all five were promoted to blocking on 2026-08-26 (#1279); the
+advisory tier is empty. Caveat recorded the same day: `visual-regression`'s
+"green streak" was its generate-snapshots fallback — the baselines were only
+committed in #1349.)*
 
 ## Parked (deliberate, with reasons)
 

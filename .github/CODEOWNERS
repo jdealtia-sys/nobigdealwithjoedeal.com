@@ -1,6 +1,11 @@
 # CODEOWNERS — require review from the security owner on changes to
 # files that directly affect the security posture. GitHub enforces
-# this via Branch Protection; this file is the source of truth.
+# this ONLY when Branch Protection (or a ruleset) on `main` requires
+# code-owner review. Verified 2026-09-02: `gh api
+# repos/{owner}/{repo}/branches/main/protection` → 404 "Branch not
+# protected", rulesets []. Until Jo turns protection on, this file is
+# documentation, not enforcement (documentation/projects/NEXT_SESSION-2026-09-03.md
+# queue item 2).
 #
 # Syntax: <pattern> <owner1> <owner2>
 # Owners are GitHub handles (or @team mentions).

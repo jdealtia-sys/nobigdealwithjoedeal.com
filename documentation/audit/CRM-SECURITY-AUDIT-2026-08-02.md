@@ -59,6 +59,13 @@ primary abuse control**. `cors` does not gate them either: the middleware calls
 A real App Check gate needs the client half, and `__NBD_RECAPTCHA_KEY__` is
 assigned nowhere under `docs/`, so `initializeAppCheck` never runs and no token
 is ever attached. Needs a reCAPTCHA site key from the Firebase console.
+*(2026-09-02 scoping correction: that is true only for the MARKETING site —
+`__NBD_RECAPTCHA_KEY__` is read at `docs/assets/js/inline/b9b56a8331.module.js:17`
+(visualizer.html) and assigned nowhere. The CRM uses a different name,
+`window.__NBD_APP_CHECK_KEY`, assigned in `docs/pro/js/dashboard-appcheck-config.js`
+and consumed by `dashboard-bootstrap.module.js`, `customer-bootstrap.module.js`
+and `nbd-auth.js` — App Check DOES run on the CRM pages. Console-side
+enforcement is still Jo's flip.)*
 
 ### 2. The rules tests only ever exercised CREATE
 

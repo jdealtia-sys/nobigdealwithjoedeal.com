@@ -207,12 +207,17 @@ recorded, so a single line in CI catches future regressions:
 2. **Authenticated kanban smoke** — `pro-authed.spec.js` already
    covers login → kanban → drag-stage. Wire `PLAYWRIGHT_TEST_USER_*`
    secrets in CI to actually run it.
+   *(2026-09-02: long done — the `e2e-authed-emulator` matrix in
+   `ci.yml` runs it against seeded emulators, six shards, all blocking.)*
 
 3. **Firestore rules + storage rules + rate limit** — three separate
    emulator-backed test suites already exist (`firestore-rules.test.js`,
    `storage-rules.test.js`, `rate-limit.test.js`). They aren't run
    here because the Firebase emulator isn't installed in this
    environment. Run them in CI.
+   *(2026-09-02: long done — `ci.yml` jobs `firestore-rules` and
+   `emulator-orphan-suites`; as of #1350 the Storage suite also gates
+   the deploy in `firebase-deploy.yml`.)*
 
 4. **A11y sweep** — beyond `alt` text and aria-label coverage, run
    axe-core / Lighthouse against every page in the matrix to catch
