@@ -1047,4 +1047,33 @@ section('QA wiring audit: photo Reorder button binds in module scope (not window
     /closest\('#nbdReorderToggle'\)\)\s*\{\s*toggleCustomerPhotoReorder\(\);/.test(cb));
 }
 
+section('Add-lead: no false "Lead saved!" + visible validation errors (2026-09-02)');
+{
+  // _saveLead returns null on three deliberate non-writes — the Lite
+  // lead cap, the billing gate's upgrade modal, and the dedup prompt's
+  // cancel / open-existing — each of which shows its own feedback.
+  // saveLead used to fall through to "Lead saved!" + closeLeadModal
+  // regardless. Separately, #mErr renders at the TOP of a modal whose
+  // Save button is ~230 lines of markup lower, so on a phone the
+  // name/address error was off-screen (CRM-ADDRESS-INTEGRITY 2026-08-18
+  // observed this live as a "silent" failure).
+  const leads = read(path.join(ROOT, 'docs/pro/js/crm-leads.js'));
+  const bailIdx  = leads.indexOf('if (_wasNewLead && !_savedId) return;');
+  const savedIdx = leads.indexOf("mOk.textContent='Lead saved!'");
+  assert('saveLead bails before "Lead saved!" when _saveLead aborted a new lead',
+    bailIdx > -1 && savedIdx > -1 && bailIdx < savedIdx,
+    'expected the null-return guard to precede the success line');
+  assert('the abort guard runs before _modalIntel is cleared (retry keeps parcel data)',
+    /if \(_wasNewLead && !_savedId\) return;\s*\n\s*window\._modalIntel = null;/.test(leads));
+  assert('validation errors scroll #mErr into view and toast',
+    /const showFormError = \(msg, focusEl\) =>/.test(leads)
+    && /mErr\.scrollIntoView\(/.test(leads)
+    && /showToast\(msg, 'error'\)/.test(leads));
+  for (const msg of ['Name and address required.', 'Email looks invalid', 'Phone needs at least 10 digits.']) {
+    const esc = msg.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    assert('"' + msg + '" routes through showFormError',
+      new RegExp("showFormError\\('" + esc).test(leads));
+  }
+}
+
 };
