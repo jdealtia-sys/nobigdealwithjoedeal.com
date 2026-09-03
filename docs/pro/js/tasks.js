@@ -97,16 +97,24 @@ async function _saveTask(leadId, text, dueDate) {
     return ref.id;
   } catch(e){ return null; }
 }
+// These two report saved/failed instead of swallowing into console.error.
+// Every caller flips the checkbox optimistically before awaiting, and on a
+// roof there is no console to read — a write that died on one bar of signal
+// looked exactly like one that landed, so the task came back tomorrow with
+// no explanation. A boolean (matching _saveTask's null-on-failure idiom)
+// keeps the call sites one-liners; the console.error stays for desktop.
 async function _toggleTask(leadId, taskId, done) {
-  try { 
+  try {
     await updateDoc(doc(db,'leads',leadId,'tasks',taskId), {
       done,
       completedAt: done ? serverTimestamp() : null
     });
-  } catch(e){ console.error('toggleTask error:', e); }
+    return true;
+  } catch(e){ console.error('toggleTask error:', e); return false; }
 }
 async function _deleteTask(leadId, taskId) {
-  try { await deleteDoc(doc(db,'leads',leadId,'tasks',taskId)); } catch(e){ console.error('deleteTask error:', e); }
+  try { await deleteDoc(doc(db,'leads',leadId,'tasks',taskId)); return true; }
+  catch(e){ console.error('deleteTask error:', e); return false; }
 }
 async function loadAllTasks() {
   // Use allSettled so a single lead's failure doesn't block the rest
@@ -153,7 +161,21 @@ function renderTodayTasks() {
   items.sort((a,b)=>(b.isOverdue-a.isOverdue)||(a.due-b.due));
   el.innerHTML=items.slice(0,8).map(({task,lead,leadName,isOverdue})=>`<div class="today-task-item"><input type="checkbox" class="today-task-cb" ${task.done?'checked':''} data-tk-action="toggleToday" data-tk-lead="${_escTask(lead.id)}" data-tk-id="${_escTask(task.id)}"><span class="today-task-text ${task.done?'done':''}">${_escTask(task.text)}</span>${isOverdue?'<span class="today-task-overdue">OVERDUE</span>':''}<span class="today-task-lead" data-tk-action="openModal" data-tk-id="${_escTask(lead.id)}">${_escTask(leadName.split(' ')[0])}</span></div>`).join('')+(items.length>8?`<div style="text-align:center;padding:8px;font-size:11px;color:var(--m);">+${items.length-8} more — <span style="color:var(--orange);cursor:pointer;" data-tk-action="goToCrm">view in CRM</span></div>`:'');
 }
-async function toggleTodayTask(leadId,taskId,done){const t=(window._taskCache[leadId]||[]).find(t=>t.id===taskId);if(t)t.done=done;await _toggleTask(leadId,taskId,done);renderTodayTasks();renderLeads(window._leads,window._filteredLeads);}
+// The optimistic flip stays — on a slow connection the tick has to land
+// instantly or the list feels broken. What was missing is the other half:
+// when the write loses, put the cache back where Firestore actually is and
+// say so, because renderTodayTasks() hides done tasks — the row vanishing
+// was the ONLY feedback, and it lied.
+async function toggleTodayTask(leadId,taskId,done){
+  const t=(window._taskCache[leadId]||[]).find(t=>t.id===taskId);
+  const prev=t?t.done:undefined;
+  if(t)t.done=done;
+  const ok=await _toggleTask(leadId,taskId,done);
+  if(!ok&&t)t.done=prev;
+  renderTodayTasks();
+  renderLeads(window._leads,window._filteredLeads);
+  if(!ok&&typeof showToast==='function')showToast("Couldn't save — check your connection and tap it again",'error');
+}
 async function openTaskModal(leadId,event){
   if(event)event.stopPropagation();
   _taskModalLeadId=leadId;
@@ -205,8 +227,46 @@ async function addTask(){
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', bind);
   else bind();
 })();
-async function checkTask(taskId,done){if(!_taskModalLeadId)return;const t=(window._taskCache[_taskModalLeadId]||[]).find(t=>t.id===taskId);if(t)t.done=done;const item=document.getElementById('titem-'+taskId);if(item)item.classList.toggle('done',done);await _toggleTask(_taskModalLeadId,taskId,done);setTimeout(async()=>renderTaskList(await _loadTasks(_taskModalLeadId)),400);}
-async function removeTask(taskId){if(!_taskModalLeadId)return;const _t=(window._taskCache&&window._taskCache[_taskModalLeadId]||[]).find(t=>t.id===taskId);const _label=_t&&_t.text?'"'+_t.text+'"':'this task';const _ask=window.nbdConfirm||((m)=>Promise.resolve(window.confirm(m)));if(!(await _ask('Delete '+_label+'? This cannot be undone.')))return;await _deleteTask(_taskModalLeadId,taskId);renderTaskList(await _loadTasks(_taskModalLeadId));}
+async function checkTask(taskId,done){
+  if(!_taskModalLeadId)return;
+  // Pin the lead now: the 400ms settle below outlives a modal close, which
+  // nulls _taskModalLeadId — the delayed re-render used to refetch 'leads/null'.
+  const leadId=_taskModalLeadId;
+  const t=(window._taskCache[leadId]||[]).find(t=>t.id===taskId);
+  const prev=t?t.done:undefined;
+  if(t)t.done=done;
+  const item=document.getElementById('titem-'+taskId);
+  if(item)item.classList.toggle('done',done);
+  if(!(await _toggleTask(leadId,taskId,done))){
+    // Undo the optimistic strike-through straight away — no 400ms settle,
+    // and no refetch over a connection that just failed us.
+    if(t)t.done=prev;
+    // Both re-renders below paint into the single shared #taskList. Pinning
+    // leadId fixed the 'leads/null' refetch but removed the implicit "is this
+    // still the open lead?" check — and a failing write can hang for seconds,
+    // long enough to close this modal and open another lead. Repainting lead
+    // A's tasks over lead B's modal is worse than the bug being fixed, so
+    // check ownership before touching the DOM.
+    if(_taskModalLeadId!==leadId){
+      if(typeof showToast==='function')showToast("Couldn't save — check your connection and tap it again",'error');
+      return;
+    }
+    renderTaskList(window._taskCache[leadId]||[]);
+    if(typeof showToast==='function')showToast("Couldn't save — check your connection and tap it again",'error');
+    return;
+  }
+  setTimeout(async()=>{const rows=await _loadTasks(leadId);if(_taskModalLeadId!==leadId)return;renderTaskList(rows);},400);
+}
+async function removeTask(taskId){if(!_taskModalLeadId)return;const _t=(window._taskCache&&window._taskCache[_taskModalLeadId]||[]).find(t=>t.id===taskId);const _label=_t&&_t.text?'"'+_t.text+'"':'this task';const _ask=window.nbdConfirm||((m)=>Promise.resolve(window.confirm(m)));if(!(await _ask('Delete '+_label+'? This cannot be undone.')))return;
+  // A delete that never reached Firestore used to look identical to one that
+  // did: the list re-rendered with the row still sitting there and no word why.
+  // Leave the row alone (it IS the truth) and name the failure.
+  if(!(await _deleteTask(_taskModalLeadId,taskId))){
+    if(typeof showToast==='function')showToast("Couldn't delete — check your connection and try again",'error');
+    return;
+  }
+  renderTaskList(await _loadTasks(_taskModalLeadId));
+}
 window.addEventListener('load',()=>{setTimeout(loadAllTasks,1800);});
 // ══ END TASK SYSTEM ══════════════════════════════
 
@@ -222,4 +282,17 @@ window.removeTask = removeTask;
 window.createNotification = createNotification;
 
 
-(function(){if(_NBD_TK_DELEGATE)return;_NBD_TK_DELEGATE=true;function dispatch(ev){var t=ev.target.closest&&ev.target.closest('[data-tk-action]');if(!t)return;var a=t.dataset.tkAction;var id=t.dataset.tkId;var leadId=t.dataset.tkLead;try{if(a==='toggleToday'&&typeof toggleTodayTask==='function')toggleTodayTask(leadId,id,ev.target.checked);else if(a==='openModal'&&typeof openTaskModal==='function')openTaskModal(id,null);else if(a==='goToCrm'&&typeof goTo==='function')goTo('crm');else if(a==='checkTask'&&typeof checkTask==='function')checkTask(id,ev.target.checked);else if(a==='removeTask'&&typeof removeTask==='function')removeTask(id);}catch(e){console.error('[tasks]',e);}}document.addEventListener('click',dispatch);document.addEventListener('change',dispatch);})();
+// One delegate, bound to BOTH click and change — and a checkbox fires both,
+// so every tick used to run its handler TWICE. That was invisible while the
+// handlers were fire-and-forget idempotent writes (it just doubled the
+// Firestore traffic). It stops being invisible the moment a handler
+// snapshots state to revert on failure: invocation B reads `prev` from the
+// object invocation A already flipped, so B's revert restores A's flip and
+// the task stays ticked on a failed save — exactly the lie the revert was
+// added to remove — with two error toasts on top.
+//
+// So route by event type instead of listening to both for everything.
+// Checkbox-driven actions act on `change` only (it carries .checked and
+// fires once per state change); everything else acts on `click`.
+const _TK_CHECKBOX_ACTIONS = { toggleToday: 1, checkTask: 1 };
+(function(){if(_NBD_TK_DELEGATE)return;_NBD_TK_DELEGATE=true;function dispatch(ev){var t=ev.target.closest&&ev.target.closest('[data-tk-action]');if(!t)return;var a=t.dataset.tkAction;var wantChange=!!_TK_CHECKBOX_ACTIONS[a];if(wantChange!==(ev.type==='change'))return;var id=t.dataset.tkId;var leadId=t.dataset.tkLead;try{if(a==='toggleToday'&&typeof toggleTodayTask==='function')toggleTodayTask(leadId,id,ev.target.checked);else if(a==='openModal'&&typeof openTaskModal==='function')openTaskModal(id,null);else if(a==='goToCrm'&&typeof goTo==='function')goTo('crm');else if(a==='checkTask'&&typeof checkTask==='function')checkTask(id,ev.target.checked);else if(a==='removeTask'&&typeof removeTask==='function')removeTask(id);}catch(e){console.error('[tasks]',e);}}document.addEventListener('click',dispatch);document.addEventListener('change',dispatch);})();
