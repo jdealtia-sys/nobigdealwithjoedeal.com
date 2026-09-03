@@ -766,8 +766,15 @@ jobs:
           npx playwright install --with-deps chromium
       - name: Serve docs/
         run: |
+          # Warm the npx cache BEFORE the wait window opens. Both tools were
+          # `npx --yes` cold downloads, so http-server was still being fetched
+          # while wait-on's 60s clock ran — the step spent ~3m50s installing,
+          # then timed out 60s later having never seen the server bind
+          # (PR #1373, run 33813431908, on a commit that touched no docs/ file).
+          npx --yes http-server --version >/dev/null
+          npx --yes wait-on --version >/dev/null
           npx --yes http-server docs -p 5000 -c-1 --silent &
-          npx --yes wait-on http://localhost:5000/ --timeout 60000
+          npx --yes wait-on http://localhost:5000/ --timeout 120000
       - name: Sweep
         run: node scripts/qc-render-sweep.js --base http://localhost:5000 --json qc-render-sweep.json
       - name: Upload report
