@@ -205,7 +205,8 @@ jobs:
       - name: Check test-suite manifest completeness
         run: node scripts/run-test-manifest.js --check
 
-  # The 43 node suites the manifest owns (2026-08-07). These existed for
+  # The node suites the manifest owns (43 at wiring on 2026-08-07; 44 since
+  # orphan-sweep-parser joined — the floor in run-test-manifest.js tracks it). These existed for
   # months without gating anything — tests/package.json's `npm test`
   # aggregate was never invoked by CI, and nobody hand-listed them. All 32
   # verified green at wiring time; quarantine (with a dated reason in the

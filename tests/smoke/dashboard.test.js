@@ -708,11 +708,20 @@ section('NBDStore — pub/sub state store + first-slice migration');
   assert('updatePhotoSelection swaps Set ref to trigger notify',
     /function updatePhotoSelection\(mutate\)[\s\S]{0,400}var next = new Set\(prev\);[\s\S]{0,200}NBDStore\.set\(['"]photos\.selected['"], next\)/.test(customer));
 
-  // Test runner is wired so CI runs the unit suite.
+  // Test runner is wired so CI runs the unit suite. Since 2026-09-02 the
+  // top-level `npm test` delegates to scripts/run-test-manifest.js (the
+  // registry CI runs) after the smoke battery, instead of a hand-chained
+  // aggregate that had silently dropped 22 suites — so the contract is
+  // "state-store is in the node bucket", not "the chain names it".
   assert('test:state npm script runs state-store.test.js',
     !!(pkg.scripts && pkg.scripts['test:state'] === 'node ./state-store.test.js'));
-  assert('top-level test runs npm run test:state',
-    /npm run test:state/.test(pkg.scripts.test || ''));
+  const topTest = (pkg.scripts && pkg.scripts.test) || '';
+  assert('top-level test runs smoke.test.js first, then the manifest node + smoke buckets',
+    /^node \.\/smoke\.test\.js && node \.\.\/scripts\/run-test-manifest\.js --bucket node && node \.\.\/scripts\/run-test-manifest\.js --bucket smoke$/.test(topTest),
+    'got: ' + topTest);
+  const manifest = JSON.parse(read(path.join(ROOT, 'tests/ci-manifest.json')));
+  assert('state-store.test.js is classified in the manifest node bucket (so npm test runs it)',
+    Array.isArray(manifest.node) && manifest.node.includes('state-store.test.js'));
 }
 
 section('Sentry — DSN config wired across high-value pages');

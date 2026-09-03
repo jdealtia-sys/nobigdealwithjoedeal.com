@@ -9,7 +9,7 @@
  * fixes, so the manifest is the single registry:
  *
  *   tests/ci-manifest.json buckets:
- *     node                — RUNNABLE. 43 suites, unit-suite-manifest job.
+ *     node                — RUNNABLE. 44 suites, unit-suite-manifest job.
  *     smoke               — RUNNABLE. 65 suites, smoke-tests job. Object-valued:
  *                           each suite carries its step documentation.
  *     emulator            — run as individual emulators:exec steps in ci.yml
@@ -54,7 +54,7 @@ const RUNNABLE = ['node', 'smoke'];
 // measured sizes at the 2026-08-23 collapse. They live in the script rather
 // than the manifest on purpose — a one-line JSON edit must not be able to
 // lower the bar it is being measured against. Raise them when a bucket grows.
-const FLOORS = { node: 43, smoke: 65, disk: 122 };
+const FLOORS = { node: 44, smoke: 65, disk: 122 };
 
 // ── Argument parsing ───────────────────────────────────────────────
 const argv = process.argv.slice(2);
