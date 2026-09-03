@@ -359,11 +359,26 @@ Object.assign(exports, leadArtifactCleanup);
 const stripeFunctions = require('./stripe');
 Object.assign(exports, stripeFunctions);
 
-// Automated Firestore daily backup + retention. No deploy infra
-// required beyond a one-time bucket + IAM setup documented in
-// functions/firestore-backup.js. Both functions are scheduled-only.
+// Automated Firestore daily backup + retention. Needs a one-time bucket + IAM
+// setup documented in functions/firestore-backup.js. Both are scheduled-only.
+//
+// 2026-09-03: that one-time setup had NEVER been done, so all three backup
+// functions failed every night from the day they shipped — the bucket did not
+// exist, and the runtime SA holds roles/editor, which deliberately excludes
+// datastore.databases.export. Fixed (bucket created US multi-region to match
+// the nam5 database; roles/datastore.importExportAdmin granted), and the first
+// real export landed the same day.
 const firestoreBackup = require('./firestore-backup');
 Object.assign(exports, firestoreBackup);
+
+// The alarm for the above. Deliberately a separate module rather than a
+// section of healthDigestCron: the digest is gated on HEALTH_DIGEST_ENABLED,
+// and an alarm a config flag can silently switch off is the bug, not the fix.
+// It checks the `overall_export_metadata` ARTIFACT — the one
+// firestore-backup.js's own comment says an operator should check, and none
+// ever did — so it stays independent of whatever breaks next.
+const backupFreshness = require('./backup-freshness');
+Object.assign(exports, backupFreshness);
 
 // ── Verification Functions (SMS OTP + Lead Notifications) ──
 const verifyFunctions = require('./verify-functions');
