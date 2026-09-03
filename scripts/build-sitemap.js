@@ -125,6 +125,7 @@ const PLAIN_SERVICES = new Set([
   'siding-repair',
   'siding-replacement',
   'storm-damage',
+  'shed-roof-replacement',
   'wood-siding-repair',
 ]);
 

@@ -24,7 +24,8 @@ Post a completed job to the site:
 - Customer/lead in CRM: <name>            (or "photos texted/attached")
 - Town: <City, ST>                        (town only — never a street address)
 - Services: <pick 1+: roof-replacement | roof-repair | siding-replacement |
-             siding-repair | gutter-replacement | storm-damage | roof-inspection>
+             siding-repair | wood-siding-repair | shed-roof-replacement |
+             gutter-replacement | storm-damage | roof-inspection>
 - What we did (2–3 sentences, your voice): <...>
 - Retail price range (optional, nearest $500–$1,000): <$X–$Y or "skip">
 - Homeowner consent to publish photos is on file: yes
@@ -35,7 +36,7 @@ The session must follow the rest of this runbook (photos re-encoded via
 end of projects.json, all stamped files committed). Nothing auto-publishes —
 you review the PR preview and merge.
 
-## Before you start — the three hard rules
+## Before you start — the four hard rules
 
 1. **Retail ranges only.** `priceLow`/`priceHigh` are what a customer would
    pay, rounded to the nearest $500–$1,000, both-or-neither. Never internal
@@ -45,7 +46,12 @@ you review the PR preview and merge.
 2. **City-level location only.** `"Mason, OH"`, never a street address. The
    photos show the house; the price is a range; the city keeps a neighbor
    from computing what a specific household spent.
-3. **Consent + clean photos.** `consentOnFile: true` is you attesting the
+3. **Whose job was it?** `/our-work` is NBD's portfolio and 120 pages carry the
+   "I don't subcontract" strip, so a job that was joint, subbed, or another
+   company's needs the arrangement stated in the card — or it stays off. Added
+   2026-09-03 after a joint shed job was offered for publication; see
+   [SHED-OUTBUILDING-GAP §4](../audit/SHED-OUTBUILDING-GAP-2026-09-03.md).
+4. **Consent + clean photos.** `consentOnFile: true` is you attesting the
    homeowner is fine with their (unidentified) house being shown. Photos must
    be re-encoded copies — the re-encode strips camera GPS/EXIF. **Never**
    paste CRM storage URLs (`firebasestorage.googleapis.com/...?token=` links
@@ -100,9 +106,12 @@ you review the PR preview and merge.
 
    - **`services` (required, 1+)** — the labels/sorting axis. Values are the
      `/services/` hub page slugs: `roof-replacement`, `roof-repair`,
-     `siding-replacement`, `siding-repair`, `gutter-replacement`,
+     `siding-replacement`, `siding-repair`, `wood-siding-repair`,
+     `shed-roof-replacement`, `gutter-replacement`,
      `storm-damage` (covers hail — that strip also stamps the hail-claims
-     hub), `roof-inspection`. A job may carry several — a hail-claim tear-off
+     hub), `roof-inspection`. The last two were added 2026-09-03 — see
+     [WOOD-SIDING-GAP](../audit/WOOD-SIDING-GAP-2026-09-03.md) and
+     [SHED-OUTBUILDING-GAP](../audit/SHED-OUTBUILDING-GAP-2026-09-03.md). A job may carry several — a hail-claim tear-off
      is `["storm-damage","roof-replacement"]` and appears on BOTH hub pages'
      "Recent jobs" strips, under both /our-work filters.
    - `category` is **legacy/optional** — still accepted on old entries, no

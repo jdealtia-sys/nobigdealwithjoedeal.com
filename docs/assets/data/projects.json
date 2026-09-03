@@ -1028,7 +1028,8 @@
       "slug": "batavia-oh-full-replacement-2025",
       "title": "House, Garage and Outbuilding",
       "services": [
-        "roof-replacement"
+        "roof-replacement",
+        "shed-roof-replacement"
       ],
       "tag": "Full Replacement",
       "city": "Batavia, OH",
@@ -1070,7 +1071,8 @@
       "slug": "amelia-oh-gambrel-ridge-repair-2026",
       "title": "Sixty-Eight Feet of Ridge",
       "services": [
-        "roof-repair"
+        "roof-repair",
+        "shed-roof-replacement"
       ],
       "tag": "Ridge Repair",
       "city": "Amelia, OH",
@@ -1217,7 +1219,8 @@
       "title": "House and Outbuildings, One Day",
       "services": [
         "roof-replacement",
-        "storm-damage"
+        "storm-damage",
+        "shed-roof-replacement"
       ],
       "tag": "Storm Damage",
       "city": "New Richmond, OH",

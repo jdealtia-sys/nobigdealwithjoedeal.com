@@ -183,6 +183,17 @@ storm-chaser in the market says.
 
 ---
 
+## §5b — Companion note
+
+The same session found the same shape a third time, in a different service:
+[SHED-OUTBUILDING-GAP-2026-09-03](SHED-OUTBUILDING-GAP-2026-09-03.md) — four
+outbuilding roofs done and published, zero pages pointing at them. Read together,
+the pattern is the real lesson: **/our-work is running ahead of /services.** Jobs get
+photographed and published, and nothing goes back to ask whether the site sells the
+thing the job proves. Worth a standing check in the weekly sweep: diff the
+`services[]` values actually in use on `/our-work` against the `/services/` hub pages
+that exist.
+
 ## §6 — Gates
 
 All green at baseline and after: `check-js-syntax`, `check-inline-html-scripts`,
