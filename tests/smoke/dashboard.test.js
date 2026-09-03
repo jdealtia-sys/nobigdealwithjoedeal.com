@@ -943,6 +943,32 @@ section('Rock 4 rollback twin retired (2026-09-02)');
     !/dashboard-legacy-redirect\.js/.test(shared));
 }
 
+section('Visual-regression baselines are committed (the required CI job compares, not generates)');
+{
+  // ci.yml's visual-regression job self-selects: no snapshots dir →
+  // --update-snapshots (always green, asserts nothing); dir present →
+  // compare. It was promoted to REQUIRED on 2026-08-26 on a "10/10 green
+  // streak" that was entirely the generate branch — the directory had never
+  // been committed. Blessed 2026-09-02. This pin makes a missing or thinned
+  // baseline set a red smoke run instead of a silently-green visual job.
+  const snapDir = path.join(ROOT, 'tests/e2e/visual-regression.spec.js-snapshots');
+  const spec = read(path.join(ROOT, 'tests/e2e/visual-regression.spec.js'));
+  const pages = [...spec.matchAll(/name:\s*'([a-z-]+)'\s*\}/g)].map(m => m[1]);
+  const viewports = [...spec.matchAll(/name:\s*'([a-z]+-\d+)'/g)].map(m => m[1]);
+  assert('visual spec declares its page + viewport matrix', pages.length >= 4 && viewports.length >= 3,
+    'pages=' + pages.join(',') + ' viewports=' + viewports.join(','));
+  assert('baseline directory exists', fs.existsSync(snapDir));
+  const pngs = fs.existsSync(snapDir) ? fs.readdirSync(snapDir).filter(f => f.endsWith('.png')) : [];
+  for (const p of pages) for (const v of viewports) {
+    const want = `${p}--${v}-chromium-linux.png`;
+    assert('baseline present: ' + want, pngs.includes(want), 'missing — the CI job would silently regenerate');
+  }
+  for (const f of pngs) {
+    const sz = fs.statSync(path.join(snapDir, f)).size;
+    assert('baseline is a real render (>50KB): ' + f, sz > 50 * 1024, sz + ' bytes');
+  }
+}
+
 section('Wave 6b (A.2) — Pro Chrome on login.html + vault.html');
 {
   const login = read(path.join(ROOT, 'docs/pro/login.html'));
