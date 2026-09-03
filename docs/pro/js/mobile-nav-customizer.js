@@ -368,12 +368,31 @@ function renderBottomNav() {
 }
 
 function setActiveTab() {
-  const hash = window.location.hash?.replace('#','') || 'dash';
+  // goTo() writes '#/crm', so replacing only the '#' yielded '/crm' — which
+  // never equalled the tab id 'crm', so after ANY navigation the bar lit
+  // nothing. (The `hash === ''` sub-branch below was dead too: the old
+  // `|| 'dash'` default meant hash could never be ''. On a cold load with no
+  // hash it therefore lit 'dash' while the Home/Widgets view was on screen.)
+  // routeFromHash (dashboard-state.js) is the one parser for this.
+  const route = (typeof routeFromHash === 'function')
+    ? routeFromHash().name
+    : (window.location.hash || '').replace(/^#\/?/, '').split('/')[0] || 'home';
   const tabIds = loadTabs();
   tabIds.forEach(id => {
     const el = document.getElementById('mni-' + id);
-    if (el) el.classList.toggle('active', id === hash || (hash === '' && id === 'dash'));
+    // A route with no tab of its own (Home, Settings, Expenses…) lights
+    // nothing. That is honest: highlighting a tab the user is not on is what
+    // made the bar untrustworthy in the first place.
+    if (el) el.classList.toggle('active', id === route);
   });
+}
+
+// The bar has to re-sync on every navigation, not just when it is rendered.
+// setActiveTab used to run only from renderBottomNav(), so a deep link, a
+// refresh, a Back press or a tap through the More sheet all left the previous
+// highlight in place.
+if (typeof window !== 'undefined') {
+  window.addEventListener('hashchange', setActiveTab);
 }
 
 

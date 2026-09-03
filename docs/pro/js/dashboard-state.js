@@ -76,6 +76,32 @@ const routeConfig = {
   'refrewards':   { label: 'Referrals',         parent: null }
 };
 
+/**
+ * THE ONE parser for the URL hash. Everything that needs to know "which view
+ * are we on?" must call this — do not re-derive it.
+ *
+ * goTo() writes `#/name` and `#/name/id` (dashboard-actions.js), so the hash
+ * always carries a LEADING SLASH. Anything that strips only the '#' gets
+ * '/crm' and then quietly fails to match the view id 'crm'. That is exactly
+ * what mobile-nav-customizer's setActiveTab did: the bottom bar compared tab
+ * ids against '/crm' and so never lit a tab after any navigation.
+ *
+ * The empty hash means HOME. The boot path already treated it that way while
+ * the hashchange path sent it to 'dash', so pressing Back landed the user on
+ * the ops-overview Dashboard — a screen they had never opened. One parser,
+ * one default, both paths.
+ *
+ * @param {string} [rawHash] defaults to the live location.hash
+ * @returns {{name: string, id: string|null}}
+ */
+function routeFromHash(rawHash) {
+  const h = typeof rawHash === 'string'
+    ? rawHash
+    : ((typeof window !== 'undefined' && window.location && window.location.hash) || '');
+  const parts = h.replace(/^#/, '').split('/').filter(function (p) { return p; });
+  return { name: parts[0] || 'home', id: parts[1] || null };
+}
+
 // Pro-only views — Lite users see upgrade prompt instead
 const PRO_ONLY_VIEWS = ['photos','docs','map','draw','storm','joe','schedule','board','closeboard','repos','training','academy','talk-tank'];
 

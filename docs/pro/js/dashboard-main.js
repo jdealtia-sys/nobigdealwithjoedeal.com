@@ -69,18 +69,14 @@ function waitForLeaflet(cb) {
 // HASHCHANGE — browser back/forward navigation
 // ══════════════════════════════════════════════
 window.addEventListener('hashchange', () => {
-  const hash = window.location.hash.slice(1); // Remove #
-  if (!hash || hash === '/') {
-    goTo('dash', { skipHash: true });
-    return;
-  }
-
-  const parts = hash.split('/').filter(p => p);
-  const routeName = parts[0];
-  const routeId = parts[1];
-
-  if (routeConfig[routeName]) {
-    goTo(routeName, { id: routeId, skipHash: true });
+  // routeFromHash (dashboard-state.js) is the single parser — it strips the
+  // leading slash goTo() writes and defaults an empty hash to 'home', the
+  // same default the boot below uses. Previously this path sent an empty
+  // hash to 'dash' while the boot sent it to 'home', so browser Back from
+  // the first view landed on the ops-overview Dashboard.
+  const { name, id } = routeFromHash();
+  if (routeConfig[name]) {
+    goTo(name, { id, skipHash: true });
   }
 });
 
@@ -88,15 +84,11 @@ window.addEventListener('hashchange', () => {
 // DOMContentLoaded — initial route + Cal.com settings
 // ══════════════════════════════════════════════
 window.addEventListener('DOMContentLoaded', () => {
-  const hash = window.location.hash.slice(1);
-  if (hash && hash !== '/') {
-    const parts = hash.split('/').filter(p => p);
-    const routeName = parts[0];
-    const routeId = parts[1];
-    if (routeConfig[routeName]) {
-      goTo(routeName, { id: routeId, skipHash: true });
-      return;
-    }
+  // Same parser, same 'home' default as the hashchange handler above.
+  const { name, id } = routeFromHash();
+  if (name !== 'home' && routeConfig[name]) {
+    goTo(name, { id, skipHash: true });
+    return;
   }
   // Default to home (widget dashboard)
   goTo('home', { skipHash: true });
