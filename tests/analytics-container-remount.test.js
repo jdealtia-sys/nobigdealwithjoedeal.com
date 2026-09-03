@@ -44,7 +44,6 @@ const OWNER = 'analytics-kpi.js';
 
 const KPI = fs.readFileSync(path.join(PRO_JS, OWNER), 'utf8');
 const DASH = fs.readFileSync(path.join(ROOT, 'docs/pro/dashboard.html'), 'utf8');
-const LEGACY = fs.readFileSync(path.join(ROOT, 'docs/pro/dashboard.legacy.html'), 'utf8');
 const ACTIONS = fs.readFileSync(path.join(PRO_JS, 'dashboard-actions.js'), 'utf8');
 
 console.log('ANALYTICS CONTAINER — card re-mount + page parity');
@@ -112,19 +111,17 @@ ok('the adjuster-tactic board is one of them (the card this test exists for)',
 // ── 2. Page parity: every card rendered by the shared dispatcher must load ─
 {
   // dashboard-actions.js is shared by both dashboards, so any card it renders
-  // must be present on both or it is silently missing on one.
+  // must be present on the page or it is silently missing. (This used to
+  // pin both dashboard twins; the legacy twin was retired 2026-09-02.)
   for (const c of cards) {
     for (const g of c.globals) {
       if (!new RegExp('window\\.' + g + '\\b').test(ACTIONS)) continue; // not dispatcher-driven
       ok(`dashboard.html loads ${c.file} (dispatcher calls window.${g})`,
         new RegExp(c.file.replace('.', '\\.')).test(DASH));
-      ok(`dashboard.legacy.html ALSO loads ${c.file} (shared dispatcher, guarded call)`,
-        new RegExp(c.file.replace('.', '\\.')).test(LEGACY),
-        'the guard makes the omission silent — no error, just no card');
     }
   }
-  ok('#' + CONTAINER + ' exists on both dashboards',
-    DASH.includes('id="' + CONTAINER + '"') && LEGACY.includes('id="' + CONTAINER + '"'));
+  ok('#' + CONTAINER + ' exists on the dashboard',
+    DASH.includes('id="' + CONTAINER + '"'));
 }
 
 // ── 3. The card render must be safe to call repeatedly ────────────────────

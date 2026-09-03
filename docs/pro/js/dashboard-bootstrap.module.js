@@ -2008,8 +2008,8 @@
     // ESC - Close modals. leadModal / cardDetailModal / taskModal are now
     // nbdModal-managed on dashboard.html, so nbdModal's own Esc handler closes
     // the top one (restoring focus) and fires its onClose cleanup — running
-    // these unconditionally here would double-fire. On dashboard.legacy.html
-    // (no nbd-modal.js) this stays the sole Esc path; each closeXxx runs the
+    // these unconditionally here would double-fire. On a page without
+    // nbd-modal.js (none since the legacy twin retired 2026-09-02) this stays the sole Esc path; each closeXxx runs the
     // classList fallback + reset directly.
     if (e.key === 'Escape' && !window.nbdModal) {
       closeLeadModal();

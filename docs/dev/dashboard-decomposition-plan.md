@@ -6,8 +6,12 @@
 > table's own advice) — is an empty mount + `<template>` hydrated on first
 > `goTo()`; the inline-onclick count is ZERO (416 → data-action delegate);
 > CSS and the boot/body scripts moved to `docs/pro/js/*.js` +
-> `dashboard-*.module.js`. `?legacy=1` still serves the pre-decomposition
-> rollback snapshot (refreshed 2026-07-04). Phase 6 (CSP tightening) is
+> `dashboard-*.module.js`. ~~`?legacy=1` still serves the pre-decomposition
+> rollback snapshot (refreshed 2026-07-04).~~ **Retired 2026-09-02:** the
+> snapshot had become byte-identical to `dashboard.html` and was refreshed
+> by every dashboard commit, so it no longer rolled anything back; both
+> files were deleted and `/pro/dashboard.legacy` 301s to `/pro/dashboard`
+> (see item 7 below). Phase 6 (CSP tightening) is
 > ALSO done — verified 2026-07-05: script-src is already inline-free in
 > firebase.json and Rock 1 (DNS) landed in June, so the strict policy is
 > what production serves (see the Phase 6 section below). Remaining: only
@@ -341,6 +345,17 @@ violation monitoring.
    snapshot from re-redirecting to itself if a bookmarked URL still
    carries `?legacy=1`. A smoke test in `tests/smoke.test.js`
    ("Rock 4 rollback fallback") gates the wiring.
+
+   **Retired 2026-09-02.** By this date the snapshot was byte-identical to
+   `dashboard.html` (`cmp` clean) and had been "refreshed" by every dashboard
+   commit including all four Globals Tranche 3 slices — the convention above
+   had inverted into keeping a live duplicate in sync. It provided no rollback,
+   doubled the edit surface (~6,400 lines), and lacked the `no-store` header
+   `/pro/dashboard` gets. `dashboard.legacy.html` and
+   `js/dashboard-legacy-redirect.js` were deleted; `firebase.json` 301s
+   `/pro/dashboard.legacy` (and `*`) to `/pro/dashboard`; the smoke section is
+   now "Rock 4 rollback twin retired" and pins the deletion. Rollback of any
+   future phase is `git revert`, which is what it always actually was.
 
 ---
 

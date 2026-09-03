@@ -308,8 +308,11 @@ MEDIUM. E2E tests are notoriously flaky. Mitigations:
 > the deliberate last holdout — is an empty mount + `<template>` hydrated
 > on first `goTo()`; inline `onclick` count is **zero** (416 → body-level
 > `data-action` delegate); CSS + boot scripts extracted to
-> `docs/pro/js/*.js` / `dashboard-*.module.js`. `?legacy=1` still serves
-> the pre-decomposition rollback snapshot (refreshed 2026-07-04).
+> `docs/pro/js/*.js` / `dashboard-*.module.js`. `?legacy=1` used to serve
+> the pre-decomposition rollback snapshot; **retired 2026-09-02** — the
+> snapshot had become byte-identical to `dashboard.html` and was refreshed
+> by every dashboard commit (see `docs/dev/dashboard-decomposition-plan.md`
+> item 7).
 > **Remaining:** only the per-view module pattern for `window.*` globals.
 > Phase 6 (CSP) verified ALREADY DONE 2026-07-05 — `script-src` in
 > firebase.json carries no `'unsafe-inline'`, `script-src-attr` is
@@ -400,8 +403,9 @@ been individually verified on iPhone Safari in the field.
 ### Risk
 HIGH. This codebase is the daily driver — every regression hits Joe on his
 iPhone in a yard. Mitigations:
-- Feature-flag every phase with `?legacy=1` query string fallback that
-  re-loads the old monolithic dashboard for emergency rollback
+- ~~Feature-flag every phase with `?legacy=1` query string fallback that
+  re-loads the old monolithic dashboard for emergency rollback~~ *(retired
+  2026-09-02; rollback is `git revert`)*
 - Test EVERY phase on iPhone Safari (PWA + browser mode) before merging
 - Visual regression snapshots (see Rock 3) catch CSS drift
 

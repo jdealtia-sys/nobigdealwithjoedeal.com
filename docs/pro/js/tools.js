@@ -14,7 +14,7 @@ var _qmData = _qmData || null;
 // QA wiring audit found this whole feature had a parser but no UI, so the
 // button threw a null-lookup on every click). Every id lookup stays
 // guarded so a page without the modal degrades to a toast instead of
-// crashing — dashboard.legacy.html doesn't carry it.
+// crashing — kept as a guard for pages without the modal (none since the legacy twin retired 2026-09-02).
 function openQMImportModal() {
   _qmData = null;
   const modal = document.getElementById('qmImportModal');
@@ -358,7 +358,7 @@ function applyQMData() {
 // ══ QUICK ADD LEAD (mobile field tool) ════════════════════════════════
 function openQuickAddLead() {
   // nbdModal owns Esc/backdrop/focus on dashboard.html; classList fallback on
-  // dashboard.legacy.html (no nbd-modal.js). quickAddModal has no close-side
+  // pages without nbd-modal.js (none since the legacy twin retired 2026-09-02). quickAddModal has no close-side
   // cleanup, so no onClose is needed.
   if (window.nbdModal) { window.nbdModal.open('quickAddModal'); }
   else { document.getElementById('quickAddModal').classList.add('open'); }

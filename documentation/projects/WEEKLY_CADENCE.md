@@ -203,8 +203,10 @@
 - [ ] **Theme/maps lazy-bundle field check** on a real phone (saved theme
       applies, map view opens, d2d loads) — [handoff](NEXT_SESSION-2026-08-07.md)
 - [ ] **Decisions**: Firestore offline persistence (lead PII in IndexedDB —
-      unlocks a half-day agent task) · pre-V2 migration / `?legacy=1`
-      retirement (gates wizard deletion) · public pricing-table gap
+      unlocks a half-day agent task) · ~~pre-V2 migration / `?legacy=1`
+      retirement (gates wizard deletion)~~ *(both settled: pre-V2 docs stay
+      read-only per Jo 2026-08-31; `?legacy=1` retired 2026-09-02 — the
+      snapshot was a byte-identical duplicate)* · public pricing-table gap
       (verify still live first) · Pillar 4 billing calls
 
 ## Agent-session backlog (ranked — pick one per session)

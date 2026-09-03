@@ -103,10 +103,9 @@ const DA = async (id) => 'https://example.test/pro/portal.html?token=DA-' + id;
   // A green Part 1 proves the resolution logic; it cannot notice that a
   // <script> tag stopped shipping, which is exactly how this broke.
   const dash = fs.readFileSync(path.join(ROOT, 'docs/pro/dashboard.html'), 'utf8');
-  const legacy = fs.readFileSync(path.join(ROOT, 'docs/pro/dashboard.legacy.html'), 'utf8');
   const customer = fs.readFileSync(path.join(ROOT, 'docs/pro/customer.html'), 'utf8');
 
-  for (const [name, html] of [['dashboard.html', dash], ['dashboard.legacy.html', legacy]]) {
+  for (const [name, html] of [['dashboard.html', dash]]) {
     ok(`${name} loads portal-link-helpers.js`, html.includes('portal-link-helpers.js'));
     // dashboard-api.js is where _mintPortalUrl lives — the ONLY minter on
     // these pages, since customer-portal.js never ships here.

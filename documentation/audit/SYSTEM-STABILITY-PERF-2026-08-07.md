@@ -80,6 +80,10 @@ rides the existing matrix as a 6th leg). All new e2e/visual jobs are
   this session: the legacy page is 562 diff-lines adrift while riding the
   LIVE js/ directory, so the wizard deletion silently breaks `?legacy=1`
   unless the snapshot is refreshed or retired first.
+  *(2026-09-02: retired. The snapshot was refreshed 2026-08-31 and then kept
+  byte-identical by every dashboard commit, which is the opposite of a
+  rollback; both files deleted, `/pro/dashboard.legacy` 301s to the live
+  dashboard. The wizard-deletion half remains gated on the Sentry clock.)*
 - **Firestore offline persistence** (CRM has no offline READ path) — needs a
   deliberate PII-in-IndexedDB decision + sign-out cache clearing; design
   brief in the handoff.

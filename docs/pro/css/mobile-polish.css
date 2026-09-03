@@ -130,8 +130,8 @@
    no page-level module may write `bottom:` for a FAB it does not own.
 
    This file, not dashboard-app.css, because it is the only sheet
-   loaded by all three FAB-bearing pages (dashboard.html:45,
-   dashboard.legacy.html:45, customer.html:38); customer.html does not
+   loaded by both FAB-bearing pages (dashboard.html:45,
+   customer.html:38; the legacy twin was retired 2026-09-02); customer.html does not
    load dashboard-app.css at all.
 
    translate:, NOT bottom:, on purpose:

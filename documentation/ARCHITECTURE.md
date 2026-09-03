@@ -544,8 +544,10 @@ DASHBOARD SHELL — ROCK 4 DECOMPOSITION (status 2026-07-05)
   the deliberate last holdout — is an empty mount + <template> hydrated on
   first goTo(); inline onclick count is ZERO (416 → a body-level
   data-action delegate); CSS and boot/body scripts moved to
-  docs/pro/js/*.js + dashboard-*.module.js. `?legacy=1` still serves the
-  pre-decomposition rollback snapshot (refreshed 2026-07-04).
+  docs/pro/js/*.js + dashboard-*.module.js. `?legacy=1` used to serve a
+  pre-decomposition rollback snapshot; it was retired 2026-09-02 (the
+  snapshot had become byte-identical to dashboard.html — see
+  docs/dev/dashboard-decomposition-plan.md item 7).
   Remaining: Phase 6 (drop 'unsafe-inline' from script-src — blocked on
   the Rock 1 DNS cutover being authoritative for CSP) and the per-view
   module pattern for window.* globals. The maintained status + manifest is

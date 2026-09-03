@@ -311,10 +311,10 @@ console.log('\nRate bounds');
     near(perSq(EB2, 'hamilton-oh').taxRate, 0.078, 1e-9, 'tax');
     eq(perSq(EB2, 'hamilton-oh').addOns.permit, 185, 'permit');
   });
-  test('the 15 money inputs carry min="0" on BOTH dashboards', () => {
+  test('the 15 money inputs carry min="0" on the dashboard', () => {
     const ids = ['permHamOh','permButOh','permWarOh','permCleOh','permKenKy','permBooKy','permCamKy',
                  'taxHamOh','taxButOh','taxWarOh','taxCleOh','taxKenKy','taxBooKy','taxCamKy','defTaxRate'];
-    for (const page of ['docs/pro/dashboard.html', 'docs/pro/dashboard.legacy.html']) {
+    for (const page of ['docs/pro/dashboard.html']) {
       const src = fs.readFileSync(path.join(__dirname, '..', page), 'utf8');
       for (const id of ids) {
         const m = src.match(new RegExp('<input[^>]*id="' + id + '"[^>]*>'));
