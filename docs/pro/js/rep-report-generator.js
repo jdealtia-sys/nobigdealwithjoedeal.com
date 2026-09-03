@@ -2155,8 +2155,14 @@ ${STATIC_CHART_CSS}
   }
 
   async function deleteSavedReport(id) {
+    // In the installed PWA, standalone-compat.js swaps native confirm() for a
+    // stub that always returns true — so a destructive guard written against
+    // window.confirm never actually stops anything on Joe's phone. nbdConfirm
+    // is a real Promise<boolean> modal in standalone mode; it only exists
+    // there, hence the native fallback for desktop.
     // eslint-disable-next-line no-alert
-    if (!window.confirm('Delete this report? This cannot be undone.')) return;
+    const _ask = window.nbdConfirm || ((m) => Promise.resolve(window.confirm(m)));
+    if (!(await _ask('Delete this report? This cannot be undone.'))) return;
     if (typeof window._deleteReport !== 'function') return;
     const ok = await window._deleteReport(id);
     if (ok) {
@@ -2203,12 +2209,13 @@ ${STATIC_CHART_CSS}
       return;
     }
     // eslint-disable-next-line no-alert
-    if (!window.confirm('Run one-time analytics enrichment?\n\n'
+    const _ask = window.nbdConfirm || ((m) => Promise.resolve(window.confirm(m)));
+    if (!(await _ask('Run one-time analytics enrichment?\n\n'
       + 'This will:\n'
       + '\u2022 Derive time-of-day buckets from every knock timestamp\n'
       + '\u2022 Reverse-geocode knock GPS coordinates into city/zip\n'
       + '\u2022 Parse lead addresses into city/state/zip fields\n\n'
-      + 'Safe to run \u2014 only enriches missing fields, never overwrites data. Takes up to a few minutes if you have thousands of knocks. Limited to one run per 10 minutes.')) {
+      + 'Safe to run \u2014 only enriches missing fields, never overwrites data. Takes up to a few minutes if you have thousands of knocks. Limited to one run per 10 minutes.'))) {
       return;
     }
     const btn = document.getElementById('btnEnrichData');

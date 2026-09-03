@@ -2676,8 +2676,9 @@ window.viewEstimate = function(estimateId) {
   };
   
   document.getElementById('deleteEstimateBtn').onclick = async () => {
-    if (!confirm('Archive this estimate? It will be hidden but never permanently deleted.')) return;
-    
+    const ask = window.nbdConfirm || ((m) => Promise.resolve(window.confirm(m)));
+    if (!(await ask('Archive this estimate? It will be hidden but never permanently deleted.'))) return;
+
     try {
       // SOFT DELETE — never use deleteDoc on estimates (standing rule: never lose a job)
       await updateDoc(doc(db, 'estimates', estimateId), {

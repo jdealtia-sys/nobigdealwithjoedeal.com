@@ -392,7 +392,14 @@
     const confirmMsg = reactivate
       ? 'Reactivate ' + (member.displayName || member.email) + '?'
       : 'Deactivate ' + (member.displayName || member.email) + '? They will be signed out and unable to log in. Data is preserved.';
-    if (!window.confirm(confirmMsg)) return;
+    // nbdConfirm, not native confirm(): standalone-compat.js replaces
+    // window.confirm with a toast that always returns true in iOS PWA
+    // (Add to Home Screen) mode, so this guard would auto-YES and kick
+    // the member out without the owner ever agreeing. nbdConfirm gives a
+    // real Promise<boolean> modal there, and falls back to the native
+    // dialog on desktop where it isn't defined.
+    const ask = window.nbdConfirm || ((m) => Promise.resolve(window.confirm(m)));
+    if (!(await ask(confirmMsg))) return;
     try {
       const fn = await callable('deactivateUser');
       const res = await fn({ email: state.editingEmail, uid: state.editingUid, reactivate });
@@ -621,7 +628,8 @@
   // (NBD-2026 and siblings from C-2). Only a platform-admin caller
   // sees the button land — the server returns 403 otherwise.
   async function rotateAccessCodes() {
-    if (!window.confirm('Rotate access codes?\n\nThis deactivates NBD-2026, NBD-DEMO, TRYIT, DEAL-2026, ROOFCON26, NBD-STORM in Firestore. You\'ll need to run the seed script (BETA_COUNT=... scripts/seed-access-codes.js) to mint replacements.')) return;
+    const ask = window.nbdConfirm || ((m) => Promise.resolve(window.confirm(m)));
+    if (!(await ask('Rotate access codes?\n\nThis deactivates NBD-2026, NBD-DEMO, TRYIT, DEAL-2026, ROOFCON26, NBD-STORM in Firestore. You\'ll need to run the seed script (BETA_COUNT=... scripts/seed-access-codes.js) to mint replacements.'))) return;
     try {
       const fn = await callable('rotateAccessCodes');
       const res = await fn({});

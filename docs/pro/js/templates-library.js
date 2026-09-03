@@ -380,11 +380,17 @@ Bookmark it; the link stays live as we work through the project.
         });
       });
       overlay.querySelectorAll('[data-template-delete]').forEach(btn => {
-        btn.addEventListener('click', () => {
+        // In PWA standalone mode native confirm() is replaced by a
+        // toast that always answers yes (standalone-compat.js), so the
+        // delete guard below would never stop anything on the phone.
+        // nbdConfirm gives a real Promise<boolean> modal there; on
+        // desktop it's undefined and we fall back to native confirm.
+        btn.addEventListener('click', async () => {
           const id = btn.getAttribute('data-template-delete');
           const tpl = get(id);
           if (!tpl) return;
-          if (!confirm(`Delete "${tpl.name}"?`)) return;
+          const _ask = window.nbdConfirm || ((m) => Promise.resolve(window.confirm(m)));
+          if (!(await _ask(`Delete "${tpl.name}"?`))) return;
           remove(id);
           _toast('Template deleted', 'success');
           rerender();

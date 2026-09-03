@@ -2004,10 +2004,15 @@
     }
   }
 
-  function deleteTemplate(id) {
+  async function deleteTemplate(id) {
     var t = getTpl(id);
     if (!t) return;
-    if (!window.confirm('Delete "' + (t.name || id) + '"? This cannot be undone.')) return;
+    // Native confirm() is patched to always return true in PWA standalone
+    // mode (standalone-compat.js), which would delete the template with no
+    // question asked on the phone. nbdConfirm gives a real Promise<boolean>
+    // via a modal there, and falls back to native confirm on desktop.
+    var ask = window.nbdConfirm || function (m) { return Promise.resolve(window.confirm(m)); };
+    if (!(await ask('Delete "' + (t.name || id) + '"? This cannot be undone.'))) return;
     var JT = engine();
     if (!JT || typeof JT.remove !== 'function') { toast('Template engine not ready', 'error'); return; }
     try {

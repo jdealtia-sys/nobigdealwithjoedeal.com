@@ -188,7 +188,14 @@ window.generatePhotoReport = async function() {
     btn.textContent = originalText;
     
     // Ask user: Download or Email?
-    const action = confirm(`✅ Photo report generated!\n\n${window._customerPhotos.length} photos included | ${pageCount} pages\n\nClick OK to EMAIL the report\nClick Cancel to DOWNLOAD only`);
+    // Batch 2 (iOS PWA): native confirm() always returns true in PWA
+    // standalone mode (see standalone-compat.js) — so on the owner's
+    // home-screen app this always took the OK branch and EMAILED the
+    // report to the homeowner, with no way to pick download-only.
+    // nbdConfirm returns a real Promise<boolean> via a modal in PWA
+    // mode, falls back to native confirm on desktop.
+    const _ask = window.nbdConfirm || ((m) => Promise.resolve(window.confirm(m)));
+    const action = await _ask(`✅ Photo report generated!\n\n${window._customerPhotos.length} photos included | ${pageCount} pages\n\nClick OK to EMAIL the report\nClick Cancel to DOWNLOAD only`);
     
     if (action) {
       // Email the report

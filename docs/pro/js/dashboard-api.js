@@ -392,7 +392,12 @@ async function loadDocs(){
 // callables but no UI called them. These two helpers fix that.
 window._gdprExport = async function () {
   if (!window._user) { if (typeof showToast==='function') showToast('Sign in first','error'); return; }
-  if (!window.confirm('Download a JSON file containing every record tied to your account (profile, leads, estimates, photos, pins, tasks, documents, api_usage). The download link expires in 24 hours.\n\nProceed?')) return;
+  // native confirm() is patched to silently return true in PWA mode
+  // (standalone-compat.js), so route through nbdConfirm to get a real Cancel.
+  // Auto-YES here burns one of the two exports allowed per 24h and mints a
+  // signed URL holding every record on the account, live for a day.
+  const ask = window.nbdConfirm || ((m) => Promise.resolve(window.confirm(m)));
+  if (!(await ask('Download a JSON file containing every record tied to your account (profile, leads, estimates, photos, pins, tasks, documents, api_usage). The download link expires in 24 hours.\n\nProceed?'))) return;
   try {
     const mod = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-functions.js');
     const fn = mod.httpsCallable(mod.getFunctions(), 'exportMyData');
@@ -442,7 +447,8 @@ window._gdprRequestErasure = async function () {
 // a link was leaked or forwarded.
 window._revokePortalLink = async function (leadId) {
   if (!leadId) return;
-  if (!window.confirm('Revoke all active portal links for this lead and mint a new one?\n\nThe old URL stops working immediately.')) return;
+  const ask = window.nbdConfirm || ((m) => Promise.resolve(window.confirm(m)));
+  if (!(await ask('Revoke all active portal links for this lead and mint a new one?\n\nThe old URL stops working immediately.'))) return;
   try {
     const mod = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-functions.js');
     const fns = mod.getFunctions();

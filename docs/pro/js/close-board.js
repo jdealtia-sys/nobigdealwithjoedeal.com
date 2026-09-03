@@ -254,10 +254,17 @@
   }
 
   // Destructive — confirm before removing a deal room from every device.
-  function confirmDeleteDeal(dealId) {
+  // Batch 2 (iOS PWA): native confirm() always returns true in PWA standalone
+  // mode (see standalone-compat.js), so on the installed app this guard was
+  // auto-answering YES and the deal vanished on the first tap. nbdConfirm
+  // returns a real Promise<boolean> via a modal in PWA mode and falls back to
+  // native confirm on desktop. Only caller is the delegated data-cb-action
+  // dispatcher, which ignores the return value — safe to make async.
+  async function confirmDeleteDeal(dealId) {
     const deal = dealRooms.find(d => d.id === dealId);
     const name = (deal && deal.customerName) || 'this deal';
-    if (window.confirm('Delete the deal room for ' + name + '?\nThis removes it from all your devices and cannot be undone.')) {
+    const _ask = window.nbdConfirm || ((m) => Promise.resolve(window.confirm(m)));
+    if (await _ask('Delete the deal room for ' + name + '?\nThis removes it from all your devices and cannot be undone.')) {
       deleteDeal(dealId);
     }
   }

@@ -216,7 +216,14 @@
           if (typeof showToast === 'function') showToast('Select at most ' + cap + ' rep' + (cap === 1 ? '' : 's') + '.', 'error');
           return;
         }
-        if (!confirm('Apply this seat selection? ' + checked.length + ' rep' + (checked.length === 1 ? '' : 's') + ' active; the rest are benched (data kept).')) return;
+        // Batch 2 (iOS PWA): native confirm() always returns true in PWA
+        // standalone mode (see standalone-compat.js), so every destructive
+        // guard in this tab — benching reps, buying/removing paid seats,
+        // cancelling invites, revoking access — silently answered YES on the
+        // installed app. nbdConfirm returns a real Promise<boolean> from a
+        // modal in PWA mode and falls back to native confirm on desktop.
+        var ask = window.nbdConfirm || function (m) { return Promise.resolve(window.confirm(m)); };
+        if (!(await ask('Apply this seat selection? ' + checked.length + ' rep' + (checked.length === 1 ? '' : 's') + ' active; the rest are benched (data kept).'))) return;
         if (btn) { btn.disabled = true; btn.textContent = '…'; }
         try {
           var res = await _teamCallable('assignSeats', { activeEmails: checked });
@@ -334,7 +341,8 @@
           : (target === 0
             ? 'Remove all purchased extra seats? A prorated credit is applied to your next invoice.'
             : 'Reduce purchased seats to ' + target + '? A prorated credit is applied to your next invoice.');
-        if (!confirm(msg)) return;
+        var ask = window.nbdConfirm || function (m) { return Promise.resolve(window.confirm(m)); };
+        if (!(await ask(msg))) return;
         if (btn) { btn.disabled = true; btn.textContent = '…'; }
         try {
           var res = await _teamCallable('setCompanySeatCount', { extraSeats: target });
@@ -370,7 +378,8 @@
           enable:  'Re-enable ' + email + '?',
           remove:  'Remove ' + email + ' from the team? Their access is revoked; their leads stay.'
         };
-        if (!confirm(confirms[action] || 'Proceed?')) return;
+        var ask = window.nbdConfirm || function (m) { return Promise.resolve(window.confirm(m)); };
+        if (!(await ask(confirms[action] || 'Proceed?'))) return;
         if (btn) { btn.disabled = true; btn.textContent = '…'; }
         try {
           if (action === 'cancel' || action === 'remove') {

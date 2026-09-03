@@ -1785,7 +1785,15 @@ async function moveCard(id, newStage, opts){
         { okLabel: 'Promote & Move', cancelLabel: 'Cancel' }
       );
     } else {
-      ok = confirm(`This is a prospect that hasn't been promoted yet.\n\nPromote them to a customer and move to "${newStage}"?\n\nClick Cancel to leave them as a prospect.`);
+      // Batch 2 (iOS PWA): standalone-compat.js replaces native confirm()
+      // with a toast that ALWAYS returns true in the installed app, so this
+      // fallback would silently promote + move the prospect — exactly the
+      // "never silently graduate a prospect" guard this block exists to be,
+      // and there's no demote path to undo it. nbdConfirm returns a real
+      // Promise<boolean> via a modal in PWA mode and falls back to native
+      // confirm on desktop.
+      const _ask = window.nbdConfirm || ((m) => Promise.resolve(window.confirm(m)));
+      ok = await _ask(`This is a prospect that hasn't been promoted yet.\n\nPromote them to a customer and move to "${newStage}"?\n\nClick Cancel to leave them as a prospect.`);
     }
     if (!ok) {
       if (typeof showToast === 'function') showToast('Move cancelled — still a prospect', 'info');

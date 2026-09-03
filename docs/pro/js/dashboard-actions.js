@@ -903,7 +903,13 @@ window.renderSavedZones = renderSavedZones;
 async function loadSampleData() {
   const leads = window._leads || [];
   if(leads.length > 0) {
-    if(!confirm(`You already have ${leads.length} leads. Add sample data anyway?`)) return;
+    // Batch 2 (iOS PWA): native confirm() always returns true in standalone
+    // mode (see standalone-compat.js), so this guard was silently bypassed on
+    // the installed app and five demo leads landed in a real book. nbdConfirm
+    // returns a real Promise<boolean> from a modal there; desktop (where
+    // nbdConfirm is never defined) falls back to native confirm.
+    const _ask = window.nbdConfirm || ((m) => Promise.resolve(window.confirm(m)));
+    if(!(await _ask(`You already have ${leads.length} leads. Add sample data anyway?`))) return;
   }
   showToast('Loading sample data...');
   const user = window._user;
@@ -1727,8 +1733,10 @@ async function _prospectConfirm(message, opts) {
   if (typeof window.uiConfirm === 'function') {
     return await window.uiConfirm(message, opts || {});
   }
-  // Last-resort fallback. iOS PWA may suppress this — surface a toast so
-  // the user at least knows the action was attempted.
+  // Last-resort fallback. In PWA standalone the native call auto-answers YES
+  // (same trap as loadSampleData above) and this helper gates the permanent
+  // prospect erase, so take nbdConfirm's real modal ahead of it when present.
+  if (typeof window.nbdConfirm === 'function') return await window.nbdConfirm(message);
   return confirm(message);
 }
 async function _prospectPrompt(message) {
