@@ -14,6 +14,7 @@
     "address-audit-script.test.js",
     "billing-gate.test.js",
     "company-stale-fields-cleanup.test.js",
+    "crm-audit.test.js",
     "cust-id-prefix.test.js",
     "custom-jurisdictions.test.js",
     "customer-portal-logic.test.js",

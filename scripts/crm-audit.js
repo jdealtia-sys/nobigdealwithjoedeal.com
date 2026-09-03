@@ -26,6 +26,22 @@
  *   node scripts/crm-audit.js --page=dashboard.html
  *   node scripts/crm-audit.js --severity=error
  *   node scripts/crm-audit.js --quiet            (errors + warns only)
+ *
+ * EXIT CONTRACT (pinned by tests/crm-audit.test.js):
+ *   0  audited at least one page and found no `error`-severity finding
+ *   1  an `error` finding, OR page discovery matched nothing
+ * Both the human and the --json output paths exit on the SAME verdict. They
+ * did not until 2026-09-03: --json returned before the verdict was computed
+ * and therefore always exited 0, and an empty page list reported success over
+ * zero pages. Wiring this script into CI in that state would have manufactured
+ * a permanently-green gate — the exact failure this repo has already shipped
+ * three times (visual baselines never committed, npm test skipping 22 suites,
+ * storage rules absent from the deploy gate).
+ *
+ * Env:
+ *   NBD_AUDIT_ROOT   audit a different tree (must contain docs/pro/). Used by
+ *                    tests/crm-audit.test.js to audit fixture trees. Unset =
+ *                    the repo root, i.e. the real docs/pro/.
  */
 
 'use strict';
@@ -34,7 +50,12 @@ const fs = require('fs');
 const path = require('path');
 const { execSync } = require('child_process');
 
-const ROOT = path.resolve(__dirname, '..');
+// Default is the repo root — unchanged. The override exists so a test can
+// prove this gate is able to go red against a fixture tree instead of only
+// ever being observed green against the real pages.
+const ROOT = process.env.NBD_AUDIT_ROOT
+  ? path.resolve(process.env.NBD_AUDIT_ROOT)
+  : path.resolve(__dirname, '..');
 const PRO_DIR = path.join(ROOT, 'docs', 'pro');
 const PRO_JS_DIR = path.join(PRO_DIR, 'js');
 const DOCS_DIR = path.join(ROOT, 'docs');
@@ -43,6 +64,13 @@ const args = process.argv.slice(2);
 const flag = (k) => args.find(a => a.startsWith('--' + k + '='))?.split('=')[1] || (args.includes('--' + k) ? true : null);
 const ONLY_PAGE = flag('page');
 const AS_JSON = !!flag('json');
+// PRESENTATION ONLY — --severity does NOT gate anything, and must not start
+// to. The exit verdict is computed from ALL findings (see totErr below), not
+// from this filtered list, so `--severity=warn` cannot hide an error from the
+// exit code and `--severity=error` cannot narrow what the gate fails on. If
+// you ever want a severity-scoped gate, add a separate flag; silently turning
+// a display filter into a gate filter is how a green that means "I only
+// looked at part of it" gets built.
 const SEVERITY = flag('severity') || null;
 const QUIET = !!flag('quiet');
 
@@ -56,7 +84,11 @@ function read(file) { return fs.readFileSync(file, 'utf8'); }
 function exists(file) { try { fs.accessSync(file); return true; } catch { return false; } }
 
 function listHtmlPages() {
-  return fs.readdirSync(PRO_DIR)
+  let entries;
+  // A missing PRO_DIR is not "clean" — it is "audited nothing". Return the
+  // empty list and let main() refuse it, rather than throwing an ENOENT stack.
+  try { entries = fs.readdirSync(PRO_DIR); } catch { return []; }
+  return entries
     .filter(f => f.endsWith('.html'))
     .filter(f => !ONLY_PAGE || f === ONLY_PAGE)
     .sort();
@@ -112,7 +144,9 @@ function buildJsFunctionIndex() {
     }
   }
   function walk(dir) {
-    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    let entries;
+    try { entries = fs.readdirSync(dir, { withFileTypes: true }); } catch { return; }
+    for (const entry of entries) {
       const fp = path.join(dir, entry.name);
       if (entry.isDirectory()) walk(fp);
       else if (entry.name.endsWith('.js')) {
@@ -430,6 +464,26 @@ function auditPage(file, jsFnIndex) {
 // ── main ────────────────────────────────────────────────────
 function main() {
   const pages = listHtmlPages();
+
+  // Green over zero pages is the failure mode this whole gate exists to stop
+  // (same stance as scripts/run-test-manifest.js, which refuses to report
+  // success over an empty bucket). A typo'd --page, a moved docs/pro/, or a
+  // bad NBD_AUDIT_ROOT all produce zero findings and would otherwise exit 0 —
+  // a green that means "I audited nothing".
+  if (!pages.length) {
+    console.error('AUDIT ERROR: page discovery matched nothing — refusing to report success over zero pages.');
+    console.error('  root:       ' + ROOT
+      + (process.env.NBD_AUDIT_ROOT ? '  (from NBD_AUDIT_ROOT)' : '  (repo root)'));
+    console.error('  looked for: *.html directly under ' + PRO_DIR);
+    if (ONLY_PAGE) {
+      console.error('  --page filter: ' + (ONLY_PAGE === true
+        ? '(bare --page with no value — use --page=<file>.html)'
+        : JSON.stringify(ONLY_PAGE) + ' matched no file there'));
+    }
+    process.exitCode = 1;
+    return;
+  }
+
   console.error(`Auditing ${pages.length} CRM page(s) under docs/pro/...`);
   const jsFnIndex = buildJsFunctionIndex();
   console.error(`Indexed ${jsFnIndex.size} JS function/global symbols across pro/js/`);
@@ -446,8 +500,37 @@ function main() {
   if (SEVERITY) filtered = filtered.filter(f => f.severity === SEVERITY);
   if (QUIET) filtered = filtered.filter(f => f.severity !== 'info');
 
+  // The verdict is computed HERE — above the --json early return — and counts
+  // over ALL findings, never the display-filtered list. Both output paths exit
+  // on this same number. (Until 2026-09-03 this block sat below the --json
+  // branch, so `--json` returned before the verdict existed and always exited
+  // 0.) We set process.exitCode rather than calling process.exit() so buffered
+  // stdout is flushed before the process ends — process.exit() can truncate a
+  // large JSON payload written to a pipe.
+  let totErr = 0, totWarn = 0, totInfo = 0;
+  for (const f of findings) {
+    if (f.severity === 'error') totErr++;
+    else if (f.severity === 'warn') totWarn++;
+    else totInfo++;
+  }
+  process.exitCode = totErr > 0 ? 1 : 0;
+
   if (AS_JSON) {
-    process.stdout.write(JSON.stringify({ pages, findings: filtered }, null, 2) + '\n');
+    // Payload shape is a contract — something may parse it. `pages` and
+    // `findings` keep their exact meaning, so existing consumers are unaffected.
+    //
+    // `counts` is additive and exists to close a contradiction the exit-code
+    // fix above created: `findings` is the DISPLAY-filtered list, but the
+    // verdict counts over ALL findings. So `--json --severity=info` on a page
+    // with a broken <script src> exits 1 while serializing `findings: []` —
+    // a machine consumer would read "clean" out of a failing run. It could not
+    // misfire before 2026-09-03 only because --json always exited 0. Counts are
+    // unfiltered, so a parser can always tell what the exit code meant.
+    process.stdout.write(JSON.stringify({
+      pages,
+      findings: filtered,
+      counts: { error: totErr, warn: totWarn, info: totInfo },
+    }, null, 2) + '\n');
     return;
   }
 
@@ -460,13 +543,6 @@ function main() {
   console.log('\n══════════════════════════════════════════════════════════');
   console.log('  NBD PRO CRM — STATIC AUDIT REPORT');
   console.log('══════════════════════════════════════════════════════════\n');
-
-  let totErr = 0, totWarn = 0, totInfo = 0;
-  for (const f of findings) {
-    if (f.severity === 'error') totErr++;
-    else if (f.severity === 'warn') totWarn++;
-    else totInfo++;
-  }
 
   for (const p of pages) {
     const list = byPage.get(p) || [];
@@ -491,7 +567,7 @@ function main() {
   console.log('──────────────────────────────────────────────────────────');
   console.log(`  TOTAL: ${totErr} error · ${totWarn} warn · ${totInfo} info`);
   console.log('──────────────────────────────────────────────────────────');
-  process.exit(totErr > 0 ? 1 : 0);
+  // exit code already set above — shared with the --json path.
 }
 
 main();

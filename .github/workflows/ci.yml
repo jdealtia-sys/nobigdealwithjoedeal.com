@@ -173,6 +173,39 @@ jobs:
       # The checker guards the served pages; the test guards the checker.
       - name: Check inline HTML scripts (docs/)
         run: node scripts/check-inline-html-scripts.js
+      # CRM-surface gate (2026-09-03): the top-level docs/pro/*.html pages are
+      # excluded from BOTH HTML gates above — check-site-integrity.js skips
+      # them via SCAN_EXCLUDED_TOP_DIRS = new Set(['pro','admin']), and
+      # check-inline-html-scripts.js via SKIP_DIRS unless --all. So a <script
+      # src> or <link href> pointing at a deleted file under the CRM merged
+      # with nothing looking at it. crm-audit.js walks those pages (zero deps,
+      # sub-second) and was referenced by no workflow.
+      #
+      # Invoked BARE for a readable log. --severity/--quiet filter only what is
+      # PRINTED — totErr counts over ALL findings — so neither can narrow the
+      # verdict; do not add one thinking it scopes the gate. (--json exits on
+      # the same verdict too, as of the 2026-09-03 fix; before that it returned
+      # before the verdict was ever computed and ALWAYS exited 0. See the EXIT
+      # CONTRACT block in scripts/crm-audit.js and tests/crm-audit.test.js,
+      # which pins both that and the refusal to pass over zero matched pages.)
+      #
+      # No "if:", no "continue-on-error:", no "|| true" — that is how this
+      # repo's other gates went silently green.
+      #
+      # SCOPE, honestly: this makes the CRM pages VISIBLE, not protected.
+      # Two gaps remain, both deliberate and both tracked in the 09-04 handoff:
+      #   1. It reads only the 27 top-level docs/pro/*.html. The 7 nested pages
+      #      (docs/pro/blog/*.html, docs/pro/daily-success/) and docs/admin/**
+      #      are still guarded by nothing. Widening discovery may surface new
+      #      findings, so it belongs in its own attributable red.
+      #   2. This is ci.yml. The deploy runs from firebase-deploy.yml, which has
+      #      no `needs:` on this workflow and whose own pre-flight runs only
+      #      check-js-syntax / check-site-integrity / apply-partials. So a break
+      #      here still DEPLOYS; this step just turns red beside it. Adding it
+      #      to that pre-flight is the follow-up, after this has run green on
+      #      main a few times — a false positive there blocks the whole site.
+      - name: Check CRM pages (top-level docs/pro/*.html — scripts, styles, handlers, anchors)
+        run: node scripts/crm-audit.js
       # Image-privacy gate (2026-08-10): published images must carry no EXIF
       # GPS — three gallery JPEGs shipped with customer-property coordinates
       # because nothing verified the committed bytes after

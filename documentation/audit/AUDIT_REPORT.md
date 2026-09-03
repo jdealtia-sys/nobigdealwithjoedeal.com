@@ -68,15 +68,47 @@ handler back to a real definition.
 **Usage:**
 
 ```bash
-node scripts/crm-audit.js                 # full audit
+node scripts/crm-audit.js                 # full audit — this is the gate
 node scripts/crm-audit.js --json          # machine-readable
 node scripts/crm-audit.js --quiet         # errors + warnings only
 node scripts/crm-audit.js --page=dashboard.html
-node scripts/crm-audit.js --severity=error
+node scripts/crm-audit.js --severity=error  # PRINT filter only — see below
 ```
 
-Returns exit code 1 if any `[ERROR]` finding is present so it can
-slot into CI as a regression gate.
+Exit contract (two clauses — see the EXIT CONTRACT block in
+`scripts/crm-audit.js`, pinned by `tests/crm-audit.test.js`):
+**exit 1** if any `[ERROR]` finding is present **or** if page discovery
+matched nothing; **exit 0** only after auditing at least one page.
+
+> **Correction 2026-09-03 — `--severity` is a display filter, not a gate,
+> and two ways this script could report a false green are now closed.**
+>
+> The original text above and under "How to run the audit again" presented
+> `--severity=error` as the CI-friendly invocation. It gates nothing. In
+> `scripts/crm-audit.js`, `--severity` narrows `filtered` (what gets
+> printed), but the `totErr` that drives
+> `process.exitCode = totErr > 0 ? 1 : 0` is counted over **all** `findings`,
+> not over `filtered`. The exit code is therefore byte-identical with and
+> without the flag — passing it only hides the `[WARN ]`/`[INFO ]` lines you
+> would want in a CI log.
+>
+> Two defects found while wiring it into CI, both fixed the same day:
+> **(1)** `--json` returned *before* the verdict was computed, so it **always
+> exited 0** — the `--json  # machine-readable` line in the Usage block above
+> was never safe to gate on until now. **(2)** Zero matched pages produced
+> zero findings and therefore exit 0 — a typo'd `--page`, or a missing
+> `docs/pro/`, reported success over an audit of nothing. Both now exit 1.
+> The `--json` payload also gained an unfiltered `counts` object, because a
+> display filter could otherwise serialize `findings: []` from a run that
+> exited 1.
+> **For a gate, invoke the script bare:** `node scripts/crm-audit.js`. That
+> is what `.github/workflows/ci.yml` now runs, in the `Site integrity` job
+> next to `check-inline-html-scripts.js` (added 2026-09-03, because
+> `docs/pro/**` is excluded from both existing HTML gates — see
+> `SCAN_EXCLUDED_TOP_DIRS` in `scripts/check-site-integrity.js` and
+> `SKIP_DIRS` in `scripts/check-inline-html-scripts.js`).
+> Use `--severity` / `--quiet` when reading the report by hand; never to
+> decide whether the build fails.
 
 ---
 
@@ -175,7 +207,7 @@ them does nothing. **Recommended fix:** point them at `/privacy.html`
 # Full audit, shows everything:
 node scripts/crm-audit.js
 
-# CI-friendly: only fail on hard errors:
+# Show ONLY the error lines (display filter — the exit code is unchanged):
 node scripts/crm-audit.js --severity=error
 
 # Audit a single page:
@@ -186,11 +218,20 @@ node scripts/crm-audit.js --json
 ```
 
 The audit exits with code 1 if any `[ERROR]`-severity finding is
-recorded, so a single line in CI catches future regressions:
+recorded, **or if page discovery matched nothing** — so a typo'd `--page`
+fails loudly instead of reporting success over an audit of zero pages.
+A single line in CI catches future regressions:
 
 ```yaml
-- run: node scripts/crm-audit.js --severity=error
+- run: node scripts/crm-audit.js
 ```
+
+**Correction 2026-09-03:** this snippet used to read
+`- run: node scripts/crm-audit.js --severity=error`. That flag filters the
+printed report only — the exit code is computed from every finding either
+way (see the correction note under "4. Tooling"), and the flag would have
+suppressed the warn/info context a CI log wants. The bare invocation above
+is what `.github/workflows/ci.yml` runs today.
 
 ---
 
