@@ -8,7 +8,7 @@
     "node": ">=22"
   },
   "scripts": {
-    "test": "node ../scripts/run-test-manifest.js --bucket node && node ../scripts/run-test-manifest.js --bucket smoke",
+    "test": "node ./smoke.test.js && node ../scripts/run-test-manifest.js --bucket node && node ../scripts/run-test-manifest.js --bucket smoke",
     "test:smoke": "node ./smoke.test.js",
     "test:photohub": "node ./photo-hub-engine.test.js",
     "test:photosts": "node ./photos-timestamp-contract.test.js",
