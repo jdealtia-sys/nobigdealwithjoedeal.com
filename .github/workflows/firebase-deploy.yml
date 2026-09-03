@@ -762,16 +762,35 @@ jobs:
           # DURABLE FIX — DONE 2026-09-03. The Cloud Run "Total allowable CPU
           # per project per region" quota for us-central1 was raised from
           # 200,000 to 600,000 mCPU (200 -> 600 vCPU), auto-approved, verified
-          # (us-east1 left at 200,000 as a control). The numbers that justified
-          # it, because they explain why this was never survivable:
+          # (us-east1 left at 200,000 as a control).
           #
-          #   179 Cloud Run services x 1 vCPU  = 179 vCPU AT REST = 90% of 200
-          #   a full rollout doubles that      = ~358 vCPU        = 179% of 200
+          # CORRECTION 2026-09-03, same day, by an adversarial re-check. The
+          # justification first written here was WRONG and is corrected rather
+          # than quietly deleted, because the wrong version is the kind that
+          # gets rebuilt on:
           #
-          # So a complete rollout could not fit under the old ceiling under any
-          # circumstances, and even at rest the project sat 21 vCPU from the
-          # limit — roughly 21 more functions from breaking without deploying
-          # at all. At 600 vCPU: 30% at rest, ~60% mid-rollout.
+          #   IT SAID:  179 services x 1 vCPU = 179 vCPU AT REST = 90% of 200,
+          #             a rollout doubles it to ~358, so a complete deploy
+          #             "could not fit under any circumstances".
+          #   TRUTH:    175 of the 179 services carry no minScale and scale to
+          #             ZERO. Only 4 set it, totalling 8 instances. Measured
+          #             quiet-window concurrency is 9-14 — about 5-7% of the
+          #             old ceiling, not 90%. This quota meters PEAK CONCURRENT
+          #             RUNNING-INSTANCE CPU, not provisioned CPU; the real
+          #             2026-08-18 quota failure landed exactly when measured
+          #             concurrency hit 208 against 200. Nothing supports 358;
+          #             the all-time peak here is 208.
+          #   AND:      deploy run 33792001186 (18:41-19:12Z) finished 13 min
+          #             BEFORE the raise at 19:25Z and SUCCEEDED — 169 updates
+          #             plus 1 create, peak 175 instances. Complete deploys
+          #             demonstrably did fit under the old ceiling.
+          #
+          # The honest case for the raise is "~88% of the ceiling at deploy
+          # peak, with no margin, and the fleet grows" — which is still a good
+          # reason. It is not "impossible". Beware the two "allowable CPU per
+          # project per region" strings in the deploy logs: those are this
+          # comment being echoed by the runner, not error output, and they read
+          # exactly like evidence for the wrong version.
           #
           # The retry/chunking machinery below is KEPT deliberately. It is what
           # made the failures legible in the first place, it still guards the
