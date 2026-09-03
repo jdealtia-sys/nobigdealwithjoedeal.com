@@ -4645,8 +4645,15 @@
     }
   };
 
+  // Batch 2 (iOS PWA): standalone-compat.js replaces window.confirm with a
+  // toast that ALWAYS returns true, so in the installed app a native confirm()
+  // is not a gate at all — this company-wide wipe would just fire. nbdConfirm
+  // (defined only in standalone mode) returns a real Promise<boolean> from a
+  // modal; the fallback keeps native confirm on desktop. Same shape as the
+  // primary-estimate prompts above.
   const _resetEstimateDefaultsV2 = async function() {
-    if (!confirm('Reset all estimate settings to factory defaults? County permit costs and tax rates are COMPANY-wide, so this resets them for every rep. This cannot be undone.')) return;
+    const _ask = window.nbdConfirm || ((m) => Promise.resolve(window.confirm(m)));
+    if (!(await _ask('Reset all estimate settings to factory defaults? County permit costs and tax rates are COMPANY-wide, so this resets them for every rep. This cannot be undone.'))) return;
     const EB2 = window.EstimateBuilderV2;
     if (!EB2) return;
     const defaults = EB2.getDefaultSettings();
@@ -5122,10 +5129,14 @@
     }
   };
 
-  const _resetCompanyProfileSettings = function () {
+  // async only for the nbdConfirm gate (see _resetEstimateDefaultsV2 above);
+  // the sole caller is the [data-action="call"] delegate, which discards the
+  // return value.
+  const _resetCompanyProfileSettings = async function () {
     const defaults = window.NBD_COMPANY_PROFILE_DEFAULTS;
     if (!defaults) return;
-    if (!confirm('Reset every Company Profile field to factory defaults? Unsaved edits will be lost. (You still need to click Save to persist.)')) return;
+    const _ask = window.nbdConfirm || ((m) => Promise.resolve(window.confirm(m)));
+    if (!(await _ask('Reset every Company Profile field to factory defaults? Unsaved edits will be lost. (You still need to click Save to persist.)'))) return;
     _cpPopulateFormFromProfile(defaults);
     if (typeof showToast === 'function') showToast('↶ Fields reset to defaults — click Save to persist', 'info');
   };

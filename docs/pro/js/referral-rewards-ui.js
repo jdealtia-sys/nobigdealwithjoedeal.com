@@ -140,8 +140,16 @@
     if (!lead || lead.referralRewardStatus !== 'owed') return;
     const amt = amountOf(lead);
     const to = lead.referredByName || 'the referrer';
-    if (typeof window.confirm === 'function'
-      && !window.confirm(`Mark the ${fmtMoney(amt)} referral bonus to ${to} as paid?`)) return;
+    // Paying out is a real-money, outward action and the flip is only
+    // reversible by hand, so the guard has to actually guard: native confirm()
+    // is patched to always return true in PWA standalone mode
+    // (standalone-compat.js), which would silently mark a bonus paid on a
+    // mis-tap. nbdConfirm gives a real Promise<boolean> modal there and falls
+    // back to native confirm on desktop (and to "yes" where confirm is absent,
+    // as before).
+    const _ask = window.nbdConfirm
+      || ((m) => Promise.resolve(typeof window.confirm === 'function' ? window.confirm(m) : true));
+    if (!(await _ask(`Mark the ${fmtMoney(amt)} referral bonus to ${to} as paid?`))) return;
     if (!window.db || !window.updateDoc || !window.doc) {
       if (window.showToast) window.showToast('Not connected — try again in a moment', 'error');
       return;

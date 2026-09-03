@@ -253,7 +253,12 @@
           + (n === 1 ? 'it' : 'them') + ' to another stage on the board first, then delete this stage.', 'error');
         return;
       }
-      if (typeof confirm === 'function' && !confirm('Delete this custom stage from every pipeline?')) return;
+      // native confirm() is patched to silently return true in PWA standalone
+      // mode (standalone-compat.js), so a tap on 🗑 would delete the stage with
+      // no prompt at all. nbdConfirm gives a real Promise<boolean> modal there
+      // and falls back to native confirm on desktop.
+      var askDel = window.nbdConfirm || function (m) { return Promise.resolve(typeof confirm === 'function' ? confirm(m) : true); };
+      if (!(await askDel('Delete this custom stage from every pipeline?'))) return;
       delete _cfg.stages[key];
       Object.keys(_cfg.views || {}).forEach(function (v) {
         if (_cfg.views[v] && Array.isArray(_cfg.views[v].stages)) {
@@ -282,7 +287,8 @@
     } else if (action === 'save') {
       await save();
     } else if (action === 'reset') {
-      if (typeof confirm === 'function' && !confirm('Reset ALL pipelines to the NBD defaults? Your custom stages + ordering will be removed.')) return;
+      var askReset = window.nbdConfirm || function (m) { return Promise.resolve(typeof confirm === 'function' ? confirm(m) : true); };
+      if (!(await askReset('Reset ALL pipelines to the NBD defaults? Your custom stages + ordering will be removed.'))) return;
       _cfg = { stages: {}, views: {} };
       _dirty = true;
       await save();

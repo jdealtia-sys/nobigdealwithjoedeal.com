@@ -640,15 +640,36 @@
     }
   }
 
-  function handleClose() {
-    if (dirty) {
-      // eslint-disable-next-line no-alert
-      const ok = window.confirm('Close without saving?\n\n'
-        + 'Click OK to close this document and lose any unsaved state. '
-        + 'Click Cancel to keep reviewing, then press Save to Customer.');
-      if (!ok) return;
+  // Re-entrancy latch for handleClose. Native confirm() froze the event loop,
+  // so a second Escape could not arrive while the guard was up. nbdConfirm
+  // does not freeze anything, and escHandler stays attached until close()
+  // runs — which is now AFTER the await. Without this latch, every Escape
+  // press while the guard is open spawns a replacement guard behind the one
+  // it cancels, so Escape can never actually close a dirty document in the
+  // installed PWA and always leaves a modal on screen.
+  let closing = false;
+
+  async function handleClose() {
+    if (closing) return;
+    closing = true;
+    try {
+      if (dirty) {
+        // In the installed PWA, standalone-compat.js replaces window.confirm
+        // with a stub that always returns true — so this "lose your unsaved
+        // document" guard silently answered OK and threw the work away.
+        // nbdConfirm gives a real Promise<boolean> from a modal in standalone
+        // mode; it doesn't exist on desktop, hence the native fallback.
+        // eslint-disable-next-line no-alert
+        const _ask = window.nbdConfirm || ((m) => Promise.resolve(window.confirm(m)));
+        const ok = await _ask('Close without saving?\n\n'
+          + 'Click OK to close this document and lose any unsaved state. '
+          + 'Click Cancel to keep reviewing, then press Save to Customer.');
+        if (!ok) return;
+      }
+      close();
+    } finally {
+      closing = false;
     }
-    close();
   }
 
   function close() {

@@ -723,11 +723,17 @@ async function saveEstimate() {
     const _me = window._user && window._user.uid;
     if (_matched && _matched.userId && _me && _matched.userId !== _me) {
       const _who = ((_matched.firstName || '') + ' ' + (_matched.lastName || '')).trim() || 'a teammate\'s customer';
+      // The no-D2D fallback can't be a native confirm(): in PWA standalone
+      // mode standalone-compat.js makes confirm() always return true, so the
+      // "never silently attach" guard above would silently attach to the
+      // teammate's customer. nbdConfirm gives a real Promise<boolean> modal
+      // in PWA mode and falls back to native confirm on desktop.
+      const _ask = window.nbdConfirm || ((m) => Promise.resolve(window.confirm(m)));
       const _ok = (window.D2D && typeof window.D2D.uiConfirm === 'function')
         ? await window.D2D.uiConfirm(
             `This address matches ${_who} — a lead owned by a teammate.\n\nAttach this estimate to their customer?`,
             { okLabel: 'Attach', cancelLabel: 'Save unlinked' })
-        : confirm(`This address matches ${_who} — a lead owned by a teammate. Attach this estimate to their customer?`);
+        : await _ask(`This address matches ${_who} — a lead owned by a teammate. Attach this estimate to their customer?`);
       if (!_ok) leadId = null;
     }
   }

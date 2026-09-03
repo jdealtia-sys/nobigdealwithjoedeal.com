@@ -807,8 +807,11 @@
   // ACTIONS
   // ============================================================================
 
-  function archiveProductFromUI(id) {
-    if (confirm('Archive this product?')) {
+  async function archiveProductFromUI(id) {
+    // Batch 2 (iOS PWA): archiving also stamps updatedAt, which permanently
+    // marks the product user-edited — not something to do on a phantom yes.
+    const _ask = window.nbdConfirm || ((m) => Promise.resolve(window.confirm(m)));
+    if (await _ask('Archive this product?')) {
       deleteProduct(id);
       showToast('Product archived', 'success');
       reRender();
@@ -836,8 +839,10 @@
     if (container) container.innerHTML = render();
   }
 
-  function resetToDefaults() {
-    if (confirm('Reset all products to defaults? Your customizations will be lost.')) {
+  async function resetToDefaults() {
+    // Batch 2 (iOS PWA): seedDefaults() wipes every edit and every tombstone.
+    const _ask = window.nbdConfirm || ((m) => Promise.resolve(window.confirm(m)));
+    if (await _ask('Reset all products to defaults? Your customizations will be lost.')) {
       seedDefaults();
       showToast('Products reset to defaults', 'success');
       reRender();

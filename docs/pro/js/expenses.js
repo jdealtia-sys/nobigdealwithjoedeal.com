@@ -912,9 +912,15 @@
     var fileEl = document.getElementById('expFile');
     var c = EC();
     // Duplicate guard: same supplier + amount + day already logged → confirm.
+    // Batch 2 (iOS PWA): native confirm() always returns true in standalone
+    // mode (standalone-compat.js), so the guard would auto-save the duplicate —
+    // a phantom ledger row that skews margin and the 1099 rollup. nbdConfirm
+    // gives a real Promise<boolean> modal there, native confirm on desktop.
+    // Same reason for every other confirm in this file.
+    var ask = window.nbdConfirm || function (m) { return Promise.resolve(window.confirm(m)); };
     var dupCents = c ? c.dollarsToCents(v('expAmount')) : 0;
     var dup = findDuplicate(v('expSupplier'), dupCents, v('expDate'));
-    if (dup && !window.confirm('Looks like a possible duplicate — ' + (v('expSupplier') || 'this vendor') + ' for ' + money(dupCents) + ' on ' + v('expDate') + ' is already logged. Save it anyway?')) {
+    if (dup && !(await ask('Looks like a possible duplicate — ' + (v('expSupplier') || 'this vendor') + ' for ' + money(dupCents) + ' on ' + v('expDate') + ' is already logged. Save it anyway?'))) {
       return;
     }
     // If the receipt was scanned, the doc carries the OCR provenance + the
@@ -1080,7 +1086,8 @@
   }
   async function deleteSupplier(id) {
     if (!id || !window.deleteDoc) return;
-    if (!window.confirm('Delete this supplier?')) return;
+    var ask = window.nbdConfirm || function (m) { return Promise.resolve(window.confirm(m)); };
+    if (!(await ask('Delete this supplier?'))) return;
     try { await window.deleteDoc(window.doc(window.db, 'suppliers', id)); await refresh(); }
     catch (e) { toast('Could not delete (only the owner can)', 'error'); }
   }
@@ -1088,10 +1095,11 @@
   // ── CSP-safe delegated events ───────────────────────────────────────
   if (!window._NBD_EXP_DELEGATE) {
     window._NBD_EXP_DELEGATE = true;
-    document.addEventListener('click', function (ev) {
+    document.addEventListener('click', async function (ev) {
       var t = ev.target.closest && ev.target.closest('[data-exp-action]');
       if (!t) return;
       var a = t.dataset.expAction;
+      var ask = window.nbdConfirm || function (m) { return Promise.resolve(window.confirm(m)); };
       if (a === 'open-form') openForm();
       else if (a === 'close-form') closeForm();
       else if (a === 'export-csv') exportCSV();
@@ -1099,7 +1107,7 @@
       else if (a === 'save') saveFromForm(t);
       else if (a === 'receipt') openReceipt(t.dataset.expPath);
       else if (a === 'add-recurring') addFromTemplate(t.dataset.recId);
-      else if (a === 'del-recurring') { if (window.confirm('Delete this recurring template?')) deleteTemplate(t.dataset.recId); }
+      else if (a === 'del-recurring') { if (await ask('Delete this recurring template?')) deleteTemplate(t.dataset.recId); }
       else if (a === 'open-supplier') openSupplierForm();
       else if (a === 'close-supplier') closeSupplierForm();
       else if (a === 'save-supplier') saveSupplierFromForm(t);
@@ -1107,7 +1115,7 @@
       else if (a === 'export-1099') export1099();
       else if (a === 'delete') {
         var id = t.dataset.expId;
-        if (id && window.confirm('Delete this expense? This cannot be undone.')) {
+        if (id && await ask('Delete this expense? This cannot be undone.')) {
           removeExpense(id).then(function (done) { if (done) refresh(); });
         }
       }

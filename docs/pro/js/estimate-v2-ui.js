@@ -2436,7 +2436,13 @@
         : mins < 2880 ? Math.round(mins / 60) + ' hours ago'
         : Math.round(mins / 1440) + ' days ago';
       const who = pick.customer && pick.customer.name ? ' (' + pick.customer.name + ')' : '';
-      if (!window.confirm('Resume your unsaved estimate draft from ' + when + who + '?\n\nOK resumes it — Cancel starts fresh and discards the draft.')) {
+      // In the installed PWA, native confirm() is patched to always return
+      // true (standalone-compat.js), which silently re-runs the exact F7 bug
+      // above — the rep taps "new estimate" and lands in the stale session
+      // with no say in it. nbdConfirm gives a real modal with a real Cancel;
+      // it only exists in standalone mode, so fall back to confirm on desktop.
+      const ask = window.nbdConfirm || ((m) => Promise.resolve(window.confirm(m)));
+      if (!(await ask('Resume your unsaved estimate draft from ' + when + who + '?\n\nOK resumes it — Cancel starts fresh and discards the draft.'))) {
         clearDraft();
         return false;
       }
