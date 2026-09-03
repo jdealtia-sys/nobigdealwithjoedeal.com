@@ -83,6 +83,13 @@ this before picking up any lane below.** Each cost a session otherwise.
 
 ## Lanes, in priority order
 
+> **Status 2026-09-03 (late):** lanes 1-4 and 6 all shipped in the same
+> session (#1359–#1363). **Lane 5 is the only client-side lane left**, and it
+> is worth less than Jo's branch-protection toggle — see Jo's queue #3. The
+> real remaining weight is in the two blocked sections below, and every item
+> there is gated on a deploy window, prod access, a fixture, or a decision.
+> **Start the next session by reading §Corrections, not this list.**
+
 1. ~~**Lead entry stops losing data on a phone**~~ **SHIPPED #1360.** Backdrop
    dismiss now asks when anything has been typed (Esc and ✕ still close in one
    action — it guards the accident, not the intent), and the GPS latch clears
@@ -106,14 +113,26 @@ this before picking up any lane below.** Each cost a session otherwise.
    and its revert undoes the first one's. Dispatch now routes by event type.
    **If you add any other optimistic-then-revert handler, check its delegate
    first.**
-3. **One owner for the kanban filters** (M, medium) — now the top lane.
-   `needs-attention-filter.js`
-   and `stale-shares-filter.js` both write `window._filteredLeads` while each
-   keeps a private `active` flag, so turning one off lets the other re-apply on
-   the next `nbd:data-refreshed` and on its own 60s interval — leads vanish from
-   the board with no user action. Needs a small registry that is the only
-   writer. **Do not ship with lane 1 or 2** — both change what he sees after a
-   navigation; keep the revert unambiguous.
+3. ~~**One owner for the kanban filters**~~ **SHIPPED #1363.**
+   `docs/pro/js/lead-filter-registry.js` (`window.NBDLeadFilters`) now holds
+   the active filter; both modules register a `compute()` and a paint callback
+   and keep no state. `deactivate()` is a no-op unless that filter is actually
+   the active one — that single guard is the whole bug — and `refresh()`
+   recomputes only the active filter, so the 60s poll can no longer resurrect
+   one the rep switched off.
+   **The brief's framing was wrong in a way worth remembering:** it asked for
+   "a registry that is the only writer" of `window._filteredLeads`. But
+   `renderLeads()` (`crm-pipeline.js:72`) **already** sets that global from its
+   own second argument — the filter modules were writing it *as well*, which is
+   what made ownership unanswerable. The fix was removing two writers, not
+   adding a better one. The registry never touches the global; it passes
+   `filtered` to `renderLeads`. Pinned at the source in
+   `tests/lead-filter-registry.test.js`.
+   Also carried: a pre-existing smoke assertion pinned
+   `classList.toggle('active', active)` **by the literal variable name**, so it
+   went red on a semantically identical refactor. If you rename a state
+   variable in a filter module, check `tests/smoke/dashboard.test.js` around
+   the filter-badge block.
 4. ~~**CSV formula injection + `data-export.js`'s first test**~~ **SHIPPED
    #1361** (36 assertions, node bucket). Two findings the brief did not have:
    there are **TWO** export paths, not one — `_csvEscape` in
