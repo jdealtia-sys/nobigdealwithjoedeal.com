@@ -505,6 +505,29 @@ section('photo-review.html has zero inline scripts (CSP-safe)');
   const reviewJs = read(path.join(ROOT, 'docs/pro/js/pages/photo-review.js'));
   assert('docs/pro/js/pages/photo-review.js exists with imports',
     /import\s*\{[^}]*\}\s*from\s+["']https:\/\/www\.gstatic\.com\/firebasejs/.test(reviewJs));
+
+  // NEW-D31 (fixed 2026-09-02): the bulk-Share copy half calls
+  // PortalLinkHelpers.copyForLead, whose _minter() needs either
+  // window.CustomerPortal.mintUrl (customer.html only) or
+  // window._mintPortalUrl (dashboard-api.js, dashboard only). photo-review
+  // loaded neither, so EVERY share ended in a red "Couldn't copy link:
+  // Portal module not loaded" toast. The page now provides the dashboard's
+  // minter with the identical createPortalToken contract.
+  const helpers = read(path.join(ROOT, 'docs/pro/js/portal-link-helpers.js'));
+  assert('portal-link-helpers still resolves window._mintPortalUrl as a minter',
+    /typeof window\._mintPortalUrl === 'function'/.test(helpers));
+  assert('photo-review.html loads portal-link-helpers.js',
+    /<script\s+src="js\/portal-link-helpers\.js/.test(review));
+  assert('photo-review.js defines window._mintPortalUrl via createPortalToken',
+    /window\._mintPortalUrl = async function \(leadId\)/.test(reviewJs)
+    && /httpsCallable\(fns, 'createPortalToken'\)/.test(reviewJs)
+    && /const fns = getFunctions\(app\);/.test(reviewJs)
+    && /connectEmulatorsIfLocal\(\{[^}]*functions: fns[^}]*\}\)/.test(reviewJs)
+    && /'\/pro\/portal\.html\?token='/.test(reviewJs));
+  assert('photo-review.js imports getFunctions/httpsCallable from the pinned SDK',
+    /import\s*\{\s*getFunctions,\s*httpsCallable\s*\}\s*from\s+"https:\/\/www\.gstatic\.com\/firebasejs\/10\.12\.2\/firebase-functions\.js"/.test(reviewJs));
+  assert('the minter is defined before the bulk-Share handler binds',
+    reviewJs.indexOf('window._mintPortalUrl = async function') < reviewJs.indexOf("getElementById('prBulkShare')"));
 }
 
 section('Photos §2.3: review UI handles daily-cap reason explicitly');

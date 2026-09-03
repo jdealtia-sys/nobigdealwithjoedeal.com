@@ -13,6 +13,7 @@ import { initializeApp, getApps } from "https://www.gstatic.com/firebasejs/10.12
 import { initializeAppCheck, ReCaptchaEnterpriseProvider } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app-check.js";
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import { getFirestore, collection, doc, getDoc, onSnapshot, query, where, orderBy, updateDoc, deleteDoc, serverTimestamp, writeBatch } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-functions.js";
 import { connectEmulatorsIfLocal } from "../nbd-emulator-connect.js"; // Audit #3: localhost-only, no-op in prod
 
 // NEW-D32: this file shipped a FABRICATED firebaseConfig (apiKey/senderId
@@ -43,7 +44,12 @@ try {
 
 const auth = getAuth(app);
 const db = getFirestore(app);
-await connectEmulatorsIfLocal({ auth, db }); // Audit #3: localhost-only, no-op in prod
+// One functions instance bound to THIS app, shared by the emulator hookup
+// and the portal-link minter below — a bare getFunctions() would target the
+// default app and, under emulator QA, prod (CRM-SECURITY-AUDIT-2026-08-02
+// open question 5). Audit #3: localhost-only, no-op in prod.
+const fns = getFunctions(app);
+await connectEmulatorsIfLocal({ auth, db, functions: fns });
 window.db = db;
 
 // ── State ──
@@ -438,6 +444,25 @@ document.getElementById('prBulkDelete').addEventListener('click', async () => {
     showToast('Delete failed: ' + e.message);
   }
 });
+// NEW-D31 (2026-09-02): PortalLinkHelpers.copyForLead resolves its URL
+// minter as window.CustomerPortal.mintUrl (customer.html only) or
+// window._mintPortalUrl (dashboard-api.js, dashboard only). Neither is
+// loaded on this page, so every bulk Share ended with "Shared N photos"
+// followed immediately by "Couldn't copy link: Portal module not loaded"
+// — a red toast on a successful action. Provide the dashboard's minter
+// here, byte-for-byte the same contract as dashboard-api.js: mint a
+// fresh, revocable 30-day portal token via the createPortalToken
+// callable and return the /pro/portal.html?token= URL. Side-effect free;
+// copyForLead owns the clipboard + recordShare.
+window._mintPortalUrl = async function (leadId) {
+  if (!leadId) throw new Error('No lead selected');
+  const call = httpsCallable(fns, 'createPortalToken');
+  const res = await call({ leadId, ttlDays: 30 });
+  const token = res && res.data && res.data.token;
+  if (!token) throw new Error('No token returned');
+  return location.origin + '/pro/portal.html?token=' + encodeURIComponent(token);
+};
+
 // Phase 5: flip sharedWithHomeowner=true on selected photos so they
 // appear in the homeowner's portal view (getHomeownerPortalView already
 // filters by this flag). Then offer to copy/SMS the portal link via the
