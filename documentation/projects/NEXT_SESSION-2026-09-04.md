@@ -83,12 +83,19 @@ this before picking up any lane below.** Each cost a session otherwise.
 
 ## Lanes, in priority order
 
-> **Status 2026-09-03 (late):** lanes 1-4 and 6 all shipped in the same
-> session (#1359–#1363). **Lane 5 is the only client-side lane left**, and it
-> is worth less than Jo's branch-protection toggle — see Jo's queue #3. The
-> real remaining weight is in the two blocked sections below, and every item
-> there is gated on a deploy window, prod access, a fixture, or a decision.
-> **Start the next session by reading §Corrections, not this list.**
+> **Status 2026-09-03 (close):** **every lane in this list shipped**
+> (#1359–#1363, #1365). Nothing here is open. The next session's work is in
+> the two blocked sections below and in §Corrections — start there, not here.
+>
+> **The top item is now the signed-URL cutover**, which Jo's IAM grant
+> unblocked the same evening (queue #2, verified). It needs a Cloud Functions
+> deploy window, so it sequences with the other deploy-gated items rather than
+> going first by default.
+>
+> **The single highest-leverage thing left is not code:** branch protection on
+> `main` is still OFF (queue #3). Fourteen PRs merged today, every one green,
+> and not one of those checks was *required*. #1365 added a real CRM gate and
+> it, too, blocks nothing until that toggle is flipped.
 
 1. ~~**Lead entry stops losing data on a phone**~~ **SHIPPED #1360.** Backdrop
    dismiss now asks when anything has been typed (Esc and ✕ still close in one
@@ -145,15 +152,32 @@ this before picking up any lane below.** Each cost a session otherwise.
    Both fixed; the test now pins all **three** copies of the neutralizer
    (including `expenses.js`) to one character class, and pins the import strip
    as lookahead-guarded so a genuine leading apostrophe survives.
-5. **`crm-audit.js` into CI** (M, low value until branch protection exists).
-   `docs/pro/**` HTML is guarded by nothing — both `check-site-integrity.js:168`
-   and `check-inline-html-scripts.js:60` exclude `pro`. But wiring it as-is
-   creates the next silently-green gate: `--json` returns before the exit call
-   so it **always exits 0**, and a typo'd `--page` reports success over zero
-   pages. Fix the exit contract first, refuse to pass over zero matched pages,
-   then wire it bare (no `--json`, no `--severity`). Do **not** include the
-   recursion widening into `docs/pro/blog` and `docs/pro/daily-success` — that
-   surfaces new findings and deserves its own attributable red.
+5. ~~**`crm-audit.js` into CI**~~ **SHIPPED #1365.** Both false-green paths
+   were fixed before the step was added (`--json` computed the verdict below
+   its own early return and always exited 0; zero matched pages exited 0), and
+   the step is blocking with no `if:` / `continue-on-error` / `|| true`. It ran
+   green in CI on its own PR — the step itself, not just the job around it —
+   and was proven able to fail by planting a real broken `<script src>` in
+   `dashboard.html`. 32 assertions in `tests/crm-audit.test.js`.
+   **Two follow-ups, both deliberately excluded and both written into the
+   ci.yml comment so nobody reads more coverage into it than exists:**
+   - **The gate makes the CRM pages visible, not protected.** The deploy runs
+     from `firebase-deploy.yml`, which has no `needs:` on `ci.yml` and whose
+     own pre-flight runs only check-js-syntax / check-site-integrity /
+     apply-partials. **A broken CRM page still deploys**; this step just turns
+     red beside it. Adding it to that pre-flight is the real fix — after this
+     has run green on main a few times, because a false positive there blocks
+     the entire site.
+   - **Only the 27 top-level `docs/pro/*.html` are read.** The 7 nested pages
+     (`docs/pro/blog/*`, `docs/pro/daily-success/`) and all of `docs/admin/**`
+     are still guarded by nothing. None is broken today (checked), so this is
+     a blind spot rather than a live break — but widening discovery may
+     surface findings, so it needs its own attributable red.
+   One more thing worth carrying: making `--json` exit honestly created a new
+   contradiction, since `findings` is display-filtered while the verdict counts
+   over all findings — `--json --severity=info` exited 1 with `findings: []`.
+   Closed with an unfiltered `counts` object. **If you add a display filter to
+   any gate, check it cannot make a failing run serialize as clean.**
 6. ~~**Finish the `confirm()` allowlist question.**~~ **CLOSED same session by
    #1357.** The root cause is gone: the `confirm` and `prompt` overrides in
    `standalone-compat.js` are deleted, because their premise — that iOS blocks
@@ -259,10 +283,34 @@ client-only PR.**
      `undefined`, which incidentally demonstrated the fail-closed direction).
      Use a Firebase preview channel with an external-JS page, per the repo's
      usual hosting-verification route. Low priority.
-2. **Grant `roles/iam.serviceAccountTokenCreator` on the compute SA** (~2 min,
-   GCP Console → IAM). Still the highest-leverage console item: it unblocks
-   signed photo URLs, `renderPdf` signed URLs and the whole token migration.
-   #1353 closed the *reaping* half; the signed-URL cutover still waits on this.
+2. ~~**Grant `roles/iam.serviceAccountTokenCreator` on the compute SA**~~
+   **DONE 2026-09-03 — Jo granted it in the console, and it is verified.**
+   Not taken on trust: a grant on the wrong account looks identical to no
+   grant, so all three halves were checked. `gcloud` is on PATH here and
+   already authed as jonathandeal459@gmail.com, so these are one-line reads —
+   **do this before believing any future console ask is done:**
+   ```
+   gcloud iam service-accounts get-iam-policy \
+     717435841570-compute@developer.gserviceaccount.com --project=nobigdeal-pro
+     → roles/iam.serviceAccountTokenCreator, member = that SAME SA
+       (self-impersonation, which is correct — signing means impersonating
+       yourself via the IAM Credentials API)
+   gcloud functions describe renderPdf --gen2 --region=us-central1 \
+     --format='value(serviceConfig.serviceAccountEmail)'
+     → 717435841570-compute@developer.gserviceaccount.com  ← the granted SA
+       IS the runtime identity, which is the half that is easy to get wrong
+   gcloud services list --enabled --filter=config.name:iamcredentials.googleapis.com
+     → enabled
+   ```
+   **What this unblocks, and what it does NOT.** `render-pdf.js` already
+   self-heals — it tries `getSignedUrl` and falls back to a download token —
+   so it starts issuing signed URLs with no redeploy. The cutover itself is
+   still to do: stop `image-pipeline.js:224-243` minting a permanent token per
+   variant, stop `render-pdf.js:455-462` doing it for `pdf-renders/`, then reap
+   the 446 existing tokened objects. 29 client `getDownloadURL` call sites in
+   16 files remain; the worst is `customer-signed-doc-upload.js:46-56`
+   (a signed contract). **The reaping half already shipped as #1353 — do not
+   rebuild it.**
 3. **Turn on branch protection for `main`** (~2 min): require at least
    `Smoke tests` and `Unit suites (manifest)`. Verified OFF again today — until
    it exists, every CI gate is signal, not enforcement, and `gh pr merge --auto`
