@@ -184,15 +184,30 @@ storm-chaser in the market says.
    **on its second roof**, where drip edge gets skipped and gutters get re-hung into
    soft wood. Plus the HOA angle: architectural review boards, and matching an
    approved color rather than a faded wall.
-   **Still to do: Cincinnati and Batavia.** Write each from that city's actual
-   housing stock, not from a template — the four shipped pages carry **24 distinct
-   FAQ questions with zero repeats**, and share nav/footer chrome and essentially
-   nothing else.
+   ✅ **Batavia shipped 2026-09-03** — the oldest stock in the market and the only
+   town where the page is about *actual wood siding* rather than trim. Leads on
+   **old-growth lumber being better than what would replace it** (which is why a
+   century-old clapboard is still there and a 1995 board has gone soft), so the
+   honest scope is that sound boards stay. Two things nothing else on the site
+   covers: **the exposure** — old boards were milled to whatever the mill was
+   running, so a stock width reads wrong from the street and has to be ripped to
+   match the actual reveal — and **blown-in insulation plugs**, which wick water
+   into the middle of a sound board and give rot in a row of circles rather than
+   along the bottom edge. Also talks a village owner *out* of vinyl-over-wood.
+   **Still to do: Cincinnati** — and it is the hardest, because Hamilton County
+   spans bungalows, mid-century ranches and new east-side builds, so it likely wants
+   to lead on *which era are you in* rather than one angle.
 
-   The per-city angle so far, so the next one does not repeat them: Mason = *where*
-   the wood is (behind the vinyl). Loveland = *what material* it is (cedar vs wood
-   fiber) and the valley's shade and grade. West Chester = *why* it rotted (a missed
-   detail, a past re-roof) and what the HOA needs.
+   **The five shipped pages carry 30 distinct FAQ questions with zero repeats**, and
+   share nav/footer chrome and essentially nothing else. The per-city angle, so
+   Cincinnati does not repeat them:
+
+   | Page | Its angle |
+   |---|---|
+   | Mason | **Where** the wood is — behind the vinyl (fascia, soffit, trim) |
+   | Loveland | **What material** — cedar vs wood fiber, plus valley shade and grade |
+   | West Chester | **Why** it rotted — a missed detail, a past re-roof, and the HOA |
+   | Batavia | **The wood itself** — old-growth worth saving, exposure, insulation plugs |
 5. **Put an `OURWORK-STRIP` marker on the other city pages.** The mechanism works
    on any `docs/services/*.html` (proved here). ~90 city pages currently show a
    homeowner no photographs. Each needs the marker **and** the
