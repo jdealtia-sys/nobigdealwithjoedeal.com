@@ -731,9 +731,28 @@ jobs:
           # Healthcheck ("Revision X is not ready and cannot serve traffic") —
           # which is exactly why a different ~5-10% of functions failed to UPDATE
           # on every deploy (runs 2026-07-23 17:26 / 19:06, and 07-23 03:24),
-          # never the changed code, never a create. Those functions kept their
-          # correct prior revision (no outage) but the job went red every time,
-          # which masks genuine failures.
+          # never the changed code. Those functions kept their correct prior
+          # revision (no outage) but the job went red every time, which masks
+          # genuine failures.
+          #
+          # CORRECTION 2026-09-03 — "never a create" was wrong, and a create is
+          # the dangerous case. Adding ONE new function (backupFreshnessCron)
+          # produced a run with 110 successful updates and ZERO creates: the
+          # new function was in the --only list (verified by re-running the
+          # discovery grep against it), firebase printed "Deploy complete!",
+          # and the function simply did not exist afterwards. A create needs a
+          # brand-new Cloud Run service rather than a revision swap, so it is
+          # the MOST likely thing to lose the quota race, not the least. A
+          # plain re-run of the same job then created it.
+          #
+          # WHY THIS MATTERS MORE THAN A RED JOB: an update that loses the race
+          # leaves the previous revision serving, so nothing breaks. A create
+          # that loses it leaves NOTHING — the function silently does not
+          # exist, and neither this workflow's summary nor a green re-run of a
+          # later commit will tell you which one was lost.
+          # >>> After deploying a NEW function, verify it exists:
+          # >>>   gcloud functions describe <NAME> --gen2 --region=us-central1
+          # A merged PR is not a deployed function.
           #
           # MITIGATION: keep the fast single bulk pass (wave 1), then re-deploy
           # ONLY the stragglers in small batches after a pause. A handful of new

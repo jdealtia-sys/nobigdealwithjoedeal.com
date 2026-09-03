@@ -194,6 +194,44 @@ this before picking up any lane below.** Each cost a session otherwise.
    they stay dead, and the full argument sits next to the code. Details in the
    session note's §#1354 UPDATE.
 
+## The backup alarm — live, and the deploy lesson that came with it
+
+`backupFreshnessCron` (#1369) is **deployed, ACTIVE and verified running**:
+scheduler `firebase-schedule-backupFreshnessCron-us-central1` at 06:00 ET,
+ENABLED. A live trigger read the real bucket and logged
+`backup_freshness.ok  ageHours 0.92  marker 2026-09-03/2026-09-03.overall_export_metadata`
+— it found the real marker, computed the real age, and correctly stayed
+quiet. The alarm side is covered by 36 unit assertions, proven able to fail.
+
+**BUT THE FIRST DEPLOY SILENTLY DID NOT CREATE IT**, and this is the
+carry-forward:
+
+- The run reported 110 **successful updates** and **zero creates**. firebase
+  printed `✔ Deploy complete!`. The function did not exist afterwards.
+- It WAS targeted — re-running the workflow's own discovery grep locally finds
+  `backupFreshnessCron` among 169 functions, so this was not a discovery gap.
+- `firebase-deploy.yml`'s own comment claimed the chronic CPU-quota race hits
+  updates "never a create". **That is now disproven and corrected in place.** A
+  create needs a brand-new Cloud Run service rather than a revision swap, so it
+  is the *most* likely thing to lose the race.
+- A plain `gh run rerun --failed` created it.
+
+**Why a create losing is worse than an update losing:** an update that loses
+leaves the previous revision serving, so nothing breaks. A create that loses
+leaves *nothing* — and neither the workflow summary nor a later green deploy
+will tell you which function is missing.
+
+> **After deploying a NEW function, verify it exists.**
+> `gcloud functions describe <NAME> --gen2 --region=us-central1`
+> A merged PR is not a deployed function. This was caught only because the
+> deploy was checked rather than trusted — the same habit the alarm exists to
+> institutionalise.
+
+The durable fix is Jo's: **raise the Cloud Run CPU quota for us-central1**
+(GCP console → IAM & Admin → Quotas). `firebase-deploy.yml` has named this as
+the real fix since 2026-07-23 and it has been causing chronic red deploys ever
+since.
+
 ## Blocked on a Cloud Functions deploy window
 
 Sequenced separately on a quiet evening; **do not bundle any of these with a
@@ -394,7 +432,12 @@ client-only PR.**
    photos rather than the first — and the higher-value version of it is
    getting the *Firestore* export off-project, since that is the data that
    cannot be re-photographed.
-5. **For free-API wave 1**: a Healthchecks.io account and a Better Stack
+5. **Raise the Cloud Run CPU quota for us-central1** (GCP console > IAM &
+   Admin > Quotas). firebase-deploy.yml has named this as the real fix since
+   2026-07-23. It causes chronic red deploys, and on 2026-09-03 it silently
+   ate the CREATE of a brand-new function — see the backup-alarm section
+   above for why that is worse than the red job it usually causes.
+6. **For free-API wave 1**: a Healthchecks.io account and a Better Stack
    account; a Census API key (instant); enable the Solar API on the GCP project;
    **start Meta App Review** for Lead Ads (mandatory, days-to-weeks) and the
    **GBP API access request** (blocks Local Posts) so wave 2 is not blocked.
@@ -402,10 +445,10 @@ client-only PR.**
    `GROQ_API_KEY` is actually provisioned in `nobigdeal-pro`.
 6. Which payment handles belong on invoices (Zelle is deliberately `info@`;
    PayPal/Venmo absent) — needed before touching the invoice block.
-7. Do you want an **offline write queue** at all? `OfflineManager.queueWrite`
+8. Do you want an **offline write queue** at all? `OfflineManager.queueWrite`
    has zero callers, so the UI and IndexedDB machinery imply a queue that does
    not exist. That is a product decision, not a bug.
-8. Unchanged: seat price + `STRIPE_PRICE_SEAT`, App Check console enforce,
+9. Unchanged: seat price + `STRIPE_PRICE_SEAT`, App Check console enforce,
    delete the 7 retired functions, cost-basis rotation, Turnstile order,
    Copycat PAT (optional), Cal.com real booking.
 
