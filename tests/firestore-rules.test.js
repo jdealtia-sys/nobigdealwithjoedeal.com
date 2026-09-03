@@ -974,6 +974,97 @@ async function run() {
   await assertSucceeds(getDocs(query(collection(alice, 'notes'), where('leadId', '==', 'leadTeamA'))));
   await assertFails(getDocs(query(collection(bob,   'notes'), where('leadId', '==', 'leadTeamA'))));
 
+
+  // 31. UNTESTED-FOR-A-MONTH COLLECTIONS (2026-09-02). Four rule blocks had
+  //     ZERO assertions in either rules suite — /invoices, /supplements,
+  //     /connectAccounts and leads/{id}/portal_messages — so a regression in
+  //     any of them (a money doc re-tenanted, a homeowner thread readable
+  //     cross-tenant, a company_admin flipping chargesEnabled from devtools)
+  //     would have shipped unnoticed. Reuses contexts alice/bob/admin/coAdmin/
+  //     mgrA/viewerA/viewer/solo/anon and leadTeamA (alice, co-a) from test 30.
+  await env.withSecurityRulesDisabled(async (ctx) => {
+    const db = ctx.firestore();
+    await setDoc(doc(db, 'leads/leadTeamA/portal_messages/pm1'), { from: 'homeowner', text: 'When can you start?', createdAt: 1 });
+    await setDoc(doc(db, 'supplements/sup-a'), { userId: 'alice', leadId: 'leadTeamA', parentEstimateId: 'est-ok', version: 1, status: 'draft' });
+    await setDoc(doc(db, 'connectAccounts/co-a'),  { accountId: 'acct_a', chargesEnabled: true });
+    await setDoc(doc(db, 'connectAccounts/co-b'),  { accountId: 'acct_b', chargesEnabled: false });
+    await setDoc(doc(db, 'connectAccounts/solo1'), { accountId: 'acct_s', chargesEnabled: true });
+    await setDoc(doc(db, 'connectAccountIds/acct_a'), { companyId: 'co-a' });
+    await setDoc(doc(db, 'invoices/inv-a'), { createdBy: 'alice', companyId: 'co-a', estimateId: 'est-ok', createdAt: 1, balanceDue: 10000, status: 'sent' });
+    await setDoc(doc(db, 'invoices/inv-v'), { createdBy: 'vic',   companyId: 'co-v', estimateId: 'est-v',  createdAt: 1, balanceDue: 500,   status: 'sent' });
+  });
+  // portal_messages: parent-lead owner + same-company readers (admin/manager/
+  // viewer) read; cross-tenant + anon denied; NO client writes — not even
+  // platform admin (homeowner threads are written by the portal functions).
+  await assertSucceeds(getDoc(doc(alice,   'leads/leadTeamA/portal_messages/pm1')));
+  await assertSucceeds(getDoc(doc(coAdmin, 'leads/leadTeamA/portal_messages/pm1')));
+  await assertSucceeds(getDoc(doc(mgrA,    'leads/leadTeamA/portal_messages/pm1')));
+  await assertSucceeds(getDoc(doc(viewerA, 'leads/leadTeamA/portal_messages/pm1')));
+  await assertSucceeds(getDoc(doc(admin,   'leads/leadTeamA/portal_messages/pm1')));
+  await assertFails(getDoc(doc(bob,        'leads/leadTeamA/portal_messages/pm1')));
+  await assertFails(getDoc(doc(anon,       'leads/leadTeamA/portal_messages/pm1')));
+  await assertFails(setDoc(doc(alice,  'leads/leadTeamA/portal_messages/pm2'), { from: 'rep', text: 'forged' }));
+  await assertFails(updateDoc(doc(alice, 'leads/leadTeamA/portal_messages/pm1'), { text: 'edited' }));
+  await assertFails(setDoc(doc(admin,  'leads/leadTeamA/portal_messages/pm3'), { from: 'rep', text: 'even admin' }));
+  // supplements: owner-only read/delete (+ platform admin) — CURRENT contract,
+  // company staff are NOT granted; create must carry the caller's uid; update
+  // may neither re-own nor re-point parentEstimateId; cross-tenant denied.
+  await assertSucceeds(getDoc(doc(alice,   'supplements/sup-a')));
+  await assertSucceeds(getDoc(doc(admin,   'supplements/sup-a')));
+  await assertFails(getDoc(doc(bob,        'supplements/sup-a')));
+  await assertFails(getDoc(doc(coAdmin,    'supplements/sup-a')));
+  await assertSucceeds(setDoc(doc(alice, 'supplements/sup-new'),   { userId: 'alice', leadId: 'leadTeamA', parentEstimateId: 'est-ok', version: 2, status: 'draft' }));
+  await assertFails(setDoc(doc(alice,    'supplements/sup-forge'), { userId: 'bob',   leadId: 'leadB',     parentEstimateId: 'est-x',  version: 1 }));
+  await assertFails(setDoc(doc(anon,     'supplements/sup-anon'),  { userId: 'alice', parentEstimateId: 'est-ok' }));
+  await assertSucceeds(updateDoc(doc(alice, 'supplements/sup-a'), { status: 'sent' }));
+  await assertFails(updateDoc(doc(alice,    'supplements/sup-a'), { parentEstimateId: 'est-other' }));
+  await assertFails(updateDoc(doc(alice,    'supplements/sup-a'), { userId: 'bob' }));
+  await assertFails(updateDoc(doc(bob,      'supplements/sup-a'), { status: 'void' }));
+  await assertFails(deleteDoc(doc(bob,      'supplements/sup-a')));
+  await assertSucceeds(deleteDoc(doc(alice, 'supplements/sup-new')));
+  // connectAccounts: same-tenant read (a rep must resolve the collect-online
+  // capability), solo uid==companyId read, cross-tenant + anon denied, and
+  // NO client write of any kind — flipping chargesEnabled from devtools would
+  // self-authorize money collection. connectAccountIds: nobody reads.
+  await assertSucceeds(getDoc(doc(alice,   'connectAccounts/co-a')));
+  await assertSucceeds(getDoc(doc(coAdmin, 'connectAccounts/co-a')));
+  await assertSucceeds(getDoc(doc(solo,    'connectAccounts/solo1')));
+  await assertSucceeds(getDoc(doc(admin,   'connectAccounts/co-b')));
+  await assertFails(getDoc(doc(bob,        'connectAccounts/co-a')));
+  await assertFails(getDoc(doc(anon,       'connectAccounts/co-a')));
+  await assertFails(updateDoc(doc(coAdmin, 'connectAccounts/co-a'), { chargesEnabled: false }));
+  await assertFails(setDoc(doc(coAdmin,    'connectAccounts/co-a'), { chargesEnabled: true, accountId: 'acct_evil' }));
+  await assertFails(setDoc(doc(admin,      'connectAccounts/co-c'), { chargesEnabled: true }));
+  await assertFails(getDoc(doc(alice,      'connectAccountIds/acct_a')));
+  await assertFails(getDoc(doc(admin,      'connectAccountIds/acct_a')));
+  // invoices: owner + same-company STAFF (company_admin/manager) read — viewer is
+  // NOT staff; cross-tenant + anon denied. Create pins companyId to the caller's
+  // tenant (or to the uid for a claim-less solo, the /expenses #12 fallback).
+  // Update freezes createdBy/companyId/estimateId/createdAt but leaves money
+  // fields mutable (markPaid). A viewer-role owner can neither update nor delete.
+  await assertSucceeds(getDoc(doc(alice,   'invoices/inv-a')));
+  await assertSucceeds(getDoc(doc(coAdmin, 'invoices/inv-a')));
+  await assertSucceeds(getDoc(doc(mgrA,    'invoices/inv-a')));
+  await assertSucceeds(getDoc(doc(admin,   'invoices/inv-a')));
+  await assertFails(getDoc(doc(viewerA,    'invoices/inv-a')));
+  await assertFails(getDoc(doc(bob,        'invoices/inv-a')));
+  await assertFails(getDoc(doc(anon,       'invoices/inv-a')));
+  await assertSucceeds(setDoc(doc(alice, 'invoices/inv-new'),    { createdBy: 'alice', companyId: 'co-a', estimateId: 'est-ok', createdAt: 2, balanceDue: 1 }));
+  await assertFails(setDoc(doc(alice,    'invoices/inv-forge'),  { createdBy: 'alice', companyId: 'co-b', estimateId: 'est-ok', createdAt: 2, balanceDue: 1 }));
+  await assertFails(setDoc(doc(alice,    'invoices/inv-forge2'), { createdBy: 'bob',   companyId: 'co-a', estimateId: 'est-ok', createdAt: 2, balanceDue: 1 }));
+  await assertFails(setDoc(doc(alice,    'invoices/inv-forge3'), { createdBy: 'alice', companyId: '',     estimateId: 'est-ok', createdAt: 2, balanceDue: 1 }));
+  await assertSucceeds(setDoc(doc(solo,  'invoices/inv-solo'),   { createdBy: 'solo1', companyId: 'solo1', estimateId: 'est-s', createdAt: 2, balanceDue: 1 }));
+  await assertFails(setDoc(doc(solo,     'invoices/inv-solo2'),  { createdBy: 'solo1', companyId: 'co-a',  estimateId: 'est-s', createdAt: 2, balanceDue: 1 }));
+  await assertSucceeds(updateDoc(doc(alice, 'invoices/inv-a'), { balanceDue: 0, amountPaid: 10000, status: 'paid' }));
+  await assertFails(updateDoc(doc(alice,    'invoices/inv-a'), { companyId: 'co-b' }));
+  await assertFails(updateDoc(doc(alice,    'invoices/inv-a'), { createdBy: 'bob' }));
+  await assertFails(updateDoc(doc(alice,    'invoices/inv-a'), { estimateId: 'est-other' }));
+  await assertFails(updateDoc(doc(bob,      'invoices/inv-a'), { status: 'void' }));
+  await assertFails(updateDoc(doc(viewer,   'invoices/inv-v'), { status: 'paid' }));
+  await assertFails(deleteDoc(doc(viewer,   'invoices/inv-v')));
+  await assertFails(deleteDoc(doc(bob,      'invoices/inv-a')));
+  await assertSucceeds(deleteDoc(doc(alice, 'invoices/inv-new')));
+
   console.log('✓ All firestore rules tests passed');
   await env.cleanup();
 }
