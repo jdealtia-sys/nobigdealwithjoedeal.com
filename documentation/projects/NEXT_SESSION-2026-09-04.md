@@ -343,12 +343,57 @@ client-only PR.**
    for a while.
    Read the live config rather than trusting this note:
    `gh api repos/jdealtia-sys/nobigdealwithjoedeal.com/branches/main/protection`
-4. **Cloud Storage backup**: Object Versioning on
-   `nobigdeal-pro.firebasestorage.app` + a daily Storage Transfer to a second
-   bucket (photos and contracts are unrecoverable today) — and tell a session
-   which of the two Firestore backup buckets is canonical. **This matters more
-   now**: #1353 made lead deletion genuinely delete photos, so an accidental
-   hard delete is no longer silently survivable.
+4. ~~**Cloud Storage backup**~~ **MOSTLY DONE 2026-09-03 — and it uncovered
+   something far worse than the thing it asked for.**
+
+   **THE FIRESTORE BACKUPS HAD NEVER ONCE RUN.** Three functions
+   (`dailyFirestoreBackup` 03:15, `nightlyFirestoreBackup` 04:00,
+   `firestoreBackupRetention` 03:45) were ACTIVE and scheduled, and every one
+   failed every night, for two independent reasons:
+   - **The destination bucket never existed.** `firestore-backup.js` writes to
+     `gs://${PROJECT}-firestore-backups`, and its own docstring says the
+     operator must create it. Nobody had. FIXED: created
+     `gs://nobigdeal-pro-firestore-backups`, **US multi-region** — the
+     docstring's `-l us-central1` advice is WRONG for this project, because
+     the database is `nam5` (US multi-region) and an export wants a
+     location-compatible bucket.
+   - **The runtime SA could not export.** It holds `roles/editor`, which
+     deliberately **excludes** `datastore.databases.export` — verified against
+     the role definition, not assumed. That was the `PERMISSION_DENIED` / 403.
+     FIXED: granted `roles/datastore.importExportAdmin` to
+     `717435841570-compute@developer.gserviceaccount.com`.
+
+   Proven, not declared: triggered the real scheduler job and watched
+   `dailyFirestoreBackup.started` with no error, then confirmed
+   `2026-09-03/2026-09-03.overall_export_metadata` (the completion marker the
+   function's own comment says to check for) plus `output-0…13` land in the
+   bucket. 7.3 MB. **That is the first Firestore backup this project has ever
+   had.** The first trigger right after the grant still 403'd — IAM
+   propagation takes a couple of minutes, so re-run before diagnosing.
+
+   **The "two Firestore backup buckets" question in the old brief was a false
+   premise.** There are no two. `nobigdeal-pro.appspot.com` and
+   `staging.nobigdeal-pro.appspot.com` both exist and are both **empty**;
+   neither was ever a backup target. The real one is the one just created.
+
+   **Photos** (`nobigdeal-pro.firebasestorage.app`, 583 MB): Object Versioning
+   is ON and verified. Also a correction — the brief said photos were
+   "unrecoverable today", and they were not: the bucket already carried a
+   **7-day soft-delete policy** (a GCS default since 2024). Versioning adds
+   overwrite protection, which soft delete does not cover, and removes the
+   7-day cliff. Cost is about a penny a month at this size.
+   No lifecycle rule was added on purpose: it would save ~$0.01/month, and any
+   lifecycle rule on the bucket holding every customer photo and signed
+   contract is a place where one typo is unrecoverable. Revisit if storage
+   grows 100x.
+
+   **STILL OPEN — the off-project copy.** Everything above still lives in ONE
+   project. A daily Storage Transfer of both buckets to a second bucket needs
+   `storagetransfer.googleapis.com` enabled (it is not) plus a role for the
+   STS service agent. Worth doing, but it is now the third line of defence for
+   photos rather than the first — and the higher-value version of it is
+   getting the *Firestore* export off-project, since that is the data that
+   cannot be re-photographed.
 5. **For free-API wave 1**: a Healthchecks.io account and a Better Stack
    account; a Census API key (instant); enable the Solar API on the GCP project;
    **start Meta App Review** for Lead Ads (mandatory, days-to-weeks) and the
