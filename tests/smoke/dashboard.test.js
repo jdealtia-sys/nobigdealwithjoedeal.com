@@ -2023,6 +2023,48 @@ section('Phase C.3 finish-finish — crm + map + docs');
     'expected zero inline views; got: ' + stillInline.join(','));
 }
 
+section('Routes: every view-* mount has a routeConfig entry (W160 regression class)');
+{
+  // dashboard-main.js gates BOTH the hashchange handler and the boot
+  // router on routeConfig[name]. A view div without a route still works
+  // from the sidebar (data-action="goTo" calls goTo directly) but its
+  // deep link, hard refresh and browser-back silently land on the
+  // previous view. W160 fixed eight of these in 2026-05; expenses / money
+  // / refrewards then shipped in 2026-06/07 without entries and nothing
+  // caught it until 2026-09-02. Set-compare in both directions so neither
+  // side can drift again.
+  const dash  = read(path.join(ROOT, 'docs/pro/dashboard.html'));
+  const state = read(path.join(PRO_JS, 'dashboard-state.js'));
+  const views = new Set();
+  const reDiv = /<div\b([^>]*)>/g;
+  let dm;
+  while ((dm = reDiv.exec(dash)) !== null) {
+    const attrs = dm[1];
+    if (!/\bclass="view(?:\s|")/.test(attrs)) continue;
+    const idm = /\bid="view-([a-z0-9-]+)"/.exec(attrs);
+    if (idm) views.add(idm[1]);
+  }
+  const block = state.match(/const routeConfig = \{([\s\S]*?)\n\};/);
+  assert('routeConfig block found in dashboard-state.js', !!block);
+  const routes = new Set();
+  if (block) {
+    const reKey = /^\s*'([a-z0-9-]+)'\s*:/gm;
+    let km;
+    while ((km = reKey.exec(block[1])) !== null) routes.add(km[1]);
+  }
+  assert('found a plausible number of view mounts (>= 25)', views.size >= 25,
+    'got ' + views.size + ' — if the mount markup changed, update the extractor');
+  const unrouted = [...views].filter(v => !routes.has(v)).sort();
+  const orphanRoutes = [...routes].filter(r => !views.has(r)).sort();
+  assert('every view-* mount has a routeConfig entry',
+    unrouted.length === 0, 'unrouted views (deep links broken): ' + unrouted.join(','));
+  assert('every routeConfig key has a view-* mount',
+    orphanRoutes.length === 0, 'routes without a view div: ' + orphanRoutes.join(','));
+  for (const v of ['expenses', 'money', 'refrewards']) {
+    assert('route ' + v + ' is registered (2026-09-02 fix)', routes.has(v));
+  }
+}
+
 section('Phase C.3 finish — view-prospects + D.1 plumbing');
 {
   const dash = read(path.join(ROOT, 'docs/pro/dashboard.html'));
