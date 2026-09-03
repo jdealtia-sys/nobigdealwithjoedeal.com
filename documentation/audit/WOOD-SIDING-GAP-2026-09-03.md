@@ -194,11 +194,20 @@ storm-chaser in the market says.
    match the actual reveal — and **blown-in insulation plugs**, which wick water
    into the middle of a sound board and give rot in a row of circles rather than
    along the bottom edge. Also talks a village owner *out* of vinyl-over-wood.
-   **Still to do: Cincinnati** — and it is the hardest, because Hamilton County
-   spans bungalows, mid-century ranches and new east-side builds, so it likely wants
-   to lead on *which era are you in* rather than one angle.
+   ✅ **Cincinnati shipped 2026-09-03 — the cluster is COMPLETE at all five tier-1
+   cities.** The predicted "which era are you in" framing turned out to be the wrong
+   one: era diversity is real in Hamilton County but it is not a *reason to call*.
+   The actual Cincinnati angle came from two already-published Cincinnati jobs —
+   *"one piece of siding worked loose **three stories up**"* and two broken soffit
+   boards in the overhang of a **stucco two-story**, with roof protection down before
+   the ladders went up. So: **in Cincinnati the wood is not hard to fix, it is hard
+   to reach.** Hillside lots put a wall three stories up at the back that is one
+   story at the street, and that is why the rot has been left alone. Access is priced
+   honestly, protection goes down first, and the page says plainly that a
+   ~$700 repair should **not** go through insurance — at or below most deductibles,
+   and rot is excluded anyway.
 
-   **The five shipped pages carry 30 distinct FAQ questions with zero repeats**, and
+   **The six shipped pages carry 36 distinct FAQ questions with zero repeats**, and
    share nav/footer chrome and essentially nothing else. The per-city angle, so
    Cincinnati does not repeat them:
 
@@ -208,6 +217,7 @@ storm-chaser in the market says.
    | Loveland | **What material** — cedar vs wood fiber, plus valley shade and grade |
    | West Chester | **Why** it rotted — a missed detail, a past re-roof, and the HOA |
    | Batavia | **The wood itself** — old-growth worth saving, exposure, insulation plugs |
+   | Cincinnati | **Reaching it** — hillside and upper-story access, protection first, and the deductible answer |
 5. **Put an `OURWORK-STRIP` marker on the other city pages.** The mechanism works
    on any `docs/services/*.html` (proved here). ~90 city pages currently show a
    homeowner no photographs. Each needs the marker **and** the
