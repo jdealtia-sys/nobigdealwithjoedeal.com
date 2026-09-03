@@ -64,7 +64,16 @@ const routeConfig = {
   'projectcodex': { label: 'Project Intel',     parent: null },
   'aiusage':      { label: 'AI Usage',          parent: null },
   // Talk Tank — unified voice-capture inbox (#/talk-tank)
-  'talk-tank':    { label: 'Talk Tank',         parent: null }
+  'talk-tank':    { label: 'Talk Tank',         parent: null },
+  // 2026-09-02: the W160 class recurred. These three views shipped in
+  // 2026-06/07 (#783, #786, #897) with sidebar + mobile-More entries and
+  // goTo() init branches but no route, so #/expenses, #/money and
+  // #/refrewards deep links, hard refresh and browser-back all silently
+  // fell back to the previous view. tests/smoke/dashboard.test.js now
+  // set-compares every view-* mount against these keys.
+  'expenses':     { label: 'Expenses',          parent: null },
+  'money':        { label: 'Money',             parent: null },
+  'refrewards':   { label: 'Referrals',         parent: null }
 };
 
 // Pro-only views — Lite users see upgrade prompt instead
