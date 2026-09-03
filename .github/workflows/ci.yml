@@ -466,7 +466,16 @@ jobs:
   functions-parse:
     name: Functions parse + dep install
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    # Raised 10 -> 20 on 2026-09-03. This job became a REQUIRED status check
+    # when branch protection went on, and within hours it deadlocked every
+    # merge: `Install functions deps (CI)` ballooned from its usual ~20s to
+    # 4-7 minutes against a slow npm registry, `npm audit` then ate the
+    # remainder, and the 10-minute cap cancelled the job three runs in a row —
+    # on a PR touching zero files under functions/. A `cancelled` conclusion
+    # does not satisfy a required check, and ci.yml has no path filters, so
+    # nothing could merge. The cap had been tuned against an "observed max
+    # 0.2-0.9 min" sample that no longer holds.
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -486,19 +495,6 @@ jobs:
             npm install --silent --no-audit --no-fund
           fi
 
-      # Fail the build on HIGH+ npm advisories. The known LOW and
-      # MODERATE transitive advisories (see functions/NPM_AUDIT_ACCEPTED.md)
-      # are below this threshold and intentionally not addressed — each
-      # one is a transitive dep of firebase-admin / @google-cloud/*
-      # whose vulnerable code path is unreachable from our handlers,
-      # and the only available fixes are `npm audit fix --force`
-      # downgrades that regress firebase-admin to 10.x (breaks
-      # multi-tenant + App Check). Re-audit on every dep-review
-      # sprint; any HIGH or CRITICAL is a P1.
-      - name: Audit dependencies (high and above)
-        run: |
-          cd functions
-          npm audit --audit-level=high
       - name: Require every integration module
         run: |
           cd functions
@@ -515,6 +511,50 @@ jobs:
               }
             }
           "
+
+  # Split out of `Functions parse + dep install` on 2026-09-03, and NOT added
+  # to branch protection's required checks — deliberately, for two reasons:
+  #
+  #  1. `npm audit` is a live call to registry.npmjs.org. As a step inside a
+  #     required job it made merges hostage to third-party latency; it was the
+  #     second half of the deadlock described on that job.
+  #  2. Its result changes with NO change to this repo. npm publishes an
+  #     advisory overnight and a previously-green required check goes red on
+  #     code nobody touched. A blocking gate that fires on someone else's
+  #     timetable gets bypassed with `--admin` until it is ignored entirely,
+  #     which is worse than an advisory one that is actually read.
+  #
+  # It still RUNS on every PR and still goes visibly red, so the signal is
+  # intact — only its ability to deadlock the merge queue is removed. If a
+  # HIGH/CRITICAL appears, it is still a P1; see functions/NPM_AUDIT_ACCEPTED.md
+  # for why the known LOW/MODERATE transitive advisories are accepted (each is
+  # a transitive dep of firebase-admin / @google-cloud/* whose vulnerable path
+  # is unreachable from our handlers, and the only fixes are
+  # `npm audit fix --force` downgrades that regress firebase-admin to 10.x and
+  # break multi-tenant + App Check).
+  functions-audit:
+    name: Dependency audit (high and above)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: functions/package-lock.json
+      - name: Install functions deps
+        run: |
+          cd functions
+          if [ -f package-lock.json ]; then
+            npm ci --silent --no-audit --no-fund || npm install --silent --no-audit --no-fund
+          else
+            npm install --silent --no-audit --no-fund
+          fi
+      - name: Audit dependencies (high and above)
+        run: |
+          cd functions
+          npm audit --audit-level=high
 
   secret-scan:
     name: Secret scan
