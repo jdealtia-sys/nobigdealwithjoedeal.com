@@ -83,40 +83,49 @@ this before picking up any lane below.** Each cost a session otherwise.
 
 ## Lanes, in priority order
 
-1. **Lead entry stops losing data on a phone** (S, low risk). Two silent losses
-   during the thing Jo does most. (a) The lead modal's backdrop tap blanks ~25
-   fields — but see correction #6: you must remove or guard the direct listener
-   at `crm-leads.js:165`, not just pass `static: true`. Better still, route
-   backdrop-dismiss through a dirty check. (b) Quick-Add's "Use my location"
-   latches `window._pendingPinLatLng` and nothing clears it, so every later lead
-   whose address fails to geocode inherits the first house's coordinates —
-   wrong pin, wrong route, wrong territory counts. Clear it on every completed
-   create (the geocoded branch returns at
-   `dashboard-bootstrap.module.js:3295` and needs its own clear *before* that
-   return), on Quick-Add dismiss, and on form reset. Leave `tools.js`'s
-   quickAddModal alone — it resets on open, not close; add a comment saying so.
-2. **A ticked task that did not save says so** (S, low). `tasks.js:106` swallows
-   every Firestore failure into `console.error` while `toggleTodayTask` flips
-   the cache *before* awaiting. On one bar the box ticks, he moves on, the task
-   returns tomorrow. Keep the optimistic flip; revert it and toast on failure.
-   Same shape in `_deleteTask` and in `customer-tasks-ui.js`.
-3. **One owner for the kanban filters** (M, medium). `needs-attention-filter.js`
+1. ~~**Lead entry stops losing data on a phone**~~ **SHIPPED #1360.** Backdrop
+   dismiss now asks when anything has been typed (Esc and ✕ still close in one
+   action — it guards the accident, not the intent), and the GPS latch clears
+   on every completed create, on form reset, and on Quick-Add open/close.
+   Three things worth carrying, all found by the adversarial pass rather than
+   the brief: the dismiss-side clear covered **one path in three** until it was
+   registered as an `onClose` (nbd-modal's backdrop and Esc handlers call its
+   internal `close()` directly, which only runs a cleanup callback if one was
+   registered at `open()` — a trap for any future modal cleanup); a late
+   geolocation callback could re-arm the latch up to 12s after dismissal, so
+   there is now a generation counter checked after both awaits; and
+   `stopPropagation` on the backdrop silently broke the address autocomplete's
+   document-level bubble listener, which now gets an explicit dismiss.
+2. ~~**A ticked task that did not save says so**~~ **SHIPPED #1359.** Plus the
+   bug the revert logic uncovered, which is the reusable part: the
+   `data-tk-action` delegate was bound to BOTH `click` and `change`, and a
+   checkbox fires both — so every tick ran its handler **twice**. Harmless
+   while the handlers were idempotent fire-and-forget writes (it just doubled
+   the Firestore traffic), fatal the moment one snapshots state to revert on
+   failure, because the second invocation snapshots the already-flipped value
+   and its revert undoes the first one's. Dispatch now routes by event type.
+   **If you add any other optimistic-then-revert handler, check its delegate
+   first.**
+3. **One owner for the kanban filters** (M, medium) — now the top lane.
+   `needs-attention-filter.js`
    and `stale-shares-filter.js` both write `window._filteredLeads` while each
    keeps a private `active` flag, so turning one off lets the other re-apply on
    the next `nbd:data-refreshed` and on its own 60s interval — leads vanish from
    the board with no user action. Needs a small registry that is the only
    writer. **Do not ship with lane 1 or 2** — both change what he sees after a
    navigation; keep the revert unambiguous.
-4. **CSV formula injection + `data-export.js`'s first test** (M, low).
-   `docs/pro/js/data-export.js:52` quotes only `[",\n\r]`, so a lead field
-   starting with `=`, `+`, `-` or `@` exports as a live spreadsheet formula —
-   and names/notes are attacker-supplied through the public intake form.
-   Confirmed by execution: notes `=cmd|calc` exported verbatim. **Ship the fix
-   and the test together, never the test alone** — the node bucket is a bare CI
-   step with no `continue-on-error`, so a red suite fails every merge. Use the
-   vm-sandbox idiom from `tests/notif-bell-merge.test.js`; do **not** add
-   `window.DataExport` (a Tranche-0 guard at `tests/smoke/dashboard.test.js:3042`
-   fails on any such reference).
+4. ~~**CSV formula injection + `data-export.js`'s first test**~~ **SHIPPED
+   #1361** (36 assertions, node bucket). Two findings the brief did not have:
+   there are **TWO** export paths, not one — `_csvEscape` in
+   `dashboard-bootstrap.module.js` backs the Settings → Data Retention "Export
+   All Leads (CSV)" button over the same `window._leads`, and fixing only
+   `data-export.js` would have shipped a PR claiming a closed hole with the
+   other button still live. And the fix introduced a **round-trip regression**:
+   `data-import.js` never stripped the marker, so an ordinary note like
+   `- called 3x` re-imported as `'- called 3x`, permanently, with CI green.
+   Both fixed; the test now pins all **three** copies of the neutralizer
+   (including `expenses.js`) to one character class, and pins the import strip
+   as lookahead-guarded so a genuine leading apostrophe survives.
 5. **`crm-audit.js` into CI** (M, low value until branch protection exists).
    `docs/pro/**` HTML is guarded by nothing — both `check-site-integrity.js:168`
    and `check-inline-html-scripts.js:60` exclude `pro`. But wiring it as-is
