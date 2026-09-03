@@ -425,13 +425,42 @@ client-only PR.**
    contract is a place where one typo is unrecoverable. Revisit if storage
    grows 100x.
 
-   **STILL OPEN — the off-project copy.** Everything above still lives in ONE
-   project. A daily Storage Transfer of both buckets to a second bucket needs
-   `storagetransfer.googleapis.com` enabled (it is not) plus a role for the
-   STS service agent. Worth doing, but it is now the third line of defence for
-   photos rather than the first — and the higher-value version of it is
-   getting the *Firestore* export off-project, since that is the data that
-   cannot be re-photographed.
+   **THE OFF-PROJECT COPY IS DONE 2026-09-03, and verified by byte parity.**
+   Everything used to live in one project, so every protection above defended
+   against mistakes *inside* `nobigdeal-pro` and none against losing the
+   project itself.
+
+   New project **`nobigdeal-backups`** (org `jonathandeal459-org`, billing
+   `01090D-87C689-0FE40E`), holding two buckets, both US multi-region with
+   versioning:
+
+   | job (daily, `86400s`, ENABLED) | source | destination |
+   |---|---|---|
+   | `nbd-firestore-offsite` | `gs://nobigdeal-pro-firestore-backups` | `gs://nobigdeal-offsite-firestore` |
+   | `nbd-photos-offsite` | `gs://nobigdeal-pro.firebasestorage.app` | `gs://nobigdeal-offsite-photos` |
+
+   Both have completed a REAL run, not just been scheduled — which is exactly
+   the distinction that hid the broken backups all day:
+   - Firestore: **94 objects source / 94 offsite**, 7,275,641 bytes both sides,
+     and the `overall_export_metadata` completion marker is present in the
+     copy, so it is a restorable export rather than a partial one.
+   - Photos: **610,852,034 bytes both sides.**
+
+   The Storage Transfer service agent
+   (`project-760414839970@storage-transfer-service.iam.gserviceaccount.com`)
+   holds only `objectViewer` + `legacyBucketReader`, and only **on the two
+   source buckets** — not project-wide. It cannot write to or delete anything
+   in `nobigdeal-pro`.
+
+   **WHAT THIS STILL DOES NOT PROTECT AGAINST — be honest about it.** Both
+   projects sit under the same Google account and the same billing account. It
+   defends against project deletion, a bad script, and a bucket-level mistake.
+   It does NOT defend against losing the Google account itself, or billing
+   lapsing across the org. If that matters, the next rung is a copy under a
+   different account or off Google entirely — a decision for Jo, not an
+   engineering task.
+
+   Cost: ~600 MB duplicated, so cents per month.
 5. ~~**Raise the Cloud Run CPU quota for us-central1**~~ **DONE 2026-09-03,
    auto-approved.** 200,000 -> 600,000 mCPU (200 -> 600 vCPU), verified live
    with us-east1 left at 200,000 as a control. The numbers explain why this
