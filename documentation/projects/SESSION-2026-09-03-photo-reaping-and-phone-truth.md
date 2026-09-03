@@ -94,10 +94,57 @@ does not, and `escHandler` stays attached until `close()` runs — now *after* t
 await. Every Escape cancelled the guard and spawned a replacement behind it, so
 Escape could never close a dirty document. Fixed with a `closing` latch.
 
-**The root cause is still there, by choice.** The patch cannot be fixed
-synchronously, and flipping it to `return false` would turn every benign confirm
-into a silent cancel. See Jo's queue — the open question is whether native
-`confirm()` still no-ops in a modern iOS home-screen app at all.
+**UPDATE, same session — the root cause is gone too (#1357).** The paragraph
+that stood here said the patch had to stay, because it "cannot be fixed
+synchronously" and flipping it to `return false` would turn every benign
+confirm into a silent cancel. That framing accepted the patch's own premise.
+The premise is false, and a 8-agent research pass established it:
+
+- WebKit gates `alert`/`confirm`/`prompt` on exactly four things
+  (`Source/WebCore/page/LocalDOMWindow.cpp`): no frame, an iframe sandboxed
+  without `allow-modals`, no page, page dismissal. **None** is display-mode,
+  `navigator.standalone`, or "web clip". There is no standalone rule to
+  compensate for, and there is no sign there ever was one — `bugs.webkit.org`
+  has ~28 open "Home Screen" bugs filed through 2026 and not one is about
+  dialogs, and Apple's dedicated "Home Screen Web Apps" release-note section
+  (live since Safari 16.4, and used for exactly this class of standalone-only
+  defect) has never carried a dialog entry in either direction.
+- **Every** suppression path resolves confirm to `false` — sandbox, unload,
+  WKWebView's `APIUIClient` defaults, a backgrounded tab, the
+  suppress-further-dialogs UI, and the still-unfixed `pushState`+back bug.
+  `true` is the one value the platform cannot produce. The stub was not
+  defending against the destructive-action problem; it *was* it.
+- The stub's own comment gave the real motive away — "it's used synchronously
+  in if-statements. We CANNOT make it async without rewriting call sites" —
+  an async/sync mismatch with this file's own modal, not a platform limit.
+  `_origConfirm` was captured and never called, which nobody does to a
+  function they believe is dead.
+
+So the `confirm` and `prompt` overrides are deleted. `alert` stays: it has no
+return value, so it cannot answer for the user, and a toast beats a blocking
+dialog on a phone. `prompt` went with `confirm` because it was the same defect,
+live — it returned `defaultVal`, so `prompt('Rename estimate:', current)`
+silently did nothing (`estimate-crm-ops.js:47`) and three "copy this link"
+boxes never appeared.
+
+Two corrections worth carrying, because both were mine:
+
+1. **"Just delete the file" was wrong.** `createModal` and
+   `nbdAlert`/`nbdConfirm`/`nbdPrompt` are defined INSIDE that file's
+   standalone guard, so deleting it would have silently reverted all 61
+   migrated call sites to raw native confirm. The adversarial pass caught it.
+2. **The "~45 unmigrated sites" figure some agents reported is wrong.** Of 62
+   `window.confirm(` occurrences, 61 are the `nbdConfirm || (...)` desktop
+   fallback. Exactly **5** raw sites decide control flow, all benign.
+
+Also: the gate is `navigator.standalone || matchMedia('(display-mode:
+standalone)')`, so both stubs had been firing on installed **Android and
+desktop** PWAs too, where no dialog bug was ever claimed.
+
+The tripwire earned its keep. `pwa-confirm-guard.test.js` asserted the stub
+still returned `true` specifically so that making it honest would go red and
+force a revisit. It fired the same day it was written, and its assertions are
+now flipped to keep the overrides dead.
 
 ### #1355 — the phone stops lying about where it is
 
