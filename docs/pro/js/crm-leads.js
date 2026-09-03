@@ -171,12 +171,25 @@ async function saveLead(){
   // Lead modal may be absent in standalone/compat mode — bail cleanly.
   if(!mErr||!mOk||!saveBtn){console.warn('saveLead: lead modal not in DOM');return;}
   mErr.style.display='none';mOk.style.display='none';
+  // Validation feedback. #mErr sits at the TOP of the lead modal while the
+  // Save button is ~230 lines of markup lower, so on a phone the rep has
+  // scrolled the strip out of view by the time they tap Save — the
+  // "silent failure" the 2026-08-18 address audit observed live. Scroll
+  // the strip back into view and toast as well, so the reason is seen
+  // wherever the rep is looking.
+  const showFormError = (msg, focusEl) => {
+    mErr.textContent = msg;
+    mErr.style.display = 'block';
+    try { mErr.scrollIntoView({ block: 'center', behavior: 'smooth' }); } catch (_) {}
+    if (typeof showToast === 'function') showToast(msg, 'error');
+    if (focusEl && typeof focusEl.focus === 'function') focusEl.focus();
+  };
   const fnameEl=document.getElementById('lFname');
   const addrEl =document.getElementById('lAddr');
-  if(!fnameEl||!addrEl){mErr.textContent='Lead form missing — reload the page.';mErr.style.display='block';return;}
+  if(!fnameEl||!addrEl){showFormError('Lead form missing — reload the page.');return;}
   const fname=fnameEl.value.trim();
   const addr=addrEl.value.trim();
-  if(!fname||!addr){mErr.textContent='Name and address required.';mErr.style.display='block';return;}
+  if(!fname||!addr){showFormError('Name and address required.', !fname ? fnameEl : addrEl);return;}
 
   // Email + phone validation. The native <input type="email"> validation
   // is bypassed when this function is called via the Save button's
@@ -192,9 +205,7 @@ async function saveLead(){
     // RFC-5322-lite — good enough to catch typos without rejecting valid edge cases.
     const emailOk = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailRaw);
     if (!emailOk) {
-      mErr.textContent = 'Email looks invalid (e.g. name@example.com).';
-      mErr.style.display = 'block';
-      emailEl?.focus();
+      showFormError('Email looks invalid (e.g. name@example.com).', emailEl);
       return;
     }
   }
@@ -203,9 +214,7 @@ async function saveLead(){
     // happens downstream — we just want to reject obvious junk.
     const digits = phoneRaw.replace(/\D/g, '');
     if (digits.length < 10 || digits.length > 15) {
-      mErr.textContent = 'Phone needs at least 10 digits.';
-      mErr.style.display = 'block';
-      phoneEl?.focus();
+      showFormError('Phone needs at least 10 digits.', phoneEl);
       return;
     }
   }
@@ -312,6 +321,16 @@ async function saveLead(){
     // distinguish the two.
     const _wasNewLead = !_leadPayload.id;
     const _savedId = await window._saveLead(_leadPayload);
+    // _saveLead returns null when it deliberately did NOT write: the Lite
+    // lead cap, the billing gate's upgrade modal, or the rep choosing
+    // cancel / "open the existing lead" on the dedup prompt. Each of
+    // those has already shown its own feedback. Until 2026-09-02 this
+    // function fell through to "Lead saved!" + closeLeadModal regardless,
+    // so the rep saw a success message for a lead that does not exist.
+    // Return before touching _modalIntel / the pending D2D knock so a
+    // retry after the prompt still carries the parcel data and converts
+    // the knock.
+    if (_wasNewLead && !_savedId) return;
     window._modalIntel = null;
     // If this save came from a D2D conversion (Edit First flow), mark the knock as converted.
     // The lead was already saved successfully above — only the knock-side
