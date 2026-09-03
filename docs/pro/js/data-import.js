@@ -141,6 +141,19 @@
       const field = mapping[i];
       if (!field) continue;
       let val = row[i] != null ? String(row[i]).trim() : '';
+      // Undo the export's formula-injection marker on the way back in. This
+      // module round-trips the spreadsheet bridge with data-export.js (its
+      // HEADER_ALIASES match that file's LEAD_HEADERS labels exactly), and
+      // since 2026-09-03 the export prefixes a single quote to any field
+      // starting with = + - @ TAB CR. Without this, the common case is not a
+      // hostile payload but an ordinary dash-bulleted note: "- called 3x"
+      // exports as "'- called 3x" and re-imports with the apostrophe welded
+      // on, permanently.
+      // The lookahead is what keeps it safe: only a quote that is followed by
+      // a character the export would have marked is stripped, so a genuine
+      // leading apostrophe in real data ("'96 Chevy in the driveway") is left
+      // exactly as typed.
+      val = val.replace(/^'(?=[=+\-@\t\r])/, '');
       if (val === '') continue;
       if (field === 'jobValue') {
         const num = Number(val.replace(/[^0-9.\-]/g, ''));

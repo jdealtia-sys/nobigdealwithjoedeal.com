@@ -5371,8 +5371,19 @@
   // convenience CSVs for the common ops workflows.
   function _csvEscape(v) {
     if (v == null) return '';
-    const s = String(v);
-    return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+    let s = String(v);
+    // Same formula-injection neutralizer as data-export.js's csvEscape and
+    // expenses.js's. This is the OTHER "Export All Leads (CSV)" button — the
+    // one in Settings → Access → Data Retention — and it maps firstName /
+    // lastName / address / notes straight off window._leads, all of which
+    // arrive from the PUBLIC intake form. Fixing only the first export left
+    // this one live over the same data, one panel away.
+    // Character class and the plain-number exemption are pinned across all
+    // three copies by tests/data-export.test.js.
+    if (/^[=+\-@\t\r]/.test(s) && !/^[-+]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][-+]?\d+)?$/.test(s)) {
+      s = "'" + s;
+    }
+    return /[",\n\r]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
   }
   function _downloadCsv(rows, filename) {
     if (!rows || !rows.length) {
