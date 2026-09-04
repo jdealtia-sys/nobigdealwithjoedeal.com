@@ -1543,6 +1543,31 @@ section('F2 / M3: webhooks fail closed (every HTTP webhook signed)');
     /invoiceWebhook[\s\S]{0,2000}!Buffer\.isBuffer\(req\.rawBody\)/.test(stripeSrc));
 }
 
+// A Firestore equality filter SKIPS documents that lack the field entirely, so
+// `.where('deleted','==',false)` silently excludes every lead written by the
+// live create paths — none of which write `deleted`. hailMatchCron carried that
+// clause and had therefore never scored one of Jo's leads: measured in prod,
+// 68 of 216 docs matched and every one belonged to the seed-demo tenant, while
+// all 81 geocoded live leads were invisible. The three sibling lead-sweeping
+// crons all use an in-memory `if (lead.deleted) continue;` instead, which is
+// the correct default. This pins that convention repo-wide.
+section('Deleted-lead filtering uses the in-memory guard, never a Firestore equality');
+{
+  // Strip comments first. The fix for this very bug documents the old
+  // `.where('deleted', ...)` clause in a comment, so a naive source grep flags
+  // the file that was just repaired — the same code-vs-comment confusion that
+  // let two security-guard assertions pass on prose earlier today.
+  const stripComments = (s) => s.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/[^\n]*/g, '$1');
+  const files = ['integrations/hail-cron.js', 'dormant-leads.js', 'anniversary-touch.js', 'review-request-nudge.js'];
+  for (const rel of files) {
+    const src = stripComments(read(path.join(FUNCTIONS, rel)));
+    assert(rel + ' filters deleted leads in memory',
+      /if \(lead\.deleted\)/.test(src));
+    assert(rel + ' does NOT use a Firestore deleted-equality filter',
+      !/\.where\(\s*['"]deleted['"]/.test(src));
+  }
+}
+
 section('F3: TCPA STOP/HELP + opt-out list');
 {
   const sms = read(path.join(FUNCTIONS, 'sms-functions.js'));
@@ -1659,10 +1684,22 @@ section('C5: Voice Intel retention cron + monitoring + feature flag');
   const alert = JSON.parse(read(alertPath));
   assert('C5: monitoring alert policy file valid JSON + displayName',
     alert.displayName && /Voice Intel/.test(alert.displayName));
-  assert('C5: alert filter targets onAudioUploaded service',
-    (alert.conditions[0].conditionThreshold.filter || '').includes('onAudioUploaded'));
-  assert('C5: alert notification channel placeholder present',
-    Array.isArray(alert.notificationChannels) && alert.notificationChannels[0].includes('NOTIFICATION_CHANNEL_ID'));
+  // 2026-09-04: this policy was a conditionThreshold whose filter named
+  // jsonPayload fields. Log-entry fields have no meaning in a metric filter and
+  // it carried no metric.type, so Google REJECTED it — the policy could never be
+  // created. It is now a conditionMatchedLog, which is what a "this error line
+  // appeared" alert actually is, and the service name is lowercase because that
+  // is what Cloud Run services are actually called.
+  assert('C5: alert is a matched-log condition (a metric filter cannot read jsonPayload)',
+    !!(alert.conditions[0].conditionMatchedLog || {}).filter);
+  assert('C5: alert filter targets the onaudiouploaded service (lowercase, as deployed)',
+    ((alert.conditions[0].conditionMatchedLog || {}).filter || '').includes('onaudiouploaded'));
+  // This used to assert the PLACEHOLDER was present — i.e. it pinned the policy
+  // in a state that could never notify anyone. Assert a real channel instead.
+  assert('C5: alert routes to real notification channels, not the placeholder',
+    Array.isArray(alert.notificationChannels)
+    && alert.notificationChannels.length > 0
+    && alert.notificationChannels.every((c) => /notificationChannels\/\d+$/.test(c)));
 }
 
 section('C4: Voice Intel tab mounted in customer.html');

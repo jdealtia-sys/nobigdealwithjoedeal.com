@@ -1,7 +1,7 @@
 {
   "displayName": "NBD Pro — Tenant microsite config errors (getPublicSiteConfig 500s)",
   "documentation": {
-    "content": "getPublicSiteConfig (functions/handlers/public-site.js) is throwing — every tenant microsite at /sites/t/<slug> renders from this endpoint, and since the 2026-07-04 Oaks cutover that includes oaksroofingandconstruction's live site. A sustained failure = tenant sites are DOWN (the template shows its error state).\n\nExpected non-errors that do NOT trip this policy: 404 not_found (bad slug), 400 bad_key, 429 rate-limit — those return without logger.error. Only the catch-all 500 path logs 'getPublicSiteConfig failed'.\n\nCommon causes:\n  1. Firestore outage / permission regression on companies//companyProfile reads.\n  2. A deploy that broke the handler (roll back via ROLLBACK.md).\n  3. Malformed companyProfile doc for one tenant (check the err message for the doc id).\n\nInvestigate:\n  gcloud functions logs read getPublicSiteConfig --project nobigdeal-pro --gen2 --limit 100\n  # then curl https://nobigdealwithjoedeal.com/api/site-config?key=oaks — a 200 with JSON means recovered.",
+    "content": "getPublicSiteConfig (functions/handlers/public-site.js) is throwing — every tenant microsite at /sites/t/<slug> renders from this endpoint, and since the 2026-07-04 Oaks cutover that includes oaksroofingandconstruction's live site. A sustained failure = tenant sites are DOWN (the template shows its error state).\n\nExpected non-errors that do NOT trip this policy: 404 not_found (bad slug), 400 bad_key, 429 rate-limit — those return without logger.error. Only the catch-all 500 path logs 'getPublicSiteConfig failed'.\n\nCommon causes:\n  1. Firestore outage / permission regression on companies//companyProfile reads.\n  2. A deploy that broke the handler (roll back via ROLLBACK.md).\n  3. Malformed companyProfile doc for one tenant (check the err message for the doc id).\n\nInvestigate:\n  gcloud functions logs read getPublicSiteConfig --project nobigdeal-pro --gen2 --limit 100\n  # then curl https://nobigdealwithjoedeal.com/api/site-config?key=oaks — a 200 with JSON means recovered.\n\n---\nFIXED 2026-09-04. Was a conditionThreshold whose filter named jsonPayload fields — log-entry fields have no meaning in a metric filter, and no metric.type was set, so Google rejected the policy and it could never be created. It is now a conditionMatchedLog, which is what a \"this error line appeared\" alert actually is, and takes the log filter verbatim. Service name also corrected to lowercase (\"getpublicsiteconfig\") — Cloud Run service names are lowercase, so the original camelCase would have matched nothing even once the condition type was right.",
     "mimeType": "text/markdown"
   },
   "combiner": "OR",
@@ -9,24 +9,18 @@
   "conditions": [
     {
       "displayName": "getPublicSiteConfig 500 errors > 3 in 15m",
-      "conditionThreshold": {
-        "filter": "resource.type=\"cloud_run_revision\" AND resource.labels.service_name=\"getpublicsiteconfig\" AND jsonPayload.message=\"getPublicSiteConfig failed\"",
-        "comparison": "COMPARISON_GT",
-        "thresholdValue": 3,
-        "duration": "900s",
-        "aggregations": [
-          {
-            "alignmentPeriod": "300s",
-            "perSeriesAligner": "ALIGN_COUNT"
-          }
-        ]
+      "conditionMatchedLog": {
+        "filter": "resource.type=\"cloud_run_revision\" AND resource.labels.service_name=\"getpublicsiteconfig\" AND jsonPayload.message=\"getPublicSiteConfig failed\""
       }
     }
   ],
   "alertStrategy": {
-    "autoClose": "43200s"
+    "notificationRateLimit": {
+      "period": "3600s"
+    }
   },
   "notificationChannels": [
-    "projects/nobigdeal-pro/notificationChannels/NOTIFICATION_CHANNEL_ID"
+    "projects/nobigdeal-pro/notificationChannels/11974029248665804510",
+    "projects/nobigdeal-pro/notificationChannels/7729093229259591605"
   ]
 }
