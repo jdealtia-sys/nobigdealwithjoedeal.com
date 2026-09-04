@@ -18,6 +18,12 @@
   // Buttons carry data-service (a /services/ hub slug or "all"); cards carry
   // space-separated data-services so one job can match several filters.
   // #service=<slug> deep links let hub-page strips land pre-filtered.
+  // #svc-<slug> is accepted too, and has to be: every OURWORK strip and service
+  // hub links `/our-work#svc-<slug>`, which is the id of the filter BUTTON. The
+  // browser scrolls that button into view and marks it :target — it does not
+  // click it — so those links were landing on the full unfiltered wall of 45
+  // projects. 55 hrefs across docs/ use this form against 8 ids; matching both
+  // here is cheaper and safer than restamping every generated strip.
   const filters = document.querySelector('.filters');
   function applyFilter(svc) {
     filters.querySelectorAll('.filter-btn').forEach(function (b) {
@@ -36,7 +42,7 @@
       history.replaceState(null, '',
         btn.dataset.service === 'all' ? location.pathname : '#service=' + btn.dataset.service);
     });
-    const m = /^#service=([a-z][a-z-]*)$/.exec(location.hash);
+    const m = /^#(?:service=|svc-)([a-z][a-z-]*)$/.exec(location.hash);
     if (m && filters.querySelector('.filter-btn[data-service="' + m[1] + '"]')) {
       applyFilter(m[1]);
       const gallery = document.getElementById('gallery');

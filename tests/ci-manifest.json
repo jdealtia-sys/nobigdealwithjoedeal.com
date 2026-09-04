@@ -46,6 +46,7 @@
     "monthly-overhead-logic.test.js",
     "notif-bell-merge.test.js",
     "orphan-sweep-parser.test.js",
+    "ourwork-deeplink-contract.test.js",
     "prefix-reservation.test.js",
     "pwa-confirm-guard.test.js",
     "pwa-manifest.test.js",
