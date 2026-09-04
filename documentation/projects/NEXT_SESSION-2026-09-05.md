@@ -199,8 +199,22 @@ of 300 chars, room to spare) and the nine template lines.
   guarded this session (`25ea216`), but the lesson generalises: assert the
   outcome, not the precondition.
 - **CI's `Serve docs/` step was fixed on 28c75f3** — two `npx --yes` cold
-  downloads were racing a 60-second `wait-on`. Verified passing since
-  (3m45s for the step). If it times out again, warm the cache first.
+  downloads were racing a 60-second `wait-on`. **Confirmed green** on run 3297
+  (`26bd75a`), the first fully-successful suite on this branch. If it times out
+  again, warm the cache first.
+- **`Dependency audit (high and above)` no longer fails on npm's uptime
+  (`f3c8f0e`).** `registry.npmjs.org`'s `/-/npm/v1/security/audits/quick`
+  endpoint returned a 400 and two 503s on 2026-09-04 alone, and `npm audit`
+  exits 1 for *both* "there is a HIGH advisory" and "the endpoint did not
+  answer" — one exit code, two meanings. The step now separates them: it
+  retries only the endpoint case (3 × `timeout 180`, 20/40s backoff, and exit
+  124 from `timeout` counts as an endpoint problem so a hung call is never
+  mislabelled as a vulnerability), and **still fails** if the audit genuinely
+  could not run, saying so in the error. **There is no `|| true` on that line
+  and there must not be** — a security gate reporting green over an audit it
+  never performed is the false-green class this repo keeps paying for.
+  So: **a red here still means something.** Read the error text — it now tells
+  you which of the two happened. Verified green on run 3299.
 
 ---
 
