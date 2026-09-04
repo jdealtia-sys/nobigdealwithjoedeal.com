@@ -822,8 +822,11 @@ section('T-2: AI draft send-on-approve');
     /document:\s*['"]leads\/\{leadId\}\/ai_drafts\/\{draftId\}['"]/.test(src));
   assert('trigger fires only on pending->approved (idempotent)',
     /before\.status === 'approved'[\s\S]{0,120}after\.status !== 'approved'/.test(src));
+  // 2026-09-04: the register is reached through functions/sms-optout.js now,
+  // because this file used to write it under an 11-digit key and read it under
+  // a 10-digit one. Same invariant, pinned at the new call.
   assert('trigger honors STOP opt-out before sending',
-    /sms_opt_outs[\s\S]{0,200}fail\('opted_out'\)/.test(src));
+    /OptOut\.isOptedOut\([\s\S]{0,300}fail\('opted_out'\)/.test(src));
   assert('trigger logs outbound note as direction:outgoing for thread+AI coherence',
     /direction:\s*'outgoing'[\s\S]{0,200}source:\s*'ai_draft'/.test(src));
   assert('trigger flips draft to sent with twilioSid',
@@ -1543,14 +1546,22 @@ section('F2 / M3: webhooks fail closed (every HTTP webhook signed)');
 section('F3: TCPA STOP/HELP + opt-out list');
 {
   const sms = read(path.join(FUNCTIONS, 'sms-functions.js'));
-  assert('STOP keyword adds to sms_opt_outs',
-    /STOP_WORDS[\s\S]{0,300}sms_opt_outs\//.test(sms));
+  // 2026-09-04 re-point: every one of these used to match a literal
+  // `sms_opt_outs/` + hand-derived key in this file. That hand derivation WAS
+  // the bug — the write kept Twilio's country code, the reads did not, and no
+  // STOP was ever honoured on an outbound send. The register now has one owner
+  // (functions/sms-optout.js), so these pin the invariants at the new calls
+  // rather than at a string that must never come back.
+  assert('STOP keyword records an opt-out',
+    /STOP_WORDS[\s\S]{0,400}OptOut\.recordOptOut\(/.test(sms));
   assert('HELP keyword replies with compliance message',
     /HELP_WORDS[\s\S]{0,500}Msg & data rates may apply/.test(sms));
-  assert('START keyword resumes (deletes opt-out doc)',
-    /START_WORDS[\s\S]{0,300}\.delete\(\)/.test(sms));
-  assert('sendSMS checks opt-out list before sending',
-    /sms_opt_outs\/'\s*\+ toDigits[\s\S]{0,400}replied STOP/.test(sms));
+  assert('START keyword resumes (clears the opt-out, both keys)',
+    /START_WORDS[\s\S]{0,400}OptOut\.clearOptOut\(/.test(sms));
+  assert('sendSMS checks the opt-out register before sending',
+    /OptOut\.isOptedOut\([\s\S]{0,400}replied STOP/.test(sms));
+  assert('no send path hand-derives an opt-out key any more',
+    (sms.match(/doc\((['"`])sms_opt_outs\//g) || []).length === 0);
   const rules = read(path.join(ROOT, 'firestore.rules'));
   assert('sms_opt_outs rules deny client access',
     /match \/sms_opt_outs\/\{phone\}[\s\S]{0,200}allow read, write: if false/.test(rules));
