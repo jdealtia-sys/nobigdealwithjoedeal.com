@@ -45,8 +45,10 @@ The same shape then turned up twice more in one session. Full write-ups:
 
 ## Shipped — PR #1373, branch `claude/wood-siding-site-review-25ivvp`
 
-Fourteen commits. Seven new pages, one new CRM contract test, two generator
-fixes, one CI fix.
+Seven new pages, one new contract test (`ourwork-deeplink-contract`), two
+generator fixes, two CI fixes, three vault notes. Deliberately not stating a
+commit count — the first version of this line said "fourteen" and was wrong
+within the hour; `git log origin/main..HEAD` is the answer that stays true.
 
 **The wood cluster (6 pages).** A hub plus five tier-1 cities. Each city page
 was written from *that town's* housing stock, not from a template — the angles
