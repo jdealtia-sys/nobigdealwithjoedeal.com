@@ -2,10 +2,20 @@
 
 **This is the marketing/site lane.** The CRM lane's brief
 ([NEXT_SESSION-2026-09-04](NEXT_SESSION-2026-09-04.md)) is still the reference
-for everything under `functions/` and `docs/pro/` — **its §Lanes are all
-shipped, but its §Blocked on a Cloud Functions deploy window, §Needs a
-decision, and §Corrections are open and unchanged.** Read that file for those.
-Nothing below touches them.
+for everything under `functions/` and `docs/pro/`, **and it is live, not
+superseded** — it was rewritten in place on 09-03 (PR #1376) after a
+verification sweep refuted several of that session's own claims. Its §Top of
+the list opens with *confirm the scheduled Firestore backup actually ran*, and
+its §Do not rebuild on these, §Corrections, §Blocked on a Cloud Functions
+deploy window and §Needs a decision are all open. **Read that file first if
+your work is CRM-side.** Nothing below touches any of it.
+
+> Merged into this branch at close (`origin/main` → 3 commits, no conflicts),
+> so the gate numbers below are measured on the merged tree. That merge also
+> brought the `FLOORS` ratchet raise in `scripts/run-test-manifest.js` whose
+> own comment says *"KEEP THESE IN STEP with the real counts whenever a suite
+> is added"* — this branch adds one suite, so the floors go 51/65/130 →
+> 52/65/131 here. **If you add a suite, raise them again in the same PR.**
 
 ---
 
