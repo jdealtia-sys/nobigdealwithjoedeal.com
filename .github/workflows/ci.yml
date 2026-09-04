@@ -535,7 +535,11 @@ jobs:
   functions-audit:
     name: Dependency audit (high and above)
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    # 20 not 15: dep install runs ~4 min and the retry path above can spend up
+    # to 3x180s of audit plus 120s of backoff before it fails closed. At 15 the
+    # runner would kill the job mid-retry and the explicit "the audit DID NOT
+    # RUN" message would never be printed.
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -554,7 +558,45 @@ jobs:
       - name: Audit dependencies (high and above)
         run: |
           cd functions
-          npm audit --audit-level=high
+          # `npm audit` exits 1 for TWO unrelated facts: "there is a HIGH or
+          # CRITICAL advisory" and "registry.npmjs.org's audit endpoint did not
+          # answer". Collapsing both into one exit code is what made this check
+          # red three times on 2026-09-04 alone — a 400 on the retiring
+          # /-/npm/v1/security/audits/quick endpoint, then two 503s (PR #1373,
+          # on commits whose diff does not touch functions/package-lock.json;
+          # the lockfile is byte-identical to main). The job comment above
+          # already names the failure mode this feeds: a check that fires on
+          # someone else's timetable stops being read.
+          #
+          # So separate the two. Retry ONLY the endpoint-unavailable case, and
+          # never swallow it: if the audit still cannot run, the step fails with
+          # a message saying the audit did not happen. A security gate that
+          # reports success over an audit it never performed is worse than one
+          # that is occasionally red — the same false-green reasoning that keeps
+          # `|| true` off this line.
+          # Each attempt is bounded: the 2026-09-04 400 hung for 7 minutes before
+          # npm gave up, which on its own would eat the job budget. `timeout`
+          # exits 124 when it kills a call, and that is an endpoint problem too
+          # — it must NOT fall through to the advisory branch and accuse the
+          # lockfile of something the audit never found.
+          for attempt in 1 2 3; do
+            rc=0
+            out="$(timeout 180 npm audit --audit-level=high 2>&1)" || rc=$?
+            if [ "$rc" -eq 0 ]; then
+              printf '%s\n' "$out"
+              exit 0
+            fi
+            printf '%s\n' "$out"
+            if [ "$rc" -eq 124 ] || printf '%s' "$out" | grep -q 'audit endpoint returned an error'; then
+              echo "::warning::npm audit endpoint unavailable (attempt $attempt/3) — retrying in $((attempt * 20))s"
+              sleep "$((attempt * 20))"
+              continue
+            fi
+            echo "::error::npm audit found an advisory at HIGH or above — see the output above. This is a P1; functions/NPM_AUDIT_ACCEPTED.md covers only the known LOW/MODERATE transitives."
+            exit 1
+          done
+          echo "::error::npm audit endpoint still unavailable after 3 attempts — the audit DID NOT RUN. Failing closed rather than reporting green over an audit that never happened."
+          exit 1
 
   secret-scan:
     name: Secret scan
