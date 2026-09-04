@@ -1,7 +1,7 @@
 GAF Master Flow Pivot Boot imagery
 ===================================
 Sources (2026-04-21):
-  pivot-boot-hero.jpg - product hero shot (item #754846 "754846_default_hero")
+  pivot-boot-hero.webp - product hero shot (item #754846 "754846_default_hero")
                         sourced via Beacon Building Products / Dealer's Choice CDN
                         (static-ng.becn.digital). Real Master Flow Pivot Pipe Boot
                         installed on a shingle roof.
