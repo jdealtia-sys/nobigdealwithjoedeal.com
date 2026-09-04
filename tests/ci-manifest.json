@@ -53,6 +53,7 @@
     "route-truth.test.js",
     "scheduling-logic.test.js",
     "seo-surface.test.js",
+    "sms-optout-key.test.js",
     "state-store.test.js",
     "storm-geo.test.js",
     "stripe-dispute-branches.test.js",

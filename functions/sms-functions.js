@@ -37,6 +37,10 @@ const { enforceRateLimit, httpRateLimit, clientIp } = require('./integrations/up
 // (last-10 US digits) on every lead; incomingSMS normalizes the Twilio
 // sender the same way so an E.164 inbound matches a free-form-typed lead.
 const { phoneDigits10 } = require('./phone-utils');
+// TCPA opt-out register. One module owns the key derivation because this file
+// used to write the register under an 11-digit key and read it under a
+// 10-digit one, so no STOP was ever honoured on an outbound send.
+const OptOut = require('./sms-optout');
 // Tenant-safe inbound routing (audit 2026-08-02 HIGH-5): one shared Twilio
 // number serves every tenant, so the lead match must consider ALL candidates
 // and refuse to guess across tenants. Pure module — decision table lives (and
@@ -236,7 +240,11 @@ exports.sendSMS = onRequest(
     // C4: per-recipient cap — even if a rep has budget remaining,
     // no single phone number should receive >5 SMS/day from this
     // app across ALL reps. Anti-harassment + TCPA defense.
-    const toDigits = String(to).replace(/\D/g, '');
+    // Canonical last-10 key. The old plain digit-strip split this bucket in
+    // two — a rep-typed '(859) 555-0134' and the AI path's E.164 fallback
+    // counted separately, so the same person could receive 10/day against a
+    // stated cap of 5.
+    const toDigits = OptOut.optOutKey(to);
     try {
       await enforceRateLimit('sendSMS:to', toDigits, 5, 86_400_000);
     } catch (e) {
@@ -250,11 +258,15 @@ exports.sendSMS = onRequest(
     }
 
     // F3: TCPA. If the recipient replied STOP, we must not message
-    // them again — civil penalties per message are steep. Store
-    // lookup is fast (single doc get).
-    if (toDigits) {
-      const optOut = await getFirestore().doc('sms_opt_outs/' + toDigits).get();
-      if (optOut.exists) {
+    // them again — civil penalties per message are steep. A throw here is
+    // deliberately not caught: it reaches the outer handler as a 500 and
+    // nothing is sent.
+    {
+      const optOut = await OptOut.isOptedOut(getFirestore(), to);
+      if (optOut.optedOut) {
+        if (optOut.viaLegacyKey) {
+          logger.info('optout.legacy_key_hit', { fn: 'sendSMS', key: optOut.key });
+        }
         res.status(403).json({
           error: 'This recipient has opted out of SMS (replied STOP). Contact them by phone or email.'
         });
@@ -429,7 +441,9 @@ exports.sendD2DSMS = onRequest(
       }
 
       // C4: per-recipient cap — 5/day across all reps.
-      const toDigits = String(phoneNumber).replace(/\D/g, '');
+      // Same canonical key as sendSMS so a knock and a CRM text share one
+      // per-recipient bucket instead of two.
+      const toDigits = OptOut.optOutKey(phoneNumber);
       try {
         await enforceRateLimit('sendSMS:to', toDigits, 5, 86_400_000);
       } catch (e) {
@@ -441,10 +455,14 @@ exports.sendD2DSMS = onRequest(
         }
         throw e;
       }
-      // F3: TCPA — check opt-out list before sending.
-      if (toDigits) {
-        const optOut = await getFirestore().doc('sms_opt_outs/' + toDigits).get();
-        if (optOut.exists) {
+      // F3: TCPA — check opt-out list before sending. A throw reaches the
+      // outer handler (500) and nothing is sent.
+      {
+        const optOut = await OptOut.isOptedOut(getFirestore(), phoneNumber);
+        if (optOut.optedOut) {
+          if (optOut.viaLegacyKey) {
+            logger.info('optout.legacy_key_hit', { fn: 'sendD2DSMS', key: optOut.key });
+          }
           res.status(403).json({
             error: 'This number has opted out of SMS (replied STOP).'
           });
@@ -616,10 +634,12 @@ exports.incomingSMS = onRequest(
       // pipeline — auto-send a "Welcome back" reply with NO rep approval and
       // never create the AI draft / reach the rep. (TCPA resume ≠ "yes".)
       const START_WORDS = new Set(['START', 'UNSTOP']);
-      const phoneDigits = String(fromPhone).replace(/\D/g, '');
+      // Canonical last-10 key — NOT a plain digit strip. Twilio delivers
+      // E.164, so the old strip kept the leading country-code 1 and wrote a
+      // key no sender ever looked up. See functions/sms-optout.js.
+      const phoneDigits = OptOut.optOutKey(fromPhone);
       if (phoneDigits && STOP_WORDS.has(opt)) {
-        await db.doc('sms_opt_outs/' + phoneDigits).set({
-          phone: fromPhone,
+        await OptOut.recordOptOut(db, fromPhone, {
           optedOutAt: FieldValue.serverTimestamp(),
           keyword: opt,
           twilioSid: messageSid
@@ -644,7 +664,10 @@ exports.incomingSMS = onRequest(
       }
       if (phoneDigits && START_WORDS.has(opt)) {
         // Resume — delete the opt-out record so the phone is live again.
-        await db.doc('sms_opt_outs/' + phoneDigits).delete().catch(() => {});
+        // Clears BOTH the canonical and the legacy key: leaving a
+        // pre-migration record behind would keep the lookup's legacy branch
+        // suppressing someone who explicitly asked to resume.
+        await OptOut.clearOptOut(db, fromPhone);
         res.set('Content-Type', 'text/xml');
         res.status(200).send(
           '<?xml version="1.0" encoding="UTF-8"?><Response>' +
@@ -1237,10 +1260,14 @@ exports.onAiDraftApproved = onDocumentUpdated(
 
     // TCPA: never message a number that replied STOP. incomingSMS
     // records opt-outs at sms_opt_outs/{digits}; honor them here too.
-    const toDigits = String(to).replace(/\D/g, '');
     try {
-      const optOut = await db.doc('sms_opt_outs/' + toDigits).get();
-      if (optOut.exists) { await fail('opted_out'); return; }
+      const optOut = await OptOut.isOptedOut(db, to);
+      if (optOut.optedOut) {
+        if (optOut.viaLegacyKey) {
+          logger.info('optout.legacy_key_hit', { fn: 'onAiDraftApproved', key: optOut.key });
+        }
+        await fail('opted_out'); return;
+      }
     } catch (e) {
       // Fail CLOSED on the AI-draft path: if the opt-out lookup errors we must
       // NOT let an auto-generated reply reach a possibly-STOP'd number (TCPA).

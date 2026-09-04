@@ -72,11 +72,15 @@ function run(ctx) {
   section('SECURITY GUARDS — SMS opt-out (TCPA)');
   assert('incomingSMS honors STOP-family keywords',
     /STOP_WORDS/.test(sms) && /UNSUBSCRIBE/.test(sms));
-  assert('incomingSMS records opt-outs to sms_opt_outs',
-    /sms_opt_outs/.test(sms));
-  assert('outbound senders gate on sms_opt_outs before sending',
-    // sendSMS / sendD2DSMS live in the same module and must consult the list.
-    (sms.match(/sms_opt_outs/g) || []).length >= 2);
+  // 2026-09-04: these matched the bare string `sms_opt_outs`, which after the
+  // key-normalisation fix survives ONLY in two explanatory comments — so both
+  // assertions would have stayed green while every send path stopped checking
+  // the register. Re-pointed at the calls, which comments cannot satisfy.
+  assert('incomingSMS records opt-outs through the shared register',
+    /OptOut\.recordOptOut\(/.test(sms));
+  assert('outbound senders gate on the opt-out register before sending',
+    // sendSMS, sendD2DSMS and the approved-AI-draft trigger must all consult it.
+    (sms.match(/OptOut\.isOptedOut\(/g) || []).length >= 3);
 
   // ── Claim-escalation remediation script: safety invariants ──
   // scripts/audit-claim-escalation.js mutates prod Auth claims under --apply.
