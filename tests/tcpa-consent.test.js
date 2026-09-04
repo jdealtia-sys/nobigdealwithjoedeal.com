@@ -258,6 +258,40 @@ check('T25 the bridge carries the consent record onto the CRM lead', () => {
   );
 });
 
+// ── Every funnel path that GATES on the box must also SEND the field ────
+// The /estimate funnel has TWO submit buttons and both refuse to submit
+// without the consent checkbox — but only one of them put the value in its
+// payload. That asymmetry is invisible until something reads the flag, and
+// then it silently suppresses the acknowledgement for a homeowner who
+// consented and explicitly asked to be called. Found by the 2026-09-04 audit
+// AFTER the gate had already been written, which is exactly the window in
+// which this class of bug ships.
+
+check('T26 every funnel payload that gates on the consent box also sends it', () => {
+  const FUNNEL = fs.readFileSync(
+    path.join(ROOT, 'docs', 'assets', 'js', 'inline', '4053149b2f.js'), 'utf8',
+  );
+  // Both submit handlers, sliced to their own bodies.
+  const paths = [
+    ['submitAndGetEstimate', 'async function submitAndGetEstimate'],
+    ['skipOtpAndRequestCall', 'async function skipOtpAndRequestCall'],
+  ];
+  for (const [name, marker] of paths) {
+    const start = FUNNEL.indexOf(marker);
+    assert.ok(start > 0, `could not locate ${name} in the funnel`);
+    // Each handler builds exactly one `var leadData = {...}`; take that object.
+    const ld = FUNNEL.indexOf('var leadData = {', start);
+    assert.ok(ld > 0, `${name} has no leadData payload`);
+    const body = FUNNEL.slice(ld, FUNNEL.indexOf('};', ld));
+    assert.ok(
+      /tcpaConsent\s*:/.test(body),
+      `${name}'s leadData omits tcpaConsent — it refuses to submit without the `
+        + 'checkbox, so the lead would land with no provable consent and the SMS '
+        + 'ack would silently never fire for it',
+    );
+  }
+});
+
 // ── Report ──────────────────────────────────────────────────────────────
 
 console.log('');
