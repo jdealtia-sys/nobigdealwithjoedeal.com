@@ -1154,6 +1154,29 @@ jobs:
           fi
           exit 0
 
+      # Orphan check (2026-09-04). Eight functions retired from source on
+      # 2026-08-06 and 2026-08-11 stayed deployed for four months across many
+      # green deploys, because nothing compared the fleet to the code. See the
+      # corrected --force comment above: Firebase only detects orphans on an
+      # UNFILTERED functions deploy, and this workflow always names targets.
+      #
+      # Runs AFTER the tolerant retry so a function deployed moments ago is
+      # never reported MISSING. gcloud is already authenticated by the
+      # "Enable required Google APIs" step earlier in this job.
+      #
+      # The exit code propagates deliberately, including exit 2 ("could not
+      # determine"). A checker that cannot read either list must not be
+      # indistinguishable from a clean fleet — that is the exact false-green
+      # this check was built to end, and gcloud is already load-bearing in two
+      # earlier steps, so this adds no new fragility. A real orphan turns the
+      # deploy job red AFTER a successful rollout: a signal to clean up, not a
+      # rollback.
+      - name: Fleet must match the code — no orphaned or missing functions
+        if: ${{ github.event_name == 'push' || github.event.inputs.scope == 'all' || github.event.inputs.scope == 'functions' }}
+        env:
+          NBD_PROJECT: ${{ env.PRO_PROJECT }}
+        run: node scripts/check-function-orphans.js
+
       - name: Wipe service-account JSON from runner
         if: always()
         run: rm -f "${{ steps.sa.outputs.sa_path }}"
