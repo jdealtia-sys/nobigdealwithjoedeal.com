@@ -220,6 +220,20 @@ function mapPublicLeadToLead(args) {
   // silently lose the referrer's $200).
   if (data.referralCode) doc.redeemReferralCode = String(data.referralCode).toUpperCase().replace(/[^A-Z0-9-]/g, '');
 
+  // TCPA consent provenance (2026-09-04). The homeowner ticked the express-
+  // written-consent box on the public form; carry that fact onto the CRM lead
+  // so the proof lives where Jo actually looks, not only on the raw public-lead
+  // document. Copied strictly (`=== true`) and only when present, so a lead
+  // that never captured consent is silently absent rather than stamped false.
+  //
+  // Scope note, deliberately: NOTHING in the CRM reads this yet. The CRM's own
+  // outbound texting is Jo hand-initiating a message to someone he is already
+  // doing business with — a different consent posture from an automated ack —
+  // and auto-blocking it on this flag would break his daily driver. This is the
+  // audit record; gating CRM sends on it is a separate decision, not a
+  // side effect of persisting the fact.
+  if (data.tcpaConsent === true) doc.tcpaConsent = true;
+
   return doc;
 }
 

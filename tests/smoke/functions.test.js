@@ -42,9 +42,25 @@ section('Alert outbox ledger (2026-07-06, punch item 6)');
     && /const isNbd = !companyId \|\| String\(companyId\) === NBD_OWNER_UID/.test(la));
   assert('unresolved NON-NBD tenant gets Joe routing but an empty-string brand',
     /name: '', seal: '', isNbd: false/.test(la));
-  assert('homeowner acks (email + SMS) gate on target.isNbd, not seal',
-    (la.match(/target\.isNbd !== true\) return/g) || []).length === 2
+  // 2026-09-04: the SMS ack's copy of this check moved into tcpa-consent.js
+  // when the ack started reading stored consent instead of inferring it from
+  // the collection name. The invariant is unchanged and still has exactly two
+  // enforcement points — the email ack inline, the SMS ack via smsAckGate —
+  // so both are pinned here rather than counting occurrences in one file.
+  assert('homeowner EMAIL ack gates on target.isNbd, not seal',
+    (la.match(/target\.isNbd !== true\) return/g) || []).length === 1
     && !/target\.seal !== 'NBD'\) return/.test(la));
+  assert('homeowner SMS ack gates through smsAckGate, and passes it the target',
+    /C\.smsAckGate\(\{[\s\S]{0,200}target,/.test(la)
+    && !/collection !== 'estimate_leads'\) return/.test(la));
+  {
+    const tcpa = read(path.join(FUNCTIONS, 'tcpa-consent.js'));
+    assert('smsAckGate enforces the same isNbd rule the email ack does',
+      /a\.target\.isNbd !== true\) return \{ allowed: false, reason: 'not_nbd_lead' \}/.test(tcpa)
+      && !/seal/.test(tcpa));
+    assert('smsAckGate refuses a lead with no stored consent',
+      /!hasWrittenConsent\(a\.doc\)\) return \{ allowed: false, reason: 'no_stored_consent' \}/.test(tcpa));
+  }
   const rules = read(path.join(ROOT, 'firestore.rules'));
   assert('alert_outbox rules: tenant readers + admin only, zero client writes',
     /match \/alert_outbox\/\{outboxId\}[\s\S]{0,600}allow create, update, delete: if false/.test(rules));
