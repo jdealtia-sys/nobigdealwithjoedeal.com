@@ -332,3 +332,60 @@ Refuters were instructed to default to refuted when uncertain.
 Both runs were seeded with the fourteen claims the 2026-09-03 session had
 already disproved, plus the known-open list from that session's handoff, so
 neither set reappears here as a new discovery.
+
+## UPDATE 2026-09-04 (evening) — "8 stale functions" was wrong; they were orphans
+
+The 2026-09-03 handoff said eight functions were *"three weeks stale"* and
+that *"their live code is behind main."* Both halves are false, and the truth
+is a worse problem with an easier fix.
+
+`sendEstimateEmail`, `sendTeamInviteEmail`, `sendDripEmail`,
+`auditCustomerDataIntegrity`, `backfillCustomerData`, `migratePinsToKnocks`,
+`triggerProcessRecording` and `reprocessRecording` were **deliberately retired
+from source** on 2026-08-06 and 2026-08-11 (the dead-surface and
+tenant-lifecycle lanes, `d419bf76` / `c4eb886e`, Jo-approved). Their live code is
+not behind main — it does not exist in main at all. `updateTime 2026-08-11` is
+the retirement date, not evidence of drift.
+
+They were never undeployed. They had been serving frozen code for four months
+across many green deploys.
+
+**Why no deploy ever removed them.** Firebase only detects an orphan on an
+UNFILTERED `deploy --only functions`. This workflow names every target
+explicitly (`--only functions:NAME` — its own comment above `_deploy_only()` says
+so), and anything absent from that list is simply not considered. The comment
+at `firebase-deploy.yml:626` claimed *"--force auto-confirms deletion of orphan
+functions"* — describing something that structurally cannot happen here.
+Corrected in place.
+
+**A source comment was also lying.** `sendEstimateEmail`'s retirement note read
+*"Prod instance deleted via console — see WEEKLY_CADENCE."* It had not been.
+
+**Not a security incident, stated plainly.** Six of the eight were invokable by
+`allUsers` at the Cloud Run layer, including a data migration and a
+customer-data backfill. Every one was checked before that was characterised:
+all are `onCall` with a real `request.auth` guard, and `triggerProcessRecording` /
+`reprocessRecording` additionally require `role === 'admin'`. The `allUsers` binding
+is the standard Firebase callable arrangement, not a hole. What they actually
+cost was frozen dependencies, live secret bindings, and fleet count.
+
+**Resolved.** All eight deleted 2026-09-04 on Jo's explicit instruction, after
+confirming zero callers under `docs/` and that all eight were HTTP/callable with
+no event triggers (so nothing could be orphaned downstream). Pre-delete state
+captured first. Read back: all eight absent from `gcloud functions list`, their
+underlying Cloud Run services gone too. **Fleet 179 → 171.**
+
+That fleet number matters beyond tidiness: the 2026-09-03 CPU-quota analysis
+was argued over service counts, and eight of the services in that count were
+dead.
+
+### The durable lesson
+
+**Retiring an export does not undeploy it.** Deleting the code is half the job;
+`gcloud functions delete <name> --region=us-central1` is the other half, and
+nothing in CI does it or notices it was skipped. A retirement that does not
+name the deletion as a separate, verified step leaves a live endpoint behind.
+
+Still unbuilt, and the obvious next step: a post-deploy orphan detector that
+diffs deployed function names against the exports in `functions/` and fails —
+this was found by hand, and nothing would have found it otherwise.

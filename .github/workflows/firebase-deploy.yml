@@ -623,8 +623,31 @@ jobs:
       #
       # Full remediation runbook: see POST_DEPLOY_CHECKLIST §16.
       #
-      # --force auto-confirms deletion of orphan functions. --debug
-      # was retained on 2026-04-14 to diagnose the IAM-denial cascade;
+      # --force auto-confirms destructive prompts. It does NOT delete orphan
+      # functions here, and the older wording claiming it did was wrong in a
+      # way that cost real cleanup — corrected 2026-09-04.
+      #
+      # Firebase only DETECTS an orphan (deployed function with no matching
+      # export) on an UNFILTERED `deploy --only functions`. Every deploy in
+      # this workflow names its targets explicitly — `--only functions:NAME`,
+      # see _deploy_only() below and the comment above it that says so — so
+      # anything absent from the list is simply not considered. --force then
+      # has no deletion to confirm.
+      #
+      # Measured 2026-09-04: eight functions retired from source on 2026-08-06
+      # and 2026-08-11 (sendEstimateEmail, sendTeamInviteEmail, sendDripEmail,
+      # auditCustomerDataIntegrity, backfillCustomerData, migratePinsToKnocks,
+      # triggerProcessRecording, reprocessRecording) were still deployed and
+      # serving frozen code months later, across many green deploys. One of
+      # them even carried a source comment asserting its "Prod instance
+      # deleted via console". It had not been. All eight were deleted by hand;
+      # the fleet went 179 -> 171.
+      #
+      # So: RETIRING AN EXPORT DOES NOT UNDEPLOY IT. Deleting the code is half
+      # the job — `gcloud functions delete <name> --region=us-central1` is the
+      # other half, and nothing in CI will do it or notice it was skipped.
+      #
+      # --debug was retained on 2026-04-14 to diagnose the IAM-denial cascade;
       # removed now that the split-deploy strategy works cleanly. If
       # a future deploy goes opaque again, add --debug back as the
       # first investigation step.
