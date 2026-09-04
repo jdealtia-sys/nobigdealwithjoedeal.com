@@ -325,8 +325,13 @@ function deleteInsight(id) {
   renderSavedInsights();
 }
 
-function clearAllInsights() {
-  if (!confirm('Delete all saved insights?')) return;
+// async since 2026-09-03 so the confirm can be the real modal. Safe: the only
+// caller is the data-action dispatch map below, wired through
+// addEventListener, which discards the return value — so there is no
+// `if (fn())` truthiness hazard from returning a Promise.
+async function clearAllInsights() {
+  const _ask = window.nbdConfirm || ((m) => Promise.resolve(window.confirm(m)));
+  if (!(await _ask('Delete all saved insights?'))) return;
   localStorage.removeItem(STORAGE_KEY);
   renderSavedInsights();
   toast('All insights cleared.', 'ok');

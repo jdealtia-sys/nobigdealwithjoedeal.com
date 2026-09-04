@@ -431,7 +431,12 @@ function updateSelectionUI() {
 document.getElementById('prBulkClear').addEventListener('click', clearSelection);
 document.getElementById('prBulkDelete').addEventListener('click', async () => {
   if (state.selected.size === 0) return;
-  if (!confirm('Delete ' + state.selected.size + ' photo' + (state.selected.size === 1 ? '' : 's') + '? This can\'t be undone.')) return;
+  // Routed through nbdConfirm like the other 61 destructive guards. This one
+  // sat in docs/pro/js/pages/, which tests/pwa-confirm-guard.test.js did not
+  // scan until 2026-09-03 — so the bulk photo delete the guard was written to
+  // protect was the one site it could not see.
+  const _ask = window.nbdConfirm || ((m) => Promise.resolve(window.confirm(m)));
+  if (!(await _ask('Delete ' + state.selected.size + ' photo' + (state.selected.size === 1 ? '' : 's') + '? This can\'t be undone.'))) return;
   const ids = Array.from(state.selected);
   // Batch delete (Firestore caps batches at 500; we're well under)
   try {
