@@ -1,5 +1,11 @@
 /* @generated — extracted from inline <script> by audit-homeowner-2026-05-22.
-   Hash: 4053149b2f.  Do not edit by hand. */
+   Hash: 4053149b2f.
+
+   2026-09-04 correction to that header: "Do not edit by hand" is no longer
+   true and following it costs a session. This was a ONE-TIME extraction to
+   satisfy the CSP no-inline-script rule — nothing regenerates it (`grep -rn
+   4053149b2f scripts/ site-src/` returns zero), there is no source to edit
+   instead, and the file has been hand-maintained since. Edit it here. */
 /* ── Configuration ── */
 const CONFIG = {
   GOOGLE_MAPS_KEY: '', // Add your Google Maps Static API key here
@@ -813,6 +819,16 @@ async function skipOtpAndRequestCall(btn) {
     phone: funnelData.phone,
     email: funnelData.email,
     phoneVerified: false,
+    // Same express-written-consent record the verified path stores (see
+    // submitAndGetEstimate). This path ALREADY refuses to submit without the
+    // box ticked — `consent` is part of the guard above — but it omitted the
+    // field from the payload, so the lead landed with no proof. Harmless while
+    // nothing read the flag; the moment lead-alert's SMS ack started gating on
+    // a stored consent, this path's homeowners would have been silently
+    // dropped: they ticked the box, asked Joe to call, and would never have
+    // received the acknowledgement. Always true here by construction, but
+    // written from the variable the guard actually tested, not a literal.
+    tcpaConsent: consent,
     requestType: 'otp_skipped_call_request'
   };
 
