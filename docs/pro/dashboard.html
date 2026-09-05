@@ -4734,6 +4734,26 @@
         </div>
       </div>
 
+      <!-- CALENDAR FEED (.ics) — subscribe from the phone's own Calendar app.
+           Listeners are bound by id in js/calendar-feed-ui.js, not via the
+           data-fn dispatcher, so there is no registry entry to drift from. -->
+      <div class="panel">
+        <div class="panel-hdr"><div><div class="panel-label">Your Calendar</div><div class="panel-title">Subscribe On Your Phone</div></div></div>
+        <div class="panel-body">
+          <div style="font-size:12px; color:var(--m); line-height:1.5; margin-bottom:12px;">
+            Puts every appointment and every scheduled job straight into the Calendar app on your phone, refreshing on its own. Anyone with this link can read your schedule — rotate it if it gets out.
+          </div>
+          <div style="display:flex;gap:8px;align-items:center;margin-bottom:12px;">
+            <input type="text" id="calFeedUrl" value="" readonly placeholder="Tap &quot;Create my link&quot; to generate your feed" style="flex:1;background:var(--s2);border:1px solid var(--br);border-radius:7px;padding:10px 14px;font-family:inherit;font-size:13px;color:var(--t);">
+            <button type="button" class="btn btn-orange" id="calFeedCreate" style="padding:10px 16px;font-size:12px;white-space:nowrap;">Create my link</button>
+          </div>
+          <div class="fwgap-8">
+            <a class="btn btn-ghost" id="calFeedSubscribe" aria-disabled="true" style="font-size:11px;padding:7px 14px;opacity:.5;pointer-events:none;">📅 Subscribe on iPhone</a>
+            <button type="button" class="btn btn-ghost" id="calFeedCopy" disabled style="font-size:11px;padding:7px 14px;">📋 Copy Link</button>
+          </div>
+        </div>
+      </div>
+
       <!-- CAL.COM SETTINGS -->
       <div class="panel">
         <div class="panel-hdr"><div><div class="panel-label">Setup</div><div class="panel-title">Cal.com Configuration</div></div></div>
@@ -6289,6 +6309,7 @@
      timeline with conflict and tight-travel warnings. Must load after
      maps.js because it uses window.hav() (haversine distance). -->
 <script defer src="js/smart-calendar.js?v=1"></script>
+<script defer src="js/calendar-feed-ui.js?v=1"></script>
 <!-- Voicemail pipeline — record OR upload a voicemail, route through
      the dictate callable in summarize mode, write a structured
      activity entry, and auto-create tasks from extracted action items.

@@ -38,6 +38,7 @@ If you add a new export, list it here so the next audit doesn't have to re-deriv
 | `createSignRequest` | onCall | Remote signing — rep mints a doc_sign_token + emails the homeowner the sign link |
 | `createDealAcceptToken` | onCall | Close Board — rep mints a deal_accept_token for a deal room they own |
 | `createReportShareToken` | onCall | Rep mints a no-login view link for a saved inspection report |
+| `createCalendarFeedToken` | onCall | Rep mints (or rotates) the secret `/calendar/<token>.ics` URL for their own schedule. One active token per rep; minting revokes the previous one, which is this feature's only revocation path |
 | `getDocumentHtml` | onCall | Reads a generated document's HTML back for the Documents tab (owner/manager/admin, admin-SDK read of `htmlPath`). Replaces the permanent `getDownloadURL` that docgen used to persist as `documents/{id}.htmlUrl` — an unrevocable no-auth URL for a signed contract. A signed URL is NOT the alternative: HTML fetched from `storage.googleapis.com` executes in that origin, which is why `signImageUrl` excludes every HTML prefix (its H-01 note) |
 | `trackUsage` | onCall | Plan-usage increment (atomic, server-side) |
 | `lookupParcel` | onCall | Parcel lookup w/ 90-day cache — Regrid (default) or Swath per `NBD_PARCEL_PROVIDER`, other provider is the fallback |
@@ -97,6 +98,7 @@ If you add a new export, list it here so the next audit doesn't have to re-deriv
 | `getDealRoom` | onRequest | Deal acceptance: ~120-bit single-use token, 14-day expiry, served same-origin via `/deal/**` rewrite |
 | `submitDealAcceptance` | onRequest | Deal acceptance: burns token, records tier + signature, notifies rep |
 | `getSharedReport` | onRequest | Report share: ~120-bit REUSABLE token, 30-day default expiry, per-IP rate limit (view-only) |
+| `getCalendarFeed` | onRequest | Read-only `.ics` feed served at `/calendar/<token>.ics` for the iPhone Calendar app. ~120-bit token, deliberately NO expiry (a subscription that stops refreshing is silent), per-IP + per-token rate limits, `text/calendar`, never an empty 200 — a calendar client reads that as "all events deleted" |
 | `getPublicSiteConfig` | onRequest | Pillar 5 tenant-microsite config read — strict public-marketing whitelist, active-tenant check, rate-limited |
 | `submitReferral` | onRequest | Per-IP (5/10min) + per-source-customer (10/24h) rate limit, phone/email validation |
 | `stormReport` | onRequest | Public IEM storm-history proxy for /storm-report — server-side yearly chunking + Firestore cache (no API key needed) |

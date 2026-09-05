@@ -14,6 +14,7 @@
     "address-audit-script.test.js",
     "backup-freshness.test.js",
     "billing-gate.test.js",
+    "calendar-feed.test.js",
     "company-stale-fields-cleanup.test.js",
     "crm-audit.test.js",
     "cron-heartbeat.test.js",
