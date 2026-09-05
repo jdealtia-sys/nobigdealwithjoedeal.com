@@ -23,7 +23,7 @@
 
 'use strict';
 
-const { onSchedule } = require('firebase-functions/v2/scheduler');
+const { onSchedule } = require('./heartbeat'); // heartbeat-wrapped drop-in for firebase-functions/v2/scheduler
 const { logger } = require('firebase-functions/v2');
 const { defineSecret } = require('firebase-functions/params');
 const { Timestamp, getFirestore } = require('firebase-admin/firestore');

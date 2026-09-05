@@ -108,7 +108,10 @@ exports.integrationStatus = onCall(
         groq:               _hasInt('GROQ_API_KEY'),
         // Image generation — kie.ai alternate visualizer provider
         // (dark until IMAGEGEN_PROVIDER=kie; see visualizer-image-gen.js).
-        kie:                _hasInt('KIE_API_KEY')
+        kie:                _hasInt('KIE_API_KEY'),
+        // Healthchecks.io dead-man's-switch for every scheduled function
+        // (integrations/heartbeat.js; runbooks/HEALTHCHECKS-SETUP.md).
+        healthchecks:       _hasInt('HEALTHCHECKS_PING_KEY')
       },
       rateLimitProvider: rateLimitProvider(),
       // D.3 — runbook reference so the admin readout points at the

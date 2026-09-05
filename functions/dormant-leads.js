@@ -22,7 +22,7 @@
  * revision after one or two cycles of observation.
  */
 
-const { onSchedule } = require('firebase-functions/v2/scheduler');
+const { onSchedule } = require('./integrations/heartbeat'); // heartbeat-wrapped drop-in for firebase-functions/v2/scheduler
 const { defineSecret } = require('firebase-functions/params');
 const { logger } = require('firebase-functions/v2');
 const { FieldPath, getFirestore, Timestamp } = require('firebase-admin/firestore');
