@@ -36,6 +36,7 @@
     "estimate-v2-payload.test.js",
     "expenses-logic.test.js",
     "function-orphans.test.js",
+    "ga4-landing-coverage.test.js",
     "gauntlet-brand-guard.test.js",
     "imagery-sources.test.js",
     "inbound-sms-route.test.js",
