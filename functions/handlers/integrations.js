@@ -245,7 +245,15 @@ const PUBLIC_LEAD_KINDS = {
       name: 200, phone: 30, address: 500, email: 200,
       story: 1500, source: 200, photoNames: 2000
     },
-    optional: [...PUBLIC_LEAD_OPTIONAL_DEFAULTS, 'email', 'story', 'photoCount', 'photoNames']
+    optional: [...PUBLIC_LEAD_OPTIONAL_DEFAULTS, 'email', 'story', 'photoCount', 'photoNames'],
+    // TCPA consent (2026-09-04, handoff item 6). Three of the four forms that
+    // post this kind — /storm-check, /roof-score, /storm-report — gate their
+    // submit on an express-written-consent checkbox and now POST its value;
+    // /inspect has no checkbox and posts nothing, so its documents carry no
+    // field and the send-time gate refuses to text them (no_stored_consent).
+    // Declared as a boolean here for the same reason as `estimate`: the
+    // string-only optional loop dropped it silently.
+    boolOptional: ['tcpaConsent']
   }
 };
 

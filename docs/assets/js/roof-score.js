@@ -312,7 +312,9 @@
     var story = 'ROOF SCORE ' + S.score + '/100 (' + (S.band && S.band.label) + ') | age: ' + S.roofAge +
       ' (' + S.roofType + ') | signs: ' + (S.signs.join(', ') || 'none') + ' | moisture: ' + S.moisture +
       ' | last inspect: ' + S.lastInspect;
-    var payload = { name: fn, phone: ph, address: S.address || $('rs-address').value.trim(), source: '/roof-score', story: story };
+    // tcpaConsent: the checkbox's real value, persisted server-side so the SMS ack
+    // gates on a stored record (TCPA fix, 2026-09-04; see #1377).
+    var payload = { name: fn, phone: ph, address: S.address || $('rs-address').value.trim(), source: '/roof-score', story: story, tcpaConsent: consent === true };
     if (em) payload.email = em;
     var capture = (typeof window.submitPublicLead === 'function')
       ? window.submitPublicLead('inspect', payload)
