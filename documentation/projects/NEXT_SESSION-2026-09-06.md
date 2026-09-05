@@ -100,8 +100,15 @@ text on a document that carries `tcpaConsent === true`, and
 7. **`/inspect` has no consent checkbox** — its `inspect_leads` are never
    texted. Adding the box is a conversion-form decision for Jo; T30 in
    `tests/tcpa-consent.test.js` will demand the payload change with it.
-8. ~20 stale local branches remain squash-merged and deletable; the
-   `nbd-wt-ledger-recon` worktree still holds `main`.
+8. ~~Stale local branches~~ — **DONE 2026-09-05.** 26 deleted, not the ~20
+   estimated. Each was verified present on `main` first — by ancestry, or by
+   a merged PR matching its head branch — because a squash merge leaves no
+   ancestry for `git branch -d` to accept, so it refuses every branch here
+   and `-D` after an explicit content check is the only safe route. One
+   branch flagged as having commits newer than its merge; that was a false
+   positive from a reused branch name, and its ref pointed at a commit
+   already on `main`. Only `main` and the in-flight `docs/wave2-handoff`
+   remain. The `nbd-wt-ledger-recon` worktree still holds `main`.
 
 10. **Correct `documentation/architecture/THUMBTACK-WEBHOOK-2026-08.md` in
     place.** It says bridged leads page Jo. They do not: no `lead-alert`
