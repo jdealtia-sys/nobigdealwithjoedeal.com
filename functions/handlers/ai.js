@@ -56,7 +56,14 @@ exports.claudeProxy = onRequest(
     // Console before bumping this number.
     maxInstances: 200,
     concurrency: 80,
-    minInstances: 3,
+    // minInstances was 3. Measured 2026-09-05: warm instances were 84%
+    // of the whole GCP bill (~$70/mo) against ~$8/mo of actual request
+    // serving. This one cost ~$22.40/mo — the most of the four — to hold
+    // 240 permanently-idle concurrent slots (3 × concurrency 80). A cold
+    // start adds 1-2s to a call that already runs 30-60s, so it is the
+    // cheapest of the four to give up. Raise it only if measured latency
+    // says so, and price it first: ~$8.10/mo per warm 256MiB instance.
+    minInstances: 0,
     timeoutSeconds: 60,
     memory: '256MiB',
   },
