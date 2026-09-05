@@ -22,13 +22,16 @@
  *
  * Why a Cloud Function (not a Cloud Run service):
  *   - Already in our infra, single deploy target
- *   - 2GB memory + minInstances:1 keep Chromium warm; ~1.5s warm renders
+ *   - 2GB memory holds Chromium; ~1.5s renders on a warm instance
  *   - @sparticuz/chromium ships a pruned Chromium binary that fits the
  *     function size limit (would not fit with full puppeteer)
  *
- * Cost: minInstances:1 keeps one warm (~$5-10/mo at us-central1
- * pricing). Per-render compute is bounded by the 30s timeout and
- * scales to zero outside the warm instance.
+ * Cost: this ran minInstances:1 until 2026-09-05. The header estimated
+ * that at "~$5-10/mo"; the actual bill was ~$17.92/mo, because a warm
+ * instance is charged on memory as well as CPU and this one holds 2GiB
+ * — 2.2× a 256MiB function. It now scales to zero, so renders pay a
+ * ~10-20s Chromium cold start after an idle window instead of ~1.5s.
+ * Per-render compute is bounded by the 30s timeout either way.
  */
 
 'use strict';
@@ -68,9 +71,11 @@ const TEMPLATES = {
 };
 
 // ─── Cached loaders ────────────────────────────────────────────
-// Templates + CSS + partials are read once per function instance.
-// With minInstances:1 that's effectively at deploy time. We register
-// partials here as well so {{> brandBandTop}} resolves at render time.
+// Templates + CSS + partials are read once per function instance. That
+// used to mean "effectively at deploy time" under minInstances:1; now
+// that it scales to zero it means once per cold start, which is part of
+// the ~10-20s first render. We register partials here as well so
+// {{> brandBandTop}} resolves at render time.
 let _designCss = null;
 const _tmplCache = new Map();
 
@@ -348,18 +353,24 @@ exports.renderPdf = onCall(
     timeoutSeconds: 60,
     // Chromium needs real memory. 1GB is borderline; 2GB is the
     // sweet spot for a single render plus future inspection reports
-    // with 30+ photos. Keep one warm so the rep doesn't see a cold
-    // start when generating a cert at end-of-job.
+    // with 30+ photos.
     memory: '2GiB',
-    minInstances: 1,
+    // minInstances was 1, to spare the rep a cold start when generating
+    // a cert at end-of-job. At 2GiB that single warm instance cost
+    // ~$17.92/mo — more than any of the three 256MiB functions, and by
+    // itself most of a $25/mo budget. THIS IS THE ONE YOU WILL FEEL:
+    // Chromium cold start is ~10-20s against ~1.5s warm. It is worth
+    // reinstating before the others if reps complain, but price it
+    // knowing a 2GiB warm instance is ~2.2× a 256MiB one.
+    minInstances: 0,
     maxInstances: 10,
   },
   withSentry('renderPdf', async (request) => {
     const uid = request.auth && request.auth.uid;
     if (!uid) throw new HttpsError('unauthenticated', 'Sign in required');
 
-    // Phase-3.2: rate-limit the expensive Puppeteer render (2GiB,
-    // minInstances:1). Auth + App Check gate WHO can call it, but nothing
+    // Phase-3.2: rate-limit the expensive Puppeteer render (2GiB, now
+    // minInstances:0). Auth + App Check gate WHO can call it, but nothing
     // capped HOW OFTEN — a loop could rack up Chromium compute cost.
     // 30/min/uid is generous for a rep generating end-of-job docs
     // (contract + warranty + invoice + photo report in a burst), tight

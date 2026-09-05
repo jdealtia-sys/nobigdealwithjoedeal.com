@@ -49,7 +49,7 @@ If you add a new export, list it here so the next audit doesn't have to re-deriv
 | `getSwathUsage` | onCall | Swath month-to-date credit meter — **admin/company_admin gate in-body**, 10/hr limiter (integrations/swath.js) |
 | `transcribeVoiceMemo` | onCall | Deepgram audio transcription |
 | `dictate` | onCall | Whisper unified transcribe + AI cleanup |
-| `renderPdf` | onCall | Server-side Puppeteer PDF render (warranty/inspection/estimate/etc.), 2GiB + minInstances:1 |
+| `renderPdf` | onCall | Server-side Puppeteer PDF render (warranty/inspection/estimate/etc.), 2GiB, minInstances:0 since 2026-09-05 — expect a ~10-20s Chromium cold start after an idle window |
 | `sendVerificationCode` | onCall | SMS OTP via Twilio Verify (per-phone attempt cap) |
 | `verifyCode` | onCall | Verifies a Twilio Verify OTP |
 | `notifyNewLead` | onCall | Email + SMS to Joe when a new lead comes in |

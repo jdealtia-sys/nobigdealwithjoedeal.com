@@ -518,8 +518,10 @@ exports.dormantLeadNudge = dormantLeads.dormantLeadNudge;
 // report, invoice, contract, change order, receipt.
 //
 // Memory: 2GiB (Chromium needs real headroom for multi-page docs
-// with photo galleries). minInstances:1 keeps one warm so reps
-// don't see cold-start latency end-of-job.
+// with photo galleries). This kept minInstances:1 to spare reps a
+// cold start end-of-job; dropped to 0 on 2026-09-05 because that one
+// warm 2GiB instance cost ~$17.92/mo. First render after an idle
+// window is now ~10-20s instead of ~1.5s.
 const renderPdfMod = require('./render-pdf');
 exports.renderPdf = renderPdfMod.renderPdf;
 

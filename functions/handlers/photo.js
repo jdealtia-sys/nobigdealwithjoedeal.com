@@ -87,11 +87,16 @@ exports.signImageUrl = onRequest(
     // At 10k users × ~10 photos visible on first render =
     // ~100k signs/min peak. Per-instance: 80 concurrent × (signing
     // latency ~150ms) = ~500/sec. 200 instances × 500 = 100k/sec
-    // headroom. minInstances:2 absorbs cold-start when a dashboard
-    // load spikes right after a quiet window.
+    // headroom.
     maxInstances: 200,
     concurrency: 80,
-    minInstances: 2,
+    // minInstances was 2, to absorb cold-start when a dashboard load
+    // spikes right after a quiet window. Measured 2026-09-05: that cost
+    // ~$14.94/mo to hold 160 permanently-idle concurrent slots, and warm
+    // instances across four functions were 84% of the entire GCP bill.
+    // The tradeoff bought back: 1-3s on the first photo load after an
+    // idle period. ~$8.10/mo per warm 256MiB instance if reinstated.
+    minInstances: 0,
     timeoutSeconds: 15,
     memory: '256MiB'
   },

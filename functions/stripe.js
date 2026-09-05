@@ -1019,11 +1019,15 @@ exports.getSubscriptionStatus = onRequest(
     // on dashboard/settings/stripe-success). A 10k concurrent page-
     // load spike maps directly onto this endpoint. Old 50×80 = 4k
     // ceiling 429'd legitimate users. 200×80 = 16k headroom.
-    // minInstances:2 prevents the "1s loading spinner on every
-    // dashboard open" UX cost.
     maxInstances: 200,
     concurrency: 80,
-    minInstances: 2,
+    // minInstances was 2, to prevent a "1s loading spinner on every
+    // dashboard open". Measured 2026-09-05: that spinner cost ~$14.94/mo
+    // — warm instances across four functions were 84% of the whole GCP
+    // bill (~$70/mo) versus ~$8/mo of real request serving. The 1s is
+    // back, on the first billing-panel load after an idle window only.
+    // ~$8.10/mo per warm 256MiB instance if reinstated.
+    minInstances: 0,
     timeoutSeconds: 10,
     memory: '256MiB',
   },

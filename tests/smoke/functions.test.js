@@ -2003,8 +2003,18 @@ section('R-05: hot-path Cloud Function sizing for 10k-user spike');
   assert('R-05: claudeProxy maxInstances >= 200 (quota cap: us-central1 200k mCPU; request quota increase to raise)',
     intField(claude, 'maxInstances') >= 200,
     'got ' + intField(claude, 'maxInstances'));
-  assert('R-05: claudeProxy minInstances >= 3 (cold-start absorption)',
-    intField(claude, 'minInstances') >= 3,
+  // R-05 originally required minInstances >= 3 here for cold-start
+  // absorption. REVERSED 2026-09-05 on cost grounds: warm instances
+  // across four functions were 84% of the entire GCP bill (~$70/mo)
+  // against ~$8/mo of actual request serving, and this function alone
+  // was ~$22.40/mo to hold 240 permanently-idle concurrent slots.
+  // The assertion is inverted rather than deleted so the cost cannot
+  // creep back silently — a warm instance here is ~$8.10/mo. If you
+  // genuinely need one, change this line deliberately and say why.
+  // Note this does NOT weaken R-05's surge protection: maxInstances
+  // and concurrency are ceilings and cost nothing while idle.
+  assert('COST: claudeProxy minInstances pinned to 0 (was 3; ~$22.40/mo)',
+    intField(claude, 'minInstances') === 0,
     'got ' + intField(claude, 'minInstances'));
   assert('R-05: claudeProxy concurrency still 80',
     intField(claude, 'concurrency') === 80);
@@ -2013,8 +2023,10 @@ section('R-05: hot-path Cloud Function sizing for 10k-user spike');
   assert('R-05: signImageUrl maxInstances >= 200 (photo-render spike)',
     intField(sign, 'maxInstances') >= 200,
     'got ' + intField(sign, 'maxInstances'));
-  assert('R-05: signImageUrl minInstances >= 2',
-    intField(sign, 'minInstances') >= 2);
+  // R-05 required >= 2; reversed 2026-09-05 on cost (~$14.94/mo).
+  assert('COST: signImageUrl minInstances pinned to 0 (was 2; ~$14.94/mo)',
+    intField(sign, 'minInstances') === 0,
+    'got ' + intField(sign, 'minInstances'));
   assert('R-05: signImageUrl concurrency >= 80',
     intField(sign, 'concurrency') >= 80);
 
@@ -2022,8 +2034,10 @@ section('R-05: hot-path Cloud Function sizing for 10k-user spike');
   assert('R-05: getSubscriptionStatus maxInstances >= 200 (page-load spike)',
     intField(subStatus, 'maxInstances') >= 200,
     'got ' + intField(subStatus, 'maxInstances'));
-  assert('R-05: getSubscriptionStatus minInstances >= 2',
-    intField(subStatus, 'minInstances') >= 2);
+  // R-05 required >= 2; reversed 2026-09-05 on cost (~$14.94/mo).
+  assert('COST: getSubscriptionStatus minInstances pinned to 0 (was 2; ~$14.94/mo)',
+    intField(subStatus, 'minInstances') === 0,
+    'got ' + intField(subStatus, 'minInstances'));
 
   // L-03: getHomeownerPortalView moved to portal.js. Look there
   // first; fall back to the index.js helper if a future refactor
