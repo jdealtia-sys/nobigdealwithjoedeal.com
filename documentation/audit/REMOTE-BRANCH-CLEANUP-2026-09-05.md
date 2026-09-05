@@ -123,7 +123,7 @@ merged-PR identity and commit-subject matching, not file diffs against a moving
 
 | branch | flipped by refutation | what it holds |
 |---|---|---|
-| `claude/security-audit-stress-test-EuTga` | no | **`CLOUDFLARE_WORKER_FINDING.md` (267 lines) — an unremediated, unfiled security audit of four live Cloudflare workers.** See below. |
+| `claude/security-audit-stress-test-EuTga` | no | `CLOUDFLARE_WORKER_FINDING.md` (267 lines) — an unfiled 2026-04-11 audit of four Cloudflare workers, **plus** a full migration off them. Mostly overtaken by events; **one worker is still live and exposed.** See below. |
 | `claude/naughty-carson-eeb685` | no | ~3,138 lines of unmerged CRM feature code (weekly recap, review funnel, inspection capture, daily brief) |
 | `v3-foundation` | no | a complete greenfield "NBD Pro V3.0" rewrite — Turborepo + pnpm monorepo, a stack `main` uses nowhere |
 | `phase-d-build` | no | `docs/pro/privacy.html`, a 611-line SaaS privacy policy for the CRM product |
@@ -141,13 +141,47 @@ merged-PR identity and commit-subject matching, not file diffs against a moving
 mid-flight. Landing or explicitly abandoning them is a judgment call for Jo —
 the cleanup deliberately did not make it.
 
-### Flagged: an unremediated security finding
+### The Cloudflare worker finding — read 2026-09-05, mostly stale, one live gap
 
-`claude/security-audit-stress-test-EuTga` holds a 267-line audit of four live
-Cloudflare workers under `jonathandeal459.workers.dev` that was never filed as
-an issue or a vault note, and never remediated. It is the one kept branch whose
-content is time-sensitive rather than merely unfinished, and it should be read
-before it is a year old.
+`claude/security-audit-stress-test-EuTga` holds `CLOUDFLARE_WORKER_FINDING.md`,
+a 267-line audit dated **2026-04-11** of four workers under
+`jonathandeal459.workers.dev`, plus a single commit migrating every AI caller
+off them. It was never filed as an issue or a vault note.
+
+**Corrects this note's own first draft**, which called it "unremediated". Read
+and probed on 2026-09-05 (reachability + CORS preflight only — no exploit
+payloads, no forged Stripe event, no DALL-E call). Most of it has been overtaken
+by events:
+
+| worker | audit finding (2026-04-11) | state 2026-09-05 |
+|---|---|---|
+| `nbd-stripe-webhook` | **highest severity** — no Stripe signature check, forged `checkout.session.completed` grants free Pro; embedded Firebase service-account JSON | **deleted** |
+| `nbd-mailerlite` | wildcard CORS, no auth/rate limit, list-write API key | **deleted** |
+| `nbd-ai-proxy` | wide-open CORS with an `origin === ''` bypass; holds an Anthropic key | **live, but CORS now locked** to `https://nobigdealwithjoedeal.com` |
+| `nbd-ai-visualizer` | `ACAO: *`, no auth, DALL-E 3 HD at $0.08/image → ~$69k/day exposure | **live and unchanged — still returns `ACAO: *` to an arbitrary origin** |
+
+Deleted-vs-live was established against a control: a worker name that never
+existed returns byte-identical `error code: 1042` / 404 / 17 bytes, which is
+what the two "deleted" rows return. The two live ones answer with their own
+worker headers (405 + their own CORS), which a missing worker cannot do.
+
+**The one open item: delete `nbd-ai-visualizer`.** Nothing in `docs/` calls it —
+`publicVisualizerAI` in `functions/handlers/ai.js` is the hardened replacement
+and is live on `main`. Deleting it is a dashboard action with no site impact,
+and it closes the only remaining unauthenticated cost path. `nbd-ai-proxy` is
+second: no browser can reach it cross-origin any more and nothing calls it, but
+it still holds an Anthropic key, so deleting it and rotating that key is
+cleanup rather than an emergency.
+
+**The branch's code changes are obsolete — do not merge it.** Every client
+migration in it landed by another route: `claudeProxy`, `stripeWebhook` and
+`publicVisualizerAI` are real exports on `main`; no page calls a worker URL (the
+three surviving `nbd-ai-proxy` mentions under `docs/` are comments recording the
+migration); `docs/estimate.html` makes no AI call at all, so the branch's
+`publicEstimateAI` is moot; and the localStorage-key fallback in
+`docs/pro/js/claude-proxy.js` is already disabled by default behind an explicit
+`window.NBD_ALLOW_DIRECT_ANTHROPIC` opt-in. What survives is the finding
+document and the vendor-key rotation list, which is why the branch is kept.
 
 ## Branch protection, re-confirmed (not a new finding)
 
