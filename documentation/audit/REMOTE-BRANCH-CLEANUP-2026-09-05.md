@@ -18,8 +18,13 @@ cleanup" leaves behind.
 
 ## Why the obvious method would have been wrong
 
-**This repo squash-merges every PR.** A squash merge creates a new commit on
-`main` with a new SHA and no ancestry link back to the branch. So:
+**This repo *mostly* squash-merges** — 1144 of 1341 merged PRs have a
+`(#N)`-suffixed squash commit on `main`, but `main` also carries **220 merge
+commits**, 130 of them titled `Merge PR #NNN: …`. (An earlier draft of this
+note said "squash-merges every PR". That is false, and the adversarial audit
+caught it — see §Where my own reasoning was wrong.) A squash merge creates a
+new commit on `main` with a new SHA and no ancestry link back to the branch.
+So:
 
 - `git branch --merged` / `git merge-base --is-ancestor` reports **1 of 381**
   branches as merged. Trusting it would have deleted almost nothing.
@@ -79,6 +84,40 @@ on trust — `t1-ai-texting-foundation` (a 261-line draft at
 `functions/ai-texting.js`; `main` carries 612 lines across three
 `functions/handlers/ai-texting*.js`) and `siteurl-seed-repoint` (patches
 `functions/seed-companies.js`, which `main` deleted deliberately in #1236).
+
+## Where my own reasoning was wrong
+
+The deletions were right; two load-bearing claims behind them were not. Both
+were found by the adversarial audit, and both are recorded here because the
+next cleanup will be tempted by the same shortcuts.
+
+**1. "Squash-merges every PR" — false.** `main` carries 220 merge commits, 130
+titled `Merge PR #NNN: …`, and only 1144 of 1341 merged PRs have a `(#N)`
+squash commit. The ancestry point survives (1 of 381 branches is an ancestor of
+`main`), but "every" did not.
+
+**2. "Tip == a MERGED PR's headRefOid" does not by itself prove the work is on
+`main`.** **17 merged PRs had a base other than `main`** — two stacked chains
+(`d1→d2→d2.5→d2.6→d2.7→d3→d4→d5`, PRs #355-362, and
+`step1→step2→…→step5→step13→…→step17`, PRs #345-354), each PR merging into the
+*next branch down*, not into `main`. 16 of those head branches were in the
+delete set. For them the rule proved only "merged somewhere".
+
+Checked separately, and they are safe: every commit in both chains is on `main`
+under its own squash commit — `feat(d-1): … (#355)` through
+`feat(d-5): … (#362)`, `feat(step-1): … (#345)` through
+`feat(step-17): … (#354)`. The chains did land; the rule just didn't show it.
+
+**A method note for whoever repeats this.** A tempting bulk check —
+"for each branch, do the files it touched still differ from `main`?" — is
+useless in both directions. It is over-inclusive because `main` legitimately
+moved on (344 of 353 deleted branches "differ" for that reason alone), and it
+silently under-reports if run with a pathspec from a directory that git treats
+as a *subdirectory* of the repo, where `-- docs/…` matches nothing and every
+branch reads as identical. One audit agent hit exactly that and reported 342
+branches clean; re-run from a real worktree root the same command gives 9. Use
+merged-PR identity and commit-subject matching, not file diffs against a moving
+`main`.
 
 ## The 13 kept — work that is NOT on main
 
