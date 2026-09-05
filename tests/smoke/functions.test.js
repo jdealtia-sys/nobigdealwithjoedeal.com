@@ -376,9 +376,14 @@ section('H-6: Stripe webhook raw body + replay');
   // secret during rotation — still with the explicit 300s tolerance.
   assert('invoiceWebhook passes explicit 300s tolerance',
     /constructEvent\(req\.rawBody,\s*signature,\s*secret,\s*300\)/.test(src));
+  // 2026-09-04: both reads go through secretValue() so the deploy's
+  // '__unset__' stub is never pushed as a signing candidate (it used to be —
+  // a truthy string passed the `if (legacy)` guard). Same order, same guard.
   assert('invoiceWebhook prefers its dedicated endpoint secret with legacy fallback',
-    /STRIPE_INVOICE_WEBHOOK_SECRET\.value\(\)[\s\S]{0,120}startsWith\('whsec_'\)/.test(src)
-    && /STRIPE_WEBHOOK_SECRET\.value\(\)[\s\S]{0,80}candidates\.push\(legacy\)/.test(src));
+    /secretValue\(STRIPE_INVOICE_WEBHOOK_SECRET\)[\s\S]{0,120}startsWith\('whsec_'\)/.test(src)
+    && /secretValue\(STRIPE_WEBHOOK_SECRET\)[\s\S]{0,80}candidates\.push\(legacy\)/.test(src));
+  assert('invoiceWebhook never reads a webhook secret with bare .value() (stub-unsafe)',
+    !/STRIPE_(INVOICE_)?WEBHOOK_SECRET\.value\(\)/.test(src));
 
   // Shared Stripe client: one trimmed, retrying instance for all handlers.
   // A trailing newline in the stored secret key caused ERR_INVALID_CHAR →
