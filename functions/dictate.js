@@ -20,14 +20,19 @@
  * Auth: Firebase callable, App Check enforced. Per-uid rate-limit
  * (30/hr) — generous for active dictation, kills runaway loops cheap.
  *
- * Budget: reuses the same transcribeVoiceMemo Deepgram pipeline (so
- * audio costs land on the same per-uid budget signal). The Claude
- * call uses Haiku 4.5 — ~30 tokens of overhead for clean mode, more
- * for summarize. Token usage returned in the `usage` field for
- * client-side budget UI hooks.
+ * Budget: transcription goes to Groq Whisper-large-v3-turbo first (free
+ * tier: 20 req/min, 2,000 req/day, 8 h audio/day — verified 2026-09-02),
+ * the same provider + key the Voice Intelligence pipeline uses, selected by
+ * NBD_VOICE_TRANSCRIPTION_PROVIDER (default 'groq'). Deepgram Nova-3 is the
+ * fallback when Groq is unset OR throws (its free tier can 429), so a
+ * Deepgram-only deployment behaves exactly as before 2026-09-04. The Claude
+ * call uses Haiku 4.5 — ~30 tokens of overhead for clean mode, more for
+ * summarize. Token usage returned in the `usage` field for client-side
+ * budget UI hooks. The response's `provider` field names who transcribed.
  *
  * SETUP:
- *   firebase functions:secrets:set DEEPGRAM_API_KEY (already required by F8)
+ *   firebase functions:secrets:set GROQ_API_KEY     (shared with Voice Intel)
+ *   firebase functions:secrets:set DEEPGRAM_API_KEY (optional fallback; F8)
  *   firebase functions:secrets:set ANTHROPIC_API_KEY (already required by AI arc)
  */
 
@@ -37,7 +42,17 @@ const { onCall, HttpsError } = require('firebase-functions/v2/https');
 const { defineSecret } = require('firebase-functions/params');
 const { logger } = require('firebase-functions/v2');
 
-const DEEPGRAM_API_KEY = defineSecret('DEEPGRAM_API_KEY');
+// Both transcription keys come from the shared registry so hasSecret() sees
+// the deploy's `__unset__` stub as "not configured" (a bare defineSecret
+// .value() check would treat the stub as a real key).
+const { SECRETS, PROVIDERS, hasSecret, getSecret, secretValue } = require('./integrations/_shared');
+const { transcribeGroqBuffer } = require('./integrations/voice-intelligence');
+const {
+  pickDictationProvider,
+  groqExtensionForMime,
+  normalizeGroqTranscription,
+  normalizeDeepgramTranscription,
+} = require('./integrations/transcription-logic');
 const ANTHROPIC_API_KEY = defineSecret('ANTHROPIC_API_KEY');
 
 const CORS_ORIGINS = [
@@ -107,29 +122,63 @@ Rules:
 - Maximum 8 tasks per transcript — pick the most important ones.
 - Output ONLY the JSON.`;
 
-// ─── Deepgram transcription helper ─────────────────────────────
-async function transcribeAudio(audioBuf, mimeType, apiKey) {
+// ─── Transcription helpers ─────────────────────────────────────
+// Deepgram Nova-3 — the original (metered) path, now the fallback.
+async function transcribeDeepgram(audioBuf, mimeType) {
   const url = 'https://api.deepgram.com/v1/listen?'
     + 'model=nova-3&smart_format=true&punctuate=true&language=en-US';
   const res = await fetch(url, {
     method: 'POST',
     headers: {
-      'Authorization': 'Token ' + apiKey,
+      'Authorization': 'Token ' + getSecret('DEEPGRAM_API_KEY'),
       'Content-Type': mimeType,
     },
     body: audioBuf,
+    signal: AbortSignal.timeout(40_000),
   });
   if (!res.ok) {
     const body = await res.text();
-    logger.warn('[dictate] Deepgram error', { status: res.status, body: body.slice(0, 300) });
-    throw new HttpsError('internal', 'Transcription failed');
+    const err = new Error('Deepgram ' + res.status + ': ' + body.slice(0, 300));
+    err.status = res.status;
+    throw err;
   }
-  const data = await res.json();
-  const alt = data?.results?.channels?.[0]?.alternatives?.[0] || {};
-  return {
-    transcript: (alt.transcript || '').trim(),
-    confidence: alt.confidence || null,
-  };
+  return normalizeDeepgramTranscription(await res.json());
+}
+
+// Groq Whisper-large-v3-turbo — free tier, same key as Voice Intel.
+async function transcribeGroq(audioBuf, mimeType) {
+  const out = await transcribeGroqBuffer({
+    buffer: audioBuf,
+    mimeType,
+    filename: 'dictate.' + groqExtensionForMime(mimeType),
+    // Clips are ≤60 s and the callable has a 60 s ceiling; leave room for
+    // the Deepgram fallback + the Claude call after a slow Groq response.
+    timeoutMs: 25_000,
+  });
+  return normalizeGroqTranscription(out);
+}
+
+const TRANSCRIBERS = { groq: transcribeGroq, deepgram: transcribeDeepgram };
+
+// Try the preferred provider, fall back once, and say who did the work.
+// Every failure path logs the provider + status (a 429 from Groq is the
+// free tier saying "slow down", which is exactly when the fallback earns
+// its keep); only when both fail does the caller see an error.
+async function transcribeAudio(audioBuf, mimeType, plan) {
+  let lastErr = null;
+  for (const name of [plan.primary, plan.fallback].filter(Boolean)) {
+    try {
+      const out = await TRANSCRIBERS[name](audioBuf, mimeType);
+      return { ...out, provider: name, fellBack: name !== plan.primary };
+    } catch (e) {
+      lastErr = e;
+      logger.warn('[dictate] transcription failed', {
+        provider: name, status: e && e.status || null, message: String(e && e.message || e).slice(0, 300),
+      });
+    }
+  }
+  // No provider error text in the client-visible error — it is logged above.
+  throw new HttpsError('internal', 'Transcription failed');
 }
 
 // ─── Claude call helper ────────────────────────────────────────
@@ -197,7 +246,7 @@ exports.dictate = onCall(
     enforceAppCheck: true,
     timeoutSeconds: 60,
     memory: '512MiB',
-    secrets: [DEEPGRAM_API_KEY, ANTHROPIC_API_KEY],
+    secrets: [SECRETS.GROQ_API_KEY, SECRETS.DEEPGRAM_API_KEY, ANTHROPIC_API_KEY],
   },
   async (request) => {
     const uid = request.auth && request.auth.uid;
@@ -215,10 +264,14 @@ exports.dictate = onCall(
       throw e;
     }
 
-    let dgKey, anthKey;
-    try { dgKey = DEEPGRAM_API_KEY.value(); } catch (_) {}
-    try { anthKey = ANTHROPIC_API_KEY.value(); } catch (_) {}
-    if (!dgKey) throw new HttpsError('failed-precondition', 'Voice transcription not configured.');
+    let anthKey;
+    anthKey = secretValue(ANTHROPIC_API_KEY); // '__unset__' stub → null
+    const plan = pickDictationProvider({
+      preferred: PROVIDERS.voiceTranscription,
+      hasGroq: hasSecret('GROQ_API_KEY'),
+      hasDeepgram: hasSecret('DEEPGRAM_API_KEY'),
+    });
+    if (!plan) throw new HttpsError('failed-precondition', 'Voice transcription not configured.');
     if (!anthKey) throw new HttpsError('failed-precondition', 'AI processing not configured.');
 
     // ── Input validation ────────────────────────────────────
@@ -251,13 +304,15 @@ exports.dictate = onCall(
 
     // ── 1. Transcribe ───────────────────────────────────────
     const t0 = Date.now();
-    const { transcript, confidence } = await transcribeAudio(audioBuf, mimeType, dgKey);
+    const { transcript, confidence, provider, fellBack } = await transcribeAudio(audioBuf, mimeType, plan);
     const transcribeMs = Date.now() - t0;
+    if (fellBack) logger.info('[dictate] used fallback transcriber', { provider, primary: plan.primary });
 
     if (!transcript) {
       return {
         success: true,
         mode,
+        provider,
         transcript: '',
         cleaned: '',
         confidence: null,
@@ -280,6 +335,7 @@ exports.dictate = onCall(
       return {
         success: true,
         mode: 'clean',
+        provider,
         transcript,
         cleaned: text || transcript,
         confidence,
@@ -304,6 +360,7 @@ exports.dictate = onCall(
         return {
           success: true,
           mode: 'summarize',
+          provider,
           transcript,
           confidence,
           summary: { overview: text || transcript, actionItems: [], people: [], addresses: [], amounts: [], dates: [], category: 'other' },
@@ -315,6 +372,7 @@ exports.dictate = onCall(
       return {
         success: true,
         mode: 'summarize',
+        provider,
         transcript,
         confidence,
         summary: {
@@ -352,6 +410,7 @@ exports.dictate = onCall(
       return {
         success: true,
         mode: 'extract-tasks',
+        provider,
         transcript,
         confidence,
         tasks,

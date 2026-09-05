@@ -26,6 +26,7 @@ const { defineSecret } = require('firebase-functions/params');
 const { getFirestore, FieldValue } = require('firebase-admin/firestore');
 const { callableRateLimit } = require('../shared');
 const { CORS_ORIGINS } = require('./_shared');
+const { secretValue } = require('../integrations/_shared'); // the secret registry, not handlers/_shared
 const { SECRETS } = require('../integrations/_shared');
 const { lookupHail } = require('../integrations/hail');
 const { buildStormProof } = require('../storm-proof-logic');
@@ -75,7 +76,7 @@ exports.attachStormProof = onCall(
     if (!isFinite(lat) || !isFinite(lng)) {
       const address = lead.address || '';
       let gKey;
-      try { gKey = GOOGLE_GEOCODING_API_KEY.value(); } catch (_) { /* unset */ }
+      gKey = secretValue(GOOGLE_GEOCODING_API_KEY); // '__unset__' stub → null (it IS the stub in prod today)
       if (address && gKey && gKey.length > 8) {
         try {
           const g = await _googleForward(address, gKey);

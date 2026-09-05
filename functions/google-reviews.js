@@ -33,6 +33,7 @@ const { getFirestore } = require('firebase-admin/firestore');
 
 const GOOGLE_PLACES_API_KEY = defineSecret('GOOGLE_PLACES_API_KEY');
 const NBD_PLACE_ID = defineSecret('NBD_PLACE_ID');
+const { secretValue } = require('./integrations/_shared');
 
 const CACHE_TTL_MS = 6 * 60 * 60 * 1000;
 const CACHE_DOC_PATH = 'public_cache/google_reviews';
@@ -166,10 +167,13 @@ exports.getGoogleReviews = onRequest(
 
     // Refresh path
     try {
-      const placeId = NBD_PLACE_ID.value();
-      const apiKey = GOOGLE_PLACES_API_KEY.value();
+      // secretValue(): the deploy's '__unset__' stub reads as unset. Before
+      // 2026-09-04 both stubs passed a truthiness check and this asked Google
+      // for places/__unset__ on every refresh.
+      const placeId = secretValue(NBD_PLACE_ID);
+      const apiKey = secretValue(GOOGLE_PLACES_API_KEY);
       if (!placeId || !apiKey) {
-        throw new Error('Missing GOOGLE_PLACES_API_KEY or NBD_PLACE_ID secret');
+        throw new Error('Google Places not configured: GOOGLE_PLACES_API_KEY and/or NBD_PLACE_ID unset (or the __unset__ deploy stub)');
       }
 
       const fresh = await fetchFromGoogle(placeId, apiKey);

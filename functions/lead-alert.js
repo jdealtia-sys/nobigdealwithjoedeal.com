@@ -27,9 +27,11 @@ let _twilioSdk = null;
 const _twilio = () => (_twilioSdk = _twilioSdk || require('twilio'));
 const { getFirestore, FieldValue } = require('firebase-admin/firestore');
 const L = require('./lead-bridge-logic');
+const C = require('./tcpa-consent');
 
 const RESEND_API_KEY = defineSecret('RESEND_API_KEY');
 const EMAIL_FROM = defineSecret('EMAIL_FROM');
+const { secretOr } = require('./integrations/_shared');
 const TWILIO_ACCOUNT_SID = defineSecret('TWILIO_ACCOUNT_SID');
 const TWILIO_AUTH_TOKEN = defineSecret('TWILIO_AUTH_TOKEN');
 const TWILIO_PHONE_NUMBER = defineSecret('TWILIO_PHONE_NUMBER');
@@ -293,7 +295,7 @@ async function alertJoe(collection, d, leadId) {
   // Detailed email → the tenant's alert inbox(es). Skip when none configured.
   if (target.emails && target.emails.length) try {
     const resend = new Resend(RESEND_API_KEY.value());
-    const from = EMAIL_FROM.value() || 'noreply@nobigdealwithjoedeal.com';
+    const from = secretOr(EMAIL_FROM, 'noreply@nobigdealwithjoedeal.com');
     const resp = await resend.emails.send({
       from,
       to: target.emails,
@@ -320,17 +322,42 @@ async function alertJoe(collection, d, leadId) {
 // Same idea as the ack email but SMS converts harder. Fires ONLY when:
 //  - LEAD_ACK_SMS_ENABLED=true on the trigger services (Jo's flip, same
 //    pattern as FUNNEL_RECOVERY_ENABLED — default OFF), and
-//  - collection is estimate_leads: the /estimate funnel's submit button is
-//    hard-disabled until the TCPA consent box ("...follow-up communication
-//    ... Reply STOP to opt out") is checked, so every completed estimate
-//    lead has express written consent by construction. No other form
-//    collects texting consent yet, so no other collection texts.
+//  - the lead is on a consent-bearing collection, and
+//  - the lead itself CARRIES a stored `tcpaConsent: true`.
+//
+// That last clause is the 2026-09-04 fix. This gate used to stop at the
+// collection name, reasoning that the /estimate funnel's submit button is
+// hard-disabled until the consent box is ticked and therefore every document
+// in estimate_leads consented "by construction". Two things were wrong with
+// that. The funnel does post `tcpaConsent`, but submitPublicLead's M-04
+// allowlist silently dropped the boolean, so the record never persisted (fixed
+// in handlers/integrations.js in the same change). And inferring consent from
+// a collection name means anything that ever writes into that collection by
+// another route — an import, a backfill, a second form — inherits permission
+// to text a homeowner. Consent is now read from the document, never inferred.
+//
+// Fail-closed consequence, stated plainly: leads created BEFORE the
+// persistence fix deploys carry no consent field and will not be acked. That
+// is correct. Consent cannot be back-dated onto records that never captured it.
+//
 // Delivery still requires the Twilio number's A2P 10DLC approval.
 async function ackHomeownerSms(collection, d, leadId, target) {
-  if (process.env.LEAD_ACK_SMS_ENABLED !== 'true') return;
-  if (collection !== 'estimate_leads') return;
-  // Same isNbd gate as ackHomeowner — never text another company's customer.
-  if (!target || target.isNbd !== true) return;
+  const gate = C.smsAckGate({
+    enabled: process.env.LEAD_ACK_SMS_ENABLED === 'true',
+    collection,
+    doc: d,
+    target,
+  });
+  if (!gate.allowed) {
+    // The flag being off is the normal resting state and must not spam logs;
+    // every other refusal is a real suppression an operator should be able to
+    // find later, especially `no_stored_consent`, which is the one that says a
+    // homeowner asked for a call and did not get the text back.
+    if (gate.reason !== 'flag_disabled' && gate.reason !== 'collection_not_consent_bearing') {
+      logger.info('leadAck: sms suppressed', { collection, leadId, reason: gate.reason });
+    }
+    return;
+  }
   const digits = String(d.phone || d.phoneNumber || '').replace(/[^\d]/g, '');
   if (digits.length !== 10 && !(digits.length === 11 && digits[0] === '1')) return;
   const to = '+1' + digits.slice(-10);

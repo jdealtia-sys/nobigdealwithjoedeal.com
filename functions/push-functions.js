@@ -20,7 +20,7 @@
  */
 
 const { onDocumentCreated, onDocumentUpdated } = require('firebase-functions/v2/firestore');
-const { onSchedule } = require('firebase-functions/v2/scheduler');
+const { onSchedule } = require('./integrations/heartbeat'); // heartbeat-wrapped drop-in for firebase-functions/v2/scheduler
 const { logger } = require('firebase-functions/v2');
 const { Timestamp, getFirestore } = require('firebase-admin/firestore');
 const { getMessaging } = require('firebase-admin/messaging');
@@ -81,6 +81,35 @@ async function getUserFCMTokens(uid) {
 }
 
 /**
+ * Action buttons offered on a push, by notification type.
+ *
+ * MUST stay identical to getNotificationActions() in
+ * docs/pro/firebase-messaging-sw.js. The worker draws the notification for
+ * data-only messages; the browser draws it from this payload otherwise. If the
+ * two lists drift, the same push shows different buttons depending on which
+ * one rendered it. tests/push-notification-actions.test.js compares them.
+ */
+function notificationActionsFor(type) {
+  switch (type) {
+    case 'newLead':
+      return [
+        { action: 'call', title: 'Call' },
+        { action: 'view', title: 'Open' },
+        { action: 'snooze', title: 'Snooze 1h' },
+      ];
+    case 'appointmentReminder':
+    case 'followUpDue':
+      return [
+        { action: 'view', title: 'View' },
+        { action: 'snooze', title: 'Snooze 1h' },
+        { action: 'dismiss', title: 'Dismiss' },
+      ];
+    default:
+      return [{ action: 'view', title: 'View' }];
+  }
+}
+
+/**
  * Send push notification to a user via all their FCM tokens
  * Handles token cleanup for invalid tokens
  */
@@ -98,6 +127,17 @@ async function sendPushNotification(uid, title, body, data = {}) {
       return { sent: 0, failed: 0, errors: [] };
     }
     
+    // FCM rejects the ENTIRE send when any data value is not a string, and
+    // several call sites pass through fields that can be undefined (a lead
+    // with no name, an address that was never filled in). One unnamed lead
+    // would otherwise mean no push at all, with the failure buried in a
+    // callable's logs. Coerce here, once, for every caller.
+    const stringData = {};
+    for (const [k, v] of Object.entries(data || {})) {
+      if (v === undefined || v === null) continue;
+      stringData[k] = String(v);
+    }
+
     // Build multicast message
     const message = {
       notification: {
@@ -105,7 +145,7 @@ async function sendPushNotification(uid, title, body, data = {}) {
         body: body
       },
       data: {
-        ...data,
+        ...stringData,
         sentAt: new Date().toISOString(),
         uid: uid
       },
@@ -121,10 +161,17 @@ async function sendPushNotification(uid, title, body, data = {}) {
           icon: 'https://nobigdealwithjoedeal.com/pro/img/nbd-icon-192.png',
           badge: 'https://nobigdealwithjoedeal.com/pro/img/nbd-icon-192.png',
           tag: data.notificationId || 'nbd-notification',
-          requireInteraction: data.requireInteraction === 'true'
+          requireInteraction: data.requireInteraction === 'true',
+          // Action buttons. These must be on the SERVER payload, not only in
+          // the service worker: when a push carries a `notification` block the
+          // browser may render it itself without calling onBackgroundMessage,
+          // and a notification drawn that way shows only what is declared
+          // here. The list is kept identical to the worker's copy in
+          // docs/pro/firebase-messaging-sw.js (a test compares the two).
+          actions: notificationActionsFor(data.type)
         },
         data: {
-          ...data,
+          ...stringData,
           clickUrl: data.clickUrl || '/pro/dashboard.html'
         }
       }
@@ -238,6 +285,9 @@ exports.onNewLead = onDocumentCreated('leads/{leadId}', async (event) => {
     leadId: leadId,
     name: leadData.name,
     address: leadData.address,
+    // The Call action reads this. Digits only — the SW strips anything else,
+    // but sending it clean keeps the payload readable in logs.
+    phone: String(leadData.phone || leadData.phoneNumber || '').replace(/[^d+]/g, ''),
     clickUrl: `/pro/dashboard.html?tab=leads&leadId=${leadId}`,
     notificationId: `lead-${leadId}`,
     requireInteraction: 'true'
@@ -598,6 +648,9 @@ exports.sendCustomNotification = async (uid, title, body, data = {}) => {
 };
 
 module.exports = {
+  // Exported for tests/push-notification-actions.test.js, which compares this
+  // list against the service worker's copy.
+  notificationActionsFor,
   onNewLead: exports.onNewLead,
   onAppointmentReminder: exports.onAppointmentReminder,
   onFollowUpDue: exports.onFollowUpDue,

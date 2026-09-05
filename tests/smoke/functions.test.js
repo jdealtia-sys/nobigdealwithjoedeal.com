@@ -42,9 +42,25 @@ section('Alert outbox ledger (2026-07-06, punch item 6)');
     && /const isNbd = !companyId \|\| String\(companyId\) === NBD_OWNER_UID/.test(la));
   assert('unresolved NON-NBD tenant gets Joe routing but an empty-string brand',
     /name: '', seal: '', isNbd: false/.test(la));
-  assert('homeowner acks (email + SMS) gate on target.isNbd, not seal',
-    (la.match(/target\.isNbd !== true\) return/g) || []).length === 2
+  // 2026-09-04: the SMS ack's copy of this check moved into tcpa-consent.js
+  // when the ack started reading stored consent instead of inferring it from
+  // the collection name. The invariant is unchanged and still has exactly two
+  // enforcement points — the email ack inline, the SMS ack via smsAckGate —
+  // so both are pinned here rather than counting occurrences in one file.
+  assert('homeowner EMAIL ack gates on target.isNbd, not seal',
+    (la.match(/target\.isNbd !== true\) return/g) || []).length === 1
     && !/target\.seal !== 'NBD'\) return/.test(la));
+  assert('homeowner SMS ack gates through smsAckGate, and passes it the target',
+    /C\.smsAckGate\(\{[\s\S]{0,200}target,/.test(la)
+    && !/collection !== 'estimate_leads'\) return/.test(la));
+  {
+    const tcpa = read(path.join(FUNCTIONS, 'tcpa-consent.js'));
+    assert('smsAckGate enforces the same isNbd rule the email ack does',
+      /a\.target\.isNbd !== true\) return \{ allowed: false, reason: 'not_nbd_lead' \}/.test(tcpa)
+      && !/seal/.test(tcpa));
+    assert('smsAckGate refuses a lead with no stored consent',
+      /!hasWrittenConsent\(a\.doc\)\) return \{ allowed: false, reason: 'no_stored_consent' \}/.test(tcpa));
+  }
   const rules = read(path.join(ROOT, 'firestore.rules'));
   assert('alert_outbox rules: tenant readers + admin only, zero client writes',
     /match \/alert_outbox\/\{outboxId\}[\s\S]{0,600}allow create, update, delete: if false/.test(rules));
@@ -360,9 +376,21 @@ section('H-6: Stripe webhook raw body + replay');
   // secret during rotation — still with the explicit 300s tolerance.
   assert('invoiceWebhook passes explicit 300s tolerance',
     /constructEvent\(req\.rawBody,\s*signature,\s*secret,\s*300\)/.test(src));
+  // 2026-09-04: both reads go through secretValue() so the deploy's
+  // '__unset__' stub is never pushed as a signing candidate (it used to be —
+  // a truthy string passed the `if (legacy)` guard). Same order, same guard.
   assert('invoiceWebhook prefers its dedicated endpoint secret with legacy fallback',
-    /STRIPE_INVOICE_WEBHOOK_SECRET\.value\(\)[\s\S]{0,120}startsWith\('whsec_'\)/.test(src)
-    && /STRIPE_WEBHOOK_SECRET\.value\(\)[\s\S]{0,80}candidates\.push\(legacy\)/.test(src));
+    /secretValue\(STRIPE_INVOICE_WEBHOOK_SECRET\)[\s\S]{0,120}startsWith\('whsec_'\)/.test(src)
+    && /secretValue\(STRIPE_WEBHOOK_SECRET\)[\s\S]{0,80}candidates\.push\(legacy\)/.test(src));
+  {
+    // Scope to the candidates block: the platform stripeWebhook has its own
+    // legitimate STRIPE_WEBHOOK_SECRET read elsewhere in the file.
+    const start = src.indexOf('const candidates = [];');
+    const end = src.indexOf('for (const secret of candidates)', start);
+    const block = start >= 0 && end > start ? src.slice(start, end) : '';
+    assert('invoiceWebhook builds its candidate list without a bare .value() read (stub-unsafe)',
+      block.length > 0 && !/\.value\(\)/.test(block));
+  }
 
   // Shared Stripe client: one trimmed, retrying instance for all handlers.
   // A trailing newline in the stored secret key caused ERR_INVALID_CHAR →
@@ -806,8 +834,11 @@ section('T-2: AI draft send-on-approve');
     /document:\s*['"]leads\/\{leadId\}\/ai_drafts\/\{draftId\}['"]/.test(src));
   assert('trigger fires only on pending->approved (idempotent)',
     /before\.status === 'approved'[\s\S]{0,120}after\.status !== 'approved'/.test(src));
+  // 2026-09-04: the register is reached through functions/sms-optout.js now,
+  // because this file used to write it under an 11-digit key and read it under
+  // a 10-digit one. Same invariant, pinned at the new call.
   assert('trigger honors STOP opt-out before sending',
-    /sms_opt_outs[\s\S]{0,200}fail\('opted_out'\)/.test(src));
+    /OptOut\.isOptedOut\([\s\S]{0,300}fail\('opted_out'\)/.test(src));
   assert('trigger logs outbound note as direction:outgoing for thread+AI coherence',
     /direction:\s*'outgoing'[\s\S]{0,200}source:\s*'ai_draft'/.test(src));
   assert('trigger flips draft to sent with twilioSid',
@@ -1524,17 +1555,50 @@ section('F2 / M3: webhooks fail closed (every HTTP webhook signed)');
     /invoiceWebhook[\s\S]{0,2000}!Buffer\.isBuffer\(req\.rawBody\)/.test(stripeSrc));
 }
 
+// A Firestore equality filter SKIPS documents that lack the field entirely, so
+// `.where('deleted','==',false)` silently excludes every lead written by the
+// live create paths — none of which write `deleted`. hailMatchCron carried that
+// clause and had therefore never scored one of Jo's leads: measured in prod,
+// 68 of 216 docs matched and every one belonged to the seed-demo tenant, while
+// all 81 geocoded live leads were invisible. The three sibling lead-sweeping
+// crons all use an in-memory `if (lead.deleted) continue;` instead, which is
+// the correct default. This pins that convention repo-wide.
+section('Deleted-lead filtering uses the in-memory guard, never a Firestore equality');
+{
+  // Strip comments first. The fix for this very bug documents the old
+  // `.where('deleted', ...)` clause in a comment, so a naive source grep flags
+  // the file that was just repaired — the same code-vs-comment confusion that
+  // let two security-guard assertions pass on prose earlier today.
+  const stripComments = (s) => s.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/[^\n]*/g, '$1');
+  const files = ['integrations/hail-cron.js', 'dormant-leads.js', 'anniversary-touch.js', 'review-request-nudge.js'];
+  for (const rel of files) {
+    const src = stripComments(read(path.join(FUNCTIONS, rel)));
+    assert(rel + ' filters deleted leads in memory',
+      /if \(lead\.deleted\)/.test(src));
+    assert(rel + ' does NOT use a Firestore deleted-equality filter',
+      !/\.where\(\s*['"]deleted['"]/.test(src));
+  }
+}
+
 section('F3: TCPA STOP/HELP + opt-out list');
 {
   const sms = read(path.join(FUNCTIONS, 'sms-functions.js'));
-  assert('STOP keyword adds to sms_opt_outs',
-    /STOP_WORDS[\s\S]{0,300}sms_opt_outs\//.test(sms));
+  // 2026-09-04 re-point: every one of these used to match a literal
+  // `sms_opt_outs/` + hand-derived key in this file. That hand derivation WAS
+  // the bug — the write kept Twilio's country code, the reads did not, and no
+  // STOP was ever honoured on an outbound send. The register now has one owner
+  // (functions/sms-optout.js), so these pin the invariants at the new calls
+  // rather than at a string that must never come back.
+  assert('STOP keyword records an opt-out',
+    /STOP_WORDS[\s\S]{0,400}OptOut\.recordOptOut\(/.test(sms));
   assert('HELP keyword replies with compliance message',
     /HELP_WORDS[\s\S]{0,500}Msg & data rates may apply/.test(sms));
-  assert('START keyword resumes (deletes opt-out doc)',
-    /START_WORDS[\s\S]{0,300}\.delete\(\)/.test(sms));
-  assert('sendSMS checks opt-out list before sending',
-    /sms_opt_outs\/'\s*\+ toDigits[\s\S]{0,400}replied STOP/.test(sms));
+  assert('START keyword resumes (clears the opt-out, both keys)',
+    /START_WORDS[\s\S]{0,400}OptOut\.clearOptOut\(/.test(sms));
+  assert('sendSMS checks the opt-out register before sending',
+    /OptOut\.isOptedOut\([\s\S]{0,400}replied STOP/.test(sms));
+  assert('no send path hand-derives an opt-out key any more',
+    (sms.match(/doc\((['"`])sms_opt_outs\//g) || []).length === 0);
   const rules = read(path.join(ROOT, 'firestore.rules'));
   assert('sms_opt_outs rules deny client access',
     /match \/sms_opt_outs\/\{phone\}[\s\S]{0,200}allow read, write: if false/.test(rules));
@@ -1632,10 +1696,22 @@ section('C5: Voice Intel retention cron + monitoring + feature flag');
   const alert = JSON.parse(read(alertPath));
   assert('C5: monitoring alert policy file valid JSON + displayName',
     alert.displayName && /Voice Intel/.test(alert.displayName));
-  assert('C5: alert filter targets onAudioUploaded service',
-    (alert.conditions[0].conditionThreshold.filter || '').includes('onAudioUploaded'));
-  assert('C5: alert notification channel placeholder present',
-    Array.isArray(alert.notificationChannels) && alert.notificationChannels[0].includes('NOTIFICATION_CHANNEL_ID'));
+  // 2026-09-04: this policy was a conditionThreshold whose filter named
+  // jsonPayload fields. Log-entry fields have no meaning in a metric filter and
+  // it carried no metric.type, so Google REJECTED it — the policy could never be
+  // created. It is now a conditionMatchedLog, which is what a "this error line
+  // appeared" alert actually is, and the service name is lowercase because that
+  // is what Cloud Run services are actually called.
+  assert('C5: alert is a matched-log condition (a metric filter cannot read jsonPayload)',
+    !!(alert.conditions[0].conditionMatchedLog || {}).filter);
+  assert('C5: alert filter targets the onaudiouploaded service (lowercase, as deployed)',
+    ((alert.conditions[0].conditionMatchedLog || {}).filter || '').includes('onaudiouploaded'));
+  // This used to assert the PLACEHOLDER was present — i.e. it pinned the policy
+  // in a state that could never notify anyone. Assert a real channel instead.
+  assert('C5: alert routes to real notification channels, not the placeholder',
+    Array.isArray(alert.notificationChannels)
+    && alert.notificationChannels.length > 0
+    && alert.notificationChannels.every((c) => /notificationChannels\/\d+$/.test(c)));
 }
 
 section('C4: Voice Intel tab mounted in customer.html');

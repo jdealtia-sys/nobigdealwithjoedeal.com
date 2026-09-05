@@ -1,7 +1,7 @@
 {
   "displayName": "NBD Pro — Voice Intel processing failure rate > 5%",
   "documentation": {
-    "content": "voice-intelligence.js::processRecording is writing status:'failed' or status:'quarantined_consent' at a higher-than-expected rate. Common causes:\n  1. GROQ_API_KEY secret unset or rotated without updating Secret Manager.\n  2. ANTHROPIC_API_KEY quota / budget hit.\n  3. Company budget caps exhausted for many companies at once.\n  4. Upstream Groq outage.\n  5. MediaRecorder client-side regression emitting broken audio.\n\nInvestigate:\n  gcloud functions logs read onAudioUploaded --project nobigdeal-pro --gen2 --limit 100\n  # filter for severity=ERROR or the 'voice: pipeline failed' + '[<code>]' breadcrumb\n  # common codes: groq-not-configured, audio-too-large, audio-empty,\n  #               groq-api-error, analysis-api-error, audio-missing\n\nIf the code is groq-not-configured or analysis-*, rotate or set the corresponding secret. If audio-* codes spike, a client regression pushed broken blobs — roll back the docs/pro/js/voice-intelligence.js module.",
+    "content": "voice-intelligence.js::processRecording is writing status:'failed' or status:'quarantined_consent' at a higher-than-expected rate. Common causes:\n  1. GROQ_API_KEY secret unset or rotated without updating Secret Manager.\n  2. ANTHROPIC_API_KEY quota / budget hit.\n  3. Company budget caps exhausted for many companies at once.\n  4. Upstream Groq outage.\n  5. MediaRecorder client-side regression emitting broken audio.\n\nInvestigate:\n  gcloud functions logs read onAudioUploaded --project nobigdeal-pro --gen2 --limit 100\n  # filter for severity=ERROR or the 'voice: pipeline failed' + '[<code>]' breadcrumb\n  # common codes: groq-not-configured, audio-too-large, audio-empty,\n  #               groq-api-error, analysis-api-error, audio-missing\n\nIf the code is groq-not-configured or analysis-*, rotate or set the corresponding secret. If audio-* codes spike, a client regression pushed broken blobs — roll back the docs/pro/js/voice-intelligence.js module.\n\n---\nFIXED 2026-09-04. Was a conditionThreshold whose filter named jsonPayload fields — log-entry fields have no meaning in a metric filter, and no metric.type was set, so Google rejected the policy and it could never be created. It is now a conditionMatchedLog, which is what a \"this error line appeared\" alert actually is, and takes the log filter verbatim. Service name also corrected to lowercase (\"onaudiouploaded\") — Cloud Run service names are lowercase, so the original camelCase would have matched nothing even once the condition type was right.",
     "mimeType": "text/markdown"
   },
   "combiner": "OR",
@@ -9,24 +9,18 @@
   "conditions": [
     {
       "displayName": "voice processRecording failure rate > 5% over 1h",
-      "conditionThreshold": {
-        "filter": "resource.type=\"cloud_run_revision\" AND resource.labels.service_name=\"onAudioUploaded\" AND jsonPayload.message=\"voice: pipeline failed\"",
-        "comparison": "COMPARISON_GT",
-        "thresholdValue": 5,
-        "duration": "3600s",
-        "aggregations": [
-          {
-            "alignmentPeriod": "300s",
-            "perSeriesAligner": "ALIGN_RATE"
-          }
-        ]
+      "conditionMatchedLog": {
+        "filter": "resource.type=\"cloud_run_revision\" AND resource.labels.service_name=\"onaudiouploaded\" AND jsonPayload.message=\"voice: pipeline failed\""
       }
     }
   ],
   "alertStrategy": {
-    "autoClose": "43200s"
+    "notificationRateLimit": {
+      "period": "3600s"
+    }
   },
   "notificationChannels": [
-    "projects/nobigdeal-pro/notificationChannels/NOTIFICATION_CHANNEL_ID"
+    "projects/nobigdeal-pro/notificationChannels/11974029248665804510",
+    "projects/nobigdeal-pro/notificationChannels/7729093229259591605"
   ]
 }

@@ -122,6 +122,11 @@ const FLAT_USER_COLLECTIONS = [
   { name: 'email_log',    ownerField: 'uid' },     // sent-email log (homeowner addresses)
   { name: 'sms_log',      ownerField: 'uid' },     // sent-SMS log (homeowner phone numbers)
   { name: 'api_usage',    ownerField: 'uid' },     // AI token-usage history
+  // Calendar-feed subscription tokens (calendar-feed.js). Each doc is a bearer
+  // credential that serves the rep's own schedule — homeowner names, addresses
+  // and phones — to anyone holding the URL. Erasing the account must revoke
+  // the feed, or a deleted rep's link keeps answering.
+  { name: 'calendar_feed_tokens', ownerField: 'uid' },
 ];
 
 // ─── COLLECTION-GROUPS WITH userId STAMPS ───────────────────

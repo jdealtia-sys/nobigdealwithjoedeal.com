@@ -14,6 +14,10 @@
  *   - estimate optional allowlist (M-04 bounded expansion): the estimator
  *     funnel's own fields persist; over-cap optionals and unknown keys are
  *     silently dropped without failing the submission
+ *   - TCPA consent (boolOptional, 2026-09-04): the funnel's `tcpaConsent`
+ *     BOOLEAN survives the round trip, silence is never recorded as a
+ *     decline, truthy near-misses are refused, and the field is still dropped
+ *     on kinds that do not declare it
  *
  * App Check is not enforced by the emulator, so these are drivable here.
  *
@@ -35,8 +39,24 @@ if (!process.env.FIRESTORE_EMULATOR_HOST) {
 let passed = 0, failed = 0; const fails = [];
 function ok(name, cond) { if (cond) { passed++; console.log('  ✓ ' + name); } else { failed++; fails.push(name); console.log('  ✗ ' + name); } }
 
-async function post(payload) {
-  const res = await fetch(URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+// `ipTag` puts a block of submissions in its OWN per-IP rate-limit bucket.
+//
+// submitPublicLead allows 20 posts per IP per minute (rate-limit-policy.js:111)
+// and this suite had grown to EXACTLY 20 — so the next assertion anyone added,
+// anywhere in the file, would have started the whole tail 429ing and looked
+// like a logic regression. Blocks added from 2026-09-04 on carry a tag rather
+// than eating the shared budget.
+//
+// clientIp() takes `chain[length - TRUSTED_PROXY_HOPS - 1]` and deliberately
+// refuses a 1-entry chain (a lone XFF means the LB never ran its append path),
+// so the tag is sent as a 2-entry chain with a stand-in proxy hop: at the
+// default hop count of 1 that resolves to index 0 — the tag itself.
+// Untagged calls send no XFF at all and still fall back to the socket IP, so
+// every pre-existing block below behaves exactly as it did before.
+async function post(payload, ipTag) {
+  const headers = { 'Content-Type': 'application/json' };
+  if (ipTag) headers['X-Forwarded-For'] = `${ipTag}, 10.0.0.1`;
+  const res = await fetch(URL, { method: 'POST', headers, body: JSON.stringify(payload) });
   let body = null; try { body = await res.json(); } catch {}
   return { status: res.status, body };
 }
@@ -56,6 +76,14 @@ async function fetchDoc(collection, id) {
   return (json && json.fields) || null;
 }
 function str(fields, key) { return fields && fields[key] && fields[key].stringValue; }
+// Firestore REST types booleans separately from strings, and that distinction
+// IS the bug this guards: the M-04 optional loop only ever accepted strings,
+// so the estimate funnel's `tcpaConsent: true` was dropped on every
+// submission. `undefined` here means the key never persisted at all.
+function bool(fields, key) {
+  const f = fields && fields[key];
+  return f && typeof f.booleanValue === 'boolean' ? f.booleanValue : undefined;
+}
 
 // Seed a doc through the same REST surface (same `Bearer owner` bypass) so
 // the siteKey-resolution cases can plant companies/{uid} fixtures without
@@ -178,6 +206,64 @@ async function run() {
     ok('over-cap estimateSummary (2001) dropped', !!fields && !fields.estimateSummary);
     ok('over-cap phone (31) dropped', !!fields && !fields.phone);
     ok('in-cap email kept alongside dropped over-caps', str(fields, 'email') === 'still-ok@example.com');
+  }
+
+  // ── TCPA consent persistence (boolOptional, 2026-09-04) ──
+  // The /estimate funnel hard-disables submit until the consent box is ticked
+  // and posts `tcpaConsent: true`. Before this, the M-04 optional loop dropped
+  // every non-string, so the boolean never persisted and NO lead carried the
+  // consent record the funnel comment promised. lead-alert's SMS ack now reads
+  // that record at send time, so if this round trip breaks, the ack silently
+  // stops firing for every future lead — hence a real HTTP+Firestore proof
+  // rather than a unit test of the parser alone.
+  {
+    const r = await post({
+      kind: 'estimate', address: '789 Consent Way, Union KY', source: '/estimate',
+      firstName: 'Pat', phone: '8595550111', tcpaConsent: true
+    }, '203.0.113.11');
+    ok(`estimate with consent passes validation (not 4xx; got ${r.status})`, ![400, 405].includes(r.status));
+    const fields = (r.body && r.body.id) ? await fetchDoc('estimate_leads', r.body.id) : null;
+    ok('consent doc written + readable', !!fields);
+    ok('tcpaConsent:true persists AS A BOOLEAN (the original bug)', bool(fields, 'tcpaConsent') === true);
+  }
+  {
+    // Form-encoded callers send the string form; it must mean the same thing.
+    const r = await post({ kind: 'estimate', address: '790 Consent Way', source: '/estimate', tcpaConsent: 'true' }, '203.0.113.12');
+    const fields = (r.body && r.body.id) ? await fetchDoc('estimate_leads', r.body.id) : null;
+    ok('tcpaConsent:"true" (string form) persists as boolean true', bool(fields, 'tcpaConsent') === true);
+  }
+  {
+    // An explicit decline is a different fact from silence and is recorded.
+    const r = await post({ kind: 'estimate', address: '791 Consent Way', source: '/estimate', tcpaConsent: false }, '203.0.113.13');
+    const fields = (r.body && r.body.id) ? await fetchDoc('estimate_leads', r.body.id) : null;
+    ok('tcpaConsent:false persists as boolean false', bool(fields, 'tcpaConsent') === false);
+  }
+  {
+    // Silence must NEVER be recorded as a decline — an absent field and a
+    // ticked-then-unticked box are different things and only one is evidence.
+    const r = await post({ kind: 'estimate', address: '792 Consent Way', source: '/estimate' }, '203.0.113.14');
+    const fields = (r.body && r.body.id) ? await fetchDoc('estimate_leads', r.body.id) : null;
+    ok('omitted consent writes NOTHING (not false)', !!fields && bool(fields, 'tcpaConsent') === undefined);
+  }
+  {
+    // Truthy near-misses are not consent. Each would mean the field was
+    // written by some path that was not the checkbox.
+    const r = await post({ kind: 'estimate', address: '793 Consent Way', source: '/estimate', tcpaConsent: 'yes' }, '203.0.113.15');
+    const fields = (r.body && r.body.id) ? await fetchDoc('estimate_leads', r.body.id) : null;
+    ok('tcpaConsent:"yes" is dropped, not stored as consent', !!fields && !fields.tcpaConsent);
+  }
+  {
+    // M-04 regression guard: boolOptional is PER KIND. The contact form
+    // collects no texting consent, so a consent boolean posted there must be
+    // dropped exactly like any other unlisted key — adding boolean support
+    // must not have opened a hole for every kind.
+    const r = await post({
+      kind: 'contact', firstName: 'Mallory', phone: '8595550122', source: '/contact',
+      tcpaConsent: true
+    }, '203.0.113.16');
+    const fields = (r.body && r.body.id) ? await fetchDoc('contact_leads', r.body.id) : null;
+    ok('contact doc written + readable', !!fields);
+    ok('tcpaConsent dropped on a kind that does not declare it (M-04 intact)', !!fields && !fields.tcpaConsent);
   }
 
   // ── siteKey tenant tagging (P5 indirection, 2026-08-06) ──

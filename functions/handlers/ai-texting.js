@@ -65,6 +65,7 @@ function cleanInbound(s, max) {
 }
 
 const ANTHROPIC_API_KEY = defineSecret('ANTHROPIC_API_KEY');
+const { secretValue } = require('../integrations/_shared');
 
 // ─── Persona system prompt ─────────────────────────────────────
 // Locked in this module so every draft uses the same identity +
@@ -326,7 +327,7 @@ async function generateAIDraft({ db, leadId, lead, incomingBody, incomingNoteId,
   if (!leadId || !lead || !incomingBody) return null;
 
   let apiKey;
-  try { apiKey = ANTHROPIC_API_KEY.value(); } catch (_) {}
+  apiKey = secretValue(ANTHROPIC_API_KEY); // '__unset__' stub → null
   if (!apiKey) {
     logger.info('[ai-texting] ANTHROPIC_API_KEY unset — skipping draft generation');
     return null;

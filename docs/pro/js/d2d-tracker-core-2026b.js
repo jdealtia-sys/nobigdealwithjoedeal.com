@@ -187,9 +187,20 @@
     satellite: { label: 'Satellite', icon: '🛰️', url: 'https://mt{s}.google.com/vt/lyrs=s&x={x}&y={y}&z={z}', fallback: true },
     hybrid:    { label: 'Hybrid',    icon: '🗺️', url: 'https://mt{s}.google.com/vt/lyrs=y&x={x}&y={y}&z={z}', fallback: true },
     streets:   { label: 'Streets',   icon: '🛣️', url: 'https://mt{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}', fallback: false },
-    terrain:   { label: 'Terrain',   icon: '⛰️', url: 'https://mt{s}.google.com/vt/lyrs=p&x={x}&y={y}&z={z}', fallback: false }
+    terrain:   { label: 'Terrain',   icon: '⛰️', url: 'https://mt{s}.google.com/vt/lyrs=p&x={x}&y={y}&z={z}', fallback: false },
+    // KyFromAbove Phase 3 — 3-inch leaf-off orthoimagery of the whole
+    // Commonwealth (public domain, keyless, no quota; LODs 0–21; measured
+    // 2026-09-04: z16/z19 Lexington → 200 image/png). Roughly 4× the detail of
+    // the 12-inch Google/Esri tiles on the Northern-Kentucky and Lexington
+    // lanes — shingle courses and vent boots are readable from the map.
+    // Outside Kentucky the server returns a blank transparent PNG (190 bytes),
+    // so this is an OVERLAY on the Google satellite basemap: Kentucky gets
+    // 3-inch imagery, everything else stays Google. Host is in img-src.
+    ky3in:     { label: 'KY 3-in',   icon: '🐎', url: 'https://mt{s}.google.com/vt/lyrs=s&x={x}&y={y}&z={z}', fallback: true,
+                 overlay: 'https://kygisserver.ky.gov/arcgis/rest/services/WGS84WM_Services/Ky_Imagery_Phase3_3IN_WGS84WM/MapServer/tile/{z}/{y}/{x}',
+                 overlayMaxNativeZoom: 21, overlayAttribution: 'Imagery © Commonwealth of Kentucky (KyFromAbove)' }
   };
-  const BASEMAP_ORDER = ['satellite', 'hybrid', 'streets', 'terrain'];
+  const BASEMAP_ORDER = ['satellite', 'hybrid', 'ky3in', 'streets', 'terrain'];
   const BASEMAP_PREF = 'nbd_d2d_basemap';
   // Map mark LOOK preference (Phase 1 of the map unification). Pure display
   // style — 'dots' = the detailed disposition-coded circles, 'pins' = simple
@@ -3767,6 +3778,17 @@
         const c = ev.coords;
         ev.tile.src = SAT_TILES_FALLBACK.replace('{z}', c.z).replace('{x}', c.x).replace('{y}', c.y);
       });
+    }
+    if (b.overlay) {
+      // Base + overlay travel as one group so setBasemap()'s remove/add and
+      // the saved preference treat them as a single choice. Both are tile
+      // layers in Leaflet's tilePane, so markers/drawn territories stay above
+      // them without bringToBack (which a layerGroup does not have).
+      const over = L.tileLayer(b.overlay, {
+        maxNativeZoom: b.overlayMaxNativeZoom || 19, maxZoom: 23,
+        attribution: b.overlayAttribution || ''
+      });
+      return L.layerGroup([layer, over]);
     }
     return layer;
   }

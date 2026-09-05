@@ -623,8 +623,31 @@ jobs:
       #
       # Full remediation runbook: see POST_DEPLOY_CHECKLIST §16.
       #
-      # --force auto-confirms deletion of orphan functions. --debug
-      # was retained on 2026-04-14 to diagnose the IAM-denial cascade;
+      # --force auto-confirms destructive prompts. It does NOT delete orphan
+      # functions here, and the older wording claiming it did was wrong in a
+      # way that cost real cleanup — corrected 2026-09-04.
+      #
+      # Firebase only DETECTS an orphan (deployed function with no matching
+      # export) on an UNFILTERED `deploy --only functions`. Every deploy in
+      # this workflow names its targets explicitly — `--only functions:NAME`,
+      # see _deploy_only() below and the comment above it that says so — so
+      # anything absent from the list is simply not considered. --force then
+      # has no deletion to confirm.
+      #
+      # Measured 2026-09-04: eight functions retired from source on 2026-08-06
+      # and 2026-08-11 (sendEstimateEmail, sendTeamInviteEmail, sendDripEmail,
+      # auditCustomerDataIntegrity, backfillCustomerData, migratePinsToKnocks,
+      # triggerProcessRecording, reprocessRecording) were still deployed and
+      # serving frozen code months later, across many green deploys. One of
+      # them even carried a source comment asserting its "Prod instance
+      # deleted via console". It had not been. All eight were deleted by hand;
+      # the fleet went 179 -> 171.
+      #
+      # So: RETIRING AN EXPORT DOES NOT UNDEPLOY IT. Deleting the code is half
+      # the job — `gcloud functions delete <name> --region=us-central1` is the
+      # other half, and nothing in CI will do it or notice it was skipped.
+      #
+      # --debug was retained on 2026-04-14 to diagnose the IAM-denial cascade;
       # removed now that the split-deploy strategy works cleanly. If
       # a future deploy goes opaque again, add --debug back as the
       # first investigation step.
@@ -1130,6 +1153,29 @@ jobs:
             echo "✓ Skip-list functions deployed cleanly — the GCIP blocker is gone. Empty NBD_DEPLOY_SKIP_LIST in the workflow."
           fi
           exit 0
+
+      # Orphan check (2026-09-04). Eight functions retired from source on
+      # 2026-08-06 and 2026-08-11 stayed deployed for four months across many
+      # green deploys, because nothing compared the fleet to the code. See the
+      # corrected --force comment above: Firebase only detects orphans on an
+      # UNFILTERED functions deploy, and this workflow always names targets.
+      #
+      # Runs AFTER the tolerant retry so a function deployed moments ago is
+      # never reported MISSING. gcloud is already authenticated by the
+      # "Enable required Google APIs" step earlier in this job.
+      #
+      # The exit code propagates deliberately, including exit 2 ("could not
+      # determine"). A checker that cannot read either list must not be
+      # indistinguishable from a clean fleet — that is the exact false-green
+      # this check was built to end, and gcloud is already load-bearing in two
+      # earlier steps, so this adds no new fragility. A real orphan turns the
+      # deploy job red AFTER a successful rollout: a signal to clean up, not a
+      # rollback.
+      - name: Fleet must match the code — no orphaned or missing functions
+        if: ${{ github.event_name == 'push' || github.event.inputs.scope == 'all' || github.event.inputs.scope == 'functions' }}
+        env:
+          NBD_PROJECT: ${{ env.PRO_PROJECT }}
+        run: node scripts/check-function-orphans.js
 
       - name: Wipe service-account JSON from runner
         if: always()

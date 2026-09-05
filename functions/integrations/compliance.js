@@ -20,7 +20,7 @@
 'use strict';
 
 const { onCall, HttpsError, onRequest } = require('firebase-functions/v2/https');
-const { onSchedule } = require('firebase-functions/v2/scheduler');
+const { onSchedule } = require('./heartbeat'); // heartbeat-wrapped drop-in for firebase-functions/v2/scheduler
 const { logger } = require('firebase-functions/v2');
 const { Timestamp, getFirestore } = require('firebase-admin/firestore');
 const { getAuth } = require('firebase-admin/auth');

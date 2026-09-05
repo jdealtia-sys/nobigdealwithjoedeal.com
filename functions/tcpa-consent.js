@@ -1,0 +1,126 @@
+/**
+ * NBD — TCPA consent, as a stored fact rather than an inference
+ * ═══════════════════════════════════════════════════════════════
+ *
+ * Background (2026-09-04). The /estimate funnel hard-disables its submit
+ * button until the homeowner ticks the express-written-consent box, and it
+ * posts `tcpaConsent: true` with the lead. The funnel's own comment says the
+ * value is "stored explicitly so the record is audit-ready and the SMS-ack
+ * trigger can rely on it".
+ *
+ * Neither half was true in production:
+ *
+ *   1. submitPublicLead's M-04 optional-field allowlist only ever accepted
+ *      STRINGS (`typeof v !== 'string'` → continue), and `tcpaConsent` was not
+ *      on the estimate kind's list at all. The boolean was dropped on every
+ *      submission, so NO lead has ever carried a consent record.
+ *   2. lead-alert's `ackHomeownerSms` never read the field. It inferred
+ *      consent from `collection === 'estimate_leads'` — i.e. from the funnel's
+ *      UI construction — so any document landing in that collection by any
+ *      other route (an import, a migration, a backfill, a seed, a future
+ *      second form) would be texted with nothing to show for it.
+ *
+ * That is the difference between BELIEVING you have consent and being able to
+ * SHOW it. This module is the second half: one place that answers "may we text
+ * this person, and if not, why not" from the stored record only.
+ *
+ * Fail-closed by construction: a missing field is not consent, a string
+ * "true" written by some future caller is not consent, and only an explicit
+ * boolean `true` opens the gate. Legacy leads created before the persistence
+ * fix therefore never receive the ack — correctly, because no consent record
+ * exists for them and one cannot be invented after the fact.
+ *
+ * Pure and dependency-free so it is unit-testable without emulators
+ * (tests/tcpa-consent.test.js), following the *-logic.js convention.
+ */
+
+/** The single field name, so no call site can drift onto a near-miss key. */
+const CONSENT_FIELD = 'tcpaConsent';
+
+/**
+ * Collections whose documents can carry express written texting consent.
+ *
+ * Deliberately NOT "every public lead collection": a collection earns a place
+ * here only once its form actually presents a consent disclosure and gates
+ * submission on it. Today that is the /estimate funnel alone. Adding a key
+ * here without adding the checkbox to that form is how a consent gate becomes
+ * decorative, so treat this list as the audit trail it is.
+ */
+// 2026-09-04: inspect_leads joins. Three of its four forms (/storm-check,
+// /roof-score, /storm-report) present the disclosure, gate submission on it and
+// post the value; the fourth (/inspect) has no checkbox, posts nothing, and its
+// documents therefore fail hasWrittenConsent — they are never texted. That is
+// the point of reading consent from the document rather than the collection.
+const CONSENT_COLLECTIONS = Object.freeze(['estimate_leads', 'inspect_leads']);
+
+/**
+ * Coerce a consent value as it arrives on a public-form submission.
+ *
+ * Returns `true`, `false`, or `undefined` — and the third case is the load-
+ * bearing one. `undefined` means "the caller said nothing", and a caller who
+ * said nothing must never have `false` written for them: an absent field and a
+ * declined checkbox are different facts, and only one of them is evidence.
+ *
+ * Accepts the exact string forms too, because the gateway takes JSON today but
+ * a form-encoded caller would arrive as 'true'/'false'. Nothing else counts —
+ * not 1, not 'yes', not 'on'. See hasWrittenConsent for why strictness here is
+ * the whole point.
+ *
+ * @param {*} v raw value from the request body
+ * @returns {boolean|undefined}
+ */
+function parseSubmittedConsent(v) {
+  if (v === true || v === 'true') return true;
+  if (v === false || v === 'false') return false;
+  return undefined;
+}
+
+/**
+ * Is there a stored, provable consent record on this document?
+ *
+ * Strict identity against `true`. Truthy values (1, 'yes', 'true') are
+ * rejected on purpose — every one of them means somebody wrote the field by a
+ * path that was not the consent checkbox, and a consent record you cannot
+ * explain is worse than none.
+ *
+ * @param {object|null|undefined} doc  the lead document
+ * @returns {boolean}
+ */
+function hasWrittenConsent(doc) {
+  return !!doc && doc[CONSENT_FIELD] === true;
+}
+
+/**
+ * The full policy decision for the homeowner SMS acknowledgement.
+ *
+ * Returns a stable `reason` code even when allowed, so the caller can log the
+ * decision rather than the absence of one — a suppressed text that logs
+ * nothing is indistinguishable from a text that was never attempted.
+ *
+ * @param {object}  args
+ * @param {boolean} args.enabled     LEAD_ACK_SMS_ENABLED === 'true'
+ * @param {string}  args.collection  source collection of the lead
+ * @param {object}  args.doc         the lead document
+ * @param {object}  args.target      resolved alert target (needs isNbd)
+ * @returns {{allowed: boolean, reason: string}}
+ */
+function smsAckGate(args) {
+  const a = args || {};
+  if (a.enabled !== true) return { allowed: false, reason: 'flag_disabled' };
+  if (!CONSENT_COLLECTIONS.includes(String(a.collection || ''))) {
+    return { allowed: false, reason: 'collection_not_consent_bearing' };
+  }
+  // Never text another company's homeowner with Joe's brand. Mirrors the
+  // ackHomeowner email gate; see the NBD-leak audit (2026-07-29).
+  if (!a.target || a.target.isNbd !== true) return { allowed: false, reason: 'not_nbd_lead' };
+  if (!hasWrittenConsent(a.doc)) return { allowed: false, reason: 'no_stored_consent' };
+  return { allowed: true, reason: 'consent_on_record' };
+}
+
+module.exports = {
+  CONSENT_FIELD,
+  CONSENT_COLLECTIONS,
+  parseSubmittedConsent,
+  hasWrittenConsent,
+  smsAckGate,
+};

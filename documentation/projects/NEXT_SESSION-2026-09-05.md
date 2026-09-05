@@ -1,228 +1,124 @@
 # Next session — brief as of the end of 2026-09-04
 
-**This is the marketing/site lane.** The CRM lane's brief
-([NEXT_SESSION-2026-09-04](NEXT_SESSION-2026-09-04.md)) is still the reference
-for everything under `functions/` and `docs/pro/`, **and it is live, not
-superseded** — it was rewritten in place on 09-03 (PR #1376) after a
-verification sweep refuted several of that session's own claims. Its §Top of
-the list opens with *confirm the scheduled Firestore backup actually ran*, and
-its §Do not rebuild on these, §Corrections, §Blocked on a Cloud Functions
-deploy window and §Needs a decision are all open. **Read that file first if
-your work is CRM-side.** Nothing below touches any of it.
-
-> Merged into this branch at close (`origin/main` → 3 commits, no conflicts),
-> so the gate numbers below are measured on the merged tree. That merge also
-> brought the `FLOORS` ratchet raise in `scripts/run-test-manifest.js` whose
-> own comment says *"KEEP THESE IN STEP with the real counts whenever a suite
-> is added"* — this branch adds one suite, so the floors go 51/65/130 →
-> 52/65/131 here. **If you add a suite, raise them again in the same PR.**
-
----
-
-## What happened
-
-A homeowner at 5760 Farm Field Dr, Mason called about **wood siding repair**.
-She found NBD by searching, then clicking through Google's *more similar
-searches*. Jo's question was the right one — *"let's look at our site and see
-what is working and what we can do even better or more of"* — and the answer
-was uncomfortable: **she found us in spite of the site, not because of it.**
-"wood siding repair" appeared on **zero pages**. So did wood rot, rotted
-siding, fascia repair, clapboard, T1-11 and board-and-batten. All twelve siding
-pages were vinyl-first.
-
-The same shape then turned up twice more in one session. Full write-ups:
-[WOOD-SIDING-GAP](../audit/WOOD-SIDING-GAP-2026-09-03.md) ·
-[SHED-OUTBUILDING-GAP](../audit/SHED-OUTBUILDING-GAP-2026-09-03.md).
-
-> ### The finding worth carrying past this session
+> **Superseded 2026-09-05 by [NEXT_SESSION-2026-09-06](NEXT_SESSION-2026-09-06.md).**
+> Items 3, 5 and 6 below shipped (#1390, #1391, #1392); item 4's fix is the
+> Healthchecks heartbeat (#1389) rather than a code-side age check; item 3's
+> "Sentry DSN, Turnstile" claim was wrong — both already used `hasSecret()`.
+> Items 1 and 2 remain Jo's.
 >
-> **`/our-work` is running ahead of `/services`.** Jobs get done, photographed
-> and published — and nothing ever goes back to ask whether the site *sells*
-> the thing the job proves. Three services were being delivered and published
-> while no page offered them. Whoever publishes the next batch of cards: read
-> the service tags on what you just published and diff them against
-> `docs/services/`. That diff is a content backlog nobody is currently reading.
+> Supersedes [NEXT_SESSION-2026-09-04](NEXT_SESSION-2026-09-04.md).
+> Session record: [STABILITY-AUDIT-2026-09-04](../audit/STABILITY-AUDIT-2026-09-04.md)
+> — the audit note carries the full finding lists, the corrections, and the
+> two dated UPDATE sections; this brief carries only what is still live.
 
-## Shipped — PR #1373, branch `claude/wood-siding-site-review-25ivvp`
+## Start here
 
-Seven new pages, one new contract test (`ourwork-deeplink-contract`), two
-generator fixes, two CI fixes, three vault notes. Deliberately not stating a
-commit count — the first version of this line said "fourteen" and was wrong
-within the hour; `git log origin/main..HEAD` is the answer that stays true.
+**Seven PRs merged and deployed, all verified live rather than trusted green.**
+Nothing is mid-flight. Every branch is squash-merged (their SHAs will not show
+as ancestors of `main` — verify by content, not ancestry). The only open PR is
+#1373 (wood siding pages), which predates this session.
 
-**The wood cluster (6 pages).** A hub plus five tier-1 cities. Each city page
-was written from *that town's* housing stock, not from a template — the angles
-are deliberately non-overlapping so the pages don't cannibalise each other, and
-the table is here so the next city page doesn't repeat one:
+**Nothing is losing data or money.** The SMS subsystem has never processed a
+real message (`sms_opt_outs`, `sms_log`, `sms_inbound_seen`,
+`storm_alert_subscribers` are all empty in prod), so the two TCPA fixes below
+landed *before* the feature goes live, which is the best possible order.
 
-| Page | The angle |
-|---|---|
-| Mason | **Where** the wood is — behind the vinyl (fascia, soffit, trim) |
-| Loveland | **What material** — cedar vs wood fiber, valley shade and grade |
-| West Chester | **Why** it rotted — a missed detail, a past re-roof, the HOA |
-| Batavia | **The wood itself** — old-growth worth saving, exposure, insulation plugs |
-| Cincinnati | **Reaching it** — hillside/upper-story access, protection first |
+## What shipped (2026-09-04)
 
-36 FAQ questions across the six, **zero repeats** (checked programmatically).
-The Cincinnati angle was not the one predicted — the guess was "which era are
-you in" and `/our-work` corrected it: two already-published Cincinnati jobs
-(*"one piece worked loose three stories up"*, *"roof protection down before the
-ladders went up"*) said the wood there is not hard to fix, it is hard to reach.
+| PR | | |
+|---|---|---|
+| #1377 | TCPA consent persisted at intake AND checked at send time; both `/estimate` submit paths carry it | deployed |
+| #1378 | 216-page SEO gate (`scripts/check-seo-surface.js`), 6 fixes incl. an indexable 404 and a 117 KB JPEG hero | deployed |
+| #1379 | Audit record | — |
+| #1380 | `sms_opt_outs` stored and looked up under ONE key (`functions/sms-optout.js`) + backfill | deployed |
+| #1381 | Corrected the deploy comment that claimed `--force` deletes orphans | — |
+| #1382 | Orphan detector — a deploy now FAILS if the fleet stops matching the code | live on every deploy |
+| #1383 | `hailMatchCron` scores real leads for the first time; `/storm-check` CSP; ten deployable alert policies | deployed |
 
-**Anti-drift construction, reusable.** Every new page generates its visible FAQ
-HTML **from its own `FAQPage` JSON-LD**, so the two cannot diverge. Edit the
-JSON-LD; the HTML follows. This caught British spellings repeatedly (`colour`
-×5, `realise`, `grey`, `neighbours`, `mobilisation`, `recognise`, `storey` ×6)
-— each appearing in *both* copies, which is exactly what deriving one from the
-other is for.
+Plus **eight orphaned Cloud Functions deleted** by hand (fleet 179 → 171), and
+**all 77 audit findings that had been mis-filed as refuted were adjudicated**:
+39 true, 36 partly, 1 false, 0 left unverified.
 
-**Sheds & outbuildings.** A hub page plus a published Mason shed re-roof card;
-three older jobs retagged. Four outbuilding roofs had been done and published
-with no page offering the service.
+## Do not rebuild on these — refuted 2026-09-04
 
-**City pages can carry proof strips.** The `OURWORK-STRIP` marker works on any
-`docs/services/*.html`. **No city page had ever carried one** — ~90 city pages
-with zero photographs on them. Six now do.
+1. **"Eight functions are three weeks stale, live code behind main."** FALSE.
+   They were deliberately retired from source on 08-06/08-11 and never
+   undeployed. Their code was not behind main; it did not exist in main. All
+   eight are now deleted. *Retiring an export does not undeploy it.*
+2. **"`--force` auto-confirms deletion of orphan functions."** FALSE. Firebase
+   only detects orphans on an unfiltered functions deploy; this workflow names
+   every target. #1382 is the detector that now catches it.
+3. **"The CRM mic buttons are dead — `DEEPGRAM_API_KEY` was never set."** FALSE.
+   It is set and bound to both callables.
+4. **The 77 "refuted" findings were never refuted.** Their verifiers died on
+   the session limit and the workflow scored zero votes as a refutation. The
+   real split is in the audit note. Severities were badly inflated: 3 critical
+   + 18 high arrived; 2 high and 0 critical survived a real read.
+5. **"The sms_opt_outs key mismatch is harming homeowners right now."** FALSE
+   as impact — the register is empty, no inbound SMS has ever arrived. The
+   defect was real; the damage was not.
 
-## Two things this session got wrong, and how
+## Top of the list
 
-Both are recorded in full because the *mechanism* is reusable, not just the fix.
+1. **The Google reviews are blank on every marketing page.** Both
+   `GOOGLE_PLACES_API_KEY` and `NBD_PLACE_ID` are the literal `__unset__` deploy
+   stub, so `/api/google-reviews` returns `{"rating":0,"total":0,"empty":true}`
+   with HTTP **200** — which is why nothing ever alerted. Verified live. Needs
+   real credentials; only Jo can supply them.
+   `firebase functions:secrets:set GOOGLE_PLACES_API_KEY` then `NBD_PLACE_ID`.
+2. **Turn on alerting — Jo's call.** All ten `monitoring/alert-*.json` are now
+   proven to create (each was created in prod and deleted again). The project
+   still has **zero live policies**. One loop deploys nine of them; skip
+   `alert-migrations-tick-stale.json`, which is disabled on purpose.
+3. **Three more `__unset__` stubs pass as configured** because `'__unset__'` is a
+   truthy string and four functions test truthiness instead of `hasSecret()`:
+   Sentry DSN (`SENTRY_DSN_FUNCTIONS`), Turnstile, Stripe Connect webhook.
+   Route them through the registry. S each.
+4. **`migrationsTick` has not fired since 2026-08-31** and *cannot* be alerted
+   on as an absence — Google caps `conditionAbsent` at 23h30m, shorter than a
+   daily cadence. Fix is code: a heartbeat-age check that logs an ERROR, then
+   alert on that line, the way `backup-freshness.js:120` already does.
+5. **GA4 is absent from all 163 service/area landing pages.** Not merely
+   missing at conversion time — the tag is never loaded. Every lead from those
+   pages is invisible to analytics. M, markup only, CSP already permits it.
+6. **Three more public forms discard TCPA consent** the same way `/estimate`
+   did: `/storm-check`, `/roof-score`, `/storm-report`. Same fix as #1377 —
+   but the adjudicator's sequencing note matters: persistence must ship before
+   any collection is added to `CONSENT_COLLECTIONS`, or the ack goes dark.
 
-**1. Four false claims published on the shed card** (fixed `6509bc0`,
-[SHED-OUTBUILDING-GAP §4b](../audit/SHED-OUTBUILDING-GAP-2026-09-03.md)).
-The card asserted water staining around old fasteners, roofing bagged and
-staged on tarps, a clear yard, and a "stripped" slope. All four false — proven
-by cropping and enlarging the disputed regions: the deck marks are glossy
-asphalt residue *on top of* sound pale OSB, the roofing lies loose on grass and
-leaf litter, and the hero frame itself shows bundle wrappers on the lawn.
+## Watch tomorrow
 
-> **The root cause was a process bug, not a bad agent.** The drafting
-> workflow's FACTS block was written from one quick read of the photos. Four
-> drafters and three judges then worked faithfully — the judges caught every
-> fabrication introduced *on top of* the brief. But **a judge panel measures
-> candidates against the brief, so a wrong premise passes through untouched.**
-> The verification workflow caught all four, because its agents read the images
-> themselves and were told to *refute*. Brief-checking and candidate-checking
-> are different jobs; a panel only does the second.
+- **`hailMatchCron` runs at 09:00 America/Chicago and scores real leads for
+  the first time ever.** Expect hail hits on Jo's pipeline that were never
+  there before. That is the fix working, not a bug.
 
-**2. Append-only rot in this session's own note** (fixed `4429853`). §1 of the
-shed note still asserted what §4b had disproved. Corrected in place with a ⚠
-marker — the exact defect CLAUDE.md names.
+## Watch-outs (new this session)
 
-## Jo's queue — nothing here is engineering
-
-1. **GBP services.** Paste-ready, verified under the 300-char limit, no editing
-   needed: [gbp-services-2026-09-03](../marketing/gbp-services-2026-09-03.md).
-   The site now sells **wood siding repair**, **fascia and soffit**, and **shed
-   and outbuilding roofing**; **GBP lists none of the three**, and the service
-   list is an input to which related searches the profile appears in — which is
-   precisely how the Mason caller arrived. There is no Business Profile
-   connector, so this is a live-in-Chrome job. It also carries a **carried
-   item nobody has closed**: the 08-31 Hyde Park → Lexington service-area swap
-   was left *"pending, up to 10 minutes"* and no session has confirmed it since.
-2. **The Mason caller's three photos.** Rotted painted fascia with holes, a
-   fascia/gutter rot spot, an aluminum-wrapped corner. Strong `/our-work`
-   candidate — needs consent and the
-   [PUBLISH-PROJECT](../runbooks/PUBLISH-PROJECT.md) runbook.
-3. **RRP certification.** Jo, 2026-09-04: *"I'm not yet RRP certified."* See
-   the next section — this one has a deadline shaped like a phone call.
-4. **`Locally Owned — "Goshen, OH — your neighbor"`** is live on six pages
-   (`services/roof-repair`, `roof-replacement`, `siding-repair`,
-   `siding-replacement`, `gutter-replacement`, `storm-damage`). Jo lives in
-   Cincinnati; Goshen is the warehouse. Jo's call whether that line stays.
-5. **The homepage lead tile is a backyard shed.** The Mason shed card is now
-   tile 1 of *"Real Roofs. Real Neighbors."* Flagged, deliberately not decided.
-
-## The RRP constraint — read this before touching a wood page
-
-Full note: [RRP-LEAD-PAINT-CONSTRAINT-2026-09-04](../audit/RRP-LEAD-PAINT-CONSTRAINT-2026-09-04.md).
-
-**The site is clean and must stay that way.** A word-boundary sweep of `docs/`
-finds zero lead/RRP claims on any homeowner page — the only correct posture for
-an uncertified firm, since it is the *claim*, not the carpentry, that is
-trivially provable. **Do not add "lead-safe" language to anything.**
-
-**The exposure is the demand the pages create, not a claim they make.** Batavia
-points at pre-1978 clapboard on purpose, and **"sanded flush"** is live in
-seven files. Hand-sanding a patch is fine; a random-orbit sander on pre-1978
-paint without HEPA extraction is a prohibited practice that **forfeits the
-under-20-sq-ft exemption for the whole job**.
-
-**One correction to carry:** an earlier answer this session said Ohio runs an
-EPA-authorized program through ODH. Wrong — **US EPA administers RRP directly
-in Ohio**; ODH only accredits in-state courses and licenses *abatement*
-professionals. The firm application goes to **EPA**. Verified: **$300 / 5
-years** firm certification, **8-hour** renovator course (2 hands-on) / 5 years,
-and **window replacement is never exempt at any size**.
-
-Also closed: of 107 CRM job templates only two warned about pre-1978 work and
-**both were painting templates** — the ones that actually tear off painted
-fascia, rake, frieze, soffit, windows and doors had nothing. Nine now carry a
-`PRE-1978 CHECK:` line. The line names the check, not the firm's standing,
-because `docs/pro/` is served from the public hosting root and the CRM is
-multi-tenant.
-
-**When certification lands it is one pass and it is already scoped** — §4 of
-the note lists the six wood pages, two siding pages, the GBP description (270
-of 300 chars, room to spare) and the nine template lines.
-
-## Logged, not fixed — each is its own PR
-
-- **`.webp` files are larger than their `.jpg` twins.** 261 pairs under
-  `docs/`; **153 of them the webp is the bigger file**, 108 smaller. The
-  pipeline is producing pessimised images at least half the time and nobody has
-  looked at the encoder settings. (Five of the six webp files added this week
-  are referenced by nothing at all.)
-- **Roof-specific copy still sits on the siding pages** —
-  `services/siding-repair.html` and `siding-replacement.html` carry *"Getting a
-  new roof shouldn't feel like a negotiation"* and *"gets on the roof"*. Both
-  now also carry `sanded flush` from the wood work, so they are due a pass
-  regardless.
-- **Sitemap `lastmod` on `/our-work` is stale by generator policy**, not by
-  drift — `build-sitemap.js` reports zero diff. Worth deciding whether the
-  policy is right rather than patching the file.
-- **`docs/services/fascia-soffit-repair.html` does not exist.** Fascia/soffit
-  is the one service in the GBP list that the site only sells *inside* another
-  hub. If GBP starts showing impressions for it, that is the build signal.
-
-## Watch-outs
-
-- **`docs/pro/js/job-templates-data.js` is one JSON object per line and is
-  parsed by `tests/job-templates.test.js`.** Edit it with a targeted
-  string patch, never by re-serialising the array — a round-trip reorders keys
-  and produces a 107-line diff for a one-word change.
-- **`tests/catalog-cost-privacy.test.js` reports 123 passed / 3 failed in this
-  sandbox and that is not a regression.** The three need real git history (the
-  drift detector reads a labor catalog at `225c0d8c` and finds 0 entries in a
-  shallow clone). Identical on a clean tree; green in CI. Do not "fix" it.
-- **A green anchor check is not a working link.** `check-site-integrity`
-  verified all 1,311 anchors including 55 `#svc-<slug>` deep links that had
-  never filtered anything — the ids existed, so the gate passed. Fixed and
-  guarded this session (`25ea216`), but the lesson generalises: assert the
-  outcome, not the precondition.
-- **CI's `Serve docs/` step was fixed on 28c75f3** — two `npx --yes` cold
-  downloads were racing a 60-second `wait-on`. **Confirmed green** on run 3297
-  (`26bd75a`), the first fully-successful suite on this branch. If it times out
-  again, warm the cache first.
-- **`Dependency audit (high and above)` no longer fails on npm's uptime
-  (`f3c8f0e`).** `registry.npmjs.org`'s `/-/npm/v1/security/audits/quick`
-  endpoint returned a 400 and two 503s on 2026-09-04 alone, and `npm audit`
-  exits 1 for *both* "there is a HIGH advisory" and "the endpoint did not
-  answer" — one exit code, two meanings. The step now separates them: it
-  retries only the endpoint case (3 × `timeout 180`, 20/40s backoff, and exit
-  124 from `timeout` counts as an endpoint problem so a hung call is never
-  mislabelled as a vulnerability), and **still fails** if the audit genuinely
-  could not run, saying so in the error. **There is no `|| true` on that line
-  and there must not be** — a security gate reporting green over an audit it
-  never performed is the false-green class this repo keeps paying for.
-  So: **a red here still means something.** Read the error text — it now tells
-  you which of the two happened. Verified green on run 3299.
-
----
-
-*Session record: this brief · audits
-[WOOD-SIDING-GAP](../audit/WOOD-SIDING-GAP-2026-09-03.md),
-[SHED-OUTBUILDING-GAP](../audit/SHED-OUTBUILDING-GAP-2026-09-03.md),
-[RRP-LEAD-PAINT-CONSTRAINT](../audit/RRP-LEAD-PAINT-CONSTRAINT-2026-09-04.md) ·
-marketing [gbp-services-2026-09-03](../marketing/gbp-services-2026-09-03.md) ·
-CRM lane [NEXT_SESSION-2026-09-04](NEXT_SESSION-2026-09-04.md).*
+- **Cloud Run service names are lowercase.** `onAudioUploaded` matches nothing
+  in a Monitoring filter; `onaudiouploaded` does.
+- **`conditionAbsent` caps at 23h30m.** "A daily cron stopped" is not
+  expressible as an absence condition; it false-fires daily.
+- **`gcloud ... create --format="value(name)"` still prints the `Created alert
+  policy [...]` banner.** Capturing stdout for the resource name gives you the
+  banner. A cleanup loop built on it silently no-ops — assert the live count
+  afterward, never trust the loop.
+- **Squash merges discard the branch SHA.** `git merge-base --is-ancestor
+  <branch-sha> main` is guaranteed false after a squash. Verify a deploy by
+  reading the file out of `origin/main`, not by ancestry.
+- **`JSON.parse` + `stringify` on `firebase.json` reformats the whole file** —
+  484-line diff for a two-token change. Edit it line-wise.
+- **A source-contract test that greps raw text matches comments.** Twice today
+  an assertion passed (or failed) on prose rather than code. Strip comments
+  first.
+- **`onboarding tour anchors` in the `@audit` E2E shard is flaky** — proven by
+  re-run on the identical commit. Advisory, so it will not block, but it will
+  keep producing false reds.
+- **The two `cancelled` deploy runs from 09-03 are unexplained.** Today's
+  rapid merges QUEUED rather than cancelling, which contradicts the "superseded
+  by concurrency" guess. Open question.
+- **Workflow scripts: `survives` must distinguish `unverified` from `refuted`.**
+  An agent that dies is not a refutation. Three outcomes, never two.
+- `r2.json` and `runs30.json` are untracked junk in the repo root — not from
+  this session, never committed. Delete or gitignore.
+- ~20 stale local branches are all squash-merged and safe to delete; the
+  `nbd-wt-ledger-recon` worktree still holds `main`.

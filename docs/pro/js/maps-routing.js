@@ -2400,17 +2400,34 @@ function resetShadowMode() {
 
 
 // ── FEATURE 4: HISTORICAL IMAGERY SLIDER ─────────────────────────
-// Uses Esri World Imagery Wayback service
+// Esri World Imagery Wayback. Each release is addressed by the NUMERIC id
+// from Esri's waybackconfig.json — the previous `WB_2024_R06`-style strings
+// were never valid ids and every tile request 404'd, so the slider had shown
+// nothing since it shipped (measured 2026-09-04: numeric → 200 image/jpeg,
+// string → 404). Ids are not chronological (2026-08-05 is 26334, 2014-06-25
+// is 11033), so the date is carried alongside. Oldest → newest, one release
+// per year around June (leaf-on, storm season) plus the two most recent, so
+// "before the storm / after the storm" is one slider step. Refresh from
+// https://s3-us-west-2.amazonaws.com/config.maptiles.arcgis.com/waybackconfig.json
+// when a newer release lands; tests/imagery-sources.test.js pins this table.
 const ESRI_WAYBACK_VERSIONS = [
-  {date:'2024-06-12', version:'WB_2024_R06'},
-  {date:'2023-06-14', version:'WB_2023_R06'},
-  {date:'2022-06-15', version:'WB_2022_R06'},
-  {date:'2021-06-16', version:'WB_2021_R06'},
-  {date:'2020-06-10', version:'WB_2020_R06'},
-  {date:'2019-06-12', version:'WB_2019_R06'},
-  {date:'2018-02-14', version:'WB_2018_R02'},
-  {date:'2017-09-20', version:'WB_2017_R09'},
+  {date:'2014-06-25', release:11033},
+  {date:'2015-06-24', release:11952},
+  {date:'2016-06-13', release:11509},
+  {date:'2017-06-27', release:4073},
+  {date:'2018-06-27', release:11334},
+  {date:'2019-06-26', release:645},
+  {date:'2020-06-10', release:11135},
+  {date:'2021-06-30', release:13534},
+  {date:'2022-06-29', release:4905},
+  {date:'2023-06-29', release:47963},
+  {date:'2024-06-27', release:39767},
+  {date:'2025-06-26', release:48925},
+  {date:'2026-04-30', release:49059},
+  {date:'2026-08-05', release:26334},
 ];
+const ESRI_WAYBACK_TILE = (release) =>
+  `https://wayback.maptiles.arcgis.com/arcgis/rest/services/World_Imagery/WMTS/1.0.0/default028mm/MapServer/tile/${release}/{z}/{y}/{x}`;
 
 function toggleHistoricalImagery() {
   if(historySliderActive) {
@@ -2421,9 +2438,9 @@ function toggleHistoricalImagery() {
   // Show the slider UI
   const panel = document.getElementById('historyPanel');
   if(panel) panel.style.display = 'block';
-  // Default: show oldest available
+  // Default: the newest release (slider fully right); drag left to go back.
   setHistoricalLayer(ESRI_WAYBACK_VERSIONS.length - 1);
-  showToast('Historical imagery loaded — use slider to compare dates', 'ok');
+  showToast('Historical imagery loaded — drag the slider back in time', 'ok');
 }
 
 function setHistoricalLayer(idx) {
@@ -2431,8 +2448,10 @@ function setHistoricalLayer(idx) {
   if(!v) return;
   if(historyLayerOld) drawMap.removeLayer(historyLayerOld);
   historyLayerOld = L.tileLayer(
-    `https://wayback.maptiles.arcgis.com/arcgis/rest/services/World_Imagery/WMTS/1.0.0/default028mm/MapServer/tile/${v.version}/{z}/{y}/{x}`,
-    { maxZoom: 21, opacity: 1 }
+    ESRI_WAYBACK_TILE(v.release),
+    // Wayback serves to z=19 natively; let Leaflet upscale to the drawMap's
+    // z=21 ceiling instead of leaving the layer blank when zoomed on a roof.
+    { maxNativeZoom: 19, maxZoom: 21, opacity: 1, attribution: 'Imagery © Esri (Wayback)' }
   ).addTo(drawMap);
   // Put behind current drawings
   historyLayerOld.setZIndex(-1);

@@ -24,6 +24,10 @@ const { FieldValue } = require('firebase-admin/firestore');
 const { httpRateLimit, enforceRateLimit, clientIp } = require('../integrations/upstash-ratelimit');
 const { CORS_ORIGINS } = require('./_shared');
 const { resolveCompanyByKey } = require('./public-site');
+// Consent coercion lives in one dependency-free module shared with
+// lead-alert's send-time gate, so "what counts as consent" cannot drift
+// between the code that STORES it and the code that ACTS on it.
+const TCPA = require('../tcpa-consent');
 
 // ═══════════════════════════════════════════════════════════════
 // integrationStatus — client-facing readout of which adapters are
@@ -104,7 +108,10 @@ exports.integrationStatus = onCall(
         groq:               _hasInt('GROQ_API_KEY'),
         // Image generation — kie.ai alternate visualizer provider
         // (dark until IMAGEGEN_PROVIDER=kie; see visualizer-image-gen.js).
-        kie:                _hasInt('KIE_API_KEY')
+        kie:                _hasInt('KIE_API_KEY'),
+        // Healthchecks.io dead-man's-switch for every scheduled function
+        // (integrations/heartbeat.js; runbooks/HEALTHCHECKS-SETUP.md).
+        healthchecks:       _hasInt('HEALTHCHECKS_PING_KEY')
       },
       rateLimitProvider: rateLimitProvider(),
       // D.3 — runbook reference so the admin readout points at the
@@ -189,7 +196,16 @@ const PUBLIC_LEAD_KINDS = {
       email: 200, service: 200, roofType: 50, timeline: 50, type: 50,
       requestType: 50, estimateSummary: 2000
     },
-    optional: [...PUBLIC_LEAD_OPTIONAL_DEFAULTS, 'firstName', 'lastName', 'phone', 'email', 'service', 'roofType', 'timeline', 'type', 'requestType', 'estimateSummary']
+    optional: [...PUBLIC_LEAD_OPTIONAL_DEFAULTS, 'firstName', 'lastName', 'phone', 'email', 'service', 'roofType', 'timeline', 'type', 'requestType', 'estimateSummary'],
+    // TCPA consent (2026-09-04). The funnel has always POSTED this — see the
+    // comment at docs/assets/js/inline/4053149b2f.js:772 promising the record
+    // is "audit-ready and the SMS-ack trigger can rely on it" — but it is a
+    // BOOLEAN, and the optional loop below drops every non-string. It was
+    // therefore silently discarded on every submission and no estimate lead
+    // has ever carried it. Declared here as a boolean so the express-written-
+    // consent record actually persists and lead-alert's SMS ack can gate on
+    // it instead of inferring consent from the collection name.
+    boolOptional: ['tcpaConsent']
   },
   storm: {
     collection: 'storm_alert_subscribers',
@@ -229,7 +245,15 @@ const PUBLIC_LEAD_KINDS = {
       name: 200, phone: 30, address: 500, email: 200,
       story: 1500, source: 200, photoNames: 2000
     },
-    optional: [...PUBLIC_LEAD_OPTIONAL_DEFAULTS, 'email', 'story', 'photoCount', 'photoNames']
+    optional: [...PUBLIC_LEAD_OPTIONAL_DEFAULTS, 'email', 'story', 'photoCount', 'photoNames'],
+    // TCPA consent (2026-09-04, handoff item 6). Three of the four forms that
+    // post this kind — /storm-check, /roof-score, /storm-report — gate their
+    // submit on an express-written-consent checkbox and now POST its value;
+    // /inspect has no checkbox and posts nothing, so its documents carry no
+    // field and the send-time gate refuses to text them (no_stored_consent).
+    // Declared as a boolean here for the same reason as `estimate`: the
+    // string-only optional loop dropped it silently.
+    boolOptional: ['tcpaConsent']
   }
 };
 
@@ -373,6 +397,21 @@ exports.submitPublicLead = onRequest(
       const max = (spec.maxLen && spec.maxLen[key]) || 500;
       if (v.length === 0 || v.length > max) continue;
       data[key] = v;
+    }
+
+    // M-04 addendum (2026-09-04): boolean consent fields. Kept as its own
+    // strict loop rather than loosening the string loop above — that loop's
+    // `typeof v !== 'string'` guard IS the M-04 hardening and must stay.
+    // Only keys the kind declares in boolOptional are considered, only real
+    // booleans (or their exact string forms, for form-encoded callers) are
+    // accepted, and an ABSENT key writes nothing: no record must ever be
+    // stamped `false` merely because a caller did not mention the field.
+    // A missing consent field and a stored `false` mean different things and
+    // the send-time gate treats both as "do not text", so this stays honest
+    // in either direction.
+    for (const key of (spec.boolOptional || [])) {
+      const parsed = TCPA.parseSubmittedConsent(body[key]);
+      if (parsed !== undefined) data[key] = parsed;
     }
 
     // Trust-but-tag: server-only fields the client can't spoof.

@@ -314,6 +314,7 @@ const _NBD_CALL_ALLOWLIST = new Set([
   '_saveEstimateDefaultsV2',
   '_sharePortalLink',
   '_revokePortalLink', 'exportLeadsCsv', 'exportEstimatesCsv',
+  'openLeadsInSheets', 'openEstimatesInSheets',
   'confirmPromoteProspect', 'openLeadImport',
   // Quick-add flow
   'closeQuickAddLead',

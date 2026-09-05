@@ -8,7 +8,7 @@
  * collections; independent of the instant per-lead alerts.
  */
 
-const { onSchedule } = require('firebase-functions/v2/scheduler');
+const { onSchedule } = require('./integrations/heartbeat'); // heartbeat-wrapped drop-in for firebase-functions/v2/scheduler
 const { defineSecret } = require('firebase-functions/params');
 const { logger } = require('firebase-functions/v2');
 const { Resend } = require('resend');

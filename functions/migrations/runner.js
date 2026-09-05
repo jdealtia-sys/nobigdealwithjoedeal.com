@@ -61,7 +61,7 @@ const { Timestamp, FieldPath, getFirestore } = require('firebase-admin/firestore
 const { getApps } = require('firebase-admin/app');
 const { FieldValue } = require('firebase-admin/firestore');
 const { onCall, onRequest, HttpsError } = require('firebase-functions/v2/https');
-const { onSchedule } = require('firebase-functions/v2/scheduler');
+const { onSchedule } = require('../integrations/heartbeat'); // heartbeat-wrapped drop-in for firebase-functions/v2/scheduler
 
 if (!getApps().length) admin.initializeApp();
 

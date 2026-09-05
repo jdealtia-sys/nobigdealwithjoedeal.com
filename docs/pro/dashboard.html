@@ -1389,7 +1389,7 @@
           </div>
           <div style="margin-bottom:6px;">
             <label class="meta-10">Date: <span id="historyDateLabel">—</span></label>
-            <input type="range" min="0" max="7" value="7" class="w-full" data-on-input="setHistoricalLayer" data-on-pass="int">
+            <input type="range" min="0" max="13" value="13" class="w-full" data-on-input="setHistoricalLayer" data-on-pass="int" aria-label="Imagery date — left is older, right is newer">
           </div>
           <div>
             <label class="meta-10">Opacity: <span id="historyOpacityLabel">100%</span></label>
@@ -3008,7 +3008,7 @@
           </div>
           <div class="panel-body">
             <div style="font-size:12px; color:var(--m); line-height:1.5; margin-bottom:14px;">
-              Download a copy of your CRM data as CSV. Open in Excel, Numbers, or Google Sheets. Exports use the data currently loaded in this tab.
+              Download a copy of your CRM data as CSV for Excel or Numbers — or send it straight to Google Sheets, which is the one that works on a phone. Exports use the data currently loaded in this tab.
             </div>
             <div style="display:flex; gap:10px; flex-wrap:wrap;">
               <button type="button" class="btn btn-orange" data-action="call" data-fn="exportLeadsCsv"
@@ -3020,6 +3020,21 @@
                 style="display:inline-flex; align-items:center; gap:8px;">
                 <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;"><path d="M10 3v10M6 9l4 4 4-4"/><rect x="3" y="15" width="14" height="2.5" rx="1"/></svg>
                 Export Estimates (CSV)
+              </button>
+              <!-- Sheets path (2026-09-05): copies the same rows as TSV and
+                   opens a blank sheet to paste into. No key, no OAuth, no
+                   server round-trip — the rep's own Google login is the only
+                   credential. Added because a CSV on an iPhone is effectively
+                   unopenable. -->
+              <button type="button" class="btn btn-ghost" data-action="call" data-fn="openLeadsInSheets"
+                style="display:inline-flex; align-items:center; gap:8px;">
+                <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;"><rect x="3.5" y="3" width="13" height="14" rx="1.5"/><path d="M3.5 8h13M8 8v9M12.5 8v9"/></svg>
+                Leads → Google Sheets
+              </button>
+              <button type="button" class="btn btn-ghost" data-action="call" data-fn="openEstimatesInSheets"
+                style="display:inline-flex; align-items:center; gap:8px;">
+                <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;"><rect x="3.5" y="3" width="13" height="14" rx="1.5"/><path d="M3.5 8h13M8 8v9M12.5 8v9"/></svg>
+                Estimates → Google Sheets
               </button>
               <!-- Wave 23: import path. Reuses LeadDedup to skip
                    high-confidence duplicates row-by-row. -->
@@ -4719,6 +4734,26 @@
         </div>
       </div>
 
+      <!-- CALENDAR FEED (.ics) — subscribe from the phone's own Calendar app.
+           Listeners are bound by id in js/calendar-feed-ui.js, not via the
+           data-fn dispatcher, so there is no registry entry to drift from. -->
+      <div class="panel">
+        <div class="panel-hdr"><div><div class="panel-label">Your Calendar</div><div class="panel-title">Subscribe On Your Phone</div></div></div>
+        <div class="panel-body">
+          <div style="font-size:12px; color:var(--m); line-height:1.5; margin-bottom:12px;">
+            Puts every appointment and every scheduled job straight into the Calendar app on your phone, refreshing on its own. Anyone with this link can read your schedule — rotate it if it gets out.
+          </div>
+          <div style="display:flex;gap:8px;align-items:center;margin-bottom:12px;">
+            <input type="text" id="calFeedUrl" value="" readonly placeholder="Tap &quot;Create my link&quot; to generate your feed" style="flex:1;background:var(--s2);border:1px solid var(--br);border-radius:7px;padding:10px 14px;font-family:inherit;font-size:13px;color:var(--t);">
+            <button type="button" class="btn btn-orange" id="calFeedCreate" style="padding:10px 16px;font-size:12px;white-space:nowrap;">Create my link</button>
+          </div>
+          <div class="fwgap-8">
+            <a class="btn btn-ghost" id="calFeedSubscribe" aria-disabled="true" style="font-size:11px;padding:7px 14px;opacity:.5;pointer-events:none;">📅 Subscribe on iPhone</a>
+            <button type="button" class="btn btn-ghost" id="calFeedCopy" disabled style="font-size:11px;padding:7px 14px;">📋 Copy Link</button>
+          </div>
+        </div>
+      </div>
+
       <!-- CAL.COM SETTINGS -->
       <div class="panel">
         <div class="panel-hdr"><div><div class="panel-label">Setup</div><div class="panel-title">Cal.com Configuration</div></div></div>
@@ -6211,6 +6246,7 @@
      users/{uid}/fcmTokens so the backend reminder/lead pushes have recipients.
      No-ops until window.__NBD_VAPID_KEY is set (dashboard-fcm-config.js). -->
 <script defer src="js/push-registration.js?v=2"></script>
+<script defer src="js/push-actions.js?v=1"></script>
 <script defer src="js/crm-portal-bridge.js?v=3"></script>
 <script defer src="js/crm.js?v=33"></script>
 <script defer src="js/crm-list-view.js?v=1"></script>
@@ -6221,7 +6257,7 @@
 <script defer src="js/global-search.js?v=1"></script>
 <script defer src="js/bottleneck-widget.js?v=1"></script>
 <script defer src="js/pwa-install-nudge.js?v=4"></script>
-<script defer src="js/data-export.js?v=1"></script>
+<script defer src="js/data-export.js?v=2"></script>
 <script defer src="js/shortcuts-help.js?v=1"></script>
 <script defer src="js/data-import.js?v=1"></script>
 <script defer src="js/activity-feed.js?v=1"></script>
@@ -6274,6 +6310,7 @@
      timeline with conflict and tight-travel warnings. Must load after
      maps.js because it uses window.hav() (haversine distance). -->
 <script defer src="js/smart-calendar.js?v=1"></script>
+<script defer src="js/calendar-feed-ui.js?v=1"></script>
 <!-- Voicemail pipeline — record OR upload a voicemail, route through
      the dictate callable in summarize mode, write a structured
      activity entry, and auto-create tasks from extracted action items.

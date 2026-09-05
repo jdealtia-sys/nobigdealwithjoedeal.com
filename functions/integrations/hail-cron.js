@@ -21,7 +21,7 @@
 
 'use strict';
 
-const { onSchedule } = require('firebase-functions/v2/scheduler');
+const { onSchedule } = require('./heartbeat'); // heartbeat-wrapped drop-in for firebase-functions/v2/scheduler
 const { logger } = require('firebase-functions/v2');
 const { getFirestore } = require('firebase-admin/firestore');
 const { FieldValue } = require('firebase-admin/firestore');
@@ -111,12 +111,25 @@ exports.hailMatchCron = onSchedule(
     const RADIUS_MI = 0.3;          // ~5 blocks
     const DAYS_BACK = 90;
 
-    // Pull up to 500 leads with coordinates and not marked as
-    // deleted. Pagination is by ownerUid + cursor field — but for
-    // the first pass we iterate all active leads once. Larger
-    // tenants roll over to the next day run.
+    // Pull up to 500 leads and filter deleted ones IN MEMORY. Pagination is by
+    // ownerUid + cursor field — but for the first pass we iterate all active
+    // leads once. Larger tenants roll over to the next day run.
+    //
+    // 2026-09-04: this used to be `.where('deleted','==',false)`, and that one
+    // clause meant the cron had never scored a single one of Jo's leads. A
+    // Firestore equality filter SKIPS documents that lack the field entirely,
+    // and no live lead-create path writes `deleted` — repos.js stampCreate and
+    // both dashboard fallbacks write userId/companyId/createdAt/stage and
+    // nothing else. Measured in production the day this was found: 68 of 216
+    // lead docs matched, and every one belonged to the seed-demo tenant, while
+    // all 81 of Jo's geocoded live leads were invisible to it.
+    //
+    // The three sibling lead-sweeping crons (dormant-leads.js:205,
+    // anniversary-touch.js:232, review-request-nudge.js:240) all do
+    // `if (lead.deleted) continue;` instead, which treats a missing field as
+    // LIVE — the correct default. This file was the only `.where('deleted'`
+    // in the repo. Match the siblings.
     const snap = await db.collection('leads')
-      .where('deleted', '==', false)
       .limit(500)
       .get();
 
@@ -135,6 +148,11 @@ exports.hailMatchCron = onSchedule(
 
     for (const docSnap of snap.docs) {
       const lead = docSnap.data();
+      // Deleted-lead guard, in memory — same convention as the other three
+      // lead-sweeping crons. Truthiness, not `=== false`: a lead with no
+      // `deleted` field at all is live, which is the case for every lead the
+      // current create paths write.
+      if (lead.deleted) { skipped++; continue; }
       const lat = Number(lead.lat) || Number(lead.latitude);
       const lng = Number(lead.lng) || Number(lead.lon) || Number(lead.longitude);
       if (!isFinite(lat) || !isFinite(lng)) { skipped++; continue; }

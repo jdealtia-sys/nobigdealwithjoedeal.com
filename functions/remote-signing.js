@@ -39,6 +39,7 @@ const { callableRateLimit } = require('./shared');
 
 const RESEND_API_KEY = defineSecret('RESEND_API_KEY');
 const EMAIL_FROM = defineSecret('EMAIL_FROM');
+const { secretOr } = require('./integrations/_shared');
 
 const CORS_ORIGINS = [
   'https://nobigdealwithjoedeal.com',
@@ -241,7 +242,7 @@ exports.createSignRequest = onCall(
     try {
       const { Resend } = require('resend');
       const resend = new Resend(RESEND_API_KEY.value());
-      const fromEmail = EMAIL_FROM.value() || 'noreply@nobigdealwithjoedeal.com';
+      const fromEmail = secretOr(EMAIL_FROM, 'noreply@nobigdealwithjoedeal.com');
       const link = SIGN_URL_BASE + token;
       const docName = escHtml(docMeta.typeName || docMeta.type || 'document');
       const repName = escHtml(tenantName || lead.repName || 'No Big Deal Home Solutions');

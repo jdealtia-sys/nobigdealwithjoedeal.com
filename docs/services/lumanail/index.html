@@ -381,6 +381,8 @@ nav .nav-logo-text .sub{white-space:nowrap}
 .hamburger span{display:block;width:26px;height:3px;background:#fff;border-radius:2px;transition:all .3s;box-shadow:0 1px 3px rgba(0,0,0,.3)}
 @media (max-width:1024px){.nav-links{display:none}.hamburger{display:flex}}
 </style>
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-8PG7N9Q3DL"></script>
+<script defer src="/assets/js/inline/2a90205f1b.js"></script>
 </head>
 <body><a class="nbd-skip" href="#main">Skip to content</a>
 
@@ -473,7 +475,15 @@ nav .nav-logo-text .sub{white-space:nowrap}
       </div>
     </div>
     <div class="hero-visual">
-      <img src="/assets/lumanail/pack-web-1.jpg" alt="LumaNail orange roofing nail close-up" loading="eager" width="600" height="750">
+      <!-- WebP first (2026-09-04): this is the eager, above-the-fold hero and
+           the JPEG is 117 KB against 43 KB for the same image in WebP — a 63%
+           cut on the largest byte on the page, which is the LCP candidate on
+           mobile. The <img> keeps the JPEG so anything without WebP support
+           still renders; no JS, no CSP surface. -->
+      <picture>
+        <source srcset="/assets/lumanail/pack-web-1.webp" type="image/webp">
+        <img src="/assets/lumanail/pack-web-1.jpg" alt="LumaNail orange roofing nail close-up" loading="eager" width="600" height="750">
+      </picture>
     </div>
   </div>
 </section>
