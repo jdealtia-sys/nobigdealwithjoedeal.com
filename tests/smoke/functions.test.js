@@ -382,8 +382,15 @@ section('H-6: Stripe webhook raw body + replay');
   assert('invoiceWebhook prefers its dedicated endpoint secret with legacy fallback',
     /secretValue\(STRIPE_INVOICE_WEBHOOK_SECRET\)[\s\S]{0,120}startsWith\('whsec_'\)/.test(src)
     && /secretValue\(STRIPE_WEBHOOK_SECRET\)[\s\S]{0,80}candidates\.push\(legacy\)/.test(src));
-  assert('invoiceWebhook never reads a webhook secret with bare .value() (stub-unsafe)',
-    !/STRIPE_(INVOICE_)?WEBHOOK_SECRET\.value\(\)/.test(src));
+  {
+    // Scope to the candidates block: the platform stripeWebhook has its own
+    // legitimate STRIPE_WEBHOOK_SECRET read elsewhere in the file.
+    const start = src.indexOf('const candidates = [];');
+    const end = src.indexOf('for (const secret of candidates)', start);
+    const block = start >= 0 && end > start ? src.slice(start, end) : '';
+    assert('invoiceWebhook builds its candidate list without a bare .value() read (stub-unsafe)',
+      block.length > 0 && !/\.value\(\)/.test(block));
+  }
 
   // Shared Stripe client: one trimmed, retrying instance for all handlers.
   // A trailing newline in the stored secret key caused ERR_INVALID_CHAR →
