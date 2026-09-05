@@ -30,7 +30,7 @@
  * infra to manage.
  */
 
-const { onSchedule } = require('firebase-functions/v2/scheduler');
+const { onSchedule } = require('./integrations/heartbeat'); // heartbeat-wrapped drop-in for firebase-functions/v2/scheduler
 const { logger } = require('firebase-functions');
 const firestore = require('@google-cloud/firestore');
 const { Storage } = require('@google-cloud/storage');

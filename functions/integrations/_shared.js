@@ -32,6 +32,10 @@ const SECRETS = {
   // Observability
   SENTRY_DSN_FUNCTIONS:  defineSecret('SENTRY_DSN_FUNCTIONS'),
   SLACK_WEBHOOK_URL:     defineSecret('SLACK_WEBHOOK_URL'),
+  // Healthchecks.io project ping key — every onSchedule pings
+  // hc-ping.com/<key>/<slug> after each run (integrations/heartbeat.js).
+  // Bound automatically by the heartbeat onSchedule wrapper; unset = no-op.
+  HEALTHCHECKS_PING_KEY: defineSecret('HEALTHCHECKS_PING_KEY'),
 
   // Human verification
   TURNSTILE_SECRET:      defineSecret('TURNSTILE_SECRET'),

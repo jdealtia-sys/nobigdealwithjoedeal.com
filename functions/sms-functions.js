@@ -931,7 +931,7 @@ logger.info('sms_functions_loaded');
 // STORM ALERT SMS — Scheduled weather check
 // ═══════════════════════════════════════════════════════════════
 
-const { onSchedule } = require('firebase-functions/v2/scheduler');
+const { onSchedule } = require('./integrations/heartbeat'); // heartbeat-wrapped drop-in for firebase-functions/v2/scheduler
 
 /**
  * checkStormAlerts — Scheduled function (every 30 minutes)

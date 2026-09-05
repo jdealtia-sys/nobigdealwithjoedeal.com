@@ -45,6 +45,7 @@ Map of content for the `documentation/` corpus (~115 files) plus the other place
 ## Runbooks (ops — read before touching prod)
 
 - [ALERT_RESPONSE](runbooks/ALERT_RESPONSE.md)
+- [HEALTHCHECKS-SETUP](runbooks/HEALTHCHECKS-SETUP.md) — dead-man's-switch pings from all 25 crons; Jo's ten-minute setup, the slug table, which five to skip on the free tier, what a red check means
 - [ROLLBACK](runbooks/ROLLBACK.md)
 - [RESTORE_FROM_BACKUP](runbooks/RESTORE_FROM_BACKUP.md)
 - [SECRET_ROTATION](runbooks/SECRET_ROTATION.md) — linked from the admin integrationStatus readout

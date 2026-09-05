@@ -776,7 +776,7 @@ exports.onAudioUploaded = onObjectFinalized(
 const RETENTION_DEFAULT_DAYS = 90;
 const HARD_DELETE_GRACE_DAYS = 30;
 
-const { onSchedule } = require('firebase-functions/v2/scheduler');
+const { onSchedule } = require('./heartbeat'); // heartbeat-wrapped drop-in for firebase-functions/v2/scheduler
 
 exports.recordingRetentionCron = onSchedule(
   {
