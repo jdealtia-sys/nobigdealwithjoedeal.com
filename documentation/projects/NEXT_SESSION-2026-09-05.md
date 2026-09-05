@@ -1,5 +1,11 @@
 # Next session — brief as of the end of 2026-09-04
 
+> **Superseded 2026-09-05 by [NEXT_SESSION-2026-09-06](NEXT_SESSION-2026-09-06.md).**
+> Items 3, 5 and 6 below shipped (#1390, #1391, #1392); item 4's fix is the
+> Healthchecks heartbeat (#1389) rather than a code-side age check; item 3's
+> "Sentry DSN, Turnstile" claim was wrong — both already used `hasSecret()`.
+> Items 1 and 2 remain Jo's.
+>
 > Supersedes [NEXT_SESSION-2026-09-04](NEXT_SESSION-2026-09-04.md).
 > Session record: [STABILITY-AUDIT-2026-09-04](../audit/STABILITY-AUDIT-2026-09-04.md)
 > — the audit note carries the full finding lists, the corrections, and the

@@ -36,6 +36,17 @@ server-side calls need no CSP change. Scale: hundreds of calls/day.
 > midnight UTC — `20260516:20260517` returns a 05-16 cell, `20260516:20260516`
 > returns nothing. The rest of row 4 held. Row 2 shipped as #1385; row 4 as the
 > PR that carries this note.
+>
+> **UPDATE 2026-09-05 — wave 1 is complete.** Row 1 → #1387 (the Wayback ids
+> in `maps-routing.js` were never valid — every tile 404'd; KyFromAbove
+> returns a blank PNG outside Kentucky, so it ships as an overlay on Google
+> satellite, not a bare basemap). Row 2 → #1385. Row 3 → #1388 (NWS periods
+> are 12-hour blocks with an exclusive end; `probabilityOfPrecipitation.value`
+> is null for dry periods). Row 4 → #1386. Row 5 → #1389 (a drop-in
+> `onSchedule` wrapper, not a per-cron helper call — one import line per file;
+> runbook at `documentation/runbooks/HEALTHCHECKS-SETUP.md`). Session record:
+> [SESSION-2026-09-05-free-api-wave1](../projects/SESSION-2026-09-05-free-api-wave1.md).
+> Next: the wave-2 "Connections" list below, in the order it stands.
 
 ## TL;DR — wave 1 (one evening, five PRs)
 
