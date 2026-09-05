@@ -54,6 +54,20 @@ or recon-heavy session **writes its findings back**:
   (see `documentation/runbooks/PUBLISH-PROJECT.md`).
 - Money math stays in cents; estimates read `window.NBD_ESTIMATE_CONFIG`.
 
+## Editing files on Windows (not CI-enforced — the gate is you)
+
+- **Never `sed -i` across a glob of repo files.** Git Bash's GNU sed
+  rewrites every file it touches LF-only, match or no match. With
+  `core.autocrlf=true` that leaves byte-identical files flagged ` M` in
+  `git status` while `git diff` stays empty — 78 of them on 2026-09-05,
+  blamed on the test bucket for a session
+  (`documentation/audit/GIT-PHANTOM-MODIFICATIONS-2026-09-05.md`). Edit with a
+  Node script that detects each file's EOL, or the Edit tool.
+- Diagnose: `git ls-files --eol | grep -E '^i/lf\s+w/lf'`. Clear by naming
+  those paths to `git checkout --`. `git checkout -- $(git diff --name-only)`
+  never lists them, because `git diff` drops stat-changed-but-identical
+  files.
+
 ## Pre-push gates (run what your change touches; all cheap)
 
 ```bash
