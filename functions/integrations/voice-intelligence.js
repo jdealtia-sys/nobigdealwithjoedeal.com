@@ -206,9 +206,32 @@ async function transcribeGroq({ bucket, path, mimeType }) {
   // Groq via signed URL, but Groq requires multipart so buffering
   // is the simpler path at current budget.
   const [buffer] = await file.download();
+  return transcribeGroqBuffer({
+    buffer,
+    mimeType,
+    filename: 'audio.' + (path.split('.').pop() || 'webm')
+  });
+}
+
+// Buffer-in, transcript-out Groq call — the half of transcribeGroq that has
+// nothing to do with Storage. Shared with functions/dictate.js (2026-09-04),
+// whose clips arrive base64 in the callable payload rather than as a bucket
+// object; before this split the mic buttons paid Deepgram per clip while
+// this free path sat one file away. Throws VoiceError like the rest of the
+// module; callers outside the pipeline map that to their own error type.
+//
+// `timeoutMs` defaults to the pipeline's 8-minute budget; dictate passes
+// something far shorter because its clips are ≤60 s and the callable itself
+// has a 60 s ceiling.
+async function transcribeGroqBuffer({ buffer, mimeType, filename, timeoutMs }) {
+  if (!hasSecret('GROQ_API_KEY')) {
+    throw new VoiceError('groq-not-configured',
+      'GROQ_API_KEY secret is unset. Set via firebase functions:secrets:set GROQ_API_KEY.');
+  }
+  if (!buffer || !buffer.length) throw new VoiceError('audio-empty', 'No audio bytes to transcribe');
   const blob = new Blob([buffer], { type: mimeType || 'audio/webm' });
   const form = new FormData();
-  form.append('file', blob, 'audio.' + (path.split('.').pop() || 'webm'));
+  form.append('file', blob, filename || 'audio.webm');
   form.append('model', 'whisper-large-v3-turbo');
   form.append('response_format', 'verbose_json');
   form.append('timestamp_granularities[]', 'segment');
@@ -220,7 +243,7 @@ async function transcribeGroq({ bucket, path, mimeType }) {
       method: 'POST',
       headers: { Authorization: 'Bearer ' + getSecret('GROQ_API_KEY') },
       body: form,
-      signal: AbortSignal.timeout(480_000)
+      signal: AbortSignal.timeout(Number(timeoutMs) > 0 ? Number(timeoutMs) : 480_000)
     });
   } catch (e) {
     throw new VoiceError('groq-network',
@@ -229,7 +252,9 @@ async function transcribeGroq({ bucket, path, mimeType }) {
   const data = await res.json().catch(() => null);
   if (!res.ok) {
     const msg = (data && data.error && data.error.message) || ('HTTP ' + res.status);
-    throw new VoiceError('groq-api-error', 'Groq rejected: ' + String(msg).slice(0, 300));
+    const err = new VoiceError('groq-api-error', 'Groq rejected: ' + String(msg).slice(0, 300));
+    err.status = res.status; // 429 = free-tier rate limit; dictate falls back on it
+    throw err;
   }
   if (!data || typeof data.text !== 'string') {
     throw new VoiceError('groq-empty-response', 'Groq returned no transcript text');
@@ -873,6 +898,9 @@ module.exports = Object.assign(module.exports, {
   _checkBudget: checkBudget,
   _incrementVoiceUsage: incrementVoiceUsage,
   _transcribeAudio: transcribeAudio,
+  // Buffer-based Groq call shared with functions/dictate.js (not a test-only
+  // export — the leading underscore convention is kept for grep symmetry).
+  transcribeGroqBuffer,
   _analyzeTranscript: analyzeTranscript,
   _checkVerbalConsent: checkVerbalConsent,
   _processRecording: processRecording,
