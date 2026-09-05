@@ -119,25 +119,6 @@ text on a document that carries `tcpaConsent === true`, and
    already on `main`. Only `main` and the in-flight `docs/wave2-handoff`
    remain. The `nbd-wt-ledger-recon` worktree still holds `main`.
 
-10. **Correct `documentation/architecture/THUMBTACK-WEBHOOK-2026-08.md` in
-    place.** It says bridged leads page Jo. They do not: no `lead-alert`
-    trigger exists on `thumbtack_leads`, `KIND_LABEL` has no entry, and
-    `push-functions.js` returns early unless `assignedTo` is set — which
-    `mapPublicLeadToLead` never sets. Found by the wave-2 mapping pass,
-    verified against the code. A doc asserting an alert path that does not
-    exist is how a lead goes unanswered.
-
-11. **The shared `codeOnly` test idiom is unsafe — sweep the other
-    suites.** Source-contract tests strip BLOCK comments then LINE comments.
-    A line comment containing `/*` (e.g. `// /pro/images/* does NOT
-    exist` in `push-functions.js`) opens a fake block comment and the
-    stripper swallows real code up to the next `*/`; assertions then pass
-    or fail on text that was never a comment. Two of #1398's assertions
-    failed for exactly this reason. Fixed there by stripping line comments
-    FIRST; a scan found no other file my suites read is affected, but the
-    other suites still use the unsafe order and a future file could trip
-    them silently.
-
 9. **Adopt a repo-wide LF policy — Jo's call, but the work is done.**
    `.gitattributes` carrying `* text=auto eol=lf` ends the line-ending class
    item 4 was about. Measured end to end on 2026-09-05 in a throwaway clone,
@@ -288,6 +269,25 @@ text on a document that carries `tcpaConsent === true`, and
    **If declined,** record it in CLAUDE.md so the next session stops
    re-deriving the question, land the gate fix above, and re-encode the PDF as
    a one-off — the corrupt local copy is real regardless of the policy call.
+
+10. **Correct `documentation/architecture/THUMBTACK-WEBHOOK-2026-08.md` in
+    place.** It says bridged leads page Jo. They do not: no `lead-alert`
+    trigger exists on `thumbtack_leads`, `KIND_LABEL` has no entry, and
+    `push-functions.js` returns early unless `assignedTo` is set — which
+    `mapPublicLeadToLead` never sets. Found by the wave-2 mapping pass,
+    verified against the code. A doc asserting an alert path that does not
+    exist is how a lead goes unanswered.
+
+11. **The shared `codeOnly` test idiom is unsafe — sweep the other
+    suites.** Source-contract tests strip BLOCK comments then LINE comments.
+    A line comment containing `/*` (e.g. `// /pro/images/* does NOT
+    exist` in `push-functions.js`) opens a fake block comment and the
+    stripper swallows real code up to the next `*/`; assertions then pass
+    or fail on text that was never a comment. Two of #1398's assertions
+    failed for exactly this reason. Fixed there by stripping line comments
+    FIRST; a scan found no other file my suites read is affected, but the
+    other suites still use the unsafe order and a future file could trip
+    them silently.
 
 ## Watch tomorrow
 
