@@ -58,20 +58,24 @@
     return "'" + s;
   }
 
-  function csvEscape(v) {
+  // Value → string, with no escaping of any kind. Split out of csvEscape so
+  // the TSV path (Open in Google Sheets) coerces Dates, Firestore Timestamps
+  // and objects identically — a second coercion would be a second set of bugs.
+  function cellText(v) {
     if (v == null) return '';
-    let s;
-    if (v instanceof Date) {
-      s = v.toISOString();
-    } else if (typeof v === 'object') {
+    if (v instanceof Date) return v.toISOString();
+    if (typeof v === 'object') {
       // Firestore Timestamps + plain objects — try to extract ISO
       // string; otherwise stringify.
-      if (typeof v.toDate === 'function') s = v.toDate().toISOString();
-      else if (typeof v.toMillis === 'function') s = new Date(v.toMillis()).toISOString();
-      else s = JSON.stringify(v);
-    } else {
-      s = String(v);
+      if (typeof v.toDate === 'function') return v.toDate().toISOString();
+      if (typeof v.toMillis === 'function') return new Date(v.toMillis()).toISOString();
+      return JSON.stringify(v);
     }
+    return String(v);
+  }
+
+  function csvEscape(v) {
+    const s = cellText(v);
     const marked = neutralizeFormula(s);
     // Quote if contains separator, quote, or newline — and ALWAYS
     // when we added the marker, so the apostrophe can't be read as
@@ -90,6 +94,33 @@
     }
     // Excel-safe BOM so UTF-8 displays correctly in Excel for Windows.
     return '﻿' + lines.join('\r\n');
+  }
+
+  // ─── TSV serialization (clipboard → Google Sheets) ───────────────
+  // Sheets parses a pasted block as tab-separated. There is no quoting
+  // convention it honours on paste, so a cell that itself contains a tab or a
+  // newline would shift every later column into the wrong field — or split one
+  // lead across two rows. Cells are therefore FLATTENED rather than quoted.
+  //
+  // Order is load-bearing: flatten, then trim, then neutralize. Flattening
+  // first means a value like "\n=cmd|' /C calc'!A0" — whose leading character
+  // is a newline, which FORMULA_LEAD does not match — is reduced to "=cmd|…"
+  // and still gets the text marker. Doing it the other way round would let
+  // that cell reach the sheet as a live formula. The resulting invariant is
+  // flat: no TSV cell begins with = + - @ TAB or CR unless it is a plain
+  // number, which is what the test asserts.
+  function tsvCell(v) {
+    const flat = cellText(v).replace(/[\t\r\n]+/g, ' ').trim();
+    return neutralizeFormula(flat);
+  }
+
+  function toTsv(rows, headers) {
+    const lines = [headers.map(h => tsvCell(h.label || h.key)).join('\t')];
+    for (const row of rows) {
+      lines.push(headers.map(h => tsvCell(h.value ? h.value(row) : row[h.key])).join('\t'));
+    }
+    // No BOM: this goes to the clipboard, not to a file Excel will sniff.
+    return lines.join('\r\n');
   }
 
   // ─── File download helper ───────────────────────────────────────
@@ -141,22 +172,29 @@
   ];
 
   // ─── Lead export ────────────────────────────────────────────────
+  // Row selection, shared by the CSV download and the Sheets clipboard path so
+  // the two can never disagree about which leads a rep just exported.
+  // Skip soft-deleted; respect prospect filter for the export
+  // (matches what the rep sees in the kanban). If they want
+  // prospects included, they'll toggle "Show prospects" first.
+  function collectLeadRows() {
+    const leads = Array.isArray(window._leads) ? window._leads : [];
+    const showProspects = (() => {
+      try { return localStorage.getItem('nbd_crm_show_prospects') === '1'; }
+      catch (e) { return false; }
+    })();
+    return leads
+      .filter(l => l && !l.deleted)
+      .filter(l => showProspects || !l.isProspect);
+  }
+
   function exportLeads() {
     const leads = Array.isArray(window._leads) ? window._leads : [];
     if (leads.length === 0) {
       _toast('No leads to export', 'error');
       return;
     }
-    // Skip soft-deleted; respect prospect filter for the export
-    // (matches what the rep sees in the kanban). If they want
-    // prospects included, they'll toggle "Show prospects" first.
-    const showProspects = (() => {
-      try { return localStorage.getItem('nbd_crm_show_prospects') === '1'; }
-      catch (e) { return false; }
-    })();
-    const rows = leads
-      .filter(l => l && !l.deleted)
-      .filter(l => showProspects || !l.isProspect);
+    const rows = collectLeadRows();
 
     if (rows.length === 0) {
       _toast('No leads match your current filters', 'error');
@@ -170,17 +208,11 @@
   }
 
   // ─── Estimate export ────────────────────────────────────────────
-  function exportEstimates() {
-    const estimates = Array.isArray(window._estimates) ? window._estimates : [];
-    if (estimates.length === 0) {
-      _toast('No estimates to export', 'error');
-      return;
-    }
-    const leads = Array.isArray(window._leads) ? window._leads : [];
-    const leadById = {};
-    for (const l of leads) leadById[l.id] = l;
-
-    const headers = [
+  // Built per call because the leadName / leadAddress columns close over the
+  // lead index. Shared by the CSV and Sheets paths so both export the same
+  // columns in the same order.
+  function estimateHeaders(leadById) {
+    return [
       { key: 'id',              label: 'Estimate ID' },
       { key: 'estimateNumber',  label: 'Estimate #',
         value: r => r.estimateNumber || r.number || '' },
@@ -199,11 +231,107 @@
       { key: 'viewedAt',        label: 'Viewed' },
       { key: 'respondedAt',     label: 'Responded' },
     ];
+  }
+
+  function leadIndex() {
+    const leads = Array.isArray(window._leads) ? window._leads : [];
+    const leadById = {};
+    for (const l of leads) leadById[l.id] = l;
+    return leadById;
+  }
+
+  function exportEstimates() {
+    const estimates = Array.isArray(window._estimates) ? window._estimates : [];
+    if (estimates.length === 0) {
+      _toast('No estimates to export', 'error');
+      return;
+    }
+    const headers = estimateHeaders(leadIndex());
 
     const csv = toCsv(estimates, headers);
     const fname = `nbd-estimates-${todayStamp()}.csv`;
     downloadCsv(fname, csv);
     _toast(`Exported ${estimates.length} estimate${estimates.length === 1 ? '' : 's'} → ${fname}`, 'success');
+  }
+
+  // ─── Open in Google Sheets ──────────────────────────────────────
+  // A CSV on an iPhone is close to unopenable — Safari previews it and there
+  // is nowhere to go from there. This path skips the file entirely: it copies
+  // the same rows as TSV and opens a blank Google Sheet for the rep to paste
+  // into. No API key, no OAuth, no server round-trip, no vendor account of
+  // ours: the rep's own Google login is the only credential and the data goes
+  // to their clipboard, never through us.
+  const SHEETS_NEW_URL = 'https://sheets.new';
+
+  // clipboard-fix.js already has this logic but never exposes it (its "Expose
+  // globally" comment at :54 is followed by nothing), so it is inlined here
+  // rather than depended on. Fire-and-forget by design — see openInSheets.
+  function _execCopy(text) {
+    try {
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      ta.setAttribute('readonly', '');
+      ta.style.cssText = 'position:fixed;top:-9999px;left:-9999px;opacity:0;';
+      document.body.appendChild(ta);
+      if (typeof ta.select === 'function') ta.select();
+      if (typeof ta.setSelectionRange === 'function') ta.setSelectionRange(0, text.length);
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+      return true;
+    } catch (e) {
+      console.warn('[DataExport] clipboard copy failed', e);
+      return false;
+    }
+  }
+
+  function copyText(text) {
+    try {
+      if (typeof navigator !== 'undefined' && navigator.clipboard
+          && typeof navigator.clipboard.writeText === 'function') {
+        const p = navigator.clipboard.writeText(text);
+        // Mobile Safari rejects writeText in some contexts; fall back without
+        // awaiting, so the caller never yields the click's task.
+        if (p && typeof p.catch === 'function') p.catch(() => _execCopy(text));
+        return;
+      }
+    } catch (e) { /* fall through to the textarea path */ }
+    _execCopy(text);
+  }
+
+  function openInSheets(kind) {
+    let rows, headers, label;
+    if (kind === 'estimates') {
+      rows = Array.isArray(window._estimates) ? window._estimates : [];
+      if (rows.length === 0) { _toast('No estimates to export', 'error'); return; }
+      headers = estimateHeaders(leadIndex());
+      label = 'estimate';
+    } else {
+      const leads = Array.isArray(window._leads) ? window._leads : [];
+      if (leads.length === 0) { _toast('No leads to export', 'error'); return; }
+      rows = collectLeadRows();
+      if (rows.length === 0) { _toast('No leads match your current filters', 'error'); return; }
+      headers = LEAD_HEADERS;
+      label = 'lead';
+    }
+
+    const tsv = toTsv(rows, headers);
+
+    // window.open FIRST, and synchronously. Safari — iOS especially — only
+    // honours a popup opened in the same task as the click that caused it, so
+    // anything awaited before this line turns the new sheet into a blocked
+    // pop-up. copyText is fire-and-forget for the same reason.
+    let opened = null;
+    try { opened = window.open(SHEETS_NEW_URL, '_blank', 'noopener'); } catch (e) { opened = null; }
+
+    copyText(tsv);
+
+    const n = rows.length;
+    const plural = n === 1 ? '' : 's';
+    if (opened) {
+      _toast(`Copied ${n} ${label}${plural} — tap cell A1 in the new sheet and paste`, 'success');
+    } else {
+      _toast(`Copied ${n} ${label}${plural}. Pop-up blocked — open sheets.new and paste`, 'info');
+    }
   }
 
   // ─── Toast helper (uses dashboard's showToast if present) ───────
@@ -221,10 +349,14 @@
     exportEstimates,
     csvEscape,
     toCsv,
+    tsvCell,
+    toTsv,
   };
   // Friendly globals for inline onclick handlers — same convention
   // we used for openCmdPalette / toggleNotificationDropdown so the
   // settings buttons can stay declarative.
   window.exportLeadsCsv     = exportLeads;
   window.exportEstimatesCsv = exportEstimates;
+  window.openLeadsInSheets     = function () { openInSheets('leads'); };
+  window.openEstimatesInSheets = function () { openInSheets('estimates'); };
 })();
