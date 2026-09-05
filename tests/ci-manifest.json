@@ -52,6 +52,7 @@
     "notif-bell-merge.test.js",
     "orphan-sweep-parser.test.js",
     "prefix-reservation.test.js",
+    "push-notification-actions.test.js",
     "pwa-confirm-guard.test.js",
     "pwa-manifest.test.js",
     "route-truth.test.js",
