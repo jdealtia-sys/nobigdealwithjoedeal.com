@@ -93,21 +93,32 @@ ${live.map(item).join('\n')}
 </rss>
 `;
 
+// EOL DISCIPLINE — docs/feed.xml is CRLF in a Windows worktree (autocrlf) and
+// LF on CI. The template above always renders LF, so raw-comparing it against
+// the bytes on disk could never match locally: this gate exited 1 on every
+// clean Windows checkout, for line endings alone, and an always-red gate
+// teaches everyone to ignore it. Three-step fix, copied from
+// scripts/apply-partials.js: normalise the file to LF for comparison, sniff its
+// own ending, emit with that ending. Read once — the write branch needs the
+// destination's ending too, or --write would churn all 90-odd lines.
+const existing = existsSync(FEED_FILE) ? readFileSync(FEED_FILE, 'utf8') : null;
+const eol = existing && existing.includes('\r\n') ? '\r\n' : '\n';
+const existingLF = existing === null ? null : existing.replace(/\r\n/g, '\n');
+
 if (write) {
   const tmp = `${FEED_FILE}.tmp`;
-  writeFileSync(tmp, feed);
+  writeFileSync(tmp, eol === '\n' ? feed : feed.replace(/\n/g, eol));
   renameSync(tmp, FEED_FILE);
   console.log(`OK: ${live.length} items written to ${FEED_FILE}`);
 } else {
-  const existing = existsSync(FEED_FILE) ? readFileSync(FEED_FILE, 'utf8') : null;
-  if (existing === feed) {
+  if (existingLF === feed) {
     console.log(`OK: ${FEED_FILE} is current (${live.length} items).`);
   } else {
     if (existing === null) {
       console.error(`${FEED_FILE} does not exist. Run with --write to create it.`);
     } else {
       console.error(`${FEED_FILE} drifts from the POSTS array. Diff (committed vs generated):`);
-      const a = existing.split('\n'); const b = feed.split('\n');
+      const a = existingLF.split('\n'); const b = feed.split('\n');
       const max = Math.max(a.length, b.length);
       for (let i = 0; i < max; i++) {
         if (a[i] !== b[i]) {

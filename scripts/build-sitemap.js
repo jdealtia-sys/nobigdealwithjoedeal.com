@@ -474,7 +474,17 @@ function main() {
   }
 
   const current = fs.existsSync(OUT) ? fs.readFileSync(OUT, 'utf8') : '';
-  const prevLastmod = parseLastmods(current);
+
+  // EOL DISCIPLINE — docs/sitemap.xml is CRLF in a Windows worktree (autocrlf)
+  // and LF on CI. generate() always renders LF, so raw-comparing it against the
+  // bytes on disk could never match locally: this gate exited 1 on every clean
+  // Windows checkout, for line endings alone. An always-red gate teaches
+  // everyone to ignore it — the same class of harm as one that cannot go red.
+  // Three-step fix, copied from scripts/apply-partials.js: normalise the file to
+  // LF for comparison, sniff its own ending, emit with that ending.
+  const eol = current.includes('\r\n') ? '\r\n' : '\n';
+  const currentLF = current.replace(/\r\n/g, '\n');
+  const prevLastmod = parseLastmods(currentLF);
 
   // --lastmod-from-git: stamp each URL with its page file's last git commit
   // date when that is NEWER than the recorded lastmod. Local/manual use only:
@@ -503,7 +513,8 @@ function main() {
   }
 
   const warnings = [];
-  const xml = generate(prevLastmod, (msg) => warnings.push(msg));
+  // Canonical LF form — every guard, comparison and diff below works on this.
+  const xml = generate(prevLastmod, (msg) => warnings.push(msg)).replace(/\r\n/g, '\n');
   for (const w of warnings) console.error('WARN: ' + w);
 
   // Sanity guards — abort before any write.
@@ -518,25 +529,27 @@ function main() {
     process.exit(2);
   }
 
-  if (xml === current) {
+  if (xml === currentLF) {
     console.log('OK: generated sitemap matches docs/sitemap.xml exactly (' + locs.length + ' URLs). Zero diff — nothing to do.');
     return;
   }
 
-  const currentLocs = new Set(parseLastmods(current).keys());
+  const currentLocs = new Set(parseLastmods(currentLF).keys());
   const generatedLocs = new Set(locs);
   const added = locs.filter((loc) => !currentLocs.has(loc));
   const removed = [...currentLocs].filter((loc) => !generatedLocs.has(loc));
 
   if (write) {
     const tmp = OUT + '.tmp-' + process.pid;
-    fs.writeFileSync(tmp, xml);
+    // Emit with the destination's own ending, so --write on a CRLF worktree
+    // changes only the URLs that actually changed, never all 216 lines.
+    fs.writeFileSync(tmp, eol === '\n' ? xml : xml.replace(/\n/g, eol));
     fs.renameSync(tmp, OUT);
     console.log('Wrote ' + OUT + ' (' + locs.length + ' URLs; +' + added.length + ' new, -' + removed.length + ' removed; new URLs stamped ' + TODAY + ').');
     return;
   }
 
-  console.log(unifiedDiff(current, xml, 'docs/sitemap.xml (current)', 'docs/sitemap.xml (generated)'));
+  console.log(unifiedDiff(currentLF, xml, 'docs/sitemap.xml (current)', 'docs/sitemap.xml (generated)'));
   console.log('');
   if (added.length) console.log('New URLs (would get lastmod=' + TODAY + '):\n  ' + added.join('\n  '));
   if (removed.length) console.log('Removed URLs:\n  ' + removed.join('\n  '));

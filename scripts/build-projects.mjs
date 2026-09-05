@@ -371,10 +371,21 @@ const wallJson = JSON.stringify(
 
 // ── Stamp all targets ───────────────────────────────────────────
 const stale = [];
+
+// EOL DISCIPLINE — the stamped pages are CRLF in a Windows worktree (autocrlf)
+// and LF on CI, while every block rendered above is LF. Stamping LF into a CRLF
+// page makes `out === src` false forever: --check exited 1 on every clean
+// Windows checkout for line endings alone (an always-red gate everyone learns
+// to ignore), and --write rewrote 10 files as pure ending churn. Render in LF,
+// then emit with the destination's own ending — scripts/apply-partials.js:201
+// is the same three steps, and is why that generator alone passes here.
+const toEol = (s, eol) => (eol === '\n' ? s : s.replace(/\n/g, eol));
+
 const stampFile = (file, transform, required) => {
   const rel = path.relative(ROOT, file);
   const src = readFileSync(file, 'utf8');
-  const out = transform(src);
+  const eol = src.includes('\r\n') ? '\r\n' : '\n';
+  const out = transform(src, eol);
   if (out === null) {
     if (required) { console.error(`FATAL: expected markers not found in ${rel}`); process.exit(1); }
     return 0;
@@ -386,12 +397,14 @@ const stampFile = (file, transform, required) => {
 };
 
 // 1. our-work.html (both regions; missing markers are fatal — page contract)
-stampFile(HTML, (src) => {
+stampFile(HTML, (src, eol) => {
   const reStatic = /<!-- OURWORK-STATIC-START -->[\s\S]*?<!-- OURWORK-STATIC-END -->/;
   const reSchema = /<!-- OURWORK-HEAD-SCHEMA-START -->[\s\S]*?<!-- OURWORK-HEAD-SCHEMA-END -->/;
   if (!reStatic.test(src) || !reSchema.test(src)) return null;
   // Callback form on purpose — $-sequences in titles would corrupt output.
-  return src.replace(reStatic, () => staticBlock).replace(reSchema, () => schemaBlock);
+  return src
+    .replace(reStatic, () => toEol(staticBlock, eol))
+    .replace(reSchema, () => toEol(schemaBlock, eol));
 }, true);
 
 // 2. Every /services/ page that carries a strip marker
@@ -399,7 +412,7 @@ let stripCount = 0;
 for (const f of readdirSync(SERVICES_DIR)) {
   if (!f.endsWith('.html')) continue;
   const file = path.join(SERVICES_DIR, f);
-  stampFile(file, (src) => {
+  stampFile(file, (src, eol) => {
     if (!STRIP_RE.test(src)) return null;           // page has no strip — fine
     STRIP_RE.lastIndex = 0;
     let ok = true;
@@ -410,7 +423,7 @@ for (const f of readdirSync(SERVICES_DIR)) {
         return m;
       }
       stripCount++;
-      return `<!-- OURWORK-STRIP-START service="${service}" -->\n${stripBlock(service)}\n<!-- OURWORK-STRIP-END -->`;
+      return toEol(`<!-- OURWORK-STRIP-START service="${service}" -->\n${stripBlock(service)}\n<!-- OURWORK-STRIP-END -->`, eol);
     });
     if (!ok) process.exit(1);
     return out;
@@ -421,9 +434,12 @@ for (const f of readdirSync(SERVICES_DIR)) {
 {
   const rel = path.relative(ROOT, WALL);
   const cur = existsSync(WALL) ? readFileSync(WALL, 'utf8') : '';
-  if (cur !== wallJson) {
+  // Same EOL discipline as stampFile above. A file that does not exist yet gets
+  // LF, which is what the index stores and what CI checks out.
+  const eol = cur.includes('\r\n') ? '\r\n' : '\n';
+  if (cur.replace(/\r\n/g, '\n') !== wallJson) {
     if (CHECK) stale.push(rel);
-    else writeFileSync(WALL, wallJson);
+    else writeFileSync(WALL, toEol(wallJson, eol));
   }
 }
 
