@@ -376,9 +376,21 @@ section('H-6: Stripe webhook raw body + replay');
   // secret during rotation — still with the explicit 300s tolerance.
   assert('invoiceWebhook passes explicit 300s tolerance',
     /constructEvent\(req\.rawBody,\s*signature,\s*secret,\s*300\)/.test(src));
+  // 2026-09-04: both reads go through secretValue() so the deploy's
+  // '__unset__' stub is never pushed as a signing candidate (it used to be —
+  // a truthy string passed the `if (legacy)` guard). Same order, same guard.
   assert('invoiceWebhook prefers its dedicated endpoint secret with legacy fallback',
-    /STRIPE_INVOICE_WEBHOOK_SECRET\.value\(\)[\s\S]{0,120}startsWith\('whsec_'\)/.test(src)
-    && /STRIPE_WEBHOOK_SECRET\.value\(\)[\s\S]{0,80}candidates\.push\(legacy\)/.test(src));
+    /secretValue\(STRIPE_INVOICE_WEBHOOK_SECRET\)[\s\S]{0,120}startsWith\('whsec_'\)/.test(src)
+    && /secretValue\(STRIPE_WEBHOOK_SECRET\)[\s\S]{0,80}candidates\.push\(legacy\)/.test(src));
+  {
+    // Scope to the candidates block: the platform stripeWebhook has its own
+    // legitimate STRIPE_WEBHOOK_SECRET read elsewhere in the file.
+    const start = src.indexOf('const candidates = [];');
+    const end = src.indexOf('for (const secret of candidates)', start);
+    const block = start >= 0 && end > start ? src.slice(start, end) : '';
+    assert('invoiceWebhook builds its candidate list without a bare .value() read (stub-unsafe)',
+      block.length > 0 && !/\.value\(\)/.test(block));
+  }
 
   // Shared Stripe client: one trimmed, retrying instance for all handlers.
   // A trailing newline in the stored secret key caused ERR_INVALID_CHAR →

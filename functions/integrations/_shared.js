@@ -134,10 +134,42 @@ function notConfigured(provider, reason) {
   return { configured: false, provider, reason: reason || 'Missing API key' };
 }
 
+// Read a BARE defineSecret() param (one that predates this registry) with the
+// same rules hasSecret()/getSecret() apply to registry entries: trimmed, and
+// the deploy's `__unset__` stub counts as unset. Returns null when the param
+// is unbound, empty, or the stub.
+//
+// Why this exists (2026-09-04, STABILITY-AUDIT): `'__unset__'` is a truthy
+// nine-character string. Four deployed functions guarded a bare param with
+// plain truthiness — `if (!X.value())` or `X.value() || fallback` — and so
+// believed they were configured when they were not: the Places widget asked
+// Google for `places/__unset__`, the lead alert would have texted the phone
+// number "__unset__" instead of Jo's fallback, and so on. Every bare read
+// goes through here now; tests/secret-stub-guard.test.js fails CI if a
+// `.value() ||` / `.value() ??` fallback comes back outside its allowlist.
+function secretValue(param) {
+  try {
+    const v = param && typeof param.value === 'function' ? param.value() : null;
+    if (typeof v !== 'string') return null;
+    const trimmed = v.trim();
+    return trimmed.length > 0 && trimmed !== SECRET_STUB_VALUE ? trimmed : null;
+  } catch (e) { return null; }
+}
+
+// `secretOr(EMAIL_FROM, 'noreply@…')` — the fallback wins over the stub too,
+// which `EMAIL_FROM.value() || 'noreply@…'` never did.
+function secretOr(param, fallback) {
+  const v = secretValue(param);
+  return v == null ? fallback : v;
+}
+
 module.exports = {
   SECRETS,
   PROVIDERS,
   hasSecret,
   getSecret,
+  secretValue,
+  secretOr,
+  SECRET_STUB_VALUE,
   notConfigured
 };

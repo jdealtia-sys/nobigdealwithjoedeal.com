@@ -21,6 +21,7 @@ const { enforceRateLimit, httpRateLimit } = require('./rate-limit');
 // Secrets
 const RESEND_API_KEY = defineSecret('RESEND_API_KEY');
 const EMAIL_FROM = defineSecret('EMAIL_FROM');
+const { secretOr } = require('./integrations/_shared');
 
 // CORS origins
 const CORS_ORIGINS = [
@@ -386,7 +387,7 @@ exports.sendEmail = onRequest(
 
     try {
       const resend = new Resend(RESEND_API_KEY.value());
-      const fromEmail = EMAIL_FROM.value() || 'noreply@nobigdealwithjoedeal.com';
+      const fromEmail = secretOr(EMAIL_FROM, 'noreply@nobigdealwithjoedeal.com');
 
       const response = await resend.emails.send({
         from: fromEmail,

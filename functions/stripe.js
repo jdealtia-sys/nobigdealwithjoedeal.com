@@ -1540,9 +1540,10 @@ exports.invoiceWebhook = onRequest(
       // so deliveries keep verifying during the rotation window (the
       // dedicated secret starts life as a PENDING-ROTATION placeholder).
       const candidates = [];
-      const dedicated = String(STRIPE_INVOICE_WEBHOOK_SECRET.value() || '').trim();
-      if (dedicated && dedicated.startsWith('whsec_')) candidates.push(dedicated);
-      const legacy = String(STRIPE_WEBHOOK_SECRET.value() || '').trim();
+      const { secretValue } = require('./integrations/_shared'); // '__unset__' stub → null, never a candidate
+      const dedicated = secretValue(STRIPE_INVOICE_WEBHOOK_SECRET) || '';
+      if (dedicated.startsWith('whsec_')) candidates.push(dedicated);
+      const legacy = secretValue(STRIPE_WEBHOOK_SECRET) || '';
       if (legacy) candidates.push(legacy);
 
       let lastErr = null;

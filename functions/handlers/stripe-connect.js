@@ -57,6 +57,7 @@ const STRIPE_SECRET_KEY = defineSecret('STRIPE_SECRET_KEY');
 // no rotation window, and accepting a platform-signed payload on the Connect
 // endpoint would let a replayed platform event reach the account-state writer.
 const STRIPE_CONNECT_WEBHOOK_SECRET = defineSecret('STRIPE_CONNECT_WEBHOOK_SECRET');
+const { secretValue } = require('../integrations/_shared');
 
 const STRIPE_API_VERSION = '2023-10-16'; // pinned, mirrors stripe.js:33
 
@@ -67,7 +68,7 @@ function getStripe() {
   if (_stripeClient) return _stripeClient;
   // trim(): a trailing newline in the Secret Manager value throws
   // ERR_INVALID_CHAR inside the SDK (#774).
-  const key = String(STRIPE_SECRET_KEY.value() ?? '').trim();
+  const key = secretValue(STRIPE_SECRET_KEY) || ''; // trimmed; the '__unset__' deploy stub reads as ''
   if (!key) throw new HttpsError('failed-precondition', 'Payments are not configured.');
   Stripe = Stripe || require('stripe');
   _stripeClient = new Stripe(key, {

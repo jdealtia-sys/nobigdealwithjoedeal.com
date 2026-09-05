@@ -31,6 +31,7 @@ const C = require('./tcpa-consent');
 
 const RESEND_API_KEY = defineSecret('RESEND_API_KEY');
 const EMAIL_FROM = defineSecret('EMAIL_FROM');
+const { secretOr } = require('./integrations/_shared');
 const TWILIO_ACCOUNT_SID = defineSecret('TWILIO_ACCOUNT_SID');
 const TWILIO_AUTH_TOKEN = defineSecret('TWILIO_AUTH_TOKEN');
 const TWILIO_PHONE_NUMBER = defineSecret('TWILIO_PHONE_NUMBER');
@@ -294,7 +295,7 @@ async function alertJoe(collection, d, leadId) {
   // Detailed email → the tenant's alert inbox(es). Skip when none configured.
   if (target.emails && target.emails.length) try {
     const resend = new Resend(RESEND_API_KEY.value());
-    const from = EMAIL_FROM.value() || 'noreply@nobigdealwithjoedeal.com';
+    const from = secretOr(EMAIL_FROM, 'noreply@nobigdealwithjoedeal.com');
     const resp = await resend.emails.send({
       from,
       to: target.emails,

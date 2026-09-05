@@ -53,6 +53,7 @@ const REPLICATE_API_TOKEN = defineSecret('REPLICATE_API_TOKEN');
 // flipping). Also registered in integrations/_shared.js SECRETS so the admin
 // integration-status readout shows whether it's populated.
 const KIE_API_KEY = defineSecret('KIE_API_KEY');
+const { secretValue } = require('./integrations/_shared');
 
 // Provider seam. 'replicate' (default) | 'kie'. Env-switchable so a swap
 // (or rollback) needs no code change — mirrors the FLUX_MODEL override
@@ -712,7 +713,7 @@ exports.visualizerImageGen = onRequest(
         // a misconfig must not silently fall back to a provider Joe just
         // switched away from.
         let kieKey = '';
-        try { kieKey = KIE_API_KEY.value() || ''; } catch (_) { /* unset */ }
+        kieKey = secretValue(KIE_API_KEY) || ''; // the '__unset__' deploy stub reads as ''
         if (!kieKey) {
           logger.error('visualizerImageGen: IMAGEGEN_PROVIDER=kie but KIE_API_KEY is unset');
           res.status(503).json({ error: 'provider_not_configured' });

@@ -38,6 +38,7 @@ const { callableRateLimit } = require('./shared');
 
 const RESEND_API_KEY = defineSecret('RESEND_API_KEY');
 const EMAIL_FROM = defineSecret('EMAIL_FROM');
+const { secretOr } = require('./integrations/_shared');
 
 const CORS_ORIGINS = [
   'https://nobigdealwithjoedeal.com',
@@ -154,7 +155,7 @@ exports.createReportShareToken = onCall(
       try {
         const { Resend } = require('resend');
         const resend = new Resend(RESEND_API_KEY.value());
-        const fromEmail = EMAIL_FROM.value() || 'noreply@nobigdealwithjoedeal.com';
+        const fromEmail = secretOr(EMAIL_FROM, 'noreply@nobigdealwithjoedeal.com');
         const reportName = escHtml(report.type || 'inspection report');
         await resend.emails.send({
           from: fromEmail,

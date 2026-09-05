@@ -30,6 +30,7 @@ const { Resend } = require('resend');
 // Reuse the same secrets the other email functions bind.
 const RESEND_API_KEY = defineSecret('RESEND_API_KEY');
 const EMAIL_FROM = defineSecret('EMAIL_FROM');
+const { secretOr } = require('./integrations/_shared');
 
 const PHONE_DISPLAY = '(859) 420-7382';
 const PHONE_TEL = 'tel:+18594207382';
@@ -167,7 +168,7 @@ exports.stormReportEmail = onDocumentCreated(
 
     try {
       const resend = new Resend(RESEND_API_KEY.value());
-      const from = EMAIL_FROM.value() || 'noreply@nobigdealwithjoedeal.com';
+      const from = secretOr(EMAIL_FROM, 'noreply@nobigdealwithjoedeal.com');
       const resp = await resend.emails.send({
         from,
         to: d.email,
