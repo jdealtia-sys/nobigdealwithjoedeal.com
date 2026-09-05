@@ -110,12 +110,18 @@ an issue or a vault note, and never remediated. It is the one kept branch whose
 content is time-sensitive rather than merely unfinished, and it should be read
 before it is a year old.
 
-## Correction to a standing claim
+## Branch protection, re-confirmed (not a new finding)
 
-`main` **has branch protection enabled** with 7 required status checks (Smoke
-tests, Unit suites, Site integrity, Node syntax check, Secret scan, Firestore
-rules tests, Functions parse + dep install), verified via the API on
-2026-09-05. Earlier notes recorded protection as OFF as of 2026-09-02 — that is
-now stale. There are no repository rulesets, and the rule is `main`-scoped, so
-it did not affect branch deletion. It does mean `gh pr merge --auto` is now a
-real gate rather than an immediate merge.
+Checked before deleting, since a protection rule could have blocked it: `main`
+has protection **ON** with 7 required status checks (Smoke tests, Unit suites,
+Site integrity, Node syntax check, Secret scan, Firestore rules tests, Functions
+parse + dep install), verified via the API on 2026-09-05. There are no
+repository rulesets and the rule is `main`-scoped, so it did not affect branch
+deletion.
+
+This is **not** news — Jo enabled it on 2026-09-03 and INDEX already records it.
+Noting it here only because one older doc still says the opposite:
+[NEXT_SESSION-2026-08-26](../projects/NEXT_SESSION-2026-08-26.md) line 17 reads
+"No required checks on main (`--auto` merges …)". That line is stale; `--auto`
+is now a real gate. Left in place as dated history rather than edited, since
+it was true when written.
