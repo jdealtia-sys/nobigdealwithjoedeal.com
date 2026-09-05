@@ -337,6 +337,13 @@ Object.assign(exports, dealAcceptanceFunctions);
 const reportSharingFunctions = require('./report-sharing');
 Object.assign(exports, reportSharingFunctions);
 
+// Read-only .ics calendar feed: one secret URL per rep
+// (calendar_feed_tokens + /calendar/<token>.ics), subscribed once from the
+// iPhone Calendar app and refreshed by iOS thereafter. No vendor, no secret.
+// See functions/calendar-feed.js.
+const calendarFeedFunctions = require('./calendar-feed');
+Object.assign(exports, calendarFeedFunctions);
+
 // Generated-document read-back. Replaces the permanent getDownloadURL that
 // document-generator.js used to persist as documents/{id}.htmlUrl — an
 // unrevocable no-auth URL for a signed contract. Authed callable + admin-SDK

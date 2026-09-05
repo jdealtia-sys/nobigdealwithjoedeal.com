@@ -1519,6 +1519,16 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
+    // Calendar feed tokens. createCalendarFeedToken mints these; the rep's
+    // phone fetches /calendar/<token>.ics through the public getCalendarFeed
+    // endpoint (token-authed, admin SDK reads the schedule). No Firebase-auth
+    // client ever touches this collection — a readable token here would hand
+    // any signed-in user a teammate's whole book. Same lockdown as
+    // report_share_tokens.
+    match /calendar_feed_tokens/{token} {
+      allow read, write: if false;
+    }
+
     // ── PARCEL CACHE (admin-SDK only) ──────────────────
     // Regrid lookup cache — reads are a privacy issue (address →
     // owner name). Only the Cloud Function accesses via admin SDK.

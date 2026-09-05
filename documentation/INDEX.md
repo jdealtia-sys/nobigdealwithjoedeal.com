@@ -46,6 +46,7 @@ Map of content for the `documentation/` corpus (~115 files) plus the other place
 ## Runbooks (ops — read before touching prod)
 
 - [ALERT_RESPONSE](runbooks/ALERT_RESPONSE.md)
+- [CALENDAR-FEED](runbooks/CALENDAR-FEED.md) — the per-rep `.ics` feed: how to subscribe from an iPhone, why the link is a password and has no expiry, what rotation costs, and the engineering notes (no composite index by design, 503 never an empty 200)
 - [HEALTHCHECKS-SETUP](runbooks/HEALTHCHECKS-SETUP.md) — dead-man's-switch pings from all 25 crons; Jo's ten-minute setup, the slug table, which five to skip on the free tier, what a red check means
 - [ROLLBACK](runbooks/ROLLBACK.md)
 - [RESTORE_FROM_BACKUP](runbooks/RESTORE_FROM_BACKUP.md)
