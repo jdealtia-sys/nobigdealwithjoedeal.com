@@ -72,12 +72,28 @@ text on a document that carries `tcpaConsent === true`, and
    only `git checkout -- $(git diff --name-only)` cannot, because
    `git diff` never lists these files. The policy change that would retire
    the whole class is item 9.
-5. **Wave 2 of the research note** — in the order the note ranks them:
-   generic tokenized inbound-lead webhook (makes Zapier/Make/n8n a config
-   task), Telegram alert bot, GA4 Data API + Search Console into the
-   marketing report, the read-only `.ics` feed (bonus row; M), Geoapify
-   autocomplete to replace the Nominatim typeahead the public funnels use
-   against Nominatim's policy.
+5. ~~**Wave 2 of the research note**~~ — **four slices SHIPPED 2026-09-05**
+   ([session note](SESSION-2026-09-05-free-api-wave2.md)): leads/estimates →
+   Google Sheets (#1395), the read-only `.ics` calendar feed (#1396),
+   notification taps + Call/Snooze actions (#1398), and the SPC Day-1
+   outlook on the Storm Center map (#1399). All four deliver full value with
+   ZERO Jo-side setup. An eight-agent mapping pass ran first and refuted five
+   more note/doc claims — read its findings before picking up any remaining
+   row.
+   **Still open, in value order, all of them dark until Jo acts:**
+   - **Inbound tokenized webhook** — M. NOTE CORRECTION: Zapier's Webhooks
+     app is PAID; the $0 routes are Make / n8n / Pipedream / Apps Script.
+     Server half only is one slice; the settings UI is a second (the
+     settings template carries a script-count pin).
+   - **Geoapify autocomplete** — M, the only compliance item: the public
+     funnels' typeahead hits Nominatim, whose policy forbids autocomplete.
+     Ships behaviourally identical until Jo has a key.
+   - **GA4 Data API + Search Console** into the monthly report — S, but
+     BOTH APIs are disabled on the project and need Jo to grant the runtime
+     service account access in two products.
+   - **Telegram bot**, **Calendly polling**, **Vision OCR** — each needs a
+     secret or an API enablement first; reasons to defer are in the session
+     note.
 6. **Switch the hail cron to SWDI** once `hailMatchCron` has a week of
    real runs on record (it first scored leads on 2026-09-05; #1386 left it
    on its own fetcher on purpose, pinned by test).
@@ -86,6 +102,25 @@ text on a document that carries `tcpaConsent === true`, and
    `tests/tcpa-consent.test.js` will demand the payload change with it.
 8. ~20 stale local branches remain squash-merged and deletable; the
    `nbd-wt-ledger-recon` worktree still holds `main`.
+
+10. **Correct `documentation/architecture/THUMBTACK-WEBHOOK-2026-08.md` in
+    place.** It says bridged leads page Jo. They do not: no `lead-alert`
+    trigger exists on `thumbtack_leads`, `KIND_LABEL` has no entry, and
+    `push-functions.js` returns early unless `assignedTo` is set — which
+    `mapPublicLeadToLead` never sets. Found by the wave-2 mapping pass,
+    verified against the code. A doc asserting an alert path that does not
+    exist is how a lead goes unanswered.
+
+11. **The shared `codeOnly` test idiom is unsafe — sweep the other
+    suites.** Source-contract tests strip BLOCK comments then LINE comments.
+    A line comment containing `/*` (e.g. `// /pro/images/* does NOT
+    exist` in `push-functions.js`) opens a fake block comment and the
+    stripper swallows real code up to the next `*/`; assertions then pass
+    or fail on text that was never a comment. Two of #1398's assertions
+    failed for exactly this reason. Fixed there by stripping line comments
+    FIRST; a scan found no other file my suites read is affected, but the
+    other suites still use the unsafe order and a future file could trip
+    them silently.
 
 9. **Adopt a repo-wide LF policy — Jo's call, but the work is done.**
    `.gitattributes` carrying `* text=auto eol=lf` ends the line-ending class
