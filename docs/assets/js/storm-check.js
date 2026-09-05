@@ -265,7 +265,10 @@
     // capture the lead FIRST (so it saves even if the result errors out)
     var story = 'STORM CHECK | storm: ' + S.stormWhen + '/' + S.stormType +
       ' | roof age: ' + S.roofAge + ' (' + S.roofType + ') | signs: ' + (S.signs.join(', ') || 'none');
-    var payload = { name: fn, phone: ph, address: S.address || $('sc-address').value.trim(), source: '/storm-check', story: story };
+    // tcpaConsent is the checkbox's real value (always true past the gate above);
+    // submitPublicLead persists it so lead-alert's SMS ack can gate on a stored
+    // record instead of inferring consent (TCPA fix, 2026-09-04; see #1377).
+    var payload = { name: fn, phone: ph, address: S.address || $('sc-address').value.trim(), source: '/storm-check', story: story, tcpaConsent: consent === true };
     if (em) payload.email = em;
     var capture = (typeof window.submitPublicLead === 'function')
       ? window.submitPublicLead('inspect', payload)

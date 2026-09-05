@@ -46,7 +46,12 @@ const CONSENT_FIELD = 'tcpaConsent';
  * here without adding the checkbox to that form is how a consent gate becomes
  * decorative, so treat this list as the audit trail it is.
  */
-const CONSENT_COLLECTIONS = Object.freeze(['estimate_leads']);
+// 2026-09-04: inspect_leads joins. Three of its four forms (/storm-check,
+// /roof-score, /storm-report) present the disclosure, gate submission on it and
+// post the value; the fourth (/inspect) has no checkbox, posts nothing, and its
+// documents therefore fail hasWrittenConsent — they are never texted. That is
+// the point of reading consent from the document rather than the collection.
+const CONSENT_COLLECTIONS = Object.freeze(['estimate_leads', 'inspect_leads']);
 
 /**
  * Coerce a consent value as it arrives on a public-form submission.

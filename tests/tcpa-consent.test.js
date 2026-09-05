@@ -182,11 +182,16 @@ check('T19 the gate never throws on a junk call', () => {
   assert.strictEqual(C.smsAckGate({ enabled: true }).allowed, false);
 });
 
-check('T20 CONSENT_COLLECTIONS is frozen and holds only the estimate funnel', () => {
+check('T20 CONSENT_COLLECTIONS is frozen and holds exactly the funnels that present a disclosure', () => {
   // A collection earns a place here only once its form presents a disclosure
   // and gates submission on it. Widening this list is a legal decision, so it
-  // should fail a test rather than pass a review unnoticed.
-  assert.deepStrictEqual([...C.CONSENT_COLLECTIONS], ['estimate_leads']);
+  // should fail a test rather than pass a review unnoticed — and it did, on
+  // 2026-09-04, when inspect_leads was added: three of its four forms
+  // (/storm-check, /roof-score, /storm-report) present the texting disclosure
+  // and post the checkbox value; the fourth (/inspect) has no checkbox, posts
+  // nothing, and so its documents fail hasWrittenConsent and are never texted.
+  // T27–T30 below pin each half of that claim.
+  assert.deepStrictEqual([...C.CONSENT_COLLECTIONS], ['estimate_leads', 'inspect_leads']);
   assert.strictEqual(Object.isFrozen(C.CONSENT_COLLECTIONS), true);
 });
 
@@ -290,6 +295,54 @@ check('T26 every funnel payload that gates on the consent box also sends it', ()
         + 'ack would silently never fire for it',
     );
   }
+});
+
+// ── The inspect kind's four forms (2026-09-04) ───────────────────────────
+
+check('T27 the inspect kind declares tcpaConsent as a boolean field', () => {
+  const inspectBlock = GATEWAY.slice(GATEWAY.indexOf('  inspect: {'), GATEWAY.indexOf('};', GATEWAY.indexOf('  inspect: {')));
+  assert.ok(inspectBlock.length > 0, 'could not locate the inspect kind block');
+  assert.ok(/boolOptional:\s*\[[^\]]*'tcpaConsent'/.test(inspectBlock),
+    'inspect kind must declare boolOptional including tcpaConsent, or the three funnels’ boolean is dropped again');
+});
+
+const FUNNELS = {
+  '/storm-check':  { js: 'storm-check.js',       html: 'storm-check.html',  checkbox: 'sc-consent' },
+  '/roof-score':   { js: 'roof-score.js',        html: 'roof-score.html',   checkbox: 'rs-consent' },
+  '/storm-report': { js: 'storm-report-page.js', html: 'storm-report.html', checkbox: 'sr-consent' },
+};
+
+check('T28 each of the three inspect-kind funnels posts tcpaConsent in the same payload it gates', () => {
+  for (const [route, f] of Object.entries(FUNNELS)) {
+    const js = fs.readFileSync(path.join(ROOT, 'docs', 'assets', 'js', f.js), 'utf8');
+    const start = js.indexOf('var payload = {');
+    assert.ok(start > 0, route + ': no payload literal found');
+    const body = js.slice(start, js.indexOf('};', start));
+    assert.ok(/tcpaConsent\s*:/.test(body), route + ' gates submit on ' + f.checkbox + ' but its payload omits tcpaConsent');
+    assert.ok(js.includes("$('" + f.checkbox + "').checked"), route + ' no longer reads the ' + f.checkbox + ' checkbox');
+  }
+});
+
+check('T29 each of those three forms presents an express-written-consent TEXTING disclosure', () => {
+  for (const [route, f] of Object.entries(FUNNELS)) {
+    const html = fs.readFileSync(path.join(ROOT, 'docs', f.html), 'utf8');
+    const i = html.indexOf('id="' + f.checkbox + '"');
+    assert.ok(i > 0, route + ': checkbox ' + f.checkbox + ' missing');
+    const label = html.slice(i, html.indexOf('</label>', i));
+    for (const must of ['text', 'Message &amp; data rates', 'Reply STOP', 'Not a condition of purchase', 'No Big Deal Home Solutions']) {
+      assert.ok(label.includes(must), route + ": consent label lacks '" + must + "' — a contact-me checkbox is not texting consent");
+    }
+  }
+});
+
+check('T30 /inspect either presents the disclosure AND posts the field, or neither (never a checkbox that is not recorded)', () => {
+  const html = fs.readFileSync(path.join(ROOT, 'docs', 'inspect.html'), 'utf8');
+  const js = fs.readFileSync(path.join(ROOT, 'docs', 'assets', 'js', 'inspect-form.js'), 'utf8');
+  const hasCheckbox = /Reply STOP/.test(html);
+  const postsField = /tcpaConsent\s*:/.test(js);
+  assert.strictEqual(hasCheckbox, postsField,
+    'inspect.html and inspect-form.js disagree about consent: a box that is shown but not posted is the exact bug #1377 fixed');
+  // Today: neither. Its inspect_leads documents carry no field → no_stored_consent → never texted.
 });
 
 // ── Report ──────────────────────────────────────────────────────────────

@@ -91,7 +91,9 @@
     var c = S.data.counts || {};
     var story = 'STORM REPORT | ' + (c.total || 0) + ' events/' + (S.data.years || 5) + 'yr (' +
       (c.hail || 0) + ' hail, ' + (c.wind || 0) + ' wind, ' + (c.tornado || 0) + ' tornado, max ' + (S.data.maxHail || 0) + '″)';
-    var payload = { name: fn, phone: ph, address: S.address, source: '/storm-report', story: story };
+    // tcpaConsent: the checkbox's real value, persisted server-side so the SMS ack
+    // gates on a stored record (TCPA fix, 2026-09-04; see #1377).
+    var payload = { name: fn, phone: ph, address: S.address, source: '/storm-report', story: story, tcpaConsent: $('sr-consent').checked === true };
     if (em) payload.email = em;
     var cap = (typeof window.submitPublicLead === 'function') ? window.submitPublicLead('inspect', payload) : Promise.resolve({ ok: false });
     cap.then(function (res) { renderReport(res && res.ok); });
