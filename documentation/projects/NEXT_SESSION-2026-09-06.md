@@ -92,7 +92,12 @@ text on a document that carries `tcpaConsent === true`, and
    item 4 was about. Measured end to end on 2026-09-05 in a throwaway clone,
    never in a live checkout — full evidence in
    [GIT-PHANTOM-MODIFICATIONS-2026-09-05](../audit/GIT-PHANTOM-MODIFICATIONS-2026-09-05.md)
-   §The LF policy, measured. **Recommendation: adopt, when the tree is quiet.**
+   §The LF policy, measured. **Recommendation: adopt as a bundle of three —
+   the policy, an EOL-robustness patch to the three fragile gates, and a guard
+   that asserts the invariant — but not tonight, and not before the four
+   blockers below are cleared.** The policy alone is worth less than it looks,
+   for the reasons under "the caveat"; and the tree is currently the opposite
+   of quiet.
 
    - **The commit is four files.** `git add --renormalize .` stages the policy
      plus the only three files carrying CRLF in the repo
@@ -131,10 +136,55 @@ text on a document that carries `tcpaConsent === true`, and
      cosmetically. It is cached shell-first by `docs/pro/sw.js`, so pair the
      change with a `CACHE_VERSIONS.shell` bump if field byte-uniformity matters.
 
-   **The caveat, stated plainly:** this inverts the failure rather than
-   deleting it. On an LF tree a CRLF-writing tool produces the same
-   ` M`-with-empty-diff signature. The common trigger becomes a no-op; the
-   rare one (PowerShell `Out-File`) remains.
+   **The caveat, and it is the reason for the bundle.** This inverts the
+   failure rather than deleting it, and the inverted form is *worse*. On an LF
+   tree a CRLF write produces the same ` M`-with-empty-diff signature — but
+   then `git add` (the reflex) silences it permanently while leaving the file
+   CRLF on disk, and `git checkout -- <file>` becomes a no-op, so the repair is
+   gone too. Verified: status empty, nothing staged, file still CRLF. The
+   result is a file that quietly breaks all three drift gates with *no*
+   git-visible signal. Today's sticky state is benign by luck — LF on disk is
+   what the gates want. PowerShell `Out-File`/`Set-Content` is the live
+   CRLF-writing vector on this machine.
+
+   Two things also worth having on the record, both measured. Phantom files are
+   **not cosmetic**: one aborts `git merge`/`git pull` with "your local changes
+   would be overwritten", on a file nobody edited and whose diff is empty. And
+   the class has a far more systematic source than `sed -i` — Claude Code's
+   Write tool emits LF (so every full-file overwrite of a tracked file is a
+   phantom generator today), while Edit preserves a file's existing endings,
+   which is why an unrefreshed tree never heals itself.
+
+   **Four things must be cleared in the same change, or it lands broken.**
+   Each verified.
+
+   - **The migration commit fires a full production deploy.** All three
+     renormalized files match `firebase-deploy.yml`'s `paths:` trigger
+     (`docs/**`, `functions/**`, `firestore.indexes.json`), and once triggered
+     every step runs unconditionally on push — Hosting *and* Cloud Functions.
+     A commit that changes no behaviour would redeploy the fleet. Plan it, or
+     land it via a path the trigger ignores.
+   - **CLAUDE.md's own diagnostic inverts.** The rule added yesterday says to
+     find damage with `git ls-files --eol | grep -E '^i/lf\s+w/lf'` and clear
+     it by naming those paths to `git checkout --`. On a migrated tree that
+     grep matches *every text file*, and the documented remedy is destructive.
+     It must be rewritten in the same commit.
+   - **The vault currently forbids this.**
+     [SHARED-PARTIALS-SYSTEM](../architecture/SHARED-PARTIALS-SYSTEM.md) says
+     "**Never normalise the tree to LF**". That rule is about a codemod doing it
+     as a side effect and making diffs unreviewable, which is a different thing
+     from a declared policy — but it is a flat prohibition linked from INDEX,
+     and CLAUDE.md's standing rule is to correct contradicted docs in place.
+   - **The gate patch collides with #1373**, which modifies both
+     `scripts/build-sitemap.js` and `scripts/build-projects.mjs`. Land or rebase
+     that PR first.
+
+   **The refresh also does not stick.** Switching a refreshed worktree onto any
+   pre-policy branch deletes `.gitattributes` and reverts whatever files that
+   switch touches back to CRLF — leaving a mixed-ending tree with a completely
+   clean `git status`. The primary checkout hops branches constantly, so its EOL
+   state becomes a function of its branch history. This is the strongest single
+   argument for the guard.
 
    **The order matters, and the obvious order is a trap.** Adding `*.pdf binary`
    in the *same* step as `git add --renormalize .`, run from a Windows worktree,
@@ -167,10 +217,22 @@ text on a document that carries `tcpaConsent === true`, and
    (74 files) first, and pair the commit with a `.git-blame-ignore-revs`: it
    rewrites 8,269 lines, 5,278 of them in a payments file.
 
-   **Landable today either way:** give `build-sitemap.js`, `build-feed.mjs` and
-   `build-projects.mjs` the destination-EOL sniff `apply-partials.js` already
-   uses. That fixes the three red gates on any checkout with zero blast radius,
-   and it is the right move even if the policy is declined.
+   **The other two thirds of the bundle.** The policy makes the gates green by
+   changing the environment; it does not make them *correct*. They stay exact
+   string comparers, so one CRLF write turns them red again with the same
+   misleading "drift" message. So:
+
+   - **Patch the three gates** with the destination-EOL sniff
+     `apply-partials.js` already uses. This is the durable fix, correct under
+     either regime, zero blast radius — land it even if the policy is declined.
+   - **Add a guard that asserts the invariant.** Nothing in the repo checks
+     that `.gitattributes` exists, that the worktree is LF, or that
+     `core.autocrlf` is sane: `ls-files --eol`, `autocrlf`, `gitattributes` and
+     `core.eol` appear nowhere in `scripts/`, `tests/`, `.github/` or
+     `package.json`. CI is all-Linux and structurally cannot catch a Windows
+     EOL regression. Adopting an invariant that nothing asserts, in this repo,
+     is the shape of the problem rather than the fix — a `check-eol.js` on the
+     pre-push list closes it, and it can be proven to fail today.
 
    **If declined,** record it in CLAUDE.md so the next session stops
    re-deriving the question, land the gate fix above, and re-encode the PDF as

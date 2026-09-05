@@ -25,7 +25,10 @@
   LF-only is smaller, and a size mismatch makes git report "modified"
   without ever hashing the content.
 - **The durable fix is a rule, now in CLAUDE.md:** never `sed -i` across
-  a glob of repo files on Windows. Diagnose and clear commands are below.
+  a glob of repo files on Windows. Diagnose and clear commands are below. That
+  rule is necessary but not sufficient — see §The LF policy, measured, which
+  finds the same class arriving from the repo's own generators and from any
+  full-file Write.
 
 ## The writer, from the session transcript
 
@@ -252,9 +255,32 @@ into the LF worktree produces ` M file` in `git status` with an **empty**
 trigger changes hands:
 
 - **today** LF-writing tools trip it — `sed -i`, all sixty `writeFileSync`
-  scripts, the editor. The common case.
-- **after** CRLF-writing tools trip it — PowerShell `Out-File`/`Set-Content` is
-  the known one in this environment. The rare case.
+  scripts, and Claude Code's Write tool, which emits LF. The common case.
+- **after** CRLF-writing tools trip it — PowerShell `Out-File`/`Set-Content`.
+  Rarer, but live on this machine.
+
+And the mirrored form is **worse when it happens**, which the first draft of this
+note missed. Measured on a policy tree with a CRLF-corrupted file:
+
+| step | `git status` | file on disk |
+|---|---|---|
+| after the CRLF write | ` M f.txt` | CRLF |
+| after `git add f.txt` | *empty* — nothing staged | still CRLF |
+| after `git checkout -- f.txt` | empty | **still CRLF** |
+
+A `git add` — the reflex, and `git add .` is a habit here — permanently silences
+the signal *and* disables the repair, leaving a CRLF file in an LF worktree that
+breaks all three drift gates with nothing in git to show for it. Today's
+equivalent sticky state is benign only by luck: LF-on-disk is what those gates
+want anyway.
+
+Two related measurements belong on the record. A phantom-modified file is **not
+cosmetic** — it aborts `git merge` and `git pull` with "Your local changes to the
+following files would be overwritten by merge ... Aborting", on a file nobody
+edited and whose `git diff` is empty. And Claude Code's Write tool emits LF while
+Edit preserves a file's existing endings, so today every full-file Write of a
+tracked file generates a phantom, and an unrefreshed worktree never heals — it
+converges file by file toward a mixed state.
 
 Also verified: `.gitattributes` overrides the machine-global
 `core.autocrlf=true` at `file:C:/Program Files/Git/etc/gitconfig`. The whole
@@ -303,7 +329,34 @@ already checks out LF, so every suite green in CI is already proof of LF safety.
 - `functions/stripe.js` is a payments file whose every line the policy rewrites
   in the index. It deserves its own reviewable commit, not burial in a bulk
   renormalization.
-- Any branch open across the change wants a rebase; #1373 carries 74 files.
+- **It fires a full production deploy.** All three renormalized files match
+  `.github/workflows/firebase-deploy.yml`'s `paths:` trigger — `docs/**`,
+  `functions/**` and `firestore.indexes.json` — and every step in that workflow
+  runs unconditionally once the workflow is triggered on push. So a commit that
+  changes no behaviour redeploys Hosting and the Cloud Functions fleet. (This
+  note's own PR is unaffected: `documentation/**` is not in the trigger.)
+- **It inverts the diagnostic this note added to CLAUDE.md.**
+  `git ls-files --eol | grep -E '^i/lf\s+w/lf'` finds damage today because
+  LF-in-an-otherwise-CRLF-tree is the anomaly. After the flip it matches every
+  text file in the repo, and "clear by naming those paths to `git checkout --`"
+  becomes advice to rewrite 1460 files. The rule must be replaced in the same
+  commit, not left to rot.
+- **A vault architecture doc forbids it today.**
+  [SHARED-PARTIALS-SYSTEM](../architecture/SHARED-PARTIALS-SYSTEM.md) carries
+  "**Never normalise the tree to LF** — it rewrites every line of every page and
+  makes diffs unreviewable", linked from INDEX. Its reasoning is about a codemod
+  normalising as a side effect, which a declared policy is not — but the
+  prohibition is flat, and CLAUDE.md requires correcting a contradicted doc in
+  place rather than quietly overriding it.
+- **The refresh does not survive branch hopping.** Checking a refreshed worktree
+  out onto a pre-policy branch removes `.gitattributes` and returns whatever
+  files that switch touches to CRLF, with `git status` clean throughout. In a
+  checkout that changes branches often, EOL state becomes a function of branch
+  history — which is why the bundle needs a guard rather than a one-time
+  procedure.
+- Any branch open across the change wants a rebase; #1373 carries 74 files, and
+  it modifies `scripts/build-sitemap.js` and `scripts/build-projects.mjs` — the
+  two files the EOL-robustness patch would rewrite.
 - The rollout's own diff looks like the bug, as noted above.
 
 ## Not done, and why
