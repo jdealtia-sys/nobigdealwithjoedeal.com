@@ -1,19 +1,20 @@
-# Remote branch manifest — captured 2026-09-05, immediately before the branch cleanup.
-# 381 branches. Restore ANY of them with:
-#     git push origin <sha>:refs/heads/<name>
-# The SHAs below are the exact tips as they existed on the remote before deletion.
-# DELETED rows were verified present on main (see REMOTE-BRANCH-CLEANUP-2026-09-05.md).
+# Remote branch manifest — every branch that existed on origin at 2026-09-05, before the cleanup.
+# 381 branches: 366 deleted, 15 kept.
 #
-e82bba25124662e974465b446f9c7cfb350643ad  KEPT     brand-layer-launch
+# RESTORE ANY BRANCH:   git push origin <sha>:refs/heads/<name>
+# The SHAs are the exact remote tips prior to deletion, so any row is one command from coming back.
+# Every DELETED row was verified present on main — method in REMOTE-BRANCH-CLEANUP-2026-09-05.md.
+#
+e82bba25124662e974465b446f9c7cfb350643ad  DELETED  brand-layer-launch
 fdd9008aa49ed2116b97e573c579f91ae3f8550d  DELETED  chore/cleanup-2026-07-16
 52a89380ab79607a97c88e3c122ffd70bab4263e  DELETED  chore/cloud-run-cpu-quota
 f26401a839676c27223014dff45335f09dbab018  DELETED  chore/crm-audit-into-ci
-70eb89bf5eaebc5ed67c08946eb822840f8334c1  KEPT     chore/firebase-admin-13-functions-7-bump
+70eb89bf5eaebc5ed67c08946eb822840f8334c1  DELETED  chore/firebase-admin-13-functions-7-bump
 81eb2d4954b207781e725009a256056d10623bbd  DELETED  chore/strip-dead-marketing-ci
 17d14b46ed8d6a5dd7ef348f80a05ab57c9de8f2  DELETED  chore/ux-zeroes-toasts-doc-index
 0c354d14eec398661ac261770de2b4f9194faeb3  DELETED  claude/a11y-lane-d
 074dbcec3083a8f6d9bb9d772d1fc31ff8724a0d  DELETED  claude/admin-run-migrations
-95a2dd27701a6a03e8188df055564bd0fbe7a34c  KEPT     claude/admin-tranche-2
+95a2dd27701a6a03e8188df055564bd0fbe7a34c  DELETED  claude/admin-tranche-2
 221b30bbad90a12f8cbda00c86771607ec413643  DELETED  claude/american-operator-badge-logo-8r7v70
 7b5d51f0308f77012c4e98fae355f139c4f31dfa  DELETED  claude/audit-a-firestore-security
 7a4639d4482f35e3fa658f6320d7f8b9244fe765  DELETED  claude/audit-b-perf-render-blocking
@@ -93,13 +94,13 @@ fab806f4afcca89347ce450f9923d40c22c34c03  DELETED  claude/firestore-repos-layer
 30314348f5e281014ee4b34bc961d866aba2182d  DELETED  claude/firestore-require-companyid-on-create
 b5b89d24420b80780fcce4a08c3fc31ca8876804  DELETED  claude/fix-backfill-admin-v14-api
 165dfb66efd46d63a5db02584784cc6b954cf9ee  DELETED  claude/fix-crm-browser-loading-jpuRo
-75f3db36b10cf79759ccf7cced8c8fd807b6e3e3  KEPT     claude/fix-crm-loading-eFuOs
+75f3db36b10cf79759ccf7cced8c8fd807b6e3e3  DELETED  claude/fix-crm-loading-eFuOs
 6fd7cb444590006a7e2110a81e750a5d0c46de3d  KEPT     claude/fix-kanban-map-loading-rsxqC
 6b6cdc7b1bc3bb17adb8e9623584ebe42d0f8cfa  DELETED  claude/fix-mobile-fab-overlap
 53816ddd99fc093c40151dfd62d78719d9138a6b  DELETED  claude/fix-portal-preview-blocked
 1032cd178c900e71b22faa6a1281eaf9d3697769  DELETED  claude/fix-scripts-admin-v14
 6d387a13242ade53cb24eaa6deac7c33388ba54d  DELETED  claude/fix-visualizer-colors-images-kH4JF
-dfd1361dd709bfc8796546e2c2a345fd7fbcec5b  KEPT     claude/gifted-lederberg-86208b
+dfd1361dd709bfc8796546e2c2a345fd7fbcec5b  DELETED  claude/gifted-lederberg-86208b
 d28270756f1508a19d2c1d6c44d5be9ab5c29631  DELETED  claude/ios-tap-and-d2d-auth
 387d4c4a38bb9ecd2c50f85a048bc4b99b74a9b9  DELETED  claude/job-checklist-events
 ffb9d099f91b6db2cbee9275d9ab018e80e9f2f8  DELETED  claude/jsdoc-typedefs
@@ -149,7 +150,7 @@ abb513a9be1dee452b073df24d2a3c8892ab47af  DELETED  claude/seo-lane-b
 55b7eff47e0e3ae24033ee690b5894ff33445283  DELETED  claude/session-review-next-steps-82mucp
 3a7f109a4aa82650d454d5e72480668f3936ce49  DELETED  claude/site-audit-loose-ends-xl91fj
 3f730d736a10340d206d43324934399e7e3e09e4  DELETED  claude/site-audit-review-izjmzj
-eab1e8c4f97079081727a978c981349c7b61b22f  KEPT     claude/siteurl-seed-repoint
+eab1e8c4f97079081727a978c981349c7b61b22f  DELETED  claude/siteurl-seed-repoint
 e5cb0744ad4381e655c98d1eee2165823c78a723  DELETED  claude/skip-list-stale-scheduler-prose
 668be41c34cfecb3c441171740f903dd80e7afd1  DELETED  claude/step1-voice-cmd-palette
 7cf3f19ed80293ae23f9dcbbb9e9fd009fc556ed  DELETED  claude/step13-live-portal-pushes
@@ -166,7 +167,7 @@ fb4a1c727af84e12dd07318b6e0ece41596c9cb8  DELETED  claude/supplement-per-line
 6890c9a663b289dabab2d407c439aa40a0eac290  DELETED  claude/sw-cache-bump-q5w8
 26e7cf0565374550bf02681cba1b81051ec79282  DELETED  claude/sw-cdn-bypass
 7eefb5d1fc527890b56d509df71c9c1f1c640002  DELETED  claude/system-stability-performance-muhs1l
-013f4574e8829a757d90495d9f6565083fc19926  KEPT     claude/t1-ai-texting-foundation
+013f4574e8829a757d90495d9f6565083fc19926  DELETED  claude/t1-ai-texting-foundation
 a2a8d358f689c472a6bc8d1b1cae7472000b8d9f  DELETED  claude/tamko-gold-certification-4h4jkp
 b7b8aaed540734671c8e4c82e79c920af9a6456a  DELETED  claude/tenant-lifecycle-tail
 b491aaa30ba5c7501d67c8c79274195e5900edc8  DELETED  claude/upload-progress-ux
@@ -267,7 +268,7 @@ a35a6b84a03676beb53e0604a10e41b35eb52a62  DELETED  feat/voice-consumer
 ef9bb7a593a2a9501e5884fa44eedfe40e4e6728  DELETED  fix/banner-z-tokens
 bb54d0f349587b35618f853ba92e97a9d2892fc0  DELETED  fix/billing-seat-enforcement
 62031b602cf5c0e09727c81846f51faebfaa7397  DELETED  fix/brace-expansion-5.0.9
-a1d1efb00694db3812d1adf93d6fc31bdce22dcb  KEPT     fix/breadcrumb-corrections
+a1d1efb00694db3812d1adf93d6fc31bdce22dcb  DELETED  fix/breadcrumb-corrections
 d44f796af07e17daa2beafdd1cabcf758fd0e006  DELETED  fix/c1-permit-fallback
 e74259ac48919a48d783c9dc2f88741f60c8c4f2  DELETED  fix/certification-findings
 373803c2a32616451b465a1bcb33267e3e4a64ed  DELETED  fix/ci-required-check-deadlock
@@ -318,14 +319,14 @@ c254ceafef43725f93e103a833e40dc4bc7742d6  DELETED  fix/missing-composite-indexes
 3f93615527e3f8d173462fdce2c1d6806091b24c  DELETED  fix/oc-no-cert-warranty
 a065ef97310ff3a14243385bd4f138e12c2bd801  DELETED  fix/payments-ledger-transition-reconciliation
 c97b812a752d8b7a033354b7a857c79fa6e480fb  DELETED  fix/photo-review-firebase-config
-1cbd3f168d1e30a8fc6c9c0fd0ff7760e15bcd2c  KEPT     fix/polish-bundle
+1cbd3f168d1e30a8fc6c9c0fd0ff7760e15bcd2c  DELETED  fix/polish-bundle
 6e0e6c8d74757a5beb86a85b09d0043b0c3fc0c9  DELETED  fix/portal-consolidate
 79b9eacc1e7dcb03c78cf3f3a24f419c2eaaec56  DELETED  fix/portal-polish
 ec8738a96247597f6220369e77163863de58c2cd  DELETED  fix/portal-repname
 3b65ced598b2cf55a132d440b2e4a7135322fac5  DELETED  fix/portal-revoke-and-shared-estimate
 4cbac96dfe33e675e7757cc2a9df575a81606852  DELETED  fix/portal-token-undefined
 4f3fc4a32d7aa1f4cdc5f678e48e3e0aadcc6045  DELETED  fix/pricing-page-299
-38e96e6afe2706f5616b22e1cc35020acecdf12e  KEPT     fix/product-library-csp-delegates
+38e96e6afe2706f5616b22e1cc35020acecdf12e  DELETED  fix/product-library-csp-delegates
 e5dae996196edb3a3ca1a094ceab80fe2d368e85  DELETED  fix/purge-legacy-storage-portals
 5f7c51f91287ef41c8e4b231040a0794df287ca3  DELETED  fix/qa-billing-2026-06-09
 5f31f25414b1796f94edb4198296722c056316a9  DELETED  fix/qa-netnew-2026-06
@@ -345,7 +346,7 @@ a400d287cac31eb281021851e3c9e8a7e88700b2  DELETED  fix/sidebar-show-labels
 775ffc866de20f56a0ffb41be8f50735ee5354c2  DELETED  fix/signature-document-integrity
 fab005b3a9cadd7c648d6d337198dae17ea20f5d  DELETED  fix/site-t1-financing-compliance
 596e78f7c69f0bf6789b79b021b6f2a633009e6c  DELETED  fix/sitemap-free-tools-drift
-1fd62aeb3619cc25d75647e59486a2c2f74fe82c  KEPT     fix/sites-oaks-index-paths
+1fd62aeb3619cc25d75647e59486a2c2f74fe82c  DELETED  fix/sites-oaks-index-paths
 479d15da44747230c352c26eafbd7b44533136ae  DELETED  fix/sms-optout-key-normalization
 77bf3d38737c320ddbf4b6a16a93d813f9d3ad5e  KEPT     fix/stripe-key-trim
 a8ca5f1c5d90cfe32122a5a11ed568f33501d329  DELETED  fix/stripe-payment-link-tax
@@ -356,7 +357,7 @@ c57fc3668b7da9cb7daba1350557994c5a5dc8af  DELETED  fix/team-admin-gate
 88592b7cf7c432827b90d6f783d32d493dcf8964  DELETED  fix/theme-cross-surface-convergence-pr557-followups
 148de876382d04422d4bc1d745f73ff3bf8f36e4  DELETED  fix/tools-views-event-wiring
 c40b45ab92ca3b27e81e04cf01cf4ffbd16d2d43  DELETED  followups-2026-06-22
-89ee43a2389a40b9490432592b1b26ae86a05d47  KEPT     globals-2c3-crm-portal-bridge
+89ee43a2389a40b9490432592b1b26ae86a05d47  DELETED  globals-2c3-crm-portal-bridge
 453aac56a3628698c162e6d903d50bd98cdc0e6a  DELETED  harden/settings-renderers-esc
 30e7a23a9d49e81535a22b32643ea997b8d00eca  KEPT     main
 f64af6f456c87ede583232741cf723c88b53a852  KEPT     master
@@ -371,7 +372,7 @@ eb5ea255f2862beb78c2d4eecce86314b04ec5bd  DELETED  nbd/session3-plan-and-people
 76885b355128e2430f443464a4a5d67635a3d4e8  DELETED  nbd/session5-polish
 24bce71557991b436ce7f7ef32de9ffb54e887a7  DELETED  nbd/three-bug-hotfix
 080aa2c9e5e0ce274c418032b9edd2face64fc80  DELETED  nbd/upload-queue-and-auth-race
-c751d8df3735976bc0a37a889c1ba82d14b0188c  KEPT     perf/2a-apexcharts-defer
+c751d8df3735976bc0a37a889c1ba82d14b0188c  DELETED  perf/2a-apexcharts-defer
 afcec002d7d6a9b574a1326314617f253dd78c12  KEPT     phase-d-build
 6b80ccebef6bacaeaf128cd61a60715e7dd82ab2  KEPT     phase-d-foundation
 35a927739fdff159c29b00f73aa3e260704f824a  DELETED  qa-estimate-fixes-2026-06-08
