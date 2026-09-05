@@ -85,13 +85,14 @@ next deploy (#1391/#1392).
 
 ## Watch-outs (new)
 
-- **Running the node test bucket locally rewrites 78 files under
-  `functions/`** with LF endings (they are byte-identical after
-  `git checkout --`, yet `git status` keeps flagging them until a
-  `git checkout -f`). The writer was not found — `crm-audit.test.js:80` and
-  `inline-html-scripts.test.js` are the only suites that call
-  `writeFileSync`. Never `git add -u functions/` after a test run; stage
-  explicit paths. Open question for the next session.
+- ~~**Running the node test bucket locally rewrites 78 files under
+  `functions/`**~~ — corrected 2026-09-05: the bucket never wrote anything.
+  The 78 LF-only files were this session's own `sed -i` sweep for #1389
+  (the same pass that hit stripe.js, next bullet), run three minutes
+  before the bucket; git flagged them because `core.autocrlf=true`
+  recorded the CRLF size in the index and a size change short-circuits
+  the content check. Record, proof and the diagnose/clear commands:
+  [GIT-PHANTOM-MODIFICATIONS-2026-09-05](../audit/GIT-PHANTOM-MODIFICATIONS-2026-09-05.md).
 - **`sed -i` over `functions/*.js` rewrites CRLF files** (stripe.js showed a
   5,276-line diff from a no-op pass). Most funnel HTML/JS and many functions
   files are CRLF. Edit with Node, detecting the EOL per file — and do NOT

@@ -59,11 +59,18 @@ text on a document that carries `tcpaConsent === true`, and
    nothing pings.
 3. **Alerting — Jo's call**, unchanged: nine proven-deployable policies,
    zero live.
-4. **Find what rewrites 78 files under `functions/` during the node test
-   bucket** (LF endings, byte-identical after restore). Not `crm-audit` or
-   `inline-html-scripts` by inspection. Until found: stage explicit paths,
-   never `git add -u functions/`, and `git checkout -f` clears the phantom
-   modifications.
+4. ~~**Find what rewrites 78 files under `functions/` during the node test
+   bucket**~~ — **RESOLVED 2026-09-05** ([#1394](https://github.com/jdealtia-sys/nobigdealwithjoedeal.com/pull/1394)). It was never the test bucket: a
+   clean-tree run and a 62-suite bisect both left `git status` at zero. The
+   writer was this session's own `for f in functions/*.js; do sed -i …`
+   sweep for #1389, three minutes before the bucket ran — Git Bash's sed
+   rewrites every file LF-only, match or not, and with
+   `core.autocrlf=true` git flags the size change without re-hashing.
+   Mechanism, count reconciliation and the diagnose/clear commands:
+   [GIT-PHANTOM-MODIFICATIONS-2026-09-05](../audit/GIT-PHANTOM-MODIFICATIONS-2026-09-05.md). The rule
+   is now in CLAUDE.md. `git checkout -- <named paths>` does clear it;
+   only `git checkout -- $(git diff --name-only)` cannot, because
+   `git diff` never lists these files.
 5. **Wave 2 of the research note** — in the order the note ranks them:
    generic tokenized inbound-lead webhook (makes Zapier/Make/n8n a config
    task), Telegram alert bot, GA4 Data API + Search Console into the
