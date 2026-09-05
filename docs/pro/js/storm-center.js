@@ -757,6 +757,9 @@
     stormSat.addTo(stormMap);
 
     // Layer groups
+    // Outlook sits UNDER everything else: it is a broad-area forecast, and an
+    // active warning or a drawn zone must stay readable on top of it.
+    stormLayers.outlook = L.layerGroup().addTo(stormMap);
     stormLayers.alerts = L.layerGroup().addTo(stormMap);
     stormLayers.zones = L.layerGroup().addTo(stormMap);
     stormLayers.pins = L.layerGroup().addTo(stormMap);
@@ -782,8 +785,16 @@
     if (!stormMap) return;
 
     // Clear layers
+    if (stormLayers.outlook) stormLayers.outlook.clearLayers();
     stormLayers.alerts.clearLayers();
     stormLayers.zones.clearLayers();
+
+    // SPC Day-1 outlook, drawn from whatever StormOutlook already loaded.
+    // Defensive: the module is a separate file in the storm bundle, and a
+    // missing or failed outlook must never stop alerts from painting.
+    if (stormLayers.outlook && window.StormOutlook && typeof window.StormOutlook.draw === 'function') {
+      try { window.StormOutlook.draw(L, stormLayers.outlook); } catch (e) { console.warn('[StormCenter] outlook draw failed', e); }
+    }
 
     // Draw alert polygons
     alerts.forEach(alert => {
@@ -891,6 +902,20 @@
             <div class="stat-icon">💰</div>
             <div><div class="stat-val" style="color:var(--green);font-size:22px;">$${Math.round(totalRevenue/1000)}k</div><div class="stat-lbl">Pipeline Value</div></div>
           </div>
+          ${(() => {
+            // SPC Day-1 outlook at the rep's own location. Renders NOTHING when
+            // the point is outside every polygon — a quiet day must read as
+            // absence, not as a zero risk score.
+            try {
+              const o = (window.StormOutlook && userLocation)
+                ? window.StormOutlook.summarizeAt(userLocation.lat, userLocation.lng) : null;
+              if (!o || !o.text) return '';
+              return `<div class="stat-card" style="flex:1;min-width:150px;">
+            <div class="stat-icon">⛈️</div>
+            <div><div class="stat-val" style="color:${o.color || 'var(--t)'};font-size:15px;line-height:1.25;">${esc(o.text)}</div><div class="stat-lbl">SPC Outlook Today</div></div>
+          </div>`;
+            } catch (e) { return ''; }
+          })()}
           <div class="stat-card" style="flex:1;min-width:120px;">
             <div class="stat-icon">🚪</div>
             <div><div class="stat-val" style="color:var(--orange);font-size:22px;">${stormZones.reduce((s, z) => s + (Number(z.knockCount) || 0), 0)}</div><div class="stat-lbl">Storm Knocks</div></div>
@@ -1204,7 +1229,13 @@
 
     // Get user location and fetch alerts
     const loc = await getUserLocation();
+    // The SPC outlook is independent of the alert fetch and must not delay it
+    // or fail it — kick it off in parallel and repaint when it lands.
+    const outlook = (window.StormOutlook && typeof window.StormOutlook.load === 'function')
+      ? window.StormOutlook.load().then(() => { try { renderMapLayers(); render(); } catch (e) {} }).catch(() => {})
+      : Promise.resolve();
     await fetchAlerts(loc.lat, loc.lng);
+    await outlook;
   }
 
   async function refresh() {

@@ -63,6 +63,7 @@
     "sms-optout-key.test.js",
     "state-store.test.js",
     "storm-geo.test.js",
+    "storm-outlook.test.js",
     "stripe-dispute-branches.test.js",
     "swdi-hail.test.js",
     "tcpa-consent.test.js",
