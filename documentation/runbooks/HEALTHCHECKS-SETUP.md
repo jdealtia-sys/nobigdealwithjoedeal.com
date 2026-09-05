@@ -68,7 +68,6 @@ may be before Healthchecks alerts (generous where a run can be slow).
 | `daily-firestore-backup` | dailyFirestoreBackup | 03:15 ET daily | 1 day · 6 h |
 | `firestore-backup-retention` | firestoreBackupRetention | 03:45 ET daily | 1 day · 6 h |
 | `audit-log-retention-cron` | auditLogRetentionCron | 03:30 CT daily | 1 day · 6 h |
-| `nightly-firestore-backup` | nightlyFirestoreBackup | 04:00 CT daily | 1 day · 6 h |
 | `recording-retention-cron` | recordingRetentionCron | 05:00 CT daily | 1 day · 6 h |
 | `backup-freshness-cron` | backupFreshnessCron | 06:00 ET daily | 1 day · 3 h |
 | `sync-gbp-reviews` | syncGbpReviews | 06:00 ET daily | 1 day · 6 h |

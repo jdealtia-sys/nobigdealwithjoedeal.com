@@ -4,9 +4,10 @@
  * Four pieces of compliance infrastructure in one module:
  *   - auditLogRetentionCron    (D4) — prune audit_log entries older
  *                                     than the retention window.
- *   - nightlyFirestoreBackup   (D5) — export Firestore to GCS every
- *                                     day so a delete/corruption event
- *                                     can be restored within 24h.
+ *   - (D5 nightlyFirestoreBackup was retired 2026-09-05 — it duplicated
+ *     functions/firestore-backup.js against a bucket that was never
+ *     created, and failed nightly for its whole life. See the D5 note
+ *     below for the ADC-token pattern it used to carry.)
  *   - exportMyData             (D6) — GDPR Article 20 portability. A
  *                                     user requests their full data
  *                                     payload; we stream a JSON blob
@@ -90,53 +91,26 @@ exports.auditLogRetentionCron = onSchedule(
   }
 );
 
-// ─── D5: nightly Firestore → GCS backup ─────────────────────
-// Uses the managed Firestore export API. Bucket must exist and the
-// Firestore service account needs `roles/storage.objectAdmin` on it.
-// Override bucket via NBD_BACKUP_BUCKET env var.
-const BACKUP_BUCKET = process.env.NBD_BACKUP_BUCKET || 'gs://nobigdeal-pro-backups';
-const GOOGLE_PROJECT = process.env.GCLOUD_PROJECT || process.env.GCP_PROJECT || 'nobigdeal-pro';
-
-exports.nightlyFirestoreBackup = onSchedule(
-  {
-    region: 'us-central1',
-    schedule: 'every day 04:00',
-    timeZone: 'America/Chicago',
-    timeoutSeconds: 540,
-    memory: '256MiB'
-  },
-  async () => {
-    // Call the managed export REST endpoint with an IAM-signed token
-    // (the default function SA already has the right role).
-    const { GoogleAuth } = require('google-auth-library');
-    const auth = new GoogleAuth({ scopes: 'https://www.googleapis.com/auth/datastore' });
-    const client = await auth.getClient();
-    const accessToken = (await client.getAccessToken()).token;
-
-    const today = new Date().toISOString().slice(0, 10);
-    const outputUriPrefix = BACKUP_BUCKET.replace(/\/+$/, '') + '/' + today;
-
-    const url = `https://firestore.googleapis.com/v1/projects/${GOOGLE_PROJECT}/databases/(default):exportDocuments`;
-    const res = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Authorization': 'Bearer ' + accessToken,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        outputUriPrefix
-        // No `collectionIds` → export everything
-      })
-    });
-    if (!res.ok) {
-      const body = await res.text();
-      logger.error('nightlyFirestoreBackup export failed', { status: res.status, body: body.slice(0, 300) });
-      throw new Error('Backup export rejected: ' + res.status);
-    }
-    const data = await res.json();
-    logger.info('nightlyFirestoreBackup', { name: data.name, outputUriPrefix });
-  }
-);
+// ─── D5: nightly Firestore → GCS backup — RETIRED 2026-09-05 ─
+// `nightlyFirestoreBackup` used to live here: a second, overlapping
+// Firestore export targeting gs://nobigdeal-pro-backups on a daily
+// 04:00 CT schedule. That bucket was never created, deliberately —
+// it had no retention job, so it would have grown without bound while
+// duplicating functions/firestore-backup.js, which already exports to
+// gs://nobigdeal-pro-firestore-backups AND prunes to 30 days.
+//
+// So it failed every night from the day it shipped. FUNCTIONS_INDEX.md
+// had already reached the verdict ("retire it rather than fix it");
+// this removal carries that out. `backupFreshnessCron` is unaffected —
+// it watches the artifact in the WORKING bucket, and its alert policy
+// matches backupFreshnessCron's own log line, never this function.
+//
+// It was also the only place in functions/ that took an ADC token from
+// google-auth-library and called a Google REST API with fetch. If you
+// need that pattern again (the wave-2 map cites it for the GA4 Data API
+// and Search Console), it is in git history — find the commit that
+// deleted it and read the parent:
+//   git log --diff-filter=D -S nightlyFirestoreBackup -- functions/integrations/compliance.js
 
 // ─── D6: GDPR Article 20 — portability / export ──────────────
 // User requests a full JSON dump of the data tied to their uid.
