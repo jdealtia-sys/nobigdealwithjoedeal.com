@@ -82,7 +82,8 @@ const PROVIDERS = {
   measurement:       (process.env.NBD_MEASUREMENT_PROVIDER  || 'hover').toLowerCase(),
   esign:             (process.env.NBD_ESIGN_PROVIDER        || 'boldsign').toLowerCase(),
   // parcel: 'regrid' (default) | 'swath'  ·  hail: 'noaa' (default,
-  // free) | 'hailtrace' | 'swath'. Swath is one key for both slots —
+  // free) | 'swdi' (free, keyless radar hail — integrations/swdi-hail.js)
+  // | 'hailtrace' | 'swath'. Swath is one key for both slots —
   // integrations/swath.js.
   parcel:            (process.env.NBD_PARCEL_PROVIDER       || 'regrid').toLowerCase(),
   hail:              (process.env.NBD_HAIL_PROVIDER         || 'noaa').toLowerCase(),

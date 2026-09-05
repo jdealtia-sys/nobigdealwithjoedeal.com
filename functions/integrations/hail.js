@@ -1,19 +1,26 @@
 /**
  * integrations/hail.js — hail / storm swath data source
  *
- * Three providers, all live:
+ * Four providers, all live:
  *   hailtrace (premium)    — paid subscription, polygon swaths per storm
  *   swath     (metered)    — swathapi.com radar-measured events + swath
  *                            polygons (integrations/swath.js; Firestore-
  *                            cached because the free plan hard-stops at
  *                            100 credits/month)
- *   noaa      (free)       — NOAA Storm Prediction Center Storm Events
- *                            database. Free, but ~3-month delay on
- *                            verified data.
+ *   swdi      (free)       — NCEI Severe Weather Data Inventory nx3hail:
+ *                            radar-derived hail size per storm cell, keyless,
+ *                            no quota; the range is chunked into ≤31-day
+ *                            windows (integrations/swdi-hail.js). Selected
+ *                            with NBD_HAIL_PROVIDER=swdi — no key to check.
+ *   noaa      (free)       — IEM Local Storm Reports (ground-truth spotter
+ *                            reports of hail size); only where someone
+ *                            filed a report.
  *
  * NOAA is the default so the feature works out-of-the-box. HailTrace
  * provides real-time within ~15 min of storm end; Swath is
- * measured-events-only (never forecasts). Select via NBD_HAIL_PROVIDER.
+ * measured-events-only (never forecasts); SWDI is the radar algorithm's own
+ * estimate for every cell, reports or not. Select via NBD_HAIL_PROVIDER.
+ * Whatever is preferred, a failure falls back to NOAA (see lookupHail).
  *
  * Used for the D2D pitch: "your neighborhood had verified 1.5"+ hail
  * 6 weeks ago — here's the polygon and the timestamp."
@@ -25,6 +32,7 @@ const { onCall, HttpsError } = require('firebase-functions/v2/https');
 const { logger } = require('firebase-functions/v2');
 const { getSecret, hasSecret, PROVIDERS, SECRETS } = require('./_shared');
 const { fetchSwathHail } = require('./swath');
+const { fetchSwdiHail } = require('./swdi-hail');
 
 const CORS_ORIGINS = [
   'https://nobigdealwithjoedeal.com',
@@ -110,12 +118,16 @@ async function fetchHailTrace(lat, lng, radiusMi, daysBack) {
 const HAIL_FETCHERS = {
   hailtrace: fetchHailTrace,
   swath:     fetchSwathHail,
+  swdi:      fetchSwdiHail,
   noaa:      fetchNoaaHail,
 };
 
 function preferredHailProvider() {
   if (PROVIDERS.hail === 'hailtrace' && hasSecret('HAILTRACE_API_KEY')) return 'hailtrace';
   if (PROVIDERS.hail === 'swath' && hasSecret('SWATH_API_KEY')) return 'swath';
+  // Keyless — the env switch alone selects it. Both its failure modes (NCEI
+  // down, a window rejected) throw, and lookupHail then falls back to NOAA.
+  if (PROVIDERS.hail === 'swdi') return 'swdi';
   return 'noaa';
 }
 

@@ -58,6 +58,7 @@
     "state-store.test.js",
     "storm-geo.test.js",
     "stripe-dispute-branches.test.js",
+    "swdi-hail.test.js",
     "tcpa-consent.test.js",
     "tenant-brand.test.js",
     "tenant-hardening.test.js",
