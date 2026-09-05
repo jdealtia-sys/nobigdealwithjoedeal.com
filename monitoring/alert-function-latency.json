@@ -19,7 +19,9 @@
             "alignmentPeriod": "60s",
             "perSeriesAligner": "ALIGN_PERCENTILE_95",
             "crossSeriesReducer": "REDUCE_MAX",
-            "groupByFields": ["resource.labels.service_name"]
+            "groupByFields": [
+              "resource.labels.service_name"
+            ]
           }
         ]
       }
@@ -29,6 +31,7 @@
     "autoClose": "1800s"
   },
   "notificationChannels": [
-    "projects/nobigdeal-pro/notificationChannels/NOTIFICATION_CHANNEL_ID"
+    "projects/nobigdeal-pro/notificationChannels/11974029248665804510",
+    "projects/nobigdeal-pro/notificationChannels/7729093229259591605"
   ]
 }

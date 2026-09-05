@@ -1,20 +1,20 @@
 {
-  "displayName": "NBD Pro — migrationsTick stale > 26h",
+  "displayName": "[NOT DEPLOYABLE] NBD Pro — migrationsTick heartbeat stale",
   "documentation": {
-    "content": "The migrationsTick scheduled function hasn't emitted its heartbeat in over 26 hours. It runs every 24h and now logs '[migrationsTick] heartbeat' on EVERY run (including no-op runs and runs skipped because another runner held the lease), so a >26h gap means the daily migration tick has silently stopped firing. Pending schema migrations would then never apply, and a half-applied migration would never get its retry.\n\nInvestigation:\n  1. gcloud functions logs read migrationsTick --project nobigdeal-pro --gen2 --limit 50\n  2. gcloud scheduler jobs list --project nobigdeal-pro | grep migrationsTick\n  3. Read system/migrations (appliedVersion, lastError, lastFailedVersion) and system/migrations_lock (a stuck lease self-expires after 15m; if expiresAt is far in the future something is wrong).\n  4. If a migration is failing, fix the script and let the next tick retry, or call runMigrations manually (admin only).",
+    "content": "The migrationsTick scheduled function hasn't emitted its heartbeat in over 26 hours. It runs every 24h and now logs '[migrationsTick] heartbeat' on EVERY run (including no-op runs and runs skipped because another runner held the lease), so a >26h gap means the daily migration tick has silently stopped firing. Pending schema migrations would then never apply, and a half-applied migration would never get its retry.\n\nInvestigation:\n  1. gcloud functions logs read migrationsTick --project nobigdeal-pro --gen2 --limit 50\n  2. gcloud scheduler jobs list --project nobigdeal-pro | grep migrationsTick\n  3. Read system/migrations (appliedVersion, lastError, lastFailedVersion) and system/migrations_lock (a stuck lease self-expires after 15m; if expiresAt is far in the future something is wrong).\n  4. If a migration is failing, fix the script and let the next tick retry, or call runMigrations manually (admin only).\n\n---\nFIXED 2026-09-04. This policy could never be created: its filter named jsonPayload/textPayload fields, which are LOG-entry fields with no meaning in the METRIC filter a conditionAbsent takes, and it carried no metric.type at all. It now watches the free system metric logging.googleapis.com/log_entry_count for service \"migrationstick\". Tradeoff: this fires when the service stops logging ENTIRELY, not when one specific heartbeat line stops. For a cron whose only activity is its scheduled run these are the same event. Narrowing it further would need a user-defined log-based metric, which is the one chargeable option. Duration pinned to the 86400s (24h) maximum Google allows for an absence condition (was 48h — Google caps absence duration at 24h).\n\n---\nDO NOT DEPLOY THIS FILE AS-IS. It is kept for the record, disabled, because the alert it describes CANNOT be expressed as a Cloud Monitoring policy.\n\nmigrationsTick runs every 24h and its only output is a console.log heartbeat (functions/migrations/runner.js:304). Detecting \"it stopped\" means an absence condition — and Google caps absence duration at 23h30m, which is SHORTER than the 24h gap between normal runs. Any such policy false-fires every single day, which is worse than no alarm.\n\nThe live problem is real: migrationsTick has not fired since 2026-08-31. The correct fix is the pattern backups already use — have something check heartbeat AGE and log an ERROR when it is too old (functions/backup-freshness.js:120 does exactly this for the export), then alert on that log line the way alert-backup-cron-stale.json now does. That is a code change, not a policy change, and it is deliberately NOT bundled here.",
     "mimeType": "text/markdown"
   },
   "combiner": "OR",
-  "enabled": true,
+  "enabled": false,
   "conditions": [
     {
       "displayName": "No migrationsTick heartbeat in 26h",
       "conditionAbsent": {
-        "filter": "resource.type=\"cloud_run_revision\" AND resource.labels.service_name=\"migrationstick\" AND textPayload:\"[migrationsTick] heartbeat\"",
-        "duration": "93600s",
+        "filter": "resource.type=\"cloud_run_revision\" AND resource.labels.service_name=\"migrationstick\" AND metric.type=\"logging.googleapis.com/log_entry_count\"",
+        "duration": "84600s",
         "aggregations": [
           {
-            "alignmentPeriod": "3600s",
+            "alignmentPeriod": "300s",
             "perSeriesAligner": "ALIGN_COUNT"
           }
         ]
@@ -25,6 +25,7 @@
     "autoClose": "86400s"
   },
   "notificationChannels": [
-    "projects/nobigdeal-pro/notificationChannels/NOTIFICATION_CHANNEL_ID"
+    "projects/nobigdeal-pro/notificationChannels/11974029248665804510",
+    "projects/nobigdeal-pro/notificationChannels/7729093229259591605"
   ]
 }

@@ -21,6 +21,7 @@
     "autoClose": "43200s"
   },
   "notificationChannels": [
-    "projects/nobigdeal-pro/notificationChannels/NOTIFICATION_CHANNEL_ID"
+    "projects/nobigdeal-pro/notificationChannels/11974029248665804510",
+    "projects/nobigdeal-pro/notificationChannels/7729093229259591605"
   ]
 }

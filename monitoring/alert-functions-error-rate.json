@@ -1,7 +1,7 @@
 {
   "displayName": "NBD Pro — Cloud Functions error rate spike",
   "documentation": {
-    "content": "Cloud Functions are logging errors at an elevated rate. Check Cloud Logging for the specific function and error. Common causes: a deploy regression, an upstream dependency (Stripe/Twilio/Anthropic) outage, or an attack triggering unhandled paths.",
+    "content": "Cloud Functions are logging errors at an elevated rate. Check Cloud Logging for the specific function and error. Common causes: a deploy regression, an upstream dependency (Stripe/Twilio/Anthropic) outage, or an attack triggering unhandled paths.\n\n---\nFIXED 2026-09-04. Two defects, either one fatal: the filter used `=~\"^(...)\"`, which is not Cloud Monitoring filter syntax (the sibling alert-function-latency.json gets this right with monitoring.regex.full_match), and it carried no metric.type. The service names were also camelCase; Cloud Run service names are lowercase, so they would have matched nothing regardless. Third defect found during validation: the filter still carried a bare severity=\"ERROR\", which is a LOG field — on the log_entry_count system metric it is the metric LABEL metric.labels.severity.",
     "mimeType": "text/markdown"
   },
   "combiner": "OR",
@@ -10,13 +10,13 @@
     {
       "displayName": "Function errors > 50 in 5 min",
       "conditionThreshold": {
-        "filter": "resource.type=\"cloud_run_revision\" AND resource.labels.service_name=~\"^(claudeProxy|createCheckoutSession|validateAccessCode|imageProxy|publicVisualizerAI|stripeWebhook|invoiceWebhook|sendEmail|sendEstimateEmail|sendSMS|sendD2DSMS|sendVerificationCode|verifyCode|notifyNewLead)$\" AND metric.type=\"logging.googleapis.com/log_entry_count\" AND metric.labels.severity=\"ERROR\"",
+        "filter": "resource.type=\"cloud_run_revision\" AND resource.labels.service_name=monitoring.regex.full_match(\"claudeproxy|createcheckoutsession|validateaccesscode|imageproxy|publicvisualizerai|renderpdf|submitpubliclead|stripewebhook\") AND metric.type=\"logging.googleapis.com/log_entry_count\" AND metric.labels.severity=\"ERROR\"",
         "comparison": "COMPARISON_GT",
         "thresholdValue": 50,
         "duration": "300s",
         "aggregations": [
           {
-            "alignmentPeriod": "60s",
+            "alignmentPeriod": "300s",
             "perSeriesAligner": "ALIGN_RATE"
           }
         ]
@@ -27,6 +27,7 @@
     "autoClose": "1800s"
   },
   "notificationChannels": [
-    "projects/nobigdeal-pro/notificationChannels/NOTIFICATION_CHANNEL_ID"
+    "projects/nobigdeal-pro/notificationChannels/11974029248665804510",
+    "projects/nobigdeal-pro/notificationChannels/7729093229259591605"
   ]
 }
