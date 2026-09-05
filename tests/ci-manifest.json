@@ -36,6 +36,7 @@
     "expenses-logic.test.js",
     "function-orphans.test.js",
     "gauntlet-brand-guard.test.js",
+    "imagery-sources.test.js",
     "inbound-sms-route.test.js",
     "lead-dedup.test.js",
     "lead-photo-reaping.test.js",
