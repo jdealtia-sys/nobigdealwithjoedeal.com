@@ -182,7 +182,19 @@ console.log('\nSOURCE CONTRACT — every cron goes through the wrapper');
     }
   }
   ok('only heartbeat.js touches firebase-functions/v2/scheduler directly', rawImporters.length === 0, rawImporters.join(', '));
-  ok('all 25 scheduled functions are accounted for (ratchet: never fewer)', cronCount >= 25, String(cronCount));
+  // RATCHET LOWERED 25 -> 24 on 2026-09-05, deliberately and once.
+  // nightlyFirestoreBackup was retired from integrations/compliance.js: a
+  // second Firestore export against gs://nobigdeal-pro-backups, a bucket
+  // never created because the job had no retention pass, duplicating
+  // firestore-backup.js which exports AND prunes. It failed every night it
+  // ever ran. FUNCTIONS_INDEX.md had already ruled "retire it rather than
+  // fix it"; this is that.
+  //
+  // The ratchet exists so a cron is never dropped SILENTLY — it did its job
+  // here, failing this PR until the removal was justified in writing. Do not
+  // lower it again to make a red test green: find out which cron went missing
+  // and why first.
+  ok('all 24 scheduled functions are accounted for (ratchet: never fewer)', cronCount >= 24, String(cronCount));
   ok('spread across the 22 cron files', cronFiles.length >= 22, String(cronFiles.length));
 
   const shared = codeOnly(fs.readFileSync(path.join(FUNCTIONS, 'integrations', '_shared.js'), 'utf8'));
