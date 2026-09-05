@@ -60,7 +60,7 @@ text on a document that carries `tcpaConsent === true`, and
 3. **Alerting — Jo's call**, unchanged: nine proven-deployable policies,
    zero live.
 4. ~~**Find what rewrites 78 files under `functions/` during the node test
-   bucket**~~ — **RESOLVED 2026-09-05.** It was never the test bucket: a
+   bucket**~~ — **RESOLVED 2026-09-05** ([#1394](https://github.com/jdealtia-sys/nobigdealwithjoedeal.com/pull/1394)). It was never the test bucket: a
    clean-tree run and a 62-suite bisect both left `git status` at zero. The
    writer was this session's own `for f in functions/*.js; do sed -i …`
    sweep for #1389, three minutes before the bucket ran — Git Bash's sed

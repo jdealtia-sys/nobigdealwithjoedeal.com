@@ -5,7 +5,7 @@
 > to HEAD. The handoff blamed the node test bucket. This note is the
 > record of the investigation that refuted that: the writer was the
 > session's own `sed -i` sweep, and git flagged the files on their size
-> alone. Related: [NEXT_SESSION-2026-09-06](../projects/NEXT_SESSION-2026-09-06.md)
+> alone. PR: [#1394](https://github.com/jdealtia-sys/nobigdealwithjoedeal.com/pull/1394). Related: [NEXT_SESSION-2026-09-06](../projects/NEXT_SESSION-2026-09-06.md)
 > item 4 · [SESSION-2026-09-05-free-api-wave1](../projects/SESSION-2026-09-05-free-api-wave1.md)
 > watch-outs · [STABILITY-AUDIT-2026-09-04](STABILITY-AUDIT-2026-09-04.md).
 
