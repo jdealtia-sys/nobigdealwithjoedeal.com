@@ -79,6 +79,13 @@ let _NBD_SC_DELEGATE; // module-local (globals Tranche 1 — was window.*)
     }
     if (manualToday.length) html += _renderManualScheduled(manualToday);
     host.innerHTML = html;
+
+    // Rain-day chips land after the first paint — the schedule must never
+    // wait on weather.gov, and a forecast failure is a missing chip, nothing
+    // more.
+    _attachForecasts(host, appts, manualToday).catch((e) => {
+      console.warn('[smart-cal] forecast attach failed:', e?.message || e);
+    });
   }
 
   // ── data fetch ──────────────────────────────────────────────
@@ -248,7 +255,7 @@ let _NBD_SC_DELEGATE; // module-local (globals Tranche 1 — was window.*)
         : '';
       return `<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 0;border-top:1px solid var(--br);">
         <div style="min-width:0;"><div style="font-size:13px;font-weight:600;color:var(--t);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${name}</div>
-        ${addr ? `<div style="font-size:11px;color:var(--m);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">📍 ${addr}</div>` : ''}</div>
+        ${addr ? `<div style="font-size:11px;color:var(--m);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">📍 ${addr}</div>` : ''}<span data-sc-forecast="${_esc(l.id || '')}"></span></div>
         ${open}
       </div>`;
     }).join('');
@@ -291,7 +298,8 @@ let _NBD_SC_DELEGATE; // module-local (globals Tranche 1 — was window.*)
           <div style="font-family:'Barlow Condensed',sans-serif;font-size:20px;font-weight:700;color:var(--t);">${_esc(drive)}</div>
         </div>
       </div>
-      ${warnLine}`;
+      ${warnLine}
+      <div data-sc-rain-summary></div>`;
   }
 
   function _renderApptRow(a) {
@@ -312,6 +320,7 @@ let _NBD_SC_DELEGATE; // module-local (globals Tranche 1 — was window.*)
         <div style="min-width:0;">
           <div style="font-size:13px;font-weight:600;color:var(--t);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${_esc(title)}</div>
           ${where ? `<div style="font-size:11px;color:var(--m);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">📍 ${_esc(where)}</div>` : ''}
+          <span data-sc-forecast="${_esc(a.id || '')}"></span>
           ${leadLink ? `<div style="margin-top:4px;">${leadLink}</div>` : ''}
         </div>
         <div style="text-align:right;">${valueBadge}</div>
@@ -356,6 +365,168 @@ let _NBD_SC_DELEGATE; // module-local (globals Tranche 1 — was window.*)
       return `<span style="display:inline-block;background:rgba(232,114,12,.18);color:var(--orange);font-size:10px;font-weight:700;letter-spacing:.06em;padding:3px 7px;border-radius:4px;border:1px solid rgba(232,114,12,.35);">$$</span>`;
     }
     return `<span style="display:inline-block;background:var(--s2);color:var(--m);font-size:10px;font-weight:600;padding:3px 7px;border-radius:4px;border:1px solid var(--br);">$</span>`;
+  }
+
+  // ── NWS rain-day chip ───────────────────────────────────────
+  // api.weather.gov — free, keyless, no published quota, "free to use for
+  // any purpose" (verified 2026-09-02); already in connect-src on both
+  // dashboard CSP headers. Two hops per distinct point: /points/{lat},{lng}
+  // → properties.forecast → 12-hour periods carrying
+  // probabilityOfPrecipitation.value (%), temperature, shortForecast. There
+  // is NO wind-gust field in this product, so the chip is rain + temp only.
+  // Distinct points are keyed at two decimals (~1 km; the NWS grid is 2.5 km)
+  // and cached in sessionStorage for an hour, so a day with six appointments
+  // in one suburb costs two requests, not twelve. Browsers drop the
+  // User-Agent header silently; it is set for parity with storm-center.js.
+  const NWS_BASE = 'https://api.weather.gov';
+  const NWS_CACHE_PREFIX = 'nbd_nws_fc:';
+  const NWS_CACHE_TTL_MS = 60 * 60 * 1000;
+  const NWS_MAX_POINTS = 6;
+  const NWS_HEADERS = { 'Accept': 'application/geo+json', 'User-Agent': 'NBDProCRM/1.0 (roofing-crm)' };
+
+  function forecastKey(lat, lng) {
+    // null/undefined/'' coerce to 0 via Number() — a lead with no coordinates
+    // must mean "no request", not a forecast for 0°,0°.
+    if (lat == null || lng == null || lat === '' || lng === '') return null;
+    const la = Number(lat), ln = Number(lng);
+    if (!isFinite(la) || !isFinite(ln) || Math.abs(la) > 90 || Math.abs(ln) > 180) return null;
+    return la.toFixed(2) + ',' + ln.toFixed(2);
+  }
+
+  // Thresholds a roofer actually acts on: ≥60 % → plan around it, 30–59 % →
+  // watch it, below → dry enough to tear off.
+  function popLevel(pop) {
+    if (pop == null || !isFinite(Number(pop))) return 'unknown';
+    const p = Number(pop);
+    if (p >= 60) return 'high';
+    if (p >= 30) return 'medium';
+    return 'low';
+  }
+
+  // The period covering the appointment start; a date-only job (no time)
+  // gets today's daytime period; otherwise the first period.
+  function pickPeriod(periods, atMs) {
+    if (!Array.isArray(periods) || !periods.length) return null;
+    const t = Number(atMs);
+    if (isFinite(t) && t > 0) {
+      const hit = periods.find((p) => Date.parse(p.startTime) <= t && t < Date.parse(p.endTime));
+      if (hit) return hit;
+    }
+    return periods.find((p) => p.isDaytime) || periods[0];
+  }
+
+  function normalizePeriod(p) {
+    if (!p || typeof p !== 'object') return null;
+    const popRaw = p.probabilityOfPrecipitation && p.probabilityOfPrecipitation.value;
+    const pop = (popRaw == null || !isFinite(Number(popRaw))) ? null : Number(popRaw);
+    const temp = isFinite(Number(p.temperature)) ? Number(p.temperature) : null;
+    return {
+      name: String(p.name || ''),
+      startTime: p.startTime || null,
+      endTime: p.endTime || null,
+      isDaytime: !!p.isDaytime,
+      pop,
+      temp,
+      unit: p.temperatureUnit || 'F',
+      shortForecast: String(p.shortForecast || ''),
+    };
+  }
+
+  // "Slight Chance Rain Showers then Slight Chance Showers And Thunderstorms"
+  // → "Slight chance showers" — the chip has ~30 characters.
+  function shortenForecast(s) {
+    return String(s || '')
+      .replace(/\s+then\s+.*$/i, '')
+      .replace(/Showers And Thunderstorms/ig, 'T-storms')
+      .replace(/Thunderstorms/ig, 'T-storms')
+      .replace(/Rain Showers/ig, 'Showers')
+      .replace(/Slight Chance/ig, 'Slight chance')
+      .replace(/Likely/g, 'likely')
+      .trim();
+  }
+
+  function renderForecastChip(fc) {
+    if (!fc) return '';
+    const lvl = popLevel(fc.pop);
+    const pct = fc.pop == null ? '—' : Math.round(fc.pop) + '%';
+    const icon = lvl === 'high' ? '🌧' : lvl === 'medium' ? '🌦' : lvl === 'low' ? '☀️' : '🌤';
+    const color = lvl === 'high' ? 'var(--red)' : lvl === 'medium' ? '#D4A017' : 'var(--m)';
+    const bg = lvl === 'high' ? 'rgba(220,38,38,.08)' : lvl === 'medium' ? 'rgba(212,160,23,.08)' : 'var(--s2)';
+    const border = (lvl === 'high' || lvl === 'medium') ? color : 'var(--br)';
+    const temp = fc.temp != null ? ` · ${fc.temp}°` : '';
+    return `<span class="sc-fc sc-fc-${lvl}" title="NWS · ${_esc(fc.name)}: ${_esc(fc.shortForecast)}" style="display:inline-block;margin-top:4px;padding:2px 7px;border-radius:4px;border:1px solid ${border};background:${bg};color:${color};font-size:10px;font-weight:600;white-space:nowrap;">${icon} ${_esc(pct)} rain · ${_esc(shortenForecast(fc.shortForecast))}${_esc(temp)}</span>`;
+  }
+
+  // One line under the summary tiles: the wettest stop of the day.
+  function renderRainSummary(fc) {
+    if (!fc || fc.pop == null) return '';
+    const lvl = popLevel(fc.pop);
+    const pct = Math.round(fc.pop) + '%';
+    const color = lvl === 'high' ? 'var(--red)' : lvl === 'medium' ? '#D4A017' : 'var(--m)';
+    const icon = lvl === 'high' ? '🌧' : lvl === 'medium' ? '🌦' : '☀️';
+    const lead = lvl === 'high' ? 'Rain likely' : lvl === 'medium' ? 'Rain possible' : 'Dry day';
+    const temp = fc.temp != null ? ` · ${fc.temp}°` : '';
+    return `<div style="margin-top:8px;font-size:11px;color:${color};">${icon} ${lead} — up to ${_esc(pct)} chance · ${_esc(shortenForecast(fc.shortForecast))}${_esc(temp)} <span style="color:var(--m);">· NWS</span></div>`;
+  }
+
+  // periods[] (normalized) for a point key, via sessionStorage when fresh.
+  async function fetchForecast(key, deps) {
+    const fetchImpl = (deps && deps.fetchImpl) || window.fetch.bind(window);
+    const store = (deps && deps.store) || (() => { try { return window.sessionStorage; } catch (_) { return null; } })();
+    const now = (deps && typeof deps.now === 'number') ? deps.now : Date.now();
+    try {
+      const raw = store && store.getItem(NWS_CACHE_PREFIX + key);
+      if (raw) {
+        const c = JSON.parse(raw);
+        if (c && typeof c.t === 'number' && now - c.t < NWS_CACHE_TTL_MS && Array.isArray(c.periods)) return c.periods;
+      }
+    } catch (_) {}
+    const [lat, lng] = key.split(',');
+    const p = await fetchImpl(`${NWS_BASE}/points/${lat},${lng}`, { headers: NWS_HEADERS });
+    if (!p.ok) throw new Error('NWS points ' + p.status);
+    const pj = await p.json();
+    const url = pj && pj.properties && pj.properties.forecast;
+    // Only follow the hop to weather.gov itself — the CSP would block anything
+    // else anyway, but a redirect-shaped payload should fail loudly here.
+    if (typeof url !== 'string' || !/^https:\/\/api\.weather\.gov\//.test(url)) throw new Error('NWS: no forecast url');
+    const f = await fetchImpl(url, { headers: NWS_HEADERS });
+    if (!f.ok) throw new Error('NWS forecast ' + f.status);
+    const fj = await f.json();
+    const periods = ((fj && fj.properties && fj.properties.periods) || []).map(normalizePeriod).filter(Boolean);
+    try { store && store.setItem(NWS_CACHE_PREFIX + key, JSON.stringify({ t: now, periods })); } catch (_) {}
+    return periods;
+  }
+
+  async function _attachForecasts(host, appts, manualToday) {
+    const targets = [];
+    for (const a of appts || []) {
+      const key = forecastKey(a._leadLat, a._leadLng);
+      if (key && a.id) targets.push({ key, atMs: _toMs(a.startTime), id: String(a.id) });
+    }
+    for (const l of manualToday || []) {
+      const key = forecastKey(l.lat, l.lng);
+      if (key && l.id) targets.push({ key, atMs: 0, id: String(l.id) });
+    }
+    if (!targets.length) return;
+    const keys = Array.from(new Set(targets.map((t) => t.key))).slice(0, NWS_MAX_POINTS);
+    const results = {};
+    await Promise.all(keys.map(async (k) => {
+      try { results[k] = await fetchForecast(k); }
+      catch (e) { console.warn('[smart-cal] NWS forecast failed:', e?.message || e); }
+    }));
+    const esc = (window.CSS && typeof window.CSS.escape === 'function') ? window.CSS.escape : (s) => s;
+    let wettest = null;
+    for (const t of targets) {
+      const periods = results[t.key];
+      if (!periods) continue;
+      const fc = pickPeriod(periods, t.atMs);
+      if (!fc) continue;
+      const slot = host.querySelector(`[data-sc-forecast="${esc(t.id)}"]`);
+      if (slot) slot.innerHTML = renderForecastChip(fc);
+      if (fc.pop != null && (!wettest || fc.pop > wettest.pop)) wettest = fc;
+    }
+    const sum = host.querySelector('[data-sc-rain-summary]');
+    if (sum && wettest) sum.innerHTML = renderRainSummary(wettest);
   }
 
   // ── small utils ─────────────────────────────────────────────
@@ -412,6 +583,13 @@ let _NBD_SC_DELEGATE; // module-local (globals Tranche 1 — was window.*)
 
   // Expose for cmd palette + manual refresh.
   window.loadSmartCalendar = loadSmartCalendar;
+  // Pure forecast helpers, exposed for tests/smart-calendar-forecast.test.js
+  // (no DOM, no network — fetchForecast takes an injected fetch/store).
+  window.NBDForecast = {
+    forecastKey, popLevel, pickPeriod, normalizePeriod, shortenForecast,
+    renderForecastChip, renderRainSummary, fetchForecast,
+    NWS_MAX_POINTS, NWS_CACHE_TTL_MS, NWS_CACHE_PREFIX,
+  };
   _attachAutoLoad();
 })();
 
