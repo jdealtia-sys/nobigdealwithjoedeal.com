@@ -70,7 +70,8 @@ text on a document that carries `tcpaConsent === true`, and
    [GIT-PHANTOM-MODIFICATIONS-2026-09-05](../audit/GIT-PHANTOM-MODIFICATIONS-2026-09-05.md). The rule
    is now in CLAUDE.md. `git checkout -- <named paths>` does clear it;
    only `git checkout -- $(git diff --name-only)` cannot, because
-   `git diff` never lists these files.
+   `git diff` never lists these files. The policy change that would retire
+   the whole class is item 9.
 5. **Wave 2 of the research note** — in the order the note ranks them:
    generic tokenized inbound-lead webhook (makes Zapier/Make/n8n a config
    task), Telegram alert bot, GA4 Data API + Search Console into the
@@ -85,6 +86,95 @@ text on a document that carries `tcpaConsent === true`, and
    `tests/tcpa-consent.test.js` will demand the payload change with it.
 8. ~20 stale local branches remain squash-merged and deletable; the
    `nbd-wt-ledger-recon` worktree still holds `main`.
+
+9. **Adopt a repo-wide LF policy — Jo's call, but the work is done.**
+   `.gitattributes` carrying `* text=auto eol=lf` ends the line-ending class
+   item 4 was about. Measured end to end on 2026-09-05 in a throwaway clone,
+   never in a live checkout — full evidence in
+   [GIT-PHANTOM-MODIFICATIONS-2026-09-05](../audit/GIT-PHANTOM-MODIFICATIONS-2026-09-05.md)
+   §The LF policy, measured. **Recommendation: adopt, when the tree is quiet.**
+
+   - **The commit is four files.** `git add --renormalize .` stages the policy
+     plus the only three files carrying CRLF in the repo
+     (`docs/assets/vendor/leaflet/leaflet.css`, `firestore.indexes.json`,
+     `functions/stripe.js`). The index is already 99.9% LF — 1459 of 2264
+     tracked files.
+   - **Three drift gates stop lying.** `build-sitemap.js`, `build-feed.mjs`
+     (CI-enforced) and `build-projects.mjs --check` exit 1 on *every* clean
+     Windows checkout for line endings alone; on the migrated tree all three
+     exit 0. Those are the only three fragile gates of the four that compare
+     generated output to disk — `apply-partials.js --check` is already
+     EOL-adaptive, which is why it alone passes today. No gate can newly fail:
+     CI has always been the LF case. The node bucket is 60/60 on Windows + LF
+     and no suite is EOL-sensitive.
+   - **It repairs a file that is corrupt on disk today.** `docs/lead-magnet.pdf`
+     contains no NUL byte at all, so git classifies it as *text* and autocrlf
+     injects 716 CR bytes on checkout. Every Windows worktree holds a copy whose
+     `startxref` lands inside a compressed stream instead of the cross-reference
+     table. The shipped copy is fine — CI checks out LF — and most readers
+     auto-repair a broken xref, so the user-visible impact may well be nil;
+     what is certain is that the local copy of the lead magnet
+     `docs/sites/free-guide/index.html` hands to customers is not the file that
+     ships, and no one on Windows has been reviewing the real bytes. Nine
+     tracked `.sh` files check out CRLF for the same reason.
+   - **Generators become idempotent.** `build-projects.mjs --write` churns ten
+     files on a CRLF tree and zero on an LF one. Not hypothetical:
+     `docs/our-work.html` carries genuinely mixed endings in the main checkout
+     right now. No script under `scripts/` preserves the input EOL and sixty
+     call `writeFileSync`, so the CLAUDE.md `sed -i` rule closes one door of
+     several.
+   - **Almost nothing shipped changes.** The blobs are already LF and CI
+     deploys from a Linux checkout, so Hosting serves the same bytes. No CSP
+     hash, no SRI, no content-keyed cache, no checksum in any workflow. The one
+     exception is `docs/assets/vendor/leaflet/leaflet.css`, the only file under
+     `docs/` committed as CRLF: its served blob shrinks by 661 bytes, purely
+     cosmetically. It is cached shell-first by `docs/pro/sw.js`, so pair the
+     change with a `CACHE_VERSIONS.shell` bump if field byte-uniformity matters.
+
+   **The caveat, stated plainly:** this inverts the failure rather than
+   deleting it. On an LF tree a CRLF-writing tool produces the same
+   ` M`-with-empty-diff signature. The common trigger becomes a no-op; the
+   rare one (PowerShell `Out-File`) remains.
+
+   **The order matters, and the obvious order is a trap.** Adding `*.pdf binary`
+   in the *same* step as `git add --renormalize .`, run from a Windows worktree,
+   stages the corrupt 64,283-byte PDF over today's valid 63,567-byte blob and
+   ships a broken download to production. Verified. Do it in this order instead,
+   each step checked:
+
+   1. Land **only** `* text=auto eol=lf` together with its 3-file renormalize.
+      With no binary overrides the renormalize is CR-only and safe to generate
+      from a CRLF worktree.
+   2. Refresh each checkout — commit or stash first, then
+      `git rm --cached -r . && git reset --hard`, then restore. This destroys
+      uncommitted *tracked* work; untracked files and `node_modules` survive.
+   3. **Only once the worktree is LF**, add the `*.pdf`/image/font `binary`
+      rules in a second commit. On a refreshed tree that commit stages nothing.
+
+   Or sidestep the whole trap by generating the renormalize commit on Linux.
+   Never force `text` on an extension: seven text-extension files here carry no
+   line endings at all and `text=auto` correctly leaves them be.
+
+   **A pull alone is a no-op, in both directions.** An existing Windows checkout
+   that pulls the policy sees *zero* modified files — `text=auto` deliberately
+   refuses to renormalize what was committed as CRLF, and a CRLF working file
+   still cleans to the same blob. So there is no storm to fear, but no benefit
+   either: the gates stay red until that checkout is refreshed, with nothing to
+   signal why. Three checkouts need it independently
+   (`C:/Users/jonat/nobigdealwithjoedeal.com`, `C:/Users/jonat/nbd-wt-ledger-recon`,
+   any live session worktree) — they share one `.git` but each has its own index.
+   A clone made *after* the policy lands gets the benefit for free. Rebase #1373
+   (74 files) first, and pair the commit with a `.git-blame-ignore-revs`: it
+   rewrites 8,269 lines, 5,278 of them in a payments file.
+
+   **Landable today either way:** give `build-sitemap.js`, `build-feed.mjs` and
+   `build-projects.mjs` the destination-EOL sniff `apply-partials.js` already
+   uses. That fixes the three red gates on any checkout with zero blast radius,
+   and it is the right move even if the policy is declined.
+
+   **If declined,** record it in CLAUDE.md so the next session stops
+   re-deriving the question, land the gate fix above, and re-encode the PDF as
+   a one-off — the corrupt local copy is real regardless of the policy call.
 
 ## Watch tomorrow
 
