@@ -45,7 +45,7 @@ const { logger } = require('firebase-functions/v2');
 // Both transcription keys come from the shared registry so hasSecret() sees
 // the deploy's `__unset__` stub as "not configured" (a bare defineSecret
 // .value() check would treat the stub as a real key).
-const { SECRETS, PROVIDERS, hasSecret, getSecret } = require('./integrations/_shared');
+const { SECRETS, PROVIDERS, hasSecret, getSecret, secretValue } = require('./integrations/_shared');
 const { transcribeGroqBuffer } = require('./integrations/voice-intelligence');
 const {
   pickDictationProvider,
@@ -265,7 +265,7 @@ exports.dictate = onCall(
     }
 
     let anthKey;
-    try { anthKey = ANTHROPIC_API_KEY.value(); } catch (_) {}
+    anthKey = secretValue(ANTHROPIC_API_KEY); // '__unset__' stub → null
     const plan = pickDictationProvider({
       preferred: PROVIDERS.voiceTranscription,
       hasGroq: hasSecret('GROQ_API_KEY'),

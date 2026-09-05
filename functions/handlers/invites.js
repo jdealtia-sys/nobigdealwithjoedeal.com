@@ -51,6 +51,7 @@ const { _test: { PLAN_LIMITS } } = require('../billing');
 
 const RESEND_API_KEY = defineSecret('RESEND_API_KEY');
 const EMAIL_FROM = defineSecret('EMAIL_FROM');
+const { secretOr } = require('../integrations/_shared');
 
 // Mirror of stripe.js/provisioning.js mergeCustomClaims — setCustomUserClaims
 // replaces the whole set, so read-merge-write to keep billing claims intact.
@@ -297,7 +298,7 @@ exports.teamInviteEmail = onDocumentCreated(
     let emailStatus;
     try {
       const resend = new Resend(RESEND_API_KEY.value());
-      const from = EMAIL_FROM.value() || 'noreply@nobigdealwithjoedeal.com';
+      const from = secretOr(EMAIL_FROM, 'noreply@nobigdealwithjoedeal.com');
       await resend.emails.send({
         from,
         to,

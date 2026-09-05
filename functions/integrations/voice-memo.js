@@ -32,6 +32,7 @@ const { getFirestore } = require('firebase-admin/firestore');
 const { FieldValue } = require('firebase-admin/firestore');
 
 const DEEPGRAM_API_KEY = defineSecret('DEEPGRAM_API_KEY');
+const { secretValue } = require('./_shared');
 
 const CORS_ORIGINS = [
   'https://nobigdealwithjoedeal.com',
@@ -66,8 +67,7 @@ exports.transcribeVoiceMemo = onCall(
       throw e;
     }
 
-    let apiKey;
-    try { apiKey = DEEPGRAM_API_KEY.value(); } catch (e) {}
+    const apiKey = secretValue(DEEPGRAM_API_KEY); // the '__unset__' deploy stub reads as null
     if (!apiKey) {
       throw new HttpsError('failed-precondition',
         'Voice transcription not configured. Contact support.');

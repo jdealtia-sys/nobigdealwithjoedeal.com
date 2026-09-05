@@ -54,6 +54,7 @@
     "pwa-manifest.test.js",
     "route-truth.test.js",
     "scheduling-logic.test.js",
+    "secret-stub-guard.test.js",
     "seo-surface.test.js",
     "smart-calendar-forecast.test.js",
     "sms-optout-key.test.js",

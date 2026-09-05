@@ -44,6 +44,7 @@ const TWILIO_PHONE_NUMBER = defineSecret('TWILIO_PHONE_NUMBER');
 const TWILIO_VERIFY_SID = defineSecret('TWILIO_VERIFY_SID');
 const RESEND_API_KEY = defineSecret('RESEND_API_KEY');
 const EMAIL_FROM = defineSecret('EMAIL_FROM');
+const { secretOr } = require('./integrations/_shared');
 
 // Joe's contact info for notifications. Stored as secrets rather than
 // hardcoded so they can be rotated without a code change if Joe is being
@@ -318,7 +319,7 @@ exports.notifyNewLead = onCall(
       // ── SMS to Joe (only when the lead phone is OTP-verified) ──
       // Unverified leads still email Joe, but skip SMS so the lead form cannot
       // be used as a cost-DoS vector against Joe's phone.
-      const joePhone = JOE_PHONE_SECRET.value() || JOE_PHONE_FALLBACK;
+      const joePhone = secretOr(JOE_PHONE_SECRET, JOE_PHONE_FALLBACK); // stub → fallback, never the string '__unset__'
       if (trulyVerified) {
         let smsBody = `${urgencyFlag}NEW LEAD 🏠\n` +
           `${name} — ${serviceName}\n` +
@@ -345,7 +346,7 @@ exports.notifyNewLead = onCall(
       // ── Email to Joe ──
       const { Resend } = require('resend');
       const resend = new Resend(RESEND_API_KEY.value());
-      const fromEmail = EMAIL_FROM.value() || 'noreply@nobigdealwithjoedeal.com';
+      const fromEmail = secretOr(EMAIL_FROM, 'noreply@nobigdealwithjoedeal.com');
 
       const emailHtml = `
 <!DOCTYPE html>
@@ -406,7 +407,7 @@ exports.notifyNewLead = onCall(
 </body>
 </html>`;
 
-      const joeEmail = JOE_EMAIL_SECRET.value() || JOE_EMAIL_FALLBACK;
+      const joeEmail = secretOr(JOE_EMAIL_SECRET, JOE_EMAIL_FALLBACK);
       await resend.emails.send({
         from: fromEmail,
         to: joeEmail,

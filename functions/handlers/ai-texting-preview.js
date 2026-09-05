@@ -15,6 +15,7 @@ const { onCall, HttpsError } = require('firebase-functions/v2/https');
 const { logger } = require('firebase-functions/v2');
 const { callableRateLimit } = require('../shared');
 const { CORS_ORIGINS } = require('./_shared');
+const { secretValue } = require('../integrations/_shared'); // the secret registry, not handlers/_shared
 const { buildPersonaPrompt } = require('./ai-persona');
 const { callClaudeForDraft, ANTHROPIC_API_KEY } = require('./ai-texting');
 
@@ -55,7 +56,7 @@ exports.previewAiPersona = onCall(
     await callableRateLimit(request, 'previewAiPersona', 60, 3_600_000);
 
     let apiKey;
-    try { apiKey = ANTHROPIC_API_KEY.value(); } catch (_) {}
+    apiKey = secretValue(ANTHROPIC_API_KEY); // '__unset__' stub → null
     if (!apiKey) throw new HttpsError('failed-precondition', 'AI texting is not configured yet.');
 
     const cfg = (request.data && request.data.config) || {};

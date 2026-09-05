@@ -31,6 +31,7 @@ const { FieldValue } = require('firebase-admin/firestore');
 
 const RESEND_API_KEY = defineSecret('RESEND_API_KEY');
 const EMAIL_FROM = defineSecret('EMAIL_FROM');
+const { secretValue } = require('./_shared');
 
 const MAX_ATTEMPTS = 5;
 
@@ -44,10 +45,10 @@ exports.emailQueueWorker = onSchedule(
     secrets: [RESEND_API_KEY, EMAIL_FROM]
   },
   async () => {
-    let resendKey = '';
-    let fromAddr = '';
-    try { resendKey = RESEND_API_KEY.value(); } catch (e) {}
-    try { fromAddr  = EMAIL_FROM.value();    } catch (e) {}
+    // secretValue(): the deploy's '__unset__' stub reads as '' here, so a
+    // stubbed sender no longer passes the configured check below.
+    const resendKey = secretValue(RESEND_API_KEY) || '';
+    const fromAddr  = secretValue(EMAIL_FROM) || '';
     if (!resendKey || !fromAddr) {
       logger.info('emailQueueWorker: Resend not configured, skipping');
       return;
