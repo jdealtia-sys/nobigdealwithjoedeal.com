@@ -1107,12 +1107,27 @@ section('D4: audit_log retention cron');
   assert('pages in 500-doc batches', /limit\(500\)/.test(src));
 }
 
-section('D5: nightly Firestore backup cron');
+section('D5: nightly Firestore backup cron — RETIRED 2026-09-05');
 {
+  // This used to assert nightlyFirestoreBackup existed and exported to a
+  // bucket. It was retired because it duplicated firestore-backup.js
+  // against gs://nobigdeal-pro-backups, a bucket deliberately never
+  // created, so it failed every night it ever ran. The assertions are
+  // INVERTED rather than deleted: a future refactor that reintroduces a
+  // second export path should have to argue with a test, not slip past
+  // an absence. The surviving pipeline is asserted just below.
   const src = read(path.join(FUNCTIONS, 'integrations/compliance.js'));
-  assert('nightlyFirestoreBackup on a schedule',
-    /exports\.nightlyFirestoreBackup/.test(src) && /every day 04:00/.test(src));
-  assert('exports to GCS bucket', /BACKUP_BUCKET/.test(src) && /:exportDocuments/.test(src));
+  assert('nightlyFirestoreBackup is gone from compliance.js',
+    !/exports\.nightlyFirestoreBackup\s*=/.test(src));
+  assert('its duplicate-export machinery is gone with it',
+    !/:exportDocuments/.test(src) && !/const BACKUP_BUCKET/.test(src));
+
+  // The one that actually works, and must keep working.
+  const live = read(path.join(FUNCTIONS, 'firestore-backup.js'));
+  assert('dailyFirestoreBackup still exports on a schedule',
+    /exports\.dailyFirestoreBackup/.test(live) && /exportDocuments/.test(live));
+  assert('firestoreBackupRetention still prunes',
+    /exports\.firestoreBackupRetention/.test(live));
 }
 
 section('D6: GDPR export ↔ erasure symmetry for users/{uid} subcollections');

@@ -45,8 +45,16 @@ const { httpRateLimit } = require('./rate-limit');
 // Config
 // ───────────────────────────────────────────────────────────────
 
-// New secret for the Replicate backend. GOOGLE_AI_API_KEY stays
-// declared elsewhere in case a future feature uses Gemini again.
+// New secret for the Replicate backend.
+//
+// CORRECTION 2026-09-05: this used to say GOOGLE_AI_API_KEY "stays declared
+// elsewhere in case a future feature uses Gemini again". It is not declared
+// anywhere — no defineSecret() in functions/ references it, so no function
+// can load it. The secret still EXISTS in Secret Manager (2 versions, v1
+// disabled) where it costs ~$0.06/version/month and is one more credential
+// with no owner. The Gemini API is not even enabled on nobigdeal-pro.
+// If Gemini is ever wanted again it needs a fresh defineSecret() and the
+// API enabled, so the secret is not "kept ready" for anything — delete it.
 const REPLICATE_API_TOKEN = defineSecret('REPLICATE_API_TOKEN');
 // kie.ai API key — alternate image-gen provider (same Flux Kontext family,
 // typically cheaper per image; verify current pricing on kie.ai before

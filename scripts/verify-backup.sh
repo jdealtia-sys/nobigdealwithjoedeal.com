@@ -84,8 +84,9 @@ done
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 if [ $found -eq 0 ]; then
   echo "✗ NO backups found in the last $DAYS days"
-  echo "  nightlyFirestoreBackup is broken. Check:"
-  echo "  1. gcloud functions logs read nightlyFirestoreBackup --project $PROJECT --limit 50"
+  echo "  dailyFirestoreBackup is broken. Check:"
+  echo "  (nightlyFirestoreBackup was retired 2026-09-05 — do not look for it)"
+  echo "  1. gcloud functions logs read dailyFirestoreBackup --project $PROJECT --limit 50"
   echo "  2. Does the function's SA have roles/datastore.importExportAdmin?"
   echo "  3. Does the function's SA have roles/storage.objectAdmin on gs://$BUCKET?"
   echo "  4. Is Cloud Scheduler enabled? (firestore-deploy.yml enables it on deploy)"

@@ -423,6 +423,8 @@ No new endpoints, no client changes, no index.js line.
 
 **Pattern to mirror**
 - `functions/integrations/compliance.js` — lines 111-135 (nightlyFirestoreBackup) are the only place in functions/ that authenticates as the runtime service account via google-auth-library ADC and calls a Google REST API with fetch — exactly what GA4 Data API and Search Console need once Jo grants that SA access in-product. Zero secrets, zero stub handling, dependency already installed.
+  - **Update 2026-09-05: that code is gone.** `nightlyFirestoreBackup` was retired (it duplicated `firestore-backup.js` against a bucket that was never created and failed nightly for its whole life), so `compliance.js` no longer carries the pattern and **there is now no ADC-plus-fetch example anywhere in `functions/`**. The pattern itself is still the right one for GA4/Search Console — retrieve it from git history rather than re-deriving it:
+    `git log --diff-filter=D -S nightlyFirestoreBackup -- functions/integrations/compliance.js`, then read that commit's parent. `google-auth-library` remains a declared dependency.
 - `functions/health-digest.js` — lines 248-252 show the house pattern for an env-gated cron section: read process.env, log '<name>.skipped' with a reason, and continue — the 'unconfigured' state for GA4_PROPERTY_ID / GSC_SITE_URL should read the same way, and .env.nobigdeal-pro already documents HEALTH_DIGEST_ENABLED as the committed non-secret config precedent.
 - `functions/lead-bridge-logic.js` — the pure-logic-module-beside-the-function split (marketing-report.js already requires it at line 24) is the shape for a new functions/marketing-analytics.js: request builders, parsers, state classification and renderers are pure and fully unit-testable in the node bucket; only getToken/fetch are injected.
 - `functions/gbp-reviews-sync.js` — NOT for auth. Reuse only its error shape (94-97, `HTTP ${status}: ${detail.slice(0,300)}`) and its 'dormant until configured: logger.info and return, never throw' posture (145-150).
@@ -985,7 +987,7 @@ Why not Drive upload: needs drive.googleapis.com (not enabled — verified), a n
 - Vision latency and DOCUMENT_TEXT_DETECTION accuracy on thermal-paper receipts; the 6,000-char cap and 900-unit cap are judgment calls.
 - Data-processing/ToS implications of sending receipt images to a second Google API (same project); Vision's data-use terms were not fetched.
 - That the Anthropic Messages API accepts [document|image, text, text] content in one user turn for claude-haiku-4-5-20251001 — standard per the claude-api reference, not exercised here.
-- Whether the google-auth-library GoogleAuth client obtains ADC on Cloud Functions gen2 without extra config — compliance.js:111-114 relies on exactly that in production (nightlyFirestoreBackup), which is the evidence, not a test run.
+- Whether the google-auth-library GoogleAuth client obtains ADC on Cloud Functions gen2 without extra config — compliance.js:111-114 relies on exactly that in production (nightlyFirestoreBackup), which is the evidence, not a test run. **2026-09-05: still valid evidence, but it is now historical — that function was retired and the code is only in git history (see the update above). Note the ADC token was never the reason it failed; its bucket did not exist.**
 
 ---
 
