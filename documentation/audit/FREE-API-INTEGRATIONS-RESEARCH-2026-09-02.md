@@ -28,6 +28,15 @@ strict CSP (client-side third-party hosts need `img-src`/`connect-src` in
 both the enforced and Report-Only `**` rules, `firebase.json:84-85`);
 server-side calls need no CSP change. Scale: hundreds of calls/day.
 
+> **UPDATE 2026-09-04 — two SWDI facts below are wrong, corrected by probing
+> the live endpoint** (see `functions/integrations/swdi-hail.js`). The range
+> is **not** unlimited: one request may span at most **744 hours (31 days)**;
+> longer ranges return HTTP 500 with an `error` string, so the adapter chunks
+> the lookup into contiguous windows. And the end date is **exclusive** at
+> midnight UTC — `20260516:20260517` returns a 05-16 cell, `20260516:20260516`
+> returns nothing. The rest of row 4 held. Row 2 shipped as #1385; row 4 as the
+> PR that carries this note.
+
 ## TL;DR — wave 1 (one evening, five PRs)
 
 | # | Win for Jo | Free tier (verified) | Seam | Effort |
