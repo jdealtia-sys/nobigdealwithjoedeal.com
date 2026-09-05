@@ -1,9 +1,14 @@
 # Next session — brief as of the end of 2026-09-05
 
 > Supersedes [NEXT_SESSION-2026-09-05](NEXT_SESSION-2026-09-05.md).
-> Session record: [SESSION-2026-09-05-free-api-wave1](SESSION-2026-09-05-free-api-wave1.md)
-> — the facts learned by measuring, the three refutations and the new
-> watch-outs live there; this brief carries only what is still live.
+> Session records, both from the night of 2026-09-04→05:
+> [SESSION-2026-09-05-free-api-wave1](SESSION-2026-09-05-free-api-wave1.md)
+> (wave 1, #1385–#1392) and
+> [SESSION-2026-09-05-free-api-wave2](SESSION-2026-09-05-free-api-wave2.md)
+> (wave 2, #1395–#1399). The facts learned by measuring, the refutations and
+> the watch-outs live there; this brief carries only what is still live.
+> Implementation maps for the wave-2 items that did NOT ship:
+> [WAVE2-IMPLEMENTATION-MAPS-2026-09-05](../audit/WAVE2-IMPLEMENTATION-MAPS-2026-09-05.md).
 
 ## Start here
 
@@ -80,6 +85,10 @@ text on a document that carries `tcpaConsent === true`, and
    ZERO Jo-side setup. An eight-agent mapping pass ran first and refuted five
    more note/doc claims — read its findings before picking up any remaining
    row.
+   **Each remaining item has a verified implementation map** —
+   [WAVE2-IMPLEMENTATION-MAPS-2026-09-05](../audit/WAVE2-IMPLEMENTATION-MAPS-2026-09-05.md)
+   (seams with file:line, tests to write, Jo's steps, collision surface).
+   Read it before re-deriving any of this.
    **Still open, in value order, all of them dark until Jo acts:**
    - **Inbound tokenized webhook** — M. NOTE CORRECTION: Zapier's Webhooks
      app is PAID; the $0 routes are Make / n8n / Pipedream / Apps Script.
