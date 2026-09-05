@@ -167,11 +167,39 @@ worker headers (405 + their own CORS), which a missing worker cannot do.
 
 **The one open item: delete `nbd-ai-visualizer`.** Nothing in `docs/` calls it —
 `publicVisualizerAI` in `functions/handlers/ai.js` is the hardened replacement
-and is live on `main`. Deleting it is a dashboard action with no site impact,
-and it closes the only remaining unauthenticated cost path. `nbd-ai-proxy` is
-second: no browser can reach it cross-origin any more and nothing calls it, but
-it still holds an Anthropic key, so deleting it and rotating that key is
-cleanup rather than an emergency.
+and is live on `main`. Deleting it is a dashboard action with no site impact.
+`nbd-ai-proxy` is second: no browser can reach it cross-origin any more and
+nothing calls it, but it still holds an Anthropic key, so deleting it and
+rotating that key is cleanup rather than an emergency.
+
+### OpenAI billing verified clean — the cost bomb was never loaded
+
+Checked in the OpenAI console on 2026-09-05 (the audit's step 13, for one of its
+four vendors). **Spend over the last 90 days: $0.00 — and none ever.**
+
+- Usage: $0.00, **0 tokens, 0 requests**; September spend $0.00
+- Billing history: **no invoices, ever**
+- Billing overview: **Free trial**, still prompting "Add payment details" — no
+  payment method on file
+- Credit grants: **none**
+- One organisation, one project, and exactly one API key — the one this worker
+  uses — whose **"Last used" reads `Never`**, five months after it was created
+  on 2026-04-05
+
+That last line is the direct evidence, not an inference from a spend total: the
+key was never exercised once. And the endpoint could not have run up a bill even
+if it had been hammered — with no credits and no payment method, every call
+would have failed at OpenAI on quota. **The April audit's "~$69k/day" figure
+assumed a funded account; this one never was.**
+
+So `nbd-ai-visualizer` is **housekeeping, not an exposure**. It is still an
+unauthenticated public endpoint answering `ACAO: *`, and this repo is public —
+which now documents that fact — so delete it rather than leave it advertised.
+
+**Three of the four vendors remain unchecked**, and one matters more than the
+others: the same worker also holds a **Gemini key**, and Google Cloud billing is
+a separate account that may well be funded. Anthropic (in `nbd-ai-proxy`) and
+MailerLite are the other two. Nothing here says anything about those three.
 
 **The branch's code changes are obsolete — do not merge it.** Every client
 migration in it landed by another route: `claudeProxy`, `stripeWebhook` and
