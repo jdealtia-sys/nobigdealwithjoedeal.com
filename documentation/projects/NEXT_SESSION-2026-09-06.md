@@ -120,6 +120,14 @@ text on a document that carries `tcpaConsent === true`, and
    remain. The `nbd-wt-ledger-recon` worktree still holds `main`.
 
 9. **Adopt a repo-wide LF policy — Jo's call, but the work is done.**
+   **Update 2026-09-05: one third of the recommended bundle has landed on its
+   own — the three fragile gates are now EOL-robust at the source and pass on a
+   CRLF worktree, so the "three drift gates stop lying" argument below is spent
+   and must no longer count toward adopting the policy.** The remaining case for
+   `.gitattributes` is the corrupt `docs/lead-magnet.pdf`, the nine CRLF `.sh`
+   files, and the mixed-ending files — all still open, none of them gate noise.
+   See the bullets below, both annotated.
+
    `.gitattributes` carrying `* text=auto eol=lf` ends the line-ending class
    item 4 was about. Measured end to end on 2026-09-05 in a throwaway clone,
    never in a live checkout — full evidence in
@@ -136,14 +144,17 @@ text on a document that carries `tcpaConsent === true`, and
      (`docs/assets/vendor/leaflet/leaflet.css`, `firestore.indexes.json`,
      `functions/stripe.js`). The index is already 99.9% LF — 1459 of 2264
      tracked files.
-   - **Three drift gates stop lying.** `build-sitemap.js`, `build-feed.mjs`
-     (CI-enforced) and `build-projects.mjs --check` exit 1 on *every* clean
-     Windows checkout for line endings alone; on the migrated tree all three
-     exit 0. Those are the only three fragile gates of the four that compare
-     generated output to disk — `apply-partials.js --check` is already
-     EOL-adaptive, which is why it alone passes today. No gate can newly fail:
-     CI has always been the LF case. The node bucket is 60/60 on Windows + LF
-     and no suite is EOL-sensitive.
+   - ~~**Three drift gates stop lying.**~~ **SUPERSEDED 2026-09-05 — fixed at
+     the source instead, so this is no longer a reason to adopt the policy.**
+     `build-sitemap.js`, `build-feed.mjs` (CI-enforced) and
+     `build-projects.mjs --check` exited 1 on *every* clean Windows checkout for
+     line endings alone; each now sniffs the destination's ending the way
+     `apply-partials.js:201` always has, and all three exit 0 on a CRLF
+     worktree. Verified both ways round: each still exits 1 on real drift (a URL
+     dropped from `sitemap.xml`, a POSTS title changed without regenerating
+     `feed.xml`, and hand-edits to `our-work.html`, a services strip region and
+     `homeowner-wall.json`), on the CRLF tree *and* on an LF clone. CI is
+     unaffected — it has always been the LF case.
    - **It repairs a file that is corrupt on disk today.** `docs/lead-magnet.pdf`
      contains no NUL byte at all, so git classifies it as *text* and autocrlf
      injects 716 CR bytes on checkout. Every Windows worktree holds a copy whose
@@ -154,12 +165,19 @@ text on a document that carries `tcpaConsent === true`, and
      `docs/sites/free-guide/index.html` hands to customers is not the file that
      ships, and no one on Windows has been reviewing the real bytes. Nine
      tracked `.sh` files check out CRLF for the same reason.
-   - **Generators become idempotent.** `build-projects.mjs --write` churns ten
-     files on a CRLF tree and zero on an LF one. Not hypothetical:
-     `docs/our-work.html` carries genuinely mixed endings in the main checkout
-     right now. No script under `scripts/` preserves the input EOL and sixty
-     call `writeFileSync`, so the CLAUDE.md `sed -i` rule closes one door of
-     several.
+   - **Generators become idempotent** — *partly done 2026-09-05.*
+     `build-projects.mjs --write` churned ten files on a CRLF tree and zero on
+     an LF one; it now writes zero on both, as do `build-sitemap.js --write` and
+     `build-feed.mjs --write`. Still true: `docs/our-work.html` carries
+     genuinely mixed endings in the main checkout right now, and that only
+     clears when the file is next restamped or renormalised.
+     **Correction:** the claim that *no* script under `scripts/` preserves the
+     input EOL was wrong — six already did before this patch
+     (`apply-partials.js`, `add-footer-cert-bar.js`, `add-ga4-tag.js`,
+     `ensure-nav-css.js`, `migrate-footer-to-partial.js`,
+     `migrate-nav-to-partial.js`), and nine do now. The point the number was
+     making still holds: most of the sixty `writeFileSync` callers do not, so
+     the CLAUDE.md `sed -i` rule closes one door of several.
    - **Almost nothing shipped changes.** The blobs are already LF and CI
      deploys from a Linux checkout, so Hosting serves the same bytes. No CSP
      hash, no SRI, no content-keyed cache, no checksum in any workflow. The one

@@ -205,13 +205,35 @@ Windows checkout, for line endings alone, and have done since at least
 class of harm as a gate that cannot go red, which this repo has been bitten by
 before.
 
+> **Update 2026-09-05 — the three gates were fixed at the source, not by the
+> policy.** `build-sitemap.js`, `build-feed.mjs` and `build-projects.mjs` now
+> normalise to LF for comparison and emit with the destination file's own
+> ending, the three-step shape `apply-partials.js:201` already used. All three
+> exit 0 on a CRLF worktree and still exit 1 on real drift — verified on the
+> CRLF tree and on an LF clone, in both directions. **The `gate | before |
+> after` table above therefore no longer argues for `.gitattributes`:** those
+> three rows are now exit 0 → exit 0 regardless of the policy. What still
+> argues for it is `docs/lead-magnet.pdf`, the nine CRLF `.sh` files, and the
+> mixed-ending files, none of which this patch touches.
+
 ### The recurrence this closes
 
 `build-projects.mjs` in write mode rewrites ten files as pure ending-churn on a
-CRLF tree and **zero** on an LF one. No script under `scripts/` preserves the
-input EOL — there is not one use of the `includes('\r\n')` idiom — while sixty
-call `writeFileSync`. So the churn is produced by the repo's own generators, not
-only by `sed -i`, and the CLAUDE.md rule closes one door of several.
+CRLF tree and **zero** on an LF one. So the churn is produced by the repo's own
+generators, not only by `sed -i`, and the CLAUDE.md rule closes one door of
+several.
+
+> **Correction 2026-09-05.** This section originally read "No script under
+> `scripts/` preserves the input EOL — there is not one use of the
+> `includes('\r\n')` idiom". That was wrong, and it was the sentence that made
+> the problem look architectural rather than local. Six scripts already carried
+> the idiom when this note was written: `apply-partials.js`,
+> `add-footer-cert-bar.js`, `add-ga4-tag.js`, `ensure-nav-css.js`,
+> `migrate-footer-to-partial.js` and `migrate-nav-to-partial.js`. Nine carry it
+> now — the three drift generators were patched the same day. The surviving,
+> checkable version of the claim: most of the sixty `writeFileSync` callers
+> still do not adapt, so a generator that writes a whole file is still the
+> likeliest next source of churn.
 
 It is not hypothetical. In the main checkout right now, `docs/our-work.html`
 (an `OURWORK-*` generated file) and
