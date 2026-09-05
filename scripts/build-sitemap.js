@@ -125,6 +125,8 @@ const PLAIN_SERVICES = new Set([
   'siding-repair',
   'siding-replacement',
   'storm-damage',
+  'shed-roof-replacement',
+  'wood-siding-repair',
 ]);
 
 // Combo priority tiers keyed by trailing city slug. Slugs whose service

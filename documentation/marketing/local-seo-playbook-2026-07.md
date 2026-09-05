@@ -122,3 +122,33 @@ The cadence:
 
 *Everything code-side referenced here shipped in PR #879 (schema fixes + internal
 links + Loveland cedar capture).*
+
+---
+
+## UPDATE 2026-09-03 — the "Loveland cedar capture" was half a capture
+
+Verified against the live tree while working an organic **Mason** lead who searched
+**"wood siding repair"** (full write-up:
+[WOOD-SIDING-GAP-2026-09-03](../audit/WOOD-SIDING-GAP-2026-09-03.md)).
+
+**The closing line above is optimistic.** PR #879's "Loveland cedar capture" landed
+on `docs/services/siding-replacement-loveland-oh.html` **only**. As of 2026-09-03,
+before this session's fix wave:
+
+- `cedar` appeared on 7 files site-wide, and on **zero siding *repair* pages**.
+- `wood siding repair`, `wood rot`, `rotted siding`, `fascia repair`, `clapboard`,
+  `T1-11` and `board and batten` appeared on **zero pages, each**.
+- All 12 siding pages were written as if every house in the market is vinyl.
+
+So the "cedar siding loveland oh" query named in *How you'll know it's working* had
+one page pointed at it, on the wrong side of the repair/replace split — a homeowner
+whose cedar needs **fixing**, not replacing, had nowhere to land.
+
+**Now shipped:** a `/services/wood-siding-repair` hub, a Mason city page, and wood
+callouts on all 12 siding pages. `wood siding repair` went 0 → 13 files, `cedar`
+7 → 14. **Loveland still has no wood city page** — it is first in the queue,
+because this playbook's own Search Console evidence points there.
+
+**Standing lesson for this file:** "shipped in PR #xxx" is a claim about a commit,
+not about coverage. Before citing a capture as done, grep the live tree for the term
+and check it landed on the page a searcher with that *intent* would need.

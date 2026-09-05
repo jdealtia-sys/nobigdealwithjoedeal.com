@@ -61,7 +61,9 @@ const RUNNABLE = ['node', 'smoke'];
 // after each addition protects only what it was set against — it silently
 // stopped covering everything added since.
 // KEEP THESE IN STEP with the real counts whenever a suite is added.
-const FLOORS = { node: 51, smoke: 65, disk: 130 };
+// Raised 51/65/130 -> 52/65/131 on 2026-09-04 for
+// ourwork-deeplink-contract.test.js, per the line above.
+const FLOORS = { node: 52, smoke: 65, disk: 131 };
 
 // ── Argument parsing ───────────────────────────────────────────────
 const argv = process.argv.slice(2);

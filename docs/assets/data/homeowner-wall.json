@@ -1,5 +1,10 @@
 [
   {
+    "image": "/assets/images/projects/mason-oh-shed-reroof-2026-1.jpg",
+    "city": "Mason, OH",
+    "alt": "White gambrel shed with dark green trim and double doors under a new charcoal shingle roof, chain-link fence and woods behind"
+  },
+  {
     "image": "/assets/images/projects/loveland-oh-siding-peak-reseal-2026-1.jpg",
     "city": "Loveland, OH",
     "alt": "Close-up before photo at a gable peak: a gloved hand points to an open gap where the painted fascia trim and J-channel meet above vinyl siding"
@@ -53,10 +58,5 @@
     "image": "/assets/images/projects/cincinnati-oh-storm-tarp-replacement-2023-1.jpg",
     "city": "Cincinnati, OH",
     "alt": "Wind-stripped low-slope roof section with the mineral-surfaced roll roofing peeled back in a large ragged sheet"
-  },
-  {
-    "image": "/assets/images/projects/newport-ky-siding-top-course-2026-1.jpg",
-    "city": "Newport, KY",
-    "alt": "The top course of vinyl siding missing along the run at the head of a two-story wall, leaving the cavity open"
   }
 ]
