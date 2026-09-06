@@ -928,7 +928,7 @@ and this one (a stubbed uploader cannot see what the real uploader does). Each
 was found only by *breaking the code and checking which named assertions went
 red* — not by watching a suite go green, and not even by watching it go red.
 
-## Update, 2026-09-06 (#1434) — both #1431 fixes covered one path and missed its sibling
+## Update, 2026-09-06 (#1435) — both #1431 fixes covered one path and missed its sibling
 
 A review of #1431 landed after it merged. Two of its three fixes were half
 done, in the same shape: each covered the route its author was reasoning about
