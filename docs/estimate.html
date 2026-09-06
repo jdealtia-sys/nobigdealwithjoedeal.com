@@ -865,6 +865,15 @@ nav .nav-logo-text .sub{white-space:nowrap}
       <div class="detail-item"><div class="detail-label">Estimated Squares</div><div class="detail-value" id="detailSquares">&#8212;</div></div>
     </div>
 
+    <!-- Shown only when the roof was actually measured from aerial imagery
+         rather than estimated from the size tile. The attribution is required
+         by Instant Roofer's terms on any visible, indexable page that uses
+         their technology. -->
+    <div id="measuredNote" style="display:none;margin-top:10px;padding:10px 14px;background:rgba(34,160,107,.08);border:1px solid rgba(34,160,107,.3);border-radius:8px;font-size:.74rem;color:#22a06b;line-height:1.5;">
+      &#10003; <strong>Measured from aerial imagery</strong> &#8212; not a guess from your home&#8217;s size. <span id="measuredConfidence"></span>Joe still confirms every measurement on site before the final price.
+      <span style="display:block;margin-top:6px;color:rgba(255,255,255,.45);font-size:.68rem;">Roof measurement powered by Instant Roofer</span>
+    </div>
+
     <div class="joes-take">
       <div class="joes-take-header">
         <div class="joes-take-avatar">JD</div>

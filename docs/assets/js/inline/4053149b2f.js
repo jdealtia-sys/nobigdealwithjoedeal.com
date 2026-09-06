@@ -10,6 +10,9 @@
 const CONFIG = {
   GOOGLE_MAPS_KEY: '', // Add your Google Maps Static API key here
   PROXY_URL: 'https://us-central1-nobigdeal-pro.cloudfunctions.net/publicFunnelAI',
+  // Read-only: hands back the aerial measurement the server took when this
+  // lead was created. Spends nothing — see functions/integrations/public-measure.js.
+  MEASURE_URL: 'https://us-central1-nobigdeal-pro.cloudfunctions.net/publicRoofMeasure',
   JOE_PHONE: '8594207382',
   OTP_ENABLED: true // Set to false to skip SMS verification during testing
 };
@@ -976,9 +979,12 @@ async function submitAndGetEstimate() {
   // CRM write still showed the success screen and the lead vanished
   // silently. _saveLead resolves to the lead id, or null on failure.
   var _leadSaved = false;
+  var _publicLeadId = null;
   try {
-    _leadSaved = !!(await window._saveLead(leadData));
-    if (!_leadSaved) _leadSaved = !!(await window._saveLead(leadData));
+    // Keep the id — it is how we ask for this lead's roof measurement below.
+    _publicLeadId = await window._saveLead(leadData);
+    if (!_publicLeadId) _publicLeadId = await window._saveLead(leadData);
+    _leadSaved = !!_publicLeadId;
   } catch (saveErr) {
     console.error('Lead save threw:', saveErr);
   }
@@ -1006,6 +1012,12 @@ async function submitAndGetEstimate() {
   // Either channel landing means Joe has the lead; only if BOTH failed does
   // the results screen show the call-Joe fallback banner.
   window._leadDeliveryFailed = !_leadSaved && !_joeNotified;
+
+  // Real roof measurement. The server measures this property from aerial
+  // imagery the moment the CRM lead is created; this only READS the result,
+  // so a slow or failed lookup costs nothing and simply leaves the estimate
+  // on its size-tile footing.
+  funnelData.measurement = await fetchRoofMeasurement(_publicLeadId);
 
   // Service-aware results: only roof-replacement gets the AI tier-table
   // call. Every other service shows a deterministic single range built
@@ -1045,7 +1057,15 @@ async function submitAndGetEstimate() {
     var roofMat = funnelData.roofType === 'other' ? 'asphalt' : (funnelData.roofType || 'asphalt');
     var matPricing = PRICING.roof[roofMat] || PRICING.roof.asphalt;
     var sizeCat = funnelData.homeSize || 'typical';
-    var sizeHint = SIZE_LABEL[sizeCat] || SIZE_LABEL.typical;
+    var _meas = funnelData.measurement;
+    var _measured = !!(_meas && Number(_meas.squares) > 0);
+    // A measured roof replaces the homeowner's guess as the primary signal.
+    var sizeHint = _measured
+      ? 'AERIALLY MEASURED — ' + Math.round(_meas.sqft).toLocaleString() + ' sq ft (' + _meas.squares + ' squares)'
+        + (_meas.pitch ? ', predominant pitch ' + _meas.pitch : '')
+        + (_meas.stories ? ', ' + _meas.stories + ' storey' : '')
+        + '. This is a real measurement, not the homeowner\'s estimate — use it EXACTLY and do not re-estimate the size.'
+      : (SIZE_LABEL[sizeCat] || SIZE_LABEL.typical);
     var coordHint = (funnelData.lat && funnelData.lon)
       ? funnelData.lat.toFixed(4) + ', ' + funnelData.lon.toFixed(4)
       : 'unknown';
@@ -1055,10 +1075,12 @@ async function submitAndGetEstimate() {
       'Coordinates: ' + coordHint + '\n' +
       'Service: ' + serviceLabel + '\n' +
       'Material preference: ' + materialLabel + '\n' +
-      'Homeowner-reported size: ' + sizeHint + '\n' +
+      (_measured ? 'Roof size: ' : 'Homeowner-reported size: ') + sizeHint + '\n' +
       'Timeline: ' + funnelData.timeline + '\n' +
       'Name: ' + funnelData.firstName + '\n\n' +
-      'Use the homeowner-reported size as your primary signal. Refine it with your knowledge of typical homes near these coordinates if you have it (lot patterns, year built norms, suburb characteristics). Do not assume a generic 1,800 sqft default — actually reason about the address.\n\n' +
+      (_measured
+        ? 'The roof size above was measured from aerial imagery. Use it exactly — do not adjust, round or second-guess it.\n\n'
+        : 'Use the homeowner-reported size as your primary signal. Refine it with your knowledge of typical homes near these coordinates if you have it (lot patterns, year built norms, suburb characteristics). Do not assume a generic 1,800 sqft default — actually reason about the address.\n\n') +
       'Apply NBD\'s actual installed pricing for this material:\n' +
       '- Good (3-tab):           $' + matPricing.good[0]   + '-$' + matPricing.good[1]   + '/square\n' +
       '- Better (architectural): $' + matPricing.better[0] + '-$' + matPricing.better[1] + '/square\n' +
@@ -1083,6 +1105,16 @@ async function submitAndGetEstimate() {
     var raw = (data && data.text) || '';
     var clean = raw.replace(/```json|```/g, '').trim();
     var est = JSON.parse(clean);
+
+    // When the roof was measured, the numbers are ours, not the model's: keep
+    // its `joesTake` and `yearBuilt`, but pin size and pricing to the
+    // measurement so a hallucinated square count can never reach a homeowner.
+    if (_measured) {
+      est.roofSqft = Math.round(Number(_meas.sqft));
+      est.squares = Number(_meas.squares);
+      est.tiers = tiersFromSquares(est.squares);
+      est._measured = true;
+    }
     funnelData.estimate = est;
 
     setTimeout(function() { showResults(est); }, 800);
@@ -1093,13 +1125,59 @@ async function submitAndGetEstimate() {
   }
 }
 
+/* ── Aerial roof measurement ──
+ * Asks the read-only endpoint for the measurement the server took when this
+ * lead was created. Returns null on anything at all going wrong — no
+ * measurement is a normal outcome (the address may not geocode to a building,
+ * the provider may not recognise the roof), and the estimate simply falls back
+ * to the homeowner-reported size tile it has always used.
+ */
+async function fetchRoofMeasurement(publicLeadId) {
+  if (!publicLeadId || !CONFIG.MEASURE_URL) return null;
+  try {
+    var ctrl = typeof AbortController === 'function' ? new AbortController() : null;
+    var timer = ctrl ? setTimeout(function () { ctrl.abort(); }, 22000) : null;
+    var res = await fetch(CONFIG.MEASURE_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ kind: 'estimate', leadId: publicLeadId }),
+      signal: ctrl ? ctrl.signal : undefined
+    });
+    if (timer) clearTimeout(timer);
+    if (!res.ok) return null;
+    var data = await res.json();
+    var m = data && data.measurement;
+    if (!m || !m.measured || !(Number(m.squares) > 0)) return null;
+    return m;
+  } catch (e) {
+    return null;
+  }
+}
+
+// Turn a measured roof into tier pricing the same way the fallback does:
+// real squares x NBD's per-square ranges, $25 rounding, $2,500 job minimum.
+// Money is never left to the model — the AI is asked for the note, not the
+// arithmetic.
+function tiersFromSquares(squares) {
+  var mat = funnelData.roofType === 'other' ? 'asphalt' : (funnelData.roofType || 'asphalt');
+  var p = PRICING.roof[mat] || PRICING.roof.asphalt;
+  return {
+    good:   { min: Math.max(2500, roundTo25(p.good[0]   * squares)), max: Math.max(2500, roundTo25(p.good[1]   * squares)) },
+    better: { min: Math.max(2500, roundTo25(p.better[0] * squares)), max: Math.max(2500, roundTo25(p.better[1] * squares)) },
+    best:   { min: Math.max(2500, roundTo25(p.best[0]   * squares)), max: Math.max(2500, roundTo25(p.best[1]   * squares)) }
+  };
+}
+
 // Build a size-aware fallback that's consistent with the step-4 ballpark.
 // Same per-square pricing the AI is asked to use, so the homeowner never
 // sees a price drop or jump between screens.
 function buildFallbackEstimate() {
   var size = funnelData.homeSize || 'typical';
-  var squares = SIZE_SQUARES[size] || 20;
-  var sqft = squares * 100;
+  // A measured roof beats the tile even when the AI call fails.
+  var meas = funnelData.measurement;
+  var measured = !!(meas && Number(meas.squares) > 0);
+  var squares = measured ? Number(meas.squares) : (SIZE_SQUARES[size] || 20);
+  var sqft = measured ? Number(meas.sqft) : squares * 100;
   var mat = funnelData.roofType === 'other' ? 'asphalt' : (funnelData.roofType || 'asphalt');
   var p = PRICING.roof[mat] || PRICING.roof.asphalt;
   // $25 rounding + $2,500 job minimum match the CRM engine (estimate-config.js)
@@ -1113,8 +1191,11 @@ function buildFallbackEstimate() {
     squares: squares,
     yearBuilt: null,
     tiers: tiers,
-    joesTake: funnelData.firstName + ", the live estimate engine couldn't reach me right now, so the numbers above are the architectural-tier range I install for a " + sizeShortLabel(size) + " home in your area. I'd rather measure your roof in person and give you the exact number — free, no obligation.",
-    _isFallback: true
+    joesTake: measured
+      ? funnelData.firstName + ', I measured your roof from aerial imagery — about ' + Math.round(squares) + ' squares. The ranges above are what I install at each tier for a roof that size. I still want to walk it in person before giving you the exact number — free, no obligation.'
+      : funnelData.firstName + ", the live estimate engine couldn't reach me right now, so the numbers above are the architectural-tier range I install for a " + sizeShortLabel(size) + " home in your area. I'd rather measure your roof in person and give you the exact number — free, no obligation.",
+    _measured: measured,
+    _isFallback: !measured
   };
   funnelData.estimate = fb;
   return fb;
@@ -1231,9 +1312,27 @@ function showResults(est) {
   }
 
   // Details — roof sqft/squares only make sense for roof services
-  document.getElementById('detailSize').textContent = est.roofSqft ? '~' + est.roofSqft.toLocaleString() + ' sq ft' : '—';
+  // A measured roof is stated as a fact; an estimated one keeps its tilde.
+  var _isMeasured = !!(est && est._measured);
+  document.getElementById('detailSize').textContent = est.roofSqft
+    ? (_isMeasured ? '' : '~') + est.roofSqft.toLocaleString() + ' sq ft' : '—';
   document.getElementById('detailYear').textContent = est.yearBuilt || 'Unknown';
-  document.getElementById('detailSquares').textContent = est.squares ? '~' + est.squares : '—';
+  document.getElementById('detailSquares').textContent = est.squares
+    ? (_isMeasured ? '' : '~') + est.squares : '—';
+
+  var measNote = document.getElementById('measuredNote');
+  if (measNote) {
+    measNote.style.display = _isMeasured ? 'block' : 'none';
+    var confEl = document.getElementById('measuredConfidence');
+    var conf = funnelData.measurement && funnelData.measurement.confidence;
+    if (confEl) {
+      // Only ever surfaced as a caveat: a high-confidence result says nothing
+      // extra, a weaker one tells the homeowner why Joe will re-check.
+      confEl.textContent = (_isMeasured && conf && conf !== 'High')
+        ? 'Tree cover or roof complexity made this one harder to read, so treat it as close rather than exact. '
+        : '';
+    }
+  }
 
   // Joe's take
   document.getElementById('joesText').textContent = est.joesTake || 'Give Joe a call for the full picture.';

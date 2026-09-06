@@ -1013,6 +1013,15 @@ exports.measurementWebhook = onRequest(
   }
 );
 
+// Shared with integrations/public-measure.js, which measures a public
+// estimate lead's roof when the CRM lead is created. These are production
+// exports, not test seams — the RHS is a bare identifier, so the deploy
+// workflow's `^exports.NAME = (onCall|onRequest|onDocument...)` allowlist grep
+// does not mistake them for deployable functions.
+exports.requestInstantRoofer     = requestInstantRoofer;
+exports.findReusableMeasurement  = findReusableMeasurement;
+exports.attachMeasurementToLead  = attachMeasurementToLead;
+
 // Repo _test convention: pure/injectable pieces for tests/instantroofer-measurement.test.js.
 exports._test = {
   requestInstantRoofer,
@@ -1025,6 +1034,7 @@ exports._test = {
   normalizeWebhookPayload,
   measuredAtMs,
   attachMeasurementToLead,
+  findReusableMeasurement,
   webhookSecretReady,
   verifyInstantRooferBearer,
   verifyWebhookHmac,
