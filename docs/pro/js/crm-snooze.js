@@ -106,10 +106,21 @@ async function loadNotifications() {
         // Listener errored — fall back to a one-shot read so the
         // user at least sees something instead of a broken badge.
         console.warn('notifications onSnapshot error:', err && err.message);
+        // …and bring the poll back, because the live path is no longer
+        // delivering. This is the ONLY state in which polling earns its keep.
+        _notifLive = false;
+        _startNotifPoll();
         _getDocs(q).then(s => {
           _renderNotifBadgeAndList(s.docs.map(d => ({ id: d.id, ...d.data() })));
         }).catch(() => {});
       });
+      // A live subscription makes the 120-second poll not just redundant but
+      // actively harmful: each tick tore this listener down and re-subscribed,
+      // which re-reads the whole 50-document query from the server. That is a
+      // billed read set and a radio wake every two minutes, forever, on a
+      // phone in a truck — to learn what the listener had already pushed.
+      _notifLive = true;
+      _stopNotifPoll();
     } else {
       // SDK shape changed — last-resort one-shot.
       const snap = await _getDocs(q);
@@ -505,11 +516,32 @@ window.addEventListener('click', (e) => {
 
 // Load notifications on auth - poll for window._user set by main auth callback
 let _notifInterval = null;
+
+// Whether a live onSnapshot subscription is currently delivering. When it is,
+// the poll is stopped: re-running loadNotifications only unsubscribes and
+// re-subscribes, re-reading the whole query for data the listener already
+// pushed. The poll exists purely as the fallback for the two states where
+// there is no live listener — an SDK without onSnapshot, and a listener that
+// errored — and both of those turn it back on.
+let _notifLive = false;
+
+function _startNotifPoll() {
+  if (_notifInterval || _notifLive) return;   // a live listener needs no poll
+  _notifInterval = setInterval(loadNotifications, 120000);
+}
+function _stopNotifPoll() {
+  if (!_notifInterval) return;
+  clearInterval(_notifInterval);
+  _notifInterval = null;
+}
+
 (function waitForNotifAuth() {
   if (window._user) {
+    // Start the poll first; loadNotifications stops it the moment a live
+    // subscription is established, so a failure to reach that point still
+    // leaves the badge refreshing.
+    _startNotifPoll();
     loadNotifications();
-    if (_notifInterval) clearInterval(_notifInterval);
-    _notifInterval = setInterval(loadNotifications, 120000);
   } else {
     setTimeout(waitForNotifAuth, 300);
   }
@@ -524,12 +556,13 @@ let _notifInterval = null;
 // already torn down via _notifUnsub; the polling fallback
 // was the asymmetric leak.
 window.addEventListener('nbd:auth-signed-out', () => {
-  if (_notifInterval) { clearInterval(_notifInterval); _notifInterval = null; }
+  _stopNotifPoll();
+  _notifLive = false;   // next sign-in re-arms the poll until a listener lands
   if (typeof _notifUnsub === 'function') {
     try { _notifUnsub(); } catch(_) {}
     _notifUnsub = null;
   }
 });
 window.addEventListener('pagehide', () => {
-  if (_notifInterval) { clearInterval(_notifInterval); _notifInterval = null; }
+  _stopNotifPoll();
 });

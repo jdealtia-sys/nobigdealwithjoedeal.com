@@ -258,5 +258,46 @@ win._notifications = [
 forceRender();
 ok('fresh-view NOT suppressed by follow_up', els.notifList.innerHTML.includes('Customer viewing your estimate'));
 
+// ── the notification poll must not fight the live listener ───────────────
+// loadNotifications establishes an onSnapshot subscription, and a
+// setInterval(loadNotifications, 120000) re-ran it every two minutes — which
+// tore that listener down and re-subscribed, re-reading the whole 50-document
+// query from the server. A billed read set and a radio wake every two
+// minutes, forever, on a phone in a truck, to learn what the listener had
+// already pushed.
+//
+// The poll now exists only for the two states with no live listener: an SDK
+// without onSnapshot, and a listener that errored. Both must turn it back on,
+// or the badge silently stops updating — which is why the error path is
+// asserted as carefully as the happy one.
+{
+  const snoozeSrc = require('fs').readFileSync(
+    require('path').join(__dirname, '..', 'docs/pro/js/crm-snooze.js'), 'utf8');
+
+  ok('a live subscription stops the poll',
+    /_notifLive = true;\s*\n\s*_stopNotifPoll\(\);/.test(snoozeSrc));
+
+  ok('the poll refuses to start while a listener is live',
+    /if \(_notifInterval \|\| _notifLive\) return;/.test(snoozeSrc));
+
+  ok('a listener error restarts the poll',
+    /_notifLive = false;\s*\n\s*_startNotifPoll\(\);/.test(snoozeSrc));
+
+  ok('the poll is still armed before the listener is established',
+    /_startNotifPoll\(\);\s*\n\s*loadNotifications\(\);/.test(snoozeSrc),
+    'a failure before subscribing would otherwise leave the badge frozen');
+
+  ok('sign-out stops the poll and clears the live flag',
+    /nbd:auth-signed-out[\s\S]{0,200}_stopNotifPoll\(\);[\s\S]{0,80}_notifLive = false/.test(snoozeSrc),
+    'a re-auth as a different user must re-arm the poll');
+
+  ok('pagehide still stops the poll',
+    /'pagehide'[\s\S]{0,120}_stopNotifPoll\(\)/.test(snoozeSrc));
+
+  ok('the raw 120s setInterval has exactly one site',
+    (snoozeSrc.match(/setInterval\(loadNotifications, 120000\)/g) || []).length === 1,
+    'two arming sites is how the leak this replaced came back');
+}
+
 console.log(`\n${passed} passed, ${failed} failed`);
 if (failed) { console.log('FAILED:', fails.join(' | ')); process.exit(1); }
