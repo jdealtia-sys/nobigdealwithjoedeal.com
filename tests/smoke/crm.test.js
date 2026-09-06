@@ -271,20 +271,19 @@ section('Customer overview photo strip — cap + drag reorder');
   // sequence (same pattern as the multi-select feature).
   assert('persistCustomerPhotoOrder uses writeBatch',
     /async function persistCustomerPhotoOrder\(\)[\s\S]{0,400}window\.writeBatch\(window\.db\)[\s\S]{0,400}batch\.update\(/.test(customer));
-  // ⚠️ KNOWN GAP, recorded in documentation/audit/BOOT-WEIGHT-2026-09-06.md.
-  // This used to assert "generatePhotoReport iterates photos sorted by
-  // nbdComparePhotos" — the comparator that honours the rep's drag-rearranged
-  // gallery order. It passed because readCustomer() concatenates
-  // customer-photo-report-generator.js, and `__reportPhotos` lived in that
-  // file's window.generatePhotoReport — which photo-report.js overwrote at load
-  // on customer.html. So the assertion guarded a renderer that never ran, and
-  // the drag order is NOT honoured in the report that actually ships:
-  // photo-report.js:92 sorts by createdAt only. The dead block is now deleted.
-  // This pins the real, current behaviour so the gap stays visible; flip it back
-  // to nbdComparePhotos when the ordering fix lands.
-  assert('KNOWN GAP: the live photo report sorts by createdAt, not the rep drag order',
-    /photos\.sort\(\([\s\S]{0,120}createdAt/.test(read(path.join(PRO_JS, 'photo-report.js'))),
-    'the drag-order comparator (nbdComparePhotos) is applied to the gallery but never to the report');
+  // GAP CLOSED 2026-09-06. History, because it is the instructive part: this
+  // originally asserted "generatePhotoReport iterates photos sorted by
+  // nbdComparePhotos" and PASSED — but only because readCustomer() concatenates
+  // customer-photo-report-generator.js, whose window.generatePhotoReport
+  // photo-report.js overwrote at load. It was guarding a renderer that never
+  // ran, while the report that actually shipped sorted by createdAt and threw
+  // away the rep's drag order. Deleting the dead code exposed that; the fix
+  // followed. photo-report.js now sorts with _comparePhotoReportOrder, whose
+  // behaviour is unit-tested in tests/smoke/photo-report-pairs.test.js against
+  // the real exported function rather than by grepping source.
+  assert('the live photo report honours the rep drag order',
+    /photos\.sort\(_comparePhotoReportOrder\)/.test(read(path.join(PRO_JS, 'photo-report.js'))),
+    'the report must sort by the persisted `order` field, not createdAt alone — otherwise the PDF disagrees with the gallery the rep arranged');
 }
 
 section('Customer photo multi-select + batched commit');

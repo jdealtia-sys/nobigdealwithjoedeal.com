@@ -30,6 +30,7 @@ const { ROOT } = require('./_shared');
 // `window._buildPhotoReportPairs = _buildPairs`. With `window: {}`
 // in the sandbox, the assignment lands there and we can grab it.
 let buildPairs;
+let compareOrder;
 let loadError;
 try {
   const src = fs.readFileSync(
@@ -40,6 +41,7 @@ try {
   vm.createContext(sandbox);
   vm.runInContext(src, sandbox, { filename: 'photo-report.js' });
   buildPairs = sandbox.window._buildPhotoReportPairs;
+    compareOrder = sandbox.window._comparePhotoReportOrder;
 } catch (e) {
   loadError = e;
 }
@@ -219,6 +221,58 @@ module.exports.run = function run(ctx) {
       const out = buildPairs([b, a]);
       assert('pair with missing URL is skipped',
         out.length === 0, 'expected pair to be skipped when after has no url');
+    }
+
+    // ── Drag order: the rep rearranges the gallery, the PDF must follow ──
+    // persistCustomerPhotoOrder (customer-bootstrap.module.js:1304) writes an
+    // integer `order` onto each photos doc. This report used to sort by
+    // createdAt alone, so the PDF came out in a different sequence from the
+    // gallery the rep had just arranged — while crm.test.js asserted the
+    // opposite, because it was reading a renderer that never ran.
+    assert('the display-order comparator is exported',
+      typeof compareOrder === 'function',
+      'window._comparePhotoReportOrder must be exposed for this contract');
+
+    if (typeof compareOrder === 'function') {
+      {
+        const a1 = { id: 'a', order: 2, createdAt: { seconds: 100 } };
+        const b1 = { id: 'b', order: 0, createdAt: { seconds: 300 } };
+        const c1 = { id: 'c', order: 1, createdAt: { seconds: 200 } };
+        const got1 = [a1, b1, c1].sort(compareOrder).map((x) => x.id);
+        assert('drag order wins over createdAt',
+          got1.join('') === 'bca',
+          'expected b,c,a by order; got ' + got1.join(','));
+      }
+
+      // Ordered photos sort ahead of un-ordered — matches nbdComparePhotos.
+      {
+        const dragged = { id: 'd', order: 5, createdAt: { seconds: 999 } };
+        const legacy = { id: 'l', createdAt: { seconds: 1 } };
+        const got2 = [legacy, dragged].sort(compareOrder).map((x) => x.id);
+        assert('a dragged photo sorts ahead of an un-dragged one',
+          got2.join('') === 'dl', 'got ' + got2.join(','));
+      }
+
+      // FALLBACK CONTRACT: photos with no `order` keep this report's historical
+      // createdAt ASCENDING. The gallery falls back to uploadedAt DESCENDING;
+      // adopting that here would silently re-order every existing report for
+      // leads nobody has dragged. If this flips, that regression has happened.
+      {
+        const older = { id: 'old', createdAt: { seconds: 100 } };
+        const newer = { id: 'new', createdAt: { seconds: 200 } };
+        const got3 = [newer, older].sort(compareOrder).map((x) => x.id);
+        assert('un-dragged photos keep createdAt ASCENDING (not the gallery fallback)',
+          got3.join(',') === 'old,new', 'got ' + got3.join(','));
+      }
+
+      // A non-numeric order must be treated as absent, never coerced to 0.
+      {
+        const weird = { id: 'w', order: null, createdAt: { seconds: 50 } };
+        const real = { id: 'r', order: 0, createdAt: { seconds: 900 } };
+        const got4 = [weird, real].sort(compareOrder).map((x) => x.id);
+        assert('order:null is treated as absent, not as 0',
+          got4.join(',') === 'r,w', 'got ' + got4.join(','));
+      }
     }
   }
 };

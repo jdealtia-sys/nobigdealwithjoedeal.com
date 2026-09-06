@@ -312,6 +312,7 @@ out to be guarding a behaviour the shipping renderer does not have:
    comparator that honours the rep's drag-rearranged gallery order. The live
    one sorts by `createdAt` only (`:92`). `crm.test.js:275` asserted the drag
    order *was* honoured — again against dead text.
+   → **FIXED later the same day — see §Drag order below.**
 
 Neither is fixed here: both change a customer-facing document and deserve
 their own change and proof. The assertions were **retargeted at the renderer
@@ -435,6 +436,52 @@ the refutation is why this is right: the naive swap would have shipped a race.
 The verifiers also found the leak inventory kept growing under them — the brief
 said five sites, they found ten, then sixteen. Treat any "complete list" here as
 a floor.
+
+## Drag order — the report disagreed with the gallery (2026-09-06)
+
+The second bug the dead code was masking. A rep drags photos into the sequence
+they want in the customer gallery; `persistCustomerPhotoOrder`
+(`customer-bootstrap.module.js:1304`) writes an integer `order` onto each
+`photos/{id}` doc, and the gallery renders by it via `nbdComparePhotos`. The
+**report ignored it entirely** and sorted by `createdAt`, so the PDF the
+homeowner received came out in a different sequence from the gallery the rep had
+just arranged. The `order` field was already on the objects — `photo-report.js:83`
+spreads the whole doc — merely unused.
+
+**The fix** is one comparator, `_comparePhotoReportOrder`, replacing the inline
+`createdAt` sort. It mirrors `nbdComparePhotos` on the part that matters —
+sort by `order` ascending, and a photo **with** an order sorts ahead of one
+without — and it feeds **both** render paths, because the sort happens in
+`generatePhotoReport` before the before/after split that
+`_tryServerRenderPhotoReport` consumes.
+
+**It deliberately diverges on the fallback**, and that is the load-bearing
+decision: the gallery falls back to `uploadedAt` **descending**; the report
+keeps its historical `createdAt` **ascending**. Adopting the gallery's fallback
+would have silently re-ordered *every existing report* for every lead nobody has
+ever dragged — a far larger change than the bug being fixed, and invisible until
+a customer noticed. There is an explicit unit test pinning that divergence so a
+future "let's just use nbdComparePhotos" doesn't quietly ship it.
+
+**Not touched:** the tier-pairing sorts at `:327`/`:329`. Those pick the
+earliest BEFORE and latest AFTER for untagged leads — semantic matching, not
+display order, and guarded by an existing unit test whose comment records a past
+mislabeling bug.
+
+**Testing changed shape here, on purpose.** The old assertion grepped the source
+for `nbdComparePhotos` and passed against dead code for however long that file
+had been overwritten. The comparator is now **exported** (`window._comparePhotoReportOrder`,
+the same pattern `_buildPhotoReportPairs` already used) and exercised
+behaviourally in `tests/smoke/photo-report-pairs.test.js` through the existing
+`vm` sandbox: drag order beats `createdAt`; a dragged photo sorts ahead of an
+un-dragged one; un-dragged photos keep `createdAt` ascending; `order: null` is
+treated as absent rather than coerced to `0`. `crm.test.js`'s KNOWN GAP
+assertion — written to be flipped — is flipped.
+
+**Verification.** smoke **3622 / 0** · node bucket 75/75 · all three gate classes
+proven able to fail first: revert to `createdAt`-only → 1 red; remove the
+comparator export → 1 red; flip the fallback to the gallery's descending order →
+1 red (`got new,old`).
 
 ## Follow-ups found, not done here
 
