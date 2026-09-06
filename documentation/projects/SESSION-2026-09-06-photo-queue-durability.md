@@ -240,7 +240,9 @@ Proven in real Chrome with `indexedDB.open` instrumented: empty queue on boot
 reload, slow path opens exactly once. The `null`-vs-`0` distinction is gated
 by two assertions in `photo-queue-durability.test.js` (now 36), and that gate
 was **proven able to fail**: collapsing `null` to `0` reddened exactly those
-two. Total eager cost of the two files is ~18 KB uncompressed, DOM-free at
+two. Total eager cost of the two files is 25,781 B uncompressed as merged
+(`photo-queue-store.js` 20,225 + `photo-queue-recovery.js` 5,556, LF blob
+sizes at `5a19dd92`; ~25.8 KiB on disk with CRLF), DOM-free at
 load, and on the common boot the work is one `localStorage.getItem`.
 
 ## Pre-merge adversarial review — and the seven defects it found in MY code
@@ -389,6 +391,25 @@ silently dropped.
 *Refuted:* "a permanently failing head item blocks the queue forever" — the
 `!blob || !item.leadId` branch drops undecodable items, and with #2/#3 fixed
 no deterministic failure can be enqueued in the first place.
+
+### Correction — the eager-cost figure, and how I got it wrong twice
+
+The "~18 KB" above was originally quoted from commit `87713ea0`, the FIRST of
+this PR's four commits. Two later commits grew both files (the boot fast path,
+then the review fixes), so the merged cost is **25,781 B**, not 18 KB.
+
+Worse, I used those stale numbers to tell the boot-weight session that *their*
+figures (14,425 + 5,252) were out of date. They were not: those were exactly
+right for `e7f5b666`, the tip when they measured. Mine were from an earlier
+commit still, presented as "as merged". The direction of my correction was
+right — the review pass really did change both files — but the replacement
+numbers were older than the ones I was correcting.
+
+The lesson is narrow and worth keeping: **a size taken from the working tree
+mid-PR is not the size that ships.** Measure a merged artefact from the merge
+commit's blob (`git cat-file -s <sha>:<path>`), never from a `wc -c` taken
+earlier in the session. Blob sizes are LF; the working copy is CRLF here and
+runs ~1 byte per line larger, so say which you mean.
 
 ## Left undone, deliberately
 
