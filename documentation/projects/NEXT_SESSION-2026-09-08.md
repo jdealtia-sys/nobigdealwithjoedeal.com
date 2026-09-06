@@ -29,15 +29,20 @@ funnel measures the roof), **#1425** (Turnstile wired).
 |---|---|
 | Instant Roofer adapter, rep-facing | **LIVE, verified on the deployed revisions** — `requestMeasurement` and `measurementWebhook` carry `INSTANTROOFER_API_KEY` / `INSTANTROOFER_WEBHOOK_SECRET` |
 | Human-report webhook | Configured in their dashboard (PDF format, 10 payload fields, bearer token); secret set and verified 43 chars |
-| Automated web-lead measurement | Merged. **Binding needs confirming** — see §2 |
-| Turnstile site key | Merged. **Deploy was cancelled by a concurrent merge** — see §2 |
+| Automated web-lead measurement | **LIVE and verified** — deploy 34049215929 succeeded and `measureNewWebLead` carries `INSTANTROOFER_API_KEY` on the deployed revision |
+| Turnstile site key | **LIVE and verified** by curl against the real URL, despite its own deploy being cancelled — see §2 |
 | `TURNSTILE_SECRET` | **Deliberately NOT set.** Step 4 of 4, gated on the Sunday report |
 
-## §2 — Verify these two things first
+## §2 — Both "is it actually running?" checks came back CLEAN
 
-Both are the same failure shape: merged code that looks fine and does nothing.
+Both were the same failure shape — merged code that looks fine and does
+nothing — and both were verified before this handoff was written. Kept here as
+the recipe, because it is the check this repo keeps needing.
 
-**(a) `measureNewWebLead` must carry `INSTANTROOFER_API_KEY`.**
+**(a) ~~`measureNewWebLead` must carry `INSTANTROOFER_API_KEY`.~~ CONFIRMED.**
+Deploy 34049215929 completed successfully and the deployed revision carries the
+key. `publicRoofMeasure` shows no secrets, which is **correct** — it is
+read-only and declares none by design.
 
 ```bash
 gcloud functions describe measureNewWebLead --region us-central1 \
@@ -45,8 +50,8 @@ gcloud functions describe measureNewWebLead --region us-central1 \
   --format="value(serviceConfig.secretEnvironmentVariables)"
 ```
 
-If the key is absent, `hasSecret()` reads an unbound `process.env`, the adapter
-returns `notConfigured`, and **every public estimate lead silently goes
+If the key were ever absent, `hasSecret()` reads an unbound `process.env`, the
+adapter returns `notConfigured`, and **every public estimate lead silently goes
 unmeasured while the logs say "not configured" forever.** Fix: re-run the
 deploy workflow (`scope=functions`).
 
@@ -124,7 +129,8 @@ tidying when someone is next in that file.
   digits-only shape is the pattern that file can actually support.
 - **A green deploy is not a bound secret, and a merged file is not a served
   file.** Both were checked against the deployed revision and the live URL this
-  session; both are worth checking again (§2).
+  session and both came back clean (§2) — but only because they were checked.
+  Two of this session's deploys were cancelled mid-queue by concurrent merges.
 - **The measurement lane had been dark since April** — all three legacy
   provider keys were the deploy's `__unset__` stub, created 2026-04-14 within
   three seconds of each other. `GOOGLE_GEOCODING_API_KEY`, `REGRID_API_TOKEN`
