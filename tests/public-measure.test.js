@@ -99,6 +99,14 @@ section('spend guards');
   ok('...using the canonical helper, not a hand-rolled fork', /require\('\.\.\/rate-limit'\)/.test(src));
 }
 
+section('an automatically measured web lead is billable like any other');
+{
+  ok('the web-lead measurement doc is pass-through eligible',
+    /passThruEligible: true,/.test(src) && !/passThruEligible: false/.test(src));
+  ok('...but carries no document, so the quote line reads as a service performed',
+    /passThruHasDocument: false/.test(src));
+}
+
 section('publicSummary — only homeowner-safe fields cross the line');
 if (PM && PM._test) {
   const full = {

@@ -1419,7 +1419,7 @@
   }
 
   // meta (optional) is the measurements doc / callable response: provider,
-  // reportType, passThruEligible, coordPrecision, cached.
+  // reportType, passThruEligible, passThruHasDocument, coordPrecision, cached.
   function applyMeasurementResult(m, meta) {
     meta = meta || {};
     // Each vendor uses slightly different field names — normalize.
@@ -1448,15 +1448,20 @@
     }
     state.measurements = Object.assign({}, state.measurements, next);
 
-    // Margin opportunity: auto-add a pass-through line for a vendor
-    // measurement DOCUMENT (a HOVER/EagleView PDF, an Instant Roofer Human
-    // Certified Report), billed to the homeowner at retail on the quote. An
-    // Instant Roofer AI measure is an internal cost with no document the
-    // customer receives, so the server marks it passThruEligible:false and
-    // no line is added. Price configurable via
-    // window.NBD_MEASUREMENT_PASSTHRU_PRICE; default $75. Skip if a
-    // pass-through for this job already exists (idempotent on retry — matched
-    // by code as well, because rehydrateFromSaved resets `source`).
+    // Margin opportunity: auto-add a pass-through line for the aerial
+    // measurement, billed to the homeowner at retail on the quote. Price
+    // configurable via window.NBD_MEASUREMENT_PASSTHRU_PRICE; default $75.
+    //
+    // THE WORDING IS NOT COSMETIC. A HOVER/EagleView PDF or an Instant Roofer
+    // Human Certified Report is a document the homeowner can be sent, so
+    // "Aerial measurement report" is a true description of what they bought.
+    // An Instant Roofer AI measure produces NO document — billing it as a
+    // "report" would put a line on an invoice for something that does not
+    // exist and cannot be produced if they ask for it. Same price, honest
+    // description: the measurement is work performed either way.
+    //
+    // Skip if a pass-through for this job already exists (idempotent on retry
+    // — matched by code as well, because rehydrateFromSaved resets `source`).
     const passThruPrice = Number(window.NBD_MEASUREMENT_PASSTHRU_PRICE) || 75;
     if (passThruPrice > 0 && meta.passThruEligible !== false) {
       const alreadyAdded = (state.passThru || []).some(p => p.source === 'measurement' || p.code === 'SVC MEASURE-RPT');
@@ -1464,7 +1469,9 @@
         state.passThru = state.passThru || [];
         state.passThru.push({
           code:   'SVC MEASURE-RPT',
-          desc:   'Aerial measurement report',
+          desc:   meta.passThruHasDocument === false
+            ? 'Aerial roof measurement'
+            : 'Aerial measurement report',
           amount: passThruPrice,
           source: 'measurement'
         });

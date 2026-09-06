@@ -147,7 +147,10 @@ async function measureLeadAndPublish(db, { leadId, lead, deps }) {
     coordSource: 'lead', coordPrecision: 'geocoded',
     source: 'web-lead',
     ...(reusedFrom ? { reusedFrom, billed: false } : {}),
-    passThruEligible: false,
+    // Billable like any other measurement (Jo, 2026-09-06); no document, so
+    // the line reads as a service performed rather than a report.
+    passThruEligible: true,
+    passThruHasDocument: false,
     measurements,
     createdAt: FieldValue.serverTimestamp(),
     measuredAt: reusedFrom ? (prior.data.measuredAt || prior.data.createdAt || null) : FieldValue.serverTimestamp()

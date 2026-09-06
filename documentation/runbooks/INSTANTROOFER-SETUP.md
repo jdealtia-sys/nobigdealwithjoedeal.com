@@ -179,12 +179,37 @@ still land on the neighbour's roof. The lead records `coordSource` /
 
 | Call | Vendor price (2026-09-06) | Our guard |
 |---|---|---|
-| AI measure | $3 (0–199/mo), $2 (200–999), $1 (1,000+); 10 free credits first | 20/hr per uid; **5/min account meter** (their published limit); **90-day reuse** — a ready measurement under the same 5-decimal coordinate key, same tenant, is *copied* into a new doc for the caller (`reusedFrom`, `billed:false`) instead of re-billed; `passThruEligible:false`, so no $75 line is added to the customer quote for an internal AI cost |
-| Human Certified Report | $10 on completion; 1 free credit first | refused without the webhook secret; vendor 409s a duplicate for the same coordinates inside their window; pass-through eligible (a document the homeowner receives) |
+| AI measure | $3 (0–199/mo), $2 (200–999), $1 (1,000+); 10 free credits first | 20/hr per uid; **5/min account meter** (their published limit); **90-day reuse** — a ready measurement under the same 5-decimal coordinate key, same tenant, is *copied* into a new doc for the caller (`reusedFrom`, `billed:false`) instead of re-billed. **Billed through to the homeowner at $75** like any other measurement (Jo, 2026-09-06) |
+| Human Certified Report | $10 on completion; 1 free credit first | refused without the webhook secret; vendor 409s a duplicate for the same coordinates inside their window; pass-through eligible |
 | 404 "roof not found" / 422 "too large or irregular" | unknown whether billed — **check Billing after the first one** | the error message tells the rep to put the pin on the building |
 
 Weekly invoice every Sunday against the card on file; the Billing page
 shows the tier counters live.
+
+## The $75 pass-through line — and why its wording is load-bearing
+
+Every measurement adds a `SVC MEASURE-RPT` pass-through line to the quote at
+`window.NBD_MEASUREMENT_PASSTHRU_PRICE` (default $75). Changed 2026-09-06 at
+Jo's direction: AI measures used to be excluded on the reasoning that a $3
+internal cost with no deliverable should not be billed. They are billed now —
+the measurement is work performed for the customer whether or not paper
+changes hands.
+
+**What did NOT change is that the line must describe what the customer
+actually gets.** The server sets `passThruHasDocument` and the V2 builder picks
+the wording from it:
+
+| Source | `passThruHasDocument` | Line reads |
+|---|---|---|
+| HOVER / EagleView PDF, Instant Roofer **Human Certified Report** | `true` | **Aerial measurement report** |
+| Instant Roofer **AI measure** (incl. a 90-day reuse copy, and web-lead auto-measures) | `false` | **Aerial roof measurement** |
+
+The distinction is not cosmetic. An AI measure produces no document; billing it
+as a *report* would put a line on an invoice for something that does not exist
+and cannot be produced if the homeowner asks to see it. Same price, honest
+description. If someone later "tidies" the two strings into one, that is the
+thing they have broken — `tests/instantroofer-measurement.test.js` pins both
+the wording and the reasoning comment.
 
 ## What the numbers mean (do not double-apply waste)
 
