@@ -1211,6 +1211,16 @@
         // in that window (dashboard-sw-bootstrap.js reloads on every one)
         // destroyed it. Writing to IndexedDB first costs milliseconds and
         // makes the retry budget irrelevant.
+        // The photo's identity, fixed here and never recomputed. It is
+        // persisted with the row AND used for this first attempt, so the
+        // attempt and every later retry address the same Storage objects and
+        // the same Firestore document.
+        const shot = {
+          uploadId: generateId(),
+          capturedAt: Date.now(),
+          preset: state.currentPreset
+        };
+
         let outcome = null;
         try {
           outcome = await enqueueForRetry({
@@ -1220,7 +1230,9 @@
             tags: selectedTags,
             description,
             location,
-            timestamp: Date.now()
+            timestamp: shot.capturedAt,
+            uploadId: shot.uploadId,
+            preset: shot.preset
           });
         } catch (queueErr) {
           console.warn('[PhotoEngine] enqueue threw:', queueErr && queueErr.message);
@@ -1238,7 +1250,7 @@
         // recovery) cannot upload the same row while this attempt is live.
         if (entry) _inFlight.add(_inFlightKey(entry));
 
-        const attempt = uploadPhotoToFirebase(blob, leadId, selectedTags, description, location)
+        const attempt = uploadPhotoToFirebase(blob, leadId, selectedTags, description, location, shot)
           .then(async () => { if (entry) await _dropItem(entry); return true; })
           .catch((e) => {
             // Leave it queued for the drain; just release the claim.
@@ -1405,6 +1417,18 @@
   }
 
   /**
+   * A stable upload identity for a row queued before `uploadId` was stored.
+   * Must be unique across devices AND users, because it becomes a Firestore
+   * document id — a bare autoIncrement row id would collide between reps on
+   * the first photo each ever queued.
+   */
+  function _legacyUploadId(item) {
+    if (!item || item.id == null) return null;   // memory-only: no stable id
+    const uid = item.uid || _currentUid() || 'anon';
+    return 'q_' + uid + '_' + item.id + '_' + (item.timestamp || 0);
+  }
+
+  /**
    * Put a photo somewhere it can be retried from, preferring durable
    * storage. Returns what actually happened, so the caller's toast describes
    * reality, plus the queue `entry` so the caller can mark it in flight and
@@ -1430,7 +1454,9 @@
           tags: item.tags || [],
           description: item.description || '',
           location: item.location || '',
-          timestamp: item.timestamp
+          timestamp: item.timestamp,
+          uploadId: item.uploadId || null,
+          preset: item.preset || null
         };
         state.uploadQueue.push(entry);
         return { durable: true, queued: true, entry };
@@ -1464,7 +1490,9 @@
       tags: item.tags || [],
       description: item.description || '',
       location: item.location || '',
-      timestamp: item.timestamp
+      timestamp: item.timestamp,
+      uploadId: item.uploadId || null,
+      preset: item.preset || null
     };
     state.uploadQueue.push(entry);
     return { durable: false, queued: true, entry };
@@ -1554,7 +1582,16 @@
         if (!blob || !item.leadId) { await _dropItem(item); continue; }
 
         try {
-          await uploadPhotoToFirebase(blob, item.leadId, item.tags || [], item.description || '', item.location || '');
+          await uploadPhotoToFirebase(blob, item.leadId, item.tags || [], item.description || '', item.location || '', {
+            // A legacy row queued before this field existed has no uploadId.
+            // Derive a stable one from uid + row id + capture time rather than
+            // minting a fresh one per retry: unique across devices and users
+            // (a bare row id would collide as a Firestore doc id), and the
+            // same on every attempt at that row.
+            uploadId: item.uploadId || _legacyUploadId(item),
+            capturedAt: item.timestamp,
+            preset: item.preset
+          });
           await _dropItem(item);
           sent++;
         } catch (e) {
@@ -1624,7 +1661,48 @@
     return null;
   }
 
-  async function uploadPhotoToFirebase(blob, leadId, tags, description, location) {
+  /**
+   * @param opts {uploadId, capturedAt, preset} — the photo's IDENTITY, pinned
+   * when it was taken. Omit for a one-shot upload that is never retried.
+   *
+   * WHY IT EXISTS: this function is not atomic. It commits the ~1.5MB Storage
+   * object, then does four more failable things (thumbnail generate + upload,
+   * two getDownloadURL, setDoc), and nothing leaves the queue until the LAST
+   * one resolves. Both the Storage filenames and the Firestore doc id used to
+   * be minted INSIDE the function — `Date.now()` and `generateId()` — so every
+   * retry wrote to a brand-new path under a brand-new doc id.
+   *
+   * On flaky LTE, where the big PUT gets through and the thumbnail times out,
+   * that is the ordinary case: each retry left another full-size orphan in the
+   * bucket that nothing reaps, and a reload after a successful setDoc could
+   * leave a visible duplicate in the gallery. Pinning the identity at capture
+   * makes the whole sequence idempotent — a retry overwrites the same two
+   * objects and setDoc()s the same document.
+   */
+  /**
+   * Everything about an upload that must be IDENTICAL on every attempt,
+   * derived in one pure place so it can be exercised for real by a test.
+   * (It lived inline inside uploadPhotoToFirebase, where the only way to test
+   * it was a regex over the source — and a regex cannot tell you that a retry
+   * lands on the same Storage object.)
+   */
+  function _uploadIdentity(uid, leadId, opts) {
+    const o = opts || {};
+    const uploadId = o.uploadId || generateId();
+    const preset = o.preset || state.currentPreset;
+    return {
+      uploadId,
+      preset,
+      capturedAt: typeof o.capturedAt === 'number' ? o.capturedAt : Date.now(),
+      // The doc id IS the idempotency key: a retry setDoc()s the same document
+      // instead of creating a second gallery entry for one photo.
+      photoId: uploadId,
+      photoPath: `photos/${uid}/${leadId}/${uploadId}_${preset}.jpg`,
+      thumbPath: `photos/${uid}/${leadId}/thumbs/${uploadId}_thumb.jpg`
+    };
+  }
+
+  async function uploadPhotoToFirebase(blob, leadId, tags, description, location, opts) {
     const preflight = _uploadPreflightError(leadId);
     if (preflight) {
       throw preflight;
@@ -1633,14 +1711,15 @@
     const { ref, uploadBytes, getDownloadURL } = await import(
       'https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js'
     );
-    const { doc, setDoc, serverTimestamp } = await import(
+    const { doc, setDoc, updateDoc, getDoc, serverTimestamp } = await import(
       'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js'
     );
 
     const uid = window._user.uid;
-    const timestamp = Date.now();
-    const filename = `${timestamp}_${state.currentPreset}.jpg`;
-    const photoPath = `photos/${uid}/${leadId}/${filename}`;
+    // Every value here must be STABLE across retries of the same photo, so it
+    // comes from one pure derivation the tests can run directly.
+    const ident = _uploadIdentity(uid, leadId, opts);
+    const { uploadId, capturedAt, preset, photoPath, thumbPath } = ident;
 
     try {
       // Upload main photo
@@ -1650,7 +1729,6 @@
 
       // Generate and upload thumbnail
       const thumbBlob = await generateThumbnail(blob);
-      const thumbPath = `photos/${uid}/${leadId}/thumbs/${timestamp}_thumb.jpg`;
       const thumbRef = ref(window._storage, thumbPath);
       await uploadBytes(thumbRef, thumbBlob);
       const thumbUrl = await getDownloadURL(thumbRef);
@@ -1671,7 +1749,9 @@
       else if (_tagList.includes('during')) phase = 'During';
 
       // Store metadata in Firestore
-      const photoId = generateId();
+      // The doc id IS the idempotency key: a retry setDoc()s the same
+      // document instead of creating a second gallery entry for one photo.
+      const photoId = ident.photoId;
       const photoData = {
         id: photoId,
         leadId,
@@ -1697,7 +1777,7 @@
         phase,
         description,
         location,
-        quality: state.currentPreset,
+        quality: preset,
         width: blob.size > 0 ? 'auto' : 0,
         height: 'auto',
         fileSize: blob.size,
@@ -1709,14 +1789,53 @@
         // no longer the ordering authority. See firestore.indexes.json
         // (photos [userId, createdAt] / [leadId, userId, createdAt]).
         createdAt: serverTimestamp(),
-        capturedAt: timestamp,
+        capturedAt,
         uploadedAt: serverTimestamp(),
         reportSections: [],
         geoLocation: null
       };
 
+      // A stable doc id makes the retry idempotent — but it also means the
+      // retry now lands on the SAME document, and an unmerged setDoc would
+      // RESET it to capture-time state. Where the old code left a duplicate,
+      // this would silently discard everything written after the first
+      // successful upload: the rep's own edits to tags/phase/description via
+      // updatePhotoTags, `reportSections`, and (depending on ordering) the
+      // urls/variantsGeneratedAt the Storage finalize trigger stamps.
+      //
+      // `{ merge: true }` is NOT sufficient: photoData carries capture-time
+      // tags/phase/description plus `reportSections: []`, so a merged write
+      // still overwrites rep edits and blanks the sections.
+      //
+      // So: create once, and on any later attempt repair only what a
+      // re-upload can legitimately have changed — the download URLs, whose
+      // tokens are re-minted by overwriting the Storage objects.
       const photoDocRef = doc(window._db, 'photos', photoId);
-      await setDoc(photoDocRef, photoData);
+      const repair = {
+        url: photoUrl,
+        thumbUrl,
+        storagePath: photoPath,
+        thumbStoragePath: thumbPath,
+        fileSize: blob.size
+      };
+      let createdDoc = false;
+      const snap = await getDoc(photoDocRef).catch(() => null);
+      if (snap && snap.exists()) {
+        await updateDoc(photoDocRef, repair);
+      } else if (snap) {
+        await setDoc(photoDocRef, photoData);
+        createdDoc = true;
+      } else {
+        // The read failed, so we cannot tell. Repair first — an unknown state
+        // must never clobber rep edits — and create only if the document
+        // genuinely is not there.
+        try {
+          await updateDoc(photoDocRef, repair);
+        } catch (_) {
+          await setDoc(photoDocRef, photoData);
+          createdDoc = true;
+        }
+      }
 
       // Clear cache for this lead
       delete state.photoCache[leadId];
@@ -1755,9 +1874,15 @@
       // functions/photo-vision.js). The lead-cost meter caps spend per
       // lead + per user/month, so over-triggering is gated server-side.
       // Failure is silent — manual tagging still works.
-      try {
-        _autoTagPhotoBackground(photoId);
-      } catch (e) { /* never let auto-tag break the upload flow */ }
+      // Only on CREATE. A retry lands on a doc that has already been analysed,
+      // so re-firing would re-spend the per-lead AI budget on a photo that is
+      // already tagged — and the vision cache cannot absorb it, because it is
+      // keyed on the image URL and the overwrite mints a new token.
+      if (createdDoc) {
+        try {
+          _autoTagPhotoBackground(photoId);
+        } catch (e) { /* never let auto-tag break the upload flow */ }
+      }
 
       return photoData;
     } catch (err) {

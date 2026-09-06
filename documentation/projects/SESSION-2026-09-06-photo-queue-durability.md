@@ -847,3 +847,83 @@ hiding every block below it; it now returns a reason rather than throwing.
 **Gates:** durability 74 → 85, offline-queue 51 → 54, loss-witness 40 → 43; all
 four regressions proven to redden the named assertions. `node` bucket 75/75,
 smoke 3607/0, `crm-audit` 0 errors, site-integrity clean.
+
+## Update, 2026-09-06 (final) — uploads are idempotent
+
+The last open item from the hunt. `uploadPhotoToFirebase` commits the ~1.5MB
+Storage object, then does four more failable things (thumbnail generate +
+upload, two `getDownloadURL`, `setDoc`), and nothing leaves the queue until the
+last one resolves. Both the Storage filenames and the Firestore doc id were
+minted **inside** the function — `Date.now()` and `generateId()` — so every
+retry wrote a new path under a new doc id. On flaky LTE, where the big PUT gets
+through and the thumbnail times out, that is the ordinary case: an unreaped
+full-size orphan per attempt, and a visible duplicate if a reload landed after
+`setDoc`.
+
+The photo's identity is now pinned at capture and threaded through: a pure
+`_uploadIdentity(uid, leadId, opts)` derives
+`{uploadId, capturedAt, preset, photoId, photoPath, thumbPath}`; the capture
+flow generates it once and passes it to both `enqueueForRetry` and the first
+attempt; the store persists `uploadId` + `preset` on the row; the drain passes
+them back. A retry overwrites the same two objects and writes the same document.
+
+`capturedAt` and `preset` are pinned for the same reason plus a second one: a
+photo queued Monday and drained Wednesday was being stamped Wednesday, at
+whatever quality preset the rep had selected by then.
+
+Rows queued before the field existed get `_legacyUploadId()` —
+`q_<uid>_<rowid>_<timestamp>`. It is uid-scoped deliberately: a bare
+autoIncrement row id would collide between two reps' first queued photo, and
+this value becomes a Firestore document id.
+
+### The review caught a regression the fix itself introduced
+
+A stable doc id means a retry now lands on the **same** document — and the
+write was still an unmerged `setDoc` built from capture-time data. Where the
+old code left a duplicate, the new code would **reset the surviving document to
+its capture-time state**, discarding everything written since the first
+successful upload: the rep's own edits to tags/phase/description via
+`updatePhotoTags`, `reportSections`, and — depending on ordering against the
+Storage finalize trigger — `urls`/`variantsGeneratedAt`.
+
+`{ merge: true }` would not have fixed it: `photoData` carries capture-time
+tags/phase/description plus `reportSections: []`, so a merged write still
+overwrites rep edits and blanks the sections. So the write is now create-once,
+and a later attempt repairs only what a re-upload can legitimately change (the
+download URLs, whose tokens are re-minted by the overwrite). When the existence
+read itself fails, it repairs first and creates only if the document really is
+absent — an unknown state must never clobber rep edits. `_autoTagPhotoBackground`
+now fires on create only, so a retry cannot re-spend the per-lead AI budget on a
+photo that is already tagged.
+
+### And a test hole, for the third time this session
+
+The first version of these idempotency tests passed while the real code minted
+a fresh id per attempt, because the harness **stubs the uploader** — the
+assertions were checking what the drain *passed*, not what
+`uploadPhotoToFirebase` *used*. Extracting the pure `_uploadIdentity` and
+running it for real fixed half of it. The review then proved the other half
+empirically: inline the path construction back into the caller and all 70
+assertions stayed green, because the derivation tests run the pure function in
+isolation and the drain tests stub the uploader. **Nothing watched the seam.**
+
+There is now a `wiring:` block that does: the caller must call
+`_uploadIdentity(uid, leadId, opts)`, must not contain `generateId()`, must not
+build a `photos/…` path inline, must not re-read the clock, must pass the
+derived paths to both `ref()` calls, must use the derived doc id, must not
+blind-`setDoc`, and must gate auto-tag on create. Proven by replaying the
+review's own mutation: inlining the paths back now reddens three assertions.
+
+**Gates:** offline-queue 54 → **79**, durability 97 → **100**, loss-witness 56.
+Eight regressions proven to redden their named assertions across the two break
+harnesses. `node` 75/75, smoke 3614/0, `crm-audit` 0 errors.
+
+### The through-line of this whole session
+
+Three separate defects, all the same shape: **a test that models a milder world
+than the one the code runs in.** #1422 (the fixture cleared IndexedDB but left
+localStorage, so a full wipe was invisible), the hunt's own weak assertions (a
+store that had already opened successfully could not exercise the open latch),
+and this one (a stubbed uploader cannot see what the real uploader does). Each
+was found only by *breaking the code and checking which named assertions went
+red* — not by watching a suite go green, and not even by watching it go red.
