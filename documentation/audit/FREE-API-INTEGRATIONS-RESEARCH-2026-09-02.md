@@ -47,6 +47,19 @@ server-side calls need no CSP change. Scale: hundreds of calls/day.
 > runbook at `documentation/runbooks/HEALTHCHECKS-SETUP.md`). Session record:
 > [SESSION-2026-09-05-free-api-wave1](../projects/SESSION-2026-09-05-free-api-wave1.md).
 > Next: the wave-2 "Connections" list below, in the order it stands.
+>
+> **UPDATE 2026-09-06 — the measurement row is superseded.** The cost-reducer
+> line "Hover/EagleView/Nearmap → Google Solar Building Insights" assumed the
+> trio was a cost to reduce; none of the three was ever configured (all three
+> keys are the 2026-04-14 deploy stub — see
+> [SESSION-2026-09-06-instantroofer-adapter](../projects/SESSION-2026-09-06-instantroofer-adapter.md)).
+> Jo chose **Instant Roofer's measurement API** instead ($3/address AI
+> measure, synchronous, from coordinates; $10 human-certified report by
+> webhook) — it is now the default provider in `measurement.js`, runbook
+> [INSTANTROOFER-SETUP](../runbooks/INSTANTROOFER-SETUP.md). Solar's
+> ground-projected-area trap is moot for it: Instant Roofer returns
+> `sqft.measured` with pitch already applied. Solar stays a candidate only
+> for a free pitch/area *sanity check*, not as the provider.
 
 ## TL;DR — wave 1 (one evening, five PRs)
 

@@ -47,7 +47,7 @@ If you add a new export, list it here so the next audit doesn't have to re-deriv
 | `getDocumentHtml` | onCall | Reads a generated document's HTML back for the Documents tab (owner/manager/admin, admin-SDK read of `htmlPath`). Replaces the permanent `getDownloadURL` that docgen used to persist as `documents/{id}.htmlUrl` — an unrevocable no-auth URL for a signed contract. A signed URL is NOT the alternative: HTML fetched from `storage.googleapis.com` executes in that origin, which is why `signImageUrl` excludes every HTML prefix (its H-01 note) |
 | `trackUsage` | onCall | Plan-usage increment (atomic, server-side) |
 | `lookupParcel` | onCall | Parcel lookup w/ 90-day cache — Regrid (default) or Swath per `NBD_PARCEL_PROVIDER`, other provider is the fallback |
-| `requestMeasurement` | onCall | Hover / EagleView / Nearmap measurement request |
+| `requestMeasurement` | onCall | Roof measurement request — Instant Roofer (default: coordinates-in AI measure, synchronous; or `reportType:'human'` for the ~1 h certified report) / Hover / EagleView / Nearmap per `NBD_MEASUREMENT_PROVIDER` |
 | `sendEstimateForSignature` | onCall | BoldSign embedded-signing flow (was listed here as `sendForSignature` — actual export name is `sendEstimateForSignature`) |
 | `getHailHistory` | onCall | Storm history within radius — NOAA (default) / HailTrace / Swath per `NBD_HAIL_PROVIDER`, NOAA fallback (routes through shared `lookupHail`) |
 | `getSwathReport` | onCall | Swath per-property exposure report — quote-first (`confirm:true` required to spend credits), **admin/company_admin gate in-body**, 30-day Firestore cache (integrations/swath.js) |
@@ -80,7 +80,7 @@ If you add a new export, list it here so the next audit doesn't have to re-deriv
 | `stripeWebhook` | onRequest | Stripe signature verification + idempotency via `stripe_events/{eventId}` |
 | `invoiceWebhook` | onRequest | Stripe signature verification (payment_intent.succeeded credit; phase-3 dispute auto-reversal + refund/decline visibility) |
 | `esignWebhook` | onRequest | BoldSign webhook-secret verification |
-| `measurementWebhook` | onRequest | Hover/EagleView webhook-secret verification |
+| `measurementWebhook` | onRequest | Hover/EagleView HMAC + Instant Roofer bearer-token verification; human-report file URLs land here |
 | `calcomWebhook` | onRequest | Cal.com HMAC verification |
 | `swathWebhook` | onRequest | Swath `storm.verified` alerts — Stripe-style HMAC (`t=…,v1=…`, ±300s replay window, fails closed when secret unset), idempotent `storm_events/{id}` ingest + Slack ping |
 | `thumbtackWebhook` | onRequest | Thumbtack shared-token verification (Custom Header; Thumbtack offers no HMAC signing) — fails closed when `THUMBTACK_WEBHOOK_SECRET` is unset, constant-time compare, 256 KB body cap, idempotent via Thumbtack's event id |

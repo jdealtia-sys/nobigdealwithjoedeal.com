@@ -1,7 +1,7 @@
 /**
  * integrations-client.js — thin client wrappers around the server
  * callable functions. Exposes window.NBDIntegrations so any view can
- * trigger a HOVER measurement, send an estimate for signature, look
+ * trigger a roof measurement (Instant Roofer by default), send an estimate for signature, look
  * up a parcel, or pull hail history.
  *
  * Every call:
@@ -93,15 +93,27 @@
     return true;
   }
 
-  async function requestMeasurement({ address, leadId }) {
+  // lat/lng are optional — pass them when the caller already has the roof's
+  // point (a lead's stored coords, a D2D knock pin); the server otherwise
+  // resolves the address itself. reportType 'human' orders the ~1 h Human
+  // Certified Report instead of the instant AI measure.
+  async function requestMeasurement({ address, leadId, lat, lng, reportType }) {
     await status();
-    const chosen = state.status?.providers?.measurement || 'hover';
+    const chosen = state.status?.providers?.measurement || 'instantroofer';
     if (!requireConfigured(chosen, 'Roof measurement')) return { ok: false };
     try {
       const fn = await callable('requestMeasurement');
-      const res = await fn({ address, leadId: leadId || null });
-      toast('Measurement requested — ready in ~' + (res.data.estimatedMinutes || 30) + ' minutes', 'success');
-      return { ok: true, ...res.data };
+      const payload = { address, leadId: leadId || null };
+      if (typeof lat === 'number' && typeof lng === 'number' && isFinite(lat) && isFinite(lng)) {
+        payload.lat = lat; payload.lng = lng;
+      }
+      if (reportType === 'human') payload.reportType = 'human';
+      const res = await fn(payload);
+      const d = (res && res.data) || {};
+      toast(d.status === 'ready'
+        ? (d.cached ? 'Measurement loaded from a recent report — no new charge' : 'Measurement ready')
+        : 'Measurement requested — ready in ~' + (d.estimatedMinutes || 30) + ' minutes', 'success');
+      return { ok: true, ...d };
     } catch (e) {
       toast(e.message || 'Measurement request failed', 'error');
       return { ok: false, error: e.message };

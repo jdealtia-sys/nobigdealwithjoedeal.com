@@ -1296,7 +1296,10 @@
         window._httpsCallable = window._httpsCallable || mod.httpsCallable;
       }
       const fn = window._httpsCallable(window._functions, 'requestMeasurement');
-      const res = await fn({ address: knock.address });
+      // The knock pin IS the roof point — send it so the server never has to
+      // geocode the address (Instant Roofer measures from coordinates).
+      const hasPin = typeof knock.lat === 'number' && typeof knock.lng === 'number' && isFinite(knock.lat) && isFinite(knock.lng);
+      const res = await fn(hasPin ? { address: knock.address, lat: knock.lat, lng: knock.lng } : { address: knock.address });
       const d = (res && res.data) || {};
       if (!d.jobId) throw new Error('no-job');
       try { localStorage.setItem(key, d.jobId); } catch (_) {}

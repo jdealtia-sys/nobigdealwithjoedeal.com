@@ -100,6 +100,26 @@ The web `apiKey: "AIzaSy..."` embedded in every HTML page is NOT a secret — it
 
 ---
 
+## 9. Instant Roofer (roof measurements)
+
+Two secrets, both set by Jo from the API dashboard
+(api-dashboard.instantroofer.com — the *API* account, not the contractor
+bundle). Full procedure: [INSTANTROOFER-SETUP](INSTANTROOFER-SETUP.md).
+
+```bash
+# API Key page → regenerate → copy → paste at the prompt
+firebase functions:secrets:set INSTANTROOFER_API_KEY --project nobigdeal-pro
+# Webhook Delivery → PDF webhook → generate token → copy → paste at the prompt
+firebase functions:secrets:set INSTANTROOFER_WEBHOOK_SECRET --project nobigdeal-pro
+```
+
+Rotating the API key invalidates the old one immediately on their side;
+rotating the webhook token needs the same value saved in their Webhook
+Delivery form or every human-report delivery 401s (and dies after their
+retry schedule). **Either secret binds only on the next functions deploy** —
+trigger one (`scope=functions`) and confirm via the admin readout
+(`configured.instantroofer` / `configured.instantrooferWebhook`).
+
 ## After rotation
 
 - Run `firebase deploy --only functions,firestore:rules,storage,hosting`.

@@ -88,6 +88,11 @@ exports.integrationStatus = onCall(
         eagleview:          _hasInt('EAGLEVIEW_API_KEY'),
         eagleviewWebhook:   _hasInt('EAGLEVIEW_WEBHOOK_SECRET'),
         nearmap:            _hasInt('NEARMAP_API_KEY'),
+        // Instant Roofer — coordinates-in AI measure (the default provider) and
+        // the bearer token its human-report webhook presents
+        // (integrations/measurement.js; runbooks/INSTANTROOFER-SETUP.md).
+        instantroofer:      _hasInt('INSTANTROOFER_API_KEY'),
+        instantrooferWebhook: _hasInt('INSTANTROOFER_WEBHOOK_SECRET'),
         boldsign:           _hasInt('BOLDSIGN_API_KEY'),
         boldsignWebhook:    _hasInt('BOLDSIGN_WEBHOOK_SECRET'),
         regrid:             _hasInt('REGRID_API_TOKEN'),

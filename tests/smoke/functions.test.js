@@ -587,6 +587,12 @@ section('Measurement adapter');
   }
   assert('supports hover + eagleview + nearmap',
     /requestHOVER/.test(src) && /requestEagleView/.test(src) && /requestNearmap/.test(src));
+  assert('supports instantroofer (coordinates-in, synchronous — the default since 2026-09-06)',
+    /requestInstantRoofer/.test(src) && /instantroofer-logic/.test(src));
+  assert('requestMeasurement binds INSTANTROOFER_API_KEY (Gen2 mounts only declared secrets)',
+    /secrets:\s*\[[^\]]*SECRETS\.INSTANTROOFER_API_KEY/.test(src));
+  assert('measurementWebhook binds INSTANTROOFER_WEBHOOK_SECRET',
+    /secrets:\s*\[[^\]]*SECRETS\.INSTANTROOFER_WEBHOOK_SECRET/.test(src));
   assert('provider selection driven by PROVIDERS.measurement',
     /PROVIDERS\.measurement/.test(src));
 }
@@ -773,7 +779,7 @@ section('Wave A2: Turnstile widgets');
 section('Wave A3: privacy sub-processor disclosure');
 {
   const pv = read(path.join(ROOT, 'docs/privacy.html'));
-  for (const vendor of ['Resend','Twilio','Anthropic','BoldSign','HOVER','EagleView','Nearmap','Regrid','HailTrace','Cal.com','Sentry','Cloudflare Turnstile']) {
+  for (const vendor of ['Resend','Twilio','Anthropic','BoldSign','Instant Roofer','HOVER','EagleView','Nearmap','Regrid','HailTrace','Cal.com','Sentry','Cloudflare Turnstile']) {
     assert('privacy lists ' + vendor, new RegExp(vendor.replace('.','\\.'), 'i').test(pv));
   }
 }

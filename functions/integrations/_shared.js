@@ -50,6 +50,11 @@ const SECRETS = {
   EAGLEVIEW_API_KEY:     defineSecret('EAGLEVIEW_API_KEY'),
   EAGLEVIEW_WEBHOOK_SECRET: defineSecret('EAGLEVIEW_WEBHOOK_SECRET'),
   NEARMAP_API_KEY:       defineSecret('NEARMAP_API_KEY'),
+  // Instant Roofer — AI measure from coordinates (synchronous) and the ~1 h
+  // Human Certified Report; the webhook secret is a bearer token WE mint and
+  // paste into their dashboard (runbooks/INSTANTROOFER-SETUP.md).
+  INSTANTROOFER_API_KEY: defineSecret('INSTANTROOFER_API_KEY'),
+  INSTANTROOFER_WEBHOOK_SECRET: defineSecret('INSTANTROOFER_WEBHOOK_SECRET'),
   BOLDSIGN_API_KEY:      defineSecret('BOLDSIGN_API_KEY'),
   BOLDSIGN_WEBHOOK_SECRET: defineSecret('BOLDSIGN_WEBHOOK_SECRET'),
   REGRID_API_TOKEN:      defineSecret('REGRID_API_TOKEN'),
@@ -83,7 +88,10 @@ const SECRETS = {
 // secret) so it's visible in logs and easy to rotate mid-flight.
 // Defaults chosen for biggest-bang-for-buck in roofing CRM context.
 const PROVIDERS = {
-  measurement:       (process.env.NBD_MEASUREMENT_PROVIDER  || 'hover').toLowerCase(),
+  // measurement default flipped hover → instantroofer on 2026-09-06: it is the
+  // first provider that ever had a real key (the other three have been the
+  // deploy stub since April). hover/eagleview/nearmap remain selectable.
+  measurement:       (process.env.NBD_MEASUREMENT_PROVIDER  || 'instantroofer').toLowerCase(),
   esign:             (process.env.NBD_ESIGN_PROVIDER        || 'boldsign').toLowerCase(),
   // parcel: 'regrid' (default) | 'swath'  ·  hail: 'noaa' (default,
   // free) | 'swdi' (free, keyless radar hail — integrations/swdi-hail.js)

@@ -7,20 +7,34 @@
  * bill and mark it up on the estimate.
  *
  * Supported providers (selected via NBD_MEASUREMENT_PROVIDER env):
- *   - hover    (default) — cleanest API, best mobile UX
+ *   - instantroofer (default) — AI measure from coordinates, synchronous
+ *                     10–20 s, plus a ~1 h Human Certified Report that
+ *                     arrives by webhook (integrations/instantroofer-logic.js;
+ *                     runbooks/INSTANTROOFER-SETUP.md)
+ *   - hover               — cleanest API, best mobile UX
  *   - eagleview           — most coverage, older/stricter API
  *   - nearmap             — best for storm verification (temporal imagery)
  *
  * SETUP (pick one):
+ *   firebase functions:secrets:set INSTANTROOFER_API_KEY
+ *   firebase functions:secrets:set INSTANTROOFER_WEBHOOK_SECRET   # human reports only
  *   firebase functions:secrets:set HOVER_API_KEY
  *   firebase functions:secrets:set EAGLEVIEW_API_KEY
  *   firebase functions:secrets:set NEARMAP_API_KEY
  *
- * CALLABLE: requestMeasurement({ address, leadId })
+ * History worth knowing (2026-09-06): HOVER/EagleView/Nearmap have been wired
+ * since April but none was ever configured — all three prod secrets are the
+ * deploy's `__unset__` stub — so every click on the CRM's auto-measure and
+ * D2D "order roof report" buttons has returned "not configured". Instant
+ * Roofer is the first provider with a real key.
+ *
+ * CALLABLE: requestMeasurement({ address, leadId, lat, lng, reportType })
  *   Creates a Firestore `measurements/{jobId}` doc with status
  *   'pending', fires the async vendor job, then returns {jobId}.
- *   A separate onRequest webhook endpoint receives vendor callbacks
- *   and updates the doc to 'ready' + populates measurement fields.
+ *   Synchronous providers (Instant Roofer AI, Nearmap) write the doc
+ *   already 'ready' with `measurements` populated. A separate onRequest
+ *   webhook endpoint receives vendor callbacks and updates the doc to
+ *   'ready' + populates measurement fields.
  *
  * The V2 estimate builder reads from `measurements/{jobId}` to
  * pre-fill rawSqft, ridge, eave, hip, valley, pitch.
@@ -29,17 +43,35 @@
 'use strict';
 
 const { onCall, HttpsError, onRequest } = require('firebase-functions/v2/https');
+const { defineSecret } = require('firebase-functions/params');
 const { logger } = require('firebase-functions/v2');
 const { Timestamp, getFirestore } = require('firebase-admin/firestore');
 const { FieldValue } = require('firebase-admin/firestore');
 const crypto = require('crypto');
-const { getSecret, hasSecret, PROVIDERS, notConfigured, SECRETS } = require('./_shared');
+const { getSecret, hasSecret, secretValue, PROVIDERS, notConfigured, SECRETS } = require('./_shared');
+const IR = require('./instantroofer-logic');
+const geocodeHandlers = require('../handlers/geocode');
+
+// Bare param that predates the SECRETS registry — declared the same way in
+// handlers/geocode.js. Read ONLY through secretValue() so the deploy stub
+// counts as unset (tests/secret-stub-guard.test.js).
+const GOOGLE_GEOCODING_API_KEY = defineSecret('GOOGLE_GEOCODING_API_KEY');
 
 const CORS_ORIGINS = [
   'https://nobigdealwithjoedeal.com',
   'https://www.nobigdealwithjoedeal.com',
   'https://nobigdeal-pro.web.app'
 ];
+
+// A ready Instant Roofer measurement under the same coordinate key is reused
+// for this long instead of billing the vendor again. Roofs do not change in
+// 90 days; a rep re-opening an estimate should not cost a second report.
+const REUSE_WINDOW_MS = 90 * 24 * 60 * 60 * 1000;
+
+// Instant Roofer's published account limit is 5 requests/minute (API
+// dashboard, read 2026-09-06). We meter it here so a burst of clicks gets a
+// clean resource-exhausted instead of the vendor's 429.
+const INSTANTROOFER_PER_MINUTE = 5;
 
 // ─── Provider adapters ─────────────────────────────────────
 // Each returns a shape {ok, jobId, estimatedMinutes} or
@@ -135,12 +167,302 @@ async function requestNearmap(address, callerUid) {
   }
 }
 
+/**
+ * Instant Roofer — POST {latitude, longitude} to v5.instantroofer.com/v2.
+ *
+ * ctx: { lat, lng, address, reportType: 'ai'|'human', customerName, contractorName }
+ * deps.fetchImpl / deps.now exist for tests; production callers pass none.
+ *
+ * AI (default): synchronous, 10–20 s, returns the normalized `measurements`
+ * straight away (no webhook, no polling). The jobId is minted locally like
+ * Nearmap's because the vendor returns no id for an AI measure.
+ *
+ * Human ("reportType":"human"): the vendor queues a drawing-team report and
+ * answers {requestId, humanReportId}; the file URL arrives ~60 min later on
+ * measurementWebhook?provider=instantroofer. requestId is the externalJobId
+ * the webhook matches on.
+ */
+async function requestInstantRoofer(ctx, deps) {
+  deps = deps || {};
+  if (!hasSecret('INSTANTROOFER_API_KEY')) return notConfigured('instantroofer');
+  const fetchImpl = deps.fetchImpl || fetch;
+  const now = deps.now || Date.now;
+  const apiKey = getSecret('INSTANTROOFER_API_KEY');
+  const reportType = ctx.reportType === 'human' ? 'human' : 'ai';
+  const body = IR.buildRequestBody(ctx.lat, ctx.lng, {
+    reportType,
+    address: ctx.address,
+    customerName: ctx.customerName,
+    contractorName: ctx.contractorName
+  });
+
+  let res;
+  try {
+    res = await fetchImpl(IR.ENDPOINT, {
+      method: 'POST',
+      headers: {
+        'Authorization': 'Bearer ' + apiKey,
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      },
+      body: JSON.stringify(body),
+      // The callable has 60 s; leave room for the Firestore writes after.
+      signal: typeof AbortSignal !== 'undefined' && AbortSignal.timeout ? AbortSignal.timeout(45000) : undefined
+    });
+  } catch (e) {
+    logger.error('Instant Roofer request error:', e && e.message);
+    return { ok: false, reason: 'network', provider: 'instantroofer' };
+  }
+
+  if (!res.ok) {
+    const err = IR.classifyHttpError(res.status);
+    let text = '';
+    try { text = String(await res.text()).slice(0, 300); } catch (_) {}
+    logger.warn('Instant Roofer request failed', {
+      status: res.status, reason: err.reason, reportType, body: text
+    });
+    return {
+      ok: false, provider: 'instantroofer',
+      reason: err.reason, status: res.status, code: err.code, message: err.message
+    };
+  }
+
+  let data;
+  try { data = await res.json(); } catch (e) {
+    logger.warn('Instant Roofer: non-JSON body on 2xx', { reportType });
+    return { ok: false, reason: 'bad-json', provider: 'instantroofer' };
+  }
+
+  if (reportType === 'human') {
+    const acc = IR.parseHumanAccepted(data);
+    if (!acc) {
+      logger.warn('Instant Roofer: human order ack had no requestId', { keys: Object.keys(data || {}) });
+      return { ok: false, reason: 'bad-ack', provider: 'instantroofer' };
+    }
+    return {
+      ok: true,
+      provider: 'instantroofer',
+      reportType: 'human',
+      jobId: acc.externalJobId,
+      humanReportId: acc.humanReportId,
+      estimatedMinutes: 60
+    };
+  }
+
+  const measurements = IR.normalizeAiResponse(data);
+  if (measurements.rawSqft === null) {
+    // A 200 with no area is a vendor-side miss (they document 404 for "no
+    // roof", but be defensive) — do not write a 'ready' doc with nothing in it.
+    logger.warn('Instant Roofer: 2xx without a roof area', { keys: Object.keys(data || {}) });
+    return { ok: false, reason: 'no-measurement', provider: 'instantroofer' };
+  }
+  return {
+    ok: true,
+    provider: 'instantroofer',
+    reportType: 'ai',
+    jobId: 'instantroofer-' + now(),
+    estimatedMinutes: 0,
+    measurements,
+    // Kept for the audit trail minus the two blobs (base64 image, LiDAR
+    // points) that would blow the 1 MiB doc cap — see stripVendorBlobs().
+    synchronousData: stripVendorBlobs(data)
+  };
+}
+
+function stripVendorBlobs(data) {
+  if (!data || typeof data !== 'object') return null;
+  const out = Object.assign({}, data);
+  if (out.imagery) out.imagery = { mapWithOutline: out.imagery.mapWithOutline ? '[stripped]' : null };
+  if (out.lidar) out.lidar = { facets: out.lidar.facets || null, roofPointsFacetedXYZK: '[stripped]' };
+  return out;
+}
+
+// Provider registry. `needsCoords` providers locate the roof from a point;
+// the legacy three take the address string. Unknown values return null so
+// the callable fails loudly — the old `return requestHOVER; // default`
+// meant a typo in NBD_MEASUREMENT_PROVIDER silently billed the wrong vendor.
 function selectProvider() {
   const p = PROVIDERS.measurement;
-  if (p === 'hover')     return requestHOVER;
-  if (p === 'eagleview') return requestEagleView;
-  if (p === 'nearmap')   return requestNearmap;
-  return requestHOVER; // default
+  if (p === 'instantroofer') return { name: p, needsCoords: true,  run: requestInstantRoofer };
+  if (p === 'hover')         return { name: p, needsCoords: false, run: (ctx) => requestHOVER(ctx.address, ctx.uid) };
+  if (p === 'eagleview')     return { name: p, needsCoords: false, run: (ctx) => requestEagleView(ctx.address, ctx.uid) };
+  if (p === 'nearmap')       return { name: p, needsCoords: false, run: (ctx) => requestNearmap(ctx.address, ctx.uid) };
+  return null;
+}
+
+// ─── Coordinates ───────────────────────────────────────────
+// Instant Roofer locates the roof from a point ("make sure your
+// latitude/longitude is in the center of a building"), so an address alone
+// is not enough. Resolution order, most rooftop-accurate first:
+//   1. explicit {lat,lng} from the caller — a D2D knock pin, or the
+//      public wizard's geocode
+//   2. the lead doc: lead.lat/lead.lng (CRM Nominatim at save time), then
+//      lead.parcel.center (Regrid parcel centroid)
+//   3. server forward geocode — Google (ROOFTOP only) → Regrid → Nominatim,
+//      each only when configured. In prod today only Nominatim is (the
+//      Google and Regrid keys are the deploy stub), and Nominatim is
+//      street-interpolated wherever OSM lacks the building footprint, so
+//      the doc records coordSource/coordPrecision and the UI can ask the
+//      rep to confirm the outlined building before pricing off it.
+// Nominatim results are cached in geocode_cache/ like handlers/geocode.js.
+const NOMINATIM_UA = 'NoBigDealCRM/1.0 (+https://nobigdealwithjoedeal.com)';
+
+function leadCoords(lead) {
+  if (!lead || typeof lead !== 'object') return null;
+  const direct = IR.validateCoords(lead.lat, lead.lng);
+  if (direct.ok) return { lat: direct.lat, lng: direct.lng, source: 'lead', precision: 'geocoded' };
+  const c = lead.parcel && lead.parcel.center;
+  const parcel = c ? IR.validateCoords(c.lat, c.lng) : { ok: false };
+  if (parcel.ok) return { lat: parcel.lat, lng: parcel.lng, source: 'parcel', precision: 'parcel-centroid' };
+  return null;
+}
+
+async function geocodeNominatim(address, deps) {
+  const fetchImpl = (deps && deps.fetchImpl) || fetch;
+  const url = 'https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&countrycodes=us&q='
+    + encodeURIComponent(address);
+  const res = await fetchImpl(url, {
+    headers: { 'User-Agent': NOMINATIM_UA, 'Accept': 'application/json' },
+    signal: typeof AbortSignal !== 'undefined' && AbortSignal.timeout ? AbortSignal.timeout(8000) : undefined
+  });
+  if (!res.ok) return null;
+  const rows = await res.json();
+  const row = Array.isArray(rows) && rows[0];
+  if (!row) return null;
+  const v = IR.validateCoords(row.lat, row.lon);
+  if (!v.ok) return null;
+  return {
+    lat: v.lat, lng: v.lng, source: 'nominatim',
+    // OSM has the building → the point is on it; otherwise it was
+    // interpolated along the street and may sit on the neighbour.
+    precision: row.class === 'building' || row.category === 'building' ? 'building' : 'interpolated',
+    displayName: row.display_name || null
+  };
+}
+
+async function resolveCoords({ lat, lng, lead, address, db }, deps) {
+  deps = deps || {};
+  if (lat !== undefined && lat !== null && lng !== undefined && lng !== null) {
+    const v = IR.validateCoords(lat, lng);
+    if (v.ok) return { lat: v.lat, lng: v.lng, source: 'client', precision: 'client' };
+  }
+  const fromLead = leadCoords(lead);
+  if (fromLead) return fromLead;
+  if (!address) return null;
+
+  const gKey = secretValue(GOOGLE_GEOCODING_API_KEY);
+  if (gKey && gKey.startsWith('AIza')) {
+    try {
+      const g = await geocodeHandlers._googleForward(address, gKey);
+      if (g && g.precision === 'ROOFTOP' && IR.validateCoords(g.lat, g.lng).ok) {
+        return { lat: g.lat, lng: g.lng, source: 'google', precision: 'rooftop' };
+      }
+    } catch (e) { logger.warn('google forward (measurement)', e && e.message); }
+  }
+  if (hasSecret('REGRID_API_TOKEN')) {
+    try {
+      const r = await geocodeHandlers._regridAddress(address, getSecret('REGRID_API_TOKEN'));
+      if (r && IR.validateCoords(r.lat, r.lng).ok) {
+        return { lat: r.lat, lng: r.lng, source: 'regrid', precision: 'parcel-centroid' };
+      }
+    } catch (e) { logger.warn('regrid address (measurement)', e && e.message); }
+  }
+
+  const cacheKey = 'fwd-nominatim:' + address.toLowerCase().replace(/\s+/g, ' ');
+  if (db) {
+    const cached = await geocodeHandlers._readCache(db, cacheKey);
+    if (cached && IR.validateCoords(cached.lat, cached.lng).ok) return Object.assign({ cached: true }, cached);
+  }
+  try {
+    const n = await geocodeNominatim(address, deps);
+    if (n) {
+      if (db) await geocodeHandlers._writeCache(db, cacheKey, n);
+      return n;
+    }
+  } catch (e) { logger.warn('nominatim forward (measurement)', e && e.message); }
+  return null;
+}
+
+// ─── Reuse: same roof, same tenant, last 90 days ───────────
+// Two equality filters only — Firestore serves those from the automatic
+// single-field indexes (CI never deploys firestore.indexes.json, so no
+// composite). Tenant and age are filtered in memory on ≤10 rows.
+async function findReusableMeasurement(db, { coordKey, uid, companyId, reportType }) {
+  const snap = await db.collection('measurements')
+    .where('coordKey', '==', coordKey)
+    .where('provider', '==', 'instantroofer')
+    .limit(10)
+    .get();
+  const cutoff = Date.now() - REUSE_WINDOW_MS;
+  const rows = snap.docs
+    .map(d => ({ id: d.id, data: d.data() || {} }))
+    .filter(({ data: d }) =>
+      d.status === 'ready'
+      && (d.reportType || 'ai') === reportType
+      && d.measurements && d.measurements.rawSqft
+      && (d.ownerId === uid || (companyId && d.companyId === companyId))
+      && d.createdAt && typeof d.createdAt.toMillis === 'function'
+      && d.createdAt.toMillis() > cutoff);
+  rows.sort((a, b) => b.data.createdAt.toMillis() - a.data.createdAt.toMillis());
+  return rows[0] || null;
+}
+
+// ─── Attach a ready measurement to its lead ────────────────
+// Shared by the synchronous path and the webhook so a same-second Instant
+// Roofer result lights the kanban chip exactly like an hours-later HOVER
+// callback. The task goes on leads/{leadId}/tasks — the collection every
+// task UI reads; the top-level `tasks` write this used to make has had no
+// reader since migration 006-unify-tasks.
+async function attachMeasurementToLead(db, { leadId, ownerId, address, provider, reportType, measurementJobId, measurements }) {
+  if (!leadId || !ownerId) return false;
+  const addr = address || '(address unknown)';
+  const providerLabel = provider === 'instantroofer'
+    ? (reportType === 'human' ? 'Instant Roofer (human certified)' : 'Instant Roofer (AI)')
+    : String(provider || 'provider').toUpperCase();
+  const m = measurements || {};
+  const summary = (m.rawSqft ? Math.round(m.rawSqft) + ' SF roof, ' : '')
+    + (m.pitch ? 'pitch ' + m.pitch + ', ' : '')
+    + (m.ridge ? m.ridge + ' LF ridge' : '')
+    + (m.confidence && m.confidence.label ? ' (' + m.confidence.label.toLowerCase() + ' confidence)' : '');
+
+  await db.collection(`leads/${leadId}/tasks`).add({
+    userId: ownerId,
+    leadId,
+    title: 'Aerial measurement ready — ' + addr,
+    text: 'Aerial measurement ready — ' + addr,
+    notes: providerLabel + ' returned measurements for this property. Open the V2 Builder to load into an estimate.',
+    source: 'measurement',
+    provider,
+    measurementJobId,
+    dueDate: '',
+    dueAt: Timestamp.now(),
+    createdAt: FieldValue.serverTimestamp(),
+    done: false
+  });
+
+  // Activity: structured timeline entry on the lead. Rules
+  // already allow the rep to read this subcollection.
+  await db.collection(`leads/${leadId}/activity`).add({
+    userId: ownerId,
+    type: 'measurement_ready',
+    source: 'webhook',
+    label: providerLabel + ' measurement ready',
+    provider,
+    measurementJobId,
+    reportUrl: m.reportUrl || null,
+    summary: summary.replace(/,\s*$/, '') || null,
+    createdAt: FieldValue.serverTimestamp()
+  });
+
+  // Also bump a lead field so the kanban card can show
+  // "📐 Measurement ready" without a join query.
+  await db.doc(`leads/${leadId}`).set({
+    measurementReady: true,
+    measurementJobId,
+    measurementProvider: provider,
+    measurementReadyAt: FieldValue.serverTimestamp()
+  }, { merge: true });
+  return true;
 }
 
 // ─── Callable: requestMeasurement ──────────────────────────
@@ -149,15 +471,20 @@ exports.requestMeasurement = onCall(
     region: 'us-central1',
     cors: CORS_ORIGINS,
     enforceAppCheck: true,
-    timeoutSeconds: 30,
+    // Instant Roofer answers in 10–20 s; the old 30 s left no room for the
+    // lead read, a geocode and the Firestore writes after a paid call.
+    timeoutSeconds: 60,
     memory: '256MiB',
     secrets: [
-      SECRETS.HOVER_API_KEY, SECRETS.EAGLEVIEW_API_KEY, SECRETS.NEARMAP_API_KEY
+      SECRETS.HOVER_API_KEY, SECRETS.EAGLEVIEW_API_KEY, SECRETS.NEARMAP_API_KEY,
+      SECRETS.INSTANTROOFER_API_KEY, SECRETS.INSTANTROOFER_WEBHOOK_SECRET,
+      SECRETS.REGRID_API_TOKEN, GOOGLE_GEOCODING_API_KEY
     ]
   },
   async (request) => {
     const uid = request.auth && request.auth.uid;
     if (!uid) throw new HttpsError('unauthenticated', 'Sign in required');
+    const token = request.auth.token || {};
 
     // D1: measurement jobs cost real money per provider API call.
     // Cap at 20/hour/uid so a runaway loop or malicious caller
@@ -173,59 +500,195 @@ exports.requestMeasurement = onCall(
       throw e;
     }
 
-    const address = typeof request.data?.address === 'string'
-      ? request.data.address.trim() : '';
-    if (!address || address.length < 5 || address.length > 500) {
+    const data = request.data || {};
+    const address = typeof data.address === 'string' ? data.address.trim() : '';
+    if (address && (address.length < 5 || address.length > 500)) {
       throw new HttpsError('invalid-argument', 'Valid address required');
     }
-    const leadId = typeof request.data?.leadId === 'string' ? request.data.leadId : null;
+    const leadId = typeof data.leadId === 'string' ? data.leadId : null;
+    const reportType = data.reportType === 'human' ? 'human' : 'ai';
+
+    let clientCoords = null;
+    if (data.lat != null || data.lng != null) {
+      const v = IR.validateCoords(data.lat, data.lng);
+      if (!v.ok) throw new HttpsError('invalid-argument', 'Valid lat/lng required');
+      clientCoords = { lat: v.lat, lng: v.lng };
+    }
+    if (!address && !clientCoords) {
+      throw new HttpsError('invalid-argument', 'Address or coordinates required');
+    }
+
+    const provider = selectProvider();
+    if (!provider) {
+      throw new HttpsError('failed-precondition',
+        `Unknown measurement provider '${PROVIDERS.measurement}' — check NBD_MEASUREMENT_PROVIDER.`);
+    }
+    if (!provider.needsCoords && !address) {
+      throw new HttpsError('invalid-argument', 'Valid address required');
+    }
+
+    const db = getFirestore();
 
     // Verify the caller owns (or is same-tenant staff for) the lead BEFORE
     // spending a paid measurement — the webhook later writes measurementReady +
     // an activity entry onto leads/{leadId} via the admin SDK (bypassing rules),
     // so an unchecked leadId let a rep stamp a spoofed measurement onto another
     // tenant's lead. Mirrors the est.userId===uid check in sendEstimateForSignature.
+    let lead = null;
     if (leadId) {
-      const leadSnap = await getFirestore().doc(`leads/${leadId}`).get();
+      const leadSnap = await db.doc(`leads/${leadId}`).get();
       if (!leadSnap.exists) throw new HttpsError('not-found', 'Lead not found');
-      const lead = leadSnap.data() || {};
-      const token = request.auth.token || {};
+      lead = leadSnap.data() || {};
       const owns = lead.userId === uid
         || (token.companyId && lead.companyId && token.companyId === lead.companyId)
         || token.role === 'admin';
       if (!owns) throw new HttpsError('permission-denied', 'Not your lead');
     }
 
-    const providerFn = selectProvider();
-    const result = await providerFn(address, uid);
+    const ctx = {
+      uid,
+      address: address || (lead && lead.address) || '',
+      reportType,
+      customerName: lead ? [lead.firstName, lead.lastName].filter(Boolean).join(' ') : null,
+      contractorName: token.companyName || null
+    };
+
+    let coords = null;
+    if (provider.needsCoords) {
+      if (reportType === 'human' && !hasSecret('INSTANTROOFER_WEBHOOK_SECRET')) {
+        // Their dashboard refuses the order too, but fail here with the
+        // reason: a report we cannot receive is $10 for nothing.
+        throw new HttpsError('failed-precondition',
+          'Human Certified Reports need the Instant Roofer webhook configured first (INSTANTROOFER_WEBHOOK_SECRET).');
+      }
+      coords = await resolveCoords({
+        lat: clientCoords && clientCoords.lat,
+        lng: clientCoords && clientCoords.lng,
+        lead, address: ctx.address, db
+      });
+      if (!coords) {
+        throw new HttpsError('failed-precondition',
+          'Could not place this address on a map — open the lead on the map, drop the pin on the roof, and try again.');
+      }
+      ctx.lat = coords.lat;
+      ctx.lng = coords.lng;
+      ctx.coordKey = IR.coordKey(coords.lat, coords.lng);
+
+      // Same roof, same tenant, last 90 days → copy instead of re-billing.
+      // The copy is a fresh doc owned by the caller because measurements/
+      // rules are uid-scoped (firestore.rules), so a colleague's job can't
+      // simply be pointed at.
+      if (reportType === 'ai') {
+        const prior = await findReusableMeasurement(db, {
+          coordKey: ctx.coordKey, uid, companyId: token.companyId || null, reportType
+        });
+        if (prior) {
+          const copy = {
+            ownerId: uid,
+            companyId: token.companyId || null,
+            leadId,
+            address: ctx.address || null,
+            provider: 'instantroofer',
+            reportType,
+            externalJobId: prior.data.externalJobId || null,
+            status: 'ready',
+            estimatedMinutes: 0,
+            lat: coords.lat, lng: coords.lng,
+            coordKey: ctx.coordKey,
+            coordSource: coords.source, coordPrecision: coords.precision || null,
+            reusedFrom: prior.id,
+            billed: false,
+            passThruEligible: false,
+            measurements: prior.data.measurements,
+            createdAt: FieldValue.serverTimestamp()
+          };
+          const ref = await db.collection('measurements').add(copy);
+          await attachMeasurementToLead(db, {
+            leadId, ownerId: uid, address: ctx.address, provider: 'instantroofer', reportType,
+            measurementJobId: ref.id, measurements: prior.data.measurements
+          });
+          return {
+            jobId: ref.id, externalJobId: copy.externalJobId, provider: 'instantroofer',
+            status: 'ready', estimatedMinutes: 0, reportType, cached: true, passThruEligible: false,
+            coordSource: coords.source, coordPrecision: coords.precision || null,
+            measurements: prior.data.measurements
+          };
+        }
+      }
+
+      // Vendor-side limit is 5/min per account; meter it before we hit it.
+      try {
+        await enforceRateLimit('callable:requestMeasurement:instantroofer', 'account', INSTANTROOFER_PER_MINUTE, 60_000);
+      } catch (e) {
+        if (e.rateLimited) {
+          throw new HttpsError('resource-exhausted',
+            'Instant Roofer allows 5 measurements a minute — wait a moment and try again.');
+        }
+        throw e;
+      }
+    }
+
+    const result = await provider.run(ctx);
 
     if (!result.ok) {
       if (result.configured === false) {
         throw new HttpsError('failed-precondition',
           `Measurement provider '${result.provider}' not configured. Contact support.`);
       }
+      if (result.code && result.message) {
+        // Classified vendor error (Instant Roofer): surface the real reason.
+        throw new HttpsError(result.code, result.message);
+      }
       throw new HttpsError('internal', 'Measurement request failed: ' + (result.reason || 'unknown'));
     }
 
-    const db = getFirestore();
+    const measurements = result.measurements
+      || (result.synchronousData && !result.measurements ? (parseSync(result.synchronousData).measurements || null) : null);
+    const status = measurements ? 'ready' : 'pending';
+
     const doc = {
       ownerId: uid,
+      companyId: token.companyId || null,
       leadId: leadId,
-      address,
+      address: ctx.address || null,
       provider: result.provider,
+      reportType: result.reportType || 'ai',
       externalJobId: result.jobId,
-      status: result.synchronousData ? 'ready' : 'pending',
+      status,
       estimatedMinutes: result.estimatedMinutes,
       createdAt: FieldValue.serverTimestamp(),
-      ...(result.synchronousData ? parseSync(result.synchronousData) : {})
+      ...(coords ? {
+        lat: coords.lat, lng: coords.lng, coordKey: ctx.coordKey,
+        coordSource: coords.source, coordPrecision: coords.precision || null
+      } : {}),
+      ...(result.humanReportId ? { humanReportId: result.humanReportId } : {}),
+      // An AI measure is an internal cost, not a customer-billable report;
+      // only vendor documents (HOVER/EagleView PDFs, the human report) are
+      // pass-through eligible. Read by the V2 builder and admin analytics.
+      passThruEligible: !(result.provider === 'instantroofer' && (result.reportType || 'ai') === 'ai'),
+      ...(measurements ? { measurements } : {}),
+      ...(result.synchronousData && result.provider === 'instantroofer' ? { vendorResponse: result.synchronousData } : {})
     };
     const ref = await db.collection('measurements').add(doc);
+
+    if (status === 'ready') {
+      await attachMeasurementToLead(db, {
+        leadId, ownerId: uid, address: ctx.address, provider: result.provider,
+        reportType: doc.reportType, measurementJobId: ref.id, measurements
+      });
+    }
+
     return {
       jobId: ref.id,
       externalJobId: result.jobId,
       provider: result.provider,
-      status: doc.status,
-      estimatedMinutes: result.estimatedMinutes
+      status,
+      estimatedMinutes: result.estimatedMinutes,
+      reportType: doc.reportType,
+      cached: false,
+      passThruEligible: doc.passThruEligible,
+      ...(coords ? { coordSource: coords.source, coordPrecision: coords.precision || null } : {}),
+      ...(measurements ? { measurements } : {})
     };
   }
 );
@@ -247,6 +710,7 @@ function parseSync(data) {
 // ─── Webhook: provider pushes completed job ─────────────────
 // Configure each vendor to POST back to
 //   https://us-central1-nobigdeal-pro.cloudfunctions.net/measurementWebhook?provider=hover
+//   https://us-central1-nobigdeal-pro.cloudfunctions.net/measurementWebhook?provider=instantroofer
 //
 // F-02: vendor signatures are now VERIFIED. Previously the endpoint
 // accepted any POST that named a provider, letting an attacker forge
@@ -255,12 +719,15 @@ function parseSync(data) {
 // signature matches.
 //
 // Per-provider verification:
-//   HOVER     — HMAC SHA-256 of rawBody with HOVER_WEBHOOK_SECRET,
-//               hex in X-Hover-Signature.
-//   EAGLEVIEW — HMAC SHA-256 of rawBody with EAGLEVIEW_WEBHOOK_SECRET,
-//               hex in X-EV-Signature. (EagleView docs describe a JWT
-//               variant; if/when we negotiate that, swap in a JWKS
-//               fetch here — HMAC is the baseline both vendors support.)
+//   HOVER         — HMAC SHA-256 of rawBody with HOVER_WEBHOOK_SECRET,
+//                   hex in X-Hover-Signature.
+//   EAGLEVIEW     — HMAC SHA-256 of rawBody with EAGLEVIEW_WEBHOOK_SECRET,
+//                   hex in X-EV-Signature. (EagleView docs describe a JWT
+//                   variant; if/when we negotiate that, swap in a JWKS
+//                   fetch here — HMAC is the baseline both vendors support.)
+//   INSTANTROOFER — no HMAC on offer; a bearer token WE mint and paste into
+//                   their dashboard, sent as `Authorization: Bearer …`,
+//                   compared constant-time against INSTANTROOFER_WEBHOOK_SECRET.
 function verifyWebhookHmac(provider, rawBody, headerValue) {
   const secretName = provider === 'hover'
     ? 'HOVER_WEBHOOK_SECRET'
@@ -288,10 +755,62 @@ function verifyWebhookHmac(provider, rawBody, headerValue) {
   return { ok: true };
 }
 
+function verifyInstantRooferBearer(headerValue) {
+  if (!hasSecret('INSTANTROOFER_WEBHOOK_SECRET')) return { ok: false, reason: 'secret-not-configured' };
+  return IR.verifyBearer(headerValue, getSecret('INSTANTROOFER_WEBHOOK_SECRET'));
+}
+
+// Vendor payload → { externalJobId, status, measurements, human } or null
+// when the provider is unknown. Pure; exercised directly by the tests.
+function normalizeWebhookPayload(provider, body) {
+  body = body || {};
+  if (provider === 'hover') {
+    return {
+      externalJobId: body.job_id || body.id,
+      status: body.status === 'completed' ? 'ready' : 'pending',
+      measurements: body.measurements ? {
+        rawSqft: body.measurements.total_facets_area_sqft,
+        ridge:   body.measurements.ridge_linear_feet,
+        eave:    body.measurements.eave_linear_feet,
+        hip:     body.measurements.hip_linear_feet,
+        valley:  body.measurements.valley_linear_feet,
+        rake:    body.measurements.rake_linear_feet,
+        pitch:   body.measurements.predominant_pitch,
+        reportUrl: body.report_url || null
+      } : null
+    };
+  }
+  if (provider === 'eagleview') {
+    const m = body.measurementReport || {};
+    return {
+      externalJobId: body.orderId,
+      status: body.status === 'Completed' ? 'ready' : 'pending',
+      measurements: m ? {
+        rawSqft: m.totalRoofArea,
+        ridge:   m.totalRidges,
+        eave:    m.totalEaves,
+        hip:     m.totalHips,
+        valley:  m.totalValleys,
+        rake:    m.totalRakes,
+        pitch:   m.predominantPitch,
+        reportUrl: body.documentUrl || null
+      } : null
+    };
+  }
+  if (provider === 'instantroofer') {
+    const wh = IR.parseHumanWebhook(body);
+    if (!wh) return { externalJobId: null, status: 'pending', measurements: null, human: null };
+    // The human-report payload carries a file URL per format, never the
+    // numbers; those stay whatever the AI measure (if any) already wrote.
+    return { externalJobId: wh.externalJobId, status: wh.status, measurements: null, human: wh };
+  }
+  return null;
+}
+
 exports.measurementWebhook = onRequest(
   {
     region: 'us-central1',
-    secrets: [SECRETS.HOVER_WEBHOOK_SECRET, SECRETS.EAGLEVIEW_WEBHOOK_SECRET],
+    secrets: [SECRETS.HOVER_WEBHOOK_SECRET, SECRETS.EAGLEVIEW_WEBHOOK_SECRET, SECRETS.INSTANTROOFER_WEBHOOK_SECRET],
     maxInstances: 10,
     timeoutSeconds: 15,
     memory: '256MiB'
@@ -309,7 +828,9 @@ exports.measurementWebhook = onRequest(
       : provider === 'eagleview'
         ? (req.headers['x-ev-signature'] || '')
         : '';
-    const sigResult = verifyWebhookHmac(provider, req.rawBody, sigHeader);
+    const sigResult = provider === 'instantroofer'
+      ? verifyInstantRooferBearer(req.headers['authorization'] || '')
+      : verifyWebhookHmac(provider, req.rawBody, sigHeader);
     if (!sigResult.ok) {
       logger.warn('measurementWebhook: signature rejected', {
         provider, reason: sigResult.reason
@@ -325,38 +846,10 @@ exports.measurementWebhook = onRequest(
     const body = req.body || {};
 
     // Normalize to our fields.
-    let externalJobId, measurements, status;
-    if (provider === 'hover') {
-      externalJobId = body.job_id || body.id;
-      status = body.status === 'completed' ? 'ready' : 'pending';
-      measurements = body.measurements ? {
-        rawSqft: body.measurements.total_facets_area_sqft,
-        ridge:   body.measurements.ridge_linear_feet,
-        eave:    body.measurements.eave_linear_feet,
-        hip:     body.measurements.hip_linear_feet,
-        valley:  body.measurements.valley_linear_feet,
-        rake:    body.measurements.rake_linear_feet,
-        pitch:   body.measurements.predominant_pitch,
-        reportUrl: body.report_url || null
-      } : null;
-    } else if (provider === 'eagleview') {
-      externalJobId = body.orderId;
-      status = body.status === 'Completed' ? 'ready' : 'pending';
-      const m = body.measurementReport || {};
-      measurements = m ? {
-        rawSqft: m.totalRoofArea,
-        ridge:   m.totalRidges,
-        eave:    m.totalEaves,
-        hip:     m.totalHips,
-        valley:  m.totalValleys,
-        rake:    m.totalRakes,
-        pitch:   m.predominantPitch,
-        reportUrl: body.documentUrl || null
-      } : null;
-    } else {
-      res.status(400).json({ error: 'Unknown provider' });
-      return;
-    }
+    const norm = normalizeWebhookPayload(provider, body);
+    if (!norm) { res.status(400).json({ error: 'Unknown provider' }); return; }
+    const { externalJobId, measurements, human } = norm;
+    let status = norm.status;
 
     if (!externalJobId) { res.status(400).json({ error: 'Missing job id' }); return; }
 
@@ -373,11 +866,32 @@ exports.measurementWebhook = onRequest(
       }
       const measurementDoc = snap.docs[0];
       const measurementData = measurementDoc.data() || {};
-      await measurementDoc.ref.update({
-        status,
-        ...(measurements ? { measurements } : {}),
-        updatedAt: FieldValue.serverTimestamp()
-      });
+
+      const update = { updatedAt: FieldValue.serverTimestamp() };
+      if (measurements) update.measurements = measurements;
+      let mergedMeasurements = measurements || measurementData.measurements || null;
+
+      if (human) {
+        // One completed report fires one delivery PER ENABLED FORMAT and
+        // retries redeliver, so merge the per-format URLs idempotently and
+        // never regress a 'ready' doc on a later format's arrival.
+        const reportUrls = Object.assign({}, measurementData.reportUrls || {});
+        if (human.reportUrl && human.reportType) reportUrls[human.reportType] = human.reportUrl;
+        const headline = IR.preferredReportUrl(reportUrls);
+        if (Object.keys(reportUrls).length) update.reportUrls = reportUrls;
+        if (human.humanReportId) update.humanReportId = human.humanReportId;
+        if (human.failureReason) update.failureReason = human.failureReason;
+        if (headline) {
+          mergedMeasurements = Object.assign({}, measurementData.measurements || {}, {
+            reportUrl: headline,
+            source: (measurementData.measurements && measurementData.measurements.source) || 'instantroofer-human'
+          });
+          update.measurements = mergedMeasurements;
+        }
+        if (measurementData.status === 'ready' && status !== 'failed') status = 'ready';
+      }
+      update.status = status;
+      await measurementDoc.ref.update(update);
 
       // ─── Auto-attach to lead on ready ────────────────────
       // If the measurement was requested from a specific lead and
@@ -390,53 +904,17 @@ exports.measurementWebhook = onRequest(
       // don't duplicate the task.
       const wasReadyAlready = measurementData.status === 'ready';
       if (status === 'ready' && !wasReadyAlready && measurementData.leadId && measurementData.ownerId) {
-        const repUid = measurementData.ownerId;
-        const leadId = measurementData.leadId;
-        const addr = measurementData.address || '(address unknown)';
-        const providerLabel = provider.toUpperCase();
-
-        // Task: one-liner the rep sees in their inbox. Due now.
-        await db.collection('tasks').add({
-          userId: repUid,
-          leadId,
-          title: 'Aerial measurement ready — ' + addr,
-          description: providerLabel + ' returned measurements for this property. Open the V2 Builder to load into an estimate.',
-          source: 'measurement',
+        await attachMeasurementToLead(db, {
+          leadId: measurementData.leadId,
+          ownerId: measurementData.ownerId,
+          address: measurementData.address,
           provider,
+          reportType: measurementData.reportType || null,
           measurementJobId: measurementDoc.id,
-          dueAt: Timestamp.now(),
-          createdAt: FieldValue.serverTimestamp(),
-          done: false
+          measurements: mergedMeasurements
         });
-
-        // Activity: structured timeline entry on the lead. Rules
-        // already allow the rep to read this subcollection.
-        await db.collection(`leads/${leadId}/activity`).add({
-          userId: repUid,
-          type: 'measurement_ready',
-          label: providerLabel + ' measurement ready',
-          provider,
-          measurementJobId: measurementDoc.id,
-          reportUrl: (measurements && measurements.reportUrl) || null,
-          summary: measurements
-            ? (measurements.rawSqft ? Math.round(measurements.rawSqft) + ' SF roof, ' : '')
-              + (measurements.pitch ? 'pitch ' + measurements.pitch + ', ' : '')
-              + (measurements.ridge ? measurements.ridge + ' LF ridge' : '')
-            : null,
-          createdAt: FieldValue.serverTimestamp()
-        });
-
-        // Also bump a lead field so the kanban card can show
-        // "📐 Measurement ready" without a join query.
-        await db.doc(`leads/${leadId}`).set({
-          measurementReady: true,
-          measurementJobId: measurementDoc.id,
-          measurementProvider: provider,
-          measurementReadyAt: FieldValue.serverTimestamp()
-        }, { merge: true });
-
         logger.info('measurementWebhook: attached to lead', {
-          leadId, measurementJobId: measurementDoc.id, provider
+          leadId: measurementData.leadId, measurementJobId: measurementDoc.id, provider
         });
       }
 
@@ -447,5 +925,21 @@ exports.measurementWebhook = onRequest(
     }
   }
 );
+
+// Repo _test convention: pure/injectable pieces for tests/instantroofer-measurement.test.js.
+exports._test = {
+  requestInstantRoofer,
+  selectProvider,
+  resolveCoords,
+  leadCoords,
+  geocodeNominatim,
+  parseSync,
+  stripVendorBlobs,
+  normalizeWebhookPayload,
+  verifyInstantRooferBearer,
+  verifyWebhookHmac,
+  REUSE_WINDOW_MS,
+  INSTANTROOFER_PER_MINUTE
+};
 
 module.exports = exports;

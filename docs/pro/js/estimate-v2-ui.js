@@ -635,7 +635,8 @@
 
           <div class="v2-section">Measurements</div>
 
-          <!-- Auto-measure: hits HOVER/EagleView/Nearmap via the
+          <!-- Auto-measure: hits the measurement provider (Instant Roofer by
+               default; HOVER/EagleView/Nearmap selectable) via the
                NBDIntegrations client. Button is greyed-out if the
                provider isn't configured server-side. -->
           <div class="v2-field" style="display:flex;gap:6px;align-items:stretch;">
@@ -1297,10 +1298,14 @@
   // sees the new rawSqft / eaveLf / etc. numbers reflected in the
   // left pane, not just in the total.
   // ═════════════════════════════════════════════════════════
-  // AUTO-MEASURE — HOVER / EagleView / Nearmap via NBDIntegrations
+  // AUTO-MEASURE — Instant Roofer (default) / HOVER / EagleView / Nearmap
+  // via NBDIntegrations
   //
-  // 1. POST the address to the measurement adapter → returns a jobId.
-  // 2. Poll Firestore measurements/{jobId} every 4s for up to 10 min.
+  // 1. POST the address (+ the lead's stored lat/lng when we have them —
+  //    Instant Roofer locates the roof from a point) → returns a jobId.
+  //    Synchronous providers answer with the measurements already ready
+  //    and we apply them on the spot.
+  // 2. Otherwise poll Firestore measurements/{jobId} every 4s for up to 10 min.
   // 3. When status flips to 'ready', spread the returned fields into
   //    state.measurements and re-render.
   //
@@ -1332,10 +1337,14 @@
     if (btn) { btn.disabled = true; btn.textContent = '📐 Requesting...'; }
     setStatus('Requesting roof measurement...');
 
-    const result = await window.NBDIntegrations.requestMeasurement({
-      address,
-      leadId: state.customer && state.customer.leadId || null
-    });
+    // The lead's stored coordinates (CRM geocode at save, or a map pin) are
+    // the most reliable roof point we have — send them when present so the
+    // server does not have to geocode a free-text address.
+    const leadId = (state.customer && state.customer.leadId) || state.leadId || null;
+    const lead = leadId ? (window._leads || []).find(l => l && l.id === leadId) : null;
+    const coords = lead && typeof lead.lat === 'number' && typeof lead.lng === 'number'
+      && isFinite(lead.lat) && isFinite(lead.lng) ? { lat: lead.lat, lng: lead.lng } : {};
+    const result = await window.NBDIntegrations.requestMeasurement(Object.assign({ address, leadId }, coords));
 
     if (btn) { btn.disabled = false; btn.textContent = '📐 Auto-measure'; }
 
@@ -1344,9 +1353,16 @@
       return;
     }
 
-    // Synchronous providers (e.g. Nearmap) return the measurements
-    // immediately via the jobId's Firestore doc. Poll once, then
-    // roll into the polling loop for async providers.
+    // Synchronous providers (Instant Roofer AI, Nearmap) hand the numbers
+    // back in the callable response — apply them now, no polling needed.
+    if (result.status === 'ready' && result.measurements) {
+      clearInterval(_measurePollTimer);
+      applyMeasurementResult(result.measurements, result);
+      setStatus(measurementStatusLine(result), 'var(--green, #2ecc8a)');
+      return;
+    }
+    // Async providers: poll the jobId's Firestore doc until the vendor
+    // callback flips it to 'ready'.
     const jobId = result.jobId;
     setStatus('Job ' + jobId.slice(0, 8) + '... (~' + (result.estimatedMinutes || 30) + ' min to ready)', 'var(--orange,#e8720c)');
 
@@ -1368,8 +1384,8 @@
         const d = snap.data();
         if (d.status === 'ready' && d.measurements) {
           clearInterval(_measurePollTimer);
-          applyMeasurementResult(d.measurements);
-          setStatus('✓ Measurements loaded (' + (d.provider || 'provider') + ')', 'var(--green, #2ecc8a)');
+          applyMeasurementResult(d.measurements, d);
+          setStatus(measurementStatusLine(d), 'var(--green, #2ecc8a)');
         } else if (d.status === 'failed') {
           clearInterval(_measurePollTimer);
           setStatus('Provider reported failure. Measure manually.', 'var(--red,#ff6b6b)');
@@ -1378,7 +1394,28 @@
     }, POLL_MS);
   }
 
-  function applyMeasurementResult(m) {
+  // Status line after a measurement lands: provider, confidence when the
+  // vendor scored it, and a nudge when the point came from a street-
+  // interpolated geocode (it may be sitting on the neighbour's roof).
+  function measurementStatusLine(meta) {
+    meta = meta || {};
+    const m = meta.measurements || {};
+    const provider = meta.provider === 'instantroofer'
+      ? (meta.reportType === 'human' ? 'Instant Roofer · human certified' : 'Instant Roofer · AI')
+      : (meta.provider || 'provider');
+    let line = '✓ Measurements loaded (' + provider
+      + (m.confidence && m.confidence.label ? ', ' + m.confidence.label.toLowerCase() + ' confidence' : '')
+      + (meta.cached ? ', reused recent report' : '') + ')';
+    if (meta.coordPrecision === 'interpolated') {
+      line += ' — address was street-interpolated; confirm the pin is on this roof before pricing.';
+    }
+    return line;
+  }
+
+  // meta (optional) is the measurements doc / callable response: provider,
+  // reportType, passThruEligible, coordPrecision, cached.
+  function applyMeasurementResult(m, meta) {
+    meta = meta || {};
     // Each vendor uses slightly different field names — normalize.
     const next = {
       rawSqft:  numOr(m.rawSqft, state.measurements.rawSqft),
@@ -1395,14 +1432,18 @@
     }
     state.measurements = Object.assign({}, state.measurements, next);
 
-    // Margin opportunity: auto-add a pass-through line for the
-    // aerial measurement report. Roofer pays HOVER ~$40, bills the
-    // homeowner $75 on the retail quote. Price configurable via
+    // Margin opportunity: auto-add a pass-through line for a vendor
+    // measurement DOCUMENT (a HOVER/EagleView PDF, an Instant Roofer Human
+    // Certified Report), billed to the homeowner at retail on the quote. An
+    // Instant Roofer AI measure is an internal cost with no document the
+    // customer receives, so the server marks it passThruEligible:false and
+    // no line is added. Price configurable via
     // window.NBD_MEASUREMENT_PASSTHRU_PRICE; default $75. Skip if a
-    // pass-through for this job already exists (idempotent on retry).
+    // pass-through for this job already exists (idempotent on retry — matched
+    // by code as well, because rehydrateFromSaved resets `source`).
     const passThruPrice = Number(window.NBD_MEASUREMENT_PASSTHRU_PRICE) || 75;
-    if (passThruPrice > 0) {
-      const alreadyAdded = (state.passThru || []).some(p => p.source === 'measurement');
+    if (passThruPrice > 0 && meta.passThruEligible !== false) {
+      const alreadyAdded = (state.passThru || []).some(p => p.source === 'measurement' || p.code === 'SVC MEASURE-RPT');
       if (!alreadyAdded) {
         state.passThru = state.passThru || [];
         state.passThru.push({

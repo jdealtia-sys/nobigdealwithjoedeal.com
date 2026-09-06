@@ -63,7 +63,9 @@ const RUNNABLE = ['node', 'smoke'];
 // KEEP THESE IN STEP with the real counts whenever a suite is added.
 // Raised 51/65/130 -> 52/65/131 on 2026-09-04 for
 // ourwork-deeplink-contract.test.js, per the line above.
-const FLOORS = { node: 52, smoke: 65, disk: 131 };
+// Raised 52/65/131 -> 53/65/132 on 2026-09-06 for
+// instantroofer-measurement.test.js.
+const FLOORS = { node: 53, smoke: 65, disk: 132 };
 
 // ── Argument parsing ───────────────────────────────────────────────
 const argv = process.argv.slice(2);

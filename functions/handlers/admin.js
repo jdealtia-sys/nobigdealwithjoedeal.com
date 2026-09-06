@@ -124,7 +124,9 @@ exports.getAdminAnalytics = onCall(
     const msSnap = await msQuery.get();
     const measurements = msSnap.docs.map(d => d.data())
       .filter(m => !repUids || repUids.includes(m.ownerId));
-    const readyMeas = measurements.filter(m => m.status === 'ready');
+    // passThruEligible:false = an Instant Roofer AI measure (an internal cost
+    // with no customer document) — never billed through, so not counted here.
+    const readyMeas = measurements.filter(m => m.status === 'ready' && m.passThruEligible !== false);
     const passThruPrice = Number(process.env.NBD_MEASUREMENT_PASSTHRU_PRICE) || 75;
     const passThruRevenueEst = readyMeas.length * passThruPrice;
 
