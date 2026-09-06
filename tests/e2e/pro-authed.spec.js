@@ -974,7 +974,13 @@ test.describe.serial('Authenticated destructive flows @shard2', () => {
     const lead = out.leads[0];
     expect(out.knock.leadId, 'knock → lead back-link stamped by _saveLead').toBe(lead.id);
     expect(lead.userId, 'lead userId stamped').toBe(out.uid);
-    expect(lead.source, 'lead source attributed to Door-to-Door').toBe('Door-to-Door');
+    // 'Door Knock' is the canonical source string (Joe, 2026-09-06). This
+    // asserted 'Door-to-Door' while maps-overlays.js wrote 'Door Knock' for
+    // the same act, so the two halves of door-knocking lived in separate
+    // buckets and prospects.js — which counted only 'Door-to-Door' — reported
+    // a 0% conversion rate that was never real. Pin the canonical value here:
+    // this assertion is what stops the fork reopening.
+    expect(lead.source, 'lead source attributed to the canonical Door Knock').toBe('Door Knock');
     expect(lead.stage, "appointment knock maps to CRM stage 'inspected'").toBe('inspected');
     expect(lead.isProspect, 'appointment lead is a full customer, NOT a hidden prospect').toBe(false);
     expect(lead.disposition, 'structured disposition key persisted for the Prospects bucketer').toBe('appointment');
