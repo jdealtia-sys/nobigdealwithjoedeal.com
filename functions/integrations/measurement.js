@@ -649,8 +649,12 @@ exports.requestMeasurement = onCall(
             // the audit trail.
             coordSource: coords.source, coordPrecision: coords.precision || null,
             reusedFrom: prior.id,
+            // We were not billed for this one (it is a copy of a measurement
+            // already paid for), but the customer receives the same work, so
+            // it stays pass-through eligible.
             billed: false,
-            passThruEligible: false,
+            passThruEligible: true,
+            passThruHasDocument: false,
             measurements: prior.data.measurements,
             createdAt: FieldValue.serverTimestamp(),
             // Inherited, never restamped — see measuredAtMs().
@@ -664,7 +668,8 @@ exports.requestMeasurement = onCall(
           });
           return {
             jobId: ref.id, externalJobId: copy.externalJobId, provider: 'instantroofer',
-            status: 'ready', estimatedMinutes: 0, reportType, cached: true, passThruEligible: false,
+            status: 'ready', estimatedMinutes: 0, reportType, cached: true,
+            passThruEligible: true, passThruHasDocument: false,
             coordSource: coords.source, coordPrecision: coords.precision || null,
             measurements: prior.data.measurements
           };
@@ -720,10 +725,16 @@ exports.requestMeasurement = onCall(
         coordSource: coords.source, coordPrecision: coords.precision || null
       } : {}),
       ...(result.humanReportId ? { humanReportId: result.humanReportId } : {}),
-      // An AI measure is an internal cost, not a customer-billable report;
-      // only vendor documents (HOVER/EagleView PDFs, the human report) are
-      // pass-through eligible. Read by the V2 builder and admin analytics.
-      passThruEligible: !(result.provider === 'instantroofer' && (result.reportType || 'ai') === 'ai'),
+      // Every measurement is pass-through eligible (Jo, 2026-09-06 — the
+      // measurement is work performed for the customer whether or not a
+      // document changes hands). What DOES differ is the wording on the line:
+      // an AI measure produces no document, so the client bills it as a
+      // service performed rather than a "report" the homeowner could ask to
+      // see. Read by the V2 builder and admin analytics.
+      passThruEligible: true,
+      // Drives the line-item wording client-side. True only when the vendor
+      // actually hands us a document (HOVER/EagleView PDF, human report).
+      passThruHasDocument: !(result.provider === 'instantroofer' && (result.reportType || 'ai') === 'ai'),
       ...(measurements ? { measurements } : {}),
       ...(result.synchronousData && result.provider === 'instantroofer' ? { vendorResponse: result.synchronousData } : {})
     };
@@ -746,6 +757,7 @@ exports.requestMeasurement = onCall(
       reportType: doc.reportType,
       cached: false,
       passThruEligible: doc.passThruEligible,
+      passThruHasDocument: doc.passThruHasDocument,
       ...(coords ? { coordSource: coords.source, coordPrecision: coords.precision || null } : {}),
       ...(measurements ? { measurements } : {})
     };

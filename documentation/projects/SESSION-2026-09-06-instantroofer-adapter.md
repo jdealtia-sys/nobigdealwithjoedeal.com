@@ -45,12 +45,20 @@ existed. So: API only, as a provider of `functions/integrations/measurement.js`.
   `lat/lng/reportType`, honest toast for a synchronous result;
   `estimate-v2-ui.js` sends the lead's stored coords, applies a synchronous
   result without polling, adds the $75 pass-through **only for pass-through-
-  eligible reports** (AI measures are an internal cost) and matches the
-  existing line by code as well as `source` (a reopen resets `source`, which
-  let a second auto-measure duplicate the line); `d2d-tracker-core-2026b.js`
-  sends the knock pin. `handlers/admin.js` excludes AI measures from the
-  pass-through revenue estimate. `docs/privacy.html` discloses Instant
-  Roofer as a measurement sub-processor (smoke test list extended).
+  eligible reports** and matches the existing line by code as well as `source`
+  (a reopen resets `source`, which let a second auto-measure duplicate the
+  line); `d2d-tracker-core-2026b.js` sends the knock pin. `docs/privacy.html`
+  discloses Instant Roofer as a measurement sub-processor (smoke test list
+  extended).
+
+  **Amended later the same day (Jo):** AI measures are billed through too —
+  every measurement is now `passThruEligible`. The exclusion had been mine, on
+  the reasoning that a $3 internal cost with no deliverable should not carry a
+  $75 line; Jo's call is that the measurement is work performed either way.
+  What survived the change is the *wording*: a new `passThruHasDocument` flag
+  makes the line read "Aerial measurement report" only when a document actually
+  exists (HOVER/EagleView PDF, human report) and "Aerial roof measurement"
+  otherwise, so no invoice claims a report that could never be produced.
 - `tests/instantroofer-measurement.test.js` (131 assertions; node bucket;
   FLOORS 52/65/131 → 53/65/132), `tests/smoke/functions.test.js` provider +
   secret-binding assertions, `FUNCTIONS_INDEX.md` rows,

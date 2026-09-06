@@ -125,10 +125,11 @@ exports.getAdminAnalytics = onCall(
     const measurements = msSnap.docs.map(d => d.data())
       .filter(m => !repUids || repUids.includes(m.ownerId));
     // ready30d counts EVERY delivered measurement — it is the "is the
-    // integration working" tile, and an Instant Roofer AI measure is the
-    // common case now. Only the revenue estimate excludes them:
-    // passThruEligible:false means an internal cost with no customer document,
-    // so no $75 line is ever added for it.
+    // integration working" tile. billableMeas is the revenue basis: since
+    // 2026-09-06 every measurement is pass-through eligible (AI measures
+    // included, at Jo's direction), so the two normally match. The filter
+    // stays because passThruEligible is a per-doc field and a future provider
+    // or policy could set it false again.
     const readyMeas = measurements.filter(m => m.status === 'ready');
     const billableMeas = readyMeas.filter(m => m.passThruEligible !== false);
     const passThruPrice = Number(process.env.NBD_MEASUREMENT_PASSTHRU_PRICE) || 75;

@@ -429,11 +429,24 @@ function finish() {
     && !/asStr\.includes\('\/'\) \? parseInt/.test(v2));
   ok('V2 builder adds the pass-through only for pass-through-eligible reports, matched by code too',
     /meta\.passThruEligible !== false/.test(v2) && /p\.code === 'SVC MEASURE-RPT'/.test(v2) && /source: 'measurement'/.test(v2));
+  ok('every measurement is billable — an AI measure is no longer excluded (Jo, 2026-09-06)',
+    /passThruEligible: true,/.test(meas) && !/passThruEligible: !\(result\.provider === 'instantroofer'/.test(meas));
+  ok('...including a reuse copy, which costs us nothing but delivers the same work to the customer',
+    /billed: false,\s*\n\s*passThruEligible: true,/.test(meas));
+  ok('the DOCUMENT flag is what still distinguishes them — an AI measure produces no report',
+    /passThruHasDocument: !\(result\.provider === 'instantroofer' && \(result\.reportType \|\| 'ai'\) === 'ai'\)/.test(meas)
+    && /passThruHasDocument: doc\.passThruHasDocument/.test(meas));
+  ok('the line item is worded honestly: a report only when a document actually exists',
+    /meta\.passThruHasDocument === false/.test(v2)
+    && /'Aerial roof measurement'/.test(v2) && /'Aerial measurement report'/.test(v2));
+  ok('...and the reason is recorded, not just the behaviour (a future reader must not "tidy" it back)',
+    /would put a line on an invoice for something that does not[\s\S]{0,40}exist/.test(read('docs/pro/js/estimate-v2-ui.js')));
   ok('V2 builder warns for ANY non-rooftop point, not just the one labelled interpolated',
     /TRUSTED_PRECISION = \['rooftop', 'building', 'parcel-centroid', 'client'\]/.test(v2)
     && /TRUSTED_PRECISION\.indexOf\(meta\.coordPrecision\) === -1/.test(v2));
   ok('D2D "order roof report" sends the knock pin as lat/lng', /lat: knock\.lat, lng: knock\.lng/.test(d2d));
-  ok('admin analytics excludes AI measures from pass-through REVENUE only', /billableMeas = readyMeas\.filter\(m => m\.passThruEligible !== false\)/.test(admin)
+  ok('admin revenue is derived from the billable subset, not the raw ready count',
+    /billableMeas = readyMeas\.filter\(m => m\.passThruEligible !== false\)/.test(admin)
     && /passThruRevenueEst = billableMeas\.length/.test(admin));
   ok("...while ready30d still counts every delivered measurement (the 'is it working' tile must not read 0 under the new default provider)",
     /const readyMeas = measurements\.filter\(m => m\.status === 'ready'\);/.test(admin) && /ready30d: readyMeas\.length/.test(admin) && /billable30d: billableMeas\.length/.test(admin));
