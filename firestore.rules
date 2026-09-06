@@ -1492,6 +1492,31 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
+    // ── E-SIGN ENVELOPES ───────────────────────────────
+    // PDF-native signing: a rep uploads any PDF, places typed fields on it,
+    // and a homeowner completes it from a single-use link.
+    //
+    // The envelope itself is owner-readable so the rep can see status,
+    // resend and void — the old signing path had NO status surface at all,
+    // which is why a rep could never tell a delivered link from a dead one.
+    //
+    // But it is NOT client-writable after creation. The envelope carries the
+    // executed record's audit trail (signer IP, user agent, consent, both
+    // SHA-256 digests) and the rep is an interested party to the contract
+    // that trail is evidence for. Every mutation goes through a Cloud
+    // Function with the admin SDK, so the party who benefits from a rewrite
+    // cannot perform one.
+    match /esign_envelopes/{envelopeId} {
+      allow read: if isAuth() && resource.data.ownerUid == request.auth.uid;
+      allow write: if false;
+    }
+
+    // Same lockdown as doc_sign_tokens: minted and burned by the admin SDK,
+    // never touched by a Firebase-auth client.
+    match /esign_tokens/{token} {
+      allow read, write: if false;
+    }
+
     // ── CLOSE BOARD DEAL ROOMS ────────────────────────
     // Shareable deal rooms (close-board.js syncDealToFirestore). Owner-keyed on
     // userId. createDealAcceptToken (admin SDK) reads this doc to owner-scope a
