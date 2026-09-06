@@ -345,7 +345,23 @@
     // under a surviving IndexedDB — and that has to fall through to a real
     // check, or an eviction of the counter alone would strand real photos.
     const known = store.lastKnownCount();
-    if (known === 0) return;
+    if (known === 0) {
+      // The queue is provably empty — but a drain that ran OUTSIDE this
+      // function (photo-engine's `online` listener, or its post-capture
+      // flush) cleared the local counter without touching the server marker,
+      // which still claims photos are owed. That stale number is harmless
+      // until purgeAccountStorage() deletes the counter on the next sign-out;
+      // the sign-in after that reads the marker, finds no local evidence, and
+      // accuses the rep of losing photos that are sitting in the gallery.
+      // Correct it here, while the mirror key still says what we filed.
+      const filed = parseInt(lsGet(MARKER_MIRROR_KEY), 10);
+      if (!isNaN(filed) && filed > 0) {
+        waitForFirebase()
+          .then((ok) => { if (ok) return writeMarker(0); })
+          .catch(() => {});
+      }
+      return;
+    }
 
     // Keep the origin exempt from WebKit's 7-day eviction for as long as the
     // browser will allow it. Cheap, idempotent, and the thing that makes
@@ -458,6 +474,37 @@
     if (after) await writeMarker(after.count);
     warnIfStale(after);
   }
+
+  /**
+   * Re-file what this rep still owes, from anywhere.
+   *
+   * writeMarker() used to be reachable only from recover(), i.e. only on a
+   * boot that found rows. The drains that do most of the real work are
+   * elsewhere — photo-engine's `online` listener and its post-capture flush —
+   * and both clear the local counter (store.remove() → _writeLastKnown) while
+   * leaving the server marker frozen at the old number. That stale marker is
+   * read back after the next sign-out purges the local counter, and the rep is
+   * told to reshoot a roof whose photos already uploaded.
+   *
+   * Cheap to call: writeMarker() skips the network entirely when the number is
+   * unchanged, and a failed count is null and writes nothing.
+   */
+  async function syncMarker() {
+    const store = window.NBDPhotoQueueStore;
+    const uid = window._user && window._user.uid;
+    if (!store || !uid) return;
+    try {
+      // Through the shared helper, so this inherits its pendingStats →
+      // pendingForUid fallback rather than hard-coding one of them: a stale
+      // service-worker cache can pair this file with either shape of store.
+      const stats = await pendingStats(store, uid);
+      if (stats && typeof stats.count === 'number') await writeMarker(stats.count);
+    } catch (e) {
+      console.warn('[PhotoQueueRecovery] marker sync failed:', e && e.message);
+    }
+  }
+
+  window.NBDPhotoQueueRecovery = { syncMarker };
 
   function start() {
     // Never let recovery break the dashboard boot.

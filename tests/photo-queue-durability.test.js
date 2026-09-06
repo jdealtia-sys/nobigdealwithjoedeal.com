@@ -677,6 +677,75 @@ async function reason(fn) {
       s.DB_STORE !== 'pending-writes', 'DB_STORE=' + s.DB_STORE);
   }
 
+  // ── a TRANSIENT open failure must not latch the store off ─────────────
+  // _openPromise is memoised so concurrent callers share one attempt. If a
+  // FAILED attempt stayed memoised, one bad open would be permanent for the
+  // page: available() false forever, already-committed photos invisible, new
+  // ones falling into the memory queue the next resume-reload destroys. iOS
+  // relaunching a PWA it killed under memory pressure produces exactly this —
+  // the first open errors while WebKit's storage process is still coming back,
+  // and the next one would have succeeded.
+  {
+    const disk = newDisk();
+    const s = loadStore(disk, {});
+    disk.failOpen = true;
+    ok('while the open is failing, available() is false', (await s.available()) === false);
+    ok('...and count() reports null, not 0', (await s.count()) === null);
+
+    disk.failOpen = false;   // the storage process came back
+    ok('the NEXT call recovers instead of staying latched off', (await s.available()) === true,
+      'a cached failure would make this false for the life of the page');
+    // Via reason() so a regression here reddens ONE assertion instead of
+    // throwing out of the suite and hiding every block below it.
+    const why = await reason(() => s.add(photo()));
+    ok('...and the store works normally afterwards',
+      why === null && (await s.count()) === 1, 'add rejected with: ' + why);
+  }
+  {
+    // The real shape: the photo was committed on a healthy page, then the app
+    // is relaunched and THAT page's first open fails. A module instance which
+    // has never opened successfully is the one that can latch.
+    const disk = newDisk();
+    const healthy = loadStore(disk, {});
+    await healthy.add(photo());
+
+    disk.failOpen = true;
+    const relaunch = loadStore(disk, {});          // iOS relaunch, storage not back yet
+    ok('during the failed open the queue reads as unknown, not empty',
+      (await relaunch.count()) === null,
+      'a 0 here would be read as "no photos owed" and the queue would never drain');
+    disk.failOpen = false;                          // storage process came back
+    ok('the same page instance recovers on its next call',
+      (await relaunch.available()) === true,
+      'a cached failure latches this false for the life of the page');
+    ok('...and the photo committed before the relaunch is readable again',
+      (await relaunch.count()) === 1,
+      'latching off is how an already-durable photo becomes permanently invisible');
+  }
+
+  // ── THE WIRING — the feature reaches the app through two lines ─────────
+  // Every other assertion in every one of these three suites loads the
+  // modules off disk and runs them in a vm sandbox. That proves the code
+  // works; it proves NOTHING about whether the running dashboard loads it.
+  // The whole feature is attached by two <script> tags, and until this block
+  // nothing asserted they exist — so a merge on a 5,500-line HTML file, or a
+  // future boot-weight pass (one was already argued for these exact tags),
+  // could unwire the lot while all three suites stayed green and reps kept
+  // being told "it will upload even if you close the app".
+  {
+    const html = fs.readFileSync(path.join(ROOT, 'docs/pro/dashboard.html'), 'utf8');
+    const tag = (f) => new RegExp('<script\\s+defer\\s+src="js/' + f + '(\\?v=\\d+)?"\\s*></script>');
+    ok('dashboard.html loads photo-queue-store.js, deferred', tag('photo-queue-store\\.js').test(html),
+      'without this tag NBDPhotoQueueStore is undefined and every photo silently falls back to the memory queue');
+    ok('dashboard.html loads photo-queue-recovery.js, deferred', tag('photo-queue-recovery\\.js').test(html),
+      'without this tag nothing drains after the iOS resume-reload — the photo persists and is never sent');
+    ok('the store tag comes before the recovery tag',
+      html.indexOf('js/photo-queue-store.js') < html.indexOf('js/photo-queue-recovery.js'),
+      'recovery reads window.NBDPhotoQueueStore at DOMContentLoaded');
+    ok('both are external files, not inline (CSP: script-src-attr none)',
+      !/<script[^>]*>[\s\S]{0,40}NBDPhotoQueueStore\s*=/.test(html));
+  }
+
   console.log(`\n  ${passed} passed, ${failed} failed`);
   if (failed) { console.log('\n  failures:'); for (const f of fails) console.log('    - ' + f); process.exit(1); }
   process.exit(0);

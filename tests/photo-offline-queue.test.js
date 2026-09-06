@@ -376,6 +376,43 @@ if (missing.length === 0) {
     results.push(['drain: ...and their row is left in storage for them',
       s11.map.has(1), 'row 1 must survive for its owner']);
 
+    // ── the drain must re-file the server marker ────────────────────────
+    // flushUploadQueue is the drain for ALL three routes, but only boot
+    // recovery used to update the server-side loss marker. The `online`
+    // listener and the post-capture flush cleared the local counter and left
+    // the marker frozen, and that stale number is later read back as a loss —
+    // the rep is told to reshoot a roof whose photos uploaded fine.
+    {
+      const s13 = fakeStore([row(1), row(2)]);
+      const r13 = run(s13, [], async () => {});
+      let synced = 0;
+      r13.sandbox.window.NBDPhotoQueueRecovery = { syncMarker: async () => { synced++; } };
+      const sent13 = await r13.flush();
+      results.push(['drain: a successful drain re-files the server marker',
+        sent13 === 2 && synced === 1,
+        'sent=' + sent13 + ' syncMarker calls=' + synced
+        + ' — without this the marker accuses the rep after the next sign-out']);
+    }
+    {
+      // Nothing uploaded means nothing changed, so no write is owed.
+      const s14 = fakeStore([row(1)]);
+      const r14 = run(s14, [], async () => { throw new Error('offline'); });
+      let synced14 = 0;
+      r14.sandbox.window.NBDPhotoQueueRecovery = { syncMarker: async () => { synced14++; } };
+      await r14.flush();
+      results.push(['drain: a drain that sent nothing does not touch the marker',
+        synced14 === 0, 'syncMarker calls=' + synced14]);
+    }
+    {
+      // photo-engine can load where recovery is absent, and a stale SW cache
+      // can pair a new engine with an older recovery module.
+      const s15 = fakeStore([row(1)]);
+      const r15 = run(s15, [], async () => {});
+      const sent15 = await r15.flush();
+      results.push(['drain: it still works when the recovery module is absent',
+        sent15 === 1, 'sent=' + sent15 + ' — an unguarded call would throw and lose the drain']);
+    }
+
     // ── no double upload with the foreground capture ────────────────────
     const s12 = fakeStore([row(1), row(2)]);
     const seen12 = [];

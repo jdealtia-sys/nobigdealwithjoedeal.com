@@ -611,6 +611,61 @@ const countWrites = (t) => t.fsdb.calls.wrote.filter((w) => 'photoQueuePending' 
       t.fsdb.calls.get === 0, 'reads=' + t.fsdb.calls.get);
   }
 
+  // ── a drain that ran OUTSIDE recover() must not leave the rep accused ──
+  //
+  // writeMarker() was reachable only from recover(). The two drains that do
+  // most of the real work are elsewhere — photo-engine's `online` listener and
+  // its post-capture flush — and both clear the LOCAL counter while leaving
+  // the SERVER marker frozen at the old number. That is harmless until
+  // purgeAccountStorage() deletes the counter on sign-out; the next sign-in
+  // reads the stale marker, finds no local evidence, and tells the rep to
+  // reshoot a roof whose photos are already in the gallery.
+  {
+    const server = makeFirestore(null);
+    const ls = {};
+    let rows = 3;
+    // Read the counter from the localStorage object the boot ACTUALLY gets,
+    // so a fresh one (a sign-out purge) really does look purged to the store.
+    const mk = (from) => makeStore({
+      lastKnownCount: () => (from.nbd_photo_queue_last_known_size === undefined
+        ? null : parseInt(from.nbd_photo_queue_last_known_size, 10)),
+      count: async () => rows,
+      pendingForUid: async () => rows,
+      // #1430 made recovery prefer pendingStats; provide BOTH so this fixture
+      // never silently exercises the fallback instead of the real path.
+      pendingStats: async () => ({ count: rows, oldestAt: rows ? 1 : 0 }),
+      all: async () => []
+    });
+
+    // Boot 1: three rows queued, marker filed, drain does not complete here.
+    ls.nbd_photo_queue_last_known_size = '3';
+    boot({ ls, store: mk(ls), firestore: server });
+    await settle();
+    ok('the marker records the three photos owed',
+      server.state.data && server.state.data.photoQueuePending === 3,
+      'marker=' + JSON.stringify(server.state.data));
+
+    // The `online` listener drains them elsewhere: rows gone, counter zeroed,
+    // and (before the fix) nothing tells the server.
+    rows = 0;
+    ls.nbd_photo_queue_last_known_size = '0';
+    boot({ ls, store: mk(ls), firestore: server });
+    await settle();
+    ok('a boot with an emptied queue clears the stale marker',
+      server.state.data && server.state.data.photoQueuePending === 0,
+      'marker=' + JSON.stringify(server.state.data) + ' — left at 3, the next sign-in accuses the rep');
+
+    // Sign-out purges every nbd_ key, so the next boot has no local evidence
+    // and must consult the server. It must find nothing owed.
+    const purged = {};   // purgeAccountStorage() dropped every nbd_ key
+    const t3 = boot({ ls: purged, store: mk(purged), firestore: server });
+    await settle();
+    ok('...so the sign-in after a logout does NOT accuse the rep',
+      !said(t3, LOSS),
+      'banner=' + JSON.stringify(bannerText(t3))
+      + ' — all three photos uploaded; this tells the rep to reshoot a roof');
+  }
+
   console.log(`\n  ${passed} passed, ${failed} failed`);
   if (failed) { console.log('\n  failures:'); for (const f of fails) console.log('    - ' + f); process.exit(1); }
   process.exit(0);
