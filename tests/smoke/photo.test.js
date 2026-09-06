@@ -763,8 +763,10 @@ section('customer.html: blank-preview escape hatch on prereq warning');
   // template" — so a rep can render any template even when prereqs
   // aren't met. Useful for showing customers what a doc looks like
   // before all data is gathered, or QA-ing the template itself.
+  // `async function` since 2026-09-06: docgen is a lazy ScriptLoader bundle
+  // on this page, so the preview awaits it before reaching for NBDDocGen.
   assert('window._previewBlankDoc exposed',
-    /window\._previewBlankDoc\s*=\s*function/.test(customer));
+    /window\._previewBlankDoc\s*=\s*(?:async\s+)?function/.test(customer));
   assert('_blankifyDocData fills placeholder values for missing fields',
     /function _blankifyDocData\([^)]*\)[\s\S]{0,1500}placeholders\s*=\s*\{[\s\S]{0,1500}\[Customer Name\]/.test(customer));
   assert('blank-preview data flags _isBlankPreview = true',
@@ -776,7 +778,9 @@ section('customer.html: blank-preview escape hatch on prereq warning');
   assert('_previewBlankDoc bypasses prereq check (no checkPrerequisites call inside)',
     !/_previewBlankDoc[\s\S]{0,500}checkPrerequisites/.test(customer));
   assert('_previewBlankDoc calls NBDDocGen.generate directly',
-    /window\._previewBlankDoc[\s\S]{0,600}window\.NBDDocGen\.generate\(\s*type\s*,\s*blank\s*\)/.test(customer));
+    /window\._previewBlankDoc[\s\S]{0,900}window\.NBDDocGen\.generate\(\s*type\s*,\s*blank\s*\)/.test(customer));
+  assert('_previewBlankDoc loads the lazy docgen bundle before using it',
+    /window\._previewBlankDoc[\s\S]{0,400}ScriptLoader\.loadBundle\(\s*['"]docgen['"]\s*\)/.test(customer));
 }
 
 section('doc-template cards: per-card ⓘ blank-preview button');

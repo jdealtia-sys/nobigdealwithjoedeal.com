@@ -133,10 +133,47 @@ notification poll **tore down its own live listener every two minutes**.
 a **persistent** photo queue (`offline-manager.js` already contains a complete
 IndexedDB one, never assigned to `window`, zero callers, not loaded on the
 dashboard) · promoting the customer-page required-field warning to a real block
-(needs the edit modal to gain the fields first) · `customer.html`'s 653 KiB of
-eager loading · the three Cmd+K handlers · the four hardcoded pipeline ladders.
+(needs the edit modal to gain the fields first) · the four hardcoded pipeline
+ladders. *(`customer.html`'s eager loading and the three Cmd+K handlers were
+closed the same evening — §4b.)*
 
 The **integrations** half of §4 is untouched and its verdict stands.
+
+## §4b — UPDATE 2026-09-06 (evening): the Weight items are closed
+
+Record: [BOOT-WEIGHT-2026-09-06](../audit/BOOT-WEIGHT-2026-09-06.md), with
+corrections appended in place to the recon's §Weight.
+
+**Shipped** — `customer.html` boot JS **1888.5 → 1395.0 KiB (−26%)**, −4
+requests, by moving the docgen cluster to the dashboard's existing on-demand
+path; dashboard loses **21.8 KiB / 4 sheets** of render-blocking Leaflet CSS (rebased onto #1418; re-measured against it) ·
+ScriptLoader dedupes on the **resolved path**, which ends the live
+double-execution of `supplement-ui.js` (two tags in the DOM, proven) ·
+`ui.js` stands down for the canonical Cmd+K palette · dead `markLoaded`
+removed · 7 files' `?v=` cache-key drift unified.
+
+**The one thing to know before touching this again**: of the recon's 656 KiB,
+**only 498.7 was safe to move**. `profit-tracker`, the `supplement-ui` pair
+and `photo-report` all render at load or win a name collision — lazy-loading
+any of them blanks a live surface with no error. They stay eager on purpose;
+the reasons are in the note. And the Leaflet CSS win is first-paint, not boot
+bytes, for a default home view (`weather-radar` pulls the bundle anyway).
+
+**Still open from this lane**: the `generatePhotoReport` double assignment
+(`customer-photo-report-generator.js` vs `photo-report.js` — the former is
+dead on the customer page, 32.5 KiB fetched for nothing; untangling it is what
+lets `photo-report` go lazy) · a re-entry sentinel for `supplement-ui.js` ·
+the Sentry tracing → error-only bundle swap (needs an SRI hash made online).
+
+**A pre-existing red to not chase**: `tests/e2e/stranger.spec.js:346` (the
+`waitForFunction` on `window._user.uid` after login) **fails on clean `main`**
+on this machine with the functions emulator on — proven 2026-09-06 by
+reverting the served files byte-for-byte and re-running (same timeout, same
+3 passed / 1 failed / 1 did not run; `:529` is its dependent). Whoever picks
+it up: the dashboard *does* boot (header shows "Connected · N leads"), so it
+is the `_user` plumbing's timing, not a load failure. Also: the two
+provisioning specs (`stranger:194`, `gauntlet:284`) need `,functions` in the
+emulator set or they fail behind the wizard's "check your connection" alert.
 
 ## §4 — The two lanes I did not build
 

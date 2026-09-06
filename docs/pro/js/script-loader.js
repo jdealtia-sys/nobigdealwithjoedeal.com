@@ -20,8 +20,10 @@
  *   ScriptLoader.loadBundle(name)     → Promise<void> — load a named group
  *   ScriptLoader.preloadForView(name) → Promise<void> — load all bundles for a view
  *   ScriptLoader.isLoaded(name)       → boolean
- *   ScriptLoader.markLoaded(src)      → void — mark a src as pre-loaded
- *                                     (for files already in the defer list)
+ *
+ * Script identity is the RESOLVED PATH (see cacheKey), so a file already on
+ * the page as an eager <script> tag is never re-injected, whatever path form
+ * or ?v= cache-buster either reference happens to use.
  */
 // CSP fix: the Google Fonts preload->stylesheet swap lived in an inline
 // onload attribute, which script-src-attr 'none' blocks — so the 14 theme
@@ -44,6 +46,21 @@
 
   const loaded = new Set();
   const pending = new Map();
+
+  // Identity of a script = its resolved path, NOT the src string as written.
+  // Two things used to defeat the old raw-string comparison:
+  //   1. path form   — '/pro/js/x.js' (customer.html) vs 'js/x.js' (bundles)
+  //   2. cache-buster — 'js/x.js?v=7' vs 'js/x.js?v=10' (same bytes on disk)
+  // Both resolve to the same pathname, so both dedupe correctly now.
+  function cacheKey(src) {
+    if (!src) return '';
+    try {
+      const u = new URL(src, document.baseURI);
+      return u.origin + u.pathname;
+    } catch (e) {
+      return String(src).split('?')[0].split('#')[0];
+    }
+  }
 
   // Files we ship on-demand. Anything NOT listed here stays in the
   // eager <script defer> list in dashboard.html. Each bundle is a
@@ -86,7 +103,10 @@
     // this bundle or the margin silently degrades to "set Job Value".
     expenses: [
       'js/expense-config.js?v=1',
-      'js/profit-tracker.js?v=1',
+      // v=2 to match customer.html, which keeps this file EAGER: its
+      // renderCostPanel('profitPanel') runs during the customer render, so it
+      // cannot be lazy there. Same cache key on both pages.
+      'js/profit-tracker.js?v=2',
       'js/expenses.js?v=1'
     ],
     // Money / P&L capstone — self-contained (reads doc fields directly, no
@@ -117,10 +137,13 @@
     // inside the Docs view. ~420 KB off the boot path. Order matters:
     // nbd-logo-asset + document-generator define the globals that
     // document-generator-templates augments and doc-preflight consumes.
+    // Version strings match customer.html's retired eager tags (v=10 / v=8).
+    // They were v=7 here, so a rep who opened both pages fetched the same two
+    // files twice under two cache keys. One key per file, repo-wide.
     docgen: [
       'js/nbd-logo-asset.js?v=2',
-      'js/document-generator.js?v=7',
-      'js/document-generator-templates.js?v=7',
+      'js/document-generator.js?v=10',
+      'js/document-generator-templates.js?v=8',
       'js/doc-preflight.js?v=1'
     ],
     // Estimate engine (PR 2c). The revenue-critical builder + its product/
@@ -245,7 +268,16 @@
     // (weather-radar, territory-mini) load-then-run via widgets.js
     // _withLeaflet. The maps *app* chain (maps-core→…→maps.js) stays eager —
     // maps.js doubles as the theme/font appearance engine.
+    // The four Leaflet stylesheets (21.8 KiB) were render-blocking <link>s in
+    // dashboard.html's <head> even though the JS below them has been lazy
+    // since 2026-08-07 — CSS for a map most sessions never open, on the
+    // critical path of every boot. They ride the bundle now, and lead it, so
+    // the panes are styled before leaflet.js constructs a map.
     mapvendor: [
+      '/assets/vendor/leaflet/leaflet.css',
+      '/assets/vendor/leaflet-draw/leaflet.draw.css',
+      '/assets/vendor/leaflet-markercluster/MarkerCluster.css',
+      '/assets/vendor/leaflet-markercluster/MarkerCluster.Default.css',
       '/assets/vendor/leaflet/leaflet.js',
       '/assets/vendor/leaflet-draw/leaflet.draw.js',
       '/assets/vendor/leaflet-heat/leaflet-heat.js',
@@ -277,17 +309,60 @@
     settings:    ['theme']
   };
 
+  // A bundle entry ending in .css is injected as a stylesheet instead of a
+  // script. Same dedupe key, same sequential ordering inside loadBundle, so a
+  // vendor's CSS can sit directly above the JS that needs it.
+  function loadCss(href) {
+    const key = cacheKey(href);
+    if (loaded.has(key)) return Promise.resolve();
+    if (pending.has(key)) return pending.get(key);
+    try {
+      const links = document.querySelectorAll('link[rel="stylesheet"][href]');
+      for (let i = 0; i < links.length; i++) {
+        if (cacheKey(links[i].getAttribute('href')) === key) {
+          loaded.add(key);
+          return Promise.resolve();
+        }
+      }
+    } catch (e) {}
+    const p = new Promise((resolve) => {
+      const el = document.createElement('link');
+      el.rel = 'stylesheet';
+      el.href = href;
+      const done = () => { loaded.add(key); pending.delete(key); resolve(); };
+      el.onload = done;
+      // Never reject — a missing stylesheet must not stall the JS behind it.
+      el.onerror = () => { console.warn('[ScriptLoader] failed to load:', href); pending.delete(key); resolve(); };
+      document.head.appendChild(el);
+    });
+    pending.set(key, p);
+    return p;
+  }
+
   function load(src) {
-    if (loaded.has(src)) return Promise.resolve();
-    if (pending.has(src)) return pending.get(src);
+    if (/\.css(\?|#|$)/i.test(String(src))) return loadCss(src);
+    const key = cacheKey(src);
+    if (loaded.has(key)) return Promise.resolve();
+    if (pending.has(key)) return pending.get(key);
     // A page may already ship this file as an eager <script> tag
     // (the legacy twin, retired 2026-09-02, kept Leaflet + the theme cluster eager) —
     // never double-inject. If the eager tag is still queued (defer), the
     // consumer's own guard/poll covers the gap, same as a slow fetch.
+    //
+    // Compare RESOLVED keys, not raw src strings. customer.html writes its
+    // tags absolute (`/pro/js/supplement-ui.js?v=1`) while the bundles here
+    // are page-relative (`js/supplement-ui.js?v=1`); a raw-string match sees
+    // two different files and re-injects. supplement-ui.js has no re-entry
+    // guard and registers a document.body subtree MutationObserver at load,
+    // so that second execution left TWO observers calling attachButtons() on
+    // every DOM mutation of the customer page. Same trap for a `?v=` bump.
     try {
-      if (document.querySelector('script[src="' + src + '"]')) {
-        loaded.add(src);
-        return Promise.resolve();
+      const tags = document.querySelectorAll('script[src]');
+      for (let i = 0; i < tags.length; i++) {
+        if (cacheKey(tags[i].getAttribute('src')) === key) {
+          loaded.add(key);
+          return Promise.resolve();
+        }
       }
     } catch (e) {}
 
@@ -296,8 +371,8 @@
       el.src = src;
       el.async = false; // preserve execution order within a bundle
       el.onload = () => {
-        loaded.add(src);
-        pending.delete(src);
+        loaded.add(key);
+        pending.delete(key);
         resolve();
       };
       el.onerror = () => {
@@ -305,12 +380,12 @@
         // Individual views already tolerate missing modules (they log
         // and render an empty state).
         console.warn('[ScriptLoader] failed to load:', src);
-        pending.delete(src);
+        pending.delete(key);
         resolve();
       };
       document.head.appendChild(el);
     });
-    pending.set(src, p);
+    pending.set(key, p);
     return p;
   }
 
@@ -337,16 +412,18 @@
   }
 
   function isLoaded(name) {
-    if (loaded.has(name)) return true; // raw src
+    if (loaded.has(cacheKey(name))) return true; // a src
     const bundle = BUNDLES[name];
     if (!bundle) return false;
-    return bundle.every(src => loaded.has(src));
+    return bundle.every(src => loaded.has(cacheKey(src)));
   }
 
-  // Let the boot path mark scripts it already included via <script
-  // defer> so the loader doesn't fetch them twice if a view asks
-  // for them later.
-  function markLoaded(src) { loaded.add(src); }
+  // markLoaded() was removed on 2026-09-06. It existed so a page could tell
+  // the loader "this file is already in my <script defer> list, don't fetch
+  // it again" — but nothing ever called it in the four months it shipped, and
+  // the only reference was a smoke test asserting it was exported. The
+  // cacheKey() scan of live <script src> tags in load() now does that job
+  // automatically, for every page, with no hand-maintained list to drift.
 
   function debug() {
     console.group('[ScriptLoader]');
@@ -363,7 +440,6 @@
     loadBundle,
     preloadForView,
     isLoaded,
-    markLoaded,
     debug,
     bundles: BUNDLES,
     views: VIEW_BUNDLES

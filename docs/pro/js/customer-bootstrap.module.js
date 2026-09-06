@@ -3051,6 +3051,14 @@ window.exportCustomerPDF = async function() {
     else alert('Customer data not loaded');
     return;
   }
+  // The docgen cluster is lazy (ScriptLoader 'docgen'). Load-then-run: this
+  // used to be a dead end telling the rep to refresh.
+  if (!window.NBDDocGen || typeof window.NBDDocGen.generate !== 'function') {
+    if (window.ScriptLoader && typeof window.ScriptLoader.loadBundle === 'function') {
+      if (typeof showToast === 'function') showToast('Preparing document generator…', 'info');
+      await window.ScriptLoader.loadBundle('docgen');
+    }
+  }
   if (!window.NBDDocGen || typeof window.NBDDocGen.generate !== 'function') {
     if (typeof showToast === 'function') showToast('Document generator not loaded — refresh and try again', 'error');
     else alert('Document generator not loaded — refresh and try again');

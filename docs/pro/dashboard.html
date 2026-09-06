@@ -101,12 +101,14 @@
 <!-- LAZY: Leaflet + plugins (~225KB JS) load via the `mapvendor` bundle
      (script-loader.js, 2026-08-07) — triggered by the map/draw/d2d/storm
      views and the two map-drawing home widgets. Consumers already tolerate
-     late arrival (waitForLeaflet / self-poll / _withLeaflet). Only the tiny
-     stylesheets stay eager so the first map paint isn't unstyled. -->
-<link rel="stylesheet" href="/assets/vendor/leaflet/leaflet.css"/>
-<link rel="stylesheet" href="/assets/vendor/leaflet-draw/leaflet.draw.css"/>
-<link rel="stylesheet" href="/assets/vendor/leaflet-markercluster/MarkerCluster.css"/>
-<link rel="stylesheet" href="/assets/vendor/leaflet-markercluster/MarkerCluster.Default.css"/>
+     late arrival (waitForLeaflet / self-poll / _withLeaflet).
+     2026-09-06: the four stylesheets (21.8 KiB) used to stay eager here "so
+     the first map paint isn't unstyled". They now lead the mapvendor bundle
+     instead — loadBundle() is sequential, so they are applied before
+     leaflet.js constructs a map and that guarantee still holds, without
+     21.8 KiB of render-blocking CSS on every boot for a view most sessions
+     never open. -->
+
 <!-- Centralized Auth Gate -->
 <script type="module" src="js/dashboard-auth-gate.module.js?v=1"></script>
 <script type="module" src="js/dashboard-bootstrap.module.js?v=12"></script>

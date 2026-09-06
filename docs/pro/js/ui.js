@@ -207,8 +207,14 @@ document.addEventListener('keydown', (e) => {
   const palette = document.getElementById('cmdPalette');
   const isOpen = palette && palette.style.display === 'flex';
   
-  // Cmd+K or Ctrl+K to open
-  if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+  // Cmd+K or Ctrl+K to open.
+  // DUP-2 fix (2026-09-06): command-palette.js (window.NBDCommand) is the
+  // canonical Cmd+K palette — global-search.js already stands down for it the
+  // same way. This one did not, so on dashboard.html (which loads all three)
+  // a single Cmd+K opened BOTH this #cmdPalette and NBDCommand's modal,
+  // stacked. Checked per-event so load order is moot; if NBDCommand is
+  // somehow absent this palette still works as the fallback.
+  if ((e.metaKey || e.ctrlKey) && e.key === 'k' && !window.NBDCommand) {
     e.preventDefault();
     if (!isOpen) openCmdPalette();
   }

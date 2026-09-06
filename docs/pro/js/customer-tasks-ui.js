@@ -1837,7 +1837,12 @@ function _blankifyDocData(realData) {
   return out;
 }
 
-window._previewBlankDoc = function (type) {
+window._previewBlankDoc = async function (type) {
+  // Docgen is lazy (ScriptLoader 'docgen') — fetch it on first use instead of
+  // telling the rep it is "loading..." and doing nothing.
+  if (!window.NBDDocGen && window.ScriptLoader && typeof window.ScriptLoader.loadBundle === 'function') {
+    await window.ScriptLoader.loadBundle('docgen');
+  }
   if (!window.NBDDocGen) {
     showToast('Document generator loading...', 'error');
     return;
@@ -1994,7 +1999,15 @@ document.addEventListener('input', function _docCreateSearchListener(e) {
 
 // Backdrop click + Esc dismiss are handled by nbdModal (batch-4 consolidation).
 
-window.generateCustomerDoc = function(type) {
+window.generateCustomerDoc = async function(type) {
+  // Docgen is lazy (ScriptLoader 'docgen'). Both NBDDocGen and DocPreflight
+  // ride that one bundle, so this single await covers the pre-flight branch
+  // below as well — without it that branch would silently skip the review
+  // modal and generate straight from unreviewed data.
+  if (!window.NBDDocGen && window.ScriptLoader && typeof window.ScriptLoader.loadBundle === 'function') {
+    showToast('Preparing document generator…', 'info');
+    await window.ScriptLoader.loadBundle('docgen');
+  }
   if (!window.NBDDocGen) {
     showToast('Document generator loading...', 'error');
     return;
