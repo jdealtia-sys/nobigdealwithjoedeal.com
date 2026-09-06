@@ -205,6 +205,20 @@ function mapPublicLeadToLead(args) {
     publicLeadId: String(args.sourceId || ''),
   };
 
+  // Coordinates (2026-09-06). The /estimate wizard geocodes the address at
+  // step 1 and the gateway now persists lat/lon on the public lead; carry
+  // them onto the CRM lead under the repo's canonical names (`lat`/`lng` —
+  // note the public form's `lon` becomes `lng` here; hail-cron.js tolerates
+  // both spellings but nothing else writes the alternates, so do not spread
+  // the drift). integrations/public-measure.js measures the roof off these,
+  // and the map/heatmap layers stop having to re-geocode a bridged lead.
+  const _lat = Number(data.lat), _lng = Number(data.lon != null ? data.lon : data.lng);
+  if (isFinite(_lat) && isFinite(_lng) && Math.abs(_lat) <= 90 && Math.abs(_lng) <= 180
+      && !(_lat === 0 && _lng === 0)) {
+    doc.lat = _lat;
+    doc.lng = _lng;
+  }
+
   // Marketing attribution — only when the gateway passed it through.
   if (data.utm_source)   doc.utmSource = String(data.utm_source);
   if (data.utm_medium)   doc.utmMedium = String(data.utm_medium);

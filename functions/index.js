@@ -260,6 +260,10 @@ Object.assign(exports, voiceConsumer);
 // ═══════════════════════════════════════════════════════════════
 const slackIntegration       = require('./integrations/slack');
 const measurementIntegration = require('./integrations/measurement');
+// Public estimate leads get their roof measured when the CRM lead is created
+// (measureNewWebLead), and the anonymous wizard reads the homeowner-safe
+// subset back (publicRoofMeasure — read-only, never spends).
+const publicMeasureIntegration = require('./integrations/public-measure');
 const esignIntegration       = require('./integrations/esign');
 const parcelIntegration      = require('./integrations/parcel');
 const hailIntegration        = require('./integrations/hail');
@@ -283,6 +287,8 @@ const stormBriefingIntegration = require('./integrations/storm-briefing');
 const thumbtackIntegration   = require('./integrations/thumbtack');
 Object.assign(exports, slackIntegration);
 Object.assign(exports, measurementIntegration);
+exports.measureNewWebLead = publicMeasureIntegration.measureNewWebLead;
+exports.publicRoofMeasure = publicMeasureIntegration.publicRoofMeasure;
 Object.assign(exports, esignIntegration);
 Object.assign(exports, parcelIntegration);
 Object.assign(exports, hailIntegration);

@@ -16,6 +16,7 @@ configured" for five months.
 | V2 builder "📐 Auto-measure" | `docs/pro/js/estimate-v2-ui.js` → `autoMeasure` → `NBDIntegrations.requestMeasurement` → `requestMeasurement` (`functions/integrations/measurement.js` → `requestInstantRoofer`) | `INSTANTROOFER_API_KEY` set + a functions deploy |
 | D2D "📐 Order precise roof report" | `docs/pro/js/d2d-tracker-core-2026b.js` → `orderRoofReport` (sends the knock pin as lat/lng) | same |
 | Human Certified Report (`reportType:'human'`) — **server-side only today, no button** | `requestMeasurement({ reportType:'human' })` → `measurementWebhook?provider=instantroofer` | `INSTANTROOFER_WEBHOOK_SECRET` + the dashboard webhook (§3) |
+| **Public estimate leads, measured automatically** | `measureNewWebLead` (`functions/integrations/public-measure.js`) → the wizard reads it back through `publicRoofMeasure` | on by default once the key is set — see §4 to cap or stop it |
 
 The pure logic (request body, response normalizer, error table, webhook
 parser, bearer check) is `functions/integrations/instantroofer-logic.js`;
@@ -122,6 +123,57 @@ note). The URL lands on the measurement doc as `reportUrls.{format}` and
 section makes the receive path ready. Set the secret even if you are not
 ordering reports yet — the callable refuses `reportType:'human'` without it,
 and this form is the only place the token is ever shown.
+
+## 4. Automated measurement of public leads — the only unattended spend
+
+When a homeowner finishes the `/estimate` wizard, the CRM lead that gets
+bridged from their submission is measured automatically. **This is the only
+place in the codebase that buys something with no human in the loop**, so it is
+fenced four ways:
+
+| Guard | Where | Effect |
+|---|---|---|
+| Gate | `measureNewWebLead` | Fires only for `webLead === true` + `publicLeadKind === 'estimate'` + usable `lat`/`lng`. A CRM-entered, Thumbtack or contact-form lead never measures. |
+| Once per lead | deterministic doc id `measurements/weblead-{leadId}` written with `create()` | A Firestore trigger is at-least-once; a redelivery hits `ALREADY_EXISTS` instead of buying a second report. |
+| Reuse | the same 90-day `coordKey` cache the rep path uses | A repeat submission for a roof already measured costs nothing. |
+| Daily cap | `trigger:measureNewWebLead:daily`, 25/day account-wide | Real volume is ≈1 web lead/day, so this is ~25× headroom and caps a runaway (bot flood, trigger bug) at $75/day rather than unbounded. Deliberately NOT the rep-facing 5/min meter — a storm-day burst of web leads must not resource-exhaust the rep standing on a roof pressing Auto-measure. |
+
+**To stop it without a deploy** (the SPEND_KILLSWITCH pattern — one Firestore
+write):
+
+```
+feature_flags/global  →  webLeadMeasureDisabled: true
+```
+
+The trigger reads that through `integrations/killswitch.js` (60-second cache,
+fail-open on a Firestore blip) and logs a WARNING each time it skips. Its
+sibling `aiDisabled` is unaffected — measurement is metered vendor budget, not
+AI tokens, and an operator may well want to stop one and not the other.
+
+**What the homeowner sees.** The wizard's step-4 ballpark is unchanged and
+still free — no vendor call happens for anonymous traffic, which matters
+because the public funnel has no CAPTCHA today (§Other caveats). Only after
+step 5 captures a name, an SMS-verified phone and an email does the reveal use
+real numbers: `publicRoofMeasure` (read-only, spends nothing) hands back
+`{sqft, squares, pitch, stories, complexity, confidence}` and the estimate is
+recomputed from real squares × NBD's per-square ranges. The model is still
+asked for Joe's note, but **never for the arithmetic** — a hallucinated square
+count cannot reach a homeowner. A low-confidence measurement adds a visible
+caveat, and the ToS attribution ("Roof measurement powered by Instant Roofer")
+ships in the same block.
+
+**What Joe sees.** The kanban chip carries the numbers — `📐 38.7 sq · 5/12`
+instead of a bare `📐 Measurement` — plus the usual task and activity entry.
+The chip is built from numbers only and re-validated against a numeric pattern
+before it is printed, because the card renderer has no HTML escaper in scope.
+
+**If it ever looks wrong, check the coordinates first.** They come from the
+wizard's Nominatim geocode, which the homeowner then confirms on a zoom-19
+satellite view at step 2 ("Is this your home?") — a real human confirmation of
+the point, which is better than the rep-facing path gets. But OSM is
+street-interpolated where it lacks a building footprint, so a measurement can
+still land on the neighbour's roof. The lead records `coordSource` /
+`coordPrecision` so this is diagnosable rather than mysterious.
 
 ## Cost model — why the code is stingy
 

@@ -187,17 +187,87 @@ The six-lens run returned 25 findings; 14 survived three independent refuters,
   runbook's fallback deploy command rebound only `requestMeasurement`, not the
   `integrationStatus` it told you to verify with.
 
+## Slice 2 — the public funnel measures for real (same session, second PR)
+
+Jo picked two of the three follow-ups: the public wizard ("genius") and
+measure-on-submit ("legit"), and passed on the CSV parse for now. Recon
+collapsed them into **one** mechanism, because of where the funnel captures
+contact details:
+
+| Step | Asks | Vendor cost |
+|---|---|---|
+| 1 | Address → Nominatim geocode (`lat`/`lon` exist from here on) | free |
+| 2 | "Is this your home?" — zoom-19 satellite confirm | free |
+| 3 | Service, size tile, timeline | free |
+| 4 | **Ballpark reveal** (the `SIZE_SQUARES {14,20,30}` guess) | free |
+| 5 | **"Verify Your Info to Unlock"** — name, SMS-verified phone, email | — |
+
+Contact capture is step 5, *after* the free ballpark. So nothing anonymous
+ever needs to trigger a paid call: the measurement happens when the CRM lead is
+created, and the unlock reveal reads it back. One mechanism serves both
+slices, the $3 is 1:1 with a real lead, and **Turnstile stops being a
+blocker** — which matters, because it turns out there is no CAPTCHA at all
+today (below).
+
+**What shipped**
+
+- `functions/integrations/public-measure.js` — `measureNewWebLead`
+  (`onDocumentCreated leads/{leadId}`, the only unattended spender) and
+  `publicRoofMeasure` (public `onRequest`, **read-only**). The trigger is
+  gated to bridged estimate leads with coordinates, writes a deterministic
+  `measurements/weblead-{leadId}` with `create()` so a redelivery collides
+  instead of re-billing, honours the 90-day reuse cache, is capped at 25/day,
+  and checks a new `feature_flags/global.webLeadMeasureDisabled` kill switch.
+- **The coordinates finally survive.** The wizard has always POSTed `lat`/`lon`
+  (`4053149b2f.js:957-958`) but `submitPublicLead`'s optional loop drops every
+  non-string, so no estimate lead has ever carried them — the same class of bug
+  as the `tcpaConsent` boolean fixed on 2026-09-04. Added `numOptional` beside
+  the existing `boolOptional` (range-checked, `0,0` rejected) and taught
+  `mapPublicLeadToLead` to copy them as the canonical `lat`/`lng`.
+- **The wizard uses them without letting a model do the money math.** When a
+  measurement exists the prompt states the size is aerially measured and must
+  be used exactly, and the returned `roofSqft`/`squares`/`tiers` are then
+  *overwritten* from `tiersFromSquares()` — real squares × NBD's per-square
+  ranges, $25 rounding, $2,500 minimum. The model keeps `joesTake` and
+  `yearBuilt`. The offline fallback uses the measurement too, so an AI outage
+  no longer costs the homeowner an accurate number.
+- The results page drops its `~` for a measured roof, adds a low-confidence
+  caveat, and carries the ToS-required "powered by Instant Roofer" line.
+- The kanban chip now shows `📐 38.7 sq · 5/12` — because the recon found that
+  shipping the measurement alone would have been **invisible**:
+  `lead.measurementReady` had exactly one reader (a static chip),
+  `lead.measurementJobId` had none, and `leads/{id}/activity` has six writers
+  and zero client readers. The *features-exist-but-unmounted* pattern again,
+  caught before it shipped this time.
+- `tests/public-measure.test.js` — 55 assertions, node bucket, FLOORS → 54/65/133.
+
+**Found and NOT fixed — the public funnel has no CAPTCHA at all.** It is not
+just that `TURNSTILE_SECRET` is the April stub: `window.__NBD_TURNSTILE_SITEKEY`
+is `""` (`docs/assets/js/inline/7cd8e505ab.js:10`), no `docs/` page contains a
+`.cf-turnstile` element, so the widget script is never fetched and
+`submitPublicLead` receives no token from any NBD page. `verifyTurnstile`
+returns `{ok:true, configured:false}` and waves everything through. Public
+forms rest on a honeypot and an IP rate limit. **Order of operations if Jo
+fixes it: populate the site key → deploy → only then set the secret.** Setting
+the secret first 403s 100% of public leads — spelled out at
+`7cd8e505ab.js:4-9` and pinned by `tests/turnstile-contract.test.js:6-11`.
+This is also the gate on ever showing the measurement *before* contact capture.
+
+**Volume, honestly.** Nothing in the repo breaks leads down by source: 181→199
+over 2026-08-18→09-04 is a total across D2D, manual, Cal.com and Thumbtack, and
+`weeklyDigest`'s counter has never sent. Treat ~32/month all-sources as an
+*upper bound* on web-form rate — so roughly $3/day at worst, which is why the
+daily cap is 25 and not 200.
+
 ## Open follow-ups (deliberately not in this branch)
 
-1. **Public wizard slice** — replace the size tile with a real measurement +
-   outline image (client-side, never persisted); needs a working Turnstile
-   secret, a per-IP limit, the rounded-coordinate cache, and the "Powered
-   by" mark. The callable already returns `measurements` directly so the
-   wizard need not poll.
-2. **Measure on submit** — hook `leadBridgeEstimate` to measure every
-   submitted estimate lead (requires allowlisting numeric `lat/lon` in
-   `submitPublicLead` and copying them in `mapPublicLeadToLead`).
-3. **Human report CSV → linear feet** — the webhook delivers a file URL
+1. ~~Public wizard slice~~ and ~~measure on submit~~ — **both shipped**, as one
+   mechanism (see above). What remains of the original idea: showing the
+   measurement and the roof-outline image *before* contact capture, which needs
+   Turnstile wired first, plus a CSP `img-src` entry or a re-host for the
+   outline (`firebase.json:89` lists no instantroofer host, so the image would
+   be silently blocked today).
+2. **Human report CSV → linear feet** — the webhook delivers a file URL
    only; fetch + parse the CSV into ridge/hip/valley/eave/rake once a sample
    exists (the free credit is for exactly that).
 4. Company-scoped `measurements/` rules (today: uid-owner + platform admin),

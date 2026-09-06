@@ -210,7 +210,15 @@ const PUBLIC_LEAD_KINDS = {
     // has ever carried it. Declared here as a boolean so the express-written-
     // consent record actually persists and lead-alert's SMS ack can gate on
     // it instead of inferring consent from the collection name.
-    boolOptional: ['tcpaConsent']
+    boolOptional: ['tcpaConsent'],
+    // Coordinates (2026-09-06). The funnel has ALWAYS posted these — the
+    // wizard geocodes the address at step 1 and puts `lat`/`lon` in the
+    // submitted leadData — but they are NUMBERS, and the optional loop below
+    // drops every non-string, so no estimate lead has ever carried them. They
+    // are what the roof measurement is keyed on (Instant Roofer locates the
+    // building from a point, not an address), so without them every web lead
+    // would need a second, worse geocode server-side.
+    numOptional: { lat: { min: -90, max: 90 }, lon: { min: -180, max: 180 } }
   },
   storm: {
     collection: 'storm_alert_subscribers',
@@ -418,6 +426,22 @@ exports.submitPublicLead = onRequest(
       const parsed = TCPA.parseSubmittedConsent(body[key]);
       if (parsed !== undefined) data[key] = parsed;
     }
+
+    // Numeric optionals (2026-09-06), same shape as boolOptional and for the
+    // same reason: the string loop's `typeof v !== 'string'` guard is the M-04
+    // hardening and must stay. Only keys the kind declares are considered,
+    // each is range-checked, and 0/0 (the classic "geocode failed" value) is
+    // rejected rather than stored as a real point in the Gulf of Guinea.
+    for (const key of Object.keys(spec.numOptional || {})) {
+      const raw = body[key];
+      if (raw === null || raw === undefined || raw === '') continue;
+      const n = Number(raw);
+      if (!isFinite(n)) continue;
+      const range = spec.numOptional[key];
+      if (n < range.min || n > range.max) continue;
+      data[key] = n;
+    }
+    if (data.lat === 0 && data.lon === 0) { delete data.lat; delete data.lon; }
 
     // Trust-but-tag: server-only fields the client can't spoof.
     data.ip = clientIp(req);

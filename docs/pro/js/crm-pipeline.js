@@ -1366,7 +1366,7 @@ function buildCard(l){
       ${needsBadge}
       ${roofBadge}
       ${l.hailHit && l.hailHit.sizeInches ? `<span class="kc-tag kct-dmg" style="background:rgba(255,59,59,.18);color:var(--red,#ef4444);border-color:var(--red,#ef4444);" title="Recent hail near this property">⛈ ${Number(l.hailHit.sizeInches).toFixed(1)}&quot; hail</span>` : ''}
-      ${l.measurementReady ? `<span class="kc-tag" style="background:rgba(46,204,138,.14);color:var(--green,#2ecc8a);border-color:var(--green,#2ecc8a);" title="Aerial measurement report is ready">📐 Measurement</span>` : ''}
+      ${l.measurementReady ? `<span class="kc-tag" style="background:rgba(46,204,138,.14);color:var(--green,#2ecc8a);border-color:var(--green,#2ecc8a);" title="Aerial measurement — Joe still confirms on site">📐 ${/^[0-9.]{1,8} sq(?: · [0-9]{1,2}\/[0-9]{1,2})?$/.test(String(l.measurementSummary || '')) ? l.measurementSummary : 'Measurement'}</span>` : ''}
       ${smartFollowupBadge}
       ${lastSharedBadge}
       ${viewedBadge}

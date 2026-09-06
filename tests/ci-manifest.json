@@ -48,6 +48,7 @@
     "imagery-sources.test.js",
     "inbound-sms-route.test.js",
     "instantroofer-measurement.test.js",
+    "public-measure.test.js",
     "lead-dedup.test.js",
     "lead-photo-reaping.test.js",
     "lead-filter-registry.test.js",

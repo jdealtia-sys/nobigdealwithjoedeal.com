@@ -81,6 +81,10 @@ If you add a new export, list it here so the next audit doesn't have to re-deriv
 | `invoiceWebhook` | onRequest | Stripe signature verification (payment_intent.succeeded credit; phase-3 dispute auto-reversal + refund/decline visibility) |
 | `esignWebhook` | onRequest | BoldSign webhook-secret verification |
 | `measurementWebhook` | onRequest | Hover/EagleView HMAC + Instant Roofer bearer-token verification; human-report file URLs land here |
+| `measureNewWebLead` | onDocumentCreated `leads/{leadId}` | **The only automated spender.** Measures a bridged public estimate lead's roof ($3) once per created lead — gated on `webLead === true`, `publicLeadKind === 'estimate'` and usable coordinates, capped at 25/day, and stoppable without a deploy via `feature_flags/global.webLeadMeasureDisabled` (integrations/public-measure.js) |
+| `publicRoofMeasure` | onRequest (public, unauthenticated) | **Read-only — spends nothing.** Hands the /estimate wizard back the homeowner-safe subset of the measurement `measureNewWebLead` took for its lead. 60/hr per IPv6-/64 bucket; returns `{pending:true}` rather than stalling the reveal |
+
+Module helpers re-exported by `Object.assign(exports, …)` and therefore reachable from `index.js`, but NOT deployable functions (the deploy allowlist greps for an `onCall`/`onRequest`/`onDocument*` right-hand side, which these do not have). Shared by `integrations/public-measure.js`: `requestInstantRoofer`, `findReusableMeasurement`, `attachMeasurementToLead` — all from `integrations/measurement.js`.
 | `calcomWebhook` | onRequest | Cal.com HMAC verification |
 | `swathWebhook` | onRequest | Swath `storm.verified` alerts — Stripe-style HMAC (`t=…,v1=…`, ±300s replay window, fails closed when secret unset), idempotent `storm_events/{id}` ingest + Slack ping |
 | `thumbtackWebhook` | onRequest | Thumbtack shared-token verification (Custom Header; Thumbtack offers no HMAC signing) — fails closed when `THUMBTACK_WEBHOOK_SECRET` is unset, constant-time compare, 256 KB body cap, idempotent via Thumbtack's event id |

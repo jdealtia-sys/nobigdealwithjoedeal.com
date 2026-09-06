@@ -8,7 +8,9 @@
  * minute per warm instance, not one per request.
  *
  * Flags:
- *   aiDisabled: true   → all billable AI endpoints fail closed (503 / unavailable)
+ *   aiDisabled: true         → all billable AI endpoints fail closed (503 / unavailable)
+ *   webLeadMeasureDisabled: true → stop measuring public estimate leads
+ *                              (integrations/public-measure.js; $3 a lead)
  *
  * To pull the switch in an emergency (see SPEND_KILLSWITCH.md runbook):
  *   firebase firestore:... or in console: set feature_flags/global.aiDisabled = true
@@ -44,7 +46,15 @@ async function isAiDisabled() {
   return f.aiDisabled === true;
 }
 
+// Automated roof measurement of public estimate leads. Its own flag, because
+// this one spends a metered vendor budget rather than AI tokens and an
+// operator may well want to stop it without darkening the AI surfaces.
+async function isWebLeadMeasureDisabled() {
+  const f = await getFlags();
+  return f.webLeadMeasureDisabled === true;
+}
+
 // Test hook — clears the cache so unit tests can assert fresh reads.
 function _resetCache() { _cache = { at: 0, flags: {} }; }
 
-module.exports = { getFlags, isAiDisabled, _resetCache };
+module.exports = { getFlags, isAiDisabled, isWebLeadMeasureDisabled, _resetCache };
