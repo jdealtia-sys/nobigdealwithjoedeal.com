@@ -418,12 +418,76 @@ async function reason(fn) {
     await s1.add(photo());
     ok('no loss reported while the rows are present', (await s1.detectLoss()) === 0);
 
-    // WebKit's 7-day purge: IndexedDB cleared, localStorage survives.
+    // A PARTIAL eviction: the object store is reclaimed, the counter survives.
     disk.tables['nbd-photo-queue-db']['pending-photos'] = { rows: new Map(), nextId: 1 };
     const s2 = loadStore(disk);
-    ok('an eviction is detected and counted', (await s2.detectLoss()) === 2,
+    ok('a partial eviction is detected and counted', (await s2.detectLoss()) === 2,
       'silence here is how a rep learns a week later that the photos never existed');
     ok('the loss is reported once, not on every boot', (await s2.detectLoss()) === 0);
+  }
+  {
+    // ── attributing the queue to a PERSON ────────────────────────────────
+    // count() is unfiltered on purpose — the drain gate only asks "is there
+    // anything here at all". Anything that files a number under someone's
+    // name has to filter, or a rep signing in on a shared device inherits the
+    // backlog of the rep who left photos behind, and can later be told they
+    // lost photos they never took.
+    const disk = newDisk();
+    const s = loadStore(disk);
+    await s.add(photo({ uid: 'rep-alice' }));
+    await s.add(photo({ uid: 'rep-alice' }));
+    await s.add(photo({ uid: 'rep-bob' }));
+
+    ok('count() stays unfiltered — every row on the device', (await s.count()) === 3,
+      'got ' + (await s.count()));
+    ok('pendingForUid() counts only that rep\'s rows', (await s.pendingForUid('rep-alice')) === 2,
+      'got ' + (await s.pendingForUid('rep-alice')));
+    ok('...and a rep with nothing queued gets 0, not the device total',
+      (await s.pendingForUid('rep-carol')) === 0,
+      'got ' + (await s.pendingForUid('rep-carol')) + ' — a non-zero here accuses the wrong person');
+    ok('...and no uid at all is unknown, never 0',
+      (await s.pendingForUid(undefined)) === null && (await s.pendingForUid('')) === null,
+      'a 0 for "not signed in yet" would clear a real marker');
+  }
+  {
+    // A failed read is unknown, not empty — same contract as count().
+    const disk = newDisk();
+    const s1 = loadStore(disk);
+    await s1.add(photo({ uid: 'rep-alice' }));
+    disk.deadConnection = true;
+    const s2 = loadStore(disk, { quiet: true });
+    const n = await s2.pendingForUid('rep-alice');
+    disk.deadConnection = false;
+    ok('a FAILED per-user read returns null, not 0', n === null,
+      'got ' + n + ' — a 0 would write "nothing owed" over a real backlog');
+  }
+  {
+    // ── the limit of what ANY device can prove about itself ──────────────
+    // WebKit's real 7-day ITP purge — and "Clear History and Website Data" —
+    // take every script-writable store for the origin in ONE operation. The
+    // counter dies with the photos it was counting, so there is nothing left
+    // here to compare against and detectLoss() cannot see the loss. That is a
+    // property of the platform, not a bug to fix in this file; it is pinned
+    // here so nobody reads a 0 from detectLoss() as "no photos were lost".
+    // photo-queue-loss-witness.test.js covers who DOES report this.
+    const disk = newDisk();
+    const s1 = loadStore(disk);
+    await s1.add(photo());
+    await s1.add(photo());
+
+    disk.tables['nbd-photo-queue-db']['pending-photos'] = { rows: new Map(), nextId: 1 };
+    disk.localStorage = {};
+    const s2 = loadStore(disk);
+
+    ok('after a FULL wipe the counter is gone, so the queue size is unknown',
+      s2.lastKnownCount() === null,
+      'lastKnown=' + s2.lastKnownCount() + ' — a 0 would be a claim the device cannot support');
+    ok('...and detectLoss() reports 0 because it has nothing left to compare',
+      (await s2.detectLoss()) === 0,
+      'this 0 means "unprovable here", NOT "nothing was lost" — the server witness covers it');
+    ok('...and a missing counter is never persisted as an empty queue',
+      s2.lastKnownCount() === null,
+      'writing 0 here would send every later boot down the fast path forever');
   }
   {
     const disk = newDisk();
