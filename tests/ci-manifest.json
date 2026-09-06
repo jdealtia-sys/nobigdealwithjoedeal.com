@@ -12,6 +12,7 @@
   "node": [
     "crm-required-fields.test.js",
     "photo-offline-queue.test.js",
+    "photo-queue-durability.test.js",
     "customer-stage-advance.test.js",
     "customer-invoice-markpaid.test.js",
     "esign-autodetect.test.js",

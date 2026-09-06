@@ -45,7 +45,9 @@
  *   photoCache          — { [leadId]: photoData[] }
  *   sessionPhotoCount   — number      (since modal opened)
  *   lastThumbUrl        — string      (camera "last shot" preview)
- *   uploadQueue         — pending uploads (offline-safe queue)
+ *   uploadQueue         — in-memory MIRROR of the durable offline upload
+ *                         queue (photo-queue-store.js owns the truth); the
+ *                         sole queue only when IndexedDB is unavailable
  *
  * ── Load order requirement ───────────────────────────────────────────
  *   Firebase SDK + window._storage / _db / _user / _auth must be ready
@@ -58,6 +60,8 @@
  *   photo-report.js         — Homeowner/adjuster PDF generator
  *   photo-editor.js         — Annotation overlay tool
  *   photo-smart-ingest.js   — Pre-upload EXIF/GPS analysis
+ *   photo-queue-store.js    — IndexedDB store behind the offline queue
+ *   photo-queue-recovery.js — drains that store on dashboard boot
  *
  * See functions/handlers/photo.js + functions/photo-vision.js for the
  * server-side AI paths (intentional two-path design — Haiku auto-tag
@@ -1195,19 +1199,43 @@
           // Reopen camera for next photo
           setTimeout(() => openCamera(leadId), 300);
         } catch (err) {
-          // Queue for offline upload
+          // Queue for offline upload. The toast the rep gets is chosen by
+          // whether the photo actually reached durable storage — never by
+          // what we wish had happened. See enqueueForRetry().
           try {
-            const dataUrl = imageData;
-            state.uploadQueue.push({ dataUrl, leadId, tags: selectedTags, description, location, timestamp: Date.now() });
-            state.sessionPhotoCount++;
-            modal.remove();
-            // The old copy promised an upload once connectivity returned —
-            // a promise nothing in the codebase implemented. It now does
-            // retry (on `online`, and after the next successful upload), but
-            // the queue is memory-only, so the message says what the rep has
-            // to do to keep it: stay on the page.
-            showToast('Photo held — retrying when you\'re back online. Keep this page open.', 'warning');
-            setTimeout(() => openCamera(leadId), 300);
+            const outcome = await enqueueForRetry({
+              blob,
+              dataUrl: imageData,
+              leadId,
+              tags: selectedTags,
+              description,
+              location,
+              timestamp: Date.now()
+            });
+
+            if (outcome.durable) {
+              state.sessionPhotoCount++;
+              modal.remove();
+              showToast('Photo held — it will upload when you\'re back online, even if you close the app.', 'success');
+              setTimeout(() => openCamera(leadId), 300);
+            } else if (outcome.queued) {
+              state.sessionPhotoCount++;
+              modal.remove();
+              // Storage refused the photo (private mode, disabled IDB, a
+              // dead object store). We still retry from memory, so the
+              // photo is not lost *yet* — but leaving the page ends it, and
+              // dashboard-sw-bootstrap.js reloads on every bfcache resume.
+              // Under-promise, exactly as before persistence existed.
+              showToast('Photo held — retrying when you\'re back online. Keep this page open.', 'warning');
+              setTimeout(() => openCamera(leadId), 300);
+            } else {
+              // Storage is full. Telling the rep to keep shooting into a
+              // queue that cannot accept anything is worse than stopping
+              // them, so leave the modal up with the button re-enabled.
+              showToast(outcome.message, 'error');
+              saveBtn.disabled = false;
+              saveBtn.textContent = 'SAVE & NEXT';
+            }
           } catch (queueErr) {
             showToast('Save failed: ' + err.message, 'error');
             saveBtn.disabled = false;
@@ -1262,25 +1290,34 @@
   }
 
   // ============================================================================
-  // OFFLINE UPLOAD QUEUE — drain
+  // OFFLINE UPLOAD QUEUE — persist + drain
   //
+  // History, because the shape of this code is a direct response to it:
   // state.uploadQueue was pushed to on every failed upload, under a toast
   // promising the photo would be sent once connectivity returned, and then
-  // READ BY NOTHING. The push site was its only reference in the repo: never
-  // drained, never retried, never persisted. Every one of those photos was
-  // discarded the moment the tab went away, and the rep was told the opposite.
+  // READ BY NOTHING — never drained, never retried, never persisted. Draining
+  // landed first. It fixed the retry but not the loss: the queue was memory
+  // only, and dashboard-sw-bootstrap.js reloads the page on every `pageshow`
+  // with event.persisted — every iOS bfcache resume, i.e. exactly when a rep
+  // backgrounds the app on a roof. So the toast had to under-promise ("Keep
+  // this page open") because nothing else was true.
   //
-  // This drains it: on `online`, and after any successful upload (a working
-  // upload is the best evidence connectivity is back). Items are re-queued if
-  // they fail again, and the drain is re-entrancy-guarded so an `online` event
-  // during a drain cannot double-upload.
+  // Now the queue is backed by NBDPhotoQueueStore (IndexedDB, photo-sized
+  // caps, see photo-queue-store.js) and it survives the reload. The store is
+  // the source of truth; state.uploadQueue is a mirror kept for the sync
+  // queuedPhotoCount() reader and for the degraded path where IndexedDB is
+  // unavailable at all.
   //
-  // SCOPE, stated honestly here and in the toast: this queue lives in memory
-  // only. dashboard-sw-bootstrap.js reloads the page on every bfcache resume,
-  // which is exactly when a rep backgrounds the app — so a queued photo does
-  // NOT survive leaving the page. Persisting it (IndexedDB, like the unused
-  // offline-manager.js) is the real fix and a larger one; until then the toast
-  // no longer promises what the code cannot do.
+  // Drain triggers: `online`, after any successful upload (a working upload
+  // is better evidence of connectivity than an event that may never fire on
+  // flaky LTE), and on boot via photo-queue-recovery.js.
+  //
+  // NOTE ON ORDERING — nothing is spliced out of the queue up front any more.
+  // The previous drain took the whole batch into a local array and re-queued
+  // only the item that threw, so a five-photo queue failing at #3 destroyed
+  // #4 and #5 with it, silently. Here items leave storage one at a time and
+  // only after a confirmed upload, so a mid-drain failure leaves the failing
+  // photo and everything behind it exactly where they were.
   let _draining = false;
 
   function _dataUrlToBlob(dataUrl) {
@@ -1293,43 +1330,136 @@
     return new Blob([bytes], { type: mime });
   }
 
+  function _store() {
+    return (typeof window !== 'undefined' && window.NBDPhotoQueueStore) || null;
+  }
+
+  /**
+   * Put a failed upload somewhere it can be retried from, preferring durable
+   * storage. Returns what actually happened, so the caller's toast describes
+   * reality:
+   *   { durable: true }                  — in IndexedDB, survives the reload
+   *   { queued: true }                   — memory only, dies with the page
+   *   { queued: false, message }         — refused outright (queue full)
+   */
+  async function enqueueForRetry(item) {
+    const store = _store();
+    if (store) {
+      try {
+        const id = await store.add(item);
+        state.uploadQueue.push({
+          id,
+          blob: item.blob,
+          leadId: item.leadId,
+          tags: item.tags || [],
+          description: item.description || '',
+          location: item.location || '',
+          timestamp: item.timestamp
+        });
+        return { durable: true, queued: true };
+      } catch (e) {
+        if (e && e.reason === 'queue-full') {
+          return {
+            queued: false,
+            message: 'Offline photo storage is full (' + store.MAX_ITEMS
+              + ' photos). Reconnect to upload before taking more.'
+          };
+        }
+        if (e && e.reason === 'quota') {
+          return {
+            queued: false,
+            message: 'Your device is out of storage. Reconnect to upload the photos already held.'
+          };
+        }
+        // 'unavailable' / 'bad-item' / 'write-failed' — fall through to the
+        // memory queue rather than dropping the photo on the floor.
+        console.warn('[PhotoEngine] durable queue unavailable:', e && e.message);
+      }
+    }
+
+    state.uploadQueue.push({
+      dataUrl: item.dataUrl,
+      blob: item.blob,
+      leadId: item.leadId,
+      tags: item.tags || [],
+      description: item.description || '',
+      location: item.location || '',
+      timestamp: item.timestamp
+    });
+    return { durable: false, queued: true };
+  }
+
+  /** Queued items to attempt, oldest first — from storage when we have it. */
+  async function _pendingItems() {
+    const store = _store();
+    if (store) {
+      try {
+        if (await store.available()) return await store.all();
+      } catch (e) {
+        console.warn('[PhotoEngine] could not read durable queue:', e && e.message);
+      }
+    }
+    return (state.uploadQueue || []).slice();
+  }
+
+  /** Remove a drained (or unrecoverable) item from storage and the mirror. */
+  async function _dropItem(item) {
+    const store = _store();
+    if (store && item && item.id != null) {
+      try { await store.remove(item.id); }
+      catch (e) { console.warn('[PhotoEngine] could not drop queued photo:', e && e.message); }
+    }
+    const q = state.uploadQueue || [];
+    const idx = item && item.id != null
+      ? q.findIndex((x) => x && x.id === item.id)
+      : q.indexOf(item);
+    if (idx !== -1) q.splice(idx, 1);
+  }
+
+  /** Rebuild the in-memory mirror from storage (boot, and after a drain). */
+  async function _syncMirror() {
+    const store = _store();
+    if (!store) return;
+    try {
+      if (!(await store.available())) return;
+      state.uploadQueue = await store.all();
+    } catch (e) {
+      console.warn('[PhotoEngine] mirror sync failed:', e && e.message);
+    }
+  }
+
   async function flushUploadQueue() {
     if (_draining) return 0;
-    if (!state.uploadQueue || !state.uploadQueue.length) return 0;
     if (typeof navigator !== 'undefined' && navigator.onLine === false) return 0;
     _draining = true;
     let sent = 0;
-    // Take the whole batch, then re-queue individual failures, so one bad item
-    // cannot block the rest and a retry loop cannot spin on it.
-    const batch = state.uploadQueue.splice(0, state.uploadQueue.length);
-    for (let i = 0; i < batch.length; i++) {
-      const item = batch[i];
+    try {
+      const items = await _pendingItems();
+      for (const item of items) {
+        // Decode outside the retry path. A truncated data URL passes the
+        // `!b64` check and then makes atob throw; a throw landing in the
+        // catch below would leave the item first in line on every future
+        // drain, failing identically and blocking every healthy photo behind
+        // it forever. A photo we cannot decode is unrecoverable — drop it.
+        let blob = item && item.blob;
+        if (!blob && item && item.dataUrl) {
+          try { blob = _dataUrlToBlob(item.dataUrl); } catch (_) { blob = null; }
+        }
+        if (!blob || !item.leadId) { await _dropItem(item); continue; }
 
-      // Decode FIRST, outside the retry path. A truncated or corrupted data
-      // URL passes the `!b64` check and then makes atob throw — and a throw
-      // used to land in the catch below, which re-queued the item. That item
-      // would be first in line on every future drain and fail the same way,
-      // blocking every healthy photo behind it forever. A photo we cannot
-      // decode is unrecoverable, so drop it here and keep going.
-      let blob = null;
-      try { blob = _dataUrlToBlob(item && item.dataUrl); } catch (_) { blob = null; }
-      if (!blob || !item.leadId) continue;
-
-      try {
-        await uploadPhotoToFirebase(blob, item.leadId, item.tags || [], item.description || '', item.location || '');
-        sent++;
-      } catch (e) {
-        // Put back the failing item AND everything not yet attempted, in
-        // order. The previous code re-queued only `item` and broke, so on a
-        // five-photo queue that failed at #3, photos #4 and #5 existed only in
-        // this local `batch` and were destroyed when it went out of scope —
-        // silently, with no toast and no log. That is worse than never
-        // draining at all, which is what this function replaced.
-        state.uploadQueue.unshift.apply(state.uploadQueue, batch.slice(i));
-        break;                                  // still offline — stop trying
+        try {
+          await uploadPhotoToFirebase(blob, item.leadId, item.tags || [], item.description || '', item.location || '');
+          await _dropItem(item);
+          sent++;
+        } catch (e) {
+          // Still offline (or the upload is failing for another reason).
+          // Stop here and leave this item AND everything after it queued.
+          break;
+        }
       }
+    } finally {
+      _draining = false;
     }
-    _draining = false;
     if (sent && typeof showToast === 'function') {
       showToast(sent === 1 ? '✓ 1 queued photo uploaded' : `✓ ${sent} queued photos uploaded`, 'success');
     }
@@ -1339,6 +1469,10 @@
   if (typeof window !== 'undefined' && !window.__nbdPhotoQueueBound) {
     window.__nbdPhotoQueueBound = true;
     window.addEventListener('online', function () { flushUploadQueue(); });
+    // Hydrate the mirror from storage so queuedPhotoCount() is truthful the
+    // moment this module loads after a reload. The drain itself is triggered
+    // by photo-queue-recovery.js, which waits for Firebase auth first.
+    _syncMirror();
   }
 
   async function uploadPhotoToFirebase(blob, leadId, tags, description, location) {
@@ -1815,7 +1949,16 @@
     // Exposed so the retry is an operation the app can trigger, not only an
     // `online` side effect — and so it is testable at all.
     flushUploadQueue,
+    // Synchronous, reads the in-memory mirror. Accurate once _syncMirror()
+    // has run; use queuedPhotoCountDurable() if you need the storage truth
+    // without depending on that having happened yet.
     queuedPhotoCount: () => (state.uploadQueue || []).length,
+    queuedPhotoCountDurable: async () => {
+      const store = _store();
+      if (!store) return (state.uploadQueue || []).length;
+      try { return await store.count(); }
+      catch (_) { return (state.uploadQueue || []).length; }
+    },
     openGallery: renderGallery,
     getPhotosForReport: getPhotosForLead,
     getPhotosByTag: async (leadId, tag) => {

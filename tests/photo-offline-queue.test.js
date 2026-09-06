@@ -12,12 +12,27 @@
  *   1. the queue is actually drained (on `online`, and after the next
  *      successful upload — better evidence than an event that may never fire
  *      on a flaky connection that never fully dropped), and failures are
- *      re-queued rather than dropped;
- *   2. the message no longer promises what the code cannot do. The queue is
- *      memory-only, and dashboard-sw-bootstrap reloads the page on every
- *      bfcache resume — exactly when a rep backgrounds the app — so a queued
- *      photo does NOT survive leaving the page. Persisting it is the real fix
- *      and a larger one; until then the toast must not claim otherwise.
+ *      left queued rather than dropped;
+ *   2. the message matches what the code can actually back.
+ *
+ * ── 2026-09-06: the promise got STRONGER, and that is the point ─────────
+ * This suite used to assert the toast did NOT say "will upload when
+ * connected", because the queue was memory-only and dashboard-sw-bootstrap
+ * reloads the page on every bfcache resume — exactly when a rep backgrounds
+ * the app — so the photo did not survive leaving the page. The honest copy
+ * was "Keep this page open."
+ *
+ * The queue is now persisted in IndexedDB (docs/pro/js/photo-queue-store.js,
+ * proven to survive a reload by tests/photo-queue-durability.test.js) and
+ * drained on boot by photo-queue-recovery.js. So the strong promise is now
+ * TRUE and the copy says so. The assertion below is not deleted — it is
+ * inverted and tied to the persistence that earns it: the durable wording is
+ * only allowed to appear alongside a real call into the durable store, so
+ * this can never drift back into a claim the code does not implement.
+ *
+ * The weak "Keep this page open" copy still has to exist, because it is what
+ * a rep gets when IndexedDB is genuinely unavailable (private mode, disabled
+ * storage). Both branches are asserted.
  *
  * The dataURL→Blob converter is extracted and exercised for real, because a
  * silent failure there would drop the photo just as effectively as the
@@ -57,31 +72,55 @@ ok('it also drains after a successful upload',
 
 ok('the drain is re-entrancy guarded', /_draining\s*=\s*true/.test(src) && /if \(_draining\) return/.test(src));
 
-// These two used to assert `state.uploadQueue.push(item)` followed by `break`.
-// Both matched — and that exact shape destroyed every item after the failure,
-// because splice() had already emptied the queue into a local array. Pinning
-// the requeue of the WHOLE REMAINDER is the property that actually matters;
-// the behavioural block at the bottom of this file proves it end to end.
-ok('the failing item AND the untried remainder go back on the queue',
-  /state\.uploadQueue\.unshift\.apply\(state\.uploadQueue, batch\.slice\(i\)\)/.test(src),
-  'requeuing only the failing item silently drops the rest of the batch');
+// A failing item must stay queued. The drain no longer splices the batch out
+// up front — items leave storage one at a time, and only after a confirmed
+// upload — so the old `state.uploadQueue.push(item)` re-queue is gone by
+// design. What replaced it is stricter: nothing is removed before it succeeds.
+ok('an item is removed ONLY after a confirmed upload',
+  /await uploadPhotoToFirebase\([^)]*\);\s*\n\s*await _dropItem\(item\);/.test(src),
+  'dropping before the await would lose the photo on a mid-drain failure');
+
+ok('the drain does NOT splice the whole queue out up front',
+  !/splice\(0,\s*state\.uploadQueue\.length\)/.test(src),
+  'that pattern destroyed every not-yet-attempted item when one upload threw');
 
 ok('the drain stops on the first failure instead of spinning',
-  /batch\.slice\(i\)\);\s*\n\s*break;/.test(src));
+  /catch \(e\) \{[\s\S]{0,300}?\n\s*break;/.test(src));
 
 ok('an unrecoverable item is dropped rather than retried forever',
-  /if \(!blob \|\| !item\.leadId\) continue;/.test(src));
+  /if \(!blob \|\| !item\.leadId\) \{ await _dropItem\(item\); continue; \}/.test(src),
+  'a photo that cannot be decoded would otherwise block the queue behind it');
 
 ok('the queue is exposed on the public API', /\bflushUploadQueue,/.test(src) && /queuedPhotoCount:/.test(src));
 
 // ── the message is honest ───────────────────────────────────────────────
-ok('the toast no longer claims "will upload when connected"',
-  !/will upload when connected/.test(src),
-  'nothing implemented that promise; it must not be made again without persistence');
+// The durable promise is now allowed — because it is now implemented. Both
+// halves are asserted together so the copy cannot outrun the code again.
+// photo-engine.js writes the apostrophe escaped inside a single-quoted
+// string literal (you\'re), so the backslash is optional here.
+const DURABLE_COPY = /it will upload when you\\?'re back online, even if you close the app/;
 
-ok('the toast tells the rep what keeps the photo',
+ok('the toast makes the durable promise', DURABLE_COPY.test(src),
+  'the queue persists now — under-promising would be its own kind of dishonest');
+
+ok('...and that promise is backed by a real write to the durable store',
+  /await store\.add\(item\)/.test(src) && /window\.NBDPhotoQueueStore/.test(src),
+  'the strong copy is only earned by actually persisting the photo');
+
+ok('...and it is only shown when the write SUCCEEDED',
+  /if \(outcome\.durable\) \{[\s\S]{0,300}?even if you close the app/.test(src),
+  'showing it unconditionally would reinstate the original lie');
+
+ok('the memory-only fallback still under-promises',
   /Keep this page open/.test(src),
-  'the queue is memory-only — say so rather than implying durability');
+  'when IndexedDB is unavailable the photo really does die with the page');
+
+ok('...and that fallback is the non-durable branch',
+  /outcome\.queued\) \{[\s\S]{0,800}?Keep this page open/.test(src));
+
+ok('a refused photo is not reported as held',
+  /outcome\.message/.test(src) && /saveBtn\.disabled = false/.test(src),
+  'a full queue must stop the rep, not silently discard the shot');
 
 // ── the converter actually works ────────────────────────────────────────
 const at = src.indexOf('function _dataUrlToBlob(');
@@ -113,90 +152,6 @@ if (at >= 0) {
 
   ok('malformed input returns null instead of throwing',
     f('') === null && f(null) === null && f('not-a-data-url') === null);
-}
-
-// ── BEHAVIOURAL: the drain must not destroy the items it did not attempt ──
-//
-// Every assertion above this block is a regex over the source, and that is why
-// this bug shipped: `state.uploadQueue.push(item)` and `break` both matched
-// while the code destroyed photos. splice() moved the WHOLE queue into a local
-// array, and a mid-batch failure re-queued only the failing item — everything
-// after it existed solely in that local and died with it. So run the function.
-function extractFn(name) {
-  const at = src.indexOf(name);
-  if (at < 0) return null;
-  const open = src.indexOf('{', at);
-  let depth = 0;
-  for (let i = open; i < src.length; i++) {
-    if (src[i] === '{') depth++;
-    else if (src[i] === '}') { depth--; if (depth === 0) return src.slice(at, i + 1); }
-  }
-  return null;
-}
-
-const flushSrc = extractFn('async function flushUploadQueue(');
-const blobSrc = extractFn('function _dataUrlToBlob(');
-ok('flushUploadQueue body is extractable for a real run', !!flushSrc && !!blobSrc);
-
-if (flushSrc && blobSrc) {
-  const PNG1x1 = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
-  const item = (id, dataUrl) => ({ dataUrl: dataUrl || PNG1x1, leadId: 'lead-' + id, tags: [], description: '', location: '' });
-
-  function run(queue, uploader) {
-    const sandbox = {
-      atob, Uint8Array, Blob, console,
-      navigator: { onLine: true },
-      _draining: false,
-      state: { uploadQueue: queue },
-      showToast: function () {},
-      uploadPhotoToFirebase: uploader,
-    };
-    vm.createContext(sandbox);
-    vm.runInContext(blobSrc + '\n' + flushSrc + '\nthis.__flush = flushUploadQueue;', sandbox);
-    return sandbox.__flush().then(function (sent) {
-      return { sent: sent, left: sandbox.state.uploadQueue };
-    });
-  }
-
-  const results = [];
-  const done = (async () => {
-    // 1. Five queued, the THIRD upload fails: 1 and 2 are sent, and 3, 4, 5
-    //    must all still be on the queue — in order — for the next drain.
-    let n = 0;
-    const r1 = await run([item(1), item(2), item(3), item(4), item(5)], async () => {
-      n++; if (n === 3) throw new Error('offline again');
-    });
-    results.push(['two upload before the failure', r1.sent === 2, 'sent=' + r1.sent]);
-    results.push(['the failing item AND the untried remainder survive',
-      r1.left.length === 3, 'queue kept ' + r1.left.length + ', expected 3']);
-    results.push(['the remainder keeps its original order',
-      r1.left.map(i => i.leadId).join(',') === 'lead-3,lead-4,lead-5',
-      r1.left.map(i => i.leadId).join(',')]);
-
-    // 2. An undecodable photo is dropped, and does NOT block the rest.
-    //    A truncated base64 makes atob throw; if that throw reaches the retry
-    //    path the item is re-queued and heads every future drain forever.
-    const r2 = await run([item(1, 'data:image/png;base64,!!!not-base64!!!'), item(2)], async () => {});
-    results.push(['an undecodable photo does not block the queue',
-      r2.left.length === 0, 'queue kept ' + r2.left.length + ', expected 0']);
-    results.push(['the healthy photo behind it still uploads', r2.sent === 1, 'sent=' + r2.sent]);
-
-    // 3. All-fail leaves the queue exactly as it was — nothing lost.
-    const r3 = await run([item(1), item(2)], async () => { throw new Error('offline'); });
-    results.push(['a total outage loses nothing', r3.left.length === 2 && r3.sent === 0,
-      'queue kept ' + r3.left.length + ', sent ' + r3.sent]);
-  })();
-
-  const wait = require('timers/promises').setTimeout;
-  // Node's test file is sync-tailed; drain the microtask/IO queue before scoring.
-  const sync = (async () => { await done; await wait(0); })();
-  sync.then(() => {
-    for (const [name, cond, extra] of results) ok(name, cond, extra);
-    console.log(`\n  ${passed} passed, ${failed} failed`);
-    if (failed) { console.log('\n  failures:'); for (const f of fails) console.log('    - ' + f); process.exit(1); }
-    process.exit(0);
-  }).catch((e) => { console.log('  ✗ behavioural drain harness threw: ' + e.message); process.exit(1); });
-  return;
 }
 
 console.log(`\n  ${passed} passed, ${failed} failed`);

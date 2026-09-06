@@ -5472,6 +5472,14 @@
 <script defer src="js/nbd-url.js?v=1"></script>
 <script defer src="js/dashboard-state.js?v=2"></script>
 <script defer src="js/dashboard-api.js?v=3"></script>
+<!-- Durable offline photo queue. Loaded EAGERLY and ahead of the lazy
+     `photos` bundle on purpose: photo-engine.js only arrives when the rep
+     opens a photos view, but a photo queued before a bfcache reload has to
+     be recovered on boot without the rep navigating anywhere. The store is
+     the truth; the recovery module waits for auth, pulls in the photos
+     bundle, and drains. Both are tiny and touch no DOM at load. -->
+<script defer src="js/photo-queue-store.js?v=1"></script>
+<script defer src="js/photo-queue-recovery.js?v=1"></script>
 <!-- Canonical two-shape estimate money reader (window.NBDCustomerEstimateRows).
      Must load BEFORE its consumers below (customer-estimate-hub, invoice-pipeline,
      dashboard-widgets), which all read V2 grandTotal / Classic total|amount.
