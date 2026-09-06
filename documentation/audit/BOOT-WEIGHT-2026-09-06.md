@@ -553,6 +553,58 @@ NBD fallback → 1 red, offending line quoted; re-leak a literal in a
 newly-covered file → 1 red). Four adversarially-verified dimensions; **1 of 4
 refuted**, and that refutation is what produced the platform-veto design.
 
+## The deferred three — the premise was wrong (2026-09-06)
+
+The previous section deferred `document-generator.js:138`,
+`document-generator-templates.js:278` and `estimate-finalization.js:256` as
+"the template layer is synchronous and cannot simply await". Going back to fix
+them showed the framing was wrong: **none of those three is the bug.**
+
+`_docPrefix()` is a **pure synchronous function of `window._brand()`**, and its
+behaviour is pinned by five assertions in `docgen-brand.test.js` (NBD→`NBD`,
+Oaks→`OAK`, unreserved→`ORC`, degenerate→`CUS`, NBD-initials collision→`CUS`)
+plus the matching cert numbers in `docgen-render.test.js`. Given a correct brand
+it already produces a correct, non-NBD prefix for every tenant. Changing it to
+"never guess NBD" would have broken all five — and would have changed the
+platform tenant's own document numbers.
+
+**What was actually wrong is the brand it gets handed.** `company-profile.js:276`
+seeds `_companyProfile` with the NBD defaults at parse time, so a document
+rendered before `_loadCompanyProfile()` resolves stamps the platform identity
+onto another tenant's paperwork — no matter how correct the derivation is.
+
+**So the fix is one line, upstream.** `NBDDocGen.generate()` is already `async`;
+it now awaits hydration once at the entry point, before anything reads the
+brand. Every synchronous derivation downstream — `_docPrefix()`, the `-WC`
+certificate prefix, `window._legal()`, `window._brand()` — becomes correct
+without being touched, and every pinned assertion still passes (28 + 349 green).
+A hydration failure falls through and renders with whatever brand is available,
+so a rep is never blocked.
+
+`estimate-finalization.js:256` stays open: `resolveBrand()` there is called from
+a synchronous path with no async entry point to gate, so it needs a different
+approach — a genuine deferral this time, with a reason rather than a guess.
+
+**The lesson, which generalises past this file:** "make the sync thing async" was
+the wrong instinct. The synchronous code was faithful; the asynchronous *input*
+was stale. Gate the data once at the boundary rather than propagating `await`
+through a layer that has tests pinning its synchronous shape.
+
+**Verification.** smoke **3634 / 0** · node bucket 75/75 · `docgen-brand` 28/0 ·
+`docgen-render` 349/0 · `customer-estimate-rows` 46/0 · and the previously-missed
+`wired-individually` suites (`esign-*` 13/14/27/13, `marketing-polish-contract`
+53, `inline-html-scripts` 6) all green. The new gate was proven able to fail by
+removing the await.
+
+⚠️ **Process finding worth more than this change.** Until now the local gate set
+was `smoke.test.js` + `--bucket node`. **Fourteen suites sit in
+`wired-individually` and are invisible to both** — including all four `esign-*`
+suites, both `firestore-rules` suites, `storage-rules`, and
+`customer-estimate-rows`, which is the one that caught a real regression in
+#1445 that the local run had passed clean. Every merged PR did pass full CI, so
+the shipped work is verified — but "all local gates green" was a narrower claim
+than it sounded. Run the `wired-individually` list too.
+
 ## Follow-ups found, not done here
 
 - ~~**`window.generatePhotoReport` is assigned twice on `customer.html`**~~ —
