@@ -181,14 +181,42 @@ instead of leaving an orphan and a duplicate.
 
 ### Open, in the order I would take them
 
-1. **Storage orphans from before #1437 are not reachable by any existing
-   tool.** Every pre-fix retry left a full-size JPEG whose photo doc was never
-   written. `scripts/sweep-orphan-lead-artifacts.js` will **not** find them: it
-   reaps `{prefix}/{uid}/{leadId}/…` objects whose **lead is gone**, and these
-   belong to leads that are alive. They are orphaned at the *photo-doc* level.
-   Sizing the problem needs a Storage list joined against `photos.storagePath`;
-   nobody has done that, so the volume is unknown. Do this before anything else
-   in this lane — it is the only item that is costing money today.
+1. ~~**Storage orphans from before #1437.**~~ **MEASURED — there are none.
+   Closed, nothing to do.** This was ranked first here as "the only item
+   costing money today". That ranking was wrong: the mechanism was real, the
+   volume was assumed and never checked. Measured 2026-09-06 against prod,
+   read-only:
+
+   - **0** objects in any bucket match the camera path's filename shape
+     (`*_{quick|standard|high-res}.jpg`). Checked
+     `nobigdeal-pro.firebasestorage.app`, `nobigdeal-pro.appspot.com` and
+     `staging.` — the last two hold no `photos/` objects at all.
+   - Joining all **446** `photos/` objects against every reference a `photos`
+     doc can hold (`storagePath`, `thumbStoragePath`, and the paths decoded out
+     of `url`/`thumbUrl`/`urls.*`) leaves **6 unreferenced** — 3 of which are
+     d2d knock photos referenced from the *knocks* collection
+     (`knock.photoUrls`/`photoPaths`), so not orphans. The remainder is 2
+     legacy PNGs and 1 file literally named `sweep-test-…`.
+
+   **The larger fact behind it: the camera capture path has never produced a
+   surviving production photo.** Three independent signals agree — no Storage
+   object with its filename shape; **0 of 111** photo docs carry `quality`,
+   `capturedAt` or `thumbStoragePath` (written *only* by
+   `uploadPhotoToFirebase`); and **0 of 111** doc ids match `generateId()`'s
+   `<ts>_<rand>` shape — all 111 are 20-char Firestore auto-IDs, i.e. every
+   production photo came from the customer-page/quick-upload writers instead.
+
+   The path *is* wired and reachable (`customer-photo-hub.js:332`,
+   `dashboard-actions.js:137/158/1676`), so this is "not used yet", not "dead
+   code". But it means the whole #1418→#1437 queue lane is **insurance on a
+   path that has not yet carried traffic**. That is worth knowing before
+   spending more on it — and it is the honest reason to demote everything below
+   rather than treat this lane as urgent.
+
+   Reproduce: `gcloud storage ls -r 'gs://nobigdeal-pro.firebasestorage.app/photos/**'`
+   joined against the `photos` collection over the Firestore REST API with
+   `gcloud auth print-access-token`. No ADC file is needed; `gcloud`'s own
+   credentials work for both.
 2. **No true background upload.** The queue drains on next *open*, not after
    the tab closes. `sw.js`'s write-queue path is still dead — `:152` returns
    early on non-GET, and `SYNC_TAG 'nbd-sync-queue'` is registered by nothing
