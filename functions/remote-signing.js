@@ -145,6 +145,35 @@ function signedDocMatchesOriginal(originalHtml, signedHtml) {
   return { ok: false, reason: `content differs at offset ${i} (original ${a.length} chars, submitted ${b.length})` };
 }
 
+/**
+ * Does the executed record actually CONTAIN a signature?
+ *
+ * The gate above proves the submitted document SAYS the same thing as the
+ * one we served. It says nothing about whether anybody signed it, and that
+ * turned out to be the larger hole: the widget's finalize() reported
+ * success over an empty pad list, so a document carrying no signature
+ * field at all submitted cleanly, burned the token, stamped the document
+ * signedRemotely:true and notified the rep "Document signed". Only one of
+ * the 27 generated document types emits a signature canvas, so every other
+ * type sent for signature produced an executed-contract record with zero
+ * signatures in it.
+ *
+ * Fixed in the browser too, but the browser is the COUNTERPARTY'S — the
+ * authoritative check has to be here.
+ *
+ * Two distinct failures, deliberately reported apart:
+ *   noFields  — we served a document with no signature block. Our bug; the
+ *               signer can do nothing about it and must not be told to retry.
+ *   unsigned  — we served a signable document and got back an unsigned one.
+ */
+function signedDocHasSignature(originalHtml, signedHtml) {
+  const sigBlocks = (String(originalHtml).match(/<div\b[^>]*\bdata-nbd-sig\s*=/gi) || []).length;
+  if (sigBlocks === 0) return { ok: false, reason: 'noFields' };
+  const finalized = (String(signedHtml).match(/data-nbd-sig-finalized\s*=\s*["']1["']/gi) || []).length;
+  if (finalized === 0) return { ok: false, reason: 'unsigned', sigBlocks };
+  return { ok: true, sigBlocks, finalized };
+}
+
 function escHtml(s) {
   return String(s == null ? '' : s)
     .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
@@ -396,6 +425,30 @@ exports.submitSignature = onRequest(
             reason: verdict.reason,
           });
           res.status(422).json({ error: 'This document could not be verified. Please reload the page and sign again.' });
+          return;
+        }
+
+        // Refuse to mint an executed record that contains no signature.
+        // Runs BEFORE the burn, like the integrity gate above, so a
+        // document we should never have sent does not consume the token.
+        const sig = signedDocHasSignature(originalHtml, signedHtml);
+        if (!sig.ok) {
+          logger.error('[submitSignature] REFUSING — no signature in the executed record', {
+            token: token.slice(0, 6),
+            leadId: p.leadId || null,
+            docId: p.docId || null,
+            reason: sig.reason,
+          });
+          if (sig.reason === 'noFields') {
+            // Our fault, not the signer's. 422 with a message that does not
+            // send them round the loop again.
+            res.status(422).json({
+              error: 'This document was sent without a signature field and cannot be signed. Please contact your rep for a corrected copy.',
+              noFields: true,
+            });
+          } else {
+            res.status(422).json({ error: 'No signature was captured. Please draw your signature and submit again.' });
+          }
           return;
         }
       }

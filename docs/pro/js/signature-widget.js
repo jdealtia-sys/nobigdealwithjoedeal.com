@@ -254,6 +254,24 @@
     if (status.hasUnsigned) {
       return { ok: false, missing: status.required };
     }
+    // A document with NO signature blocks used to finalize successfully:
+    // getStatus() reported hasUnsigned:false over an empty pad list, so
+    // this returned {ok:true, signers:[]}, the server burned the token and
+    // stamped signedRemotely:true, and the rep was notified "Document
+    // signed" — an executed-contract record containing zero signatures.
+    // Only ONE of the 27 document types emits canvas blocks, so every
+    // other type sent for signature produced exactly that.
+    if (!pads.length) {
+      return { ok: false, noFields: true, missing: [] };
+    }
+    // Same hole one level down: blocks that exist but are all optional and
+    // all blank would capture nothing and still report success.
+    var anySigned = pads.some(function (e) {
+      return !e.pad.isEmpty || e.block.getAttribute('data-nbd-sig-finalized') === '1';
+    });
+    if (!anySigned) {
+      return { ok: false, noSignature: true, missing: [] };
+    }
     var dateStr = new Date().toLocaleDateString('en-US', {
       year: 'numeric', month: 'long', day: 'numeric'
     });

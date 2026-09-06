@@ -57,7 +57,7 @@ function extractFn(name) {
 const sandbox = { console };
 vm.createContext(sandbox);
 vm.runInContext(
-  [extractFn('endOfDivAt'), extractFn('stripSignatureBlocks'), extractFn('visibleText'), extractFn('signedDocMatchesOriginal')].join('\n\n'),
+  [extractFn('endOfDivAt'), extractFn('stripSignatureBlocks'), extractFn('visibleText'), extractFn('signedDocMatchesOriginal'), extractFn('signedDocHasSignature')].join('\n\n'),
   sandbox
 );
 const matches = (a, b) => sandbox.signedDocMatchesOriginal(a, b).ok;
@@ -164,6 +164,49 @@ ok('the failure reason never echoes document content',
     const v = sandbox.signedDocMatchesOriginal(ORIGINAL, legitimatelySigned(ORIGINAL, PNG).replace('$28,400.00', '$1.00'));
     return !v.ok && !/28,400|Dana|Maple/.test(v.reason || '');
   })());
+
+// ── 4. IS THERE ACTUALLY A SIGNATURE IN THE EXECUTED RECORD? ─────────────
+// The gate above proves the document SAYS the same thing. It says nothing
+// about whether anyone signed it — and that was the bigger hole. The
+// widget's finalize() reported success over an empty pad list, so a
+// document carrying no signature field submitted cleanly, burned the
+// single-use token, stamped the document signedRemotely:true and notified
+// the rep "Document signed". Only 1 of the 27 generated document types
+// emitted a signature canvas, so every other type did exactly that.
+console.log('\n4. the executed record actually contains a signature');
+
+const NO_FIELDS = ORIGINAL.replace(/<div data-nbd-sig[\s\S]*?<\/div>\s*<\/div>/, '<p>No signature field here.</p>');
+
+ok('a document we served with NO signature field is refused',
+  (() => {
+    const v = sandbox.signedDocHasSignature(NO_FIELDS, NO_FIELDS);
+    return !v.ok && v.reason === 'noFields';
+  })());
+
+ok('noFields is reported apart from unsigned (the signer cannot fix our bug)',
+  sandbox.signedDocHasSignature(NO_FIELDS, NO_FIELDS).reason === 'noFields'
+  && sandbox.signedDocHasSignature(ORIGINAL, ORIGINAL).reason === 'unsigned');
+
+ok('a signable document returned UNSIGNED is refused',
+  (() => {
+    const v = sandbox.signedDocHasSignature(ORIGINAL, ORIGINAL);
+    return !v.ok && v.reason === 'unsigned';
+  })());
+
+ok('a genuinely signed document passes',
+  sandbox.signedDocHasSignature(ORIGINAL, legitimatelySigned(ORIGINAL, PNG)).ok);
+
+ok('the finalized marker is matched regardless of quote style',
+  sandbox.signedDocHasSignature(
+    ORIGINAL,
+    legitimatelySigned(ORIGINAL, PNG).replace('data-nbd-sig-finalized="1"', "data-nbd-sig-finalized='1'")
+  ).ok);
+
+ok('stripping the finalized marker out of a signed doc is refused',
+  !sandbox.signedDocHasSignature(
+    ORIGINAL,
+    legitimatelySigned(ORIGINAL, PNG).replace(/data-nbd-sig-finalized\s*=\s*["']1["']/, '')
+  ).ok);
 
 console.log('\n' + '─'.repeat(50));
 console.log(`${passed} passed, ${failed} failed`);
