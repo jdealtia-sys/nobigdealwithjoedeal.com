@@ -120,11 +120,20 @@ never splices up front: items leave storage one at a time, only after a
 confirmed upload, so a mid-drain failure leaves the failing photo *and
 everything behind it* exactly where they were.
 
-> A branch in another worktree (`claude/fix-markpaid-repaint-and-queue-drop`,
-> commit `02c98ada`, no open PR) fixes this same bug differently, by re-queueing
-> `batch.slice(i)`. **These two changes conflict** — same function. If that
-> branch lands first, take this file's version: it makes the bug structurally
-> impossible rather than compensating for it.
+> **Resolved mid-session:** that other branch
+> (`claude/fix-markpaid-repaint-and-queue-drop`) merged as **#1417** while this
+> was being built — it fixed the same bug by re-queueing `batch.slice(i)`. This
+> PR's first commit sits directly on top of it (parent `6e8b14b9`) and
+> supersedes #1417's `photo-engine.js` drain and its
+> `photo-offline-queue.test.js` wholesale; the no-splice design makes the bug
+> structurally impossible rather than compensating for it. The one thing from
+> #1417 worth keeping was its **behavioural harness** — it extracted
+> `flushUploadQueue` and actually ran it, because the regex assertions had
+> matched while the code destroyed photos. That harness is ported and
+> re-targeted at the store (items must remain *in storage* after a mid-drain
+> failure), plus the memory-only fallback path where #1417's original property
+> must still hold. #1417's other files (`customer-tasks-ui.js`,
+> `invoice-pipeline.js`, `customer-invoice-markpaid.test.js`) are untouched.
 
 ## The toast copy
 
