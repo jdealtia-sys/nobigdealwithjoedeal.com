@@ -109,6 +109,35 @@ still unsignable and must be regenerated. There is no migration.
 
 ---
 
+## §4a — UPDATE 2026-09-06 (later the same day): the CRM lane is now half done
+
+Jo asked for the CRM friction work immediately after the e-sign merge, so §4
+below is **partly superseded**. Record:
+[SESSION-2026-09-06-crm-friction](SESSION-2026-09-06-crm-friction.md), branch
+`crm-friction`.
+
+**Shipped** — all seven were silent failures that reported success:
+every V2 estimate produced an **empty contract scope** and, from the same root
+cause, warranty certificates **named GAF on TAMKO jobs** · a rep **could not
+record a check** anywhere once the post-creation modal closed (and
+`renderInvoicePanel` / `renderInvoiceList`, which carry the right buttons, are
+mounted NOWHERE) · the customer page advanced stages with **no `stageRole`, no
+activity note and no drip** · `crew_scheduled` needed **no date**, so the job
+never reached the schedule · mobile `"+"` → Photo **captured a photo and threw
+it away** · "Photo queued (offline)" was **read by nothing, ever** · the
+notification poll **tore down its own live listener every two minutes**.
+
+**Still open from §4** — and the reasons are in the session note's
+§Deliberately NOT done, which is worth reading before picking one up:
+`"＋ New Estimate"` (needs a customer-picker step, not a fallback global) ·
+a **persistent** photo queue (`offline-manager.js` already contains a complete
+IndexedDB one, never assigned to `window`, zero callers, not loaded on the
+dashboard) · promoting the customer-page required-field warning to a real block
+(needs the edit modal to gain the fields first) · `customer.html`'s 653 KiB of
+eager loading · the three Cmd+K handlers · the four hardcoded pipeline ladders.
+
+The **integrations** half of §4 is untouched and its verdict stands.
+
 ## §4 — The two lanes I did not build
 
 Both are mapped with cited, adversarially-verified findings in
