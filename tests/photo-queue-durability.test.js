@@ -236,7 +236,7 @@ async function reason(fn) {
   {
     const disk = newDisk();
     const s1 = loadStore(disk);
-    await s1.add(photo({ blob: jpeg(2048, 42), leadId: 'lead-1', tags: ['hail'], description: 'north slope', location: 'Front Slope', timestamp: 111 }));
+    await s1.add(photo({ blob: jpeg(2048, 42), leadId: 'lead-1', tags: ['hail'], description: 'north slope', location: 'Front Slope', timestamp: 111, uploadId: 'up-1', preset: 'high-res' }));
     await s1.add(photo({ blob: jpeg(1024, 9), leadId: 'lead-2', timestamp: 222 }));
     ok('two photos queued', (await s1.count()) === 2);
 
@@ -251,6 +251,15 @@ async function reason(fn) {
     ok('description survives', after[0] && after[0].description === 'north slope');
     ok('location survives', after[0] && after[0].location === 'Front Slope');
     ok('capture timestamp survives', after[0] && after[0].timestamp === 111);
+    // The idempotency key has to survive the reload or it buys nothing: the
+    // boot drain would mint a fresh one and write a second Storage object and
+    // a second gallery doc for a photo the rep took once.
+    ok('the uploadId survives the reload', after[0] && after[0].uploadId === 'up-1',
+      'got ' + (after[0] && after[0].uploadId));
+    ok('the capture preset survives the reload', after[0] && after[0].preset === 'high-res',
+      'got ' + (after[0] && after[0].preset));
+    ok('a row stored without them reads back null, not undefined',
+      after[1] && after[1].uploadId === null && after[1].preset === null);
 
     const bytes = after[0] ? Buffer.from(await after[0].blob.arrayBuffer()) : null;
     ok('the image bytes survive intact', !!bytes && bytes.length === 2048 && bytes[0] === 42 && bytes[2047] === 42,

@@ -439,7 +439,14 @@
       tags: Array.isArray(item.tags) ? item.tags : [],
       description: item.description || '',
       location: item.location || '',
-      timestamp: item.timestamp || Date.now()
+      timestamp: item.timestamp || Date.now(),
+      // Pinned at CAPTURE, not at upload. uploadPhotoToFirebase derives the
+      // Storage filenames and the Firestore doc id from uploadId, so a retry
+      // overwrites the same objects instead of minting new ones; and preset
+      // is recorded here because a drain days later would otherwise stamp the
+      // photo with whatever quality the rep has selected NOW.
+      uploadId: item.uploadId || null,
+      preset: item.preset || null
     };
 
     // A fresh transaction: the awaits above let the event loop turn, and an
@@ -494,7 +501,9 @@
         tags: Array.isArray(r.tags) ? r.tags : [],
         description: r.description || '',
         location: r.location || '',
-        timestamp: r.timestamp || 0
+        timestamp: r.timestamp || 0,
+        uploadId: r.uploadId || null,
+        preset: r.preset || null
       }));
   }
 

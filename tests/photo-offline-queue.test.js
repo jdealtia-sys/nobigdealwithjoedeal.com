@@ -77,7 +77,7 @@ ok('the drain is re-entrancy guarded', /_draining\s*=\s*true/.test(src) && /if \
 // upload — so the old `state.uploadQueue.push(item)` re-queue is gone by
 // design. What replaced it is stricter: nothing is removed before it succeeds.
 ok('an item is removed ONLY after a confirmed upload',
-  /await uploadPhotoToFirebase\([^)]*\);\s*\n\s*await _dropItem\(item\);/.test(src),
+  /await uploadPhotoToFirebase\([\s\S]*?\);\s*\n\s*await _dropItem\(item\);/.test(src),
   'dropping before the await would lose the photo on a mid-drain failure');
 
 ok('the drain does NOT splice the whole queue out up front',
@@ -197,6 +197,7 @@ const PARTS = {
   store: extractFn('function _store('),
   uid: extractFn('function _currentUid('),
   key: extractFn('function _inFlightKey('),
+  legacyId: extractFn('function _legacyUploadId('),
   enqueue: extractFn('async function enqueueForRetry('),
   pending: extractFn('async function _pendingItems('),
   drop: extractFn('async function _dropItem('),
@@ -247,7 +248,7 @@ if (missing.length === 0) {
     };
     vm.createContext(sandbox);
     vm.runInContext('const _inFlight = new Set();\n'
-      + [PARTS.blob, PARTS.store, PARTS.uid, PARTS.key, PARTS.enqueue, PARTS.pending, PARTS.drop, PARTS.flush].join('\n')
+      + [PARTS.blob, PARTS.store, PARTS.uid, PARTS.key, PARTS.legacyId, PARTS.enqueue, PARTS.pending, PARTS.drop, PARTS.flush].join('\n')
       + '\nthis.__flush = flushUploadQueue;'
       + '\nthis.__enqueue = enqueueForRetry;'
       + '\nthis.__inFlight = _inFlight;', sandbox);
@@ -375,6 +376,153 @@ if (missing.length === 0) {
       'uploaded=' + seen11.join(',') + ' — it would land in the wrong uid and company']);
     results.push(['drain: ...and their row is left in storage for them',
       s11.map.has(1), 'row 1 must survive for its owner']);
+
+    // ── the CALLER must actually consume the derivation ─────────────────
+    // Extracting _uploadIdentity and testing it closed only half the hole.
+    // A review proved the rest empirically: inline the path construction back
+    // into uploadPhotoToFirebase and every other assertion here stays green,
+    // because the derivation tests run the pure function in isolation and the
+    // drain tests stub the uploader. Nothing watched the seam. These do.
+    {
+      const up = extractFn('async function uploadPhotoToFirebase(');
+      results.push(['wiring: uploadPhotoToFirebase is extractable', !!up]);
+      if (up) {
+        results.push(['wiring: it derives its identity from _uploadIdentity',
+          /_uploadIdentity\(\s*uid\s*,\s*leadId\s*,\s*opts\s*\)/.test(up),
+          'the pure function is useless if the caller does not call it']);
+        results.push(['wiring: it does NOT mint an id of its own',
+          !/generateId\(\)/.test(up),
+          'a generateId() inside this function is the original orphan-per-retry bug']);
+        results.push(['wiring: it does NOT build Storage paths inline',
+          !/`photos\//.test(up),
+          'an inlined `photos/...` template is how the paths drift from the derivation']);
+        results.push(['wiring: it does NOT re-read the clock for capture time',
+          !/capturedAt\s*=\s*Date\.now\(\)/.test(up),
+          'capturedAt must come from the shot, not from when the retry ran']);
+        results.push(['wiring: the Storage refs use the derived paths',
+          /ref\(window\._storage,\s*photoPath\)/.test(up) && /ref\(window\._storage,\s*thumbPath\)/.test(up),
+          'uploading to a path other than the derived one defeats the whole change']);
+        results.push(['wiring: the Firestore doc id is the derived one',
+          /const photoId = ident\.photoId;/.test(up) && /doc\(window\._db,\s*'photos',\s*photoId\)/.test(up),
+          'a doc id not tied to uploadId is a duplicate gallery entry per retry']);
+        // The regression the review found: a stable doc id turns a retry into
+        // a full-document REPLACE of the doc it now shares.
+        results.push(['wiring: a retry does not blind-setDoc over the existing doc',
+          /getDoc\(photoDocRef\)/.test(up) && /updateDoc\(photoDocRef,\s*repair\)/.test(up),
+          'setDoc without an existence check resets the doc to capture-time state, '
+          + 'discarding rep edits to tags/phase/description/reportSections']);
+        results.push(['wiring: auto-tag fires only on create',
+          /if \(createdDoc\) \{[\s\S]{0,200}?_autoTagPhotoBackground\(photoId\)/.test(up),
+          're-firing on a retry re-spends the per-lead AI budget on an already-tagged photo']);
+      }
+    }
+
+    // ── IDEMPOTENCY, at the derivation itself ───────────────────────────
+    // The block below proves the DRAIN passes the pinned identity through.
+    // That is not the same as proving uploadPhotoToFirebase USES it — and an
+    // earlier version of these tests passed happily while the real function
+    // minted a fresh id per attempt, because the harness stubs the uploader.
+    // So run the real derivation.
+    {
+      const ident = extractFn('function _uploadIdentity(');
+      results.push(['idempotency: the identity derivation is extractable', !!ident]);
+      if (ident) {
+        const box = {
+          state: { currentPreset: 'standard' },
+          generateId: () => 'GENERATED_' + (box.__n = (box.__n || 0) + 1)
+        };
+        vm.createContext(box);
+        vm.runInContext(ident + '\nthis.__id = _uploadIdentity;', box);
+        const f = box.__id;
+
+        const a1 = f('u1', 'L1', { uploadId: 'up-x', capturedAt: 500, preset: 'high-res' });
+        const a2 = f('u1', 'L1', { uploadId: 'up-x', capturedAt: 500, preset: 'high-res' });
+        results.push(['idempotency: two attempts derive the SAME Storage path',
+          a1.photoPath === a2.photoPath, a1.photoPath + ' vs ' + a2.photoPath
+          + ' — a differing path is a full-size orphan per retry']);
+        results.push(['idempotency: ...the same THUMBNAIL path',
+          a1.thumbPath === a2.thumbPath, a1.thumbPath + ' vs ' + a2.thumbPath]);
+        results.push(['idempotency: ...and the same Firestore doc id',
+          a1.photoId === a2.photoId && a1.photoId === 'up-x',
+          a1.photoId + ' vs ' + a2.photoId + ' — a differing id is a duplicate in the gallery']);
+        results.push(['idempotency: the doc id IS the uploadId, not a fresh generateId()',
+          a1.photoId === 'up-x' && !/GENERATED/.test(a1.photoId), a1.photoId]);
+        results.push(['idempotency: capturedAt comes from the shot, not the clock',
+          a1.capturedAt === 500, String(a1.capturedAt)]);
+        results.push(['idempotency: preset comes from the shot, not live state',
+          a1.preset === 'high-res' && a1.photoPath.indexOf('high-res') !== -1,
+          a1.preset + ' / ' + a1.photoPath]);
+        results.push(['idempotency: the paths are scoped to uid and lead',
+          a1.photoPath.indexOf('photos/u1/L1/') === 0
+          && a1.thumbPath.indexOf('photos/u1/L1/thumbs/') === 0,
+          a1.photoPath + ' | ' + a1.thumbPath]);
+
+        // A one-shot upload with no pinned identity still works, and two of
+        // them must not collide.
+        const b1 = f('u1', 'L1', null);
+        const b2 = f('u1', 'L1', null);
+        results.push(['idempotency: an unpinned upload still gets an id, and two differ',
+          !!b1.photoId && b1.photoId !== b2.photoId, b1.photoId + ' vs ' + b2.photoId]);
+        results.push(['idempotency: an unpinned upload falls back to the live preset',
+          b1.preset === 'standard', b1.preset]);
+      }
+    }
+
+    // ── IDEMPOTENCY: a retry must address the SAME objects ──────────────
+    // uploadPhotoToFirebase is not atomic: it commits the ~1.5MB Storage
+    // object, then does four more failable things. Nothing leaves the queue
+    // until the last resolves, so a thumbnail timeout — the ordinary case on
+    // flaky LTE — retries the whole sequence. When the filenames and the doc
+    // id were minted inside the function, every retry wrote a NEW path under
+    // a NEW doc id: an unreaped full-size orphan per attempt, and a visible
+    // duplicate if a reload landed after setDoc.
+    {
+      const s16 = fakeStore([row(1, { uploadId: 'up-abc', preset: 'high-res', timestamp: 4242 })]);
+      const seen = [];
+      let fail = true;
+      const r16 = run(s16, [], async (_b, _lead, _tags, _desc, _loc, opts) => {
+        seen.push(opts);
+        if (fail) { fail = false; throw new Error('thumbnail timed out'); }
+      });
+      await r16.flush();          // attempt 1 — fails after the big PUT
+      await r16.flush();          // attempt 2 — the retry
+      results.push(['idempotency: the retry reuses the SAME uploadId',
+        seen.length === 2 && seen[0] && seen[1] && seen[0].uploadId === 'up-abc'
+          && seen[1].uploadId === 'up-abc',
+        'ids=' + JSON.stringify(seen.map((o) => o && o.uploadId))
+        + ' — a fresh id per attempt is a new orphan per attempt']);
+      results.push(['idempotency: capture time is pinned, not re-stamped at upload',
+        seen[1] && seen[1].capturedAt === 4242,
+        'capturedAt=' + (seen[1] && seen[1].capturedAt)
+        + ' — a photo queued Monday must not claim it was taken Wednesday']);
+      results.push(['idempotency: the quality preset is pinned to the shot',
+        seen[1] && seen[1].preset === 'high-res',
+        'preset=' + (seen[1] && seen[1].preset)
+        + ' — a drain must not stamp whatever preset is selected now']);
+      results.push(['idempotency: the row is only dropped once it finally succeeds',
+        s16.leftIds() === '', 'left=' + s16.leftIds()]);
+    }
+    {
+      // A row queued before uploadId existed must STILL be idempotent, and its
+      // derived id must be unique per user — it becomes a Firestore doc id, so
+      // a bare row id would collide between two reps' first queued photo.
+      const legacy = { blob: jpeg(), uid: UID, leadId: 'L', tags: [], description: '', location: '', timestamp: 99 };
+      const sA = fakeStore([legacy]);
+      const seenA = [];
+      const rA = run(sA, [], async (_b, _l, _t, _d, _lo, o) => { seenA.push(o.uploadId); throw new Error('x'); });
+      await rA.flush(); await rA.flush();
+      results.push(['idempotency: a legacy row gets a STABLE derived id across retries',
+        seenA.length === 2 && seenA[0] === seenA[1] && !!seenA[0],
+        'ids=' + JSON.stringify(seenA)]);
+
+      const sB = fakeStore([Object.assign({}, legacy, { uid: 'rep-bob' })]);
+      const seenB = [];
+      const rB = run(sB, [], async (_b, _l, _t, _d, _lo, o) => { seenB.push(o.uploadId); throw new Error('x'); }, 'rep-bob');
+      await rB.flush();
+      results.push(['idempotency: ...and two reps\' row #1 do NOT collide',
+        seenA[0] !== seenB[0], seenA[0] + ' vs ' + seenB[0]
+        + ' — colliding ids would overwrite one rep\'s photo doc with another\'s']);
+    }
 
     // ── the drain must re-file the server marker ────────────────────────
     // flushUploadQueue is the drain for ALL three routes, but only boot
