@@ -152,6 +152,39 @@ console.log('\nSOURCE CONTRACT — no bare truthiness fallback on a secret outsi
   const sharedSrc = codeOnly(fs.readFileSync(path.join(FUNCTIONS, 'integrations', '_shared.js'), 'utf8'));
   ok('_shared exports secretValue and secretOr', /secretValue,\s*\n\s*secretOr,/.test(sharedSrc) || (/\bsecretValue\b/.test(sharedSrc.slice(sharedSrc.indexOf('module.exports'))) && /\bsecretOr\b/.test(sharedSrc.slice(sharedSrc.indexOf('module.exports')))));
   ok('hasSecret and secretValue agree on the stub', shared.hasSecret('THIS_SECRET_DOES_NOT_EXIST') === false && shared.secretValue(param(shared.SECRET_STUB_VALUE)) === null);
+
+  // ── hasSecret must not call .value() on an UNBOUND secret (2026-09-06) ──
+  // SecretParam.value() logs a WARNING whenever the secret is not bound to the
+  // calling function. Because this registry is module scope, that fired 500+
+  // times in 24h across 12+ services for UPSTASH_REDIS_REST_URL alone, which
+  // would have buried rate_limit_provider_drift — the warning that exists to
+  // catch a REAL Upstash misconfiguration. hasSecret now reads process.env,
+  // which is the SAME source .value() reads (params/types.js runtimeValue()).
+  // Scope to hasSecret's own body: getSecret() still calls .value() and SHOULD,
+  // because it only runs after hasSecret confirmed the secret is bound — so it
+  // can never be the unbound case that warns.
+  const hasSecretBody = (sharedSrc.match(/function hasSecret\(name\)\s*\{[\s\S]*?\n\}/) || [''])[0];
+  ok('hasSecret reads process.env, not .value(), so unbound secrets stay quiet',
+    /process\.env\[name\]/.test(hasSecretBody) && !/\.value\(\)/.test(hasSecretBody),
+    hasSecretBody ? 'body found, assertion failed' : 'hasSecret body not matched');
+
+  // Behaviour is genuinely unchanged — pin all four cases against the env.
+  const PROBE = 'NBD_TEST_PROBE_SECRET';
+  const restore = process.env[PROBE];
+  shared.SECRETS[PROBE] = param('ignored — hasSecret must consult the env');
+  try {
+    delete process.env[PROBE];
+    ok('unbound (env absent) reads as not configured', shared.hasSecret(PROBE) === false);
+    process.env[PROBE] = shared.SECRET_STUB_VALUE;
+    ok('the deploy __unset__ stub still reads as not configured', shared.hasSecret(PROBE) === false);
+    process.env[PROBE] = '   ';
+    ok('whitespace-only still reads as not configured', shared.hasSecret(PROBE) === false);
+    process.env[PROBE] = '  real-value  ';
+    ok('a real value reads as configured (and is trimmed)', shared.hasSecret(PROBE) === true);
+  } finally {
+    delete shared.SECRETS[PROBE];
+    if (restore === undefined) delete process.env[PROBE]; else process.env[PROBE] = restore;
+  }
 }
 
 console.log(`\n${passed} passed, ${failed} failed`);
