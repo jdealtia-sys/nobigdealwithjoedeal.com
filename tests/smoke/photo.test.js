@@ -1234,9 +1234,36 @@ section('Photo-report PDF filename never leaks NBD onto a tenant download (2026-
   assert('photo-report.js is the renderer that actually runs (owns the filename)',
     /window\.generatePhotoReport\s*=\s*generatePhotoReport/.test(rep),
     'if this moves, the filename assertions below are pointed at the wrong file again');
-  assert('KNOWN GAP: photo-report filename prefix is hardcoded NBD, not tenant-resolved',
-    /'NBD-'\s*\+/.test(rep),
-    'when the tenant-prefix fix lands this flips to asserting the resolver — see BOOT-WEIGHT-2026-09-06.md');
+  // GAP CLOSED 2026-09-06 — this assertion was written the same day to PIN the
+  // bug (photo-report.js hardcoded 'NBD-'), with a note to flip it when the fix
+  // landed. It has landed, so it now asserts the resolver.
+  assert('photo-report filename prefix is tenant-resolved, not hardcoded',
+    /_tenantFileName/.test(rep) && !/'NBD-'\s*\+/.test(rep),
+    'functions/render-pdf.js takes the filename verbatim, so a hardcoded prefix ships a non-NBD tenant an "NBD-…" document to their homeowner');
+
+  // The whole class, not just this file. Every customer-facing renderer that
+  // builds a PDF filename must go through the tenant resolver. Six sites were
+  // fixed on 2026-09-06 across four files; this stops a seventh appearing.
+  ['photo-report.js', 'estimate-v2-ui.js', 'estimates.js', 'rep-report-generator.js'].forEach(function (f) {
+    const src = read(path.join(PRO_JS, f));
+    const bad = (src.match(/filename[^\n]{0,40}'NBD-'/g) || [])
+      .concat(src.match(/'NBD-'[^\n]{0,60}\.pdf/g) || []);
+    assert('no hardcoded NBD- filename prefix in ' + f,
+      bad.length === 0,
+      'use window._tenantFileName(...) — hardcoding leaks NBD branding onto another tenant\'s customer document');
+  });
+
+  // The resolver itself must await hydration and must never guess 'NBD'.
+  const cp = read(path.join(PRO_JS, 'company-profile.js'));
+  assert('_tenantFilePrefix awaits company-profile hydration before answering',
+    /_tenantFilePrefix\s*=\s*async function[\s\S]{0,400}await window\._loadCompanyProfile\(\)/.test(cp),
+    '_custIdPrefix() returns "NBD" for EVERY tenant until the profile loads — reading it synchronously is a race, not a fix');
+  assert('_tenantFilePrefix returns empty (never "NBD") when the brand is unknown',
+    /_tenantFilePrefix\s*=\s*async function[\s\S]{0,500}if \(window\._companyProfileLoaded !== true\) return '';/.test(cp),
+    "estimate-finalization.js:210 already states the rule: callers must not substitute 'NBD'");
+  assert('_tenantFileName never yields an empty filename',
+    /_tenantFileName\s*=\s*async function[\s\S]{0,300}String\(rest \|\| 'Document\.pdf'\)/.test(cp),
+    "nbd-doc-viewer.js defaults a blank filename to 'NBD-Document.pdf', which would re-leak the prefix");
   assert('the dead rival resolver is gone from customer-photo-report-generator.js',
     !/_custIdPrefix|_fnPrefix/.test(read(path.join(PRO_JS, 'customer-photo-report-generator.js'))),
     'the tenant-aware filename code only ever ran in dead code; it must not reappear there');

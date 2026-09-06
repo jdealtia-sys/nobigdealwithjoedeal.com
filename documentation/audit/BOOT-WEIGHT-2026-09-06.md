@@ -336,6 +336,89 @@ did not corrupt the result (their corrections matched what the test run found
 independently), but it is a real flaw: **do not mutate the tree that
 investigating agents are reading.**
 
+## Tenant filename leak — the `NBD-` prefix on other tenants' documents (2026-09-06)
+
+Surfaced while untangling `generatePhotoReport` above: three smoke assertions
+*claimed* to guard `"the docPrefix || 'NBD' fallback must never return"` while
+reading a file that never executed. With the dead code gone the guard was real
+again — and the shipping renderers failed it.
+
+**The defect.** Ten customer-facing renderers hardcoded `'NBD-'` as the PDF
+filename prefix. `functions/render-pdf.js:387` takes the filename **from the
+client, verbatim** (it only charset-sanitises and truncates), so a non-NBD
+contractor's estimate, inspection report, photo report and rep report all
+reached the homeowner — and the *adjuster* — named `NBD-…`.
+
+**Why the obvious fix is wrong.** Swapping `'NBD-'` for `window._custIdPrefix()`
+does **not** fix it. `company-profile.js:276` seeds `_companyProfile` with the
+NBD defaults at parse time, and `_isNbdBrand()` (`:396`) cannot tell those
+defaults from the real NBD tenant — so `_custIdPrefix()` answers `'NBD'` for
+**every** tenant until `_loadCompanyProfile()` resolves, which both pages fire
+un-awaited. A synchronous read converts a deterministic leak into a race, plus
+a **permanent session-long leak** whenever hydration fails (`getDoc` throws →
+swallowed at `:331` → the profile never loads → every PDF that session is still
+`NBD-`). `customer-bootstrap.module.js:404-421` documents this exact race for
+the customer-ID mint, in almost the same words.
+
+**The fix.** A new `window._tenantFilePrefix()` in `company-profile.js` — async,
+awaiting hydration then *requiring* `_companyProfileLoaded === true` (the same
+gate the ID mint uses), returning `''` when the answer is unknowable. Never
+`'NBD'`: the rule was already written down at `estimate-finalization.js:210`
+("callers must not substitute 'NBD'"). `window._tenantFileName(rest)` builds the
+name and guarantees it is non-empty, because `nbd-doc-viewer.js` used to default
+a blank filename to `NBD-Document.pdf` — which would have re-leaked the prefix
+through the back door. That default is now `Document.pdf`.
+
+**Ten sites fixed** — every server-rendered PDF (Tier A: the filename becomes a
+Storage path and lands on an external party's disk verbatim) plus the main
+doc-viewer paths:
+
+| file | site | reaches |
+|---|---|---|
+| `photo-report.js` | `:147`, `:1005` | homeowner / adjuster |
+| `estimate-v2-ui.js` | `:2548` **primary server render**, `:3285` fallback, `:3596` signature | homeowner |
+| `inspection-report-engine.js` | `:2787` | homeowner / adjuster |
+| `estimates.js` | `:915` | homeowner |
+| `rep-report-generator.js` | `:1006`, `:2153` | internal / rep |
+| `nbd-doc-viewer.js` | `:614`, `:715` last-resort default | anything unnamed |
+
+`estimate-v2-ui.js:2548` was **not** in the original five-site list and matters
+most of the six: it is the server render `finalize()` returns on, so `:3285`
+only runs when it fails. Fixing the fallback alone would have left the estimate
+a homeowner actually receives still `NBD-` branded.
+
+**Deliberately deferred — five sites, all doc-viewer downloads:**
+`close-board.js:578` (Deal) · `maps-routing.js:1882` (Scope of Work),
+`:1934` (Measurements), `:2268` (Takeoff), `:3448` (Supplement Request).
+Scope and Supplement go to **adjusters**, so these are real. Each sits in a
+**synchronous** enclosing function, so each needs a sync→async conversion with
+its own caller audit — a different risk profile from the ten above, and its own
+change. `exportEstimate` and `openSavedReport` needed exactly that conversion
+here and were verified safe (both are dispatched fire-and-forget via
+`data-action="call"`, return value discarded).
+
+**Also the same defect class, not filenames:** the `|| 'NBD'` fallbacks in
+`warranty-cert.js:79`/`:301`, `estimate-v2-ui.js:56` and
+`document-generator.js:155` should move to `_tenantFilePrefix()`. And
+`dashboard-ui.js:1263-1289` was flagged by a verifier as an NBD **body** leak in
+the doc templates — unexamined here, worth its own look.
+
+**Verification.** smoke **3614 / 0** · node bucket **75/75** ·
+`cust-id-prefix.test.js` 45/45 (the resolver's own suite, untouched) ·
+`tenant-filename-prefix.spec.js` **passes in Chromium against the emulator**
+with a real seeded non-NBD tenant: the resolver returns that tenant's prefix,
+never `'NBD'`, the filename carries it, and — simulating the failure mode that
+made the naive fix dangerous — an unhydrated profile yields an **unprefixed**
+name rather than guessing. All three new gate classes proven able to fail first
+(re-introduce a hardcoded prefix → 2 red; make the resolver guess `NBD` → 1 red;
+drop the `await` → 1 red).
+
+**Method note.** Four adversarially-verified dimensions; **1 of 4 refuted**, and
+the refutation is why this is right: the naive swap would have shipped a race.
+The verifiers also found the leak inventory kept growing under them — the brief
+said five sites, they found ten, then sixteen. Treat any "complete list" here as
+a floor.
+
 ## Follow-ups found, not done here
 
 - ~~**`window.generatePhotoReport` is assigned twice on `customer.html`**~~ —

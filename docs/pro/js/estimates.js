@@ -826,7 +826,11 @@ async function saveEstimate() {
 }
 
 
-function exportEstimate() {
+// async since 2026-09-06: the filename carries a tenant-resolved prefix and
+// company-profile hydration must be awaited (company-profile.js
+// _tenantFilePrefix). Both call sites dispatch this fire-and-forget via
+// data-action="call" data-fn="exportEstimate" and discard the return value.
+async function exportEstimate() {
   if(!estData.grandTotal){showToast('Build estimate first','error');return;}
   const d=estData;
   const fmt=n=>'$'+n.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
@@ -909,10 +913,15 @@ function exportEstimate() {
   if (window.NBDDocViewer && typeof window.NBDDocViewer.open === 'function') {
     const addrSlug = (d.addr || 'Estimate').replace(/[^A-Za-z0-9]+/g, '-').substring(0, 40);
     const tierLabel = tierNames[selectedTier] || 'Estimate';
+    // Tenant-resolved prefix — '' when the brand is not hydrated, never 'NBD'.
+    const _estExportBase = addrSlug + '-' + new Date().toISOString().split('T')[0] + '.pdf';
+    const _estExportName = window._tenantFileName
+      ? await window._tenantFileName(_estExportBase)
+      : _estExportBase;
     window.NBDDocViewer.open({
       html: html,
       title: tierLabel + (d.addr ? ' — ' + d.addr : ''),
-      filename: 'NBD-' + addrSlug + '-' + new Date().toISOString().split('T')[0] + '.pdf',
+      filename: _estExportName,
       onSave: async () => {
         // Route the doc viewer's "Save to Customer" button to the
         // same Firestore write the classic builder's Save uses.
