@@ -99,20 +99,24 @@
   const MAX_BYTES = 80 * 1024 * 1024;
 
   // Written only from a count() taken inside a COMMITTED transaction. On boot
-  // we compare it to the real row count: localStorage surviving while
-  // IndexedDB is empty is the signature of a WebKit storage eviction, and the
-  // rep deserves to be told their photos are gone rather than to discover it
-  // a week later.
+  // we compare it to the real row count: this counter surviving while
+  // IndexedDB is empty is the signature of a PARTIAL eviction — the browser
+  // reclaiming our object store under storage pressure while leaving
+  // localStorage alone — and the rep deserves to be told their photos are
+  // gone rather than to discover it a week later.
+  //
+  // It is deliberately NOT a witness to a full site-data clear. WebKit's
+  // 7-day ITP purge, and Safari's "Clear History and Website Data", delete
+  // every script-writable store this origin owns in one go: this counter dies
+  // with the photos it was counting. Nothing kept on the device can outlive
+  // that, so detectLoss() reports what it can see and says so, and
+  // photo-queue-recovery.js asks the one witness that does survive — the
+  // server — when this counter is missing entirely.
   const LAST_KNOWN_KEY = 'nbd_photo_queue_last_known_size';
 
   let _db = null;
   let _openPromise = null;
   let _available = true;
-
-  function _readLastKnown() {
-    try { return parseInt(localStorage.getItem(LAST_KNOWN_KEY) || '0', 10) || 0; }
-    catch (_) { return 0; }
-  }
 
   function _writeLastKnown(n) {
     try { localStorage.setItem(LAST_KNOWN_KEY, String(n)); } catch (_) {}
@@ -445,14 +449,27 @@
    * data. Returns the number of rows lost (0 when nothing was lost), so the
    * caller can tell the rep rather than letting it pass unnoticed.
    *
-   * A count() that FAILED is not evidence of anything and must not be read
-   * as "empty": reporting phantom loss would be bad, but persisting the 0 it
-   * implied would be worse — every later boot would take the counter's
-   * fast path and never open the database that still holds the photos.
+   * WHAT THIS CAN AND CANNOT SEE — read before trusting a 0.
+   * It sees a PARTIAL eviction, where the object store is reclaimed and the
+   * counter survives. It is blind by construction to a full site-data clear
+   * (WebKit's 7-day ITP purge, "Clear History and Website Data"), because
+   * those take localStorage and IndexedDB together and there is then nothing
+   * left on the device to compare against. A 0 from here means "no loss that
+   * this device can still prove", never "no loss". photo-queue-recovery.js
+   * covers the full-wipe case from the server side.
+   *
+   * Two readings must NOT be collapsed into "the queue was empty":
+   * - an ABSENT counter (lastKnownCount() === null). This used to come back
+   *   as 0 from a 0-defaulting read and return at the first line, which is
+   *   exactly how the wipe above became silent.
+   * - a count() that FAILED. Reporting phantom loss would be bad, but
+   *   persisting the 0 it implied would be worse — every later boot would
+   *   take the counter's fast path and never open the database that still
+   *   holds the photos.
    */
   async function detectLoss() {
-    const expected = _readLastKnown();
-    if (expected <= 0) return 0;
+    const expected = lastKnownCount();
+    if (expected === null || expected <= 0) return 0;
     const actual = await count();
     if (actual === null) return 0;
     _writeLastKnown(actual);

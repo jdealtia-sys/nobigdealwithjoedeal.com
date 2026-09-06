@@ -240,10 +240,13 @@ Proven in real Chrome with `indexedDB.open` instrumented: empty queue on boot
 reload, slow path opens exactly once. The `null`-vs-`0` distinction is gated
 by two assertions in `photo-queue-durability.test.js` (now 36), and that gate
 was **proven able to fail**: collapsing `null` to `0` reddened exactly those
-two. Total eager cost of the two files is 25,781 B uncompressed as merged
-(`photo-queue-store.js` 20,225 + `photo-queue-recovery.js` 5,556, LF blob
-sizes at `5a19dd92`; ~25.8 KiB on disk with CRLF), DOM-free at
+two. Total eager cost of the two files was 25,781 B uncompressed as #1418
+merged (`photo-queue-store.js` 20,225 + `photo-queue-recovery.js` 5,556, LF
+blob sizes at `5a19dd92`; ~25.8 KiB on disk with CRLF), DOM-free at
 load, and on the common boot the work is one `localStorage.getItem`.
+**Superseded** — the server-witness follow-up below grew both files; the
+current figure is in that section. Pin any future quote to a named commit,
+which is the lesson of the correction two sections down.
 
 ## Pre-merge adversarial review — and the seven defects it found in MY code
 
@@ -432,3 +435,95 @@ runs ~1 byte per line larger, so say which you mean.
   ~992 and the public `uploadFromFile`) still upload without queueing. They
   are desk workflows, not the roof, and they never queued before this PR —
   but the same enqueue-first treatment would help them on a bad connection.
+
+---
+
+## Update, 2026-09-06 (later, same PR) — the eviction detector could not see the eviction
+
+**Correcting this note.** Above, under *Gates run*, it records
+`navigator.storage.persist()` returning **`false`** in desktop Chrome and then
+says:
+
+> `detectLoss()` exists precisely for the case where it is refused and the
+> browser later clears the store: the rep is told photos were lost rather than
+> discovering it weeks later.
+
+That was the justification for the whole mechanism, and it was **wrong for the
+eviction it names**. A post-merge review of this PR found it.
+
+`detectLoss()` infers loss by finding its localStorage counter alive next to an
+empty object store. WebKit's 7-day ITP purge — and Safari's *Clear History and
+Website Data* — delete **every script-writable store the origin owns in one
+operation**: localStorage and IndexedDB together. So in the exact scenario the
+comments kept naming, the counter dies with the photos, `detectLoss()` has
+nothing left to compare, and it returns `0`. The rep was told nothing at all.
+
+The durability suite stayed green because it only ever simulated the *partial*
+case — it cleared the IDB table and left `disk.localStorage` intact. A test
+that models half the failure is how a claim like the one quoted above survives.
+
+Two consequences worth keeping:
+
+- **No client-side detector is possible.** Nothing a page can write survives a
+  full site-data clear, so this is not a bug to fix inside
+  `photo-queue-store.js`. Its `detectLoss()` now says so in a comment and reads
+  the counter through the null-aware `lastKnownCount()` (the duplicate
+  0-defaulting `_readLastKnown()` is gone, so "counter absent" can no longer be
+  silently read as "queue was empty"). Its return value is unchanged: a `0`
+  from it means *"no loss this device can still prove"*, never *"no loss"*.
+- **The witness has to live off the device.** `photo-queue-recovery.js` now
+  mirrors the pending count to `userSettings/{uid}` — a doc the CRM already
+  keeps and that `firestore.rules` already makes owner read/write, so **no
+  rules change and no new collection**. It writes before attempting a drain
+  and again after, and only from a device that still has its own counter. When
+  it boots to find the counter *gone*, it asks the server whether photos were
+  owed. That branch is reached once per device install, so a normal boot still
+  costs one `localStorage.getItem` and no network.
+
+**The copy is deliberately true in two readings.** From a wiped device, "not on
+this device" is literal. From the rep's *second* phone signing in for the first
+time — indistinguishable from a wipe, because both states are "empty store, no
+counter" — the photos really are still on the first phone, and the same
+sentence sends them to the right place:
+
+> *N photos taken offline never finished uploading and are not on this device.
+> Open the app on the phone you shot them with, or reshoot them.*
+
+That ambiguity is also why the knows-nothing branch **writes nothing back**: a
+`0` from the second phone would erase the record of photos still held on the
+first.
+
+### Still not covered — say it plainly
+
+The marker is only as fresh as the last boot that had **auth and a network**.
+A rep who queues photos on a roof, never reopens the app with signal, and comes
+back after the 7-day purge gets no warning, because nothing ever reached the
+server to warn from. Closing that needs the loss not to happen — requesting
+persistence at the first enqueue rather than on a later boot, and warning while
+the photos still *exist* rather than after they are gone. Both are open.
+
+### Gates
+
+- `tests/photo-queue-loss-witness.test.js` — **new**, 24 assertions. Drives the
+  real `photo-queue-recovery.js` in a `vm` sandbox against a fake store and a
+  fake Firestore. Proven able to fail three ways: removing the full-wipe branch
+  reddens 7 (including *"a full site-data wipe IS reported to the rep"*),
+  removing the pre-drain marker write reddens 2, and letting the knows-nothing
+  device write `0` reddens the clobber-protection assertion.
+- `tests/photo-queue-durability.test.js` — 56 → 59. The new block pins the
+  platform limit itself: after a full wipe `lastKnownCount()` is `null`,
+  `detectLoss()` returns `0`, and that `0` is documented in the assertion text
+  as *unprovable here*, not *nothing was lost*.
+- `node scripts/run-test-manifest.js --bucket node` 73/73 ·
+  `node tests/smoke.test.js` 3591/0 · `check-js-syntax` 491 files ·
+  `check-inline-html-scripts` 0 across 227 · `check-vault-index` clean.
+
+### Eager cost, restated
+
+This grew `photo-queue-recovery.js`, so the figure corrected two sections above
+is now stale in turn — restating it rather than leaving the same trap:
+**34,253 B** uncompressed (`photo-queue-store.js` 21,512 +
+`photo-queue-recovery.js` 12,741; LF blob sizes at this commit, ~33.5 KiB on
+disk with CRLF). Both files are still DOM-free at load, and the common boot is
+still one `localStorage.getItem` and no network — the server read happens only
+on the once-per-device branch where the counter is missing.
