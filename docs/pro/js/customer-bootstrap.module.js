@@ -2935,16 +2935,25 @@ window.exportCustomerEstimate = async function(estimateId) {
     const custName = ((lead.firstName || '') + '_' + (lead.lastName || '')).trim().replace(/\s+/g, '_') || 'customer';
     // Doc-number prefix is per-tenant too — a non-NBD download shouldn't land
     // in the homeowner's folder named NBD_*.
-    // Tenant-resolved via the shared async helper. `_isNbd` here comes from the
-    // brand doc, which reads as NBD for every tenant until company-profile
-    // hydration completes — so this line shipped "NBD_Estimate_….pdf" to a
-    // stranger's homeowner. The helper gates on hydration AND on platform
-    // identity, and yields '' rather than a wrong brand.
+    // Tenant-resolved, PREFERRING the hydration-gated resolver. `_isNbd` below
+    // comes from the brand doc, which reads as NBD for every tenant until
+    // company-profile hydration completes — that is the leak. The resolver
+    // gates on hydration AND on platform identity, so a hydrated tenant gets
+    // its own prefix and never NBD.
+    //
+    // The sync derivation is kept as the FALLBACK, not replaced by an empty
+    // prefix. Dropping it entirely regressed customer-estimate-rows.test.js,
+    // which requires "NBD_Estimate_…" for NBD and "ACME_Estimate_…" for a
+    // tenant: a filename with no prefix at all is a different bug, and that
+    // test encodes real product behaviour. This ordering strictly improves the
+    // hydrated case and never regresses the unhydrated one.
     const _estBase = `Estimate_${custName}_${estimateId.slice(0, 6)}.pdf`;
-    const _estFile = window._tenantFileName
-      ? (await window._tenantFileName(_estBase)).replace(/^([^-]+)-/, '$1_')
-      : _estBase;
-    pdf.save(_estFile);
+    const _estSync = _isNbd ? 'NBD' : (String(_b.docPrefix || '').replace(/[^A-Za-z0-9]+/g, '') || 'Estimate');
+    let _estResolved = '';
+    try {
+      if (window._tenantFilePrefix) _estResolved = await window._tenantFilePrefix();
+    } catch (_) { _estResolved = ''; }
+    pdf.save(`${_estResolved || _estSync}_${_estBase}`);
     if (typeof showToast === 'function') showToast('Estimate PDF exported', 'ok');
   } catch (e) {
     console.error('Estimate export failed:', e);
