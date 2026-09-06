@@ -1978,15 +1978,24 @@
              The custom text input lets reps tag a campaign that's not
              in the preset list without first adding it. -->
         <select id="bulkSourceSelect" style="background:var(--s3);border:1px solid var(--br);border-radius:4px;padding:5px 8px;font-size:11px;color:var(--t);">
+          <!-- Canonical vocabulary, same list as qaSource and the Add/Edit
+               Lead select. This one used to offer BOTH "Door Knock" and
+               "Door-to-Door" as if they were different things, plus Web Lead /
+               Phone Call / Walk-in / Storm Chase / Past Customer, which
+               nothing else in the app knew about — a bulk-edit here could mint
+               a source no panel could count. Door Knock is canonical
+               (Joe, 2026-09-06). -->
           <option value="">Set source...</option>
           <option value="Door Knock">Door Knock</option>
-          <option value="Door-to-Door">Door-to-Door</option>
+          <option value="Storm Canvass">Storm Canvass</option>
           <option value="Referral">Referral</option>
-          <option value="Web Lead">Web Lead</option>
-          <option value="Phone Call">Phone Call</option>
-          <option value="Walk-in">Walk-in</option>
-          <option value="Storm Chase">Storm Chase</option>
-          <option value="Past Customer">Past Customer</option>
+          <option value="Thumbtack">Thumbtack</option>
+          <option value="Yelp">Yelp</option>
+          <option value="Angi">Angi</option>
+          <option value="Website">Website</option>
+          <option value="Google">Google</option>
+          <option value="Online">Online</option>
+          <option value="Direct">Direct</option>
           <option value="Other">Other</option>
         </select>
         <input id="bulkSourceCustom" type="text" placeholder="…or type custom" maxlength="60" style="background:var(--s3);border:1px solid var(--br);border-radius:4px;padding:5px 8px;font-size:11px;color:var(--t);width:130px;" />
@@ -4876,10 +4885,21 @@
         <label class="eyebrow">Source</label>
         <select id="qaSource"
           style="width:100%;background:var(--s2);border:1px solid var(--br);border-radius:7px;padding:14px;font-family:inherit;font-size:16px;color:var(--t);outline:none;appearance:none;">
+          <!-- Canonical source vocabulary. MUST stay in sync with the Add/Edit
+               Lead select and SOURCE_ALIASES in lead-source-roi.js: a stored
+               value missing from this list renders the select BLANK, and
+               saving then writes the blank over the real source. That is how
+               nine Thumbtack leads became 'Online' on 2026-09-06. -->
           <option value="Door Knock">Door Knock</option>
           <option value="Storm Canvass">Storm Canvass</option>
           <option value="Referral">Referral</option>
+          <option value="Thumbtack">Thumbtack</option>
+          <option value="Yelp">Yelp</option>
+          <option value="Angi">Angi</option>
+          <option value="Website">Website</option>
+          <option value="Google">Google</option>
           <option value="Online">Online</option>
+          <option value="Direct">Direct</option>
           <option value="Other">Other</option>
         </select>
       </div>

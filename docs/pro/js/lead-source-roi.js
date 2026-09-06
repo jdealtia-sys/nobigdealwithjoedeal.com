@@ -26,24 +26,40 @@
   ]);
   const LOST_STAGE_KEYS = new Set(['lost', 'Lost']);
 
-  // Source normalization — d2d-tracker writes "Door-to-Door", but the
-  // Add Lead form has "Door Knock". Treat them as the same bucket.
+  // Source normalization. DOOR KNOCK IS CANONICAL (Joe, 2026-09-06) — this
+  // map used to fold the other way, onto 'Door-to-Door'. The stored data was
+  // normalized to 'Door Knock' the same day and d2d-tracker now writes it, so
+  // the aliases below are a safety net for old imports and restored backups
+  // rather than the load-bearing path they used to be.
   const SOURCE_ALIASES = {
-    'door knock':    'Door-to-Door',
-    'door-to-door':  'Door-to-Door',
-    'd2d':           'Door-to-Door',
+    'door knock':    'Door Knock',
+    'door-to-door':  'Door Knock',
+    'door_knock':    'Door Knock',
+    'door to door':  'Door Knock',
+    'd2d':           'Door Knock',
     'storm canvass': 'Storm Canvass',
+    'storm_alert':   'Storm Alert',
+    'storm alert':   'Storm Alert',
+    'google':        'Google',
     'referral':      'Referral',
   // Paid marketplaces are their OWN buckets, not 'Online'. The Add Lead select
   // shipped without them while the Thumbtack ingest wrote source:'Thumbtack',
   // so those leads rendered blank in the dropdown and any save overwrote the
-  // real source with whatever was selected. Fixed 2026-09-06; ~26 leads were
-  // downgraded to 'Online' before it was caught and need setting back by hand.
+  // real source with whatever was selected. Fixed 2026-09-06; NINE leads were
+  // downgraded to 'Online' before it was caught, and were repaired the same
+  // day by scripts/fix-lead-source-thumbtack.js.
   'thumbtack':     'Thumbtack',
   'yelp':          'Yelp',
   'angi':          'Angi',
   'angies list':   'Angi',
+  // The two public funnels keep their own stored values (contact_leads__ and
+  // inspect_leads__ write them and the distinction is real), but they report
+  // as one Website line — folding belongs here, not in the stored data.
   'website':       'Website',
+  'website — contact form':             'Website',
+  'website - contact form':             'Website',
+  'website — inspection / storm tool':  'Website',
+  'website - inspection / storm tool':  'Website',
     'online':        'Online',
     '':              'Unknown',
     'other':         'Other'
@@ -174,7 +190,7 @@
         const c = parseInt(e.amountCents, 10) || 0;
         cents += c;
         // Key through the SAME normalizer the table lookup uses (line ~252),
-        // so 'd2d'/'Door Knock' spend joins the normalized 'Door-to-Door'
+        // so 'd2d'/'Door-to-Door' spend joins the canonical 'Door Knock'
         // bucket instead of silently missing (QA finding).
         const src = normalizeSource(e.marketingSource).trim().toLowerCase();
         if (src) _marketingBySource[src] = (_marketingBySource[src] || 0) + c / 100;

@@ -124,21 +124,31 @@ function loadIIFE(file) {
     { source: 'referral',   stage: 'closed', jobValue: 20000 },
     { source: 'referral',   stage: 'closed', jobValue: 30000 },
     { source: 'referral',   stage: 'new',    jobValue: 10000 },
-    { source: 'Door Knock', stage: 'lost',   jobValue: 5000 },
+    // All four spellings of the SAME act. 'Door Knock' is canonical as of
+    // 2026-09-06 (was 'Door-to-Door'); the stored data was normalized and
+    // d2d-tracker now writes the canonical string, but the aliases have to
+    // keep folding the old ones or an unmigrated import silently forks the
+    // bucket again — which is what made D2D conversion read 0%.
+    { source: 'Door Knock',   stage: 'lost', jobValue: 5000 },
+    { source: 'Door-to-Door', stage: 'lost', jobValue: 5000 },
+    { source: 'door_knock',   stage: 'lost', jobValue: 5000 },
+    { source: 'd2d',          stage: 'lost', jobValue: 5000 },
     { source: 'referral',   isProspect: true,  jobValue: 99999 }, // skipped (prospect)
     { source: 'referral',   deleted: true,     jobValue: 88888 }, // skipped (deleted)
   ];
   roiWin._leads = leads;           // compute() reads window._leads
   const m = R.compute();
   const ref = m.rows.find(r => r.source === 'Referral');
-  const d2d = m.rows.find(r => r.source === 'Door-to-Door');
-  ok('prospects + deleted excluded (totals.total === 4)', m.totals.total === 4);
+  const d2d = m.rows.find(r => r.source === 'Door Knock');
+  ok('prospects + deleted excluded (totals.total === 7)', m.totals.total === 7);
   ok('Referral total === 3 (2 closed + 1 open)', ref && ref.total === 3);
   ok('Referral closed === 2, closedRev === 50000', ref.closed === 2 && ref.closedRev === 50000);
   ok('Referral conversionRate === 67 (2/3)', ref.conversionRate === 67);
   ok('Referral avgDealSize === 25000', ref.avgDealSize === 25000);
-  ok("source alias 'Door Knock' → 'Door-to-Door'", !!d2d);
-  ok('Door-to-Door lost === 1, closed === 0', d2d.lost === 1 && d2d.closed === 0);
+  ok("canonical bucket is 'Door Knock', not 'Door-to-Door'",
+    !!d2d && !m.rows.find(r => r.source === 'Door-to-Door'));
+  ok('all four door spellings fold into ONE bucket (total === 4, lost === 4)',
+    d2d.total === 4 && d2d.lost === 4 && d2d.closed === 0);
   ok('rows sorted by closedRev desc (Referral first)', m.rows[0].source === 'Referral');
 }
 
