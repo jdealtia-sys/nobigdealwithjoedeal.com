@@ -914,9 +914,13 @@ section('Count badges: customer-page modules print their numbers (RoofLink "Phot
   // They used to be stamped from a query against a collection none of the
   // page's three document writers wrote to, so a customer with a stack of
   // generated contracts got no badge and an empty panel.
+  // The panel is labelled "Files" (2026-09-06). The label lives in TWO places
+  // — the markup in customer.html and this runtime repaint — so the literal is
+  // pinned here: changing only the HTML would look right until the first load
+  // silently stamped "Documents" back over it.
   assert('the documents store stamps the nav chip + panel title from the merged list',
     /nbdNavCount\('navCountDocs', docs\.length\)/.test(docsStore)
-    && /nbdTitleCount\('docsPanelTitle', 'Documents', docs\.length\)/.test(docsStore));
+    && /nbdTitleCount\('docsPanelTitle', 'Files', docs\.length\)/.test(docsStore));
   assert('the stale documents count is gone from the photo-report module',
     !/navCountDocs/.test(gen));
   // Feature 6 tightened the filter: Add-Event entries (type:'event') live
