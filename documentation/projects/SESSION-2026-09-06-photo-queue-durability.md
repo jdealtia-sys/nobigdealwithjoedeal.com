@@ -519,6 +519,7 @@ back after the 7-day purge gets no warning, because nothing ever reached the
 server to warn from. Closing that needs the loss not to happen — requesting
 persistence at the first enqueue rather than on a later boot, and warning while
 the photos still *exist* rather than after they are gone. Both are open.
+*(Both closed in #1427 — see the last section.)*
 
 ### Gates
 
@@ -684,3 +685,85 @@ code; it never checked code against the claims made *about* it.
 
 These are folded into the follow-up hunt this session ran; its findings, if
 any, are recorded separately.
+
+## Update, 2026-09-06 (#1427) — stop mourning the loss, prevent it
+
+Closing the two gaps this note has now listed as open twice. Everything before
+this point is detection: it tells the rep about a queue the browser has already
+destroyed, and they can do nothing but reshoot. These two are the first parts of
+the feature that act *before* the photos are gone.
+
+### 1. The eviction exemption was requested after the window it covers opened
+
+`requestPersistence()` had exactly one caller — `photo-queue-recovery.js`,
+behind the early return that fires whenever the counter says the queue is
+empty. So on a settled device **nobody ever asked**, and the first photo of a
+job was queued into a non-persisted origin and stayed there until the next
+dashboard load. The one thing that actually prevents WebKit's 7-day purge was
+being requested strictly after the risk began.
+
+It now runs from `add()`, at the moment the data becomes worth something. It is
+deliberately **not awaited**: #1418 inverted this flow to enqueue-first
+precisely so the write costs milliseconds, and blocking it on a permission
+round-trip would hand that straight back. It is memoised per page, because
+otherwise a 40-photo roof set is 40 permission round-trips.
+
+A refusal stays non-fatal, and the toast copy is unchanged on purpose:
+*"even if you close the app"* is true with or without the grant — IndexedDB
+survives closing the app either way. What the grant buys is exemption from the
+7-day purge, which is a longer-horizon claim the toast never made. Weakening
+that sentence on a refusal would have been a false downgrade.
+
+### 2. Nothing warned while the photos still existed
+
+The queue was invisible from capture until it uploaded or died —
+`queuedPhotoCount` has no consumers anywhere in `docs/`. So the rep's first
+signal was always an autopsy.
+
+`pendingStats(uid)` now returns `{ count, oldestAt }` from the same single scan
+that already produced the count (no second read), and recovery warns on the
+sticky banner when the oldest photo has been waiting **two days or more**:
+
+> *N photos have been waiting 3 days to upload. Connect to Wi-Fi and keep this
+> app open until they finish.*
+
+Two days is early enough to leave room to act and late enough that a rep out of
+signal for an afternoon is not nagged. The warning fires **offline too** — that
+is the state which produces a stale queue in the first place — and it does not
+depend on the lazy `photos` bundle loading. A row with no usable timestamp
+reads as **old**, never as new: an unstamped row is unknown age, and guessing
+young on unknown is how a stale queue stays quiet.
+
+When a loss banner is already up the stale message is dropped rather than
+stacking two fixed banners. That ordering is deliberate — "photos are gone"
+outranks "photos are late" — and the two can only co-occur after a partial
+eviction.
+
+### What is left
+
+The narrow case genuinely remains: a rep who queues on a roof, never reopens
+the app with signal at all, and returns after the purge. Nothing reached the
+server to warn from and no boot happened to warn on. It is now a smaller hole
+than it was — the persistence grant is requested at the first photo rather than
+never — but it is not zero, and no client-side mechanism can make it zero.
+
+### Gates
+
+- `photo-queue-durability.test.js` 74 → 86: persistence is requested by `add()`
+  itself (asserted against a fresh page that has not asked), memoised to one
+  ask for three photos, non-fatal when refused; `pendingStats` reports the
+  oldest of the signed-in rep's rows and ignores another rep's older photo.
+- `photo-queue-loss-witness.test.js` 40 → 53: the stale warning fires with the
+  right count and age, stays quiet at a few hours old, fires offline, survives
+  a failed drain and a missing photos bundle, and goes silent once a drain
+  clears the queue.
+- Proven able to fail four ways: dropping the `add()` request reddens 2,
+  dropping the memoisation reddens 1, dropping the offline warning reddens 1,
+  and removing every `warnIfStale` call reddens 8.
+- One of those probes caught a **false green in my own new test**: the legacy
+  unstamped-row case asserted `oldestAt === 1`, but the `photo()` helper
+  defaults to `timestamp: 1`, so the assertion passed under both the correct
+  and the broken behaviour. Restamped the real row to `Date.now()` so the two
+  are distinguishable, and only then did the regression redden it.
+- `run-test-manifest --bucket node` 75/75 · `smoke` 3604/0 ·
+  `check-js-syntax` 493 · `check-inline-html-scripts` 0/227.

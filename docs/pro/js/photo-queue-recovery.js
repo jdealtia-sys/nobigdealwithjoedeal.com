@@ -286,6 +286,52 @@
     if (store && typeof store.seedLastKnown === 'function') store.seedLastKnown(n);
   }
 
+  /**
+   * { count, oldestAt } for this rep, tolerating an older cached store.js that
+   * predates pendingStats (a stale service-worker cache can pair the two).
+   */
+  async function pendingStats(store, uid) {
+    if (store && typeof store.pendingStats === 'function') return store.pendingStats(uid);
+    if (store && typeof store.pendingForUid === 'function') {
+      const n = await store.pendingForUid(uid);
+      return typeof n === 'number' ? { count: n, oldestAt: 0 } : null;
+    }
+    return null;
+  }
+
+  // How long a photo may sit undelivered before we say something. WebKit's
+  // purge is 7 days of no interaction and opening the app resets that clock,
+  // so the danger is the stretch where the rep does NOT open it. Two days is
+  // early enough to leave room to act and late enough that a rep who is
+  // simply out of signal for an afternoon is not nagged.
+  const STALE_AFTER_MS = 2 * 24 * 60 * 60 * 1000;
+
+  /**
+   * The only warning in this feature that fires while the photos still EXIST.
+   * Everything else here is an autopsy: it reports a queue the browser has
+   * already destroyed, and the rep can do nothing but reshoot. This one is
+   * actionable, so it names the action.
+   *
+   * If a loss banner is already up, stickyNotice() keeps it and this message
+   * is dropped rather than stacking two fixed banners over each other. That is
+   * a deliberate ordering, not an accident: "photos are gone" outranks
+   * "photos are late", and the two can only co-occur after a partial eviction.
+   */
+  function warnIfStale(stats) {
+    if (!stats || !stats.count || !stats.oldestAt) return false;
+    const ageMs = Date.now() - stats.oldestAt;
+    if (!(ageMs >= STALE_AFTER_MS)) return false;
+    const days = Math.max(1, Math.floor(ageMs / (24 * 60 * 60 * 1000)));
+    const howLong = days === 1 ? '1 day' : days + ' days';
+    notify(
+      stats.count === 1
+        ? '1 photo has been waiting ' + howLong + ' to upload. Connect to Wi-Fi and keep this app open until it finishes.'
+        : stats.count + ' photos have been waiting ' + howLong + ' to upload. Connect to Wi-Fi and keep this app open until they finish.',
+      'warning'
+    );
+    return true;
+  }
+
   async function recover() {
     const store = window.NBDPhotoQueueStore;
     if (!store) return;
@@ -363,12 +409,12 @@
     // the counter already had the evidence for.
     if (known === null) seed(store, pending);
 
-    if (typeof navigator !== 'undefined' && navigator.onLine === false) {
-      // photo-engine re-arms its own `online` listener when it loads, and the
-      // next boot runs this again. Nothing to do while there's no network.
-      return;
-    }
+    const offline = (typeof navigator !== 'undefined' && navigator.onLine === false);
 
+    // Auth is restored from local state, so this resolves without a network
+    // round-trip in the normal case. It is awaited even when offline because
+    // the staleness warning below needs a uid: without one it would count the
+    // rows of whichever rep last used this phone.
     const authed = await waitForFirebase();
     if (!authed) return;
 
@@ -385,11 +431,20 @@
     // on their marker forever, ready to accuse them of losing photos they
     // never took.
     const uid = window._user && window._user.uid;
-    const mine = await store.pendingForUid(uid);
-    await writeMarker(mine);
+    const stats = await pendingStats(store, uid);
+
+    if (offline) {
+      // There is no network to drain over, but there IS something to say: if
+      // these photos have been sitting for days, this is the last cheap moment
+      // to tell the rep while they still exist.
+      warnIfStale(stats);
+      return;
+    }
+
+    await writeMarker(stats ? stats.count : null);
 
     const ready = await loadPhotoEngine();
-    if (!ready) return;
+    if (!ready) { warnIfStale(stats); return; }
 
     try {
       await window.PhotoEngine.flushUploadQueue();
@@ -399,8 +454,9 @@
 
     // And what is still owed after it, so a drained queue stops warning about
     // photos that did arrive. A failed count is null, not 0, and writes nothing.
-    const left = await store.pendingForUid(uid);
-    if (typeof left === 'number') await writeMarker(left);
+    const after = await pendingStats(store, uid);
+    if (after) await writeMarker(after.count);
+    warnIfStale(after);
   }
 
   function start() {
