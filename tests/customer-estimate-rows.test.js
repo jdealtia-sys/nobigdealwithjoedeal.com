@@ -449,6 +449,123 @@ test('functions copy exposes the same API and prices a cost-basis V2 row at reta
   if (/\b150\b/.test(rows[0].rate)) throw new Error('cost-basis rate leaked into the display rate');
 });
 
+// ── buildDocLineItems ─────────────────────────────────────────────────────
+// The document generator and its pre-flight read `est.lineItems`. V2 — the
+// builder every estimate goes through now — writes `est.rows` and never
+// `lineItems`, so the scope came back EMPTY for every V2 estimate. Two
+// consequences, both live in production until 2026-09-06:
+//   1. `lineItems` is required:true on proposal, contract, supplement_request
+//      and invoice, so each opened with an empty REQUIRED field.
+//   2. The same empty array reached resolveDocManufacturer, which found no
+//      shingle line and fell back to its hardcoded GAF default — so warranty
+//      certificates claimed GAF Timberline on TAMKO jobs.
+console.log('\ncustomer-estimate-rows — buildDocLineItems (doc scope)');
+console.log('──────────────────────────────────────────────────');
+
+const docItems = CR.buildDocLineItems;
+
+test('exports buildDocLineItems', () => { eq(typeof docItems, 'function'); });
+
+test('a V2 rows[] estimate yields a NON-EMPTY scope (the whole bug)', () => {
+  const items = docItems({
+    materialMarkupPct: 0.25,
+    rows: [
+      { code: 'RFG 240', desc: 'TAMKO Heritage shingles', qty: '20.00SQ', materialTotal: 4000, laborTotal: 2000, total: 6000 },
+      { code: 'RFG RIDGC', desc: 'Ridge cap', qty: '60.00LF', materialTotal: 300, laborTotal: 150, total: 450 },
+    ],
+  });
+  if (!items.length) throw new Error('empty scope — this is the defect');
+  eq(items.length, 2, 'item count');
+});
+
+test('scope is priced at RETAIL, never the cost basis', () => {
+  const items = docItems({
+    materialMarkupPct: 0.25,
+    rows: [{ code: 'X', desc: 'Shingles', qty: '1EA', materialTotal: 100, laborTotal: 50, total: 150 }],
+  });
+  // 100×1.25 + 50 = 175. A 150 here means the contractor's cost reached a
+  // customer-facing document.
+  near(items[0].total, 175, 0.005, 'retail total');
+  near(items[0].rate, 175, 0.005, 'retail unit rate');
+  if (items[0].total === 150) throw new Error('cost basis leaked into the document scope');
+});
+
+test('qty and unit are split back out of the display string', () => {
+  const items = docItems({
+    materialMarkupPct: 0.25,
+    rows: [{ code: 'X', desc: 'Shingles', qty: '20.00SQ', retailTotal: 6000, total: 6000 }],
+  });
+  near(items[0].qty, 20, 0.005, 'qty');
+  eq(items[0].unit, 'SQ', 'unit');
+  near(items[0].rate, 300, 0.005, 'per-unit rate = 6000/20');
+});
+
+test('per-SQ estimates get ONE summary line, not an empty scope', () => {
+  // buildDisplayRows returns [] here on purpose — the rows are internal cost
+  // lines that cannot foot to the tier price. A contract with no scope is the
+  // bug being fixed, so the doc path summarises like the invoice does.
+  eq(build({ priceMode: 'per-sq', prices: { good: 1 }, grandTotal: 18500, rows: [{ desc: 'cost', total: 9000 }] }).length, 0,
+    'buildDisplayRows still emits no rows for per-SQ');
+  const items = docItems({ priceMode: 'per-sq', selectedTier: 'better', grandTotal: 18500, rows: [{ desc: 'cost', total: 9000 }] });
+  eq(items.length, 1, 'one summary line');
+  near(items[0].total, 18500, 0.005, 'summary total is the locked tier price');
+  if (/9000/.test(JSON.stringify(items))) throw new Error('per-SQ internal cost basis reached the document');
+  if (!/Better/.test(items[0].description)) throw new Error('tier not named: ' + items[0].description);
+});
+
+test('classic lineItems still map straight across', () => {
+  const items = docItems({ lineItems: [{ description: 'Tear-off', quantity: 2, unitPrice: 500, total: 1000, unit: 'SQ' }] });
+  eq(items.length, 1);
+  eq(items[0].description, 'Tear-off');
+  near(items[0].qty, 2, 0.005);
+  near(items[0].total, 1000, 0.005);
+});
+
+test('an empty / absent estimate yields an empty scope, not a throw', () => {
+  eq(docItems(null).length, 0);
+  eq(docItems({}).length, 0);
+  eq(docItems({ rows: [] }).length, 0);
+});
+
+test('the O&P line survives into the document scope', () => {
+  const items = docItems({
+    materialMarkupPct: 0.25, overhead: 1000, profit: 1000, overheadPct: 0.1, profitPct: 0.1,
+    rows: [{ code: 'X', desc: 'Shingles', qty: '1EA', retailTotal: 10000, total: 10000 }],
+  });
+  const ohp = items.find((i) => /Overhead & Profit/.test(i.description));
+  if (!ohp) throw new Error('O&P line missing — printed lines would not foot to the subtotal');
+  near(ohp.total, 2000, 0.005, 'O&P total');
+});
+
+// The end-to-end point of the fix: the generator must now SEE the shingle.
+test('resolveDocManufacturer finds TAMKO through the new scope (was always GAF)', () => {
+  const fs = require('fs');
+  const vm = require('vm');
+  const src = fs.readFileSync(path.join(__dirname, '..', 'docs/pro/js/document-generator-templates.js'), 'utf8');
+  const m = src.indexOf('function resolveDocManufacturer(');
+  if (m < 0) throw new Error('resolveDocManufacturer not found — update this extractor, do not delete the test');
+  const open = src.indexOf('{', m);
+  let depth = 0, end = -1;
+  for (let i = open; i < src.length; i++) {
+    if (src[i] === '{') depth++;
+    else if (src[i] === '}') { depth--; if (depth === 0) { end = i + 1; break; } }
+  }
+  const sandbox = {};
+  vm.createContext(sandbox);
+  vm.runInContext(src.slice(m, end), sandbox);
+
+  const tamko = docItems({
+    materialMarkupPct: 0.25,
+    rows: [{ code: 'RFG 240', desc: 'TAMKO Heritage HailGuard shingles', qty: '20.00SQ', retailTotal: 6000, total: 6000 }],
+  });
+  const got = sandbox.resolveDocManufacturer(tamko);
+  eq(got.manufacturer, 'TAMKO', 'manufacturer resolved from the V2 scope');
+
+  // And the old behaviour, to show what was actually shipping:
+  const wasEmpty = sandbox.resolveDocManufacturer([]);
+  eq(wasEmpty.manufacturer, 'GAF', 'empty scope still falls back to GAF (the old path)');
+});
+
 console.log('\n──────────────────────────────────────────────────');
 console.log(passed + ' passed, ' + failed + ' failed');
 if (failed > 0) process.exit(1);

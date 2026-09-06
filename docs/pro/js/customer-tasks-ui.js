@@ -475,6 +475,61 @@ window.loadProjectTimeline = async function(leadId) {
   }
 };
 
+// ── Recording a payment ─────────────────────────
+//
+// Until now a rep could not record a check from anywhere in the app once the
+// modal that appears immediately after invoice creation was dismissed:
+//   - this page's invoice list was READ-ONLY (its "Pay" link is the
+//     HOMEOWNER'S Stripe link, not a rep action),
+//   - InvoicePipeline.markPaid / markPaidUI ship only on the dashboard, and
+//   - renderInvoicePanel and renderInvoiceList — which both carry the right
+//     View / Send / Mark Paid buttons — are mounted NOWHERE. Grep across
+//     docs/pro finds no caller for either. They are complete, working UIs
+//     that were never rendered.
+//
+// So the money path dead-ended at "customer paid by check" and the invoice
+// stayed open forever.
+//
+// invoice-pipeline.js is 82 KB and this page already boots heavy, so it is
+// lazy-loaded on the click rather than added to the defer list. ScriptLoader
+// is already on this page, resolves immediately if the file is present, and
+// dedupes concurrent calls.
+window.NBDCustomerInvoices = {
+  markPaid: async function (invoiceId) {
+    if (!invoiceId) return;
+    try {
+      // invoice-pipeline.js was written for the dashboard, whose bootstrap
+      // sets BOTH window.db and window._db to the same Firestore instance
+      // (dashboard-bootstrap.module.js:1171 and :1175). This page sets only
+      // window.db, so the module's getDb() — which checks window._db — throws
+      // "Firestore (v9) not initialized" the moment Mark Paid is tapped.
+      // Alias the same instance rather than editing the module: it is the
+      // identical object on the dashboard, so nothing there changes.
+      if (!window._db && window.db) window._db = window.db;
+      if (!(window.InvoicePipeline && typeof window.InvoicePipeline.markPaidUI === 'function')) {
+        if (!(window.ScriptLoader && typeof window.ScriptLoader.load === 'function')) {
+          throw new Error('ScriptLoader unavailable');
+        }
+        await window.ScriptLoader.load('js/invoice-pipeline.js?v=4');
+      }
+      if (!(window.InvoicePipeline && typeof window.InvoicePipeline.markPaidUI === 'function')) {
+        throw new Error('InvoicePipeline.markPaidUI missing after load');
+      }
+      await window.InvoicePipeline.markPaidUI(invoiceId);
+      // markPaidUI writes through its own modal; repaint from the store so the
+      // row's status and the Total Owed / Total Paid summary agree with it.
+      if (typeof window.loadInvoices === 'function' && window._customerId) {
+        setTimeout(function () { window.loadInvoices(window._customerId); }, 600);
+      }
+    } catch (err) {
+      console.error('[invoices] markPaid failed', err);
+      if (typeof window.showToast === 'function') {
+        window.showToast('Could not open the payment form. Reload and try again.', 'error');
+      }
+    }
+  },
+};
+
 // ── Invoices & Payments ─────────────────────────
 window.loadInvoices = async function(leadId) {
   try {
@@ -552,6 +607,10 @@ window.loadInvoices = async function(leadId) {
             <div class="invoice-status ${safeStatus}">${safeStatus}</div>
             ${safeStatus !== 'paid' && safePayUrl ? `
               <a href="${esc(safePayUrl)}" target="_blank" rel="noopener noreferrer" class="doc-btn">Pay</a>
+            ` : ''}
+            ${safeStatus !== 'paid' ? `
+              <button type="button" class="doc-btn" data-action="NBDCustomerInvoices.markPaid" data-arg="${esc(inv.id)}"
+                      title="Record a check or cash payment">Mark Paid</button>
             ` : ''}
           </div>
         </div>
@@ -1671,7 +1730,12 @@ function getCustomerDocData() {
     estimateAmount: jobVal ? '$' + Number(jobVal).toLocaleString() : '',
     contractPrice: jobVal ? '$' + Number(jobVal).toLocaleString() : '',
     warrantyTier: est?.tier || est?.tierName || lead.warrantyTier || '',
-    estimateLineItems: est?.lineItems || [],
+    // Was `est?.lineItems || []`, which is ALWAYS empty for a V2 estimate —
+    // V2 writes `rows`. The empty array reached resolveDocManufacturer, which
+    // finds no shingle line and falls back to its hardcoded default, so
+    // warranty certificates and proposals claimed GAF Timberline on TAMKO
+    // jobs. buildDocLineItems reads both shapes at the RETAIL ladder.
+    estimateLineItems: (window.NBDCustomerEstimateRows?.buildDocLineItems?.(est)) || est?.lineItems || [],
 
     // Property
     roofAge: lead.roofAge || '', roofType: lead.roofType || '',

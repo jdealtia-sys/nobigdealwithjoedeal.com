@@ -10,6 +10,8 @@
     "the step environment before touching the test."
   ],
   "node": [
+    "crm-required-fields.test.js",
+    "customer-invoice-markpaid.test.js",
     "esign-autodetect.test.js",
     "address-match.test.js",
     "address-audit-script.test.js",
