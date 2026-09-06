@@ -12,12 +12,27 @@
  *   1. the queue is actually drained (on `online`, and after the next
  *      successful upload — better evidence than an event that may never fire
  *      on a flaky connection that never fully dropped), and failures are
- *      re-queued rather than dropped;
- *   2. the message no longer promises what the code cannot do. The queue is
- *      memory-only, and dashboard-sw-bootstrap reloads the page on every
- *      bfcache resume — exactly when a rep backgrounds the app — so a queued
- *      photo does NOT survive leaving the page. Persisting it is the real fix
- *      and a larger one; until then the toast must not claim otherwise.
+ *      left queued rather than dropped;
+ *   2. the message matches what the code can actually back.
+ *
+ * ── 2026-09-06: the promise got STRONGER, and that is the point ─────────
+ * This suite used to assert the toast did NOT say "will upload when
+ * connected", because the queue was memory-only and dashboard-sw-bootstrap
+ * reloads the page on every bfcache resume — exactly when a rep backgrounds
+ * the app — so the photo did not survive leaving the page. The honest copy
+ * was "Keep this page open."
+ *
+ * The queue is now persisted in IndexedDB (docs/pro/js/photo-queue-store.js,
+ * proven to survive a reload by tests/photo-queue-durability.test.js) and
+ * drained on boot by photo-queue-recovery.js. So the strong promise is now
+ * TRUE and the copy says so. The assertion below is not deleted — it is
+ * inverted and tied to the persistence that earns it: the durable wording is
+ * only allowed to appear alongside a real call into the durable store, so
+ * this can never drift back into a claim the code does not implement.
+ *
+ * The weak "Keep this page open" copy still has to exist, because it is what
+ * a rep gets when IndexedDB is genuinely unavailable (private mode, disabled
+ * storage). Both branches are asserted.
  *
  * The dataURL→Blob converter is extracted and exercised for real, because a
  * silent failure there would drop the photo just as effectively as the
@@ -57,31 +72,70 @@ ok('it also drains after a successful upload',
 
 ok('the drain is re-entrancy guarded', /_draining\s*=\s*true/.test(src) && /if \(_draining\) return/.test(src));
 
-// These two used to assert `state.uploadQueue.push(item)` followed by `break`.
-// Both matched — and that exact shape destroyed every item after the failure,
-// because splice() had already emptied the queue into a local array. Pinning
-// the requeue of the WHOLE REMAINDER is the property that actually matters;
-// the behavioural block at the bottom of this file proves it end to end.
-ok('the failing item AND the untried remainder go back on the queue',
-  /state\.uploadQueue\.unshift\.apply\(state\.uploadQueue, batch\.slice\(i\)\)/.test(src),
-  'requeuing only the failing item silently drops the rest of the batch');
+// A failing item must stay queued. The drain no longer splices the batch out
+// up front — items leave storage one at a time, and only after a confirmed
+// upload — so the old `state.uploadQueue.push(item)` re-queue is gone by
+// design. What replaced it is stricter: nothing is removed before it succeeds.
+ok('an item is removed ONLY after a confirmed upload',
+  /await uploadPhotoToFirebase\([^)]*\);\s*\n\s*await _dropItem\(item\);/.test(src),
+  'dropping before the await would lose the photo on a mid-drain failure');
+
+ok('the drain does NOT splice the whole queue out up front',
+  !/splice\(0,\s*state\.uploadQueue\.length\)/.test(src),
+  'that pattern destroyed every not-yet-attempted item when one upload threw');
 
 ok('the drain stops on the first failure instead of spinning',
-  /batch\.slice\(i\)\);\s*\n\s*break;/.test(src));
+  /catch \(e\) \{[\s\S]{0,300}?\n\s*break;/.test(src));
 
 ok('an unrecoverable item is dropped rather than retried forever',
-  /if \(!blob \|\| !item\.leadId\) continue;/.test(src));
+  /if \(!blob \|\| !item\.leadId\) \{ await _dropItem\(item\); continue; \}/.test(src),
+  'a photo that cannot be decoded would otherwise block the queue behind it');
 
 ok('the queue is exposed on the public API', /\bflushUploadQueue,/.test(src) && /queuedPhotoCount:/.test(src));
 
 // ── the message is honest ───────────────────────────────────────────────
-ok('the toast no longer claims "will upload when connected"',
-  !/will upload when connected/.test(src),
-  'nothing implemented that promise; it must not be made again without persistence');
+// The durable promise is now allowed — because it is now implemented. Both
+// halves are asserted together so the copy cannot outrun the code again.
+// photo-engine.js writes the apostrophe escaped inside a single-quoted
+// string literal (you\'re), so the backslash is optional here.
+const DURABLE_COPY = /it will upload when you\\?'re back online, even if you close the app/;
 
-ok('the toast tells the rep what keeps the photo',
+ok('the toast makes the durable promise', DURABLE_COPY.test(src),
+  'the queue persists now — under-promising would be its own kind of dishonest');
+
+ok('...and that promise is backed by a real write to the durable store',
+  /await store\.add\(/.test(src) && /window\.NBDPhotoQueueStore/.test(src),
+  'the strong copy is only earned by actually persisting the photo');
+
+ok('...and it is only shown when the write SUCCEEDED',
+  /outcome\.durable\) \{[\s\S]{0,400}?even if you close the app/.test(src),
+  'showing it unconditionally would reinstate the original lie');
+
+ok('the memory-only fallback still under-promises',
   /Keep this page open/.test(src),
-  'the queue is memory-only — say so rather than implying durability');
+  'when IndexedDB is unavailable the photo really does die with the page');
+
+ok('a refused photo is not reported as held',
+  /abandon\(outcome\.message\)/.test(src),
+  'a full queue must stop the rep, not silently discard the shot');
+
+// The photo must reach storage BEFORE the network attempt. Firebase Storage
+// retries a failed upload until maxUploadRetryTime — 10 minutes by default,
+// set nowhere in this repo — so queueing only in the catch left the photo in
+// a local variable for that whole window, and a bfcache reload in it was a
+// lost photo.
+ok('the photo is persisted BEFORE the upload is attempted',
+  src.indexOf('await enqueueForRetry(') > 0 &&
+  src.indexOf('await enqueueForRetry(') < src.indexOf('uploadPhotoToFirebase(blob, leadId, selectedTags'),
+  'enqueue must precede the upload call in the capture flow');
+
+ok('a deterministic failure is refused, not queued',
+  /_uploadPreflightError\(leadId\)/.test(src) && /abandon\(preflight\.message\); return;/.test(src),
+  'a photo with no customer can never upload — queueing it reports "held", then drops it as unrecoverable');
+
+ok('the capture flow does not wait out the retry budget',
+  /Promise\.race\(\[/.test(src) && /SAVE_CONFIRM_MS/.test(src),
+  'the rep must get the camera back once the photo is durable');
 
 // ── the converter actually works ────────────────────────────────────────
 const at = src.indexOf('function _dataUrlToBlob(');
@@ -117,11 +171,15 @@ if (at >= 0) {
 
 // ── BEHAVIOURAL: the drain must not destroy the items it did not attempt ──
 //
-// Every assertion above this block is a regex over the source, and that is why
-// this bug shipped: `state.uploadQueue.push(item)` and `break` both matched
-// while the code destroyed photos. splice() moved the WHOLE queue into a local
-// array, and a mid-batch failure re-queued only the failing item — everything
-// after it existed solely in that local and died with it. So run the function.
+// Ported from #1417 and re-targeted at the store-backed drain. Every assertion
+// above this block is a regex over the source, and that is exactly why the
+// original bug shipped: `state.uploadQueue.push(item)` and `break` both matched
+// while the code destroyed photos. So run the function. The property is now
+// stronger than #1417's: an item leaves the STORE only after its upload
+// resolved, so a mid-drain failure leaves the failing photo and everything
+// behind it in storage — not merely back on an array. The memory-only
+// fallback (no IndexedDB) is exercised too, because #1417's property still has
+// to hold there.
 function extractFn(name) {
   const at = src.indexOf(name);
   if (at < 0) return null;
@@ -134,61 +192,205 @@ function extractFn(name) {
   return null;
 }
 
-const flushSrc = extractFn('async function flushUploadQueue(');
-const blobSrc = extractFn('function _dataUrlToBlob(');
-ok('flushUploadQueue body is extractable for a real run', !!flushSrc && !!blobSrc);
+const PARTS = {
+  blob: extractFn('function _dataUrlToBlob('),
+  store: extractFn('function _store('),
+  uid: extractFn('function _currentUid('),
+  key: extractFn('function _inFlightKey('),
+  enqueue: extractFn('async function enqueueForRetry('),
+  pending: extractFn('async function _pendingItems('),
+  drop: extractFn('async function _dropItem('),
+  flush: extractFn('async function flushUploadQueue(')
+};
+const missing = Object.keys(PARTS).filter((k) => !PARTS[k]);
+ok('the queue functions are extractable for a real run', missing.length === 0, 'missing: ' + missing.join(','));
 
-if (flushSrc && blobSrc) {
+if (missing.length === 0) {
+  const UID = 'rep-alice';
+
+  // The smallest NBDPhotoQueueStore the drain can be run against.
+  function fakeStore(rows, over) {
+    const map = new Map();
+    let next = 1;
+    for (const r of rows) { map.set(next, Object.assign({ id: next, uid: UID }, r)); next++; }
+    return Object.assign({
+      map,
+      MAX_ITEMS: 80,
+      available: async () => true,
+      all: async () => [...map.values()].sort((a, b) => a.id - b.id).map((r) => Object.assign({}, r)),
+      add: async (item) => { const id = next++; map.set(id, Object.assign({ id }, item)); return id; },
+      remove: async (id) => { map.delete(id); return true; },
+      count: async () => map.size,
+      lastKnownCount: () => map.size,
+      leftIds: () => [...map.keys()].sort((a, b) => a - b).join(',')
+    }, over || {});
+  }
+  const jpeg = () => new Blob([new Uint8Array(16)], { type: 'image/jpeg' });
+  const row = (n, over) => Object.assign(
+    { blob: jpeg(), uid: UID, leadId: 'lead-' + n, tags: [], description: '', location: '' }, over || {});
   const PNG1x1 = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
-  const item = (id, dataUrl) => ({ dataUrl: dataUrl || PNG1x1, leadId: 'lead-' + id, tags: [], description: '', location: '' });
+  const memItem = (n, dataUrl) => ({ dataUrl: dataUrl || PNG1x1, uid: UID, leadId: 'lead-' + n, tags: [], description: '', location: '' });
 
-  function run(queue, uploader) {
+  function run(store, queue, uploader, uid) {
     const sandbox = {
-      atob, Uint8Array, Blob, console,
+      atob, Uint8Array, Blob, Set, Object, Array,
+      console: { warn() {}, log() {}, error() {} },
       navigator: { onLine: true },
       _draining: false,
       state: { uploadQueue: queue },
       showToast: function () {},
       uploadPhotoToFirebase: uploader,
+      window: {
+        _user: { uid: uid === undefined ? UID : uid },
+        NBDPhotoQueueStore: store || undefined
+      }
     };
     vm.createContext(sandbox);
-    vm.runInContext(blobSrc + '\n' + flushSrc + '\nthis.__flush = flushUploadQueue;', sandbox);
-    return sandbox.__flush().then(function (sent) {
-      return { sent: sent, left: sandbox.state.uploadQueue };
-    });
+    vm.runInContext('const _inFlight = new Set();\n'
+      + [PARTS.blob, PARTS.store, PARTS.uid, PARTS.key, PARTS.enqueue, PARTS.pending, PARTS.drop, PARTS.flush].join('\n')
+      + '\nthis.__flush = flushUploadQueue;'
+      + '\nthis.__enqueue = enqueueForRetry;'
+      + '\nthis.__inFlight = _inFlight;', sandbox);
+    return {
+      flush: () => sandbox.__flush(),
+      enqueue: (item) => sandbox.__enqueue(item),
+      inFlight: sandbox.__inFlight,
+      sandbox
+    };
   }
 
   const results = [];
   const done = (async () => {
-    // 1. Five queued, the THIRD upload fails: 1 and 2 are sent, and 3, 4, 5
-    //    must all still be on the queue — in order — for the next drain.
-    let n = 0;
-    const r1 = await run([item(1), item(2), item(3), item(4), item(5)], async () => {
-      n++; if (n === 3) throw new Error('offline again');
+    // 1. STORE-BACKED. Five in storage, the THIRD upload fails: 1 and 2 are
+    //    sent and gone from storage; 3, 4, 5 must all still be IN STORAGE, in
+    //    order, and 4 and 5 must never have been attempted.
+    let n1 = 0;
+    const s1 = fakeStore([row(1), row(2), row(3), row(4), row(5)]);
+    const sent1 = await run(s1, [], async () => { n1++; if (n1 === 3) throw new Error('offline again'); }).flush();
+    results.push(['store: two upload before the failure', sent1 === 2, 'sent=' + sent1]);
+    results.push(['store: the failing photo AND the untried remainder stay in storage, in order',
+      s1.leftIds() === '3,4,5', 'left=' + s1.leftIds()]);
+    results.push(['store: the two that uploaded were removed from storage',
+      !s1.map.has(1) && !s1.map.has(2)]);
+    results.push(['store: nothing behind the failure was attempted', n1 === 3, 'uploader calls=' + n1]);
+
+    // 2. STORE-BACKED. An unrecoverable row (no bytes) is dropped and does NOT
+    //    block the healthy photo behind it.
+    let n2 = 0;
+    const s2 = fakeStore([row(1, { blob: null }), row(2)]);
+    const sent2 = await run(s2, [], async () => { n2++; }).flush();
+    results.push(['store: an unrecoverable photo is dropped and does not block the queue',
+      s2.leftIds() === '', 'left=' + s2.leftIds()]);
+    results.push(['store: the healthy photo behind it still uploads', sent2 === 1 && n2 === 1,
+      'sent=' + sent2 + ' calls=' + n2]);
+
+    // 3. STORE-BACKED. A total outage leaves storage exactly as it was.
+    const s3 = fakeStore([row(1), row(2)]);
+    const sent3 = await run(s3, [], async () => { throw new Error('offline'); }).flush();
+    results.push(['store: a total outage loses nothing', s3.leftIds() === '1,2' && sent3 === 0,
+      'left=' + s3.leftIds() + ' sent=' + sent3]);
+
+    // 4. STORE-BACKED. Two drains at once: the re-entrancy guard makes the
+    //    second a no-op, so no photo is uploaded twice.
+    const s4 = fakeStore([row(1), row(2), row(3)]);
+    const seen = [];
+    const r4 = run(s4, [], async (_b, leadId) => { seen.push(leadId); await new Promise((r) => setTimeout(r, 1)); });
+    const [a4, b4] = await Promise.all([r4.flush(), r4.flush()]);
+    results.push(['store: a concurrent second drain is a no-op — no double upload',
+      seen.length === 3 && new Set(seen).size === 3 && a4 + b4 === 3,
+      'uploads=' + seen.join(',') + ' returns=' + a4 + '/' + b4]);
+
+    // 5. MEMORY FALLBACK (no IndexedDB). #1417's original property must still
+    //    hold on the array: the failing item and the remainder survive in order.
+    let n5 = 0;
+    const r5 = run(null, [memItem(1), memItem(2), memItem(3), memItem(4), memItem(5)],
+      async () => { n5++; if (n5 === 3) throw new Error('offline again'); });
+    const sent5 = await r5.flush();
+    const left5 = r5.sandbox.state.uploadQueue.map((i) => i.leadId).join(',');
+    results.push(['memory: two upload before the failure', sent5 === 2, 'sent=' + sent5]);
+    results.push(['memory: the failing item AND the untried remainder survive, in order',
+      left5 === 'lead-3,lead-4,lead-5', left5]);
+
+    // 6. MEMORY FALLBACK. A truncated base64 makes atob throw; that must be
+    //    caught outside the retry path so the item is dropped, not re-queued
+    //    to head every future drain forever.
+    const r6 = run(null, [memItem(1, 'data:image/png;base64,!!!not-base64!!!'), memItem(2)], async () => {});
+    const sent6 = await r6.flush();
+    results.push(['memory: an undecodable photo does not block the queue',
+      r6.sandbox.state.uploadQueue.length === 0 && sent6 === 1,
+      'left=' + r6.sandbox.state.uploadQueue.length + ' sent=' + sent6]);
+
+    // ── enqueueForRetry must report what ACTUALLY happened ───────────────
+    // The toast is chosen from this object, so a wrong outcome here IS the
+    // original lie. Source-shape assertions could not catch that; these run
+    // the function against stores that succeed and stores that refuse.
+    const shot = () => ({ blob: jpeg(), leadId: 'L', tags: [], description: '', location: '', timestamp: 1 });
+    const failing = (why) => fakeStore([], {
+      add: async () => { const e = new Error('refused'); e.reason = why; throw e; }
     });
-    results.push(['two upload before the failure', r1.sent === 2, 'sent=' + r1.sent]);
-    results.push(['the failing item AND the untried remainder survive',
-      r1.left.length === 3, 'queue kept ' + r1.left.length + ', expected 3']);
-    results.push(['the remainder keeps its original order',
-      r1.left.map(i => i.leadId).join(',') === 'lead-3,lead-4,lead-5',
-      r1.left.map(i => i.leadId).join(',')]);
 
-    // 2. An undecodable photo is dropped, and does NOT block the rest.
-    //    A truncated base64 makes atob throw; if that throw reaches the retry
-    //    path the item is re-queued and heads every future drain forever.
-    const r2 = await run([item(1, 'data:image/png;base64,!!!not-base64!!!'), item(2)], async () => {});
-    results.push(['an undecodable photo does not block the queue',
-      r2.left.length === 0, 'queue kept ' + r2.left.length + ', expected 0']);
-    results.push(['the healthy photo behind it still uploads', r2.sent === 1, 'sent=' + r2.sent]);
+    const e7 = run(fakeStore([]), []);
+    const o7 = await e7.enqueue(shot());
+    results.push(['enqueue: a committed write reports durable', o7.durable === true && o7.queued === true]);
+    results.push(['enqueue: ...returns the entry carrying its storage id', !!o7.entry && o7.entry.id != null]);
+    results.push(['enqueue: ...mirrors it into state.uploadQueue', e7.sandbox.state.uploadQueue.length === 1]);
+    results.push(['enqueue: ...stamped with the signed-in uid', !!o7.entry && o7.entry.uid === UID,
+      'an unowned row would upload under whoever signs in next']);
 
-    // 3. All-fail leaves the queue exactly as it was — nothing lost.
-    const r3 = await run([item(1), item(2)], async () => { throw new Error('offline'); });
-    results.push(['a total outage loses nothing', r3.left.length === 2 && r3.sent === 0,
-      'queue kept ' + r3.left.length + ', sent ' + r3.sent]);
+    const e8 = run(failing('unavailable'), []);
+    const o8 = await e8.enqueue(shot());
+    results.push(['enqueue: a store rejection is NOT reported as durable',
+      o8.durable === false && o8.queued === true,
+      'reporting durable here reinstates the exact lie this change removed']);
+    results.push(['enqueue: ...but the photo is still held in memory',
+      e8.sandbox.state.uploadQueue.length === 1]);
+
+    for (const why of ['queue-full', 'quota']) {
+      const e9 = run(failing(why), []);
+      const o9 = await e9.enqueue(shot());
+      results.push(['enqueue: "' + why + '" refuses outright with a message',
+        o9.queued === false && !!o9.message && o9.durable !== true]);
+      results.push(['enqueue: "' + why + '" holds nothing in memory',
+        e9.sandbox.state.uploadQueue.length === 0,
+        'pretending to hold it would be worse than stopping the rep']);
+    }
+
+    // ── a memory-only entry must still drain ────────────────────────────
+    // An earlier version read the store OR the array, never both, so entries
+    // storage had refused were never retried while available() was true —
+    // held under a toast, then silently never sent.
+    let n10 = 0;
+    const r10 = run(failing('unavailable'), [], async () => { n10++; });
+    await r10.enqueue(shot());
+    const sent10 = await r10.flush();
+    results.push(['drain: a memory-only entry is drained even though the store is available',
+      sent10 === 1 && n10 === 1, 'sent=' + sent10 + ' calls=' + n10]);
+
+    // ── ownership: shared device, two reps ──────────────────────────────
+    const s11 = fakeStore([row(1, { uid: 'rep-bob' }), row(2)]);
+    const seen11 = [];
+    const sent11 = await run(s11, [], async (_b, leadId) => { seen11.push(leadId); }).flush();
+    results.push(['drain: another rep\'s photo is NOT uploaded under this account',
+      sent11 === 1 && seen11.join(',') === 'lead-2',
+      'uploaded=' + seen11.join(',') + ' — it would land in the wrong uid and company']);
+    results.push(['drain: ...and their row is left in storage for them',
+      s11.map.has(1), 'row 1 must survive for its owner']);
+
+    // ── no double upload with the foreground capture ────────────────────
+    const s12 = fakeStore([row(1), row(2)]);
+    const seen12 = [];
+    const r12 = run(s12, [], async (_b, leadId) => { seen12.push(leadId); });
+    r12.inFlight.add(1);          // the capture flow is uploading row 1 now
+    const sent12 = await r12.flush();
+    results.push(['drain: a row the capture flow is uploading is skipped',
+      sent12 === 1 && seen12.join(',') === 'lead-2',
+      'uploaded=' + seen12.join(',') + ' — a drain racing the capture uploads it twice']);
+    results.push(['drain: ...and it stays in storage for that attempt to finish',
+      s12.map.has(1)]);
   })();
 
   const wait = require('timers/promises').setTimeout;
-  // Node's test file is sync-tailed; drain the microtask/IO queue before scoring.
+  // The file is sync-tailed; drain the microtask/IO queue before scoring.
   const sync = (async () => { await done; await wait(0); })();
   sync.then(() => {
     for (const [name, cond, extra] of results) ok(name, cond, extra);
