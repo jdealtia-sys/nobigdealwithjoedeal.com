@@ -556,6 +556,7 @@ same purge deletes `nbd_photo_queue_last_known_size` on every logout while the
 IndexedDB rows survive, so after any sign-out the store's own partial-eviction
 detector is blind until the next `add()` or `remove()` re-seeds the counter.
 Re-seeding it on boot is a small change and is **not** in this PR.
+*(Closed in #1426 — see the next section.)*
 
 ### Eager cost, restated
 
@@ -566,3 +567,50 @@ is now stale in turn — restating it rather than leaving the same trap:
 disk with CRLF). Both files are still DOM-free at load, and the common boot is
 still one `localStorage.getItem` and no network — the server read happens only
 on the once-per-device branch where the counter is missing.
+
+## Update, 2026-09-06 (later still, #1426) — we were deleting the counter ourselves
+
+Closing the hole flagged two sections above, plus a false claim I made about it.
+
+`nbd-auth.js:727` `purgeAccountStorage()` drops every `nbd_`-prefixed
+localStorage key outside its KEEP set on **every** logout and account switch,
+while the IndexedDB rows sit untouched. Nothing re-created the counter, so an
+ordinary sign-out left `detectLoss()` with no baseline and **no way back** —
+blind until the next `add()`/`remove()` happened to rewrite it. A rep who signs
+out on Friday and is evicted on Monday was told nothing.
+
+**And the same gap made the sentence directly above this section wrong.** The
+server read was *not* once per device: a rep who has never queued a photo has
+no counter to write, and nothing in the empty-and-unknown branch wrote one — so
+every dashboard load re-opened IndexedDB, waited for auth and re-read the
+marker. Forever, for the majority of reps. I asserted the opposite in the code
+comment, the #1422 PR body and here. It is now true because this change makes
+it true, not because it was.
+
+Both are one mechanism: `seedLastKnown(n)` on the store, which can only ever
+**establish** a baseline and refuses to overwrite one — so a re-seed can never
+mask a loss the counter already had the evidence for. Recovery calls it in two
+places: with the real row count when rows exist and no baseline does, and with
+`0` after the server has actually **answered**. That second guard matters — the
+marker read now distinguishes "consulted, nothing owed" (including a doc that
+does not exist, which is every new device) from "could not reach the server".
+Seeding after an unreachable server would send every later boot down the fast
+path and the wipe would never be reported at all.
+
+`nbd-auth.js` is untouched. Adding the key to its KEEP set would fix one cause;
+re-seeding fixes the class, including `?reset` and a hand-cleared key, without
+editing a security-sensitive purge list.
+
+### Gates
+
+- `photo-queue-durability.test.js` 64 → 74, including the sign-out hole end to
+  end against the real store: queue two, purge localStorage, re-seed from the
+  surviving rows, evict — `detectLoss()` reports 2. Paired with a **control**
+  that runs the identical sequence *without* the re-seed and asserts the
+  silence, so the first assertion cannot pass by accident.
+- `photo-queue-loss-witness.test.js` 32 → 40, proven able to fail three ways:
+  dropping the rows re-seed reddens 1, seeding regardless of the server's
+  answer reddens 1, and treating a missing marker doc as a failed read
+  reddens 1.
+- `run-test-manifest --bucket node` 75/75 · `smoke` 3604/0 ·
+  `check-js-syntax` 493 · `check-inline-html-scripts` 0/227.
