@@ -1107,6 +1107,49 @@ section('D4: audit_log retention cron');
   assert('pages in 500-doc batches', /limit\(500\)/.test(src));
 }
 
+section('Push schedulers read shapes that are actually written (2026-09-05)');
+{
+  // Both scheduled push readers in push-functions.js were once written
+  // against nested shapes NOTHING writes — onAppointmentReminder walked
+  // leads.appointments[], onFollowUpDue walked leads.d2dKnocks[] looking for
+  // knock.autoFollowUp. Each therefore notified ZERO users for its whole
+  // life, silently, because "query returns nothing" and "feature is quiet"
+  // look identical in logs. The header schema block asserted both phantom
+  // shapes, which is how they got coded that way twice.
+  //
+  // These assertions pin the readers to the collections real writers use:
+  //   knocks       ← docs/pro/js/d2d-tracker-core-2026b.js addDoc(...,'knocks')
+  //   appointments ← functions/integrations/calcom.js
+  // Comments are stripped first so the retirement notes (which necessarily
+  // name the dead fields) cannot satisfy or trip these checks.
+  const rawPush = read(path.join(FUNCTIONS, 'push-functions.js'));
+  const push = rawPush.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/mg, '');
+
+  assert('onFollowUpDue queries the top-level knocks collection',
+    /collection\(\s*['"]knocks['"]\s*\)/.test(push));
+  assert('onFollowUpDue filters on followUpDate, the field the tracker writes',
+    /['"]followUpDate['"]/.test(push));
+  assert('the phantom leads.d2dKnocks[] model is gone from executable code',
+    !/d2dKnocks/.test(push));
+  assert('the phantom knock.autoFollowUp field is gone from executable code',
+    !/autoFollowUp/.test(push));
+
+  assert('onAppointmentReminder still queries the top-level appointments collection',
+    /collection\(\s*['"]appointments['"]\s*\)/.test(push));
+  assert('onAppointmentReminder still filters on startTime',
+    /['"]startTime['"]/.test(push));
+
+  // The writer side of the contract — if the tracker ever renames these,
+  // the reader above goes quiet again and this is the tripwire.
+  const tracker = read(path.join(ROOT, 'docs/pro/js/d2d-tracker-core-2026b.js'));
+  assert('the D2D tracker still writes knocks into the knocks collection',
+    /collection\(\s*window\._db\s*,\s*['"]knocks['"]\s*\)/.test(tracker));
+  assert('the D2D tracker still stamps followUpDate on the knock',
+    /knockDoc\.followUpDate\s*=/.test(tracker));
+  assert('a date-only follow-up is parsed as LOCAL midnight, not UTC (ET off-by-one-day)',
+    /T00:00:00/.test(tracker));
+}
+
 section('D5: nightly Firestore backup cron — RETIRED 2026-09-05');
 {
   // This used to assert nightlyFirestoreBackup existed and exported to a
