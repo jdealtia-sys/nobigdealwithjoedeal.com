@@ -462,6 +462,68 @@ async function reason(fn) {
       'got ' + n + ' — a 0 would write "nothing owed" over a real backlog');
   }
   {
+    // ── seedLastKnown: establish a baseline, never move one ──────────────
+    const disk = newDisk();
+    const s = loadStore(disk);
+    ok('seeding works when there is no baseline', s.seedLastKnown(5) === true);
+    ok('...and the baseline is readable afterwards', s.lastKnownCount() === 5);
+    ok('seeding REFUSES to overwrite an existing baseline', s.seedLastKnown(99) === false,
+      'overwriting would erase the very evidence detectLoss() compares against');
+    ok('...leaving the original untouched', s.lastKnownCount() === 5,
+      'got ' + s.lastKnownCount());
+  }
+  {
+    const disk = newDisk();
+    const s = loadStore(disk);
+    const refused = [null, undefined, NaN, -1, '3'].every((v) => s.seedLastKnown(v) === false);
+    ok('a nonsense seed is refused', refused && s.lastKnownCount() === null,
+      'null/NaN/negative/string must not become a baseline; lastKnown=' + s.lastKnownCount());
+  }
+  {
+    // ── THE SIGN-OUT HOLE, end to end ────────────────────────────────────
+    // nbd-auth.js purgeAccountStorage() deletes our counter on EVERY logout
+    // while the IndexedDB rows survive. This is the whole scenario: queue two
+    // photos, sign out, sign back in, then get evicted.
+    const disk = newDisk();
+    const s1 = loadStore(disk);
+    await s1.add(photo());
+    await s1.add(photo());
+    ok('two photos queued before the sign-out', s1.lastKnownCount() === 2);
+
+    // The purge: every nbd_-prefixed key gone, the rows untouched.
+    disk.localStorage = {};
+    const s2 = loadStore(disk);
+    ok('after a sign-out the baseline is gone but the photos are not',
+      s2.lastKnownCount() === null && (await s2.count()) === 2,
+      'lastKnown=' + s2.lastKnownCount());
+
+    // What recovery does on boot.
+    s2.seedLastKnown(await s2.count());
+    ok('boot re-establishes the baseline from the surviving rows',
+      s2.lastKnownCount() === 2, 'got ' + s2.lastKnownCount());
+
+    // Now the eviction that used to go unreported.
+    disk.tables['nbd-photo-queue-db']['pending-photos'] = { rows: new Map(), nextId: 1 };
+    const s3 = loadStore(disk);
+    ok('an eviction AFTER a sign-out is now reported', (await s3.detectLoss()) === 2,
+      'without the re-seed this is 0 — the rep signs out Friday, is evicted '
+      + 'Monday, and is never told');
+  }
+  {
+    // The control: the same sequence WITHOUT the re-seed is silent. This is
+    // the bug, reproduced, so the assertion above cannot pass by accident.
+    const disk = newDisk();
+    const s1 = loadStore(disk);
+    await s1.add(photo());
+    await s1.add(photo());
+    disk.localStorage = {};
+    disk.tables['nbd-photo-queue-db']['pending-photos'] = { rows: new Map(), nextId: 1 };
+    const s2 = loadStore(disk);
+    ok('...and skipping the re-seed reproduces the silence exactly',
+      (await s2.detectLoss()) === 0,
+      'if this is non-zero the scenario above is not testing what it claims');
+  }
+  {
     // ── the limit of what ANY device can prove about itself ──────────────
     // WebKit's real 7-day ITP purge — and "Clear History and Website Data" —
     // take every script-writable store for the origin in ONE operation. The

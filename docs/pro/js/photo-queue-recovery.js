@@ -30,10 +30,25 @@
  * So while there are photos held, this module mirrors the pending count to
  * userSettings/{uid} (already owner-read/write in firestore.rules), and when
  * it boots to find the local counter GONE it asks the server whether photos
- * were owed. That branch is reached once per device install, so the read
- * costs nothing on a normal boot. The marker is written only by a device
- * that has its own local counter — a second device must never clear the
- * record of photos still sitting on the first one.
+ * were owed. The marker is written only by a device that has its own local
+ * counter — a second device must never clear the record of photos still
+ * sitting on the first one.
+ *
+ * THIRD JOB: keep the local counter alive, because we delete it ourselves.
+ *
+ * nbd-auth.js purgeAccountStorage() drops every `nbd_`-prefixed localStorage
+ * key outside its KEEP set on EVERY logout and account switch, while the
+ * IndexedDB rows sit there untouched. Nothing re-created the counter, so an
+ * ordinary sign-out left detectLoss() with no baseline and no way back —
+ * blind until the next add() or remove() happened to rewrite it. A rep who
+ * signed out on Friday and was evicted on Monday was told nothing.
+ *
+ * The same gap made the server read above a per-BOOT cost rather than a
+ * per-device one: a rep who has never queued a photo has no counter to write,
+ * so every dashboard load re-opened IndexedDB, waited for auth and re-read the
+ * marker. (An earlier version of this comment claimed otherwise. It was
+ * wrong.) Seeding the counter on boot — only ever ESTABLISHING it, never
+ * overwriting a real one — closes both.
  */
 
 (function () {
@@ -169,7 +184,10 @@
     try {
       const snap = await fs.getDoc(fs.ref);
       const data = (snap && typeof snap.data === 'function' && snap.data()) || null;
-      if (!data) return null;
+      // A doc that does not exist is a real ANSWER — "nothing was owed" — not
+      // a failed read. The caller seeds the local counter off the difference,
+      // so conflating the two would make every boot re-ask the server.
+      if (!data) return { held: 0, at: 0, ackAt: 0 };
       const held = parseInt(data[MARKER_FIELD], 10);
       return {
         held: isNaN(held) ? 0 : held,
@@ -217,12 +235,20 @@
    * hold either way — and in the wipe case, looking and finding nothing is
    * exactly the discovery we want them to make now rather than in a week.
    */
+  /**
+   * Returns whether we actually got an answer out of the server — NOT whether
+   * we warned. The caller uses it to decide it is safe to stop asking, and
+   * "the marker says nothing is owed" is just as much an answer as "three
+   * photos were owed". A failed read is neither, and must keep us asking.
+   */
   async function reportLossFromServer() {
     const marker = await readMarker();
-    if (!marker || !(marker.held > 0)) return false;
+    if (!marker) return false;
+    if (!(marker.held > 0)) return true;
     // Acknowledged on the server, so it survives the sign-out purge that
-    // erases every local flag we could have used instead.
-    if (marker.ackAt && marker.ackAt === marker.at) return false;
+    // erases every local flag we could have used instead. Still a successful
+    // consult — we asked and the answer was "they already know".
+    if (marker.ackAt && marker.ackAt === marker.at) return true;
     notify(
       marker.held === 1
         ? '1 photo taken offline never finished uploading and is not on this device. Open the app on the phone you shot it with, or reshoot it.'
@@ -254,6 +280,10 @@
   function notify(msg, kind) {
     if (stickyNotice(msg)) return;
     toast(msg, kind);
+  }
+
+  function seed(store, n) {
+    if (store && typeof store.seedLastKnown === 'function') store.seedLastKnown(n);
   }
 
   async function recover() {
@@ -305,18 +335,33 @@
       // matter what was lost — this is the case it is structurally blind to.
       // An empty store plus a missing counter is either a first boot on this
       // device or a site-data clear, and only the server can tell us which.
-      // Reached once per device install, so this read is not a per-boot cost.
       //
-      // Nothing is written back from here on purpose: in this state the
-      // device knows nothing, and a 0 would erase the record of photos still
-      // held on the rep's other phone.
+      // Nothing about the QUEUE is written back from here on purpose: in this
+      // state the device knows nothing, and a pending count of 0 would erase
+      // the record of photos still held on the rep's other phone.
       if (known === null) {
         if (typeof navigator !== 'undefined' && navigator.onLine === false) return;
         if (!(await waitForFirebase())) return;
-        await reportLossFromServer();
+        // Seeding the local counter is what makes this branch cost one server
+        // read per device instead of one per BOOT — without it a rep who has
+        // never queued a photo has no counter to write, so every dashboard
+        // load re-opens IndexedDB, waits for auth and re-reads the marker,
+        // forever. Seed only on a successful consult, though: seeding after an
+        // unreachable server would send every later boot down the fast path
+        // and the loss would never be reported at all.
+        if (await reportLossFromServer()) seed(store, 0);
       }
       return;
     }
+
+    // Rows exist and we have no baseline to measure them against. Establish
+    // one now rather than staying blind until the next add()/remove(): our own
+    // nbd-auth.js purgeAccountStorage() deletes the counter on EVERY logout
+    // while leaving these rows alone, so without this a rep who signs out on
+    // Friday and is evicted on Monday is never told anything. seedLastKnown()
+    // refuses to overwrite an existing baseline, so this cannot mask a loss
+    // the counter already had the evidence for.
+    if (known === null) seed(store, pending);
 
     if (typeof navigator !== 'undefined' && navigator.onLine === false) {
       // photo-engine re-arms its own `online` listener when it loads, and the

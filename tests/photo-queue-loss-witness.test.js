@@ -47,15 +47,19 @@ const OTHER = 'rep-bob';
  * the wiped state: no counter, no rows, nothing owed to anyone.
  */
 function makeStore(over) {
-  return Object.assign({
+  const seeds = [];
+  const s = Object.assign({
     lastKnownCount: () => null,
     requestPersistence: async () => true,
     available: async () => true,
     detectLoss: async () => 0,
     count: async () => 0,
     pendingForUid: async () => 0,
+    seedLastKnown: (n) => { seeds.push(n); return true; },
     all: async () => []
   }, over || {});
+  s.seeds = seeds;
+  return s;
 }
 
 /** A Firestore stand-in that records every read and write. */
@@ -370,6 +374,94 @@ const countWrites = (t) => t.fsdb.calls.wrote.filter((w) => 'photoQueuePending' 
       countWrites(t2).length === 0,
       'first=' + countWrites(t1).length + ' second=' + countWrites(t2).length
       + ' — otherwise a write per boot per rep');
+  }
+
+  // ── the counter is re-seeded, because WE delete it ─────────────────────
+  // nbd-auth.js purgeAccountStorage() drops nbd_photo_queue_last_known_size on
+  // every logout while the IndexedDB rows survive. Without a re-seed the
+  // store's partial-eviction detector stays blind until the next add()/
+  // remove(), so a rep who signs out on Friday and is evicted on Monday is
+  // never told anything.
+  {
+    const store = makeStore({
+      lastKnownCount: () => null,   // purged by the sign-out
+      count: async () => 4,         // ...but the rows are still here
+      pendingForUid: async () => 4
+    });
+    const t = boot({ store: store });
+    await settle();
+    ok('rows with no baseline re-seed the counter from the real row count',
+      store.seeds.length === 1 && store.seeds[0] === 4,
+      'seeds=' + JSON.stringify(store.seeds)
+      + ' — without this an ordinary sign-out blinds detectLoss() for good');
+  }
+  {
+    const store = makeStore({
+      lastKnownCount: () => 2, count: async () => 2, pendingForUid: async () => 2
+    });
+    const t = boot({ store: store });
+    await settle();
+    ok('a device that already has a baseline is not re-seeded',
+      store.seeds.length === 0, 'seeds=' + JSON.stringify(store.seeds)
+      + ' — re-seeding over a real baseline would mask the loss it was holding');
+  }
+  {
+    // The empty-and-unknown branch: seeding 0 is what turns the server read
+    // from a per-BOOT cost into a per-device one.
+    const store = makeStore({ lastKnownCount: () => null, count: async () => 0 });
+    const t = boot({
+      store: store,
+      firestore: makeFirestore({ photoQueuePending: 0, photoQueuePendingAt: 3 })
+    });
+    await settle();
+    ok('an answered server consult seeds 0 so later boots stop asking',
+      store.seeds.length === 1 && store.seeds[0] === 0,
+      'seeds=' + JSON.stringify(store.seeds)
+      + ' — a rep who never queues a photo would otherwise re-read the marker every single boot');
+  }
+  {
+    // A doc that does not exist is an ANSWER ("nothing owed"), not a failure.
+    const store = makeStore({ lastKnownCount: () => null, count: async () => 0 });
+    const t = boot({ store: store, firestore: makeFirestore(null) });
+    await settle();
+    ok('a missing marker doc counts as an answer and seeds too',
+      store.seeds.length === 1 && store.seeds[0] === 0,
+      'seeds=' + JSON.stringify(store.seeds) + ' — this is every brand-new device');
+  }
+  {
+    // An UNREACHABLE server is not an answer. Seeding here would send every
+    // later boot down the fast path and the loss would never be reported.
+    const store = makeStore({ lastKnownCount: () => null, count: async () => 0 });
+    const fsdb = makeFirestore({ photoQueuePending: 3, photoQueuePendingAt: 7 });
+    fsdb.getDoc = async () => { throw new Error('offline'); };
+    const t = boot({ store: store, firestore: fsdb });
+    await settle();
+    ok('a FAILED server read seeds nothing, so the next boot asks again',
+      store.seeds.length === 0, 'seeds=' + JSON.stringify(store.seeds)
+      + ' — seeding here loses the only chance to report the wipe');
+  }
+  {
+    const store = makeStore({ lastKnownCount: () => null, count: async () => 0 });
+    const t = boot({ store: store, onLine: false });
+    await settle();
+    ok('offline, nothing is seeded either', store.seeds.length === 0,
+      'seeds=' + JSON.stringify(store.seeds));
+  }
+  {
+    const store = makeStore({ lastKnownCount: () => null, count: async () => 0 });
+    const t = boot({ store: store, signedOut: true });
+    await settle();
+    ok('signed out, nothing is seeded either', store.seeds.length === 0,
+      'seeds=' + JSON.stringify(store.seeds) + ' — the login screen must not settle this');
+  }
+  {
+    // An older cached store.js paired with this recovery.js must not throw.
+    const store = makeStore({ lastKnownCount: () => null, count: async () => 4 });
+    delete store.seedLastKnown;
+    const t = boot({ store: store });
+    await settle();
+    ok('a store without seedLastKnown degrades instead of breaking the boot',
+      t.drained.count >= 0, 'a stale service-worker cache can pair the two versions');
   }
 
   // ── degrade quietly ────────────────────────────────────────────────────

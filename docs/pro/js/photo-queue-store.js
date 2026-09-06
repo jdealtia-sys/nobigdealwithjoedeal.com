@@ -139,6 +139,30 @@
     } catch (_) { return null; }
   }
 
+  /**
+   * Establish the baseline when there is none. Returns true if it wrote.
+   *
+   * WHY THIS EXISTS: the counter is not only lost to browser evictions. Our
+   * own nbd-auth.js `purgeAccountStorage()` deletes every `nbd_`-prefixed
+   * localStorage key outside its KEEP set on EVERY logout and account switch,
+   * while the IndexedDB rows sit there untouched. So an ordinary sign-out
+   * leaves detectLoss() with nothing to compare and no way to get it back —
+   * permanently blind until the next add() or remove() happens to rewrite the
+   * counter. A rep who signs out on Friday and is evicted on Monday is never
+   * told. Re-seeding on boot closes that, and closes it for every other cause
+   * of a missing counter too (the `?reset` path, a manually cleared key).
+   *
+   * It can only ever ESTABLISH a baseline, never move one: a caller holding a
+   * stale number cannot overwrite the real one, so re-seeding can never mask a
+   * loss that the counter already had the evidence for.
+   */
+  function seedLastKnown(n) {
+    if (typeof n !== 'number' || isNaN(n) || n < 0) return false;
+    if (lastKnownCount() !== null) return false;
+    _writeLastKnown(n);
+    return true;
+  }
+
   function _forgetConnection() {
     _db = null;
     _openPromise = null;
@@ -518,6 +542,7 @@
     count,
     pendingForUid,
     lastKnownCount,
+    seedLastKnown,
     bytes,
     available,
     detectLoss,
