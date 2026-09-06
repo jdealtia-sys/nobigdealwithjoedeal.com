@@ -483,6 +483,76 @@ proven able to fail first: revert to `createdAt`-only → 1 red; remove the
 comparator export → 1 red; flip the fallback to the gallery's descending order →
 1 red (`got new,old`).
 
+## The NBD fallbacks — the same leak, one layer down (2026-09-06)
+
+#1432/#1433 fixed the *literal* `'NBD-'` filename prefixes. This closes the
+same leak where the NBD comes from a **fallback** instead: `_custIdPrefix()`
+read synchronously, with `'NBD'` substituted whenever the resolver is missing.
+Those sites were invisible to the earlier sweep precisely because no literal
+appears on the filename line.
+
+**Why the obvious fix was refused.** One verifier refuted the audit's own
+recommendation: hydration gating alone is not enough. `_isNbdBrand()` treats
+**any tenant that never set `brand.legalName` as NBD** — a real state that
+`provisioning-retry.js` documents — so a hydrated-but-unprovisioned contractor
+still resolved to the platform prefix. The fix therefore decides platform
+identity from the **auth key**, not the brand doc, mirroring what the server
+already does at `functions/render-pdf.js:302` under the comment *"Blank beats
+wrong"*.
+
+**Two resolvers, because the right fallback differs by consequence:**
+
+| | when unknowable | why |
+|---|---|---|
+| `_tenantFilePrefix()` | `''` — ship unprefixed | a filename can drop a segment |
+| `_tenantIdPrefix()` | `'CUS'` — never blank | a *minted identifier* cannot carry an orphan leading dash; `docgen-brand.test.js:98` ("unreserved: never blank") and `docgen-render.test.js:181` ("no orphan Certificate #-WC-") already forbid it |
+
+`'CUS'` is not invented — it is the neutral this codebase already derives for an
+underivable non-NBD brand, pinned by `tests/cust-id-prefix.test.js`. Neutral
+beats another tenant's identity: `CUS-123456` is anonymous, `NBD-123456` is
+someone else's brand on a stranger's certificate.
+
+**Sites fixed (8).** `warranty-cert.js` — the certificate NUMBER printed on the
+document the homeowner keeps (two paths) plus two filenames, one reaching
+`renderPdf` · `estimate-v2-ui.js` `_v2EstNumber` · `customer-bootstrap.module.js:2938`
+(a homeowner-facing `pdf.save`) · `document-generator.js:449` — **persisted to
+`leads/{id}/documents` and rendered by `customer-documents.js`, so a wrong brand
+sticks** — and `:673`.
+
+**A bug caught during the change, not by a test.** Making `_v2EstNumber` async
+left both call sites un-awaited. That is syntactically valid and silently wrong:
+the estimate number would have rendered as `[object Promise]`. Every one of the
+24 resolver call sites was then checked individually for `await`.
+
+**The gate had TWO blind spots and was measured VACUOUS** — zero hits across all
+seven files it covered, so it was asserting nothing. (1) Wrong file list:
+`warranty-cert.js`, `document-generator.js` and `customer-bootstrap.module.js`
+were absent, and all three build customer-facing filenames. (2) Wrong predicate:
+it matched a literal on the line, so every fallback-derived leak read as clean.
+Both fixed, and a new assertion forbids an NBD fallback beside any
+`_custIdPrefix()` call across six files. This is the **third** time this session
+a gate of mine proved narrower than advertised; the pattern is always the same —
+it was proven able to fail against a shape the real defect never had.
+
+**Deliberately deferred, with reasons:** `estimate-finalization.js:256/:398/:803`
+(a `docPrefix` fallback feeding an insurance-doc header) · `document-generator-templates.js:278`
+(a second, separate cert-number scheme) · `document-generator.js:138` (the real
+pre-hydration exit; `:155` is dead code). Each needs its own read — the template
+layer is deliberately synchronous and cannot simply await.
+
+⚠️ **A pre-existing bug found in passing, unrelated to prefixes.**
+`_persistWarrantyToLead` is called at `warranty-cert.js:260`, *after* the early
+`return` at `:119` on a successful server render. So `certNumber` reaches
+Firestore **only when the server render fails** — meaning the homeowner portal's
+Digital Warranty Card populates only from the fallback path. That is a
+#1416-class silent failure and deserves its own change.
+
+**Verification.** smoke **3633 / 0** · node bucket **75/75** · all three new gate
+classes proven able to fail first (remove the platform veto → 1 red; restore an
+NBD fallback → 1 red, offending line quoted; re-leak a literal in a
+newly-covered file → 1 red). Four adversarially-verified dimensions; **1 of 4
+refuted**, and that refutation is what produced the platform-veto design.
+
 ## Follow-ups found, not done here
 
 - ~~**`window.generatePhotoReport` is assigned twice on `customer.html`**~~ —
