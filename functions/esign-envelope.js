@@ -284,6 +284,52 @@ exports.saveEsignFields = onCall(
 );
 
 // ═══════════════════════════════════════════════════════════════
+// getEsignEnvelopeForOwner — the rep re-opens a draft to keep placing fields.
+//
+// A callable rather than a direct Storage read on purpose. Reading the object
+// from the browser needs either bucket CORS configured for the app origin, or
+// getDownloadURL — and getDownloadURL MINTS A PERMANENT DOWNLOAD TOKEN that
+// bypasses storage.rules for the life of the object. That is the exact defect
+// that left every photo in the bucket publicly fetchable. Streaming the bytes
+// through an authenticated callable has neither problem.
+// ═══════════════════════════════════════════════════════════════
+exports.getEsignEnvelopeForOwner = onCall(
+  {
+    region: 'us-central1', cors: CORS_ORIGINS, enforceAppCheck: true,
+    timeoutSeconds: 60, memory: '512MiB',
+  },
+  async (request) => {
+    const uid = request.auth && request.auth.uid;
+    if (!uid) throw new HttpsError('unauthenticated', 'Sign in required');
+    await callableRateLimit(request, 'getEsignEnvelopeForOwner', 60, 60_000);
+
+    const db = getFirestore();
+    const { env } = await loadOwnedEnvelope(db, request.data && request.data.envelopeId, uid);
+    if (!isOwnEnvelopePath(env.sourcePath, env.ownerUid, env.leadId, request.data.envelopeId)) {
+      throw new HttpsError('failed-precondition', 'Document path is not readable');
+    }
+    let buf;
+    try {
+      [buf] = await getStorage().bucket().file(env.sourcePath).download();
+    } catch (e) {
+      logger.error('[getEsignEnvelopeForOwner] download failed', { err: e.message });
+      throw new HttpsError('failed-precondition', 'Could not read the stored PDF');
+    }
+    return {
+      envelopeId: request.data.envelopeId,
+      title: env.title || 'Document',
+      leadId: env.leadId,
+      status: env.status || 'draft',
+      pages: env.pages || [],
+      fields: env.fields || [],
+      signerName: env.signerName || '',
+      signerEmail: env.signerEmail || '',
+      pdf: buf.toString('base64'),
+    };
+  }
+);
+
+// ═══════════════════════════════════════════════════════════════
 // sendEsignEnvelope — mint a single-use link and email it.
 // Also the RESEND path: calling it again on a sent envelope rotates the
 // token (revoking the old link) rather than minting a second live one.

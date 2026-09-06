@@ -66,7 +66,22 @@ body {
   touch-action: pan-x pan-y;
   background: var(--es-paper);
 }
-.es-doc { padding: 14px 0 24px; display: flex; flex-direction: column; align-items: center; gap: 14px; min-width: 100%; }
+/* `safe center` is load-bearing, not a nicety. With plain `align-items:
+   center`, a page wider than the scroll container overflows on BOTH sides and
+   the LEFT overflow is unreachable — scrollLeft cannot go below 0. Measured at
+   156% zoom: the canvas sat at x=-318 with scrollLeft already 0, so the left
+   edge of the document could be neither seen nor tapped. `safe` falls back to
+   flex-start exactly when overflow would occur, which is the behaviour we
+   want; browsers without it simply keep the old centring. */
+.es-doc {
+  padding: 14px 0 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  align-items: safe center;
+  gap: 14px;
+  min-width: 100%;
+}
 
 .es-page { position: relative; background: #fff; box-shadow: 0 1px 4px rgba(16, 24, 40, .14); }
 .es-page canvas { display: block; }
