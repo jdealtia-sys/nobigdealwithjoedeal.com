@@ -22,6 +22,11 @@ two strings** — the wording and its reasoning comment are both pinned by
 succeeded and `requestMeasurement`'s revision updated 19:47 UTC, after the
 19:20 merge.
 
+> **A second lane ran in parallel the same day** and is not covered above: the
+> offline photo queue, #1418 → #1437 plus #1435 (eight PRs). It is deployed;
+> its state, its open items and its traps are in **§5**, and the full write-up
+> is [SESSION-2026-09-06-photo-queue-durability](SESSION-2026-09-06-photo-queue-durability.md).
+
 ---
 
 ## §0 — Jo's queue
@@ -48,6 +53,8 @@ succeeded and `requestMeasurement`'s revision updated 19:47 UTC, after the
 | Turnstile site key | **LIVE and verified** by curl against the real URL, despite its own deploy being cancelled — see §2 |
 | `TURNSTILE_SECRET` | **Deliberately NOT set.** Step 4 of 4, gated on the Sunday report |
 | $75 pass-through on every measurement | **LIVE and verified deployed** (#1434) — wording varies by `passThruHasDocument` |
+| Offline photo queue (durable, drains on boot) | **LIVE** — deploy `2c32fa59` succeeded |
+| Idempotent photo uploads (no orphans, no duplicates) | **LIVE** — deploy `ca0dbf59` succeeded |
 
 ## §2 — Both "is it actually running?" checks came back CLEAN
 
@@ -152,3 +159,113 @@ tidying when someone is next in that file.
   three seconds of each other. `GOOGLE_GEOCODING_API_KEY`, `REGRID_API_TOKEN`
   and `TURNSTILE_SECRET` are the same stub. Assume nothing is configured
   without checking Secret Manager version metadata.
+
+---
+
+## §5 — The photo-queue lane (parallel session, 2026-09-06)
+
+Seven PRs, all merged and deployed: **#1418** (durable queue) → **#1421** (a
+figure correction) → **#1422** (the eviction detector could not see the
+eviction) → **#1426** (we were deleting the counter ourselves) → **#1428**
+(post-mortem) → **#1431** (three defects a hunt found) → **#1437** (idempotent
+uploads) — and **#1435**, a post-merge review of #1431 that found two of its
+three fixes half done. Full write-up:
+[SESSION-2026-09-06-photo-queue-durability](SESSION-2026-09-06-photo-queue-durability.md).
+
+**What a rep gets now.** A photo queued with no signal survives the iOS
+bfcache reload (`dashboard-sw-bootstrap.js` reloads on every resume — that
+reload is *why* the memory queue was worthless), drains on the next boot with
+no navigation, and is reported honestly if the browser evicts it. A retry
+overwrites the same two Storage objects and writes the same Firestore document
+instead of leaving an orphan and a duplicate.
+
+### Open, in the order I would take them
+
+1. **Storage orphans from before #1437 are not reachable by any existing
+   tool.** Every pre-fix retry left a full-size JPEG whose photo doc was never
+   written. `scripts/sweep-orphan-lead-artifacts.js` will **not** find them: it
+   reaps `{prefix}/{uid}/{leadId}/…` objects whose **lead is gone**, and these
+   belong to leads that are alive. They are orphaned at the *photo-doc* level.
+   Sizing the problem needs a Storage list joined against `photos.storagePath`;
+   nobody has done that, so the volume is unknown. Do this before anything else
+   in this lane — it is the only item that is costing money today.
+2. **No true background upload.** The queue drains on next *open*, not after
+   the tab closes. `sw.js`'s write-queue path is still dead — `:152` returns
+   early on non-GET, and `SYNC_TAG 'nbd-sync-queue'` is registered by nothing
+   (verified again 2026-09-06). Reviving it is the honest next step and was
+   deliberately not attempted.
+3. **The rep who never reopens with signal.** Queue on a roof, never open the
+   app with a network, come back after WebKit's 7-day purge: nothing reached
+   the server to warn from and no boot happened to warn on. Closing it means
+   *prevention*, not detection. #1430 moved `requestPersistence()` into `add()`
+   and added a 2-day "still waiting" banner, which shrinks the window; it does
+   not close it.
+4. **`offline-manager.js` is still dead** — re-verified zero callers today.
+   It was deliberately NOT adopted for photos (its cap is commented for "~2KB"
+   JSON writes, its flush is a Firestore REST call, and its store is shared
+   with `sw.js`). Deleting it or mounting it for Firestore writes is its own
+   decision; the reasons not to bend it into a photo queue are in the header of
+   `photo-queue-store.js`.
+5. **`all()` deserialises every queued blob on each read** (the review's one
+   contested finding — real, not a correctness bug). A `byteLength` index plus
+   a metadata-only `list()` would fix it. Worth doing only if queues get deep.
+6. **The other two upload callers do not queue** — the file-picker path
+   (~`photo-engine.js:992`) and the public `uploadFromFile`. Desk workflows,
+   not the roof, and they never queued before; the same enqueue-first treatment
+   would still help them on a bad connection.
+7. **`customer.html` does not load PhotoEngine**, so all of this covers the
+   dashboard capture flow only.
+
+### Traps this lane paid for — the same one, three times
+
+Every defect that shipped and had to be fixed afterwards was **a test that
+modelled a milder world than the code runs in**:
+
+- **#1422** — the eviction fixture cleared IndexedDB and left `localStorage`
+  intact. WebKit's purge clears both in one operation, so the suite was green
+  against a wipe it could not represent. A fixture does not merely fail to
+  catch a bug; it *asserts a model of the world* to everyone who reads it.
+- **The hunt's own new assertions** — one set `failOpen` on a store that had
+  already opened successfully, so it never exercised the open latch it claimed
+  to guard. Another handed a boot a fresh `localStorage` while its store
+  closure still read the old one, so the "purged" device never looked purged.
+- **#1437** — the idempotency tests stubbed the uploader, so they proved what
+  the *drain passed*, not what `uploadPhotoToFirebase` *used*. A review proved
+  it by mutation: inline the paths back into the caller and all 70 assertions
+  stayed green.
+- **#1435, the sharpest of them.** A review after #1431 merged found two of its
+  three fixes covered the route their author was reasoning about and not the
+  one a line away. `flushUploadQueue` gated the marker re-file on `if (sent)`,
+  but an unrecoverable row is removed by `_dropItem()` *without* an upload — so
+  a drain can empty the queue with `sent === 0`, walk the local counter to 0,
+  and leave the server marker accusing the rep. Exactly the bug #1431 existed
+  to prevent, through the one route its gate did not cover. And `_failOpen`
+  cleared `_openPromise` from *inside the Promise executor*, which runs
+  synchronously during construction — so the assignment put the failed promise
+  straight back, and the two synchronous paths (absent `indexedDB`, a throwing
+  `open()`) stayed latched off. The test only exercised `onerror`, which fires
+  in a later task and therefore worked.
+  **Worst part: #1431's own test asserted the bug as correct.** "a drain that
+  sent nothing does not touch the marker" was written as a general rule about
+  `sent === 0`, while its setup only produced the case where nothing was
+  removed either. #1435 had to narrow it to "a drain that changed nothing" to
+  fix the bug. *A gate that must be deleted to fix a bug is worse than no
+  gate* — when writing an assertion, check that its NAME and its SETUP describe
+  the same rule.
+
+**What actually caught these:** breaking the code and checking **which named
+assertion** went red. Not a green suite, and not even a red one — twice, a
+regression reddened a *different* assertion than expected and the gap was the
+finding. If you add a gate in this area, mutate the thing it guards and read
+the failure names.
+
+Two more, cheaper:
+
+- **`git reset --soft origin/main` onto a moved `main`** stages other people's
+  files as reverts. It bit this lane twice and a parallel session once. The
+  screen that catches it, run before every commit:
+  `for f in $(git diff --cached --name-only); do echo "-$(git diff --cached origin/main -- "$f" | grep -cE '^-[^-]')  $f"; done`
+  — every removed line must be one you wrote.
+- **`git checkout -- <file>` to undo a temporary test-break discards ALL
+  uncommitted work in that file** (and silently does *nothing* for an untracked
+  one). Commit a `wip:` first, or undo with the editor.
