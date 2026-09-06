@@ -100,6 +100,8 @@ the rule above:
   and `photo-report.js` loads later so it wins. Making it lazy would silently
   switch the customer page to the *other* generator (a zero-arg version the
   picker calls with two args). Follow-up, not this change — see below.
+  → **RESOLVED later the same day: the dead rival was deleted and this file is
+  now lazy too.** See §Untangle below; a further −54.9 KiB off customer boot.
 
 ### 2. ScriptLoader dedupes on the raw `src` string — `[high/partly]` → confirmed live, fixed
 
@@ -269,14 +271,90 @@ The redundant assertion added under the false premise was dropped;
 `tests/customer-invoice-markpaid.test.js` is #1417's version unmodified,
 whose own four assertions cover that ground better.
 
+## Untangle: the `generatePhotoReport` double assignment (2026-09-06)
+
+`customer.html` loaded two rival definitions of `window.generatePhotoReport`:
+`customer-photo-report-generator.js:8` (zero-arg) at :2156, and
+`photo-report.js` at :2191. Both `defer`, so they run in document order and
+**photo-report.js won** — the first was dead code that had been shipped, parsed
+and executed on every customer page load since it was written.
+
+**What changed.** Deleted the dead definition (lines 8–223) plus its
+now-orphaned `fetchImageAsBase64` helper (225–251) and export (838) — keeping
+line 7's `removeDocFromQueue`, which the live doc-upload queue uses. That is
+**245 lines / 9,375 B** off a file that stays otherwise intact: it still owns
+the doc-upload queue, the notes modal, the estimate modal and `loadNotes`.
+With the race gone, `photo-report.js`'s eager tag went too — it now rides the
+`photos` bundle it was already in for the dashboard, behind a load-then-run
+stub in `customer-photo-report-picker.js`. The tag must stay **removed**, not
+reordered: the resolved-path dedupe would make `loadBundle('photos')` a no-op
+for a file that still has an eager tag, and nothing would defer.
+
+| | before | after |
+|---|---|---|
+| customer.html boot JS | 1395.0 KiB | **1340.1 KiB** (−54.9) |
+| gzip | 421.9 KiB | **405.6 KiB** (−16.3) |
+| requests | 70 | **69** |
+
+**Two live bugs the dead code was masking.** Four smoke assertions covering
+this area were green *because they read the dead file* — `readCustomer()`
+concatenates it. With the dead block gone they went red, and each one turned
+out to be guarding a behaviour the shipping renderer does not have:
+
+1. **Tenant filename leak.** `photo-report.js` hardcodes `'NBD-'` as the PDF
+   filename prefix (`:147`, `:1005`), and `functions/render-pdf.js` takes the
+   filename **from the client** — so every non-NBD tenant's photo report ships
+   named `NBD-…`. The tenant-correct resolver (`_custIdPrefix()` /
+   `docPrefix`) existed only in the dead block. Three assertions in
+   `photo.test.js` claimed to guard exactly this (*"the `docPrefix || 'NBD'`
+   fallback must never return"*) while reading the file that never ran.
+2. **Drag order ignored.** The dead renderer sorted by `nbdComparePhotos`, the
+   comparator that honours the rep's drag-rearranged gallery order. The live
+   one sorts by `createdAt` only (`:92`). `crm.test.js:275` asserted the drag
+   order *was* honoured — again against dead text.
+
+Neither is fixed here: both change a customer-facing document and deserve
+their own change and proof. The assertions were **retargeted at the renderer
+that actually runs** and now pin the current, broken behaviour as an explicit
+`KNOWN GAP`, so the gap is visible instead of hidden — each one flips to the
+correct form when the fix lands, and each was **proven able to fail** first.
+
+**Verification.** smoke **3607 passed / 0 failed** (was 3604; four dead
+assertions retargeted, three stub gates added) · node bucket **75/75** ·
+site-integrity, manifest, vault-index, crm-audit clean · `boot-weight.spec.js`
+**6/6 in Chromium against the emulator**, including a new test proving
+photo-report.js is absent at boot, the stub is installed, `fetchImageAsBase64`
+is gone, and `loadBundle('photos')` swaps in the real renderer with
+`pageErrors: []`. All three new gates proven able to fail before being trusted
+(removing the stub marker → 2 red; restoring the eager tag → 1 red; changing
+the hardcoded prefix → 1 red).
+
+**Method note.** The investigation ran as four adversarially-verified
+dimensions. One verifier flagged that the worktree changed under it
+mid-investigation — that was me, editing while agents were still reading. It
+did not corrupt the result (their corrections matched what the test run found
+independently), but it is a real flaw: **do not mutate the tree that
+investigating agents are reading.**
+
 ## Follow-ups found, not done here
 
-- **`window.generatePhotoReport` is assigned twice on `customer.html`** —
-  `customer-photo-report-generator.js:8` (zero-arg) and `photo-report.js`
-  (later, wins). The former's version is dead on that page, and its 32.5 KiB
-  is fetched for nothing. Untangling it is what would let `photo-report.js`
-  go lazy (47.6 KiB); it touches a live reporting surface, so it is its own
-  change with its own proof.
+- ~~**`window.generatePhotoReport` is assigned twice on `customer.html`**~~ —
+  **DONE 2026-09-06 (see §Untangle below).** `customer.html` boot JS
+  1395.0 → **1340.1 KiB** (−54.9, −16.3 gzip), 70 → 69 requests. Removing the
+  dead rival exposed **two live bugs it had been masking** — details below.
+
+  **CORRECTED 2026-09-06 (later): an earlier revision of this bullet said the
+  former is "dead on that page, and its 32.5 KiB is fetched for nothing."
+  That is wrong and would be dangerous to act on.** The FILE is load-bearing:
+  839 lines / 33,264 B, and it also defines the doc-upload queue
+  (`openDocUploadModal`, `uploadDocuments`), the notes modal (`saveNote`,
+  `quickAddNote`), the estimate modal (`saveEstimate`), plus `window.loadNotes`
+  and `window.fetchImageAsBase64`. Deleting it would break the customer page.
+  What is dead is only the **`generatePhotoReport` definition itself — lines
+  8–258, 251 lines / 9,208 B** — which `photo-report.js` overwrites at load.
+  Note the trap for whoever does this: that dead block calls
+  `fetchImageAsBase64`, which is defined OUTSIDE it and exported at line 838,
+  so the helper must survive the removal.
 - **`supplement-ui.js` has no re-entry sentinel** (unlike `script-loader` /
   `sentry-init`). Item 2 stops the double-injection; a sentinel would make the
   file safe against *any* future double-load, not just this path.

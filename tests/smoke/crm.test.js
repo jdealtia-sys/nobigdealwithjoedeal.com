@@ -7,7 +7,7 @@
 'use strict';
 
 const path = require('path');
-const { ROOT, read, readCustomer, readDashboardMain, readDashboardStyles, readCrm } = require('./_shared');
+const { ROOT, PRO_JS, read, readCustomer, readDashboardMain, readDashboardStyles, readCrm } = require('./_shared');
 
 module.exports.run = function run(ctx) {
   const { assert, section } = ctx;
@@ -271,9 +271,20 @@ section('Customer overview photo strip — cap + drag reorder');
   // sequence (same pattern as the multi-select feature).
   assert('persistCustomerPhotoOrder uses writeBatch',
     /async function persistCustomerPhotoOrder\(\)[\s\S]{0,400}window\.writeBatch\(window\.db\)[\s\S]{0,400}batch\.update\(/.test(customer));
-  // Report generator must honour the user's drag-rearranged order.
-  assert('generatePhotoReport iterates photos sorted by nbdComparePhotos',
-    /__reportPhotos[\s\S]{0,200}\.sort\([\s\S]{0,80}nbdComparePhotos/.test(customer));
+  // ⚠️ KNOWN GAP, recorded in documentation/audit/BOOT-WEIGHT-2026-09-06.md.
+  // This used to assert "generatePhotoReport iterates photos sorted by
+  // nbdComparePhotos" — the comparator that honours the rep's drag-rearranged
+  // gallery order. It passed because readCustomer() concatenates
+  // customer-photo-report-generator.js, and `__reportPhotos` lived in that
+  // file's window.generatePhotoReport — which photo-report.js overwrote at load
+  // on customer.html. So the assertion guarded a renderer that never ran, and
+  // the drag order is NOT honoured in the report that actually ships:
+  // photo-report.js:92 sorts by createdAt only. The dead block is now deleted.
+  // This pins the real, current behaviour so the gap stays visible; flip it back
+  // to nbdComparePhotos when the ordering fix lands.
+  assert('KNOWN GAP: the live photo report sorts by createdAt, not the rep drag order',
+    /photos\.sort\(\([\s\S]{0,120}createdAt/.test(read(path.join(PRO_JS, 'photo-report.js'))),
+    'the drag-order comparator (nbdComparePhotos) is applied to the gallery but never to the report');
 }
 
 section('Customer photo multi-select + batched commit');

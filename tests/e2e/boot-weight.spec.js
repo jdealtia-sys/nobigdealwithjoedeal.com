@@ -119,6 +119,52 @@ test.describe('boot weight — customer.html docgen is lazy', () => {
   });
 });
 
+test.describe('boot weight — photo-report.js is lazy on customer.html', () => {
+  // 2026-09-06: photo-report.js was eager here ONLY to out-race a rival
+  // window.generatePhotoReport in customer-photo-report-generator.js. That rival
+  // was dead (this file overwrote it) and is deleted, so the tag went too. The
+  // failure mode this guards is SILENT: without the load-then-run stub the
+  // "📋 Generate Report" button logs an unknown action and does nothing visible.
+  test('absent at boot, and the stub resolves it on demand', async ({ page }) => {
+    const creds = requireTestUser(test);
+    const errors = [];
+    page.on('pageerror', (e) => errors.push(String((e && e.message) || e)));
+    await loginAs(page, creds);
+    const urls = trackRequests(page);
+    await page.goto('/pro/customer.html?id=E2E-BOOT-WEIGHT');
+    await page.waitForLoadState('load');
+    await page.waitForFunction(() => !!(window.ScriptLoader && window.ScriptLoader.loadBundle), null, { timeout: 20_000 });
+
+    expect(hits(urls, 'photo-report.js'), 'photo-report.js must not be fetched at boot').toBe(0);
+
+    // the global must EXIST (or every entry point is a silent no-op) and be the stub
+    const before = await safeEvaluate(page, () => ({
+      type: typeof window.generatePhotoReport,
+      isStub: !!(window.generatePhotoReport && window.generatePhotoReport.__nbdLazyPhotoReportStub),
+    }));
+    expect(before.type, 'generatePhotoReport must be defined at boot').toBe('function');
+    expect(before.isStub, 'and it must be the lazy stub').toBe(true);
+
+    // the dead rival must not be reachable any more
+    expect(await safeEvaluate(page, () => typeof window.fetchImageAsBase64)).toBe('undefined');
+
+    // loading the bundle must replace the stub with the real renderer
+    const after = await safeEvaluate(page, async () => {
+      await window.ScriptLoader.loadBundle('photos');
+      return {
+        type: typeof window.generatePhotoReport,
+        stillStub: !!(window.generatePhotoReport && window.generatePhotoReport.__nbdLazyPhotoReportStub),
+        pairs: typeof window._buildPhotoReportPairs,
+      };
+    });
+    expect(after.type).toBe('function');
+    expect(after.stillStub, 'the real photo-report.js must overwrite the stub').toBe(false);
+    expect(after.pairs, 'photo-report.js actually executed').toBe('function');
+    expect(hits(urls, 'photo-report.js'), 'fetched on demand').toBeGreaterThan(0);
+    expect(errors).toEqual([]);
+  });
+});
+
 test.describe('duplicate execution — Cmd+K', () => {
   test('one keypress opens exactly one palette', async ({ page }) => {
     const creds = requireTestUser(test);
