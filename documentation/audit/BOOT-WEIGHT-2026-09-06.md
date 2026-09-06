@@ -387,15 +387,32 @@ most of the six: it is the server render `finalize()` returns on, so `:3285`
 only runs when it fails. Fixing the fallback alone would have left the estimate
 a homeowner actually receives still `NBD-` branded.
 
-**Deliberately deferred — five sites, all doc-viewer downloads:**
-`close-board.js:578` (Deal) · `maps-routing.js:1882` (Scope of Work),
-`:1934` (Measurements), `:2268` (Takeoff), `:3448` (Supplement Request).
-Scope and Supplement go to **adjusters**, so these are real. Each sits in a
-**synchronous** enclosing function, so each needs a sync→async conversion with
-its own caller audit — a different risk profile from the ten above, and its own
-change. `exportEstimate` and `openSavedReport` needed exactly that conversion
-here and were verified safe (both are dispatched fire-and-forget via
-`data-action="call"`, return value discarded).
+~~**Deliberately deferred — five sites, all doc-viewer downloads**~~ —
+**DONE later the same day.** `close-board.js:578` (Deal) ·
+`maps-routing.js:1882` (Scope of Work), `:1934` (Measurements), `:2268`
+(Takeoff), `:3448` (Supplement Request). Scope and Supplement go to
+**adjusters**. Each sat in a **synchronous** enclosing function, so each needed
+a sync→async conversion — `openDealPreview`, `generateScopeFromDrawing`,
+`exportDrawReport`, `showMaterialTakeoff`, `generateSupplementFromComparison`.
+Caller audit first, and every caller discards the return value: `data-action`
+buttons, the voice-command dispatch (`…(); return;`), and the `CloseBoard` /
+maps API exports — `CloseBoard.preview` has no external consumer at all (the
+only users of that object call `createFromEstimate` / `getDeals`). Same as
+`exportEstimate` and `openSavedReport` earlier. **Zero hardcoded customer- or
+adjuster-facing filename prefixes now remain anywhere under `docs/pro/js/`.**
+
+⚠️ **A gate defect found while doing it, worth more than the five sites.** The
+negative sweep shipped above matched the exact literal `/'NBD-'/` — *with the
+closing quote*. Every real leak was `'NBD-Deal-'`, `'NBD-Scope-'`,
+`'NBD-Supplement-'`, `'NBD-Inspection-'` — the prefix embedded in a **longer**
+literal, which that pattern cannot match. It had been "proven able to fail"
+only against an injected `'NBD-' + base`, a form that **never occurs in the
+code**. In other words the gate would not have caught the leaks it was written
+for, and the proof-it-can-fail step passed on a strawman. Now it matches any
+`NBD-` string literal on a line that builds a filename, quotes the offending
+line in the failure message, and was re-proven against **both** shapes. The
+lesson generalises: when proving a gate can fail, regress it to *the shape the
+real defect had*, not a shape that is merely easy to inject.
 
 **Also the same defect class, not filenames:** the `|| 'NBD'` fallbacks in
 `warranty-cert.js:79`/`:301`, `estimate-v2-ui.js:56` and

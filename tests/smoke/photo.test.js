@@ -1244,13 +1244,32 @@ section('Photo-report PDF filename never leaks NBD onto a tenant download (2026-
   // The whole class, not just this file. Every customer-facing renderer that
   // builds a PDF filename must go through the tenant resolver. Six sites were
   // fixed on 2026-09-06 across four files; this stops a seventh appearing.
-  ['photo-report.js', 'estimate-v2-ui.js', 'estimates.js', 'rep-report-generator.js'].forEach(function (f) {
+  // 2026-09-06 (later): the last five doc-viewer sites landed too, so the
+  // sweep now covers every file that builds a customer- or adjuster-facing
+  // filename. close-board and maps-routing needed sync→async conversions of
+  // openDealPreview / generateScopeFromDrawing / exportDrawReport /
+  // showMaterialTakeoff / generateSupplementFromComparison; every caller
+  // discards the return value (data-action buttons, the voice-command
+  // dispatch, and the CloseBoard/maps API exports), which was audited first.
+  ['photo-report.js', 'estimate-v2-ui.js', 'estimates.js', 'rep-report-generator.js',
+   'inspection-report-engine.js', 'close-board.js', 'maps-routing.js'].forEach(function (f) {
+    // NOTE (2026-09-06, later the same day): the first version of this sweep
+    // matched the exact literal /'NBD-'/ — with the closing quote. Every real
+    // leak was 'NBD-Deal-', 'NBD-Scope-', 'NBD-Supplement-', 'NBD-Inspection-'…
+    // i.e. the prefix embedded in a LONGER literal, which that pattern could
+    // not match. It was proven "able to fail" only against an injected
+    // 'NBD-' + base, a form that never occurred in the code. It would not have
+    // caught the leaks it was written for. Match any NBD- string literal on a
+    // line that builds a filename instead.
     const src = read(path.join(PRO_JS, f));
-    const bad = (src.match(/filename[^\n]{0,40}'NBD-'/g) || [])
-      .concat(src.match(/'NBD-'[^\n]{0,60}\.pdf/g) || []);
+    const bad = src.split('\n').filter(function (l) {
+      if (/^\s*(\/\/|\*)/.test(l)) return false;          // comments (incl. this note)
+      if (!/['"]NBD-/.test(l)) return false;              // any literal starting NBD-
+      return /filename/i.test(l) || /\.pdf['"]/.test(l);  // …in a filename context
+    });
     assert('no hardcoded NBD- filename prefix in ' + f,
       bad.length === 0,
-      'use window._tenantFileName(...) — hardcoding leaks NBD branding onto another tenant\'s customer document');
+      'use window._tenantFileName(...) — hardcoding leaks NBD branding onto another tenant\'s customer document. Offending: ' + bad.join(' | ').slice(0, 200));
   });
 
   // The resolver itself must await hydration and must never guess 'NBD'.
