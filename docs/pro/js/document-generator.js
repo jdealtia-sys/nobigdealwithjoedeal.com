@@ -446,7 +446,13 @@ window.NBDDocGen = {
       // Storage so the customer page can re-open the rendered
       // document later — previously only PDF + memory existed.
       const _leadIdEarly = data.leadId || (data.customer && data.customer.id) || window._customerId || null;
-      const _filename = this._docPrefix() + '-' + slug + '-' + new Date().toISOString().split('T')[0] + '.pdf';
+      // Tenant-resolved. _docPrefix() reads the brand doc, which answers 'NBD'
+      // for every tenant until company-profile hydration completes — and this
+      // filename is PERSISTED to leads/{id}/documents (:489) and rendered by
+      // customer-documents.js, so a wrong brand sticks. _docPrefix() itself
+      // stays synchronous for the template layer; only the filename moves.
+      const _fnBase = slug + '-' + new Date().toISOString().split('T')[0] + '.pdf';
+      const _filename = window._tenantFileName ? await window._tenantFileName(_fnBase) : _fnBase;
       // Hoisted so onPersistFinalized (called after the user signs in
       // the viewer) can re-upload to the same Storage path and update
       // the same Firestore doc with a signedAt stamp.
@@ -670,7 +676,10 @@ window.NBDDocGen = {
 
     const customerName = (payload.preparedFor && payload.preparedFor.name) || 'NBD-Doc';
     const slug = customerName.replace(/[^A-Za-z0-9]+/g, '-').substring(0, 40);
-    const filename = this._docPrefix() + '-' + (this.DOCUMENT_TYPES[type]?.name || type).replace(/\s+/g, '-') + '-' + slug + '-' + new Date().toISOString().split('T')[0] + '.pdf';
+    // render-pdf.js takes this verbatim — tenant-resolved, never a wrong brand.
+    const _srvBase = (this.DOCUMENT_TYPES[type]?.name || type).replace(/\s+/g, '-')
+      + '-' + slug + '-' + new Date().toISOString().split('T')[0] + '.pdf';
+    const filename = window._tenantFileName ? await window._tenantFileName(_srvBase) : _srvBase;
 
     const fn = window._httpsCallable(window._functions, 'renderPdf');
     const r = await fn({ template, payload, filename });

@@ -47,14 +47,15 @@
     // a fallback to the owner's name.
     return (window._user && (window._user.displayName || window._user.email)) || '';
   }
-  function _v2EstNumber(suffix) {
-    // _custIdPrefix() already returns 'NBD' for the platform tenant and a
-    // derived/reserved prefix for everyone else — so this stays 'NBD-V2-…'
-    // for the owner and becomes e.g. 'SRR-V2-…' for a tenant.
-    let prefix = 'NBD';
-    try {
-      if (typeof window._custIdPrefix === 'function') prefix = window._custIdPrefix() || 'NBD';
-    } catch (e) { /* keep the default */ }
+  // ASYNC since 2026-09-06. The old comment here claimed _custIdPrefix()
+  // "already returns 'NBD' for the platform tenant and a derived prefix for
+  // everyone else" — true only AFTER company-profile hydration. Read
+  // synchronously it answers 'NBD' for EVERY tenant, so this estimate number
+  // went out NBD-branded on another contractor's document. The resolver gates
+  // on hydration and on platform identity, and never returns blank: a minted
+  // identifier cannot carry an orphan leading dash.
+  async function _v2EstNumber(suffix) {
+    const prefix = window._tenantIdPrefix ? await window._tenantIdPrefix() : 'CUS';
     return prefix + '-V2-' + suffix;
   }
 
@@ -3197,7 +3198,7 @@
       // section in the customer-facing formats (estimate-finalization.js).
       photos: (state.photos || []).slice(),
       estimate: {
-        number: _v2EstNumber(Date.now()),
+        number: await _v2EstNumber(Date.now()),
         date: new Date().toISOString().split('T')[0],
         preparedBy: _v2PreparedBy()
       }
@@ -3484,7 +3485,7 @@
       result = window.EstimateFinalization.formatEstimate(estimate, 'retail-quote', {
         customer,
         claim: state.claim,
-        estimate: { number: _v2EstNumber(estimateId), date: new Date().toISOString().split('T')[0], preparedBy: _v2PreparedBy() }
+        estimate: { number: await _v2EstNumber(estimateId), date: new Date().toISOString().split('T')[0], preparedBy: _v2PreparedBy() }
       });
     } catch (e) {
       if (btn) { btn.disabled = false; btn.textContent = '✍️ Send for Signature'; }

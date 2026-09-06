@@ -74,9 +74,13 @@ async function generateWarrantyCertPDF() {
   const _b = (window._brand && window._brand()) || null;
   const isNbd = !_b || !_b.legalName || _b.legalName === 'No Big Deal Home Solutions';
   const _bc = (_b && _b.contact) || {};
-  // Certificate number prefix: NBD keeps 'NBD-…'; a tenant mints from its own
-  // reserved/derived prefix (never 'NBD') via the shared resolver.
-  const _certPrefix = (typeof window._custIdPrefix === 'function') ? window._custIdPrefix() : 'NBD';
+  // Certificate-number prefix. ASYNC resolver: _custIdPrefix() answers NBD for
+  // EVERY tenant until company-profile hydration completes, and this string is
+  // printed on the certificate the homeowner keeps. Never blank — a minted
+  // identifier cannot carry an orphan leading dash — so the resolver falls
+  // back to the neutral CUS this codebase already uses for an underivable
+  // non-NBD brand.
+  const _certPrefix = window._tenantIdPrefix ? await window._tenantIdPrefix() : 'CUS';
   const certNum = _certPrefix + '-' + Date.now().toString().slice(-6);
 
   // Signature seal / pledge name. NBD → 'NBD Lifetime Pledge' (byte-identical);
@@ -233,10 +237,20 @@ async function generateWarrantyCertPDF() {
   if (window.NBDDocViewer && typeof window.NBDDocViewer.open === 'function') {
     const customerName = (typeof ownerName !== 'undefined' && ownerName) ? ownerName : '';
     const slug = (customerName || 'warranty').replace(/[^A-Za-z0-9]+/g, '-').substring(0, 40);
+    const _certFileBase = 'Warranty-' + slug + '-'
+      + (typeof certNum !== 'undefined' ? certNum : new Date().getTime()) + '.pdf';
+    const _certFileName = window._tenantFileName
+      ? await window._tenantFileName(_certFileBase)
+      : _certFileBase;
     window.NBDDocViewer.open({
       html: html,
       title: 'Lifetime Warranty Certificate' + (customerName ? ' — ' + customerName : ''),
-      filename: _certPrefix + '-Warranty-' + slug + '-' + (typeof certNum !== 'undefined' ? certNum : new Date().getTime()) + '.pdf',
+      // FILENAME only — tenant-resolved, never 'NBD' for a non-platform tenant.
+      // `_certPrefix` above still mints the certificate NUMBER; that is a
+      // persisted, homeowner-visible identifier and is deliberately NOT changed
+      // here (see the note: a blank prefix would mint an orphan "-123456", which
+      // docgen-brand.test.js:98 and docgen-render.test.js:181 already forbid).
+      filename: _certFileName,
       onSave: async () => {
         if (typeof showToast === 'function') {
           showToast('\u2713 Warranty certificate generated \u2014 Print or Download PDF from the action bar', 'success');
@@ -298,11 +312,20 @@ async function _tryServerRender(payload) {
   const _b = (window._brand && window._brand()) || null;
   const isNbd = !_b || !_b.legalName || _b.legalName === 'No Big Deal Home Solutions';
   const _bc = (_b && _b.contact) || {};
-  const _certPrefix = (typeof window._custIdPrefix === 'function') ? window._custIdPrefix() : 'NBD';
+  // Certificate-number prefix. ASYNC resolver: _custIdPrefix() answers NBD for
+  // EVERY tenant until company-profile hydration completes, and this string is
+  // printed on the certificate the homeowner keeps. Never blank — a minted
+  // identifier cannot carry an orphan leading dash — so the resolver falls
+  // back to the neutral CUS this codebase already uses for an underivable
+  // non-NBD brand.
+  const _certPrefix = window._tenantIdPrefix ? await window._tenantIdPrefix() : 'CUS';
 
   const fn = window._httpsCallable(window._functions, 'renderPdf');
   const slug = (payload.owner || 'warranty').replace(/[^A-Za-z0-9]+/g, '-').substring(0, 40);
-  const filename = _certPrefix + '-Warranty-' + slug + '-' + payload.certNum + '.pdf';
+  // render-pdf.js:387 takes this verbatim, so it is what lands on the
+  // homeowner's disk. Tenant-resolved; the certificate NUMBER is untouched.
+  const _certBase = 'Warranty-' + slug + '-' + payload.certNum + '.pdf';
+  const filename = window._tenantFileName ? await window._tenantFileName(_certBase) : _certBase;
 
   // D-2.5: shape the customer-specific + brand-consistent cover-page
   // payload. The cover is rendered by a SHARED partial across every

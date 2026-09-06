@@ -556,8 +556,45 @@
       }
       if (window._companyProfileLoaded !== true) return '';
       if (typeof window._custIdPrefix !== 'function') return '';
-      return String(window._custIdPrefix() || '');
+      const p = String(window._custIdPrefix() || '');
+
+      // PLATFORM-IDENTITY VETO (2026-09-06, second pass). Hydration alone is
+      // not enough. `_isNbdBrand()` treats ANY tenant that never set
+      // brand.legalName as NBD — a real state, documented in
+      // provisioning-retry.js — so a hydrated but un-provisioned contractor
+      // still resolved to the platform prefix and shipped "NBD-…" documents.
+      // Decide platform identity from the AUTH KEY, not the brand doc. This is
+      // the same test the server already makes in functions/render-pdf.js:302
+      // (`isPlatform = String(companyId) === NBD_OWNER_UID`) under the comment
+      // "Blank beats wrong"; the owner UID constant is already used client-side
+      // at invoice-pipeline.js:623.
+      if (p !== 'NBD') return p;
+      let key = null;
+      try { key = await window._resolveCompanyKey(); } catch (_) { key = null; }
+      const OWNER = window.__NBD_OWNER_UID || '1phDvAVXHSg82wDLegAbQFq14Ci1';
+      // 'NBD' is the right answer for exactly one tenant. From any other
+      // identity it is the bug, and an unprefixed filename beats a wrong brand.
+      return (String(key || '') === OWNER) ? 'NBD' : '';
     } catch (_) { return ''; }
+  };
+
+  // Tenant prefix for a MINTED IDENTIFIER (certificate numbers, document
+  // numbers) — as opposed to a filename.
+  //
+  // Same hydration + platform-identity gates as _tenantFilePrefix, but it must
+  // NEVER return '': a blank prefix mints the orphan "-123456" that
+  // docgen-brand.test.js:98 ("unreserved: never blank") and
+  // docgen-render.test.js:181 ("no orphan Certificate #-WC-") already forbid.
+  // Where a filename can safely drop the prefix, an identifier cannot.
+  //
+  // So the residual fallback is the neutral 'CUS' this codebase already uses
+  // for an underivable non-NBD brand (document-generator.js deriveSeal, pinned
+  // by tests/cust-id-prefix.test.js). Neutral beats another tenant's brand:
+  // 'CUS-123456' is anonymous, 'NBD-123456' is someone else's identity on a
+  // stranger's certificate.
+  window._tenantIdPrefix = async function () {
+    const p = await window._tenantFilePrefix();
+    return p || 'CUS';
   };
 
   // Build a customer-facing filename carrying the tenant's prefix. `rest` must

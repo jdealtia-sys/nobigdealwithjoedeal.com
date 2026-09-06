@@ -1230,6 +1230,53 @@ section('Photo-report PDF filename never leaks NBD onto a tenant download (2026-
     /!fn\.__nbdLazyPhotoReportStub/.test(picker),
     'photo-report.js overwrites the global on arrival; if it is still the stub the fetch failed and we must say so, not loop');
 
+  // ── The fallback shape, which the literal sweep above cannot see ──────
+  // Every leak fixed on 2026-09-06 in warranty-cert / document-generator /
+  // customer-bootstrap came from substituting NBD when a resolver was absent
+  // or the brand doc was not yet hydrated — never from a literal on the
+  // filename line. These two assertions catch that shape directly.
+  //
+  // _custIdPrefix() is SYNCHRONOUS and answers NBD for EVERY tenant until
+  // company-profile hydration completes, so reading it to brand a
+  // customer-facing artifact is a race even when it is not a hard-coded
+  // literal. The async window._tenantFilePrefix() / _tenantFileName() gate on
+  // hydration AND on platform identity, and yield an empty prefix rather than
+  // a wrong brand.
+  const _fallbackFiles = [
+    'warranty-cert.js', 'document-generator.js', 'document-generator-templates.js',
+    'estimate-v2-ui.js', 'estimate-finalization.js', 'customer-bootstrap.module.js',
+  ];
+  _fallbackFiles.forEach(function (f) {
+    const src = read(path.join(PRO_JS, f));
+    const offenders = src.split(/\r?\n/).filter(function (l) {
+      if (/^\s*(\/\/|\*)/.test(l)) return false;
+      // `… ? window._custIdPrefix() : 'NBD'`  and  `_custIdPrefix() || 'NBD'`
+      return /_custIdPrefix\s*\(\s*\)\s*(\?|\|\|)?[^\n]{0,40}[\x27"]NBD[\x27"]/.test(l)
+        || /[\x27"]NBD[\x27"]\s*;?\s*$/.test(l) && /_custIdPrefix/.test(l);
+    });
+    assert('no NBD fallback beside a _custIdPrefix() call in ' + f,
+      offenders.length === 0,
+      'substituting NBD when the resolver is missing or unhydrated is the leak itself — route through the async window._tenantFilePrefix(). Offending: ' + offenders.join(' | ').slice(0, 180));
+  });
+
+  // The resolver must veto NBD from a non-platform identity. Hydration alone
+  // is not enough: _isNbdBrand() treats any tenant that never set legalName as
+  // NBD, so a hydrated-but-unprovisioned contractor still resolved to the
+  // platform prefix. Mirrors functions/render-pdf.js:302 ("Blank beats wrong").
+  {
+    const cp = read(path.join(PRO_JS, 'company-profile.js'));
+    // Two independent checks rather than one long positional regex — the
+    // first version of this assertion FAILED against its own correct
+    // implementation, because a {0,200} window fell ~15 chars short of the
+    // comment sitting between the constant and the ternary. Brittle position
+    // matching is how a gate ends up asserting nothing.
+    assert('_tenantFilePrefix decides platform identity from the auth key',
+      /_tenantFilePrefix[\s\S]{0,2500}_resolveCompanyKey\(\)/.test(cp) && /__NBD_OWNER_UID/.test(cp),
+      'hydration alone is not enough — _isNbdBrand() reads any legalName-less tenant as NBD, so the platform test must come from the auth key (mirrors functions/render-pdf.js:302)');
+    assert('_tenantFilePrefix returns NBD only for the platform tenant, else empty',
+      /===\s*OWNER\s*\)\s*\?\s*[\x27"]NBD[\x27"]\s*:\s*[\x27"][\x27"]/.test(cp),
+      'NBD from a non-platform identity is the bug, not an answer — an unprefixed filename beats a wrong brand');
+  }
   const rep = read(path.join(PRO_JS, 'photo-report.js'));
   assert('photo-report.js is the renderer that actually runs (owns the filename)',
     /window\.generatePhotoReport\s*=\s*generatePhotoReport/.test(rep),
@@ -1251,8 +1298,20 @@ section('Photo-report PDF filename never leaks NBD onto a tenant download (2026-
   // showMaterialTakeoff / generateSupplementFromComparison; every caller
   // discards the return value (data-action buttons, the voice-command
   // dispatch, and the CloseBoard/maps API exports), which was audited first.
+  // ⚠️ 2026-09-06 (third pass): this sweep had TWO independent blind spots and
+  // was measured VACUOUS — zero hits across all seven files it covered, so it
+  // was asserting nothing.
+  //   (1) WRONG FILE LIST. warranty-cert.js, document-generator.js and
+  //       customer-bootstrap.module.js were absent, and all three built
+  //       customer-facing PDF filenames.
+  //   (2) WRONG PREDICATE. It matched a literal NBD- on the line. The leaks in
+  //       those files come from a FALLBACK VARIABLE — `_certPrefix`,
+  //       `this._docPrefix()`, `_isNbd ? 'NBD' : …` — so no literal appears on
+  //       the filename line at all and every one of them read as clean.
+  // The list is widened below and a separate fallback-shape assertion follows.
   ['photo-report.js', 'estimate-v2-ui.js', 'estimates.js', 'rep-report-generator.js',
-   'inspection-report-engine.js', 'close-board.js', 'maps-routing.js'].forEach(function (f) {
+   'inspection-report-engine.js', 'close-board.js', 'maps-routing.js',
+   'warranty-cert.js', 'document-generator.js', 'customer-bootstrap.module.js'].forEach(function (f) {
     // NOTE (2026-09-06, later the same day): the first version of this sweep
     // matched the exact literal /'NBD-'/ — with the closing quote. Every real
     // leak was 'NBD-Deal-', 'NBD-Scope-', 'NBD-Supplement-', 'NBD-Inspection-'…
