@@ -2188,7 +2188,15 @@ body.nbd-photo-selecting .nbd-photo-checkbox,
      Throttled batch + fire-and-forget API; reads aiSuggestion off photo
      docs once the function writes back. -->
 <script defer src="js/photo-ai-classifier.js?v=1"></script>
-<script defer src="js/photo-report.js?v=3"></script>
+<!-- photo-report.js is LAZY here as of 2026-09-06 — it rides the ScriptLoader
+     'photos' bundle, as it already did on the dashboard. It was only eager to
+     out-race a rival window.generatePhotoReport in
+     customer-photo-report-generator.js (loaded above at :2156); that dead
+     definition is now deleted, so the race is gone. A load-then-run stub in
+     customer-photo-report-picker.js covers both click entry points. The tag
+     must stay REMOVED, not merely reordered: ScriptLoader dedupes on the
+     resolved path, so an eager tag for this file would make
+     loadBundle('photos') a no-op and nothing would actually be deferred. -->
 <script defer src="js/review-engine.js?v=3"></script>
 <script defer src="js/profit-tracker.js?v=2"></script>
 <script defer src="js/lead-scoring.js?v=2"></script>

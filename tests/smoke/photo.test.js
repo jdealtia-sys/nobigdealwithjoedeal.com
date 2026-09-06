@@ -1197,14 +1197,49 @@ section('Photo-report PDF filename never leaks NBD onto a tenant download (2026-
   // an NBD_-named file. Now routed through the shared _custIdPrefix resolver
   // (NBD only for the platform tenant, reserved prefix wins, else derived),
   // with a no-leak local fallback when the resolver is absent.
-  const gen = read(path.join(PRO_JS, 'customer-photo-report-generator.js'));
-  assert('photo-report filename has NO bare NBD fallback',
-    !/\|\|\s*'NBD'/.test(gen),
-    "the `docPrefix || 'NBD'` fallback must never return");
-  assert('photo-report filename prefix routes through the shared resolver',
-    /_custIdPrefix[\s\S]{0,300}Photo_Report_/.test(gen));
-  assert('blank prefix drops cleanly (no leading underscore filename)',
-    /_fnPrefix \? _fnPrefix \+ '_' : ''/.test(gen));
+  // ⚠️ RETARGETED 2026-09-06 — these three assertions read
+  // customer-photo-report-generator.js, whose window.generatePhotoReport was
+  // DEAD: photo-report.js loads later on customer.html and overwrote the
+  // global, so the tenant-aware filename resolver they guarded never ran. The
+  // dead block is now deleted and the assertions move to the renderer that
+  // actually executes.
+  //
+  // KNOWN GAP, recorded in documentation/audit/BOOT-WEIGHT-2026-09-06.md:
+  // photo-report.js HARDCODES the 'NBD-' filename prefix (~:147 and ~:1005)
+  // rather than resolving the tenant's own docPrefix, and functions/render-pdf.js
+  // takes the filename FROM the client — so every non-NBD tenant's photo report
+  // ships named "NBD-…". The correct resolver existed only in the dead block.
+  // Fixing it changes a customer-facing document, so it is its own change.
+  // These assertions PIN THE GAP so it cannot silently drift further; flip them
+  // to the resolver form when the fix lands.
+  // 2026-09-06: photo-report.js is LAZY on customer.html. The failure mode is
+  // silent — no error, the "📋 Generate Report" button and the picker's two
+  // cards just do nothing — so gate both halves cheaply here rather than
+  // relying only on the emulator e2e.
+  const custRawPR = read(path.join(ROOT, 'docs/pro/customer.html'));
+  const picker = read(path.join(PRO_JS, 'customer-photo-report-picker.js'));
+  assert('photo-report.js is NOT an eager <script> on customer.html',
+    !/<script[^>]+src="[^"]*photo-report\.js/.test(custRawPR),
+    'an eager tag makes ScriptLoader.loadBundle("photos") a no-op for it (cacheKey dedupe) — nothing would be deferred');
+  assert('customer.html installs a load-then-run stub for generatePhotoReport',
+    /window\.generatePhotoReport\s*=\s*function/.test(picker)
+    && /loadBundle\(['"]photos['"]\)/.test(picker)
+    && /__nbdLazyPhotoReportStub/.test(picker),
+    'without the stub both entry points are a SILENT no-op: the action dispatcher logs an unknown action and nothing happens');
+  assert('the stub defers to a real implementation rather than recursing',
+    /!fn\.__nbdLazyPhotoReportStub/.test(picker),
+    'photo-report.js overwrites the global on arrival; if it is still the stub the fetch failed and we must say so, not loop');
+
+  const rep = read(path.join(PRO_JS, 'photo-report.js'));
+  assert('photo-report.js is the renderer that actually runs (owns the filename)',
+    /window\.generatePhotoReport\s*=\s*generatePhotoReport/.test(rep),
+    'if this moves, the filename assertions below are pointed at the wrong file again');
+  assert('KNOWN GAP: photo-report filename prefix is hardcoded NBD, not tenant-resolved',
+    /'NBD-'\s*\+/.test(rep),
+    'when the tenant-prefix fix lands this flips to asserting the resolver — see BOOT-WEIGHT-2026-09-06.md');
+  assert('the dead rival resolver is gone from customer-photo-report-generator.js',
+    !/_custIdPrefix|_fnPrefix/.test(read(path.join(PRO_JS, 'customer-photo-report-generator.js'))),
+    'the tenant-aware filename code only ever ran in dead code; it must not reappear there');
 }
 
 section('D2D photo variants: knock-doc stamping end-to-end (2026-08-17)');

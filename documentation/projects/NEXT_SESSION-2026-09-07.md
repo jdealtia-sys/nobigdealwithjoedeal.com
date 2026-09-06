@@ -173,10 +173,18 @@ boot bytes**, on a default home view — `weather-radar` pulls the bundle
 anyway.
 
 **Still open from this lane**: the `generatePhotoReport` double assignment
-(`customer-photo-report-generator.js` vs `photo-report.js` — the former is
-dead on the customer page, 32.5 KiB fetched for nothing; untangling it is what
-lets `photo-report` go lazy) · a re-entry sentinel for `supplement-ui.js` ·
-the Sentry tracing → error-only bundle swap (needs an SRI hash made online).
+(`customer-photo-report-generator.js:8` vs `photo-report.js` — the latter
+loads second and wins; untangling it is what lets `photo-report` go lazy) ·
+a re-entry sentinel for `supplement-ui.js` · the Sentry tracing → error-only
+bundle swap (needs an SRI hash made online).
+
+⚠️ **An earlier revision of this line said that file is "dead on the customer
+page, 32.5 KiB fetched for nothing." That is WRONG — do not delete it.** The
+file is 839 lines and also defines the doc-upload queue, the notes modal, the
+estimate modal, `window.loadNotes` and `window.fetchImageAsBase64`; removing
+it breaks the customer page. Only the `generatePhotoReport` definition is
+dead — lines 8–258, 251 lines / 9,208 B — and it calls `fetchImageAsBase64`,
+which lives outside that block and must survive.
 
 ### The mistake worth reading before you diagnose anything
 

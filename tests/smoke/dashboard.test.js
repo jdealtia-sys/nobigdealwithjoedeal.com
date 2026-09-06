@@ -437,9 +437,15 @@ section('ScriptLoader contract');
   assert('PR 2b3: customer.html loads ScriptLoader',
     /<script[^>]+src="js\/script-loader\.js/.test(custRaw),
     'customer.html must load script-loader.js to lazy-load the pdfexport bundle');
-  assert('PR 2b3: customer.html PDF handlers load-then-run pdfexport',
-    (readCustomer().match(/loadBundle\(['"]pdfexport['"]\)/g) || []).length >= 2,
-    'both jsPDF export handlers must ScriptLoader.loadBundle("pdfexport") before window.jspdf — they live in the extracted customer-*.js shards since the 2026-07-02 CSP extraction, hence readCustomer()');
+  // Was `>= 2` until 2026-09-06. The second of the "two jsPDF export handlers"
+  // lived inside customer-photo-report-generator.js's window.generatePhotoReport,
+  // which photo-report.js overwrote at load — i.e. it was DEAD CODE, and half
+  // this assertion was guarding a handler that could never run. That block is
+  // now deleted, leaving exactly one live jsPDF export handler on the customer
+  // page (customer-bootstrap.module.js exportCustomerPDF).
+  assert('PR 2b3: customer.html PDF handler load-then-runs pdfexport',
+    (readCustomer().match(/loadBundle\(['"]pdfexport['"]\)/g) || []).length >= 1,
+    'the jsPDF export handler must ScriptLoader.loadBundle("pdfexport") before window.jspdf — it lives in the extracted customer-*.js shards since the 2026-07-02 CSP extraction, hence readCustomer()');
 }
 
 // ── AdminManager public API ──────────────────────────────────
