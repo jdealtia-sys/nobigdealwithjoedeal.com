@@ -1812,7 +1812,11 @@ function renderSolarEstimate(lat) {
   window._solarOverlay = group;
 }
 
-function generateScopeFromDrawing() {
+// async since 2026-09-06: the filename carries a tenant-resolved prefix and
+// company-profile hydration must be awaited (company-profile.js _tenantFilePrefix).
+// Every caller discards the return value (data-action buttons, the voice-command
+// dispatch, and the maps API export), so awaiting here is safe.
+async function generateScopeFromDrawing() {
   const addr = document.getElementById('drawSearch')?.value || 'Property Address';
   const area = document.getElementById('cr-base')?.textContent || '0 sf';
   const pitched = document.getElementById('cr-pitched')?.textContent || '0 sf';
@@ -1879,14 +1883,21 @@ ${(counts.chimney || 0) > 0 ? '<div class="scope-item"><span class="scope-check"
 </body></html>`;
 
   if (window.NBDDocViewer && typeof window.NBDDocViewer.open === 'function') {
-    window.NBDDocViewer.open({ html, title: 'Scope of Work — ' + addr, filename: 'NBD-Scope-' + date.replace(/\s/g, '') + '.pdf' });
+    // Tenant-resolved prefix — the Scope of Work goes to the ADJUSTER.
+    const _scopeBase = 'Scope-' + date.replace(/\s/g, '') + '.pdf';
+    const _scopeName = window._tenantFileName ? await window._tenantFileName(_scopeBase) : _scopeBase;
+    window.NBDDocViewer.open({ html, title: 'Scope of Work — ' + addr, filename: _scopeName });
   } else {
     const w = window.open('', '_blank');
     if (w) { w.document.write(html); w.document.close(); }
   }
 }
 
-function exportDrawReport() {
+// async since 2026-09-06: the filename carries a tenant-resolved prefix and
+// company-profile hydration must be awaited (company-profile.js _tenantFilePrefix).
+// Every caller discards the return value (data-action buttons, the voice-command
+// dispatch, and the maps API export), so awaiting here is safe.
+async function exportDrawReport() {
   const addr=document.getElementById('drawSearch').value||'No Address';
   const lines=drawnLines;
   const total=lines.reduce((s,l)=>s+l.dist,0);
@@ -1928,10 +1939,13 @@ function exportDrawReport() {
   <div class="foot"><div>No Big Deal Home Solutions — nobigdealwithjoedeal.com</div><div>Measurements are estimates. Always verify on-site.</div></div>
   </body></html>`;
   if (window.NBDDocViewer && typeof window.NBDDocViewer.open === 'function') {
+    // Tenant-resolved prefix — '' when the brand is not hydrated, never 'NBD'.
+    const _measBase = 'Measurements-' + new Date().toISOString().split('T')[0] + '.pdf';
+    const _measName = window._tenantFileName ? await window._tenantFileName(_measBase) : _measBase;
     window.NBDDocViewer.open({
       html: html,
       title: 'Roof Measurement Report',
-      filename: 'NBD-Measurements-' + new Date().toISOString().split('T')[0] + '.pdf'
+      filename: _measName
     });
     return;
   }
@@ -2223,7 +2237,11 @@ function generateMaterialTakeoff() {
   return { materials, squares, wasteInfo: sw };
 }
 
-function showMaterialTakeoff() {
+// async since 2026-09-06: the filename carries a tenant-resolved prefix and
+// company-profile hydration must be awaited (company-profile.js _tenantFilePrefix).
+// Every caller discards the return value (data-action buttons, the voice-command
+// dispatch, and the maps API export), so awaiting here is safe.
+async function showMaterialTakeoff() {
   const t = generateMaterialTakeoff();
   if(!t.materials.length || t.squares < 0.1) { showToast('Draw some lines first','info'); return; }
 
@@ -2262,10 +2280,13 @@ function showMaterialTakeoff() {
   </body></html>`;
   if (window.NBDDocViewer && typeof window.NBDDocViewer.open === 'function') {
     const slug = (addr || 'takeoff').replace(/[^A-Za-z0-9]+/g, '-').substring(0, 40);
+    // Tenant-resolved prefix — '' when the brand is not hydrated, never 'NBD'.
+    const _takeBase = 'Takeoff-' + slug + '-' + new Date().toISOString().split('T')[0] + '.pdf';
+    const _takeName = window._tenantFileName ? await window._tenantFileName(_takeBase) : _takeBase;
     window.NBDDocViewer.open({
       html: html,
       title: 'Material Takeoff — ' + (addr || 'Drawing'),
-      filename: 'NBD-Takeoff-' + slug + '-' + new Date().toISOString().split('T')[0] + '.pdf'
+      filename: _takeName
     });
     return;
   }
@@ -3390,7 +3411,11 @@ function applyManualComparison() {
 }
 
 // ── Auto-generate supplement letter from comparison differences ──
-function generateSupplementFromComparison() {
+// async since 2026-09-06: the filename carries a tenant-resolved prefix and
+// company-profile hydration must be awaited (company-profile.js _tenantFilePrefix).
+// Every caller discards the return value (data-action buttons, the voice-command
+// dispatch, and the maps API export), so awaiting here is safe.
+async function generateSupplementFromComparison() {
   if (!comparisonData) { showToast('Run a comparison first', 'error'); return; }
   const ext = comparisonData.measurements;
   const addr = document.getElementById('drawSearch')?.value || 'Property Address';
@@ -3445,7 +3470,10 @@ td{font-size:12px;}.note{background:#fff8f0;border-left:4px solid #e8720c;paddin
 </body></html>`;
 
   if (window.NBDDocViewer && typeof window.NBDDocViewer.open === 'function') {
-    window.NBDDocViewer.open({ html, title: 'Supplement Request — ' + addr, filename: 'NBD-Supplement-' + date.replace(/\s/g, '') + '.pdf' });
+    // Tenant-resolved prefix — the Supplement Request goes to the ADJUSTER.
+    const _suppBase = 'Supplement-' + date.replace(/\s/g, '') + '.pdf';
+    const _suppName = window._tenantFileName ? await window._tenantFileName(_suppBase) : _suppBase;
+    window.NBDDocViewer.open({ html, title: 'Supplement Request — ' + addr, filename: _suppName });
   } else {
     const w = window.open('', '_blank');
     if (w) { w.document.write(html); w.document.close(); }

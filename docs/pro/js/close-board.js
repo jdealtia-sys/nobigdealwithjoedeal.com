@@ -548,7 +548,12 @@ body{font-family:'Barlow',sans-serif;background:#0d0f14;color:#e5e7eb;min-height
     }
   }
 
-  function openDealPreview(dealId) {
+  // async since 2026-09-06: the filename carries a tenant-resolved prefix and
+  // company-profile hydration must be awaited (company-profile.js
+  // _tenantFilePrefix). Only reachable via the deal-room buttons and the
+  // CloseBoard.preview export, whose sole consumers (estimate-v2-ui,
+  // rep-os) use createFromEstimate/getDeals — nothing awaits this.
+  async function openDealPreview(dealId) {
     const deal = dealRooms.find(d => d.id === dealId);
     if (!deal) return;
     const html = generateDealPageHTML(deal);
@@ -572,10 +577,13 @@ body{font-family:'Barlow',sans-serif;background:#0d0f14;color:#e5e7eb;min-height
     try { URL.revokeObjectURL(url); } catch (_) {}
     if (window.NBDDocViewer && typeof window.NBDDocViewer.open === 'function') {
       const slug = String(deal.customerName || dealId || 'deal').replace(/[^A-Za-z0-9]+/g, '-').substring(0, 40);
+      // Tenant-resolved prefix — '' when the brand is not hydrated, never 'NBD'.
+      const _dealBase = 'Deal-' + slug + '-' + new Date().toISOString().split('T')[0] + '.pdf';
+      const _dealName = window._tenantFileName ? await window._tenantFileName(_dealBase) : _dealBase;
       window.NBDDocViewer.open({
         html: html,
         title: 'Deal Preview — ' + (deal.customerName || 'Deal #' + dealId),
-        filename: 'NBD-Deal-' + slug + '-' + new Date().toISOString().split('T')[0] + '.pdf'
+        filename: _dealName
       });
     }
   }
