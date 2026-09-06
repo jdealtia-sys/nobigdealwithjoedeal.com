@@ -169,21 +169,44 @@
     _openPromise = null;
   }
 
+  /**
+   * A failed open must NOT be cached. `_openPromise` is memoised so concurrent
+   * callers share one attempt, but if that attempt FAILS the memo has to be
+   * dropped or the failure becomes permanent for the life of the page: every
+   * later available() returns false, the drain sees an empty store, photos
+   * already committed to IndexedDB are invisible, and new ones fall through to
+   * the memory queue that the next iOS resume-reload destroys.
+   *
+   * This is not hypothetical on the target device. When iOS relaunches a
+   * home-screen PWA it killed under memory pressure, the first open can error
+   * while WebKit's storage process is still coming back, and the very next one
+   * succeeds. Retrying costs a fast-failing open on a genuinely broken store;
+   * not retrying costs the rep their photos.
+   */
+  function _failOpen(resolve, why) {
+    if (why) console.warn('[PhotoQueueStore] open failed:', why);
+    _available = false;
+    _openPromise = null;   // let the next caller try again
+    resolve(null);
+  }
+
   function _open() {
     if (_db) return Promise.resolve(_db);
     if (_openPromise) return _openPromise;
+
+    // Optimistic again for this attempt; a success below un-latches a previous
+    // failure, and _failOpen sets it back.
+    _available = true;
 
     _openPromise = new Promise((resolve) => {
       let req;
       // Private-mode Safari and policy-disabled storage throw from open()
       // itself rather than firing onerror.
       try {
-        if (!window.indexedDB) { _available = false; resolve(null); return; }
+        if (!window.indexedDB) { _failOpen(resolve, null); return; }
         req = window.indexedDB.open(DB_NAME, DB_VERSION);
       } catch (e) {
-        console.warn('[PhotoQueueStore] indexedDB.open threw:', e && e.message);
-        _available = false;
-        resolve(null);
+        _failOpen(resolve, e && e.message);
         return;
       }
 
@@ -212,13 +235,11 @@
         _db = db;
         resolve(db);
       };
-      req.onerror = () => {
-        console.warn('[PhotoQueueStore] open failed:', req.error && req.error.name);
-        _available = false;
-        resolve(null);
-      };
-      // Another tab holding an old version open. Don't hang forever.
-      req.onblocked = () => { _available = false; resolve(null); };
+      req.onerror = () => _failOpen(resolve, req.error && req.error.name);
+      // Another tab holding an old version open. Don't hang forever — and
+      // this one is explicitly transient: the other tab closing makes the
+      // next attempt succeed, so caching the failure would be worst of all.
+      req.onblocked = () => _failOpen(resolve, 'blocked');
     });
 
     return _openPromise;

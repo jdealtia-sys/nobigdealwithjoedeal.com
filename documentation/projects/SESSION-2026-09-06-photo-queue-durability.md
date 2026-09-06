@@ -767,3 +767,83 @@ never — but it is not zero, and no client-side mechanism can make it zero.
   are distinguishable, and only then did the regression redden it.
 - `run-test-manifest --bucket node` 75/75 · `smoke` 3604/0 ·
   `check-js-syntax` 493 · `check-inline-html-scripts` 0/227.
+## Update, 2026-09-06 (later still) — the hunt for more of the #1422 class
+
+The post-mortem above named three changes for the next review of this kind: a
+**destruction sweep**, treating **every fixture as a claim about reality**, and
+feeding the **prose** in as a finder input. Those were then run as an actual
+hunt (6 finders × 3 refuters) over the merged feature. It returned **4
+confirmed, all unanimous 3/3, all genuine class matches** — so the three
+changes were not theoretical. Three are fixed here; the fourth is split out.
+
+### 1. A false "reshoot the roof" accusation — `photo-queue-recovery.js`
+
+`writeMarker()` was reachable only from `recover()`. Verified by grep:
+`photo-engine.js` never touched the marker. But the two drains that do most of
+the real work — the `online` listener and the post-capture flush — clear the
+**local** counter via `store.remove()` while leaving the **server** marker
+frozen at the old number. Harmless until `purgeAccountStorage()` deletes the
+counter on sign-out; the sign-in after that reads the stale marker, finds no
+local evidence, and paints the sticky red banner telling the rep to redrive a
+job and reshoot a roof **whose photos are already in the customer's gallery**.
+No wipe needed — an ordinary logout is enough.
+
+Fixed at both ends: `window.NBDPhotoQueueRecovery.syncMarker()` is exported and
+called from `flushUploadQueue()` after any successful drain (feature-detected,
+because photo-engine can load where recovery is absent, and a stale SW cache
+can pair a new engine with an old recovery module); and the `known === 0` early
+return now reconciles a mirror key that still claims photos are owed.
+
+### 2. One failed `indexedDB.open()` latched the store off for the page's life
+
+`_openPromise` is memoised so concurrent callers share one attempt — but a
+**failed** attempt stayed memoised, and `_available` was never reset (the only
+occurrence in the file was its declaration). One transient open failure meant
+`available()` false forever: photos already committed became invisible, and new
+ones fell into the memory queue the next resume-reload destroys. iOS relaunching
+a PWA it killed under memory pressure produces exactly this — the first open
+errors while WebKit's storage process is still coming back, and the next one
+would have succeeded. `_failOpen()` now drops the memo so the next call retries.
+
+### 3. Nothing gated the wiring — and that one was mine twice over
+
+The entire feature reaches the running app through **two `<script>` tags**, and
+no test asserted they exist. All three suites read the modules off disk and run
+them in a `vm`. A `dashboard.html` merge could drop them — plausible, since
+another session had actively argued to move these exact tags — and every suite
+would stay green while reps kept being told *"it will upload even if you close
+the app"* by a feature that was not loaded.
+
+This is the destruction-sweep blind spot a **third** time: modules gated, their
+attachment to the app not. `photo-queue-durability.test.js` now asserts both
+tags, `defer`, their order, and that neither became inline (CSP).
+
+### Split out: uploads are not atomic
+
+`uploadPhotoToFirebase` commits the ~1.5 MB Storage object and then does four
+more failable things, with no idempotency key. A thumbnail timeout on flaky LTE
+— the *ordinary* case — means every retry uploads another full-size orphan that
+nothing reaps, and a reload after `setDoc` can leave a visible duplicate. Fixing
+that is an idempotency-key change to the upload path everything else depends on,
+so it gets its own PR rather than riding along here.
+
+### The break test found two weak assertions of my own
+
+Worth recording, because it is the same failure this whole thread is about.
+Proving the new gates could fail showed that two assertions I had just written
+passed under the regression:
+
+- the "photo committed before a transient open failure" case set `failOpen`
+  on a store that had **already opened successfully**, so `_open()` returned
+  the cached `_db` and never exercised the latch at all. Rewritten to model the
+  real shape — a fresh page instance whose *first* open fails.
+- the sign-out boot passed a fresh `localStorage` object but a store closure
+  still reading the **old** one, so it never looked purged. Rewritten so the
+  store reads whatever object that boot actually got.
+
+A third assertion threw out of the suite under regression instead of reddening,
+hiding every block below it; it now returns a reason rather than throwing.
+
+**Gates:** durability 74 → 85, offline-queue 51 → 54, loss-witness 40 → 43; all
+four regressions proven to redden the named assertions. `node` bucket 75/75,
+smoke 3607/0, `crm-audit` 0 errors, site-integrity clean.

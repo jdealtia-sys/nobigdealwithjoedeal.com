@@ -1569,6 +1569,22 @@
     if (sent && typeof showToast === 'function') {
       showToast(sent === 1 ? '✓ 1 queued photo uploaded' : `✓ ${sent} queued photos uploaded`, 'success');
     }
+    // Tell the server what is still owed. This function is the drain for ALL
+    // three routes — boot recovery, the `online` listener, and the flush after
+    // a successful capture — but only the first one used to update the
+    // server-side loss marker. The other two cleared the local counter and
+    // left the marker frozen at the old number, which the next sign-in after a
+    // logout reads back as a loss and reports as "reshoot the roof" for photos
+    // that uploaded fine. Feature-detected: photo-engine can load on a page
+    // where photo-queue-recovery.js is absent, and a stale service-worker
+    // cache can pair a new engine with an older recovery module.
+    if (sent) {
+      const rec = typeof window !== 'undefined' && window.NBDPhotoQueueRecovery;
+      if (rec && typeof rec.syncMarker === 'function') {
+        try { await rec.syncMarker(); }
+        catch (e) { console.warn('[PhotoEngine] marker sync failed:', e && e.message); }
+      }
+    }
     return sent;
   }
 
