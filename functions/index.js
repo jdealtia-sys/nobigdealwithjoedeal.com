@@ -611,15 +611,27 @@ const referralRewards = require('./referral-rewards');
 Object.assign(exports, referralRewards);
 
 // ═══════════════════════════════════════════════════════════════
-// VISUALIZER IMAGE GENERATION — Gemini 2.5 Flash Image
+// VISUALIZER IMAGE GENERATION — FLUX.1 Kontext via Replicate
 // ═══════════════════════════════════════════════════════════════
 //
 // Real AI-edited image of the user's home (replaces the old canvas
-// color-filter fake "visualization"). ~$0.02-$0.04 per call.
+// color-filter fake "visualization"). ~$0.04/img on flux-kontext-pro,
+// ~$0.08 on flux-kontext-max (the default for shingle edits).
 //
-// Ships DISABLED by default. Set VISUALIZER_IMAGEGEN_ENABLED=true on
-// the visualizerImageGen Cloud Run revision to go live (requires the
-// GOOGLE_AI_API_KEY secret populated first).
+// Ships DISABLED by default. Set VISUALIZER_IMAGEGEN_ENABLED=true to go
+// live; it needs the REPLICATE_API_TOKEN secret populated (or
+// KIE_API_KEY with IMAGEGEN_PROVIDER=kie for the alternate provider).
+//
+// CORRECTED 2026-09-05 — this block was wrong on all three counts. It
+// named Gemini 2.5 Flash Image as the model, quoted ~$0.02-$0.04, and
+// said the feature "requires the GOOGLE_AI_API_KEY secret populated
+// first". Gemini was tried and abandoned the same day it was added
+// (2026-04-18): it would not commit to material swaps, returning tinted
+// asphalt for asphalt→metal. Nothing in functions/ declares
+// GOOGLE_AI_API_KEY — no defineSecret() references it — and the
+// provider seam in visualizer-image-gen.js is 'replicate' | 'kie', with
+// no Gemini path at all. See that file's header for the full swap
+// history; it is the source of truth for this feature.
 const visualizerImageGen = require('./visualizer-image-gen');
 exports.visualizerImageGen = visualizerImageGen.visualizerImageGen;
 
