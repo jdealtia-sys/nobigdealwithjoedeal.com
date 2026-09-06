@@ -278,6 +278,26 @@
     return rows.reduce((sum, r) => sum + ((r && r.byteLength) || 0), 0);
   }
 
+  /**
+   * How many queued rows belong to `uid`, or null when the read failed.
+   *
+   * count() above is deliberately UNFILTERED, and correctly so: the drain gate
+   * only needs "is there anything in here at all". But anything that
+   * attributes the queue to a PERSON has to filter, or a rep signing in on a
+   * shared device inherits the row count of the rep who left photos behind —
+   * and a number attributed to the wrong person is how someone gets told
+   * their photos are gone when they never took any. Reads the raw records, so
+   * no Blob is built just to answer a number.
+   */
+  async function pendingForUid(uid) {
+    if (!uid) return null;
+    const store = await _tx('readonly');
+    if (!store) return null;
+    const rows = await _reqToPromise(() => store.getAll(), null);
+    if (!Array.isArray(rows)) return null;
+    return rows.reduce((n, r) => n + (r && r.uid === uid ? 1 : 0), 0);
+  }
+
   async function _rawAll() {
     const store = await _tx('readonly');
     if (!store) return [];
@@ -496,6 +516,7 @@
     remove,
     clear,
     count,
+    pendingForUid,
     lastKnownCount,
     bytes,
     available,

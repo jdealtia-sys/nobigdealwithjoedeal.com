@@ -93,14 +93,58 @@
   const MARKER_COLLECTION = 'userSettings';
   const MARKER_FIELD = 'photoQueuePending';
   const MARKER_AT_FIELD = 'photoQueuePendingAt';
+  // Which marker the rep has already been told about. This lives on the
+  // SERVER, not in localStorage, because nbd-auth.js purgeAccountStorage()
+  // drops every `nbd_`-prefixed key that is not in its KEEP set on every
+  // logout and account switch — so a local "already reported" flag is erased
+  // by an ordinary sign-out and the rep gets accused a second time.
+  const MARKER_ACK_FIELD = 'photoQueueLossAckAt';
   // What we last pushed, so a boot with an unchanged queue writes nothing.
+  // Purged on logout too; losing it costs one redundant write, nothing more.
   const MARKER_MIRROR_KEY = 'nbd_photo_queue_marker_synced';
-  // Which server marker we have already told the rep about, so the warning
-  // appears once and not on every boot after a wipe.
-  const LOSS_REPORTED_KEY = 'nbd_photo_queue_loss_reported';
 
   function lsGet(k) { try { return localStorage.getItem(k); } catch (_) { return null; } }
   function lsSet(k, v) { try { localStorage.setItem(k, String(v)); } catch (_) {} }
+
+  /**
+   * A notice that STAYS. window.showToast removes itself after 2600 ms
+   * (dashboard-ui-prefs-boot.js:44) — on a boot, which is before a rep on a
+   * roof has looked at the phone. offline-manager.js:123 already made this
+   * call for the strictly lower-stakes JSON queue, with the reason in a
+   * comment: "a 3s toast vanishes before a contractor in the field ever
+   * notices". Photos are worth at least as much. Distinct id from that
+   * banner so the two can coexist.
+   * No inline handlers anywhere — CSP here is script-src-attr 'none'.
+   */
+  function stickyNotice(message) {
+    if (typeof document === 'undefined' || !document.body) return false;
+    if (document.getElementById('nbd-photo-loss-banner')) return true;
+    const banner = document.createElement('div');
+    banner.id = 'nbd-photo-loss-banner';
+    banner.setAttribute('role', 'alert');
+    banner.style.cssText = [
+      'position:fixed', 'top:0', 'left:0', 'right:0',
+      'padding:10px 44px 10px 16px',
+      'background:#b91c1c', 'color:#fff',
+      'font-size:13px', 'font-weight:600',
+      'text-align:center', 'line-height:1.35',
+      'z-index:99001', 'box-shadow:0 2px 10px rgba(0,0,0,.35)',
+      'padding-top:calc(10px + env(safe-area-inset-top,0px))'
+    ].join(';');
+    const label = document.createElement('span');
+    label.textContent = '⚠ ' + message;
+    const close = document.createElement('button');
+    close.type = 'button';
+    close.textContent = '×';
+    close.setAttribute('aria-label', 'Dismiss photo upload warning');
+    close.style.cssText = 'position:absolute;top:6px;right:8px;background:transparent;'
+      + 'border:0;color:#fff;font-size:22px;font-weight:700;cursor:pointer;padding:4px 10px;line-height:1;';
+    close.addEventListener('click', function () { banner.remove(); });
+    banner.appendChild(label);
+    banner.appendChild(close);
+    document.body.appendChild(banner);
+    return true;
+  }
 
   /**
    * The Firestore handles, or null. Both spellings of the db global are in
@@ -118,7 +162,7 @@
     return { ref: doc(db, MARKER_COLLECTION, uid), getDoc: getDoc, setDoc: setDoc };
   }
 
-  /** { held, at } from the server, or null when we could not read it. */
+  /** { held, at, ackAt } from the server, or null when we could not read it. */
   async function readMarker() {
     const fs = firestore();
     if (!fs) return null;
@@ -127,7 +171,11 @@
       const data = (snap && typeof snap.data === 'function' && snap.data()) || null;
       if (!data) return null;
       const held = parseInt(data[MARKER_FIELD], 10);
-      return { held: isNaN(held) ? 0 : held, at: data[MARKER_AT_FIELD] || 0 };
+      return {
+        held: isNaN(held) ? 0 : held,
+        at: data[MARKER_AT_FIELD] || 0,
+        ackAt: data[MARKER_ACK_FIELD] || 0
+      };
     } catch (e) {
       console.warn('[PhotoQueueRecovery] could not read the queue marker:', e && e.message);
       return null;
@@ -172,15 +220,40 @@
   async function reportLossFromServer() {
     const marker = await readMarker();
     if (!marker || !(marker.held > 0)) return false;
-    if (lsGet(LOSS_REPORTED_KEY) === String(marker.at)) return false;
-    toast(
+    // Acknowledged on the server, so it survives the sign-out purge that
+    // erases every local flag we could have used instead.
+    if (marker.ackAt && marker.ackAt === marker.at) return false;
+    notify(
       marker.held === 1
         ? '1 photo taken offline never finished uploading and is not on this device. Open the app on the phone you shot it with, or reshoot it.'
         : marker.held + ' photos taken offline never finished uploading and are not on this device. Open the app on the phone you shot them with, or reshoot them.',
       'error'
     );
-    lsSet(LOSS_REPORTED_KEY, marker.at);
+    // Acknowledge ONLY. The pending count is deliberately untouched: this
+    // device does not know what it holds, and writing a 0 here would erase
+    // the record of photos still sitting on the rep's other phone.
+    await ackMarker(marker.at);
     return true;
+  }
+
+  /** Record that the rep has been told about this marker. */
+  async function ackMarker(at) {
+    const fs = firestore();
+    if (!fs) return;
+    const payload = {};
+    payload[MARKER_ACK_FIELD] = at;
+    try { await fs.setDoc(fs.ref, payload, { merge: true }); }
+    catch (e) { console.warn('[PhotoQueueRecovery] could not acknowledge the loss:', e && e.message); }
+  }
+
+  /**
+   * A loss notice must outlive the boot it appears on, so it goes to the
+   * sticky banner and falls back to the toast only when there is no DOM to
+   * hang it on. Everything else here still uses the toast.
+   */
+  function notify(msg, kind) {
+    if (stickyNotice(msg)) return;
+    toast(msg, kind);
   }
 
   async function recover() {
@@ -211,7 +284,7 @@
     try {
       const lost = await store.detectLoss();
       if (lost > 0) {
-        toast(
+        notify(
           lost === 1
             ? '1 photo held offline was cleared by your browser and could not be uploaded'
             : lost + ' photos held offline were cleared by your browser and could not be uploaded',
@@ -258,7 +331,17 @@
     // or the tab dies mid-flight, or the browser wipes us next week, the
     // server still holds the count — and that record is the only thing a
     // wiped device can read on its next boot.
-    await writeMarker(pending);
+    //
+    // Counted per UID, never with store.count(). `pending` above is every row
+    // on the device, which is the right question for "should we drain?" and
+    // the WRONG one for a number we are about to file under one person's name:
+    // on a shared device it is the previous rep's backlog, which this rep's
+    // drain will never touch (photo-engine filters by uid) and which would sit
+    // on their marker forever, ready to accuse them of losing photos they
+    // never took.
+    const uid = window._user && window._user.uid;
+    const mine = await store.pendingForUid(uid);
+    await writeMarker(mine);
 
     const ready = await loadPhotoEngine();
     if (!ready) return;
@@ -270,8 +353,8 @@
     }
 
     // And what is still owed after it, so a drained queue stops warning about
-    // photos that did arrive. A failed count is not a 0 and writes nothing.
-    const left = await store.count();
+    // photos that did arrive. A failed count is null, not 0, and writes nothing.
+    const left = await store.pendingForUid(uid);
     if (typeof left === 'number') await writeMarker(left);
   }
 

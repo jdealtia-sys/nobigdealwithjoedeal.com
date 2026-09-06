@@ -518,6 +518,45 @@ the photos still *exist* rather than after they are gone. Both are open.
   `node tests/smoke.test.js` 3591/0 · `check-js-syntax` 491 files ·
   `check-inline-html-scripts` 0 across 227 · `check-vault-index` clean.
 
+### Three defects in that fix, found by reviewing it the same way
+
+A design workflow run against this same defect returned facts that indicted my
+own first version. All three were verified in the source before acting, and all
+three are fixed in the second commit.
+
+1. **The marker was filed under the wrong person.** `writeMarker()` took
+   `store.count()`, which is unfiltered by design — the drain gate only asks
+   *"is there anything here at all"*. But the drain itself filters by uid
+   (`photo-engine.js:1495`), so on a shared device a rep signing in after
+   another rep left rows behind had that backlog written to **their**
+   `userSettings` doc, where it would sit forever and eventually accuse them of
+   losing photos they never took. The store gained `pendingForUid(uid)` —
+   counted off the raw records, so no Blob is built to answer a number — and
+   recovery uses it for every marker write. `count()` is unchanged and still
+   correct for the gate it serves.
+2. **The warning was delivered by something that vanishes.**
+   `window.showToast` removes itself after 2600 ms
+   (`dashboard-ui-prefs-boot.js:44`) — on a *boot*, before a rep on a roof has
+   looked at the phone. `offline-manager.js:123` had already made this call for
+   the strictly lower-stakes JSON queue, with the reason in a comment: *"a 3s
+   toast vanishes before a contractor in the field ever notices"*. Photos got
+   the weaker surface. Both loss messages now go to a dismissable sticky
+   banner, falling back to the toast only when there is no DOM to hang it on.
+3. **The "already told you" flag was erased by an ordinary sign-out.**
+   `nbd-auth.js:727` `purgeAccountStorage()` drops every `nbd_`-prefixed
+   localStorage key outside its KEEP set on **every** logout and account
+   switch — which includes `nbd_photo_queue_last_known_size` and both keys this
+   change added. A local acknowledgement therefore could not survive a sign-out,
+   and the rep would be accused a second time. The acknowledgement moved to the
+   server as `photoQueueLossAckAt`; the knows-nothing device writes **only**
+   that field, never the pending count.
+
+Worth recording separately, because it is a live hole nobody has closed: that
+same purge deletes `nbd_photo_queue_last_known_size` on every logout while the
+IndexedDB rows survive, so after any sign-out the store's own partial-eviction
+detector is blind until the next `add()` or `remove()` re-seeds the counter.
+Re-seeding it on boot is a small change and is **not** in this PR.
+
 ### Eager cost, restated
 
 This grew `photo-queue-recovery.js`, so the figure corrected two sections above
