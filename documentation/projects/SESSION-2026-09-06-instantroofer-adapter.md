@@ -94,8 +94,34 @@ existed. So: API only, as a provider of `functions/integrations/measurement.js`.
 
 ## Adversarial review
 
-See the "Review" section appended below once the workflow has run; findings
-that survived were fixed in the same PR.
+Six diverse-lens finders over the diff, each finding attacked by three
+independent refuters. Four findings were fixed in this branch:
+
+1. **(high, found twice independently) The human-report webhook threw away the
+   $10 report's URL.** The merge did
+   `if (human.reportUrl && human.reportType) reportUrls[human.reportType] = …`,
+   but Instant Roofer's own documented *minimum* payload is
+   `{requestID, url, status}` with **no** `report_type` — and the payload keys
+   are configured in their dashboard, so any field we did not map produced the
+   same result: URL discarded, `reportUrls` never written, doc still flipped to
+   `ready`. Now keyed as `reportUrls[format || 'report']`. My own test suite had
+   two assertions in this area and neither caught it — both checked `status`,
+   not the URL's survival through the merge.
+2. **(medium) The 90-day reuse window could never expire.** A reuse copy is
+   itself a reuse candidate and carried `createdAt: serverTimestamp()`, which
+   is what the freshness filter read — so every cache hit restamped the roof as
+   freshly measured and one measurement could be served forever. Docs now carry
+   `measuredAt` (when the vendor was actually called); copies inherit it and
+   `measuredAtMs()` ages off that.
+3. **(medium) I broke the admin "Measurements ready" tile.** Folding
+   `passThruEligible` into `readyMeas` made `ready30d` exclude every AI measure —
+   i.e. the tile would read 0 next to `requested30d: 40` under the new default
+   provider, which reads as "the integration is broken". `ready30d` counts all
+   delivered measurements again; only the revenue estimate filters, and
+   `billable30d` is exposed alongside it.
+4. **(medium) The runbook over-promised the human-report surface.** Its table
+   implied a CRM control exists; no caller passes `reportType:'human'`. Marked
+   server-side-only with the follow-up named.
 
 ## Open follow-ups (deliberately not in this branch)
 

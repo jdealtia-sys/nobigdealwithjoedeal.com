@@ -15,7 +15,7 @@ configured" for five months.
 |---|---|---|
 | V2 builder "📐 Auto-measure" | `docs/pro/js/estimate-v2-ui.js` → `autoMeasure` → `NBDIntegrations.requestMeasurement` → `requestMeasurement` (`functions/integrations/measurement.js` → `requestInstantRoofer`) | `INSTANTROOFER_API_KEY` set + a functions deploy |
 | D2D "📐 Order precise roof report" | `docs/pro/js/d2d-tracker-core-2026b.js` → `orderRoofReport` (sends the knock pin as lat/lng) | same |
-| Human Certified Report (`reportType:'human'`) | `requestMeasurement({ reportType:'human' })` → `measurementWebhook?provider=instantroofer` | `INSTANTROOFER_WEBHOOK_SECRET` + the dashboard webhook (§3) |
+| Human Certified Report (`reportType:'human'`) — **server-side only today, no button** | `requestMeasurement({ reportType:'human' })` → `measurementWebhook?provider=instantroofer` | `INSTANTROOFER_WEBHOOK_SECRET` + the dashboard webhook (§3) |
 
 The pure logic (request body, response normalizer, error table, webhook
 parser, bearer check) is `functions/integrations/instantroofer-logic.js`;
@@ -110,8 +110,14 @@ closed with **503** when the secret is unset and **401** on a mismatch
 (same shape as the HOVER/EagleView HMAC path). What arrives is a **file
 URL only** — the payload never carries numbers. Turning the CSV into
 ridge/hip/valley/eave/rake linear feet is a follow-up (see the session
-note); until then the human report shows as an "Open PDF" link on the D2D
-card and as `reportUrl` in the V2 builder.
+note). The URL lands on the measurement doc as `reportUrls.{format}` and
+`measurements.reportUrl`, which the D2D card renders as "Open PDF" — but
+**nothing in the CRM orders a human report yet**: no button passes
+`reportType:'human'`, so today it is reachable only by calling
+`requestMeasurement` directly. Adding that control is the follow-up; this
+section makes the receive path ready. Set the secret even if you are not
+ordering reports yet — the callable refuses `reportType:'human'` without it,
+and this form is the only place the token is ever shown.
 
 ## Cost model — why the code is stingy
 

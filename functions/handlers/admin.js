@@ -124,11 +124,15 @@ exports.getAdminAnalytics = onCall(
     const msSnap = await msQuery.get();
     const measurements = msSnap.docs.map(d => d.data())
       .filter(m => !repUids || repUids.includes(m.ownerId));
-    // passThruEligible:false = an Instant Roofer AI measure (an internal cost
-    // with no customer document) — never billed through, so not counted here.
-    const readyMeas = measurements.filter(m => m.status === 'ready' && m.passThruEligible !== false);
+    // ready30d counts EVERY delivered measurement — it is the "is the
+    // integration working" tile, and an Instant Roofer AI measure is the
+    // common case now. Only the revenue estimate excludes them:
+    // passThruEligible:false means an internal cost with no customer document,
+    // so no $75 line is ever added for it.
+    const readyMeas = measurements.filter(m => m.status === 'ready');
+    const billableMeas = readyMeas.filter(m => m.passThruEligible !== false);
     const passThruPrice = Number(process.env.NBD_MEASUREMENT_PASSTHRU_PRICE) || 75;
-    const passThruRevenueEst = readyMeas.length * passThruPrice;
+    const passThruRevenueEst = billableMeas.length * passThruPrice;
 
     // Portal links
     let linksMinted30d = 0, portalViews30d = 0;
@@ -177,6 +181,7 @@ exports.getAdminAnalytics = onCall(
       measurements: {
         requested30d: measurements.length,
         ready30d: readyMeas.length,
+        billable30d: billableMeas.length,
         passThruRevenueEst: passThruRevenueEst,
         passThruPrice
       },

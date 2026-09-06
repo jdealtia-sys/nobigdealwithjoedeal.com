@@ -387,6 +387,15 @@ async function resolveCoords({ lat, lng, lead, address, db }, deps) {
 // Two equality filters only — Firestore serves those from the automatic
 // single-field indexes (CI never deploys firestore.indexes.json, so no
 // composite). Tenant and age are filtered in memory on ≤10 rows.
+// Age is measured from `measuredAt` — when the vendor was actually called —
+// NOT from createdAt. A reuse copy is itself a candidate for the next reuse,
+// so stamping the copy's own creation time would restamp the roof as fresh on
+// every hit and the 90-day window would never expire.
+function measuredAtMs(d) {
+  const t = d.measuredAt || d.createdAt;
+  return t && typeof t.toMillis === 'function' ? t.toMillis() : null;
+}
+
 async function findReusableMeasurement(db, { coordKey, uid, companyId, reportType }) {
   const snap = await db.collection('measurements')
     .where('coordKey', '==', coordKey)
@@ -395,15 +404,14 @@ async function findReusableMeasurement(db, { coordKey, uid, companyId, reportTyp
     .get();
   const cutoff = Date.now() - REUSE_WINDOW_MS;
   const rows = snap.docs
-    .map(d => ({ id: d.id, data: d.data() || {} }))
-    .filter(({ data: d }) =>
+    .map(d => ({ id: d.id, data: d.data() || {}, at: measuredAtMs(d.data() || {}) }))
+    .filter(({ data: d, at }) =>
       d.status === 'ready'
       && (d.reportType || 'ai') === reportType
       && d.measurements && d.measurements.rawSqft
       && (d.ownerId === uid || (companyId && d.companyId === companyId))
-      && d.createdAt && typeof d.createdAt.toMillis === 'function'
-      && d.createdAt.toMillis() > cutoff);
-  rows.sort((a, b) => b.data.createdAt.toMillis() - a.data.createdAt.toMillis());
+      && at !== null && at > cutoff);
+  rows.sort((a, b) => b.at - a.at);
   return rows[0] || null;
 }
 
@@ -600,7 +608,9 @@ exports.requestMeasurement = onCall(
             billed: false,
             passThruEligible: false,
             measurements: prior.data.measurements,
-            createdAt: FieldValue.serverTimestamp()
+            createdAt: FieldValue.serverTimestamp(),
+            // Inherited, never restamped — see measuredAtMs().
+            measuredAt: prior.data.measuredAt || prior.data.createdAt || null
           };
           const ref = await db.collection('measurements').add(copy);
           await attachMeasurementToLead(db, {
@@ -657,6 +667,9 @@ exports.requestMeasurement = onCall(
       status,
       estimatedMinutes: result.estimatedMinutes,
       createdAt: FieldValue.serverTimestamp(),
+      // When the vendor was actually called. Reuse ages off this, so a copy
+      // inherits it instead of looking freshly measured.
+      measuredAt: FieldValue.serverTimestamp(),
       ...(coords ? {
         lat: coords.lat, lng: coords.lng, coordKey: ctx.coordKey,
         coordSource: coords.source, coordPrecision: coords.precision || null
@@ -876,7 +889,12 @@ exports.measurementWebhook = onRequest(
         // retries redeliver, so merge the per-format URLs idempotently and
         // never regress a 'ready' doc on a later format's arrival.
         const reportUrls = Object.assign({}, measurementData.reportUrls || {});
-        if (human.reportUrl && human.reportType) reportUrls[human.reportType] = human.reportUrl;
+        // Key by format when the payload names one, else under 'report'. Their
+        // documented MINIMUM payload is {requestID, url, status} with no
+        // report_type, and the field list is configured in their dashboard —
+        // requiring reportType here threw away the $10 report's only URL while
+        // still flipping the doc to 'ready'.
+        if (human.reportUrl) reportUrls[human.reportType || 'report'] = human.reportUrl;
         const headline = IR.preferredReportUrl(reportUrls);
         if (Object.keys(reportUrls).length) update.reportUrls = reportUrls;
         if (human.humanReportId) update.humanReportId = human.humanReportId;
@@ -936,6 +954,7 @@ exports._test = {
   parseSync,
   stripVendorBlobs,
   normalizeWebhookPayload,
+  measuredAtMs,
   verifyInstantRooferBearer,
   verifyWebhookHmac,
   REUSE_WINDOW_MS,

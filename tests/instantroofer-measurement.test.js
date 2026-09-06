@@ -190,6 +190,8 @@ section('parseHumanWebhook — dashboard-configured payloads');
   ok('preferredReportUrl: pdf wins, then html, then anything',
     IR.preferredReportUrl({ csv: 'c', pdf: 'p' }) === 'p' && IR.preferredReportUrl({ csv: 'c', html: 'h' }) === 'h'
     && IR.preferredReportUrl({ xml: 'x' }) === 'x' && IR.preferredReportUrl({}) === null && IR.preferredReportUrl(null) === null);
+  ok("preferredReportUrl finds the generic 'report' key the merge uses when the payload names no format",
+    IR.preferredReportUrl({ report: 'https://x/a.pdf' }) === 'https://x/a.pdf');
 }
 
 section('verifyBearer — the token we mint, compared constant-time');
@@ -283,6 +285,28 @@ if (M && M._test) {
     ok('secret set → matching bearer accepted, wrong rejected', T.verifyInstantRooferBearer('Bearer tok-0123456789abcdefghij').ok && !T.verifyInstantRooferBearer('Bearer nope').ok);
     delete process.env.INSTANTROOFER_WEBHOOK_SECRET;
 
+    section('reuse ages off measuredAt, not the copy\'s own createdAt');
+    {
+      const ms = (n) => ({ toMillis: () => n });
+      ok('measuredAt wins over createdAt (a copy carries the ORIGINAL measurement time)',
+        T.measuredAtMs({ measuredAt: ms(1000), createdAt: ms(9_999_999) }) === 1000);
+      ok('falls back to createdAt for docs written before measuredAt existed', T.measuredAtMs({ createdAt: ms(42) }) === 42);
+      ok('no usable timestamp → null (excluded from reuse, never treated as fresh)',
+        T.measuredAtMs({}) === null && T.measuredAtMs({ measuredAt: 'nope' }) === null);
+      // The regression this guards: a reuse copy is itself a reuse candidate.
+      // If the copy carried its own creation time, every cache hit would
+      // restamp the roof as freshly measured and the 90-day window would
+      // never expire.
+      const day = 24 * 60 * 60 * 1000;
+      const original = { measuredAt: ms(Date.now() - 100 * day), createdAt: ms(Date.now() - 100 * day) };
+      const copyDoneRight = { measuredAt: original.measuredAt, createdAt: ms(Date.now()) };
+      ok('a 100-day-old measurement is outside the 90-day window',
+        T.measuredAtMs(original) < Date.now() - T.REUSE_WINDOW_MS);
+      ok('its copy is too — the chain expires (the bug: reading createdAt made it immortal)',
+        T.measuredAtMs(copyDoneRight) < Date.now() - T.REUSE_WINDOW_MS
+        && copyDoneRight.createdAt.toMillis() > Date.now() - T.REUSE_WINDOW_MS);
+    }
+
     section('coordinate resolution — most rooftop-accurate first');
     ok("leadCoords: lead.lat/lng → 'lead'", (() => { const c = T.leadCoords({ lat: 39.1, lng: -84.5 }); return c && c.source === 'lead' && c.lat === 39.1; })());
     ok("leadCoords: falls back to parcel.center → 'parcel'", (() => { const c = T.leadCoords({ lat: null, lng: null, parcel: { center: { lat: 39.2, lng: -84.6 } } }); return c && c.source === 'parcel' && c.lng === -84.6; })());
@@ -351,7 +375,14 @@ function finish() {
   ok('the webhook verifies Instant Roofer by bearer token, HOVER/EagleView by HMAC (F-02 literals intact)',
     /verifyInstantRooferBearer\(req\.headers\['authorization'\]/.test(meas) && /verifyWebhookHmac\(provider,\s*req\.rawBody/.test(meas)
     && /x-hover-signature/.test(meas) && /x-ev-signature/.test(meas) && /'secret-not-configured' \? 503/.test(meas));
-  ok('human-report webhooks merge per-format URLs idempotently and never regress ready', /reportUrls\[human\.reportType\]/.test(meas) && /preferredReportUrl/.test(meas) && /status !== 'failed'\) status = 'ready'/.test(meas));
+  ok('human-report webhooks merge per-format URLs idempotently and never regress ready',
+    /reportUrls\[human\.reportType \|\| 'report'\]/.test(meas) && /preferredReportUrl/.test(meas) && /status !== 'failed'\) status = 'ready'/.test(meas));
+  ok("the report URL survives a payload with no reportType — their documented MINIMUM payload is {requestID, url, status}",
+    /if \(human\.reportUrl\) reportUrls\[/.test(meas) && !/human\.reportUrl && human\.reportType/.test(meas));
+  ok('every measurement doc records measuredAt, and a reuse copy inherits it instead of restamping',
+    /measuredAt: FieldValue\.serverTimestamp\(\)/.test(meas)
+    && /measuredAt: prior\.data\.measuredAt \|\| prior\.data\.createdAt/.test(meas)
+    && /at !== null && at > cutoff/.test(meas));
   ok('human orders refuse to fire without the webhook secret (a $10 report we could never receive)', /reportType === 'human' && !hasSecret\('INSTANTROOFER_WEBHOOK_SECRET'\)/.test(meas));
   ok("integrationStatus.configured has 'instantroofer' (the exact lowercase key the client indexes) + the webhook twin",
     /instantroofer:\s*_hasInt\('INSTANTROOFER_API_KEY'\)/.test(status) && /instantrooferWebhook:\s*_hasInt\('INSTANTROOFER_WEBHOOK_SECRET'\)/.test(status));
@@ -364,7 +395,10 @@ function finish() {
     /meta\.passThruEligible !== false/.test(v2) && /p\.code === 'SVC MEASURE-RPT'/.test(v2) && /source: 'measurement'/.test(v2));
   ok('V2 builder warns when the roof point came from a street-interpolated geocode', /coordPrecision === 'interpolated'/.test(v2));
   ok('D2D "order roof report" sends the knock pin as lat/lng', /lat: knock\.lat, lng: knock\.lng/.test(d2d));
-  ok('admin analytics excludes AI measures from pass-through revenue', /passThruEligible !== false/.test(admin));
+  ok('admin analytics excludes AI measures from pass-through REVENUE only', /billableMeas = readyMeas\.filter\(m => m\.passThruEligible !== false\)/.test(admin)
+    && /passThruRevenueEst = billableMeas\.length/.test(admin));
+  ok("...while ready30d still counts every delivered measurement (the 'is it working' tile must not read 0 under the new default provider)",
+    /const readyMeas = measurements\.filter\(m => m\.status === 'ready'\);/.test(admin) && /ready30d: readyMeas\.length/.test(admin) && /billable30d: billableMeas\.length/.test(admin));
   ok('privacy page discloses Instant Roofer as a measurement sub-processor', /Instant Roofer/.test(privacy));
   ok('this suite is in the ci-manifest node bucket', manifest.node.includes('instantroofer-measurement.test.js'));
 
