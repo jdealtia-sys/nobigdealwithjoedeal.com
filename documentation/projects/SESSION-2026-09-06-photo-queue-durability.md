@@ -183,6 +183,16 @@ exemption is *requested*, not guaranteed. `detectLoss()` exists precisely for
 the case where it is refused and the browser later clears the store: the rep is
 told photos were lost rather than discovering it weeks later.
 
+> ⚠️ **The sentence immediately above was WRONG, and it was the load-bearing
+> justification for the whole mechanism.** As shipped in this PR, `detectLoss()`
+> could not see the eviction it names: WebKit's 7-day purge clears localStorage
+> and IndexedDB *together*, so the counter died with the photos and there was
+> nothing left to compare. A second defect compounded it — the app's own
+> `purgeAccountStorage()` deleted the counter on every logout. Both are fixed on
+> `main` (#1422 moved the witness to the server, #1426 added `seedLastKnown()`),
+> and both are written up in full at the bottom of this note. Corrected in place
+> here so a reader meeting this claim first is not misled by it.
+
 ## Gates run
 
 ```
@@ -480,6 +490,14 @@ Two consequences worth keeping:
   owed. That branch is reached once per device install, so a normal boot still
   costs one `localStorage.getItem` and no network.
 
+> ⚠️ **"Once per device install" was not true when written.** A rep who had
+> never queued a photo had no counter to write and nothing seeded one, so the
+> empty-and-unknown branch re-read the marker on *every* dashboard load — for
+> the majority of reps. #1426 made the claim true by seeding a baseline (see the
+> 2026-09-06 update at the bottom). Left in place with this marker rather than
+> silently edited, because the claim was asserted in a shipped PR body and code
+> comment as well as here.
+
 **The copy is deliberately true in two readings.** From a wiped device, "not on
 this device" is literal. From the rep's *second* phone signing in for the first
 time — indistinguishable from a wipe, because both states are "empty store, no
@@ -614,3 +632,55 @@ editing a security-sensitive purge list.
   reddens 1.
 - `run-test-manifest --bucket node` 75/75 · `smoke` 3604/0 ·
   `check-js-syntax` 493 · `check-inline-html-scripts` 0/227.
+
+## Post-mortem — why the adversarial review missed both, and what changes
+
+Two defects shipped in this PR and were found by others afterwards (#1422,
+#1426). Both went past a 49-agent adversarial review that had a dedicated
+`ios-safari` dimension, a dedicated `silent-failure` dimension, and three
+independent refuters per finding. Recording why, because the review was the
+expensive part and it should have earned its cost here.
+
+**Both misses are one blind spot, in two directions.** The review's
+`invariants` dimension checked *registration*: does the new global trip
+`crm-audit.js`'s allowlist, are the script tags `defer`, is the suite in
+`ci-manifest.json`. It never asked the mirror question — **what destroys what
+I store?**
+
+- Platform direction (#1422): WebKit's ITP purge and "Clear History and
+  Website Data" delete every script-writable store an origin owns in ONE
+  operation. The review confirmed the eviction exists and that `persist()`
+  can be refused; it never asked what else the purge takes with it.
+- Repo direction (#1426): `nbd-auth.js:740` drops every localStorage key
+  matching `/^(nbd[_-]|nav-)/` outside its `KEEP` set, on every logout. The
+  counter was named `nbd_photo_queue_last_known_size` in this PR. **One grep
+  at the moment the key was named would have found it.** No platform
+  expertise required.
+
+**The fixture taught the reviewers a false model.** The eviction test cleared
+the IndexedDB table and left `disk.localStorage` intact. Every agent that read
+it absorbed "eviction = IDB only". A fixture does not merely fail to catch a
+bug — it *asserts* a model of the world to everyone who reads it, and this one
+asserted something untrue. That is why #1422 was invisible: the suite was
+green, and green against a milder hazard reads exactly like green.
+
+**The clue was in my own prose.** This note said `detectLoss()` "exists
+precisely for the case where [persist] is refused and the browser later clears
+the store". Taking that sentence literally and checking whether the code could
+deliver it is exactly how #1422 was found. The review checked code against
+code; it never checked code against the claims made *about* it.
+
+### What this changes for the next review of this kind
+
+1. Add a **destruction sweep** as a first-class dimension: for every key,
+   store, or file a change writes, enumerate everything that can delete it —
+   platform eviction, the app's own logout/purge paths, service-worker cache
+   clears, another tab — and confirm a gate covers each.
+2. Treat **every fixture as a claim about reality** and review it as such. For
+   each simulated failure, ask "is this milder than what really happens?"
+   before trusting any green run built on it.
+3. Feed the **prose** into the review as a finder input, not just the code. A
+   sentence of the form "this handles X" is a testable assertion.
+
+These are folded into the follow-up hunt this session ran; its findings, if
+any, are recorded separately.
