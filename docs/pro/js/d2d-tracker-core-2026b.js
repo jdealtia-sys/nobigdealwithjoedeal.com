@@ -2034,7 +2034,15 @@
       let followUpDate = null;
       const fupInput = data.followUpDate;
       if (fupInput) {
-        followUpDate = new Date(fupInput);
+        // A date-only string from <input type="date"> ('2026-09-04') is parsed
+        // by JS as UTC midnight, which in Eastern is 8pm the PREVIOUS day. The
+        // onFollowUpDue reminder buckets by ET calendar day, so a manually
+        // picked date used to fire the reminder a day early. Append a time so
+        // it parses as local midnight instead, matching the auto-computed
+        // branch below (which is `new Date()` + N days, i.e. already local).
+        followUpDate = /^\d{4}-\d{2}-\d{2}$/.test(String(fupInput))
+          ? new Date(fupInput + 'T00:00:00')
+          : new Date(fupInput);
       } else {
         const autoDays = DISPOSITIONS[disposition]?.autoFollowUp;
         if (autoDays) {

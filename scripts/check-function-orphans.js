@@ -93,15 +93,12 @@ function argValue(flag) {
  */
 const ALLOW_ORPHANS = {
   // 'someFunction': '2026-01-01 — why this deployed function has no export',
-  nightlyFirestoreBackup:
-    '2026-09-05 — export removed from functions/integrations/compliance.js '
-    + '(duplicate backup against a bucket that was never created; failed nightly '
-    + 'for its whole life). It is still DEPLOYED because the Firebase CLI prints '
-    + '"Deploys failed. Skipping deletes." whenever any function in the run fails, '
-    + 'and onRepSignup fails every deploy by design (NBD_DEPLOY_SKIP_LIST). So the '
-    + 'orphan is expected and this entry keeps the deploy green. REMOVE THIS ENTRY '
-    + 'once the function and its Cloud Scheduler job are actually gone from GCP — '
-    + 'that is a manual delete today, not something a deploy will do.',
+  // nightlyFirestoreBackup was carried here on 2026-09-05 while its code was
+  // removed but the function was still deployed (the CLI skips deletes whenever
+  // any function in a run fails, and onRepSignup fails every deploy by design).
+  // Jo deleted the function AND its Cloud Scheduler job by hand the same day,
+  // so the carve-out has done its job and is removed — leaving it would mask
+  // the next real orphan, which is the one thing this file exists to catch.
 };
 const ALLOW_MISSING = {
   // 'onRepSignup' is NOT listed here on purpose: it IS deployed. It sits in

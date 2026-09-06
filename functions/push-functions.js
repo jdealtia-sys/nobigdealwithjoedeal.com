@@ -15,8 +15,20 @@
  * FIRESTORE SCHEMA EXPECTATIONS:
  *   - users/{uid}/notificationPrefs { newLead, appointmentReminder, followUpDue, claimUpdate, teamActivity, d2dStreak }
  *   - users/{uid}/fcmTokens/{tokenHash} { token, device, createdAt, lastActive }
- *   - leads/{leadId} { assignedTo, claim_stage, createdAt, d2dKnocks: [], ... }
- *   - leads/{leadId}/appointments/{apptId} { startTime, title, ... }
+ *   - leads/{leadId} { assignedTo, claim_stage, createdAt, ... }
+ *   - knocks/{knockId} { userId, repId, companyId, address, homeowner,
+ *                        disposition, followUpDate, ... }   ← top-level
+ *   - appointments/{apptId} { startTime, repUid|userId, status, ... } ← top-level
+ *
+ * CORRECTED 2026-09-05. This block used to claim two nested shapes that
+ * nothing has ever written: `leads.d2dKnocks[]` and
+ * `leads/{leadId}/appointments/{apptId}`. Both onFollowUpDue and
+ * onAppointmentReminder were coded straight from these lines and so queried
+ * data that does not exist — each sent ZERO notifications until repaired
+ * (appointments earlier, follow-ups on 2026-09-05). Knocks are written by
+ * docs/pro/js/d2d-tracker-core-2026b.js via addDoc(collection(db,'knocks'));
+ * appointments by the cal.com webhook in integrations/calcom.js. If you add a
+ * reader here, verify the shape against a writer before trusting this block.
  */
 
 const { onDocumentCreated, onDocumentUpdated } = require('firebase-functions/v2/firestore');
@@ -400,105 +412,124 @@ exports.onAppointmentReminder = onSchedule(
 
 /**
  * TRIGGER: Daily follow-up reminder
- * ACTION: Send reminder for D2D knocks with autoFollowUp date = today
+ * ACTION: Push each rep one reminder covering every knock whose
+ *         followUpDate lands on today's Eastern calendar day.
+ *
+ * FIXED 2026-09-05 — this sent ZERO notifications for its entire life.
+ * It read `leads` documents and walked a `d2dKnocks[]` array looking for
+ * `knock.autoFollowUp`. Nothing writes either field:
+ *   - knocks are their own top-level `knocks` collection —
+ *     docs/pro/js/d2d-tracker-core-2026b.js does
+ *     addDoc(collection(db, 'knocks'), knockDoc)
+ *   - the stored date is `followUpDate`; `autoFollowUp` is a DISPOSITIONS
+ *     config *number of days* used client-side to compute it, never stored
+ *   - the owner is `userId` / `repId`, not `assignedTo`
+ * `git grep d2dKnocks` matched this file and nothing else — the reader was
+ * the only mention of its own data model.
+ *
+ * This is precisely the bug onAppointmentReminder above already carried and
+ * had repaired (it read `leads.appointments[]`, a shape nothing wrote). The
+ * same repair was never applied to this sibling.
+ *
+ * The query mirrors that fix: a range on the single field `followUpDate`
+ * needs no composite index. The window is deliberately wider than one day
+ * and the exact "is this today in ET?" test runs in code via etYmd(), the
+ * house convention (functions/monthly-overhead-logic.js:13). That avoids
+ * rebuilding Eastern midnight as a UTC instant — which the old code got
+ * wrong anyway: `new Date(ymd + 'T00:00:00')` is SERVER-local midnight,
+ * i.e. UTC on Cloud Functions, not Eastern.
  */
+const FOLLOWUP_TZ = 'America/New_York';
+
+/** Firestore Timestamp | Date | string → 'YYYY-MM-DD' in ET, or null. */
+function etYmd(d) {
+  if (d == null) return null;
+  const js = typeof d.toDate === 'function' ? d.toDate() : new Date(d);
+  if (isNaN(js.getTime())) return null;
+  return js.toLocaleDateString('en-CA', { timeZone: FOLLOWUP_TZ });
+}
+
 exports.onFollowUpDue = onSchedule(
   {
     schedule: 'every day 08:00',
-    // W104: Cincinnati = Eastern, not Central. Was scheduling
-    // 8 AM Central = 9 AM Eastern, which made the daily reminder
-    // fire an hour later than reps expected.
-    timeZone: 'America/New_York'
+    // W104: Cincinnati is Eastern, not Central. Note this only controls
+    // when the function FIRES; `new Date()` inside still returns UTC, which
+    // is why the ET comparison below goes through etYmd() rather than
+    // getHours()/setHours().
+    timeZone: FOLLOWUP_TZ
   },
-  async (context) => {
-    // W104: compute "today" in Eastern Time so the date comparison
-    // matches the user's wall-clock view of "today". The handler
-    // runs on UTC servers, so `new Date(); setHours(0,0,0,0)`
-    // returns UTC midnight — not Eastern midnight. A lead with
-    // autoFollowUp = '2026-05-06' (Eastern date) would be missed
-    // when the function runs at 08:00 ET = 12:00 UTC because
-    // setHours(0) would make 'today' = 2026-05-06T00:00:00 UTC =
-    // 2026-05-05 20:00 Eastern. Use Intl.DateTimeFormat to get the
-    // Eastern y/m/d, then construct the Eastern midnight from it.
-    function easternMidnight() {
-      const fmt = new Intl.DateTimeFormat('en-CA', {
-        timeZone: 'America/New_York',
-        year: 'numeric', month: '2-digit', day: '2-digit',
-      });
-      // 'en-CA' returns 'YYYY-MM-DD' which is what we want.
-      const ymd = fmt.format(new Date()); // e.g., '2026-05-06'
-      // Construct local-time midnight at server. The exact UTC
-      // offset doesn't matter for date-comparison since both
-      // sides use the same transform.
-      return new Date(ymd + 'T00:00:00');
-    }
-    const today = easternMidnight();
-    const tomorrow = new Date(today);
-    tomorrow.setDate(tomorrow.getDate() + 1);
+  async () => {
+    const now = new Date();
+    const todayEt = etYmd(now);
 
-    logger.info('[Push] Checking for follow-ups due (Eastern) on:', today.toDateString());
+    // Bound the read without needing exact ET-midnight instants: anything
+    // whose followUpDate falls on today's ET date is within ±36h of now,
+    // whatever the current UTC offset. The precise day match is below.
+    const lo = new Date(now.getTime() - 36 * 3600 * 1000);
+    const hi = new Date(now.getTime() + 36 * 3600 * 1000);
+
+    logger.info('[Push] Checking follow-ups due on ET date', { todayEt });
 
     try {
-      const leadsRef = db.collection('leads');
-      // W104: scope query to leads with d2dKnocks set, narrowing
-      // the read footprint. Falls back to full scan if the field
-      // index isn't present (typical for new accounts).
-      let leadsSnap;
-      try {
-        leadsSnap = await leadsRef.where('d2dKnocks', '!=', null).get();
-      } catch (idxErr) {
-        logger.warn('[Push] d2dKnocks index missing; full scan', { msg: idxErr.message });
-        leadsSnap = await leadsRef.get();
-      }
-      
-      const sendPromises = [];
-      
-      leadsSnap.forEach(leadDoc => {
-        const leadData = leadDoc.data();
-        const leadId = leadDoc.id;
-        
-        if (!leadData.assignedTo) return;
-        if (!leadData.d2dKnocks || !Array.isArray(leadData.d2dKnocks)) return;
-        
-        // Check for knockswith auto follow-up due today
-        leadData.d2dKnocks.forEach((knock, idx) => {
-          if (!knock.autoFollowUp) return;
-          
-          const followUpDate = new Date(knock.autoFollowUp);
-          followUpDate.setHours(0, 0, 0, 0);
-          
-          if (followUpDate.getTime() === today.getTime()) {
-            sendPromises.push(
-              (async () => {
-                const uid = leadData.assignedTo;
-                const enabled = await isNotificationEnabled(uid, 'followUpDue');
-                
-                if (!enabled) return;
-                
-                const title = 'Follow-Up Due Today';
-                const body = `${leadData.name || 'A lead'} has a follow-up due today`;
-                
-                const result = await sendPushNotification(uid, title, body, {
-                  type: 'followUpDue',
-                  leadId: leadId,
-                  followUpId: `knock-${idx}`,
-                  name: leadData.name,
-                  clickUrl: `/pro/dashboard.html?tab=d2d&leadId=${leadId}`,
-                  notificationId: `followup-${leadId}`
-                });
-                
-                if (result.sent > 0) {
-                  await logNotificationSent(uid, 'followUpDue', { leadId });
-                }
-              })()
-            );
-          }
+      const snap = await db.collection('knocks')
+        .where('followUpDate', '>=', Timestamp.fromDate(lo))
+        .where('followUpDate', '<=', Timestamp.fromDate(hi))
+        .get();
+
+      // One push per REP, not one per knock. A rep working a route can
+      // easily have several due the same morning, and N buzzes for N knocks
+      // is how a useful reminder becomes a muted one.
+      const byRep = new Map(); // uid -> [{ id, address, homeowner }]
+      snap.forEach((doc) => {
+        const k = doc.data();
+        if (etYmd(k.followUpDate) !== todayEt) return;
+        const uid = k.userId || k.repId;
+        if (!uid) return;
+        if (!byRep.has(uid)) byRep.set(uid, []);
+        byRep.get(uid).push({
+          id: doc.id,
+          address: k.address || '',
+          homeowner: k.homeowner || '',
         });
       });
-      
-      await Promise.allSettled(sendPromises);
-      logger.info('[Push] Follow-up reminder check complete');
-      
+
+      const sends = [...byRep.entries()].map(([uid, items]) => (async () => {
+        const enabled = await isNotificationEnabled(uid, 'followUpDue');
+        if (!enabled) return;
+
+        const first = items[0];
+        const who = first.homeowner || first.address || 'A door';
+        const title = items.length === 1
+          ? 'Follow-Up Due Today'
+          : `${items.length} Follow-Ups Due Today`;
+        const body = items.length === 1
+          ? `${who} — follow-up due today`
+          : `${who} and ${items.length - 1} more due today`;
+
+        const result = await sendPushNotification(uid, title, body, {
+          type: 'followUpDue',
+          knockId: first.id,
+          count: String(items.length),
+          clickUrl: '/pro/dashboard.html?tab=d2d',
+          // Deterministic per rep per ET day, so a retry of the same run
+          // replaces the tray entry instead of stacking a second buzz.
+          notificationId: `followup-${uid}-${todayEt}`,
+        });
+
+        if (result && result.sent > 0) {
+          await logNotificationSent(uid, 'followUpDue', {
+            count: items.length,
+            knockIds: items.slice(0, 20).map((i) => i.id),
+          });
+        }
+      })());
+
+      await Promise.allSettled(sends);
+
+      const dueToday = [...byRep.values()].reduce((n, a) => n + a.length, 0);
+      logger.info('[Push] Follow-up reminder check complete', {
+        scanned: snap.size, dueToday, reps: byRep.size,
+      });
     } catch (err) {
       logger.error('[Push] Error checking follow-ups:', err);
     }
