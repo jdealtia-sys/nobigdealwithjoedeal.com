@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="nbd-original">
+<head>
+  <meta charset="UTF-8">
+  <!-- user-scalable is deliberately NOT disabled here. The old sign.html set
+       maximum-scale=1.0 + user-scalable=no, so a homeowner could not pinch a
+       dense contract on a phone. This page ships its own pan/zoom, but the
+       browser's own gesture stays available as a fallback and for accessibility. -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="robots" content="noindex,nofollow">
+  <meta name="theme-color" content="#1a1a2e">
+  <title>Review &amp; Sign</title>
+  <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/esign.css?v=1">
+</head>
+<body>
+  <header class="es-bar">
+    <div class="es-brand" id="esBrand">No Big Deal Home Solutions</div>
+    <div class="es-title" id="esTitle"></div>
+    <div class="es-zoom" id="esZoomCtl" hidden>
+      <button type="button" id="esZoomOut" aria-label="Zoom out">−</button>
+      <span id="esZoomPct">100%</span>
+      <button type="button" id="esZoomIn" aria-label="Zoom in">+</button>
+      <button type="button" id="esZoomFit" aria-label="Fit page to width">Fit</button>
+    </div>
+  </header>
+
+  <main class="es-stage" id="esStage">
+    <div class="es-scroll" id="esScroll">
+      <div class="es-doc" id="esDoc"><!-- page canvases + field overlays --></div>
+    </div>
+
+    <div class="es-msg" id="esMsg">
+      <div class="es-card">
+        <div class="es-icon" id="esMsgIcon"><span class="es-spin"></span></div>
+        <h2 id="esMsgTitle">Loading your document…</h2>
+        <p id="esMsgBody">One moment while we get everything ready to sign.</p>
+      </div>
+    </div>
+  </main>
+
+  <footer class="es-foot" id="esFoot" hidden>
+    <button type="button" class="es-next" id="esNext">Start</button>
+    <div class="es-progress"><span id="esProgress">0 of 0</span> complete</div>
+    <button type="button" class="es-finish" id="esFinish" disabled>Finish</button>
+  </footer>
+
+  <!-- Field entry sheet: signature / initials pad, or a typed value. -->
+  <div class="es-sheet" id="esSheet" hidden>
+    <div class="es-sheet-panel" role="dialog" aria-modal="true" aria-labelledby="esSheetTitle">
+      <div class="es-sheet-head">
+        <h3 id="esSheetTitle">Sign here</h3>
+        <button type="button" class="es-x" id="esSheetClose" aria-label="Close">✕</button>
+      </div>
+
+      <div class="es-tabs" id="esTabs">
+        <button type="button" data-mode="draw" class="on">Draw</button>
+        <button type="button" data-mode="type">Type</button>
+      </div>
+
+      <div class="es-pad-wrap" id="esPadWrap">
+        <canvas id="esPad" class="es-pad"></canvas>
+        <div class="es-pad-hint" id="esPadHint">Draw with your finger</div>
+      </div>
+
+      <div class="es-type-wrap" id="esTypeWrap" hidden>
+        <input type="text" id="esTypeInput" class="es-input" placeholder="Type your full name" autocomplete="name">
+        <div class="es-type-preview" id="esTypePreview" aria-hidden="true"></div>
+      </div>
+
+      <div class="es-text-wrap" id="esTextWrap" hidden>
+        <input type="text" id="esTextInput" class="es-input" placeholder="">
+      </div>
+
+      <div class="es-sheet-foot">
+        <button type="button" class="es-ghost" id="esUndo">Undo</button>
+        <button type="button" class="es-ghost" id="esClear">Clear</button>
+        <button type="button" class="es-apply" id="esApply">Apply</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Consent + submit. ESIGN/UETA wants an affirmative record that the
+       signer agreed to transact electronically; the old path captured none. -->
+  <div class="es-sheet" id="esDone" hidden>
+    <div class="es-sheet-panel" role="dialog" aria-modal="true" aria-labelledby="esDoneTitle">
+      <div class="es-sheet-head">
+        <h3 id="esDoneTitle">One last step</h3>
+        <button type="button" class="es-x" id="esDoneClose" aria-label="Close">✕</button>
+      </div>
+      <div class="es-consent">
+        <label class="es-check">
+          <input type="checkbox" id="esConsent">
+          <span id="esConsentText"></span>
+        </label>
+        <label class="es-namewrap">
+          <span>Your full legal name</span>
+          <input type="text" id="esSignerName" class="es-input" autocomplete="name" placeholder="Full name">
+        </label>
+        <p class="es-fineprint">A copy of the signed document will be sent to your rep, and you can ask them for a copy at any time.</p>
+        <div class="es-err" id="esDoneErr" hidden></div>
+      </div>
+      <div class="es-sheet-foot">
+        <button type="button" class="es-ghost" id="esDoneBack">Back</button>
+        <button type="button" class="es-apply" id="esSubmit" disabled>Submit signature</button>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="js/esign-sign.js?v=1"></script>
+</body>
+</html>

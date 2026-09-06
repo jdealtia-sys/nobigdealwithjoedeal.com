@@ -260,9 +260,25 @@
   // ── Public API ────────────────────────────────────────────────────
   var _inflight = null;
 
+  /**
+   * Point the "Prepare for signature" link at THIS customer.
+   *
+   * The envelope signing page needs a lead to attach the document to, and
+   * customer.html is static markup under a CSP that forbids inline scripts —
+   * so the href is stamped here, where the lead id is already known. Without
+   * it the page opens with no customer and refuses the upload.
+   */
+  function stampEsignLink(id) {
+    try {
+      var a = document.getElementById('esignSetupLink');
+      if (a && id) a.href = '/pro/esign-setup?lead=' + encodeURIComponent(id);
+    } catch (_) {}
+  }
+
   async function load(leadId) {
     var id = leadId || window._customerId;
     if (!id) return [];
+    stampEsignLink(id);
     try {
       _inflight = fetchAll(id);
       window._customerDocs = await _inflight;

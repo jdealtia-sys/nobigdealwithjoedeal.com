@@ -1660,6 +1660,24 @@ body.nbd-photo-selecting .nbd-photo-checkbox,
   <div class="tab-content" id="documentsTab" data-label="Documents">
     <div style="max-width:1200px;margin:0 auto;padding:20px;">
 
+      <!-- SEND ANY PDF FOR SIGNATURE (envelope signing).
+           The generator below can only produce OUR templates. This is the
+           path for a supplier form, an insurance scope, or a manufacturer
+           warranty — anything that arrives as a PDF. href is stamped with the
+           current lead by customer-documents.js (no inline script: CSP). -->
+      <div class="panel" style="margin-bottom:20px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;">
+          <div>
+            <div class="panel-title" style="margin:0 0 2px;">Send a PDF for signature</div>
+            <div style="font-size:11px;color:var(--m);">Upload any PDF, drop signature and date boxes on it, and text or email the signer one link.</div>
+          </div>
+          <a class="btn btn-orange" id="esignSetupLink" href="/pro/esign-setup"
+             style="font-size:11px;padding:8px 16px;text-decoration:none;white-space:nowrap;">
+            &#9997;&#65039; Prepare for signature
+          </a>
+        </div>
+      </div>
+
       <!-- DOCUMENT GENERATOR -->
       <div class="panel" style="margin-bottom:20px;">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:8px;">

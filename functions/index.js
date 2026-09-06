@@ -324,6 +324,16 @@ Object.assign(exports, portalFunctions);
 const remoteSigningFunctions = require('./remote-signing');
 Object.assign(exports, remoteSigningFunctions);
 
+// PDF-native envelope signing: a rep uploads ANY PDF (supplier form,
+// insurance scope, manufacturer warranty), places typed fields on it, and the
+// homeowner completes it from a single-use link — pan/zoom on a real PDF, out
+// comes a FLATTENED signed PDF. Same token model as remote-signing.js above,
+// which it sits alongside rather than replaces: that path signs generated
+// HTML and is the one the doc generator is wired to. See functions/
+// esign-envelope.js and the pure stamping engine in functions/esign-stamp.js.
+const esignEnvelopeFunctions = require('./esign-envelope');
+Object.assign(exports, esignEnvelopeFunctions);
+
 // Close Board deal acceptance (1a): no-login remote accept of a shared deal
 // room (deal_accept_tokens + /deal/<token> + /api/deal-accept). Same
 // single-use token model as remote-signing.js. See functions/deal-acceptance.js.

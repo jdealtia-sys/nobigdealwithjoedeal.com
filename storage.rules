@@ -101,6 +101,31 @@ service firebase.storage {
       allow delete: if isOwner(uid) || isAdmin();
     }
 
+    // ── E-SIGN ENVELOPES ───────────────────────────────
+    // Path: esign/{uid}/{leadId}/{envelopeId}/source.pdf   (rep uploads)
+    //       esign/{uid}/{leadId}/{envelopeId}/signed.pdf   (function writes)
+    //
+    // PDF ONLY, deliberately: documents/ is isHtmlOnly() and the envelope
+    // system is PDF end to end. Narrower than isDocType() — an envelope has
+    // exactly one source format, so accepting .doc/.csv/images here would
+    // only widen what a compromised rep session could stage.
+    //
+    // NO public read. The signer never touches Storage: getEsignEnvelope
+    // streams the bytes through the Cloud Function against a single-use
+    // token. That is the deliberate difference from the photo pipeline,
+    // where permanent download tokens made every object URL-public and
+    // bypassed these rules entirely. Do not "simplify" this by handing the
+    // signer a download URL.
+    match /esign/{uid}/{allPaths=**} {
+      allow read: if isOwner(uid) || isAdmin();
+      allow write: if isOwner(uid)
+        && request.resource.size < 25 * 1024 * 1024
+        && request.resource != null
+        && request.resource.contentType != null
+        && request.resource.contentType.matches('application/pdf');
+      allow delete: if isOwner(uid) || isAdmin();
+    }
+
     // ── DEAL ROOMS ─────────────────────────────────────
     // close-board.js uploadDealPage() uploads the shareable deal page as
     // text/html — isDocType() does NOT match text/html, so every

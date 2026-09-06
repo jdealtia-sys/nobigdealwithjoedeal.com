@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="nbd-original">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="robots" content="noindex,nofollow">
+  <meta name="theme-color" content="#1a1a2e">
+  <title>Prepare for Signature</title>
+  <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/esign.css?v=1">
+  <link rel="stylesheet" href="css/esign-setup.css?v=1">
+</head>
+<body>
+  <header class="es-bar">
+    <div class="es-brand">Prepare for Signature</div>
+    <div class="es-title" id="suTitle"></div>
+    <div class="es-zoom" id="suZoomCtl" hidden>
+      <button type="button" id="suZoomOut" aria-label="Zoom out">−</button>
+      <span id="suZoomPct">100%</span>
+      <button type="button" id="suZoomIn" aria-label="Zoom in">+</button>
+      <button type="button" id="suZoomFit" aria-label="Fit page to width">Fit</button>
+    </div>
+  </header>
+
+  <!-- Upload step -->
+  <section class="su-drop" id="suDrop">
+    <div class="su-drop-card">
+      <h2>Upload a PDF to send for signature</h2>
+      <p>Any PDF works — a supplier form, an insurance scope, a manufacturer warranty, or a contract you generated here.</p>
+      <label class="su-file">
+        <input type="file" id="suFile" accept="application/pdf,.pdf">
+        <span>Choose a PDF</span>
+      </label>
+      <div class="su-err" id="suDropErr" hidden></div>
+    </div>
+  </section>
+
+  <!-- Placement step -->
+  <section class="su-work" id="suWork" hidden>
+    <div class="su-tools" id="suTools">
+      <span class="su-tools-label">Place:</span>
+      <button type="button" class="su-tool on" data-type="signature">Signature</button>
+      <button type="button" class="su-tool" data-type="initials">Initials</button>
+      <button type="button" class="su-tool" data-type="date">Date</button>
+      <button type="button" class="su-tool" data-type="text">Text</button>
+      <button type="button" class="su-tool" data-type="checkbox">Checkbox</button>
+      <span class="su-sep"></span>
+      <button type="button" class="su-action" id="suAuto">✨ Auto-detect fields</button>
+      <button type="button" class="su-action" id="suClear">Clear all</button>
+      <span class="su-count" id="suCount">0 fields</span>
+    </div>
+
+    <div class="es-stage">
+      <div class="es-scroll" id="suScroll">
+        <div class="es-doc" id="suDoc"></div>
+      </div>
+      <div class="es-msg" id="suMsg" hidden>
+        <div class="es-card">
+          <div class="es-icon"><span class="es-spin"></span></div>
+          <h2 id="suMsgTitle">Working…</h2>
+          <p id="suMsgBody"></p>
+        </div>
+      </div>
+    </div>
+
+    <footer class="su-foot">
+      <div class="su-signer">
+        <input type="text" id="suSignerName" class="es-input" placeholder="Signer name" autocomplete="off">
+        <input type="email" id="suSignerEmail" class="es-input" placeholder="Signer email" autocomplete="off">
+      </div>
+      <button type="button" class="es-ghost" id="suSave">Save draft</button>
+      <button type="button" class="es-apply" id="suSend">Send for signature</button>
+    </footer>
+    <div class="su-status" id="suStatus" hidden></div>
+  </section>
+
+  <!-- Sent: show the link so it can be texted or handed over -->
+  <div class="es-sheet" id="suSent" hidden>
+    <div class="es-sheet-panel">
+      <div class="es-sheet-head">
+        <h3>Ready to sign</h3>
+        <button type="button" class="es-x" id="suSentClose" aria-label="Close">✕</button>
+      </div>
+      <p class="es-fineprint" id="suSentNote"></p>
+      <input type="text" id="suLink" class="es-input" readonly>
+      <div class="es-sheet-foot">
+        <button type="button" class="es-ghost" id="suCopy">Copy link</button>
+        <a class="es-apply su-openlink" id="suOpen" target="_blank" rel="noopener">Open it</a>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/esign-autodetect.js?v=1" defer></script>
+  <script type="module" src="js/esign-setup.js?v=1"></script>
+</body>
+</html>

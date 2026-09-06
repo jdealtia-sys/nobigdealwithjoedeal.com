@@ -1048,14 +1048,24 @@ window.NBDDocGen = {
           background: white;
         }
 
+        /* min-height, NOT height: a fixed 11in box with overflow:hidden
+           silently CLIPPED everything past one page — including the
+           signature block, which renderContract emits last. Measured at
+           375px: content 1799px tall in a 559px box, sig block at y=1733,
+           container bottom y=1122, and nothing to scroll to. Remote
+           signing could therefore never be completed on any screen size.
+           @media print already overrides this with height:auto, which is
+           why print/PDF output looked correct and the clip went unseen.
+           The paper look (white page, shadow, letter width) is unchanged;
+           the box now grows to fit its content instead of amputating it. */
         .document-container {
           max-width: 8.5in;
-          height: 11in;
+          min-height: 11in;
           margin: 20px auto;
           padding: 0.5in;
           background: white;
           box-shadow: 0 2px 8px rgba(0,0,0,0.15);
-          overflow: hidden;
+          overflow: visible;
           display: flex;
           flex-direction: column;
         }
@@ -1166,9 +1176,12 @@ window.NBDDocGen = {
           letter-spacing: .04em;
         }
 
+        /* The second half of the clip: a flex child with overflow:hidden
+           inside the fixed-height container above. Both had to go for the
+           signature block to be reachable. */
         .document-content {
           flex: 1;
-          overflow: hidden;
+          overflow: visible;
           font-size: 11px;
         }
 
@@ -2024,7 +2037,11 @@ window.NBDDocGen = {
             <!-- ACCEPTANCE -->
             <div class="section">
               <div class="section-title">Acceptance</div>
-              ${this.renderSignatureBlock(['Homeowner', this._repSignerLabel()])}
+              ${this.renderSignatureBlock(
+                (Array.isArray(data.signers) && data.signers.length)
+                  ? data.signers
+                  : ['Homeowner', this._repSignerLabel()]
+              )}
             </div>
           </div>
 
@@ -2367,7 +2384,11 @@ window.NBDDocGen = {
             <!-- INSPECTOR INFO -->
             <div class="section">
               <div class="section-title">Inspector Information</div>
-              ${this.renderSignatureBlock(['Certified NBD Inspector'])}
+              ${this.renderSignatureBlock(
+                (Array.isArray(data.signers) && data.signers.length)
+                  ? data.signers
+                  : ['Certified NBD Inspector']
+              )}
             </div>
           </div>
 

@@ -1,0 +1,91 @@
+/* esign-setup.css — rep-side field placement. Layers on esign.css, which
+   supplies the page/canvas/overlay geometry so the rep places fields against
+   exactly the geometry the homeowner will see. */
+
+.su-drop { flex: 1 1 auto; display: flex; align-items: center; justify-content: center; padding: 24px; }
+.su-drop-card { max-width: 460px; text-align: center; background: #fff; border: 1px solid var(--es-line); border-radius: 14px; padding: 26px 22px; }
+.su-drop-card h2 { margin: 0 0 8px; font-size: 19px; }
+.su-drop-card p { color: var(--es-muted); font-size: 14px; line-height: 1.5; margin: 0 0 18px; }
+.su-file { display: inline-block; position: relative; overflow: hidden; }
+.su-file input { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; }
+.su-file span { display: inline-block; background: var(--es-orange); color: #fff; border-radius: 10px; padding: 12px 22px; font-weight: 800; font-size: 15px; cursor: pointer; }
+.su-err { margin-top: 14px; background: #fef3f2; border: 1px solid #fda29b; color: var(--es-bad); border-radius: 9px; padding: 10px; font-size: 13px; text-align: left; }
+
+.su-work { flex: 1 1 auto; display: flex; flex-direction: column; min-height: 0; }
+
+.su-tools { flex: 0 0 auto; background: #fff; border-bottom: 1px solid var(--es-line); padding: 8px 10px; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.su-tools-label { font-size: 12px; font-weight: 800; color: var(--es-muted); text-transform: uppercase; letter-spacing: .04em; }
+.su-tool, .su-action {
+  border: 1px solid var(--es-line); background: #fff; border-radius: 8px;
+  padding: 8px 12px; font-size: 13px; font-weight: 700; color: var(--es-ink);
+  cursor: pointer; min-height: 38px;
+}
+.su-tool.on { background: var(--es-ink); border-color: var(--es-ink); color: #fff; }
+.su-action { color: var(--es-muted); }
+.su-action:hover { color: var(--es-ink); }
+.su-sep { width: 1px; height: 24px; background: var(--es-line); margin: 0 4px; }
+.su-count { margin-left: auto; font-size: 12px; color: var(--es-muted); font-weight: 700; }
+
+/* The stage fills the space between toolbar and footer. */
+.su-work .es-stage { flex: 1 1 auto; min-height: 0; }
+/* Drawing a box must not pan the page underneath. */
+.su-work .es-scroll { touch-action: none; }
+.su-page-hit { position: absolute; inset: 0; cursor: crosshair; }
+
+/* Placed field — rep view. Distinct from the signer's dashed affordance. */
+.su-field {
+  position: absolute;
+  border: 1.5px solid #1d4ed8;
+  background: rgba(29, 78, 216, .10);
+  border-radius: 3px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 11px; font-weight: 800; color: #1e40af;
+  overflow: visible;
+  cursor: move;
+  user-select: none;
+}
+.su-field.is-auto { border-style: dashed; border-color: #7c3aed; background: rgba(124, 58, 237, .10); color: #5b21b6; }
+.su-field.is-optional { border-width: 1px; opacity: .82; }
+.su-field .su-lbl { pointer-events: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding: 0 3px; }
+.su-field .su-del {
+  position: absolute; top: -10px; right: -10px;
+  width: 22px; height: 22px; border-radius: 50%;
+  border: 1px solid var(--es-line); background: #fff; color: var(--es-bad);
+  font-size: 13px; line-height: 1; cursor: pointer; display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 1px 3px rgba(16,24,40,.2);
+}
+.su-field .su-req {
+  position: absolute; top: -10px; left: -8px;
+  border-radius: 9px; border: 1px solid var(--es-line); background: #fff;
+  font-size: 9px; font-weight: 800; padding: 2px 5px; cursor: pointer; line-height: 1.2;
+  box-shadow: 0 1px 3px rgba(16,24,40,.2);
+}
+.su-field .su-req.req { color: var(--es-bad); }
+.su-field .su-req.opt { color: var(--es-muted); }
+.su-field .su-grip {
+  position: absolute; right: -7px; bottom: -7px;
+  width: 16px; height: 16px; border-radius: 3px;
+  border: 1px solid #1d4ed8; background: #fff; cursor: nwse-resize;
+}
+/* The box being drawn right now. */
+.su-ghost { position: absolute; border: 1.5px dashed #1d4ed8; background: rgba(29,78,216,.08); pointer-events: none; border-radius: 3px; }
+
+.su-foot {
+  flex: 0 0 auto; background: #fff; border-top: 1px solid var(--es-line);
+  padding: 10px 12px; padding-bottom: calc(10px + env(safe-area-inset-bottom, 0px));
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+}
+.su-signer { display: flex; gap: 8px; flex: 1 1 320px; min-width: 200px; }
+.su-signer .es-input { min-height: 40px; font-size: 14px; padding: 9px 10px; }
+.su-foot .es-apply { flex: 0 0 auto; }
+
+.su-status { flex: 0 0 auto; padding: 8px 12px; font-size: 13px; background: #eff8f3; color: var(--es-good); border-top: 1px solid #cdeadd; }
+.su-status.bad { background: #fef3f2; color: var(--es-bad); border-top-color: #fda29b; }
+
+.su-openlink { text-decoration: none; text-align: center; display: flex; align-items: center; justify-content: center; }
+
+@media (max-width: 560px) {
+  .su-tools { gap: 4px; }
+  .su-tool, .su-action { padding: 7px 9px; font-size: 12px; }
+  .su-signer { flex-basis: 100%; }
+}

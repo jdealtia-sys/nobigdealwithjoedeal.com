@@ -1,0 +1,198 @@
+/* esign.css — signer-facing signing surface.
+   Shared by /pro/esign.html (signer) and /pro/esign-setup.html (rep), so the
+   rep places fields against the same geometry the homeowner will see. */
+
+:root {
+  --es-orange: #e8720c;
+  --es-ink: #1a1a2e;
+  --es-paper: #eceff3;
+  --es-line: #d9dee6;
+  --es-muted: #667085;
+  --es-good: #16794a;
+  --es-bad: #b42318;
+  --es-bar: 54px;
+  --es-foot: 62px;
+}
+
+* { box-sizing: border-box; }
+
+/* A class that sets `display` outranks the UA stylesheet's [hidden] rule, so
+   .es-sheet[hidden] still laid out — two full-screen scrims sat over the
+   document swallowing every tap. Anything toggled with .hidden must win. */
+[hidden] { display: none !important; }
+html, body { margin: 0; height: 100%; overscroll-behavior: none; }
+body {
+  font-family: 'Barlow', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+  background: var(--es-paper);
+  color: var(--es-ink);
+  display: flex;
+  flex-direction: column;
+  -webkit-text-size-adjust: 100%;
+}
+
+/* ── top bar ─────────────────────────────────────────────── */
+.es-bar {
+  flex: 0 0 auto;
+  background: #fff;
+  border-bottom: 1px solid var(--es-line);
+  padding: 8px 12px;
+  padding-top: calc(8px + env(safe-area-inset-top, 0px));
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: var(--es-bar);
+}
+.es-brand { font-weight: 800; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.es-title { color: var(--es-muted); font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1 1 auto; }
+.es-zoom { display: flex; align-items: center; gap: 2px; flex: 0 0 auto; }
+.es-zoom button {
+  min-width: 34px; min-height: 34px;      /* 44px total with padding on touch */
+  border: 1px solid var(--es-line); background: #fff; border-radius: 8px;
+  font-size: 15px; font-weight: 700; color: var(--es-ink); cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.es-zoom button:active { background: #f2f4f7; }
+#esZoomPct { font-size: 12px; color: var(--es-muted); min-width: 40px; text-align: center; font-variant-numeric: tabular-nums; }
+
+/* ── document stage ──────────────────────────────────────── */
+.es-stage { flex: 1 1 auto; position: relative; overflow: hidden; }
+.es-scroll {
+  position: absolute; inset: 0;
+  overflow: auto;
+  -webkit-overflow-scrolling: touch;
+  /* Pinch-zoom is implemented in JS against the canvas render scale, so the
+     browser must not also scale the layer — that would blur the text and
+     fight the field overlays. */
+  touch-action: pan-x pan-y;
+  background: var(--es-paper);
+}
+/* `safe center` is load-bearing, not a nicety. With plain `align-items:
+   center`, a page wider than the scroll container overflows on BOTH sides and
+   the LEFT overflow is unreachable — scrollLeft cannot go below 0. Measured at
+   156% zoom: the canvas sat at x=-318 with scrollLeft already 0, so the left
+   edge of the document could be neither seen nor tapped. `safe` falls back to
+   flex-start exactly when overflow would occur, which is the behaviour we
+   want; browsers without it simply keep the old centring. */
+.es-doc {
+  padding: 14px 0 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  align-items: safe center;
+  gap: 14px;
+  min-width: 100%;
+}
+
+.es-page { position: relative; background: #fff; box-shadow: 0 1px 4px rgba(16, 24, 40, .14); }
+.es-page canvas { display: block; }
+
+/* Field overlay layer, exactly co-extensive with the rendered canvas so a
+   field's CSS position IS its viewport position. pointer-events pass through
+   the layer itself — only the field buttons are targets — so panning by
+   dragging the page still works between fields. */
+.es-layer { position: absolute; inset: 0; pointer-events: none; }
+.es-layer .es-field { pointer-events: auto; }
+
+/* ── field overlays ──────────────────────────────────────── */
+.es-field {
+  position: absolute;
+  border: 2px dashed var(--es-orange);
+  background: rgba(232, 114, 12, .10);
+  border-radius: 4px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 11px; font-weight: 700; color: #8a4708;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  overflow: hidden;
+  text-align: center;
+  padding: 0 2px;
+}
+.es-field:focus-visible { outline: 3px solid #1d4ed8; outline-offset: 2px; }
+.es-field.is-optional { border-style: dotted; }
+.es-field.is-done { border: 1.5px solid var(--es-good); background: rgba(22, 121, 74, .06); color: transparent; }
+.es-field.is-target { box-shadow: 0 0 0 4px rgba(232, 114, 12, .30); }
+.es-field img { width: 100%; height: 100%; object-fit: contain; }
+.es-field .es-val {
+  width: 100%; color: var(--es-ink); font-weight: 500;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  font-size: inherit; line-height: 1.1;
+}
+.es-field .es-tick { color: var(--es-good); font-size: 90%; font-weight: 800; }
+
+/* ── messages ────────────────────────────────────────────── */
+.es-msg { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; padding: 24px; background: var(--es-paper); }
+.es-card { max-width: 420px; text-align: center; }
+.es-icon { font-size: 34px; margin-bottom: 10px; }
+.es-msg h2 { margin: 0 0 8px; font-size: 19px; }
+.es-msg p { color: var(--es-muted); font-size: 14px; line-height: 1.5; margin: 0; }
+.es-spin {
+  width: 18px; height: 18px; border: 2px solid rgba(0, 0, 0, .15);
+  border-top-color: var(--es-orange); border-radius: 50%;
+  display: inline-block; animation: es-sp .7s linear infinite; vertical-align: middle;
+}
+@keyframes es-sp { to { transform: rotate(360deg); } }
+
+/* ── bottom action bar ───────────────────────────────────── */
+.es-foot {
+  flex: 0 0 auto; background: #fff; border-top: 1px solid var(--es-line);
+  padding: 10px 12px;
+  padding-bottom: calc(10px + env(safe-area-inset-bottom, 0px));
+  display: flex; align-items: center; gap: 10px; min-height: var(--es-foot);
+}
+.es-progress { flex: 1 1 auto; font-size: 12px; color: var(--es-muted); text-align: center; }
+.es-progress span { font-weight: 800; color: var(--es-ink); font-variant-numeric: tabular-nums; }
+.es-next, .es-finish {
+  border: 0; border-radius: 10px; padding: 12px 18px; font-size: 15px; font-weight: 800;
+  cursor: pointer; min-height: 44px; -webkit-tap-highlight-color: transparent;
+}
+.es-next { background: #eef1f6; color: var(--es-ink); }
+.es-finish { background: var(--es-orange); color: #fff; }
+.es-finish:disabled { opacity: .5; cursor: default; }
+
+/* ── bottom sheets ───────────────────────────────────────── */
+.es-sheet { position: fixed; inset: 0; background: rgba(16, 24, 40, .45); display: flex; align-items: flex-end; justify-content: center; z-index: 40; }
+.es-sheet-panel {
+  background: #fff; width: 100%; max-width: 560px;
+  border-radius: 16px 16px 0 0; padding: 14px 16px;
+  padding-bottom: calc(14px + env(safe-area-inset-bottom, 0px));
+  max-height: 88vh; max-height: 88dvh; overflow: auto;
+}
+.es-sheet-head { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+.es-sheet-head h3 { margin: 0; font-size: 17px; flex: 1 1 auto; }
+.es-x { border: 0; background: transparent; font-size: 18px; color: var(--es-muted); cursor: pointer; min-width: 44px; min-height: 44px; }
+
+.es-tabs { display: flex; gap: 6px; margin-bottom: 10px; }
+.es-tabs button {
+  flex: 1 1 0; padding: 9px 10px; border: 1px solid var(--es-line); background: #fff;
+  border-radius: 9px; font-size: 14px; font-weight: 700; color: var(--es-muted);
+  cursor: pointer; min-height: 42px;
+}
+.es-tabs button.on { background: var(--es-ink); border-color: var(--es-ink); color: #fff; }
+
+.es-pad-wrap { position: relative; }
+.es-pad {
+  width: 100%; height: 180px; border: 1px solid var(--es-line);
+  border-radius: 10px; background: #fff; touch-action: none; display: block;
+}
+.es-pad-hint { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: #b6bcc7; font-size: 14px; pointer-events: none; }
+.es-pad-hint.hide { display: none; }
+
+.es-input { width: 100%; padding: 12px; font-size: 16px; border: 1px solid var(--es-line); border-radius: 10px; font-family: inherit; min-height: 46px; }
+.es-type-preview { margin-top: 10px; min-height: 60px; display: flex; align-items: center; justify-content: center; font-size: 34px; color: var(--es-ink); font-family: 'Segoe Script', 'Brush Script MT', cursive; }
+
+.es-sheet-foot { display: flex; gap: 8px; margin-top: 12px; }
+.es-ghost { flex: 0 0 auto; border: 1px solid var(--es-line); background: #fff; border-radius: 10px; padding: 11px 14px; font-size: 14px; font-weight: 700; cursor: pointer; min-height: 44px; }
+.es-apply { flex: 1 1 auto; border: 0; background: var(--es-orange); color: #fff; border-radius: 10px; padding: 11px 14px; font-size: 15px; font-weight: 800; cursor: pointer; min-height: 44px; }
+.es-apply:disabled { opacity: .5; cursor: default; }
+
+.es-consent { display: flex; flex-direction: column; gap: 12px; }
+.es-check { display: flex; gap: 10px; align-items: flex-start; font-size: 13px; line-height: 1.45; color: var(--es-ink); }
+.es-check input { width: 22px; height: 22px; flex: 0 0 auto; margin-top: 1px; }
+.es-namewrap { display: flex; flex-direction: column; gap: 6px; font-size: 13px; font-weight: 700; }
+.es-fineprint { font-size: 12px; color: var(--es-muted); margin: 0; line-height: 1.45; }
+.es-err { background: #fef3f2; border: 1px solid #fda29b; color: var(--es-bad); border-radius: 9px; padding: 10px; font-size: 13px; }
+
+@media (max-width: 380px) {
+  .es-brand { font-size: 13px; }
+  .es-title { display: none; }
+}

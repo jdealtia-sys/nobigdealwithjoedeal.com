@@ -10,6 +10,7 @@
     "the step environment before touching the test."
   ],
   "node": [
+    "esign-autodetect.test.js",
     "address-match.test.js",
     "address-audit-script.test.js",
     "backup-freshness.test.js",
@@ -558,6 +559,10 @@
   },
   "wired-individually": [
     "communication-log-contract.test.js",
+    "esign-setup-placement.test.js",
+    "esign-signature-reachable.test.js",
+    "esign-signer-flow.test.js",
+    "esign-stamp.test.js",
     "firestore-rules.cross-tenant.test.js",
     "firestore-rules.test.js",
     "inline-html-scripts.test.js",

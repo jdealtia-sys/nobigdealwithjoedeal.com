@@ -36,6 +36,11 @@ If you add a new export, list it here so the next audit doesn't have to re-deriv
 | `revokePortalToken` | onCall | Revokes outstanding portal tokens |
 | `replyToPortalMessage` | onCall | Rep reply to a homeowner message |
 | `createSignRequest` | onCall | Remote signing — rep mints a doc_sign_token + emails the homeowner the sign link |
+| `createEsignEnvelope` | onCall | Envelope signing — registers a rep-uploaded PDF; reads page geometry and the source SHA-256 SERVER-side so neither is client-asserted |
+| `saveEsignFields` | onCall | Envelope signing — persists the field layout (PDF user-space points). Refused once the envelope is sent: the layout is part of what the signer was shown |
+| `getEsignEnvelopeForOwner` | onCall | Envelope signing — rep re-opens a draft. A callable, NOT a Storage read: getDownloadURL would mint a permanent token that bypasses storage.rules |
+| `sendEsignEnvelope` | onCall | Envelope signing — mints the single-use link and emails it. Called again it ROTATES, revoking the old link. Refuses an envelope with zero fields |
+| `voidEsignEnvelope` | onCall | Envelope signing — revokes every live token for an envelope. Refused once signed |
 | `createDealAcceptToken` | onCall | Close Board — rep mints a deal_accept_token for a deal room they own |
 | `createReportShareToken` | onCall | Rep mints a no-login view link for a saved inspection report |
 | `createCalendarFeedToken` | onCall | Rep mints (or rotates) the secret `/calendar/<token>.ics` URL for their own schedule. One active token per rep; minting revokes the previous one, which is this feature's only revocation path |
@@ -94,7 +99,9 @@ If you add a new export, list it here so the next audit doesn't have to re-deriv
 | `submitCustomerRating` | onRequest | Portal token; one rating per lead lifetime (write-once), star whitelist |
 | `recordCustomerEvent` | onRequest | Portal-token-validated homeowner audit-event capture (which photos/estimates were opened) |
 | `getSignDocument` | onRequest | Remote signing: ~120-bit single-use token, 7-day expiry, per-IP rate limit |
-| `submitSignature` | onRequest | Remote signing: burns token atomically, signed-HTML size cap |
+| `submitSignature` | onRequest | Remote signing: burns token atomically, signed-HTML size cap, and refuses a submission carrying no signature (noFields vs unsigned) BEFORE the burn |
+| `getEsignEnvelope` | onRequest | Envelope signing: ~120-bit single-use token, 14-day expiry, per-IP rate limit. Streams the PDF bytes through the function — the signer never receives a Storage URL. Reports expired / revoked / signed distinctly |
+| `submitEsignEnvelope` | onRequest | Envelope signing: stamps a FLATTENED signed PDF with pdf-lib, verifies the source digest is unchanged, requires consent, records signer IP + user agent + both SHA-256 digests. Stamps BEFORE the burn so a bad payload cannot grief a real signing. Never overwrites the source |
 | `getDealRoom` | onRequest | Deal acceptance: ~120-bit single-use token, 14-day expiry, served same-origin via `/deal/**` rewrite |
 | `submitDealAcceptance` | onRequest | Deal acceptance: burns token, records tier + signature, notifies rep |
 | `getSharedReport` | onRequest | Report share: ~120-bit REUSABLE token, 30-day default expiry, per-IP rate limit (view-only) |

@@ -118,6 +118,15 @@
       submitBtn.disabled = false; submitBtn.textContent = orig;
       if (fin && Array.isArray(fin.missing) && fin.missing.length) {
         alert('Please add your signature before submitting.');
+      } else if (fin && fin.noFields) {
+        // This document carries no signature field at all. Saying "try
+        // again" would loop the signer forever on something that cannot
+        // succeed — tell them the truth and send them back to the rep.
+        msg('⚠️', 'This document can’t be signed',
+          'It was sent without a signature field. Please contact your rep for a corrected copy — nothing you do here will work.');
+        foot.style.display = 'none';
+      } else if (fin && fin.noSignature) {
+        alert('Please draw your signature in the box before submitting.');
       } else if (fin && fin.timedOut) {
         alert('The document is still loading — give it a second and try again.');
       } else {
