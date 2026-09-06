@@ -108,10 +108,33 @@ ok('markPaidUI is on the InvoicePipeline public API',
 ok('the module publishes itself as window.InvoicePipeline',
   /window\.InvoicePipeline\s*=\s*_api/.test(invoicePipeline));
 
-// ── the list repaints so the row stops saying "sent" ────────────────────
-ok('the list is refreshed after a payment is recorded',
-  /loadInvoices\(window\._customerId\)/.test(tasksUi),
+// ── the list repaints AFTER the payment, not after the modal opens ──────
+//
+// The first version of this assertion only checked that the string
+// `loadInvoices(window._customerId)` appeared somewhere — which it did, inside
+// `setTimeout(..., 600)`. markPaidUI is async but used to resolve the moment
+// its overlay was in the DOM (the real `await markPaid(...)` runs later, in the
+// Cash/Check handler), so that timer fired while the rep was still typing the
+// amount and repainted the STILL-UNPAID row. Nothing repainted afterwards:
+// markPaidUI's own post-write refresh targets #nbd-inv-detail-host, a DASHBOARD
+// host that does not exist on customer.html. The check was recorded and the row
+// kept saying unpaid until a manual reload.
+ok('markPaidUI resolves on the payment, not on the modal opening',
+  /return await new Promise\(/.test(invoicePipeline)
+  && /await markPaid\(invoiceId, amount, method\);[\s\S]{0,400}?settle\(true\)/.test(invoicePipeline),
+  'an async function that returns at modal-open time makes every caller repaint too early');
+
+ok('a dismissed modal settles false so an awaiting caller cannot hang',
+  /settle\(false\)/.test(invoicePipeline) && /MutationObserver/.test(invoicePipeline));
+
+ok('the customer page awaits that result and repaints on a real write only',
+  /const paid = await window\.InvoicePipeline\.markPaidUI\(invoiceId\)/.test(tasksUi)
+  && /if \(paid && typeof window\.loadInvoices === 'function'/.test(tasksUi),
   'without a repaint the row keeps its old status and the totals disagree');
+
+ok('the 600ms guess is gone',
+  !/setTimeout\([\s\S]{0,80}loadInvoices/.test(tasksUi),
+  'a fixed delay cannot know when the rep finished typing the amount');
 
 // ── failure is visible ──────────────────────────────────────────────────
 ok('a load failure surfaces to the rep instead of failing silently',
