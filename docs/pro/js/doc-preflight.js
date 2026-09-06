@@ -183,9 +183,31 @@
     return src;
   }
 
-  /** Map estimate.lineItems into the doc line-items shape. */
+  /**
+   * Map a saved estimate into the doc line-items shape.
+   *
+   * Delegates to NBDCustomerEstimateRows.buildDocLineItems, which understands
+   * BOTH estimate shapes. This function used to bail unless `est.lineItems`
+   * was an array — but V2, the builder every estimate goes through now, writes
+   * `est.rows` and never `lineItems`. So the scope came back empty for every
+   * V2 estimate, and `lineItems` is required:true on proposal, contract,
+   * supplement_request and invoice: every one of those documents opened with
+   * an empty REQUIRED field that had to be typed by hand.
+   *
+   * The delegate — not a local rows[] reader — because deriving the customer
+   * price from saved rows is the retail ladder, and a private copy of that
+   * math is what printed the contractor's cost basis to homeowners in 2026-07.
+   * customer-estimate-rows.js is loaded on both dashboard.html and
+   * customer.html; the local fallback below only runs if that ever stops being
+   * true, and handles the classic shape exactly as before.
+   */
   function mapEstimateLineItems(est) {
-    if (!est || !Array.isArray(est.lineItems)) return [];
+    if (!est) return [];
+    var api = (typeof window !== 'undefined') && window.NBDCustomerEstimateRows;
+    if (api && typeof api.buildDocLineItems === 'function') {
+      try { return api.buildDocLineItems(est); } catch (e) { /* fall through */ }
+    }
+    if (!Array.isArray(est.lineItems)) return [];
     return est.lineItems.map(function (it) {
       var qty = parseFloat(it.quantity || it.qty || 1) || 1;
       var rate = parseFloat(it.unitPrice || it.rate || 0);

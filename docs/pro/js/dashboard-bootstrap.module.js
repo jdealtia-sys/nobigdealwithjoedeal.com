@@ -743,7 +743,13 @@
       estimateAmount: jobVal ? '$' + Number(jobVal).toLocaleString() : '',
       contractPrice:  jobVal ? '$' + Number(jobVal).toLocaleString() : '',
       warrantyTier:   (est && (est.tier || est.tierName)) || lead.warrantyTier || '',
-      estimateLineItems: (est && est.lineItems) || [],
+      // See the twin in customer-tasks-ui.js: `est.lineItems` is always empty
+      // for a V2 estimate (V2 writes `rows`), which made resolveDocManufacturer
+      // fall back to its hardcoded GAF default on every job.
+      estimateLineItems: (window.NBDCustomerEstimateRows
+        && window.NBDCustomerEstimateRows.buildDocLineItems
+        && window.NBDCustomerEstimateRows.buildDocLineItems(est))
+        || (est && est.lineItems) || [],
       // Photos
       beforePhotoUrl: (before[0] && before[0].url) || '',
       afterPhotoUrl:  (after[0]  && after[0].url)  || '',

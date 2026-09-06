@@ -764,28 +764,47 @@ export function actionsForStage(stage, jobType) {
 // Phase 2 will wire this into the form; for now it's data only.
 // ─────────────────────────────────────────────
 
+// CREW_SCHEDULED requires scheduledDate on EVERY track.
+//
+// It is a `track: 'shared'` stage reachable from the Jobs view by a lead of
+// any type, but the lookup is keyed by the lead's jobType — so with only
+// warranty listing scheduledDate, an insurance/cash/finance/service job moved
+// to Crew Scheduled was gated by nothing. smart-calendar.js builds the day's
+// job list from `leads.filter(l => l.scheduledDate === todayStr)`, so such a
+// job is invisible on the schedule: the crew is "scheduled" and the schedule
+// does not know about it. That is the precise failure a scheduling stage
+// exists to prevent.
+//
+// Satisfiable by construction — scheduledDate already has a FIELD_LABELS
+// entry, a _GATE_FIELD_META mapping and the #lScheduledDate input, because
+// the warranty track has always gated on it. This adds no new machinery.
 export const REQUIRED_FIELDS_BY_TYPE = {
   insurance: {
     [S.CLAIM_FILED]:        ['insCarrier', 'claimNumber'],
     [S.ADJUSTER_SCHEDULED]: ['insCarrier'],
     [S.ESTIMATE_SUBMITTED]: ['estimateAmount', 'deductibleOrOwedByHO'],
     [S.CONTRACT_SIGNED]:    ['estimateAmount'],
+    [S.CREW_SCHEDULED]:     ['scheduledDate'],
   },
   cash: {
     [S.ESTIMATE_SENT_CASH]: ['jobValue'],
     [S.CONTRACT_SIGNED]:    ['jobValue'],
+    [S.CREW_SCHEDULED]:     ['scheduledDate'],
   },
   finance: {
     [S.PREQUAL_SENT]:       ['financeCompany'],
     [S.LOAN_APPROVED]:      ['loanAmount', 'financeCompany'],
     [S.CONTRACT_SIGNED]:    ['loanAmount', 'financeCompany'],
+    [S.CREW_SCHEDULED]:     ['scheduledDate'],
   },
   warranty: {
     [S.WARRANTY_SCHEDULED]: ['scheduledDate'],
+    [S.CREW_SCHEDULED]:     ['scheduledDate'],
   },
   service: {
     [S.SERVICE_QUOTED]:     ['jobValue'],
     [S.SERVICE_APPROVED]:   ['jobValue'],
+    [S.CREW_SCHEDULED]:     ['scheduledDate'],
   },
 };
 

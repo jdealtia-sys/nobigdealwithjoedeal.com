@@ -101,6 +101,100 @@
     return rows;
   }
 
+  /**
+   * Doc-generator line items for a saved estimate, in EITHER shape.
+   *
+   * WHY THIS EXISTS. The document generator and its pre-flight read
+   * `est.lineItems`. V2 — the builder every estimate goes through now — writes
+   * `est.rows` and the string `lineItems` does not appear in estimate-v2-ui.js
+   * even once. So the scope came back empty for every V2 estimate, and two
+   * things followed:
+   *   1. `lineItems` is required:true on proposal, contract, supplement_request
+   *      and invoice, so every one of those documents started with an empty
+   *      REQUIRED field and had to be typed by hand.
+   *   2. The same empty array reached resolveDocManufacturer, which finds no
+   *      shingle line and falls back to its hardcoded default — so warranty
+   *      certificates and proposals claimed "GAF Timberline" on TAMKO jobs.
+   *
+   * It lives HERE, next to buildDisplayRows and its test, because the answer
+   * is the retail ladder — and a fourth private copy of that math is exactly
+   * what leaked the cost basis to homeowners in the first place.
+   *
+   * Three shapes in, one shape out:
+   *   - classic `lineItems`  → mapped straight across
+   *   - per-SQ V2            → ONE summary line at the locked tier total,
+   *                            mirroring InvoicePipeline.createInvoiceFromEstimate.
+   *                            buildDisplayRows deliberately returns [] here
+   *                            (the rows are internal cost lines that cannot
+   *                            foot to the tier price) — but a CONTRACT with no
+   *                            scope is the bug being fixed, so summarise
+   *                            rather than emit nothing.
+   *   - row-based V2/classic → buildDisplayRows, i.e. the retail ladder + O&P
+   *
+   * Emits both naming conventions on purpose: `description`/`qty`/`rate` for
+   * the doc templates, and `code`/`name` for resolveDocManufacturer, which
+   * inspects `li.code || li.name` and would otherwise never see the shingle.
+   */
+  function buildDocLineItems(est) {
+    if (!est) return [];
+
+    function shape(o) {
+      const qty = Number.isFinite(o.qty) ? o.qty : 1;
+      const total = round2(Number(o.total) || 0);
+      const rate = Number.isFinite(o.rate) ? round2(o.rate) : (qty ? round2(total / qty) : total);
+      return {
+        code: o.code || '',
+        name: o.desc || '',
+        description: o.desc || 'Line item',
+        qty: qty,
+        quantity: qty,
+        unit: o.unit || 'ea',
+        rate: rate,
+        unitPrice: rate,
+        total: total,
+        amount: total,
+      };
+    }
+
+    // Classic estimates already carry the customer-facing ladder.
+    if (Array.isArray(est.lineItems) && est.lineItems.length) {
+      return est.lineItems.map(function (it) {
+        const qty = numFrom(it.quantity != null ? it.quantity : it.qty);
+        const amt = numFrom(it.amount != null ? it.amount : it.total);
+        const rate = numFrom(it.unitPrice != null ? it.unitPrice : it.rate);
+        const q = Number.isFinite(qty) && qty !== 0 ? qty : 1;
+        const t = Number.isFinite(amt) ? amt : (Number.isFinite(rate) ? rate * q : 0);
+        return shape({
+          code: it.code, desc: it.description || it.name, unit: it.unit,
+          qty: q, rate: Number.isFinite(rate) ? rate : null, total: t,
+        });
+      });
+    }
+
+    // Per-SQ: the customer price is the locked selected-tier total.
+    const isPerSq = (est.priceMode === 'per-sq') || (est.prices != null);
+    if (isPerSq) {
+      const grand = estimateValue(est);
+      if (!grand) return [];
+      const tier = String(est.selectedTier || est.tier || '').replace(/^./, function (c) { return c.toUpperCase(); });
+      return [shape({
+        code: '', desc: 'Roofing system' + (tier ? ' — ' + tier + ' tier' : ''),
+        unit: 'ea', qty: 1, rate: grand, total: grand,
+      })];
+    }
+
+    return buildDisplayRows(est).map(function (r) {
+      const qty = numFrom(r.qty);
+      // qty arrives as a display string ('20.00 SQ') — split the unit back off.
+      const unit = String(r.qty == null ? '' : r.qty).replace(/^[\s\d.,-]+/, '').trim();
+      const q = Number.isFinite(qty) && qty !== 0 ? qty : 1;
+      return shape({
+        code: r.code, desc: r.desc, unit: unit || 'ea',
+        qty: q, rate: numFrom(r.rate), total: r.total,
+      });
+    });
+  }
+
   // ── Two-shape estimate readers ──────────────────────────────────────
   // Estimates exist in TWO shapes and every reader used to invent its own
   // guess at which key holds the money and the label:
@@ -130,6 +224,7 @@
   }
 
   const _api = {
+    buildDocLineItems: buildDocLineItems,
     buildDisplayRows: buildDisplayRows,
     numFrom: numFrom,
     estimateValue: estimateValue,

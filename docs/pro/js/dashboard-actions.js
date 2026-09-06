@@ -1660,12 +1660,29 @@ function _mCreate(kind) {
     case 'lead':
       if (typeof openLeadModal === 'function') openLeadModal();
       break;
-    case 'photo':
-      // Trigger the device camera via the hidden <input capture>.
-      // Browsers that don't honor `capture` open the photo picker — fine.
-      const input = document.getElementById('mCreatePhotoInput');
-      if (input) input.click();
+    case 'photo': {
+      // This used to open the camera unconditionally through the hidden
+      // <input capture>, and _mCreatePhotoPicked then THREW THE PHOTO AWAY —
+      // it read the file, confirmed it existed, and opened the lead modal
+      // with "add photos from its gallery". Four taps, a climb, and the shot
+      // was gone. On a roof that is not a minor annoyance.
+      //
+      // The camera now opens only when there is somewhere to put the picture,
+      // and it opens through PhotoEngine.openCamera — the real flow, with
+      // tagging and the before/during/after phase — instead of a raw file
+      // input whose result nothing consumed.
+      const lid = window._cardDetailLeadId || window._currentPhotoLeadId || window._customerId || '';
+      if (lid && window.PhotoEngine && typeof window.PhotoEngine.openCamera === 'function') {
+        window.PhotoEngine.openCamera(lid);
+        break;
+      }
+      // No customer in context: ask FIRST, so nothing is captured and lost.
+      if (typeof showToast === 'function') {
+        showToast('Pick a customer first — then the camera saves straight to their gallery.', 'info');
+      }
+      if (typeof openLeadModal === 'function') openLeadModal();
       break;
+    }
     case 'task':
       if (typeof openTaskModal === 'function') openTaskModal();
       else if (typeof openLeadModal === 'function') openLeadModal();
@@ -2173,17 +2190,46 @@ function editCardDetails() {
   // photos from its gallery. (Previously called window.PhotoEngine.uploadOne —
   // not a real method — or pushed to window._pendingPhotoUploads, which
   // nothing consumed, silently dropping the photo behind a false success toast.)
-  function _mCreatePhotoPicked(event) {
+  /**
+   * Safety net for the hidden #mCreatePhotoInput.
+   *
+   * This used to read the captured file, confirm it existed, and then discard
+   * it — opening the lead modal with "Create or open a lead, then add photos
+   * from its gallery". The photo the rep had just climbed up and taken was
+   * simply gone, and the toast read like success.
+   *
+   * The '+' → Photo action no longer opens the camera without a destination,
+   * so this is now a fallback path. When a customer IS resolvable the file is
+   * actually uploaded; when it is not, we say so plainly rather than implying
+   * the shot was kept.
+   */
+  async function _mCreatePhotoPicked(event) {
+    const input = event && event.target;
     try {
-      const file = event && event.target && event.target.files && event.target.files[0];
+      const file = input && input.files && input.files[0];
       if (!file) return;
+
+      const lid = window._cardDetailLeadId || window._currentPhotoLeadId || window._customerId || '';
+      if (lid && window.PhotoEngine && typeof window.PhotoEngine.uploadFromFile === 'function') {
+        if (typeof showToast === 'function') showToast('Uploading photo…', 'info');
+        await window.PhotoEngine.uploadFromFile(lid, file);
+        if (typeof showToast === 'function') showToast('✓ Photo saved to the customer’s gallery', 'success');
+        return;
+      }
+
+      // Nowhere to put it. Do not pretend otherwise.
+      if (typeof showToast === 'function') {
+        showToast('That photo was not saved — no customer was selected. Open the customer, then tap the camera.', 'error');
+      }
       if (typeof openLeadModal === 'function') openLeadModal();
-      if (typeof showToast === 'function') showToast('Create or open a lead, then add photos from its gallery', 'info');
     } catch (e) {
-      console.warn('mobile photo create reroute failed:', e && e.message);
+      console.warn('mobile photo upload failed:', e && e.message);
+      if (typeof showToast === 'function') {
+        showToast('Photo upload failed — check your signal and try from the customer’s gallery.', 'error');
+      }
     } finally {
       // Reset input so the same file can be re-picked next time.
-      if (event && event.target) event.target.value = '';
+      if (input) input.value = '';
     }
   }
 

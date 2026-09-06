@@ -6,6 +6,10 @@ import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/
 import { getFirestore, collection, getDocs, getDoc, doc, query, orderBy, where, updateDoc, deleteDoc, serverTimestamp, addDoc, arrayUnion, arrayRemove, limit, runTransaction, setDoc, writeBatch } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { getStorage, ref, uploadBytesResumable, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js";
 import { connectEmulatorsIfLocal } from "./nbd-emulator-connect.js"; // Audit #3: localhost-only, no-op in prod
+// The canonical stage config. This page used to advance stages with a private
+// hardcoded copy of the pipeline ladder and none of the kanban's bookkeeping;
+// see progressStage below for what that cost.
+import { stageRole as _stageRole, missingRequiredFields as _missingRequiredFields } from "./crm-stages.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyDTrotINzl2YjdGbH25BpC-FPv8i_fXNvg",
@@ -2007,10 +2011,60 @@ window.progressStage = async function() {
       // Keep parity with crm.js moveCard so the days-in-stage badge on
       // the hero (PR #31) resets correctly when moves happen here too.
       stageStartedAt: window.serverTimestamp(),
-      stageHistory: window.arrayUnion(historyEvent)
+      stageHistory: window.arrayUnion(historyEvent),
+      // The kanban stamps stageRole on every move (crm-pipeline.js:1941).
+      // This path did not, so a lead advanced from the customer page carried a
+      // stale or absent role while its `stage` said otherwise — and stageRole
+      // is what analytics-kpi, money-dashboard, the leaderboard and the
+      // forecast all bucket on. The numbers quietly disagreed with the board.
+      ...(typeof _stageRole === 'function' ? { stageRole: _stageRole(nextStage) } : {}),
     });
 
+    // Activity note — the kanban writes one on every move
+    // (crm-pipeline.js:1975). Without it the customer's own activity feed
+    // showed no record of a stage change made from this very page.
+    try {
+      await window.addDoc(window.collection(window.db, 'notes'), {
+        leadId: window._customerId,
+        userId: window.auth?.currentUser?.uid || window._user?.uid || null,
+        text: 'Stage moved to "' + (STAGE_LABELS[nextStage] || nextStage) + '"',
+        type: 'stage_change',
+        createdAt: window.serverTimestamp(),
+        createdBy: window.auth?.currentUser?.email || 'system',
+      });
+    } catch (e) { console.warn('[progressStage] activity note failed:', e && e.message); }
+
+    // Email drip. nbd-comms.js is loaded here, so the automation simply was
+    // never called from this page: a lead moved to contract_signed from the
+    // customer view got none of the follow-up the same move triggers on the
+    // board.
+    try {
+      if (window.EmailDrip && typeof window.EmailDrip.onStageChange === 'function') {
+        window.EmailDrip.onStageChange(window._customerId, oldStage, nextStage);
+      }
+    } catch (e) { console.warn('[progressStage] drip trigger failed:', e && e.message); }
+
     if (window.showToast) window.showToast('✓ Stage moved to ' + (STAGE_LABELS[nextStage] || nextStage), 'success');
+
+    // Required-field WARNING, deliberately non-blocking.
+    //
+    // The kanban BLOCKS the move and opens the lead modal with click-to-jump
+    // anchors, because every gated field has an input there. This page's edit
+    // modal carries only jobValue of them — insCarrier, claimNumber,
+    // estimateAmount, deductibleOrOwedByHO, financeCompany, loanAmount and
+    // scheduledDate have no input on this page at all. Blocking here would
+    // strand the rep with no way to satisfy the gate, which is worse than the
+    // silent advance it replaced. So: tell them what is missing and let the
+    // board enforce it. Making this a real gate means giving the edit modal
+    // those fields first.
+    try {
+      if (typeof _missingRequiredFields === 'function') {
+        const missing = _missingRequiredFields({ ...(window._currentLead || {}), stage: nextStage }) || [];
+        if (missing.length && window.showToast) {
+          window.showToast('Heads up — this stage still needs: ' + missing.join(', '), 'warning');
+        }
+      }
+    } catch (e) { console.warn('[progressStage] required-field check failed:', e && e.message); }
     // Brief delay so the toast is seen before reload.
     setTimeout(() => window.location.reload(), 600);
   } catch (e) {
