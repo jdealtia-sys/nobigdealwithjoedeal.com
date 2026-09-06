@@ -1420,6 +1420,10 @@
   async function _syncMirror() {
     const store = _store();
     if (!store) return;
+    // Same synchronous shortcut photo-queue-recovery.js takes: when the
+    // counter positively says the queue was empty, the mirror is already
+    // correct (empty) and opening IndexedDB would tell us nothing.
+    if (typeof store.lastKnownCount === 'function' && store.lastKnownCount() === 0) return;
     try {
       if (!(await store.available())) return;
       state.uploadQueue = await store.all();

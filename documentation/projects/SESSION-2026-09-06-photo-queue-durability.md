@@ -193,6 +193,47 @@ node scripts/crm-audit.js                    0 error (1 pre-existing warn in cus
 > the main checkout's copy rather than `npm install`, which would have caused
 > the lockfile drift CLAUDE.md warns about.
 
+## Update, same day — the boot-cost fast path, and a peer overlap that wasn't
+
+A parallel session (branch `claude/silly-chaum-05501e`, "cut customer.html's
+boot weight") sent a heads-up claiming two overlaps with this PR and urging the
+new scripts be moved to `ScriptLoader` on-demand loading. Checked against that
+worktree's actual uncommitted diff rather than the message:
+
+| Claimed | Found |
+|---|---|
+| `dashboard.html` will conflict | Its **only** hunk is at `:101` (Leaflet CSS). This PR's insertion is at `:5472`. No conflict. |
+| `tests/ci-manifest.json` will conflict | That session does not touch it (it edits `tests/package.json` and adds an `e2e/*.spec.js`, which the manifest does not classify). |
+| prefer a `script-loader.js` bundle entry to avoid conflict | Backwards: `script-loader.js` **is** in that session's dirty set. Editing it would *create* the conflict the message was trying to avoid. |
+
+The premise — *"the queue only matters once an upload has failed, so paying
+for it on every boot is waste"* — is wrong for `photo-queue-recovery.js`
+specifically. Its entire job is the boot path: after the guaranteed bfcache
+reload, drain **without** the rep navigating back to photos. Loaded "at point
+of use", there is no point of use, and the photo that survived the reload
+uploads nothing. That is the exact hole the module closes. So the two eager
+tags stay.
+
+The *concern* underneath — boot cost — was legitimate, and the right fix was
+not lazy-loading but making the boot check nearly free. Recovery was opening
+IndexedDB (and requesting persistence) on every dashboard load to discover
+nothing was queued. Now:
+
+- `NBDPhotoQueueStore.lastKnownCount()` — **synchronous**, reads only the
+  localStorage counter that every add/remove already maintains.
+- Recovery (and photo-engine's mirror hydration) return immediately when it
+  is `0`. A `null` (never written / localStorage cleared) **must** fall
+  through to a real check, or a cleared counter over a surviving IndexedDB
+  would strand real photos permanently.
+
+Proven in real Chrome with `indexedDB.open` instrumented: empty queue on boot
+→ **`IDB opens = 0`**; one photo queued → counter reads `1` after a full
+reload, slow path opens exactly once. The `null`-vs-`0` distinction is gated
+by two assertions in `photo-queue-durability.test.js` (now 36), and that gate
+was **proven able to fail**: collapsing `null` to `0` reddened exactly those
+two. Total eager cost of the two files is ~18 KB uncompressed, DOM-free at
+load, and on the common boot the work is one `localStorage.getItem`.
+
 ## Left undone, deliberately
 
 - **`offline-manager.js` is still dead code** — still zero callers, now with a

@@ -72,6 +72,16 @@
     const store = window.NBDPhotoQueueStore;
     if (!store) return;
 
+    // BOOT COST: this runs on every dashboard load, and on almost every load
+    // there is nothing queued. Opening IndexedDB (and asking for storage
+    // persistence) to discover that is waste, so take the synchronous
+    // localStorage counter first and leave immediately when it positively
+    // says the queue was empty as of the last mutation. `null` means we have
+    // never written it — first boot, or localStorage was cleared out from
+    // under a surviving IndexedDB — and that has to fall through to a real
+    // check, or an eviction of the counter alone would strand real photos.
+    if (store.lastKnownCount() === 0) return;
+
     // Keep the origin exempt from WebKit's 7-day eviction for as long as the
     // browser will allow it. Cheap, idempotent, and the thing that makes
     // "survives leaving the app" true across days rather than hours.

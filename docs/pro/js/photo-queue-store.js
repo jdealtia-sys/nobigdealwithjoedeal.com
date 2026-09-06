@@ -97,6 +97,23 @@
     try { localStorage.setItem(LAST_KNOWN_KEY, String(n)); } catch (_) {}
   }
 
+  /**
+   * Synchronous, no IndexedDB: how many photos we last recorded as queued, or
+   * null when we have never written the counter (first boot, or localStorage
+   * was cleared). Lets a boot path skip opening the database entirely in the
+   * overwhelmingly common case of an empty queue — a `0` here is a positive
+   * statement that the queue was empty as of the last mutation, whereas
+   * `null` means "unknown, go look".
+   */
+  function lastKnownCount() {
+    try {
+      const raw = localStorage.getItem(LAST_KNOWN_KEY);
+      if (raw === null) return null;
+      const n = parseInt(raw, 10);
+      return isNaN(n) ? null : n;
+    } catch (_) { return null; }
+  }
+
   function _open() {
     if (_db) return Promise.resolve(_db);
     if (_openPromise) return _openPromise;
@@ -349,6 +366,7 @@
     remove,
     clear,
     count,
+    lastKnownCount,
     bytes,
     available,
     detectLoss,

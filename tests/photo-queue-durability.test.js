@@ -262,6 +262,44 @@ function jpeg(sizeBytes, byteVal = 7) {
     ok('the loss is reported once, not on every boot', (await s2.detectLoss()) === 0);
   }
 
+  // ── the boot fast-path must not cost an IndexedDB open ─────────────────
+  // photo-queue-recovery.js runs on EVERY dashboard boot and almost always
+  // finds nothing queued. lastKnownCount() lets it decide that synchronously.
+  {
+    const disk = newDisk();
+    const s1 = loadStore(disk);
+    ok('a never-written counter reads null, not 0', s1.lastKnownCount() === null,
+      'null means "unknown, go look"; 0 would wrongly skip the check');
+
+    await s1.add({ blob: jpeg(256), leadId: 'a' });
+    ok('the counter tracks an add', s1.lastKnownCount() === 1);
+
+    const s2 = loadStore(disk);
+    ok('the counter survives a reload', s2.lastKnownCount() === 1,
+      'this is what lets boot skip the DB open when it is 0');
+
+    const rows = await s2.all();
+    await s2.remove(rows[0].id);
+    ok('the counter tracks a remove', s2.lastKnownCount() === 0);
+
+    const s3 = loadStore(disk);
+    ok('an emptied queue reports 0 on the next boot', s3.lastKnownCount() === 0,
+      'recovery returns here without touching IndexedDB at all');
+  }
+  {
+    // The dangerous case: localStorage cleared, IndexedDB intact. Reporting 0
+    // here would strand real photos forever, so it must report null.
+    const disk = newDisk();
+    const s1 = loadStore(disk);
+    await s1.add({ blob: jpeg(256), leadId: 'a' });
+    disk.localStorage = {};
+    const s2 = loadStore(disk);
+    ok('a cleared counter over a surviving queue reports null, not 0',
+      s2.lastKnownCount() === null,
+      'a 0 here would skip recovery and strand the photo permanently');
+    ok('...and the photo is still really there', (await s2.count()) === 1);
+  }
+
   // ── persistence is requested ───────────────────────────────────────────
   {
     const disk = newDisk();
