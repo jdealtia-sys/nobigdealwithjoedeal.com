@@ -96,6 +96,28 @@ token", `public-lead-submit.js` omits the field, and while the secret is unset
 the lead still lands. So step 1–3 carry no risk of losing leads; only step 4
 makes the token load-bearing.
 
+### The live-page probe returns no token — and that is expected
+
+Running `window.nbdTurnstileExecute()` on the real site from an **automated**
+browser returns `''` with `[Cloudflare Turnstile] Error: 600010` in the
+console. That is a *challenge* failure, not `110200` ("domain not allowed") and
+not a sitekey error — the script loads, the widget renders, the hostname is
+accepted. The most likely cause is Turnstile correctly refusing a CDP-driven
+browser, which is the product working.
+
+The consequence for operations: **an automated probe cannot verify this
+integration.** Cloudflare's test keys pass unconditionally and prove only the
+wiring; the real key applies real bot detection and will fail any automation.
+The only trustworthy signal is `turnstileTokenPresent` on genuine human
+traffic. Plan the rollout around that, not around a synthetic check.
+
+### A known cosmetic defect
+
+The client calls `turnstile.render()` — which auto-executes an invisible
+widget — and then `turnstile.execute(id)` again, logging `Call to execute() on
+a widget that is already executing`. Harmless today; the correct shape is
+`reset()` before a re-execute. Tidy it when next in that file.
+
 ## Emergency
 
 `TURNSTILE_REQUIRED=true` (env, not secret) makes an *unset* secret fail
