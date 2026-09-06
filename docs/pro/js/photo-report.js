@@ -57,6 +57,34 @@
    * @param {string} leadId
    * @param {('homeowner'|'adjuster')} [mode='homeowner']
    */
+
+  /**
+   * Display-order comparator for the photo report.
+   *
+   * Mirrors nbdComparePhotos (customer-bootstrap.module.js:1262) for the
+   * `order` field — the integer persistCustomerPhotoOrder writes when a rep
+   * drags photos in the gallery — so the PDF comes out in the sequence the rep
+   * arranged. Photos WITH an order sort ahead of those without, as the gallery
+   * does.
+   *
+   * It deliberately DIVERGES on the fallback: the gallery falls back to
+   * uploadedAt DESCENDING; this keeps the report's historical createdAt
+   * ASCENDING. Matching the gallery there would silently re-order every
+   * existing report for leads nobody has dragged — far bigger than this bug.
+   *
+   * Pure: no DOM, no Firebase. Exported as window._comparePhotoReportOrder.
+   */
+  function _comparePhotoReportOrder(a, b) {
+    const ao = (a && typeof a.order === 'number') ? a.order : null;
+    const bo = (b && typeof b.order === 'number') ? b.order : null;
+    if (ao !== null && bo !== null) return ao - bo;
+    if (ao !== null) return -1;
+    if (bo !== null) return 1;
+    const aT = (a && a.createdAt && a.createdAt.seconds) || 0;
+    const bT = (b && b.createdAt && b.createdAt.seconds) || 0;
+    return aT - bT;
+  }
+
   async function generatePhotoReport(leadId, mode) {
     leadId = leadId || window._customerId || window._cardDetailLeadId;
     if (!leadId || !window._user) {
@@ -88,12 +116,21 @@
         return;
       }
 
-      // Sort photos by createdAt
-      photos.sort((a, b) => {
-        const aT = a.createdAt?.seconds || 0;
-        const bT = b.createdAt?.seconds || 0;
-        return aT - bT;
-      });
+      // Honour the rep's drag-rearranged gallery order.
+      //
+      // persistCustomerPhotoOrder (customer-bootstrap.module.js:1304) writes an
+      // integer `order` onto each photos/{id} doc, and the gallery sorts by it
+      // via nbdComparePhotos. This report ignored it and sorted by createdAt
+      // alone, so the PDF a homeowner received came out in a DIFFERENT order
+      // from the gallery the rep had just arranged. The field was already on
+      // these objects — line 83 spreads the whole doc — merely unused.
+      //
+      // Ordered-before-unordered matches nbdComparePhotos exactly. The FALLBACK
+      // deliberately does NOT: the gallery falls back to uploadedAt descending,
+      // this keeps its own createdAt ascending. Adopting the gallery's fallback
+      // would silently re-order every existing report for leads nobody has
+      // dragged, which is a much larger change than the bug being fixed.
+      photos.sort(_comparePhotoReportOrder);
 
       // Split into before/after using phase, tag, type, or category fields
       const getPhase = p => (p.phase || p.tag || p.type || p.category || '').toLowerCase();
@@ -1038,5 +1075,8 @@
   // takes an array of photo docs, returns up to 8 {location, before,
   // after} pair objects. No DOM, no Firebase, safe to unit-test.
   window._buildPhotoReportPairs = _buildPairs;
+  // Same reason: the display-order comparator is pure, so the drag-order
+  // contract can be asserted behaviourally instead of by grepping the source.
+  window._comparePhotoReportOrder = _comparePhotoReportOrder;
 
 })();
