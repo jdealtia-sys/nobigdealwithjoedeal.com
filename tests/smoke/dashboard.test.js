@@ -203,6 +203,34 @@ section('QA sweep behaviors (F2/F3/F6/F8)');
     /function openLeadModal/.test(leads) && /lEditId/.test(leads) && /editId\.value\s*=\s*['"]{2}/.test(leads));
 }
 
+// ── Cmd+K ownership ──────────────────────────────────────────
+// 2026-09-06: THREE files bound Cmd+K — command-palette.js (canonical,
+// window.NBDCommand), global-search.js (already stood down) and ui.js (did
+// not). dashboard.html loads all three, so one keypress opened two palettes
+// stacked. This scans for any Cmd+K binding and requires every non-canonical
+// one to defer, so a fourth palette can't quietly reintroduce the same bug.
+section('Cmd+K: exactly one palette owns the shortcut');
+{
+  const CANONICAL = 'command-palette.js';
+  const files = fs.readdirSync(PRO_JS).filter(f => f.endsWith('.js'));
+  const binders = [];
+  for (const f of files) {
+    const src = read(path.join(PRO_JS, f));
+    // a Cmd/Ctrl+K keydown branch: a metaKey/ctrlKey test near a 'k' compare
+    if (/(metaKey|ctrlKey)[\s\S]{0,120}===\s*['"]k['"]|===\s*['"]k['"][\s\S]{0,120}(metaKey|ctrlKey)/.test(src)) {
+      binders.push({ file: f, src });
+    }
+  }
+  assert('found the Cmd+K binders (scanner still works)', binders.length >= 2);
+  assert('command-palette.js is one of them (it is the canonical owner)',
+    binders.some(b => b.file === CANONICAL));
+  for (const b of binders) {
+    if (b.file === CANONICAL) continue;
+    assert(b.file + ' stands down for window.NBDCommand',
+      /NBDCommand/.test(b.src));
+  }
+}
+
 // ── ScriptLoader public API ──────────────────────────────────
 section('ScriptLoader contract');
 {
@@ -211,7 +239,17 @@ section('ScriptLoader contract');
   assert('exposes load()',            /\bload\s*[,:]/.test(src));
   assert('exposes loadBundle()',      /\bloadBundle\s*[,:]/.test(src));
   assert('exposes preloadForView()',  /\bpreloadForView\s*[,:]/.test(src));
-  assert('exposes markLoaded()',      /\bmarkLoaded\s*[,:]/.test(src));
+  // markLoaded() was removed 2026-09-06 — exported for four months, never
+  // called. This asserts the replacement invariant instead of the dead name:
+  // dedupe keys on the RESOLVED PATH, so '/pro/js/x.js?v=1' and 'js/x.js?v=9'
+  // are one file. Regressing to a raw-src compare re-executes supplement-ui.js
+  // (and its document.body MutationObserver) on the customer page.
+  assert('dedupes on a resolved cacheKey, not the raw src',
+    /function\s+cacheKey\s*\(/.test(src) && /new\s+URL\s*\(\s*src\s*,\s*document\.baseURI\s*\)/.test(src));
+  assert('cacheKey drops the ?v= cache-buster', /u\.origin\s*\+\s*u\.pathname/.test(src));
+  assert('the eager-tag scan compares cacheKeys',
+    /querySelectorAll\(\s*'script\[src\]'\s*\)/.test(src) && !/querySelector\('script\[src="'\s*\+\s*src/.test(src));
+  assert('markLoaded() is gone from the public API', !/^\s*markLoaded,\s*$/m.test(src));
   assert('defines BUNDLES table',     /const\s+BUNDLES\s*=/.test(src));
   assert('defines VIEW_BUNDLES map',  /const\s+VIEW_BUNDLES\s*=/.test(src));
 

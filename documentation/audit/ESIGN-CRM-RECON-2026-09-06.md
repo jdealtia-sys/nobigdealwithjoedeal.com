@@ -203,3 +203,50 @@ note at all.
 The pattern that produced the most value: **distinguishing "code exists" from
 "code is wired up" from "code is live with a real secret."** Most of the dead
 weight above passes the first test and fails the third.
+
+---
+
+## Update 2026-09-06 (evening) — the §Weight items were acted on; corrections
+
+Full measurements and method in
+[BOOT-WEIGHT-2026-09-06](BOOT-WEIGHT-2026-09-06.md). Each Weight finding was
+re-verified against `main` before anything changed. Corrections to the text
+above, so nobody re-derives them:
+
+- **The baseline reproduces exactly** (129 files / 109 defer / 3 module /
+  0 async / 17 blocking; 74 on customer) — but only once `<script>` tags
+  inside HTML comments and inside `<template>` are excluded. A naive scan
+  reports 138 / 26 blocking; the 9 extra are template-inert scripts that are
+  never fetched at boot.
+- **"653.6 KiB eagerly loaded that the dashboard proves lazy" is true as
+  measured (656.0 KiB after version drift) but only 498.7 KiB was *safely*
+  movable.** The other three files render at load and have no user-intent
+  trigger to hang a lazy load on: `profit-tracker.js` paints the cost panel
+  during the customer render; `supplement-ui.js` + `estimate-supplement.js`
+  paint the "+ Supplement" button onto every estimate row (a revenue
+  surface); `photo-report.js` *wins* a `window.generatePhotoReport` name
+  collision with `customer-photo-report-generator.js`, so making it lazy
+  would silently switch which generator runs. All three stay eager, on
+  purpose.
+- **The dedupe re-execution is confirmed live, not theoretical**: with the
+  raw-src compare, `loadBundle('estimates')` from the customer estimate hub
+  leaves **two** `supplement-ui.js` tags in the DOM (the second served from
+  browser cache — a fetch-count assertion misses it; a tag count does not).
+- **The Cmd+K bug is dashboard-only.** `customer.html` loads only
+  `command-palette.js`; the double palette needs `ui.js` too, and only
+  `dashboard.html` loads all three. `global-search.js` already stood down
+  for `NBDCommand`; only `ui.js` lacked the guard.
+- **`markLoaded` was removed, not wired.** With script identity keyed on the
+  resolved path, the live `<script src>` scan does its documented job for
+  every page automatically; wiring it would have added a hand-maintained
+  list to drift. The one reference was a smoke test pinning the dead name.
+- **Version-string drift was real for 7 files**, not "e.g. one" — all
+  unified to one cache key each.
+- **Leaflet CSS is now off the render-blocking path, but not off boot for a
+  default home view**: `weather-radar` is in `DEFAULT_WIDGETS` and pulls the
+  `mapvendor` bundle moments after first paint. The first-paint win is real;
+  the bytes are only saved for a user who removed the radar widget.
+- **Sentry (tracing → error-only bundle) was verified but deliberately not
+  shipped**: the CDN `<script>` carries an SRI hash, and the error-only
+  bundle needs a different one that cannot be produced safely offline. Wrong
+  hash = error reporting silently dies. Low value, real risk.
