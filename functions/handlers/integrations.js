@@ -503,7 +503,17 @@ exports.submitPublicLead = onRequest(
 
     try {
       const ref = await getFirestore().collection(spec.collection).add(data);
-      logger.info('submitPublicLead', { kind, id: ref.id });
+      // turnstileTokenPresent (2026-09-06): the ONLY way to know, before
+      // TURNSTILE_SECRET is set, that real visitors are actually producing
+      // tokens. Setting the secret while the client is silently tokenless
+      // 403s 100% of public leads, so the rollout is: deploy the site key →
+      // watch this field go true on live traffic → only then set the secret.
+      // Boolean only — a token is a credential and never gets logged.
+      logger.info('submitPublicLead', {
+        kind, id: ref.id,
+        turnstileTokenPresent: !!(body && body.turnstileToken),
+        turnstileConfigured: turnstile.configured === true
+      });
       res.status(200).json({ success: true, id: ref.id });
     } catch (e) {
       logger.error('submitPublicLead error', { kind, err: e.message });

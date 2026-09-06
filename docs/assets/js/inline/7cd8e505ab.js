@@ -7,4 +7,15 @@
    every tokenless submission (403) — with this key empty the client can never
    produce a token, so setting the secret first silently kills all public
    leads. Populate key → deploy → then set the secret. */
-window.__NBD_TURNSTILE_SITEKEY = "";
+/* Populated 2026-09-06. Cloudflare Turnstile widget "NBD public lead forms",
+   INVISIBLE mode, hostnames nobigdealwithjoedeal.com + www. Invisible was
+   chosen over Managed deliberately: public-lead-submit.js renders the widget
+   with size:'invisible' into a container it appends to document.body, so a
+   Managed widget that decided to show an interactive challenge would be
+   unusable and would cost the lead. The site key is public by design — it is
+   the SECRET key that must never appear here.
+
+   Invisible mode also carries a legal condition, which docs/privacy.html now
+   satisfies: Cloudflare's Turnstile Privacy Addendum must be referenced in
+   our own privacy policy. */
+window.__NBD_TURNSTILE_SITEKEY = "0x4AAAAAAEqcVVOXW3xyusXQ";

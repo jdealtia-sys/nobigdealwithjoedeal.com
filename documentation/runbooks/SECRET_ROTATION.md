@@ -120,6 +120,18 @@ retry schedule). **Either secret binds only on the next functions deploy** —
 trigger one (`scope=functions`) and confirm via the admin readout
 (`configured.instantroofer` / `configured.instantrooferWebhook`).
 
+## 10. Cloudflare Turnstile (public-form CAPTCHA)
+
+```bash
+firebase functions:secrets:set TURNSTILE_SECRET --project nobigdeal-pro
+```
+
+The secret key is re-viewable in the Cloudflare dashboard (Turnstile → "NBD
+public lead forms" → Settings). **Never rotate this one in isolation**: the
+paired site key lives in `docs/assets/js/inline/7cd8e505ab.js` and a mismatch
+403s every public lead. Full procedure and the mandatory ordering:
+[TURNSTILE-SETUP](TURNSTILE-SETUP.md).
+
 ## After rotation
 
 - Run `firebase deploy --only functions,firestore:rules,storage,hosting`.
