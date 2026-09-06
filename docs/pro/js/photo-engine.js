@@ -1187,6 +1187,10 @@
           state.sessionPhotoCount++;
           modal.remove();
           showToast(`Photo ${state.sessionPhotoCount} saved`, 'success');
+          // A successful upload is the best available evidence that signal is
+          // back — better than waiting for an `online` event that may never
+          // fire on a flaky LTE connection that never fully dropped.
+          flushUploadQueue();
 
           // Reopen camera for next photo
           setTimeout(() => openCamera(leadId), 300);
@@ -1197,7 +1201,12 @@
             state.uploadQueue.push({ dataUrl, leadId, tags: selectedTags, description, location, timestamp: Date.now() });
             state.sessionPhotoCount++;
             modal.remove();
-            showToast(`Photo queued (offline) — will upload when connected`, 'warning');
+            // The old copy promised an upload once connectivity returned —
+            // a promise nothing in the codebase implemented. It now does
+            // retry (on `online`, and after the next successful upload), but
+            // the queue is memory-only, so the message says what the rep has
+            // to do to keep it: stay on the page.
+            showToast('Photo held — retrying when you\'re back online. Keep this page open.', 'warning');
             setTimeout(() => openCamera(leadId), 300);
           } catch (queueErr) {
             showToast('Save failed: ' + err.message, 'error');
@@ -1250,6 +1259,70 @@
       .then(_getAnalyzePhotoVision)
       .then(fn => fn ? fn({ photoId }) : null)
       .catch(e => console.warn('[PhotoEngine] AI auto-tag failed:', e && e.message));
+  }
+
+  // ============================================================================
+  // OFFLINE UPLOAD QUEUE — drain
+  //
+  // state.uploadQueue was pushed to on every failed upload, under a toast
+  // promising the photo would be sent once connectivity returned, and then
+  // READ BY NOTHING. The push site was its only reference in the repo: never
+  // drained, never retried, never persisted. Every one of those photos was
+  // discarded the moment the tab went away, and the rep was told the opposite.
+  //
+  // This drains it: on `online`, and after any successful upload (a working
+  // upload is the best evidence connectivity is back). Items are re-queued if
+  // they fail again, and the drain is re-entrancy-guarded so an `online` event
+  // during a drain cannot double-upload.
+  //
+  // SCOPE, stated honestly here and in the toast: this queue lives in memory
+  // only. dashboard-sw-bootstrap.js reloads the page on every bfcache resume,
+  // which is exactly when a rep backgrounds the app — so a queued photo does
+  // NOT survive leaving the page. Persisting it (IndexedDB, like the unused
+  // offline-manager.js) is the real fix and a larger one; until then the toast
+  // no longer promises what the code cannot do.
+  let _draining = false;
+
+  function _dataUrlToBlob(dataUrl) {
+    const [head, b64] = String(dataUrl || '').split(',');
+    if (!b64) return null;
+    const mime = (/data:([^;]+)/.exec(head) || [])[1] || 'image/jpeg';
+    const bin = atob(b64);
+    const bytes = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    return new Blob([bytes], { type: mime });
+  }
+
+  async function flushUploadQueue() {
+    if (_draining) return 0;
+    if (!state.uploadQueue || !state.uploadQueue.length) return 0;
+    if (typeof navigator !== 'undefined' && navigator.onLine === false) return 0;
+    _draining = true;
+    let sent = 0;
+    // Take the whole batch, then re-queue individual failures, so one bad item
+    // cannot block the rest and a retry loop cannot spin on it.
+    const batch = state.uploadQueue.splice(0, state.uploadQueue.length);
+    for (const item of batch) {
+      try {
+        const blob = _dataUrlToBlob(item && item.dataUrl);
+        if (!blob || !item.leadId) continue;   // unrecoverable — drop, do not spin
+        await uploadPhotoToFirebase(blob, item.leadId, item.tags || [], item.description || '', item.location || '');
+        sent++;
+      } catch (e) {
+        state.uploadQueue.push(item);
+        break;                                  // still offline — stop trying
+      }
+    }
+    _draining = false;
+    if (sent && typeof showToast === 'function') {
+      showToast(sent === 1 ? '✓ 1 queued photo uploaded' : `✓ ${sent} queued photos uploaded`, 'success');
+    }
+    return sent;
+  }
+
+  if (typeof window !== 'undefined' && !window.__nbdPhotoQueueBound) {
+    window.__nbdPhotoQueueBound = true;
+    window.addEventListener('online', function () { flushUploadQueue(); });
   }
 
   async function uploadPhotoToFirebase(blob, leadId, tags, description, location) {
@@ -1723,6 +1796,10 @@
 
   window.PhotoEngine = {
     openCamera,
+    // Exposed so the retry is an operation the app can trigger, not only an
+    // `online` side effect — and so it is testable at all.
+    flushUploadQueue,
+    queuedPhotoCount: () => (state.uploadQueue || []).length,
     openGallery: renderGallery,
     getPhotosForReport: getPhotosForLead,
     getPhotosByTag: async (leadId, tag) => {
