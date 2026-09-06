@@ -67,6 +67,19 @@ const BATCH = 400;  // Firestore batch write cap is 500; stay under it
 
 // Refunded in the Jul 31 – Sep 6 2026 window, verified against the Thumbtack
 // payment ledger on 2026-09-06. Printed as a checklist, never auto-applied.
+//
+// FIVE OF THESE CANNOT MATCH A LEAD, AND THAT IS CORRECT — do not "fix" it.
+// /thumbtack_leads (the raw ingest) starts 2026-08-16, but this window opens
+// 2026-07-31, so Daulton, Evans, Simms, Madison and Terry Greene were billed
+// before the integration existed and were never going to be in Firestore.
+// They were worked manually and have Drive folders. Investigated and closed
+// 2026-09-06; scripts/audit-refund-provenance.js reproduces the finding.
+//
+// Terry Greene is the one to be careful with: the only "Greene" in the CRM is
+// MICHAEL Greene, a different customer. A surname join zeroes the wrong record.
+//
+// scripts/apply-lead-cost-refunds.js applies this list under a unique-name AND
+// exact-amount AND ingest-prefix guard, and skips loudly rather than guessing.
 const KNOWN_REFUNDS = [
   ['Pam Gill', 51.96], ['Hannah Rice', 51.96], ['Veronica Matthews', 16.70],
   ['Lois Daulton', 214.85], ['Vincent Evans', 214.85], ['Barbara Simms', 225.00],
