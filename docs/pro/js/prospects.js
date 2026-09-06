@@ -15,6 +15,22 @@
 (function() {
   'use strict';
 
+  // ── Door-knock source matching ─────────────────────────────────────
+  // The same act got written three different ways: d2d-tracker wrote
+  // 'Door-to-Door', maps-overlays wrote 'Door Knock', an old import wrote
+  // 'door_knock'. An equality test against any ONE of them silently dropped
+  // the other two — which is why the conversion rate below read 0% while
+  // knocks were demonstrably converting.
+  //
+  // 'Door Knock' is canonical as of 2026-09-06 and the data has been
+  // normalized, but this stays a pattern test on purpose: it costs nothing
+  // and it means a stray old spelling from an unmigrated import, a restored
+  // backup, or a future integration can never zero this number again.
+  function isDoorKnock(src) {
+    const s = String(src || '').trim().toLowerCase().replace(/[_-]+/g, ' ');
+    return s === 'door knock' || s === 'door to door' || s === 'd2d';
+  }
+
   // ── Disposition taxonomy ───────────────────────────────────────────
   // MUST mirror the DISPOSITIONS map in d2d-tracker.js exactly — keys are
   // what we read off lead.disposition AND substring-match against notes
@@ -199,7 +215,7 @@
     const ninetyAgo = Date.now() - 90 * 24 * 60 * 60 * 1000;
     const recent = allLeads.filter(l => {
       const ts = l.createdAt?.toDate ? l.createdAt.toDate() : null;
-      return ts && ts.getTime() > ninetyAgo && l.source === 'Door-to-Door';
+      return ts && ts.getTime() > ninetyAgo && isDoorKnock(l.source);
     });
     const promotedCount = recent.filter(l => !l.isProspect).length;
     const convRate = recent.length ? Math.round((promotedCount / recent.length) * 100) : 0;
@@ -461,7 +477,7 @@
     const ninetyAgo = Date.now() - 90 * 24 * 60 * 60 * 1000;
     const d2dRecent = allLeads.filter(l => {
       const ts = l.createdAt?.toDate ? l.createdAt.toDate() : null;
-      return ts && ts.getTime() > ninetyAgo && l.source === 'Door-to-Door';
+      return ts && ts.getTime() > ninetyAgo && isDoorKnock(l.source);
     });
     const promoted = d2dRecent.filter(l => !l.isProspect);
     const stillProspect = d2dRecent.filter(l => l.isProspect === true);

@@ -2290,7 +2290,11 @@
         email: knock.email || '',
         stage,
         jobType,
-        source: 'Door-to-Door',
+        // 'Door Knock' is the canonical source string (Joe, 2026-09-06). This
+        // line used to write 'Door-to-Door' while maps-overlays.js wrote
+        // 'Door Knock' for the same act, so every panel that tested for one
+        // string under-counted by the size of the other — 71 leads against 16.
+        source: 'Door Knock',
         damageType: knock.disposition === 'storm_damage' ? 'Storm Damage' : '',
         // Persist the structured disposition KEY on the lead so the Prospects
         // view buckets off this directly (dispositionKey fast-path) instead of
@@ -2371,12 +2375,17 @@
       fill('lClaimNumber', knock.claimNumber);
       fill('lNotes', `D2D Knock: ${DISPOSITIONS[knock.disposition]?.label || ''}${knock.notes ? '\n' + knock.notes : ''}`);
 
-      // Set source to Door-to-Door
+      // Set source to the canonical door-knock value. Prefer whatever the
+      // select actually offers (a tenant may have relabelled it) and fall back
+      // to the canonical string rather than the old 'Door-to-Door' — a value
+      // absent from the option list renders the select BLANK, and saving the
+      // form then writes the blank over the real source. That is exactly how
+      // nine Thumbtack leads got downgraded to 'Online' on 2026-09-06.
       const sourceEl = document.getElementById('lSource');
       if (sourceEl) {
         const opt = Array.from(sourceEl.options).find(o => o.value.toLowerCase().includes('door'));
         if (opt) sourceEl.value = opt.value;
-        else sourceEl.value = 'Door-to-Door';
+        else sourceEl.value = 'Door Knock';
       }
 
       // Set stage based on disposition. Values must match the lStage

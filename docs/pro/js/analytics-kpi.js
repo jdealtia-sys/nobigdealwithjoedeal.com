@@ -1001,7 +1001,16 @@
     _ccRendering = true;
     try {
       const leads = Array.isArray(window._leads) ? window._leads : [];
-      const d2dLeads = leads.filter(l => l.source === 'Door-to-Door' || l.d2dKnockId);
+      // Pattern test, not equality: the same act was written as 'Door-to-Door'
+      // (d2d-tracker), 'Door Knock' (maps-overlays) and 'door_knock' (an old
+      // import). 'Door Knock' is canonical as of 2026-09-06 and the data is
+      // normalized, but matching loosely costs nothing and stops a stray
+      // spelling from an import or a restored backup emptying this panel.
+      const _isDoorKnock = (src) => {
+        const s = String(src || '').trim().toLowerCase().replace(/[_-]+/g, ' ');
+        return s === 'door knock' || s === 'door to door' || s === 'd2d';
+      };
+      const d2dLeads = leads.filter(l => _isDoorKnock(l.source) || l.d2dKnockId);
 
       // Knocks: for a manager/admin the leads book is company-wide, but
       // window._knocks is own-uid only — so the rep-attribution join needs every
