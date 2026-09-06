@@ -760,6 +760,67 @@ jobs:
 
   # Public-surface E2E (2026-08-07 audit): marketing.spec.js + pro-public.
   # spec.js existed with a ready-made npm script but were wired NOWHERE.
+  # E-sign suites. Browser-driven, but NOT playwright.config.js specs — each
+  # file is a plain node script that spins its own static server and drives
+  # Chromium directly, so there is no baseURL and no hosting emulator.
+  #
+  # They live in the manifest's "wired-individually" bucket, and THIS is the
+  # wiring. Putting them in the node bucket instead would have been quieter
+  # and wrong: that job installs no Playwright, and every one of these files
+  # degrades to "render assertions SKIPPED" when playwright is unresolvable —
+  # so they would have reported green while testing nothing. This repo has
+  # shipped that exact failure before (visual baselines never committed,
+  # npm test skipping 22 suites), which is why the graceful skip is a
+  # developer convenience and never the CI path.
+  #
+  # What they actually gate:
+  #   esign-stamp               — ink lands where pdf.js predicts, INCLUDING on
+  #                               a /Rotate 90 page. This is the coordinate
+  #                               contract between the placement UI and the
+  #                               server stamper; nothing else pins it.
+  #   esign-signer-flow         — the homeowner path end to end, then feeds what
+  #                               the page POSTs through the real stamper.
+  #   esign-setup-placement     — the rep's field placement, and the round trip
+  #                               that a box drawn at any zoom persists to the
+  #                               same PDF coordinates.
+  #   esign-signature-reachable — the generated-contract signature block is not
+  #                               clipped out of the page (it was, for months).
+  esign-suites:
+    name: E-sign suites (Chromium)
+    runs-on: ubuntu-latest
+    # Generous vs the ~2 min measured local run: this job installs Playwright,
+    # so it carries the same wedge exposure as the E2E jobs above.
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+      # pdf-lib: the stamping engine under test is required directly from
+      # functions/, the same way webhook-signatures reaches for stripe.
+      - name: Install functions deps
+        run: |
+          cd functions
+          npm ci --silent || npm install --silent --no-audit --no-fund
+      - name: Install test deps
+        run: |
+          cd tests
+          npm install --silent --no-audit --no-fund
+      - name: Install Playwright chromium
+        run: |
+          cd tests
+          npx playwright install --with-deps chromium
+      # Run from tests/ so `require('playwright')` resolves, and run each
+      # explicitly — no glob, so a renamed file fails loudly here rather than
+      # silently dropping out of the run.
+      - name: Run e-sign suites
+        run: |
+          cd tests
+          node esign-stamp.test.js
+          node esign-signer-flow.test.js
+          node esign-setup-placement.test.js
+          node esign-signature-reachable.test.js
+
   # CRITICAL RECIPE NOTE: tests/playwright.config.js defaults baseURL to
   # PRODUCTION — PLAYWRIGHT_BASE_URL must stay pinned to the hosting
   # emulator here or this job smoke-tests the live site. Advisory on
