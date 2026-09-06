@@ -4,8 +4,23 @@ Prior session: 2026-09-06, Instant Roofer + public-funnel measurement + Turnstil
 Session note: [SESSION-2026-09-06-instantroofer-adapter](SESSION-2026-09-06-instantroofer-adapter.md) ·
 runbooks: [INSTANTROOFER-SETUP](../runbooks/INSTANTROOFER-SETUP.md), [TURNSTILE-SETUP](../runbooks/TURNSTILE-SETUP.md)
 
-Three PRs merged: **#1420** (Instant Roofer adapter), **#1424** (the public
-funnel measures the roof), **#1425** (Turnstile wired).
+Five PRs merged: **#1420** (Instant Roofer adapter), **#1424** (the public
+funnel measures the roof), **#1425** (Turnstile wired), **#1429** (this
+handoff), **#1434** (bill the $75 pass-through on AI measures too).
+
+**#1434 landed after this handoff was first written and amends #1424's
+behaviour.** Every measurement is now `passThruEligible` — AI measures, 90-day
+reuse copies and web-lead auto-measures included. The original exclusion was
+mine, on the reasoning that a $3 internal cost with no deliverable should not
+carry a $75 line; Jo's call is that the measurement is work performed either
+way. What survived is the wording: a `passThruHasDocument` flag makes the quote
+line read "Aerial measurement report" only when a document actually exists
+(HOVER/EagleView PDF, human report) and "Aerial roof measurement" otherwise, so
+no invoice claims a report that could never be produced. **Do not merge those
+two strings** — the wording and its reasoning comment are both pinned by
+`tests/instantroofer-measurement.test.js`. Verified deployed: run 34054579976
+succeeded and `requestMeasurement`'s revision updated 19:47 UTC, after the
+19:20 merge.
 
 ---
 
@@ -32,6 +47,7 @@ funnel measures the roof), **#1425** (Turnstile wired).
 | Automated web-lead measurement | **LIVE and verified** — deploy 34049215929 succeeded and `measureNewWebLead` carries `INSTANTROOFER_API_KEY` on the deployed revision |
 | Turnstile site key | **LIVE and verified** by curl against the real URL, despite its own deploy being cancelled — see §2 |
 | `TURNSTILE_SECRET` | **Deliberately NOT set.** Step 4 of 4, gated on the Sunday report |
+| $75 pass-through on every measurement | **LIVE and verified deployed** (#1434) — wording varies by `passThruHasDocument` |
 
 ## §2 — Both "is it actually running?" checks came back CLEAN
 
