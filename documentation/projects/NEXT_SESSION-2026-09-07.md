@@ -8,6 +8,15 @@ Branch `esign-rebuild`, five commits, **not yet merged**. Rebased on
 
 ---
 
+> **UPDATE 2026-09-06 — Instant Roofer lane opened** (after this brief was
+> written): [SESSION-2026-09-06-instantroofer-adapter](SESSION-2026-09-06-instantroofer-adapter.md),
+> runbook [INSTANTROOFER-SETUP](../runbooks/INSTANTROOFER-SETUP.md). Adds two
+> items to Jo's queue below: set `INSTANTROOFER_API_KEY` (regenerate first)
+> **before** merging the adapter PR so the merge deploy binds it, and
+> configure the PDF webhook + `INSTANTROOFER_WEBHOOK_SECRET` before the first
+> human-certified order. Found in passing and NOT fixed: `TURNSTILE_SECRET`
+> is also the April stub, so public forms are IP-rate-limit-only.
+
 ## §0 — Jo's queue (nothing here is engineering)
 
 1. **Try the new signing flow end to end.** Open any customer → Documents tab →
