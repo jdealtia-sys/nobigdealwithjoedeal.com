@@ -109,9 +109,30 @@ const PROVIDERS = {
 const SECRET_STUB_VALUE = '__unset__';
 function hasSecret(name) {
   try {
-    const v = SECRETS[name] && SECRETS[name].value();
-    if (typeof v !== 'string') return false;
-    const trimmed = v.trim();
+    if (!SECRETS[name]) return false;
+    // Read process.env directly instead of SecretParam.value().
+    //
+    // They are the SAME SOURCE — firebase-functions' SecretParam.runtimeValue()
+    // is literally `process.env[this.name]` (params/types.js) — but .value()
+    // ALSO logs a WARNING every time the secret is not bound to the calling
+    // function, then returns ''. This registry is module scope, so any function
+    // that requires _shared.js paid that warning for every secret it does not
+    // bind, on every cold start.
+    //
+    // Measured 2026-09-06: 500+ WARNING lines in 24h across 12+ services
+    // (claudeProxy, stormWatch, checkStormAlerts, onFollowUpDue, …), all of
+    // them for UPSTASH_REDIS_REST_URL alone. Nothing was broken — Firestore is
+    // the configured rate-limit provider and `rate_limit_provider_drift` had
+    // never once fired — but the noise is the problem: drift is the warning
+    // built to catch a REAL Upstash misconfiguration, and it would have been
+    // one line among hundreds of identical ones.
+    //
+    // Semantics are unchanged, including the deploy-time case: .value() throws
+    // while FUNCTIONS_CONTROL_API=true, which the catch below turned into
+    // false; process.env is simply undefined there, giving the same false.
+    const raw = process.env[name];
+    if (typeof raw !== 'string') return false;
+    const trimmed = raw.trim();
     return trimmed.length > 0 && trimmed !== SECRET_STUB_VALUE;
   } catch (e) { return false; }
 }
