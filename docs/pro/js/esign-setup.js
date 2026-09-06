@@ -365,9 +365,13 @@ el.auto.addEventListener('click', async () => {
     added === 0);
 });
 
-el.clear.addEventListener('click', () => {
+el.clear.addEventListener('click', async () => {
   if (!fields.length) return;
-  if (!window.confirm(`Remove all ${fields.length} fields?`)) return;
+  // nbdConfirm is a real DOM modal; the raw-confirm fallback is the house
+  // idiom for pages that do not load standalone-compat.js.
+  // tests/pwa-confirm-guard.test.js holds this line.
+  const ask = window.nbdConfirm || ((m) => Promise.resolve(window.confirm(m)));
+  if (!(await ask(`Remove all ${fields.length} fields?`))) return;
   fields = [];
   paintFields();
 });
