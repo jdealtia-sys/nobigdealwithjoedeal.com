@@ -1302,14 +1302,30 @@
     // Take the whole batch, then re-queue individual failures, so one bad item
     // cannot block the rest and a retry loop cannot spin on it.
     const batch = state.uploadQueue.splice(0, state.uploadQueue.length);
-    for (const item of batch) {
+    for (let i = 0; i < batch.length; i++) {
+      const item = batch[i];
+
+      // Decode FIRST, outside the retry path. A truncated or corrupted data
+      // URL passes the `!b64` check and then makes atob throw — and a throw
+      // used to land in the catch below, which re-queued the item. That item
+      // would be first in line on every future drain and fail the same way,
+      // blocking every healthy photo behind it forever. A photo we cannot
+      // decode is unrecoverable, so drop it here and keep going.
+      let blob = null;
+      try { blob = _dataUrlToBlob(item && item.dataUrl); } catch (_) { blob = null; }
+      if (!blob || !item.leadId) continue;
+
       try {
-        const blob = _dataUrlToBlob(item && item.dataUrl);
-        if (!blob || !item.leadId) continue;   // unrecoverable — drop, do not spin
         await uploadPhotoToFirebase(blob, item.leadId, item.tags || [], item.description || '', item.location || '');
         sent++;
       } catch (e) {
-        state.uploadQueue.push(item);
+        // Put back the failing item AND everything not yet attempted, in
+        // order. The previous code re-queued only `item` and broke, so on a
+        // five-photo queue that failed at #3, photos #4 and #5 existed only in
+        // this local `batch` and were destroyed when it went out of scope —
+        // silently, with no toast and no log. That is worse than never
+        // draining at all, which is what this function replaced.
+        state.uploadQueue.unshift.apply(state.uploadQueue, batch.slice(i));
         break;                                  // still offline — stop trying
       }
     }

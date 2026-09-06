@@ -57,12 +57,17 @@ ok('it also drains after a successful upload',
 
 ok('the drain is re-entrancy guarded', /_draining\s*=\s*true/.test(src) && /if \(_draining\) return/.test(src));
 
-ok('a failed item is put BACK on the queue',
-  /catch \(e\) \{\s*state\.uploadQueue\.push\(item\);/.test(src),
-  'dropping it would reproduce the original bug with extra steps');
+// These two used to assert `state.uploadQueue.push(item)` followed by `break`.
+// Both matched — and that exact shape destroyed every item after the failure,
+// because splice() had already emptied the queue into a local array. Pinning
+// the requeue of the WHOLE REMAINDER is the property that actually matters;
+// the behavioural block at the bottom of this file proves it end to end.
+ok('the failing item AND the untried remainder go back on the queue',
+  /state\.uploadQueue\.unshift\.apply\(state\.uploadQueue, batch\.slice\(i\)\)/.test(src),
+  'requeuing only the failing item silently drops the rest of the batch');
 
 ok('the drain stops on the first failure instead of spinning',
-  /state\.uploadQueue\.push\(item\);\s*\n\s*break;/.test(src));
+  /batch\.slice\(i\)\);\s*\n\s*break;/.test(src));
 
 ok('an unrecoverable item is dropped rather than retried forever',
   /if \(!blob \|\| !item\.leadId\) continue;/.test(src));
@@ -108,6 +113,90 @@ if (at >= 0) {
 
   ok('malformed input returns null instead of throwing',
     f('') === null && f(null) === null && f('not-a-data-url') === null);
+}
+
+// ── BEHAVIOURAL: the drain must not destroy the items it did not attempt ──
+//
+// Every assertion above this block is a regex over the source, and that is why
+// this bug shipped: `state.uploadQueue.push(item)` and `break` both matched
+// while the code destroyed photos. splice() moved the WHOLE queue into a local
+// array, and a mid-batch failure re-queued only the failing item — everything
+// after it existed solely in that local and died with it. So run the function.
+function extractFn(name) {
+  const at = src.indexOf(name);
+  if (at < 0) return null;
+  const open = src.indexOf('{', at);
+  let depth = 0;
+  for (let i = open; i < src.length; i++) {
+    if (src[i] === '{') depth++;
+    else if (src[i] === '}') { depth--; if (depth === 0) return src.slice(at, i + 1); }
+  }
+  return null;
+}
+
+const flushSrc = extractFn('async function flushUploadQueue(');
+const blobSrc = extractFn('function _dataUrlToBlob(');
+ok('flushUploadQueue body is extractable for a real run', !!flushSrc && !!blobSrc);
+
+if (flushSrc && blobSrc) {
+  const PNG1x1 = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
+  const item = (id, dataUrl) => ({ dataUrl: dataUrl || PNG1x1, leadId: 'lead-' + id, tags: [], description: '', location: '' });
+
+  function run(queue, uploader) {
+    const sandbox = {
+      atob, Uint8Array, Blob, console,
+      navigator: { onLine: true },
+      _draining: false,
+      state: { uploadQueue: queue },
+      showToast: function () {},
+      uploadPhotoToFirebase: uploader,
+    };
+    vm.createContext(sandbox);
+    vm.runInContext(blobSrc + '\n' + flushSrc + '\nthis.__flush = flushUploadQueue;', sandbox);
+    return sandbox.__flush().then(function (sent) {
+      return { sent: sent, left: sandbox.state.uploadQueue };
+    });
+  }
+
+  const results = [];
+  const done = (async () => {
+    // 1. Five queued, the THIRD upload fails: 1 and 2 are sent, and 3, 4, 5
+    //    must all still be on the queue — in order — for the next drain.
+    let n = 0;
+    const r1 = await run([item(1), item(2), item(3), item(4), item(5)], async () => {
+      n++; if (n === 3) throw new Error('offline again');
+    });
+    results.push(['two upload before the failure', r1.sent === 2, 'sent=' + r1.sent]);
+    results.push(['the failing item AND the untried remainder survive',
+      r1.left.length === 3, 'queue kept ' + r1.left.length + ', expected 3']);
+    results.push(['the remainder keeps its original order',
+      r1.left.map(i => i.leadId).join(',') === 'lead-3,lead-4,lead-5',
+      r1.left.map(i => i.leadId).join(',')]);
+
+    // 2. An undecodable photo is dropped, and does NOT block the rest.
+    //    A truncated base64 makes atob throw; if that throw reaches the retry
+    //    path the item is re-queued and heads every future drain forever.
+    const r2 = await run([item(1, 'data:image/png;base64,!!!not-base64!!!'), item(2)], async () => {});
+    results.push(['an undecodable photo does not block the queue',
+      r2.left.length === 0, 'queue kept ' + r2.left.length + ', expected 0']);
+    results.push(['the healthy photo behind it still uploads', r2.sent === 1, 'sent=' + r2.sent]);
+
+    // 3. All-fail leaves the queue exactly as it was — nothing lost.
+    const r3 = await run([item(1), item(2)], async () => { throw new Error('offline'); });
+    results.push(['a total outage loses nothing', r3.left.length === 2 && r3.sent === 0,
+      'queue kept ' + r3.left.length + ', sent ' + r3.sent]);
+  })();
+
+  const wait = require('timers/promises').setTimeout;
+  // Node's test file is sync-tailed; drain the microtask/IO queue before scoring.
+  const sync = (async () => { await done; await wait(0); })();
+  sync.then(() => {
+    for (const [name, cond, extra] of results) ok(name, cond, extra);
+    console.log(`\n  ${passed} passed, ${failed} failed`);
+    if (failed) { console.log('\n  failures:'); for (const f of fails) console.log('    - ' + f); process.exit(1); }
+    process.exit(0);
+  }).catch((e) => { console.log('  ✗ behavioural drain harness threw: ' + e.message); process.exit(1); });
+  return;
 }
 
 console.log(`\n  ${passed} passed, ${failed} failed`);

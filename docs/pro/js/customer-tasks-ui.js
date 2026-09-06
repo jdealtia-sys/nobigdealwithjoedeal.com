@@ -515,11 +515,18 @@ window.NBDCustomerInvoices = {
       if (!(window.InvoicePipeline && typeof window.InvoicePipeline.markPaidUI === 'function')) {
         throw new Error('InvoicePipeline.markPaidUI missing after load');
       }
-      await window.InvoicePipeline.markPaidUI(invoiceId);
-      // markPaidUI writes through its own modal; repaint from the store so the
-      // row's status and the Total Owed / Total Paid summary agree with it.
-      if (typeof window.loadInvoices === 'function' && window._customerId) {
-        setTimeout(function () { window.loadInvoices(window._customerId); }, 600);
+      // markPaidUI now settles when the PAYMENT settles, not when its modal
+      // opens (invoice-pipeline.js). The previous `setTimeout(..., 600)` fired
+      // 600ms after the overlay appeared — while the rep was still typing the
+      // amount — so it repainted the still-unpaid row and nothing repainted
+      // afterwards: the post-write refresh in markPaidUI targets
+      // #nbd-inv-detail-host, which is a DASHBOARD host and does not exist on
+      // this page. The check was recorded and the row kept saying unpaid.
+      const paid = await window.InvoicePipeline.markPaidUI(invoiceId);
+      // Repaint only on a real write. A cancel leaves the row correct already,
+      // and repainting then would just cost a read set.
+      if (paid && typeof window.loadInvoices === 'function' && window._customerId) {
+        await window.loadInvoices(window._customerId);
       }
     } catch (err) {
       console.error('[invoices] markPaid failed', err);

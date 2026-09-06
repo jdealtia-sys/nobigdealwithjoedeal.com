@@ -1554,25 +1554,59 @@ let _NBD_IP_DELEGATE_BOUND; // module-local (globals Tranche 1 — was window.*)
       </div>
     `;
     const closeModal = openOverlay(overlay);
-    overlay.querySelector('#nbd-mp-cancel').onclick = () => closeModal();
-    overlay.querySelectorAll('.nbd-mp-method').forEach(btn => {
-      btn.onclick = async () => {
-        const amount = parseFloat(overlay.querySelector('#nbd-mp-amount').value);
-        if (!Number.isFinite(amount) || amount <= 0) {
-          if (typeof showToast === 'function') showToast('Enter a valid amount', 'error');
-          return;
-        }
-        const method = btn.dataset.method;
-        closeModal();
-        try {
-          if (typeof showToast === 'function') showToast('Recording payment...', 'info');
-          await markPaid(invoiceId, amount, method);
-          if (typeof showToast === 'function') showToast('Payment recorded', 'success');
-          if (document.getElementById('nbd-inv-detail-host')) renderInvoiceDetail('nbd-inv-detail-host', invoiceId);
-        } catch (error) {
-          if (typeof showToast === 'function') showToast(`Error: ${error.message}`, 'error');
-        }
-      };
+
+    // RESOLVE WHEN THE PAYMENT SETTLES, NOT WHEN THE MODAL OPENS.
+    //
+    // This used to return as soon as the overlay was in the DOM: the real
+    // `await markPaid(...)` happens inside the button handler below, long
+    // after. Every caller that did `await markPaidUI(id)` and then refreshed
+    // was therefore refreshing against the UNPAID invoice, while the rep was
+    // still typing the amount — and nothing refreshed afterwards, because the
+    // only post-write repaint targets #nbd-inv-detail-host, which exists on
+    // the dashboard and NOT on customer.html. The check landed in Firestore
+    // and the row kept saying unpaid until a manual reload.
+    //
+    // Now the promise settles once, on whichever happens first:
+    //   paid    → true   (after markPaid resolved — safe to repaint)
+    //   cancel  → false  (dismissed, nothing written)
+    // Fixed at this end rather than in each caller so both call sites — and
+    // the dashboard's fire-and-forget dispatch, which simply ignores the
+    // return — inherit the correct timing.
+    return await new Promise((resolve) => {
+      let settled = false;
+      const settle = (paid) => { if (!settled) { settled = true; resolve(paid); } };
+
+      overlay.querySelector('#nbd-mp-cancel').onclick = () => { closeModal(); settle(false); };
+      // Dismissing by backdrop/Esc goes through openOverlay's own teardown, so
+      // watch for removal too — otherwise an awaiting caller hangs forever.
+      const mo = new MutationObserver(() => {
+        if (!document.body.contains(overlay)) { mo.disconnect(); settle(false); }
+      });
+      mo.observe(document.body, { childList: true, subtree: true });
+
+      overlay.querySelectorAll('.nbd-mp-method').forEach(btn => {
+        btn.onclick = async () => {
+          const amount = parseFloat(overlay.querySelector('#nbd-mp-amount').value);
+          if (!Number.isFinite(amount) || amount <= 0) {
+            if (typeof showToast === 'function') showToast('Enter a valid amount', 'error');
+            return;                     // stay open; do NOT settle
+          }
+          const method = btn.dataset.method;
+          closeModal();
+          try {
+            if (typeof showToast === 'function') showToast('Recording payment...', 'info');
+            await markPaid(invoiceId, amount, method);
+            if (typeof showToast === 'function') showToast('Payment recorded', 'success');
+            if (document.getElementById('nbd-inv-detail-host')) renderInvoiceDetail('nbd-inv-detail-host', invoiceId);
+            mo.disconnect();
+            settle(true);
+          } catch (error) {
+            if (typeof showToast === 'function') showToast(`Error: ${error.message}`, 'error');
+            mo.disconnect();
+            settle(false);              // write failed — caller must not claim success
+          }
+        };
+      });
     });
   }
 
