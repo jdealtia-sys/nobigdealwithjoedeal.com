@@ -561,8 +561,8 @@ Re-seeding it on boot is a small change and is **not** in this PR.
 
 This grew `photo-queue-recovery.js`, so the figure corrected two sections above
 is now stale in turn — restating it rather than leaving the same trap:
-**34,253 B** uncompressed (`photo-queue-store.js` 21,512 +
-`photo-queue-recovery.js` 12,741; LF blob sizes at this commit, ~33.5 KiB on
+**39,145 B** uncompressed (`photo-queue-store.js` 22,449 +
+`photo-queue-recovery.js` 16,696; LF blob sizes at `3f9c0d15`, ~38.2 KiB on
 disk with CRLF). Both files are still DOM-free at load, and the common boot is
 still one `localStorage.getItem` and no network — the server read happens only
 on the once-per-device branch where the counter is missing.
