@@ -556,7 +556,7 @@ same purge deletes `nbd_photo_queue_last_known_size` on every logout while the
 IndexedDB rows survive, so after any sign-out the store's own partial-eviction
 detector is blind until the next `add()` or `remove()` re-seeds the counter.
 Re-seeding it on boot is a small change and is **not** in this PR.
-*(Closed in #1425 — see the next section.)*
+*(Closed in #1426 — see the next section.)*
 
 ### Eager cost, restated
 
@@ -568,7 +568,7 @@ disk with CRLF). Both files are still DOM-free at load, and the common boot is
 still one `localStorage.getItem` and no network — the server read happens only
 on the once-per-device branch where the counter is missing.
 
-## Update, 2026-09-06 (later still, #1425) — we were deleting the counter ourselves
+## Update, 2026-09-06 (later still, #1426) — we were deleting the counter ourselves
 
 Closing the hole flagged two sections above, plus a false claim I made about it.
 
