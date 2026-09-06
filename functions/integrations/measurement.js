@@ -350,10 +350,15 @@ async function resolveCoords({ lat, lng, lead, address, db }, deps) {
   if (fromLead) return fromLead;
   if (!address) return null;
 
+  // Both legs are injectable so a test can exercise the fallback ladder
+  // without the global fetch — otherwise a machine that HAS these keys makes
+  // real outbound calls from the unit suite and the cache assertion is a lie.
+  const googleForward = deps.googleForward || geocodeHandlers._googleForward;
+  const regridAddress = deps.regridAddress || geocodeHandlers._regridAddress;
   const gKey = secretValue(GOOGLE_GEOCODING_API_KEY);
   if (gKey && gKey.startsWith('AIza')) {
     try {
-      const g = await geocodeHandlers._googleForward(address, gKey);
+      const g = await googleForward(address, gKey);
       if (g && g.precision === 'ROOFTOP' && IR.validateCoords(g.lat, g.lng).ok) {
         return { lat: g.lat, lng: g.lng, source: 'google', precision: 'rooftop' };
       }
@@ -361,7 +366,7 @@ async function resolveCoords({ lat, lng, lead, address, db }, deps) {
   }
   if (hasSecret('REGRID_API_TOKEN')) {
     try {
-      const r = await geocodeHandlers._regridAddress(address, getSecret('REGRID_API_TOKEN'));
+      const r = await regridAddress(address, getSecret('REGRID_API_TOKEN'));
       if (r && IR.validateCoords(r.lat, r.lng).ok) {
         return { lat: r.lat, lng: r.lng, source: 'regrid', precision: 'parcel-centroid' };
       }
@@ -384,9 +389,14 @@ async function resolveCoords({ lat, lng, lead, address, db }, deps) {
 }
 
 // ─── Reuse: same roof, same tenant, last 90 days ───────────
-// Two equality filters only — Firestore serves those from the automatic
+// Equality filters only — Firestore serves those from the automatic
 // single-field indexes (CI never deploys firestore.indexes.json, so no
-// composite). Tenant and age are filtered in memory on ≤10 rows.
+// composite), and an equality-only query cannot carry an orderBy without one.
+// That matters: the rows come back in document-ID order, which is random, so
+// the limit is a BLIND window — anything past it is invisible and we re-bill.
+// The population is therefore kept at ~one doc per roof per tenant: only
+// vendor-billed originals carry `coordKey`, reuse copies deliberately do not
+// (see the copy below), so N does not grow by one on every cache hit.
 // Age is measured from `measuredAt` — when the vendor was actually called —
 // NOT from createdAt. A reuse copy is itself a candidate for the next reuse,
 // so stamping the copy's own creation time would restamp the roof as fresh on
@@ -400,7 +410,7 @@ async function findReusableMeasurement(db, { coordKey, uid, companyId, reportTyp
   const snap = await db.collection('measurements')
     .where('coordKey', '==', coordKey)
     .where('provider', '==', 'instantroofer')
-    .limit(10)
+    .limit(50)
     .get();
   const cutoff = Date.now() - REUSE_WINDOW_MS;
   const rows = snap.docs
@@ -421,7 +431,7 @@ async function findReusableMeasurement(db, { coordKey, uid, companyId, reportTyp
 // callback. The task goes on leads/{leadId}/tasks — the collection every
 // task UI reads; the top-level `tasks` write this used to make has had no
 // reader since migration 006-unify-tasks.
-async function attachMeasurementToLead(db, { leadId, ownerId, address, provider, reportType, measurementJobId, measurements }) {
+async function attachMeasurementToLead(db, { leadId, ownerId, address, provider, reportType, measurementJobId, measurements, dedupeKey }) {
   if (!leadId || !ownerId) return false;
   const addr = address || '(address unknown)';
   const providerLabel = provider === 'instantroofer'
@@ -433,7 +443,17 @@ async function attachMeasurementToLead(db, { leadId, ownerId, address, provider,
     + (m.ridge ? m.ridge + ' LF ridge' : '')
     + (m.confidence && m.confidence.label ? ' (' + m.confidence.label.toLowerCase() + ' confidence)' : '');
 
-  await db.collection(`leads/${leadId}/tasks`).add({
+  // Deterministic id so repeat Auto-measure clicks on the same roof collapse
+  // into ONE task instead of stacking identical rows in the lead's task list.
+  const taskId = 'measure-' + crypto.createHash('sha1')
+    .update(String(dedupeKey || measurementJobId)).digest('hex').slice(0, 20);
+  // dueDate is the field every task surface reads — docs/pro/js/tasks.js and
+  // notif-bell.js both do `t.dueDate ? new Date(t.dueDate + 'T23:59:59') : null`
+  // and return early on null, so the '' this used to write meant the alert
+  // never appeared in Today's Tasks or the bell. dueAt has no reader at all.
+  const today = new Date(Date.now() - new Date().getTimezoneOffset() * 60000)
+    .toISOString().slice(0, 10);
+  await db.doc(`leads/${leadId}/tasks/${taskId}`).set({
     userId: ownerId,
     leadId,
     title: 'Aerial measurement ready — ' + addr,
@@ -442,15 +462,16 @@ async function attachMeasurementToLead(db, { leadId, ownerId, address, provider,
     source: 'measurement',
     provider,
     measurementJobId,
-    dueDate: '',
+    dueDate: today,
     dueAt: Timestamp.now(),
     createdAt: FieldValue.serverTimestamp(),
     done: false
-  });
+  }, { merge: true });
 
   // Activity: structured timeline entry on the lead. Rules
-  // already allow the rep to read this subcollection.
-  await db.collection(`leads/${leadId}/activity`).add({
+  // already allow the rep to read this subcollection. Same deterministic id,
+  // so a re-measure updates the entry rather than adding a duplicate row.
+  await db.doc(`leads/${leadId}/activity/${taskId}`).set({
     userId: ownerId,
     type: 'measurement_ready',
     source: 'webhook',
@@ -460,7 +481,7 @@ async function attachMeasurementToLead(db, { leadId, ownerId, address, provider,
     reportUrl: m.reportUrl || null,
     summary: summary.replace(/,\s*$/, '') || null,
     createdAt: FieldValue.serverTimestamp()
-  });
+  }, { merge: true });
 
   // Also bump a lead field so the kanban card can show
   // "📐 Measurement ready" without a join query.
@@ -563,11 +584,31 @@ exports.requestMeasurement = onCall(
 
     let coords = null;
     if (provider.needsCoords) {
-      if (reportType === 'human' && !hasSecret('INSTANTROOFER_WEBHOOK_SECRET')) {
+      if (reportType === 'human') {
         // Their dashboard refuses the order too, but fail here with the
-        // reason: a report we cannot receive is $10 for nothing.
-        throw new HttpsError('failed-precondition',
-          'Human Certified Reports need the Instant Roofer webhook configured first (INSTANTROOFER_WEBHOOK_SECRET).');
+        // reason: a report we cannot receive is $10 for nothing. Use the
+        // RECEIVER's definition of configured — hasSecret() alone would pass a
+        // 12-character token that verifyBearer then rejects as unconfigured,
+        // answering 503 to every delivery of a report we had already paid for.
+        if (!webhookSecretReady()) {
+          throw new HttpsError('failed-precondition',
+            'Human Certified Reports need the Instant Roofer webhook configured first — set INSTANTROOFER_WEBHOOK_SECRET to the token from their Webhook Delivery form (at least '
+            + IR.MIN_WEBHOOK_SECRET_LEN + ' characters).');
+        }
+        // $10 a call, and the 90-day reuse guard above is AI-only, so this is
+        // the only spend cap on the expensive path. Two per hour per rep is
+        // well above real use (a rep orders one when a quote is going out) and
+        // well below what a runaway loop or a console-driven abuse costs.
+        try {
+          await enforceRateLimit('callable:requestMeasurement:human:uid', uid, 2, 60 * 60_000);
+          await enforceRateLimit('callable:requestMeasurement:human:account', 'account', 20, 24 * 60 * 60_000);
+        } catch (e) {
+          if (e.rateLimited) {
+            throw new HttpsError('resource-exhausted',
+              'Human Certified Report limit reached (2/hour per rep, 20/day per company). Contact support to raise it.');
+          }
+          throw e;
+        }
       }
       coords = await resolveCoords({
         lat: clientCoords && clientCoords.lat,
@@ -602,7 +643,10 @@ exports.requestMeasurement = onCall(
             status: 'ready',
             estimatedMinutes: 0,
             lat: coords.lat, lng: coords.lng,
-            coordKey: ctx.coordKey,
+            // Deliberately NO coordKey: a copy must not become a reuse
+            // candidate itself, or the blind window above fills with copies
+            // and the original becomes unfindable. lat/lng + reusedFrom keep
+            // the audit trail.
             coordSource: coords.source, coordPrecision: coords.precision || null,
             reusedFrom: prior.id,
             billed: false,
@@ -615,7 +659,8 @@ exports.requestMeasurement = onCall(
           const ref = await db.collection('measurements').add(copy);
           await attachMeasurementToLead(db, {
             leadId, ownerId: uid, address: ctx.address, provider: 'instantroofer', reportType,
-            measurementJobId: ref.id, measurements: prior.data.measurements
+            measurementJobId: ref.id, measurements: prior.data.measurements,
+            dedupeKey: leadId + '|' + ctx.coordKey
           });
           return {
             jobId: ref.id, externalJobId: copy.externalJobId, provider: 'instantroofer',
@@ -687,7 +732,8 @@ exports.requestMeasurement = onCall(
     if (status === 'ready') {
       await attachMeasurementToLead(db, {
         leadId, ownerId: uid, address: ctx.address, provider: result.provider,
-        reportType: doc.reportType, measurementJobId: ref.id, measurements
+        reportType: doc.reportType, measurementJobId: ref.id, measurements,
+        dedupeKey: ctx.coordKey ? leadId + '|' + ctx.coordKey : null
       });
     }
 
@@ -766,6 +812,14 @@ function verifyWebhookHmac(provider, rawBody, headerValue) {
   if (a.length !== b.length) return { ok: false, reason: 'length-mismatch' };
   if (!crypto.timingSafeEqual(a, b)) return { ok: false, reason: 'signature-mismatch' };
   return { ok: true };
+}
+
+// One definition of "the webhook is configured", used by both the receiver and
+// the callable's human-order gate.
+function webhookSecretReady() {
+  if (!hasSecret('INSTANTROOFER_WEBHOOK_SECRET')) return false;
+  const s = getSecret('INSTANTROOFER_WEBHOOK_SECRET');
+  return typeof s === 'string' && s.length >= IR.MIN_WEBHOOK_SECRET_LEN;
 }
 
 function verifyInstantRooferBearer(headerValue) {
@@ -894,9 +948,14 @@ exports.measurementWebhook = onRequest(
         // report_type, and the field list is configured in their dashboard —
         // requiring reportType here threw away the $10 report's only URL while
         // still flipping the doc to 'ready'.
-        if (human.reportUrl) reportUrls[human.reportType || 'report'] = human.reportUrl;
+        const urlKey = human.reportType || 'report';
+        if (human.reportUrl) reportUrls[urlKey] = human.reportUrl;
         const headline = IR.preferredReportUrl(reportUrls);
-        if (Object.keys(reportUrls).length) update.reportUrls = reportUrls;
+        // One completed report fires one delivery PER ENABLED FORMAT, and those
+        // arrive concurrently: a whole-object write would let the PDF and CSV
+        // handlers each read {} and the later write erase the other's URL. A
+        // dotted field path merges server-side, so both survive.
+        if (human.reportUrl) update['reportUrls.' + urlKey] = human.reportUrl;
         if (human.humanReportId) update.humanReportId = human.humanReportId;
         if (human.failureReason) update.failureReason = human.failureReason;
         if (headline) {
@@ -907,6 +966,16 @@ exports.measurementWebhook = onRequest(
           update.measurements = mergedMeasurements;
         }
         if (measurementData.status === 'ready' && status !== 'failed') status = 'ready';
+        // A human doc that ends up with neither a URL nor numbers is not
+        // 'ready' — flipping it would tell the rep to open a report that does
+        // not exist, and both pollers require `measurements` so nothing would
+        // ever render. Leave it pending and make the gap visible in logs.
+        if (status === 'ready' && !headline && !mergedMeasurements) {
+          logger.warn('measurementWebhook: instantroofer completion carried no report URL', {
+            externalJobId, reportType: human.reportType, keys: Object.keys(body)
+          });
+          status = 'pending';
+        }
       }
       update.status = status;
       await measurementDoc.ref.update(update);
@@ -955,6 +1024,8 @@ exports._test = {
   stripVendorBlobs,
   normalizeWebhookPayload,
   measuredAtMs,
+  attachMeasurementToLead,
+  webhookSecretReady,
   verifyInstantRooferBearer,
   verifyWebhookHmac,
   REUSE_WINDOW_MS,

@@ -48,10 +48,14 @@ firebase functions:secrets:set INSTANTROOFER_API_KEY --project nobigdeal-pro
 ```
 
 (It prompts for the value — paste there.) **A new secret version binds only
-on the next functions deploy.** Set the secret *before* merging the PR that
-carries this runbook and the merge deploy binds it; if it lands after, run
-the deploy workflow with `scope=functions` or
-`npx firebase-tools deploy --only functions:requestMeasurement --project nobigdeal-pro --force`.
+on the next functions deploy** — and only for the functions that are actually
+redeployed, because each one reads the value from its own runtime env. Three
+functions read these secrets: `requestMeasurement`, `measurementWebhook` and
+`integrationStatus` (the admin readout you verify with — a deploy that omits it
+keeps reporting the old state). Set the secret *before* merging the PR that
+carries this runbook and the full merge deploy binds all three; if it lands
+after, run the deploy workflow with `scope=functions`, or at minimum
+`npx firebase-tools deploy --only functions:requestMeasurement,functions:measurementWebhook,functions:integrationStatus --project nobigdeal-pro --force`.
 Verify with the admin readout (`integrationStatus` → `configured.instantroofer`),
 not with a green run.
 
@@ -169,18 +173,28 @@ Bridged web leads and Thumbtack leads carry **no** coordinates (the public
 form allowlist drops the wizard's `lat`/`lon`; `lead-bridge-logic` copies
 none) — those fall through to step 3.
 
-## Caveats / first-use verification
+## First-use verification — DONE 2026-09-06
 
-- **Field tolerance to tighten after the first live call**: whether
-  `complexityWaste` is a fraction or a percent, and whether the webhook's
-  `status` arrives as a string or a status code. The first AI response is
-  kept on the measurement doc as `vendorResponse` (image and LiDAR blobs
-  replaced by `[stripped]`) — read one back and prune.
-- `resultOptions` is sent as `{ mapWithOutlineFromImageModel:false, facetMeta:true, facetPoints:false }`
-  (the three documented keys). If the sandbox answers 400 to explicit
-  `false` values, drop `resultOptions` (`AI_RESULT_OPTIONS` in
-  `instantroofer-logic.js`) — the outline image is wanted later by the
-  public wizard, client-side only, never persisted.
+One live AI measure was run against **their own documentation example
+coordinates** (32.865378, -111.677416 — deliberately not a customer's house),
+using the real key. `HTTP 200`, 1,536 bytes. What it settled:
+
+| Open question | Answer |
+|---|---|
+| Does the key work end to end? | Yes — 200 with a full measurement |
+| Is `resultOptions` with explicit `false` accepted? | Yes, **and it works**: `imagery` came back empty and `lidar` carried only `facets` — the base64 image and the LiDAR point cloud never reach Firestore |
+| Is `complexityWaste` a fraction or a percent? | **A percent** (`11`). The tolerant read lands on 11 either way; do not narrow it on one sample |
+| Undocumented fields? | A top-level `coordinates` echo of the point actually measured — useful for confirming we measured the right building. Rides along in `vendorResponse` |
+| Confidence shape | `score: 0.408` with `display.value: "High"` — matches the documented ≥0.35 bucket |
+
+The normalizer's output on that live body was correct in every field.
+
+**Still unverified — the human-report webhook `status` shape** (string
+`"completed"` vs the numeric `order.status_code`). No human report has been
+ordered yet, so both branches stay. When the first one lands, read the doc's
+`vendorResponse` / the Cloud Logging entry and prune `parseHumanWebhook`.
+
+## Other caveats
 - **Reps vs admins (pre-existing)**: `integrationStatus` is admin-only, so
   the V2 builder's Auto-measure gate reports "not set up" to ordinary reps;
   the D2D button calls the callable directly and works for everyone.

@@ -1337,14 +1337,15 @@
     if (btn) { btn.disabled = true; btn.textContent = '📐 Requesting...'; }
     setStatus('Requesting roof measurement...');
 
-    // The lead's stored coordinates (CRM geocode at save, or a map pin) are
-    // the most reliable roof point we have — send them when present so the
-    // server does not have to geocode a free-text address.
+    // Send the leadId, NOT the lead's lat/lng. The server reads the same
+    // coordinates itself and tags them `lead` / `geocoded`, which is the truth:
+    // they come from a Nominatim `limit=1` forward geocode at save time, not
+    // from a pin someone placed on the roof. Passing them here would have
+    // labelled them `client` — indistinguishable from a real D2D knock pin —
+    // and suppressed the confirm-the-pin warning on exactly the leads most
+    // likely to be sitting on the neighbour's roof.
     const leadId = (state.customer && state.customer.leadId) || state.leadId || null;
-    const lead = leadId ? (window._leads || []).find(l => l && l.id === leadId) : null;
-    const coords = lead && typeof lead.lat === 'number' && typeof lead.lng === 'number'
-      && isFinite(lead.lat) && isFinite(lead.lng) ? { lat: lead.lat, lng: lead.lng } : {};
-    const result = await window.NBDIntegrations.requestMeasurement(Object.assign({ address, leadId }, coords));
+    const result = await window.NBDIntegrations.requestMeasurement({ address, leadId });
 
     if (btn) { btn.disabled = false; btn.textContent = '📐 Auto-measure'; }
 
@@ -1406,8 +1407,13 @@
     let line = '✓ Measurements loaded (' + provider
       + (m.confidence && m.confidence.label ? ', ' + m.confidence.label.toLowerCase() + ' confidence' : '')
       + (meta.cached ? ', reused recent report' : '') + ')';
-    if (meta.coordPrecision === 'interpolated') {
-      line += ' — address was street-interpolated; confirm the pin is on this roof before pricing.';
+    // Warn unless the point is known to sit on the building. 'geocoded' (a
+    // lead's stored Nominatim result) and 'interpolated' both mean the address
+    // was resolved along a street and may land on the neighbour's roof — which
+    // Instant Roofer would measure, and bill for, without complaint.
+    var TRUSTED_PRECISION = ['rooftop', 'building', 'parcel-centroid', 'client'];
+    if (meta.coordPrecision && TRUSTED_PRECISION.indexOf(meta.coordPrecision) === -1) {
+      line += ' — the address was resolved by geocode, not a rooftop pin; check the outline is this house before pricing.';
     }
     return line;
   }
@@ -1425,10 +1431,20 @@
       valleyLf: numOr(m.valley || m.valleyLf, state.measurements.valleyLf),
       rakeLf:   numOr(m.rake   || m.rakeLf,   state.measurements.rakeLf)
     };
-    if (m.pitch) {
-      // Pitch may come in as '8/12' or a decimal. Both OK for <select>.
-      const asStr = String(m.pitch);
-      next.pitch = asStr.includes('/') ? parseInt(asStr, 10) : Number(asStr);
+    // Pitch arrives as '8/12', '8:12', or a bare number. parseInt('0/12') is 0
+    // and parseInt('2/12') is 2 — neither is an option in #v2pitch (3–16), so
+    // the <select> would go blank and the estimate would price off a rise the
+    // rep never chose. Parse the same grammar the server does, normalise a
+    // non-12 run, then clamp into the range the control actually offers.
+    const rise = parsePitchRise(m.pitch);
+    if (rise !== null) next.pitch = Math.min(16, Math.max(3, Math.round(rise)));
+    function parsePitchRise(p) {
+      if (p === null || p === undefined) return null;
+      const mm = /^(\d+(?:\.\d+)?)\s*(?:[/:]\s*(\d+(?:\.\d+)?))?/.exec(String(p).trim());
+      if (!mm) return null;
+      const r = Number(mm[1]), run = mm[2] ? Number(mm[2]) : 12;
+      if (!isFinite(r) || !isFinite(run) || run <= 0) return null;
+      return run === 12 ? r : (r / run) * 12;
     }
     state.measurements = Object.assign({}, state.measurements, next);
 

@@ -322,6 +322,17 @@ if (M && M._test) {
     c = await T.resolveCoords({ address: '123 Main St, Loveland, OH 45140', db: null }, { fetchImpl: nomFetch([{ lat: '39.2689', lon: '-84.2638', class: 'building', display_name: '123 Main St' }]) });
     ok("Nominatim fallback (Google/Regrid unconfigured) → 'nominatim', precision 'building' when OSM has the footprint",
       c && c.source === 'nominatim' && c.precision === 'building' && near(c.lat, 39.2689, 1e-6) && near(c.lng, -84.2638, 1e-6));
+    ok('the Google and Regrid legs are injectable too (no real outbound call from this suite)', await (async () => {
+      let googleCalled = false, regridCalled = false;
+      await T.resolveCoords({ address: '1 Test St', db: null }, {
+        fetchImpl: nomFetch([{ lat: '39.1', lon: '-84.5', class: 'building' }]),
+        googleForward: async () => { googleCalled = true; return null; },
+        regridAddress: async () => { regridCalled = true; return null; }
+      });
+      // Neither key is set in this process, so neither leg should even be
+      // reached — the point is that the seam EXISTS for a machine where they are.
+      return googleCalled === false && regridCalled === false;
+    })());
     ok('Nominatim call is polite: identifies the app, limit=1, US only', calls[0] && /nominatim\.openstreetmap\.org\/search/.test(calls[0].url)
       && /limit=1/.test(calls[0].url) && /countrycodes=us/.test(calls[0].url) && /NoBigDealCRM/.test(calls[0].opts.headers['User-Agent']));
     c = await T.resolveCoords({ address: '123 Main St', db: null }, { fetchImpl: nomFetch([{ lat: '39.2', lon: '-84.2', class: 'place', type: 'house' }]) });
@@ -370,30 +381,57 @@ function finish() {
   ok('synchronous path attaches to the lead (task + activity + measurementReady) like the webhook does',
     /attachMeasurementToLead\(db,/.test(meas) && /measurementReady: true/.test(meas) && (meas.match(/attachMeasurementToLead\(db,/g) || []).length >= 3);
   ok('the task lands on leads/{leadId}/tasks (the collection task UIs read), not top-level tasks',
-    /collection\(`leads\/\$\{leadId\}\/tasks`\)\.add/.test(meas) && !/collection\('tasks'\)\.add/.test(meas));
+    /doc\(`leads\/\$\{leadId\}\/tasks\/\$\{taskId\}`\)\.set\(/.test(meas) && !/collection\('tasks'\)\.add/.test(meas));
+  ok('the task carries a real dueDate — tasks.js and notif-bell.js both bail on a falsy one, so \'\' meant the alert never surfaced',
+    /dueDate: today/.test(meas) && /toISOString\(\)\.slice\(0, 10\)/.test(meas) && !/dueDate: ''/.test(meas));
+  ok('task + activity use one deterministic id, so repeat Auto-measure clicks update instead of stacking rows',
+    /const taskId = 'measure-' \+ crypto\.createHash\('sha1'\)/.test(meas)
+    && /dedupeKey: leadId \+ '\|' \+ ctx\.coordKey/.test(meas)
+    && (meas.match(/\{ merge: true \}/g) || []).length >= 2);
   ok('the outline image / LiDAR blobs are never written to Firestore', /stripVendorBlobs/.test(meas) && /'\[stripped\]'/.test(meas));
   ok('the webhook verifies Instant Roofer by bearer token, HOVER/EagleView by HMAC (F-02 literals intact)',
     /verifyInstantRooferBearer\(req\.headers\['authorization'\]/.test(meas) && /verifyWebhookHmac\(provider,\s*req\.rawBody/.test(meas)
     && /x-hover-signature/.test(meas) && /x-ev-signature/.test(meas) && /'secret-not-configured' \? 503/.test(meas));
   ok('human-report webhooks merge per-format URLs idempotently and never regress ready',
-    /reportUrls\[human\.reportType \|\| 'report'\]/.test(meas) && /preferredReportUrl/.test(meas) && /status !== 'failed'\) status = 'ready'/.test(meas));
+    /reportUrls\[urlKey\] = human\.reportUrl/.test(meas) && /preferredReportUrl/.test(meas) && /status !== 'failed'\) status = 'ready'/.test(meas));
+  ok('the per-format merge is a DOTTED field path — concurrent pdf+csv deliveries would otherwise erase each other',
+    /update\['reportUrls\.' \+ urlKey\] = human\.reportUrl/.test(meas));
+  ok("a human completion with neither a URL nor numbers stays 'pending' instead of claiming a report that does not exist",
+    /if \(status === 'ready' && !headline && !mergedMeasurements\)/.test(meas) && /status = 'pending';/.test(meas));
   ok("the report URL survives a payload with no reportType — their documented MINIMUM payload is {requestID, url, status}",
     /if \(human\.reportUrl\) reportUrls\[/.test(meas) && !/human\.reportUrl && human\.reportType/.test(meas));
   ok('every measurement doc records measuredAt, and a reuse copy inherits it instead of restamping',
     /measuredAt: FieldValue\.serverTimestamp\(\)/.test(meas)
     && /measuredAt: prior\.data\.measuredAt \|\| prior\.data\.createdAt/.test(meas)
     && /at !== null && at > cutoff/.test(meas));
-  ok('human orders refuse to fire without the webhook secret (a $10 report we could never receive)', /reportType === 'human' && !hasSecret\('INSTANTROOFER_WEBHOOK_SECRET'\)/.test(meas));
+  ok('human orders refuse to fire without the webhook secret (a $10 report we could never receive)',
+    /if \(!webhookSecretReady\(\)\)/.test(meas));
+  ok('the order gate and the receiver share ONE definition of configured — hasSecret alone would pass a token verifyBearer calls unconfigured',
+    /s\.length >= IR\.MIN_WEBHOOK_SECRET_LEN/.test(meas) && /MIN_WEBHOOK_SECRET_LEN/.test(read('functions/integrations/instantroofer-logic.js')));
+  ok('$10 human reports have their own spend cap (the 90-day reuse guard is AI-only)',
+    /callable:requestMeasurement:human:uid', uid, 2, 60 \* 60_000/.test(meas)
+    && /callable:requestMeasurement:human:account', 'account', 20, 24 \* 60 \* 60_000/.test(meas));
+  ok('reuse copies do NOT carry coordKey — only vendor-billed originals populate the blind limit() window',
+    /Deliberately NO coordKey/.test(read('functions/integrations/measurement.js')) && /\.limit\(50\)/.test(meas));
+  ok('both geocoder legs are injectable, so the unit suite can never make a real outbound call',
+    /deps\.googleForward \|\| geocodeHandlers\._googleForward/.test(meas) && /deps\.regridAddress \|\| geocodeHandlers\._regridAddress/.test(meas));
   ok("integrationStatus.configured has 'instantroofer' (the exact lowercase key the client indexes) + the webhook twin",
     /instantroofer:\s*_hasInt\('INSTANTROOFER_API_KEY'\)/.test(status) && /instantrooferWebhook:\s*_hasInt\('INSTANTROOFER_WEBHOOK_SECRET'\)/.test(status));
   ok("integrations-client default provider is 'instantroofer' and forwards lat/lng + reportType",
     /providers\?\.measurement \|\| 'instantroofer'/.test(client) && /payload\.lat = lat; payload\.lng = lng;/.test(client) && /payload\.reportType = 'human'/.test(client));
   ok('integrations-client tells the truth about a synchronous result (no "~30 minutes" toast)', /d\.status === 'ready'/.test(client));
-  ok('V2 builder sends the lead\'s stored coords and applies a synchronous result without polling',
-    /lead\.lat, lng: lead\.lng/.test(v2) && /result\.status === 'ready' && result\.measurements/.test(v2) && /applyMeasurementResult\(result\.measurements, result\)/.test(v2));
+  ok('V2 builder applies a synchronous result without polling',
+    /result\.status === 'ready' && result\.measurements/.test(v2) && /applyMeasurementResult\(result\.measurements, result\)/.test(v2));
+  ok('V2 builder sends leadId, NOT the lead\'s lat/lng — the server reads them itself and tags them geocoded, keeping the warning honest',
+    /requestMeasurement\(\{ address, leadId \}\)/.test(v2) && !/lat: lead\.lat/.test(v2));
+  ok('V2 pitch is parsed with the server grammar and clamped into the #v2pitch range (3–16) — parseInt(\'0/12\') was 0, an option that does not exist',
+    /parsePitchRise\(m\.pitch\)/.test(v2) && /Math\.min\(16, Math\.max\(3, Math\.round\(rise\)\)\)/.test(v2)
+    && !/asStr\.includes\('\/'\) \? parseInt/.test(v2));
   ok('V2 builder adds the pass-through only for pass-through-eligible reports, matched by code too',
     /meta\.passThruEligible !== false/.test(v2) && /p\.code === 'SVC MEASURE-RPT'/.test(v2) && /source: 'measurement'/.test(v2));
-  ok('V2 builder warns when the roof point came from a street-interpolated geocode', /coordPrecision === 'interpolated'/.test(v2));
+  ok('V2 builder warns for ANY non-rooftop point, not just the one labelled interpolated',
+    /TRUSTED_PRECISION = \['rooftop', 'building', 'parcel-centroid', 'client'\]/.test(v2)
+    && /TRUSTED_PRECISION\.indexOf\(meta\.coordPrecision\) === -1/.test(v2));
   ok('D2D "order roof report" sends the knock pin as lat/lng', /lat: knock\.lat, lng: knock\.lng/.test(d2d));
   ok('admin analytics excludes AI measures from pass-through REVENUE only', /billableMeas = readyMeas\.filter\(m => m\.passThruEligible !== false\)/.test(admin)
     && /passThruRevenueEst = billableMeas\.length/.test(admin));

@@ -30,9 +30,21 @@
  * are only described in prose: whether `complexityWaste` is a fraction or a
  * percentage, and whether a human-report webhook's `status` is the string
  * "completed" or the numeric `order.status_code` (their "minimum payload"
- * table maps `status` → `order.status_code`). Both are tolerated here and the
- * assumption is pinned in the test file; verify against the first live
- * response and tighten (runbooks/INSTANTROOFER-SETUP.md, "first-use").
+ * table maps `status` → `order.status_code`). Both are tolerated here.
+ *
+ * VERIFIED against a live AI measure on 2026-09-06 (their own documentation
+ * example coordinates, 32.865378/-111.677416):
+ *   - `complexityWaste` came back as **11** — a percent, not a fraction. The
+ *     tolerant read below handles both and lands on 11 either way.
+ *   - `resultOptions` with explicit `false` values is ACCEPTED, and it works:
+ *     `imagery` came back empty and `lidar` carried only `facets`, so the
+ *     base64 image and the LiDAR point cloud never reach Firestore. Whole
+ *     response: 1,536 bytes.
+ *   - The response carries an UNDOCUMENTED top-level `coordinates` echo of the
+ *     point actually measured. It rides along in `vendorResponse`.
+ * STILL UNVERIFIED: the human-report webhook's `status` shape — no human
+ * report has been ordered yet. Keep both branches until one arrives
+ * (runbooks/INSTANTROOFER-SETUP.md, "first-use").
  */
 
 'use strict';
@@ -97,8 +109,11 @@ function pitchFactor(pitch) {
   return Math.sqrt(1 + Math.pow(rise / 12, 2));
 }
 
-// complexityWaste is "estimated waste percentage". A value <= 1 is read as a
-// fraction (0.15 → 15), anything larger as already-percent (15 → 15).
+// complexityWaste is "estimated waste percentage". Live responses send a
+// percent (verified 2026-09-06: 11), but the docs only say "percentage", so a
+// value <= 1 is still read as a fraction (0.15 → 15) and anything larger as
+// already-percent (11 → 11). Do not narrow this without a second sample: the
+// two readings differ by 100x on the waste line of every estimate.
 function wastePercent(v) {
   const n = num(v);
   if (n === null || n < 0) return null;
@@ -306,8 +321,15 @@ function preferredReportUrl(reportUrls) {
 // The webhook auth is a bearer token WE choose and paste into their dashboard
 // ("If the token does not start with Bearer, Instant Roofer automatically
 // prefixes it"). Constant-time compare; fails closed on anything malformed.
+//
+// A secret shorter than this is treated as NOT CONFIGURED, not as a wrong
+// token — the receiver would answer 503 forever. measurement.js applies the
+// same rule (webhookSecretReady) before letting anyone order a $10 human
+// report, so the two sides cannot disagree about what "configured" means.
+const MIN_WEBHOOK_SECRET_LEN = 16;
+
 function verifyBearer(headerValue, secret) {
-  if (typeof secret !== 'string' || secret.length < 16) return { ok: false, reason: 'secret-not-configured' };
+  if (typeof secret !== 'string' || secret.length < MIN_WEBHOOK_SECRET_LEN) return { ok: false, reason: 'secret-not-configured' };
   if (typeof headerValue !== 'string' || !headerValue) return { ok: false, reason: 'missing-authorization' };
   const provided = headerValue.replace(/^\s*Bearer\s+/i, '').trim();
   if (!provided) return { ok: false, reason: 'missing-token' };
@@ -320,6 +342,7 @@ function verifyBearer(headerValue, secret) {
 module.exports = {
   ENDPOINT,
   PROVIDER,
+  MIN_WEBHOOK_SECRET_LEN,
   AI_RESULT_OPTIONS,
   COMPLEXITY_LABEL,
   HTTP_ERRORS,

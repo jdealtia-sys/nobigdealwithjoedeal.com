@@ -716,8 +716,13 @@ section('Push-5: measurement webhook auto-attaches to lead');
   const src = read(path.join(FUNCTIONS, 'integrations/measurement.js'));
   assert('webhook writes task on ready transition',
     /measurement_ready[\s\S]{0,5}|collection\('tasks'\)\.add/.test(src));
-  assert('webhook writes activity entry',
-    /collection\(`leads\/\$\{leadId\}\/activity`\)\.add/.test(src));
+  // Written with a deterministic doc id + merge since 2026-09-06 so a
+  // re-measure updates the entry instead of stacking duplicates.
+  assert('webhook writes activity entry on the lead',
+    /doc\(`leads\/\$\{leadId\}\/activity\/\$\{taskId\}`\)\.set\(/.test(src));
+  assert('...and the task on leads/{id}/tasks, the collection every task UI reads',
+    /doc\(`leads\/\$\{leadId\}\/tasks\/\$\{taskId\}`\)\.set\(/.test(src)
+    && !/collection\('tasks'\)\.add/.test(src));
   assert('webhook sets lead.measurementReady flag',
     /measurementReady: true/.test(src));
   assert('idempotency guard: checks previous status before writing',

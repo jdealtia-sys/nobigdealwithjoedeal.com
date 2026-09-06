@@ -123,6 +123,70 @@ independent refuters. Four findings were fixed in this branch:
    implied a CRM control exists; no caller passes `reportType:'human'`. Marked
    server-side-only with the follow-up named.
 
+## Live verification (1 of the 10 free credits)
+
+After Jo set the key, one real AI measure against **their documentation's own
+example coordinates** (not a customer property): `HTTP 200`, 1,536 bytes, and
+the normalizer's output correct in every field. It settled three things the
+code had been carrying tolerant parses for:
+
+- `resultOptions` with explicit `false` values is accepted **and effective** —
+  `imagery` came back empty, `lidar` carried only `facets`. The 1 MiB Firestore
+  worry is moot as long as we keep sending it.
+- `complexityWaste` is a **percent** (`11`), not a fraction. Both readings were
+  tolerated and both land on 11; kept tolerant on one sample, since the two
+  interpretations differ by 100× on an estimate's waste line.
+- The response carries an **undocumented top-level `coordinates`** echo of the
+  point actually measured — a free confirmation that we measured the right
+  building.
+
+Still unverified: the human-report webhook's `status` shape, because no human
+report has been ordered. Both branches stay until one arrives.
+
+## Second review pass — 14 confirmed findings
+
+The six-lens run returned 25 findings; 14 survived three independent refuters,
+11 were refuted. Beyond the four already listed above, the ones worth naming:
+
+- **The reuse window was a blind lottery.** `findReusableMeasurement` is
+  equality-only (no `orderBy` — that needs a composite index CI never deploys),
+  so Firestore returns rows in document-ID order, which is random. Worse, every
+  cache hit wrote another doc carrying the same `coordKey`, so the window
+  filled with copies and the original became unfindable — silently re-billing
+  $3. Copies no longer carry `coordKey`; only vendor-billed originals populate
+  it, so N stays ~1 per roof per tenant.
+- **The "measurement ready" task could never appear.** It was written with
+  `dueDate: ''`, and both `tasks.js` and `notif-bell.js` do
+  `t.dueDate ? new Date(...) : null` and return early on null. `dueAt`, which it
+  did set, has no reader in the repo. The same *features-exist-but-unmounted*
+  shape as the top-level `tasks` write it had already replaced.
+- **Concurrent per-format webhook deliveries would erase each other.** One
+  completed report fires one delivery per enabled format; the handler did a
+  read-modify-write of the whole `reportUrls` map, so PDF and CSV each read `{}`
+  and the later write won. Now a dotted field path, merged server-side.
+- **No spend cap on the $10 path.** The 90-day reuse guard is AI-only and the
+  other two meters are throughput limiters (20/hr/uid, 5/min/account = 300
+  paid calls/hour). Human orders now have their own 2/hr/rep + 20/day/company.
+- **Two definitions of "webhook configured".** The order gate used
+  `hasSecret()` (any non-stub string) while the receiver rejects anything under
+  16 chars as *unconfigured* → a short token would buy a $10 report and then
+  503 every delivery of it. One shared `MIN_WEBHOOK_SECRET_LEN` now.
+- **A flat roof would have priced as steep.** `parseInt('0/12')` is 0 and
+  `parseInt('2/12')` is 2 — neither is an option in `#v2pitch` (3–16), so the
+  select went blank and the estimate priced off a rise nobody chose. Parsed
+  with the server's grammar and clamped.
+- **The confirm-the-pin warning could not fire where it mattered.** Passing the
+  lead's stored coordinates from the client labelled them `client` —
+  indistinguishable from a real D2D knock pin — on exactly the leads whose
+  coordinates came from a Nominatim `limit=1` geocode. The client now sends
+  only `leadId`; the server reads the same coordinates and tags them honestly,
+  and the warning fires for any non-rooftop precision.
+- Repeat Auto-measure clicks stacked duplicate task/activity rows (now one
+  deterministic id per lead+roof); the Google/Regrid geocode legs escaped the
+  `deps.fetchImpl` seam so the cache assertion was weaker than it read; and the
+  runbook's fallback deploy command rebound only `requestMeasurement`, not the
+  `integrationStatus` it told you to verify with.
+
 ## Open follow-ups (deliberately not in this branch)
 
 1. **Public wizard slice** — replace the size tile with a real measurement +
@@ -141,7 +205,8 @@ independent refuters. Four findings were fixed in this branch:
 5. Let reps use V2 Auto-measure: a rep-safe subset of `integrationStatus`
    (just `providers.measurement` + `configured[that]`).
 6. Store the outline image in Storage (EXIF-stripped) for the CRM card.
-7. Tighten the two tolerant parses after the first live call (see runbook).
+7. Tighten the human-webhook `status` parse once a real delivery lands (the AI
+   parses were verified live — see above).
 
 ## Jo's to-do (10 minutes)
 
