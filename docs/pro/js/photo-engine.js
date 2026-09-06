@@ -1567,6 +1567,11 @@
     if (typeof navigator !== 'undefined' && navigator.onLine === false) return 0;
     _draining = true;
     let sent = 0;
+    // Rows that LEFT the queue, uploaded or dropped. `sent` alone is the wrong
+    // trigger for the marker sync below: an unrecoverable row is dropped
+    // without ever being sent, so a drain can empty the queue entirely with
+    // `sent === 0`. See the sync block at the end.
+    let removed = 0;
     try {
       const items = await _pendingItems();
       for (const item of items) {
@@ -1579,7 +1584,7 @@
         if (!blob && item && item.dataUrl) {
           try { blob = _dataUrlToBlob(item.dataUrl); } catch (_) { blob = null; }
         }
-        if (!blob || !item.leadId) { await _dropItem(item); continue; }
+        if (!blob || !item.leadId) { await _dropItem(item); removed++; continue; }
 
         try {
           await uploadPhotoToFirebase(blob, item.leadId, item.tags || [], item.description || '', item.location || '', {
@@ -1594,6 +1599,7 @@
           });
           await _dropItem(item);
           sent++;
+          removed++;
         } catch (e) {
           // Still offline (or the upload is failing for another reason).
           // Stop here and leave this item AND everything after it queued.
@@ -1615,7 +1621,16 @@
     // that uploaded fine. Feature-detected: photo-engine can load on a page
     // where photo-queue-recovery.js is absent, and a stale service-worker
     // cache can pair a new engine with an older recovery module.
-    if (sent) {
+    //
+    // Gated on `removed`, not on `sent`. An unrecoverable row — no decodable
+    // blob, or no leadId — is dropped without ever being uploaded, so a drain
+    // can empty the queue completely while `sent` stays 0. Under the old
+    // `if (sent)` the local counter went to 0 and the server marker stayed
+    // frozen at the old number, which is exactly the stale-marker accusation
+    // this block was added to prevent, reachable through the one path it did
+    // not cover. What matters is whether the queue CHANGED, not whether
+    // anything reached Firebase.
+    if (removed) {
       const rec = typeof window !== 'undefined' && window.NBDPhotoQueueRecovery;
       if (rec && typeof rec.syncMarker === 'function') {
         try { await rec.syncMarker(); }

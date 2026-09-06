@@ -927,3 +927,76 @@ store that had already opened successfully could not exercise the open latch),
 and this one (a stubbed uploader cannot see what the real uploader does). Each
 was found only by *breaking the code and checking which named assertions went
 red* — not by watching a suite go green, and not even by watching it go red.
+
+## Update, 2026-09-06 (#1434) — both #1431 fixes covered one path and missed its sibling
+
+A review of #1431 landed after it merged. Two of its three fixes were half
+done, in the same shape: each covered the route its author was reasoning about
+and not the one a line away. Both were reproduced with a probe before being
+touched, and both were on `main` and shipping.
+
+### 1. The drop path still froze the marker
+
+`flushUploadQueue()` gated the marker re-file on `if (sent)`. But an
+unrecoverable row — no decodable blob, or no `leadId` — is removed by
+`_dropItem()` **without ever being uploaded**, so a drain can empty the queue
+completely with `sent === 0`. Probe against the merged code:
+
+```
+rowsLeft=0  sent=0  syncMarker=0
+```
+
+The queue is gone, `store.remove()` has walked the local counter down to 0, and
+the server marker still says 2. That is the identical stale-marker accusation
+#1431 exists to prevent, reachable through the one route its gate did not
+cover. Now gated on `removed` — whether the queue **changed** — rather than on
+whether anything reached Firebase.
+
+**#1431's own test asserted the bug as correct.** *"a drain that sent nothing
+does not touch the marker"* was written as a general rule about `sent === 0`,
+though its setup only produced the case where nothing was removed either. It
+had to be narrowed to *"a drain that changed nothing"* — with `rowsLeft`
+asserted, so the name and the setup agree — before the fix could go in. A gate
+that must be deleted to fix a bug is worse than no gate.
+
+### 2. `_failOpen` could not un-latch the synchronous paths
+
+The retry looked right and worked for half its inputs. `_failOpen()` cleared
+`_openPromise` from **inside the Promise executor** — which runs synchronously
+during construction, before `_openPromise = new Promise(...)` completes. The
+assignment then put the failed promise straight back.
+
+`onerror` and `onblocked` escaped it by firing in a later task, so the retry
+appeared to work. The two synchronous paths — no `window.indexedDB`, and
+`open()` throwing — stayed latched off for the life of the page. Probe:
+
+```
+1. no indexedDB      -> available() = false
+2. indexedDB present -> available() = false     LATCHED
+```
+
+A throwing `open()` during iOS storage-process recovery is precisely the
+scenario #1431's own comment cites for the retry. The memo is now dropped from
+a microtask on the settled promise, which runs after the assignment on every
+path, with an identity check so a slow failure cannot clear a newer attempt.
+
+**The suite could not have caught it:** its one case fails the open through
+`onerror`, the path that already worked. The shim now exposes `indexedDB` as a
+live getter so a case can model the global disappearing and returning, and
+`disk.throwOnOpen` covers the second synchronous path.
+
+### The shape worth naming
+
+Three rounds now, and the bug has been in the sibling path each time — the
+`if (sent)` gate, the executor-scoped memo clear, and before them the
+boot-only `writeMarker`. The code under review was right about the case its
+author had in mind. The review question that keeps paying is not "is this
+correct?" but **"which of the paths that reach this line does it not cover?"**
+
+**Gates:** offline-queue 54 → 56 (drop-only and mixed drop-and-send drains),
+durability 97 → 102 (both synchronous open paths un-latching). Proven able to
+fail: restoring `if (sent)` reddens the drop-only assertion; moving the memo
+clear back inside the executor reddens the three synchronous assertions and
+leaves the async one green — which is exactly the asymmetry that hid it.
+`node` bucket 75/75, smoke 3617/0, check-js-syntax 493,
+check-inline-html-scripts 0/227.

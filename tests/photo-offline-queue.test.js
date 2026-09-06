@@ -87,8 +87,13 @@ ok('the drain does NOT splice the whole queue out up front',
 ok('the drain stops on the first failure instead of spinning',
   /catch \(e\) \{[\s\S]{0,300}?\n\s*break;/.test(src));
 
+// Shape only, and deliberately loose about what else happens on the line: the
+// exact-source version of this broke on an unrelated counter increment while
+// the behaviour it names was untouched. The real gate for this is the
+// behavioural case below ('an undecodable photo does not block the queue'),
+// which runs the drain against a poisoned item.
 ok('an unrecoverable item is dropped rather than retried forever',
-  /if \(!blob \|\| !item\.leadId\) \{ await _dropItem\(item\); continue; \}/.test(src),
+  /if \(!blob \|\| !item\.leadId\) \{[^}]*_dropItem\(item\);[^}]*continue;[^}]*\}/.test(src),
   'a photo that cannot be decoded would otherwise block the queue behind it');
 
 ok('the queue is exposed on the public API', /\bflushUploadQueue,/.test(src) && /queuedPhotoCount:/.test(src));
@@ -542,14 +547,45 @@ if (missing.length === 0) {
         + ' — without this the marker accuses the rep after the next sign-out']);
     }
     {
-      // Nothing uploaded means nothing changed, so no write is owed.
+      // A drain that changed NOTHING owes no write. Note the precise
+      // condition: the upload fails, so the row is neither sent nor removed
+      // and the queue is exactly as it was.
       const s14 = fakeStore([row(1)]);
       const r14 = run(s14, [], async () => { throw new Error('offline'); });
       let synced14 = 0;
       r14.sandbox.window.NBDPhotoQueueRecovery = { syncMarker: async () => { synced14++; } };
       await r14.flush();
-      results.push(['drain: a drain that sent nothing does not touch the marker',
-        synced14 === 0, 'syncMarker calls=' + synced14]);
+      results.push(['drain: a drain that changed nothing does not touch the marker',
+        synced14 === 0 && s14.map.size === 1,
+        'syncMarker calls=' + synced14 + ' rowsLeft=' + s14.map.size]);
+    }
+    {
+      // THE DROP PATH. An unrecoverable row leaves the queue without ever
+      // being uploaded, so `sent` stays 0 while the queue really did shrink.
+      // Gating the sync on `sent` left the local counter at 0 and the server
+      // marker frozen — the same stale-marker accusation, through the one
+      // route the original gate did not cover.
+      const s16 = fakeStore([row(1, { leadId: null }), row(2, { leadId: null })]);
+      const r16 = run(s16, [], async () => {});
+      let synced16 = 0;
+      r16.sandbox.window.NBDPhotoQueueRecovery = { syncMarker: async () => { synced16++; } };
+      const sent16 = await r16.flush();
+      results.push(['drain: a drop-only drain STILL re-files the marker',
+        s16.map.size === 0 && sent16 === 0 && synced16 === 1,
+        'rowsLeft=' + s16.map.size + ' sent=' + sent16 + ' syncMarker=' + synced16
+        + ' — queue emptied with sent=0; a frozen marker here tells the rep to reshoot a roof']);
+    }
+    {
+      // Mixed: one uploads, one is undroppable-but-unrecoverable. Still one
+      // sync, not two — the sync is per drain, not per row.
+      const s17 = fakeStore([row(1, { leadId: null }), row(2)]);
+      const r17 = run(s17, [], async () => {});
+      let synced17 = 0;
+      r17.sandbox.window.NBDPhotoQueueRecovery = { syncMarker: async () => { synced17++; } };
+      const sent17 = await r17.flush();
+      results.push(['drain: a mixed drop-and-send drain syncs exactly once',
+        s17.map.size === 0 && sent17 === 1 && synced17 === 1,
+        'rowsLeft=' + s17.map.size + ' sent=' + sent17 + ' syncMarker=' + synced17]);
     }
     {
       // photo-engine can load where recovery is absent, and a stale SW cache

@@ -147,6 +147,11 @@ function makeIDB(disk) {
 
   return {
     open(name) {
+      // The other SYNCHRONOUS failure path: private-mode Safari and
+      // policy-disabled storage throw from open() rather than firing onerror.
+      if (disk.throwOnOpen) {
+        const e = new Error("open threw"); e.name = "InvalidStateError"; throw e;
+      }
       const req = { onsuccess: null, onerror: null, onupgradeneeded: null, onblocked: null, result: null };
       setTimeout(() => {
         if (disk.failOpen) {
@@ -208,7 +213,15 @@ function loadStore(disk, opts = {}) {
     }
   };
   sandbox.window = sandbox;
-  sandbox.indexedDB = disk.failOpen === 'absent' ? undefined : makeIDB(disk);
+  // A live getter, not a fixed value: _open() reads window.indexedDB at CALL
+  // time, so this lets a case model the global disappearing and coming back
+  // (iOS tearing down and restoring the storage process) rather than only the
+  // load-time state. `'absent'` is the SYNCHRONOUS failure path.
+  const idb = makeIDB(disk);
+  Object.defineProperty(sandbox, 'indexedDB', {
+    configurable: true,
+    get: () => (disk.failOpen === 'absent' ? undefined : idb)
+  });
   vm.createContext(sandbox);
   vm.runInContext(STORE_SRC, sandbox);
   return sandbox.window.NBDPhotoQueueStore;
@@ -709,6 +722,42 @@ async function reason(fn) {
     const why = await reason(() => s.add(photo()));
     ok('...and the store works normally afterwards',
       why === null && (await s.count()) === 1, 'add rejected with: ' + why);
+  }
+  {
+    // ── the SYNCHRONOUS failure path must un-latch too ──────────────────
+    // The case above fails the open through `onerror`, which fires in a later
+    // task. The two synchronous paths — no `window.indexedDB`, and open()
+    // throwing — are different, and were the ones that stayed latched: an
+    // `_openPromise = null` written inside the Promise executor runs BEFORE
+    // the `_openPromise = new Promise(...)` assignment completes, so the
+    // assignment puts the failed promise straight back. iOS tearing down the
+    // storage process for a backgrounded PWA and restoring it on resume is
+    // exactly this shape.
+    const disk = newDisk();
+    disk.failOpen = 'absent';                 // window.indexedDB is gone
+    const s = loadStore(disk, {});
+    ok('with indexedDB absent, available() is false', (await s.available()) === false);
+
+    disk.failOpen = false;                    // the global is back
+    ok('a SYNCHRONOUS open failure does not latch the store off for the page',
+      (await s.available()) === true,
+      'the memo has to be cleared from a microtask, not from inside the executor');
+    const why = await reason(() => s.add(photo()));
+    ok('...and photos store normally once it recovers',
+      why === null && (await s.count()) === 1, 'add rejected with: ' + why);
+  }
+  {
+    // The other synchronous path: indexedDB exists but open() throws
+    // (private-mode Safari, policy-disabled storage, a transient failure).
+    const disk = newDisk();
+    disk.throwOnOpen = true;
+    const s = loadStore(disk, {});
+    ok('when open() throws, available() is false', (await s.available()) === false);
+
+    disk.throwOnOpen = false;
+    ok('...and a throwing open() does not latch either',
+      (await s.available()) === true,
+      'this is the case the retry comment explicitly cites for iOS');
   }
   {
     // The real shape: the photo was committed on a healthy page, then the app
