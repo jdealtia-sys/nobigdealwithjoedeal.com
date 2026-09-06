@@ -1993,8 +1993,16 @@ body.nbd-photo-selecting .nbd-photo-checkbox,
     <div id="docUploadPreview" class="upload-preview"></div>
 
     <div style="display:flex;gap:8px;margin-top:16px;">
+      <!-- The label is TWO sibling spans, toggled with [hidden], because the
+           count lives inside this button. uploadDocuments used to announce
+           progress with `uploadBtn.textContent = 'Uploading...'`, and setting
+           textContent on an element REPLACES ITS CHILDREN — so the very first
+           upload deleted #uploadDocCount from the DOM, and the next line of
+           updateDocUploadPreview threw on the null. That is why document
+           upload never once succeeded. Do not put bare text in this button. -->
       <button class="btn btn-orange" id="uploadDocBtn" data-action="uploadDocuments" style="flex:1;display:none;">
-        📤 Upload <span id="uploadDocCount">0</span> Document(s)
+        <span id="uploadDocBtnIdle">📤 Upload <span id="uploadDocCount">0</span> Document(s)</span>
+        <span id="uploadDocBtnBusy" hidden>📤 Uploading…</span>
       </button>
       <button class="btn" data-action="closeDocUploadModal" style="flex:1;">
         Cancel

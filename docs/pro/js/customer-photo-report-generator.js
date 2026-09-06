@@ -89,14 +89,20 @@ function updateDocUploadPreview() {
   const uploadBtn = document.getElementById('uploadDocBtn');
   const countSpan = document.getElementById('uploadDocCount');
   
+  // Every element here is optional. This function runs INSIDE the upload
+  // loop's try block, so an unguarded null here does not merely skip a label —
+  // it aborts the upload and reports it as "Upload failed", which is exactly
+  // how a missing count span masqueraded as a broken uploader. A chrome
+  // element that has gone missing must never be able to fail the transfer.
   if (window._docUploadQueue.length === 0) {
-    preview.innerHTML = '';
-    uploadBtn.style.display = 'none';
+    if (preview) preview.innerHTML = '';
+    if (uploadBtn) uploadBtn.style.display = 'none';
     return;
   }
+  if (!preview) return;
   
-  uploadBtn.style.display = 'inline-flex';
-  countSpan.textContent = window._docUploadQueue.length;
+  if (uploadBtn) uploadBtn.style.display = 'inline-flex';
+  if (countSpan) countSpan.textContent = window._docUploadQueue.length;
   
   const esc = window.nbdEsc || (s => String(s == null ? '' : s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])));
   preview.innerHTML = window._docUploadQueue.map((item, idx) => {
@@ -149,9 +155,7 @@ window.uploadDocuments = async function() {
     return;
   }
   
-  const uploadBtn = document.getElementById('uploadDocBtn');
-  uploadBtn.disabled = true;
-  uploadBtn.textContent = 'Uploading...';
+  _setDocUploadBusy(true);
   
   try {
     for (let i = 0; i < window._docUploadQueue.length; i++) {
@@ -171,10 +175,31 @@ window.uploadDocuments = async function() {
     console.error('Document upload error:', error);
     _nbdNotify('Upload failed: ' + ((error && error.message) || 'unknown error'), 'error');
   } finally {
-    uploadBtn.disabled = false;
-    uploadBtn.textContent = 'Upload Documents';
+    _setDocUploadBusy(false);
   }
 };
+
+// Toggle the upload button between its idle and busy labels.
+//
+// This replaced `uploadBtn.textContent = 'Uploading...'`, which was not a
+// cosmetic bug: assigning textContent REPLACES an element's children, so that
+// line deleted <span id="uploadDocCount"> out of the button on the very first
+// upload. updateDocUploadPreview reads that span two lines later and threw
+// "Cannot set properties of null" — inside the try, so it surfaced as a
+// generic "Upload failed" and the real cause never reached anyone. Combined
+// with the native alert() that froze the page before the message could be
+// read, document upload had never once succeeded on this page.
+//
+// The two labels are sibling spans in customer.html toggled with [hidden], so
+// nothing in the button is ever destroyed.
+function _setDocUploadBusy(busy) {
+  const btn = document.getElementById('uploadDocBtn');
+  if (btn) btn.disabled = !!busy;
+  const idle = document.getElementById('uploadDocBtnIdle');
+  const work = document.getElementById('uploadDocBtnBusy');
+  if (idle) idle.hidden = !!busy;
+  if (work) work.hidden = !busy;
+}
 
 async function uploadSingleDocument(item, index) {
   const file = item.file;
