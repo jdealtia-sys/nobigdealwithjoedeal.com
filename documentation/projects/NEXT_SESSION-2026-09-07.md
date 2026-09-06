@@ -148,25 +148,29 @@ closed the same evening — §4b.)*
 
 The **integrations** half of §4 is untouched and its verdict stands.
 
-## §4b — UPDATE 2026-09-06 (evening): the Weight items are closed
+## §4b — UPDATE 2026-09-06 (evening): the Weight items are closed and MERGED
 
 Record: [BOOT-WEIGHT-2026-09-06](../audit/BOOT-WEIGHT-2026-09-06.md), with
-corrections appended in place to the recon's §Weight.
+corrections appended in place to the recon's §Weight. **Merged as `7251096f`
+(#1419).** Branch, worktree and junctions all cleaned up.
 
-**Shipped** — `customer.html` boot JS **1888.5 → 1395.0 KiB (−26%)**, −4
-requests, by moving the docgen cluster to the dashboard's existing on-demand
-path; dashboard loses **21.8 KiB / 4 sheets** of render-blocking Leaflet CSS (rebased onto #1418; re-measured against it) ·
-ScriptLoader dedupes on the **resolved path**, which ends the live
-double-execution of `supplement-ui.js` (two tags in the DOM, proven) ·
-`ui.js` stands down for the canonical Cmd+K palette · dead `markLoaded`
-removed · 7 files' `?v=` cache-key drift unified.
+**Shipped** — `customer.html` boot JS **1888.5 → 1395.0 KiB (−26%)**, −148 KiB
+gzip, −4 requests, by moving the docgen cluster to the dashboard's existing
+on-demand path · dashboard sheds **21.8 KiB / 4 sheets** of render-blocking
+Leaflet CSS · ScriptLoader dedupes on the **resolved path**, ending the live
+double-execution of `supplement-ui.js` (two tags in the DOM, proven in
+Chromium) · `ui.js` stands down for the canonical Cmd+K palette · dead
+`markLoaded` removed · 7 files' `?v=` cache-key drift unified.
 
 **The one thing to know before touching this again**: of the recon's 656 KiB,
 **only 498.7 was safe to move**. `profit-tracker`, the `supplement-ui` pair
 and `photo-report` all render at load or win a name collision — lazy-loading
-any of them blanks a live surface with no error. They stay eager on purpose;
-the reasons are in the note. And the Leaflet CSS win is first-paint, not boot
-bytes, for a default home view (`weather-radar` pulls the bundle anyway).
+any of them blanks a live surface with **no error**. They stay eager on
+purpose; the reasons are in the note. #1418's two photo-queue tags are eager
+for the same class of reason (boot-time recovery has no user-intent trigger)
+and are recorded as intended cost. The Leaflet CSS win is **first-paint, not
+boot bytes**, on a default home view — `weather-radar` pulls the bundle
+anyway.
 
 **Still open from this lane**: the `generatePhotoReport` double assignment
 (`customer-photo-report-generator.js` vs `photo-report.js` — the former is
@@ -174,15 +178,58 @@ dead on the customer page, 32.5 KiB fetched for nothing; untangling it is what
 lets `photo-report` go lazy) · a re-entry sentinel for `supplement-ui.js` ·
 the Sentry tracing → error-only bundle swap (needs an SRI hash made online).
 
-**A pre-existing red to not chase**: `tests/e2e/stranger.spec.js:346` (the
-`waitForFunction` on `window._user.uid` after login) **fails on clean `main`**
-on this machine with the functions emulator on — proven 2026-09-06 by
-reverting the served files byte-for-byte and re-running (same timeout, same
-3 passed / 1 failed / 1 did not run; `:529` is its dependent). Whoever picks
-it up: the dashboard *does* boot (header shows "Connected · N leads"), so it
-is the `_user` plumbing's timing, not a load failure. Also: the two
-provisioning specs (`stranger:194`, `gauntlet:284`) need `,functions` in the
-emulator set or they fail behind the wizard's "check your connection" alert.
+### The mistake worth reading before you diagnose anything
+
+I reported — in this brief, a vault note, a PR and a memory — that *"a stale
+worktree copy silently reverted #1416."* **It was false, and it is retracted**
+in the audit note. #1416 itself added the `setTimeout(600)` markPaid repaint;
+**#1417 replaced it after this branch was cut**. My branch legitimately held
+the older shape and my commit left that hunk byte-identical to its own parent.
+I had diffed against an `origin/main` that had **moved**, and read "main went
+forwards" as "my file went backwards."
+
+A second session made the same error the same day, one PR number off. Root
+cause is identical and worth internalising: **`main` moved four times on the
+evening of 09-06** (#1418, #1419, #1420, #1421). A diff against a moving
+target tells you nothing about your own tree until you know where the target
+is:
+
+```bash
+git rev-list --left-right --count origin/main...HEAD   # left>0 = main moved
+git log --oneline <your-base>..origin/main             # what landed
+```
+To ask *"did I revert something?"*, diff against **your own parent**, never a
+remote: `git diff <commit>^ <commit> -- <file>`. Unchanged hunk = no revert.
+
+**The hazard is real, though — it just arrives differently.** Any `git reset`
+onto a moved `origin/main` (`--soft`, `--mixed`, or a rebase) leaves the
+working tree holding your OLD copies of files your change never authored;
+`git add -A` then stages them as deletions of someone else's merged work. It
+caught both sessions for real. Screen every commit:
+
+```bash
+for f in $(git diff --name-only origin/main); do
+  echo "-$(git diff origin/main -- "$f" | grep -cE '^-[^-]')  $f"; done
+```
+Every removed line must be one you wrote; `git checkout origin/main -- <file>`
+anything else. This caught three files that would have reverted #1417.
+
+### Two process notes
+
+- **Jo, 2026-09-06: batch doc-only fixes.** Do not amend a green PR head to fix
+  prose or a comment — it re-runs all 21 checks including the slow authed-E2E
+  shards and destroys a green signal someone may be waiting on. Bundle doc
+  fixes with the next code push. `gh pr edit --body-file` does **not** re-run
+  CI and is the right tool when the correction only needs to reach a reviewer.
+- **A pre-existing red to not chase**: `tests/e2e/stranger.spec.js:346` (the
+  `waitForFunction` on `window._user.uid` after login) **fails on clean
+  `main`** on this machine with the functions emulator on — proven by
+  reverting the served files byte-for-byte and re-running (same timeout, same
+  3 passed / 1 failed / 1 did not run; `:529` is its dependent). The dashboard
+  *does* boot (header shows "Connected · N leads"), so it is `_user` plumbing
+  timing, not a load failure. Separately, `stranger:194` and `gauntlet:284`
+  need `,functions` in the emulator set or they fail behind the onboarding
+  wizard's misleading "check your connection" alert.
 
 ## §4 — The two lanes I did not build
 
