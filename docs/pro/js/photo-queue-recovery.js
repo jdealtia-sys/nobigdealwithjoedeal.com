@@ -103,8 +103,12 @@
       }
     } catch (_) {}
 
+    // count() returns null when the read FAILED, which is not the same as an
+    // empty queue and must not be treated as one — `null <= 0` is true, so a
+    // naive check here would skip recovery whenever IndexedDB hiccuped and
+    // leave real photos sitting unsent. Only a definite 0 stops us.
     const pending = await store.count();
-    if (pending <= 0) return;
+    if (pending === 0) return;
 
     if (typeof navigator !== 'undefined' && navigator.onLine === false) {
       // photo-engine re-arms its own `online` listener when it loads, and the

@@ -243,6 +243,153 @@ was **proven able to fail**: collapsing `null` to `0` reddened exactly those
 two. Total eager cost of the two files is ~18 KB uncompressed, DOM-free at
 load, and on the common boot the work is one `localStorage.getItem`.
 
+## Pre-merge adversarial review — and the seven defects it found in MY code
+
+Before merging, a 7-dimension × 3-refuter workflow (49 agents) reviewed the
+diff: dimension finders over IndexedDB correctness, drain logic, boot
+recovery, iOS/WebKit platform behaviour, test fidelity, repo invariants, and a
+dedicated silent-failure hunt; then three *independent refuters per finding*,
+each with a different lens (code-path / platform / consequence), instructed to
+default to "refuted". 25 raw → 14 deduplicated → **12 confirmed, 1 contested,
+1 refuted**.
+
+It was worth doing. The confirmed findings were not nits — several were the
+same class of defect this PR exists to remove, reintroduced by me one layer
+down. All are fixed in the final commit.
+
+### 1. `add()` resolved on request success, not commit — the worst one
+
+`add()` resolved from `req.onsuccess` and attached nothing to the transaction.
+In **Chromium and Firefox the storage-quota check runs at COMMIT**: the put
+fires `success` with a fresh id, then the transaction aborts with
+`QuotaExceededError`. Nothing observed that abort. So on a near-full device
+`add()` resolved an id for a row that was never written, the rep got *"it will
+upload even if you close the app"*, and the counter recorded a row that did
+not exist — so the **next boot's `detectLoss()` would blame the browser for
+"clearing" a photo that was never stored.** The exact silent-success failure
+mode of #1416, rebuilt.
+
+A refuter did not take this on trust: it read Chromium's
+`content/browser/indexed_db/instance/transaction.cc` (`Transaction::Commit()`
+→ `CheckCanUseDiskSpace` → `Abort(kQuotaError)`) *and* reproduced it in real
+Chromium with the quota pinned via CDP.
+
+Fixed: every write now awaits `transaction.oncomplete`, rejects on `onabort`
+with the abort's reason, and derives the localStorage counter from a `count()`
+issued **inside the same transaction**. The contract is stated at the top of
+the file: *resolved means committed*.
+
+### 2–3. Deterministic failures were queued as if retryable
+
+`uploadPhotoToFirebase` throws **before any network call** when `leadId` is
+missing or Firebase globals are absent. The Save & Next catch treated every
+throw as a dead network and queued the photo: durable-success toast, then the
+drain's `!item.leadId` branch deleted it as unrecoverable. Reported saved,
+silently destroyed.
+
+Fixed three ways: those two throws are tagged `retryable = false` via
+`_uploadPreflightError()`; the capture flow checks it *before* attempting
+anything and refuses with the real message; and the store itself rejects a
+record with no `leadId`, so no caller can store one by accident.
+
+### 4. The photo reached storage only after a ~10-minute retry budget
+
+The queue was written **only from the catch** — i.e. only after
+`uploadPhotoToFirebase` rejected. Firebase Storage retries a failed upload
+until `maxUploadRetryTime`, **default 600 000 ms**, set nowhere in this repo.
+So on a roof with no signal the photo sat in a local variable behind a
+"SAVING..." button for ten minutes before it was durable, and a bfcache resume
+in that window — the exact event this PR exists for — destroyed it.
+
+Fixed by inverting the order: **enqueue first, then upload.** The write costs
+milliseconds, so the retry budget stops mattering. The capture flow races the
+upload against `SAVE_CONFIRM_MS` (10 s) purely to pick which *true* sentence
+to show — "Photo N saved" if it confirmed, "held, will upload even if you
+close the app" otherwise — and hands the camera back either way while the
+attempt continues in the background. A new `_inFlight` claim set stops a
+concurrent drain uploading a row the capture flow is already sending.
+
+### 5. Queued rows had no owner — shared-device cross-upload
+
+Records carried no `uid`, and the boot drain waited only for *some* user. On a
+shared iPad, rep A signing out with photos held meant rep B's next boot
+uploaded them **under B's uid and company**. Fixed: `add()` requires a `uid`
+and refuses without one; the drain filters to the signed-in user; other reps'
+rows wait in storage for their owner.
+
+### 6. Memory-only entries were never drained
+
+When storage refused a photo, `enqueueForRetry` fell back to
+`state.uploadQueue` and told the rep it was held — but `_pendingItems`
+returned `store.all()` *exclusively* whenever `available()` was true, and only
+looked at the array when it was false. So every fallback photo was held under
+a toast and never retried. Fixed: `_pendingItems` merges both sources.
+
+### 7. A failed `count()` was indistinguishable from an empty queue
+
+`count()` returned `0` on error as well as when empty. `detectLoss()` read
+that as an eviction, toasted phantom loss, **and persisted the 0** — after
+which the `lastKnownCount() === 0` fast path meant no later boot ever opened
+the database again. A transient read error permanently stranded real photos.
+Fixed: `count()` returns `null` for "unknown", `detectLoss()` treats `null` as
+no-evidence, and recovery only stops on a definite `0` (`null <= 0` is `true`
+in JS — that comparison was itself the bug).
+
+Also fixed: no `onclose`/`onversionchange` handler meant a browser-closed
+connection was cached forever, so `available()` stayed true while every
+transaction threw and the drain saw an "empty" store (**#8**); `add()` wrote a
+pre-write snapshot count that a concurrent `remove()` could make wrong
+(**#12**, subsumed by the in-transaction count).
+
+### The test suite was part of the problem
+
+Two findings (**#9**, **#11**) were about the shim, and they were fair: it
+returned a live object store forever and completed nothing, so it could not
+detect the *transaction-inactive* hazard the store code explicitly re-opens a
+transaction to avoid, and it modelled quota as a request-level error — which
+is why the original suite was green against defect #1. It now models
+transaction lifetime (auto-commit, `TransactionInactiveError` after), request
+failures that abort their transaction, and `abortAtCommit` for the Chromium
+quota shape. **#10** noted the durable-toast assertion was source-shape only;
+`enqueueForRetry` is now driven behaviourally against stores that succeed,
+that are unavailable, and that refuse.
+
+Suites: `photo-queue-durability` 29 → **56**, `photo-offline-queue` 22 → **51**.
+
+### Six new gates, each proven able to fail
+
+Not trusted on a green run. Each regression was applied, the named assertions
+watched go red, and the file restored from git:
+
+| Regression | Reddens |
+|---|---|
+| `add()` resolves on request success | commit-quota assertions (2) |
+| `count()` collapses a failed read to 0 | null/eviction assertions (3) |
+| store accepts a record with no owner | uid refusal |
+| drain ignores ownership | cross-account upload |
+| drain reads storage OR memory | memory-only entry never drained |
+| drain ignores in-flight claims | double upload with capture |
+
+### Verified again in real Chromium
+
+Reload: 2 rows, every field, blob bytes at both ends, ordering, and the
+in-transaction counter all intact. Validation: `uid`/`leadId`/`blob` refusals
+all return `bad-item` and store nothing. Fill test: **26 rows committed
+(78 MB), then our own 80 MB cap fires with `queue-full` before the browser's
+quota, and `count()` equals exactly the number of resolved `add()` calls** —
+no phantom saves.
+
+### The one contested and one refuted finding
+
+*Contested (1 of 3 refuters):* `all()` rebuilds every Blob on each drain, so a
+near-full queue is memory-heavy. Real but not a correctness bug; a
+`byteLength` index would fix it. **Left undone and recorded here** rather than
+silently dropped.
+
+*Refuted:* "a permanently failing head item blocks the queue forever" — the
+`!blob || !item.leadId` branch drops undecodable items, and with #2/#3 fixed
+no deterministic failure can be enqueued in the first place.
+
 ## Left undone, deliberately
 
 - **`offline-manager.js` is still dead code** — still zero callers, now with a
@@ -256,3 +403,11 @@ load, and on the common boot the work is one `localStorage.getItem`.
   background. That is a real remaining limitation and the honest next step.
 - **`customer.html` does not load PhotoEngine**, so this covers the dashboard
   capture flow only.
+- **`all()` deserialises every queued blob on each read** (the contested
+  finding above). A `byteLength` index plus a metadata-only `list()` would let
+  the cap check and the mirror avoid materialising bytes. Not a correctness
+  bug; worth doing if the queue is ever routinely deep.
+- **The other two `uploadPhotoToFirebase` callers** (the file-picker paths at
+  ~992 and the public `uploadFromFile`) still upload without queueing. They
+  are desk workflows, not the roof, and they never queued before this PR —
+  but the same enqueue-first treatment would help them on a bad connection.

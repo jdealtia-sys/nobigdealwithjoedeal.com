@@ -40,6 +40,19 @@
  * So: separate DB, separate store, caps sized for image blobs, and a drain
  * that belongs to PhotoEngine. offline-manager.js is left untouched.
  *
+ * ── The durability contract: resolved means COMMITTED ───────────────────
+ * A resolved add()/remove()/clear() means the transaction reached
+ * `oncomplete`. Not "the request fired success". The distinction is the
+ * whole guarantee: in Chromium and Firefox the storage-quota check runs at
+ * COMMIT, so a put near quota fires `success` with a fresh id and then the
+ * transaction aborts with QuotaExceededError — a module resolving on the
+ * request would report a photo as durable that was never written, and the
+ * next boot's detectLoss() would then blame the browser for "clearing" it.
+ * Every write here awaits the transaction, rejects on abort with the abort's
+ * reason, and derives the localStorage counter from a count() issued INSIDE
+ * that same transaction, so the counter can never describe rows that do not
+ * exist.
+ *
  * ── Records hold ArrayBuffers, not Blobs ────────────────────────────────
  * IndexedDB can store Blobs directly, and doing so would be less code. But
  * WebKit has a long history of Blob-in-IDB references going unreadable after
@@ -47,15 +60,22 @@
  * restart is this module's entire purpose, so records hold a structured-clone
  * of the raw bytes plus a mime string, and the Blob is rebuilt on read.
  *
+ * ── Records are owned ───────────────────────────────────────────────────
+ * Every record carries the `uid` that captured it, and add() refuses a record
+ * without one. The drain uploads only the signed-in user's rows. On a shared
+ * device, a rep who signs out with photos still held must not have them
+ * uploaded under the next rep's account and company; the rows wait for their
+ * owner to sign back in.
+ *
  * ── Durability caveats we do NOT paper over ─────────────────────────────
  * We ask for `navigator.storage.persist()`, which on WebKit exempts the
  * origin from the 7-day eviction that clears IDB for unused PWAs. It can be
  * refused. If it is refused, storage is still far more durable than a page
  * reload — which is the case that actually loses photos today.
  *
- * Exposed as window.NBDPhotoQueueStore. Every method resolves rather than
- * throws on a dead/absent IndexedDB; callers check `.available()` to decide
- * what to promise the user.
+ * Exposed as window.NBDPhotoQueueStore. Reads resolve to `null` (not 0, not
+ * []) when storage is unusable, because a 0 is a positive statement callers
+ * act on; writes reject with a `reason` the caller can turn into honest copy.
  */
 
 (function () {
@@ -78,10 +98,11 @@
   const MAX_ITEMS = 80;
   const MAX_BYTES = 80 * 1024 * 1024;
 
-  // Written after every mutation. On boot we compare it to the real row
-  // count: localStorage surviving while IndexedDB is empty is the signature
-  // of a WebKit storage eviction, and the rep deserves to be told their
-  // photos are gone rather than to discover it a week later.
+  // Written only from a count() taken inside a COMMITTED transaction. On boot
+  // we compare it to the real row count: localStorage surviving while
+  // IndexedDB is empty is the signature of a WebKit storage eviction, and the
+  // rep deserves to be told their photos are gone rather than to discover it
+  // a week later.
   const LAST_KNOWN_KEY = 'nbd_photo_queue_last_known_size';
 
   let _db = null;
@@ -102,8 +123,8 @@
    * null when we have never written the counter (first boot, or localStorage
    * was cleared). Lets a boot path skip opening the database entirely in the
    * overwhelmingly common case of an empty queue — a `0` here is a positive
-   * statement that the queue was empty as of the last mutation, whereas
-   * `null` means "unknown, go look".
+   * statement that the queue was empty as of the last committed mutation,
+   * whereas `null` means "unknown, go look".
    */
   function lastKnownCount() {
     try {
@@ -112,6 +133,11 @@
       const n = parseInt(raw, 10);
       return isNaN(n) ? null : n;
     } catch (_) { return null; }
+  }
+
+  function _forgetConnection() {
+    _db = null;
+    _openPromise = null;
   }
 
   function _open() {
@@ -138,7 +164,25 @@
           database.createObjectStore(DB_STORE, { keyPath: 'id', autoIncrement: true });
         }
       };
-      req.onsuccess = () => { _db = req.result; resolve(_db); };
+      req.onsuccess = () => {
+        const db = req.result;
+        // The browser can close a connection underneath the page — WebKit
+        // when its IndexedDB server process is torn down under memory
+        // pressure, Chromium when site data is force-cleared — after which
+        // every transaction() throws InvalidStateError. Caching that dead
+        // handle forever would make available() true while every read
+        // returned nothing, and the drain would then see an "empty" store.
+        // Forget it, so the next call reconnects.
+        try {
+          db.onclose = () => { if (_db === db) _forgetConnection(); };
+          db.onversionchange = () => {
+            try { db.close(); } catch (_) {}
+            if (_db === db) _forgetConnection();
+          };
+        } catch (_) {}
+        _db = db;
+        resolve(db);
+      };
       req.onerror = () => {
         console.warn('[PhotoQueueStore] open failed:', req.error && req.error.name);
         _available = false;
@@ -151,15 +195,30 @@
     return _openPromise;
   }
 
-  function _tx(mode) {
+  /**
+   * A transaction plus its object store. Reconnects once when the cached
+   * connection turns out to be dead (see onclose above) rather than
+   * returning null for a condition the next call would already recover from.
+   */
+  function _txPair(mode, retried) {
     return _open().then((db) => {
       if (!db) return null;
-      try { return db.transaction(DB_STORE, mode).objectStore(DB_STORE); }
-      catch (e) {
+      try {
+        const tx = db.transaction(DB_STORE, mode);
+        return { tx, store: tx.objectStore(DB_STORE) };
+      } catch (e) {
+        if (e && e.name === 'InvalidStateError' && !retried) {
+          _forgetConnection();
+          return _txPair(mode, true);
+        }
         console.warn('[PhotoQueueStore] transaction failed:', e && e.message);
         return null;
       }
     });
+  }
+
+  function _tx(mode) {
+    return _txPair(mode).then((p) => (p ? p.store : null));
   }
 
   function _reqToPromise(makeReq, fallback) {
@@ -175,12 +234,38 @@
     });
   }
 
-  /** Row count, 0 when storage is unusable. */
+  /**
+   * Resolves when the transaction COMMITS; rejects on abort with a `reason`
+   * derived from the abort error — 'quota' for QuotaExceededError, otherwise
+   * 'write-failed'. A request's own onerror is deliberately NOT used to
+   * settle anything: a failing request aborts its transaction, and the abort
+   * is the single place every failure mode (request error, commit-time quota,
+   * connection loss) is guaranteed to surface.
+   */
+  function _commit(tx) {
+    return new Promise((resolve, reject) => {
+      tx.oncomplete = () => resolve();
+      tx.onabort = () => {
+        const name = tx.error && tx.error.name;
+        const err = new Error('photo queue transaction aborted: ' + (name || 'unknown'));
+        err.reason = name === 'QuotaExceededError' ? 'quota' : 'write-failed';
+        reject(err);
+      };
+    });
+  }
+
+  function _fail(reason, message) {
+    const err = new Error(message);
+    err.reason = reason;
+    return err;
+  }
+
+  /** Row count, or null when storage is unusable — never 0 for a failure. */
   async function count() {
     const store = await _tx('readonly');
-    if (!store) return 0;
-    const n = await _reqToPromise(() => store.count(), 0);
-    return typeof n === 'number' ? n : 0;
+    if (!store) return null;
+    const n = await _reqToPromise(() => store.count(), null);
+    return typeof n === 'number' ? n : null;
   }
 
   /** Total queued bytes, for the size cap and for diagnostics. */
@@ -197,9 +282,10 @@
   }
 
   /**
-   * Queue one photo. Resolves to the assigned id, or rejects with a reason
-   * the caller can turn into honest UI copy: 'unavailable' (no IDB at all),
-   * 'queue-full' (our own cap), 'quota' (the browser's), 'write-failed'.
+   * Queue one photo. Resolves to the assigned id ONLY once the write has
+   * committed, or rejects with a reason the caller can turn into honest UI
+   * copy: 'unavailable' (no IDB at all), 'queue-full' (our own cap), 'quota'
+   * (the browser's, surfaced at commit), 'write-failed', 'bad-item'.
    *
    * Rejecting matters more than it looks: the caller decides between "held
    * and will retry even if you leave" and "held only while this page stays
@@ -207,40 +293,39 @@
    * reinstate the exact lie this whole change exists to remove.
    */
   async function add(item) {
-    const store = await _tx('readwrite');
-    if (!store) {
-      const err = new Error('photo queue storage unavailable');
-      err.reason = 'unavailable';
-      throw err;
-    }
-
     const blob = item && item.blob;
     if (!blob || typeof blob.arrayBuffer !== 'function') {
-      const err = new Error('photo queue needs a Blob');
-      err.reason = 'bad-item';
-      throw err;
+      throw _fail('bad-item', 'photo queue needs a Blob');
     }
+    // A photo with no customer can never be uploaded (uploadPhotoToFirebase
+    // refuses it before any network call), so holding one would only ever
+    // end in it being dropped as unrecoverable — after the rep was told it
+    // was safe. Refuse here too, so no caller can store one by accident.
+    if (!item.leadId || typeof item.leadId !== 'string') {
+      throw _fail('bad-item', 'photo queue needs a customer id');
+    }
+    if (!item.uid || typeof item.uid !== 'string') {
+      throw _fail('bad-item', 'photo queue needs the owning user id');
+    }
+
+    const probe = await _tx('readonly');
+    if (!probe) throw _fail('unavailable', 'photo queue storage unavailable');
 
     const existing = await _rawAll();
     const usedBytes = existing.reduce((sum, r) => sum + ((r && r.byteLength) || 0), 0);
     if (existing.length >= MAX_ITEMS || usedBytes + blob.size > MAX_BYTES) {
-      const err = new Error('photo queue full');
-      err.reason = 'queue-full';
-      throw err;
+      throw _fail('queue-full', 'photo queue full');
     }
 
     let buffer;
     try { buffer = await blob.arrayBuffer(); }
-    catch (e) {
-      const err = new Error('could not read photo bytes');
-      err.reason = 'bad-item';
-      throw err;
-    }
+    catch (e) { throw _fail('bad-item', 'could not read photo bytes'); }
 
     const record = {
       bytes: buffer,
       byteLength: buffer.byteLength,
       mime: blob.type || 'image/jpeg',
+      uid: item.uid,
       leadId: item.leadId,
       tags: Array.isArray(item.tags) ? item.tags : [],
       description: item.description || '',
@@ -248,41 +333,44 @@
       timestamp: item.timestamp || Date.now()
     };
 
-    // Re-open the transaction: the awaits above (arrayBuffer, getAll) let the
-    // event loop turn, and an IDB transaction auto-commits once its microtask
-    // queue drains. Reusing `store` here throws TransactionInactiveError.
-    const writeStore = await _tx('readwrite');
-    if (!writeStore) {
-      const err = new Error('photo queue storage unavailable');
-      err.reason = 'unavailable';
-      throw err;
+    // A fresh transaction: the awaits above let the event loop turn, and an
+    // IDB transaction auto-commits once its microtask queue drains, so any
+    // handle from before them is inactive by now.
+    const pair = await _txPair('readwrite');
+    if (!pair) throw _fail('unavailable', 'photo queue storage unavailable');
+
+    const committed = _commit(pair.tx);
+    let assignedId = null;
+    let postCount = null;
+    try {
+      const req = pair.store.add(record);
+      req.onsuccess = () => {
+        assignedId = req.result;
+        // Count inside the SAME transaction, after the add: the value that
+        // reaches localStorage is the committed truth, not a snapshot taken
+        // before a concurrent remove() could have run.
+        try {
+          const c = pair.store.count();
+          c.onsuccess = () => { postCount = c.result; };
+        } catch (_) {}
+      };
+    } catch (e) {
+      // Synchronous throw (DataCloneError and friends). The transaction has
+      // no requests and will complete on its own; nobody needs its promise.
+      committed.catch(() => {});
+      throw _fail('write-failed', 'photo queue write failed: ' + (e && e.name));
     }
 
-    const id = await new Promise((resolve, reject) => {
-      let req;
-      try { req = writeStore.add(record); }
-      catch (e) {
-        const err = new Error('photo queue write failed');
-        err.reason = 'write-failed';
-        reject(err);
-        return;
-      }
-      req.onsuccess = () => resolve(req.result);
-      req.onerror = () => {
-        const name = req.error && req.error.name;
-        const err = new Error('photo queue write failed: ' + name);
-        err.reason = name === 'QuotaExceededError' ? 'quota' : 'write-failed';
-        reject(err);
-      };
-    });
+    await committed;   // rejects with reason 'quota' / 'write-failed' on abort
 
-    _writeLastKnown(existing.length + 1);
-    return id;
+    if (typeof postCount === 'number') _writeLastKnown(postCount);
+    return assignedId;
   }
 
   /**
    * Every queued photo, oldest first, each with its Blob rebuilt. Order is by
-   * autoIncrement id, so a drain retries in capture order.
+   * autoIncrement id, so a drain retries in capture order. Rows are returned
+   * for every owner; the drain filters to the signed-in user.
    */
   async function all() {
     const rows = await _rawAll();
@@ -291,6 +379,7 @@
       .sort((a, b) => a.id - b.id)
       .map((r) => ({
         id: r.id,
+        uid: r.uid || null,
         blob: new Blob([r.bytes], { type: r.mime || 'image/jpeg' }),
         leadId: r.leadId,
         tags: Array.isArray(r.tags) ? r.tags : [],
@@ -300,20 +389,42 @@
       }));
   }
 
-  /** Drop one record by id. Called only after a confirmed upload. */
+  /**
+   * Drop one record by id. Called only after a confirmed upload. Resolves
+   * true only once the delete has COMMITTED; the counter is derived from a
+   * count() in the same transaction, so a failed delete never lowers it.
+   */
   async function remove(id) {
-    const store = await _tx('readwrite');
-    if (!store) return false;
-    await _reqToPromise(() => store.delete(id), null);
-    _writeLastKnown(await count());
+    const pair = await _txPair('readwrite');
+    if (!pair) return false;
+    const committed = _commit(pair.tx);
+    let postCount = null;
+    try {
+      pair.store.delete(id);
+      const c = pair.store.count();
+      c.onsuccess = () => { postCount = c.result; };
+    } catch (e) {
+      committed.catch(() => {});
+      console.warn('[PhotoQueueStore] delete threw:', e && e.name);
+      return false;
+    }
+    try { await committed; }
+    catch (e) {
+      console.warn('[PhotoQueueStore] delete did not commit:', e && e.message);
+      return false;
+    }
+    if (typeof postCount === 'number') _writeLastKnown(postCount);
     return true;
   }
 
   /** Drop everything. Exposed for tests and for a deliberate user reset. */
   async function clear() {
-    const store = await _tx('readwrite');
-    if (!store) return false;
-    await _reqToPromise(() => store.clear(), null);
+    const pair = await _txPair('readwrite');
+    if (!pair) return false;
+    const committed = _commit(pair.tx);
+    try { pair.store.clear(); }
+    catch (e) { committed.catch(() => {}); return false; }
+    try { await committed; } catch (e) { return false; }
     _writeLastKnown(0);
     return true;
   }
@@ -330,20 +441,22 @@
 
   /**
    * Compare the surviving localStorage counter against the real row count.
-   * A positive counter with an empty store means the browser evicted our
+   * A positive counter with an EMPTY store means the browser evicted our
    * data. Returns the number of rows lost (0 when nothing was lost), so the
    * caller can tell the rep rather than letting it pass unnoticed.
+   *
+   * A count() that FAILED is not evidence of anything and must not be read
+   * as "empty": reporting phantom loss would be bad, but persisting the 0 it
+   * implied would be worse — every later boot would take the counter's
+   * fast path and never open the database that still holds the photos.
    */
   async function detectLoss() {
     const expected = _readLastKnown();
     if (expected <= 0) return 0;
     const actual = await count();
-    if (actual >= expected) {
-      _writeLastKnown(actual);
-      return 0;
-    }
+    if (actual === null) return 0;
     _writeLastKnown(actual);
-    return expected - actual;
+    return actual >= expected ? 0 : expected - actual;
   }
 
   // Ask the browser to exempt this origin from eviction. On WebKit this is
