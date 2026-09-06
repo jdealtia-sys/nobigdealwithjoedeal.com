@@ -197,13 +197,22 @@ window.closeEventModal = function() {
   window.nbdModal.close('eventModal');
 };
 
+// Native alert() blocks the renderer until dismissed. standalone-compat.js
+// only patches window.alert in PWA standalone mode (`if (!isStandalone)
+// return`), so on desktop these stayed blocking. This module already reports
+// through showToast everywhere else; the validation messages now match.
+function _taskNotify(msg, kind) {
+  if (typeof window.showToast === 'function') { window.showToast(msg, kind || 'info'); return; }
+  if (kind === 'error') console.error('[tasks]', msg); else console.log('[tasks]', msg);
+}
+
 window.saveEvent = async function() {
   const title = document.getElementById('eventTitle').value.trim();
   const when = document.getElementById('eventWhen').value;
   const notes = document.getElementById('eventNotes').value.trim();
-  if (!title) { alert('Please enter an event title'); return; }
-  if (!when) { alert('Please pick a date and time'); return; }
-  if (!window._customerId) { alert('Customer ID not found'); return; }
+  if (!title) { _taskNotify('Enter an event title', 'warning'); return; }
+  if (!when) { _taskNotify('Pick a date and time', 'warning'); return; }
+  if (!window._customerId) { _taskNotify('Customer ID not found', 'error'); return; }
   try {
     await window.addDoc(window.collection(window.db, 'leads', window._customerId, 'tasks'), {
       type: 'event',
@@ -237,12 +246,12 @@ window.saveTask = async function() {
   const notes = document.getElementById('taskNotes').value.trim();
   
   if (!title) {
-    alert('Please enter a task title');
+    _taskNotify('Enter a task title', 'warning');
     return;
   }
   
   if (!window._customerId) {
-    alert('Customer ID not found');
+    _taskNotify('Customer ID not found', 'error');
     return;
   }
   
@@ -279,7 +288,7 @@ window.saveTask = async function() {
     
   } catch (error) {
     console.error('Error saving task:', error);
-    alert('Failed to save task. Please try again.');
+    _taskNotify('Task not saved: ' + ((error && error.message) || 'unknown error'), 'error');
   }
 };
 
