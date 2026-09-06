@@ -2545,7 +2545,11 @@
     const fn = window._httpsCallable(window._functions, 'renderPdf');
     const slug = (payload.preparedFor && payload.preparedFor.name || 'estimate')
       .replace(/[^A-Za-z0-9]+/g, '-').substring(0, 40);
-    const filename = 'NBD-Estimate-' + slug + '-' + (meta.estimate && meta.estimate.number || Date.now()) + '.pdf';
+    // Tenant-resolved prefix. This is the PRIMARY estimate PDF — the server
+    // render the homeowner receives; finalize() returns on its success and only
+    // falls through to the html2canvas path below when it fails.
+    const _base = 'Estimate-' + slug + '-' + (meta.estimate && meta.estimate.number || Date.now()) + '.pdf';
+    const filename = window._tenantFileName ? await window._tenantFileName(_base) : _base;
 
     const r = await fn({ template: 'estimate', payload, filename });
     const data = r && r.data;
@@ -3279,11 +3283,15 @@
       const titleSuffix = state.customer && state.customer.address
         ? ' — ' + state.customer.address
         : '';
+      // Tenant-resolved prefix (fallback render path; the server path above is
+      // the primary one and is prefixed the same way).
+      const _estBase = (titleMap[format] || 'Estimate').replace(/\s+/g, '-')
+        + '-' + new Date().toISOString().split('T')[0] + '.pdf';
+      const _estName = window._tenantFileName ? await window._tenantFileName(_estBase) : _estBase;
       window.NBDDocViewer.open({
         html: result.html,
         title: (titleMap[format] || 'Estimate') + titleSuffix,
-        filename: 'NBD-' + (titleMap[format] || 'Estimate').replace(/\s+/g, '-')
-          + '-' + new Date().toISOString().split('T')[0] + '.pdf',
+        filename: _estName,
         onSave: async () => {
           // Wire the doc viewer's "Save to Customer" button to
           // the same Firestore write the Save button in the
@@ -3582,10 +3590,13 @@ html,body{margin:0;padding:0;height:100%;width:100%;background:#fff;font-family:
   setTimeout(showBlocked,3500);
 })();</script>
 </body></html>`;
+      // Tenant-resolved prefix — this is the signing surface the homeowner sees.
+      const _sigBase = 'Signature-' + estimateId + '.pdf';
+      const _sigName = window._tenantFileName ? await window._tenantFileName(_sigBase) : _sigBase;
       window.NBDDocViewer.open({
         html: iframeHtml,
         title: 'Sign Contract — ' + (customer.address || ''),
-        filename: 'NBD-Signature-' + estimateId + '.pdf'
+        filename: _sigName
       });
     }
   }

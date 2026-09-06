@@ -1000,10 +1000,13 @@
 
     // Open in NBDDocViewer
     if (window.NBDDocViewer && typeof window.NBDDocViewer.open === 'function') {
+      // Tenant-resolved prefix — '' when the brand is not hydrated, never 'NBD'.
+      const _genBase = 'Report-' + tmpl.filenamePrefix + '-' + fmtDate(rangeStart).replace(/,/g, '').replace(/\s/g, '') + '.pdf';
+      const _genName = window._tenantFileName ? await window._tenantFileName(_genBase) : _genBase;
       window.NBDDocViewer.open({
         html,
         title: tmpl.name + ' — ' + meta.rep.name,
-        filename: 'NBD-Report-' + tmpl.filenamePrefix + '-' + fmtDate(rangeStart).replace(/,/g, '').replace(/\s/g, '') + '.pdf',
+        filename: _genName,
         onSave: async () => {
           if (typeof showToast === 'function') {
             showToast('✓ Report saved to My Reports', 'success');
@@ -2136,7 +2139,11 @@ ${STATIC_CHART_CSS}
     }).join('');
   }
 
-  function openSavedReport(id) {
+  // async since 2026-09-06: the filename carries a tenant-resolved prefix and
+  // company-profile hydration must be awaited (company-profile.js
+  // _tenantFilePrefix). Dispatched fire-and-forget by the data-nr-action
+  // delegate, which discards the return value.
+  async function openSavedReport(id) {
     const reports = window._reports || [];
     const r = reports.find(x => x.id === id);
     if (!r) {
@@ -2147,10 +2154,13 @@ ${STATIC_CHART_CSS}
       if (typeof showToast === 'function') showToast('Doc viewer not loaded', 'error');
       return;
     }
+    // Tenant-resolved prefix — '' when the brand is not hydrated, never 'NBD'.
+    const _repBase = (r.name || 'Report').replace(/[^A-Za-z0-9]+/g, '-') + '.pdf';
+    const _repName = window._tenantFileName ? await window._tenantFileName(_repBase) : _repBase;
     window.NBDDocViewer.open({
       html: r.html || '<html><body><p>Report HTML not stored.</p></body></html>',
       title: r.name || 'Saved Report',
-      filename: 'NBD-' + (r.name || 'Report').replace(/[^A-Za-z0-9]+/g, '-') + '.pdf'
+      filename: _repName
     });
   }
 

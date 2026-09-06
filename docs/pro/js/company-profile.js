@@ -532,6 +532,44 @@
     if (b && b.docPrefix) return b.docPrefix;               // a reserved prefix wins
     return _deriveCustPrefix();                             // non-NBD, unreserved → derived (never 'NBD')
   };
+  // ── Tenant prefix for CUSTOMER-FACING FILENAMES (2026-09-06) ──────────
+  // ASYNC on purpose. `_companyProfile` is seeded at parse time (:276) with the
+  // NBD defaults, whose brand.legalName is the exact string `_isNbdBrand()`
+  // (:396) tests for — so `_custIdPrefix()` answers 'NBD' for EVERY tenant
+  // until `_loadCompanyProfile()` resolves, and both pages fire that un-awaited.
+  // Reading it synchronously to build a filename therefore turns a
+  // deterministic leak into a race, AND into a permanent session-long leak
+  // whenever hydration fails (getDoc throws → caught at :331 → the profile
+  // never loads → every PDF that session is still named "NBD-…").
+  //
+  // Same gate the customer-ID mint uses (customer-bootstrap.module.js:404-421):
+  // await hydration, then REQUIRE _companyProfileLoaded === true. When the
+  // answer is not knowable this returns '' and the caller ships an UNPREFIXED
+  // name — never 'NBD'. That rule is already written down in
+  // estimate-finalization.js:210 ("callers must not substitute 'NBD'"); the
+  // `|| 'NBD'` fallbacks in warranty-cert.js and estimate-v2-ui.js:56 are the
+  // same defect class and should move to this helper too.
+  window._tenantFilePrefix = async function () {
+    try {
+      if (window._companyProfileLoaded !== true && typeof window._loadCompanyProfile === 'function') {
+        await window._loadCompanyProfile();
+      }
+      if (window._companyProfileLoaded !== true) return '';
+      if (typeof window._custIdPrefix !== 'function') return '';
+      return String(window._custIdPrefix() || '');
+    } catch (_) { return ''; }
+  };
+
+  // Build a customer-facing filename carrying the tenant's prefix. `rest` must
+  // be non-empty and already carry the extension: nbd-doc-viewer.js defaults a
+  // blank filename to 'NBD-Document.pdf' (:614, :715), so an empty prefix must
+  // never be implemented by omitting the filename.
+  window._tenantFileName = async function (rest) {
+    const base = String(rest || 'Document.pdf');
+    const p = await window._tenantFilePrefix();
+    return (p ? p + '-' : '') + base;
+  };
+
   window._custCounterId = function (companyId) {
     const b = _resolveBrand();
     if (_isNbdBrand(b)) return 'customerIds';               // NBD → legacy shared counter (unchanged)

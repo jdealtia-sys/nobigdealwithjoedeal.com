@@ -10,7 +10,7 @@
 //   window.NBDDocViewer.open({
 //     html:     string (required)  — full HTML document to display
 //     title:    string              — header title (e.g. "Insurance Scope")
-//     filename: string              — PDF filename (default: "NBD-Document.pdf")
+//     filename: string              — PDF filename (default: "Document.pdf")
 //     leadId:   string              — optional — pre-link to a customer
 //     onSave:   async (ctx) => ...  — custom save callback
 //     allowClose: boolean           — whether to show the X close button
@@ -611,7 +611,7 @@
         if (attr.name.toLowerCase() === 'srcdoc') el.removeAttribute(attr.name);
       }
     });
-    const filename = currentContext.filename || 'NBD-Document.pdf';
+    const filename = currentContext.filename || 'Document.pdf';
     const opt = {
       margin: [10, 10, 10, 10],
       filename: filename,
@@ -712,7 +712,7 @@
       // embed gets blocked by Chrome/Brave and can freeze the renderer.
       pdfUrl: opts.url || null,
       title: opts.title || 'Document',
-      filename: opts.filename || 'NBD-Document.pdf',
+      filename: opts.filename || 'Document.pdf',
       leadId: opts.leadId || null,
       onSave: opts.onSave || null,
       onPersistFinalized: opts.onPersistFinalized || null,

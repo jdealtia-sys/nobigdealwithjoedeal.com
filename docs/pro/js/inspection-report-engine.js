@@ -2784,7 +2784,11 @@
 
       const fn = window._httpsCallable(window._functions, 'renderPdf');
       const slug = (payload.leadName || 'inspection').replace(/[^A-Za-z0-9]+/g, '-').substring(0, 40);
-      const filename = 'NBD-Inspection-' + slug + '-' + payload.reportNumber + '.pdf';
+      // Tenant-resolved prefix. Same class as the estimate/photo-report server
+      // renders: functions/render-pdf.js takes this string verbatim, so it is
+      // what lands on the homeowner's or adjuster's disk.
+      const _inspBase = 'Inspection-' + slug + '-' + payload.reportNumber + '.pdf';
+      const filename = window._tenantFileName ? await window._tenantFileName(_inspBase) : _inspBase;
 
       const r = await fn({
         template: 'inspection',

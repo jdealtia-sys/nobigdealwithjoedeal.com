@@ -141,10 +141,16 @@
       if (window.NBDDocViewer && typeof window.NBDDocViewer.open === 'function') {
         const slug = (name || 'photos').replace(/[^A-Za-z0-9]+/g, '-').substring(0, 40);
         const modeTag = reportMode === 'adjuster' ? 'Adjuster' : 'Homeowner';
+        // Tenant-resolved prefix — this filename reaches the homeowner. '' when
+        // the brand is not hydrated, never 'NBD'. See company-profile.js
+        // _tenantFilePrefix for why this must be awaited.
+        const _pdfName = window._tenantFileName
+          ? await window._tenantFileName(modeTag + 'Report-' + slug + '-' + new Date().toISOString().split('T')[0] + '.pdf')
+          : modeTag + 'Report-' + slug + '-' + new Date().toISOString().split('T')[0] + '.pdf';
         window.NBDDocViewer.open({
           html: html,
           title: modeTag + ' Photo Report — ' + name,
-          filename: 'NBD-' + modeTag + 'Report-' + slug + '-' + new Date().toISOString().split('T')[0] + '.pdf',
+          filename: _pdfName,
           onSave: async () => {
             if (typeof showToast === 'function') {
               showToast('\u2713 Photo report ready \u2014 Print or Download PDF from the action bar', 'ok');
@@ -1002,7 +1008,10 @@
     const fn = window._httpsCallable(window._functions, 'renderPdf');
     const slug = (name || 'photos').replace(/[^A-Za-z0-9]+/g, '-').substring(0, 40);
     const modeTag = mode === 'adjuster' ? 'Adjuster' : 'Homeowner';
-    const filename = 'NBD-' + modeTag + 'Photos-' + slug + '-' + new Date().toISOString().split('T')[0] + '.pdf';
+    // Tenant-resolved prefix. functions/render-pdf.js takes this string
+    // VERBATIM, so it is what lands on the homeowner's disk.
+    const _base = modeTag + 'Photos-' + slug + '-' + new Date().toISOString().split('T')[0] + '.pdf';
+    const filename = window._tenantFileName ? await window._tenantFileName(_base) : _base;
 
     const r = await fn({ template: 'photoReport', payload, filename });
     const data = r && r.data;
