@@ -61,7 +61,19 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 function addDocumentsToQueue(files) {
+  // Dedupe on name+size+lastModified. A drop handler AND a change handler
+  // both feed this function, and some gestures fire both for one set of
+  // files (programmatically populating the file input does exactly that).
+  // Without this guard, adding two files queued four entries and uploaded
+  // each of them twice.
+  const key = (f) => [f.name, f.size, f.lastModified || 0].join('|');
+  const seen = new Set(window._docUploadQueue.map(it => key(it.file)));
+  let added = 0;
   files.forEach(file => {
+    const k = key(file);
+    if (seen.has(k)) return;
+    seen.add(k);
+    added++;
     window._docUploadQueue.push({
       file: file,
       uploading: false,
@@ -69,6 +81,7 @@ function addDocumentsToQueue(files) {
     });
   });
   updateDocUploadPreview();
+  return added;
 }
 
 function updateDocUploadPreview() {
@@ -118,10 +131,21 @@ removeDocFromQueue = function(index) {
   updateDocUploadPreview();
 };
 
+// Native alert() blocks the renderer until a human clicks OK. That stalls the
+// page for anything driving it programmatically, and per the iOS PWA notes
+// elsewhere in this file native dialogs misbehave in standalone mode too.
+// Every other surface on this page reports through showToast, so everything
+// in this module does the same. Falls back to the console; never blocks.
+// kind: 'success' | 'error' | 'warning' | 'info'
+function _nbdNotify(msg, kind) {
+  if (typeof window.showToast === 'function') { window.showToast(msg, kind || 'info'); return; }
+  if (kind === 'error') console.error('[docs]', msg); else console.log('[docs]', msg);
+}
+
 window.uploadDocuments = async function() {
   if (window._docUploadQueue.length === 0) return;
   if (!window._customerId) {
-    alert('Customer ID not found');
+    _nbdNotify('Customer ID not found', 'error');
     return;
   }
   
@@ -138,13 +162,14 @@ window.uploadDocuments = async function() {
       await uploadSingleDocument(item, i);
     }
     
-    alert(`Successfully uploaded ${window._docUploadQueue.length} document(s)!`);
+    const _n = window._docUploadQueue.length;
+    _nbdNotify(`Uploaded ${_n} file${_n === 1 ? '' : 's'}.`, 'success');
     closeDocUploadModal();
     if (window.NBDCustomerDocs) await window.NBDCustomerDocs.refresh();
     
   } catch (error) {
     console.error('Document upload error:', error);
-    alert('Upload failed. Please try again.');
+    _nbdNotify('Upload failed: ' + ((error && error.message) || 'unknown error'), 'error');
   } finally {
     uploadBtn.disabled = false;
     uploadBtn.textContent = 'Upload Documents';
@@ -231,12 +256,12 @@ window.saveNote = async function() {
   const noteText = document.getElementById('noteText').value.trim();
 
   if (!noteText) {
-    alert('Please enter a note');
+    _nbdNotify('Please enter a note', 'warning');
     return;
   }
 
   if (!window._customerId) {
-    alert('Customer ID not found');
+    _nbdNotify('Customer ID not found', 'error');
     return;
   }
 
@@ -260,7 +285,7 @@ window.saveNote = async function() {
 
   } catch (error) {
     console.error('Error saving note:', error);
-    alert('Failed to save note. Please try again.');
+    _nbdNotify('Note not saved: ' + ((error && error.message) || 'unknown error'), 'error');
   }
 };
 
@@ -460,12 +485,12 @@ window.saveEstimate = async function() {
   const notes = document.getElementById('estimateNotes').value.trim();
   
   if (!amount || amount <= 0) {
-    alert('Please enter a valid estimate amount');
+    _nbdNotify('Enter a valid estimate amount', 'warning');
     return;
   }
   
   if (!window._customerId) {
-    alert('Customer ID not found');
+    _nbdNotify('Customer ID not found', 'error');
     return;
   }
   
@@ -556,7 +581,7 @@ window.saveEstimate = async function() {
       console.warn('[saveEstimate] lead stamp-back failed:', stampErr);
     }
 
-    alert('Estimate created successfully!');
+    _nbdNotify('Estimate created.', 'success');
     closeEstimateModal();
     if (window.loadEstimates) await window.loadEstimates(window._customerId);
 
@@ -582,7 +607,7 @@ window.saveEstimate = async function() {
 
   } catch (error) {
     console.error('Error saving estimate:', error);
-    alert('Failed to save estimate. Please try again.');
+    _nbdNotify('Estimate not saved: ' + ((error && error.message) || 'unknown error'), 'error');
   }
 };
 

@@ -8,6 +8,12 @@
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js';
 import { getAuth, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
 import { getFirestore, doc, getDoc } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
+
+// pricing.html now loads js/toast.js before this module.
+function _ppNotify(msg, kind) {
+  if (typeof window.showToast === 'function') { window.showToast(msg, kind || 'info'); return; }
+  if (kind === 'error') console.error('[pricing]', msg); else console.log('[pricing]', msg);
+}
 import { connectEmulatorsIfLocal } from './nbd-emulator-connect.js'; // Audit #3: localhost-only, no-op in prod
 
 const app = initializeApp({
@@ -82,15 +88,20 @@ window.subscribe = async function(plan, evt) {
       // dashboard Billing tab, never a second Checkout. Reached mainly by a
       // stale plan-intent auto-resume; the intent was already cleared above,
       // so this won't re-fire on the next visit.
+      // DELIBERATELY a blocking alert, not a toast: the very next line
+      // navigates to the dashboard, and a toast would be destroyed by that
+      // navigation before it could be read. The signer of this message needs
+      // to know where plan changes live. Keep it blocking until the redirect
+      // is reworked to wait.
       alert(data.message || 'This company already has an active subscription. Manage or change your plan from Dashboard → Settings → Billing.');
       window.location.href = '/pro/dashboard.html';
     } else {
-      alert('Error: ' + (data.error || 'Could not create checkout session. Try again.'));
+      _ppNotify(data.error || 'Could not create checkout session. Try again.', 'error');
       if (btn) { btn.textContent = originalLabel || 'Subscribe'; btn.disabled = false; }
     }
   } catch (e) {
     console.error('Checkout error:', e);
-    alert('Connection error. Please try again.');
+    _ppNotify('Connection error. Please try again.', 'error');
     if (btn) { btn.textContent = originalLabel || 'Subscribe'; btn.disabled = false; }
   }
 };

@@ -48,6 +48,11 @@
     { key: 'equipment_dumpster',label: 'Equipment & Dumpster', costType: COST_TYPE.DIRECT,   scheduleCHint: 'Rent/Lease — Other (L20b)' },
     { key: 'permits_fees',      label: 'Permits & Fees',       costType: COST_TYPE.DIRECT,   scheduleCHint: 'Taxes & Licenses (L23)' },
     { key: 'disposal',          label: 'Disposal / Tear-off',  costType: COST_TYPE.DIRECT,   scheduleCHint: 'Part II — Supplies (L22)' },
+    // A per-lead acquisition fee (Thumbtack / Yelp / Angi). DIRECT, not
+    // overhead: the fee bought THIS job, so it belongs against THIS job's
+    // margin. Logging lead fees under 'marketing' (overhead) is precisely why
+    // lead spend never reached the per-job gross-margin line.
+    { key: 'lead_acquisition',  label: 'Lead / Acquisition Cost', costType: COST_TYPE.DIRECT, scheduleCHint: 'Advertising (L8)' },
     // Overhead / operating (company-level; do not hit per-job margin)
     { key: 'vehicle_fuel',      label: 'Vehicle & Fuel',       costType: COST_TYPE.OVERHEAD, scheduleCHint: 'Car & Truck (L9)' },
     { key: 'insurance',         label: 'Insurance',            costType: COST_TYPE.OVERHEAD, scheduleCHint: 'Insurance (L15)' },

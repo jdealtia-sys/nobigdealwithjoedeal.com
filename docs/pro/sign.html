@@ -47,6 +47,9 @@
     <span class="hint">Draw your signature in the box above, then tap Submit.</span>
     <button class="sp-btn" id="spSubmit" type="button">✍️ Submit Signature</button>
   </div>
+  <!-- Shared toast provider. Loads before sign-page.js so signature and
+       submission errors surface without a blocking dialog. Self-guarding. -->
+  <script src="js/toast.js?v=1"></script>
   <script defer src="js/sign-page.js?v=1"></script>
 </body>
 </html>

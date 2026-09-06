@@ -11,6 +11,15 @@ import { connectEmulatorsIfLocal } from "./nbd-emulator-connect.js"; // Audit #3
 // see progressStage below for what that cost.
 import { stageRole as _stageRole, missingRequiredFields as _missingRequiredFields } from "./crm-stages.js";
 
+
+// Native alert() blocks the renderer until dismissed. standalone-compat.js
+// only patches window.alert in PWA standalone mode (`if (!isStandalone)
+// return`), so on desktop these were still blocking dialogs. This module
+// reports through showToast everywhere else; these now match.
+function _cbNotify(msg, kind) {
+  if (typeof window.showToast === 'function') { window.showToast(msg, kind || 'info'); return; }
+  if (kind === 'error') console.error('[customer]', msg); else console.log('[customer]', msg);
+}
 const firebaseConfig = {
   apiKey: "AIzaSyDTrotINzl2YjdGbH25BpC-FPv8i_fXNvg",
   authDomain: "nobigdeal-pro.firebaseapp.com",
@@ -2240,13 +2249,13 @@ function addFilesToQueue(files) {
   files.forEach(file => {
     // Validate file size (max 15MB — iPhone HEIC photos often exceed 10MB)
     if (file.size > 15 * 1024 * 1024) {
-      alert(`File ${file.name} is too large (${(file.size/1024/1024).toFixed(1)} MB). Max size is 15 MB.`);
+      _cbNotify(`${file.name} is too large (${(file.size/1024/1024).toFixed(1)} MB). Max is 15 MB.`, 'warning');
       return;
     }
 
     // Validate file type — HEIC-aware (checks MIME + filename extension)
     if (!isSupportedImageFile(file)) {
-      alert(`File ${file.name} is not a supported image type. Supported: JPG, PNG, HEIC, HEIF, WebP, GIF, AVIF.`);
+      _cbNotify(`${file.name} is not a supported image type. Use JPG, PNG, HEIC, HEIF, WebP, GIF or AVIF.`, 'warning');
       return;
     }
 
@@ -2587,7 +2596,7 @@ window._currentEstimateId = null;
 window.viewEstimate = function(estimateId) {
   const estimate = (window._customerEstimates || []).find(e => e.id === estimateId);
   if (!estimate) {
-    alert('Estimate not found');
+    _cbNotify('Estimate not found', 'error');
     return;
   }
 
@@ -2621,7 +2630,7 @@ window.viewEstimate = function(estimateId) {
           }
         } catch (error) {
           console.error('Archive error:', error);
-          alert('Failed to archive estimate.');
+          _cbNotify('Could not archive estimate: ' + ((error && error.message) || 'unknown error'), 'error');
         }
       }
     });
@@ -2752,7 +2761,7 @@ window.viewEstimate = function(estimateId) {
       }
     } catch (error) {
       console.error('Archive error:', error);
-      alert('Failed to archive estimate.');
+      _cbNotify('Could not archive estimate: ' + ((error && error.message) || 'unknown error'), 'error');
     }
   };
   

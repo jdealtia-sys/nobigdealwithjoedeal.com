@@ -243,7 +243,7 @@
       'No uploaded documents yet', false);
 
     if (typeof window.nbdNavCount === 'function') window.nbdNavCount('navCountDocs', docs.length);
-    if (typeof window.nbdTitleCount === 'function') window.nbdTitleCount('docsPanelTitle', 'Documents', docs.length);
+    if (typeof window.nbdTitleCount === 'function') window.nbdTitleCount('docsPanelTitle', 'Files', docs.length);
   }
 
   function paintError() {

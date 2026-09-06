@@ -17,6 +17,15 @@
 (function () {
   'use strict';
 
+  // sign.html now loads js/toast.js before this file, so showToast exists.
+  // These are recoverable validation errors — the signer stays on the page
+  // and the submit button is re-enabled — so a toast is right. Terminal
+  // states still take over the whole panel via msg() below.
+  function _spNotify(text, kind) {
+    if (typeof window.showToast === 'function') { window.showToast(text, kind || 'info'); return; }
+    if (kind === 'error') console.error('[sign]', text); else console.log('[sign]', text);
+  }
+
   // Localhost-only emulator switch (same Audit #3 rule as
   // nbd-emulator-connect.js): the rep-side pages already point their SDK at
   // the emulators when served from localhost, but the public token pages
@@ -117,7 +126,7 @@
     if (!fin || !fin.ok) {
       submitBtn.disabled = false; submitBtn.textContent = orig;
       if (fin && Array.isArray(fin.missing) && fin.missing.length) {
-        alert('Please add your signature before submitting.');
+        _spNotify('Add your signature before submitting.', 'warning');
       } else if (fin && fin.noFields) {
         // This document carries no signature field at all. Saying "try
         // again" would loop the signer forever on something that cannot
@@ -126,11 +135,11 @@
           'It was sent without a signature field. Please contact your rep for a corrected copy — nothing you do here will work.');
         foot.style.display = 'none';
       } else if (fin && fin.noSignature) {
-        alert('Please draw your signature in the box before submitting.');
+        _spNotify('Draw your signature in the box before submitting.', 'warning');
       } else if (fin && fin.timedOut) {
-        alert('The document is still loading — give it a second and try again.');
+        _spNotify('The document is still loading — give it a second and try again.', 'warning');
       } else {
-        alert('Could not capture the signature. Please try again.');
+        _spNotify('Could not capture the signature. Please try again.', 'error');
       }
       return;
     }
@@ -138,7 +147,7 @@
     submitBtn.innerHTML = '<span class="spin"></span> Submitting…';
     var r;
     try { r = await post('submitSignature', { token: token, signedHtml: fin.html }); }
-    catch (e) { submitBtn.disabled = false; submitBtn.textContent = orig; alert('Connection problem — please try again.'); return; }
+    catch (e) { submitBtn.disabled = false; submitBtn.textContent = orig; _spNotify('Connection problem — please try again.', 'error'); return; }
 
     if (r.ok && r.data.ok) {
       frame.style.display = 'none';
@@ -150,7 +159,7 @@
         msg('✅', 'Already signed', (r.data.error || 'This document was already signed.'));
         foot.style.display = 'none';
       } else {
-        alert(r.data.error || 'Could not submit. Please try again.');
+        _spNotify(r.data.error || 'Could not submit. Please try again.', 'error');
       }
     }
   }
