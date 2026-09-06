@@ -172,7 +172,7 @@ and is live on `main`. Deleting it is a dashboard action with no site impact.
 nothing calls it, but it still holds an Anthropic key, so deleting it and
 rotating that key is cleanup rather than an emergency.
 
-### OpenAI billing verified clean — the cost bomb was never loaded
+### Vendor billing (audit step 13) — OpenAI, Gemini and Anthropic all checked
 
 Checked in the OpenAI console on 2026-09-05 (the audit's step 13, for one of its
 four vendors). **Spend over the last 90 days: $0.00 — and none ever.**
@@ -196,10 +196,46 @@ So `nbd-ai-visualizer` is **housekeeping, not an exposure**. It is still an
 unauthenticated public endpoint answering `ACAO: *`, and this repo is public —
 which now documents that fact — so delete it rather than leave it advertised.
 
-**Three of the four vendors remain unchecked**, and one matters more than the
-others: the same worker also holds a **Gemini key**, and Google Cloud billing is
-a separate account that may well be funded. Anthropic (in `nbd-ai-proxy`) and
-MailerLite are the other two. Nothing here says anything about those three.
+**Update 2026-09-05 — three of the four vendors are now checked, and the answer
+is consistent: none of the exposed workers was ever actually exploited.**
+
+| vendor | verdict | evidence |
+|---|---|---|
+| **OpenAI** (`nbd-ai-visualizer`) | clean, and could not have been billed | $0.00 ever; no invoices, no credits, no payment method; its one API key reads "Last used: **Never**" |
+| **Gemini / Google Cloud** (same worker) | **inert** | the **Gemini API is not enabled** on `nobigdeal-pro` — the console offers an "Enable" button — and 90 days of billing carries no Generative Language or Vertex AI line at all |
+| **Anthropic** (`nbd-ai-proxy`) | no abuse — **but the key was never rotated** | see below |
+| **MailerLite** | still unchecked | its worker is already deleted |
+
+Google Cloud was the one expected to matter, since unlike OpenAI it is a funded
+account ($260.54 over the same 90 days). It carries no Gemini spend whatsoever;
+the whole bill was Cloud Run Functions, Secret Manager and Cloud Scheduler.
+
+### Anthropic: no abuse, one thing outstanding
+
+90-day cost is **~$1.32** ($0.58 + $0.61 + $0.13 across three windows — the
+console caps a range at 31 days). Lifetime consumption is about **$1.69**: a
+single $5.30 credit grant on 2026-04-08 is the only invoice the account has ever
+issued, with $3.61 still on it. Auto-reload is **off**, so usage stops dead at
+the balance whatever the $1,000 monthly limit says.
+
+Every window is **Claude Haiku 4.5 only**. That is the load-bearing detail
+rather than the total: `nbd-ai-proxy` permitted **Opus** and a 4096-token cap,
+and nobody exploiting it would have picked Haiku.
+
+**But the key was never rotated.** Exactly one API key exists on the account,
+created **2026-04-08** — three days *before* the audit that told Jo to rotate
+it. A rotation would have left a newer key and retired that one. So the
+credential that sat in a wide-open Cloudflare worker is still the live key
+today. Low severity now (the worker's CORS is locked to the site origin,
+nothing calls it, and the numbers show it was never touched) but it is still a
+publicly-exposed credential that remains valid.
+
+**Corrects a claim made earlier in this session:** that `ANTHROPIC_API_KEY`
+version 1 in Secret Manager was a superseded credential still retrievable. Since
+only **one** Anthropic key has ever existed, v1 and v2 — created an hour apart
+on 2026-04-08 — cannot be two different keys; v1 was almost certainly a bad
+paste replaced the same hour. Disabling it is tidiness, not the closing of a
+second live secret.
 
 **The branch's code changes are obsolete — do not merge it.** Every client
 migration in it landed by another route: `claudeProxy`, `stripeWebhook` and
