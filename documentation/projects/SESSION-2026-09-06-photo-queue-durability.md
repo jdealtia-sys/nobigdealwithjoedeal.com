@@ -519,7 +519,7 @@ back after the 7-day purge gets no warning, because nothing ever reached the
 server to warn from. Closing that needs the loss not to happen — requesting
 persistence at the first enqueue rather than on a later boot, and warning while
 the photos still *exist* rather than after they are gone. Both are open.
-*(Both closed in #1427 — see the last section.)*
+*(Both closed in #1430 — see the last section.)*
 
 ### Gates
 
@@ -686,7 +686,7 @@ code; it never checked code against the claims made *about* it.
 These are folded into the follow-up hunt this session ran; its findings, if
 any, are recorded separately.
 
-## Update, 2026-09-06 (#1427) — stop mourning the loss, prevent it
+## Update, 2026-09-06 (#1430) — stop mourning the loss, prevent it
 
 Closing the two gaps this note has now listed as open twice. Everything before
 this point is detection: it tells the rep about a queue the browser has already
