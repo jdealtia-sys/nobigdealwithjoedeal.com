@@ -186,8 +186,9 @@
   function _failOpen(resolve, why) {
     if (why) console.warn('[PhotoQueueStore] open failed:', why);
     _available = false;
-    _openPromise = null;   // let the next caller try again
     resolve(null);
+    // NOTE: the memo is dropped by _open() below, NOT here. Clearing
+    // `_openPromise` from inside the executor cannot work — see there.
   }
 
   function _open() {
@@ -198,7 +199,7 @@
     // failure, and _failOpen sets it back.
     _available = true;
 
-    _openPromise = new Promise((resolve) => {
+    const attempt = new Promise((resolve) => {
       let req;
       // Private-mode Safari and policy-disabled storage throw from open()
       // itself rather than firing onerror.
@@ -242,7 +243,29 @@
       req.onblocked = () => _failOpen(resolve, 'blocked');
     });
 
-    return _openPromise;
+    _openPromise = attempt;
+
+    // Drop the memo for a FAILED attempt so the next caller retries.
+    //
+    // This CANNOT be done from inside the executor, which is how it was first
+    // written. A Promise executor runs synchronously during construction, so
+    // an `_openPromise = null` in there executes BEFORE the assignment above
+    // completes — and the assignment then puts the failed promise straight
+    // back. The async failures (onerror, onblocked) escaped that because they
+    // fire in a later task, so the retry appeared to work while the two
+    // SYNCHRONOUS paths — no `window.indexedDB`, and `indexedDB.open()`
+    // throwing — stayed latched off for the life of the page. A throwing
+    // open() during iOS storage-process recovery is precisely the case the
+    // retry exists for.
+    //
+    // Settling here instead runs in a microtask, after the assignment, for
+    // every path. The identity check keeps a slow failure from clearing a
+    // newer attempt that has already replaced it.
+    attempt.then((db) => {
+      if (!db && _openPromise === attempt) _openPromise = null;
+    });
+
+    return attempt;
   }
 
   /**
