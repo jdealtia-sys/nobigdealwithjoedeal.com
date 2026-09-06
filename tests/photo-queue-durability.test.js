@@ -193,8 +193,12 @@ function loadStore(disk, opts = {}) {
     parseInt, String, Number, isNaN,
     navigator: {
       storage: {
-        persisted: () => Promise.resolve(!!disk.persisted),
-        persist: () => { disk.persisted = true; return Promise.resolve(true); }
+        persisted: () => { disk.persistAsks = (disk.persistAsks || 0) + 1; return Promise.resolve(!!disk.persisted); },
+        persist: () => {
+          if (disk.persistRefuses) return Promise.resolve(false);
+          disk.persisted = true;
+          return Promise.resolve(true);
+        }
       }
     },
     localStorage: {
@@ -574,6 +578,93 @@ async function reason(fn) {
     const s = loadStore(disk);
     await s.requestPersistence();
     ok('storage persistence is requested (exempts the origin from eviction)', disk.persisted === true);
+  }
+  {
+    // ── ...and requested AT ENQUEUE, not on some later boot ──────────────
+    // The only caller used to be photo-queue-recovery.js, behind an early
+    // return that fires whenever the counter says the queue is empty — so on
+    // a settled device nobody asked, and the FIRST photo of a job sat in a
+    // non-persisted origin until the next dashboard load. The exemption was
+    // requested strictly after the window it exists to cover had opened.
+    const disk = newDisk();
+    const s = loadStore(disk);
+    ok('a fresh page has not asked for persistence yet', !disk.persisted);
+    await s.add(photo());
+    ok('queueing a photo asks for eviction exemption immediately',
+      disk.persisted === true,
+      'the first photo of a job must not wait for the next boot to be protected');
+  }
+  {
+    // Asking once per photo would be 40 permission round-trips on a roof set.
+    const disk = newDisk();
+    const s = loadStore(disk);
+    await s.add(photo());
+    await s.add(photo());
+    await s.add(photo());
+    ok('the request is memoised, not repeated per photo',
+      disk.persistAsks === 1, 'asked ' + disk.persistAsks + ' times for 3 photos');
+  }
+  {
+    // A refusal must not break the write. IndexedDB still survives closing
+    // the app without the grant; what the grant buys is 7-day-purge exemption.
+    const disk = newDisk();
+    disk.persistRefuses = true;
+    const s = loadStore(disk, { quiet: true });
+    const id = await s.add(photo());
+    ok('a refused persistence grant still stores the photo',
+      id != null && (await s.count()) === 1 && disk.persisted !== true,
+      'id=' + id + ' count=' + (await s.count()) + ' granted=' + disk.persisted);
+  }
+
+  // ── age, so something can warn while the photos still EXIST ────────────
+  {
+    const disk = newDisk();
+    const s = loadStore(disk);
+    const OLD = 1000, MID = 5000, NEW = 9000;
+    await s.add(photo({ uid: 'rep-alice', timestamp: MID }));
+    await s.add(photo({ uid: 'rep-alice', timestamp: OLD }));
+    await s.add(photo({ uid: 'rep-alice', timestamp: NEW }));
+    await s.add(photo({ uid: 'rep-bob', timestamp: 1 }));
+
+    const mine = await s.pendingStats('rep-alice');
+    ok('pendingStats counts this rep\'s rows', mine.count === 3, 'count=' + mine.count);
+    ok('...and reports the OLDEST of them', mine.oldestAt === OLD, 'oldestAt=' + mine.oldestAt);
+    ok('...ignoring another rep\'s older photo', mine.oldestAt !== 1,
+      'the warning must be about the signed-in rep\'s own backlog');
+
+    ok('pendingForUid still agrees with it', (await s.pendingForUid('rep-alice')) === 3);
+
+    const none = await s.pendingStats('rep-carol');
+    ok('a rep with nothing queued has count 0 and no age',
+      none.count === 0 && none.oldestAt === 0, JSON.stringify(none));
+    ok('no uid is unknown, not empty', (await s.pendingStats(undefined)) === null);
+  }
+  {
+    // A row with no usable timestamp is UNKNOWN age. add() always stamps one,
+    // so this can only be a row left by an older build — written straight into
+    // the table here, since the public API cannot produce it. Treating it as
+    // new is how a stale queue stays quiet, so it must read as old instead.
+    const disk = newDisk();
+    const s = loadStore(disk);
+    // Stamped in the FUTURE relative to the legacy row's fallback, so the
+    // assertion below can actually tell 'treated as old' from 'treated as new'.
+    await s.add(photo({ uid: 'rep-alice', timestamp: Date.now() }));
+    const table = disk.tables['nbd-photo-queue-db']['pending-photos'];
+    table.rows.set(99, { id: 99, uid: 'rep-alice', leadId: 'L', bytes: new ArrayBuffer(4), byteLength: 4 });
+    const st = await s.pendingStats('rep-alice');
+    ok('a legacy row with no timestamp counts as OLD, never as brand new',
+      st.count === 2 && st.oldestAt === 1,
+      JSON.stringify(st) + ' — guessing young on unknown silences the warning');
+  }
+  {
+    const disk = newDisk();
+    const s1 = loadStore(disk);
+    await s1.add(photo({ uid: 'rep-alice' }));
+    disk.deadConnection = true;
+    const s2 = loadStore(disk, { quiet: true });
+    const st = await s2.pendingStats('rep-alice');
+    disk.deadConnection = false;
+    ok('a FAILED read returns null, not an empty queue', st === null, JSON.stringify(st));
   }
 
   // ── isolation from the Firestore write queue ───────────────────────────

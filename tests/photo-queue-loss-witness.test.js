@@ -55,6 +55,7 @@ function makeStore(over) {
     detectLoss: async () => 0,
     count: async () => 0,
     pendingForUid: async () => 0,
+    pendingStats: async () => ({ count: 0, oldestAt: 0 }),
     seedLastKnown: (n) => { seeds.push(n); return true; },
     all: async () => []
   }, over || {});
@@ -147,7 +148,7 @@ function boot(opts) {
   sandbox.doc = fsdb.doc;
   sandbox.getDoc = o.noFirestoreHelpers ? undefined : fsdb.getDoc;
   sandbox.setDoc = fsdb.setDoc;
-  sandbox.PhotoEngine = {
+  if (!o.noPhotoEngine) sandbox.PhotoEngine = {
     flushUploadQueue: async () => { drained.count++; if (o.onDrain) o.onDrain(); return 0; }
   };
 
@@ -167,6 +168,7 @@ const bannerText = (t) => {
 /** Every surface the rep could have been warned on, banner or toast. */
 const said = (t, re) => re.test(bannerText(t)) || t.toasts.some((x) => re.test(x.msg));
 const LOSS = /never finished uploading/;
+const STALE = /(has|have) been waiting/;
 /** Writes that touch the shared pending count, as opposed to the ack. */
 const countWrites = (t) => t.fsdb.calls.wrote.filter((w) => 'photoQueuePending' in w);
 
@@ -304,7 +306,8 @@ const countWrites = (t) => t.fsdb.calls.wrote.filter((w) => 'photoQueuePending' 
       store: makeStore({
         lastKnownCount: () => 2,
         count: async () => rows,
-        pendingForUid: async () => rows
+        pendingForUid: async () => rows,
+        pendingStats: async () => ({ count: rows, oldestAt: rows ? 1 : 0 })
       }),
       onDrain: () => { rows = 0; }
     });
@@ -341,7 +344,10 @@ const countWrites = (t) => t.fsdb.calls.wrote.filter((w) => 'photoQueuePending' 
   {
     // A drain that FAILS must leave the count standing on the server.
     const t = boot({
-      store: makeStore({ lastKnownCount: () => 3, count: async () => 3, pendingForUid: async () => 3 }),
+      store: makeStore({
+        lastKnownCount: () => 3, count: async () => 3, pendingForUid: async () => 3,
+        pendingStats: async () => ({ count: 3, oldestAt: 1 })
+      }),
       onDrain: () => { throw new Error('still offline'); }
     });
     await settle();
@@ -354,7 +360,8 @@ const countWrites = (t) => t.fsdb.calls.wrote.filter((w) => 'photoQueuePending' 
     // A failed per-uid read is null, not 0, and must write nothing.
     const t = boot({
       store: makeStore({
-        lastKnownCount: () => 2, count: async () => 2, pendingForUid: async () => null
+        lastKnownCount: () => 2, count: async () => 2, pendingForUid: async () => null,
+        pendingStats: async () => null
       })
     });
     await settle();
@@ -365,7 +372,10 @@ const countWrites = (t) => t.fsdb.calls.wrote.filter((w) => 'photoQueuePending' 
   {
     // An unchanged queue on the next boot must not re-write the same number.
     const ls = {};
-    const mk = () => makeStore({ lastKnownCount: () => 2, count: async () => 2, pendingForUid: async () => 2 });
+    const mk = () => makeStore({
+      lastKnownCount: () => 2, count: async () => 2, pendingForUid: async () => 2,
+      pendingStats: async () => ({ count: 2, oldestAt: Date.now() })
+    });
     const t1 = boot({ ls: ls, store: mk() });
     await settle();
     const t2 = boot({ ls: ls, store: mk() });
@@ -462,6 +472,97 @@ const countWrites = (t) => t.fsdb.calls.wrote.filter((w) => 'photoQueuePending' 
     await settle();
     ok('a store without seedLastKnown degrades instead of breaking the boot',
       t.drained.count >= 0, 'a stale service-worker cache can pair the two versions');
+  }
+
+  // ── the ONE warning that fires while the photos still exist ────────────
+  // Everything else in this feature is an autopsy: it reports a queue the
+  // browser already destroyed, and the rep can only reshoot. This one is
+  // actionable, so it has to fire early enough to be acted on.
+  const DAY = 24 * 60 * 60 * 1000;
+  const staleStore = (count, ageDays, over) => makeStore(Object.assign({
+    lastKnownCount: () => count,
+    count: async () => count,
+    pendingForUid: async () => count,
+    pendingStats: async () => ({ count: count, oldestAt: Date.now() - ageDays * DAY })
+  }, over || {}));
+
+  {
+    const t = boot({ store: staleStore(3, 3) });
+    await settle();
+    ok('a queue sitting for days warns the rep WHILE the photos still exist',
+      said(t, STALE), 'banner=' + JSON.stringify(bannerText(t))
+      + ' — silence here is the whole failure mode: they find out after the purge');
+    ok('...naming the count and the age', /3 photos have been waiting 3 days/.test(bannerText(t)),
+      bannerText(t));
+    ok('...and telling them what to actually do',
+      /Connect to Wi-Fi/.test(bannerText(t)), bannerText(t));
+    ok('...on the sticky banner, so it survives the boot', bannerOf(t) !== null);
+  }
+  {
+    const t = boot({ store: staleStore(1, 1.5) });
+    await settle();
+    ok('a queue a few hours old does NOT nag',
+      !said(t, STALE), 'banner=' + JSON.stringify(bannerText(t))
+      + ' — a rep out of signal for an afternoon is not a problem');
+  }
+  {
+    const t = boot({ store: staleStore(1, 2.2) });
+    await settle();
+    ok('one stale photo reads as "1 photo ... 1 day", not "1 photos ... 2 days"',
+      /1 photo has been waiting 2 days/.test(bannerText(t)), bannerText(t));
+  }
+  {
+    // OFFLINE is exactly when this matters — there is no drain to save them.
+    const t = boot({ store: staleStore(4, 5), onLine: false });
+    await settle();
+    ok('offline, the stale warning still fires', said(t, STALE),
+      'banner=' + JSON.stringify(bannerText(t))
+      + ' — no network is the state that PRODUCES a stale queue');
+    ok('...without inventing a server write it cannot make',
+      t.fsdb.calls.set === 0, 'wrote=' + JSON.stringify(t.fsdb.calls.wrote));
+  }
+  {
+    // A drain that clears the queue must leave the rep alone.
+    let n = 3;
+    const store = makeStore({
+      lastKnownCount: () => 3,
+      count: async () => n,
+      pendingForUid: async () => n,
+      pendingStats: async () => ({ count: n, oldestAt: n ? Date.now() - 9 * DAY : 0 })
+    });
+    const t = boot({ store: store, onDrain: () => { n = 0; } });
+    await settle();
+    ok('a successful drain warns about nothing', !said(t, STALE),
+      'banner=' + JSON.stringify(bannerText(t)) + ' — the photos arrived');
+  }
+  {
+    // A drain that fails leaves them stale, and the rep should hear it.
+    const t = boot({
+      store: staleStore(2, 6),
+      onDrain: () => { throw new Error('still failing'); }
+    });
+    await settle();
+    ok('a failed drain leaves the warning standing', said(t, STALE),
+      'banner=' + JSON.stringify(bannerText(t)));
+  }
+  {
+    // The photos bundle never arrives (lazy load failed) — still warn.
+    const t = boot({ store: staleStore(2, 4), noPhotoEngine: true });
+    await settle();
+    ok('the warning does not depend on the photos bundle loading', said(t, STALE),
+      'banner=' + JSON.stringify(bannerText(t)));
+  }
+  {
+    // An older cached store.js has no pendingStats. Degrade to the count-only
+    // path rather than throwing — and stay silent rather than guess an age.
+    const store = makeStore({ lastKnownCount: () => 2, count: async () => 2, pendingForUid: async () => 2 });
+    delete store.pendingStats;
+    const t = boot({ store: store });
+    await settle();
+    ok('a store without pendingStats still drains and does not throw',
+      t.drained.count === 1, 'drained=' + t.drained.count);
+    ok('...and makes no age claim it cannot support', !said(t, STALE),
+      'banner=' + JSON.stringify(bannerText(t)));
   }
 
   // ── degrade quietly ────────────────────────────────────────────────────

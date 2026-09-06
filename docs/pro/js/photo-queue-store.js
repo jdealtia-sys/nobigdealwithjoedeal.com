@@ -117,6 +117,7 @@
   let _db = null;
   let _openPromise = null;
   let _available = true;
+  let _persistPromise = null;
 
   function _writeLastKnown(n) {
     try { localStorage.setItem(LAST_KNOWN_KEY, String(n)); } catch (_) {}
@@ -314,12 +315,35 @@
    * no Blob is built just to answer a number.
    */
   async function pendingForUid(uid) {
+    const stats = await pendingStats(uid);
+    return stats ? stats.count : null;
+  }
+
+  /**
+   * { count, oldestAt } for `uid`, or null when the read failed.
+   *
+   * The age is the point of it. A photo that has been queued for days is the
+   * warning we can act on while it still EXISTS — every other signal in this
+   * feature fires after the photos are already gone. `oldestAt` is 0 when
+   * nothing is queued, and the caller must treat a row with no usable
+   * timestamp as "old" rather than "new": an unstamped row is unknown age,
+   * and guessing young on unknown is how a stale queue stays quiet.
+   */
+  async function pendingStats(uid) {
     if (!uid) return null;
     const store = await _tx('readonly');
     if (!store) return null;
     const rows = await _reqToPromise(() => store.getAll(), null);
     if (!Array.isArray(rows)) return null;
-    return rows.reduce((n, r) => n + (r && r.uid === uid ? 1 : 0), 0);
+    let count = 0;
+    let oldestAt = 0;
+    for (const r of rows) {
+      if (!r || r.uid !== uid) continue;
+      count++;
+      const at = typeof r.timestamp === 'number' && r.timestamp > 0 ? r.timestamp : 1;
+      if (oldestAt === 0 || at < oldestAt) oldestAt = at;
+    }
+    return { count: count, oldestAt: count ? oldestAt : 0 };
   }
 
   async function _rawAll() {
@@ -341,6 +365,22 @@
    * reinstate the exact lie this whole change exists to remove.
    */
   async function add(item) {
+    // Ask for eviction exemption HERE, at the moment the data becomes worth
+    // something — not on some later boot. Until this change the only caller
+    // was photo-queue-recovery.js, behind an early return that fires whenever
+    // the counter says the queue is empty. So on a settled device nobody ever
+    // asked, and the first photo of a job was queued into a non-persisted
+    // origin and stayed there until the next dashboard load. The exemption
+    // was requested strictly after the window it was meant to cover had
+    // opened.
+    //
+    // Deliberately NOT awaited: #1418 inverted this flow to enqueue-first
+    // precisely so the write costs milliseconds, and blocking it on a
+    // permission round-trip would hand that back. A refusal is not fatal and
+    // never was — IndexedDB still survives closing the app either way; what
+    // the grant buys is exemption from the 7-day purge.
+    try { requestPersistence(); } catch (_) {}
+
     const blob = item && item.blob;
     if (!blob || typeof blob.arrayBuffer !== 'function') {
       throw _fail('bad-item', 'photo queue needs a Blob');
@@ -524,14 +564,21 @@
   // what survives the 7-day purge for an unused PWA; it may be refused, and
   // a refusal is not a failure of anything else here.
   function requestPersistence() {
-    try {
-      if (navigator.storage && typeof navigator.storage.persist === 'function') {
-        return navigator.storage.persisted()
-          .then((already) => (already ? true : navigator.storage.persist()))
-          .catch(() => false);
-      }
-    } catch (_) {}
-    return Promise.resolve(false);
+    // Memoised per page: persisted() and persist() are real async calls and
+    // the answer cannot change under us within a page. add() calls this on
+    // every photo, so without this a 40-photo roof set would ask 40 times.
+    if (_persistPromise) return _persistPromise;
+    _persistPromise = (function () {
+      try {
+        if (navigator.storage && typeof navigator.storage.persist === 'function') {
+          return navigator.storage.persisted()
+            .then((already) => (already ? true : navigator.storage.persist()))
+            .catch(() => false);
+        }
+      } catch (_) {}
+      return Promise.resolve(false);
+    })();
+    return _persistPromise;
   }
 
   window.NBDPhotoQueueStore = {
@@ -541,6 +588,7 @@
     clear,
     count,
     pendingForUid,
+    pendingStats,
     lastKnownCount,
     seedLastKnown,
     bytes,
