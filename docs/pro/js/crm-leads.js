@@ -137,7 +137,7 @@ function _leadModalReset(){
   hide('mErr'); hide('mOk');
 
   ['lFname','lLname','lAddr','lPhone','lEmail','lNotes',
-   'lJobValue','lFollowUp','lInsCarrier','lReferralCode'].forEach(setVal);
+   'lJobValue','lLeadCost','lFollowUp','lInsCarrier','lReferralCode'].forEach(setVal);
 
   const editId = document.getElementById('lEditId'); if(editId) editId.value='';
   const title = document.getElementById('leadModalTitle'); if(title) title.textContent='Add Lead';
@@ -175,7 +175,7 @@ const _leadModal = document.getElementById('leadModal');
 // _leadModalReset parks #lStage on 'new', so both read non-empty on a form
 // nobody has touched — counting them would prompt on every single dismiss.
 const _LEAD_TYPED_FIELDS = [
-  'lFname','lLname','lAddr','lPhone','lEmail','lNotes','lJobValue','lFollowUp',
+  'lFname','lLname','lAddr','lPhone','lEmail','lNotes','lJobValue','lLeadCost','lFollowUp',
   'lInsCarrier','lReferralCode','lClaimNumber','lEstimateAmount','lDeductible',
   'lScopeOfWork','lFinanceCompany','lLoanAmount','lPreQualLink','lScheduledDate','lCrew'
 ];
@@ -335,6 +335,11 @@ async function saveLead(){
       damageType: document.getElementById('lDamageType')?.value||'',
       claimStatus: document.getElementById('lClaimStatus')?.value||'No Claim',
       jobValue: parseFloat(document.getElementById('lJobValue')?.value)||0,
+      // What this lead cost to acquire (Thumbtack/Yelp/Angi fee). Deliberately
+      // sits beside jobValue: the two numbers only mean something next to each
+      // other. DOLLARS, matching jobValue — expenses/{id} is the subsystem that
+      // stores integer cents, lead docs do not.
+      leadCost: parseFloat(document.getElementById('lLeadCost')?.value)||0,
       followUp: document.getElementById('lFollowUp')?.value||'',
       insCarrier: document.getElementById('lInsCarrier')?.value?.trim()||'',
       // Insurance fields

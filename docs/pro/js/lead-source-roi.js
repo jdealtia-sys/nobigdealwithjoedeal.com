@@ -34,6 +34,16 @@
     'd2d':           'Door-to-Door',
     'storm canvass': 'Storm Canvass',
     'referral':      'Referral',
+  // Paid marketplaces are their OWN buckets, not 'Online'. The Add Lead select
+  // shipped without them while the Thumbtack ingest wrote source:'Thumbtack',
+  // so those leads rendered blank in the dropdown and any save overwrote the
+  // real source with whatever was selected. Fixed 2026-09-06; ~26 leads were
+  // downgraded to 'Online' before it was caught and need setting back by hand.
+  'thumbtack':     'Thumbtack',
+  'yelp':          'Yelp',
+  'angi':          'Angi',
+  'angies list':   'Angi',
+  'website':       'Website',
     'online':        'Online',
     '':              'Unknown',
     'other':         'Other'
@@ -51,7 +61,7 @@
   // ────────────────────────────────────────────────────────────────────
   function computeMetrics(leads) {
     const buckets = {};
-    let aggTotal = 0, aggClosed = 0, aggPipe = 0, aggRev = 0, aggLost = 0;
+    let aggTotal = 0, aggClosed = 0, aggPipe = 0, aggRev = 0, aggLost = 0, aggLeadCost = 0;
 
     for (const lead of leads) {
       // Skip prospects — they're pre-qualification leads. ROI math should
@@ -69,12 +79,16 @@
       if (!buckets[source]) {
         buckets[source] = {
           source, total: 0, closed: 0, lost: 0,
-          pipeValue: 0, closedRev: 0, openCount: 0
+          pipeValue: 0, closedRev: 0, openCount: 0, leadCost: 0
         };
       }
       const b = buckets[source];
       b.total++;
       aggTotal++;
+      // Lead cost accrues on EVERY lead, won or lost — the money is spent
+      // either way, and counting it only on closes would flatter every source.
+      const acqCost = toNum(lead.leadCost);
+      b.leadCost += acqCost; aggLeadCost += acqCost;
       if (isClosed) {
         b.closed++; aggClosed++;
         b.closedRev += value;  aggRev += value;
@@ -90,6 +104,9 @@
     const rows = Object.values(buckets).map(b => ({
       ...b,
       conversionRate: b.total ? Math.round((b.closed / b.total) * 100) : 0,
+      costPerLead:    b.total ? b.leadCost / b.total : 0,
+      costPerClosed:  b.closed ? b.leadCost / b.closed : 0,
+      leadRoi:        b.leadCost > 0 ? Math.round((b.closedRev / b.leadCost) * 100) : null,
       avgDealSize:    b.closed ? Math.round(b.closedRev / b.closed) : 0,
     })).sort((a, b) => b.closedRev - a.closedRev);
 
@@ -102,6 +119,13 @@
         pipeValue: aggPipe,
         closedRev: aggRev,
         conversionRate: aggTotal ? Math.round((aggClosed / aggTotal) * 100) : 0,
+        // Acquisition cost carried on the lead itself. Narrower and more honest
+        // than the expenses join above: it is what THIS lead cost, not a
+        // company-wide marketing figure spread across sources by name match.
+        leadCost:     aggLeadCost,
+        costPerLead:  aggTotal ? aggLeadCost / aggTotal : 0,
+        costPerClosed: aggClosed ? aggLeadCost / aggClosed : 0,
+        leadRoi:      aggLeadCost > 0 ? Math.round((aggRev / aggLeadCost) * 100) : null,
       },
       bestByRevenue: rows[0] || null,
       bestByConversion: [...rows].filter(r => r.total >= 3)
@@ -219,6 +243,19 @@
           <div class="lsroi-tot-label">Conv. Rate</div>
           <div class="lsroi-tot-val">${m.totals.conversionRate}%</div>
         </div>
+        ${m.totals.leadCost > 0 ? `
+        <div class="lsroi-tot">
+          <div class="lsroi-tot-label">Lead Spend</div>
+          <div class="lsroi-tot-val" style="color:var(--red,#E5484D);">${fmtMoney(m.totals.leadCost)}</div>
+        </div>
+        <div class="lsroi-tot">
+          <div class="lsroi-tot-label">Per Lead</div>
+          <div class="lsroi-tot-val">${fmtMoney(m.totals.costPerLead)}</div>
+        </div>
+        <div class="lsroi-tot">
+          <div class="lsroi-tot-label">Return on Lead Spend</div>
+          <div class="lsroi-tot-val" style="color:${m.totals.leadRoi >= 100 ? 'var(--green)' : 'var(--red,#E5484D)'};">${m.totals.leadRoi == null ? '—' : m.totals.leadRoi + '%'}</div>
+        </div>` : ''}
         ${_marketingSpend > 0 ? `
         <div class="lsroi-tot">
           <div class="lsroi-tot-label">Marketing Spend</div>
@@ -263,7 +300,7 @@
       const barPct = Math.round((r.closedRev / maxRev) * 100);
       // Per-source marketing ROI (when this source's name matches logged
       // marketing spend). closedRev / spend.
-      const srcSpend = _marketingBySource[(r.source || '').trim().toLowerCase()] || 0;
+      const srcSpend = r.leadCost > 0 ? r.leadCost : (_marketingBySource[(r.source || '').trim().toLowerCase()] || 0);
       const srcRoiTag = srcSpend > 0
         ? `<div style="font-size:10px;color:var(--m,#8892A4);">${fmtMoney(srcSpend)} spent · ROI ${Math.round((r.closedRev / srcSpend) * 100)}%</div>`
         : '';

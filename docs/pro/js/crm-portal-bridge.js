@@ -502,6 +502,7 @@ function editLead(id){
   setV('lDamageType',l.damageType||'');
   setV('lClaimStatus',l.claimStatus||'No Claim');
   setV('lJobValue',l.jobValue||'');
+  setV('lLeadCost',l.leadCost||'');
   setV('lFollowUp',l.followUp||'');
   setV('lInsCarrier',l.insCarrier||l.insuranceCarrier||'');
   // Insurance fields
