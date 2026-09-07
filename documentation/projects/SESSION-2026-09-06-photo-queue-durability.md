@@ -1098,3 +1098,53 @@ A queue whose links can hang is worse than no queue. More generally: when a fix
 adds a serialisation point, the first question is what happens when one entry
 never completes — because the answer is usually "everything behind it stops",
 and that is a bigger outage than the race being fixed.
+
+## Update, 2026-09-07 — the marker serialiser's own skip
+
+#1446 serialised and bounded the marker write, at the resource rather than at
+one caller — the right shape, and it fixed a real race. A review of it after
+merge found the bound had opened a new hole one line away.
+
+`_bounded()` abandons the *wait* at 5s while Firestore keeps the *write*
+buffered and flushes it on reconnect. But `_writeMarkerOnce` recorded the
+mirror key only on the ack, so the next link on the chain compared against a
+pre-write value and dropped itself as "unchanged" — and the abandoned write
+landed afterwards. Server left holding a count the queue no longer owed, with
+nothing scheduled to correct it; after the next sign-out purged the local
+counter the boot repair could not fire either, and the rep was told to reshoot
+a roof whose photos were already in the gallery.
+
+Serialising made this *deterministic* rather than merely likely: the second
+link is now guaranteed to run before the first one's ack.
+
+**Fix:** record the mirror at ISSUE time, rolling back only if the key still
+holds our own value. Sound because Firestore delivers mutations to one document
+in issue order, so an abandoned write is still a write that will land, and in
+the right order relative to the next one. The `_bounded` comment claimed that
+ordering already — it was true of the server and not of the mirror, which is
+what the guard actually reads. Corrected in place.
+
+### Two test lessons, both from breaking it rather than reading it
+
+- **The existing regression test could not see this.** Its write *never lands*
+  and its mirror key is never set, so `last === null` skips the guard entirely.
+  The dangerous shape is not a hung write, it is a merely SLOW one. Reaching it
+  needed the bound to be overridable, so `MARKER_WRITE_TIMEOUT_MS` is now read
+  through `window.__nbdMarkerWriteTimeoutMs`, matching the pattern
+  `photo-engine.js` already used for its own bound. A five-second wait is how a
+  test ends up written to something faster and weaker.
+- **My first version of the new test failed against the FIXED code**, because
+  the fake Firestore applied writes in *completion* order. Firestore applies
+  mutations to one document in *issue* order and the promise is only the ack —
+  so the fixture has to model those separately (apply at issue, acknowledge
+  late) or it measures the wrong thing and calls correct code broken.
+
+Also fixed, from the same review: `drain: ...so the NEXT drain still runs`
+asserted `sent === 0 && map.size === 0`, both of which are **satisfied by the
+wedged state it claimed to rule out** — `flushUploadQueue` returns 0 immediately
+while `_draining` is true, and the map had already been emptied. It now puts a
+row back and requires the next drain to actually upload it. Proven by wedging
+the guard: the new assertion reddens, the old one would not have.
+
+**Gates:** loss-witness 62 → 65, offline-queue 86, durability 105. Both new
+gates proven able to fail by reverting the fix and by wedging the guard.

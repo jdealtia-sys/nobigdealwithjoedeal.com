@@ -779,6 +779,73 @@ const countWrites = (t) => t.fsdb.calls.wrote.filter((w) => 'photoQueuePending' 
       + ' — all three photos uploaded; this tells the rep to reshoot a roof');
   }
 
+  // ── a bounded write that LANDS LATE must not silence the one after it ──
+  //
+  // The hung-write case above proves the chain cannot wedge. It cannot see
+  // this, because its write never lands and its mirror key is never set: with
+  // `last === null` the "unchanged" guard is skipped, so the skip this case is
+  // about never happens there. The dangerous shape is the ordinary one — a
+  // write that is merely SLOW. _bounded() abandons the wait at 5s while
+  // Firestore keeps the write buffered and flushes it on reconnect, so if the
+  // mirror is only recorded on the ack, the next link compares against a
+  // pre-write value, drops itself as "unchanged", and the abandoned write
+  // lands afterwards. Server left high, nothing scheduled to correct it.
+  {
+    let slow = true;
+    const fsdb = makeFirestore(null);
+    const rawSet = fsdb.setDoc;
+    // Firestore applies mutations to ONE document in issue order; the returned
+    // promise is only the acknowledgement. Model both halves separately —
+    // apply at issue, acknowledge late — or the fixture tests completion order
+    // and reports the fixed code as broken.
+    fsdb.setDoc = (ref, payload) => {
+      const applied = rawSet(ref, payload);
+      return slow ? new Promise((res) => setTimeout(() => res(applied), 120)) : applied;
+    };
+
+    const ls = { nbd_photo_queue_marker_synced: '0' };  // this rep drained once already
+    let owed = 3;
+    const store = makeStore({
+      lastKnownCount: () => 0,
+      count: async () => owed,
+      pendingForUid: async () => owed,
+      pendingStats: async () => ({ count: owed, oldestAt: 1 })
+    });
+    // The module reads the bound per write, so setting it after boot is
+    // enough — and boot itself issues no marker write here (lastKnownCount 0
+    // takes the fast path, and the mirror is already 0 so the repair is a
+    // no-op). The whole point of this case is a write that OUTLIVES the bound.
+    const t = boot({ ls: ls, store: store, firestore: fsdb });
+    t.sandbox.window.__nbdMarkerWriteTimeoutMs = 20;
+    await settle();
+    const rec = t.sandbox.window.NBDPhotoQueueRecovery;
+
+    rec.syncMarker();          // files 3; the write outlives the bound and is abandoned
+    await wait(60);            // past the bound, before the write lands at 120ms
+    slow = false;
+    owed = 0;                  // signal returned, all three uploaded
+    await rec.syncMarker();    // must still ISSUE a 0
+    await wait(200);           // let the abandoned write flush
+
+    const counts = fsdb.calls.wrote
+      .filter((w) => 'photoQueuePending' in w)
+      .map((w) => w.photoQueuePending);
+    ok('a slow marker write does not silence the one that corrects it',
+      counts.indexOf(0) !== -1,
+      'issued=' + JSON.stringify(counts)
+      + ' — no 0 means the guard compared against a mirror the abandoned write never updated');
+    ok('...so the server is not left owing photos that already uploaded',
+      fsdb.state.data && fsdb.state.data.photoQueuePending === 0,
+      'server=' + JSON.stringify(fsdb.state.data));
+
+    // The harm, named: a sign-out purges every nbd_ key, so the boot repair
+    // cannot fire and the stale marker is read as a loss.
+    const t2 = boot({ ls: {}, store: makeStore({ lastKnownCount: () => null, count: async () => 0 }), firestore: fsdb });
+    await settle();
+    ok('...and the next sign-in does not tell the rep to reshoot the roof',
+      !said(t2, LOSS), 'banner=' + JSON.stringify(bannerText(t2)));
+  }
+
   console.log(`\n  ${passed} passed, ${failed} failed`);
   if (failed) { console.log('\n  failures:'); for (const f of fails) console.log('    - ' + f); process.exit(1); }
   process.exit(0);

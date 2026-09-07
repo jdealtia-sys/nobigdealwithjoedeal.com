@@ -213,7 +213,18 @@
   // made on a dead connection stays pending until connectivity returns or the
   // page goes away. Without a bound, ONE such write would stall every marker
   // write after it for the life of the page.
-  const MARKER_WRITE_TIMEOUT_MS = 5000;
+  //
+  // Read through a window hook, matching photo-engine.js's
+  // `__nbdMarkerSyncTimeoutMs`. The behaviour that matters here only appears
+  // once a write is ABANDONED by this bound, and a test that had to wait five
+  // real seconds to reach it would either be skipped or written to something
+  // faster and weaker — which is exactly how the defect this bound now guards
+  // reached main: the regression test used a write that never landed at all,
+  // so the abandoned-then-landed path was never exercised.
+  function markerWriteTimeoutMs() {
+    const v = typeof window !== 'undefined' && window.__nbdMarkerWriteTimeoutMs;
+    return typeof v === 'number' && v > 0 ? v : 5000;
+  }
 
   // Serialised at the RESOURCE, not at one caller. writeMarker() is a
   // read-modify-write across an await — read the mirror key, compare, await
@@ -226,7 +237,7 @@
 
   function writeMarker(n) {
     _markerChain = _markerChain
-      .then(() => _bounded(_writeMarkerOnce(n), MARKER_WRITE_TIMEOUT_MS))
+      .then(() => _bounded(_writeMarkerOnce(n), markerWriteTimeoutMs()))
       .catch(() => {});
     return _markerChain;
   }
@@ -240,6 +251,12 @@
    * cancel the write — Firestore keeps it buffered and flushes it on reconnect,
    * and writes to one document land in the order they were issued, so a late
    * arrival still lands in the right order relative to the next one.
+   *
+   * That ordering guarantee covers the SERVER. It did not cover the mirror
+   * key, which _writeMarkerOnce used to update only on the ack — so an
+   * abandoned write left the mirror behind, and the next link skipped itself
+   * as "unchanged" against a value that was already obsolete. The mirror is
+   * now recorded at issue time for exactly this reason; see the comment there.
    */
   function _bounded(promise, ms) {
     let timer = null;
@@ -265,10 +282,37 @@
     const payload = {};
     payload[MARKER_FIELD] = n;
     payload[MARKER_AT_FIELD] = Date.now();
+
+    // Record at ISSUE time, not on the ack.
+    //
+    // The mirror key's own name is "what we last pushed", and pushed is what
+    // this moment is. Writing it after the await looks safer and is not: the
+    // bound in writeMarker() abandons the WAIT at MARKER_WRITE_TIMEOUT_MS
+    // while the write itself stays buffered and lands on reconnect. The next
+    // link on the chain then reads a pre-write mirror, and the guard four
+    // lines up drops its write as "unchanged" — so the number that would have
+    // corrected the server is never issued, and the abandoned one lands after
+    // it. Server left high, nothing scheduled to fix it, and after the next
+    // sign-out purges the local counter the boot repair cannot fire either:
+    // the rep is told to reshoot a roof whose photos are already uploaded.
+    //
+    // Serialising made this deterministic rather than merely likely — the
+    // second link is now GUARANTEED to run before the first one's ack.
+    //
+    // Recording the intent up front is sound because Firestore delivers
+    // mutations to a single document in issue order, so an abandoned write is
+    // still a write that will land, and in the right order relative to the
+    // next one.
+    lsSet(MARKER_MIRROR_KEY, n);
     try {
       await fs.setDoc(fs.ref, payload, { merge: true });
-      lsSet(MARKER_MIRROR_KEY, n);
     } catch (e) {
+      // Undo only our own optimism. A later link may already have moved the
+      // key on; clobbering it back would re-open the same skip in reverse.
+      if (lsGet(MARKER_MIRROR_KEY) === String(n)) {
+        if (last === null) { try { localStorage.removeItem(MARKER_MIRROR_KEY); } catch (_) {} }
+        else lsSet(MARKER_MIRROR_KEY, last);
+      }
       console.warn('[PhotoQueueRecovery] could not write the queue marker:', e && e.message);
     }
   }
