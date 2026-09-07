@@ -878,7 +878,26 @@
     const overheadPct = Number(settings.overheadPct != null ? settings.overheadPct : 0.10);
     const profitPct   = Number(settings.profitPct != null ? settings.profitPct : 0.10);
     const materialMarkupPct = Number(settings.materialMarkupPct != null ? settings.materialMarkupPct : 0.25);
-    const minJobCharge = Number(settings.minJobCharge != null ? settings.minJobCharge : 2500);
+    // A minimum job charge is an OPT-IN business rule, not a default.
+    //
+    // This used to fall back to 2500 whenever the caller passed nothing — and
+    // most callers pass nothing, because job-templates.js only sets
+    // settings.minJobCharge when a template explicitly carries one
+    // (job-templates.js:1009) and estimate-v2-ui.js only forwards
+    // state.minJobCharge when it is non-null (state default: null).
+    //
+    // The result: a scope that never asked for a floor got one anyway. A
+    // $555 pipe-boot repair priced out at $2,500, which is not a rounding
+    // problem — it is a quote no homeowner accepts, on a business whose own
+    // rate card has invoiced $125 and $225 jobs.
+    //
+    // The presets that genuinely want a floor set it themselves and still do:
+    // 'small-repair' 2500, 'shingle-patch' 500 ("a trip charge, not a
+    // job-level min"). The per-SQ replacement engine in estimate-builder-v2.js
+    // keeps its own MIN_JOB_CHARGE default untouched — an undersized ROOF
+    // REPLACEMENT is the case the floor was designed for, and that path is
+    // where it still applies.
+    const minJobCharge = Number(settings.minJobCharge != null ? settings.minJobCharge : 0);
     const roundTo      = Number(settings.roundTo || 25);
 
     // Resolve each line
