@@ -315,7 +315,21 @@ jobs:
           #                           (onObjectFinalized, onDocumentWritten,
           #                           etc. fire through Eventarc → Pub/Sub)
           #   run, cloudbuild, artifactregistry — Gen 2 runtime substrate
-          gcloud services enable \
+          # Output CAPTURED, not streamed — printed below only on the paths
+          # where it is evidence of something. This call is EXPECTED to fail
+          # (see the block immediately below), and gcloud's failure text is a
+          # bare, alarming line:
+          #   ERROR: (gcloud.services.enable) [firebase-adminsdk-...] does not
+          #   have permission to access projects instance [nobigdeal-pro] ...
+          # Streaming that on every clean deploy puts a red-looking ERROR two
+          # lines above "✓ All 7 required APIs already enabled". The 2026-08-17
+          # pass fixed the false ::warning:: annotation but left this line, and
+          # on 2026-09-07 it did exactly what the comment below predicts: it was
+          # read as a live fault and reported as a production issue by someone
+          # triaging a genuinely failed deploy in the same run. The end-state
+          # check is the signal; this text is only useful when that check finds
+          # something wrong, so that is the only place it is shown.
+          ENABLE_OUT=$(gcloud services enable \
             cloudscheduler.googleapis.com \
             identitytoolkit.googleapis.com \
             pubsub.googleapis.com \
@@ -323,7 +337,7 @@ jobs:
             run.googleapis.com \
             cloudbuild.googleapis.com \
             artifactregistry.googleapis.com \
-            --project "$PRO_PROJECT" --quiet
+            --project "$PRO_PROJECT" --quiet 2>&1)
           EXIT=$?
           # VERIFY THE OUTCOME, NOT THE EXIT CODE (2026-08-17).
           # The deploy SA deliberately does NOT hold
@@ -345,6 +359,7 @@ jobs:
             # Couldn't read the list at all — can't distinguish "all fine"
             # from "everything off", so surface it rather than guess.
             echo "::warning::Could not read enabled-API list for $PRO_PROJECT (services enable exited $EXIT). Verify in Cloud Console: cloudscheduler, identitytoolkit, pubsub, eventarc, run, cloudbuild, artifactregistry."
+            printf '%s\n' "$ENABLE_OUT" | sed 's/^/    services enable: /'
           else
             MISSING=""
             for api in cloudscheduler identitytoolkit pubsub eventarc run cloudbuild artifactregistry; do
@@ -354,6 +369,7 @@ jobs:
               # A REAL problem: an API the deploy depends on is off and the
               # SA can't turn it on. This is the only case worth alarming.
               echo "::warning::Required API(s) NOT enabled on $PRO_PROJECT:$MISSING — the deploy SA lacks roles/serviceusage.serviceUsageAdmin, so enable them in Cloud Console (or grant that role)."
+              printf '%s\n' "$ENABLE_OUT" | sed 's/^/    services enable: /'
             else
               echo "✓ All 7 required APIs already enabled (services enable exited $EXIT — expected; the SA can read API state but not change it)."
             fi
