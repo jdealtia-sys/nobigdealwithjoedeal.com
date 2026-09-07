@@ -523,15 +523,41 @@ exports.getHomeownerPortalView = onRequest(
       }
     }
 
-    // Pick the latest estimate (createdAt desc). In-memory sort to
+    // Pick the latest SHARED estimate (createdAt desc). In-memory sort to
     // avoid a composite-index requirement for this rarely-hit path.
+    //
+    // This used to be estimates[0] with no filter at all. Estimates are
+    // created with only {createdAt, userId, companyId} — no status, no
+    // sentAt, no share flag — so the newest save was on the homeowner's
+    // phone within seconds, whatever it was. A rep pricing three tiers side
+    // by side published the scratch one, labelled "Draft" next to a real
+    // dollar figure. Pricing control is the deal; the rep decides when a
+    // number leaves the building, not the sort order.
+    //
+    // Three signals count as "the rep meant this to be seen", any one of:
+    //   • sharedWithHomeowner — stamped by the Share button on the estimate
+    //     row (shareEstimateViewLink), the rep's existing deliberate gesture
+    //   • the signature lifecycle — putting it out for signature IS sharing
+    //   • sentAt — set by the flows that email/text it out
+    // Anything else is private and the portal renders no estimate card.
+    //
+    // Deliberately NOT grandfathered: estimates predating this carry none of
+    // the three, so they stay hidden until the rep re-shares. Hiding a price
+    // the customer already saw is recoverable in one click; leaking one the
+    // rep never approved is not.
+    const SHARED_SIG = ['sent', 'viewed', 'signed', 'declined', 'expired'];
+    const isSharedEstimate = (e) =>
+      e.sharedWithHomeowner === true
+      || SHARED_SIG.includes(e.signatureStatus)
+      || !!e.sentAt;
+
     const estimates = estSnap.docs.map(d => ({ id: d.id, ...d.data() }));
     estimates.sort((a, b) => {
       const ta = a.createdAt?.toMillis?.() || 0;
       const tb = b.createdAt?.toMillis?.() || 0;
       return tb - ta;
     });
-    const latest = estimates[0] || null;
+    const latest = estimates.find(isSharedEstimate) || null;
 
     // REDACTION: only non-sensitive fields reach the homeowner.
     // No claim details, no internal notes, no rep commission, no

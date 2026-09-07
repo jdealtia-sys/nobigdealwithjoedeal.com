@@ -31,7 +31,16 @@
     --br: var(--nbd-line);
     --text: var(--nbd-ink);
     --muted: var(--nbd-ink-muted);
-    --accent: var(--nbd-orange);
+    /* --nbd-orange-cta (4.88:1), NOT --nbd-orange (3.07:1, fails AA —
+       nbd-brand.css:55-59 says so itself). Every CTA portal.js generates
+       carries an inline background:var(--accent), which beats .btn's class
+       rule, so the safe token on .btn was being overridden on every button:
+       Send, Send callback, Send rating, Choose a photo, Start a warranty
+       claim, Leave a Google review. Repointing the alias fixes all of them
+       without editing a single generated string. Every --accent consumer is
+       an accent BACKGROUND under white ink, a border, or accent text on the
+       cream page, so the browner token only ever helps. */
+    --accent: var(--nbd-orange-cta);
     --green: var(--nbd-success);
       --orange: var(--nbd-orange);
       --surface-2: var(--nbd-bg-tint);

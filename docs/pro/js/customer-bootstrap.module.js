@@ -609,8 +609,13 @@ async function loadCustomerData(id) {
     }
 
     // ── Communication auto-logging: wire quick-action buttons ──
-    // Mark each anchor so the crm.js delegated logger skips it (these
-    // have richer inline logging and we don't want a duplicate row).
+    // Mark each anchor so the crm-snooze.js delegated logger skips it.
+    // Two different reasons, both load-bearing:
+    //   • callLink / emailLink / smsBookingLink have richer inline logging
+    //     just below — the flag prevents a duplicate row.
+    //   • contactCallBtn / contactTextBtn / contactEmailBtn dial the
+    //     CONTRACTOR, not the customer, so no customer-communication row
+    //     should be written for them at all. See the note further down.
     ['callLink','emailLink','smsBookingLink','contactCallBtn','contactTextBtn','contactEmailBtn'].forEach(i => {
       const el = document.getElementById(i);
       if (el) el.dataset.nbdLogSkip = '1';
@@ -636,27 +641,30 @@ async function loadCustomerData(id) {
         logCommunication(id, 'sms', 'Sent booking link via SMS');
       });
     }
-    // Sidebar Call button
-    const sideCall = document.getElementById('contactCallBtn');
-    if (sideCall) {
-      sideCall.onclick = () => {
-        logCommunication(id, 'call', `Called ${lead.firstName || lead.name || 'customer'} at ${lead.phone || ''}`.trim());
-      };
-    }
-    // Sidebar Text button
-    const sideText = document.getElementById('contactTextBtn');
-    if (sideText) {
-      sideText.onclick = () => {
-        logCommunication(id, 'sms', `Texted ${lead.firstName || lead.name || 'customer'} at ${lead.phone || ''}`.trim());
-      };
-    }
-    // Sidebar Email button
-    const sideEmail = document.getElementById('contactEmailBtn');
-    if (sideEmail) {
-      sideEmail.onclick = () => {
-        logCommunication(id, 'email', `Opened email to ${lead.firstName || lead.name || 'customer'} (${lead.email || ''})`.trim());
-      };
-    }
+    // Contact section: NO communication logging, deliberately.
+    //
+    // #contactCallBtn / #contactTextBtn / #contactEmailBtn live in the
+    // "CONTRACTOR INFO & QUICK CONTACT" panel (customer.html:1890-1904) and
+    // dial the TENANT'S OWN number — setupContactTab() in customer-tasks-ui.js
+    // stamps their hrefs from the brand phone/email, not from the lead.
+    //
+    // They used to carry onclick handlers logging "Called <customer> at
+    // <lead.phone>" / "Texted ..." / "Opened email to ...". Tapping Call
+    // dialled the contractor's own office line and recorded an outbound
+    // customer conversation that never happened — at a number that was not
+    // even the one dialled. Those rows are not inert: they surface in the
+    // Overview timeline's Calls & Texts pill and feed the follow-up signals,
+    // so the CRM's picture of "when did we last reach this customer" drifted
+    // every time the page was used.
+    //
+    // The customer-facing equivalents are the HEADER buttons #callLink and
+    // #emailLink, which resolve from lead.phone / lead.email above and keep
+    // their loggers.
+    //
+    // The nbdLogSkip flag set above MUST stay on these three: without it the
+    // capture-phase delegate in crm-snooze.js:458 matches any <a href="tel:">
+    // and writes its own "Tapped call link / Contacted customer" row, which
+    // is wrong here for the same reason.
 
     // Booking link buttons.
     //
@@ -905,12 +913,16 @@ async function loadCustomerData(id) {
       }
     } catch (e) { console.warn('Profit panel render failed:', e.message); }
 
-    // Render Lead Scoring panel
-    try {
-      if (window.LeadScoring?.renderScorePanel) {
-        window.LeadScoring.renderScorePanel('leadScoringPanel', id);
-      }
-    } catch (e) { console.warn('Lead scoring render failed:', e.message); }
+    // NOTE: there was a "Render Lead Scoring panel" block here calling
+    // window.LeadScoring.renderScorePanel(). lead-scoring.js only ever
+    // EXPORTED that function as `renderPanel`, so the optional-chain check
+    // was always falsy and #leadScoringPanel was an empty box on every
+    // customer page, forever. Removed rather than renamed, deliberately:
+    // lead-score.js / lead-score-panel.js is the newer engine, it already
+    // renders the header chip and its own breakdown on this page, and it
+    // computes a DIFFERENT number from a different factor set — so mounting
+    // the old panel would have put two disagreeing 0-100 "lead scores" on
+    // one screen. See the matching note in lead-scoring.js.
 
     // Render Insurance Claim Workflow
     try {
@@ -1671,6 +1683,12 @@ async function loadEstimates(leadId) {
           <div class="empty-icon"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:13px;height:13px;vertical-align:middle;"><rect x="4" y="3" width="12" height="14" rx="1.5"/><path d="M7 3V1.5h6V3"/><path d="M7 8h6M7 11h4"/></svg></div>
           No estimates yet
         </div>`;
+      // Clear BOTH globals: loadEstimates is re-invoked (setPrimaryEstimate),
+      // so returning early without resetting would leave the previous lead's
+      // estimates driving this lead's chips and score. Mirrors
+      // dashboard-bootstrap.module.js:3484.
+      window._customerEstimates = [];
+      window._estimates = [];
       return;
     }
 
@@ -1687,6 +1705,26 @@ async function loadEstimates(leadId) {
         const tb = b.createdAt?.toDate?.()?.getTime() || 0;
         return tb - ta;
       });
+
+    // ── window._estimates alias ──
+    // customer-viewed-chip, customer-engagement-score, lead-score-panel (via
+    // NBDLeadScore) and smart-followup all read window._estimates. Only
+    // dashboard-bootstrap.module.js ever writes it, and customer.html does
+    // not load that file — so on this page the array was undefined and all
+    // four silently read []. That is not merely lost signal: smart-followup
+    // falls through to its "link sent 5+ days ago, never opened" branch and
+    // tells the rep something false, on precisely the leads whose homeowner
+    // HAS opened the estimate. Same one-lead narrowing this bootstrap already
+    // does for window._leads at :395.
+    window._estimates = window._customerEstimates;
+    // Load-bearing, not decoration. lead-score-panel attaches on
+    // window._customerId, which is set at the top of loadCustomerData long
+    // before estimates resolve, so without this it computes once against []
+    // and never recomputes; customer-engagement-score has no poll at all.
+    // Same event dashboard-bootstrap fires after its own loadEstimates.
+    try {
+      window.dispatchEvent(new CustomEvent('nbd:data-refreshed', { detail: { source: 'estimates' } }));
+    } catch (_) { /* CustomEvent is universally available; never break the render for it */ }
 
     if (typeof window.nbdTitleCount === 'function') {
       window.nbdTitleCount('estimatesPanelTitle', 'Estimates', window._customerEstimates.length);
@@ -1761,6 +1799,12 @@ async function loadEstimates(leadId) {
     });
   } catch (e) {
     console.error('Error loading estimates:', e);
+    // _estimateQueryScopes fires a SECOND company-scope query for
+    // company_admin / manager / viewer; a rules denial on it throws the whole
+    // function. Without this the alias above never runs and all four engines
+    // revert to reading undefined — i.e. exactly the bug this commit fixes,
+    // for the team-visibility case specifically. Never leave it undefined.
+    window._estimates = window._customerEstimates || [];
   }
 }
 
@@ -1839,6 +1883,27 @@ window.shareEstimateViewLink = async function(estId) {
   const url = window.location.origin + '/pro/estimate-view.html'
     + '?token=' + encodeURIComponent(token)
     + '&estimateId=' + encodeURIComponent(estId);
+
+  // Persist the share decision on the estimate itself.
+  //
+  // Minting a token used to be the ONLY record that a rep had shared an
+  // estimate, and it lived in localStorage — so nothing durable said "the
+  // customer is allowed to see this one". getHomeownerPortalView now gates
+  // its estimate card on this flag (functions/portal.js), which is what
+  // stops an unshared scratch tier reaching the homeowner's portal.
+  //
+  // Best-effort: a stamp failure must never cost the rep the link they just
+  // asked for, so this runs after the URL is built and only warns. The
+  // consequence of a miss is the portal card staying hidden — the safe
+  // direction — and the estimate-view link itself still works.
+  try {
+    await updateDoc(doc(db, 'estimates', estId), {
+      sharedWithHomeowner: true,
+      sharedAt: serverTimestamp()
+    });
+  } catch (e) {
+    console.warn('[estimate-share] could not stamp sharedWithHomeowner:', e && e.message);
+  }
 
   // Try the modern Web Share API first (mobile, opens native share
   // sheet straight to SMS/Messenger/email). Fall back to clipboard
@@ -2344,8 +2409,6 @@ function renderUploadPreviewStructure() {
   if (window._uploadQueue.length === 0) {
     container.innerHTML = '';
     uploadBtn.style.display = 'none';
-    var _metaSecEmpty = document.getElementById('uploadMetaSection');
-    if (_metaSecEmpty) _metaSecEmpty.style.display = 'none';
     return;
   }
 
@@ -2355,7 +2418,14 @@ function renderUploadPreviewStructure() {
     html += '<div class="preview-item" data-upload-idx="' + i + '">';
     html += '<img src="' + item.preview + '" alt="Preview" loading="lazy" decoding="async">';
     if (!item.uploading) {
-      html += '<button class="preview-remove" data-action="removeFromQueue" data-arg=" + i + ">×</button>';
+      // data-arg was written as  data-arg=" + i + "  — the concatenation sat
+      // INSIDE the string literal, so every button shipped the literal text
+      // " + i + " as its argument. The delegate handed that to
+      // removeFromQueue, splice() coerced it to 0, and tapping x on ANY
+      // staged photo removed the FIRST one. The correct
+      // data-upload-idx="' + i + '" was on the same line, which is what made
+      // it invisible for so long.
+      html += '<button class="preview-remove" data-action="removeFromQueue" data-arg="' + i + '">×</button>';
     }
     html += '<div class="preview-progress" style="display:' + (item.uploading ? 'block' : 'none') + ';">';
     html += '<div class="preview-progress-bar" style="width:' + (item.progress || 0) + '%"></div>';
@@ -2366,8 +2436,6 @@ function renderUploadPreviewStructure() {
   container.innerHTML = html;
   uploadBtn.style.display = 'block';
   uploadCount.textContent = window._uploadQueue.length;
-  var _metaSec = document.getElementById('uploadMetaSection');
-  if (_metaSec) _metaSec.style.display = window._uploadQueue.length > 0 ? '' : 'none';
 }
 
 // Surgical per-tick update — only touches the bar width + percent text
@@ -2546,13 +2614,27 @@ async function uploadSinglePhoto(item, index) {
 
   const uploadTask = window.uploadBytesResumable(storageRef, file);
 
+  // The progress callback below dereferences window._uploadQueue[index]
+  // with an index captured when this upload STARTED, while its own callee
+  // one line later (updateUploadPreviewItem) guards the identical read and
+  // returns early when the slot is gone. The guard was added to the callee
+  // and never to its caller. Anything that shortens the queue mid-flight — a
+  // remove tap, a finished sibling — therefore threw a TypeError inside
+  // Firebase's state_changed handler, killing progress updates for an upload
+  // that was still running. Until 2026-09-07 the remove button made this easy
+  // to hit: it shipped a trapped literal for its index and removed the wrong
+  // photo, so reps tapped it repeatedly.
+  //
+  // Keep the guard cheap and keep updateUploadPreviewItem(index) close to the
+  // 'state_changed' string: tests/smoke/crm.test.js:332 asserts the surgical
+  // per-item update lives inside this handler, within 400 characters of it.
   return new Promise((resolve, reject) => {
     uploadTask.on('state_changed',
       (snapshot) => {
         // Progress tracking — surgical update (only the bar + % text
         // for this one item), plus the global floating widget.
         const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
-        window._uploadQueue[index].progress = progress;
+        if (window._uploadQueue?.[index]) window._uploadQueue[index].progress = progress;
         updateUploadPreviewItem(index);
         updateGlobalUploadStatus();
       },
@@ -2593,11 +2675,25 @@ async function uploadSinglePhoto(item, index) {
             type: file.type,
             date: window.serverTimestamp(),
             uploadedAt: window.serverTimestamp(),
-            phase: window._uploadPhase || 'During',
+            // null, not 'During'. pages/photo-review.js treats any truthy
+            // phase as "already reviewed" (:150), hides it from the unsorted
+            // filter (:229), and stops falling back to the classifier's
+            // suggestion (:132) — so a fabricated default made every photo
+            // from this page invisible to triage. Absence is honest and is
+            // what lets Review & Sort and the AI suggestion do their job.
+            phase: window._uploadPhase || null,
             category: 'Property',
-            damageType: document.getElementById('uploadDamageType')?.value || '',
-            severity: window._uploadSeverity || '',
-            location: document.getElementById('uploadLocation')?.value || ''
+            // Empty at upload time, deliberately. #uploadDamageType,
+            // #uploadLocation and the severity selector never existed — the
+            // modal is a drop zone, a preview strip and an Upload button —
+            // so these read undefined and collapsed to '' anyway. Written
+            // honestly rather than through dead lookups. The rep sets them
+            // afterwards in the Edit Photo popup or in Review & Sort, and
+            // location is still backfilled from EXIF below when the heading
+            // and roof polygon are available.
+            damageType: '',
+            severity: '',
+            location: ''
           };
 
           if (ingest && ingest.exif) {

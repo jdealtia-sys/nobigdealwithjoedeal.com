@@ -462,8 +462,12 @@ window.NBDServerNotifs = {
     if (!type) return;
     const leadId = resolveLeadId(a);
     if (!leadId) return;
-    // Skip if this anchor already has a dedicated handler that logs
-    // (customer.html does; flag = data-nbd-log-skip="1").
+    // Skip if this anchor opted out (flag = data-nbd-log-skip="1").
+    // Two cases: it already has a dedicated handler that logs (so we'd
+    // duplicate), OR it isn't a customer contact at all — customer.html's
+    // Contact panel dials the contractor's own number, and logging that as
+    // an outbound customer call is how the timeline used to fill with
+    // conversations that never happened.
     if (a.dataset && a.dataset.nbdLogSkip === '1') return;
 
     try {

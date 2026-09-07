@@ -2477,9 +2477,16 @@
       const grid = container.querySelector('#photo-preview');
       if (!grid) return;
 
-      const pool = (window.PhotoEngine && typeof window.PhotoEngine.getPhotosForLead === 'function')
-        ? (window.PhotoEngine.getPhotosForLead(state.leadId) || [])
-        : [];
+      // window._photoCache, not PhotoEngine. PhotoEngine exports its
+      // internal getPhotosForLead only as `getPhotosForReport`, so the old
+      // `typeof ... === 'function'` guard here was ALWAYS false and this
+      // pool was always [] — which is why this step printed "No photos found
+      // for this lead" on leads that had photos. Renaming is not the fix:
+      // getPhotosForLead is async (a Promise into synchronous code) and
+      // queries userId-only, which would drop a teammate's photos from the
+      // report. The cache is synchronous, lead-keyed, and filled from both
+      // the userId and companyId scopes at dashboard boot.
+      const pool = (window._photoCache && window._photoCache[state.leadId]) || [];
 
       if (!pool.length) {
         grid.innerHTML = '<p style="color:#666;font-size:13px;">No photos found for this lead. Add photos from the Photos tab to include them in the report.</p>';
@@ -2858,9 +2865,10 @@
       // Photo evidence — pulled from PhotoEngine if available. We map
       // to the inspection.hbs photo shape: { url, caption, area, severity }.
       const photos = [];
-      const photoPool = (window.PhotoEngine && window.PhotoEngine.getPhotosForLead && state.leadId)
-        ? (window.PhotoEngine.getPhotosForLead(state.leadId) || [])
-        : [];
+      // Same fix as _loadPhotosForSelection above: this guard could never
+      // pass, so every generated report's photo-evidence section (and the
+      // D-2.7 before/after pairs below) shipped empty.
+      const photoPool = (state.leadId && window._photoCache && window._photoCache[state.leadId]) || [];
       photoPool.slice(0, 24).forEach((p) => {
         const url = (p && p.urls && (p.urls.lg || p.urls.md)) || (p && p.url) || '';
         if (!url) return;

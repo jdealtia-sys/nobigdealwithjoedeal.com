@@ -661,33 +661,15 @@ window.loadInvoices = async function(leadId) {
 
 // ── Photos by Phase ─────────────────────────────
 window._allPhotos = [];
-window._uploadPhase = 'During';
-window._uploadSeverity = '';
+// Empty, not 'During'. Nothing on this page can set it: the upload modal
+// (customer.html) is a drop zone, a preview strip and an Upload button —
+// #uploadPhaseButtons, #uploadMetaSection, #uploadDamageType and
+// #uploadLocation were never written in ANY commit (git log --all -S on each
+// returns nothing), and the two selectors that drove them had zero callers.
+// So the default WAS the value, and 'During' meant every uploaded photo
+// arrived claiming to be sorted. Deleted the dead selectors with it.
+window._uploadPhase = '';
 window._photoFilter = 'all';
-
-window.selectUploadPhase = function(phase, btn) {
-  window._uploadPhase = phase;
-  document.querySelectorAll('#uploadPhaseButtons button').forEach(function(b) {
-    b.className = 'btn';
-    b.removeAttribute('data-selected');
-  });
-  btn.className = 'btn btn-orange';
-  btn.setAttribute('data-selected', 'true');
-};
-
-window.selectUploadSeverity = function(sev, btn) {
-  if (window._uploadSeverity === sev) {
-    window._uploadSeverity = '';
-    btn.style.background = '';
-    btn.style.color = btn.style.borderColor;
-    return;
-  }
-  window._uploadSeverity = sev;
-  var btns = btn.parentElement.querySelectorAll('.btn');
-  btns.forEach(function(b) { b.style.background = ''; b.style.color = b.style.borderColor; });
-  btn.style.background = btn.style.borderColor;
-  btn.style.color = '#fff';
-};
 
 window.filterPhotos = function(filter, btn) {
   document.querySelectorAll('.photo-filter-btn').forEach(function(b){ b.classList.remove('active'); });
@@ -1565,6 +1547,10 @@ window.showPhotoActions = function(idx, event) {
 window.quickSetPhase = function(phase, btn) {
   var photo = (window._allPhotos || [])[window._quickEditPhotoIdx];
   if (!photo) return;
+  // Remember what it was and that the rep actually chose — quickSaveMeta
+  // only writes the phase key when this ran. See the note there.
+  if (photo._phaseTouched !== true) photo._phaseWas = photo.phase;
+  photo._phaseTouched = true;
   photo.phase = phase;
   
   var phaseColors = { 'Before': '#3b82f6', 'During': 'var(--orange)', 'After': 'var(--green)' };
@@ -1605,14 +1591,26 @@ window.quickSaveMeta = async function() {
   if (!photo || !photo.id) return;
 
   try {
-    var prevPhase = photo.phase;
+    // Only write `phase` when the rep actually picked one in this popup.
+    //
+    // photoDocToView coerces `d.phase || 'During'`, so photo.phase is NEVER
+    // falsy here — an unconditional `phase: photo.phase || 'During'` stamped
+    // a concrete phase into Firestore on EVERY metadata edit, including ones
+    // where the rep only typed a description or a location. A photo that
+    // uploaded unsorted and showed correctly in Review & Sort was silently
+    // re-marked "reviewed" the first time anyone touched any other field,
+    // which also re-masked the AI's phase suggestion. Omitting the key
+    // leaves absence intact and avoids clobbering a phase another surface
+    // (photo-review, bulk assign) may have set since this view was built.
+    var phaseTouched = photo._phaseTouched === true;
+    var prevPhase = phaseTouched ? photo._phaseWas : photo.phase;
     var updates = {
-      phase: photo.phase || 'During',
       damageType: document.getElementById('qeDamageType')?.value || '',
       severity: photo.severity || '',
       location: document.getElementById('qeLocation')?.value || '',
       description: document.getElementById('qeDescription')?.value || ''
     };
+    if (phaseTouched) updates.phase = photo.phase;
 
     // Update local data
     Object.assign(photo, updates);
@@ -1624,7 +1622,8 @@ window.quickSaveMeta = async function() {
     // this one tile (O(1)). If phase changed, the tile lives in a
     // different section so a full re-render is needed (rare path).
     updatePhotoStats();
-    if (updates.phase === prevPhase) {
+    photo._phaseTouched = false;
+    if (!phaseTouched || updates.phase === prevPhase) {
       updatePhotoTile(photo.id);
     } else {
       renderPhotoGrid();
@@ -2202,6 +2201,33 @@ function _nbdCustomerActionDispatch(action, el) {
 }
 
 // Click delegate — fires on [data-action] elements.
+// Keyboard parity for the action delegate.
+//
+// 25 elements on this page carry data-action on a <div> or <span> — the 15
+// document-template cards, the 8 timeline filter pills, and both upload drop
+// zones. A click-only delegate made the entire Generate Documents feature and
+// the entire timeline filter unreachable without a mouse.
+//
+// Registered once, next to the click delegate, so anything that gains a
+// data-action later is keyboard-operable by construction rather than by
+// somebody remembering.
+//
+// NATIVE controls are skipped deliberately: a <button> or <a> already turns
+// Enter/Space into a click, so handling the key here as well would dispatch
+// every action twice. Space is also swallowed on non-native controls to stop
+// the page scrolling underneath the activation.
+document.addEventListener('keydown', function _nbdCustomerKeyDelegate(e) {
+  if (e.key !== 'Enter' && e.key !== ' ' && e.key !== 'Spacebar') return;
+  if (e.altKey || e.ctrlKey || e.metaKey) return;
+  var el = e.target && e.target.closest && e.target.closest('[data-action]');
+  if (!el) return;
+  if (/^(BUTTON|A|INPUT|SELECT|TEXTAREA)$/.test(el.tagName)) return;
+  var action = el.dataset && el.dataset.action;
+  if (!action) return;
+  e.preventDefault();
+  _nbdCustomerActionDispatch(action, el);
+});
+
 document.addEventListener('click', function _nbdCustomerClickDelegate(e) {
   var el = e.target && e.target.closest && e.target.closest('[data-action]');
   if (!el) return;
@@ -2277,9 +2303,22 @@ window.setupContactTab = function(customerData) {
   const email = _isNbd ? 'info@nobigdealwithjoedeal.com' : ((_b.contact && _b.contact.email) || '');
 
   document.getElementById('contractorPhone').textContent = phone;
-  document.getElementById('contactCallBtn').href = `tel:${phone.replace(/\D/g, '')}`;
-  document.getElementById('contactTextBtn').href = `sms:${phone.replace(/\D/g, '')}`;
-  document.getElementById('contactEmailBtn').href = `mailto:${email}`;
+  // These dial the CONTRACTOR (this tenant), never the customer — the
+  // customer's own Call/Email are the header buttons. Name them explicitly:
+  // three unlabelled icon buttons under a company banner on a page about a
+  // customer read as "call the customer", which is how they ended up wired
+  // to a customer-communication logger. Screen readers got "Call" alone too.
+  const _who = (_isNbd ? 'No Big Deal Home Solutions' : (_b.legalName || 'your company'));
+  const _mark = (id, verb, href) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.href = href;
+    el.setAttribute('aria-label', verb + ' ' + _who);
+    el.title = verb + ' ' + _who + ' (not the customer)';
+  };
+  _mark('contactCallBtn', 'Call', `tel:${phone.replace(/\D/g, '')}`);
+  _mark('contactTextBtn', 'Text', `sms:${phone.replace(/\D/g, '')}`);
+  _mark('contactEmailBtn', 'Email', `mailto:${email}`);
   if (!_isNbd) {
     const elS = document.getElementById('contractorSeal'); if (elS) elS.textContent = _b.seal || '';
     const elN = document.getElementById('contractorName'); if (elN) elN.textContent = _b.legalName || '';

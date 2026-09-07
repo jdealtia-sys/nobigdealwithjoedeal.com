@@ -77,6 +77,27 @@
   // the page is visible. Pauses entirely when document.hidden.
   const POLL_INTERVAL_MS = 30_000;
   let _lastView = null;
+
+  // ── Signature-safe repaint ──
+  // A repaint recreates the BoldSign iframe and destroys whatever the
+  // homeowner had typed or drawn inside it. Defer while a signature is
+  // actually in flight — but bounded, because an unbounded defer would
+  // reintroduce the stale "Review & sign" card this poll exists to prevent.
+  // ~10 minutes at the 30s interval, which is longer than signing takes.
+  const MAX_SIGN_DEFERRALS = 20;
+  let _signDeferrals = 0;
+  let _signDeferAnnounced = false;
+
+  // True only when a signing embed is mounted AND the incoming view still
+  // wants one. Both halves matter: the status alone would defer on a page
+  // that never rendered an iframe (no signEmbedUrl), and the iframe alone
+  // would keep deferring after the contract was signed in another tab.
+  function _signatureInFlight(nextView) {
+    const est = nextView && nextView.estimate;
+    const status = est && est.signatureStatus;
+    if (status !== 'sent' && status !== 'viewed') return false;
+    return !!document.querySelector('iframe[title="Sign Contract"]');
+  }
   let _pollTimer = null;
   let _pollInflight = false;
 
@@ -262,6 +283,24 @@
       if (!res.ok) return; // transient failure — try again on next tick
       const view = await res.json();
       const events = _diffView(_lastView, view);
+
+      // Do not wipe a signature in progress. _lastView is deliberately NOT
+      // advanced here, so the change stays pending and lands the moment the
+      // signing session ends rather than being silently dropped.
+      if (events && _signatureInFlight(view) && _signDeferrals < MAX_SIGN_DEFERRALS) {
+        _signDeferrals++;
+        // Announce once per deferral streak, not once per tick — the diff is
+        // recomputed against the same stale _lastView every 30s and would
+        // otherwise re-banner the same news repeatedly.
+        if (!_signDeferAnnounced) {
+          _showUpdateBanner(events);
+          _signDeferAnnounced = true;
+        }
+        return;
+      }
+      _signDeferrals = 0;
+      _signDeferAnnounced = false;
+
       _lastView = view;
       if (events) {
         // Re-render first so the banner refers to data the user can see,
@@ -422,6 +461,7 @@
       // Capture as estimate_view; resourceId = estimate doc id.
       if (e.id) _emitAuditEvent('estimate_view', e.id);
       const sig = signaturePill(e.signatureStatus || 'none');
+      const hasTotal = e.grandTotal != null && !isNaN(Number(e.grandTotal));
       const signedHref = safeUrl(e.signedDocumentUrl);
       const signedPdf = signedHref
         ? '<a class="btn btn-ghost" style="margin-top:12px;" href="' + esc(signedHref) + '" target="_blank" rel="noopener">📄 Download Signed Contract</a>'
@@ -431,13 +471,24 @@
           '<div class="card-label">Your Estimate</div>' +
           '<div class="row">' +
             '<div>' +
-              '<div class="kv-key">Total</div>' +
-              '<div class="big-num">' + esc(fmtMoney(e.grandTotal)) + '</div>' +
+              // A null/NaN total used to render fmtMoney()'s em-dash into
+              // .big-num — a 36px orange "—" under the word TOTAL, which
+              // reads as a broken page at the moment the customer is
+              // deciding. Say the honest thing instead.
+              (hasTotal
+                ? '<div class="kv-key">Total</div><div class="big-num">' + esc(fmtMoney(e.grandTotal)) + '</div>'
+                : '<div class="kv-key">Total</div><div class="kv-val" style="color:var(--muted);">Your rep is still putting the numbers together.</div>') +
               (e.tierName ? '<div class="kv-val" style="margin-top:6px;color:var(--muted);">' + esc(e.tierName) + '</div>' : '') +
             '</div>' +
             '<div>' +
               '<div class="kv-key">Status</div>' +
-              '<div class="kv-val">' + (sig || '<span class="pill">Draft</span>') + '</div>' +
+              // Was: (sig || '<span class="pill">Draft</span>'). Only shared
+              // estimates reach the portal now, so "Draft" would be both
+              // unreachable and, if it ever did fire, alarming — a homeowner
+              // should never be told the thing they are looking at is a
+              // draft of their own contract. A shared estimate with no
+              // signature flow is simply "sent".
+              '<div class="kv-val">' + (sig || '<span class="pill">Sent to you</span>') + '</div>' +
               (e.signedAt ? '<div class="kv-val" style="color:var(--muted);font-size:13px;margin-top:6px;">Signed ' + esc(new Date(e.signedAt).toLocaleDateString()) + '</div>' : '') +
               signedPdf +
             '</div>' +
@@ -771,12 +822,29 @@
     }
 
     // ── Step 16: Refer a friend ──
-    // Only render the card when we have a stable referral code
-    // (customerId — NBD-0001 format). Leads without one are usually
-    // unstamped or pre-Wave 0 stragglers; rather than build a
-    // half-working link we hide the card entirely.
+    // Two conditions, and both matter.
+    //
+    // 1. A stable referral code (customerId — NBD-0001 format). Leads
+    //    without one are usually unstamped or pre-Wave 0 stragglers; rather
+    //    than build a half-working link we hide the card entirely.
+    //
+    // 2. The job is actually FINISHED. customerId is stamped early in the
+    //    lifecycle, so gating on it alone put this card in front of a
+    //    homeowner the same afternoon the rep knocked — handing them SMS
+    //    copy reading "They did a great job for me" and email copy reading
+    //    "the guys who did mine were great", addressed to their friends.
+    //    This is the one card designed to leave the property, so it is the
+    //    most embarrassing thing on the page if forwarded before anything
+    //    happened, and it poisons the referral channel it exists to grow.
+    //
+    //    'complete' is the same gate the rating card uses (view.rating
+    //    .canRate, computed server-side as progressKey === 'complete' and
+    //    re-enforced when a rating is submitted). Asking for a referral at
+    //    the moment you ask for a rating is the correct pairing: both claim
+    //    the work is done, so both wait until it is.
     const customerId = view.homeowner && view.homeowner.customerId;
-    if (customerId) {
+    const jobComplete = !!(view.progress && view.progress.currentKey === 'complete');
+    if (customerId && jobComplete) {
       // Canonical custom domain — NOT the *.web.app origin, which Google
       // Safe Browsing has flagged (a friend tapping the texted link in
       // Chrome would hit a red interstitial). Every other homeowner-facing
