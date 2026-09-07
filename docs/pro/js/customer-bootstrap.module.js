@@ -1679,6 +1679,12 @@ async function loadEstimates(leadId) {
           <div class="empty-icon"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:13px;height:13px;vertical-align:middle;"><rect x="4" y="3" width="12" height="14" rx="1.5"/><path d="M7 3V1.5h6V3"/><path d="M7 8h6M7 11h4"/></svg></div>
           No estimates yet
         </div>`;
+      // Clear BOTH globals: loadEstimates is re-invoked (setPrimaryEstimate),
+      // so returning early without resetting would leave the previous lead's
+      // estimates driving this lead's chips and score. Mirrors
+      // dashboard-bootstrap.module.js:3484.
+      window._customerEstimates = [];
+      window._estimates = [];
       return;
     }
 
@@ -1695,6 +1701,26 @@ async function loadEstimates(leadId) {
         const tb = b.createdAt?.toDate?.()?.getTime() || 0;
         return tb - ta;
       });
+
+    // ── window._estimates alias ──
+    // customer-viewed-chip, customer-engagement-score, lead-score-panel (via
+    // NBDLeadScore) and smart-followup all read window._estimates. Only
+    // dashboard-bootstrap.module.js ever writes it, and customer.html does
+    // not load that file — so on this page the array was undefined and all
+    // four silently read []. That is not merely lost signal: smart-followup
+    // falls through to its "link sent 5+ days ago, never opened" branch and
+    // tells the rep something false, on precisely the leads whose homeowner
+    // HAS opened the estimate. Same one-lead narrowing this bootstrap already
+    // does for window._leads at :395.
+    window._estimates = window._customerEstimates;
+    // Load-bearing, not decoration. lead-score-panel attaches on
+    // window._customerId, which is set at the top of loadCustomerData long
+    // before estimates resolve, so without this it computes once against []
+    // and never recomputes; customer-engagement-score has no poll at all.
+    // Same event dashboard-bootstrap fires after its own loadEstimates.
+    try {
+      window.dispatchEvent(new CustomEvent('nbd:data-refreshed', { detail: { source: 'estimates' } }));
+    } catch (_) { /* CustomEvent is universally available; never break the render for it */ }
 
     if (typeof window.nbdTitleCount === 'function') {
       window.nbdTitleCount('estimatesPanelTitle', 'Estimates', window._customerEstimates.length);
@@ -1769,6 +1795,12 @@ async function loadEstimates(leadId) {
     });
   } catch (e) {
     console.error('Error loading estimates:', e);
+    // _estimateQueryScopes fires a SECOND company-scope query for
+    // company_admin / manager / viewer; a rules denial on it throws the whole
+    // function. Without this the alias above never runs and all four engines
+    // revert to reading undefined — i.e. exactly the bug this commit fixes,
+    // for the team-visibility case specifically. Never leave it undefined.
+    window._estimates = window._customerEstimates || [];
   }
 }
 
