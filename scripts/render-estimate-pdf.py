@@ -22,8 +22,8 @@ import sys
 import unicodedata
 from pathlib import Path
 
-NAVY = "#1A3A5C"
-ORANGE = "#E8720C"
+NAVY = "#1A3057"
+ORANGE = "#BD5728"
 
 SENTINEL = "INTERNAL NOTES"
 
@@ -64,6 +64,23 @@ def norm_for_check(s: str) -> str:
 
 
 PRICE = r"\$[\d,]+(?:\.\d{2})?"
+
+
+LOGO = Path(__file__).with_name("assets") / "nbd-wordmark.png"
+
+
+def logo_tag() -> str:
+    """The real NBD wordmark, embedded so the PDF carries no external refs.
+
+    Falls back to the typeset wordmark if the asset is missing, so the script
+    still produces a usable document on a machine without it.
+    """
+    import base64
+    if not LOGO.exists():
+        return ('<div class="wordmark">NO BIG DEAL'
+                '<span class="wm2">HOME SOLUTIONS</span></div>')
+    b64 = base64.b64encode(LOGO.read_bytes()).decode()
+    return f'<img class="logo" src="data:image/png;base64,{b64}" alt="No Big Deal Home Solutions">'
 
 
 LETTERHEAD_MARKS = (
@@ -107,7 +124,7 @@ def pay_block(url: str) -> str:
     except ImportError:
         return f'<p class="body"><a class="paylink" href="{html.escape(url)}">{html.escape(url)}</a></p>'
     buf = io.BytesIO()
-    segno.make(url, error="m").save(buf, kind="png", scale=6, border=2, dark="#1A3A5C")
+    segno.make(url, error="m").save(buf, kind="png", scale=6, border=2, dark="#1A3057")
     b64 = base64.b64encode(buf.getvalue()).decode()
     return (
         '<div class="pay">'
@@ -453,9 +470,10 @@ def render(text: str, title_hint: str) -> str:
         body,
     )
 
+    logo = logo_tag()
     masthead = f"""
     <div class="mast">
-      <div class="wordmark">NO BIG DEAL<span class="wm2">HOME SOLUTIONS</span></div>
+      {logo}
       <div class="contact">
         Joe Deal — Owner<br>
         (859) 420-7382<br>
@@ -486,6 +504,7 @@ def render(text: str, title_hint: str) -> str:
         font-family: Lato; font-size: 7.5pt; color: #7c8794; }} }}
     body {{ font-family: Lato, sans-serif; font-size: 9.6pt; line-height: 1.5; color: #22303c; }}
     .mast {{ display: flex; justify-content: space-between; align-items: flex-end; }}
+    .logo {{ width: 168pt; height: auto; display: block; }}
     .wordmark {{ font-family: Montserrat; font-weight: 800; font-size: 22pt; letter-spacing: .02em;
       color: {NAVY}; line-height: 1; }}
     .wm2 {{ display: block; font-size: 9.5pt; font-weight: 600; letter-spacing: .28em; color: {ORANGE}; margin-top: 3pt; }}
