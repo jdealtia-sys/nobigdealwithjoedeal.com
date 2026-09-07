@@ -211,7 +211,19 @@
   /**
    * Render a detailed score breakdown panel
    */
-  function renderScorePanel(containerId, leadId) {
+  // NOT MOUNTED ANYWHERE, on purpose (2026-09-07).
+// customer-bootstrap.module.js used to call this as
+// window.LeadScoring.renderScorePanel(...), which never fired because the
+// export key below is `renderPanel`, not `renderScorePanel`. That call was
+// removed rather than corrected: lead-score.js / lead-score-panel.js is the
+// newer engine, it owns the header chip and its own breakdown on the customer
+// page, and it derives a different number from a different factor set. Mount
+// this and the page shows two disagreeing 0-100 "lead scores" at once.
+// If the deal-quality factors here (jobValue / insurance / source) are worth
+// surfacing — they are not in NBDLeadScore — fold them into
+// NBDLeadScore.breakdown() or retitle this panel something that is not "Lead
+// Score". Do not simply re-point the caller.
+function renderScorePanel(containerId, leadId) {
     const el = document.getElementById(containerId);
     if (!el) return;
     const lead = (window._leads || []).find(l => l.id === leadId);

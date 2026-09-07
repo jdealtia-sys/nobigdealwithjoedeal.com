@@ -913,12 +913,16 @@ async function loadCustomerData(id) {
       }
     } catch (e) { console.warn('Profit panel render failed:', e.message); }
 
-    // Render Lead Scoring panel
-    try {
-      if (window.LeadScoring?.renderScorePanel) {
-        window.LeadScoring.renderScorePanel('leadScoringPanel', id);
-      }
-    } catch (e) { console.warn('Lead scoring render failed:', e.message); }
+    // NOTE: there was a "Render Lead Scoring panel" block here calling
+    // window.LeadScoring.renderScorePanel(). lead-scoring.js only ever
+    // EXPORTED that function as `renderPanel`, so the optional-chain check
+    // was always falsy and #leadScoringPanel was an empty box on every
+    // customer page, forever. Removed rather than renamed, deliberately:
+    // lead-score.js / lead-score-panel.js is the newer engine, it already
+    // renders the header chip and its own breakdown on this page, and it
+    // computes a DIFFERENT number from a different factor set — so mounting
+    // the old panel would have put two disagreeing 0-100 "lead scores" on
+    // one screen. See the matching note in lead-scoring.js.
 
     // Render Insurance Claim Workflow
     try {
@@ -2416,7 +2420,14 @@ function renderUploadPreviewStructure() {
     html += '<div class="preview-item" data-upload-idx="' + i + '">';
     html += '<img src="' + item.preview + '" alt="Preview" loading="lazy" decoding="async">';
     if (!item.uploading) {
-      html += '<button class="preview-remove" data-action="removeFromQueue" data-arg=" + i + ">×</button>';
+      // data-arg was written as  data-arg=" + i + "  — the concatenation sat
+      // INSIDE the string literal, so every button shipped the literal text
+      // " + i + " as its argument. The delegate handed that to
+      // removeFromQueue, splice() coerced it to 0, and tapping x on ANY
+      // staged photo removed the FIRST one. The correct
+      // data-upload-idx="' + i + '" was on the same line, which is what made
+      // it invisible for so long.
+      html += '<button class="preview-remove" data-action="removeFromQueue" data-arg="' + i + '">×</button>';
     }
     html += '<div class="preview-progress" style="display:' + (item.uploading ? 'block' : 'none') + ';">';
     html += '<div class="preview-progress-bar" style="width:' + (item.progress || 0) + '%"></div>';
@@ -2607,13 +2618,27 @@ async function uploadSinglePhoto(item, index) {
 
   const uploadTask = window.uploadBytesResumable(storageRef, file);
 
+  // The progress callback below dereferences window._uploadQueue[index]
+  // with an index captured when this upload STARTED, while its own callee
+  // one line later (updateUploadPreviewItem) guards the identical read and
+  // returns early when the slot is gone. The guard was added to the callee
+  // and never to its caller. Anything that shortens the queue mid-flight — a
+  // remove tap, a finished sibling — therefore threw a TypeError inside
+  // Firebase's state_changed handler, killing progress updates for an upload
+  // that was still running. Until 2026-09-07 the remove button made this easy
+  // to hit: it shipped a trapped literal for its index and removed the wrong
+  // photo, so reps tapped it repeatedly.
+  //
+  // Keep the guard cheap and keep updateUploadPreviewItem(index) close to the
+  // 'state_changed' string: tests/smoke/crm.test.js:332 asserts the surgical
+  // per-item update lives inside this handler, within 400 characters of it.
   return new Promise((resolve, reject) => {
     uploadTask.on('state_changed',
       (snapshot) => {
         // Progress tracking — surgical update (only the bar + % text
         // for this one item), plus the global floating widget.
         const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
-        window._uploadQueue[index].progress = progress;
+        if (window._uploadQueue?.[index]) window._uploadQueue[index].progress = progress;
         updateUploadPreviewItem(index);
         updateGlobalUploadStatus();
       },
