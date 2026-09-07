@@ -35,7 +35,9 @@ function assert(label, cond, detail) {
 function group(name, fn) { console.log('\n' + name); fn(); }
 
 /* nav link order */
-const navBlock = /<div class="jump-nav" id="tabBar">([\s\S]*?)<\/div>/.exec(HTML);
+// The bar is a <nav> landmark as of 2026-09-07 — it was a <div>, which left
+// the page with no navigation landmark at all.
+const navBlock = /<nav class="jump-nav" id="tabBar"[^>]*>([\s\S]*?)<\/nav>/.exec(HTML);
 const navOrder = navBlock
   ? [...navBlock[1].matchAll(/href="#([a-zA-Z]+Tab)"/g)].map((m) => m[1])
   : [];
