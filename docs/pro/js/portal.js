@@ -77,6 +77,27 @@
   // the page is visible. Pauses entirely when document.hidden.
   const POLL_INTERVAL_MS = 30_000;
   let _lastView = null;
+
+  // ── Signature-safe repaint ──
+  // A repaint recreates the BoldSign iframe and destroys whatever the
+  // homeowner had typed or drawn inside it. Defer while a signature is
+  // actually in flight — but bounded, because an unbounded defer would
+  // reintroduce the stale "Review & sign" card this poll exists to prevent.
+  // ~10 minutes at the 30s interval, which is longer than signing takes.
+  const MAX_SIGN_DEFERRALS = 20;
+  let _signDeferrals = 0;
+  let _signDeferAnnounced = false;
+
+  // True only when a signing embed is mounted AND the incoming view still
+  // wants one. Both halves matter: the status alone would defer on a page
+  // that never rendered an iframe (no signEmbedUrl), and the iframe alone
+  // would keep deferring after the contract was signed in another tab.
+  function _signatureInFlight(nextView) {
+    const est = nextView && nextView.estimate;
+    const status = est && est.signatureStatus;
+    if (status !== 'sent' && status !== 'viewed') return false;
+    return !!document.querySelector('iframe[title="Sign Contract"]');
+  }
   let _pollTimer = null;
   let _pollInflight = false;
 
@@ -262,6 +283,24 @@
       if (!res.ok) return; // transient failure — try again on next tick
       const view = await res.json();
       const events = _diffView(_lastView, view);
+
+      // Do not wipe a signature in progress. _lastView is deliberately NOT
+      // advanced here, so the change stays pending and lands the moment the
+      // signing session ends rather than being silently dropped.
+      if (events && _signatureInFlight(view) && _signDeferrals < MAX_SIGN_DEFERRALS) {
+        _signDeferrals++;
+        // Announce once per deferral streak, not once per tick — the diff is
+        // recomputed against the same stale _lastView every 30s and would
+        // otherwise re-banner the same news repeatedly.
+        if (!_signDeferAnnounced) {
+          _showUpdateBanner(events);
+          _signDeferAnnounced = true;
+        }
+        return;
+      }
+      _signDeferrals = 0;
+      _signDeferAnnounced = false;
+
       _lastView = view;
       if (events) {
         // Re-render first so the banner refers to data the user can see,
