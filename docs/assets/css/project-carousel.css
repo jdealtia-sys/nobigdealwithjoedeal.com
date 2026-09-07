@@ -13,7 +13,7 @@
 .carousel-counter{font-size:.78rem;font-weight:700;color:var(--gray,#5d6673)}
 .carousel-btns{display:flex;gap:8px}
 .carousel-btn{background:#fff;border:2px solid var(--light-gray,#e8e5e0);border-radius:8px;width:40px;height:40px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--navy-dark,#12223d);font-weight:800;transition:all .15s}
-.carousel-btn:hover:not(:disabled){border-color:var(--orange,#bd5728);color:#A64B00}
+.carousel-btn:hover:not(:disabled){border-color:var(--orange,#bd5728);color:#A14A22}
 .carousel-btn:disabled{opacity:.35;cursor:not-allowed}
 .carousel-thumbs{display:flex;gap:6px;flex-wrap:wrap;margin-top:14px;padding-top:14px;border-top:1px solid var(--light-gray,#e8e5e0)}
 .carousel-thumb{width:42px;height:42px;border-radius:6px;cursor:pointer;border:2px solid transparent;transition:all .15s;flex-shrink:0;overflow:hidden;background:var(--off-white,#f5f3ef);padding:0;-webkit-appearance:none;appearance:none}

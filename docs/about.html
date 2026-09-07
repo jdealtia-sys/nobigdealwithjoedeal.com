@@ -49,8 +49,8 @@
   --navy-mid: #1a3260;
   --navy-light: #243f7a;
   --orange: #bd5728;
-  --orange-light: #f08030;
-  --orange-dark: #c45e08;
+  --orange-light: #dd875f;
+  --orange-dark: #a14a22;
   --gray-sub: #4a4a4a;
   --white: #ffffff;
   --off-white: #f5f3ef;
@@ -65,7 +65,7 @@ a { text-decoration: none; color: inherit; }
 img { max-width: 100%; height: auto; }
 
 /* ── ANN BAR ── */
-.ann-bar{background:#B85400;color:var(--white);text-align:center;font-size:.78rem;font-weight:700;letter-spacing:.05em;padding:10px 20px;text-transform:uppercase;min-height:38px;display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden;cursor:pointer}
+.ann-bar{background:#BD5728;color:var(--white);text-align:center;font-size:.78rem;font-weight:700;letter-spacing:.05em;padding:10px 20px;text-transform:uppercase;min-height:38px;display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden;cursor:pointer}
 .ann-slide{position:absolute;width:100%;text-align:center;opacity:0;transform:translateY(12px);transition:opacity .5s,transform .5s;pointer-events:none}
 .ann-slide.active{opacity:1;transform:translateY(0);pointer-events:auto}
 .ann-slide.exit{opacity:0;transform:translateY(-12px)}
@@ -81,7 +81,7 @@ nav {
 }
 .nav-logo { display: flex; align-items: center; gap: 10px; }
 .nav-logo-badge {
-  background:#B85400; color: var(--white);
+  background:#BD5728; color: var(--white);
   font-weight: 800; font-size: 0.95rem; padding: 6px 10px;
   border-radius: 6px; letter-spacing: 0.05em;
 }
@@ -105,11 +105,11 @@ nav {
 }
 .nav-links .dropdown-menu a:last-child { border-bottom: none; }
 .nav-cta {
-  background:#B85400; color: var(--white) !important;
+  background:#BD5728; color: var(--white) !important;
   padding: 10px 18px; border-radius: 6px; font-weight: 700 !important;
   font-size: 0.78rem !important; transition: background 0.2s !important;
 }
-.nav-cta:hover { background:#A64B00!important; color: var(--white) !important; }
+.nav-cta:hover { background:#A14A22!important; color: var(--white) !important; }
 
 /* ── BREADCRUMB ── */
 .breadcrumb {
@@ -145,20 +145,20 @@ nav {
   color: var(--white); line-height: 1.0; margin-bottom: 8px;
   letter-spacing: 0.02em;
 }
-.service-hero h1 span { color:#DA6A05; }
+.service-hero h1 span { color:#BD5728; }
 .hero-sub {
   font-size: 1.05rem; color: rgba(255,255,255,0.75);
   margin-bottom: 32px; font-weight: 600; max-width: 600px; line-height: 1.6;
 }
 .hero-btns { display: flex; gap: 14px; flex-wrap: wrap; }
 .btn-primary {
-  background:#B85400; color: var(--white);
+  background:#BD5728; color: var(--white);
   padding: 15px 28px; border-radius: 8px;
   font-weight: 800; font-size: 0.9rem; letter-spacing: 0.05em;
   transition: background 0.2s, transform 0.15s;
   display: inline-flex; align-items: center; gap: 8px;
 }
-.btn-primary:hover { background:#A64B00; transform: translateY(-1px); }
+.btn-primary:hover { background:#A14A22; transform: translateY(-1px); }
 .btn-outline {
   background: transparent; color: var(--white);
   border: 2px solid rgba(255,255,255,0.5); padding: 15px 28px;
@@ -185,11 +185,11 @@ nav {
 /* ── SECTIONS ── */
 .section { padding: 72px 5%; }
 .section-alt { background: var(--off-white); }
-.section-orange { background:#B85400; }
+.section-orange { background:#BD5728; }
 .section-navy { background: var(--navy-dark); }
 .section-label {
   font-size: 0.72rem; font-weight: 700; letter-spacing: 0.14em;
-  text-transform: uppercase; color: #A64B00;
+  text-transform: uppercase; color: #A14A22;
   margin-bottom: 10px; display: inline-flex; align-items: center; gap: 10px;
 }
 .section-label::before {
@@ -244,7 +244,7 @@ h2.section-title.light { color: var(--white); }
 .process-step { text-align: center; padding: 32px 20px; background: var(--white); border-radius: 14px; border: 1px solid var(--light-gray); position: relative; }
 .step-num {
   font-family: 'Bebas Neue', sans-serif; font-size: 3rem;
-  color: #DA6A05; line-height: 1;
+  color: #BD5728; line-height: 1;
   position: absolute; top: 16px; right: 20px;
 }
 .step-icon { font-size: 2.2rem; margin-bottom: 14px; }
@@ -280,7 +280,7 @@ h2.section-title.light { color: var(--white); }
 .final-cta { background:var(--navy-dark); padding: 72px 5%; text-align: center; }
 .final-cta h2 { font-family: 'Bebas Neue', sans-serif; font-size: clamp(2.4rem, 5vw, 4rem); color: var(--white); margin-bottom: 12px; line-height: 1.05; }
 .final-cta p { color:#fff; font-size: 1.05rem; margin-bottom: 36px; font-weight: 600; }
-.final-cta .btn-white { background: var(--white); color: #A64B00; padding: 16px 32px; border-radius: 8px; font-weight: 800; font-size: 1rem; display: inline-flex; align-items: center; gap: 10px; transition: transform 0.15s, box-shadow 0.15s; }
+.final-cta .btn-white { background: var(--white); color: #A14A22; padding: 16px 32px; border-radius: 8px; font-weight: 800; font-size: 1rem; display: inline-flex; align-items: center; gap: 10px; transition: transform 0.15s, box-shadow 0.15s; }
 .final-cta .btn-white:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,0,0,0.15); }
 .final-cta .phone { margin-top: 20px; color:#fff; font-size: 1.1rem; font-weight: 700; }
 .final-cta .phone a { color: var(--white); text-decoration: underline; }
@@ -363,7 +363,7 @@ footer { background: var(--navy-dark); color: rgba(255,255,255,0.75); padding: 5
 .cred { background:rgba(255,255,255,.07); border:1px solid rgba(255,255,255,.12); border-radius:6px; padding:7px 13px; font-size:.74rem; font-weight:700; color:rgba(255,255,255,.85); letter-spacing:.06em; text-transform:uppercase; }
 .cred.hl { background:rgba(189,87,40,.15); border-color:rgba(189,87,40,.4); color:var(--orange); }
 .about-hero-cta { display:flex; flex-wrap:wrap; gap:12px; margin-top:32px; }
-.about-hero-cta .btn-primary { background:#B85400; color:#fff; padding:14px 26px; border-radius:8px; font-weight:800; font-size:.92rem; text-decoration:none; letter-spacing:.02em; display:inline-flex; align-items:center; gap:8px; transition:transform .18s ease, box-shadow .18s ease; box-shadow:0 4px 14px rgba(189,87,40,.35); }
+.about-hero-cta .btn-primary { background:#BD5728; color:#fff; padding:14px 26px; border-radius:8px; font-weight:800; font-size:.92rem; text-decoration:none; letter-spacing:.02em; display:inline-flex; align-items:center; gap:8px; transition:transform .18s ease, box-shadow .18s ease; box-shadow:0 4px 14px rgba(189,87,40,.35); }
 .about-hero-cta .btn-primary:hover { transform:translateY(-2px); box-shadow:0 8px 22px rgba(189,87,40,.45); }
 .about-hero-cta .btn-ghost { background:transparent; color:#fff; border:1.5px solid rgba(255,255,255,.35); padding:14px 26px; border-radius:8px; font-weight:700; font-size:.92rem; text-decoration:none; letter-spacing:.02em; display:inline-flex; align-items:center; gap:8px; transition:border-color .18s ease, background .18s ease; }
 .about-hero-cta .btn-ghost:hover { border-color:var(--orange); background:rgba(189,87,40,.1); }
@@ -423,11 +423,11 @@ footer { background: var(--navy-dark); color: rgba(255,255,255,0.75); padding: 5
 .nav-links .dropdown:hover .dropdown-menu,.nav-links .dropdown:focus-within .dropdown-menu,.nav-links .dropdown.open .dropdown-menu{display:block}
 .nav-links .dropdown-menu a{display:block;padding:10px 18px;font-size:.75rem;border-bottom:1px solid rgba(255,255,255,.08);color:rgba(255,255,255,.85);text-decoration:none;letter-spacing:.06em;text-transform:uppercase;font-weight:600;transition:color .2s,background .2s}
 .nav-links .dropdown-menu a:last-child{border-bottom:none}
-.nav-links .dropdown-menu a:hover{color:var(--orange-light,#f08030);background:rgba(255,255,255,.04);border-bottom-color:rgba(255,255,255,.08)}
+.nav-links .dropdown-menu a:hover{color:var(--orange-light,#dd875f);background:rgba(255,255,255,.04);border-bottom-color:rgba(255,255,255,.08)}
 .mobile-nav{display:none;position:fixed;top:70px;left:0;right:0;background:var(--navy-dark,#12223d);z-index:999;border-top:2px solid var(--orange,#bd5728);max-height:calc(100vh - 70px);overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,.4);padding-top:0}
 .mobile-nav.open{display:block}
 .mobile-nav > a{display:block;padding:12px 24px;color:rgba(255,255,255,.85);text-decoration:none;font-size:.82rem;font-weight:600;letter-spacing:.05em;text-transform:uppercase;border-bottom:1px solid rgba(255,255,255,.06)}
-.mobile-nav > a:hover{color:var(--orange-light,#f08030);background:rgba(255,255,255,.04)}
+.mobile-nav > a:hover{color:var(--orange-light,#dd875f);background:rgba(255,255,255,.04)}
 .hamburger{display:none;flex-direction:column;gap:6px;cursor:pointer;padding:10px;background:transparent;border:none;z-index:1001}
 .hamburger span{display:block;width:26px;height:3px;background:#fff;border-radius:2px;transition:all .3s;box-shadow:0 1px 3px rgba(0,0,0,.3)}
 @media (max-width:1024px){.nav-links{display:none}.hamburger{display:flex}}
@@ -503,7 +503,7 @@ a.nav-cta,nav .nav-cta{font-size:.76rem!important;letter-spacing:.08em;font-weig
 .gaf-badge-float:hover{transform:scale(1.05)!important}
 </style>
 <link rel="stylesheet" href="/assets/css/mobile-cta.css">
-<style>.nbd-skip{position:absolute;left:-9999px;top:0;z-index:100000;background:#B85400;color:#fff;padding:10px 16px;font-weight:700;text-decoration:none;border-radius:0 0 6px 0}.nbd-skip:focus{left:0}</style>
+<style>.nbd-skip{position:absolute;left:-9999px;top:0;z-index:100000;background:#BD5728;color:#fff;padding:10px 16px;font-weight:700;text-decoration:none;border-radius:0 0 6px 0}.nbd-skip:focus{left:0}</style>
 <style>
 /* nav-wordmark guard (consistency audit 2026-07-15): keep the wordmark on one
    line and shrink logo+text on phones — the blog family had no mobile rules,
@@ -553,12 +553,12 @@ footer.foot .nbd-social a,.review-footer .nbd-social a{background:rgba(255,255,2
     <li class="dropdown"><a href="/#services">Services
       <svg class="nav-ico" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg></a>
       <ul class="dropdown-menu">
-        <li><a href="/the-pledge" style="color:#f08030;font-weight:800;">The Lifetime Pledge</a></li>
-        <li><a href="/services/the-nbd-guarantee" style="color:#f08030;font-weight:800;">The NBD Guarantee</a></li>
-<li><a href="/services/lumanail" style="color:#f08030;font-weight:800;">LumaNail™ Upgrade</a></li><li><a href="/services/gaf-timberline">GAF Timberline Lineup</a></li>
-<li><a href="/services/the-nbd-build" style="color:#f08030;font-weight:800;">The NBD Build</a></li>
-<li><a href="/services/roofivent" style="color:#f08030;font-weight:800;">Roofivent Products</a></li>
-<li><a href="/services/gaf-pivot-boot" style="color:#f08030;font-weight:800;">GAF Pivot Boot</a></li>
+        <li><a href="/the-pledge" style="color:#dd875f;font-weight:800;">The Lifetime Pledge</a></li>
+        <li><a href="/services/the-nbd-guarantee" style="color:#dd875f;font-weight:800;">The NBD Guarantee</a></li>
+<li><a href="/services/lumanail" style="color:#dd875f;font-weight:800;">LumaNail™ Upgrade</a></li><li><a href="/services/gaf-timberline">GAF Timberline Lineup</a></li>
+<li><a href="/services/the-nbd-build" style="color:#dd875f;font-weight:800;">The NBD Build</a></li>
+<li><a href="/services/roofivent" style="color:#dd875f;font-weight:800;">Roofivent Products</a></li>
+<li><a href="/services/gaf-pivot-boot" style="color:#dd875f;font-weight:800;">GAF Pivot Boot</a></li>
 <li><a href="/services/roof-replacement">Roof Replacement</a></li>
         <li><a href="/services/roof-repair">Roof Repair</a></li>
         <li><a href="/services/siding-replacement">Siding Replacement</a></li>
@@ -570,11 +570,11 @@ footer.foot .nbd-social a,.review-footer .nbd-social a{background:rgba(255,255,2
         <li><a href="/services/roof-cleaning-soft-wash">Roof Cleaning</a></li>
         <li><a href="/services/fire-water-smoke-damage">Fire &amp; Water Damage</a></li>
         <li><a href="/services/financing">Financing</a></li>
-        <li><a href="/roof-score" style="color:var(--orange-light,#f08030)">Roof Score</a></li>
-        <li><a href="/free-tools" style="color:var(--orange-light,#f08030)">All Free Tools</a></li>
-        <li><a href="/storm-alerts" style="color:var(--orange-light,#f08030)">Storm Alerts</a></li>
-        <li><a href="/storm-report" style="color:var(--orange-light,#f08030)">5-Year Storm Report</a></li>
-        <li><a href="/storm-check" style="color:var(--orange-light,#f08030)">Is It Worth a Claim?</a></li><li><a href="/inspect" style="color:var(--orange-light,#f08030)">Free 24-Hr Inspection</a></li>
+        <li><a href="/roof-score" style="color:var(--orange-light,#dd875f)">Roof Score</a></li>
+        <li><a href="/free-tools" style="color:var(--orange-light,#dd875f)">All Free Tools</a></li>
+        <li><a href="/storm-alerts" style="color:var(--orange-light,#dd875f)">Storm Alerts</a></li>
+        <li><a href="/storm-report" style="color:var(--orange-light,#dd875f)">5-Year Storm Report</a></li>
+        <li><a href="/storm-check" style="color:var(--orange-light,#dd875f)">Is It Worth a Claim?</a></li><li><a href="/inspect" style="color:var(--orange-light,#dd875f)">Free 24-Hr Inspection</a></li>
       </ul>
     </li>
     <li><a href="/about">About Joe</a></li>
@@ -596,12 +596,12 @@ footer.foot .nbd-social a,.review-footer .nbd-social a{background:rgba(255,255,2
 <!-- nbd:partial mobile-nav-standard cta_href="/#contact" -->
 <div class="mobile-nav" id="mobileNav">
   <div class="mnav-group">Featured</div>
-  <a href="/the-pledge" style="color:#f08030;font-weight:800;">The Lifetime Pledge</a>
-  <a href="/services/the-nbd-guarantee" style="color:#f08030;font-weight:800;">The NBD Guarantee</a>
-  <a href="/services/the-nbd-build" style="color:#f08030;font-weight:800;">The NBD Build</a>
-  <div class="mnav-group">Premium Components</div>  <a href="/services/lumanail" style="color:#f08030;font-weight:800;">LumaNail&trade; Upgrade</a>  <a href="/services/gaf-timberline">GAF Timberline Lineup</a>
-  <a href="/services/roofivent" style="color:#f08030;font-weight:800;">Roofivent Products</a>
-  <a href="/services/gaf-pivot-boot" style="color:#f08030;font-weight:800;">GAF Pivot Boot</a>
+  <a href="/the-pledge" style="color:#dd875f;font-weight:800;">The Lifetime Pledge</a>
+  <a href="/services/the-nbd-guarantee" style="color:#dd875f;font-weight:800;">The NBD Guarantee</a>
+  <a href="/services/the-nbd-build" style="color:#dd875f;font-weight:800;">The NBD Build</a>
+  <div class="mnav-group">Premium Components</div>  <a href="/services/lumanail" style="color:#dd875f;font-weight:800;">LumaNail&trade; Upgrade</a>  <a href="/services/gaf-timberline">GAF Timberline Lineup</a>
+  <a href="/services/roofivent" style="color:#dd875f;font-weight:800;">Roofivent Products</a>
+  <a href="/services/gaf-pivot-boot" style="color:#dd875f;font-weight:800;">GAF Pivot Boot</a>
   <div class="mnav-group">Services</div>
   <a href="/services/roof-replacement">Roof Replacement</a>
   <a href="/services/roof-repair">Roof Repair</a>
@@ -621,14 +621,14 @@ footer.foot .nbd-social a,.review-footer .nbd-social a{background:rgba(255,255,2
   <a href="/areas">Service Areas</a>
   <a href="/blog">Blog</a>
   <div class="mnav-group">Tools</div>
-  <a href="/estimate" style="color:#f08030">Instant Estimate</a>
-  <a href="/visualizer" style="color:#f08030">Roof Visualizer</a>
-  <a href="/roof-score" style="color:#f08030">Roof Score</a>
-  <a href="/storm-alerts" style="color:#f08030">Storm Alerts</a>
-  <a href="/storm-report" style="color:#f08030">5-Year Storm Report</a>
-  <a href="/storm-check" style="color:#f08030">Is It Worth a Claim?</a>
-  <a href="/inspect" style="color:#f08030">Free 24-Hr Inspection</a>
-  <a href="/free-tools" style="color:#f08030">All Free Tools</a>
+  <a href="/estimate" style="color:#dd875f">Instant Estimate</a>
+  <a href="/visualizer" style="color:#dd875f">Roof Visualizer</a>
+  <a href="/roof-score" style="color:#dd875f">Roof Score</a>
+  <a href="/storm-alerts" style="color:#dd875f">Storm Alerts</a>
+  <a href="/storm-report" style="color:#dd875f">5-Year Storm Report</a>
+  <a href="/storm-check" style="color:#dd875f">Is It Worth a Claim?</a>
+  <a href="/inspect" style="color:#dd875f">Free 24-Hr Inspection</a>
+  <a href="/free-tools" style="color:#dd875f">All Free Tools</a>
   <a href="/#contact" style="color:#bd5728;font-weight:800;">Book Inspection &rarr;</a>
 </div>
 <!-- /nbd:partial mobile-nav-standard -->
@@ -725,7 +725,7 @@ footer.foot .nbd-social a,.review-footer .nbd-social a{background:rgba(255,255,2
     <div class="truth-card">
       <div class="truth-icon">🏠</div>
       <div class="truth-title">Full Exterior Scope</div>
-      <div class="truth-body">Roofing, siding, gutters, fascia, soffit, decking, flashing — I handle the complete exterior. I'm a GAF® Certified Contractor and install the full GAF system on GAF roofs, which unlocks enhanced manufacturer warranty coverage on top of <a href="/the-pledge" style="color:#A64B00;font-weight:700;">The Pledge</a> on my workmanship.</div>
+      <div class="truth-body">Roofing, siding, gutters, fascia, soffit, decking, flashing — I handle the complete exterior. I'm a GAF® Certified Contractor and install the full GAF system on GAF roofs, which unlocks enhanced manufacturer warranty coverage on top of <a href="/the-pledge" style="color:#A14A22;font-weight:700;">The Pledge</a> on my workmanship.</div>
     </div>
     <div class="truth-card">
       <div class="truth-icon">💬</div>
@@ -744,22 +744,22 @@ footer.foot .nbd-social a,.review-footer .nbd-social a{background:rgba(255,255,2
     <div class="truth-card">
       <div class="truth-icon" style="color:var(--orange);font-family:'Bebas Neue',sans-serif;font-size:2.2rem;line-height:1;">GAF</div>
       <div class="truth-title">GAF Shingles + Master Flow Pivot Boots</div>
-      <div class="truth-body">My default shingle line (Timberline NS / HDZ / UHDZ) with the most coherent warranty system in the industry, and their all-metal Pivot Pipe Boot is the only commercial boot I've seen that completely eliminates the rubber-gasket failure that kills normal roofs at year 10. <a href="/services/gaf-pivot-boot" style="color:#A64B00;font-weight:700;">Read my take →</a></div>
+      <div class="truth-body">My default shingle line (Timberline NS / HDZ / UHDZ) with the most coherent warranty system in the industry, and their all-metal Pivot Pipe Boot is the only commercial boot I've seen that completely eliminates the rubber-gasket failure that kills normal roofs at year 10. <a href="/services/gaf-pivot-boot" style="color:#A14A22;font-weight:700;">Read my take →</a></div>
     </div>
     <div class="truth-card">
       <div class="truth-icon" style="color:var(--orange);font-family:'Bebas Neue',sans-serif;font-size:1.9rem;line-height:1;">TAMKO</div>
       <div class="truth-title">TAMKO Storm Series Shingles</div>
-      <div class="truth-body">When hail and high wind are the real threat, this is the line I reach for — Heritage, Titan XT, StormFighter Flex, and HailGuard, the first asphalt shingle to carry an actual hail warranty. I'm a TAMKO Pro Gold™ certified contractor, so on qualifying installs I can register TAMKO's enhanced ProShield® warranties — coverage a non-certified installer can't offer. <a href="/services/tamko-storm-series" style="color:#A64B00;font-weight:700;">See the lineup →</a></div>
+      <div class="truth-body">When hail and high wind are the real threat, this is the line I reach for — Heritage, Titan XT, StormFighter Flex, and HailGuard, the first asphalt shingle to carry an actual hail warranty. I'm a TAMKO Pro Gold™ certified contractor, so on qualifying installs I can register TAMKO's enhanced ProShield® warranties — coverage a non-certified installer can't offer. <a href="/services/tamko-storm-series" style="color:#A14A22;font-weight:700;">See the lineup →</a></div>
     </div>
     <div class="truth-card">
       <div class="truth-icon" style="color:var(--orange);font-family:'Bebas Neue',sans-serif;font-size:1.6rem;line-height:1;">Luma<br>Tuff</div>
       <div class="truth-title">LumaNail Fasteners</div>
-      <div class="truth-body">Orange-coated, ring-shank, UV-reactive roofing nail. I install it on every Elite roof because it's the only fastener where I can physically verify every nail was driven correctly — and you can too. <a href="/services/lumanail" style="color:#A64B00;font-weight:700;">Read my take →</a></div>
+      <div class="truth-body">Orange-coated, ring-shank, UV-reactive roofing nail. I install it on every Elite roof because it's the only fastener where I can physically verify every nail was driven correctly — and you can too. <a href="/services/lumanail" style="color:#A14A22;font-weight:700;">Read my take →</a></div>
     </div>
     <div class="truth-card">
       <div class="truth-icon" style="color:var(--orange);font-family:'Bebas Neue',sans-serif;font-size:1.8rem;line-height:1;">Roof<br>ivent</div>
       <div class="truth-title">Roofivent Ventilation + Pipe Flashing</div>
-      <div class="truth-body">Polypropylene bodies that don't UV-degrade, replaceable EPDM gaskets that I can swap in 10 minutes on an annual visit instead of tearing into the roof. Built to be maintained, which matches how I actually work. <a href="/services/roofivent" style="color:#A64B00;font-weight:700;">Read my take →</a></div>
+      <div class="truth-body">Polypropylene bodies that don't UV-degrade, replaceable EPDM gaskets that I can swap in 10 minutes on an annual visit instead of tearing into the roof. Built to be maintained, which matches how I actually work. <a href="/services/roofivent" style="color:#A14A22;font-weight:700;">Read my take →</a></div>
     </div>
   </div>
 </section>
@@ -771,24 +771,24 @@ footer.foot .nbd-social a,.review-footer .nbd-social a{background:rgba(255,255,2
   <p style="max-width:680px;font-size:1rem;color:var(--gray-sub);line-height:1.7;margin-bottom:36px;">Four steps, start to finish. You talk to me at every one.</p>
   <div class="timeline" style="display:grid;grid-template-columns:repeat(4,1fr);gap:24px;margin-top:20px;">
     <div class="tl-step" style="background:var(--off-white,#f5f3ef);padding:24px;border-radius:10px;border-top:3px solid var(--orange);">
-      <div style="font-family:'Bebas Neue',sans-serif;font-size:2.4rem;color:#A64B00;line-height:1;margin-bottom:8px;">01</div>
+      <div style="font-family:'Bebas Neue',sans-serif;font-size:2.4rem;color:#A14A22;line-height:1;margin-bottom:8px;">01</div>
       <div style="font-weight:800;color:var(--navy-dark,#12223d);margin-bottom:8px;">I pick up</div>
       <div style="font-size:.88rem;color:var(--gray-sub);line-height:1.6;">Call or text me directly. Not a call center, not a scheduler. Talk to the person doing the work from call one.</div>
     </div>
     <div class="tl-step" style="background:var(--off-white,#f5f3ef);padding:24px;border-radius:10px;border-top:3px solid var(--orange);">
-      <div style="font-family:'Bebas Neue',sans-serif;font-size:2.4rem;color:#A64B00;line-height:1;margin-bottom:8px;">02</div>
+      <div style="font-family:'Bebas Neue',sans-serif;font-size:2.4rem;color:#A14A22;line-height:1;margin-bottom:8px;">02</div>
       <div style="font-weight:800;color:var(--navy-dark,#12223d);margin-bottom:8px;">Free inspection</div>
       <div style="font-size:.88rem;color:var(--gray-sub);line-height:1.6;">I come out personally, get on the roof, document with drone and chalk. You get a straight, honest assessment — not a sales pitch.</div>
     </div>
     <div class="tl-step" style="background:var(--off-white,#f5f3ef);padding:24px;border-radius:10px;border-top:3px solid var(--orange);">
-      <div style="font-family:'Bebas Neue',sans-serif;font-size:2.4rem;color:#A64B00;line-height:1;margin-bottom:8px;">03</div>
+      <div style="font-family:'Bebas Neue',sans-serif;font-size:2.4rem;color:#A14A22;line-height:1;margin-bottom:8px;">03</div>
       <div style="font-weight:800;color:var(--navy-dark,#12223d);margin-bottom:8px;">Install day</div>
       <div style="font-size:.88rem;color:var(--gray-sub);line-height:1.6;">I'm on your roof with the crew. Tear-off, decking check, full manufacturer system, signed-off before I leave. Usually one day.</div>
     </div>
     <div class="tl-step" style="background:var(--off-white,#f5f3ef);padding:24px;border-radius:10px;border-top:3px solid var(--orange);">
-      <div style="font-family:'Bebas Neue',sans-serif;font-size:2.4rem;color:#A64B00;line-height:1;margin-bottom:8px;">04</div>
+      <div style="font-family:'Bebas Neue',sans-serif;font-size:2.4rem;color:#A14A22;line-height:1;margin-bottom:8px;">04</div>
       <div style="font-weight:800;color:var(--navy-dark,#12223d);margin-bottom:8px;">I come back</div>
-      <div style="font-size:.88rem;color:var(--gray-sub);line-height:1.6;"><a href="/the-pledge" style="color:#A64B00;font-weight:700;border-bottom:1.5px solid #A64B00;text-decoration:none">The Pledge</a> — call me about anything I worked on, I come look, free, forever. Reactive, on every job. <a href="/services/the-nbd-guarantee" style="color:#A64B00;font-weight:700;">Elite tier</a> adds proactive annual outreach: I call you, walk the roof, send a written report.</div>
+      <div style="font-size:.88rem;color:var(--gray-sub);line-height:1.6;"><a href="/the-pledge" style="color:#A14A22;font-weight:700;border-bottom:1.5px solid #A14A22;text-decoration:none">The Pledge</a> — call me about anything I worked on, I come look, free, forever. Reactive, on every job. <a href="/services/the-nbd-guarantee" style="color:#A14A22;font-weight:700;">Elite tier</a> adds proactive annual outreach: I call you, walk the roof, send a written report.</div>
     </div>
   </div>
 </section>
@@ -806,7 +806,7 @@ footer.foot .nbd-social a,.review-footer .nbd-social a{background:rgba(255,255,2
 <!-- SERVICE AREAS -->
 <section style="background:#f5f3ef;padding:48px 5%">
   <div style="max-width:1000px;margin:0 auto;">
-    <p style="font-size:.7rem;font-weight:700;letter-spacing:.15em;text-transform:uppercase;color:#A64B00;margin-bottom:8px;">Where I work</p>
+    <p style="font-size:.7rem;font-weight:700;letter-spacing:.15em;text-transform:uppercase;color:#A14A22;margin-bottom:8px;">Where I work</p>
     <h3 style="font-family:'Bebas Neue',sans-serif;font-size:1.8rem;color:#12223d;margin-bottom:16px;">Serving Greater Cincinnati</h3>
     <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px;">
       <a href="/areas/cincinnati-oh" style="background:white;border:1px solid #e8e5e0;border-radius:100px;padding:8px 16px;text-decoration:none;font-size:.82rem;font-weight:600;color:#12223d;">Cincinnati</a>
@@ -816,7 +816,7 @@ footer.foot .nbd-social a,.review-footer .nbd-social a{background:rgba(255,255,2
       <a href="/areas/west-chester-oh" style="background:white;border:1px solid #e8e5e0;border-radius:100px;padding:8px 16px;text-decoration:none;font-size:.82rem;font-weight:600;color:#12223d;">West Chester</a>
       <a href="/areas/goshen-oh" style="background:white;border:1px solid #e8e5e0;border-radius:100px;padding:8px 16px;text-decoration:none;font-size:.82rem;font-weight:600;color:#12223d;">Goshen</a>
       <a href="/areas/florence-ky" style="background:white;border:1px solid #e8e5e0;border-radius:100px;padding:8px 16px;text-decoration:none;font-size:.82rem;font-weight:600;color:#12223d;">Florence, KY</a>
-      <a href="/areas" style="background:white;border:1px solid #e8e5e0;border-radius:100px;padding:8px 16px;text-decoration:none;font-size:.82rem;font-weight:600;color:#A64B00;">All 25+ Cities →</a>
+      <a href="/areas" style="background:white;border:1px solid #e8e5e0;border-radius:100px;padding:8px 16px;text-decoration:none;font-size:.82rem;font-weight:600;color:#A14A22;">All 25+ Cities →</a>
     </div>
   </div>
 </section>
@@ -838,12 +838,12 @@ footer.foot .nbd-social a,.review-footer .nbd-social a{background:rgba(255,255,2
     <div class="footer-col">
       <h2 class="footer-col-title">Services</h2>
       <ul>
-        <li><a href="/the-pledge" style="color:#f08030;font-weight:800;">The Lifetime Pledge</a></li>
-        <li><a href="/services/the-nbd-guarantee" style="color:#f08030;font-weight:800;">The NBD Guarantee</a></li>
-<li><a href="/services/lumanail" style="color:#f08030;font-weight:800;">LumaNail™ Upgrade</a></li><li><a href="/services/gaf-timberline">GAF Timberline Lineup</a></li>
-<li><a href="/services/the-nbd-build" style="color:#f08030;font-weight:800;">The NBD Build</a></li>
-<li><a href="/services/roofivent" style="color:#f08030;font-weight:800;">Roofivent Products</a></li>
-<li><a href="/services/gaf-pivot-boot" style="color:#f08030;font-weight:800;">GAF Pivot Boot</a></li>
+        <li><a href="/the-pledge" style="color:#dd875f;font-weight:800;">The Lifetime Pledge</a></li>
+        <li><a href="/services/the-nbd-guarantee" style="color:#dd875f;font-weight:800;">The NBD Guarantee</a></li>
+<li><a href="/services/lumanail" style="color:#dd875f;font-weight:800;">LumaNail™ Upgrade</a></li><li><a href="/services/gaf-timberline">GAF Timberline Lineup</a></li>
+<li><a href="/services/the-nbd-build" style="color:#dd875f;font-weight:800;">The NBD Build</a></li>
+<li><a href="/services/roofivent" style="color:#dd875f;font-weight:800;">Roofivent Products</a></li>
+<li><a href="/services/gaf-pivot-boot" style="color:#dd875f;font-weight:800;">GAF Pivot Boot</a></li>
 <li><a href="/services/roof-replacement">Roof Replacement</a></li>
         <li><a href="/services/roof-repair">Roof Repair</a></li>
         <li><a href="/services/siding-replacement">Siding Replacement</a></li>

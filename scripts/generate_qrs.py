@@ -62,8 +62,8 @@ LABEL_STRIP_HEIGHT = 130   # bottom strip reserved for the identifier text
 # + 10 px slack underneath the QR before the divider.
 
 # Brand palette (matches docs/inspect.html)
-NAVY = (30, 58, 110)       # #1e3a6e — piece title
-ORANGE = (232, 114, 12)    # #e8720c — destination summary
+NAVY = (26, 48, 87)        # #1A3057 — piece title
+ORANGE = (189, 87, 40)     # #BD5728 — destination summary
 GRAY = (107, 114, 128)     # #6b7280 — campaign + utm
 DIVIDER = (220, 220, 220)  # thin line between QR and label
 

@@ -27,7 +27,7 @@
 @font-face{font-family:'Bebas Neue Fallback';src:local('Arial'),local('Liberation Sans'),local('Helvetica Neue'),local('Roboto');size-adjust:75.53%;ascent-override:119.16%;descent-override:39.72%;line-gap-override:0%}
 @font-face{font-family:'Montserrat Fallback';src:local('Arial'),local('Liberation Sans'),local('Helvetica Neue'),local('Roboto');size-adjust:112.49%;ascent-override:86.23%;descent-override:22.22%;line-gap-override:0%}
 @font-face{font-family:'Dancing Script Fallback';src:local('Arial'),local('Liberation Sans'),local('Helvetica Neue'),local('Roboto');size-adjust:82.12%;ascent-override:112.03%;descent-override:34.10%;line-gap-override:0%}
-:root{--navy:#1a3057;--navy-dark:#12223d;--orange:#bd5728;--orange-light:#f08030;--orange-dark:#c45e08;--gray-sub:#4a4a4a;--white:#fff;--off-white:#f5f3ef;--gray:#5d6673;--light-gray:#e8e5e0;--success:#22a06b}
+:root{--navy:#1a3057;--navy-dark:#12223d;--orange:#bd5728;--orange-light:#dd875f;--orange-dark:#a14a22;--gray-sub:#4a4a4a;--white:#fff;--off-white:#f5f3ef;--gray:#5d6673;--light-gray:#e8e5e0;--success:#22a06b}
 *{margin:0;padding:0;box-sizing:border-box}
 html{scroll-behavior:smooth}
 body{font-family:'Montserrat','Montserrat Fallback',sans-serif;color:var(--navy-dark);background:var(--off-white);line-height:1.6;-webkit-font-smoothing:antialiased}
@@ -35,7 +35,7 @@ a{color:inherit}
 /* intro */
 .sc-intro{background:var(--navy-dark);color:#fff;text-align:center;padding:34px 20px 30px}
 .sc-intro h1{font-family:'Bebas Neue','Bebas Neue Fallback',sans-serif;font-size:2.1rem;line-height:1.05;letter-spacing:.01em;max-width:720px;margin:0 auto}
-.sc-intro h1 span{color:#DA6A05}
+.sc-intro h1 span{color:#BD5728}
 .sc-intro p{color:rgba(255,255,255,.75);font-size:.92rem;max-width:560px;margin:12px auto 0}
 .sc-intro .sc-script{font-family:'Dancing Script','Dancing Script Fallback',cursive;color:var(--orange-light);font-size:1.2rem;margin-top:8px}
 /* shell */
@@ -59,7 +59,7 @@ a{color:inherit}
 .sc-acdrop{display:none;position:absolute;left:0;right:0;top:calc(100% + 4px);background:#fff;border:1px solid var(--light-gray);border-radius:10px;box-shadow:0 8px 28px rgba(0,0,0,.12);z-index:20;max-height:240px;overflow:auto}
 .sc-ac-item{padding:11px 14px;font-size:.85rem;cursor:pointer;border-bottom:1px solid var(--off-white)}
 .sc-ac-item:hover,.sc-ac-item.kb-active{background:var(--off-white)}
-.sc-hint{display:none;font-size:.78rem;color:#A64B00;margin-top:8px}
+.sc-hint{display:none;font-size:.78rem;color:#A14A22;margin-top:8px}
 /* tiles */
 .sc-tiles{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .sc-tiles.one{grid-template-columns:1fr}
@@ -68,8 +68,8 @@ a{color:inherit}
 .sc-tile.selected{border-color:var(--orange);background:rgba(189,87,40,.08);box-shadow:inset 0 0 0 1px var(--orange)}
 /* nav buttons */
 .sc-btns{display:flex;gap:10px;margin-top:24px}
-.sc-next{flex:1;background:#B85400;color:#fff;border:none;border-radius:10px;padding:15px;font-size:1rem;font-weight:800;cursor:pointer;font-family:inherit;letter-spacing:.02em}
-.sc-next:hover{background:#A64B00}
+.sc-next{flex:1;background:#BD5728;color:#fff;border:none;border-radius:10px;padding:15px;font-size:1rem;font-weight:800;cursor:pointer;font-family:inherit;letter-spacing:.02em}
+.sc-next:hover{background:#A14A22}
 .sc-back{background:none;border:2px solid var(--light-gray);border-radius:10px;padding:15px 20px;font-weight:700;color:var(--gray-sub);cursor:pointer;font-family:inherit}
 .sc-back:hover{border-color:var(--gray)}
 /* consent + err */
@@ -83,8 +83,8 @@ a{color:inherit}
 .sc-take{background:var(--navy-dark);color:#fff;border-radius:12px;padding:18px;font-size:.92rem;line-height:1.55;margin-bottom:20px;position:relative}
 .sc-take b{display:block;color:var(--orange-light);font-family:'Dancing Script','Dancing Script Fallback',cursive;font-size:1.15rem;margin-bottom:4px}
 .sc-cta{display:block;text-align:center;text-decoration:none;font-weight:800;border-radius:10px;padding:15px;margin-bottom:10px;letter-spacing:.02em}
-.sc-cta-primary{background:#B85400;color:#fff}
-.sc-cta-primary:hover{background:#A64B00}
+.sc-cta-primary{background:#BD5728;color:#fff}
+.sc-cta-primary:hover{background:#A14A22}
 .sc-cta-phone{background:#fff;color:var(--navy-dark);border:2px solid var(--navy-dark)}
 .sc-disc{font-size:.72rem;color:var(--gray);text-align:center;margin-top:14px;line-height:1.5}
 /* footer */
@@ -116,14 +116,14 @@ a{color:inherit}
 .rs-factor strong{display:block;color:var(--navy-dark);font-size:.9rem}
 .rs-factor span{color:var(--gray-sub);font-size:.82rem}
 .rs-reco{background:var(--off-white);border:1px solid var(--light-gray);border-radius:10px;padding:14px 16px;font-size:.9rem;color:var(--navy-dark);line-height:1.6;margin-bottom:18px}
-.rs-reco b{color:#A64B00}
+.rs-reco b{color:#A14A22}
 .rs-secondary{text-align:center;font-size:.84rem;color:var(--gray);margin-top:4px}
-.rs-secondary a{color:#A64B00;font-weight:700;text-decoration:none}
+.rs-secondary a{color:#A14A22;font-weight:700;text-decoration:none}
 @media(max-width:480px){.sc-intro h1{font-size:1.7rem}.sc-card{padding:22px 16px}.rs-gauge{width:158px;height:158px}.rs-gauge-num{font-size:3rem}}
 </style>
 <link rel="stylesheet" href="/assets/css/nbd-mobile.css"><link rel="stylesheet" href="/assets/css/mobile-cta.css">
 <style>/* iOS-zoom fix: 16px inputs prevent Safari auto-zoom on focus */@media(max-width:600px){input,select,textarea{font-size:16px!important}}</style>
-<style>.nbd-skip{position:absolute;left:-9999px;top:0;z-index:100000;background:#B85400;color:#fff;padding:10px 16px;font-weight:700;text-decoration:none;border-radius:0 0 6px 0}.nbd-skip:focus{left:0}</style>
+<style>.nbd-skip{position:absolute;left:-9999px;top:0;z-index:100000;background:#BD5728;color:#fff;padding:10px 16px;font-weight:700;text-decoration:none;border-radius:0 0 6px 0}.nbd-skip:focus{left:0}</style>
 <style>/* a11y: visible focus ring + reduced-motion */:focus-visible{outline:3px solid #bd5728;outline-offset:2px}@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.001ms!important;animation-iteration-count:1!important;transition-duration:.001ms!important;scroll-behavior:auto!important}}</style>
 <style>
 /* typography normalize (injected) */
@@ -147,9 +147,9 @@ nav.tool-nav .nav-logo-text .brand{font-size:1rem;font-weight:800;color:#fff}
 nav.tool-nav .nav-logo-text .sub{font-size:.7rem;color:rgba(255,255,255,.6);font-weight:600}
 nav.tool-nav .tool-nav-right{display:flex;align-items:center;gap:24px}
 nav.tool-nav .tool-nav-home{color:rgba(255,255,255,.85);font-size:.76rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;text-decoration:none;transition:color .2s;display:inline-flex;align-items:center}
-nav.tool-nav .tool-nav-home:hover{color:var(--orange-light,#f08030)}
-nav.tool-nav .nav-cta{background:#B85400;color:#fff!important;padding:10px 22px;border-radius:4px;font-weight:700;font-size:.76rem;letter-spacing:.08em;text-transform:uppercase;text-decoration:none;display:inline-flex;align-items:center;transition:background .2s}
-nav.tool-nav .nav-cta:hover{background:#A64B00}
+nav.tool-nav .tool-nav-home:hover{color:var(--orange-light,#dd875f)}
+nav.tool-nav .nav-cta{background:#BD5728;color:#fff!important;padding:10px 22px;border-radius:4px;font-weight:700;font-size:.76rem;letter-spacing:.08em;text-transform:uppercase;text-decoration:none;display:inline-flex;align-items:center;transition:background .2s}
+nav.tool-nav .nav-cta:hover{background:#A14A22}
 @media(max-width:560px){
   /* Hide the top-nav Back/Call cluster on small phones — it collided with the
      hamburger (~10px overflow). The sticky bottom call/text bar covers calling. */
@@ -163,11 +163,11 @@ nav.tool-nav .nav-cta:hover{background:#A64B00}
 .nav-links .dropdown:hover .dropdown-menu,.nav-links .dropdown:focus-within .dropdown-menu,.nav-links .dropdown.open .dropdown-menu{display:block}
 .nav-links .dropdown-menu a{display:block;padding:10px 18px;font-size:.75rem;border-bottom:1px solid rgba(255,255,255,.08);color:rgba(255,255,255,.85);text-decoration:none;letter-spacing:.06em;text-transform:uppercase;font-weight:600;transition:color .2s,background .2s}
 .nav-links .dropdown-menu a:last-child{border-bottom:none}
-.nav-links .dropdown-menu a:hover{color:var(--orange-light,#f08030);background:rgba(255,255,255,.04);border-bottom-color:rgba(255,255,255,.08)}
+.nav-links .dropdown-menu a:hover{color:var(--orange-light,#dd875f);background:rgba(255,255,255,.04);border-bottom-color:rgba(255,255,255,.08)}
 .mobile-nav{display:none;position:fixed;top:70px;left:0;right:0;background:var(--navy-dark,#12223d);z-index:999;border-top:2px solid var(--orange,#bd5728);max-height:calc(100vh - 70px);overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,.4);padding-top:0}
 .mobile-nav.open{display:block}
 .mobile-nav > a{display:block;padding:12px 24px;color:rgba(255,255,255,.85);text-decoration:none;font-size:.82rem;font-weight:600;letter-spacing:.05em;text-transform:uppercase;border-bottom:1px solid rgba(255,255,255,.06)}
-.mobile-nav > a:hover{color:var(--orange-light,#f08030);background:rgba(255,255,255,.04)}
+.mobile-nav > a:hover{color:var(--orange-light,#dd875f);background:rgba(255,255,255,.04)}
 .hamburger{display:none;flex-direction:column;gap:6px;cursor:pointer;padding:10px;background:transparent;border:none;z-index:1001}
 .hamburger span{display:block;width:26px;height:3px;background:#fff;border-radius:2px;transition:all .3s;box-shadow:0 1px 3px rgba(0,0,0,.3)}
 @media (max-width:1024px){.nav-links{display:none}.hamburger{display:flex}}
@@ -176,8 +176,8 @@ nav.tool-nav .nav-cta:hover{background:#A64B00}
 /* slim funnel footer (shared) — replaces the .sc-foot / .sr-foot / .fr-foot
    forks, which carried the same declarations under three names. */
 .foot-slim{background:var(--navy-dark,#12223d);color:rgba(255,255,255,.7);text-align:center;padding:26px 20px;font-size:.8rem;line-height:1.7}
-.foot-slim a{color:var(--orange-light,#f08030);text-decoration:none}
-.foot-slim a:hover{color:#ffaf66}
+.foot-slim a{color:var(--orange-light,#dd875f);text-decoration:none}
+.foot-slim a:hover{color:#dd875f}
 .foot-slim .ph{font-family:'Bebas Neue',sans-serif;font-size:1.5rem;color:#fff;letter-spacing:.03em;display:block;margin-bottom:6px}
 .foot-slim .ph a{color:#fff}
 </style>
@@ -208,12 +208,12 @@ nav.tool-nav .nav-cta:hover{background:#A64B00}
 <!-- nbd:partial mobile-nav-standard cta_href="/#contact" -->
 <div class="mobile-nav" id="mobileNav">
   <div class="mnav-group">Featured</div>
-  <a href="/the-pledge" style="color:#f08030;font-weight:800;">The Lifetime Pledge</a>
-  <a href="/services/the-nbd-guarantee" style="color:#f08030;font-weight:800;">The NBD Guarantee</a>
-  <a href="/services/the-nbd-build" style="color:#f08030;font-weight:800;">The NBD Build</a>
-  <div class="mnav-group">Premium Components</div>  <a href="/services/lumanail" style="color:#f08030;font-weight:800;">LumaNail&trade; Upgrade</a>  <a href="/services/gaf-timberline">GAF Timberline Lineup</a>
-  <a href="/services/roofivent" style="color:#f08030;font-weight:800;">Roofivent Products</a>
-  <a href="/services/gaf-pivot-boot" style="color:#f08030;font-weight:800;">GAF Pivot Boot</a>
+  <a href="/the-pledge" style="color:#dd875f;font-weight:800;">The Lifetime Pledge</a>
+  <a href="/services/the-nbd-guarantee" style="color:#dd875f;font-weight:800;">The NBD Guarantee</a>
+  <a href="/services/the-nbd-build" style="color:#dd875f;font-weight:800;">The NBD Build</a>
+  <div class="mnav-group">Premium Components</div>  <a href="/services/lumanail" style="color:#dd875f;font-weight:800;">LumaNail&trade; Upgrade</a>  <a href="/services/gaf-timberline">GAF Timberline Lineup</a>
+  <a href="/services/roofivent" style="color:#dd875f;font-weight:800;">Roofivent Products</a>
+  <a href="/services/gaf-pivot-boot" style="color:#dd875f;font-weight:800;">GAF Pivot Boot</a>
   <div class="mnav-group">Services</div>
   <a href="/services/roof-replacement">Roof Replacement</a>
   <a href="/services/roof-repair">Roof Repair</a>
@@ -233,14 +233,14 @@ nav.tool-nav .nav-cta:hover{background:#A64B00}
   <a href="/areas">Service Areas</a>
   <a href="/blog">Blog</a>
   <div class="mnav-group">Tools</div>
-  <a href="/estimate" style="color:#f08030">Instant Estimate</a>
-  <a href="/visualizer" style="color:#f08030">Roof Visualizer</a>
-  <a href="/roof-score" style="color:#f08030">Roof Score</a>
-  <a href="/storm-alerts" style="color:#f08030">Storm Alerts</a>
-  <a href="/storm-report" style="color:#f08030">5-Year Storm Report</a>
-  <a href="/storm-check" style="color:#f08030">Is It Worth a Claim?</a>
-  <a href="/inspect" style="color:#f08030">Free 24-Hr Inspection</a>
-  <a href="/free-tools" style="color:#f08030">All Free Tools</a>
+  <a href="/estimate" style="color:#dd875f">Instant Estimate</a>
+  <a href="/visualizer" style="color:#dd875f">Roof Visualizer</a>
+  <a href="/roof-score" style="color:#dd875f">Roof Score</a>
+  <a href="/storm-alerts" style="color:#dd875f">Storm Alerts</a>
+  <a href="/storm-report" style="color:#dd875f">5-Year Storm Report</a>
+  <a href="/storm-check" style="color:#dd875f">Is It Worth a Claim?</a>
+  <a href="/inspect" style="color:#dd875f">Free 24-Hr Inspection</a>
+  <a href="/free-tools" style="color:#dd875f">All Free Tools</a>
   <a href="/#contact" style="color:#bd5728;font-weight:800;">Book Inspection &rarr;</a>
 </div>
 <!-- /nbd:partial mobile-nav-standard -->

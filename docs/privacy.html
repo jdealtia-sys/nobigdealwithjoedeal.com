@@ -48,8 +48,8 @@
   --navy-mid: #1a3260;
   --navy-light: #243f7a;
   --orange: #bd5728;
-  --orange-light: #f08030;
-  --orange-dark: #c45e08;
+  --orange-light: #dd875f;
+  --orange-dark: #a14a22;
   --gray-sub: #4a4a4a;
   --white: #ffffff;
   --off-white: #f5f3ef;
@@ -61,7 +61,7 @@ html{scroll-behavior:smooth}
 body{font-family:'Montserrat',sans-serif;color:var(--navy-dark);background:var(--white);overflow-x:hidden}
 nav{background:var(--navy-dark);padding:0 40px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:1000;box-shadow:0 2px 20px rgba(0,0,0,.4);height:70px}
 .nav-logo{display:flex;align-items:center;gap:10px;text-decoration:none;flex-shrink:0}
-.nav-logo-badge{background:#B85400;color:white;font-weight:800;font-size:.95rem;padding:6px 10px;border-radius:6px;letter-spacing:.05em;}
+.nav-logo-badge{background:#BD5728;color:white;font-weight:800;font-size:.95rem;padding:6px 10px;border-radius:6px;letter-spacing:.05em;}
 .nav-logo-text .brand{font-size:1rem;font-weight:800;color:white;}
 .nav-logo-text .sub{font-size:.7rem;color:rgba(255,255,255,.6);font-weight:600;}
 .logo-card{display:flex;flex-direction:column;align-items:center;background:white;border-radius:6px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,.25);min-width:148px}
@@ -78,8 +78,8 @@ nav{background:var(--navy-dark);padding:0 40px;display:flex;align-items:center;j
 .nav-links{display:flex;align-items:center;gap:28px;list-style:none}
 .nav-links a{color:rgba(255,255,255,.8);text-decoration:none;font-size:.76rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;transition:color .2s;padding:4px 0;border-bottom:2px solid transparent}
 .nav-links a:hover{color:var(--orange-light);border-bottom-color:var(--orange-light)}
-.nav-cta{background:#B85400!important;color:white!important;padding:10px 22px!important;border-radius:4px;border-bottom:none!important;transition:background .2s!important}
-.nav-cta:hover{background:#A64B00!important}
+.nav-cta{background:#BD5728!important;color:white!important;padding:10px 22px!important;border-radius:4px;border-bottom:none!important;transition:background .2s!important}
+.nav-cta:hover{background:#A14A22!important}
 .hamburger{display:none;flex-direction:column;gap:6px;cursor:pointer;padding:10px;z-index:1001}
 .hamburger span{display:block;width:26px;height:3px;background:#ffffff;border-radius:2px;transition:all .3s;box-shadow:0 1px 3px rgba(0,0,0,.3)}
 .mobile-nav{display:none;position:fixed;top:70px;left:0;right:0;background:var(--navy-dark);z-index:999;border-top:2px solid var(--orange);max-height:calc(100vh - 70px);overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,.4);padding-top:0}
@@ -99,7 +99,7 @@ nav{background:var(--navy-dark);padding:0 40px;display:flex;align-items:center;j
 .privacy-section h2{font-family:'Bebas Neue',sans-serif;font-size:1.6rem;color:var(--navy-dark);letter-spacing:.02em;margin-bottom:16px;padding-bottom:12px;border-bottom:2px solid var(--orange)}
 .privacy-section h3{font-size:1rem;font-weight:700;color:var(--navy-dark);margin-top:20px;margin-bottom:10px}
 .privacy-section p{font-size:.9rem;line-height:1.8;color:var(--gray);margin-bottom:12px}
-.privacy-section a{color:#A64B00;text-decoration:underline}
+.privacy-section a{color:#A14A22;text-decoration:underline}
 .privacy-section ul{margin-left:24px;margin-bottom:12px}
 .privacy-section li{font-size:.9rem;line-height:1.8;color:var(--gray);margin-bottom:8px}
 .highlight-box{background:var(--off-white);border-left:4px solid var(--orange);padding:20px;border-radius:6px;margin:20px 0;font-size:.9rem;line-height:1.8}
@@ -125,7 +125,7 @@ footer{background:var(--navy-dark);border-top:3px solid var(--orange);padding:60
 
 .back-to-top{position:fixed;bottom:28px;right:28px;width:44px;height:44px;background:var(--navy);color:white;border:none;border-radius:10px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:1.1rem;box-shadow:0 4px 16px rgba(0,0,0,.25);opacity:0;transform:translateY(12px);transition:opacity .3s,transform .3s,background .2s;z-index:998;pointer-events:none}
 .back-to-top.visible{opacity:1;transform:translateY(0);pointer-events:auto}
-.back-to-top:hover{background:#B85400}
+.back-to-top:hover{background:#BD5728}
 
 @media(max-width:768px){
   .privacy-page{padding:40px 20px}
@@ -144,9 +144,9 @@ footer{background:var(--navy-dark);border-top:3px solid var(--orange);padding:60
 .nav-links .dropdown:hover .dropdown-menu,.nav-links .dropdown:focus-within .dropdown-menu,.nav-links .dropdown.open .dropdown-menu{display:block}
 .nav-links .dropdown-menu a{display:block;padding:10px 18px;font-size:.75rem;border-bottom:1px solid rgba(255,255,255,.08);color:rgba(255,255,255,.85);text-decoration:none;letter-spacing:.06em;text-transform:uppercase;font-weight:600;transition:color .2s,background .2s}
 .nav-links .dropdown-menu a:last-child{border-bottom:none}
-.nav-links .dropdown-menu a:hover{color:var(--orange-light,#f08030);background:rgba(255,255,255,.04);border-bottom-color:rgba(255,255,255,.08)}
+.nav-links .dropdown-menu a:hover{color:var(--orange-light,#dd875f);background:rgba(255,255,255,.04);border-bottom-color:rgba(255,255,255,.08)}
 .nav-links .nav-ico{width:14px;height:14px;stroke:currentColor;stroke-width:2.2;fill:none;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0;display:inline-block;vertical-align:-0.18em}
-.nav-links > li > a.nav-instant{color:var(--orange-light,#f08030)!important}
+.nav-links > li > a.nav-instant{color:var(--orange-light,#dd875f)!important}
 </style><style>
 /* nav base (injected) */
 .nav-links .dropdown{position:relative}
@@ -154,11 +154,11 @@ footer{background:var(--navy-dark);border-top:3px solid var(--orange);padding:60
 .nav-links .dropdown:hover .dropdown-menu,.nav-links .dropdown:focus-within .dropdown-menu,.nav-links .dropdown.open .dropdown-menu{display:block}
 .nav-links .dropdown-menu a{display:block;padding:10px 18px;font-size:.75rem;border-bottom:1px solid rgba(255,255,255,.08);color:rgba(255,255,255,.85);text-decoration:none;letter-spacing:.06em;text-transform:uppercase;font-weight:600;transition:color .2s,background .2s}
 .nav-links .dropdown-menu a:last-child{border-bottom:none}
-.nav-links .dropdown-menu a:hover{color:var(--orange-light,#f08030);background:rgba(255,255,255,.04);border-bottom-color:rgba(255,255,255,.08)}
+.nav-links .dropdown-menu a:hover{color:var(--orange-light,#dd875f);background:rgba(255,255,255,.04);border-bottom-color:rgba(255,255,255,.08)}
 .mobile-nav{display:none;position:fixed;top:70px;left:0;right:0;background:var(--navy-dark,#12223d);z-index:999;border-top:2px solid var(--orange,#bd5728);max-height:calc(100vh - 70px);overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,.4);padding-top:0}
 .mobile-nav.open{display:block}
 .mobile-nav > a{display:block;padding:12px 24px;color:rgba(255,255,255,.85);text-decoration:none;font-size:.82rem;font-weight:600;letter-spacing:.05em;text-transform:uppercase;border-bottom:1px solid rgba(255,255,255,.06)}
-.mobile-nav > a:hover{color:var(--orange-light,#f08030);background:rgba(255,255,255,.04)}
+.mobile-nav > a:hover{color:var(--orange-light,#dd875f);background:rgba(255,255,255,.04)}
 .hamburger{display:none;flex-direction:column;gap:6px;cursor:pointer;padding:10px;background:transparent;border:none;z-index:1001}
 .hamburger span{display:block;width:26px;height:3px;background:#fff;border-radius:2px;transition:all .3s;box-shadow:0 1px 3px rgba(0,0,0,.3)}
 @media (max-width:1024px){.nav-links{display:none}.hamburger{display:flex}}
@@ -279,7 +279,7 @@ footer.foot a,.review-footer a{color:#bd5728!important}
 <link rel="stylesheet" href="/assets/css/nbd-mobile.css">
   <script src="/assets/js/nav-faq.js" defer></script>
 <link rel="stylesheet" href="/assets/css/mobile-cta.css">
-<style>.nbd-skip{position:absolute;left:-9999px;top:0;z-index:100000;background:#B85400;color:#fff;padding:10px 16px;font-weight:700;text-decoration:none;border-radius:0 0 6px 0}.nbd-skip:focus{left:0}</style>
+<style>.nbd-skip{position:absolute;left:-9999px;top:0;z-index:100000;background:#BD5728;color:#fff;padding:10px 16px;font-weight:700;text-decoration:none;border-radius:0 0 6px 0}.nbd-skip:focus{left:0}</style>
 <style>
 /* nav-wordmark guard (consistency audit 2026-07-15): keep the wordmark on one
    line and shrink logo+text on phones — the blog family had no mobile rules,
@@ -311,12 +311,12 @@ nav .nav-logo-text .sub{white-space:nowrap}
     <li class="dropdown"><a href="/#services">Services
       <svg class="nav-ico" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg></a>
       <ul class="dropdown-menu">
-        <li><a href="/the-pledge" style="color:#f08030;font-weight:800;">The Lifetime Pledge</a></li>
-        <li><a href="/services/the-nbd-guarantee" style="color:#f08030;font-weight:800;">The NBD Guarantee</a></li>
-<li><a href="/services/lumanail" style="color:#f08030;font-weight:800;">LumaNail™ Upgrade</a></li><li><a href="/services/gaf-timberline">GAF Timberline Lineup</a></li>
-<li><a href="/services/the-nbd-build" style="color:#f08030;font-weight:800;">The NBD Build</a></li>
-<li><a href="/services/roofivent" style="color:#f08030;font-weight:800;">Roofivent Products</a></li>
-<li><a href="/services/gaf-pivot-boot" style="color:#f08030;font-weight:800;">GAF Pivot Boot</a></li>
+        <li><a href="/the-pledge" style="color:#dd875f;font-weight:800;">The Lifetime Pledge</a></li>
+        <li><a href="/services/the-nbd-guarantee" style="color:#dd875f;font-weight:800;">The NBD Guarantee</a></li>
+<li><a href="/services/lumanail" style="color:#dd875f;font-weight:800;">LumaNail™ Upgrade</a></li><li><a href="/services/gaf-timberline">GAF Timberline Lineup</a></li>
+<li><a href="/services/the-nbd-build" style="color:#dd875f;font-weight:800;">The NBD Build</a></li>
+<li><a href="/services/roofivent" style="color:#dd875f;font-weight:800;">Roofivent Products</a></li>
+<li><a href="/services/gaf-pivot-boot" style="color:#dd875f;font-weight:800;">GAF Pivot Boot</a></li>
 <li><a href="/services/roof-replacement">Roof Replacement</a></li>
         <li><a href="/services/roof-repair">Roof Repair</a></li>
         <li><a href="/services/siding-replacement">Siding Replacement</a></li>
@@ -328,11 +328,11 @@ nav .nav-logo-text .sub{white-space:nowrap}
         <li><a href="/services/roof-cleaning-soft-wash">Roof Cleaning</a></li>
         <li><a href="/services/fire-water-smoke-damage">Fire &amp; Water Damage</a></li>
         <li><a href="/services/financing">Financing</a></li>
-        <li><a href="/roof-score" style="color:var(--orange-light,#f08030)">Roof Score</a></li>
-        <li><a href="/free-tools" style="color:var(--orange-light,#f08030)">All Free Tools</a></li>
-        <li><a href="/storm-alerts" style="color:var(--orange-light,#f08030)">Storm Alerts</a></li>
-        <li><a href="/storm-report" style="color:var(--orange-light,#f08030)">5-Year Storm Report</a></li>
-        <li><a href="/storm-check" style="color:var(--orange-light,#f08030)">Is It Worth a Claim?</a></li><li><a href="/inspect" style="color:var(--orange-light,#f08030)">Free 24-Hr Inspection</a></li>
+        <li><a href="/roof-score" style="color:var(--orange-light,#dd875f)">Roof Score</a></li>
+        <li><a href="/free-tools" style="color:var(--orange-light,#dd875f)">All Free Tools</a></li>
+        <li><a href="/storm-alerts" style="color:var(--orange-light,#dd875f)">Storm Alerts</a></li>
+        <li><a href="/storm-report" style="color:var(--orange-light,#dd875f)">5-Year Storm Report</a></li>
+        <li><a href="/storm-check" style="color:var(--orange-light,#dd875f)">Is It Worth a Claim?</a></li><li><a href="/inspect" style="color:var(--orange-light,#dd875f)">Free 24-Hr Inspection</a></li>
       </ul>
     </li>
     <li><a href="/about">About Joe</a></li>
@@ -356,12 +356,12 @@ nav .nav-logo-text .sub{white-space:nowrap}
 <!-- nbd:partial mobile-nav-standard cta_href="/#contact" -->
 <div class="mobile-nav" id="mobileNav">
   <div class="mnav-group">Featured</div>
-  <a href="/the-pledge" style="color:#f08030;font-weight:800;">The Lifetime Pledge</a>
-  <a href="/services/the-nbd-guarantee" style="color:#f08030;font-weight:800;">The NBD Guarantee</a>
-  <a href="/services/the-nbd-build" style="color:#f08030;font-weight:800;">The NBD Build</a>
-  <div class="mnav-group">Premium Components</div>  <a href="/services/lumanail" style="color:#f08030;font-weight:800;">LumaNail&trade; Upgrade</a>  <a href="/services/gaf-timberline">GAF Timberline Lineup</a>
-  <a href="/services/roofivent" style="color:#f08030;font-weight:800;">Roofivent Products</a>
-  <a href="/services/gaf-pivot-boot" style="color:#f08030;font-weight:800;">GAF Pivot Boot</a>
+  <a href="/the-pledge" style="color:#dd875f;font-weight:800;">The Lifetime Pledge</a>
+  <a href="/services/the-nbd-guarantee" style="color:#dd875f;font-weight:800;">The NBD Guarantee</a>
+  <a href="/services/the-nbd-build" style="color:#dd875f;font-weight:800;">The NBD Build</a>
+  <div class="mnav-group">Premium Components</div>  <a href="/services/lumanail" style="color:#dd875f;font-weight:800;">LumaNail&trade; Upgrade</a>  <a href="/services/gaf-timberline">GAF Timberline Lineup</a>
+  <a href="/services/roofivent" style="color:#dd875f;font-weight:800;">Roofivent Products</a>
+  <a href="/services/gaf-pivot-boot" style="color:#dd875f;font-weight:800;">GAF Pivot Boot</a>
   <div class="mnav-group">Services</div>
   <a href="/services/roof-replacement">Roof Replacement</a>
   <a href="/services/roof-repair">Roof Repair</a>
@@ -381,14 +381,14 @@ nav .nav-logo-text .sub{white-space:nowrap}
   <a href="/areas">Service Areas</a>
   <a href="/blog">Blog</a>
   <div class="mnav-group">Tools</div>
-  <a href="/estimate" style="color:#f08030">Instant Estimate</a>
-  <a href="/visualizer" style="color:#f08030">Roof Visualizer</a>
-  <a href="/roof-score" style="color:#f08030">Roof Score</a>
-  <a href="/storm-alerts" style="color:#f08030">Storm Alerts</a>
-  <a href="/storm-report" style="color:#f08030">5-Year Storm Report</a>
-  <a href="/storm-check" style="color:#f08030">Is It Worth a Claim?</a>
-  <a href="/inspect" style="color:#f08030">Free 24-Hr Inspection</a>
-  <a href="/free-tools" style="color:#f08030">All Free Tools</a>
+  <a href="/estimate" style="color:#dd875f">Instant Estimate</a>
+  <a href="/visualizer" style="color:#dd875f">Roof Visualizer</a>
+  <a href="/roof-score" style="color:#dd875f">Roof Score</a>
+  <a href="/storm-alerts" style="color:#dd875f">Storm Alerts</a>
+  <a href="/storm-report" style="color:#dd875f">5-Year Storm Report</a>
+  <a href="/storm-check" style="color:#dd875f">Is It Worth a Claim?</a>
+  <a href="/inspect" style="color:#dd875f">Free 24-Hr Inspection</a>
+  <a href="/free-tools" style="color:#dd875f">All Free Tools</a>
   <a href="/#contact" style="color:#bd5728;font-weight:800;">Book Inspection &rarr;</a>
 </div>
 <!-- /nbd:partial mobile-nav-standard -->
@@ -479,23 +479,23 @@ nav .nav-logo-text .sub{white-space:nowrap}
       <p>We use third-party services to operate and improve our Website. These partners may collect and use your information as described below:</p>
 
       <h3>Firebase</h3>
-      <p>We use Google Firebase for data storage, authentication, and database management. Firebase securely stores customer inquiry data and project information. Firebase is subject to <a href="https://policies.google.com/privacy" target="_blank" style="color:#A64B00;text-decoration:underline">Google's Privacy Policy</a>.</p>
+      <p>We use Google Firebase for data storage, authentication, and database management. Firebase securely stores customer inquiry data and project information. Firebase is subject to <a href="https://policies.google.com/privacy" target="_blank" style="color:#A14A22;text-decoration:underline">Google's Privacy Policy</a>.</p>
 
       <h3>Google Analytics</h3>
-      <p>We use Google Analytics (Measurement ID: G-8PG7N9Q3DL) to track Website traffic and user behavior. This helps us understand what's working and improve your experience. Google Analytics uses cookies to collect data and is subject to <a href="https://policies.google.com/privacy" target="_blank" style="color:#A64B00;text-decoration:underline">Google's Privacy Policy</a>.</p>
+      <p>We use Google Analytics (Measurement ID: G-8PG7N9Q3DL) to track Website traffic and user behavior. This helps us understand what's working and improve your experience. Google Analytics uses cookies to collect data and is subject to <a href="https://policies.google.com/privacy" target="_blank" style="color:#A14A22;text-decoration:underline">Google's Privacy Policy</a>.</p>
 
       <h3>Stripe</h3>
-      <p>When you make a payment, we use Stripe to process credit card and payment information. Stripe handles all payment processing and does not store your full payment details on our servers. Stripe is PCI compliant and subject to <a href="https://stripe.com/privacy" target="_blank" style="color:#A64B00;text-decoration:underline">Stripe's Privacy Policy</a>.</p>
+      <p>When you make a payment, we use Stripe to process credit card and payment information. Stripe handles all payment processing and does not store your full payment details on our servers. Stripe is PCI compliant and subject to <a href="https://stripe.com/privacy" target="_blank" style="color:#A14A22;text-decoration:underline">Stripe's Privacy Policy</a>.</p>
 
       <h3>Email &amp; Communication Services</h3>
-      <p>We use <a href="https://resend.com/legal/privacy-policy" target="_blank" rel="noopener" style="color:#A64B00;text-decoration:underline">Resend</a> to deliver transactional email (estimate confirmations, appointment reminders, receipts) and <a href="https://www.twilio.com/en-us/legal/privacy" target="_blank" rel="noopener" style="color:#A64B00;text-decoration:underline">Twilio</a> to send SMS messages when you have opted in. These providers process your email address, phone number, and message content on our behalf.</p>
-      <p>When you submit our website contact form, a backup copy of your submission (name, phone number, email address, property address, and message) is also relayed to our inbox through <a href="https://formsubmit.co/privacy" target="_blank" rel="noopener" style="color:#A64B00;text-decoration:underline">FormSubmit</a>, an email form relay service, so your request reaches us even if our primary system is unavailable.</p>
+      <p>We use <a href="https://resend.com/legal/privacy-policy" target="_blank" rel="noopener" style="color:#A14A22;text-decoration:underline">Resend</a> to deliver transactional email (estimate confirmations, appointment reminders, receipts) and <a href="https://www.twilio.com/en-us/legal/privacy" target="_blank" rel="noopener" style="color:#A14A22;text-decoration:underline">Twilio</a> to send SMS messages when you have opted in. These providers process your email address, phone number, and message content on our behalf.</p>
+      <p>When you submit our website contact form, a backup copy of your submission (name, phone number, email address, property address, and message) is also relayed to our inbox through <a href="https://formsubmit.co/privacy" target="_blank" rel="noopener" style="color:#A14A22;text-decoration:underline">FormSubmit</a>, an email form relay service, so your request reaches us even if our primary system is unavailable.</p>
 
       <h3>AI-Assisted Features</h3>
-      <p>Some features (property intelligence, proposal drafting, objection handling assistance) use the <a href="https://www.anthropic.com/legal/privacy" target="_blank" rel="noopener" style="color:#A64B00;text-decoration:underline">Anthropic API</a> (Claude). When you interact with AI features we may send the addresses, notes, or questions you submit to Anthropic for processing. Anthropic does not use this data to train their models under our API agreement.</p>
+      <p>Some features (property intelligence, proposal drafting, objection handling assistance) use the <a href="https://www.anthropic.com/legal/privacy" target="_blank" rel="noopener" style="color:#A14A22;text-decoration:underline">Anthropic API</a> (Claude). When you interact with AI features we may send the addresses, notes, or questions you submit to Anthropic for processing. Anthropic does not use this data to train their models under our API agreement.</p>
 
       <h3>E-Signature</h3>
-      <p>Contracts we send for signature are processed through <a href="https://boldsign.com/privacy-policy/" target="_blank" rel="noopener" style="color:#A64B00;text-decoration:underline">BoldSign</a> (Syncfusion). BoldSign receives your name, email address, and the contract document so that you can sign electronically. The signed document and the signature event log are stored in our records and with BoldSign.</p>
+      <p>Contracts we send for signature are processed through <a href="https://boldsign.com/privacy-policy/" target="_blank" rel="noopener" style="color:#A14A22;text-decoration:underline">BoldSign</a> (Syncfusion). BoldSign receives your name, email address, and the contract document so that you can sign electronically. The signed document and the signature event log are stored in our records and with BoldSign.</p>
 
       <h3>Roof Measurements</h3>
       <p>Aerial roof measurement reports are sourced from the providers below. To produce a report we share the property address, or its map coordinates, with the chosen provider; in return we receive roof dimensions and imagery. No personal information beyond the property location is transmitted, except that a human-certified report order may carry the homeowner's name so the provider's drawing team can identify the job.</p>
@@ -510,13 +510,13 @@ nav .nav-logo-text .sub{white-space:nowrap}
       <p>Public county records, ownership data, and parcel shapes are looked up through Regrid or Swath API. Only the property address is shared to perform these lookups.</p>
 
       <h3>Weather &amp; Storm Data</h3>
-      <p>Historical hail reports and storm prediction data are sourced from the free <a href="https://www.weather.gov/privacy" target="_blank" rel="noopener" style="color:#A64B00;text-decoration:underline">National Weather Service</a> / NOAA feeds and, optionally, from HailTrace or Swath API (paid/metered tiers). Only approximate property coordinates are shared.</p>
+      <p>Historical hail reports and storm prediction data are sourced from the free <a href="https://www.weather.gov/privacy" target="_blank" rel="noopener" style="color:#A14A22;text-decoration:underline">National Weather Service</a> / NOAA feeds and, optionally, from HailTrace or Swath API (paid/metered tiers). Only approximate property coordinates are shared.</p>
 
       <h3>Appointment Scheduling</h3>
-      <p>When you book an inspection through our homeowner portal, <a href="https://cal.com/privacy" target="_blank" rel="noopener" style="color:#A64B00;text-decoration:underline">Cal.com</a> processes your name, email address, phone number, and selected time slot on our behalf.</p>
+      <p>When you book an inspection through our homeowner portal, <a href="https://cal.com/privacy" target="_blank" rel="noopener" style="color:#A14A22;text-decoration:underline">Cal.com</a> processes your name, email address, phone number, and selected time slot on our behalf.</p>
 
       <h3>Security &amp; Monitoring</h3>
-      <p>We use <a href="https://sentry.io/privacy/" target="_blank" rel="noopener" style="color:#A64B00;text-decoration:underline">Sentry</a> for error monitoring and <a href="https://www.cloudflare.com/privacypolicy/" target="_blank" rel="noopener" style="color:#A64B00;text-decoration:underline">Cloudflare Turnstile</a> to distinguish humans from bots on public forms. Sentry receives anonymized error events (PII such as email and phone is stripped before submission). Turnstile uses a privacy-preserving challenge and does not track you across sites. Turnstile runs in invisible mode on our public forms, so you will not see or need to complete a challenge; its processing of your data is governed by the <a href="https://www.cloudflare.com/turnstile-privacy-addendum/" target="_blank" rel="noopener" style="color:#A64B00;text-decoration:underline">Cloudflare Turnstile Privacy Addendum</a>.</p>
+      <p>We use <a href="https://sentry.io/privacy/" target="_blank" rel="noopener" style="color:#A14A22;text-decoration:underline">Sentry</a> for error monitoring and <a href="https://www.cloudflare.com/privacypolicy/" target="_blank" rel="noopener" style="color:#A14A22;text-decoration:underline">Cloudflare Turnstile</a> to distinguish humans from bots on public forms. Sentry receives anonymized error events (PII such as email and phone is stripped before submission). Turnstile uses a privacy-preserving challenge and does not track you across sites. Turnstile runs in invisible mode on our public forms, so you will not see or need to complete a challenge; its processing of your data is governed by the <a href="https://www.cloudflare.com/turnstile-privacy-addendum/" target="_blank" rel="noopener" style="color:#A14A22;text-decoration:underline">Cloudflare Turnstile Privacy Addendum</a>.</p>
 
       <p>We do not sell, share, or rent your personal information to third parties for their marketing purposes. Our third-party partners may use your information only to perform services on our behalf and are bound by confidentiality agreements.</p>
     </div>
@@ -638,12 +638,12 @@ nav .nav-logo-text .sub{white-space:nowrap}
       <div>
         <div class="footer-col-title">Services</div>
         <ul class="footer-links">
-          <li><a href="/the-pledge" style="color:#f08030;font-weight:800;">The Lifetime Pledge</a></li>
-          <li><a href="/services/the-nbd-guarantee" style="color:#f08030;font-weight:800;">The NBD Guarantee</a></li>
-<li><a href="/services/lumanail" style="color:#f08030;font-weight:800;">LumaNail™ Upgrade</a></li><li><a href="/services/gaf-timberline">GAF Timberline Lineup</a></li>
-<li><a href="/services/the-nbd-build" style="color:#f08030;font-weight:800;">The NBD Build</a></li>
-<li><a href="/services/roofivent" style="color:#f08030;font-weight:800;">Roofivent Products</a></li>
-<li><a href="/services/gaf-pivot-boot" style="color:#f08030;font-weight:800;">GAF Pivot Boot</a></li>
+          <li><a href="/the-pledge" style="color:#dd875f;font-weight:800;">The Lifetime Pledge</a></li>
+          <li><a href="/services/the-nbd-guarantee" style="color:#dd875f;font-weight:800;">The NBD Guarantee</a></li>
+<li><a href="/services/lumanail" style="color:#dd875f;font-weight:800;">LumaNail™ Upgrade</a></li><li><a href="/services/gaf-timberline">GAF Timberline Lineup</a></li>
+<li><a href="/services/the-nbd-build" style="color:#dd875f;font-weight:800;">The NBD Build</a></li>
+<li><a href="/services/roofivent" style="color:#dd875f;font-weight:800;">Roofivent Products</a></li>
+<li><a href="/services/gaf-pivot-boot" style="color:#dd875f;font-weight:800;">GAF Pivot Boot</a></li>
 <li><a href="/services/roof-replacement">Roof Replacement</a></li>
           <li><a href="/services/roof-repair">Roof Repair</a></li>
           <li><a href="/services/siding-replacement">Siding Replacement</a></li>

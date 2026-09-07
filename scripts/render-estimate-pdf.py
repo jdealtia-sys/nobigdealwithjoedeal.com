@@ -22,8 +22,8 @@ import sys
 import unicodedata
 from pathlib import Path
 
-NAVY = "#1A3A5C"
-ORANGE = "#E8720C"
+NAVY = "#1A3057"
+ORANGE = "#BD5728"
 
 SENTINEL = "INTERNAL NOTES"
 
