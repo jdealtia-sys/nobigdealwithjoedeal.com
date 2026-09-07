@@ -206,7 +206,57 @@
    * booting fresh would write 0 over the record of photos still held on the
    * first one, destroying the only evidence they were ever owed.
    */
-  async function writeMarker(n) {
+  // How long any single marker write may hold the queue below. setDoc()'s
+  // promise does not settle until the backend acknowledges, and this app runs
+  // Firestore with no offline persistence (nbd-auth.js:299 —
+  // initializeFirestore with experimentalForceLongPolling only), so a write
+  // made on a dead connection stays pending until connectivity returns or the
+  // page goes away. Without a bound, ONE such write would stall every marker
+  // write after it for the life of the page.
+  const MARKER_WRITE_TIMEOUT_MS = 5000;
+
+  // Serialised at the RESOURCE, not at one caller. writeMarker() is a
+  // read-modify-write across an await — read the mirror key, compare, await
+  // setDoc, write the mirror key — and it has four call sites: the two around
+  // the drain in recover(), the floating repair on the empty-queue fast path,
+  // and syncMarker() from photo-engine after every drain. Chaining inside one
+  // of those callers would leave the other three racing it, so the queue lives
+  // here and everything that writes the marker goes through it.
+  let _markerChain = Promise.resolve();
+
+  function writeMarker(n) {
+    _markerChain = _markerChain
+      .then(() => _bounded(_writeMarkerOnce(n), MARKER_WRITE_TIMEOUT_MS))
+      .catch(() => {});
+    return _markerChain;
+  }
+
+  /**
+   * Settle no later than `ms`, whatever the wrapped promise does.
+   *
+   * A queue whose links can hang is worse than no queue: one never-settling
+   * setDoc would wedge every later marker write, which is strictly worse than
+   * the interleaving the queue exists to prevent. Abandoning the wait does not
+   * cancel the write — Firestore keeps it buffered and flushes it on reconnect,
+   * and writes to one document land in the order they were issued, so a late
+   * arrival still lands in the right order relative to the next one.
+   */
+  function _bounded(promise, ms) {
+    let timer = null;
+    const clear = () => { if (timer !== null) { clearTimeout(timer); timer = null; } };
+    return Promise.race([
+      Promise.resolve(promise).then((v) => { clear(); return v; }, (e) => { clear(); throw e; }),
+      new Promise((resolve) => { timer = setTimeout(resolve, ms); })
+    ]);
+  }
+
+  /**
+   * Mirror a DEFINITE local count to the server. Called only from a device
+   * that has its own localStorage counter: without that guard a second device
+   * booting fresh would write 0 over the record of photos still held on the
+   * first one, destroying the only evidence they were ever owed.
+   */
+  async function _writeMarkerOnce(n) {
     if (typeof n !== 'number' || isNaN(n) || n < 0) return;
     const last = lsGet(MARKER_MIRROR_KEY);
     if (last !== null && parseInt(last, 10) === n) return; // unchanged, skip the write
@@ -488,6 +538,19 @@
    *
    * Cheap to call: writeMarker() skips the network entirely when the number is
    * unchanged, and a failed count is null and writes nothing.
+   */
+  /**
+   * Re-file what this rep still owes. Serialisation and the timeout live in
+   * writeMarker() below, so every caller of it — this one and recover()'s
+   * three — shares one queue rather than racing each other.
+   *
+   * Deliberately NOT gated on navigator.onLine. The obvious guard is a trap
+   * here: Firestore buffers a write made on a dead connection and flushes it
+   * when the connection returns, so skipping it turns a write that would have
+   * landed into no write at all — and a stale marker is precisely what tells
+   * the rep to reshoot a roof whose photos are already in the gallery. What
+   * the caller actually needed protecting from was the unbounded WAIT, and
+   * that is what the bound in writeMarker() gives it.
    */
   async function syncMarker() {
     const store = window.NBDPhotoQueueStore;

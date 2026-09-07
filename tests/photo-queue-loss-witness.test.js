@@ -611,6 +611,119 @@ const countWrites = (t) => t.fsdb.calls.wrote.filter((w) => 'photoQueuePending' 
       t.fsdb.calls.get === 0, 'reads=' + t.fsdb.calls.get);
   }
 
+  // ── syncMarker(): the exported entry point photo-engine calls ──────────
+  {
+    // Offline it must still ISSUE the write. The obvious navigator.onLine
+    // guard is a trap: this app runs Firestore with no offline persistence
+    // (nbd-auth.js — initializeFirestore with experimentalForceLongPolling
+    // only), which still buffers a write in memory and flushes it when the
+    // connection returns. Skipping it turns a write that would have landed
+    // into no write at all, and a stale marker is exactly what tells the rep
+    // to reshoot a roof whose photos are already in the gallery. What the
+    // caller needed protecting from was the unbounded WAIT, not the write.
+    const store = makeStore({ lastKnownCount: () => 0, count: async () => 2, pendingForUid: async () => 2,
+      pendingStats: async () => ({ count: 2, oldestAt: Date.now() }) });
+    const t = boot({ store: store, onLine: false });
+    await settle();
+    await t.sandbox.window.NBDPhotoQueueRecovery.syncMarker();
+    ok('syncMarker still issues the write while offline, for Firestore to flush later',
+      countWrites(t).length === 1 && countWrites(t)[0].photoQueuePending === 2,
+      'writes=' + JSON.stringify(t.fsdb.calls.wrote)
+      + ' — dropping it loses a write that would have landed on reconnect');
+  }
+  {
+    // Online, it files the current count.
+    const store = makeStore({ lastKnownCount: () => 0, count: async () => 2, pendingForUid: async () => 2,
+      pendingStats: async () => ({ count: 2, oldestAt: Date.now() }) });
+    const t = boot({ store: store });
+    await settle();
+    await t.sandbox.window.NBDPhotoQueueRecovery.syncMarker();
+    ok('syncMarker files the current count when online',
+      countWrites(t).length === 1 && countWrites(t)[0].photoQueuePending === 2,
+      'wrote=' + JSON.stringify(t.fsdb.calls.wrote));
+  }
+  {
+    // Concurrent calls must not interleave. writeMarker is a read-modify-write
+    // across an await — read the mirror key, compare, await setDoc, write the
+    // mirror key — so two in flight can leave the SERVER on the older count
+    // while the mirror claims the newer one was filed.
+    let n = 3;
+    const store = makeStore({
+      lastKnownCount: () => 0,
+      count: async () => n,
+      pendingForUid: async () => n,
+      pendingStats: async () => ({ count: n, oldestAt: Date.now() })
+    });
+    // The first write is made SLOWER than the second. Unserialised, the
+    // second finishes first and the stale 3 lands last; serialised, the 3
+    // completes before the 0 is even started. Without this asymmetry the two
+    // writes happen to land in order anyway and the test proves nothing —
+    // which is exactly what the first version of it did.
+    const slowFs = makeFirestore(null);
+    const rawSet = slowFs.setDoc;
+    slowFs.setDoc = (ref, payload) => {
+      const delay = payload && payload.photoQueuePending === 3 ? 40 : 0;
+      return new Promise((res) => setTimeout(res, delay)).then(() => rawSet(ref, payload));
+    };
+    const t = boot({ store: store, firestore: slowFs });
+    await settle();
+    const rec = t.sandbox.window.NBDPhotoQueueRecovery;
+    const first = rec.syncMarker();
+    n = 0;                                  // the queue drained while the first was in flight
+    const second = rec.syncMarker();
+    await Promise.all([first, second]);
+    await wait(60);
+    const wrote = countWrites(t).map((w) => w.photoQueuePending);
+    ok('concurrent syncMarker calls are serialised, newest last',
+      wrote[wrote.length - 1] === 0,
+      'wrote=' + JSON.stringify(wrote)
+      + ' — interleaved, the server can end on the stale 3 and accuse the rep');
+    ok('...and the mirror key agrees with what the server was left holding',
+      t.ls.nbd_photo_queue_marker_synced === '0',
+      'mirror=' + t.ls.nbd_photo_queue_marker_synced + ' server=' + JSON.stringify(wrote));
+  }
+  {
+    // ── a queue whose links can hang is worse than no queue ─────────────
+    // setDoc's promise does not settle until the backend acknowledges, and
+    // this app runs Firestore with no offline persistence — so a write made
+    // on a dead connection stays pending. An unbounded chain turns ONE of
+    // those into a permanent outage: every later marker write, from all four
+    // call sites, queues behind a promise that never settles. That is
+    // strictly worse than the interleaving the chain exists to prevent.
+    let hang = true;
+    const fsdb = makeFirestore(null);
+    const rawSet = fsdb.setDoc;
+    fsdb.setDoc = (ref, payload) =>
+      (hang ? new Promise(() => {}) : rawSet(ref, payload));
+
+    let n = 1;
+    const store = makeStore({
+      lastKnownCount: () => 0,
+      count: async () => n,
+      pendingForUid: async () => n,
+      pendingStats: async () => ({ count: n, oldestAt: Date.now() })
+    });
+    const t = boot({ store: store, firestore: fsdb });
+    await settle();
+    const rec = t.sandbox.window.NBDPhotoQueueRecovery;
+
+    rec.syncMarker();                 // hangs on setDoc, never settles
+    await wait(20);
+    hang = false;                     // the connection comes back
+    n = 0;
+
+    // The bound is 5s, so give it room; the point is that it ends at all.
+    const later = await Promise.race([
+      rec.syncMarker().then(() => 'RECOVERED'),
+      new Promise((r) => setTimeout(() => r('WEDGED'), 9000))
+    ]);
+    ok('a hung marker write does not wedge the queue for the life of the page',
+      later === 'RECOVERED', 'result=' + later
+      + ' — every later marker write is dead, from all four call sites');
+    ok('...and the write behind it still reaches the server',
+      fsdb.calls.set >= 1, 'setDoc calls=' + fsdb.calls.set);
+  }
+
   // ── a drain that ran OUTSIDE recover() must not leave the rep accused ──
   //
   // writeMarker() was reachable only from recover(). The two drains that do
