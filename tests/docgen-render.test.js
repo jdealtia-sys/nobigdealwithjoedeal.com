@@ -10,9 +10,9 @@
  * This is the test that proves the EXTENDED doc types (the ones in templates.js)
  * are tenant-aware, not just the core ones. It renders a spread of doc types for
  * BOTH tenants and asserts:
- *   - NBD shows 'No Big Deal' + navy #1e3a6e + orange #e8720c.
+ *   - NBD shows 'No Big Deal' + navy #1A3057 + orange #BD5728.
  *   - Oaks shows 'Oaks Roofing & Construction' + charcoal #333333 + accent
- *     #C2410C, and does NOT leak NBD navy #1e3a6e or the 'No Big Deal' name.
+ *     #C2410C, and does NOT leak NBD navy #1A3057 or the 'No Big Deal' name.
  * A failure on the Oaks side is a real tenant-brand leak — a render method
  * hardcoding an NBD value instead of resolving it from C/P/S/A/LOGO.
  *
@@ -83,8 +83,8 @@ console.log('DOCGEN RENDER — warranty certificate (full render)');
 const nbd = render(NBD_BRAND);
 ok('NBD: renders HTML (no error)', typeof nbd === 'string' && nbd.indexOf('RENDER_ERROR') !== 0 && nbd.length > 500);
 ok('NBD: shows NBD name', /No Big Deal Home Solutions/.test(nbd));
-ok('NBD: navy #1e3a6e in styles', /#1e3a6e/i.test(nbd));
-ok('NBD: orange #e8720c accent', /#e8720c/i.test(nbd));
+ok('NBD: navy #1A3057 in styles', /#1A3057/i.test(nbd));
+ok('NBD: orange #BD5728 accent', /#BD5728/i.test(nbd));
 ok('NBD: NBD-WC cert number', /NBD-WC-/.test(nbd));
 
 // ── Oaks: tenant brand throughout (body + chrome + number) ──
@@ -94,7 +94,7 @@ ok('Oaks: shows Oaks name', /Oaks Roofing & Construction/.test(oak));
 ok('Oaks: OAK-WC cert number (docPrefix)', /OAK-WC-/.test(oak));
 ok('Oaks: charcoal #333333 (tenant primary)', /#333333/i.test(oak));
 ok('Oaks: burnt-orange #C2410C (tenant accent)', /#c2410c/i.test(oak));
-ok('Oaks: does NOT show NBD navy #1e3a6e', !/#1e3a6e/i.test(oak));
+ok('Oaks: does NOT show NBD navy #1A3057', !/#1A3057/i.test(oak));
 ok('Oaks: does NOT show "No Big Deal"', !/No Big Deal/.test(oak));
 ok('Oaks: does NOT leak "NBD" signature seal', !/Authorized NBD Representative/.test(oak));
 
@@ -145,7 +145,7 @@ for (const t of DOC_TYPES) {
   const nOk = typeof n === 'string' && n.indexOf('RENDER_ERROR') !== 0 && n.length > 500;
   ok(t.label + ' / NBD: renders HTML (no error)', nOk);
   ok(t.label + ' / NBD: shows "No Big Deal"', /No Big Deal/.test(n));
-  ok(t.label + ' / NBD: navy #1e3a6e present', /#1e3a6e/i.test(n));
+  ok(t.label + ' / NBD: navy #1A3057 present', /#1A3057/i.test(n));
 
   // Oaks: tenant name + charcoal + accent present; NBD navy + NBD name +
   // NBD signature seal ("Authorized NBD Representative") all absent.
@@ -155,7 +155,7 @@ for (const t of DOC_TYPES) {
   ok(t.label + ' / Oaks: shows "Oaks Roofing & Construction"', /Oaks Roofing & Construction/.test(o));
   ok(t.label + ' / Oaks: charcoal #333333 (tenant primary)', /#333333/i.test(o));
   ok(t.label + ' / Oaks: accent #C2410C (tenant accent)', /#c2410c/i.test(o));
-  ok(t.label + ' / Oaks: does NOT leak NBD navy #1e3a6e', !/#1e3a6e/i.test(o));
+  ok(t.label + ' / Oaks: does NOT leak NBD navy #1A3057', !/#1A3057/i.test(o));
   ok(t.label + ' / Oaks: does NOT leak "No Big Deal"', !/No Big Deal/.test(o));
   ok(t.label + ' / Oaks: does NOT leak "NBD" signature seal', !/Authorized NBD Representative/.test(o));
 }

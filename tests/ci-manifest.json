@@ -35,6 +35,7 @@
     "dashboard-kpi.test.js",
     "data-export.test.js",
     "dictate-transcription-provider.test.js",
+    "docgen-paypanel.test.js",
     "docgen-brand.test.js",
     "docgen-address-guard.test.js",
     "estimate-engine-parity.test.js",

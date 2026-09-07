@@ -155,19 +155,42 @@
       smsSignOff:  'Joe from No Big Deal Roofing',
       logoUrl:     'https://nobigdealwithjoedeal.com/assets/images/nbd-logo.png',
       colors: {
-        primary:   '#1E3A6E',  // navy
-        secondary: '#142A52',  // navy-dark
-        accent:    '#E8720C',  // orange (canonical)
+        // NBD DOCUMENT STANDARD, locked 2026-09-07. These are MEASURED off the
+        // master logo artwork (1536x1024) — the logo is the colour source of
+        // truth, not any code file. Retired: #1E3A6E (too blue), #142A52,
+        // #1A3A5C (too grey-blue) and #E8720C, which was both off-brand and
+        // failed WCAG AA for body text at 3.07:1 on white.
+        primary:   '#1A3057',  // navy — logo wordmark/roof. 13.09:1 on white
+        secondary: '#12223D',  // navy-deep — navy mixed 30% to black. 15.89:1
+        accent:    '#BD5728',  // orange — the logo's rust. 4.61:1, clears AA
         ink:       '#14181F',  // body text
         charcoal:  '#14181F',
-        cream:     '#FAF7F2'
+        cream:     '#FAF7F2',
+        // Supporting neutrals, mathematically mixed FROM the navy rather than
+        // picked by eye — that is why the palette reads as one family.
+        grey:      '#4C4C4D',  // logo subline grey — captions, labels. 8.58:1
+        rule:      '#DFE2E7',  // hairlines, borders — navy 86% to white
+        wash:      '#F6F7F8'   // zebra rows, panel fills — navy 96% to white
       },
       fonts: {
         display:    'Bebas Neue',       // marketing display
         body:       'Montserrat',       // marketing body
-        docDisplay: 'Barlow Condensed', // PDF display
-        docBody:    'Barlow'            // PDF body
+        // Document faces per the NBD Document Standard. These two tokens
+        // existed but were consumed NOWHERE — the generator hardcoded
+        // Georgia/Helvetica. printCSS() now reads them.
+        docDisplay: 'Montserrat',       // PDF display / headings
+        docBody:    'Lato'              // PDF body
       },
+      // Manufacturer and credential badges printed on document classes that
+      // carry them. A licence number is a CREDENTIAL CLAIM, not cosmetic
+      // styling, so 'affiliates' is listed in _IDENTITY_TOP below and is
+      // BLANKED for any non-NBD tenant that has not set its own — otherwise
+      // deepMerge would print NBD's GAF/TAMKO numbers on another company's
+      // contracts, which is a false certification claim.
+      affiliates: [
+        { name: 'GAF Certified',  number: '#1162011' },
+        { name: 'TAMKO Pro Gold', number: '#181382' }
+      ],
       contact: {
         phone:      '(859) 420-7382',
         // The DOCUMENTS/portal address, not the marketing one. NBD runs two on
@@ -405,7 +428,14 @@
   // portal, or alerts (review M1). displayName is special-cased to the tenant's
   // own legalName (never blank, never 'No Big Deal'). colors/fonts are cosmetic
   // and may inherit. NBD itself is returned untouched (byte-identical).
-  const _IDENTITY_TOP     = ['seal', 'docPrefix', 'tagline', 'smsSignOff', 'logoUrl'];
+  // 'affiliates' belongs here and NOT in the "cosmetic, may inherit" bucket:
+  // a GAF/TAMKO licence number is a CERTIFICATION CLAIM. Left to deep-merge, a
+  // stranger tenant's contract would print NBD's GAF #1162011 as if it were
+  // their own — a false credential on a signed document, which is a materially
+  // worse failure than a wrong colour. Blanked to '' like the rest of the
+  // identity surface; the badge renderer treats '' / [] / undefined as "no
+  // badges" so a tenant that has not set its own simply prints none.
+  const _IDENTITY_TOP     = ['seal', 'docPrefix', 'tagline', 'smsSignOff', 'logoUrl', 'affiliates'];
   const _IDENTITY_CONTACT = ['phone', 'email', 'website', 'address', 'alertEmail', 'alertSms'];
 
   function _resolveBrand() {

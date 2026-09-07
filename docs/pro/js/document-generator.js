@@ -28,11 +28,17 @@ window.NBDDocGen = {
     tagline: 'No Big Deal — We\'ve Got You Covered',
     address: '', // Optional
     colors: {
-      primary: '#1e3a6e',    // Navy blue (matches website brand)
-      secondary: '#1a1a2e',  // Dark navy
-      accent: '#e8720c',     // Brand orange (matches site brand)
+      // NBD DOCUMENT STANDARD, locked 2026-09-07 — measured off the master logo
+      // artwork. Keep in step with company-profile.js brand.colors; this object
+      // is only the fallback for when the profile has not resolved yet.
+      primary: '#1A3057',    // Navy — logo wordmark and roof
+      secondary: '#12223D',  // Navy-deep — gradients, dark bars
+      accent: '#BD5728',     // Orange — the logo's rust, clears WCAG AA
       lightGray: '#f5f5f5',
-      borderGray: '#ddd'
+      borderGray: '#ddd',
+      grey: '#4C4C4D',       // Captions, labels
+      rule: '#DFE2E7',       // Hairlines, table borders
+      wash: '#F6F7F8'        // Zebra rows, panel fills
     }
   },
 
@@ -1619,9 +1625,9 @@ window.NBDDocGen = {
     const css =
       '<style id="nbd-sig-styles">' +
       '.nbd-sig-block{margin:0.2in 0 0.4in;padding:0;page-break-inside:avoid;}' +
-      '.nbd-sig-label{font-size:11px;font-weight:700;color:#1a1a2e;margin-bottom:6px;text-transform:uppercase;letter-spacing:.04em;}' +
+      '.nbd-sig-label{font-size:11px;font-weight:700;color:#1A3057;margin-bottom:6px;text-transform:uppercase;letter-spacing:.04em;}' +
       '.nbd-sig-canvas{display:block;width:100%;height:120px;border:1px dashed #999;border-radius:6px;background:#fafafa;cursor:crosshair;box-sizing:border-box;touch-action:none;}' +
-      '.nbd-sig-img{display:block;max-width:100%;height:auto;background:#fff;border-bottom:1px solid #1a1a2e;padding-bottom:4px;}' +
+      '.nbd-sig-img{display:block;max-width:100%;height:auto;background:#fff;border-bottom:1px solid #1A3057;padding-bottom:4px;}' +
       '.nbd-sig-controls{margin-top:6px;display:flex;gap:8px;align-items:center;}' +
       '.nbd-sig-controls button{font-size:11px;padding:4px 10px;background:#fff;border:1px solid #ccc;border-radius:4px;cursor:pointer;font-family:inherit;}' +
       '.nbd-sig-controls button:hover{background:#f5f5f5;}' +
@@ -2601,35 +2607,60 @@ window.NBDDocGen = {
     const desc = d.projectDescription || d.scopeSummary || d.workDescription || d.notes || '';
     const price = d.totalPrice || d.totalAmount || d.contractPrice || '';
 
+    // TENANCY: this generic/fallback renderer used to hardcode NBD's palette,
+    // so ANY tenant whose document fell through to it got NBD-coloured chrome.
+    // The registered render* methods in document-generator-templates.js have
+    // been tenant-aware since Phase B; this one was missed because no test
+    // exercises it. Resolve from the active brand, exactly like they do, and
+    // fall back to the NBD base only when a token is genuinely absent.
+    const _gc = this._resolveCompany();
+    const _gcol = (_gc && _gc.colors) || {};
+    const _P = _gcol.primary   || '#1A3057';  // navy — headings, labels
+    const _A = _gcol.accent    || '#BD5728';  // accent — rules, badges
+    const _INK = _gcol.ink     || '#14181F';  // body copy
+    const _G = _gcol.grey      || '#4C4C4D';  // captions, meta
+    const _RL = _gcol.rule     || '#DFE2E7';  // hairlines
+    const _WSH = _gcol.wash    || '#F6F7F8';  // panel fill
+
     // Collect all non-empty fields into a data table
     const skipFields = new Set(['_documentType','date','companyName','companyPhone','companyEmail','companyWebsite','companyTagline']);
     const fieldRows = Object.entries(d)
       .filter(([k,v]) => v && !skipFields.has(k) && typeof v === 'string' && v.trim())
       .map(([k,v]) => {
         const label = k.replace(/([A-Z])/g, ' $1').replace(/^./, s => s.toUpperCase()).replace(/_/g, ' ');
-        return `<tr><td style="padding:8px 12px;font-weight:600;color:#1e3a6e;white-space:nowrap;width:180px;border-bottom:1px solid #f0f0f0;">${this._escHtml(label)}</td><td style="padding:8px 12px;border-bottom:1px solid #f0f0f0;">${this._escHtml(String(v).substring(0, 500))}</td></tr>`;
+        return `<tr><td style="padding:8px 12px;font-weight:600;color:${_P};white-space:nowrap;width:180px;border-bottom:1px solid #f0f0f0;">${this._escHtml(label)}</td><td style="padding:8px 12px;border-bottom:1px solid #f0f0f0;">${this._escHtml(String(v).substring(0, 500))}</td></tr>`;
       }).join('');
 
     const c = this._resolveCompany();
     return `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${typeName} — ${this._escHtml(name || 'NBD Pro')}</title>
-<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700;800&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700;800&family=Lato:wght@400;700&display=swap" rel="stylesheet">
 <style>
+/* NBD DOCUMENT STANDARD (locked 2026-09-07). This generic/server document
+   chrome used to be a SECOND visual language — Barlow Condensed over Barlow,
+   with the retired palette hardcoded — so a document that fell through to this
+   renderer came out looking nothing like the 26 registered types. It now
+   matches printCSS() in document-generator-templates.js.
+   Every font-family carries a fallback STACK on purpose: neither Montserrat
+   nor Lato is a system font, and if the webfont link above is unreachable
+   (offline, print, a locked-down network) a bare family name silently renders
+   as Times. The stack is what makes the CDN link an enhancement, not a
+   dependency. */
 *{margin:0;padding:0;box-sizing:border-box;}
-body{font-family:'Barlow',sans-serif;padding:36px;max-width:860px;margin:0 auto;color:#1a1a2e;}
-.hdr{display:flex;justify-content:space-between;align-items:flex-start;padding-bottom:20px;border-bottom:3px solid #e8720c;margin-bottom:26px;}
+body{font-family:'Lato','Segoe UI',Helvetica,Arial,sans-serif;padding:36px;max-width:860px;margin:0 auto;color:${_INK};line-height:1.55;}
+.hdr{display:flex;justify-content:space-between;align-items:flex-start;padding-bottom:20px;border-bottom:3px solid ${_A};margin-bottom:26px;}
 .brand-row{display:flex;align-items:center;gap:12px;}
 /* Width-only; height derives from the 1.5:1 source so the white card hugs the artwork. */
 .brand-logo{display:block;width:140px;height:auto;background:#fff;border-radius:6px;padding:4px 8px;box-sizing:border-box;}
-.brand{font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:800;text-transform:uppercase;color:#1a1a2e;line-height:1.1;}
-.badge{font-size:9px;font-weight:700;letter-spacing:.18em;text-transform:uppercase;color:var(--orange,#e8720c);border:1px solid #e8720c;padding:2px 9px;border-radius:2px;display:inline-block;margin-top:5px;}
-.doc-type{font-family:'Barlow Condensed',sans-serif;font-size:28px;font-weight:800;text-transform:uppercase;color:#1e3a6e;text-align:right;}
-.doc-date{font-size:12px;color:#666;text-align:right;margin-top:4px;}
-h2{font-family:'Barlow Condensed',sans-serif;font-size:14px;font-weight:700;text-transform:uppercase;letter-spacing:.15em;color:var(--orange,#e8720c);margin:24px 0 12px;padding-bottom:4px;border-bottom:1px solid #eee;}
+.brand{font-family:'Montserrat','Segoe UI',Helvetica,Arial,sans-serif;font-size:18px;font-weight:800;text-transform:uppercase;color:${_P};line-height:1.1;}
+.badge{font-size:9px;font-weight:700;letter-spacing:.18em;text-transform:uppercase;color:${_A};border:1px solid ${_A};padding:2px 9px;border-radius:2px;display:inline-block;margin-top:5px;}
+.doc-type{font-family:'Montserrat','Segoe UI',Helvetica,Arial,sans-serif;font-size:28px;font-weight:800;text-transform:uppercase;color:${_P};text-align:right;}
+.doc-date{font-size:12px;color:${_G};text-align:right;margin-top:4px;}
+h2{font-family:'Montserrat','Segoe UI',Helvetica,Arial,sans-serif;font-size:14px;font-weight:700;text-transform:uppercase;letter-spacing:.15em;color:${_P};margin:24px 0 12px;padding-bottom:4px;border-bottom:1px solid ${_RL};}
 table{width:100%;border-collapse:collapse;margin-bottom:16px;}
-.desc{background:#f8f8f8;border-left:4px solid #e8720c;padding:16px 20px;margin:16px 0;font-size:14px;line-height:1.6;border-radius:0 6px 6px 0;}
-.sig-block{display:grid;grid-template-columns:1fr 1fr;gap:40px;margin-top:40px;padding-top:20px;border-top:2px solid #eee;}
-.sig-line{border-top:1px solid #333;padding-top:6px;font-size:11px;color:#666;margin-top:50px;}
-.footer{margin-top:40px;padding-top:16px;border-top:1px solid #eee;display:flex;justify-content:space-between;font-size:10px;color:#999;}
+.desc{background:${_WSH};border-left:4px solid ${_A};padding:16px 20px;margin:16px 0;font-size:14px;line-height:1.6;border-radius:0 6px 6px 0;}
+.sig-block{display:grid;grid-template-columns:1fr 1fr;gap:40px;margin-top:40px;padding-top:20px;border-top:2px solid ${_RL};}
+.sig-line{border-top:1px solid ${_P};padding-top:6px;font-size:11px;color:${_G};margin-top:50px;}
+.footer{margin-top:40px;padding-top:16px;border-top:1px solid ${_RL};display:flex;justify-content:space-between;font-size:10px;color:${_G};}
 @media print{body{padding:20px;}@page{margin:1.5cm;size:letter;}}
 </style></head><body>
 <div class="hdr">
@@ -2641,10 +2672,10 @@ table{width:100%;border-collapse:collapse;margin-bottom:16px;}
 </div>
 ${name || addr ? `<h2>Customer Information</h2>
 <table>
-  ${name ? '<tr><td style="padding:8px 12px;font-weight:600;color:#1e3a6e;width:180px;border-bottom:1px solid #f0f0f0;">Homeowner</td><td style="padding:8px 12px;border-bottom:1px solid #f0f0f0;">' + this._escHtml(name) + '</td></tr>' : ''}
-  ${addr ? '<tr><td style="padding:8px 12px;font-weight:600;color:#1e3a6e;width:180px;border-bottom:1px solid #f0f0f0;">Address</td><td style="padding:8px 12px;border-bottom:1px solid #f0f0f0;">' + this._escHtml(addr) + '</td></tr>' : ''}
-  ${phone ? '<tr><td style="padding:8px 12px;font-weight:600;color:#1e3a6e;width:180px;border-bottom:1px solid #f0f0f0;">Phone</td><td style="padding:8px 12px;border-bottom:1px solid #f0f0f0;">' + this._escHtml(phone) + '</td></tr>' : ''}
-  ${email ? '<tr><td style="padding:8px 12px;font-weight:600;color:#1e3a6e;width:180px;border-bottom:1px solid #f0f0f0;">Email</td><td style="padding:8px 12px;border-bottom:1px solid #f0f0f0;">' + this._escHtml(email) + '</td></tr>' : ''}
+  ${name ? '<tr><td style="padding:8px 12px;font-weight:600;color:#1A3057;width:180px;border-bottom:1px solid #f0f0f0;">Homeowner</td><td style="padding:8px 12px;border-bottom:1px solid #f0f0f0;">' + this._escHtml(name) + '</td></tr>' : ''}
+  ${addr ? '<tr><td style="padding:8px 12px;font-weight:600;color:#1A3057;width:180px;border-bottom:1px solid #f0f0f0;">Address</td><td style="padding:8px 12px;border-bottom:1px solid #f0f0f0;">' + this._escHtml(addr) + '</td></tr>' : ''}
+  ${phone ? '<tr><td style="padding:8px 12px;font-weight:600;color:#1A3057;width:180px;border-bottom:1px solid #f0f0f0;">Phone</td><td style="padding:8px 12px;border-bottom:1px solid #f0f0f0;">' + this._escHtml(phone) + '</td></tr>' : ''}
+  ${email ? '<tr><td style="padding:8px 12px;font-weight:600;color:#1A3057;width:180px;border-bottom:1px solid #f0f0f0;">Email</td><td style="padding:8px 12px;border-bottom:1px solid #f0f0f0;">' + this._escHtml(email) + '</td></tr>' : ''}
 </table>` : ''}
 ${fieldRows ? '<h2>Details</h2><table>' + fieldRows + '</table>' : ''}
 ${desc ? '<h2>Description</h2><div class="desc">' + this._escHtml(desc) + '</div>' : ''}
