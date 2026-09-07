@@ -1319,14 +1319,26 @@ body.nbd-photo-selecting .nbd-photo-checkbox,
   <!-- RoofLink-parity count badges: the neutral .nav-count chips are
        stamped by window.nbdNavCount (customer-tasks-ui.js) from each
        module's loader — Photos (total), Documents (total), Timeline
-       (OPEN tasks). Messages keeps its orange unread badge. -->
+       (OPEN tasks). Messages keeps its orange unread badge.
+
+       Link order MATCHES DOM order, deliberately. The scroll-spy in
+       customer-tasks-ui.js maps section ids to these links and toggles
+       .active on intersection, so any mismatch makes the highlight jump
+       around the bar while the rep scrolls in a straight line — it used to
+       light them 1, 6, 2, 3, 5, 4, 7. If you add a section, insert its link
+       at the same position its markup occupies below.
+
+       The open-task badge lives on OVERVIEW because that is where tasks
+       render (#timelineList). The Timeline SECTION is stage milestones
+       (#projectTimeline); the badge sat there and counted work behind a
+       different pill. -->
   <div class="jump-nav" id="tabBar">
-    <a href="#overviewTab">Overview</a>
+    <a href="#overviewTab">Overview <span class="nav-count" id="navCountTasks" title="Open tasks" style="display:none;background:var(--s3,rgba(255,255,255,.08));color:var(--m,#9ca3af);font-size:10px;padding:1px 6px;border-radius:8px;margin-left:4px;font-weight:700;"></span></a>
+    <a href="#timelineTab">Timeline</a>
     <a href="#photosTab">Photos <span class="nav-count" id="navCountPhotos" style="display:none;background:var(--s3,rgba(255,255,255,.08));color:var(--m,#9ca3af);font-size:10px;padding:1px 6px;border-radius:8px;margin-left:4px;font-weight:700;"></span></a>
     <a href="#documentsTab">Files <span class="nav-count" id="navCountDocs" style="display:none;background:var(--s3,rgba(255,255,255,.08));color:var(--m,#9ca3af);font-size:10px;padding:1px 6px;border-radius:8px;margin-left:4px;font-weight:700;"></span></a>
-    <a href="#voiceTab">Voice Intel</a>
     <a href="#messagesTab">Messages <span id="msgUnreadBadge" style="display:none;background:var(--orange, #A14A22);color:var(--accent-fg);font-size:10px;padding:1px 6px;border-radius:8px;margin-left:4px;font-weight:700;"></span></a>
-    <a href="#timelineTab">Timeline <span class="nav-count" id="navCountTasks" title="Open tasks" style="display:none;background:var(--s3,rgba(255,255,255,.08));color:var(--m,#9ca3af);font-size:10px;padding:1px 6px;border-radius:8px;margin-left:4px;font-weight:700;"></span></a>
+    <a href="#voiceTab">Voice Intel</a>
     <a href="#contactTab">Contact</a>
   </div>
 
