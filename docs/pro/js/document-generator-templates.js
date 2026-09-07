@@ -2010,7 +2010,7 @@
         .step-row:last-child { border-bottom:none; }
         .step-bubble { width:48px; height:48px; border-radius:50%; background:${A}; color:#fff;
           display:flex; align-items:center; justify-content:center; font-size:20px; font-weight:700;
-          flex-shrink:0; box-shadow:0 2px 8px rgba(232,114,12,0.3); }
+          flex-shrink:0; box-shadow:0 2px 8px rgba(189,87,40,0.3); }
         .step-content h3 { margin:0 0 6px; font-size:16px; color:${S}; font-family:'Helvetica Neue',Arial,sans-serif; }
         .step-content p { margin:0; font-size:14px; color:#555; line-height:1.6; }
         .faq-item { margin-bottom:16px; }

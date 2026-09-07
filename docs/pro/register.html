@@ -37,8 +37,8 @@
 
 :root {
   --orange: #BD5728;
-  --ob:     #f08030;
-  --og:     rgba(232,114,12,.18);
+  --ob:     #dd875f;
+  --og:     rgba(189,87,40,.18);
   --bg:     #0A0C0F;
   --s:      #111418;
   --s2:     #181C22;
@@ -164,7 +164,7 @@ main#main {
   width: 32px;
   height: 32px;
   background: var(--og);
-  border: 1px solid rgba(232,114,12,.25);
+  border: 1px solid rgba(189,87,40,.25);
   border-radius: 7px;
   display: flex;
   align-items: center;
@@ -329,10 +329,10 @@ main#main {
   font-weight: 500;
   letter-spacing: .1em;
   text-transform: uppercase;
-  border-color: rgba(232,114,12,.3);
-  background: rgba(232,114,12,.06);
+  border-color: rgba(189,87,40,.3);
+  background: rgba(189,87,40,.06);
 }
-.code-field .finput:focus { border-color: var(--orange); background: rgba(232,114,12,.1); }
+.code-field .finput:focus { border-color: var(--orange); background: rgba(189,87,40,.1); }
 
 .code-hint {
   font-size: 10px;
@@ -346,7 +346,7 @@ main#main {
 .submit-btn {
   width: 100%;
   padding: 13px;
-  background: #B85400;
+  background: #BD5728;
   color: #fff;
   border: none;
   border-radius: 8px;
@@ -359,7 +359,7 @@ main#main {
   transition: all .15s;
   margin-top: 4px;
 }
-.submit-btn:hover:not(:disabled) { background: #A64B00; transform: translateY(-1px); box-shadow: 0 4px 20px var(--og); }
+.submit-btn:hover:not(:disabled) { background: #A14A22; transform: translateY(-1px); box-shadow: 0 4px 20px var(--og); }
 .submit-btn:disabled { opacity: .6; cursor: not-allowed; }
 
 /* Messages */
@@ -527,7 +527,7 @@ main#main {
     <!-- Selected-plan banner: shown by js/pages/register.js when the visitor
          arrived from a paid CTA (?plan= or a stashed intent). Hidden by default
          so free signups never see it. -->
-    <div id="regPlanBanner" role="status" style="display:none;margin:14px 0 4px;padding:11px 14px;background:rgba(232,114,12,.1);border:1px solid rgba(232,114,12,.4);border-radius:8px;font-size:13px;line-height:1.5;color:var(--orange,#BD5728);"></div>
+    <div id="regPlanBanner" role="status" style="display:none;margin:14px 0 4px;padding:11px 14px;background:rgba(189,87,40,.1);border:1px solid rgba(189,87,40,.4);border-radius:8px;font-size:13px;line-height:1.5;color:var(--orange,#BD5728);"></div>
 
     <button type="button" class="google-btn" id="googleRegBtn">
       <span class="google-icon">

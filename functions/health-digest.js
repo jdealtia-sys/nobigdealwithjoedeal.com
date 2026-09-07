@@ -204,28 +204,28 @@ function buildEmailBody({ vision, stripe, api, activity, imagePipe, periodLabel 
 
   return [
     '<div style="font-family:-apple-system,system-ui,sans-serif;max-width:600px;margin:0 auto;color:#1a1612;">',
-    '<h2 style="font-size:18px;margin:0 0 4px;letter-spacing:.04em;text-transform:uppercase;color:#e8720c;">NBD Pro · Health Digest</h2>',
+    '<h2 style="font-size:18px;margin:0 0 4px;letter-spacing:.04em;text-transform:uppercase;color:#bd5728;">NBD Pro · Health Digest</h2>',
     '<div style="color:#888;font-size:12px;margin-bottom:18px;">' + periodLabel + '</div>',
 
-    '<h3 style="font-size:14px;color:#1a1612;margin:18px 0 8px;border-bottom:2px solid #e8720c;padding-bottom:4px;">Vision AI Spend</h3>',
+    '<h3 style="font-size:14px;color:#1a1612;margin:18px 0 8px;border-bottom:2px solid #bd5728;padding-bottom:4px;">Vision AI Spend</h3>',
     '<div style="font-size:13px;margin-bottom:8px;"><strong>' + fmtUsd(vision.userTotal) + '</strong> across <strong>' + fmtNum(vision.userCount) + '</strong> Vision calls in the last 24h.</div>',
     '<table style="width:100%;border-collapse:collapse;font-size:12px;margin-bottom:14px;"><thead><tr style="text-align:left;color:#888;text-transform:uppercase;letter-spacing:.06em;font-size:10px;"><th style="padding:6px 12px;">Top Leads (lifetime)</th><th style="padding:6px 12px;text-align:right;">Spend</th><th style="padding:6px 12px;text-align:right;">Calls</th></tr></thead><tbody>' + topLeadsRows + '</tbody></table>',
 
-    '<h3 style="font-size:14px;color:#1a1612;margin:18px 0 8px;border-bottom:2px solid #e8720c;padding-bottom:4px;">Stripe Webhook Activity</h3>',
+    '<h3 style="font-size:14px;color:#1a1612;margin:18px 0 8px;border-bottom:2px solid #bd5728;padding-bottom:4px;">Stripe Webhook Activity</h3>',
     '<div style="font-size:13px;margin-bottom:8px;"><strong>' + fmtNum(stripe.total) + '</strong> events processed in the last 24h.</div>',
     '<table style="width:100%;border-collapse:collapse;font-size:12px;margin-bottom:14px;"><tbody>' + stripeTypeRows + '</tbody></table>',
 
-    '<h3 style="font-size:14px;color:#1a1612;margin:18px 0 8px;border-bottom:2px solid #e8720c;padding-bottom:4px;">Anthropic Token Usage (today)</h3>',
+    '<h3 style="font-size:14px;color:#1a1612;margin:18px 0 8px;border-bottom:2px solid #bd5728;padding-bottom:4px;">Anthropic Token Usage (today)</h3>',
     '<div style="font-size:13px;margin-bottom:8px;"><strong>' + fmtNum(api.total) + '</strong> tokens reserved across all users.</div>',
     '<table style="width:100%;border-collapse:collapse;font-size:12px;margin-bottom:14px;"><tbody>' + topUserRows + '</tbody></table>',
 
-    '<h3 style="font-size:14px;color:#1a1612;margin:18px 0 8px;border-bottom:2px solid #e8720c;padding-bottom:4px;">Activity</h3>',
+    '<h3 style="font-size:14px;color:#1a1612;margin:18px 0 8px;border-bottom:2px solid #bd5728;padding-bottom:4px;">Activity</h3>',
     '<div style="font-size:13px;line-height:1.6;">',
     '<strong>' + fmtNum(activity.photos) + '</strong> photo uploads · ',
     '<strong>' + fmtNum(activity.portalEvents) + '</strong> homeowner portal events',
     '</div>',
 
-    '<h3 style="font-size:14px;color:#1a1612;margin:18px 0 8px;border-bottom:2px solid #e8720c;padding-bottom:4px;">Image Pipeline</h3>',
+    '<h3 style="font-size:14px;color:#1a1612;margin:18px 0 8px;border-bottom:2px solid #bd5728;padding-bottom:4px;">Image Pipeline</h3>',
     imagePipe.genuineRecent
       ? '<div style="font-size:13px;margin-bottom:8px;color:#c0392b;"><strong>⚠ Orphaned variants in the last 24h</strong> — a photo got WebP variants but no /photos doc matched its storagePath (last: <code style="font-size:11px;">' + escHtml(imagePipe.lastGenuinePath) + '</code> at ' + escHtml(imagePipe.lastGenuineAtIso) + '). Lifetime genuine orphans: <strong>' + fmtNum(imagePipe.noDocMatched) + '</strong>. Sweep with <code>scripts/backfill-photos-variants.js</code>.</div>'
       : '<div style="font-size:13px;margin-bottom:8px;">No orphaned variants in the last 24h. Lifetime: <strong>' + fmtNum(imagePipe.noDocMatched) + '</strong> genuine · <strong>' + fmtNum(imagePipe.noDocMatchedD2d) + '</strong> d2d docless-by-design.</div>',

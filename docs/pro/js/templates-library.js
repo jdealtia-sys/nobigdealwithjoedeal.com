@@ -333,7 +333,7 @@ Bookmark it; the link stays live as we work through the project.
           </div>
           <div style="display:flex; gap:6px; justify-content:flex-end; margin-top:10px;">
             <button id="nbd-tpl-cancel" type="button" style="background:transparent; color:var(--m,#9aa3b2); border:1px solid var(--br,#2a3344); padding:8px 14px; border-radius:6px; font:inherit; font-size:12px; font-weight:600; cursor:pointer;">Cancel</button>
-            <button id="nbd-tpl-save" type="button" style="background:linear-gradient(135deg,#A14A22 0%,#a64516 100%); color:#fff; border:none; padding:8px 14px; border-radius:6px; font:inherit; font-size:12px; font-weight:700; cursor:pointer;" data-template-id="${escapeHtml(t.id || '')}">Save</button>
+            <button id="nbd-tpl-save" type="button" style="background:linear-gradient(135deg,#BD5728 0%,#A14A22 100%); color:#fff; border:none; padding:8px 14px; border-radius:6px; font:inherit; font-size:12px; font-weight:700; cursor:pointer;" data-template-id="${escapeHtml(t.id || '')}">Save</button>
           </div>
         </div>`;
     }

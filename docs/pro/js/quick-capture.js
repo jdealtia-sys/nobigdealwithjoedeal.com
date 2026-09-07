@@ -157,7 +157,7 @@
 
         // Recording panel
         '<div id="nbd-qc-record-panel" style="text-align:center;padding:28px 18px;background:#0a1424;border-radius:10px;margin-bottom:14px;">' +
-          '<button type="button" id="nbd-qc-record-btn" style="width:88px;height:88px;border-radius:50%;border:none;background:var(--orange, #A14A22);color:#fff;font-size:36px;cursor:pointer;box-shadow:0 8px 24px rgba(200,84,26,0.45);transition:transform 120ms ease;">🎤</button>' +
+          '<button type="button" id="nbd-qc-record-btn" style="width:88px;height:88px;border-radius:50%;border:none;background:var(--orange, #A14A22);color:#fff;font-size:36px;cursor:pointer;box-shadow:0 8px 24px rgba(161,74,34,0.45);transition:transform 120ms ease;">🎤</button>' +
           '<div id="nbd-qc-status" style="margin-top:14px;font-size:14px;color:#94a3b8;">Tap to start recording (up to 5 minutes)</div>' +
           '<canvas id="nbd-qc-canvas" width="360" height="36" style="display:none;margin:14px auto 0;"></canvas>' +
           '<div id="nbd-qc-timer" style="display:none;margin-top:8px;font-variant-numeric:tabular-nums;font-size:13px;color:#fbbf24;">0:00 / 5:00</div>' +
@@ -350,7 +350,7 @@
     if (!recordBtn) return;
     recordBtn.innerHTML = '🎤';
     recordBtn.style.background = 'var(--orange, #A14A22)';
-    recordBtn.style.boxShadow = '0 8px 24px rgba(200,84,26,0.45)';
+    recordBtn.style.boxShadow = '0 8px 24px rgba(161,74,34,0.45)';
   }
 
   function _setStatus(msg) {
@@ -416,7 +416,7 @@
       '<div style="background:#0a1424;border-radius:10px;padding:16px;margin-bottom:14px;">' +
         '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">' +
           '<div style="font-size:11px;color:#94a3b8;letter-spacing:0.06em;font-weight:600;">SUMMARY</div>' +
-          '<div style="display:inline-block;padding:3px 9px;background:rgba(200,84,26,0.15);border:1px solid var(--orange, #A14A22);border-radius:999px;font-size:11px;color:var(--orange, #A14A22);">' + escHtml(category) + '</div>' +
+          '<div style="display:inline-block;padding:3px 9px;background:rgba(161,74,34,0.15);border:1px solid var(--orange, #A14A22);border-radius:999px;font-size:11px;color:var(--orange, #A14A22);">' + escHtml(category) + '</div>' +
         '</div>' +
         '<div style="font-size:14px;line-height:1.5;margin-bottom:14px;">' + escHtml(overview) + '</div>' +
 

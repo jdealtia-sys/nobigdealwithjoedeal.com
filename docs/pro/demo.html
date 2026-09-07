@@ -16,7 +16,7 @@
 *,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
 :root{
   --bg:#0A0C0F;--s:#111418;--s2:#181C22;--s3:#1E2229;
-  --orange:#BD5728;--orange-d:#f08030;--orange-l:#f59240;--orange-btn:#B85400; /* AA-compliant button orange — matches landing .btn-primary */
+  --orange:#BD5728;--orange-d:#dd875f;--orange-l:#f59240;--orange-btn:#BD5728; /* AA-compliant button orange — matches landing .btn-primary */
   --navy:#0A0C0F;--navy-l:#111418;
   --white:#E8EAF0;--muted:#7C8694;--dimmed:#4A5568;
   --border:rgba(255,255,255,.07);
@@ -34,12 +34,12 @@ body{background:var(--bg);color:var(--white);font-family:'Barlow',sans-serif;lin
 }
 .demo-hero::before{
   content:'';position:absolute;top:0;right:0;bottom:0;left:0;
-  background:radial-gradient(ellipse 800px 400px at 50% 0%,rgba(232,114,12,0.07) 0%,transparent 70%);
+  background:radial-gradient(ellipse 800px 400px at 50% 0%,rgba(189,87,40,0.07) 0%,transparent 70%);
   pointer-events:none;
 }
 .demo-eyebrow{
   display:inline-flex;align-items:center;gap:8px;
-  background:rgba(232,114,12,0.08);border:1px solid rgba(232,114,12,0.25);
+  background:rgba(189,87,40,0.08);border:1px solid rgba(189,87,40,0.25);
   color:var(--orange);font-size:10px;font-weight:700;
   letter-spacing:3px;text-transform:uppercase;
   padding:7px 16px;border-radius:4px;margin-bottom:24px;
@@ -108,8 +108,8 @@ body{background:var(--bg);color:var(--white);font-family:'Barlow',sans-serif;lin
   font-size:9px;font-weight:700;letter-spacing:2px;text-transform:uppercase;
   margin-bottom:16px;
 }
-.tc-badge.orange{background:rgba(232,114,12,.12);border:1px solid rgba(232,114,12,.25);color:var(--orange)}
-.tc-badge.orange{background:rgba(232,114,12,.08);border:1px solid rgba(232,114,12,.22);color:var(--orange)}
+.tc-badge.orange{background:rgba(189,87,40,.12);border:1px solid rgba(189,87,40,.25);color:var(--orange)}
+.tc-badge.orange{background:rgba(189,87,40,.08);border:1px solid rgba(189,87,40,.22);color:var(--orange)}
 .tc-badge.green{background:rgba(63,185,80,.1);border:1px solid rgba(63,185,80,.25);color:#3fb950}
 .tc-badge.purple{background:rgba(139,92,246,.1);border:1px solid rgba(139,92,246,.25);color:#8b5cf6}
 .tc-badge.gold{background:rgba(212,160,10,.1);border:1px solid rgba(212,160,10,.25);color:#d4a00a}
@@ -161,7 +161,7 @@ body{background:var(--bg);color:var(--white);font-family:'Barlow',sans-serif;lin
   content:'🔒 DEMO MODE — Sign Up to Unlock';
   position:absolute;
   top:12px;right:12px;z-index:100;
-  background:rgba(232,114,12,0.95);
+  background:rgba(189,87,40,0.95);
   color:#fff;font-size:9px;font-weight:700;
   letter-spacing:1px;padding:6px 12px;
   border-radius:4px;
@@ -169,7 +169,7 @@ body{background:var(--bg);color:var(--white);font-family:'Barlow',sans-serif;lin
 }
 .tc-mockup::before{
   content:'';position:absolute;top:0;right:0;bottom:0;left:0;
-  background:linear-gradient(135deg,rgba(232,114,12,.03) 0%,transparent 60%);
+  background:linear-gradient(135deg,rgba(189,87,40,.03) 0%,transparent 60%);
   pointer-events:none;z-index:1;
 }
 .mock-bar{
@@ -236,7 +236,7 @@ body{background:var(--bg);color:var(--white);font-family:'Barlow',sans-serif;lin
 
 /* DIVIDER */
 .demo-divider{
-  height:1px;background:linear-gradient(90deg,transparent,rgba(232,114,12,.15),transparent);
+  height:1px;background:linear-gradient(90deg,transparent,rgba(189,87,40,.15),transparent);
   margin:0 48px;
 }
 
@@ -250,7 +250,7 @@ body{background:var(--bg);color:var(--white);font-family:'Barlow',sans-serif;lin
 }
 .demo-cta::before{
   content:'';position:absolute;top:0;right:0;bottom:0;left:0;
-  background:radial-gradient(ellipse 700px 350px at 50% 100%,rgba(232,114,12,0.07) 0%,transparent 70%);
+  background:radial-gradient(ellipse 700px 350px at 50% 100%,rgba(189,87,40,0.07) 0%,transparent 70%);
   pointer-events:none;
 }
 .demo-cta h2{
@@ -274,13 +274,13 @@ body{background:var(--bg);color:var(--white);font-family:'Barlow',sans-serif;lin
 .btn-orange-lg:hover{background:var(--orange-d);transform:translateY(-1px)}
 .btn-infused{
   padding:16px 36px;
-  background:rgba(232,114,12,.1);
-  border:1px solid rgba(232,114,12,.35);
+  background:rgba(189,87,40,.1);
+  border:1px solid rgba(189,87,40,.35);
   color:var(--orange);border-radius:4px;font-weight:800;font-size:13px;
   letter-spacing:1.5px;text-transform:uppercase;
   text-decoration:none;transition:.2s;
 }
-.btn-infused:hover{background:rgba(232,114,12,.2);transform:translateY(-1px)}
+.btn-infused:hover{background:rgba(189,87,40,.2);transform:translateY(-1px)}
 .demo-cta-note{font-size:11px;color:var(--dimmed);margin-top:16px;position:relative;z-index:1}
 
 /* FOOTER */
@@ -403,7 +403,7 @@ body{background:var(--bg);color:var(--white);font-family:'Barlow',sans-serif;lin
         </div>
         <div class="mock-item">
           <div class="mock-item-left"><div class="mock-dot-sm" style="background:#BD5728"></div><div><div class="mock-item-name">Marcus Williams</div><div class="mock-item-sub">Roofing · 1248 Oak Ave</div></div></div>
-          <div class="mock-pill" style="background:rgba(232,114,12,.15);color:#BD5728">New</div>
+          <div class="mock-pill" style="background:rgba(189,87,40,.15);color:#BD5728">New</div>
         </div>
         <div class="mock-item">
           <div class="mock-item-left"><div class="mock-dot-sm" style="background:#3fb950"></div><div><div class="mock-item-name">Dave Torres</div><div class="mock-item-sub">Full Exterior · $18,400</div></div></div>
@@ -455,7 +455,7 @@ body{background:var(--bg);color:var(--white);font-family:'Barlow',sans-serif;lin
         </div>
         <div class="mock-item"><div class="mock-item-left"><div class="mock-dot-sm" style="background:#3fb950"></div><div><div class="mock-item-name">Morning mindset check</div><div class="mock-item-sub">Complete · 8:12am</div></div></div><div class="mock-pill" style="background:rgba(63,185,80,.15);color:#3fb950">✓</div></div>
         <div class="mock-item"><div class="mock-item-left"><div class="mock-dot-sm" style="background:#3fb950"></div><div><div class="mock-item-name">22 doors knocked</div><div class="mock-item-sub">Goal: 20 · +10%</div></div></div><div class="mock-pill" style="background:rgba(63,185,80,.15);color:#3fb950">✓</div></div>
-        <div class="mock-item"><div class="mock-item-left"><div class="mock-dot-sm" style="background:#BD5728"></div><div><div class="mock-item-name">4 inspections set</div><div class="mock-item-sub">Goal: 5 · In progress</div></div></div><div class="mock-pill" style="background:rgba(232,114,12,.15);color:#BD5728">→</div></div>
+        <div class="mock-item"><div class="mock-item-left"><div class="mock-dot-sm" style="background:#BD5728"></div><div><div class="mock-item-name">4 inspections set</div><div class="mock-item-sub">Goal: 5 · In progress</div></div></div><div class="mock-pill" style="background:rgba(189,87,40,.15);color:#BD5728">→</div></div>
         <div class="mock-bar-chart">
           <div class="mock-bar-row"><div class="mock-bar-label">Revenue</div><div class="mock-bar-track"><div class="mock-bar-fill" style="width:72%;background:#3fb950"></div></div><div class="mock-bar-val">$14K</div></div>
           <div class="mock-bar-row"><div class="mock-bar-label">Goal</div><div class="mock-bar-track"><div class="mock-bar-fill" style="width:100%;background:#1e2d20"></div></div><div class="mock-bar-val">$20K</div></div>
@@ -500,7 +500,7 @@ body{background:var(--bg);color:var(--white);font-family:'Barlow',sans-serif;lin
         <div class="mock-tree-node" style="margin-left:20px"><div class="mock-tree-icon">⚠️</div><div><div style="font-size:10px;font-weight:600">Zapier Automation</div><div style="font-size:8px;color:#8b9bb4">Score: 31% · Overlap detected</div></div><div style="margin-left:auto;font-family:'Barlow Condensed',sans-serif;font-size:18px;color:#f85149">D</div></div>
         <div class="mock-tree-line"></div>
         <div class="mock-tree-node"><div class="mock-tree-icon">✅</div><div><div style="font-size:10px;font-weight:600">CompanyCam</div><div style="font-size:8px;color:#8b9bb4">Score: 88% · High ROI</div></div><div style="margin-left:auto;font-family:'Barlow Condensed',sans-serif;font-size:18px;color:#BD5728">A</div></div>
-        <div style="background:rgba(232,114,12,.06);border:1px solid rgba(232,114,12,.15);border-radius:6px;padding:9px 12px;font-size:9px;color:#BD5728;letter-spacing:.5px">⚡ AI: Cancel Zapier. Save $49/mo. JobNimbus does the same thing.</div>
+        <div style="background:rgba(189,87,40,.06);border:1px solid rgba(189,87,40,.15);border-radius:6px;padding:9px 12px;font-size:9px;color:#BD5728;letter-spacing:.5px">⚡ AI: Cancel Zapier. Save $49/mo. JobNimbus does the same thing.</div>
       </div>
     </div>
   </div>
@@ -635,9 +635,9 @@ body{background:var(--bg);color:var(--white);font-family:'Barlow',sans-serif;lin
         </div>
         <div class="mock-item">
           <div class="mock-item-left"><div class="mock-dot-sm" style="background:#BD5728"></div><div><div class="mock-item-name">Warranty Certificate</div><div class="mock-item-sub">Marcus Williams · GAF</div></div></div>
-          <div class="mock-pill" style="background:rgba(232,114,12,.15);color:#BD5728">Generated</div>
+          <div class="mock-pill" style="background:rgba(189,87,40,.15);color:#BD5728">Generated</div>
         </div>
-        <div style="background:rgba(232,114,12,.06);border:1px solid rgba(232,114,12,.15);border-radius:6px;padding:9px 12px;font-size:9px;color:var(--orange);letter-spacing:.5px">⚡ Signed on her phone in 40 seconds — no login, no app, no printer.</div>
+        <div style="background:rgba(189,87,40,.06);border:1px solid rgba(189,87,40,.15);border-radius:6px;padding:9px 12px;font-size:9px;color:var(--orange);letter-spacing:.5px">⚡ Signed on her phone in 40 seconds — no login, no app, no printer.</div>
       </div>
     </div>
   </div>

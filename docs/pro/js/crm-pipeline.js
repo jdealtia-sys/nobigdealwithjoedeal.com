@@ -223,7 +223,7 @@ function renderLeads(leads, filtered){
   }
   if (_prospectBtn) {
     if (_showProspects) {
-      _prospectBtn.style.background = 'rgba(232,114,12,.1)';
+      _prospectBtn.style.background = 'rgba(189,87,40,.1)';
       _prospectBtn.style.borderColor = 'var(--orange)';
       _prospectBtn.style.color = 'var(--orange)';
     } else {
@@ -1527,7 +1527,7 @@ function promptLostReason(lead) {
         selected = r.key;
         grid.querySelectorAll('button').forEach(b => { b.style.borderColor = 'var(--br)'; b.style.background = 'var(--s2)'; });
         btn.style.borderColor = 'var(--orange)';
-        btn.style.background = 'rgba(232,114,12,.08)';
+        btn.style.background = 'rgba(189,87,40,.08)';
         if (r.key === 'other') customInput.focus();
       });
       grid.appendChild(btn);

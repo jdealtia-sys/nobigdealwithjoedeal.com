@@ -93,6 +93,26 @@ console.log('MARKETING POLISH CONTRACT — batch 1 invariants');
   ok('--orange-light is #DD875F site-wide', bad.length === 0, bad.slice(0, 4).join(', '));
 }
 
+// 1c. The favicons are real SVG markup. Shipped 6-byte binary blobs on
+// 2026-09-07 (#1467): the authoring tool treats .svg as an image and silently
+// wrote a degenerate encode instead of the markup, so every tab on the site
+// lost its icon. Same failure family as the Fairfield/Lebanon .ico black blob.
+// Byte-length alone is not enough — assert it parses as the mark we intend.
+{
+  for (const f of ['favicon.svg', 'pro/favicon.svg']) {
+    const p = path.join(DOCS, f);
+    if (!fs.existsSync(p)) { ok(f + ' exists', false, 'missing'); continue; }
+    const s = fs.readFileSync(p, 'utf8');
+    ok(f + ' is well-formed SVG markup, not a binary blob',
+      s.trimStart().startsWith('<svg')
+      && s.trimEnd().endsWith('</svg>')
+      && /viewBox="0 0 64 64"/.test(s)
+      && /fill="#[0-9a-f]{6}"/i.test(s)
+      && s.length > 150,
+      f + ' is ' + s.length + ' bytes, starts ' + JSON.stringify(s.slice(0, 24)));
+  }
+}
+
 // 2. radius strays
 {
   const bad = [];

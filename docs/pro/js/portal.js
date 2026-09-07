@@ -595,7 +595,7 @@
     // for an inspection. Single drag-drop or tap-to-upload, with
     // a caption + immediate confirmation.
     parts.push(
-      '<div class="card" id="cuh-card" style="border:1px dashed var(--accent, #A14A22);background:rgba(232,114,12,0.04);">' +
+      '<div class="card" id="cuh-card" style="border:1px dashed var(--accent, #A14A22);background:rgba(189,87,40,0.04);">' +
         '<div class="card-label">📸 Show Us What You See</div>' +
         '<div class="card-title">Upload a photo</div>' +
         '<p style="color:var(--muted);margin:0 0 14px;font-size:14px;line-height:1.5;">Spotted storm damage? Mid-job concern? Want to show us the finished work? Snap a photo — your rep gets it in seconds.</p>' +
@@ -627,7 +627,7 @@
     const ratingInfo = view.rating || {};
     if (ratingInfo.canRate && !ratingInfo.submitted) {
       parts.push(
-        '<div class="card" id="cr-card" style="border:1px solid var(--accent, #A14A22);background:rgba(232,114,12,0.05);">' +
+        '<div class="card" id="cr-card" style="border:1px solid var(--accent, #A14A22);background:rgba(189,87,40,0.05);">' +
           '<div class="card-label">⭐ How did we do?</div>' +
           '<div class="card-title">Rate your experience</div>' +
           '<p style="color:var(--muted);margin:0 0 14px;font-size:14px;line-height:1.5;">Your rep would love to hear how the project went. It only takes a tap.</p>' +
@@ -736,7 +736,7 @@
         "Hi — I have a warranty question about my roof. Cert " + (w.certNumber || '') + ". Can you call me back?"
       );
       parts.push(
-        '<div class="card" id="wc-card" style="background:linear-gradient(135deg, rgba(232,114,12,.04), rgba(232,114,12,.01)); border:1px solid rgba(232,114,12,.35);">' +
+        '<div class="card" id="wc-card" style="background:linear-gradient(135deg, rgba(189,87,40,.04), rgba(189,87,40,.01)); border:1px solid rgba(189,87,40,.35);">' +
           '<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:14px;">' +
             '<div>' +
               '<div class="card-label" style="color:var(--accent,#A14A22);">🛡️ Digital Warranty Card</div>' +

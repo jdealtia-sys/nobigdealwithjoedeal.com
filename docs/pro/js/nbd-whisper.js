@@ -499,7 +499,7 @@
       'z-index:9999;' +
       'width:54px;height:54px;border-radius:50%;border:none;' +
       'background:var(--orange, #A14A22);color:#fff;font-size:22px;' +
-      'box-shadow:0 6px 20px rgba(200,84,26,0.4);cursor:pointer;' +
+      'box-shadow:0 6px 20px rgba(161,74,34,0.4);cursor:pointer;' +
       'display:flex;align-items:center;justify-content:center;' +
       '-webkit-tap-highlight-color:transparent;transition:transform 120ms ease, box-shadow 120ms ease, opacity 160ms ease;';
     btn.innerHTML = '🎤';
@@ -522,7 +522,7 @@
       btn.title = 'Stop recording';
     } else {
       btn.style.background = 'var(--orange, #A14A22)';
-      btn.style.boxShadow = '0 6px 20px rgba(200,84,26,0.4)';
+      btn.style.boxShadow = '0 6px 20px rgba(161,74,34,0.4)';
       btn.innerHTML = '🎤';
       btn.title = 'Dictate (W128) — tap to start, tap again to stop';
     }

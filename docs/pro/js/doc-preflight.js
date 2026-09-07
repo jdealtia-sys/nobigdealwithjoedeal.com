@@ -1242,7 +1242,7 @@
       '.dpf-btn-cancel{background:transparent;border:1px solid var(--br,rgba(255,255,255,.09));color:var(--m,#6B7280);padding:12px 20px;border-radius:8px;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;cursor:pointer;transition:all .15s;font-family:inherit;}',
       '.dpf-btn-cancel:hover{color:var(--t,#E8EAF0);border-color:var(--t,#E8EAF0);}',
       '.dpf-btn-submit{background:var(--orange,#BD5728);border:none;color:#fff;padding:12px 22px;border-radius:8px;font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;cursor:pointer;transition:all .15s;flex:1;font-family:inherit;box-shadow:0 4px 12px color-mix(in srgb, var(--orange) 25%, transparent);}',
-      '.dpf-btn-submit:hover{background:var(--ob,#f08030);transform:translateY(-1px);box-shadow:0 6px 16px color-mix(in srgb, var(--orange) 35%, transparent);}',
+      '.dpf-btn-submit:hover{background:var(--ob,#dd875f);transform:translateY(-1px);box-shadow:0 6px 16px color-mix(in srgb, var(--orange) 35%, transparent);}',
       '.dpf-btn-submit:disabled{opacity:.5;cursor:not-allowed;transform:none;box-shadow:none;}',
       // Signers section
       '.dpf-signers{margin-bottom:16px;border:1px solid var(--br,rgba(255,255,255,.09));border-radius:10px;background:var(--s2,#181C22);overflow:hidden;}',

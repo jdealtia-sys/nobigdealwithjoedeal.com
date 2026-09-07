@@ -564,7 +564,7 @@
     const rows = Array.from(list.querySelectorAll('.nbd-cmd-row'));
     rows.forEach((r, i) => {
       if (i === _selectedIndex) {
-        r.style.background = 'var(--og,rgba(232,114,12,.12))';
+        r.style.background = 'var(--og,rgba(189,87,40,.12))';
         r.style.outline = '1px solid var(--orange, #A14A22)';
         // Scroll into view if needed.
         try { r.scrollIntoView({ block: 'nearest' }); } catch (_) {}

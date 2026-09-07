@@ -42,7 +42,7 @@
     :root {
       --navy: #0A0C0F;
       --orange: #BD5728;
-      --orange-light: #f08030;
+      --orange-light: #dd875f;
       --dark: #0A0C0F;
       --cream: #111418;
       --white: #0A0C0F;
@@ -109,20 +109,20 @@
     }
 
     .btn-primary {
-      background-color:#B85400;
+      background-color:#BD5728;
       color: #fff;
     }
 
-    /* 2026-08-18: hover was var(--orange-light) #f08030, which puts white text
+    /* 2026-08-18: hover was var(--orange-light) #dd875f, which puts white text
        at 2.68:1 — the hover state was LESS legible than the 4.88:1 resting
        state, so the button degraded the moment you pointed at it. Brightening
-       cannot work here: every shade lighter than #B85400 fails AA against
+       cannot work here: every shade lighter than #BD5728 fails AA against
        white. Hover goes deeper instead (5.60:1); the lift and shadow below
        already carry the interactive affordance. */
     .btn-primary:hover {
       background-color: #A94D00;
       transform: translateY(-2px);
-      box-shadow: 0 8px 20px rgba(232, 114, 12, 0.4);
+      box-shadow: 0 8px 20px rgba(189, 87, 40, 0.4);
     }
 
     .btn-ghost {
@@ -199,7 +199,7 @@
       font-size: 14px;
       font-weight: 600;
       position: relative;
-      border-bottom: 1px solid rgba(232,114,12,0.2);
+      border-bottom: 1px solid rgba(189,87,40,0.2);
     }
 
     .announcement-bar span {
@@ -265,10 +265,10 @@
 
     /* 2026-08-18: was var(--orange) #BD5728, 3.07:1 with white — the header's
        "Start Free Trial" is the highest-intent control on the page and it was
-       the least legible. #B85400 is not a new colour: .btn-primary above
+       the least legible. #BD5728 is not a new colour: .btn-primary above
        already uses it for exactly this reason. 4.88:1. */
     .nav-cta {
-      background-color: #B85400 !important;
+      background-color: #BD5728 !important;
       color: #fff !important;
       padding: 10px 24px !important;
       border-radius: 4px;
@@ -303,7 +303,7 @@
       right: -100px;
       width: 600px;
       height: 600px;
-      background: radial-gradient(circle, rgba(232, 114, 12, 0.08) 0%, transparent 70%);
+      background: radial-gradient(circle, rgba(189, 87, 40, 0.08) 0%, transparent 70%);
       border-radius: 50%;
       pointer-events: none;
     }
@@ -479,7 +479,7 @@
 
     .problem-card:hover {
       transform: translateY(-8px);
-      border-color: rgba(232,114,12,0.3);
+      border-color: rgba(189,87,40,0.3);
     }
 
     .problem-icon {
@@ -631,7 +631,7 @@
     .feature-mockup-title--real::after {
       content: 'Live sandbox';
       color: var(--orange);
-      border-color: rgba(232, 114, 12, .5);
+      border-color: rgba(189, 87, 40, .5);
     }
 
     .feature-shot {
@@ -649,8 +649,8 @@
     }
 
     .mockup-item {
-      background: rgba(232,114,12,0.06);
-      border: 1px solid rgba(232,114,12,0.12);
+      background: rgba(189,87,40,0.06);
+      border: 1px solid rgba(189,87,40,0.12);
       padding: 12px 16px;
       border-radius: 4px;
       font-size: 12px;
@@ -677,7 +677,7 @@
 
     .chart-bar {
       flex: 1;
-      background: linear-gradient(180deg, var(--orange) 0%, rgba(232,114,12,0.5) 100%);
+      background: linear-gradient(180deg, var(--orange) 0%, rgba(189,87,40,0.5) 100%);
       border-radius: 3px;
     }
 
@@ -823,13 +823,13 @@
 
     .pricing-card:hover {
       transform: translateY(-8px);
-      border-color: rgba(232,114,12,0.3);
+      border-color: rgba(189,87,40,0.3);
     }
 
     .pricing-card.popular {
       border: 3px solid var(--orange);
       transform: scale(1.05);
-      box-shadow: 0 0 30px rgba(232,114,12,0.15);
+      box-shadow: 0 0 30px rgba(189,87,40,0.15);
     }
 
     .pricing-badge {
@@ -1007,7 +1007,7 @@
       transform: translateX(-50%);
       width: 600px;
       height: 400px;
-      background: radial-gradient(ellipse, rgba(232,114,12,0.08) 0%, transparent 70%);
+      background: radial-gradient(ellipse, rgba(189,87,40,0.08) 0%, transparent 70%);
       pointer-events: none;
     }
 
@@ -1096,7 +1096,7 @@
     }
 
     /* a11y: skip-to-main link (site-wide .nbd-skip pattern, see storm-check.html) */
-    .nbd-skip{position:absolute;left:-9999px;top:0;z-index:100000;background:#B85400;color:#fff;padding:10px 16px;font-weight:700;text-decoration:none;border-radius:0 0 6px 0}
+    .nbd-skip{position:absolute;left:-9999px;top:0;z-index:100000;background:#BD5728;color:#fff;padding:10px 16px;font-weight:700;text-decoration:none;border-radius:0 0 6px 0}
     .nbd-skip:focus{left:0}
   </style>
 <link rel="stylesheet" href="/assets/css/nbd-mobile.css">
@@ -1305,11 +1305,11 @@
           <div class="feature-mockup-content">
             <div style="background: rgba(255, 255, 255, 0.06); padding: 8px 12px; border-radius: 4px; font-size: 11px; color: rgba(255, 255, 255, 0.6); margin-bottom: 12px;">🔍 Search 107 templates…</div>
             <div class="mockup-items" style="gap: 10px;">
-              <div style="background: rgba(232, 114, 12, 0.15); padding: 9px 12px; border-radius: 4px; display: flex; justify-content: space-between; align-items: center; font-size: 12px;">
+              <div style="background: rgba(189, 87, 40, 0.15); padding: 9px 12px; border-radius: 4px; display: flex; justify-content: space-between; align-items: center; font-size: 12px;">
                 <span>Pipe Boot Replacement (3-Pack)</span>
                 <span style="color: var(--orange); font-weight: 600; font-size: 10px;">✓ ADDED</span>
               </div>
-              <div style="background: rgba(232, 114, 12, 0.15); padding: 9px 12px; border-radius: 4px; display: flex; justify-content: space-between; align-items: center; font-size: 12px;">
+              <div style="background: rgba(189, 87, 40, 0.15); padding: 9px 12px; border-radius: 4px; display: flex; justify-content: space-between; align-items: center; font-size: 12px;">
                 <span>Chimney Reflash (Step + Counter)</span>
                 <span style="color: var(--orange); font-weight: 600; font-size: 10px;">✓ ADDED</span>
               </div>
@@ -1319,7 +1319,7 @@
               </div>
             </div>
             <div style="display: flex; gap: 8px; margin-top: 12px;">
-              <span style="background: #B85400; color: #fff; padding: 5px 12px; border-radius: 4px; font-size: 11px; font-weight: 600;">Create estimate</span>
+              <span style="background: #BD5728; color: #fff; padding: 5px 12px; border-radius: 4px; font-size: 11px; font-weight: 600;">Create estimate</span>
               <span style="border: 1px solid rgba(255, 255, 255, 0.25); padding: 5px 12px; border-radius: 4px; font-size: 11px;">Preview proposal</span>
             </div>
             <div style="margin-top: 14px; font-size: 11px; color: rgba(255, 255, 255, 0.7);">
@@ -1347,14 +1347,14 @@
           <div class="feature-mockup-title">Territory Heatmap</div>
           <div class="feature-mockup-content">
             <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-top: 16px;">
-              <div style="height: 30px; background: rgba(232, 114, 12, 0.3); border-radius: 3px;"></div>
-              <div style="height: 50px; background: rgba(232, 114, 12, 0.6); border-radius: 3px;"></div>
-              <div style="height: 70px; background: rgba(232, 114, 12, 0.9); border-radius: 3px;"></div>
-              <div style="height: 40px; background: rgba(232, 114, 12, 0.5); border-radius: 3px;"></div>
-              <div style="height: 45px; background: rgba(232, 114, 12, 0.4); border-radius: 3px;"></div>
-              <div style="height: 65px; background: rgba(232, 114, 12, 0.8); border-radius: 3px;"></div>
-              <div style="height: 35px; background: rgba(232, 114, 12, 0.3); border-radius: 3px;"></div>
-              <div style="height: 55px; background: rgba(232, 114, 12, 0.6); border-radius: 3px;"></div>
+              <div style="height: 30px; background: rgba(189, 87, 40, 0.3); border-radius: 3px;"></div>
+              <div style="height: 50px; background: rgba(189, 87, 40, 0.6); border-radius: 3px;"></div>
+              <div style="height: 70px; background: rgba(189, 87, 40, 0.9); border-radius: 3px;"></div>
+              <div style="height: 40px; background: rgba(189, 87, 40, 0.5); border-radius: 3px;"></div>
+              <div style="height: 45px; background: rgba(189, 87, 40, 0.4); border-radius: 3px;"></div>
+              <div style="height: 65px; background: rgba(189, 87, 40, 0.8); border-radius: 3px;"></div>
+              <div style="height: 35px; background: rgba(189, 87, 40, 0.3); border-radius: 3px;"></div>
+              <div style="height: 55px; background: rgba(189, 87, 40, 0.6); border-radius: 3px;"></div>
             </div>
             <div style="margin-top: 16px; font-size: 11px; color: rgba(255, 255, 255, 0.7);">
               Hot zones: 247 knocks | Conversion: 12%
@@ -1383,12 +1383,12 @@
             <div style="background: rgba(255, 255, 255, 0.06); padding: 10px 12px; border-radius: 8px 8px 8px 2px; font-size: 12px; margin-bottom: 10px; max-width: 85%;">
               "Hey can we move the inspection to Tuesday instead?"
             </div>
-            <div style="background: rgba(232, 114, 12, 0.2); border: 1px solid rgba(232, 114, 12, 0.4); padding: 10px 12px; border-radius: 8px 8px 2px 8px; font-size: 12px; margin-left: auto; max-width: 85%;">
-              <div style="font-size: 9px; color: #ffaf66; letter-spacing: 1px; margin-bottom: 4px;">AI DRAFT — AWAITING YOUR APPROVAL</div>
+            <div style="background: rgba(189, 87, 40, 0.2); border: 1px solid rgba(189, 87, 40, 0.4); padding: 10px 12px; border-radius: 8px 8px 2px 8px; font-size: 12px; margin-left: auto; max-width: 85%;">
+              <div style="font-size: 9px; color: #dd875f; letter-spacing: 1px; margin-bottom: 4px;">AI DRAFT — AWAITING YOUR APPROVAL</div>
               "Tuesday works on my end, Sandra. I'll confirm the exact time with you Monday — sound good?"
             </div>
             <div style="display: flex; gap: 8px; margin-top: 12px;">
-              <span style="background: #B85400; color: #fff; padding: 5px 12px; border-radius: 4px; font-size: 11px; font-weight: 600;">Approve &amp; Send</span>
+              <span style="background: #BD5728; color: #fff; padding: 5px 12px; border-radius: 4px; font-size: 11px; font-weight: 600;">Approve &amp; Send</span>
               <span style="border: 1px solid rgba(255, 255, 255, 0.25); padding: 5px 12px; border-radius: 4px; font-size: 11px;">Edit</span>
             </div>
             <!-- 2026-08-18: was 10px at rgba(…,.55). This is a real onboarding
@@ -1420,9 +1420,9 @@
               📷
             </div>
             <div style="display: flex; flex-wrap: wrap; gap: 6px;">
-              <span style="background: rgba(232, 114, 12, 0.3); padding: 4px 8px; border-radius: 3px; font-size: 10px;">Missing Shingles</span>
-              <span style="background: rgba(232, 114, 12, 0.3); padding: 4px 8px; border-radius: 3px; font-size: 10px;">Hail Damage</span>
-              <span style="background: rgba(232, 114, 12, 0.3); padding: 4px 8px; border-radius: 3px; font-size: 10px;">Flashing Damage</span>
+              <span style="background: rgba(189, 87, 40, 0.3); padding: 4px 8px; border-radius: 3px; font-size: 10px;">Missing Shingles</span>
+              <span style="background: rgba(189, 87, 40, 0.3); padding: 4px 8px; border-radius: 3px; font-size: 10px;">Hail Damage</span>
+              <span style="background: rgba(189, 87, 40, 0.3); padding: 4px 8px; border-radius: 3px; font-size: 10px;">Flashing Damage</span>
             </div>
           </div>
         </div>
@@ -1484,7 +1484,7 @@
         <div class="feature-mockup">
           <div class="feature-mockup-title">Ask Joe</div>
           <div class="feature-mockup-content">
-            <div style="background: rgba(232, 114, 12, 0.2); padding: 12px; border-radius: 4px; margin-bottom: 12px; font-size: 12px;">
+            <div style="background: rgba(189, 87, 40, 0.2); padding: 12px; border-radius: 4px; margin-bottom: 12px; font-size: 12px;">
               💡 "Based on the hail damage photos, this is a high-priority lead. Roof condition score: 28/100. Recommended approach: immediate inspection + insurance claim filing."
             </div>
             <div style="font-size: 11px; color: rgba(255, 255, 255, 0.7);">
@@ -1509,15 +1509,15 @@
           <div class="feature-mockup-title">Payment Tracking</div>
           <div class="feature-mockup-content">
             <div class="mockup-items" style="gap: 14px;">
-              <div style="background: rgba(232, 114, 12, 0.15); padding: 10px 12px; border-radius: 4px; display: flex; justify-content: space-between; font-size: 12px;">
+              <div style="background: rgba(189, 87, 40, 0.15); padding: 10px 12px; border-radius: 4px; display: flex; justify-content: space-between; font-size: 12px;">
                 <span>Invoice #2401</span>
                 <span style="color: var(--orange);">$12,000</span>
               </div>
-              <div style="background: rgba(232, 114, 12, 0.15); padding: 10px 12px; border-radius: 4px; display: flex; justify-content: space-between; font-size: 12px;">
+              <div style="background: rgba(189, 87, 40, 0.15); padding: 10px 12px; border-radius: 4px; display: flex; justify-content: space-between; font-size: 12px;">
                 <span>Invoice #2402</span>
                 <span style="color: var(--orange);">$8,500</span>
               </div>
-              <div style="background: rgba(232, 114, 12, 0.15); padding: 10px 12px; border-radius: 4px; display: flex; justify-content: space-between; font-size: 12px;">
+              <div style="background: rgba(189, 87, 40, 0.15); padding: 10px 12px; border-radius: 4px; display: flex; justify-content: space-between; font-size: 12px;">
                 <span>Invoice #2403</span>
                 <span style="color: var(--orange);">$15,200</span>
               </div>
@@ -1551,15 +1551,15 @@
           <div class="feature-mockup-title">Document Generator</div>
           <div class="feature-mockup-content">
             <div class="mockup-items" style="gap: 10px;">
-              <div style="background: rgba(232, 114, 12, 0.15); padding: 9px 12px; border-radius: 4px; display: flex; justify-content: space-between; align-items: center; font-size: 12px;">
+              <div style="background: rgba(189, 87, 40, 0.15); padding: 9px 12px; border-radius: 4px; display: flex; justify-content: space-between; align-items: center; font-size: 12px;">
                 <span>Roofing Contract</span>
                 <span style="background: rgba(63, 185, 80, 0.2); color: #3fb950; padding: 2px 8px; border-radius: 3px; font-size: 10px;">SIGNED ✓</span>
               </div>
-              <div style="background: rgba(232, 114, 12, 0.15); padding: 9px 12px; border-radius: 4px; display: flex; justify-content: space-between; align-items: center; font-size: 12px;">
+              <div style="background: rgba(189, 87, 40, 0.15); padding: 9px 12px; border-radius: 4px; display: flex; justify-content: space-between; align-items: center; font-size: 12px;">
                 <span>Change Order #2</span>
-                <span style="background: rgba(232, 114, 12, 0.25); color: #ffaf66; padding: 2px 8px; border-radius: 3px; font-size: 10px;">AWAITING SIGNATURE</span>
+                <span style="background: rgba(189, 87, 40, 0.25); color: #dd875f; padding: 2px 8px; border-radius: 3px; font-size: 10px;">AWAITING SIGNATURE</span>
               </div>
-              <div style="background: rgba(232, 114, 12, 0.15); padding: 9px 12px; border-radius: 4px; display: flex; justify-content: space-between; align-items: center; font-size: 12px;">
+              <div style="background: rgba(189, 87, 40, 0.15); padding: 9px 12px; border-radius: 4px; display: flex; justify-content: space-between; align-items: center; font-size: 12px;">
                 <span>Warranty Certificate</span>
                 <span style="color: rgba(255, 255, 255, 0.6); font-size: 10px;">GENERATED</span>
               </div>
@@ -1596,10 +1596,10 @@
               </div>
               <div style="display: flex; justify-content: space-between; font-size: 12px;">
                 <span>Steep-slope labor</span>
-                <span style="color: #ffaf66;">SUBMITTED</span>
+                <span style="color: #dd875f;">SUBMITTED</span>
               </div>
             </div>
-            <div style="margin-top: 16px; padding: 10px 12px; background: rgba(232, 114, 12, 0.2); border-radius: 4px; font-size: 11px;">
+            <div style="margin-top: 16px; padding: 10px 12px; background: rgba(189, 87, 40, 0.2); border-radius: 4px; font-size: 11px;">
               Approved supplement dollars flow straight onto the invoice
             </div>
           </div>
@@ -1629,8 +1629,8 @@
         <div class="feature-mockup">
           <div class="feature-mockup-title">Live Storm Alerts</div>
           <div class="feature-mockup-content">
-            <div style="background: rgba(232, 114, 12, 0.25); border: 1px solid rgba(232, 114, 12, 0.5); padding: 14px; border-radius: 4px; margin-bottom: 12px;">
-              <div style="color: #ffaf66; font-weight: 600; font-size: 12px; margin-bottom: 6px;">⚡ SEVERE HAIL ALERT</div>
+            <div style="background: rgba(189, 87, 40, 0.25); border: 1px solid rgba(189, 87, 40, 0.5); padding: 14px; border-radius: 4px; margin-bottom: 12px;">
+              <div style="color: #dd875f; font-weight: 600; font-size: 12px; margin-bottom: 6px;">⚡ SEVERE HAIL ALERT</div>
               <div style="font-size: 11px; color: rgba(255, 255, 255, 0.9);">3.2" hail just hit zip 40223 — 247 affected properties in your service area</div>
             </div>
             <div style="font-size: 11px; color: rgba(255, 255, 255, 0.7);">

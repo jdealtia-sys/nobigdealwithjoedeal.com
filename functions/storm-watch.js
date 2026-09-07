@@ -206,7 +206,7 @@ exports.stormWatch = onSchedule(
       const zipCounts = {};
       for (const a of affected) zipCounts[a.zip] = (zipCounts[a.zip] || 0) + 1;
       const html = `<!DOCTYPE html><html><body style="font-family:'Barlow','Segoe UI',Roboto,sans-serif;color:#333">
-  <h2 style="color:#C8541A">⛈️ Storm Watch — ${events.length} new report${events.length === 1 ? '' : 's'} in the service area</h2>
+  <h2 style="color:#BD5728">⛈️ Storm Watch — ${events.length} new report${events.length === 1 ? '' : 's'} in the service area</h2>
   <ul>${events.map((ev) => `<li><b>${esc(eventLabel(ev))}</b> near ${esc(ev.city || ev.county)}, ${esc(ev.st)} — ${esc(ev.valid)} <span style="color:#6b7280">(${ev.lat.toFixed(2)}, ${ev.lon.toFixed(2)})</span></li>`).join('')}</ul>
   <p><b>${affected.length}</b> subscriber${affected.length === 1 ? '' : 's'} within ${SUBSCRIBER_RADIUS_MI} mi${unknownZips ? ` (+${unknownZips} with unmappable zips, not texted)` : ''}: ${esc(Object.entries(zipCounts).map(([z, n]) => `${z}×${n}`).join(', ')) || '—'}</p>
   <p>${textEnabled ? 'Subscriber texts are GOING OUT now.' : '<b>Subscriber texting is OFF</b> (STORM_TEXT_ENABLED not set) — this is the list that WOULD have been texted.'}</p>
