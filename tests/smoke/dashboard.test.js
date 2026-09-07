@@ -1495,10 +1495,10 @@ section('Phase orange-rgba — 7 deferred JS files reviewed');
     ['docs/pro/js/rep-report-generator.js',  {expect: 1, kind: 'partial — line ~497 converted; line ~1441 stays as literal (PDF narrative-badge brand-pin)'}],
   ]) {
     const src = read(path.join(ROOT, file));
-    const n = (src.match(/rgba\(\s*232\s*,/g) || []).length;
-    assert(file + ' has ' + opts.expect + ' rgba(232,…) literals — ' + opts.kind,
+    const n = (src.match(/rgba\(\s*189\s*,/g) || []).length;
+    assert(file + ' has ' + opts.expect + ' rgba(189,…) literals — ' + opts.kind,
       n === opts.expect,
-      'expected ' + opts.expect + ' rgba(232,…) in ' + file + '; got ' + n);
+      'expected ' + opts.expect + ' rgba(189,…) in ' + file + '; got ' + n);
   }
   // Brand-pinned files keep their literals — these surfaces should NOT
   // theme-shift (PDFs, customer-facing auth + share, theme-engine config).
