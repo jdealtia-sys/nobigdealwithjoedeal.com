@@ -347,7 +347,7 @@
           border-radius:8px; font-size:13px; font-weight:600; cursor:pointer;
           -webkit-tap-highlight-color:transparent;">Cancel</button>
         <button id="nbd-import-go" style="
-          background:linear-gradient(135deg,#A14A22 0%,#a64516 100%);
+          background:linear-gradient(135deg,#BD5728 0%,#A14A22 100%);
           color:#fff; border:none; padding:9px 22px; border-radius:8px;
           font-size:13px; font-weight:700; cursor:pointer;
           -webkit-tap-highlight-color:transparent;">Import ${dataRows.length} row${dataRows.length === 1 ? '' : 's'}</button>
@@ -610,7 +610,7 @@
             </div>` : ''}
         </div>
         <button id="nbd-import-done" style="
-          background:linear-gradient(135deg,#A14A22 0%,#a64516 100%);
+          background:linear-gradient(135deg,#BD5728 0%,#A14A22 100%);
           color:#fff; border:none; padding:10px 26px; border-radius:8px;
           font-size:13px; font-weight:700; cursor:pointer;
           -webkit-tap-highlight-color:transparent;">Done</button>
