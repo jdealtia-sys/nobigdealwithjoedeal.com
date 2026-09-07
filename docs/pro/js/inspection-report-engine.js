@@ -330,8 +330,8 @@
             <!-- COVER PAGE -->
             <div class="page cover-page">
               <div class="cover-header">
-                <div class="brand-logo" style="font-size: 28px; font-weight: bold; color: ${BRAND.colors.navy};">
-                  🏠 ${this._escapeHtml(BRAND.name)}
+                <div class="brand-logo" style="font-size: 24px; font-weight: bold; color: ${BRAND.colors.navy};display:flex;align-items:center;gap:12px;">
+                  ${this._brandLogoImg()}<span>${this._escapeHtml(BRAND.name)}</span>
                 </div>
                 <div class="cover-title">FULL ROOF INSPECTION REPORT</div>
               </div>
@@ -585,8 +585,8 @@
             <!-- COVER PAGE -->
             <div class="page cover-page">
               <div class="cover-header">
-                <div class="brand-logo" style="font-size: 28px; font-weight: bold; color: ${BRAND.colors.navy};">
-                  🏠 ${this._escapeHtml(BRAND.name)}
+                <div class="brand-logo" style="font-size: 24px; font-weight: bold; color: ${BRAND.colors.navy};display:flex;align-items:center;gap:12px;">
+                  ${this._brandLogoImg()}<span>${this._escapeHtml(BRAND.name)}</span>
                 </div>
                 <div class="cover-title">STORM DAMAGE ASSESSMENT</div>
               </div>
@@ -818,8 +818,8 @@
             <!-- HEADER PAGE -->
             <div class="page cover-page">
               <div class="cover-header">
-                <div class="brand-logo" style="font-size: 28px; font-weight: bold; color: ${BRAND.colors.navy};">
-                  🏠 ${this._escapeHtml(BRAND.name)}
+                <div class="brand-logo" style="font-size: 24px; font-weight: bold; color: ${BRAND.colors.navy};display:flex;align-items:center;gap:12px;">
+                  ${this._brandLogoImg()}<span>${this._escapeHtml(BRAND.name)}</span>
                 </div>
                 <div class="cover-title" style="color: ${BRAND.colors.orange}; margin-top: 40px;">SUPPLEMENT REQUEST</div>
               </div>
@@ -984,8 +984,8 @@
             <!-- COVER PAGE -->
             <div class="page cover-page">
               <div class="cover-header">
-                <div class="brand-logo" style="font-size: 28px; font-weight: bold; color: ${BRAND.colors.navy};">
-                  🏠 ${this._escapeHtml(BRAND.name)}
+                <div class="brand-logo" style="font-size: 24px; font-weight: bold; color: ${BRAND.colors.navy};display:flex;align-items:center;gap:12px;">
+                  ${this._brandLogoImg()}<span>${this._escapeHtml(BRAND.name)}</span>
                 </div>
                 <div class="cover-title">PROJECT COMPLETION REPORT</div>
               </div>
@@ -3166,6 +3166,20 @@
     /**
      * Escape HTML
      */
+    // Real brand artwork for the report cover, replacing the house emoji
+    // that used to stand in for it. Returns '' when nothing resolves, so the
+    // company name alone carries the header — a report with no logo is fine,
+    // a report wearing another company's logo is not.
+    _brandLogoImg() {
+      try {
+        const src = (typeof window !== 'undefined' && window._brandLogoSrc)
+          ? window._brandLogoSrc() : '';
+        if (!src) return '';
+        return '<img src="' + this._escapeHtml(src) + '" alt="" ' +
+               'style="display:block;width:150px;height:auto;flex-shrink:0;"/>';
+      } catch (_) { return ''; }
+    },
+
     _escapeHtml(text) {
       if (!text) return '';
       const map = {

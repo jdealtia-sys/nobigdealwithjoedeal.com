@@ -78,7 +78,7 @@
       </div>`).join('');
     return `
       <div style="margin:26px 0;break-inside:avoid-page;">
-        <div style="font-family:'Barlow Condensed',sans-serif;font-size:15px;font-weight:800;
+        <div style="font-family:'Montserrat','Segoe UI',Helvetica,Arial,sans-serif;font-size:15px;font-weight:800;
           text-transform:uppercase;letter-spacing:.1em;color:${escapeHtml(acc)};
           border-bottom:2px solid ${escapeHtml(acc)};padding-bottom:6px;margin-bottom:14px;">
           Photo Documentation
@@ -268,14 +268,33 @@
     };
   }
 
-  // Render the brand header block (`No Big Deal PRO` for NBD). For a tenant
-  // the `.pro` accent span is dropped and the tenant display name is used —
-  // NBD renders the EXACT original markup, byte-identical.
+  // Render the brand header block for a CUSTOMER-FACING document.
+  //
+  // "PRO" is the name of the SaaS PRODUCT, not of the contracting company that
+  // is quoting the work. It used to be appended here in BOTH branches — the
+  // comment above this function claimed tenants dropped it, but the code never
+  // did — so every tenant's estimates and insurance scopes went out reading
+  // "<Their Company> PRO", putting the platform's name on their customer
+  // paper. Homeowners and adjusters know the contractor, not the software.
+  //
+  // Now: the company's own name, and its logo when it has one. The logo is
+  // optional by design — _brandLogoSrc() returns '' rather than a placeholder,
+  // and a document with no logo is fine while a document wearing someone
+  // else's logo is not.
   function brandHeaderHtml(brand) {
-    if (brand.isNbd) {
-      return 'No Big Deal<span class="pro"> PRO</span>';
-    }
-    return escapeHtml(brand.displayName) + '<span class="pro"> PRO</span>';
+    const name = brand.isNbd
+      ? 'No Big Deal Home Solutions'
+      : escapeHtml(brand.displayName || brand.legalName || '');
+    let logo = '';
+    try {
+      const src = (typeof window !== 'undefined' && window._brandLogoSrc)
+        ? window._brandLogoSrc() : '';
+      if (src) {
+        logo = '<img class="brand-logo-img" src="' + escapeHtml(src) + '" alt="' +
+               name + '"/>';
+      }
+    } catch (_) { /* a missing logo must never break the document */ }
+    return logo + '<span class="brand-name">' + name + '</span>';
   }
 
   // Shared CSS for all outputs. `acc` is the brand accent color; for NBD
@@ -285,14 +304,16 @@
     acc = acc || NBD_ACCENT;
     return `
     * { margin:0; padding:0; box-sizing:border-box; }
-    body { font-family: 'Barlow', 'Helvetica Neue', Arial, sans-serif;
+    body { font-family: 'Lato','Segoe UI',Helvetica,Arial,sans-serif;
            color:#111; background:#fff; padding:36px;
            max-width:880px; margin:0 auto; line-height:1.4; }
     .hdr { display:flex; justify-content:space-between; align-items:flex-start;
            padding-bottom:22px; border-bottom:3px solid ${acc}; margin-bottom:28px; }
-    .brand { font-family:'Barlow Condensed','Helvetica Neue',sans-serif;
-             font-size:28px; font-weight:800; text-transform:uppercase;
-             letter-spacing:.04em; }
+    .brand { font-family:'Montserrat','Segoe UI',Helvetica,Arial,sans-serif;
+             font-size:24px; font-weight:800; text-transform:uppercase;
+             letter-spacing:.03em; display:flex; align-items:center; gap:12px; }
+    .brand-logo-img { display:block; width:150px; height:auto; flex-shrink:0; }
+    .brand-name { line-height:1.15; }
     .brand .pro { color:${acc}; }
     .sub { font-size:13px; color:#666; margin-top:2px; }
     .badge { display:inline-block; font-size:9px; font-weight:700;
@@ -300,17 +321,17 @@
              border:1px solid ${acc}; padding:3px 10px; border-radius:2px;
              margin-top:6px; }
     .doc-hdr { text-align:right; }
-    .doc-title { font-family:'Barlow Condensed',sans-serif; font-size:28px;
+    .doc-title { font-family:'Montserrat','Segoe UI',Helvetica,Arial,sans-serif; font-size:28px;
                  font-weight:800; text-transform:uppercase; letter-spacing:.06em; }
     .doc-date { font-size:12px; color:#666; }
     .doc-total-lbl { font-size:9px; font-weight:700; letter-spacing:.15em;
                      text-transform:uppercase; color:${acc}; margin-top:12px; }
-    .doc-total-val { font-family:'Barlow Condensed',sans-serif; font-size:38px;
+    .doc-total-val { font-family:'Montserrat','Segoe UI',Helvetica,Arial,sans-serif; font-size:38px;
                      font-weight:800; color:${acc}; line-height:1; }
-    h2 { font-family:'Barlow Condensed',sans-serif; font-size:13px;
+    h2 { font-family:'Montserrat','Segoe UI',Helvetica,Arial,sans-serif; font-size:13px;
          font-weight:700; text-transform:uppercase; letter-spacing:.18em;
          margin:26px 0 12px; padding-bottom:4px; border-bottom:2px solid ${acc}; }
-    h3 { font-family:'Barlow Condensed',sans-serif; font-size:11px;
+    h3 { font-family:'Montserrat','Segoe UI',Helvetica,Arial,sans-serif; font-size:11px;
          font-weight:700; text-transform:uppercase; letter-spacing:.12em;
          color:#555; margin:18px 0 8px; }
     .field-grid { display:grid; grid-template-columns:1fr 1fr; gap:18px;
@@ -321,13 +342,13 @@
     .field .v { font-size:14px; font-weight:600; color:#111; }
     table { width:100%; border-collapse:collapse; margin:4px 0 14px; }
     thead tr { border-bottom:2px solid #111; background:#faf7f3; }
-    th { font-family:'Barlow Condensed',sans-serif; font-size:10px;
+    th { font-family:'Montserrat','Segoe UI',Helvetica,Arial,sans-serif; font-size:10px;
          font-weight:700; text-transform:uppercase; letter-spacing:.08em;
          padding:8px 10px; text-align:left; color:#111; }
     td { padding:8px 10px; border-bottom:1px solid #eee; font-size:12px;
          vertical-align:top; }
     td.num { text-align:right; font-variant-numeric:tabular-nums; }
-    td.code { color:${acc}; font-weight:700; font-family:'Barlow Condensed',sans-serif;
+    td.code { color:${acc}; font-weight:700; font-family:'Montserrat','Segoe UI',Helvetica,Arial,sans-serif;
               font-size:12px; }
     .reason { font-size:10px; color:#666; font-style:italic; margin-top:4px;
               padding-left:4px; border-left:2px solid ${acc}; }
@@ -340,11 +361,11 @@
                 color:#065f46; background:#ecfdf5; padding:2px 6px;
                 border-radius:2px; letter-spacing:.08em; margin-left:6px; }
     .cat-hdr { background:#f8f4ef; padding:10px; border-left:4px solid ${acc};
-               font-family:'Barlow Condensed',sans-serif; font-weight:700;
+               font-family:'Montserrat','Segoe UI',Helvetica,Arial,sans-serif; font-weight:700;
                font-size:13px; text-transform:uppercase; letter-spacing:.1em;
                margin-top:20px; margin-bottom:0; }
     .cat-subtotal { background:#faf7f3; font-weight:700; }
-    .grand-row td { font-family:'Barlow Condensed',sans-serif; font-size:16px;
+    .grand-row td { font-family:'Montserrat','Segoe UI',Helvetica,Arial,sans-serif; font-size:16px;
                     font-weight:700; color:${acc}; border-top:3px solid #111;
                     background:#fff8f5; padding:12px 10px; }
     .footer { margin-top:40px; padding-top:16px; border-top:2px solid ${acc};
@@ -643,7 +664,7 @@
     const html = `<!DOCTYPE html>
 <html><head><meta charset="UTF-8">
 <title>Insurance Scope — ${escapeHtml(customer.name || _b.seal)} — ${fmtDate(est.date)}</title>
-<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700;800&family=Barlow:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700;800&family=Lato:wght@400;700&display=swap" rel="stylesheet">
 <style>${buildBaseCss(_acc)}</style>
 </head><body>
 ${header}
@@ -738,12 +759,12 @@ ${footer}
                           border-radius:8px; padding:20px; text-align:center;
                           background:${selected ? '#fff8f5' : '#fff'};
                           ${selected ? 'box-shadow:0 4px 12px color-mix(in srgb, var(--orange) 15%, transparent);' : ''}">
-                <div style="font-family:'Barlow Condensed',sans-serif;font-size:12px;
+                <div style="font-family:'Montserrat','Segoe UI',Helvetica,Arial,sans-serif;font-size:12px;
                             font-weight:700;letter-spacing:.2em;color:${t.color};">
                   ${escapeHtml(t.label)}
                 </div>
                 <div style="font-size:11px;color:#666;margin-top:2px;">${escapeHtml(t.sub)}</div>
-                <div style="font-family:'Barlow Condensed',sans-serif;font-size:36px;
+                <div style="font-family:'Montserrat','Segoe UI',Helvetica,Arial,sans-serif;font-size:36px;
                             font-weight:800;color:${t.color};margin-top:12px;line-height:1;">
                   ${fmtMoneyBig(tierEst.total)}
                 </div>
@@ -871,7 +892,7 @@ ${footer}
     const html = `<!DOCTYPE html>
 <html><head><meta charset="UTF-8">
 <title>Estimate — ${escapeHtml(customer.name || _b.seal)} — ${fmtDate(est.date)}</title>
-<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700;800&family=Barlow:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700;800&family=Lato:wght@400;700&display=swap" rel="stylesheet">
 <style>${buildBaseCss(_acc)}</style>
 </head><body>
 ${header}
@@ -952,14 +973,14 @@ ${footer}
     const html = `<!DOCTYPE html>
 <html><head><meta charset="UTF-8">
 <title>Internal Estimate View — ${escapeHtml(customer.name || _b.seal)}</title>
-<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700;800&family=Barlow:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700;800&family=Lato:wght@400;700&display=swap" rel="stylesheet">
 <style>${buildBaseCss(_acc)}
 .internal-banner { background:#c53030; color:#fff; padding:10px 16px; font-size:11px;
                     font-weight:700; letter-spacing:.15em; text-transform:uppercase;
                     text-align:center; margin-bottom:20px; border-radius:4px; }
 .margin-card { background:#ecfdf5; border:2px solid #065f46; border-radius:8px;
                padding:16px; text-align:center; }
-.margin-big { font-family:'Barlow Condensed',sans-serif; font-size:32px;
+.margin-big { font-family:'Montserrat','Segoe UI',Helvetica,Arial,sans-serif; font-size:32px;
               font-weight:800; color:#065f46; }
 .cost-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin:12px 0; }
 .cost-card { background:#f8f4ef; padding:12px; border-radius:4px; text-align:center; }

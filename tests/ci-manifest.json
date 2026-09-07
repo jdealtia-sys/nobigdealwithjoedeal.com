@@ -10,6 +10,7 @@
     "the step environment before touching the test."
   ],
   "node": [
+    "customer-doc-branding.test.js",
     "crm-required-fields.test.js",
     "deploy-failure-parse.test.js",
     "deploy-api-enable-step.test.js",

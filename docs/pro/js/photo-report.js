@@ -515,7 +515,7 @@
 <head>
 <meta charset="UTF-8">
 <title>${isAdjuster ? 'Adjuster' : 'Homeowner'} Photo Report — ${_esc(name)}</title>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=Barlow+Condensed:wght@600;700;800&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700;800&family=Lato:wght@400;700&display=swap">
 </head>
 <body data-report-mode="${isAdjuster ? 'adjuster' : 'homeowner'}">
 <style>
@@ -527,12 +527,12 @@
   *{margin:0;padding:0;box-sizing:border-box;}
   html,body{ background:#ffffff; }
   body{
-    font-family: 'Barlow', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+    font-family: 'Lato', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
     color:#111827;
     line-height:1.55;
     -webkit-font-smoothing: antialiased;
   }
-  h1,h2,h3,h4{ font-family:'Barlow Condensed','Barlow',sans-serif; font-weight:800; letter-spacing:.02em; line-height:1.15; color:#111827; }
+  h1,h2,h3,h4{ font-family:'Montserrat','Lato','Segoe UI',Helvetica,Arial,sans-serif; font-weight:800; letter-spacing:.02em; line-height:1.15; color:#111827; }
   @media print{
     .no-print{ display:none!important; }
     body{ margin:0; }
@@ -568,7 +568,7 @@
     overflow:hidden;
   }
   .hero-eyebrow{
-    font-family:'Barlow Condensed',sans-serif;
+    font-family:'Montserrat','Segoe UI',Helvetica,Arial,sans-serif;
     font-size:11px; font-weight:700;
     letter-spacing:.18em; text-transform:uppercase;
     color:var(--orange,#BD5728); margin-bottom:10px;
@@ -602,7 +602,7 @@
   .brand-bar-left{ display:flex; align-items:center; gap:14px; }
   .brand-logo{ height:32px; width:auto; display:block; }
   .brand-bar-name{
-    font-family:'Barlow Condensed',sans-serif;
+    font-family:'Montserrat','Segoe UI',Helvetica,Arial,sans-serif;
     font-weight:800; color:#ffffff;
     text-transform:uppercase; letter-spacing:.06em; font-size:14px;
   }
@@ -622,7 +622,7 @@
     font-size:13.5px;
   }
   .info-card .info-k{
-    font-family:'Barlow Condensed',sans-serif;
+    font-family:'Montserrat','Segoe UI',Helvetica,Arial,sans-serif;
     font-size:10px; font-weight:700;
     letter-spacing:.14em; text-transform:uppercase;
     color:#9ca3af; margin-bottom:2px;
@@ -640,12 +640,12 @@
     background:#ffffff; padding:14px 16px; text-align:left;
   }
   .stat-num{
-    font-family:'Barlow Condensed',sans-serif;
+    font-family:'Montserrat','Segoe UI',Helvetica,Arial,sans-serif;
     font-size:32px; font-weight:800;
     color:var(--orange,#BD5728); line-height:1;
   }
   .stat-label{
-    font-family:'Barlow Condensed',sans-serif;
+    font-family:'Montserrat','Segoe UI',Helvetica,Arial,sans-serif;
     font-size:11px; font-weight:700;
     letter-spacing:.12em; text-transform:uppercase;
     color:#374151; margin-top:8px;
@@ -658,7 +658,7 @@
     background:#fffaf4; padding:18px 22px; margin-bottom:32px;
   }
   .dmg-summary-title{
-    font-family:'Barlow Condensed',sans-serif;
+    font-family:'Montserrat','Segoe UI',Helvetica,Arial,sans-serif;
     font-size:11px; font-weight:700;
     letter-spacing:.16em; text-transform:uppercase;
     color:#A14A22; margin-bottom:12px;
@@ -667,7 +667,7 @@
   .dmg-row:last-child{ margin-bottom:0; }
   .dmg-row-label{
     flex-shrink:0; width:130px;
-    font-family:'Barlow Condensed',sans-serif;
+    font-family:'Montserrat','Segoe UI',Helvetica,Arial,sans-serif;
     font-size:11px; font-weight:700;
     letter-spacing:.1em; text-transform:uppercase;
     color:#6b7280; padding-top:3px;
@@ -687,7 +687,7 @@
   /* ── Section headers ─────────────────────────────────────────── */
   .section{ margin-bottom:40px; }
   .section-eyebrow{
-    font-family:'Barlow Condensed',sans-serif;
+    font-family:'Montserrat','Segoe UI',Helvetica,Arial,sans-serif;
     font-size:11px; font-weight:700;
     letter-spacing:.16em; text-transform:uppercase;
     color:var(--orange,#BD5728); margin-bottom:6px;
@@ -725,7 +725,7 @@
   .ba-stamp{
     position:absolute; left:10px; top:10px;
     background:#dc2626; color:#ffffff;
-    font-family:'Barlow Condensed',sans-serif;
+    font-family:'Montserrat','Segoe UI',Helvetica,Arial,sans-serif;
     font-size:11px; font-weight:800;
     letter-spacing:.12em; text-transform:uppercase;
     padding:4px 10px; border-radius:6px;
@@ -734,7 +734,7 @@
   .ba-stamp.ba-after{ background:#16a34a; }
   .ba-loc{
     grid-column:1/-1;
-    font-family:'Barlow Condensed',sans-serif;
+    font-family:'Montserrat','Segoe UI',Helvetica,Arial,sans-serif;
     font-size:13px; font-weight:700;
     letter-spacing:.05em; text-transform:uppercase;
     color:#374151; padding:8px 4px 2px;
@@ -775,7 +775,7 @@
     font-size:11px; line-height:1.4;
   }
   .ph-num{
-    font-family:'Barlow Condensed',sans-serif;
+    font-family:'Montserrat','Segoe UI',Helvetica,Arial,sans-serif;
     font-weight:800; font-size:11px;
     letter-spacing:.1em; color:var(--orange,#BD5728);
     margin-bottom:4px;
@@ -810,7 +810,7 @@
     font-size:12px; color:#6b7280; text-align:center;
   }
   .footer-brand{
-    font-family:'Barlow Condensed',sans-serif;
+    font-family:'Montserrat','Segoe UI',Helvetica,Arial,sans-serif;
     font-weight:800; color:#111827;
     text-transform:uppercase; letter-spacing:.08em;
     font-size:14px; margin-bottom:4px;
@@ -818,7 +818,7 @@
   .footer-tag{
     font-style:italic; color:var(--orange,#BD5728);
     font-size:11px; margin-top:6px;
-    font-family:'Barlow Condensed',sans-serif;
+    font-family:'Montserrat','Segoe UI',Helvetica,Arial,sans-serif;
     letter-spacing:.06em; text-transform:uppercase;
   }
 </style>
