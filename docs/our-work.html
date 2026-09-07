@@ -29,7 +29,7 @@
    this whole block, shipping /our-work unstyled. Card/filter/gallery rules now
    live in the shared /assets/css/project-cards.css (linked below); the rules
    here are page-one-offs (hero, before/after, CTA, area pills). */
-:root{--navy:#1e3a6e;--navy-dark:#142a52;--orange:#e8720c;--orange-light:#f08030;--orange-dark:#c45e08;--white:#fff;--off-white:#f5f3ef;--gray:#5d6673;--light-gray:#e8e5e0;--success:#22a06b}
+:root{--navy:#1a3057;--navy-dark:#12223d;--orange:#bd5728;--orange-light:#f08030;--orange-dark:#c45e08;--white:#fff;--off-white:#f5f3ef;--gray:#5d6673;--light-gray:#e8e5e0;--success:#22a06b}
 *{margin:0;padding:0;box-sizing:border-box}body{font-family:'Montserrat',sans-serif;color:var(--navy-dark);background:var(--white)}
 a{text-decoration:none}
 
@@ -48,7 +48,7 @@ nav{background:var(--navy-dark);padding:0 40px;display:flex;align-items:center;j
 .hamburger{display:none;flex-direction:column;gap:6px;cursor:pointer;padding:10px;background:transparent;border:none;z-index:1001}.hamburger span{display:block;width:26px;height:3px;background:#fff;border-radius:2px;transition:all .3s;box-shadow:0 1px 3px rgba(0,0,0,.3)}
 
 /* HERO */
-.hero{background:linear-gradient(135deg,var(--navy-dark) 0%,#1e3a6e 100%);padding:72px 40px 64px;text-align:center;position:relative;overflow:hidden}
+.hero{background:linear-gradient(135deg,var(--navy-dark) 0%,#1a3057 100%);padding:72px 40px 64px;text-align:center;position:relative;overflow:hidden}
 .hero::after{content:'';position:absolute;bottom:0;left:0;right:0;height:4px;background:linear-gradient(90deg,var(--orange),var(--orange-light))}
 h1{font-family:'Bebas Neue',sans-serif;font-size:3.2rem;color:white;letter-spacing:2px;margin-bottom:12px}h1 span{color:#DA6A05}
 .hero p{color:rgba(255,255,255,.7);font-size:.95rem;max-width:600px;margin:0 auto;line-height:1.7}
@@ -60,7 +60,7 @@ h1{font-family:'Bebas Neue',sans-serif;font-size:3.2rem;color:white;letter-spaci
 /* SECTIONS */
 section{padding:56px 40px}.inner{max-width:1100px;margin:0 auto}
 .ey{font-size:.7rem;font-weight:700;letter-spacing:.15em;text-transform:uppercase;color:#A64B00;margin-bottom:8px;display:inline-flex;align-items:center;gap:10px}
-.ey::before{content:'';width:7px;height:7px;background:var(--orange);border-radius:50%;box-shadow:0 0 10px rgba(232,114,12,.6);flex-shrink:0}
+.ey::before{content:'';width:7px;height:7px;background:var(--orange);border-radius:50%;box-shadow:0 0 10px rgba(189,87,40,.6);flex-shrink:0}
 .sec-title{font-family:'Bebas Neue',sans-serif;font-size:2rem;color:var(--navy-dark);margin-bottom:8px;letter-spacing:.5px}.sec-title span{color:#DA6A05}
 .sec-sub{font-size:.88rem;color:#646c7a;line-height:1.6;margin-bottom:28px;max-width:600px}
 
@@ -126,17 +126,17 @@ footer p{color:rgba(255,255,255,.5);font-size:.75rem;line-height:1.7}footer a{co
 <style>
 /* trust-icon fix */
 .trust-icon svg.ico{color:#fff}
-.aci-icon svg.ico,.form-success-icon svg.ico{color:var(--orange,#e8720c)}
+.aci-icon svg.ico,.form-success-icon svg.ico{color:var(--orange,#bd5728)}
 </style>
 <style>
 /* nav base (injected) */
 .nav-links .dropdown{position:relative}
-.nav-links .dropdown-menu{display:none;position:absolute;top:100%;left:0;background:var(--navy-dark,#142a52);border:2px solid var(--orange,#e8720c);border-top:none;min-width:230px;border-radius:0 0 8px 8px;padding:8px 0;z-index:999;list-style:none;margin:0}
+.nav-links .dropdown-menu{display:none;position:absolute;top:100%;left:0;background:var(--navy-dark,#12223d);border:2px solid var(--orange,#bd5728);border-top:none;min-width:230px;border-radius:0 0 8px 8px;padding:8px 0;z-index:999;list-style:none;margin:0}
 .nav-links .dropdown:hover .dropdown-menu,.nav-links .dropdown:focus-within .dropdown-menu,.nav-links .dropdown.open .dropdown-menu{display:block}
 .nav-links .dropdown-menu a{display:block;padding:10px 18px;font-size:.75rem;border-bottom:1px solid rgba(255,255,255,.08);color:rgba(255,255,255,.85);text-decoration:none;letter-spacing:.06em;text-transform:uppercase;font-weight:600;transition:color .2s,background .2s}
 .nav-links .dropdown-menu a:last-child{border-bottom:none}
 .nav-links .dropdown-menu a:hover{color:var(--orange-light,#f08030);background:rgba(255,255,255,.04);border-bottom-color:rgba(255,255,255,.08)}
-.mobile-nav{display:none;position:fixed;top:70px;left:0;right:0;background:var(--navy-dark,#142a52);z-index:999;border-top:2px solid var(--orange,#e8720c);max-height:calc(100vh - 70px);overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,.4);padding-top:0}
+.mobile-nav{display:none;position:fixed;top:70px;left:0;right:0;background:var(--navy-dark,#12223d);z-index:999;border-top:2px solid var(--orange,#bd5728);max-height:calc(100vh - 70px);overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,.4);padding-top:0}
 .mobile-nav.open{display:block}
 .mobile-nav > a{display:block;padding:12px 24px;color:rgba(255,255,255,.85);text-decoration:none;font-size:.82rem;font-weight:600;letter-spacing:.05em;text-transform:uppercase;border-bottom:1px solid rgba(255,255,255,.06)}
 .mobile-nav > a:hover{color:var(--orange-light,#f08030);background:rgba(255,255,255,.04)}
@@ -148,15 +148,15 @@ footer p{color:rgba(255,255,255,.5);font-size:.75rem;line-height:1.7}footer a{co
 /* footer contrast fix (injected) */
 footer .label{color:rgba(255,255,255,.72)!important;font-weight:700}
 footer .footer-col ul li a{color:rgba(255,255,255,.82)!important}
-footer .footer-col ul li a:hover{color:var(--orange,#e8720c)!important}
+footer .footer-col ul li a:hover{color:var(--orange,#bd5728)!important}
 footer .footer-contact-item .val,footer .footer-contact-item .val a{color:rgba(255,255,255,.9)!important}
 footer p{color:rgba(255,255,255,.7)!important}
 footer .footer-desc{color:rgba(255,255,255,.72)!important}
 footer .footer-bottom p{color:rgba(255,255,255,.55)!important}
 footer .footer-bottom a{color:rgba(255,255,255,.65)!important}
-footer .footer-bottom a:hover{color:var(--orange,#e8720c)!important}
+footer .footer-bottom a:hover{color:var(--orange,#bd5728)!important}
 footer .pro-door{color:rgba(255,255,255,.65)!important}
-footer .pro-door:hover{color:var(--orange,#e8720c)!important}
+footer .pro-door:hover{color:var(--orange,#bd5728)!important}
 </style>
 <style>
 /* nav-logo text color (injected) */
@@ -235,9 +235,9 @@ footer .footer-desc{color:rgba(255,255,255,.82)!important}
 footer .footer-col-title,footer h4,footer .label{font-size:.72rem!important;letter-spacing:.14em!important;text-transform:uppercase!important;color:rgba(255,255,255,.95)!important;font-weight:800!important;margin-bottom:14px!important}
 footer .footer-bottom,footer .footer-bottom p,footer .footer-bottom a,footer .pro-door{font-size:.82rem!important;line-height:1.6!important}
 footer .footer-bottom a{color:rgba(255,255,255,.7)!important}
-footer .footer-bottom a:hover{color:#e8720c!important}
+footer .footer-bottom a:hover{color:#bd5728!important}
 footer.foot,.review-footer{font-size:.9rem!important;padding:24px 5%!important;line-height:1.6!important}
-footer.foot a,.review-footer a{color:#e8720c!important}
+footer.foot a,.review-footer a{color:#bd5728!important}
 
 /* Announcement bar legibility floor */
 .ann-bar{font-size:.8rem!important;letter-spacing:.04em!important}
@@ -375,7 +375,7 @@ nav .nav-logo-text .sub{white-space:nowrap}
   <a href="/storm-check" style="color:#f08030">Is It Worth a Claim?</a>
   <a href="/inspect" style="color:#f08030">Free 24-Hr Inspection</a>
   <a href="/free-tools" style="color:#f08030">All Free Tools</a>
-  <a href="/#contact" style="color:#e8720c;font-weight:800;">Book Inspection &rarr;</a>
+  <a href="/#contact" style="color:#bd5728;font-weight:800;">Book Inspection &rarr;</a>
 </div>
 <!-- /nbd:partial mobile-nav-standard -->
 <!-- HERO -->

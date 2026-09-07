@@ -15,7 +15,7 @@
    ring) take orange. This sheet is linked at the end of <head>, so these colors
    out-cascade the per-page "trust-icon fix" blocks — they must be correct here. */
 .trust-icon svg.ico,.cm-icon svg.ico,.wc-phone-icon svg.ico{color:#fff}
-.aci-icon svg.ico,.form-success-icon svg.ico{color:var(--orange,#e8720c)}
+.aci-icon svg.ico,.form-success-icon svg.ico{color:var(--orange,#bd5728)}
 
 /* nav-ico sizing */
 .nav-links .nav-ico{width:14px;height:14px;stroke:currentColor;stroke-width:2.2;fill:none;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0;display:inline-block;vertical-align:-0.18em}

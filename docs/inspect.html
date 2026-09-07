@@ -22,13 +22,13 @@
 <link rel="stylesheet" href="/assets/css/nbd-fonts.css">
 <style>
 :root{
-  --navy:#1e3a6e;--navy-dark:#142a52;--navy-mid:#1a3260;
+  --navy:#1a3057;--navy-dark:#12223d;--navy-mid:#1a3260;
   /* --orange-dark was #c45e08 (2026-08-18): its only two uses are the hover
      state of .phone-cta and .submit-btn, both of which rest at #B85400 with
      white text. #c45e08 is LIGHTER than that resting colour, so hovering made
      both buttons less legible (4.24:1, under AA) — backwards for a token named
      "dark". #a04800 is genuinely darker and clears AA at 6.14:1. */
-  --orange:#e8720c;--orange-light:#f08030;--orange-dark:#a04800;
+  --orange:#bd5728;--orange-light:#f08030;--orange-dark:#a04800;
   --white:#fff;--off-white:#f5f3ef;--gray:#5d6673;--gray-sub:#4a4a4a;
   --light-gray:#e8e5e0;--success:#22a06b;
 }
@@ -49,12 +49,12 @@ img{max-width:100%;height:auto;display:block}
 
 /* Hero / form section */
 .hero{background:linear-gradient(135deg,var(--navy-dark) 0%,var(--navy-mid) 100%);position:relative;padding:48px 5% 56px;overflow:hidden}
-.hero::before{content:'';position:absolute;inset:0;background:radial-gradient(circle at 80% 20%,rgba(232,114,12,.18) 0%,transparent 55%);pointer-events:none}
+.hero::before{content:'';position:absolute;inset:0;background:radial-gradient(circle at 80% 20%,rgba(189,87,40,.18) 0%,transparent 55%);pointer-events:none}
 .hero-grid{position:relative;max-width:1100px;margin:0 auto;display:grid;grid-template-columns:1fr 1.05fr;gap:48px;align-items:start}
 
 .hero-left{color:#fff}
-.hero-badge{display:inline-flex;align-items:center;gap:8px;background:rgba(232,114,12,.18);border:1px solid rgba(232,114,12,.45);color:var(--orange-light);font-size:.7rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;padding:6px 14px;border-radius:20px;margin-bottom:18px}
-.hero-badge::before{content:'';width:6px;height:6px;background:var(--orange);border-radius:50%;box-shadow:0 0 8px rgba(232,114,12,.7)}
+.hero-badge{display:inline-flex;align-items:center;gap:8px;background:rgba(189,87,40,.18);border:1px solid rgba(189,87,40,.45);color:var(--orange-light);font-size:.7rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;padding:6px 14px;border-radius:20px;margin-bottom:18px}
+.hero-badge::before{content:'';width:6px;height:6px;background:var(--orange);border-radius:50%;box-shadow:0 0 8px rgba(189,87,40,.7)}
 h1{font-family:'Bebas Neue',sans-serif;font-size:clamp(2.4rem,5.4vw,3.8rem);line-height:1;letter-spacing:.02em;margin-bottom:14px}
 h1 span{color:#DA6A05}
 .subhead{font-size:1.02rem;color:rgba(255,255,255,.82);line-height:1.65;margin-bottom:28px;max-width:480px}
@@ -80,7 +80,7 @@ h1 span{color:#DA6A05}
 .form-row label{display:block;font-size:.74rem;font-weight:700;color:var(--navy);letter-spacing:.06em;text-transform:uppercase;margin-bottom:6px}
 .form-row label .opt{color:var(--gray);font-weight:600;text-transform:none;letter-spacing:0;margin-left:6px}
 .form-row input[type=text],.form-row input[type=tel],.form-row input[type=email],.form-row textarea{width:100%;padding:12px 14px;border:1.5px solid var(--light-gray);border-radius:8px;font:inherit;font-size:.95rem;color:#1a1a1a;background:#fff;transition:border-color .15s,box-shadow .15s}
-.form-row input:focus,.form-row textarea:focus{outline:none;border-color:var(--orange);box-shadow:0 0 0 3px rgba(232,114,12,.12)}
+.form-row input:focus,.form-row textarea:focus{outline:none;border-color:var(--orange);box-shadow:0 0 0 3px rgba(189,87,40,.12)}
 .form-row textarea{resize:vertical;min-height:90px;font-family:inherit}
 .form-row input[type=file]{width:100%;padding:10px;border:1.5px dashed var(--light-gray);border-radius:8px;font-size:.85rem;background:var(--off-white);cursor:pointer}
 .form-row input[type=file]:hover{border-color:var(--orange)}
@@ -104,7 +104,7 @@ h1 span{color:#DA6A05}
 .tagline-bar .sub{display:block;font-family:'Montserrat',sans-serif;font-size:.78rem;color:rgba(255,255,255,.5);letter-spacing:.05em;margin-top:6px;font-weight:600}
 
 /* Mini footer */
-.mini-footer{background:#142a52;color:rgba(255,255,255,.5);padding:18px 5%;text-align:center;font-size:.74rem}
+.mini-footer{background:#12223d;color:rgba(255,255,255,.5);padding:18px 5%;text-align:center;font-size:.74rem}
 .mini-footer a{color:rgba(255,255,255,.75)}
 /* a11y (T4d): links distinguishable from text + >=24px tap target */
 .mini-footer a{text-decoration:underline;display:inline-block;padding:6px 4px}
