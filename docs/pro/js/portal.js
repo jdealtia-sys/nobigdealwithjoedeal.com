@@ -783,12 +783,29 @@
     }
 
     // ── Step 16: Refer a friend ──
-    // Only render the card when we have a stable referral code
-    // (customerId — NBD-0001 format). Leads without one are usually
-    // unstamped or pre-Wave 0 stragglers; rather than build a
-    // half-working link we hide the card entirely.
+    // Two conditions, and both matter.
+    //
+    // 1. A stable referral code (customerId — NBD-0001 format). Leads
+    //    without one are usually unstamped or pre-Wave 0 stragglers; rather
+    //    than build a half-working link we hide the card entirely.
+    //
+    // 2. The job is actually FINISHED. customerId is stamped early in the
+    //    lifecycle, so gating on it alone put this card in front of a
+    //    homeowner the same afternoon the rep knocked — handing them SMS
+    //    copy reading "They did a great job for me" and email copy reading
+    //    "the guys who did mine were great", addressed to their friends.
+    //    This is the one card designed to leave the property, so it is the
+    //    most embarrassing thing on the page if forwarded before anything
+    //    happened, and it poisons the referral channel it exists to grow.
+    //
+    //    'complete' is the same gate the rating card uses (view.rating
+    //    .canRate, computed server-side as progressKey === 'complete' and
+    //    re-enforced when a rating is submitted). Asking for a referral at
+    //    the moment you ask for a rating is the correct pairing: both claim
+    //    the work is done, so both wait until it is.
     const customerId = view.homeowner && view.homeowner.customerId;
-    if (customerId) {
+    const jobComplete = !!(view.progress && view.progress.currentKey === 'complete');
+    if (customerId && jobComplete) {
       // Canonical custom domain — NOT the *.web.app origin, which Google
       // Safe Browsing has flagged (a friend tapping the texted link in
       // Chrome would hit a red interstitial). Every other homeowner-facing
