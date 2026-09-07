@@ -10,8 +10,8 @@
 
 /* FILTER TABS (/our-work) */
 .filters{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:28px}
-.filter-btn{background:#fff;border:1.5px solid var(--light-gray,#e8e5e0);border-radius:100px;padding:8px 18px;font-size:.78rem;font-weight:700;color:var(--navy-dark,#142a52);cursor:pointer;transition:all .2s;font-family:'Montserrat',sans-serif}
-.filter-btn:hover{border-color:var(--orange,#e8720c);color:var(--orange,#e8720c)}
+.filter-btn{background:#fff;border:1.5px solid var(--light-gray,#e8e5e0);border-radius:100px;padding:8px 18px;font-size:.78rem;font-weight:700;color:var(--navy-dark,#12223d);cursor:pointer;transition:all .2s;font-family:'Montserrat',sans-serif}
+.filter-btn:hover{border-color:var(--orange,#bd5728);color:var(--orange,#bd5728)}
 .filter-btn.active{background:#B85400;border-color:#B85400;color:#fff}
 
 /* CARD GRID */
@@ -21,26 +21,26 @@
 .project.hidden{display:none}
 .project-img{width:100%;height:230px;object-fit:cover;display:block}
 .project-body{padding:20px}
-.project-tag{display:inline-block;background:rgba(232,114,12,.1);color:#A64B00;font-size:.68rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;padding:4px 12px;border-radius:100px;margin-bottom:8px}
-.project h3{font-size:1rem;font-weight:700;color:var(--navy-dark,#142a52);margin-bottom:6px}
+.project-tag{display:inline-block;background:rgba(189,87,40,.1);color:#A64B00;font-size:.68rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;padding:4px 12px;border-radius:100px;margin-bottom:8px}
+.project h3{font-size:1rem;font-weight:700;color:var(--navy-dark,#12223d);margin-bottom:6px}
 .project p{font-size:.82rem;color:var(--gray,#5d6673);line-height:1.6}
 .project-loc{font-size:.75rem;color:var(--gray,#5d6673);display:inline-flex;align-items:center;gap:4px}
 .project-price{font-family:'Bebas Neue',sans-serif;font-size:1.35rem;letter-spacing:.5px;color:#A64B00;margin:2px 0 6px;font-variant-numeric:tabular-nums}
 .project-meta{font-size:.75rem;color:var(--gray,#5d6673);margin-top:10px;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
 .project-dot{opacity:.5}
-.project-view{margin-top:12px;background:none;border:1.5px solid var(--light-gray,#e8e5e0);border-radius:8px;padding:8px 14px;font-size:.76rem;font-weight:700;color:var(--navy-dark,#142a52);cursor:pointer;font-family:'Montserrat',sans-serif;transition:all .2s}
-.project-view:hover{border-color:var(--orange,#e8720c);color:#A64B00}
+.project-view{margin-top:12px;background:none;border:1.5px solid var(--light-gray,#e8e5e0);border-radius:8px;padding:8px 14px;font-size:.76rem;font-weight:700;color:var(--navy-dark,#12223d);cursor:pointer;font-family:'Montserrat',sans-serif;transition:all .2s}
+.project-view:hover{border-color:var(--orange,#bd5728);color:#A64B00}
 
 /* Crawlable service pills on each card → the matching /services/ hub page */
 .project-services{margin-top:10px;display:flex;flex-wrap:wrap;gap:6px}
-.project-services a{font-size:.68rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#A64B00;border:1px solid rgba(232,114,12,.35);border-radius:100px;padding:3px 10px;text-decoration:none;transition:all .2s}
-.project-services a:hover{background:rgba(232,114,12,.1);border-color:var(--orange,#e8720c)}
+.project-services a{font-size:.68rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#A64B00;border:1px solid rgba(189,87,40,.35);border-radius:100px;padding:3px 10px;text-decoration:none;transition:all .2s}
+.project-services a:hover{background:rgba(189,87,40,.1);border-color:var(--orange,#bd5728)}
 
 /* RECENT-JOBS STRIPS (generated on /services/ hub pages) */
 .nbd-recent-jobs{padding:56px 5%;background:var(--off-white,#f5f3ef)}
 .nbd-recent-jobs-inner{max-width:1100px;margin:0 auto}
 .nbd-recent-jobs-head{display:flex;align-items:baseline;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:24px}
-.nbd-recent-jobs h2{font-family:'Bebas Neue',sans-serif;font-size:2rem;color:var(--navy-dark,#142a52);letter-spacing:.5px;margin:0}
+.nbd-recent-jobs h2{font-family:'Bebas Neue',sans-serif;font-size:2rem;color:var(--navy-dark,#12223d);letter-spacing:.5px;margin:0}
 .nbd-recent-jobs h2 span{color:#DA6A05}
 .nbd-recent-jobs-all{font-size:.82rem;font-weight:700;color:#A64B00;text-decoration:none}
 .nbd-recent-jobs-all:hover{text-decoration:underline}

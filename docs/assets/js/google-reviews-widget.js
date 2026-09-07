@@ -60,7 +60,7 @@
         <div style="display:flex;align-items:center;gap:12px">
           ${photo}
           <div style="flex:1;min-width:0">
-            <div style="font-weight:700;color:#142a52;font-size:.95rem">${name}</div>
+            <div style="font-weight:700;color:#12223d;font-size:.95rem">${name}</div>
             <div style="font-size:.78rem;color:#5d6673">${when}</div>
           </div>
           <div>${stars(review.rating)}</div>
@@ -78,7 +78,7 @@
         <a href="${PROFILE_URL}" target="_blank" rel="noopener noreferrer" style="display:inline-flex;align-items:center;gap:12px;background:#fff;border:1px solid #e8e5e0;border-radius:12px;padding:18px 28px;text-decoration:none">
           ${GOOGLE_G(26)}
           <span style="text-align:left">
-            <span style="display:block;font-weight:800;color:#142a52;font-size:.95rem">Read our reviews on Google &rarr;</span>
+            <span style="display:block;font-weight:800;color:#12223d;font-size:.95rem">Read our reviews on Google &rarr;</span>
             <span style="display:block;font-size:.78rem;color:#5d6673">Every review, straight from our profile.</span>
           </span>
         </a>
@@ -105,12 +105,12 @@
           <div style="display:inline-flex;align-items:center;gap:10px;background:#fff;border:1px solid #e8e5e0;border-radius:100px;padding:10px 20px">
             ${GOOGLE_G(22)}
             <div style="text-align:left">
-              <div style="font-weight:800;color:#142a52;font-size:.95rem">Google Reviews</div>
+              <div style="font-weight:800;color:#12223d;font-size:.95rem">Google Reviews</div>
               <div style="font-size:.78rem;color:#5d6673">Live from our profile${staleBadge}</div>
             </div>
           </div>
           <div style="display:inline-flex;align-items:center;gap:10px;background:#fff;border:1px solid #e8e5e0;border-radius:100px;padding:10px 20px">
-            <div style="font-family:'Bebas Neue',sans-serif;font-size:2.2rem;color:#142a52;line-height:1">${rating.toFixed(1)}</div>
+            <div style="font-family:'Bebas Neue',sans-serif;font-size:2.2rem;color:#12223d;line-height:1">${rating.toFixed(1)}</div>
             <div style="display:flex;flex-direction:column;gap:2px">
               <div>${stars(rating)}</div>
               <div style="font-size:.75rem;color:#5d6673">${total} review${total === 1 ? '' : 's'}</div>

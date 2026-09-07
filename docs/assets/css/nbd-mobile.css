@@ -47,7 +47,7 @@ body > footer:last-of-type {
    with viewport-fit=cover in the meta tag, this makes the page feel
    edge-to-edge on devices with display cutouts. */
 html {
-  background-color: #142a52;
+  background-color: #12223d;
 }
 
 /* Any media or wide content that escapes its container = clamp it */
@@ -490,8 +490,8 @@ footer .nbd-social a {
    for the mobile menu + FAQ answers (they snapped open via display toggle),
    and a global prefers-reduced-motion kill switch (ann-bar auto-rotate and
    hover lifts previously ran unconditionally on most pages). */
-:focus-visible{outline:3px solid #e8720c;outline-offset:2px}
-.faq-q:focus-visible{outline:2px solid var(--orange,#e8720c);outline-offset:-2px}
+:focus-visible{outline:3px solid #bd5728;outline-offset:2px}
+.faq-q:focus-visible{outline:2px solid var(--orange,#bd5728);outline-offset:-2px}
 .btn-primary:active,.btn-cal:active,.btn-secondary:active,.nav-cta:active,.form-submit:active,.qlf-btn:active,.filter-btn:active,.mobile-cta-text:active{transform:translateY(1px)}
 @keyframes nbdRevealIn{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:none}}
 .mobile-nav.open{animation:nbdRevealIn .18s ease}

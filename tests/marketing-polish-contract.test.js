@@ -89,12 +89,13 @@ console.log('MARKETING POLISH CONTRACT — batch 1 invariants');
 {
   const s = read(path.join(DOCS, 'assets/css/nbd-mobile.css'));
   ok('nbd-mobile.css has focus ring + pressed states + reduced-motion',
-    // Still the retired orange ON PURPOSE. nbd-mobile.css lives in
-    // docs/assets/css — the PUBLIC marketing site, which this PR deliberately
-    // does not touch (the palette sweep is scoped to docs/pro). When the
-    // public site is repointed, this expectation moves with it. Updating the
-    // expectation without the source would just make the test lie.
-    /:focus-visible\{outline:3px solid #e8720c/.test(s)
+    // The locked brand orange. This expectation moved WITH its source: the
+    // public marketing site (docs/assets/css and the rest of docs/ outside
+    // /pro) was repointed to the locked palette, so nbd-mobile.css now paints
+    // the focus ring #BD5728. The retired #E8720C measured 3.07:1 on white and
+    // failed WCAG AA; #BD5728 measures 4.61:1. Matched case-insensitively —
+    // hex casing carries no meaning, and the public site writes it lowercase.
+    /:focus-visible\{outline:3px solid #BD5728/i.test(s)
     && /\.btn-primary:active/.test(s)
     && /prefers-reduced-motion:reduce/.test(s)
     && /nbdRevealIn/.test(s));

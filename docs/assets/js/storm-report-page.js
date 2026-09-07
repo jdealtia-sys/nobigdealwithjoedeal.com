@@ -144,7 +144,7 @@
     var el = $('sr-map'); if (!el || el._init) return; el._init = true;
     var map = L.map('sr-map', { scrollWheelZoom: false }).setView([S.lat, S.lon], 10);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap', maxZoom: 18 }).addTo(map);
-    L.circleMarker([S.lat, S.lon], { radius: 8, color: '#142a52', fillColor: '#e8720c', fillOpacity: 1, weight: 3 }).addTo(map).bindPopup('Your property');
+    L.circleMarker([S.lat, S.lon], { radius: 8, color: '#12223d', fillColor: '#bd5728', fillOpacity: 1, weight: 3 }).addTo(map).bindPopup('Your property');
     var col = { hail: '#2563eb', wind: '#16a34a', tornado: '#dc2626' };
     (S.data.events || []).forEach(function (e) {
       if (e.lat == null) return;

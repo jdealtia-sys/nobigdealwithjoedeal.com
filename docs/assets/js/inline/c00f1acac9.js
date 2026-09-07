@@ -267,7 +267,7 @@ function buildCard(post) {
       <div class="post-card-body">
         <span class="post-tag">${post.tag}</span>
         <h2>${post.title}</h2>
-        <div class="post-meta" style="color:#e8720c;font-weight:700;">🔒 Unlocks in ${daysLeft} day${daysLeft!==1?'s':''}</div>
+        <div class="post-meta" style="color:#bd5728;font-weight:700;">🔒 Unlocks in ${daysLeft} day${daysLeft!==1?'s':''}</div>
         <p class="post-excerpt">${post.excerpt}</p>
         <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
           <span class="coming-soon-label">Coming ${pubDate.toLocaleDateString('en-US',{month:'long',day:'numeric'})}</span>

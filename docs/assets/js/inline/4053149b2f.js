@@ -464,7 +464,7 @@ function initLeafletMap() {
   // Orange pin matching brand
   const orangePin = L.divIcon({
     className: 'nbd-map-pin',
-    html: '<div style="width:24px;height:24px;background:#e8720c;border:3px solid #fff;border-radius:50%;box-shadow:0 2px 8px rgba(0,0,0,.5);transform:translate(-50%,-50%);"></div>',
+    html: '<div style="width:24px;height:24px;background:#bd5728;border:3px solid #fff;border-radius:50%;box-shadow:0 2px 8px rgba(0,0,0,.5);transform:translate(-50%,-50%);"></div>',
     iconSize: [24, 24],
     iconAnchor: [0, 0]
   });
@@ -1271,7 +1271,7 @@ function showResults(est) {
       failBanner = document.createElement('div');
       failBanner.id = 'leadDeliveryFail';
       failBanner.setAttribute('role', 'alert');
-      failBanner.style.cssText = 'background:#fff4ee;border:2px solid #B85400;border-radius:10px;padding:14px 16px;margin:0 0 18px;color:#142a52;font-size:.92rem;font-weight:600;line-height:1.5;text-align:left;';
+      failBanner.style.cssText = 'background:#fff4ee;border:2px solid #B85400;border-radius:10px;padding:14px 16px;margin:0 0 18px;color:#12223d;font-size:.92rem;font-weight:600;line-height:1.5;text-align:left;';
       failBanner.innerHTML = 'Heads up &#8212; our system couldn\'t send your request to Joe just now. Your estimate below still stands, but to make sure Joe gets your info, call or text <a href="tel:8594207382" style="color:#B85400;font-weight:800;white-space:nowrap">(859) 420-7382</a>.';
       var resultsHost = document.getElementById('stepResults');
       if (resultsHost) resultsHost.insertBefore(failBanner, resultsHost.firstChild);
