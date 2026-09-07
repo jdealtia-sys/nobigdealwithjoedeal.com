@@ -38,6 +38,7 @@
     "docgen-paypanel.test.js",
     "docgen-brand.test.js",
     "docgen-address-guard.test.js",
+    "estimate-min-job-optin.test.js",
     "estimate-engine-parity.test.js",
     "estimate-formula-eval.test.js",
     "estimate-pricing.test.js",

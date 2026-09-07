@@ -2044,8 +2044,11 @@
   // Three tier totals for the compare cards. Per-SQ mode already carries
   // estimate.prices {good,better,best}. Line-item mode computes the other
   // two tiers with a temporary state.tier swap through getCurrentEstimate
-  // (pure compute — no render, no _reopenedClean flip); the CURRENT tier
-  // always shows the truthful replay-aware number from effectiveEstimate.
+  // (pure compute — no render, no _reopenedClean flip). The CURRENT tier
+  // shows the truthful replay-aware number from effectiveEstimate ONLY when
+  // it agrees with the like-for-like figure; on disagreement, or when all
+  // three price the same, this returns a single tier so the caller renders
+  // one honest total instead of a comparison it cannot stand behind.
   function triTierTotals(current) {
     if (current.prices && current.prices.good != null) {
       return {
@@ -2054,10 +2057,17 @@
         best: current.prices.best
       };
     }
+    // Compute ALL THREE from the SAME source, including the current tier.
+    //
+    // This used to take the current tier from effectiveEstimate() and its two
+    // siblings from getCurrentEstimate(). Those are different code paths, so
+    // the three cards could disagree for reasons that have nothing to do with
+    // tier. Joe hit exactly that: a homeowner was shown GOOD $2,500 /
+    // BETTER $725 / BEST $2,500 — "Better" cheaper than "Good", "Good" equal
+    // to "Best". Three prices from two engines is not a comparison.
     const orig = state.tier;
     const out = { good: null, better: null, best: null };
     ['good', 'better', 'best'].forEach(t => {
-      if (t === orig) { out[t] = current.total; return; }
       try {
         state.tier = t;
         const e = getCurrentEstimate();
@@ -2067,6 +2077,31 @@
       }
     });
     state.tier = orig;
+
+    // The selected tier's truthful, replay-aware number still wins on its own
+    // card — but only when it AGREES with the like-for-like figure. If the two
+    // sources disagree, the comparison cannot be trusted, so show no
+    // comparison: returning just the current tier drops openPresentation into
+    // its existing single-total card ("fewer than 2 priced tiers → no fake
+    // compare"), which is the honest output.
+    const same = out[orig];
+    const truth = current.total;
+    const bothNumbers = typeof same === 'number' && typeof truth === 'number';
+    if (bothNumbers && Math.round(same) !== Math.round(truth)) {
+      return { good: null, better: null, best: null, [orig]: truth };
+    }
+    if (bothNumbers) out[orig] = truth;
+
+    // Tiers that all price identically are not tiers. A line-item repair
+    // scope prices off the scope, so all three come out equal — and three
+    // cards reading the same figure under "fits the budget" /
+    // "most popular" / "top-of-the-line" promises the homeowner a choice
+    // that does not exist. Collapse to the single total card.
+    const vals = ['good', 'better', 'best']
+      .map(t => out[t]).filter(v => typeof v === 'number').map(v => Math.round(v));
+    if (vals.length >= 2 && vals.every(v => v === vals[0])) {
+      return { good: null, better: null, best: null, [orig]: out[orig] };
+    }
     return out;
   }
 
