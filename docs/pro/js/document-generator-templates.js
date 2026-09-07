@@ -901,11 +901,25 @@
     const total = subtotal + tax;
     const balance = total - (d.paymentsReceived||0);
 
+    // .inv-balance is navy-deep, NOT the accent. A money block is structure,
+    // not a call to action — the standard reserves orange for rules, numerals,
+    // badges and buttons. It also matches the Project Total block in
+    // renderFinancingOptions, which was already navy, and drops a full-page
+    // slab of rust that dominated the invoice.
+    //
+    // NOTE: this per-template <style> is emitted INSIDE the document body and
+    // does NOT pass through stripCssComments() — only printCSS() does. So this
+    // rationale lives here in JS, not in the CSS below. A CSS comment here
+    // would ship to the customer, and the words in it would be searchable
+    // document text — which is exactly how the receipt/"BALANCE DUE" contract
+    // failure happened. Same rule applies to every other inline <style> block
+    // in this file.
     return page('Invoice', `
       <style>
-        .inv-balance { background:${A}; color:#fff; padding:20px 28px; border-radius:8px; text-align:center; margin:20px 0; }
-        .inv-balance-label { font-size:12px; text-transform:uppercase; letter-spacing:0.1em; opacity:0.9; }
-        .inv-balance-amount { font-size:36px; font-weight:700; margin-top:4px; }
+        .inv-balance { background:${S}; color:#fff; padding:20px 28px; border-radius:8px; text-align:center; margin:20px 0; }
+        .inv-balance-label { font-size:12px; text-transform:uppercase; letter-spacing:0.1em; opacity:0.9;
+          font-family:${FD}; }
+        .inv-balance-amount { font-size:36px; font-weight:700; margin-top:4px; font-family:${FD}; }
       </style>
       ${letterhead()}
       <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:28px;">
