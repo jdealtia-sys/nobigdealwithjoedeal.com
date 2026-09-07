@@ -595,10 +595,27 @@
       </div>
     `;
 
+    // "PRO" is the SaaS product's name, not the contractor's. It was appended
+    // here for every tenant, so a supplement request landed on an adjuster's
+    // desk reading "<Their Company> PRO". Adjusters know the contractor.
+    // Mirrors brandHeaderHtml in estimate-finalization.js — logo when the
+    // brand has one, name always, and a missing logo never breaks the page.
+    const _supplementBrandHeader = (nbd, b) => {
+      const name = nbd ? 'No Big Deal Home Solutions'
+                       : escape((b && (b.displayName || b.legalName)) || '');
+      let logo = '';
+      try {
+        const src = (typeof window !== 'undefined' && window._brandLogoSrc)
+          ? window._brandLogoSrc() : '';
+        if (src) logo = '<img class="brand-logo-img" src="' + escape(src) + '" alt="' + name + '"/>';
+      } catch (_) { /* no logo is fine; the wrong logo is not */ }
+      return logo + '<span class="brand-name">' + name + '</span>';
+    };
+
     const header = `
       <div class="hdr">
         <div>
-          <div class="brand">${isNbd ? 'No Big Deal<span class="pro"> PRO</span>' : escape(_b.legalName) + '<span class="pro"> PRO</span>'}</div>
+          <div class="brand">${_supplementBrandHeader(isNbd, _b)}</div>
           <div class="sub">Insurance Restoration Supplement</div>
           <div class="badge">Supplement #${supplement.version}</div>
         </div>
@@ -682,7 +699,7 @@
     const html = `<!DOCTYPE html>
 <html><head><meta charset="UTF-8">
 <title>Supplement #${supplement.version} — ${escape(customer.name || (isNbd ? 'NBD' : _b.seal))} — ${fmtDate(supplement.createdAt)}</title>
-<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700;800&family=Barlow:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700;800&family=Lato:wght@400;700&display=swap" rel="stylesheet">
 <style>${baseCSS}</style>
 </head><body>
 ${header}

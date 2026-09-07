@@ -1046,11 +1046,23 @@ let _NBD_IP_DELEGATE_BOUND; // module-local (globals Tranche 1 — was window.*)
         .replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/"/g,'\\"')
         .replace(/</g,'\\x3c').replace(/>/g,'\\x3e').replace(/\n/g,'\\n');
 
+      // The invoice header used to read a hardcoded "NBD ROOFING" — a company
+      // name that is not even Joe's (No Big Deal Home Solutions), and flatly
+      // wrong for any other tenant, on a document about money owed. Resolve it
+      // from the brand like everything else, and fall back to the real legal
+      // name rather than to a guess.
+      const _invoiceBrandName = () => {
+        try {
+          const b = (typeof window !== 'undefined' && window._brand) ? (window._brand() || {}) : {};
+          return b.displayName || b.legalName || 'No Big Deal Home Solutions';
+        } catch (_) { return 'No Big Deal Home Solutions'; }
+      };
+
       let html = `
         <div class="invoice-detail" style="padding:20px;background:var(--paper,#fff);color:var(--ink,#1a1612);border-radius:8px;max-width:900px;margin:0 auto;">
           <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px;">
             <div>
-              <div style="font-family:'Barlow Condensed',sans-serif;font-size:24px;font-weight:700;color:var(--orange);">NBD ROOFING</div>
+              <div style="font-family:'Montserrat','Segoe UI',Helvetica,Arial,sans-serif;font-size:24px;font-weight:700;color:var(--orange);">${_esc(_invoiceBrandName())}</div>
               <div style="font-size:12px;color:var(--m);">Invoice ${_esc(invoiceId)}</div>
             </div>
             <div style="text-align:right;">
@@ -1279,7 +1291,7 @@ let _NBD_IP_DELEGATE_BOUND; // module-local (globals Tranche 1 — was window.*)
         <head>
           <meta charset="UTF-8">
           <style>
-            body { font-family: Barlow, sans-serif; color: #333; }
+            body { font-family: 'Lato','Segoe UI',Helvetica,Arial,sans-serif; color: #333; }
             .container { max-width: 600px; margin: 0 auto; padding: 20px; }
             .header { border-bottom: 3px solid #BD5728; padding-bottom: 15px; margin-bottom: 20px; }
             .brand { font-size: 20px; font-weight: 700; text-transform: uppercase; color: var(--orange,#BD5728); }
@@ -1370,7 +1382,7 @@ let _NBD_IP_DELEGATE_BOUND; // module-local (globals Tranche 1 — was window.*)
     overlay.className = 'modal-bg';
     overlay.innerHTML = `
       <div class="modal" style="max-width:420px;">
-        <div style="font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:700;margin-bottom:16px;">Create Invoice from Estimate</div>
+        <div style="font-family:'Montserrat','Segoe UI',Helvetica,Arial,sans-serif;font-size:18px;font-weight:700;margin-bottom:16px;">Create Invoice from Estimate</div>
         <label style="font-size:10px;font-weight:600;color:var(--m);text-transform:uppercase;letter-spacing:.08em;">Estimate</label>
         ${leadEstimates.length ? `
         <select id="nbd-inv-est-pick" class="fi" style="margin-top:6px;">
@@ -1460,7 +1472,7 @@ let _NBD_IP_DELEGATE_BOUND; // module-local (globals Tranche 1 — was window.*)
     overlay.className = 'modal-bg';
     overlay.innerHTML = `
       <div class="modal" style="max-width:380px;">
-        <div style="font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:700;margin-bottom:16px;">Send Invoice</div>
+        <div style="font-family:'Montserrat','Segoe UI',Helvetica,Arial,sans-serif;font-size:18px;font-weight:700;margin-bottom:16px;">Send Invoice</div>
         <div style="font-size:12px;color:var(--m);margin-bottom:16px;">How would you like to send this invoice?</div>
         <div style="display:flex;flex-direction:column;gap:8px;">
           <button type="button" class="nbd-send-method btn btn-ghost" data-method="email" style="width:100%;justify-content:flex-start;padding:14px;">📧 Send via Email</button>
@@ -1543,7 +1555,7 @@ let _NBD_IP_DELEGATE_BOUND; // module-local (globals Tranche 1 — was window.*)
     overlay.style.cssText = 'z-index:var(--z-overlay-top,10001);';
     overlay.innerHTML = `
       <div class="modal" style="max-width:380px;">
-        <div style="font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:700;margin-bottom:16px;">Record Payment</div>
+        <div style="font-family:'Montserrat','Segoe UI',Helvetica,Arial,sans-serif;font-size:18px;font-weight:700;margin-bottom:16px;">Record Payment</div>
         <label style="font-size:10px;font-weight:600;color:var(--m);text-transform:uppercase;letter-spacing:.08em;">Amount</label>
         <input id="nbd-mp-amount" type="number" class="fi" autofocus step="0.01" min="0" value="${balanceDefault}" style="margin:6px 0 14px;">
         <div style="display:flex;gap:8px;">

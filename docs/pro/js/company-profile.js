@@ -466,6 +466,34 @@
   };
   window._brand = function () { return _resolveBrand(); };
 
+  /**
+   * Resolve the brand logo for a CUSTOMER-FACING DOCUMENT.
+   *
+   * Defined here, next to _resolveBrand, because every document renderer
+   * already depends on this file — a separate module would add a load-order
+   * dependency to eight live pages for six lines of code.
+   *
+   * Order: the inlined data URI (survives the doc viewer's null-origin iframe,
+   * where a root-relative src cannot resolve) → the tenant's own logoUrl →
+   * nothing. Returns '' rather than a placeholder so callers can fall back to
+   * a text wordmark; a document with no logo is fine, a document wearing
+   * SOMEONE ELSE'S logo is not.
+   *
+   * TENANCY: brand.logoUrl is already blanked by _resolveBrand for a non-NBD
+   * tenant that has not set its own, so a stranger never inherits NBD's mark.
+   * The data URI is only used when the resolved brand IS NBD, for the same
+   * reason — it is NBD's artwork, baked in at build time.
+   */
+  window._brandLogoSrc = function () {
+    try {
+      const b = _resolveBrand() || {};
+      if (_isNbdBrand(b) && typeof window !== 'undefined' && window.NBD_LOGO_DATA_URI) {
+        return window.NBD_LOGO_DATA_URI;
+      }
+      return b.logoUrl || '';
+    } catch (_) { return ''; }
+  };
+
   // ── Per-tenant LEGAL text resolver (gauntlet Batch 3) ────────────
   // The top-level companyProfile legal/jurisdiction DEFAULTS (cancellation
   // statute, dispute governing law, building-code jurisdiction, service area,
