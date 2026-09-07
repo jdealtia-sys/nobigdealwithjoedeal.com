@@ -1003,6 +1003,7 @@
       tax,
       total,
       minJobApplied,
+      minJobCharge,
       // How many resolved lines carry no tenant cost basis. Additive and
       // presentation-only — nothing above reads it, so Σ retailTotal ==
       // retailBeforeOHP still holds and no downstream consumer

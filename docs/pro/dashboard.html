@@ -3380,7 +3380,7 @@
               <div class="sf"><label>Best Cost ($/SQ)</label><input type="number" id="v2costBest" value="430" step="5"></div>
             </div>
             <div class="sf-row">
-              <div class="sf"><label>Minimum Job Charge</label><input type="number" id="v2minJob" value="2500" step="50"></div>
+              <div class="sf"><label>Minimum Job Charge (Per-SQ)</label><input type="number" id="v2minJob" value="2500" step="50"></div>
               <div class="sf"><label>Round To Nearest ($)</label><input type="number" id="v2roundTo" value="25" step="5"></div>
             </div>
           </div>
@@ -3430,6 +3430,10 @@
               <div class="sf"><label>Overhead %</label><input type="number" id="v2overhead" value="10" step="1"></div>
               <div class="sf"><label>Profit %</label><input type="number" id="v2profit" value="10" step="1"></div>
             </div>
+            <div class="sf-row">
+              <div class="sf"><label>Repair Minimum ($)</label><input type="number" id="v2minRepair" value="0" step="25" min="0"></div>
+            </div>
+            <p class="meta-12-mb16">Repair Minimum is the floor for a hand-built line-item scope — a trip charge. Leave it at 0 for no floor. Job templates and presets carry their own minimums and always win over this one. The Per-SQ minimum above is separate: it only applies to full roof replacements priced per square.</p>
           </div>
         </div>
 

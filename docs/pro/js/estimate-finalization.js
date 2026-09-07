@@ -50,9 +50,19 @@
     return '$' + Math.round(v).toLocaleString('en-US');
   }
 
+  // A quantity label must never round a fraction to a whole number. This
+  // printed 0 decimals for every unit except SQ / LF / SF, so a 1.5-hour
+  // line went out to the homeowner AND the adjuster reading "2 HR — $127.50"
+  // — $85/hr x 2 HR is $170, so the document contradicted its own arithmetic
+  // and invited a scope challenge on a line that was priced correctly.
+  //
+  // SQ, LF and SF keep the two-decimal house format. Every other unit prints
+  // whole when the quantity is whole, and to as many places as it takes (up
+  // to two) when it is not.
   function fmtQty(qty, unit) {
-    const v = Number(qty) || 0;
-    const decimals = (unit === 'SQ' || unit === 'LF' || unit === 'SF') ? 2 : 0;
+    const v = Math.round((Number(qty) || 0) * 100) / 100;
+    const area = (unit === 'SQ' || unit === 'LF' || unit === 'SF');
+    const decimals = area ? 2 : (Number.isInteger(v) ? 0 : (Math.round(v * 10) / 10 === v ? 1 : 2));
     return v.toLocaleString('en-US', { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
   }
 
@@ -574,9 +584,22 @@
       summaryRows.push(['Actual Cash Value (ACV)', fmtMoneyBig(acv)]);
       summaryRows.push(['Recoverable Depreciation', fmtMoneyBig(depreciation || (rcv - acv))]);
     }
+    // A loss smaller than the deductible is not a negative claim, it is NO
+    // claim. rcv - deductible printed raw put "NET CLAIM ($1,300.00)" on
+    // paper going to a homeowner and an adjuster, which reads as though the
+    // carrier is owed money. Floor it at zero and say plainly what happened —
+    // the RCV above is still the price, the homeowner just pays all of it.
     if (deductible) {
+      const netClaim = Math.max(0, rcv - deductible);
       summaryRows.push(['Less: Deductible', '(' + fmtMoneyBig(deductible) + ')']);
-      summaryRows.push(['NET CLAIM', fmtMoneyBig(rcv - deductible), 'grand']);
+      summaryRows.push(['NET CLAIM', fmtMoneyBig(netClaim), 'grand']);
+      if (rcv <= deductible) {
+        summaryRows.push([
+          'This loss falls below the ' + fmtMoney(deductible) + ' deductible, so there is no recoverable claim. ' +
+          'The Replacement Cost Value above is the price of the work, payable by the homeowner.',
+          '', 'note'
+        ]);
+      }
     }
 
     const summaryTable = `
@@ -584,6 +607,9 @@
       <table>
         <tbody>
           ${summaryRows.map(r => {
+            if (r[2] === 'note') {
+              return `<tr><td colspan="6" style="font-size:11px;line-height:1.45;color:#4C4C4D;font-style:italic;">${escapeHtml(r[0])}</td></tr>`;
+            }
             const cls = r[2] === 'grand' ? 'grand-row' : '';
             return `<tr class="${cls}"><td colspan="5"><strong>${escapeHtml(r[0])}</strong></td><td class="num"><strong>${r[1]}</strong></td></tr>`;
           }).join('')}
@@ -688,7 +714,8 @@ ${footer}
       rcv: estimate.total,
       acv: acv,
       deductible: deductible,
-      netClaim: deductible ? (rcv - deductible) : rcv
+      netClaim: deductible ? Math.max(0, rcv - deductible) : rcv,
+      belowDeductible: !!(deductible && rcv <= deductible)
     };
   }
 
@@ -1084,7 +1111,9 @@ ${orderLines}
 </table>
 
 <div class="footer">
-  <strong>Min job applied:</strong> ${estimate.minJobApplied ? 'YES ($2,500 floor)' : 'No'} ·
+  <strong>Min job applied:</strong> ${estimate.minJobApplied
+    ? ('YES (' + fmtMoney(estimate.minJobCharge || estimate.total) + ' floor)')
+    : 'No'} ·
   <strong>Tax rate:</strong> ${((estimate.taxRate || 0) * 100).toFixed(2)}% ·
   <strong>Tier:</strong> ${escapeHtml(estimate.tier || 'n/a')} ·
   <strong>Mode:</strong> ${escapeHtml(estimate.mode || 'n/a')}

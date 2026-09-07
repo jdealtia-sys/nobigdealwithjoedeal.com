@@ -544,6 +544,12 @@
       addonPrices: Object.assign({}, ADDON_PRICES),
 
       // Line-item mode
+      // Repair minimum: 0 = no floor, and that is the correct default. The
+      // per-SQ minJobCharge above exists for an undersized ROOF REPLACEMENT;
+      // applying it to a hand-built repair is what quoted a $555 pipe-boot
+      // job at $2,500 (#1470). A tenant who wants a trip charge on small
+      // work sets this one deliberately.
+      minRepairCharge: 0,
       overheadPct: DEFAULT_OVERHEAD_PCT,
       profitPct: DEFAULT_PROFIT_PCT,
       materialMarkupPct: DEFAULT_MATERIAL_MARKUP_PCT,
