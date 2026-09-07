@@ -231,6 +231,37 @@ NEW CHAT appends a fresh greeting UNDER the existing conversation instead of res
 **NEW-D20 — MEDIUM-HIGH — Portal message reply always fails "Error: Unauthenticated"**
 The rep-side reply box calls the `replyToPortalMessage` callable with `{leadId, text}`; it rejects the signed-in OWNER with `unauthenticated` (status element shows "Error: Unauthenticated", reproduced twice on a ZZ_QA lead). Either the page's `getFunctions()` instance isn't carrying the auth context or the function's auth check is wrong — two-way portal chat is rep-side dead either way. *Likely:* customer.html ~:8530 (httpsCallable wiring) vs functions `replyToPortalMessage` auth guard. *Rows:* customer-087 (FAIL), 086 PASS.
 
+**NEW-D17 — ✅ RESOLVED (2026-09-07) — customer.html panels DO refresh after their own saves**
+
+_Correction, 2026-09-07:_ all three saves named below now re-render in place;
+this row is closed. Verified by reading the current code, not by re-running
+the sweep:
+
+- **Edit Customer** — `docs/pro/js/customer-edit-modal.js:136` carries an
+  explicit `// NEW-D17:` hook that rewrites `#infoJobValue` and
+  `#infoDamageType`, then re-renders the profit panel because jobValue feeds
+  its margin math.
+- **Job Costs & Profit** — `docs/pro/js/profit-tracker.js:330`, also marked
+  `// NEW-D17:`, re-renders the panel so totals and the margin badge update
+  live.
+- **Insurance Claim Workflow** — the `[data-ic-action]` delegate at the foot
+  of `docs/pro/js/insurance-claim.js` calls
+  `renderClaimWorkflow('insuranceClaimWorkflow', leadId)` (and
+  `ClaimPanel.refresh()`) inside `advanceClaimStage(...).then(ok => ...)`.
+
+Worth recording because an automated recon pass on 2026-09-07 re-filed this
+as an open finding straight from this row, and it cost a verification cycle
+to establish that the row — not the code — was stale.
+
+**Still open, and NOT part of this row:** "Move to Next Stage" ends in
+`setTimeout(() => window.location.reload(), 600)`
+(`docs/pro/js/customer-bootstrap.module.js:2199`). That is a full-page reload
+timed against a toast, and on a single-page record it discards unsaved state
+elsewhere — a separate defect from the three panel re-renders this row
+described. Log it on its own if it is picked up.
+
+_Original observation (2026-06-10 sweep), kept verbatim:_
+
 **NEW-D17 — LOW/MEDIUM — customer.html panels don't refresh after their own saves (data persists; UI stale until reload)**
 Pattern confirmed across three independent saves: Edit Customer (header JOB VALUE stays stale), Job Costs & Profit (totals stay stale after Save Costs), Insurance Claim Workflow (stage label stays stale after Advance). All three persist correctly (verified across reload) — only the in-page re-render is missing. Timeline appends (notes/tasks) DO render live, so it's panel-specific. One refresh hook per panel save would close all three. *Rows:* customer-010/136/145/146 notes.
 
