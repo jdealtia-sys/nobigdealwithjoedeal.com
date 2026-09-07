@@ -11,6 +11,7 @@
   ],
   "node": [
     "crm-required-fields.test.js",
+    "deploy-failure-parse.test.js",
     "photo-offline-queue.test.js",
     "photo-queue-durability.test.js",
     "photo-queue-loss-witness.test.js",

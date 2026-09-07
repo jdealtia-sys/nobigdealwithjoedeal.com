@@ -856,6 +856,10 @@ jobs:
           MISSING_FILE=$(mktemp)
           ACCOUNTED_FILE=$(mktemp)
           PARSED_FILE=$(mktemp)
+          # The discovered names, as a file, so the failure parse can be checked
+          # against reality before anything it produced reaches a `--only`.
+          ALL_FILE=$(mktemp)
+          printf '%s\n' "$ALL" > "$ALL_FILE"
 
           # firebase-tools colorizes its output whenever CI is set in the
           # environment (colorette enables color on "CI" in env — TTY or not),
@@ -902,8 +906,24 @@ jobs:
             rc=$?
             echo "$out"
             clean=$(printf '%s\n' "$out" | _strip_ansi)
-            parsed=$(printf '%s\n' "$clean" | grep -oE "Failed to (create|update) function [A-Za-z_][A-Za-z0-9_]*" \
-                                 | sed -E 's/.*function //')
+            # firebase-tools prints this line in TWO shapes, and the second one
+            # broke the retry on 2026-09-06 (run 34067976148, #1445):
+            #   Failed to update function onAiDraftApproved
+            #   Failed to update function projects/nobigdeal-pro/locations/us-central1/functions/getEstimateForView
+            # The qualified form appears when the Cloud Run update returns an
+            # HTTP 500 ("Could not update Cloud Run service ... Unable to read
+            # due to concurrent lock contention"). The old character class
+            # `[A-Za-z_][A-Za-z0-9_]*` stops at the first `/`, so it extracted
+            # the literal string **projects** as the function name — and the
+            # retry round then ran `--only functions:projects`, which
+            # firebase rejects outright with "No function matches the filter:
+            # default:projects". One unparseable name took the ENTIRE retry
+            # batch down as a wholesale failure, so the four real stragglers
+            # were never retried and the deploy went red with prod on stale
+            # code for those functions until the next merge healed it.
+            # Take the last path segment, which is correct for both shapes.
+            parsed=$(printf '%s\n' "$clean" | grep -oE "Failed to (create|update) function [A-Za-z0-9_/-]+" \
+                                 | sed -E 's/.*function //; s#.*/##')
             # Mode 1b (run 32925767669, 2026-08-26): when a function's Cloud Run
             # operation poll times out ("Could not get operation details ...
             # Deadline Exceeded."), firebase prints NO "Failed to ..." line for
@@ -922,8 +942,33 @@ jobs:
               | awk 'flag { if ($0 ~ /^[[:space:]]/) print; else flag=0 } /^Functions deploy had errors with the following functions:/ { flag=1 }' \
               | sed -E 's/^[[:space:]]+//; s/\(.*$//; s/^.*://' | grep -E '^[A-Za-z_][A-Za-z0-9_]*$')
             parsed=$(printf '%s\n%s\n' "$parsed" "$summary" | grep -v '^$' | sort -u)
+
+            # ── the parse must never be able to poison a `--only` ──────────
+            # Everything above is a best-effort read of human-facing output
+            # that firebase-tools is free to reword. The fix above handles the
+            # shape that broke it; the NEXT new shape is the one to survive.
+            # A name that is not a function we discovered cannot deploy, and
+            # passing it to `--only` does not fail that one target — firebase
+            # rejects the whole filter, so a single bad name costs every real
+            # straggler in the batch. Drop unknown names loudly instead:
+            # degrade to "we may have missed a straggler" (completion
+            # accounting below still catches it as silent), never to a retry
+            # that cannot run at all.
+            local raw_failures bogus
+            raw_failures=$(printf '%s\n' "$parsed" | grep -c . || true)
+            bogus=$(printf '%s\n' "$parsed" | grep -v '^$' | grep -F -x -v -f "$ALL_FILE" || true)
+            if [ -n "$bogus" ]; then
+              echo "::warning::Failure parser produced $(printf '%s\n' "$bogus" | grep -c .) name(s) that are not deployable functions — firebase-tools has changed a message shape and the parse needs updating. Ignoring: $(printf '%s\n' "$bogus" | paste -sd, -)"
+              parsed=$(printf '%s\n' "$parsed" | grep -v '^$' | grep -F -x -f "$ALL_FILE" || true)
+            fi
+
             [ -n "$parsed" ] && printf '%s\n' "$parsed" >> "$FAILED_FILE"
-            if [ "$rc" -ne 0 ] && [ -z "$parsed" ]; then
+            # Wholesale means NO per-function failure lines at all. If lines
+            # were printed but none survived the validation above, this deploy
+            # did roll out per-function — fall through to completion accounting
+            # so the real stragglers are still caught, rather than declaring
+            # wholesale (which skips accounting and loses them).
+            if [ "$rc" -ne 0 ] && [ -z "$parsed" ] && [ "$raw_failures" -eq 0 ]; then
               echo "wholesale deploy failure: exit $rc with no per-function failure lines (targets: $1)" >> "$WHOLESALE_FILE"
               # Deliberately no completion accounting on this path: nothing
               # rolled out, so every target would land in MISSING and we'd burn
