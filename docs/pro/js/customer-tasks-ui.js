@@ -2277,9 +2277,22 @@ window.setupContactTab = function(customerData) {
   const email = _isNbd ? 'info@nobigdealwithjoedeal.com' : ((_b.contact && _b.contact.email) || '');
 
   document.getElementById('contractorPhone').textContent = phone;
-  document.getElementById('contactCallBtn').href = `tel:${phone.replace(/\D/g, '')}`;
-  document.getElementById('contactTextBtn').href = `sms:${phone.replace(/\D/g, '')}`;
-  document.getElementById('contactEmailBtn').href = `mailto:${email}`;
+  // These dial the CONTRACTOR (this tenant), never the customer — the
+  // customer's own Call/Email are the header buttons. Name them explicitly:
+  // three unlabelled icon buttons under a company banner on a page about a
+  // customer read as "call the customer", which is how they ended up wired
+  // to a customer-communication logger. Screen readers got "Call" alone too.
+  const _who = (_isNbd ? 'No Big Deal Home Solutions' : (_b.legalName || 'your company'));
+  const _mark = (id, verb, href) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.href = href;
+    el.setAttribute('aria-label', verb + ' ' + _who);
+    el.title = verb + ' ' + _who + ' (not the customer)';
+  };
+  _mark('contactCallBtn', 'Call', `tel:${phone.replace(/\D/g, '')}`);
+  _mark('contactTextBtn', 'Text', `sms:${phone.replace(/\D/g, '')}`);
+  _mark('contactEmailBtn', 'Email', `mailto:${email}`);
   if (!_isNbd) {
     const elS = document.getElementById('contractorSeal'); if (elS) elS.textContent = _b.seal || '';
     const elN = document.getElementById('contractorName'); if (elN) elN.textContent = _b.legalName || '';

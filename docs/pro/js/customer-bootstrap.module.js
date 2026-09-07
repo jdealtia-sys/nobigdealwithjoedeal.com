@@ -609,8 +609,13 @@ async function loadCustomerData(id) {
     }
 
     // ── Communication auto-logging: wire quick-action buttons ──
-    // Mark each anchor so the crm.js delegated logger skips it (these
-    // have richer inline logging and we don't want a duplicate row).
+    // Mark each anchor so the crm-snooze.js delegated logger skips it.
+    // Two different reasons, both load-bearing:
+    //   • callLink / emailLink / smsBookingLink have richer inline logging
+    //     just below — the flag prevents a duplicate row.
+    //   • contactCallBtn / contactTextBtn / contactEmailBtn dial the
+    //     CONTRACTOR, not the customer, so no customer-communication row
+    //     should be written for them at all. See the note further down.
     ['callLink','emailLink','smsBookingLink','contactCallBtn','contactTextBtn','contactEmailBtn'].forEach(i => {
       const el = document.getElementById(i);
       if (el) el.dataset.nbdLogSkip = '1';
@@ -636,27 +641,30 @@ async function loadCustomerData(id) {
         logCommunication(id, 'sms', 'Sent booking link via SMS');
       });
     }
-    // Sidebar Call button
-    const sideCall = document.getElementById('contactCallBtn');
-    if (sideCall) {
-      sideCall.onclick = () => {
-        logCommunication(id, 'call', `Called ${lead.firstName || lead.name || 'customer'} at ${lead.phone || ''}`.trim());
-      };
-    }
-    // Sidebar Text button
-    const sideText = document.getElementById('contactTextBtn');
-    if (sideText) {
-      sideText.onclick = () => {
-        logCommunication(id, 'sms', `Texted ${lead.firstName || lead.name || 'customer'} at ${lead.phone || ''}`.trim());
-      };
-    }
-    // Sidebar Email button
-    const sideEmail = document.getElementById('contactEmailBtn');
-    if (sideEmail) {
-      sideEmail.onclick = () => {
-        logCommunication(id, 'email', `Opened email to ${lead.firstName || lead.name || 'customer'} (${lead.email || ''})`.trim());
-      };
-    }
+    // Contact section: NO communication logging, deliberately.
+    //
+    // #contactCallBtn / #contactTextBtn / #contactEmailBtn live in the
+    // "CONTRACTOR INFO & QUICK CONTACT" panel (customer.html:1890-1904) and
+    // dial the TENANT'S OWN number — setupContactTab() in customer-tasks-ui.js
+    // stamps their hrefs from the brand phone/email, not from the lead.
+    //
+    // They used to carry onclick handlers logging "Called <customer> at
+    // <lead.phone>" / "Texted ..." / "Opened email to ...". Tapping Call
+    // dialled the contractor's own office line and recorded an outbound
+    // customer conversation that never happened — at a number that was not
+    // even the one dialled. Those rows are not inert: they surface in the
+    // Overview timeline's Calls & Texts pill and feed the follow-up signals,
+    // so the CRM's picture of "when did we last reach this customer" drifted
+    // every time the page was used.
+    //
+    // The customer-facing equivalents are the HEADER buttons #callLink and
+    // #emailLink, which resolve from lead.phone / lead.email above and keep
+    // their loggers.
+    //
+    // The nbdLogSkip flag set above MUST stay on these three: without it the
+    // capture-phase delegate in crm-snooze.js:458 matches any <a href="tel:">
+    // and writes its own "Tapped call link / Contacted customer" row, which
+    // is wrong here for the same reason.
 
     // Booking link buttons.
     //

@@ -89,7 +89,8 @@
     "thumbtack-webhook.test.js",
     "turnstile-contract.test.js",
     "webhook-signatures.test.js",
-    "booking-events-tenancy.test.js"
+    "booking-events-tenancy.test.js",
+    "contact-panel-no-false-comms.test.js"
   ],
   "smoke": {
     "team-roles.test.js": [
