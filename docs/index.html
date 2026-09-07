@@ -37,8 +37,8 @@
   --navy-mid: #1a3260;
   --navy-light: #243f7a;
   --orange: #bd5728;
-  --orange-light: #f08030;
-  --orange-dark: #c45e08;
+  --orange-light: #dd875f;
+  --orange-dark: #a14a22;
   --gray-sub: #4a4a4a;
   --white: #ffffff;
   --off-white: #f5f3ef;
@@ -50,7 +50,7 @@ html{scroll-behavior:smooth}
 body{font-family:'Montserrat',sans-serif;color:var(--navy-dark);background:var(--white);overflow-x:hidden}
 
 /* ── ANNOUNCEMENT BAR ── */
-.ann-bar{background:#B85400;color:white;text-align:center;padding:10px 20px;font-size:.78rem;font-weight:700;letter-spacing:.05em;text-transform:uppercase;min-height:38px;display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden;cursor:pointer}
+.ann-bar{background:#BD5728;color:white;text-align:center;padding:10px 20px;font-size:.78rem;font-weight:700;letter-spacing:.05em;text-transform:uppercase;min-height:38px;display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden;cursor:pointer}
 .ann-slide{position:absolute;width:100%;text-align:center;opacity:0;transform:translateY(12px);transition:opacity .5s,transform .5s;pointer-events:none}
 .ann-slide.active{opacity:1;transform:translateY(0);pointer-events:auto}
 .ann-slide.exit{opacity:0;transform:translateY(-12px)}
@@ -58,7 +58,7 @@ body{font-family:'Montserrat',sans-serif;color:var(--navy-dark);background:var(-
 /* ── NAV ── */
 nav{background:var(--navy-dark);padding:0 40px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:1000;box-shadow:0 2px 20px rgba(0,0,0,.4);height:70px;border-bottom:3px solid var(--orange)}
 .nav-logo{display:flex;align-items:center;gap:10px;text-decoration:none;flex-shrink:0}
-.nav-logo-badge{background:#B85400;color:white;font-weight:800;font-size:.95rem;padding:6px 10px;border-radius:6px;letter-spacing:.05em;}
+.nav-logo-badge{background:#BD5728;color:white;font-weight:800;font-size:.95rem;padding:6px 10px;border-radius:6px;letter-spacing:.05em;}
 .nav-logo-text .brand{font-size:1rem;font-weight:800;color:white;}
 .nav-logo-text .sub{font-size:.7rem;color:rgba(255,255,255,.6);font-weight:600;}
 .logo-card{display:flex;flex-direction:column;align-items:center;background:white;border-radius:6px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,.25);min-width:148px}
@@ -83,15 +83,15 @@ nav{background:var(--navy-dark);padding:0 40px;display:flex;align-items:center;j
 .nav-links .dropdown-menu a:hover{color:var(--orange-light);background:rgba(255,255,255,.04);border-bottom-color:rgba(255,255,255,.08)}
 .nav-links .nav-ico{width:14px;height:14px;stroke:currentColor;stroke-width:2.2;fill:none;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0}
 .nav-instant{color:var(--orange-light)!important}
-.nav-cta{background:#B85400!important;color:white!important;padding:10px 22px!important;border-radius:4px;border-bottom:none!important;transition:background .2s!important}
-.nav-cta:hover{background:#A64B00!important}
+.nav-cta{background:#BD5728!important;color:white!important;padding:10px 22px!important;border-radius:4px;border-bottom:none!important;transition:background .2s!important}
+.nav-cta:hover{background:#A14A22!important}
 .hamburger{display:none;flex-direction:column;gap:6px;cursor:pointer;padding:10px;z-index:1001}
 .hamburger span{display:block;width:26px;height:3px;background:#ffffff;border-radius:2px;transition:all .3s;box-shadow:0 1px 3px rgba(0,0,0,.3)}
 .mobile-nav{display:none;position:fixed;top:70px;left:0;right:0;background:var(--navy-dark);z-index:999;border-top:2px solid var(--orange);max-height:calc(100vh - 70px);overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,.4);padding-top:0}
 .mobile-nav.open{display:block}
 .mobile-nav a{display:block;padding:14px 24px;color:rgba(255,255,255,.85);text-decoration:none;font-size:.85rem;font-weight:600;letter-spacing:.06em;text-transform:uppercase;border-bottom:1px solid rgba(255,255,255,.06);transition:color .2s,background .2s}
 .mobile-nav a:hover{color:var(--orange);background:rgba(255,255,255,.04)}
-.mobile-cta-btn{margin:16px;background:#B85400!important;color:white!important;text-align:center;border-radius:6px;border-bottom:none!important;padding:14px 24px!important;display:block}
+.mobile-cta-btn{margin:16px;background:#BD5728!important;color:white!important;text-align:center;border-radius:6px;border-bottom:none!important;padding:14px 24px!important;display:block}
 
 /* ── SHARED ── */
 /* Reveal: visible by default. Hide pre-animation ONLY when JS has signaled readiness
@@ -106,8 +106,8 @@ nav{background:var(--navy-dark);padding:0 40px;display:flex;align-items:center;j
 @media (prefers-reduced-motion: reduce){
   *,*::before,*::after{animation-duration:0.001ms!important;animation-iteration-count:1!important;transition-duration:0.001ms!important;scroll-behavior:auto!important}
 }
-.btn-primary{background:#B85400;color:white;padding:14px 32px;border-radius:8px;font-weight:700;font-size:.85rem;letter-spacing:.06em;text-transform:uppercase;text-decoration:none;transition:all .25s;display:inline-flex;align-items:center;gap:8px;border:none;cursor:pointer;font-family:'Montserrat',sans-serif}
-.btn-primary:hover{background:#A64B00;transform:translateY(-2px);box-shadow:0 8px 24px rgba(189,87,40,.4)}
+.btn-primary{background:#BD5728;color:white;padding:14px 32px;border-radius:8px;font-weight:700;font-size:.85rem;letter-spacing:.06em;text-transform:uppercase;text-decoration:none;transition:all .25s;display:inline-flex;align-items:center;gap:8px;border:none;cursor:pointer;font-family:'Montserrat',sans-serif}
+.btn-primary:hover{background:#A14A22;transform:translateY(-2px);box-shadow:0 8px 24px rgba(189,87,40,.4)}
 .btn-secondary{background:transparent;color:var(--navy-dark);padding:14px 32px;border-radius:8px;font-weight:700;font-size:.85rem;letter-spacing:.06em;text-transform:uppercase;text-decoration:none;transition:all .25s;border:2px solid var(--navy-dark);display:inline-flex;align-items:center;gap:8px}
 .btn-secondary:hover{background:var(--navy-dark);color:white}
 .btn-ghost{background:transparent;color:white;padding:14px 32px;border-radius:8px;font-weight:700;font-size:.85rem;letter-spacing:.06em;text-transform:uppercase;text-decoration:none;transition:all .25s;border:2px solid rgba(255,255,255,.35);display:inline-flex;align-items:center;gap:8px}
@@ -119,14 +119,14 @@ nav{background:var(--navy-dark);padding:0 40px;display:flex;align-items:center;j
 .hs-trust-item .icon svg.ico{width:18px;height:18px}
 .btn-ghost:hover{border-color:white;background:rgba(255,255,255,.08)}
 .btn-cal{background:white;color:var(--navy-dark);padding:14px 32px;border-radius:8px;font-weight:800;font-size:.85rem;letter-spacing:.06em;text-transform:uppercase;text-decoration:none;transition:all .25s;border:2px solid white;display:inline-flex;align-items:center;gap:8px;box-shadow:0 4px 16px rgba(0,0,0,.2)}
-.btn-cal:hover{background:#B85400;color:white;border-color:var(--orange-light);transform:translateY(-2px);box-shadow:0 8px 24px rgba(189,87,40,.4)}
+.btn-cal:hover{background:#BD5728;color:white;border-color:var(--orange-light);transform:translateY(-2px);box-shadow:0 8px 24px rgba(189,87,40,.4)}
 section{padding:80px 40px}
 .section-inner{max-width:1200px;margin:0 auto}
 .section-header{text-align:center;margin-bottom:56px}
 .eyebrow{display:inline-flex;align-items:center;gap:10px;color:var(--orange);font-size:.72rem;font-weight:800;letter-spacing:.16em;text-transform:uppercase;margin-bottom:12px}
 .eyebrow::before{content:'';width:7px;height:7px;background:var(--orange);border-radius:50%;box-shadow:0 0 10px rgba(189,87,40,.6);flex-shrink:0}
 .sec-title{font-family:'Bebas Neue',sans-serif;font-size:clamp(2rem,3.5vw,3rem);color:var(--navy-dark);letter-spacing:.03em;line-height:1.05;margin-bottom:16px}
-.sec-title span{color:#DA6A05}
+.sec-title span{color:#BD5728}
 .sec-title.white{color:white}
 .sec-desc{color:var(--gray);max-width:580px;margin:0 auto;line-height:1.75;font-size:1rem}
 
@@ -140,7 +140,7 @@ section{padding:80px 40px}
 .hero-badge::before{content:'';width:6px;height:6px;background:var(--orange);border-radius:50%;animation:pulse 2s infinite}
 @keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.5;transform:scale(1.3)}}
 .hero h1{font-family:'Bebas Neue',sans-serif;font-size:clamp(3rem,5.5vw,5.5rem);color:white;line-height:.92;letter-spacing:.02em;margin-bottom:10px;animation:fadeUp .6s ease .1s both}
-.hero h1 span{color:#DA6A05}
+.hero h1 span{color:#BD5728}
 .hero-tagline{font-family:'Dancing Script',cursive;font-size:1.45rem;color:var(--orange-light);margin-bottom:22px;animation:fadeUp .6s ease .2s both}
 .hero p{color:rgba(255,255,255,.72);font-size:.95rem;line-height:1.7;margin-bottom:32px;max-width:500px;animation:fadeUp .6s ease .3s both}
 .hero-btns{display:flex;gap:14px;flex-wrap:wrap;margin-bottom:36px;animation:fadeUp .6s ease .35s both}
@@ -151,7 +151,7 @@ section{padding:80px 40px}
 
 /* WARRANTY CARD in hero */
 .warranty-card{background:white;border-radius:14px;padding:32px 28px;box-shadow:0 24px 80px rgba(0,0,0,.4);position:relative;animation:fadeUp .7s ease .25s both}
-.wc-ribbon{position:absolute;top:-13px;left:50%;transform:translateX(-50%);background:#B85400;color:white;font-size:.66rem;font-weight:800;letter-spacing:.12em;text-transform:uppercase;padding:5px 20px;border-radius:100px;white-space:nowrap;box-shadow:0 4px 16px rgba(189,87,40,.4)}
+.wc-ribbon{position:absolute;top:-13px;left:50%;transform:translateX(-50%);background:#BD5728;color:white;font-size:.66rem;font-weight:800;letter-spacing:.12em;text-transform:uppercase;padding:5px 20px;border-radius:100px;white-space:nowrap;box-shadow:0 4px 16px rgba(189,87,40,.4)}
 .wc-title{font-family:'Bebas Neue',sans-serif;font-size:1.4rem;letter-spacing:.05em;color:var(--navy-dark);text-align:center;margin:14px 0 20px}
 .wc-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:22px}
 .wc-stat{background:var(--off-white);border-radius:8px;padding:16px 12px;text-align:center;border:1px solid var(--light-gray)}
@@ -183,7 +183,7 @@ a.trust-item:focus-visible{outline:2px solid var(--orange);outline-offset:-2px}
 .service-card::before{content:'';position:absolute;top:0;left:0;right:0;height:4px;background:var(--orange);transition:height .28s}
 .service-card:hover{transform:translateY(-5px);box-shadow:0 16px 48px rgba(0,0,0,.1);border-color:transparent}
 .service-card:hover::before{height:6px}
-.sc-badge{position:absolute;top:14px;right:14px;background:#B85400;color:var(--white);font-size:.65rem;font-weight:800;letter-spacing:.1em;text-transform:uppercase;padding:4px 9px;border-radius:4px;line-height:1.2}
+.sc-badge{position:absolute;top:14px;right:14px;background:#BD5728;color:var(--white);font-size:.65rem;font-weight:800;letter-spacing:.1em;text-transform:uppercase;padding:4px 9px;border-radius:4px;line-height:1.2}
 .sc-badge.sc-badge-storm{background:var(--navy-dark)}
 .sc-title{font-family:'Bebas Neue',sans-serif;font-size:1.7rem;letter-spacing:.04em;color:var(--navy-dark);margin-bottom:12px;margin-top:4px}
 .sc-body{font-size:.97rem;color:#4b5563;line-height:1.65;margin-bottom:18px}
@@ -227,7 +227,7 @@ a.trust-item:focus-visible{outline:2px solid var(--orange);outline-offset:-2px}
 .about-ph{text-align:center;padding:40px;position:relative;z-index:1}
 .about-ph .ico{font-size:5rem;display:block;margin-bottom:16px}
 .about-ph p{color:rgba(255,255,255,.4);font-size:.85rem}
-.about-badge{position:absolute;bottom:-20px;right:-20px;background:#B85400;color:white;border-radius:12px;padding:20px 24px;text-align:center;box-shadow:0 8px 32px rgba(189,87,40,.4)}
+.about-badge{position:absolute;bottom:-20px;right:-20px;background:#BD5728;color:white;border-radius:12px;padding:20px 24px;text-align:center;box-shadow:0 8px 32px rgba(189,87,40,.4)}
 .about-badge .big-num{font-family:'Bebas Neue',sans-serif;font-size:2.5rem;letter-spacing:.05em;line-height:1;display:block}
 .about-badge small{font-size:.65rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;opacity:.85}
 .about-content p{color:var(--gray);line-height:1.75;margin-bottom:18px;font-size:.93rem}
@@ -274,7 +274,7 @@ a.trust-item:focus-visible{outline:2px solid var(--orange);outline-offset:-2px}
 .contact-section::before{content:'';position:absolute;top:0;right:0;bottom:0;left:0;background:repeating-linear-gradient(45deg,transparent,transparent 50px,rgba(189,87,40,.03) 50px,rgba(189,87,40,.03) 51px)}
 .contact-grid{display:grid;grid-template-columns:1fr 1fr 300px;gap:48px;align-items:start;position:relative;z-index:1}
 .contact-left h2{font-family:'Bebas Neue',sans-serif;font-size:clamp(2rem,3.5vw,3.2rem);color:white;letter-spacing:.03em;line-height:1.05;margin-bottom:16px}
-.contact-left h2 span{color:#DA6A05}
+.contact-left h2 span{color:#BD5728}
 .contact-left p{color:rgba(255,255,255,.55);font-size:.92rem;line-height:1.75;margin-bottom:32px}
 .contact-methods{display:flex;flex-direction:column;gap:16px}
 .contact-method{display:flex;align-items:center;gap:16px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.08);border-radius:10px;padding:18px 20px;text-decoration:none;transition:all .2s}
@@ -308,7 +308,7 @@ a.trust-item:focus-visible{outline:2px solid var(--orange);outline-offset:-2px}
 .form-group input,.form-group select,.form-group textarea{width:100%;padding:12px 14px;border:1.5px solid var(--light-gray);border-radius:6px;font-family:'Montserrat',sans-serif;font-size:.87rem;color:var(--navy-dark);background:var(--off-white);transition:border-color .2s;outline:none}
 .form-group input:focus,.form-group select:focus,.form-group textarea:focus{border-color:var(--orange);background:white}
 .form-group textarea{resize:vertical;min-height:100px}
-.form-submit{width:100%;padding:15px;background:#B85400;color:white;font-family:'Montserrat',sans-serif;font-size:.9rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;border:none;border-radius:6px;cursor:pointer;transition:all .25s;margin-top:4px}
+.form-submit{width:100%;padding:15px;background:#BD5728;color:white;font-family:'Montserrat',sans-serif;font-size:.9rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;border:none;border-radius:6px;cursor:pointer;transition:all .25s;margin-top:4px}
 .form-submit:hover{background:var(--orange-light);transform:translateY(-2px);box-shadow:0 6px 20px rgba(189,87,40,.4)}
 .form-note{font-size:.7rem;color:#a0aec0;text-align:center;margin-top:8px}
 .form-success{display:none;text-align:center;padding:30px 0}
@@ -338,7 +338,7 @@ footer{background:var(--navy-dark);border-top:3px solid var(--orange);padding:60
 /* ── BACK TO TOP ── */
 .back-to-top{position:fixed;bottom:28px;right:28px;width:44px;height:44px;background:var(--navy);color:white;border:none;border-radius:10px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:1.1rem;box-shadow:0 4px 16px rgba(0,0,0,.25);opacity:0;transform:translateY(12px);transition:opacity .3s,transform .3s,background .2s;z-index:998;pointer-events:none}
 .back-to-top.visible{opacity:1;transform:translateY(0);pointer-events:auto}
-.back-to-top:hover{background:#B85400}
+.back-to-top:hover{background:#BD5728}
 
 /* ── RESPONSIVE ── */
 @media(max-width:1024px){
@@ -393,7 +393,7 @@ footer{background:var(--navy-dark);border-top:3px solid var(--orange);padding:60
   .mobile-cta-strip{display:flex;position:fixed;bottom:0;left:0;right:0;z-index:999;background:var(--navy-dark);border-top:3px solid var(--orange);padding:12px 16px calc(16px + env(safe-area-inset-bottom, 0px));gap:10px;align-items:center;justify-content:center}
   .mobile-cta-strip a{flex:1;display:flex;align-items:center;justify-content:center;gap:7px;padding:13px 10px;border-radius:8px;font-size:.8rem;font-weight:800;letter-spacing:.06em;text-transform:uppercase;text-decoration:none;text-align:center}
   .mobile-cta-call{background:var(--navy-dark);color:white;border:2px solid var(--orange)}
-  .mobile-cta-call:active{background:#B85400}
+  .mobile-cta-call:active{background:#BD5728}
   .mobile-cta-text{background:rgba(255,255,255,.08);color:white;border:1px solid rgba(255,255,255,.2)}
   .mobile-cta-strip svg{width:16px;height:16px;flex-shrink:0}
   /* Push footer content above the strip — account for iPhone home indicator. */
@@ -444,8 +444,8 @@ footer{background:var(--navy-dark);border-top:3px solid var(--orange);padding:60
 .hs-cta{background:var(--navy-dark);color:white;border-radius:14px;padding:28px;text-align:center;}
 .hs-cta h3{font-family:'Bebas Neue',sans-serif;font-size:1.6rem;margin-bottom:10px;color:white;letter-spacing:.03em;}
 .hs-cta p{font-size:.83rem;color:rgba(255,255,255,.75);line-height:1.6;margin-bottom:20px;}
-.hs-btn{display:block;background:#B85400;color:white;padding:13px 20px;border-radius:8px;font-weight:800;font-size:.88rem;text-decoration:none;margin-bottom:10px;transition:background .2s;}
-.hs-btn:hover{background:#A64B00;}
+.hs-btn{display:block;background:#BD5728;color:white;padding:13px 20px;border-radius:8px;font-weight:800;font-size:.88rem;text-decoration:none;margin-bottom:10px;transition:background .2s;}
+.hs-btn:hover{background:#A14A22;}
 .hs-phone{display:block;background:transparent;border:1px solid rgba(255,255,255,.3);color:rgba(255,255,255,.8);font-size:.83rem;text-decoration:none;padding:10px 20px;border-radius:8px;transition:all .2s;}
 .hs-phone:hover{border-color:var(--orange);color:white;}
 .hs-trust{display:flex;flex-direction:column;gap:10px;}
@@ -454,7 +454,7 @@ footer{background:var(--navy-dark);border-top:3px solid var(--orange);padding:60
 .hs-trust-item strong{color:var(--navy-dark);display:block;}
 .hs-blog-item{padding:10px 0;border-bottom:1px solid var(--light-gray);}
 .hs-blog-item:last-child{border-bottom:none;padding-bottom:0;}
-.hs-blog-item .tag{font-size:.68rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#A64B00;margin-bottom:4px;}
+.hs-blog-item .tag{font-size:.68rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#A14A22;margin-bottom:4px;}
 .hs-blog-item a{font-size:.84rem;font-weight:600;color:var(--navy-dark);text-decoration:none;line-height:1.4;display:block;}
 .hs-blog-item a:hover{color:var(--orange);}
 @media print {
@@ -621,11 +621,11 @@ footer{background:var(--navy-dark);border-top:3px solid var(--orange);padding:60
 .nav-links .dropdown:hover .dropdown-menu,.nav-links .dropdown:focus-within .dropdown-menu,.nav-links .dropdown.open .dropdown-menu{display:block}
 .nav-links .dropdown-menu a{display:block;padding:10px 18px;font-size:.75rem;border-bottom:1px solid rgba(255,255,255,.08);color:rgba(255,255,255,.85);text-decoration:none;letter-spacing:.06em;text-transform:uppercase;font-weight:600;transition:color .2s,background .2s}
 .nav-links .dropdown-menu a:last-child{border-bottom:none}
-.nav-links .dropdown-menu a:hover{color:var(--orange-light,#f08030);background:rgba(255,255,255,.04);border-bottom-color:rgba(255,255,255,.08)}
+.nav-links .dropdown-menu a:hover{color:var(--orange-light,#dd875f);background:rgba(255,255,255,.04);border-bottom-color:rgba(255,255,255,.08)}
 .mobile-nav{display:none;position:fixed;top:70px;left:0;right:0;background:var(--navy-dark,#12223d);z-index:999;border-top:2px solid var(--orange,#bd5728);max-height:calc(100vh - 70px);overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,.4);padding-top:0}
 .mobile-nav.open{display:block}
 .mobile-nav > a{display:block;padding:12px 24px;color:rgba(255,255,255,.85);text-decoration:none;font-size:.82rem;font-weight:600;letter-spacing:.05em;text-transform:uppercase;border-bottom:1px solid rgba(255,255,255,.06)}
-.mobile-nav > a:hover{color:var(--orange-light,#f08030);background:rgba(255,255,255,.04)}
+.mobile-nav > a:hover{color:var(--orange-light,#dd875f);background:rgba(255,255,255,.04)}
 .hamburger{display:none;flex-direction:column;gap:6px;cursor:pointer;padding:10px;background:transparent;border:none;z-index:1001}
 .hamburger span{display:block;width:26px;height:3px;background:#fff;border-radius:2px;transition:all .3s;box-shadow:0 1px 3px rgba(0,0,0,.3)}
 @media (max-width:1024px){.nav-links{display:none}.hamburger{display:flex}}
@@ -756,11 +756,11 @@ footer.foot a,.review-footer a{color:#bd5728!important}
 .hero-link-secondary:hover{color:var(--orange)!important}
 .ql-pledge:hover{background:#ffe8d6!important}
 .ql-tamko:hover{background:#fff4ee!important;border-color:#bd5728!important}
-.ql-guarantee:hover{background:#A64B00!important;color:#fff!important}
+.ql-guarantee:hover{background:#A14A22!important;color:#fff!important}
 .partner-logo-img:hover{filter:none!important;opacity:1!important}
 </style>
 <style>/* iOS-zoom fix (conversion audit): 16px inputs prevent Safari auto-zoom on focus */@media(max-width:600px){input,select,textarea{font-size:16px!important}}</style>
-<style>.nbd-skip{position:absolute;left:-9999px;top:0;z-index:100000;background:#B85400;color:#fff;padding:10px 16px;font-weight:700;text-decoration:none;border-radius:0 0 6px 0}.nbd-skip:focus{left:0}</style>
+<style>.nbd-skip{position:absolute;left:-9999px;top:0;z-index:100000;background:#BD5728;color:#fff;padding:10px 16px;font-weight:700;text-decoration:none;border-radius:0 0 6px 0}.nbd-skip:focus{left:0}</style>
 <style>
 /* nav-wordmark guard (consistency audit 2026-07-15): keep the wordmark on one
    line and shrink logo+text on phones — the blog family had no mobile rules,
@@ -797,17 +797,17 @@ nav .nav-logo-text .sub{white-space:nowrap}
     </div>
   </a>
   <ul class="nav-links" id="navLinks">
-    <li><a href="/the-pledge" style="color:var(--orange-light,#f08030);font-weight:700">The Pledge</a></li>
+    <li><a href="/the-pledge" style="color:var(--orange-light,#dd875f);font-weight:700">The Pledge</a></li>
     <li class="dropdown"><a href="/#services">Services
       <svg class="nav-ico" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg></a>
       <ul class="dropdown-menu">
-        <li><a href="/the-pledge" style="color:var(--orange-light,#f08030);font-weight:800;">The Lifetime Pledge</a></li>
-        <li><a href="/services/the-nbd-guarantee" style="color:var(--orange-light,#f08030);font-weight:800;">The NBD Guarantee</a></li>
-        <li><a href="/services/lumanail" style="color:var(--orange-light,#f08030);font-weight:800;">LumaNail™ Upgrade</a></li>
+        <li><a href="/the-pledge" style="color:var(--orange-light,#dd875f);font-weight:800;">The Lifetime Pledge</a></li>
+        <li><a href="/services/the-nbd-guarantee" style="color:var(--orange-light,#dd875f);font-weight:800;">The NBD Guarantee</a></li>
+        <li><a href="/services/lumanail" style="color:var(--orange-light,#dd875f);font-weight:800;">LumaNail™ Upgrade</a></li>
         <li><a href="/services/gaf-timberline">GAF Timberline Lineup</a></li>
-        <li><a href="/services/the-nbd-build" style="color:var(--orange-light,#f08030);font-weight:800;">The NBD Build</a></li>
-        <li><a href="/services/roofivent" style="color:var(--orange-light,#f08030);font-weight:800;">Roofivent Products</a></li>
-        <li><a href="/services/gaf-pivot-boot" style="color:var(--orange-light,#f08030);font-weight:800;">GAF Pivot Boot</a></li>
+        <li><a href="/services/the-nbd-build" style="color:var(--orange-light,#dd875f);font-weight:800;">The NBD Build</a></li>
+        <li><a href="/services/roofivent" style="color:var(--orange-light,#dd875f);font-weight:800;">Roofivent Products</a></li>
+        <li><a href="/services/gaf-pivot-boot" style="color:var(--orange-light,#dd875f);font-weight:800;">GAF Pivot Boot</a></li>
         <li><a href="/services/roof-replacement">Roof Replacement</a></li>
         <li><a href="/services/roof-repair">Roof Repair</a></li>
         <li><a href="/services/siding-replacement">Siding Replacement</a></li>
@@ -819,11 +819,11 @@ nav .nav-logo-text .sub{white-space:nowrap}
         <li><a href="/services/roof-cleaning-soft-wash">Roof Cleaning</a></li>
         <li><a href="/services/fire-water-smoke-damage">Fire &amp; Water Damage</a></li>
         <li><a href="/services/financing">Financing</a></li>
-        <li><a href="/roof-score" style="color:var(--orange-light,#f08030)">Roof Score</a></li>
-        <li><a href="/free-tools" style="color:var(--orange-light,#f08030)">All Free Tools</a></li>
-        <li><a href="/storm-alerts" style="color:var(--orange-light,#f08030)">Storm Alerts</a></li>
-        <li><a href="/storm-report" style="color:var(--orange-light,#f08030)">5-Year Storm Report</a></li>
-        <li><a href="/storm-check" style="color:var(--orange-light,#f08030)">Is It Worth a Claim?</a></li><li><a href="/inspect" style="color:var(--orange-light,#f08030)">Free 24-Hr Inspection</a></li>
+        <li><a href="/roof-score" style="color:var(--orange-light,#dd875f)">Roof Score</a></li>
+        <li><a href="/free-tools" style="color:var(--orange-light,#dd875f)">All Free Tools</a></li>
+        <li><a href="/storm-alerts" style="color:var(--orange-light,#dd875f)">Storm Alerts</a></li>
+        <li><a href="/storm-report" style="color:var(--orange-light,#dd875f)">5-Year Storm Report</a></li>
+        <li><a href="/storm-check" style="color:var(--orange-light,#dd875f)">Is It Worth a Claim?</a></li><li><a href="/inspect" style="color:var(--orange-light,#dd875f)">Free 24-Hr Inspection</a></li>
       </ul>
     </li>
     <li><a href="/about">About Joe</a></li>
@@ -844,9 +844,9 @@ nav .nav-logo-text .sub{white-space:nowrap}
 <!-- MOBILE NAV -->
 <div class="mobile-nav" id="mobileNav">
   <div class="mnav-group">The Promise</div>
-  <a href="/the-pledge" style="color:#f08030;font-weight:800;">The Lifetime Pledge</a>
-  <a href="/services/the-nbd-guarantee" style="color:#f08030;font-weight:800;">The NBD Guarantee</a>
-  <a href="/services/the-nbd-build" style="color:#f08030;font-weight:800;">The NBD Build</a>
+  <a href="/the-pledge" style="color:#dd875f;font-weight:800;">The Lifetime Pledge</a>
+  <a href="/services/the-nbd-guarantee" style="color:#dd875f;font-weight:800;">The NBD Guarantee</a>
+  <a href="/services/the-nbd-build" style="color:#dd875f;font-weight:800;">The NBD Build</a>
   <div class="mnav-group">Premium Components</div>  <a href="/services/lumanail">LumaNail&trade;</a>
   <a href="/services/roofivent">Roofivent</a>
   <a href="/services/gaf-pivot-boot">GAF Pivot Boot</a>
@@ -870,14 +870,14 @@ nav .nav-logo-text .sub{white-space:nowrap}
   <a href="/areas">Service Areas</a>
   <a href="/blog">Blog</a>
   <div class="mnav-group">Tools</div>
-  <a href="/estimate" style="color:#f08030">Instant Estimate</a>
-  <a href="/visualizer" style="color:#f08030">Roof Visualizer</a>
-  <a href="/roof-score" style="color:#f08030">Roof Score</a>
-  <a href="/storm-alerts" style="color:#f08030">Storm Alerts</a>
-  <a href="/storm-report" style="color:#f08030">5-Year Storm Report</a>
-  <a href="/storm-check" style="color:#f08030">Is It Worth a Claim?</a>
-  <a href="/inspect" style="color:#f08030">Free 24-Hr Inspection</a>
-  <a href="/free-tools" style="color:#f08030">All Free Tools</a>
+  <a href="/estimate" style="color:#dd875f">Instant Estimate</a>
+  <a href="/visualizer" style="color:#dd875f">Roof Visualizer</a>
+  <a href="/roof-score" style="color:#dd875f">Roof Score</a>
+  <a href="/storm-alerts" style="color:#dd875f">Storm Alerts</a>
+  <a href="/storm-report" style="color:#dd875f">5-Year Storm Report</a>
+  <a href="/storm-check" style="color:#dd875f">Is It Worth a Claim?</a>
+  <a href="/inspect" style="color:#dd875f">Free 24-Hr Inspection</a>
+  <a href="/free-tools" style="color:#dd875f">All Free Tools</a>
   <a href="/#contact" style="color:#bd5728;font-weight:800;">Book Inspection &rarr;</a>
 </div>
 <main id="main">
@@ -917,22 +917,22 @@ nav .nav-logo-text .sub{white-space:nowrap}
             <img src="/assets/gaf/gaf-certified-badge-120.png" alt="GAF Certified™ Residential Roofing Contractor badge" width="56" height="56" loading="lazy" style="display:block;flex-shrink:0;">
             <div style="line-height:1.25;">
               <div style="font-size:.78rem;font-weight:800;color:#1a3057;letter-spacing:.02em;">GAF Certified™ Contractor</div>
-              <div style="font-size:.66rem;color:#646c7a;margin-top:2px;">System Plus Limited Warranty available · <a href="https://www.gaf.com/en-us/roofing-contractors/residential" target="_blank" rel="noopener" style="color:#A64B00;font-weight:700;text-decoration:none;">Verify on GAF.com →</a></div>
+              <div style="font-size:.66rem;color:#646c7a;margin-top:2px;">System Plus Limited Warranty available · <a href="https://www.gaf.com/en-us/roofing-contractors/residential" target="_blank" rel="noopener" style="color:#A14A22;font-weight:700;text-decoration:none;">Verify on GAF.com →</a></div>
             </div>
           </div>
           <div style="display:flex;align-items:center;gap:12px;padding:8px 12px;background:#f8f9fb;border:1px solid #e5e7eb;border-radius:8px;">
             <img src="/assets/tamko/tamko-pro-gold-badge-120.png" alt="TAMKO Pro Gold™ Certified Roofing Contractor badge" width="51" height="56" loading="lazy" style="display:block;flex-shrink:0;height:56px;width:auto;">
             <div style="line-height:1.25;">
               <div style="font-size:.78rem;font-weight:800;color:#1a3057;letter-spacing:.02em;">TAMKO Pro Gold™ Certified</div>
-              <div style="font-size:.66rem;color:#646c7a;margin-top:2px;">ProShield® Enhanced Warranty available · <a href="https://www.tamko.com/locate-a-contractor" target="_blank" rel="noopener" style="color:#A64B00;font-weight:700;text-decoration:none;">Verify on TAMKO.com →</a></div>
+              <div style="font-size:.66rem;color:#646c7a;margin-top:2px;">ProShield® Enhanced Warranty available · <a href="https://www.tamko.com/locate-a-contractor" target="_blank" rel="noopener" style="color:#A14A22;font-weight:700;text-decoration:none;">Verify on TAMKO.com →</a></div>
             </div>
           </div>
         </div>
         <a href="/the-pledge" style="display:flex;align-items:center;gap:10px;margin:14px 0 10px;padding:10px 12px;background:#fff4ee;border:1px solid #f7d8c2;border-left:3px solid #bd5728;border-radius:6px;text-decoration:none;transition:all .15s" class="ql-pledge">
           <div style="flex-shrink:0;color:#bd5728"><svg class="ico" viewBox="0 0 24 24" style="width:18px;height:18px"><path d="M12 2 L4 6 V12 C4 17 8 21 12 22 C16 21 20 17 20 12 V6 Z"/></svg></div>
           <div style="flex:1;line-height:1.35">
-            <div style="font-size:.7rem;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:#A64B00;">On every NBD roof</div>
-            <div style="font-size:.78rem;color:#1a3057;font-weight:600">The Pledge: <span style="font-weight:400;color:#4a4a4a">you call about anything I worked on, I come look. Free. Forever.</span> <strong style="color:#A64B00;font-weight:800">Read &rarr;</strong></div>
+            <div style="font-size:.7rem;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:#A14A22;">On every NBD roof</div>
+            <div style="font-size:.78rem;color:#1a3057;font-weight:600">The Pledge: <span style="font-weight:400;color:#4a4a4a">you call about anything I worked on, I come look. Free. Forever.</span> <strong style="color:#A14A22;font-weight:800">Read &rarr;</strong></div>
           </div>
         </a>
         <div style="display:flex;flex-direction:column;gap:8px;margin:8px 0 16px;">
@@ -946,7 +946,7 @@ nav .nav-logo-text .sub{white-space:nowrap}
           <div style="display:flex;align-items:flex-start;gap:12px;padding:10px 12px;background:#f8f9fb;border-radius:6px;border-left:3px solid #bd5728;">
             <div style="flex-shrink:0;margin-top:1px;color:#bd5728;"><svg class="ico" viewBox="0 0 24 24" style="width:22px;height:22px"><path d="M12 2 L4 6 V12 C4 17 8 21 12 22 C16 21 20 17 20 12 V6 Z"/></svg></div>
             <div>
-              <div style="font-weight:700;font-size:.82rem;color:#1a3057;margin-bottom:2px;">Preferred — GAF Timberline HDZ <span style="font-weight:400;color:#646c7a;">or TAMKO Titan XT</span> <span style="font-size:.6rem;background:#B85400;color:#fff;padding:1px 5px;border-radius:3px;font-weight:800;letter-spacing:.04em;vertical-align:1px;">MOST CHOSEN</span></div>
+              <div style="font-weight:700;font-size:.82rem;color:#1a3057;margin-bottom:2px;">Preferred — GAF Timberline HDZ <span style="font-weight:400;color:#646c7a;">or TAMKO Titan XT</span> <span style="font-size:.6rem;background:#BD5728;color:#fff;padding:1px 5px;border-radius:3px;font-weight:800;letter-spacing:.04em;vertical-align:1px;">MOST CHOSEN</span></div>
               <div style="font-size:.72rem;color:#646c7a;line-height:1.4;">Full system install · GAF Pivot Boot · Roofivent iVent ECO · transferable warranty</div>
             </div>
           </div>
@@ -959,12 +959,12 @@ nav .nav-logo-text .sub{white-space:nowrap}
           </div>
         </div>
         <a href="/services/tamko-storm-series" style="display:flex;align-items:center;gap:8px;margin-bottom:10px;padding:9px 12px;background:#fbfaf8;border:1px dashed #d8b48a;border-radius:6px;text-decoration:none;transition:all .15s" class="ql-tamko">
-          <div style="flex-shrink:0;color:#c45e08"><svg class="ico" viewBox="0 0 24 24" style="width:16px;height:16px"><path d="M13 2 L4 14 H11 L11 22 L20 10 H13 Z"/></svg></div>
+          <div style="flex-shrink:0;color:#a14a22"><svg class="ico" viewBox="0 0 24 24" style="width:16px;height:16px"><path d="M13 2 L4 14 H11 L11 22 L20 10 H13 Z"/></svg></div>
           <div style="flex:1;line-height:1.35">
-            <div style="font-size:.72rem;color:#1a3057;font-weight:600">Live in hail country? Ask about the <strong style="color:#A64B00;font-weight:800">TAMKO Storm Series</strong> — impact-rated shingles up to a hail warranty. <strong style="color:#A64B00;font-weight:800">See it &rarr;</strong></div>
+            <div style="font-size:.72rem;color:#1a3057;font-weight:600">Live in hail country? Ask about the <strong style="color:#A14A22;font-weight:800">TAMKO Storm Series</strong> — impact-rated shingles up to a hail warranty. <strong style="color:#A14A22;font-weight:800">See it &rarr;</strong></div>
           </div>
         </a>
-        <a href="/services/the-nbd-guarantee" style="display:flex;align-items:center;justify-content:center;gap:8px;background:#fff4ee;color:#A64B00;text-decoration:none;font-weight:800;font-size:.78rem;letter-spacing:.04em;padding:11px;border-radius:6px;margin-bottom:10px;border:1px solid #f7d8c2;transition:all .15s;" class="ql-guarantee">
+        <a href="/services/the-nbd-guarantee" style="display:flex;align-items:center;justify-content:center;gap:8px;background:#fff4ee;color:#A14A22;text-decoration:none;font-weight:800;font-size:.78rem;letter-spacing:.04em;padding:11px;border-radius:6px;margin-bottom:10px;border:1px solid #f7d8c2;transition:all .15s;" class="ql-guarantee">
           Compare All Three Tiers →
         </a>
         <a href="tel:+18594207382" class="wc-phone">
@@ -1010,7 +1010,7 @@ nav .nav-logo-text .sub{white-space:nowrap}
 .nbd-system-eyebrow{display:inline-flex;align-items:center;gap:8px;color:#bd5728;font-size:.72rem;font-weight:800;letter-spacing:.14em;text-transform:uppercase;margin-bottom:14px}
 .nbd-system-eyebrow .dot{width:6px;height:6px;background:#bd5728;border-radius:50%;box-shadow:0 0 10px rgba(189,87,40,.6)}
 .nbd-system h2{font-family:'Bebas Neue',sans-serif;font-size:clamp(2rem,4.5vw,3.2rem);letter-spacing:1px;line-height:1.05;margin-bottom:14px;color:#fff}
-.nbd-system h2 span{color:#DA6A05}
+.nbd-system h2 span{color:#BD5728}
 .nbd-system-sub{font-size:1.02rem;color:rgba(255,255,255,.78);line-height:1.65}
 .nbd-system-grid{display:grid;grid-template-columns:1.6fr 1fr;gap:24px;align-items:stretch}
 .nbd-tier-card{background:rgba(255,255,255,.05);border:1px solid rgba(189,87,40,.4);border-left:6px solid #bd5728;border-radius:14px;padding:32px 36px;display:flex;flex-direction:column;justify-content:space-between;text-decoration:none;color:#fff;transition:all .2s}
@@ -1019,7 +1019,7 @@ nav .nav-logo-text .sub{white-space:nowrap}
 .nbd-tier-card h3{font-family:'Bebas Neue',sans-serif;font-size:clamp(1.6rem,2.5vw,2.2rem);letter-spacing:.04em;line-height:1.1;margin-bottom:14px;color:#fff}
 .nbd-tier-card .tier-row{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap}
 .nbd-tier-pill{background:rgba(255,255,255,.1);color:#fff;font-size:.72rem;font-weight:700;letter-spacing:.06em;padding:5px 11px;border-radius:100px;border:1px solid rgba(255,255,255,.2)}
-.nbd-tier-pill.featured{background:#B85400;border-color:#B85400}
+.nbd-tier-pill.featured{background:#BD5728;border-color:#BD5728}
 .nbd-tier-card p{font-size:.92rem;line-height:1.6;color:rgba(255,255,255,.82);margin-bottom:18px}
 .nbd-tier-cta{display:inline-flex;align-items:center;gap:6px;color:#bd5728;font-weight:800;font-size:.85rem;letter-spacing:.04em;text-transform:uppercase}
 .nbd-components-col{display:flex;flex-direction:column;gap:12px}
@@ -1095,20 +1095,20 @@ nav .nav-logo-text .sub{white-space:nowrap}
 .storm-band::before{content:'';position:absolute;top:-120px;left:-80px;width:340px;height:340px;background:radial-gradient(circle,rgba(189,87,40,.1),transparent 70%);pointer-events:none}
 .storm-inner{max-width:1180px;margin:0 auto;position:relative;z-index:1}
 .storm-head{max-width:760px;margin:0 auto 38px;text-align:center}
-.storm-eyebrow{display:inline-flex;align-items:center;gap:8px;color:#c45e08;font-size:.72rem;font-weight:800;letter-spacing:.14em;text-transform:uppercase;margin-bottom:14px}
+.storm-eyebrow{display:inline-flex;align-items:center;gap:8px;color:#a14a22;font-size:.72rem;font-weight:800;letter-spacing:.14em;text-transform:uppercase;margin-bottom:14px}
 .storm-eyebrow svg{width:16px;height:16px}
 .storm-band h2{font-family:'Bebas Neue',sans-serif;font-size:clamp(1.9rem,4vw,2.9rem);letter-spacing:1px;line-height:1.05;color:#12223d;margin-bottom:12px}
-.storm-band h2 span{color:#DA6A05}
+.storm-band h2 span{color:#BD5728}
 .storm-sub{font-size:1rem;color:#4a4a4a;line-height:1.65}
 .storm-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:30px}
 .storm-card{background:#fff;border:1px solid #ece4d8;border-top:3px solid #bd5728;border-radius:12px;padding:22px 18px;text-align:left;display:flex;flex-direction:column;gap:8px;box-shadow:0 4px 14px rgba(18,34,61,.05)}
 .storm-card .stage{font-size:.66rem;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:#9a8a72}
 .storm-card .nm{font-family:'Bebas Neue',sans-serif;font-size:1.5rem;letter-spacing:.03em;color:#12223d;line-height:1}
-.storm-card .badge{align-self:flex-start;font-size:.64rem;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:#c45e08;background:rgba(189,87,40,.1);border:1px solid rgba(189,87,40,.25);padding:3px 8px;border-radius:100px}
+.storm-card .badge{align-self:flex-start;font-size:.64rem;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:#a14a22;background:rgba(189,87,40,.1);border:1px solid rgba(189,87,40,.25);padding:3px 8px;border-radius:100px}
 .storm-card p{font-size:.82rem;color:#4a4a4a;line-height:1.55;margin:0}
 .storm-cta{text-align:center}
-.storm-cta a{display:inline-flex;align-items:center;gap:8px;background:#B85400;color:#fff;text-decoration:none;font-weight:800;font-size:.82rem;letter-spacing:.04em;text-transform:uppercase;padding:14px 28px;border-radius:8px;transition:all .2s}
-.storm-cta a:hover{background:#c45e08;transform:translateY(-1px)}
+.storm-cta a{display:inline-flex;align-items:center;gap:8px;background:#BD5728;color:#fff;text-decoration:none;font-weight:800;font-size:.82rem;letter-spacing:.04em;text-transform:uppercase;padding:14px 28px;border-radius:8px;transition:all .2s}
+.storm-cta a:hover{background:#a14a22;transform:translateY(-1px)}
 .storm-cta .note{display:block;font-size:.78rem;color:#5d6673;margin-top:12px}
 @media(max-width:980px){.storm-grid{grid-template-columns:repeat(2,1fr)}}
 @media(max-width:520px){.storm-grid{grid-template-columns:1fr}}
@@ -1353,7 +1353,7 @@ nav .nav-logo-text .sub{white-space:nowrap}
 .iv-frame{position:relative;max-width:760px;margin:36px auto 0;aspect-ratio:16/9;border-radius:16px;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.4);border:1px solid rgba(255,255,255,.1)}
 .iv-facade{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;text-decoration:none;background:radial-gradient(circle at 50% 42%,rgba(26,48,87,.5),rgba(18,34,61,.92))}
 .iv-play{width:78px;height:78px;border-radius:50%;background:var(--orange);display:flex;align-items:center;justify-content:center;box-shadow:0 10px 30px rgba(0,0,0,.45);transition:transform .2s,background .2s}
-.iv-facade:hover .iv-play{transform:scale(1.08);background:var(--orange-light,#f08030)}
+.iv-facade:hover .iv-play{transform:scale(1.08);background:var(--orange-light,#dd875f)}
 .iv-facade:focus-visible{outline:3px solid var(--orange);outline-offset:3px}
 .iv-play svg{width:32px;height:32px;fill:#fff;margin-left:5px}
 .iv-facade b{color:#fff;font-size:.98rem;font-weight:700;letter-spacing:.02em}
@@ -1539,55 +1539,55 @@ nav .nav-logo-text .sub{white-space:nowrap}
 <section style="background:var(--navy);padding:56px 5%;border-top:3px solid var(--orange)">
   <div style="max-width:1100px;margin:0 auto">
     <div style="text-align:center;margin-bottom:36px">
-      <p style="font-size:.72rem;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:#ffaf66;margin-bottom:8px">The People Behind My Work</p>
-      <h3 style="font-family:'Bebas Neue',sans-serif;font-size:clamp(1.6rem,3vw,2.4rem);color:white;letter-spacing:.03em;line-height:1.1">Certified Installer. Real Partners. <span style="color:#ffaf66">Real Backing.</span></h3>
+      <p style="font-size:.72rem;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:#dd875f;margin-bottom:8px">The People Behind My Work</p>
+      <h3 style="font-family:'Bebas Neue',sans-serif;font-size:clamp(1.6rem,3vw,2.4rem);color:white;letter-spacing:.03em;line-height:1.1">Certified Installer. Real Partners. <span style="color:#dd875f">Real Backing.</span></h3>
     </div>
 
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:20px;margin-bottom:16px">
 
       <div style="background:rgba(189,87,40,.08);border:1px solid rgba(189,87,40,.3);border-radius:10px;padding:20px 20px 18px;text-align:center">
         <img src="/assets/gaf/gaf-certified-badge-320.png" alt="GAF Certified™ Residential Roofing Contractor badge" width="96" height="96" loading="lazy" style="display:block;margin:0 auto 10px;">
-        <p style="font-size:.62rem;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:#ffaf66;margin-bottom:6px">Manufacturer</p>
+        <p style="font-size:.62rem;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:#dd875f;margin-bottom:6px">Manufacturer</p>
         <p style="font-family:'Bebas Neue',sans-serif;font-size:1.5rem;color:white;letter-spacing:.04em;margin-bottom:4px">GAF Certified™ Contractor</p>
         <p style="font-size:.74rem;color:rgba(255,255,255,.6);line-height:1.5;margin-bottom:8px">Full GAF system install · GAF System Plus Limited Warranty available on qualifying installs.</p>
-        <a href="https://www.gaf.com/en-us/roofing-contractors/residential" target="_blank" rel="noopener" style="display:inline-block;font-size:.7rem;font-weight:800;color:#ffaf66;text-decoration:none;letter-spacing:.04em;border-bottom:1px solid rgba(189,87,40,.4);padding-bottom:1px">Verify on GAF.com →</a>
+        <a href="https://www.gaf.com/en-us/roofing-contractors/residential" target="_blank" rel="noopener" style="display:inline-block;font-size:.7rem;font-weight:800;color:#dd875f;text-decoration:none;letter-spacing:.04em;border-bottom:1px solid rgba(189,87,40,.4);padding-bottom:1px">Verify on GAF.com →</a>
       </div>
 
       <div style="background:rgba(189,87,40,.08);border:1px solid rgba(189,87,40,.3);border-radius:10px;padding:20px 20px 18px;text-align:center">
         <div style="background:white;border-radius:6px;padding:8px;margin:0 auto 10px;width:96px;height:96px;display:flex;align-items:center;justify-content:center">
           <img src="/assets/tamko/tamko-pro-gold-badge-320.png" alt="TAMKO Pro Gold™ Certified Roofing Contractor badge" width="72" height="80" loading="lazy" style="display:block;height:80px;width:auto">
         </div>
-        <p style="font-size:.62rem;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:#ffaf66;margin-bottom:6px">Manufacturer</p>
+        <p style="font-size:.62rem;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:#dd875f;margin-bottom:6px">Manufacturer</p>
         <p style="font-family:'Bebas Neue',sans-serif;font-size:1.5rem;color:white;letter-spacing:.04em;margin-bottom:4px">TAMKO Pro Gold™ Certified</p>
         <p style="font-size:.74rem;color:rgba(255,255,255,.6);line-height:1.5;margin-bottom:8px">Storm Series installer · ProShield® Enhanced Limited System Warranty available on qualifying installs.</p>
-        <a href="https://www.tamko.com/locate-a-contractor" target="_blank" rel="noopener" style="display:inline-block;font-size:.7rem;font-weight:800;color:#ffaf66;text-decoration:none;letter-spacing:.04em;border-bottom:1px solid rgba(189,87,40,.4);padding-bottom:1px">Verify on TAMKO.com →</a>
+        <a href="https://www.tamko.com/locate-a-contractor" target="_blank" rel="noopener" style="display:inline-block;font-size:.7rem;font-weight:800;color:#dd875f;text-decoration:none;letter-spacing:.04em;border-bottom:1px solid rgba(189,87,40,.4);padding-bottom:1px">Verify on TAMKO.com →</a>
       </div>
 
       <div style="background:rgba(189,87,40,.08);border:1px solid rgba(189,87,40,.3);border-radius:10px;padding:20px 20px 18px;text-align:center">
         <img src="/assets/american-operator/american-operator-badge-320.png" alt="Locally Owned &amp; Operated — Certified by American Operator badge" width="84" height="96" loading="lazy" style="display:block;margin:0 auto 10px;height:96px;width:auto">
-        <p style="font-size:.62rem;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:#ffaf66;margin-bottom:6px">Certification</p>
+        <p style="font-size:.62rem;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:#dd875f;margin-bottom:6px">Certification</p>
         <p style="font-family:'Bebas Neue',sans-serif;font-size:1.5rem;color:white;letter-spacing:.04em;margin-bottom:4px">Locally Owned &amp; Operated</p>
         <p style="font-size:.74rem;color:rgba(255,255,255,.6);line-height:1.5;margin-bottom:8px">Independently certified · One owner on your project, start to finish — never a franchise or national rollup.</p>
-        <a href="https://www.americanoperator.com/" target="_blank" rel="noopener" style="display:inline-block;font-size:.7rem;font-weight:800;color:#ffaf66;text-decoration:none;letter-spacing:.04em;border-bottom:1px solid rgba(189,87,40,.4);padding-bottom:1px">Certified by American Operator →</a>
+        <a href="https://www.americanoperator.com/" target="_blank" rel="noopener" style="display:inline-block;font-size:.7rem;font-weight:800;color:#dd875f;text-decoration:none;letter-spacing:.04em;border-bottom:1px solid rgba(189,87,40,.4);padding-bottom:1px">Certified by American Operator →</a>
       </div>
 
       <div style="background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.12);border-radius:10px;padding:20px 20px 18px;text-align:center">
         <div style="background:white;border-radius:6px;padding:10px;margin:0 auto 12px;width:96px;height:96px;display:flex;align-items:center;justify-content:center"><img src="/assets/partners/united-restore.png" alt="United Restore — insurance restoration partner" width="80" height="80" loading="lazy" style="max-width:100%;height:auto;object-fit:contain;display:block"></div>
-        <p style="font-size:.62rem;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:#ffaf66;margin-bottom:6px">Insurance Restoration</p>
+        <p style="font-size:.62rem;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:#dd875f;margin-bottom:6px">Insurance Restoration</p>
         <p style="font-family:'Bebas Neue',sans-serif;font-size:1.5rem;color:white;letter-spacing:.04em;margin-bottom:4px">United Restore</p>
         <p style="font-size:.74rem;color:rgba(255,255,255,.6);line-height:1.5">Water, fire &amp; smoke mitigation partner</p>
       </div>
 
       <div style="background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.12);border-radius:10px;padding:20px 20px 18px;text-align:center">
         <div style="background:white;border-radius:6px;padding:10px;margin:0 auto 12px;width:96px;height:96px;display:flex;align-items:center;justify-content:center"><img src="/assets/partners/acorn-finance.png" alt="Acorn Finance — homeowner financing marketplace partner" width="80" height="75" loading="lazy" style="max-width:100%;height:auto;object-fit:contain;display:block"></div>
-        <p style="font-size:.62rem;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:#ffaf66;margin-bottom:6px">Homeowner Financing</p>
+        <p style="font-size:.62rem;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:#dd875f;margin-bottom:6px">Homeowner Financing</p>
         <p style="font-family:'Bebas Neue',sans-serif;font-size:1.5rem;color:white;letter-spacing:.04em;margin-bottom:4px">Acorn Finance</p>
         <p style="font-size:.74rem;color:rgba(255,255,255,.6);line-height:1.5">Lending marketplace partner</p>
       </div>
 
       <div style="background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.12);border-radius:10px;padding:20px 20px 18px;text-align:center">
         <div style="background:white;border-radius:6px;padding:18px 10px;margin:0 auto 12px;width:96px;height:96px;display:flex;align-items:center;justify-content:center"><img src="/assets/partners/james-hardie.svg" alt="James Hardie — fiber cement siding manufacturer" width="76" height="76" loading="lazy" style="max-width:100%;height:auto;object-fit:contain;display:block"></div>
-        <p style="font-size:.62rem;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:#ffaf66;margin-bottom:6px">Siding Alliance</p>
+        <p style="font-size:.62rem;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:#dd875f;margin-bottom:6px">Siding Alliance</p>
         <p style="font-family:'Bebas Neue',sans-serif;font-size:1.5rem;color:white;letter-spacing:.04em;margin-bottom:4px">James Hardie</p>
         <p style="font-size:.74rem;color:rgba(255,255,255,.6);line-height:1.5">Fiber cement siding certified installer</p>
       </div>
@@ -1790,13 +1790,13 @@ nav .nav-logo-text .sub{white-space:nowrap}
         <div class="hs-card">
           <h3>Our Services</h3>
           <ul class="hs-links">
-            <li><a href="/the-pledge" style="color:#f08030;font-weight:800;">The Lifetime Pledge</a></li>
-            <li><a href="/services/the-nbd-guarantee" style="color:#f08030;font-weight:800;">The NBD Guarantee</a></li>
-<li><a href="/services/lumanail" style="color:#f08030;font-weight:800;">LumaNail™ Upgrade</a></li>
-<li><a href="/services/the-nbd-build" style="color:#f08030;font-weight:800;">The NBD Build</a></li>
-<li><a href="/services/roofivent" style="color:#f08030;font-weight:800;">Roofivent Products</a></li>
-<li><a href="/services/gaf-pivot-boot" style="color:#f08030;font-weight:800;">GAF Pivot Boot</a></li>
-<li><a href="/services/gaf-timberline" style="color:#f08030;font-weight:800;">GAF Timberline Lineup</a></li>
+            <li><a href="/the-pledge" style="color:#dd875f;font-weight:800;">The Lifetime Pledge</a></li>
+            <li><a href="/services/the-nbd-guarantee" style="color:#dd875f;font-weight:800;">The NBD Guarantee</a></li>
+<li><a href="/services/lumanail" style="color:#dd875f;font-weight:800;">LumaNail™ Upgrade</a></li>
+<li><a href="/services/the-nbd-build" style="color:#dd875f;font-weight:800;">The NBD Build</a></li>
+<li><a href="/services/roofivent" style="color:#dd875f;font-weight:800;">Roofivent Products</a></li>
+<li><a href="/services/gaf-pivot-boot" style="color:#dd875f;font-weight:800;">GAF Pivot Boot</a></li>
+<li><a href="/services/gaf-timberline" style="color:#dd875f;font-weight:800;">GAF Timberline Lineup</a></li>
 <li><a href="/services/roof-replacement">Roof Replacement</a></li>
             <li><a href="/services/roof-repair">Roof Repair</a></li>
             <li><a href="/services/siding-replacement">Siding Replacement</a></li>
@@ -1860,7 +1860,7 @@ nav .nav-logo-text .sub{white-space:nowrap}
 <!-- BRANDS WE INSTALL -->
 <section class="brands-strip" aria-label="Brands we install" style="background:var(--off-white);padding:44px 40px;border-top:1px solid var(--light-gray);border-bottom:1px solid var(--light-gray)">
   <div style="max-width:1200px;margin:0 auto;text-align:center">
-    <div class="eyebrow" style="margin-bottom:18px;color:#A64B00">Brands I Install</div>
+    <div class="eyebrow" style="margin-bottom:18px;color:#A14A22">Brands I Install</div>
     <p style="color:#646c7a;max-width:640px;margin:0 auto 24px;font-size:.95rem;line-height:1.6">We install premium materials from manufacturers that stand behind their products. If a shingle, siding panel, or trim piece fails — I want the same people backing us up as I count on.</p>
     <div class="brands-row" style="display:flex;flex-wrap:wrap;justify-content:center;align-items:center;gap:24px 40px;margin-top:12px">
       <div class="brand-mark" aria-label="GAF" style="display:inline-flex;align-items:center;justify-content:center;height:72px;min-width:160px;padding:10px 18px;background:#fff;border:1px solid var(--light-gray);border-radius:8px">
@@ -1909,13 +1909,13 @@ nav .nav-logo-text .sub{white-space:nowrap}
       <div>
         <div class="footer-col-title">Services</div>
         <ul class="footer-links">
-          <li><a href="/the-pledge" style="color:#f08030;font-weight:800;">The Lifetime Pledge</a></li>
-          <li><a href="/services/the-nbd-guarantee" style="color:#f08030;font-weight:800;">The NBD Guarantee</a></li>
-<li><a href="/services/lumanail" style="color:#f08030;font-weight:800;">LumaNail™ Upgrade</a></li>
-<li><a href="/services/the-nbd-build" style="color:#f08030;font-weight:800;">The NBD Build</a></li>
-<li><a href="/services/roofivent" style="color:#f08030;font-weight:800;">Roofivent Products</a></li>
-<li><a href="/services/gaf-pivot-boot" style="color:#f08030;font-weight:800;">GAF Pivot Boot</a></li>
-<li><a href="/services/gaf-timberline" style="color:#f08030;font-weight:800;">GAF Timberline Lineup</a></li>
+          <li><a href="/the-pledge" style="color:#dd875f;font-weight:800;">The Lifetime Pledge</a></li>
+          <li><a href="/services/the-nbd-guarantee" style="color:#dd875f;font-weight:800;">The NBD Guarantee</a></li>
+<li><a href="/services/lumanail" style="color:#dd875f;font-weight:800;">LumaNail™ Upgrade</a></li>
+<li><a href="/services/the-nbd-build" style="color:#dd875f;font-weight:800;">The NBD Build</a></li>
+<li><a href="/services/roofivent" style="color:#dd875f;font-weight:800;">Roofivent Products</a></li>
+<li><a href="/services/gaf-pivot-boot" style="color:#dd875f;font-weight:800;">GAF Pivot Boot</a></li>
+<li><a href="/services/gaf-timberline" style="color:#dd875f;font-weight:800;">GAF Timberline Lineup</a></li>
 <li><a href="/services/roof-replacement">Roof Replacement</a></li>
           <li><a href="/services/roof-repair">Roof Repair</a></li>
           <li><a href="/services/siding-replacement">Siding Replacement</a></li>

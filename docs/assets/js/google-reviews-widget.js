@@ -118,7 +118,7 @@
           </div>
           ${
             profileUrl
-              ? `<a href="${esc(profileUrl)}" target="_blank" rel="noopener" style="font-size:.78rem;font-weight:700;color:#A64B00;background:#fff;border:1px solid #e8e5e0;border-radius:100px;padding:10px 16px;text-decoration:none;letter-spacing:.06em;text-transform:uppercase">See all on Google &rarr;</a>`
+              ? `<a href="${esc(profileUrl)}" target="_blank" rel="noopener" style="font-size:.78rem;font-weight:700;color:#A14A22;background:#fff;border:1px solid #e8e5e0;border-radius:100px;padding:10px 16px;text-decoration:none;letter-spacing:.06em;text-transform:uppercase">See all on Google &rarr;</a>`
               : ''
           }
         </div>

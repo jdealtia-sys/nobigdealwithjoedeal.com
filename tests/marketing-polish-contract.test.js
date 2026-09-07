@@ -7,8 +7,13 @@
  * Fairfield/Lebanon .ico black-blob defect happened). These guards make the
  * batch-1 invariants permanent so a future page/template can't silently fork:
  *
- *  1. .btn-cal:hover background is #B85400 everywhere (white text passes AA;
- *     the old #f08030/#BD5728 hovers were 2.68:1 / 3.07:1).
+ *  1. .btn-cal:hover background is #BD5728 everywhere (white text passes AA at
+ *     4.61:1). This started life as #B85400, a darker orange the 2026-07 a11y
+ *     pass introduced because the THEN-brand orange #E8720C measured only
+ *     3.07:1 (and --orange-light #F08030 just 2.68:1). The palette re-measured
+ *     off the logo in 2026-09 clears AA on its own, so the workaround collapsed
+ *     back into the brand accent. Those two ratios are historical, and belong
+ *     to #E8720C and #F08030 — do not "update" them to a current hex.
  *  2. No 7px/99px border-radius strays (8px / 100px system).
  *  3. nbd-mobile.css carries the a11y + interaction-polish block
  *     (:focus-visible ring, pressed states, reduced-motion kill switch).
@@ -65,10 +70,27 @@ console.log('MARKETING POLISH CONTRACT — batch 1 invariants');
     const s = read(f);
     const m = s.match(/\.btn-cal:hover\s*\{[^}]*?background:\s*([^;}]+)/g) || [];
     for (const rule of m) {
-      if (!/#b85400/i.test(rule)) { bad.push(rel(f)); break; }
+      if (!/#bd5728/i.test(rule)) { bad.push(rel(f)); break; }
     }
   }
-  ok('.btn-cal:hover background is #B85400 site-wide', bad.length === 0, bad.slice(0, 4).join(', '));
+  ok('.btn-cal:hover background is #BD5728 site-wide', bad.length === 0, bad.slice(0, 4).join(', '));
+}
+
+// 1b. One on-navy orange. --orange-light is the brand accent lifted to 62%
+// lightness (same 19deg hue, same 65% saturation) so it clears AA as link text
+// on the navy chrome: 5.83:1 on #12223D, 4.80:1 on #1A3057. The site previously
+// carried three different light oranges for that one job (#f08030, #ffaf66,
+// #f9c97a); this guard is what stops a fourth appearing.
+{
+  const bad = [];
+  for (const f of marketing) {
+    const s = read(f);
+    const m = s.match(/--orange-light:\s*([^;}]+)/g) || [];
+    for (const rule of m) {
+      if (!/#dd875f/i.test(rule)) { bad.push(rel(f)); break; }
+    }
+  }
+  ok('--orange-light is #DD875F site-wide', bad.length === 0, bad.slice(0, 4).join(', '));
 }
 
 // 2. radius strays
@@ -199,9 +221,10 @@ ok('free-roof page has JSON-LD', /application\/ld\+json/.test(read(path.join(DOC
   ok('GAF Timberline dropdown link everywhere LumaNail is listed', bad.length === 0, bad.slice(0, 3).join(', '));
 }
 {
-  // Hub closers on the site-majority navy.
+  // Hub closers on the site-majority navy. Pinned to the CURRENT accent: held
+  // on the retired #B85400 this would pass vacuously and protect nothing.
   const bad = marketing.filter((f) => /^services\/[a-z-]+\.html$/.test(rel(f))
-    && /\.final-cta\s*\{\s*background:#B85400/.test(read(f))).map(rel);
+    && /\.final-cta\s*\{\s*background:#BD5728/i.test(read(f))).map(rel);
   ok('no hub keeps the solid-orange closing band', bad.length === 0, bad.join(', '));
 }
 {

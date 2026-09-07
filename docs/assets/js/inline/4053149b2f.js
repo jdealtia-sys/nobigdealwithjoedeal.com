@@ -1271,8 +1271,8 @@ function showResults(est) {
       failBanner = document.createElement('div');
       failBanner.id = 'leadDeliveryFail';
       failBanner.setAttribute('role', 'alert');
-      failBanner.style.cssText = 'background:#fff4ee;border:2px solid #B85400;border-radius:10px;padding:14px 16px;margin:0 0 18px;color:#12223d;font-size:.92rem;font-weight:600;line-height:1.5;text-align:left;';
-      failBanner.innerHTML = 'Heads up &#8212; our system couldn\'t send your request to Joe just now. Your estimate below still stands, but to make sure Joe gets your info, call or text <a href="tel:8594207382" style="color:#B85400;font-weight:800;white-space:nowrap">(859) 420-7382</a>.';
+      failBanner.style.cssText = 'background:#fff4ee;border:2px solid #BD5728;border-radius:10px;padding:14px 16px;margin:0 0 18px;color:#12223d;font-size:.92rem;font-weight:600;line-height:1.5;text-align:left;';
+      failBanner.innerHTML = 'Heads up &#8212; our system couldn\'t send your request to Joe just now. Your estimate below still stands, but to make sure Joe gets your info, call or text <a href="tel:8594207382" style="color:#BD5728;font-weight:800;white-space:nowrap">(859) 420-7382</a>.';
       var resultsHost = document.getElementById('stepResults');
       if (resultsHost) resultsHost.insertBefore(failBanner, resultsHost.firstChild);
     }

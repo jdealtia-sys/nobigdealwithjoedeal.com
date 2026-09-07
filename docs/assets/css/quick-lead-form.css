@@ -13,11 +13,11 @@
 .qlf-field input{width:100%;border:1px solid #d7dbe0;border-radius:8px;padding:11px 13px;font:inherit;font-size:16px;color:#14181f;background:#fff}
 .qlf-field input:focus{outline:3px solid #bd5728;outline-offset:0;border-color:transparent}
 .qlf-hp{position:absolute!important;left:-9999px!important;width:1px;height:1px;opacity:0}
-.qlf-btn{width:100%;margin-top:4px;background:#B85400;color:#fff;border:0;border-radius:8px;padding:14px;font-family:'Bebas Neue','Barlow Condensed',sans-serif;font-size:1.05rem;font-weight:800;letter-spacing:.05em;text-transform:uppercase;cursor:pointer}
-.qlf-btn:hover:not(:disabled){background:#A64B00}
+.qlf-btn{width:100%;margin-top:4px;background:#BD5728;color:#fff;border:0;border-radius:8px;padding:14px;font-family:'Bebas Neue','Barlow Condensed',sans-serif;font-size:1.05rem;font-weight:800;letter-spacing:.05em;text-transform:uppercase;cursor:pointer}
+.qlf-btn:hover:not(:disabled){background:#A14A22}
 .qlf-btn:disabled{opacity:.65;cursor:default}
 .qlf-alt{text-align:center;font-size:.82rem;color:#5b6572;margin-top:12px}
-.qlf-alt a{color:#A64B00;font-weight:700;text-decoration:none}
+.qlf-alt a{color:#A14A22;font-weight:700;text-decoration:none}
 .qlf-msg{display:none;border-radius:8px;padding:9px 12px;font-size:.84rem;margin-bottom:12px}
 .qlf-msg.qlf-err:not(:empty){display:block;background:#fdeaea;color:#9d2727}
 .qlf-msg.qlf-ok:not(:empty){display:block;background:#e8f7ee;color:#1c6b3c}

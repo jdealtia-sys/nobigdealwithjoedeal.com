@@ -31,7 +31,7 @@
 <style>
 :root {
   --navy: #1a3057; --navy-dark: #12223d; --navy-mid: #1a3260;
-  --orange: #bd5728; --orange-dark: #c45e08; --orange-light: #f08030;
+  --orange: #bd5728; --orange-dark: #a14a22; --orange-light: #dd875f;
   --white: #ffffff; --off-white: #f5f3ef; --gray: #5d6673;
   --gray-sub: #4a4a4a; --light-gray: #e8e5e0; --success: #22a06b;
 }
@@ -40,10 +40,10 @@ html { scroll-behavior: smooth; }
 body { font-family: 'Montserrat', sans-serif; color: #1a1a1a; background: var(--off-white); }
 a { text-decoration: none; color: inherit; }
 
-.ann-bar { background:#B85400; color: var(--white); text-align: center; font-size: 0.78rem; font-weight: 700; letter-spacing: 0.08em; padding: 9px 16px; text-transform: uppercase; }
+.ann-bar { background:#BD5728; color: var(--white); text-align: center; font-size: 0.78rem; font-weight: 700; letter-spacing: 0.08em; padding: 9px 16px; text-transform: uppercase; }
 nav { position: sticky; top: 0; z-index: 1000; background: var(--navy-dark); border-bottom: 3px solid var(--orange); padding: 0 5%; display: flex; align-items: center; justify-content: space-between; height: 70px; }
 .nav-logo { display: flex; align-items: center; gap: 10px; }
-.nav-logo-badge { background:#B85400; color: var(--white); font-weight: 800; font-size: 0.95rem; padding: 6px 10px; border-radius: 6px; }
+.nav-logo-badge { background:#BD5728; color: var(--white); font-weight: 800; font-size: 0.95rem; padding: 6px 10px; border-radius: 6px; }
 .nav-logo-text .brand { font-size: 1rem; font-weight: 800; color: var(--white); }
 .nav-logo-text .sub { font-size: 0.7rem; color: rgba(255,255,255,0.6); font-weight: 600; }
 .nav-links { display: flex; align-items: center; gap: 28px; list-style: none; }
@@ -53,7 +53,7 @@ nav { position: sticky; top: 0; z-index: 1000; background: var(--navy-dark); bor
 .nav-links .dropdown-menu { display: none; position: absolute; top: 100%; left: 0; background: var(--navy-dark); border: 2px solid var(--orange); border-top: none; min-width: 200px; border-radius: 0 0 8px 8px; padding: 8px 0; z-index: 999; }
 .nav-links .dropdown:hover .dropdown-menu { display: block; }
 .nav-links .dropdown-menu a { display: block; padding: 10px 18px; font-size: 0.75rem; border-bottom: 1px solid rgba(255,255,255,0.08); }
-.nav-cta { background:#B85400 !important; color: var(--white) !important; padding: 10px 18px; border-radius: 6px; font-weight: 700 !important; }
+.nav-cta { background:#BD5728 !important; color: var(--white) !important; padding: 10px 18px; border-radius: 6px; font-weight: 700 !important; }
 .hamburger { display: none; flex-direction: column; gap: 6px; background: transparent; border: none; cursor: pointer; padding: 10px; z-index: 1001; }
 .hamburger span { display: block; width: 26px; height: 3px; background: #fff; border-radius: 2px; margin: 0; transition: all 0.3s; box-shadow: 0 1px 3px rgba(0,0,0,0.3); }
 .mobile-nav { display: none; background: var(--navy-dark); padding: 0 5%; }
@@ -62,9 +62,9 @@ nav { position: sticky; top: 0; z-index: 1000; background: var(--navy-dark); bor
 
 /* HERO */
 .viz-hero { background: var(--navy-dark); padding: 52px 5% 48px; text-align: center; }
-.hero-badge { display: inline-flex; align-items: center; gap: 8px; background: rgba(189,87,40,0.15); border: 1px solid rgba(189,87,40,0.4); color:#ffaf66; font-size: 0.72rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; padding: 6px 14px; border-radius: 20px; margin-bottom: 18px; }
+.hero-badge { display: inline-flex; align-items: center; gap: 8px; background: rgba(189,87,40,0.15); border: 1px solid rgba(189,87,40,0.4); color:#dd875f; font-size: 0.72rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; padding: 6px 14px; border-radius: 20px; margin-bottom: 18px; }
 .viz-hero h1 { font-family: 'Bebas Neue', sans-serif; font-size: clamp(2.4rem, 5vw, 4rem); color: var(--white); line-height: 1.0; margin-bottom: 12px; }
-.viz-hero h1 span { color:#DA6A05; }
+.viz-hero h1 span { color:#BD5728; }
 .viz-hero p { color: rgba(255,255,255,0.75); font-size: 1rem; max-width: 600px; margin: 0 auto; line-height: 1.65; }
 
 /* MAIN TOOL */
@@ -96,7 +96,7 @@ nav { position: sticky; top: 0; z-index: 1000; background: var(--navy-dark); bor
 .step-tab.active .num { background: var(--orange); color: var(--white); }
 .step-tab.done .num { background: var(--success); color: var(--white); }
 .step-tab .step-label { display: block; font-size: 0.72rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: rgba(255,255,255,0.5); }
-.step-tab.active .step-label { color:#ffaf66; }
+.step-tab.active .step-label { color:#dd875f; }
 .step-tab.done .step-label { color: rgba(255,255,255,0.7); }
 @media (max-width: 480px) {
   .step-tab { padding: 14px 6px; }
@@ -121,8 +121,8 @@ nav { position: sticky; top: 0; z-index: 1000; background: var(--navy-dark); bor
 .upload-icon { font-size: 3.5rem; margin-bottom: 16px; display: block; }
 .upload-zone h3 { font-size: 1.2rem; font-weight: 800; color: var(--navy); margin-bottom: 8px; }
 .upload-zone p { font-size: 0.88rem; color: #646c7a; margin-bottom: 20px; line-height: 1.55; }
-.upload-btn { background:#B85400; color: var(--white); border: none; padding: 13px 28px; border-radius: 8px; font-weight: 800; font-size: 0.9rem; cursor: pointer; transition: background 0.2s; font-family: inherit; }
-.upload-btn:hover { background: #A64B00; }
+.upload-btn { background:#BD5728; color: var(--white); border: none; padding: 13px 28px; border-radius: 8px; font-weight: 800; font-size: 0.9rem; cursor: pointer; transition: background 0.2s; font-family: inherit; }
+.upload-btn:hover { background: #A14A22; }
 #fileInput { display: none; }
 .upload-tips { display: flex; justify-content: center; gap: 32px; margin-top: 24px; flex-wrap: wrap; }
 .upload-tip { font-size: 0.77rem; color:#646c7a; display: flex; align-items: center; gap: 6px; }
@@ -143,7 +143,7 @@ nav { position: sticky; top: 0; z-index: 1000; background: var(--navy-dark); bor
   background: var(--white); color: var(--gray-sub);
 }
 .pill:hover { border-color: var(--orange); color: var(--orange); }
-.pill.selected { border-color:#B85400; background:#B85400; color: var(--white); }
+.pill.selected { border-color:#BD5728; background:#BD5728; color: var(--white); }
 .pill .pill-sub { display:block; font-size:0.65rem; font-weight:600; opacity:0.75; margin-top:1px; letter-spacing:0; text-transform:none; }
 .pill.selected .pill-sub { opacity:0.95; }
 /* Swatches render as vertical tiles: a 36x36 color chip on top, the
@@ -227,8 +227,8 @@ nav { position: sticky; top: 0; z-index: 1000; background: var(--navy-dark); bor
 .ai-tag .dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
 
 .results-actions { display: flex; gap: 12px; margin-top: 24px; flex-wrap: wrap; }
-.btn-primary { background:#B85400; color: var(--white); padding: 14px 24px; border-radius: 8px; font-weight: 800; font-size: 0.9rem; display: inline-flex; align-items: center; gap: 8px; transition: background 0.2s; border: none; cursor: pointer; font-family: inherit; }
-.btn-primary:hover { background:#A64B00; }
+.btn-primary { background:#BD5728; color: var(--white); padding: 14px 24px; border-radius: 8px; font-weight: 800; font-size: 0.9rem; display: inline-flex; align-items: center; gap: 8px; transition: background 0.2s; border: none; cursor: pointer; font-family: inherit; }
+.btn-primary:hover { background:#A14A22; }
 .btn-secondary { background: var(--white); color: var(--navy); padding: 14px 24px; border-radius: 8px; font-weight: 700; font-size: 0.9rem; display: inline-flex; align-items: center; gap: 8px; border: 2px solid var(--light-gray); cursor: pointer; font-family: inherit; transition: border-color 0.2s; }
 .btn-secondary:hover { border-color: var(--navy); }
 
@@ -242,15 +242,15 @@ nav { position: sticky; top: 0; z-index: 1000; background: var(--navy-dark); bor
 .how-section .sub { color: rgba(255,255,255,0.65); font-size: 0.9rem; margin-bottom: 36px; }
 .how-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 28px; }
 .how-card { background: rgba(255,255,255,0.06); border-radius: 14px; padding: 28px; border: 1px solid rgba(255,255,255,0.08); }
-.how-num { font-family: 'Bebas Neue', sans-serif; font-size: 3rem; color:#DA6A05; line-height: 1; margin-bottom: 8px; }
+.how-num { font-family: 'Bebas Neue', sans-serif; font-size: 3rem; color:#BD5728; line-height: 1; margin-bottom: 8px; }
 .how-card h3 { font-size: 1rem; font-weight: 800; color: var(--white); margin-bottom: 8px; }
 .how-card p { font-size: 0.85rem; color: rgba(255,255,255,0.65); line-height: 1.6; }
 
 /* CTA STRIP */
-.cta-strip { background:#B85400; padding: 52px 5%; text-align: center; margin-top: 40px; border-radius: 20px; max-width: 1100px; margin-left: auto; margin-right: auto; margin-bottom: 60px; }
+.cta-strip { background:#BD5728; padding: 52px 5%; text-align: center; margin-top: 40px; border-radius: 20px; max-width: 1100px; margin-left: auto; margin-right: auto; margin-bottom: 60px; }
 .cta-strip h2 { font-family: 'Bebas Neue', sans-serif; font-size: 2.4rem; color: var(--white); margin-bottom: 10px; }
 .cta-strip p { color:#fff; margin-bottom: 28px; font-size: 1rem; }
-.btn-white { background: var(--white); color: #A64B00; padding: 15px 28px; border-radius: 8px; font-weight: 800; font-size: 1rem; display: inline-flex; align-items: center; gap: 8px; transition: transform 0.15s; }
+.btn-white { background: var(--white); color: #A14A22; padding: 15px 28px; border-radius: 8px; font-weight: 800; font-size: 1rem; display: inline-flex; align-items: center; gap: 8px; transition: transform 0.15s; }
 .btn-white:hover { transform: translateY(-2px); }
 .cta-phone { margin-top: 14px; color:#fff; font-size: 1rem; font-weight: 700; }
 .cta-phone a { color: var(--white); text-decoration: underline; }
@@ -286,11 +286,11 @@ footer { background: var(--navy-dark); color: rgba(255,255,255,0.75); padding: 5
 .nav-links .dropdown:hover .dropdown-menu,.nav-links .dropdown:focus-within .dropdown-menu,.nav-links .dropdown.open .dropdown-menu{display:block}
 .nav-links .dropdown-menu a{display:block;padding:10px 18px;font-size:.75rem;border-bottom:1px solid rgba(255,255,255,.08);color:rgba(255,255,255,.85);text-decoration:none;letter-spacing:.06em;text-transform:uppercase;font-weight:600;transition:color .2s,background .2s}
 .nav-links .dropdown-menu a:last-child{border-bottom:none}
-.nav-links .dropdown-menu a:hover{color:var(--orange-light,#f08030);background:rgba(255,255,255,.04);border-bottom-color:rgba(255,255,255,.08)}
+.nav-links .dropdown-menu a:hover{color:var(--orange-light,#dd875f);background:rgba(255,255,255,.04);border-bottom-color:rgba(255,255,255,.08)}
 .mobile-nav{display:none;position:fixed;top:70px;left:0;right:0;background:var(--navy-dark,#12223d);z-index:999;border-top:2px solid var(--orange,#bd5728);max-height:calc(100vh - 70px);overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,.4);padding-top:0}
 .mobile-nav.open{display:block}
 .mobile-nav > a{display:block;padding:12px 24px;color:rgba(255,255,255,.85);text-decoration:none;font-size:.82rem;font-weight:600;letter-spacing:.05em;text-transform:uppercase;border-bottom:1px solid rgba(255,255,255,.06)}
-.mobile-nav > a:hover{color:var(--orange-light,#f08030);background:rgba(255,255,255,.04)}
+.mobile-nav > a:hover{color:var(--orange-light,#dd875f);background:rgba(255,255,255,.04)}
 .hamburger{display:none;flex-direction:column;gap:6px;cursor:pointer;padding:10px;background:transparent;border:none;z-index:1001}
 .hamburger span{display:block;width:26px;height:3px;background:#fff;border-radius:2px;transition:all .3s;box-shadow:0 1px 3px rgba(0,0,0,.3)}
 @media (max-width:1024px){.nav-links{display:none}.hamburger{display:flex}}
@@ -317,9 +317,9 @@ nav.tool-nav .nav-logo-text .brand{font-size:1rem;font-weight:800;color:#fff}
 nav.tool-nav .nav-logo-text .sub{font-size:.7rem;color:rgba(255,255,255,.6);font-weight:600}
 nav.tool-nav .tool-nav-right{display:flex;align-items:center;gap:24px}
 nav.tool-nav .tool-nav-home{color:rgba(255,255,255,.85);font-size:.76rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;text-decoration:none;transition:color .2s;display:inline-flex;align-items:center}
-nav.tool-nav .tool-nav-home:hover{color:var(--orange-light,#f08030)}
-nav.tool-nav .nav-cta{background:#B85400;color:#fff!important;padding:10px 22px;border-radius:4px;font-weight:700;font-size:.76rem;letter-spacing:.08em;text-transform:uppercase;text-decoration:none;display:inline-flex;align-items:center;transition:background .2s}
-nav.tool-nav .nav-cta:hover{background:#A64B00}
+nav.tool-nav .tool-nav-home:hover{color:var(--orange-light,#dd875f)}
+nav.tool-nav .nav-cta{background:#BD5728;color:#fff!important;padding:10px 22px;border-radius:4px;font-weight:700;font-size:.76rem;letter-spacing:.08em;text-transform:uppercase;text-decoration:none;display:inline-flex;align-items:center;transition:background .2s}
+nav.tool-nav .nav-cta:hover{background:#A14A22}
 @media(max-width:560px){
   /* Hide the top-nav Back/Call cluster on small phones (collided with the
      hamburger, ~10px overflow). The sticky bottom call/text bar covers calling. */
@@ -352,7 +352,7 @@ a.nav-cta,nav .nav-cta{font-size:.8rem!important;letter-spacing:.05em;font-weigh
 </style>
 <link rel="stylesheet" href="/assets/css/nbd-mobile.css">
 <link rel="stylesheet" href="/assets/css/mobile-cta.css">
-<style>.nbd-skip{position:absolute;left:-9999px;top:0;z-index:100000;background:#B85400;color:#fff;padding:10px 16px;font-weight:700;text-decoration:none;border-radius:0 0 6px 0}.nbd-skip:focus{left:0}</style>
+<style>.nbd-skip{position:absolute;left:-9999px;top:0;z-index:100000;background:#BD5728;color:#fff;padding:10px 16px;font-weight:700;text-decoration:none;border-radius:0 0 6px 0}.nbd-skip:focus{left:0}</style>
 <style>/* a11y (audit 2026-07): visible focus ring + reduced-motion */:focus-visible{outline:3px solid #bd5728;outline-offset:2px}@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.001ms!important;animation-iteration-count:1!important;transition-duration:.001ms!important;scroll-behavior:auto!important}}</style>
 <style>
 /* nav-wordmark guard (consistency audit 2026-07-15): keep the wordmark on one
@@ -410,12 +410,12 @@ footer.foot .nbd-social a,.review-footer .nbd-social a{background:rgba(255,255,2
 <!-- nbd:partial mobile-nav-standard cta_href="/#contact" -->
 <div class="mobile-nav" id="mobileNav">
   <div class="mnav-group">Featured</div>
-  <a href="/the-pledge" style="color:#f08030;font-weight:800;">The Lifetime Pledge</a>
-  <a href="/services/the-nbd-guarantee" style="color:#f08030;font-weight:800;">The NBD Guarantee</a>
-  <a href="/services/the-nbd-build" style="color:#f08030;font-weight:800;">The NBD Build</a>
-  <div class="mnav-group">Premium Components</div>  <a href="/services/lumanail" style="color:#f08030;font-weight:800;">LumaNail&trade; Upgrade</a>  <a href="/services/gaf-timberline">GAF Timberline Lineup</a>
-  <a href="/services/roofivent" style="color:#f08030;font-weight:800;">Roofivent Products</a>
-  <a href="/services/gaf-pivot-boot" style="color:#f08030;font-weight:800;">GAF Pivot Boot</a>
+  <a href="/the-pledge" style="color:#dd875f;font-weight:800;">The Lifetime Pledge</a>
+  <a href="/services/the-nbd-guarantee" style="color:#dd875f;font-weight:800;">The NBD Guarantee</a>
+  <a href="/services/the-nbd-build" style="color:#dd875f;font-weight:800;">The NBD Build</a>
+  <div class="mnav-group">Premium Components</div>  <a href="/services/lumanail" style="color:#dd875f;font-weight:800;">LumaNail&trade; Upgrade</a>  <a href="/services/gaf-timberline">GAF Timberline Lineup</a>
+  <a href="/services/roofivent" style="color:#dd875f;font-weight:800;">Roofivent Products</a>
+  <a href="/services/gaf-pivot-boot" style="color:#dd875f;font-weight:800;">GAF Pivot Boot</a>
   <div class="mnav-group">Services</div>
   <a href="/services/roof-replacement">Roof Replacement</a>
   <a href="/services/roof-repair">Roof Repair</a>
@@ -435,14 +435,14 @@ footer.foot .nbd-social a,.review-footer .nbd-social a{background:rgba(255,255,2
   <a href="/areas">Service Areas</a>
   <a href="/blog">Blog</a>
   <div class="mnav-group">Tools</div>
-  <a href="/estimate" style="color:#f08030">Instant Estimate</a>
-  <a href="/visualizer" style="color:#f08030">Roof Visualizer</a>
-  <a href="/roof-score" style="color:#f08030">Roof Score</a>
-  <a href="/storm-alerts" style="color:#f08030">Storm Alerts</a>
-  <a href="/storm-report" style="color:#f08030">5-Year Storm Report</a>
-  <a href="/storm-check" style="color:#f08030">Is It Worth a Claim?</a>
-  <a href="/inspect" style="color:#f08030">Free 24-Hr Inspection</a>
-  <a href="/free-tools" style="color:#f08030">All Free Tools</a>
+  <a href="/estimate" style="color:#dd875f">Instant Estimate</a>
+  <a href="/visualizer" style="color:#dd875f">Roof Visualizer</a>
+  <a href="/roof-score" style="color:#dd875f">Roof Score</a>
+  <a href="/storm-alerts" style="color:#dd875f">Storm Alerts</a>
+  <a href="/storm-report" style="color:#dd875f">5-Year Storm Report</a>
+  <a href="/storm-check" style="color:#dd875f">Is It Worth a Claim?</a>
+  <a href="/inspect" style="color:#dd875f">Free 24-Hr Inspection</a>
+  <a href="/free-tools" style="color:#dd875f">All Free Tools</a>
   <a href="/#contact" style="color:#bd5728;font-weight:800;">Book Inspection &rarr;</a>
 </div>
 <!-- /nbd:partial mobile-nav-standard -->
@@ -686,12 +686,12 @@ footer.foot .nbd-social a,.review-footer .nbd-social a{background:rgba(255,255,2
     <div class="footer-col">
       <h2 class="footer-col-title">Services</h2>
       <ul>
-        <li><a href="/the-pledge" style="color:#f08030;font-weight:800;">The Lifetime Pledge</a></li>
-        <li><a href="/services/the-nbd-guarantee" style="color:#f08030;font-weight:800;">The NBD Guarantee</a></li>
-<li><a href="/services/lumanail" style="color:#f08030;font-weight:800;">LumaNail™ Upgrade</a></li>
-<li><a href="/services/the-nbd-build" style="color:#f08030;font-weight:800;">The NBD Build</a></li>
-<li><a href="/services/roofivent" style="color:#f08030;font-weight:800;">Roofivent Products</a></li>
-<li><a href="/services/gaf-pivot-boot" style="color:#f08030;font-weight:800;">GAF Pivot Boot</a></li>
+        <li><a href="/the-pledge" style="color:#dd875f;font-weight:800;">The Lifetime Pledge</a></li>
+        <li><a href="/services/the-nbd-guarantee" style="color:#dd875f;font-weight:800;">The NBD Guarantee</a></li>
+<li><a href="/services/lumanail" style="color:#dd875f;font-weight:800;">LumaNail™ Upgrade</a></li>
+<li><a href="/services/the-nbd-build" style="color:#dd875f;font-weight:800;">The NBD Build</a></li>
+<li><a href="/services/roofivent" style="color:#dd875f;font-weight:800;">Roofivent Products</a></li>
+<li><a href="/services/gaf-pivot-boot" style="color:#dd875f;font-weight:800;">GAF Pivot Boot</a></li>
 <li><a href="/services/roof-replacement">Roof Replacement</a></li>
         <li><a href="/services/roof-repair">Roof Repair</a></li>
         <li><a href="/services/siding-replacement">Siding Replacement</a></li>
