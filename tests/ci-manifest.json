@@ -95,7 +95,8 @@
     "portal-refer-gate.test.js",
     "customer-quick-actions.test.js",
     "customer-estimates-global.test.js",
-    "photo-queue-remove-index.test.js"
+    "photo-queue-remove-index.test.js",
+    "inspection-report-photos.test.js"
   ],
   "smoke": {
     "team-roles.test.js": [
