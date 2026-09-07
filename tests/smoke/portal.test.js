@@ -37,8 +37,17 @@ section('Push-4: homeowner portal page + token callables');
   const portal = readPortal();
   assert('portal.html fetches getHomeownerPortalView',
     /getHomeownerPortalView/.test(portal));
+  // The embed src used to be one literal line ('https://cal.com/' + user +
+  // ... + '?embed=true'), so a single /cal\.com.*embed=true/ matched it.
+  // The URL now comes from booking-events.js and portal.js only appends
+  // the embed params, so the contract spans files — assert each half plus
+  // the wiring that joins them, rather than loosening to a bare substring.
   assert('portal.html embeds Cal.com iframe',
-    /cal\.com.*embed=true/.test(portal));
+    /https:\/\/cal\.com\//.test(portal) &&
+    /embed=true/.test(portal) &&
+    /class="cal-embed"/.test(portal));
+  assert('portal booking iframe src derives from the resolved booking URL',
+    /const embedSrc = primary\.url \+/.test(portal));
   const rules = read(path.join(ROOT, 'firestore.rules'));
   assert('portal_tokens rule denies all client IO',
     /match \/portal_tokens\/\{token\}[\s\S]{0,200}allow read, write: if false/.test(rules));

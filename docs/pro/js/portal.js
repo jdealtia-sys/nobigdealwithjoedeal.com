@@ -472,22 +472,71 @@
     }
 
     // ── Booking embed ──
+    // The rep's calendar can carry more than one visit type (see
+    // booking-events.js). Which one belongs here depends on where the job
+    // is: a homeowner sitting on an unsigned estimate wants to talk about
+    // the estimate, not book another roof inspection. The other available
+    // types are listed underneath rather than hidden.
+    //
+    // Tenancy: options() reads view.rep + the company name off the
+    // server-rendered view, so a tenant with nothing configured gets an
+    // empty list and this whole card is skipped — same as the old
+    // `if (view.bookingUrl)` guard, which is kept as the fallback path.
     if (view.bookingUrl) {
-      const cuser = view.rep && view.rep.calcomUsername;
-      const cslug = (view.rep && view.rep.calcomEventSlug) || 'roof-inspection';
-      const embedSrc = 'https://cal.com/' + encodeURIComponent(cuser) + '/' + encodeURIComponent(cslug) + '?embed=true&theme=light';
-      const title = signedNow ? 'Book your inspection' : 'Book a Time';
-      const subtitle = signedNow
-        ? 'Pick a time for our crew to inspect your roof and confirm next steps.'
-        : 'Your rep will confirm within the hour. Reschedule anytime from the confirmation email.';
-      const borderCss = signedNow ? 'border-color:var(--green);' : '';
+      const bookCtx = {
+        rep: view.rep || {},
+        companyName: (view.company && view.company.name) || ''
+      };
+      const bookOpts = (window.NBDBooking && window.NBDBooking.options(bookCtx)) || [];
+      const wantKind = awaitingSign ? 'estimate' : 'inspection';
+      const primary =
+        bookOpts.find((o) => o.kind === wantKind) ||
+        bookOpts.find((o) => o.kind === 'inspection') ||
+        bookOpts[0] ||
+        // No catalog (script blocked, or an older cached portal.js): fall
+        // back to exactly what the server already resolved.
+        { kind: 'inspection', label: 'Book a Time', url: view.bookingUrl };
+
+      const embedSrc = primary.url + (primary.url.indexOf('?') === -1 ? '?' : '&') + 'embed=true&theme=light';
+
+      let label, title, subtitle, borderCss;
+      if (primary.kind === 'estimate') {
+        label = 'Before You Sign';
+        title = 'Questions about your estimate?';
+        subtitle = 'Grab a slot and we will go through it line by line — materials, timeline, warranty, what insurance covers. Nothing to sign on the call.';
+        borderCss = 'border-color:var(--orange);';
+      } else if (signedNow) {
+        label = 'Next Step';
+        title = 'Book your inspection';
+        subtitle = 'Pick a time for our crew to inspect your roof and confirm next steps.';
+        borderCss = 'border-color:var(--green);';
+      } else {
+        label = 'Book a Time';
+        title = 'Book a Time';
+        subtitle = 'Your rep will confirm within the hour. Reschedule anytime from the confirmation email.';
+        borderCss = '';
+      }
+
+      // Anything else this rep offers, as plain links under the embed.
+      const others = bookOpts.filter((o) => o.url !== primary.url);
+      const othersHtml = others.length
+        ? '<div style="margin-top:14px;border-top:1px solid var(--br);padding-top:12px;">' +
+            '<div style="font-size:12px;color:var(--muted);margin-bottom:8px;">Need something else?</div>' +
+            others.map((o) =>
+              '<a class="btn" style="margin:0 8px 8px 0;" href="' + esc(safeUrl(o.url)) + '" target="_blank" rel="noopener">' +
+                esc(o.label) + '</a>'
+            ).join('') +
+          '</div>'
+        : '';
+
       parts.push(
         '<div class="card" style="' + borderCss + '">' +
-          '<div class="card-label">' + (signedNow ? 'Next Step' : 'Book a Time') + '</div>' +
+          '<div class="card-label">' + esc(label) + '</div>' +
           '<div class="card-title">' + esc(title) + '</div>' +
           '<p style="color:var(--muted);margin:0 0 14px;">' + esc(subtitle) + '</p>' +
           '<iframe class="cal-embed" src="' + esc(embedSrc) + '" title="Schedule" loading="lazy" referrerpolicy="no-referrer"></iframe>' +
-          '<div style="margin-top:10px;"><a class="btn" href="' + esc(safeUrl(view.bookingUrl)) + '" target="_blank" rel="noopener">Open Booking Page →</a></div>' +
+          '<div style="margin-top:10px;"><a class="btn" href="' + esc(safeUrl(primary.url)) + '" target="_blank" rel="noopener">Open Booking Page →</a></div>' +
+          othersHtml +
         '</div>'
       );
     }
