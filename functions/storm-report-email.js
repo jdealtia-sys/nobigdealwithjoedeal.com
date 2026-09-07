@@ -69,16 +69,16 @@ const EMAIL_HTML = ({ firstName, address, summary }) => {
   <style>
     body { font-family: 'Barlow','Segoe UI',Roboto,'Helvetica Neue',sans-serif; line-height:1.6; color:#333; background:#f5f5f5; margin:0; }
     .container { max-width:600px; margin:0 auto; background:#fff; border-radius:8px; overflow:hidden; box-shadow:0 2px 8px rgba(0,0,0,.1); }
-    .header { background:linear-gradient(135deg,#C8541A 0%,#a64516 100%); color:#fff; padding:30px 20px; text-align:center; }
+    .header { background:linear-gradient(135deg,#BD5728 0%,#a14a22 100%); color:#fff; padding:30px 20px; text-align:center; }
     .header h1 { margin:0; font-size:24px; font-weight:700; letter-spacing:.5px; }
     .header p { margin:6px 0 0; font-size:14px; opacity:.92; }
     .content { padding:30px 24px; color:#333; }
-    .content h2 { color:#1e3a6e; margin:0 0 14px; font-size:20px; }
-    .callout { background:#f4f7fc; border-left:4px solid #1e3a6e; border-radius:6px; padding:16px 18px; margin:18px 0; }
-    .callout .big { font-size:18px; font-weight:700; color:#1e3a6e; }
-    .cta-button { display:inline-block; background:#C8541A; color:#fff !important; padding:14px 32px; border-radius:6px; text-decoration:none; font-weight:700; font-size:17px; margin:18px 0; }
+    .content h2 { color:#1a3057; margin:0 0 14px; font-size:20px; }
+    .callout { background:#f4f7fc; border-left:4px solid #1a3057; border-radius:6px; padding:16px 18px; margin:18px 0; }
+    .callout .big { font-size:18px; font-weight:700; color:#1a3057; }
+    .cta-button { display:inline-block; background:#BD5728; color:#fff !important; padding:14px 32px; border-radius:6px; text-decoration:none; font-weight:700; font-size:17px; margin:18px 0; }
     .muted { color:#666; font-size:14px; }
-    .footer { background:#1e3a6e; color:#fff; padding:20px; text-align:center; font-size:12px; }
+    .footer { background:#1a3057; color:#fff; padding:20px; text-align:center; font-size:12px; }
     .footer a { color:#e8a06a; text-decoration:none; }
   </style>
 </head>
@@ -104,7 +104,7 @@ const EMAIL_HTML = ({ firstName, address, summary }) => {
       <p style="margin-top:22px;">&mdash; Joe<br><span class="muted">No Big Deal Home Solutions</span></p>
       <p class="muted" style="margin-top:22px; border-top:1px solid #eee; padding-top:14px;">
         Want the full interactive version with the map and an event-by-event breakdown?
-        <a href="${SITE}/storm-report" style="color:#C8541A; font-weight:600;">See your full storm report &rarr;</a>
+        <a href="${SITE}/storm-report" style="color:#BD5728; font-weight:600;">See your full storm report &rarr;</a>
       </p>
     </div>
     <div class="footer">

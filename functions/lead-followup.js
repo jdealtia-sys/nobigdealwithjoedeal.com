@@ -61,7 +61,7 @@ function followUpHtml(firstName) {
   return `<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
 <body style="font-family:'Barlow','Segoe UI',Roboto,sans-serif;background:#f5f5f5;margin:0;color:#333">
   <div style="max-width:560px;margin:0 auto;background:#fff;border-radius:8px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.1)">
-    <div style="background:linear-gradient(135deg,#1e3a6e,#142a52);color:#fff;padding:22px 20px;text-align:center">
+    <div style="background:linear-gradient(135deg,#1a3057,#12223d);color:#fff;padding:22px 20px;text-align:center">
       <div style="font-size:22px;font-weight:700">We haven't connected yet</div>
       <div style="font-size:13px;opacity:.85;margin-top:4px">No Big Deal Home Solutions</div>
     </div>
@@ -69,7 +69,7 @@ function followUpHtml(firstName) {
       <p style="margin:0 0 14px">${hi}</p>
       <p style="margin:0 0 14px">Joe here. You reached out about your home and we haven't managed to connect — that's on me to fix, not you. Your request is still at the top of my list.</p>
       <p style="margin:0 0 14px">Fastest way to lock in a time: call or text me directly, or just reply to this email with a good time and I'll call you then.</p>
-      <p style="text-align:center;margin:20px 0"><a href="tel:8594207382" style="display:inline-block;background:#e8720c;color:#fff;padding:13px 30px;border-radius:6px;text-decoration:none;font-weight:700;font-size:16px">Call or text (859) 420-7382</a></p>
+      <p style="text-align:center;margin:20px 0"><a href="tel:8594207382" style="display:inline-block;background:#bd5728;color:#fff;padding:13px 30px;border-radius:6px;text-decoration:none;font-weight:700;font-size:16px">Call or text (859) 420-7382</a></p>
       <p style="margin:0">— Joe Deal<br><span style="color:#6b7280;font-size:13px">Owner &amp; Operator, No Big Deal Home Solutions</span></p>
     </div>
   </div>

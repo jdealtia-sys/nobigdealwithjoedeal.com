@@ -129,7 +129,7 @@ ${siteMeta}<meta name="twitter:card" content="summary">
     font-size: 12px;
     text-transform: uppercase;
     letter-spacing: .12em;
-    color: #e8720c;
+    color: #bd5728;
     font-weight: 700;
     margin-bottom: 8px;
   }
@@ -143,7 +143,7 @@ ${siteMeta}<meta name="twitter:card" content="summary">
   .rep-name { font-weight: 600; }
   .rep-role { color: #5b6068; font-size: 13px; }
   .cta {
-    display: inline-block; padding: 14px 22px; background: #e8720c;
+    display: inline-block; padding: 14px 22px; background: #bd5728;
     color: #fff; text-decoration: none; font-weight: 600;
     border-radius: 8px; font-size: 15px;
   }

@@ -75,7 +75,7 @@ exports.dailyLeadDigest = onSchedule(
     }
 
     const tr = rows.map((r) => {
-      const tel = r.phone ? `<a href="tel:${esc(String(r.phone).replace(/[^\d]/g, ''))}" style="color:#C8541A;font-weight:700;text-decoration:none">${esc(r.phone)}</a>` : '—';
+      const tel = r.phone ? `<a href="tel:${esc(String(r.phone).replace(/[^\d]/g, ''))}" style="color:#BD5728;font-weight:700;text-decoration:none">${esc(r.phone)}</a>` : '—';
       return `<tr>
         <td style="padding:8px 10px;border-bottom:1px solid #eee;font-weight:600">${esc(r.name)}</td>
         <td style="padding:8px 10px;border-bottom:1px solid #eee">${tel}</td>
@@ -87,7 +87,7 @@ exports.dailyLeadDigest = onSchedule(
 
     const html = `<!DOCTYPE html><html><body style="font-family:'Barlow','Segoe UI',Roboto,sans-serif;background:#f5f5f5;margin:0;color:#333">
   <div style="max-width:640px;margin:0 auto;background:#fff;border-radius:8px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.1)">
-    <div style="background:linear-gradient(135deg,#1e3a6e,#142a52);color:#fff;padding:20px;text-align:center">
+    <div style="background:linear-gradient(135deg,#1a3057,#12223d);color:#fff;padding:20px;text-align:center">
       <div style="font-size:13px;letter-spacing:.08em;text-transform:uppercase;opacity:.85">Morning Digest</div>
       <div style="font-size:24px;font-weight:700;margin-top:4px">${rows.length} lead${rows.length === 1 ? '' : 's'} in the last 24h</div>
     </div>

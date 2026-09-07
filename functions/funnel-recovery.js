@@ -81,7 +81,7 @@ function buildRecoveryEmailHtml({ firstName }) {
 <head><meta charset="UTF-8"><title>Your No Big Deal estimate is waiting</title></head>
 <body style="margin:0;padding:0;font-family:'Segoe UI',Arial,sans-serif;background:#f5f3ef;color:#1a1a1a;line-height:1.6;">
   <div style="max-width:560px;margin:0 auto;padding:32px 24px;">
-    <div style="background:#142a52;color:#fff;padding:20px 24px;border-radius:10px 10px 0 0;text-align:center;">
+    <div style="background:#12223d;color:#fff;padding:20px 24px;border-radius:10px 10px 0 0;text-align:center;">
       <div style="font-size:18px;font-weight:800;letter-spacing:.06em;">NO BIG DEAL</div>
       <div style="font-size:11px;color:rgba(255,255,255,.7);letter-spacing:.08em;text-transform:uppercase;margin-top:4px;">Home Solutions</div>
     </div>
@@ -90,7 +90,7 @@ function buildRecoveryEmailHtml({ firstName }) {
       <p style="font-size:16px;margin:0 0 16px;">Joe here. I noticed you started an estimate on my site but didn't get a chance to finish it — totally understand, life happens.</p>
       <p style="font-size:16px;margin:0 0 16px;">If you still want that roof / siding / gutter estimate (no pressure, no pushy follow-ups), just pick up where you left off:</p>
       <div style="text-align:center;margin:28px 0;">
-        <a href="${resumeUrl}" style="display:inline-block;background:#e8720c;color:#fff;padding:14px 28px;border-radius:8px;font-weight:800;font-size:15px;text-decoration:none;letter-spacing:.02em;">Finish my estimate →</a>
+        <a href="${resumeUrl}" style="display:inline-block;background:#bd5728;color:#fff;padding:14px 28px;border-radius:8px;font-weight:800;font-size:15px;text-decoration:none;letter-spacing:.02em;">Finish my estimate →</a>
       </div>
       <p style="font-size:15px;margin:0 0 16px;">Or if it's easier, just call or text me directly — I answer my own phone:</p>
       <p style="font-size:15px;margin:0 0 16px;"><strong>📞 (859) 420-7382</strong></p>

@@ -212,7 +212,7 @@ const SIDING_COLOR_LABELS = {
   linen:          { name: 'soft linen white',   hex: '#e8e0d0' },
   'slate-gray':   { name: 'slate gray',         hex: '#6b7280' },
   'charcoal-blue':{ name: 'charcoal blue-gray', hex: '#374151' },
-  navy:           { name: 'deep navy blue',     hex: '#1e3a6e' },
+  navy:           { name: 'deep navy blue',     hex: '#1a3057' },
   cedar:          { name: 'cedar brown',        hex: '#78350f' },
   forest:         { name: 'forest green',       hex: '#065f46' },
   black:          { name: 'matte black',        hex: '#1c1917' },

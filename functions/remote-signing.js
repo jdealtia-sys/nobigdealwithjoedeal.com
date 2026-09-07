@@ -279,11 +279,11 @@ exports.createSignRequest = onCall(
         from: fromEmail,
         to: signerEmail,
         subject: `Please sign your ${docName}`,
-        html: `<div style="font-family:Arial,sans-serif;max-width:520px;margin:0 auto;color:#1a1a2e;">
+        html: `<div style="font-family:Arial,sans-serif;max-width:520px;margin:0 auto;color:#12223d;">
           <p>Hi ${escHtml(signerName || lead.firstName || 'there')},</p>
           <p>${repName} has a <strong>${docName}</strong> ready for your signature. It only takes a minute — just tap the button, sign on your phone, and you're done.</p>
           <p style="text-align:center;margin:28px 0;">
-            <a href="${escHtml(link)}" style="background:#e8720c;color:#fff;text-decoration:none;padding:13px 26px;border-radius:8px;font-weight:700;display:inline-block;">Review &amp; Sign</a>
+            <a href="${escHtml(link)}" style="background:#bd5728;color:#fff;text-decoration:none;padding:13px 26px;border-radius:8px;font-weight:700;display:inline-block;">Review &amp; Sign</a>
           </p>
           <p style="font-size:12px;color:#666;">This secure link expires in 7 days and can only be used once. If you didn't expect this, you can ignore the email.</p>
         </div>`,
