@@ -128,13 +128,24 @@ Both are recorded because the pattern keeps recurring.
 
 ## Still open
 
-- The `Enable required Google APIs` step in the same run logged
-  `does not have permission to access projects instance [nobigdeal-pro] ...
-  Permission denied to enable service [artifactregistry.googleapis.com]`. It did
-  not fail the job and the deploy proceeded, so it is not the cause of anything
-  here — but the deploy service account cannot enable APIs, and that step is
-  therefore decorative. Worth either granting the role or deleting the step
-  rather than leaving a permanently-failing command in the release path.
+- ~~The `Enable required Google APIs` step is decorative.~~ **Wrong — corrected
+  2026-09-07.** That claim was made from the `ERROR: (gcloud.services.enable)
+  ... Permission denied` line without reading the step. The step already knows
+  the SA lacks `roles/serviceusage.serviceUsageAdmin` (a 2026-08-17 pass),
+  ignores the exit code, and **asserts the end state instead** — the same run
+  printed `✓ All 7 required APIs already enabled` two lines later. It worked.
+
+  This is the failure the step’s own comment predicted: *“that false alarm sat
+  in the log long enough to be mistaken for the cause of a real incident.”*
+  It was, by me, while triaging the genuinely failed deploy in the same run.
+
+  What was real is smaller, and is fixed in the follow-up PR that added this
+  correction: gcloud’s failure text was
+  still **streamed** on every healthy deploy, so a red-looking ERROR sat two
+  lines above a ✓. It is now captured and printed only where it is evidence —
+  when the end-state check finds an API genuinely off, or cannot read the list.
+  Gated by `tests/deploy-api-enable-step.test.js`, which extracts the real step
+  body and runs it against a stubbed gcloud.
 - The root transient itself (`concurrent lock contention`) is a GCP-side 500 and
   is not fixable here. The retry rounds are the mitigation; this PR is about
   making them able to run.
