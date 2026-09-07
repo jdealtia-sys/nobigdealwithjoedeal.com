@@ -27,6 +27,14 @@ succeeded and `requestMeasurement`'s revision updated 19:47 UTC, after the
 > its state, its open items and its traps are in **§5**, and the full write-up
 > is [SESSION-2026-09-06-photo-queue-durability](SESSION-2026-09-06-photo-queue-durability.md).
 
+> **A third lane ran in parallel too**, 2026-09-06 into 09-07: CRM boot weight,
+> three duplicate-execution bugs, and the multi-tenant `NBD-` filename leak it
+> turned into — #1419 → #1449, nine PRs, all merged and deployed. **§6**, with
+> the full write-up in [BOOT-WEIGHT-2026-09-06](../audit/BOOT-WEIGHT-2026-09-06.md).
+> If you only read one thing from it, read §6's brand-hydration paragraph: it
+> is a **shape**, not a file, it recurred across four of those PRs, and §6's
+> last subsection records what happened when the section was fact-checked.
+
 ---
 
 ## §0 — Jo's queue
@@ -297,3 +305,187 @@ Two more, cheaper:
 - **`git checkout -- <file>` to undo a temporary test-break discards ALL
   uncommitted work in that file** (and silently does *nothing* for an untracked
   one). Commit a `wip:` first, or undo with the editor.
+
+---
+
+## §6 — The boot-weight / brand-hydration lane (parallel session, 2026-09-06 → 09-07)
+
+Nine PRs, all merged: **#1419** (boot weight + the three duplicate-execution
+bugs) → **#1423** (the mid-lane handoff carrying the moved-main retraction) →
+**#1427** (untangle `generatePhotoReport`) → **#1432** (stop shipping other
+tenants' documents named `NBD-`) → **#1433** (the last five leaks, and the gate
+that would have missed them) → **#1436** (the photo report ignored the drag
+order) → **#1445** (the `|| 'NBD'` fallbacks) → **#1447** (gate document
+rendering on hydration) → **#1449** (the estimate formatters — merged 09-07
+12:12 UTC, deploy 34120635222 **succeeded**). Full write-up:
+[BOOT-WEIGHT-2026-09-06](../audit/BOOT-WEIGHT-2026-09-06.md).
+
+**The brief was "reduce boot weight and fix three duplicate-execution bugs."
+The weight work is the small half of what this lane found.**
+
+### What shipped
+
+| | before | after |
+|---|---|---|
+| `customer.html` boot JS | 1888.5 KiB / 74 requests | **1340.1 KiB / 69** (−548.4, −29%) |
+| `customer.html` gzip | 569.8 KiB | **405.6 KiB** (sum of two measured deltas) |
+| `dashboard.html` render-blocking CSS | 484.1 KiB / 11 sheets | **462.3 KiB / 7** |
+
+Dashboard boot JS went *up* 4.4 KiB — 3.9 KiB of it `script-loader.js` (the new
+`cacheKey()` and `loadCss()`, the rewritten `load()` dedupe, and the Leaflet
+sheets moved into the `mapvendor` bundle), plus 0.5 KiB for `ui.js`'s Cmd+K
+stand-down guard. Only `dashboard.html` and `customer.html` load the loader.
+Said plainly rather than hidden.
+
+The three duplicate-execution bugs were all real. `ScriptLoader` deduped on the
+**raw `src` string**, so a page-relative tag and an absolute-path bundle entry
+were different keys and a second `supplement-ui.js` tag landed in the DOM — now
+keyed on `new URL(src, document.baseURI)` reduced to `origin + pathname`.
+**Be precise about what that cost**, because the first version of this write-up
+was not: the file's own `__NBD_LOADED['supplement-ui']` sentinel (shipped
+2026-07-05 in `8eb16ede`, long before this lane) returns before `_bootstrap()`
+registers its `MutationObserver`, so the waste was a duplicate tag and a
+re-parse — **not** two observers. Second, **three live Cmd+K handlers**, of
+which `ui.js` now stands down when `window.NBDCommand` exists. Third,
+`markLoaded` was exported and never called — removed rather than wired.
+
+### The finding that outgrew the brief
+
+`company-profile.js:276` seeds `_companyProfile` with **the NBD defaults at
+parse time**. Anything that derives a brand *synchronously*, before
+`_loadCompanyProfile()` resolves, therefore stamps **the platform's identity
+onto another tenant's paperwork** — filenames, document numbers, signature
+seals.
+
+It is not a bug in any one file; it is a **shape**, and it kept reappearing:
+#1432 and #1433 stripped hardcoded `NBD-` filename literals, #1445 removed the
+`|| 'NBD'` fallbacks sitting behind them, and #1447 and #1449 closed the last
+five deferred sites. **Treat any list of sites as a floor.** Every pass that
+went looking found more, and one sweep that reported zero was later found to
+have been pointed at the wrong file list.
+
+**Three times I tried to fix the derivation, and three times the derivation was
+already correct.** `_docPrefix()` in `document-generator.js`, and
+`resolveBrand()`'s `docPrefix` in `estimate-finalization.js` — each is a pure,
+tested function of the brand it is handed, pinned by assertions that go red the
+moment you touch it (`docgen-brand` 28, `estimate-render` 74). The fix is one
+`await` at the **async boundary upstream**, after which every synchronous
+derivation downstream becomes correct without being touched.
+
+> **If you find another one, do not make the sync thing async.** Find the async
+> caller and gate the data once. The synchronous code is faithful; the *input*
+> is stale.
+
+The last one (#1449) is worth knowing about even though its behaviour did not
+change — and worth stating carefully, because I first wrote it up backwards.
+Both callers were already hydrating **by accident**, in two different ways:
+
+- **`sendForSignature()`** — `await _v2EstNumber(...)` sat *inside the argument
+  object literal* passed to `formatEstimate` (pre-#1449 `estimate-v2-ui.js:3511`).
+  That one really is **argument-evaluation order**.
+- **`finalize()`** — its `meta` literal is built **58 lines above** the call
+  (`:3217` vs `:3275`), which then passes three already-computed identifiers.
+  That is **statement order**.
+
+Either way the guarantee was incidental: drop the `number:` field, or move the
+`meta` construction below the call, and the leak returns with no test failing.
+Both are now explicit invariants.
+
+### Open, in the order I would take them
+
+1. **The Leaflet CSS win is first-paint, not boot bytes, for most users.** The
+   four sheets (21.8 KiB) are out of the `<head>` and lead the `mapvendor`
+   bundle — but `weather-radar` is in `DEFAULT_WIDGETS` and its `render()`
+   pulls that bundle, so on a default home view the bytes arrive moments after
+   paint anyway. Lazy-gating the radar widget is what would actually bank it.
+2. **`estimate-supplement.js` has no re-entry sentinel.** Of the three files
+   `customer.html` ships eagerly that are *also* `estimates`-bundle entries, it
+   is the only one without a guard — `supplement-ui.js` has `__NBD_LOADED` and
+   `profit-tracker.js` has `_NBD_PT_DELEGATE`. Its only top-level side effect
+   is assigning `window.EstimateSupplement`, so a double load redefines a global
+   rather than duplicating observers. Small, but it is the real version of an
+   item an earlier draft of this section got wrong in the other direction.
+3. **`customer.html`'s remaining eager weight.** 498.7 of 656 KiB was movable
+   and moved (both figures reproduce exactly at baseline `5a19dd92`); three
+   files stay eager. **None of them is render-blocking** — all three carry
+   `defer`, and `customer.html` has *zero* parser-blocking scripts across its
+   69 tags. They stay eager because they run at render time with no user intent
+   to hang a lazy load on: `profit-tracker.js` paints the cost panel during the
+   initial customer render, and `supplement-ui.js` with its engine
+   `estimate-supplement.js` puts the "+ Supplement" button on every estimate
+   row. The render-blocking assets in this lane were the four Leaflet `<link>`s
+   in `dashboard.html`'s `<head>` — that is item 1.
+4. **Sentry tracing → error-only bundle: verified, deliberately not shipped.**
+   It needs a fresh SRI `integrity` hash for that exact file, which cannot be
+   produced safely offline, and a wrong hash kills error reporting silently. It
+   is also CDN-served, async, and DSN-gated — off the measured boot path. Low
+   value, real risk.
+5. **`_tenantFilePrefix()` returns `''`, on purpose,** for a tenant that is not
+   the platform and has no prefix of its own — blank beats wrong, mirroring
+   `functions/render-pdf.js:302`. `_tenantIdPrefix()` is the sibling that never
+   blanks (`'CUS'`), because a minted ID cannot carry an orphan leading dash.
+   Anyone "fixing" the blank one will reintroduce the leak.
+
+### Traps this lane paid for
+
+- **I published a false diagnosis and had to retract it.** I reported — in a PR
+  body, a vault note and a memory file — that a stale worktree copy had
+  silently reverted #1416. It had not: **`main` moved under me** (#1417 replaced
+  that code after my branch was cut) and my commit left that hunk
+  byte-identical to its own parent. I had diffed against a moved `origin/main`.
+  It was caught and retracted before the false version reached `main`, and the
+  retraction shipped in #1423. Check
+  `git rev-list --left-right --count HEAD...origin/main` **before** describing
+  a difference, and test a suspected revert against your **own parent**.
+- **Three of my own gates were broken, in three different ways.** One matched
+  only the exact literal `'NBD-'` while every real leak was `'NBD-Deal-'` —
+  proven able to fail, but against a strawman. The same sweep later measured
+  **vacuous** (0 hits) because its file list omitted the three files that
+  actually leaked. And one assertion used a positional `{0,200}` window that
+  was ~15 characters too short, so it **failed against its own correct
+  implementation**. Prove a gate can fail *against the defect's real shape*,
+  and prefer structural matching (strip comments; anchor to `{\s*await`) over
+  counting bytes.
+- **CI caught a regression my local run missed (#1445).** Replacing a sync
+  brand derivation dropped the filename prefix entirely →
+  `Estimate_Ada_Ruiz_e1abc9.pdf`. The miss was procedural: my local set was
+  `smoke.test.js` + `--bucket node`, and `customer-estimate-rows.test.js` lives
+  in the **`smoke` bucket**. `smoke.test.js` (the file) and `--bucket smoke`
+  (65 manifest suites) are two different things — and `smoke.test.js` is itself
+  one of the 14 `wired-individually` entries, which is why it needs its own
+  line:
+
+  ```bash
+  node tests/smoke.test.js
+  node scripts/run-test-manifest.js --bucket node
+  node scripts/run-test-manifest.js --bucket smoke
+  ```
+
+  Those are the only two buckets the runner accepts (`RUNNABLE = ['node',
+  'smoke']`, `scripts/run-test-manifest.js:51`); `--bucket emulator` is refused
+  by design. That still leaves most of `wired-individually` and all 4
+  `emulator` suites local-unrun — the e-sign four need Playwright and `cd
+  tests`, the rules/integration ones need proxy-scrubbed `emulators:exec`. **A
+  green local sweep is not a green CI**, which is the whole point of the bullet.
+- **An async conversion left its callers un-awaited.** Turning `_v2EstNumber`
+  async would have rendered `[object Promise]` into a document number. Caught
+  by inspection, then by auditing all 24 resolver call sites — not by a test.
+  If you make a resolver async, grep every caller in the same commit.
+- **Backslashes do not survive the Bash tool here** (heredocs, `node -e`, and
+  grep patterns all eat a level, and apostrophes break quoting). Write patch
+  scripts to a file with the editor and run them with `node`.
+
+### How this section was checked, and what that says about the rest
+
+Everything above was fact-checked against the repo by six independent agents
+before it was committed, and every disputed claim re-checked by a second,
+independent agent. **Twelve claims came back wrong.** Among them: the PR count
+(eight, actually nine), a line number that #1449 itself had moved, "one of them
+is render-blocking" (none is), a to-do for a sentinel that has existed since
+July — and the two `#1449` callers described with **each other's** mechanism.
+
+Two things follow. First, the corrections are folded in above, and the ones that
+also live in `BOOT-WEIGHT-2026-09-06.md` are corrected there in place. Second,
+and more useful to you: **that error rate came from a session that was being
+careful.** The prose in this repo's notes is not evidence. Where a claim has a
+line number, a byte count or a PR number in it, check it before you build on it.
