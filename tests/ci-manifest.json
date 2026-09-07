@@ -51,6 +51,7 @@
     "gauntlet-brand-guard.test.js",
     "imagery-sources.test.js",
     "inbound-sms-route.test.js",
+    "instantroofer-field-wiring.test.js",
     "instantroofer-measurement.test.js",
     "public-measure.test.js",
     "lead-dedup.test.js",

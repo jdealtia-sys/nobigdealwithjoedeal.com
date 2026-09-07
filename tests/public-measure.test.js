@@ -117,7 +117,10 @@ if (PM && PM._test) {
     isTownhome: false, isCommercial: false, reportUrl: null, source: 'instantroofer-ai'
   };
   const s = PM._test.publicSummary(full);
-  ok('carries the numbers the estimate is built from', s.sqft === 3482 && s.squares === 38.7 && s.pitch === '5/12');
+  // 3482.4 sq ft of roof = 34.8 squares. NOT the fixture's `squares: 38.7`,
+  // which is the vendor's suggested/100 (3866/100) — its material-order figure
+  // with waste already added.
+  ok('carries the numbers the estimate is built from', s.sqft === 3482 && s.squares === 34.8 && s.pitch === '5/12');
   ok('carries the caveat fields (confidence, complexity, stories)', s.confidence === 'High' && s.complexity === 'High' && s.stories === 1);
   ok('marks itself measured', s.measured === true);
   ok('does NOT leak the raw confidence score', s.score === undefined && JSON.stringify(s).indexOf('0.408') === -1);
@@ -126,6 +129,23 @@ if (PM && PM._test) {
       .every(k => s[k] === undefined));
   ok('squares derived from area when the vendor omits it',
     PM._test.publicSummary({ rawSqft: 2000 }).squares === 20);
+
+  // ── The waste double-count. This is the assertion that was missing. ──
+  // The wizard multiplies these squares by PRICING.roof bands that are built
+  // as rate × 1.12 .. rate × 1.25 — the CRM's pitch waste factor, already in
+  // the band (docs/assets/js/inline/4053149b2f.js:61-76 → tiersFromSquares).
+  // So this field MUST be waste-excluded. Passing the vendor's own `squares`
+  // through counted waste twice and quoted the homeowner ~15% high.
+  ok('IGNORES the vendor waste-inclusive squares and derives from roof area',
+    PM._test.publicSummary({ rawSqft: 3483, squares: 40.1 }).squares === 34.8);
+  ok('...so the same roof prices identically with or without that vendor field',
+    PM._test.publicSummary({ rawSqft: 3483, squares: 40.1 }).squares
+      === PM._test.publicSummary({ rawSqft: 3483 }).squares);
+  ok('...and squares always agrees with the sqft printed beside it',
+    (() => {
+      const a = PM._test.publicSummary({ rawSqft: 3483, squares: 40.1 });
+      return Math.abs(a.squares - a.sqft / 100) < 0.05;
+    })());
   ok('no area → null (never a summary claiming a measurement it does not have)',
     PM._test.publicSummary({ rawSqft: 0 }) === null && PM._test.publicSummary(null) === null);
   ok('the endpoint only answers for a doc whose summary says measured:true', /publicMeasurement\.measured/.test(src));
