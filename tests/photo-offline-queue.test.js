@@ -640,9 +640,20 @@ if (missing.length === 0) {
         '_draining=' + r19.sandbox._draining
         + ' — stuck true means every later drain returns 0 and no photo ever uploads again']);
       // Prove the guard really is usable again, not just flagged false.
+      //
+      // The previous assertion here was `sent19b === 0 && s19.map.size === 0`,
+      // and it was satisfied BY the wedged state it claimed to rule out:
+      // flushUploadQueue returns 0 immediately while `_draining` is true, and
+      // the map had already been emptied by the first drain. Both halves hold
+      // whether the guard recovered or stayed stuck. Give the second drain
+      // something real to do, so "it ran" and "it was blocked" have different
+      // observable outcomes.
+      s19.map.set(9, Object.assign({ id: 9 }, row(9)));
       const sent19b = await r19.flush();
-      results.push(['drain: ...so the NEXT drain still runs', sent19b === 0 && s19.map.size === 0,
-        'second flush sent=' + sent19b + ' rowsLeft=' + s19.map.size]);
+      results.push(['drain: ...so the NEXT drain really runs, and uploads',
+        sent19b === 1 && s19.map.size === 0,
+        'second flush sent=' + sent19b + ' rowsLeft=' + s19.map.size
+        + ' — a wedged guard yields sent=0 and leaves the row']);
     }
     {
       // photo-engine can load where recovery is absent, and a stale SW cache
