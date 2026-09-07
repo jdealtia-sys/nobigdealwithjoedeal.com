@@ -253,6 +253,14 @@
       // _custIdPrefix() already returns 'NBD' only for the platform tenant and
       // a derived/reserved prefix for everyone else — reuse it rather than
       // re-deriving, so document numbers match the customer IDs.
+      // UNCHANGED, deliberately (2026-09-06). This is a pure function of the
+      // brand it is handed, and estimate-render.test.js pins it: NBD→'NBD-',
+      // Oaks→'OAK-'. A first attempt gated it on _companyProfileLoaded and
+      // broke five of those assertions — the same mistake as the
+      // document-generator work: the derivation is faithful, the *brand* was
+      // stale. The fix lives at the async boundary instead, where
+      // estimate-v2-ui.js awaits company-profile hydration before calling any
+      // formatter (finalize / sendForSignature).
       docPrefix:   isNbd ? 'NBD' : (b.docPrefix || _tenantPrefix() || ''),
       seal:        isNbd ? 'NBD' : (b.seal || b.displayName || b.legalName || ''),
       // Pass the raw brand through for any caller that needs more.
@@ -395,7 +403,7 @@
         <div class="doc-hdr">
           <div class="doc-title">Insurance Scope</div>
           <div class="doc-date">${fmtDate(est.date)}</div>
-          <div class="doc-date">Estimate #${escapeHtml(est.number || _b.docPrefix + '-' + Date.now())}</div>
+          <div class="doc-date">Estimate #${escapeHtml(est.number || (_b.docPrefix ? _b.docPrefix + '-' : '') + Date.now())}</div>
           ${est.revision ? `<div class="doc-date">Revision ${escapeHtml(est.revision)}</div>` : ''}
           <div class="doc-total-lbl">Scope Total (RCV)</div>
           <div class="doc-total-val">${fmtMoneyBig(estimate.total)}</div>
@@ -800,7 +808,7 @@ ${footer}
         <div class="doc-hdr">
           <div class="doc-title">Estimate</div>
           <div class="doc-date">${fmtDate(est.date)}</div>
-          <div class="doc-date">Estimate #${escapeHtml(est.number || _b.docPrefix + '-' + Date.now())}</div>
+          <div class="doc-date">Estimate #${escapeHtml(est.number || (_b.docPrefix ? _b.docPrefix + '-' : '') + Date.now())}</div>
           <div class="doc-total-lbl">Your Investment</div>
           <div class="doc-total-val">${fmtMoneyBig(estimate.total)}</div>
         </div>

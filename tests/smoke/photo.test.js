@@ -1259,6 +1259,31 @@ section('Photo-report PDF filename never leaks NBD onto a tenant download (2026-
       'substituting NBD when the resolver is missing or unhydrated is the leak itself — route through the async window._tenantFilePrefix(). Offending: ' + offenders.join(' | ').slice(0, 180));
   });
 
+  // The estimate formatters are synchronous too, so their async callers must
+  // gate the same way. Hydration DID already happen on the finalize() path —
+  // but only as a side effect of `await _v2EstNumber(...)` sitting inside an
+  // argument list, i.e. by argument-evaluation order. Reorder the object
+  // literal and the leak returns silently, which is why this is explicit.
+  {
+    // Match against a comment-stripped copy. A positional {0,N} window that
+    // counts comment bytes passes or fails on how long the comment above the
+    // call happens to be — that brittleness already produced one gate here
+    // that failed against its own correct implementation.
+    const v2 = read(path.join(PRO_JS, 'estimate-v2-ui.js'))
+      .split(/\r?\n/).filter(function (l) { return !/^\s*(\/\/|\*|\/\*)/.test(l); }).join('\n');
+    assert('estimate-v2-ui exposes an explicit brand-hydration gate',
+      /async function _awaitBrandHydration\(\)[\s\S]{0,200}await window\._loadCompanyProfile\(\)/.test(v2),
+      'the estimate-finalization formatters are synchronous — the await has to happen at their async callers');
+    // `\{\s*await` — the gate has to be the FIRST statement, not merely present
+    // somewhere in the body. Awaiting after the render is not a gate.
+    assert('finalize() awaits hydration before anything else',
+      /async function finalize\(format\)\s*\{\s*await _awaitBrandHydration\(\)/.test(v2),
+      'finalize() calls EstimateFinalization.formatEstimate, which derives the doc prefix and seal from window._brand()');
+    assert('sendForSignature() awaits hydration before anything else',
+      /async function sendForSignature\(\)\s*\{\s*await _awaitBrandHydration\(\)/.test(v2),
+      'the retail-quote body sent for signature runs through the same synchronous formatters');
+  }
+
   // NBDDocGen.generate() must AWAIT company-profile hydration before rendering.
   // Everything downstream — window._legal(), window._brand(), _docPrefix(), and
   // the '-WC' cert prefix in document-generator-templates.js — is a synchronous
