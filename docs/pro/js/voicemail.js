@@ -395,7 +395,7 @@ let _NBD_VM_DELEGATE; // module-local (globals Tranche 1 — was window.*)
       : '';
 
     const tasksRow = taskCount > 0
-      ? `<div style="background:rgba(232,114,12,.1);border:1px solid var(--orange);border-radius:7px;padding:10px 12px;margin-bottom:10px;font-size:12px;color:var(--orange);">
+      ? `<div style="background:rgba(189,87,40,.1);border:1px solid var(--orange);border-radius:7px;padding:10px 12px;margin-bottom:10px;font-size:12px;color:var(--orange);">
            ✓ Created ${taskCount} task${taskCount === 1 ? '' : 's'} from action items.
          </div>` : '';
 

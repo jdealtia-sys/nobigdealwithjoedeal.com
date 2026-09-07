@@ -362,7 +362,7 @@ let _NBD_SC_DELEGATE; // module-local (globals Tranche 1 — was window.*)
       return `<span style="display:inline-block;background:var(--orange);color:var(--t);font-size:10px;font-weight:700;letter-spacing:.06em;padding:3px 7px;border-radius:4px;">$$$</span>`;
     }
     if (v >= MED_VALUE) {
-      return `<span style="display:inline-block;background:rgba(232,114,12,.18);color:var(--orange);font-size:10px;font-weight:700;letter-spacing:.06em;padding:3px 7px;border-radius:4px;border:1px solid rgba(232,114,12,.35);">$$</span>`;
+      return `<span style="display:inline-block;background:rgba(189,87,40,.18);color:var(--orange);font-size:10px;font-weight:700;letter-spacing:.06em;padding:3px 7px;border-radius:4px;border:1px solid rgba(189,87,40,.35);">$$</span>`;
     }
     return `<span style="display:inline-block;background:var(--s2);color:var(--m);font-size:10px;font-weight:600;padding:3px 7px;border-radius:4px;border:1px solid var(--br);">$</span>`;
   }

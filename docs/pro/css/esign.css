@@ -97,7 +97,7 @@ body {
 .es-field {
   position: absolute;
   border: 2px dashed var(--es-orange);
-  background: rgba(232, 114, 12, .10);
+  background: rgba(189, 87, 40, .10);
   border-radius: 4px;
   display: flex; align-items: center; justify-content: center;
   font-size: 11px; font-weight: 700; color: #8a4708;
@@ -110,7 +110,7 @@ body {
 .es-field:focus-visible { outline: 3px solid #1d4ed8; outline-offset: 2px; }
 .es-field.is-optional { border-style: dotted; }
 .es-field.is-done { border: 1.5px solid var(--es-good); background: rgba(22, 121, 74, .06); color: transparent; }
-.es-field.is-target { box-shadow: 0 0 0 4px rgba(232, 114, 12, .30); }
+.es-field.is-target { box-shadow: 0 0 0 4px rgba(189, 87, 40, .30); }
 .es-field img { width: 100%; height: 100%; object-fit: contain; }
 .es-field .es-val {
   width: 100%; color: var(--es-ink); font-weight: 500;

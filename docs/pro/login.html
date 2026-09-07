@@ -31,7 +31,7 @@
 <style>
 *,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
 :root{
-  --navy:#111418;--navy-dark:#0A0C0F;--orange:#BD5728;--orange-dark:#c45e08;
+  --navy:#111418;--navy-dark:#0A0C0F;--orange:#BD5728;--orange-dark:#a14a22;
   --orange-light:#f59240;--white:#E8EAF0;--text-muted:#6B7280;
   /* Wave 6b (A.2) — match the rep dashboard's accent contract so any
      hardcoded brand-orange surfaces (.btn-main, .tab-btn.active) render
@@ -111,7 +111,7 @@ body{background:var(--navy-dark);color:var(--white);display:grid;grid-template-c
 
 /* BUTTONS */
 .btn-main{width:100%;background:var(--orange);color:var(--accent-fg);padding:15px;border-radius:6px;font-weight:800;font-size:13px;letter-spacing:2px;text-transform:uppercase;border:none;cursor:pointer;transition:background .2s,transform .15s,box-shadow .2s;font-family:'Barlow',sans-serif;display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:16px;position:relative;z-index:1;box-shadow:inset 0 0 0 1px var(--accent-ring),0 4px 14px var(--og)}
-.btn-main:hover:not(:disabled){background:#A64B00}
+.btn-main:hover:not(:disabled){background:#A14A22}
 .btn-main:active:not(:disabled){transform:scale(.99)}
 .btn-main:disabled{opacity:.6;cursor:not-allowed}
 .btn-demo{width:100%;background:rgba(63,185,80,0.12);color:#3fb950;padding:15px;border-radius:6px;font-weight:800;font-size:13px;letter-spacing:1.5px;text-transform:uppercase;border:1px solid rgba(63,185,80,0.3);cursor:pointer;transition:all .2s;font-family:'Barlow',sans-serif;display:flex;align-items:center;justify-content:center;gap:10px;position:relative;z-index:1}
@@ -190,7 +190,7 @@ body{background:var(--navy-dark);color:var(--white);display:grid;grid-template-c
 .nbd-skip-link:focus { left:8px; outline:2px solid #000; }
 </style>
 <style id="theme-system">
-[data-theme="nbd-original"] { --orange:#BD5728;--ob:#f08030;--og:color-mix(in srgb, var(--orange) 22%, transparent);--bg:#0A0C0F;--s:#111418;--s2:#181C22;--s3:#1E2229;--br:rgba(255,255,255,.07);--t:#E8EAF0;--m:#6B7280;--blue:#4A9EFF;--green:#2ECC8A;--purple:#9B6DFF;--red:#E05252;--gold:#D4A017;--paper:#1E2229;--ink:#E8EAF0;--rule:rgba(255,255,255,.09); }
+[data-theme="nbd-original"] { --orange:#BD5728;--ob:#dd875f;--og:color-mix(in srgb, var(--orange) 22%, transparent);--bg:#0A0C0F;--s:#111418;--s2:#181C22;--s3:#1E2229;--br:rgba(255,255,255,.07);--t:#E8EAF0;--m:#6B7280;--blue:#4A9EFF;--green:#2ECC8A;--purple:#9B6DFF;--red:#E05252;--gold:#D4A017;--paper:#1E2229;--ink:#E8EAF0;--rule:rgba(255,255,255,.09); }
 [data-theme="midnight"] { --orange:#6366F1;--ob:#818CF8;--og:rgba(99,102,241,.2);--bg:#0F0F1A;--s:#141425;--s2:#1A1A33;--s3:#22223F;--br:rgba(255,255,255,.08);--t:#E2E8F0;--m:#64748B;--blue:#38BDF8;--green:#34D399;--purple:#A78BFA;--red:#F87171;--gold:#FBBF24;--paper:#1A1A33;--ink:#E2E8F0;--rule:rgba(255,255,255,.1); }
 [data-theme="cobalt"] { --orange:#2563EB;--ob:#3B82F6;--og:rgba(37,99,235,.2);--bg:#0A1628;--s:#0F1E3A;--s2:#142348;--s3:#1A2A56;--br:rgba(255,255,255,.08);--t:#EFF6FF;--m:#60A5FA;--blue:#38BDF8;--green:#34D399;--purple:#818CF8;--red:#F87171;--gold:#FBBF24;--paper:#142348;--ink:#EFF6FF;--rule:rgba(255,255,255,.1); }
 [data-theme="forest"] { --orange:#16A34A;--ob:#22C55E;--og:rgba(22,163,74,.2);--bg:#0A1A0F;--s:#0F2218;--s2:#142B20;--s3:#1A3428;--br:rgba(255,255,255,.08);--t:#ECFDF5;--m:#6EE7B7;--blue:#38BDF8;--green:#4ADE80;--purple:#A78BFA;--red:#F87171;--gold:#FBBF24;--paper:#142B20;--ink:#ECFDF5;--rule:rgba(255,255,255,.1); }

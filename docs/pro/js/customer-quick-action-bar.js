@@ -105,7 +105,7 @@
           transition:background .12s, color .12s, transform .12s;
         }
         #nbd-quick-action-bar .qab-btn:active {
-          background:rgba(200,84,26,0.15); color:#fff;
+          background:rgba(161,74,34,0.15); color:#fff;
           transform:scale(0.96);
         }
         #nbd-quick-action-bar .qab-icon {

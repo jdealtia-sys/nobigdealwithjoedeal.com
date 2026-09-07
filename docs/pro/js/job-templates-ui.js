@@ -903,7 +903,7 @@
 
     var catPills = '<button type="button" class="jt-pill' + (state.category === 'all' ? ' on' : '') + '" ' +
       'data-jt-action="set-category" data-id="all" style="' +
-      (state.category === 'all' ? 'border-color:var(--orange,#BD5728);color:var(--orange,#BD5728);background:rgba(232,114,12,.09);' : '') +
+      (state.category === 'all' ? 'border-color:var(--orange,#BD5728);color:var(--orange,#BD5728);background:rgba(189,87,40,.09);' : '') +
       '">All <span class="ct">' + all.length + '</span></button>';
     Object.keys(meta).forEach(function (key) {
       var c = counts[key] || 0;
@@ -916,12 +916,12 @@
     });
 
     var typePills = '<button type="button" class="jt-pill' + (state.jobType === 'all' ? ' on' : '') + '" data-jt-action="set-jobtype" data-id="all"' +
-      (state.jobType === 'all' ? ' style="border-color:var(--orange,#BD5728);color:var(--orange,#BD5728);background:rgba(232,114,12,.09);"' : '') +
+      (state.jobType === 'all' ? ' style="border-color:var(--orange,#BD5728);color:var(--orange,#BD5728);background:rgba(189,87,40,.09);"' : '') +
       '>All types</button>';
     Object.keys(JOB_TYPES).forEach(function (key) {
       var on = state.jobType === key;
       typePills += '<button type="button" class="jt-pill' + (on ? ' on' : '') + '" data-jt-action="set-jobtype" data-id="' + esc(key) + '"' +
-        (on ? ' style="border-color:var(--orange,#BD5728);color:var(--orange,#BD5728);background:rgba(232,114,12,.09);"' : '') + '>' +
+        (on ? ' style="border-color:var(--orange,#BD5728);color:var(--orange,#BD5728);background:rgba(189,87,40,.09);"' : '') + '>' +
         esc(JOB_TYPES[key]) + '</button>';
     });
 

@@ -119,7 +119,7 @@ window.NBDDocGen = {
    * rgba() string from a hex color with the alpha written exactly as it should
    * appear in CSS (e.g. '.04', '0'). Lets section-tint gradients track the
    * active tenant's accent instead of a hardcoded NBD orange (review L4).
-   * For NBD's #e8720c this returns 'rgba(232,114,12,<alpha>)' — byte-identical
+   * For NBD's #bd5728 this returns 'rgba(189,87,40,<alpha>)' — byte-identical
    * to the literal it replaced. Handles 3- and 6-digit hex; unparseable input
    * falls back to NBD orange's channels.
    */
@@ -2679,7 +2679,7 @@ ${name || addr ? `<h2>Customer Information</h2>
 </table>` : ''}
 ${fieldRows ? '<h2>Details</h2><table>' + fieldRows + '</table>' : ''}
 ${desc ? '<h2>Description</h2><div class="desc">' + this._escHtml(desc) + '</div>' : ''}
-${price ? '<div style="text-align:right;margin:24px 0;"><span style="font-size:12px;color:#666;">Total:</span> <span style="font-family:\'Barlow Condensed\',sans-serif;font-size:32px;font-weight:800;color:var(--orange,#e8720c);">' + (String(price).startsWith('$') ? price : '$' + price) + '</span></div>' : ''}
+${price ? '<div style="text-align:right;margin:24px 0;"><span style="font-size:12px;color:#666;">Total:</span> <span style="font-family:\'Barlow Condensed\',sans-serif;font-size:32px;font-weight:800;color:var(--orange,#bd5728);">' + (String(price).startsWith('$') ? price : '$' + price) + '</span></div>' : ''}
 <div class="sig-block">
   <div><div class="sig-line">Homeowner Signature</div><div style="margin-top:16px;"><div class="sig-line">Date</div></div></div>
   <div><div class="sig-line">Contractor Signature</div><div style="margin-top:16px;"><div class="sig-line">Date</div></div></div>
@@ -2779,7 +2779,7 @@ ${price ? '<div style="text-align:right;margin:24px 0;"><span style="font-size:1
     ).join('');
 
     const TYPE_BADGE = {
-      stage:         { label: 'Stage',    bg: '#dbeafe', fg: '#1e3a6e' },
+      stage:         { label: 'Stage',    bg: '#dbeafe', fg: '#1a3057' },
       task:          { label: 'Task',     bg: '#fef3c7', fg: '#92400e' },
       document:      { label: 'Document', bg: '#e9d5ff', fg: '#6b21a8' },
       photo:         { label: 'Photo',    bg: '#d1fae5', fg: '#065f46' },
@@ -2829,7 +2829,7 @@ ${price ? '<div style="text-align:right;margin:24px 0;"><span style="font-size:1
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700;800&family=Barlow:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
   *{margin:0;padding:0;box-sizing:border-box;}
-  html,body{font-family:'Barlow',sans-serif;color:#1a1a2e;background:#f6f6f8;}
+  html,body{font-family:'Barlow',sans-serif;color:#12223d;background:#f6f6f8;}
   body{padding:24px;}
   .page{max-width:8.5in;margin:0 auto;background:#fff;box-shadow:0 2px 8px rgba(0,0,0,.08);border-radius:6px;overflow:hidden;}
 
@@ -2851,12 +2851,12 @@ ${price ? '<div style="text-align:right;margin:24px 0;"><span style="font-size:1
   table.kv{width:100%;border-collapse:collapse;font-size:12px;}
   table.kv td{padding:7px 10px;border-bottom:1px solid #f0f0f0;vertical-align:top;}
   .kv-k{font-weight:600;color:${C.colors.primary};width:160px;white-space:nowrap;}
-  .kv-v{color:#1a1a2e;}
+  .kv-v{color:#12223d;}
 
   .tl-row{display:flex;gap:14px;padding:10px 12px;border-left:3px solid ${C.colors.accent};background:linear-gradient(90deg,${this._rgba(C.colors.accent, '.05')} 0%,${this._rgba(C.colors.accent, '0')} 60%);border-radius:0 6px 6px 0;margin-bottom:8px;page-break-inside:avoid;break-inside:avoid;}
   .tl-time{font:600 10.5px/1.3 Barlow,sans-serif;color:#666;width:130px;flex:0 0 130px;}
   .tl-body{flex:1;min-width:0;}
-  .tl-title{font:700 12px/1.3 Barlow,sans-serif;color:#1a1a2e;display:flex;align-items:center;gap:8px;}
+  .tl-title{font:700 12px/1.3 Barlow,sans-serif;color:#12223d;display:flex;align-items:center;gap:8px;}
   .tl-badge{font:700 9px/1 Barlow,sans-serif;text-transform:uppercase;letter-spacing:.1em;padding:3px 7px;border-radius:3px;white-space:nowrap;}
   .tl-desc{font:500 11px/1.4 Barlow,sans-serif;color:#555;margin-top:3px;word-wrap:break-word;}
   .tl-empty{font:500 11px/1.4 Barlow,sans-serif;color:#999;font-style:italic;padding:8px 12px;}
@@ -2870,7 +2870,7 @@ ${price ? '<div style="text-align:right;margin:24px 0;"><span style="font-size:1
 
   .note-card{background:#fafbfc;border-left:3px solid ${C.colors.accent};border-radius:0 6px 6px 0;padding:10px 14px;margin-bottom:8px;page-break-inside:avoid;break-inside:avoid;}
   .note-meta{font:600 10px/1.3 Barlow,sans-serif;color:#666;margin-bottom:4px;}
-  .note-body{font:500 12px/1.5 Barlow,sans-serif;color:#1a1a2e;word-wrap:break-word;}
+  .note-body{font:500 12px/1.5 Barlow,sans-serif;color:#12223d;word-wrap:break-word;}
 
   .doc-ftr{margin-top:24px;padding:14px 36px 18px 36px;background:linear-gradient(180deg,${C.colors.secondary} 0%,${C.colors.primary} 100%);color:rgba(255,255,255,.92);border-top:4px solid ${C.colors.accent};text-align:center;font:600 10px/1.5 Barlow,sans-serif;letter-spacing:.04em;}
   .doc-ftr .ftr-brand{display:block;font:800 11px/1.2 Barlow,sans-serif;color:#fff;letter-spacing:.1em;text-transform:uppercase;margin-bottom:3px;}
@@ -2963,14 +2963,14 @@ ${price ? '<div style="text-align:right;margin:24px 0;"><span style="font-size:1
     fields.forEach(f => {
       const id = 'docgen_' + f.name;
       if (f.type === 'textarea') {
-        fieldsHTML += `<div style="margin-bottom:14px;"><label style="display:block;font-weight:600;font-size:13px;margin-bottom:4px;">${f.label}${f.required?'<span style="color:var(--orange,#e8720c);">*</span>':''}</label>
+        fieldsHTML += `<div style="margin-bottom:14px;"><label style="display:block;font-weight:600;font-size:13px;margin-bottom:4px;">${f.label}${f.required?'<span style="color:var(--orange,#bd5728);">*</span>':''}</label>
           <textarea id="${id}" rows="3" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:6px;font-size:14px;resize:vertical;font-family:inherit;" placeholder="${f.label}"></textarea></div>`;
       } else if (f.type === 'select') {
         const opts = (f.options||[]).map(o => `<option value="${o}">${o.charAt(0).toUpperCase()+o.slice(1)}</option>`).join('');
         fieldsHTML += `<div style="margin-bottom:14px;"><label style="display:block;font-weight:600;font-size:13px;margin-bottom:4px;">${f.label}</label>
           <select id="${id}" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:6px;font-size:14px;">${opts}</select></div>`;
       } else {
-        fieldsHTML += `<div style="margin-bottom:14px;"><label style="display:block;font-weight:600;font-size:13px;margin-bottom:4px;">${f.label}${f.required?'<span style="color:var(--orange,#e8720c);">*</span>':''}</label>
+        fieldsHTML += `<div style="margin-bottom:14px;"><label style="display:block;font-weight:600;font-size:13px;margin-bottom:4px;">${f.label}${f.required?'<span style="color:var(--orange,#bd5728);">*</span>':''}</label>
           <input type="text" id="${id}" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:6px;font-size:14px;" placeholder="${f.label}"></div>`;
       }
     });
@@ -2981,8 +2981,8 @@ ${price ? '<div style="text-align:right;margin:24px 0;"><span style="font-size:1
     modal.innerHTML = `
       <div style="background:#fff;border-radius:12px;max-width:600px;width:95%;max-height:85vh;overflow:hidden;display:flex;flex-direction:column;">
         <div style="padding:20px 24px;border-bottom:2px solid #eee;display:flex;justify-content:space-between;align-items:center;">
-          <div><div style="font-size:10px;color:#1e3a6e;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;">Generate Document</div>
-          <div style="font-size:18px;font-weight:700;color:#1a1a2e;font-family:'Helvetica Neue',Arial,sans-serif;">${docName}</div></div>
+          <div><div style="font-size:10px;color:#1a3057;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;">Generate Document</div>
+          <div style="font-size:18px;font-weight:700;color:#12223d;font-family:'Helvetica Neue',Arial,sans-serif;">${docName}</div></div>
           <button data-dg-action="closeFillModal" style="background:none;border:none;font-size:24px;cursor:pointer;color:#999;">&times;</button>
         </div>
         <div style="flex:1;overflow-y:auto;padding:20px 24px;">
@@ -2994,7 +2994,7 @@ ${price ? '<div style="text-align:right;margin:24px 0;"><span style="font-size:1
         </div>
         <div style="padding:16px 24px;border-top:2px solid #eee;display:flex;justify-content:flex-end;gap:10px;">
           <button data-dg-action="closeFillModal" style="background:#6c757d;color:#fff;border:none;padding:10px 20px;border-radius:6px;cursor:pointer;">Cancel</button>
-          <button data-dg-action="submit" data-dg-id="${documentType}" style="background:var(--orange,#e8720c);color:#fff;border:none;padding:10px 24px;border-radius:6px;cursor:pointer;font-weight:600;">Generate Document</button>
+          <button data-dg-action="submit" data-dg-id="${documentType}" style="background:var(--orange,#bd5728);color:#fff;border:none;padding:10px 24px;border-radius:6px;cursor:pointer;font-weight:600;">Generate Document</button>
         </div>
       </div>`;
     document.body.appendChild(modal);

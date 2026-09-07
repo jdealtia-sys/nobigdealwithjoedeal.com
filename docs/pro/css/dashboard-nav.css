@@ -120,7 +120,7 @@
   transition: .15s;
   white-space: nowrap;
 }
-#nbd-pro-nav .nnav-login-btn:hover { background: #c45e08; }
+#nbd-pro-nav .nnav-login-btn:hover { background: #a14a22; }
 #nbd-pro-nav .nnav-login-btn.logout {
   background: transparent;
   border: 1px solid rgba(255,255,255,.15);

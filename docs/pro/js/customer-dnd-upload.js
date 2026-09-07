@@ -81,9 +81,9 @@
     overlay.id = 'nbd-dnd-overlay';
     overlay.style.cssText = `
       position:fixed; inset:0;
-      background:rgba(200,84,26,0.18);
+      background:rgba(161,74,34,0.18);
       backdrop-filter:blur(2px); -webkit-backdrop-filter:blur(2px);
-      border:3px dashed rgba(200,84,26,0.65);
+      border:3px dashed rgba(161,74,34,0.65);
       z-index:99988;
       display:flex; align-items:center; justify-content:center;
       pointer-events:none;

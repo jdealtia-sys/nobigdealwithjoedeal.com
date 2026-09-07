@@ -412,7 +412,7 @@
 
     .progress-fill {
       height: 100%;
-      background: linear-gradient(90deg, var(--orange, #BD5728), var(--ob, #f08030));
+      background: linear-gradient(90deg, var(--orange, #BD5728), var(--ob, #dd875f));
     }
 
     .assign-form, .bulk-form {

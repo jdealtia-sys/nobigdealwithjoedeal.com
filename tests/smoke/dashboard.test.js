@@ -1052,8 +1052,8 @@ section('Wave 6b (A.2) — Pro Chrome on login.html + vault.html');
     'expected vault.html primary-action buttons to consume --accent-fg');
   // 4. Both files retired hardcoded NBD-orange rgba literals.
   for (const [name, body] of [['login.html', login], ['vault.html', vault]]) {
-    assert(name + ': no hardcoded rgba(232,114,12,...) left',
-      !/rgba\(232,\s*114,\s*12/.test(body),
+    assert(name + ': no hardcoded rgba(189,87,40,...) left',
+      !/rgba\(189,\s*87,\s*40/.test(body),
       name + ' should use color-mix(in srgb, var(--orange) ...) instead of literal NBD-orange rgba');
   }
 }
@@ -1091,8 +1091,8 @@ section('Wave 6 (A.1) — Pro Chrome on customer.html via shared theme-system.cs
     /\.btn-orange\s*\{[\s\S]{0,400}inset 0 0 0 1px var\(--accent-ring\)/.test(customer),
     'expected customer.html .btn-orange to include inset boundary using --accent-ring');
   // 5. customer.html hardcoded NBD-orange rgba retired.
-  assert('customer.html: no hardcoded rgba(232,114,12,...) left',
-    !/rgba\(232,\s*114,\s*12/.test(customer),
+  assert('customer.html: no hardcoded rgba(189,87,40,...) left',
+    !/rgba\(189,\s*87,\s*40/.test(customer),
     'customer.html should use color-mix(in srgb, var(--orange) ...) instead of literal rgba');
 }
 
@@ -1177,12 +1177,14 @@ section('Wave 5 — Theme-aware accent + contrast tokens');
       /border:[^;]*var\(--accent-ring\)/.test(shutterBlock),
       'expected .m-shutter-fab to border via --accent-ring');
   }
-  // 5. Hardcoded `rgba(232,114,12,...)` glow strings retired in favor
-  //    of --og (the per-theme tinted glow). Spot-check on #addLeadFab.
+  // 5. Hardcoded brand-orange glow strings retired in favor of --og (the
+  //    per-theme tinted glow). Spot-check on #addLeadFab. Pinned to the
+  //    CURRENT accent rgba(189,87,40,…): left on the retired rgba(232,114,12)
+  //    this passes vacuously and stops catching new literals.
   const fab = dash.indexOf('#addLeadFab{');
   const fabBlock = dash.slice(fab, fab + 500);
-  assert('#addLeadFab no longer uses rgba(232,114,12) glow',
-    !/rgba\(232,114,12/.test(fabBlock),
+  assert('#addLeadFab no longer uses rgba(189,87,40) glow',
+    !/rgba\(189,87,40/.test(fabBlock),
     '#addLeadFab still has a hardcoded NBD-orange glow — should use var(--og)');
 }
 
@@ -1508,13 +1510,13 @@ section('Phase orange-rgba — 7 deferred JS files reviewed');
     // hardcoded NBD brand strings — the pre-#698 pattern #702 retired for GDPR.
     // Share now routes through PortalLinkHelpers (revocable, tenant-aware).
     ['docs/pro/js/nbd-auth.js',                     3, 'auth screen border + bg — brand-pin per Phase A'],
-    ['docs/pro/js/theme-engine.js',                 2, 'theme-engine defaults (rgba(232,114,12,...)) — config, not styling'],
+    ['docs/pro/js/theme-engine.js',                 2, 'theme-engine defaults (rgba(189,87,40,...)) — config, not styling'],
   ]) {
     const src = read(path.join(ROOT, file));
-    const n = (src.match(/rgba\(\s*232\s*,\s*114\s*,\s*12\s*,/g) || []).length;
+    const n = (src.match(/rgba\(\s*189\s*,\s*87\s*,\s*40\s*,/g) || []).length;
     assert(file + ' keeps ' + expectedCount + ' brand-pinned orange-rgba — ' + reason,
       n === expectedCount,
-      'expected ' + expectedCount + ' rgba(232,114,12,…) in ' + file + '; got ' + n);
+      'expected ' + expectedCount + ' rgba(189,87,40,…) in ' + file + '; got ' + n);
   }
 }
 
@@ -2061,8 +2063,8 @@ section('Phase C.6 step 2 — JS-file orange-rgba sweep');
     const body = p === 'docs/pro/js/d2d-tracker-2026b.js'
       ? readD2DLive()
       : read(path.join(ROOT, p));
-    assert(p + ': no hardcoded rgba(232,114,12,...)',
-      !/rgba\(232,\s*114,\s*12/.test(body),
+    assert(p + ': no hardcoded rgba(189,87,40,...)',
+      !/rgba\(189,\s*87,\s*40/.test(body),
       p + ' should use color-mix(in srgb, var(--orange) X%, transparent)');
   }
 }
@@ -2071,8 +2073,8 @@ section('Phase C.6 starter — retire hardcoded NBD-orange rgba in dashboard.htm
 {
   const dash = read(path.join(ROOT, 'docs/pro/dashboard.html'));
   // Same contract we already enforce on customer/login/vault.
-  assert('dashboard.html: no hardcoded rgba(232,114,12,...) NBD-orange literals',
-    !/rgba\(232,\s*114,\s*12/.test(dash),
+  assert('dashboard.html: no hardcoded rgba(189,87,40,...) NBD-orange literals',
+    !/rgba\(189,\s*87,\s*40/.test(dash),
     'expected dashboard.html to use color-mix(in srgb, var(--orange) X%, transparent) — not literal NBD-orange rgba');
   // Spot-check that the conversions used the right pattern (sample
   // a known-converted opacity).
