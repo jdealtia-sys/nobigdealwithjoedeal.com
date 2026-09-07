@@ -92,17 +92,17 @@ function buildEstimateEmailHtml({ firstName, estimateSummary }) {
 <head><meta charset="UTF-8"><title>Your roof estimate from No Big Deal</title></head>
 <body style="margin:0;padding:0;font-family:'Segoe UI',Arial,sans-serif;background:#f5f3ef;color:#1a1a1a;line-height:1.6;">
   <div style="max-width:560px;margin:0 auto;padding:32px 24px;">
-    <div style="background:#142a52;color:#fff;padding:20px 24px;border-radius:10px 10px 0 0;text-align:center;">
+    <div style="background:#12223d;color:#fff;padding:20px 24px;border-radius:10px 10px 0 0;text-align:center;">
       <div style="font-size:18px;font-weight:800;letter-spacing:.06em;">NO BIG DEAL</div>
       <div style="font-size:11px;color:rgba(255,255,255,.7);letter-spacing:.08em;text-transform:uppercase;margin-top:4px;">Home Solutions</div>
     </div>
     <div style="background:#fff;padding:32px 28px;border-radius:0 0 10px 10px;border:1px solid #e8e5e0;border-top:none;">
       <p style="font-size:16px;margin:0 0 16px;">${greeting}</p>
       <p style="font-size:16px;margin:0 0 16px;">Joe here. Thanks for running the numbers on my site — here's your estimate, just like you asked:</p>
-      <div style="background:#f5f3ef;border-left:4px solid #142a52;border-radius:6px;padding:16px 18px;margin:18px 0;font-family:'Courier New',Courier,monospace;font-size:14px;white-space:pre-line;">${escapeHtml(estimateSummary)}</div>
+      <div style="background:#f5f3ef;border-left:4px solid #12223d;border-radius:6px;padding:16px 18px;margin:18px 0;font-family:'Courier New',Courier,monospace;font-size:14px;white-space:pre-line;">${escapeHtml(estimateSummary)}</div>
       <p style="font-size:16px;margin:0 0 16px;">The next step is simple, and it's free: I'll come out, walk the roof myself, and confirm exactly what you need (and what you don't).</p>
       <div style="text-align:center;margin:28px 0;">
-        <a href="${BOOKING_URL}" style="display:inline-block;background:#e8720c;color:#fff;padding:14px 28px;border-radius:8px;font-weight:800;font-size:15px;text-decoration:none;letter-spacing:.02em;">Book my free inspection →</a>
+        <a href="${BOOKING_URL}" style="display:inline-block;background:#bd5728;color:#fff;padding:14px 28px;border-radius:8px;font-weight:800;font-size:15px;text-decoration:none;letter-spacing:.02em;">Book my free inspection →</a>
       </div>
       <p style="font-size:15px;margin:0 0 16px;">Or if it's easier, just call or text me directly — I answer my own phone:</p>
       <p style="font-size:15px;margin:0 0 16px;"><strong>📞 ${PHONE_DISPLAY}</strong></p>

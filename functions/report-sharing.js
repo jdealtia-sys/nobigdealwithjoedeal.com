@@ -161,11 +161,11 @@ exports.createReportShareToken = onCall(
           from: fromEmail,
           to: toEmail,
           subject: `Your inspection report from ${tenantName || 'No Big Deal Home Solutions'}`,
-          html: `<div style="font-family:Arial,sans-serif;max-width:520px;margin:0 auto;color:#1a1a2e;">
+          html: `<div style="font-family:Arial,sans-serif;max-width:520px;margin:0 auto;color:#12223d;">
             <p>Hi ${escHtml(firstName || 'there')},</p>
             <p>Your <strong>${reportName}</strong> is ready. Tap the button below to view it — no login needed.</p>
             <p style="text-align:center;margin:28px 0;">
-              <a href="${escHtml(shareUrl)}" style="background:#e8720c;color:#fff;text-decoration:none;padding:13px 26px;border-radius:8px;font-weight:700;display:inline-block;">View Your Report</a>
+              <a href="${escHtml(shareUrl)}" style="background:#bd5728;color:#fff;text-decoration:none;padding:13px 26px;border-radius:8px;font-weight:700;display:inline-block;">View Your Report</a>
             </p>
             <p style="font-size:12px;color:#666;">This secure link expires in 30 days. If you didn't expect this, you can ignore the email.</p>
           </div>`,

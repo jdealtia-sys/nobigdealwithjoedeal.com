@@ -238,7 +238,7 @@ function inviteEmailHtml(companyName, roleLabel) {
   const co = esc(companyName || 'your team');
   return `<!doctype html><html><body style="font-family:'Barlow','Segoe UI',Roboto,sans-serif;background:#f5f5f5;margin:0;color:#333">
   <div style="max-width:560px;margin:0 auto;background:#fff;border-radius:8px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.1)">
-    <div style="background:linear-gradient(135deg,#1e3a6e,#142a52);color:#fff;padding:22px 20px;text-align:center">
+    <div style="background:linear-gradient(135deg,#1a3057,#12223d);color:#fff;padding:22px 20px;text-align:center">
       <div style="font-size:22px;font-weight:700">You're invited to join ${co}</div>
       <div style="font-size:13px;opacity:.85;margin-top:4px">on NBD PRO — the contractor platform</div>
     </div>
@@ -249,7 +249,7 @@ function inviteEmailHtml(companyName, roleLabel) {
         <li style="margin-bottom:8px">Verify your email — click the link in the verification message.</li>
         <li>Open your dashboard. You'll be joined to the team automatically.</li>
       </ol>
-      <p style="text-align:center;margin:20px 0"><a href="${SITE_URL}/pro/register.html?invite=1" style="display:inline-block;background:#e8720c;color:#fff;padding:13px 30px;border-radius:6px;text-decoration:none;font-weight:700;font-size:16px">Create your account</a></p>
+      <p style="text-align:center;margin:20px 0"><a href="${SITE_URL}/pro/register.html?invite=1" style="display:inline-block;background:#bd5728;color:#fff;padding:13px 30px;border-radius:6px;text-decoration:none;font-weight:700;font-size:16px">Create your account</a></p>
       <p style="margin:0;color:#6b7280;font-size:13px">Didn't expect this? You can ignore this email — nothing happens without you signing up.</p>
     </div>
   </div>

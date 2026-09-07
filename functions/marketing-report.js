@@ -90,10 +90,10 @@ function reportHtml(monthLabel, a) {
     .map(([k, v]) => `<tr><td style="padding:6px 12px;border-bottom:1px solid #eee">${esc(k)}</td><td style="padding:6px 12px;border-bottom:1px solid #eee;text-align:right;font-weight:700">${v}</td></tr>`)
     .join('') || '<tr><td style="padding:6px 12px;color:#9ca3af">none</td><td></td></tr>';
   const section = (title, body) =>
-    `<h3 style="margin:22px 0 8px;color:#142a52">${esc(title)}</h3><table style="width:100%;border-collapse:collapse;font-size:14px">${body}</table>`;
+    `<h3 style="margin:22px 0 8px;color:#12223d">${esc(title)}</h3><table style="width:100%;border-collapse:collapse;font-size:14px">${body}</table>`;
   return `<!DOCTYPE html><html><body style="font-family:'Barlow','Segoe UI',Roboto,sans-serif;background:#f5f5f5;margin:0;color:#333">
   <div style="max-width:640px;margin:0 auto;background:#fff;border-radius:8px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.1)">
-    <div style="background:linear-gradient(135deg,#1e3a6e,#142a52);color:#fff;padding:22px 20px;text-align:center">
+    <div style="background:linear-gradient(135deg,#1a3057,#12223d);color:#fff;padding:22px 20px;text-align:center">
       <div style="font-size:13px;letter-spacing:.08em;text-transform:uppercase;opacity:.85">Marketing Report</div>
       <div style="font-size:26px;font-weight:700;margin-top:4px">${esc(monthLabel)}: ${a.totalLeads} lead${a.totalLeads === 1 ? '' : 's'}</div>
     </div>

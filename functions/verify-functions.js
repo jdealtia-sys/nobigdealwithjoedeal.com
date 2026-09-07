@@ -354,16 +354,16 @@ exports.notifyNewLead = onCall(
 <head><meta charset="UTF-8"><style>
   body { font-family: 'Segoe UI', Roboto, sans-serif; background: #f5f5f5; padding: 20px; }
   .card { max-width: 500px; margin: 0 auto; background: #fff; border-radius: 12px; overflow: hidden; box-shadow: 0 2px 12px rgba(0,0,0,0.1); }
-  .header { background: linear-gradient(135deg, #1e3a6e, #0c1e3a); color: white; padding: 24px; text-align: center; }
+  .header { background: linear-gradient(135deg, #1a3057, #0c1e3a); color: white; padding: 24px; text-align: center; }
   .header h1 { margin: 0; font-size: 22px; }
   .content { padding: 24px; }
   .field { margin-bottom: 14px; }
   .field .label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: #888; margin-bottom: 3px; }
-  .field .value { font-size: 16px; font-weight: 600; color: #1e3a6e; }
+  .field .value { font-size: 16px; font-weight: 600; color: #1a3057; }
   .badge { display: inline-block; padding: 4px 10px; border-radius: 4px; font-size: 12px; font-weight: 700; }  .badge.verified { background: #dcfce7; color: #16a34a; }
   .badge.unverified { background: #fef3c7; color: #d97706; }
   .badge.urgent { background: #fee2e2; color: #dc2626; }
-  .cta { display: block; text-align: center; padding: 14px; background: #e8720c; color: white; text-decoration: none; font-weight: 700; border-radius: 8px; margin: 20px 24px 24px; font-size: 16px; }
+  .cta { display: block; text-align: center; padding: 14px; background: #bd5728; color: white; text-decoration: none; font-weight: 700; border-radius: 8px; margin: 20px 24px 24px; font-size: 16px; }
   .footer { text-align: center; padding: 16px; font-size: 12px; color: #999; }
 </style></head>
 <body>
@@ -379,11 +379,11 @@ exports.notifyNewLead = onCall(
     </div>
     <div class="field">
       <div class="label">Phone ${verified ? '<span class="badge verified">✅ Verified</span>' : '<span class="badge unverified">⚠️ Unverified</span>'}</div>
-      <div class="value"><a href="tel:${phone.replace(/\\D/g, '')}" style="color:#e8720c;text-decoration:none;">${phone}</a></div>
+      <div class="value"><a href="tel:${phone.replace(/\\D/g, '')}" style="color:#bd5728;text-decoration:none;">${phone}</a></div>
     </div>
     <div class="field">
       <div class="label">Email</div>
-      <div class="value"><a href="mailto:${email || ''}" style="color:#e8720c;text-decoration:none;">${email || 'Not provided'}</a></div>
+      <div class="value"><a href="mailto:${email || ''}" style="color:#bd5728;text-decoration:none;">${email || 'Not provided'}</a></div>
     </div>
     <div class="field">
       <div class="label">Address</div>

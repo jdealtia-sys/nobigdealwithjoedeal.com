@@ -49,7 +49,7 @@ const TEMPLATE_STYLES = `
     box-shadow: 0 2px 8px rgba(0,0,0,0.1);
   }
   .header {
-    background: linear-gradient(135deg, #C8541A 0%, #a64516 100%);
+    background: linear-gradient(135deg, #BD5728 0%, #a14a22 100%);
     color: white;
     padding: 30px 20px;
     text-align: center;
@@ -64,25 +64,25 @@ const TEMPLATE_STYLES = `
     color: #333;
   }
   .content h2 {
-    color: #1e3a6e;
+    color: #1a3057;
     margin-top: 0;
     margin-bottom: 15px;
     font-size: 20px;
   }
   .footer {
-    background-color: #1e3a6e;
+    background-color: #1a3057;
     color: white;
     padding: 20px;
     text-align: center;
     font-size: 12px;
   }
   .footer a {
-    color: #C8541A;
+    color: #BD5728;
     text-decoration: none;
   }
   .cta-button {
     display: inline-block;
-    background-color: #C8541A;
+    background-color: #BD5728;
     color: white;
     padding: 12px 30px;
     border-radius: 6px;
@@ -91,7 +91,7 @@ const TEMPLATE_STYLES = `
     margin: 20px 0;
   }
   .cta-button:hover {
-    background-color: #a64516;
+    background-color: #a14a22;
   }
 `;
 

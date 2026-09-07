@@ -49,13 +49,13 @@ const ONE_WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 const TEMPLATE_STYLES = `
   body { font-family: 'Barlow','Segoe UI',Roboto,sans-serif; line-height:1.6; color:#333; background:#f5f5f5; margin:0; padding:0; }
   .container { max-width:600px; margin:0 auto; background:#ffffff; border-radius:8px; overflow:hidden; box-shadow:0 2px 8px rgba(0,0,0,0.08); }
-  .header { background:linear-gradient(135deg,#C8541A 0%,#a64516 100%); color:#fff; padding:32px 24px; text-align:center; }
+  .header { background:linear-gradient(135deg,#BD5728 0%,#a14a22 100%); color:#fff; padding:32px 24px; text-align:center; }
   .header h1 { margin:0 0 6px; font-size:24px; font-weight:700; letter-spacing:-0.3px; }
   .header p { margin:0; font-size:13px; opacity:0.9; }
   .content { padding:28px 24px; color:#1f2937; }
   .stats { display:table; width:100%; border-collapse:separate; border-spacing:8px; margin:18px 0 24px; }
   .stat { display:table-cell; background:#f9fafb; border:1px solid #e5e7eb; border-radius:8px; padding:14px 12px; text-align:center; vertical-align:top; }
-  .stat-value { font-size:24px; font-weight:700; color:#1e3a6e; line-height:1.1; margin-bottom:4px; }
+  .stat-value { font-size:24px; font-weight:700; color:#1a3057; line-height:1.1; margin-bottom:4px; }
   .stat-label { font-size:11px; color:#6b7280; text-transform:uppercase; letter-spacing:0.4px; font-weight:600; }
   .stat.success .stat-value { color:#166534; }
   .stat.warn    .stat-value { color:#9a3412; }
@@ -65,10 +65,10 @@ const TEMPLATE_STYLES = `
   .lead-name { font-weight:600; color:#111827; }
   .lead-sub { color:#6b7280; font-size:12px; margin-top:2px; }
   .empty { padding:24px; text-align:center; color:#6b7280; font-size:13px; font-style:italic; }
-  .cta { display:inline-block; margin-top:18px; padding:12px 24px; background:#C8541A; color:#fff; border-radius:6px; text-decoration:none; font-weight:600; }
-  .footer { background:#1e3a6e; color:#94a3b8; padding:18px 24px; text-align:center; font-size:11px; }
-  .footer a { color:#C8541A; text-decoration:none; }
-  h2 { color:#1e3a6e; margin:0 0 8px; font-size:18px; }
+  .cta { display:inline-block; margin-top:18px; padding:12px 24px; background:#BD5728; color:#fff; border-radius:6px; text-decoration:none; font-weight:600; }
+  .footer { background:#1a3057; color:#94a3b8; padding:18px 24px; text-align:center; font-size:11px; }
+  .footer a { color:#BD5728; text-decoration:none; }
+  h2 { color:#1a3057; margin:0 0 8px; font-size:18px; }
   p { margin:8px 0; }
 `;
 
@@ -150,7 +150,7 @@ function buildDigestHtml(d) {
         </p>` : ''}
 
       <p style="font-size:12px; color:#6b7280; margin-top:24px; text-align:center;">
-        Want fewer emails? <a href="https://nobigdealwithjoedeal.com/pro/dashboard.html#settings" style="color:#C8541A;">Manage your digest preferences</a>.
+        Want fewer emails? <a href="https://nobigdealwithjoedeal.com/pro/dashboard.html#settings" style="color:#BD5728;">Manage your digest preferences</a>.
       </p>
     </div>
     <div class="footer">

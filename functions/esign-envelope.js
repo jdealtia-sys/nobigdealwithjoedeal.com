@@ -390,12 +390,12 @@ exports.sendEsignEnvelope = onCall(
         await resend.emails.send({
           from, to: email,
           subject: `Please sign: ${env.title || 'your document'}`,
-          html: `<div style="font-family:Arial,sans-serif;max-width:520px;margin:0 auto;color:#1a1a2e;">
+          html: `<div style="font-family:Arial,sans-serif;max-width:520px;margin:0 auto;color:#12223d;">
             <p>Hi ${escHtml(name || 'there')},</p>
             <p>${brand} has <strong>${escHtml(env.title || 'a document')}</strong> ready for your signature.
                You can review and sign it right on your phone — it takes about a minute.</p>
             <p style="text-align:center;margin:28px 0;">
-              <a href="${escHtml(link)}" style="background:#e8720c;color:#fff;text-decoration:none;padding:13px 26px;border-radius:8px;font-weight:700;display:inline-block;">Review &amp; Sign</a>
+              <a href="${escHtml(link)}" style="background:#bd5728;color:#fff;text-decoration:none;padding:13px 26px;border-radius:8px;font-weight:700;display:inline-block;">Review &amp; Sign</a>
             </p>
             <p style="font-size:12px;color:#666;">This secure link expires in ${TTL_DAYS} days and can only be used once.
                If you weren't expecting this, you can ignore this email.</p>
