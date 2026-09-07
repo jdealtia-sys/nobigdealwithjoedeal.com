@@ -66,6 +66,75 @@ def norm_for_check(s: str) -> str:
 PRICE = r"\$[\d,]+(?:\.\d{2})?"
 
 
+LOGO = Path(__file__).with_name("assets") / "nbd-wordmark.png"
+
+
+def logo_tag() -> str:
+    """The real NBD wordmark, embedded so the PDF carries no external refs.
+
+    Falls back to the typeset wordmark if the asset is missing, so the script
+    still produces a usable document on a machine without it.
+    """
+    import base64
+    if not LOGO.exists():
+        return ('<div class="wordmark">NO BIG DEAL'
+                '<span class="wm2">HOME SOLUTIONS</span></div>')
+    b64 = base64.b64encode(LOGO.read_bytes()).decode()
+    return f'<img class="logo" src="data:image/png;base64,{b64}" alt="No Big Deal Home Solutions">'
+
+
+LETTERHEAD_MARKS = (
+    "NO BIG DEAL HOME SOLUTIONS",
+    "ROOFING · SIDING",
+    "NOBIGDEALWITHJOEDEAL.COM",
+    "JOE DEAL — OWNER",
+    "LICENSED & INSURED",
+    "GAF CERTIFIED",
+    "TAMKO PRO GOLD",
+    "SERVING GREATER CINCINNATI",
+)
+
+
+def letterhead_end(lines: list[str]) -> int:
+    """Index just past the letterhead block at the top of the document.
+
+    Earlier this keyed on "Licensed & Insured"/"TAMKO Pro Gold" alone. The
+    Musuraca invoice carries neither, so its whole letterhead was rendered as
+    body text under a fallback title. Scan the leading block instead and stop
+    at the first line that is not letterhead.
+    """
+    end = 0
+    for i, ln in enumerate(lines[:14]):
+        t = ln.strip()
+        if not t:
+            continue
+        if any(m in t.upper() for m in LETTERHEAD_MARKS):
+            end = i + 1
+            continue
+        break
+    return end
+
+
+def pay_block(url: str) -> str:
+    """Orange pay button plus a QR of the same URL, embedded as a data URI."""
+    import base64
+    import io
+    try:
+        import segno
+    except ImportError:
+        return f'<p class="body"><a class="paylink" href="{html.escape(url)}">{html.escape(url)}</a></p>'
+    buf = io.BytesIO()
+    segno.make(url, error="m").save(buf, kind="png", scale=6, border=2, dark="#1A3057")
+    b64 = base64.b64encode(buf.getvalue()).decode()
+    return (
+        '<div class="pay">'
+        f'<a class="paybtn" href="{html.escape(url)}">Pay this invoice online &rarr;</a>'
+        f'<img class="qr" src="data:image/png;base64,{b64}" alt="QR code to pay online">'
+        '</div>'
+        f'<div class="payurl">{html.escape(url)}</div>'
+    )
+
+
 def is_heading(line: str) -> bool:
     t = line.strip()
     if not t or line.startswith(" "):
@@ -82,11 +151,7 @@ def render(text: str, title_hint: str) -> str:
 
     # Drop the letterhead block — the masthead below replaces it — but keep it
     # for the contact strip so nothing is invented.
-    body_start = 0
-    for i, ln in enumerate(raw_lines):
-        if "Licensed & Insured" in ln or "TAMKO Pro Gold" in ln:
-            body_start = i + 1
-    lines = raw_lines[body_start:]
+    lines = raw_lines[letterhead_end(raw_lines):]
 
     out = []
     i = 0
@@ -145,9 +210,67 @@ def render(text: str, title_hint: str) -> str:
         # the running page footer on every page, so printing it again here is
         # duplication, not content.
         if ("nobigdealwithjoedeal.com" in u and "(859) 420-7382" in u) \
-                or u.startswith("Serving Greater Cincinnati"):
+                or u.startswith("Serving Greater Cincinnati") \
+                or u.upper().startswith("NO BIG DEAL HOME SOLUTIONS \u00b7") \
+                or u.startswith("No Big Deal with Joe Deal \u2014 seriously"):
             flush_para(para)
             close_list()
+            i += 1
+            continue
+
+        # ── invoice column-header row ("DESCRIPTION            AMOUNT") ────
+        # Two column labels separated by a run of spaces. Left as a heading it
+        # collapses to the single nonsense phrase "DESCRIPTION AMOUNT".
+        m = re.match(r"^([A-Z][A-Z ]*[A-Z])\s{4,}(AMOUNT|PRICE|TOTAL)\s*$", u)
+        if m:
+            flush_para(para)
+            close_list()
+            out.append(
+                f'<div class="thead"><span>{html.escape(m.group(1).strip())}</span>'
+                f'<span class="amt-h">{html.escape(m.group(2))}</span></div>'
+            )
+            i += 1
+            continue
+
+        # ── invoice line item ("Siding Refasten & Re-Lock      $800.00") ────
+        # Top-level, mixed case, amount set off by a run of spaces. Without
+        # this the price renders inline in the sentence instead of in the
+        # amount column.
+        m = re.match(rf"^(\S.*?)\s{{2,}}({PRICE}|NO CHARGE|INCLUDED)\s*$", u)
+        # is_heading() wins: "OPTION 1 — PREMIUM MICROMESH   $3,422" is a
+        # section heading that happens to carry a price, not a line item.
+        if m and not raw.startswith(" ") and not u.startswith("[") and not is_heading(raw):
+            flush_para(para)
+            close_list()
+            free = m.group(2) in ("NO CHARGE", "INCLUDED")
+            out.append(
+                f'<div class="item"><span class="d">{html.escape(m.group(1).strip())}</span>'
+                f'<span class="amt{" free" if free else ""}">{html.escape(m.group(2))}</span></div>'
+            )
+            i += 1
+            continue
+
+        # ── totals stack line (SUBTOTAL / PAYMENTS RECEIVED / TAX) ────────
+        m = re.match(rf"^(SUBTOTAL|PAYMENTS RECEIVED|TAX|DISCOUNT|AMOUNT PAID)\s+({PRICE})\s*$", u)
+        if m:
+            flush_para(para)
+            close_list()
+            out.append(
+                f'<div class="lead sub-tot"><span>{html.escape(m.group(1))}</span>'
+                f'<span class="dots"></span><span class="amt">{html.escape(m.group(2))}</span></div>'
+            )
+            i += 1
+            continue
+
+        # ── BALANCE DUE bar ────────────────────────────────────────────────
+        m = re.match(rf"^BALANCE DUE\s+({PRICE})\s*$", u)
+        if m:
+            flush_para(para)
+            close_list()
+            out.append(
+                f'<div class="balance"><span>BALANCE DUE</span>'
+                f'<span class="bamt">{html.escape(m.group(1))}</span></div>'
+            )
             i += 1
             continue
 
@@ -201,14 +324,20 @@ def render(text: str, title_hint: str) -> str:
             continue
 
         # ── dot-leader money line ──────────────────────────────────────────
-        m = re.match(rf"^(.*?)\s*\.{{3,}}\s*({PRICE}|included)\s*$", u, re.I)
-        if m:
+        # The value is usually a price, but a measurement schedule uses the same
+        # dot-leader shape ("Gutter run (eaves) ..... 122 linear feet"). Both
+        # are leader rows; only the price gets the orange amount treatment.
+        m = re.match(r"^(.*?)\s*\.{3,}\s*(\S.{0,38})\s*$", u)
+        if m and not m.group(2).endswith("."):
             flush_para(para)
             close_list()
-            cls = "tot" if re.match(r"^(ALL FOUR|TOTAL)", m.group(1).strip(), re.I) else ""
+            label, val = m.group(1).strip(), m.group(2).strip()
+            cls = "tot" if re.match(r"^(ALL FOUR|OPTION \d+ TOTAL|TOTAL)", label, re.I) else ""
+            is_money = bool(re.fullmatch(rf"{PRICE}|included", val, re.I))
             out.append(
-                f'<div class="lead {cls}"><span>{html.escape(m.group(1).strip())}</span>'
-                f'<span class="dots"></span><span class="amt">{html.escape(m.group(2))}</span></div>'
+                f'<div class="lead {cls}"><span>{html.escape(label)}</span>'
+                f'<span class="dots"></span>'
+                f'<span class="{"amt" if is_money else "val"}">{html.escape(val)}</span></div>'
             )
             i += 1
             continue
@@ -222,6 +351,18 @@ def render(text: str, title_hint: str) -> str:
                 f'<div class="lead tot"><span>TOTAL</span><span class="dots"></span>'
                 f'<span class="amt">{html.escape(m.group(1))}</span></div>'
             )
+            i += 1
+            continue
+
+        # ── payment link → button + scannable QR ───────────────────────────
+        # A bare URL in a client document is not something a homeowner can act
+        # on from paper. Rendered as a button plus a QR it becomes payable from
+        # the printed page, which is what the doc says it does.
+        m = re.match(r"^(https://\S+)$", u)
+        if m:
+            flush_para(para)
+            close_list()
+            out.append(pay_block(m.group(1)))
             i += 1
             continue
 
@@ -321,10 +462,18 @@ def render(text: str, title_hint: str) -> str:
         r'<span class="todo">\1 — TO BE FILLED</span>',
         body,
     )
+    # "[CONFIRM — house number and zip]" is the same kind of hole, written in
+    # sentence case. Badge it too, or it reads as ordinary text and ships.
+    body = re.sub(
+        r"\[(CONFIRM[^\]\n]*)\]",
+        r'<span class="todo">\1</span>',
+        body,
+    )
 
+    logo = logo_tag()
     masthead = f"""
     <div class="mast">
-      <div class="wordmark">NO BIG DEAL<span class="wm2">HOME SOLUTIONS</span></div>
+      {logo}
       <div class="contact">
         Joe Deal — Owner<br>
         (859) 420-7382<br>
@@ -355,6 +504,7 @@ def render(text: str, title_hint: str) -> str:
         font-family: Lato; font-size: 7.5pt; color: #7c8794; }} }}
     body {{ font-family: Lato, sans-serif; font-size: 9.6pt; line-height: 1.5; color: #22303c; }}
     .mast {{ display: flex; justify-content: space-between; align-items: flex-end; }}
+    .logo {{ width: 168pt; height: auto; display: block; }}
     .wordmark {{ font-family: Montserrat; font-weight: 800; font-size: 22pt; letter-spacing: .02em;
       color: {NAVY}; line-height: 1; }}
     .wm2 {{ display: block; font-size: 9.5pt; font-weight: 600; letter-spacing: .28em; color: {ORANGE}; margin-top: 3pt; }}
@@ -396,6 +546,28 @@ def render(text: str, title_hint: str) -> str:
     .badges {{ display: flex; gap: 8pt; margin: 16pt 0 0; }}
     .badges span {{ border: 1pt solid #d9e0e7; border-radius: 3pt; padding: 4pt 8pt;
       font-size: 7.6pt; color: {NAVY}; font-weight: 600; }}
+    h2.sect {{ break-after: avoid; }}
+    .lead.sub-tot {{ font-family: Montserrat; font-weight: 600; font-size: 9.2pt; color: {NAVY}; }}
+    .pay {{ break-inside: avoid; }}
+    .lead .val {{ font-family: Montserrat; font-weight: 700; color: {NAVY}; white-space: nowrap; }}
+    .thead {{ display: flex; justify-content: space-between; background: {NAVY}; color: #fff;
+      font-family: Montserrat; font-weight: 700; font-size: 8.2pt; letter-spacing: .1em;
+      padding: 5pt 9pt; margin: 16pt 0 0; }}
+    .item {{ display: flex; justify-content: space-between; align-items: baseline; gap: 12pt;
+      border-bottom: 1pt solid #e4e9ee; padding: 7pt 9pt 6pt; }}
+    .item .d {{ font-family: Montserrat; font-weight: 700; font-size: 9.6pt; color: {NAVY}; }}
+    .amt.free {{ color: #4f7a3f; font-size: 8.6pt; letter-spacing: .06em; }}
+    .amt-h {{ font-family: Montserrat; font-weight: 700; }}
+    .lead.tot {{ break-after: avoid; }}
+    .balance {{ break-before: avoid; display: flex; justify-content: space-between; align-items: baseline;
+      background: {NAVY}; color: #fff; padding: 9pt 11pt; margin: 8pt 0 4pt;
+      font-family: Montserrat; font-weight: 700; font-size: 11pt; letter-spacing: .06em; }}
+    .balance .bamt {{ font-weight: 800; font-size: 14pt; color: #FFB570; }}
+    .pay {{ display: flex; align-items: center; gap: 14pt; margin: 10pt 0 4pt; }}
+    .paybtn {{ background: {ORANGE}; color: #fff; text-decoration: none; font-family: Montserrat;
+      font-weight: 800; font-size: 11pt; padding: 10pt 18pt; border-radius: 4pt; letter-spacing: .02em; }}
+    .qr {{ width: 74pt; height: 74pt; }}
+    .payurl {{ font-size: 6.6pt; color: #8b95a0; word-break: break-all; margin-bottom: 8pt; }}
     .todo {{ background: #ffe9d2; border: 1pt dashed {ORANGE}; color: #a5480a;
       font-weight: 700; font-size: 8pt; letter-spacing: .04em; padding: 1.5pt 5pt; border-radius: 2pt; }}
     .closing {{ margin-top: 12pt; padding-top: 8pt; border-top: 2pt solid {ORANGE};
@@ -419,23 +591,24 @@ def main():
     # The letterhead block is not dropped — it is re-set as the masthead, which
     # carries the same company name, phone, email and site in a designed
     # arrangement. Exempt those specific lines rather than the whole check.
-    letterhead_end = 0
     src_lines = client.split("\n")
-    for idx, ln in enumerate(src_lines):
-        if "Licensed & Insured" in ln or "TAMKO Pro Gold" in ln:
-            letterhead_end = idx + 1
+    lh_end = letterhead_end(src_lines)
 
     missing = []
     for k, ln in enumerate(src_lines):
         t = ln.strip()
         if not t or set(t) <= {"-", "=", "_", " "}:
             continue
-        if k < letterhead_end:
+        if k < lh_end:
             continue
         # The repeated footer line is likewise re-set as the running page footer.
         if "nobigdealwithjoedeal.com" in t and "(859) 420-7382" in t:
             continue
         if t.startswith("Serving Greater Cincinnati"):
+            continue
+        if t.upper().startswith("NO BIG DEAL HOME SOLUTIONS \u00b7"):
+            continue
+        if t.startswith("No Big Deal with Joe Deal \u2014 seriously"):
             continue
         frag = norm_for_check(t)
         if len(frag) < 6:
