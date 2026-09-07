@@ -1,1 +1,6 @@
-²ø1šYì
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="No Big Deal Home Solutions">
+  <rect width="64" height="64" rx="12" fill="#1a3057"/>
+  <rect x="40.5" y="16" width="7.5" height="14" rx="1.5" fill="#f6f7f8"/>
+  <path d="M11 35.5 L32 15 L53 35.5" fill="none" stroke="#f6f7f8" stroke-width="8.5" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect x="21" y="43.5" width="22" height="6" rx="3" fill="#dd875f"/>
+</svg>
