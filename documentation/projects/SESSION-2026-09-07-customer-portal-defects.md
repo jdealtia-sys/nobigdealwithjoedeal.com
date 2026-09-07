@@ -195,9 +195,17 @@ the same file. Commit first, every time.
   or three times, and the duplicate is usually the copy WITH the tools. This is
   the one remaining recon finding that is a genuine refactor rather than a
   defect fix, and it deserves its own session and its own recon.
-- **Remaining a11y on the customer page**: no <main>/<nav>/<h1> landmarks, 11
-  <label> elements with no for=, 6 of 7 modals without dialog semantics or a
-  focus trap. Slice 13 fixed operability; these are structure and naming.
+- ~~Remaining a11y on the customer page~~ — **DONE (#1477, merged + deployed).**
+  Slice 14 added the landmarks (role="main" on the existing .container, a real
+  <nav>, the customer name as <h1>), associated all 11 <label>s with the
+  control beside them, and gave the 7 remaining modals role="dialog" +
+  aria-modal. Verified in production.
+
+  **Still genuinely open from this line: the focus trap.** aria-modal now
+  advertises modality that nbd-modal.js does not enforce.
+  tests/customer-a11y-structure.test.js asserts the trap is STILL ABSENT, so
+  adding one fails the suite and forces the assertion to be replaced rather
+  than the gap drifting into a false promise.
 - Mobile stacking order (the Overview right column stacks below the entire left
   column at <=900px) — untouched.
 - The tenant-safe CTA token (derive by darkening until AA, don't copy the
