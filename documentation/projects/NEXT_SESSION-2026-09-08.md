@@ -172,11 +172,12 @@ tidying when someone is next in that file.
 
 ## §5 — The photo-queue lane (parallel session, 2026-09-06)
 
-Seven PRs, all merged and deployed: **#1418** (durable queue) → **#1421** (a
+Eight PRs, all merged and deployed: **#1418** (durable queue) → **#1421** (a
 figure correction) → **#1422** (the eviction detector could not see the
 eviction) → **#1426** (we were deleting the counter ourselves) → **#1428**
 (post-mortem) → **#1431** (three defects a hunt found) → **#1437** (idempotent
-uploads) — and **#1435**, a post-merge review of #1431 that found two of its
+uploads) → **#1446** (the marker write, serialised and bounded at the
+resource) — and **#1435**, a post-merge review of #1431 that found two of its
 three fixes half done. Full write-up:
 [SESSION-2026-09-06-photo-queue-durability](SESSION-2026-09-06-photo-queue-durability.md).
 
@@ -251,6 +252,19 @@ instead of leaving an orphan and a duplicate.
    would still help them on a bad connection.
 7. **`customer.html` does not load PhotoEngine**, so all of this covers the
    dashboard capture flow only.
+8. **The `known === 0` boot repair reads a key the sign-out purge deletes.**
+   It decides whether to correct a stale marker by reading
+   `nbd_photo_queue_marker_synced`, which matches `purgeAccountStorage()`'s
+   pattern and is not in its KEEP set — so it is gone in exactly the state it
+   exists for. It only ever fires on a boot *before* the logout, which the
+   engine-side `syncMarker` already covers. Harmless, but the comment reads
+   as broader protection than it is.
+9. **A write the mirror key records as filed may never have landed.**
+   `writeMarker()` sets the mirror only after `setDoc` resolves and then
+   skips future writes while the value is unchanged — so any path that
+   advances the mirror without the server taking the write silences every
+   later retry of that number. Worth pinning with a test that a failed
+   `setDoc` leaves the mirror untouched before deciding it needs a code change.
 
 ### Traps this lane paid for — the same one, three times
 
@@ -288,6 +302,28 @@ modelled a milder world than the code runs in**:
   fix the bug. *A gate that must be deleted to fix a bug is worse than no
   gate* — when writing an assertion, check that its NAME and its SETUP describe
   the same rule.
+
+- **#1446, and the one I nearly shipped.** The two findings #1435 left open
+  were fixed, gated, proven-red and opened as a PR — and the first draft was
+  a **regression**. It serialised `syncMarker` through a module-level chain
+  with no bound on the links, so one never-settling `setDoc` (this app runs
+  Firestore with **no offline persistence**, so an offline write stays
+  pending) killed *every later marker write for the life of the page*.
+  Probed: `second syncMarker after a hung one: NEVER RAN`. Worse than the
+  interleaving it was added to prevent, and worse than `main`. Caught by an
+  adversarial audit run against my own change **after** it was green and
+  approved to merge; the PR was moved to draft and rebuilt.
+  The shipped version serialises and bounds at the **resource** —
+  `writeMarker()` has four call sites, so a queue inside one of them leaves
+  the other three racing it.
+  **The rule worth keeping: a queue whose links can hang is worse than no
+  queue.** When a fix adds a serialisation point, ask first what happens
+  when one entry never completes.
+  The `navigator.onLine` guard in that same draft was wrong in the opposite
+  direction and was **removed**: Firestore buffers an offline write and
+  flushes it on reconnect, so guarding turned a write that would have landed
+  into no write at all. The caller needed protecting from the unbounded
+  *wait*, not from the write.
 
 **What actually caught these:** breaking the code and checking **which named
 assertion** went red. Not a green suite, and not even a red one — twice, a
@@ -489,3 +525,67 @@ also live in `BOOT-WEIGHT-2026-09-06.md` are corrected there in place. Second,
 and more useful to you: **that error rate came from a session that was being
 careful.** The prose in this repo's notes is not evidence. Where a claim has a
 line number, a byte count or a PR number in it, check it before you build on it.
+
+---
+
+## §7 — The deploy lane (the §5 photo-queue session, 2026-09-07)
+
+Two PRs, both merged: **#1452** (the retry filter) and **#1453** (the
+API-enable step). Full write-up:
+[DEPLOY-RETRY-FILTER-2026-09-07](../audit/DEPLOY-RETRY-FILTER-2026-09-07.md).
+
+**What happened.** The #1445 production deploy failed **wholesale** and left
+four functions on stale code, and nothing was wrong with the code being
+deployed. A transient Cloud Run 500 (`concurrent lock contention`) failed four
+functions; firebase-tools names them with the **fully-qualified resource path**
+on that error path, and the straggler parser’s character class stopped at the
+first `/` — so it captured the literal string **`projects`**. The retry then
+ran `--only functions:projects`.
+
+**The fact worth carrying: `--only` is all-or-nothing.** One name that does not
+resolve does not fail that one target — firebase rejects the entire filter. So
+a single unparseable name cost every real straggler in the batch, and the
+recovery path that exists to heal this failure is what turned the deploy red.
+
+Fixed by reading the last path segment, but the durable half is that **a parse
+failure can no longer poison a `--only`**: parsed names are validated against
+the discovered function list first, an unknown one is dropped with a loud
+`::warning::` saying the parse needs updating, and completion accounting still
+catches the straggler. That parser is a regex over human-facing output
+firebase-tools is free to reword — it had already been extended three times
+for new shapes and was correct for all of them.
+
+### The correction worth reading
+
+I also reported the `Enable required Google APIs` step as broken. **It was
+not.** It already knows the deploy SA deliberately lacks
+`roles/serviceusage.serviceUsageAdmin`, ignores the exit code, and asserts the
+end state instead — in the same run it printed `✓ All 7 required APIs already
+enabled` two lines below the `ERROR:` I was reacting to.
+
+That is the failure the step’s own comment predicted in writing: *“that false
+alarm sat in the log long enough to be mistaken for the cause of a real
+incident.”* It was, by me, while triaging a genuinely failed deploy in the same
+run. What was real is smaller and is fixed in #1453: gcloud’s expected failure
+text was still **streamed**, so every healthy deploy carried a red-looking
+`ERROR:` two lines above a `✓`. It is now shown only where it is evidence.
+
+**A log line that reads as a failure on every healthy run is not free** — it
+trains readers to skim past the real ones, and here it cost a false incident
+report from someone who had every reason to be careful.
+
+### Open
+
+- **Nothing blocking.** Both fixes are gated by suites that extract the *real*
+  shell out of the workflow YAML and run it against captured output — a
+  copied-out regex in a test would drift from the one that runs, invisibly.
+- The root transient (`concurrent lock contention`) is a GCP-side 500 and is
+  not fixable here; the retry rounds are the mitigation, and this work is about
+  making them able to run.
+- If you ever grant the deploy SA `roles/serviceusage.serviceUsageAdmin`, the
+  enable call starts succeeding and the step self-heals — nothing to undo.
+
+**Four false greens were caught across these two PRs**, every one by breaking
+the code rather than re-reading the test. The last measured **stdout** while
+the line under test went to **stderr** — in the GitHub log both land together,
+so the harness had to merge them before the assertion could fail at all.
