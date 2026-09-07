@@ -58,7 +58,7 @@
 .nbd-voice-upload {
   background: transparent;
   color: var(--text, #e8eaf0);
-  border: 1px dashed var(--border2, #3a4155);
+  border: 1px dashed var(--border, #3a4155);
   padding: 10px 14px;
   border-radius: 6px;
   font-size: 12px;
@@ -109,7 +109,7 @@
   flex-wrap: wrap;
   margin-bottom: 8px;
   font-size: 12px;
-  color: var(--text2, #8892a4);
+  color: var(--m, #8892a4);
 }
 .nbd-voice-status {
   font-size: 10px;
@@ -157,7 +157,7 @@
 .nbd-voice-empty {
   padding: 32px;
   text-align: center;
-  color: var(--text2, #8892a4);
+  color: var(--m, #8892a4);
   font-size: 13px;
 }
 
@@ -168,8 +168,8 @@
 .nbd-voice-list strong { color: var(--text, #e8eaf0); }
 .nbd-voice-red strong { color: var(--red, #e05252); }
 .nbd-voice-red li { color: var(--red, #e05252); }
-.nbd-voice-when-inline { color: var(--text3, #4a5568); font-size: 11px; }
-.nbd-voice-conf { color: var(--text3, #4a5568); font-size: 10px; }
+.nbd-voice-when-inline { color: var(--m, #4a5568); font-size: 11px; }
+.nbd-voice-conf { color: var(--m, #4a5568); font-size: 10px; }
 
 .nbd-voice-transcript { margin-top: 12px; }
 .nbd-voice-transcript summary {
@@ -189,7 +189,7 @@
   border: 1px solid var(--border, #2a2f3c);
 }
 .nbd-voice-seg { padding: 3px 0; line-height: 1.45; }
-.nbd-voice-seg-t { color: var(--text3, #4a5568); }
+.nbd-voice-seg-t { color: var(--m, #4a5568); }
 .nbd-voice-seg-s { color: var(--orange, #BD5728); margin-right: 4px; }
 
 /* Consent modal */
@@ -216,7 +216,7 @@
   font-size: 18px;
   margin: 0 0 10px 0;
 }
-.nbd-voice-modal p { color: var(--text2, #8892a4); line-height: 1.55; margin: 0 0 14px 0; }
+.nbd-voice-modal p { color: var(--m, #8892a4); line-height: 1.55; margin: 0 0 14px 0; }
 .nbd-voice-consent-check {
   display: flex;
   gap: 10px;
@@ -238,7 +238,7 @@
   border-radius: 5px;
   font-size: 13px;
   cursor: pointer;
-  border: 1px solid var(--border2, #3a4155);
+  border: 1px solid var(--border, #3a4155);
   background: transparent;
   color: var(--text, #e8eaf0);
 }
@@ -251,7 +251,7 @@
 .nbd-voice-modal-actions button[data-act="ok"]:disabled {
   background: var(--border, #2a2f3c);
   border-color: var(--border, #2a2f3c);
-  color: var(--text3, #4a5568);
+  color: var(--m, #4a5568);
   cursor: not-allowed;
 }
 

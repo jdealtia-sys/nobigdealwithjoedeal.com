@@ -96,7 +96,8 @@
     "customer-quick-actions.test.js",
     "customer-estimates-global.test.js",
     "photo-queue-remove-index.test.js",
-    "inspection-report-photos.test.js"
+    "inspection-report-photos.test.js",
+    "css-token-resolution.test.js"
   ],
   "smoke": {
     "team-roles.test.js": [
