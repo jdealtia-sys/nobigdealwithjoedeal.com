@@ -43,7 +43,8 @@ Two corrections worth carrying forward:
 
 ## What shipped
 
-Ten slices, each its own commit.
+Thirteen slices, each its own commit. Slices 1-10 below; 11-13 follow the
+regression note.
 
 1. **Contact panel logged calls it never made.** The panel dials the
    *contractor's* number (brand-resolved), while handlers logged
@@ -120,8 +121,8 @@ while the caller does `src = sub(...)`.
 
 ## Testing
 
-Nine new suites, ~180 assertions, all in the `node` bucket (manifest 88).
-Every guard was **broken to check WHICH assertion reddens** — 10 break-tests,
+Twelve new suites, ~237 assertions, all in the `node` bucket (manifest 92).
+Every guard was **broken to check WHICH assertion reddens** — 16 break-tests,
 each hitting only the expected assertions.
 
 Preferred shape throughout: **run the real code in a vm** rather than regex
