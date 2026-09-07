@@ -100,7 +100,8 @@
     "css-token-resolution.test.js",
     "portal-signature-repaint.test.js",
     "photo-upload-phase.test.js",
-    "customer-jump-nav-order.test.js"
+    "customer-jump-nav-order.test.js",
+    "customer-keyboard-actions.test.js"
   ],
   "smoke": {
     "team-roles.test.js": [

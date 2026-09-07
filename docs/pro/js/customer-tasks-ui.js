@@ -2201,6 +2201,33 @@ function _nbdCustomerActionDispatch(action, el) {
 }
 
 // Click delegate — fires on [data-action] elements.
+// Keyboard parity for the action delegate.
+//
+// 25 elements on this page carry data-action on a <div> or <span> — the 15
+// document-template cards, the 8 timeline filter pills, and both upload drop
+// zones. A click-only delegate made the entire Generate Documents feature and
+// the entire timeline filter unreachable without a mouse.
+//
+// Registered once, next to the click delegate, so anything that gains a
+// data-action later is keyboard-operable by construction rather than by
+// somebody remembering.
+//
+// NATIVE controls are skipped deliberately: a <button> or <a> already turns
+// Enter/Space into a click, so handling the key here as well would dispatch
+// every action twice. Space is also swallowed on non-native controls to stop
+// the page scrolling underneath the activation.
+document.addEventListener('keydown', function _nbdCustomerKeyDelegate(e) {
+  if (e.key !== 'Enter' && e.key !== ' ' && e.key !== 'Spacebar') return;
+  if (e.altKey || e.ctrlKey || e.metaKey) return;
+  var el = e.target && e.target.closest && e.target.closest('[data-action]');
+  if (!el) return;
+  if (/^(BUTTON|A|INPUT|SELECT|TEXTAREA)$/.test(el.tagName)) return;
+  var action = el.dataset && el.dataset.action;
+  if (!action) return;
+  e.preventDefault();
+  _nbdCustomerActionDispatch(action, el);
+});
+
 document.addEventListener('click', function _nbdCustomerClickDelegate(e) {
   var el = e.target && e.target.closest && e.target.closest('[data-action]');
   if (!el) return;
