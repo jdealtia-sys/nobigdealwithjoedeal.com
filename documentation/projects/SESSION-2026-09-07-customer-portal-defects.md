@@ -140,12 +140,65 @@ One gate was deliberately **not** loosened: `smoke/crm.test.js:332` requires
 three-line guard pushed it to 456. The guard was compressed to one line and
 the rationale moved above the handler, rather than widening the window.
 
+## Batch 3 (slices 11–13)
+
+11. **Every uploaded photo claimed to be already sorted.** The upload path
+    stamped `phase: 'During'` when nothing could set it (both selectors had
+    zero callers; the four DOM ids they drive were never written in *any*
+    commit). That is not cosmetic: `pages/photo-review.js` reads
+    `isReviewed = !!photo.phase` (:150), filters unsorted on `!phaseOf(p)`
+    (:229), and only falls back to `aiSuggestion.phase` when phase is falsy
+    (:132) — so **Review & Sort was blind to everything uploaded from the
+    customer page**, and the classifier's suggestion never surfaced. Now
+    writes `null`. Also fixed the sibling that would have re-poisoned it
+    within a day: `quickSaveMeta` re-stamped a phase on *any* metadata edit,
+    because `photoDocToView` coerces so `photo.phase` is never falsy.
+    **NOT done:** the verifier's third edit (aligning `renderPhotoGrid`'s
+    filter) — proven unreachable, since that array is only ever built through
+    `photoDocToView` and `dashboard.html` does not load `customer-tasks-ui.js`.
+12. **The jump-nav highlight bounced.** Link order was
+    `overview, photos, documents, voice, messages, timeline, contact` while
+    the DOM is `overview, timeline, photos, documents, messages, voice,
+    contact`, so the scroll-spy lit pills 1, 6, 2, 3, 5, 4, 7 as the rep
+    scrolled one way. Also moved the **"Open tasks" badge off the Timeline
+    pill** — that section renders stage milestones; the task list
+    (`#timelineList`) is inside Overview.
+13. **25 controls were mouse-only** — all 15 doc-template cards, all 8
+    timeline pills, both drop zones. Fixed at the dispatcher (one keydown
+    listener beside the click delegate) rather than sprinkled, so future
+    `data-action` elements are keyboard-operable by construction. Native
+    controls are skipped **deliberately**: a `<button>` already turns Enter
+    into a click, so handling it twice would generate two documents.
+
+## A false-green risk in the new suites themselves
+
+Five suites written earlier in the session stripped comments with
+`/\/\*[\s\S]*?\*\//g`. **That cannot be used on these files** — they contain
+comment-looking sequences inside regex literals and strings, so the pass
+destroyed **10–48% of the file**. Caught only when an assertion failed
+against code that plainly existed.
+
+Positive assertions self-protect (they fail when the region vanishes), but
+**absence** assertions could have passed against a corpus missing the very
+region they guard. All five now strip line-wise; all still pass, so none were
+vacuous — and the one absence assertion never break-tested was confirmed to
+redden. If you write an assertion about code you just commented, strip
+comments first *and* check the stripper is not eating the code.
+
+Related: `git checkout --` during a break-test discarded uncommitted work in
+the same file. Commit first, every time.
+
 ## Left open
 
-- **Photo metadata is still never captured** (PARTLY confirmed; the refuter
-  found a live sibling in `quickSaveMeta` fabricating `phase:'During'`).
-- Duplicated datasets, the keyboard-inaccessible controls, mobile stacking
-  order — untouched, still ranked in the recon.
+- **Duplicated datasets** — photos, documents and the timeline each render two
+  or three times, and the duplicate is usually the copy WITH the tools. This is
+  the one remaining recon finding that is a genuine refactor rather than a
+  defect fix, and it deserves its own session and its own recon.
+- **Remaining a11y on the customer page**: no <main>/<nav>/<h1> landmarks, 11
+  <label> elements with no for=, 6 of 7 modals without dialog semantics or a
+  focus trap. Slice 13 fixed operability; these are structure and naming.
+- Mobile stacking order (the Overview right column stacks below the entire left
+  column at <=900px) — untouched.
 - The tenant-safe CTA token (derive by darkening until AA, don't copy the
   accent) — its own change.
 - BUG-LOG's NEW-D17 should be retired: the behaviour it describes no longer
