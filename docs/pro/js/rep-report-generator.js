@@ -1535,7 +1535,7 @@ ${STATIC_CHART_CSS}
   .narrative { background: #fff8f0; border-left: 5px solid #BD5728; padding: 24px 28px; margin: 0; border-bottom: 1px solid #eee; position: relative; }
   .narrative-label { font-family: 'Barlow Condensed', sans-serif; font-size: 10px; font-weight: 800; letter-spacing: .18em; color: var(--orange,#BD5728); text-transform: uppercase; margin-bottom: 8px; }
   .narrative-text { font-size: 16px; line-height: 1.6; color: #1a1a1a; font-weight: 500; }
-  .narrative-badge { position: absolute; top: 12px; right: 20px; font-size: 9px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--orange,#BD5728); background: #fff; border: 1px solid rgba(232,114,12,.3); padding: 3px 8px; border-radius: 10px; }
+  .narrative-badge { position: absolute; top: 12px; right: 20px; font-size: 9px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--orange,#BD5728); background: #fff; border: 1px solid rgba(189,87,40,.3); padding: 3px 8px; border-radius: 10px; }
   @media print { body { background: #fff; } .report-page { max-width: 100%; padding: 0; } .section { page-break-inside: avoid; } @page { margin: 0.5cm; size: letter; } .narrative { background: #fff; border-left: 4px solid #BD5728; } }
 ${STATIC_CHART_CSS}
 </style>

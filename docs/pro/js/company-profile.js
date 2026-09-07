@@ -157,8 +157,8 @@
       colors: {
         // NBD DOCUMENT STANDARD, locked 2026-09-07. These are MEASURED off the
         // master logo artwork (1536x1024) — the logo is the colour source of
-        // truth, not any code file. Retired: #1E3A6E (too blue), #142A52,
-        // #1A3A5C (too grey-blue) and #E8720C, which was both off-brand and
+        // truth, not any code file. Retired: #1A3057 (too blue), #12223D,
+        // #1A3057 (too grey-blue) and #BD5728, which was both off-brand and
         // failed WCAG AA for body text at 3.07:1 on white.
         primary:   '#1A3057',  // navy — logo wordmark/roof. 13.09:1 on white
         secondary: '#12223D',  // navy-deep — navy mixed 30% to black. 15.89:1

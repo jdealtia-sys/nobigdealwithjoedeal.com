@@ -196,7 +196,7 @@ function showSlowLoadHint() {
         background:var(--orange);
         color:#fff;border:none;padding:14px 28px;border-radius:8px;
         font-size:15px;font-weight:600;cursor:pointer;
-        box-shadow:0 4px 12px rgba(200,84,26,0.3);
+        box-shadow:0 4px 12px rgba(161,74,34,0.3);
         -webkit-tap-highlight-color:transparent;">Refresh now</button>
       <div style="margin-top:14px;">
         <button id="slow-load-back" style="

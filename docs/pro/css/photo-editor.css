@@ -15,7 +15,7 @@
   --nbd-bg-active: var(--s3, #1E2229);
   --nbd-accent: var(--orange, #BD5728);
   --nbd-accent-light: var(--ob, #E8621E);
-  --nbd-accent-glow: var(--og, rgba(232,114,12,.22));
+  --nbd-accent-glow: var(--og, rgba(189,87,40,.22));
   --nbd-text: var(--t, #E8EAF0);
   --nbd-text-dim: var(--m, #6B7280);
   --nbd-text-muted: var(--m, #6B7280);

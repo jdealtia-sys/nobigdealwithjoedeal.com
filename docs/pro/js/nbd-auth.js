@@ -784,7 +784,7 @@ export const NBDAuth = {
         @keyframes nbdWallIn { from { opacity:0 } to { opacity:1 } }
         .nbd-wall-card {
           background: #0D1117;
-          border: 1px solid rgba(232,114,12,0.3);
+          border: 1px solid rgba(189,87,40,0.3);
           border-radius: 16px;
           padding: 48px 44px;
           max-width: 520px; width: 90%;
@@ -799,7 +799,7 @@ export const NBDAuth = {
         }
         .nbd-wall-badge {
           display: inline-flex; align-items: center; gap: 8px;
-          background: rgba(232,114,12,0.1); border: 1px solid rgba(232,114,12,0.25);
+          background: rgba(189,87,40,0.1); border: 1px solid rgba(189,87,40,0.25);
           color: var(--orange,#BD5728); font-size: 10px; font-weight: 700;
           letter-spacing: 3px; text-transform: uppercase;
           padding: 7px 18px; border-radius: 20px; margin-bottom: 20px;
@@ -834,7 +834,7 @@ export const NBDAuth = {
         .nbd-wall-btn.primary {
           background: var(--orange,#BD5728); color: #fff;
         }
-        .nbd-wall-btn.primary:hover { background: #c45e08; transform: translateY(-1px); }
+        .nbd-wall-btn.primary:hover { background: #a14a22; transform: translateY(-1px); }
         .nbd-wall-btn.secondary {
           background: transparent; color: #8b9bb4;
           border: 1px solid rgba(255,255,255,.15);

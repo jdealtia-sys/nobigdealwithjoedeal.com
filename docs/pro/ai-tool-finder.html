@@ -13,7 +13,7 @@
 :root {
   --void:#0A0C0F; --surface:#111418; --card:#181C22; --lift:#1E2229;
   --border:rgba(255,255,255,.07); --border2:rgba(255,255,255,.12);
-  --orange:#BD5728; --orange-dim:rgba(232,114,12,0.10); --orange-glow:rgba(232,114,12,0.22);
+  --orange:#BD5728; --orange-dim:rgba(189,87,40,0.10); --orange-glow:rgba(189,87,40,0.22);
   --red:#E05252; --red-dim:rgba(224,82,82,0.10);
   --green:#3DD68C; --green-dim:rgba(61,214,140,0.10);
   --blue:#4E9BF5; --blue-dim:rgba(78,155,245,0.10);
@@ -23,8 +23,8 @@
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 html{scroll-behavior:smooth}
 body{font-family:'Barlow',sans-serif;background:var(--void);color:var(--text);min-height:100vh;min-height:100dvh;overflow-x:hidden}
-body::before{content:'';position:fixed;top:0;right:0;bottom:0;left:0;background-image:linear-gradient(rgba(232,114,12,0.02) 1px,transparent 1px),linear-gradient(90deg,rgba(232,114,12,0.02) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0}
-body::after{content:'';position:fixed;top:-300px;right:-200px;width:800px;height:800px;background:radial-gradient(ellipse,rgba(232,114,12,0.04) 0%,transparent 60%);pointer-events:none;z-index:0}
+body::before{content:'';position:fixed;top:0;right:0;bottom:0;left:0;background-image:linear-gradient(rgba(189,87,40,0.02) 1px,transparent 1px),linear-gradient(90deg,rgba(189,87,40,0.02) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0}
+body::after{content:'';position:fixed;top:-300px;right:-200px;width:800px;height:800px;background:radial-gradient(ellipse,rgba(189,87,40,0.04) 0%,transparent 60%);pointer-events:none;z-index:0}
 .app{position:relative;z-index:1;display:flex;flex-direction:column;min-height:100vh;min-height:100dvh}
 
 /* ── TOPBAR ── */
@@ -196,7 +196,7 @@ body::after{content:'';position:fixed;top:-300px;right:-200px;width:800px;height
 .pillar{background:var(--card);border:1px solid var(--border);border-radius:var(--rlg);padding:18px 20px;position:relative;overflow:hidden;transition:all var(--t) var(--ease)}
 .pillar::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,var(--orange),transparent)}
 .pillar:hover{border-color:var(--border2);transform:translateY(-2px)}
-.pillar-num{font-family:'Barlow Condensed',sans-serif;font-size:40px;font-weight:800;color:rgba(232,114,12,0.08);line-height:1;margin-bottom:6px}
+.pillar-num{font-family:'Barlow Condensed',sans-serif;font-size:40px;font-weight:800;color:rgba(189,87,40,0.08);line-height:1;margin-bottom:6px}
 .pillar-title{font-family:'Barlow Condensed',sans-serif;font-size:14px;font-weight:700;color:var(--text);margin-bottom:4px}
 .pillar-desc{font-size:13px;color:var(--text3);line-height:1.4}
 .arch-row{display:flex;gap:12px;align-items:flex-start;padding:10px 14px;background:var(--lift);border-radius:var(--r);margin-bottom:6px;border:1px solid var(--border)}
@@ -278,7 +278,7 @@ body::after{content:'';position:fixed;top:-300px;right:-200px;width:800px;height
 :root {
   --nbd-nav-h: 52px;
   --nbd-nav-bg: #0A0C0F;
-  --nbd-nav-border: rgba(232,114,12,0.25);
+  --nbd-nav-border: rgba(189,87,40,0.25);
   --nbd-nav-orange: #BD5728;
   --nbd-nav-cyan: #BD5728;
   --nbd-nav-text: #8b9bb4;
@@ -362,8 +362,8 @@ body::after{content:'';position:fixed;top:-300px;right:-200px;width:800px;height
 }
 #nbd-pro-nav .nnav-link.active {
   color: var(--nbd-nav-orange);
-  background: rgba(232,114,12,.1);
-  border-color: rgba(232,114,12,.2);
+  background: rgba(189,87,40,.1);
+  border-color: rgba(189,87,40,.2);
 }
 #nbd-pro-nav .nnav-link.demo-link {
   color: var(--nbd-nav-cyan);
@@ -389,7 +389,7 @@ body::after{content:'';position:fixed;top:-300px;right:-200px;width:800px;height
   transition: .15s;
   white-space: nowrap;
 }
-#nbd-pro-nav .nnav-login-btn:hover { background: #c45e08; }
+#nbd-pro-nav .nnav-login-btn:hover { background: #a14a22; }
 #nbd-pro-nav .nnav-login-btn.logout {
   background: transparent;
   border: 1px solid rgba(255,255,255,.15);
@@ -454,8 +454,8 @@ body::after{content:'';position:fixed;top:-300px;right:-200px;width:800px;height
   color: var(--nbd-nav-white);
 }
 .nnav-drawer-link.active {
-  background: rgba(232,114,12,.1);
-  border-color: rgba(232,114,12,.2);
+  background: rgba(189,87,40,.1);
+  border-color: rgba(189,87,40,.2);
   color: var(--nbd-nav-orange);
 }
 .nnav-drawer-link.demo-link { color: var(--nbd-nav-cyan); }

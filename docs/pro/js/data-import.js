@@ -235,7 +235,7 @@
     zone.addEventListener('dragover', e => {
       e.preventDefault();
       zone.style.borderColor = 'var(--orange,#A14A22)';
-      zone.style.background = 'rgba(200,84,26,0.05)';
+      zone.style.background = 'rgba(161,74,34,0.05)';
     });
     zone.addEventListener('dragleave', () => {
       zone.style.borderColor = 'var(--br,#2a3344)';
