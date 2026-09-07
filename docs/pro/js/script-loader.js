@@ -352,10 +352,13 @@
     // Compare RESOLVED keys, not raw src strings. customer.html writes its
     // tags absolute (`/pro/js/supplement-ui.js?v=1`) while the bundles here
     // are page-relative (`js/supplement-ui.js?v=1`); a raw-string match sees
-    // two different files and re-injects. supplement-ui.js has no re-entry
-    // guard and registers a document.body subtree MutationObserver at load,
-    // so that second execution left TWO observers calling attachButtons() on
-    // every DOM mutation of the customer page. Same trap for a `?v=` bump.
+    // two different files and re-injects, leaving a second supplement-ui.js
+    // tag in the DOM and re-parsing the file. (Corrected 2026-09-07: an
+    // earlier version of this comment said that left TWO document.body
+    // MutationObservers. It did not — supplement-ui.js:34 returns on its own
+    // __NBD_LOADED sentinel before _bootstrap() registers one. The cost is the
+    // duplicate tag and parse, which is what the e2e gate asserts.) Same trap
+    // for a `?v=` bump.
     try {
       const tags = document.querySelectorAll('script[src]');
       for (let i = 0; i < tags.length; i++) {

@@ -109,10 +109,21 @@ the rule above:
 the bundles are page-relative (`js/supplement-ui.js?v=1`). Both the
 `loaded` Set and the `querySelector('script[src="…"]')` guard compared raw
 strings, so `loadBundle('estimates')` — which `customer-estimate-hub.js:408`
-calls on the customer page — re-injected and **re-executed** `supplement-ui.js`,
-whose top-level `_bootstrap()` registers a `document.body` subtree
-`MutationObserver` and has no re-entry guard. Two observers, both calling
-`attachButtons()` on every mutation of the page.
+calls on the customer page — re-injected `supplement-ui.js`, so the page carried
+a second tag and re-parsed the file.
+
+> **CORRECTED 2026-09-07.** This paragraph originally ended: *"whose top-level
+> `_bootstrap()` registers a `document.body` subtree `MutationObserver` and has
+> no re-entry guard. Two observers, both calling `attachButtons()` on every
+> mutation of the page."* **That consequence is false.** `supplement-ui.js:34-36`
+> has carried `__NBD_LOADED['supplement-ui']` since `8eb16ede` (2026-07-05,
+> Tranche 0), and it returns *before* `_bootstrap()` (:886) registers the
+> observer (:889). There was one observer, not two. The dedupe fix below is
+> still right — the waste was a duplicate tag and a re-parse, which is what the
+> e2e gate actually asserts — but the harm was overstated. The tell was in this
+> note all along: the evidence quoted three paragraphs down is *"two
+> `supplement-ui.js` tags in the DOM"*, and I wrote a claim about **observers**
+> on top of a measurement of **tags**.
 
 Fix: script identity is now `cacheKey(src)` = resolved `origin + pathname`
 (`new URL(src, document.baseURI)`, query and hash dropped). That collapses
@@ -640,14 +651,27 @@ paying for itself. That makes three files in a row where "make the sync thing
 async" was the wrong instinct: the derivation was faithful, the *input* was
 stale.
 
-**The part worth writing down.** Hydration on the `finalize()` path *already
-happened* before this change — but only as a side effect of
-`await _v2EstNumber(...)` sitting inside the argument object passed to
-`formatEstimate`. It worked **by argument-evaluation order**. Reorder that
-object literal, or drop the estimate-number field, and the leak returns with no
-test failing and no visible symptom. The behaviour did not change today; what
-changed is that it is now a stated invariant instead of an accident.
-`sendForSignature()` had no such accidental await at all.
+**The part worth writing down.** Hydration on both paths *already happened*
+before this change — but only by accident, and the behaviour did not change
+today. What changed is that it is now a stated invariant.
+
+> **CORRECTED 2026-09-07.** This paragraph originally said the accident was
+> `await _v2EstNumber(...)` "sitting inside the argument object passed to
+> `formatEstimate`", working "**by argument-evaluation order**", and that
+> *"`sendForSignature()` had no such accidental await at all."* **I had the two
+> functions backwards.** Checked against `be5e7fdd^`:
+>
+> - **`sendForSignature()`** — the `await` genuinely *is* inside the inline
+>   argument object literal (`estimate-v2-ui.js:3511`). Argument-evaluation
+>   order applies **here**, not in `finalize()`, and it is the opposite of "no
+>   such accidental await at all".
+> - **`finalize()`** — its `meta` literal is built at `:3217`, **58 lines above**
+>   the call at `:3275`, which passes three already-computed identifiers. The
+>   accident there is **statement order**.
+>
+> The conclusion is unchanged and if anything stronger: drop the `number:` field
+> or move the `meta` construction below the call, and the leak returns with no
+> test failing and no visible symptom.
 
 Two consumers at `:398` and `:803` interpolated `_b.docPrefix + '-' + Date.now()`
 unconditionally, which would mint `-1757…` with a leading dash once the prefix
@@ -707,9 +731,15 @@ correctness fix on an already-lazy path.
   Note the trap for whoever does this: that dead block calls
   `fetchImageAsBase64`, which is defined OUTSIDE it and exported at line 838,
   so the helper must survive the removal.
-- **`supplement-ui.js` has no re-entry sentinel** (unlike `script-loader` /
-  `sentry-init`). Item 2 stops the double-injection; a sentinel would make the
-  file safe against *any* future double-load, not just this path.
+- ~~**`supplement-ui.js` has no re-entry sentinel**~~ — **WITHDRAWN 2026-09-07:
+  it has had one since 2026-07-05** (`__NBD_LOADED['supplement-ui']`,
+  `supplement-ui.js:34-36`, `8eb16ede`). This item never existed; see the
+  correction block under Item 2. The real version of it:
+  **`estimate-supplement.js` has no guard of any kind** — of the three files
+  `customer.html` ships eagerly that are also `estimates`-bundle entries, it is
+  the only one without one (`profit-tracker.js` has `_NBD_PT_DELEGATE`). Its
+  sole top-level side effect is assigning `window.EstimateSupplement`, so a
+  double load redefines a global rather than duplicating observers.
 
 ## Files
 

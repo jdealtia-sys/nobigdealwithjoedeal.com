@@ -242,8 +242,11 @@ section('ScriptLoader contract');
   // markLoaded() was removed 2026-09-06 — exported for four months, never
   // called. This asserts the replacement invariant instead of the dead name:
   // dedupe keys on the RESOLVED PATH, so '/pro/js/x.js?v=1' and 'js/x.js?v=9'
-  // are one file. Regressing to a raw-src compare re-executes supplement-ui.js
-  // (and its document.body MutationObserver) on the customer page.
+  // are one file. Regressing to a raw-src compare leaves a SECOND
+  // supplement-ui.js tag in the DOM on the customer page and re-parses the
+  // file. (Corrected 2026-09-07: this comment used to claim the re-execution
+  // also duplicated its document.body MutationObserver. It does not —
+  // supplement-ui.js returns on its own __NBD_LOADED sentinel first.)
   assert('dedupes on a resolved cacheKey, not the raw src',
     /function\s+cacheKey\s*\(/.test(src) && /new\s+URL\s*\(\s*src\s*,\s*document\.baseURI\s*\)/.test(src));
   assert('cacheKey drops the ?v= cache-buster', /u\.origin\s*\+\s*u\.pathname/.test(src));
