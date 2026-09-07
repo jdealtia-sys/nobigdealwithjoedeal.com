@@ -4258,6 +4258,7 @@
     if (byId('v2costBest'))   byId('v2costBest').value   = s.costBasis?.best   ?? 0;
 
     if (byId('v2minJob'))   byId('v2minJob').value   = s.minJobCharge ?? 2500;
+    if (byId('v2minRepair')) byId('v2minRepair').value = s.minRepairCharge ?? 0;
     if (byId('v2roundTo'))  byId('v2roundTo').value  = s.roundTo ?? 25;
 
     if (byId('v2matMarkup')) byId('v2matMarkup').value = Math.round((s.materialMarkupPct ?? 0.25) * 100);
@@ -4491,6 +4492,7 @@
       },
       minJobCharge: num('v2minJob', 2500),
       roundTo: num('v2roundTo', 25),
+      minRepairCharge: num('v2minRepair', 0),
       materialMarkupPct: num('v2matMarkup', 25) / 100,
       overheadPct: num('v2overhead', 10) / 100,
       profitPct: num('v2profit', 10) / 100,

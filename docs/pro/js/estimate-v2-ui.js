@@ -1812,6 +1812,106 @@
     return (s && s.savedCost) ? Object.assign({}, base, s.savedCost) : base;
   }
 
+  // Quantity label for the scope panels.
+  //
+  // NEVER round a fractional quantity to a whole number. The old rule was
+  // "one decimal for SQ and LF, whole numbers for everything else", so a
+  // 1.5-hour detail line rendered as "2 HR" beside its correct $127.50
+  // total — and $85/hr x 2 HR = $170, so the line read as arithmetic that
+  // was 25% short. The math was right; the label was lying.
+  //
+  // SQ and LF keep the one-decimal house format (23 reads "23.0") but gain a
+  // hundredths place when one carries information: job templates ship 0.35
+  // and 0.7 SQ scopes, and "0.4 SQ" is the same lie in a different unit.
+  // Every other unit prints whole when whole, fractional when not.
+  function fmtQty(q, unit) {
+    const n = Math.round((Number(q) || 0) * 100) / 100;
+    const u = String(unit || '').toUpperCase();
+    if (u === 'SQ' || u === 'LF') {
+      return (Math.round(n * 10) / 10 === n) ? n.toFixed(1) : n.toFixed(2);
+    }
+    return String(n);
+  }
+
+  // The number to SHOW for one line.
+  //
+  // resolveEstimate stamps two figures on every line: lineTotal (the
+  // contractor's COST basis) and retailTotal (what the customer is
+  // charged — material at markup, labor as-is). Every customer document
+  // prints retailTotal. The builder's own scope panels printed lineTotal,
+  // so the same drip-edge line read $52 on screen and $61.75 on the PDF,
+  // the per-line numbers never footed to the headline total, and the panel
+  // that a rep quotes from was the one showing cost.
+  //
+  // Show retail here too. The cost basis and margin still have a home —
+  // the internal rollup under the scope list — where it is labelled.
+  function lineRetail(line, markupPct) {
+    if (!line) return 0;
+    const r = Number(line.retailTotal);
+    if (Number.isFinite(r)) return r;
+    const mat = Number(line.materialTotal) || 0;
+    const lab = Number(line.laborTotal) || 0;
+    if (mat === 0 && lab === 0) {
+      return Number(line.lineTotal || line.total || ((line.quantity || 1) * (line.unitPrice || 0))) || 0;
+    }
+    const mkp = Number(markupPct);
+    return mat * (1 + (Number.isFinite(mkp) ? mkp : 0.25)) + lab;
+  }
+
+  // Shop-wide line-item settings, read back from the Settings > Estimates
+  // panel (localStorage nbd_est_settings_v3, via EstimateBuilderV2).
+  //
+  // The panel headed "V2 Engine · Line-Item Mode — these percentages apply
+  // to every line-item estimate" was not reaching the engine: this file sent
+  // resolveEstimate only { tier, mode, county }, so it fell through to its
+  // own 25 / 10 / 10 defaults and a tenant who edited any of the three saw
+  // no change on any estimate. Same story for the minimum charge. Forward
+  // them, and only forward values that are actually numbers so a blank or
+  // corrupted field can never zero out a price.
+  function shopSettings() {
+    try {
+      if (window.EstimateBuilderV2 && typeof window.EstimateBuilderV2.loadSettings === 'function') {
+        return window.EstimateBuilderV2.loadSettings() || {};
+      }
+    } catch (_) { /* settings are optional — the engine has its own defaults */ }
+    return {};
+  }
+
+  function shopLineItemRates() {
+    const s = shopSettings();
+    const out = {};
+    ['materialMarkupPct', 'overheadPct', 'profitPct'].forEach(function (k) {
+      const raw = s[k];
+      // Number(null) and Number('') are both 0, and a forwarded 0 would zero
+      // out a real overhead or markup. Only an actual number counts.
+      if (raw === null || raw === undefined || raw === '') return;
+      const v = Number(raw);
+      if (Number.isFinite(v) && v >= 0) out[k] = v;
+    });
+    return out;
+  }
+
+  // 0 means "no floor", which is the default and the honest one for a
+  // hand-built repair. Only a positive number a human set is a floor.
+  function shopRepairMinimum() {
+    const v = Number(shopSettings().minRepairCharge);
+    return (Number.isFinite(v) && v > 0) ? v : 0;
+  }
+
+  // The settings object every resolveEstimate call in this file should use,
+  // so the tier cards, the headline and the saved estimate all price on the
+  // same rules. Keep in sync with getCurrentEstimate.
+  function tierSettings(tier) {
+    const out = Object.assign({
+      tier: tier,
+      mode: state.jobMode,
+      county: state.county
+    }, shopLineItemRates());
+    const floor = (state.minJobCharge != null) ? Number(state.minJobCharge) : shopRepairMinimum();
+    if (Number.isFinite(floor) && floor > 0) out.minJobCharge = floor;
+    return out;
+  }
+
   function getCurrentEstimate() {
     const cat = window.NBD_XACT_CATALOG;
     if (!cat) return null;
@@ -1835,13 +1935,22 @@
     const hasPassThru = (state.passThru || []).length > 0;
     if (!items.length && !hasPassThru) return null;
     if (!window.EstimateLogic) return null;
-    const settings = {
+    const settings = Object.assign({
       tier: state.tier,
       mode: state.jobMode,
       county: state.county
-    };
+    }, shopLineItemRates());
+    // Minimum charge, in precedence order:
+    //   1. the preset or job template's own floor (state.minJobCharge)
+    //   2. the shop's opt-in repair minimum from Settings > Estimates
+    // There is deliberately NO third fallback. #1470 removed the hidden
+    // $2,500 engine default that quoted a $555 pipe-boot repair at $2,500;
+    // a floor now exists only because somebody set one.
     if (state.minJobCharge != null) {
       settings.minJobCharge = state.minJobCharge;
+    } else {
+      const shopMin = shopRepairMinimum();
+      if (shopMin > 0) settings.minJobCharge = shopMin;
     }
     // Resolve catalog scope first. If there are no catalog items,
     // start with an empty shell so the pass-through lines can
@@ -2315,9 +2424,11 @@
     // Resolved lines give the real qty/total. Best-effort: if the engine
     // isn't ready we still list the picks with their catalog identity.
     let byCode = {};
+    let markupPct = null;
     try {
       const est = getCurrentEstimate();
       (est && est.lines || []).forEach(l => { byCode[l.code] = l; });
+      if (est && est.materialMarkupPct != null) markupPct = est.materialMarkupPct;
     } catch (e) { byCode = {}; }
 
     const rows = [];
@@ -2329,7 +2440,7 @@
         name: (line && line.name) || (item && item.name) || s.code,
         qty: line ? (Number(line.quantity) || 0) : null,
         unit: (line && line.unit) || (item && item.unit) || '',
-        total: line ? (Number(line.lineTotal) || 0) : null,
+        total: line ? lineRetail(line, markupPct) : null,
         overridden: !!(line && line.qtyOverridden)
       });
     });
@@ -2349,7 +2460,7 @@
     catDiv.innerHTML =
       rows.map(r => {
         const qtyStr = r.qty != null
-          ? (r.unit === 'SQ' || r.unit === 'LF' ? r.qty.toFixed(1) : Math.round(r.qty)) + ' ' + esc(r.unit)
+          ? fmtQty(r.qty, r.unit) + ' ' + esc(r.unit)
           : '—';
         return `
         <div class="v2-item" data-code="${esc(r.code)}" style="border-color:var(--green,#2ecc8a);background:color-mix(in srgb, var(--green,#2ecc8a) 10%, var(--bg,#0a0c0f));">
@@ -2424,8 +2535,7 @@
     });
 
     listDiv.innerHTML = visibleLines.map(line => {
-      const qtyDecimals = (line.unit === 'SQ' || line.unit === 'LF') ? 1 : 0;
-      const safeQty = (Number(line.quantity) || 0).toFixed(qtyDecimals);
+      const safeQty = fmtQty(line.quantity, line.unit);
       const overridden = !!line.qtyOverridden;
       // Per-line rep note (overrides.note) — annotation only, shown here
       // and printed under the line on the finalized documents.
@@ -2443,7 +2553,7 @@
             <button class="edit-qty" type="button" data-action="override-qty" title="Edit quantity">✎</button>
             <button class="rm" type="button" data-action="remove-from-scope" title="Remove">×</button>
           </div>
-          <div class="total">$${Math.round(Number(line.lineTotal) || 0).toLocaleString()}</div>
+          <div class="total">$${Math.round(lineRetail(line, estimate.materialMarkupPct)).toLocaleString()}</div>
           <div class="name">${escLocal((line.name || '').substring(0, 38))}</div>
           <div class="qty">${safeQty} ${escLocal(line.unit)} · ${escLocal(line.code)}${overridden ? ' · <span style="color:var(--blue,#22d3ee);">manual</span>' : ''}</div>
           ${lineNote ? `<div class="line-note" style="font-size:11px;color:var(--m,#9ca3af);font-style:italic;margin-top:2px;">📝 ${escLocal(lineNote)}</div>` : ''}
@@ -2787,15 +2897,7 @@
     // _reconstructEstimateFromSaved; derive from the material/labor split for
     // docs that predate it. Pass-throughs (no cost basis) stay at face.
     const _mkp = Number(estimate.materialMarkupPct);
-    const _lineRetail = (l) => {
-      if (l.retailTotal != null && isFinite(Number(l.retailTotal))) return Number(l.retailTotal);
-      const mat = Number(l.materialTotal) || 0;
-      const lab = Number(l.laborTotal) || 0;
-      if (mat === 0 && lab === 0) {
-        return Number(l.lineTotal || l.total || ((l.quantity || 1) * (l.unitPrice || 0))) || 0;
-      }
-      return mat * (1 + (isFinite(_mkp) ? _mkp : 0.25)) + lab;
-    };
+    const _lineRetail = (l) => lineRetail(l, _mkp);
     const lines = (estimate.lines || []).map((l) => {
       const qty = Number(l.quantity || l.qty || 1) || 1;
       const retail = Math.round(_lineRetail(l) * 100) / 100;
@@ -3337,9 +3439,9 @@
           .map(s => { const f = cat.find(s.code); return f ? withSavedCost(f, s) : null; })
           .filter(Boolean);
         meta.tiers = {
-          good:   window.EstimateLogic.resolveEstimate(items, state.measurements, { tier: 'good',   mode: state.jobMode, county: state.county }),
-          better: window.EstimateLogic.resolveEstimate(items, state.measurements, { tier: 'better', mode: state.jobMode, county: state.county }),
-          best:   window.EstimateLogic.resolveEstimate(items, state.measurements, { tier: 'best',   mode: state.jobMode, county: state.county })
+          good:   window.EstimateLogic.resolveEstimate(items, state.measurements, tierSettings('good')),
+          better: window.EstimateLogic.resolveEstimate(items, state.measurements, tierSettings('better')),
+          best:   window.EstimateLogic.resolveEstimate(items, state.measurements, tierSettings('best'))
         };
       }
       // Mark the rep's selected tier so the formatter highlights the matching
@@ -3983,6 +4085,13 @@ html,body{margin:0;padding:0;height:100%;width:100%;background:#fff;font-family:
       rehydrateFromSaved: rehydrateFromSaved,
       effectiveEstimate: effectiveEstimate,
       getState: () => state,
+      // Display helpers. Pure, and the two that decide whether the scope
+      // panel tells the rep the truth about quantity and price —
+      // tests/estimate-scope-display.test.js.
+      fmtQty: fmtQty,
+      lineRetail: lineRetail,
+      shopRepairMinimum: shopRepairMinimum,
+      shopLineItemRates: shopLineItemRates,
     },
   };
 
