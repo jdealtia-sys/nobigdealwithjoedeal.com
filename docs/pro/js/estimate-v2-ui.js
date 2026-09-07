@@ -54,6 +54,18 @@
   // went out NBD-branded on another contractor's document. The resolver gates
   // on hydration and on platform identity, and never returns blank: a minted
   // identifier cannot carry an orphan leading dash.
+  // Await company-profile hydration once, so the SYNCHRONOUS formatters in
+  // estimate-finalization.js read a real tenant brand rather than the NBD
+  // defaults company-profile.js:276 seeds at parse time. Never blocks the rep:
+  // a hydration failure falls through and renders with whatever brand exists.
+  async function _awaitBrandHydration() {
+    try {
+      if (window._companyProfileLoaded !== true && typeof window._loadCompanyProfile === 'function') {
+        await window._loadCompanyProfile();
+      }
+    } catch (_) { /* render with what we have */ }
+  }
+
   async function _v2EstNumber(suffix) {
     const prefix = window._tenantIdPrefix ? await window._tenantIdPrefix() : 'CUS';
     return prefix + '-V2-' + suffix;
@@ -3169,6 +3181,17 @@
   // ═════════════════════════════════════════════════════════
 
   async function finalize(format) {
+    // ── HYDRATION GATE (2026-09-06) ──────────────────────────────────────
+    // EstimateFinalization's formatters are synchronous and derive the doc
+    // prefix / seal from window._brand(), which company-profile.js:276 seeds
+    // with the NBD DEFAULTS at parse time. Rendering before hydration stamps
+    // the platform identity onto another tenant's estimate.
+    //
+    // Hydration did already happen on this path — but only as a side effect of
+    // `await _v2EstNumber(...)` sitting inside the argument list, i.e. by
+    // argument-evaluation order. That is an accident, not a guarantee: reorder
+    // the object literal and the leak comes back silently. Gate explicitly.
+    await _awaitBrandHydration();
     // Normalize format defensively — buttons pass 'insurance-scope' |
     // 'retail-quote' | 'internal-view', but older call sites also use
     // 'internal'. Map legacy aliases so the formatter + titleMap both
@@ -3422,6 +3445,9 @@
   //      app (no popup, no email bounce).
   // ═════════════════════════════════════════════════════════
   async function sendForSignature() {
+    // Same hydration gate as finalize() — the retail-quote body sent for
+    // signature is rendered by the same synchronous formatters.
+    await _awaitBrandHydration();
     const statusEl = document.getElementById('v2signStatus');
     const btn = document.getElementById('v2signBtn');
     const setStatus = (msg, color) => {

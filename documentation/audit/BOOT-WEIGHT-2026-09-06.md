@@ -599,11 +599,94 @@ removing the await.
 ⚠️ **Process finding worth more than this change.** Until now the local gate set
 was `smoke.test.js` + `--bucket node`. **Fourteen suites sit in
 `wired-individually` and are invisible to both** — including all four `esign-*`
-suites, both `firestore-rules` suites, `storage-rules`, and
-`customer-estimate-rows`, which is the one that caught a real regression in
-#1445 that the local run had passed clean. Every merged PR did pass full CI, so
-the shipped work is verified — but "all local gates green" was a narrower claim
-than it sounded. Run the `wired-individually` list too.
+suites, both `firestore-rules` suites, `storage-rules` and
+`inline-html-scripts`. Every merged PR did pass full CI, so the shipped work is
+verified — but "all local gates green" was a narrower claim than it sounded.
+Run the `wired-individually` list too.
+
+> **Correction, 2026-09-06 (same day).** An earlier revision of this paragraph
+> also named `customer-estimate-rows` as a `wired-individually` suite and cited
+> it as the one that caught the #1445 regression a clean local run had missed.
+> The regression and the miss are real; **the bucket is wrong.** That suite has
+> lived in the **`smoke` bucket** since `16a79e24` ("collapse 65 hand-written
+> smoke steps into one aggregated runner"), verified against
+> `tests/ci-manifest.json` and its `git log -S` history. The miss happened
+> because `smoke.test.js` (the file) and `--bucket smoke` (65 suites in the
+> manifest) are **two different things**, and I was running only the first.
+> So the corrective action is broader than the paragraph above: run **every
+> manifest bucket** — `--bucket node`, `--bucket smoke`, and the
+> `wired-individually` list — not just the one whose name matches the file I
+> was already running. Filed under the same heading as the retraction: a
+> confidently-stated bucket name is exactly the kind of detail that gets
+> copied forward unchecked.
+
+## `estimate-finalization` — the last deferral, closed the same way (2026-09-06)
+
+The section above left `estimate-finalization.js:256` open with the reason
+"`resolveBrand()` there is called from a synchronous path with no async entry
+point to gate". **That reason was wrong, and checking took ten minutes.**
+
+`EstimateFinalization.formatEstimate()` has exactly two callers, both in
+`estimate-v2-ui.js`: `finalize(format)` and `sendForSignature()`. **Both are
+already `async`.** The async entry point I said did not exist was one frame up
+the stack the whole time — I had looked at the callee and inferred the caller.
+
+So the fix is the same shape as the `NBDDocGen.generate()` one, and the
+derivation at `:256` is again **left untouched**: it is a pure function of the
+brand it is handed, and `estimate-render.test.js` pins it (NBD→`NBD-`,
+Oaks→`OAK-`). A first attempt gated it on `_companyProfileLoaded` and **broke
+five of those assertions** — caught locally this time, which is the #1445 lesson
+paying for itself. That makes three files in a row where "make the sync thing
+async" was the wrong instinct: the derivation was faithful, the *input* was
+stale.
+
+**The part worth writing down.** Hydration on the `finalize()` path *already
+happened* before this change — but only as a side effect of
+`await _v2EstNumber(...)` sitting inside the argument object passed to
+`formatEstimate`. It worked **by argument-evaluation order**. Reorder that
+object literal, or drop the estimate-number field, and the leak returns with no
+test failing and no visible symptom. The behaviour did not change today; what
+changed is that it is now a stated invariant instead of an accident.
+`sendForSignature()` had no such accidental await at all.
+
+Two consumers at `:398` and `:803` interpolated `_b.docPrefix + '-' + Date.now()`
+unconditionally, which would mint `-1757…` with a leading dash once the prefix
+resolves blank for a non-NBD tenant. Both now omit the separator when the prefix
+is empty. **In production this path is dormant** — `formatEstimate` has exactly
+two callers (`estimate-v2-ui.js:3275`, `:3511`), both of which always pass
+`number: await _v2EstNumber(...)`, and `_v2EstNumber` can't return blank
+(`_tenantIdPrefix()` falls back to `CUS`). So the leak was latent, not live —
+said plainly rather than counted as a fix. It is *not* dormant under test:
+`estimate-render.test.js` deliberately fixtures `number: null` so the prefix is
+observable, which is why those five assertions are the ones that failed when I
+first tried to change the derivation.
+
+**The gate.** Three assertions in `tests/smoke/photo.test.js`, matched against a
+**comment-stripped** copy of the file: the helper exists and awaits, and the
+call is the **first statement** in each of `finalize()` and
+`sendForSignature()`. Two deliberate choices there. Comment-stripping, because
+the call sits 738 bytes below `finalize()`'s head — all of it explanatory
+comment — so a positional `{0,N}` window would pass or fail on comment length,
+which is exactly how an earlier gate in this session came to fail against its
+own correct implementation. And `\{\s*await`, because "awaits somewhere in the
+body" is satisfied by awaiting *after* the render, which is not a gate.
+
+Proven able to fail against four defect shapes, each failing only its own
+assertion: helper stops awaiting (1 fails), `finalize()` drops the call
+(2 fails), `finalize()` still calls it but a line slips in above (2 fails —
+this is the one a presence-only regex would have missed), `sendForSignature()`
+drops the call (3 fails). Control run and post-restore file both verified
+byte-identical.
+
+**Verification.** smoke **3637 / 0** · `--bucket node` **75/75** ·
+`--bucket smoke` **65/65** (the bucket that actually contains
+`customer-estimate-rows` — see the correction above) · `esign-stamp` 13,
+`esign-signature-reachable` 14, `esign-signer-flow` 27, `esign-setup-placement`
+13, `marketing-polish-contract` 53 · `check-js-syntax` 493 files ·
+`check-inline-html-scripts` 227 files. No boot-weight change: this is a
+correctness fix on an already-lazy path.
+
+**All five deferred brand-hydration sites are now closed.**
 
 ## Follow-ups found, not done here
 
@@ -632,5 +715,6 @@ than it sounded. Run the `wired-individually` list too.
 
 `docs/pro/js/script-loader.js` · `docs/pro/js/ui.js` · `docs/pro/customer.html` ·
 `docs/pro/dashboard.html` · `docs/pro/js/customer-bootstrap.module.js` ·
-`docs/pro/js/customer-tasks-ui.js` · `tests/e2e/boot-weight.spec.js` (new) ·
+`docs/pro/js/customer-tasks-ui.js` · `docs/pro/js/estimate-v2-ui.js` ·
+`docs/pro/js/estimate-finalization.js` · `tests/e2e/boot-weight.spec.js` (new) ·
 `tests/smoke/dashboard.test.js` · `tests/smoke/photo.test.js` · `tests/package.json`
