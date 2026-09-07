@@ -90,7 +90,8 @@
     "turnstile-contract.test.js",
     "webhook-signatures.test.js",
     "booking-events-tenancy.test.js",
-    "contact-panel-no-false-comms.test.js"
+    "contact-panel-no-false-comms.test.js",
+    "portal-estimate-share-gate.test.js"
   ],
   "smoke": {
     "team-roles.test.js": [

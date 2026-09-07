@@ -422,6 +422,7 @@
       // Capture as estimate_view; resourceId = estimate doc id.
       if (e.id) _emitAuditEvent('estimate_view', e.id);
       const sig = signaturePill(e.signatureStatus || 'none');
+      const hasTotal = e.grandTotal != null && !isNaN(Number(e.grandTotal));
       const signedHref = safeUrl(e.signedDocumentUrl);
       const signedPdf = signedHref
         ? '<a class="btn btn-ghost" style="margin-top:12px;" href="' + esc(signedHref) + '" target="_blank" rel="noopener">📄 Download Signed Contract</a>'
@@ -431,13 +432,24 @@
           '<div class="card-label">Your Estimate</div>' +
           '<div class="row">' +
             '<div>' +
-              '<div class="kv-key">Total</div>' +
-              '<div class="big-num">' + esc(fmtMoney(e.grandTotal)) + '</div>' +
+              // A null/NaN total used to render fmtMoney()'s em-dash into
+              // .big-num — a 36px orange "—" under the word TOTAL, which
+              // reads as a broken page at the moment the customer is
+              // deciding. Say the honest thing instead.
+              (hasTotal
+                ? '<div class="kv-key">Total</div><div class="big-num">' + esc(fmtMoney(e.grandTotal)) + '</div>'
+                : '<div class="kv-key">Total</div><div class="kv-val" style="color:var(--muted);">Your rep is still putting the numbers together.</div>') +
               (e.tierName ? '<div class="kv-val" style="margin-top:6px;color:var(--muted);">' + esc(e.tierName) + '</div>' : '') +
             '</div>' +
             '<div>' +
               '<div class="kv-key">Status</div>' +
-              '<div class="kv-val">' + (sig || '<span class="pill">Draft</span>') + '</div>' +
+              // Was: (sig || '<span class="pill">Draft</span>'). Only shared
+              // estimates reach the portal now, so "Draft" would be both
+              // unreachable and, if it ever did fire, alarming — a homeowner
+              // should never be told the thing they are looking at is a
+              // draft of their own contract. A shared estimate with no
+              // signature flow is simply "sent".
+              '<div class="kv-val">' + (sig || '<span class="pill">Sent to you</span>') + '</div>' +
               (e.signedAt ? '<div class="kv-val" style="color:var(--muted);font-size:13px;margin-top:6px;">Signed ' + esc(new Date(e.signedAt).toLocaleDateString()) + '</div>' : '') +
               signedPdf +
             '</div>' +

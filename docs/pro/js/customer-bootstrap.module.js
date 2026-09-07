@@ -1848,6 +1848,27 @@ window.shareEstimateViewLink = async function(estId) {
     + '?token=' + encodeURIComponent(token)
     + '&estimateId=' + encodeURIComponent(estId);
 
+  // Persist the share decision on the estimate itself.
+  //
+  // Minting a token used to be the ONLY record that a rep had shared an
+  // estimate, and it lived in localStorage — so nothing durable said "the
+  // customer is allowed to see this one". getHomeownerPortalView now gates
+  // its estimate card on this flag (functions/portal.js), which is what
+  // stops an unshared scratch tier reaching the homeowner's portal.
+  //
+  // Best-effort: a stamp failure must never cost the rep the link they just
+  // asked for, so this runs after the URL is built and only warns. The
+  // consequence of a miss is the portal card staying hidden — the safe
+  // direction — and the estimate-view link itself still works.
+  try {
+    await updateDoc(doc(db, 'estimates', estId), {
+      sharedWithHomeowner: true,
+      sharedAt: serverTimestamp()
+    });
+  } catch (e) {
+    console.warn('[estimate-share] could not stamp sharedWithHomeowner:', e && e.message);
+  }
+
   // Try the modern Web Share API first (mobile, opens native share
   // sheet straight to SMS/Messenger/email). Fall back to clipboard
   // copy for desktop. Final fallback: prompt() for legacy browsers.
