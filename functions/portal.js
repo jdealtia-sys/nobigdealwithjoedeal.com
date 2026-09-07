@@ -665,6 +665,13 @@ exports.getHomeownerPortalView = onRequest(
         displayName:    rep.displayName || lead.repName || 'Your Rep',
         calcomUsername: rep.calcomUsername || null,
         calcomEventSlug: rep.calcomEventSlug || 'roof-inspection',
+        // Optional per-visit-type slugs ({ adjuster, estimate, gutters, ... }).
+        // booking-events.js on the client resolves these; absent, every kind
+        // collapses to calcomEventSlug above, so a tenant that never set them
+        // behaves exactly as before.
+        calcomEventSlugs: (rep.calcomEventSlugs && typeof rep.calcomEventSlugs === 'object')
+          ? rep.calcomEventSlugs
+          : null,
         phone: rep.phone || null
       },
       company: {

@@ -381,7 +381,12 @@ window.copyBookingLink = function() {
   // (or its legalName if unset) — never NBD's name in another company's copy.
   const _b = (window._brand && window._brand()) || {};
   const signOff = _b.smsSignOff || ((!_b.legalName || _b.legalName === 'No Big Deal Home Solutions') ? 'Joe from No Big Deal Roofing' : _b.legalName);
-  const text = `Hey${name ? ' ' + name : ''}, this is ${signOff}! I'd love to set up a free roof inspection at your convenience. Pick a time that works for you here: ${url}`;
+  // The ask follows whichever visit type the rep picked in
+  // #bookingKindSelect (set alongside _bookingUrl in
+  // customer-bootstrap.module.js); falls back to the inspection wording
+  // for any surface that sets _bookingUrl without a kind.
+  const ask = window._bookingAsk || 'set up a free roof inspection';
+  const text = `Hey${name ? ' ' + name : ''}, this is ${signOff}! I'd love to ${ask} at your convenience. Pick a time that works for you here: ${url}`;
   navigator.clipboard.writeText(text).then(() => {
     const btn = document.getElementById('copyBookingBtn');
     if (btn) { btn.textContent = '✅ Copied!'; setTimeout(() => btn.textContent = '📋 Copy Booking Link', 2000); }

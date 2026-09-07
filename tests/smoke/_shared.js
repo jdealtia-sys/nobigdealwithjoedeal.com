@@ -256,8 +256,14 @@ function readFunctionsIndex() {
 // lives in (same pattern as readDashboard above).
 function readPortal() {
   const parts = [read(path.join(ROOT, 'docs/pro/portal.html'))];
-  const p = path.join(ROOT, 'docs/pro/js/portal.js');
-  if (fs.existsSync(p)) parts.push(read(p));
+  // js/portal.js holds the extracted IIFE; js/booking-events.js holds the
+  // cal.com URL construction the booking card used to inline (multi-event
+  // work, 2026-09-07). Same reason as portal.js: assertions keep finding
+  // patterns regardless of which of the three files owns them.
+  for (const rel of ['docs/pro/js/portal.js', 'docs/pro/js/booking-events.js']) {
+    const p = path.join(ROOT, rel);
+    if (fs.existsSync(p)) parts.push(read(p));
+  }
   return parts.join('\n');
 }
 

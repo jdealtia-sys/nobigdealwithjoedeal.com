@@ -658,38 +658,94 @@ async function loadCustomerData(id) {
       };
     }
 
-    // Booking link buttons — show for early-stage leads
-    const earlyStages = ['new','contacted','inspected'];
-    if (earlyStages.includes(stage)) {
-      const calSettings = JSON.parse(localStorage.getItem('nbd_cal_settings') || '{}');
-      const calUser = calSettings.username || 'nobigdeal';
-      const calSlug = calSettings.eventSlug || 'roof-inspection';
-      const bookingUrl = `https://cal.com/${calUser}/${calSlug}`;
+    // Booking link buttons.
+    //
+    // Resolution now goes through booking-events.js. This block used to read
+    // localStorage directly and fall back to `calSettings.username ||
+    // 'nobigdeal'` with NO tenant check — the exact bug crm-portal-bridge.js's
+    // _repBookingUrl() was fixed for ("a contractor who never configured
+    // Cal.com texted his homeowner a link to the platform owner's calendar"),
+    // missed one file over. A tenant with nothing configured now gets no
+    // buttons at all rather than Joe's calendar.
+    //
+    // The stage gate was ['new','contacted','inspected'] compared against a
+    // raw lead.stage, but the pipeline writes capitalised stages ('New',
+    // 'Inspected', 'Estimate Sent') — so the buttons never appeared for
+    // pipeline-created leads. Normalised, and widened: now that the calendar
+    // carries more than one visit type, an estimate walkthrough is exactly
+    // what a lead sitting at 'Estimate Sent' needs. Only finished/dead jobs
+    // are excluded.
+    const stageKey = String(stage || '').toLowerCase();
+    const bookingClosed = stageKey === 'complete' || stageKey === 'closed' || stageKey === 'lost';
+    const bookingOptions = (window.NBDBooking && window.NBDBooking.options()) || [];
+    if (!bookingClosed && bookingOptions.length) {
       // Audit CC: String() coerces non-string firstName before .trim().
       const custName = String(lead.firstName || '').trim();
+      const suggested = window.NBDBooking.suggest(lead);
+      const initialKind = bookingOptions.some((o) => o.kind === suggested)
+        ? suggested
+        : bookingOptions[0].kind;
 
-      // SMS booking link
       const smsBtn = document.getElementById('smsBookingLink');
-      if (smsBtn && lead.phone) {
-        // Audit CC: same defense as the call link above — phone may
-        // arrive as a number from a CSV import.
-        const cleanPhone = String(lead.phone).replace(/\D/g, '');
-        // M1: NBD keeps 'Joe from No Big Deal Roofing'; a non-NBD tenant uses its
-        // own smsSignOff, or its legalName if unset — never NBD's sign-off.
-        const _bSms = (window._brand && window._brand()) || {};
-        const _signOff = _bSms.smsSignOff || ((!_bSms.legalName || _bSms.legalName === 'No Big Deal Home Solutions') ? 'Joe from No Big Deal Roofing' : _bSms.legalName);
-        const smsBody = encodeURIComponent(`Hey${custName ? ' ' + custName : ''}, this is ${_signOff}! I'd love to set up a free roof inspection at your convenience. Pick a time that works for you here: ${bookingUrl}`);
-        smsBtn.href = `sms:${cleanPhone}?body=${smsBody}`;
-        smsBtn.style.display = '';
+      const smsLabel = document.getElementById('smsBookingLabel');
+      const copyBtn = document.getElementById('copyBookingBtn');
+      const kindSel = document.getElementById('bookingKindSelect');
+
+      // M1: NBD keeps 'Joe from No Big Deal Roofing'; a non-NBD tenant uses its
+      // own smsSignOff, or its legalName if unset — never NBD's sign-off.
+      const _bSms = (window._brand && window._brand()) || {};
+      const _signOff = _bSms.smsSignOff || ((!_bSms.legalName || _bSms.legalName === 'No Big Deal Home Solutions') ? 'Joe from No Big Deal Roofing' : _bSms.legalName);
+
+      // One line per visit type, so the text reads like the thing being booked
+      // instead of always offering "a free roof inspection".
+      const ASK = {
+        inspection: 'set up a free roof inspection',
+        question:   'answer your roofing questions on a quick 15-minute call',
+        adjuster:   'meet your insurance adjuster at the house',
+        estimate:   'walk you through your estimate',
+        gutters:    'get you a gutters and siding estimate',
+        lexington:  'set up a free roof inspection'
+      };
+
+      const applyBookingKind = (kind) => {
+        const opt = bookingOptions.find((o) => o.kind === kind) || bookingOptions[0];
+        if (!opt) return;
+        // Consumed by copyBookingLink() in customer-tasks-ui.js.
+        window._bookingUrl = opt.url;
+        window._bookingKind = opt.kind;
+        window._bookingAsk = ASK[opt.kind] || ASK.inspection;
+        window._bookingCustomerName = custName;
+
+        if (smsLabel) smsLabel.textContent = bookingOptions.length > 1 ? 'Text This Link' : 'Text Booking Link';
+        if (smsBtn && lead.phone) {
+          // Audit CC: same defense as the call link above — phone may
+          // arrive as a number from a CSV import.
+          const cleanPhone = String(lead.phone).replace(/\D/g, '');
+          const smsBody = encodeURIComponent(`Hey${custName ? ' ' + custName : ''}, this is ${_signOff}! I'd love to ${window._bookingAsk} at your convenience. Pick a time that works for you here: ${opt.url}`);
+          smsBtn.href = `sms:${cleanPhone}?body=${smsBody}`;
+          smsBtn.style.display = '';
+        }
+        if (copyBtn) copyBtn.style.display = '';
+      };
+
+      // The picker only earns its space when there is a real choice — a
+      // tenant with one configured slug sees the buttons and no dropdown.
+      if (kindSel && bookingOptions.length > 1) {
+        kindSel.innerHTML = '';
+        bookingOptions.forEach((o) => {
+          const el = document.createElement('option');
+          el.value = o.kind;
+          el.textContent = o.label;
+          el.title = o.meta + ' — ' + o.blurb;
+          if (o.kind === initialKind) el.selected = true;
+          kindSel.appendChild(el);
+        });
+        kindSel.style.display = '';
+        // CSP: script-src-attr 'none' — listener, never an on* attribute.
+        kindSel.addEventListener('change', () => applyBookingKind(kindSel.value));
       }
 
-      // Copy booking link button
-      const copyBtn = document.getElementById('copyBookingBtn');
-      if (copyBtn) copyBtn.style.display = '';
-
-      // Store booking URL for copy function
-      window._bookingUrl = bookingUrl;
-      window._bookingCustomerName = custName;
+      applyBookingKind(initialKind);
     }
 
     // Populate info

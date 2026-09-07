@@ -1205,7 +1205,8 @@ body.nbd-photo-selecting .nbd-photo-checkbox,
     
     <div class="quick-actions">
       <a class="btn" id="callLink" href="tel:"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:middle;"><path d="M4 3h3l2 4-2.5 1.5A9 9 0 0011.5 13.5L13 11l4 2v3a1 1 0 01-1 1C8.4 17 3 11.6 3 4a1 1 0 011-1z"/></svg> Call</a>
-      <a class="btn" id="smsBookingLink" href="sms:" style="display:none;"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:middle;"><rect x="3" y="4" width="14" height="13" rx="1.5"/><path d="M3 8h14"/><path d="M7 2v4M13 2v4"/></svg> Book Inspection</a>
+      <select class="btn" id="bookingKindSelect" aria-label="Which visit to book" title="Which visit type the booking link offers" style="display:none;padding:6px 10px;max-width:210px;"></select>
+      <a class="btn" id="smsBookingLink" href="sms:" style="display:none;"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:middle;"><rect x="3" y="4" width="14" height="13" rx="1.5"/><path d="M3 8h14"/><path d="M7 2v4M13 2v4"/></svg> <span id="smsBookingLabel">Text Booking Link</span></a>
       <a class="btn" id="emailLink" href="mailto:"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:middle;"><rect x="2" y="4" width="16" height="12" rx="1.5"/><path d="M2 6l8 5 8-5"/></svg> Email</a>
       <button class="btn" data-action="copyBookingLink" id="copyBookingBtn" title="Copy booking link to clipboard" style="display:none;">
         📋 Copy Booking Link
