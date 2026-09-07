@@ -51,8 +51,10 @@ function loadCompanyProfile() {
   ok('_tenant() is a function', typeof win._tenant === 'function');
 
   const b = win._brand();
-  ok('NBD accent = canonical orange #E8720C', b.colors.accent === '#E8720C');
-  ok('NBD primary = navy #1E3A6E', b.colors.primary === '#1E3A6E');
+  // NBD DOCUMENT STANDARD, locked 2026-09-07 — palette re-measured off the
+  // master logo artwork. #E8720C also failed WCAG AA on white (3.07:1).
+  ok('NBD accent = canonical orange #BD5728', b.colors.accent === '#BD5728');
+  ok('NBD primary = navy #1A3057', b.colors.primary === '#1A3057');
   ok('NBD legalName', b.legalName === 'No Big Deal Home Solutions');
   ok('NBD displayName', b.displayName === 'No Big Deal');
   ok('NBD seal', b.seal === 'NBD');
@@ -60,8 +62,17 @@ function loadCompanyProfile() {
   ok('NBD logo url points at nbd-logo.png', /nbd-logo\.png$/.test(b.logoUrl || ''));
   ok('NBD contact phone', b.contact.phone === '(859) 420-7382');
   ok('NBD alert SMS hook', b.contact.alertSms === '+18594207382');
-  ok('NBD doc fonts (Barlow)', b.fonts.docDisplay === 'Barlow Condensed' && b.fonts.docBody === 'Barlow');
+  // Document faces are Montserrat over Lato per the standard. These two tokens
+  // were previously declared but consumed nowhere — printCSS() now reads them,
+  // so this assertion guards something real rather than a dead default.
+  ok('NBD doc fonts (Montserrat/Lato)', b.fonts.docDisplay === 'Montserrat' && b.fonts.docBody === 'Lato');
   ok('NBD smsSignOff', b.smsSignOff === 'Joe from No Big Deal Roofing');
+  // NBD itself DOES carry its credentials — the blanking above must not be so
+  // aggressive that the real owner loses their own badges.
+  ok('NBD carries its own affiliate credentials',
+    Array.isArray(b.affiliates) && b.affiliates.length === 2 &&
+    b.affiliates.some(a => a.name === 'GAF Certified'   && a.number === '#1162011') &&
+    b.affiliates.some(a => a.name === 'TAMKO Pro Gold'  && a.number === '#181382'));
 
   // Phase C step 1 — contact.slackWebhook + integrations{} schema on the tenant doc.
   ok('NBD contact.slackWebhook field present', 'slackWebhook' in b.contact);
@@ -95,6 +106,16 @@ function loadCompanyProfile() {
   ok('override: phone blanked (NOT NBD\'s number)', ob.contact.phone === '');
   ok('override: logoUrl blanked (NOT NBD\'s logo)', ob.logoUrl === '');
   ok('override: seal blanked (NOT "NBD")', ob.seal === '');
+  // AFFILIATES ARE A CREDENTIAL CLAIM, NOT COSMETIC STYLING (NBD Document
+  // Standard section 5). Colours and fonts may inherit — a GAF or TAMKO
+  // licence number may NOT. Left to deep-merge, a stranger tenant's signed
+  // contract would print NBD's GAF #1162011 as though it were their own
+  // certification. This is the assertion that stops that, and it is why
+  // 'affiliates' sits in _IDENTITY_TOP rather than in the cosmetic bucket.
+  ok('override: affiliates blanked (NOT NBD\'s GAF/TAMKO credentials)',
+    !(Array.isArray(ob.affiliates) && ob.affiliates.length));
+  ok('override: no NBD licence number anywhere in the resolved brand',
+    !/1162011|181382/.test(JSON.stringify(ob)));
   ok('override: _brandOverride() returns the raw un-merged override', win._brandOverride() && win._brandOverride().legalName === 'Oaks Roofing & Construction' && !win._brandOverride().contact);
 
   console.log('\n──────────────────────────────────────────────────');

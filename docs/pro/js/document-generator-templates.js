@@ -56,11 +56,25 @@
   let C = DG.COMPANY || {
     name: 'No Big Deal Home Solutions', phone: '(859) 420-7382',
     email: 'info@nobigdealwithjoedeal.com', website: 'nobigdealwithjoedeal.com',
-    colors: { primary: '#1e3a6e', secondary: '#1a1a2e', accent: '#e8720c' }
+    colors: { primary: '#1A3057', secondary: '#12223D', accent: '#BD5728' }
   };
-  let P = C.colors?.primary || '#1e3a6e';   // Navy — headers, borders, structure
-  let S = C.colors?.secondary || '#1a1a2e'; // Dark navy — body text headings
-  let A = C.colors?.accent || '#e8720c';    // Orange — CTAs, totals, highlights
+  // NBD DOCUMENT STANDARD, locked 2026-09-07 — measured off the logo artwork.
+  let P = C.colors?.primary || '#1A3057';   // Navy — headers, borders, structure
+  let S = C.colors?.secondary || '#12223D'; // Navy-deep — gradients, dark bars
+  let A = C.colors?.accent || '#BD5728';    // Orange — the one accent
+  let G = C.colors?.grey || '#4C4C4D';      // Captions, labels, sublines
+  let RL = C.colors?.rule || '#DFE2E7';     // Hairlines, borders
+  let WSH = C.colors?.wash || '#F6F7F8';    // Zebra rows, panel fills
+  let INK = C.colors?.ink || '#14181F';     // Body copy
+  // Document faces. These read brand.fonts.docDisplay/docBody, which existed in
+  // company-profile.js but were consumed nowhere until now. Fallback stacks are
+  // MANDATORY — neither face is a system font, and without a stack a document
+  // opened on a machine that lacks them silently renders in Times.
+  let FD = "'Montserrat','Segoe UI',Helvetica,Arial,sans-serif";
+  let FB = "'Lato','Segoe UI',Helvetica,Arial,sans-serif";
+  // Credential badges, resolved per tenant. Blanked by _resolveBrand for any
+  // non-NBD tenant that has not set its own — never inherited.
+  let AFF = [];
   // Short brand seal used in signature labels ("Authorized <SEAL> Representative").
   // 'NBD' for NBD → byte-identical; a tenant resolves to its own brand.seal
   // (e.g. Oaks → 'ORC') via _refreshBrand() below. Phase B tenant-awareness.
@@ -110,30 +124,68 @@
 
   // Shared print styles for all templates. A FUNCTION (not a baked const) so it
   // picks up the active tenant's refreshed P/S/A colours on each render — Phase B.
-  function printCSS() { return `
+  //
+  // COMMENTS ARE STRIPPED FROM THE EMITTED CSS (see the return below). They are
+  // for whoever reads this file, not for the customer. Two real bugs came from
+  // shipping them inside the document:
+  //   1. a comment explaining the tagline contrast contained the brand hex, so
+  //      a TENANT's document carried NBD's colour codes, and the tenancy-leak
+  //      test in docgen-render.test.js flagged it;
+  //   2. a comment reading "BALANCE DUE / PROJECT TOTAL" put the words
+  //      "BALANCE DUE" into every document — including receipts, which
+  //      docgen-preflight-contract.test.js asserts carry NO due-date language,
+  //      because a receipt is proof of payment and must not read as a bill.
+  // Stripping at the boundary means neither can happen again, and it trims
+  // every generated document a little as well.
+  function printCSS() { return stripCssComments(`
     @media print { .no-print { display:none!important; } body { margin:0; } @page { margin:0.5in; } }
     * { box-sizing:border-box; }
-    body { font-family:Georgia,'Times New Roman',serif; color:#222; line-height:1.6; margin:0; padding:0; background:#fff; }
-    h1,h2,h3,h4 { font-family:'Helvetica Neue',Arial,sans-serif; color:${S}; margin:0 0 12px 0; }
+    body { font-family:${FB}; color:${INK}; line-height:1.55; margin:0; padding:0; background:#fff; }
+    h1,h2,h3,h4 { font-family:${FD}; color:${P}; margin:0 0 12px 0; }
     .doc-page { max-width:8.5in; margin:0 auto; padding:40px 50px; }
     .orange { color:${A}; }
     .section { margin-bottom:28px; }
-    .section-title { font-size:15px; font-weight:800; text-transform:uppercase; letter-spacing:0.1em;
-      color:${P}; padding-bottom:8px; margin-bottom:14px; position:relative; display:inline-block; padding-right:24px; }
+    .section-title { font-size:15px; font-weight:700; text-transform:uppercase; letter-spacing:0.1em;
+      color:${P}; padding-bottom:8px; margin-bottom:14px; position:relative; display:inline-block; padding-right:24px;
+      font-family:${FD}; }
     .section-title:after { content:""; position:absolute; left:0; bottom:0; width:32px; height:3px;
       background:${A}; border-radius:2px; }
+    /* Numbered section: orange numeral, navy head. Standard section 7. */
+    .section-num { font-family:${FD}; font-weight:800; font-size:15px; color:${A};
+      margin-right:10px; letter-spacing:0.04em; }
     table.items { width:100%; border-collapse:collapse; margin:16px 0; }
-    table.items th { background:${P}; color:#fff; padding:10px 14px; text-align:left; font-family:'Helvetica Neue',Arial,sans-serif;
-      font-size:12px; text-transform:uppercase; letter-spacing:0.06em; }
-    table.items td { padding:10px 14px; border-bottom:1px solid #eee; font-size:14px; }
-    table.items tr:nth-child(even) td { background:#f9f9f9; }
+    table.items th { background:${P}; color:#fff; padding:10px 14px; text-align:left; font-family:${FD};
+      font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:0.06em; }
+    table.items td { padding:10px 14px; border-bottom:1px solid ${RL}; font-size:14px; }
+    table.items tr:nth-child(even) td { background:${WSH}; }
+    /* Money reads right-aligned. Never centre a figure. Standard section 7. */
     table.items .right { text-align:right; }
-    .sig-line { display:inline-block; width:280px; border-bottom:2px solid #333; margin:0 20px; }
-    .sig-label { font-size:11px; color:#666; margin-top:4px; }
-    .photo-zone { border:2px dashed #ccc; border-radius:8px; min-height:180px; display:flex; align-items:center;
-      justify-content:center; color:#999; font-size:13px; background:#fafafa; }
+    /* Total bar — BALANCE DUE / PROJECT TOTAL / AMOUNT APPROVED. */
+    .total-bar { display:flex; justify-content:space-between; align-items:center;
+      background:${S}; color:#fff; font-family:${FD}; font-size:14px; font-weight:700;
+      padding:14px 20px; border-radius:4px; margin:18px 0; letter-spacing:0.04em; }
+    .total-bar .total-figure { font-size:18px; }
+    .sig-line { display:inline-block; width:280px; border-bottom:2px solid ${P}; margin:0 20px; }
+    .sig-label { font-size:11px; color:${G}; margin-top:4px; }
+    .photo-zone { border:2px dashed ${RL}; border-radius:8px; min-height:180px; display:flex; align-items:center;
+      justify-content:center; color:${G}; font-size:13px; background:${WSH}; }
+    .photo-cap { font-size:11px; color:${G}; margin-top:6px; line-height:1.4; }
     .badge { display:inline-block; padding:6px 16px; border-radius:20px; font-size:12px; font-weight:700;
-      font-family:'Helvetica Neue',Arial,sans-serif; letter-spacing:0.04em; }
+      font-family:${FD}; letter-spacing:0.04em; }
+    /* Credential badge row. Rendered only where the document class carries it
+       and only from the tenant's OWN resolved affiliates — see affiliateRow(). */
+    .affiliates { display:flex; justify-content:center; gap:14px; flex-wrap:wrap; margin:28px 0 8px 0; }
+    .affiliate { border:1px solid ${RL}; border-radius:6px; background:#fff;
+      padding:8px 14px; text-align:left; }
+    .affiliate-name { font-family:${FD}; font-size:11px; font-weight:700; color:${P};
+      letter-spacing:0.04em; }
+    .affiliate-num { font-family:${FB}; font-size:10px; color:${G}; margin-top:2px; }
+    /* How-to-pay panel — invoices only. Standard section 7. */
+    .pay-panel { border:2px solid ${A}; border-radius:6px; background:${WSH};
+      padding:16px 20px; margin:18px 0; }
+    .pay-panel-title { font-family:${FD}; font-size:12px; font-weight:700; color:${P};
+      text-transform:uppercase; letter-spacing:0.08em; margin-bottom:8px; }
+    .fine-print { font-size:11px; color:${G}; line-height:1.5; }
     .letterhead { background:linear-gradient(180deg,${P} 0%,${S} 100%); color:#fff;
       padding:24px 32px; margin:-40px -50px 28px -50px; border-bottom:6px solid ${A};
       display:flex; justify-content:space-between; align-items:center; gap:18px; }
@@ -154,21 +206,46 @@
     .letterhead-logo-img { display:block; width:160px; height:auto;
       object-fit:contain; object-position:left center; flex-shrink:0;
       background:#fff; border-radius:8px; padding:6px 10px; box-sizing:border-box; }
-    .letterhead-name { font-family:'Helvetica Neue',Arial,sans-serif; font-size:22px; font-weight:800;
+    .letterhead-name { font-family:${FD}; font-size:22px; font-weight:800;
       color:#fff; letter-spacing:.04em; text-transform:uppercase; line-height:1.1; }
-    .letterhead-tagline { font-family:Georgia,serif; font-size:12px; color:${A}; font-style:italic; margin-top:4px; }
-    .letterhead-contact { text-align:right; font-family:'Helvetica Neue',Arial,sans-serif;
+    /* Tagline sits on the navy header, so it must NOT be the orange accent:
+       accent-on-navy measures 2.84:1 and is unreadable. White at 88% instead.
+       (No hex literals in shipped CSS comments — every comment here is emitted
+       verbatim into the customer's document, and a tenant's paper should not
+       carry another brand's colour codes.) */
+    .letterhead-tagline { font-family:${FB}; font-size:12px; color:rgba(255,255,255,.88);
+      font-style:italic; margin-top:4px; }
+    .letterhead-contact { text-align:right; font-family:${FB};
       font-size:11px; color:rgba(255,255,255,.92); line-height:1.7; flex-shrink:0; letter-spacing:.02em; }
     .footer { background:linear-gradient(180deg,${S} 0%,${P} 100%); color:rgba(255,255,255,.92);
       margin:40px -50px -40px -50px; padding:18px 32px; border-top:4px solid ${A};
       display:flex; justify-content:space-between; align-items:center; gap:18px;
-      font-family:'Helvetica Neue',Arial,sans-serif; font-size:10px; letter-spacing:.04em; }
-    .footer .footer-brand { font-weight:800; text-transform:uppercase; letter-spacing:.1em; color:#fff; font-size:11px; }
+      font-family:${FB}; font-size:10px; letter-spacing:.04em; }
+    .footer .footer-brand { font-family:${FD}; font-weight:800; text-transform:uppercase; letter-spacing:.1em; color:#fff; font-size:11px; }
+    .footer .footer-docnum { font-variant-numeric:tabular-nums; }
+    .closing-tag { text-align:center; font-family:${FB}; font-style:italic; font-size:11px;
+      color:${G}; margin-top:22px; }
     .print-btn { text-align:center; padding:24px; }
     .print-btn button { background:${A}; color:#fff; border:none; padding:14px 36px; border-radius:8px;
-      font-size:16px; cursor:pointer; font-weight:600; font-family:'Helvetica Neue',Arial,sans-serif; }
+      font-size:16px; cursor:pointer; font-weight:600; font-family:${FD}; }
     .print-btn button:hover { opacity:0.9; }
-  `; }
+  `); }
+
+  //
+  // Remove CSS block comments from a stylesheet before it is emitted into a
+  // customer-facing document, and collapse the blank lines left behind.
+  // Only ever fed the printCSS() literal above — pure CSS, with no strings or
+  // urls containing comment-like sequences — so a plain non-greedy strip is
+  // safe here and does not need a tokenizer.
+  // (Line comments, not a JSDoc block: the delimiters this function talks
+  // about cannot be written inside one without closing it early.)
+  //
+  function stripCssComments(css) {
+    return String(css)
+      .replace(/\/\*[\s\S]*?\*\//g, '')
+      .replace(/[ \t]+\n/g, '\n')
+      .replace(/\n{3,}/g, '\n\n');
+  }
 
   function page(title, body) {
     return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${title} | ${C.name}</title>
@@ -217,6 +294,37 @@
         <span class="sig-label" style="width:140px;margin-left:20px;">Date</span></div></div>`
     ).join('') + `</div>`;
   }
+
+  /**
+   * Credential / manufacturer badge row (NBD Document Standard, section 5).
+   *
+   * DEFENCE IN DEPTH. _resolveBrand() already blanks `affiliates` for a
+   * non-NBD tenant that has not set its own (it is listed in _IDENTITY_TOP
+   * precisely because a licence number is a certification claim, not styling).
+   * This renderer independently refuses to emit anything it was not handed a
+   * well-formed array for — '' , [], undefined and malformed entries all
+   * produce NO row rather than a partial or inherited one. A false GAF number
+   * on a stranger's signed contract is a materially worse failure than a
+   * missing badge, so the bias is deliberately toward printing nothing.
+   *
+   * Which document classes carry the row is the CALLER's decision, per the
+   * standard: 100 contracts, 200 estimates, 500 closeout, 600 reports and
+   * 700 marketing do; 000 legal boilerplate, 300 field execution and 400
+   * insurance/claims do NOT — adjuster-facing paper stays plain and factual.
+   */
+  function affiliateRow() {
+    const list = Array.isArray(AFF) ? AFF : [];
+    const cards = list.map(function (a) {
+      const name = a && a.name ? esc(String(a.name)) : '';
+      if (!name) return '';                 // no name → not a badge, skip it
+      const num = a && a.number ? esc(String(a.number)) : '';
+      return `<div class="affiliate"><div class="affiliate-name">${name}</div>` +
+             (num ? `<div class="affiliate-num">${num}</div>` : '') + `</div>`;
+    }).filter(Boolean);
+    if (!cards.length) return '';
+    return `<div class="affiliates">${cards.join('')}</div>`;
+  }
+  DG.affiliateRow = affiliateRow;
 
   function photoGrid(count, cols) {
     cols = cols || 3;
@@ -2357,6 +2465,10 @@
     P = (C.colors && C.colors.primary) || P;
     S = (C.colors && C.colors.secondary) || S;
     A = (C.colors && C.colors.accent) || A;
+    G = (C.colors && C.colors.grey) || G;
+    RL = (C.colors && C.colors.rule) || RL;
+    WSH = (C.colors && C.colors.wash) || WSH;
+    INK = (C.colors && C.colors.ink) || INK;
     // Resolve the signature seal from the active tenant's brand (brand.seal).
     // NBD → 'NBD' (byte-identical); a tenant → its own seal (e.g. Oaks → 'ORC').
     try {
@@ -2368,7 +2480,29 @@
       SEAL = (_b && _b.seal) ? _b.seal
            : (_b && _b.legalName && _b.legalName !== 'No Big Deal Home Solutions') ? ''
            : 'NBD';
-    } catch (_) { SEAL = 'NBD'; }
+      // Document faces from brand.fonts.docDisplay/docBody. A fallback STACK is
+      // always appended — neither Montserrat nor Lato is a system font, and a
+      // bare family name silently renders as Times where the face is missing.
+      // The face name is quoted defensively so a multi-word family cannot break
+      // the declaration.
+      const _fq = function (n, fallback) {
+        const v = String(n || '').trim().replace(/["'`;{}]/g, '');
+        return (v ? "'" + v + "'," : '') + fallback;
+      };
+      const _fonts = (_b && _b.fonts) || {};
+      FD = _fq(_fonts.docDisplay || 'Montserrat', "'Segoe UI',Helvetica,Arial,sans-serif");
+      FB = _fq(_fonts.docBody || 'Lato', "'Segoe UI',Helvetica,Arial,sans-serif");
+      // Credential badges. NEVER fall back to NBD's — _resolveBrand blanks this
+      // for a non-NBD tenant that has not set its own, and an empty list must
+      // stay empty. A `|| NBD_DEFAULT` here would re-leak the certification
+      // numbers that the blanking exists to stop (same trap as SEAL above).
+      AFF = (_b && Array.isArray(_b.affiliates)) ? _b.affiliates : [];
+    } catch (_) {
+      SEAL = 'NBD';
+      FD = "'Montserrat','Segoe UI',Helvetica,Arial,sans-serif";
+      FB = "'Lato','Segoe UI',Helvetica,Arial,sans-serif";
+      AFF = [];
+    }
     LOGO_URL = DG._logoSrc ? DG._logoSrc() : LOGO_URL;
     const _m = String(LOGO_URL).match(/^data:([^;,]+)/);
     LOGO_TYPE = _m ? _m[1]

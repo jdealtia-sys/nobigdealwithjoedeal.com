@@ -54,10 +54,14 @@ ok('NBD: resolves to the COMPANY base VALUES',
 ok('NBD: still gets a logo (identity-check regression)', !!dgNBD._logoSrc());
 ok('NBD: name unchanged', cNBD.name === 'No Big Deal Home Solutions');
 ok('NBD: email unchanged (info@)', cNBD.email === 'info@nobigdealwithjoedeal.com');
-ok('NBD: primary navy unchanged', cNBD.colors.primary === '#1e3a6e');
-ok('NBD: secondary unchanged (#1a1a2e)', cNBD.colors.secondary === '#1a1a2e');
-ok('NBD: getSharedCSS renders navy #1e3a6e (byte-identical chrome)', /#1e3a6e/i.test(dgNBD.getSharedCSS()));
-ok('NBD: getSharedCSS renders orange accent', /#e8720c/i.test(dgNBD.getSharedCSS()));
+// NBD DOCUMENT STANDARD, locked 2026-09-07: the palette was re-measured off the
+// master logo artwork. Retired #1e3a6e / #1a1a2e / #e8720c — the last of which
+// also failed WCAG AA on white at 3.07:1. Expected VALUES updated; the
+// assertions themselves are unchanged in shape and still pin the NBD chrome.
+ok('NBD: primary navy unchanged', cNBD.colors.primary === '#1A3057');
+ok('NBD: secondary unchanged (#12223D)', cNBD.colors.secondary === '#12223D');
+ok('NBD: getSharedCSS renders navy #1A3057 (byte-identical chrome)', /#1A3057/i.test(dgNBD.getSharedCSS()));
+ok('NBD: getSharedCSS renders orange accent', /#BD5728/i.test(dgNBD.getSharedCSS()));
 
 // ── Oaks brand → remapped ──
 const OAKS_BRAND = {
@@ -79,7 +83,11 @@ ok('Oaks: email remapped', cOAK.email === 'joe@oaksrfc.com');
 ok('Oaks: logoUrl set', /logo-orange\.svg$/.test(cOAK.logoUrl || ''));
 ok('Oaks: neutral lightGray preserved from base', cOAK.colors.lightGray === '#f5f5f5');
 ok('Oaks: getSharedCSS renders Oaks charcoal #333333', /#333333/i.test(dgOAK.getSharedCSS()));
-ok('Oaks: getSharedCSS does NOT render NBD navy', !/#1e3a6e/i.test(dgOAK.getSharedCSS()));
+// TENANCY ISOLATION. This must track the CURRENT NBD navy — pinned against the
+// retired #1e3a6e it would pass vacuously (nothing renders that colour any
+// more) and would stop protecting anything. It is the assertion that proves a
+// stranger tenant's document does not come out wearing NBD's brand.
+ok('Oaks: getSharedCSS does NOT render NBD navy', !/#1A3057/i.test(dgOAK.getSharedCSS()));
 
 console.log('\nDOCGEN BRAND — _logoSrc() + _docPrefix() (Phase B-2)');
 ok('NBD: logo falls back to nbd-logo.png', /nbd-logo\.png$/.test(dgNBD._logoSrc()));
