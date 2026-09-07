@@ -1259,6 +1259,20 @@ section('Photo-report PDF filename never leaks NBD onto a tenant download (2026-
       'substituting NBD when the resolver is missing or unhydrated is the leak itself — route through the async window._tenantFilePrefix(). Offending: ' + offenders.join(' | ').slice(0, 180));
   });
 
+  // NBDDocGen.generate() must AWAIT company-profile hydration before rendering.
+  // Everything downstream — window._legal(), window._brand(), _docPrefix(), and
+  // the '-WC' cert prefix in document-generator-templates.js — is a synchronous
+  // read of a brand doc that is seeded with the NBD defaults at parse time. The
+  // sync derivations are NOT the bug (docgen-brand.test.js pins five of them);
+  // the brand they were handed was. Gating once at the async entry point is what
+  // makes the whole synchronous template layer tenant-correct.
+  {
+    const dg = read(path.join(PRO_JS, 'document-generator.js'));
+    assert('NBDDocGen.generate() awaits company-profile hydration before rendering',
+      /async generate\([\s\S]{0,2000}await window\._loadCompanyProfile\(\)/.test(dg),
+      'rendering before hydration stamps the platform brand onto another tenant document — the template layer is synchronous, so the gate has to be here');
+  }
+
   // The resolver must veto NBD from a non-platform identity. Hydration alone
   // is not enough: _isNbdBrand() treats any tenant that never set legalName as
   // NBD, so a hydrated-but-unprovisioned contractor still resolved to the

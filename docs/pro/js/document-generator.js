@@ -345,6 +345,30 @@ window.NBDDocGen = {
    * @param {object} data - Merge field data
    */
   async generate(type, data = {}) {
+    // ── HYDRATION GATE (2026-09-06) ────────────────────────────────────────
+    // Every brand/prefix read below — window._legal(), window._brand(),
+    // this._docPrefix(), and the '-WC' certificate prefix in
+    // document-generator-templates.js:278 — is a SYNCHRONOUS function of the
+    // company-profile brand doc, which company-profile.js:276 seeds with the
+    // NBD DEFAULTS at parse time. Rendering before _loadCompanyProfile()
+    // resolves therefore stamps the platform's identity onto another tenant's
+    // document.
+    //
+    // The sync derivations themselves are NOT the bug and must not change:
+    // docgen-brand.test.js pins five of them (NBD→NBD, OAK→OAK, unreserved→ORC,
+    // degenerate→CUS, NBD-collision→CUS) and docgen-render.test.js pins the
+    // matching cert numbers. They are faithful to the brand they are handed —
+    // what was wrong was the brand. So gate ONCE here, at the async entry
+    // point, instead of making the whole template layer async.
+    //
+    // Never blocks the rep: a hydration failure falls through and renders with
+    // whatever brand is available, exactly as before.
+    try {
+      if (window._companyProfileLoaded !== true && typeof window._loadCompanyProfile === 'function') {
+        await window._loadCompanyProfile();
+      }
+    } catch (_) { /* render with what we have rather than blocking the rep */ }
+
     // Pass the document type through data so renderGenericDoc can
     // use it for the title (the generic template handles 20+ types).
     data._documentType = type;
