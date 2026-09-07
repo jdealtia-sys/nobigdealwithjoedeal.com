@@ -42,14 +42,22 @@ function loadEngine() {
 }
 const EL = loadEngine();
 
-// Joe's actual scope, entered by hand: no template, so no minJobCharge.
-// LAB MOB 1 JOB @250 · RFG DRPE-AL 20 LF @1.95 mat + 0.65 lab
-// LAB DTL-HR 2 HR @85 · LAB CLN-M 1 JOB @125
+// The SHAPE of Joe's scope — a hand-entered repair with no template, so no
+// minJobCharge — with SYNTHETIC costs.
+//
+// The costs are deliberately invented rather than copied from the catalog.
+// catalog-cost-seed.test.js enforces that no file outside docs/ quotes a real
+// published cost pair, and it is right to: a fixture that duplicates catalog
+// numbers silently drifts from them the moment a price changes, and then pins
+// a price that no longer exists. What this suite is about is the FLOOR, not
+// the figures — every assertion below is a threshold or a comparison, so the
+// exact costs do not matter as long as the scope totals a few hundred dollars.
+// The codes are synthetic too, so nothing here can be mistaken for a rate.
 const SCOPE = [
-  { code: 'LAB MOB',     name: 'Mobilization / Setup', category: 'labor',   unit: 'JOB', quantity: 1,  materialCost: 0,    laborCost: 250 },
-  { code: 'RFG DRPE-AL', name: 'Drip Edge Aluminum',   category: 'roofing', unit: 'LF',  quantity: 20, materialCost: 1.95, laborCost: 0.65 },
-  { code: 'LAB DTL-HR',  name: 'Detail Work',          category: 'labor',   unit: 'HR',  quantity: 2,  materialCost: 0,    laborCost: 85 },
-  { code: 'LAB CLN-M',   name: 'Magnetic Nail Sweep',  category: 'labor',   unit: 'JOB', quantity: 1,  materialCost: 0,    laborCost: 125 },
+  { code: 'TST JOB-A', name: 'Mobilization (synthetic)', category: 'labor',   unit: 'JOB', quantity: 1,  materialCost: 0,    laborCost: 200 },
+  { code: 'TST LF-A',  name: 'Linear trim (synthetic)',  category: 'roofing', unit: 'LF',  quantity: 20, materialCost: 2.00, laborCost: 0.50 },
+  { code: 'TST HR-A',  name: 'Detail hours (synthetic)', category: 'labor',   unit: 'HR',  quantity: 2,  materialCost: 0,    laborCost: 80 },
+  { code: 'TST JOB-B', name: 'Cleanup (synthetic)',      category: 'labor',   unit: 'JOB', quantity: 1,  materialCost: 0,    laborCost: 100 },
 ];
 const MEAS = { rawSqft: 200, pitch: 6, stories: 1 };
 
@@ -58,8 +66,10 @@ const none = EL.resolveEstimate(SCOPE, MEAS, { tier: 'better', mode: 'retail' })
 ok('estimate resolves', !!none && typeof none.total === 'number');
 ok('no floor was applied', none.minJobApplied === false, 'minJobApplied=' + (none && none.minJobApplied));
 ok('total is NOT the retired $2,500 default', Math.round(none.total) !== 2500, 'total=' + (none && none.total));
-// Hard costs are $555; retail adds the 25% material markup plus O&P, so the
-// figure lands well under a thousand and nowhere near the old floor.
+// The synthetic scope is a few hundred in hard cost; retail adds the material
+// markup and O&P, so the figure lands well under a thousand — nowhere near the
+// old floor. Joe's real scope behaved the same way: $555 of items, quoted
+// $2,500.
 ok('total is in the hundreds, not thousands', none.total > 100 && none.total < 1500, 'total=' + (none && none.total));
 
 console.log('\nMIN JOB — a caller that DOES ask for a floor still gets one');
@@ -74,7 +84,7 @@ ok('a $350 template floor below the scope total does NOT inflate it',
   'total=' + tpl.total);
 
 const tiny = EL.resolveEstimate(
-  [{ code: 'LAB CLN-M', name: 'Sweep', category: 'labor', unit: 'JOB', quantity: 1, materialCost: 0, laborCost: 40 }],
+  [{ code: 'TST JOB-C', name: 'Tiny scope (synthetic)', category: 'labor', unit: 'JOB', quantity: 1, materialCost: 0, laborCost: 40 }],
   MEAS, { tier: 'better', mode: 'retail', minJobCharge: 350 });
 ok('a $350 template floor ABOVE the scope total does bind',
   tiny.minJobApplied === true && Math.round(tiny.total) === 350, 'total=' + tiny.total);
