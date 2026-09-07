@@ -326,6 +326,58 @@
   }
   DG.affiliateRow = affiliateRow;
 
+  // Wallet payments (Venmo / PayPal) are capped by amount on purpose.
+  // Small jobs settled at the truck are exactly what they are good for, and
+  // they save the card fee. A large balance is a different situation: these
+  // rails carry no chargeback path for the homeowner, so asking someone to
+  // send five figures down one reads badly and invites the "why won't you
+  // take a card" conversation. Above the cap the invoice offers the hosted
+  // pay link (card + ACH, with a receipt and a record) plus Zelle and check.
+  const WALLET_MAX = 1000;
+
+  /**
+   * How-to-pay panel (NBD Document Standard, section 7). Invoices only.
+   *
+   * Renders the hosted pay link as a button plus, when the caller supplies
+   * one, a scannable QR beside it — the raw Stripe URL is far too long to
+   * print legibly, which is why the button and the code both exist.
+   * Degrades cleanly: with no payUrl it renders the alternatives alone, so
+   * an invoice generated before the Stripe link exists is still complete.
+   *
+   * ONE code maximum. Four QRs on a payment page is not four times the
+   * options, it is choice paralysis at the exact moment you want none.
+   *
+   * @param {object} o  payUrl, payQr (data URI), alternatives (array of
+   *                    strings), wallets (array of {name, handle}), amount
+   */
+  function payPanel(o) {
+    o = o || {};
+    const alts = (o.alternatives || []).filter(Boolean)
+      .map(function (a) { return '<div>' + a + '</div>'; }).join('');
+    const btn = o.payUrl
+      ? `<a href="${esc(String(o.payUrl))}" style="display:inline-block;background:${A};color:#fff;
+          text-decoration:none;padding:12px 26px;border-radius:6px;font-family:${FD};font-weight:700;
+          font-size:14px;letter-spacing:0.03em;">Pay${o.amount ? ' ' + esc(String(o.amount)) : ''} online</a>`
+      : '';
+    const qr = (o.payUrl && o.payQr)
+      ? `<img src="${esc(String(o.payQr))}" alt="Scan to pay" width="96" height="96"
+          style="display:block;border:1px solid ${RL};border-radius:4px;background:#fff;padding:4px;"/>`
+      : '';
+    // Wallets only under the cap, and only when the caller passed real ones.
+    const amt = Number(String(o.amount == null ? '' : o.amount).replace(/[^0-9.\-]/g, '')) || 0;
+    const wl = (Array.isArray(o.wallets) && amt > 0 && amt <= WALLET_MAX)
+      ? o.wallets.filter(function (w) { return w && w.name && w.handle; })
+          .map(function (w) { return '<div>' + esc(w.name) + ' — ' + esc(w.handle) + '</div>'; }).join('')
+      : '';
+    if (!btn && !alts && !wl) return '';
+    return `<div class="pay-panel">
+      <div class="pay-panel-title">How to pay</div>
+      ${(btn || qr) ? `<div style="display:flex;align-items:center;gap:18px;margin-bottom:12px;">${btn}${qr}</div>` : ''}
+      <div style="font-size:13px;line-height:1.8;">${alts}${wl}</div>
+    </div>`;
+  }
+  DG.payPanel = payPanel;
+
   function photoGrid(count, cols) {
     cols = cols || 3;
     let html = `<div style="display:grid;grid-template-columns:repeat(${cols},1fr);gap:12px;margin:16px 0;">`;
@@ -974,15 +1026,18 @@
       </div>
 
       <div class="section" style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
-        <div style="background:#f8f8f8;padding:16px;border-radius:8px;">
-          <div style="font-size:11px;color:#666;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:8px;">Payment Methods</div>
-          <div style="font-size:13px;line-height:1.8;">
-            Check — payable to <strong>${C.name}</strong><br>
-            ${C.email ? `Zelle — ${C.email}<br>` : ''}
-            Credit Card — ask for secure link<br>
-            Financing — through ${esc(_invFinancePartner)}
-          </div>
-        </div>
+        ${payPanel({
+          payUrl: d.payUrl || '',
+          payQr: d.payQr || '',
+          amount: money(balance),
+          alternatives: [
+            'Check — payable to <strong>' + esc(C.name) + '</strong>',
+            C.email ? 'Zelle — ' + esc(C.email) : '',
+            d.payUrl ? '' : 'Credit Card — ask for secure link',
+            'Financing — through ' + esc(_invFinancePartner),
+          ],
+          wallets: d.wallets || [],
+        })}
         <div style="background:#fff8f5;padding:16px;border-radius:8px;border:1px solid #f0d0c0;">
           <div style="font-size:11px;color:#666;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:8px;">Late Payment</div>
           <div style="font-size:13px;line-height:1.8;color:#555;">
