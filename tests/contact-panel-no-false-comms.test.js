@@ -48,8 +48,16 @@ function group(name, fn) { console.log('\n' + name); fn(); }
  * mentions logCommunication can't satisfy or trip these assertions. */
 function stripComments(src) {
   return src
-    .replace(/\/\*[\s\S]*?\*\//g, ' ')
-    .replace(/(^|[^:])\/\/[^\n]*/g, '$1 ');
+    // Line-wise: a /\*...\*/ regex swallows real code in these files (they
+    // contain comment-looking sequences inside regex literals and strings —
+    // measured 10-48% of the file destroyed), which makes ABSENCE assertions
+    // pass against a corpus that no longer holds the region they guard.
+    .split('\n')
+    .filter((l) => {
+      const t = l.trim();
+      return !(t.startsWith('//') || t.startsWith('*') || t.startsWith('/*'));
+    })
+    .join('\n');
 }
 const BOOT_CODE = stripComments(BOOT);
 const TASKS_CODE = stripComments(TASKS);

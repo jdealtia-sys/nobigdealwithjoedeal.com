@@ -96,8 +96,16 @@ group('The dead lead-scoring panel is gone, and the trap is documented', () => {
   // the next reader knows what used to be here, and matching that would make
   // this assertion permanently red.
   const bootCode = BOOT
-    .replace(/\/\*[\s\S]*?\*\//g, ' ')
-    .replace(/(^|[^:])\/\/[^\n]*/g, '$1 ');
+    // Line-wise: a /\*...\*/ regex swallows real code in these files (they
+    // contain comment-looking sequences inside regex literals and strings —
+    // measured 10-48% of the file destroyed), which makes ABSENCE assertions
+    // pass against a corpus that no longer holds the region they guard.
+    .split('\n')
+    .filter((l) => {
+      const t = l.trim();
+      return !(t.startsWith('//') || t.startsWith('*') || t.startsWith('/*'));
+    })
+    .join('\n');
   assert('no call to LeadScoring.renderScorePanel anywhere',
     !/LeadScoring[?.]*\.renderScorePanel\s*\(/.test(bootCode));
   // Removing the call site without a note would make the trap HARDER to find:

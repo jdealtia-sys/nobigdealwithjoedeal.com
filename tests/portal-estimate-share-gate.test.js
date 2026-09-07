@@ -121,8 +121,16 @@ group('Portal client stops rendering a broken/alarming card', () => {
   // Strip comments first: the change note deliberately quotes the old markup,
   // and the first draft of this assertion matched its own comment.
   const portalCode = PORTAL_JS
-    .replace(/\/\*[\s\S]*?\*\//g, ' ')
-    .replace(/(^|[^:])\/\/[^\n]*/g, '$1 ');
+    // Line-wise: a /\*...\*/ regex swallows real code in these files (they
+    // contain comment-looking sequences inside regex literals and strings —
+    // measured 10-48% of the file destroyed), which makes ABSENCE assertions
+    // pass against a corpus that no longer holds the region they guard.
+    .split('\n')
+    .filter((l) => {
+      const t = l.trim();
+      return !(t.startsWith('//') || t.startsWith('*') || t.startsWith('/*'));
+    })
+    .join('\n');
   assert('the homeowner is never told their contract is a "Draft"',
     !/<span class="pill">Draft<\/span>/.test(portalCode));
 });

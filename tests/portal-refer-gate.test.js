@@ -27,8 +27,16 @@ const PORTAL_FN = read('functions/portal.js');
 
 // Comments quote the old copy to explain the fix; assert against code.
 const CODE = PORTAL_JS
-  .replace(/\/\*[\s\S]*?\*\//g, ' ')
-  .replace(/(^|[^:])\/\/[^\n]*/g, '$1 ');
+  // Line-wise: a /\*...\*/ regex swallows real code in these files (they
+  // contain comment-looking sequences inside regex literals and strings —
+  // measured 10-48% of the file destroyed), which makes ABSENCE assertions
+  // pass against a corpus that no longer holds the region they guard.
+  .split('\n')
+  .filter((l) => {
+    const t = l.trim();
+    return !(t.startsWith('//') || t.startsWith('*') || t.startsWith('/*'));
+  })
+  .join('\n');
 
 let passed = 0, failed = 0;
 function assert(label, cond, detail) {

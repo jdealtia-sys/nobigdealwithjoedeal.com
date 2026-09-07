@@ -2409,8 +2409,6 @@ function renderUploadPreviewStructure() {
   if (window._uploadQueue.length === 0) {
     container.innerHTML = '';
     uploadBtn.style.display = 'none';
-    var _metaSecEmpty = document.getElementById('uploadMetaSection');
-    if (_metaSecEmpty) _metaSecEmpty.style.display = 'none';
     return;
   }
 
@@ -2438,8 +2436,6 @@ function renderUploadPreviewStructure() {
   container.innerHTML = html;
   uploadBtn.style.display = 'block';
   uploadCount.textContent = window._uploadQueue.length;
-  var _metaSec = document.getElementById('uploadMetaSection');
-  if (_metaSec) _metaSec.style.display = window._uploadQueue.length > 0 ? '' : 'none';
 }
 
 // Surgical per-tick update — only touches the bar width + percent text
@@ -2679,11 +2675,25 @@ async function uploadSinglePhoto(item, index) {
             type: file.type,
             date: window.serverTimestamp(),
             uploadedAt: window.serverTimestamp(),
-            phase: window._uploadPhase || 'During',
+            // null, not 'During'. pages/photo-review.js treats any truthy
+            // phase as "already reviewed" (:150), hides it from the unsorted
+            // filter (:229), and stops falling back to the classifier's
+            // suggestion (:132) — so a fabricated default made every photo
+            // from this page invisible to triage. Absence is honest and is
+            // what lets Review & Sort and the AI suggestion do their job.
+            phase: window._uploadPhase || null,
             category: 'Property',
-            damageType: document.getElementById('uploadDamageType')?.value || '',
-            severity: window._uploadSeverity || '',
-            location: document.getElementById('uploadLocation')?.value || ''
+            // Empty at upload time, deliberately. #uploadDamageType,
+            // #uploadLocation and the severity selector never existed — the
+            // modal is a drop zone, a preview strip and an Upload button —
+            // so these read undefined and collapsed to '' anyway. Written
+            // honestly rather than through dead lookups. The rep sets them
+            // afterwards in the Edit Photo popup or in Review & Sort, and
+            // location is still backfilled from EXIF below when the heading
+            // and roof polygon are available.
+            damageType: '',
+            severity: '',
+            location: ''
           };
 
           if (ingest && ingest.exif) {

@@ -81,8 +81,16 @@ group('The module is loaded, CSP-clean, and decides membership safely', () => {
   // never writes .style.display, and the first draft of these two assertions
   // matched that prose instead of the code.
   const modCode = MOD
-    .replace(/\/\*[\s\S]*?\*\//g, ' ')
-    .replace(/(^|[^:])\/\/[^\n]*/g, '$1 ');
+    // Line-wise: a /\*...\*/ regex swallows real code in these files (they
+    // contain comment-looking sequences inside regex literals and strings —
+    // measured 10-48% of the file destroyed), which makes ABSENCE assertions
+    // pass against a corpus that no longer holds the region they guard.
+    .split('\n')
+    .filter((l) => {
+      const t = l.trim();
+      return !(t.startsWith('//') || t.startsWith('*') || t.startsWith('/*'));
+    })
+    .join('\n');
   assert('membership is an explicit ID allowlist, not nth-child',
     /PRIMARY_IDS = \[/.test(modCode) && !/nth-child/.test(modCode),
     'four controls unhide later, so position does not track what is visible');
