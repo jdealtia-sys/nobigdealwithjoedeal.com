@@ -953,7 +953,7 @@
         margin: 0 0 6px 0;
         line-height: 1;
       }
-      .rda-accent { color: var(--orange, #e8720c); }
+      .rda-accent { color: var(--orange, #BD5728); }
       .rda-header-sub {
         font-size: 14px;
         color: var(--m, #6B7280);
@@ -968,7 +968,7 @@
         font-size: 11px;
         text-transform: uppercase;
         letter-spacing: 1.5px;
-        color: var(--orange, #e8720c);
+        color: var(--orange, #BD5728);
         background: color-mix(in srgb, var(--orange) 8%, transparent);
       }
 
@@ -992,7 +992,7 @@
       }
       .rda-progress-fill {
         height: 100%;
-        background: var(--orange, #e8720c);
+        background: var(--orange, #BD5728);
         border-radius: 5px;
         transition: width 0.4s ease;
       }
@@ -1018,7 +1018,7 @@
         flex-direction: column;
       }
       .rda-card:hover {
-        border-color: var(--orange, #e8720c);
+        border-color: var(--orange, #BD5728);
         transform: translateY(-3px);
         box-shadow: 0 8px 28px color-mix(in srgb, var(--orange) 15%, transparent);
       }
@@ -1036,7 +1036,7 @@
         font-family: 'Barlow Condensed', 'Barlow', sans-serif;
         font-size: 42px;
         font-weight: 900;
-        color: var(--orange, #e8720c);
+        color: var(--orange, #BD5728);
         line-height: 1;
         flex-shrink: 0;
         opacity: 0.8;
@@ -1084,7 +1084,7 @@
         width: 6px;
         height: 6px;
         border-radius: 50%;
-        background: var(--orange, #e8720c);
+        background: var(--orange, #BD5728);
         opacity: 0.5;
       }
       .rda-card-status {
@@ -1127,8 +1127,8 @@
         transition: color 0.2s, border-color 0.2s;
       }
       .rda-back-btn:hover {
-        color: var(--orange, #e8720c);
-        border-color: var(--orange, #e8720c);
+        color: var(--orange, #BD5728);
+        border-color: var(--orange, #BD5728);
       }
       .rda-lesson-head {
         margin-bottom: 32px;
@@ -1141,7 +1141,7 @@
         font-weight: 700;
         text-transform: uppercase;
         letter-spacing: 2px;
-        color: var(--orange, #e8720c);
+        color: var(--orange, #BD5728);
         margin: 0 0 8px 0;
       }
       .rda-lesson-title {
@@ -1178,7 +1178,7 @@
       .rda-lesson-body h4 {
         font-size: 16px;
         font-weight: 700;
-        color: var(--orange, #e8720c);
+        color: var(--orange, #BD5728);
         margin: 20px 0 8px 0;
       }
       .rda-lesson-body p {
@@ -1207,7 +1207,7 @@
       /* ── Content Blocks ── */
       .rda-phase-block {
         background: linear-gradient(135deg, color-mix(in srgb, var(--orange) 8%, transparent), color-mix(in srgb, var(--orange) 3%, transparent));
-        border-left: 4px solid var(--orange, #e8720c);
+        border-left: 4px solid var(--orange, #BD5728);
         padding: 20px 24px;
         margin: 24px 0;
         border-radius: 0 8px 8px 0;
@@ -1218,7 +1218,7 @@
         font-weight: 800;
         text-transform: uppercase;
         letter-spacing: 1px;
-        color: var(--orange, #e8720c);
+        color: var(--orange, #BD5728);
         margin-bottom: 14px;
       }
 
@@ -1236,7 +1236,7 @@
         font-weight: 700;
         text-transform: uppercase;
         letter-spacing: 1px;
-        color: var(--orange, #e8720c);
+        color: var(--orange, #BD5728);
         margin-bottom: 12px;
         padding-bottom: 8px;
         border-bottom: 1px solid color-mix(in srgb, var(--orange) 15%, transparent);
@@ -1270,7 +1270,7 @@
         opacity: 0.85;
       }
       .rda-check-item input[type="checkbox"] {
-        accent-color: var(--orange, #e8720c);
+        accent-color: var(--orange, #BD5728);
         width: 16px;
         height: 16px;
         margin-top: 2px;
@@ -1310,7 +1310,7 @@
         font-weight: 800;
         text-transform: uppercase;
         letter-spacing: 1.5px;
-        color: var(--orange, #e8720c);
+        color: var(--orange, #BD5728);
         margin-bottom: 10px;
       }
 
@@ -1325,7 +1325,7 @@
         text-align: left;
         padding: 10px 12px;
         background: color-mix(in srgb, var(--orange) 10%, transparent);
-        color: var(--orange, #e8720c);
+        color: var(--orange, #BD5728);
         font-weight: 700;
         font-size: 12px;
         text-transform: uppercase;
@@ -1358,7 +1358,7 @@
         transition: background 0.2s, transform 0.15s;
       }
       .rda-complete-btn.mark {
-        background: var(--orange, #e8720c);
+        background: var(--orange, #BD5728);
         color: #fff;
       }
       .rda-complete-btn.mark:hover {

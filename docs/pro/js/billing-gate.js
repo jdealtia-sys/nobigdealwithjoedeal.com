@@ -409,19 +409,19 @@ let _NBD_BG_DELEGATE; // module-local (globals Tranche 1 — was window.*)
     overlay.style.cssText = 'position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.75);display:flex;align-items:center;justify-content:center;padding:20px;';
 
     const card = document.createElement('div');
-    card.style.cssText = 'background:var(--s,#1a1d23);border:2px solid #e8720c;border-radius:14px;padding:32px;max-width:440px;width:100%;text-align:center;';
+    card.style.cssText = 'background:var(--s,#1a1d23);border:2px solid #BD5728;border-radius:14px;padding:32px;max-width:440px;width:100%;text-align:center;';
     card.innerHTML = `
       <div style="font-size:36px;margin-bottom:12px;">📈</div>
       <div style="font-family:'Barlow Condensed',sans-serif;font-size:24px;font-weight:800;color:var(--t,#fff);text-transform:uppercase;margin-bottom:8px;">Plan Limit Reached</div>
       <div style="font-size:13px;color:var(--m,#888);margin-bottom:20px;line-height:1.5;">
-        You've used <strong style="color:var(--orange,#e8720c);">${used} of ${limit}</strong> ${featureLabel} this month on the <strong>${(PLANS[_plan] || {}).label || 'Free'}</strong> plan.
+        You've used <strong style="color:var(--orange,#BD5728);">${used} of ${limit}</strong> ${featureLabel} this month on the <strong>${(PLANS[_plan] || {}).label || 'Free'}</strong> plan.
       </div>
       <div style="font-size:13px;color:var(--t,#fff);margin-bottom:20px;">
-        Upgrade to <strong style="color:var(--orange,#e8720c);">${nextInfo.label}</strong> for ${nextInfo[feature === 'aiCalls' ? 'aiCalls' : feature] === Infinity ? 'unlimited' : nextInfo[feature === 'aiCalls' ? 'aiCalls' : feature]} ${featureLabel}/mo — <strong>$${nextInfo.price}/mo</strong>
+        Upgrade to <strong style="color:var(--orange,#BD5728);">${nextInfo.label}</strong> for ${nextInfo[feature === 'aiCalls' ? 'aiCalls' : feature] === Infinity ? 'unlimited' : nextInfo[feature === 'aiCalls' ? 'aiCalls' : feature]} ${featureLabel}/mo — <strong>$${nextInfo.price}/mo</strong>
       </div>
       <div style="display:flex;gap:10px;justify-content:center;">
         <button data-bg-action="closeUpgrade" style="background:var(--s2);border:1px solid var(--br);color:var(--m);padding:10px 20px;border-radius:6px;cursor:pointer;font-family:inherit;font-size:12px;">Maybe Later</button>
-        <button data-bg-action="closeUpgradeAndGoBilling" style="background:var(--orange,#e8720c);border:none;color:#fff;padding:10px 24px;border-radius:6px;cursor:pointer;font-family:inherit;font-size:12px;font-weight:700;">View Plans</button>
+        <button data-bg-action="closeUpgradeAndGoBilling" style="background:var(--orange,#BD5728);border:none;color:#fff;padding:10px 24px;border-radius:6px;cursor:pointer;font-family:inherit;font-size:12px;font-weight:700;">View Plans</button>
       </div>
       <div style="font-size:10px;color:var(--m,#888);margin-top:14px;">You can still use this feature — we won't lock you out mid-cycle.</div>
     `;

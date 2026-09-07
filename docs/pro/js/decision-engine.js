@@ -826,7 +826,7 @@
       label: 'Insurance Claims',
       icon: '📋',
       description: 'Adjuster disputes, supplements, claim navigation, and denial handling',
-      color: '#e8720c',
+      color: '#BD5728',
       scenarios: INSURANCE_CLAIMS
     },
     {
@@ -1026,7 +1026,7 @@
     const playbookHtml = (s.playbook || []).map(p => `<li style="margin-bottom:6px;">${_esc(p)}</li>`).join('');
     const codesHtml = (s.codeRefs || []).map(c => `<span style="display:inline-block;padding:2px 7px;
       margin:2px 4px 2px 0;border-radius:6px;font-size:10px;background:var(--s,#181C22);
-      border:1px solid var(--br,rgba(255,255,255,.1));font-family:monospace;color:var(--orange,#e8720c);">
+      border:1px solid var(--br,rgba(255,255,255,.1));font-family:monospace;color:var(--orange,#BD5728);">
       ${_esc(c)}</span>`).join('');
     overlay.innerHTML = `
       <div role="dialog" aria-label="Scenario detail"
@@ -1046,13 +1046,13 @@
         </div>
         <div style="flex:1;overflow-y:auto;padding:18px 22px;-webkit-overflow-scrolling:touch;">
           <div style="font-size:12px;color:var(--m,#6B7280);margin-bottom:14px;">${_esc(s.situation || s.tagline || '')}</div>
-          ${playbookHtml ? `<h3 style="font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--orange,#e8720c);margin:14px 0 8px;">Playbook</h3>
+          ${playbookHtml ? `<h3 style="font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--orange,#BD5728);margin:14px 0 8px;">Playbook</h3>
             <ol style="margin:0;padding-left:20px;font-size:13px;line-height:1.55;">${playbookHtml}</ol>` : ''}
           ${codesHtml ? `<div style="margin-top:14px;"><span style="font-size:11px;color:var(--m,#6B7280);text-transform:uppercase;letter-spacing:.06em;margin-right:6px;">Code refs:</span>${codesHtml}</div>` : ''}
         </div>
         <div style="padding:14px 20px;border-top:1px solid var(--br,rgba(255,255,255,.1));display:flex;gap:8px;flex-wrap:wrap;flex-shrink:0;">
           <button data-action="ask-joe" style="flex:1;min-width:160px;padding:11px 16px;
-                  background:var(--orange,#e8720c);border:0;color:#fff;border-radius:8px;
+                  background:var(--orange,#BD5728);border:0;color:#fff;border-radius:8px;
                   font-weight:700;font-size:13px;cursor:pointer;font-family:inherit;letter-spacing:.04em;">
             Send to Ask Joe →
           </button>

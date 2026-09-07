@@ -180,8 +180,8 @@
         <button type="button" class="pa-analyze-btn" data-photo-id="${escapeHtml(photo.id)}"
           style="
             display:inline-flex; align-items:center; gap:8px;
-            padding:10px 16px; border-radius:8px; border:1px solid #c8541a;
-            background:linear-gradient(135deg,#c8541a 0%,#a64516 100%);
+            padding:10px 16px; border-radius:8px; border:1px solid #A14A22;
+            background:linear-gradient(135deg,#A14A22 0%,#a64516 100%);
             color:#fff; font-weight:600; font-size:13px;
             cursor:pointer; box-shadow:0 1px 2px rgba(0,0,0,.08);">
           <span aria-hidden="true">✨</span>

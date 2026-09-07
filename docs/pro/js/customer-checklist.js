@@ -72,7 +72,7 @@
       return '<label style="display:flex;align-items:center;gap:10px;padding:8px 4px;border-top:1px solid var(--br,rgba(255,255,255,.06));cursor:pointer;">' +
         '<input type="checkbox"' + (checked ? ' checked' : '') +
           ' data-change-action="toggleJobChecklistItem" data-arg="' + esc(i.key) + '" data-pass-el="true"' +
-          ' style="width:16px;height:16px;cursor:pointer;flex:0 0 auto;accent-color:var(--orange,#e8720c);">' +
+          ' style="width:16px;height:16px;cursor:pointer;flex:0 0 auto;accent-color:var(--orange,#BD5728);">' +
         '<span style="flex:1;font-size:13px;color:' + (checked ? 'var(--m,#9ca3af)' : 'var(--t)') + ';' +
           (checked ? 'text-decoration:line-through;' : '') + '">' + esc(i.label) + '</span>' +
         '</label>';
@@ -84,7 +84,7 @@
         '<span style="font-size:12px;color:var(--m,#9ca3af);font-weight:700;">' + done + ' of ' + items.length + '</span>' +
       '</div>' +
       '<div style="background:rgba(255,255,255,.06);height:6px;border-radius:3px;overflow:hidden;margin-bottom:6px;">' +
-        '<div style="background:var(--orange,#e8720c);height:100%;width:' + pct + '%;transition:width .25s ease;"></div>' +
+        '<div style="background:var(--orange,#BD5728);height:100%;width:' + pct + '%;transition:width .25s ease;"></div>' +
       '</div>' +
       rows;
     panel.style.display = 'block';

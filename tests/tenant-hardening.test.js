@@ -141,8 +141,8 @@ ok('renderNBDLogo renders <img class="nbd-logo-img"> for NBD', /<img class="nbd-
 eq('_docPrefix is NBD', dgN._docPrefix(), 'NBD');
 
 console.log('\nL4/L5 — _rgba() helper');
-eq('NBD accent byte-identical (.04)', dgN._rgba('#e8720c', '.04'), 'rgba(232,114,12,.04)');
-eq('NBD accent byte-identical (0)', dgN._rgba('#e8720c', '0'), 'rgba(232,114,12,0)');
+eq('NBD accent byte-identical (.04)', dgN._rgba('#BD5728', '.04'), 'rgba(189,87,40,.04)');
+eq('NBD accent byte-identical (0)', dgN._rgba('#BD5728', '0'), 'rgba(189,87,40,0)');
 eq('tenant accent', dgN._rgba('#C2410C', '.05'), 'rgba(194,65,12,.05)');
 eq('3-digit shorthand (L5)', dgN._rgba('#fc0', '.05'), 'rgba(255,204,0,.05)');
 

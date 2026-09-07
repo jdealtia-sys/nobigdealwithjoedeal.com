@@ -13,7 +13,7 @@
   --nbd-bg-surface: var(--s2, #181C22);
   --nbd-bg-hover: var(--s3, #1E2229);
   --nbd-bg-active: var(--s3, #1E2229);
-  --nbd-accent: var(--orange, #e8720c);
+  --nbd-accent: var(--orange, #BD5728);
   --nbd-accent-light: var(--ob, #E8621E);
   --nbd-accent-glow: var(--og, rgba(232,114,12,.22));
   --nbd-text: var(--t, #E8EAF0);

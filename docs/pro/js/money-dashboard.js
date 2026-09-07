@@ -263,7 +263,7 @@
     html += '<div style="font-size:12px;font-weight:700;color:var(--m,#9ca3af);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px;">Cash — ' + m.year + ' (collected vs spent)</div>';
     html += grid([
       card('Collected', fmt(m.collectedCents), 'paid invoices', 'var(--green,#16a34a)'),
-      card('Spent', fmt(m.spentCents), 'COGS + overhead', 'var(--orange,#e8720c)'),
+      card('Spent', fmt(m.spentCents), 'COGS + overhead', 'var(--orange,#BD5728)'),
       card('Net Cash', fmt(m.netCashCents), m.netCashCents >= 0 ? 'in the black' : 'in the red', netColor),
       card('Outstanding A/R', fmt(m.outstandingCents), 'unpaid invoices', 'var(--blue,#3b82f6)'),
     ]);
@@ -272,14 +272,14 @@
     html += '<div style="font-size:12px;font-weight:700;color:var(--m,#9ca3af);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px;">Job profitability (won jobs)</div>';
     html += grid([
       card('Contract Value', fmt(m.wonContractCents), m.costedJobs + ' of ' + m.wonJobs + ' won jobs costed', 'var(--blue,#3b82f6)'),
-      card('Direct Costs', fmt(m.wonDirectCents), 'materials, labor, subs', 'var(--orange,#e8720c)'),
+      card('Direct Costs', fmt(m.wonDirectCents), 'materials, labor, subs', 'var(--orange,#BD5728)'),
       card('Gross Margin', m.grossMargin == null ? '—' : m.grossMargin + '%', 'before overhead & commission', marginColor),
       card('Overhead', fmt(m.overheadCents), 'operating costs YTD', 'var(--purple,#8b5cf6)'),
     ]);
 
     // Two-column: top suppliers + 1099
     html += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px;">';
-    html += '<div style="background:var(--s,#1a1a2e);border:1px solid var(--br,rgba(255,255,255,.08));border-radius:12px;padding:16px;">' +
+    html += '<div style="background:var(--s,#12223D);border:1px solid var(--br,rgba(255,255,255,.08));border-radius:12px;padding:16px;">' +
       '<h3 style="margin:0 0 12px;font-size:14px;color:var(--t,#fff);">Top Suppliers — ' + m.year + '</h3>';
     if (!m.topSuppliers.length) html += '<div class="nbd-empty" style="padding:14px"><div class="ne-icon">🧾</div><div class="ne-msg">No spend logged yet</div><div class="ne-sub">Log expenses in the Expenses view and they roll up here.</div></div>';
     else {
@@ -287,13 +287,13 @@
       m.topSuppliers.forEach(function (s) {
         var w = Math.max(4, Math.round(s.cents / max * 100));
         html += '<div style="margin-bottom:10px;"><div style="display:flex;justify-content:space-between;font-size:13px;color:var(--t,#fff);"><span>' + esc(s.supplier) + '</span><span style="font-weight:700;">' + fmt(s.cents) + '</span></div>' +
-          '<div style="height:6px;background:var(--s2,rgba(255,255,255,.06));border-radius:4px;overflow:hidden;margin-top:4px;"><div style="height:100%;width:' + w + '%;background:var(--orange,#e8720c);"></div></div></div>';
+          '<div style="height:6px;background:var(--s2,rgba(255,255,255,.06));border-radius:4px;overflow:hidden;margin-top:4px;"><div style="height:100%;width:' + w + '%;background:var(--orange,#BD5728);"></div></div></div>';
       });
     }
     html += '</div>';
-    html += '<div style="background:var(--s,#1a1a2e);border:1px solid var(--br,rgba(255,255,255,.08));border-radius:12px;padding:16px;">' +
+    html += '<div style="background:var(--s,#12223D);border:1px solid var(--br,rgba(255,255,255,.08));border-radius:12px;padding:16px;">' +
       '<h3 style="margin:0 0 12px;font-size:14px;color:var(--t,#fff);">1099 Worklist — ' + m.year + '</h3>' +
-      '<div style="font-family:\'Barlow Condensed\',sans-serif;font-size:40px;font-weight:800;color:' + (m.due1099 ? 'var(--orange,#e8720c)' : 'var(--t,#fff)') + ';">' + m.due1099 + '</div>' +
+      '<div style="font-family:\'Barlow Condensed\',sans-serif;font-size:40px;font-weight:800;color:' + (m.due1099 ? 'var(--orange,#BD5728)' : 'var(--t,#fff)') + ';">' + m.due1099 + '</div>' +
       '<div style="font-size:12px;color:var(--m,#9ca3af);">supplier(s) need a 1099-NEC · ' + fmt(m.due1099Cents) + ' in service payments</div>' +
       '<div style="font-size:10px;color:var(--m,#9ca3af);margin-top:8px;">Eligible + W-9 on file + ≥ ' + fmt(m.thresholdCents) + ' (' + m.year + ' threshold). Manage in Expenses → Suppliers.</div>' +
       '</div>';

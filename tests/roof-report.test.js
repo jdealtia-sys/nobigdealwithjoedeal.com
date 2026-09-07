@@ -50,7 +50,7 @@ console.log('ROOF REPORT GENERATOR');
     !/<img[^>]*onerror/i.test(html) && html.includes('&quot;&gt;&lt;img'));
   ok('brand name tags escaped', html.includes('&lt;b&gt;Evil'));
   ok('rep name tags escaped', html.includes('&lt;i&gt;Rep'));
-  ok('malicious accent rejected → falls back to safe hex', html.includes('#e8720c') && !html.includes('red;}body'));
+  ok('malicious accent rejected → falls back to safe hex', html.includes('#BD5728') && !html.includes('red;}body'));
   ok('javascript: logo url is dropped (never rendered as src)', !/javascript:/.test(html));
   ok('roof material ampersand escaped', html.includes('asphalt &amp; tile'));
 }

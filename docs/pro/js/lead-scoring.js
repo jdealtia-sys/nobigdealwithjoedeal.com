@@ -221,7 +221,7 @@
     const { score, color, grade, label, breakdown } = result;
 
     el.innerHTML = `
-      <div style="background:var(--s,#1a1a2e);border:1px solid var(--br,rgba(255,255,255,.08));border-radius:12px;padding:20px;">
+      <div style="background:var(--s,#12223D);border:1px solid var(--br,rgba(255,255,255,.08));border-radius:12px;padding:20px;">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
           <h4 style="margin:0;font-family:'Barlow Condensed',sans-serif;font-size:16px;font-weight:700;color:var(--t);">🎯 Lead Score</h4>
           <div style="display:flex;align-items:center;gap:8px;">

@@ -166,7 +166,7 @@
         'background:transparent;border:none;color:var(--m, #888);font-size:18px;' +
         'cursor:pointer;padding:6px 8px;position:relative;' +
         '-webkit-tap-highlight-color:transparent;';
-      bell.innerHTML = '🎁<span id="nbd-whats-new-dot" style="display:none;position:absolute;top:6px;right:6px;width:8px;height:8px;border-radius:50%;background:var(--orange, #c8541a);box-shadow:0 0 0 2px var(--bg, #0a0c0f);animation:nbd-pulse 1.5s ease-in-out infinite;"></span>';
+      bell.innerHTML = '🎁<span id="nbd-whats-new-dot" style="display:none;position:absolute;top:6px;right:6px;width:8px;height:8px;border-radius:50%;background:var(--orange, #A14A22);box-shadow:0 0 0 2px var(--bg, #0a0c0f);animation:nbd-pulse 1.5s ease-in-out infinite;"></span>';
       anchor.parentNode.insertBefore(bell, anchor);
       // Pulse keyframes
       if (!document.getElementById('nbd-whats-new-css')) {
@@ -231,20 +231,20 @@
         items.map(it => {
           const isUnseen = !seen[it.id];
           return (
-            '<div style="background:' + (isUnseen ? 'color-mix(in srgb, var(--orange,#c8541a) 8%, transparent)' : 'var(--s2,#0a1424)') + ';' +
-              'border:1px solid ' + (isUnseen ? 'var(--orange, #c8541a)' : 'var(--br,#2a3344)') + ';' +
+            '<div style="background:' + (isUnseen ? 'color-mix(in srgb, var(--orange,#A14A22) 8%, transparent)' : 'var(--s2,#0a1424)') + ';' +
+              'border:1px solid ' + (isUnseen ? 'var(--orange, #A14A22)' : 'var(--br,#2a3344)') + ';' +
               'border-radius:8px;padding:12px 14px;margin-bottom:8px;' +
               'display:flex;gap:12px;align-items:flex-start;" data-item-id="' + _esc(it.id) + '">' +
               '<div style="font-size:24px;line-height:1;flex-shrink:0;">' + _esc(it.icon) + '</div>' +
               '<div style="flex:1;min-width:0;">' +
                 '<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">' +
                   '<div style="font-size:14px;font-weight:700;">' + _esc(it.title) + '</div>' +
-                  (isUnseen ? '<span style="font-size:9px;color:var(--orange, #c8541a);background:color-mix(in srgb, var(--orange,#c8541a) 15%, transparent);border:1px solid var(--orange, #c8541a);padding:1px 6px;border-radius:99px;letter-spacing:0.08em;text-transform:uppercase;font-weight:700;">New</span>' : '') +
+                  (isUnseen ? '<span style="font-size:9px;color:var(--orange, #A14A22);background:color-mix(in srgb, var(--orange,#A14A22) 15%, transparent);border:1px solid var(--orange, #A14A22);padding:1px 6px;border-radius:99px;letter-spacing:0.08em;text-transform:uppercase;font-weight:700;">New</span>' : '') +
                 '</div>' +
                 '<div style="font-size:13px;color:var(--m,#cbd5e1);line-height:1.45;margin-bottom:8px;">' + _esc(it.body) + '</div>' +
                 (it.tryLabel ? (
                   '<button type="button" class="nbd-wn-try" data-item-id="' + _esc(it.id) + '" ' +
-                    'style="padding:5px 10px;background:var(--orange, #c8541a);color:var(--accent-fg,#fff);border:none;border-radius:5px;font:inherit;font-size:11px;font-weight:600;letter-spacing:0.04em;text-transform:uppercase;cursor:pointer;">' +
+                    'style="padding:5px 10px;background:var(--orange, #A14A22);color:var(--accent-fg,#fff);border:none;border-radius:5px;font:inherit;font-size:11px;font-weight:600;letter-spacing:0.04em;text-transform:uppercase;cursor:pointer;">' +
                     _esc(it.tryLabel) +
                   '</button>'
                 ) : '') +

@@ -35,7 +35,7 @@
               ['--orange','--bg','--s','--s2','--s3','--t','--m','--br'].forEach(function(v) { R.removeProperty(v); });
               document.body.style.background = '';
               // Reset picker values
-              document.getElementById('tbAccent').value = '#e8720c';
+              document.getElementById('tbAccent').value = '#BD5728';
               document.getElementById('tbBg').value = '#0A0C0F';
               document.getElementById('tbSurface').value = '#181C22';
               document.getElementById('tbText').value = '#E8EAF0';

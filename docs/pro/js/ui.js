@@ -883,8 +883,8 @@ function switchSettingsTab(tab) {
           const resolved = (typeof TE.previewResolvedColors === 'function')
             ? TE.previewResolvedColors(key)
             : null;
-          const bg = resolved?.bg || t.colors?.bg || '#1a1a2e';
-          const accent = resolved?.accent || t.colors?.accent || '#e8720c';
+          const bg = resolved?.bg || t.colors?.bg || '#12223D';
+          const accent = resolved?.accent || t.colors?.accent || '#BD5728';
           const surface = resolved?.surface || t.colors?.surface || '#16213e';
           const txt = resolved?.text || t.colors?.text || '#e2e8f0';
           const muted = t.colors?.muted || '#6b7280';

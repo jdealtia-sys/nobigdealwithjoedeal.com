@@ -85,7 +85,7 @@
       if (n <= 0) return '#f0f0ed';
       if (n <= 2) return '#ffdcc0';
       if (n <= 5) return '#ff9940';
-      return '#e8720c';
+      return '#BD5728';
     };
     // Hour header labels are taken from the first row's data (00:00 → 23:00).
     const firstData = (rows[0] && Array.isArray(rows[0].data)) ? rows[0].data : [];
@@ -119,7 +119,7 @@
   .hm-cell { height: 22px; border-radius: 2px; }
   .terr-bar-row { display: grid; grid-template-columns: 130px 1fr 70px; gap: 12px; align-items: center; padding: 7px 0; font-size: 12px; }
   .terr-bar-city { font-family: 'Barlow Condensed', sans-serif; font-weight: 700; text-transform: uppercase; color: #111; letter-spacing: .03em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .terr-bar-rev { font-family: 'Barlow Condensed', sans-serif; font-weight: 800; color: var(--orange,#e8720c); text-align: right; }
+  .terr-bar-rev { font-family: 'Barlow Condensed', sans-serif; font-weight: 800; color: var(--orange,#BD5728); text-align: right; }
   .funnel-wrap { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 6px 0; }
   .funnel-bar { color: #fff; font-weight: 700; font-family: 'Barlow Condensed', sans-serif; letter-spacing: .03em; padding: 12px 16px; border-radius: 4px; text-align: center; white-space: nowrap; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   .revenue-svg { width: 100%; height: auto; display: block; }`;
@@ -567,7 +567,7 @@
               <div>
                 <label style="font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--m);display:block;margin-bottom:6px;">AI Narrative</label>
                 <label style="display:flex;align-items:center;gap:8px;padding:10px 12px;background:var(--s2);border:1px solid var(--br);border-radius:6px;cursor:pointer;">
-                  <input type="checkbox" id="reportIncludeNarrative" checked style="accent-color:var(--orange,#e8720c);">
+                  <input type="checkbox" id="reportIncludeNarrative" checked style="accent-color:var(--orange,#BD5728);">
                   <span style="font-size:12px;color:var(--t);">Include Claude-written insights</span>
                 </label>
               </div>
@@ -1102,7 +1102,7 @@
     position: absolute;
     top: 0; left: 0; right: 0;
     height: 6px;
-    background: linear-gradient(90deg, #e8720c, #ff9030);
+    background: linear-gradient(90deg, #BD5728, #ff9030);
   }
   .report-brand {
     font-family: 'Barlow Condensed', sans-serif;
@@ -1110,7 +1110,7 @@
     font-weight: 800;
     text-transform: uppercase;
     letter-spacing: .2em;
-    color: var(--orange,#e8720c);
+    color: var(--orange,#BD5728);
     margin-bottom: 10px;
   }
   .report-title {
@@ -1130,7 +1130,7 @@
   .report-period {
     font-family: 'Barlow Condensed', sans-serif;
     font-size: 11px;
-    color: var(--orange,#e8720c);
+    color: var(--orange,#BD5728);
     text-transform: uppercase;
     letter-spacing: .15em;
   }
@@ -1165,7 +1165,7 @@
     line-height: 1;
     margin-bottom: 4px;
   }
-  .hero-value.orange { color: var(--orange,#e8720c); }
+  .hero-value.orange { color: var(--orange,#BD5728); }
   .hero-sub {
     font-size: 11px;
     color: #8b8e96;
@@ -1182,7 +1182,7 @@
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: .18em;
-    color: var(--orange,#e8720c);
+    color: var(--orange,#BD5728);
     margin-bottom: 8px;
   }
   .section-title {
@@ -1209,7 +1209,7 @@
   }
   .metric-card {
     background: #f7f7f5;
-    border-left: 4px solid #e8720c;
+    border-left: 4px solid #BD5728;
     padding: 20px 24px;
   }
   .metric-card-label {
@@ -1247,7 +1247,7 @@
     font-family: 'Barlow Condensed', sans-serif;
     font-size: 28px;
     font-weight: 800;
-    color: var(--orange,#e8720c);
+    color: var(--orange,#BD5728);
     line-height: 1;
     min-width: 36px;
   }
@@ -1289,13 +1289,13 @@
   }
   .velocity-bar {
     height: 100%;
-    background: linear-gradient(90deg, #e8720c, #ff9030);
+    background: linear-gradient(90deg, #BD5728, #ff9030);
     border-radius: 5px;
   }
   .velocity-days {
     font-family: 'Barlow Condensed', sans-serif;
     font-weight: 700;
-    color: var(--orange,#e8720c);
+    color: var(--orange,#BD5728);
     text-align: right;
   }
   .velocity-count {
@@ -1319,7 +1319,7 @@
     letter-spacing: .1em;
     color: #fff;
   }
-  .report-footer-brand span { color: var(--orange,#e8720c); }
+  .report-footer-brand span { color: var(--orange,#BD5728); }
 
   .empty-state {
     padding: 20px;
@@ -1480,43 +1480,43 @@ ${STATIC_CHART_CSS}
   body { font-family: 'Barlow', sans-serif; color: #111; background: #f7f7f5; padding: 0; line-height: 1.5; }
   .report-page { max-width: 960px; margin: 0 auto; background: #fff; }
   .report-hdr { background: #0a0c0f; color: #fff; padding: 40px 56px 32px; position: relative; overflow: hidden; }
-  .report-hdr::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 6px; background: linear-gradient(90deg, #e8720c, #ff9030); }
-  .report-brand { font-family: 'Barlow Condensed', sans-serif; font-size: 13px; font-weight: 800; text-transform: uppercase; letter-spacing: .2em; color: var(--orange,#e8720c); margin-bottom: 10px; }
+  .report-hdr::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 6px; background: linear-gradient(90deg, #BD5728, #ff9030); }
+  .report-brand { font-family: 'Barlow Condensed', sans-serif; font-size: 13px; font-weight: 800; text-transform: uppercase; letter-spacing: .2em; color: var(--orange,#BD5728); margin-bottom: 10px; }
   .report-brand span { color: #fff; }
   .report-title { font-family: 'Barlow Condensed', sans-serif; font-size: 52px; font-weight: 800; line-height: 1; text-transform: uppercase; letter-spacing: -.01em; margin-bottom: 12px; }
   .report-subtitle { font-size: 14px; color: #c7cad1; margin-bottom: 6px; }
-  .report-period { font-family: 'Barlow Condensed', sans-serif; font-size: 11px; color: var(--orange,#e8720c); text-transform: uppercase; letter-spacing: .15em; }
+  .report-period { font-family: 'Barlow Condensed', sans-serif; font-size: 11px; color: var(--orange,#BD5728); text-transform: uppercase; letter-spacing: .15em; }
   .hero-grid { display: grid; grid-template-columns: repeat(4, 1fr); background: #111418; color: #fff; }
   .hero-cell { padding: 28px 20px; border-right: 1px solid #2a2f35; border-bottom: 1px solid #2a2f35; }
   .hero-cell:last-child { border-right: none; }
   .hero-label { font-family: 'Barlow Condensed', sans-serif; font-size: 10px; color: #8b8e96; text-transform: uppercase; letter-spacing: .15em; margin-bottom: 6px; }
   .hero-value { font-family: 'Barlow Condensed', sans-serif; font-size: 38px; font-weight: 800; color: #fff; line-height: 1; margin-bottom: 4px; }
-  .hero-value.orange { color: var(--orange,#e8720c); }
+  .hero-value.orange { color: var(--orange,#BD5728); }
   .hero-sub { font-size: 11px; color: #8b8e96; }
   .section { padding: 40px 56px; border-bottom: 1px solid #eee; }
-  .section-label { font-family: 'Barlow Condensed', sans-serif; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .18em; color: var(--orange,#e8720c); margin-bottom: 8px; }
+  .section-label { font-family: 'Barlow Condensed', sans-serif; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .18em; color: var(--orange,#BD5728); margin-bottom: 8px; }
   .section-title { font-family: 'Barlow Condensed', sans-serif; font-size: 28px; font-weight: 800; text-transform: uppercase; color: #111; margin-bottom: 6px; line-height: 1; }
   .section-desc { font-size: 13px; color: #666; margin-bottom: 24px; }
   .metric-row { display: grid; grid-template-columns: 1fr 1fr; gap: 30px; margin-bottom: 30px; }
-  .metric-card { background: #f7f7f5; border-left: 4px solid #e8720c; padding: 20px 24px; }
+  .metric-card { background: #f7f7f5; border-left: 4px solid #BD5728; padding: 20px 24px; }
   .metric-card-label { font-family: 'Barlow Condensed', sans-serif; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .12em; color: #999; margin-bottom: 4px; }
   .metric-card-value { font-family: 'Barlow Condensed', sans-serif; font-size: 34px; font-weight: 800; color: #111; line-height: 1; margin-bottom: 4px; }
   .metric-card-sub { font-size: 12px; color: #666; }
   .city-row { display: flex; align-items: center; gap: 16px; padding: 14px 0; border-bottom: 1px solid #eee; }
   .city-row:last-child { border-bottom: none; }
-  .city-rank { font-family: 'Barlow Condensed', sans-serif; font-size: 28px; font-weight: 800; color: var(--orange,#e8720c); line-height: 1; min-width: 36px; }
+  .city-rank { font-family: 'Barlow Condensed', sans-serif; font-size: 28px; font-weight: 800; color: var(--orange,#BD5728); line-height: 1; min-width: 36px; }
   .city-body { flex: 1; }
   .city-name { font-family: 'Barlow Condensed', sans-serif; font-size: 18px; font-weight: 700; color: #111; text-transform: uppercase; }
   .city-stats { font-size: 11px; color: #666; margin-top: 2px; }
   .velocity-row { display: grid; grid-template-columns: 140px 1fr 80px 80px; gap: 12px; align-items: center; padding: 10px 0; font-size: 12px; }
   .velocity-stage { font-family: 'Barlow Condensed', sans-serif; font-weight: 700; text-transform: uppercase; color: #111; letter-spacing: .04em; }
   .velocity-bar-wrap { height: 10px; background: #eee; border-radius: 5px; overflow: hidden; }
-  .velocity-bar { height: 100%; background: linear-gradient(90deg, #e8720c, #ff9030); border-radius: 5px; }
-  .velocity-days { font-family: 'Barlow Condensed', sans-serif; font-weight: 700; color: var(--orange,#e8720c); text-align: right; }
+  .velocity-bar { height: 100%; background: linear-gradient(90deg, #BD5728, #ff9030); border-radius: 5px; }
+  .velocity-days { font-family: 'Barlow Condensed', sans-serif; font-weight: 700; color: var(--orange,#BD5728); text-align: right; }
   .velocity-count { font-size: 11px; color: #999; text-align: right; }
   .report-footer { background: #0a0c0f; color: #8b8e96; padding: 24px 56px; display: flex; justify-content: space-between; font-size: 10px; }
   .report-footer-brand { font-family: 'Barlow Condensed', sans-serif; font-weight: 800; letter-spacing: .1em; color: #fff; }
-  .report-footer-brand span { color: var(--orange,#e8720c); }
+  .report-footer-brand span { color: var(--orange,#BD5728); }
   .empty-state { padding: 20px; text-align: center; color: #999; font-style: italic; font-size: 12px; }
   .chart-box { background: #fafaf9; padding: 20px; border-radius: 8px; border: 1px solid #eee; min-height: 300px; }
   .stuck-row { display: grid; grid-template-columns: 1fr 90px 90px 90px; gap: 12px; align-items: center; padding: 12px 0; border-bottom: 1px solid #eee; font-size: 12px; }
@@ -1524,7 +1524,7 @@ ${STATIC_CHART_CSS}
   .stuck-name { font-weight: 700; color: #111; }
   .stuck-addr { font-size: 11px; color: #666; margin-top: 2px; }
   .stuck-days { font-family: 'Barlow Condensed', sans-serif; font-weight: 800; color: #c53030; text-align: right; font-size: 16px; }
-  .stuck-value { font-family: 'Barlow Condensed', sans-serif; font-weight: 700; color: var(--orange,#e8720c); text-align: right; font-size: 14px; }
+  .stuck-value { font-family: 'Barlow Condensed', sans-serif; font-weight: 700; color: var(--orange,#BD5728); text-align: right; font-size: 14px; }
   .stuck-stage { font-size: 10px; color: #999; text-align: right; text-transform: uppercase; letter-spacing: .05em; }
   /* Delta chip — up/down comparison vs prior period */
   .delta-chip { display: inline-block; font-family: 'Barlow Condensed', sans-serif; font-size: 10px; font-weight: 800; letter-spacing: .04em; padding: 2px 6px; border-radius: 3px; margin-left: 6px; text-transform: uppercase; vertical-align: middle; }
@@ -1532,11 +1532,11 @@ ${STATIC_CHART_CSS}
   .delta-chip.down { background: rgba(197,48,48,.15); color: #ff6b6b; }
   .delta-chip.flat { background: rgba(255,255,255,.08); color: #8b8e96; }
   /* AI narrative section (Stage 4) */
-  .narrative { background: #fff8f0; border-left: 5px solid #e8720c; padding: 24px 28px; margin: 0; border-bottom: 1px solid #eee; position: relative; }
-  .narrative-label { font-family: 'Barlow Condensed', sans-serif; font-size: 10px; font-weight: 800; letter-spacing: .18em; color: var(--orange,#e8720c); text-transform: uppercase; margin-bottom: 8px; }
+  .narrative { background: #fff8f0; border-left: 5px solid #BD5728; padding: 24px 28px; margin: 0; border-bottom: 1px solid #eee; position: relative; }
+  .narrative-label { font-family: 'Barlow Condensed', sans-serif; font-size: 10px; font-weight: 800; letter-spacing: .18em; color: var(--orange,#BD5728); text-transform: uppercase; margin-bottom: 8px; }
   .narrative-text { font-size: 16px; line-height: 1.6; color: #1a1a1a; font-weight: 500; }
-  .narrative-badge { position: absolute; top: 12px; right: 20px; font-size: 9px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--orange,#e8720c); background: #fff; border: 1px solid rgba(232,114,12,.3); padding: 3px 8px; border-radius: 10px; }
-  @media print { body { background: #fff; } .report-page { max-width: 100%; padding: 0; } .section { page-break-inside: avoid; } @page { margin: 0.5cm; size: letter; } .narrative { background: #fff; border-left: 4px solid #e8720c; } }
+  .narrative-badge { position: absolute; top: 12px; right: 20px; font-size: 9px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--orange,#BD5728); background: #fff; border: 1px solid rgba(232,114,12,.3); padding: 3px 8px; border-radius: 10px; }
+  @media print { body { background: #fff; } .report-page { max-width: 100%; padding: 0; } .section { page-break-inside: avoid; } @page { margin: 0.5cm; size: letter; } .narrative { background: #fff; border-left: 4px solid #BD5728; } }
 ${STATIC_CHART_CSS}
 </style>
 </head>
@@ -1688,7 +1688,7 @@ ${STATIC_CHART_CSS}
     // Static funnel — centered tapering bars (CSP-safe, no ApexCharts).
     const funnelData = funnel.stages.map(s => ({ x: s.stage, y: s.count }));
     const funnelMax = funnelData.reduce((m, d) => Math.max(m, Number(d.y) || 0), 0);
-    const funnelPalette = ['#e8720c','#ff9030','#ffb870','#ffc68a','#ffce9a','#f0a060','#c58040','#8a5a28','#444'];
+    const funnelPalette = ['#BD5728','#ff9030','#ffb870','#ffc68a','#ffce9a','#f0a060','#c58040','#8a5a28','#444'];
     const funnelHTML = funnelData.length > 0
       ? `<div class="funnel-wrap">` + funnelData.map((d, i) => `
           <div class="funnel-bar" style="width:${barPct(d.y, funnelMax)}%;min-width:90px;background:${funnelPalette[i % funnelPalette.length]};">${esc(d.x)}: ${d.y}</div>
@@ -1799,7 +1799,7 @@ ${STATIC_CHART_CSS}
       // Area polygon: line points + drop to baseline.
       const baselineY = (padT + H).toFixed(1);
       const polygon = `${padL.toFixed(1)},${baselineY} ` + polyline + ` ${(padL + W).toFixed(1)},${baselineY}`;
-      const circles = pts.map(p => `<circle cx="${p.px.toFixed(1)}" cy="${p.py.toFixed(1)}" r="3" fill="#e8720c"/>`).join('');
+      const circles = pts.map(p => `<circle cx="${p.px.toFixed(1)}" cy="${p.py.toFixed(1)}" r="3" fill="#BD5728"/>`).join('');
       const xLabels = pts.map(p => `<text x="${p.px.toFixed(1)}" y="${(VBH - 6)}" fill="#666" font-size="11" font-family="Barlow, sans-serif" text-anchor="middle">${esc(p.d.x)}</text>`).join('');
       // A few y-axis $K gridline labels (0, 50%, 100% of max).
       const yTicks = [0, 0.5, 1].map(frac => {
@@ -1810,12 +1810,12 @@ ${STATIC_CHART_CSS}
       return `<svg class="revenue-svg" viewBox="0 0 ${VBW} ${VBH}" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Monthly revenue trend">
   <defs>
     <linearGradient id="revfill" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0%" stop-color="#e8720c" stop-opacity="0.45"/>
-      <stop offset="100%" stop-color="#e8720c" stop-opacity="0"/>
+      <stop offset="0%" stop-color="#BD5728" stop-opacity="0.45"/>
+      <stop offset="100%" stop-color="#BD5728" stop-opacity="0"/>
     </linearGradient>
   </defs>
   <polygon points="${polygon}" fill="url(#revfill)" stroke="none"/>
-  <polyline points="${polyline}" fill="none" stroke="#e8720c" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>
+  <polyline points="${polyline}" fill="none" stroke="#BD5728" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>
   ${circles}
   ${xLabels}
   ${yTicks}
@@ -1928,7 +1928,7 @@ ${STATIC_CHART_CSS}
     const won = isWon(lead);
     const lost = isLost(lead);
     const statusLabel = won ? 'WON' : (lost ? 'LOST' : 'ACTIVE');
-    const statusColor = won ? '#22c55e' : (lost ? '#c53030' : '#e8720c');
+    const statusColor = won ? '#22c55e' : (lost ? '#c53030' : '#BD5728');
 
     return shell.head + `
     <div class="hero-grid">
@@ -1999,7 +1999,7 @@ ${STATIC_CHART_CSS}
     <div class="section">
       <div class="section-label">Notes</div>
       <div class="section-title">Customer File</div>
-      <div style="font-size:13px;color:#111;line-height:1.6;padding:16px;background:#fafaf9;border-left:4px solid #e8720c;">
+      <div style="font-size:13px;color:#111;line-height:1.6;padding:16px;background:#fafaf9;border-left:4px solid #BD5728;">
         ${esc(lead.notes || 'No notes on file for this customer.')}
       </div>
     </div>
@@ -2061,7 +2061,7 @@ ${STATIC_CHART_CSS}
         const row = document.createElement('button');
         row.type = 'button';
         row.style.cssText = 'background:var(--s2);border:1px solid var(--br);border-radius:6px;padding:10px 14px;text-align:left;cursor:pointer;font-family:inherit;transition:border-color .15s;';
-        row.addEventListener('mouseenter', () => { row.style.borderColor = '#e8720c'; });
+        row.addEventListener('mouseenter', () => { row.style.borderColor = '#BD5728'; });
         row.addEventListener('mouseleave', () => { row.style.borderColor = 'var(--br)'; });
         const name = document.createElement('div');
         name.style.cssText = 'font-size:13px;font-weight:600;color:var(--t);';

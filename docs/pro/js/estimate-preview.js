@@ -105,7 +105,7 @@
       '.ep-body{overflow-y:auto;padding:14px 18px 6px;-webkit-overflow-scrolling:touch;}' +
       '.ep-actions{display:flex;gap:8px;padding:12px 16px calc(14px + env(safe-area-inset-bottom));border-top:1px solid var(--br,#2a2f37);flex:none;}' +
       '.ep-btn{flex:1;padding:12px 8px;border-radius:9px;border:1px solid var(--br,#2a2f37);background:var(--s2,#1b2028);color:var(--t,#eee);font-family:\'Barlow Condensed\',sans-serif;font-weight:700;font-size:13px;letter-spacing:.06em;text-transform:uppercase;cursor:pointer;}' +
-      '.ep-btn.primary{background:var(--orange,#e8720c);border-color:var(--orange,#e8720c);color:#fff;}' +
+      '.ep-btn.primary{background:var(--orange,#BD5728);border-color:var(--orange,#BD5728);color:#fff;}' +
       '.ep-chip{display:inline-block;padding:3px 9px;border-radius:20px;font-size:10px;font-weight:700;letter-spacing:.06em;border:1px solid var(--br,#2a2f37);color:var(--m,#98a0ab);margin-right:6px;}' +
       '@media(min-width:720px){.ep-overlay{align-items:center;padding:24px;}.ep-sheet{border-radius:14px;border-bottom:1px solid var(--br,#2a2f37);max-height:82vh;}.ep-grab{display:none;}}';
     document.head.appendChild(st);
@@ -127,12 +127,12 @@
     var v = normalize(est);
     var sig = '';
     if (v.signatureStatus === 'signed') sig = '<span class="ep-chip" style="color:var(--green,#2ecc8a);border-color:var(--green,#2ecc8a);">✓ SIGNED</span>';
-    else if (v.signatureStatus === 'sent' || v.signatureStatus === 'viewed') sig = '<span class="ep-chip" style="color:var(--orange,#e8720c);border-color:var(--orange,#e8720c);">✍ AWAITING SIGN</span>';
+    else if (v.signatureStatus === 'sent' || v.signatureStatus === 'viewed') sig = '<span class="ep-chip" style="color:var(--orange,#BD5728);border-color:var(--orange,#BD5728);">✍ AWAITING SIGN</span>';
     else if (v.signatureStatus === 'declined') sig = '<span class="ep-chip" style="color:var(--red,#e5484d);border-color:var(--red,#e5484d);">✗ DECLINED</span>';
 
     var linkChip = v.leadId
       ? (v.owner ? '<span class="ep-chip">👤 ' + esc(v.owner) + '</span>' : '')
-      : '<span class="ep-chip" style="color:var(--orange,#e8720c);border-color:var(--orange,#e8720c);">➕ NOT ATTACHED</span>';
+      : '<span class="ep-chip" style="color:var(--orange,#BD5728);border-color:var(--orange,#BD5728);">➕ NOT ATTACHED</span>';
 
     var linesHtml = v.lines.length
       ? v.lines.map(function (l) {

@@ -66,7 +66,7 @@
     'Claim Filed':        '#3b82f6',
     'Adjuster Scheduled': '#a78bfa',
     'Approved':           '#10b981',
-    'Supplementing':      '#e8720c',
+    'Supplementing':      '#BD5728',
     'Paid Out':           '#10b981',
     'Denied':             '#ef4444'
   };
@@ -143,7 +143,7 @@
         links += '<a href="tel:' + esc(digits) + '" style="color:var(--green,#10b981);text-decoration:none;font-size:13px;margin-left:10px;">📞 Call</a>';
         links += '<a href="sms:' + esc(digits) + '" style="color:var(--blue,#3b82f6);text-decoration:none;font-size:13px;margin-left:10px;">💬 Text</a>';
       }
-      if (c.email) links += '<a href="mailto:' + esc(c.email) + '" style="color:var(--orange,#e8720c);text-decoration:none;font-size:13px;margin-left:10px;">✉️ Email</a>';
+      if (c.email) links += '<a href="mailto:' + esc(c.email) + '" style="color:var(--orange,#BD5728);text-decoration:none;font-size:13px;margin-left:10px;">✉️ Email</a>';
       inner = '<div style="color:var(--t);font-weight:600;">' + esc(c.name || c.phone || c.email) + '</div>' +
               (c.phone ? '<div style="color:var(--m,#9ca3af);font-size:12px;margin-top:2px;">' + esc(c.phone) + '</div>' : '') +
               (links ? '<div style="margin-top:4px;margin-left:-10px;">' + links + '</div>' : '');
@@ -227,7 +227,7 @@
     return '<div style="display:flex;gap:10px;margin-bottom:10px;">' + Array.prototype.slice.call(arguments).join('') + '</div>';
   }
   function section(t) {
-    return '<div style="font-family:\'Barlow Condensed\',sans-serif;font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--orange,#e8720c);margin:16px 0 8px;">' + esc(t) + '</div>';
+    return '<div style="font-family:\'Barlow Condensed\',sans-serif;font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--orange,#BD5728);margin:16px 0 8px;">' + esc(t) + '</div>';
   }
 
   window.openClaimEditor = function () {
@@ -273,7 +273,7 @@
             field('Phone', 'clmMortgagePhone', 'tel', c.mortgageCompany.phone, '')) +
         '<div style="display:flex;gap:10px;margin-top:16px;">' +
           '<button type="button" data-action="closeClaimEditor" style="flex:1;background:none;border:1px solid var(--br,rgba(255,255,255,.15));border-radius:10px;color:var(--m,#9ca3af);font-size:14px;font-weight:700;cursor:pointer;padding:12px;">Cancel</button>' +
-          '<button type="button" id="saveClaimBtn" data-action="saveClaimEdits" style="flex:2;background:var(--orange,#e8720c);border:none;border-radius:10px;color:#fff;font-size:14px;font-weight:800;cursor:pointer;padding:12px;">SAVE CLAIM</button>' +
+          '<button type="button" id="saveClaimBtn" data-action="saveClaimEdits" style="flex:2;background:var(--orange,#BD5728);border:none;border-radius:10px;color:#fff;font-size:14px;font-weight:800;cursor:pointer;padding:12px;">SAVE CLAIM</button>' +
         '</div>' +
       '</div>';
     document.body.appendChild(bg);

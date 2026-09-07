@@ -187,7 +187,7 @@
             + '<span style="color:var(--t);">' + em + '</span>'
             + '<span class="meta-10" style="margin-left:auto;text-transform:uppercase;letter-spacing:.05em;">' + _nbdEscHtml((m.role || 'rep').replace(/_/g, ' ')) + '</span></label>';
         }).join('');
-        host.innerHTML = '<div style="margin-top:14px;padding:14px;background:var(--s);border:1px solid ' + (over ? 'var(--orange,#e8720c)' : 'var(--br)') + ';border-radius:8px;">'
+        host.innerHTML = '<div style="margin-top:14px;padding:14px;background:var(--s);border:1px solid ' + (over ? 'var(--orange,#BD5728)' : 'var(--br)') + ';border-radius:8px;">'
           + '<div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--t);margin-bottom:4px;">Seat assignment</div>'
           + '<div class="meta-10" style="margin-bottom:10px;line-height:1.5;">' + (over
               ? 'You have ' + claimed.length + ' reps but your plan includes ' + capLbl + ' seat' + (cap === 1 ? '' : 's') + '. Choose who stays active — the rest are benched (their leads &amp; data are kept, and you can bring them back anytime).'
@@ -195,7 +195,7 @@
           + '</div>' + rows
           + '<div style="display:flex;align-items:center;gap:10px;margin-top:8px;">'
           + '<span id="teamSeatCount" class="meta-10">' + activeCount + ' of ' + capLbl + ' selected</span>'
-          + '<button data-team-action="applySeats" style="margin-left:auto;background:var(--orange,#e8720c);border:none;color:#fff;padding:7px 16px;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer;">Apply seat selection</button>'
+          + '<button data-team-action="applySeats" style="margin-left:auto;background:var(--orange,#BD5728);border:none;color:#fff;padding:7px 16px;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer;">Apply seat selection</button>'
           + '</div></div>';
         _updateSeatCount(host);
       }
@@ -306,7 +306,7 @@
           + '<button data-team-action="seatBuyMinus" style="' + stepBtn + '">−</button>'
           + '<span id="seatBuyCount" style="min-width:22px;text-align:center;font-size:14px;font-weight:700;color:var(--t);">' + purchased + '</span>'
           + '<button data-team-action="seatBuyPlus" ' + plusAttrs + '>+</button>'
-          + '<button data-team-action="seatBuyApply" disabled style="background:var(--orange,#e8720c);border:none;color:#fff;padding:7px 14px;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer;opacity:.5;">Update seats</button>'
+          + '<button data-team-action="seatBuyApply" disabled style="background:var(--orange,#BD5728);border:none;color:#fff;padding:7px 14px;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer;opacity:.5;">Update seats</button>'
           + '</div>';
         _syncSeatBuy(host);
       }

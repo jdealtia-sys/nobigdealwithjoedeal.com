@@ -102,7 +102,7 @@
       .nbd-onb-spotlight{
         position:fixed; pointer-events:none;
         border-radius:10px;
-        box-shadow:0 0 0 9999px rgba(0,0,0,.65), 0 0 0 3px var(--orange,#e8720c);
+        box-shadow:0 0 0 9999px rgba(0,0,0,.65), 0 0 0 3px var(--orange,#BD5728);
         transition:all .4s cubic-bezier(.4, 0, .2, 1);
         z-index:99991;
       }
@@ -126,7 +126,7 @@
 
       .nbd-onb-step{
         font-size:10px; font-weight:700; letter-spacing:.14em;
-        text-transform:uppercase; color:var(--orange,#e8720c);
+        text-transform:uppercase; color:var(--orange,#BD5728);
         margin-bottom:10px;
       }
       .nbd-onb-title{
@@ -141,7 +141,7 @@
       }
       .nbd-onb-learn{
         display:inline-block; margin-bottom:18px;
-        color:var(--orange,#e8720c); text-decoration:none;
+        color:var(--orange,#BD5728); text-decoration:none;
         font-size:12px; font-weight:600;
         border-bottom:1px dashed currentColor; padding-bottom:1px;
       }
@@ -151,7 +151,7 @@
         flex-wrap:wrap; margin-top:4px;
       }
       .nbd-onb-btn{
-        background:var(--orange,#e8720c); color:#fff; border:none;
+        background:var(--orange,#BD5728); color:#fff; border:none;
         padding:11px 20px; border-radius:8px;
         font-family:inherit; font-size:13px; font-weight:700;
         letter-spacing:.02em;
@@ -181,8 +181,8 @@
         background:color-mix(in srgb, var(--m,#9ca3af) 30%, transparent);
         transition:background .25s;
       }
-      .nbd-onb-dot.active{ background:var(--orange,#e8720c); }
-      .nbd-onb-dot.done{ background:color-mix(in srgb, var(--orange,#e8720c) 50%, transparent); }
+      .nbd-onb-dot.active{ background:var(--orange,#BD5728); }
+      .nbd-onb-dot.done{ background:color-mix(in srgb, var(--orange,#BD5728) 50%, transparent); }
 
       /* Mobile: a little more padding, but still cap the title size */
       @media (max-width:480px){

@@ -198,15 +198,15 @@ function buildOverrides() {
   };
   // M1: only write colors if the rep actually touched a swatch. An
   // <input type="color"> ALWAYS reports a value, so writing it
-  // unconditionally pinned the default #1E3A6E/#E8720C (NBD's own orange!)
+  // unconditionally pinned the default #1A3057/#BD5728 (NBD's own orange!)
   // as an explicit tenant override on every finisher — future platform
   // default-color changes would never reach them, and the resolver would
   // treat NBD's palette as "the tenant chose this". Only persist a
   // deliberate choice.
   if (state.colorsTouched) {
     brand.colors = {
-      primary: val('obColorPrimary') || '#1E3A6E',
-      accent:  val('obColorAccent')  || '#E8720C',
+      primary: val('obColorPrimary') || '#1A3057',
+      accent:  val('obColorAccent')  || '#BD5728',
     };
   }
   // NOTE: brand.seal / brand.docPrefix are deliberately NOT written here. They

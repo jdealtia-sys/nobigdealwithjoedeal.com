@@ -5,7 +5,7 @@
 // maintenance, exterior) — new id prefixes chim_/sky_/gut_/maint_/ext_.
 
 window.NBD_CATEGORIES = {
-  roofing_shingles:     { label: 'Roofing — Shingles',          icon: '🏠', color: '#e8720c' },
+  roofing_shingles:     { label: 'Roofing — Shingles',          icon: '🏠', color: '#BD5728' },
   roofing_underlayment: { label: 'Roofing — Underlayment',      icon: '🛡️', color: '#d4710a' },
   roofing_flashing:     { label: 'Roofing — Flashing & Hardware', icon: '🔩', color: '#b5480f' },
   roofing_ventilation:  { label: 'Roofing — Ventilation',       icon: '💨', color: '#a03d0d' },

@@ -70,7 +70,7 @@
   // disappears entirely).
   function photoBlock(photos, accent) {
     if (!Array.isArray(photos) || !photos.length) return '';
-    const acc = accent || '#e8720c';
+    const acc = accent || '#BD5728';
     const cells = photos.map(p =>
       `<div style="break-inside:avoid;page-break-inside:avoid;">
         <img src="${escapeHtml(p.url)}" alt="Job site photo"
@@ -199,11 +199,11 @@
   // EXACT literal this file shipped with, so NBD output stays
   // byte-identical. A non-NBD tenant gets its own brand values.
   //
-  // The accent (#e8720c for NBD) is the single color this file themes;
+  // The accent (#BD5728 for NBD) is the single color this file themes;
   // it is threaded into buildBaseCss() so the inline <style> picks up the
-  // tenant's accent. NBD → '#e8720c' (byte-identical CSS text).
+  // tenant's accent. NBD → '#BD5728' (byte-identical CSS text).
   // ═════════════════════════════════════════════════════════
-  const NBD_ACCENT = '#e8720c';
+  const NBD_ACCENT = '#BD5728';
 
   // Tenant doc-number prefix, from the same source the customer IDs use, so a
   // tenant's estimate numbers match their customer IDs instead of falling back
@@ -279,7 +279,7 @@
   }
 
   // Shared CSS for all outputs. `acc` is the brand accent color; for NBD
-  // it is '#e8720c', so buildBaseCss('#e8720c') returns the EXACT string
+  // it is '#BD5728', so buildBaseCss('#BD5728') returns the EXACT string
   // this file shipped with (byte-identical). A tenant passes its accent.
   function buildBaseCss(acc) {
     acc = acc || NBD_ACCENT;

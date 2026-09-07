@@ -30,7 +30,7 @@
     animatedBgEnabled: true,
     intensity: 0.6,          // 0-1, default moderate
     accentOverride: null,    // null = use theme accent, hex = override
-    currentAccent: '#e8720c' // tracks whatever is active
+    currentAccent: '#BD5728' // tracks whatever is active
   };
 
   let styleEl = null;        // <style> element for GX CSS variables

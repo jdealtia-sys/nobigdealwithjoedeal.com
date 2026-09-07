@@ -831,10 +831,10 @@
         <div style="font-size:32px;margin-bottom:12px;">⚠️</div>
         <div style="font-family:'Barlow Condensed',sans-serif;font-size:20px;font-weight:700;color:var(--t,#fff);margin-bottom:8px;">Can't generate ${escFn(check.label || 'document')}</div>
         <div style="font-size:13px;color:var(--m,#888);margin-bottom:16px;">${escFn(check.msg || 'This document needs data that hasn’t been added yet:')}</div>
-        <div style="text-align:left;background:var(--s2,#1a1a2e);border-radius:8px;padding:14px;margin-bottom:20px;">
-          ${check.missing.map(m => '<div style="font-size:13px;color:var(--orange,#e8720c);padding:4px 0;">• ' + escFn(m) + '</div>').join('')}
+        <div style="text-align:left;background:var(--s2,#12223D);border-radius:8px;padding:14px;margin-bottom:20px;">
+          ${check.missing.map(m => '<div style="font-size:13px;color:var(--orange,#BD5728);padding:4px 0;">• ' + escFn(m) + '</div>').join('')}
         </div>
-        <button class="nbd-preq-close" style="padding:12px 28px;background:var(--orange,#e8720c);color:var(--accent-fg,#fff);border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;">Got it</button>
+        <button class="nbd-preq-close" style="padding:12px 28px;background:var(--orange,#BD5728);color:var(--accent-fg,#fff);border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;">Got it</button>
       </div>`;
     modal.querySelector('.nbd-preq-close').addEventListener('click', () => modal.remove());
     modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
@@ -1539,12 +1539,12 @@
           if (/verify your email/i.test(String(e.message || '')) && !document.getElementById('nbdVerifyBanner')) {
             const banner = document.createElement('div');
             banner.id = 'nbdVerifyBanner';
-            banner.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:var(--z-overlay,10000);background:var(--orange,#e8720c);color:#fff;padding:10px 16px;font-size:13px;display:flex;align-items:center;justify-content:center;gap:12px;flex-wrap:wrap;';
+            banner.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:var(--z-overlay,10000);background:var(--orange,#BD5728);color:#fff;padding:10px 16px;font-size:13px;display:flex;align-items:center;justify-content:center;gap:12px;flex-wrap:wrap;';
             const msg = document.createElement('span');
             msg.textContent = 'You have a pending team invite — verify ' + (user.email || 'your email') + ' to join.';
             const resend = document.createElement('button');
             resend.textContent = 'Resend verification email';
-            resend.style.cssText = 'background:#fff;color:#1e3a6e;border:none;border-radius:6px;padding:6px 12px;font-weight:700;font-size:12px;cursor:pointer;';
+            resend.style.cssText = 'background:#fff;color:#1A3057;border:none;border-radius:6px;padding:6px 12px;font-weight:700;font-size:12px;cursor:pointer;';
             resend.addEventListener('click', async () => {
               resend.disabled = true; resend.textContent = 'Sending…';
               try {
@@ -1783,7 +1783,7 @@
           '<div style="font-size:32px;margin-bottom:12px;">⚠️</div>' +
           '<div style="font-size:16px;font-weight:600;margin-bottom:8px;color:var(--t, #fff);">Couldn\'t finish loading the CRM.</div>' +
           '<div style="font-size:13px;margin-bottom:18px;">Your data is safe — this is usually a slow connection during cold start.</div>' +
-          '<button type="button" data-action="reload" style="padding:10px 22px;border-radius:6px;background:var(--orange, #c8541a);color:#fff;border:none;cursor:pointer;font:inherit;font-size:14px;">Reload</button>' +
+          '<button type="button" data-action="reload" style="padding:10px 22px;border-radius:6px;background:var(--orange, #A14A22);color:#fff;border:none;cursor:pointer;font:inherit;font-size:14px;">Reload</button>' +
           '</div>';
       }
       // First attempt fires synchronously after loadLeads resolves.
@@ -4959,8 +4959,8 @@
     if (_cpColorsTouched) {
       const dColors = (defaults.brand && defaults.brand.colors) || {};
       brand.colors = {
-        primary: cpv('cp_brand_colorPrimary') || dColors.primary || '#1E3A6E',
-        accent:  cpv('cp_brand_colorAccent')  || dColors.accent  || '#E8720C'
+        primary: cpv('cp_brand_colorPrimary') || dColors.primary || '#1A3057',
+        accent:  cpv('cp_brand_colorAccent')  || dColors.accent  || '#BD5728'
       };
     }
     const contact = {};
@@ -5048,9 +5048,9 @@
     const dBrandColors = (defaults.brand && defaults.brand.colors) || {};
     const rawColors = rawBrand.colors || {};
     const primEl = document.getElementById('cp_brand_colorPrimary');
-    if (primEl) primEl.value = rawColors.primary || dBrandColors.primary || '#1E3A6E';
+    if (primEl) primEl.value = rawColors.primary || dBrandColors.primary || '#1A3057';
     const accEl = document.getElementById('cp_brand_colorAccent');
-    if (accEl) accEl.value = rawColors.accent || dBrandColors.accent || '#E8720C';
+    if (accEl) accEl.value = rawColors.accent || dBrandColors.accent || '#BD5728';
     // A fresh populate = user hasn't moved a swatch yet (mirror onboarding.js).
     _cpColorsTouched = false;
     _cpWireColorInputs();

@@ -71,7 +71,7 @@
             var f = function (v) { return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); };
             return 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(b);
           })(acc);
-          var fg = lum > 0.45 ? '#1a1a2e' : '#ffffff';
+          var fg = lum > 0.45 ? '#12223D' : '#ffffff';
           var applyAccent = function (st) {
             st.setProperty('--nbd-orange', acc);
             st.setProperty('--nbd-orange-deep', 'color-mix(in srgb, ' + acc + ' 78%, #000)');

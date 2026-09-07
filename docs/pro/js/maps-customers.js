@@ -619,7 +619,7 @@ function _custNnOrder(start, pts) {
 }
 function _custNumIcon(n) {
   return L.divIcon({
-    html: '<div style="width:20px;height:20px;border-radius:50%;background:var(--orange,#e8720c);color:var(--accent-fg,#0A0C0F);font-family:sans-serif;font-size:11px;font-weight:800;'
+    html: '<div style="width:20px;height:20px;border-radius:50%;background:var(--orange,#BD5728);color:var(--accent-fg,#0A0C0F);font-family:sans-serif;font-size:11px;font-weight:800;'
       + 'display:flex;align-items:center;justify-content:center;border:2px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,.55);">' + n + '</div>',
     iconSize: [20, 20], iconAnchor: [10, 10], className: '',
   });
@@ -661,7 +661,7 @@ async function buildCustomerRoute() {
 
     _custRouteLayer = L.layerGroup();
     const latlngs = [[start.lat, start.lng]].concat(ordered.map(o => [o.lat, o.lng]));
-    L.polyline(latlngs, { color: '#e8720c', weight: 3, opacity: 0.85, dashArray: '6,6' }).addTo(_custRouteLayer);
+    L.polyline(latlngs, { color: '#BD5728', weight: 3, opacity: 0.85, dashArray: '6,6' }).addTo(_custRouteLayer);
     ordered.forEach((o, i) => { L.marker([o.lat, o.lng], { icon: _custNumIcon(i + 1) }).addTo(_custRouteLayer); });
     _custRouteLayer.addTo(mainMap);
     _custRouteOn = true;

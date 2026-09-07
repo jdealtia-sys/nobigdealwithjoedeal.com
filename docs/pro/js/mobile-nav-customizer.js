@@ -203,8 +203,8 @@ function injectCSS() {
   transition:border-color .15s, background .15s, transform .15s;
   -webkit-tap-highlight-color:transparent;
 }
-.ncm-slot.dragging { opacity:.5; transform:scale(.92); border-color:var(--orange, #e8720c); }
-.ncm-slot.drag-over { border-color:var(--orange, #e8720c); background:color-mix(in srgb, var(--orange) 10%, transparent); transform:scale(1.04); }
+.ncm-slot.dragging { opacity:.5; transform:scale(.92); border-color:var(--orange, #BD5728); }
+.ncm-slot.drag-over { border-color:var(--orange, #BD5728); background:color-mix(in srgb, var(--orange) 10%, transparent); transform:scale(1.04); }
 .ncm-slot-icon { font-size:22px; line-height:1; }
 .ncm-slot-label {
   font-size:9px; font-family:'Barlow Condensed',sans-serif;
@@ -215,7 +215,7 @@ function injectCSS() {
 }
 .ncm-slot-num {
   position:absolute; top:4px; left:6px; font-size:8px;
-  font-weight:800; color:var(--orange, #e8720c);
+  font-weight:800; color:var(--orange, #BD5728);
   font-family:'Barlow Condensed',sans-serif;
 }
 .ncm-slot-remove {
@@ -242,7 +242,7 @@ function injectCSS() {
   cursor:pointer; transition:all .15s;
   -webkit-tap-highlight-color:transparent;
 }
-.ncm-pool-item:active { background:color-mix(in srgb, var(--orange) 12%, transparent); border-color:var(--orange, #e8720c); transform:scale(.95); }
+.ncm-pool-item:active { background:color-mix(in srgb, var(--orange) 12%, transparent); border-color:var(--orange, #BD5728); transform:scale(.95); }
 .ncm-pool-item.in-bar { opacity:.35; pointer-events:none; border-style:dashed; }
 .ncm-pool-icon { font-size:20px; line-height:1; }
 .ncm-pool-name {
@@ -281,13 +281,13 @@ function injectCSS() {
   background:var(--s2, rgba(255,255,255,.06));
   color:var(--m, #8a8f9e); border:1px solid var(--br, #1e2530);
 }
-.ncm-btn-save { background:var(--orange, #e8720c); color:#fff; }
+.ncm-btn-save { background:var(--orange, #BD5728); color:#fff; }
 .ncm-btn-save.saving { opacity:.6; pointer-events:none; }
 
 .mm-item-customize {
   border-top:1px solid var(--br, #1e2530);
   margin-top:8px; padding-top:14px;
-  color:var(--orange, #e8720c) !important;
+  color:var(--orange, #BD5728) !important;
 }
 .mm-item-customize:hover,
 .mm-item-customize:active { background:color-mix(in srgb, var(--orange) 10%, transparent) !important; }

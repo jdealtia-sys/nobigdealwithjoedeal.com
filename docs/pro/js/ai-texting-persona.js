@@ -101,7 +101,7 @@
     var presetCards = PRESETS.map(function (p) {
       var active = state.presetId === p.id;
       return '<button type="button" class="aip-preset' + (active ? ' aip-preset-active' : '') + '" data-aip-preset="' + esc(p.id) + '" ' +
-        'style="text-align:left;border:2px solid ' + (active ? 'var(--orange,#e8720c)' : 'var(--br,#2a2f3a)') + ';background:var(--s2,#1a1f29);border-radius:8px;padding:10px 12px;cursor:pointer;">' +
+        'style="text-align:left;border:2px solid ' + (active ? 'var(--orange,#BD5728)' : 'var(--br,#2a2f3a)') + ';background:var(--s2,#1a1f29);border-radius:8px;padding:10px 12px;cursor:pointer;">' +
         '<div style="font-weight:700;font-size:13px;color:var(--t,#e8eaf0);">' + esc(p.label) + '</div>' +
         '<div style="font-size:11px;color:var(--m,#9aa3b2);margin-top:2px;line-height:1.35;">' + esc(p.desc) + '</div>' +
         '</button>';
@@ -114,7 +114,7 @@
           '<span style="font-size:12px;font-weight:700;color:var(--t,#e8eaf0);">' + esc(t.label) + '</span>' +
           '<span class="aip-val" data-aip-val="' + esc(t.key) + '" style="font-size:11px;color:var(--m,#9aa3b2);font-variant-numeric:tabular-nums;">' + val + '</span>' +
         '</div>' +
-        '<input type="range" min="0" max="100" step="5" value="' + val + '" data-aip-trait="' + esc(t.key) + '" style="width:100%;accent-color:var(--orange,#e8720c);">' +
+        '<input type="range" min="0" max="100" step="5" value="' + val + '" data-aip-trait="' + esc(t.key) + '" style="width:100%;accent-color:var(--orange,#BD5728);">' +
         '<div style="display:flex;justify-content:space-between;font-size:10px;color:var(--m,#9aa3b2);margin-top:1px;">' +
           '<span>' + esc(t.left) + '</span><span>' + esc(t.right) + '</span></div>' +
       '</div>';
@@ -126,7 +126,7 @@
 
     var companyDefaultRow = isOwner()
       ? '<label style="display:flex;align-items:center;gap:8px;font-size:12px;color:var(--m,#9aa3b2);margin-top:10px;cursor:pointer;">' +
-          '<input type="checkbox" id="aipCompanyDefault" style="accent-color:var(--orange,#e8720c);"> ' +
+          '<input type="checkbox" id="aipCompanyDefault" style="accent-color:var(--orange,#BD5728);"> ' +
           'Also set as my team’s default (used for reps who haven’t customized)</label>'
       : '';
 
@@ -160,14 +160,14 @@
           '<div style="display:flex;gap:8px;align-items:stretch;flex-wrap:wrap;">' +
             '<input type="text" id="aipSample" value="' + esc(SAMPLE_DEFAULT) + '" maxlength="500" ' +
               'style="flex:1;min-width:220px;padding:8px 10px;border:1px solid var(--br,#2a2f3a);border-radius:6px;background:var(--s2,#1a1f29);color:var(--t,#e8eaf0);font:inherit;font-size:12px;" placeholder="A sample inbound text…">' +
-            '<button type="button" id="aipPreviewBtn" style="padding:8px 16px;border:none;border-radius:6px;background:var(--orange,#e8720c);color:#fff;font-weight:700;font-size:12px;cursor:pointer;white-space:nowrap;">Preview draft</button>' +
+            '<button type="button" id="aipPreviewBtn" style="padding:8px 16px;border:none;border-radius:6px;background:var(--orange,#BD5728);color:#fff;font-weight:700;font-size:12px;cursor:pointer;white-space:nowrap;">Preview draft</button>' +
           '</div>' +
           '<div id="aipPreviewOut" style="margin-top:10px;font-size:13px;color:var(--m,#9aa3b2);line-height:1.5;"></div>' +
         '</div>' +
 
         // ── save ──
         '<div style="margin-top:16px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;">' +
-          '<button type="button" id="aipSaveBtn" style="padding:9px 20px;border:none;border-radius:6px;background:var(--orange,#e8720c);color:#fff;font-weight:700;font-size:13px;cursor:pointer;">Save persona</button>' +
+          '<button type="button" id="aipSaveBtn" style="padding:9px 20px;border:none;border-radius:6px;background:var(--orange,#BD5728);color:#fff;font-weight:700;font-size:13px;cursor:pointer;">Save persona</button>' +
           '<button type="button" id="aipResetBtn" style="padding:9px 14px;border:1px solid var(--br,#2a2f3a);border-radius:6px;background:transparent;color:var(--m,#9aa3b2);font-weight:600;font-size:12px;cursor:pointer;">Reset to default</button>' +
           '<span id="aipStatus" role="status" aria-live="polite" style="font-size:12px;color:var(--m,#9aa3b2);"></span>' +
         '</div>' +
@@ -227,7 +227,7 @@
     mount.querySelectorAll('[data-aip-preset]').forEach(function (b) {
       var active = b.dataset.aipPreset === state.presetId;
       b.classList.toggle('aip-preset-active', active);
-      b.style.borderColor = active ? 'var(--orange,#e8720c)' : 'var(--br,#2a2f3a)';
+      b.style.borderColor = active ? 'var(--orange,#BD5728)' : 'var(--br,#2a2f3a)';
     });
   }
 

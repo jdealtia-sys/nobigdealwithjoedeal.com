@@ -173,7 +173,7 @@
       </div>
       <div style="display:flex; flex-direction:column; gap:6px; flex-shrink:0;">
         <button id="nbd-pwa-install-action" style="
-          background:linear-gradient(135deg,var(--orange,#c8541a) 0%,#a64516 100%);
+          background:linear-gradient(135deg,var(--orange,#A14A22) 0%,#a64516 100%);
           color:var(--accent-fg,#fff); border:none; padding:8px 14px; border-radius:7px;
           font-size:12px; font-weight:700; cursor:pointer;
           -webkit-tap-highlight-color:transparent; white-space:nowrap;
@@ -256,7 +256,7 @@
         </div>
         <button id="nbd-pwa-ios-close" style="
           width:100%;
-          background:linear-gradient(135deg,#c8541a 0%,#a64516 100%);
+          background:linear-gradient(135deg,#A14A22 0%,#a64516 100%);
           color:#fff; border:none; padding:12px;
           border-radius:8px; font-size:14px; font-weight:700;
           cursor:pointer; -webkit-tap-highlight-color:transparent;">
@@ -293,7 +293,7 @@
         </ol>
         <button id="nbd-pwa-and-close" style="
           width:100%;
-          background:linear-gradient(135deg,#c8541a 0%,#a64516 100%);
+          background:linear-gradient(135deg,#A14A22 0%,#a64516 100%);
           color:#fff; border:none; padding:12px;
           border-radius:8px; font-size:14px; font-weight:700;
           cursor:pointer; -webkit-tap-highlight-color:transparent;">

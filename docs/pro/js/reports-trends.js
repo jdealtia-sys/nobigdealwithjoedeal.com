@@ -97,7 +97,7 @@
       areaD += x.toFixed(1) + ',' + y.toFixed(1) + ' ';
       const isLast = i === len - 1;
       const dotR = isLast ? 4 : 2;
-      const dotColor = isLast ? '#c8541a' : '#94a3b8';
+      const dotColor = isLast ? '#A14A22' : '#94a3b8';
       dots += '<circle cx="' + x.toFixed(1) + '" cy="' + y.toFixed(1) + '" r="' + dotR + '" fill="' + dotColor + '"/>';
     }
     areaD += 'L' + (pad + (len - 1) * stepX).toFixed(1) + ',' + (h - pad).toFixed(1) + ' Z';
@@ -106,12 +106,12 @@
         'style="width:100%;height:80px;display:block;background:var(--bg, #0a0c0f);border-radius:6px;border:1px solid var(--br, #2a2f35);">' +
         '<defs>' +
           '<linearGradient id="nbd-rt-area" x1="0" y1="0" x2="0" y2="1">' +
-            '<stop offset="0%" stop-color="#c8541a" stop-opacity="0.4"/>' +
-            '<stop offset="100%" stop-color="#c8541a" stop-opacity="0"/>' +
+            '<stop offset="0%" stop-color="#A14A22" stop-opacity="0.4"/>' +
+            '<stop offset="100%" stop-color="#A14A22" stop-opacity="0"/>' +
           '</linearGradient>' +
         '</defs>' +
         '<path d="' + areaD + '" fill="url(#nbd-rt-area)" stroke="none"/>' +
-        '<path d="' + pathD + '" fill="none" stroke="#c8541a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>' +
+        '<path d="' + pathD + '" fill="none" stroke="#A14A22" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>' +
         dots +
       '</svg>'
     );

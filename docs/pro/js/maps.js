@@ -40,7 +40,7 @@
 let _NBD_MP_DELEGATE; // module-local (globals Tranche 1 — was window.*)
 const NBD_THEMES = [
   // STANDARD
-  {id:'default',          name:'NBD Default',       cat:'standard', plan:'blueprint', accent:'#e8720c', bg:'#0A0C0F', s:'#13171d', jp:true},
+  {id:'default',          name:'NBD Default',       cat:'standard', plan:'blueprint', accent:'#BD5728', bg:'#0A0C0F', s:'#13171d', jp:true},
   {id:'matrix',           name:'Matrix',            cat:'standard', plan:'blueprint', accent:'#00ff41', bg:'#000300', s:'#000800'},
   {id:'neon',             name:'Neon',              cat:'standard', plan:'foundation',accent:'#ff00ff', bg:'#08000f', s:'#120018'},
   {id:'galaxy',           name:'Galaxy',            cat:'standard', plan:'foundation',accent:'#9c27b0', bg:'#06000e', s:'#0e0020'},
@@ -61,7 +61,7 @@ const NBD_THEMES = [
   {id:'lightsaber',       name:'Lightsaber',        cat:'heroes',   plan:'foundation',accent:'#00e5ff', bg:'#000508', s:'#000d14'},
   {id:'halo',             name:'Halo',              cat:'heroes',   plan:'foundation',accent:'#00e676', bg:'#010a04', s:'#031408'},
   // GAMING
-  {id:'pokemon',          name:'Pokémon',           cat:'gaming',   plan:'foundation',accent:'#ffcc02', bg:'#1a1a2e', s:'#16213e'},
+  {id:'pokemon',          name:'Pokémon',           cat:'gaming',   plan:'foundation',accent:'#ffcc02', bg:'#12223D', s:'#16213e'},
   {id:'mario',            name:'Mario',             cat:'gaming',   plan:'foundation',accent:'#e52222', bg:'#1a0800', s:'#2e1200'},
   {id:'mario-underground',name:'Mario Underground',cat:'gaming',   plan:'infused',   accent:'#6666ff', bg:'#000018', s:'#00002e'},
   {id:'kirby',            name:'Kirby',             cat:'gaming',   plan:'infused',   accent:'#ff4081', bg:'#120008', s:'#200014'},
@@ -100,7 +100,7 @@ const NBD_THEMES = [
   {id:'ink',              name:'Ink',               cat:'abstract', plan:'blueprint', accent:'#0f0a04', bg:'#f5f0e8', s:'#ece6d8', lt:true},
   {id:'brutalist',        name:'Brutalist',         cat:'abstract', plan:'command',   accent:'#000000', bg:'#e8e8e8', s:'#ffffff', lt:true},
   {id:'vapor',            name:'Vaporwave',         cat:'abstract', plan:'infused',   accent:'#ff71ce', bg:'#0a0014', s:'#140028'},
-  {id:'chalk',            name:'Chalk',             cat:'abstract', plan:'team',      accent:'#f8f8f8', bg:'#1a1a2e', s:'#202040'},
+  {id:'chalk',            name:'Chalk',             cat:'abstract', plan:'team',      accent:'#f8f8f8', bg:'#12223D', s:'#202040'},
   {id:'blueprint-art',    name:'Blueprint',         cat:'abstract', plan:'foundation',accent:'#ffffff', bg:'#001428', s:'#001e3c'},
   // TACTICAL
   {id:'army',             name:'Army',              cat:'tactical', plan:'infused',   accent:'#6a8c2a', bg:'#060a02', s:'#0e1808'},
@@ -315,8 +315,8 @@ function nbdRenderThemes() {
     entries.forEach(([key, t]) => {
       const isAct = key === current;
       const isLocked = t.locked && !(TE.isUnlocked && TE.isUnlocked(key));
-      const bg = t.colors?.bg || '#1a1a2e';
-      const accent = t.colors?.accent || '#e8720c';
+      const bg = t.colors?.bg || '#12223D';
+      const accent = t.colors?.accent || '#BD5728';
       const surface = t.colors?.surface || '#16213e';
       const txt = t.colors?.text || '#e2e8f0';
       const d = document.createElement('div');

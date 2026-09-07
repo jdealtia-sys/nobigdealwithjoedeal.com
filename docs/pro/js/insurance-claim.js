@@ -202,11 +202,11 @@ let _NBD_IC_DELEGATE; // module-local (globals Tranche 1 — was window.*)
       const currentIndex = CLAIM_STAGES.findIndex(s => s.id === status.currentStageId);
 
       const html = `
-        <div class="claim-workflow" style="background: var(--s,#1a1a2e); border: 1px solid var(--br,rgba(255,255,255,.08)); border-radius: 8px; padding: 20px;">
+        <div class="claim-workflow" style="background: var(--s,#12223D); border: 1px solid var(--br,rgba(255,255,255,.08)); border-radius: 8px; padding: 20px;">
           <h3 style="color: var(--t); margin: 0 0 20px 0; font-size: 18px; font-weight: 600;">Insurance Claim Progress</h3>
 
           <div class="claim-progress-bar" style="background: rgba(255,255,255,.05); height: 8px; border-radius: 4px; margin-bottom: 24px; overflow: hidden;">
-            <div style="background: var(--orange,#e8720c); height: 100%; width: ${status.progress}%; transition: width 0.3s ease;"></div>
+            <div style="background: var(--orange,#BD5728); height: 100%; width: ${status.progress}%; transition: width 0.3s ease;"></div>
           </div>
 
           <div class="claim-stages" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; margin-bottom: 24px;">
@@ -216,7 +216,7 @@ let _NBD_IC_DELEGATE; // module-local (globals Tranche 1 — was window.*)
               const statusBg = isCompleted
                 ? '#10b981'
                 : isCurrent
-                  ? '#e8720c'
+                  ? '#BD5728'
                   : 'rgba(255,255,255,.05)';
               const statusText = isCompleted
                 ? '#fff'
@@ -280,7 +280,7 @@ let _NBD_IC_DELEGATE; // module-local (globals Tranche 1 — was window.*)
             <button
               data-ic-action="advance" data-ic-id="${leadId}"
               style="
-                background: var(--orange,#e8720c);
+                background: var(--orange,#BD5728);
                 color: white;
                 border: none;
                 border-radius: 6px;
@@ -347,7 +347,7 @@ let _NBD_IC_DELEGATE; // module-local (globals Tranche 1 — was window.*)
       }).join('');
 
       const html = `
-        <div class="claim-checklist" style="background: var(--s,#1a1a2e); border: 1px solid var(--br,rgba(255,255,255,.08)); border-radius: 8px; overflow: hidden;">
+        <div class="claim-checklist" style="background: var(--s,#12223D); border: 1px solid var(--br,rgba(255,255,255,.08)); border-radius: 8px; overflow: hidden;">
           <div style="background: rgba(255,255,255,.02); padding: 16px; border-bottom: 1px solid var(--br,rgba(255,255,255,.08));">
             <h3 style="color: var(--t); margin: 0 0 8px 0; font-size: 16px; font-weight: 600;">
               ${CLAIM_STAGES.find(s => s.id === currentStageId)?.label || 'Checklist'} Documents
@@ -405,7 +405,7 @@ let _NBD_IC_DELEGATE; // module-local (globals Tranche 1 — was window.*)
     const stageColor = status.currentStageId === 'denied' ? '#ef4444' :
                        status.currentStageId === 'approved' ? '#10b981' :
                        status.currentStageId === 'completed' ? '#10b981' :
-                       '#e8720c';
+                       '#BD5728';
 
     return `
       <div style="

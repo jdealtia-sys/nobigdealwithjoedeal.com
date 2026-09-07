@@ -244,7 +244,7 @@
         '<div style="flex:1;min-width:0;">' +
           '<div style="font-size:11px;color:#94a3b8;margin-bottom:4px;display:flex;gap:8px;flex-wrap:wrap;">' +
             '<span>' + escHtml(fmtTime(c.createdAt)) + '</span>' +
-            '<span style="display:inline-block;padding:1px 7px;background:rgba(200,84,26,0.15);border:1px solid var(--orange, #c8541a);border-radius:999px;font-size:10px;color:var(--orange, #c8541a);">' + escHtml(category) + '</span>' +
+            '<span style="display:inline-block;padding:1px 7px;background:rgba(200,84,26,0.15);border:1px solid var(--orange, #A14A22);border-radius:999px;font-size:10px;color:var(--orange, #A14A22);">' + escHtml(category) + '</span>' +
             (linkedLabel
               ? '<span style="display:inline-block;padding:1px 7px;background:#1a2540;border:1px solid #2a3344;border-radius:999px;font-size:10px;color:#cbd5e1;">→ ' + escHtml(linkedLabel) + '</span>'
               : '') +
@@ -260,7 +260,7 @@
         '<button type="button" class="nbd-qci-expand" style="padding:5px 10px;background:transparent;border:1px solid #2a3344;color:#cbd5e1;border-radius:5px;font-size:11px;cursor:pointer;">Show details</button>' +
         (linkedLead
           ? '<button type="button" class="nbd-qci-link" style="padding:5px 10px;background:transparent;border:1px solid #2a3344;color:#cbd5e1;border-radius:5px;font-size:11px;cursor:pointer;">Re-link</button>'
-          : '<button type="button" class="nbd-qci-link" style="padding:5px 10px;background:rgba(200,84,26,0.15);border:1px solid var(--orange, #c8541a);color:var(--orange, #c8541a);border-radius:5px;font-size:11px;cursor:pointer;">Link to lead</button>') +
+          : '<button type="button" class="nbd-qci-link" style="padding:5px 10px;background:rgba(200,84,26,0.15);border:1px solid var(--orange, #A14A22);color:var(--orange, #A14A22);border-radius:5px;font-size:11px;cursor:pointer;">Link to lead</button>') +
         '<button type="button" class="nbd-qci-archive" style="margin-left:auto;padding:5px 10px;background:transparent;border:1px solid #2a3344;color:#94a3b8;border-radius:5px;font-size:11px;cursor:pointer;">Archive</button>' +
       '</div>' +
 

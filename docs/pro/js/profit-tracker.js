@@ -227,7 +227,7 @@ let _NBD_PT_DELEGATE; // module-local (globals Tranche 1 — was window.*)
     const marginColor = pl.grossMargin >= 40 ? 'var(--green,#16a34a)' : pl.grossMargin >= 25 ? 'var(--gold,#eab308)' : 'var(--red,#dc2626)';
 
     el.innerHTML = `
-      <div style="background:var(--s,#1a1a2e);border:1px solid var(--br,rgba(255,255,255,.08));border-radius:12px;padding:20px;">
+      <div style="background:var(--s,#12223D);border:1px solid var(--br,rgba(255,255,255,.08));border-radius:12px;padding:20px;">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
           <h4 style="margin:0;font-family:'Barlow Condensed',sans-serif;font-size:16px;font-weight:700;color:var(--t,#fff);">💲 Job Costs & Profit</h4>
           ${pl.revenue > 0 ? `<span style="background:color-mix(in srgb, ${marginColor} 13%, transparent);color:${marginColor};padding:4px 12px;border-radius:20px;font-size:13px;font-weight:700;">${pl.grossMargin}% margin</span>` : ''}
@@ -272,7 +272,7 @@ let _NBD_PT_DELEGATE; // module-local (globals Tranche 1 — was window.*)
               <div style="font-size:10px;color:var(--m,#9ca3af);">GROSS MARGIN</div>
             </div>
             <div>
-              <div style="font-size:18px;font-weight:800;color:var(--orange,#e8720c);">$${formatPT(pl.totalCost)}</div>
+              <div style="font-size:18px;font-weight:800;color:var(--orange,#BD5728);">$${formatPT(pl.totalCost)}</div>
               <div style="font-size:10px;color:var(--m,#9ca3af);">TOTAL COST</div>
             </div>
           </div>

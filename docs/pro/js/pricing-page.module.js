@@ -32,7 +32,7 @@ const checkoutCancelled = new URLSearchParams(location.search).get('cancelled') 
 if (checkoutCancelled) {
   const note = document.createElement('div');
   note.setAttribute('role', 'status');
-  note.style.cssText = 'position:fixed;top:16px;left:50%;transform:translateX(-50%);z-index:9999;background:#1e3a6e;color:#fff;border:1px solid #e8720c;border-radius:8px;padding:10px 18px;font-size:13px;box-shadow:0 4px 16px rgba(0,0,0,.35);';
+  note.style.cssText = 'position:fixed;top:16px;left:50%;transform:translateX(-50%);z-index:9999;background:#1A3057;color:#fff;border:1px solid #BD5728;border-radius:8px;padding:10px 18px;font-size:13px;box-shadow:0 4px 16px rgba(0,0,0,.35);';
   note.textContent = 'Checkout cancelled — you have not been charged.';
   document.body.appendChild(note);
   setTimeout(() => note.remove(), 6000);

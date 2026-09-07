@@ -100,7 +100,7 @@ ok('sign-page.js applies payload companyName to chrome',
 {
   const h = read('docs/pro/refer.html');
   ok('refer.html is on the light brand palette + loads its fonts',
-    /--bg:#faf8f5/.test(h) && /--accent:#e8720c/.test(h)
+    /--bg:#faf8f5/.test(h) && /--accent:#BD5728/.test(h)
     && /fonts\.googleapis\.com\/css2\?family=Barlow/.test(h));
   ok('refer.js brands from the co param via textContent only',
     /get\('co'\)/.test(read('docs/pro/js/refer.js'))

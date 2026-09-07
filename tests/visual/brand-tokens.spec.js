@@ -5,7 +5,7 @@
  * MUST render with the locked `nbd-brand.css` token set:
  *   --nbd-bg          = #faf8f5  (warm cream)
  *   --nbd-ink         = #1a1612  (warm dark)
- *   --nbd-orange      = #e8720c  (brand orange)
+ *   --nbd-orange      = #BD5728  (brand orange)
  *   --nbd-font-body   = 'Barlow', ...
  *
  * If anyone edits nbd-brand.css, drops the <link> from a customer-facing
@@ -24,8 +24,8 @@ const BRAND_TOKENS = {
   '--nbd-bg':         '#faf8f5',
   '--nbd-bg-elevated':'#ffffff',
   '--nbd-ink':        '#1a1612',
-  '--nbd-orange':     '#e8720c',
-  '--nbd-orange-deep':'#c8541a',
+  '--nbd-orange':     '#BD5728',
+  '--nbd-orange-deep':'#A14A22',
 };
 
 const EXPECTED = {
@@ -68,8 +68,13 @@ for (const surface of SURFACES) {
         for (const k of want) out[k] = cs.getPropertyValue(k).trim().toLowerCase();
         return out;
       });
+      // Compare case-insensitively. The received value is already lowercased
+      // above, and hex casing carries no meaning — a token authored #BD5728
+      // and one authored #bd5728 are the same colour. Without this the suite
+      // fails on nothing but the shift key, which is what happened when the
+      // palette was repointed.
       for (const [k, v] of Object.entries(BRAND_TOKENS)) {
-        expect(tokens[k], `${surface.name} ${k} should resolve to ${v}`).toBe(v);
+        expect(tokens[k], `${surface.name} ${k} should resolve to ${v}`).toBe(String(v).toLowerCase());
       }
     });
 

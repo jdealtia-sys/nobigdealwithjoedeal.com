@@ -44,7 +44,7 @@
     appointment:    { label: 'Appointment Set',          color: '#2ECC8A', icon: '📅', short: 'APT',  autoFollowUp: null, contact: true,  category: 'hot',      desc: 'Booked a specific time to meet.' },
     ins_has_claim:  { label: 'Insurance - Has Claim',    color: '#9B6DFF', icon: '📋', short: 'CLM',  autoFollowUp: 2,    contact: true,  category: 'hot',      desc: 'Already has an active insurance claim.' },
     ins_needs_file: { label: 'Insurance - Needs Filing', color: '#D946EF', icon: '📝', short: 'FIL',  autoFollowUp: 1,    contact: true,  category: 'hot',      desc: 'Damage found — needs to file a claim.' },
-    storm_damage:   { label: 'Storm Damage Noted',       color: '#e8720c', icon: '⛈️', short: 'DMG', autoFollowUp: 1,    contact: true,  category: 'hot',      desc: 'Talked and noted visible storm damage.' },
+    storm_damage:   { label: 'Storm Damage Noted',       color: '#BD5728', icon: '⛈️', short: 'DMG', autoFollowUp: 1,    contact: true,  category: 'hot',      desc: 'Talked and noted visible storm damage.' },
     interested:     { label: 'Interested',               color: '#EAB308', icon: '👍', short: 'INT',  autoFollowUp: 3,    contact: true,  category: 'warm',     desc: 'Talked — showed genuine interest.' },
     come_back:      { label: 'Come Back — They Asked',   color: '#4A9EFF', icon: '🔁', short: 'CBA',  autoFollowUp: 2,    contact: true,  category: 'warm',     desc: 'Prospect asked you to return in person.' },
     callback:       { label: 'Callback Requested',       color: '#14B8A6', icon: '📞', short: 'CBR',  autoFollowUp: 1,    contact: true,  category: 'warm',     desc: 'Prospect asked for a phone call back.' },
@@ -2630,7 +2630,7 @@
       // Immediate highlight + focus (the saved territory also shows via the Zone layer).
       try {
         if (window._d2dStormPreview) { state.d2dMap.removeLayer(window._d2dStormPreview); }
-        window._d2dStormPreview = L.geoJSON(geoJSON, { style: { color: '#e8720c', weight: 2, fillColor: '#e8720c', fillOpacity: 0.14, dashArray: '5 5' }, interactive: false }).addTo(state.d2dMap);
+        window._d2dStormPreview = L.geoJSON(geoJSON, { style: { color: '#BD5728', weight: 2, fillColor: '#BD5728', fillOpacity: 0.14, dashArray: '5 5' }, interactive: false }).addTo(state.d2dMap);
         state.d2dMap.fitBounds([[bounds.south, bounds.west], [bounds.north, bounds.east]], { padding: [40, 40], maxZoom: 15 });
       } catch (e) {}
       window.showToast?.('Storm zone created — ' + sig.length + ' hail hit' + (sig.length !== 1 ? 's' : '') + ' up to ' + maxSize.toFixed(2) + '"', 'success');
@@ -3406,7 +3406,7 @@
     btn.title = 'Recenter on me and resume following';
     btn.textContent = '◎ Recenter';
     btn.style.cssText = 'position:absolute;left:50%;bottom:88px;transform:translateX(-50%);z-index:1000;display:none;'
-      + 'align-items:center;gap:6px;background:var(--orange,#e8720c);color:#0A0C0F;border:none;'
+      + 'align-items:center;gap:6px;background:var(--orange,#BD5728);color:#0A0C0F;border:none;'
       + 'padding:8px 14px;border-radius:20px;cursor:pointer;'
       + "font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:800;letter-spacing:.03em;"
       + 'box-shadow:0 3px 14px rgba(0,0,0,.5);-webkit-tap-highlight-color:transparent;min-height:38px;';
@@ -3567,7 +3567,7 @@
       popup.innerHTML = '<strong>' + esc(label) + '</strong>';
       const mk = document.createElement('button');
       mk.textContent = '＋ Create lead here';
-      mk.style.cssText = 'display:block;margin-top:8px;padding:5px 9px;background:var(--orange,#e8720c);color:#0A0C0F;border:none;border-radius:5px;cursor:pointer;font-size:12px;font-weight:700;';
+      mk.style.cssText = 'display:block;margin-top:8px;padding:5px 9px;background:var(--orange,#BD5728);color:#0A0C0F;border:none;border-radius:5px;cursor:pointer;font-size:12px;font-weight:700;';
       // Reuse the existing lead flow (from which "🏠 Pull Property Intel" works).
       mk.addEventListener('click', function () {
         try { window.openLeadModal && window.openLeadModal(); } catch (_) {}
@@ -3604,7 +3604,7 @@
     go.type = 'button';
     go.title = 'Search this address';
     go.textContent = '🔎';
-    go.style.cssText = 'background:var(--orange,#e8720c);color:#0A0C0F;border:none;border-radius:8px;width:38px;'
+    go.style.cssText = 'background:var(--orange,#BD5728);color:#0A0C0F;border:none;border-radius:8px;width:38px;'
       + 'cursor:pointer;font-size:15px;box-shadow:0 3px 14px rgba(0,0,0,.4);-webkit-tap-highlight-color:transparent;';
     go.addEventListener('click', function (e) { e.stopPropagation(); d2dSearchAddress(input.value); });
     wrap.appendChild(input);
@@ -3711,7 +3711,7 @@
 
       const reknockBtn = document.createElement('button');
       reknockBtn.textContent = 'Re-Knock';
-      reknockBtn.style.cssText = 'margin-top:8px;margin-left:4px;padding:4px 8px;background:var(--orange, #e8720c);color:white;border:none;border-radius:3px;cursor:pointer;font-size:11px;';
+      reknockBtn.style.cssText = 'margin-top:8px;margin-left:4px;padding:4px 8px;background:var(--orange, #BD5728);color:white;border:none;border-radius:3px;cursor:pointer;font-size:11px;';
       reknockBtn.addEventListener('click', function(ev) { ev.stopPropagation(); if (window.D2D) window.D2D.openQuickKnock({address:knock.address, lat:knock.lat, lng:knock.lng}); });
       reknockBtn.addEventListener('touchend', function(ev) { ev.stopPropagation(); ev.preventDefault(); if (window.D2D) window.D2D.openQuickKnock({address:knock.address, lat:knock.lat, lng:knock.lng}); });
 
@@ -4373,17 +4373,17 @@
           polygon: {
             allowIntersection: false,
             shapeOptions: {
-              color: '#e8720c',
+              color: '#BD5728',
               weight: 3,
-              fillColor: '#e8720c',
+              fillColor: '#BD5728',
               fillOpacity: 0.08
             }
           },
           rectangle: {
             shapeOptions: {
-              color: '#e8720c',
+              color: '#BD5728',
               weight: 3,
-              fillColor: '#e8720c',
+              fillColor: '#BD5728',
               fillOpacity: 0.08
             }
           },
@@ -4483,9 +4483,9 @@
       try {
         const layer = L.geoJSON(t.geoJSON, {
           style: {
-            color: '#e8720c',
+            color: '#BD5728',
             weight: 2,
-            fillColor: '#e8720c',
+            fillColor: '#BD5728',
             fillOpacity: 0.06,
             dashArray: '6,4'
           }

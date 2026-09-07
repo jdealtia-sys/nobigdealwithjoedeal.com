@@ -618,14 +618,14 @@
     .ak-card:hover { border-color: color-mix(in srgb, var(--t) 14%, transparent); }
     .ak-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px; }
     .ak-card.blue::before { background: var(--blue, #4E9BF5); }
-    .ak-card.orange::before { background: var(--orange, #e8720c); }
+    .ak-card.orange::before { background: var(--orange, #BD5728); }
     .ak-card.green::before { background: var(--green, #2ECC8A); }
     .ak-card.red::before { background: var(--red); }
     .ak-card.cyan::before { background: var(--blue,#3b82f6); }
     .ak-lbl { font-size: 10px; text-transform: uppercase; letter-spacing: .08em; color: var(--m, #8892A4); margin-bottom: 6px; font-weight: 600; }
     .ak-val { font-family: 'Barlow Condensed', sans-serif; font-size: 28px; font-weight: 900; line-height: 1.1; }
     .ak-val.blue { color: var(--blue, #4E9BF5); }
-    .ak-val.orange { color: var(--orange, #e8720c); }
+    .ak-val.orange { color: var(--orange, #BD5728); }
     .ak-val.green { color: var(--green, #2ECC8A); }
     .ak-val.red { color: var(--red); }
     .ak-val.cyan { color: var(--blue,#3b82f6); }
@@ -647,7 +647,7 @@
     .ak-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
     @media (max-width: 640px) { .ak-cols { grid-template-columns: 1fr; } .ak-grid { grid-template-columns: repeat(2, 1fr); gap: 8px; } .ak-card { padding: 12px; } .ak-val { font-size: 22px; } .ak-bar-label { min-width: 70px; font-size: 10px; } }
     .ak-loading { text-align: center; padding: 60px 16px; color: var(--m, #8892A4); }
-    .ak-loading-spinner { display: inline-block; width: 28px; height: 28px; border: 3px solid var(--br, #2a2d35); border-top-color: var(--orange, #e8720c); border-radius: 50%; animation: ak-spin .8s linear infinite; margin-bottom: 12px; }
+    .ak-loading-spinner { display: inline-block; width: 28px; height: 28px; border: 3px solid var(--br, #2a2d35); border-top-color: var(--orange, #BD5728); border-radius: 50%; animation: ak-spin .8s linear infinite; margin-bottom: 12px; }
     @keyframes ak-spin { to { transform: rotate(360deg); } }
   `;
 
@@ -780,7 +780,7 @@
           '<div class="ak-bar-row">' +
             '<div class="ak-bar-label" title="' + esc(label) + '">' + esc(label) + '</div>' +
             '<div class="ak-bar-track">' +
-              '<div class="ak-bar-fill" style="width:' + widthPct + '%;background:var(--orange,#e8720c);">' + count + '</div>' +
+              '<div class="ak-bar-fill" style="width:' + widthPct + '%;background:var(--orange,#BD5728);">' + count + '</div>' +
             '</div>' +
             '<div class="ak-bar-count">' + pct(count, m.totalLeads) + '%</div>' +
           '</div>';
@@ -812,7 +812,7 @@
     // ── Expense / supplier-spend section (only when expenses exist) ──
     var marginColor = m.expGrossMargin == null ? 'var(--t,#fff)'
       : m.expGrossMargin >= 40 ? 'var(--green,#2ECC8A)'
-      : m.expGrossMargin >= 25 ? 'var(--orange,#e8720c)' : 'var(--red,#E5484D)';
+      : m.expGrossMargin >= 25 ? 'var(--orange,#BD5728)' : 'var(--red,#E5484D)';
     var supplierBarsHTML = '';
     var maxSup = (m.expSupplierLeaderboard[0] && m.expSupplierLeaderboard[0].cents) || 1;
     m.expSupplierLeaderboard.forEach(function (s) {
@@ -821,7 +821,7 @@
       supplierBarsHTML +=
         '<div class="ak-bar-row">' +
           '<div class="ak-bar-label" title="' + esc(s.supplier) + '">' + esc(s.supplier) + '</div>' +
-          '<div class="ak-bar-track"><div class="ak-bar-fill" style="width:' + w + '%;background:var(--orange,#e8720c);">' + formatCurrency(s.cents / 100) + '</div></div>' +
+          '<div class="ak-bar-track"><div class="ak-bar-fill" style="width:' + w + '%;background:var(--orange,#BD5728);">' + formatCurrency(s.cents / 100) + '</div></div>' +
           '<div class="ak-bar-count">' + pctTotal + '%</div>' +
         '</div>';
     });
@@ -968,7 +968,7 @@
     if (total === 0) return; // no D2D activity → no card
     const verified = doors.filter(function (k) { return k.addrConfidence === 'verified'; }).length;
     const pct = Math.round((verified / total) * 100);
-    const accent = pct >= 80 ? 'var(--green,#2ECC8A)' : pct >= 50 ? 'var(--gold,#D4A017)' : 'var(--orange,#e8720c)';
+    const accent = pct >= 80 ? 'var(--green,#2ECC8A)' : pct >= 50 ? 'var(--gold,#D4A017)' : 'var(--orange,#BD5728)';
     grid.insertAdjacentHTML('beforeend',
       '<div class="kpi-card" id="kpi-doors-verified" data-ak-action="goTo" data-ak-target="d2d" role="button" ' +
         'title="Open Door-to-Door" style="cursor:pointer;border-left:3px solid ' + accent + ';">' +

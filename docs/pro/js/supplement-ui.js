@@ -256,7 +256,7 @@
       const n = (photos || []).length;
       return '<button type="button" class="nbd-sup-photo" data-kind="' + kind + '" data-idx="' + idx + '" ' +
         'title="Attach documentation photos" ' +
-        'style="background:transparent;border:1px solid var(--br, #2a3344);color:' + (n ? 'var(--orange, #c8541a)' : '#94a3b8') + ';padding:3px 8px;border-radius:4px;cursor:pointer;font-size:11px;margin-right:4px;">📷' + (n ? ' ' + n : '') + '</button>';
+        'style="background:transparent;border:1px solid var(--br, #2a3344);color:' + (n ? 'var(--orange, #A14A22)' : '#94a3b8') + ';padding:3px 8px;border-radius:4px;cursor:pointer;font-size:11px;margin-right:4px;">📷' + (n ? ' ' + n : '') + '</button>';
     };
 
     const addedRows = (sup.addedItems || []).map((it, idx) =>
@@ -367,7 +367,7 @@
           '</div>' +
           '<div style="display:flex;gap:8px;flex-wrap:wrap;">' +
             '<button type="button" id="nbd-sup-preview" style="padding:10px 16px;background:#1a2540;color:#cbd5e1;border:1px solid #2a3344;border-radius:6px;cursor:pointer;font-size:13px;font-weight:600;">Preview Letter</button>' +
-            '<button type="button" id="nbd-sup-save" style="padding:10px 18px;background:var(--orange, #c8541a);color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:13px;font-weight:700;">Save Supplement</button>' +
+            '<button type="button" id="nbd-sup-save" style="padding:10px 18px;background:var(--orange, #A14A22);color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:13px;font-weight:700;">Save Supplement</button>' +
           '</div>' +
         '</div>' +
       '</div>'
@@ -641,14 +641,14 @@
     photos.forEach(p => {
       const cell = document.createElement('button');
       cell.type = 'button';
-      cell.style.cssText = 'position:relative;padding:0;border:2px solid ' + (selected.has(p.id) ? 'var(--orange, #c8541a)' : '#2a3344') + ';border-radius:6px;background:none;cursor:pointer;overflow:hidden;aspect-ratio:1;';
+      cell.style.cssText = 'position:relative;padding:0;border:2px solid ' + (selected.has(p.id) ? 'var(--orange, #A14A22)' : '#2a3344') + ';border-radius:6px;background:none;cursor:pointer;overflow:hidden;aspect-ratio:1;';
       const img = document.createElement('img');
       img.src = p.url; img.loading = 'lazy'; img.alt = 'Customer photo';
       img.style.cssText = 'width:100%;height:100%;object-fit:cover;display:block;';
       cell.appendChild(img);
       cell.addEventListener('click', () => {
         if (selected.has(p.id)) { selected.delete(p.id); cell.style.borderColor = '#2a3344'; }
-        else { selected.add(p.id); cell.style.borderColor = 'var(--orange, #c8541a)'; }
+        else { selected.add(p.id); cell.style.borderColor = 'var(--orange, #A14A22)'; }
       });
       grid.appendChild(cell);
     });
@@ -660,7 +660,7 @@
     cancel.addEventListener('click', () => overlay.remove());
     const done = document.createElement('button');
     done.type = 'button'; done.textContent = 'Attach selected';
-    done.style.cssText = 'padding:9px 18px;background:var(--orange, #c8541a);border:none;color:#fff;border-radius:6px;cursor:pointer;font-size:13px;font-weight:700;';
+    done.style.cssText = 'padding:9px 18px;background:var(--orange, #A14A22);border:none;color:#fff;border-radius:6px;cursor:pointer;font-size:13px;font-weight:700;';
     done.addEventListener('click', () => {
       const chosen = photos.filter(p => selected.has(p.id)).map(p => ({ id: p.id, url: p.url }));
       window.EstimateSupplement.setItemPhotos(sup, kind, idx, chosen);
@@ -709,7 +709,7 @@
     wrap.innerHTML = hits.map(h =>
       '<button type="button" class="nbd-sup-pick" data-code="' + _esc(h.code) + '" ' +
         'style="display:block;width:100%;text-align:left;padding:8px 10px;background:transparent;border:none;border-bottom:1px solid #1a2540;color:inherit;font:inherit;font-size:12px;cursor:pointer;">' +
-        '<span style="font-family:monospace;color:var(--orange, #c8541a);font-weight:600;">' + _esc(h.code) + '</span> ' +
+        '<span style="font-family:monospace;color:var(--orange, #A14A22);font-weight:600;">' + _esc(h.code) + '</span> ' +
         _esc(h.name) +
       '</button>'
     ).join('');
@@ -855,8 +855,8 @@
       btn.textContent = '+ Supplement';
       btn.title = 'Build an insurance supplement for this estimate';
       btn.style.cssText =
-        'margin-left:6px;padding:4px 10px;background:transparent;color:var(--orange, #c8541a);' +
-        'border:1px solid var(--orange, #c8541a);border-radius:5px;font:inherit;font-size:11px;' +
+        'margin-left:6px;padding:4px 10px;background:transparent;color:var(--orange, #A14A22);' +
+        'border:1px solid var(--orange, #A14A22);border-radius:5px;font:inherit;font-size:11px;' +
         'font-weight:600;cursor:pointer;letter-spacing:0.04em;text-transform:uppercase;' +
         '-webkit-tap-highlight-color:transparent;';
       btn.addEventListener('click', async (e) => {

@@ -42,7 +42,7 @@
   const DISPOSITIONS = [
     // Hot — high intent
     { key: 'interested',     label: 'Interested',                bucket: 'hot',  color: '#EAB308' },
-    { key: 'storm_damage',   label: 'Storm Damage Noted',        bucket: 'hot',  color: '#e8720c' },
+    { key: 'storm_damage',   label: 'Storm Damage Noted',        bucket: 'hot',  color: '#BD5728' },
     { key: 'callback',       label: 'Callback Requested',        bucket: 'hot',  color: '#14B8A6' },
     // Warm — insurance pipeline + come-back-later
     { key: 'ins_has_claim',  label: 'Insurance - Has Claim',     bucket: 'warm', color: '#9B6DFF' },

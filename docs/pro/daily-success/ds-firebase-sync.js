@@ -29,7 +29,7 @@ function injectBadge() {
   if (document.getElementById('ds-sync-badge')) return;
   const b = document.createElement('div');
   b.id = 'ds-sync-badge';
-  b.style.cssText = 'position:fixed;top:10px;right:16px;z-index:9999;font-family:Montserrat,sans-serif;font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;padding:4px 10px;border-radius:20px;background:rgba(232,114,12,.12);border:1px solid rgba(232,114,12,.3);color:#e8720c;transition:opacity .4s;opacity:0;pointer-events:none;';
+  b.style.cssText = 'position:fixed;top:10px;right:16px;z-index:9999;font-family:Montserrat,sans-serif;font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;padding:4px 10px;border-radius:20px;background:rgba(232,114,12,.12);border:1px solid rgba(232,114,12,.3);color:#BD5728;transition:opacity .4s;opacity:0;pointer-events:none;';
   document.body.appendChild(b);
   _badge = b;
 }
@@ -37,7 +37,7 @@ function injectBadge() {
 function showBadge(text, color) {
   if (!_badge) return;
   _badge.textContent = text;
-  _badge.style.color = color || '#e8720c';
+  _badge.style.color = color || '#BD5728';
   _badge.style.opacity = '1';
   setTimeout(() => { _badge.style.opacity = '0'; }, 2400);
 }

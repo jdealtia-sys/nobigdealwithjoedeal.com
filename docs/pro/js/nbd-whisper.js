@@ -388,7 +388,7 @@
       tip.id = TOOLTIP_ID;
       tip.style.cssText =
         'position:fixed;bottom:88px;right:20px;max-width:340px;z-index:var(--z-overlay-top,10001);' +
-        'background:#1a1f2e;color:#e2e8f0;border:1px solid var(--orange, #c8541a);' +
+        'background:#1a1f2e;color:#e2e8f0;border:1px solid var(--orange, #A14A22);' +
         'border-radius:10px;padding:14px 16px;font-size:14px;line-height:1.5;' +
         'box-shadow:0 8px 32px rgba(0,0,0,0.5);';
       document.body.appendChild(tip);
@@ -397,7 +397,7 @@
       '<div style="font-size:11px;color:#94a3b8;margin-bottom:6px;letter-spacing:0.05em;">DICTATED</div>' +
       '<div id="nbd-whisper-tip-text" style="margin-bottom:10px;white-space:pre-wrap;">' + escHtml(text) + '</div>' +
       '<div style="display:flex;gap:8px;">' +
-        '<button type="button" class="nbd-whisper-tip-copy" style="flex:1;padding:7px 12px;border-radius:6px;border:none;background:var(--orange, #c8541a);color:#fff;font:inherit;font-size:12px;font-weight:600;cursor:pointer;">Copy</button>' +
+        '<button type="button" class="nbd-whisper-tip-copy" style="flex:1;padding:7px 12px;border-radius:6px;border:none;background:var(--orange, #A14A22);color:#fff;font:inherit;font-size:12px;font-weight:600;cursor:pointer;">Copy</button>' +
         '<button type="button" class="nbd-whisper-tip-close" style="padding:7px 12px;border-radius:6px;border:1px solid #2a3344;background:transparent;color:inherit;font:inherit;font-size:12px;cursor:pointer;">Dismiss</button>' +
       '</div>';
     const copyBtn = tip.querySelector('.nbd-whisper-tip-copy');
@@ -424,10 +424,10 @@
       viz.id = VISUALIZER_ID;
       viz.style.cssText =
         'position:fixed;bottom:90px;right:20px;z-index:var(--z-overlay,10000);display:flex;align-items:center;' +
-        'gap:10px;padding:10px 14px;background:#0a1424;border:1px solid var(--orange, #c8541a);' +
+        'gap:10px;padding:10px 14px;background:#0a1424;border:1px solid var(--orange, #A14A22);' +
         'border-radius:999px;box-shadow:0 4px 20px rgba(0,0,0,0.4);font:inherit;font-size:13px;color:#fff;';
       viz.innerHTML =
-        '<span style="width:10px;height:10px;border-radius:50%;background:var(--orange, #c8541a);' +
+        '<span style="width:10px;height:10px;border-radius:50%;background:var(--orange, #A14A22);' +
           'animation:nbd-whisper-pulse 1s ease-in-out infinite;"></span>' +
         '<canvas id="nbd-whisper-canvas" width="120" height="22" style="display:block;"></canvas>' +
         '<span id="nbd-whisper-timer" style="font-variant-numeric:tabular-nums;min-width:34px;">0:00</span>';
@@ -498,7 +498,7 @@
       'right:calc(20px + env(safe-area-inset-right, 0px));' +
       'z-index:9999;' +
       'width:54px;height:54px;border-radius:50%;border:none;' +
-      'background:var(--orange, #c8541a);color:#fff;font-size:22px;' +
+      'background:var(--orange, #A14A22);color:#fff;font-size:22px;' +
       'box-shadow:0 6px 20px rgba(200,84,26,0.4);cursor:pointer;' +
       'display:flex;align-items:center;justify-content:center;' +
       '-webkit-tap-highlight-color:transparent;transition:transform 120ms ease, box-shadow 120ms ease, opacity 160ms ease;';
@@ -521,7 +521,7 @@
       btn.innerHTML = '⏹';
       btn.title = 'Stop recording';
     } else {
-      btn.style.background = 'var(--orange, #c8541a)';
+      btn.style.background = 'var(--orange, #A14A22)';
       btn.style.boxShadow = '0 6px 20px rgba(200,84,26,0.4)';
       btn.innerHTML = '🎤';
       btn.title = 'Dictate (W128) — tap to start, tap again to stop';

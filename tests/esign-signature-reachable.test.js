@@ -56,7 +56,7 @@ const SRC_TEMPLATES = fs.readFileSync(path.join(DG_DIR, 'document-generator-temp
 const BRAND = {
   companyName: 'No Big Deal Home Solutions',
   legalName: 'No Big Deal Home Solutions LLC',
-  primary: '#1e3a6e', accent: '#e8720c',
+  primary: '#1A3057', accent: '#BD5728',
   phone: '513-555-0100', email: 'info@nobigdealwithjoedeal.com',
 };
 

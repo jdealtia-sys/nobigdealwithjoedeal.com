@@ -1004,7 +1004,7 @@
             <div class="d2d-metric-lbl">Conv</div>
           </div>
           <div class="d2d-metric-card">
-            <div class="d2d-metric-val" style="color:var(--orange, #e8720c);">${revenue.totalDoorsKnocked > 0 ? '$' + revenue.expectedPerDoor.toLocaleString() : '—'}</div>
+            <div class="d2d-metric-val" style="color:var(--orange, #BD5728);">${revenue.totalDoorsKnocked > 0 ? '$' + revenue.expectedPerDoor.toLocaleString() : '—'}</div>
             <div class="d2d-metric-lbl">Exp/Door</div>
           </div>
           <div class="d2d-metric-card">
@@ -1022,7 +1022,7 @@
               { label: 'Conversations', icon: '💬', val: funnel.conversations, color: 'var(--gold,#EAB308)' },
               { label: 'Appointments',  icon: '📅', val: funnel.appointments,  color: 'var(--blue,#4A9EFF)' },
               { label: 'Estimates',     icon: '📐', val: funnel.estimates,     color: 'var(--green,#2ECC8A)' },
-              { label: 'Closed',        icon: '🤝', val: funnel.closed,        color: 'var(--orange,#e8720c)' }
+              { label: 'Closed',        icon: '🤝', val: funnel.closed,        color: 'var(--orange,#BD5728)' }
             ].map((s, i, arr) => {
               const w = s.val > 0 ? Math.max(s.val / maxFunnelVal * 100, 8) : 0;
               const prev = i > 0 ? arr[i - 1].val : null;
@@ -1102,7 +1102,7 @@
                     <div class="d2d-knock-addr">${esc(knock.address)}</div>
                     <div class="d2d-knock-meta">
                       <span>${formatTime(knock.createdAt)}</span>
-                      <span class="d2d-knock-attempt ${dispo?.color === '#e8720c' ? 'warning' : ''}" style="background:${dispo?.color || '#ccc'};">Knock #${attempts}/${MAX_ATTEMPTS}</span>
+                      <span class="d2d-knock-attempt ${dispo?.color === '#BD5728' ? 'warning' : ''}" style="background:${dispo?.color || '#ccc'};">Knock #${attempts}/${MAX_ATTEMPTS}</span>
                       ${knock.insCarrier ? `<span>🏢 ${esc(knock.insCarrier)}</span>` : ''}
                     </div>
                   </div>
