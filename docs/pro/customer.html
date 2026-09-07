@@ -239,18 +239,21 @@ header {
 :root[data-mode="light"] .stage-badge.stage-lost, :root[data-theme="presentation"] .stage-badge.stage-lost { background:color-mix(in srgb,#b91c1c 10%,transparent); color:#b91c1c; border-color:color-mix(in srgb,#b91c1c 45%,transparent); }
 .quick-actions {
   display:flex; gap:8px; margin-top:16px; flex-wrap:wrap;
-  /* Sticky action bar — keeps Call/Email/Move-Stage reachable while
-     scrolling the long single-page customer record. Spec said this
-     should be "always visible"; it now is. */
-  position:sticky;
-  top:0;
-  z-index:var(--z-sticky, 50);
+  /* NOT sticky, deliberately.
+     This carried position:sticky; top:0 under a comment claiming the
+     "always visible" spec was met. It never was: the bar is the LAST CHILD
+     of .customer-header, and a sticky element is clipped to its containing
+     block — so it travelled the header's ~24px of bottom padding and then
+     scrolled away with everything else. It cannot work from inside the
+     header, and a 13-to-17 control bar has no business pinned over a phone
+     anyway (see the collapse rules below). .jump-nav immediately after the
+     header is the element that genuinely pins, because it is a SIBLING of
+     the header rather than a child of it. */
   background:var(--bg);
   padding:8px 0;
   margin-left:-12px; margin-right:-12px;
   padding-left:12px; padding-right:12px;
   border-bottom:1px solid var(--br);
-  box-shadow:0 2px 8px rgba(0,0,0,.25);
 }
 .btn {
   padding:8px 16px; background:var(--s2); border:1px solid var(--br);
@@ -292,10 +295,24 @@ header {
     gap:6px;
   }
   .quick-actions .btn { width:100%; justify-content:center; }
+  /* Everything outside the primary set collapses behind #qaMoreBtn.
+     At 390px the full bar measured 334px (388px once #stageProgressBtn
+     unhides) — 6 rows of 48px buttons before the customer's own name had
+     any room. customer-quick-actions.js decides membership from an ID
+     allowlist and only ever adds/removes .qa-more; the !important is what
+     lets a class beat the inline display a conditional button gets when
+     its owning module unhides it. */
+  .quick-actions[data-qa-collapsed="1"] .qa-more { display:none !important; }
+  #qaMoreBtn { grid-column: 1 / -1; }
   /* Gallery share panel spans full width */
   .quick-actions #gallerySharePanel { grid-column: 1 / -1; }
   /* Stage progress button (orange, full-width) spans both columns */
   .quick-actions .btn-orange { grid-column: 1 / -1; }
+}
+@media (min-width:901px) {
+  /* Desktop has the room — the bar stays whole and the toggle never shows.
+     The module also hides it, but CSS means no flash before JS runs. */
+  #qaMoreBtn { display:none !important; }
 }
 @media (max-width:640px) {
   html { -webkit-text-size-adjust:100%; }
@@ -2168,6 +2185,7 @@ body.nbd-photo-selecting .nbd-photo-checkbox,
      to customer prices (exportCustomerEstimate fails closed without it). -->
 <script defer src="js/customer-estimate-rows.js?v=1"></script>
 <script defer src="js/booking-events.js?v=1"></script>
+<script defer src="js/customer-quick-actions.js?v=1"></script>
 <script type="module" src="js/customer-bootstrap.module.js?v=1"></script>
 
 

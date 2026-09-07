@@ -91,7 +91,9 @@
     "webhook-signatures.test.js",
     "booking-events-tenancy.test.js",
     "contact-panel-no-false-comms.test.js",
-    "portal-estimate-share-gate.test.js"
+    "portal-estimate-share-gate.test.js",
+    "portal-refer-gate.test.js",
+    "customer-quick-actions.test.js"
   ],
   "smoke": {
     "team-roles.test.js": [
