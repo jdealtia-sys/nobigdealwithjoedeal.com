@@ -155,7 +155,7 @@ ok('theme-system defines --h (heading dialect alias)',
 // 6. estimate-v2 + command palette tokenized
 ok('estimate-v2 UI surfaces are tokenized',
   /var\(--s,#111418\)/.test(read('docs/pro/js/estimate-v2-ui.js'))
-  && /var\(--orange,#e8720c\)/.test(read('docs/pro/js/estimate-v2-ui.js')));
+  && /var\(--orange,#BD5728\)/.test(read('docs/pro/js/estimate-v2-ui.js')));
 ok('command palette surfaces are tokenized',
   /var\(--s,#0f1729\)/.test(read('docs/pro/js/command-palette.js')));
 
@@ -179,7 +179,7 @@ ok('portal.html aliases --green/--orange to nbd-brand tokens',
 // still DEFINES --orange so its color-mix glow resolves.
 ok('close-board generated page defines --orange for its color-mix glow',
   /:root\{--orange:\$\{BRAND\.accent\};\}/.test(read('docs/pro/js/close-board.js'))
-  && /accent = [^;]*'#e8720c'/.test(read('docs/pro/js/close-board.js')));
+  && /accent = [^;]*'#BD5728'/.test(read('docs/pro/js/close-board.js')));
 ok('portal Cal.com embed uses light theme', /embed=true&theme=light/.test(read('docs/pro/js/portal.js')));
 
 // 9. misc regressions
@@ -203,8 +203,8 @@ ok('collapsed sidebar rail is scrollable',
   const cb = read('docs/pro/js/close-board.js');
   ok('deal-room send flows use the same brand resolver as the page',
     (cb.match(/const brand = _dealBrand\(\)\.name;/g) || []).length === 2);
-  ok('deal-room generated style block is accent-tokenized (no bare #e8720c rules)',
-    !/color:#e8720c|background:#e8720c|solid #e8720c/.test(cb.slice(cb.indexOf('<style>'), cb.indexOf('</style>'))));
+  ok('deal-room generated style block is accent-tokenized (no bare #BD5728 rules)',
+    !/color:#BD5728|background:#BD5728|solid #BD5728/.test(cb.slice(cb.indexOf('<style>'), cb.indexOf('</style>'))));
   ok('ann-bar honors prefers-reduced-motion',
     /prefers-reduced-motion/.test(read('docs/assets/js/ann-bar.js')));
   ok('collapsed-rail badges skip .dn and the health dot yields the corner',
@@ -330,19 +330,19 @@ ok('collapsed sidebar rail is scrollable',
 // 13. Orange accent bypass (audit "~219 raw hexes bypass theme accents").
 //     --orange is the THEME-ACCENT token — the 186 themes set it to blues,
 //     greens, purples, etc., and dashboard-custom-theme.js / maps.js /
-//     theme-gx.js override it at runtime. A property-value bare `#e8720c`
+//     theme-gx.js override it at runtime. A property-value bare `#BD5728`
 //     therefore stays NBD-orange on a blue/green theme while everything on
 //     var(--orange) recolors. Property-value oranges must go through the
-//     token (keeping #e8720c as the fallback for any pre-theme surface).
-//     Gradient stops / other-token fallbacks (`,#e8720c`) are out of scope
-//     here — this guards only the clear `PROP:#e8720c` drift.
+//     token (keeping #BD5728 as the fallback for any pre-theme surface).
+//     Gradient stops / other-token fallbacks (`,#BD5728`) are out of scope
+//     here — this guards only the clear `PROP:#BD5728` drift.
 {
-  const BAREHEX = /:\s*#e8720c\b/i;
+  const BAREHEX = /:\s*#BD5728\b/i;
   const jsDir = P('docs/pro/js');
   const bare = fs.readdirSync(jsDir)
     .filter((f) => f.endsWith('.js'))
     .filter((f) => BAREHEX.test(fs.readFileSync(path.join(jsDir, f), 'utf8')));
-  ok('no JS renders a bare property-value #e8720c (orange must track the theme accent)',
+  ok('no JS renders a bare property-value #BD5728 (orange must track the theme accent)',
     bare.length === 0, bare.join(', '));
 }
 

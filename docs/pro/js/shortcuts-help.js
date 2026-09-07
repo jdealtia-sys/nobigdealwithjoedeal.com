@@ -99,7 +99,7 @@
         const prevOutline = col.style.outline;
         const prevTransition = col.style.transition;
         col.style.transition = 'outline-color .25s ease';
-        col.style.outline = '2px solid var(--orange, #c8541a)';
+        col.style.outline = '2px solid var(--orange, #A14A22)';
         setTimeout(() => {
           col.style.outline = prevOutline;
           col.style.transition = prevTransition;

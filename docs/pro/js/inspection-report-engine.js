@@ -42,8 +42,8 @@
     get email()   { const b = _brandRaw(); return _isNbdBrand(b) ? 'info@nobigdealwithjoedeal.com' : ((b.contact && b.contact.email)   || ''); },
     get website() { const b = _brandRaw(); return _isNbdBrand(b) ? 'nobigdealwithjoedeal.com'      : ((b.contact && b.contact.website) || ''); },
     colors: {
-      navy: '#1e3a6e',
-      orange: '#e8720c'
+      navy: '#1A3057',
+      orange: '#BD5728'
     }
   };
 
@@ -1624,7 +1624,7 @@
               </div>
               <div style="display: flex; gap: 8px;">
                 <button type="button" class="btn-open-report" data-report-id="${this._escapeHtml(report.id)}" style="padding: 6px 14px; background: ${BRAND.colors.orange}; color: white; border: none; border-radius: 3px; cursor: pointer;">View</button>
-                <button type="button" class="btn-share-report" data-report-id="${this._escapeHtml(report.id)}" style="padding: 6px 14px; background: #1e3a6e; color: white; border: none; border-radius: 3px; cursor: pointer;">Share</button>
+                <button type="button" class="btn-share-report" data-report-id="${this._escapeHtml(report.id)}" style="padding: 6px 14px; background: #1A3057; color: white; border: none; border-radius: 3px; cursor: pointer;">Share</button>
                 <button type="button" class="btn-delete-report" data-report-id="${this._escapeHtml(report.id)}" style="padding: 6px 14px; background: #eee; color: #333; border: none; border-radius: 3px; cursor: pointer;">Delete</button>
               </div>
             </div>
@@ -3042,7 +3042,7 @@
                     <button class="btn-open-report" data-report-id="${report.id}" style="padding: 8px 16px; background: ${BRAND.colors.orange}; color: white; border: none; border-radius: 3px; cursor: pointer;">
                       View
                     </button>
-                    <button class="btn-share-report" data-report-id="${report.id}" style="padding: 8px 16px; background: #1e3a6e; color: white; border: none; border-radius: 3px; cursor: pointer;">
+                    <button class="btn-share-report" data-report-id="${report.id}" style="padding: 8px 16px; background: #1A3057; color: white; border: none; border-radius: 3px; cursor: pointer;">
                       Share
                     </button>
                     <button class="btn-delete-report" data-report-id="${report.id}" style="padding: 8px 16px; background: #ccc; color: #333; border: none; border-radius: 3px; cursor: pointer;">

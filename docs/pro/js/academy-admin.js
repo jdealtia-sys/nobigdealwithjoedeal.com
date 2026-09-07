@@ -364,8 +364,8 @@
     }
 
     .admin-tab-btn.active {
-      color: var(--orange, #e8720c);
-      border-bottom-color: var(--orange, #e8720c);
+      color: var(--orange, #BD5728);
+      border-bottom-color: var(--orange, #BD5728);
     }
 
     .admin-tab {
@@ -393,7 +393,7 @@
 
     .team-card h4 {
       margin: 0 0 5px 0;
-      color: var(--orange, #e8720c);
+      color: var(--orange, #BD5728);
     }
 
     .progress-stat {
@@ -412,7 +412,7 @@
 
     .progress-fill {
       height: 100%;
-      background: linear-gradient(90deg, var(--orange, #e8720c), var(--ob, #f08030));
+      background: linear-gradient(90deg, var(--orange, #BD5728), var(--ob, #f08030));
     }
 
     .assign-form, .bulk-form {
@@ -433,7 +433,7 @@
 
     .assign-submit, .bulk-assign-submit {
       padding: 10px 20px;
-      background: var(--orange, #e8720c);
+      background: var(--orange, #BD5728);
       color: #fff;
       border: none;
       border-radius: 4px;
@@ -456,7 +456,7 @@
 
     .leaderboard-table th {
       background: var(--s2, #222);
-      color: var(--orange, #e8720c);
+      color: var(--orange, #BD5728);
       font-weight: bold;
     }
   `;

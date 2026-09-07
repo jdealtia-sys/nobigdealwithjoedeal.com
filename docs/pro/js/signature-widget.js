@@ -64,7 +64,7 @@
     this.ctx.lineWidth = 2;
     this.ctx.lineCap = 'round';
     this.ctx.lineJoin = 'round';
-    this.ctx.strokeStyle = '#1a1a2e';
+    this.ctx.strokeStyle = '#12223D';
     // touch-action:none prevents the browser from scrolling while
     // the user is drawing on a phone. Critical for the rep handoff.
     this.canvas.style.touchAction = 'none';

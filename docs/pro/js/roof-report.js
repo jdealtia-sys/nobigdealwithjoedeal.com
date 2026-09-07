@@ -70,7 +70,7 @@
     var score = Math.max(0, Math.min(100, Number(intel.roofScore) || 0));
     var n = scoreNarrative(score, intel.roofAge);
     var brandName = esc(brand.name || 'Your Roofing Team');
-    var accent = /^#[0-9a-fA-F]{3,8}$/.test(String(brand.accent || '')) ? brand.accent : '#e8720c';
+    var accent = /^#[0-9a-fA-F]{3,8}$/.test(String(brand.accent || '')) ? brand.accent : '#BD5728';
     var logo = safeUrl(brand.logoUrl);
     var address = esc(intel.address || intel.propertyAddress || 'Your Home');
     var dateStr = esc(opts.dateStr || '');

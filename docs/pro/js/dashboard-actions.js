@@ -120,7 +120,7 @@ function clearAccentTheme() {
     window.ThemeGX.clearAccentOverride();
   }
   const picker = document.getElementById('customAccentColorPicker');
-  if (picker) picker.value = '#e8720c';
+  if (picker) picker.value = '#BD5728';
 };
 function openSettingsTab(tabKey) {
   if (typeof nbdPickerOpen === 'function') {

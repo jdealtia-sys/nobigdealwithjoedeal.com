@@ -457,7 +457,7 @@ Bookmark it; the link stays live as we work through the project.
             <div data-state-loading style="display:flex; flex-direction:column; align-items:center; gap:14px;">
               <div style="
                 width:36px; height:36px; border-radius:50%;
-                border:3px solid #e1e5ec; border-top-color:var(--orange,#e8720c);
+                border:3px solid #e1e5ec; border-top-color:var(--orange,#BD5728);
                 animation:nbdPortalPreviewSpin 0.9s linear infinite;"></div>
               <div style="font-size:13px; color:#5a6478;">Loading preview…</div>
             </div>
@@ -488,7 +488,7 @@ Bookmark it; the link stays live as we work through the project.
               flex-shrink:0;
               display:inline-flex; align-items:center; gap:6px;
               padding:8px 14px; border-radius:7px;
-              background:var(--orange,#e8720c); color:#fff;
+              background:var(--orange,#BD5728); color:#fff;
               text-decoration:none; font-size:12px; font-weight:700;
               letter-spacing:.04em; text-transform:uppercase;
               -webkit-tap-highlight-color:transparent;">Open ↗</a>

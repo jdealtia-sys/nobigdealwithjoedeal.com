@@ -344,7 +344,7 @@
     const isNbd = !b.legalName || b.legalName === 'No Big Deal Home Solutions';
     const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
     const logo = (!isNbd && typeof b.logoUrl === 'string' && /^https:\/\//i.test(b.logoUrl)) ? b.logoUrl : '';
-    const accent = (!isNbd && b.colors && /^#[0-9a-f]{3,8}$/i.test(b.colors.accent || '')) ? b.colors.accent : '#e8720c';
+    const accent = (!isNbd && b.colors && /^#[0-9a-f]{3,8}$/i.test(b.colors.accent || '')) ? b.colors.accent : '#BD5728';
     return {
       isNbd,
       name: isNbd ? 'No Big Deal Home Solutions' : b.legalName,
@@ -737,7 +737,7 @@ body{font-family:'Barlow',sans-serif;background:#0d0f14;color:#e5e7eb;min-height
 
     const tabBtn = (id, label, icon) => {
       const active = currentTab === id;
-      return `<button data-cb-action="setTab" data-cb-id="${id}" style="padding:8px 16px;border:none;border-radius:8px;background:${active ? 'var(--orange,#e8720c)' : 'var(--s2,#1e2028)'};color:${active ? '#fff' : 'var(--m,#8b8e96)'};font-size:12px;font-weight:${active ? '700' : '500'};font-family:'Barlow Condensed',sans-serif;cursor:pointer;letter-spacing:.03em;transition:all .15s;">${icon} ${label}</button>`;
+      return `<button data-cb-action="setTab" data-cb-id="${id}" style="padding:8px 16px;border:none;border-radius:8px;background:${active ? 'var(--orange,#BD5728)' : 'var(--s2,#1e2028)'};color:${active ? '#fff' : 'var(--m,#8b8e96)'};font-size:12px;font-weight:${active ? '700' : '500'};font-family:'Barlow Condensed',sans-serif;cursor:pointer;letter-spacing:.03em;transition:all .15s;">${icon} ${label}</button>`;
     };
 
     const active = dealRooms.filter(d => d.status !== DEAL_STATUS.EXPIRED);
@@ -753,7 +753,7 @@ body{font-family:'Barlow',sans-serif;background:#0d0f14;color:#e5e7eb;min-height
             <div style="font-size:22px;font-weight:800;font-family:'Barlow Condensed',sans-serif;color:var(--t);letter-spacing:.02em;">📋 CLOSE BOARD</div>
             <div style="font-size:12px;color:var(--m);margin-top:2px;">Shareable deal rooms — one link to close</div>
           </div>
-          <button data-cb-action="createNew" style="padding:8px 16px;background:var(--orange,#e8720c);color:white;border:none;border-radius:8px;font-size:12px;font-weight:700;font-family:'Barlow Condensed',sans-serif;cursor:pointer;letter-spacing:.04em;text-transform:uppercase;">
+          <button data-cb-action="createNew" style="padding:8px 16px;background:var(--orange,#BD5728);color:white;border:none;border-radius:8px;font-size:12px;font-weight:700;font-family:'Barlow Condensed',sans-serif;cursor:pointer;letter-spacing:.04em;text-transform:uppercase;">
             + NEW DEAL
           </button>
         </div>
@@ -860,7 +860,7 @@ body{font-family:'Barlow',sans-serif;background:#0d0f14;color:#e5e7eb;min-height
           <div style="display:flex;flex-direction:column;gap:4px;flex-shrink:0;">
             <button data-cb-action="preview" data-cb-id="${esc(d.id)}" style="padding:5px 10px;background:var(--blue,var(--orange));color:white;border:none;border-radius:5px;font-size:10px;font-weight:600;cursor:pointer;">👁 Preview</button>
             <button data-cb-action="sendSMS" data-cb-id="${esc(d.id)}" style="padding:5px 10px;background:var(--green,#2ECC8A);color:white;border:none;border-radius:5px;font-size:10px;font-weight:600;cursor:pointer;">📱 Text</button>
-            <button data-cb-action="sendEmail" data-cb-id="${esc(d.id)}" style="padding:5px 10px;background:var(--orange,#e8720c);color:white;border:none;border-radius:5px;font-size:10px;font-weight:600;cursor:pointer;">📧 Email</button>
+            <button data-cb-action="sendEmail" data-cb-id="${esc(d.id)}" style="padding:5px 10px;background:var(--orange,#BD5728);color:white;border:none;border-radius:5px;font-size:10px;font-weight:600;cursor:pointer;">📧 Email</button>
             <button data-cb-action="copyLink" data-cb-id="${esc(d.id)}" style="padding:5px 10px;background:var(--s);border:1px solid var(--br);color:var(--t);border-radius:5px;font-size:10px;font-weight:600;cursor:pointer;">🔗 Copy</button>
             <button data-cb-action="remove" data-cb-id="${esc(d.id)}" style="padding:5px 10px;background:transparent;border:1px solid var(--br);color:var(--m);border-radius:5px;font-size:10px;font-weight:600;cursor:pointer;">🗑 Delete</button>
           </div>
@@ -923,7 +923,7 @@ body{font-family:'Barlow',sans-serif;background:#0d0f14;color:#e5e7eb;min-height
           </div>
         </div>
 
-        <button data-cb-action="submitCreate" style="width:100%;padding:14px;background:var(--orange,#e8720c);color:white;border:none;border-radius:10px;font-size:14px;font-weight:700;font-family:'Barlow Condensed',sans-serif;cursor:pointer;letter-spacing:.04em;text-transform:uppercase;margin-top:8px;">
+        <button data-cb-action="submitCreate" style="width:100%;padding:14px;background:var(--orange,#BD5728);color:white;border:none;border-radius:10px;font-size:14px;font-weight:700;font-family:'Barlow Condensed',sans-serif;cursor:pointer;letter-spacing:.04em;text-transform:uppercase;margin-top:8px;">
           CREATE DEAL ROOM
         </button>
       </div>

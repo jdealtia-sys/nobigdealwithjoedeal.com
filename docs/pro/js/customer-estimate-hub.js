@@ -192,12 +192,12 @@
       '.ceh-row:last-child{border-bottom:none;}',
       '.ceh-row-k{font-family:\'Barlow Condensed\',sans-serif;font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--m,#98a0ab);flex:none;}',
       '.ceh-row-v{color:var(--t,#eee);text-align:right;word-break:break-word;min-width:0;}',
-      '.ceh-row-v a{color:var(--orange,#e8720c);text-decoration:none;}',
+      '.ceh-row-v a{color:var(--orange,#BD5728);text-decoration:none;}',
       // Estimate card
       '.ceh-card{background:var(--s2,#181c22);border:1px solid var(--br,#2a2f37);border-radius:10px;overflow:hidden;}',
-      '.ceh-card.is-primary{border-color:color-mix(in srgb, var(--orange,#e8720c) 55%, var(--br,#2a2f37));}',
+      '.ceh-card.is-primary{border-color:color-mix(in srgb, var(--orange,#BD5728) 55%, var(--br,#2a2f37));}',
       '.ceh-card-hd{display:flex;align-items:center;gap:12px;width:100%;padding:12px 14px;background:none;border:none;color:var(--t,#eee);cursor:pointer;text-align:left;-webkit-tap-highlight-color:transparent;}',
-      '.ceh-card-hd:active{background:color-mix(in srgb, var(--orange,#e8720c) 10%, transparent);}',
+      '.ceh-card-hd:active{background:color-mix(in srgb, var(--orange,#BD5728) 10%, transparent);}',
       '.ceh-card-body{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px;}',
       '.ceh-card-t{font-size:13px;font-weight:700;color:var(--t,#eee);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}',
       '.ceh-card-s{font-size:11px;color:var(--m,#98a0ab);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}',
@@ -208,9 +208,9 @@
       // Chips
       '.ceh-chips{display:flex;flex-wrap:wrap;gap:5px;margin:10px 0 2px;}',
       '.ceh-chip{display:inline-block;padding:3px 8px;border-radius:20px;font-size:9px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;border:1px solid var(--br,#2a2f37);color:var(--m,#98a0ab);}',
-      '.ceh-chip.is-primary{color:var(--orange,#e8720c);border-color:var(--orange,#e8720c);}',
+      '.ceh-chip.is-primary{color:var(--orange,#BD5728);border-color:var(--orange,#BD5728);}',
       '.ceh-chip.is-good{color:var(--green,#2ecc8a);border-color:var(--green,#2ecc8a);}',
-      '.ceh-chip.is-warn{color:var(--orange,#e8720c);border-color:var(--orange,#e8720c);}',
+      '.ceh-chip.is-warn{color:var(--orange,#BD5728);border-color:var(--orange,#BD5728);}',
       '.ceh-chip.is-bad{color:var(--red,#e5484d);border-color:var(--red,#e5484d);}',
       // Line items
       '.ceh-line{display:flex;justify-content:space-between;gap:10px;padding:8px 0;border-bottom:1px solid var(--br,#232830);}',
@@ -226,11 +226,11 @@
       // Actions
       '.ceh-acts{display:flex;flex-wrap:wrap;gap:6px;margin-top:12px;}',
       '.ceh-btn{flex:1 1 auto;min-width:84px;padding:10px 8px;border-radius:8px;border:1px solid var(--br,#2a2f37);background:var(--s,#14181f);color:var(--t,#eee);font-family:\'Barlow Condensed\',sans-serif;font-weight:700;font-size:12px;letter-spacing:.06em;text-transform:uppercase;cursor:pointer;-webkit-tap-highlight-color:transparent;}',
-      '.ceh-btn:active{background:color-mix(in srgb, var(--orange,#e8720c) 14%, transparent);}',
-      '.ceh-btn.primary{background:var(--orange,#e8720c);border-color:var(--orange,#e8720c);color:var(--accent-fg,#fff);}',
+      '.ceh-btn:active{background:color-mix(in srgb, var(--orange,#BD5728) 14%, transparent);}',
+      '.ceh-btn.primary{background:var(--orange,#BD5728);border-color:var(--orange,#BD5728);color:var(--accent-fg,#fff);}',
       '.ceh-btn.danger{color:var(--red,#e5484d);}',
       '.ceh-btn[disabled]{opacity:.45;cursor:not-allowed;}',
-      '.ceh-new{width:100%;padding:14px;border-radius:10px;border:1px dashed color-mix(in srgb, var(--orange,#e8720c) 55%, var(--br,#2a2f37));background:color-mix(in srgb, var(--orange,#e8720c) 8%, transparent);color:var(--orange,#e8720c);font-family:\'Barlow Condensed\',sans-serif;font-weight:800;font-size:14px;letter-spacing:.08em;text-transform:uppercase;cursor:pointer;-webkit-tap-highlight-color:transparent;}',
+      '.ceh-new{width:100%;padding:14px;border-radius:10px;border:1px dashed color-mix(in srgb, var(--orange,#BD5728) 55%, var(--br,#2a2f37));background:color-mix(in srgb, var(--orange,#BD5728) 8%, transparent);color:var(--orange,#BD5728);font-family:\'Barlow Condensed\',sans-serif;font-weight:800;font-size:14px;letter-spacing:.08em;text-transform:uppercase;cursor:pointer;-webkit-tap-highlight-color:transparent;}',
       '.ceh-empty{padding:26px 14px;text-align:center;color:var(--m,#98a0ab);font-size:13px;}'
     ].join('');
     document.head.appendChild(st);

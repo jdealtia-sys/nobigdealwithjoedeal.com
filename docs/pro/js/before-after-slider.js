@@ -102,7 +102,7 @@
         width: 38px;
         height: 38px;
         border-radius: 50%;
-        background: var(--accent, #c8541a);
+        background: var(--accent, #A14A22);
         box-shadow: 0 4px 14px rgba(0,0,0,0.35);
         display: flex;
         align-items: center;

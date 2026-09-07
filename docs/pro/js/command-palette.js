@@ -280,7 +280,7 @@
       card.stage = (typeof window.stageLabel === 'function')
         ? window.stageLabel(stageKey) : (lead.stage || '');
       const role = (typeof window.stageRole === 'function') ? window.stageRole(stageKey) : '';
-      card.stageColor = _ROLE_COLORS[role] || 'var(--orange, #e8720c)';
+      card.stageColor = _ROLE_COLORS[role] || 'var(--orange, #BD5728)';
       const jtm = (window.JOB_TYPE_META && lead.jobType) ? window.JOB_TYPE_META[lead.jobType] : null;
       if (jtm) { card.jobType = jtm.label; card.jobTypeColor = jtm.color || '#888'; }
       const photos = (window._photoCache && window._photoCache[lead.id]) || [];
@@ -565,7 +565,7 @@
     rows.forEach((r, i) => {
       if (i === _selectedIndex) {
         r.style.background = 'var(--og,rgba(232,114,12,.12))';
-        r.style.outline = '1px solid var(--orange, #c8541a)';
+        r.style.outline = '1px solid var(--orange, #A14A22)';
         // Scroll into view if needed.
         try { r.scrollIntoView({ block: 'nearest' }); } catch (_) {}
       } else {

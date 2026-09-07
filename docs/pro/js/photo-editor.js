@@ -563,7 +563,7 @@
     const offY = (areaRect.height - dispH) / 2 + S.panY;
     const vx = -offX / S.zoom, vy = -offY / S.zoom;
     const scaleX = mc.width / S.imgW, scaleY = mc.height / S.imgH;
-    mmCtx.strokeStyle = '#c8541a'; mmCtx.lineWidth = 2;
+    mmCtx.strokeStyle = '#A14A22'; mmCtx.lineWidth = 2;
     mmCtx.strokeRect(vx * scaleX, vy * scaleY, viewW * scaleX, viewH * scaleY);
   }
 

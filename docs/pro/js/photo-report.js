@@ -555,8 +555,8 @@
     color:#111827; font-weight:700; font-size:13px;
     cursor:pointer; font-family:inherit;
   }
-  .top-bar-btn-primary{ background:var(--orange,#e8720c); border-color:var(--orange,#e8720c); color:#ffffff; }
-  .top-bar-btn-primary:hover{ background:#c8541a; }
+  .top-bar-btn-primary{ background:var(--orange,#BD5728); border-color:var(--orange,#BD5728); color:#ffffff; }
+  .top-bar-btn-primary:hover{ background:#A14A22; }
   .top-bar-mode{ color:#6b7280; font-size:13px; }
 
   /* ── Hero / cover band ───────────────────────────────────────── */
@@ -571,7 +571,7 @@
     font-family:'Barlow Condensed',sans-serif;
     font-size:11px; font-weight:700;
     letter-spacing:.18em; text-transform:uppercase;
-    color:var(--orange,#e8720c); margin-bottom:10px;
+    color:var(--orange,#BD5728); margin-bottom:10px;
   }
   .hero-title{
     font-size:42px; font-weight:800;
@@ -642,7 +642,7 @@
   .stat-num{
     font-family:'Barlow Condensed',sans-serif;
     font-size:32px; font-weight:800;
-    color:var(--orange,#e8720c); line-height:1;
+    color:var(--orange,#BD5728); line-height:1;
   }
   .stat-label{
     font-family:'Barlow Condensed',sans-serif;
@@ -661,7 +661,7 @@
     font-family:'Barlow Condensed',sans-serif;
     font-size:11px; font-weight:700;
     letter-spacing:.16em; text-transform:uppercase;
-    color:#c8541a; margin-bottom:12px;
+    color:#A14A22; margin-bottom:12px;
   }
   .dmg-row{ display:flex; align-items:flex-start; gap:14px; margin-bottom:10px; flex-wrap:wrap; }
   .dmg-row:last-child{ margin-bottom:0; }
@@ -676,7 +676,7 @@
   .dmg-tag{
     display:inline-flex; align-items:center; gap:4px;
     padding:3px 10px; border-radius:999px;
-    background:#ffe8d5; color:#c8541a;
+    background:#ffe8d5; color:#A14A22;
     font-size:11px; font-weight:600;
   }
   .dmg-tag strong{ font-weight:800; }
@@ -690,7 +690,7 @@
     font-family:'Barlow Condensed',sans-serif;
     font-size:11px; font-weight:700;
     letter-spacing:.16em; text-transform:uppercase;
-    color:var(--orange,#e8720c); margin-bottom:6px;
+    color:var(--orange,#BD5728); margin-bottom:6px;
   }
   .section-title{
     font-size:26px; font-weight:800;
@@ -705,7 +705,7 @@
     margin-left:8px;
   }
   .section-eyebrow.is-before{ color:#dc2626; }
-  .section-eyebrow.is-during{ color:var(--orange,#e8720c); }
+  .section-eyebrow.is-during{ color:var(--orange,#BD5728); }
   .section-eyebrow.is-after { color:#16a34a; }
 
   /* ── Before/After pair grid (homeowner showcase) ─────────────── */
@@ -777,7 +777,7 @@
   .ph-num{
     font-family:'Barlow Condensed',sans-serif;
     font-weight:800; font-size:11px;
-    letter-spacing:.1em; color:var(--orange,#e8720c);
+    letter-spacing:.1em; color:var(--orange,#BD5728);
     margin-bottom:4px;
   }
   .ph-row{ display:grid; grid-template-columns:60px 1fr; gap:6px; margin-bottom:2px; }
@@ -796,7 +796,7 @@
 
   /* ── Work performed narrative ────────────────────────────────── */
   .scope-block{
-    border-left:3px solid #e8720c;
+    border-left:3px solid #BD5728;
     padding:8px 0 8px 18px; margin-bottom:32px;
   }
   .scope-block h2{ font-size:22px; margin-bottom:10px; }
@@ -816,7 +816,7 @@
     font-size:14px; margin-bottom:4px;
   }
   .footer-tag{
-    font-style:italic; color:var(--orange,#e8720c);
+    font-style:italic; color:var(--orange,#BD5728);
     font-size:11px; margin-top:6px;
     font-family:'Barlow Condensed',sans-serif;
     letter-spacing:.06em; text-transform:uppercase;

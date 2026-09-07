@@ -40,7 +40,7 @@
 
   const TIERS = ['good', 'better', 'best'];
   const TIER_LABELS = { good: 'Good', better: 'Better', best: 'Best' };
-  const TIER_COLORS = { good: '#6b7280', better: '#3b82f6', best: '#e8720c' };
+  const TIER_COLORS = { good: '#6b7280', better: '#3b82f6', best: '#BD5728' };
 
   // ============================================================================
   // STATE
@@ -451,7 +451,7 @@
             <p style="margin:6px 0 0;font-size:13px;color:var(--m);">Materials, labor, and pricing for your estimates — ${activeCount} products across ${categoryCount} categories</p>
           </div>
           <div style="display:flex;gap:8px;">
-            <button data-pl-action="addProduct" style="padding:8px 16px;background:var(--orange,#e8720c);color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:600;font-size:13px;">+ Add Product</button>
+            <button data-pl-action="addProduct" style="padding:8px 16px;background:var(--orange,#BD5728);color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:600;font-size:13px;">+ Add Product</button>
             <button data-pl-action="exportCSV" style="padding:8px 14px;background:#10b981;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:500;font-size:13px;">Export CSV</button>
             <button data-pl-action="resetDefaults" style="padding:8px 14px;background:#ef4444;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:500;font-size:13px;">Reset</button>
           </div>
@@ -490,7 +490,7 @@
 
           <!-- Tier Filter Buttons -->
           <div style="display:flex;gap:6px;margin-bottom:12px;">
-            <button data-pl-action="setTierFilter" data-pl-id="" style="flex:1;padding:8px 12px;border-radius:8px;border:2px solid ${!currentFilter.tier ? '#e8720c' : 'var(--br)'};background:${!currentFilter.tier ? '#e8720c18' : 'var(--s)'};color:${!currentFilter.tier ? '#e8720c' : 'var(--m)'};cursor:pointer;font-size:12px;font-weight:600;">All Tiers</button>
+            <button data-pl-action="setTierFilter" data-pl-id="" style="flex:1;padding:8px 12px;border-radius:8px;border:2px solid ${!currentFilter.tier ? '#BD5728' : 'var(--br)'};background:${!currentFilter.tier ? '#BD572818' : 'var(--s)'};color:${!currentFilter.tier ? '#BD5728' : 'var(--m)'};cursor:pointer;font-size:12px;font-weight:600;">All Tiers</button>
             ${TIERS.map(t => {
               const isActive = currentFilter.tier === t;
               return `<button data-pl-action="setTierFilter" data-pl-id="${t}" style="flex:1;padding:8px 12px;border-radius:8px;border:2px solid ${isActive ? TIER_COLORS[t] : 'var(--br)'};background:${isActive ? TIER_COLORS[t]+'18' : 'var(--s)'};color:${isActive ? TIER_COLORS[t] : 'var(--m)'};cursor:pointer;font-size:12px;font-weight:600;">${TIER_LABELS[t]}</button>`;
@@ -499,7 +499,7 @@
 
           <!-- Category Filter Pills -->
           <div style="display:flex;flex-wrap:wrap;gap:6px;">
-            <button data-pl-action="setFilter" data-pl-id="" style="padding:6px 12px;border-radius:20px;border:2px solid ${!currentFilter.category ? '#e8720c' : 'var(--br)'};background:${!currentFilter.category ? '#e8720c18' : 'var(--s)'};color:${!currentFilter.category ? '#e8720c' : 'var(--t)'};cursor:pointer;font-size:12px;font-weight:${!currentFilter.category?'600':'500'};">All (${activeCount})</button>
+            <button data-pl-action="setFilter" data-pl-id="" style="padding:6px 12px;border-radius:20px;border:2px solid ${!currentFilter.category ? '#BD5728' : 'var(--br)'};background:${!currentFilter.category ? '#BD572818' : 'var(--s)'};color:${!currentFilter.category ? '#BD5728' : 'var(--t)'};cursor:pointer;font-size:12px;font-weight:${!currentFilter.category?'600':'500'};">All (${activeCount})</button>
             ${catPills}
           </div>
         </div>
@@ -664,7 +664,7 @@
             ${p ? '<button data-pl-action="deleteFromModal" style="padding:8px 16px;background:#ef4444;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:13px;">Delete</button>' : '<div></div>'}
             <div style="display:flex;gap:8px;">
               <button data-pl-action="closeModal" style="padding:8px 16px;background:var(--s2);color:var(--t);border:none;border-radius:6px;cursor:pointer;font-size:13px;">Cancel</button>
-              <button data-pl-action="saveFromModal" style="padding:8px 20px;background:var(--orange,#e8720c);color:#fff;border:none;border-radius:6px;cursor:pointer;font-weight:600;font-size:13px;">${p ? 'Update' : 'Add Product'}</button>
+              <button data-pl-action="saveFromModal" style="padding:8px 20px;background:var(--orange,#BD5728);color:#fff;border:none;border-radius:6px;cursor:pointer;font-weight:600;font-size:13px;">${p ? 'Update' : 'Add Product'}</button>
             </div>
           </div>
         </div>

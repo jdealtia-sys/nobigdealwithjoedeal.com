@@ -795,12 +795,12 @@ export const NBDAuth = {
         }
         .nbd-wall-card::before {
           content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
-          background: linear-gradient(90deg, transparent, #e8720c, transparent);
+          background: linear-gradient(90deg, transparent, #BD5728, transparent);
         }
         .nbd-wall-badge {
           display: inline-flex; align-items: center; gap: 8px;
           background: rgba(232,114,12,0.1); border: 1px solid rgba(232,114,12,0.25);
-          color: var(--orange,#e8720c); font-size: 10px; font-weight: 700;
+          color: var(--orange,#BD5728); font-size: 10px; font-weight: 700;
           letter-spacing: 3px; text-transform: uppercase;
           padding: 7px 18px; border-radius: 20px; margin-bottom: 20px;
         }
@@ -821,7 +821,7 @@ export const NBDAuth = {
           margin-bottom: 8px; list-style: none;
         }
         .nbd-wall-features li::before {
-          content: '›'; color: var(--orange,#e8720c); font-weight: 700; font-size: 16px;
+          content: '›'; color: var(--orange,#BD5728); font-weight: 700; font-size: 16px;
           flex-shrink: 0; line-height: 1.3;
         }
         .nbd-wall-btns { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
@@ -832,7 +832,7 @@ export const NBDAuth = {
           font-family: 'Barlow', sans-serif;
         }
         .nbd-wall-btn.primary {
-          background: var(--orange,#e8720c); color: #fff;
+          background: var(--orange,#BD5728); color: #fff;
         }
         .nbd-wall-btn.primary:hover { background: #c45e08; transform: translateY(-1px); }
         .nbd-wall-btn.secondary {
@@ -849,7 +849,7 @@ export const NBDAuth = {
         <div class="nbd-wall-badge">🔒 ${planName} Feature</div>
         <div class="nbd-wall-title">UPGRADE TO<br>UNLOCK THIS TOOL</div>
         <div class="nbd-wall-sub">
-          This tool requires the <strong style="color:var(--orange,#e8720c)">${planName}</strong> plan.
+          This tool requires the <strong style="color:var(--orange,#BD5728)">${planName}</strong> plan.
           Upgrade to get full access to everything NBD Pro has to offer.
         </div>
         <ul class="nbd-wall-features">
@@ -877,7 +877,7 @@ export const NBDAuth = {
     const el = document.getElementById(containerId);
     if (!el) return;
     const name = PLAN_NAMES[_userPlan] || 'Free';
-    const color = _userPlan === 'growth' ? '#e8720c' :
+    const color = _userPlan === 'growth' ? '#BD5728' :
                   _userPlan === 'starter' ? '#3fb950' : '#4a5568';
     el.innerHTML = `<span style="display:inline-flex;align-items:center;gap:6px;
       padding:3px 10px;border-radius:20px;font-size:9px;font-weight:700;

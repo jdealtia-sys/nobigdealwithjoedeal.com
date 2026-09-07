@@ -9,10 +9,10 @@
  * the same way docgen-render.test.js proves it for the doc generator.
  *
  * Contract (mirrors brand-sweep-2026-06-07 + docgen-render):
- *   - NBD shows 'No Big Deal' + orange #e8720c.
+ *   - NBD shows 'No Big Deal' + orange #BD5728.
  *   - Oaks shows 'Oaks Roofing & Construction' + accent #C2410C, uses its
  *     docPrefix (OAK-) on the estimate number, its seal (ORC) on signatures,
- *     and does NOT leak 'No Big Deal' / '#e8720c' / 'Joe Deal' / 'Joe's'.
+ *     and does NOT leak 'No Big Deal' / '#BD5728' / 'Joe Deal' / 'Joe's'.
  * An Oaks failure is a real tenant-brand leak — an export hardcoding an NBD
  * literal instead of resolving it from window._brand().
  *
@@ -123,7 +123,7 @@ for (const t of FORMATS) {
   const nOk = typeof n === 'string' && n.indexOf('RENDER_ERROR') !== 0 && n.length > 500;
   ok(t.label + ' / NBD: renders HTML (no error)', nOk);
   ok(t.label + ' / NBD: shows "No Big Deal"', /No Big Deal/.test(n));
-  ok(t.label + ' / NBD: orange #e8720c accent present', /#e8720c/i.test(n));
+  ok(t.label + ' / NBD: orange #BD5728 accent present', /#BD5728/i.test(n));
 
   // ── Oaks: tenant name + accent present; NBD identity fully absent ──
   const o = renderFmt(OAKS_BRAND, t.fmt);
@@ -133,7 +133,7 @@ for (const t of FORMATS) {
   // a browser renders it as "Oaks Roofing & Construction". Match either form.
   ok(t.label + ' / Oaks: shows "Oaks Roofing & Construction"', /Oaks Roofing &(amp;)? Construction/.test(o));
   ok(t.label + ' / Oaks: burnt-orange #C2410C (tenant accent)', /#c2410c/i.test(o));
-  ok(t.label + ' / Oaks: does NOT leak orange #e8720c', !/#e8720c/i.test(o));
+  ok(t.label + ' / Oaks: does NOT leak orange #BD5728', !/#BD5728/i.test(o));
   ok(t.label + ' / Oaks: does NOT leak "No Big Deal"', !/No Big Deal/.test(o));
   ok(t.label + ' / Oaks: does NOT leak "Joe Deal"', !/Joe Deal/.test(o));
   ok(t.label + ' / Oaks: does NOT leak "Joe\'s"', !/Joe's/.test(o));

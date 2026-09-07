@@ -1281,11 +1281,11 @@ let _NBD_IP_DELEGATE_BOUND; // module-local (globals Tranche 1 — was window.*)
           <style>
             body { font-family: Barlow, sans-serif; color: #333; }
             .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-            .header { border-bottom: 3px solid #e8720c; padding-bottom: 15px; margin-bottom: 20px; }
-            .brand { font-size: 20px; font-weight: 700; text-transform: uppercase; color: var(--orange,#e8720c); }
+            .header { border-bottom: 3px solid #BD5728; padding-bottom: 15px; margin-bottom: 20px; }
+            .brand { font-size: 20px; font-weight: 700; text-transform: uppercase; color: var(--orange,#BD5728); }
             table { width: 100%; border-collapse: collapse; margin: 20px 0; }
             .total { text-align: right; font-weight: 700; }
-            .cta { background: var(--orange,#e8720c); color: #fff; padding: 12px 24px; border-radius: 5px; text-decoration: none; display: inline-block; margin-top: 20px; }
+            .cta { background: var(--orange,#BD5728); color: #fff; padding: 12px 24px; border-radius: 5px; text-decoration: none; display: inline-block; margin-top: 20px; }
           </style>
         </head>
         <body>
@@ -1298,7 +1298,7 @@ let _NBD_IP_DELEGATE_BOUND; // module-local (globals Tranche 1 — was window.*)
             <p>Your roofing estimate has been converted to an invoice. Please review the details below.</p>
             <table>
               <thead>
-                <tr style="border-bottom: 2px solid #e8720c;">
+                <tr style="border-bottom: 2px solid #BD5728;">
                   <th style="text-align: left; padding: 10px;">DESCRIPTION</th>
                   <th style="text-align: right; padding: 10px;">QTY</th>
                   <th style="text-align: right; padding: 10px;">PRICE</th>
@@ -1307,7 +1307,7 @@ let _NBD_IP_DELEGATE_BOUND; // module-local (globals Tranche 1 — was window.*)
               </thead>
               <tbody>
                 ${items}
-                <tr style="border-top: 2px solid #e8720c;">
+                <tr style="border-top: 2px solid #BD5728;">
                   <td colspan="3" style="text-align: right; padding: 10px; font-weight: 700;">Total:</td>
                   <td style="text-align: right; padding: 10px; font-weight: 700; font-size: 16px;">${formatCurrency(invoice.total)}</td>
                 </tr>
@@ -1317,8 +1317,8 @@ let _NBD_IP_DELEGATE_BOUND; // module-local (globals Tranche 1 — was window.*)
                   <td style="text-align: right; padding: 10px;">${formatCurrency(invoice.depositAmount)}</td>
                 </tr>
                 <tr>
-                  <td colspan="3" style="text-align: right; padding: 10px; font-weight: 700; color:var(--orange,#e8720c);">Balance Due:</td>
-                  <td style="text-align: right; padding: 10px; font-weight: 700; color:var(--orange,#e8720c);">${formatCurrency(invoice.balanceDue != null ? invoice.balanceDue : (Number(invoice.total) - Number(invoice.depositAmount)))}</td>
+                  <td colspan="3" style="text-align: right; padding: 10px; font-weight: 700; color:var(--orange,#BD5728);">Balance Due:</td>
+                  <td style="text-align: right; padding: 10px; font-weight: 700; color:var(--orange,#BD5728);">${formatCurrency(invoice.balanceDue != null ? invoice.balanceDue : (Number(invoice.total) - Number(invoice.depositAmount)))}</td>
                 </tr>
                 ` : ''}
               </tbody>

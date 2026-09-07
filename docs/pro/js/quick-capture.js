@@ -87,9 +87,9 @@
       'right:calc(23px + env(safe-area-inset-right, 0px));' +
       'z-index:9999;' +
       'width:48px;height:48px;border-radius:50%;border:none;' +
-      'background:#1a1f2e;color:var(--orange, #c8541a);font-size:18px;' +
+      'background:#1a1f2e;color:var(--orange, #A14A22);font-size:18px;' +
       'box-shadow:0 4px 16px rgba(0,0,0,0.4);cursor:pointer;' +
-      'border:1.5px solid var(--orange, #c8541a);' +
+      'border:1.5px solid var(--orange, #A14A22);' +
       'display:flex;align-items:center;justify-content:center;' +
       '-webkit-tap-highlight-color:transparent;transition:opacity 160ms ease;';
     btn.innerHTML = '🎙';
@@ -157,7 +157,7 @@
 
         // Recording panel
         '<div id="nbd-qc-record-panel" style="text-align:center;padding:28px 18px;background:#0a1424;border-radius:10px;margin-bottom:14px;">' +
-          '<button type="button" id="nbd-qc-record-btn" style="width:88px;height:88px;border-radius:50%;border:none;background:var(--orange, #c8541a);color:#fff;font-size:36px;cursor:pointer;box-shadow:0 8px 24px rgba(200,84,26,0.45);transition:transform 120ms ease;">🎤</button>' +
+          '<button type="button" id="nbd-qc-record-btn" style="width:88px;height:88px;border-radius:50%;border:none;background:var(--orange, #A14A22);color:#fff;font-size:36px;cursor:pointer;box-shadow:0 8px 24px rgba(200,84,26,0.45);transition:transform 120ms ease;">🎤</button>' +
           '<div id="nbd-qc-status" style="margin-top:14px;font-size:14px;color:#94a3b8;">Tap to start recording (up to 5 minutes)</div>' +
           '<canvas id="nbd-qc-canvas" width="360" height="36" style="display:none;margin:14px auto 0;"></canvas>' +
           '<div id="nbd-qc-timer" style="display:none;margin-top:8px;font-variant-numeric:tabular-nums;font-size:13px;color:#fbbf24;">0:00 / 5:00</div>' +
@@ -349,7 +349,7 @@
     const recordBtn = document.getElementById('nbd-qc-record-btn');
     if (!recordBtn) return;
     recordBtn.innerHTML = '🎤';
-    recordBtn.style.background = 'var(--orange, #c8541a)';
+    recordBtn.style.background = 'var(--orange, #A14A22)';
     recordBtn.style.boxShadow = '0 8px 24px rgba(200,84,26,0.45)';
   }
 
@@ -416,7 +416,7 @@
       '<div style="background:#0a1424;border-radius:10px;padding:16px;margin-bottom:14px;">' +
         '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">' +
           '<div style="font-size:11px;color:#94a3b8;letter-spacing:0.06em;font-weight:600;">SUMMARY</div>' +
-          '<div style="display:inline-block;padding:3px 9px;background:rgba(200,84,26,0.15);border:1px solid var(--orange, #c8541a);border-radius:999px;font-size:11px;color:var(--orange, #c8541a);">' + escHtml(category) + '</div>' +
+          '<div style="display:inline-block;padding:3px 9px;background:rgba(200,84,26,0.15);border:1px solid var(--orange, #A14A22);border-radius:999px;font-size:11px;color:var(--orange, #A14A22);">' + escHtml(category) + '</div>' +
         '</div>' +
         '<div style="font-size:14px;line-height:1.5;margin-bottom:14px;">' + escHtml(overview) + '</div>' +
 
@@ -436,7 +436,7 @@
 
       // Routing actions
       '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;">' +
-        '<button type="button" id="nbd-qc-act-save" style="padding:11px;background:var(--orange, #c8541a);color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600;">Save capture</button>' +
+        '<button type="button" id="nbd-qc-act-save" style="padding:11px;background:var(--orange, #A14A22);color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600;">Save capture</button>' +
         '<button type="button" id="nbd-qc-act-link" style="padding:11px;background:#1a2540;color:inherit;border:1px solid #2a3344;border-radius:8px;cursor:pointer;font-size:13px;">Save & link to lead</button>' +
       '</div>' +
       (actionItems.length

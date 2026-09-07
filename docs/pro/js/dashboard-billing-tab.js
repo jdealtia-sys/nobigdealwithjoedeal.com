@@ -148,7 +148,7 @@
             el = document.getElementById('gxBgToggle');      if (el) el.checked = gxState.animatedBgEnabled;
             el = document.getElementById('gxIntensitySlider');if (el) el.value = Math.round(gxState.intensity * 100);
             el = document.getElementById('gxIntensityVal');   if (el) el.textContent = Math.round(gxState.intensity * 100) + '%';
-            el = document.getElementById('gxAccentPicker');   if (el) el.value = gxState.accentOverride || gxState.currentAccent || '#e8720c';
+            el = document.getElementById('gxAccentPicker');   if (el) el.value = gxState.accentOverride || gxState.currentAccent || '#BD5728';
             // Also render font grid + sync size buttons
             if (typeof nbdRenderFontGrid === 'function') nbdRenderFontGrid();
           }

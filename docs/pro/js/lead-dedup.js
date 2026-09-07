@@ -184,7 +184,7 @@
                     ${tag}
                   </div>
                   <div style="font-size:11px; color:var(--m,#9aa3b2); margin-bottom:4px;">${escapeText(sub) || '—'}</div>
-                  <div style="font-size:10px; color:var(--orange,#c8541a);">${escapeText(reason)} · Click to open</div>
+                  <div style="font-size:10px; color:var(--orange,#A14A22);">${escapeText(reason)} · Click to open</div>
                 </button>`;
             }).join('')}
           </div>
@@ -195,7 +195,7 @@
               border-radius:8px; font-size:13px; font-weight:600; cursor:pointer;
               -webkit-tap-highlight-color:transparent;">Cancel</button>
             <button id="nbd-dedup-create" style="
-              background:linear-gradient(135deg,#c8541a 0%,#a64516 100%);
+              background:linear-gradient(135deg,#A14A22 0%,#a64516 100%);
               color:#fff; border:none; padding:9px 18px; border-radius:8px;
               font-size:13px; font-weight:600; cursor:pointer;
               -webkit-tap-highlight-color:transparent;">Create anyway</button>

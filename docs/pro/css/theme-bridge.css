@@ -469,7 +469,7 @@ body.theme-frosted {
 /* ── D2D "Search this area" corner reload button (bottom-right) ──── */
 /* Neutral at rest; "arms" with an orange pulse after a genuine pan/zoom to
    hint there may be knocks to load in the new view. */
-#d2d-search-area.d2d-search-armed { border-color:var(--orange,#e8720c); color:var(--orange,#e8720c); animation:d2dSearchArmedPulse 1.8s ease-in-out infinite; }
+#d2d-search-area.d2d-search-armed { border-color:var(--orange,#BD5728); color:var(--orange,#BD5728); animation:d2dSearchArmedPulse 1.8s ease-in-out infinite; }
 @keyframes d2dSearchArmedPulse { 0%,100%{ box-shadow:0 3px 14px rgba(0,0,0,.5),0 0 0 0 color-mix(in srgb, var(--orange) 50%, transparent); } 50%{ box-shadow:0 3px 14px rgba(0,0,0,.5),0 0 0 7px color-mix(in srgb, var(--orange) 0%, transparent); } }
 @media(prefers-reduced-motion:reduce) { #d2d-search-area.d2d-search-armed { animation:none; box-shadow:0 3px 14px rgba(0,0,0,.5),0 0 0 3px color-mix(in srgb, var(--orange) 40%, transparent); } }
 /* ── D2D property intel on knock card ───────────────────────────── */
@@ -592,7 +592,7 @@ body.theme-frosted {
 .tc-new { font-size: 11px; font-weight: 700; color: var(--green); letter-spacing: .1em; }
 
 /* Rapid Fire Banner */
-.rapid-banner { background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); border: 1px solid var(--blue)30; border-radius: 12px; padding: 20px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; transition: all .2s; margin-bottom: 4px; }
+.rapid-banner { background: linear-gradient(135deg, #12223D 0%, #16213e 100%); border: 1px solid var(--blue)30; border-radius: 12px; padding: 20px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; transition: all .2s; margin-bottom: 4px; }
 .rapid-banner:hover { border-color: var(--blue); box-shadow: 0 4px 20px rgba(74,158,255,.2); }
 .rb-left { display: flex; align-items: center; gap: 14px; }
 .rb-icon { font-size: 32px; }
@@ -674,7 +674,7 @@ body.theme-frosted {
 .rapid-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
 .rapid-stats-bar { display: flex; gap: 14px; }
 .rs-item { font-size: 12px; font-weight: 600; color: var(--m); }
-.rapid-card { background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); border-radius: 12px; padding: 28px; text-align: center; margin-bottom: 20px; }
+.rapid-card { background: linear-gradient(135deg, #12223D 0%, #16213e 100%); border-radius: 12px; padding: 28px; text-align: center; margin-bottom: 20px; }
 .rapid-context { font-size: 11px; color: #8b9bb4; margin-bottom: 12px; text-transform: uppercase; letter-spacing: .1em; }
 .rapid-objection { font-size: 22px; font-weight: 700; color:var(--t); line-height: 1.4; }
 .rapid-options { display: flex; flex-direction: column; gap: 8px; }

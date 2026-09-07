@@ -25,8 +25,8 @@
     name: 'No Big Deal Home Solutions',
     phone: '(859) 420-7382',
     website: 'nobigdealwithjoedeal.com',
-    navy: '#1e3a6e',
-    orange: '#e8720c'
+    navy: '#1A3057',
+    orange: '#BD5728'
   };
   function _b() {
     try { if (typeof window._brand === 'function') return window._brand() || {}; } catch (e) { /* fall through */ }

@@ -8,7 +8,7 @@
  * batch-1 invariants permanent so a future page/template can't silently fork:
  *
  *  1. .btn-cal:hover background is #B85400 everywhere (white text passes AA;
- *     the old #f08030/#e8720c hovers were 2.68:1 / 3.07:1).
+ *     the old #f08030/#BD5728 hovers were 2.68:1 / 3.07:1).
  *  2. No 7px/99px border-radius strays (8px / 100px system).
  *  3. nbd-mobile.css carries the a11y + interaction-polish block
  *     (:focus-visible ring, pressed states, reduced-motion kill switch).
@@ -89,6 +89,11 @@ console.log('MARKETING POLISH CONTRACT — batch 1 invariants');
 {
   const s = read(path.join(DOCS, 'assets/css/nbd-mobile.css'));
   ok('nbd-mobile.css has focus ring + pressed states + reduced-motion',
+    // Still the retired orange ON PURPOSE. nbd-mobile.css lives in
+    // docs/assets/css — the PUBLIC marketing site, which this PR deliberately
+    // does not touch (the palette sweep is scoped to docs/pro). When the
+    // public site is repointed, this expectation moves with it. Updating the
+    // expectation without the source would just make the test lie.
     /:focus-visible\{outline:3px solid #e8720c/.test(s)
     && /\.btn-primary:active/.test(s)
     && /prefers-reduced-motion:reduce/.test(s)
@@ -408,7 +413,7 @@ const certBarTargets = marketing.filter((f) => /^services\/[a-z0-9-]+-(oh|ky)\.h
 {
   // 14. A11y lane D: navy-page muted text floors. These rgba alphas were
   //     raised to clear 4.5:1 composited over their real backgrounds
-  //     (worst case: input fill over --navy-dark #142a52 needs >=.56; the
+  //     (worst case: input fill over --navy-dark #12223D needs >=.56; the
   //     values below all land 4.9:1+). String-pinned — the values are fixed,
   //     so a regression is a literal revert, not a math question.
   const estimate = read(path.join(DOCS, 'estimate.html'));

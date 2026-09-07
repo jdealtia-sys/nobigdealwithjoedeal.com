@@ -38,7 +38,7 @@
     objection:  { label: 'Objection Handling',  icon: '🛡️', color: '#8B5CF6' },
     closing:    { label: 'Closing',            icon: '🎯', color: '#10B981' },
     rapport:    { label: 'Rapport Building',    icon: '🤝', color: '#EC4899' },
-    authority:  { label: 'Authority',          icon: '👔', color: '#e8720c' }
+    authority:  { label: 'Authority',          icon: '👔', color: '#BD5728' }
   };
 
   // ════════════════════════════════════════════════════════════

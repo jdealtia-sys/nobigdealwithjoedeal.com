@@ -17,7 +17,7 @@
 }
 
 .nbd-voice-record {
-  background: var(--orange, #e8720c);
+  background: var(--orange, #BD5728);
   color: #fff;
   border: 0;
   padding: 10px 18px;
@@ -65,7 +65,7 @@
   cursor: pointer;
   transition: border-color .15s;
 }
-.nbd-voice-upload:hover { border-color: var(--orange, #e8720c); }
+.nbd-voice-upload:hover { border-color: var(--orange, #BD5728); }
 
 .nbd-voice-calltype-sel {
   background: var(--s2, #1a1d29);
@@ -89,7 +89,7 @@
   padding: 10px 14px;
   margin-bottom: 14px;
   background: var(--s2, #1a1d29);
-  border-left: 3px solid var(--orange, #e8720c);
+  border-left: 3px solid var(--orange, #BD5728);
   border-radius: 4px;
   font-size: 12px;
 }
@@ -124,7 +124,7 @@
 .nbd-voice-status-transcribing,
 .nbd-voice-status-analyzing {
   background: rgba(232, 114, 12, .18);
-  color: var(--orange, #e8720c);
+  color: var(--orange, #BD5728);
 }
 .nbd-voice-status-complete {
   background: rgba(46, 204, 138, .18);
@@ -174,7 +174,7 @@
 .nbd-voice-transcript { margin-top: 12px; }
 .nbd-voice-transcript summary {
   cursor: pointer;
-  color: var(--orange, #e8720c);
+  color: var(--orange, #BD5728);
   font-size: 12px;
   padding: 6px 0;
 }
@@ -190,7 +190,7 @@
 }
 .nbd-voice-seg { padding: 3px 0; line-height: 1.45; }
 .nbd-voice-seg-t { color: var(--text3, #4a5568); }
-.nbd-voice-seg-s { color: var(--orange, #e8720c); margin-right: 4px; }
+.nbd-voice-seg-s { color: var(--orange, #BD5728); margin-right: 4px; }
 
 /* Consent modal */
 .nbd-voice-modal-overlay {
@@ -212,7 +212,7 @@
   width: 100%;
 }
 .nbd-voice-modal h2 {
-  color: var(--orange, #e8720c);
+  color: var(--orange, #BD5728);
   font-size: 18px;
   margin: 0 0 10px 0;
 }
@@ -243,8 +243,8 @@
   color: var(--text, #e8eaf0);
 }
 .nbd-voice-modal-actions button[data-act="ok"] {
-  background: var(--orange, #e8720c);
-  border-color: var(--orange, #e8720c);
+  background: var(--orange, #BD5728);
+  border-color: var(--orange, #BD5728);
   color: #fff;
   font-weight: 600;
 }
@@ -261,7 +261,7 @@
   bottom: 20px;
   right: 20px;
   background: var(--card, #111722);
-  border-left: 3px solid var(--orange, #e8720c);
+  border-left: 3px solid var(--orange, #BD5728);
   color: var(--text, #e8eaf0);
   padding: 12px 16px;
   border-radius: 6px;

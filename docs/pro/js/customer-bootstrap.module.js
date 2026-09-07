@@ -483,7 +483,7 @@ async function loadCustomerData(id) {
         const b = document.createElement('div');
         b.id = 'nbdReadOnlyBanner';
         b.setAttribute('role', 'status');
-        b.style.cssText = 'position:sticky;top:0;z-index:50;background:#1e3a6e;color:#fff;'
+        b.style.cssText = 'position:sticky;top:0;z-index:50;background:#1A3057;color:#fff;'
           + 'padding:8px 14px;font-size:13px;font-weight:600;text-align:center;';
         b.textContent = _roRole === 'viewer'
           ? 'Read-only — your role can view this customer but not make changes.'
@@ -2871,7 +2871,7 @@ window.exportCustomerEstimate = async function(estimateId) {
     // Branding — tenant-aware (Phase B). This export hardcoded NBD's legal name
     // and navy, so a homeowner of ANY other tenant received a quote carrying
     // Joe's company. Same resolver + hex idiom as customer-photo-report-generator.js;
-    // NBD renders byte-identical (its own colors ARE #1E3A6E / #E8720C).
+    // NBD renders byte-identical (its own colors ARE #1A3057 / #BD5728).
     const _b = (window._brand && window._brand()) || {};
     const _isNbd = !_b.legalName || _b.legalName === 'No Big Deal Home Solutions';
     const _hx = (h) => { const m = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(String(h || '')); return m ? [parseInt(m[1],16), parseInt(m[2],16), parseInt(m[3],16)] : null; };
@@ -3063,7 +3063,7 @@ window.generateCertFromEstimate = async function(estimateId) {
   // instead of hardcoding NBD orange, and satisfies the bare-hex drift guard
   // in tests/crm-theme-contract.test.js.
   const accent = (getComputedStyle(document.documentElement)
-    .getPropertyValue('--orange') || '').trim() || '#e8720c';
+    .getPropertyValue('--orange') || '').trim() || '#BD5728';
   const html = `<!DOCTYPE html>
 <html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Warranty Certificate — ${custName}</title>

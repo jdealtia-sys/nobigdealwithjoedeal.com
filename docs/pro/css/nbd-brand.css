@@ -46,11 +46,11 @@
   --nbd-line-rule:    rgba(26, 22, 18, 0.06);  /* hairline rules between sections */
 
   /* ── Brand accents ── */
-  --nbd-orange:       #e8720c;  /* primary brand orange — never change */
+  --nbd-orange:       #BD5728;  /* primary brand orange — never change */
   --nbd-orange-soft:  rgba(232, 114, 12, 0.10);
   --nbd-orange-medium:rgba(232, 114, 12, 0.18);
   --nbd-orange-glow:  rgba(232, 114, 12, 0.25);
-  --nbd-orange-deep:  #c8541a;  /* hover / pressed state */
+  --nbd-orange-deep:  #A14A22;  /* hover / pressed state */
   --nbd-orange-ink:   #8a4a10;  /* orange-flavored dark text (badge text on orange-soft) */
   /* Text-bearing orange surfaces. --nbd-orange is 3.07:1 against
      --nbd-ink-on-orange and --nbd-orange-deep is 4.43:1 — both fail WCAG AA.

@@ -242,7 +242,7 @@
               <div style="min-width:0;">
                 <div style="font-size:13px; font-weight:600; color:var(--t,#e8eaf0); margin-bottom:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
                   ${escapeHtml(name)}
-                  ${lead.customerId ? `<span style="font-family:monospace; font-size:10px; font-weight:600; color:var(--orange,#c8541a); opacity:0.7; margin-left:4px;">${escapeHtml(lead.customerId)}</span>` : ''}
+                  ${lead.customerId ? `<span style="font-family:monospace; font-size:10px; font-weight:600; color:var(--orange,#A14A22); opacity:0.7; margin-left:4px;">${escapeHtml(lead.customerId)}</span>` : ''}
                 </div>
                 <div style="font-size:11px; color:var(--m,#9aa3b2); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
                   ${sub}

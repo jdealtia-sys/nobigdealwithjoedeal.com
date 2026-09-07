@@ -4,7 +4,7 @@
    ─────────────────────────────────────────────────────────────── */
 const NBD_NAV_CONFIG = {
   position: 'top',      // 'top' | 'bottom' | 'dock'
-  activeColor: '#e8720c',
+  activeColor: '#BD5728',
   showLabels: true,
 };
 

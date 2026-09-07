@@ -195,7 +195,7 @@
     position: absolute; top: -16px; right: 0;
     font-family: ui-monospace, 'SF Mono', Menlo, Monaco, monospace;
     font-size: 9px; font-weight: 700; letter-spacing: .04em;
-    color: var(--orange, #e8720c);
+    color: var(--orange, #BD5728);
     background: var(--s2, rgba(0,0,0,.6));
     padding: 1px 5px; border-radius: 3px;
     pointer-events: none; opacity: 0.9;
@@ -470,9 +470,9 @@
     border-color: color-mix(in srgb, var(--ink-soft, #888) 38%, transparent);
   }
   .kct-action-doc{
-    background: color-mix(in srgb, var(--orange, #e8720c) 14%, transparent);
-    color: var(--orange, #e8720c);
-    border-color: color-mix(in srgb, var(--orange, #e8720c) 40%, transparent);
+    background: color-mix(in srgb, var(--orange, #BD5728) 14%, transparent);
+    color: var(--orange, #BD5728);
+    border-color: color-mix(in srgb, var(--orange, #BD5728) 40%, transparent);
   }
   .kct-action-stage{
     background: color-mix(in srgb, var(--blue, #2563eb) 14%, transparent);
@@ -485,9 +485,9 @@
      a faint orange tint + the left-tick from #306 so the carrier
      reads with comparable weight to the claim status. */
   .kc-carrier{
-    background: color-mix(in srgb, var(--orange, #e8720c) 14%, var(--s3, #1a1a2e)) !important;
-    color: color-mix(in srgb, var(--orange, #e8720c) 60%, #fff) !important;
-    border: 1px solid color-mix(in srgb, var(--orange, #e8720c) 30%, transparent) !important;
+    background: color-mix(in srgb, var(--orange, #BD5728) 14%, var(--s3, #12223D)) !important;
+    color: color-mix(in srgb, var(--orange, #BD5728) 60%, #fff) !important;
+    border: 1px solid color-mix(in srgb, var(--orange, #BD5728) 30%, transparent) !important;
   }
   /* Sweep R3: .kc-name 2-line clamp. 'Morgan-McCane' and other long
      surnames were wrapping unbounded and pushing the rest of the
@@ -1205,7 +1205,7 @@
     right:calc(16px + env(safe-area-inset-right, 0px));
     z-index:9999;
     width:48px; height:48px; border-radius:50%;
-    background:var(--s2, #1a1f2e); color:var(--orange, #c8541a);
+    background:var(--s2, #1a1f2e); color:var(--orange, #A14A22);
     border:1px solid var(--br, #2a3344); cursor:pointer;
     font-size:20px; font-weight:700; line-height:1;
     box-shadow:0 4px 14px rgba(0,0,0,.35);
@@ -1214,7 +1214,7 @@
     transition:background .15s, color .15s, opacity .16s;
   }
   body.nbd-dial-open #nbd-fab-dial{
-    background:var(--orange, #c8541a);
+    background:var(--orange, #A14A22);
     color:var(--accent-fg, #fff);
     border-color:var(--accent-ring, rgba(255,255,255,.35));
   }

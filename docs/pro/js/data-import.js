@@ -234,7 +234,7 @@
     });
     zone.addEventListener('dragover', e => {
       e.preventDefault();
-      zone.style.borderColor = 'var(--orange,#c8541a)';
+      zone.style.borderColor = 'var(--orange,#A14A22)';
       zone.style.background = 'rgba(200,84,26,0.05)';
     });
     zone.addEventListener('dragleave', () => {
@@ -347,7 +347,7 @@
           border-radius:8px; font-size:13px; font-weight:600; cursor:pointer;
           -webkit-tap-highlight-color:transparent;">Cancel</button>
         <button id="nbd-import-go" style="
-          background:linear-gradient(135deg,#c8541a 0%,#a64516 100%);
+          background:linear-gradient(135deg,#A14A22 0%,#a64516 100%);
           color:#fff; border:none; padding:9px 22px; border-radius:8px;
           font-size:13px; font-weight:700; cursor:pointer;
           -webkit-tap-highlight-color:transparent;">Import ${dataRows.length} row${dataRows.length === 1 ? '' : 's'}</button>
@@ -380,7 +380,7 @@
         </div>
         <div style="height:6px; background:var(--s2,#0f1419); border-radius:3px; overflow:hidden;">
           <div id="nbd-import-bar" style="
-            height:100%; width:0%; background:linear-gradient(90deg,#c8541a,#f59e0b);
+            height:100%; width:0%; background:linear-gradient(90deg,#A14A22,#f59e0b);
             transition:width .15s ease;"></div>
         </div>
       </div>`;
@@ -610,7 +610,7 @@
             </div>` : ''}
         </div>
         <button id="nbd-import-done" style="
-          background:linear-gradient(135deg,#c8541a 0%,#a64516 100%);
+          background:linear-gradient(135deg,#A14A22 0%,#a64516 100%);
           color:#fff; border:none; padding:10px 26px; border-radius:8px;
           font-size:13px; font-weight:700; cursor:pointer;
           -webkit-tap-highlight-color:transparent;">Done</button>

@@ -612,7 +612,7 @@
     var scroll = document.querySelector('#view-expenses .view-scroll');
     if (!scroll) return;
     var agg = aggregate(_expenses);
-    var accent = 'var(--orange,#e8720c)';
+    var accent = 'var(--orange,#BD5728)';
 
     var html = '';
     // Header
@@ -646,7 +646,7 @@
     // Two-column: supplier spend + category breakdown
     html += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px;margin-bottom:20px;">';
     // Supplier spend (the explicit ask)
-    html += '<div style="background:var(--s,#1a1a2e);border:1px solid var(--br,rgba(255,255,255,.08));border-radius:12px;padding:16px;">' +
+    html += '<div style="background:var(--s,#12223D);border:1px solid var(--br,rgba(255,255,255,.08));border-radius:12px;padding:16px;">' +
       '<h3 style="margin:0 0 12px;font-size:14px;color:var(--t,#fff);">Spend by Supplier</h3>';
     agg.suppliers.slice(0, 8).forEach(function (s) {
       html += '<div style="margin-bottom:10px;">' +
@@ -657,7 +657,7 @@
     });
     html += '</div>';
     // Category breakdown
-    html += '<div style="background:var(--s,#1a1a2e);border:1px solid var(--br,rgba(255,255,255,.08));border-radius:12px;padding:16px;">' +
+    html += '<div style="background:var(--s,#12223D);border:1px solid var(--br,rgba(255,255,255,.08));border-radius:12px;padding:16px;">' +
       '<h3 style="margin:0 0 12px;font-size:14px;color:var(--t,#fff);">Spend by Category</h3>';
     agg.categories.forEach(function (cat) {
       html += '<div style="margin-bottom:10px;">' +
@@ -671,7 +671,7 @@
     // Per-job rollup with margin
     var jobIds = Object.keys(agg.byJob).filter(function (k) { return k !== '__unassigned__'; });
     if (jobIds.length) {
-      html += '<div style="background:var(--s,#1a1a2e);border:1px solid var(--br,rgba(255,255,255,.08));border-radius:12px;padding:16px;margin-bottom:20px;">' +
+      html += '<div style="background:var(--s,#12223D);border:1px solid var(--br,rgba(255,255,255,.08));border-radius:12px;padding:16px;margin-bottom:20px;">' +
         '<h3 style="margin:0 0 12px;font-size:14px;color:var(--t,#fff);">Cost &amp; Margin by Job</h3>';
       jobIds.map(function (jid) {
         var jb = agg.byJob[jid];
@@ -711,7 +711,7 @@
 
     // A1b: Recurring templates + one-tap "Due" chips
     if (_recurring.length) {
-      html += '<div style="background:var(--s,#1a1a2e);border:1px solid var(--br,rgba(255,255,255,.08));border-radius:12px;padding:16px;margin-bottom:20px;">' +
+      html += '<div style="background:var(--s,#12223D);border:1px solid var(--br,rgba(255,255,255,.08));border-radius:12px;padding:16px;margin-bottom:20px;">' +
         '<h3 style="margin:0 0 12px;font-size:14px;color:var(--t,#fff);">🔁 Recurring</h3>';
       _recurring.slice().sort(function (a, b) { return (toDate(a.nextDueDate) || 0) - (toDate(b.nextDueDate) || 0); }).forEach(function (t) {
         var due = isDue(t);
@@ -728,7 +728,7 @@
 
     // A5: Suppliers & 1099 tracking
     var taxYear = new Date().getFullYear();
-    html += '<div style="background:var(--s,#1a1a2e);border:1px solid var(--br,rgba(255,255,255,.08));border-radius:12px;padding:16px;margin-bottom:20px;">' +
+    html += '<div style="background:var(--s,#12223D);border:1px solid var(--br,rgba(255,255,255,.08));border-radius:12px;padding:16px;margin-bottom:20px;">' +
       '<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:12px;">' +
         '<h3 style="margin:0;font-size:14px;color:var(--t,#fff);">🧑‍🔧 Suppliers &amp; 1099 (' + taxYear + ')</h3>' +
         '<div style="display:flex;gap:8px;">' +
@@ -746,7 +746,7 @@
           '<div style="min-width:0;"><div style="font-size:13px;color:var(--t,#fff);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + esc(s.displayName) + '</div>' +
           '<div style="font-size:11px;color:var(--m,#9ca3af);">' + esc(tc ? tc.label : s.taxClassification || '') + ' · W-9: ' + esc(s.w9Status || 'not_requested') + (s.is1099Eligible ? ' · 1099-eligible' : ' · exempt') + '</div></div>' +
           '<div style="text-align:right;white-space:nowrap;"><div style="font-size:13px;font-weight:700;color:var(--t,#fff);">' + money(ytd) + ' YTD</div>' +
-          (flag ? '<div style="font-size:11px;font-weight:700;color:var(--orange,#e8720c);">⚑ 1099 due</div>' : '') +
+          (flag ? '<div style="font-size:11px;font-weight:700;color:var(--orange,#BD5728);">⚑ 1099 due</div>' : '') +
           '</div>' +
           '<button data-exp-action="del-supplier" data-sup-id="' + esc(s.id) + '" title="Delete" style="background:none;border:none;color:var(--red,#dc2626);cursor:pointer;font-size:13px;">✕</button>' +
           '</div>';
@@ -757,7 +757,7 @@
 
     // Recent expense list (only when there are expenses)
     if (_expenses.length) {
-    html += '<div style="background:var(--s,#1a1a2e);border:1px solid var(--br,rgba(255,255,255,.08));border-radius:12px;padding:16px;">' +
+    html += '<div style="background:var(--s,#12223D);border:1px solid var(--br,rgba(255,255,255,.08));border-radius:12px;padding:16px;">' +
       '<h3 style="margin:0 0 12px;font-size:14px;color:var(--t,#fff);">Recent Expenses</h3>';
     _expenses.slice(0, 60).forEach(function (e) {
       var lead = e.leadId ? leadById(e.leadId) : null;

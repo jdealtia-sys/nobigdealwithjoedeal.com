@@ -825,7 +825,7 @@
     stormZones.forEach(zone => {
       if (zone.polygon) {
         const color = zone.status === 'completed' ? '#2ECC8A' :
-                      zone.status === 'canvassing' ? '#e8720c' : '#ff6d00';
+                      zone.status === 'canvassing' ? '#BD5728' : '#ff6d00';
         const poly = L.polygon(zone.polygon, {
           color,
           fillColor: color,

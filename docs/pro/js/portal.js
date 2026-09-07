@@ -350,7 +350,7 @@
           };
 
           var _lum=(function(h){h=h.replace('#','');if(h.length===3)h=h.split('').map(function(c){return c+c}).join('');var r=parseInt(h.slice(0,2),16)/255,g=parseInt(h.slice(2,4),16)/255,b=parseInt(h.slice(4,6),16)/255;var f=function(v){return v<=0.03928?v/12.92:Math.pow((v+0.055)/1.055,2.4)};return 0.2126*f(r)+0.7152*f(g)+0.0722*f(b)})(_cols.accent);
-          var _fg=_lum>0.45?'#1a1a2e':'#ffffff';
+          var _fg=_lum>0.45?'#12223D':'#ffffff';
           _apply(document.documentElement.style);
           if (document.body) _apply(document.body.style);
         }
@@ -595,12 +595,12 @@
     // for an inspection. Single drag-drop or tap-to-upload, with
     // a caption + immediate confirmation.
     parts.push(
-      '<div class="card" id="cuh-card" style="border:1px dashed var(--accent, #c8541a);background:rgba(232,114,12,0.04);">' +
+      '<div class="card" id="cuh-card" style="border:1px dashed var(--accent, #A14A22);background:rgba(232,114,12,0.04);">' +
         '<div class="card-label">📸 Show Us What You See</div>' +
         '<div class="card-title">Upload a photo</div>' +
         '<p style="color:var(--muted);margin:0 0 14px;font-size:14px;line-height:1.5;">Spotted storm damage? Mid-job concern? Want to show us the finished work? Snap a photo — your rep gets it in seconds.</p>' +
         '<input id="cuh-file" type="file" accept="image/jpeg,image/png,image/webp" capture="environment" style="display:none;">' +
-        '<button id="cuh-pick" type="button" class="btn" style="width:100%;padding:14px;font-size:15px;background:var(--accent, #c8541a);color:#fff;border:none;border-radius:8px;cursor:pointer;-webkit-tap-highlight-color:transparent;">📷 Choose a photo</button>' +
+        '<button id="cuh-pick" type="button" class="btn" style="width:100%;padding:14px;font-size:15px;background:var(--accent, #A14A22);color:#fff;border:none;border-radius:8px;cursor:pointer;-webkit-tap-highlight-color:transparent;">📷 Choose a photo</button>' +
         '<div id="cuh-preview" style="display:none;margin-top:12px;"></div>' +
         '<div id="cuh-status" style="display:none;margin-top:10px;padding:10px;border-radius:6px;font-size:13px;"></div>' +
       '</div>'
@@ -627,7 +627,7 @@
     const ratingInfo = view.rating || {};
     if (ratingInfo.canRate && !ratingInfo.submitted) {
       parts.push(
-        '<div class="card" id="cr-card" style="border:1px solid var(--accent, #c8541a);background:rgba(232,114,12,0.05);">' +
+        '<div class="card" id="cr-card" style="border:1px solid var(--accent, #A14A22);background:rgba(232,114,12,0.05);">' +
           '<div class="card-label">⭐ How did we do?</div>' +
           '<div class="card-title">Rate your experience</div>' +
           '<p style="color:var(--muted);margin:0 0 14px;font-size:14px;line-height:1.5;">Your rep would love to hear how the project went. It only takes a tap.</p>' +
@@ -637,7 +637,7 @@
             ).join('') +
           '</div>' +
           '<textarea id="cr-comment" rows="2" maxlength="500" placeholder="Tell us a bit more (optional)" style="width:100%;padding:10px;border-radius:6px;border:1px solid var(--br, #2a3344);background:var(--bg, #0a1424);color:inherit;font:inherit;font-size:13px;box-sizing:border-box;resize:vertical;margin-bottom:10px;display:none;"></textarea>' +
-          '<button id="cr-send" type="button" class="btn" disabled style="width:100%;padding:13px;font-size:14px;background:var(--accent, #c8541a);color:#fff;border:none;border-radius:8px;cursor:pointer;opacity:0.55;display:none;">Send rating</button>' +
+          '<button id="cr-send" type="button" class="btn" disabled style="width:100%;padding:13px;font-size:14px;background:var(--accent, #A14A22);color:#fff;border:none;border-radius:8px;cursor:pointer;opacity:0.55;display:none;">Send rating</button>' +
           '<div id="cr-status" style="display:none;margin-top:10px;padding:10px;border-radius:6px;font-size:13px;"></div>' +
           '<div id="cr-thanks" style="display:none;margin-top:8px;padding:14px;border-radius:8px;background:rgba(46,204,138,0.08);border:1px solid rgba(46,204,138,0.45);"></div>' +
         '</div>'
@@ -691,7 +691,7 @@
         '<div style="display:flex;align-items:center;justify-content:flex-end;margin-bottom:8px;">' +
           '<div id="pm-counter" style="font-size:11px;color:var(--muted);font-variant-numeric:tabular-nums;">0 / 2000</div>' +
         '</div>' +
-        '<button id="pm-send" type="button" class="btn" disabled style="width:100%;padding:12px;font-size:14px;background:var(--accent, #c8541a);color:#fff;border:none;border-radius:8px;cursor:pointer;opacity:0.55;">Send</button>' +
+        '<button id="pm-send" type="button" class="btn" disabled style="width:100%;padding:12px;font-size:14px;background:var(--accent, #A14A22);color:#fff;border:none;border-radius:8px;cursor:pointer;opacity:0.55;">Send</button>' +
         '<div id="pm-status" style="display:none;margin-top:8px;padding:8px;border-radius:6px;font-size:12px;"></div>' +
       '</div>'
     );
@@ -714,7 +714,7 @@
           '<button type="button" class="cb-slot" data-slot="anytime">Anytime this week</button>' +
         '</div>' +
         '<textarea id="cb-note" rows="2" maxlength="280" placeholder="What\'s the best way to reach you? (optional)" style="width:100%;padding:10px;border-radius:6px;border:1px solid var(--br, #2a3344);background:var(--bg, #0a1424);color:inherit;font:inherit;font-size:13px;box-sizing:border-box;resize:vertical;margin-bottom:10px;"></textarea>' +
-        '<button id="cb-send" type="button" class="btn" disabled style="width:100%;padding:13px;font-size:14px;background:var(--accent, #c8541a);color:#fff;border:none;border-radius:8px;cursor:pointer;opacity:0.55;">Pick a time first</button>' +
+        '<button id="cb-send" type="button" class="btn" disabled style="width:100%;padding:13px;font-size:14px;background:var(--accent, #A14A22);color:#fff;border:none;border-radius:8px;cursor:pointer;opacity:0.55;">Pick a time first</button>' +
         '<div id="cb-status" style="display:none;margin-top:10px;padding:10px;border-radius:6px;font-size:13px;"></div>' +
       '</div>'
     );
@@ -728,7 +728,7 @@
       const w = view.warranty;
       const tierAccent = w.tier === 'elite' ? '#111'
                        : w.tier === 'preferred' ? '#1a3260'
-                       : '#c8541a';
+                       : '#A14A22';
       const installLabel = w.installDate
         ? new Date(w.installDate + 'T12:00:00').toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' })
         : '—';
@@ -739,7 +739,7 @@
         '<div class="card" id="wc-card" style="background:linear-gradient(135deg, rgba(232,114,12,.04), rgba(232,114,12,.01)); border:1px solid rgba(232,114,12,.35);">' +
           '<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:14px;">' +
             '<div>' +
-              '<div class="card-label" style="color:var(--accent,#c8541a);">🛡️ Digital Warranty Card</div>' +
+              '<div class="card-label" style="color:var(--accent,#A14A22);">🛡️ Digital Warranty Card</div>' +
               '<div class="card-title" style="margin-top:2px;">' + esc(w.tierLabel || (isNbdCompany ? 'NBD Lifetime Pledge' : companyName + ' Lifetime Pledge')) + '</div>' +
             '</div>' +
             '<div style="background:' + tierAccent + ';color:#fff;font-family:\'Barlow Condensed\',sans-serif;font-size:11px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;padding:5px 12px;border-radius:3px;white-space:nowrap;">' + esc(w.tier || 'standard') + '</div>' +
@@ -763,7 +763,7 @@
             '<div style="font-size:13px;color:var(--text);">' + esc(w.work) + '</div>' +
           '</div>' : '') +
 
-          '<a href="sms:' + ((view.rep && view.rep.phone) ? view.rep.phone.replace(/\D/g, '') : '') + '?&body=' + claimBody + '" style="display:block;text-align:center;padding:12px;background:var(--accent,#c8541a);color:#fff;border-radius:8px;text-decoration:none;font-weight:700;font-size:13px;letter-spacing:.04em;text-transform:uppercase;">🛟 Start a warranty claim</a>' +
+          '<a href="sms:' + ((view.rep && view.rep.phone) ? view.rep.phone.replace(/\D/g, '') : '') + '?&body=' + claimBody + '" style="display:block;text-align:center;padding:12px;background:var(--accent,#A14A22);color:#fff;border-radius:8px;text-decoration:none;font-weight:700;font-size:13px;letter-spacing:.04em;text-transform:uppercase;">🛟 Start a warranty claim</a>' +
 
           '<p style="font-size:11px;color:var(--muted);margin:12px 0 0;line-height:1.5;text-align:center;">Save this page or screenshot it — your permanent warranty reference.</p>' +
         '</div>'
@@ -804,7 +804,7 @@
             '<button id="rf-copy" type="button" style="padding:0 14px;font-size:12px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;background:var(--surface-2,#13243d);color:var(--text);border:1px solid var(--br, #2a3344);border-radius:6px;cursor:pointer;white-space:nowrap;">Copy</button>' +
           '</div>' +
           '<div style="display:flex;gap:8px;flex-wrap:wrap;">' +
-            '<a href="sms:?&body=' + smsBody + '" style="flex:1;min-width:120px;text-align:center;padding:10px;background:var(--accent, #c8541a);color:#fff;border-radius:8px;text-decoration:none;font-weight:700;font-size:13px;letter-spacing:.04em;">💬 Text it</a>' +
+            '<a href="sms:?&body=' + smsBody + '" style="flex:1;min-width:120px;text-align:center;padding:10px;background:var(--accent, #A14A22);color:#fff;border-radius:8px;text-decoration:none;font-weight:700;font-size:13px;letter-spacing:.04em;">💬 Text it</a>' +
             '<a href="mailto:?subject=' + emailSubject + '&body=' + emailBody + '" style="flex:1;min-width:120px;text-align:center;padding:10px;background:var(--surface-2,#13243d);color:var(--text);border:1px solid var(--br, #2a3344);border-radius:8px;text-decoration:none;font-weight:700;font-size:13px;letter-spacing:.04em;">✉️ Email it</a>' +
           '</div>' +
           '<div id="rf-status" style="display:none;margin-top:10px;padding:8px 10px;border-radius:6px;font-size:12px;background:rgba(46,204,138,.12);color:var(--nbd-success);border:1px solid rgba(46,204,138,.4);text-align:center;"></div>' +
@@ -1096,7 +1096,7 @@
       }
       if (emptyEl) emptyEl.style.display = 'none';
       Array.from(threadEl.querySelectorAll('.pm-bubble, .pm-empty-spacer')).forEach(n => n.remove());
-      const accent = 'var(--accent, #c8541a)';
+      const accent = 'var(--accent, #A14A22)';
       let prev = null;
       merged.forEach(m => {
         const bubble = document.createElement('div');
@@ -1409,7 +1409,7 @@
               (reviewUrl ? 'A public Google review helps other homeowners find us — tap below if you have a sec.' : '&mdash; ' + esc(repName.split(' ')[0]) + ' will be in touch.') +
               '</div>' +
               (reviewUrl
-                ? '<a href="' + esc(reviewUrl) + '" target="_blank" rel="noopener" class="btn" style="display:block;text-align:center;padding:12px;font-size:14px;background:var(--accent, #c8541a);color:#fff;border-radius:8px;text-decoration:none;font-weight:600;">⭐ Leave a Google review</a>'
+                ? '<a href="' + esc(reviewUrl) + '" target="_blank" rel="noopener" class="btn" style="display:block;text-align:center;padding:12px;font-size:14px;background:var(--accent, #A14A22);color:#fff;border-radius:8px;text-decoration:none;font-weight:600;">⭐ Leave a Google review</a>'
                 : '');
           } else {
             // 1-3 stars → recovery message.
@@ -1456,8 +1456,8 @@
       chosenSlot = btn.dataset.slot || null;
       Array.from(slotsWrap.querySelectorAll('.cb-slot')).forEach(b => {
         const isActive = b === btn;
-        b.style.background = isActive ? 'var(--accent, #c8541a)' : 'var(--bg, #0a1424)';
-        b.style.borderColor = isActive ? 'var(--accent, #c8541a)' : 'var(--br, #2a3344)';
+        b.style.background = isActive ? 'var(--accent, #A14A22)' : 'var(--bg, #0a1424)';
+        b.style.borderColor = isActive ? 'var(--accent, #A14A22)' : 'var(--br, #2a3344)';
         b.style.color = isActive ? '#fff' : 'inherit';
       });
       sendBtn.disabled = false;
@@ -1608,7 +1608,7 @@
             '<img src="' + dataUrl + '" alt="Photo preview" style="width:80px;height:80px;object-fit:cover;border-radius:6px;flex-shrink:0;">' +
             '<div style="flex:1;">' +
               '<input id="cuh-caption" type="text" placeholder="Optional note (e.g. \'Spot in the back\')" maxlength="280" style="width:100%;padding:8px 10px;border-radius:6px;border:1px solid var(--br, #2a3344);background:var(--bg, #0a1424);color:inherit;font:inherit;font-size:13px;box-sizing:border-box;">' +
-              '<button id="cuh-send" type="button" class="btn" style="margin-top:8px;width:100%;padding:11px;font-size:14px;background:var(--accent, #c8541a);color:#fff;border:none;border-radius:6px;cursor:pointer;">Send to your rep</button>' +
+              '<button id="cuh-send" type="button" class="btn" style="margin-top:8px;width:100%;padding:11px;font-size:14px;background:var(--accent, #A14A22);color:#fff;border:none;border-radius:6px;cursor:pointer;">Send to your rep</button>' +
             '</div>' +
           '</div>';
         setStatus('Add an optional note, then send.', 'info');

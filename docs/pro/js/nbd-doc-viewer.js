@@ -96,7 +96,7 @@
       #nbd-doc-viewer-overlay.open { display: flex; }
       .nbdv-header {
         background: #111418;
-        border-bottom: 2px solid #e8720c;
+        border-bottom: 2px solid #BD5728;
         padding: 14px 20px;
         display: flex;
         align-items: center;
@@ -124,8 +124,8 @@
         margin-top: 2px;
       }
       .nbdv-close {
-        background: var(--orange,#e8720c);
-        border: 1px solid #e8720c;
+        background: var(--orange,#BD5728);
+        border: 1px solid #BD5728;
         color: #fff;
         font-weight: 700;
         padding: 10px 18px;
@@ -197,9 +197,9 @@
         background: color-mix(in srgb, var(--orange) 6%, transparent);
       }
       .nbdv-action-btn.primary {
-        background: var(--orange,#e8720c);
+        background: var(--orange,#BD5728);
         color: #fff;
-        border-color: var(--orange,#e8720c);
+        border-color: var(--orange,#BD5728);
       }
       .nbdv-action-btn.primary:hover {
         background: #ff8420;
@@ -216,8 +216,8 @@
         left: 50%;
         transform: translateX(-50%);
         background: #181c22;
-        border: 1px solid #e8720c;
-        color: var(--orange,#e8720c);
+        border: 1px solid #BD5728;
+        color: var(--orange,#BD5728);
         padding: 8px 16px;
         border-radius: 20px;
         font-size: 12px;
@@ -779,7 +779,7 @@
             <div style="font-size:48px;margin-bottom:12px;">📄</div>
             <h2 style="margin:0 0 8px;font-size:18px;">Your PDF is ready</h2>
             <p style="margin:0 0 20px;font-size:14px;line-height:1.55;color:#4b5563;">This document was generated as a high-fidelity PDF. Inline preview isn't available for server PDFs — open it in a new tab to view, print, or save.</p>
-            <a href="${_u}" target="_blank" rel="noopener" style="display:inline-block;background:#1e3a6e;color:#fff;text-decoration:none;font-weight:600;padding:12px 24px;border-radius:8px;font-size:14px;">Open PDF in new tab &#8599;</a>
+            <a href="${_u}" target="_blank" rel="noopener" style="display:inline-block;background:#1A3057;color:#fff;text-decoration:none;font-weight:600;padding:12px 24px;border-radius:8px;font-size:14px;">Open PDF in new tab &#8599;</a>
             <p style="margin:16px 0 0;font-size:12px;color:#9ca3af;">You can also use Download in the toolbar above.</p>
           </div>
         </body>`;

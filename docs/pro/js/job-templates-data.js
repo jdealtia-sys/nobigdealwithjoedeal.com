@@ -35,7 +35,7 @@ window.NBD_JOB_TEMPLATE_CATEGORIES = {
   "roof_repair": {
     "label": "Roof Repairs",
     "icon": "🔨",
-    "color": "#e8720c"
+    "color": "#BD5728"
   },
   "leak_flashing": {
     "label": "Leak & Flashing",
