@@ -1606,12 +1606,40 @@
           break;
         }
       }
+      if (sent && typeof showToast === 'function') {
+        showToast(sent === 1 ? '✓ 1 queued photo uploaded' : `✓ ${sent} queued photos uploaded`, 'success');
+      }
+      await _syncMarkerAfterDrain(removed);
     } finally {
       _draining = false;
     }
-    if (sent && typeof showToast === 'function') {
-      showToast(sent === 1 ? '✓ 1 queued photo uploaded' : `✓ ${sent} queued photos uploaded`, 'success');
-    }
+    return sent;
+  }
+
+  // Bounded on purpose. This runs INSIDE flushUploadQueue's try, so the
+  // `_draining` guard still covers it and a second drain cannot start a
+  // second, interleaving marker write — but that also means a promise which
+  // never settles would leave `_draining` stuck true and permanently disable
+  // every future drain. If the sync has not finished in MARKER_SYNC_TIMEOUT_MS
+  // we stop waiting and let it land on its own — abandoning the wait does not
+  // cancel the write, and photo-queue-recovery.js serialises and bounds the
+  // marker queue itself so a slow write cannot strand the ones behind it.
+  //
+  // Do NOT read this as "the next drain will re-file it anyway". It will not:
+  // this runs only when `removed > 0`, and a drain that emptied the queue
+  // leaves nothing for a later drain to remove, so there is no next sync. The
+  // recovery module's own boot repair is what covers a marker left stale.
+  //
+  // The bound is read inside the function, not from a module const: the
+  // behavioural harness extracts these functions one at a time and runs them
+  // in a bare sandbox, so a free variable declared elsewhere in this file is
+  // simply absent there — the reference throws, the race rejects, and the
+  // catch below swallows it, leaving a green test that proved nothing. The
+  // window hook also lets that harness drive the timeout in milliseconds
+  // instead of waiting five seconds to prove the bound exists.
+  async function _syncMarkerAfterDrain(removed) {
+    const MARKER_SYNC_TIMEOUT_MS =
+      (typeof window !== 'undefined' && window.__nbdMarkerSyncTimeoutMs) || 5000;
     // Tell the server what is still owed. This function is the drain for ALL
     // three routes — boot recovery, the `online` listener, and the flush after
     // a successful capture — but only the first one used to update the
@@ -1630,14 +1658,20 @@
     // this block was added to prevent, reachable through the one path it did
     // not cover. What matters is whether the queue CHANGED, not whether
     // anything reached Firebase.
-    if (removed) {
-      const rec = typeof window !== 'undefined' && window.NBDPhotoQueueRecovery;
-      if (rec && typeof rec.syncMarker === 'function') {
-        try { await rec.syncMarker(); }
-        catch (e) { console.warn('[PhotoEngine] marker sync failed:', e && e.message); }
-      }
+    if (!removed) return;
+    const rec = typeof window !== 'undefined' && window.NBDPhotoQueueRecovery;
+    if (!rec || typeof rec.syncMarker !== 'function') return;
+    let timer = null;
+    try {
+      await Promise.race([
+        rec.syncMarker(),
+        new Promise((resolve) => { timer = setTimeout(resolve, MARKER_SYNC_TIMEOUT_MS); })
+      ]);
+    } catch (e) {
+      console.warn('[PhotoEngine] marker sync failed:', e && e.message);
+    } finally {
+      if (timer !== null) clearTimeout(timer);
     }
-    return sent;
   }
 
   if (typeof window !== 'undefined' && !window.__nbdPhotoQueueBound) {

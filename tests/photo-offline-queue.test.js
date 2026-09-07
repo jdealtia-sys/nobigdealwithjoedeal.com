@@ -206,7 +206,8 @@ const PARTS = {
   enqueue: extractFn('async function enqueueForRetry('),
   pending: extractFn('async function _pendingItems('),
   drop: extractFn('async function _dropItem('),
-  flush: extractFn('async function flushUploadQueue(')
+  flush: extractFn('async function flushUploadQueue('),
+  syncAfter: extractFn('async function _syncMarkerAfterDrain(')
 };
 const missing = Object.keys(PARTS).filter((k) => !PARTS[k]);
 ok('the queue functions are extractable for a real run', missing.length === 0, 'missing: ' + missing.join(','));
@@ -240,6 +241,12 @@ if (missing.length === 0) {
   function run(store, queue, uploader, uid) {
     const sandbox = {
       atob, Uint8Array, Blob, Set, Object, Array,
+      // Real timers. Without these the bounded-wait arm of the drain’s
+      // Promise.race throws ReferenceError inside a Promise executor, the race
+      // rejects, the catch swallows it — and the three assertions that claim to
+      // prove the bound pass without ever exercising it. That false green
+      // shipped once already in this suite.
+      setTimeout, clearTimeout,
       console: { warn() {}, log() {}, error() {} },
       navigator: { onLine: true },
       _draining: false,
@@ -253,7 +260,7 @@ if (missing.length === 0) {
     };
     vm.createContext(sandbox);
     vm.runInContext('const _inFlight = new Set();\n'
-      + [PARTS.blob, PARTS.store, PARTS.uid, PARTS.key, PARTS.legacyId, PARTS.enqueue, PARTS.pending, PARTS.drop, PARTS.flush].join('\n')
+      + [PARTS.blob, PARTS.store, PARTS.uid, PARTS.key, PARTS.legacyId, PARTS.enqueue, PARTS.pending, PARTS.drop, PARTS.syncAfter, PARTS.flush].join('\n')
       + '\nthis.__flush = flushUploadQueue;'
       + '\nthis.__enqueue = enqueueForRetry;'
       + '\nthis.__inFlight = _inFlight;', sandbox);
@@ -586,6 +593,56 @@ if (missing.length === 0) {
       results.push(['drain: a mixed drop-and-send drain syncs exactly once',
         s17.map.size === 0 && sent17 === 1 && synced17 === 1,
         'rowsLeft=' + s17.map.size + ' sent=' + sent17 + ' syncMarker=' + synced17]);
+    }
+    {
+      // ── the marker sync is INSIDE the re-entrancy guard ───────────────
+      // It used to run after the finally that clears _draining, so an
+      // `online` event landing just as a drain ended could start a second
+      // drain whose own sync interleaved with the first — and writeMarker is
+      // a read-modify-write across an await.
+      const s18 = fakeStore([row(1)]);
+      let drainingDuringSync = null;
+      const r18 = run(s18, [], async () => {});
+      r18.sandbox.window.NBDPhotoQueueRecovery = {
+        syncMarker: async () => { drainingDuringSync = r18.sandbox._draining; }
+      };
+      await r18.flush();
+      results.push(['drain: the marker sync runs while the drain guard is still held',
+        drainingDuringSync === true,
+        '_draining during sync=' + drainingDuringSync
+        + ' — outside the guard a concurrent drain interleaves the marker write']);
+      results.push(['drain: ...and the guard is released once it is done',
+        r18.sandbox._draining === false, '_draining after=' + r18.sandbox._draining]);
+    }
+    {
+      // ── ...but a sync that never settles must not wedge that guard ────
+      // Holding _draining across the sync is only safe because the wait is
+      // bounded. setDoc's promise does not resolve until the backend
+      // acknowledges, so a connection dropping mid-drain would otherwise
+      // leave _draining true forever and kill every future drain.
+      const s19 = fakeStore([row(1)]);
+      const r19 = run(s19, [], async () => {});
+      r19.sandbox.window.__nbdMarkerSyncTimeoutMs = 20;
+      r19.sandbox.window.NBDPhotoQueueRecovery = {
+        syncMarker: () => new Promise(() => {})   // never settles
+      };
+      // Raced against a test-level bound so that a regression FAILS here
+      // instead of hanging the whole suite with nothing to read.
+      const HUNG = Symbol('hung');
+      const sent19 = await Promise.race([
+        r19.flush(),
+        new Promise((res) => setTimeout(() => res(HUNG), 2000))
+      ]);
+      results.push(['drain: a marker sync that never settles does not hang the drain',
+        sent19 === 1, 'sent=' + String(sent19) + ' — an unbounded await never returns here']);
+      results.push(['drain: ...and does not wedge the guard shut forever',
+        r19.sandbox._draining === false,
+        '_draining=' + r19.sandbox._draining
+        + ' — stuck true means every later drain returns 0 and no photo ever uploads again']);
+      // Prove the guard really is usable again, not just flagged false.
+      const sent19b = await r19.flush();
+      results.push(['drain: ...so the NEXT drain still runs', sent19b === 0 && s19.map.size === 0,
+        'second flush sent=' + sent19b + ' rowsLeft=' + s19.map.size]);
     }
     {
       // photo-engine can load where recovery is absent, and a stale SW cache

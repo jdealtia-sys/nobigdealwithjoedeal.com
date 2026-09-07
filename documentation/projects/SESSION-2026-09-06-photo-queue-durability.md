@@ -1000,3 +1000,101 @@ clear back inside the executor reddens the three synchronous assertions and
 leaves the async one green — which is exactly the asymmetry that hid it.
 `node` bucket 75/75, smoke 3617/0, check-js-syntax 493,
 check-inline-html-scripts 0/227.
+
+
+## Update, 2026-09-06 (#1446) — the last two review findings, and the first draft of this fix was a regression
+
+The two findings the #1431 review left open, both on `syncMarker()`. The first
+attempt at them was written, gated, proven-red, opened as a PR, and **held back
+before merge** when an adversarial audit of my own change — the same
+sibling-path hunt that found the previous five — turned up a regression in it.
+Recording the wrong version as well as the right one, because the failure is
+more instructive than the fix.
+
+### What the first draft got wrong
+
+It serialised `syncMarker()` through a module-level promise chain, with no
+bound on the links. Probed:
+
+```
+second syncMarker after a hung one: NEVER RAN
+WEDGED — the chain is dead for the life of the page
+```
+
+`setDoc()`'s promise does not settle until the backend acknowledges, and this
+app configures Firestore with **no offline persistence**
+(`nbd-auth.js` — `initializeFirestore` with `experimentalForceLongPolling`
+only). So one write made on a dead connection stays pending, and an unbounded
+chain turns that into a permanent outage: every later marker write queues
+behind it forever. That is *worse* than the interleaving the chain was added to
+prevent — and it was a regression against `main`, where a hung sync costs only
+its own call.
+
+The shape is the one this session keeps producing: I bounded `_draining`
+against exactly this hazard in `photo-engine.js` and left the chain I had just
+introduced in `photo-queue-recovery.js` unbounded. One function away from where
+I was looking.
+
+### The `onLine` guard was also wrong, in the opposite direction
+
+The first draft added `if (navigator.onLine === false) return;` to
+`syncMarker()`, by analogy with `recover()`. The audit refuted it and the
+reasoning holds: with the in-memory cache Firestore still **buffers** an offline
+write and flushes it on reconnect — only the promise pends. Guarding turns a
+write that would have landed into no write at all, and a stale marker is
+precisely what produces the false "reshoot the roof" banner. The caller needed
+protecting from the unbounded *wait*, not from the write. Guard removed; the
+bound does the job.
+
+(The comment justifying it was also wrong on its own terms: `recover()` does
+**not** guard all of its network paths — the empty-queue fast-path repair calls
+`writeMarker(0)` with no `onLine` check at all.)
+
+### What shipped instead
+
+**Serialised and bounded at the RESOURCE, not at one caller.** `writeMarker()`
+has four call sites — the two around the drain, the floating fast-path repair,
+and `syncMarker()` from `photo-engine`. Chaining inside one of them leaves the
+other three racing it, so the queue lives on `writeMarker()` itself and every
+writer shares it. Each link is bounded, so a hung write delays the next one by
+seconds rather than killing the queue. Abandoning a wait does not cancel the
+write: Firestore keeps it buffered, and writes to one document land in issue
+order, so a late arrival still orders correctly against the next.
+
+The engine keeps its own bounded race, because it guards something different —
+`_draining`, against a hang anywhere in the sync path including the IndexedDB
+read.
+
+### The third false green in one change
+
+`_syncMarkerAfterDrain` was written to read `MARKER_SYNC_TIMEOUT_MS` from a
+module-level `const`. The behavioural harness extracts functions **one at a
+time** into a bare sandbox, so the free variable is absent there: the reference
+throws inside a Promise executor, the race rejects, the catch swallows it, and
+the three assertions that claim to prove the bound passed without ever
+exercising it. They even reddened correctly under a regression — for the wrong
+reason.
+
+Two fixes, because one was not enough: the bound is read inside the function
+(**anything this harness extracts must be self-contained**), *and* the sandbox
+now provides real `setTimeout`/`clearTimeout` so the timing path is genuinely
+executed. A second false green in the same change — the serialisation assertion
+passed with serialisation removed, because the fake `setDoc` completed
+instantly — was fixed by making the first write slower than the second.
+
+### Gates
+
+- loss-witness 56 → 62, offline-queue 81 → 86.
+- Four regressions, each reddening its own assertions: unbounding the chain
+  links (2), re-adding the `onLine` guard (1), un-chaining `writeMarker` (2),
+  removing the engine's race (2 — and only now, with real timers in the
+  sandbox, does that one exercise the bound rather than an exception).
+- `node` bucket 75/75, smoke 3622/0, check-js-syntax 493,
+  check-inline-html-scripts 0/227, vault-index clean.
+
+### The lesson, stated plainly
+
+A queue whose links can hang is worse than no queue. More generally: when a fix
+adds a serialisation point, the first question is what happens when one entry
+never completes — because the answer is usually "everything behind it stops",
+and that is a bigger outage than the race being fixed.
