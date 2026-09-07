@@ -1428,6 +1428,26 @@
     if (meta.coordPrecision && TRUSTED_PRECISION.indexOf(meta.coordPrecision) === -1) {
       line += ' — the address was resolved by geocode, not a rooftop pin; check the outline is this house before pricing.';
     }
+
+    // Everything below here is data the vendor returns on EVERY measure, that
+    // we already pay for, that is already written to Firestore — and that no
+    // line of code rendered anywhere. Reading it meant opening the raw doc.
+    const facts = [];
+    if (m.stories != null)      facts.push(m.stories + (Number(m.stories) === 1 ? ' storey' : ' storeys'));
+    if (m.perimeterLf != null)  facts.push(Math.round(m.perimeterLf) + ' lf perimeter');
+    if (m.facets != null)       facts.push(m.facets + ' facets');
+    if (m.complexityLabel)      facts.push(String(m.complexityLabel).toLowerCase() + ' complexity');
+    if (m.wastePct != null)     facts.push(m.wastePct + '% vendor waste');
+    if (facts.length) line += ' · ' + facts.join(' · ');
+
+    // Scope signals, not trivia. A commercial or attached-row building is a
+    // different job from the single-family reroof this builder prices, and both
+    // were being detected, paid for, stored, and silently discarded.
+    if (m.isCommercial === true) {
+      line += ' — ⚠ the vendor classes this building as COMMERCIAL; confirm the scope before pricing it as a house.';
+    } else if (m.isTownhome === true) {
+      line += ' — ⚠ classed as a townhome / attached row; check where this roof actually ends.';
+    }
     return line;
   }
 
@@ -1459,7 +1479,36 @@
       if (!isFinite(r) || !isFinite(run) || run <= 0) return null;
       return run === 12 ? r : (r / run) * 12;
     }
+    // Storey count is returned by EVERY AI measure and it PRICES: calculatePerSq
+    // charges twoStoryPerSq ($15/SQ) at 2 and threeStoryPerSq ($30/SQ) at 3+
+    // (estimate-builder-v2.js:921-923). state.measurements.stories defaults to 1
+    // and this mapper never set it, so an auto-measured two-storey house was
+    // quoted as one-storey — ~$600 silently missing on a 40 SQ roof, with the
+    // right answer sitting in the response. The homeowner's own web wizard has
+    // been told the storey count all along (public-measure.js publicSummary);
+    // only the rep's estimate was blind to it.
+    //
+    // Filled ONLY while the control is still at its untouched default of 1.
+    // The vendor marks this field beta/estimated, so it must never overwrite a
+    // storey count a rep deliberately chose — that would invert this very bug
+    // and drop $600 off a hand-corrected quote. Clamped to 1–3 because
+    // #v2stories offers exactly those ("3+ Story"), and syncMeasurementInputs
+    // would blank the select on any value not in the list.
+    const vendorStories = numOr(m.stories, null);
+    if (vendorStories !== null && Number(state.measurements.stories || 1) === 1) {
+      next.stories = Math.min(3, Math.max(1, Math.round(vendorStories)));
+    }
+
     state.measurements = Object.assign({}, state.measurements, next);
+
+    // A measurement change has to re-resolve the document live, exactly as
+    // updateMeasurement (:1202) and applyImportedMeasurements (:3741) already
+    // do. Without this the vendor path was the ONE measurement path that left
+    // the flag set, so on a reopened estimate effectiveEstimate() kept replaying
+    // the saved rows: the builder pane showed the new numbers while Preview,
+    // the presentation view, Save and the deal room all kept the old ones — and
+    // a save afterwards wrote the NEW pitch beside the OLD square footage.
+    state._reopenedClean = false;
 
     // Margin opportunity: auto-add a pass-through line for the aerial
     // measurement, billed to the homeowner at retail on the quote. Price

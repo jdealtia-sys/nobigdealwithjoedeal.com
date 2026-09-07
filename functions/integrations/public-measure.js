@@ -74,7 +74,27 @@ function publicSummary(m) {
   if (!m || !m.rawSqft) return null;
   return {
     sqft: Math.round(m.rawSqft),
-    squares: m.squares != null ? Number(m.squares) : Math.round((m.rawSqft / 100) * 10) / 10,
+    // Roof squares with waste EXCLUDED, always derived from rawSqft.
+    //
+    // NOT the vendor's `squares`. That field is `sqft.suggested / 100` — its
+    // material-ORDER figure, waste already added (see normalizeAiResponse's
+    // field-semantics comment, and the live sample: measured 3483 → 34.83,
+    // suggested 4006 → squares 40.1). The public wizard multiplies whatever
+    // arrives here by PRICING.roof bands that are themselves built as
+    // rate × 1.12 .. rate × 1.25 — the CRM's pitch waste factor, baked in
+    // (docs/assets/js/inline/4053149b2f.js:61-76 → tiersFromSquares :1161).
+    // Feeding the vendor figure in counted waste twice and overstated the
+    // homeowner's quote by ~15% (40.1/34.83): $26,675–$29,875 instead of
+    // $23,150–$25,950 on that sample roof — above what the rep's own CRM can
+    // quote it for, which is the exact "price jump between screens" the
+    // PRICING block exists to prevent.
+    //
+    // It was also inconsistent three ways: with `sqft` on the same card
+    // (3,483 sq ft printed beside "40.1 squares"), with the kanban chip's
+    // stored `measurementSqft`, and with this line's own fallback branch —
+    // so the same house priced 15% apart depending on whether one optional
+    // vendor field happened to be present.
+    squares: Math.round((m.rawSqft / 100) * 10) / 10,
     pitch: m.pitch || null,
     stories: m.stories != null ? m.stories : null,
     complexity: m.complexityLabel || null,
