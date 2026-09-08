@@ -1057,3 +1057,91 @@ untouched rather than "fixed" for nothing.
    `document-generator.js:_tryServerRender`) never routes through
    `nbd-emulator-connect.js`. Local-dev-only, does not affect production.
    Worth a session of its own only if local doc-gen testing keeps coming up.
+
+---
+
+## §15 — The Google-reviews lane (added 2026-09-08, PR #1518)
+
+> **UPDATE 2026-09-13:** rebased a second time (onto `main` at `d7506665`,
+> tenth-plus collision on the `FLOORS` line — see
+> [scripts/run-test-manifest.js](../../scripts/run-test-manifest.js)'s own
+> history for the count). **Item 1 below is now done, same session:** both
+> secrets are set to real values (`NBD_PLACE_ID` found with zero key exposure
+> via the site's own published `g.page/r/CXzIjLwvtRPdEBM` review-link
+> redirect, not the Place ID Finder widget — that page's live demo never
+> initialized when driven headlessly), the "NBD Places API" key's restriction
+> was widened from legacy `places-backend.googleapis.com` to also cover
+> `places.googleapis.com` (Places API (New) — it was scoped to the legacy
+> service only), and `getGoogleReviews` has been redeployed. `curl
+> /api/google-reviews` now returns real data live: 5.0★, 29 reviews. Item 2
+> is confirmed real, not hypothetical — see the note added there. Items 3–4
+> are still open.
+
+**[PR #1518](https://github.com/jdealtia-sys/nobigdealwithjoedeal.com/pull/1518)**
+was 21/21 green and `mergeStateStatus: CLEAN` when opened, then went
+`CONFLICTING` as later lanes landed on `main`; this rebase should restore it
+to mergeable pending CI. Nothing is wrong with the fix itself.
+
+Full write-up:
+[GOOGLE-REVIEWS-UNCONFIGURED-2026-09-08](../audit/GOOGLE-REVIEWS-UNCONFIGURED-2026-09-08.md).
+
+### What it found
+
+`getGoogleReviews` logged **4,017 ERROR lines in the 30-day retention window
+for a feature that has never once worked.** Both secrets have exactly one
+version each, created **2026-04-21T19:10** — the day the function first landed
+— and both hold the deploy's `__unset__` stub. The README runbook was never
+run. Live Google reviews have never rendered, on any of the 17 pages that
+carry the widget.
+
+Not a regression. Not the #1505 deploy. It was never wired up.
+
+The PR fixes only the *reporting* half: not-configured is now its own branch
+ahead of the try/catch, throttled to one WARN per warm instance per hour,
+carrying `event: 'google_reviews_not_configured'` and naming which secret is
+missing. Genuine Places failures stay at ERROR, so an error line from that
+service now means something is actually broken.
+
+### Open — needs Jo, in the order they unblock each other
+
+1. ~~**Set the two secrets.**~~ **Done 2026-09-13** — see the update note
+   above. One correction to the README's own step 3: it says create the key
+   with **Application restrictions: None**; the actual key ("NBD Places
+   API") already existed with no application restriction, just an *API*
+   restriction limited to the legacy Places API — that's the part that
+   needed widening, not an application-restriction change.
+2. ~~**Expect the visual baselines to break the moment that lands.**~~
+   **Confirmed, not hypothetical, 2026-09-13** — live reviews are now
+   rendering. Re-bless `tests/e2e/visual-regression.spec.js-snapshots/`'s
+   `landing--*` baselines in whichever PR next touches that section (PR2 of
+   the homepage cut already plans a re-bless for unrelated structural
+   reasons — bundle it there rather than opening a bless-only PR).
+3. **Stop CI calling the production function** (§3 of the audit note). Its own
+   PR, because the obvious fix moves the same baselines as item 2 — consider
+   doing 2 and 3 together.
+4. **Add `getgooglereviews` to `alert-functions-error-rate.json`'s service
+   regex.** It is absent, so even fully deployed that alert would never have
+   fired here. Worth doing now that #1518 is deployed and the function has
+   real traffic to alert on — the "wait until this merges" reasoning that
+   applied on 09-08 no longer does. Still worth nothing until the ten
+   policies are actually deployed (§5a of the renderPdf note; re-verified
+   first-hand this session with a positive control — `policies list` is
+   `[]`, `channels list` returns the two channels those files reference).
+
+### The trap worth carrying out of this lane
+
+**CI's E2E runs hit the deployed production functions.** `emulators:exec --only
+hosting` runs without the functions emulator, so every `"function"` rewrite in
+`firebase.json` resolves to prod. Measured on this endpoint:
+
+```
+    976 http://127.0.0.1:5000              <- CI, Azure runner IPs
+     22 https://nobigdealwithjoedeal.com   <- actual customers
+```
+
+**97.7% of that function's production traffic was CI.** So: before reading a
+prod error or traffic volume as customer impact, break it down by
+`httpRequest.referer`. A "burst" of 4 errors in 20 seconds here was parallel
+Playwright shards, not a retry loop — there is no retry anywhere in that path.
+Two live consequences: CI silently depends on those prod functions being up,
+and it can 429 itself against the per-IP limiter (60/min on this route).
