@@ -10,11 +10,27 @@
   <!-- S2: flat form — /pro/pricing is served by pro/pricing.html. Carries a
        different defect (no h1) so the two resolution forms are told apart. -->
   <url><loc>https://example.com/pro/pricing</loc></url>
-  <!-- S4: listed but no page ships for it. -->
+  <!-- S4: listed but no page ships for it, and no hosting rule serves it. -->
   <url><loc>https://example.com/pro/ghost</loc></url>
   <!-- S5: listed AND declares noindex — contradictory signals. -->
   <url><loc>https://example.com/pro/hidden</loc></url>
   <!-- S6: outside every skipped directory; the walk already has it, so it
        must not be added a second time. -->
   <url><loc>https://example.com/clean</loc></url>
+  <!-- S8: no file on disk, but firebase.json 301s it. Served, not orphaned. -->
+  <url><loc>https://example.com/pro/moved</loc></url>
+  <!-- S9: no file on disk, but a globbed rewrite sends it to a function.
+       Served, not orphaned. -->
+  <url><loc>https://example.com/pro/fn-erasure</loc></url>
+  <!-- S10: not an absolute URL, so no crawler can resolve it either. Nothing
+       else owns this case — sitemap-pro.xml is hand-maintained and
+       build-sitemap.js neither writes nor validates it. -->
+  <url><loc>/pro/relative-oops</loc></url>
+  <!-- S4 (second half): missing AND outside every skipped directory. The
+       SKIP_DIRS filter must drop it before the orphan check — pages the walk
+       owns are not this function's business. Without that filter this becomes
+       a second orphan and S4's count assertion reddens, which is what makes
+       the filter independently load-bearing rather than masked by the
+       downstream Set. -->
+  <url><loc>https://example.com/gone-outside-skip</loc></url>
 </urlset>
