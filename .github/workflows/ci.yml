@@ -238,12 +238,16 @@ jobs:
       - name: Check test-suite manifest completeness
         run: node scripts/run-test-manifest.js --check
 
-  # The node suites the manifest owns (43 at wiring on 2026-08-07; 44 since
-  # orphan-sweep-parser joined — the floor in run-test-manifest.js tracks it). These existed for
-  # months without gating anything — tests/package.json's `npm test`
-  # aggregate was never invoked by CI, and nobody hand-listed them. All 32
-  # verified green at wiring time; quarantine (with a dated reason in the
-  # manifest) rather than wiring red.
+  # The node suites the manifest owns — 96 as of 2026-09-08, wired 2026-08-07.
+  # This comment is NOT the source of truth and must not be hand-incremented:
+  # FLOORS in scripts/run-test-manifest.js is the gate, and since #1481 it
+  # fails in BOTH directions, so a drifting count reddens there. It said "44"
+  # here while the real number was 96 — a stale comment nobody reads is the
+  # cheap half of that failure; the expensive half was the floor itself
+  # gating nothing. These suites existed for months without gating anything —
+  # tests/package.json's `npm test` aggregate was never invoked by CI, and
+  # nobody hand-listed them. Quarantine (with a dated reason in the manifest)
+  # rather than wiring red.
   unit-suite-manifest:
     name: Unit suites (manifest)
     runs-on: ubuntu-latest
