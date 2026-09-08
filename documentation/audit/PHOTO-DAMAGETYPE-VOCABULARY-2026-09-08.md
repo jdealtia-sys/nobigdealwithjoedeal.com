@@ -55,12 +55,24 @@ peril are shown to an adjuster under a generic label rather than
 fixture therefore asserts the **label**, not just `out.length === 1`; a
 length-only assertion passes with the bug present.
 
-**c. The named context file does not exist.**
-`documentation/projects/SESSION-2026-09-08-photo-report-builder.md` is absent
-from the repo, and no document in `documentation/` tracks a damageType open
-item. `tests/photo-report-output-contract.test.js` and
-`tests/photo-report-builder.test.js` are likewise absent — the real vm-sandbox
-precedent is **`tests/smoke/photo-report-pairs.test.js`**.
+**c. My own error: "the named files do not exist" was wrong.**
+Mid-session I reported that
+`documentation/projects/SESSION-2026-09-08-photo-report-builder.md`,
+`tests/photo-report-output-contract.test.js` and
+`tests/photo-report-builder.test.js` were absent from the repo, and that no
+document tracked a damageType open item. **All four exist.** They arrived in
+PR #1483 (`ac8f7e69`), which landed on `main` *after* this worktree's base —
+the branch was five commits behind, and I checked the working tree instead of
+`origin/main`. Open item 4 of that session note is exactly this defect; it says
+**three** vocabularies, and the fourth (the kebab bulk bar) is the addition
+here.
+
+This is the same misread recorded in
+[REMOTE-BRANCH-CLEANUP](REMOTE-BRANCH-CLEANUP-2026-09-05.md)-adjacent notes and
+in the standing lesson about diffing against a moved `main`, inverted: there the
+error was calling a moved-forward `main` a stale copy; here it was calling a
+stale base the whole repo. **`git fetch` and check `HEAD..origin/main` before
+asserting anything is absent.**
 
 ## 3. A second, quieter consequence
 
@@ -106,7 +118,7 @@ no backfill dependency:
 | File | Change |
 |---|---|
 | `photo-damage-types.js` | new — the canon |
-| `photo-report.js` | `_damageLabel`, `_buildPairs` `dmgOf`, server-payload `shapePhoto` |
+| `photo-report.js` | `_damageLabel`, `_buildPairs` `dmgOf` |
 | `pages/photo-review.js` | `damageOf`, `chipState` (both sides), `chipValue`, `FIELD_OPTIONS`, both write paths, accept-toast |
 | `photo-editor.js` | option list, both `saveTagsOnly`/annotate writes, both load paths, `refreshPanelFields` |
 | `customer-tasks-ui.js` | badge label, `photoDocToView`, quick-edit select + save, `applyBulkPhotoUpdate` |
@@ -118,6 +130,14 @@ The canon is a **classic script, not an ES module**, on purpose:
 `photo-report.js` is loaded into a Node `vm` sandbox by its test with a bare
 `{ window: {} }` context, and `export` syntax would not run there. The ES-module
 consumer (`pages/photo-review.js`) reads the same global.
+
+One thing the rebase onto #1483 caught: that PR changed `shapePhoto` to send
+`_damageLabel(p)` — the **label** — to the server, and
+`functions/print/templates/photoReport.hbs:176,216` prints it verbatim into the
+PDF. My pre-rebase version sent the canonical **id**, which would have printed a
+literal `granular_loss` to an adjuster. The conflict was resolved in favour of
+#1483's line, which now folds through the shared canon for free. Had the two
+changes landed in the other order, nothing would have flagged it.
 
 `functions/photo-vision.js` needed **no change** — its `ALLOWED_DAMAGE` set is
 already canonical. That is now an asserted cross-file contract rather than a
