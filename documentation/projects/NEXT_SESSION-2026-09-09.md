@@ -752,3 +752,82 @@ completeness tripwire **locally** for everyone —
 `run-test-manifest.js --check` reports `test file(s) not classified`. Left in
 place rather than deleted, because deleting an untracked file is unrecoverable
 and it is not this lane's to remove.
+
+
+## §12 — GDPR Storage prefix registry (added 2026-09-08, PR #1508)
+
+`STORAGE_PREFIXES` in `functions/integrations/user-owned.js` drives **both**
+halves of `compliance.js` — the Art. 15 export and the Art. 17 erasure sweep.
+**Four prefixes were missing from it**, so each was absent from both: the user
+could not obtain those objects, and erasure did not delete them.
+
+`documents/` · `esign/` · `homeowner-uploads/` · `pdf-renders/`
+
+**`homeowner-uploads/` was in no prior list anywhere** — not the opening brief,
+not the 08-18 orphan audit. `uploadHomeownerPhoto` files its Firestore row into
+`photos` (which *is* erased) while the bytes land in a prefix nothing has ever
+swept, so erasure **deleted the pointer and left the homeowner's property
+photo** in the bucket. `documents/` was only incidentally safe: it is
+lead-keyed, so erasure cleaned most of it as a side effect of deleting lead
+rows — best-effort, via a `retry: false` trigger, blind to already-orphaned
+objects.
+
+### The scope call was Jo's, and it is deliberately not symmetric
+
+`documents/`, `homeowner-uploads/` and `pdf-renders/` **export and erase**.
+`esign/` is **exported but held back** under Art. 17(3)(e) — executed,
+counter-signed contracts. Nothing had ever deleted one, so the hold makes
+existing behaviour deliberate rather than accidental.
+
+Because a silent hold is worse than none: `ERASURE_STORAGE_PREFIXES` is derived
+(never hand-maintained), the receipt logs `retained` **even when empty**, and
+the consent page — which promised to remove *"all your … documents"* — now
+states the exception before the button. Art. 17(3) licenses the retention; it
+does not license being quiet about it.
+
+### The trap worth carrying
+
+**`storage.rules` is a registry of what is RULED, not of what EXISTS.** The
+obvious gate design — parse `match /<prefix>/{uid}/` — would have caught two of
+the four and **missed `pdf-renders/` and `homeowner-uploads/` entirely**: both
+are ADMIN-SDK writes that bypass Security Rules and never had a block.
+`scripts/check-storage-prefix-registry.js` therefore unions rules blocks with
+the `<prefix>/{uid}/` write sites in code. Code-only is no better — `galleries/`,
+`reports/` and `shared_docs/` have blocks but no matching write site and would
+read as dead. Measured: rules 11, code 10, **union 13**.
+
+The guard it replaces asserted the registry was a *superset* of a
+hand-maintained array labelled "all 8 storage.rules prefixes" while the file
+defined **eleven**. A subset check can only catch a prefix someone already
+remembered to type into it.
+
+**A break-test that silently fails to mutate is indistinguishable from a gate
+that cannot fail.** Two of five breaks reported green; the *harness* was at
+fault, matching bare `\n` against CRLF working-tree files, so the mutation never
+applied and a no-op tree passed. Assert the mutation changed the file before
+running the command.
+
+Also rewrote `F-01: confirmAccountErasure GET does not trigger deletion` — a
+**character-distance** regex (`GET` … within 2000 chars … `res.status(200)`).
+Adding a paragraph pushed the distance to 2235 and reddened it with no
+behaviour change, and distance never tested mutation at all. It now slices the
+GET branch and asserts it holds no write calls.
+
+### Open
+
+1. **`esign_envelopes` is not erased either** — top-level Firestore,
+   `ownerField: ownerUid`, holding signer name, IP, user agent and both SHA-256
+   digests, and **not in `FLAT_USER_COLLECTIONS`**. Consistent with the hold —
+   a signed PDF without its audit trail is a far weaker record — but currently
+   an omission that happens to align with the decision rather than the decision
+   itself. `esign_tokens` likewise, though those carry `expiresAt`.
+2. **No reaper for `esign/`.** "Retained forever" and "retained for as long as
+   a claim could be brought" are different policies; only one is implemented.
+3. **`homeowner-uploads/` still has no `storage.rules` block** — default-deny by
+   omission, the exact condition that hid `pdf-renders/`.
+4. **Nothing diffs the live bucket against the registry.** Every gate here is
+   static analysis; a prefix written from outside the scanned tree would evade
+   it.
+
+Full write-up:
+[GDPR-STORAGE-PREFIX-REGISTRY-2026-09-08](../audit/GDPR-STORAGE-PREFIX-REGISTRY-2026-09-08.md).
