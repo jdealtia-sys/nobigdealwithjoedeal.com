@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Fixture sitemap for the SKIP_DIRS carve-out in check-seo-surface.js.
+     Mirrors the shape of docs/sitemap-pro.xml: a handful of public pages
+     that live inside a directory the walk is told to skip. Every <loc> here
+     exercises one branch of sitemapSurfaces(). -->
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <!-- S1: directory form — /pro is served by pro/index.html. Deliberately
+       carries unparseable JSON-LD, the defect the real gap let through. -->
+  <url><loc>https://example.com/pro</loc></url>
+  <!-- S2: flat form — /pro/pricing is served by pro/pricing.html. Carries a
+       different defect (no h1) so the two resolution forms are told apart. -->
+  <url><loc>https://example.com/pro/pricing</loc></url>
+  <!-- S4: listed but no page ships for it. -->
+  <url><loc>https://example.com/pro/ghost</loc></url>
+  <!-- S5: listed AND declares noindex — contradictory signals. -->
+  <url><loc>https://example.com/pro/hidden</loc></url>
+  <!-- S6: outside every skipped directory; the walk already has it, so it
+       must not be added a second time. -->
+  <url><loc>https://example.com/clean</loc></url>
+</urlset>

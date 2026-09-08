@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<!-- S3: an app shell inside the skipped directory that NO sitemap lists.
+     This is the docs/pro/vault.html case: noindexed by an X-Robots-Tag
+     header a static reader cannot see, so it looks defective on paper. It is
+     deliberately missing a canonical, an h1 and a meta description — the
+     three checks that produced 33 false findings when the whole directory
+     was audited. It must stay invisible to the gate. If the carve-out ever
+     widens from "sitemapped pages" to "the pro directory", this fixture
+     starts raising errors and S3 fails. -->
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dashboard</title>
+</head>
+<body><p>App shell. No canonical, no h1, no description, on purpose.</p></body>
+</html>
