@@ -1,6 +1,18 @@
-/* Restores two universal inline handlers that CSP `script-src-attr 'none'` blocks:
-   1. FAQ accordion: <div class="faq-q"> toggles its parent's `open` class
-   2. Services nav dropdown: top-level <a> inside <ul class="nav-links"> > <li class="dropdown"> toggles on desktop */
+/* Restores the FAQ accordion handler that CSP `script-src-attr 'none'` blocks:
+   <div class="faq-q"> toggles its parent's `open` class.
+
+   The Services nav dropdown USED to be toggled here too. It moved to
+   assets/js/nbd-nav.js on 2026-09-08 so that one file owns the header.
+   Two owners was not survivable: this file's toggle was a document-level
+   delegate, nbd-nav's is bound to the trigger itself, so nbd-nav opened the
+   menu in the target phase and this delegate — seeing it already open —
+   closed it again in the same click. On any touch device wider than 900px
+   the menu opened and vanished. It also called a.blur() (dumping keyboard
+   focus to <body>), preventDefault()ed Cmd/Ctrl-click so "open in new tab"
+   silently did nothing, and bound nothing to close the menu on outside
+   click or Escape, so an ~900px panel could sit open indefinitely.
+   Do not reintroduce dropdown handling here — tests/nav-contract.test.js
+   asserts this file stays out of it. */
 (function () {
   function toggleFaq(q) {
     if (!q.parentElement) return;
@@ -39,19 +51,4 @@
     toggleFaq(q);
   });
 
-  document.addEventListener('click', function (e) {
-    var a = e.target.closest && e.target.closest('a');
-    if (!a) return;
-    var li = a.parentElement;
-    if (!li || !li.classList.contains('dropdown')) return;
-    var ul = li.parentElement;
-    if (!ul || !ul.classList.contains('nav-links')) return;
-    if (window.innerWidth <= 900) return;
-    e.preventDefault();
-    var wasOpen = li.classList.contains('open');
-    var open = ul.querySelectorAll('.dropdown.open');
-    for (var i = 0; i < open.length; i++) open[i].classList.remove('open');
-    if (!wasOpen) li.classList.add('open');
-    a.blur();
-  });
 })();

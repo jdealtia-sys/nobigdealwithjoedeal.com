@@ -89,7 +89,11 @@ const RUNNABLE = ['node', 'smoke'];
 // check until the floor moves with it in the same commit. That is the point,
 // not a nuisance — the error prints the exact literal to paste, and this
 // 2026-09-07 entry should be the last of its kind.
-const FLOORS = { node: 96, smoke: 65, disk: 179 };
+//   2026-09-08  +1 node / +1 disk for tests/nav-contract.test.js (the nav
+//               reliability audit). The ratchet worked exactly as designed:
+//               the node-bucket run went red on the added suite and would not
+//               go green until this line moved in the same commit.
+const FLOORS = { node: 97, smoke: 65, disk: 180 };
 
 // ── Argument parsing ───────────────────────────────────────────────
 const argv = process.argv.slice(2);

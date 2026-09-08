@@ -105,7 +105,8 @@
     "photo-upload-phase.test.js",
     "customer-jump-nav-order.test.js",
     "customer-keyboard-actions.test.js",
-    "customer-a11y-structure.test.js"
+    "customer-a11y-structure.test.js",
+    "nav-contract.test.js"
   ],
   "smoke": {
     "team-roles.test.js": [

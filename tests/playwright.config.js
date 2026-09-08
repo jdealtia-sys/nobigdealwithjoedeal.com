@@ -69,10 +69,29 @@ module.exports = defineConfig({
     {
       name: 'chromium',
       use: { ...devices['Desktop Chrome'] },
+      // nav-drawer runs on WebKit only — see below.
+      testIgnore: /nav-drawer\.spec\.js/,
+    },
+    {
+      // The mobile drawer was reported broken on an iPod touch, and the whole
+      // failure class is iOS-shaped: 100vh meaning the URL-bar-hidden height,
+      // position:fixed overflow containers that do not scroll reliably, and
+      // body{overflow:hidden} being ignored as a scroll lock. Chromium hides
+      // every one of those. Until 2026-09-08 this repo ran Desktop Chrome
+      // only, so no gate could have reproduced the report at all.
+      //
+      // Scoped to the one spec so the existing suite's timing and flake
+      // profile are untouched, and sized to an iPod touch minus Safari's
+      // chrome — the smallest screen the site has to serve.
+      name: 'mobile-webkit',
+      testMatch: /nav-drawer\.spec\.js/,
+      use: {
+        ...devices['iPhone SE'],
+        viewport: { width: 320, height: 508 },
+      },
     },
     // Uncomment to expand browser coverage once the smoke suite is stable:
     // { name: 'webkit',  use: { ...devices['Desktop Safari']  } },
     // { name: 'firefox', use: { ...devices['Desktop Firefox'] } },
-    // { name: 'mobile',  use: { ...devices['iPhone 13']       } },
   ],
 });
