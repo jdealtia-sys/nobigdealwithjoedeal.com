@@ -106,6 +106,47 @@ This is the more important half. A 100% failure rate on a customer-facing
 document path ran for eleven weeks in silence, because **the client fallback
 is indistinguishable from success from the outside.**
 
+### 5a. Not one alert policy is deployed — a finding well past renderPdf
+
+`monitoring/alert-functions-error-rate.json` *does* list `renderpdf` in its
+service regex, so on paper this path was covered. Two independent reasons it
+was never going to fire:
+
+**It is not deployed. Nor is any other policy.**
+
+```bash
+gcloud alpha monitoring policies list --project=nobigdeal-pro --format=json
+# []
+```
+
+Ten policy definitions live in `monitoring/`; **zero exist in the project.**
+Verified with a positive control on the same API surface — `channels list`
+returns the two channels (email + sms) those very files reference, so the
+credentials and the API are fine and the empty result is real, not a format
+quirk. `monitoring/README.md` documents applying each one by hand with
+`gcloud alpha monitoring policies create`; that appears never to have happened,
+or they were removed later. Everything the repo believes it is watching is
+unwatched:
+
+`backup-cron-stale`, `claude-budget-exceeded`, `email-queue-worker-stale`,
+`function-latency`, `functions-error-rate`, `migrations-tick-stale`,
+`rate-limit-spike`, `tenant-microsite-errors`, `validateAccessCode-bruteforce`,
+`voice-processing-failures`.
+
+**And even deployed, it could not have caught this.** The condition is
+`> 50` errors with a `300s` `ALIGN_RATE` window — a *spike* detector. renderPdf
+produced **22 failures in three weeks**. A total, sustained, 100% outage on a
+low-volume path is precisely the shape a spike threshold cannot see; the
+threshold alone is more than double the entire failure volume of the outage.
+
+That is the second, independent argument for the digest signal below keying on
+a **missing success** rather than a failure count — and it holds whether or not
+anyone deploys the policies.
+
+**Recommended, not done here** (a prod change, and Jo's call): apply the ten
+policies, then re-run the `list` above to confirm they exist. Deploying them is
+worth doing, but it would not by itself have caught this outage.
+
 `functions/render-pdf.js` now writes `metrics/renderPdf` on both outcomes
 (lifetime `okCount` / `failCount`, last ok/fail timestamps, last stage and
 error), and `functions/health-digest.js` reports it in the daily digest — in
