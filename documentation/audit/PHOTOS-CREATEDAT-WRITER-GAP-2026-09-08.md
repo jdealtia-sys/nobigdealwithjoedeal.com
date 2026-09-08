@@ -90,18 +90,45 @@ The fallback *direction* is unchanged (ascending). Only the field set widened.
 its derivation** — both missing shapes carry `uploadedAt`, which is its first
 branch, and `snap.createTime` backstops everything else.
 
-It does need a **second pass**, for the docs writers 5 and 6 wrote since its
-first run. Dry-run is read-only and always allowed:
+### Update, same day: the second pass was run, and there was nothing to do
+
+This section first said a catch-up pass was owed. **Measured against prod on
+2026-09-08 (dry-run, read-only), it is not.**
+
+```
+scanned        : 111
+already had it : 111
+needed backfill: 0
+```
+
+The guard reports the first pass ran `2026-08-18T01:11:58Z` by Jo. A positive
+control was run against that clean result rather than trusting it — an
+independent `.get()` on the collection returns the same **111** documents, so
+the scan was not silently truncated, and **109 of the 111 carry `date`**, which
+is writer 5's signature, so those are exactly the documents in question and they
+are being seen. `missing createdAt: 0`.
+
+The reason is chronological, not lucky: the newest photo document has a
+`createTime` of **2026-08-16**, two days *before* the backfill. Nothing has been
+uploaded from any writer since. The 08-18 pass caught everything, including the
+single `source: 'homeowner'` document from 2026-06-10 (writer 6), whose
+`createdAt` it derived from `uploadedAt`.
+
+So the writer gap was **real in code but had produced no orphaned data**. The
+next upload from either path would have been the first — invisible in the
+gallery and the Recent feed, per the section above. There is no data debt to
+repay, and `--apply --force` was deliberately **not** run: zero documents need
+it, and a pointless prod write is still a prod write.
+
+If a future session needs to re-check, the dry-run is read-only and always
+allowed:
 
 ```bash
 node scripts/backfill-photos-createdAt.js
 ```
 
-If the earlier run recorded a marker in `system/script_migrations` the `--apply`
-refuses with exit 3 and the catch-up needs `--force`; if it ran before
-`_migration-guard.js` existed there is no marker and `--apply` proceeds. It is
-idempotent either way. **Not run from this session** — that is a prod write and
-was not asked for.
+`--apply` refuses with exit 3 against the recorded marker; a genuine catch-up
+would need `--force`. It is idempotent either way.
 
 ## A trap worth keeping: whole-file de-commenting runs away here
 

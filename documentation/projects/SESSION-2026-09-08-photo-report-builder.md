@@ -240,8 +240,10 @@ finding.
    mis-sorted. Enumerating the writers found a **sixth** path with the same gap
    — `functions/portal.js` `uploadHomeownerPhoto` — which notifies the rep
    about a photo its own gallery could not show. Both stamp it now; the
-   comparator and `_dateLabel` share one timestamp chain; a backfill catch-up
-   pass is still owed.
+   comparator and `_dateLabel` share one timestamp chain. Merged as #1497.
+   The backfill was then checked against prod and **owes nothing** — 111/111
+   already stamped, the newest doc predating the 08-18 pass by two days, so the
+   gap never produced orphaned data.
 6. **No measurements section**, though the CRM already pays for the data.
 7. **The report number is `Date.now().toString().slice(-6)`** — unsequenced, and
    it changes on every regeneration.

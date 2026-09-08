@@ -354,6 +354,28 @@ Neither appears in any brief. That is how work silently drops out.
 - **Prove a gate can fail against the defect's real shape**, not a strawman —
   and prefer structural matching (strip comments, anchor to `{\s*await`) over
   positional `{0,N}` windows, which pass or fail on comment length.
+- **…but "strip comments" over a WHOLE FILE runs away on this repo, in both
+  orderings.** Read that as a qualifier on the bullet above, not a contradiction
+  of it. Stripping block comments first: a `//` comment containing `'image/*'`
+  at `customer-bootstrap.module.js:2336` opens a `/*`…`*/` match that runs
+  **46,262 chars** to the next `/* ignore */` and eats the literal under
+  assertion (178,051 → 89,828 bytes). Stripping `*`-prefixed lines first instead:
+  every JSDoc loses its closing `*/` and its `/**` runs away. An *absence*
+  assertion over a corpus missing the region it guards passes **vacuously**.
+  **Slice the region out of raw source first, strip the slice** — small enough
+  to eyeball, and it narrows the assertion for free. Done that way in
+  `photos-timestamp-contract.test.js` (#1497);
+  `photo-report-builder.test.js` still carries the whole-file form — it survives
+  today but is one stray `'image/*'` from being quietly wrong.
+  See [PHOTOS-CREATEDAT-WRITER-GAP-2026-09-08](../audit/PHOTOS-CREATEDAT-WRITER-GAP-2026-09-08.md).
+- **A missing write-field is invisibility, not mis-ordering.** Firestore
+  `orderBy` silently EXCLUDES documents lacking the ordered field. `/photos` had
+  **six** create paths and the contract test asserting "EVERY write path stamps
+  `createdAt`" enumerated four — the two it never named were the two that were
+  broken, including the server-side `functions/portal.js` one. When you touch a
+  field an `orderBy` names, grep every `addDoc`/`setDoc`/`.add(` into that
+  collection, **client and `functions/` both**, and make a test that says
+  "every" carry a count rather than a hand-written list.
 - **Run every runnable bucket.** `run-test-manifest.js` accepts only `node` and
   `smoke` (`RUNNABLE`, `:51`); `smoke.test.js` is itself one of the 14
   `wired-individually` entries, so it needs its own line:
@@ -402,6 +424,15 @@ Neither appears in any brief. That is how work silently drops out.
   post-merge line.
 - `BOOT-WEIGHT-2026-09-06.md`'s last section is dated 09-06 for work that
   merged 09-07 and never spells "#1449", so it is unfindable by PR number.
+- **THIS brief now has two `## §7` headings** — "Added 2026-09-08 evening: the
+  claims audit lane" at the top (inserted between §0 and §1) and "Traps worth
+  carrying" lower down. §0's `See §7.` therefore resolves to whichever a reader
+  reaches first. Next free number is §12. Left unrenumbered deliberately: the
+  claims-audit lane is another session's live section and renumbering it blind
+  is how the last two slips happened — which §7's own "when two sessions append
+  to the same brief" trap already warns about. This is the third instance in
+  three days, so the trap is not landing; a heading-uniqueness assertion in
+  `check-vault-index.js` would catch it for free.
 
 ---
 
