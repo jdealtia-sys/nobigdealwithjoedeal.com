@@ -207,31 +207,72 @@ drawer), and a WebKit project that actually opens the thing.
 
 ---
 
-## 6. Still open — NOT fixed here
+## 6. The rest of the audit's findings
 
-Confirmed by the audit, deliberately out of scope:
+### 6.1 Also fixed in this change
 
-1. **`docs/index.html`'s main bundle (`inline/72f02d79d0.js`) uses optional
-   chaining**, so on iOS ≤13.3 the whole file fails to parse — taking the
-   homepage contact form's `submitForm()` with it. Same in
-   `inline/307ae4e90e.js` (privacy, pro/terms), `inline/4053149b2f.js` and
-   `inline/c5a2295382.js`. One-character fixes each, but they are `@generated`
-   bundles carrying live form and smooth-scroll code — worth its own change
-   with its own verification.
-2. **`body{overflow-x:clip}`** (nbd-mobile.css, 196 pages) is iOS 16+. On the
-   reported device it does nothing. Adding an `overflow-x:hidden` fallback is
-   the obvious move but it makes `<body>` a scroll container, which can kill
-   `position:sticky` — needs device verification before shipping, not
-   reasoning.
-3. **Every legacy smooth-scroll passes a `ScrollToOptions` object**, which
-   Safari <14 does not accept. (`nbd-nav.js` itself uses the two-argument form.)
-4. **The Roof Visualizer is in the mobile drawer but in neither the desktop
-   dropdown nor the top-level nav** — a content gap, not a reliability one.
-5. **`pro/sign.html` sets `user-scalable=no`** — pinch-zoom disabled.
-6. Visual-regression baselines cover 4 of 286 pages, one of them marketing, and
+1. **Optional chaining in four shipped bundles — CLOSED.** `?.` is Safari
+   13.4+, and a SyntaxError does not degrade one call: it stops the whole file
+   from parsing. `inline/72f02d79d0.js` (the homepage) carried nine of them,
+   **including seven inside `submitForm()`** — so on an iPod touch the contact
+   form's submit handler, the smooth scroll and the back-to-top button did not
+   exist. Also fixed in `inline/307ae4e90e.js` (privacy, pro/terms),
+   `inline/4053149b2f.js` (financing) and `inline/c5a2295382.js` (storm-alerts).
+   Each rewrite is semantically identical, including returning `undefined` for
+   a missing element.
+2. **`ScrollToOptions` on Safari <14 — CLOSED.** 13 call sites across 8 files
+   pass `window.scrollTo({top, behavior})`; Safari below 14 implements only the
+   two-argument form, so the object coerces to `scrollTo(NaN, undefined)` and
+   nothing moves — every back-to-top and wizard step change silently dead.
+   Fixed with one feature-gated shim in `nbd-nav.js` rather than 13 edits:
+   verified page by page that every file owning one of those calls ships on a
+   page that also loads `nbd-nav.js`, which runs first. On any browser that
+   understands smooth scrolling the native implementation is untouched.
+3. **`pro/sign.html` disabled pinch-zoom — CLOSED.** `maximum-scale=1.0,
+   user-scalable=no` on the page a homeowner signs a contract on. Removed.
+4. **Roof Visualizer missing from the desktop nav — CLOSED.** It was in the
+   drawer and in neither the desktop dropdown nor the top-level nav. Fixing it
+   took **four** edits, which is the finding: the partial (177 pages), then
+   `nav-blog.html` (29 pages), then `docs/index.html` and
+   `docs/the-pledge/index.html`, both outside the markers. The last three were
+   found by the new gate, not by inspection.
+
+### 6.2 Tested and deliberately NOT changed
+
+**`body{overflow-x:clip}`** (nbd-mobile.css, 196 pages) is iOS 16+, so it does
+nothing on the reported device. The obvious fix is an `overflow-x:hidden`
+fallback — **and it is wrong.** Measured on WebKit at 320x508:
+
+| | computed body overflow | nav y at scroll 1500 |
+|---|---|---|
+| as shipped | `clip / visible` | **0 — sticky holds** |
+| with `hidden` fallback | `hidden / auto` | **-1460 — header scrolled away** |
+
+Setting one axis to `hidden` computes the other to `auto`, making `<body>` a
+scroll container, which silently kills `position:sticky` inside it. The
+fallback would trade a defect that affects iOS ≤15 for one that affects
+**every browser**. Left alone deliberately.
+
+### 6.3 Still open
+
+1. **`/services/*` has 59px of horizontal overflow at 320px.** Found while
+   testing 6.2. The cause is `.trust-item{flex:1}` in `.trust-bar` — five flex
+   items whose `min-width:auto` refuses to shrink below their content, so the
+   row is ~1140px wide on a 320px screen. `overflow-x:clip` on `<body>` hides
+   it on modern browsers but does not stop the document overflowing. This is
+   page content rather than chrome, it spans ~163 service pages, and the fix
+   (wrap vs. deliberate horizontal scroller) is a design decision — so it is
+   filed rather than bundled into a nav change.
+2. Visual-regression baselines cover 4 of 286 pages, one of them marketing, and
    every baseline is the **closed** drawer. `maxDiffPixelRatio 0.02` on a
    full-page screenshot is larger than the entire nav band, so no header change
    can fail that gate.
+3. Three `@generated` bundles still define `toggleMobileNav`/`closeMobileNav`
+   as unbound globals. They cannot double-toggle (nothing calls them; the
+   inline `onclick` that used to has been CSP-dead for months), but their
+   `closeMobileNav()` still strips `.open` behind the controller's back from a
+   smooth-scroll handler. That path is covered by the `MutationObserver`
+   backstop and asserted in the contract test, so removing them buys nothing.
 
 ## 7. Audit provenance
 

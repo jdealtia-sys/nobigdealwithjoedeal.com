@@ -27,7 +27,8 @@ document.querySelectorAll('a[href^="#"]').forEach(link=>{
     const target = document.querySelector(href);
     if(target){
       e.preventDefault();
-      const navH = document.getElementById('mainNav')?.offsetHeight || 70;
+      const navEl = document.getElementById('mainNav');
+      const navH = (navEl && navEl.offsetHeight) || 70;
       const y = target.getBoundingClientRect().top + window.scrollY - navH - 12;
       window.scrollTo({top:y, behavior:'smooth'});
       closeMobileNav();

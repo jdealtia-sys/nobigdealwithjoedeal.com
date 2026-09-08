@@ -635,7 +635,8 @@ function priceRangeForFunnel(size) {
 }
 
 // Phone number formatting
-document.getElementById('phoneNumber')?.addEventListener('input', function() {
+var phoneNumberEl = document.getElementById('phoneNumber');
+if (phoneNumberEl) phoneNumberEl.addEventListener('input', function() {
   let val = this.value.replace(/\D/g, '');
   if (val.length > 10) val = val.slice(0, 10);
   if (val.length >= 7) {

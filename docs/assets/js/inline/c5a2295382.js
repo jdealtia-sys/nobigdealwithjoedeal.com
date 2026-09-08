@@ -57,7 +57,9 @@ async function submitAlert() {
   btn.disabled = true;
   btn.textContent = 'Signing you up...';
 
-  const saved = await window._saveStormAlert?.({ name, phone: cleanPhone, zip, concern });
+  const saved = window._saveStormAlert
+    ? await window._saveStormAlert({ name, phone: cleanPhone, zip, concern })
+    : undefined;
 
   if (saved) {
     document.getElementById('formState').style.display = 'none';

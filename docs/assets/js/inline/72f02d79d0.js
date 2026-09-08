@@ -77,7 +77,8 @@ document.querySelectorAll('a[href^="#"]').forEach(link=>{
     const target = document.querySelector(href);
     if(target){
       e.preventDefault();
-      const navH = document.getElementById('mainNav')?.offsetHeight || 70;
+      const navEl = document.getElementById('mainNav');
+      const navH = (navEl && navEl.offsetHeight) || 70;
       const y = target.getBoundingClientRect().top + window.scrollY - navH - 12;
       window.scrollTo({top:y, behavior:'smooth'});
       closeMobileNav();
@@ -115,20 +116,27 @@ function _formClearError(){
 }
 
 async function submitForm(){
+  // No optional chaining below: it is Safari 13.4+, and a SyntaxError here
+  // does not degrade one field — it stops this whole file from parsing, so
+  // submitForm(), the smooth scroll and the back-to-top button all vanish on
+  // an iPod touch. `val(id)` reproduces `?.value.trim()` exactly, including
+  // returning undefined when the element is missing (2026-09-08 nav audit).
+  const val = (id) => { const el = document.getElementById(id); return el ? el.value.trim() : undefined; };
   const firstEl = document.getElementById('fieldFirst');
   const phoneEl = document.getElementById('fieldPhone');
-  const first   = firstEl?.value.trim();
-  const last    = document.getElementById('fieldLast')?.value.trim();
-  const phone   = phoneEl?.value.trim();
-  const email   = document.getElementById('fieldEmail')?.value.trim();
-  const address = document.getElementById('fieldAddress')?.value.trim();
-  const service = document.getElementById('fieldService')?.value;
-  const message = document.getElementById('fieldMessage')?.value.trim();
+  const first   = firstEl ? firstEl.value.trim() : undefined;
+  const last    = val('fieldLast');
+  const phone   = phoneEl ? phoneEl.value.trim() : undefined;
+  const email   = val('fieldEmail');
+  const address = val('fieldAddress');
+  const service = (() => { const el = document.getElementById('fieldService'); return el ? el.value : undefined; })();
+  const message = val('fieldMessage');
 
   // Honeypot — if filled, it's a bot. Stays SILENT on purpose (no visible
   // error — that's the trap). (fieldNbdHp since 2026-08-05 — an id
   // containing "website" gets autofilled)
-  const hp = document.getElementById('fieldNbdHp')?.value;
+  const hpEl = document.getElementById('fieldNbdHp');
+  const hp = hpEl ? hpEl.value : undefined;
   if(hp) { console.warn('Bot detected'); return; }
 
   if(!first || !phone){

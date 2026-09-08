@@ -82,6 +82,23 @@ const decommentJs = (js) => decomment(js).replace(/^\s*\/\/.*$/gm, '');
 const navCss = decomment(read(path.join(ROOT, navCssRel)));
 const navJs = decommentJs(read(path.join(ROOT, navJsRel)));
 
+/* The stripper is only safe on files with no regex literals — on `docs/pro/js`
+   and `functions/` the same expression eats 10-48% of the source, because
+   comment-looking sequences live inside regexes and strings. An ABSENCE
+   assertion over a corpus missing the region it guards passes VACUOUSLY, which
+   is worse than the defect it was written for. These four files have no regex
+   literals, but that has to be asserted rather than assumed, or every
+   "controller uses no optional chaining"-style check below is unfalsifiable. */
+group('The comment stripper did not eat the code these assertions guard', () => {
+  for (const [label, corpus, landmark] of [
+    ['nbd-nav.css keeps its drawer rule', navCss, '#mobileNav.mobile-nav'],
+    ['nbd-nav.css keeps its dropdown rule', navCss, '#navLinks .dropdown-menu'],
+    ['nbd-nav.js keeps setOpen', navJs, 'function setOpen'],
+    ['nbd-nav.js keeps initDropdowns', navJs, 'function initDropdowns'],
+    ['nbd-nav.js keeps the scroll lock', navJs, 'function lockScroll'],
+  ]) assert(label, corpus.indexOf(landmark) > -1, 'stripped corpus lost ' + landmark);
+});
+
 group('Coverage: every page with a drawer loads the one stylesheet and the one controller', () => {
   const withDrawer = pages.filter((p) => read(p).includes('id="mobileNav"'));
   assert('at least 200 pages carry a drawer (sanity: the scan found them)',
@@ -222,6 +239,25 @@ group('Services dropdown: reachable on a laptop and on a touch screen', () => {
     !/classList\.contains\('dropdown'\)/.test(faq) && !/\.blur\(\)/.test(faq));
   assert('modifier-clicks on Services still open a new tab',
     /e\.metaKey \|\| e\.ctrlKey/.test(navJs));
+});
+
+group('Desktop dropdown and mobile drawer stay in sync', () => {
+  /* The Roof Visualizer was in the mobile drawer and in neither the desktop
+     dropdown nor the top-level nav, so a desktop visitor could not reach it
+     from the header at all. It was fixed twice — once in the partial (177
+     pages) and once by hand in docs/index.html, whose nav lives outside the
+     markers. That "fix the partial, miss the homepage" split is the same gap
+     that left / broken, so it gets an assertion rather than a memory. */
+  const offenders = pages.filter((p) => {
+    const html = read(p);
+    const menu = html.match(/<ul class="dropdown-menu">[\s\S]*?<\/ul>/);
+    if (!menu) return false;
+    // Only menus that carry the tools group — nav-blog's is a services-only list.
+    if (menu[0].indexOf('/roof-score') === -1) return false;
+    return menu[0].indexOf('/visualizer') === -1;
+  });
+  assert('every desktop tools dropdown offers the Roof Visualizer', offenders.length === 0,
+    offenders.length + ' page(s), e.g. ' + offenders.slice(0, 5).map(rel).join(', '));
 });
 
 group('Old-device rendering: things that silently no-op on iOS 12', () => {

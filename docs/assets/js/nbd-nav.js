@@ -36,6 +36,31 @@
     return (root || document).querySelector(sel);
   }
 
+  /* ── window.scrollTo(options) shim ──────────────────────────────────────
+     13 call sites across 8 shipped files pass a ScrollToOptions dictionary
+     (`window.scrollTo({top: 0, behavior: 'smooth'})`). Safari below 14 only
+     implements the two-argument form, so the object coerces to
+     scrollTo(NaN, undefined) and the page does not move — every "back to
+     top", every wizard step change, every smooth-scroll to an anchor, silently
+     dead on the iPod touch.
+
+     Patching here rather than at 13 call sites because this file already ships
+     on all 232 pages and, verified page by page, on every page that owns one
+     of those calls. It runs first (deferred, inside <nav>) and the call sites
+     fire from event handlers later, so ordering is not a concern.
+
+     Gated on the feature test, so on any browser that understands smooth
+     scrolling the native implementation is left completely alone. */
+  if (!('scrollBehavior' in document.documentElement.style) && window.scrollTo) {
+    var nativeScrollTo = window.scrollTo;
+    window.scrollTo = function (a, b) {
+      if (a && typeof a === 'object') {
+        return nativeScrollTo.call(window, a.left || 0, a.top || 0);
+      }
+      return nativeScrollTo.call(window, a, b);
+    };
+  }
+
   /* ── Header height ──────────────────────────────────────────────────────
      The drawer reserves room for the header with padding-top. The header's
      real bottom edge moves: the announcement bar sits in flow above a
