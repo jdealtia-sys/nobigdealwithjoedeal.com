@@ -378,6 +378,40 @@ Bookmark it; the link stays live as we work through the project.
     _openPreviewModal(url, lead);
   }
 
+  // ─── Did the real portal actually render in there? ──────────────
+  // portal.html ships <main id="mainWrap"> in its STATIC markup, so the
+  // element exists the moment `load` fires — before any callable
+  // resolves. Its presence is positive proof that our document is what
+  // rendered, and it is the only signal that separates all four
+  // outcomes:
+  //
+  //   real portal            → #mainWrap present            → success
+  //   X-Frame-Options refusal→ frame left at about:blank    → blocked
+  //   privacy-shield block   → shield's injected page       → blocked
+  //   redirect elsewhere     → some other document          → blocked
+  //
+  // An expired or revoked token still renders #mainWrap and the
+  // portal's own error state. That counts as SUCCESS on purpose: the
+  // preview did load, and a rep previewing a dead link needs to see
+  // exactly what the homeowner would see.
+  //
+  // Exported on the namespace so tests can drive it against fake
+  // frames rather than regex-matching this file.
+  var PORTAL_FRAME_SENTINEL = 'mainWrap';
+  function _portalRenderedInFrame(frame) {
+    try {
+      if (!frame) return false;
+      var doc = frame.contentDocument;
+      if (!doc) return false;
+      return !!doc.getElementById(PORTAL_FRAME_SENTINEL);
+    } catch (_) {
+      // The portal URL is same-origin, so a readable document is the
+      // norm and a SecurityError means something we did not navigate
+      // to is sitting in the frame. Treat it as blocked.
+      return false;
+    }
+  }
+
   function _openPreviewModal(url, lead) {
     _closePreviewModal(); // be defensive about double-opens
     const overlay = document.createElement('div');
@@ -464,12 +498,12 @@ Bookmark it; the link stays live as we work through the project.
             <div data-state-blocked style="display:none; flex-direction:column; align-items:center; gap:14px;">
               <div style="font-size:32px; line-height:1;">🛡️</div>
               <div style="font-size:14px; font-weight:700; max-width:340px;">
-                Your browser blocked the embedded preview
+                This preview couldn't be embedded
               </div>
               <div style="font-size:12px; color:#5a6478; max-width:340px; line-height:1.45;">
-                Privacy shields (Brave, Firefox strict mode) often block
-                cross-origin embeds. Use <strong>Open in new tab</strong>
-                below to see exactly what the homeowner will see.
+                A privacy shield or extension may be blocking it.
+                <strong>Open in new tab</strong> below shows the live portal,
+                exactly as the homeowner sees it.
               </div>
             </div>
           </div>
@@ -481,7 +515,7 @@ Bookmark it; the link stays live as we work through the project.
           border-top:1px solid var(--br,#2a3344);
           background:var(--s2,#0f1419); flex-shrink:0;">
           <div style="font-size:11px; color:var(--m,#9aa3b2); line-height:1.4; min-width:0;">
-            Preview blank? Privacy shields may block the embed. Open in a new tab to see the live portal.
+            This is the live portal, exactly as the homeowner sees it. Open in a new tab for the full-width view.
           </div>
           <a href="${escapeAttr(url)}" target="_blank" rel="noopener"
             style="
@@ -506,19 +540,27 @@ Bookmark it; the link stays live as we work through the project.
     // Esc key dismisses. Single-use listener removed on close.
     document.addEventListener('keydown', _onPreviewKeydown);
 
-    // ─── Cross-origin block detection ───────────────────────────
-    // The portal URL is a Firebase Storage getDownloadURL → it
-    // loads cross-origin from firebasestorage.googleapis.com.
-    // Brave Shields (and Firefox ETP strict) block this kind of
-    // cross-origin iframe by injecting a same-origin "blocked"
-    // page INTO the iframe. That fires `load` (so onerror is
-    // useless) but the result isn't the portal.
+    // ─── Block detection ────────────────────────────────────────
+    // 2026-09-08: this probe was inverted, and had been since the
+    // portal URL stopped being cross-origin.
     //
-    // Probe: after `load`, try to read iframe.contentWindow.location.href.
-    //   – Real cross-origin success → SecurityError thrown → hide overlay.
-    //   – Same-origin access succeeds → browser injected something
-    //     (about:blank, chrome-error, Brave's block page) → keep
-    //     the overlay and switch it to the "blocked" state.
+    // It was written when resolveUrl returned a Firebase Storage
+    // getDownloadURL, so it reasoned: a cross-origin frame throws on
+    // contentWindow access, therefore a THROW means success and a
+    // successful READ means a privacy shield injected a same-origin
+    // block page. resolveUrl now mints /pro/portal.html?token=… —
+    // same origin, by design, and it returns nothing else. So a
+    // perfectly good load reads fine and the modal declared it
+    // blocked, telling the rep their browser was at fault.
+    //
+    // It could not have been right either way: /pro/portal inherited
+    // the global ** rule's X-Frame-Options: DENY and
+    // frame-ancestors 'none', so the embed was refused in every
+    // browser from this modal's first day. firebase.json now carries
+    // a /pro/portal framing override (same-origin only) alongside
+    // this change — BOTH are required; neither works alone.
+    //
+    // Detection is positive now: see _portalRenderedInFrame above.
     // 3.5s timeout safety net for browsers that fully cancel the
     // navigation (no load + no error events).
     const iframe = overlay.querySelector('#nbd-portal-preview-iframe');
@@ -541,15 +583,8 @@ Bookmark it; the link stays live as we work through the project.
     }
     if (iframe) {
       iframe.addEventListener('load', () => {
-        try {
-          // Cross-origin success throws here. Same-origin returns
-          // a URL — treat any same-origin response as "blocked"
-          // since the real portal can't be same-origin to us.
-          const _probe = iframe.contentWindow.location.href; // eslint-disable-line no-unused-vars
-          _showBlocked();
-        } catch (_) {
-          _hideOverlay();
-        }
+        if (_portalRenderedInFrame(iframe)) _hideOverlay();
+        else _showBlocked();
       });
       iframe.addEventListener('error', _showBlocked);
     }
@@ -583,6 +618,10 @@ Bookmark it; the link stays live as we work through the project.
     smsForLead,
     emailForLead,
     previewForLead,
+    // Exposed for tests/portal-preview-framing.test.js, which drives the
+    // real detection against fake frames (about:blank, a shield's block
+    // page, the portal itself) instead of asserting on this file's text.
+    _portalRenderedInFrame,
     // Audit E: exposed so dashboard.html's _sharePortalLink (which uses
     // a different URL scheme via the createPortalToken callable) can
     // still participate in W44 share tracking. Every share entry point
