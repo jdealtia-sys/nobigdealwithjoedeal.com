@@ -486,3 +486,111 @@ is. Two of three breaks here never applied — multi-line `\n` anchors against
 CRLF files — and the script still printed "broke 3 things". Assert the match
 count and throw on a missing anchor before reading anything into which
 assertions reddened.
+
+## §10 — The nav / mobile-drawer lane (added 2026-09-08, PRs #1494 + #1506)
+
+Jo reported: *"on my iPod or some phones the slider seems to move without the
+page itself sliding, therefore breaking it or making it unnavigable."* That was
+a literal description of the mechanism. Full write-up:
+[NAV-DRAWER-RELIABILITY-2026-09-08](../audit/NAV-DRAWER-RELIABILITY-2026-09-08.md).
+
+### What was broken
+
+Four defects, live simultaneously on every phone-width page, measured on
+Playwright **WebKit at 320x508** (an iPod touch):
+
+1. **No body scroll lock.** The drawer is `position:fixed`; the page behind it
+   was not. `scrollBy(0,400)` moved the page 0 → 600 while the drawer held
+   still. That IS the reported symptom.
+2. **The drawer's `top` was a constant; the header's height is not.** The
+   announcement bar is in flow above a `position:sticky` nav, so the header's
+   bottom edge moves between **70px and 129px** with scroll. 203 pages hid 40px
+   of the drawer behind the header; 17 left a **38px gap leaking page content**;
+   2 had no `position` at all (menu opens ~1400px off-screen, only the layout
+   twitches). No constant can be right.
+3. **`.mobile-cta-strip` shares `z-index:999`** with the drawer and sits later
+   in the DOM, so the Call/Text bar painted over *Book Inspection*.
+4. Net: **6 of 32 links reachable.** The Services dropdown separately renders
+   **993px tall** and was cut off by 311px on a 1366x768 laptop with nothing to
+   scroll.
+
+Root cause of the drift: every rule was hand-inlined per page — **233 copies,
+6 `.mobile-nav` variants, 46 files with 2-4 competing definitions of the same
+selector.**
+
+### What shipped
+
+`docs/assets/css/nbd-nav.css` + `docs/assets/js/nbd-nav.js` are now the single
+owner, at **id+class specificity (1,1,0)** so they beat every inlined
+`.mobile-nav` (0,1,0) copy without `!important` and without touching 233
+`<style>` blocks. The drawer is a **full-viewport sheet** that never references
+the header's position, so it cannot misalign with it.
+
+Also closed: optional chaining in four shipped bundles (**nine in the homepage's,
+seven inside `submitForm()`** — the contact form had no submit handler on
+iOS ≤13.3); the `ScrollToOptions` form Safari <14 ignores (13 sites, one
+feature-gated shim); pinch-zoom re-enabled on `pro/sign.html`; Roof Visualizer
+added to the desktop nav.
+
+**Verified against production after deploy: 60/60 behavioural checks.**
+
+### Open, in the order I would take them
+
+1. **`/services/*` scrolls sideways 59px at 320px.** `.trust-item{flex:1}` in
+   `.trust-bar` — five flex items whose `min-width:auto` refuses to shrink below
+   their content (~1140px row on a 320px screen). ~163 pages. The fix is a
+   design call (wrap vs. deliberate horizontal scroller), which is why it was
+   not bundled into a nav PR. **A session was already started on this on
+   2026-09-08** — check for its PR before re-doing it.
+2. **`body{overflow-x:clip}` (nbd-mobile.css, 196 pages) is iOS 16+**, so it
+   does nothing on the reported device. ⚠️ **The obvious `overflow-x:hidden`
+   fallback was measured and REJECTED** — one axis at `hidden` computes the
+   other to `auto`, making `<body>` a scroll container, and the sticky header
+   scrolled away to **y=-1460** on WebKit. Do not "fix" this the obvious way.
+   §6.2 of the audit note has the table.
+3. **Visual baselines cover 4 of 286 pages**, one marketing, and every baseline
+   is the **closed** drawer. `maxDiffPixelRatio 0.02` on a full-page shot is
+   larger than the entire nav band, so no header change can fail that gate.
+
+### The gate that now exists
+
+Before this, **no test in the repo had ever clicked the hamburger**, and
+Playwright ran Desktop Chrome only — so the entire iOS-shaped failure class was
+unreproducible by any gate. Now:
+
+- `tests/nav-contract.test.js` — 53 static assertions, node bucket
+- `tests/e2e/nav-drawer.spec.js` — 6 specs on a new **`mobile-webkit`**
+  Playwright project (320x508), wired into the public-e2e CI job
+- Break-tested **12/12** on the intended assertion, and the e2e spec re-run
+  against the real pre-fix CSS to confirm it catches the original bug
+
+### Traps worth carrying
+
+**A settle time longer than the animation skips the transient.** Two of the
+four bugs in this fix were mine, survived **three green local runs**, and were
+caught by CI: a reveal animation that lifted the full-viewport sheet 6px off the
+bottom edge (`translateY(-6px)`, measured 502 against a 508px viewport), and a
+scroll restore that *glided* because `html{scroll-behavior:smooth}` is sitewide
+(CI read 410 against a saved 1200). Both are invisible after the 180ms animation
+finishes; the local harness settled at 400ms and had **never once observed the
+state it was asserting about**. It settles at 60ms now. Treat "passed locally,
+failed in CI" as CI finding a real bug until a break-test says otherwise.
+
+**`main` moved four times in one afternoon** and every collision was on the same
+line — the `FLOORS` ratchet in `scripts/run-test-manifest.js`, where two branches
+each raised it. Resolve by re-measuring the merged tree (`--check` prints the
+literal to paste), never by arithmetic. One collision landed both sides on the
+**same literal by coincidence**, which looked like agreement and was wrong.
+
+**A PR that conflicts with `main` runs NO workflows** and reports *"no checks
+reported"* — not "pending". A poller waiting for checks waits forever; check
+`mergeStateStatus` (`CONFLICTING`/`DIRTY`) when checks never appear.
+
+**The shared checkout switched branches mid-merge.** A commit landed on another
+session's branch because it was checked out between my `git merge` and my
+`git commit`. Read the branch name in every commit's output — it is the only
+tripwire that fires. To recover: `git reflog` for the checkout event,
+`git ls-remote origin <stray>` and `git worktree list` to confirm nobody else
+owns it, then `git branch -f <stray> <the SHA the reflog says they left it at>`
+and redo the work on your own branch. Never reset a stray branch carrying
+commits you did not author.
