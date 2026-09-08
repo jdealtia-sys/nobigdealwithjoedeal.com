@@ -112,11 +112,40 @@ const AT = new Date(2026, 8, 8, 20, 30, 0);   // 2026-09-08 20:30 local
   ok('adjuster mode tags ADJ', /-ADJ-/.test(mint('NBD', 'lead-abc', 'adjuster', AT)));
 }
 
-// THE defect. The old number was a clock reading, so this was false.
+// THE defect: the old number was a clock reading.
+//
+// Calling mint() twice in a row is NOT a test of that. Two `Date.now()` reads
+// in the same millisecond return the same value, so a clock-derived number
+// passes a back-to-back comparison — which is exactly why the bug survived
+// review. Move the clock instead, inside the sandbox, and require the number to
+// be unmoved. A break that appends Date.now() to the number reddens the shape
+// assertions above but NOT a back-to-back equality check; it reddens this one.
+{
+  vm.runInContext('globalThis.__realNow = Date.now;', numberSandbox);
+  const setNow = (v) => vm.runInContext('Date.now = () => ' + v + ';', numberSandbox);
+  setNow(1_600_000_012_345);
+  // Prove the stub actually reaches sandboxed code before trusting what it
+  // shows. _reportSeed's no-parts fallback is the one place that reads the
+  // clock on purpose, so it doubles as the probe.
+  ok('the clock stub reaches the sandboxed code', seed([]) === '2345', seed([]));
+  const a = mint('NBD', 'lead-abc', 'homeowner', AT);
+  setNow(1_900_000_567_890);
+  const b = mint('NBD', 'lead-abc', 'homeowner', AT);
+  vm.runInContext('Date.now = globalThis.__realNow;', numberSandbox);
+  ok('the number does not move when the clock does', a === b, a + ' vs ' + b);
+}
 {
   const a = mint('NBD', 'lead-abc', 'homeowner', AT);
   const b = mint('NBD', 'lead-abc', 'homeowner', AT);
   ok('regenerating the same report yields the SAME number', a === b, a + ' vs ' + b);
+}
+{
+  // The discriminator is a function of (leadId, mode). A report re-issued on a
+  // later date moves its DATE segment and nothing else.
+  const day1 = mint('NBD', 'lead-abc', 'homeowner', new Date(2026, 8, 8));
+  const day2 = mint('NBD', 'lead-abc', 'homeowner', new Date(2026, 8, 9));
+  ok('a later render moves only the date segment',
+    day1 !== day2 && day1.split('-').pop() === day2.split('-').pop(), day1 + ' vs ' + day2);
 }
 {
   const homeowner = mint('NBD', 'lead-abc', 'homeowner', AT);
@@ -517,6 +546,74 @@ const ts = (ms) => ({ toMillis: () => ms });
       /tok\.kind === 'lead_document'/.test(serve));
     ok('the view stamp is recorded before the branch, so both kinds are tracked',
       serve.indexOf('viewCount') < serve.indexOf("tok.kind === 'lead_document'"));
+  }
+
+  // ══════════════════════════════════════════════════════════════════
+  // 8. The rep's affordance
+  // ══════════════════════════════════════════════════════════════════
+  console.log('\n8. The Documents tab button');
+
+  // normalize() decides whether the button is offered at all, and rowHtml()
+  // builds it. Both executed: the interesting failure is a row that LOOKS
+  // shareable and is not — a photo report filed before storagePath existed
+  // would offer a button that can only ever return failed-precondition.
+  const DOCS_JS = read('docs/pro/js/customer-documents.js');
+  const docsSandbox = { console, window: {}, document: undefined };
+  vm.createContext(docsSandbox);
+  vm.runInContext(sliceFrom(DOCS_JS, 'var LEAD_SUB', 'rowHtml'), docsSandbox);
+  const normalize = docsSandbox.normalize;
+  const rowHtml = docsSandbox.rowHtml;
+  ok('the sandbox defined normalize and rowHtml',
+    typeof normalize === 'function' && typeof rowHtml === 'function');
+
+  const PHOTO_ROW = {
+    name: 'HomeownerPhotos.pdf', url: 'https://x/y.pdf', source: 'photo_report',
+    storagePath: GOOD_PATH, reportNumber: 'NBD-PHO-2026-0908-4471',
+  };
+  {
+    const n = normalize('doc-1', PHOTO_ROW, false);
+    ok('a filed photo report with a storagePath is shareable', n.shareable === true);
+    ok('and the row carries its report number', n.reportNumber === 'NBD-PHO-2026-0908-4471');
+  }
+  {
+    // The button must not appear where the callable would refuse it.
+    const n = normalize('doc-1', Object.assign({}, PHOTO_ROW, { storagePath: '' }), false);
+    ok('a photo report with NO storagePath is not offered a link', n.shareable === false);
+  }
+  {
+    const n = normalize('doc-1', Object.assign({}, PHOTO_ROW, { source: 'signed_upload' }), false);
+    ok('a signed upload is not offered a link', n.shareable === false);
+  }
+  {
+    // The callable addresses leads/{id}/documents; a legacy top-level row is
+    // not reachable there.
+    const n = normalize('doc-1', PHOTO_ROW, true);
+    ok('a legacy top-level row is not offered a link', n.shareable === false);
+  }
+  {
+    const n = normalize('doc-1', Object.assign({}, PHOTO_ROW, { shareUrl: 'javascript:alert(1)' }), false);
+    ok('a non-http shareUrl is dropped rather than rendered', n.shareUrl === '');
+  }
+  {
+    const html = rowHtml(normalize('doc-1', PHOTO_ROW, false));
+    ok('the row offers a Share link button', /data-doc-share="doc-1"/.test(html));
+    ok('and labels it Share link before one exists', />Share link</.test(html));
+    // CSP: script-src-attr 'none'. An inline handler here is inert, silently.
+    ok('the button carries no inline handler', !/\son[a-z]+=/i.test(html), html.slice(0, 400));
+  }
+  {
+    const shared = Object.assign({}, PHOTO_ROW, { shareUrl: 'https://nobigdealwithjoedeal.com/report/ABCDEFGHJKLMNPQRSTUVWX' });
+    const html = rowHtml(normalize('doc-1', shared, false));
+    ok('an already-shared row says Copy link instead', />Copy link</.test(html));
+  }
+  {
+    const html = rowHtml(normalize('doc-1', Object.assign({}, PHOTO_ROW, { storagePath: '' }), false));
+    ok('a non-shareable row renders no share button', !/data-doc-share/.test(html));
+  }
+  {
+    // The delegate has to exist, or the button is decorative.
+    ok('a delegated click handler is registered for the button',
+      /closest\('\[data-doc-share\]'\)/.test(DOCS_JS));
   }
 
   // ══════════════════════════════════════════════════════════════════

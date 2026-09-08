@@ -208,12 +208,23 @@ with "Expected request to fail, but it succeeded".
 
 ## Still open
 
+> **Update 2026-09-08 (later the same day): items 1 and 7 are CLOSED**, on a
+> branch stacked on this one —
+> [SESSION-2026-09-08-photo-report-number-and-share](SESSION-2026-09-08-photo-report-number-and-share.md).
+> The number is now `<TENANT>-<PHO|ADJ>-<YYYY>-<MMDD>-<NNNN>`, assigned once and
+> reused from the filed row; `createReportShareToken` now accepts a lead-scoped
+> document and streams the PDF. **Item 2 (`pdf-renders/` Storage rule) is
+> deliberately still open** — that work chose streaming through the admin SDK
+> partly so it would not pre-empt the queued gating task. Items 3–6 are
+> untouched.
+
 From the 108-gap list — **and that list is only partly adjudicated.** The
 verification pass lost 87 of its refuter agents to a session limit, so treat
 anything below that this session did not touch directly as a lead, not a
 finding.
 
-1. **No share link.** `createReportShareToken` only accepts a `reportId` in the
+1. ~~**No share link.**~~ **CLOSED** — see the update above.
+   `createReportShareToken` only accepted a `reportId` in the
    top-level `reports` collection; a filed photo report is a `documents` row.
 2. **`pdf-renders/` has no Storage rule**, and in download-token mode the URL
    never expires. Relates to
@@ -227,8 +238,8 @@ finding.
 5. **Customer-page uploads write no `createdAt`**, so report order for them
    falls back to arbitrary.
 6. **No measurements section**, though the CRM already pays for the data.
-7. **The report number is `Date.now().toString().slice(-6)`** — unsequenced, and
-   it changes on every regeneration.
+7. ~~**The report number is `Date.now().toString().slice(-6)`**~~ — **CLOSED**,
+   see the update above. It was unsequenced, and changed on every regeneration.
 
 Related: [SESSION-2026-09-07-client-pdfs-and-drive-tidy](SESSION-2026-09-07-client-pdfs-and-drive-tidy.md)
 is the house-style bar this work was measured against — `scripts/render-estimate-pdf.py`,
