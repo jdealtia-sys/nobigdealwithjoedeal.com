@@ -102,9 +102,14 @@ group('The date renders as the date, west and east of UTC', () => {
     ['Pacific/Auckland', 'UTC+12, the other direction'],
     ['UTC', 'the CI runner, where both forms agree'],
   ];
+  // Read the text defensively. Swapping in the naive `new Date(ymd)` makes the
+  // validity guard reject its own result and return NULL, so `.text` on it
+  // would throw and truncate the run before the summary line — the harness then
+  // reports CRASH instead of the redden this is meant to produce.
+  const textOf = (r) => (r && typeof r.text === 'string' ? r.text : '');
   cases.forEach(([tz, why]) => {
     const r = underTZ(tz, '2026-09-16', '2026-09-01');
-    const ok = r && /Wednesday/.test(r.text) && /September 16/.test(r.text);
+    const ok = /Wednesday/.test(textOf(r)) && /September 16/.test(textOf(r));
     assert('in ' + tz + ' it says Wednesday, September 16  (' + why + ')', ok,
       JSON.stringify(r));
   });
@@ -117,7 +122,7 @@ group('The date renders as the date, west and east of UTC', () => {
     'got ' + JSON.stringify(naiveNY) + ' — if this ever passes, the hazard changed '
     + 'and the assertions above stop being evidence');
   assert('...and our function disagrees with it, in that same timezone',
-    !/September 15/.test(underTZ('America/New_York', '2026-09-16', '2026-09-01').text));
+    !/September 15/.test(textOf(underTZ('America/New_York', '2026-09-16', '2026-09-01'))));
 });
 
 group('_localToday is local, not UTC', () => {
@@ -229,7 +234,18 @@ group('The styling exists and past is visually demoted', () => {
   const block = PORTAL_HTML.slice(PORTAL_HTML.indexOf('.progress-schedule{'),
     PORTAL_HTML.indexOf('.progress-schedule + .progress-next'));
   const used = [...new Set([...block.matchAll(/var\((--[a-z0-9-]+)\)/g)].map((m) => m[1]))];
-  const css = PORTAL_HTML + read('docs/pro/css/nbd-brand.css');
+  // Strip CSS comments from the haystack. Written against raw text this was
+  // VACUOUS: the rule's own comment says "--nbd-line, not --nbd-border:", so
+  // `indexOf('--nbd-border:')` found the explanation and reported the token
+  // defined. A break-test swapping the good token for the bad one did not
+  // redden — caught only by running that break. Fourth time this trap has
+  // fired in this lane. A block-comment stripper is the right tool HERE and
+  // only here: CSS has no regex literals for it to eat.
+  const cssRaw = PORTAL_HTML + read('docs/pro/css/nbd-brand.css');
+  const css = cssRaw.replace(/\/\*[\s\S]*?\*\//g, '');
+  assert('the CSS comment stripper did not eat the declarations',
+    css.indexOf('--nbd-line:') > -1 && css.length > cssRaw.length * 0.5,
+    'kept ' + Math.round((css.length / cssRaw.length) * 100) + '%');
   const missing = used.filter((t) => css.indexOf(t + ':') === -1);
   assert('all ' + used.length + ' custom properties it reads are defined',
     missing.length === 0, 'undefined: ' + missing.join(', '));
