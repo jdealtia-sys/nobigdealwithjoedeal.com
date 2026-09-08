@@ -263,10 +263,13 @@ check('S6 a sitemapped page OUTSIDE a skipped dir is not audited twice', () => {
   // is excluded (S3) and /pro/ghost resolves to nothing (S4).
   assert.strictEqual(sm.report.pages, 4,
     `expected 4 audited pages (clean + pro/{index,pricing,hidden}), got ${sm.report.pages}`);
-  const seen = sm.report.findings.map((f) => f.file);
+  // Only PAGE files. The sitemap itself legitimately accumulates one finding
+  // per bad <loc> (S4's orphan and S11's malformed entry both land on it), so
+  // counting it here would make this assertion fail for the wrong reason.
+  const seen = sm.report.findings.map((f) => f.file).filter((f) => /\.html$/i.test(f));
   assert.strictEqual(new Set(seen).size, seen.length,
-    `every fixture raises exactly one finding, so a repeated file means it was `
-      + `audited twice: ${seen.join(', ')}`);
+    `every fixture page raises exactly one finding, so a repeated file means it `
+      + `was audited twice: ${seen.join(', ')}`);
 });
 
 check('S7 the sitemap tree exits non-zero', () => {
@@ -308,6 +311,40 @@ check('S8 every page in docs/sitemap-pro.xml is actually audited by the live gat
   assert.ok(live.pages >= 228,
     `expected the audit to include the ${locs.length} sitemapped /pro pages on top of `
       + `the public walk; got ${live.pages} pages — the carve-out may have collapsed`);
+});
+
+// ── Hosting config decides what "no page ships for it" means ────────────
+// A <loc> with no HTML file is only a 404 if firebase.json ALSO has nothing
+// serving it. The real config has 21 redirects and 16 rewrites, six under
+// /pro — /pro/landing is a 301 and /pro/account-erasure is a Cloud Function.
+// Without this, adding either to sitemap-pro.xml fails the build on a URL
+// that resolves perfectly well in production.
+
+check('S9 a <loc> served by a redirect is NOT reported as an orphan', () => {
+  const orphans = smErrors.filter((f) => f.check === 'sitemap-orphan')
+    .map((f) => f.detail).join(' ');
+  assert.ok(!/\/pro\/moved/.test(orphans),
+    `/pro/moved has no file on disk but firebase.json 301s it to /pro; `
+      + `it must not be called an orphan. Orphans reported: ${orphans}`);
+});
+
+check('S10 a <loc> served by a globbed rewrite is NOT an orphan either', () => {
+  const orphans = smErrors.filter((f) => f.check === 'sitemap-orphan')
+    .map((f) => f.detail).join(' ');
+  assert.ok(!/fn-erasure/.test(orphans),
+    `/pro/fn-erasure matches the rewrite glob /pro/fn-* and is served by a `
+      + `function; it must not be called an orphan. Orphans reported: ${orphans}`);
+});
+
+check('S11 a <loc> that is not an absolute URL is reported, not swallowed', () => {
+  // sitemap-pro.xml is hand-maintained and build-sitemap.js neither writes nor
+  // validates it, so nothing else owns this. A silently dropped <loc> is the
+  // exact failure the orphan check exists to end.
+  const bad = smErrors.filter((f) => f.check === 'sitemap-malformed-loc');
+  assert.strictEqual(bad.length, 1,
+    `expected exactly one malformed <loc> (/pro/relative-oops), got ${bad.length}`);
+  assert.ok(/relative-oops/.test(bad[0].detail),
+    `should name the offending value, got: ${bad[0].detail}`);
 });
 
 // ── Report ──────────────────────────────────────────────────────────────
