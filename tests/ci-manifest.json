@@ -102,6 +102,7 @@
     "inspection-report-photos.test.js",
     "css-token-resolution.test.js",
     "portal-error-states.test.js",
+    "portal-preview-telemetry.test.js",
     "portal-preview-framing.test.js",
     "portal-signature-repaint.test.js",
     "photo-upload-phase.test.js",

@@ -385,12 +385,49 @@
     }
   }
 
+  // ─── Is this the rep's preview rather than the homeowner? ───────
+  // The CRM's "Portal preview" modal embeds this page in a same-origin
+  // iframe. Until 2026-09-08 that embed was refused outright by
+  // X-Frame-Options, so the page never ran inside it and the question
+  // never arose. Making the preview work makes it urgent: without this
+  // guard every preview click would emit the homeowner's own telemetry.
+  //
+  // The damage is not merely a wrong count. `estimate_view` fires a
+  // Firestore trigger (functions/fresh-view-logic.js) that pushes the rep
+  // an `estimate_viewed` notification — the real-time buying-intent
+  // signal — and that trigger de-dupes per lead over a window. So a rep
+  // previewing their own link would be told their customer was reading
+  // the estimate right now, AND the genuine open minutes later would be
+  // swallowed as a duplicate. A false positive that suppresses the true
+  // one is worse than no signal.
+  //
+  // Framing is the reliable discriminator: firebase.json allows
+  // frame-ancestors 'self' only, so nothing but our own CRM can embed
+  // this page, and a homeowner opening a texted link is never framed.
+  // A throw can only happen when framed cross-origin, so it counts as
+  // framed too. `?preview=1` is the belt for a future preview surface
+  // that opens in a tab instead.
+  const IS_PREVIEW = (function () {
+    try {
+      if (window.self !== window.top) return true;
+    } catch (_) {
+      return true;
+    }
+    try {
+      return new URLSearchParams(location.search).get('preview') === '1';
+    } catch (_) {
+      return false;
+    }
+  })();
+
   // ─── Customer-side audit logger (batch 7) ───────────────────────
   // Posts a minimal { token, type, resourceId? } payload to the
   // recordCustomerEvent Cloud Function. Token-validated server-side.
   // Fire-and-forget — telemetry should never break the page.
   function _emitAuditEvent(type, resourceId) {
     try {
+      // A rep looking at their own preview is not a customer visit.
+      if (IS_PREVIEW) return;
       const token = getToken().trim();
       if (!token) return;
       fetch(FUNCTIONS_BASE + '/recordCustomerEvent', {

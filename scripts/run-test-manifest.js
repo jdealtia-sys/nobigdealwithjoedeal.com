@@ -89,7 +89,10 @@ const RUNNABLE = ['node', 'smoke'];
 // check until the floor moves with it in the same commit. That is the point,
 // not a nuisance — the error prints the exact literal to paste, and this
 // 2026-09-07 entry should be the last of its kind.
-const FLOORS = { node: 96, smoke: 65, disk: 179 };
+//   2026-09-08  raised to 99/65/182 after three portal suites landed
+//               (preview-framing, error-states, preview-telemetry). SET from
+//               what --check printed, not incremented by three.
+const FLOORS = { node: 99, smoke: 65, disk: 182 };
 
 // ── Argument parsing ───────────────────────────────────────────────
 const argv = process.argv.slice(2);

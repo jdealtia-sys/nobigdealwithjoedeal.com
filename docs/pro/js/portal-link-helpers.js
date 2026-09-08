@@ -423,8 +423,26 @@ Bookmark it; the link stays live as we work through the project.
     }
   }
 
+  // A rep looking at the portal is not a customer visit. portal.js suppresses
+  // its audit events when it detects it is framed, which covers this modal —
+  // but "Open ↗" and the customer page's 👁 button open the REAL portal in a
+  // tab, unframed, and have done since they shipped. Untagged, those emit
+  // portal_open and estimate_view as the homeowner: the latter fires the
+  // rep's own "customer is viewing your estimate" push and then de-dupes the
+  // genuine open away. Tag every rep-initiated open.
+  function _asPreviewUrl(url) {
+    const s = String(url == null ? '' : url);
+    if (!s) return s;
+    if (/[?&]preview=1(&|$)/.test(s)) return s;
+    const hash = s.indexOf('#');
+    const base = hash >= 0 ? s.slice(0, hash) : s;
+    const frag = hash >= 0 ? s.slice(hash) : '';
+    return base + (base.indexOf('?') >= 0 ? '&' : '?') + 'preview=1' + frag;
+  }
+
   function _openPreviewModal(url, lead) {
     _closePreviewModal(); // be defensive about double-opens
+    url = _asPreviewUrl(url);
     const overlay = document.createElement('div');
     overlay.id = 'nbd-portal-preview-overlay';
     overlay.style.cssText = `
