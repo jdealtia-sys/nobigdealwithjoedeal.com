@@ -183,8 +183,26 @@ section('D7: GDPR two-step erasure');
   // F-01: confirmAccountErasure GET must be a static page (no state
   // change), POST must be gated behind a per-uid rate limit. Regression
   // would let enterprise mail scanners trigger irreversible deletion.
-  assert('F-01: confirmAccountErasure GET does not trigger deletion',
-    /if \(req\.method === 'GET'\)[\s\S]{0,2000}res\.status\(200\)\.send/.test(src));
+  // This was `GET … within 2000 chars … res.status(200).send`, and it reddened
+  // on 2026-09-08 because the consent page gained a paragraph — a LENGTH change,
+  // not a behaviour change (measured distance went 1.9k → 2.2k). Worse, the
+  // window never tested the property the name claims: character distance says
+  // nothing about whether the branch mutates state, so the assertion would have
+  // stayed green if someone had added a delete inside it and removed a comment
+  // to stay under budget. Slice the branch and check it for writes instead.
+  {
+    const gIdx = src.indexOf("if (req.method === 'GET')");
+    const sIdx = src.indexOf('res.status(200).send', gIdx);
+    const getBranch = gIdx >= 0 && sIdx > gIdx ? src.slice(gIdx, sIdx) : '';
+    assert('F-01: confirmAccountErasure GET ends in a static send',
+      getBranch.length > 0);
+    const writes = ['.set(', '.update(', '.delete(', '.add(', 'deleteFiles',
+      'updateUser', 'revokeRefreshTokens', 'recursiveDelete'];
+    const found = writes.filter(w => getBranch.includes(w));
+    assert('F-01: confirmAccountErasure GET does not trigger deletion',
+      getBranch.length > 0 && found.length === 0,
+      found.length ? 'state-changing calls in GET branch: ' + found.join(', ') : '');
+  }
   assert('F-01: confirmAccountErasure rejects non-POST/GET',
     /if \(req\.method !== 'POST'\)[\s\S]{0,100}res\.status\(405\)/.test(src));
   assert('F-01: confirmAccountErasure per-uid rate limit',
@@ -709,10 +727,43 @@ section('M-01 + M-02: GDPR completeness — canonical user-owned registry');
       Array.isArray(reg.COLLECTION_GROUPS_WITH_USERID)
       && reg.COLLECTION_GROUPS_WITH_USERID.includes('recordings')
       && reg.COLLECTION_GROUPS_WITH_USERID.includes('activity'));
-    assert('M-01/M-02: STORAGE_PREFIXES covers all 8 storage.rules prefixes',
-      Array.isArray(reg.STORAGE_PREFIXES)
-      && ['audio','photos','docs','portals','galleries','reports','shared_docs','deal_rooms']
-          .every(p => reg.STORAGE_PREFIXES.includes(p)));
+    // DERIVED, not restated. This used to compare STORAGE_PREFIXES against a
+    // hand-maintained array labelled "all 8 storage.rules prefixes" while
+    // storage.rules defined eleven — and because it only checked that the
+    // registry was a SUPERSET of that array, a prefix missing from BOTH was
+    // invisible to it. Four were (documents, esign, homeowner-uploads,
+    // pdf-renders), each absent from the GDPR export and the erasure sweep.
+    // The list of truth now comes from storage.rules + the write sites in
+    // code; see scripts/check-storage-prefix-registry.js for why neither
+    // source is sufficient alone.
+    const { deriveOwnerKeyedPrefixes } =
+      require(path.join(ROOT, 'scripts/check-storage-prefix-registry.js'));
+    const derived = deriveOwnerKeyedPrefixes(ROOT);
+    const unregistered = [...derived.union].filter(p => !reg.STORAGE_PREFIXES.includes(p));
+    assert('M-01/M-02: STORAGE_PREFIXES covers every derived owner-keyed prefix',
+      Array.isArray(reg.STORAGE_PREFIXES) && unregistered.length === 0,
+      unregistered.length ? 'unregistered: ' + unregistered.join(', ') : '');
+    // Sanity on the deriver itself: if it ever returns an empty set (a moved
+    // storage.rules, a renamed scan dir), the check above passes vacuously.
+    assert('M-01/M-02: prefix derivation actually found prefixes',
+      derived.union.size >= 11 && derived.rules.size >= 11,
+      `union=${derived.union.size} rules=${derived.rules.size}`);
+
+    // Erasure scope is the export scope minus documented retention holds.
+    assert('M-01: ERASURE_STORAGE_PREFIXES is derived, not hand-maintained',
+      Array.isArray(reg.ERASURE_STORAGE_PREFIXES)
+      && reg.ERASURE_STORAGE_PREFIXES.join('|')
+         === reg.STORAGE_PREFIXES.filter(p => !reg.ERASURE_RETAINED_PREFIXES.includes(p)).join('|'));
+    // A prefix we refuse to delete must at minimum be one the user can obtain.
+    assert('M-01: every retained prefix is still exportable',
+      Array.isArray(reg.ERASURE_RETAINED_PREFIXES)
+      && reg.ERASURE_RETAINED_PREFIXES.every(p => reg.STORAGE_PREFIXES.includes(p)));
+    // esign/ holds counter-signed contracts — retained under GDPR Art. 17(3)
+    // by Jo's decision on 2026-09-08. Pinned so removing the hold is a
+    // deliberate edit to a red test, not a quiet one-line deletion.
+    assert('M-01: esign is exported but held back from erasure',
+      reg.STORAGE_PREFIXES.includes('esign')
+      && !reg.ERASURE_STORAGE_PREFIXES.includes('esign'));
     assert('M-01/M-02: OWNER_KEYED_DOCS covers the user/sub/settings doc set',
       Array.isArray(reg.OWNER_KEYED_DOCS)
       && ['users','subscriptions','userSettings','leaderboard','reps','estimate_drafts','feature_flags']
@@ -740,8 +791,18 @@ section('M-01: confirmAccountErasure uses the registry + recursiveDelete');
     /spec\.ownerField\s*\|\|\s*'userId'/.test(src));
   assert('M-01: cascade iterates COLLECTION_GROUPS_WITH_USERID',
     /for \(const groupName of COLLECTION_GROUPS_WITH_USERID\)/.test(src));
-  assert('M-01: cascade sweeps STORAGE_PREFIXES',
-    /for \(const prefix of STORAGE_PREFIXES\)/.test(src));
+  // ERASURE_STORAGE_PREFIXES, not STORAGE_PREFIXES: the erasure sweep and the
+  // Art. 15 export deliberately have different scopes now.
+  assert('M-01: cascade sweeps ERASURE_STORAGE_PREFIXES',
+    /for \(const prefix of ERASURE_STORAGE_PREFIXES\)/.test(src));
+  // The retention hold must be disclosed, not just honoured. An erasure that
+  // quietly keeps signed contracts while the page promises to remove
+  // everything is the failure Art. 17(3) does not license.
+  assert('M-01: erasure receipt records what was retained',
+    /retained: ERASURE_RETAINED_PREFIXES/.test(src));
+  assert('M-01: consent page discloses the retention hold before the button',
+    /const retainedSentence = describeRetained\(\)/.test(src)
+    && /retainedHtml \+$/m.test(src));
   assert('M-01: cascade deletes every OWNER_KEYED_DOCS entry',
     /for \(const coll of OWNER_KEYED_DOCS\)/.test(src));
   assert('M-01: nested-leads subtree scrubbed via recursiveDelete',
