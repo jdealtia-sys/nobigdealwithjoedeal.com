@@ -218,11 +218,32 @@
   // rep's caption → AI caption → location label, all friendly. Adjuster
   // mode keeps it terse and label-driven (damage/severity surface on the
   // metadata row separately).
+  //
+  // `p.caption` led both chains and is NEVER WRITTEN by anything — not by the
+  // five /photos writers, not by photo-review.js, not by the portal. The field
+  // a rep actually types into is `description` (the "Photo description" input,
+  // customer-tasks-ui.js:1525, saved by quickSaveMeta at :1611), and the
+  // portal's homeowner-facing field is `homeownerCaption` (functions/portal.js
+  // :754). So every caption in every report fell straight through to the AI
+  // suggestion or the bare location string, and no rep-typed caption had ever
+  // appeared in a photo report. `caption` stays in the chain — harmless, and a
+  // sixth writer may yet set it — but it can no longer mask the real fields.
+  //
+  // Homeowner order puts `homeownerCaption` first: types.js:216-219 defines it
+  // as the customer-facing override and `description` as the rep-facing note,
+  // so an explicit homeowner caption must win. `description` still backs it up,
+  // because nothing writes homeownerCaption today and a report with no captions
+  // is the actual defect being fixed.
   function _captionFor(p, mode) {
     if (mode === 'adjuster') {
-      return p.caption || (p.aiSuggestion && p.aiSuggestion.caption) || '';
+      return p.description
+        || p.caption
+        || (p.aiSuggestion && p.aiSuggestion.caption)
+        || '';
     }
-    return p.caption
+    return p.homeownerCaption
+      || p.description
+      || p.caption
       || (p.aiSuggestion && p.aiSuggestion.caption)
       || p.location
       || (p.inferredLocation && p.inferredLocation.label)
@@ -291,8 +312,12 @@
     // collapse whitespace. Empty string when input lacks the field.
     const normKey = (s) => String(s || '').toLowerCase().split(',')[0].trim().replace(/\s+/g, ' ');
     const ms = (p) => (p && p.createdAt && (p.createdAt.toMillis ? p.createdAt.toMillis() : (p.createdAt.seconds ? p.createdAt.seconds * 1000 : 0))) || 0;
-    const urlOf = (p) => (p && p.urls && (p.urls.lg || p.urls.med || p.urls.full)) || (p && p.url) || '';
-    const idOf  = (p) => (p && (p.id || (p.urls && (p.urls.lg || p.urls.med || p.urls.full)) || p.url)) || '';
+    // `full` before `med`: these URLs become pairs[].before/after.url, which the
+    // template renders as the report's largest images (photoReport.hbs:70-80).
+    // The dead `urls.lg` used to lead, so the pair heroes silently resolved to
+    // the 600px `med` variant. Print wants the 1600px one.
+    const urlOf = (p) => (p && p.urls && (p.urls.full || p.urls.med)) || (p && p.url) || '';
+    const idOf  = (p) => (p && (p.id || (p.urls && (p.urls.full || p.urls.med)) || p.url)) || '';
     const locOf = (p) => (p && (p.location || (p.inferredLocation && p.inferredLocation.label))) || '';
     const dmgOf = (p) => (p && (p.damageType || (p.aiSuggestion && p.aiSuggestion.damageType))) || '';
 
@@ -507,8 +532,8 @@
 
     // Cover photo for the homeowner hero — first BEFORE photo that
     // has a usable URL. Adjuster mode skips the hero to keep dense.
-    const heroPhoto = !isAdjuster ? before.find(p => (p.urls && (p.urls.full || p.urls.med || p.urls.lg)) || p.url) : null;
-    const heroUrl = heroPhoto ? ((heroPhoto.urls && (heroPhoto.urls.full || heroPhoto.urls.lg || heroPhoto.urls.med)) || heroPhoto.url) : '';
+    const heroPhoto = !isAdjuster ? before.find(p => (p.urls && (p.urls.full || p.urls.med)) || p.url) : null;
+    const heroUrl = heroPhoto ? ((heroPhoto.urls && (heroPhoto.urls.full || heroPhoto.urls.med)) || heroPhoto.url) : '';
 
     return `<!DOCTYPE html>
 <html lang="en">
@@ -950,8 +975,21 @@
     if (typeof showToast === 'function') showToast('Rendering photo report…', 'ok');
 
     // Shape each phase into the template's photo cell payload.
+    //
+    // Variant keys are `thumb` / `med` / `full` — image-pipeline.js:105-109
+    // names them off VARIANTS[].name. This read asked for `urls.lg || urls.md`,
+    // neither of which has ever existed, so EVERY server-rendered report fell
+    // through to `p.url`: the original camera upload, at full sensor
+    // resolution, once per photo. Twenty of those inside the renderer's 25s
+    // setContent budget (render-pdf.js:436) is a large part of why this path
+    // times out and drops to the client fallback. `_imgAttrs` at :260-262, in
+    // this same file, had the names right the whole time.
+    //
+    // `full` is 1600px wide (image-pipeline.js:108) — a 2-up cell on Letter
+    // inside 18mm margins is ~85mm ≈ 1000px at 300dpi, so `full` is the
+    // correct print source and `med` (600px) is the degraded fallback.
     const shapePhoto = (p) => {
-      const url = (p && p.urls && (p.urls.lg || p.urls.md)) || (p && p.url) || '';
+      const url = (p && p.urls && (p.urls.full || p.urls.med)) || (p && p.url) || '';
       if (!url) return null;
       return {
         url,

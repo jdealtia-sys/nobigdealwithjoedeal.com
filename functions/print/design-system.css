@@ -437,9 +437,24 @@ p:last-child { margin-bottom: 0; }
   color: var(--nbd-ink-muted);
 }
 
-/* ── Footer band — running on every page via fixed positioning ── */
+/* ── Closing colophon — the seal, contact block and social rail ──
+   NOT a running footer, and never was one in practice. This carried
+   `position: running(footer)` paired with an `@page { @bottom-center {
+   content: element(footer) } }` rule below; both are CSS Paged Media Level 3,
+   which Chromium does not implement. `CSS.supports('position','running(footer)')`
+   returns false, so the declaration was dropped as invalid, the element fell
+   back to `static`, and this band rendered exactly once — in normal flow, at
+   the TOP of page one, wedged between the letterhead and the cover title —
+   on every document this renderer has produced.
+
+   The per-page running footer (brand line, doc number, "Page N of M") is now
+   Chromium's native footerTemplate, built in render-pdf.js buildFooterTemplate().
+   This band keeps its design and becomes what it always looked like: a closing
+   seal at the END of the document. _layout.hbs places it after <main>. */
 .doc-band-bottom {
-  position: running(footer);
+  margin-top: var(--s-6);
+  page-break-inside: avoid;
+  break-inside: avoid;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -743,11 +758,11 @@ table.estimate-lines tfoot .totals-row .totals-label {
   font-size: 9.5pt;
   color: rgba(255, 255, 255, 0.75);
 }
-@page {
-  @bottom-center {
-    content: element(footer);
-  }
-}
+/* The `@page { @bottom-center { content: element(footer) } }` rule that stood
+   here was inert — Chromium implements no @page margin boxes, so it never
+   placed anything. Running footers and page numbers come from Chromium's
+   native footerTemplate (render-pdf.js). Do not re-add Paged Media margin
+   boxes to this file; nothing in the pipeline can honour them. */
 
 /* Avoid widows/orphans on body copy and keep section heads with their content. */
 p { orphans: 3; widows: 3; }
