@@ -178,28 +178,56 @@ Two process notes worth keeping:
 
 ---
 
+## The report is filed, and managers can file it
+
+`photo-report.js` contained **zero Firestore writes**. A report existed only as
+a browser tab and a file in the rep's Downloads folder — no history, no
+re-download, nothing for a share link to point at — while every other document
+producer in the CRM files something. A successful render now writes to
+`leads/{leadId}/documents` in the shape `customer-signed-doc-upload.js:49` uses,
+tagged `source:'photo_report'`, recording the option set so the same document
+can be regenerated. `storagePath` is stored beside `url` because that URL is a
+7-day signed link where IAM signBlob is reachable and a never-expiring
+download-token link where it is not.
+
+That surfaced a rules gap. The **2026-07 manager-edit-rights pass** gave
+same-company staff write on a lead's `activity`, `tasks` and `notes` and left
+`/documents` and `/drawings` on the pre-pass owner-only clause — even though
+their READ already admitted a company reader. So a manager could see every
+document on a teammate's lead and attach none: no signed doc, no contract, no
+roof-drawing correction, and no report row. Read as an oversight rather than a
+posture — three siblings got the clause in a named pass, these two kept the
+older form, and the read side had already been widened.
+
+Fixed with that clause copied verbatim. `isCompanyStaff()` is
+company_admin|manager, so `viewer` and `sales_rep` stay read-only. Tested under
+the Firestore emulator **in both directions**: reverting to owner-only reddens
+the manager-write assertion with PERMISSION_DENIED, and swapping
+`isCompanyStaff()` for `isCompanyReader()` reddens the viewer-denial assertion
+with "Expected request to fail, but it succeeded".
+
 ## Still open
 
-From the 108-gap list, in the order worth taking:
+From the 108-gap list — **and that list is only partly adjudicated.** The
+verification pass lost 87 of its refuter agents to a session limit, so treat
+anything below that this session did not touch directly as a lead, not a
+finding.
 
-1. **Nothing is persisted.** `photo-report.js` contains zero Firestore writes —
-   no report record, no history, no re-open, no "last sent". Every other
-   producer in the CRM files something. This is the largest remaining gap.
-2. **No share link.** `createReportShareToken` only accepts a `reportId` in the
-   top-level `reports` collection; photo reports have no row anywhere.
-3. **`pdf-renders/` has no Storage rule**, and in download-token mode the URL
+1. **No share link.** `createReportShareToken` only accepts a `reportId` in the
+   top-level `reports` collection; a filed photo report is a `documents` row.
+2. **`pdf-renders/` has no Storage rule**, and in download-token mode the URL
    never expires. Relates to
    [storage-download-tokens](../audit/STABILITY-AUDIT-2026-09-04.md).
-4. **Annotations are destructive.** `photo-editor.js` builds a rich annotation
+3. **Annotations are destructive.** `photo-editor.js` builds a rich annotation
    array — arrows, auto-numbered callouts, roofing stamps, measurements — and
    persists none of it; markup is baked into a flattened copy, one way.
-5. **Three incompatible `damageType` vocabularies** collide in one count: Title
+4. **Three incompatible `damageType` vocabularies** collide in one count: Title
    Case from the edit popup and photo-editor, lowercase from Review & Sort and
    the AI.
-6. **Customer-page uploads write no `createdAt`**, so report order for them
+5. **Customer-page uploads write no `createdAt`**, so report order for them
    falls back to arbitrary.
-7. **No measurements section**, though the CRM already pays for the data.
-8. **The report number is `Date.now().toString().slice(-6)`** — unsequenced, and
+6. **No measurements section**, though the CRM already pays for the data.
+7. **The report number is `Date.now().toString().slice(-6)`** — unsequenced, and
    it changes on every regeneration.
 
 Related: [SESSION-2026-09-07-client-pdfs-and-drive-tidy](SESSION-2026-09-07-client-pdfs-and-drive-tidy.md)
