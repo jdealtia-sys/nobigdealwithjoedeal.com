@@ -157,15 +157,80 @@ Recorded because three of these would have changed the recommendation.
    context. Comparative advertising naming two live competitors on price is a
    business decision, not an SEO one. It appears in at least four places —
    change them together.
-2. **`scripts/check-seo-surface.js` skips `docs/pro`** (`SKIP_DIRS`, line 76),
-   so `/pro` structured data ships with no CI validation — pre-existing, since
-   the `SoftwareApplication` block was already unvalidated. Un-skipping
-   wholesale costs **33 errors** on app pages that correctly are not search
-   surfaces (verified by running it). A scoped fix covering only the 4
-   `sitemap-pro.xml` pages is cheap: those produce **zero** errors today.
+2. ~~**`scripts/check-seo-surface.js` skips `docs/pro`**~~ — **CLOSED 2026-09-08.**
+   See [the fix below](#update-2026-09-08--open-item-2-closed). The scoped fix
+   landed, derived from `sitemap-pro.xml` rather than hand-listed; 224 → 228
+   audited pages, still zero errors. The 33-error figure was re-verified before
+   the fix and is why the directory stays skipped for everything else.
 3. **The SOC 2 sentence** — "hosted in Google Cloud's SOC 2–certified data
    centers" is true of Google and does not claim NBD Pro is certified, but sits
    one clause from being read that way. Visible copy and schema must change
    together.
 4. **Internal team chat** — the one PulseRelate capability we lack. Unbuilt, and
    deliberately so until someone asks for it.
+
+---
+
+## Update 2026-09-08 — open item 2 closed
+
+`scripts/check-seo-surface.js` now audits the four `/pro` pages that
+`docs/sitemap-pro.xml` lists. 224 → 228 pages, still zero errors.
+
+**The exclusion was right; its granularity was wrong.** Re-verified before
+touching anything: `--root docs/pro` yields 33 errors (13 canonical, 8 h1, 12
+meta-description) across `vault`, `dashboard`, `sandbox`, `stripe-success`,
+`understand` and friends. Those pages are noindexed by **X-Robots-Tag headers**
+in `firebase.json`, which a static reader of the HTML cannot see — so all 33
+are false. `SKIP_DIRS` keeps every one of them out. Only the sitemapped four
+come back.
+
+**Derived, not listed.** The covered set is read from the sitemaps at audit
+time: a `<loc>` is precisely the claim "this is a search surface", the same
+claim `isNoIndex()` reads in reverse. Add a page to `sitemap-pro.xml` and it is
+audited from that moment, with no edit to the script. A filename allowlist
+would have been the "list where a real finding goes to hide" that the script's
+own `isNoIndex` comment refuses to be. It is also the source of truth
+`firebase.json` already reasons from — its noindex rule enumerates the app
+pages one by one *because* these four must stay indexable, and says so.
+
+**Proven able to fail, not assumed.** Dropping the closing brace from the
+FAQPage `#1479` added:
+
+| | pages | broken FAQPage | exit |
+|---|---|---|---|
+| gate before | 224 | not detected | **0** — ships |
+| gate after | 228 | `structured-data`, block 2 | **1** |
+
+The red landed on the expected assertion and the expected file. Page restored.
+Both directions are now pinned by fixtures in `tests/fixtures/seo-surface-sitemap/`
+(19 → 27 assertions in `tests/seo-surface.test.js`, which CI runs in the `node`
+bucket): collapse the carve-out and S1/S2/S4–S8 redden; widen it to the whole
+directory and S3 plus F17 redden, S3 being an app-shell fixture missing
+canonical/h1/description that must stay silent so the 33 false findings cannot
+creep back.
+
+Two contradictions the derivation would otherwise have swallowed became errors
+in their own right: a `<loc>` with no page behind it (`sitemap-orphan` — a 404
+handed to Google in a document whose purpose is to promise the URL resolves),
+and a sitemapped page that also declares `<meta robots noindex>`
+(`sitemap-noindex`). Neither fires today.
+
+### Newly visible, deliberately not fixed
+
+Coverage made seven pre-existing warnings visible. None is new damage and none
+blocks CI; all are content decisions rather than gate work:
+
+| Page | Warning |
+|---|---|
+| `/pro/pricing` | no JSON-LD at all |
+| `/pro/terms` | no JSON-LD at all |
+| `/pro/how-to` | no JSON-LD at all |
+| `/pro/how-to` | title is 16 chars — "How To · NBD Pro", too thin to rank |
+| `/pro/how-to` | missing `og:title`, `og:description`, `og:image` |
+
+`/pro/how-to` is the weakest of the four and the cheapest to improve: a real
+title, the three Open Graph tags, and `HowTo` schema are an obvious fit for a
+page that is literally a how-to. `/pro/pricing` would take `Product`/`Offer`
+(and note open item 1 before putting competitor pricing into schema).
+Left alone here because writing page copy and choosing schema types is not
+what a gate-coverage change should decide.
