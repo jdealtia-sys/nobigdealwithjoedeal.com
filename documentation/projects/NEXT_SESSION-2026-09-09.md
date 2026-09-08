@@ -31,7 +31,67 @@ and marked it accordingly. Treat ⚠︎ lines as leads to re-run, not as facts.
    whether a 404 ("roof not found") or 422 ("too large or irregular") is
    billed. Neither has happened yet, so the hole in
    [INSTANTROOFER-SETUP](../runbooks/INSTANTROOFER-SETUP.md) stands.
-3. **Nothing else.** Auto-measure is done and worked — see §2.
+3. **One warranty number is yours to set.** `docs/pro/js/close-board.js:195`
+   defaults the close-board warranty field to `'25-year limited lifetime'` —
+   self-contradictory, and it matches none of the tiers you set on 09-08
+   (Good 5 / Better 10 / Best 20). It is a rep-overridable default that ships
+   on a customer-facing document. Left alone deliberately rather than guessed
+   at. See §7.
+4. **Nothing else.** Auto-measure is done and worked — see §2.
+
+---
+
+## §7 — Added 2026-09-08 evening: the claims audit lane
+
+This brief was written before that lane ran and has no knowledge of it. Eight
+PRs merged; full write-up in
+[SESSION-2026-09-08-claims-audit](SESSION-2026-09-08-claims-audit.md) and
+[PULSERELATE-RECON-AND-PRO-DOMAIN-2026-09-07](../audit/PULSERELATE-RECON-AND-PRO-DOMAIN-2026-09-07.md).
+Nothing here contradicts §§1–6 — it is a different lane, on the `/pro`
+marketing and help surface.
+
+**What changed under you, if you are working anywhere near `/pro`:**
+
+- **Warranty is now 5 / 10 / 20** (Jo's call) in sixteen places — the
+  generator, certificate rows and expiry dates, tier dropdown and card, the
+  company value prop, both price comments and the how-to. The tree had
+  previously carried *three different answers*. **Manufacturer warranties were
+  deliberately not touched**: the three TAMKO Limited Lifetime shingle refs,
+  Class 4 50yr, RoofIVent 50yr, GAF Pivot Boot 50yr, the 3-Tab 25yr catalog
+  entry and the 40yr standing-seam finish are the manufacturers' terms and are
+  correct as written. Do not "tidy" those to match the tiers.
+- **Fourteen false `/pro` claims corrected**, from an audit that checked every
+  claim against the code with two skeptics per finding. The load-bearing ones:
+  *"sign out of all devices"* did nothing (really fixed in #1500), *"we never
+  lock you out mid-cycle"* is a hard stop that **only owners are exempt from**,
+  the trial's *"no credit card"* collects one via Stripe, and the
+  *"one-third the price of JobNimbus/AccuLynx"* line was unsupportable —
+  **neither company publishes a price at all**.
+- **`/pro` is now inside `check-seo-surface.js`** for the four sitemapped
+  pages, and the orphan check honours firebase.json redirects/rewrites.
+
+**Still open from that lane, ranked:**
+
+1. **`close-board.js:195`** — see §0.3. Needs a number, not a guess.
+2. **`sitemap-orphan` guards only the 4 skipped-dir pages**, not the 224 URLs
+   in the main sitemap. Same defect class, unreported. Extending it changes
+   what the walk owns, so it wants its own change.
+3. **Only `pro` of the five `SKIP_DIRS` has fixture coverage.** `sites` is the
+   live risk — tenant microsites are noindexed on purpose, and the
+   `sitemap-noindex` branch would turn that into a CI-blocking ERROR.
+4. **Internal team chat** — the one capability the competitor has that we do
+   not. Unbuilt, deliberately; a crew this size solves it with a group text.
+
+**Two process traps this lane hit, both cheap to avoid:**
+
+- **A merged PR's "still stale / not touched" line is a duplication magnet.**
+  #1481 flagged `ci.yml:241`; a peer lane shipped it as #1482 **eight minutes**
+  ahead of the duplicate. Treat such a line as claimed, and run the
+  start-of-slice checks even for a one-line fix handed to you directly.
+- **Re-check every finding against `main` before re-applying it.** Three copy
+  fixes had become *wrong* between audit and application, because #1500 built
+  the capability they said did not exist. Shipping them would have put a false
+  claim in the opposite direction.
 
 ---
 
