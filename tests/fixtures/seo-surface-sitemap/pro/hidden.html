@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<!-- S5: in the sitemap AND declaring noindex. The two signals contradict, so
+     the gate must say so rather than letting the noindex exemption swallow
+     the page silently. -->
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, follow">
+<title>Hidden but nonetheless advertised in the sitemap</title>
+<meta name="description" content="This page tells crawlers not to index it while the sitemap simultaneously asks them to. Exactly one of those two statements can be the intended one.">
+<link rel="canonical" href="https://example.com/pro/hidden">
+<meta property="og:title" content="Hidden">
+<meta property="og:description" content="Hidden.">
+<meta property="og:image" content="https://example.com/og.jpg">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"WebPage","name":"Hidden"}</script>
+</head>
+<body><h1>Hidden</h1></body>
+</html>

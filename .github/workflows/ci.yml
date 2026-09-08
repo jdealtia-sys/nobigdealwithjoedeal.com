@@ -238,8 +238,12 @@ jobs:
       - name: Check test-suite manifest completeness
         run: node scripts/run-test-manifest.js --check
 
-  # The node suites the manifest owns (43 at wiring on 2026-08-07; 44 since
-  # orphan-sweep-parser joined — the floor in run-test-manifest.js tracks it). These existed for
+  # The node suites the manifest owns (32 at wiring on 2026-08-07; 43 by the
+  # 2026-08-23 smoke collapse). The live count is deliberately NOT repeated
+  # here — it rots: this comment claimed 44 while the bucket held 96, and
+  # claimed 43 at wiring when the real figure was 32. FLOORS in
+  # run-test-manifest.js is the one copy, and since 2026-09-07 (#1481) it is
+  # enforced in both directions, so it cannot drift again. These existed for
   # months without gating anything — tests/package.json's `npm test`
   # aggregate was never invoked by CI, and nobody hand-listed them. All 32
   # verified green at wiring time; quarantine (with a dated reason in the

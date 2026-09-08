@@ -9,12 +9,15 @@
  * fixes, so the manifest is the single registry:
  *
  *   tests/ci-manifest.json buckets:
- *     node                — RUNNABLE. 44 suites, unit-suite-manifest job.
- *     smoke               — RUNNABLE. 65 suites, smoke-tests job. Object-valued:
+ *     node                — RUNNABLE. unit-suite-manifest job.
+ *     smoke               — RUNNABLE. smoke-tests job. Object-valued:
  *                           each suite carries its step documentation.
  *     emulator            — run as individual emulators:exec steps in ci.yml
  *     wired-individually  — suites a workflow runs by name (unchanged)
  *     quarantined         — known-red, skipped, dated reason required
+ *   Current sizes are not repeated here — they rot (this header said 44
+ *   node suites while the bucket held 96). FLOORS below is the one copy,
+ *   and --check prints the live counts.
  *
  * COMPLETENESS: every tests/*.test.js on disk must appear in exactly one
  * bucket, else exit 1. Adding a test file without classifying it fails CI —
@@ -51,22 +54,42 @@ const manifest = JSON.parse(fs.readFileSync(path.join(TESTS, 'ci-manifest.json')
 const RUNNABLE = ['node', 'smoke'];
 
 // Ratchet. A bucket may grow but never silently shrink: these floors are the
-// measured sizes at the 2026-08-23 collapse. They live in the script rather
+// measured sizes at the last deliberate raise. They live in the script rather
 // than the manifest on purpose — a one-line JSON edit must not be able to
-// lower the bar it is being measured against. Raise them when a bucket grows.
-// Raised 44/65/122 -> 51/65/130 on 2026-09-03. The floors had NOT been
-// raised when seven suites landed that day, so the slack was exactly seven:
-// delete all seven (files plus manifest entries) and node lands back on 44,
-// disk on 123, and this check stays green. A ratchet that is not tightened
-// after each addition protects only what it was set against — it silently
-// stopped covering everything added since.
-// KEEP THESE IN STEP with the real counts whenever a suite is added.
-// Raised 51/65/130 -> 52/65/131 on 2026-09-04 for
-// ourwork-deeplink-contract.test.js, per the line above.
-// Raised 52/65/131 -> 53/65/132 on 2026-09-06 for
-// instantroofer-measurement.test.js, then -> 54/65/133 the same day for
-// public-measure.test.js.
-const FLOORS = { node: 54, smoke: 65, disk: 133 };
+// lower the bar it is being measured against.
+//
+// SET these to the counts --check prints, in the same commit that adds a
+// suite. SET, not increment: a +1 for the suite you personally added is the
+// exact bug this line has already shipped three times. The slack between a
+// floor and the real count IS the number of suites that can be deleted (file
+// plus manifest entry) with this check still green, so a floor is worth only
+// what the last person to touch it actually measured.
+//   2026-09-03  e0eb64b6, the last commit where the floors equalled reality
+//               (51/65/130).
+//   2026-09-03..06  three edits raised them to 52, then 53, then 54 — one per
+//               suite the author happened to be adding — while the real node
+//               count was already 66, then 73, then 75. Maintenance-shaped,
+//               and it bought nothing.
+//   2026-09-07  31 suite-adding commits after e0eb64b6, the floors still read
+//               54/65/133 against a real 96/65/179: 42 node and 46 disk of
+//               slack, a quarter of the node bucket deletable while green.
+//               Measured, not assumed — deleting a node suite outright still
+//               exited 0. Raised to the true counts at 5a43d2c4, and each
+//               floor break-tested by removing a suite and watching THAT
+//               bucket's line go red.
+//               The n > floor branch below landed in the same change.
+//
+// Why these stay literal instead of being derived from the manifest: a floor
+// computed from the live manifest always equals the count it is compared
+// against, so "n < floor" could never be true and the ratchet would be
+// structurally incapable of failing — the silently-green gate this file
+// exists to prevent. The number has to be committed by a human to be a bar at
+// all. The staleness that costs is handled from the other side instead: the
+// ratchet below fails when n > floor too, so adding a suite reddens this
+// check until the floor moves with it in the same commit. That is the point,
+// not a nuisance — the error prints the exact literal to paste, and this
+// 2026-09-07 entry should be the last of its kind.
+const FLOORS = { node: 96, smoke: 65, disk: 179 };
 
 // ── Argument parsing ───────────────────────────────────────────────
 const argv = process.argv.slice(2);
@@ -215,10 +238,27 @@ for (const [f, doc] of Object.entries(manifest.smoke || {})) {
   if (!lines.length) problems.push(f + ' is in the smoke bucket with no documentation — record why it gates merges (migrated verbatim from its former ci.yml comment)');
 }
 
-// Ratchet: a bucket may grow, never silently shrink.
+// Ratchet, both directions. UNDER the floor means suites were deleted. OVER
+// it means the floor is stale — and the gap is exactly how many suites gate
+// nothing, so it has to fail on the PR that opens it rather than sit quiet
+// for 31 commits the way it did up to 2026-09-07.
+const drifted = [];
 for (const [b, floor] of Object.entries(FLOORS)) {
   const n = b === 'disk' ? disk.length : buckets[b].length;
   if (n < floor) problems.push(b + ' holds ' + n + ' suites but the gating floor is ' + floor + ' — suites were removed. Raise the floor deliberately in scripts/run-test-manifest.js if this is intended.');
+  else if (n > floor) {
+    drifted.push(b);
+    problems.push(b + ' holds ' + n + ' suites but the floor is still ' + floor
+      + ' — the floor is stale by ' + (n - floor) + '. That many suites gate nothing: they could be'
+      + ' deleted, file and manifest entry both, with this check green. SET the floor to ' + n + '.');
+  }
+}
+if (drifted.length) {
+  // Print the whole literal, not a delta: "+1 for the suite I added" is the
+  // mistake that produced floors of 52/53/54 against real counts of 66/73/75.
+  problems.push('fix: replace the FLOORS line in scripts/run-test-manifest.js with  const FLOORS = { '
+    + Object.keys(FLOORS).map((b) => b + ': ' + (b === 'disk' ? disk.length : buckets[b].length)).join(', ')
+    + ' };');
 }
 
 if (problems.length) {

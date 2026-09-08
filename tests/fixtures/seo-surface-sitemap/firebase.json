@@ -1,0 +1,13 @@
+{
+  "_comment": "Fixture hosting config for check-seo-surface.js's orphan check. A <loc> with no HTML file on disk is only an orphan if firebase.json ALSO has no redirect or rewrite serving it — the real firebase.json has 21 redirects and 16 rewrites, six of them under /pro (e.g. /pro/landing is a 301, /pro/account-erasure is a Cloud Function), and calling any of those a 404 would fail the build on a URL that resolves fine. Mirrors that shape: one plain redirect, one globbed rewrite to a function.",
+  "hosting": {
+    "public": ".",
+    "cleanUrls": true,
+    "redirects": [
+      { "source": "/pro/moved", "destination": "/pro", "type": 301 }
+    ],
+    "rewrites": [
+      { "source": "/pro/fn-*", "function": { "functionId": "fixtureFunction" } }
+    ]
+  }
+}

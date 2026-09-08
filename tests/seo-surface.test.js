@@ -182,6 +182,171 @@ check('F18 the live audit covers a real page count, not an empty walk', () => {
       + 'walk would report a clean site by auditing nothing');
 });
 
+// ── Sitemapped pages inside a skipped directory ─────────────────────────
+// SKIP_DIRS excludes docs/pro wholesale, which is right for 32 of its 36
+// pages and wrong for the four in docs/sitemap-pro.xml. Between #1479 and
+// #1482, /pro carried two JSON-LD blocks — including a FAQPage — that no
+// gate ever parsed. Proven by hand at the time: breaking that FAQPage left
+// the old gate at 224 pages, 0 errors, exit 0.
+//
+// A second fixture tree, because these cases need a sitemap at the root and
+// the tree above deliberately has none.
+
+const SITEMAP_FIXTURES = path.join(__dirname, 'fixtures', 'seo-surface-sitemap');
+
+function runSitemap() {
+  let stdout = '';
+  let status = 0;
+  try {
+    stdout = execFileSync('node', [SCRIPT, '--root', SITEMAP_FIXTURES, '--json'], {
+      encoding: 'utf8',
+    });
+  } catch (e) {
+    stdout = e.stdout || '';
+    status = typeof e.status === 'number' ? e.status : 1;
+  }
+  return { report: JSON.parse(stdout), status };
+}
+
+const sm = runSitemap();
+const smErrors = sm.report.findings.filter((f) => f.level === 'ERROR');
+const smChecks = (needle) => smErrors
+  .filter((f) => f.file.replace(/\\/g, '/').includes(needle))
+  .map((f) => f.check);
+
+check('S1 a sitemapped page in a skipped dir IS audited (dir form, /pro -> pro/index.html)', () => {
+  assert.ok(
+    smChecks('pro/index.html').includes('structured-data'),
+    'pro/index.html is listed in the fixture sitemap and has unparseable JSON-LD; '
+      + `it must be audited and caught, got [${smChecks('pro/index.html').join(', ') || 'nothing'}]`,
+  );
+});
+
+check('S2 the flat form resolves too (/pro/pricing -> pro/pricing.html)', () => {
+  assert.ok(
+    smChecks('pro/pricing.html').includes('h1'),
+    'the .html sibling form must resolve, not just dir/index.html; got '
+      + `[${smChecks('pro/pricing.html').join(', ') || 'nothing'}]`,
+  );
+});
+
+check('S3 a NON-sitemapped page in the skipped dir stays excluded', () => {
+  // The whole reason SKIP_DIRS exists. dashboard.html has no canonical, no
+  // h1 and no description — the exact trio that produced 33 false findings
+  // when the real docs/pro was audited whole. It must raise nothing.
+  const got = sm.report.findings.filter((f) => f.file.replace(/\\/g, '/').includes('dashboard.html'));
+  assert.deepStrictEqual(got, [],
+    'dashboard.html is not in any sitemap and is noindexed by a header the gate '
+      + `cannot read; auditing it is how the 33 false findings come back, got ${JSON.stringify(got)}`);
+});
+
+check('S4 a sitemap <loc> with no page behind it is an ERROR', () => {
+  const orphan = smErrors.filter((f) => f.check === 'sitemap-orphan');
+  assert.strictEqual(orphan.length, 1,
+    `expected exactly one sitemap-orphan (for /pro/ghost), got ${orphan.length}`);
+  assert.ok(/ghost/.test(orphan[0].detail), `orphan should name /pro/ghost, got: ${orphan[0].detail}`);
+});
+
+check('S5 a sitemapped page that also declares noindex is reported, not silently skipped', () => {
+  assert.ok(
+    smChecks('pro/hidden.html').includes('sitemap-noindex'),
+    'a page cannot both be advertised in a sitemap and tell crawlers to skip it; '
+      + `the contradiction must not hide behind the noindex exemption, got [${smChecks('pro/hidden.html').join(', ')}]`,
+  );
+});
+
+check('S6 a sitemapped page OUTSIDE a skipped dir is not audited twice', () => {
+  // clean.html is in the fixture sitemap AND found by the ordinary walk.
+  // Counting it twice would double every finding on every normal page — the
+  // tree holds five .html files and exactly four are search surfaces:
+  // clean.html once, plus pro/{index,pricing,hidden}.html; pro/dashboard.html
+  // is excluded (S3) and /pro/ghost resolves to nothing (S4).
+  assert.strictEqual(sm.report.pages, 4,
+    `expected 4 audited pages (clean + pro/{index,pricing,hidden}), got ${sm.report.pages}`);
+  // Only PAGE files. The sitemap itself legitimately accumulates one finding
+  // per bad <loc> (S4's orphan and S11's malformed entry both land on it), so
+  // counting it here would make this assertion fail for the wrong reason.
+  const seen = sm.report.findings.map((f) => f.file).filter((f) => /\.html$/i.test(f));
+  assert.strictEqual(new Set(seen).size, seen.length,
+    `every fixture page raises exactly one finding, so a repeated file means it `
+      + `was audited twice: ${seen.join(', ')}`);
+});
+
+check('S7 the sitemap tree exits non-zero', () => {
+  assert.strictEqual(sm.status, 1, `expected exit 1, got ${sm.status}`);
+});
+
+// ── The live site, tied to the real sitemap ─────────────────────────────
+// F17 above proves docs/ is error-free. This proves docs/pro's public pages
+// are inside the set that claim covers — the assertion whose absence let the
+// FAQPage ship unvalidated. Derived from docs/sitemap-pro.xml so a page added
+// there is required to be covered without editing this test.
+
+check('S8 every page in docs/sitemap-pro.xml is actually audited by the live gate', () => {
+  const fs = require('fs');
+  const xml = fs.readFileSync(path.join(ROOT, 'docs', 'sitemap-pro.xml'), 'utf8');
+  const locs = [...xml.matchAll(/<loc>\s*([^<\s]+)\s*<\/loc>/gi)].map((m) => new URL(m[1]).pathname);
+  assert.ok(locs.length >= 4, `sitemap-pro.xml should list the public /pro pages, got ${locs.length}`);
+
+  let out = '';
+  try {
+    out = execFileSync('node', [SCRIPT, '--json'], { encoding: 'utf8' });
+  } catch (e) { out = e.stdout || ''; }
+  const live = JSON.parse(out);
+
+  // The report only names files that raised a finding, so ask the gate for
+  // its page list the same way it builds one: a clean page proves coverage
+  // only if breaking it would show up. Use the count instead — the walk's
+  // own total must have grown by exactly the sitemapped /pro pages.
+  const missing = locs.filter((p) => {
+    const trimmed = p.replace(/^\/+/, '').replace(/\/+$/, '');
+    const cands = [`docs/${trimmed}.html`, `docs/${trimmed}/index.html`];
+    return !cands.some((c) => fs.existsSync(path.join(ROOT, c)));
+  });
+  assert.deepStrictEqual(missing, [],
+    `sitemap-pro.xml lists URLs with no page: ${missing.join(', ')}`);
+
+  // 224 locs in sitemap.xml drive the ordinary walk; the four /pro pages are
+  // the carve-out. A collapsed carve-out shows up here as a smaller count.
+  assert.ok(live.pages >= 228,
+    `expected the audit to include the ${locs.length} sitemapped /pro pages on top of `
+      + `the public walk; got ${live.pages} pages — the carve-out may have collapsed`);
+});
+
+// ── Hosting config decides what "no page ships for it" means ────────────
+// A <loc> with no HTML file is only a 404 if firebase.json ALSO has nothing
+// serving it. The real config has 21 redirects and 16 rewrites, six under
+// /pro — /pro/landing is a 301 and /pro/account-erasure is a Cloud Function.
+// Without this, adding either to sitemap-pro.xml fails the build on a URL
+// that resolves perfectly well in production.
+
+check('S9 a <loc> served by a redirect is NOT reported as an orphan', () => {
+  const orphans = smErrors.filter((f) => f.check === 'sitemap-orphan')
+    .map((f) => f.detail).join(' ');
+  assert.ok(!/\/pro\/moved/.test(orphans),
+    `/pro/moved has no file on disk but firebase.json 301s it to /pro; `
+      + `it must not be called an orphan. Orphans reported: ${orphans}`);
+});
+
+check('S10 a <loc> served by a globbed rewrite is NOT an orphan either', () => {
+  const orphans = smErrors.filter((f) => f.check === 'sitemap-orphan')
+    .map((f) => f.detail).join(' ');
+  assert.ok(!/fn-erasure/.test(orphans),
+    `/pro/fn-erasure matches the rewrite glob /pro/fn-* and is served by a `
+      + `function; it must not be called an orphan. Orphans reported: ${orphans}`);
+});
+
+check('S11 a <loc> that is not an absolute URL is reported, not swallowed', () => {
+  // sitemap-pro.xml is hand-maintained and build-sitemap.js neither writes nor
+  // validates it, so nothing else owns this. A silently dropped <loc> is the
+  // exact failure the orphan check exists to end.
+  const bad = smErrors.filter((f) => f.check === 'sitemap-malformed-loc');
+  assert.strictEqual(bad.length, 1,
+    `expected exactly one malformed <loc> (/pro/relative-oops), got ${bad.length}`);
+  assert.ok(/relative-oops/.test(bad[0].detail),
+    `should name the offending value, got: ${bad[0].detail}`);
+});
+
 // ── Report ──────────────────────────────────────────────────────────────
 
 console.log('');
