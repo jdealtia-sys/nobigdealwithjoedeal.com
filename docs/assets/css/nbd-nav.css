@@ -1,0 +1,238 @@
+/* nbd-nav.css — the single authoritative contract for the site header, the
+   mobile drawer and the Services dropdown.
+
+   WHY THIS FILE EXISTS (2026-09-08 nav reliability audit)
+   -------------------------------------------------------
+   Every one of these rules used to be hand-inlined into each page's <style>
+   block. 233 copies drifted into 6 different `.mobile-nav` variants, and 46
+   files carried between 2 and 4 competing definitions of it. Measured on
+   WebKit at 320x508 (iPod touch), the shipped drawer was broken in four
+   independent ways at once:
+
+     1. `top:70px` / `top:108px` were hardcoded, but the real header bottom
+        moves between 70px and 129px depending on scroll position (the
+        announcement bar is in flow above a position:sticky nav). So the drawer
+        was either covered by the header by 40-59px, or left a 38px gap that
+        leaked page content through. No single constant can be right, because
+        the header height is not a constant.
+     2. Nothing locked body scroll, so the page scrolled freely underneath the
+        pinned drawer — the reported "the slider moves but the page doesn't".
+     3. `.mobile-cta-strip` is position:fixed z-index:999, the same z-index as
+        the drawer and later in the DOM, so the Call/Text bar painted over the
+        drawer's bottom ~100px.
+     4. With (1) and (3) together only 6-7 of 32 links were reachable without
+        scrolling a position:fixed overflow container — the least reliable
+        thing you can ask of an old iOS Safari.
+
+   THE CONTRACT
+   ------------
+   The drawer is a full-viewport sheet: top/right/bottom/left all 0. It cannot
+   misalign with the header because it no longer references the header's
+   position at all — the header simply paints on top of it, and the drawer
+   reserves room with padding-top. If --nbd-header-h is ever wrong or unset the
+   drawer is still a full-viewport scrollable panel with no gap and no leak;
+   the worst case is cosmetic, never unnavigable.
+
+   Selectors are id+class (`#mobileNav.mobile-nav`, specificity 1,1,0) so this
+   file wins over every inlined `.mobile-nav` (0,1,0) copy regardless of source
+   order, without needing !important. Do not weaken them to `.mobile-nav` until
+   the per-page inline blocks are actually gone.
+
+   OLD-SAFARI CONSTRAINTS (target: iOS 12 / Safari 12, the oldest iPod touch
+   still in use). Deliberately avoided here: `inset` shorthand (iOS 14.1+),
+   `dvh`/`svh` (iOS 15.4+), `:is()`/`:where()` (iOS 14+), and any reliance on
+   flex `gap` (iOS 14.1+) for layout that must not collapse. `100vh` is avoided
+   entirely — on iOS it means the URL-bar-hidden height, which overflows the
+   real viewport. top:0+bottom:0 gives the true visible height on every engine.
+*/
+
+/* ── The drawer ───────────────────────────────────────────────────────────
+   Full-viewport sheet. z-index sits above the CTA strip (999) but below the
+   header (raised to 1200 below) so the hamburger stays tappable to close. */
+#mobileNav.mobile-nav {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 1100;
+  display: none;
+  /* The per-page copies all carry `max-height:calc(100vh - 70px)`. Setting
+     top/bottom does NOT beat it — max-height still clips the box, leaving the
+     drawer 438px tall on a 508px screen with live page content showing
+     through underneath it. Both of these must be neutralised explicitly. */
+  max-height: none;
+  height: auto;
+  /* Literal colour, not var(--navy-dark): several templates never declare that
+     custom property, and a drawer with no background is a transparent overlay
+     on top of page content — unreadable and untappable. */
+  background: #12223d;
+  overflow-y: auto;
+  /* Momentum scrolling on iOS < 13; harmless everywhere else. */
+  -webkit-overflow-scrolling: touch;
+  /* Stop a swipe that reaches the end of the list from scrolling the page
+     behind. Belt-and-braces: JS also locks the body. */
+  overscroll-behavior: contain;
+  -ms-scroll-chaining: none;
+  /* Room for the header that paints on top of us. The fallback is the largest
+     header bottom measured across templates, so an unset variable errs toward
+     "first link slightly low" rather than "first link hidden". */
+  padding-top: var(--nbd-header-h, 130px);
+  padding-bottom: 32px;
+  padding-bottom: calc(32px + env(safe-area-inset-bottom, 0px));
+  /* Anchor/keyboard scrolling must not park an item under the header. */
+  scroll-padding-top: var(--nbd-header-h, 130px);
+}
+
+#mobileNav.mobile-nav.open {
+  display: block;
+  /* nbd-mobile.css reveals the drawer with
+     `@keyframes nbdRevealIn{from{transform:translateY(-6px)}}`. That was
+     harmless when the drawer was a short panel hanging below the header. Now
+     that it is pinned to all four edges, translating it up by 6px pulls its
+     bottom edge 6px INSIDE the viewport and shows a strip of live page content
+     under it for the length of the animation — caught by CI measuring the
+     drawer's bottom at 502 against a 508px viewport. A full-viewport sheet
+     must not move; fade it instead. */
+  animation: nbdNavFadeIn 0.18s ease;
+}
+
+@keyframes nbdNavFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* The drawer owns the screen while open: the fixed Call/Text bar (z-index 999)
+   would otherwise cover its bottom ~100px, which is where Book Inspection is. */
+body.nbd-nav-open .mobile-cta-strip,
+body.nbd-nav-open .cta-float {
+  display: none !important;
+}
+
+/* Body scroll lock. JS adds this class and pins the scroll offset in an inline
+   `top`, then restores it on close — the only lock iOS Safari actually honours
+   (overflow:hidden on body is ignored there). */
+body.nbd-nav-open {
+  position: fixed;
+  left: 0;
+  right: 0;
+  width: 100%;
+  overflow: hidden;
+}
+
+/* ── The header ───────────────────────────────────────────────────────────
+   Raised above the drawer so the hamburger (now an X) is always reachable.
+   Without this the drawer covers the only control that closes it. */
+nav#mainNav.nav,
+nav#mainNav {
+  z-index: 1200;
+  /* `position:sticky` ships unprefixed on every nav page, so the header does
+     not stick at all on iOS 12.5 and below — the ceiling for the iPod touch
+     6th gen. The prefixed value first, then the standard one, so old WebKit
+     takes the former and everything else overrides with the latter. */
+  position: -webkit-sticky;
+  position: sticky;
+}
+
+/* ── Drawer rows ──────────────────────────────────────────────────────────
+   Rows measured 40-44 CSS px tall depending on which of the six padding
+   variants a page shipped. 44px is the Apple HIG minimum, and a menu row a
+   thumb misses reads as a broken menu. */
+#mobileNav.mobile-nav a {
+  min-height: 44px;
+  box-sizing: border-box;
+  touch-action: manipulation;
+}
+
+/* Section headers ("Featured", "Services", "Company") inherit the page's body
+   colour on templates that never load nbd-icons.css — near-black #1a1a1a on
+   the #12223d drawer, roughly 1.1:1. Literal colour, no var(): the templates
+   that get this wrong are exactly the ones that never define the token. */
+#mobileNav.mobile-nav .mnav-group {
+  color: #dd875f;
+}
+
+/* ── The hamburger ────────────────────────────────────────────────────────
+   Measured at 46x41 CSS px, under the 44x44 minimum in Apple's HIG — the
+   short axis is the one a thumb misses. Padding, not size, so the three bars
+   keep their current look. Flex `gap` is unsupported before iOS 14.1, so the
+   bar spacing is restated as a margin that older engines can honour. */
+#hamburger.hamburger {
+  min-width: 48px;
+  min-height: 48px;
+  align-items: center;
+  justify-content: center;
+  /* Suppress the double-tap-to-zoom delay and the grey iOS tap flash. */
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+#hamburger.hamburger > span + span {
+  margin-top: 6px;
+}
+
+/* The parent rule sets `gap:6px`; on engines that support it the margin above
+   would double the spacing, so cancel it there. */
+@supports (gap: 6px) {
+  #hamburger.hamburger > span + span {
+    margin-top: 0;
+  }
+}
+
+/* ── The Services dropdown ────────────────────────────────────────────────
+   24 items render 993px tall. On a 1366x768 laptop that overflows the viewport
+   by 311px with no max-height and no overflow, so the bottom eight links
+   (Roof Cleaning through Free 24-Hr Inspection) were unreachable — the menu is
+   position:absolute, so there was nothing to scroll. */
+#navLinks .dropdown-menu {
+  max-height: calc(100vh - 140px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* A menu on a right-hand nav item would otherwise run off the right edge.
+   Anchoring to the right edge of its own item keeps it on screen. */
+#navLinks .dropdown:last-child .dropdown-menu,
+#navLinks .dropdown.dropdown-right .dropdown-menu {
+  left: auto;
+  right: 0;
+}
+
+/* Touch and keyboard get an explicit, JS-driven open state. :hover alone is a
+   trap on touch: the first tap paints hover, and whether the parent link also
+   navigates is engine-dependent. .open is authoritative. */
+#navLinks .dropdown.open > .dropdown-menu {
+  display: block;
+}
+
+/* On a touch device without a mouse, drop the hover trigger entirely so the
+   menu opens only on a real tap. Older engines that do not understand the
+   query keep the hover behaviour, which is the current state — no regression. */
+@media (hover: none) {
+  #navLinks .dropdown:hover > .dropdown-menu {
+    display: none;
+  }
+  #navLinks .dropdown.open > .dropdown-menu {
+    display: block;
+  }
+}
+
+/* Keep the caret's orientation honest about the state. */
+#navLinks .dropdown > a .nav-ico {
+  transition: transform 0.2s;
+}
+
+#navLinks .dropdown.open > a .nav-ico {
+  transform: rotate(180deg);
+}
+
+/* ── Reduced motion ───────────────────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  #mobileNav.mobile-nav,
+  #hamburger.hamburger span,
+  #navLinks .dropdown > a .nav-ico {
+    transition: none !important;
+    animation: none !important;
+  }
+}

@@ -69,26 +69,31 @@ const ATTR_RE = /([a-z0-9_]+)="([^"]*)"/g;
  * a bad partial edit fails loudly instead of 200 pages later.
  */
 const REQUIRED_MARKUP = {
-  // Beyond the ids, the desktop nav carries three structural contracts the
+  // Beyond the ids, the desktop nav carries four structural contracts the
   // ids don't cover: nav-faq.js opens the Services dropdown only through
-  // ul.nav-links > li.dropdown; the hamburger↔mobileNav toggle script tag
-  // lives INSIDE <nav> (drop it and every mobile menu dies silently); and
-  // that toggle animates the hamburger's three <span> children.
+  // ul.nav-links > li.dropdown; the hamburger↔mobileNav controller tag lives
+  // INSIDE <nav> (drop it and every mobile menu dies silently); that
+  // controller animates the hamburger's three <span> children; and
+  // nbd-nav.css carries the drawer's positioning contract, without which the
+  // per-page inline copies take over and the drawer misaligns with the header
+  // again (see the 2026-09-08 nav reliability audit).
   'nav-standard': ['id="mainNav"', 'id="navLinks"', 'id="hamburger"',
     'class="nav-links"', 'class="dropdown"',
-    'src="/assets/js/inline/479bd49556.js"',
+    'href="/assets/css/nbd-nav.css"', 'src="/assets/js/nbd-nav.js"',
     '<span></span><span></span><span></span>'],
   'nav-blog': ['id="mainNav"', 'id="navLinks"',
     'class="nav-links"', 'class="dropdown"',
-    'src="/assets/js/inline/479bd49556.js"'],
-  'nav-tool': ['id="mainNav"'],
+    'href="/assets/css/nbd-nav.css"', 'src="/assets/js/nbd-nav.js"'],
+  'nav-tool': ['id="mainNav"',
+    'href="/assets/css/nbd-nav.css"', 'src="/assets/js/nbd-nav.js"'],
   // The 7 brand microsites (LumaNail, Roofivent, GAF Pivot Boot, GAF Timberline,
   // TAMKO Storm Series + the two promise pages) ran 4 divergent link sets before
   // 2026-08-19 — two of them dropped Pledge/Guarantee/Build entirely and pointed
   // "Services" at a leaf page. Same contracts as nav-standard minus the dropdown,
   // which this family does not have.
   'nav-microsite': ['id="mainNav"', 'id="navLinks"', 'id="hamburger"',
-    'class="nav-links"', 'src="/assets/js/inline/479bd49556.js"',
+    'class="nav-links"',
+    'href="/assets/css/nbd-nav.css"', 'src="/assets/js/nbd-nav.js"',
     '<span></span><span></span><span></span>'],
   'mobile-nav-standard': ['id="mobileNav"'],
   'mobile-nav-blog': ['id="mobileNav"'],

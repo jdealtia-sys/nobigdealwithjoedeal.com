@@ -92,9 +92,22 @@ const RUNNABLE = ['node', 'smoke'];
 //   2026-09-08  four portal branches each raised these; this is the value
 //               MEASURED after all of them landed, not any one branch's
 //               delta added to another's.
+//   2026-09-08  the nav branch (tests/nav-contract.test.js) then collided with
+//               those portal branches TWICE in one afternoon, exactly the way
+//               this ledger warns about: both sides had raised the literal and
+//               git could not reconcile them. Resolved both times by
+//               re-measuring the MERGED tree. Note the second collision landed
+//               both sides on the SAME literal by coincidence — which is the
+//               strongest argument for measuring rather than reasoning, since
+//               a matching number is not evidence the count is right.
 //   2026-09-08  +2 from the photo-report lane (#1483). MEASURED on the merged
 //               tree, not 101+2 by arithmetic — same rule as above.
-const FLOORS = { node: 103, smoke: 65, disk: 186 };
+//   2026-09-08  nav + photo-report merged. FOURTH collision on this line in
+//               one afternoon; every one was two branches raising it
+//               independently. MEASURED on the merged tree via --check, which
+//               prints the literal to paste — the only reliable way to set it
+//               when `main` moves this often.
+const FLOORS = { node: 104, smoke: 65, disk: 187 };
 
 // ── Argument parsing ───────────────────────────────────────────────
 const argv = process.argv.slice(2);
