@@ -37,7 +37,9 @@
  *     page type that should carry one.
  *
  * Excludes docs/pro/ (the CRM — private, noindex, not a search surface) and
- * generator-owned fragments.
+ * generator-owned fragments — EXCEPT the handful of pages inside a skipped
+ * directory that a sitemap lists as public. Those are audited; see
+ * sitemapSurfaces().
  *
  * USAGE
  *   node scripts/check-seo-surface.js            # human report, exit 1 on ERROR
@@ -73,6 +75,14 @@ const DOCS = rootFlag >= 0 ? ROOT : path.join(ROOT, 'docs');
 // ── Page discovery ──────────────────────────────────────────────────────
 // docs/ IS the hosting root, so what is on disk is what ships. docs/pro is
 // the CRM: private, behind auth, deliberately not a search surface.
+//
+// This exclusion earns its keep — pointing the gate at docs/pro reports 33
+// errors (13 canonical, 8 h1, 12 meta-description) across vault, dashboard,
+// sandbox, stripe-success, understand and friends. Those are NOT defects:
+// the pages are noindexed by X-Robots-Tag *headers* in firebase.json, which
+// a static reader of the HTML cannot see. Auditing them would be 33 false
+// findings, so the directory stays skipped. See sitemapSurfaces() for the
+// four pages inside it that are a genuine search surface.
 const SKIP_DIRS = new Set(['pro', 'sites', 'admin', 'tools', 'dev']);
 
 // A page that declares `noindex` is not a search surface, so search criteria
@@ -98,6 +108,55 @@ function walk(dir, out = []) {
       walk(path.join(dir, entry.name), out);
     } else if (entry.isFile() && entry.name.endsWith('.html')) {
       out.push(path.join(dir, entry.name));
+    }
+  }
+  return out;
+}
+
+// ── Sitemapped pages inside a skipped directory ─────────────────────────
+// A whole-directory skip is the right call for the CRM app shells and the
+// wrong call for the four pages in docs/sitemap-pro.xml: /pro, /pro/pricing,
+// /pro/how-to and /pro/terms are canonical to themselves, carry no noindex
+// signal of any kind, and /pro sits at priority 0.9. firebase.json's noindex
+// rule enumerates the app pages one by one rather than globbing /pro/**
+// precisely so these four stay indexable, and says so in its own comment.
+// They were nonetheless invisible to this gate — so when #1479 added a
+// second JSON-LD block (a FAQPage) to /pro, it shipped with no validation at
+// all, on the one check whose whole point is that a typo there is silent.
+//
+// The covered set is DERIVED, not listed. A <loc> in a sitemap IS the claim
+// "this is a search surface" — the same claim isNoIndex() reads in reverse —
+// so a page added to sitemap-pro.xml is audited from that moment, and this
+// file needs no edit. A filename allowlist here would be exactly the "list
+// where a real finding goes to hide" that the noindex rule above refuses to
+// be. Sitemaps are read from DOCS, so a --root fixture tree without one
+// simply gets nothing, which is what a fixture tree should get.
+function sitemapSurfaces() {
+  const out = [];
+  let maps = [];
+  try {
+    maps = fs.readdirSync(DOCS).filter((f) => /^sitemap.*\.xml$/i.test(f));
+  } catch (e) {
+    return out;
+  }
+  for (const m of maps.sort()) {
+    const xml = fs.readFileSync(path.join(DOCS, m), 'utf8');
+    for (const match of xml.matchAll(/<loc>\s*([^<\s]+)\s*<\/loc>/gi)) {
+      let pathname;
+      try {
+        pathname = new URL(match[1]).pathname;
+      } catch (e) {
+        continue; // a malformed <loc> is build-sitemap.js's business, not ours
+      }
+      const trimmed = pathname.replace(/^\/+/, '').replace(/\/+$/, '');
+      if (!trimmed) continue; // the homepage, already in the walk
+      // Only pages the walk could not have reached. Everything else is
+      // already audited, and adding it twice would double every finding.
+      if (!SKIP_DIRS.has(trimmed.split('/')[0])) continue;
+      // cleanUrls: /pro/pricing is served by pricing.html OR pricing/index.html.
+      const candidates = [`${trimmed}.html`, `${trimmed}/index.html`];
+      const hit = candidates.find((c) => fs.existsSync(path.join(DOCS, c)));
+      out.push({ loc: match[1], sitemap: m, file: hit || null, candidates });
     }
   }
   return out;
@@ -161,11 +220,38 @@ function add(level, file, check, detail) {
   findings.push({ level, file, check, detail });
 }
 
+// Pages the walk reached, plus the sitemapped ones it was told to skip.
+const surfaces = sitemapSurfaces();
+const sitemapped = new Set();
+for (const s of surfaces) {
+  if (!s.file) {
+    // A <loc> with no page behind it is a 404 handed to Google in a document
+    // whose entire purpose is to promise the URL resolves. Objectively
+    // broken, mechanically decidable — an ERROR by this file's own rules.
+    add('ERROR', path.relative(ROOT, path.join(DOCS, s.sitemap)).replace(/\\/g, '/'),
+      'sitemap-orphan',
+      `${s.loc} is listed but no page ships for it (looked for ${s.candidates.join(', ')})`);
+    continue;
+  }
+  sitemapped.add(path.join(DOCS, s.file));
+}
+
 let skippedNoIndex = 0;
-const pages = walk(DOCS).sort().filter((abs) => {
+const pages = [...new Set([...walk(DOCS), ...sitemapped])].sort().filter((abs) => {
   const rel = path.relative(ROOT, abs).replace(/\\/g, '/');
   if (RX_VERIFICATION_STUB.test(rel)) return false;
-  if (isNoIndex(fs.readFileSync(abs, 'utf8'))) { skippedNoIndex++; return false; }
+  if (isNoIndex(fs.readFileSync(abs, 'utf8'))) {
+    // A sitemapped page that also declares noindex is telling Google two
+    // opposite things. Skipping it quietly would let the contradiction hide
+    // behind the exemption, so it is reported and still audited.
+    if (sitemapped.has(abs)) {
+      add('ERROR', rel, 'sitemap-noindex',
+        'listed in a sitemap but declares <meta robots noindex> — contradictory signals');
+      return true;
+    }
+    skippedNoIndex++;
+    return false;
+  }
   return true;
 });
 
