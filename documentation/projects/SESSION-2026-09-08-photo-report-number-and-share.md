@@ -1,8 +1,8 @@
 # Session 2026-09-08 — the report number, and the link that did not exist
 
-Branch: `claude/sharp-wescoff-5fa42a` · stacked on
-[#1483](https://github.com/jdealtia-sys/nobigdealwithjoedeal.com/pull/1483)
-(`fix/photo-report-render-defects`), which is **still open**.
+Branch: `claude/sharp-wescoff-5fa42a` · PR
+[#1499](https://github.com/jdealtia-sys/nobigdealwithjoedeal.com/pull/1499),
+based on `main`.
 
 Closes open items **1 and 7** of
 [SESSION-2026-09-08-photo-report-builder](SESSION-2026-09-08-photo-report-builder.md),
@@ -10,23 +10,42 @@ which are §9 items 1 and 6 of [NEXT_SESSION-2026-09-09](NEXT_SESSION-2026-09-09
 
 ---
 
-## Why this is stacked, not branched off `main`
+## The base moved mid-session, and that is the process note
 
-Both gaps live in code that #1483 introduced and has not merged.
-`documentation/projects/SESSION-2026-09-08-photo-report-builder.md` does not
-exist on `main`; `_fileReportOnLead` does not exist on `main`. Basing this on
-`main` would have meant writing a share path for a `documents` row that nothing
-writes yet.
+Both gaps live in code [#1483](https://github.com/jdealtia-sys/nobigdealwithjoedeal.com/pull/1483)
+introduced. When this started, #1483 was **open**: `_fileReportOnLead` and the
+builder session note did not exist on `main`, so a `main`-based branch would
+have been writing a share path for a row nothing wrote yet. It was therefore
+built and opened as a **stack on `fix/photo-report-render-defects`**.
 
-Base branch is therefore `fix/photo-report-render-defects`. **`main` has moved
-4 commits ahead of that branch** (floors 101/184 there vs 98/181 here) — #1483
-has to reconcile that when it merges, and this stack inherits the result. Worth
-naming because the first `rev-list --left-right` I ran said `13 0`, i.e. "the
-branch already contains main", and that was wrong: it was measured against a
-ref the fetch in the same command had not yet moved. `merge-base --is-ancestor`
-disagreed a minute later. Same trap as
-[NEXT_SESSION-2026-09-06](NEXT_SESSION-2026-09-06.md)'s diff-against-a-moved-main
-note — check ancestry, not a count you took earlier.
+**#1483 merged at 18:41 UTC, while this work was in flight.** The stacked PR
+went `CONFLICTING` against a base that had moved under it. Because this repo
+**squash-merges**, #1483's eleven commits are in `main` only as content, not
+as ancestry — so a rebase would have replayed all eleven against a tree that
+already had them. The fix was to reset onto `origin/main` and **cherry-pick the
+two commits that are actually mine**, which conflicted in exactly one place: the
+suite-count ratchet.
+
+Two things worth carrying:
+
+- **`git rev-list --left-right --count` lied to me first.** It said `13 0` —
+  "the branch already contains `main`" — and `merge-base --is-ancestor` said the
+  opposite a minute later, because the count was taken against a remote ref the
+  fetch in the same command chain had not yet moved. Same trap as
+  [diff-against-a-moved-main](NEXT_SESSION-2026-09-06.md). **Check ancestry, not
+  a count you took earlier**, and re-check it when the answer matters.
+- **The floors had to be MEASURED again, not carried across.** This branch was
+  written against 98/181 and correctly reported 99/182 there. On the merged tree
+  the true value is **104/187** — arithmetic from the old base would have been
+  wrong twice over, which is precisely the rule `run-test-manifest.js`'s own
+  comment history already states ("MEASURED on the merged tree, not 101+2 by
+  arithmetic").
+
+After the cherry-pick every removed line in the diff against `main` was checked
+individually, because a reset onto a moved base is how you silently revert
+someone else's work: one removed line in the client (the old `reportNumber`
+assignment) and 39 in `functions/report-sharing.js`, all of them mine, all moved
+or rewritten rather than dropped.
 
 ---
 
@@ -205,7 +224,7 @@ return `failed-precondition` is worse than no button.
 ## Testing — 76 assertions, all executed
 
 `tests/photo-report-sharing.test.js`, registered in `tests/ci-manifest.json`,
-floors raised to `{ node: 99, smoke: 65, disk: 182 }`. Nothing is grepped that
+floors measured at `{ node: 104, smoke: 65, disk: 187 }` on the rebased tree. Nothing is grepped that
 could be executed: both client files and the functions module are vm-sandboxed
 and their real functions called. Every one of the interesting failures here
 passes a shape test.
@@ -249,7 +268,7 @@ two real ones, and only the guard reddened.
 
 ### Gates run
 
-`run-test-manifest --check` (182 classified), all **99/99 node suites**,
+`run-test-manifest --check` (187 classified), all **104/104 node suites**,
 `smoke.test.js` **3641 passed / 0 failed**, `marketing-polish-contract` 56,
 `check-js-syntax` 496 files, `check-site-integrity` 243 pages / 0 failures,
 `check-inline-html-scripts` 0 inline scripts, `build-sitemap` zero diff.
