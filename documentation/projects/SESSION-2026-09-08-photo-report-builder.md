@@ -231,8 +231,17 @@ finding.
    silently downgraded a tier-2 pair into a **mislabeled "Project overview"**
    tier-3 pair. One canon now:
    [PHOTO-DAMAGETYPE-VOCABULARY-2026-09-08](../audit/PHOTO-DAMAGETYPE-VOCABULARY-2026-09-08.md).
-5. **Customer-page uploads write no `createdAt`**, so report order for them
-   falls back to arbitrary.
+5. ~~**Customer-page uploads write no `createdAt`**, so report order for them
+   falls back to arbitrary.~~ **CLOSED 2026-09-08** —
+   [PHOTOS-CREATEDAT-WRITER-GAP-2026-09-08](../audit/PHOTOS-CREATEDAT-WRITER-GAP-2026-09-08.md).
+   Bigger than the ordering: `createdAt` is the `orderBy` field of the per-lead
+   gallery and the Recent feed, and Firestore drops docs missing the ordered
+   field, so those photos were **absent from both views**, not merely
+   mis-sorted. Enumerating the writers found a **sixth** path with the same gap
+   — `functions/portal.js` `uploadHomeownerPhoto` — which notifies the rep
+   about a photo its own gallery could not show. Both stamp it now; the
+   comparator and `_dateLabel` share one timestamp chain; a backfill catch-up
+   pass is still owed.
 6. **No measurements section**, though the CRM already pays for the data.
 7. **The report number is `Date.now().toString().slice(-6)`** — unsequenced, and
    it changes on every regeneration.

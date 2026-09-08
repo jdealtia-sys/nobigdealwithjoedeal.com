@@ -6,12 +6,26 @@
  *
  * Background
  * ──────────
- * /photos was historically written by several client paths that set
- * INCONSISTENT timestamp fields:
+ * /photos was historically written by several paths that set INCONSISTENT
+ * timestamp fields:
  *   • photo-engine.js        → capturedAt (number) + uploadedAt (Timestamp)
  *   • dashboard-bootstrap     → createdAt (Timestamp)        [already canonical]
  *   • photo-editor.js (copy)  → annotatedAt only (no create/upload stamp)
  *   • repos.js stampCreate    → createdAt (Timestamp)        [already canonical]
+ *   • customer-bootstrap      → date + uploadedAt (Timestamp)
+ *   • functions/portal.js     → uploadedAt (Timestamp)
+ *
+ * 2026-09-08 — the last two were found still un-stamped long after this
+ * script's first run: the contract test asserted "every write path" but only
+ * enumerated the first four, so nothing caught them. Both stamp createdAt now.
+ * The docs they wrote in the meantime do NOT have one, so this script needs a
+ * SECOND pass. Dry-run first — it is read-only and always allowed, and its
+ * `needed backfill` line is the count. If the earlier run recorded a marker in
+ * system/script_migrations the --apply will refuse with exit 3, and the
+ * catch-up then needs --force; if it ran before the guard existed there is no
+ * marker and --apply proceeds. Either way it is idempotent.
+ * Both shapes carry `uploadedAt`, so deriveCreatedAt below already handles
+ * them via its first branch — no change to the derivation was required.
  *
  * We standardized on `createdAt` as the single ordering field: the Recent
  * photo feed (dashboard-widgets.js) and the per-lead gallery
