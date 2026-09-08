@@ -688,9 +688,30 @@ function nbdEscFn() {
   return window.nbdEsc || function(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]});};
 }
 
+// ── /photos.damageType canon ───────────────────────────────────
+// This page wrote TWO of the four historical damageType vocabularies: the
+// quick-edit popup below (Title Case: 'Hail', 'Flashing', 'Gutter') and the
+// bulk bar in customer.html (kebab: 'granule-loss', 'missing-shingles').
+// Neither matched Review & Sort or the AI classifier, so photos of one peril
+// tagged on different surfaces never grouped in the photo report's
+// before/after pairing. docs/pro/js/photo-damage-types.js owns the fold;
+// resolved per call so a script-order change degrades labels, not the page.
+function _dmgNorm(v) {
+  var D = window.NBD_PHOTO_DAMAGE;
+  return D ? D.normalize(v) : String(v == null ? '' : v).trim();
+}
+function _dmgLabel(v) {
+  var D = window.NBD_PHOTO_DAMAGE;
+  return D ? D.label(v) : String(v == null ? '' : v);
+}
+function _dmgOptions() {
+  var D = window.NBD_PHOTO_DAMAGE;
+  return D ? D.options() : [['hail', 'Hail'], ['wind', 'Wind'], ['leak', 'Leak'], ['other', 'Other']];
+}
+
 function buildPhotoBadges(photo, esc) {
   var badges = '';
-  if (photo.damageType) badges += '<span class="nbd-photo-badge" style="font-size:9px;padding:1px 5px;border-radius:4px;background:color-mix(in srgb, var(--orange) 20%, transparent);color:var(--orange);">' + esc(photo.damageType) + '</span>';
+  if (photo.damageType) badges += '<span class="nbd-photo-badge" style="font-size:9px;padding:1px 5px;border-radius:4px;background:color-mix(in srgb, var(--orange) 20%, transparent);color:var(--orange);">' + esc(_dmgLabel(photo.damageType)) + '</span>';
   if (photo.severity) {
     var sc = photo.severity === 'severe' ? 'var(--red)' : photo.severity === 'moderate' ? 'var(--orange)' : 'var(--gold)';
     badges += '<span class="nbd-photo-badge" style="font-size:9px;padding:1px 5px;border-radius:4px;background:color-mix(in srgb, ' + sc + ' 20%, transparent);color:' + sc + ';text-transform:capitalize;">' + esc(photo.severity) + '</span>';
@@ -923,6 +944,9 @@ window.applyBulkPhotoUpdate = async function(field, rawValue) {
   if (!window.writeBatch || !window.db || !window.doc) return;
   // Sentinel value used by the dropdowns to clear a field.
   var value = rawValue === '__clear__' ? '' : rawValue;
+  // Normalize on write. The bulk bar's option values are canonical ids now,
+  // but a stale cached customer.html would still send the old kebab ones.
+  if (field === 'damageType') value = _dmgNorm(value);
   var ids = Array.from(window._photoSelected);
   var phaseChanged = false;
 
@@ -1119,7 +1143,10 @@ function photoDocToView(id, d) {
     category: d.category || 'Property',
     description: d.description || d.notes || '',
     filename: d.filename || '',
-    damageType: d.damageType || '',
+    // Normalized on read: legacy docs carry any of the four historical
+    // spellings, and every consumer below (badge, quick-edit select,
+    // photo-report pairing) assumes the canonical id.
+    damageType: _dmgNorm(d.damageType),
     severity: d.severity || '',
     location: d.location || '',
     tags: d.tags || [],
@@ -1495,8 +1522,8 @@ window.showPhotoActions = function(idx, event) {
     '<label style="font-size:11px;font-weight:600;color:var(--m);display:block;margin-bottom:4px;">Damage Type</label>' +
     '<select id="qeDamageType" data-change-action="quickSaveMeta" style="width:100%;padding:8px;background:var(--s2,#1e293b);border:1px solid var(--br,#334155);border-radius:6px;color:var(--t);font-size:13px;">' +
     '<option value="">None</option>' +
-    ['Hail','Wind','Leak','Missing Shingle','Cracked Tile','Flashing','Gutter','Soffit/Fascia','Tree Damage','Other'].map(function(t) {
-      return '<option value="' + t + '"' + (photo.damageType === t ? ' selected' : '') + '>' + t + '</option>';
+    _dmgOptions().map(function(o) {
+      return '<option value="' + o[0] + '"' + (_dmgNorm(photo.damageType) === o[0] ? ' selected' : '') + '>' + o[1] + '</option>';
     }).join('') +
     '</select></div>' +
     
@@ -1605,7 +1632,7 @@ window.quickSaveMeta = async function() {
     var phaseTouched = photo._phaseTouched === true;
     var prevPhase = phaseTouched ? photo._phaseWas : photo.phase;
     var updates = {
-      damageType: document.getElementById('qeDamageType')?.value || '',
+      damageType: _dmgNorm(document.getElementById('qeDamageType')?.value),
       severity: photo.severity || '',
       location: document.getElementById('qeLocation')?.value || '',
       description: document.getElementById('qeDescription')?.value || ''

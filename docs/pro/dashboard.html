@@ -4110,7 +4110,13 @@
               <div><label class="eyebrow-9i">Session started</label><div style="font-size:13px;color:var(--t);font-weight:600;" id="accSessionStarted">—</div></div>
             </div>
             <div style="display:flex;gap:8px;margin-top:16px;">
-              <button class="btn btn-red" data-action="signOut">Sign Out Everywhere</button>
+              <!-- Revokes this account's refresh tokens server-side (the
+                   revokeMySessions callable), THEN signs out locally. Not
+                   data-action="signOut" — that is the local-only sign-out the
+                   header and Danger Zone buttons use, and this button claimed
+                   to do more than it did until 2026-09-08. See
+                   js/session-revoke.js. -->
+              <button class="btn btn-red" data-action="call" data-fn="_signOutEverywhere" data-pass-el>Sign Out Everywhere</button>
               <button class="btn btn-ghost fs-11" data-action="reload">Refresh Session</button>
             </div>
           </div>
@@ -5507,6 +5513,13 @@
      be recovered on boot without the rep navigating anywhere. The store is
      the truth; the recovery module waits for auth, pulls in the photos
      bundle, and drains. Both are tiny and touch no DOM at load. -->
+<!-- The ONE vocabulary for /photos.damageType (window.NBD_PHOTO_DAMAGE).
+     Four surfaces wrote this field in four spellings until 2026-09-08, so
+     photos of the same peril tagged in different places never grouped in
+     the photo report's before/after pairing. Dependency-free, no DOM at
+     load, and must precede every photo consumer (including the lazy
+     ScriptLoader 'photos' bundle). See docs/pro/js/photo-damage-types.js. -->
+<script defer src="js/photo-damage-types.js?v=1"></script>
 <script defer src="js/photo-queue-store.js?v=1"></script>
 <script defer src="js/photo-queue-recovery.js?v=1"></script>
 <!-- Canonical two-shape estimate money reader (window.NBDCustomerEstimateRows).
@@ -6479,6 +6492,7 @@
 <!-- Help-icon helper: window.HelpIcon.attach(el, anchor) drops a "?"
      next to any element that opens how-to.html at the right section. -->
 <script defer src="js/help-icon.js?v=1"></script>
+<script defer src="js/session-revoke.js?v=1"></script>
 <!-- LAZY: photo-report (window.generatePhotoReport) loads via ScriptLoader's
      `photos` bundle (PR 2d). The Next Actions "📸 Photo Report" chip calls
      generatePhotoReport through a load-then-run stub (dashboard-actions.js)

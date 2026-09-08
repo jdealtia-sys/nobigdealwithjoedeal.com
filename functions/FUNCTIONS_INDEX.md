@@ -30,6 +30,7 @@ If you add a new export, list it here so the next audit doesn't have to re-deriv
 | `activateInvitedRep` | onCall | Team-invite acceptance (legacy access-code path) |
 | `claimInvite` | onCall | Pillar 1 phase 3 — claim a team invite on first dashboard load (replaces the never-deployable onRepSignup blocking trigger) |
 | `mintOwnerClaims` | onCall | Stamps `{ owner: true, role: 'admin' }` on the founder accounts in `handlers/_shared.js` `OWNER_EMAILS` (the single server-side owner list); called by nbd-auth.js at login when the owner claim is missing |
+| `revokeMySessions` | onCall | Self-service "Sign Out Everywhere" (2026-09-08) — revokes the CALLER's own refresh tokens. Self-scoped by construction: uid comes from the verified token, no target parameter, so it cannot become an admin path. The only caller-scoped revoke in the tree; the five `revokeRefreshTokens` calls in `handlers/admin.js` / `invites.js` / `compliance.js` / `lapse-enforcement.js` are all admins acting on someone else. Rate-limited per-uid + per-IP via `guardCallable` (5/hr, 20/hr). Kills refresh tokens only — an ID token already issued survives up to ~1h, which is why the UI promises "within an hour at most" |
 | `createCompany` | onCall | Pillar 1 phase 2 — self-serve tenant provisioning (companies/{uid} + companyProfile seed + owner claims) |
 | `setSiteSlug` | onCall | Pillar 5 — tenant sets a human slug for their public microsite (validated + reserved-word list) |
 | `createPortalToken` | onCall | Mints a portal-share token for a lead |

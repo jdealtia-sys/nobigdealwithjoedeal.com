@@ -392,6 +392,128 @@ exports.revokePortalToken = onCall(
 // ═══════════════════════════════════════════════════════════════
 // getHomeownerPortalView — homeowner-facing POST → redacted view.
 // ═══════════════════════════════════════════════════════════════
+// ── Project progress (homeowner-facing milestones) ──────────────────
+// Map the rep-side stage key to one of 5 user-friendly milestones
+// homeowners actually understand. Internal stages like
+// "supplement_requested" do not matter to them — they want to know "are we
+// still inspecting" vs "is someone coming to install".
+const HOMEOWNER_PROGRESS = [
+  { key: 'inspected',        label: 'Inspection',     blurb: 'We\'ve looked at your property.' },
+  { key: 'estimate_sent',    label: 'Estimate',       blurb: 'You have a written quote.' },
+  { key: 'contract_signed',  label: 'Contract',       blurb: 'Signed and ready to schedule.' },
+  { key: 'install',          label: 'Installation',   blurb: 'The crew is on the job.' },
+  { key: 'complete',         label: 'Complete',       blurb: 'Project finished — final walkthrough done.' }
+];
+const STAGE_TO_PROGRESS = {
+  // Pre-inspection / contact-only — show "Inspection" as upcoming
+  'new': 'inspected', 'contacted': 'inspected',
+  // Inspection done
+  'inspected': 'inspected',
+  // Insurance pipeline — collapse to "Estimate" once a number is on the table
+  'claim_filed': 'inspected', 'adjuster_meeting_scheduled': 'inspected',
+  'adjuster_inspection_done': 'estimate_sent', 'scope_received': 'estimate_sent',
+  'estimate_submitted': 'estimate_sent', 'supplement_requested': 'estimate_sent',
+  'supplement_approved': 'estimate_sent',
+  // Cash / finance — same idea
+  'estimate_sent_cash': 'estimate_sent', 'negotiating': 'estimate_sent',
+  'prequal_sent': 'estimate_sent', 'loan_approved': 'estimate_sent',
+  // Contract signed
+  'contract_signed': 'contract_signed',
+  // Job phase
+  'job_created': 'contract_signed', 'permit_pulled': 'contract_signed',
+  'materials_ordered': 'contract_signed', 'materials_delivered': 'install',
+  'crew_scheduled': 'install', 'install_in_progress': 'install',
+  'install_complete': 'install',
+  'final_photos': 'complete', 'deductible_collected': 'complete',
+  'final_payment': 'complete', 'closed': 'complete'
+};
+
+// ONE owner for "which milestone is this lead on?".
+//
+// 2026-09-08: this lived inside getHomeownerPortalView while
+// submitCustomerRating carried its own hardcoded literal list —
+// ['final_photos','deductible_collected','final_payment','closed'] — under a
+// comment claiming those were "exactly the stages that map to the
+// 'complete' progress milestone". They were not, in two ways, and both
+// reach a real homeowner:
+//
+//   * A legacy raw display stage ('Complete', 'Closed Won', 'Won', 'Closed')
+//     is not a key in STAGE_TO_PROGRESS, so the view fell through to the
+//     role fallback, stage-roles ALIASed it to 'closed', the role came back
+//     'won', and progressKey became 'complete' — canRate true, card
+//     rendered. The submit gate then compared the RAW stage against its
+//     literal list, missed, and answered 409 "You can rate once the job is
+//     complete." on a job that was complete.
+//   * A tenant CUSTOM stage carrying stageRole 'won' does the same thing.
+//
+// So a homeowner tapped five stars on a finished roof and was told it was
+// not finished. Two gates for one invariant drift; now there is one.
+function progressKeyFor(lead) {
+  const stageKey = (lead && (lead._stageKey || lead.stage)) || 'new';
+  let progressKey = STAGE_TO_PROGRESS[stageKey];
+  if (!progressKey) {
+    // A tenant CUSTOM stage is not in the map — fall back by its semantic
+    // role (persisted on the lead by crm-pipeline moveCard).
+    const _role = require('./stage-roles').roleFor(lead);
+    progressKey = _role === 'won' ? 'complete' : (_role === 'job' ? 'install' : 'inspected');
+  }
+  return progressKey;
+}
+
+// ── Homeowner-upload signed-URL refresh ─────────────────────────────
+// uploadHomeownerPhoto bakes a signed URL into the photo doc with a 7-day
+// expiry (the per-request max). Its own comment predicted the consequence and
+// deferred it: "a future wave will move all rep gallery reads through
+// signImageUrl on demand". Until that wave, the baked URL simply dies — and
+// the first person to see it die is the homeowner, looking at the broken tile
+// where the photo they sent their contractor used to be. The same doc feeds
+// the rep's customer-page gallery, so it breaks on both sides at once.
+//
+// Re-sign lazily: only when the stored expiry is missing or inside the renewal
+// window, so the portal's 30s poll does not mint a new URL every tick. Docs
+// written before urlExpiresAt existed fall back to uploadedAt, and anything
+// older than the 7-day life is treated as stale.
+//
+// Best-effort throughout. getSignedUrl needs roles/iam.serviceAccountTokenCreator
+// on the runtime SA; if that is ever revoked this must degrade to the stale URL
+// rather than blanking a gallery — see the photo-token cutover note.
+const HOMEOWNER_URL_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+const HOMEOWNER_URL_RENEW_MS = 24 * 60 * 60 * 1000; // re-sign inside 24h of death
+
+function _homeownerUrlIsStale(p, nowMs) {
+  const exp = typeof p.urlExpiresAt === 'number'
+    ? p.urlExpiresAt
+    : (p.uploadedAt && p.uploadedAt.toMillis ? p.uploadedAt.toMillis() + HOMEOWNER_URL_TTL_MS : 0);
+  return !exp || exp - nowMs < HOMEOWNER_URL_RENEW_MS;
+}
+
+async function _refreshHomeownerPhotoUrls(docs, nowMs) {
+  const fresh = new Map();
+  const stale = docs.filter((d) => {
+    const p = d.data();
+    return p.source === 'homeowner' && typeof p.path === 'string' && p.path
+      && _homeownerUrlIsStale(p, nowMs);
+  });
+  if (!stale.length) return fresh;
+  await Promise.all(stale.map(async (d) => {
+    try {
+      const expires = nowMs + HOMEOWNER_URL_TTL_MS;
+      const [url] = await getStorage().bucket().file(d.data().path).getSignedUrl({
+        action: 'read', expires,
+      });
+      fresh.set(d.id, url);
+      // Write back so the rep's gallery — which reads the same doc and does
+      // NOT go through here — gets the fresh URL too.
+      await d.ref.update({ url, urlExpiresAt: expires });
+    } catch (e) {
+      // Keep the stale URL. A broken tile is better than a blank gallery, and
+      // far better than a 500 on the whole portal.
+      logger.warn('homeowner photo url refresh failed', { photoId: d.id, err: e && e.message });
+    }
+  }));
+  return fresh;
+}
+
 exports.getHomeownerPortalView = onRequest(
   {
     region: 'us-central1',
@@ -611,52 +733,10 @@ exports.getHomeownerPortalView = onRequest(
       }
     }
 
-    // ── Project progress (homeowner-facing milestones) ────────────────
-    // Map the rep-side stage key to one of 5 user-friendly milestones
-    // homeowners actually understand. Internal stages like
-    // "supplement_requested" or "adjuster_inspection_done" don't matter
-    // to them — they want to know "are we still inspecting" vs "is
-    // someone coming to install."
-    const HOMEOWNER_PROGRESS = [
-      { key: 'inspected',        label: 'Inspection',     blurb: 'We\'ve looked at your property.' },
-      { key: 'estimate_sent',    label: 'Estimate',       blurb: 'You have a written quote.' },
-      { key: 'contract_signed',  label: 'Contract',       blurb: 'Signed and ready to schedule.' },
-      { key: 'install',          label: 'Installation',   blurb: 'The crew is on the job.' },
-      { key: 'complete',         label: 'Complete',       blurb: 'Project finished — final walkthrough done.' }
-    ];
-    const STAGE_TO_PROGRESS = {
-      // Pre-inspection / contact-only — show "Inspection" as upcoming
-      'new': 'inspected', 'contacted': 'inspected',
-      // Inspection done
-      'inspected': 'inspected',
-      // Insurance pipeline — collapse to "Estimate" once a number is on the table
-      'claim_filed': 'inspected', 'adjuster_meeting_scheduled': 'inspected',
-      'adjuster_inspection_done': 'estimate_sent', 'scope_received': 'estimate_sent',
-      'estimate_submitted': 'estimate_sent', 'supplement_requested': 'estimate_sent',
-      'supplement_approved': 'estimate_sent',
-      // Cash / finance — same idea
-      'estimate_sent_cash': 'estimate_sent', 'negotiating': 'estimate_sent',
-      'prequal_sent': 'estimate_sent', 'loan_approved': 'estimate_sent',
-      // Contract signed
-      'contract_signed': 'contract_signed',
-      // Job phase
-      'job_created': 'contract_signed', 'permit_pulled': 'contract_signed',
-      'materials_ordered': 'contract_signed', 'materials_delivered': 'install',
-      'crew_scheduled': 'install', 'install_in_progress': 'install',
-      'install_complete': 'install',
-      'final_photos': 'complete', 'deductible_collected': 'complete',
-      'final_payment': 'complete', 'closed': 'complete'
-    };
-    const stageKey = lead._stageKey || lead.stage || 'new';
-    // A tenant CUSTOM stage won't be in the map above — fall back by its
-    // semantic role (persisted on the lead) so the homeowner bar still reads
-    // right: a custom "won" stage shows Complete, an in-production one shows
-    // Install; anything else defaults to the early Inspection milestone. (Phase 3)
-    let progressKey = STAGE_TO_PROGRESS[stageKey];
-    if (!progressKey) {
-      const _role = require('./stage-roles').roleFor(lead);
-      progressKey = _role === 'won' ? 'complete' : (_role === 'job' ? 'install' : 'inspected');
-    }
+    // Project progress — see progressKeyFor() at module scope. Both this
+    // view and submitCustomerRating resolve through it, so the rating card
+    // can never render on a job whose rating the server will then refuse.
+    const progressKey = progressKeyFor(lead);
     const currentIdx = HOMEOWNER_PROGRESS.findIndex(p => p.key === progressKey);
     const nextStep = currentIdx >= 0 && currentIdx < HOMEOWNER_PROGRESS.length - 1
       ? HOMEOWNER_PROGRESS[currentIdx + 1] : null;
@@ -669,6 +749,10 @@ exports.getHomeownerPortalView = onRequest(
       nextBlurb:     nextStep?.blurb || null,
     };
 
+    // Refresh any homeowner-upload URL that is dead or nearly dead before
+    // it reaches the gallery. Rep-uploaded photos carry permanent variant
+    // URLs in `urls` and are untouched.
+    const _freshUrls = await _refreshHomeownerPhotoUrls(photoSnap.docs, Date.now());
     const view = {
       homeowner: {
         firstName: lead.firstName || '',
@@ -759,7 +843,7 @@ exports.getHomeownerPortalView = onRequest(
         return {
           id: d.id,
           urls: p.urls || null,
-          url:  p.url || null,
+          url:  _freshUrls.get(d.id) || p.url || null,
           phase: p.phase || 'During',
           caption: p.homeownerCaption || ''
         };
@@ -975,6 +1059,10 @@ exports.uploadHomeownerPhoto = onRequest(
         companyId: ownerCompanyId,
         source: 'homeowner',
         url,
+        // When that signed URL dies. Without this the only way to know whether
+        // a baked URL is still good is to try it — and the failure surfaces as
+        // a broken tile in the homeowner's own gallery, not as an error we see.
+        urlExpiresAt: expiresAt,
         path,
         mimeType,
         caption: safeCaption,
@@ -1358,8 +1446,10 @@ exports.submitCustomerRating = onRequest(
         // is client-only; without this a crafted POST could rate a job that
         // isn't done (QA finding). These are exactly the stages that map to the
         // 'complete' progress milestone in the portal view.
-        const sk = lead._stageKey || lead.stage || 'new';
-        if (['final_photos', 'deductible_collected', 'final_payment', 'closed'].indexOf(sk) === -1) {
+        // Same resolver the portal view uses for canRate, so the card the
+        // homeowner sees and the gate that accepts their rating agree by
+        // construction rather than by two lists staying in sync.
+        if (progressKeyFor(lead) !== 'complete') {
           const e = new Error('not-complete'); e._http = 409; e._msg = 'You can rate once the job is complete.'; throw e;
         }
         tx.update(leadRef, {

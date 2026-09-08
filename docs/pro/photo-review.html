@@ -484,6 +484,12 @@
 <script src="js/portal-link-helpers.js?v=1"></script>
 
 <script src="/pro/js/toast.js?v=1"></script>
+<!-- The ONE vocabulary for /photos.damageType (window.NBD_PHOTO_DAMAGE).
+     Classic script on purpose and placed BEFORE the module below: this
+     page writes lowercase snake_case while photo-editor.js and the
+     customer-page popup wrote Title Case, so the fold has to exist by the
+     time photo-review.js builds its picker options at module scope. -->
+<script src="js/photo-damage-types.js?v=1"></script>
 <script type="module" src="js/pages/photo-review.js?v=1"></script>
 </body>
 </html>

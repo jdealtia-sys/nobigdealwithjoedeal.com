@@ -34,6 +34,7 @@ const DOMAINS = [
   './smoke/photo-vision-sanitizer.test.js',  // §3.2 unit tests — real fn calls
   './smoke/receipt-vision-sanitizer.test.js',  // Phase 2 receipt OCR — real fn calls
   './smoke/photo-report-pairs.test.js',      // §3.2 _buildPairs fixture tests
+  './smoke/photo-damage-canon.test.js',      // /photos.damageType fold — real fn calls
   './smoke/maps.test.js',
   './smoke/reports.test.js',
   './smoke/security-guards.test.js',  // Audit #2: webhook-sig / billing-gate / SMS opt-out regression guards

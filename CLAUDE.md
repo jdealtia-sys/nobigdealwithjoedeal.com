@@ -67,6 +67,15 @@ or recon-heavy session **writes its findings back**:
   those paths to `git checkout --`. `git checkout -- $(git diff --name-only)`
   never lists them, because `git diff` drops stat-changed-but-identical
   files.
+- **Never let a `\n` → `\r\n` pass run twice over the same string.** A Node edit
+  script that pre-joins its inserted block with `\r\n` and then re-converts
+  emits `\r\r\n`. Those **lone CR** bytes make git call the file binary
+  (`git ls-files --eol` shows `w/-text`, not `w/crlf`), which turns off EOL
+  normalisation and reports every line as rewritten — 2429/2402 on
+  `customer-tasks-ui.js` for a six-site edit, 2026-09-08. Opposite symptom to
+  the `sed -i` case above (huge diff, not phantom-clean), same class of cause.
+  Build inserted blocks with plain `\n`, convert once at write time, and assert
+  no byte `0x0D` lacks a following `0x0A` before exiting.
 
 ## Pre-push gates (run what your change touches; all cheap)
 

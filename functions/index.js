@@ -18,7 +18,7 @@
  *                             rotateAccessCodes
  *   handlers/auth.js        — onRepSignup, activateInvitedRep,
  *                             provisionE2ETestUser, cleanupE2ETestData,
- *                             mintOwnerClaims
+ *                             mintOwnerClaims, revokeMySessions
  *   handlers/migrations.js  — backfillAnalytics
  *   handlers/integrations.js— integrationStatus, submitPublicLead
  *   handlers/portal.js      — validateAccessCode (the inline access-code
@@ -156,6 +156,10 @@ exports.cleanupE2ETestData   = authHandlers.cleanupE2ETestData;
 // Deployed via the strict pass (NOT skip-listed); this re-export is
 // load-bearing for deploy-by-name, same as every handler above.
 exports.mintOwnerClaims      = authHandlers.mintOwnerClaims;
+// Self-service session revocation — the "Sign Out Everywhere" button's
+// backing callable (2026-09-08). Caller-scoped: revokes the CALLER's own
+// refresh tokens and takes no target parameter.
+exports.revokeMySessions     = authHandlers.revokeMySessions;
 
 // Owner-callable migrations (NOT the versioned admin runner — that
 // stays in functions/migrations/runner.js, re-exported below).
