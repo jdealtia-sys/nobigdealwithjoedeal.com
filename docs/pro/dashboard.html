@@ -5507,6 +5507,13 @@
      be recovered on boot without the rep navigating anywhere. The store is
      the truth; the recovery module waits for auth, pulls in the photos
      bundle, and drains. Both are tiny and touch no DOM at load. -->
+<!-- The ONE vocabulary for /photos.damageType (window.NBD_PHOTO_DAMAGE).
+     Four surfaces wrote this field in four spellings until 2026-09-08, so
+     photos of the same peril tagged in different places never grouped in
+     the photo report's before/after pairing. Dependency-free, no DOM at
+     load, and must precede every photo consumer (including the lazy
+     ScriptLoader 'photos' bundle). See docs/pro/js/photo-damage-types.js. -->
+<script defer src="js/photo-damage-types.js?v=1"></script>
 <script defer src="js/photo-queue-store.js?v=1"></script>
 <script defer src="js/photo-queue-recovery.js?v=1"></script>
 <!-- Canonical two-shape estimate money reader (window.NBDCustomerEstimateRows).

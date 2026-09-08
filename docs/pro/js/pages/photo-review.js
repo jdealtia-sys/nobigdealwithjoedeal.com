@@ -134,8 +134,25 @@ function phaseOf(photo) {
 function locationOf(photo) {
   return photo.location || (photo.inferredLocation && photo.inferredLocation.label) || '';
 }
+// ── /photos.damageType canon ──────────────────────────────────────
+// This page and functions/photo-vision.js write lowercase snake_case;
+// photo-editor.js and the customer-page quick-edit popup wrote Title
+// Case, and the customer.html bulk bar wrote kebab-case. Same docs, four
+// spellings. docs/pro/js/photo-damage-types.js folds them; it is a
+// classic script loaded before this module in photo-review.html, so the
+// global is present by the time this module evaluates. The fallbacks
+// keep the page usable (unlabeled, unfolded) if it ever is not.
+function dmgNorm(v) {
+  const D = window.NBD_PHOTO_DAMAGE;
+  return D ? D.normalize(v) : String(v == null ? '' : v).trim().toLowerCase();
+}
+function dmgLabel(v) {
+  const D = window.NBD_PHOTO_DAMAGE;
+  return D ? D.label(v) : String(v == null ? '' : v);
+}
+
 function damageOf(photo) {
-  return photo.damageType || (photo.aiSuggestion && photo.aiSuggestion.damageType) || '';
+  return dmgNorm(photo.damageType || (photo.aiSuggestion && photo.aiSuggestion.damageType));
 }
 function severityOf(photo) {
   return photo.severity || (photo.aiSuggestion && photo.aiSuggestion.severity) || '';
@@ -154,11 +171,13 @@ function chipState(photo, field) {
   // 'overridden' = photo.<field> set, AI suggested differently
   // 'suggested'  = AI suggested but rep hasn't accepted
   // 'empty'      = no value either way
-  const ai = photo.aiSuggestion ? photo.aiSuggestion[field] : null;
+  let ai = photo.aiSuggestion ? photo.aiSuggestion[field] : null;
   let manual;
   if      (field === 'phase')      manual = photo.phase;
   else if (field === 'location')   manual = photo.location;
-  else if (field === 'damageType') manual = photo.damageType;
+  // Both sides folded: a rep who picked 'Hail' in photo-editor.js over an
+  // AI 'hail' suggestion was scored 'overridden' for agreeing with it.
+  else if (field === 'damageType') { manual = dmgNorm(photo.damageType); ai = dmgNorm(ai); }
   else if (field === 'severity')   manual = photo.severity;
   if (manual && ai && manual === ai) return 'accepted';
   if (manual && ai && manual !== ai) return 'overridden';
@@ -169,7 +188,7 @@ function chipState(photo, field) {
 function chipValue(photo, field) {
   if      (field === 'phase')      return photo.phase      || (photo.aiSuggestion && photo.aiSuggestion.phase);
   else if (field === 'location')   return photo.location   || (photo.inferredLocation && photo.inferredLocation.label);
-  else if (field === 'damageType') return photo.damageType || (photo.aiSuggestion && photo.aiSuggestion.damageType);
+  else if (field === 'damageType') return dmgNorm(photo.damageType || (photo.aiSuggestion && photo.aiSuggestion.damageType));
   else if (field === 'severity')   return photo.severity   || (photo.aiSuggestion && photo.aiSuggestion.severity);
   return '';
 }
@@ -184,7 +203,11 @@ function confLevel(photo) {
 // Field option dictionaries — used by picker + bulk bar
 const FIELD_OPTIONS = {
   phase:      [['Before','Before'],['During','During'],['After','After']],
-  damageType: [['hail','Hail'],['wind','Wind'],['wear','Wear'],['granular_loss','Granular Loss'],['leak','Leak'],['none','None'],['other','Other']],
+  // Sourced from the shared canon so this picker, photo-editor.js and the
+  // customer-page quick-edit offer ONE vocabulary. Literal fallback covers
+  // the shared script failing to load.
+  damageType: (window.NBD_PHOTO_DAMAGE && window.NBD_PHOTO_DAMAGE.options())
+    || [['hail','Hail'],['wind','Wind'],['wear','Wear'],['granular_loss','Granular loss'],['leak','Leak'],['none','No damage'],['other','Other']],
   severity:   [['minor','Minor'],['moderate','Moderate'],['severe','Severe']],
   // Audit 2026-06-10: every tile renders a "+ Location" chip, but with no
   // entry here its picker opened with zero options — the chip could clear or
@@ -386,7 +409,7 @@ async function handleChipTap(photoId, field) {
     // Accept the AI suggestion
     const value = photo.aiSuggestion[field];
     await updatePhotoField(photoId, field, value);
-    showToast('Accepted ' + FIELD_TITLE[field] + ': ' + value);
+    showToast('Accepted ' + FIELD_TITLE[field] + ': ' + (field === 'damageType' ? dmgLabel(value) : value));
   } else if (stateNow === 'empty') {
     // No suggestion — open picker
     openPicker(field, photoId);
@@ -399,7 +422,9 @@ async function handleChipTap(photoId, field) {
 async function updatePhotoField(photoId, field, value) {
   try {
     const patch = {};
-    patch[field] = value;
+    // Normalize on write. `null` is the picker's explicit clear sentinel and
+    // must survive as null, so only fold real values.
+    patch[field] = (field === 'damageType' && value != null) ? dmgNorm(value) : value;
     patch.updatedAt = serverTimestamp();
     await updateDoc(doc(db, 'photos', photoId), patch);
   } catch (e) {
@@ -545,9 +570,10 @@ async function applyPickerChoice(value) {
   // Batch update for bulk
   try {
     const batch = writeBatch(db);
+    const writeValue = (field === 'damageType' && value != null) ? dmgNorm(value) : value;
     for (const id of ids) {
       const patch = {};
-      patch[field] = value;
+      patch[field] = writeValue;
       patch.updatedAt = serverTimestamp();
       batch.update(doc(db, 'photos', id), patch);
     }

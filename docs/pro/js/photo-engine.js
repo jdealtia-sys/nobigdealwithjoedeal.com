@@ -77,6 +77,13 @@
   // crm-leads.js — a fragile undeclared cross-module dependency that would throw
   // ReferenceError on any page that loads PhotoEngine without crm-leads. Define
   // it locally so escaping is self-contained.
+  // Humanizes the AI's snake_case damageType ('granular_loss' → 'Granular
+  // loss') via the shared canon in docs/pro/js/photo-damage-types.js; the
+  // chip used to render the raw enum. Resolved per call, raw-value fallback.
+  const dmgLabel = (v) => {
+    const D = window.NBD_PHOTO_DAMAGE;
+    return D ? D.label(v) : String(v == null ? '' : v);
+  };
   const escHtml = (s) => String(s == null ? '' : s)
     .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
@@ -2020,9 +2027,9 @@
             </div>
             ${photo.aiSuggestion && photo.aiSuggestion.damageType ? `
               <span class="pe-ai-chip"
-                title="AI suggested: ${escHtml(photo.aiSuggestion.damageType)}${photo.aiSuggestion.confidence ? ' · ' + Math.round(photo.aiSuggestion.confidence*100) + '% confidence' : ''}">
+                title="AI suggested: ${escHtml(dmgLabel(photo.aiSuggestion.damageType))}${photo.aiSuggestion.confidence ? ' · ' + Math.round(photo.aiSuggestion.confidence*100) + '% confidence' : ''}">
                 <span class="pe-ai-chip-dot" aria-hidden="true"></span>
-                ${escHtml(photo.aiSuggestion.damageType)}${photo.aiSuggestion.confidence ? ' · ' + Math.round(photo.aiSuggestion.confidence*100) + '%' : ''}
+                ${escHtml(dmgLabel(photo.aiSuggestion.damageType))}${photo.aiSuggestion.confidence ? ' · ' + Math.round(photo.aiSuggestion.confidence*100) + '%' : ''}
               </span>
             ` : ''}
           </div>

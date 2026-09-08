@@ -53,6 +53,13 @@
      on a Firestore round-trip. See docs/pro/js/idb-cache.js. -->
 <script defer src="js/idb-cache.js?v=1"></script>
 <script defer src="js/standalone-compat.js"></script>
+<!-- The ONE vocabulary for /photos.damageType (window.NBD_PHOTO_DAMAGE).
+     Four surfaces wrote this field in four spellings until 2026-09-08, so
+     photos of the same peril tagged in different places never grouped in
+     the photo report's before/after pairing. Dependency-free, no DOM at
+     load, and must precede every photo consumer (including the lazy
+     ScriptLoader 'photos' bundle). See docs/pro/js/photo-damage-types.js. -->
+<script defer src="js/photo-damage-types.js?v=1"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800&family=Barlow:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -1662,10 +1669,10 @@ body.nbd-photo-selecting .nbd-photo-checkbox,
             <option value="">Set damage…</option>
             <option value="hail">Hail</option>
             <option value="wind">Wind</option>
-            <option value="missing-shingles">Missing shingles</option>
+            <option value="missing_shingle">Missing shingle</option>
             <option value="leak">Leak</option>
-            <option value="granule-loss">Granule loss</option>
-            <option value="lifted-shingles">Lifted shingles</option>
+            <option value="granular_loss">Granular loss</option>
+            <option value="lifted_shingle">Lifted shingle</option>
             <option value="other">Other</option>
             <option value="__clear__">— Clear —</option>
           </select>
