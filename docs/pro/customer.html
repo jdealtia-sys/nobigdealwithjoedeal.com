@@ -2315,27 +2315,61 @@ body.nbd-photo-selecting .nbd-photo-checkbox,
     <div style="display:flex;align-items:start;justify-content:space-between;margin-bottom:18px;">
       <div>
         <div style="font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--orange);">Photo Report</div>
-        <div style="font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:800;color:var(--t);margin-top:2px;">Pick a style</div>
+        <div style="font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:800;color:var(--t);margin-top:2px;">Build the report</div>
       </div>
       <button data-action="closePhotoReportPicker" style="background:none;border:none;color:var(--m);font-size:22px;cursor:pointer;padding:4px 8px;line-height:1;">×</button>
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
-      <button data-action="pickPhotoReport" data-arg="homeowner" class="prp-card" style="text-align:left;background:var(--s2);border:1px solid var(--br);border-radius:12px;padding:18px;cursor:pointer;color:var(--t);font-family:inherit;transition:border-color .15s,transform .08s;">
+      <button type="button" class="prp-card" data-prp-preset="homeowner" style="text-align:left;background:var(--s2);border:1px solid var(--br);border-radius:12px;padding:18px;cursor:pointer;color:var(--t);font-family:inherit;transition:border-color .15s,transform .08s;">
         <div style="font-size:28px;margin-bottom:10px;">👋</div>
         <div style="font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:800;color:var(--t);margin-bottom:6px;">Homeowner</div>
         <div style="font-size:12px;color:var(--m);line-height:1.45;">Visual story · friendly captions · before/after focus. The PDF you email the homeowner.</div>
       </button>
-      <button data-action="pickPhotoReport" data-arg="adjuster" class="prp-card" style="text-align:left;background:var(--s2);border:1px solid var(--br);border-radius:12px;padding:18px;cursor:pointer;color:var(--t);font-family:inherit;transition:border-color .15s,transform .08s;">
+      <button type="button" class="prp-card" data-prp-preset="adjuster" style="text-align:left;background:var(--s2);border:1px solid var(--br);border-radius:12px;padding:18px;cursor:pointer;color:var(--t);font-family:inherit;transition:border-color .15s,transform .08s;">
         <div style="font-size:28px;margin-bottom:10px;">📋</div>
         <div style="font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:800;color:var(--t);margin-bottom:6px;">Adjuster</div>
-        <div style="font-size:12px;color:var(--m);line-height:1.45;">Dense metadata · damage summary · numbered photos for supplements. The PDF you attach to a claim.</div>
+        <div style="font-size:12px;color:var(--m);line-height:1.45;">Dense metadata · numbered photos · capture dates. The PDF you attach to a claim.</div>
       </button>
+    </div>
+
+    <!-- D-6 builder. Rendered by customer-photo-report-picker.js rather than
+         hand-written here: the control set is derived from REPORT_DEFAULTS in
+         photo-report.js, so generating it keeps the two from drifting the way
+         the old picker's "numbered photos for supplements" copy drifted from a
+         server template that emitted no numbers at all. -->
+    <div id="prpBuilder" hidden></div>
+
+    <div style="display:flex;gap:10px;justify-content:flex-end;align-items:center;margin-top:18px;">
+      <button type="button" id="prpToggle" class="btn" style="margin-right:auto;background:none;border:1px solid var(--br);color:var(--m);font-size:12px;padding:8px 14px;border-radius:8px;cursor:pointer;">Customize…</button>
+      <button type="button" id="prpCancel" class="btn" style="background:none;border:1px solid var(--br);color:var(--m);font-size:13px;padding:9px 16px;border-radius:8px;cursor:pointer;">Cancel</button>
+      <button type="button" id="prpGenerate" class="btn btn-orange" style="font-size:13px;padding:9px 20px;border-radius:8px;cursor:pointer;">Generate</button>
     </div>
   </div>
 </div>
 <style>
   #photoReportPicker .prp-card:hover { border-color: var(--orange) !important; transform: translateY(-1px); }
   #photoReportPicker .prp-card:active { transform: scale(.98); }
+  #photoReportPicker .prp-card[aria-pressed="true"] { border-color: var(--orange) !important; box-shadow: 0 0 0 1px var(--orange) inset; }
+  #prpBuilder { margin-top: 18px; border-top: 1px solid var(--br); padding-top: 16px; max-height: 46vh; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+  #prpBuilder .prp-group { margin-bottom: 16px; }
+  #prpBuilder .prp-legend { font-family:'Barlow Condensed',sans-serif; font-size:11px; font-weight:700; letter-spacing:.14em; text-transform:uppercase; color:var(--orange); margin-bottom:8px; }
+  #prpBuilder .prp-row { display:flex; align-items:center; gap:10px; margin-bottom:8px; flex-wrap:wrap; }
+  #prpBuilder .prp-label { font-size:12px; color:var(--m); min-width:84px; }
+  #prpBuilder .prp-seg { display:inline-flex; border:1px solid var(--br); border-radius:8px; overflow:hidden; }
+  #prpBuilder .prp-seg button { background:var(--s2); border:none; border-right:1px solid var(--br); color:var(--m); font:inherit; font-size:12px; padding:6px 11px; cursor:pointer; }
+  #prpBuilder .prp-seg button:last-child { border-right:none; }
+  #prpBuilder .prp-seg button[aria-pressed="true"] { background:var(--orange); color:#fff; }
+  #prpBuilder .prp-check { display:inline-flex; align-items:center; gap:6px; font-size:12px; color:var(--t); cursor:pointer; }
+  #prpBuilder textarea, #prpBuilder input[type="text"] {
+    width:100%; box-sizing:border-box; padding:8px 10px; background:var(--s); border:1px solid var(--br);
+    border-radius:6px; color:var(--t); font-family:inherit; font-size:13px; line-height:1.5; resize:vertical;
+  }
+  #prpBuilder .prp-sec { border:1px solid var(--br); border-radius:8px; padding:10px; margin-bottom:8px; background:var(--s2); }
+  #prpBuilder .prp-sec-head { display:flex; align-items:center; gap:8px; }
+  #prpBuilder .prp-sec-head input[type="text"] { flex:1; }
+  #prpBuilder .prp-move { background:none; border:1px solid var(--br); color:var(--m); border-radius:6px; width:26px; height:26px; cursor:pointer; font-size:12px; line-height:1; }
+  #prpBuilder .prp-move[disabled] { opacity:.35; cursor:default; }
+  #prpBuilder .prp-count { font-size:11px; color:var(--m); white-space:nowrap; }
 </style>
 <script defer src="js/customer-photo-report-picker.js?v=1"></script>
 

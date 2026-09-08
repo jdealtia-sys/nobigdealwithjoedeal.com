@@ -279,6 +279,66 @@ console.log('\n4. Template output');
     R._loadTemplateCss('warranty') === '');
 }
 
+// ══ 5. The builder UI and the contract it targets ═════════════════
+console.log('\n5. Builder UI ↔ option contract');
+{
+  const PICKER = read('docs/pro/js/customer-photo-report-picker.js');
+
+  // THE drift risk. The old picker's card copy promised "numbered photos for
+  // supplements" while the server template emitted no numbers at all — a
+  // control surface and a renderer written apart, with nothing tying them
+  // together. Every key the builder offers must be a key the report honours.
+  const offered = [...PICKER.matchAll(/\{ key: '([a-zA-Z]+)'/g)].map((m) => m[1]);
+  const noteKeys = ['coverLetter', 'summaryBody', 'closing'];
+  const known = Object.keys(optionsFor('homeowner'));
+  const unknown = offered.filter((k) => known.indexOf(k) < 0 && noteKeys.indexOf(k) < 0);
+  ok('every control the builder offers maps to a real option',
+    unknown.length === 0, 'orphaned: ' + unknown.join(', '));
+  ok('the builder offers a meaningful share of the contract',
+    offered.filter((k) => known.indexOf(k) >= 0).length >= 12,
+    'only ' + offered.filter((k) => known.indexOf(k) >= 0).length + ' mapped');
+
+  // Segmented values must be values the contract accepts, or a rep clicks a
+  // button and silently gets the default back.
+  // Each control is one line, so read the line rather than trying to balance
+  // the nested [value, label] pairs with a regex.
+  const lineFor = (key) => (PICKER.split('\n').find((l) => l.indexOf("key: '" + key + "'") >= 0) || '');
+  ok('the style control offers exactly the three real densities',
+    ['comfortable', 'compact', 'evidence'].every((d) => lineFor('density').indexOf("'" + d + "'") >= 0),
+    lineFor('density').trim().slice(0, 90));
+  ok('the numbering control offers exactly the three real modes',
+    ['continuous', 'section', 'none'].every((n) => lineFor('numbering').indexOf("'" + n + "'") >= 0),
+    lineFor('numbering').trim().slice(0, 90));
+  ok('the cover control offers exactly the three real styles',
+    ['hero', 'minimal', 'none'].every((c) => lineFor('cover').indexOf("'" + c + "'") >= 0));
+  ok('the signature control offers exactly the four real values',
+    ['none', 'homeowner', 'adjuster', 'both'].every((s) => lineFor('signature').indexOf("'" + s + "'") >= 0));
+
+  // CSP: /pro ships script-src-attr 'none'. An on* attribute here is silently
+  // dead — no error, just a control that does nothing.
+  ok('the builder ships no inline event handlers',
+    !/\son[a-z]+\s*=/.test(PICKER.replace(/'[^']*'/g, "''").replace(/"[^"]*"/g, '""')));
+  ok('it wires everything with addEventListener', /addEventListener\(/.test(PICKER));
+
+  // generatePhotoReport must accept the third argument the builder sends.
+  ok('generatePhotoReport takes the build object',
+    /function generatePhotoReport\(leadId, mode, build\)/.test(PHOTO_REPORT));
+  ok('the builder passes it through', /generatePhotoReport\(window\._customerId, mode, build\)/.test(PICKER));
+
+  // The markup the builder drives has to exist on the page it lives on.
+  const CUSTOMER = read('docs/pro/customer.html');
+  ['prpBuilder', 'prpGenerate', 'prpToggle', 'prpCancel'].forEach((id) => {
+    ok('customer.html carries #' + id, CUSTOMER.indexOf('id="' + id + '"') >= 0);
+  });
+  ok('both presets are present',
+    /data-prp-preset="homeowner"/.test(CUSTOMER) && /data-prp-preset="adjuster"/.test(CUSTOMER));
+  // The old two-button markup dispatched through the global data-action
+  // delegate; the builder binds its own listeners, so a leftover data-action
+  // would fire generate twice.
+  ok('the preset cards no longer double-dispatch through data-action',
+    !/data-action="pickPhotoReport"/.test(CUSTOMER));
+}
+
 console.log('\n' + (failed === 0
   ? 'PASS — ' + passed + ' assertions'
   : 'FAIL — ' + failed + ' of ' + (passed + failed) + ': ' + fails.join('; ')));
