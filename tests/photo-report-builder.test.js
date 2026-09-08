@@ -382,6 +382,47 @@ console.log('\n6. Reach');
     !/location(?:\.href)?\s*=\s*["'][a-z0-9_-]+\.html/.test(chip));
 }
 
+// ══ 7. The report is recorded ═════════════════════════════════════
+console.log('\n7. Filed on the lead');
+{
+  const code = decommentJs(PHOTO_REPORT);
+
+  // This module contained ZERO Firestore writes. A photo report existed only
+  // as a browser tab and a file in the rep's Downloads folder — no history, no
+  // re-download, nothing for a share link to point at — while every other
+  // document producer in the CRM files a row.
+  ok('a rendered report is written to leads/{id}/documents',
+    /collection\(window\.db, 'leads', leadId, 'documents'\)/.test(code));
+  ok('it is tagged so the Documents tab can tell it apart',
+    /source: 'photo_report'/.test(code));
+  ok('it records the options the rep chose, so it can be regenerated',
+    /reportOptions: rec\.options/.test(code));
+
+  // render-pdf.js returns a 7-day signed URL where IAM signBlob is reachable
+  // and a download-token URL where it is not, so the recorded link can go dead.
+  // The storage path does not.
+  ok('it records storagePath alongside the (possibly expiring) url',
+    /storagePath: rec\.storagePath/.test(code) && /url: rec\.url/.test(code));
+
+  // firestore.rules:380 allows WRITE on that subcollection only to the lead's
+  // owner. A manager can now reach the report but cannot file it, and a
+  // finished PDF must not be reported as a failure.
+  // Read the decommented source: the explanatory comment between the catch and
+  // the warn is long, and a distance-bounded match against the raw file would
+  // be measuring comment length rather than code structure.
+  ok('filing cannot fail the render',
+    /catch \(e\) \{[\s\S]{0,200}could not file the report on the lead/.test(code));
+  ok('and it is fired without being awaited by the render path',
+    /^\s*_fileReportOnLead\(lead\.id,/m.test(code));
+
+  const RULES = read('firestore.rules');
+  ok('the owner-only write rule this depends on is still there',
+    /match \/documents\/\{documentId\}[\s\S]{0,400}allow write: if isAuth\(\)[\s\S]{0,120}isOwner/.test(RULES));
+
+  ok('the documents list is refreshed so the row appears without a reload',
+    /NBDCustomerDocs\.refresh\(\)/.test(code));
+}
+
 console.log('\n' + (failed === 0
   ? 'PASS — ' + passed + ' assertions'
   : 'FAIL — ' + failed + ' of ' + (passed + failed) + ': ' + fails.join('; ')));

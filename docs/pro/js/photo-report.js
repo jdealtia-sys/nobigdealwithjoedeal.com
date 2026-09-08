@@ -1138,6 +1138,63 @@
     return sections;
   }
 
+  /**
+   * Record a rendered report on leads/{leadId}/documents.
+   *
+   * Shape matches customer-signed-doc-upload.js:49 so the Documents tab paints
+   * it with no special case — customer-documents.js reads that subcollection
+   * and is the list a rep actually looks at.
+   *
+   * `storagePath` is stored alongside `url` on purpose. render-pdf.js returns a
+   * 7-day signed URL where the compute SA can reach IAM signBlob, and a
+   * never-expiring download-token URL where it cannot (render-pdf.js:500-518),
+   * so the recorded link may go dead after a week. The path does not, which is
+   * what a future re-sign or a share link needs.
+   *
+   * `reportOptions` records what the rep chose, so the same document can be
+   * regenerated later instead of rebuilt from memory.
+   *
+   * Never throws — see the caller.
+   */
+  async function _fileReportOnLead(leadId, rec) {
+    try {
+      if (!leadId || !window.addDoc || !window.collection || !window.db) return;
+      const uid = (window._user && window._user.uid) || null;
+      await window.addDoc(window.collection(window.db, 'leads', leadId, 'documents'), {
+        name: rec.name,
+        url: rec.url,
+        storagePath: rec.storagePath || '',
+        type: 'application/pdf',
+        size: rec.bytes || 0,
+        uploadedAt: window.serverTimestamp ? window.serverTimestamp() : null,
+        uploadedBy: uid,
+        source: 'photo_report',
+        reportMode: rec.mode,
+        reportNumber: rec.reportNumber || '',
+        reportOptions: rec.options || null,
+      });
+      // Two refreshes for the same reason logGeneratedDoc does it
+      // (customer-tasks-ui.js:2261): the write and the list read race, and both
+      // are idempotent.
+      if (window.NBDCustomerDocs && typeof window.NBDCustomerDocs.refresh === 'function') {
+        window.NBDCustomerDocs.refresh();
+        setTimeout(function () { window.NBDCustomerDocs.refresh(); }, 2500);
+      }
+    } catch (e) {
+      // Filing is a bonus on top of a report the rep already has, so this is
+      // warn-and-continue rather than an error.
+      //
+      // The expected denial is specific and worth naming: firestore.rules:380
+      // allows WRITE on leads/{id}/documents only to the lead's owner, while
+      // READ also admits a company reader (parentLeadInMyCompany). So a manager
+      // generating a report on a teammate's lead — which this session just made
+      // possible by fixing the photo query scope — gets the PDF and no filed
+      // row. Widening that rule is a rules change with its own blast radius,
+      // not a rider on this one.
+      console.warn('[photo-report] could not file the report on the lead:', e && e.message);
+    }
+  }
+
   // ═════════════════════════════════════════════════════════
   // D-4: Server-side photo-report render
   // ═════════════════════════════════════════════════════════
@@ -1342,6 +1399,26 @@
     const r = await fn({ template: 'photoReport', payload, filename });
     const data = r && r.data;
     if (!data || !data.ok || !data.url) throw new Error('Render returned no URL');
+
+    // File it on the lead. This module contained ZERO Firestore writes: a photo
+    // report existed only as a browser tab and a file in the rep's Downloads
+    // folder. Nothing recorded that it was made, so there was no history, no
+    // re-download, and nothing for a share link to ever point at — while every
+    // other document producer in the CRM files a row
+    // (customer-signed-doc-upload.js:49 is the canonical shape).
+    //
+    // Deliberately after the viewer opens and never fatal: the PDF already
+    // rendered and is in front of the rep, so a rules denial on the documents
+    // subcollection must not turn a finished report into an error.
+    _fileReportOnLead(lead.id, {
+      name: data.filename || filename,
+      url: data.url,
+      storagePath: data.path || '',
+      bytes: data.bytes || 0,
+      mode: mode,
+      reportNumber: reportNumber,
+      options: O,
+    });
 
     if (window.NBDDocViewer && typeof window.NBDDocViewer.open === 'function') {
       window.NBDDocViewer.open({
