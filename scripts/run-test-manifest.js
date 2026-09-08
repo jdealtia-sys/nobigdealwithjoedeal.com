@@ -89,10 +89,10 @@ const RUNNABLE = ['node', 'smoke'];
 // check until the floor moves with it in the same commit. That is the point,
 // not a nuisance — the error prints the exact literal to paste, and this
 // 2026-09-07 entry should be the last of its kind.
-//   2026-09-08  three portal branches each raised these; this is the value
+//   2026-09-08  four portal branches each raised these; this is the value
 //               MEASURED after all of them landed, not any one branch's
 //               delta added to another's.
-const FLOORS = { node: 100, smoke: 65, disk: 183 };
+const FLOORS = { node: 101, smoke: 65, disk: 184 };
 
 // ── Argument parsing ───────────────────────────────────────────────
 const argv = process.argv.slice(2);
