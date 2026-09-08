@@ -100,7 +100,14 @@ const RUNNABLE = ['node', 'smoke'];
 //               both sides on the SAME literal by coincidence — which is the
 //               strongest argument for measuring rather than reasoning, since
 //               a matching number is not evidence the count is right.
-const FLOORS = { node: 102, smoke: 65, disk: 185 };
+//   2026-09-08  +2 from the photo-report lane (#1483). MEASURED on the merged
+//               tree, not 101+2 by arithmetic — same rule as above.
+//   2026-09-08  nav + photo-report merged. FOURTH collision on this line in
+//               one afternoon; every one was two branches raising it
+//               independently. MEASURED on the merged tree via --check, which
+//               prints the literal to paste — the only reliable way to set it
+//               when `main` moves this often.
+const FLOORS = { node: 104, smoke: 65, disk: 187 };
 
 // ── Argument parsing ───────────────────────────────────────────────
 const argv = process.argv.slice(2);

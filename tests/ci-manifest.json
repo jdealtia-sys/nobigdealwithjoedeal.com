@@ -111,7 +111,9 @@
     "customer-jump-nav-order.test.js",
     "customer-keyboard-actions.test.js",
     "customer-a11y-structure.test.js",
-    "nav-contract.test.js"
+    "nav-contract.test.js",
+    "photo-report-output-contract.test.js",
+    "photo-report-builder.test.js"
   ],
   "smoke": {
     "team-roles.test.js": [

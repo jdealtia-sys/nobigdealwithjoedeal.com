@@ -1,0 +1,186 @@
+/*
+ * photoReport.css — per-template overrides for the photo report.
+ * Loaded by render-pdf.js loadTemplateCss('photoReport') into the
+ * {{{templateCss}}} slot in _layout.hbs, so it lands AFTER design-system.css
+ * and wins on equal specificity.
+ *
+ * Everything here is either (a) a block design-system.css has no vocabulary
+ * for — photo numbers, rep-authored prose, the contents list — or (b) a
+ * density preset. Tokens come from design-system.css; no hex is re-declared.
+ */
+
+/* ── Photo number chips ────────────────────────────────────────────
+   An adjuster narrative cites "Photo 7", so the number has to sit ON the
+   image, survive a crop, and stay legible against any photo. Brand orange so
+   it reads as chrome rather than as something in the picture.
+
+   The number takes the top-LEFT corner and pushes the location tag to the
+   top-RIGHT. design-system.css pins .photo-tag to top:6pt/left:6pt, which is
+   the same corner — with both present they printed stacked on top of each
+   other, the number showing through the tag's 78%-opaque ground. The number
+   wins the corner because it is the thing the narrative cites. */
+.photo-cell .photo-frame { position: relative; }
+.photo-cell .pr-num {
+  position: absolute;
+  top: 0; left: 0;
+  z-index: 2;
+  background: var(--nbd-orange);
+  color: #fff;
+  font-family: 'Barlow Condensed', sans-serif;
+  font-weight: 800;
+  font-size: 8pt;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 2pt 7pt;
+  border-bottom-right-radius: 3pt;
+}
+/* Only displaced when a number is actually present — a report with numbering
+   off keeps the design system's top-left tag exactly as it was. */
+.photo-cell .pr-num ~ .photo-tag {
+  left: auto;
+  right: 6pt;
+}
+
+/* Per-tile footer row — severity badge and capture date share a baseline. */
+.photo-cell .pr-tile-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6pt;
+  margin-top: 3pt;
+  min-height: 0;
+}
+.photo-cell .pr-date {
+  font-size: 7.5pt;
+  color: var(--nbd-ink-muted);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* ── Rep-authored prose ────────────────────────────────────────────
+   Cover letter, section notes and the closing block. Measured line length
+   and real paragraph spacing — this is the only running prose in the
+   document and it should read like a letter, not like a caption. */
+.pr-prose p, .pr-letter p {
+  line-height: 1.65;
+  margin-bottom: var(--s-3);
+  orphans: 3;
+  widows: 3;
+}
+.pr-prose p:last-child, .pr-letter p:last-child { margin-bottom: 0; }
+.pr-letter {
+  max-width: 34em;
+  font-size: 11.5pt;
+  margin-top: var(--s-3);
+}
+/* A section note is the rep talking, so it gets the brand rule to separate it
+   from the template's own descriptive blurb directly above it. */
+.pr-note {
+  border-left: 2pt solid var(--nbd-orange-line);
+  padding: 2pt 0 2pt var(--s-3);
+  margin-bottom: var(--s-4);
+  font-size: 10.5pt;
+}
+.pr-pair-caption {
+  font-size: 9.5pt;
+  color: var(--nbd-ink-soft);
+  padding-top: 3pt;
+  line-height: 1.5;
+}
+
+/* ── Contents ──────────────────────────────────────────────────────
+   Dot leaders drawn with a repeating gradient rather than a row of literal
+   periods, so they scale with the row and never wrap. */
+.pr-toc { margin-top: var(--s-3); }
+.pr-toc-row {
+  display: flex;
+  align-items: baseline;
+  gap: 6pt;
+  padding: 4pt 0;
+  border-bottom: 0.5pt solid var(--nbd-rule);
+  break-inside: avoid;
+}
+.pr-toc-title {
+  font-family: 'Barlow', sans-serif;
+  font-weight: 600;
+  font-size: 11pt;
+  color: var(--nbd-ink);
+  white-space: nowrap;
+}
+.pr-toc-dots {
+  flex: 1;
+  align-self: center;
+  height: 1px;
+  background-image: radial-gradient(circle, var(--nbd-rule) 0.5pt, transparent 0.5pt);
+  background-size: 4pt 1px;
+  background-repeat: repeat-x;
+}
+.pr-toc-count {
+  font-size: 9.5pt;
+  color: var(--nbd-ink-muted);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.pr-toc-note {
+  font-size: 9pt;
+  color: var(--nbd-ink-muted);
+  padding: 2pt 0 5pt;
+  line-height: 1.45;
+}
+
+/* ── Grid widths the design system does not define ─────────────── */
+.photo-grid.one  { grid-template-columns: 1fr; }
+.photo-grid.four { grid-template-columns: repeat(4, 1fr); }
+/* A single-column layout is chosen to make photos BIG, so the frame should
+   not stay locked to the two-up aspect ratio. */
+.photo-grid.one .photo-frame { aspect-ratio: 3 / 2; }
+
+/* Letterbox instead of crop. `object-fit: cover` is the default because it
+   makes a tidy grid, but it silently eats the top of a chimney or the ends of
+   a roofline; 'contain' keeps the whole frame on a neutral ground. */
+.pr-fit-contain .photo-cell .photo-frame img,
+.pr-fit-contain .ba-pair .ba-frame img { object-fit: contain; background: var(--nbd-paper-2, #F4F1EC); }
+
+/* ── Density presets ───────────────────────────────────────────────
+   One class on <body>, set from opts.density. These change how much fits on
+   a page and nothing else — no colour, no type family, no structure. */
+
+/* compact — same document, tighter. For a long job where the point is
+   coverage rather than lingering. */
+.pr-density-compact .photo-grid { gap: var(--s-3); }
+.pr-density-compact .photo-cell .photo-caption { font-size: 8.5pt; line-height: 1.35; }
+.pr-density-compact section { margin-top: var(--s-4); }
+.pr-density-compact h2 { font-size: 17pt; }
+.pr-density-compact .hero-title { font-size: 24pt !important; }
+
+/* evidence — the adjuster/supplement look. Hairline frames, mono-ish tabular
+   metadata, numbers always prominent, minimal editorial air. Reads as an
+   exhibit list rather than a story. */
+.pr-density-evidence .photo-grid { gap: var(--s-3); }
+.pr-density-evidence .photo-cell .photo-frame {
+  border: 0.75pt solid var(--nbd-charcoal-2);
+  border-radius: 0;
+}
+.pr-density-evidence .photo-cell .pr-num {
+  background: var(--nbd-charcoal);
+  border-bottom-right-radius: 0;
+  font-size: 8.5pt;
+}
+.pr-density-evidence .photo-cell .photo-caption {
+  font-size: 8.5pt;
+  line-height: 1.4;
+  font-variant-numeric: tabular-nums;
+}
+.pr-density-evidence .photo-cell .photo-tag {
+  border-radius: 0;
+  letter-spacing: 0.1em;
+}
+.pr-density-evidence .hero-title { font-size: 22pt !important; }
+.pr-density-evidence .pr-toc-title { font-weight: 700; }
+
+/* ── Print discipline ──────────────────────────────────────────────
+   The blocks most likely to be split across a fold, and the ones where a
+   split looks worst. design-system.css protects .sig-block and .pull; these
+   are the photo report's own. */
+.pr-note, .pr-letter, .pr-toc-row, .photo-cell { break-inside: avoid; page-break-inside: avoid; }
+.pr-prose h2, .pr-letter + * { break-before: auto; }

@@ -1,29 +1,46 @@
 {{!--
-  PHOTO REPORT — D-4
+  PHOTO REPORT — D-4 / D-6 report builder
   ──────────────────────────────────────────────────────────────────
-  The doc with the most photos. Two modes:
+  D-4 shipped this as a fixed document: a cover, three stat cards, an
+  optional pairs section, and exactly three phase galleries in a fixed
+  order, with every heading, blurb and cover line a hardcoded literal.
+  The rep's only choice was homeowner vs adjuster.
 
-    mode='homeowner' — visual story. Friendly captions, before/after
-      pairs prominent, light-touch on technical fields.
-    mode='adjuster'  — dense evidence dossier. Tighter grids, every
-      photo stamped with location · damageType · severity.
+  D-6 makes the document a function of `opts` + `sections`. The section
+  list is ORDERED and ARBITRARY — the caller decides which sections
+  exist, what they are called, what note sits under each heading, and
+  which photos are in them. before/during/after still work as a legacy
+  fallback (see §LEGACY) so any caller that has not migrated keeps
+  rendering exactly as it did.
 
-  Same shared chrome (cover, brand band, social rail, footer seal).
-  Phase sections rendered only when they have content.
+  ── Payload ───────────────────────────────────────────────────────
+  opts {
+    cover      'hero' | 'minimal' | 'none'
+    density    'comfortable' | 'compact' | 'evidence'   (body class)
+    columns    0 (auto) | 1 | 2 | 3 | 4
+    fit        'cover' | 'contain'
+    numbering  'continuous' | 'section' | 'none'
+    numberLabel  e.g. 'Photo'  (prefix on each tile's number chip)
+    showToc, showStats, showPairs                       booleans
+    showDate, showLocation, showDamage, showSeverity    booleans
+    signature  'none' | 'homeowner' | 'adjuster' | 'both'
+  }
+  notes { coverLetter, summaryBody, closing }   — rep-authored prose
+  sections[] { id, title, blurb, note, photos[] }
+  photos[]   { url, n, caption, location, damageType, severity, dateLabel }
+             `n` is precomputed by the caller so numbering stays one
+             decision made in one place, not re-derived per section here.
+  toc[]      { title, count, note }
+  meta[]     { label, value }   — property/claim key-value grid
 
-  Required payload:
-    eyebrow, tagline, sub (cover hero)
-    preparedFor, preparedBy, projectMeta (shared cover partial)
-    summary { headline, body }
-    stats[]  (3 cards)
-    mode     'homeowner' | 'adjuster'
-    pairs[]  optional — { before, after, location }
-    before[] { url, caption, location?, damageType?, severity? }
-    during[]
-    after[]
+  Everything below degrades: an absent `opts` renders the D-4 document.
 --}}
 
 {{!-- ─────────── 1. COVER ─────────── --}}
+{{#unless (eq opts.cover "none")}}
+{{!-- cover 'minimal' is this same page without the hero image; the caller
+     blanks coverPhoto for it rather than the template branching, so the
+     decision lives in one place. --}}
 {{> coverPage
   eyebrow=coverEyebrow
   tagline=coverTagline
@@ -34,16 +51,44 @@
   preparedBy=preparedBy
   projectMeta=projectMeta
 }}
+{{/unless}}
 
-{{!-- ─────────── 2. SUMMARY + STATS ─────────── --}}
+{{!-- ─────────── 2. COVER LETTER (rep-authored) ─────────── --}}
+{{#if notes.coverLetter}}
 <section class="page-break">
+  <div class="eyebrow">A note from {{#if preparedBy.name}}{{preparedBy.name}}{{else}}{{company.footerName}}{{/if}}</div>
+  <div class="pr-letter">{{{nl2br notes.coverLetter}}}</div>
+</section>
+{{/if}}
+
+{{!-- ─────────── 3. PROPERTY / CLAIM DETAIL ─────────── --}}
+{{#if meta.length}}
+<section class="{{#unless notes.coverLetter}}page-break{{/unless}} avoid-break">
+  <h2 class="keep-with-next">Property &amp; Project</h2>
+  <div class="kv-grid">
+    {{#each meta}}
+    <div class="kv">
+      <div class="kv-label">{{this.label}}</div>
+      <div class="kv-value">{{this.value}}</div>
+    </div>
+    {{/each}}
+  </div>
+</section>
+{{/if}}
+
+{{!-- ─────────── 4. SUMMARY + STATS ─────────── --}}
+<section class="{{#unless meta.length}}{{#unless notes.coverLetter}}page-break{{/unless}}{{/unless}}">
   <div class="hero" style="margin-bottom: var(--s-5);">
     <div class="hero-eyebrow eyebrow">At a Glance</div>
     <div class="hero-title" style="font-size:30pt;">{{summary.headline}}</div>
-    {{#if summary.body}}<p class="hero-sub">{{summary.body}}</p>{{/if}}
+    {{#if notes.summaryBody}}
+      <div class="hero-sub pr-prose">{{{nl2br notes.summaryBody}}}</div>
+    {{else}}
+      {{#if summary.body}}<p class="hero-sub">{{summary.body}}</p>{{/if}}
+    {{/if}}
   </div>
 
-  {{#if stats}}
+  {{#if stats}}{{#unless (eq opts.showStats false)}}
   <div class="stat-grid">
     {{#each stats}}
     <div class="stat">
@@ -53,25 +98,42 @@
     </div>
     {{/each}}
   </div>
-  {{/if}}
+  {{/unless}}{{/if}}
 </section>
 
-{{!-- ─────────── 3. BEFORE & AFTER PAIRS (if any) ─────────── --}}
-{{#if pairs.length}}
+{{!-- ─────────── 5. CONTENTS ─────────── --}}
+{{#if opts.showToc}}{{#if toc.length}}
+<section class="avoid-break" style="margin-top: var(--s-6);">
+  <h2 class="keep-with-next">Contents</h2>
+  <div class="pr-toc">
+    {{#each toc}}
+    <div class="pr-toc-row">
+      <span class="pr-toc-title">{{this.title}}</span>
+      <span class="pr-toc-dots" aria-hidden="true"></span>
+      <span class="pr-toc-count">{{this.count}} photo{{#unless (eq this.count 1)}}s{{/unless}}</span>
+    </div>
+    {{#if this.note}}<div class="pr-toc-note">{{this.note}}</div>{{/if}}
+    {{/each}}
+  </div>
+</section>
+{{/if}}{{/if}}
+
+{{!-- ─────────── 6. BEFORE & AFTER PAIRS ─────────── --}}
+{{#if pairs.length}}{{#unless (eq opts.showPairs false)}}
 <section class="page-break ba-pair-section">
   <h2 class="keep-with-next">Before &amp; After</h2>
-  <p class="meta" style="margin-bottom: var(--s-4);">Side-by-side comparisons of the same locations at start and finish. Drag the orange handle in your online project portal to see the transition; the print version shows them paired.</p>
+  <p class="meta" style="margin-bottom: var(--s-4);">Side-by-side comparisons of the same locations at start and finish.</p>
   {{#each pairs}}
   <div class="ba-pair">
     <div class="ba-cell">
       <div class="ba-frame">
-        <img src="{{this.before.url}}" alt="Before">
+        <img src="{{this.before.url}}" alt="Before — {{this.location}}">
         <div class="ba-stamp">Before</div>
       </div>
     </div>
     <div class="ba-cell">
       <div class="ba-frame">
-        <img src="{{this.after.url}}" alt="After">
+        <img src="{{this.after.url}}" alt="After — {{this.location}}">
         <div class="ba-stamp after">After</div>
       </div>
     </div>
@@ -79,18 +141,70 @@
       <strong>{{this.location}}</strong>
       <span>Pair {{inc @index}} of {{len ../pairs}}</span>
     </div>
+    {{#if this.caption}}<div class="pr-pair-caption" style="grid-column: 1 / -1;">{{this.caption}}</div>{{/if}}
   </div>
   {{/each}}
 </section>
-{{/if}}
+{{/unless}}{{/if}}
 
-{{!-- ─────────── 4. PHOTO PHASES — Before / During / After ─────────── --}}
-{{#if before.length}}
+{{!-- ─────────── 7. SECTIONS ─────────── --}}
+{{#each sections}}
+{{#if this.photos.length}}
 <section class="page-break">
-  <h2 class="keep-with-next">Before</h2>
-  <p class="meta" style="margin-bottom: var(--s-4);">{{#if (eq mode "adjuster")}}Photographic documentation of property condition prior to work commencing.{{else}}Photos of the property at the start of the project.{{/if}}</p>
-  <div class="photo-grid{{#if (gt (len before) 6)}} three{{/if}}">
-    {{#each before}}
+  <h2 class="keep-with-next">{{this.title}}</h2>
+  {{#if this.blurb}}<p class="meta" style="margin-bottom: var(--s-4);">{{this.blurb}}</p>{{/if}}
+  {{#if this.note}}
+    {{!-- Rep-authored commentary for this section. Distinct from `blurb`,
+         which is the template's own descriptive line. --}}
+    <div class="pr-note pr-prose">{{{nl2br this.note}}}</div>
+  {{/if}}
+  <div class="photo-grid{{gridClass ../opts this.photos}}">
+    {{#each this.photos}}
+    <div class="photo-cell">
+      <div class="photo-frame">
+        <img src="{{this.url}}" alt="{{#if this.caption}}{{this.caption}}{{else}}{{this.location}}{{/if}}">
+        {{#if this.n}}{{#unless (eq ../../opts.numbering "none")}}
+          <div class="pr-num">{{#if ../../opts.numberLabel}}{{../../opts.numberLabel}} {{/if}}{{this.n}}</div>
+        {{/unless}}{{/if}}
+        {{#if this.location}}{{#unless (eq ../../opts.showLocation false)}}
+          <div class="photo-tag">{{this.location}}</div>
+        {{/unless}}{{/if}}
+      </div>
+      <div class="photo-meta">
+        <div class="photo-caption">
+          {{#unless (eq ../../opts.showDamage false)}}
+            {{#if this.damageType}}<strong>{{this.damageType}}</strong>{{#if this.caption}} · {{/if}}{{/if}}
+          {{/unless}}{{this.caption}}
+        </div>
+        <div class="pr-tile-foot">
+          {{#if this.severity}}{{#unless (eq ../../opts.showSeverity false)}}
+            <span class="sev {{severityClass this.severity}}" style="font-size:7pt;padding:1pt 5pt;">{{this.severity}}</span>
+          {{/unless}}{{/if}}
+          {{#if this.dateLabel}}{{#if ../../opts.showDate}}
+            <span class="pr-date">{{this.dateLabel}}</span>
+          {{/if}}{{/if}}
+        </div>
+      </div>
+    </div>
+    {{/each}}
+  </div>
+</section>
+{{/if}}
+{{/each}}
+
+{{!-- ─────────── §LEGACY: before / during / after ───────────
+     Rendered only when the caller populates `legacyPhases` INSTEAD of
+     `sections` — the two are mutually exclusive by construction, so this is
+     gated on presence rather than on `{{#unless sections}}`, which would also
+     fire for a caller that deliberately sent an empty section list.
+     Byte-for-byte the D-4 markup, so an unmigrated caller's PDF is unchanged. --}}
+{{#each legacyPhases}}
+{{#if this.photos.length}}
+<section class="page-break">
+  <h2 class="keep-with-next">{{this.title}}</h2>
+  <p class="meta" style="margin-bottom: var(--s-4);">{{this.blurb}}</p>
+  <div class="photo-grid{{#if (gt (len this.photos) 6)}} three{{/if}}">
+    {{#each this.photos}}
     <div class="photo-cell">
       <div class="photo-frame">
         <img src="{{this.url}}" alt="">
@@ -98,7 +212,7 @@
       </div>
       <div class="photo-meta">
         <div class="photo-caption">
-          {{#if (eq ../mode "adjuster")}}
+          {{#if (eq ../../mode "adjuster")}}
             {{#if this.damageType}}<strong>{{this.damageType}}</strong> · {{/if}}{{this.caption}}
           {{else}}
             {{this.caption}}
@@ -111,65 +225,31 @@
   </div>
 </section>
 {{/if}}
+{{/each}}
 
-{{#if during.length}}
-<section class="page-break">
-  <h2 class="keep-with-next">During</h2>
-  <p class="meta" style="margin-bottom: var(--s-4);">{{#if (eq mode "adjuster")}}Mid-project documentation of work in progress.{{else}}Photos taken while the crew was on the property.{{/if}}</p>
-  <div class="photo-grid{{#if (gt (len during) 6)}} three{{/if}}">
-    {{#each during}}
-    <div class="photo-cell">
-      <div class="photo-frame">
-        <img src="{{this.url}}" alt="">
-        {{#if this.location}}<div class="photo-tag">{{this.location}}</div>{{/if}}
-      </div>
-      <div class="photo-meta">
-        <div class="photo-caption">
-          {{#if (eq ../mode "adjuster")}}
-            {{#if this.damageType}}<strong>{{this.damageType}}</strong> · {{/if}}{{this.caption}}
-          {{else}}
-            {{this.caption}}
-          {{/if}}
-        </div>
-      </div>
-    </div>
-    {{/each}}
-  </div>
+{{!-- ─────────── 8. CLOSING NOTE ─────────── --}}
+{{#if notes.closing}}
+<section class="avoid-break" style="margin-top: var(--s-6);">
+  <h2 class="keep-with-next">In Closing</h2>
+  <div class="pr-prose">{{{nl2br notes.closing}}}</div>
 </section>
 {{/if}}
 
-{{#if after.length}}
-<section class="page-break">
-  <h2 class="keep-with-next">After</h2>
-  <p class="meta" style="margin-bottom: var(--s-4);">{{#if (eq mode "adjuster")}}Final-condition documentation post-completion.{{else}}The finished work — what the property looks like now.{{/if}}</p>
-  <div class="photo-grid{{#if (gt (len after) 6)}} three{{/if}}">
-    {{#each after}}
-    <div class="photo-cell">
-      <div class="photo-frame">
-        <img src="{{this.url}}" alt="">
-        {{#if this.location}}<div class="photo-tag">{{this.location}}</div>{{/if}}
-      </div>
-      <div class="photo-meta">
-        <div class="photo-caption">
-          {{#if (eq ../mode "adjuster")}}
-            {{#if this.damageType}}<strong>{{this.damageType}}</strong> · {{/if}}{{this.caption}}
-          {{else}}
-            {{this.caption}}
-          {{/if}}
-        </div>
-      </div>
-    </div>
-    {{/each}}
-  </div>
-</section>
-{{/if}}
-
-{{!-- ─────────── 5. SIGN-OFF ─────────── --}}
-{{#if (eq mode "adjuster")}}
+{{!-- ─────────── 9. ATTESTATION + SIGN-OFF ─────────── --}}
+{{#if (signOff opts mode "adjuster")}}
 <section class="avoid-break" style="margin-top: var(--s-6);">
   <h2>Documentation Attestation</h2>
-  <p style="line-height:1.65;">The photographs contained in this report were captured at the property described above by {{company.footerName}} personnel. All images are unmodified except for standard format conversion and EXIF preservation. Original files available upon request.</p>
+  {{!-- The D-4 wording asserted every image was "unmodified except for
+       standard format conversion and EXIF preservation". That was not true:
+       the photo editor bakes drawn markup into the saved file, and the
+       variants pipeline re-encodes to WebP. An attestation on a document a
+       carrier may rely on has to describe what actually happened, and say
+       plainly when a frame carries annotation. --}}
+  <p style="line-height:1.65;">The photographs in this report were captured at the property described above by {{company.footerName}} personnel. Images are reproduced from the originals, resized and re-encoded for printing. {{#if hasAnnotated}}Frames marked <strong>Annotated</strong> carry measurement or callout markup added by the inspector; {{/if}}unmodified original files are available on request.</p>
 </section>
+{{/if}}
+
+{{#if (signOff opts mode "adjuster")}}
 <div class="sig-block">
   <div class="sig-grid">
     <div class="sig">
@@ -179,6 +259,23 @@
     <div class="sig">
       <div class="sig-line"></div>
       <div class="sig-caption">Adjuster Acknowledgment &amp; Date</div>
+    </div>
+  </div>
+</div>
+{{/if}}
+
+{{#if (signOff opts mode "homeowner")}}
+{{!-- D-4 gave the homeowner report no acceptance line at all, so a rep who
+     wanted a signed walkthrough had nothing to hand over. --}}
+<div class="sig-block">
+  <div class="sig-grid">
+    <div class="sig">
+      <div class="sig-line"></div>
+      <div class="sig-caption">{{preparedFor.name}} · Homeowner</div>
+    </div>
+    <div class="sig">
+      <div class="sig-line"></div>
+      <div class="sig-caption">Date</div>
     </div>
   </div>
 </div>

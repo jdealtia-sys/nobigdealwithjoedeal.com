@@ -342,3 +342,87 @@ Neither appears in any brief. That is how work silently drops out.
   post-merge line.
 - `BOOT-WEIGHT-2026-09-06.md`'s last section is dated 09-06 for work that
   merged 09-07 and never spells "#1449", so it is unfindable by PR number.
+
+---
+
+## §9 — The photo-report lane (added 2026-09-08, PR #1483)
+
+Added to THIS brief rather than superseding it. §0–§8 are another lane's work
+that I did not re-verify, and §1 carries a Sunday-09-13 production warning —
+demoting all of that behind a photo-report brief would bury it. Full write-up:
+[SESSION-2026-09-08-photo-report-builder](SESSION-2026-09-08-photo-report-builder.md).
+
+**Ten commits, CI green on `bf299ab2`. Not merged yet.**
+
+### The one finding that reaches beyond this lane
+
+`functions/print/design-system.css` asked for its per-page footer with CSS
+Paged Media — `position: running(footer)` + `@page { @bottom-center { content:
+element(footer) } }`. **Chromium implements neither**, and an invalid `position`
+is discarded silently, so the seal band rendered ONCE in normal flow at the top
+of page one and **no PDF this renderer has ever produced carried a page
+number** — warranty, estimate, invoice, contract, change order, receipt,
+inspection, photo report, all eight. Measured, not reasoned:
+`CSS.supports('position','running(footer)')` → `false`.
+
+If you touch `functions/print/`, know that page numbers are reachable **only**
+through `page.pdf({displayHeaderFooter, footerTemplate})`, that the footer
+template is an isolated document whose default font-size is 0, and that with
+`preferCSSPageSize: true` the `margin` option is **ignored entirely** (two
+strategies with different margins rendered byte-identical). Do not re-add a
+Paged Media margin box; nothing in the pipeline can honour it.
+
+### Also fixed, each its own defect
+
+- `p.urls.lg || p.urls.md` — variant names that have **never existed**
+  (`image-pipeline.js` writes `thumb`/`med`/`full`), so every server-rendered
+  report pulled full-resolution camera originals, ~20 of them inside a 25s
+  `setContent` budget. Six sites, incl. four in `inspection-report-engine.js`.
+- `_captionFor` led with `p.caption`, a field **nothing writes**. Reps type into
+  `description`; the portal uses `homeownerCaption`. No rep-typed caption had
+  ever appeared in a report. `photo-review.js:285` still has a dead `'rep'`
+  caption state for the same reason.
+- The homeowner report ignored `sharedWithHomeowner`, which
+  `functions/portal.js:479` gates the homeowner *portal* on for the reason
+  written at `:463`. Now `'auto'` — honoured only when the rep has curated
+  something, because a hard gate turns every untouched lead into an empty PDF.
+- The adjuster attestation asserted images were "unmodified"; `photo-editor.js`
+  bakes markup into the saved file. That was a false statement to a carrier.
+- The report queried photos by `leadId + userId` while the gallery uses
+  `_photoQueryScopes`, so a **manager on a teammate's lead got "No photos found
+  — upload some first"** in front of a full grid.
+- **`firestore.rules`**: the 2026-07 manager-edit-rights pass gave same-company
+  staff write on `activity`/`tasks`/`notes` and skipped `/documents` and
+  `/drawings`, whose READ was already widened. A manager could see every
+  document on a teammate's lead and attach none. Fixed with that clause
+  verbatim; emulator-tested in both directions.
+
+### Open, in the order I would take them
+
+1. **No share link.** `createReportShareToken` only accepts a `reportId` in the
+   top-level `reports` collection; a filed photo report is a `documents` row.
+2. **`pdf-renders/` has no Storage rule**, and in download-token mode the URL
+   never expires.
+3. **Annotations are destructive** — `photo-editor.js` builds arrows, callouts,
+   stamps and measurements and persists none of it.
+4. **Three incompatible `damageType` vocabularies** collide in one count.
+5. **Customer-page uploads write no `createdAt`**, so report order is arbitrary
+   for them.
+6. **The report number is `Date.now().toString().slice(-6)`** — unsequenced,
+   and it changes on every regeneration.
+
+### Trust level on that list
+
+It came from a ten-agent recon that produced **108 unique gaps**, but the
+adversarial verification pass **lost 87 of its 226 agents to a session limit**.
+Anything above that this session did not fix directly is a **lead, not a
+finding** — re-check before acting. Filing unverified leads as refuted is the
+2026-09-04 mistake.
+
+### One process trap worth carrying
+
+A break script that silently no-ops makes a test suite look **stronger** than it
+is. Two of three breaks here never applied — multi-line `\n` anchors against
+CRLF files — and the script still printed "broke 3 things". Assert the match
+count and throw on a missing anchor before reading anything into which
+assertions reddened.

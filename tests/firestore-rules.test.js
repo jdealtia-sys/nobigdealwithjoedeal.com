@@ -874,11 +874,35 @@ async function run() {
     { userId: 'mia', title: 'call back', done: false }));
   await assertSucceeds(setDoc(doc(coAdmin, 'leads/leadA2/notes/ca-note'),
     { userId: 'carol', text: 'owner note' }));
+  // ✅ documents + drawings, completing that same 2026-07 pass. Both kept the
+  // pre-pass owner-only WRITE clause while their READ already admitted a
+  // company reader, so a manager could see every document on a teammate's
+  // lead and attach none — no signed doc, no generated contract, and no
+  // photo-report row once photo-report.js started filing one.
+  await assertSucceeds(setDoc(doc(mgrA, 'leads/leadA2/documents/mgr-doc'),
+    { name: 'HomeownerPhotos.pdf', url: 'https://x/y.pdf', uploadedBy: 'mia', source: 'photo_report' }));
+  await assertSucceeds(setDoc(doc(coAdmin, 'leads/leadA2/drawings/ca-draw'),
+    { userId: 'carol', shapes: [] }));
+  // …and the owner still writes their own, unchanged.
+  await assertSucceeds(setDoc(doc(alice, 'leads/leadA2/documents/owner-doc'),
+    { name: 'signed.pdf', url: 'https://x/s.pdf', uploadedBy: 'alice' }));
   // ❌ …but never cross-tenant, never viewer, and never with a forged shape.
   await assertFails(setDoc(doc(mgrB, 'leads/leadA2/activity/xt-forge'),
     { userId: 'mob', type: 'note', source: 'rep', note: 'nope' }));
   await assertFails(setDoc(doc(viewerA, 'leads/leadA2/tasks/viewer-task'),
     { userId: 'vera', title: 'nope', done: false }));
+  // viewer is read-only on the two collections just widened — isCompanyStaff()
+  // is company_admin|manager only, and this is the assertion that proves the
+  // widening did not reach for isCompanyReader() by mistake.
+  await assertFails(setDoc(doc(viewerA, 'leads/leadA2/documents/viewer-doc'),
+    { name: 'nope.pdf', url: 'https://x/n.pdf', uploadedBy: 'vera' }));
+  await assertFails(setDoc(doc(viewerA, 'leads/leadA2/drawings/viewer-draw'),
+    { userId: 'vera', shapes: [] }));
+  // …and a manager in ANOTHER tenant still cannot touch either.
+  await assertFails(setDoc(doc(mgrB, 'leads/leadA2/documents/xt-doc'),
+    { name: 'nope.pdf', url: 'https://x/n.pdf', uploadedBy: 'mob' }));
+  await assertFails(setDoc(doc(mgrB, 'leads/leadA2/drawings/xt-draw'),
+    { userId: 'mob', shapes: [] }));
   await assertFails(setDoc(doc(mgrA, 'leads/leadA2/activity/mgr-webhook-forge'),
     { userId: 'mia', type: 'note', source: 'rep', note: 'x', stripeInvoiceId: 'in_123' }));
 
