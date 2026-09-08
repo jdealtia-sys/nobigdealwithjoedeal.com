@@ -125,7 +125,20 @@ const RUNNABLE = ['node', 'smoke'];
 //               --check; neither side's number was adjusted by hand.
 //   2026-09-08  107/67/192 after portal-scheduled-date landed. MEASURED from
 //               --check on this branch's merged base, not 106+1.
-const FLOORS = { node: 107, smoke: 67, disk: 192 };
+//   2026-09-08  NINTH collision, pdf-renders retention lane
+//               (tests/pdf-render-retention.test.js). This branch rebased
+//               FOUR times in one evening and hit this line every time; the
+//               entries it wrote called themselves SEVENTH and then EIGHTH
+//               before other lanes took those slots while it sat unmerged, so
+//               the ordinal here is the only part that was ever guesswork.
+//               MEASURED on the merged tree each time. Twice the danger was
+//               not the node count but SMOKE: this lane adds no smoke suite,
+//               and a +1 on its own figure would have carried a stale 65 back
+//               over main's 67. If you take one thing from nine entries: this
+//               line is a serialisation point for every lane that adds a test
+//               file, so re-measure after the rebase and merge promptly.
+
+const FLOORS = { node: 108, smoke: 67, disk: 193 };
 
 // ── Argument parsing ───────────────────────────────────────────────
 const argv = process.argv.slice(2);

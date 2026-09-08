@@ -167,6 +167,13 @@ const STORAGE_PREFIXES = [
   // receipts/{uid}/... — original receipt images/PDFs backing expense docs
   // (Phase 1 expense subsystem). Owner-keyed like docs/; erase with the account.
   'receipts',
+  // pdf-renders/{uid}/... — server-rendered invoices, contracts, warranties and
+  // reports from render-pdf.js. Added 2026-09-08: the prefix existed since the
+  // renderer shipped but was in neither the export nor the erasure sweep, so a
+  // right-to-be-forgotten request left every rendered customer document in the
+  // bucket. Objects written before that date carry permanent download tokens
+  // (19 of 21 in prod), which makes deleting them the only revocation there is.
+  'pdf-renders',
 ];
 
 // ─── OWNER-KEYED UID-PATH DOCS ───────────────────────────────

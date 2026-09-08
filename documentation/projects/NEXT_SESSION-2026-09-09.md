@@ -868,3 +868,86 @@ three weeks**. The threshold alone is double the outage's entire failure volume.
   finding in full. That file **does not exist** — not in any worktree, not on
   `main`, not anywhere in history. A precise-sounding task prompt can name a
   document that was never written.
+## §13 — The pdf-renders lane (added 2026-09-08, PR #1504)
+
+**Numbering note:** this was written as §12 and renumbered on rebase — #1516
+took §12 (the server-PDF lane) by merging first, exactly as predicted when this
+section was drafted. #1508 also edits this file and is still open, so a further
+renumber is possible. Nothing else here depends on the number.
+
+Closes open item 2 of [SESSION-2026-09-08-photo-report-builder](SESSION-2026-09-08-photo-report-builder.md)
+and §9's open item 2. Full write-up:
+[PDF-RENDER-RETENTION-2026-09-08](../audit/PDF-RENDER-RETENTION-2026-09-08.md).
+
+`pdf-renders/{uid}/` held every server-rendered customer document — invoice,
+contract, change order, warranty, inspection, photo report — with **no
+`storage.rules` block and no reaper**, so it only ever grew and its posture was
+stated nowhere. It was also not private: `render-pdf.js` stamped a
+`firebaseStorageDownloadTokens` value at **upload**, unconditionally, on the
+happy path as much as the signing-failure path it was added for. **19 of 21 prod
+objects carried one**, and an unauthenticated HEAD on a customer roofing
+contract returned `200 OK, application/pdf` — the same URL with the token
+stripped returned `403`, which is the control that proves the token is what
+granted access.
+
+**The brief's premise was half wrong, and it mattered.** The IAM signBlob gap it
+blamed is **closed** — `717435841570-compute@` holds
+`roles/iam.serviceAccountTokenCreator`, so signing is the live path and the
+fallback should never fire. `urlMode` recorded which URL was *returned*; it
+never described which objects were *reachable*. The token is now minted lazily
+inside the signing-failure handler, so only genuinely unsignable renders carry
+one and `urlMode` becomes a true record.
+
+Shipped: the explicit rules block (owner/admin read, `write: if false` — which
+also denies delete, so a rep cannot overwrite a rendered invoice), a 30-day
+reaper (`functions/pdf-render-retention.js`), the lazy token, `cacheControl`
+`public` → `private`, and `pdf-renders` added to `STORAGE_PREFIXES`.
+
+### Before you merge
+
+- **#1508 adds `pdf-renders` to `STORAGE_PREFIXES` as well** — its own note says
+  so. **Second one in drops the duplicate line.** #1508 also replaces the
+  hand-maintained smoke assertion this branch edited with a derived gate
+  (`scripts/check-storage-prefix-registry.js`); if #1508 lands first, this
+  branch's edit to that assertion in `tests/smoke/auth.test.js` is superseded
+  and should go.
+- **One-way door.** The reaper's first run after deploy deletes **all 21
+  current objects** — the newest is ~11 weeks old. That IS the remediation,
+  since deleting is a download token's only revocation. But if any of those
+  links are live in a customer's inbox, they break.
+
+### Why a reaper and not a bucket lifecycle rule
+
+A `matchesPrefix` lifecycle rule does the same deletion for free and was the
+first choice. Rejected because lifecycle config is **bucket state, not repo
+state** — nothing in the tree would record it and a console edit could silently
+disable it, which is exactly how `firestore-backup.js`'s "one-time operator
+setup" never got run and all three backup functions failed nightly from the day
+they shipped. And a lifecycle rule cannot log the zero run that distinguishes
+"nothing old" from "job is dead".
+
+### Carry this: a survey that can only return "clean" is not evidence
+
+The first token survey reported **0 of 21 tokened** — twice, confidently, and
+wrongly. Two independent causes, either alone sufficient:
+
+- `gcloud storage objects describe --format="value(metadata)"` returns **empty**
+  for custom metadata. So does `--format="value(custom_fields)"`, even though
+  `custom_fields:` is the key the unformatted output prints. Grep the raw
+  description; never trust a `--format` key you have not watched produce a
+  non-empty value.
+- A path list built with `gcloud storage ls > file` on Windows carries `\r`.
+  Fed to `while read -r`, every `describe` fails, `2>/dev/null` hides it, and
+  all N objects report "no token" **uniformly**. `tr -d '\r'` took it 0 → 19.
+
+What caught both was a **positive control** — dumping one object's full
+description showed a token the survey had just called absent. Uniform negatives
+across every object are the tell.
+
+### Still open
+
+- **`homeowner-uploads/` has no rules block** and `esign/` has no reaper — both
+  from #1508's sweep, neither this lane's to close.
+- Nothing diffs the live bucket's actual prefixes against `storage.rules`, so a
+  prefix that exists only as an admin-SDK write is still discoverable only by
+  reading code.
