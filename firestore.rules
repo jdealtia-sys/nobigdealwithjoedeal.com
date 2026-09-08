@@ -377,8 +377,18 @@ service cloud.firestore {
         allow read:  if isAuth() && (isAdmin()
           || isOwner(get(/databases/$(database)/documents/leads/$(leadId)).data.userId)
           || parentLeadInMyCompany(leadId));
+        // Manager edit rights, completing the 2026-07 pass. That pass gave
+        // same-company staff write on activity/tasks/notes (:270, :297, :306)
+        // and left documents and drawings on the pre-pass owner-only clause,
+        // even though their READ already admitted a company reader. The result
+        // was a manager who could SEE every document on a teammate's lead and
+        // attach none: no signed doc, no generated contract, and — once the
+        // photo report started filing itself — no report row either.
+        // isCompanyStaff() is company_admin|manager, so `viewer` and
+        // `sales_rep` stay read-only exactly as they are on notes and tasks.
         allow write: if isAuth()
-          && isOwner(get(/databases/$(database)/documents/leads/$(leadId)).data.userId);
+          && (isOwner(get(/databases/$(database)/documents/leads/$(leadId)).data.userId)
+              || (isCompanyStaff() && parentLeadInMyCompany(leadId)));
       }
 
       // ── DRAWINGS (roof measurements, sketches) ────────
@@ -389,8 +399,11 @@ service cloud.firestore {
         allow read:  if isAuth() && (isAdmin()
           || isOwner(get(/databases/$(database)/documents/leads/$(leadId)).data.userId)
           || parentLeadInMyCompany(leadId));
+        // Same gap, same fix as /documents directly above — a manager could
+        // open a teammate's roof measurements and not correct them.
         allow write: if isAuth()
-          && isOwner(get(/databases/$(database)/documents/leads/$(leadId)).data.userId);
+          && (isOwner(get(/databases/$(database)/documents/leads/$(leadId)).data.userId)
+              || (isCompanyStaff() && parentLeadInMyCompany(leadId)));
       }
 
       // ── AI TEXTING DRAFTS (T-2) ───────────────────────
