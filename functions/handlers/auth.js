@@ -9,6 +9,11 @@
  *   - mintOwnerClaims       (onCall, stamps { owner:true, role:'admin' }
  *                            on the OWNER_EMAILS founder accounts —
  *                            added 2026-07, not part of the Step 4c move)
+ *   - revokeMySessions      (onCall, self-service "Sign Out Everywhere" —
+ *                            added 2026-09-08, not part of the Step 4c
+ *                            move. The ONLY caller-scoped revoke path;
+ *                            every other revokeRefreshTokens call in the
+ *                            tree is an admin acting on someone else.)
  *
  * NOTE: onRepSignup is in NBD_DEPLOY_SKIP_LIST per .github/workflows/
  * firebase-deploy.yml — DO NOT remove its export. The skip-list is
@@ -36,6 +41,10 @@ const {
   INVITE_ALLOWED_ROLES,
 } = require('./_shared');
 const { callableRateLimit } = require('../shared');
+// Declarative per-route policy — guardCallable enforces the per-IP AND
+// per-uid ceilings from ROUTES before the handler body runs (same wiring
+// validateAccessCode uses in handlers/portal.js).
+const { guardCallable } = require('../rate-limit-policy');
 
 // ═════════════════════════════════════════════════════════════
 // provisionE2ETestUser (Rock 3 PR 3)
@@ -761,4 +770,93 @@ exports.mintOwnerClaims = onCall(
     logger.info('mintOwnerClaims: minted owner claims', { uid });
     return { owner: true, minted: true, refresh: true };
   }
+);
+
+// ═════════════════════════════════════════════════════════════
+// revokeMySessions — self-service "Sign Out Everywhere".
+//
+// WHY THIS EXISTS (2026-09-08 claims audit)
+// ─────────────────────────────────────────
+// The dashboard shipped a red "Sign Out Everywhere" button, and
+// /pro/how-to told users that if they suspected a compromised
+// password they should "change it and sign out of all devices".
+// Neither was true. The button ran window._signOut(), whose whole
+// body is a localStorage sweep plus signOut(auth) — a purely LOCAL
+// Firebase sign-out that clears THIS browser's persistence and
+// nothing else. An attacker's session on another device kept
+// refreshing indefinitely.
+//
+// revokeRefreshTokens existed in five places, every one of them an
+// admin/enforcement path acting on SOMEBODY ELSE (handlers/admin.js
+// updateUserRole + deactivateUser, handlers/invites.js member
+// removal, integrations/compliance.js, lapse-enforcement.js). The
+// account holder had no self-service path to it. This is that path.
+//
+// WHAT REVOCATION ACTUALLY DOES (read before touching the copy)
+// ─────────────────────────────────────────────────────────────
+// revokeRefreshTokens kills every REFRESH token issued before now.
+// Already-issued ID tokens stay valid until they expire — up to an
+// hour — because that is how Firebase Auth works; the same caveat is
+// documented on updateUserRole's revoke call in handlers/admin.js.
+// So the honest promise is "other devices lose access the next time
+// their session refreshes, within an hour at most", NOT "instantly".
+// docs/pro/how-to.html and the confirm dialog in
+// docs/pro/js/session-revoke.js both say exactly that. If you ever
+// want instant lockout, it needs a tokensValidAfterTime check in
+// firestore.rules against request.auth.token.auth_time — a much
+// bigger change than this one, and not what shipped here.
+//
+// FAILURE HANDLING IS THE POINT
+// ─────────────────────────────
+// The sibling admin paths swallow a revoke failure with logger.warn
+// because their PRIMARY action (the role change, the deactivation)
+// already succeeded and the revoke is a nice-to-have. Here revocation
+// IS the action. A swallowed failure would tell a user mid-breach
+// that they were safe while the attacker's session kept refreshing,
+// so this throws instead — and the client deliberately does NOT sign
+// out locally on failure, so the user stays put and can retry.
+//
+// Rate limit: guardCallable('revokeMySessions') — see ROUTES in
+// functions/rate-limit-policy.js.
+// ═════════════════════════════════════════════════════════════
+exports.revokeMySessions = onCall(
+  {
+    region: 'us-central1',
+    cors: CORS_ORIGINS,
+    enforceAppCheck: true,
+    timeoutSeconds: 30,
+    memory: '256MiB'
+  },
+  guardCallable('revokeMySessions', async (request) => {
+    const uid = request.auth && request.auth.uid;
+    if (!uid) throw new HttpsError('unauthenticated', 'Sign in required');
+
+    // Self-scoped BY CONSTRUCTION: the uid comes from the verified token,
+    // never from request.data. There is deliberately no target parameter —
+    // adding one would turn this into an admin path with none of
+    // requireTeamAdmin's checks.
+    try {
+      await getAuth().revokeRefreshTokens(uid);
+    } catch (e) {
+      logger.error('revokeMySessions: revoke failed', { uid, err: e && e.message });
+      throw new HttpsError('internal', 'Could not sign out your other devices. Nothing changed — please try again.');
+    }
+
+    // Read the revocation instant back off the user record rather than
+    // trusting a local Date.now(). tokensValidAfterTime is what Firebase
+    // will actually compare refresh attempts against, so it is the only
+    // value worth reporting or logging.
+    let revokedAt = null;
+    try {
+      const rec = await getAuth().getUser(uid);
+      revokedAt = rec.tokensValidAfterTime || null;
+    } catch (e) {
+      // Non-fatal: the revoke above already succeeded, and that is the
+      // security-relevant half. The client only uses revokedAt for display.
+      logger.warn('revokeMySessions: read-back failed', { uid, err: e && e.message });
+    }
+
+    logger.info('revokeMySessions', { uid, revokedAt });
+    return { success: true, revokedAt };
+  })
 );

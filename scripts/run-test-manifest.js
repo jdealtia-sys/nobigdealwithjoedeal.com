@@ -116,7 +116,10 @@ const RUNNABLE = ['node', 'smoke'];
 //               numbers did not conflict and only the comments did. Merging
 //               them anyway would have shipped a stale floor — the merged
 //               tree measures 105/188. A matching number is not evidence.
-const FLOORS = { node: 105, smoke: 65, disk: 188 };
+//   2026-09-08  SIXTH collision, session-revocation lane. Same story: both
+//               sides had raised it. Re-measured on the merged tree rather
+//               than adding this branch's +1 to main's figure.
+const FLOORS = { node: 106, smoke: 65, disk: 189 };
 
 // ── Argument parsing ───────────────────────────────────────────────
 const argv = process.argv.slice(2);
