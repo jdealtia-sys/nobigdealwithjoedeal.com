@@ -69,6 +69,14 @@ vm.runInContext(lineSrc + '\n' + todaySrc + '\nthis.__l = _scheduleLine; this.__
 const line = ctx.__l;
 const localToday = ctx.__t;
 
+// Read results defensively. A break that makes _scheduleLine return null —
+// swapping in the naive new Date(ymd) does exactly that, because the validity
+// guard then rejects its own output — must redden ONE assertion, not throw.
+// A throw truncates the run before the summary line, and a harness that looks
+// for that line scores the whole case as CRASH instead of the redden it is.
+const whenOf = (r) => (r && typeof r.when === 'string' ? r.when : null);
+const textOf = (r) => (r && typeof r.text === 'string' ? r.text : '');
+
 /* ══════════════════════════════════════════════════════════════════
    1. THE off-by-one — in real timezones, in child processes
    ══════════════════════════════════════════════════════════════════ */
@@ -106,7 +114,6 @@ group('The date renders as the date, west and east of UTC', () => {
   // validity guard reject its own result and return NULL, so `.text` on it
   // would throw and truncate the run before the summary line — the harness then
   // reports CRASH instead of the redden this is meant to produce.
-  const textOf = (r) => (r && typeof r.text === 'string' ? r.text : '');
   cases.forEach(([tz, why]) => {
     const r = underTZ(tz, '2026-09-16', '2026-09-01');
     const ok = /Wednesday/.test(textOf(r)) && /September 16/.test(textOf(r));
@@ -148,29 +155,29 @@ group('_localToday is local, not UTC', () => {
    ══════════════════════════════════════════════════════════════════ */
 group('Each branch says only what is true', () => {
   const future = line('2026-09-16', '2026-09-01');
-  assert('a future date promises an arrival', future.when === 'future'
-    && /^Crew arrives /.test(future.text), JSON.stringify(future));
+  assert('a future date promises an arrival', whenOf(future) === 'future'
+    && /^Crew arrives /.test(textOf(future)), JSON.stringify(future));
 
   const today = line('2026-09-16', '2026-09-16');
-  assert('today says today, not a weekday', today.when === 'today'
-    && today.text === 'Crew arrives today', JSON.stringify(today));
+  assert('today says today, not a weekday', whenOf(today) === 'today'
+    && textOf(today) === 'Crew arrives today', JSON.stringify(today));
 
   const past = line('2026-09-16', '2026-09-20');
-  assert('a past date is marked past', past.when === 'past', JSON.stringify(past));
+  assert('a past date is marked past', whenOf(past) === 'past', JSON.stringify(past));
   assert('a past date NEVER claims the crew is arriving',
-    !/arriv/i.test(past.text),
+    past !== null && !/arriv/i.test(textOf(past)),
     JSON.stringify(past) + ' — the job slipped or the card is stale; promising an '
     + 'arrival on a date that has gone by is the lie this branch exists to avoid');
   assert('...and still tells them the date on record',
-    /September 16/.test(past.text), JSON.stringify(past));
+    /September 16/.test(textOf(past)), JSON.stringify(past));
 
   // Boundaries: one day either side must not be mistaken for today.
-  assert('the day before today is future', line('2026-09-17', '2026-09-16').when === 'future');
-  assert('the day after today is past', line('2026-09-15', '2026-09-16').when === 'past');
+  assert('the day before today is future', whenOf(line('2026-09-17', '2026-09-16')) === 'future');
+  assert('the day after today is past', whenOf(line('2026-09-15', '2026-09-16')) === 'past');
   // Zero-padded ISO strings compare correctly as strings — including across
   // a month and a year boundary, where a naive numeric compare would not.
-  assert('2026-10-01 is after 2026-09-30', line('2026-10-01', '2026-09-30').when === 'future');
-  assert('2027-01-01 is after 2026-12-31', line('2027-01-01', '2026-12-31').when === 'future');
+  assert('2026-10-01 is after 2026-09-30', whenOf(line('2026-10-01', '2026-09-30')) === 'future');
+  assert('2027-01-01 is after 2026-12-31', whenOf(line('2027-01-01', '2026-12-31')) === 'future');
 });
 
 group('Bad input renders nothing, never "Invalid Date"', () => {
