@@ -1,0 +1,229 @@
+/* portal-completion-truth.test.js
+ *
+ * Two things the portal told a homeowner that were not true.
+ *
+ * ── 1. "You can rate once the job is complete", on a complete job ──
+ *
+ * The rating card's RENDER gate was `progressKey === 'complete'`, computed
+ * from STAGE_TO_PROGRESS with a fallback to the lead's semantic stage role.
+ * Its SUBMIT gate was a hardcoded literal list —
+ * ['final_photos','deductible_collected','final_payment','closed'] — under a
+ * comment claiming those were "exactly the stages that map to the 'complete'
+ * progress milestone". They were not, in two ways, and both reach a real
+ * customer:
+ *
+ *   - A legacy raw display stage ('Complete', 'Closed Won', 'Won', 'Closed')
+ *     is not a key in STAGE_TO_PROGRESS, so the view fell through to the role
+ *     fallback, stage-roles ALIASed it to 'closed', the role came back 'won',
+ *     progressKey became 'complete', and the card rendered. The submit gate
+ *     then compared the RAW stage against its list, missed, and answered 409.
+ *   - A tenant CUSTOM stage carrying stageRole 'won' does the same.
+ *
+ * So the homeowner tapped five stars on a finished roof and was told it wasn't
+ * finished. Both gates now resolve through one `progressKeyFor(lead)`.
+ *
+ * ── 2. The homeowner's own photo, as a broken tile ──
+ *
+ * uploadHomeownerPhoto bakes a 7-day signed URL into the photo doc. Its own
+ * comment predicted the consequence and deferred it. After 7 days the URL
+ * 403s, and the first person to see it die is the homeowner looking at the
+ * gallery they uploaded to. The same doc feeds the rep's customer-page
+ * gallery, so it breaks on both sides at once.
+ *
+ * Both halves run the REAL lifted functions rather than matching source text.
+ */
+const fs = require('fs');
+const path = require('path');
+const vm = require('vm');
+
+const ROOT = path.join(__dirname, '..');
+const read = (rel) => fs.readFileSync(path.join(ROOT, rel), 'utf8').replace(/\r\n/g, '\n');
+const SRC = read('functions/portal.js');
+const stageRoles = require(path.join(ROOT, 'functions', 'stage-roles.js'));
+
+let passed = 0, failed = 0;
+function assert(label, cond, detail) {
+  if (cond) { passed++; console.log('  ✓ ' + label); }
+  else { failed++; console.log('  ✗ ' + label + (detail ? '\n      ' + detail : '')); }
+}
+function group(name, fn) { console.log('\n' + name); fn(); }
+
+/* ── lift progressKeyFor together with the two literals it reads ── */
+function sliceBetween(from, to) {
+  const a = SRC.indexOf(from);
+  const b = SRC.indexOf(to, a);
+  if (a < 0 || b < 0) return null;
+  return SRC.slice(a, b + to.length);
+}
+const progressBlock = sliceBetween('const HOMEOWNER_PROGRESS = [', '\nfunction progressKeyFor(lead) {')
+  && SRC.slice(SRC.indexOf('const HOMEOWNER_PROGRESS = ['),
+    SRC.indexOf('\n}\n', SRC.indexOf('function progressKeyFor(lead) {')) + 3);
+
+group('The resolver is present and liftable', () => {
+  assert('found HOMEOWNER_PROGRESS + STAGE_TO_PROGRESS + progressKeyFor at module scope',
+    !!progressBlock && progressBlock.indexOf('function progressKeyFor(lead)') > -1
+      && progressBlock.indexOf('STAGE_TO_PROGRESS') > -1,
+    'if these moved, update the extractor — do NOT delete the suite');
+});
+if (!progressBlock) {
+  console.log('\ncannot continue'); console.log(passed + ' passed, ' + (failed + 1) + ' failed');
+  process.exit(1);
+}
+const ctx = { require: (m) => (m === './stage-roles' ? stageRoles : require(m)) };
+vm.createContext(ctx);
+vm.runInContext(progressBlock + '\nthis.__k = progressKeyFor;', ctx);
+const keyFor = ctx.__k;
+
+/* ══════════════════════════════════════════════════════════════════
+   1. The resolver agrees with itself across every stage shape
+   ══════════════════════════════════════════════════════════════════ */
+group('Built-in stages map as before (no regression from the hoist)', () => {
+  const cases = [
+    ['new', 'inspected'], ['contacted', 'inspected'], ['inspected', 'inspected'],
+    ['estimate_submitted', 'estimate_sent'], ['negotiating', 'estimate_sent'],
+    ['contract_signed', 'contract_signed'], ['permit_pulled', 'contract_signed'],
+    ['crew_scheduled', 'install'], ['install_in_progress', 'install'],
+    ['final_photos', 'complete'], ['final_payment', 'complete'],
+    ['deductible_collected', 'complete'], ['closed', 'complete'],
+  ];
+  const wrong = cases.filter(([stage, want]) => keyFor({ stage }) !== want)
+    .map(([s, w]) => s + ' → ' + keyFor({ stage: s }) + ' (want ' + w + ')');
+  assert('all ' + cases.length + ' built-in stages resolve unchanged', wrong.length === 0,
+    wrong.join('; '));
+});
+
+group('The legacy display stages that broke it', () => {
+  // These are NOT keys in STAGE_TO_PROGRESS, so they take the role fallback.
+  ['Complete', 'Closed Won', 'Won', 'Closed', 'closed_won', 'closed-won'].forEach((stage) => {
+    assert('"' + stage + '" resolves to complete', keyFor({ stage }) === 'complete',
+      'got ' + keyFor({ stage }));
+  });
+  // ...and the OLD submit gate's literal list would have refused every one.
+  const oldList = ['final_photos', 'deductible_collected', 'final_payment', 'closed'];
+  const wouldHaveBeenRefused = ['Complete', 'Closed Won', 'Won', 'Closed']
+    .filter((s) => oldList.indexOf(s) === -1);
+  assert('the old literal list would have refused all four (this is the defect)',
+    wouldHaveBeenRefused.length === 4, JSON.stringify(wouldHaveBeenRefused));
+});
+
+group('Tenant custom stages resolve by their persisted role', () => {
+  assert("a custom stage with stageRole 'won' is complete",
+    keyFor({ stage: 'Roof On & Invoiced', stageRole: 'won' }) === 'complete');
+  assert("a custom stage with stageRole 'job' is install",
+    keyFor({ stage: 'Crew Dispatched', stageRole: 'job' }) === 'install');
+  assert("a custom stage with stageRole 'active' is inspected",
+    keyFor({ stage: 'Chasing Adjuster', stageRole: 'active' }) === 'inspected');
+  assert('an unknown stage with no role is inspected, not complete',
+    keyFor({ stage: 'Whatever The Tenant Typed' }) === 'inspected',
+    'defaulting an unknown stage to complete would be the worst possible failure');
+  assert('a lost lead is not complete',
+    keyFor({ stage: 'lost', stageRole: 'lost' }) !== 'complete');
+});
+
+group('It does not throw on the degenerate inputs a real lead can have', () => {
+  assert('no stage at all → inspected', keyFor({}) === 'inspected');
+  assert('null lead does not throw', keyFor(null) === 'inspected');
+  assert('_stageKey wins over stage, as the rest of the file assumes',
+    keyFor({ _stageKey: 'closed', stage: 'new' }) === 'complete');
+});
+
+/* ══════════════════════════════════════════════════════════════════
+   2. Both gates now go through it — the coupling
+   ══════════════════════════════════════════════════════════════════ */
+group('One owner, two call sites', () => {
+  assert('the portal view computes progressKey through the resolver',
+    /const progressKey = progressKeyFor\(lead\);/.test(SRC));
+  assert('canRate is derived from that same progressKey',
+    /canRate: progressKey === 'complete'/.test(SRC));
+  assert('the rating submit gate resolves through it too',
+    /if \(progressKeyFor\(lead\) !== 'complete'\) \{/.test(SRC));
+
+  // The literal list must be gone, not merely bypassed — and the comment
+  // explaining its removal quotes it, so a raw whole-file search matches the
+  // explanation. Slice the region out of RAW source FIRST, then strip comments
+  // from the slice only: a 40-line window can be reasoned about, and it cannot
+  // be satisfied by an unrelated match 2,000 lines away. A whole-file percentage
+  // guard was tried and is useless here — functions/portal.js is 43% comment
+  // lines, so any threshold either fails on correct code or proves nothing.
+  const from = SRC.indexOf('exports.submitCustomerRating');
+  const to = SRC.indexOf('exports.', from + 10);
+  assert('the submitCustomerRating region was located',
+    from > -1 && to > from, 'markers moved — fix the extractor, not the assertion');
+  const gate = SRC.slice(from, to).split('\n').filter((l) => {
+    const t = l.trim();
+    return !(t.startsWith('//') || t.startsWith('*') || t.startsWith('/*'));
+  }).join('\n');
+  assert('the sliced gate still contains its own code',
+    gate.indexOf('progressKeyFor(lead)') > -1 && gate.indexOf('not-complete') > -1);
+  assert('no hardcoded completeness list survives in the submit gate',
+    gate.indexOf('final_photos') === -1,
+    'the gate must not carry its own copy of what "complete" means');
+  const defs = (SRC.match(/^const STAGE_TO_PROGRESS = /gm) || []).length;
+  assert('STAGE_TO_PROGRESS is defined exactly once, at module scope', defs === 1,
+    'found ' + defs);
+});
+
+/* ══════════════════════════════════════════════════════════════════
+   3. The 7-day signed URL
+   ══════════════════════════════════════════════════════════════════ */
+const staleBlock = SRC.slice(
+  SRC.indexOf('const HOMEOWNER_URL_TTL_MS'),
+  SRC.indexOf('\n}\n', SRC.indexOf('function _homeownerUrlIsStale')) + 3
+);
+group('The staleness rule is present and liftable', () => {
+  assert('found _homeownerUrlIsStale', staleBlock.indexOf('function _homeownerUrlIsStale') > -1);
+});
+const c2 = {};
+vm.createContext(c2);
+vm.runInContext(staleBlock + '\nthis.__s = _homeownerUrlIsStale;\nthis.__ttl = HOMEOWNER_URL_TTL_MS;', c2);
+const isStale = c2.__s;
+const TTL = c2.__ttl;
+const NOW = 1_760_000_000_000; // fixed clock; Date.now() is not used by the rule
+const days = (n) => n * 24 * 60 * 60 * 1000;
+
+group('It re-signs only when it needs to', () => {
+  assert('a URL good for another 6 days is NOT stale',
+    isStale({ urlExpiresAt: NOW + days(6) }, NOW) === false);
+  assert('a URL with 25 hours left is NOT stale (the 30s poll must not re-sign every tick)',
+    isStale({ urlExpiresAt: NOW + days(1) + 3600_000 }, NOW) === false);
+  assert('a URL inside the 24h renewal window IS stale',
+    isStale({ urlExpiresAt: NOW + 3600_000 }, NOW) === true);
+  assert('an already-expired URL IS stale',
+    isStale({ urlExpiresAt: NOW - days(1) }, NOW) === true);
+  assert('the TTL is the 7-day per-request maximum', TTL === days(7), String(TTL));
+});
+
+group('Docs written before urlExpiresAt existed still resolve', () => {
+  // Every photo uploaded before this change has no urlExpiresAt. Falling back
+  // to uploadedAt is what stops them all being treated as fresh forever.
+  const uploadedAt = (ms) => ({ toMillis: () => ms });
+  assert('uploaded 8 days ago, no expiry field → stale',
+    isStale({ uploadedAt: uploadedAt(NOW - days(8)) }, NOW) === true);
+  assert('uploaded 1 day ago, no expiry field → not stale',
+    isStale({ uploadedAt: uploadedAt(NOW - days(1)) }, NOW) === false);
+  assert('uploaded 6.5 days ago → stale (inside the renewal window)',
+    isStale({ uploadedAt: uploadedAt(NOW - days(6.5)) }, NOW) === true);
+  assert('neither field → stale, so it gets re-signed rather than left broken',
+    isStale({}, NOW) === true);
+});
+
+group('Only homeowner uploads with a storage path are touched', () => {
+  // Rep photos carry permanent variant URLs in `urls` and no `path` here;
+  // re-signing them would be wrong and would cost an IAM call per photo.
+  assert('the refresh filters on source === homeowner AND a path',
+    /p\.source === 'homeowner' && typeof p\.path === 'string' && p\.path/.test(SRC));
+  assert('a failed re-sign keeps the old URL instead of blanking the gallery',
+    /catch \(e\) \{[\s\S]{0,260}?logger\.warn\('homeowner photo url refresh failed'/.test(SRC),
+    'getSignedUrl needs the IAM token-creator grant; losing it must not blank photos');
+  assert('the fresh URL is written back so the REP gallery sees it too',
+    /d\.ref\.update\(\{ url, urlExpiresAt: expires \}\)/.test(SRC),
+    'the rep customer-page gallery reads the same doc and does not call this');
+  assert('the view prefers a freshly-signed URL over the stored one',
+    /url:\s+_freshUrls\.get\(d\.id\) \|\| p\.url \|\| null/.test(SRC));
+  assert('upload now stamps urlExpiresAt so staleness is knowable',
+    /urlExpiresAt: expiresAt,/.test(SRC));
+});
+
+console.log('\n──────────────────────────────────────────────────');
+console.log(passed + ' passed, ' + failed + ' failed');
+if (failed > 0) process.exit(1);
