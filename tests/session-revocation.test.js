@@ -161,6 +161,12 @@ async function callAndCatch(fn, request) {
        !!fn.__options && fn.__options.enforceAppCheck === true);
     ok('functions/index.js exports it, or it is dead code',
        /exports\.revokeMySessions\s*=\s*authHandlers\.revokeMySessions/.test(read('functions/index.js')));
+    // A row in FUNCTIONS_INDEX.md is mandatory for every export here — the
+    // smoke job fails the build without one. Pinned locally too so the gap
+    // surfaces before CI: this suite claims to gate the whole change, and it
+    // missed this on the first push.
+    ok('has a FUNCTIONS_INDEX.md row (mandatory for every index.js export)',
+       /^\|\s*`revokeMySessions`\s*\|/m.test(read('functions/FUNCTIONS_INDEX.md')));
   }
 
   // ── 2. It revokes, and it revokes the RIGHT user ───────────────

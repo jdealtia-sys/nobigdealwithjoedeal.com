@@ -153,6 +153,22 @@ Absence assertions run against comment-stripped source, because both files
 under test quote the old `data-action="signOut"` defect verbatim while
 explaining the fix — a naive absence regex fails on the correct file.
 
+### What the suite missed on the first push
+
+CI's smoke job caught what 55 local assertions did not: **every `index.js`
+export needs a row in `functions/FUNCTIONS_INDEX.md`**, and
+`revokeMySessions` had none. The gate did its job
+(`tests/smoke/dashboard.test.js`, "every index.js export appears in
+FUNCTIONS_INDEX — undocumented exports: revokeMySessions").
+
+Worth recording for two reasons. First, this suite claims to gate the whole
+change, so the missing row was a real hole in it — a 56th assertion now pins
+the row locally, break-tested. Second, the near-miss while fixing it: the
+break-test was reverted with `git checkout -- functions/FUNCTIONS_INDEX.md`
+while the new row was still **uncommitted**, so the restore silently deleted
+the fix along with the break. `git checkout --` reverts the whole file, not
+your hunk. Commit before break-testing, every time.
+
 ### Break-tests — eight, each hitting the intended assertion
 
 | # | Break | Reddened |
