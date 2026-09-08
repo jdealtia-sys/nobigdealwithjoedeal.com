@@ -313,7 +313,7 @@ mark.hl{background:var(--gold);color:#000;border-radius:3px;padding:0 2px}
             <li>Enter your account email. You'll get an email within 60 seconds with a one-time reset link (check spam if you don't).</li>
             <li>Click the link, set a new password (8+ characters), and sign in.</li>
           </ol>
-          <div class="note">Passwords are reset via Firebase Auth's standard flow. Old sessions stay valid on other devices until you sign out — sign out of every device from Settings → Security if you're rotating after a compromise.</div>
+          <div class="note">Passwords are reset via Firebase Auth's standard flow. Changing the password does not by itself end sessions that are already signed in elsewhere — if you're rotating after a compromise, also tap <strong>Sign Out Everywhere</strong> in Settings → Security. That revokes every device on the account; each one loses access the next time its session refreshes, within an hour at most.</div>
         </div>
       </details>
 
@@ -1152,8 +1152,8 @@ mark.hl{background:var(--gold);color:#000;border-radius:3px;padding:0 2px}
           <h4>Security</h4>
           <ul>
             <li>Change password.</li>
-            <li>Sign out of all devices.</li>
-            <li>Two-factor sign-in is not offered yet; if you suspect a compromised password, change it and sign out of all devices (both above).</li>
+            <li><strong>Sign Out Everywhere</strong> — revokes every signed-in device on your account, not just this browser. Your own phone and tablet get signed out too; that's the point. Devices lose access the next time their session refreshes, within an hour at most.</li>
+            <li>Two-factor sign-in is not offered yet; if you suspect a compromised password, change it and then tap Sign Out Everywhere (both above).</li>
           </ul>
 
           <h4>Plan & Billing</h4>
