@@ -1539,6 +1539,14 @@ function _photoQueryScopes(leadId) {
     ? [where('leadId', '==', leadId)]
     : [where('leadId', '==', leadId), where('userId', '==', auth.currentUser?.uid)];
 }
+// Exported so the non-module scripts run the SAME scoping rather than a fourth
+// hand-rolled copy of it. photo-report.js queried leadId+userId directly, so a
+// manager generating a report on a teammate's lead got zero rows back and was
+// told "No photos found for this lead — upload some first" while the gallery
+// right behind the modal showed every one of them.
+// `where` here is the same binding assigned to window.where at :68, so the
+// constraints these return are interchangeable with window.query on this page.
+window._photoQueryScopes = _photoQueryScopes;
 
 // Team visibility for ESTIMATES (audit 2026-08-02): the three estimate reads
 // on this page hard-scoped to the signed-in uid, so a company_admin/manager

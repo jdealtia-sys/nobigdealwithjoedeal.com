@@ -92,7 +92,9 @@ const RUNNABLE = ['node', 'smoke'];
 //   2026-09-08  four portal branches each raised these; this is the value
 //               MEASURED after all of them landed, not any one branch's
 //               delta added to another's.
-const FLOORS = { node: 101, smoke: 65, disk: 184 };
+//   2026-09-08  +2 from the photo-report lane (#1483). MEASURED on the merged
+//               tree, not 101+2 by arithmetic — same rule as above.
+const FLOORS = { node: 103, smoke: 65, disk: 186 };
 
 // ── Argument parsing ───────────────────────────────────────────────
 const argv = process.argv.slice(2);

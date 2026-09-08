@@ -79,6 +79,28 @@ const TEMPLATES = {
 let _designCss = null;
 const _tmplCache = new Map();
 
+// Per-template CSS, cached like the templates themselves. Optional by design:
+// most templates need nothing beyond the design system, so a missing file is
+// the normal case and must not throw a cold start.
+const _cssCache = new Map();
+function loadTemplateCss(templateKey) {
+  if (_cssCache.has(templateKey)) return _cssCache.get(templateKey);
+  let css = '';
+  try {
+    css = fs.readFileSync(path.join(__dirname, 'print', 'templates', templateKey + '.css'), 'utf8');
+  } catch (e) { /* no per-template stylesheet — the common case */ }
+  _cssCache.set(templateKey, css);
+  return css;
+}
+
+// Density presets are a closed set: an unknown or absent value must land on
+// 'comfortable' rather than emitting an unmatched class that silently styles
+// nothing, and must never interpolate caller text into a class attribute.
+const DENSITIES = ['comfortable', 'compact', 'evidence'];
+function normalizeDensity(v) {
+  return DENSITIES.indexOf(String(v || '')) >= 0 ? String(v) : 'comfortable';
+}
+
 function loadDesignSystemCss() {
   if (_designCss) return _designCss;
   _designCss = fs.readFileSync(path.join(__dirname, 'print', 'design-system.css'), 'utf8');
@@ -146,6 +168,41 @@ function registerHelpersOnce() {
 
   // Counter for {{photoCount}} and similar.
   Handlebars.registerHelper('len', (v) => Array.isArray(v) ? v.length : 0);
+
+  // ── D-6 report-builder helpers ──────────────────────────────
+  // Rep-authored prose arrives as plain text from a <textarea>. Escape it
+  // ourselves and hand back a SafeString so the paragraph breaks the rep typed
+  // survive; a bare {{{triple-stache}}} on this would be an HTML injection
+  // straight into a customer-facing PDF, since the text is user input.
+  Handlebars.registerHelper('nl2br', (v) => {
+    const esc = hbsEsc(v == null ? '' : v);
+    return new Handlebars.SafeString(
+      esc.replace(/\r\n?/g, '\n').replace(/\n{2,}/g, '</p><p>').replace(/\n/g, '<br>')
+        .replace(/^/, '<p>').replace(/$/, '</p>')
+    );
+  });
+
+  // Photo-grid column class. An explicit opts.columns wins; otherwise fall
+  // back to D-4's rule — three-up once a section runs past six photos.
+  Handlebars.registerHelper('gridClass', (opts, photos) => {
+    const n = Number(opts && opts.columns) || 0;
+    if (n === 1) return ' one';
+    if (n === 2) return '';           // two-up is the stylesheet default
+    if (n === 3) return ' three';
+    if (n >= 4) return ' four';
+    return (Array.isArray(photos) && photos.length > 6) ? ' three' : '';
+  });
+
+  // Which signature blocks to render. opts.signature is authoritative when
+  // set; with no opts we reproduce D-4 exactly — adjuster mode signs, the
+  // homeowner report has no acceptance line.
+  Handlebars.registerHelper('signOff', (opts, mode, which) => {
+    const s = opts && opts.signature;
+    if (s === 'both') return true;
+    if (s === 'none') return false;
+    if (s === 'homeowner' || s === 'adjuster') return s === which;
+    return mode === 'adjuster' && which === 'adjuster';
+  });
 }
 
 function loadTemplate(file) {
@@ -248,6 +305,41 @@ const NEUTRAL_DOC_COMPANY = {
 function hbsEsc(s) {
   return String(s == null ? '' : s)
     .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+// ─── Native running footer ────────────────────────────────────────
+// Chromium's headerTemplate/footerTemplate is an ISOLATED document: it does not
+// inherit the page's stylesheet, external CSS never loads, and the default font
+// size is 0 — so every rule here has to be inline and every size explicit, or
+// the footer silently renders as nothing. `.pageNumber` / `.totalPages` are the
+// two magic classes Chromium substitutes at paint time; they are the only way
+// to number pages in this renderer, since it implements no CSS Paged Media
+// counters.
+//
+// Tenant-safe by construction: every string comes from the resolved {{company}}
+// chrome, which resolveDocCompany() already de-brands for stranger tenants
+// (NEUTRAL_DOC_COMPANY), so this cannot stamp NBD's name or number on someone
+// else's document. Values are escaped — footerName is tenant-controlled input.
+function buildFooterTemplate(company, tmplCfg, docNumber) {
+  const c = company || {};
+  const left = [c.footerName, c.phone].filter(Boolean).map(hbsEsc).join(' &middot; ');
+  const doc = [tmplCfg && tmplCfg.docType, docNumber].filter(Boolean).map(hbsEsc).join(' &middot; ');
+  // Barlow is loaded by _layout for the page body, but NOT inside this isolated
+  // footer document — name a real system stack so the footer never falls back
+  // to a serif that matches nothing else on the page.
+  return (
+    '<div style="width:100%;box-sizing:border-box;padding:0 18mm;' +
+      'font-family:Barlow,\'Segoe UI\',Arial,sans-serif;font-size:7.5pt;' +
+      'line-height:1.3;color:#5A6472;-webkit-print-color-adjust:exact;">' +
+      '<div style="border-top:0.5pt solid #D8D3CB;padding-top:5pt;' +
+        'display:flex;justify-content:space-between;align-items:baseline;gap:12pt;">' +
+        '<span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + left + '</span>' +
+        (doc ? '<span style="white-space:nowrap;">' + doc + '</span>' : '') +
+        '<span style="white-space:nowrap;">Page <span class="pageNumber"></span>' +
+          ' of <span class="totalPages"></span></span>' +
+      '</div>' +
+    '</div>'
+  );
 }
 // Phase B-4b: inject the tenant's brand colours as a :root override appended
 // AFTER the static design-system :root (equal specificity → later rule wins).
@@ -405,14 +497,26 @@ exports.renderPdf = onCall(
     const brandVars = buildBrandVars(company.colors);
 
     const bodyHtml = bodyCompiled(Object.assign({}, payload, { company }));
+    // Hoisted so the native footer template (page.pdf below) can stamp the same
+    // document number the layout puts in the masthead.
+    const docNumberForChrome = payload.certNumber || payload.docNumber || '';
     const html = layoutCompiled({
       title:           tmplCfg.docType,
       docType:         tmplCfg.docType,
       seal:            tmplCfg.seal,
-      docNumber:       payload.certNumber || payload.docNumber || '',
+      docNumber:       docNumberForChrome,
       designSystemCss: loadDesignSystemCss(),
       brandVars:       brandVars,
-      templateCss:     '', // reserved for per-template overrides in later D-PRs
+      // Per-template overrides. The slot has existed since D-1 and was wired to
+      // '' with a "reserved for later" note, so a template that needed its own
+      // rules had no home for them and had to inline styles into the .hbs.
+      // It now loads print/templates/<key>.css when that file exists.
+      templateCss:     loadTemplateCss(templateKey),
+      // Density preset — 'comfortable' (default) | 'compact' | 'evidence'.
+      // A body class rather than a payload flag threaded through every block,
+      // so a preset is a stylesheet concern and the template stays structural.
+      bodyClass:       'pr-density-' + normalizeDensity(payload.opts && payload.opts.density)
+                       + (payload.opts && payload.opts.fit === 'contain' ? ' pr-fit-contain' : ''),
       company:         company,
       body:            bodyHtml,
     });
@@ -447,7 +551,27 @@ exports.renderPdf = onCall(
           printBackground: true,
           preferCSSPageSize: true,
           margin: { top: '0', bottom: '0', left: '0', right: '0' }, // controlled by @page
-          displayHeaderFooter: false,
+          // The running footer + page numbers. This MUST be Chromium's native
+          // header/footer: design-system.css asked for them with CSS Paged
+          // Media (`position: running(footer)` + `@page { @bottom-center {
+          // content: element(footer) } }`), and Chromium implements NEITHER —
+          // `CSS.supports('position','running(footer)')` is false, so the
+          // declaration was dropped, `.doc-band-bottom` fell back to static,
+          // and the seal band rendered ONCE in normal flow at the top of page
+          // one, above the cover. Every document this renderer has ever
+          // produced — all eight types — shipped that way, with no page
+          // numbers at all.
+          //
+          // Margins stay at 0 here on purpose: `preferCSSPageSize: true` makes
+          // the CSS @page box authoritative, so these values are ignored and
+          // @page's 18/22/18/18mm still owns the geometry. Chromium draws the
+          // native footer into the physical page margin that @page already
+          // keeps clear — measured at y=768 on a 792pt page, with body content
+          // ending at y=645. No overlap, and the page count is unchanged from
+          // before this fix.
+          displayHeaderFooter: true,
+          headerTemplate: '<span></span>',
+          footerTemplate: buildFooterTemplate(company, tmplCfg, docNumberForChrome),
           timeout: 25_000,
         });
       } finally {
@@ -530,3 +654,16 @@ exports.renderPdf = onCall(
     };
   })
 );
+
+// Exposed for tests. Pure — takes the resolved company chrome and returns the
+// Chromium footerTemplate string. Lets the running-footer contract (page-number
+// placeholders present, tenant strings escaped, no NBD literal for a stranger)
+// be asserted on the real function instead of grepped for in the source.
+exports._buildFooterTemplate = buildFooterTemplate;
+// Also for tests: registering the real helpers against the shared Handlebars
+// instance lets a harness compile the real templates with the real `nl2br`,
+// `gridClass` and `signOff` rather than stand-ins that could diverge from them.
+exports._registerHelpersOnce = registerHelpersOnce;
+exports._registerPartialsOnce = registerPartialsOnce;
+exports._loadTemplateCss = loadTemplateCss;
+exports._normalizeDensity = normalizeDensity;

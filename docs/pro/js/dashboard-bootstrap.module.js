@@ -911,8 +911,25 @@
       // 1. Native (lead-aware) handlers first — these have their own
       //    UI flows and don't route through the generic NBDDocGen viewer.
       if (actionId === 'photo_report') {
-        if (typeof window.generatePhotoReport === 'function' && leadId) {
-          try { window.generatePhotoReport(leadId); return; } catch (e) { console.warn('generatePhotoReport threw:', e.message); }
+        // Route to the customer page's report BUILDER rather than firing a
+        // report straight off. This called generatePhotoReport(leadId) with no
+        // second argument, which silently defaulted to homeowner mode — so a
+        // rep who wanted the adjuster dossier could not get one from the
+        // dashboard at all, and nobody could reach cover, numbering, section
+        // or note options, all of which live in the builder.
+        //
+        // customer.html auto-opens the builder on a #photo-report hash
+        // (customer-photo-report-picker.js maybeAutoOpenFromHash), so this is
+        // the existing deep-link path, not a new one.
+        // NBDUrl.customer is the one builder for the customer-page URL; the
+        // literal is the documented fallback for a boot race (nbd-url.js is a
+        // defer script). Absolute /pro/… per the CI-guarded inter-page nav rule.
+        if (leadId) {
+          try { if (typeof window._stashLeadForCustomerPage === 'function') window._stashLeadForCustomerPage(leadId); } catch (e) { /* stash is an optimisation */ }
+          const base = (window.NBDUrl && window.NBDUrl.customer(leadId))
+            || ('/pro/customer.html?id=' + encodeURIComponent(leadId));
+          window.location.href = base + '#photo-report';
+          return;
         }
       } else if (actionId === 'send_estimate' || actionId === 'send_quote' || actionId === 'revise_estimate') {
         if (typeof window.startNewEstimate === 'function' && leadId) {

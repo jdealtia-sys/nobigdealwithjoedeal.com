@@ -2494,7 +2494,11 @@
         return;
       }
 
-      const urlOf = (p) => (p && p.urls && (p.urls.lg || p.urls.md)) || (p && p.url) || '';
+      // Variants are named thumb/med/full (image-pipeline.js:105-109). `lg` and
+      // `md` have never existed, so this always fell through to the original
+      // camera upload — full sensor resolution, once per photo, inside the
+      // renderer's 25s setContent budget. `full` is the 1600px print source.
+      const urlOf = (p) => (p && p.urls && (p.urls.full || p.urls.med)) || (p && p.url) || '';
       const toReportPhoto = (p) => ({
         url: urlOf(p),
         // aiCaption is a phantom field — Claude Vision writes aiSuggestion.caption
@@ -2870,7 +2874,8 @@
       // D-2.7 before/after pairs below) shipped empty.
       const photoPool = (state.leadId && window._photoCache && window._photoCache[state.leadId]) || [];
       photoPool.slice(0, 24).forEach((p) => {
-        const url = (p && p.urls && (p.urls.lg || p.urls.md)) || (p && p.url) || '';
+        // thumb/med/full — see urlOf above; `lg`/`md` never existed.
+        const url = (p && p.urls && (p.urls.full || p.urls.med)) || (p && p.url) || '';
         if (!url) return;
         photos.push({
           url,
@@ -2903,8 +2908,8 @@
         const out = [];
         byLoc.forEach((slot, loc) => {
           if (!slot.before || !slot.after) return;
-          const bUrl = (slot.before.urls && (slot.before.urls.lg || slot.before.urls.md)) || slot.before.url;
-          const aUrl = (slot.after.urls  && (slot.after.urls.lg  || slot.after.urls.md))  || slot.after.url;
+          const bUrl = (slot.before.urls && (slot.before.urls.full || slot.before.urls.med)) || slot.before.url;
+          const aUrl = (slot.after.urls  && (slot.after.urls.full  || slot.after.urls.med))  || slot.after.url;
           if (!bUrl || !aUrl) return;
           out.push({
             location: loc,
