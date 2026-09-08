@@ -454,6 +454,56 @@
       + '&estimateId=' + encodeURIComponent(estimateId);
   }
 
+  // ─── The install date ───────────────────────────────────────────
+  // "When is the crew coming?" is the one question a homeowner opens this
+  // page to answer, and the portal could not answer it — lead.scheduledDate
+  // never reached the view.
+  //
+  // The whole difficulty is the date arithmetic, so it lives in one pure
+  // function that the suite drives directly.
+  //
+  // 1. NEVER `new Date('2026-09-16')`. That parses as UTC midnight, so in
+  //    America/New_York it renders "Tuesday, September 15" — the wrong day
+  //    AND the wrong weekday, which is the half that matters because the
+  //    weekday is what a homeowner writes on the calendar. Measured, not
+  //    assumed. The same bug is live on the warranty certificate
+  //    (customer-bootstrap.module.js) and is deliberately not fixed here —
+  //    that is a separate document with its own suite.
+  //    Build from the parts instead, which is local by definition.
+  //
+  // 2. Past dates must not claim anything. A date that has gone by means the
+  //    job slipped or the rep has not updated the card; "Crew arrives
+  //    Tuesday" would then be false. Each branch is phrased to stay true:
+  //    future/today promise an arrival, past states the record only.
+  function _scheduleLine(ymd, todayYmd) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(String(ymd || ''))) return null;
+    const [y, m, d] = String(ymd).split('-').map(Number);
+    const dt = new Date(y, m - 1, d);          // local midnight, not UTC
+    // Reject a date the calendar does not have (2026-02-30 rolls forward).
+    if (dt.getFullYear() !== y || dt.getMonth() !== m - 1 || dt.getDate() !== d) return null;
+    let pretty;
+    try {
+      pretty = dt.toLocaleDateString(undefined, {
+        weekday: 'long', month: 'long', day: 'numeric',
+      });
+    } catch (_) {
+      pretty = ymd;
+    }
+    // String compare is safe and timezone-free on zero-padded ISO dates.
+    const when = ymd === todayYmd ? 'today' : (ymd > todayYmd ? 'future' : 'past');
+    if (when === 'today') return { when, text: 'Crew arrives today' };
+    if (when === 'future') return { when, text: 'Crew arrives ' + pretty };
+    return { when, text: 'Scheduled for ' + pretty };
+  }
+
+  // Local today as YYYY-MM-DD. toISOString() would be UTC and would flip the
+  // answer for every evening visitor east or west of it.
+  function _localToday(now) {
+    const n = now || new Date();
+    const p = (v) => String(v).padStart(2, '0');
+    return n.getFullYear() + '-' + p(n.getMonth() + 1) + '-' + p(n.getDate());
+  }
+
   function renderView(view) {
     const firstName = (view.homeowner && view.homeowner.firstName) || '';
     const lastName  = (view.homeowner && view.homeowner.lastName)  || '';
@@ -554,6 +604,15 @@
             '<div class="progress-next-label" style="color:var(--green);">Project complete</div>' +
             '<div>Thanks for choosing us. Your rep will reach out for a final walkthrough.</div>' +
           '</div>';
+      // Sits above "Next up" because it is the more specific fact: a date
+      // beats a milestone name. Rendered from the raw YYYY-MM-DD the server
+      // sent, compared against the READER's local today.
+      const sched = _scheduleLine(p.scheduledDate, _localToday());
+      const schedHtml = sched
+        ? '<div class="progress-schedule" data-when="' + esc(sched.when) + '">'
+            + '<span aria-hidden="true">📅</span> ' + esc(sched.text)
+          + '</div>'
+        : '';
       parts.push(
         '<div class="card progress-card">' +
           '<div class="card-label">Where We Are</div>' +
@@ -562,6 +621,7 @@
             '<div class="progress-track-fill" style="width:calc(' + fillPct + '% - 12px);"></div>' +
             steps +
           '</div>' +
+          schedHtml +
           nextHtml +
         '</div>'
       );

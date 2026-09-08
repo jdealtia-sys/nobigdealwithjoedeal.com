@@ -368,6 +368,25 @@
     font-size:10px; font-weight:700; letter-spacing: var(--nbd-tracking-widest);
     text-transform: uppercase; color: var(--nbd-orange); margin-bottom: var(--nbd-space-1);
   }
+  /* The install date. Weightier than "Next up" because it is the more
+     specific fact — a homeowner opens this page for the date, not the
+     milestone name. A past date (data-when="past") drops to the muted
+     treatment: it is a record, not a promise, and must not read as one. */
+  .progress-schedule{
+    margin-top: var(--nbd-space-4); padding: var(--nbd-space-3) var(--nbd-space-4);
+    background: var(--nbd-orange-soft); border: 1px solid var(--nbd-orange-medium);
+    border-radius: var(--nbd-radius-md);
+    font-size: var(--nbd-text-md); font-weight:700; color: var(--nbd-ink);
+    line-height:1.4;
+  }
+  /* --nbd-line, not --nbd-border: the latter is defined only in
+     photo-editor.css, which this page does not load, so it would have
+     resolved to nothing. Six existing rules here already use --nbd-line. */
+  .progress-schedule[data-when="past"]{
+    background: transparent; border-color: var(--nbd-line);
+    font-weight:600; color: var(--nbd-ink-subtle);
+  }
+  .progress-schedule + .progress-next{ margin-top: var(--nbd-space-2); }
   @media (max-width:520px){
     .progress-step-label{ font-size:9px; }
     .progress-dot{ width:24px; height:24px; font-size:11px; }
