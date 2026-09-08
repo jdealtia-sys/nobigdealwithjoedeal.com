@@ -1,5 +1,21 @@
 /* Service-page mobile polish: horizontal-scroll trust bar so hero CTA stays above fold. */
-@media (max-width: 768px) {
+/*
+  Breakpoint was 768px until 2026-09-08. The five trust items need 920px to sit
+  side by side, so between 769px and 919px this media query had already switched
+  OFF while the desktop `.trust-item{flex:1}` rule was back in charge — and
+  because a flex item's automatic minimum size is min-content, the row could not
+  shrink to fit. Measured on WebKit: 150px of real horizontal document overflow
+  at 770px, tapering to 0 at exactly 920px. body{overflow-x:clip} hid it on
+  iOS 16+ and did nothing on iOS <= 15.
+
+  919.98px rather than 920px so fractional viewport widths (browser zoom, some
+  Android devices) can't land in a gap between this query and the layout that
+  needs 920. If the trust copy ever grows past 920px the items still cannot
+  overflow the document: nbd-mobile.css gives .trust-item min-width:0, so the
+  failure mode above this breakpoint is wrapped text, not a sideways-scrolling
+  page. Keep that guard if you touch this number.
+*/
+@media (max-width: 919.98px) {
   .trust-bar-inner {
     flex-wrap: nowrap !important;
     overflow-x: auto;

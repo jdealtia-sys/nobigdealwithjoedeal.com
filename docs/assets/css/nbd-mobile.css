@@ -58,6 +58,51 @@ img, video {
   height: auto;
 }
 
+/* ─── GRID TRACKS MUST BE ALLOWED TO SHRINK ─────────────────────────────── */
+/*
+  A grid/flex item's automatic minimum size is min-content, so a track
+  written `1fr` is really `minmax(auto, 1fr)` and CANNOT shrink below the
+  widest thing inside it. The track then pushes the document wider than the
+  viewport — real horizontal scroll, not a visual artifact. body{overflow-x:
+  clip} above hides it on iOS 16+ but does NOT stop <html> overflowing, and
+  does nothing at all on iOS <= 15.
+
+  Measured on WebKit at 320x508 against docs/ (2026-09-08):
+    .content-grid  9 service pages, up to 59px (/services/roof-replacement)
+    .stat-grid     3 more pages, up to 27px, exposed once .content-grid shrank
+    .footer-grid   /services/gaf-timberline + tamko-storm-series, 33px
+    .trust-item    100px at 820px wide — the trust bar's scroller in
+                   service-mobile-polish.css stops at 768px, so the desktop
+                   `flex:1` rule comes back while the viewport is still far
+                   below the 920px the five items need. Letting the items
+                   shrink fixes the whole 769-919px band without hard-coding
+                   that 920, which moves whenever the trust copy changes.
+
+  Do NOT "fix" this with overflow-x:hidden on html/body: setting one axis to
+  hidden computes the other to auto, making <body> a scroll container, which
+  kills position:sticky (measured: nav scrolled to y=-1460 on WebKit).
+  See documentation/audit/NAV-DRAWER-RELIABILITY-2026-09-08.md section 6.2.
+*/
+.content-grid > *,
+.stat-grid > *,
+.footer-grid > *,
+.trust-item {
+  min-width: 0 !important;
+}
+
+/*
+  ...and once a track CAN shrink, a single unbreakable token still spills out
+  of it: the footer email is one 27-character word ~213px wide, which showed
+  up as 13px of overflow at 1024px the moment the rule above let the footer
+  column narrow. `anywhere` rather than `break-word` because only `anywhere`
+  reduces the min-content contribution — `break-word` leaves the track just
+  as wide. Scoped to mailto: so tel: links keep the white-space:nowrap they
+  are given at <= 380px further down this file.
+*/
+.footer-grid a[href^="mailto:"] {
+  overflow-wrap: anywhere;
+}
+
 /* ─── SAFE-AREA INSETS (Android landscape, iOS notch) ──────────────────── */
 /*
   Pages now paint into device cutouts thanks to viewport-fit=cover, but
