@@ -404,9 +404,9 @@ console.log('\n7. Filed on the lead');
   ok('it records storagePath alongside the (possibly expiring) url',
     /storagePath: rec\.storagePath/.test(code) && /url: rec\.url/.test(code));
 
-  // firestore.rules:380 allows WRITE on that subcollection only to the lead's
-  // owner. A manager can now reach the report but cannot file it, and a
-  // finished PDF must not be reported as a failure.
+  // A finished PDF must never be reported as a failure because the row could
+  // not be written — a sales_rep or viewer on a teammate's lead is a legitimate
+  // denial.
   // Read the decommented source: the explanatory comment between the catch and
   // the warn is long, and a distance-bounded match against the raw file would
   // be measuring comment length rather than code structure.
@@ -416,8 +416,18 @@ console.log('\n7. Filed on the lead');
     /^\s*_fileReportOnLead\(lead\.id,/m.test(code));
 
   const RULES = read('firestore.rules');
-  ok('the owner-only write rule this depends on is still there',
-    /match \/documents\/\{documentId\}[\s\S]{0,400}allow write: if isAuth\(\)[\s\S]{0,120}isOwner/.test(RULES));
+  // The rule filing depends on. This assertion originally pinned the
+  // owner-only clause as a fixed dependency; the next commit widened it, and
+  // the assertion reddened — which is the check working. It now pins the shape
+  // filing actually needs: the owner OR same-company staff, never a viewer.
+  const docRule = RULES.slice(RULES.indexOf('match /documents/{documentId}'),
+    RULES.indexOf('match /drawings/{drawingId}'));
+  ok('the documents write rule admits the owner and same-company staff',
+    /allow write: if isAuth\(\)/.test(docRule)
+    && /isOwner\(get\(/.test(docRule)
+    && /isCompanyStaff\(\) && parentLeadInMyCompany\(leadId\)/.test(docRule));
+  ok('and it does not reach for isCompanyReader, which would hand viewers write',
+    !/isCompanyReader\(\)/.test(docRule));
 
   ok('the documents list is refreshed so the row appears without a reload',
     /NBDCustomerDocs\.refresh\(\)/.test(code));

@@ -1184,13 +1184,14 @@
       // Filing is a bonus on top of a report the rep already has, so this is
       // warn-and-continue rather than an error.
       //
-      // The expected denial is specific and worth naming: firestore.rules:380
-      // allows WRITE on leads/{id}/documents only to the lead's owner, while
-      // READ also admits a company reader (parentLeadInMyCompany). So a manager
-      // generating a report on a teammate's lead — which this session just made
-      // possible by fixing the photo query scope — gets the PDF and no filed
-      // row. Widening that rule is a rules change with its own blast radius,
-      // not a rider on this one.
+      // A `sales_rep` or `viewer` on a teammate's lead is the expected denial:
+      // firestore.rules allows WRITE on leads/{id}/documents to the lead's
+      // owner or to same-company STAFF (company_admin|manager), while READ also
+      // admits a viewer. Managers do file successfully — that clause was the
+      // 2026-07 manager-edit-rights pass finishing the job it started on
+      // activity/tasks/notes, and it landed with this feature because fixing
+      // the photo query scope is what made a manager able to reach the report
+      // at all.
       console.warn('[photo-report] could not file the report on the lead:', e && e.message);
     }
   }
