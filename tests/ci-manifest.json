@@ -104,6 +104,7 @@
     "portal-error-states.test.js",
     "portal-preview-telemetry.test.js",
     "portal-preview-framing.test.js",
+    "portal-share-recording.test.js",
     "portal-signature-repaint.test.js",
     "photo-upload-phase.test.js",
     "customer-jump-nav-order.test.js",
