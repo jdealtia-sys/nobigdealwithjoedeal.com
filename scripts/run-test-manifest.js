@@ -138,7 +138,15 @@ const RUNNABLE = ['node', 'smoke'];
 //               line is a serialisation point for every lane that adds a test
 //               file, so re-measure after the rebase and merge promptly.
 
-const FLOORS = { node: 108, smoke: 67, disk: 193 };
+//   2026-09-08  TENTH collision, google-reviews lane
+//               (tests/google-reviews-not-configured.test.js). Both sides had
+//               moved the literal again — this branch measured 107/192 against
+//               a base that main had already carried to 108/193. Re-measured
+//               on the merged tree with --check rather than adding this lane's
+//               +1 to either figure; smoke stays 67 because this lane adds no
+//               smoke suite, which is the trap the ninth entry flags.
+
+const FLOORS = { node: 109, smoke: 67, disk: 194 };
 
 // ── Argument parsing ───────────────────────────────────────────────
 const argv = process.argv.slice(2);
