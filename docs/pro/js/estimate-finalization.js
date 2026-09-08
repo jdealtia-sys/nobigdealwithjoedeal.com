@@ -769,7 +769,7 @@ ${footer}
       const tierDefs = [
         { key: 'good',   label: 'GOOD',   sub: 'Standard System', color: '#6b7280' },
         { key: 'better', label: 'BETTER', sub: 'System Warranty', color: '#3b82f6' },
-        { key: 'best',   label: 'BEST',   sub: 'Impact + 50yr Warranty', color: _acc }
+        { key: 'best',   label: 'BEST',   sub: 'Impact + 20yr Warranty', color: _acc }
       ];
       tierCards = `
         <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin:24px 0;">

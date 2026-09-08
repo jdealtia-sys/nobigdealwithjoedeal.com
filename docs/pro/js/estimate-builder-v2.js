@@ -42,7 +42,7 @@
   const TIER_RATES = (_NBD_CFG && _NBD_CFG.TIER_RATES) || {
     good:   545,   // Standard system + standard accessories
     better: 595,   // Upgraded materials + system warranty
-    best:   660    // Impact-rated + 50yr warranty package
+    best:   660    // Impact-rated + 20yr workmanship warranty package
   };
 
   // Cost basis per SQ (Internal-view margin calc). SHIPPED AS ZEROS on

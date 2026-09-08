@@ -477,7 +477,7 @@ mark.hl{background:var(--gold);color:#000;border-radius:3px;padding:0 2px}
             <li><strong>Bulk select</strong> — tap the <span class="mock-bar">☑ Bulk</span> button in the kanban header to enter multi-select mode. Tap cards to add them, then bulk-set job type, tags, source, or follow-up date.</li>
             <li><strong>Right-click / long-press a card</strong> — opens a quick context menu: View details · Edit · Add task · Call · Copy phone/address · Open in Maps · Delete. Same vocabulary on desktop and mobile.</li>
             <li><strong>Days in stage</strong> — every card shows a small badge with how many days it's been in its current column. Tap to see the full stage history timeline.</li>
-            <li><strong>Property intel</strong> — when you add a lead by address, NBD pulls year built, market value, last sale date, and whether the owner is an LLC. Pulls happen on save; manual re-pull is on the edit modal.</li>
+            <li><strong>Property intel</strong> — when you add a lead by address, NBD returns an AI-estimated property profile: year built, last sale, owner of record and a roof score. Estimates, not county data — verify anything you quote against your county auditor. Pulls happen on save; manual re-pull is on the edit modal.</li>
             <li><strong>Lost cards aren't deleted</strong> — they live in the Lost column with the reason recorded. To permanently archive a lead, use Delete (it's a soft delete; bin lives in Settings).</li>
           </ul>
         </div>
@@ -547,7 +547,7 @@ mark.hl{background:var(--gold);color:#000;border-radius:3px;padding:0 2px}
           </ul>
 
           <h4>Property intel pull</h4>
-          <p>The <span class="mock-btn">🏠 Pull Property Intel</span> button hits Regrid + county records and fills in year built, market value, last sale date, parcel ID, LLC ownership status, and homestead exemption. Saves with the lead. If the pull fails (rural property, out-of-coverage county), the rest of the save proceeds normally.</p>
+          <p>The <span class="mock-btn">🏠 Pull Property Intel</span> button returns an AI-estimated property profile — year built, last sale, owner of record, parcel ID where known, and a roof score. It does not read county records; the auditor link beside it is a link, not a data source, so verify anything you rely on before quoting it. Authoritative Regrid parcel data can be connected on request. Saves with the lead. If the pull fails (rural property, out-of-coverage county), the rest of the save proceeds normally.</p>
         </div>
       </details>
 
@@ -716,14 +716,10 @@ mark.hl{background:var(--gold);color:#000;border-radius:3px;padding:0 2px}
           <ul>
             <li><strong>Storm Damage</strong> — visible storm/hail damage. Auto-creates a Prospect lead with job type pre-set to <code>insurance</code>.</li>
             <li><strong>Insurance Interested</strong> — owner is open to filing. Same auto-promote behavior.</li>
-            <li><strong>Cash Interested</strong> — wants a cash quote. Auto-creates a Prospect with job type <code>cash</code>.</li>
-            <li><strong>Not Home</strong> — no answer. Logs the knock for territory analysis; no lead created.</li>
+                        <li><strong>Not Home</strong> — no answer. Logs the knock for territory analysis; no lead created.</li>
             <li><strong>Not Interested</strong> — owner declined. Logs the knock with a polite-but-stop signal so you don't re-knock soon.</li>
-            <li><strong>Wrong House</strong> — bad address. Doesn't create a lead.</li>
-            <li><strong>Follow-up Later</strong> — owner wants you to come back. Logs a follow-up date.</li>
-            <li><strong>Already Working With Someone</strong> — competitive. Logs the competitor name if you can get it.</li>
-            <li><strong>Sold</strong> — closed on the doorstep. Creates a customer-tier lead immediately.</li>
-          </ul>
+                        <li><strong>Follow-up Later</strong> — owner wants you to come back. Logs a follow-up date.</li>
+                                  </ul>
 
           <h4>Prospects vs Customers</h4>
           <p>An auto-promoted knock creates a <strong>Prospect</strong>, not a regular Lead. Prospects:</p>
@@ -793,9 +789,9 @@ mark.hl{background:var(--gold);color:#000;border-radius:3px;padding:0 2px}
           <h4>The tier system</h4>
           <p>NBD ships with three default tiers ($/sq):</p>
           <ul>
-            <li><strong>Good</strong> — $545/sq · 25-year workmanship warranty</li>
-            <li><strong>Better</strong> — $595/sq · 40-year workmanship warranty</li>
-            <li><strong>Best</strong> — $660/sq · 50-year + impact-resistant shingles</li>
+            <li><strong>Good</strong> — $545/sq · 5-year workmanship warranty</li>
+            <li><strong>Better</strong> — $595/sq · 10-year workmanship warranty</li>
+            <li><strong>Best</strong> — $660/sq · 20-year workmanship + impact-resistant shingles</li>
           </ul>
           <p>You can customize these in <strong>Settings → Estimate Defaults</strong>. The tiers are stored per-account so the whole team estimates consistently.</p>
 
@@ -963,7 +959,7 @@ mark.hl{background:var(--gold);color:#000;border-radius:3px;padding:0 2px}
           <p>The portal updates live as you change the lead. Homeowner refreshes their tab and sees the new state.</p>
 
           <h4>Versioning</h4>
-          <p>Portal HTML is uploaded to Firebase Storage at <code>portals/{uid}/{leadId}/v-{timestamp}.html</code>. Every regeneration creates a new version; the latest URL is what's shared. Previous versions stay in storage for audit — useful if a homeowner says "but the portal said it'd be done by Friday" and you need to prove what was shown when.</p>
+          <p>The portal renders live from the lead record each time it is opened, so the homeowner always sees current status — there is no stored copy of what it showed last week. Do not rely on it as an audit trail — useful if a homeowner says "but the portal said it'd be done by Friday" and you need to prove what was shown when.</p>
 
           <h4>Photo-only portal</h4>
           <p>If you just want to share photos (no timeline, no contact), tap <span class="mock-btn ghost">Photo-Only Portal</span>. Lighter page, faster to load, useful for storm canvass follow-ups where you don't have a contract yet.</p>
@@ -1006,7 +1002,7 @@ mark.hl{background:var(--gold);color:#000;border-radius:3px;padding:0 2px}
             <li><strong>AOB (Assignment of Benefits)</strong> — Insurance only. Lets the homeowner assign their claim benefits to you so you can talk to the carrier directly. Auto-fills with carrier, claim #, property address.</li>
             <li><strong>Contract</strong> — Once the estimate is accepted. Merges in scope of work, total amount, deductible (insurance), warranty terms, payment schedule.</li>
             <li><strong>Supplement Request Letter</strong> — Insurance only. Generated when the carrier's initial scope misses items. Includes line items, code references, and photo evidence.</li>
-            <li><strong>Warranty Certificate</strong> — Generated at close-out. Tier-specific (Good = 25yr, Better = 40yr, Best = 50yr workmanship). PDF-export ready.</li>
+            <li><strong>Warranty Certificate</strong> — Generated at close-out. Tier-specific, matching the terms the generator prints (Good = 5-year, Better = 10-year, Best = 20-year workmanship). PDF-export ready.</li>
             <li><strong>Change Order</strong> — During install. Captures additional work + homeowner sign-off so you can bill for it.</li>
             <li><strong>Final Invoice</strong> — At close-out. Aggregates contract + change orders + deductible. Marks paid when funds land.</li>
             <li><strong>Inspection Report</strong> — Two variants: Homeowner (cleaner, more readable) and Insurance (technical, code citations).</li>
