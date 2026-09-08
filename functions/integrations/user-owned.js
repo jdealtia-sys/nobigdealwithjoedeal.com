@@ -145,9 +145,27 @@ const COLLECTION_GROUPS_WITH_USERID = [
 ];
 
 // ─── STORAGE PREFIXES ───────────────────────────────────────
-// Every Storage bucket path of the shape `<prefix>/{uid}/...` per
-// storage.rules. Right-to-be-forgotten means deleting the binary
-// payloads too, not just the Firestore row.
+// Every Storage bucket path of the shape `<prefix>/{uid}/...`.
+// Right-to-be-forgotten means deleting the binary payloads too, not
+// just the Firestore row.
+//
+// This list used to say "per storage.rules", and that framing is what
+// let it drift: storage.rules is not a registry of what exists, only of
+// what has a rule. Four prefixes were missing on 2026-09-08 — `documents`
+// and `esign` had rules blocks nobody had mirrored here, while
+// `pdf-renders` and `homeowner-uploads` are written by the ADMIN SDK
+// (which bypasses rules entirely) and had no block at all, so no amount
+// of reading storage.rules would ever have found them.
+//
+// scripts/check-storage-prefix-registry.js now derives the true set from
+// BOTH sources — `match /<prefix>/{uid}/` blocks in storage.rules AND
+// `<prefix>/${uid}/` write sites in functions/ + docs/**/js/ — and fails
+// if either names a prefix this list omits. Add the prefix here when you
+// add the write site; the gate will tell you if you forget.
+//
+// SCOPE: this list is the EXPORT scope (GDPR Art. 15) — everything the
+// user can obtain. Erasure (Art. 17) uses ERASURE_STORAGE_PREFIXES below,
+// which is this list minus a documented retention hold.
 const STORAGE_PREFIXES = [
   'audio',
   'photos',
@@ -167,7 +185,65 @@ const STORAGE_PREFIXES = [
   // receipts/{uid}/... — original receipt images/PDFs backing expense docs
   // (Phase 1 expense subsystem). Owner-keyed like docs/; erase with the account.
   'receipts',
+  // documents/{uid}/{leadId}/{docId}.html — generated + signed customer
+  // documents (document-generator.js onPersistFinalized, storage.rules:96).
+  // Added 2026-09-08. onLeadDeleted already reaps this prefix per-lead
+  // (lead-artifact-cleanup.js LEAD_KEYED_PREFIXES), so erasure was clearing
+  // MOST of it as a side effect of deleting the lead rows — best-effort,
+  // via a trigger with `retry: false`, and blind to any object whose lead
+  // row was already gone. Listing it here makes the sweep deterministic and
+  // catches those orphans. They historically carried permanent download
+  // tokens (documentation/audit/ORPHANED-STORAGE-ARTIFACTS-2026-08-18.md),
+  // where deletion is the only revocation there is.
+  'documents',
+  // esign/{uid}/{leadId}/{envelopeId}/{source,signed}.pdf — e-sign envelopes
+  // (storage.rules:119). EXPORT ONLY — see ERASURE_RETAINED_PREFIXES below.
+  'esign',
+  // homeowner-uploads/{ownerUid}/{leadId}/{ts}.{ext} — photos the HOMEOWNER
+  // submits through the portal (portal.js uploadHomeownerPhoto). Admin-SDK
+  // write, no storage.rules block, and not a `photos/` object, so neither the
+  // rules file nor the lead reaper ever named it. The upload files its
+  // Firestore row into `photos` (which IS erased) while the bytes landed
+  // here, so erasure deleted the pointer and left the image. Same content
+  // class as photos/ — a customer's property — so it erases with it.
+  'homeowner-uploads',
+  // pdf-renders/{uid}/{ts}-{slug}.pdf — server-rendered invoices, contracts,
+  // warranties and reports (render-pdf.js). In neither the export nor the
+  // erasure sweep since the renderer shipped. Objects written before
+  // 2026-09-08 carry permanent download tokens, which makes deleting them
+  // the only revocation available.
+  'pdf-renders',
 ];
+
+// ─── ERASURE RETENTION HOLDS ────────────────────────────────
+// Prefixes that are EXPORTED but deliberately NOT erased.
+//
+// GDPR Art. 17(3) carves out erasure where processing is necessary for
+// the establishment, exercise or defence of legal claims. An executed,
+// counter-signed contract is the paradigm case: it is the record of an
+// agreement between two parties, and the other party's interest in it
+// does not end because one party asks to be forgotten.
+//
+// Decided by Jo on 2026-09-08, deliberately and not as a code cleanup:
+// esign/ holds source.pdf + signed.pdf for every envelope. Nothing has
+// ever deleted one — it is absent from LEAD_KEYED_PREFIXES too — so this
+// is not a new hold, it is the existing behaviour finally written down
+// and made honest to the data subject (confirmAccountErasure reports
+// what it retained; see compliance.js).
+//
+// Anything listed here MUST also be in STORAGE_PREFIXES, so that what is
+// retained is at least obtainable by the person asking. The registry gate
+// enforces that.
+const ERASURE_RETAINED_PREFIXES = [
+  'esign',
+];
+
+// The erasure sweep's actual scope. Derived, never hand-maintained — a
+// prefix added to STORAGE_PREFIXES is erased unless someone deliberately
+// puts it on the retention list above.
+const ERASURE_STORAGE_PREFIXES = STORAGE_PREFIXES.filter(
+  p => !ERASURE_RETAINED_PREFIXES.includes(p)
+);
 
 // ─── OWNER-KEYED UID-PATH DOCS ───────────────────────────────
 // Firestore docs addressed as `<coll>/{uid}` directly — no scan
@@ -197,6 +273,8 @@ module.exports = {
   FLAT_USER_COLLECTIONS,
   COLLECTION_GROUPS_WITH_USERID,
   STORAGE_PREFIXES,
+  ERASURE_RETAINED_PREFIXES,
+  ERASURE_STORAGE_PREFIXES,
   OWNER_KEYED_DOCS,
   NESTED_LEADS_PATH,
 };

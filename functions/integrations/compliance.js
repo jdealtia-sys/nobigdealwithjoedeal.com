@@ -37,9 +37,29 @@ const {
   FLAT_USER_COLLECTIONS,
   COLLECTION_GROUPS_WITH_USERID,
   STORAGE_PREFIXES,
+  ERASURE_RETAINED_PREFIXES,
+  ERASURE_STORAGE_PREFIXES,
   OWNER_KEYED_DOCS,
   NESTED_LEADS_PATH,
 } = require('./user-owned');
+
+// ─── RETENTION-HOLD DISCLOSURE ──────────────────────────────
+// Human wording for each ERASURE_RETAINED_PREFIXES entry, used on the
+// consent page and in the deletion receipt. A prefix with no label falls
+// back to its raw name rather than being dropped: an unlabelled hold is
+// still a hold, and must still be disclosed. Consent to "delete
+// everything" is not consent to a carve-out nobody mentioned.
+const RETAINED_PREFIX_LABELS = {
+  esign: 'signed contracts and the envelopes they were signed in',
+};
+
+function describeRetained() {
+  const labels = ERASURE_RETAINED_PREFIXES.map(p => RETAINED_PREFIX_LABELS[p] || p);
+  if (!labels.length) return '';
+  return 'We keep your ' + labels.join('; ') + '. Both sides signed those, so they '
+    + 'stay on file as the record of the agreement — they are included in your data '
+    + 'export, and nothing else survives this.';
+}
 
 const CORS_ORIGINS = [
   'https://nobigdealwithjoedeal.com',
@@ -465,6 +485,17 @@ exports.confirmAccountErasure = onRequest(
       const tokenQ = String(req.query.token || '');
       const safeUid   = uidQ.slice(0, 128).replace(/[^A-Za-z0-9:_-]/g, '');
       const safeToken = tokenQ.slice(0, 256).replace(/[^A-Za-z0-9_-]/g, '');
+      // Disclosed BEFORE the button, not after the fact. The paragraph below
+      // used to promise this "removes all your ... documents", which stopped
+      // being true the moment esign/ went on the retention list. Derived from
+      // ERASURE_RETAINED_PREFIXES so the promise and the behaviour cannot
+      // drift apart — empty list, no sentence, no stale caveat.
+      const retainedSentence = describeRetained();
+      const retainedHtml = retainedSentence
+        ? '<p><strong>One exception.</strong> '
+          + retainedSentence.replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]))
+          + '</p>'
+        : '';
       res.status(200).send(
         '<!doctype html><html lang="en"><head>' +
         '<meta charset="utf-8">' +
@@ -483,8 +514,9 @@ exports.confirmAccountErasure = onRequest(
         '.err{background:rgba(255,78,78,.15);color:#ff6b6b;display:block!important}' +
         '</style></head><body>' +
         '<h1>Permanently delete your NBD Pro account?</h1>' +
-        '<p>This removes all your leads, estimates, photos, pins, tasks, documents, training sessions, profile, and subscription record. ' +
+        '<p>This removes your leads, estimates, photos, pins, tasks, documents, training sessions, profile, and subscription record. ' +
         'Your Auth account is disabled. This cannot be undone.</p>' +
+        retainedHtml +
         '<p>If you did not request this, simply close this tab — nothing will happen.</p>' +
         '<form id="f"><button id="b" type="submit">Yes, delete my account</button>' +
         '<a class="cancel" href="/pro/dashboard.html">Cancel</a></form>' +
@@ -492,11 +524,12 @@ exports.confirmAccountErasure = onRequest(
         '<script>(function(){' +
         'var uid=' + JSON.stringify(safeUid) + ';' +
         'var token=' + JSON.stringify(safeToken) + ';' +
+        'var retainedMsg=' + JSON.stringify(retainedSentence ? ' ' + retainedSentence : '') + ';' +
         'var f=document.getElementById("f");var b=document.getElementById("b");var s=document.getElementById("status");' +
         'f.addEventListener("submit",function(ev){ev.preventDefault();b.disabled=true;b.textContent="Deleting...";' +
         'fetch(window.location.pathname,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({uid:uid,token:token})})' +
         '.then(function(r){return r.json().then(function(d){return {ok:r.ok,d:d}});})' +
-        '.then(function(x){if(x.ok){s.className="ok";s.textContent="Account deleted. You can close this tab.";f.style.display="none";}' +
+        '.then(function(x){if(x.ok){s.className="ok";s.textContent="Account deleted. You can close this tab."+retainedMsg;f.style.display="none";}' +
         'else{s.className="err";s.textContent=(x.d&&x.d.error)||"Deletion failed.";b.disabled=false;b.textContent="Yes, delete my account";}})' +
         '.catch(function(){s.className="err";s.textContent="Network error.";b.disabled=false;b.textContent="Yes, delete my account";});' +
         '});' +
@@ -570,7 +603,9 @@ exports.confirmAccountErasure = onRequest(
     //       missed by the cascade entirely. `recursiveDelete` walks
     //       the whole subtree (doc + every child collection) in one
     //       Admin SDK call.
-    //   (4) Owner-keyed Storage prefixes
+    //   (4) Owner-keyed Storage prefixes — ERASURE_STORAGE_PREFIXES,
+    //       which is the Art. 15 export scope minus the documented
+    //       Art. 17(3) retention holds (currently `esign/`)
     //   (5) Owner-keyed `{uid}`-path docs (users, subscriptions,
     //       userSettings, leaderboard, reps, estimate_drafts,
     //       feature_flags). `account_erasures/{uid}` intentionally
@@ -647,9 +682,13 @@ exports.confirmAccountErasure = onRequest(
     }
 
     // ── (4) Storage prefix sweeps ──
+    // ERASURE_STORAGE_PREFIXES, not STORAGE_PREFIXES: the export scope and
+    // the erasure scope are deliberately different. Everything owner-keyed
+    // is exportable; `esign/` (executed contracts) is held back under
+    // ERASURE_RETAINED_PREFIXES. See the rationale in user-owned.js.
     try {
       const bucket = getStorage().bucket();
-      for (const prefix of STORAGE_PREFIXES) {
+      for (const prefix of ERASURE_STORAGE_PREFIXES) {
         try {
           await bucket.deleteFiles({ prefix: prefix + '/' + uid + '/', force: true });
         } catch (e) {
@@ -681,17 +720,32 @@ exports.confirmAccountErasure = onRequest(
       logger.warn('erasure: auth disable failed', { err: e.message });
     }
 
+    // `retained` is recorded even when empty. A retention hold that isn't
+    // written down is indistinguishable from a sweep that silently missed
+    // the prefix — which is exactly the state this cascade was in before
+    // 2026-09-08, when four prefixes were absent from the list and nothing
+    // said whether that was policy or oversight. The audit row now answers
+    // that question for every future erasure.
     await db.collection('audit_log').add({
       type: 'gdpr_erasure_confirmed',
       op: 'delete',
       ids: { uid },
+      retained: ERASURE_RETAINED_PREFIXES,
       ts: FieldValue.serverTimestamp()
     });
 
     // POST response: JSON. The GET landing page's inline JS uses this
     // to flip the UI into the success state. A direct POST from curl
     // gets a machine-readable acknowledgement.
-    res.status(200).json({ success: true });
+    //
+    // `retained` is surfaced to the data subject, not just logged: telling
+    // someone their account was erased while quietly keeping their signed
+    // contracts is the failure mode Art. 17(3) does NOT license. The carve-out
+    // permits retention; it does not permit being silent about it.
+    res.status(200).json({
+      success: true,
+      retained: ERASURE_RETAINED_PREFIXES,
+    });
   }
 );
 

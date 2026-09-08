@@ -279,3 +279,34 @@ Run the evening #1253 deployed, against `nobigdeal-pro` /
 With this, the artifact-leak class this audit opened is CLOSED end-to-end:
 trigger live, callable live, generator tokenless, backlog swept, window
 cleaned, verified by fetch.
+
+---
+
+## Update 2026-09-08 — the lead-driven sweep was never the whole surface
+
+This note reasoned entirely in **lead-keyed** prefixes, because that is where
+the orphans were. A separate pass over the GDPR registry that day found the
+**account-keyed** half had its own gap: `STORAGE_PREFIXES` in
+`functions/integrations/user-owned.js` — which drives both the Art. 15 export
+and the Art. 17 erasure sweep — was missing **four** prefixes, including two
+this note never mentions because they have no `storage.rules` block and are
+written with the **admin SDK**: `pdf-renders/` and `homeowner-uploads/`.
+
+`homeowner-uploads/` matters most here. `uploadHomeownerPhoto` files its
+Firestore row into the `photos` collection (erased) while the bytes land in a
+prefix that neither `LEAD_KEYED_PREFIXES` nor the erasure sweep ever reached —
+so the same pointer-survives-the-object inversion this note closed for
+`documents/` was still live, one prefix over, in the account-erasure path.
+
+`documents/` itself was only *incidentally* safe: it is in
+`LEAD_KEYED_PREFIXES`, so account erasure cleaned it as a side effect of
+deleting the lead rows — best-effort, via a `retry: false` trigger, and blind
+to objects whose lead row was already gone.
+
+The `audio/{uid}/d2d/*.webm` item left open above is now at least covered by
+**account** erasure (`audio` has always been in `STORAGE_PREFIXES`); the
+hand-review of those two tokened objects is still open on its own terms.
+
+Full write-up, decisions and the derived CI gate that replaces the
+hand-maintained prefix list:
+[GDPR-STORAGE-PREFIX-REGISTRY-2026-09-08](GDPR-STORAGE-PREFIX-REGISTRY-2026-09-08.md).
