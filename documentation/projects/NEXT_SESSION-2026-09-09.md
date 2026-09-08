@@ -951,3 +951,74 @@ across every object are the tell.
 - Nothing diffs the live bucket's actual prefixes against `storage.rules`, so a
   prefix that exists only as an admin-SDK write is still discoverable only by
   reading code.
+
+## §14 — The Google-reviews lane (added 2026-09-08, PR #1518 — GREEN BUT UNMERGED)
+
+**Do this first: [PR #1518](https://github.com/jdealtia-sys/nobigdealwithjoedeal.com/pull/1518)
+is 21/21 green and `mergeStateStatus: CLEAN`, and was left unmerged when the
+session ended.** Nothing is wrong with it. Merge it, or re-check it against a
+moved `main` first — it already rebased once onto `1dd3664e` and collided with
+the `FLOORS` line (tenth collision on that literal in one afternoon).
+
+Full write-up:
+[GOOGLE-REVIEWS-UNCONFIGURED-2026-09-08](../audit/GOOGLE-REVIEWS-UNCONFIGURED-2026-09-08.md).
+
+### What it found
+
+`getGoogleReviews` logged **4,017 ERROR lines in the 30-day retention window
+for a feature that has never once worked.** Both secrets have exactly one
+version each, created **2026-04-21T19:10** — the day the function first landed
+— and both hold the deploy's `__unset__` stub. The README runbook was never
+run. Live Google reviews have never rendered, on any of the 17 pages that
+carry the widget.
+
+Not a regression. Not the #1505 deploy. It was never wired up.
+
+The PR fixes only the *reporting* half: not-configured is now its own branch
+ahead of the try/catch, throttled to one WARN per warm instance per hour,
+carrying `event: 'google_reviews_not_configured'` and naming which secret is
+missing. Genuine Places failures stay at ERROR, so an error line from that
+service now means something is actually broken.
+
+### Open — needs Jo, in the order they unblock each other
+
+1. **Set the two secrets.** `functions/google-reviews.README.md` steps 1–5 are
+   accurate: enable Places API (New), create a key with **Application
+   restrictions: None** (server-side; a referrer-restricted key is silently
+   refused), get the `ChIJ...` place id from the Place ID Finder, then
+   `firebase functions:secrets:set` each and redeploy. ~$0.07/month.
+2. **Expect the visual baselines to break the moment that lands.** The
+   committed `landing--*` snapshots in
+   `tests/e2e/visual-regression.spec.js-snapshots/` were captured with the
+   widget showing its "Read our reviews on Google" fallback card. Real reviews
+   change those pixels. Re-bless in the same PR — otherwise the reviews going
+   live reads as a visual-regression failure.
+3. **Stop CI calling the production function** (§3 of the audit note). Its own
+   PR, because the obvious fix moves the same baselines as item 2 — consider
+   doing 2 and 3 together.
+4. **Add `getgooglereviews` to `alert-functions-error-rate.json`'s service
+   regex.** It is absent, so even fully deployed that alert would never have
+   fired here. Safe only *after* #1518 — before it, this would have pinned the
+   alert permanently red on a config gap, and a check that is always failing is
+   a check nobody reads. Still worth nothing until the ten policies are
+   actually deployed (§5a of the renderPdf note; re-verified first-hand this
+   session with a positive control — `policies list` is `[]`, `channels list`
+   returns the two channels those files reference).
+
+### The trap worth carrying out of this lane
+
+**CI's E2E runs hit the deployed production functions.** `emulators:exec --only
+hosting` runs without the functions emulator, so every `"function"` rewrite in
+`firebase.json` resolves to prod. Measured on this endpoint:
+
+```
+    976 http://127.0.0.1:5000              <- CI, Azure runner IPs
+     22 https://nobigdealwithjoedeal.com   <- actual customers
+```
+
+**97.7% of that function's production traffic was CI.** So: before reading a
+prod error or traffic volume as customer impact, break it down by
+`httpRequest.referer`. A "burst" of 4 errors in 20 seconds here was parallel
+Playwright shards, not a retry loop — there is no retry anywhere in that path.
+Two live consequences: CI silently depends on those prod functions being up,
+and it can 429 itself against the per-IP limiter (60/min on this route).
