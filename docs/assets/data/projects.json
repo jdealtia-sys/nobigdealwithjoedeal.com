@@ -29,7 +29,7 @@
       "services": [
         "roof-replacement"
       ],
-      "tag": "Roof Replacement",
+      "tag": "full-replacement",
       "city": "Union, KY",
       "description": "Architectural shingle replacement on a two-story colonial. New drip edge, starter strip, and ridge vent. Curb appeal speaks for itself.",
       "hero": "/assets/images/projects/completed-colonial-spring.jpg",
@@ -60,7 +60,7 @@
         "roof-replacement",
         "roof-inspection"
       ],
-      "tag": "Roof Replacement",
+      "tag": "full-replacement",
       "city": "Milford, OH",
       "description": "Complete tear-off and replacement. Every project gets drone documentation so the homeowner can see exactly what was done — and so can the insurance company.",
       "hero": "/assets/images/projects/completed-brick-aerial.jpg",
@@ -90,7 +90,7 @@
       "services": [
         "roof-replacement"
       ],
-      "tag": "Roof Replacement",
+      "tag": "full-replacement",
       "city": "Sycamore Township, OH",
       "description": "Large footprint with multiple roof sections, valleys, and transitions. New underlayment throughout, architectural shingles, all flashing replaced. Same job as the underlayment card — this is the finished side of it.",
       "hero": "/assets/images/projects/completed-multisection.jpg",
@@ -137,7 +137,7 @@
         "storm-damage",
         "roof-replacement"
       ],
-      "tag": "Storm Damage",
+      "tag": "storm-hail",
       "city": "Miamisburg, OH",
       "description": "High winds peeled back shingles and exposed underlayment. Documented damage for insurance claim, full replacement approved and completed within two weeks.",
       "hero": "/assets/images/projects/damage-lifted-shingles.jpg",
@@ -168,7 +168,7 @@
         "storm-damage",
         "roof-inspection"
       ],
-      "tag": "Hail Damage",
+      "tag": "storm-hail",
       "city": "Mason, OH",
       "description": "I mark every impact with chalk during inspection so the adjuster can verify. This roof had 50+ hits per test square — clear approval for full replacement.",
       "hero": "/assets/images/projects/damage-chalk-marked.jpg",
@@ -196,7 +196,7 @@
       "services": [
         "roof-replacement"
       ],
-      "tag": "Active Jobsite",
+      "tag": "active-jobsite",
       "city": "Cincinnati, OH",
       "description": "Branded trucks, tarps down, materials staged, crew on the roof. This is what a professional jobsite looks like. Neighbors took notice — two more estimates booked that week.",
       "hero": "/assets/images/projects/active-culdescac-crew.jpg",
@@ -246,7 +246,7 @@
       "services": [
         "roof-replacement"
       ],
-      "tag": "Active Jobsite",
+      "tag": "active-jobsite",
       "city": "Sycamore Township, OH",
       "description": "Hi-vis crew laying synthetic underlayment on a large brick two-story. Materials staged, safety protocols in place. The decking underneath was clean — no surprises. Same job as the multi-section card — this is install day on it.",
       "hero": "/assets/images/projects/active-brick-underlayment.jpg",
@@ -293,7 +293,7 @@
         "roof-replacement",
         "roof-repair"
       ],
-      "tag": "Craftsmanship",
+      "tag": "craftsmanship",
       "city": "Maineville, OH",
       "description": "Metal valley flashing with tight shingle cuts on both sides, new pipe boot sealed properly. This is the kind of detail work that prevents leaks for decades. No shortcuts.",
       "hero": "/assets/images/projects/detail-valley-shingle.jpg",
@@ -313,7 +313,7 @@
       "services": [
         "roof-replacement"
       ],
-      "tag": "Drone Aerial",
+      "tag": "inspection-docs",
       "city": "Evansville, IN",
       "description": "Side-by-side tear-offs on neighboring properties. Full decking exposed, materials staged, crew running both roofs. Efficiency at scale — no wasted time.",
       "hero": "/assets/images/projects/aerial-dual-property.jpg",
@@ -339,7 +339,7 @@
       "services": [
         "roof-replacement"
       ],
-      "tag": "Commercial",
+      "tag": "commercial",
       "city": "West Liberty, KY",
       "description": "Full-scale commercial project: multi-building apartment complex, complete tear-off down to decking, new synthetic underlayment going down while crew stages shingle bundles. Multiple buildings, one crew, zero delays. Same project as the completed-buildings card; the range covers the whole complex.",
       "hero": "/assets/images/projects/commercial-apartment-tearoff.jpg",
@@ -373,7 +373,7 @@
       "services": [
         "roof-replacement"
       ],
-      "tag": "Commercial",
+      "tag": "commercial",
       "city": "West Liberty, KY",
       "description": "Same complex, job done. Every building re-roofed with architectural shingles, new ridge vents, all flashing replaced. Drone-documented start to finish for the property management company. Same project as the tear-off card; the range covers the whole complex.",
       "hero": "/assets/images/projects/commercial-apartment-completed.jpg",
@@ -390,7 +390,8 @@
       "consentOnFile": true,
       "published": "2026-08-06",
       "priceLow": 100000,
-      "priceHigh": 125000
+      "priceHigh": 125000,
+      "featured": true
     },
     {
       "slug": "aframe-standing-seam-metal",
@@ -399,7 +400,7 @@
       "services": [
         "roof-replacement"
       ],
-      "tag": "Metal Roof",
+      "tag": "metal-specialty",
       "city": "Gatlinburg, TN",
       "description": "Not every job is shingles. This mountain A-frame got a standing seam metal roof — built for steep pitch, heavy snow loads, and decades of zero maintenance.",
       "hero": "/assets/images/projects/aframe-standing-seam-metal-2.jpg",
@@ -438,7 +439,7 @@
       "services": [
         "roof-replacement"
       ],
-      "tag": "Designer Shingles",
+      "tag": "craftsmanship",
       "city": "Cincinnati, OH",
       "year": 2026,
       "description": "Three layers of old shingles came off this brick Tudor duplex before the designer-blend went on — plus the built-in box gutters restored, the low-slope section coated, and new chimney flashing cut in. Old-bones buildings deserve to be done right.",
@@ -476,7 +477,7 @@
       "services": [
         "gutter-replacement"
       ],
-      "tag": "Gutter Screens",
+      "tag": "craftsmanship",
       "city": "Cincinnati, OH",
       "priceLow": 2000,
       "priceHigh": 2500,
@@ -506,7 +507,7 @@
       "services": [
         "roof-replacement"
       ],
-      "tag": "Full Tear-Off",
+      "tag": "full-replacement",
       "city": "Cincinnati, OH",
       "priceLow": 22500,
       "priceHigh": 23500,
@@ -589,7 +590,7 @@
         "roof-repair",
         "roof-inspection"
       ],
-      "tag": "Thermal Imaging",
+      "tag": "inspection-docs",
       "city": "Blue Ash, OH",
       "priceLow": 3000,
       "priceHigh": 3500,
@@ -647,7 +648,7 @@
       "services": [
         "siding-repair"
       ],
-      "tag": "Same-Day Repair",
+      "tag": "small-same-day",
       "city": "Cincinnati, OH",
       "priceLow": 600,
       "priceHigh": 1000,
@@ -683,7 +684,7 @@
         "siding-repair",
         "storm-damage"
       ],
-      "tag": "Storm Damage",
+      "tag": "storm-hail",
       "city": "Sharonville, OH",
       "priceLow": 1000,
       "priceHigh": 2000,
@@ -745,7 +746,7 @@
       "services": [
         "roof-replacement"
       ],
-      "tag": "Full Replacement",
+      "tag": "full-replacement",
       "city": "Milford, OH",
       "priceLow": 24500,
       "priceHigh": 25500,
@@ -800,7 +801,7 @@
         "storm-damage",
         "roof-replacement"
       ],
-      "tag": "Storm Response",
+      "tag": "storm-hail",
       "city": "Cincinnati, OH",
       "priceLow": 17500,
       "priceHigh": 18500,
@@ -842,7 +843,7 @@
       "services": [
         "siding-repair"
       ],
-      "tag": "Siding Repair",
+      "tag": "small-same-day",
       "city": "Newport, KY",
       "priceLow": 300,
       "priceHigh": 500,
@@ -881,7 +882,7 @@
         "siding-repair",
         "wood-siding-repair"
       ],
-      "tag": "Soffit Repair",
+      "tag": "small-same-day",
       "city": "Cincinnati, OH",
       "priceLow": 600,
       "priceHigh": 900,
@@ -920,7 +921,7 @@
         "siding-repair",
         "wood-siding-repair"
       ],
-      "tag": "Siding Repair",
+      "tag": "small-same-day",
       "city": "Montgomery, OH",
       "priceLow": 400,
       "priceHigh": 700,
@@ -958,7 +959,7 @@
       "services": [
         "siding-repair"
       ],
-      "tag": "Siding Repair",
+      "tag": "small-same-day",
       "city": "Montgomery, OH",
       "priceLow": 200,
       "priceHigh": 400,
@@ -993,7 +994,7 @@
         "roof-repair",
         "storm-damage"
       ],
-      "tag": "Wind Damage",
+      "tag": "storm-hail",
       "city": "Franklin, OH",
       "priceLow": 14500,
       "priceHigh": 15500,
@@ -1032,7 +1033,7 @@
         "roof-replacement",
         "shed-roof-replacement"
       ],
-      "tag": "Full Replacement",
+      "tag": "full-replacement",
       "city": "Batavia, OH",
       "priceLow": 11000,
       "priceHigh": 12000,
@@ -1075,7 +1076,7 @@
         "roof-repair",
         "shed-roof-replacement"
       ],
-      "tag": "Ridge Repair",
+      "tag": "craftsmanship",
       "city": "Amelia, OH",
       "priceLow": 1500,
       "priceHigh": 2000,
@@ -1113,7 +1114,7 @@
       "services": [
         "roof-replacement"
       ],
-      "tag": "Full Replacement",
+      "tag": "full-replacement",
       "city": "Norwood, OH",
       "priceLow": 15000,
       "priceHigh": 16000,
@@ -1171,7 +1172,8 @@
         }
       ],
       "consentOnFile": true,
-      "published": "2026-08-28"
+      "published": "2026-08-28",
+      "featured": true
     },
     {
       "slug": "newtown-oh-steep-pitch-replacement-2026",
@@ -1179,7 +1181,7 @@
       "services": [
         "roof-replacement"
       ],
-      "tag": "Full Replacement",
+      "tag": "full-replacement",
       "city": "Newtown, OH",
       "priceLow": 9500,
       "priceHigh": 10500,
@@ -1223,7 +1225,7 @@
         "storm-damage",
         "shed-roof-replacement"
       ],
-      "tag": "Storm Damage",
+      "tag": "storm-hail",
       "city": "New Richmond, OH",
       "year": 2024,
       "description": "The carrier approved part of this claim and denied the rest, which is where most homeowners give up. We worked the rest of it, then did the job: house and outbuildings stripped and dried in by morning, charcoal GAF Timberline HDZ across the whole roof by mid-afternoon.",
@@ -1258,7 +1260,7 @@
         "roof-replacement",
         "storm-damage"
       ],
-      "tag": "Full Replacement",
+      "tag": "full-replacement",
       "city": "Cincinnati, OH",
       "year": 2023,
       "description": "Three layers came off this half-timbered Tudor — the biggest tear-off on this page. Wind damage started the claim, and the roof that went back on has to sit right against a house with that much character. Sprawling cruciform footprint, multiple chimneys, dormers into shingle-sided walls.",
@@ -1284,7 +1286,8 @@
       "consentOnFile": true,
       "published": "2026-08-28",
       "priceLow": 32000,
-      "priceHigh": 33000
+      "priceHigh": 33000,
+      "featured": true
     },
     {
       "slug": "cincinnati-oh-deck-replacement-2023",
@@ -1292,7 +1295,7 @@
       "services": [
         "roof-replacement"
       ],
-      "tag": "Deck Replacement",
+      "tag": "craftsmanship",
       "city": "Cincinnati, OH",
       "year": 2023,
       "description": "Sometimes the decking underneath is the actual problem. This one came off entirely — open rafters, daylight through the roof — then went back with new sheathing before a single shingle was laid. You only get to do this part once, so it is worth seeing.",
@@ -1327,7 +1330,7 @@
         "roof-replacement",
         "storm-damage"
       ],
-      "tag": "Full Replacement",
+      "tag": "full-replacement",
       "city": "Cincinnati, OH",
       "year": 2023,
       "description": "Two layers of asphalt off a white ranch, down to the original plank decking with old tar still stuck to the boards. The part worth pointing at is the ground: beds tarped, plants covered, nothing trampled. A tear-off makes a mess — leaving one behind is a choice.",
@@ -1358,7 +1361,7 @@
         "roof-replacement",
         "storm-damage"
       ],
-      "tag": "Full Replacement",
+      "tag": "full-replacement",
       "city": "Cincinnati, OH",
       "year": 2023,
       "description": "A smaller insurance job on a hillside lot, done properly and handed back clean. Stripped to the deck, then charcoal dimensional shingle with tight even courses. The view off the back is the bonus.",
@@ -1389,7 +1392,7 @@
         "roof-replacement",
         "storm-damage"
       ],
-      "tag": "Hail Damage",
+      "tag": "storm-hail",
       "city": "Madeira, OH",
       "year": 2023,
       "description": "Hail and wind claim, handled start to finish. Deck stripped and dried in under synthetic with new drip edge, then a light grey field over the whole house. Look at the corbelled brick chimney — new step flashing worked up every course, which is the part that leaks when somebody rushes it.",
@@ -1428,7 +1431,7 @@
         "roof-replacement",
         "storm-damage"
       ],
-      "tag": "Storm Damage",
+      "tag": "storm-hail",
       "city": "Miamisburg, OH",
       "year": 2024,
       "description": "Strip this brick ranch and you find the whole history of it: original plank, a stretch of older plywood, and the new sheathing we put down. Open rafter bays, landscaping tarped, materials staged. This is what the middle of a storm job actually looks like.",
@@ -1471,7 +1474,7 @@
         "roof-inspection",
         "wood-siding-repair"
       ],
-      "tag": "Inspection",
+      "tag": "inspection-docs",
       "city": "Bethel, OH",
       "year": 2026,
       "description": "Somebody told this homeowner what her roof needed. She wanted a second read before spending real money, so she paid me a hundred and forty dollars to go look and write it up honestly. Missing drip edge, rot at the window head, an exposed deck edge over the gutter. Sometimes the most useful thing I sell is an answer.",
@@ -1505,7 +1508,7 @@
       "services": [
         "roof-replacement"
       ],
-      "tag": "Full Replacement",
+      "tag": "full-replacement",
       "city": "Cincinnati, OH",
       "year": 2024,
       "description": "Stripped to the original board sheathing in the morning, finished grey laminate with crisp hip and ridge lines by late afternoon. The overhead pair tells it best — same framing, seven hours apart.",
@@ -1537,7 +1540,7 @@
       "services": [
         "roof-replacement"
       ],
-      "tag": "Full Replacement",
+      "tag": "full-replacement",
       "city": "Loveland, OH",
       "year": 2024,
       "description": "Tear-off complete across every plane, ground fully tarped, debris truck loaded — then synthetic underlayment over the whole field and a finished grey roof the same afternoon. Gutters back on before we left.",
@@ -1570,7 +1573,7 @@
         "siding-repair",
         "roof-repair"
       ],
-      "tag": "Small Repair",
+      "tag": "small-same-day",
       "city": "Loveland, OH",
       "year": 2026,
       "description": "A gable-peak joint had opened up where the J-channel meets the trim — one-piece siding repair, sealed back tight. While we were up there we walked the whole roof and hit every exposed fastener and flashing seam with sealant. Small job, treated like a big one.",
@@ -1607,7 +1610,7 @@
         "storm-damage",
         "roof-repair"
       ],
-      "tag": "Wind Damage",
+      "tag": "storm-hail",
       "city": "Loveland, OH",
       "year": 2023,
       "description": "Wind tore tabs loose across one slope and some shingles came apart in two layers when handled. We documented everything for the claim, backed the nails out with a shingle ripper, and reset the courses by hand — replacing what was too far gone.",
@@ -1647,7 +1650,7 @@
       "services": [
         "roof-inspection"
       ],
-      "tag": "Flat Roof",
+      "tag": "metal-specialty",
       "city": "Loveland, OH",
       "priceLow": 100,
       "priceHigh": 200,
@@ -1686,7 +1689,7 @@
         "storm-damage",
         "roof-replacement"
       ],
-      "tag": "Commercial",
+      "tag": "commercial",
       "city": "Milford, OH",
       "priceLow": 73000,
       "priceHigh": 74000,
@@ -1704,7 +1707,8 @@
         }
       ],
       "consentOnFile": true,
-      "published": "2026-08-31"
+      "published": "2026-08-31",
+      "featured": true
     },
     {
       "slug": "loveland-oh-shingle-samples-2026",
@@ -1712,7 +1716,7 @@
       "services": [
         "roof-inspection"
       ],
-      "tag": "Warranty Support",
+      "tag": "warranty-claim",
       "city": "Loveland, OH",
       "priceLow": 300,
       "priceHigh": 500,
@@ -1746,7 +1750,7 @@
       "services": [
         "shed-roof-replacement"
       ],
-      "tag": "Shed Re-Roof",
+      "tag": "full-replacement",
       "city": "Mason, OH",
       "description": "Barn-style backyard shed in Mason — old rolled roofing, torn off completely rather than covered over. With it off we could actually look at the deck: original OSB with old asphalt still stuck to it, sound underneath. Then synthetic underlayment, charcoal architectural shingles and a shingle ridge cap. Same shingle that goes on a house.",
       "hero": "/assets/images/projects/mason-oh-shed-reroof-2026-1.jpg",

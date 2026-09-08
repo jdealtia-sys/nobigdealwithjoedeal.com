@@ -1,5 +1,25 @@
 [
   {
+    "image": "/assets/images/projects/milford-oh-commercial-epdm-rebuild-2023-1.jpg",
+    "city": "Milford, OH",
+    "alt": "Crew tearing off a commercial low-slope roof, with the old EPDM membrane peeled back over water-stained recovery board and rotted layers exposed beside new parapet framing"
+  },
+  {
+    "image": "/assets/images/projects/norwood-oh-victorian-three-system-2026-1.jpg",
+    "city": "Norwood, OH",
+    "alt": "Three-story white Victorian with a steep mansard, dormers and a flat upper roof, shot from the front"
+  },
+  {
+    "image": "/assets/images/projects/cincinnati-oh-three-layer-tudor-2023-1.jpg",
+    "city": "Cincinnati, OH",
+    "alt": "Top-down drone view of the finished roof across the whole cruciform footprint in new multi-tone shingle"
+  },
+  {
+    "image": "/assets/images/projects/commercial-apartment-completed.jpg",
+    "city": "West Liberty, KY",
+    "alt": "Aerial drone view of completed multi-building apartment complex with new roofs"
+  },
+  {
     "image": "/assets/images/projects/mason-oh-shed-reroof-2026-1.jpg",
     "city": "Mason, OH",
     "alt": "White gambrel shed with dark green trim and double doors under a new charcoal shingle roof, chain-link fence and woods behind"
@@ -20,11 +40,6 @@
     "alt": "Fingertip pointing to torn, bunched EPDM membrane at a corner drain fitting on a flat roof edge, where the sheet should lap flat and sealed"
   },
   {
-    "image": "/assets/images/projects/milford-oh-commercial-epdm-rebuild-2023-1.jpg",
-    "city": "Milford, OH",
-    "alt": "Crew tearing off a commercial low-slope roof, with the old EPDM membrane peeled back over water-stained recovery board and rotted layers exposed beside new parapet framing"
-  },
-  {
     "image": "/assets/images/projects/loveland-oh-shingle-samples-2026-1.jpg",
     "city": "Loveland, OH",
     "alt": "Full strip of aged three-tab asphalt shingle laid on a concrete walkway after removal from the roof, showing heavy granule loss, a worn seam line, and torn spots along one edge"
@@ -43,20 +58,5 @@
     "image": "/assets/images/projects/cincinnati-oh-siding-repair-2026-1.jpg",
     "city": "Cincinnati, OH",
     "alt": "Extension ladder reaching a third-story gable while a technician re-secures a piece of vinyl siding at the top"
-  },
-  {
-    "image": "/assets/images/projects/sharonville-oh-storm-siding-repair-2026-1.jpg",
-    "city": "Sharonville, OH",
-    "alt": "Three extension ladders set against the tall gable while a crew member installs new vinyl siding over fresh house wrap"
-  },
-  {
-    "image": "/assets/images/projects/milford-oh-full-tearoff-replacement-2026-1.jpg",
-    "city": "Milford, OH",
-    "alt": "Drone view at eave height of the brick ranch before work, its old dark three-tab roof weathered and streaked"
-  },
-  {
-    "image": "/assets/images/projects/cincinnati-oh-storm-tarp-replacement-2023-1.jpg",
-    "city": "Cincinnati, OH",
-    "alt": "Wind-stripped low-slope roof section with the mineral-surfaced roll roofing peeled back in a large ragged sheet"
   }
 ]

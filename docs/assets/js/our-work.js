@@ -15,8 +15,12 @@
   'use strict';
 
   // ── Filters ───────────────────────────────────────────────────
-  // Buttons carry data-service (a /services/ hub slug or "all"); cards carry
-  // space-separated data-services so one job can match several filters.
+  // Two independent, ANDed facets. Service buttons carry data-service (a
+  // /services/ hub slug or "all"); cards carry space-separated data-services
+  // so one job can match several filters. Tag buttons (2026-09-08 — job-story
+  // filter) carry data-tag (a single TAGS key or "all"); cards carry one
+  // data-tag. A card shows only if BOTH the active service and the active tag
+  // match it (or that facet is "all").
   // #service=<slug> deep links let hub-page strips land pre-filtered.
   // #svc-<slug> is accepted too, and has to be: every OURWORK strip and service
   // hub links `/our-work#svc-<slug>`, which is the id of the filter BUTTON. The
@@ -24,27 +28,72 @@
   // click it — so those links were landing on the full unfiltered wall of 45
   // projects. 55 hrefs across docs/ use this form against 8 ids; matching both
   // here is cheaper and safer than restamping every generated strip.
-  const filters = document.querySelector('.filters');
-  function applyFilter(svc) {
-    filters.querySelectorAll('.filter-btn').forEach(function (b) {
-      b.classList.toggle('active', b.dataset.service === svc);
-    });
+  const filterGroups = document.querySelectorAll('.filters');
+  const serviceFilters = filterGroups[0] || null;
+  const tagFilters = document.querySelector('.tag-filters');
+  let activeService = 'all';
+  let activeTag = 'all';
+
+  function applyFilters() {
     document.querySelectorAll('.project').forEach(function (p) {
-      const list = (p.dataset.services || '').split(/\s+/);
-      p.classList.toggle('hidden', svc !== 'all' && list.indexOf(svc) === -1);
+      const services = (p.dataset.services || '').split(/\s+/);
+      const svcOk = activeService === 'all' || services.indexOf(activeService) !== -1;
+      const tagOk = activeTag === 'all' || p.dataset.tag === activeTag;
+      p.classList.toggle('hidden', !(svcOk && tagOk));
     });
   }
-  if (filters) {
-    filters.addEventListener('click', function (e) {
+  function syncHash() {
+    const parts = [];
+    if (activeService !== 'all') parts.push('service=' + activeService);
+    if (activeTag !== 'all') parts.push('tag=' + activeTag);
+    history.replaceState(null, '', parts.length ? '#' + parts.join('&') : location.pathname);
+  }
+  if (serviceFilters) {
+    serviceFilters.addEventListener('click', function (e) {
       const btn = e.target.closest('.filter-btn');
-      if (!btn) return;
-      applyFilter(btn.dataset.service);
-      history.replaceState(null, '',
-        btn.dataset.service === 'all' ? location.pathname : '#service=' + btn.dataset.service);
+      if (!btn || !btn.dataset.service) return;
+      activeService = btn.dataset.service;
+      serviceFilters.querySelectorAll('.filter-btn').forEach(function (b) {
+        b.classList.toggle('active', b.dataset.service === activeService);
+      });
+      applyFilters();
+      syncHash();
     });
-    const m = /^#(?:service=|svc-)([a-z][a-z-]*)$/.exec(location.hash);
-    if (m && filters.querySelector('.filter-btn[data-service="' + m[1] + '"]')) {
-      applyFilter(m[1]);
+  }
+  if (tagFilters) {
+    tagFilters.addEventListener('click', function (e) {
+      const btn = e.target.closest('.filter-btn');
+      if (!btn || !btn.dataset.tag) return;
+      activeTag = btn.dataset.tag;
+      tagFilters.querySelectorAll('.filter-btn').forEach(function (b) {
+        b.classList.toggle('active', b.dataset.tag === activeTag);
+      });
+      applyFilters();
+      syncHash();
+    });
+  }
+  if (serviceFilters || tagFilters) {
+    // #service=x&tag=y (new), or the legacy #service=x / #svc-x single-value forms.
+    const hash = location.hash.slice(1);
+    let matched = false;
+    hash.split('&').forEach(function (part) {
+      const svc = /^(?:service=|svc-)([a-z][a-z-]*)$/.exec(part);
+      const tag = /^tag=([a-z][a-z-]*)$/.exec(part);
+      if (svc && serviceFilters && serviceFilters.querySelector('.filter-btn[data-service="' + svc[1] + '"]')) {
+        activeService = svc[1]; matched = true;
+      }
+      if (tag && tagFilters && tagFilters.querySelector('.filter-btn[data-tag="' + tag[1] + '"]')) {
+        activeTag = tag[1]; matched = true;
+      }
+    });
+    if (matched) {
+      if (serviceFilters) serviceFilters.querySelectorAll('.filter-btn').forEach(function (b) {
+        b.classList.toggle('active', b.dataset.service === activeService);
+      });
+      if (tagFilters) tagFilters.querySelectorAll('.filter-btn').forEach(function (b) {
+        b.classList.toggle('active', b.dataset.tag === activeTag);
+      });
+      applyFilters();
       const gallery = document.getElementById('gallery');
       if (gallery) gallery.scrollIntoView();
     }
