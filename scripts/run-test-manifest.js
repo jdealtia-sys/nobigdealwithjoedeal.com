@@ -89,6 +89,7 @@ const RUNNABLE = ['node', 'smoke'];
 // check until the floor moves with it in the same commit. That is the point,
 // not a nuisance — the error prints the exact literal to paste, and this
 // 2026-09-07 entry should be the last of its kind.
+
 //   2026-09-08  four portal branches each raised these; this is the value
 //               MEASURED after all of them landed, not any one branch's
 //               delta added to another's.
@@ -116,7 +117,13 @@ const RUNNABLE = ['node', 'smoke'];
 //               numbers did not conflict and only the comments did. Merging
 //               them anyway would have shipped a stale floor — the merged
 //               tree measures 105/188. A matching number is not evidence.
-const FLOORS = { node: 105, smoke: 65, disk: 188 };
+//   2026-09-08  SIXTH, +1 for photo-report-sharing. Rebased three times in
+//               one evening and re-measured every time: 99/182 -> 104/187 ->
+//               105/188 -> 106/189, and only the last was ever typed as a
+//               literal. The entry above is right and this is its sixth
+//               confirmation; the line is a serialization point for every
+//               suite-adding PR, so measure at the moment you push.
+const FLOORS = { node: 106, smoke: 65, disk: 189 };
 
 // ── Argument parsing ───────────────────────────────────────────────
 const argv = process.argv.slice(2);

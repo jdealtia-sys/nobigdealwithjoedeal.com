@@ -399,8 +399,16 @@ Paged Media margin box; nothing in the pipeline can honour it.
 
 ### Open, in the order I would take them
 
-1. **No share link.** `createReportShareToken` only accepts a `reportId` in the
-   top-level `reports` collection; a filed photo report is a `documents` row.
+> **Update 2026-09-08, later the same day: 1 and 6 are CLOSED** on a branch
+> stacked on #1483 —
+> [SESSION-2026-09-08-photo-report-number-and-share](SESSION-2026-09-08-photo-report-number-and-share.md).
+> **2 is still open on purpose**: that work streams the PDF through the admin
+> SDK precisely so `pdf-renders/` does not have to become client-readable, so
+> the gating task is unblocked and un-pre-empted. 3–5 untouched.
+
+1. ~~**No share link.**~~ **CLOSED.** `createReportShareToken` now accepts a
+   lead-scoped `{leadId, documentId}` alongside a top-level `reportId`, and
+   streams the PDF rather than redirecting to a Storage URL.
 2. **`pdf-renders/` has no Storage rule**, and in download-token mode the URL
    never expires.
 3. **Annotations are destructive** — `photo-editor.js` builds arrows, callouts,
@@ -408,8 +416,9 @@ Paged Media margin box; nothing in the pipeline can honour it.
 4. **Three incompatible `damageType` vocabularies** collide in one count.
 5. **Customer-page uploads write no `createdAt`**, so report order is arbitrary
    for them.
-6. **The report number is `Date.now().toString().slice(-6)`** — unsequenced,
-   and it changes on every regeneration.
+6. ~~**The report number is `Date.now().toString().slice(-6)`**~~ **CLOSED.**
+   Now `<TENANT>-<PHO|ADJ>-<YYYY>-<MMDD>-<NNNN>`, assigned once and reused from
+   the filed `documents` row.
 
 ### Trust level on that list
 

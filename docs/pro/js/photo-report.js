@@ -1157,6 +1157,122 @@
     return sections;
   }
 
+  // ═════════════════════════════════════════════════════════
+  // Report number
+  // ═════════════════════════════════════════════════════════
+  //
+  // It used to be `(mode === 'adjuster' ? 'ADJ-' : 'PHO-') + Date.now()
+  // .toString().slice(-6)`. That number is printed on the cover, in the
+  // masthead, and — since the running-footer fix — on every page, so it is the
+  // string a homeowner or an adjuster quotes back. It changed on every
+  // regeneration of the same report, which means "report PHO-482913" named a
+  // document that no longer existed under that name the moment the rep
+  // re-rendered it. Two reports rendered in the same millisecond window
+  // collided, and nothing about it carried the tenant, the date, or the lead.
+  //
+  // The shape now follows the house convention the hand-built client PDFs use
+  // (`NBD-2026-0902-HILD`, SESSION-2026-09-07-client-pdfs-and-drive-tidy) with
+  // the type infix the CRM's own generators already use (`-V2-` on estimates,
+  // `-WC` on warranty certs):
+  //
+  //     <TENANT>-<PHO|ADJ>-<YYYY>-<MMDD>-<NNNN>      e.g. NBD-PHO-2026-0908-4471
+  //
+  // The prefix is `_tenantIdPrefix()`, NOT a literal 'NBD'. This is a
+  // multi-tenant CRM and a hardcoded platform prefix on a contractor's own
+  // paper is the exact defect estimate-finalization.js:267 and
+  // company-profile.js:619 are both written up around — "blank beats wrong",
+  // and where blank is not available (an identifier cannot be orphaned into
+  // `-2026-0908-4471`) the neutral 'CUS' beats another tenant's identity.
+  const _MODE_TAG = { adjuster: 'ADJ', homeowner: 'PHO' };
+
+  // FNV-1a/32 → NNNN. Same hash and the same posture as
+  // document-generator.js:757 `_seededDocNumber`: collisions are acceptable
+  // because this is a display reference, not an idempotency key. Seeded on
+  // (leadId, mode) rather than the clock so that two devices — or the same
+  // device after a failed lookup — derive the SAME number for the same report.
+  function _reportSeed(parts, len) {
+    const n = len || 4;
+    const s = (parts || []).filter(Boolean).map(String).join('|');
+    if (!s) return String(Date.now()).slice(-n);
+    let h = 0x811c9dc5;
+    for (let i = 0; i < s.length; i++) {
+      h ^= s.charCodeAt(i);
+      h = Math.imul(h, 0x01000193) >>> 0;
+    }
+    return h.toString().padStart(n, '0').slice(-n);
+  }
+
+  // Local calendar date, not toISOString() — the number is read by the rep and
+  // the homeowner in their own timezone, and a report built at 8pm EDT must not
+  // be stamped with tomorrow's date.
+  function _reportDateStamp(when) {
+    const d = when || new Date();
+    const p2 = (n) => String(n).padStart(2, '0');
+    return d.getFullYear() + '-' + p2(d.getMonth() + 1) + p2(d.getDate());
+  }
+
+  function _mintReportNumber(prefix, leadId, mode, when) {
+    return prefix + '-' + (_MODE_TAG[mode] || _MODE_TAG.homeowner)
+      + '-' + _reportDateStamp(when) + '-' + _reportSeed([leadId, mode]);
+  }
+
+  /**
+   * The number already filed for this (lead, mode), if there is one.
+   *
+   * Equality-only on `source` and sorted in memory, for the reason
+   * customer-documents.js:88 spells out: a two-equality-plus-orderBy query
+   * needs a composite index, and an index-less query fails CLOSED — which here
+   * would silently renumber a report that already has a number.
+   *
+   * The EARLIEST matching row wins, because a number is assigned once. That
+   * includes a legacy `PHO-482913` row: a number already in a customer's hands
+   * is worth more than a tidy format, so old reports keep their old number and
+   * only new ones get the new shape.
+   *
+   * Never throws — a rules denial (a `viewer` on a teammate's lead) or an
+   * offline client must not stop the report rendering.
+   */
+  async function _filedReportNumber(leadId, mode) {
+    try {
+      if (!leadId || !window.db || !window.getDocs || !window.collection
+          || !window.query || !window.where) return '';
+      const snap = await window.getDocs(window.query(
+        window.collection(window.db, 'leads', leadId, 'documents'),
+        window.where('source', '==', 'photo_report')
+      ));
+      let best = null;
+      snap.forEach((s) => {
+        const d = s.data() || {};
+        if (d.deleted === true) return;
+        // Rows filed before reportMode existed are homeowner reports — that
+        // was the only mode the dashboard chip could produce.
+        if ((d.reportMode || 'homeowner') !== mode) return;
+        if (!d.reportNumber) return;
+        const ms = (d.uploadedAt && typeof d.uploadedAt.toMillis === 'function')
+          ? d.uploadedAt.toMillis() : Number.POSITIVE_INFINITY;
+        if (!best || ms < best.ms) best = { ms: ms, number: String(d.reportNumber) };
+      });
+      return best ? best.number : '';
+    } catch (e) {
+      console.warn('[photo-report] could not read filed report numbers:', e && e.message);
+      return '';
+    }
+  }
+
+  async function _resolveReportNumber(leadId, mode) {
+    // Resolve the tenant prefix FIRST and unconditionally — including on the
+    // reuse path, which will not use it. `_tenantIdPrefix()` awaits
+    // company-profile hydration, and everything after this call reads
+    // `window._brand()` SYNCHRONOUSLY to build the cover. estimate-v2-ui.js:3377
+    // is the write-up of what happens when that ordering is left to chance:
+    // hydration there was "a side effect of an await sitting inside an argument
+    // list… an accident, not a guarantee". Awaiting it on its own line, before
+    // either branch, makes it a guarantee.
+    const prefix = (window._tenantIdPrefix ? await window._tenantIdPrefix() : '') || 'CUS';
+    const filed = await _filedReportNumber(leadId, mode);
+    return filed || _mintReportNumber(prefix, leadId, mode);
+  }
+
   /**
    * Record a rendered report on leads/{leadId}/documents.
    *
@@ -1273,6 +1389,13 @@
     const duringShaped = shape(during);
     const afterShaped  = shape(after);
 
+    // Resolve (or reuse) the report number BEFORE any brand read. This awaits
+    // company-profile hydration as well as the filed-number lookup — see
+    // _resolveReportNumber — so the synchronous window._brand() below is
+    // reading a hydrated profile rather than the NBD defaults company-profile.js
+    // seeds at parse time.
+    const reportNumber = await _resolveReportNumber(lead.id, mode);
+
     // gauntlet Batch 3 — the cover page renders preparedBy VERBATIM (the server
     // {{company}} chrome does not override it), so de-brand it here or a stranger
     // tenant's report cover would still read "No Big Deal Home Solutions ·
@@ -1295,7 +1418,6 @@
       phone: isNbd ? '(859) 420-7382' : (_bc.phone || ''),
       email: isNbd ? 'jd@nobigdealwithjoedeal.com' : (_bc.email || ''),
     };
-    const reportNumber = (mode === 'adjuster' ? 'ADJ-' : 'PHO-') + Date.now().toString().slice(-6);
     const projectMeta = [
       { label: 'Report Date', value: new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) },
       { label: 'Total Photos', value: String((allPhotos || []).length) },
