@@ -440,6 +440,20 @@
     } catch (_) { /* never fail the page */ }
   }
 
+  // Link to the itemized scope for one estimate, carrying the portal token
+  // the page already holds. Relative on purpose: the portal is served from
+  // /pro/, so this resolves whether the page was reached as /pro/portal or
+  // /pro/portal.html.
+  //
+  // Deliberately NOT tagged as a rep preview. getEstimateForView writes its
+  // own activity record server-side, so a client flag could not suppress it
+  // anyway — pretending otherwise would be worse than the gap. Suppressing
+  // rep-initiated estimate views is a server-side change and its own slice.
+  function _estimateScopeHref(estimateId) {
+    return 'estimate-view.html?token=' + encodeURIComponent(getToken().trim())
+      + '&estimateId=' + encodeURIComponent(estimateId);
+  }
+
   function renderView(view) {
     const firstName = (view.homeowner && view.homeowner.firstName) || '';
     const lastName  = (view.homeowner && view.homeowner.lastName)  || '';
@@ -585,6 +599,24 @@
                 ? '<div class="kv-key">Total</div><div class="big-num">' + esc(fmtMoney(e.grandTotal)) + '</div>'
                 : '<div class="kv-key">Total</div><div class="kv-val" style="color:var(--muted);">Your rep is still putting the numbers together.</div>') +
               (e.tierName ? '<div class="kv-val" style="margin-top:6px;color:var(--muted);">' + esc(e.tierName) + '</div>' : '') +
+              // The itemized scope. /pro/estimate-view.html is a complete,
+              // deployed, cost-redacted line-item viewer — every line with
+              // quantity and retail total, the roof measurements, the tier
+              // cards — and the portal linked to it exactly zero times, so
+              // the homeowner's whole answer to "what am I paying for?" was
+              // one orange number and a status pill, with the signature
+              // iframe as the very next card.
+              //
+              // No new credential: getEstimateForView takes this same portal
+              // token, and refuses an estimateId whose leadId does not match
+              // the token's (functions/portal.js, cross-tenant defense), so
+              // the link grants nothing the homeowner does not already hold.
+              (e.id
+                ? '<div style="margin-top:12px;">' +
+                    '<a class="btn" href="' + esc(_estimateScopeHref(e.id)) + '"'
+                      + ' target="_blank" rel="noopener">See what\'s included →</a>' +
+                  '</div>'
+                : '') +
             '</div>' +
             '<div>' +
               '<div class="kv-key">Status</div>' +
