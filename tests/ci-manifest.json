@@ -439,6 +439,22 @@
       "provisioning is best-effort. A tenant got Joe's name on contracts a",
       "homeowner signs. Reserved for the platform tenant; everyone else neutral."
     ],
+    "render-pdf-chromium-interop.test.js": [
+      "getBrowser() must launch with a real executablePath AND a real args array.",
+      "@sparticuz/chromium 149 dropped its CommonJS build, so require() returns",
+      "the ESM namespace and both properties read undefined off it — every",
+      "server-rendered document failed at stage:launch for eleven weeks, silently",
+      "falling back to client-side html2canvas. vm-sandboxes the real functions",
+      "against both packaging shapes; a source regex matched the broken code too."
+    ],
+    "health-digest-render-pdf-signal.test.js": [
+      "The daily digest must shout when the PDF renderer is down. The 149 interop",
+      "break ran 100% failing for eleven weeks unnoticed because the client",
+      "fallback hides it. Pins the signal to a MISSING SUCCESS rather than a",
+      "failure-count threshold — this path saw 22 calls in three weeks, so any",
+      "volume threshold sleeps through a total outage — and keeps the failure",
+      "text HTML-escaped on its way into the email body."
+    ],
     "widgets-no-fabricated-data.test.js": [
       "Widgets must not invent data: the Team Leaderboard rendered three fake",
       "reps (Joe Deal $48.5k) and Material Price Watch four fake shingle prices",

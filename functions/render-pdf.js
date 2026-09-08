@@ -38,7 +38,7 @@
 
 const { onCall, HttpsError } = require('firebase-functions/v2/https');
 const { logger } = require('firebase-functions/v2');
-const { getFirestore } = require('firebase-admin/firestore');
+const { getFirestore, FieldValue } = require('firebase-admin/firestore');
 const { getStorage } = require('firebase-admin/storage');
 const { callableRateLimit } = require('./shared');
 const { withSentry } = require('./integrations/sentry');
@@ -226,11 +226,44 @@ function loadLayout() {
 // pattern for serverless Puppeteer — boot time is ~1.5s cold,
 // ~50ms with the browser still attached.
 let _browser = null;
+
+// Unwrap @sparticuz/chromium regardless of how the package is built.
+//
+// v149.0.0 dropped its CommonJS build. Its package.json is "type":"module"
+// with a single export condition ({".":{"types":..,"default":"./build/index.js"}}),
+// so require() on the nodejs22 runtime takes the require(esm) path and hands
+// back the ES module NAMESPACE — { __esModule, default, inflate,
+// setupLambdaEnvironment } — not the module object. The real API is a class on
+// `.default`, so BOTH `chromium.executablePath` and `chromium.args` read
+// undefined off the namespace. `await undefined()` is what produced
+// "chromium.executablePath is not a function" at stage:launch on 100% of
+// renders from the 148->149 bump (#712, 2026-06-24) onward.
+//
+// v148 shipped dual CJS/ESM — its "require" condition resolved to a .cjs with
+// executablePath/args as direct properties and no `.default` at all — which is
+// why the bump alone broke it with no code change.
+//
+// Probe for the API rather than reaching for `.default` unconditionally, so
+// this survives the package flipping back to CJS (where `.default` is absent).
+// Throw a legible error if neither shape carries it: the next packaging change
+// should name itself instead of resurfacing as "not a function".
+function resolveChromium(mod) {
+  for (const candidate of [mod, mod && mod.default]) {
+    if (candidate && typeof candidate.executablePath === 'function') return candidate;
+  }
+  throw new Error(
+    '@sparticuz/chromium exports no executablePath(); got ' +
+    (mod && typeof mod === 'object'
+      ? 'keys [' + Object.keys(mod).join(', ') + ']'
+      : typeof mod)
+  );
+}
+
 async function getBrowser() {
   if (_browser && _browser.isConnected && _browser.isConnected()) {
     return _browser;
   }
-  const chromium = require('@sparticuz/chromium');
+  const chromium = resolveChromium(require('@sparticuz/chromium'));
   const puppeteer = require('puppeteer-core');
   _browser = await puppeteer.launch({
     args: chromium.args,
@@ -239,6 +272,42 @@ async function getBrowser() {
     headless: 'shell',
   });
   return _browser;
+}
+
+// ─── renderPdf outcome counters (health-digest signal) ─────────
+// metrics/renderPdf carries LIFETIME ok/fail counters plus the last success
+// and failure timestamps, mirroring metrics/imagePipeline. The digest judges
+// health on whether a SUCCESS landed inside its window rather than on the
+// totals, because the failure mode worth catching is the one that just
+// happened: the 148->149 interop break failed 100% of renders for eleven
+// weeks with no `[renderPdf] ok` line anywhere in log retention, and nothing
+// alerted, because nothing was watching this path at all. A rising fail count
+// is a weaker signal than a missing success.
+//
+// Best-effort by construction. A metrics write must never turn a good render
+// into a failed one, and on the failure path it must not mask the real error —
+// so it swallows its own exception and logs instead.
+async function recordRenderOutcome(ok, info) {
+  const patch = ok
+    ? {
+      okCount: FieldValue.increment(1),
+      lastOkAt: FieldValue.serverTimestamp(),
+      lastOkTemplate: (info && info.template) || '',
+    }
+    : {
+      failCount: FieldValue.increment(1),
+      lastFailAt: FieldValue.serverTimestamp(),
+      lastFailStage: (info && info.stage) || '',
+      lastFailTemplate: (info && info.template) || '',
+      // Bounded: the message can carry a stack-ish tail, and this lands in an
+      // email body.
+      lastFailErr: String((info && info.err) || '').slice(0, 300),
+    };
+  try {
+    await getFirestore().doc('metrics/renderPdf').set(patch, { merge: true });
+  } catch (e) {
+    logger.warn('[renderPdf] metrics write failed', { err: e && e.message });
+  }
 }
 
 // ─── Tenant brand for document chrome (Phase B-4) ──────────────
@@ -608,6 +677,7 @@ exports.renderPdf = onCall(
       logger.error('[renderPdf] render failed', {
         stage, template: templateKey, uid, err: e && e.message, stack: e && e.stack,
       });
+      await recordRenderOutcome(false, { stage, template: templateKey, err: e && e.message });
       throw new HttpsError('internal', 'PDF render failed at stage: ' + stage, { stage });
     }
 
@@ -643,6 +713,7 @@ exports.renderPdf = onCall(
 
     const totalMs = Date.now() - t0;
     logger.info('[renderPdf] ok', { template: templateKey, uid, urlMode, buildMs, renderMs, totalMs, bytes: pdfBuffer.length });
+    await recordRenderOutcome(true, { template: templateKey });
 
     return {
       ok: true,
@@ -667,3 +738,9 @@ exports._registerHelpersOnce = registerHelpersOnce;
 exports._registerPartialsOnce = registerPartialsOnce;
 exports._loadTemplateCss = loadTemplateCss;
 exports._normalizeDensity = normalizeDensity;
+// For tests: the @sparticuz/chromium CJS/ESM unwrap. Pure and dependency-free,
+// so a harness can feed it both real packaging shapes (v148's direct-property
+// CJS object and v149's ESM namespace) and assert on behaviour instead of
+// grepping the source for `.default` — a regex would have matched the broken
+// code just as happily.
+exports._resolveChromium = resolveChromium;
