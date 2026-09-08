@@ -181,10 +181,12 @@ group('It says YES only to a document that is actually the portal', () => {
   assert('the real portal (its sentinel present) → rendered',
     rendered(frameWithIds([SENTINEL, 'heroWrap', 'loadingState'])) === true);
 
-  // An X-Frame-Options refusal leaves the frame at about:blank: same-origin
-  // and readable, but empty. This is the exact case the old probe scored as
-  // "cross-origin blocked → success" inverted into "readable → blocked".
-  assert('about:blank left by an X-Frame-Options refusal → NOT rendered',
+  // A refused frame is engine-dependent: measured against production on
+  // 2026-09-08, Chrome leaves it OPAQUE (covered below, in the fail-closed
+  // group); other engines leave a readable but empty document. Both must
+  // score as blocked, which is the whole reason detection is positive rather
+  // than inferred from readability.
+  assert('a readable but empty frame (refusal, engine leaves about:blank) → NOT rendered',
     rendered(frameWithIds([])) === false);
 
   // A privacy shield injects its own page rather than ours.
@@ -196,7 +198,12 @@ group('It says YES only to a document that is actually the portal', () => {
 });
 
 group('It fails closed on every way the frame can be unreadable', () => {
-  assert('contentDocument null (cross-origin) → NOT rendered',
+  // These two ARE the X-Frame-Options refusal as Chrome actually renders it,
+  // measured against production: the frame goes opaque, contentDocument is
+  // null and touching contentWindow.location throws. The old probe scored
+  // precisely this as success and hid the overlay over an empty frame — which
+  // is why the reported symptom was a blank panel, not a warning.
+  assert('an opaque refused frame (contentDocument null) → NOT rendered',
     rendered({ contentDocument: null }) === false);
   assert('contentDocument absent → NOT rendered', rendered({}) === false);
   assert('a SecurityError thrown on access → NOT rendered', rendered({

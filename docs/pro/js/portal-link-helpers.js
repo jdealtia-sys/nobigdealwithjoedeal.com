@@ -385,10 +385,21 @@ Bookmark it; the link stays live as we work through the project.
   // rendered, and it is the only signal that separates all four
   // outcomes:
   //
-  //   real portal            → #mainWrap present            → success
-  //   X-Frame-Options refusal→ frame left at about:blank    → blocked
-  //   privacy-shield block   → shield's injected page       → blocked
-  //   redirect elsewhere     → some other document          → blocked
+  //   real portal             → #mainWrap present           → success
+  //   X-Frame-Options refusal → opaque frame, OR a readable
+  //                             empty one, depending on the
+  //                             engine (measured against
+  //                             production 2026-09-08: Chrome
+  //                             leaves it opaque and throws
+  //                             SecurityError on access)     → blocked
+  //   privacy-shield block    → shield's injected page       → blocked
+  //   redirect elsewhere      → some other document          → blocked
+  //
+  // The refusal case is exactly what the old probe scored as SUCCESS:
+  // it threw, the throw was read as a healthy cross-origin load, and
+  // the overlay was HIDDEN over an empty frame. That is why the symptom
+  // was a blank white panel rather than the warning this modal ships —
+  // the detector dismissed its own explanation.
   //
   // An expired or revoked token still renders #mainWrap and the
   // portal's own error state. That counts as SUCCESS on purpose: the
@@ -552,6 +563,13 @@ Bookmark it; the link stays live as we work through the project.
     // same origin, by design, and it returns nothing else. So a
     // perfectly good load reads fine and the modal declared it
     // blocked, telling the rep their browser was at fault.
+    //
+    // It was wrong in the other direction too, on the very failure it
+    // existed to catch. Measured against production on 2026-09-08: a
+    // refused frame is OPAQUE in Chrome, so contentWindow access threw,
+    // the throw scored as a healthy cross-origin load, and the overlay
+    // was hidden over an empty frame. The rep got a blank white panel
+    // and no explanation — which is the symptom that was reported.
     //
     // It could not have been right either way: /pro/portal inherited
     // the global ** rule's X-Frame-Options: DENY and
