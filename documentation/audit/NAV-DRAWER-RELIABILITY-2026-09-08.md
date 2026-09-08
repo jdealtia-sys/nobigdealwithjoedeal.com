@@ -122,9 +122,14 @@ Dropdown: `max-height:calc(100vh - 140px)` + `overflow-y:auto`, an explicit
 JS-driven `.open` for touch and keyboard, Escape and outside-click close, and
 modifier-clicks passed through so Cmd/Ctrl-click opens a new tab again.
 
-### 2.1 Two bugs found *in the fix itself*, before shipping
+### 2.1 Four bugs found *in the fix itself*
 
-Recorded because both are the kind that would have shipped silently:
+Every one was introduced by making the drawer a full-viewport sheet, and every
+one is the kind that ships silently. Two were caught locally (1-2); **two got
+past three green local runs and were caught by CI** (3-4) — recorded that way
+deliberately, because "I verified it locally" is exactly the claim they
+falsify. All four were fixed at the cause and break-tested by reverting the fix
+and confirming the intended assertion reddens.
 
 1. **`max-height` survived the rewrite.** Setting `top`/`bottom` does **not**
    beat the inherited `max-height:calc(100vh - 70px)` — max-height still clips
@@ -141,6 +146,32 @@ Recorded because both are the kind that would have shipped silently:
    the body `position:fixed` and the page **unrecoverably frozen**. Fixed by
    never guarding the close path, plus a `MutationObserver` backstop that
    releases the lock if anything strips `.open` by any route.
+
+3. **The reveal animation moved a full-viewport sheet.** nbd-mobile.css opens
+   the drawer with `@keyframes nbdRevealIn{from{transform:translateY(-6px)}}`.
+   Harmless on a short panel hanging below the header; on a sheet pinned to all
+   four edges it lifts the bottom edge 6px **inside** the viewport and shows a
+   strip of live page content underneath for the length of the animation. CI
+   measured the drawer's bottom at **502 against a 508px viewport**; reverting
+   the fix locally reproduces 503-506 on every page. A full-viewport sheet must
+   not move — it fades instead (`nbdNavFadeIn`, opacity only).
+
+4. **The scroll restore glided instead of restoring.** `html{scroll-behavior:
+   smooth}` is set sitewide, which turns `window.scrollTo(0, savedScrollY)`
+   into an **animation**: the reader watches the page slide back over ~half a
+   second, and an interrupted glide leaves them somewhere they never chose. CI
+   read **410 and 68** against a saved offset of ~1200; the local break-test
+   lands on 630, 701, 713, 724, 782, 803 — never the saved value. The restore
+   now forces `scroll-behavior:auto`, commits the jump with a reflow, and hands
+   smooth scrolling back to the page's own anchors.
+
+**Why 3 and 4 survived local testing.** Both are only visible while the
+animation is running. The local harness settled 400ms after the tap; the
+animation is 180ms, so it had always finished. CI's slower runner measured
+inside that window. The harness now settles at **60ms — deliberately
+mid-animation** — which is what makes these regressions catchable at all. The
+general lesson: a timing-sensitive assertion that waits "long enough" is not
+testing the transient state, it is skipping it.
 
 ### 2.2 One conflict the fix would have introduced
 
