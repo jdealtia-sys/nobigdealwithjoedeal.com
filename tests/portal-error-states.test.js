@@ -188,8 +188,13 @@ group('Backend codes and client cases agree', () => {
   assert('both endpoint boundaries were found', start > 0 && after > start);
   const body = PORTAL_FN.slice(start, after);
 
+  // Digits belong in the character class. Written as [a-z_]+ this silently
+  // failed to match a code like 'project_missing_v2' at all, so a break-test
+  // that introduced exactly that code was scored as "count too low" instead of
+  // "unhandled code" — the contract assertion below never saw it and passed
+  // vacuously. Caught by checking WHICH assertion reddened.
   const emitted = [...new Set(
-    [...body.matchAll(/code:\s*'([a-z_]+)'/g)].map((m) => m[1])
+    [...body.matchAll(/code:\s*'([a-z0-9_]+)'/g)].map((m) => m[1])
   )].sort();
 
   assert('the endpoint emits a code on every error it returns',
