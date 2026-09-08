@@ -218,19 +218,43 @@ and a sitemapped page that also declares `<meta robots noindex>`
 ### Newly visible, deliberately not fixed
 
 Coverage made seven pre-existing warnings visible. None is new damage and none
-blocks CI; all are content decisions rather than gate work:
+blocks CI; all are content decisions rather than gate work. The four on
+`/pro/how-to` were fixed the next day; the three JSON-LD ones stand:
 
-| Page | Warning |
-|---|---|
-| `/pro/pricing` | no JSON-LD at all |
-| `/pro/terms` | no JSON-LD at all |
-| `/pro/how-to` | no JSON-LD at all |
-| `/pro/how-to` | title is 16 chars — "How To · NBD Pro", too thin to rank |
-| `/pro/how-to` | missing `og:title`, `og:description`, `og:image` |
+| Page | Warning | Status |
+|---|---|---|
+| `/pro/how-to` | title is 16 chars — "How To · NBD Pro", too thin to rank | **fixed 2026-09-08** → "NBD Pro How-To Guide — Every Feature, Step by Step" (50) |
+| `/pro/how-to` | missing `og:title`, `og:description`, `og:image` | **fixed 2026-09-08** — full OG block + `twitter:card`, matching the other three `/pro` pages |
+| `/pro/pricing` | no JSON-LD at all | open — see correction below |
+| `/pro/terms` | no JSON-LD at all | open — see correction below |
+| `/pro/how-to` | no JSON-LD at all | open — see correction below |
 
-`/pro/how-to` is the weakest of the four and the cheapest to improve: a real
-title, the three Open Graph tags, and `HowTo` schema are an obvious fit for a
-page that is literally a how-to. `/pro/pricing` would take `Product`/`Offer`
-(and note open item 1 before putting competitor pricing into schema).
-Left alone here because writing page copy and choosing schema types is not
-what a gate-coverage change should decide.
+`/pro/how-to` was the weakest of the four and the cheapest to improve — a real
+title and the Open Graph block, both done. The three remaining JSON-LD
+warnings are left standing on purpose: `/pro/terms` gains nothing from schema,
+and `/pro/pricing` would take `Product`/`Offer`, which is a pricing-surface
+decision that should be made deliberately (note open item 1 first). A WARN is
+not a to-do list — this gate's warn tier exists to surface weaknesses for a
+human to judge, and adding markup only to clear a counter is how a page ends
+up describing itself as something it is not.
+
+> **Correction 2026-09-08 — `HowTo` schema was bad advice, twice over.**
+> This section originally called `HowTo` schema "an obvious fit for a page that
+> is literally a how-to". Both halves are wrong, and it contradicted §4 of this
+> same note two sections up.
+>
+> **On the rich result:** Google removed `HowTo` rich results from mobile in
+> August 2023 and desktop in September 2023 — two and a half years *before* the
+> FAQ deprecation §4 records. Recommending a schema type for SERP value is
+> precisely the reasoning §4 already retired; the surviving rationale is
+> AEO/Bing/AI-crawler machine-readability, and it has to be argued on those
+> terms or not at all.
+>
+> **On the fit:** `HowTo` describes *one* task as ordered steps.
+> `/pro/how-to` is an 18-section product reference — Pipeline, D2D Tracker,
+> Estimates, Billing, Troubleshooting. `TechArticle` is the defensible type if
+> one is ever wanted. So the markup would have been wrong on the merits even
+> in 2022.
+>
+> Do not read a schema recommendation in this repo without checking whether the
+> feature it targets still exists.
