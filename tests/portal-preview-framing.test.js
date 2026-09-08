@@ -248,9 +248,20 @@ group('The modal uses the predicate and states the truth', () => {
     /_portalRenderedInFrame,/.test(HELPERS.slice(HELPERS.indexOf('window.PortalLinkHelpers'))));
 
   // The old copy asserted something false about the visitor's browser on a
-  // failure our own headers caused.
+  // failure our own headers caused. Strip comments LINE-WISE first: a future
+  // comment quoting the retired string would otherwise make this assertion
+  // fail on correct code (it did, in the sibling suite), and a block-comment
+  // stripper eats regex literals in these files, which would make an absence
+  // assertion pass vacuously.
+  const strippedHelpers = HELPERS.split('\n').filter((l) => {
+    const t = l.trim();
+    return !(t.startsWith('//') || t.startsWith('*') || t.startsWith('/*'));
+  }).join('\n');
+  assert('the stripper did not eat the code it guards',
+    strippedHelpers.indexOf('_openPreviewModal') > -1
+      && strippedHelpers.length > HELPERS.length * 0.5);
   assert('the modal no longer claims "Your browser blocked the embedded preview"',
-    HELPERS.indexOf('Your browser blocked the embedded preview') === -1);
+    strippedHelpers.indexOf('Your browser blocked the embedded preview') === -1);
 
   assert('the sandboxed iframe still keeps same-origin access (detection needs it)',
     /sandbox="[^"]*allow-same-origin[^"]*"/.test(HELPERS),
