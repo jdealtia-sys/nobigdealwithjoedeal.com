@@ -461,15 +461,29 @@ Paged Media margin box; nothing in the pipeline can honour it.
 
 1. **No share link.** `createReportShareToken` only accepts a `reportId` in the
    top-level `reports` collection; a filed photo report is a `documents` row.
+   — PR #1499 open against this.
 2. **`pdf-renders/` has no Storage rule**, and in download-token mode the URL
-   never expires.
+   never expires. — PR #1504 open against this.
 3. **Annotations are destructive** — `photo-editor.js` builds arrows, callouts,
-   stamps and measurements and persists none of it.
-4. **Three incompatible `damageType` vocabularies** collide in one count.
-5. **Customer-page uploads write no `createdAt`**, so report order is arbitrary
-   for them.
+   stamps and measurements and persists none of it. **Still open, no PR.**
+4. ~~**Three incompatible `damageType` vocabularies** collide in one count.~~
+   **CLOSED — #1503, merged and deployed 2026-09-08.** It was **four**, not
+   three: the `customer.html` bulk bar wrote a fourth, kebab-case set, and the
+   two Title Case lists disagree with each other. Case was never the break —
+   `normKey` already lowercased — so the damage was separator/wording drift,
+   which silently downgraded a tier-2 pair into a **mislabeled "Project
+   overview"** tier-3 pair. Full write-up:
+   [PHOTO-DAMAGETYPE-VOCABULARY-2026-09-08](../audit/PHOTO-DAMAGETYPE-VOCABULARY-2026-09-08.md).
+   **One thing carried forward:** `scripts/backfill-photos-damageType.js` is
+   written, gated and tested but **has not been run against prod**. It is
+   optional — the fix normalises on read as well as on write, so the app is
+   already correct — but stored data still holds all four spellings, so a raw
+   export or a `where('damageType','==',…)` filter will not agree with the UI.
+   Dry-run prints a fold map with counts before writing anything.
+5. ~~**Customer-page uploads write no `createdAt`**, so report order is arbitrary
+   for them.~~ **CLOSED — #1497, merged.**
 6. **The report number is `Date.now().toString().slice(-6)`** — unsequenced,
-   and it changes on every regeneration.
+   and it changes on every regeneration. — PR #1499 open against this.
 
 ### Trust level on that list
 
