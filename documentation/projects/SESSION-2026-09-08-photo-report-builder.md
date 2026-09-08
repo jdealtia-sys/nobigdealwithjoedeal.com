@@ -221,9 +221,16 @@ finding.
 3. **Annotations are destructive.** `photo-editor.js` builds a rich annotation
    array — arrows, auto-numbered callouts, roofing stamps, measurements — and
    persists none of it; markup is baked into a flattened copy, one way.
-4. **Three incompatible `damageType` vocabularies** collide in one count: Title
+4. ~~**Three incompatible `damageType` vocabularies** collide in one count: Title
    Case from the edit popup and photo-editor, lowercase from Review & Sort and
-   the AI.
+   the AI.~~ **CLOSED 2026-09-08** — and it was **four**, not three: the
+   `customer.html` bulk bar wrote a fourth, kebab-case set (`granule-loss`,
+   `missing-shingles`), and the two Title Case lists disagree with each other
+   (`Flashing` vs `Flashing Damage`). Case was never the break — `normKey`
+   already lowercased — so the damage was separator/wording drift, which
+   silently downgraded a tier-2 pair into a **mislabeled "Project overview"**
+   tier-3 pair. One canon now:
+   [PHOTO-DAMAGETYPE-VOCABULARY-2026-09-08](../audit/PHOTO-DAMAGETYPE-VOCABULARY-2026-09-08.md).
 5. **Customer-page uploads write no `createdAt`**, so report order for them
    falls back to arbitrary.
 6. **No measurements section**, though the CRM already pays for the data.

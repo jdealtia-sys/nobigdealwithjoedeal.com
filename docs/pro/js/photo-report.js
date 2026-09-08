@@ -311,15 +311,29 @@
       || (p.inferredLocation && p.inferredLocation.label)
       || '';
   }
-  // Damage label — humanize the snake_case enum the AI returns.
+  // ─── damageType canon ────────────────────────────────────────────
+  // /photos.damageType was written by four surfaces in four spellings
+  // (Title Case editor, Title Case quick-edit, kebab bulk bar, snake AI).
+  // docs/pro/js/photo-damage-types.js owns the fold; see its header for
+  // the full inventory. Normalizing on READ here means legacy docs pair
+  // and label correctly with no backfill dependency.
+  //
+  // The global is resolved per call, not captured at load: this file is a
+  // classic deferred script, and tests/smoke/photo-report-pairs.test.js
+  // loads photo-damage-types.js into the SAME vm context before this one.
+  // If it is ever genuinely absent the fallback preserves today's
+  // behaviour (bare lowercase) instead of throwing mid-report.
+  function _dmgNorm(v) {
+    const D = window.NBD_PHOTO_DAMAGE;
+    return D ? D.normalize(v) : String(v == null ? '' : v).trim().toLowerCase();
+  }
+  function _dmgLabel(v) {
+    const D = window.NBD_PHOTO_DAMAGE;
+    return D ? D.label(v) : String(v == null ? '' : v);
+  }
+  // Damage label — humanize the canonical snake_case enum.
   function _damageLabel(p) {
-    const v = p.damageType || (p.aiSuggestion && p.aiSuggestion.damageType) || '';
-    if (!v) return '';
-    return ({
-      hail: 'Hail', wind: 'Wind', wear: 'Wear',
-      granular_loss: 'Granular loss', leak: 'Leak',
-      none: 'No damage', other: 'Other'
-    })[v] || v;
+    return _dmgLabel(p.damageType || (p.aiSuggestion && p.aiSuggestion.damageType) || '');
   }
   function _severityLabel(p) {
     const v = p.severity || (p.aiSuggestion && p.aiSuggestion.severity) || '';
@@ -381,7 +395,12 @@
     const urlOf = (p) => (p && p.urls && (p.urls.full || p.urls.med)) || (p && p.url) || '';
     const idOf  = (p) => (p && (p.id || (p.urls && (p.urls.full || p.urls.med)) || p.url)) || '';
     const locOf = (p) => (p && (p.location || (p.inferredLocation && p.inferredLocation.label))) || '';
-    const dmgOf = (p) => (p && (p.damageType || (p.aiSuggestion && p.aiSuggestion.damageType))) || '';
+    // Folded to the canonical id so tier 2 groups by PERIL, not by which
+    // surface happened to tag the photo. Before this, a 'granule-loss'
+    // before-shot (bulk bar) and a 'granular_loss' after-shot (AI) missed
+    // each other, tiers 1+2 came back empty, and tier 3 shipped the two
+    // as a chronological pair labeled "Project overview".
+    const dmgOf = (p) => _dmgNorm(p && (p.damageType || (p.aiSuggestion && p.aiSuggestion.damageType)));
 
     const beforePhotos = list.filter(p => String(p && p.phase || '').toLowerCase() === 'before');
     const afterPhotos  = list.filter(p => String(p && p.phase || '').toLowerCase() === 'after');

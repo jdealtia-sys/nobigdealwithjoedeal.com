@@ -48,11 +48,20 @@
     { id: 'vent', icon: '◎', label: 'Vent Damage', color: '#64748b' },
   ];
 
-  const DAMAGE_TYPES = [
-    'Hail', 'Wind', 'Leak', 'Missing Shingle', 'Cracked Tile',
-    'Flashing Damage', 'Gutter Damage', 'Soffit/Fascia', 'Tree Damage',
-    'Algae/Moss', 'Ice Dam', 'Ponding Water', 'Other'
-  ];
+  // damageType canon lives in docs/pro/js/photo-damage-types.js — this
+  // list used to be a private Title Case vocabulary ('Hail', 'Flashing
+  // Damage', 'Soffit/Fascia', …) that no other surface wrote, so a photo
+  // tagged here never grouped with one tagged in Review & Sort or the
+  // bulk bar. Falls back to the old literals only if the shared script
+  // failed to load, so the panel never renders an empty dropdown.
+  // Resolved per call rather than captured at load: this file is one of
+  // ~60 deferred scripts on customer.html and a load-order change should
+  // degrade the labels, never blank the dropdown.
+  const _DMG = () => window.NBD_PHOTO_DAMAGE || null;
+  const _dmgNorm = (v) => { const D = _DMG(); return D ? D.normalize(v) : String(v == null ? '' : v).trim(); };
+  const DAMAGE_TYPES = () => (_DMG() ? _DMG().options() : [
+    ['hail', 'Hail'], ['wind', 'Wind'], ['leak', 'Leak'], ['other', 'Other']
+  ]);
   const SEVERITY_LEVELS = { minor: { label: 'Minor', color: '#eab308' }, moderate: { label: 'Moderate', color: '#f97316' }, severe: { label: 'Severe', color: '#ef4444' } };
   const ROOF_LOCATIONS = ['Ridge', 'Hip', 'Valley', 'Field/Slope', 'Edge/Drip', 'Flashing', 'Vent/Pipe Boot', 'Chimney', 'Skylight', 'Gutter', 'Downspout', 'Soffit', 'Fascia', 'Dormer', 'Flat Section'];
   const PHASES = ['Before', 'During', 'After'];
@@ -905,7 +914,7 @@
     try {
       // brightness/contrast are persisted non-destructively here (the
       // original image is untouched; openEditor re-applies them on load).
-      const meta = { damageType: S.damageType, severity: S.severity, location: S.location, phase: S.phase, notes: S.notes, tags: S.tags, brightness: S.brightness, contrast: S.contrast };
+      const meta = { damageType: _dmgNorm(S.damageType), severity: S.severity, location: S.location, phase: S.phase, notes: S.notes, tags: S.tags, brightness: S.brightness, contrast: S.contrast };
       await window.updateDoc(window.doc(window.db, 'photos', S.photoId), meta);
       toast('Tags saved!', 'success');
       S.hasUnsaved = false;
@@ -977,7 +986,7 @@
       // Flatten bakes the current brightness/contrast into the pixels, so
       // the saved copy's stored adjustments reset to 0 — otherwise reopening
       // would double-apply them on top of the already-adjusted image.
-      const meta = { damageType: S.damageType, severity: S.severity, location: S.location, phase: S.phase, notes: S.notes, tags: S.tags, isAnnotated: true, annotatedAt: window.serverTimestamp(), brightness: 0, contrast: 0 };
+      const meta = { damageType: _dmgNorm(S.damageType), severity: S.severity, location: S.location, phase: S.phase, notes: S.notes, tags: S.tags, isAnnotated: true, annotatedAt: window.serverTimestamp(), brightness: 0, contrast: 0 };
       if (overwrite && S.photoId) {
         // storagePath moves with the save-over: url and storagePath must
         // point at the SAME object (deletion + pipeline stamping both key
@@ -1138,7 +1147,7 @@
         <div class="nbd-panel-label">Damage Type</div>
         <select class="nbd-select" data-field="damageType">
           <option value="">Select type...</option>
-          ${DAMAGE_TYPES.map(d => `<option value="${d}" ${S.damageType === d ? 'selected' : ''}>${d}</option>`).join('')}
+          ${DAMAGE_TYPES().map(([id, label]) => `<option value="${id}" ${_dmgNorm(S.damageType) === id ? 'selected' : ''}>${label}</option>`).join('')}
         </select>
       </div>
       <div class="nbd-panel-section">
@@ -1816,7 +1825,7 @@
     redoStack = [];
 
     if (photoData) {
-      S.damageType = photoData.damageType || '';
+      S.damageType = _dmgNorm(photoData.damageType);
       S.severity = photoData.severity || '';
       S.location = photoData.location || '';
       S.phase = photoData.phase || 'Before';
@@ -1865,7 +1874,7 @@
           const docSnap = await window.getDoc(window.doc(window.db, 'photos', photoId));
           if (docSnap.exists()) {
             const d = docSnap.data();
-            S.damageType = d.damageType || ''; S.severity = d.severity || '';
+            S.damageType = _dmgNorm(d.damageType); S.severity = d.severity || '';
             S.location = d.location || ''; S.phase = d.phase || 'Before';
             S.notes = d.notes || ''; S.tags = d.tags || [];
             S.brightness = Number(d.brightness) || 0;
@@ -1888,7 +1897,7 @@
   function refreshPanelFields() {
     if (!root) return;
     const dmgSel = root.querySelector('[data-field="damageType"]');
-    if (dmgSel) dmgSel.value = S.damageType;
+    if (dmgSel) dmgSel.value = _dmgNorm(S.damageType);
     const locSel = root.querySelector('[data-field="location"]');
     if (locSel) locSel.value = S.location;
     root.querySelectorAll('.nbd-severity-pill').forEach(p => p.classList.toggle('active', p.dataset.sev === S.severity));
