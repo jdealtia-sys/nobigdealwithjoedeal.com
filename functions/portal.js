@@ -56,7 +56,7 @@ const { applyRepReplyEffects } = require('./portal-reply-effects');
 // a smoke drift guard in tests/customer-estimate-rows.test.js asserts the two
 // stay identical). NEVER emit est.rows raw — pre-sweep V2 rows carry the
 // contractor's COST basis.
-const { buildDisplayRows } = require('./customer-estimate-rows');
+const { buildDisplayRows, buildDocLineItems } = require('./customer-estimate-rows');
 // Single authority check for portal-link mint/revoke: platform admin, owning
 // rep, or a company_admin of the lead's tenant. Pure module — decision is
 // unit-tested there, not here.
@@ -1915,6 +1915,29 @@ exports.getEstimateForView = onRequest(
     // mapped here onto the shape estimate-view.js renders
     // ({name, quantity, unit, lineTotal}).
     const displayRows = buildDisplayRows(est);
+    // buildDisplayRows reads est.rows and nothing else. A doc whose scope
+    // lives only in est.lineItems therefore yields [], and estimate-view.js
+    // falls through to "Detailed line items will be reviewed in person." —
+    // an empty scope on the page the homeowner opens to find out what they
+    // are paying for. The CRM's own PDF export already has this fallback
+    // (customer-bootstrap.module.js, printRows), so a rep could export a
+    // full scope and share a link showing none, for the same document.
+    //
+    // Reachable without any legacy data: Log Estimate writes no rows, and
+    // saving the scope back from doc pre-flight writes lineItems onto that
+    // doc. buildDocLineItems is the shared three-shape reader that lives
+    // beside buildDisplayRows precisely so this stays one copy of the retail
+    // ladder — its own docstring notes that a fourth private copy is what
+    // leaked the cost basis to homeowners in the first place.
+    //
+    // Gated on lineItems specifically, NOT used unconditionally: for a per-SQ
+    // doc buildDocLineItems synthesises a single summary line, and per-SQ is
+    // already served by the safeTiers cards below. Widening this would change
+    // a shape that is not broken.
+    let docLines = null;
+    if (!displayRows.length && Array.isArray(est.lineItems) && est.lineItems.length) {
+      docLines = buildDocLineItems(est);
+    }
     // Per-SQ docs persist retail tier totals in `prices` — synthesize the
     // tier cards the client expects ({good|better|best: {grandTotal}}). If a
     // doc ever carries a real `tiers` payload, sanitize to grandTotal-only
@@ -1937,7 +1960,16 @@ exports.getEstimateForView = onRequest(
       mode:        est.mode || null,
       grandTotal:  est.grandTotal || est.total || null,
       total:       est.total || est.grandTotal || null,
-      lines:       displayRows.map(r => ({
+      // Same whitelist for both readers — name / quantity / unit / lineTotal
+      // only, so no material or labor cost key can ride along from either.
+      lines:       docLines
+        ? docLines.map(r => ({
+          name:      r.description || r.name || r.code || 'Line item',
+          quantity:  r.quantity != null ? r.quantity : null,
+          unit:      r.unit || '',
+          lineTotal: r.total,
+        }))
+        : displayRows.map(r => ({
         name:      r.desc || r.code || 'Line item',
         // buildDisplayRows' qty is a display string that may embed the unit
         // ('20.00 SQ') — pass it whole, leave unit empty.
