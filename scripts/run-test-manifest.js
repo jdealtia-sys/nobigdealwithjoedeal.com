@@ -177,7 +177,14 @@ const RUNNABLE = ['node', 'smoke'];
 //               RE-MEASURED via --check on the final rebased tree each time;
 //               the last one printed 113/67/198.
 
-const FLOORS = { node: 113, smoke: 67, disk: 198 };
+//   2026-09-13  google-reviews lane (tests/google-reviews-not-configured.test.js),
+//               rebased onto main at d7506665 after sitting unmerged since
+//               09-08 — every intervening lane above had already raised this
+//               line without this branch. RE-MEASURED via --check on the
+//               final rebased tree rather than adding this lane's +1 to
+//               113/67/198; smoke stays 67, this lane adds no smoke suite.
+
+const FLOORS = { node: 114, smoke: 67, disk: 199 };
 
 // ── Argument parsing ───────────────────────────────────────────────
 const argv = process.argv.slice(2);
