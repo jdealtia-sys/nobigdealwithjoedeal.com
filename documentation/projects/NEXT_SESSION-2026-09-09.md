@@ -766,3 +766,105 @@ completeness tripwire **locally** for everyone —
 `run-test-manifest.js --check` reports `test file(s) not classified`. Left in
 place rather than deleted, because deleting an untracked file is unrecoverable
 and it is not this lane's to remove.
+
+## §12 — The server-PDF lane (added 2026-09-08, PR #1505)
+
+Every server-rendered document — warranty, estimate, invoice, contract, change
+order, receipt, inspection, photo report — had been failing **100% of the time**
+at `stage: launch` since **2026-06-24**. About eleven weeks. Full write-up:
+[RENDERPDF-CHROMIUM-INTEROP-2026-09-08](../audit/RENDERPDF-CHROMIUM-INTEROP-2026-09-08.md).
+
+### What was broken
+
+`@sparticuz/chromium` **149 dropped its CommonJS build**. Its package.json is
+`"type":"module"` with a single `"default"` export condition, so `require()` on
+the nodejs22 runtime takes the `require(esm)` path and returns the ES module
+**namespace** — `{ __esModule, default, inflate, setupLambdaEnvironment }` — not
+the module. The API is a class on `.default`, so `chromium.executablePath` read
+`undefined` and `await undefined()` threw.
+
+**148 had no `.default` at all** (dual CJS/ESM, with a `"require"` condition), so
+the version bump alone broke it with **no code change**. Verified by installing
+both versions and comparing their `exports`, not by reasoning about interop.
+
+`chromium.args` was `undefined` too — the error surfaced on `executablePath`
+only because that one is *called*. A fix touching just the thrower would have
+launched Chromium with **none of its 22 flags**, `--no-sandbox` and
+`--single-process` included, and failed one line later.
+
+### Why it survived eleven weeks
+
+**The client fallback hid it.** `docs/pro/` catches the `HttpsError` and falls
+back to `html2canvas`, so customers kept receiving *a* document and nothing ever
+looked broken from outside. This is the finding that reaches past this lane: when
+auditing a server path, **ask what the client does when it fails** — a graceful
+fallback is exactly where a total outage hides.
+
+### The bigger finding: no alert policy is deployed
+
+`monitoring/alert-functions-error-rate.json` *does* name `renderpdf`, so on paper
+this was covered. Two independent reasons it was never going to fire:
+
+```bash
+gcloud alpha monitoring policies list --project=nobigdeal-pro --format=json
+# []
+```
+
+**Ten policy definitions in `monitoring/`; zero exist in the project.** Positive-
+controlled — `channels list` returns the two channels those same files reference,
+so the empty array is real, not a format quirk or a credentials problem.
+Everything the repo believes it watches is unwatched: backup-cron-stale,
+claude-budget-exceeded, email-queue-worker-stale, function-latency,
+functions-error-rate, migrations-tick-stale, rate-limit-spike,
+tenant-microsite-errors, validateAccessCode-bruteforce, voice-processing-failures.
+
+And **even deployed it could not have caught this**: the condition is `>50` errors
+over a `300s` `ALIGN_RATE` window — a *spike* detector — against **22 failures in
+three weeks**. The threshold alone is double the outage's entire failure volume.
+
+### What shipped
+
+- `resolveChromium()` probes for the API rather than unwrapping `.default`
+  unconditionally, so it survives the package flipping back to CJS. An
+  unrecognised shape throws a message naming the package and the keys it saw.
+- `metrics/renderPdf` records both outcomes; the health digest reports it **in
+  the subject line**, keyed on `failRecent && !okRecent` — a **missing success**,
+  not a failure count. At 22 calls in three weeks, any volume threshold sleeps
+  through a total outage. Reuse that shape for other low-volume paths.
+- Two zero-dep suites that vm-sandbox the real functions, because a source regex
+  for `.default` matches the broken code just as happily.
+
+### Open, in the order I would take them
+
+1. **Confirm a `[renderPdf] ok` line in production.** Chromium ships a Linux x64
+   binary and cannot be launched off Linux, so *nothing in this repo proves the
+   browser actually boots in the deployed function*. This path has never once
+   succeeded on 149, so a second failure further down the launch sequence is
+   possible. Render any document and check. **This is the one item that decides
+   whether the lane actually worked.**
+2. **Deploy the ten alert policies**, then re-run the `list` above to confirm they
+   exist. Deliberately not done in #1505 — a prod change, and Jo's call. Worth
+   doing, but it would not by itself have caught this outage.
+3. **Consider whether other paths have the same shape**: a server failure behind
+   a client fallback, on low enough volume that a spike threshold cannot see it.
+
+### Traps worth carrying
+
+- **A dependency bump can break a call site with no code change.** Check interop
+  empirically — install both versions and diff their `exports` — never reason
+  about it. On a Node without `require(esm)` this would have been a loud
+  `ERR_REQUIRE_ESM`; because the runtime *supports* it, the failure degraded into
+  a property read returning `undefined`, which is why it read as a code bug.
+- **After an interop fix, check every sibling read off the same object.**
+  `args` was broken identically and silently.
+- **The `FLOORS` line in `run-test-manifest.js` collided twice in this one lane**
+  (the sixth and seventh times on 2026-09-08). Both resolved by **measuring the
+  merged tree**, never arithmetic — and one of those merges silently produced a
+  **duplicate INDEX row**, caught only by scanning for duplicated links rather
+  than trusting a clean auto-merge. If this line keeps costing sessions, how the
+  ratchet is stored may be worth revisiting.
+- **The brief that opened this lane cited
+  `documentation/audit/PDF-RENDER-RETENTION-2026-09-08.md`** as recording the
+  finding in full. That file **does not exist** — not in any worktree, not on
+  `main`, not anywhere in history. A precise-sounding task prompt can name a
+  document that was never written.
