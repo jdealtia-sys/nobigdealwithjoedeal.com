@@ -419,7 +419,7 @@
     const vp = cpDefaults().valueProps;
     if (Array.isArray(vp) && vp.length) return vp;
     return [
-      {icon:'🛡️',title:'Warranty Protection',desc:'Up to lifetime workmanship warranty plus full manufacturer coverage on all materials.'},
+      {icon:'🛡️',title:'Warranty Protection',desc:'Up to 20-year workmanship warranty plus full manufacturer coverage on all materials.'},
       {icon:'📋',title:'Insurance Specialists',desc:'We handle the entire insurance claim process so you can focus on what matters.'},
       {icon:'⭐',title:'5-Star Service',desc:'Exceptional service from first contact through final walkthrough and beyond.'},
       {icon:'💰',title:'Flexible Financing',desc:'Affordable monthly payments through our financing marketplace partner.'}
@@ -443,13 +443,13 @@
       : _wcPrefix + '-' + (Date.now() % 100000);
     const d = Object.assign({ homeownerName:'[Homeowner Name]', address:'[Property Address]',
       warrantyTier:'best', workPerformed:'', coverageDetails:'', transferable:false,
-      certificateNumber: _certSeed, issueDate:today(), expirationDate:'N/A — Lifetime' }, data);
+      certificateNumber: _certSeed, issueDate:today(), expirationDate:'20 years from issue date' }, data);
 
     const tiers = { good:{label:'GOOD',color:'#cd7f32',bg:'#fdf4e8',years:'5-Year',exp:'5 years from issue date'},
       better:{label:'BETTER',color:'#808080',bg:'#f0f0f0',years:'10-Year',exp:'10 years from issue date'},
-      best:{label:'BEST',color:'#DAA520',bg:'#fefce8',years:'Lifetime',exp:'Lifetime — as long as you own the property'} };
+      best:{label:'BEST',color:'#DAA520',bg:'#fefce8',years:'20-Year',exp:'20 years from issue date'} };
     const t = tiers[d.warrantyTier] || tiers.best;
-    if (d.warrantyTier==='best') d.expirationDate = 'Lifetime — No Expiration';
+    if (d.warrantyTier==='best') d.expirationDate = '20 years from ' + d.issueDate;
     else if (d.warrantyTier==='better') d.expirationDate = '10 years from ' + d.issueDate;
     else d.expirationDate = '5 years from ' + d.issueDate;
 

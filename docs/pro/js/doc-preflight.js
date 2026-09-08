@@ -309,7 +309,7 @@
   var WARRANTY_TIER_OPTIONS = [
     { value: 'good',   label: 'Good — 5yr Workmanship + Standard Mfr' },
     { value: 'better', label: 'Better — 10yr Workmanship + Enhanced Mfr' },
-    { value: 'best',   label: 'Best — Lifetime Workmanship + Premium Mfr' }
+    { value: 'best',   label: 'Best — 20yr Workmanship + Premium Mfr' }
   ];
 
   var DOC_SCHEMAS = {
@@ -1516,7 +1516,7 @@
     var tiers = [
       { id: 'good',   name: 'Good',   tag: '5-Year Workmanship',     desc: 'Covers defects in workmanship for 5 years.' },
       { id: 'better', name: 'Better', tag: '10-Year + Enhanced Mfr', desc: 'Comprehensive 10-year coverage, enhanced manufacturer.' },
-      { id: 'best',   name: 'Best',   tag: 'Lifetime Workmanship',   desc: 'Lifetime workmanship, premium manufacturer.' }
+      { id: 'best',   name: 'Best',   tag: '20-Year Workmanship',  desc: '20-year workmanship, premium manufacturer.' }
     ];
     var cur = (value || 'better').toLowerCase();
     var cards = tiers.map(function (t) {

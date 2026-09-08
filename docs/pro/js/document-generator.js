@@ -258,9 +258,9 @@ window.NBDDocGen = {
     },
     best: {
       name: 'Best',
-      workmanship: 'Lifetime',
+      workmanship: '20-Year',
       manufacturer: 'Premium',
-      description: 'Lifetime Workmanship Warranty + Premium Manufacturer Warranty',
+      description: '20-Year Workmanship Warranty + Premium Manufacturer Warranty',
       details: 'Premium protection covering all workmanship for the life of the structure. Maximum manufacturer coverage on premium materials.'
     }
   },

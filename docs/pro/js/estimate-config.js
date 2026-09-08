@@ -49,7 +49,7 @@
     TIER_RATES: Object.freeze({
       good:   545,   // Standard system + standard accessories
       better: 595,   // Upgraded materials + system warranty
-      best:   660    // Impact-rated + 50yr warranty package
+      best:   660    // Impact-rated + 20yr workmanship warranty package
     }),
 
     // Job minimum: kicks in below ~4.5 SQ. Both unit forms exposed
