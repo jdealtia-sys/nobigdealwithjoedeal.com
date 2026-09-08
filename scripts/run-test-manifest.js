@@ -123,7 +123,9 @@ const RUNNABLE = ['node', 'smoke'];
 //               on top of the session-revocation raise above. Both sides had
 //               moved the literal again. MEASURED on the merged tree via
 //               --check; neither side's number was adjusted by hand.
-const FLOORS = { node: 106, smoke: 67, disk: 191 };
+//   2026-09-08  107/67/192 after portal-scheduled-date landed. MEASURED from
+//               --check on this branch's merged base, not 106+1.
+const FLOORS = { node: 107, smoke: 67, disk: 192 };
 
 // ── Argument parsing ───────────────────────────────────────────────
 const argv = process.argv.slice(2);

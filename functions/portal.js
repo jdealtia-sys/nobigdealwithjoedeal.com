@@ -747,6 +747,19 @@ exports.getHomeownerPortalView = onRequest(
       currentLabel:  HOMEOWNER_PROGRESS[currentIdx]?.label || 'In Progress',
       nextLabel:     nextStep?.label || null,
       nextBlurb:     nextStep?.blurb || null,
+      // The install date. crm-stages.js requires scheduledDate on EVERY track
+      // to reach CREW_SCHEDULED (tests/crm-required-fields.test.js guards it),
+      // so from that stage on this is a real commitment a rep typed, not a
+      // guess — and it was the one question the portal could not answer.
+      //
+      // Shipped as the raw YYYY-MM-DD string ON PURPOSE. The past/today/future
+      // decision has to be made in the READER's timezone and this function
+      // runs in UTC, so formatting or comparing here would be wrong for every
+      // homeowner. Shape-validated so a malformed value renders nothing rather
+      // than "Invalid Date" on a customer's screen.
+      scheduledDate: /^\d{4}-\d{2}-\d{2}$/.test(String(lead.scheduledDate || ''))
+        ? lead.scheduledDate
+        : null,
     };
 
     // Refresh any homeowner-upload URL that is dead or nearly dead before
