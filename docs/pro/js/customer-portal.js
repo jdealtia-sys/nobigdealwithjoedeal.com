@@ -180,7 +180,14 @@
     if (!leadId) return;
     try {
       const url = await mintTokenUrl(leadId);
-      window.open(url, '_blank', 'noopener');
+      // Tag it as a rep view. Unframed and untagged, this opens the real
+      // portal as if the homeowner had: portal.js emits portal_open and
+      // estimate_view, the latter pushing the rep a "your customer is
+      // viewing the estimate" alert about themselves and de-duping the
+      // genuine open away for the length of that window. Mirrors
+      // PortalLinkHelpers._asPreviewUrl.
+      const previewUrl = url + (url.indexOf('?') >= 0 ? '&' : '?') + 'preview=1';
+      window.open(previewUrl, '_blank', 'noopener');
     } catch (e) {
       if (typeof showToast === 'function') showToast('Could not open preview: ' + (e.message || 'error'), 'error');
     }

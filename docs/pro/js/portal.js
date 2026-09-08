@@ -114,11 +114,78 @@
     return res;
   }
 
+  // ─── Error states ───────────────────────────────────────────────
+  // getHomeownerPortalView has five distinct terminal outcomes. This page
+  // rendered specific copy for two of them and sent the rest to
+  // "Please try again in a moment." Two of those can NEVER succeed on a
+  // retry, so the advice was not merely unhelpful, it was false:
+  //
+  //   400 bad_token       the link arrived truncated. SMS and email
+  //                       clients wrap and clip long URLs, and the
+  //                       token charset guard (functions/portal.js,
+  //                       /^[A-Za-z0-9]{10,64}$/) rejects the remainder.
+  //   429 too_many_opens  tokens are minted with maxUses:100 against a
+  //                       30-day TTL and only genuine opens count
+  //                       (polls are exempt), so a homeowner checking
+  //                       progress a few times a day during an active
+  //                       job reaches the cap inside a month.
+  //
+  // Both told the customer to wait. Waiting never worked, and nothing
+  // pointed them at the one thing that does — asking their rep to send a
+  // fresh link, which takes the rep a second.
+  //
+  // `transient` is the honest half: only states where refreshing can
+  // actually help are allowed to say so. Keyed on the backend's stable
+  // `code` where present and falling back to the status, so this stays
+  // correct against a backend that has not been redeployed yet.
+  function _errorStateFor(status, code) {
+    switch (code) {
+      case 'bad_token':
+        return { transient: false, title: 'This link looks incomplete',
+          body: 'Links sometimes get cut short in a text message. Ask your rep to send it again.' };
+      case 'too_many_opens':
+        return { transient: false, title: 'This link has reached its limit',
+          body: 'Ask your rep for a fresh link — it only takes them a second.' };
+      case 'expired':
+        return { transient: false, title: 'This link has expired',
+          body: 'Ask your rep for a new one — they can send a fresh link right away.' };
+      case 'unknown_link':
+      case 'project_missing':
+        return { transient: false, title: 'We can\'t find this project',
+          body: 'Check the link with your rep — it may have been mistyped or replaced.' };
+      default: break;
+    }
+    // No code (older backend), or one we do not recognise: fall back to
+    // the status, which has carried the same meanings since Wave 87.
+    if (status === 400) return _errorStateFor(null, 'bad_token');
+    if (status === 404) return _errorStateFor(null, 'unknown_link');
+    if (status === 410) return _errorStateFor(null, 'expired');
+    if (status === 429) {
+      // Two different 429s reach here with opposite correct advice: the
+      // per-IP limiter (30/min) really does clear on its own, the replay
+      // cap never does. Without a code we cannot tell them apart —
+      // Retry-After would, but it is not CORS-exposed to this origin — so
+      // say something true of both and name the escalation.
+      return { transient: true, title: 'Too many requests right now',
+        body: 'Give it a minute and refresh. If it keeps happening, contact your rep for a fresh link.' };
+    }
+    return { transient: true, title: 'Couldn\'t load your project',
+      body: 'Check your connection and refresh. If it keeps happening, contact your rep.' };
+  }
+
+  function _renderError(main, state) {
+    if (!main) return;
+    main.innerHTML = '<div class="error-state" data-transient="' + (state.transient ? '1' : '0') + '">'
+      + '<h2>' + esc(state.title) + '</h2>'
+      + '<div>' + esc(state.body) + '</div></div>';
+  }
+
   async function loadView() {
     const token = getToken().trim();
     const main = document.getElementById('mainWrap');
     if (!token) {
-      main.innerHTML = '<div class="error-state"><h2>No link found</h2><div>This page needs a valid token. Please open the link your rep sent you.</div></div>';
+      _renderError(main, { transient: false, title: 'No link found',
+        body: 'This page needs the link your rep sent you. Open it again from your text or email.' });
       return;
     }
     try {
@@ -128,15 +195,15 @@
       // the emailed link) but the *server-side* log chain no longer
       // receives it.
       const res = await _fetchView(token);
-      if (res.status === 410) {
-        main.innerHTML = '<div class="error-state"><h2>This link has expired</h2><div>Contact your rep for a new one.</div></div>';
+      if (!res.ok) {
+        // Read the body for the machine-readable `code`. Best-effort: a
+        // body that is missing or not JSON must not turn a clean 410 into
+        // the generic network message, so the status carries it alone.
+        let code = null;
+        try { code = (await res.clone().json()).code || null; } catch (_) {}
+        _renderError(main, _errorStateFor(res.status, code));
         return;
       }
-      if (res.status === 404) {
-        main.innerHTML = '<div class="error-state"><h2>We can\'t find this project</h2><div>Check the link with your rep — it may have been mistyped.</div></div>';
-        return;
-      }
-      if (!res.ok) throw new Error('Status ' + res.status);
       const view = await res.json();
       _lastView = view;
       renderView(view);
@@ -147,7 +214,9 @@
       // never block the page on telemetry.
       _emitAuditEvent('portal_open');
     } catch (e) {
-      main.innerHTML = '<div class="error-state"><h2>Couldn\'t load your project</h2><div>Please try again in a moment.</div></div>';
+      // Genuinely transient: DNS, offline, CORS, a 5xx that never parsed.
+      // This is the one place "refresh and try again" is honest advice.
+      _renderError(main, _errorStateFor(0, null));
     }
   }
 
@@ -316,12 +385,49 @@
     }
   }
 
+  // ─── Is this the rep's preview rather than the homeowner? ───────
+  // The CRM's "Portal preview" modal embeds this page in a same-origin
+  // iframe. Until 2026-09-08 that embed was refused outright by
+  // X-Frame-Options, so the page never ran inside it and the question
+  // never arose. Making the preview work makes it urgent: without this
+  // guard every preview click would emit the homeowner's own telemetry.
+  //
+  // The damage is not merely a wrong count. `estimate_view` fires a
+  // Firestore trigger (functions/fresh-view-logic.js) that pushes the rep
+  // an `estimate_viewed` notification — the real-time buying-intent
+  // signal — and that trigger de-dupes per lead over a window. So a rep
+  // previewing their own link would be told their customer was reading
+  // the estimate right now, AND the genuine open minutes later would be
+  // swallowed as a duplicate. A false positive that suppresses the true
+  // one is worse than no signal.
+  //
+  // Framing is the reliable discriminator: firebase.json allows
+  // frame-ancestors 'self' only, so nothing but our own CRM can embed
+  // this page, and a homeowner opening a texted link is never framed.
+  // A throw can only happen when framed cross-origin, so it counts as
+  // framed too. `?preview=1` is the belt for a future preview surface
+  // that opens in a tab instead.
+  const IS_PREVIEW = (function () {
+    try {
+      if (window.self !== window.top) return true;
+    } catch (_) {
+      return true;
+    }
+    try {
+      return new URLSearchParams(location.search).get('preview') === '1';
+    } catch (_) {
+      return false;
+    }
+  })();
+
   // ─── Customer-side audit logger (batch 7) ───────────────────────
   // Posts a minimal { token, type, resourceId? } payload to the
   // recordCustomerEvent Cloud Function. Token-validated server-side.
   // Fire-and-forget — telemetry should never break the page.
   function _emitAuditEvent(type, resourceId) {
     try {
+      // A rep looking at their own preview is not a customer visit.
+      if (IS_PREVIEW) return;
       const token = getToken().trim();
       if (!token) return;
       fetch(FUNCTIONS_BASE + '/recordCustomerEvent', {

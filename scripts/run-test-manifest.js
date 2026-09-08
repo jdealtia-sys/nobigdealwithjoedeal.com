@@ -89,11 +89,17 @@ const RUNNABLE = ['node', 'smoke'];
 // check until the floor moves with it in the same commit. That is the point,
 // not a nuisance — the error prints the exact literal to paste, and this
 // 2026-09-07 entry should be the last of its kind.
-//   2026-09-08  +1 node / +1 disk for tests/nav-contract.test.js (the nav
-//               reliability audit). The ratchet worked exactly as designed:
-//               the node-bucket run went red on the added suite and would not
-//               go green until this line moved in the same commit.
-const FLOORS = { node: 97, smoke: 65, disk: 180 };
+//   2026-09-08  three portal branches each raised these; this is the value
+//               MEASURED after all of them landed, not any one branch's
+//               delta added to another's.
+//   2026-09-08  the nav branch (tests/nav-contract.test.js) then collided with
+//               those portal branches in exactly the way this ledger warns
+//               about: both sides had raised the literal, and git could not
+//               reconcile 97/180 against 100/183. Resolved by re-measuring the
+//               MERGED tree rather than adding one side's delta to the other —
+//               97+3 would have been right by luck here, but the habit of
+//               arithmetic on a floor is the bug itself.
+const FLOORS = { node: 101, smoke: 65, disk: 184 };
 
 // ── Argument parsing ───────────────────────────────────────────────
 const argv = process.argv.slice(2);

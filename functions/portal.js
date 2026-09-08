@@ -430,8 +430,18 @@ exports.getHomeownerPortalView = onRequest(
     // Charset-validate (not just length): a token with a '/' makes an odd-segment
     // Firestore path that throws uncaught → opaque 500 instead of a clean 400.
     // Minted tokens are [A-Za-z0-9]; mirrors deal-acceptance.js's guard.
+    //
+    // `code` is the stable, machine-readable half of every error this
+    // endpoint returns. The portal keys its copy off it because the status
+    // alone cannot separate the two 429s below, which need opposite advice,
+    // and because 400 here means "the link arrived truncated" — a real and
+    // common outcome of an SMS client clipping a long URL, which the page
+    // used to answer with "please try again in a moment". Statuses are
+    // unchanged; a portal build that predates this ignores `code` and falls
+    // back to them. The other six portal endpoints still carry the bare
+    // guard — uniform codes there are a follow-up, not this slice.
     if (typeof token !== 'string' || !/^[A-Za-z0-9]{10,64}$/.test(token)) {
-      res.status(400).json({ error: 'Invalid token' });
+      res.status(400).json({ error: 'Invalid token', code: 'bad_token' });
       return;
     }
     // The live poller (portal.js, every 30s while the tab is foreground) hits
@@ -444,15 +454,15 @@ exports.getHomeownerPortalView = onRequest(
     const db = getFirestore();
     const tokRef = db.doc(`portal_tokens/${token}`);
     const tokSnap = await tokRef.get();
-    if (!tokSnap.exists) { res.status(404).json({ error: 'Invalid link' }); return; }
+    if (!tokSnap.exists) { res.status(404).json({ error: 'Invalid link', code: 'unknown_link' }); return; }
     const tok = tokSnap.data();
 
     if (tok.expiresAt && tok.expiresAt.toMillis && tok.expiresAt.toMillis() < Date.now()) {
-      res.status(410).json({ error: 'This link has expired. Contact your rep for a new one.' });
+      res.status(410).json({ error: 'This link has expired. Contact your rep for a new one.', code: 'expired' });
       return;
     }
     if (!isPoll && typeof tok.maxUses === 'number' && (tok.uses || 0) >= tok.maxUses) {
-      res.status(429).json({ error: 'This link has been opened too many times.' });
+      res.status(429).json({ error: 'This link has been opened too many times.', code: 'too_many_opens' });
       return;
     }
 
@@ -481,7 +491,7 @@ exports.getHomeownerPortalView = onRequest(
         .get()
     ]);
 
-    if (!leadSnap.exists) { res.status(404).json({ error: 'Project not found' }); return; }
+    if (!leadSnap.exists) { res.status(404).json({ error: 'Project not found', code: 'project_missing' }); return; }
     const lead = leadSnap.data();
     const rep = repSnap.exists ? repSnap.data() : {};
 

@@ -65,6 +65,10 @@ async function copyPortalUrl(inputId) {
   try {
     await navigator.clipboard.writeText(url);
     if (typeof showToast === 'function') showToast('Link copied to clipboard', 'success');
+    // The share panel's own copy button is a share too. It was the third
+    // unrecorded path in this file; quickEmailPortalLink is not, because it
+    // delegates wholly to PortalLinkHelpers.emailForLead, which records.
+    _recordPortalShare('copy');
   } catch (_) {
     // Safari / insecure context / focus loss. The link is already visible
     // in the input, so select it and let the rep press Ctrl+C.
@@ -91,20 +95,46 @@ async function _resolvePortalUrl() {
   if (window.PortalLinkHelpers) {
     return window.PortalLinkHelpers.resolveUrl(window._customerId);
   }
-  // Defensive fallback if the shared module hasn't loaded yet —
-  // matches the original Wave 40 implementation.
+  // Defensive fallback if the shared module hasn't loaded yet.
+  //
+  // The original Wave 40 implementation preferred a persisted
+  // lead.portalUrl over minting. That is no longer a valid link to hand a
+  // homeowner: those are the legacy, permanent, UNREVOCABLE Firebase
+  // Storage URLs the token migration retired, and revokePortalToken has
+  // never been able to touch one — see the note on
+  // PortalLinkHelpers.resolveUrl. Reading it here meant this fallback
+  // could still put one in front of a customer, and revoking the lead's
+  // access would silently do nothing. Mint, like every other path.
   if (typeof CustomerPortal === 'undefined') throw new Error('Portal module not loaded');
-  let url = null;
-  try {
-    const leadSnap = await window.getDoc(window.doc(window.db, 'leads', window._customerId));
-    const data = leadSnap.exists() ? leadSnap.data() : {};
-    if (typeof data.portalUrl === 'string' && /^https?:\/\//.test(data.portalUrl)) {
-      url = data.portalUrl;
-    }
-  } catch (_) {}
-  if (!url) url = await CustomerPortal.generate(window._customerId);
+  const url = await CustomerPortal.generate(window._customerId);
   if (!url) throw new Error('Generation failed');
   return url;
+}
+
+// Every share entry point must reach PortalLinkHelpers.recordShare, or the
+// features downstream of it silently see zero signal: the W44 "last shared"
+// chip, W57 fresh pulse, W58 viewed badge, W92 engagement tier, W112 smart
+// followup, and the stale-shares / never-shared filters.
+//
+// The two buttons in this file — the customer page's PRIMARY Copy Portal
+// Link and Text Portal Link — never did. They resolve a URL through
+// PortalLinkHelpers.resolveUrl, which deliberately does not record (only
+// copyForLead / smsForLead do, and these handlers reimplement those rather
+// than calling them, to keep their own button-label states). So a rep could
+// work the whole deal from the customer page, text the homeowner a working
+// link, and the CRM would go on insisting the link had never been sent.
+// Every OTHER surface records: dashboard-api.js:517, dashboard-actions.js:1518,
+// job-templates-ui.js:1983.
+function _recordPortalShare(via) {
+  try {
+    if (window.PortalLinkHelpers
+        && typeof window.PortalLinkHelpers.recordShare === 'function') {
+      window.PortalLinkHelpers.recordShare(window._customerId, via);
+    }
+  } catch (e) {
+    // Tracking must never break a share that already succeeded.
+    console.warn('[customer-gallery-share] recordShare failed', e && e.message);
+  }
 }
 window.quickCopyPortalLink = async function () {
   const button = document.getElementById('quickCopyPortalBtn');
@@ -147,6 +177,10 @@ window.quickCopyPortalLink = async function () {
 
     if (copied) {
       if (typeof showToast === 'function') showToast('Portal link copied — paste anywhere', 'success');
+      // Matches PortalLinkHelpers.copyForLead: record on a confirmed copy
+      // only. The manual-select fallback below is not a share — the rep has
+      // not been handed the link yet, they are being asked to press Ctrl+C.
+      _recordPortalShare('copy');
     } else {
       // Last resort: open the share panel so the rep can copy
       // manually + see exactly what was generated.
@@ -281,6 +315,11 @@ window.quickSmsPortalLink = async function () {
         ? `Opening SMS to ${firstName}…`
         : 'Opening SMS…', 'success');
     }
+    // Matches PortalLinkHelpers.smsForLead: record once the composer has
+    // been handed the message. Whether the rep presses send is not
+    // observable from here, and the shared helper draws the line in the
+    // same place.
+    _recordPortalShare('sms');
   } catch (e) {
     console.warn('[quickSmsPortalLink] failed', e);
     if (typeof showToast === 'function') showToast('Couldn\'t prepare SMS: ' + (e.message || 'unknown'), 'error');
