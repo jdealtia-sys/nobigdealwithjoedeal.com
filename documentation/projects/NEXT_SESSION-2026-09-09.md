@@ -594,3 +594,161 @@ tripwire that fires. To recover: `git reflog` for the checkout event,
 owns it, then `git branch -f <stray> <the SHA the reflog says they left it at>`
 and redo the work on your own branch. Never reset a stray branch carrying
 commits you did not author.
+---
+
+## §11 — The portal lane (added 2026-09-08, PRs #1491 #1493 #1495 #1502)
+
+Numbered §11 because §10 was already claimed by the nav lane (PR #1511) while
+this was being written. Session note:
+[SESSION-2026-09-08-portal-preview-and-recon](SESSION-2026-09-08-portal-preview-and-recon.md)
+— it carries the full evidence for everything below.
+
+Jo's report was "the preview doesn't load". It never had.
+
+### Shipped, deployed and verified in production
+
+All four code PRs are ancestors of the deploy that succeeded — checked, not
+assumed, because the deploy for #1502's own merge was **cancelled** by the
+burst-concurrency behaviour and a later run carried it.
+
+- **#1491** — the preview modal. Two independent faults, and either fix alone
+  still leaves it broken. `/pro/portal` inherited the global `**` rule's
+  `X-Frame-Options: DENY` (only the four AI-TOOLS routes had an override), and
+  the block-detector was inverted in **both** directions: written for the
+  retired cross-origin Storage URL, it read a healthy same-origin load as
+  blocked, and on the refusal it existed to catch it scored the SecurityError
+  as success and **hid the overlay over an empty frame**. That second half is
+  why the symptom was a blank panel and the modal's own warning never rendered.
+  Same PR: rep previews no longer emit the homeowner's `estimate_view` (it was
+  pushing the rep a "your customer is reading the estimate" alert about
+  *themselves*, then de-duping the genuine open away), and two dead-end error
+  states — a truncated link (400) and the `maxUses: 100` replay cap (429) —
+  stopped telling the customer to "try again in a moment" when retrying can
+  never work.
+- **#1493** — Copy / Text Portal Link on the customer page **never recorded the
+  share**, so smart-followup kept saying "send portal link" for links already
+  sent. Three of four controls in `customer-gallery-share.js`; the third was
+  found by enumerating the file, not from the report. Also removed a fallback
+  that could still hand out a legacy **unrevocable** Storage `portalUrl`.
+- **#1495** — the portal now links to `/pro/estimate-view.html`, a deployed,
+  cost-redacted itemized viewer the portal referenced **zero** times. Plus the
+  half that makes it worth having: `getEstimateForView` returned an empty scope
+  for any estimate whose lines live in `lineItems` rather than `rows`, so a rep
+  could export a full scope to PDF and share a link showing none.
+- **#1502** — the rating card rendered on `progressKey === 'complete'` while its
+  submit gate used a hardcoded list, so a legacy `Closed Won`/`Complete`/`Won`
+  stage (or any tenant custom stage with role `won`) rendered the card and then
+  answered **409 "You can rate once the job is complete"** on a finished roof.
+  One `progressKeyFor(lead)` owns both now. Plus: homeowner photo uploads bake a
+  **7-day** signed URL into the doc, so after a week the customer's own photo is
+  a broken tile — and the same doc feeds the rep gallery. Re-signed lazily, with
+  write-back and an `uploadedAt` fallback so the existing backlog is covered.
+
+Five suites, 173 assertions, 50 break-tests — every one reddening, each checked
+for **which** assertion fired.
+
+### Two corrections to the recon that produced this
+
+- **"WON means the deal is won, not the roof is on" does not survive reading the
+  set.** `install_complete / final_photos / final_payment /
+  deductible_collected / closed` all genuinely mean the roof is on, and every
+  one is in `STAGE_TO_PROGRESS` so the role fallback never fires for them. The
+  defect was two gates disagreeing, not the role's meaning.
+- A post-deploy "still blocked" reading was **my own browser cache**, not a
+  failure. Real portal links always carry a unique token, so nobody hits it.
+
+### Still open — LEADS, not findings
+
+The 120-agent recon **lost 40 agents to the session rate limit**, including all
+three verify passes for the preview / portal-defects / portal-ux lanes and the
+security recon entirely. It returned 27 survivors, 13 unverified and **0
+refuted** — and zero refutations is a warning sign, not a clean sweep. The top
+cluster was spot-checked by hand; the rest was not. Re-check before acting.
+
+Verified by three refuters each:
+
+- **portal views are never recorded**, so the CRM permanently says "waiting for
+  the customer to open it"
+- the **warranty certificate names NBD on other tenants' certificates**, and is
+  dated a day early off `lead.scheduledDate` — the *scheduled*, not actual, date
+- the 30s poll **destroys an in-flight photo upload** — the same shape as the
+  signature guard added 09-07, one branch over
+- a before/after slider script that fails to load burns a **200ms timer for the
+  life of the tab**, re-armed on every repaint
+- the homeowner's own upload is announced back to them as *"new photo from your
+  rep"*
+
+**Unverified** (every verifier died — treat as leads):
+
+- every portal card is **clipped 39–149px off the right edge of every phone**,
+  and the overflow cannot be scrolled to
+- the 09-07 `--accent → --nbd-orange-cta` contrast fix was a **no-op, because
+  the two tokens are the same colour**
+- a revoked link never stops the 30s poll — the `finally` re-arms the timer the
+  410/404 branch just cleared
+- the photo input is camera-only (`capture="environment"`), so a homeowner
+  cannot send a photo they already took
+- **every preview click mints a real 30-day / 100-use homeowner credential**, and
+  nothing bounds, distinguishes or reaps them
+- the preview iframe's sandbox strips capabilities the portal's nested
+  BoldSign / Cal.com frames need
+- printing the portal for an adjuster yields 6 pages, two of them blank iframe
+  boxes; there is no `@media print` rule
+
+### Growth — all four opportunity lanes converged
+
+Three of the top five are **mounting code that already exists**:
+
+1. ~~link the estimate card to the itemized scope~~ — **done, #1495**
+2. **ship `lead.scheduledDate` to the portal** (S) — CI-required to reach Crew
+   Scheduled, and the portal never sees it. "Crew arrives Tuesday, September 16"
+   instead of a bar. The next cheap win.
+3. documents shelf — contract, completion cert, warranty, permits (L)
+4. balance due / pay (M)
+5. **`/share/<token>`** (S) — `shareSSR` is deployed with **zero producers**, so
+   texted links unfurl as bare URLs that read like spam
+
+### Traps this lane paid for
+
+- **A preview channel cannot verify the portal's data path.**
+  `getHomeownerPortalView` allowlists the **production origin only**; a channel
+  origin gets a 204 preflight with no `access-control-allow-origin`. Framing,
+  headers and static rendering *can* be proved there — anything
+  portal-data-related cannot. Drive the module from a production-origin page
+  instead (load the script, stub the minter, call the real function).
+- **`gh pr checks` and the gate GitHub enforces disagree.** After a force-push
+  it reported 21 pass while `statusCheckRollup` showed 20 unconcluded and
+  `mergeStateStatus: BLOCKED`. Poll the rollup. `BLOCKED` usually means "not
+  concluded yet" and clears itself; `DIRTY` means a real conflict.
+- **The deploy does not wait for CI**, and burst-cancels middle runs. Verify the
+  last *successful* deploy's SHA is a descendant of your merge.
+- **Manifest floors collided five times in one afternoon.** The fifth time both
+  sides carried the *same* literal, so only the comments conflicted — and the
+  merged tree still measured one higher. A matching number is not evidence;
+  re-measure the merged tree.
+- **An absence assertion matched its own explanatory comment three times**, once
+  per new suite. Slice the region out of raw source first, then strip comments
+  from the slice; a whole-file percentage guard is useless here
+  (`functions/portal.js` is 43% comment lines).
+- **A crashed suite is not a vacuous guard.** A break-test deleted 1,683 chars
+  instead of two lines; the harness saw no `✗` and reported the guard did
+  nothing. Assert the summary line before interpreting a failure count.
+- `sed -i` flips EOLs **on a single named file**, not just across a glob.
+
+### Deliberately not done
+
+- the other six portal endpoints still have no error `code`
+- rep-initiated `estimate_view` still writes a server-side activity record; a
+  client `?preview=1` tag cannot suppress that, and pretending otherwise would
+  be worse than the gap
+- `/pro/ai-tree` still ships an enforced `frame-ancestors 'self'` beside a
+  Report-Only `'none'` — they contradict on every dashboard embed
+
+### One housekeeping item that will waste someone's time
+
+`tests/_tmp-lanef-probe.test.js` is sitting **untracked** in the main checkout
+(10:04 today, from another lane). CI never sees it, but it fails the manifest
+completeness tripwire **locally** for everyone —
+`run-test-manifest.js --check` reports `test file(s) not classified`. Left in
+place rather than deleted, because deleting an untracked file is unrecoverable
+and it is not this lane's to remove.
