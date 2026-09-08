@@ -93,7 +93,21 @@
     if (!document.body.classList.contains(BODY_CLASS)) return;
     document.body.classList.remove(BODY_CLASS);
     document.body.style.top = '';
+
+    /* `html{scroll-behavior:smooth}` is set sitewide, which turns this restore
+       into an ANIMATION: the reader watches the page glide back to where they
+       were over ~half a second, and anything that interrupts the animation
+       leaves them somewhere else entirely. CI caught it mid-glide, reading 410
+       and 68 where the saved offset was ~1200. Force the restore to be
+       instant, then hand smooth scrolling back to the page's own anchors. */
+    var root = document.documentElement;
+    var prevBehavior = root.style.scrollBehavior;
+    root.style.scrollBehavior = 'auto';
     window.scrollTo(0, savedScrollY);
+    // Commit the jump before smooth scrolling is restored, or the browser can
+    // coalesce the two style changes and animate anyway.
+    void root.offsetHeight;
+    root.style.scrollBehavior = prevBehavior;
   }
 
   /* ── Drawer ─────────────────────────────────────────────────────────── */

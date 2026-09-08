@@ -86,6 +86,20 @@
 
 #mobileNav.mobile-nav.open {
   display: block;
+  /* nbd-mobile.css reveals the drawer with
+     `@keyframes nbdRevealIn{from{transform:translateY(-6px)}}`. That was
+     harmless when the drawer was a short panel hanging below the header. Now
+     that it is pinned to all four edges, translating it up by 6px pulls its
+     bottom edge 6px INSIDE the viewport and shows a strip of live page content
+     under it for the length of the animation — caught by CI measuring the
+     drawer's bottom at 502 against a 508px viewport. A full-viewport sheet
+     must not move; fade it instead. */
+  animation: nbdNavFadeIn 0.18s ease;
+}
+
+@keyframes nbdNavFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
 /* The drawer owns the screen while open: the fixed Call/Text bar (z-index 999)

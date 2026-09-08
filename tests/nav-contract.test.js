@@ -214,6 +214,28 @@ group('Scroll lock: the reported symptom', () => {
     /if \(open && isOpen\(\)\) return;/.test(navJs) && !/if \(isOpen\(\) === open\) return;/.test(navJs));
   assert('a MutationObserver backstops any third party that strips .open',
     /MutationObserver/.test(navJs) && /attributeFilter: \['class'\]/.test(navJs));
+
+  /* html{scroll-behavior:smooth} is set sitewide, so a bare scrollTo turns the
+     restore into a half-second glide the reader watches — and an interrupted
+     glide lands them somewhere they never chose. CI caught it mid-animation
+     reading 410 and 68 against a saved offset of ~1200. */
+  assert('the scroll restore is forced instant, not smooth',
+    /scrollBehavior = 'auto'/.test(navJs) && /window\.scrollTo\(0, savedScrollY\)/.test(navJs));
+});
+
+group('The open animation must not move a full-viewport sheet', () => {
+  /* nbd-mobile.css reveals .mobile-nav.open with
+     `@keyframes nbdRevealIn{from{transform:translateY(-6px)}}`. Fine for a
+     panel hanging below the header; on a sheet pinned to all four edges it
+     lifts the bottom edge 6px INSIDE the viewport and shows live page content
+     underneath for the length of the animation. CI measured the drawer's
+     bottom at 502 against a 508px viewport. */
+  const openBlock = (navCss.match(/#mobileNav\.mobile-nav\.open\s*\{[\s\S]*?\}/) || [''])[0];
+  assert('the drawer overrides the translating reveal animation',
+    /animation:\s*nbdNavFadeIn/.test(openBlock), 'open rule: ' + openBlock.slice(0, 120));
+  const frames = (navCss.match(/@keyframes nbdNavFadeIn\s*\{[\s\S]*?\n\}/) || [''])[0];
+  assert('that animation changes opacity only — never transform',
+    frames.length > 0 && /opacity/.test(frames) && !/transform/.test(frames));
 });
 
 group('Services dropdown: reachable on a laptop and on a touch screen', () => {
