@@ -37,6 +37,12 @@ const ROOT = path.join(__dirname, '..');
 const read = (p) => fs.readFileSync(path.join(ROOT, p), 'utf8');
 const PHOTO_REPORT = read('docs/pro/js/photo-report.js');
 
+// Strip comments so prose describing a bug cannot satisfy — or trip — an
+// assertion about the code.
+const decommentJs = (s) => s
+  .replace(/\/\*[\s\S]*?\*\//g, '')
+  .split('\n').filter((l) => !/^\s*(\/\/|\*)/.test(l)).join('\n');
+
 let passed = 0, failed = 0;
 const fails = [];
 function ok(name, cond, detail) {
@@ -337,6 +343,43 @@ console.log('\n5. Builder UI ↔ option contract');
   // would fire generate twice.
   ok('the preset cards no longer double-dispatch through data-action',
     !/data-action="pickPhotoReport"/.test(CUSTOMER));
+}
+
+// ══ 6. Who can see the photos, and who can reach the builder ══════
+console.log('\n6. Reach');
+{
+  const code = decommentJs(PHOTO_REPORT);
+
+  // A company reader viewing a teammate's lead: the gallery drops the userId
+  // filter via _photoQueryScopes, the report did not, so the manager saw a
+  // full grid behind a modal that said there were no photos at all.
+  ok('the report scopes photos through the shared helper',
+    /window\._photoQueryScopes\(leadId\)/.test(code));
+  ok('and keeps the owner-scoped pair as the fallback',
+    /where\('leadId', '==', leadId\)[\s\S]{0,120}where\('userId'/.test(code));
+  const BOOT = read('docs/pro/js/customer-bootstrap.module.js');
+  ok('the helper is actually exported for non-module scripts',
+    /window\._photoQueryScopes\s*=\s*_photoQueryScopes/.test(BOOT));
+
+  // A rules denial or an offline client used to be reported as "no photos
+  // found — upload some first", which sends a rep to go take photos that
+  // already exist.
+  ok('a failed photo query is not reported as an empty lead',
+    /Could not load photos/.test(PHOTO_REPORT));
+
+  // The dashboard chip called generatePhotoReport(leadId) with no mode, so it
+  // silently produced a homeowner report and no dashboard user could reach
+  // adjuster mode or any builder option.
+  const DASH = decommentJs(read('docs/pro/js/dashboard-bootstrap.module.js'));
+  const chip = DASH.slice(DASH.indexOf("actionId === 'photo_report'"), DASH.indexOf("actionId === 'photo_report'") + 700);
+  ok('the dashboard chip routes to the builder rather than firing a report',
+    /#photo-report/.test(chip) && !/window\.generatePhotoReport\(leadId\)/.test(chip));
+  ok('and builds the URL through NBDUrl, absolute per the inter-page nav rule',
+    /NBDUrl && window\.NBDUrl\.customer\(leadId\)/.test(chip) && /'\/pro\/customer\.html\?id='/.test(chip));
+  // tests/smoke/dashboard.test.js:2867 fails any relative bare-.html nav on
+  // /pro; a quoted literal after location.href is exactly what it looks for.
+  ok('the new nav introduces no relative bare-.html target',
+    !/location(?:\.href)?\s*=\s*["'][a-z0-9_-]+\.html/.test(chip));
 }
 
 console.log('\n' + (failed === 0

@@ -114,13 +114,34 @@
       // Load all photos for this lead
       let photos = [];
       try {
+        // Team visibility. This queried leadId + userId directly, while the
+        // gallery on the same page goes through _photoQueryScopes
+        // (customer-bootstrap.module.js:1531), which drops the userId filter
+        // for a company reader viewing a teammate's lead. So a manager who
+        // could SEE every photo in the grid got zero rows here and was told
+        // "No photos found for this lead — upload some first".
+        //
+        // Falls back to the owner-scoped pair when the helper is absent — it
+        // is exported by the customer page's bootstrap, and this module also
+        // runs on the dashboard, where `_currentLead` has no meaning anyway.
+        const scopes = (typeof window._photoQueryScopes === 'function')
+          ? window._photoQueryScopes(leadId)
+          : [window.where('leadId', '==', leadId), window.where('userId', '==', window._user.uid)];
         const snap = await window.getDocs(window.query(
           window.collection(window.db, 'photos'),
-          window.where('leadId', '==', leadId),
-          window.where('userId', '==', window._user.uid)
+          ...scopes
         ));
         photos = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-      } catch(e) { console.warn('Photo load failed:', e.message); }
+      } catch (e) {
+        // Distinguish a real failure from an empty lead. The caller's next
+        // branch says "upload some first", which sends a rep down the wrong
+        // path entirely when the truth was a rules denial or an offline client.
+        console.warn('Photo load failed:', e && e.message);
+        if (typeof showToast === 'function') {
+          showToast('Could not load photos — ' + ((e && e.message) || 'try again'), 'error');
+        }
+        return;
+      }
 
       if (photos.length === 0) {
         if (typeof showToast === 'function') showToast('No photos found for this lead — upload some first', 'error');
