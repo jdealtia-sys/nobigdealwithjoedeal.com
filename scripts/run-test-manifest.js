@@ -119,7 +119,11 @@ const RUNNABLE = ['node', 'smoke'];
 //   2026-09-08  SIXTH collision, session-revocation lane. Same story: both
 //               sides had raised it. Re-measured on the merged tree rather
 //               than adding this branch's +1 to main's figure.
-const FLOORS = { node: 106, smoke: 65, disk: 189 };
+//   2026-09-08  SEVENTH collision, renderPdf lane (+2 smoke suites), landing
+//               on top of the session-revocation raise above. Both sides had
+//               moved the literal again. MEASURED on the merged tree via
+//               --check; neither side's number was adjusted by hand.
+const FLOORS = { node: 106, smoke: 67, disk: 191 };
 
 // ── Argument parsing ───────────────────────────────────────────────
 const argv = process.argv.slice(2);
