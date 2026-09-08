@@ -12,6 +12,8 @@
  *   - null content-type uploads are rejected (D2 fix)
  *   - cross-owner reads/writes are denied
  *   - delete requires owner or platform admin
+ *   - pdf-renders/ is owner/admin read and write-denied to every client
+ *     (2026-09-08 — the prefix previously had no rule block at all)
  */
 
 'use strict';
@@ -244,6 +246,56 @@ async function run() {
   await assertFails(getBytes(ref(bob, 'audio/alice/lead42/rec1.webm')));
   await assertSucceeds(getBytes(ref(admin, 'audio/alice/lead42/rec1.webm')));
   await assertSucceeds(deleteObject(ref(alice, 'audio/alice/lead42/rec1.webm')));
+
+  // ── SERVER-RENDERED PDFs (pdf-renders/{uid}/) ────────────────────────
+  // 27. This prefix had NO rule block until 2026-09-08 — it fell through to
+  //     the catch-all deny. The block now states the intent: owner/admin read,
+  //     nobody writes (render-pdf.js uploads through the admin SDK, which
+  //     bypasses rules; the retention reaper deletes the same way).
+  //
+  //     Every other prefix here seeds its read fixtures by uploading as the
+  //     owner. That is impossible by design now, so seed with rules disabled —
+  //     otherwise the read assertions below would pass vacuously against an
+  //     object that never existed (getBytes on a missing object fails for the
+  //     wrong reason, and assertFails cannot tell the two apart).
+  await env.withSecurityRulesDisabled(async (context) => {
+    await uploadBytes(
+      ref(context.storage(), 'pdf-renders/alice/1781053546220-NBD-Roofing-Contract.pdf'),
+      buf(2048),
+      { contentType: 'application/pdf' }
+    );
+  });
+  // 27a. owner reads her own render; admin reads it (support context).
+  await assertSucceeds(getBytes(ref(alice, 'pdf-renders/alice/1781053546220-NBD-Roofing-Contract.pdf')));
+  await assertSucceeds(getBytes(ref(admin, 'pdf-renders/alice/1781053546220-NBD-Roofing-Contract.pdf')));
+  // 27b. a different rep and an anonymous caller cannot. These are the
+  //      assertions that matter: this prefix holds invoices, contracts and
+  //      warranties for every tenant.
+  await assertFails(getBytes(ref(bob,  'pdf-renders/alice/1781053546220-NBD-Roofing-Contract.pdf')));
+  await assertFails(getBytes(ref(anon, 'pdf-renders/alice/1781053546220-NBD-Roofing-Contract.pdf')));
+  // 27c. NOBODY writes through the client SDK — not even the owner, and not
+  //      with a valid content type. `allow write: if false` also denies
+  //      update and delete, so the owner cannot overwrite a rendered document
+  //      or destroy the audit trail.
+  await assertFails(uploadBytes(
+    ref(alice, 'pdf-renders/alice/forged-invoice.pdf'),
+    buf(2048),
+    { contentType: 'application/pdf' }
+  ));
+  await assertFails(uploadBytes(
+    ref(alice, 'pdf-renders/alice/1781053546220-NBD-Roofing-Contract.pdf'),
+    buf(2048),
+    { contentType: 'application/pdf' }
+  ));
+  await assertFails(deleteObject(ref(alice, 'pdf-renders/alice/1781053546220-NBD-Roofing-Contract.pdf')));
+  await assertFails(deleteObject(ref(admin, 'pdf-renders/alice/1781053546220-NBD-Roofing-Contract.pdf')));
+  // 27d. cross-tenant write is denied for the same reason, stated separately
+  //      so a future loosening of 27c to `isOwner(uid)` still trips this.
+  await assertFails(uploadBytes(
+    ref(bob, 'pdf-renders/alice/sneak.pdf'),
+    buf(2048),
+    { contentType: 'application/pdf' }
+  ));
 
   console.log('✓ All storage rules tests passed');
   await env.cleanup();

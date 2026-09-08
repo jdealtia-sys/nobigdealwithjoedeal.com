@@ -191,6 +191,7 @@ These operate on the **caller's own data** (owner-scoped Firestore queries insid
 | `migrationsTick` | every 24h | Idempotent versioned-migration runner tick |
 | `auditLogRetentionCron` | daily 03:30 | Prunes `audit_log` rows past retention (keys on `ts`) |
 | `recordingRetentionCron` | daily 05:00 | Prunes aged voice-intelligence recordings |
+| `pdfRenderRetention` | daily 04:20 ET | Prunes server-rendered PDFs under `pdf-renders/{uid}/` past 30 days. Renders are derived artifacts (the Firestore row is the system of record) and the prefix previously grew forever with no rule block and no reaper; 19 of 21 prod objects carried a permanent download token that answered an unauthenticated GET, and deleting the object is the only revocation a token has (pdf-render-retention.js) |
 | `dailyFirestoreBackup` | daily 03:15 ET | Full Firestore export to `gs://nobigdeal-pro-firestore-backups/YYYY-MM-DD/` (firestore-backup.js) |
 | `firestoreBackupRetention` | daily 03:45 ET | Prunes backups older than 30 days (firestore-backup.js) |
 | `backupFreshnessCron` | daily 06:00 ET | **The alarm for the above.** Emails if no `overall_export_metadata` newer than 26h is in the backup bucket. No enable-gate on purpose (backup-freshness.js) |

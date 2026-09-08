@@ -709,9 +709,22 @@ section('M-01 + M-02: GDPR completeness — canonical user-owned registry');
       Array.isArray(reg.COLLECTION_GROUPS_WITH_USERID)
       && reg.COLLECTION_GROUPS_WITH_USERID.includes('recordings')
       && reg.COLLECTION_GROUPS_WITH_USERID.includes('activity'));
-    assert('M-01/M-02: STORAGE_PREFIXES covers all 8 storage.rules prefixes',
+    // NOTE (2026-09-08): this list is hand-maintained and was labelled "all 8
+    // storage.rules prefixes" while storage.rules defined ELEVEN owner-keyed
+    // prefixes. Because it only asserts `listed ⊆ STORAGE_PREFIXES`, a prefix
+    // that exists in storage.rules but in neither this list nor the registry
+    // is invisible to it — which is exactly how `pdf-renders` came to hold
+    // customer invoices and contracts that account erasure never deleted.
+    // `receipts` had drifted the same way: registered, but ungated here.
+    //
+    // `documents` and `esign` are STILL absent from STORAGE_PREFIXES and are
+    // deliberately not added here — widening what account erasure destroys is
+    // a decision with legal weight (esign holds counter-signed contracts), not
+    // a test fixup. Tracked separately; see
+    // documentation/audit/PDF-RENDER-RETENTION-2026-09-08.md.
+    assert('M-01/M-02: STORAGE_PREFIXES covers the registered storage.rules prefixes',
       Array.isArray(reg.STORAGE_PREFIXES)
-      && ['audio','photos','docs','portals','galleries','reports','shared_docs','deal_rooms']
+      && ['audio','photos','docs','portals','galleries','reports','shared_docs','deal_rooms','receipts','pdf-renders']
           .every(p => reg.STORAGE_PREFIXES.includes(p)));
     assert('M-01/M-02: OWNER_KEYED_DOCS covers the user/sub/settings doc set',
       Array.isArray(reg.OWNER_KEYED_DOCS)

@@ -69,6 +69,7 @@
     "notif-bell-merge.test.js",
     "orphan-sweep-parser.test.js",
     "ourwork-deeplink-contract.test.js",
+    "pdf-render-retention.test.js",
     "prefix-reservation.test.js",
     "push-notification-actions.test.js",
     "pwa-confirm-guard.test.js",

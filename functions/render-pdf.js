@@ -20,6 +20,14 @@
  *      with a Cache-Control header (renders are immutable)
  *   6. Return a signed read URL good for 7 days
  *
+ * Retention + read posture (2026-09-08): pdf-renders/ is owner/admin-read and
+ * client-write-denied in storage.rules, and functions/pdf-render-retention.js
+ * deletes objects past 30 days. Renders are derived artifacts — the Firestore
+ * row they were built from is the system of record, not the PDF. Do NOT stamp
+ * a `firebaseStorageDownloadTokens` value at upload time: a token bypasses
+ * storage.rules permanently and unrevocably, and doing it unconditionally is
+ * what made 19 of 21 prod objects publicly fetchable. See the upload block.
+ *
  * Why a Cloud Function (not a Cloud Run service):
  *   - Already in our infra, single deploy target
  *   - 2GB memory holds Chromium; ~1.5s renders on a warm instance
@@ -649,21 +657,34 @@ exports.renderPdf = onCall(
       renderMs = Date.now() - t0 - buildMs;
 
       // ── upload to Storage with a deterministic-ish key ──
-      // Stamp a random Firebase download token so we can hand back a URL even
-      // when getSignedUrl() isn't available (see below).
+      // NO download token is stamped here. It used to be minted
+      // unconditionally so the fallback below would always have one to hand
+      // back — but that stamped a permanent, rules-bypassing public URL onto
+      // EVERY render, including the overwhelming majority where getSignedUrl()
+      // succeeded and the token was never used or even returned to anyone.
+      //
+      // Measured 2026-09-08: 19 of 21 objects under pdf-renders/ in prod
+      // carried one, and an unauthenticated HEAD on a customer roofing
+      // contract returned 200 OK, application/pdf. The identical URL with the
+      // token stripped returned 403 — the token was exactly what made it
+      // public. The token is now minted lazily, only if signing actually
+      // fails (see the fallback below).
+      //
+      // cacheControl is `private`, not `public`: these are customer invoices
+      // and contracts. `public` is a caching directive, not an ACL, but it
+      // licenses shared caches and proxies to retain the bytes; `private`
+      // keeps the browser cache (all the callable needs) without that.
       stage = 'upload';
       bucket = getStorage().bucket();
       const ts = Date.now();
       objectPath = `pdf-renders/${uid}/${ts}-${filename}`;
       file = bucket.file(objectPath);
-      downloadToken = crypto.randomUUID();
       await file.save(pdfBuffer, {
         metadata: {
           contentType: 'application/pdf',
-          cacheControl: 'public, max-age=31536000, immutable',
+          cacheControl: 'private, max-age=31536000, immutable',
           metadata: {
             template: templateKey, renderedBy: uid, renderedAtMs: String(ts),
-            firebaseStorageDownloadTokens: downloadToken,
           },
         },
         resumable: false,
@@ -686,11 +707,24 @@ exports.renderPdf = onCall(
     // roles/iam.serviceAccountTokenCreator — the SAME gap that breaks
     // createCustomToken (access-code-login-iam-gap). When signing fails the
     // whole render threw and the client only saw a bare INTERNAL, so the entire
-    // server-render path silently fell back to html2canvas. We now try the
-    // signed URL (7-day expiry — preferred where the IAM role IS granted) and
-    // fall back to a Firebase download-token URL (no signing needed — the same
-    // pattern image-pipeline.js uses) so the render succeeds either way and
-    // self-heals once the role is granted.
+    // server-render path silently fell back to html2canvas. We try the signed
+    // URL (7-day expiry) and fall back to a Firebase download-token URL so the
+    // render succeeds either way.
+    //
+    // 2026-09-08: that IAM grant IS in place now —
+    // `717435841570-compute@developer.gserviceaccount.com` holds
+    // roles/iam.serviceAccountTokenCreator on nobigdeal-pro (verified against
+    // the live project IAM policy), so signing is the live path and the
+    // fallback should never fire. The fallback is KEPT rather than deleted
+    // because removing it re-arms the original failure mode: an IAM policy is
+    // editable from a console by someone who has no idea this callable depends
+    // on it, and the observed symptom last time was the whole server-render
+    // path silently degrading to html2canvas.
+    //
+    // What changed is the cost of that insurance. The token is now minted HERE,
+    // lazily, instead of being stamped on every object at upload — so it exists
+    // only on renders that actually could not be signed, and `urlMode` in the
+    // success log is a true record of which objects carry one.
     let url;
     let urlMode;
     try {
@@ -703,11 +737,37 @@ exports.renderPdf = onCall(
       url = signedUrl;
       urlMode = 'signed';
     } catch (signErr) {
+      // Signing failed — mint a token now and attach it, so this object (and
+      // only this object) gets a fetchable URL. pdfRenderRetention deletes it
+      // within RETENTION_DAYS, which is the only true revocation for a token.
+      downloadToken = crypto.randomUUID();
+      try {
+        await file.setMetadata({
+          metadata: {
+            template: templateKey, renderedBy: uid, renderedAtMs: String(Date.now()),
+            firebaseStorageDownloadTokens: downloadToken,
+          },
+        });
+      } catch (metaErr) {
+        // Neither URL strategy worked. Fail loudly instead of returning a URL
+        // that 403s — a silent bad link is what the B-7 fix set out to kill.
+        logger.error('[renderPdf] no usable URL: signing and token-stamp both failed', {
+          uid, path: objectPath,
+          signErr: signErr && signErr.message,
+          metaErr: metaErr && metaErr.message,
+        });
+        throw new HttpsError('internal', 'PDF rendered but no readable URL could be issued', {
+          stage: 'url',
+        });
+      }
       const encodedPath = encodeURIComponent(objectPath);
       url = `https://firebasestorage.googleapis.com/v0/b/${bucket.name}/o/${encodedPath}?alt=media&token=${downloadToken}`;
       urlMode = 'download-token';
-      logger.warn('[renderPdf] getSignedUrl unavailable, using download-token URL', {
-        uid, err: signErr && signErr.message,
+      // WARN, not info: this path leaves a permanent public URL behind, and
+      // the IAM grant that makes it unnecessary is already in place — so this
+      // firing means something regressed in the project's IAM policy.
+      logger.warn('[renderPdf] getSignedUrl unavailable, minted download-token URL', {
+        uid, path: objectPath, err: signErr && signErr.message,
       });
     }
 

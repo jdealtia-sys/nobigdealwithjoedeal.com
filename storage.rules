@@ -219,6 +219,35 @@ service firebase.storage {
       allow read, write: if false;
     }
 
+    // ── SERVER-RENDERED PDFs ──────────────────────────
+    // Path: pdf-renders/{uid}/{ts}-{filename}.pdf
+    // Written ONLY by functions/render-pdf.js through the admin SDK, which
+    // bypasses these rules entirely. Nothing client-side may write, update or
+    // delete here — `allow write` covers all three, so the absence of an
+    // `allow delete` line is deliberate, not an oversight. The retention
+    // reaper (functions/pdf-render-retention.js) also runs as admin.
+    //
+    // Stated explicitly rather than inherited from the catch-all below. It
+    // previously had NO block at all, so the posture was real but invisible:
+    // nothing said pdf-renders/ held customer invoices, contracts and
+    // warranties, and a future catch-all edit would have widened it silently.
+    //
+    // READ HERE IS NOT THE WHOLE STORY. A Firebase download token
+    // (`metadata.firebaseStorageDownloadTokens`) bypasses this rule completely
+    // — an object carrying one is fetchable by anyone with the URL, forever,
+    // with no auth and no revocation short of rotating the token. On
+    // 2026-09-08, 19 of 21 prod objects under this prefix carried one, and an
+    // unauthenticated HEAD on a customer roofing contract returned 200 OK
+    // (the same URL with the token stripped returned 403 — the token was
+    // exactly what granted access). render-pdf.js now mints a token only on
+    // the signing-failure fallback path, so the normal path leaves these
+    // rules actually governing reads. Do not reintroduce an unconditional
+    // token stamp here or in the renderer.
+    match /pdf-renders/{uid}/{allPaths=**} {
+      allow read: if isOwner(uid) || isAdmin();
+      allow write: if false;
+    }
+
     // ── DEFAULT DENY ──────────────────────────────────
     match /{allPaths=**} {
       allow read, write: if false;

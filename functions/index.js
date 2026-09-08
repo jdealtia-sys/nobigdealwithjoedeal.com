@@ -379,6 +379,16 @@ Object.assign(exports, documentViewFunctions);
 const leadArtifactCleanup = require('./lead-artifact-cleanup');
 Object.assign(exports, leadArtifactCleanup);
 
+// Same leak class, different prefix: `pdf-renders/{uid}/` accumulated every
+// server-rendered invoice, contract and warranty forever, with no rule block
+// and no reaper. 19 of 21 prod objects carried a permanent download token on
+// 2026-09-08 and answered an unauthenticated GET. Deleting the object is the
+// only real revocation, so retention IS the fix. See
+// functions/pdf-render-retention.js for why this is a scheduled job rather
+// than a bucket lifecycle rule.
+const pdfRenderRetention = require('./pdf-render-retention');
+exports.pdfRenderRetention = pdfRenderRetention.pdfRenderRetention;
+
 // L-03 cont.: Stripe handlers (createCheckoutSession, stripeWebhook,
 // createCustomerPortalSession, getSubscriptionStatus,
 // createStripePaymentLink, invoiceWebhook) live in functions/stripe.js.
