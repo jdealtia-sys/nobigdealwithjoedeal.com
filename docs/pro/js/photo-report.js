@@ -85,13 +85,24 @@
     return aT - bT;
   }
 
-  async function generatePhotoReport(leadId, mode) {
+  /**
+   * @param {string} leadId
+   * @param {('homeowner'|'adjuster')} [mode='homeowner']
+   * @param {object} [build] D-6 report-builder input, all optional:
+   *   { options:{…see REPORT_DEFAULTS…}, notes:{coverLetter,summaryBody,closing,
+   *     sections:{before,during,after}}, sectionOrder:[], disabledSections:[],
+   *     sectionTitles:{}, photoIds:[], coverPhotoUrl, coverEyebrow,
+   *     coverTagline, coverSub, coverCaption }
+   *   Omit it entirely and the report renders on this mode's defaults.
+   */
+  async function generatePhotoReport(leadId, mode, build) {
     leadId = leadId || window._customerId || window._cardDetailLeadId;
     if (!leadId || !window._user) {
       if (typeof showToast === 'function') showToast(!window._user ? 'Must be logged in' : 'No customer selected', 'error');
       return;
     }
     const reportMode = (mode === 'adjuster') ? 'adjuster' : 'homeowner';
+    build = build || {};
 
     if (typeof showToast === 'function') showToast('Building ' + reportMode + ' photo report...', 'ok');
 
@@ -132,6 +143,36 @@
       // dragged, which is a much larger change than the bug being fixed.
       photos.sort(_comparePhotoReportOrder);
 
+      // ── D-6: explicit photo selection ──
+      // Every entry point used to render EVERY photo on the lead. A rep who
+      // wanted eight of forty had no way to say so.
+      if (Array.isArray(build.photoIds) && build.photoIds.length) {
+        const want = new Set(build.photoIds);
+        const picked = photos.filter((p) => want.has(p.id));
+        if (picked.length) photos = picked;
+      }
+
+      // ── D-6: honour sharedWithHomeowner on the homeowner report ──
+      // functions/portal.js:479 gates the homeowner PORTAL gallery on
+      // `sharedWithHomeowner == true`, with the reason written at :463 —
+      // "homeowner doesn't need to see internal damage workups or photos
+      // uploaded for a different lead by mistake". The homeowner photo REPORT,
+      // a PDF emailed to that same homeowner, honoured no such flag and
+      // printed everything on the lead.
+      //
+      // 'auto' rather than a hard gate on purpose. Most leads have never had
+      // the flag flipped, and a hard gate would turn every one of those into an
+      // empty report — trading a leak for a silent blank document. So: if the
+      // rep has curated ANY photo on this lead, treat that as intent and honour
+      // it; if nobody ever touched the flag, there is no curation to respect
+      // and behaviour is unchanged. `true` and `false` force either way.
+      const _sharedMode = _reportOptions(reportMode, build.options).sharedOnly;
+      const _anyShared = photos.some((p) => p.sharedWithHomeowner === true);
+      if (_sharedMode === true || (_sharedMode === 'auto' && reportMode === 'homeowner' && _anyShared)) {
+        const shared = photos.filter((p) => p.sharedWithHomeowner === true);
+        if (shared.length) photos = shared;
+      }
+
       // Split into before/after using phase, tag, type, or category fields
       const getPhase = p => (p.phase || p.tag || p.type || p.category || '').toLowerCase();
       const beforePhotos = photos.filter(p => getPhase(p).includes('before'));
@@ -160,11 +201,11 @@
       // evidence dossier). The legacy buildReportHTML stays as a
       // fallback for any case the server rejects.
       try {
-        const ok = await _tryServerRenderPhotoReport({
+        const ok = await _tryServerRenderPhotoReport(Object.assign({
           lead, name, before, during, after,
           mode: reportMode,
           allPhotos: photos,
-        });
+        }, build));
         if (ok) return;
       } catch (e) {
         console.warn('[photo-report] server render failed, falling back:', e && e.message || e);
@@ -962,6 +1003,121 @@
   }
 
   // ═════════════════════════════════════════════════════════
+  // D-6: Report options
+  // ═════════════════════════════════════════════════════════
+  // D-4 gave the rep one choice — homeowner or adjuster — and hardcoded every
+  // other decision: the cover lines, the section order and headings, the
+  // summary prose, whether photos were numbered (they were not), how many to a
+  // row, what metadata showed. This is the contract that replaces those
+  // literals. Every field has a per-mode default, so an existing caller that
+  // passes nothing gets a sensible report and a caller that passes one key
+  // changes exactly that.
+  //
+  // The two modes are genuinely different documents, so they default
+  // differently: the homeowner report is a story (big photos, no clutter, no
+  // dates), the adjuster dossier is an exhibit list (numbered continuously,
+  // dated, dense, signed).
+  const REPORT_DEFAULTS = {
+    homeowner: {
+      cover: 'hero', density: 'comfortable', columns: 0, fit: 'cover',
+      numbering: 'continuous', numberLabel: '',
+      showToc: false, showStats: true, showPairs: true,
+      showDate: false, showLocation: true, showDamage: false, showSeverity: false,
+      signature: 'none', sharedOnly: 'auto',
+    },
+    adjuster: {
+      cover: 'hero', density: 'evidence', columns: 3, fit: 'contain',
+      numbering: 'continuous', numberLabel: 'Photo',
+      showToc: true, showStats: true, showPairs: false,
+      showDate: true, showLocation: true, showDamage: true, showSeverity: true,
+      signature: 'adjuster', sharedOnly: false,
+    },
+  };
+  const _DENSITIES = ['comfortable', 'compact', 'evidence'];
+  const _COVERS = ['hero', 'minimal', 'none'];
+  const _NUMBERINGS = ['continuous', 'section', 'none'];
+  const _SIGNATURES = ['none', 'homeowner', 'adjuster', 'both'];
+
+  /**
+   * Merge caller overrides onto the mode defaults, coercing every enum to a
+   * known value. Unknown strings fall back rather than reaching the template,
+   * where an unmatched density class would silently style nothing and an
+   * unmatched numbering would silently drop every photo number.
+   * Pure. Exported as window._photoReportOptions for tests.
+   */
+  function _reportOptions(mode, o) {
+    const base = REPORT_DEFAULTS[mode === 'adjuster' ? 'adjuster' : 'homeowner'];
+    const out = Object.assign({}, base, o || {});
+    const oneOf = (v, list, dflt) => (list.indexOf(String(v)) >= 0 ? String(v) : dflt);
+    out.cover     = oneOf(out.cover, _COVERS, base.cover);
+    out.density   = oneOf(out.density, _DENSITIES, base.density);
+    out.numbering = oneOf(out.numbering, _NUMBERINGS, base.numbering);
+    out.signature = oneOf(out.signature, _SIGNATURES, base.signature);
+    out.fit       = out.fit === 'contain' ? 'contain' : 'cover';
+    const cols = Number(out.columns);
+    out.columns = (cols >= 1 && cols <= 4) ? Math.floor(cols) : 0;
+    ['showToc', 'showStats', 'showPairs', 'showDate', 'showLocation', 'showDamage', 'showSeverity']
+      .forEach((k) => { out[k] = out[k] !== false; });
+    // Re-apply the defaults' explicit falses: the loop above coerces undefined
+    // to true, which is right for an omitted key but wrong for a default of
+    // false that the caller did not override.
+    Object.keys(base).forEach((k) => {
+      if (typeof base[k] === 'boolean' && !(o && Object.prototype.hasOwnProperty.call(o, k))) out[k] = base[k];
+    });
+    return out;
+  }
+
+  /**
+   * "Aug 14, 2026" for a photo, from whichever timestamp the writer happened to
+   * leave. Five independent writers stamp /photos and they do not agree:
+   * photo-engine writes capturedAt, the customer page writes date + uploadedAt
+   * and no createdAt at all, the dashboard writes something else again. EXIF
+   * takenAt is the truest when present, so it leads.
+   * Pure. Exported as window._photoReportDateLabel for tests.
+   */
+  function _dateLabel(p) {
+    const raw = p && ((p.exif && p.exif.takenAt) || p.takenAt || p.capturedAt
+      || p.date || p.createdAt || p.uploadedAt);
+    if (!raw) return '';
+    let d;
+    if (raw && typeof raw.toMillis === 'function') d = new Date(raw.toMillis());
+    else if (raw && typeof raw.seconds === 'number') d = new Date(raw.seconds * 1000);
+    // Duck-typed rather than `instanceof Date`: a Date that crossed a realm
+    // boundary — an iframe, a worker, a vm sandbox in a test — fails the
+    // instanceof and would silently fall through to '' with no date printed.
+    else if (raw && typeof raw.getTime === 'function') d = raw;
+    else if (typeof raw === 'number') d = new Date(raw);
+    else if (typeof raw === 'string') d = new Date(raw);
+    else return '';
+    if (!d || isNaN(d.getTime())) return '';
+    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  }
+
+  /**
+   * Stamp `n` on every photo across the ordered section list.
+   *   'continuous' — 1..N across the whole document, so an adjuster citing
+   *                  "Photo 7" means one frame. This is why it is the default:
+   *                  the client fallback numbered per section, restarting at
+   *                  #01 three times, which makes a citation ambiguous.
+   *   'section'    — restart per section.
+   *   'none'       — no numbers.
+   * Mutates the photo objects in place and returns the sections.
+   * Pure apart from that. Exported as window._numberReportSections for tests.
+   */
+  function _numberSections(sections, numbering) {
+    let running = 0;
+    (sections || []).forEach((s) => {
+      let within = 0;
+      (s.photos || []).forEach((p) => {
+        running++; within++;
+        if (numbering === 'none') delete p.n;
+        else p.n = (numbering === 'section') ? within : running;
+      });
+    });
+    return sections;
+  }
+
+  // ═════════════════════════════════════════════════════════
   // D-4: Server-side photo-report render
   // ═════════════════════════════════════════════════════════
   async function _tryServerRenderPhotoReport(opts) {
@@ -995,8 +1151,16 @@
         url,
         caption:  _captionFor(p, mode) || p.aiCaption || '',
         location: p.location || '',
-        damageType: p.damageType || '',
-        severity: p.severity || '',
+        damageType: _damageLabel(p) || p.damageType || '',
+        severity: _severityLabel(p) || p.severity || '',
+        // Capture date — the field that makes a frame evidentiary, captured by
+        // the ingest pipeline since day one and never once printed.
+        dateLabel: _dateLabel(p),
+        // A marked-up frame has to be declarable, because the attestation says
+        // so. photo-editor.js bakes drawn markup into the saved image, so a
+        // report that called every frame unmodified was making a false
+        // statement to a carrier.
+        annotated: !!p.isAnnotated,
       };
     };
     const shape = (arr) => (arr || []).map(shapePhoto).filter(Boolean);
@@ -1056,28 +1220,94 @@
       { label: 'After',  value: String(afterShaped.length),  sub: 'completed' },
     ];
 
+    // ── D-6: the document as a function of options ────────────────
+    const O = _reportOptions(mode, opts.options);
+
+    // Ordered section list. This is what replaced the template's three fixed
+    // phase blocks: the caller can reorder, retitle, drop a section, or add a
+    // note to one, and a future section that is not a phase at all drops in
+    // here without touching the template.
+    const SECTION_BLURBS = mode === 'adjuster' ? {
+      before: 'Photographic documentation of property condition prior to work commencing.',
+      during: 'Mid-project documentation of work in progress.',
+      after:  'Final-condition documentation post-completion.',
+    } : {
+      before: 'Photos of the property at the start of the project.',
+      during: 'Photos taken while the crew was on the property.',
+      after:  'The finished work — what the property looks like now.',
+    };
+    const notes = opts.notes || {};
+    const sectionNotes = notes.sections || {};
+    const defaultOrder = ['before', 'during', 'after'];
+    const order = Array.isArray(opts.sectionOrder) && opts.sectionOrder.length
+      ? opts.sectionOrder.filter((id) => defaultOrder.indexOf(id) >= 0)
+      : defaultOrder;
+    const byId = { before: beforeShaped, during: duringShaped, after: afterShaped };
+    const TITLES = { before: 'Before', during: 'During', after: 'After' };
+
+    const sections = order
+      .filter((id) => (opts.disabledSections || []).indexOf(id) < 0)
+      .map((id) => ({
+        id,
+        title: (opts.sectionTitles && opts.sectionTitles[id]) || TITLES[id],
+        blurb: SECTION_BLURBS[id],
+        note: sectionNotes[id] || '',
+        photos: byId[id] || [],
+      }))
+      .filter((s) => s.photos.length);
+
+    _numberSections(sections, O.numbering);
+
+    const toc = sections.map((s) => ({ title: s.title, count: s.photos.length }));
+
+    // Property / claim grid — the fields an adjuster looks for first and the
+    // homeowner report has never carried. Only non-empty rows are sent, so a
+    // lead with nothing filled in renders no grid rather than a wall of dashes.
+    const meta = [
+      { label: 'Property', value: lead.address || '' },
+      { label: 'Claim No.', value: lead.claimNumber || '' },
+      { label: 'Carrier', value: lead.insuranceCarrier || lead.carrier || '' },
+      { label: 'Date of Loss', value: lead.dateOfLoss || '' },
+      { label: 'Damage Type', value: lead.damageType || '' },
+      { label: 'Photos', value: String((allPhotos || []).length) },
+    ].filter((r) => r.value);
+
     const payload = {
       // Cover (shared partial)
       preparedFor,
       preparedBy,
       projectMeta,
-      coverEyebrow: (mode === 'adjuster' ? 'Photo Report · Adjuster Dossier' : 'Photo Report · Project Story'),
-      coverTagline: (mode === 'adjuster'
-        ? 'Documented.<br>Defensible.'
-        : 'The work,<br>in pictures.'),
-      coverSub: (mode === 'adjuster'
-        ? 'Comprehensive photographic record of property condition prior to, during, and following the scope of work performed.'
-        : 'A visual walkthrough of your roof — what we found, what we did, and what it looks like now.'),
-      coverPhoto: (beforeShaped[0] && beforeShaped[0].url) || (afterShaped[0] && afterShaped[0].url) || null,
-      coverCaption: (beforeShaped[0] && beforeShaped[0].location) || null,
+      coverEyebrow: (opts.coverEyebrow != null ? opts.coverEyebrow
+        : (mode === 'adjuster' ? 'Photo Report · Adjuster Dossier' : 'Photo Report · Project Story')),
+      coverTagline: (opts.coverTagline != null ? opts.coverTagline
+        : (mode === 'adjuster' ? 'Documented.<br>Defensible.' : 'The work,<br>in pictures.')),
+      coverSub: (opts.coverSub != null ? opts.coverSub
+        : (mode === 'adjuster'
+          ? 'Comprehensive photographic record of property condition prior to, during, and following the scope of work performed.'
+          : 'A visual walkthrough of your roof — what we found, what we did, and what it looks like now.')),
+      // A 'minimal' cover is the same page without the hero image, so the
+      // template never has to branch — the decision is made once, here.
+      coverPhoto: O.cover === 'minimal' ? null : (opts.coverPhotoUrl
+        || (beforeShaped[0] && beforeShaped[0].url) || (afterShaped[0] && afterShaped[0].url) || null),
+      coverCaption: O.cover === 'minimal' ? null
+        : (opts.coverCaption != null ? opts.coverCaption
+          : ((beforeShaped[0] && beforeShaped[0].location) || null)),
+      docNumber: reportNumber,
       // Body
       summary,
       stats,
       mode,
-      pairs,
-      before: beforeShaped,
-      during: duringShaped,
-      after:  afterShaped,
+      opts: O,
+      notes: {
+        coverLetter: notes.coverLetter || '',
+        summaryBody: notes.summaryBody || '',
+        closing: notes.closing || '',
+      },
+      sections,
+      toc,
+      meta,
+      pairs: O.showPairs ? pairs : [],
+      hasAnnotated: sections.some((s) => s.photos.some((p) => p.annotated)),
     };
 
     const fn = window._httpsCallable(window._functions, 'renderPdf');
@@ -1116,5 +1346,13 @@
   // Same reason: the display-order comparator is pure, so the drag-order
   // contract can be asserted behaviourally instead of by grepping the source.
   window._comparePhotoReportOrder = _comparePhotoReportOrder;
+  // D-6 builder internals. All pure, all exported for the same reason as the
+  // two above: the option contract, the numbering scheme and the capture-date
+  // fallback chain are behaviour worth asserting on directly, rather than
+  // grepping the source for the shape of a fix.
+  window._photoReportOptions = _reportOptions;
+  window._numberReportSections = _numberSections;
+  window._photoReportDateLabel = _dateLabel;
+  window._photoReportCaption = _captionFor;
 
 })();

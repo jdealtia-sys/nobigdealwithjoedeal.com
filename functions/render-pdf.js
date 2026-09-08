@@ -79,6 +79,28 @@ const TEMPLATES = {
 let _designCss = null;
 const _tmplCache = new Map();
 
+// Per-template CSS, cached like the templates themselves. Optional by design:
+// most templates need nothing beyond the design system, so a missing file is
+// the normal case and must not throw a cold start.
+const _cssCache = new Map();
+function loadTemplateCss(templateKey) {
+  if (_cssCache.has(templateKey)) return _cssCache.get(templateKey);
+  let css = '';
+  try {
+    css = fs.readFileSync(path.join(__dirname, 'print', 'templates', templateKey + '.css'), 'utf8');
+  } catch (e) { /* no per-template stylesheet — the common case */ }
+  _cssCache.set(templateKey, css);
+  return css;
+}
+
+// Density presets are a closed set: an unknown or absent value must land on
+// 'comfortable' rather than emitting an unmatched class that silently styles
+// nothing, and must never interpolate caller text into a class attribute.
+const DENSITIES = ['comfortable', 'compact', 'evidence'];
+function normalizeDensity(v) {
+  return DENSITIES.indexOf(String(v || '')) >= 0 ? String(v) : 'comfortable';
+}
+
 function loadDesignSystemCss() {
   if (_designCss) return _designCss;
   _designCss = fs.readFileSync(path.join(__dirname, 'print', 'design-system.css'), 'utf8');
@@ -146,6 +168,41 @@ function registerHelpersOnce() {
 
   // Counter for {{photoCount}} and similar.
   Handlebars.registerHelper('len', (v) => Array.isArray(v) ? v.length : 0);
+
+  // ── D-6 report-builder helpers ──────────────────────────────
+  // Rep-authored prose arrives as plain text from a <textarea>. Escape it
+  // ourselves and hand back a SafeString so the paragraph breaks the rep typed
+  // survive; a bare {{{triple-stache}}} on this would be an HTML injection
+  // straight into a customer-facing PDF, since the text is user input.
+  Handlebars.registerHelper('nl2br', (v) => {
+    const esc = hbsEsc(v == null ? '' : v);
+    return new Handlebars.SafeString(
+      esc.replace(/\r\n?/g, '\n').replace(/\n{2,}/g, '</p><p>').replace(/\n/g, '<br>')
+        .replace(/^/, '<p>').replace(/$/, '</p>')
+    );
+  });
+
+  // Photo-grid column class. An explicit opts.columns wins; otherwise fall
+  // back to D-4's rule — three-up once a section runs past six photos.
+  Handlebars.registerHelper('gridClass', (opts, photos) => {
+    const n = Number(opts && opts.columns) || 0;
+    if (n === 1) return ' one';
+    if (n === 2) return '';           // two-up is the stylesheet default
+    if (n === 3) return ' three';
+    if (n >= 4) return ' four';
+    return (Array.isArray(photos) && photos.length > 6) ? ' three' : '';
+  });
+
+  // Which signature blocks to render. opts.signature is authoritative when
+  // set; with no opts we reproduce D-4 exactly — adjuster mode signs, the
+  // homeowner report has no acceptance line.
+  Handlebars.registerHelper('signOff', (opts, mode, which) => {
+    const s = opts && opts.signature;
+    if (s === 'both') return true;
+    if (s === 'none') return false;
+    if (s === 'homeowner' || s === 'adjuster') return s === which;
+    return mode === 'adjuster' && which === 'adjuster';
+  });
 }
 
 function loadTemplate(file) {
@@ -450,7 +507,16 @@ exports.renderPdf = onCall(
       docNumber:       docNumberForChrome,
       designSystemCss: loadDesignSystemCss(),
       brandVars:       brandVars,
-      templateCss:     '', // reserved for per-template overrides in later D-PRs
+      // Per-template overrides. The slot has existed since D-1 and was wired to
+      // '' with a "reserved for later" note, so a template that needed its own
+      // rules had no home for them and had to inline styles into the .hbs.
+      // It now loads print/templates/<key>.css when that file exists.
+      templateCss:     loadTemplateCss(templateKey),
+      // Density preset — 'comfortable' (default) | 'compact' | 'evidence'.
+      // A body class rather than a payload flag threaded through every block,
+      // so a preset is a stylesheet concern and the template stays structural.
+      bodyClass:       'pr-density-' + normalizeDensity(payload.opts && payload.opts.density)
+                       + (payload.opts && payload.opts.fit === 'contain' ? ' pr-fit-contain' : ''),
       company:         company,
       body:            bodyHtml,
     });
@@ -594,3 +660,10 @@ exports.renderPdf = onCall(
 // placeholders present, tenant strings escaped, no NBD literal for a stranger)
 // be asserted on the real function instead of grepped for in the source.
 exports._buildFooterTemplate = buildFooterTemplate;
+// Also for tests: registering the real helpers against the shared Handlebars
+// instance lets a harness compile the real templates with the real `nl2br`,
+// `gridClass` and `signOff` rather than stand-ins that could diverge from them.
+exports._registerHelpersOnce = registerHelpersOnce;
+exports._registerPartialsOnce = registerPartialsOnce;
+exports._loadTemplateCss = loadTemplateCss;
+exports._normalizeDensity = normalizeDensity;
