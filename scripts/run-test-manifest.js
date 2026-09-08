@@ -107,7 +107,16 @@ const RUNNABLE = ['node', 'smoke'];
 //               independently. MEASURED on the merged tree via --check, which
 //               prints the literal to paste — the only reliable way to set it
 //               when `main` moves this often.
-const FLOORS = { node: 104, smoke: 65, disk: 187 };
+//   2026-09-08  104/65/187 after portal-completion-truth landed on top of the
+//               photo-report suites. SET from what --check printed against the
+//               CURRENT main — an earlier measurement on a stale base said 102
+//               and would have left slack the moment this rebased.
+//   2026-09-08  FIFTH collision, and the one that proves the rule: both sides
+//               of this rebase carried the SAME literal (104/65/187), so the
+//               numbers did not conflict and only the comments did. Merging
+//               them anyway would have shipped a stale floor — the merged
+//               tree measures 105/188. A matching number is not evidence.
+const FLOORS = { node: 105, smoke: 65, disk: 188 };
 
 // ── Argument parsing ───────────────────────────────────────────────
 const argv = process.argv.slice(2);

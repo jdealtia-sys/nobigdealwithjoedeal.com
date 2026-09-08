@@ -106,6 +106,7 @@
     "portal-preview-framing.test.js",
     "portal-share-recording.test.js",
     "portal-estimate-scope-link.test.js",
+    "portal-completion-truth.test.js",
     "portal-signature-repaint.test.js",
     "photo-upload-phase.test.js",
     "customer-jump-nav-order.test.js",
