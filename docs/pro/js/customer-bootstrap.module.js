@@ -2681,6 +2681,15 @@ async function uploadSinglePhoto(item, index) {
             filename: file.name,
             size: file.size,
             type: file.type,
+            // The canonical ordering field, and NOT optional. Firestore's
+            // orderBy silently EXCLUDES documents missing the ordered field,
+            // and both photo-engine getPhotosForLead and the dashboard's
+            // Recent feed orderBy('createdAt') — so while this path stamped
+            // only date + uploadedAt, every photo a rep uploaded from the
+            // customer page was absent from those two views outright, and
+            // scored 0 in the photo report's sort. `date` and `uploadedAt`
+            // stay for the readers that still name them.
+            createdAt: window.serverTimestamp(),
             date: window.serverTimestamp(),
             uploadedAt: window.serverTimestamp(),
             // null, not 'During'. pages/photo-review.js treats any truthy

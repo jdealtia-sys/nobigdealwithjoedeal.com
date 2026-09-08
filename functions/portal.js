@@ -1067,6 +1067,12 @@ exports.uploadHomeownerPhoto = onRequest(
         mimeType,
         caption: safeCaption,
         phase: 'During', // homeowner uploads typically mid-project
+        // Same reason as the customer-page upload path: the rep-facing gallery
+        // and Recent feed both orderBy('createdAt'), and Firestore drops docs
+        // missing the ordered field. Stamping only uploadedAt made a
+        // homeowner's upload invisible in exactly the views the notification
+        // below tells the rep to go and look at.
+        createdAt: FieldValue.serverTimestamp(),
         uploadedAt: FieldValue.serverTimestamp(),
         sharedWithHomeowner: true, // visible back to them in the gallery
       });
