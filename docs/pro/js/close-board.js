@@ -42,6 +42,19 @@
     expired: 'var(--red)'
   };
 
+  // Customer-facing tier name (GBB audit, 2026-09-09: this deal room is what
+  // a homeowner actually opens and signs from — it must show the marketed
+  // name, not the internal good/better/best jargon). Reads the single source
+  // of truth in estimate-config.js when loaded (always true on dashboard.html,
+  // where deals are created); the inline fallback matches it exactly in case
+  // this ever runs before that script, per this file's own established
+  // "config may fail to load" pattern.
+  function tierDisplayLabel(key) {
+    const cfg = window.NBD_ESTIMATE_CONFIG;
+    if (cfg && typeof cfg.tierLabel === 'function') return cfg.tierLabel(key);
+    return ({ good: 'Standard', better: 'Preferred', best: 'Elite' })[key] || key;
+  }
+
   // ============================================================================
   // STATE
   // ============================================================================
@@ -184,9 +197,9 @@
 
       // Pricing tiers
       tiers: opts.tiers || {
-        good: { label: 'Good', price: 0, lineItems: [], description: 'Standard reroof with quality materials' },
-        better: { label: 'Better', price: 0, lineItems: [], description: 'Enhanced reroof with premium underlayment and ice shield' },
-        best: { label: 'Best', price: 0, lineItems: [], description: 'Complete roof system with full deck replacement and gutters' }
+        good: { label: tierDisplayLabel('good'), price: 0, lineItems: [], description: 'Standard reroof with quality materials' },
+        better: { label: tierDisplayLabel('better'), price: 0, lineItems: [], description: 'Enhanced reroof with premium underlayment and ice shield' },
+        best: { label: tierDisplayLabel('best'), price: 0, lineItems: [], description: 'Complete roof system with full deck replacement and gutters' }
       },
 
       // Product details
@@ -277,19 +290,19 @@
     // Pull pricing from current estimate
     const tiers = {
       good: {
-        label: 'Good',
+        label: tierDisplayLabel('good'),
         price: estimateData?.prices?.good || 0,
         description: 'Standard reroof — quality architectural shingles, synthetic underlayment, proper ventilation',
         lineItems: []
       },
       better: {
-        label: 'Better',
+        label: tierDisplayLabel('better'),
         price: estimateData?.prices?.better || 0,
         description: 'Enhanced — adds ice & water shield, hip caps, pipe boots, partial deck repair',
         lineItems: []
       },
       best: {
-        label: 'Best',
+        label: tierDisplayLabel('best'),
         price: estimateData?.prices?.best || 0,
         description: 'Complete system — full deck replacement, seamless gutters, maximum protection',
         lineItems: []
@@ -443,19 +456,19 @@ body{font-family:'Barlow',sans-serif;background:#0d0f14;color:#e5e7eb;min-height
   <div class="section-title">Choose Your Roof Package</div>
   <div class="tier-cards">
     <div class="tier" id="tier-good" data-deal-tier="good">
-      <div class="tier-name">☆ Good</div>
+      <div class="tier-name">☆ ${esc(tierDisplayLabel('good'))}</div>
       <div class="tier-price">${fmtCurrency(deal.tiers.good.price)}</div>
       <div class="tier-monthly">or ~${fmtCurrency(goodPay)}/mo with financing</div>
       <div class="tier-desc">${esc(deal.tiers.good.description)}</div>
     </div>
     <div class="tier recommended" id="tier-better" data-deal-tier="better">
-      <div class="tier-name">★★ Better</div>
+      <div class="tier-name">★★ ${esc(tierDisplayLabel('better'))}</div>
       <div class="tier-price">${fmtCurrency(deal.tiers.better.price)}</div>
       <div class="tier-monthly">or ~${fmtCurrency(betterPay)}/mo with financing</div>
       <div class="tier-desc">${esc(deal.tiers.better.description)}</div>
     </div>
     <div class="tier" id="tier-best" data-deal-tier="best">
-      <div class="tier-name">★★★ Best</div>
+      <div class="tier-name">★★★ ${esc(tierDisplayLabel('best'))}</div>
       <div class="tier-price">${fmtCurrency(deal.tiers.best.price)}</div>
       <div class="tier-monthly">or ~${fmtCurrency(bestPay)}/mo with financing</div>
       <div class="tier-desc">${esc(deal.tiers.best.description)}</div>
@@ -1015,9 +1028,9 @@ body{font-family:'Barlow',sans-serif;background:#0d0f14;color:#e5e7eb;min-height
       customerEmail: email,
       address: addr,
       tiers: {
-        good: { label: 'Good', price: good, description: 'Standard reroof with quality materials', lineItems: [] },
-        better: { label: 'Better', price: better, description: 'Enhanced reroof with premium underlayment and ice shield', lineItems: [] },
-        best: { label: 'Best', price: best, description: 'Complete roof system with full deck replacement and gutters', lineItems: [] }
+        good: { label: tierDisplayLabel('good'), price: good, description: 'Standard reroof with quality materials', lineItems: [] },
+        better: { label: tierDisplayLabel('better'), price: better, description: 'Enhanced reroof with premium underlayment and ice shield', lineItems: [] },
+        best: { label: tierDisplayLabel('best'), price: best, description: 'Complete roof system with full deck replacement and gutters', lineItems: [] }
       },
       insuranceClaim: isInsurance,
       insuranceCarrier: carrier,

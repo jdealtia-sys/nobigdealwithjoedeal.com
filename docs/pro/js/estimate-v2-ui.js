@@ -47,6 +47,15 @@
     // a fallback to the owner's name.
     return (window._user && (window._user.displayName || window._user.email)) || '';
   }
+  // Customer-facing tier name (GBB audit, 2026-09-09). The internal
+  // good/better/best keys never change — this is display-only, for the
+  // homeowner presentation mode and the retail-quote PDF, both of which a
+  // customer actually reads. Single source: estimate-config.js.
+  function _v2TierLabel(key) {
+    const cfg = window.NBD_ESTIMATE_CONFIG;
+    if (cfg && typeof cfg.tierLabel === 'function') return cfg.tierLabel(key);
+    return ({ good: 'Standard', better: 'Preferred', best: 'Elite' })[key] || key;
+  }
   // ASYNC since 2026-09-06. The old comment here claimed _custIdPrefix()
   // "already returns 'NBD' for the platform tenant and a derived prefix for
   // everyone else" — true only AFTER company-profile hydration. Read
@@ -2233,7 +2242,7 @@
       better: 'Our most popular package — the sweet spot.',
       best: 'Top-of-the-line materials and warranty.'
     };
-    const LABEL = { good: 'Good', better: 'Better', best: 'Best' };
+    const LABEL = { good: _v2TierLabel('good'), better: _v2TierLabel('better'), best: _v2TierLabel('best') };
     const cardOrder = ['good', 'better', 'best'].filter(t => fmt(tiers[t]) !== null);
 
     const cards = cardOrder.length >= 2
@@ -2824,7 +2833,7 @@
       projectLine: (function () {
         const parts = [];
         if (estimate.materialType || customer.material) parts.push(estimate.materialType || customer.material);
-        if (meta && meta.tiers) parts.push('Good / Better / Best comparison');
+        if (meta && meta.tiers) parts.push(_v2TierLabel('good') + ' / ' + _v2TierLabel('better') + ' / ' + _v2TierLabel('best') + ' comparison');
         return parts.length ? parts.join(' · ') : null;
       })(),
     };
@@ -2880,11 +2889,11 @@
         };
       };
       tierList = [
-        buildTier('good',   'Good',   '25-yr architectural shingle · standard install',
+        buildTier('good',   _v2TierLabel('good'),   '25-yr architectural shingle · standard install',
           ['Owens Corning Oakridge or equivalent', 'Standard ridge vent + flashing', 'Labor warranty: 10 years', 'Full tear-off included']),
-        buildTier('better', 'Better', '30-yr architectural · upgraded underlayment',
+        buildTier('better', _v2TierLabel('better'), '30-yr architectural · upgraded underlayment',
           ['GAF Timberline HDZ or equivalent', 'Synthetic underlayment upgrade', 'Ice & water shield on eaves + valleys', 'Labor warranty: 15 years', 'Full tear-off included']),
-        buildTier('best',   'Best',   'Lifetime designer · full system warranty',
+        buildTier('best',   _v2TierLabel('best'),   'Lifetime designer · full system warranty',
           ['GAF Timberline ULTRA HDZ Lifetime', 'Synthetic underlayment + ice & water full perimeter', 'Premium ridge vent', 'Labor warranty: Lifetime', 'Full system warranty by GAF', 'Annual courtesy inspection']),
       ].filter(Boolean);
     }

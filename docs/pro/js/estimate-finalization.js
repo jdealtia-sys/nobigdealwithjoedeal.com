@@ -39,6 +39,15 @@
       .replace(/'/g, '&#39;');
   }
 
+  // Customer-facing tier name (GBB audit, 2026-09-09). Internal good/better/
+  // best keys never change — this is display-only for the retail-quote tier
+  // cards a customer actually reads. Single source: estimate-config.js.
+  function _tierLabel(key) {
+    const cfg = (typeof window !== 'undefined') ? window.NBD_ESTIMATE_CONFIG : null;
+    if (cfg && typeof cfg.tierLabel === 'function') return cfg.tierLabel(key).toUpperCase();
+    return ({ good: 'STANDARD', better: 'PREFERRED', best: 'ELITE' })[key] || String(key).toUpperCase();
+  }
+
   function fmtMoney(n, showZero) {
     const v = Number(n) || 0;
     if (v === 0 && !showZero) return '—';
@@ -767,9 +776,9 @@ ${footer}
     let tierCards = '';
     if (tiers) {
       const tierDefs = [
-        { key: 'good',   label: 'GOOD',   sub: 'Standard System', color: '#6b7280' },
-        { key: 'better', label: 'BETTER', sub: 'System Warranty', color: '#3b82f6' },
-        { key: 'best',   label: 'BEST',   sub: 'Impact + 20yr Warranty', color: _acc }
+        { key: 'good',   label: _tierLabel('good'),   sub: 'Standard System', color: '#6b7280' },
+        { key: 'better', label: _tierLabel('better'), sub: 'System Warranty', color: '#3b82f6' },
+        { key: 'best',   label: _tierLabel('best'),   sub: 'Impact + 20yr Warranty', color: _acc }
       ];
       tierCards = `
         <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin:24px 0;">

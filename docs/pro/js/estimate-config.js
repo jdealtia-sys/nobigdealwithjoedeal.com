@@ -155,10 +155,65 @@
     ADDON_ACCESS_MODERATE_PER_SQ:  15,   // tight lot / longer carry / protect landscaping
     ADDON_ACCESS_DIFFICULT_PER_SQ: 35,   // no driveway / hillside (crane/boom = equipment lines)
 
+    // ── Customer-facing tier display (2026-09-09, Jo-confirmed) ──────
+    // GBB tier audit (documentation/audit/GBB-TIER-SOURCE-OF-TRUTH-2026-09-09.md)
+    // found the internal good/better/best keys above leaking to customers
+    // as-is in some places, and four OTHER independent tier-name schemes
+    // plus eight independent warranty-duration schemes in others. Decision:
+    // the internal keys never change (too deeply embedded — Firestore
+    // prices{good,better,best}/selectedTier, catalog tier fields, doc
+    // schemas), but every CUSTOMER-FACING surface renders the tier through
+    // TIER_DISPLAY instead of hardcoding its own label/warranty text.
+    // Rep-facing/internal tool UI may keep saying Good/Better/Best.
+    TIER_DISPLAY: Object.freeze({
+      good: Object.freeze({
+        label: 'Standard',
+        warranty: Object.freeze({ transferable: false, transferWindowDays: 0, inspection: false })
+      }),
+      better: Object.freeze({
+        label: 'Preferred',
+        warranty: Object.freeze({ transferable: true, transferWindowDays: 30, inspection: false })
+      }),
+      best: Object.freeze({
+        label: 'Elite',
+        warranty: Object.freeze({ transferable: true, transferWindowDays: 0, inspection: true })
+      })
+    }),
+
+    // tierLabel(key) -> the customer-facing name ('Standard'/'Preferred'/
+    // 'Elite'). Falls back to a capitalized version of an unknown/legacy
+    // key so a bad tier value degrades to something readable, not a throw.
+    tierLabel: function (tier) {
+      var t = CFG.TIER_DISPLAY[tier];
+      if (t) return t.label;
+      return tier ? String(tier).charAt(0).toUpperCase() + String(tier).slice(1) : '';
+    },
+
+    // tierWarrantyText(key) -> the one sentence every generator should
+    // print for that tier's workmanship guarantee (lifetime + transferability
+    // model, replacing the 5/10/20-year scheme the audit found in 8+ places).
+    // Kept as one formatted string, not just the raw object, so the wording
+    // only ever needs to change here.
+    tierWarrantyText: function (tier) {
+      var t = CFG.TIER_DISPLAY[tier];
+      if (!t) return 'Lifetime workmanship warranty.';
+      var w = t.warranty;
+      var parts = ['Lifetime workmanship warranty'];
+      if (!w.transferable) {
+        parts.push('does not transfer on sale of property');
+      } else if (w.transferWindowDays) {
+        parts.push('transferable to one subsequent owner within ' + w.transferWindowDays + ' days of sale');
+      } else {
+        parts.push('fully transferable — follows the property through all subsequent owners');
+      }
+      if (w.inspection) parts.push('annual courtesy inspection included');
+      return parts.join('; ') + '.';
+    },
+
     // Source-of-truth marker — engines log this to Sentry on
     // load so we can correlate "classic engine ran but V2 config
     // didn't load" cases if they ever happen.
-    _version: '2026-06-08',
+    _version: '2026-09-09',
     _loadedFrom: 'estimate-config.js'
   });
 
