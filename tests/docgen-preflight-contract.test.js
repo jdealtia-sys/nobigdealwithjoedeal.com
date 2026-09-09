@@ -299,23 +299,38 @@ function renderViaPreflight(method, preflightData) {
 }
 
 // ── warranty_certificate: installDate→issueDate; coverageDetails + transferable
-//    wired; roof-specific workPerformed default no longer fabricated ──
+//    wired; roof-specific workPerformed default no longer fabricated.
+//    GBB audit 2026-09-09 (documentation/audit/GBB-TIER-SOURCE-OF-TRUTH-2026-09-09.md
+//    §3/§8 PR3): transferability is now TIER-driven by default (Preferred/Elite
+//    are inherently transferable per estimate-config.js TIER_DISPLAY) — the rep
+//    checkbox can only ADD transferability on top of a non-transferable tier
+//    (Standard/'good'), it can never remove what a tier already promises. Uses
+//    'good' (Standard, non-transferable by default) so the checkbox's own
+//    effect is what's actually under test. ──
 {
   const html = renderViaPreflight('renderWarrantyCertificate', {
-    installDate: '2026-09-15', warrantyTier: 'best',
+    installDate: '2026-09-15', warrantyTier: 'good',
     coverageDetails: 'SENTINELcoverage', transferable: true,
   });
   console.log('PREFLIGHT CONTRACT — warranty_certificate');
   ok('warranty: renders (no error)', html.indexOf('RENDER_ERROR') !== 0);
   ok('warranty: rep install date reaches doc (installDate→issueDate)', /2026-09-15/.test(html));
   ok('warranty: rep coverage details reach doc (coverageDetails wired)', html.indexOf('SENTINELcoverage') !== -1);
-  ok('warranty: transferable clause shows only when checked', /transferable to a new owner/.test(html));
+  ok('warranty: rep-checked transferable clause shows on a Standard-tier cert (checkbox ADDS transferability)', /fully transferable/.test(html));
   ok('warranty: roof-specific "Complete roof replacement" workPerformed default is GONE', !/Complete roof replacement including tear-off/.test(html));
 }
-// transferable must NOT appear when the rep leaves it unchecked
+// Standard tier ('good') + unchecked → no transferability claim at all: the
+// tier default is non-transferable and the rep did not override it.
 {
-  const html2 = renderViaPreflight('renderWarrantyCertificate', { installDate: '2026-09-15', warrantyTier: 'best', transferable: false });
-  ok('warranty: transferable clause absent when unchecked', !/transferable to a new owner/.test(html2));
+  const html2 = renderViaPreflight('renderWarrantyCertificate', { installDate: '2026-09-15', warrantyTier: 'good', transferable: false });
+  ok('warranty: transferable clause absent on Standard tier when unchecked', !/transferable/.test(html2));
+}
+// Elite tier ('best') + unchecked → transferability claim is STILL present:
+// Elite is inherently fully transferable, and the checkbox cannot take that
+// away — only add to a lesser tier's default.
+{
+  const html3 = renderViaPreflight('renderWarrantyCertificate', { installDate: '2026-09-15', warrantyTier: 'best', transferable: false });
+  ok('warranty: Elite tier stays transferable even with the checkbox unchecked (tier default wins)', /fully transferable/.test(html3));
 }
 
 // ── certificate_of_completion: modal scopeCompleted bridges to renderer scopeSummary ──

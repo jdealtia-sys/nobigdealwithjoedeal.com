@@ -3152,9 +3152,17 @@ window.generateCertFromEstimate = async function(estimateId) {
     .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   const custName = esc(((lead.firstName || '') + ' ' + (lead.lastName || '')).trim() || 'Customer');
   const installDate = lead.scheduledDate || new Date().toISOString().split('T')[0];
-  const warrantyYears = 5;
-  const expiryDate = new Date(installDate);
-  expiryDate.setFullYear(expiryDate.getFullYear() + warrantyYears);
+  // GBB audit, 2026-09-09: was a hardcoded `warrantyYears = 5` regardless of
+  // which tier the estimate underneath was actually sold at — a homeowner
+  // who bought Elite could receive a certificate claiming only 5 years. All
+  // tiers are now lifetime workmanship (estimate-config.js TIER_DISPLAY);
+  // only the transferability/inspection differentiator varies by tier.
+  const _tierKey = String(est.tier || est.tierName || '').toLowerCase();
+  const _cfg = window.NBD_ESTIMATE_CONFIG;
+  const tierLabelStr = (_cfg && typeof _cfg.tierLabel === 'function')
+    ? _cfg.tierLabel(_tierKey) : ({ good: 'Standard', better: 'Preferred', best: 'Elite' })[_tierKey] || '';
+  const warrantyBlurb = (_cfg && typeof _cfg.tierWarrantyBlurb === 'function')
+    ? _cfg.tierWarrantyBlurb(_tierKey) : '';
 
   // Accent is a literal here, not var(--orange): this popup links only
   // nbd-mobile.css, which never DECLARES --orange (it only reads it with a
@@ -3212,11 +3220,12 @@ window.generateCertFromEstimate = async function(estimateId) {
     <div class="row"><span class="label">Property</span><span class="value">${esc(lead.address || '—')}</span></div>
     <div class="row"><span class="label">Work Performed</span><span class="value">${esc(est.title || 'Roofing Installation')}</span></div>
     <div class="row"><span class="label">Completion Date</span><span class="value">${new Date(installDate).toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'})}</span></div>
-    <div class="row"><span class="label">Warranty Period</span><span class="value">${warrantyYears} Years</span></div>
-    <div class="row"><span class="label">Warranty Expires</span><span class="value">${expiryDate.toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'})}</span></div>
+    ${tierLabelStr ? `<div class="row"><span class="label">Guarantee Tier</span><span class="value">${esc(tierLabelStr)}</span></div>` : ''}
+    <div class="row"><span class="label">Warranty Period</span><span class="value">Lifetime Workmanship</span></div>
+    ${warrantyBlurb ? `<div class="row"><span class="label">Transferability</span><span class="value">${esc(warrantyBlurb)}</span></div>` : ''}
     <div class="row"><span class="label">Certificate #</span><span class="value">NBD-${estimateId.slice(0,8).toUpperCase()}</span></div>
   </div>
-  <p style="font-size:12px;color:#666;line-height:1.7;margin:20px 0;">This certificate warrants that all work performed by No Big Deal Home Solutions at the above property was completed using industry-standard materials and craftsmanship. This warranty covers defects in workmanship for the period specified above.</p>
+  <p style="font-size:12px;color:#666;line-height:1.7;margin:20px 0;">This certificate warrants that all work performed by No Big Deal Home Solutions at the above property was completed using industry-standard materials and craftsmanship. This warranty covers defects in workmanship for the lifetime of the installation.</p>
   <div class="footer">
     <div class="sig"><div class="sig-line">Contractor Signature</div></div>
     <div class="sig"><div class="sig-line">Date Issued: ${new Date().toLocaleDateString()}</div></div>

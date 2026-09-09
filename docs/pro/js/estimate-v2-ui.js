@@ -47,6 +47,15 @@
     // a fallback to the owner's name.
     return (window._user && (window._user.displayName || window._user.email)) || '';
   }
+  // Customer-facing tier name (GBB audit, 2026-09-09). The internal
+  // good/better/best keys never change — this is display-only, for the
+  // homeowner presentation mode and the retail-quote PDF, both of which a
+  // customer actually reads. Single source: estimate-config.js.
+  function _v2TierLabel(key) {
+    const cfg = window.NBD_ESTIMATE_CONFIG;
+    if (cfg && typeof cfg.tierLabel === 'function') return cfg.tierLabel(key);
+    return ({ good: 'Standard', better: 'Preferred', best: 'Elite' })[key] || key;
+  }
   // ASYNC since 2026-09-06. The old comment here claimed _custIdPrefix()
   // "already returns 'NBD' for the platform tenant and a derived prefix for
   // everyone else" — true only AFTER company-profile hydration. Read
@@ -2233,7 +2242,7 @@
       better: 'Our most popular package — the sweet spot.',
       best: 'Top-of-the-line materials and warranty.'
     };
-    const LABEL = { good: 'Good', better: 'Better', best: 'Best' };
+    const LABEL = { good: _v2TierLabel('good'), better: _v2TierLabel('better'), best: _v2TierLabel('best') };
     const cardOrder = ['good', 'better', 'best'].filter(t => fmt(tiers[t]) !== null);
 
     const cards = cardOrder.length >= 2
@@ -2824,7 +2833,7 @@
       projectLine: (function () {
         const parts = [];
         if (estimate.materialType || customer.material) parts.push(estimate.materialType || customer.material);
-        if (meta && meta.tiers) parts.push('Good / Better / Best comparison');
+        if (meta && meta.tiers) parts.push(_v2TierLabel('good') + ' / ' + _v2TierLabel('better') + ' / ' + _v2TierLabel('best') + ' comparison');
         return parts.length ? parts.join(' · ') : null;
       })(),
     };
@@ -2879,13 +2888,18 @@
           isRecommended: key === recommended,
         };
       };
+      // GBB audit, 2026-09-09: "Labor warranty: 10 years"/"15 years" were two
+      // MORE independent durations that never matched the 5/10/20 scheme
+      // elsewhere, let alone each other. All three tiers are lifetime
+      // workmanship now (estimate-config.js TIER_DISPLAY) — only
+      // transferability/inspection vary.
       tierList = [
-        buildTier('good',   'Good',   '25-yr architectural shingle · standard install',
-          ['Owens Corning Oakridge or equivalent', 'Standard ridge vent + flashing', 'Labor warranty: 10 years', 'Full tear-off included']),
-        buildTier('better', 'Better', '30-yr architectural · upgraded underlayment',
-          ['GAF Timberline HDZ or equivalent', 'Synthetic underlayment upgrade', 'Ice & water shield on eaves + valleys', 'Labor warranty: 15 years', 'Full tear-off included']),
-        buildTier('best',   'Best',   'Lifetime designer · full system warranty',
-          ['GAF Timberline ULTRA HDZ Lifetime', 'Synthetic underlayment + ice & water full perimeter', 'Premium ridge vent', 'Labor warranty: Lifetime', 'Full system warranty by GAF', 'Annual courtesy inspection']),
+        buildTier('good',   _v2TierLabel('good'),   '25-yr architectural shingle · standard install',
+          ['Owens Corning Oakridge or equivalent', 'Standard ridge vent + flashing', 'Labor warranty: Lifetime (non-transferable)', 'Full tear-off included']),
+        buildTier('better', _v2TierLabel('better'), '30-yr architectural · upgraded underlayment',
+          ['GAF Timberline HDZ or equivalent', 'Synthetic underlayment upgrade', 'Ice & water shield on eaves + valleys', 'Labor warranty: Lifetime (transferable to 1 subsequent owner)', 'Full tear-off included']),
+        buildTier('best',   _v2TierLabel('best'),   'Lifetime designer · full system warranty',
+          ['GAF Timberline ULTRA HDZ Lifetime', 'Synthetic underlayment + ice & water full perimeter', 'Premium ridge vent', 'Labor warranty: Lifetime (fully transferable)', 'Full system warranty by GAF', 'Annual courtesy inspection']),
       ].filter(Boolean);
     }
 
@@ -2993,7 +3007,11 @@
         validUntil:   validUntilFmt,
         depositPct:   25,
         scheduleNote: 'Typical start: 2-4 weeks from signed contract.',
-        warranty:     '10 years labor minimum; tier-dependent extensions',
+        // GBB audit, 2026-09-09: was '10 years labor minimum' — did not match
+        // this same document's own tier-list bullets above (which said 10/15/
+        // Lifetime). Every tier is lifetime workmanship now; only transferability
+        // varies, and that's already stated per-tier in tierList above.
+        warranty:     'Lifetime workmanship warranty on every tier; transferability varies by tier — see above',
       },
       notes: null,
     };

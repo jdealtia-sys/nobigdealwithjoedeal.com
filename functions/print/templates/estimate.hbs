@@ -61,7 +61,11 @@
 {{#if tiers}}
 <section class="page-break">
   <h2 class="keep-with-next">Choose your level</h2>
-  <p class="meta" style="margin-bottom: var(--s-4);">Three ways to do this job — same crew, same workmanship, different materials and warranty length. Our recommendation is flagged below.</p>
+  {{!-- GBB audit, 2026-09-09: was "...different materials and warranty length" —
+       directly contradicted the tier cards below it in this same PDF, which all
+       say Lifetime workmanship now (estimate-config.js TIER_DISPLAY); tiers
+       differ only in materials and transferability. --}}
+  <p class="meta" style="margin-bottom: var(--s-4);">Three ways to do this job — same crew, same workmanship, same lifetime warranty. Materials and transferability differ by tier. Our recommendation is flagged below.</p>
 
   <div class="tier-grid">
     {{#each tierList}}
