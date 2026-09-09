@@ -808,21 +808,35 @@
         const density = config.density || 0.5;
         const speed = config.speed || 0.3;
 
-        const starCount = Math.floor(80 * density);
-        for (let i = 0; i < starCount; i++) {
-          this.addParticle(
-            Math.random() * this.canvas.width,
-            Math.random() * this.canvas.height,
-            0,
-            0,
-            Math.random() * 1.5 + 0.5,
-            color,
-            0.8,
-            Infinity
-          );
+        // Galaxy Drift: two depth layers (far = smaller/dimmer/slower
+        // twinkle, near = bigger/brighter/faster) drawn directly rather
+        // than through the shared particle pool, since twinkle needs a
+        // per-star opacity-over-time term the pool's generic
+        // updateParticles()/renderParticles() has no concept of. Each
+        // star's phase is randomized so the field never pulses in unison.
+        const farStars = [];
+        const farCount = Math.floor(60 * density);
+        for (let i = 0; i < farCount; i++) {
+          farStars.push({ x: Math.random() * this.canvas.width, y: Math.random() * this.canvas.height, r: Math.random() * 0.9 + 0.4, phase: Math.random() * Math.PI * 2 });
         }
+        const nearStars = [];
+        const nearCount = Math.floor(22 * density);
+        for (let i = 0; i < nearCount; i++) {
+          nearStars.push({ x: Math.random() * this.canvas.width, y: Math.random() * this.canvas.height, r: Math.random() * 1.4 + 1.2, phase: Math.random() * Math.PI * 2 });
+        }
+        // Two hand-shaded planets. Gradients are built ONCE here, never
+        // rebuilt per frame — no rotation, no per-frame gradient
+        // recompute, which is the one cost this design deliberately avoids.
+        const planetA = { x: this.canvas.width * 0.85, y: this.canvas.height * 0.15, r: 30 };
+        const planetB = { x: this.canvas.width * 0.12, y: this.canvas.height * 0.82, r: 18 };
+        const gradA = this.ctx.createRadialGradient(planetA.x - planetA.r * 0.3, planetA.y - planetA.r * 0.3, 1, planetA.x, planetA.y, planetA.r);
+        gradA.addColorStop(0, 'rgba(224,64,251,.55)'); gradA.addColorStop(1, 'rgba(20,5,35,.15)');
+        const gradB = this.ctx.createRadialGradient(planetB.x - planetB.r * 0.3, planetB.y - planetB.r * 0.3, 1, planetB.x, planetB.y, planetB.r);
+        gradB.addColorStop(0, 'rgba(206,147,216,.4)'); gradB.addColorStop(1, 'transparent');
 
-        // Occasional shooting star
+        // Occasional shooting star — unchanged, still goes through the
+        // shared particle pool, since a moving finite-life trail is
+        // exactly what that pool already handles correctly.
         const shootingStarInterval = setInterval(() => {
           const sx = Math.random() * this.canvas.width;
           const sy = Math.random() * this.canvas.height * 0.5;
@@ -841,7 +855,29 @@
         }, 4000);
 
         this.canvas.style.display = 'block';
-        this.animationLoop(() => this.renderParticles());
+        let t = 0;
+        this.animationLoop(() => {
+          t += 0.05;
+          this.updateParticles();
+          // renderParticles() clears the canvas and draws any in-flight
+          // shooting-star trail; planets + twinkling stars are drawn on
+          // top of that in the same frame, not before (it would just
+          // clear them again).
+          this.renderParticles();
+          this.ctx.fillStyle = gradA; this.ctx.beginPath(); this.ctx.arc(planetA.x, planetA.y, planetA.r, 0, Math.PI * 2); this.ctx.fill();
+          this.ctx.fillStyle = gradB; this.ctx.beginPath(); this.ctx.arc(planetB.x, planetB.y, planetB.r, 0, Math.PI * 2); this.ctx.fill();
+          farStars.forEach((s) => {
+            this.ctx.globalAlpha = 0.35 + 0.3 * Math.sin(t + s.phase);
+            this.ctx.fillStyle = color;
+            this.ctx.beginPath(); this.ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2); this.ctx.fill();
+          });
+          nearStars.forEach((s) => {
+            this.ctx.globalAlpha = 0.55 + 0.45 * Math.sin(t * 1.6 + s.phase);
+            this.ctx.fillStyle = color;
+            this.ctx.beginPath(); this.ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2); this.ctx.fill();
+          });
+          this.ctx.globalAlpha = 1;
+        });
 
         // Cleanup interval on destroy
         const originalDestroy = this.destroy.bind(this);
