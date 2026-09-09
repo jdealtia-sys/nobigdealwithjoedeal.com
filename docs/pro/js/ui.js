@@ -841,6 +841,14 @@ function switchSettingsTab(tab) {
     if (typeof window.nbdRenderFontGrid === 'function') window.nbdRenderFontGrid();
     if (typeof window.nbdSyncSizeBtns === 'function') window.nbdSyncSizeBtns();
     if (typeof window.nbdSyncModeToggle === 'function') window.nbdSyncModeToggle();
+    // Visual Overlays checkbox was hardcoded `checked` in markup with
+    // nothing ever syncing it from the actual (now-persisted) state —
+    // it would keep showing ON even after a saved OFF preference took
+    // effect on boot.
+    (function () {
+      var t = document.getElementById('te-overlays-toggle');
+      if (t && window.ThemeOverlays) t.checked = window.ThemeOverlays.isEnabled();
+    })();
     // === ThemeEngine: filter buttons + flat grid ===
     const teGrid = document.getElementById('te-theme-grid');
     const teCatBar = document.getElementById('te-cat-bar');

@@ -55,9 +55,30 @@
       this.ctx = canvas.getContext('2d', { willReadFrequently: false });
       this.setupCanvas();
 
-      // Visibility listener
+      // Load persisted on/off state. Previously `enabled` was hardcoded
+      // true with nothing ever overriding it from storage, so switching
+      // this off in Settings did not survive a reload. Mirrors ThemeSounds'
+      // localStorage pattern (nbd-theme-sound).
+      try {
+        const saved = localStorage.getItem('nbd-theme-overlays');
+        if (saved !== null) this.enabled = saved === 'true';
+      } catch (_) {}
+
+      // Visibility listener — actually stop the animation loop while
+      // hidden instead of only skipping its work. Previously this flipped
+      // `isHidden` and the loop kept rescheduling requestAnimationFrame
+      // forever, just no-op'ing the callback each tick; browsers throttle
+      // a hidden tab's rAF on their own, but it was never truly cancelled.
       document.addEventListener('visibilitychange', () => {
         this.isHidden = document.hidden;
+        if (this.isHidden) {
+          if (this.animationId) {
+            cancelAnimationFrame(this.animationId);
+            this.animationId = null;
+          }
+        } else if (this._loopCallback && !this.animationId) {
+          this.animationLoop(this._loopCallback);
+        }
       });
 
       // Resize listener (debounced)
@@ -89,6 +110,15 @@
         return;
       }
 
+      // Respect reduced motion — the OS-level preference and this app's
+      // own Comfort-tab toggle (data-motion="reduce" on <html>) are two
+      // independent signals; neither implies the other, so both are
+      // checked. Previously neither was checked anywhere in this file.
+      if (this.prefersReducedMotion()) {
+        console.log('[ThemeOverlays] Reduced motion preferred, skipping overlay');
+        return;
+      }
+
       const { type, ...config } = overlayConfig;
       const overlayFunc = this.overlayLibrary[type];
 
@@ -106,6 +136,7 @@
         cancelAnimationFrame(this.animationId);
         this.animationId = null;
       }
+      this._loopCallback = null;
 
       this.particles = [];
       this.frameCount = 0;
@@ -128,6 +159,7 @@
 
     setEnabled(enabled) {
       this.enabled = enabled;
+      try { localStorage.setItem('nbd-theme-overlays', enabled ? 'true' : 'false'); } catch (_) {}
       if (!enabled && this.container) {
         this.destroy();
       }
@@ -135,6 +167,13 @@
 
     isEnabled() {
       return this.enabled;
+    },
+
+    prefersReducedMotion() {
+      let osPref = false;
+      try { osPref = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (_) {}
+      const appPref = document.documentElement.getAttribute('data-motion') === 'reduce';
+      return !!(osPref || appPref);
     },
 
     // ==================== UTILITY HELPERS ====================
@@ -146,19 +185,23 @@
       return svg;
     },
 
-    addParticle(x, y, vx, vy, size, color, opacity, life) {
+    // `respawn` is an optional zero-arg function returning a fresh
+    // {x,y,vx,vy,size,life,maxLife,opacity} — when a finite-life particle
+    // dies, updateParticles() resets it in place via this instead of
+    // removing it, for the handful of overlays meant to be a persistent
+    // ambient field (embers, drifting motes) rather than a one-shot burst
+    // (e.g. the star-field shooting-star trail, which correctly disappears
+    // and is left with no respawn so it keeps its current behavior).
+    addParticle(x, y, vx, vy, size, color, opacity, life, respawn) {
       this.particles.push({
-        x, y, vx, vy, size, color, opacity, life, maxLife: life
+        x, y, vx, vy, size, color, opacity, life, maxLife: life, respawn
       });
     },
 
     animationLoop(callback) {
+      this._loopCallback = callback;
+      if (this.isHidden) return;
       const tick = () => {
-        if (this.isHidden) {
-          this.animationId = requestAnimationFrame(tick);
-          return;
-        }
-
         this.frameCount++;
         // Frame skipping for 30fps (skip every other frame @ 60fps)
         if (this.frameCount % 2 === 0) {
@@ -812,18 +855,24 @@
         const density = config.density || 0.5;
         const speed = config.speed || 1;
 
+        // Ambient field, not a one-shot burst — embers should keep rising
+        // forever, so each one resets in place (via `respawn`, see
+        // addParticle/updateParticles) rather than being removed on death.
+        const spawnEmber = () => ({
+          x: Math.random() * this.canvas.width,
+          y: this.canvas.height,
+          vx: (Math.random() - 0.5) * 0.8,
+          vy: -Math.random() * 2 * speed,
+          size: Math.random() * 6 + 3,
+          opacity: 0.7,
+          life: 3000,
+          maxLife: 3000
+        });
+
         const emberCount = Math.floor(35 * density);
         for (let i = 0; i < emberCount; i++) {
-          this.addParticle(
-            Math.random() * this.canvas.width,
-            this.canvas.height,
-            (Math.random() - 0.5) * 0.8,
-            -Math.random() * 2 * speed,
-            Math.random() * 6 + 3,
-            'rgba(255, 140, 60, 0.6)',
-            0.7,
-            3000
-          );
+          const p = spawnEmber();
+          this.addParticle(p.x, p.y, p.vx, p.vy, p.size, 'rgba(255, 140, 60, 0.6)', p.opacity, p.life, spawnEmber);
         }
 
         this.canvas.style.display = 'block';
@@ -887,18 +936,25 @@
         const density = config.density || 0.5;
         const speed = config.speed || 1;
 
+        // Same shape as ember-particles (rises from the bottom, ambient
+        // field) and the same bug: finite life with no respawn meant this
+        // went permanently blank a few seconds after any theme using it
+        // was selected.
+        const spawnDark = () => ({
+          x: Math.random() * this.canvas.width,
+          y: this.canvas.height,
+          vx: (Math.random() - 0.5) * 1,
+          vy: -Math.random() * 1.5 * speed,
+          size: Math.random() * 5 + 2,
+          opacity: 0.6,
+          life: 4000,
+          maxLife: 4000
+        });
+
         const particleCount = Math.floor(40 * density);
         for (let i = 0; i < particleCount; i++) {
-          this.addParticle(
-            Math.random() * this.canvas.width,
-            this.canvas.height,
-            (Math.random() - 0.5) * 1,
-            -Math.random() * 1.5 * speed,
-            Math.random() * 5 + 2,
-            'rgba(200, 150, 255, 0.5)',
-            0.6,
-            4000
-          );
+          const p = spawnDark();
+          this.addParticle(p.x, p.y, p.vx, p.vy, p.size, 'rgba(200, 150, 255, 0.5)', p.opacity, p.life, spawnDark);
         }
 
         this.canvas.style.display = 'block';
@@ -912,18 +968,22 @@
         const density = config.density || 0.5;
         const speed = config.speed || 1;
 
+        // Same ambient-field shape and same bug as ember/dark-particles.
+        const spawnShadow = () => ({
+          x: Math.random() * this.canvas.width,
+          y: this.canvas.height,
+          vx: (Math.random() - 0.5) * 0.6,
+          vy: -Math.random() * 1.2 * speed,
+          size: Math.random() * 4 + 2,
+          opacity: 0.5,
+          life: 3500,
+          maxLife: 3500
+        });
+
         const shadowCount = Math.floor(35 * density);
         for (let i = 0; i < shadowCount; i++) {
-          this.addParticle(
-            Math.random() * this.canvas.width,
-            this.canvas.height,
-            (Math.random() - 0.5) * 0.6,
-            -Math.random() * 1.2 * speed,
-            Math.random() * 4 + 2,
-            'rgba(30, 60, 150, 0.5)',
-            0.5,
-            3500
-          );
+          const p = spawnShadow();
+          this.addParticle(p.x, p.y, p.vx, p.vy, p.size, 'rgba(30, 60, 150, 0.5)', p.opacity, p.life, spawnShadow);
         }
 
         this.canvas.style.display = 'block';
@@ -1195,15 +1255,41 @@
 
     // ==================== PARTICLE RENDERING ====================
     updateParticles() {
-      this.particles.forEach((p, i) => {
+      // Real elapsed time between calls, not a hardcoded 60fps-shaped
+      // constant. This callback only runs at the ~30fps the frame-skip
+      // above already enforces, so `p.life -= 16` was ticking every
+      // finite-life particle at roughly half the intended rate — a
+      // configured `life: 3000` (3s) actually took ~6.3 real seconds to
+      // expire. Capped at 100ms so resuming from a backgrounded tab
+      // doesn't age everything by one huge jump on the first frame back.
+      const now = performance.now();
+      const delta = this._lastParticleTick != null ? Math.min(now - this._lastParticleTick, 100) : 16;
+      this._lastParticleTick = now;
+
+      // Iterate backwards so removing a dead particle mid-loop (splice)
+      // never skips the particle that shifts into its place — the
+      // previous forward `.forEach` was doing exactly that.
+      for (let i = this.particles.length - 1; i >= 0; i--) {
+        const p = this.particles[i];
         p.x += p.vx;
         p.y += p.vy;
 
         if (p.maxLife !== Infinity) {
-          p.life -= 16;
-          p.opacity = (p.life / p.maxLife) * (p.opacity / 1);
+          p.life -= delta;
           if (p.life <= 0) {
-            this.particles.splice(i, 1);
+            if (typeof p.respawn === 'function') {
+              // Ambient overlays (embers, drifting motes) reset in place
+              // instead of disappearing. Previously every finite-life
+              // particle was simply removed and never replaced, which is
+              // why e.g. avatar-fire's ember field went permanently blank
+              // a few seconds after the theme was selected.
+              Object.assign(p, p.respawn());
+            } else {
+              this.particles.splice(i, 1);
+              continue;
+            }
+          } else {
+            p.opacity = (p.life / p.maxLife) * p.opacity;
           }
         }
 
@@ -1212,7 +1298,7 @@
         if (p.x > this.canvas.width + 50) p.x = -50;
         if (p.y < -50) p.y = this.canvas.height + 50;
         if (p.y > this.canvas.height + 50) p.y = -50;
-      });
+      }
     },
 
     renderParticles() {
