@@ -399,14 +399,17 @@ exports.sendEmail = onRequest(
         attachments: attachments || []
       });
 
+      // The Resend SDK does NOT throw on an API-level rejection (bad/expired
+      // key, suspended account, invalid sender domain, etc.) — it resolves
+      // to { data: null, error: {...} }, so this branch never ran and every
+      // one of those failures was logged and returned as a genuine success.
+      // Found live-testing invoicing 2026-09-08 (see documentation/audit/
+      // STRIPE-INVOICING-STATUS-2026-09-08.md); the identical shape at
+      // ~18 more call sites across functions/ was fixed as a follow-up
+      // (documentation/audit/RESEND-ERROR-SURFACING-SWEEP-2026-09-08.md),
+      // sharing this check via resend-guard.js.
       const db = getFirestore();
       const companyId = decoded.companyId || null;
-
-      // Resend does NOT throw on an API-level rejection (bad/expired key,
-      // suspended account, rejected sender domain, rate limit) — it
-      // resolves to { data: null, error: {...} }. Without this check every
-      // such rejection fell through to the success path below and was
-      // logged + returned to the CRM as a genuine send.
       if (resendRejected(response)) {
         const msg = resendErrorMessage(response);
         logger.error('sendEmail resend_rejected', { err: msg });
