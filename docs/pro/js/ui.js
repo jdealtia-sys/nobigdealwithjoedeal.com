@@ -847,6 +847,12 @@ function switchSettingsTab(tab) {
     if (window.__NBD_CALL_REGISTRY && typeof window.__NBD_CALL_REGISTRY.nbdSyncShapeStyleBtns === 'function') {
       window.__NBD_CALL_REGISTRY.nbdSyncShapeStyleBtns();
     }
+    // Material segmented control active-state — same lazy-hydration hook
+    // as the calls above; nbdSyncMaterialBtns lives in
+    // __NBD_CALL_REGISTRY (dashboard-ui-prefs-boot.js), not on window.
+    if (window.__NBD_CALL_REGISTRY && typeof window.__NBD_CALL_REGISTRY.nbdSyncMaterialBtns === 'function') {
+      window.__NBD_CALL_REGISTRY.nbdSyncMaterialBtns();
+    }
     // Visual Overlays checkbox was hardcoded `checked` in markup with
     // nothing ever syncing it from the actual (now-persisted) state —
     // it would keep showing ON even after a saved OFF preference took

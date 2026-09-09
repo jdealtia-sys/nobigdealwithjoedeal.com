@@ -180,6 +180,53 @@
      the "Shared accent contrast contract" block near the bottom of
      theme-system.css for the per-theme overrides. */
 }
+/* ── Material: Shop Copy / Golden Hour (Settings > Appearance) ──────
+   [data-material] on <html>, orthogonal to [data-shape]/[data-theme]/
+   [data-density] — set from Settings and persisted the same way. No
+   attribute means no material is applied (today's exact look).
+   Reuses the pipeline's EXISTING stage-aging classification
+   (k-card-aging-warming/stale/critical, computed in crm-pipeline.js
+   from stageStartedAt) as the status signal, rather than inventing a
+   parallel one or injecting new DOM into the card template. Scoped to
+   the job pipeline board in this pass — an invoice-side treatment (an
+   ink stamp on Mark Paid, a sunrise animation when an overdue invoice
+   clears) needs a class-based status hook in invoice-pipeline.js,
+   which today drives its status color via an inline style computed in
+   JS rather than a CSS class; that's real, separate follow-up work,
+   not rushed into this pass. */
+:root[data-material="shop-copy"] .k-card { border-left-width: 5px; border-left-color: #cbbfa0 !important; }
+:root[data-material="shop-copy"] .k-card-aging-warming,
+:root[data-material="shop-copy"] .k-card-aging-stale { border-left-color: #ff8a00 !important; }
+:root[data-material="shop-copy"] .k-card-aging-critical { border-left-color: #2a2a2c !important; }
+:root[data-material="shop-copy"] .kcol-header {
+  font-family: 'Big Shoulders Stencil', 'Barlow Condensed', sans-serif;
+  letter-spacing: .04em;
+}
+
+:root[data-material="golden-hour"] .k-card {
+  border-left-color: #8fb4ff !important;
+  transition: box-shadow .4s ease, border-left-color .4s ease, filter .4s ease;
+}
+:root[data-material="golden-hour"] .k-card-aging-warming {
+  border-left-color: #ffb066 !important;
+  box-shadow: 0 4px 14px -6px rgba(255,176,102,.35);
+}
+:root[data-material="golden-hour"] .k-card-aging-stale {
+  border-left-color: #ff8a3d !important;
+  box-shadow: 0 4px 16px -6px rgba(255,138,61,.4);
+}
+:root[data-material="golden-hour"] .k-card-aging-critical {
+  border-left-color: #7d5a4a !important;
+  filter: saturate(.65);
+}
+/* Dusk is calm, not alarming — swap the existing red urgency-pulse for
+   a dim, steady "porch light" accent rather than disabling the signal
+   outright. */
+:root[data-material="golden-hour"] .k-card-aging-critical::before {
+  background: #7d5a4a;
+  animation: none;
+  opacity: .55;
+}
 
 /* ── Shape presets ───────────────────────────────────────────────
    [data-shape] on <html>, set from Settings > Appearance and

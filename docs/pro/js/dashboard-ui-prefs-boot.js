@@ -498,7 +498,61 @@ Object.assign(window.__NBD_CALL_REGISTRY, {
   nbdTogglePhotosOnly: nbdTogglePhotosOnly,
   d2dSetDispoFilter: d2dSetDispoFilter,
   nbdSettingsUpdateCalcomPreview: nbdSettingsUpdateCalcomPreview,
+  nbdSetMaterial: nbdSetMaterial,
+  nbdSyncMaterialBtns: nbdSyncMaterialBtns,
   nbdSetShapeStyle: nbdSetShapeStyle,
   nbdSyncShapeStyleBtns: nbdSyncShapeStyleBtns
+});
+
+// ── Material: Shop Copy / Golden Hour (Settings > Appearance) ──
+// A style axis alongside the color theme — status/identity treatment
+// on the job pipeline, reusing the board's existing stage-aging classes
+// (k-card-aging-warming/stale/critical, crm-pipeline.js) as the signal
+// rather than a parallel status system. 'none' (default) is the no-op;
+// the CSS in dashboard-app.css only activates under [data-material="..."].
+var NBD_MATERIAL_KEY = 'nbd_material_style';
+var NBD_MATERIALS = ['none', 'shop-copy', 'golden-hour'];
+function nbdSetMaterial(material) {
+  if (NBD_MATERIALS.indexOf(material) === -1) material = 'none';
+  if (material === 'none') document.documentElement.removeAttribute('data-material');
+  else document.documentElement.setAttribute('data-material', material);
+  try { localStorage.setItem(NBD_MATERIAL_KEY, material); } catch (e) {}
+  if (material === 'shop-copy') {
+    var href = 'https://fonts.googleapis.com/css2?family=Big+Shoulders+Stencil:wght@700;800&display=swap';
+    if (!document.querySelector('link[href="' + href + '"]')) {
+      var link = document.createElement('link');
+      link.rel = 'stylesheet';
+      link.href = href;
+      document.head.appendChild(link);
+    }
+  }
+  try {
+    var uid = (window._user && window._user.uid) || null;
+    if (uid && window.db && window.doc && window.setDoc) {
+      window.setDoc(window.doc(window.db, 'userSettings', uid), { materialStyle: material }, { merge: true })
+        .catch(function (err) { console.warn('[material-style] Firestore sync failed:', err.message); });
+    }
+  } catch (e) {}
+  nbdSyncMaterialBtns(material);
+  var label = material === 'none' ? 'None' : material === 'shop-copy' ? 'Shop Copy' : 'Golden Hour';
+  _nbdToast('Material: ' + label);
+}
+function nbdSyncMaterialBtns(material) {
+  if (!material) { try { material = localStorage.getItem(NBD_MATERIAL_KEY) || 'none'; } catch (e) { material = 'none'; } }
+  document.querySelectorAll('.material-style-btn').forEach(function (b) {
+    var active = b.dataset.material === material;
+    b.style.background = active ? 'var(--orange)' : 'var(--s)';
+    b.style.color = active ? 'var(--accent-fg,#fff)' : 'var(--m)';
+    b.style.borderColor = active ? 'var(--orange)' : 'var(--br)';
+  });
+}
+document.addEventListener('DOMContentLoaded', function () {
+  setTimeout(function () {
+    nbdSyncMaterialBtns();
+    // A saved shop-copy preference from a prior session needs its font
+    // loaded on this boot too — a fresh in-session choice loads it from
+    // inside nbdSetMaterial itself.
+    try { if (localStorage.getItem(NBD_MATERIAL_KEY) === 'shop-copy') nbdSetMaterial('shop-copy'); } catch (e) {}
+  }, 200);
 });
 })();
