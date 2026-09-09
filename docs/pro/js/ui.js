@@ -847,6 +847,14 @@ function switchSettingsTab(tab) {
     if (window.__NBD_CALL_REGISTRY && typeof window.__NBD_CALL_REGISTRY.nbdSyncShapeStyleBtns === 'function') {
       window.__NBD_CALL_REGISTRY.nbdSyncShapeStyleBtns();
     }
+    // Visual Overlays checkbox was hardcoded `checked` in markup with
+    // nothing ever syncing it from the actual (now-persisted) state —
+    // it would keep showing ON even after a saved OFF preference took
+    // effect on boot.
+    (function () {
+      var t = document.getElementById('te-overlays-toggle');
+      if (t && window.ThemeOverlays) t.checked = window.ThemeOverlays.isEnabled();
+    })();
     // === ThemeEngine: filter buttons + flat grid ===
     const teGrid = document.getElementById('te-theme-grid');
     const teCatBar = document.getElementById('te-cat-bar');

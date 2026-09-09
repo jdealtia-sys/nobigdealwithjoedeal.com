@@ -314,7 +314,14 @@ Return best estimates with "dataSource": "estimated" if some fields are unavaila
       throw new Error('Not authenticated. Log in to use Property Intel.');
     }
 
-    const proxyResp = await fetch('https://us-central1-nobigdeal-pro.cloudfunctions.net/claudeProxy', {
+    // Emulator switch (same Audit #3 rule as nbd-comms.js): otherwise this
+    // always CORS-fails against prod when tested from localhost.
+    const _functionsBase = /^(localhost|127\.0\.0\.1|\[::1\])$/.test(
+      (typeof location !== 'undefined' && location.hostname) || ''
+    )
+      ? 'http://127.0.0.1:5001/nobigdeal-pro/us-central1'
+      : 'https://us-central1-nobigdeal-pro.cloudfunctions.net';
+    const proxyResp = await fetch(`${_functionsBase}/claudeProxy`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

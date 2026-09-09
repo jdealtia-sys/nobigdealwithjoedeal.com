@@ -1209,7 +1209,7 @@
         gold: '#fcd34d',
         blue: '#60a5fa'
       },
-      overlay: { type: 'starfield' },
+      overlay: { type: 'star-field' }, // was 'starfield' — typo'd against the registered overlayLibrary key, silently rendered nothing
       font: { heading: null, body: null },
       cursor: null,
       borderRadius: '12px',
@@ -2732,7 +2732,11 @@
         gold: '#fbbf24',
         blue: '#3b82f6'
       },
-      overlay: { type: 'heat-shimmer' },
+      // 'heat-shimmer' was never registered in ThemeOverlays' overlayLibrary —
+      // silently rendered nothing. Repointed at the existing, working
+      // ember-particles effect at low density until a real heat-shimmer
+      // effect gets built.
+      overlay: { type: 'ember-particles', density: 0.4, speed: 0.8 },
       font: { heading: null, body: null },
       cursor: null,
       borderRadius: '20px',
@@ -4257,7 +4261,11 @@
         gold: '#fbbf24',
         blue: '#3b82f6'
       },
-      overlay: { type: 'flame-burst' },
+      // 'flame-burst' was never registered in ThemeOverlays' overlayLibrary —
+      // silently rendered nothing. Repointed at the existing, working
+      // ember-particles effect at higher density until a real flame-burst
+      // effect gets built.
+      overlay: { type: 'ember-particles', density: 0.9, speed: 1.2 },
       font: { heading: null, body: null },
       cursor: null,
       borderRadius: '12px',
@@ -5364,6 +5372,9 @@
           try { localStorage.setItem(LEGACY_KEY, themeKey); } catch (_) {} // write-through (F-1)
         }
         currentTheme = themeKey;
+        // CSS-only themes carry no `overlay` config in this registry-less
+        // path — clear whatever the previous theme's overlay was.
+        if (window.ThemeOverlays) window.ThemeOverlays.apply({ type: 'none' });
         dispatchThemeChange(themeKey);
         return themeKey;
       }
@@ -5449,6 +5460,13 @@
       }
 
       currentTheme = themeKey;
+      // Wire the theme's declared overlay (living-background/particle
+      // effect) to the overlay engine. This call was missing entirely —
+      // grepping the whole docs/pro/js tree found zero calls to
+      // ThemeOverlays.apply() from anywhere, so every theme's `overlay`
+      // field (37 registered effect types) has been dead configuration
+      // since it was added; selecting a theme changed colors only.
+      if (window.ThemeOverlays) window.ThemeOverlays.apply(theme.overlay || { type: 'none' });
       dispatchThemeChange(themeKey);
       return themeKey;
     },
