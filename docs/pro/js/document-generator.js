@@ -893,6 +893,17 @@ window.NBDDocGen = {
     }
 
     if (template === 'contract') {
+      // doc-preflight's CONTRACT schema collects `paymentSchedule` as a free-text
+      // textarea ("Payment Schedule / Terms" -- see doc-preflight.js DOC_SCHEMAS
+      // .contract), not the {stage,due,amount} row shape this branch used to
+      // assume, so it arrives here as a STRING and `.map()` threw. A prose
+      // schedule has no discrete stage/amount to put in the table (an invented
+      // $0.00 row would misstate the contract), so route the string into the
+      // paymentTerms paragraph below (contract.hbs section "3 · Payment Terms")
+      // instead -- only a real array populates the table.
+      const scheduleIsArray = Array.isArray(data.paymentSchedule);
+      const scheduleText = (!scheduleIsArray && typeof data.paymentSchedule === 'string')
+        ? data.paymentSchedule.trim() : '';
       return {
         coverTagline: 'The work,<br>committed in writing.',
         coverSub:     'A complete agreement covering scope, price, schedule, payment terms, and warranty. Both parties sign at the foot.',
@@ -905,12 +916,12 @@ window.NBDDocGen = {
         contract: { number: data.contractNumber, date: data.contractDate || todayStr, startDate: data.startDate, completionDate: data.completionDate },
         scope: data.scope || null,
         contractPrice: Number(data.contractPrice || data.total || 0),
-        paymentSchedule: (data.paymentSchedule || []).map(p => ({
+        paymentSchedule: scheduleIsArray ? data.paymentSchedule.map(p => ({
           stage: p.stage || p.label,
           dueDescription: p.due || p.dueDescription || '',
           amount: Number(p.amount || 0),
-        })),
-        paymentTerms: data.paymentTerms || 'Fifty percent (50%) due upon contract execution; remaining balance due upon substantial completion of work.',
+        })) : [],
+        paymentTerms: data.paymentTerms || scheduleText || 'Fifty percent (50%) due upon contract execution; remaining balance due upon substantial completion of work.',
         materials: data.materials || null,
         warranty: data.warranty || null,
         rightToCancel: data.rightToCancel || 'You, the buyer, may cancel this transaction at any time prior to midnight of the third business day after the date of this transaction. See the attached Notice of Cancellation form for an explanation of this right.',
