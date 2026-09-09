@@ -1988,6 +1988,127 @@
   };
 
   // ═══════════════════════════════════════════════════════════════
+  // TEMPLATE: 5-YEAR STORM HISTORY REPORT
+  // ═══════════════════════════════════════════════════════════════
+  // Renders the same free NOAA/NWS Local Storm Reports data the public
+  // /storm-report lead-magnet already pulls (functions/storm-report.js —
+  // 5 years, 30 mi radius, no API key, no per-call cost) as a branded
+  // document a rep can hand an adjuster in place of a paid third-party
+  // weather-verification report (e.g. GAF's). NBDDocGen.generate() attaches
+  // `data.stormReport` (or `data._stormReportError`) BEFORE this template
+  // runs — see document-generator.js:_attachStormHistory — so this stays a
+  // pure, synchronous renderer like every other template in this file.
+  DG.renderStormHistoryReport = function(data) {
+    const d = Object.assign({}, data);
+    const sr = d.stormReport || null;
+    const addr = esc(d.address || d.homeownerAddress || 'the property');
+    const genDate = d.date || new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+
+    if (!sr) {
+      // Best-effort failure path — no address, a geocode miss, or the
+      // NOAA/IEM proxy was down. Never a blank/broken document.
+      return page('Storm History Report', `
+        ${letterhead()}
+        <div class="section" style="text-align:center;padding:60px 20px;">
+          <div style="font-size:40px;margin-bottom:12px;">&#9928;&#65039;</div>
+          <h1 style="color:${S};font-size:22px;">Storm History Unavailable</h1>
+          <p style="color:#666;font-size:14px;max-width:440px;margin:12px auto 0;">
+            We couldn't pull verified NOAA storm history for ${addr} right now${d._stormReportError ? ' (' + esc(d._stormReportError) + ')' : ''}.
+            Make sure the property has a complete, geocodable address on file, then try again.
+          </p>
+        </div>
+        ${footer('Storm History Report')}
+      `);
+    }
+
+    const c = sr.counts || {};
+    const events = Array.isArray(sr.events) ? sr.events : [];
+    // Notable-first, same triage the public tool uses: hail + tornado +
+    // any non-minor wind, newest first, capped so the printed doc stays a
+    // page or two instead of 200 rows of minor wind reports.
+    let notable = events.filter(e => e.type !== 'wind' || e.severity !== 'minor').slice(0, 60);
+    if (!notable.length) notable = events.slice(0, 30);
+    const fmtDate = (s) => { try { return new Date(s).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }); } catch (_) { return '—'; } };
+    const typeColor = { hail: '#2563eb', wind: '#16a34a', tornado: '#dc2626' };
+    const stat = (v, l) => `<div style="flex:1;min-width:90px;background:${WSH};border:1px solid ${RL};border-radius:10px;padding:12px 8px;text-align:center;">
+      <div style="font-size:24px;font-weight:800;color:${A};line-height:1;">${v}</div>
+      <div style="font-size:10px;color:${G};text-transform:uppercase;letter-spacing:.05em;font-weight:700;margin-top:4px;">${l}</div></div>`;
+
+    return page('Storm History Report', `
+      <style>
+        .shr-hero { background:linear-gradient(135deg,#1e3a5f 0%,${S} 100%); color:#fff;
+          padding:32px; border-radius:12px; margin-bottom:24px; }
+        .shr-table { width:100%; border-collapse:collapse; font-size:12.5px; }
+        .shr-table th { background:${WSH}; text-align:left; padding:9px 10px; font-size:10px;
+          text-transform:uppercase; letter-spacing:.05em; color:${G}; border-bottom:1px solid ${RL}; }
+        .shr-table td { padding:8px 10px; border-bottom:1px solid ${WSH}; color:${INK}; }
+        .shr-tag { display:inline-block; font-size:10px; font-weight:800; text-transform:uppercase;
+          padding:2px 8px; border-radius:4px; color:#fff; }
+      </style>
+      ${letterhead()}
+      <div class="shr-hero">
+        <div style="font-size:11px;text-transform:uppercase;letter-spacing:.1em;opacity:.75;">5-Year Verified Storm History</div>
+        <h1 style="margin:6px 0 2px;color:#fff;font-size:26px;">${addr}</h1>
+        <div style="font-size:12px;opacity:.8;">Prepared ${esc(genDate)} &middot; ${sr.radiusMi || 30} mi radius &middot; ${sr.years || 5}-year lookback</div>
+      </div>
+
+      <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:22px;">
+        ${stat(c.total || 0, 'Total Events')}
+        ${stat(c.hail || 0, 'Hail')}
+        ${stat(c.wind || 0, 'Wind')}
+        ${stat(c.tornado || 0, 'Tornado')}
+        ${stat((sr.maxHail || 0) + '&Prime;', 'Max Hail Size')}
+        ${stat(c.stormDays || 0, 'Storm Days')}
+      </div>
+
+      <div class="section" style="border:1px solid ${RL};border-radius:10px;overflow:hidden;margin-bottom:8px;">
+        <table class="shr-table">
+          <thead><tr><th>Date</th><th>Type</th><th>Magnitude</th><th>Distance</th><th>Nearest City</th></tr></thead>
+          <tbody>
+            ${notable.length ? notable.map(e => `<tr>
+              <td>${fmtDate(e.date)}</td>
+              <td><span class="shr-tag" style="background:${typeColor[e.type] || '#888'};">${esc(e.type || '—')}</span></td>
+              <td>${e.magnitude ? esc(String(e.magnitude)) + esc(e.unit || '') : '—'}</td>
+              <td>${e.distanceMi != null ? e.distanceMi + ' mi' : '—'}</td>
+              <td>${esc(e.city || '—')}</td>
+            </tr>`).join('') : `<tr><td colspan="5" style="text-align:center;color:${G};padding:20px;">No individual storm reports on file within range.</td></tr>`}
+          </tbody>
+        </table>
+      </div>
+      <p style="font-size:10.5px;color:${G};margin:6px 0 24px;">
+        Source: ${esc(sr.source || 'NWS Local Storm Reports (NOAA) via Iowa Environmental Mesonet')}.
+        Publicly available, independently verifiable government weather data — not a paid third-party
+        weather-verification service. This report documents recorded storm activity near the property;
+        it is not an inspection and does not determine whether damage occurred or whether a claim will
+        be approved. A free on-site inspection is the next step to confirm actual roof condition.
+      </p>
+
+      ${(() => {
+        // Honesty gate: don't claim "verified storm activity" on a report
+        // that found none — this document exists to be handed to an
+        // adjuster, so it has to stay accurate at zero just as much as at
+        // a high count. Mirrors the public /storm-report tool's own
+        // three-tier verdict() (storm-report-page.js) rather than a single
+        // static claim regardless of what the data actually shows.
+        const hasNotable = notable.length > 0 && (c.hail || c.tornado || c.wind);
+        const headline = c.total > 0
+          ? (hasNotable ? 'Verified storm activity near this property.' : 'Some storm activity on record — mostly minor.')
+          : 'No storm reports on file for this property in the lookback window.';
+        const body = c.total > 0
+          ? 'The next step is a free, no-obligation roof inspection to document any damage.'
+          : 'That doesn’t rule out damage — a free on-site inspection is still the only way to know for sure.';
+        return `<div class="section" style="background:${A};color:#fff;padding:24px;border-radius:12px;text-align:center;">
+        <div style="font-size:18px;font-weight:700;">${esc(headline)}</div>
+        <div style="font-size:13px;margin-top:6px;opacity:.9;">${esc(body)}</div>
+        <div style="font-size:20px;font-weight:700;margin-top:10px;">${esc(d.emergencyPhone) || C.phone}</div>
+      </div>`;
+      })()}
+
+      ${footer('Storm History Report — ' + (sr.years || 5) + '-Year NOAA Data')}
+    `);
+  };
+
+  // ═══════════════════════════════════════════════════════════════
   // TEMPLATE 15: INSURANCE CLAIM PROCESS GUIDE
   // ═══════════════════════════════════════════════════════════════
   DG.renderClaimGuide = function(data) {
@@ -2503,7 +2624,8 @@
     neighborhood_mailer: { name: 'Neighborhood Mailer', template: 'renderNeighborhoodMailer' },
     testimonial_sheet: { name: 'Customer Testimonial Sheet', template: 'renderTestimonialSheet' },
     thank_you: { name: 'Thank You Letter', template: 'renderThankYou' },
-    payment_agreement: { name: 'Payment Agreement', template: 'renderPaymentAgreement' }
+    payment_agreement: { name: 'Payment Agreement', template: 'renderPaymentAgreement' },
+    storm_history_report: { name: 'Storm History Report (5-Yr)', template: 'renderStormHistoryReport' }
   });
 
   // ═══════════════════════════════════════════════════════════════
@@ -2530,7 +2652,12 @@
       neighborhood_mailer: ['neighborhoodName','projectAddress'],
       testimonial_sheet: [],
       thank_you: ['homeownerName','address','projectType','completionDate'],
-      payment_agreement: ['homeownerName','address','totalAmount','depositAmount','depositDue','progressAmount','progressDue','finalAmount','finalDue','projectDescription']
+      payment_agreement: ['homeownerName','address','totalAmount','depositAmount','depositDue','progressAmount','progressDue','finalAmount','finalDue','projectDescription'],
+      // Empty on purpose — everything the template needs (storm counts +
+      // events) is fetched live from the address by NBDDocGen.generate()'s
+      // _attachStormHistory() step, so this doc type has no DOC_SCHEMAS
+      // entry either and generates one-click, no fill form.
+      storm_history_report: []
     });
   }
 

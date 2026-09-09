@@ -1004,3 +1004,56 @@ across every object are the tell.
 - Nothing diffs the live bucket's actual prefixes against `storage.rules`, so a
   prefix that exists only as an admin-SDK write is still discoverable only by
   reading code.
+
+---
+
+## §14 — Storm History Report doc type + mobile audit (added 2026-09-09)
+
+Jo's ask: turn the free 5-year NOAA data the public `/storm-report` page
+already pulls into a one-click CRM document — "save me from having to buy a
+GAF weather report." Shipped, then a same-session follow-up on his own
+report that Files "doesn't seem quite the same" on his phone turned into a
+scoped mobile audit. **Uncommitted at session end** — branch
+`fix/gbb-tier-consolidation`, no PR opened, Jo has not asked for one yet.
+Full write-up:
+[SESSION-2026-09-09-storm-history-report-and-mobile-audit](SESSION-2026-09-09-storm-history-report-and-mobile-audit.md).
+
+**Shipped:** a new `storm_history_report` document type
+(`document-generator-templates.js`/`.js`), reusing `functions/storm-report.js`'s
+existing free, cached, unauthenticated endpoint same-origin — no new
+function, no new secret. Wired into both `customer.html` and `dashboard.html`
+Template Library. 377 docgen-render assertions (was 366), all green.
+
+**Two real bugs the live emulator test caught, both fixed:** a cold-cache
+IEM lookup took 38s server-side (5 sequential yearly fetches) against a 20s
+client timeout — bumped to 60s, repeat lookups are 2ms (cached); and the CTA
+banner claimed "Verified storm activity" even on a **zero-event** report —
+now honest, locked in with a regression test.
+
+**Mobile audit, same root cause found three times:** tab/chip/stat rows
+styled `overflow-x:auto` with the scrollbar effectively invisible on iOS, so
+they silently truncate. Fixed with a CSS `mask-image` right-edge fade (no
+JS) on `customer.html`'s `.jump-nav` (Files/Messages/Contact were going
+undiscovered — almost certainly Jo's actual complaint), `dashboard.html`'s
+pipeline stage-filter row, and Close Board's stats row. Three more matches
+of the same CSS pattern (`.map-fab-bar`, `.step-bar`, `.crm-rev-strip`) were
+checked and are dead code / a superseded legacy view — correctly left
+untouched rather than "fixed" for nothing.
+
+### Open, in the order I would take them
+
+1. **The estimate builder (V2) was never reached at mobile width** — highest
+   density of tables/pricing UI in the CRM, never swept this session.
+   Highest-value next mobile check.
+2. **Mobile audit is scoped, not exhaustive** — Prospects, Drawing Tool,
+   Sales Training, Products, Job Templates, Expenses, Money, Settings,
+   Leaderboard, Rep OS all unchecked.
+3. **Cross-tenant same-origin assumption for the storm-report fetch is
+   unverified** against an actual second tenant custom domain.
+4. **Unrelated finding, not fixed:** re-opening an already-generated
+   document's "View" button hits production `cloudfunctions.net` against
+   the local emulator and CORS-fails — a lazy `getFunctions()` call site in
+   `customer-documents.js` (and the same shape in
+   `document-generator.js:_tryServerRender`) never routes through
+   `nbd-emulator-connect.js`. Local-dev-only, does not affect production.
+   Worth a session of its own only if local doc-gen testing keeps coming up.

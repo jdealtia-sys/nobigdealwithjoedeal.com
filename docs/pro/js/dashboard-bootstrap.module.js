@@ -691,7 +691,8 @@
     before_after_report:        { needs: ['beforeAfterPhotos'],         label: 'Before & After Report', msg: 'Need BOTH before and after photos uploaded.' },
     financing_options:          { needs: ['jobValue'],                  label: 'Financing Options',   msg: 'Add a job value or build an estimate.' },
     assignment_of_benefits:     { needs: ['claim'],                     label: 'Assignment of Benefits', msg: 'Requires an insurance claim (carrier + claim #).' },
-    payment_agreement:          { needs: ['jobValue', 'contact'],       label: 'Payment Agreement',   msg: 'Add job value and customer contact info.' }
+    payment_agreement:          { needs: ['jobValue', 'contact'],       label: 'Payment Agreement',   msg: 'Add job value and customer contact info.' },
+    storm_history_report:       { needs: ['address'],                  label: 'Storm History Report', msg: 'Add a property address first — it\'s used to pull the NOAA storm history.' }
   };
 
   function _dashGetCustomerDocData(leadId) {
@@ -716,6 +717,9 @@
       address: lead.address || '', homeownerAddress: lead.address || '',
       phone:   lead.phone   || '', customerPhone:   lead.phone   || '',
       email:   lead.email   || '', customerEmail:   lead.email   || '',
+      // Already-geocoded pin (set on save / from the map), if any — lets the
+      // Storm History Report doc skip a fresh Nominatim lookup.
+      lat: (lead.lat != null ? lead.lat : null), lng: (lead.lng != null ? lead.lng : null),
       // Job — subType + trades added for parity with customer.html's
       // getCustomerDocData (Pre-W159 data compat sweep). Without these,
       // doc templates that switch on sub-type (e.g. storm AOB vs fire
