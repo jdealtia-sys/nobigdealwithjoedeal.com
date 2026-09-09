@@ -70,9 +70,10 @@ function loadCompanyProfile() {
   // NBD itself DOES carry its credentials — the blanking above must not be so
   // aggressive that the real owner loses their own badges.
   ok('NBD carries its own affiliate credentials',
-    Array.isArray(b.affiliates) && b.affiliates.length === 2 &&
-    b.affiliates.some(a => a.name === 'GAF Certified'   && a.number === '#1162011') &&
-    b.affiliates.some(a => a.name === 'TAMKO Pro Gold'  && a.number === '#181382'));
+    Array.isArray(b.affiliates) && b.affiliates.length === 3 &&
+    b.affiliates.some(a => a.name === 'GAF Certified'   && a.number === '#1162011' && a.badge === 'gaf') &&
+    b.affiliates.some(a => a.name === 'TAMKO Pro Gold'  && a.number === '#181382'  && a.badge === 'tamko') &&
+    b.affiliates.some(a => a.name === 'Locally Owned & Operated' && a.badge === 'localOperator'));
 
   // Phase C step 1 — contact.slackWebhook + integrations{} schema on the tenant doc.
   ok('NBD contact.slackWebhook field present', 'slackWebhook' in b.contact);
