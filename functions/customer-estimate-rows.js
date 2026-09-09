@@ -176,7 +176,19 @@
     if (isPerSq) {
       const grand = estimateValue(est);
       if (!grand) return [];
-      const tier = String(est.selectedTier || est.tier || '').replace(/^./, function (c) { return c.toUpperCase(); });
+      // Customer-facing label, not the raw internal good/better/best key
+      // (GBB audit 2026-09-09 §9 — this line was still printing "Better
+      // tier" on invoices/receipts after every other surface moved to
+      // Standard/Preferred/Elite). No shared-config import: this file ships
+      // as a byte-identical mirror to BOTH docs/pro/js/ (browser, has
+      // estimate-config.js) and functions/ (server, no window/DOM, no
+      // estimate-config.js) — a 3-entry literal map is the simplest thing
+      // that stays correct in both runtimes. Unknown/future tier keys fall
+      // back to the old capitalize-first-letter behavior rather than
+      // printing blank.
+      const TIER_LABELS = { good: 'Standard', better: 'Preferred', best: 'Elite' };
+      const rawTier = String(est.selectedTier || est.tier || '');
+      const tier = TIER_LABELS[rawTier] || rawTier.replace(/^./, function (c) { return c.toUpperCase(); });
       return [shape({
         code: '', desc: 'Roofing system' + (tier ? ' — ' + tier + ' tier' : ''),
         unit: 'ea', qty: 1, rate: grand, total: grand,
