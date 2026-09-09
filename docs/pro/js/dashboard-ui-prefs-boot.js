@@ -320,6 +320,48 @@ function nbdGxSetIntensityFromSlider(pct) {
 function nbdOverlaysSetEnabled(on) { if (window.ThemeOverlays) window.ThemeOverlays.setEnabled(!!on); _nbdToast('Visual overlays ' + (on ? 'ON' : 'OFF')); }
 function nbdSoundsSetEnabled(on)   { if (window.ThemeSounds)   window.ThemeSounds.setEnabled(!!on);   _nbdToast('Ambient sound ' + (on ? 'ON' : 'OFF')); }
 
+// ── Shape & Depth (Settings > Appearance) ──
+// Orthogonal to the color theme (data-theme) and spacing (data-density) —
+// data-shape controls corner radius / elevation / motion character only.
+// 'sharp' is the true no-op default: dashboard-app.css's :root tokens
+// (--r-btn, --r-card, --r-input, --r-modal, --elevation-*) already equal
+// today's real hardcoded values, so an absent attribute renders identically
+// to before this feature existed. See shape-preboot.js for the pre-paint
+// stamp that avoids a flash on load.
+var NBD_SHAPE_STYLE_KEY = 'nbd_shape_style';
+var NBD_SHAPE_STYLES = ['sharp', 'linear', 'pressed', 'soft', 'elevated', 'fluent', 'glass', 'tonal'];
+function nbdSetShapeStyle(shape) {
+  if (NBD_SHAPE_STYLES.indexOf(shape) === -1) shape = 'sharp';
+  if (shape === 'sharp') document.documentElement.removeAttribute('data-shape');
+  else document.documentElement.setAttribute('data-shape', shape);
+  try { localStorage.setItem(NBD_SHAPE_STYLE_KEY, shape); } catch (e) {}
+  // Fire-and-forget cross-device sync, same merge write ThemeEngine.apply()
+  // already makes for the color theme — local paint never waits on this.
+  try {
+    var uid = (window._user && window._user.uid) || null;
+    if (uid && window.db && window.doc && window.setDoc) {
+      window.setDoc(window.doc(window.db, 'userSettings', uid), { shapeStyle: shape }, { merge: true })
+        .catch(function (err) { console.warn('[shape-style] Firestore sync failed:', err.message); });
+    }
+  } catch (e) {}
+  nbdSyncShapeStyleBtns(shape);
+  _nbdToast('Shape: ' + shape.charAt(0).toUpperCase() + shape.slice(1));
+}
+// Paint the segmented control's active state. Called after a change, on
+// Settings > Appearance hydrate (ui.js switchSettingsTab), and at boot.
+function nbdSyncShapeStyleBtns(shape) {
+  if (!shape) { try { shape = localStorage.getItem(NBD_SHAPE_STYLE_KEY) || 'sharp'; } catch (e) { shape = 'sharp'; } }
+  document.querySelectorAll('.shape-style-btn').forEach(function (b) {
+    var active = b.dataset.shape === shape;
+    b.style.background = active ? 'var(--orange)' : 'var(--s)';
+    b.style.color = active ? 'var(--accent-fg,#fff)' : 'var(--m)';
+    b.style.borderColor = active ? 'var(--orange)' : 'var(--br)';
+  });
+}
+document.addEventListener('DOMContentLoaded', function () {
+  setTimeout(function () { nbdSyncShapeStyleBtns(); }, 200);
+});
+
 // ── Comfort tab ternaries (boolean → enum string) ──
 // nbdComfortSet takes (key, value) where value is an enum string. The
 // inline handlers were `nbdComfortSet('motion', this.checked ? 'reduce' : 'normal')`
@@ -457,7 +499,9 @@ Object.assign(window.__NBD_CALL_REGISTRY, {
   d2dSetDispoFilter: d2dSetDispoFilter,
   nbdSettingsUpdateCalcomPreview: nbdSettingsUpdateCalcomPreview,
   nbdSetMaterial: nbdSetMaterial,
-  nbdSyncMaterialBtns: nbdSyncMaterialBtns
+  nbdSyncMaterialBtns: nbdSyncMaterialBtns,
+  nbdSetShapeStyle: nbdSetShapeStyle,
+  nbdSyncShapeStyleBtns: nbdSyncShapeStyleBtns
 });
 
 // ── Material: Shop Copy / Golden Hour (Settings > Appearance) ──
