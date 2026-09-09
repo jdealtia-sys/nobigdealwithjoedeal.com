@@ -179,7 +179,9 @@
           var token = await user.getIdToken();
           // Emulator switch (same Audit #3 rule as nbd-comms.js): otherwise
           // this always CORS-fails against prod when tested from localhost.
-          var _functionsBase = /^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname)
+          var _functionsBase = /^(localhost|127\.0\.0\.1|\[::1\])$/.test(
+            (typeof location !== 'undefined' && location.hostname) || ''
+          )
             ? 'http://127.0.0.1:5001/nobigdeal-pro/us-central1'
             : 'https://us-central1-nobigdeal-pro.cloudfunctions.net';
           var res = await fetch(_functionsBase + '/createCustomerPortalSession', {
@@ -226,7 +228,9 @@
           var token = await user.getIdToken();
           // Emulator switch (same Audit #3 rule as nbd-comms.js): otherwise
           // this always CORS-fails against prod when tested from localhost.
-          var _functionsBase = /^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname)
+          var _functionsBase = /^(localhost|127\.0\.0\.1|\[::1\])$/.test(
+            (typeof location !== 'undefined' && location.hostname) || ''
+          )
             ? 'http://127.0.0.1:5001/nobigdeal-pro/us-central1'
             : 'https://us-central1-nobigdeal-pro.cloudfunctions.net';
           var res = await fetch(_functionsBase + '/createCheckoutSession', {

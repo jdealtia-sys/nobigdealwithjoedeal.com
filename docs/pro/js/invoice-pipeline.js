@@ -14,7 +14,12 @@ let _NBD_IP_DELEGATE_BOUND; // module-local (globals Tranche 1 — was window.*)
   // prod even from localhost, so createStripePaymentLink CORS-failed against
   // prod's CORS_ORIGINS allowlist before ever reaching the local Stripe
   // secret (documentation/audit/STRIPE-INVOICING-STATUS-2026-09-08.md).
-  const CLOUD_FUNCTION_BASE = /^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname)
+  // Guarded like nbd-comms.js's FUNCTIONS_BASE — this file loads via a bare
+  // vm.runInNewContext() in tests/estimate-profit.test.js and
+  // tests/invoice-pipeline.test.js, which has no `location` global at all.
+  const CLOUD_FUNCTION_BASE = /^(localhost|127\.0\.0\.1|\[::1\])$/.test(
+    (typeof location !== 'undefined' && location.hostname) || ''
+  )
     ? 'http://127.0.0.1:5001/nobigdeal-pro/us-central1'
     : 'https://us-central1-nobigdeal-pro.cloudfunctions.net';
   let _collectOnlineCache = null; // capability resolved once per page load (D7)

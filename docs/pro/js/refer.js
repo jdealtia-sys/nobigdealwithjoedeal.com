@@ -3,7 +3,9 @@
   // Emulator switch (same Audit #3 rule as nbd-comms.js / esign-sign.js /
   // portal.js / sign-page.js) — this is a public, unauthenticated page, so
   // it's the same untestable-from-localhost pattern as the other token pages.
-  const FUNCTIONS_BASE = /^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname)
+  const FUNCTIONS_BASE = /^(localhost|127\.0\.0\.1|\[::1\])$/.test(
+    (typeof location !== 'undefined' && location.hostname) || ''
+  )
     ? 'http://127.0.0.1:5001/nobigdeal-pro/us-central1'
     : 'https://us-central1-nobigdeal-pro.cloudfunctions.net';
 
