@@ -2348,8 +2348,11 @@
     if (data.insuranceCompany == null && data.insCarrier) data.insuranceCompany = data.insCarrier;                     // supplement_request
     if (data.issueDate == null && data.installDate) data.issueDate = data.installDate;                                 // warranty_certificate
     if (data.warranty == null && data.warrantyTier) {                                                                  // contract (renderer's "5 · Warranty"
-      var _wt = window.NBDDocGen && window.NBDDocGen.WARRANTY_TIERS && window.NBDDocGen.WARRANTY_TIERS[data.warrantyTier]; // section is dropped entirely
-      if (_wt) data.warranty = _wt.description + ' ' + _wt.details;                                                    // when warranty is null/empty)
+      var _wCfg = window.NBD_ESTIMATE_CONFIG;                                                                          // section is dropped entirely when
+      var _wTxt = (_wCfg && typeof _wCfg.tierWarrantyText === 'function')                                              // warranty is null/empty). Mirrors
+        ? _wCfg.tierWarrantyText(data.warrantyTier) : 'Lifetime workmanship warranty.';                                // renderWarrantyBadge's composition
+      var _wMfg = window.NBDDocGen && window.NBDDocGen.MANUFACTURER_COVERAGE && window.NBDDocGen.MANUFACTURER_COVERAGE[data.warrantyTier]; // (2026-09-09 GBB
+      data.warranty = _wMfg ? (_wTxt + ' ' + _wMfg.level + ' manufacturer coverage — ' + _wMfg.note) : _wTxt;          // tier consolidation, #1529)
     }
     if (data.scopeSummary == null && data.scopeCompleted) data.scopeSummary = data.scopeCompleted;                     // certificate_of_completion
     if (!data.neighborhoodName && data.affectedArea) data.neighborhoodName = data.affectedArea;                       // neighborhood_mailer (required Affected Area → neighborhood label)

@@ -32,6 +32,14 @@ const DG_DIR = path.join(__dirname, '..', 'docs/pro/js');
 const SRC_PREFLIGHT = fs.readFileSync(path.join(DG_DIR, 'doc-preflight.js'), 'utf8');
 const SRC_DOCGEN    = fs.readFileSync(path.join(DG_DIR, 'document-generator.js'), 'utf8');
 const SRC_TEMPLATES = fs.readFileSync(path.join(DG_DIR, 'document-generator-templates.js'), 'utf8');
+// estimate-config.js: dashboard.html loads this before document-generator.js /
+// doc-preflight.js (its own comment there: "MUST load before estimates.js +
+// estimate-builder-v2.js"), and it's the source of truth the GBB tier
+// consolidation (#1529) moved tier labels + warranty text onto
+// (window.NBD_ESTIMATE_CONFIG.tierLabel/tierWarrantyText). Load it here too so
+// this sandbox matches the real page instead of silently exercising only the
+// no-config fallback text every renderer carries for when it fails to load.
+const SRC_ESTCFG    = fs.readFileSync(path.join(DG_DIR, 'estimate-config.js'), 'utf8');
 
 // One sandbox holding the real hydrateDerivedFields + the real renderers, wired
 // as the browser wires them. Brand stub mirrors docgen-render.test.js.
@@ -46,6 +54,7 @@ function loadEnv() {
     console: { log() {}, warn() {}, error() {} },
     setTimeout, clearTimeout, Date, Math, JSON,
   };
+  vm.runInNewContext(SRC_ESTCFG, sandbox, { filename: 'estimate-config.js' });
   vm.runInNewContext(SRC_DOCGEN, sandbox, { filename: 'document-generator.js' });
   vm.runInNewContext(SRC_TEMPLATES, sandbox, { filename: 'document-generator-templates.js' });
   vm.runInNewContext(SRC_PREFLIGHT, sandbox, { filename: 'doc-preflight.js' });
@@ -492,8 +501,9 @@ function buildServerPayloadViaPreflight(preflightData) {
     payload.paymentTerms === '50% due upon contract execution; remaining balance due upon substantial completion.');
   ok('server payload: warrantyTier bridges to warranty text (contract.hbs "5 · Warranty" section is dropped entirely when warranty is null)',
     typeof payload.warranty === 'string' && payload.warranty.length > 0);
-  ok('server payload: warranty text reflects the selected "best" tier, not a fabricated/wrong one',
-    /20-Year/.test(payload.warranty) && /Premium/.test(payload.warranty));
+  ok('server payload: warranty text reflects the selected "best"/Elite tier, not a fabricated/wrong one (lifetime + full transfer + inspection + Premium mfr, per estimate-config.js TIER_DISPLAY.best)',
+    /Lifetime/.test(payload.warranty) && /fully transferable/.test(payload.warranty)
+      && /annual courtesy inspection/.test(payload.warranty) && /Premium/.test(payload.warranty));
 }
 {
   // A real {stage,due,amount} array (built programmatically rather than typed
