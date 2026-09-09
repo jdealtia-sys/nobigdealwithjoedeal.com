@@ -8,7 +8,20 @@ let _NBD_IP_DELEGATE_BOUND; // module-local (globals Tranche 1 — was window.*)
 (function() {
   'use strict';
 
-  const CLOUD_FUNCTION_BASE = 'https://us-central1-nobigdeal-pro.cloudfunctions.net';
+  // Emulator switch (same Audit #3 rule as nbd-comms.js / esign-sign.js /
+  // portal.js / sign-page.js / estimate-view.js): without this, every direct
+  // Cloud Function call from here (createStripePaymentLink, etc.) targeted
+  // prod even from localhost, so createStripePaymentLink CORS-failed against
+  // prod's CORS_ORIGINS allowlist before ever reaching the local Stripe
+  // secret (documentation/audit/STRIPE-INVOICING-STATUS-2026-09-08.md).
+  // Guarded like nbd-comms.js's FUNCTIONS_BASE — this file loads via a bare
+  // vm.runInNewContext() in tests/estimate-profit.test.js and
+  // tests/invoice-pipeline.test.js, which has no `location` global at all.
+  const CLOUD_FUNCTION_BASE = /^(localhost|127\.0\.0\.1|\[::1\])$/.test(
+    (typeof location !== 'undefined' && location.hostname) || ''
+  )
+    ? 'http://127.0.0.1:5001/nobigdeal-pro/us-central1'
+    : 'https://us-central1-nobigdeal-pro.cloudfunctions.net';
   let _collectOnlineCache = null; // capability resolved once per page load (D7)
 
   // ═══════════════════════════════════════════════════════════════════════
