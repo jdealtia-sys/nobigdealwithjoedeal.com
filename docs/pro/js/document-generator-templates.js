@@ -419,7 +419,7 @@
     const vp = cpDefaults().valueProps;
     if (Array.isArray(vp) && vp.length) return vp;
     return [
-      {icon:'🛡️',title:'Warranty Protection',desc:'Up to 20-year workmanship warranty plus full manufacturer coverage on all materials.'},
+      {icon:'🛡️',title:'Warranty Protection',desc:'Lifetime workmanship warranty on every tier, plus full manufacturer coverage on all materials.'},
       {icon:'📋',title:'Insurance Specialists',desc:'We handle the entire insurance claim process so you can focus on what matters.'},
       {icon:'⭐',title:'5-Star Service',desc:'Exceptional service from first contact through final walkthrough and beyond.'},
       {icon:'💰',title:'Flexible Financing',desc:'Affordable monthly payments through our financing marketplace partner.'}
