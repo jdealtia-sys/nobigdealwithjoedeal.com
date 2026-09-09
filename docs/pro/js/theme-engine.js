@@ -1237,7 +1237,10 @@
         gold: '#fbbf24',
         blue: '#6366f1'
       },
-      overlay: { type: 'none' },
+      // Was 'none' — a real overlay was never assigned. star-field is a
+      // genuine fit for a theme literally named Galaxy: two parallax
+      // star-depth layers, two static planets, a rare shooting star.
+      overlay: { type: 'star-field', color: 'rgba(230,230,255,.9)', density: 0.6, speed: 0.3 },
       font: { heading: null, body: null },
       cursor: null,
       borderRadius: '12px',
