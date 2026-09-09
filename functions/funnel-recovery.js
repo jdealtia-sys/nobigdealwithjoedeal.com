@@ -40,6 +40,7 @@ const { Timestamp, getFirestore } = require('firebase-admin/firestore');
 const { FieldValue } = require('firebase-admin/firestore');
 const { Resend } = require('resend');
 const { httpRateLimit } = require('./integrations/upstash-ratelimit');
+const { resendRejected, resendErrorMessage } = require('./resend-guard');
 
 // ───────────────────────────────────────────────────────────────
 // Config
@@ -318,7 +319,7 @@ exports.runAbandonRecovery = onSchedule(
       }
 
       try {
-        await resend.emails.send({
+        const response = await resend.emails.send({
           from: fromAddress,
           to: data.email,
           replyTo: REPLY_TO,
@@ -329,6 +330,13 @@ exports.runAbandonRecovery = onSchedule(
             'X-NBD-Campaign': 'funnel-recovery-v1',
           },
         });
+        // Resend resolves { data: null, error } on an API-level rejection
+        // instead of throwing — without this check recoveryEmailSentAt
+        // gets stamped and the top-of-loop `if (data.recoveryEmailSentAt)
+        // skip` guard means this funnel would NEVER be retried.
+        if (resendRejected(response)) {
+          throw new Error(resendErrorMessage(response));
+        }
 
         await doc.ref.update({
           recoveryEmailSentAt: FieldValue.serverTimestamp(),

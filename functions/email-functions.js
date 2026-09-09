@@ -17,6 +17,7 @@ const { getAuth } = require('firebase-admin/auth');
 const { FieldValue } = require('firebase-admin/firestore');
 const { Resend } = require('resend');
 const { enforceRateLimit, httpRateLimit } = require('./rate-limit');
+const { resendRejected, resendErrorMessage } = require('./resend-guard');
 
 // Secrets
 const RESEND_API_KEY = defineSecret('RESEND_API_KEY');
@@ -398,9 +399,23 @@ exports.sendEmail = onRequest(
         attachments: attachments || []
       });
 
-      // Log to Firestore
       const db = getFirestore();
       const companyId = decoded.companyId || null;
+
+      // Resend does NOT throw on an API-level rejection (bad/expired key,
+      // suspended account, rejected sender domain, rate limit) — it
+      // resolves to { data: null, error: {...} }. Without this check every
+      // such rejection fell through to the success path below and was
+      // logged + returned to the CRM as a genuine send.
+      if (resendRejected(response)) {
+        const msg = resendErrorMessage(response);
+        logger.error('sendEmail resend_rejected', { err: msg });
+        await logEmailToFirestore(db, to, subject, decoded.uid, 'failed', leadId || null, companyId);
+        res.status(502).json({ error: 'Failed to send email', detail: msg });
+        return;
+      }
+
+      // Log to Firestore
       await logEmailToFirestore(db, to, subject, decoded.uid, 'sent', leadId || null, companyId);
 
       res.json({

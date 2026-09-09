@@ -32,6 +32,7 @@ const C = require('./tcpa-consent');
 const RESEND_API_KEY = defineSecret('RESEND_API_KEY');
 const EMAIL_FROM = defineSecret('EMAIL_FROM');
 const { secretOr } = require('./integrations/_shared');
+const { resendRejected, resendErrorMessage } = require('./resend-guard');
 const TWILIO_ACCOUNT_SID = defineSecret('TWILIO_ACCOUNT_SID');
 const TWILIO_AUTH_TOKEN = defineSecret('TWILIO_AUTH_TOKEN');
 const TWILIO_PHONE_NUMBER = defineSecret('TWILIO_PHONE_NUMBER');
@@ -214,7 +215,7 @@ async function ackHomeowner(collection, d, leadId, target) {
   try {
     const resend = new Resend(RESEND_API_KEY.value());
     const firstName = String(d.firstName || d.name || '').trim().split(/\s+/)[0] || '';
-    await resend.emails.send({
+    const response = await resend.emails.send({
       from: 'Joe Deal <jd@nobigdealwithjoedeal.com>',
       to: email,
       reply_to: 'jd@nobigdealwithjoedeal.com',
@@ -223,6 +224,12 @@ async function ackHomeowner(collection, d, leadId, target) {
       text: ackEmailText(collection, firstName),
       headers: { 'X-NBD-Campaign': 'lead-ack-v1' },
     });
+    // Resend resolves { data: null, error } on an API-level rejection
+    // instead of throwing — without this check ackEmailSentAt gets stamped
+    // (and "sent" logged) on a homeowner ack that never left Resend.
+    if (resendRejected(response)) {
+      throw new Error(resendErrorMessage(response));
+    }
     logger.info('leadAck: email sent', { collection, leadId });
     if (leadId) {
       await getFirestore().collection(collection).doc(String(leadId))
@@ -303,6 +310,14 @@ async function alertJoe(collection, d, leadId) {
       html: emailHtml(label, source, s, leadId, target.name),
       reply_to: s.email || undefined,
     });
+    // Resend resolves { data: null, error } on an API-level rejection
+    // instead of throwing — without this check a dead key/suspended
+    // account marks outcomes.email 'sent', and the alert_outbox
+    // dashboard-health banner (built specifically to catch a silent
+    // delivery failure) never sees it.
+    if (resendRejected(resp)) {
+      throw new Error(resendErrorMessage(resp));
+    }
     outcomes.email = 'sent';
     logger.info('leadAlert: email sent', { collection, leadId, id: (resp && resp.data && resp.data.id) || null });
   } catch (e) {

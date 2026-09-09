@@ -39,6 +39,7 @@ const { callableRateLimit } = require('./shared');
 const RESEND_API_KEY = defineSecret('RESEND_API_KEY');
 const EMAIL_FROM = defineSecret('EMAIL_FROM');
 const { secretOr } = require('./integrations/_shared');
+const { resendRejected, resendErrorMessage } = require('./resend-guard');
 
 const CORS_ORIGINS = [
   'https://nobigdealwithjoedeal.com',
@@ -157,7 +158,7 @@ exports.createReportShareToken = onCall(
         const resend = new Resend(RESEND_API_KEY.value());
         const fromEmail = secretOr(EMAIL_FROM, 'noreply@nobigdealwithjoedeal.com');
         const reportName = escHtml(report.type || 'inspection report');
-        await resend.emails.send({
+        const response = await resend.emails.send({
           from: fromEmail,
           to: toEmail,
           subject: `Your inspection report from ${tenantName || 'No Big Deal Home Solutions'}`,
@@ -170,6 +171,13 @@ exports.createReportShareToken = onCall(
             <p style="font-size:12px;color:#666;">This secure link expires in 30 days. If you didn't expect this, you can ignore the email.</p>
           </div>`,
         });
+        // Resend resolves { data: null, error } on an API-level rejection
+        // instead of throwing — without this check `emailed` (returned to
+        // the caller below and shown to the rep) would be true for a
+        // homeowner who never received the report link.
+        if (resendRejected(response)) {
+          throw new Error(resendErrorMessage(response));
+        }
         emailed = true;
       } catch (e) {
         logger.warn('[createReportShareToken] email send failed', { reportId, err: e.message });
