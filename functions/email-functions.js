@@ -398,9 +398,27 @@ exports.sendEmail = onRequest(
         attachments: attachments || []
       });
 
-      // Log to Firestore
+      // The Resend SDK does NOT throw on an API-level rejection (bad/expired
+      // key, suspended account, invalid sender domain, etc.) — it resolves
+      // to { data: null, error: {...} }, so this branch never ran and every
+      // one of those failures was logged and returned as a genuine success.
+      // Found live-testing invoicing 2026-09-08: a stubbed local key still
+      // returned "Invoice sent successfully" in the CRM. Same call shape is
+      // repeated at ~18 other sites across functions/ (lead-alert.js,
+      // storm-report-email.js, invites.js, etc.) — this fixes the
+      // customer-facing invoice-send path only; see
+      // documentation/audit/STRIPE-INVOICING-STATUS-2026-09-08.md for the
+      // rest, which need the same fix under their own tests.
       const db = getFirestore();
       const companyId = decoded.companyId || null;
+      if (response && response.error) {
+        logger.error('sendEmail resend_rejected', { err: response.error.message || JSON.stringify(response.error) });
+        await logEmailToFirestore(db, to, subject, decoded.uid, 'failed', leadId || null, companyId);
+        res.status(502).json({ error: 'Failed to send email', detail: response.error.message || 'Email provider rejected the request' });
+        return;
+      }
+
+      // Log to Firestore
       await logEmailToFirestore(db, to, subject, decoded.uid, 'sent', leadId || null, companyId);
 
       res.json({
