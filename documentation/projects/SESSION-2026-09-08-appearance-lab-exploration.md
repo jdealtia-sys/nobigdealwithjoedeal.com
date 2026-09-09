@@ -130,6 +130,21 @@ leans on it:
 
 ## Status
 
+**UPDATE 2026-09-08 (late evening) — Phases 0-2 and the first Phase 3 atmosphere shipped the same
+day this note was written**, not "conceptual only" as originally stated below: Phase 0 fixes as
+#1522, Shape & Depth as #1524, Shop Copy/Golden Hour as #1525, and Galaxy Drift (the recommended
+first atmosphere, per this note's own build-plan order) as #1527. A same-evening QA pass live-
+tested all four against the real emulator and found + fixed four real defects — see
+[APPEARANCE-LAB-QA-2026-09-08](../audit/APPEARANCE-LAB-QA-2026-09-08.md): Shape/Material
+preferences were write-only to Firestore (contradicting this note's own Phase 2 spec that
+persistence should "mirror how theme choice already persists" — theme choice reads back, these
+didn't), the Shape & Depth presets' motion tokens were dead CSS, `.btn-orange` never picked up the
+Pressed preset's shadow, and Shop Copy's critical-card treatment clashed with the default red
+urgency pulse Golden Hour had already fixed for itself. All four fixed and verified live. Phases 2
+(remaining materials) and 3 (remaining atmospheres) below are still not started.
+
+Original note, as written before any of this shipped:
+
 Conceptual only, as of this note. Not in the current live brief
 ([NEXT_SESSION-2026-09-09](NEXT_SESSION-2026-09-09.md)) — this is a parallel, not-yet-scheduled
 lane. Whoever picks it up next should start with Phase 0, since it ships value independent of

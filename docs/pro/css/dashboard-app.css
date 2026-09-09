@@ -169,9 +169,23 @@
   --elevation-card:none;
   --elevation-card-hover:none;
   --elevation-modal:none;
-  --btn-shadow:none;
-  --btn-shadow-active:none;
-  --shape-ease:var(--ease-out);
+  /* 0 0 #0000 (not `none`) so a variant button class that layers this in
+     front of its own box-shadow (e.g. .btn-orange below) stays valid CSS
+     at the default preset — `box-shadow: none, <other-shadow>` is an
+     invalid value and drops the WHOLE declaration, silently killing that
+     button's shadow entirely. A zero-offset/zero-blur transparent shadow
+     composes safely in a comma list and paints nothing, so it's the same
+     true no-op as `none` was for the lone consumers that don't compose it. */
+  --btn-shadow:0 0 #0000;
+  --btn-shadow-active:0 0 #0000;
+  /* NOT var(--ease-out) — that token is a bouncy overshoot curve
+     (cubic-bezier(.18,.89,.32,1.28)) for OTHER UI, and was never actually
+     consumed by anything until now. .btn's own transition below has always
+     hardcoded cubic-bezier(.4,0,.2,1); matching it here is what makes
+     "sharp" (this default) a true no-op once --shape-ease is wired in,
+     instead of silently swapping every button's easing the moment this
+     token started being read. */
+  --shape-ease:cubic-bezier(.4,0,.2,1);
   --shape-dur:var(--t-mid);
 
   /* ── Wave 5 accent contract moved to docs/pro/css/theme-system.css ──
@@ -201,6 +215,18 @@
 :root[data-material="shop-copy"] .kcol-header {
   font-family: 'Big Shoulders Stencil', 'Barlow Condensed', sans-serif;
   letter-spacing: .04em;
+}
+/* Shop Copy's cream/hi-vis-orange/carbon triad has no red in it anywhere
+   else, but critical cards kept the default alarm-red urgency-pulse
+   (.k-card-aging-critical::before, base rule below) undisturbed — a
+   bright red strip flashing next to a carbon border on the one card
+   type this material styles most heavily. Golden Hour hit the same seam
+   and fixed it for its own palette (see below); Shop Copy didn't.
+   Re-themed to the same hi-vis orange as warming/stale rather than
+   dimmed to steady like Golden Hour, so critical still reads as MORE
+   urgent than the two stages under it. */
+:root[data-material="shop-copy"] .k-card-aging-critical::before {
+  background: #ff8a00;
 }
 
 :root[data-material="golden-hour"] .k-card {
@@ -2979,8 +3005,16 @@ input:focus, select:focus, textarea:focus {
 /* ── ENHANCED BUTTON STATES ── */
 /* transition:all retired (audit 2026-07-19): explicit properties on the
    token durations — the catchall animated every incidental change (see
-   the .k-card hover-jiggle post-mortem below). */
-.btn { transition: background var(--t-mid) cubic-bezier(.4,0,.2,1), color var(--t-mid) cubic-bezier(.4,0,.2,1), border-color var(--t-mid) cubic-bezier(.4,0,.2,1), box-shadow var(--t-mid) cubic-bezier(.4,0,.2,1), transform var(--t-mid) cubic-bezier(.4,0,.2,1); }
+   the .k-card hover-jiggle post-mortem below).
+   --shape-dur/--shape-ease (Shape & Depth, above) drive this instead of
+   the hardcoded var(--t-mid)/cubic-bezier(.4,0,.2,1) that used to sit
+   here — those two tokens were being SET per shape preset (Linework's
+   own comment calls it "near-zero motion") but never READ anywhere in
+   this file, so every preset's motion character was dead CSS; only
+   radius and shadow ever actually changed. The var(...) fallbacks equal
+   today's literal values, so "sharp" (no token override) stays the
+   exact same transition it always was. */
+.btn { transition: background var(--shape-dur, var(--t-mid)) var(--shape-ease, cubic-bezier(.4,0,.2,1)), color var(--shape-dur, var(--t-mid)) var(--shape-ease, cubic-bezier(.4,0,.2,1)), border-color var(--shape-dur, var(--t-mid)) var(--shape-ease, cubic-bezier(.4,0,.2,1)), box-shadow var(--shape-dur, var(--t-mid)) var(--shape-ease, cubic-bezier(.4,0,.2,1)), transform var(--shape-dur, var(--t-mid)) var(--shape-ease, cubic-bezier(.4,0,.2,1)); }
 .btn:active { transform: scale(.97); transition-duration: .08s; }
 /* Wave 5b: flat solid fill replaces the 135deg gradient. Live mirror
    showed that on themes where --orange and --ob have similar
@@ -2989,10 +3023,18 @@ input:focus, select:focus, textarea:focus {
    glow gives a uniformly readable button on all 66 themes. Hover
    nudges to --ob and adds depth via stronger glow — keeps the
    "press it" affordance without re-introducing the gradient. */
+/* var(--btn-shadow) below leads the .btn-orange box-shadow list (Shape &
+   Depth, above) — without it, .btn-orange's own fixed shadow always won
+   over .btn's plain box-shadow:var(--btn-shadow), since this rule is
+   later in source at equal specificity, so "Pressed" (its whole point is
+   an embossed button shadow) never showed on a single primary/orange
+   button in the app — only on secondary .btn-ghost ones. Defaults to
+   0 0 #0000 (paints nothing), so Sharp stays pixel-identical. */
 .btn-orange {
   background: var(--orange);
   color: var(--accent-fg);
   box-shadow:
+    var(--btn-shadow),
     inset 0 0 0 1px var(--accent-ring),
     0 4px 14px var(--og),
     0 1px 3px rgba(0,0,0,.15);
