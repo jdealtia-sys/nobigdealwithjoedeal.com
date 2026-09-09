@@ -177,7 +177,14 @@
         if (btn) { btn.disabled = true; btn.textContent = 'Opening…'; }
         try {
           var token = await user.getIdToken();
-          var res = await fetch('https://us-central1-nobigdeal-pro.cloudfunctions.net/createCustomerPortalSession', {
+          // Emulator switch (same Audit #3 rule as nbd-comms.js): otherwise
+          // this always CORS-fails against prod when tested from localhost.
+          var _functionsBase = /^(localhost|127\.0\.0\.1|\[::1\])$/.test(
+            (typeof location !== 'undefined' && location.hostname) || ''
+          )
+            ? 'http://127.0.0.1:5001/nobigdeal-pro/us-central1'
+            : 'https://us-central1-nobigdeal-pro.cloudfunctions.net';
+          var res = await fetch(_functionsBase + '/createCustomerPortalSession', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
           });
@@ -219,7 +226,14 @@
         if (btn) { btn.disabled = true; btn.textContent = 'Loading…'; }
         try {
           var token = await user.getIdToken();
-          var res = await fetch('https://us-central1-nobigdeal-pro.cloudfunctions.net/createCheckoutSession', {
+          // Emulator switch (same Audit #3 rule as nbd-comms.js): otherwise
+          // this always CORS-fails against prod when tested from localhost.
+          var _functionsBase = /^(localhost|127\.0\.0\.1|\[::1\])$/.test(
+            (typeof location !== 'undefined' && location.hostname) || ''
+          )
+            ? 'http://127.0.0.1:5001/nobigdeal-pro/us-central1'
+            : 'https://us-central1-nobigdeal-pro.cloudfunctions.net';
+          var res = await fetch(_functionsBase + '/createCheckoutSession', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
             body: JSON.stringify({ plan: plan }),

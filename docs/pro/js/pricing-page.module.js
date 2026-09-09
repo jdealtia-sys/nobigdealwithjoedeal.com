@@ -14,7 +14,7 @@ function _ppNotify(msg, kind) {
   if (typeof window.showToast === 'function') { window.showToast(msg, kind || 'info'); return; }
   if (kind === 'error') console.error('[pricing]', msg); else console.log('[pricing]', msg);
 }
-import { connectEmulatorsIfLocal } from './nbd-emulator-connect.js'; // Audit #3: localhost-only, no-op in prod
+import { connectEmulatorsIfLocal, getFunctionsBase } from './nbd-emulator-connect.js'; // Audit #3: localhost-only, no-op in prod
 
 const app = initializeApp({
   apiKey: "AIzaSyDTrotINzl2YjdGbH25BpC-FPv8i_fXNvg",
@@ -68,7 +68,7 @@ window.subscribe = async function(plan, evt) {
     if (btn) { btn.textContent = 'Loading...'; btn.disabled = true; }
 
     const idToken = await user.getIdToken();
-    const response = await fetch('https://us-central1-nobigdeal-pro.cloudfunctions.net/createCheckoutSession', {
+    const response = await fetch(getFunctionsBase() + '/createCheckoutSession', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
