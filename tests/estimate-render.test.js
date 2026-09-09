@@ -160,8 +160,12 @@ const retNbd  = renderFmt(NBD_BRAND, 'retail-quote');
 const retOak  = renderFmt(OAKS_BRAND, 'retail-quote');
 ok('retail-quote / NBD: estimate # uses NBD- prefix', /Estimate #NBD-/.test(retNbd));
 ok('retail-quote / Oaks: estimate # uses OAK- prefix (docPrefix)', /Estimate #OAK-/.test(retOak));
-ok('retail-quote / NBD: workmanship line says "10-year NBD labor warranty"', /10-year NBD labor warranty/.test(retNbd));
-ok('retail-quote / Oaks: workmanship line says "10-year ORC labor warranty"', /10-year ORC labor warranty/.test(retOak));
+// GBB audit 2026-09-09 (documentation/audit/GBB-TIER-SOURCE-OF-TRUTH-2026-09-09.md
+// §3/§8 PR3): was "10-year" — contradicted the tier cards above it on the same
+// document, one of 8 independent warranty-duration schemes found live at once.
+// Every tier is lifetime workmanship now (estimate-config.js TIER_DISPLAY).
+ok('retail-quote / NBD: workmanship line says "Lifetime NBD labor warranty"', /Lifetime NBD labor warranty/.test(retNbd));
+ok('retail-quote / Oaks: workmanship line says "Lifetime ORC labor warranty"', /Lifetime ORC labor warranty/.test(retOak));
 
 // single-quote = retail quote WITHOUT the Good/Better/Best cards. The fixture's
 // meta.tiers has a Better card at $16,500; retail-quote renders it, single-quote

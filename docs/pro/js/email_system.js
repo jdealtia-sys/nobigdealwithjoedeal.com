@@ -638,7 +638,7 @@ Thank you for requesting an estimate for your project at {address}.
 
 Your estimate total: {estimateAmount}
 
-This includes all materials, labor, and our workmanship warranty. We offer Good, Better, and Best options to fit your budget.
+This includes all materials, labor, and our lifetime workmanship warranty. We offer Standard, Preferred, and Elite options to fit your budget.
 
 I'd love to walk you through the options. When's a good time to chat?
 

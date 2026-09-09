@@ -826,10 +826,16 @@ exports.getHomeownerPortalView = onRequest(
         grandTotal:      latest.grandTotal || latest.total || null,
         // V2 estimate builder persists only the tier KEY (good/better/best),
         // not tierName, so the portal's tier-label line was dropped for all V2
-        // estimates. Derive the label from the key when tierName is absent
-        // (same map the classic builder uses).
+        // estimates. Derive the label from the key when tierName is absent.
+        // GBB audit, 2026-09-09: this map previously said 'Standard Reroof'/
+        // 'Reroof Plus'/'Full Redeck' — a fifth, independent stale vocabulary
+        // that fired for every V2 estimate (V2 never writes tierName at all),
+        // showing a homeowner a name the rest of the app (contract, warranty
+        // cert, estimate PDF) no longer uses. functions/ has no server-side
+        // mirror of estimate-config.js's TIER_DISPLAY, so this literal map is
+        // kept in sync by hand — it must match TIER_DISPLAY's labels exactly.
         tierName:        latest.tierName
-          || ({ good: 'Standard Reroof', better: 'Reroof Plus', best: 'Full Redeck' }[latest.tier])
+          || ({ good: 'Standard', better: 'Preferred', best: 'Elite' }[latest.tier])
           || null,
         signatureStatus: latest.signatureStatus || 'none',
         signedAt:        latest.signedAt?.toDate?.()?.toISOString() || null,

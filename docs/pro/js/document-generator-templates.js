@@ -419,7 +419,7 @@
     const vp = cpDefaults().valueProps;
     if (Array.isArray(vp) && vp.length) return vp;
     return [
-      {icon:'🛡️',title:'Warranty Protection',desc:'Up to 20-year workmanship warranty plus full manufacturer coverage on all materials.'},
+      {icon:'🛡️',title:'Warranty Protection',desc:'Lifetime workmanship warranty on every tier, plus full manufacturer coverage on all materials.'},
       {icon:'📋',title:'Insurance Specialists',desc:'We handle the entire insurance claim process so you can focus on what matters.'},
       {icon:'⭐',title:'5-Star Service',desc:'Exceptional service from first contact through final walkthrough and beyond.'},
       {icon:'💰',title:'Flexible Financing',desc:'Affordable monthly payments through our financing marketplace partner.'}
@@ -443,23 +443,34 @@
       : _wcPrefix + '-' + (Date.now() % 100000);
     const d = Object.assign({ homeownerName:'[Homeowner Name]', address:'[Property Address]',
       warrantyTier:'best', workPerformed:'', coverageDetails:'', transferable:false,
-      certificateNumber: _certSeed, issueDate:today(), expirationDate:'20 years from issue date' }, data);
+      certificateNumber: _certSeed, issueDate:today() }, data);
 
-    const tiers = { good:{label:'GOOD',color:'#cd7f32',bg:'#fdf4e8',years:'5-Year',exp:'5 years from issue date'},
-      better:{label:'BETTER',color:'#808080',bg:'#f0f0f0',years:'10-Year',exp:'10 years from issue date'},
-      best:{label:'BEST',color:'#DAA520',bg:'#fefce8',years:'20-Year',exp:'20 years from issue date'} };
-    const t = tiers[d.warrantyTier] || tiers.best;
-    if (d.warrantyTier==='best') d.expirationDate = '20 years from ' + d.issueDate;
-    else if (d.warrantyTier==='better') d.expirationDate = '10 years from ' + d.issueDate;
-    else d.expirationDate = '5 years from ' + d.issueDate;
+    // GBB audit, 2026-09-09: this certificate used to print a real
+    // "Expiration Date: N years from issue date" field for the SAME tier
+    // whose body text told the homeowner coverage never expires — one
+    // document contradicting itself. All three tiers are now lifetime
+    // workmanship (estimate-config.js TIER_DISPLAY); only transferability
+    // and the inspection perk vary, so there is no expiration date to print
+    // at all. Colors/label pulled from the shared config; the tier-specific
+    // fallback below matches it exactly if the config fails to load.
+    const cfg = (typeof window !== 'undefined') ? window.NBD_ESTIMATE_CONFIG : null;
+    const _fallbackWarranty = { good: { transferable: false }, better: { transferable: true, transferWindowDays: 30 }, best: { transferable: true, inspection: true } };
+    const label = (cfg && typeof cfg.tierLabel === 'function') ? cfg.tierLabel(d.warrantyTier) : ({ good: 'Standard', better: 'Preferred', best: 'Elite' })[d.warrantyTier] || d.warrantyTier;
+    const w = (cfg && cfg.TIER_DISPLAY && cfg.TIER_DISPLAY[d.warrantyTier] && cfg.TIER_DISPLAY[d.warrantyTier].warranty)
+      || _fallbackWarranty[d.warrantyTier] || {};
+    const tierColors = { good: '#cd7f32', better: '#808080', best: '#DAA520' };
+    const tierBgs = { good: '#fdf4e8', better: '#f0f0f0', best: '#fefce8' };
+    const t = { label: String(label).toUpperCase(), color: tierColors[d.warrantyTier] || tierColors.best, bg: tierBgs[d.warrantyTier] || tierBgs.best };
+    d.expirationDate = 'No expiration — lifetime coverage';
 
-    let warrantyText = d.warrantyTier === 'best'
-      ? 'For as long as you own your home, our installation is guaranteed. Includes priority service response and annual courtesy inspections.'
-      : d.warrantyTier === 'better'
-        ? 'Extended coverage guaranteeing installation quality for a full decade. Includes priority service response and annual courtesy inspection for the first 3 years.'
-        : 'Our team guarantees the quality of installation for 5 years from the date of completion. If any defect in workmanship causes a leak or failure, we will repair it at no cost to you.';
-    // Transferability is rep-selected (checkbox) — only claim it when chosen.
-    if (d.transferable) warrantyText += ' This coverage is transferable to a new owner if you sell your home.';
+    let warrantyText = 'Our team guarantees the quality of installation for the lifetime of this roof. If any defect in workmanship causes a leak or failure, we will repair it at no cost to you.';
+    if (w.inspection) warrantyText += ' Includes priority service response and annual courtesy inspections.';
+    // Transferability is tier-driven by default; the rep-selected checkbox
+    // (d.transferable) can only ADD transferability on top of the tier's
+    // own default, never take away what the tier already promises.
+    const isTransferable = w.transferable || d.transferable;
+    if (isTransferable && w.transferWindowDays) warrantyText += ' This coverage is transferable to one subsequent owner within ' + w.transferWindowDays + ' days of sale.';
+    else if (isTransferable) warrantyText += ' This coverage is fully transferable and follows the property through all subsequent owners.';
 
     return page('Warranty Certificate', `
       <style>
@@ -488,7 +499,7 @@
           <p>This certifies that all work performed at the property of</p>
           <p class="cert-name">${esc(d.homeownerName)}</p>
           <p style="color:#555;">${esc(d.address)}</p>
-          <div class="tier-badge">${t.years} WORKMANSHIP WARRANTY — ${t.label} TIER</div>
+          <div class="tier-badge">LIFETIME WORKMANSHIP WARRANTY — ${t.label} TIER</div>
           <p style="max-width:520px;margin:0 auto;font-size:14px;color:#444;">${warrantyText}</p>
           <p style="font-size:14px;color:#444;margin-top:8px;">
             Additionally, the roofing materials carry ${esc(resolveDocManufacturer(d.estimateLineItems).manufacturerWarranty)}.</p>
@@ -496,7 +507,7 @@
         <dl class="cert-details">
           <div><dt>Certificate #</dt><dd>${esc(d.certificateNumber)}</dd></div>
           <div><dt>Issue Date</dt><dd>${esc(d.issueDate)}</dd></div>
-          <div><dt>Coverage</dt><dd>${t.years} Workmanship</dd></div>
+          <div><dt>Coverage</dt><dd>Lifetime Workmanship</dd></div>
           <div><dt>Expiration</dt><dd>${esc(d.expirationDate)}</dd></div>
           ${d.workPerformed ? `<div><dt>Work Performed</dt><dd>${esc(d.workPerformed)}</dd></div>` : ''}
           <div><dt>Warranty Tier</dt><dd>${t.label}</dd></div>

@@ -38,6 +38,21 @@ function openWarrantyCertWizard(lead) {
       if (_res && _res.manufacturer === 'TAMKO' && _res.manufacturerName) _mfgWork = _res.manufacturerName;
     } catch (_) { /* default GAF */ }
     document.getElementById('wcWork').value = lead.damageType ? `${lead.damageType} — ${_mfgWork}` : `Roof replacement — ${_mfgWork}`;
+    // GBB audit §7.3, 2026-09-09: this certificate is the roofing job's
+    // actual warranty, not a separate rep-picked product — pre-fill the
+    // Guarantee Tier from the pricing tier the estimate was actually sold
+    // at (good/better/best -> standard/preferred/elite via the shared
+    // config), instead of always silently defaulting to Standard. Still
+    // rep-overridable below — not every lead carries a resolvable tier.
+    try {
+      const soldTier = String(lead.warrantyTier || lead.tier || lead.tierName || '').toLowerCase();
+      const cfg = window.NBD_ESTIMATE_CONFIG;
+      const mapped = (cfg && typeof cfg.tierLabel === 'function' ? cfg.tierLabel(soldTier) : soldTier).toLowerCase();
+      const tierSelect = document.getElementById('wcTier');
+      if (tierSelect && mapped && Array.prototype.some.call(tierSelect.options, o => o.value === mapped)) {
+        tierSelect.value = mapped;
+      }
+    } catch (_) { /* leave the select at its default */ }
   }
   // Default date to today
   document.getElementById('wcDate').value = new Date().toISOString().split('T')[0];

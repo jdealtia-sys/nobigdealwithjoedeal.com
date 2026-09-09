@@ -1082,10 +1082,12 @@ async function submitAndGetEstimate() {
       (_measured
         ? 'The roof size above was measured from aerial imagery. Use it exactly — do not adjust, round or second-guess it.\n\n'
         : 'Use the homeowner-reported size as your primary signal. Refine it with your knowledge of typical homes near these coordinates if you have it (lot patterns, year built norms, suburb characteristics). Do not assume a generic 1,800 sqft default — actually reason about the address.\n\n') +
-      'Apply NBD\'s actual installed pricing for this material:\n' +
-      '- Good (3-tab):           $' + matPricing.good[0]   + '-$' + matPricing.good[1]   + '/square\n' +
-      '- Better (architectural): $' + matPricing.better[0] + '-$' + matPricing.better[1] + '/square\n' +
-      '- Best (designer):        $' + matPricing.best[0]   + '-$' + matPricing.best[1]   + '/square\n' +
+      'Apply NBD\'s actual installed pricing for this material. NBD does not install' +
+      ' 3-tab shingles on new roof installs — every tier below is a real architectural' +
+      ' or better shingle; never describe the Good/Standard tier as "3-tab" or "economy":\n' +
+      '- Good (Standard, architectural):        $' + matPricing.good[0]   + '-$' + matPricing.good[1]   + '/square\n' +
+      '- Better (Preferred, architectural):     $' + matPricing.better[0] + '-$' + matPricing.better[1] + '/square\n' +
+      '- Best (Elite, lifetime designer):       $' + matPricing.best[0]   + '-$' + matPricing.best[1]   + '/square\n' +
       'These per-square ranges already include pitch-based waste — do not add more.\n\n' +
       'Return JSON with:\n' +
       '1. roofSqft: estimated roof area in sq ft\n' +
@@ -1357,7 +1359,12 @@ function showResults(est) {
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
-var TIER_LABELS = { good: '3-Tab (Good)', better: 'Architectural (Better)', best: 'Designer (Best)' };
+// GBB audit, 2026-09-09: was '3-Tab (Good)' — NBD never installs 3-tab
+// shingles on a new roof (Jo, same session); every tier here is a real
+// architectural-or-better shingle. Customer-facing names now match the
+// site's own Standard/Preferred/Elite branding (the-nbd-guarantee) instead
+// of the internal good/better/best jargon this tool previously leaked.
+var TIER_LABELS = { good: 'Standard (Architectural)', better: 'Preferred (Architectural)', best: 'Elite (Lifetime Designer)' };
 
 function switchTier(tier) {
   var est = funnelData.estimate;
