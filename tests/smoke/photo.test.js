@@ -1117,7 +1117,7 @@ section('customer.html: every inline event handler migrated to data-action deleg
     'expected 0 inline hover handlers, got ' + realOnmouseover + ' / ' + realOnmouseout);
 
   // ── data-action coverage proves the migration landed ──
-  // 15 doc-template cards + dozens of buttons/links = many data-actions.
+  // 16 doc-template cards + dozens of buttons/links = many data-actions.
   // Loose check: must have at least 60 data-action attributes.
   const dataActionCount = (customer.match(/\sdata-action="/g) || []).length;
   assert('customer.html has ≥60 data-action attributes (migration landed)',
@@ -1172,11 +1172,13 @@ section('customer.html: every inline event handler migrated to data-action deleg
   assert('CSS upload-zone hover rule present',
     /\[data-action="openUploadModal"\]:hover\s*\{[\s\S]{0,100}border-color:\s*var\(--orange\)/.test(customer));
 
-  // ── Doc-template card grid still has its 15 wirings ──
+  // ── Doc-template card grid still has its 16 wirings ──
+  // 16, not 15: +1 for storm_history_report (2026-09-09) — the free
+  // NOAA/NWS 5-year storm history doc.
   const cardCount = (customer.match(/class="doc-template-card"[^>]*data-action="generateCustomerDoc"/g) || []).length;
-  assert('all 15 doc-template cards still wired (regression guard)',
-    cardCount === 15,
-    'expected 15 doc-template-card data-action wirings, got ' + cardCount);
+  assert('all 16 doc-template cards still wired (regression guard)',
+    cardCount === 16,
+    'expected 16 doc-template-card data-action wirings, got ' + cardCount);
 
   // ── Photo action popup now has a Preview button (3-button row) ──
   // Originally the popup only offered Open Editor + Delete — clicking

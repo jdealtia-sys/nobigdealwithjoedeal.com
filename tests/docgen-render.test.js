@@ -135,6 +135,11 @@ const DOC_TYPES = [
   { label: 'testimonial_sheet',         method: 'renderTestimonialSheet',        data: BASE },
   { label: 'thank_you',                 method: 'renderThankYou',                data: BASE },
   { label: 'payment_agreement',         method: 'renderPaymentAgreement',        data: Object.assign({ totalAmount: 12500, depositAmount: 4000, progressAmount: 4500, finalAmount: 4000 }, BASE) },
+  // BASE alone (no `stormReport`) exercises the "unavailable" branch — the
+  // one every real call takes until _attachStormHistory() has run — which
+  // still goes through page()/letterhead()/footer(), so the brand contract
+  // holds either way. The populated-data branch is covered separately below.
+  { label: 'storm_history_report',      method: 'renderStormHistoryReport',      data: BASE },
 ];
 
 for (const t of DOC_TYPES) {
@@ -225,6 +230,52 @@ const nbdHang = renderType(NBD_BRAND, 'renderDoorHanger', BASE);
 ok('NBD door hanger: keeps "CALL OR TEXT: (859) 420-7382"', /CALL OR TEXT: \(859\) 420-7382/.test(nbdHang));
 const nbdPay = renderType(NBD_BRAND, 'renderPaymentAgreement', Object.assign({ totalAmount: 12500, depositAmount: 4000, progressAmount: 4500, finalAmount: 4000 }, BASE));
 ok('NBD payment agreement: keeps "For Zelle payments" term', /For Zelle payments, send to <strong>info@nobigdealwithjoedeal\.com<\/strong>/.test(nbdPay));
+
+// ════════════════════════════════════════════════════════════════════
+// STORM HISTORY REPORT — populated-data branch. The two DOC_TYPES passes
+// above only exercise the "unavailable" branch (BASE carries no
+// `stormReport`); this proves the real success path — the one every
+// generated document actually shows once _attachStormHistory() (in
+// document-generator.js) has resolved live NOAA data — renders the
+// summary stats and event table, and HTML-escapes a hostile city name
+// rather than injecting it.
+// ════════════════════════════════════════════════════════════════════
+console.log('\nDOCGEN RENDER — storm_history_report (populated data)');
+const STORM_DATA = Object.assign({}, BASE, {
+  stormReport: {
+    years: 5, radiusMi: 30, maxHail: 1.75, source: 'NWS Local Storm Reports (NOAA) via Iowa Environmental Mesonet',
+    counts: { total: 3, hail: 2, wind: 1, tornado: 0, stormDays: 2 },
+    events: [
+      { date: '2025-05-12T18:00:00Z', type: 'hail', magnitude: 1.75, unit: 'in', distanceMi: 2.1, severity: 'severe', city: '<script>alert(1)</script>' },
+      { date: '2024-06-03T20:00:00Z', type: 'wind', magnitude: 62, unit: 'mph', distanceMi: 5.4, severity: 'significant', city: 'Milford' },
+      { date: '2023-04-01T15:00:00Z', type: 'wind', magnitude: 40, unit: 'mph', distanceMi: 8.0, severity: 'minor', city: 'Batavia' },
+    ],
+  },
+});
+const stormPop = renderType(NBD_BRAND, 'renderStormHistoryReport', STORM_DATA);
+ok('storm (populated): renders HTML (no error)', typeof stormPop === 'string' && stormPop.indexOf('RENDER_ERROR') !== 0);
+ok('storm (populated): shows total event count', /Total Events[\s\S]*?<\/div>|>3</.test(stormPop));
+ok('storm (populated): shows max hail size', />1\.75&Prime;</.test(stormPop));
+ok('storm (populated): lists the hail event', />hail</.test(stormPop));
+ok('storm (populated): shows the NOAA/IEM source line', /Iowa Environmental Mesonet/.test(stormPop));
+ok('storm (populated): drops the minor wind event (notable-only filter)', !/Batavia/.test(stormPop));
+ok('storm (populated): escapes a hostile city name', !/<script>alert\(1\)<\/script>/.test(stormPop) && /&lt;script&gt;/.test(stormPop));
+ok('storm (populated): does not render the "unavailable" branch', !/Storm History Unavailable/.test(stormPop));
+
+// Honesty gate: a report with ZERO recorded events must NOT claim "verified
+// storm activity" — this document is meant to be handed to an adjuster, so
+// it has to stay accurate at zero the same as it does at a high count.
+const STORM_DATA_ZERO = Object.assign({}, BASE, {
+  stormReport: {
+    years: 5, radiusMi: 30, maxHail: 0, source: 'NWS Local Storm Reports (NOAA) via Iowa Environmental Mesonet',
+    counts: { total: 0, hail: 0, wind: 0, tornado: 0, stormDays: 0 },
+    events: [],
+  },
+});
+const stormZero = renderType(NBD_BRAND, 'renderStormHistoryReport', STORM_DATA_ZERO);
+ok('storm (zero events): renders HTML (no error)', typeof stormZero === 'string' && stormZero.indexOf('RENDER_ERROR') !== 0);
+ok('storm (zero events): does NOT claim "Verified storm activity"', !/Verified storm activity near this property/.test(stormZero));
+ok('storm (zero events): says no storm reports on file instead', /No storm reports on file/.test(stormZero));
 
 console.log('\n──────────────────────────────────────────────────');
 console.log(passed + ' passed, ' + failed + ' failed');

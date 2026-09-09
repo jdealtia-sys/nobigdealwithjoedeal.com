@@ -792,7 +792,7 @@ body{font-family:'Barlow',sans-serif;background:#0d0f14;color:#e5e7eb;min-height
         </div>
 
         <!-- Stats -->
-        <div style="display:flex;gap:10px;margin-bottom:14px;overflow-x:auto;">
+        <div class="cb-stats-row" style="display:flex;gap:10px;margin-bottom:14px;overflow-x:auto;">
           <div style="flex:1;min-width:100px;background:var(--s2);border:1px solid var(--br);border-radius:10px;padding:12px;text-align:center;">
             <div style="font-size:22px;font-weight:700;color:var(--blue);">${active.length}</div>
             <div style="font-size:10px;color:var(--m);text-transform:uppercase;letter-spacing:.06em;">Active Deals</div>

@@ -781,6 +781,23 @@ body.nbd-photo-reorder .nbd-photo-item.drop-after {
    bar's band, and notching 94px out of a wide bar would just read as a bug. */
 @media (max-width: 768px) {
   .jump-nav { margin-right: var(--nbd-fab-rail, 94px); }
+  /* Scroll affordance (2026-09-09): this bar has scrolled horizontally
+     since the nowrap fix above, but nothing ever signaled that — at 375px
+     it visually reads as "Overview / Timeline / Photos" and stops, so
+     Files/Messages/Voice Intel/Contact go undiscovered unless a rep
+     happens to swipe. A right-edge mask fade is a persistent, JS-free
+     "there's more" cue (unlike a background-color gradient, mask-image
+     composites correctly under the existing backdrop-filter blur and
+     needs no per-theme color to match). Scoped to this breakpoint only —
+     wider bars have room for every link and fading a fully-visible last
+     item would be a false "keep scrolling" signal. The trade-off: the
+     fade never fully clears even scrolled to the end, so "Contact" keeps
+     a soft edge — a small cosmetic cost for going from zero affordance
+     to an always-visible one. */
+  .jump-nav {
+    -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent 100%);
+    mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent 100%);
+  }
 }
 .jump-nav a {
   /* Required by the nowrap switch above: as flex items in a scroller these
@@ -1763,6 +1780,12 @@ body.nbd-photo-selecting .nbd-photo-checkbox,
             <div style="font-size:20px;margin-bottom:6px;">&#127970;</div>
             <div style="font-size:13px;font-weight:700;color:var(--t);">Insurance Report</div>
             <div style="font-size:11px;color:var(--m);margin-top:2px;">Adjuster-ready inspection report</div>
+          </div>
+          <div class="doc-template-card" role="button" tabindex="0" data-action="generateCustomerDoc" data-doc-type="storm_history_report" style="padding:14px;background:var(--s2);border-radius:10px;border:1px solid var(--br);cursor:pointer;transition:border-color var(--t-mid),transform var(--t-fast);">
+            <button type="button" class="dt-preview-btn" data-action="_previewBlankDoc" data-doc-type="storm_history_report" aria-label="Preview blank template" title="Preview blank template">&#9432;</button>
+            <div style="font-size:20px;margin-bottom:6px;">&#9928;&#65039;</div>
+            <div style="font-size:13px;font-weight:700;color:var(--t);">Storm History Report</div>
+            <div style="font-size:11px;color:var(--m);margin-top:2px;">Free 5-yr NOAA hail/wind history — skip the paid GAF report</div>
           </div>
           <div class="doc-template-card" role="button" tabindex="0" data-action="generateCustomerDoc" data-doc-type="supplement_request" style="padding:14px;background:var(--s2);border-radius:10px;border:1px solid var(--br);cursor:pointer;transition:border-color var(--t-mid),transform var(--t-fast);">
             <button type="button" class="dt-preview-btn" data-action="_previewBlankDoc" data-doc-type="supplement_request" aria-label="Preview blank template" title="Preview blank template">&#9432;</button>

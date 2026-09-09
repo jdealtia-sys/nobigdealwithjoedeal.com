@@ -402,6 +402,19 @@ window.NBDDocGen = {
       }
     }
 
+    // ─── Storm History Report: fetch live NOAA data before rendering ───
+    // The one document type whose content isn't derivable from the lead
+    // record alone — it needs the free 5-year NWS Local Storm Reports feed
+    // the public /storm-report tool already uses (same relative /api/
+    // storm-report endpoint, same origin as this page, no auth, no
+    // secrets). Best-effort: a bad address or a down IEM proxy renders the
+    // graceful "unavailable" branch in renderStormHistoryReport rather than
+    // blocking the rep.
+    if (type === 'storm_history_report') {
+      try { await this._attachStormHistory(data); }
+      catch (e) { console.warn('[NBDDocGen] storm history fetch failed:', e && e.message); }
+    }
+
     // ─── D-5: try server-side Puppeteer render first ───
     // Supported types: contract / invoice / change_order. Receipt is
     // a future call site (no client surface yet). Falls through to
@@ -728,6 +741,58 @@ window.NBDDocGen = {
       showToast(ms ? '✓ Document rendered in ' + ms + 'ms' : '✓ Document rendered', 'success');
     }
     return true;
+  },
+
+  /**
+   * Resolve lat/lng for the lead — already on the record (`data.lat`/
+   * `data.lng`, stamped when the lead was geocoded on save or on the map)
+   * or, failing that, a free Nominatim geocode of the address — then fetch
+   * the free NOAA/NWS 5-year storm history from the SAME relative endpoint
+   * the public /storm-report page uses (functions/storm-report.js). Same
+   * origin as this page, so no CORS/CSP wiring is needed regardless of
+   * which tenant domain is serving /pro.
+   *
+   * Never throws: attaches `data.stormReport` on success or
+   * `data._stormReportError` (a short reason, shown to the rep) on
+   * failure, so a bad address never blocks doc generation — it just
+   * renders the "unavailable" branch of the template.
+   */
+  async _attachStormHistory(data) {
+    let lat = Number(data.lat);
+    let lng = Number(data.lng != null ? data.lng : data.lon);
+    if (!isFinite(lat) || !isFinite(lng)) {
+      const addr = String(data.address || data.homeownerAddress || '').trim();
+      if (!addr) { data._stormReportError = 'no address on file'; return; }
+      try {
+        const gRes = await fetch(
+          'https://nominatim.openstreetmap.org/search?q=' + encodeURIComponent(addr) + '&format=json&limit=1',
+          { signal: AbortSignal.timeout(5000) }
+        );
+        const rows = await gRes.json();
+        if (!Array.isArray(rows) || !rows.length) { data._stormReportError = 'address could not be located'; return; }
+        lat = parseFloat(rows[0].lat);
+        lng = parseFloat(rows[0].lon);
+      } catch (e) {
+        data._stormReportError = 'geocoding failed';
+        return;
+      }
+    }
+    if (!isFinite(lat) || !isFinite(lng)) { data._stormReportError = 'invalid coordinates'; return; }
+    try {
+      // 60s, not the usual 15-20s CRM fetch budget: a cache miss on
+      // functions/storm-report.js chains FIVE sequential yearly IEM
+      // requests server-side (each with its own 20s ceiling) before the
+      // result is cached — verified live against the emulator, cold-cache
+      // response took 38s. A cached lookup (the common case after the
+      // first report for an address/area) returns in well under a second.
+      const res = await fetch('/api/storm-report?lat=' + lat + '&lon=' + lng, { signal: AbortSignal.timeout(60000) });
+      if (!res.ok) { data._stormReportError = 'storm data service unavailable'; return; }
+      const j = await res.json();
+      if (j && j.empty) { data._stormReportError = 'storm data service unavailable'; return; }
+      data.stormReport = j;
+    } catch (e) {
+      data._stormReportError = 'storm data request failed';
+    }
   },
 
   /**
@@ -3213,6 +3278,13 @@ ${price ? '<div style="text-align:right;margin:24px 0;"><span style="font-size:1
         { name: 'finalAmount', label: 'Final Payment Amount', required: false },
         { name: 'finalDue', label: 'Final Payment Due', required: false },
         { name: 'projectDescription', label: 'Project Description', required: false, type: 'textarea' }
+      ],
+      // Only the address is manual — _attachStormHistory() geocodes it and
+      // fetches the NOAA storm history itself once this fill form submits.
+      // (The "Auto-fill from Lead" dropdown above already maps `address`
+      // from the selected lead, so picking a lead is normally enough.)
+      storm_history_report: [
+        { name: 'address', label: 'Property Address', required: true }
       ]
     };
 

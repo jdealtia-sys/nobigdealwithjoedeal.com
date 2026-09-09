@@ -1729,7 +1729,8 @@ const DOC_PREREQUISITES = {
   neighborhood_mailer:  { needs: [], label: 'Neighborhood Mailer' },
   testimonial_sheet:    { needs: [], label: 'Testimonial Sheet' },
   thank_you:            { needs: [], label: 'Thank You' },
-  payment_agreement:    { needs: ['jobValue','contact'], label: 'Payment Agreement', msg: 'Add job value and customer contact info.' }
+  payment_agreement:    { needs: ['jobValue','contact'], label: 'Payment Agreement', msg: 'Add job value and customer contact info.' },
+  storm_history_report: { needs: ['address'], label: 'Storm History Report', msg: 'Add a property address first — it\'s used to pull the NOAA storm history.' }
 };
 
 function getCustomerDocData() {
@@ -1751,6 +1752,9 @@ function getCustomerDocData() {
     address: lead.address || '', homeownerAddress: lead.address || '',
     phone: lead.phone || '', customerPhone: lead.phone || '',
     email: lead.email || '', customerEmail: lead.email || '',
+    // Already-geocoded pin (set on save / from the map), if any — lets the
+    // Storm History Report doc skip a fresh Nominatim lookup.
+    lat: (lead.lat != null ? lead.lat : null), lng: (lead.lng != null ? lead.lng : null),
 
     // Job info — subType + trades added so docs that vary by sub-type
     // (e.g. fire AOB vs storm AOB) and by trade scope (roof+gutters
@@ -1925,7 +1929,8 @@ window._DOC_TEMPLATE_CATALOG = [
   { type:'before_after_report',       icon:'📷', name:'Before & After Report',    desc:'Visual transformation with photos',         cats:['closeout','sales'],  kw:'before after photos comparison transformation review' },
   { type:'financing_options',         icon:'💳', name:'Financing Options',        desc:'Payment plan options for customer',         cats:['sales'],             kw:'finance financing loan payment plan monthly' },
   { type:'company_intro',             icon:'🏠', name:'Company Introduction',     desc:'About us packet for new prospects',         cats:['sales'],             kw:'about us intro company brochure packet new prospect' },
-  { type:'referral_card',             icon:'🎁', name:'Referral Card',            desc:'Shareable referral with incentives',        cats:['closeout'],          kw:'refer referral review incentive share' }
+  { type:'referral_card',             icon:'🎁', name:'Referral Card',            desc:'Shareable referral with incentives',        cats:['closeout'],          kw:'refer referral review incentive share' },
+  { type:'storm_history_report',      icon:'⛈️', name:'Storm History Report',     desc:'Free 5-yr NOAA hail & wind history — skip the paid GAF report', cats:['claim','inspection'], kw:'storm hail wind weather history noaa nws gaf 5-year verification report' }
 ];
 
 window._STAGE_TEMPLATE_PRIORITY = {

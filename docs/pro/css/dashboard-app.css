@@ -4268,6 +4268,23 @@ body {
     white-space:nowrap;
     -webkit-overflow-scrolling:touch;
     scrollbar-width:thin;
+    /* Scroll affordance (2026-09-09, same fix as customer.html's
+       .jump-nav): `scrollbar-width:thin` is the only cue this row
+       scrolls, and iOS/most mobile browsers hide even a thin scrollbar
+       until mid-scroll — so at rest (the state every rep sees on load)
+       "Ins Cash Fin War Svc" reads as the complete list, and Jobs/All
+       go undiscovered. A right-edge mask fade is a persistent, JS-free
+       "there's more" cue that composites correctly under any theme. */
+    -webkit-mask-image:linear-gradient(to right,#000 calc(100% - 24px),transparent 100%);
+    mask-image:linear-gradient(to right,#000 calc(100% - 24px),transparent 100%);
+  }
+  /* Close Board's stats row (close-board.js): 4 cards at min-width:100px +
+     gap:10px = 430px, always wider than a 375px phone, with plain
+     overflow-x:auto and no scrollbar override at all — same invisible-
+     scroll bug, third confirmed live instance. */
+  .cb-stats-row{
+    -webkit-mask-image:linear-gradient(to right,#000 calc(100% - 24px),transparent 100%);
+    mask-image:linear-gradient(to right,#000 calc(100% - 24px),transparent 100%);
   }
   .crm-hdr-views .kview-btn{
     flex-shrink:0!important;
