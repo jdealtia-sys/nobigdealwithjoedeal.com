@@ -11,6 +11,7 @@
      paint, so theme-system.css mode-keyed rules don't FOUC. Must run sync
      in <head> before theme-system.css. ThemeEngine.init() takes over later. -->
 <script src="js/theme-mode-preboot.js?v=1"></script>
+<script src="js/material-preboot.js?v=1"></script>
 <!-- Stamp <html data-theme="..."> from the saved theme (canonical nbd_pro_theme,
      legacy nbd-theme fallback) BEFORE first paint, so the dashboard doesn't flash
      the hardcoded default before the deferred ThemeEngine boots (audit F-2). Must
@@ -3341,6 +3342,25 @@
             <!-- FONT FAMILY PICKER -->
             <label style="font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--m);display:block;margin-bottom:8px;">Font Family</label>
             <div id="settings-font-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;margin-bottom:10px;"></div>
+          </div>
+        </div>
+
+        <!-- Material: status/identity treatment on the job pipeline, independent
+             of the color theme picker above. Reuses the board's existing
+             stage-aging classes as the signal — see [data-material] blocks in
+             docs/pro/css/dashboard-app.css. -->
+        <div class="panel mb-md">
+          <div class="panel-hdr"><div><div class="panel-label">Appearance</div><div class="panel-title">Material</div></div></div>
+          <div class="panel-body">
+            <div class="mb-lg">
+              <label style="font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--m);display:block;margin-bottom:8px;">Job Pipeline Status</label>
+              <div style="display:flex;gap:8px;flex-wrap:wrap;" id="materialStyleBtnGroup">
+                <button class="btn btn-ghost material-style-btn" data-material="none" data-action="call" data-fn="nbdSetMaterial" data-arg="none">None</button>
+                <button class="btn btn-ghost material-style-btn" data-material="shop-copy" data-action="call" data-fn="nbdSetMaterial" data-arg="shop-copy">Shop Copy</button>
+                <button class="btn btn-ghost material-style-btn" data-material="golden-hour" data-action="call" data-fn="nbdSetMaterial" data-arg="golden-hour">Golden Hour</button>
+              </div>
+              <div style="font-size:11px;color:var(--m);margin-top:8px;">Restyles the pipeline board's stage-aging accent — Shop Copy: torn carbon-copy edges + stencil headers. Golden Hour: warm light as urgency, calm at rest. Never changes your color theme.</div>
+            </div>
           </div>
         </div>
 
