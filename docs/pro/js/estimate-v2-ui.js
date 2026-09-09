@@ -2888,13 +2888,18 @@
           isRecommended: key === recommended,
         };
       };
+      // GBB audit, 2026-09-09: "Labor warranty: 10 years"/"15 years" were two
+      // MORE independent durations that never matched the 5/10/20 scheme
+      // elsewhere, let alone each other. All three tiers are lifetime
+      // workmanship now (estimate-config.js TIER_DISPLAY) — only
+      // transferability/inspection vary.
       tierList = [
         buildTier('good',   _v2TierLabel('good'),   '25-yr architectural shingle · standard install',
-          ['Owens Corning Oakridge or equivalent', 'Standard ridge vent + flashing', 'Labor warranty: 10 years', 'Full tear-off included']),
+          ['Owens Corning Oakridge or equivalent', 'Standard ridge vent + flashing', 'Labor warranty: Lifetime (non-transferable)', 'Full tear-off included']),
         buildTier('better', _v2TierLabel('better'), '30-yr architectural · upgraded underlayment',
-          ['GAF Timberline HDZ or equivalent', 'Synthetic underlayment upgrade', 'Ice & water shield on eaves + valleys', 'Labor warranty: 15 years', 'Full tear-off included']),
+          ['GAF Timberline HDZ or equivalent', 'Synthetic underlayment upgrade', 'Ice & water shield on eaves + valleys', 'Labor warranty: Lifetime (transferable to 1 subsequent owner)', 'Full tear-off included']),
         buildTier('best',   _v2TierLabel('best'),   'Lifetime designer · full system warranty',
-          ['GAF Timberline ULTRA HDZ Lifetime', 'Synthetic underlayment + ice & water full perimeter', 'Premium ridge vent', 'Labor warranty: Lifetime', 'Full system warranty by GAF', 'Annual courtesy inspection']),
+          ['GAF Timberline ULTRA HDZ Lifetime', 'Synthetic underlayment + ice & water full perimeter', 'Premium ridge vent', 'Labor warranty: Lifetime (fully transferable)', 'Full system warranty by GAF', 'Annual courtesy inspection']),
       ].filter(Boolean);
     }
 
@@ -3002,7 +3007,11 @@
         validUntil:   validUntilFmt,
         depositPct:   25,
         scheduleNote: 'Typical start: 2-4 weeks from signed contract.',
-        warranty:     '10 years labor minimum; tier-dependent extensions',
+        // GBB audit, 2026-09-09: was '10 years labor minimum' — did not match
+        // this same document's own tier-list bullets above (which said 10/15/
+        // Lifetime). Every tier is lifetime workmanship now; only transferability
+        // varies, and that's already stated per-tier in tierList above.
+        warranty:     'Lifetime workmanship warranty on every tier; transferability varies by tier — see above',
       },
       notes: null,
     };

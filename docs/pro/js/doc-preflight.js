@@ -306,10 +306,14 @@
     { key: 'companyEmail',   label: 'Company Email', type: 'email', source: 'literal:info@nobigdealwithjoedeal.com', persist: PERSIST.DOCUMENT }
   ];
 
+  // GBB audit, 2026-09-09: was 5yr/10yr/20yr — the generator this feeds
+  // (document-generator.js renderWarrantyBadge) now prints Lifetime
+  // workmanship for every tier (estimate-config.js TIER_DISPLAY); only
+  // transferability/inspection and manufacturer coverage vary by tier.
   var WARRANTY_TIER_OPTIONS = [
-    { value: 'good',   label: 'Good — 5yr Workmanship + Standard Mfr' },
-    { value: 'better', label: 'Better — 10yr Workmanship + Enhanced Mfr' },
-    { value: 'best',   label: 'Best — 20yr Workmanship + Premium Mfr' }
+    { value: 'good',   label: 'Good — Lifetime Workmanship + Standard Mfr' },
+    { value: 'better', label: 'Better — Lifetime Workmanship + Enhanced Mfr (transferable)' },
+    { value: 'best',   label: 'Best — Lifetime Workmanship + Premium Mfr (fully transferable + inspection)' }
   ];
 
   var DOC_SCHEMAS = {
@@ -1513,10 +1517,11 @@
 
   // ── WARRANTY TIER RENDERER ──────────────────────────────────
   function renderWarrantyTier(field, value) {
+    // GBB audit, 2026-09-09: was 5/10/20-year — see WARRANTY_TIER_OPTIONS above.
     var tiers = [
-      { id: 'good',   name: 'Good',   tag: '5-Year Workmanship',     desc: 'Covers defects in workmanship for 5 years.' },
-      { id: 'better', name: 'Better', tag: '10-Year + Enhanced Mfr', desc: 'Comprehensive 10-year coverage, enhanced manufacturer.' },
-      { id: 'best',   name: 'Best',   tag: '20-Year Workmanship',  desc: '20-year workmanship, premium manufacturer.' }
+      { id: 'good',   name: 'Good',   tag: 'Lifetime Workmanship',        desc: 'Lifetime workmanship warranty, non-transferable. Standard manufacturer coverage.' },
+      { id: 'better', name: 'Better', tag: 'Lifetime + Enhanced Mfr',     desc: 'Lifetime workmanship, transferable to 1 subsequent owner. Enhanced manufacturer coverage.' },
+      { id: 'best',   name: 'Best',   tag: 'Lifetime + Premium Mfr',      desc: 'Lifetime workmanship, fully transferable + annual inspection. Premium manufacturer coverage.' }
     ];
     var cur = (value || 'better').toLowerCase();
     var cards = tiers.map(function (t) {

@@ -424,6 +424,85 @@ drifted).
 **PR 5 (separate, lower priority, own decision cycle)** — tier→material
 enforcement (§4) and TAMKO pricing confirmation (§7.6). Not bundled here.
 
+---
+
+**PR 3 — SHIPPED same session, 2026-09-09 (uncommitted, not yet pushed with
+PR 1+2).** All eight independently-coded warranty-duration/guarantee schemes
+found in §3 now read the lifetime + transferability model from
+`estimate-config.js`'s `TIER_DISPLAY`, or state it directly where a per-tier
+call wasn't practical:
+
+- `estimate-config.js` — added `tierWarrantyBlurb()` (short differentiator
+  phrase, for compact spots) alongside PR 1's `tierWarrantyText()`.
+- `close-board.js` — the flat `'25-year limited lifetime'` badge (still
+  unresolved as of PR 1+2) is now `'Lifetime Workmanship Warranty'`, true for
+  every tier; each tier card gets its own transferability line instead of
+  relying on one flat claim above all three.
+- `warranty-cert.js` — kept as the reference copy (its content already
+  matched the decided model almost verbatim). Added: the Guarantee Tier now
+  pre-fills from the estimate's actual sold tier (`lead.warrantyTier`/`tier`/
+  `tierName`, mapped through the shared `tierLabel()`) instead of always
+  defaulting to Standard — still rep-overridable, not locked (open item §7.3
+  substantially addressed; full lock deferred as lower-value/higher-risk for
+  this pass).
+- `document-generator.js` — `WARRANTY_TIERS` (5/10/20-Year) replaced with a
+  `MANUFACTURER_COVERAGE` table (Standard/Enhanced/Premium — the
+  manufacturer-coverage axis, deliberately untouched per the Sept-8
+  claims-audit ruling) + a `renderWarrantyBadge()` that composes its text
+  from the shared config at render time. Fixes the object's own internal
+  "20-Year" vs. "life of the structure" contradiction.
+- `document-generator-templates.js` — `renderWarrantyCertificate` no longer
+  prints a real "N years from issue date" expiration field for a tier whose
+  body text also promises it never expires; every tier now says "No
+  expiration — lifetime coverage," with the differentiator (transferability,
+  inspection) read from the shared config rather than a hardcoded per-tier
+  years table. The rep-facing `transferable` checkbox (doc-preflight.js) can
+  still upgrade transferability on top of the tier default — it can no
+  longer downgrade what a tier already promises.
+- `dashboard-ui.js` — `DOC_TEMPLATES.contract`/`.warranty`/`.completion`
+  (the blank fillable forms — confirmed by this same audit to have no live
+  UI entry point today, fixed anyway since the content is still live in the
+  tree) no longer contradict each other or themselves on Preferred's
+  duration; the "NBD NBD" typo is gone.
+- `customer-bootstrap.module.js` — the one certificate generator confirmed
+  genuinely reachable (the 🛡️ button) no longer hardcodes `warrantyYears =
+  5` regardless of tier; it now reads the estimate's actual tier and prints
+  "Lifetime Workmanship" + the per-tier transferability line, dropping the
+  now-meaningless "Warranty Expires" date field.
+- `estimate-v2-ui.js` — the proposal PDF's tier-comparison bullets (were
+  10/15yr/Lifetime — a NINTH scheme this pass found, not counted in the
+  original 47) and its separate flat `terms.warranty` string (was "10 years
+  labor minimum") both now state the lifetime model.
+- `estimate-finalization.js` — the retail-quote tier-card subtitles (were
+  "Standard System"/"System Warranty"/"Impact + 20yr Warranty" — inconsistent
+  even in WHAT they described) now state a material differentiator +
+  "Lifetime Warranty" uniformly; the flat Warranty-section paragraph below
+  the cards (was a contradicting flat "10-year") now says Lifetime too.
+- `doc-preflight.js` — `WARRANTY_TIER_OPTIONS` and `renderWarrantyTier()`
+  (the rep-facing picker feeding the fields above) updated to match what
+  actually prints now, so a rep's selection screen no longer promises a
+  duration the generated document doesn't contain.
+- `how-to.html` — rep training now states the lifetime model and explicitly
+  spells out the Good→Standard/Better→Preferred/Best→Elite correspondence
+  in prose (closing the "no documented translation anywhere in rep training"
+  finding).
+
+**Verified:** `check-js-syntax.js` (503 files), `check-site-integrity.js`
+(243 pages, 0 failures), `apply-partials.js --check` (clean),
+`check-inline-html-scripts.js` (0 violations), `node tests/smoke.test.js`
+(3810/3810), `node tests/estimate-v2-payload.test.js` (90/90),
+`node tests/catalog-cost-privacy.test.js` (126/126, confirms no cost/margin
+data was touched or leaked) — all green.
+
+**Deliberately not done in this pass:** fully locking `warranty-cert.js`'s
+Guarantee Tier dropdown (kept rep-overridable); removing the now-largely-
+redundant `transferable` checkbox from the doc-preflight `warranty_certificate`
+schema (harmless — it can only add transferability, never remove what a tier
+already promises — but worth a follow-up since a rep could wrongly think they
+need to check it for Preferred/Elite); PR 4 (marketing site's +15%/+30% price
+copy) and PR 5 (tier→material enforcement, TAMKO pricing) are unchanged from
+their §8 status above.
+
 **Guardrail for every PR above**: add one contract test per surface (this
 vault's own established pattern — see `photos-timestamp-contract.test.js` for
 the shape) that enumerates every writer/reader of a tier label or warranty

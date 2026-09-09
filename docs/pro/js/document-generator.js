@@ -239,30 +239,16 @@ window.NBDDocGen = {
   },
 
   /**
-   * Warranty tier definitions with descriptions
+   * Manufacturer coverage tier — a DIFFERENT axis from workmanship duration
+   * (which used to live here as 5/10/20-Year and is now the lifetime model
+   * in estimate-config.js's TIER_DISPLAY, per the 2026-09-09 GBB audit).
+   * Manufacturer warranty language was deliberately left untouched by the
+   * 2026-09-08 claims-audit session and stays that way here.
    */
-  WARRANTY_TIERS: {
-    good: {
-      name: 'Good',
-      workmanship: '5-Year',
-      manufacturer: 'Standard',
-      description: '5-Year Workmanship Warranty + Standard Manufacturer Warranty',
-      details: 'Covers defects in workmanship for 5 years. Manufacturer warranties vary by material.'
-    },
-    better: {
-      name: 'Better',
-      workmanship: '10-Year',
-      manufacturer: 'Enhanced',
-      description: '10-Year Workmanship Warranty + Enhanced Manufacturer Warranty',
-      details: 'Comprehensive coverage for 10 years including labor and materials. Enhanced manufacturer coverage on select products.'
-    },
-    best: {
-      name: 'Best',
-      workmanship: '20-Year',
-      manufacturer: 'Premium',
-      description: '20-Year Workmanship Warranty + Premium Manufacturer Warranty',
-      details: 'Premium protection covering all workmanship for the life of the structure. Maximum manufacturer coverage on premium materials.'
-    }
+  MANUFACTURER_COVERAGE: {
+    good: { level: 'Standard', note: 'Manufacturer warranties vary by material.' },
+    better: { level: 'Enhanced', note: 'Enhanced manufacturer coverage on select products.' },
+    best: { level: 'Premium', note: 'Maximum manufacturer coverage on premium materials.' }
   },
 
   /**
@@ -1897,15 +1883,22 @@ window.NBDDocGen = {
    * @returns {string} HTML
    */
   renderWarrantyBadge(tier = 'better') {
-    const warranty = this.WARRANTY_TIERS[tier] || this.WARRANTY_TIERS.better;
+    const cfg = (typeof window !== 'undefined') ? window.NBD_ESTIMATE_CONFIG : null;
+    const label = (cfg && typeof cfg.tierLabel === 'function')
+      ? cfg.tierLabel(tier)
+      : ({ good: 'Standard', better: 'Preferred', best: 'Elite' })[tier] || tier;
+    const warrantyText = (cfg && typeof cfg.tierWarrantyText === 'function')
+      ? cfg.tierWarrantyText(tier)
+      : 'Lifetime workmanship warranty.';
+    const mfg = this.MANUFACTURER_COVERAGE[tier] || this.MANUFACTURER_COVERAGE.better;
 
     return `
       <div class="warranty-badge">
-        ${warranty.name}: ${warranty.workmanship} ${warranty.manufacturer}
+        ${label}: Lifetime Workmanship + ${mfg.level} Manufacturer
       </div>
       <div class="warranty-details">
-        <div><strong>${warranty.description}</strong></div>
-        <div style="margin-top: 0.08in;">${warranty.details}</div>
+        <div><strong>Lifetime Workmanship Warranty + ${mfg.level} Manufacturer Warranty</strong></div>
+        <div style="margin-top: 0.08in;">${warrantyText} ${mfg.note}</div>
       </div>
     `;
   },

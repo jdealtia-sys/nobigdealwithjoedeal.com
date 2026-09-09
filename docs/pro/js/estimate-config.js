@@ -210,6 +210,18 @@
       return parts.join('; ') + '.';
     },
 
+    // tierWarrantyBlurb(key) -> just the differentiator phrase (no "Lifetime
+    // workmanship warranty" prefix), for compact spots — tier cards, badges —
+    // where the duration is already stated once elsewhere on the page.
+    tierWarrantyBlurb: function (tier) {
+      var t = CFG.TIER_DISPLAY[tier];
+      if (!t) return '';
+      var w = t.warranty;
+      if (!w.transferable) return 'Non-transferable';
+      if (w.transferWindowDays) return 'Transferable to 1 subsequent owner';
+      return w.inspection ? 'Fully transferable + annual inspection' : 'Fully transferable';
+    },
+
     // Source-of-truth marker — engines log this to Sentry on
     // load so we can correlate "classic engine ran but V2 config
     // didn't load" cases if they ever happen.

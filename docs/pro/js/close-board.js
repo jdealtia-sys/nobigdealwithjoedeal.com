@@ -55,6 +55,15 @@
     return ({ good: 'Standard', better: 'Preferred', best: 'Elite' })[key] || key;
   }
 
+  // Per-tier warranty differentiator (all tiers are lifetime workmanship —
+  // see the flat warranty badge above — so this is just what varies:
+  // transferability + inspection). Same config, same fallback pattern.
+  function tierDisplayWarrantyBlurb(key) {
+    const cfg = window.NBD_ESTIMATE_CONFIG;
+    if (cfg && typeof cfg.tierWarrantyBlurb === 'function') return cfg.tierWarrantyBlurb(key);
+    return ({ good: 'Non-transferable', better: 'Transferable to 1 subsequent owner', best: 'Fully transferable + annual inspection' })[key] || '';
+  }
+
   // ============================================================================
   // STATE
   // ============================================================================
@@ -205,7 +214,14 @@
       // Product details
       selectedProducts: opts.selectedProducts || [],
       shingleColor: opts.shingleColor || '',
-      warranty: opts.warranty || '25-year limited lifetime',
+      // GBB audit, 2026-09-09: was a flat '25-year limited lifetime' that
+      // matched no tier's actual warranty (Sept-8 commit a3ac83b1 flagged
+      // this verbatim as "needs a decision, not a guess"). All three tiers
+      // now carry the same lifetime workmanship warranty (they always
+      // differed only by transferability, never duration), so a single
+      // flat badge is finally accurate for every tier — see the per-tier
+      // transferability line rendered on each tier card instead.
+      warranty: opts.warranty || 'Lifetime Workmanship Warranty',
 
       // Insurance
       insuranceClaim: opts.insuranceClaim || false,
@@ -408,6 +424,7 @@ body{font-family:'Barlow',sans-serif;background:#0d0f14;color:#e5e7eb;min-height
 .tier-price{font-size:28px;font-weight:700;color:var(--orange);margin:8px 0;}
 .tier-monthly{font-size:12px;color:#8b8e96;}
 .tier-desc{font-size:13px;color:#8b8e96;margin-top:8px;line-height:1.5;}
+.tier-warranty{font-size:11px;color:var(--orange);margin-top:6px;font-weight:600;}
 .tier-items{margin-top:12px;border-top:1px solid #2a2d35;padding-top:10px;}
 .tier-item{display:flex;justify-content:space-between;padding:4px 0;font-size:12px;color:#8b8e96;border-bottom:1px solid #1a1d2310;}
 .finance-section{margin-top:20px;}
@@ -460,18 +477,21 @@ body{font-family:'Barlow',sans-serif;background:#0d0f14;color:#e5e7eb;min-height
       <div class="tier-price">${fmtCurrency(deal.tiers.good.price)}</div>
       <div class="tier-monthly">or ~${fmtCurrency(goodPay)}/mo with financing</div>
       <div class="tier-desc">${esc(deal.tiers.good.description)}</div>
+      <div class="tier-warranty">🛡️ ${esc(tierDisplayWarrantyBlurb('good'))}</div>
     </div>
     <div class="tier recommended" id="tier-better" data-deal-tier="better">
       <div class="tier-name">★★ ${esc(tierDisplayLabel('better'))}</div>
       <div class="tier-price">${fmtCurrency(deal.tiers.better.price)}</div>
       <div class="tier-monthly">or ~${fmtCurrency(betterPay)}/mo with financing</div>
       <div class="tier-desc">${esc(deal.tiers.better.description)}</div>
+      <div class="tier-warranty">🛡️ ${esc(tierDisplayWarrantyBlurb('better'))}</div>
     </div>
     <div class="tier" id="tier-best" data-deal-tier="best">
       <div class="tier-name">★★★ ${esc(tierDisplayLabel('best'))}</div>
       <div class="tier-price">${fmtCurrency(deal.tiers.best.price)}</div>
       <div class="tier-monthly">or ~${fmtCurrency(bestPay)}/mo with financing</div>
       <div class="tier-desc">${esc(deal.tiers.best.description)}</div>
+      <div class="tier-warranty">🛡️ ${esc(tierDisplayWarrantyBlurb('best'))}</div>
     </div>
   </div>
 
