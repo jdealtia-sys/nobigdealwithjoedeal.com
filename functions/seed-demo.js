@@ -262,13 +262,18 @@ function buildEstimateRows(sq, tier) {
   return rows;
 }
 
+// tierName was the third of four independently-coded tier vocabularies the
+// GBB audit (2026-09-09) found live in the codebase — this seed tenant's
+// docs are real Firestore documents in prod (STABILITY-AUDIT-2026-09-04.md),
+// so a sales demo was showing "Reroof Plus"/"Full Redeck" while every other
+// surface had moved to Standard/Preferred/Elite. Canonical labels now.
 const ESTIMATES_DEF = [
-  { leadIdx: 5, tier: 'better', sq: 42, tierName: 'Reroof Plus' },      // Angela Torres
-  { leadIdx: 6, tier: 'good', sq: 32, tierName: 'Standard Reroof' },     // Michael Johnson
-  { leadIdx: 7, tier: 'better', sq: 38, tierName: 'Reroof Plus' },       // Lisa Washington
-  { leadIdx: 8, tier: 'best', sq: 46, tierName: 'Full Redeck' },         // James Kim
-  { leadIdx: 9, tier: 'better', sq: 36, tierName: 'Reroof Plus' },       // Patricia Ramirez
-  { leadIdx: 10, tier: 'best', sq: 44, tierName: 'Full Redeck' },        // Thomas Baker
+  { leadIdx: 5, tier: 'better', sq: 42, tierName: 'Preferred' },      // Angela Torres
+  { leadIdx: 6, tier: 'good', sq: 32, tierName: 'Standard' },         // Michael Johnson
+  { leadIdx: 7, tier: 'better', sq: 38, tierName: 'Preferred' },      // Lisa Washington
+  { leadIdx: 8, tier: 'best', sq: 46, tierName: 'Elite' },            // James Kim
+  { leadIdx: 9, tier: 'better', sq: 36, tierName: 'Preferred' },      // Patricia Ramirez
+  { leadIdx: 10, tier: 'best', sq: 44, tierName: 'Elite' },           // Thomas Baker
 ];
 
 const KNOCK_ADDRESSES = [
