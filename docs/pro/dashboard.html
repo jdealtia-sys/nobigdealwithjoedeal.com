@@ -11,6 +11,7 @@
      paint, so theme-system.css mode-keyed rules don't FOUC. Must run sync
      in <head> before theme-system.css. ThemeEngine.init() takes over later. -->
 <script src="js/theme-mode-preboot.js?v=1"></script>
+<script src="js/shape-preboot.js?v=1"></script>
 <!-- Stamp <html data-theme="..."> from the saved theme (canonical nbd_pro_theme,
      legacy nbd-theme fallback) BEFORE first paint, so the dashboard doesn't flash
      the hardcoded default before the deferred ThemeEngine boots (audit F-2). Must
@@ -3341,6 +3342,29 @@
             <!-- FONT FAMILY PICKER -->
             <label style="font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--m);display:block;margin-bottom:8px;">Font Family</label>
             <div id="settings-font-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;margin-bottom:10px;"></div>
+          </div>
+        </div>
+
+        <!-- Shape & Depth: corner radius / elevation / motion preset, independent
+             of the color theme picker above. "Sharp" is today's exact look —
+             see docs/pro/css/dashboard-app.css's [data-shape] blocks. -->
+        <div class="panel mb-md">
+          <div class="panel-hdr"><div><div class="panel-label">Appearance</div><div class="panel-title">Shape & Depth</div></div></div>
+          <div class="panel-body">
+            <div class="mb-lg">
+              <label style="font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--m);display:block;margin-bottom:8px;">Corners & Depth</label>
+              <div style="display:flex;gap:8px;flex-wrap:wrap;" id="shapeStyleBtnGroup">
+                <button class="btn btn-ghost shape-style-btn" data-shape="sharp" data-action="call" data-fn="nbdSetShapeStyle" data-arg="sharp">Sharp</button>
+                <button class="btn btn-ghost shape-style-btn" data-shape="linear" data-action="call" data-fn="nbdSetShapeStyle" data-arg="linear">Linework</button>
+                <button class="btn btn-ghost shape-style-btn" data-shape="pressed" data-action="call" data-fn="nbdSetShapeStyle" data-arg="pressed">Pressed</button>
+                <button class="btn btn-ghost shape-style-btn" data-shape="soft" data-action="call" data-fn="nbdSetShapeStyle" data-arg="soft">Soft Canvas</button>
+                <button class="btn btn-ghost shape-style-btn" data-shape="elevated" data-action="call" data-fn="nbdSetShapeStyle" data-arg="elevated">Elevated</button>
+                <button class="btn btn-ghost shape-style-btn" data-shape="fluent" data-action="call" data-fn="nbdSetShapeStyle" data-arg="fluent">Mica</button>
+                <button class="btn btn-ghost shape-style-btn" data-shape="glass" data-action="call" data-fn="nbdSetShapeStyle" data-arg="glass">Glass</button>
+                <button class="btn btn-ghost shape-style-btn" data-shape="tonal" data-action="call" data-fn="nbdSetShapeStyle" data-arg="tonal">Tonal</button>
+              </div>
+              <div style="font-size:11px;color:var(--m);margin-top:8px;">Changes button, card, input, and modal corners and shadow — never color. "Sharp" is today's default look.</div>
+            </div>
           </div>
         </div>
 

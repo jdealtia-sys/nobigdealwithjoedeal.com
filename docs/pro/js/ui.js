@@ -841,6 +841,12 @@ function switchSettingsTab(tab) {
     if (typeof window.nbdRenderFontGrid === 'function') window.nbdRenderFontGrid();
     if (typeof window.nbdSyncSizeBtns === 'function') window.nbdSyncSizeBtns();
     if (typeof window.nbdSyncModeToggle === 'function') window.nbdSyncModeToggle();
+    // Shape & Depth segmented control active-state — same lazy-hydration
+    // hook as the three calls above; nbdSyncShapeStyleBtns lives in
+    // __NBD_CALL_REGISTRY (dashboard-ui-prefs-boot.js), not on window.
+    if (window.__NBD_CALL_REGISTRY && typeof window.__NBD_CALL_REGISTRY.nbdSyncShapeStyleBtns === 'function') {
+      window.__NBD_CALL_REGISTRY.nbdSyncShapeStyleBtns();
+    }
     // Visual Overlays checkbox was hardcoded `checked` in markup with
     // nothing ever syncing it from the actual (now-persisted) state —
     // it would keep showing ON even after a saved OFF preference took
