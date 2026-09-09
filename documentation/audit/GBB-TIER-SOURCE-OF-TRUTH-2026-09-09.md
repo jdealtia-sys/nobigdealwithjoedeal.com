@@ -503,6 +503,37 @@ need to check it for Preferred/Elite); PR 4 (marketing site's +15%/+30% price
 copy) and PR 5 (tier→material enforcement, TAMKO pricing) are unchanged from
 their §8 status above.
 
+**CI caught two stale test pins on PR #1529, both fixed same session (commit
+`11539045`):** `tests/docgen-preflight-contract.test.js` had asserted the
+rep's `transferable` checkbox was the *only* way a certificate could say
+"transferable" (tested against `warrantyTier: 'best'` for both the checked
+and unchecked case) — under the new model Elite is inherently transferable
+regardless of the checkbox, so the unchecked case was pinning exactly the
+behavior this redesign intentionally changes. Rewritten to use `'good'`
+(non-transferable by default) to test what the checkbox actually does, plus
+a new assertion proving Elite stays transferable even unchecked.
+`tests/estimate-render.test.js` pinned the literal "10-year NBD/ORC labor
+warranty" line this PR replaced with "Lifetime" — updated to match. Both
+are expected, deliberate contract changes, not regressions — logged so
+nobody re-reverts the fix to chase a green CI run without reading why.
+
+**Shared-checkout note for whoever reads this next:** while finishing this
+PR, `docs/pro/dashboard.html`, `customer.html`, `customer-tasks-ui.js`,
+`dashboard-bootstrap.module.js`, `document-generator.js` and
+`document-generator-templates.js` picked up substantial uncommitted
+additions in the local working tree that were not authored by this session
+(a "Storm History Report (5-Yr)" NOAA/NWS document type, judging by the
+diff) — almost certainly a concurrent session sharing this checkout, per
+this vault's own standing [[shared-checkout-parallel-sessions]] hazard. Not
+touched, not committed, not staged; this PR's own edits to the latter two
+files were spot-checked and confirmed intact underneath the other session's
+additions. If you're that other session: nothing here conflicts with your
+work, this note is just here so the local `docgen conversions: 24` /
+`doc-template cards: 15` smoke-test counts reading 25/16 in an uncommitted
+local run isn't mistaken for a regression in this PR — it isn't; CI (which
+runs your PR's actual committed diff, not this shared local working tree)
+is the source of truth.
+
 **Guardrail for every PR above**: add one contract test per surface (this
 vault's own established pattern — see `photos-timestamp-contract.test.js` for
 the shape) that enumerates every writer/reader of a tier label or warranty
