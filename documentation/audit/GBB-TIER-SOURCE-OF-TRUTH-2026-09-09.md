@@ -517,6 +517,135 @@ warranty" line this PR replaced with "Lifetime" — updated to match. Both
 are expected, deliberate contract changes, not regressions — logged so
 nobody re-reverts the fix to chase a green CI run without reading why.
 
+## §9 — Independent re-verification sweep (2026-09-09, after PR #1529 went green)
+
+Once PR #1529 was fully green, ran a fresh 5-agent sweep — not self-review —
+specifically to check whether the fix actually reached every surface:
+`functions/` (untouched by the PR), the rest of `docs/pro/js/`, the rest of
+the public site, the *actual rendered output* of the fixed functions
+(executed, not just read), and whether `tests/` coverage gaps could be
+hiding something CI's green didn't prove. It found real gaps. 1M subagent
+tokens, ~12 minutes.
+
+**Fixed same session (commit `57bcd609`), five surfaces the original PR missed
+because they weren't in its touched-file list:**
+
+1. `functions/print/templates/estimate.hbs` — the static intro sentence
+   above the tier-comparison cards said tiers differ by "warranty length,"
+   directly contradicting the tier cards immediately below it in the SAME
+   PDF (which correctly say Lifetime per the prior commit). This is the
+   **primary customer-facing estimate PDF** per `estimate-v2-ui.js`'s own
+   comment calling it "the server render the homeowner receives."
+2. `functions/portal.js` — the homeowner portal's `tierName` fallback map
+   (fires for **every** V2 estimate, confirmed, since V2 never persists
+   `tierName` at all — zero occurrences repo-wide) still said "Standard
+   Reroof"/"Reroof Plus"/"Full Redeck," a **fifth** independent stale
+   vocabulary shown directly to homeowners on their own portal.
+   `functions/` has no server-side mirror of `TIER_DISPLAY`, so this
+   hand-maintained literal map needed updating separately.
+3. `docs/pro/js/estimate-view.js` — the public, token-authenticated
+   itemized-scope viewer (a real homeowner-facing page) hardcoded
+   Good/Better/Best.
+4. `docs/pro/js/email_system.js` — the estimate-sent customer email's body
+   text literally said "We offer Good, Better, and Best options."
+5. `docs/pro/js/company-profile.js` + a duplicate fallback copy inside
+   `document-generator-templates.js` — the "Warranty Protection" value prop
+   printed on the Company Intro document still claimed "Up to 20-year
+   workmanship warranty."
+
+**Tracked as follow-ups, deliberately not rushed into this PR** (bigger
+scope, need Jo's read, or lower urgency):
+
+- **`docs/blog/architectural-shingles-vs-3-tab.html`** (medium) — written in
+  Joe's own voice, actively recommends 3-tab shingles for certain
+  homeowners ("there are situations where I'd tell you to go with 3-tab and
+  save the money") — directly contradicts the "NBD never installs 3-tab on
+  a new roof" policy this session encoded into the estimate tool. Linked
+  prominently from `docs/services/roof-replacement.html` and the blog
+  index. A softer version of the same framing is in
+  `docs/blog/how-much-does-roof-cost-cincinnati-2026.html`. This needs a
+  real editorial pass (rewriting Joe's own argument), not a text swap —
+  flagging for Jo rather than rewriting his voice unilaterally.
+- **`docs/the-pledge/index.html`** (medium) — the page's core "Two Layers"
+  pitch is built on the premise that the per-job workmanship warranty has a
+  finite duration that "runs out," and The Pledge's value is continuing
+  past that. Under this session's own "lifetime workmanship for every
+  tier" model, there's no more warranty "clock" to run out — the
+  differentiator concept itself is now stale, not just a wrong number.
+  Needs a content decision (is there still a "layer 2" story to tell?), not
+  a code fix.
+- **`functions/customer-estimate-rows.js`** (medium) — byte-identical
+  mirror of `docs/pro/js/customer-estimate-rows.js` (a drift-guard test
+  enforces the mirror). Its per-SQ line-item description naively
+  capitalizes the raw internal tier key ("Better tier") instead of the
+  canonical label ("Preferred"), reachable on the mainline V2 estimate path
+  via `doc-preflight.js`'s unconditional `mapEstimateLineItems()` call. Not
+  a quick fix: `functions/` has no server-side mirror of
+  `estimate-config.js`'s `TIER_DISPLAY` at all, and
+  `tests/customer-estimate-rows.test.js:513` explicitly pins the stale
+  "Better" string — fixing this needs either a shared label constant
+  mirrored server-side or the label passed in as a parameter, plus a test
+  update. Real scope for its own change.
+- **`docs/pro/js/academy-insurance-tree-data.js`** (medium) — rep
+  training/insurance-claim scripts still teach reps to tell a real
+  homeowner "you have a 5-year workmanship warranty from us" verbatim, in
+  three places. Scripted dialogue, not a rendered document, but genuinely
+  said to customers.
+- **Contract warranty-bridge gap, re-verified precisely and found currently
+  masked** (low, but a landmine) — confirmed real: `doc-preflight.js`'s
+  `contract` schema never collects `warranty` text (only `warrantyTier`),
+  `hydrateDerivedFields()` has no bridge between them, and
+  `functions/print/templates/contract.hbs` silently drops its entire
+  "5 · Warranty" section when `warranty` is null. Reachable only if a rep
+  manually unchecks/removes both of the contract's two `defaultSigners`
+  (the UI marks them "Required" but doesn't actually enforce it) — a real
+  but non-mainline path. **Currently masked by an unrelated, pre-existing
+  bug** (git blame 2026-05-16, not from this session):
+  `_buildServerPayload('contract', ...)` crashes on
+  `data.paymentSchedule.map is not a function` (the field is always a
+  string from the preflight form, not the array the server payload
+  expects) before it ever reaches the warranty field — and that crash is
+  silently caught by `generate()`'s existing fallback-to-client-render,
+  which happens to correctly render the tier-driven warranty text anyway.
+  **Net effect today: no real user action produces a contract with a
+  missing warranty section.** But the moment someone fixes the
+  `paymentSchedule` crash in isolation — an obvious, unconditional crash,
+  plausible to get fixed on its own — the warranty gap stops being masked
+  and starts shipping broken contracts. Fix both together, not separately.
+- **`docs/pro/js/doc-preflight.js`'s `renderWarrantyTier()`** (low,
+  informational) — the rep-facing warranty-tier picker card still says
+  "Good"/"Better"/"Best" with its own hardcoded blurb text instead of
+  calling `tierWarrantyBlurb()`. Per this session's own stated decision,
+  rep-facing/internal tool UI is explicitly permitted to keep the old
+  names — flagged only because it sits directly adjacent to this exact fix
+  and is completely untested (zero test references it), so nobody can
+  currently prove intent either way.
+- **`docs/pro/js/estimate-catalog-xactimate.js` / seed data / sandbox
+  demo** (low) — `seed-demo.js` hardcodes the stale tier-name scheme into
+  seeded demo estimates that are confirmed live in prod (per
+  `STABILITY-AUDIT-2026-09-04.md`, the seed-demo tenant's docs are real
+  Firestore documents, not test-only) — would show stale names during a
+  sales demo. `docs/pro/sandbox.html`'s public B2B product demo also shows
+  Good/Better/Best chips — a different audience (prospective SaaS buyers,
+  not roofing homeowners), lower urgency.
+
+**Confirmed clean, not just assumed:** `functions/print/templates/warranty.hbs`
+(the NBD Guarantee cert) was already fully parameterized and correctly
+aligned — false alarm on first read, confirmed fine on tracing the actual
+call site. Email templates (`estimate-email.js`, `storm-report-email.js`,
+`lead-followup.js`), `render-pdf.js`'s helper/template registry, the
+free-tools funnel pages, `the-nbd-build` vs `the-nbd-guarantee`
+self-consistency, and the entire `tests/` tree (no stale assertion,
+nothing quarantined) all checked out clean. Rendering was **executed**, not
+just read: `estimate-config.js`'s three helpers, `renderWarrantyCertificate`
+across all 6 tier×transferable combinations, `close-board.js`'s
+`generateDealPageHTML` (with an apostrophe and an angle-bracket in the
+fixture to test escaping), and `NBDDocGen.renderWarrantyBadge` across all
+three tiers — all produced clean, well-formed HTML with no
+undefined/NaN/`[object Object]` artifacts and correct escaping.
+
+---
+
 **Shared-checkout note for whoever reads this next:** while finishing this
 PR, `docs/pro/dashboard.html`, `customer.html`, `customer-tasks-ui.js`,
 `dashboard-bootstrap.module.js`, `document-generator.js` and
