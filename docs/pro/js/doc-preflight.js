@@ -2342,6 +2342,10 @@
     if (data.changesDescription == null && data.changeDescription) data.changesDescription = data.changeDescription;    // change_order
     if (data.insuranceCompany == null && data.insCarrier) data.insuranceCompany = data.insCarrier;                     // supplement_request
     if (data.issueDate == null && data.installDate) data.issueDate = data.installDate;                                 // warranty_certificate
+    if (data.warranty == null && data.warrantyTier) {                                                                  // contract (renderer's "5 · Warranty"
+      var _wt = window.NBDDocGen && window.NBDDocGen.WARRANTY_TIERS && window.NBDDocGen.WARRANTY_TIERS[data.warrantyTier]; // section is dropped entirely
+      if (_wt) data.warranty = _wt.description + ' ' + _wt.details;                                                    // when warranty is null/empty)
+    }
     if (data.scopeSummary == null && data.scopeCompleted) data.scopeSummary = data.scopeCompleted;                     // certificate_of_completion
     if (!data.neighborhoodName && data.affectedArea) data.neighborhoodName = data.affectedArea;                       // neighborhood_mailer (required Affected Area → neighborhood label)
 
