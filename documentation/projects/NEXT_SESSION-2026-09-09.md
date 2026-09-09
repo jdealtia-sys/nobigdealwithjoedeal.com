@@ -16,6 +16,28 @@ inaccurately after two days. Claims below that rest on **production** state
 those agents and are marked ⚠︎; I verified the repo-side mechanism of §1 myself
 and marked it accordingly. Treat ⚠︎ lines as leads to re-run, not as facts.
 
+**UPDATE 2026-09-08 (late evening, after this brief was written):** the
+appearance-lab build plan ([SESSION-2026-09-08-appearance-lab-exploration](SESSION-2026-09-08-appearance-lab-exploration.md))
+shipped same-day — Phase 0 overlay-engine fixes (#1522), Shape & Depth (#1524),
+Material/Shop Copy+Golden Hour (#1525), and Live Atmospheres/Galaxy Drift
+(#1527), none of which this brief's §0–§N lanes below account for. A same-
+evening QA pass live-tested all four against the real emulator (not just
+read) and found and fixed four real defects — see
+[APPEARANCE-LAB-QA-2026-09-08](../audit/APPEARANCE-LAB-QA-2026-09-08.md):
+Shape/Material preferences were write-only to `userSettings/{uid}` (never
+read back, so the "follows you across devices" claim was false), the Shape &
+Depth presets' motion tokens (`--shape-ease`/`--shape-dur`) were dead CSS,
+`.btn-orange` (the app's primary/CTA button class) never picked up the
+Pressed preset's emboss shadow, and Shop Copy's critical-aging pipeline card
+kept the default bright-red urgency pulse clashing with its own carbon
+palette (Golden Hour had fixed the identical seam for itself in the same
+PR). All four fixed and re-verified live; full gate suite green
+(3810/3810 smoke assertions, syntax, site-integrity). One initial "the
+Galaxy Drift animation freezes after ~8 frames" observation turned out to be
+a Browser-pane rendering artifact, not a real bug — confirmed via a real
+Playwright Chromium run before writing it up; see the audit note before
+trusting any future report of this same symptom.
+
 ---
 
 ## §0 — Jo's queue

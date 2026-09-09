@@ -305,6 +305,47 @@ function _nbdToast(msg, type) {
   if (typeof showToast === 'function') showToast(msg, type || 'info');
 }
 
+// ── Cross-device hydrate for one-way-written userSettings/{uid} fields ──
+// nbdSetShapeStyle/nbdSetMaterial (below) write shapeStyle/materialStyle to
+// userSettings/{uid} on every change, matching the merge write ThemeEngine
+// already makes for the color theme — but until this helper, nothing ever
+// read either field back. A rep's choice was durable on the device that
+// made it (localStorage) and invisible everywhere else, despite the write
+// succeeding every time and the commit message for both features claiming
+// the preference "follows a rep across devices." Mirrors ThemeEngine.init()'s
+// exact self-heal shape: local paint first (already done via
+// shape-preboot.js/material-preboot.js + the boot IIFEs below), then a
+// short poll for auth/Firestore to come up (may not exist yet at boot),
+// then apply the server copy via `apply(remote, false)` — save=false so the
+// hydrate doesn't echo an identical write straight back or toast a change
+// the user sitting at this device didn't just make — but ONLY if it
+// differs from what's already showing, so a same-session in-progress
+// choice is never clobbered by a stale server read arriving late.
+function _nbdHydratePrefFromFirestore(field, readCurrent, apply) {
+  var tries = 0;
+  function poll() {
+    var uid, ok;
+    try {
+      uid = (window._user && window._user.uid) || null;
+      ok = uid && window.db && window.getDoc && window.doc;
+    } catch (e) { ok = false; }
+    if (!ok) {
+      if (++tries <= 10) setTimeout(poll, 500); // give up after ~5s
+      return;
+    }
+    try {
+      (window.nbdRetryOffline || function (f) { return f(); })(function () {
+        return window.getDoc(window.doc(window.db, 'userSettings', uid));
+      }).then(function (snap) {
+        if (!snap.exists()) return;
+        var remote = snap.data() && snap.data()[field];
+        if (remote && remote !== readCurrent()) apply(remote);
+      }).catch(function (err) { console.warn('[' + field + '] Firestore hydrate failed:', err.message); });
+    } catch (e) {}
+  }
+  setTimeout(poll, 250);
+}
+
 // ── ThemeGX wrappers (GX = the glow/accent/animated-bg layer) ──
 function nbdGxSetEnabled(on)     { if (window.ThemeGX) window.ThemeGX.setEnabled(!!on); _nbdToast('Theme Effects ' + (on ? 'ON' : 'OFF')); }
 function nbdGxSetGlow(on)        { if (window.ThemeGX) window.ThemeGX.setGlow(!!on);    _nbdToast('Glow ' + (on ? 'ON' : 'OFF')); }
@@ -330,22 +371,28 @@ function nbdSoundsSetEnabled(on)   { if (window.ThemeSounds)   window.ThemeSound
 // stamp that avoids a flash on load.
 var NBD_SHAPE_STYLE_KEY = 'nbd_shape_style';
 var NBD_SHAPE_STYLES = ['sharp', 'linear', 'pressed', 'soft', 'elevated', 'fluent', 'glass', 'tonal'];
-function nbdSetShapeStyle(shape) {
+// save=false is the hydrate-from-Firestore path (see _nbdHydratePrefFromFirestore
+// below) — applies the remote value without echoing it straight back to
+// Firestore and without toasting a change the user didn't just make.
+function nbdSetShapeStyle(shape, save) {
+  if (save === undefined) save = true;
   if (NBD_SHAPE_STYLES.indexOf(shape) === -1) shape = 'sharp';
   if (shape === 'sharp') document.documentElement.removeAttribute('data-shape');
   else document.documentElement.setAttribute('data-shape', shape);
   try { localStorage.setItem(NBD_SHAPE_STYLE_KEY, shape); } catch (e) {}
-  // Fire-and-forget cross-device sync, same merge write ThemeEngine.apply()
-  // already makes for the color theme — local paint never waits on this.
-  try {
-    var uid = (window._user && window._user.uid) || null;
-    if (uid && window.db && window.doc && window.setDoc) {
-      window.setDoc(window.doc(window.db, 'userSettings', uid), { shapeStyle: shape }, { merge: true })
-        .catch(function (err) { console.warn('[shape-style] Firestore sync failed:', err.message); });
-    }
-  } catch (e) {}
+  if (save) {
+    // Fire-and-forget cross-device sync, same merge write ThemeEngine.apply()
+    // already makes for the color theme — local paint never waits on this.
+    try {
+      var uid = (window._user && window._user.uid) || null;
+      if (uid && window.db && window.doc && window.setDoc) {
+        window.setDoc(window.doc(window.db, 'userSettings', uid), { shapeStyle: shape }, { merge: true })
+          .catch(function (err) { console.warn('[shape-style] Firestore sync failed:', err.message); });
+      }
+    } catch (e) {}
+  }
   nbdSyncShapeStyleBtns(shape);
-  _nbdToast('Shape: ' + shape.charAt(0).toUpperCase() + shape.slice(1));
+  if (save) _nbdToast('Shape: ' + shape.charAt(0).toUpperCase() + shape.slice(1));
 }
 // Paint the segmented control's active state. Called after a change, on
 // Settings > Appearance hydrate (ui.js switchSettingsTab), and at boot.
@@ -360,6 +407,11 @@ function nbdSyncShapeStyleBtns(shape) {
 }
 document.addEventListener('DOMContentLoaded', function () {
   setTimeout(function () { nbdSyncShapeStyleBtns(); }, 200);
+  _nbdHydratePrefFromFirestore(
+    'shapeStyle',
+    function () { try { return localStorage.getItem(NBD_SHAPE_STYLE_KEY) || 'sharp'; } catch (e) { return 'sharp'; } },
+    function (remote) { nbdSetShapeStyle(remote, false); }
+  );
 });
 
 // ── Comfort tab ternaries (boolean → enum string) ──
@@ -512,7 +564,11 @@ Object.assign(window.__NBD_CALL_REGISTRY, {
 // the CSS in dashboard-app.css only activates under [data-material="..."].
 var NBD_MATERIAL_KEY = 'nbd_material_style';
 var NBD_MATERIALS = ['none', 'shop-copy', 'golden-hour'];
-function nbdSetMaterial(material) {
+// save=false is the hydrate-from-Firestore path (see _nbdHydratePrefFromFirestore
+// above) — applies the remote value without echoing it straight back to
+// Firestore and without toasting a change the user didn't just make.
+function nbdSetMaterial(material, save) {
+  if (save === undefined) save = true;
   if (NBD_MATERIALS.indexOf(material) === -1) material = 'none';
   if (material === 'none') document.documentElement.removeAttribute('data-material');
   else document.documentElement.setAttribute('data-material', material);
@@ -526,16 +582,20 @@ function nbdSetMaterial(material) {
       document.head.appendChild(link);
     }
   }
-  try {
-    var uid = (window._user && window._user.uid) || null;
-    if (uid && window.db && window.doc && window.setDoc) {
-      window.setDoc(window.doc(window.db, 'userSettings', uid), { materialStyle: material }, { merge: true })
-        .catch(function (err) { console.warn('[material-style] Firestore sync failed:', err.message); });
-    }
-  } catch (e) {}
+  if (save) {
+    try {
+      var uid = (window._user && window._user.uid) || null;
+      if (uid && window.db && window.doc && window.setDoc) {
+        window.setDoc(window.doc(window.db, 'userSettings', uid), { materialStyle: material }, { merge: true })
+          .catch(function (err) { console.warn('[material-style] Firestore sync failed:', err.message); });
+      }
+    } catch (e) {}
+  }
   nbdSyncMaterialBtns(material);
-  var label = material === 'none' ? 'None' : material === 'shop-copy' ? 'Shop Copy' : 'Golden Hour';
-  _nbdToast('Material: ' + label);
+  if (save) {
+    var label = material === 'none' ? 'None' : material === 'shop-copy' ? 'Shop Copy' : 'Golden Hour';
+    _nbdToast('Material: ' + label);
+  }
 }
 function nbdSyncMaterialBtns(material) {
   if (!material) { try { material = localStorage.getItem(NBD_MATERIAL_KEY) || 'none'; } catch (e) { material = 'none'; } }
@@ -551,8 +611,17 @@ document.addEventListener('DOMContentLoaded', function () {
     nbdSyncMaterialBtns();
     // A saved shop-copy preference from a prior session needs its font
     // loaded on this boot too — a fresh in-session choice loads it from
-    // inside nbdSetMaterial itself.
-    try { if (localStorage.getItem(NBD_MATERIAL_KEY) === 'shop-copy') nbdSetMaterial('shop-copy'); } catch (e) {}
+    // inside nbdSetMaterial itself. save=false: this is re-applying an
+    // already-persisted preference, not a new user action, so it must not
+    // re-toast "Material: Shop Copy" (previously fired, wrongly, on every
+    // single page load for a shop-copy user) or echo an identical write
+    // back to Firestore.
+    try { if (localStorage.getItem(NBD_MATERIAL_KEY) === 'shop-copy') nbdSetMaterial('shop-copy', false); } catch (e) {}
   }, 200);
+  _nbdHydratePrefFromFirestore(
+    'materialStyle',
+    function () { try { return localStorage.getItem(NBD_MATERIAL_KEY) || 'none'; } catch (e) { return 'none'; } },
+    function (remote) { nbdSetMaterial(remote, false); }
+  );
 });
 })();
