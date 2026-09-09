@@ -45,6 +45,7 @@ const { logger } = require('firebase-functions/v2');
 const { getFirestore } = require('firebase-admin/firestore');
 const { FieldValue } = require('firebase-admin/firestore');
 const { Resend } = require('resend');
+const { resendRejected, resendErrorMessage } = require('./resend-guard');
 
 // ───────────────────────────────────────────────────────────────
 // Config
@@ -315,7 +316,7 @@ exports.estimateEmail = onDocumentCreated(
     if (process.env.EMAIL_FROM) fromAddress = process.env.EMAIL_FROM;
 
     try {
-      await resend.emails.send({
+      const response = await resend.emails.send({
         from: fromAddress,
         to: data.email,
         replyTo: REPLY_TO,
@@ -326,6 +327,12 @@ exports.estimateEmail = onDocumentCreated(
           'X-NBD-Campaign': 'estimate-email-v1',
         },
       });
+      // Resend resolves { data: null, error } on an API-level rejection
+      // instead of throwing — without this check estimateEmailStatus gets
+      // stamped 'sent' on a customer estimate that never left Resend.
+      if (resendRejected(response)) {
+        throw new Error(resendErrorMessage(response));
+      }
 
       await snap.ref.update({ estimateEmailStatus: 'sent' });
       logger.info('estimate_email_sent', { leadId });

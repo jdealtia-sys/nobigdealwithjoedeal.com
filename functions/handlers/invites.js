@@ -52,6 +52,7 @@ const { _test: { PLAN_LIMITS } } = require('../billing');
 const RESEND_API_KEY = defineSecret('RESEND_API_KEY');
 const EMAIL_FROM = defineSecret('EMAIL_FROM');
 const { secretOr } = require('../integrations/_shared');
+const { resendRejected, resendErrorMessage } = require('../resend-guard');
 
 // Mirror of stripe.js/provisioning.js mergeCustomClaims — setCustomUserClaims
 // replaces the whole set, so read-merge-write to keep billing claims intact.
@@ -299,7 +300,7 @@ exports.teamInviteEmail = onDocumentCreated(
     try {
       const resend = new Resend(RESEND_API_KEY.value());
       const from = secretOr(EMAIL_FROM, 'noreply@nobigdealwithjoedeal.com');
-      await resend.emails.send({
+      const response = await resend.emails.send({
         from,
         to,
         reply_to: replyTo,
@@ -308,6 +309,13 @@ exports.teamInviteEmail = onDocumentCreated(
         text: inviteEmailText(companyName, roleLabel),
         headers: { 'X-NBD-Campaign': 'team-invite-v1' },
       });
+      // Resend resolves { data: null, error } on an API-level rejection
+      // instead of throwing — without this check emailStatus is 'sent' and
+      // the comment below ("the dashboard's alert-health banner surfaces
+      // failed:* statuses") never fires for exactly the failure it names.
+      if (resendRejected(response)) {
+        throw new Error(resendErrorMessage(response));
+      }
       emailStatus = 'sent';
       await snap.ref.update({ inviteEmailSentAt: FieldValue.serverTimestamp() }).catch(() => {});
       logger.info('teamInviteEmail: sent', { companyId });

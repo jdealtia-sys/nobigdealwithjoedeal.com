@@ -28,6 +28,7 @@ const { logger } = require('firebase-functions/v2');
 const { Resend } = require('resend');
 const { Timestamp, FieldValue, getFirestore } = require('firebase-admin/firestore');
 const L = require('./lead-bridge-logic');
+const { resendRejected, resendErrorMessage } = require('./resend-guard');
 
 const RESEND_API_KEY = defineSecret('RESEND_API_KEY');
 const EMAIL_FROM = defineSecret('EMAIL_FROM');
@@ -135,7 +136,7 @@ exports.leadFollowUpSweep = onSchedule(
         try {
           if (!resend) resend = new Resend(RESEND_API_KEY.value());
           const firstName = String(d.firstName || d.name || '').trim().split(/\s+/)[0] || '';
-          await resend.emails.send({
+          const response = await resend.emails.send({
             from: 'Joe Deal <jd@nobigdealwithjoedeal.com>',
             to: email,
             reply_to: 'jd@nobigdealwithjoedeal.com',
@@ -144,6 +145,14 @@ exports.leadFollowUpSweep = onSchedule(
             text: followUpText(firstName),
             headers: { 'X-NBD-Campaign': 'lead-followup-v1' },
           });
+          // Resend resolves { data: null, error } on an API-level rejection
+          // instead of throwing — without this check followUpEmailSentAt
+          // gets stamped, and per this file's own header comment ("one
+          // send ever per lead") that lead would never be followed up
+          // with again.
+          if (resendRejected(response)) {
+            throw new Error(resendErrorMessage(response));
+          }
           await doc.ref.update({ followUpEmailSentAt: FieldValue.serverTimestamp() });
           sent++;
         } catch (e) {

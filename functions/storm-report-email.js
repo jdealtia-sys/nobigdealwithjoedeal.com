@@ -31,6 +31,7 @@ const { Resend } = require('resend');
 const RESEND_API_KEY = defineSecret('RESEND_API_KEY');
 const EMAIL_FROM = defineSecret('EMAIL_FROM');
 const { secretOr } = require('./integrations/_shared');
+const { resendRejected, resendErrorMessage } = require('./resend-guard');
 
 const PHONE_DISPLAY = '(859) 420-7382';
 const PHONE_TEL = 'tel:+18594207382';
@@ -176,6 +177,13 @@ exports.stormReportEmail = onDocumentCreated(
         html,
         reply_to: REPLY_TO,
       });
+      // Resend resolves { data: null, error } on an API-level rejection
+      // instead of throwing — without this check the doc is already
+      // claimed (see the transaction above) so a rejected send would be
+      // logged and left as if it had gone out, with no retry ever coming.
+      if (resendRejected(resp)) {
+        throw new Error(resendErrorMessage(resp));
+      }
       const id = (resp && resp.data && resp.data.id) || (resp && resp.id) || null;
       await ref.update({ reportEmailId: id });
       logger.info('stormReportEmail: sent', { leadId, id });

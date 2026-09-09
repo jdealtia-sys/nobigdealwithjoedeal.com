@@ -17,6 +17,7 @@ const { getAuth } = require('firebase-admin/auth');
 const { FieldValue } = require('firebase-admin/firestore');
 const { Resend } = require('resend');
 const { enforceRateLimit, httpRateLimit } = require('./rate-limit');
+const { resendRejected, resendErrorMessage } = require('./resend-guard');
 
 // Secrets
 const RESEND_API_KEY = defineSecret('RESEND_API_KEY');
@@ -402,19 +403,18 @@ exports.sendEmail = onRequest(
       // key, suspended account, invalid sender domain, etc.) — it resolves
       // to { data: null, error: {...} }, so this branch never ran and every
       // one of those failures was logged and returned as a genuine success.
-      // Found live-testing invoicing 2026-09-08: a stubbed local key still
-      // returned "Invoice sent successfully" in the CRM. Same call shape is
-      // repeated at ~18 other sites across functions/ (lead-alert.js,
-      // storm-report-email.js, invites.js, etc.) — this fixes the
-      // customer-facing invoice-send path only; see
-      // documentation/audit/STRIPE-INVOICING-STATUS-2026-09-08.md for the
-      // rest, which need the same fix under their own tests.
+      // Found live-testing invoicing 2026-09-08 (see documentation/audit/
+      // STRIPE-INVOICING-STATUS-2026-09-08.md); the identical shape at
+      // ~18 more call sites across functions/ was fixed as a follow-up
+      // (documentation/audit/RESEND-ERROR-SURFACING-SWEEP-2026-09-08.md),
+      // sharing this check via resend-guard.js.
       const db = getFirestore();
       const companyId = decoded.companyId || null;
-      if (response && response.error) {
-        logger.error('sendEmail resend_rejected', { err: response.error.message || JSON.stringify(response.error) });
+      if (resendRejected(response)) {
+        const msg = resendErrorMessage(response);
+        logger.error('sendEmail resend_rejected', { err: msg });
         await logEmailToFirestore(db, to, subject, decoded.uid, 'failed', leadId || null, companyId);
-        res.status(502).json({ error: 'Failed to send email', detail: response.error.message || 'Email provider rejected the request' });
+        res.status(502).json({ error: 'Failed to send email', detail: msg });
         return;
       }
 
