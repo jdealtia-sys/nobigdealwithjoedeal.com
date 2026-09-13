@@ -137,12 +137,22 @@ const RUNNABLE = ['node', 'smoke'];
 //               over main's 67. If you take one thing from nine entries: this
 //               line is a serialisation point for every lane that adds a test
 //               file, so re-measure after the rebase and merge promptly.
+//   2026-09-13  109/67/194, Cal.com phone lane
+//               (tests/calcom-webhook-payload.test.js). MEASURED via --check
+//               on a branch cut from origin/main at 9496f859. PR #1534
+//               (favicons) raises this line to the SAME literal from the same
+//               base — a matching number is not agreement: whichever merges
+//               second must re-measure (expect 110/67/195 with both).
 //   2026-09-13  109/67/194, favicon lane (tests/favicon-contract.test.js).
 //               MEASURED via --check on a branch cut from origin/main at
 //               9496f859. Open PRs #1518 and #1499 also add node suites; if
 //               either merges first, re-measure the merged tree.
+//   2026-09-13  MERGED TREE (favicon branch + #1535): both sides carried the
+//               SAME literal 109/67/194, so git merged the number without a
+//               conflict and only these comments collided — the exact case the
+//               entries above warn about. Set from --check on the merged tree.
 
-const FLOORS = { node: 109, smoke: 67, disk: 194 };
+const FLOORS = { node: 110, smoke: 67, disk: 195 };
 
 // ── Argument parsing ───────────────────────────────────────────────
 const argv = process.argv.slice(2);

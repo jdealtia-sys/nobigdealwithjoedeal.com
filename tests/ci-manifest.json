@@ -118,6 +118,7 @@
     "photo-report-output-contract.test.js",
     "photo-report-builder.test.js",
     "session-revocation.test.js",
+    "calcom-webhook-payload.test.js",
     "favicon-contract.test.js"
   ],
   "smoke": {
