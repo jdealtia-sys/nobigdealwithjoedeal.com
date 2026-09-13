@@ -647,9 +647,18 @@ section('Cal.com webhook');
     /if \(!leadId\) \{[\s\S]{0,600}collection\('leads'\)\.doc\(newLeadId\)\.create\(/.test(src));
   assert('new-lead id is deterministic (idempotent against retried webhook delivery)',
     /bridgeDocId\('calcom', bookingId\)/.test(src));
-  assert('new lead is scoped to the rep and stamps phoneDigits',
+  // 2026-09-13: the contact fields (phone, phoneDigits, address) moved into
+  // integrations/calcom-logic.js, which tests/calcom-webhook-payload.test.js
+  // EXECUTES against documented payloads. This regex used to pin
+  // `phoneDigits: phoneDigits10(phone)` in calcom.js — and passed while every
+  // booking lost its phone, because `phone` came from a field Cal.com never
+  // sends. Rep scoping stays in calcom.js and is still pinned here.
+  const logic = read(path.join(FUNCTIONS, 'integrations/calcom-logic.js'));
+  assert('new lead is scoped to the rep and built by the shared resolver',
     /companyId:\s*repCompanyId \|\| repUid/.test(src) &&
-    /phoneDigits:\s*phoneDigits10\(phone\)/.test(src));
+    /CL\.buildCalcomLeadFields\(\{ payload, bookingId \}\)/.test(src));
+  assert('calcom-logic stamps phoneDigits via the canonical transform',
+    /require\('\.\.\/phone-utils'\)/.test(logic) && /phoneDigits:\s*phoneDigits10\(/.test(logic));
 }
 
 section('backfill — dropped Cal.com bookings repair tool');

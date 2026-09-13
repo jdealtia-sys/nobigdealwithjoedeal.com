@@ -91,6 +91,10 @@ const { initAdmin, getFirestore, FieldValue, Timestamp, getAuth } = require('./_
 // The SAME modules the live webhook imports — doc shape cannot drift.
 const { phoneDigits10 } = require('../functions/phone-utils');
 const L = require('../functions/lead-bridge-logic');
+// Same phone/address resolver as the live webhook (2026-09-13): the REST API's
+// bookingFieldsResponses carries the Phone question just as the webhook's
+// `responses` does, so reading only attendee.phoneNumber lost it here too.
+const CL = require('../functions/integrations/calcom-logic');
 
 const args = process.argv.slice(2);
 const APPLY = args.includes('--apply');
@@ -183,7 +187,7 @@ async function bookingsFromApi(from, to) {
       title: b.title,
       startTime: b.start || b.startTime ? new Date(b.start || b.startTime) : null,
       endTime: b.end || b.endTime ? new Date(b.end || b.endTime) : null,
-      location: b.location || '',
+      location: CL.resolveBookingAddress({ location: b.location, responses: b.bookingFieldsResponses || b.responses || {} }).address || b.location || '',
       notes: b.additionalNotes || b.description || '',
       status: String(b.status || '').toLowerCase(),
       organizerUsername: (b.organizer && b.organizer.username) || flag('organizer-username', 'nobigdeal'),
@@ -191,7 +195,7 @@ async function bookingsFromApi(from, to) {
       attendee: {
         name: att.name || '',
         email: att.email || '',
-        phoneNumber: att.phoneNumber || att.phone || '',
+        phoneNumber: CL.resolveAttendeePhone({ attendees: [att], responses: b.bookingFieldsResponses || b.responses || {} }).phone,
       },
     };
   });
