@@ -167,6 +167,34 @@ console.log('\nTHE TREE — every page under docs/, walked from the filesystem')
 console.log('\nASSETS — the four icon hrefs resolve to real files of the right kind');
 {
   const png = (rel) => { const b = fs.readFileSync(path.join(DOCS, rel)); return { sig: b.slice(0, 8).toString('hex'), chunk: b.slice(12, 16).toString('latin1'), w: b.readUInt32BE(16), h: b.readUInt32BE(20) }; };
+  // Signature + IHDR are not enough, and that is not hypothetical: from #1467
+  // (2026-09-07) to 2026-09-13 apple-touch-icon.png carried a valid signature
+  // and a valid 180x180 IHDR while its IDAT length was short and its CRC wrong,
+  // so browsers decoded the top rows and painted the rest black — the iOS
+  // home-screen icon for every homeowner page. Walk every chunk: bounds, CRC,
+  // IEND with nothing after it, and IDAT inflating to exactly the declared size.
+  const zlib = require('zlib');
+  const crc32 = (buf) => { let c, crc = 0xffffffff; for (let n = 0; n < buf.length; n++) { c = (crc ^ buf[n]) & 0xff; for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1; crc = (crc >>> 8) ^ c; } return (crc ^ 0xffffffff) >>> 0; };
+  const pngProblem = (b) => {
+    let off = 8, ihdr = null; const idat = [];
+    while (off + 12 <= b.length) {
+      const len = b.readUInt32BE(off), type = b.slice(off + 4, off + 8).toString('latin1');
+      if (!/^[A-Za-z]{4}$/.test(type) || off + 12 + len > b.length) return `chunk at byte ${off} overruns the file or is not a chunk`;
+      if (crc32(b.slice(off + 4, off + 8 + len)) !== b.readUInt32BE(off + 8 + len)) return `bad CRC on ${type} at byte ${off}`;
+      if (type === 'IHDR') ihdr = { w: b.readUInt32BE(off + 8), h: b.readUInt32BE(off + 12), depth: b[off + 16], ctype: b[off + 17], interlace: b[off + 20] };
+      if (type === 'IDAT') idat.push(b.slice(off + 8, off + 8 + len));
+      off += 12 + len;
+      if (type === 'IEND') return off === b.length ? (ihdr ? inflateProblem(ihdr, idat) : 'no IHDR') : `${b.length - off} byte(s) after IEND`;
+    }
+    return 'no IEND';
+  };
+  const inflateProblem = (ihdr, idat) => {
+    let raw; try { raw = zlib.inflateSync(Buffer.concat(idat)); } catch (e) { return 'IDAT does not inflate: ' + e.message; }
+    const ch = { 0: 1, 2: 3, 3: 1, 4: 2, 6: 4 }[ihdr.ctype];
+    if (ihdr.interlace || !ch) return null;
+    const want = (Math.ceil((ihdr.w * ch * ihdr.depth) / 8) + 1) * ihdr.h;
+    return raw.length === want ? null : `IDAT inflates to ${raw.length} bytes, IHDR needs ${want}`;
+  };
   for (const rel of ['favicon.svg', 'pro/favicon.svg']) {
     const p = path.join(DOCS, rel);
     ok(`/${rel} exists and is SVG markup`, fs.existsSync(p) && fs.readFileSync(p, 'utf8').trimStart().startsWith('<svg'));
@@ -176,6 +204,8 @@ console.log('\nASSETS — the four icon hrefs resolve to real files of the right
     const m = exists ? png(rel) : {};
     ok(`/${rel} is a PNG`, exists && m.sig === '89504e470d0a1a0a' && m.chunk === 'IHDR');
     ok(`/${rel} is ${dim}×${dim}`, exists && m.w === dim && m.h === dim, `${m.w}x${m.h}`);
+    const problem = exists ? pngProblem(fs.readFileSync(path.join(DOCS, rel))) : 'missing';
+    ok(`/${rel} is structurally whole (every chunk in bounds with a valid CRC, IDAT inflates to the declared size)`, problem === null, problem);
   }
   ok('the canonical tags point at exactly those four files', JSON.stringify([...tool.CANON.homeowner, ...tool.CANON.pro].map(tool.hrefOf)) === JSON.stringify(tool.NBD_ICON_HREFS));
 }
