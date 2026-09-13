@@ -249,14 +249,95 @@ console.log('\nSERVER PAYLOAD — the parts a wrong value makes silently fail');
   ok('the worker is still registered off the app scope (the reason navigate() fails)',
      /SW_SCOPE = '\/pro\/firebase-cloud-messaging-push-scope'/.test(reg));
 
-  const bridge = codeOnly(fs.readFileSync(path.join(ROOT, 'docs', 'pro', 'js', 'push-actions.js'), 'utf8'));
-  ok('a page-side bridge exists to receive the worker messages',
-     /NBD_PUSH_ACTION/.test(bridge) && /addEventListener\('message'/.test(bridge));
-  ok('the bridge refuses to navigate anywhere but this origin',
-     /location\.origin/.test(bridge) || /^\s*\/pro\//m.test(bridge) || /startsWith\('\/pro\/'\)/.test(bridge));
   const dash = fs.readFileSync(path.join(ROOT, 'docs', 'pro', 'dashboard.html'), 'utf8');
   ok('the bridge is loaded by the dashboard with defer',
      /<script defer src="js\/push-actions\.js/.test(dash));
+}
+
+console.log('\nTHE PAGE BRIDGE — a tap may only ever land inside this app');
+{
+  // This was two regexes over push-actions.js. The origin one was
+  // /location\.origin/ || ..., which passes if that text appears anywhere in
+  // the file, whether or not safePath() runs before location.assign — the same
+  // shape that let #1541's digit-deleting phone regex pass. So the bridge is
+  // run instead: loaded in a vm, handed the message the worker posts, and
+  // judged by what it did to window.location.
+  //
+  // It listens on navigator.serviceWorker, which only delivers messages from a
+  // service worker of this origin, so there is no event.origin check to test.
+  // The URL inside the message is the untrusted part, and safePath() is the
+  // only thing between it and location.assign.
+  const ORIGIN = 'https://nobigdealwithjoedeal.com';
+  const bridgeSrc = fs.readFileSync(path.join(ROOT, 'docs', 'pro', 'js', 'push-actions.js'), 'utf8');
+  const rec = { assigned: [], opened: [], snoozed: [] };
+  const swListeners = {};
+  const winListeners = {};
+  const on = (bag) => (ev, fn) => { (bag[ev] = bag[ev] || []).push(fn); };
+  const win = {
+    location: {
+      origin: ORIGIN, pathname: '/pro/dashboard.html', search: '', hash: '',
+      assign: (u) => { rec.assigned.push(u); },
+    },
+    history: { replaceState() {} },
+    addEventListener: on(winListeners),
+    showToast() {},
+    openCardDetailModal: (id) => { rec.opened.push(id); },
+    snoozeLead: async (id) => { rec.snoozed.push(id); },
+  };
+  const ctx = {
+    window: win,
+    navigator: { serviceWorker: { addEventListener: on(swListeners) } },
+    // Node globals, not V8 builtins: a bare vm context has neither, and
+    // safePath's try/catch would then reject every absolute URL for the wrong
+    // reason. The same-origin absolute case below fails if that happens.
+    URL, URLSearchParams,
+    console: { log() {}, warn() {}, error() {} },
+  };
+  vm.createContext(ctx);
+  vm.runInContext(bridgeSrc, ctx, { filename: 'push-actions.js' });
+
+  const onMessage = (swListeners.message || [])[0];
+  ok('the bridge listens for worker messages on navigator.serviceWorker',
+     (swListeners.message || []).length === 1 && typeof onMessage === 'function');
+
+  function tap(url) {
+    rec.assigned.length = 0; rec.opened.length = 0;
+    if (onMessage) onMessage({ data: { type: 'NBD_PUSH_ACTION', action: 'navigate', url } });
+    return { assigned: rec.assigned.slice(), opened: rec.opened.slice() };
+  }
+
+  const inApp = tap('/pro/customer.html?leadId=L1');
+  ok('an app path on another page navigates there',
+     same(inApp.assigned, ['/pro/customer.html?leadId=L1']) && inApp.opened.length === 0,
+     JSON.stringify(inApp));
+  const absolute = tap(ORIGIN + '/pro/customer.html?leadId=L2#notes');
+  ok('a same-origin absolute URL navigates by its path, not the full URL',
+     same(absolute.assigned, ['/pro/customer.html?leadId=L2#notes']), JSON.stringify(absolute));
+
+  for (const url of ['https://evil.example/pro/x', '//evil.example/pro/x', '/\\evil.example/pro/x', 'javascript:alert(1)']) {
+    const r = tap(url);
+    ok('refuses to navigate to ' + url, r.assigned.length === 0 && r.opened.length === 0, JSON.stringify(r));
+  }
+  const offApp = tap(ORIGIN + '/index.html');
+  ok('refuses a same-origin page outside /pro/', offApp.assigned.length === 0, JSON.stringify(offApp));
+
+  const samePage = tap('/pro/dashboard.html?leadId=L1');
+  ok('the page already open opens the lead in place instead of reloading',
+     same(samePage.opened, ['L1']) && samePage.assigned.length === 0, JSON.stringify(samePage));
+
+  // Nothing should be listening on window: a window 'message' can come from
+  // any origin that holds a reference to this tab, and a snooze is a Firestore
+  // write. Passes trivially today, and fails if a listener moves there.
+  rec.assigned.length = 0; rec.snoozed.length = 0;
+  for (const fn of (winListeners.message || [])) {
+    const from = { origin: 'https://evil.example', source: {} };
+    fn({ ...from, data: { type: 'NBD_PUSH_ACTION', action: 'navigate', url: '/pro/customer.html?leadId=L9' } });
+    fn({ ...from, data: { type: 'NBD_PUSH_ACTION', action: 'snooze', leadId: 'L9' } });
+  }
+  ok('a window message from another origin neither navigates nor snoozes',
+     rec.assigned.length === 0 && rec.snoozed.length === 0);
+  if (onMessage) onMessage({ data: { type: 'NBD_PUSH_ACTION', action: 'snooze', leadId: 'L3' } });
+  ok('control: the same snooze from the worker does reach snoozeLead', same(rec.snoozed, ['L3']));
 }
 
 console.log(`\n${passed} passed, ${failed} failed`);
