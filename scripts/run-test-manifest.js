@@ -143,8 +143,15 @@ const RUNNABLE = ['node', 'smoke'];
 //               (favicons) raises this line to the SAME literal from the same
 //               base — a matching number is not agreement: whichever merges
 //               second must re-measure (expect 110/67/195 with both).
+//   2026-09-13  110/67/195, Cal.com lead-alert lane
+//               (tests/lead-alert-calcom.test.js). MEASURED via --check on a
+//               branch cut from origin/main at 954e7331 — main already held
+//               109/67/194. The same literal as #1534's expected pair-total is
+//               a coincidence of +1s, not a merge of the two: #1534 and #1539
+//               both move this line too, so whichever lands after this one
+//               re-measures.
 
-const FLOORS = { node: 109, smoke: 67, disk: 194 };
+const FLOORS = { node: 110, smoke: 67, disk: 195 };
 
 // ── Argument parsing ───────────────────────────────────────────────
 const argv = process.argv.slice(2);

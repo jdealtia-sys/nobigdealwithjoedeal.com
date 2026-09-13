@@ -112,5 +112,22 @@ name from the raw request, never the value, and add it to
 
 It lands with `needsPhone: true`, and its notes start with *"NO PHONE on this
 booking — reply to the Cal.com confirmation email to get a number before the
-visit."* An alert that tells Joe about it is Lane B PR B of the 09-13 handoff
-and has not been built.
+visit."*
+
+**Update 2026-09-13 — the alert is built, not yet live.** Lane B PR B added
+`leadAlertCalcom` to `functions/lead-alert.js` (branch
+`fix/calcom-lead-alert`). Once merged and deployed, every lead the webhook
+creates pages Joe by email and SMS through the same path as the website
+forms, and a phone-less one leads with **NO PHONE**: a highlighted email row
+with a `mailto:` to the booker, an SMS whose first line is "NO PHONE — reply
+to the confirmation email", and "(NO PHONE)" in the subject. It sends the
+homeowner nothing, since Cal.com already emailed them. It skips manual CRM
+leads, bridged website leads (those already paged from their own collection)
+and rows written by `scripts/backfill-calcom-dropped-leads.js`. Each alert
+leaves an `alert_outbox` row with `collection: "leads"`.
+
+After deploy, every test booking in the section above also pages Joe. That
+is the proof the trigger works: a test booking on an event type whose phone
+is still optional, left blank, should arrive as a NO PHONE alert. Until one
+has, the trigger has never run on a real booking. It is proven only by
+`tests/lead-alert-calcom.test.js`.
