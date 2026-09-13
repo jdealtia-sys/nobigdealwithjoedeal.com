@@ -354,6 +354,21 @@ async function behaviour() {
     ok('behaviour: when the safety timeout fires the submit proceeds without a token',
        out.ok && h.posts.length === 1 && !('turnstileToken' in h.posts[0]));
   }
+  // The script load itself can stall — a network that drops, rather than
+  // refuses, challenges.cloudflare.com. Measured 2026-09-13 in Chromium: with
+  // the load inside no deadline, the submit never POSTed at all (> 45s).
+  {
+    const h = makeHarness({ preloaded: false, script: 'stall' });
+    const p = h.window.submitPublicLead('contact', { firstName: 'A' });
+    await h.flush();
+    const pendingMs = [...h.timers.values()].map((t) => t.ms);
+    ok('behaviour: a stalled Turnstile script load is inside the 8s safety timeout (' + pendingMs.join(',') + ')',
+       h.log.some((e) => e[0] === 'load-script') && pendingMs.includes(8000));
+    h.fireTimers();
+    const out = await within(p);
+    ok('behaviour: a stalled script load still POSTs the lead, tokenless, when the timeout fires',
+       out !== HUNG && out.ok && h.posts.length === 1 && !('turnstileToken' in h.posts[0]));
+  }
   {
     const h = makeHarness({ key: PAGE_KEY, challenge: 'error' });
     const tok = await within(h.window.nbdTurnstileExecute());
