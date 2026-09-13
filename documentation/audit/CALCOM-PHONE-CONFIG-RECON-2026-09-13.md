@@ -72,3 +72,31 @@ checked visually (4 of 6: `roof-inspection`, `roof-inspection-lexington`,
    Location already carries the number there, and Required would double-ask.
 3. One real booking per event type, checked against `phonePresent` in Cloud
    Logging.
+
+## UPDATE 2026-09-13 — steps 1 and 2 executed same session
+
+- **Step 1 done**: [PR #1535](https://github.com/jdealtia-sys/nobigdealwithjoedeal.com/pull/1535)
+  merged (`954e7331`), all 21 checks green, mergeable=CLEAN. Confirmed the
+  Firebase deploy workflow ran against that exact head SHA and completed
+  `success` — [run 34778414221](https://github.com/jdealtia-sys/nobigdealwithjoedeal.com/actions/runs/34778414221),
+  "Deploy Cloud Functions" (strict + tolerant) and "Fleet must match the
+  code" both passed, so `calcomWebhook` is serving the resolver fix.
+- **Step 2 done for the two zero-capture events**: live session, Jo present,
+  driven via `claude-in-chrome`. On both `gutter-siding-estimate` (6973405)
+  and `adjuster-meeting` (6973306): unhid the built-in Phone question,
+  checked "Make this field required," saved the question, then saved the
+  event type. Verified **not from the UI** but by calling the same public
+  `/api/trpc/public/event` endpoint the 08-25 audit used as its source of
+  truth — both now return
+  `{name: "attendeePhoneNumber", type: "phone", required: true, hidden: false}`.
+  Label was left as the default "Phone number" rather than renamed to
+  "Mobile phone" (the label on `roof-inspection`/`roof-inspection-lexington`)
+  — cosmetic, easy to align later if Jo wants one consistent label.
+  `roof-question-call` and `estimate-walkthrough` were left untouched, as
+  planned — Location already carries the number on both.
+- **Step 3 (one real booking per event type, checked in Cloud Logging) is
+  still open** — that's a real customer-facing action against production
+  and creates a real appointment/lead, so it wasn't taken as part of this
+  session. Next session or Jo: book `gutter-siding-estimate` and
+  `adjuster-meeting` once each and grep the Cloud Function logs for
+  `phonePresent: true` on the resulting lead.
