@@ -299,7 +299,10 @@ exports.onNewLead = onDocumentCreated('leads/{leadId}', async (event) => {
     address: leadData.address,
     // The Call action reads this. Digits only — the SW strips anything else,
     // but sending it clean keeps the payload readable in logs.
-    phone: String(leadData.phone || leadData.phoneNumber || '').replace(/[^d+]/g, ''),
+    // The class needs its backslash: `[^d+]` kept only the letter "d" and "+",
+    // so every digit was deleted and Call opened the lead (or dialed `tel:+`).
+    // tests/push-lead-call-phone.test.js runs this handler on real numbers.
+    phone: String(leadData.phone || leadData.phoneNumber || '').replace(/[^\d+]/g, ''),
     clickUrl: `/pro/dashboard.html?tab=leads&leadId=${leadId}`,
     notificationId: `lead-${leadId}`,
     requireInteraction: 'true'

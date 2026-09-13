@@ -169,8 +169,15 @@ const RUNNABLE = ['node', 'smoke'];
 //   2026-09-13  MERGED TREE (lead-form branch + #1534): main held 111/67/196,
 //               this branch 110/67/195; the literal below is what --check
 //               printed on the merged tree.
+//   2026-09-13  push Call-phone lane (tests/push-lead-call-phone.test.js).
+//               Rebased THREE times: onto 5ec2021b (#1540), e9555d35 (#1534),
+//               then f02d6111 (#1539). Every time main had independently raised
+//               this line to the exact literal the branch carried — 110/67/195,
+//               111/67/196, 112/67/197 — so only the comments conflicted.
+//               RE-MEASURED via --check on the final rebased tree each time;
+//               the last one printed 113/67/198.
 
-const FLOORS = { node: 112, smoke: 67, disk: 197 };
+const FLOORS = { node: 113, smoke: 67, disk: 198 };
 
 // ── Argument parsing ───────────────────────────────────────────────
 const argv = process.argv.slice(2);
