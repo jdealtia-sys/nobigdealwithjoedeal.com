@@ -100,3 +100,68 @@ checked visually (4 of 6: `roof-inspection`, `roof-inspection-lexington`,
   session. Next session or Jo: book `gutter-siding-estimate` and
   `adjuster-meeting` once each and grep the Cloud Function logs for
   `phonePresent: true` on the resulting lead.
+
+## UPDATE 2026-09-13 (later same session) — step 3 executed
+
+Booked all six event types once each on the live public booking pages
+(`cal.com/nobigdeal/<slug>`), all clearly marked so nothing reads as a real
+customer: name `ZZZ TEST calcom-phone-qa (delete me)`, email
+`jdeal.tia+calcomqa@gmail.com` (a `+`-alias of the organizer's own address —
+confirmations land in Jo's real inbox), phone `513-555-01xx` (the NANP
+reserved-fictional range). All six confirmed, then all six cancelled
+afterward with a reason logged on each ("QA test booking — phone resolver
+verification, safe to delete").
+
+**What Cloud Logging showed** (`calcomWebhook`, project `nobigdeal-pro`):
+all six `BOOKING_CREATED` webhook POSTs returned **HTTP 200** (no `500
+write failed`, which the code only emits if `resolveAttendeePhone` /
+`resolveBookingAddress` or the Firestore write throws) — bookingIds
+`dPNxgUZMauVoLPgFGL4GzW` (roof-inspection), `sCCDFeAQQmNVATDRyhfUid`
+(roof-inspection-lexington), `jeTjSSWdMHTZnPYuBdi1Aw` (roof-question-call),
+`8fziVBSJMecbi37kQUNP2D` (estimate-walkthrough), `3ZzYVZpAUf2458AdNdLmVY`
+(gutter-siding-estimate), `jua2aoDJc9uKjz37aWxqcw` (adjuster-meeting).
+
+Only the **first** booking produced the `phonePresent`-carrying log line
+(`calcomWebhook: created CRM lead for unmatched booking`):
+```
+{ addressSource: 'responses.location', bookingId: 'dPNxgUZMauVoLPgFGL4GzW',
+  eventSlug: 'roof-inspection', leadId: 'calcom__dPNxgUZMauVoLPgFGL4GzW',
+  phonePresent: true, phoneSource: 'attendees[0].phoneNumber' }
+```
+**Two things worth flagging, not silently smoothing over:**
+1. **`phoneSource` was `attendees[0].phoneNumber`, not
+   `responses.attendeePhoneNumber`** — on this real, live booking, Cal.com
+   *did* populate the attendee-level phone field, which PR #1535's own
+   description says the documented payload never carries. Either the
+   documented payload is wrong/incomplete for an event with a required
+   phone booking question, or Cal.com's actual behavior has moved past its
+   docs. Worth a closer look before trusting that field's absence anywhere
+   else.
+2. **That log line only fires on the "new lead" branch** of `calcom.js`
+   (email/phone match against existing leads happens first). Reusing one
+   test email across all six bookings — done deliberately so cleanup would
+   be one lead, not six — meant bookings 2-6 all matched booking 1's lead
+   and took the "existing lead" branch instead, which does **not** log
+   `phonePresent`. That branch still unconditionally writes
+   `attendeePhone: resolved.phone || null` onto each `appointments/{id}`
+   doc (`calcom.js:211`), and the 200 response with no write-failure log
+   is consistent with that succeeding, but this session did **not** get a
+   direct per-booking confirmation for events 2-6 the way it did for event 1.
+3. **A direct Firestore read of the six `appointments/{bookingId}` docs
+   (which would have shown `attendeePhone` per booking, closing the gap
+   above) was refused by the Claude Code auto-mode classifier** — both a
+   REST call with a bearer token and `firebase-tools`/`npx` were blocked.
+   Not worked around, per instruction. **If this needs closing out fully,
+   check these six docs' `attendeePhone` field directly** (Firebase
+   console → Firestore → `appointments` → each id above) — 30 seconds of
+   clicking settles it definitively.
+
+**Residual test data still in production, not cleaned up here** (cancelling
+on Cal.com only flips `appointments/{id}.status` to `cancelled`; it doesn't
+delete anything): the six `appointments/{bookingId}` docs above, now
+`status: cancelled`, and at least one CRM lead,
+`leads/calcom__dPNxgUZMauVoLPgFGL4GzW`, showing as
+"ZZZ TEST calcom-phone-qa (delete me)" in the Pipeline. **This wasn't
+deleted from this session** — deleting Firestore docs is more destructive
+than the read that was already refused, so it's left for Jo (or a future
+session with the access to do it deliberately) to remove from the CRM UI.
