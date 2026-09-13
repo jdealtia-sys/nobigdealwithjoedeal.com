@@ -1,11 +1,15 @@
 # Cal.com — a phone number on every booking
 
-**Status 2026-09-13 (evening):** the code fix **merged as #1535** (`954e7331`)
-and its production deploy was running at the time of writing — confirm the
-deploy run for that SHA (or a later one containing it) succeeded before the
-session. The Cal.com settings change below is **not done yet**. A read-only
-recon of all six event types ran the same day (PR #1537) and filled in the
-table; it cut the change down to **two** event types.
+**Status 2026-09-13 (late evening) — DONE except the proof bookings.** The
+code fix merged as #1535 (`954e7331`); its deploy succeeded and updated
+`calcomWebhook` at 19:47:59Z. A read-only recon of all six event types (PR
+#1537) cut the settings change to **two** event types, and the same session —
+with Jo's go-ahead — made Phone **required and visible** on
+`gutter-siding-estimate` and `adjuster-meeting`, verified against the public
+`/api/trpc/public/event` endpoint (`{required: true, hidden: false}` on both).
+The alert for phone-less bookings landed as #1540. **Still open:** one real
+booking on each of the two changed event types, checked in Cloud Logging (see
+"Proving it worked" below).
 
 ## Why there are two halves
 
@@ -41,12 +45,12 @@ payload template**, so Cal.com's default payload reaches `calcomWebhook`.
 
 | Event type | id | Location | Phone capture before | Change | After |
 |---|---|---|---|---|---|
-| `roof-inspection` | 5279797 | In Person (Attendee Address) | Phone question "Mobile phone", **required**, visible | none | |
-| `roof-inspection-lexington` | 6823308 | In Person (Attendee Address) | "Mobile phone", **required**, visible | none | |
+| `roof-inspection` | 5279797 | In Person (Attendee Address) | Phone question "Mobile phone", **required**, visible | none | unchanged |
+| `roof-inspection-lexington` | 6823308 | In Person (Attendee Address) | "Mobile phone", **required**, visible | none | unchanged |
 | `roof-question-call` | 6823309 | **Attendee phone number** | Phone question hidden; the number comes from the location prompt | none — resolver reads `responses.location` | |
 | `estimate-walkthrough` | 6973349 | **Attendee phone number** | Phone question hidden; the number comes from the location prompt | none — resolver reads `responses.location` | |
-| `gutter-siding-estimate` | 6973405 | In Person (Attendee Address) | Phone question **hidden — no phone capture at all** | **make Required + visible** | |
-| `adjuster-meeting` | 6973306 | In Person (Attendee Address) | Phone question **hidden — no phone capture at all** | **make Required + visible** | |
+| `gutter-siding-estimate` | 6973405 | In Person (Attendee Address) | Phone question **hidden — no phone capture at all** | **make Required + visible** | **required, visible** — verified via `/api/trpc/public/event`, 2026-09-13 |
+| `adjuster-meeting` | 6973306 | In Person (Attendee Address) | Phone question **hidden — no phone capture at all** | **make Required + visible** | **required, visible** — verified via `/api/trpc/public/event`, 2026-09-13 |
 
 **The change is two event types, not six.** The two inspection types already
 require the phone. The two phone-call types collect the number through the
