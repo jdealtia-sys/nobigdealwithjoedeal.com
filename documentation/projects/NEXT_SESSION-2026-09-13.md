@@ -2,7 +2,9 @@
 
 Supersedes [NEXT_SESSION-2026-09-09](NEXT_SESSION-2026-09-09.md) as the live
 brief. That note's §0 queue and §1 Turnstile warning still stand; nothing
-below contradicts them. This brief is the execution plan that came out of
+below contradicts them. *(Update 2026-09-13, late: §1's coverage half — six of
+ten forms unkeyed — is fixed by Lane B PR D, see its STATUS in §B; its
+"do not set `TURNSTILE_SECRET`" half still stands.)* This brief is the execution plan that came out of
 checking Grokbot's outside-in site audit against the repo — the evidence is
 in [GROKBOT-BRIEF-VERIFICATION-2026-09-13](../audit/GROKBOT-BRIEF-VERIFICATION-2026-09-13.md);
 read its §2–§3 before trusting any claim from the Grokbot brief itself.
@@ -38,7 +40,9 @@ editing, because `main` moves. Jo approved the plan and made four decisions
    runbook first; record before/after per event type.
 4. **Homepage cut: the full cut** (§C below), in the order PR1 copy → PR3
    isolation → PR2 structural cut.
-5. Carried from 09-09: **do NOT set `TURNSTILE_SECRET`.**
+5. Carried from 09-09: **do NOT set `TURNSTILE_SECRET`.** Still true after PR D
+   shipped: the next step is measuring live tokens (§B, PR D STATUS), and
+   enforcement stays Jo's separate decision.
 
 ## §1 — Jo's queue (only Jo can do these)
 
@@ -66,7 +70,7 @@ editing, because `main` moves. Jo approved the plan and made four decisions
 5. **Lane C PR3** isolation (free-guide chrome, X-Robots header, footer door).
 6. **Lane C PR2** structural cut + reviews rebuild + visual re-bless.
 7. **Lane B PR C** (form parity), **PR B** (phone-less alert), **PR D**
-   (Turnstile hoist).
+   (Turnstile hoist — **shipped 2026-09-13**, see its STATUS in §B).
 8. **§E** Grok refuter pilot on the next review workflow.
 
 **Ground rules for every PR:** branch from `origin/main`, never from
@@ -272,6 +276,55 @@ so an 11-digit paste behaves like `/estimate`. Optional `nbd_hp` honeypot on
 New `tests/lead-form-phone-contract.test.js`: for each form JS file the
 10-digit expression precedes `submitPublicLead(`; each HTML page has a
 `type=tel` input labelled "Mobile phone" and an email input labelled optional.
+
+> **STATUS 2026-09-13 — PR D SHIPPED as #1542, plus the timeout follow-up on
+> branch `fix/turnstile-timeout-6s`.** Do not rebuild. `TURNSTILE_SECRET` was
+> not touched by either. Full record, with every measurement:
+> [TURNSTILE-SETUP](../runbooks/TURNSTILE-SETUP.md) (updated in place).
+>
+> - **The real surface count is 181, not ~178.** 10 pages load
+>   `public-lead-submit.js` directly; **170** inject it through
+>   `quick-lead-form.js` — 31 `/areas/*` **and 139 `/services/*`** (the plan
+>   below says "171 /areas"); `sites/index.html` reaches it through
+>   `marketing-firebase-init.js` → `marketing-firebase.js`. 177 were unkeyed.
+>   `tests/turnstile-contract.test.js` now derives this list by walking
+>   `docs/` (transitively, through any loader script) and was RED on the
+>   pre-fix tree with "unkeyed 177".
+> - **Three defects, not two.** (1) the hoist; (2) render→reset, which was
+>   worse than the plan says: on a retry real `api.js` either handed back the
+>   *spent* token or waited the full timeout with none; (3) **new:** the
+>   Turnstile script load was awaited *before* the safety timeout was armed,
+>   so a network that stalls `challenges.cloudflare.com` never POSTed the
+>   lead at all (measured: no POST in 45 s). The timeout now covers load +
+>   challenge. The client also renders with `execution: 'execute'`.
+> - **The timeout is 6 s, not 8 s** (Jo, 2026-09-13). 4 s was built, measured
+>   and rejected: it cut off 1 of 10 always-pass test-key first submits.
+>   Pinned as `TURNSTILE_TIMEOUT_MS = 6000` in the contract test.
+> - **What a submit costs now** (click → POST, Playwright Chromium, local
+>   `docs/`, only Cloudflare reachable, nothing reaching production):
+>   always-pass test key first submit median 1,904 ms / p90 2,237 / max 2,613
+>   (n=40), retry median 1,650 ms; Cloudflare refused ~15 ms; Cloudflare
+>   stalled = the 6 s timeout, lead still sent. Before PR D these pages
+>   POSTed in 0–14 ms. The real key refuses automation (600010), so **no
+>   human timing exists** — do not try to get one from a bot.
+> - **Deploy:** #1542 merged as `7121d512`. Its own deploy run (34787955298) was cancelled by the next merge, as queued runs are; it shipped inside run **34788131516** (head `00d0465b`, #1518, which descends from `7121d512`), which succeeded. The live `/assets/js/public-lead-submit.js` was then fetched and confirmed to contain `DEFAULT_TURNSTILE_SITEKEY` (2026-09-13).
+>
+> **Next (in order; nothing here needs code):**
+> 1. Confirm the follow-up's own `firebase-deploy` run succeeded and that the
+>    live `/assets/js/public-lead-submit.js` contains
+>    `TURNSTILE_TIMEOUT_MS = 6000` (a queued deploy can be cancelled by a
+>    later merge — check the surviving run contains the commit).
+> 2. Wait for `turnstileTokenPresent:true`. **A standing alert is live**
+>    (Cloud Monitoring `alertPolicies/15802792625691337472`, from
+>    `monitoring/alert-turnstile-token-present.json`; email + SMS to Joe, at
+>    most daily), so no scheduled check is needed. It was the project's first
+>    live alert policy; eight more went live the same evening (#1547, after
+>    a 7-day replay fixed two of them). When it fires, read the lead doc's
+>    `source`: the rollout wants trues from `/inspect` **and** at least one
+>    `page-form:/areas/…` or `page-form:/services/…`. At ~2 leads/month this
+>    takes weeks.
+> 3. Only then does the enforcement question reopen — Jo's call. The
+>    runbook's §"The safety timeout is 6 s" says how to read a low token rate.
 
 **PR D — Turnstile coverage (own PR; NEVER set `TURNSTILE_SECRET`).** Hoist
 the key: `docs/assets/js/public-lead-submit.js` gets
