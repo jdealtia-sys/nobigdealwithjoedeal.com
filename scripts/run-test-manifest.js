@@ -137,8 +137,14 @@ const RUNNABLE = ['node', 'smoke'];
 //               over main's 67. If you take one thing from nine entries: this
 //               line is a serialisation point for every lane that adds a test
 //               file, so re-measure after the rebase and merge promptly.
+//   2026-09-13  109/67/194, Cal.com phone lane
+//               (tests/calcom-webhook-payload.test.js). MEASURED via --check
+//               on a branch cut from origin/main at 9496f859. PR #1534
+//               (favicons) raises this line to the SAME literal from the same
+//               base — a matching number is not agreement: whichever merges
+//               second must re-measure (expect 110/67/195 with both).
 
-const FLOORS = { node: 108, smoke: 67, disk: 193 };
+const FLOORS = { node: 109, smoke: 67, disk: 194 };
 
 // ── Argument parsing ───────────────────────────────────────────────
 const argv = process.argv.slice(2);

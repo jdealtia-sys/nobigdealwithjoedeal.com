@@ -117,7 +117,8 @@
     "nav-contract.test.js",
     "photo-report-output-contract.test.js",
     "photo-report-builder.test.js",
-    "session-revocation.test.js"
+    "session-revocation.test.js",
+    "calcom-webhook-payload.test.js"
   ],
   "smoke": {
     "team-roles.test.js": [
