@@ -629,6 +629,7 @@
     "firestore-rules.cross-tenant.test.js",
     "firestore-rules.test.js",
     "inline-html-scripts.test.js",
+    "lead-artifact-cleanup.integration.test.js",
     "lead-bridge.integration.test.js",
     "marketing-polish-contract.test.js",
     "public-intake.test.js",
