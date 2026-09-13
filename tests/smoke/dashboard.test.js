@@ -688,6 +688,21 @@ section('Visual regression baseline (Playwright pixel-diff)');
   assert('mask hooks for live-timestamp + data-mask-visual',
     /mask:\s*\[[\s\S]{0,200}\.live-timestamp/.test(spec)
     && /\[data-mask-visual\]/.test(spec));
+  // CI's hosting emulator forwards /api/* rewrites to PRODUCTION functions.
+  // Live Google reviews turned every commit's landing diff red on 2026-09-13
+  // (1337px taller at mobile-375). The spec pins those payloads and fails any
+  // unpinned /api/* call by name. Matched on code with comments stripped: the
+  // spec's WHY block names the same endpoint.
+  {
+    const code = spec.split('\n').map((l) => l.replace(/^\s*\/\/.*$/, '')).join('\n');
+    const routeAt = code.indexOf('pw.route(');
+    assert('visual spec pins /api/google-reviews to the empty (fallback-card) payload',
+      /'\/api\/google-reviews':\s*\{\s*reviews:\s*\[\],\s*total:\s*0\s*\}/.test(code));
+    assert('visual spec routes /api/* BEFORE navigating, and fails on unpinned calls',
+      routeAt > -1 && routeAt < code.indexOf('pw.goto(')
+      && /route\.fulfill\(/.test(code) && /unpinned\.push\(/.test(code)
+      && /expect\(unpinned[^)]*\)\.toEqual\(\[\]\)/.test(code));
+  }
   // npm scripts wired so CI + local can run + update baselines.
   assert('test:e2e:visual + test:e2e:visual:update npm scripts',
     !!(pkg.scripts && pkg.scripts['test:e2e:visual'])
