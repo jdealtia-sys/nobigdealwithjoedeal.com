@@ -303,7 +303,7 @@
   function submitLead() {
     var fn = $('rs-firstName').value.trim(), ph = $('rs-phone').value.trim(),
         em = $('rs-email').value.trim(), consent = $('rs-consent').checked;
-    if (!fn || ph.replace(/\D/g, '').length < 10) { $('rs-contact-err').textContent = 'Please add your name and a 10-digit phone.'; return; }
+    if (!fn || ph.replace(/\D/g, '').replace(/^1/, '').length !== 10) { $('rs-contact-err').textContent = 'Please add your name and a 10-digit phone.'; return; }
     if (!consent) { $('rs-contact-err').textContent = 'Please check the consent box so Joe can reach you.'; return; }
     $('rs-contact-err').textContent = '';
     S.firstName = fn; S.phone = ph; S.email = em;
