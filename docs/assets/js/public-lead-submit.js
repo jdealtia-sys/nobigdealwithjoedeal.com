@@ -54,6 +54,15 @@
   // public by design. That stub stays the human-facing source of truth;
   // tests/turnstile-contract.test.js fails if this copy drifts from it.
   const DEFAULT_TURNSTILE_SITEKEY = '0x4AAAAAAEqcVVOXW3xyusXQ';
+
+  // The longest a submit waits for a token (script load + challenge) before it
+  // POSTs without one. Cut from 8s on 2026-09-13: on a network that stalls
+  // challenges.cloudflare.com, this is exactly how long the visitor watches
+  // "Sending…". The measured success path is ~1.5–2.5s. Once TURNSTILE_SECRET
+  // is set, a submit that hits this is rejected, so re-measure before changing
+  // it (documentation/runbooks/TURNSTILE-SETUP.md).
+  const TURNSTILE_TIMEOUT_MS = 4000;
+
   function turnstileSiteKey() {
     return window.__NBD_TURNSTILE_SITEKEY === undefined
       ? DEFAULT_TURNSTILE_SITEKEY
@@ -104,11 +113,11 @@
       // A submit still waiting (double-click) gives up rather than hang.
       settlePending('');
       _pending = finish;
-      // 8-sec safety timeout over the script load AND the challenge, cleared as
-      // soon as a callback settles this submit. Armed before the load on
-      // purpose: a network that drops challenges.cloudflare.com (rather than
-      // refusing it) stalls the load, and the lead was never POSTed at all.
-      timer = setTimeout(() => finish(''), 8000);
+      // Safety timeout over the script load AND the challenge, cleared as soon
+      // as a callback settles this submit. Armed before the load on purpose: a
+      // network that drops challenges.cloudflare.com (rather than refusing it)
+      // stalls the load, and the lead was never POSTed at all.
+      timer = setTimeout(() => finish(''), TURNSTILE_TIMEOUT_MS);
       ensureTurnstileLoaded().then((loaded) => {
         if (_pending !== finish) return;  // timed out, or a newer submit took over
         if (!loaded || !window.turnstile) return finish('');
