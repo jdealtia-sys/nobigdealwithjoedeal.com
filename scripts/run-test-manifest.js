@@ -176,15 +176,25 @@ const RUNNABLE = ['node', 'smoke'];
 //               111/67/196, 112/67/197 — so only the comments conflicted.
 //               RE-MEASURED via --check on the final rebased tree each time;
 //               the last one printed 113/67/198.
-
+//   2026-09-13  113/67/199, appointments-cleanup lane
+//               (tests/lead-artifact-cleanup.integration.test.js). node/smoke
+//               unchanged — this is a 'wired-individually' emulator suite, so
+//               only disk moves. MEASURED via --check on a branch cut from
+//               origin/main at d7506665 (#1543).
 //   2026-09-13  google-reviews lane (tests/google-reviews-not-configured.test.js),
 //               rebased onto main at d7506665 after sitting unmerged since
 //               09-08 — every intervening lane above had already raised this
 //               line without this branch. RE-MEASURED via --check on the
 //               final rebased tree rather than adding this lane's +1 to
 //               113/67/198; smoke stays 67, this lane adds no smoke suite.
+//   2026-09-13  MERGED TREE (appointments-cleanup lane + google-reviews lane):
+//               both cut from d7506665 and both raised this line independently
+//               — appointments-cleanup added a disk-only 'wired-individually'
+//               suite, google-reviews added a 'node' suite. Neither side's
+//               number was carried forward by arithmetic; re-measured via
+//               --check on the rebased tree.
 
-const FLOORS = { node: 114, smoke: 67, disk: 199 };
+const FLOORS = { node: 114, smoke: 67, disk: 200 };
 
 // ── Argument parsing ───────────────────────────────────────────────
 const argv = process.argv.slice(2);
