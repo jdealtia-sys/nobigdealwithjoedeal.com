@@ -69,6 +69,24 @@ If that comes back empty while leads are still arriving, the client is not
 producing tokens — **do not set the secret**. Look at
 `window.__NBD_TURNSTILE_SITEKEY` on the live page first.
 
+**A standing alert watches for it (live since 2026-09-13).** Cloud Monitoring
+policy `projects/nobigdeal-pro/alertPolicies/15802792625691337472`, defined in
+`monitoring/alert-turnstile-token-present.json`, emails and texts Joe (at
+most once a day) when that log line appears with
+`turnstileTokenPresent=true`. So nobody has to remember to run the query
+above. What an alert does and does not prove:
+
+- **It proves a token was sent, not that it is valid.** Nothing verifies
+  tokens while the secret is unset.
+- **It doesn't say which page.** The log carries `kind` and doc `id`; the
+  lead doc's `source` names the page.
+- **One alert is not a token rate.** The enforcement decision still needs
+  the rate from the query above, with trues from `/inspect` *and* from at
+  least one `/areas/*` or `/services/*` quick form (`source` starting
+  `page-form:`).
+
+Details and the Windows `gcloud` traps are in `monitoring/README.md` §11.
+
 ## The widget
 
 Created 2026-09-06 in the Cloudflare dashboard (Turnstile → Add widget

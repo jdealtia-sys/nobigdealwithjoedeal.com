@@ -1,0 +1,27 @@
+{
+  "displayName": "NBD Pro — Turnstile token arrived on a real lead (turnstileTokenPresent=true)",
+  "documentation": {
+    "content": "A public lead reached submitPublicLead WITH a Cloudflare Turnstile token. This is the signal the enforcement decision waits on (documentation/runbooks/TURNSTILE-SETUP.md, 'Verifying step 3'). It is good news, not an incident.\n\nWhat it proves: a real browser on a public form minted a token and the client attached it. What it does NOT prove:\n  1. That the token is valid. The server logs !!body.turnstileToken — presence only — and nothing verifies tokens while TURNSTILE_SECRET is unset, so a hand-crafted POST can trip this too.\n  2. That every surface works. The log carries kind + doc id, not the page. Open the lead doc by that id in the kind's collection (contact → contact_leads, which the /areas and /services quick forms post as; inspect → inspect_leads; estimate → estimate_leads; guide → guide_leads; storm → storm_alert_subscribers; free_roof → free_roof_entries — see functions/handlers/integrations.js) and read its `source`: '/inspect', 'page-form:/areas/...', 'page-form:/services/...'. The rollout wants a true from /inspect AND from at least one /areas or /services quick form.\n\nDo NOT set TURNSTILE_SECRET because this fired. Enforcement is Jo's separate decision, taken on a token RATE, not one event:\n  gcloud logging read 'jsonPayload.message=\"submitPublicLead\"' --project nobigdeal-pro --freshness=30d --format='value(timestamp,jsonPayload.kind,jsonPayload.turnstileTokenPresent)'\n\nCreated 2026-09-13, right after #1542 keyed all 181 lead surfaces. It was the first alert policy actually live in this project (the other monitoring/*.json files were never applied — STABILITY-AUDIT-2026-09-04). Once enough trues have been seen, disable it rather than let it page on every lead.",
+    "mimeType": "text/markdown"
+  },
+  "combiner": "OR",
+  "enabled": true,
+  "conditions": [
+    {
+      "displayName": "submitPublicLead logged turnstileTokenPresent=true",
+      "conditionMatchedLog": {
+        "filter": "resource.type=\"cloud_run_revision\" AND resource.labels.service_name=\"submitpubliclead\" AND jsonPayload.message=\"submitPublicLead\" AND jsonPayload.turnstileTokenPresent=true"
+      }
+    }
+  ],
+  "alertStrategy": {
+    "notificationRateLimit": {
+      "period": "86400s"
+    },
+    "autoClose": "1800s"
+  },
+  "notificationChannels": [
+    "projects/nobigdeal-pro/notificationChannels/11974029248665804510",
+    "projects/nobigdeal-pro/notificationChannels/7729093229259591605"
+  ]
+}
