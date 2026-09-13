@@ -35,23 +35,38 @@
   }
 
   // ─── Turnstile auto-wiring ─────────────────────────────
-  // A page can opt in by setting window.__NBD_TURNSTILE_SITEKEY before
-  // this script loads (or by just placing a <div class="cf-turnstile"
-  // data-sitekey="..."></div> element). We:
+  // Every page that loads this client is keyed by DEFAULT_TURNSTILE_SITEKEY.
+  // A page can still set window.__NBD_TURNSTILE_SITEKEY before this script
+  // runs to override it (an explicit '' opts the page out), or place a
+  // <div class="cf-turnstile" data-sitekey="..."></div> element. We:
   //   1. Lazy-load https://challenges.cloudflare.com/turnstile/v0/api.js
   //      once, the first time submitPublicLead() is called.
-  //   2. Expose nbdTurnstileExecute(container) → Promise<token> that
-  //      either uses the widget's latest response OR forces a fresh
-  //      challenge when no token is cached.
+  //   2. Expose nbdTurnstileExecute() → Promise<token>: render one widget on
+  //      the first submit, then reset() + execute() it on every later submit,
+  //      because tokens are single-use.
   // If no site key and no widget, we resolve '' and the server decides
   // whether to allow (unconfigured server = pass; configured = 403).
+  //
+  // Why a default (2026-09-13): the key used to reach only the four pages that
+  // load docs/assets/js/inline/7cd8e505ab.js, while 181 pages can reach this
+  // client — including 170 /areas + /services quick forms that inject it — so
+  // setting TURNSTILE_SECRET would have 403'd 177 of them. The site key is
+  // public by design. That stub stays the human-facing source of truth;
+  // tests/turnstile-contract.test.js fails if this copy drifts from it.
+  const DEFAULT_TURNSTILE_SITEKEY = '0x4AAAAAAEqcVVOXW3xyusXQ';
+  function turnstileSiteKey() {
+    return window.__NBD_TURNSTILE_SITEKEY === undefined
+      ? DEFAULT_TURNSTILE_SITEKEY
+      : String(window.__NBD_TURNSTILE_SITEKEY).trim();
+  }
+
   let _turnstileLoadingPromise = null;
   function ensureTurnstileLoaded() {
     if (typeof window.turnstile === 'object' && window.turnstile) return Promise.resolve(true);
     if (_turnstileLoadingPromise) return _turnstileLoadingPromise;
     _turnstileLoadingPromise = new Promise((resolve) => {
       // Skip load if no site key + no widget element.
-      const hasKey    = !!(window.__NBD_TURNSTILE_SITEKEY || '').trim();
+      const hasKey    = !!turnstileSiteKey();
       const hasWidget = !!document.querySelector('.cf-turnstile, .cf-turnstile-auto');
       if (!hasKey && !hasWidget) return resolve(false);
       const s = document.createElement('script');
@@ -65,10 +80,20 @@
     return _turnstileLoadingPromise;
   }
 
+  // One widget per page. Its callbacks are bound once, at render(), so they
+  // must settle whichever submit is waiting NOW — closing over the first
+  // submit's promise left every later submit to the safety timeout (or to
+  // execute() handing back the already-spent token).
+  let _widgetId = null;
+  let _pending = null;
+  function settlePending(token) {
+    if (_pending) _pending(token || '');
+  }
+
   // Returns a Promise<string> — empty string means "no token was
   // obtained" which is safe when the server isn't enforcing.
   async function nbdTurnstileExecute() {
-    const siteKey = (window.__NBD_TURNSTILE_SITEKEY || '').trim();
+    const siteKey = turnstileSiteKey();
     const loaded = await ensureTurnstileLoaded();
     if (!loaded || !window.turnstile) return '';
     // Find (or create) the container.
@@ -80,23 +105,40 @@
       document.body.appendChild(box);
     }
     if (!box) return '';
-    // If a widgetId already exists, force a reset to ensure a fresh
-    // token — cached tokens expire in 5 minutes.
-    return new Promise((resolve) => {
+    return new Promise((done) => {
+      let timer = null;
+      const finish = (token) => {
+        clearTimeout(timer);
+        if (_pending === finish) _pending = null;
+        done(token);
+      };
+      // A submit still waiting (double-click) gives up rather than hang.
+      settlePending('');
+      _pending = finish;
+      // 8-sec safety timeout, cleared as soon as a callback settles this submit.
+      timer = setTimeout(() => finish(''), 8000);
       try {
-        const id = window.turnstile.render(box, {
-          sitekey: siteKey || box.dataset.sitekey || '',
-          size: 'invisible',
-          callback: (token) => resolve(token || ''),
-          'error-callback': () => resolve(''),
-          'timeout-callback': () => resolve('')
-        });
-        // Invisible widgets fire callback automatically; managed/visible
-        // ones are triggered by the user. 8-sec safety timeout.
-        setTimeout(() => resolve(''), 8000);
-        // If this is a managed widget, explicitly execute.
-        try { window.turnstile.execute(id); } catch (e) {}
-      } catch (e) { resolve(''); }
+        if (_widgetId == null) {
+          // These callbacks outlive this submit, so they go through
+          // settlePending rather than this promise's own resolver.
+          const resolve = settlePending;
+          _widgetId = window.turnstile.render(box, {
+            sitekey: siteKey || box.dataset.sitekey || '',
+            size: 'invisible',
+            // Wait for execute() below; the default ('render') starts the
+            // challenge immediately and execute() then warns it is running.
+            execution: 'execute',
+            callback: (token) => resolve(token || ''),
+            'error-callback': () => resolve(''),
+            'timeout-callback': () => resolve('')
+          });
+        } else {
+          // Rendering into the same container again is rejected, and execute()
+          // on a finished widget returns the previous, already-spent token.
+          window.turnstile.reset(_widgetId);
+        }
+        try { window.turnstile.execute(_widgetId); } catch (e) {}
+      } catch (e) { finish(''); }
     });
   }
   window.nbdTurnstileExecute = nbdTurnstileExecute;
