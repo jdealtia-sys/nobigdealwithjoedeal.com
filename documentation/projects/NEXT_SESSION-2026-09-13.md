@@ -85,6 +85,17 @@ never add +1 blindly.
 
 ## §A — Lane A: favicons and manifest (1 PR)
 
+> **STATUS 2026-09-13 — BUILT, on branch `fix/favicon-normalization`** (not
+> merged; merging deploys production). Do not rebuild it. Full record:
+> [FAVICON-NORMALIZATION-2026-09-13](../audit/FAVICON-NORMALIZATION-2026-09-13.md).
+> Two departures from the plan below, both recorded there: **`pro/invoice-success.html`
+> joined the homeowner overrides** (a homeowner lands on it after paying an
+> invoice; it was not in the list Jo was shown — one line to flip), and **the
+> homeowner `apple-touch-icon.png` turned out to be a malformed PNG since #1467**
+> (navy band over black in every browser), now rebuilt from `favicon.svg` by
+> `scripts/render-apple-touch-icon.js` with a chunk-level assertion in the
+> contract test. The plan's step 6 "eyeball the PNG" is obsolete.
+
 1. **`scripts/normalize-favicons.js`.** Skeleton from
    `scripts/ensure-nav-css.js:45-94` (walk with dir skip list, assert-only
    default, `--write`, the no-`</head>` bail at `:79-81`, EOL detection at
