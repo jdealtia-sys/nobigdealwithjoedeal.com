@@ -141,10 +141,46 @@ the whole file: **commit before break-testing.**
   text to paths is a separate asset change.
 - No homeowner web-app manifest. If "Add to Home Screen" on the marketing
   site is ever wanted, draw 192/512/maskable PNGs from the roof mark first.
-- The homeowner `apple-touch-icon.png` could not be rendered in the session
-  that planned this; its match to `favicon.svg` rests on commit `d1250079`
-  (#1467), which redrew both from the logo lockup. Eyeball it once on a
-  phone after deploy.
+- `docs/assets/images/nbd-logo.png` does not start with a PNG signature
+  (found by the PNG sweep below). Browsers sniff image bytes, so it renders;
+  it is not an icon and was left alone. Worth a one-line check of what format
+  it really is before anything validates it strictly.
+
+## The home-screen icon was broken, and no gate could see it
+
+The last verification step rendered the four icons in Chromium from the
+worktree. **The homeowner `apple-touch-icon.png` drew a navy band over a black
+square.** The planning session had already hit the symptom without naming
+it: its image read of the same file was rejected.
+
+- Not line endings: the worktree file, the git blob and the file served by
+  production were byte-identical (md5 `81dbf895…`); git marks it `-text`.
+- A chunk walk found it: valid signature, valid IHDR (180×180, 8-bit RGB),
+  then an IDAT whose **declared length (3,337) ends mid-stream and whose CRC
+  is wrong**; the bytes after it are more compressed data, not a CRC and
+  IEND. Decoders render the rows they can inflate and give up.
+- **Live since #1467 (`d1250079`, 2026-09-07)**, which hand-exported it
+  when the favicon was redrawn. The previous file (#944) was fine. That makes
+  it the iOS "Add to Home Screen" icon for 218 homeowner pages for six days —
+  and this lane was about to add it to 24 more.
+- **Every gate passed it**: `pwa-manifest` checks existence, the favicon
+  contract's first draft checked signature + IHDR dimensions, and
+  `check-image-privacy` reads metadata. A shape check passed with the bug
+  present — the same lesson as the regex tests that matched #1416's defect.
+- A sweep of all 40 PNGs under `docs/` found one other structural oddity
+  (`nbd-logo.png`, above) and nothing else.
+
+**Fixed by making the PNG a build product.** `scripts/render-apple-touch-icon.js`
+draws `favicon.svg` onto a 180×180 canvas in Chromium over the tile navy
+(full-bleed, for iOS's own mask), re-encodes 8-bit RGB with correct chunks,
+and refuses to write unless a second Chromium decode of the new bytes matches
+the SVG render channel-for-channel. It is deterministic (two runs,
+byte-identical, 2,537 bytes). `tests/favicon-contract.test.js` now walks every
+chunk of both PNG icons — bounds, CRC, nothing after IEND, IDAT inflating to
+exactly the IHDR size — **proven red on the #1467 bytes** ("bad CRC on IDAT at
+byte 33") and green on the rebuild. Rerun the script whenever `favicon.svg`
+changes; CI does not run it (it needs a browser), but the contract test
+will fail on any malformed replacement.
 
 ## Supersedes
 
