@@ -92,19 +92,8 @@
 
   // Returns a Promise<string> — empty string means "no token was
   // obtained" which is safe when the server isn't enforcing.
-  async function nbdTurnstileExecute() {
+  function nbdTurnstileExecute() {
     const siteKey = turnstileSiteKey();
-    const loaded = await ensureTurnstileLoaded();
-    if (!loaded || !window.turnstile) return '';
-    // Find (or create) the container.
-    let box = document.querySelector('.cf-turnstile-auto');
-    if (!box && siteKey) {
-      box = document.createElement('div');
-      box.className = 'cf-turnstile-auto';
-      box.style.cssText = 'display:flex;justify-content:center;margin:12px 0;';
-      document.body.appendChild(box);
-    }
-    if (!box) return '';
     return new Promise((done) => {
       let timer = null;
       const finish = (token) => {
@@ -115,30 +104,46 @@
       // A submit still waiting (double-click) gives up rather than hang.
       settlePending('');
       _pending = finish;
-      // 8-sec safety timeout, cleared as soon as a callback settles this submit.
+      // 8-sec safety timeout over the script load AND the challenge, cleared as
+      // soon as a callback settles this submit. Armed before the load on
+      // purpose: a network that drops challenges.cloudflare.com (rather than
+      // refusing it) stalls the load, and the lead was never POSTed at all.
       timer = setTimeout(() => finish(''), 8000);
-      try {
-        if (_widgetId == null) {
-          // These callbacks outlive this submit, so they go through
-          // settlePending rather than this promise's own resolver.
-          const resolve = settlePending;
-          _widgetId = window.turnstile.render(box, {
-            sitekey: siteKey || box.dataset.sitekey || '',
-            size: 'invisible',
-            // Wait for execute() below; the default ('render') starts the
-            // challenge immediately and execute() then warns it is running.
-            execution: 'execute',
-            callback: (token) => resolve(token || ''),
-            'error-callback': () => resolve(''),
-            'timeout-callback': () => resolve('')
-          });
-        } else {
-          // Rendering into the same container again is rejected, and execute()
-          // on a finished widget returns the previous, already-spent token.
-          window.turnstile.reset(_widgetId);
+      ensureTurnstileLoaded().then((loaded) => {
+        if (_pending !== finish) return;  // timed out, or a newer submit took over
+        if (!loaded || !window.turnstile) return finish('');
+        // Find (or create) the container.
+        let box = document.querySelector('.cf-turnstile-auto');
+        if (!box && siteKey) {
+          box = document.createElement('div');
+          box.className = 'cf-turnstile-auto';
+          box.style.cssText = 'display:flex;justify-content:center;margin:12px 0;';
+          document.body.appendChild(box);
         }
-        try { window.turnstile.execute(_widgetId); } catch (e) {}
-      } catch (e) { finish(''); }
+        if (!box) return finish('');
+        try {
+          if (_widgetId == null) {
+            // These callbacks outlive this submit, so they go through
+            // settlePending rather than this promise's own resolver.
+            const resolve = settlePending;
+            _widgetId = window.turnstile.render(box, {
+              sitekey: siteKey || box.dataset.sitekey || '',
+              size: 'invisible',
+              // Wait for execute() below; the default ('render') starts the
+              // challenge immediately and execute() then warns it is running.
+              execution: 'execute',
+              callback: (token) => resolve(token || ''),
+              'error-callback': () => resolve(''),
+              'timeout-callback': () => resolve('')
+            });
+          } else {
+            // Rendering into the same container again is rejected, and execute()
+            // on a finished widget returns the previous, already-spent token.
+            window.turnstile.reset(_widgetId);
+          }
+          try { window.turnstile.execute(_widgetId); } catch (e) {}
+        } catch (e) { finish(''); }
+      });
     });
   }
   window.nbdTurnstileExecute = nbdTurnstileExecute;
