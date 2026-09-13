@@ -137,8 +137,12 @@ const RUNNABLE = ['node', 'smoke'];
 //               over main's 67. If you take one thing from nine entries: this
 //               line is a serialisation point for every lane that adds a test
 //               file, so re-measure after the rebase and merge promptly.
+//   2026-09-13  109/67/194, favicon lane (tests/favicon-contract.test.js).
+//               MEASURED via --check on a branch cut from origin/main at
+//               9496f859. Open PRs #1518 and #1499 also add node suites; if
+//               either merges first, re-measure the merged tree.
 
-const FLOORS = { node: 108, smoke: 67, disk: 193 };
+const FLOORS = { node: 109, smoke: 67, disk: 194 };
 
 // ── Argument parsing ───────────────────────────────────────────────
 const argv = process.argv.slice(2);
