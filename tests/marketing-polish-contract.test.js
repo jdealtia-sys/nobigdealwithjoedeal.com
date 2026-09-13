@@ -234,8 +234,11 @@ ok('free-guide funnel link present on the pro landing footer',
   const homeowner = hrefs.filter((h) => !/^(\/pro(\/[a-z-]*)?|#hero)$/.test(h));
   ok('free-guide header, drawer and footer link only to /pro surfaces or its own form', homeowner.length === 0, homeowner.slice(0, 6).join(' '));
   ok('free-guide carries no free-roof announcement slide', !/data-nbd-freeroof-ann/.test(fg));
+  // Declarations only: the fix carries a comment that itself says "display:block",
+  // and an unstripped regex matched that comment with the declaration deleted.
+  const drawerRules = [...fg.matchAll(/\.mobile-nav a \{([^}]*)\}/g)].map((m) => m[1].replace(/\/\*[\s\S]*?\*\//g, ''));
   ok('free-guide drawer links render as rows (display:block beats nbd-nav.css forcing the open drawer to block)',
-    /\.mobile-nav a \{[^}]*display:\s*block/.test(fg));
+    drawerRules.some((d) => /(^|[;{\s])display:\s*block/.test(d)), drawerRules.length + ' rule(s)');
   const fb = JSON.parse(read(path.join(DOCS, '..', 'firebase.json')));
   const rule = fb.hosting.headers.find((h) => h.source === '/sites/free-guide');
   ok('free-guide has an X-Robots-Tag noindex header like every sibling /sites surface',
