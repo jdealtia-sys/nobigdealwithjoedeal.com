@@ -98,6 +98,19 @@ stub('firebase-admin/messaging', { getMessaging: () => fakeMessaging });
 
 const push = require(path.join(FUNCTIONS, 'push-functions.js'));
 
+// Capture the handler's log lines instead of letting them reach stdout.
+// sendPushNotification logs "[Push] Sent: 1 Failed: 0", and
+// scripts/run-test-manifest.js scans every suite's output for /(\d+) failed/i —
+// so a fully green run was reported as `output reports "1 Failed"` in CI
+// (PR #1541, first push). Running this file directly never showed it. The
+// firebase-functions logger object is documented as mockable, and
+// push-functions.js looks its methods up on every call.
+const fnLogger = require(require.resolve('firebase-functions/v2', { paths: [FUNCTIONS] })).logger;
+const captured = [];
+for (const level of ['debug', 'log', 'info', 'warn', 'error']) {
+  fnLogger[level] = (...args) => { captured.push(level); };
+}
+
 // ── Load the real service worker in a vm ────────────────────────────────
 const sandbox = {
   importScripts() {},
@@ -167,6 +180,12 @@ async function fireNewLead(lead) {
        plan && plan.kind === 'navigate' && plan.url === '/pro/dashboard.html?tab=leads&leadId=L1',
        JSON.stringify(plan));
   }
+
+  console.log('\nOUTPUT HYGIENE');
+  // If this ever reads 0, the capture above stopped reaching the handler's
+  // logger and the runner's failure scan will trip on its log lines again.
+  ok('the handler\'s log lines were captured, not printed', captured.length > 0,
+     'captured=' + captured.length);
 
   console.log(`\n${passed} passed, ${failed} failed`);
   if (failed) { console.log('FAILED:\n  - ' + fails.join('\n  - ')); process.exit(1); }
