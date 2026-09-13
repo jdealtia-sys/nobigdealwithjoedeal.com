@@ -234,9 +234,12 @@ ok('free-guide funnel link present on the pro landing footer',
   const homeowner = hrefs.filter((h) => !/^(\/pro(\/[a-z-]*)?|#hero)$/.test(h));
   ok('free-guide header, drawer and footer link only to /pro surfaces or its own form', homeowner.length === 0, homeowner.slice(0, 6).join(' '));
   ok('free-guide carries no free-roof announcement slide', !/data-nbd-freeroof-ann/.test(fg));
-  // Declarations only: the fix carries a comment that itself says "display:block",
-  // and an unstripped regex matched that comment with the declaration deleted.
-  const drawerRules = [...fg.matchAll(/\.mobile-nav a \{([^}]*)\}/g)].map((m) => m[1].replace(/\/\*[\s\S]*?\*\//g, ''));
+  // Declarations only. Slice the <style> blocks (pure CSS), strip their comments,
+  // THEN find the rule: the fix carries a comment that quotes a whole CSS rule,
+  // braces and all, so matching `{[^}]*}` on raw source stopped inside the comment
+  // and passed with the declaration deleted (caught by a break-test, twice).
+  const fgCss = [...fg.matchAll(/<style[^>]*>([\s\S]*?)<\/style>/g)].map((m) => m[1]).join('\n').replace(/\/\*[\s\S]*?\*\//g, '');
+  const drawerRules = [...fgCss.matchAll(/\.mobile-nav a\s*\{([^}]*)\}/g)].map((m) => m[1]);
   ok('free-guide drawer links render as rows (display:block beats nbd-nav.css forcing the open drawer to block)',
     drawerRules.some((d) => /(^|[;{\s])display:\s*block/.test(d)), drawerRules.length + ' rule(s)');
   const fb = JSON.parse(read(path.join(DOCS, '..', 'firebase.json')));
