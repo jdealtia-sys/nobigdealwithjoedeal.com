@@ -161,8 +161,16 @@ const RUNNABLE = ['node', 'smoke'];
 //   2026-09-13  MERGED TREE again (favicon branch + #1537 + #1540): both sides
 //               carried 110/67/195 — the same literal a second time in one day.
 //               Set from --check on this merged tree, not from either side.
+//   2026-09-13  110/67/195, lead-form phone lane
+//               (tests/lead-form-phone-contract.test.js). MEASURED via --check
+//               on a branch cut from origin/main at 954e7331 (#1535). PR #1534
+//               also lands at 110/67/195 from a different base — the same
+//               literal again, so whichever merges second re-measures (111/67/196).
+//   2026-09-13  MERGED TREE (lead-form branch + #1534): main held 111/67/196,
+//               this branch 110/67/195; the literal below is what --check
+//               printed on the merged tree.
 
-const FLOORS = { node: 111, smoke: 67, disk: 196 };
+const FLOORS = { node: 112, smoke: 67, disk: 197 };
 
 // ── Argument parsing ───────────────────────────────────────────────
 const argv = process.argv.slice(2);
