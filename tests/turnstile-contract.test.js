@@ -191,13 +191,14 @@ ok('client auto-creates the invisible widget container when a key exists',
 ok('client only attaches turnstileToken when a token was obtained',
    /if \(turnstileToken\) payload\.turnstileToken = turnstileToken;/.test(client));
 
-// Safety timeout: Jo's decision 2026-09-13, cut from 8s to 4s. It is the
+// Safety timeout: Jo's decision 2026-09-13, cut from 8s to 6s. It is the
 // worst-case wait a visitor on a stalled network sits through before the lead
-// is sent tokenless. The measured success path was ~1.5–2.5s, so 4s keeps
-// roughly 2× headroom. After enforcement a submit that hits it is 403'd, so do
-// not change this number without re-measuring (runbook:
+// is sent tokenless. 4s was tried first and rejected: it cut off 1 of 10
+// always-pass test-key first submits (4,007ms, no token) on a fast connection.
+// After enforcement a submit that hits the timeout is 403'd, so do not change
+// this number without re-measuring (runbook:
 // documentation/runbooks/TURNSTILE-SETUP.md) and updating this pin.
-const DECIDED_TIMEOUT_MS = 4000;
+const DECIDED_TIMEOUT_MS = 6000;
 const timeoutMatch = client.match(/const TURNSTILE_TIMEOUT_MS = (\d+);/);
 ok('client declares TURNSTILE_TIMEOUT_MS = ' + DECIDED_TIMEOUT_MS + ' (got ' +
    (timeoutMatch ? timeoutMatch[1] : 'none') + ')',
