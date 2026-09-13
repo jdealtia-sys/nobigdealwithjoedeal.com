@@ -56,12 +56,13 @@
   const DEFAULT_TURNSTILE_SITEKEY = '0x4AAAAAAEqcVVOXW3xyusXQ';
 
   // The longest a submit waits for a token (script load + challenge) before it
-  // POSTs without one. Cut from 8s on 2026-09-13: on a network that stalls
+  // POSTs without one. Cut from 8s to 6s on 2026-09-13: on a network that stalls
   // challenges.cloudflare.com, this is exactly how long the visitor watches
-  // "Sending…". The measured success path is ~1.5–2.5s. Once TURNSTILE_SECRET
-  // is set, a submit that hits this is rejected, so re-measure before changing
-  // it (documentation/runbooks/TURNSTILE-SETUP.md).
-  const TURNSTILE_TIMEOUT_MS = 4000;
+  // "Sending…". Not 4s: that cut off 1 of 10 always-pass test-key first submits
+  // on a fast connection. Once TURNSTILE_SECRET is set, a submit that hits this
+  // is rejected, so re-measure before changing it
+  // (documentation/runbooks/TURNSTILE-SETUP.md).
+  const TURNSTILE_TIMEOUT_MS = 6000;
 
   function turnstileSiteKey() {
     return window.__NBD_TURNSTILE_SITEKEY === undefined
