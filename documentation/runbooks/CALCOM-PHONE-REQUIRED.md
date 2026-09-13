@@ -1,8 +1,11 @@
 # Cal.com — a phone number on every booking
 
-**Status 2026-09-13:** code fix on branch `fix/calcom-phone-resolver` (not
-merged). The Cal.com settings change below is **not done yet**. It runs as a
-live session after the code fix is deployed.
+**Status 2026-09-13 (evening):** the code fix **merged as #1535** (`954e7331`)
+and its production deploy was running at the time of writing — confirm the
+deploy run for that SHA (or a later one containing it) succeeded before the
+session. The Cal.com settings change below is **not done yet**. A read-only
+recon of all six event types ran the same day (PR #1537) and filled in the
+table; it cut the change down to **two** event types.
 
 ## Why there are two halves
 
@@ -31,22 +34,26 @@ unread in the payload.
 
 ## The six event types
 
-Fill in the Before columns by reading each event, then the After column once
-saved.
+Before state read live, read-only, in Jo's Chrome on 2026-09-13 (PR #1537 —
+no setting was changed). The system field identifier `attendeePhoneNumber`
+was confirmed in the Edit-question modal, and the webhook has **no custom
+payload template**, so Cal.com's default payload reaches `calcomWebhook`.
 
-| Event type | id | Location (Setup tab) | Phone question: required / hidden (before) | After |
-|---|---|---|---|---|
-| `roof-inspection` | 5279797 | In Person (Attendee Address) | required, visible (08-25) | |
-| `roof-inspection-lexington` | 6823308 | In Person (Attendee Address) | required (08-25) | |
-| `roof-question-call` | 6823309 | Attendee phone number | hidden on purpose (08-25: avoids a double ask) | |
-| `gutter-siding-estimate` | not recorded | In Person (Attendee Address) | not recorded | |
-| `adjuster-meeting` | not recorded | In Person (Attendee Address) | not recorded | |
-| `estimate-walkthrough` | not recorded | Attendee phone number | not recorded | |
+| Event type | id | Location | Phone capture before | Change | After |
+|---|---|---|---|---|---|
+| `roof-inspection` | 5279797 | In Person (Attendee Address) | Phone question "Mobile phone", **required**, visible | none | |
+| `roof-inspection-lexington` | 6823308 | In Person (Attendee Address) | "Mobile phone", **required**, visible | none | |
+| `roof-question-call` | 6823309 | **Attendee phone number** | Phone question hidden; the number comes from the location prompt | none — resolver reads `responses.location` | |
+| `estimate-walkthrough` | 6973349 | **Attendee phone number** | Phone question hidden; the number comes from the location prompt | none — resolver reads `responses.location` | |
+| `gutter-siding-estimate` | 6973405 | In Person (Attendee Address) | Phone question **hidden — no phone capture at all** | **make Required + visible** | |
+| `adjuster-meeting` | 6973306 | In Person (Attendee Address) | Phone question **hidden — no phone capture at all** | **make Required + visible** | |
 
-**Recommendation: required and visible on all six, labelled "Mobile phone".**
-On the two phone-call types this asks for the number twice. The resolver
-already reads the location prompt's number, so leaving those two hidden loses
-nothing. It is a UX call, not a data-loss one. Jo decides at the session.
+**The change is two event types, not six.** The two inspection types already
+require the phone. The two phone-call types collect the number through the
+location prompt, which the resolver reads, so making the Phone question
+required there would only ask for the number twice. `gutter-siding-estimate`
+is where the email-only lead came from; `adjuster-meeting` has the identical
+gap.
 
 ## The live session (Jo present, Claude drives Jo's Chrome)
 
@@ -54,16 +61,16 @@ Jo chose this on 2026-09-13. Claude uses the claude-in-chrome tools in Jo's
 logged-in browser. **Jo approves every Save click; Claude never saves on its
 own.**
 
-For each event type:
+For `gutter-siding-estimate` and `adjuster-meeting`:
 
 1. app.cal.com → Event Types → open the event.
-2. Setup tab: read the Location setting back to Jo and record it in the table.
-3. Advanced tab → Booking questions: read every row's label, type, Required
-   and Hidden state back to Jo, then record the Before column.
-4. On the **Phone** row (system slug `attendeePhoneNumber`): Edit → Required
-   **on**, Hidden **off**, label "Mobile phone". Ask Jo, then click Save only
-   on Jo's yes.
-5. Reload the event and read the row back. Record the After column.
+2. Left nav → **Booking form** (Cal.com moved booking questions out of the
+   old "Advanced" tab — per the 09-13 recon). Read the Phone row's state back
+   to Jo and confirm it still matches the table.
+3. On the **Phone number** row (identifier `attendeePhoneNumber`): Edit →
+   Required **on**, Hidden **off**, label "Mobile phone" (matches the two
+   inspection types). Ask Jo, then click Save only on Jo's yes.
+4. Reload the event, read the row back, record the After column.
 
 Then, still in the session:
 

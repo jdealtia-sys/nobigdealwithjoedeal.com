@@ -163,6 +163,16 @@ emulator.
 
 ## §B — Lane B: a phone on every lead request (4 PRs)
 
+> **STATUS 2026-09-13 — PR A MERGED as #1535** (`954e7331`, deploy running
+> at the time of writing; confirm it succeeded). PR C, PR D and PR B not
+> started. A read-only Cal.com recon (PR #1537) settled the payload questions
+> this lane was built around: `attendeePhoneNumber` is the live identifier,
+> the two call types carry the number in the location prompt, the webhook
+> sends the default payload — and **only `gutter-siding-estimate` and
+> `adjuster-meeting` need the Required flip**. The live session now follows
+> [CALCOM-PHONE-REQUIRED](../runbooks/CALCOM-PHONE-REQUIRED.md), which
+> supersedes step 1 below (the old "Advanced tab" path and "all six" scope).
+
 **PR A — Cal.com resolver, fixture test, attribution, runbook.**
 
 1. `documentation/runbooks/CALCOM-PHONE-REQUIRED.md`: per event type
