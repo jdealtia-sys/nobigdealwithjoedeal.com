@@ -197,7 +197,9 @@ const NO_PHONE_SMS = 'NO PHONE — reply to the confirmation email';
     await fire(exp, doc, 'calcom__bk_alert_nophone');
 
     const alert = rec.emails.find((e) => Array.isArray(e.to) && e.to.join() === JOE_EMAILS.join());
-    ok('one alert email went to Joe', rec.emails.filter((e) => e.to !== 'pat@example.com').length === 1 && !!alert, rec.emails.map((e) => e.to));
+    // Counts Joe's alert only; homeowner mail is (d)'s assertion, so a broken
+    // ack gate reddens there and not here.
+    ok('(a) one alert email went to Joe', rec.emails.filter((e) => e.to !== 'pat@example.com').length === 1 && !!alert, rec.emails.map((e) => e.to));
     const html = (alert && alert.html) || '';
     ok('email HTML carries the highlighted no-phone row', html.includes(NO_PHONE_ROW));
     ok('the row offers a mailto: to the attendee', /href="mailto:pat@example\.com"/.test(html));
@@ -208,10 +210,10 @@ const NO_PHONE_SMS = 'NO PHONE — reply to the confirmation email';
     ok('no tel: call button when there is no number', !/href="tel:/.test(html));
 
     const joe = smsTo(JOE_SMS);
-    ok('one alert SMS went to Joe', joe.length === 1 && rec.sms.length === 1, rec.sms.map((m) => m.to));
+    ok('(a) one alert SMS went to Joe', joe.length === 1 && rec.sms.length === 1, rec.sms.map((m) => m.to));
     const lines = String((joe[0] && joe[0].body) || '').split('\n');
     ok('SMS first line is the NO PHONE line', lines[0] === NO_PHONE_SMS, lines[0]);
-    ok('SMS still says what it is (Cal.com booking + slug)', lines.slice(1).join('\n').includes('Cal.com booking') && lines.join('\n').includes('roof-inspection'));
+    ok('SMS still says what it is (Cal.com booking + slug)', lines.join('\n').includes('Cal.com booking') && lines.join('\n').includes('roof-inspection'));
     ok('SMS stays inside the 480-char cap', String((joe[0] && joe[0].body) || '').length <= 480);
 
     ok('the routing decision is ledgered to alert_outbox under collection "leads"',
@@ -228,14 +230,14 @@ const NO_PHONE_SMS = 'NO PHONE — reply to the confirmation email';
 
     const alert = rec.emails.find((e) => Array.isArray(e.to) && e.to.join() === JOE_EMAILS.join());
     const html = (alert && alert.html) || '';
-    ok('one alert email went to Joe', !!alert && rec.emails.length === 1, rec.emails.map((e) => e.to));
+    ok('(b) exactly one email sent, and it is Joe\'s alert', !!alert && rec.emails.length === 1, rec.emails.map((e) => e.to));
     ok('email has no no-phone row', !html.includes(NO_PHONE_ROW) && !/NO PHONE/i.test(html));
     ok('email subject does not flag NO PHONE', !/NO PHONE/.test((alert && alert.subject) || ''));
     ok('email carries the phone and a tel: call button', html.includes('+15135550100') && /href="tel:15135550100"/.test(html));
     ok('email names the kind "Cal.com booking" with the slug', html.includes('Cal.com booking') && html.includes('roof-inspection'));
     const joe = smsTo(JOE_SMS);
     const body = String((joe[0] && joe[0].body) || '');
-    ok('one alert SMS went to Joe', joe.length === 1, rec.sms.map((m) => m.to));
+    ok('(b) one alert SMS went to Joe', joe.length === 1, rec.sms.map((m) => m.to));
     ok('SMS has no NO PHONE line and opens with the normal bell line', !/NO PHONE/.test(body) && /^🔔 NBD lead — Cal\.com booking/.test(body), body.split('\n')[0]);
     ok('SMS carries the number for a one-tap callback', body.includes('+15135550100'));
     ok('ledgered to alert_outbox', rec.outbox.length === 1 && rec.outbox[0].collection === 'leads');
