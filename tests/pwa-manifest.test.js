@@ -2,9 +2,10 @@
  * tests/pwa-manifest.test.js — Phase 11 PWA / offline / service worker.
  *
  * Static-but-real integrity checks that catch install-breaking PWA regressions:
- *   - manifest.json (pro + root): valid JSON, required install fields, 192/512 +
+ *   - docs/pro/manifest.json: valid JSON, required install fields, 192/512 +
  *     maskable icons whose files actually exist on disk, valid theme colors,
- *     start_url inside scope.
+ *     start_url inside scope. The root docs/manifest.json must NOT exist (see
+ *     the ROOT MANIFEST block below).
  *   - sw.js: parses, declares a shell cache version, wires install/activate/
  *     fetch handlers, every precached URL exists on disk, and NO_CACHE_HTML
  *     excludes the auth-gated + destructive pages (post-logout stale-shell leak
@@ -49,7 +50,19 @@ function checkManifest(rel, { scope } = {}) {
 }
 
 checkManifest('docs/pro/manifest.json', { scope: '/pro/' });
-checkManifest('docs/manifest.json');
+
+// ── Root manifest ──
+// docs/manifest.json was deleted 2026-09-13. It was a copy of the PRO manifest
+// ("NBD Pro — Contractor Platform", start_url /pro/dashboard.html) with
+// scope "/", linked by no page — an install from anywhere on the homeowner
+// site would have claimed the whole origin for the CRM. A homeowner manifest
+// is not a rename away: no homeowner 192/512/maskable PNG exists, and the
+// icon checks above only test existence, so a rewrite could pass by lying
+// about sizes. Build real assets first if one is ever wanted.
+// documentation/audit/FAVICON-NORMALIZATION-2026-09-13.md
+console.log('\nROOT MANIFEST — docs/manifest.json');
+ok('docs/manifest.json does not exist (Pro-branded orphan with scope "/" deleted 2026-09-13)',
+   !fs.existsSync(path.join(ROOT, 'docs/manifest.json')));
 
 // ── Service worker ──
 console.log('\nSERVICE WORKER — docs/pro/sw.js');

@@ -318,3 +318,15 @@ CI-enforced).
 | #80 stale gate rationale | Nothing checks comments | Not a gate change: replace `scripts/check-site-integrity.js:29-36` with a dated note that the defect was fixed in `37ebd865`. **Do not** delete `'admin'` from `SCAN_EXCLUDED_TOP_DIRS` — the real justification for that exclusion (`:23-27`, internal non-homeowner surfaces, matching the manual sweep's documented scope) is independent and still valid |
 
 **Already well gated, no change needed:** cost/margin privacy (`tests/catalog-cost-privacy.test.js`, three layers, mutation-tested, honours `hosting.ignore`), EXIF/GPS stripping (`check-image-privacy.js`, unconditional `docs/` walk — the cleanest selector in the suite), money-in-cents, JS syntax, and `run-test-manifest.js --check`'s completeness + self-attestation logic.
+
+## Update 2026-09-13 — favicon rows closed
+
+Rows **64**, **74** and **76** are closed by `fix/favicon-normalization`
+([FAVICON-NORMALIZATION-2026-09-13](FAVICON-NORMALIZATION-2026-09-13.md)).
+Every page now carries exactly two icons chosen by audience, enforced by
+`scripts/normalize-favicons.js --check` in CI and `tests/favicon-contract.test.js`.
+Row 64's framing ("the homeowner portal flies the contractor app icon")
+described the favicon before #1467 redrew `favicon.svg` as the roof mark; on
+`9496f859` the portal carried the roof mark and the problem was the reverse —
+31 CRM pages flying it. Rows 74 and 76 had already been fixed by the time
+the normalization ran; the contract now keeps them fixed.

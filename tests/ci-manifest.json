@@ -119,7 +119,8 @@
     "photo-report-builder.test.js",
     "session-revocation.test.js",
     "calcom-webhook-payload.test.js",
-    "lead-alert-calcom.test.js"
+    "lead-alert-calcom.test.js",
+    "favicon-contract.test.js"
   ],
   "smoke": {
     "team-roles.test.js": [
