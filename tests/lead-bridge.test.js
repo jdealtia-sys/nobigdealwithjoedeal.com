@@ -111,6 +111,13 @@ console.log('\nLEAD-BRIDGE — public lead → CRM leads doc mapping');
   ok('inspect: notes carry story', /Hail last week/.test(inspect.notes));
   ok('inspect: notes carry photo count', /4 photo/.test(inspect.notes));
   ok('inspect: no undefined values', Object.values(inspect).every(v => v !== undefined));
+  ok('inspect: sourcePage keeps the page-level source the form posted', inspect.sourcePage === 'qr-inspect');
+  ok('inspect: the kind label is unchanged by attribution', inspect.source === 'Website — Inspection / Storm tool');
+  const areaForm = L.mapPublicLeadToLead({ collection: 'inspect_leads', sourceId: 's9', ownerUid: NBD, companyId: NBD,
+    data: { name: 'A B', phone: '5135550108', address: 'x', source: 'page-form:/areas/mason-oh' } });
+  ok('area quick-form: sourcePage names the landing page', areaForm.sourcePage === 'page-form:/areas/mason-oh');
+  const noSource = L.mapPublicLeadToLead({ collection: 'contact_leads', sourceId: 's10', ownerUid: NBD, companyId: NBD, data: { firstName: 'C' } });
+  ok('no source posted → sourcePage is an empty string, never undefined', noSource.sourcePage === '');
 
   // contact lead already has firstName (no `name`) — Oaks tenant.
   const contact = L.mapPublicLeadToLead({
