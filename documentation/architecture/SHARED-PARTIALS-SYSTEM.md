@@ -125,4 +125,8 @@ No FOUC: a render-blocking `<link>` replaces inline bytes at the same cascade
 position.
 
 Remaining footer cohorts, easiest first: 26 area pages, 28 service hub/plain
-pages, 5 root pages, `the-pledge`, `sites/free-guide`.
+pages, 5 root pages, `the-pledge`. (`sites/free-guide` was removed from this
+list 2026-09-13: it is the contractor lead magnet and now carries contractor
+chrome, so no homeowner footer partial should ever own it — the two exemption
+registries in `scripts/check-chrome-governance.js` and
+`scripts/migrate-nav-to-partial.js` already said so.)

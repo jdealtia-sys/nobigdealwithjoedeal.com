@@ -53,7 +53,7 @@ const EXEMPT = {
   // --- tenant + B2B surfaces on a separate design system ---
   'sites/t/index.html': 'tenant microsite template — identity injected at runtime from companyProfile; NBD chrome here would be a cross-tenant leak',
   'sites/index.html': '/sites B2B surface — separate design system (Barlow, #C8541A), noindex',
-  'sites/free-guide/index.html': '/sites B2B lead magnet — separate design system; badge logo on record at scripts/migrate-nav-to-partial.js:53-58',
+  'sites/free-guide/index.html': '/sites B2B lead magnet — separate design system with CONTRACTOR chrome (NBD Pro / Pro Blog / Pricing, switched off the homeowner nav 2026-09-13); no homeowner partial family can own it; badge logo on record at scripts/migrate-nav-to-partial.js:53-58',
 
   // --- Oaks Roofing & Construction microsite (rebuilt 2026-08-19) ---
   // A CLIENT's site, not an NBD surface: its own brand (#fa6404, Montserrat/Open
