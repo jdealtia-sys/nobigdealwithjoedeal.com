@@ -14,6 +14,11 @@
  *
  * Both sends are independent try/catch so a failure never blocks lead capture.
  * Additive — does not touch submitPublicLead or the lead pipeline.
+ *
+ * Cal.com bookings (2026-09-13): integrations/calcom.js writes a booking that
+ * matches no existing lead straight to leads/{calcom__<id>}, bypassing every
+ * public collection above — so nothing paged Joe, not even for a booking with
+ * no phone on it. leadAlertCalcom closes that; see onCalcomLeadAlert below.
  */
 
 const { onDocumentCreated } = require('firebase-functions/v2/firestore');
@@ -28,6 +33,7 @@ const _twilio = () => (_twilioSdk = _twilioSdk || require('twilio'));
 const { getFirestore, FieldValue } = require('firebase-admin/firestore');
 const L = require('./lead-bridge-logic');
 const C = require('./tcpa-consent');
+const CL = require('./integrations/calcom-logic');
 
 const RESEND_API_KEY = defineSecret('RESEND_API_KEY');
 const EMAIL_FROM = defineSecret('EMAIL_FROM');
@@ -95,6 +101,9 @@ const KIND_LABEL = {
   inspect_leads: 'Inspection / Storm tool',
   free_roof_entries: 'Free Roof entry',
   storm_alert_subscribers: 'Storm — homeowner reports damage',
+  // Only Cal.com bookings reach alertJoe with 'leads' — onCalcomLeadAlert
+  // returns early for every other lead.
+  leads: 'Cal.com booking',
 };
 
 // Human labels for the storm form's "What are you most concerned about?" field.
@@ -121,9 +130,14 @@ function summarize(d) {
   return { name, phone, address, email, story, concern };
 }
 
-function emailHtml(label, source, s, leadId, name) {
+// `notice` (optional) is a caller-supplied warning rendered above the details:
+// { email: text, mailto: address or '', sms: first SMS line, subject: tag }.
+function emailHtml(label, source, s, leadId, name, notice) {
   const telDigits = String(s.phone).replace(/[^\d]/g, '');
   const row = (k, v) => v ? `<tr><td style="padding:6px 12px;color:#6b7280;font-weight:600;white-space:nowrap;vertical-align:top">${esc(k)}</td><td style="padding:6px 12px;color:#111">${esc(v)}</td></tr>` : '';
+  const noticeRow = notice && notice.email
+    ? `<tr><td colspan="2" style="padding:12px;background:#fef3c7;border-left:4px solid #b45309;color:#78350f;font-weight:700">⚠ ${esc(notice.email)}${notice.mailto ? `<div style="margin-top:8px;font-weight:600"><a href="mailto:${esc(notice.mailto)}" style="color:#b45309">Email ${esc(notice.mailto)}</a></div>` : ''}</td></tr>`
+    : '';
   return `<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
 <body style="font-family:'Barlow','Segoe UI',Roboto,sans-serif;background:#f5f5f5;margin:0;color:#333">
   <div style="max-width:560px;margin:0 auto;background:#fff;border-radius:8px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.1)">
@@ -134,6 +148,7 @@ function emailHtml(label, source, s, leadId, name) {
     </div>
     <div style="padding:22px 20px">
       <table style="width:100%;border-collapse:collapse;font-size:15px">
+        ${noticeRow}
         ${row('Name', s.name)}
         ${row('Phone', s.phone)}
         ${row('Address', s.address)}
@@ -148,10 +163,12 @@ function emailHtml(label, source, s, leadId, name) {
 </body></html>`;
 }
 
-function smsBody(label, source, s, seal) {
+function smsBody(label, source, s, seal, notice) {
   // Suppress the seal token when the tenant has none — never render a bare
   // gap, and never substitute 'NBD' on a tenant's alert.
   const lines = [`🔔 ${seal ? seal + ' ' : ''}lead — ${label}${source ? ` (${source})` : ''}`, `${s.name} · ${s.phone}`];
+  // A notice leads the text so it survives the 480-char cut and the lock screen.
+  if (notice && notice.sms) lines.unshift(notice.sms);
   if (s.address) lines.push(s.address);
   if (s.concern) lines.push('Concern: ' + (CONCERN_LABEL[s.concern] || s.concern));
   if (s.story) lines.push(String(s.story).slice(0, 200));
@@ -275,9 +292,13 @@ async function recordAlertOutbox(collection, leadId, d, target, outcomes) {
   }
 }
 
-async function alertJoe(collection, d, leadId) {
+// opts (all optional): source — overrides d.source in the header; notice — see
+// emailHtml; ack:false — skip both homeowner acks (the booking tool already
+// confirmed to the homeowner).
+async function alertJoe(collection, d, leadId, opts = {}) {
   const label = KIND_LABEL[collection] || collection;
-  const source = d.source || '';
+  const source = opts.source != null ? opts.source : (d.source || '');
+  const notice = opts.notice || null;
   const s = summarize(d);
   // Route to the lead's tenant (Oaks → Scott); NBD / unset → Joe (default).
   const target = await resolveAlertTarget(d.companyId);
@@ -290,7 +311,7 @@ async function alertJoe(collection, d, leadId) {
     const msg = await client.messages.create({
       to: target.sms,
       from: TWILIO_PHONE_NUMBER.value(),
-      body: smsBody(label, source, s, target.seal),
+      body: smsBody(label, source, s, target.seal, notice),
     });
     outcomes.sms = 'sent';
     logger.info('leadAlert: sms queued', { collection, leadId, sid: msg.sid });
@@ -306,8 +327,8 @@ async function alertJoe(collection, d, leadId) {
     const resp = await resend.emails.send({
       from,
       to: target.emails,
-      subject: `🔔 New lead — ${label}${s.name && s.name[0] !== '(' ? `: ${s.name}` : ''}`,
-      html: emailHtml(label, source, s, leadId, target.name),
+      subject: `🔔 New lead — ${label}${notice && notice.subject ? ` (${notice.subject})` : ''}${s.name && s.name[0] !== '(' ? `: ${s.name}` : ''}`,
+      html: emailHtml(label, source, s, leadId, target.name, notice),
       reply_to: s.email || undefined,
     });
     // Resend resolves { data: null, error } on an API-level rejection
@@ -329,8 +350,10 @@ async function alertJoe(collection, d, leadId) {
   await recordAlertOutbox(collection, leadId, d, target, outcomes);
 
   // Close the loop with the homeowner (independent; never blocks the alert).
-  await ackHomeowner(collection, d, leadId, target);
-  await ackHomeownerSms(collection, d, leadId, target);
+  if (opts.ack !== false) {
+    await ackHomeowner(collection, d, leadId, target);
+    await ackHomeownerSms(collection, d, leadId, target);
+  }
 }
 
 // ── Homeowner ack TEXT — gated, estimate funnel only ────────────────────
@@ -444,6 +467,52 @@ function onStormAlert() {
   };
 }
 
+// Cal.com bookings land in `leads` directly (integrations/calcom.js M-2), so
+// this trigger sees EVERY lead create. It must stay silent for all but a
+// webhook-created booking:
+//  - a manual CRM lead (no publicLeadKind) is Joe's own entry;
+//  - a bridged public lead (publicLeadKind 'inspect', 'estimate', ...) already
+//    paged him from its public collection — alerting here would double-fire;
+//  - a booking re-created by scripts/backfill-calcom-dropped-leads.js is a
+//    PAST booking being repaired, not a new one to act on.
+// No homeowner ack: Cal.com already emails every booker, a third message is
+// Jo's call, and a booking carries no stored tcpaConsent to text on.
+// Logs carry the lead id and booleans only — never the booker's contact info.
+const MAILTO_SAFE = /^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/;
+function onCalcomLeadAlert() {
+  return async (event) => {
+    const snap = event.data;
+    if (!snap) return;
+    const data = snap.data() || {};
+    if (data.publicLeadKind !== 'calcom_booking' || data.webLead !== true) return;
+    const leadId = event.params && event.params.leadId;
+    if (data.backfilledBy) {
+      logger.info('leadAlertCalcom: backfilled booking — not a new lead, no alert', { leadId });
+      return;
+    }
+    const needsPhone = data.needsPhone === true;
+    const email = String(data.email || '').trim();
+    const title = String(data.calcomEventTitle || '').trim();
+    const slug = String(data.calcomEventSlug || '').trim();
+    // calcom-logic prepends NO_PHONE_NOTE to the stored notes; the notice below
+    // says it once, so the Message row carries only what the booker wrote.
+    const bookedNotes = String(data.notes || '').split('\n')
+      .filter((l) => l.trim() !== CL.NO_PHONE_NOTE).join('\n').trim();
+    const notice = needsPhone ? {
+      email: 'No phone on this booking — reply to the Cal.com confirmation email to get a number before the visit',
+      mailto: MAILTO_SAFE.test(email) ? email : '',
+      sms: 'NO PHONE — reply to the confirmation email',
+      subject: 'NO PHONE',
+    } : null;
+    logger.info('leadAlertCalcom: booking lead created', { leadId, needsPhone, eventSlug: slug || null });
+    await alertJoe('leads', { ...data, message: bookedNotes }, leadId, {
+      source: [title, slug].filter(Boolean).join(' · '),
+      notice,
+      ack: false,
+    });
+  };
+}
+
 // IMPORTANT: each export assigns onDocumentCreated(...) DIRECTLY (not via a
 // makeTrigger() wrapper). The CI auto-deploy builds its --only allowlist by
 // grepping `^exports.<name> = (onRequest|onCall|onDocumentCreated|...)` in
@@ -456,3 +525,4 @@ exports.leadAlertEstimate = onDocumentCreated({ ...TRIGGER_OPTS, document: 'esti
 exports.leadAlertInspect  = onDocumentCreated({ ...TRIGGER_OPTS, document: 'inspect_leads/{leadId}' },     onLeadAlert('inspect_leads'));
 exports.leadAlertFreeRoof = onDocumentCreated({ ...TRIGGER_OPTS, document: 'free_roof_entries/{leadId}' }, onLeadAlert('free_roof_entries'));
 exports.leadAlertStorm    = onDocumentCreated({ ...TRIGGER_OPTS, document: 'storm_alert_subscribers/{leadId}' }, onStormAlert());
+exports.leadAlertCalcom   = onDocumentCreated({ ...TRIGGER_OPTS, document: 'leads/{leadId}' },             onCalcomLeadAlert());

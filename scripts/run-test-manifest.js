@@ -143,13 +143,34 @@ const RUNNABLE = ['node', 'smoke'];
 //               (favicons) raises this line to the SAME literal from the same
 //               base — a matching number is not agreement: whichever merges
 //               second must re-measure (expect 110/67/195 with both).
+//   2026-09-13  109/67/194, favicon lane (tests/favicon-contract.test.js).
+//               MEASURED via --check on a branch cut from origin/main at
+//               9496f859. Open PRs #1518 and #1499 also add node suites; if
+//               either merges first, re-measure the merged tree.
+//   2026-09-13  MERGED TREE (favicon branch + #1535): both sides carried the
+//               SAME literal 109/67/194, so git merged the number without a
+//               conflict and only these comments collided — the exact case the
+//               entries above warn about. Set from --check on the merged tree.
+//   2026-09-13  110/67/195, Cal.com lead-alert lane
+//               (tests/lead-alert-calcom.test.js). MEASURED via --check on a
+//               branch cut from origin/main at 954e7331 — main already held
+//               109/67/194. The same literal as #1534's expected pair-total is
+//               a coincidence of +1s, not a merge of the two: #1534 and #1539
+//               both move this line too, so whichever lands after this one
+//               re-measures.
+//   2026-09-13  MERGED TREE again (favicon branch + #1537 + #1540): both sides
+//               carried 110/67/195 — the same literal a second time in one day.
+//               Set from --check on this merged tree, not from either side.
 //   2026-09-13  110/67/195, lead-form phone lane
 //               (tests/lead-form-phone-contract.test.js). MEASURED via --check
 //               on a branch cut from origin/main at 954e7331 (#1535). PR #1534
 //               also lands at 110/67/195 from a different base — the same
 //               literal again, so whichever merges second re-measures (111/67/196).
+//   2026-09-13  MERGED TREE (lead-form branch + #1534): main held 111/67/196,
+//               this branch 110/67/195; the literal below is what --check
+//               printed on the merged tree.
 
-const FLOORS = { node: 110, smoke: 67, disk: 195 };
+const FLOORS = { node: 112, smoke: 67, disk: 197 };
 
 // ── Argument parsing ───────────────────────────────────────────────
 const argv = process.argv.slice(2);
