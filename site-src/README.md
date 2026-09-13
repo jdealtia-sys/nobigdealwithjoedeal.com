@@ -79,4 +79,5 @@ exist, so an unconverted page is a coverage gap, not a failure.
 
 Not yet converted (each needs its own variant, sizes cluster tightly so each is
 a small job): **26 area** pages, **28 service** hub/plain pages, 5 root pages,
-`the-pledge`, `sites/free-guide`.
+`the-pledge`. (`sites/free-guide` is contractor-facing and deliberately never
+gets a homeowner partial — removed from this list 2026-09-13.)

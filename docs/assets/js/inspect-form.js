@@ -13,6 +13,13 @@
  *    inline alert so the user can retry or call Joe directly.
  *  - photoNames is sent as a comma-joined string (the server allowlist
  *    treats it as a single string field with maxLen 2000).
+ *  - Name, address and a 10-digit US mobile number are checked BEFORE the
+ *    request (2026-09-13). The form is `novalidate` and this file used to post
+ *    blind, so a missing phone reached the gateway, which answers a bare 400
+ *    "Invalid submission" and keeps nothing — the homeowner saw that string
+ *    with no hint which field was wrong, and the lead was gone. The phone rule
+ *    is the one every public form now shares (tests/lead-form-phone-contract):
+ *    digits only, a leading country-code 1 dropped, exactly 10 left.
  */
 (function () {
   'use strict';
@@ -60,6 +67,38 @@
     return out;
   }
 
+  // Shared public-form phone rule — keep byte-identical across the forms that
+  // carry it (tests/lead-form-phone-contract.test.js pins the expression).
+  function isUsPhone(v) {
+    return String(v == null ? '' : v).replace(/\D/g, '').replace(/^1/, '').length === 10;
+  }
+
+  // Returns [] when the form can be sent, else the invalid inputs in order.
+  function invalidFields() {
+    var checks = [
+      ['f-name', function (v) { return v.trim().length > 0; }],
+      ['f-address', function (v) { return v.trim().length > 0; }],
+      ['f-phone', isUsPhone]
+    ];
+    var bad = [];
+    checks.forEach(function (c) {
+      var el = document.getElementById(c[0]);
+      if (!el) return;
+      var good = c[1](el.value || '');
+      el.setAttribute('aria-invalid', good ? 'false' : 'true');
+      if (!good) bad.push(el);
+    });
+    return bad;
+  }
+
+  function invalidMessage(bad) {
+    var ids = bad.map(function (el) { return el.id; });
+    if (ids.length === 1 && ids[0] === 'f-phone') {
+      return 'Please add a 10-digit mobile number (area code included) so Joe can reach you.';
+    }
+    return 'Please add your name, the property address and a 10-digit mobile number so Joe can reach you.';
+  }
+
   function showSuccess() {
     var form = document.getElementById('inspectForm');
     var ok = document.getElementById('inspectSuccess');
@@ -94,6 +133,16 @@
     form.addEventListener('submit', function (ev) {
       ev.preventDefault();
       var btn = document.getElementById('inspectSubmit');
+
+      var bad = invalidFields();
+      if (bad.length) {
+        showError(btn, invalidMessage(bad));
+        try { bad[0].focus(); } catch (e) {}
+        return;
+      }
+      var prior = document.getElementById('inspectFormError');
+      if (prior) prior.remove();
+
       if (btn) { btn.disabled = true; btn.textContent = 'Sending...'; }
 
       var data = gatherFormData(form);
@@ -115,6 +164,10 @@
           // read reason first, fall back to error for safety.
           var msg = (res && (res.reason || res.error)) ? String(res.reason || res.error) : '';
           console.warn('[inspect-form] submission rejected', res);
+          // The gateway's per-field 400 is deliberately opaque; say what to check.
+          if (/^invalid submission$/i.test(msg)) {
+            msg = 'Something in the form did not go through. Check your name, address and 10-digit mobile number, or call or text Joe at (859) 420-7382.';
+          }
           showError(btn, msg && /[a-z]/i.test(msg) ? msg : null);
         }
       }).catch(function (err) {

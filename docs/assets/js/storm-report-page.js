@@ -84,7 +84,7 @@
   /* ── gate -> capture -> full report ── */
   function unlock() {
     var fn = $('sr-firstName').value.trim(), ph = $('sr-phone').value.trim(), em = $('sr-email').value.trim();
-    if (!fn || ph.replace(/\D/g, '').length < 10) { $('sr-gate-err').textContent = 'Please add your name and a 10-digit phone.'; return; }
+    if (!fn || ph.replace(/\D/g, '').replace(/^1/, '').length !== 10) { $('sr-gate-err').textContent = 'Please add your name and a 10-digit phone.'; return; }
     if (!$('sr-consent').checked) { $('sr-gate-err').textContent = 'Please check the box so Joe can send your report.'; return; }
     $('sr-gate-err').textContent = '';
     var btn = $('sr-unlock'); btn.disabled = true; btn.textContent = 'Building your report…';

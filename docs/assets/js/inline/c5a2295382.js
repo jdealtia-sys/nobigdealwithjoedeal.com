@@ -44,7 +44,9 @@ async function submitAlert() {
   }
   // Clean and validate phone
   const cleanPhone = phone.replace(/[^0-9]/g, '');
-  if (cleanPhone.length < 10) {
+  // Shared public-form rule (tests/lead-form-phone-contract.test.js): drop a
+  // leading country-code 1, require exactly 10 — `< 10` let 11+ digit typos through.
+  if (phone.replace(/\D/g, '').replace(/^1/, '').length !== 10) {
     showAlertError('Please enter a valid 10-digit phone number with area code.', phoneInput);
     return;
   }
