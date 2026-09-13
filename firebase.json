@@ -208,6 +208,13 @@
         ]
       },
       {
+        "_comment": "/sites/free-guide — the CONTRACTOR lead magnet (2026-09-13). Every sibling noindexed surface (/sites, /sites/oaks, /sites/t, /sites/template, /tools, /pro/blog) carries this header in addition to its <meta name=robots>; this page had the meta only, and the `/sites` rule above is an exact match that does not cover it. Same convention: the header is authoritative and the page stays OUT of robots.txt so crawlers can see the noindex. Its chrome was also switched from the homeowner nav/drawer/footer to contractor links the same day (documentation/audit/GROKBOT-BRIEF-VERIFICATION-2026-09-13.md).",
+        "source": "/sites/free-guide",
+        "headers": [
+          { "key": "X-Robots-Tag", "value": "noindex, nofollow" }
+        ]
+      },
+      {
         "_comment": "Oaks microsite (rebuilt 2026-08-19, Jo). /sites/oaks is a hand-authored 11-page mirror of Scott's retired site, built as a portable hand-off deliverable he hosts himself, and is now the ONLY Oaks site: the eight /sites/oaks* → /sites/t/oaks 301s from the 2026-07-04 Pillar 5 cutover were removed (redirects outrank static files, so leaving them would have shadowed every rebuilt page), and /sites/t/oaks now 301s the other way — the one-page tenant stub is retired for this tenant. logo-orange.svg still serves from this same directory, so companyProfile/oaks brand.logoUrl and generated documents are unaffected. KEEP this noindex until the site launches on its own domain: it is an unlaunched client site sitting on the HOMEOWNER domain, and indexing it here would compete with his own domain for the same Goshen keywords. AT LAUNCH, three things drop together and none of them works alone: these two X-Robots-Tag rules, the <meta name=robots> in all 11 pages, AND the 'Disallow: /sites/oaks/' + '/sites/oaks.html' lines in docs/robots.txt — that Disallow currently stops crawlers even fetching the pages, so on its own the noindex would never be seen (the failure mode this repo has hit repeatedly; see the /pro/blog and /tools comments below).",
         "source": "/sites/oaks",
         "headers": [

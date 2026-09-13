@@ -205,6 +205,11 @@
         }
 
         .mobile-nav a {
+            /* display:block (2026-09-13): the shared nbd-nav.css opens the drawer
+               with #mobileNav.mobile-nav.open{display:block} at id specificity,
+               which beats the flex column below — so without this every drawer
+               link flowed inline as one run of text on phones. */
+            display: block;
             color: rgba(255, 255, 255, .85);
             padding: 12px 0;
             font-size: .85rem;

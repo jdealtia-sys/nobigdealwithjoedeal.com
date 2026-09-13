@@ -217,6 +217,30 @@ ok('free-guide funnel link ABSENT from consumer footers (index)',
   !/data-nbd-freeguide/.test(read(path.join(DOCS, 'index.html'))));
 ok('free-guide funnel link present on the pro landing footer',
   /data-nbd-freeguide/.test(read(path.join(DOCS, 'pro/index.html'))));
+// The reverse leak (2026-09-13): the contractor magnet itself shipped the
+// HOMEOWNER chrome — a free-roof nomination bar and a 26-link drawer of roofing
+// services, warranty pages and homeowner tools. Its header, drawer and footer
+// now link only to /pro surfaces and its own form.
+{
+  const fg = read(path.join(DOCS, 'sites/free-guide/index.html'));
+  const chrome = [
+    (fg.match(/<div class="ann-bar">[\s\S]*?<\/div>/) || [''])[0],
+    (fg.match(/<nav>[\s\S]*?<\/nav>/) || [''])[0],
+    (fg.match(/<div class="mobile-nav" id="mobileNav">[\s\S]*?\n<\/div>/) || [''])[0],
+    (fg.match(/<footer>[\s\S]*?<\/footer>/) || [''])[0],
+  ];
+  ok('free-guide chrome regions all located (a missing region would pass the next check vacuously)', chrome.every((c) => c.length > 20));
+  const hrefs = [...chrome.join('\n').matchAll(/<a\b[^>]*\bhref="([^"]*)"/g)].map((m) => m[1]);
+  const homeowner = hrefs.filter((h) => !/^(\/pro(\/[a-z-]*)?|#hero)$/.test(h));
+  ok('free-guide header, drawer and footer link only to /pro surfaces or its own form', homeowner.length === 0, homeowner.slice(0, 6).join(' '));
+  ok('free-guide carries no free-roof announcement slide', !/data-nbd-freeroof-ann/.test(fg));
+  ok('free-guide drawer links render as rows (display:block beats nbd-nav.css forcing the open drawer to block)',
+    /\.mobile-nav a \{[^}]*display:\s*block/.test(fg));
+  const fb = JSON.parse(read(path.join(DOCS, '..', 'firebase.json')));
+  const rule = fb.hosting.headers.find((h) => h.source === '/sites/free-guide');
+  ok('free-guide has an X-Robots-Tag noindex header like every sibling /sites surface',
+    !!(rule && rule.headers.some((x) => x.key === 'X-Robots-Tag' && /noindex/.test(x.value))));
+}
 ok('free-roof page has JSON-LD', /application\/ld\+json/.test(read(path.join(DOCS, 'free-roof/index.html'))));
 
 // 11. Chrome batch 2 (Jo's calls, 2026-07-19)
@@ -336,6 +360,13 @@ const certBarTargets = marketing.filter((f) => /^services\/[a-z0-9-]+-(oh|ky)\.h
   }).map(rel);
   ok('pro door uses one wording site-wide', bad.length === 0,
     `${bad.length} forked: ` + bad.slice(0, 5).join(', '));
+  // One door per footer (Jo, 2026-09-13): footer-extended carried a second,
+  // louder 'NBD Pro ↗' item in its Company column on top of the canonical door,
+  // escaping the wording check above only because it lacked the word
+  // "contractor". Count the /pro/ links in every footer partial.
+  const partialsDir = path.join(DOCS, '..', 'site-src', 'partials');
+  const extraDoors = fs.readdirSync(partialsDir).filter((p) => /^footer-.*\.html$/.test(p)).map((p) => [p, (read(path.join(partialsDir, p)).match(/href="\/pro\/?"/g) || []).length]).filter(([, n]) => n > 1);
+  ok('no footer partial carries more than one /pro link (one silent door, no second Pro menu item)', extraDoors.length === 0, JSON.stringify(extraDoors));
 }
 {
   // 4. CERT CLAIM GUARD — Joe is GAF Certified (System Plus) and TAMKO only.
