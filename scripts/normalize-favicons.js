@@ -226,8 +226,13 @@ function walk(dir, out = []) {
   return out;
 }
 
-/** Scan a docs root. Pure with respect to the filesystem unless write=true. */
-function run({ root = DEFAULT_DOCS, write = false } = {}) {
+/**
+ * Scan a docs root. Pure with respect to the filesystem unless write=true.
+ * registryChecks — also fail on a stale OVERRIDES entry or an EXCLUDED
+ * pattern that matches nothing. On by default for the real tree; off for a
+ * scratch fixture root, which naturally lacks those pages.
+ */
+function run({ root = DEFAULT_DOCS, write = false, registryChecks = root === DEFAULT_DOCS } = {}) {
   const files = walk(root).sort();
   const result = { pages: files.length, written: [], drift: [], refused: [], leaks: [], unchanged: 0, excluded: 0, skipped: 0, byAudience: { homeowner: 0, pro: 0, excluded: 0, skip: 0 }, problems: [] };
   const rels = files.map((f) => path.relative(root, f).replace(/\\/g, '/'));
@@ -253,10 +258,10 @@ function run({ root = DEFAULT_DOCS, write = false } = {}) {
 
   // Stale rules fail loudly — a guard defeated by its own list is how four
   // gates in this repo went quiet (scripts/check-chrome-governance.js header).
-  for (const p of Object.keys(OVERRIDES)) {
-    if (!rels.includes(p)) result.problems.push(`stale override: ${p} does not exist under ${path.basename(root)}/`);
-  }
-  if (root === DEFAULT_DOCS) {
+  if (registryChecks) {
+    for (const p of Object.keys(OVERRIDES)) {
+      if (!rels.includes(p)) result.problems.push(`stale override: ${p} does not exist under ${path.basename(root)}/`);
+    }
     for (const x of EXCLUDED) {
       if (!rels.some((r) => x.re.test(r))) result.problems.push(`stale exclusion: ${x.re} matches no page`);
     }
