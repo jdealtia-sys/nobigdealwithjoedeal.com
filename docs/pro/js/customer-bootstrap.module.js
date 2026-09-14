@@ -2609,6 +2609,34 @@ async function uploadSinglePhoto(item, index) {
   const filename = `${window._customerId}_${timestamp}_${safeName}`;
   const storageRef = window.ref(window.storage, `photos/${uid}/${filename}`);
 
+  // Durable enqueue BEFORE the network attempt (2026-09-14). Until now this
+  // function went straight to uploadBytesResumable with no durable record —
+  // PhotoEngine's own camera-capture flow (photo-engine.js openCamera's save
+  // handler) has written every shot to IndexedDB first since the queue was
+  // built, specifically because Storage retries a failed upload for up to
+  // ten minutes by default and a reload/bfcache-restore in that window loses
+  // whatever only lives in a local variable. This page never got that
+  // protection: a no-signal photo taken here was lost outright, not merely
+  // delayed. Best-effort — if the photos bundle or the durable store is
+  // unavailable, upload proceeds exactly as before; this only ADDS
+  // durability, it is not a new hard dependency for uploading at all.
+  let _queueEntry = null;
+  try {
+    if (window.ScriptLoader && typeof window.ScriptLoader.loadBundle === 'function') {
+      await window.ScriptLoader.loadBundle('photos');
+    }
+    if (window.PhotoEngine && typeof window.PhotoEngine.enqueueForRetry === 'function') {
+      const outcome = await window.PhotoEngine.enqueueForRetry({
+        blob: file, uid, leadId: window._customerId,
+        tags: [], description: '', location: '',
+        timestamp, uploadId: filename, preset: null,
+      });
+      if (outcome && outcome.entry) _queueEntry = outcome.entry;
+    }
+  } catch (e) {
+    console.warn('[uploadSinglePhoto] durable enqueue skipped:', e && e.message);
+  }
+
   // Photo system Phase 2: kick off EXIF + slope inference IN PARALLEL
   // with the upload. The result lands while bytes are still flying;
   // we merge it into the photo doc when the upload completes. Failing
@@ -2744,6 +2772,19 @@ async function uploadSinglePhoto(item, index) {
           // upload progress UI snappy.
           if (window.PhotoAIClassifier && newPhotoRef && newPhotoRef.id) {
             window.PhotoAIClassifier.classify(newPhotoRef.id).catch(() => {});
+          }
+
+          // Upload + Firestore write both succeeded — clear the durable
+          // queue entry so a later background drain (an 'online' event, or
+          // this bundle loading again on a future visit) does not re-attempt
+          // an upload that already landed. A memory-only fallback entry (no
+          // .id — the durable store was unavailable when this photo was
+          // taken) has nothing in IndexedDB to remove; it is left to expire
+          // with the page the same way it always has.
+          if (_queueEntry && _queueEntry.id != null && window.NBDPhotoQueueStore
+              && typeof window.NBDPhotoQueueStore.remove === 'function') {
+            try { await window.NBDPhotoQueueStore.remove(_queueEntry.id); }
+            catch (e) { console.warn('[uploadSinglePhoto] queue cleanup failed (harmless — worst case is one redundant future retry):', e && e.message); }
           }
 
           resolve();

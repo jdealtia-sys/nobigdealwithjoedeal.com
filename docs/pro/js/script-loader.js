@@ -218,6 +218,17 @@
     // loads still works.
     photos: [
       'js/photo-engine.js?v=6',
+      // photo-queue-store.js + photo-queue-recovery.js were static-tagged
+      // only on dashboard.html until 2026-09-14 — customer.html's own
+      // uploadSinglePhoto never enqueued a photo into the durable IndexedDB
+      // queue before attempting the network upload, so a no-signal shot from
+      // this page was lost outright (not merely delayed) on a failed upload
+      // or a reload mid-upload. Bundled here, NOT static-tagged, per the
+      // existing dedupe trap this file documents elsewhere: ScriptLoader
+      // dedupes on resolved path, so an eager tag for either file would make
+      // loadBundle('photos') a no-op for it and nothing would load lazily.
+      'js/photo-queue-store.js?v=1',
+      'js/photo-queue-recovery.js?v=1',
       'js/inspection-report-engine.js?v=5',
       'js/photo-report.js?v=3'
     ],

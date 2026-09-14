@@ -2270,6 +2270,14 @@
     // Exposed so the retry is an operation the app can trigger, not only an
     // `online` side effect — and so it is testable at all.
     flushUploadQueue,
+    // Exposed 2026-09-14 so a caller outside this module's own camera-capture
+    // flow (customer-bootstrap.module.js's uploadSinglePhoto) can durably
+    // persist a photo BEFORE attempting the network upload, the same way
+    // openCamera's save flow already does — a no-signal shot from the
+    // customer page was previously lost outright, never queued at all.
+    // Returns { durable, queued, entry } — see the function body for the
+    // durable-vs-memory-fallback and queue-full/quota messaging contract.
+    enqueueForRetry,
     // Synchronous, reads the in-memory mirror. Accurate once _syncMirror()
     // has run; use queuedPhotoCountDurable() if you need the storage truth
     // without depending on that having happened yet.
