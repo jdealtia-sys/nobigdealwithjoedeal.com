@@ -51,10 +51,24 @@ manifest runner prints the exact fix line, don't add +1 blindly).
    Jo run the one `gcloud secrets versions access` check himself and
    report back "set" or "stub" — do not guess.** If stub: gate the button
    behind the integration gate. If set: trace the real call path instead.
-2. **Installed-PWA `blob:` download interceptor** — found (customer-page
-   CSV/backup exports fail silently in the home-screen app), not fixed.
-   Materiality contested (standalone-only, backup-exports-only). One-line
-   fix if it's wanted; not scoped into any of the nine PRs above.
+2. ~~**Installed-PWA `blob:` download interceptor** — found (customer-page
+   CSV/backup exports fail silently in the home-screen app), not fixed.~~
+   **Stale — already fixed same day**, as a drive-by in PR
+   [#1552](https://github.com/jdealtia-sys/nobigdealwithjoedeal.com/pull/1552)
+   / commit `adc6a48` (merged to `main`), item 4 of that PR's own commit
+   message: `docs/pro/js/standalone-compat.js`'s `isStandalone` link
+   interceptor skip-list now excludes `blob:`, `data:`, and any anchor
+   carrying `download`, with the root-cause comment in place
+   (`new URL('blob:...', location.origin).origin === location.origin`
+   was routing export anchors into the same-origin `preventDefault()` +
+   `location.href` branch instead of letting them download). Covered by
+   `tests/photo-queue-customer-page-2026-09-14.test.js`'s section 4. The
+   `documentation/audit/GROK-CRM-AUDIT-EVALUATION-2026-09-13.md:287`
+   "not fixed this pass" line is correspondingly stale too — this
+   session's fix postdates that write-up. Also: the actual export UI is
+   `dashboard.html`'s "Export & Backup" panel (`data-export.js`), not a
+   literal button on `customer.html` — "customer-page" in the original
+   finding meant "customer-data export," not the homeowner portal page.
 3. ~~**`onAudioUploaded` / `onPortalMessageDraft`** have no
    `feature_flags/global` kill switch~~ — **wired same day**, PR
    [#1560](https://github.com/jdealtia-sys/nobigdealwithjoedeal.com/pull/1560)

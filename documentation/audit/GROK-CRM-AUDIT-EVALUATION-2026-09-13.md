@@ -175,7 +175,9 @@ naming it.
 - Installed-PWA link interceptor cancelled `blob:` download anchors —
   CSV/backup exports failed silently in the home-screen app. Not fixed
   this pass (materiality: standalone-only, backup-exports-only) — flagged
-  for a follow-up, not built.
+  for a follow-up, not built. **Correction, 2026-09-14 later same day:**
+  fixed anyway, as a drive-by in PR #1552 / commit `adc6a48` (that PR's
+  own item 4) — see `NEXT_SESSION-2026-09-14.md` §1 item 2.
 - Not proven in production this pass (Jo's ops queue, Part 3): any
   `[renderPdf] ok` log line; any real invoice → payment-link → paid loop.
 
@@ -281,11 +283,11 @@ file rather than trusting the raw ranking.
 - Second domain, Lexington, next Oaks, contractor blog posts.
 - Reviving the June Pro privacy policy (decision 6); metering reports/AI
   (decision 5).
-- Wiring `onAudioUploaded` / `onPortalMessageDraft` into
-  `feature_flags/global` (documented as a gap in `SPEND_KILLSWITCH.md`,
-  not built — small, scoped follow-up if it's ever wanted).
-- The installed-PWA `blob:` download-interceptor fix (found, materiality
-  contested — standalone-only, backup-exports-only — flagged, not built).
+- ~~Wiring `onAudioUploaded` / `onPortalMessageDraft` into
+  `feature_flags/global`~~ — **done**, PR #1560 (`voiceIntelDisabled` /
+  `portalDraftDisabled`, mirroring `webLeadMeasureDisabled`).
+- ~~The installed-PWA `blob:` download-interceptor fix~~ — **done**, PR
+  #1552 / commit `adc6a48` (see correction above).
 
 ## Evidence commands (no secret values printed)
 
