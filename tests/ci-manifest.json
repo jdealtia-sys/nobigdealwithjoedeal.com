@@ -124,7 +124,8 @@
     "lead-alert-calcom.test.js",
     "favicon-contract.test.js",
     "lead-form-phone-contract.test.js",
-    "pro-claims-honesty-2026-09-13.test.js"
+    "pro-claims-honesty-2026-09-13.test.js",
+    "deal-acceptance-atomicity.test.js"
   ],
   "smoke": {
     "team-roles.test.js": [
