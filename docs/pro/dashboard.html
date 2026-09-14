@@ -6310,8 +6310,10 @@
 <!-- Talk Tank: unified voice-capture inbox under #/talk-tank. Reads
      users/<uid>/captures (written by quick-capture.js). REC button on
      the page invokes window.NBDQuickCapture.open() — no duplicate
-     recording UI. -->
-<script defer src="js/talk-tank.js?v=1"></script>
+     recording UI.
+     LAZY (2026-09-14, boot-weight containment): loaded via ScriptLoader's
+     `talktank` bundle on first goTo('talk-tank') — zero callers outside
+     that view. -->
 <!-- Legendary Rep Report Generator — bold-editorial visual
      reports for rep coaching + owner meetings. -->
 <script defer src="js/billing-gate.js?v=1"></script>
@@ -6398,13 +6400,20 @@
 <script defer src="js/invoice-pipeline.js?v=4"></script>
 <!-- LAZY: inspection-report-engine loads via the `photos` bundle (PR 2d). -->
 <!-- Step 4d (2026-05-16): maps.js split into three sibling modules
-     loaded in order before the thin maps.js shim. See maps.js
+     loaded in order before the thin maps.js shim (maps-customers.js
+     joined the eager chain later; see its own header). See maps.js
      header for the full split rationale. Each module is a classic
-     <script> (non-ESM) and shares sibling-scope globals. -->
+     <script> (non-ESM) and shares sibling-scope globals.
+     LAZY (2026-09-14, boot-weight containment): maps-routing.js — the
+     fourth sibling, 172 KiB, #2 static file on the page — moved to
+     ScriptLoader's `drawtool` bundle, loaded on first goTo('draw').
+     Proven safe to decouple from this eager chain: vm-sandboxed with
+     no Leaflet global defined, it executes cleanly (no top-level code
+     calls into L.*), and neither maps-core.js nor maps-overlays.js
+     references anything drawing-tool-specific. -->
 <script defer src="js/maps-core.js?v=7"></script>
 <script defer src="js/maps-overlays.js?v=7"></script>
 <script defer src="js/maps-customers.js?v=11"></script>
-<script defer src="js/maps-routing.js?v=4"></script>
 <script defer src="js/maps.js?v=10"></script>
 <!-- Smart Calendar — Today's Schedule with travel-time + priority. Reads
      /appointments (Cal.com webhook output) for the current rep, cross-

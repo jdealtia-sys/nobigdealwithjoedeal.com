@@ -1219,8 +1219,15 @@ function initAllAutocomplete() {
   window._acCallbacks['pinAddrInput'] = null;
 
   // drawSearch — on select, move draw map
+  // typeof-guarded (2026-09-14, boot-weight containment): maps-routing.js
+  // (where `let drawMap` lives, a bare sibling-scope global — see that
+  // file's header) now loads lazily via the `drawtool` bundle, only once
+  // the user visits #/draw. This callback registers unconditionally at
+  // boot like the mapSearch one above it, so a bare `drawMap` read would
+  // throw ReferenceError on any session that fires drawSearch before ever
+  // opening the draw view.
   window._acCallbacks['drawSearch'] = (r) => {
-    if(drawMap) drawMap.setView([parseFloat(r.lat), parseFloat(r.lon)], 19);
+    if(typeof drawMap !== 'undefined' && drawMap) drawMap.setView([parseFloat(r.lat), parseFloat(r.lon)], 19);
   };
 
   // estAddr — just fill
