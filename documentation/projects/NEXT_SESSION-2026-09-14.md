@@ -70,9 +70,9 @@ manifest runner prints the exact fix line, don't add +1 blindly).
    literal button on `customer.html` — "customer-page" in the original
    finding meant "customer-data export," not the homeowner portal page.
 3. ~~**`onAudioUploaded` / `onPortalMessageDraft`** have no
-   `feature_flags/global` kill switch~~ — **wired same day**, PR
+   `feature_flags/global` kill switch~~ — **wired same day, MERGED**, PR
    [#1560](https://github.com/jdealtia-sys/nobigdealwithjoedeal.com/pull/1560)
-   (open, not yet merged as of this edit): `voiceIntelDisabled` and
+   (`dc3ee9f`): `voiceIntelDisabled` and
    `aiDraftDisabled`, mirroring `webLeadMeasureDisabled`.
    `SPEND_KILLSWITCH.md` updated in place. New suite
    `tests/voice-portal-draft-killswitch.test.js`, `FLOORS` re-measured
@@ -86,6 +86,24 @@ manifest runner prints the exact fix line, don't add +1 blindly).
    three callers — `incomingSMS`, `onPortalMessageDraft`, and the
    admin-only `convertUnmatchedSms` — share one flag, renamed
    `aiDraftDisabled` to match its real scope.
+3b. **Follow-on finding, same session, not in the original audit at
+   all**: `SPEND_KILLSWITCH.md`'s `aiDisabled` "ONE-BUTTON: halt all
+   billable AI" claim was itself stale — it named only `claudeProxy`,
+   `analyzePhotoVision`, `visualizerImageGen`. Auditing every literal
+   Anthropic/Groq `fetch()` call site in `functions/` (not trusting that
+   list, nor a file-level "does `isAiDisabled` appear anywhere in this
+   file" check) found six more live, wired, ungated endpoints —
+   `dictate`, `previewAiPersona`, `analyzeRoofPhoto`, `adminAI`, and,
+   worst, two **unauthenticated public** ones: `publicVisualizerAI` and
+   `publicFunnelAI` (the `/estimate` funnel's own AI call), gated only
+   by per-IP rate limits, no operator stop short of pulling the shared
+   key. All six fixed, PR
+   [#1561](https://github.com/jdealtia-sys/nobigdealwithjoedeal.com/pull/1561)
+   (open). New suite `tests/ai-disabled-coverage.test.js` closes the
+   deeper gap: no suite pinned `isAiDisabled` coverage for *any* of the
+   ten endpoints before this, not even the original three — so this
+   class of drift had no gate to catch it recurring. `FLOORS`
+   re-measured 122→123 node, 208→209 disk.
 4. **Seat stepper visible-but-broken** (`dashboard-team-tab.js`) — every
    card-billed owner sees the "Extra seats" control and it fails with a
    server toast if `STRIPE_PRICE_SEAT` isn't a real price. Documented
