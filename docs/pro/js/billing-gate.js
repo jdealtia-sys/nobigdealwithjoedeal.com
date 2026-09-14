@@ -8,10 +8,13 @@
 // Tier limits:
 //   free:       10 leads/mo,  0 reports,  0 AI calls, solo
 //   starter:    50 leads/mo,  2 reports, 20 AI calls, solo
+//   team:      150 leads/mo,  ∞ reports, 100 AI calls, 2 reps
 //   growth:    500 leads/mo,  ∞ reports,  ∞ AI calls, 5 reps
 //   enterprise:  ∞ everything
 //
-// Soft gating: warns at 80%, modal at 100%, no lockout mid-cycle.
+// Soft gating on reports/aiCalls: warns at 80%, informational at 100%.
+// Leads: warns at 80%; at 100% new-lead creation is blocked client-side
+// until the next cycle or an upgrade (existing leads stay fully editable).
 //
 // Usage is tracked per billing cycle in Firestore and reset
 // by the webhook when a new invoice is paid.
@@ -423,7 +426,7 @@ let _NBD_BG_DELEGATE; // module-local (globals Tranche 1 — was window.*)
         <button data-bg-action="closeUpgrade" style="background:var(--s2);border:1px solid var(--br);color:var(--m);padding:10px 20px;border-radius:6px;cursor:pointer;font-family:inherit;font-size:12px;">Maybe Later</button>
         <button data-bg-action="closeUpgradeAndGoBilling" style="background:var(--orange,#BD5728);border:none;color:#fff;padding:10px 24px;border-radius:6px;cursor:pointer;font-family:inherit;font-size:12px;font-weight:700;">View Plans</button>
       </div>
-      <div style="font-size:10px;color:var(--m,#888);margin-top:14px;">You can still use this feature — we won't lock you out mid-cycle.</div>
+      <div style="font-size:10px;color:var(--m,#888);margin-top:14px;">New leads pause until you upgrade or your cycle resets — everything you already have stays fully editable.</div>
     `;
     overlay.appendChild(card);
     overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
