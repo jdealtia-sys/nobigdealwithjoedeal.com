@@ -194,7 +194,7 @@ const RUNNABLE = ['node', 'smoke'];
 //               number was carried forward by arithmetic; re-measured via
 //               --check on the rebased tree.
 
-const FLOORS = { node: 115, smoke: 67, disk: 201 };
+const FLOORS = { node: 116, smoke: 67, disk: 202 };
 
 // ── Argument parsing ───────────────────────────────────────────────
 const argv = process.argv.slice(2);

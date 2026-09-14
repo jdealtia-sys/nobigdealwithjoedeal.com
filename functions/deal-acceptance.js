@@ -253,8 +253,20 @@ exports.submitDealAcceptance = onRequest(
     const db = getFirestore();
     const tokRef = db.doc(`deal_accept_tokens/${token}`);
 
-    // ATOMIC single-use burn: flip pending → accepted inside a transaction so
-    // two concurrent accepts can't both record (TOCTOU). Mirrors portal.js.
+    // ATOMIC single-use burn + record: flip pending → accepted AND write the
+    // deal_rooms acceptance in the SAME transaction, so a homeowner's
+    // "accepted" can never diverge from the CRM's deal-room state. Before
+    // 2026-09-14 these were two separate writes — the token burn committed
+    // unconditionally inside the transaction, then a second, non-transactional
+    // deal_rooms.set() ran in a try/catch that only logger.warn'd on failure.
+    // A same-request Firestore hiccup on that second write left the token
+    // permanently burned (single-use — it can never be replayed) while
+    // deal_rooms still read the pre-acceptance state: the homeowner saw
+    // "accepted", the rep's Close Board still said draft, and nothing
+    // anywhere reported an error. Folding both writes into one transaction
+    // removes the failure window instead of trying to detect and revert it —
+    // Firestore transactions commit all writes together or none at all, so
+    // there is no state where the token is burned but the deal isn't recorded.
     let info;
     try {
       info = await db.runTransaction(async (tx) => {
@@ -267,34 +279,32 @@ exports.submitDealAcceptance = onRequest(
         if (t.status !== 'pending') {
           const e = new Error('done'); e._http = 409; e._msg = 'This deal has already been accepted.'; throw e;
         }
+        const price = (t.tierPrices && t.tierPrices[tier]) || 0;
         tx.update(tokRef, { status: 'accepted', acceptedAt: FieldValue.serverTimestamp() });
+        tx.set(db.doc(`deal_rooms/${t.dealId}`), {
+          status: 'accepted',
+          acceptedTier: tier,
+          acceptedPrice: price,
+          acceptedFinancing: financing,
+          acceptedSignature: signature,
+          scheduledInstallDate: scheduledDate || null,
+          acceptedAt: FieldValue.serverTimestamp(),
+          acceptedVia: 'remote',
+        }, { merge: true });
         return {
           dealId: t.dealId, ownerUid: t.ownerUid, leadId: t.leadId || null,
-          customerName: t.customerName || '', price: (t.tierPrices && t.tierPrices[tier]) || 0,
+          customerName: t.customerName || '', price,
         };
       });
     } catch (err) {
       if (err && err._http) { res.status(err._http).json({ error: err._msg }); return; }
-      logger.error('[submitDealAcceptance] burn txn failed', { msg: err.message });
+      logger.error('[submitDealAcceptance] burn+record txn failed', { msg: err.message });
       res.status(500).json({ error: 'Could not record your acceptance. Try again.' }); return;
     }
 
-    // Token is burned. Record the acceptance + notify the rep. A failure here
-    // can't double-accept (status already flipped); log and still return ok so
-    // the homeowner isn't asked to re-accept.
-    try {
-      await db.doc(`deal_rooms/${info.dealId}`).set({
-        status: 'accepted',
-        acceptedTier: tier,
-        acceptedPrice: info.price,
-        acceptedFinancing: financing,
-        acceptedSignature: signature,
-        scheduledInstallDate: scheduledDate || null,
-        acceptedAt: FieldValue.serverTimestamp(),
-        acceptedVia: 'remote',
-      }, { merge: true });
-    } catch (e) { logger.warn('[submitDealAcceptance] deal update failed', { msg: e.message }); }
-
+    // Token is burned AND the deal is recorded — both committed together
+    // above. Notification is genuinely best-effort: a missing bell doesn't
+    // desync any state, so it stays outside the transaction.
     try {
       await db.collection('notifications').add({
         userId: info.ownerUid,
