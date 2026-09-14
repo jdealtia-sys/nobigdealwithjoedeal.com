@@ -128,7 +128,8 @@
     "deal-acceptance-atomicity.test.js",
     "photo-queue-customer-page-2026-09-14.test.js",
     "sign-image-url-allowlist-2026-09-14.test.js",
-    "nav-logo-size-2026-09-14.test.js"
+    "nav-logo-size-2026-09-14.test.js",
+    "security-docs-and-hosts-2026-09-14.test.js"
   ],
   "smoke": {
     "team-roles.test.js": [

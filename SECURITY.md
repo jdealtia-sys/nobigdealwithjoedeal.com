@@ -24,14 +24,22 @@ responsible reporters in the release notes for the fix (with permission).
 ## In scope
 
 - **Firebase project:** `nobigdeal-pro`
-- **Production domains:** `nobigdealwithjoedeal.com`, `www.nobigdealwithjoedeal.com`, `nbd-pro.web.app`
+- **Production domains:** `nobigdealwithjoedeal.com`, `www.nobigdealwithjoedeal.com`
+  (redirects to the apex), `nobigdeal-pro.web.app`, `nobigdeal-pro.firebaseapp.com`
+  (the Firebase Auth `authDomain` — used by ~20 client files, must stay reachable).
+  **Corrected 2026-09-14** — this line used to name `nbd-pro.web.app`, which has
+  never existed (the Firebase project is `nobigdeal-pro`; that string is a typo
+  that also survived in two functions' CORS allowlists until the same date — see
+  `functions/report-sharing.js` / `functions/calendar-feed.js`).
 - **Cloud Functions:** everything under `functions/` — public endpoints and callables
 - **Firestore rules:** `firestore.rules`
 - **Storage rules:** `storage.rules`
 - **Client auth + role handling:** `docs/pro/js/nbd-auth.js`, `docs/pro/js/admin-manager.js`
 - **Homeowner portal:** `docs/pro/portal.html` + `getHomeownerPortalView` / `createPortalToken`
 - **Webhooks:** `stripeWebhook`, `invoiceWebhook`, `esignWebhook`, `calcomWebhook`,
-  `measurementWebhook`, `incomingSMS`
+  `measurementWebhook`, `incomingSMS`, `swathWebhook`, `thumbtackWebhook`,
+  `stripeConnectWebhook` (the last three added 2026-09-14 — they were always
+  live and signature-gated, just never listed here)
 
 ## Out of scope
 
@@ -65,8 +73,14 @@ responsible reporters in the release notes for the fix (with permission).
   `subscriptions/` triggers a redacted entry in `audit_log/`. Platform-admin-read only.
 - **GDPR:** Article 20 export (`exportMyData`) + Article 17 two-step erasure
   (`requestAccountErasure` + `confirmAccountErasure`).
-- **Session hygiene:** new-device sign-in fires a Slack alert via
-  `registerDeviceFingerprint` + `user_devices/{uid}/seen/{hash}`.
+- **Session hygiene:** `registerDeviceFingerprint` + `user_devices/{uid}/seen/{hash}`
+  is built to fire a Slack alert on new-device sign-in, but it does not fire
+  today: no client caller invokes it (removed under "D9" in
+  `dashboard-bootstrap.module.js` — the function was never deployed when
+  that call shipped, so every load 401'd) and the function itself no-ops
+  until `SLACK_WEBHOOK_URL` is provisioned, which it is not. **Corrected
+  2026-09-14** — provisioning the secret alone is not enough; the client
+  call needs to come back too.
 - **Secrets:** all API keys live in Firebase Secret Manager. Never in the repo.
   Secret inventory in `scripts/deploy-runbook.sh`.
 
@@ -99,7 +113,10 @@ After deploy, revoke the old key on the vendor dashboard (Stripe, Anthropic, etc
 The template at `.github/pull_request_template.md` enforces this — not optional on
 security-sensitive diffs (see `.github/CODEOWNERS` for the list).
 
-- [ ] New Cloud Functions have `enforceAppCheck: true` + rate limit + tenant scoping.
+- [ ] New `onCall` functions have `enforceAppCheck: true` + rate limit + tenant scoping.
+      New `onRequest` functions have signature verification / an ID-token check /
+      a per-IP rate limit instead — `enforceAppCheck` is a no-op there (see the
+      App Check note above).
 - [ ] New Firestore collections have explicit default-deny rules + a test.
 - [ ] New sub-processors are disclosed in `docs/privacy.html`.
 - [ ] New PII fields are handled by the redactor in `functions/audit-triggers.js`.
@@ -142,7 +159,21 @@ accident:
   the Cloudflare dashboard. Until that manual step is done the live
   endpoint remains a reachable, unauthenticated AI proxy (cost-abuse
   surface) even though nothing we ship calls it — treat its removal
-  as a priority, not cleanup.
+  as a priority, not cleanup. **Confirmed 2026-09-14 via the Cloudflare
+  API that this is worse than "still live": the CORS lock only checks a
+  present Origin header, so a POST with no Origin header at all still
+  passes the gate** and forwards to Anthropic with the account's
+  original (never rotated) key.
+
+  **Three more workers were found in the same account, same date, none
+  previously documented here**: `nbd-ai-visualizer` (still answers with
+  `Access-Control-Allow-Origin: *` — an arbitrary origin can call it; its
+  own OpenAI billing was never funded, capping the exposure, not closing
+  it) and `nbd-mailerlite` / `nbd-stripe-webhook` (both still exist in
+  the account with their `workers.dev` route disabled — not deleted, as
+  a 2026-09-05 audit note and this file's own history once claimed).
+  Delete all four in the same pass; rotate the Anthropic key bound to
+  `nbd-ai-proxy` once it's gone.
 
 - **`imageProxy` Cloud Function** (retired 2026-04-15, R-03). The
   function streamed Storage bytes through Cloud Functions, which
@@ -165,3 +196,17 @@ accident:
   now use the gated `publicFunnelAI`; the vault parsers + project-codex
   use the gated `adminAI`. Worker origin dropped from the CSP; only the
   Cloudflare-dashboard deletion remains.
+- **2026-09-14** — deliberate decision, not an oversight: this repo
+  stays public this quarter. The tradeoff (full CRM logic, Firestore
+  rules, function names, and webhook list are all cloneable) is
+  accepted in exchange for building in the open; the source-visible
+  `LICENSE` at the repo root already reflects this. The one asset this
+  visibility genuinely leaked — the Xactimate-style catalog's published
+  material + labor unit costs — is addressed by rotating those figures
+  (`scripts/cost-rotation.js`, `tests/cost-basis-ledger.js`) rather than
+  by hiding the repo, since a history rewrite would not undo any clone
+  already taken. Revisit only if a competitor is shown to have acted on
+  the clone, not on the theoretical exposure alone. Corrected the same
+  date: `nbd-pro.web.app` → the real hosts (see "In scope" above); the
+  Slack new-device alert and the reviewer-checklist App-Check bullet
+  (both above) were also stale.
