@@ -33,6 +33,7 @@ const { Timestamp, getFirestore } = require('firebase-admin/firestore');
 const { getStorage } = require('firebase-admin/storage');
 const { FieldValue } = require('firebase-admin/firestore');
 const { getSecret, hasSecret, PROVIDERS, SECRETS } = require('./_shared');
+const { isVoiceIntelDisabled } = require('./killswitch');
 const prompts = require('../voice-prompts');
 
 // Claude analysis + consent check reuse the existing Anthropic key.
@@ -490,6 +491,25 @@ async function processRecording({
   if (existing && existing.status === 'quarantined_consent' && !forceReanalyze) {
     logger.info('voice: recording quarantined on consent', { leadId, recordingId });
     return { ok: true, skipped: 'quarantined_consent' };
+  }
+
+  // ── Global kill switch (SPEND_KILLSWITCH.md) ──
+  // One write to feature_flags/global.voiceIntelDisabled halts new Groq/
+  // Anthropic spend without a deploy or secret rotation. We still write a
+  // 'failed' doc (not a silent no-op) so the customer-page UI, which
+  // listens via onSnapshot, doesn't spin forever waiting for a recording
+  // that will never complete.
+  if (await isVoiceIntelDisabled()) {
+    await recordingRef.set({
+      userId: uid, leadId, recordingId,
+      audioPath: path, contentType: contentType || null,
+      audioBytes: Number(size) || 0,
+      status: 'failed',
+      statusError: 'voice intelligence temporarily disabled (feature_flags/global.voiceIntelDisabled)',
+      recordedAt: existing?.recordedAt || FieldValue.serverTimestamp(),
+      updatedAt: FieldValue.serverTimestamp()
+    }, { merge: true });
+    return { ok: true, skipped: 'voice_disabled' };
   }
 
   // ── Resolve caller context ──

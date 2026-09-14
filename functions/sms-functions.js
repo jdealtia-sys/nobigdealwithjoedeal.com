@@ -1158,6 +1158,10 @@ exports.onPortalMessageDraft = onDocumentCreated(
     const text = String(msg.text || '').trim();
     if (!text) return;
     const { leadId, msgId } = event.params;
+    // No feature_flags/global check here — generateAIDraft() (below) gates
+    // itself on aiDraftDisabled, same switch that covers incomingSMS and
+    // convertUnmatchedSms (SPEND_KILLSWITCH.md). One flag, one place, so no
+    // caller can ship ungated.
     const db = getFirestore();
     try {
       const leadSnap = await db.doc('leads/' + leadId).get();

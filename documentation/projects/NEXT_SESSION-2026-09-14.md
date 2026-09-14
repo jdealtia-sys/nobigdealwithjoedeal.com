@@ -51,14 +51,41 @@ manifest runner prints the exact fix line, don't add +1 blindly).
    Jo run the one `gcloud secrets versions access` check himself and
    report back "set" or "stub" — do not guess.** If stub: gate the button
    behind the integration gate. If set: trace the real call path instead.
-2. **Installed-PWA `blob:` download interceptor** — found (customer-page
-   CSV/backup exports fail silently in the home-screen app), not fixed.
-   Materiality contested (standalone-only, backup-exports-only). One-line
-   fix if it's wanted; not scoped into any of the nine PRs above.
-3. **`onAudioUploaded` / `onPortalMessageDraft`** have no
-   `feature_flags/global` kill switch (documented in `SPEND_KILLSWITCH.md`
-   this session, not wired). Small scoped follow-up if an operator ever
-   needs to stop them without pulling the shared Anthropic/Groq key.
+2. ~~**Installed-PWA `blob:` download interceptor** — found (customer-page
+   CSV/backup exports fail silently in the home-screen app), not fixed.~~
+   **Stale — already fixed same day**, as a drive-by in PR
+   [#1552](https://github.com/jdealtia-sys/nobigdealwithjoedeal.com/pull/1552)
+   / commit `adc6a48` (merged to `main`), item 4 of that PR's own commit
+   message: `docs/pro/js/standalone-compat.js`'s `isStandalone` link
+   interceptor skip-list now excludes `blob:`, `data:`, and any anchor
+   carrying `download`, with the root-cause comment in place
+   (`new URL('blob:...', location.origin).origin === location.origin`
+   was routing export anchors into the same-origin `preventDefault()` +
+   `location.href` branch instead of letting them download). Covered by
+   `tests/photo-queue-customer-page-2026-09-14.test.js`'s section 4. The
+   `documentation/audit/GROK-CRM-AUDIT-EVALUATION-2026-09-13.md:287`
+   "not fixed this pass" line is correspondingly stale too — this
+   session's fix postdates that write-up. Also: the actual export UI is
+   `dashboard.html`'s "Export & Backup" panel (`data-export.js`), not a
+   literal button on `customer.html` — "customer-page" in the original
+   finding meant "customer-data export," not the homeowner portal page.
+3. ~~**`onAudioUploaded` / `onPortalMessageDraft`** have no
+   `feature_flags/global` kill switch~~ — **wired same day**, PR
+   [#1560](https://github.com/jdealtia-sys/nobigdealwithjoedeal.com/pull/1560)
+   (open, not yet merged as of this edit): `voiceIntelDisabled` and
+   `aiDraftDisabled`, mirroring `webLeadMeasureDisabled`.
+   `SPEND_KILLSWITCH.md` updated in place. New suite
+   `tests/voice-portal-draft-killswitch.test.js`, `FLOORS` re-measured
+   (121→122 node, 207→208 disk). **Same-PR correction:** the first cut
+   gated only `onPortalMessageDraft` at its own call site; re-reading
+   the shared `generateAIDraft()` (not just the one call site the audit
+   named) found `incomingSMS` calls the identical function with no gate
+   of its own — a real, broader miss (`incomingSMS` fires on every
+   inbound SMS, unattended, same risk class). Fixed by moving the check
+   inside `generateAIDraft` itself (`handlers/ai-texting.js`) so all
+   three callers — `incomingSMS`, `onPortalMessageDraft`, and the
+   admin-only `convertUnmatchedSms` — share one flag, renamed
+   `aiDraftDisabled` to match its real scope.
 4. **Seat stepper visible-but-broken** (`dashboard-team-tab.js`) — every
    card-billed owner sees the "Extra seats" control and it fails with a
    server toast if `STRIPE_PRICE_SEAT` isn't a real price. Documented
