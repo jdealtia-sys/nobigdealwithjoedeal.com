@@ -332,6 +332,12 @@ exports.analyzeRoofPhoto = onRequest(
       return;
     }
 
+    // Global AI kill-switch (Audit #4) — emergency halt without a deploy.
+    if (await require('../integrations/killswitch').isAiDisabled()) {
+      res.status(503).json({ error: 'AI temporarily disabled' });
+      return;
+    }
+
     // Per-uid daily cap
     try {
       await enforceRateLimit('analyzeRoofPhoto:uid', decoded.uid, PHOTO_AI_DAILY_CAP, 86_400_000);

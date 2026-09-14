@@ -131,7 +131,8 @@
     "nav-logo-size-2026-09-14.test.js",
     "security-docs-and-hosts-2026-09-14.test.js",
     "sentry-release-stamp-step.test.js",
-    "voice-portal-draft-killswitch.test.js"
+    "voice-portal-draft-killswitch.test.js",
+    "ai-disabled-coverage.test.js"
   ],
   "smoke": {
     "team-roles.test.js": [

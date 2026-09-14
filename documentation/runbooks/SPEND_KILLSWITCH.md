@@ -9,9 +9,22 @@ infra spend and need to **stop the bleeding now**.
 
 ## 🔴 ONE-BUTTON: halt all billable AI instantly (no deploy)
 
-Set a single Firestore flag — `claudeProxy`, `analyzePhotoVision`, and
-`visualizerImageGen` all check it (60s cached), so it takes effect within a
-minute and reverses just as fast:
+Set a single Firestore flag. Ten AI endpoints check it (60s cached), so it
+takes effect within a minute and reverses just as fast: `claudeProxy`,
+`analyzePhotoVision`, `visualizerImageGen`, `extractReceiptData` (all
+pre-existing), plus **six wired 2026-09-14** — this flag's own doc claimed
+"all billable AI" for over a month while these six spent Anthropic and/or
+Groq tokens with zero read of this flag, found by re-auditing every literal
+`anthropic.com`/`api.groq.com` caller in `functions/` rather than trusting
+this list (or a file-level "does the file mention isAiDisabled anywhere"
+check — that check alone would still have missed three of these six, which
+live in the same file as the already-gated `claudeProxy`):
+- **Rep-initiated:** `dictate`, `previewAiPersona`, `analyzeRoofPhoto`
+- **Admin-only:** `adminAI`
+- **Public, UNAUTHENTICATED** (the highest-risk gap — no App Check, no
+  login, gated only by a per-IP rate limit until this fix):
+  `publicVisualizerAI` (the marketing-site room visualizer),
+  `publicFunnelAI` (the `/estimate` instant-estimator + storm-check note)
 
 ```
 feature_flags/global   →   { aiDisabled: true }
@@ -19,9 +32,16 @@ feature_flags/global   →   { aiDisabled: true }
 
 In the Firebase console: Firestore → `feature_flags` → `global` → set
 `aiDisabled` = `true` (create the doc/field if absent). To restore, set it
-back to `false`. While set, AI endpoints return 503 / `unavailable`; SMS and
-email are unaffected (use their levers below). This is the fastest, least
-destructive AI stop — prefer it over pulling the Anthropic key.
+back to `false`. While set, the endpoints above return 503 / `unavailable`;
+SMS and email are unaffected (use their levers below). This is the fastest,
+least destructive AI stop — prefer it over pulling the Anthropic key.
+
+**Not covered by `aiDisabled`** — these are the *unattended/automated*
+surfaces below, deliberately on their OWN flags (`voiceIntelDisabled`,
+`aiDraftDisabled`) so an operator can stop automated spend without also
+darkening every rep-initiated AI feature, or vice versa. A real "stop
+everything" event needs `aiDisabled: true` **and** those two flags — see
+below.
 
 First: **identify the driver** (1 minute) — GCP Billing → Reports (group by
 service/SKU), Anthropic console, Twilio console. Then pull the matching lever.
