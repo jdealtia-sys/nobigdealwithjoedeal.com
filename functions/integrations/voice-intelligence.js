@@ -49,6 +49,10 @@ const VOICE_COMPANY_BUDGET_SEC = {
   lite:         3600,      // 1 hr/mo ≈ 120s/day
   foundation:   72000,     // 20 hr/mo ≈ 2400s/day
   starter:      72000,
+  // Team had no row, so it fell through to VOICE_COMPANY_BUDGET_DEFAULT
+  // (3600s -- the FREE tier's hour) instead of anything above Starter.
+  // Interpolated pending a real number.
+  team:        126000,     // 35 hr/mo ≈ 3500s/day
   growth:      180000,     // 50 hr/mo ≈ 6000s/day
   professional:600000      // 166 hr/mo ≈ 20000s/day
 };
