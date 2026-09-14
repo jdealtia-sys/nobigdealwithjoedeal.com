@@ -5,7 +5,7 @@ NBD PRO CRM - MULTI-TENANT ARCHITECTURE
 Last updated: 2026-07-05 (post-merge refresh: PRs #839/#840/#841 + the
 functions dependency majors).
 Added in this pass (2026-07-05) — new sections at the end of this doc:
-  - BILLING, PLANS & TRIALS: canonical plan keys (free/starter/growth/
+  - BILLING, PLANS & TRIALS: canonical plan keys (free/starter/team/growth/
     enterprise) with permanent read-boundary aliases for the legacy
     vocabulary; access-code lifecycle (atomic redemption, read-time trial
     expiry, single-writer trialEndsAt); the dashboard's requiredPlan:'free'
@@ -443,8 +443,9 @@ BILLING, PLANS & TRIALS (added 2026-07-05)
 
 Plan keys — canonical internally, aliased at read boundaries:
 
-  The internal plan vocabulary is CANONICAL everywhere as of PR #841:
-  free / starter / growth / enterprise. The legacy vocabulary
+  The internal plan vocabulary is CANONICAL everywhere as of PR #841
+  (Team added by #964, 2026-07-17):
+  free / starter / team / growth / enterprise. The legacy vocabulary
   (lite / foundation / blueprint / professional) survives ONLY as
   read-boundary aliases:
     - docs/pro/js/nbd-auth.js — PLAN_ALIASES + _normalizePlan(); PLAN_LEVELS
@@ -459,7 +460,7 @@ Plan keys — canonical internally, aliased at read boundaries:
   Resolution happens ONCE, at these read boundaries. New writes emit
   canonical keys only — including access-code grants in
   functions/handlers/portal.js (code docs may carry either vocabulary on
-  input; the grant writes starter/growth). The alias maps are PERMANENT by
+  input; the grant writes starter/team/growth). The alias maps are PERMANENT by
   design: production subscriptions/* docs and Stripe metadata carry the
   legacy values forever, so never "clean up" the alias resolution.
   'lite' is kept as a distinct internal state ("free because a code trial

@@ -2324,7 +2324,12 @@
 
       // Use _saveLead which also creates map pin and geocodes
       if (typeof window._saveLead === 'function') {
-        await window._saveLead(leadData);
+        const leadId = await window._saveLead(leadData);
+        // _saveLead returns a falsy value when it short-circuits (over the
+        // plan's lead cap, dedup declined) and has already shown its own
+        // toast -- bail here instead of stamping the knock converted and
+        // telling the rep it worked (mirrors tools.js's quick-add guard).
+        if (!leadId) return;
       } else {
         // Fallback: direct Firestore write. stageStartedAt anchors the
         // days-in-stage badge to actual lead-create time.

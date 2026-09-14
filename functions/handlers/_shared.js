@@ -43,6 +43,11 @@ const CLAUDE_COMPANY_BUDGET = {
   foundation:    50_000,
   starter:       50_000,
   blueprint:    120_000,
+  // Team ($149/mo, 2 reps) had no row here, so it fell through to
+  // CLAUDE_COMPANY_BUDGET_DEFAULT (10_000) -- the FREE-tier allowance --
+  // silently below Starter's own 50_000. Interpolated between Starter
+  // and Growth pending a real usage-based number; not a marketed figure.
+  team:         100_000,
   growth:       250_000,
   professional: 1_000_000
 };

@@ -93,6 +93,62 @@ console.log('\nTeam plan ($149, 2 seats) — wired server + client + stripe + pr
     !/Team seats need a paid plan/.test(read('functions/handlers/admin.js')));
 }
 
+// 2026-09-14: the checks above cover billing-gate.js, stripe.js, invites.js
+// and the pricing/register/login funnel, but NOT nbd-auth.js's PLAN_LEVELS —
+// the auth gate init() actually reads. _normalizePlan('team') fell through
+// to 'free' there (team was absent from both PLAN_LEVELS and its alias map),
+// walling a paying Team tenant off every requiredPlan:'starter'/'growth'
+// page (pro-analytics-gate.js, project-codex-auth.module.js, vault, ask-joe,
+// ai-tree, understand, ai-tool-finder) and showing them the free-tier
+// upgrade banner. Grok CRM audit evaluation, 2026-09-13.
+console.log('\nTeam plan — nbd-auth.js PLAN_LEVELS (the auth GATE, not just billing-gate.js)');
+{
+  const na = read('docs/pro/js/nbd-auth.js');
+  assert('PLAN_LEVELS includes team, ordered between starter and growth',
+    /PLAN_LEVELS = \{[^}]*starter:\s*2,\s*team:\s*3,\s*growth:\s*4,\s*enterprise:\s*5/.test(na),
+    "a plan:'team' subscription doc must not normalize to level 0 (free) in the requiredPlan gate");
+  assert('PLAN_NAMES includes Team',
+    /PLAN_NAMES = \{[\s\S]{0,200}team:\s*'Team'/.test(na));
+}
+
+console.log('\nTeam plan — server AI/voice/vision budget maps (all four had no team row)');
+{
+  const shared = read('functions/handlers/_shared.js');
+  assert('CLAUDE_COMPANY_BUDGET.team is set and above starter, below growth',
+    /team:\s*100_000/.test(shared),
+    'a Team company must not fall through to CLAUDE_COMPANY_BUDGET_DEFAULT (the free-tier allowance)');
+  const voice = read('functions/integrations/voice-intelligence.js');
+  assert('VOICE_COMPANY_BUDGET_SEC.team is set and above starter, below growth',
+    /team:\s*126000/.test(voice));
+  const pv = read('functions/photo-vision.js');
+  assert('photo-vision PER_USER_MONTHLY_USD_CAP_BY_PLAN.team is set and above starter, below growth',
+    /team:\s*50\.00/.test(pv));
+  const rv = read('functions/receipt-vision.js');
+  assert('receipt-vision PER_USER_MONTHLY_USD_CAP_BY_PLAN.team is set',
+    /team:\s*50\.00/.test(rv));
+}
+
+console.log('\nCap-blocked D2D convert — _saveLead\'s return must not be discarded');
+{
+  const d2d = read('docs/pro/js/d2d-tracker-core-2026b.js');
+  const fnStart = d2d.indexOf('async function convertToLead(knockId)');
+  const fnBody = fnStart >= 0 ? d2d.slice(fnStart, fnStart + 9000) : '';
+  assert('convertToLead captures _saveLead\'s return value',
+    /const leadId = await window\._saveLead\(leadData\)/.test(fnBody));
+  assert('convertToLead bails before marking the knock converted when _saveLead short-circuits',
+    /if \(!leadId\) return;/.test(fnBody) && fnBody.indexOf('if (!leadId) return;') < fnBody.indexOf('updateKnock(knockId'),
+    'a capped tenant must not see "Converted to CRM Lead" with no lead actually created');
+}
+
+console.log('\nAccess-code grant — must not silently overwrite a live, card-billed subscription');
+{
+  const portal = read('functions/handlers/portal.js');
+  assert('validateAccessCode checks the existing sub for a live Stripe subscription before writing',
+    /existingData\.stripeSubscriptionId && LIVE_SUB_STATUS\[String\(existingData\.status\)\]/.test(portal));
+  assert('…and refuses the grant (throws) rather than merging over it',
+    /access_code_blocked_live_sub/.test(portal) && /throw new HttpsError\('failed-precondition'/.test(portal.slice(portal.indexOf('access_code_blocked_live_sub'), portal.indexOf('access_code_blocked_live_sub') + 400)));
+}
+
 // ── Part B: source-contract guards ────────────────────────────────────
 console.log('\nInvite lifecycle — past_due entitlement + invitee email link');
 {
