@@ -3,12 +3,20 @@
  *
  * A single Firestore doc `feature_flags/global` holds emergency switches that
  * take effect WITHOUT a deploy or secret rotation — one write to flip them.
- * The hot path (claudeProxy, analyzePhotoVision, visualizerImageGen) reads
- * this via a 60-second in-memory cache, so the cost is ~1 Firestore read per
- * minute per warm instance, not one per request.
+ * The hot path (claudeProxy, publicVisualizerAI, publicFunnelAI, adminAI,
+ * analyzePhotoVision, visualizerImageGen, extractReceiptData, dictate,
+ * previewAiPersona, analyzeRoofPhoto) reads this via a 60-second in-memory
+ * cache, so the cost is ~1 Firestore read per minute per warm instance, not
+ * one per request.
  *
  * Flags:
- *   aiDisabled: true         → all billable AI endpoints fail closed (503 / unavailable)
+ *   aiDisabled: true         → all ten AI endpoints above fail closed
+ *                              (503 / unavailable) — rep-initiated, admin,
+ *                              AND the two unauthenticated public ones
+ *                              (publicVisualizerAI, publicFunnelAI). Does
+ *                              NOT cover the automated/unattended surfaces
+ *                              below — those are deliberately on their own
+ *                              flags.
  *   webLeadMeasureDisabled: true → stop measuring public estimate leads
  *                              (integrations/public-measure.js; $3 a lead)
  *   voiceIntelDisabled: true → stop the voice-memo transcribe+analyze
