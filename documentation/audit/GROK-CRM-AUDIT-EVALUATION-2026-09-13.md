@@ -285,7 +285,10 @@ file rather than trusting the raw ranking.
   (decision 5).
 - ~~Wiring `onAudioUploaded` / `onPortalMessageDraft` into
   `feature_flags/global`~~ — **done**, PR #1560 (`voiceIntelDisabled` /
-  `portalDraftDisabled`, mirroring `webLeadMeasureDisabled`).
+  `aiDraftDisabled`, mirroring `webLeadMeasureDisabled`). Broadened
+  mid-PR: `aiDraftDisabled` gates `generateAIDraft()` itself, so it also
+  covers `incomingSMS` — an unattended surface the original audit didn't
+  name — and `convertUnmatchedSms`, not just `onPortalMessageDraft`.
 - ~~The installed-PWA `blob:` download-interceptor fix~~ — **done**, PR
   #1552 / commit `adc6a48` (see correction above).
 

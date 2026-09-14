@@ -14,9 +14,17 @@
  *   voiceIntelDisabled: true → stop the voice-memo transcribe+analyze
  *                              pipeline (integrations/voice-intelligence.js
  *                              onAudioUploaded; Groq + Anthropic spend)
- *   portalDraftDisabled: true → stop drafting AI replies to inbound
- *                              homeowner portal messages (sms-functions.js
- *                              onPortalMessageDraft; Anthropic spend)
+ *   aiDraftDisabled: true    → stop generateAIDraft() (handlers/ai-texting.js),
+ *                              the one Anthropic call behind every
+ *                              AI-suggested reply: inbound SMS
+ *                              (sms-functions.js incomingSMS), inbound
+ *                              homeowner portal messages
+ *                              (sms-functions.js onPortalMessageDraft), and
+ *                              admin unmatched-SMS convert
+ *                              (handlers/inbound-sms-convert.js
+ *                              convertUnmatchedSms). Gated inside
+ *                              generateAIDraft itself so all three (and any
+ *                              future caller) share one switch.
  *
  * To pull the switch in an emergency (see SPEND_KILLSWITCH.md runbook):
  *   firebase firestore:... or in console: set feature_flags/global.aiDisabled = true
@@ -69,12 +77,13 @@ async function isVoiceIntelDisabled() {
   return f.voiceIntelDisabled === true;
 }
 
-// Portal-message AI draft (onPortalMessageDraft). Own flag, same reasoning:
-// this is a single Anthropic call per inbound homeowner portal message, and
-// an operator stopping it shouldn't also stop claudeProxy or voice intel.
-async function isPortalDraftDisabled() {
+// generateAIDraft() (handlers/ai-texting.js) — the AI-suggested-reply draft
+// shared by incomingSMS, onPortalMessageDraft, and convertUnmatchedSms. Own
+// flag, same reasoning as the others: an operator stopping drafted replies
+// shouldn't also stop claudeProxy or voice intel.
+async function isAiDraftDisabled() {
   const f = await getFlags();
-  return f.portalDraftDisabled === true;
+  return f.aiDraftDisabled === true;
 }
 
 // Test hook — clears the cache so unit tests can assert fresh reads.
@@ -85,6 +94,6 @@ module.exports = {
   isAiDisabled,
   isWebLeadMeasureDisabled,
   isVoiceIntelDisabled,
-  isPortalDraftDisabled,
+  isAiDraftDisabled,
   _resetCache
 };

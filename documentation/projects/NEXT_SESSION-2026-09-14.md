@@ -73,10 +73,19 @@ manifest runner prints the exact fix line, don't add +1 blindly).
    `feature_flags/global` kill switch~~ — **wired same day**, PR
    [#1560](https://github.com/jdealtia-sys/nobigdealwithjoedeal.com/pull/1560)
    (open, not yet merged as of this edit): `voiceIntelDisabled` and
-   `portalDraftDisabled`, mirroring `webLeadMeasureDisabled`.
+   `aiDraftDisabled`, mirroring `webLeadMeasureDisabled`.
    `SPEND_KILLSWITCH.md` updated in place. New suite
    `tests/voice-portal-draft-killswitch.test.js`, `FLOORS` re-measured
-   (121→122 node, 207→208 disk).
+   (121→122 node, 207→208 disk). **Same-PR correction:** the first cut
+   gated only `onPortalMessageDraft` at its own call site; re-reading
+   the shared `generateAIDraft()` (not just the one call site the audit
+   named) found `incomingSMS` calls the identical function with no gate
+   of its own — a real, broader miss (`incomingSMS` fires on every
+   inbound SMS, unattended, same risk class). Fixed by moving the check
+   inside `generateAIDraft` itself (`handlers/ai-texting.js`) so all
+   three callers — `incomingSMS`, `onPortalMessageDraft`, and the
+   admin-only `convertUnmatchedSms` — share one flag, renamed
+   `aiDraftDisabled` to match its real scope.
 4. **Seat stepper visible-but-broken** (`dashboard-team-tab.js`) — every
    card-billed owner sees the "Extra seats" control and it fails with a
    server toast if `STRIPE_PRICE_SEAT` isn't a real price. Documented

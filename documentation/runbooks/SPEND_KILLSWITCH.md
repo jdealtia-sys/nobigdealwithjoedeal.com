@@ -65,9 +65,9 @@ Same doc, same 60-second cache, same instant no-deploy effect
 `aiDisabled` — an operator may want to stop metered-vendor spend without
 darkening every AI surface, or vice versa.
 
-## Voice memos and portal AI drafts
+## Voice memos and AI-drafted replies
 
-**Wired 2026-09-14** — these two triggers were flagged in the Grok Pro/CRM
+**Wired 2026-09-14** — these surfaces were flagged in the Grok Pro/CRM
 audit evaluation's freeze-list pass as unattended metered spend with no
 operator-flippable switch (only the "Instant, blunt" shared-key lever
 below, and only by coincidence — neither read `feature_flags/global` at
@@ -84,14 +84,25 @@ all). Each now has its own dedicated flag, same pattern as
   `status:'failed'` with a clear `statusError` (not silently dropped) —
   the customer-page UI listens for the doc via `onSnapshot`, so it must
   resolve one way or the other rather than spin forever.
-- **`onPortalMessageDraft`** (`functions/sms-functions.js`) — a Firestore
-  trigger firing on every inbound homeowner portal message; spends one
-  Anthropic call drafting a reply for the rep to review/send.
+- **`generateAIDraft()`** (`functions/handlers/ai-texting.js`) — the one
+  Anthropic call behind every AI-suggested reply, shared by all three of
+  its callers: **`incomingSMS`** (fires on every inbound SMS, no human in
+  the loop), **`onPortalMessageDraft`** (fires on every inbound homeowner
+  portal message), and the admin-only **`convertUnmatchedSms`** callable.
   ```
-  feature_flags/global   →   { portalDraftDisabled: true }
+  feature_flags/global   →   { aiDraftDisabled: true }
   ```
-  The homeowner's message itself is unaffected — only the AI-drafted
-  reply is skipped; the rep can still answer by hand.
+  The flag is checked once, inside `generateAIDraft` itself, so all
+  three callers (and any future one) share it automatically — no call
+  site can ship ungated. The underlying inbound SMS/message itself is
+  unaffected either way; only the AI-drafted reply is skipped, and the
+  rep can still answer by hand.
+  **Note:** the first cut of this fix (same day) gated only
+  `onPortalMessageDraft` at its own call site and missed that
+  `incomingSMS` calls the identical `generateAIDraft()` with no flag
+  check of its own — caught by re-reading the shared function rather
+  than trusting the one call site the original audit named. Moved the
+  gate inside the shared function so that class of gap can't recur.
 
 Same doc, same 60-second cache, same instant no-deploy effect
 (`functions/integrations/killswitch.js`). Both are deliberately separate

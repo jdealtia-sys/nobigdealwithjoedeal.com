@@ -66,6 +66,7 @@ function cleanInbound(s, max) {
 
 const ANTHROPIC_API_KEY = defineSecret('ANTHROPIC_API_KEY');
 const { secretValue } = require('../integrations/_shared');
+const { isAiDraftDisabled } = require('../integrations/killswitch');
 
 // ─── Persona system prompt ─────────────────────────────────────
 // Locked in this module so every draft uses the same identity +
@@ -330,6 +331,18 @@ async function generateAIDraft({ db, leadId, lead, incomingBody, incomingNoteId,
   apiKey = secretValue(ANTHROPIC_API_KEY); // '__unset__' stub → null
   if (!apiKey) {
     logger.info('[ai-texting] ANTHROPIC_API_KEY unset — skipping draft generation');
+    return null;
+  }
+
+  // Global kill switch (SPEND_KILLSWITCH.md). One write to
+  // feature_flags/global.aiDraftDisabled stops this Anthropic call across
+  // ALL three callers (incomingSMS, onPortalMessageDraft,
+  // convertUnmatchedSms) without a deploy. Checked here rather than at each
+  // call site so no future caller can accidentally ship ungated. The
+  // underlying inbound message/lead is unaffected either way — only the
+  // drafted reply is skipped.
+  if (await isAiDraftDisabled()) {
+    logger.warn('[ai-texting] draft generation skipped — aiDraftDisabled flag is set', { leadId, triggerType });
     return null;
   }
 
