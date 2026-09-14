@@ -1047,13 +1047,18 @@ exports.uploadHomeownerPhoto = onRequest(
       // '03-09-2491' (~466 years) made every uploaded photo
       // effectively permanent — even after the photo doc was deleted
       // from Firestore, the Storage URL stayed accessible. Now 7 days,
-      // which is the per-request max; the rep's dashboard re-signs on
-      // demand via the existing `signImageUrl` function (M2 hardened
-      // path). For now we still bake a signed URL into the photo doc
-      // so the existing rep gallery query keeps working without code
-      // changes — but with a 7-day TTL the photos auto-expire from
-      // public access, and a future wave will move all rep gallery
-      // reads through `signImageUrl` on demand.
+      // which is the per-request max. This comment used to claim "the
+      // rep's dashboard re-signs on demand via the existing
+      // signImageUrl function" — that was aspirational, not true:
+      // signImageUrl's path allowlist (functions/handlers/photo.js)
+      // never included homeowner-uploads/ until 2026-09-14, so every
+      // such re-sign 400'd and the rep gallery lost the photo outright
+      // once the 7-day URL expired. Fixed the same date: the allowlist
+      // (and a matching storage.rules read block, which also did not
+      // exist before then) now cover this prefix, so the re-sign this
+      // comment always claimed actually works. We still bake a signed
+      // URL into the photo doc so the existing rep gallery query keeps
+      // working without further code changes.
       const expiresAt = Date.now() + 7 * 24 * 60 * 60 * 1000; // 7 days
       const [url] = await file.getSignedUrl({
         action: 'read',

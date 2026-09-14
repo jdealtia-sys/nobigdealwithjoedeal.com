@@ -248,6 +248,19 @@ service firebase.storage {
       allow write: if false;
     }
 
+    // Homeowner portal uploads (functions/portal.js onPortalMessageDraft /
+    // the photo-upload handler) — admin-SDK write only, from a burned
+    // single-use portal token, never a client. Had NO rules block at all
+    // until 2026-09-14 (fell through to the default-deny catch-all below,
+    // which already blocked a stranger — but also meant a rep's own client
+    // could never read it directly either, only via the 7-day baked-in
+    // signed URL portal.js writes into the photo doc). Same posture as
+    // pdf-renders above: owner/admin read, no client write.
+    match /homeowner-uploads/{uid}/{allPaths=**} {
+      allow read: if isOwner(uid) || isAdmin();
+      allow write: if false;
+    }
+
     // ── DEFAULT DENY ──────────────────────────────────
     match /{allPaths=**} {
       allow read, write: if false;
