@@ -1208,7 +1208,7 @@ function initAllAutocomplete() {
       propCardInner.innerHTML = `
         <div class="pi-card">
           <div class="pi-header"><span class="pi-title">🏠 Property Intel</span><span class="pi-county"></span></div>
-          <div class="pi-loading"><div class="pi-spinner"></div>Looking up county records...</div>
+          <div class="pi-loading"><div class="pi-spinner"></div>Estimating property profile...</div>
         </div>
         <button class="make-lead-btn" data-du-action="makeLeadFromSearch">＋ Make This a Lead</button>`;
       fetchPropertyIntel(r, 'propCardInner');
@@ -2456,7 +2456,7 @@ const spyglassSearch = async function() {
     propCardInner.innerHTML = `
       <div class="pi-card">
         <div class="pi-header"><span class="pi-title">🏠 Property Intel</span><span class="pi-county"></span></div>
-        <div class="pi-loading"><div class="pi-spinner"></div>Looking up county records...</div>
+        <div class="pi-loading"><div class="pi-spinner"></div>Estimating property profile...</div>
       </div>
       <button class="make-lead-btn" data-du-action="makeLeadFromSearch">＋ Make This a Lead</button>`;
     fetchPropertyIntel(data, 'propCardInner');
@@ -2548,7 +2548,7 @@ const quickStormCheck = async function() {
         propCardInner.innerHTML = `
           <div class="pi-card">
             <div class="pi-header"><span class="pi-title">🏠 Property Intel</span></div>
-            <div class="pi-loading"><div class="pi-spinner"></div>Looking up county records...</div>
+            <div class="pi-loading"><div class="pi-spinner"></div>Estimating property profile...</div>
           </div>
           <button class="make-lead-btn" data-du-action="makeLeadFromSearch">＋ Make This a Lead</button>`;
         fetchPropertyIntel(r, 'propCardInner');

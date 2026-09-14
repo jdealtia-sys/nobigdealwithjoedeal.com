@@ -123,7 +123,8 @@
     "calcom-webhook-payload.test.js",
     "lead-alert-calcom.test.js",
     "favicon-contract.test.js",
-    "lead-form-phone-contract.test.js"
+    "lead-form-phone-contract.test.js",
+    "pro-claims-honesty-2026-09-13.test.js"
   ],
   "smoke": {
     "team-roles.test.js": [
