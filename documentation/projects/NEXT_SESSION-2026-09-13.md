@@ -62,6 +62,9 @@ editing, because `main` moves. Jo approved the plan and made four decisions
 2. **Lane B PR A** (Cal.com resolver + fixture test + attribution +
    runbook), then Jo's Cal.com session.
 3. **Lane D** — Jo sets the Places secrets; rebase PR #1518.
+   **Done 2026-09-13, same day (#1545) — both Places secrets are live,
+   `/api/google-reviews` returns 29 reviews at 5.0. Superseded by this
+   line's own execution order; kept for history.**
 4. **Lane C PR1** copy fixes (tiny, same day).
 5. **Lane C PR3** isolation (free-guide chrome, X-Robots header, footer door).
 6. **Lane C PR2** structural cut + reviews rebuild + visual re-bless.

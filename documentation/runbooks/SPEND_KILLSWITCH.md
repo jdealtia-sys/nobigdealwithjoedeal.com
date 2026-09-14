@@ -48,6 +48,49 @@ hard-stop *individual* abusers. Use these only for a *platform-wide* event
 3. **Tighten a single abuser:** lower that company's cap in
    `CLAUDE_COMPANY_BUDGET` (`functions/handlers/_shared.js`) and redeploy.
 
+## Roof measurement (public /estimate funnel — vendor-metered, ~$3/lead)
+
+**Added 2026-09-14 — this lever existed in code but was undocumented here.**
+
+`measureNewWebLead` (`functions/integrations/public-measure.js`) fires once
+per bridged public-estimate lead and spends a metered aerial-measurement
+vendor call. Unlike the AI switches above, it has its **own** flag:
+
+```
+feature_flags/global   →   { webLeadMeasureDisabled: true }
+```
+
+Same doc, same 60-second cache, same instant no-deploy effect
+(`functions/integrations/killswitch.js`). It is deliberately separate from
+`aiDisabled` — an operator may want to stop metered-vendor spend without
+darkening every AI surface, or vice versa.
+
+## Two unattended metered triggers with NO kill switch (found, not built)
+
+**Added 2026-09-14, from the Grok Pro/CRM audit evaluation's freeze-list
+pass — recorded here rather than built, per that plan's "containment, not
+building" decision:**
+
+- **`onAudioUploaded`** (`functions/integrations/voice-intelligence.js`) —
+  a Storage trigger firing on every voice-memo upload; spends Groq +
+  (sometimes) Anthropic tokens transcribing and summarizing. No
+  `feature_flags/global` read anywhere in the file — the only stop is
+  destroying `GROQ_API_KEY` / the voice `ANTHROPIC_API_KEY`, which is
+  the "Instant, blunt" AI lever above, just not documented as covering
+  this trigger too.
+- **`onPortalMessageDraft`** (`functions/sms-functions.js`) — a Firestore
+  trigger firing on every inbound homeowner portal message; spends an
+  Anthropic call drafting a reply. Same gap: no `feature_flags/global`
+  read, self-gates only on its own secret being configured (a
+  deploy-time "on/off", not an operator-flippable emergency switch).
+
+Both are metered Anthropic/Groq spend with no dedicated flag. If either
+becomes the driver identified in the "identify the driver" step at the top
+of this doc, the only lever today is pulling the shared AI key(s) above —
+which also stops `claudeProxy` and photo-vision. Wiring each its own
+`feature_flags/global` key (mirroring `webLeadMeasureDisabled`) is a small,
+scoped follow-up, not done as part of this pass.
+
 ## SMS (Twilio / checkStormAlerts, verification, D2D)
 
 1. **Per-run cap already exists:** `STORM_MAX_SMS_PER_RUN` (default 250).
