@@ -65,6 +65,7 @@ const TWILIO_PHONE_NUMBER = defineSecret('TWILIO_PHONE_NUMBER');
 // name, but using the re-export keeps the source-of-truth in
 // handlers/ai-texting.js).
 const { generateAIDraft, ANTHROPIC_API_KEY: AI_ANTHROPIC_KEY } = require('./handlers/ai-texting');
+const { isPortalDraftDisabled } = require('./integrations/killswitch');
 const { isPortalDraft, clampPortalText } = require('./ai-draft-routing');
 const { applyRepReplyEffects } = require('./portal-reply-effects');
 
@@ -1158,6 +1159,14 @@ exports.onPortalMessageDraft = onDocumentCreated(
     const text = String(msg.text || '').trim();
     if (!text) return;
     const { leadId, msgId } = event.params;
+    // Global kill switch (SPEND_KILLSWITCH.md). One write to
+    // feature_flags/global.portalDraftDisabled stops this Anthropic call
+    // without a deploy — the homeowner's message itself is unaffected,
+    // only the AI-drafted reply the rep would have reviewed.
+    if (await isPortalDraftDisabled()) {
+      logger.warn('[onPortalMessageDraft] skipped — portalDraftDisabled flag is set', { leadId });
+      return;
+    }
     const db = getFirestore();
     try {
       const leadSnap = await db.doc('leads/' + leadId).get();

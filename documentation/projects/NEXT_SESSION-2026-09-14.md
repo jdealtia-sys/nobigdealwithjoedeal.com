@@ -55,10 +55,14 @@ manifest runner prints the exact fix line, don't add +1 blindly).
    CSV/backup exports fail silently in the home-screen app), not fixed.
    Materiality contested (standalone-only, backup-exports-only). One-line
    fix if it's wanted; not scoped into any of the nine PRs above.
-3. **`onAudioUploaded` / `onPortalMessageDraft`** have no
-   `feature_flags/global` kill switch (documented in `SPEND_KILLSWITCH.md`
-   this session, not wired). Small scoped follow-up if an operator ever
-   needs to stop them without pulling the shared Anthropic/Groq key.
+3. ~~**`onAudioUploaded` / `onPortalMessageDraft`** have no
+   `feature_flags/global` kill switch~~ — **wired same day**, PR
+   [#1560](https://github.com/jdealtia-sys/nobigdealwithjoedeal.com/pull/1560)
+   (open, not yet merged as of this edit): `voiceIntelDisabled` and
+   `portalDraftDisabled`, mirroring `webLeadMeasureDisabled`.
+   `SPEND_KILLSWITCH.md` updated in place. New suite
+   `tests/voice-portal-draft-killswitch.test.js`, `FLOORS` re-measured
+   (121→122 node, 207→208 disk).
 4. **Seat stepper visible-but-broken** (`dashboard-team-tab.js`) — every
    card-billed owner sees the "Extra seats" control and it fails with a
    server toast if `STRIPE_PRICE_SEAT` isn't a real price. Documented

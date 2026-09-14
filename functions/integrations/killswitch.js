@@ -11,6 +11,12 @@
  *   aiDisabled: true         → all billable AI endpoints fail closed (503 / unavailable)
  *   webLeadMeasureDisabled: true → stop measuring public estimate leads
  *                              (integrations/public-measure.js; $3 a lead)
+ *   voiceIntelDisabled: true → stop the voice-memo transcribe+analyze
+ *                              pipeline (integrations/voice-intelligence.js
+ *                              onAudioUploaded; Groq + Anthropic spend)
+ *   portalDraftDisabled: true → stop drafting AI replies to inbound
+ *                              homeowner portal messages (sms-functions.js
+ *                              onPortalMessageDraft; Anthropic spend)
  *
  * To pull the switch in an emergency (see SPEND_KILLSWITCH.md runbook):
  *   firebase firestore:... or in console: set feature_flags/global.aiDisabled = true
@@ -54,7 +60,31 @@ async function isWebLeadMeasureDisabled() {
   return f.webLeadMeasureDisabled === true;
 }
 
+// Voice-memo pipeline (onAudioUploaded). Own flag for the same reason as
+// webLeadMeasureDisabled above — an operator may want to stop voice
+// transcription/analysis spend specifically without darkening claudeProxy,
+// photo-vision, etc.
+async function isVoiceIntelDisabled() {
+  const f = await getFlags();
+  return f.voiceIntelDisabled === true;
+}
+
+// Portal-message AI draft (onPortalMessageDraft). Own flag, same reasoning:
+// this is a single Anthropic call per inbound homeowner portal message, and
+// an operator stopping it shouldn't also stop claudeProxy or voice intel.
+async function isPortalDraftDisabled() {
+  const f = await getFlags();
+  return f.portalDraftDisabled === true;
+}
+
 // Test hook — clears the cache so unit tests can assert fresh reads.
 function _resetCache() { _cache = { at: 0, flags: {} }; }
 
-module.exports = { getFlags, isAiDisabled, isWebLeadMeasureDisabled, _resetCache };
+module.exports = {
+  getFlags,
+  isAiDisabled,
+  isWebLeadMeasureDisabled,
+  isVoiceIntelDisabled,
+  isPortalDraftDisabled,
+  _resetCache
+};

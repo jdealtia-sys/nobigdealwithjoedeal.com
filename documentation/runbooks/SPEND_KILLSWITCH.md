@@ -65,31 +65,39 @@ Same doc, same 60-second cache, same instant no-deploy effect
 `aiDisabled` — an operator may want to stop metered-vendor spend without
 darkening every AI surface, or vice versa.
 
-## Two unattended metered triggers with NO kill switch (found, not built)
+## Voice memos and portal AI drafts
 
-**Added 2026-09-14, from the Grok Pro/CRM audit evaluation's freeze-list
-pass — recorded here rather than built, per that plan's "containment, not
-building" decision:**
+**Wired 2026-09-14** — these two triggers were flagged in the Grok Pro/CRM
+audit evaluation's freeze-list pass as unattended metered spend with no
+operator-flippable switch (only the "Instant, blunt" shared-key lever
+below, and only by coincidence — neither read `feature_flags/global` at
+all). Each now has its own dedicated flag, same pattern as
+`webLeadMeasureDisabled`:
 
 - **`onAudioUploaded`** (`functions/integrations/voice-intelligence.js`) —
   a Storage trigger firing on every voice-memo upload; spends Groq +
-  (sometimes) Anthropic tokens transcribing and summarizing. No
-  `feature_flags/global` read anywhere in the file — the only stop is
-  destroying `GROQ_API_KEY` / the voice `ANTHROPIC_API_KEY`, which is
-  the "Instant, blunt" AI lever above, just not documented as covering
-  this trigger too.
+  (sometimes) Anthropic tokens transcribing and summarizing.
+  ```
+  feature_flags/global   →   { voiceIntelDisabled: true }
+  ```
+  A recording that lands while the flag is set is written as
+  `status:'failed'` with a clear `statusError` (not silently dropped) —
+  the customer-page UI listens for the doc via `onSnapshot`, so it must
+  resolve one way or the other rather than spin forever.
 - **`onPortalMessageDraft`** (`functions/sms-functions.js`) — a Firestore
-  trigger firing on every inbound homeowner portal message; spends an
-  Anthropic call drafting a reply. Same gap: no `feature_flags/global`
-  read, self-gates only on its own secret being configured (a
-  deploy-time "on/off", not an operator-flippable emergency switch).
+  trigger firing on every inbound homeowner portal message; spends one
+  Anthropic call drafting a reply for the rep to review/send.
+  ```
+  feature_flags/global   →   { portalDraftDisabled: true }
+  ```
+  The homeowner's message itself is unaffected — only the AI-drafted
+  reply is skipped; the rep can still answer by hand.
 
-Both are metered Anthropic/Groq spend with no dedicated flag. If either
-becomes the driver identified in the "identify the driver" step at the top
-of this doc, the only lever today is pulling the shared AI key(s) above —
-which also stops `claudeProxy` and photo-vision. Wiring each its own
-`feature_flags/global` key (mirroring `webLeadMeasureDisabled`) is a small,
-scoped follow-up, not done as part of this pass.
+Same doc, same 60-second cache, same instant no-deploy effect
+(`functions/integrations/killswitch.js`). Both are deliberately separate
+flags from `aiDisabled` and from each other — an operator can stop either
+metered surface without darkening `claudeProxy`, photo-vision, or the
+other one.
 
 ## SMS (Twilio / checkStormAlerts, verification, D2D)
 
