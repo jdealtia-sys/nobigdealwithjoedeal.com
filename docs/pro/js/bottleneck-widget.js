@@ -106,7 +106,18 @@
     leads.forEach(l => {
       if (!l || l.deleted || l.isProspect) return;
       const sk = stageKey(l);
-      if (!sk || SKIP_STAGES.has(sk)) return;
+      if (!sk) return;
+      // Hardcoded fast-path (covers 'new' too — excluded because it's the
+      // funnel top, not because it's terminal) + role-aware fallback
+      // (2026-09-15, same pattern as functions/portal.js's progressKeyFor):
+      // without the fallback, a lead on a tenant's custom stage tagged role
+      // won/lost via Settings > Pipelines isn't recognized as terminal here,
+      // so "Where am I stuck?" would wrongly flag it as a bottleneck.
+      if (SKIP_STAGES.has(sk)) return;
+      if (typeof window.stageRole === 'function') {
+        const role = window.stageRole(sk);
+        if (role === 'won' || role === 'lost') return;
+      }
       const days = daysInStageFor(l);
       if (days == null) return;
       if (!buckets.has(sk)) buckets.set(sk, []);

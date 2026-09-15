@@ -198,7 +198,7 @@ const RUNNABLE = ['node', 'smoke'];
 //               no product change, just re-measures the tripwire on main's
 //               current tree, same class of drift as the entry above).
 
-const FLOORS = { node: 125, smoke: 67, disk: 211 };
+const FLOORS = { node: 126, smoke: 67, disk: 212 };
 
 // ── Argument parsing ───────────────────────────────────────────────
 const argv = process.argv.slice(2);
