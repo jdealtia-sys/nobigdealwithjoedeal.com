@@ -95,7 +95,8 @@ async function run() {
     await setDoc(doc(db, 'leads/leadA/documents/docA'), { userId: 'alice', name: 'Signed Contract.pdf' });
     await setDoc(doc(db, 'leads/leadA/ai_drafts/draftA'),{ userId: 'alice', companyId: 'co-a', status: 'pending', draftText: 'Joe handles pricing personally — want a free inspection?', customerPhone: '+15555550100' });
     await setDoc(doc(db, 'leads/leadA/signatures/Homeowner'),{ userId: 'alice', role: 'Homeowner', png: 'data:image/png;base64,iVBORw0KGgo=' });
-    await setDoc(doc(db, 'measurements/measA'),        { ownerId: 'alice', leadId: 'leadA', status: 'ready' });
+    await setDoc(doc(db, 'measurements/measA'),        { ownerId: 'alice', companyId: 'co-a', leadId: 'leadA', status: 'ready' });
+    await setDoc(doc(db, 'measurements/measLegacy'),   { ownerId: 'alice', leadId: 'leadA', status: 'ready' }); // legacy doc, no companyId — must stay owner-only
   });
 
   // ═══════════════════════════════════════════════════════════
@@ -133,6 +134,15 @@ async function run() {
   await check('recordings: B reads A call transcript','deny',  getDoc(doc(bob, 'leads/leadA/recordings/recA')));
   await check('lead documents: B reads A contract',   'deny',  getDoc(doc(bob, 'leads/leadA/documents/docA')));
   await check('measurements: B reads A measurement',  'deny',  getDoc(doc(bob, 'measurements/measA')));
+  // 90-day same-roof reuse (findReusableMeasurement/requestMeasurement) needs
+  // a teammate to be able to read a colleague's measurement doc; companyId is
+  // fully server-stamped from the caller's custom claim (never client-writable)
+  // and write stays `if false`, so relaxing READ to same-company is safe.
+  await check('measurements: same-tenant peer dave reads A measurement (fix)', 'allow', getDoc(doc(dave, 'measurements/measA')));
+  // Legacy doc safety property (mirrors /pins): a measurement with no
+  // companyId field falls back to owner-only — no cross-tenant leak, no
+  // regression for docs written before this field existed.
+  await check('measurements: legacy (no companyId) peer dave still denied',    'deny',  getDoc(doc(dave, 'measurements/measLegacy')));
   // T-2 AI texting drafts — owner-scoped (isOwner(resource.data.userId)).
   await check('ai_drafts: B reads A draft',            'deny',  getDoc(doc(bob,    'leads/leadA/ai_drafts/draftA')));
   await check('ai_drafts: B approves A draft',         'deny',  updateDoc(doc(bob, 'leads/leadA/ai_drafts/draftA'), { status: 'approved' }));
