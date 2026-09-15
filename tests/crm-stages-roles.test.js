@@ -36,17 +36,40 @@ const { S, STAGE_META, stageRole, isWonStage, isLostStage, ROLE, normalizeStage,
 // analytics-kpi / money-dashboard / dashboard-api / leaderboard before Phase 0).
 const LEGACY_WON = ['closed', 'install_complete', 'final_photos', 'final_payment', 'deductible_collected', 'Complete'];
 
+// Stages added AFTER the Phase-0 migration this file guards — they have no
+// legacy counterpart to reproduce, so assertion 1 below (which proves every
+// PRE-EXISTING stage's role matches the old hardcoded list byte-for-byte)
+// doesn't apply to them. Each entry is dated + reasoned at the point it was
+// added; this list should almost never grow, and never silently.
+const POST_MIGRATION_STAGES = [
+  // 2026-09-15 (Collections foundation): a real new stage, not a migration
+  // artifact — role WON is a deliberate product decision (Jo's call: the
+  // job is sold and done; this doesn't change won-revenue accounting), not
+  // an attempt to reproduce a legacy list that predates this stage existing.
+  'collections',
+];
+
 ok('module exports present', !!(stageRole && isWonStage && isLostStage && STAGE_META && ROLE));
 
-// 1. For every real stage key, isWonStage matches raw legacy-list membership.
-Object.keys(STAGE_META).forEach(k => {
+// 1. For every PRE-EXISTING stage key, isWonStage matches raw legacy-list
+//    membership exactly (post-migration stages are out of scope — see above).
+Object.keys(STAGE_META).filter(k => !POST_MIGRATION_STAGES.includes(k)).forEach(k => {
   ok('isWonStage(' + k + ') == legacy', isWonStage(k) === LEGACY_WON.includes(k));
 });
 
-// 2. The won set is EXACTLY the five completion stages (no more, no less).
+// 2. The won set is exactly the five legacy completion stages PLUS every
+//    stage POST_MIGRATION_STAGES deliberately marks won below (no more, no
+//    less — an UNLISTED extra won stage is exactly the silent-drift this
+//    file exists to catch; a listed one is a decision, not a drift). This
+//    is intentionally NOT derived from the live wonKeys result — that would
+//    make the assertion trivially pass even if 'collections' regressed to
+//    a different role.
+const POST_MIGRATION_WON_STAGES = ['collections']; // must be a subset of POST_MIGRATION_STAGES above
 const wonKeys = Object.keys(STAGE_META).filter(k => stageRole(k) === ROLE.WON).sort();
-const expectWon = ['closed', 'deductible_collected', 'final_payment', 'final_photos', 'install_complete'].sort();
-ok('won set is exactly the 5 completion stages (' + wonKeys.join(',') + ')',
+const expectWon = ['closed', 'deductible_collected', 'final_payment', 'final_photos', 'install_complete']
+  .concat(POST_MIGRATION_WON_STAGES)
+  .sort();
+ok('won set is exactly the 5 legacy completion stages + deliberate additions (' + wonKeys.join(',') + ')',
   JSON.stringify(wonKeys) === JSON.stringify(expectWon));
 
 // 3. Legacy display names normalize + classify correctly (the raw values that

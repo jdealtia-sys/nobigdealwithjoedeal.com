@@ -51,6 +51,14 @@ export const S = {
   FINAL_PHOTOS:       'final_photos',
   DEDUCTIBLE_COLLECTED:'deductible_collected',
   FINAL_PAYMENT:      'final_payment',
+  // 2026-09-15 (Collections foundation): a job that's done but the final
+  // payment didn't land on FINAL_PAYMENT's timeline — was previously
+  // nowhere to go except staying parked on final_payment or being dragged
+  // straight to closed with money still owed, either way invisible as a
+  // distinct "needs collecting" state. Role WON (Jo's call): the job is
+  // sold and done, this doesn't change won-revenue accounting — it's an
+  // ops queue layered on top, not a new revenue bucket.
+  COLLECTIONS:        'collections',
   CLOSED:             'closed',
 
   // ── Warranty track ──
@@ -103,6 +111,7 @@ export const STAGE_META = {
   [S.FINAL_PHOTOS]:       { label: 'Final Photos',       color: '#10b981', headerClass: 'kh-photos',    track: 'shared',    type: 'job',  icon: '📸' },
   [S.DEDUCTIBLE_COLLECTED]:{ label: 'Deductible',        color: '#14b8a6', headerClass: 'kh-deduct',    track: 'shared',    type: 'job',  icon: '💵' },
   [S.FINAL_PAYMENT]:      { label: 'Final Payment',      color: '#0d9488', headerClass: 'kh-finpay',    track: 'shared',    type: 'job',  icon: '🏦' },
+  [S.COLLECTIONS]:        { label: 'Collections',        color: '#dc2626', headerClass: 'kh-collect',   track: 'shared',    type: 'job',  icon: '⏰' },
   [S.CLOSED]:             { label: 'Closed',             color: '#22C55E', headerClass: 'kh-closed',    track: 'shared',    type: 'job',  icon: '🏆' },
 
   // ── Warranty stages ────────────────────────
@@ -203,7 +212,7 @@ export const ROLE = { NEW: 'new', ACTIVE: 'active', JOB: 'job', WON: 'won', LOST
 
 // WON = closed + the job-completion/paid stages (the legacy WON_STAGES set).
 // JOB = post-contract, in-production stages that are NOT yet won.
-const _ROLE_WON  = [S.CLOSED, S.INSTALL_COMPLETE, S.FINAL_PHOTOS, S.FINAL_PAYMENT, S.DEDUCTIBLE_COLLECTED];
+const _ROLE_WON  = [S.CLOSED, S.INSTALL_COMPLETE, S.FINAL_PHOTOS, S.FINAL_PAYMENT, S.DEDUCTIBLE_COLLECTED, S.COLLECTIONS];
 const _ROLE_JOB  = [S.JOB_CREATED, S.PERMIT_PULLED, S.MATERIALS_ORDERED, S.MATERIALS_DELIVERED, S.CREW_SCHEDULED, S.INSTALL_IN_PROGRESS];
 const _ROLE_LOST = [S.LOST];
 const _ROLE_NEW  = [S.NEW];
@@ -335,6 +344,7 @@ export const VIEW_JOBS = [
   S.FINAL_PHOTOS,
   S.DEDUCTIBLE_COLLECTED,
   S.FINAL_PAYMENT,
+  S.COLLECTIONS,
   S.CLOSED,
 ];
 
@@ -727,6 +737,17 @@ export const STAGE_ACTIONS = {
   [S.FINAL_PAYMENT]: [
     { id: 'warranty_cert',   label: 'Warranty Certificate',    icon: '🏆',  kind: 'doc' },
     { id: 'close_job',       label: 'Close Job',               icon: '🎉',  kind: 'stage' },
+  ],
+  [S.COLLECTIONS]: [
+    // send_payment_reminder is log-only (kind:'action') — there's no
+    // dedicated reminder-email template yet, same shape as Follow Up /
+    // Log Contact elsewhere. close_job reuses the SAME action id
+    // FINAL_PAYMENT's own "Close Job" button already uses (STAGE_TARGETS
+    // in dashboard-bootstrap.module.js maps it to 'closed') — one target,
+    // not a second stage-target entry, so once payment actually lands the
+    // rep closes the job exactly the way they always have.
+    { id: 'send_payment_reminder', label: 'Send Payment Reminder', icon: '📧', kind: 'action' },
+    { id: 'close_job',             label: 'Close Job',             icon: '🎉', kind: 'stage' },
   ],
   [S.CLOSED]: [
     { id: 'request_review',  label: 'Request Review',          icon: '⭐',  kind: 'action' },

@@ -16,7 +16,11 @@ let passed = 0, failed = 0; const fails = [];
 function ok(n, c) { if (c) { passed++; } else { failed++; fails.push(n); console.log('  ✗ ' + n); } }
 
 // ── built-in key → role (must match crm-stages.js) ──
-['closed', 'install_complete', 'final_photos', 'final_payment', 'deductible_collected']
+// 'collections' added 2026-09-15 (Collections foundation) — must be mirrored
+// here whenever crm-stages.js's _ROLE_WON changes, or the server-side
+// classifiers (weekly-digest, dormant-leads, money-dashboard, etc.) would
+// silently disagree with the client about a lead sitting in Collections.
+['closed', 'install_complete', 'final_photos', 'final_payment', 'deductible_collected', 'collections']
   .forEach(k => ok('won key ' + k, R.roleFromKey(k) === R.ROLE.WON));
 ok('lost key', R.roleFromKey('lost') === R.ROLE.LOST);
 ok('new key', R.roleFromKey('new') === R.ROLE.NEW);
