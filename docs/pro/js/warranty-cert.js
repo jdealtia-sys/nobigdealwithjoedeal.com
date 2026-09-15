@@ -466,6 +466,10 @@ async function _persistWarrantyToLead({ leadId, tier, tierLabel, tierDesc, work,
         // the warranty record was created/updated".
         createdAtMs: Date.now(),
       },
+      // 2026-09-15 (Paperwork Filing) — gates REQUIRED_FIELDS_BY_TYPE's CLOSED
+      // checkpoint (crm-stages.js) for insurance/cash/finance job types.
+      // Alongside the warranty:{...} write above, not a second updateDoc.
+      warrantyCertFiledAt: new Date().toISOString(),
       updatedAt: window.serverTimestamp(),
     });
   } catch (e) {

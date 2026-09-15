@@ -5236,6 +5236,14 @@
         </div>
         <div class="mfield"><label>Scope of Work</label><input type="text" id="lScopeOfWork" placeholder="Full roof replacement, gutters..."></div>
       </div>
+      <!-- 2026-09-15 (Paperwork Filing): gates REQUIRED_FIELDS_BY_TYPE's
+           CLAIM_FILED checkpoint. Auto-checked by document-generator.js's
+           onPersistFinalized the moment the AOB is e-signed — a plain
+           checkbox still lets a rep mark a wet-signed/uploaded AOB filed by
+           hand. -->
+      <div class="mrow">
+        <div class="mfield" style="display:flex;align-items:center;gap:6px;"><label style="margin:0;">AOB Filed/Signed</label><input type="checkbox" id="lAobFiled" class="ac-orange"></div>
+      </div>
     </div>
 
     <!-- FINANCE DETAIL FIELDS -->
@@ -5265,6 +5273,25 @@
       <div class="mrow">
         <div class="mfield"><label>Scheduled Date</label><input type="date" id="lScheduledDate"></div>
         <div class="mfield"><label>Crew</label><input type="text" id="lCrew" placeholder="Crew name or lead installer"></div>
+      </div>
+      <!-- 2026-09-15 (Paperwork Filing): gate REQUIRED_FIELDS_BY_TYPE's
+           JOB_CREATED / MATERIALS_ORDERED / CLOSED checkpoints. Contract and
+           Warranty Cert are auto-checked by document-generator.js /
+           warranty-cert.js the moment the real document is signed/generated —
+           these plain checkboxes are still the manual fallback for a
+           wet-signed/uploaded copy. Permit has no in-app signer, so it's
+           manual-only (also settable from the Kanban's "Mark Permit Filed"
+           next-action chip, which writes through the same paperwork-write.js
+           chokepoint). Certificate of Completion applies to every job type
+           today (harmless where a track doesn't require it — the gate is
+           per-jobType in crm-stages.js, this checkbox isn't). -->
+      <div class="mrow">
+        <div class="mfield" style="display:flex;align-items:center;gap:6px;"><label style="margin:0;">Contract Filed</label><input type="checkbox" id="lContractFiled" class="ac-orange"></div>
+        <div class="mfield" style="display:flex;align-items:center;gap:6px;"><label style="margin:0;">Permit Filed</label><input type="checkbox" id="lPermitFiled" class="ac-orange"></div>
+      </div>
+      <div class="mrow">
+        <div class="mfield" style="display:flex;align-items:center;gap:6px;"><label style="margin:0;">Warranty Cert Filed</label><input type="checkbox" id="lWarrantyCertFiled" class="ac-orange"></div>
+        <div class="mfield" style="display:flex;align-items:center;gap:6px;"><label style="margin:0;">Certificate of Completion Filed</label><input type="checkbox" id="lCocFiled" class="ac-orange"></div>
       </div>
     </div>
 
@@ -6396,6 +6423,7 @@
 <script defer src="js/icons.js?v=3"></script>
 <script defer src="js/nbd-comms.js?v=1"></script>
 <script defer src="js/stage-checklist.js?v=1"></script>
+<script defer src="js/paperwork-write.js?v=1"></script>
 <script defer src="js/nbd-input-guards.js?v=1"></script>
 <!-- LAZY: photo-engine loads via ScriptLoader's `photos` bundle (PR 2d). -->
 <script defer src="js/photo-ai.js?v=2"></script>

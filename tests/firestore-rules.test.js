@@ -422,6 +422,31 @@ async function run() {
   //    must not regress: tenants can and do invent their own stage strings.
   await assertSucceeds(updateDoc(doc(dave, 'leads/leadD'), { stage: 'custom_collections_closed', stageRole: 'won' }));
 
+  // 25b. paperworkFieldsOk() (2026-09-15 Paperwork Filing) — five flat
+  //      *FiledAt scalars gate REQUIRED_FIELDS_BY_TYPE's stage-advance hard
+  //      block client-side; this closes the same class of forgery gap
+  //      stageWriteOk() closes for stage/stageRole, at the same trust bar
+  //      (an owner/same-company-staff writer, not a stranger).
+  // ✅ a real ISO timestamp on each of the 5 fields succeeds.
+  for (const f of ['contractFiledAt', 'permitFiledAt', 'aobFiledAt', 'warrantyCertFiledAt', 'cocFiledAt']) {
+    await assertSucceeds(updateDoc(doc(dave, 'leads/leadD'), { [f]: new Date().toISOString() }));
+  }
+  // ✅ unsetting (the checkbox toggled off) writes '' and still succeeds.
+  await assertSucceeds(updateDoc(doc(dave, 'leads/leadD'), { permitFiledAt: '' }));
+  // ✅ an edit that never touches any of these fields still succeeds — the
+  //    guard is absence-safe (mirrors stageWriteOk's own absence-safety test).
+  await assertSucceeds(updateDoc(doc(dave, 'leads/leadD'), { lastName: 'Renamed Again' }));
+  // ❌ a non-string value on any of the 5 fields is denied.
+  await assertFails(updateDoc(doc(dave, 'leads/leadD'), { contractFiledAt: true }));
+  await assertFails(updateDoc(doc(dave, 'leads/leadD'), { permitFiledAt: 123 }));
+  await assertFails(updateDoc(doc(dave, 'leads/leadD'), { aobFiledAt: { forged: true } }));
+  // ❌ an oversized string (garbage payload, not a real ISO timestamp — a
+  //    real one is ~24 chars, well under the 40-char cap) is denied.
+  await assertFails(updateDoc(doc(dave, 'leads/leadD'), { warrantyCertFiledAt: 'x'.repeat(200) }));
+  await assertFails(updateDoc(doc(dave, 'leads/leadD'), { cocFiledAt: 'x'.repeat(41) }));
+  // ✅ exactly at the 40-char boundary still succeeds (off-by-one guard).
+  await assertSucceeds(updateDoc(doc(dave, 'leads/leadD'), { cocFiledAt: 'x'.repeat(40) }));
+
   // 22. /system/migrations is admin-SDK only — no client read/write.
   //     The runner in functions/migrations/runner.js owns this doc.
   await assertFails(getDoc(doc(alice, 'system/migrations')));

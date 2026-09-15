@@ -200,8 +200,16 @@ const RUNNABLE = ['node', 'smoke'];
 //   2026-09-15  128/67/214 → 129/67/215, tests/render-pdf-brand-mark-square.test.js
 //               (the render-pdf logo-crop hotfix — a live bug where every
 //               server-rendered PDF's brand mark was illegible since #1570).
+//   2026-09-15  EIGHTH collision, same story as the ones above: the
+//               paperwork-filing lane independently raised 128/67/214 to the
+//               SAME 129/67/215 literal as the render-pdf hotfix above (both
+//               added exactly one node suite from the same base) — a
+//               matching number that is, per the 2026-09-08 entry's own
+//               warning, not evidence it's still correct once REBASED onto
+//               the other side's commit. Re-measured on the merged tree via
+//               --check: 130/67/216.
 
-const FLOORS = { node: 129, smoke: 67, disk: 215 };
+const FLOORS = { node: 130, smoke: 67, disk: 216 };
 
 // ── Argument parsing ───────────────────────────────────────────────
 const argv = process.argv.slice(2);

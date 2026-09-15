@@ -143,6 +143,30 @@ service cloud.firestore {
       return roleOk && stageOk;
     }
 
+    // 2026-09-15 (Paperwork Filing) — five flat *FiledAt scalars on the lead
+    // gate REQUIRED_FIELDS_BY_TYPE's stage-advance hard block (crm-stages.js,
+    // client-side). No rule change is strictly required for the gate to
+    // function (the fields aren't in didNotChange()/writeOnce() above, so an
+    // owner or same-company staff writer can already set them today, same
+    // trust bar as claimNumber/scheduledDate) — but a same-company writer
+    // could otherwise stamp an oversized/non-string garbage value into one of
+    // these, same class of forgery gap stageWriteOk() above closes for
+    // stage/stageRole. Mirrors that function's shape (a per-field helper, not
+    // a `.all()` macro — a `let` binding is not valid inside `.all()`'s
+    // single-expression predicate argument, so each field gets its own tiny
+    // function instead of one clever one-liner).
+    function _paperworkFieldOk(f) {
+      let v = request.resource.data.get(f, null);
+      return v == null || (v is string && v.size() <= 40);
+    }
+    function paperworkFieldsOk() {
+      return _paperworkFieldOk('contractFiledAt')
+          && _paperworkFieldOk('permitFiledAt')
+          && _paperworkFieldOk('aobFiledAt')
+          && _paperworkFieldOk('warrantyCertFiledAt')
+          && _paperworkFieldOk('cocFiledAt');
+    }
+
     // A tenant's customer-ID prefix (brand.docPrefix) + its display twin
     // (brand.seal) are set ONLY by the reserveCompanyPrefix callable (admin SDK)
     // after it atomically claims docPrefixes/{PREFIX}. They must be immutable to
@@ -254,6 +278,7 @@ service cloud.firestore {
           && referralServerFieldsFrozen()
           && referralStatusTransitionOk()
           && stageWriteOk()
+          && paperworkFieldsOk()
         );
       allow delete: if (isOwner(resource.data.userId)
             && request.auth.token.get('role', '') != 'viewer')

@@ -138,7 +138,8 @@
     "stage-role-fallback-coverage.test.js",
     "kanban-next-action-chip.test.js",
     "stage-checklist.test.js",
-    "render-pdf-brand-mark-square.test.js"
+    "render-pdf-brand-mark-square.test.js",
+    "paperwork-filing.test.js"
   ],
   "smoke": {
     "team-roles.test.js": [

@@ -703,11 +703,19 @@ export const STAGE_ACTIONS = {
     { id: 'collect_deposit', label: 'Collect Deposit',         icon: '💵',  kind: 'action' },
   ],
   [S.JOB_CREATED]: [
-    { id: 'pull_permit',     label: 'Pull Permit',             icon: '📜',  kind: 'action' },
+    // 2026-09-15 (Paperwork Filing): was kind:'action' — one of the dashboard
+    // bootstrap's own named-dead "workflow markers with nothing to open".
+    // 'doc' generates a real permit-application document instead.
+    { id: 'pull_permit',     label: 'Pull Permit',             icon: '📜',  kind: 'doc' },
     { id: 'order_materials', label: 'Order Materials',         icon: '📦',  kind: 'action' },
   ],
   [S.PERMIT_PULLED]: [
-    { id: 'order_materials', label: 'Order Materials',         icon: '📦',  kind: 'action' },
+    // 2026-09-15 (Paperwork Filing): first in the array so preferredActionFor()'s
+    // actions[0] fallback (both entries are kind:'action') picks this — the
+    // job-created→materials-ordered gate needs permitFiledAt set before it lets
+    // the lead through.
+    { id: 'mark_permit_filed', label: 'Mark Permit Filed',     icon: '✅',  kind: 'action' },
+    { id: 'order_materials',   label: 'Order Materials',       icon: '📦',  kind: 'action' },
   ],
   [S.MATERIALS_ORDERED]: [
     { id: 'confirm_delivery', label: 'Confirm Delivery',       icon: '🚚',  kind: 'action' },
@@ -795,8 +803,10 @@ export function preferredActionFor(stage, jobType) {
 // ─────────────────────────────────────────────
 // REQUIRED FIELDS — stage transition gates
 // Map: jobType → stageKey → required lead-field names.
-// Used by validation to block stage advancement when data is missing.
-// Phase 2 will wire this into the form; for now it's data only.
+// Wired into a HARD block (no override) at both stage-mutating call sites —
+// crm-pipeline.js's moveCard() and customer-bootstrap.module.js's
+// progressStage() (2026-09-15 driven-UX foundation) — via missingRequiredFields()
+// below. Data AND enforcement live here; there is no separate "Phase 2" step.
 // ─────────────────────────────────────────────
 
 // CREW_SCHEDULED requires scheduledDate on EVERY track.
@@ -813,32 +823,56 @@ export function preferredActionFor(stage, jobType) {
 // Satisfiable by construction — scheduledDate already has a FIELD_LABELS
 // entry, a _GATE_FIELD_META mapping and the #lScheduledDate input, because
 // the warranty track has always gated on it. This adds no new machinery.
+// Paperwork-filing gate fields (2026-09-15 Paperwork Filing lane) — flat
+// ISO-string-or-'' scalars on the LEAD (never boolean: missingRequiredFields
+// below treats `undefined/null/''` as missing and nothing else, so a plain
+// `false` would silently satisfy the gate). contractFiledAt/permitFiledAt
+// gate SHARED job stages reachable by ANY jobType (JOB_CREATED/
+// MATERIALS_ORDERED are track:'shared', same as CREW_SCHEDULED above) — every
+// track lists them, not just the "obvious" ones, for the exact reason the
+// crew_scheduled comment above exists: skipping a track here IS that bug's
+// shape. warrantyCertFiledAt is deliberately ABSENT from warranty/service at
+// CLOSED — JOB_TYPE_META.warranty/service describe a callback or small
+// repair, neither issues a NEW warranty on close (not an oversight).
 export const REQUIRED_FIELDS_BY_TYPE = {
   insurance: {
-    [S.CLAIM_FILED]:        ['insCarrier', 'claimNumber'],
+    [S.CLAIM_FILED]:        ['insCarrier', 'claimNumber', 'aobFiledAt'],
     [S.ADJUSTER_SCHEDULED]: ['insCarrier'],
     [S.ESTIMATE_SUBMITTED]: ['estimateAmount', 'deductibleOrOwedByHO'],
     [S.CONTRACT_SIGNED]:    ['estimateAmount'],
+    [S.JOB_CREATED]:        ['contractFiledAt'],
+    [S.MATERIALS_ORDERED]:  ['permitFiledAt'],
     [S.CREW_SCHEDULED]:     ['scheduledDate'],
+    [S.CLOSED]:             ['warrantyCertFiledAt', 'cocFiledAt'],
   },
   cash: {
     [S.ESTIMATE_SENT_CASH]: ['jobValue'],
     [S.CONTRACT_SIGNED]:    ['jobValue'],
+    [S.JOB_CREATED]:        ['contractFiledAt'],
+    [S.MATERIALS_ORDERED]:  ['permitFiledAt'],
     [S.CREW_SCHEDULED]:     ['scheduledDate'],
+    [S.CLOSED]:             ['warrantyCertFiledAt'],
   },
   finance: {
     [S.PREQUAL_SENT]:       ['financeCompany'],
     [S.LOAN_APPROVED]:      ['loanAmount', 'financeCompany'],
     [S.CONTRACT_SIGNED]:    ['loanAmount', 'financeCompany'],
+    [S.JOB_CREATED]:        ['contractFiledAt'],
+    [S.MATERIALS_ORDERED]:  ['permitFiledAt'],
     [S.CREW_SCHEDULED]:     ['scheduledDate'],
+    [S.CLOSED]:             ['warrantyCertFiledAt'],
   },
   warranty: {
     [S.WARRANTY_SCHEDULED]: ['scheduledDate'],
+    [S.JOB_CREATED]:        ['contractFiledAt'],
+    [S.MATERIALS_ORDERED]:  ['permitFiledAt'],
     [S.CREW_SCHEDULED]:     ['scheduledDate'],
   },
   service: {
     [S.SERVICE_QUOTED]:     ['jobValue'],
     [S.SERVICE_APPROVED]:   ['jobValue'],
+    [S.JOB_CREATED]:        ['contractFiledAt'],
+    [S.MATERIALS_ORDERED]:  ['permitFiledAt'],
     [S.CREW_SCHEDULED]:     ['scheduledDate'],
   },
 };
