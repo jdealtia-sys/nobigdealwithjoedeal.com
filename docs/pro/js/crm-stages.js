@@ -757,6 +757,20 @@ export function actionsForStage(stage, jobType) {
   return list.filter(a => !a.jobTypes || a.jobTypes.includes(jobType));
 }
 
+// 2026-09-15 (driven-UX foundation): "which ONE action matters most for
+// this stage" used to be inlined separately everywhere it was needed —
+// the kanban card's next-action chip picked doc/stage-kind actions over
+// plain ones with its own `.find(...)`, and a second copy would have been
+// needed for the stage-entry auto-task generator (stage-checklist.js).
+// Single source now, so both surfaces (and any future one) always agree
+// on "the" next action for a stage — no drift between what the chip shows
+// and what task gets auto-created.
+export function preferredActionFor(stage, jobType) {
+  const actions = actionsForStage(stage, jobType);
+  if (!actions.length) return null;
+  return actions.find(a => a.kind === 'doc' || a.kind === 'stage') || actions[0];
+}
+
 // ─────────────────────────────────────────────
 // REQUIRED FIELDS — stage transition gates
 // Map: jobType → stageKey → required lead-field names.

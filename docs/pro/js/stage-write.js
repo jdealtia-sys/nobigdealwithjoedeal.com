@@ -69,6 +69,11 @@ export async function commitStageChange(id, newStage, oldStage, opts) {
   const isDrag = !!opts.isDrag;
   const isLostMove = !!opts.isLostMove;
   const lostReason = opts.lostReason || null;
+  // jobType (2026-09-15): threaded through from the caller's already-loaded
+  // lead object so the StageChecklist hook below can pick the right
+  // per-track action (STAGE_ACTIONS is jobType-scoped) without this
+  // function re-fetching the lead doc just to read one field.
+  const jobType = opts.jobType || null;
 
   const historyEvent = {
     from: oldStage,
@@ -154,6 +159,18 @@ export async function commitStageChange(id, newStage, oldStage, opts) {
       window.EmailDrip.onStageChange(id, oldStage, newStage);
     }
   } catch (e) { console.warn('[stage-write] drip trigger failed:', e && e.message); }
+
+  // Stage-entry auto-task (2026-09-15 driven-UX foundation) — the actual
+  // "drives the work" mechanism: the lead's #1 next action for its NEW
+  // stage shows up as a real task without the rep opening the board.
+  // Not awaited, same as the drip above — this is a side effect of a
+  // stage change that already succeeded, not a precondition for it.
+  // stage-checklist.js's own top-level try/catch means this never rejects.
+  try {
+    if (window.StageChecklist && typeof window.StageChecklist.onStageChange === 'function') {
+      window.StageChecklist.onStageChange(id, oldStage, newStage, jobType);
+    }
+  } catch (e) { console.warn('[stage-write] stage-checklist trigger failed:', e && e.message); }
 
   return { historyEvent };
 }
