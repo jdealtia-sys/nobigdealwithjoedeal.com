@@ -44,8 +44,8 @@ whatever print vendor or social platform uses them.
 | `docs/pro/img/nbd-icon-maskable-192.png` | `icons/nbd-pro-maskable-192.png` |
 | `docs/pro/img/nbd-icon-maskable-512.png` | `icons/nbd-pro-maskable-512.png` |
 | `docs/assets/images/apple-touch-icon.png` | regenerated FROM the new `docs/favicon.svg` (not copied directly — see `scripts/render-apple-touch-icon.js`) |
-| `docs/assets/images/nbd-logo.png` | `web/logo-color-600-transparent.png` |
-| `scripts/assets/nbd-wordmark.png` | `web/logo-color-600-transparent.png` (same file — one fewer independent copy to drift) |
+| `docs/assets/images/nbd-logo.png` | `derived/logo-white-accent.svg` (**not** `web/logo-color-600-transparent.png` — see below) |
+| `scripts/assets/nbd-wordmark.png` | `web/logo-color-600-transparent.png` (navy-on-transparent — correct for this tool's white-paper PDF export context; **not** the same file as the header logo above, which needs the opposite colorway for its dark background) |
 | `print-assets/nbd-logo-master.png` | `upscaled-original/logo-4K-transparent.png` |
 | `print-assets/nbd-logo-print.png`, `docs/pro/js/nbd-logo-asset.js` | derived FROM the master above via `scripts/crop-logo-master.py` + `scripts/build-logo-asset.js` (not copied directly) |
 
