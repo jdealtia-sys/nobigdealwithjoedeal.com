@@ -89,6 +89,7 @@ const RUNNABLE = ['node', 'smoke'];
 // check until the floor moves with it in the same commit. That is the point,
 // not a nuisance — the error prints the exact literal to paste, and this
 // 2026-09-07 entry should be the last of its kind.
+
 //   2026-09-08  four portal branches each raised these; this is the value
 //               MEASURED after all of them landed, not any one branch's
 //               delta added to another's.
@@ -220,7 +221,12 @@ const RUNNABLE = ['node', 'smoke'];
 //               original three-lane CRM streamlining ask, after Collections
 //               and Paperwork Filing).
 
-const FLOORS = { node: 132, smoke: 67, disk: 218 };
+//   2026-09-15  TENTH collision: the photo-report-sharing lane (#1499,
+//               unmerged since 2026-09-08) rebased onto this tree adds one
+//               more node suite (tests/photo-report-sharing.test.js) on top
+//               of 132/67/218. Re-measured via --check on the merged tree
+//               rather than adding this lane's own stale +1 by hand.
+const FLOORS = { node: 133, smoke: 67, disk: 219 };
 
 // ── Argument parsing ───────────────────────────────────────────────
 const argv = process.argv.slice(2);

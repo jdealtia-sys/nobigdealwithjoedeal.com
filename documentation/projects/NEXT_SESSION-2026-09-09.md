@@ -512,13 +512,29 @@ Paged Media margin box; nothing in the pipeline can honour it.
 
 ### Open, in the order I would take them
 
-1. **No share link.** `createReportShareToken` only accepts a `reportId` in the
-   top-level `reports` collection; a filed photo report is a `documents` row.
-   — PR #1499 open against this.
+> **Update 2026-09-08, later the same day: 1 and 6 are CLOSED** on a branch
+> stacked on #1483 —
+> [SESSION-2026-09-08-photo-report-number-and-share](SESSION-2026-09-08-photo-report-number-and-share.md).
+> **2 is still open on purpose**: that work streams the PDF through the admin
+> SDK precisely so `pdf-renders/` does not have to become client-readable, so
+> the gating task is unblocked and un-pre-empted. 3–5 untouched.
+>
+> **Correction, 2026-09-15 (rebase onto main):** all six items below are now
+> CLOSED. 1 and 6 land in this same PR (#1499, rebased and merged today). 2
+> merged as #1504 (`pdf-renders/` Storage rule + reaper). 3 (destructive
+> annotations) merged as #1567/#1569 (persistence to Firestore + the
+> `switchPhoto()` re-key fix). 4 and 5 were already closed per the notes
+> below (#1503, #1497). Nothing from this list remains open.
+
+1. ~~**No share link.**~~ **CLOSED.** `createReportShareToken` now accepts a
+   lead-scoped `{leadId, documentId}` alongside a top-level `reportId`, and
+   streams the PDF rather than redirecting to a Storage URL.
 2. **`pdf-renders/` has no Storage rule**, and in download-token mode the URL
-   never expires. — PR #1504 open against this.
-3. **Annotations are destructive** — `photo-editor.js` builds arrows, callouts,
-   stamps and measurements and persists none of it. **Still open, no PR.**
+   never expires. — **CLOSED — #1504, merged.**
+3. ~~**Annotations are destructive**~~ **CLOSED — #1567/#1569, merged.**
+   `photo-editor.js`'s arrows, callouts, stamps and measurements now persist
+   to Firestore (a pre-annotation original is backed up first), and
+   `switchPhoto()` re-keys `S.photoId` to the selected photo.
 4. ~~**Three incompatible `damageType` vocabularies** collide in one count.~~
    **CLOSED — #1503, merged and deployed 2026-09-08.** It was **four**, not
    three: the `customer.html` bulk bar wrote a fourth, kebab-case set, and the
@@ -535,8 +551,9 @@ Paged Media margin box; nothing in the pipeline can honour it.
    Dry-run prints a fold map with counts before writing anything.
 5. ~~**Customer-page uploads write no `createdAt`**, so report order is arbitrary
    for them.~~ **CLOSED — #1497, merged.**
-6. **The report number is `Date.now().toString().slice(-6)`** — unsequenced,
-   and it changes on every regeneration. — PR #1499 open against this.
+6. ~~**The report number is `Date.now().toString().slice(-6)`**~~ **CLOSED.**
+   Now `<TENANT>-<PHO|ADJ>-<YYYY>-<MMDD>-<NNNN>`, assigned once and reused from
+   the filed `documents` row.
 
 ### Trust level on that list
 
