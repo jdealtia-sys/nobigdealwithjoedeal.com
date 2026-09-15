@@ -139,7 +139,8 @@
     "kanban-next-action-chip.test.js",
     "stage-checklist.test.js",
     "render-pdf-brand-mark-square.test.js",
-    "paperwork-filing.test.js"
+    "paperwork-filing.test.js",
+    "kanban-filter-unification.test.js"
   ],
   "smoke": {
     "team-roles.test.js": [

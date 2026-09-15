@@ -124,8 +124,12 @@ console.log('\ndocs/pro/js/ask-joe-proactive.js');
   const fnStart = src.indexOf('function _isTerminal(lead)');
   const fn = fnStart >= 0 ? src.slice(fnStart, fnStart + 500) : '';
   ok('_isTerminal exists', fnStart >= 0);
-  ok('falls back to window.stageRole for a stage the hardcoded set doesn\'t recognize',
-    /typeof window\.stageRole === 'function'/.test(fn) && /role === 'won' \|\| role === 'lost'/.test(fn));
+  // 2026-09-15 (Kanban filter unification): this used to inline
+  // `window.stageRole(k)` + a 'won'/'lost' check; now calls the canonical
+  // window.isTerminalStage (crm-stages.js), which IS that exact check —
+  // same behavior, one fewer place it can drift from its sibling classifiers.
+  ok('falls back to window.isTerminalStage for a stage the hardcoded set doesn\'t recognize',
+    /typeof window\.isTerminalStage === 'function' && window\.isTerminalStage\(k\)/.test(fn));
   ok('the hardcoded fast-path check still runs first (preserved, not replaced)',
     /_TERMINAL_STAGE_KEYS\.has\(k\)/.test(fn));
 }
@@ -139,8 +143,15 @@ console.log('\ndocs/pro/js/bottleneck-widget.js');
   ok('compute() exists', computeStart >= 0);
   ok('the SKIP_STAGES fast-path check still runs first (preserves the deliberate \'new\'-stage exclusion, unrelated to won/lost)',
     /SKIP_STAGES\.has\(sk\)/.test(computeFn));
-  ok('falls back to window.stageRole for a stage the hardcoded set doesn\'t recognize',
-    /typeof window\.stageRole === 'function'/.test(computeFn) && /role === 'won' \|\| role === 'lost'/.test(computeFn));
+  // 2026-09-15 (Kanban filter unification): this used to inline
+  // `window.stageRole(sk)` + a 'won'/'lost' check; now calls the canonical
+  // window.isTerminalStage (crm-stages.js) — same behavior, one fewer place
+  // it can drift from its sibling classifiers (this file's own hardcoded
+  // terminal-key Set was removed entirely, not just supplemented, since
+  // every one of its entries already resolved correctly through this
+  // fallback alone).
+  ok('falls back to window.isTerminalStage for a stage the hardcoded set doesn\'t recognize',
+    /typeof window\.isTerminalStage === 'function' && window\.isTerminalStage\(sk\)/.test(computeFn));
 }
 
 console.log(`\n  ${passed} passed, ${failed} failed`);

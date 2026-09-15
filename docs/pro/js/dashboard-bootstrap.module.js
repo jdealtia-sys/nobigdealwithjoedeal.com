@@ -19,9 +19,9 @@
   // NOTE: Module scope is isolated - must expose to window for global access
   import {
     S, STAGE_META, LEGACY_MAP, KANBAN_VIEWS,
-    VIEW_SIMPLE, VIEW_INSURANCE, VIEW_CASH, VIEW_FINANCE, VIEW_WARRANTY, VIEW_SERVICE, VIEW_JOBS,
+    VIEW_SIMPLE, VIEW_INSURANCE, VIEW_CASH, VIEW_FINANCE, VIEW_WARRANTY, VIEW_SERVICE, VIEW_JOBS, VIEW_JOBS_BOARD,
     normalizeStage, stageLabel, stageColor, resolveColumn, partitionLeadsByColumn,
-    stageRole, isWonStage, isLostStage, ROLE, resolvePipelineConfig,
+    stageRole, isWonStage, isLostStage, isJobStage, isTerminalStage, ROLE, resolvePipelineConfig,
     stageOptionsForType, inferJobType, JOB_TYPES, JOB_TYPE_META, jobTypeLabel,
     SUB_TYPES, subTypeOptionsFor, subTypeLabel,
     TRADES, tradeLabel, tradesLabel,
@@ -116,6 +116,13 @@
   window.stageRole = stageRole;
   window.isWonStage = isWonStage;
   window.isLostStage = isLostStage;
+  // 2026-09-15 (Kanban filter unification) — canonical job-stage /
+  // terminal-stage membership tests, replacing ~9 hand-copied stage-key
+  // lists that had already drifted out of sync with each other within
+  // hours of the Collections stage being added.
+  window.isJobStage = isJobStage;
+  window.isTerminalStage = isTerminalStage;
+  window.VIEW_JOBS_BOARD = VIEW_JOBS_BOARD;
   window.STAGE_ROLE = ROLE;
   window.resolvePipelineConfig = resolvePipelineConfig; // used by the Phase-2 pipelines builder
 
@@ -140,6 +147,12 @@
     window.stageRole = resolved.roleOf;
     window.isWonStage = (k) => resolved.roleOf(k) === ROLE.WON;
     window.isLostStage = (k) => resolved.roleOf(k) === ROLE.LOST;
+    // isJobStage's CONTRACT_SIGNED carve-out is a built-in-key fact (a
+    // custom tenant stage is never literally 'contract_signed'), so it
+    // stays a plain comparison; the job/won-role half re-points at the
+    // tenant's resolved role the same way isWonStage/isLostStage do above.
+    window.isJobStage = (k) => k === S.CONTRACT_SIGNED || resolved.roleOf(k) === ROLE.JOB || resolved.roleOf(k) === ROLE.WON;
+    window.isTerminalStage = (k) => resolved.roleOf(k) === ROLE.WON || resolved.roleOf(k) === ROLE.LOST;
     window.stageLabel = (k) => (resolved.stageMeta[k] || resolved.stageMeta[normalizeStage(k)] || {}).label || k;
     window.stageColor = (k) => (resolved.stageMeta[k] || resolved.stageMeta[normalizeStage(k)] || {}).color || '#374151';
     // stageOptionsForType is the STAGE PICKER's list — the kanban card ⋮
