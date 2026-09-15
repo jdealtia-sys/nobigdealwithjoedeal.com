@@ -142,6 +142,7 @@
     // files twice under two cache keys. One key per file, repo-wide.
     docgen: [
       'js/nbd-logo-asset.js?v=2',
+      'js/nbd-badge-assets.js?v=1',
       'js/document-generator.js?v=10',
       'js/document-generator-templates.js?v=8',
       'js/doc-preflight.js?v=1'
