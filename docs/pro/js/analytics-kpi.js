@@ -25,12 +25,13 @@
   }
 
   // ── Stage classifications ──
-  // 2026-09-15: added 'collections' (the same-day Collections lane) — this
-  // is only the fallback for a lead with no _stageRole stamped yet, per the
-  // comment below, so it still needs to stay current.
+  // 2026-09-15: added 'collections' (Collections lane), then 'warranty_claim'
+  // (Warranty Claim lane, same day) — this is only the fallback for a lead
+  // with no _stageRole stamped yet, per the comment below, so it still needs
+  // to stay current.
   const WON_STAGES = [
     'closed', 'install_complete', 'final_photos',
-    'final_payment', 'deductible_collected', 'collections', 'Complete'
+    'final_payment', 'deductible_collected', 'collections', 'warranty_claim', 'Complete'
   ];
   const LOST_STAGES = ['lost', 'Lost'];
 

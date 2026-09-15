@@ -47,6 +47,10 @@ const POST_MIGRATION_STAGES = [
   // job is sold and done; this doesn't change won-revenue accounting), not
   // an attempt to reproduce a legacy list that predates this stage existing.
   'collections',
+  // 2026-09-15 (Warranty Claim lane): same shape — a real new stage (a
+  // post-close claim re-opening), role WON because it doesn't reverse
+  // won-revenue accounting for the underlying job.
+  'warranty_claim',
 ];
 
 ok('module exports present', !!(stageRole && isWonStage && isLostStage && STAGE_META && ROLE));
@@ -64,7 +68,7 @@ Object.keys(STAGE_META).filter(k => !POST_MIGRATION_STAGES.includes(k)).forEach(
 //    is intentionally NOT derived from the live wonKeys result — that would
 //    make the assertion trivially pass even if 'collections' regressed to
 //    a different role.
-const POST_MIGRATION_WON_STAGES = ['collections']; // must be a subset of POST_MIGRATION_STAGES above
+const POST_MIGRATION_WON_STAGES = ['collections', 'warranty_claim']; // must be a subset of POST_MIGRATION_STAGES above
 const wonKeys = Object.keys(STAGE_META).filter(k => stageRole(k) === ROLE.WON).sort();
 const expectWon = ['closed', 'deductible_collected', 'final_payment', 'final_photos', 'install_complete']
   .concat(POST_MIGRATION_WON_STAGES)

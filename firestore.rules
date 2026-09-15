@@ -167,6 +167,28 @@ service cloud.firestore {
           && _paperworkFieldOk('cocFiledAt');
     }
 
+    // 2026-09-15 (Warranty Claim lane) — the denormalized pointer to the
+    // lead's currently-open warrantyClaims subdoc (or null once resolved).
+    // Same shape-only trust bar as paperworkFieldsOk() above: a same-company
+    // writer can already set this field (not in didNotChange()/writeOnce()),
+    // this only stops an oversized/non-string forgery.
+    function openClaimIdOk() {
+      let v = request.resource.data.get('openWarrantyClaimId', null);
+      return v == null || (v is string && v.size() <= 60);
+    }
+
+    // 2026-09-15 (Warranty Claim lane) — shape validator for the claim
+    // subdoc itself (leads/{leadId}/warrantyClaims/{claimId}), modeled on
+    // stageWriteOk()'s enum-check style. status/reason are the only fields
+    // worth enum-gating; free-text notes fields are size-capped only, same
+    // trust bar as everything else on this doc (same-company staff writer).
+    function warrantyClaimWriteOk() {
+      let status = request.resource.data.get('status', null);
+      let reason = request.resource.data.get('reason', null);
+      return (status == null || status in ['open', 'scheduled', 'repaired', 'resolved', 'denied'])
+          && (reason == null || reason in ['workmanship', 'material', 'manufacturer', 'goodwill']);
+    }
+
     // A tenant's customer-ID prefix (brand.docPrefix) + its display twin
     // (brand.seal) are set ONLY by the reserveCompanyPrefix callable (admin SDK)
     // after it atomically claims docPrefixes/{PREFIX}. They must be immutable to
@@ -279,6 +301,7 @@ service cloud.firestore {
           && referralStatusTransitionOk()
           && stageWriteOk()
           && paperworkFieldsOk()
+          && openClaimIdOk()
         );
       allow delete: if (isOwner(resource.data.userId)
             && request.auth.token.get('role', '') != 'viewer')
@@ -446,6 +469,24 @@ service cloud.firestore {
         allow write: if isAuth()
           && (isOwner(get(/databases/$(database)/documents/leads/$(leadId)).data.userId)
               || (isCompanyStaff() && parentLeadInMyCompany(leadId)));
+      }
+
+      // ── WARRANTY CLAIMS (2026-09-15) ───────────────────
+      // A claim opened against an already-CLOSED job (see crm-stages.js's
+      // S.WARRANTY_CLAIM comment). Same owner-or-same-company-staff shape as
+      // /documents directly above — a manager needs to open/resolve a
+      // teammate's claim, not just view it. warrantyClaimWriteOk() closes
+      // the same class of forgery gap stageWriteOk()/paperworkFieldsOk() do
+      // for the parent lead: a same-company writer could already write here,
+      // this only stops a garbage status/reason value.
+      match /warrantyClaims/{claimId} {
+        allow read:  if isAuth() && (isAdmin()
+          || isOwner(get(/databases/$(database)/documents/leads/$(leadId)).data.userId)
+          || parentLeadInMyCompany(leadId));
+        allow write: if isAuth()
+          && (isOwner(get(/databases/$(database)/documents/leads/$(leadId)).data.userId)
+              || (isCompanyStaff() && parentLeadInMyCompany(leadId)))
+          && warrantyClaimWriteOk();
       }
 
       // ── DRAWINGS (roof measurements, sketches) ────────

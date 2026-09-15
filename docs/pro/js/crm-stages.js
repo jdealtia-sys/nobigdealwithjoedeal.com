@@ -60,6 +60,15 @@ export const S = {
   // ops queue layered on top, not a new revenue bucket.
   COLLECTIONS:        'collections',
   CLOSED:             'closed',
+  // 2026-09-15 (Warranty Claim lane): a claim opened against a job of ANY
+  // job type AFTER it's already closed (a leak found months later, a
+  // workmanship callback, a manufacturer-defect shingle). Distinct from the
+  // pre-existing "warranty" JOB TYPE/track below (WARRANTY_SCHEDULED/
+  // WARRANTY_REPAIRED) — that track is the front door for a homeowner whose
+  // ORIGINAL need was a warranty service call; this stage is a re-opening of
+  // an already-finished job of any type. See warranty-claim.js for the
+  // claim-document sub-workflow this stage triggers.
+  WARRANTY_CLAIM:     'warranty_claim',
 
   // ── Warranty track ──
   WARRANTY_SCHEDULED: 'warranty_scheduled',
@@ -113,6 +122,7 @@ export const STAGE_META = {
   [S.FINAL_PAYMENT]:      { label: 'Final Payment',      color: '#0d9488', headerClass: 'kh-finpay',    track: 'shared',    type: 'job',  icon: '🏦' },
   [S.COLLECTIONS]:        { label: 'Collections',        color: '#dc2626', headerClass: 'kh-collect',   track: 'shared',    type: 'job',  icon: '⏰' },
   [S.CLOSED]:             { label: 'Closed',             color: '#22C55E', headerClass: 'kh-closed',    track: 'shared',    type: 'job',  icon: '🏆' },
+  [S.WARRANTY_CLAIM]:     { label: 'Warranty Claim',     color: '#c2410c', headerClass: 'kh-warrclaim', track: 'shared',    type: 'job',  icon: '🛟' },
 
   // ── Warranty stages ────────────────────────
   [S.WARRANTY_SCHEDULED]: { label: 'Warranty Visit',     color: '#0891b2', headerClass: 'kh-warrsch',   track: 'warranty',  type: 'lead', icon: '🛠️' },
@@ -212,7 +222,7 @@ export const ROLE = { NEW: 'new', ACTIVE: 'active', JOB: 'job', WON: 'won', LOST
 
 // WON = closed + the job-completion/paid stages (the legacy WON_STAGES set).
 // JOB = post-contract, in-production stages that are NOT yet won.
-const _ROLE_WON  = [S.CLOSED, S.INSTALL_COMPLETE, S.FINAL_PHOTOS, S.FINAL_PAYMENT, S.DEDUCTIBLE_COLLECTED, S.COLLECTIONS];
+const _ROLE_WON  = [S.CLOSED, S.INSTALL_COMPLETE, S.FINAL_PHOTOS, S.FINAL_PAYMENT, S.DEDUCTIBLE_COLLECTED, S.COLLECTIONS, S.WARRANTY_CLAIM];
 const _ROLE_JOB  = [S.JOB_CREATED, S.PERMIT_PULLED, S.MATERIALS_ORDERED, S.MATERIALS_DELIVERED, S.CREW_SCHEDULED, S.INSTALL_IN_PROGRESS];
 const _ROLE_LOST = [S.LOST];
 const _ROLE_NEW  = [S.NEW];
@@ -387,6 +397,13 @@ export const VIEW_JOBS = [
   S.FINAL_PAYMENT,
   S.COLLECTIONS,
   S.CLOSED,
+  // 2026-09-15 (Warranty Claim lane): appended, not inserted before CLOSED —
+  // order here is the Jobs-tab column order (via VIEW_JOBS_BOARD below) and
+  // a claim is chronologically AFTER the job closed. isJobStage()/isTerminalStage()
+  // and resolveColumn()'s job-stage collapse all key off membership, not
+  // position, so appending is safe for those two consumers; stageOptionsForType's
+  // splice (below) just gains one more trailing dropdown option.
+  S.WARRANTY_CLAIM,
 ];
 
 // 2026-09-15 (Kanban filter unification) — the JOBS TAB's actual column
@@ -670,6 +687,51 @@ export function subTypeLabel(jobType, value) {
 }
 
 // ─────────────────────────────────────────────
+// WARRANTY CLAIM — a claim document's OWN status sub-workflow.
+// Separate from the lead's `stage` (S.WARRANTY_CLAIM handles the LEAD side
+// above — one board column, one hard gate on re-entering S.CLOSED). This is
+// the finer-grained state machine for the claim doc itself
+// (leads/{leadId}/warrantyClaims/{claimId}), never written through
+// commitStageChange() — see warranty-claim.js's advanceClaimStatus().
+// reason reuses SUB_TYPES.warranty (workmanship/material/manufacturer/
+// goodwill) rather than inventing a parallel list.
+// ─────────────────────────────────────────────
+
+export const CLAIM_STATUSES = ['open', 'scheduled', 'repaired', 'resolved', 'denied'];
+
+export const CLAIM_STATUS_ACTIONS = {
+  open:      [{ id: 'schedule_claim_visit', label: 'Schedule Visit',  icon: '📅', kind: 'action' }],
+  scheduled: [{ id: 'log_claim_visit',      label: 'Log Diagnosis',  icon: '🔍', kind: 'action' }],
+  repaired:  [{ id: 'resolve_claim',        label: 'Mark Resolved',  icon: '✅', kind: 'stage' }],
+  resolved:  [],
+  denied:    [],
+};
+
+export function preferredActionForClaim(status) {
+  const actions = CLAIM_STATUS_ACTIONS[status] || [];
+  if (!actions.length) return null;
+  return actions.find(a => a.kind === 'stage') || actions[0];
+}
+
+// Required claim-doc fields per DESTINATION status. Mirrors
+// missingRequiredFields()'s shape below but is intentionally a SEPARATE
+// function over a separate object — this gates the claim doc, never the
+// lead, and must never be merged into REQUIRED_FIELDS_BY_TYPE/
+// missingRequiredFields (those two stay lead-only).
+export const REQUIRED_FIELDS_BY_CLAIM_STATUS = {
+  scheduled: ['scheduledDate'],
+  resolved:  ['resolutionNotes'],
+};
+
+export function missingClaimFields(claim, newStatus) {
+  const required = REQUIRED_FIELDS_BY_CLAIM_STATUS[newStatus] || [];
+  return required.filter(f => {
+    const v = claim && claim[f];
+    return v === undefined || v === null || v === '';
+  });
+}
+
+// ─────────────────────────────────────────────
 // TRADES — multi-select, orthogonal to job type
 // Drives estimate template, crew assignment, material list.
 // Stored on a lead as `lead.trades` (array of values).
@@ -820,6 +882,20 @@ export const STAGE_ACTIONS = {
   ],
   [S.CLOSED]: [
     { id: 'request_review',  label: 'Request Review',          icon: '⭐',  kind: 'action' },
+    // 2026-09-15 (Warranty Claim lane): no jobTypes filter — a post-close
+    // issue can be reported against a job of ANY type, incl. warranty/service
+    // (which skip the formal certificate at CLOSED but can still have a
+    // workmanship callback). kind:'stage' routes through STAGE_TARGETS →
+    // moveCard(), whose guard (crm-pipeline.js) intercepts the move to run
+    // WarrantyClaim.promptIntake() BEFORE the stage actually changes.
+    { id: 'file_warranty_claim', label: 'File Warranty Claim', icon: '🛟',  kind: 'stage' },
+  ],
+  [S.WARRANTY_CLAIM]: [
+    { id: 'log_claim_visit',     label: 'Log Claim Visit',       icon: '📝', kind: 'action' },
+    // kind:'stage' → STAGE_TARGETS maps this to 'closed'; moveCard()'s guard
+    // intercepts (oldStageKey === 'warranty_claim') and runs
+    // WarrantyClaim.promptResolution() before allowing the move back to Closed.
+    { id: 'resolve_warranty_claim', label: 'Resolve Claim',      icon: '✅', kind: 'stage' },
   ],
   [S.WARRANTY_SCHEDULED]: [
     { id: 'log_diagnosis',   label: 'Log Diagnosis',           icon: '🔍',  kind: 'action', jobTypes: ['warranty'] },

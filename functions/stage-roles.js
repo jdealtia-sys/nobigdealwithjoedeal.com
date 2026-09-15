@@ -18,7 +18,7 @@
 
 const ROLE = { NEW: 'new', ACTIVE: 'active', JOB: 'job', WON: 'won', LOST: 'lost' };
 
-const WON  = new Set(['closed', 'install_complete', 'final_photos', 'final_payment', 'deductible_collected', 'collections']);
+const WON  = new Set(['closed', 'install_complete', 'final_photos', 'final_payment', 'deductible_collected', 'collections', 'warranty_claim']);
 const JOB  = new Set(['job_created', 'permit_pulled', 'materials_ordered', 'materials_delivered', 'crew_scheduled', 'install_in_progress']);
 const LOST = new Set(['lost']);
 const NEW  = new Set(['new']);

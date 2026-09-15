@@ -85,13 +85,18 @@ eq('contract_signed is NOT terminal (still active, not job/won)', isTerminalStag
 eq('job_created is NOT terminal (role job, in production)', isTerminalStage(S.JOB_CREATED), false);
 eq('new is NOT terminal', isTerminalStage(S.NEW), false);
 
-console.log('\n  VIEW_JOBS stays untouched (two OTHER consumers depend on its exact scope)');
+console.log('\n  VIEW_JOBS never gains contract_signed (two OTHER consumers depend on that exact scope)');
 ok('VIEW_JOBS does NOT contain contract_signed (unchanged — stageOptionsForType/resolveColumn depend on this)',
   !VIEW_JOBS.includes(S.CONTRACT_SIGNED));
-eq('VIEW_JOBS still has exactly 12 members', VIEW_JOBS.length, 12);
+// 2026-09-15 (Warranty Claim lane): 12 -> 13, warranty_claim APPENDED at the
+// end (a job-role stage that comes after closed). Appending — not
+// inserting — is why only this literal moved: neither consumer above cares
+// about VIEW_JOBS's member ORDER, only its contract_signed-exclusion and
+// membership-test semantics, both still intact.
+eq('VIEW_JOBS still has exactly 13 members', VIEW_JOBS.length, 13);
 
 console.log('\n  VIEW_JOBS_BOARD — the Jobs tab\'s real column list');
-eq('VIEW_JOBS_BOARD = [contract_signed, ...VIEW_JOBS] (13 members)', VIEW_JOBS_BOARD.length, 13);
+eq('VIEW_JOBS_BOARD = [contract_signed, ...VIEW_JOBS] (14 members)', VIEW_JOBS_BOARD.length, 14);
 eq('VIEW_JOBS_BOARD[0] is contract_signed (its own leading column)', VIEW_JOBS_BOARD[0], S.CONTRACT_SIGNED);
 ok('VIEW_JOBS_BOARD is VIEW_JOBS with exactly one prepended member',
   JSON.stringify(VIEW_JOBS_BOARD.slice(1)) === JSON.stringify(VIEW_JOBS));
@@ -228,9 +233,13 @@ console.log('\ndocument-generator.js — wiring (source-text)');
 console.log('\nmoney-dashboard.js / analytics-kpi.js — literal patched (source-text, deliberately NOT restructured)');
 {
   const mdSrc = read('docs/pro/js/money-dashboard.js');
-  ok('money-dashboard.js WON_STAGES now includes \'collections\'', /'deductible_collected', 'collections', 'Complete'/.test(mdSrc));
+  ok('money-dashboard.js WON_STAGES now includes \'collections\'', /'deductible_collected', 'collections', 'warranty_claim', 'Complete'/.test(mdSrc));
   const akSrc = read('docs/pro/js/analytics-kpi.js');
-  ok('analytics-kpi.js WON_STAGES now includes \'collections\'', /'deductible_collected', 'collections', 'Complete'/.test(akSrc));
+  ok('analytics-kpi.js WON_STAGES now includes \'collections\'', /'deductible_collected', 'collections', 'warranty_claim', 'Complete'/.test(akSrc));
+  // 2026-09-15 (Warranty Claim lane): same two self-contained literals gain
+  // 'warranty_claim' the same day, for the same reason 'collections' did.
+  ok('money-dashboard.js WON_STAGES now includes \'warranty_claim\'', /'collections', 'warranty_claim'/.test(mdSrc));
+  ok('analytics-kpi.js WON_STAGES now includes \'warranty_claim\'', /'collections', 'warranty_claim'/.test(akSrc));
 }
 
 console.log('\n' + (failed === 0 ? '✓' : '✗') + ' kanban filter unification: ' + passed + ' passed, ' + failed + ' failed');
