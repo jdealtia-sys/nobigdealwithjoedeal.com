@@ -205,8 +205,15 @@ section('Image pipeline: nested upload shapes (2026-08-16)');
   const editor = read(path.join(PRO_JS, 'photo-editor.js'));
   assert('photo-editor stamps storagePath on save-as (addDoc)',
     /addDoc\(window\.collection\(window\.db, 'photos'\), \{ url, storagePath,/.test(editor));
+  // 2026-09-14: the save-over branch now builds a `patch` variable first
+  // (rather than inlining the object literal) so it can conditionally add
+  // originalUrl/originalStoragePath before the write — but url+storagePath
+  // must still be the first two properties of that same object, and that
+  // exact object must be what's passed to updateDoc, or the invariant this
+  // test protects (storagePath moves atomically with url) is no longer
+  // pinned.
   assert('photo-editor save-over moves storagePath with the url (updateDoc)',
-    /updateDoc\(window\.doc\(window\.db, 'photos', S\.photoId\), \{ url, storagePath,/.test(editor));
+    /const patch = \{ url, storagePath, \.\.\.meta \};[\s\S]{0,900}updateDoc\(window\.doc\(window\.db, 'photos', S\.photoId\), patch\)/.test(editor));
 
   // Render side: the dashboard photo-modal grid was the "full-size
   // originals in a thumbnail grid" symptom — it must prefer the 200px
