@@ -981,9 +981,22 @@
       const installLabel = w.installDate
         ? new Date(w.installDate + 'T12:00:00').toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' })
         : '—';
-      const claimBody = encodeURIComponent(
-        "Hi — I have a warranty question about my roof. Cert " + (w.certNumber || '') + ". Can you call me back?"
-      );
+      // 2026-09-15 (Warranty Claim lane): the sms: deep link below used to be
+      // the entire flow — tapping it just opened the phone's own Messages
+      // app with a pre-filled body, which meant the "claim" existed nowhere
+      // until (if) the homeowner actually sent that text and the rep
+      // happened to read it. Now posts to reportWarrantyClaim, which drops a
+      // task + activity entry on the lead like every other portal card here.
+      const claimCta = w.openWarrantyClaimId
+        ? '<div style="text-align:center;padding:12px;background:var(--nbd-bg-tint);border:1px solid var(--br,#2a3344);border-radius:8px;font-size:13px;color:var(--muted);">🛟 Claim in progress — ' + esc(repName) + ' is on it.</div>'
+        : (
+          '<div id="wc-form">' +
+            '<textarea id="wc-issue" rows="2" maxlength="2000" placeholder="What\'s going on? (e.g. leak near the chimney, missing shingle)" ' +
+              'style="width:100%;background:var(--bg,#0a1424);border:1px solid var(--br,#2a3344);border-radius:8px;padding:10px 12px;color:inherit;font:inherit;font-size:13px;resize:vertical;margin-bottom:10px;box-sizing:border-box;"></textarea>' +
+            '<button type="button" id="wc-send" style="display:block;width:100%;text-align:center;padding:12px;background:var(--accent,#A14A22);color:#fff;border:none;border-radius:8px;font-weight:700;font-size:13px;letter-spacing:.04em;text-transform:uppercase;cursor:pointer;">🛟 Start a warranty claim</button>' +
+            '<div id="wc-status" style="display:none;margin-top:10px;padding:10px 12px;border-radius:8px;font-size:12px;"></div>' +
+          '</div>'
+        );
       parts.push(
         '<div class="card" id="wc-card" style="background:linear-gradient(135deg, rgba(189,87,40,.04), rgba(189,87,40,.01)); border:1px solid rgba(189,87,40,.35);">' +
           '<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:14px;">' +
@@ -1012,7 +1025,7 @@
             '<div style="font-size:13px;color:var(--text);">' + esc(w.work) + '</div>' +
           '</div>' : '') +
 
-          '<a href="sms:' + ((view.rep && view.rep.phone) ? view.rep.phone.replace(/\D/g, '') : '') + '?&body=' + claimBody + '" style="display:block;text-align:center;padding:12px;background:var(--accent,#A14A22);color:#fff;border-radius:8px;text-decoration:none;font-weight:700;font-size:13px;letter-spacing:.04em;text-transform:uppercase;">🛟 Start a warranty claim</a>' +
+          claimCta +
 
           '<p style="font-size:11px;color:var(--muted);margin:12px 0 0;line-height:1.5;text-align:center;">Save this page or screenshot it — your permanent warranty reference.</p>' +
         '</div>'
@@ -1100,6 +1113,10 @@
     wireUploadCard();
     // Wave 119: wire up the callback request card.
     wireCallbackCard();
+    // 2026-09-15 (Warranty Claim lane): wire up the warranty claim form
+    // (no-op if not rendered — hidden entirely without a warranty cert, and
+    // replaced with a status line instead of a form once a claim is open).
+    wireWarrantyClaimCard();
     // Wave 121: wire up the rating card (no-op if not rendered).
     wireRatingCard(view);
     // Wave 123: wire up the messaging thread + compose.
@@ -1785,6 +1802,65 @@
         setStatus('Network error: ' + (err.message || 'try again'), 'error');
         sendBtn.disabled = false;
         sendBtn.textContent = 'Send callback request';
+      }
+    });
+  }
+
+  // ─── 2026-09-15: Warranty claim report ───────────────────────────
+  // Issue description → POST to reportWarrantyClaim Cloud Function with
+  // the portal token. Server drops a task + activity entry on the lead —
+  // see functions/portal.js's reportWarrantyClaim for why this never
+  // touches lead.stage/openWarrantyClaimId directly (that's the rep's own
+  // "File Warranty Claim" click, via crm-pipeline.js's moveCard() guard).
+  function wireWarrantyClaimCard() {
+    const issueEl = document.getElementById('wc-issue');
+    const sendBtn = document.getElementById('wc-send');
+    const statusEl = document.getElementById('wc-status');
+    if (!issueEl || !sendBtn) return; // not rendered (no cert, or claim already open)
+
+    function setStatus(msg, kind) {
+      if (!statusEl) return;
+      statusEl.style.display = 'block';
+      statusEl.textContent = msg;
+      if (kind === 'error') {
+        statusEl.style.background = 'rgba(239,68,68,0.12)';
+        statusEl.style.color = 'var(--nbd-danger)';
+        statusEl.style.border = '1px solid rgba(239,68,68,0.45)';
+      } else {
+        statusEl.style.background = 'rgba(46,204,138,0.12)';
+        statusEl.style.color = 'var(--nbd-success)';
+        statusEl.style.border = '1px solid rgba(46,204,138,0.45)';
+      }
+    }
+
+    sendBtn.addEventListener('click', async () => {
+      const issueDescription = issueEl.value.trim();
+      if (!issueDescription) {
+        setStatus('Tell us what\'s going on first.', 'error');
+        return;
+      }
+      sendBtn.disabled = true;
+      sendBtn.textContent = 'Sending…';
+      try {
+        const res = await fetch(FUNCTIONS_BASE + '/reportWarrantyClaim', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ token: TOKEN, issueDescription }),
+        });
+        const json = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          setStatus(json.error || 'Could not send your report. Try again.', 'error');
+          sendBtn.disabled = false;
+          sendBtn.textContent = '🛟 Start a warranty claim';
+          return;
+        }
+        setStatus('✓ Got it! ' + esc(repName) + ' will follow up.', 'success');
+        issueEl.disabled = true;
+        sendBtn.style.display = 'none';
+      } catch (err) {
+        setStatus('Network error: ' + (err.message || 'try again'), 'error');
+        sendBtn.disabled = false;
+        sendBtn.textContent = '🛟 Start a warranty claim';
       }
     });
   }

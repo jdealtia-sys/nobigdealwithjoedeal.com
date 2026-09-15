@@ -107,11 +107,12 @@
     return Number(d.toLocaleDateString('en-CA', { timeZone: 'America/New_York' }).slice(0, 4));
   }
 
-  // 2026-09-15: added 'collections' (the same-day Collections lane) —
-  // WON_STAGES is only the fallback for a lead with no _stageRole stamped
-  // yet, per the comment below, so this list still needs to stay current
-  // even though the role-check is the real safety net for everything else.
-  var WON_STAGES = ['closed', 'install_complete', 'final_photos', 'final_payment', 'deductible_collected', 'collections', 'Complete'];
+  // 2026-09-15: added 'collections' (Collections lane), then 'warranty_claim'
+  // (Warranty Claim lane, same day) — WON_STAGES is only the fallback for a
+  // lead with no _stageRole stamped yet, per the comment below, so this list
+  // still needs to stay current even though the role-check is the real
+  // safety net for everything else.
+  var WON_STAGES = ['closed', 'install_complete', 'final_photos', 'final_payment', 'deductible_collected', 'collections', 'warranty_claim', 'Complete'];
   // Role-aware (freeform-pipeline foundation): prefer the denormalized
   // _stageRole (custom-stage-safe), fall back to WON_STAGES for un-stamped leads.
   function isWon(l) {

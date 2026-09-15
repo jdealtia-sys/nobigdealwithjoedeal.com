@@ -1541,6 +1541,12 @@ body.nbd-photo-selecting .nbd-photo-checkbox,
       <!-- JOB COSTS & PROFIT -->
       <div id="profitPanel" style="margin-bottom:16px;"></div>
 
+      <!-- WARRANTY CLAIM (2026-09-15) — rendered by WarrantyClaim.renderPanel
+           (js/warranty-claim.js). Empty/invisible unless the lead has an
+           open claim (lead.openWarrantyClaimId); no display:none toggle
+           needed since the render function itself decides. -->
+      <div id="warrantyClaimPanel" style="margin-bottom:16px;"></div>
+
       <!-- ESTIMATES -->
       <div class="panel">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
@@ -2242,6 +2248,7 @@ body.nbd-photo-selecting .nbd-photo-checkbox,
 <script defer src="js/nbd-comms.js?v=1"></script>
 <script defer src="js/stage-checklist.js?v=1"></script>
 <script defer src="js/paperwork-write.js?v=1"></script>
+<script defer src="js/warranty-claim.js?v=1"></script>
 <script defer src="js/nbd-input-guards.js?v=1"></script>
 <script defer src="js/email_system.js"></script>
 <script defer src="js/customer-gallery-share.js?v=1"></script>

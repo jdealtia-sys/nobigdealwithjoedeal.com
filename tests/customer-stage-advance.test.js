@@ -64,7 +64,14 @@ function stripComments(s) {
 const nextStageFnStart = boot.indexOf('function _nextStageFor(');
 const nextStageFn = nextStageFnStart >= 0 ? boot.slice(nextStageFnStart, nextStageFnStart + 2200) : '';
 const progressStart = boot.indexOf('window.progressStage = async function');
-const progressFn = progressStart >= 0 ? boot.slice(progressStart, progressStart + 6000) : '';
+// 2026-09-15 (Warranty Claim lane): 6000 -> 7500. The new warranty-claim
+// guard block (inserted right after the confirm prompt, before the
+// pre-flight checks) pushed the STAGE_RACE_NOOP handling near the function's
+// end past the old 6000-char window — the exact "slice too narrow" failure
+// mode this repo has hit before (see kanban-filter-unification.test.js's own
+// _ACTIVE_JOB_KEYS fix); verified empirically the offset is ~6134 chars, so
+// 7500 keeps real margin for the next small addition too.
+const progressFn = progressStart >= 0 ? boot.slice(progressStart, progressStart + 7500) : '';
 const progressFnNoComments = stripComments(progressFn);
 
 console.log('\ncustomer-stage-advance — parity with the kanban move\n');

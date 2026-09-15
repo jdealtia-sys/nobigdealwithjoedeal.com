@@ -1340,6 +1340,18 @@ function buildCard(l){
       }
     } catch (e) { /* missingRequiredFields can throw on malformed lead — degrade silently */ }
   }
+
+  // 2026-09-15 (Warranty Claim lane): flags a lead carrying an OPEN claim
+  // while sitting somewhere other than the Warranty Claim column itself —
+  // that column's own header already says "Warranty Claim" for a card
+  // there, so a second badge would be redundant. Anywhere else,
+  // openWarrantyClaimId with no matching stage is a data-integrity drift
+  // (e.g. a bulk-edit or resync bypassing moveCard()'s guard) worth a
+  // visible flag rather than a silent dangling pointer.
+  const claimBadge = (l.openWarrantyClaimId && l._stageKey !== 'warranty_claim')
+    ? `<span class="kc-tag" style="background:rgba(194,65,20,.14);color:#c2410c;border-color:#c2410c;" title="This lead has an open warranty claim">🛟 Open Claim</span>`
+    : '';
+
   let html = `<div class="k-card nbd-kc-main ${stageAgingClass}" draggable="true" data-id="${safeId}" data-action="card-click">
     <div class="k-card-checkbox nbd-kc-stop" data-action="toggle-select" data-id="${safeId}">
       <span class="k-card-checkbox-icon"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:11px;height:11px;vertical-align:middle;"><path d="M4 10.5l4 4 8-9"/></svg></span>
@@ -1387,6 +1399,7 @@ function buildCard(l){
       ${needsBadge ? '' : nextActionChip}
       ${overdue      ? `<span class="kc-tag kct-due"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:11px;height:11px;vertical-align:middle;"><path d="M10 3L2 17h16L10 3z"/><path d="M10 8v4M10 14.5v.5"/></svg> Due</span>` : ''}
       ${needsBadge}
+      ${claimBadge}
       ${roofBadge}
       ${l.hailHit && l.hailHit.sizeInches ? `<span class="kc-tag kct-dmg" style="background:rgba(255,59,59,.18);color:var(--red,#ef4444);border-color:var(--red,#ef4444);" title="Recent hail near this property">⛈ ${Number(l.hailHit.sizeInches).toFixed(1)}&quot; hail</span>` : ''}
       ${l.measurementReady ? `<span class="kc-tag" style="background:rgba(46,204,138,.14);color:var(--green,#2ecc8a);border-color:var(--green,#2ecc8a);" title="Aerial measurement — Joe still confirms on site">📐 ${/^[0-9.]{1,8} sq(?: · [0-9]{1,2}\/[0-9]{1,2})?$/.test(String(l.measurementSummary || '')) ? l.measurementSummary : 'Measurement'}</span>` : ''}
@@ -1873,6 +1886,55 @@ async function moveCard(id, newStage, opts){
       return;
     }
     // lostReason is either a string or null (skip)
+  }
+
+  // ─── Warranty-claim guard ───
+  // 2026-09-15 (Warranty Claim lane). Two directions, both must run BEFORE
+  // the lead.stage write below (same contract as the lost-reason prompt):
+  //  1. Moving INTO warranty_claim (the "File Warranty Claim" chip, or a
+  //     manual stage-picker/list-view/context-menu move) must gather a
+  //     reason + issue description and open the claim doc FIRST — a bare
+  //     stage flip with no claim record would leave the board showing "in
+  //     claim" with nothing behind it.
+  //  2. Moving AWAY from warranty_claim while a claim is still open must be
+  //     resolved or denied first — otherwise a rep could drag the card back
+  //     to Closed (or anywhere else) and silently orphan an open claim
+  //     forever, with lead.openWarrantyClaimId left dangling.
+  // Canceling either prompt cancels the whole move, exactly like a canceled
+  // lost-reason prompt above.
+  const newStageKey = window.normalizeStage ? window.normalizeStage(newStage) : newStage;
+  if (!isLostMove && newStageKey === 'warranty_claim' && oldStageKey !== 'warranty_claim') {
+    if (!(window.WarrantyClaim && typeof window.WarrantyClaim.promptIntake === 'function')) {
+      if (typeof showToast === 'function') showToast('Warranty claim tool not loaded — reload and try again', 'warning');
+      return;
+    }
+    let opened;
+    try {
+      opened = await window.WarrantyClaim.promptIntake(lead);
+    } catch (e) {
+      if (typeof showToast === 'function') showToast('Could not open the claim: ' + e.message, 'error');
+      return;
+    }
+    if (!opened) {
+      if (typeof showToast === 'function') showToast('Move canceled', 'info');
+      return;
+    }
+  } else if (oldStageKey === 'warranty_claim' && newStageKey !== 'warranty_claim' && lead.openWarrantyClaimId) {
+    if (!(window.WarrantyClaim && typeof window.WarrantyClaim.promptResolution === 'function')) {
+      if (typeof showToast === 'function') showToast('Warranty claim tool not loaded — reload and try again', 'warning');
+      return;
+    }
+    let resolved;
+    try {
+      resolved = await window.WarrantyClaim.promptResolution(lead);
+    } catch (e) {
+      if (typeof showToast === 'function') showToast('Could not resolve the claim: ' + e.message, 'error');
+      return;
+    }
+    if (!resolved) {
+      if (typeof showToast === 'function') showToast('Move canceled — claim still open', 'info');
+      return;
+    }
   }
 
   // ─── Required-field gate ───

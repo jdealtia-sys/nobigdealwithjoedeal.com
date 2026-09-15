@@ -215,8 +215,12 @@ const RUNNABLE = ['node', 'smoke'];
 //               evidence, since this rebase stacks BOTH lanes' new suites
 //               onto the same merged tree. Re-measured via --check:
 //               131/67/217.
+//   2026-09-15  131/67/217 → 132/67/218, tests/warranty-claim.test.js (the
+//               Warranty Claim lane — the third and final piece of the
+//               original three-lane CRM streamlining ask, after Collections
+//               and Paperwork Filing).
 
-const FLOORS = { node: 131, smoke: 67, disk: 217 };
+const FLOORS = { node: 132, smoke: 67, disk: 218 };
 
 // ── Argument parsing ───────────────────────────────────────────────
 const argv = process.argv.slice(2);

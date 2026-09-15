@@ -964,6 +964,39 @@ async function run() {
   await assertFails(setDoc(doc(mgrA, 'leads/leadA2/activity/mgr-webhook-forge'),
     { userId: 'mia', type: 'note', source: 'rep', note: 'x', stripeInvoiceId: 'in_123' }));
 
+  // 28b. WARRANTY CLAIMS (2026-09-15 Warranty Claim lane) — same
+  // owner-or-same-company-staff shape as documents/drawings just above,
+  // plus warrantyClaimWriteOk()'s enum gate on status/reason.
+  await assertSucceeds(setDoc(doc(alice, 'leads/leadA2/warrantyClaims/claim-owner'),
+    { status: 'open', reason: 'workmanship', issueDescription: 'leak at chimney' }));
+  await assertSucceeds(setDoc(doc(mgrA, 'leads/leadA2/warrantyClaims/claim-mgr'),
+    { status: 'scheduled', reason: 'material', scheduledDate: '2026-10-01' }));
+  await assertSucceeds(getDoc(doc(viewerA, 'leads/leadA2/warrantyClaims/claim-owner')));
+  // ❌ viewer read-only, cross-tenant staff dead, forged status/reason denied.
+  await assertFails(setDoc(doc(viewerA, 'leads/leadA2/warrantyClaims/viewer-claim'),
+    { status: 'open', reason: 'workmanship' }));
+  await assertFails(setDoc(doc(mgrB, 'leads/leadA2/warrantyClaims/xt-claim'),
+    { status: 'open', reason: 'workmanship' }));
+  await assertFails(getDoc(doc(mgrB, 'leads/leadA2/warrantyClaims/claim-owner')));
+  await assertFails(setDoc(doc(alice, 'leads/leadA2/warrantyClaims/bad-status'),
+    { status: 'made_up_status', reason: 'workmanship' }));
+  await assertFails(setDoc(doc(alice, 'leads/leadA2/warrantyClaims/bad-reason'),
+    { status: 'open', reason: 'made_up_reason' }));
+  // ✅ absence-safe — a claim update that never touches status/reason
+  // (e.g. just diagnosisNotes) still succeeds.
+  await assertSucceeds(updateDoc(doc(alice, 'leads/leadA2/warrantyClaims/claim-owner'),
+    { diagnosisNotes: 'found a gap in the flashing' }));
+
+  // 28c. openClaimIdOk() — the LEAD's own denormalized pointer field.
+  // leadD (used by the stageWriteOk/paperworkFieldsOk blocks above) is
+  // hard-deleted by section 23, so this reuses leadA2/alice like the
+  // documents/drawings block just above instead.
+  await assertSucceeds(updateDoc(doc(alice, 'leads/leadA2'), { openWarrantyClaimId: 'claim-owner' }));
+  await assertSucceeds(updateDoc(doc(alice, 'leads/leadA2'), { openWarrantyClaimId: null }));
+  await assertFails(updateDoc(doc(alice, 'leads/leadA2'), { openWarrantyClaimId: 123 }));
+  await assertFails(updateDoc(doc(alice, 'leads/leadA2'), { openWarrantyClaimId: 'x'.repeat(61) }));
+  await assertSucceeds(updateDoc(doc(alice, 'leads/leadA2'), { openWarrantyClaimId: 'x'.repeat(60) }));
+
   // 29. USER TEMPLATE-SYNC SUBCOLLECTIONS (feat/template-sync).
   //     job-templates.js mirrors + hydrates custom job templates at
   //     users/{uid}/jobTemplates/{tplId} — including the single '_usage'

@@ -102,6 +102,7 @@ Module helpers re-exported by `Object.assign(exports, …)` and therefore reacha
 | `sendPortalMessage` | onRequest | Portal token; 30 msgs/token/day, 2000-char cap, per-IP limit |
 | `getPortalMessages` | onRequest | Portal token; latest 50 messages, marks rep messages read |
 | `requestCallback` | onRequest | Portal token; 3 requests/token/day, 280-char note cap, slot whitelist |
+| `reportWarrantyClaim` | onRequest | Portal token; 10 reports/IP/min, 2000-char issue-description cap. Creates a `warrantyClaims` triage doc + task/activity; deliberately never touches `lead.stage`/`openWarrantyClaimId` (2026-09-15 Warranty Claim lane) |
 | `submitCustomerRating` | onRequest | Portal token; one rating per lead lifetime (write-once), star whitelist |
 | `recordCustomerEvent` | onRequest | Portal-token-validated homeowner audit-event capture (which photos/estimates were opened) |
 | `getSignDocument` | onRequest | Remote signing: ~120-bit single-use token, 7-day expiry, per-IP rate limit |

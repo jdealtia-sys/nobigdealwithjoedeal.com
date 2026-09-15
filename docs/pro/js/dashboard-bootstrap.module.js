@@ -27,6 +27,8 @@
     TRADES, tradeLabel, tradesLabel,
     STAGE_ACTIONS, actionsForStage, preferredActionFor,
     REQUIRED_FIELDS_BY_TYPE, requiredFieldsFor, missingRequiredFields,
+    CLAIM_STATUSES, CLAIM_STATUS_ACTIONS, preferredActionForClaim,
+    REQUIRED_FIELDS_BY_CLAIM_STATUS, missingClaimFields,
     tagClass as _tagClass
   } from './crm-stages.js';
   // Expose the new helpers to non-module scripts (crm.js)
@@ -42,6 +44,15 @@
   window.TRADES = TRADES;
   window.SUB_TYPES = SUB_TYPES;
   window.JOB_TYPE_META = JOB_TYPE_META;
+  // 2026-09-15 (Warranty Claim lane): the claim-DOCUMENT's own status
+  // sub-workflow — separate from the lead's stage. Exposed so warranty-claim.js
+  // (a plain deferred script, same window-global convention as paperwork-write.js)
+  // can read them without its own copy.
+  window.CLAIM_STATUSES = CLAIM_STATUSES;
+  window.CLAIM_STATUS_ACTIONS = CLAIM_STATUS_ACTIONS;
+  window.preferredActionForClaim = preferredActionForClaim;
+  window.REQUIRED_FIELDS_BY_CLAIM_STATUS = REQUIRED_FIELDS_BY_CLAIM_STATUS;
+  window.missingClaimFields = missingClaimFields;
 
   // ─── Estimate money: one reader, one stamping rule ──────────────────
   //
@@ -297,7 +308,9 @@
     // (2026-09-15 earlier the same day), which left #jobFieldsBlock (and its
     // scheduledDate/jobValue fields) invisible for a lead already sitting
     // there; same VIEW_JOBS membership as every other stage in this array.
-    const jobStages = ['contract_signed','job_created','permit_pulled','materials_ordered','materials_delivered','crew_scheduled','install_in_progress','install_complete','final_photos','deductible_collected','final_payment','collections','closed'];
+    // 'warranty_claim' added 2026-09-15 (Warranty Claim lane, same VIEW_JOBS-
+    // membership reasoning as 'collections' above).
+    const jobStages = ['contract_signed','job_created','permit_pulled','materials_ordered','materials_delivered','crew_scheduled','install_in_progress','install_complete','final_photos','deductible_collected','final_payment','collections','closed','warranty_claim'];
     if (job) job.style.display = jobStages.includes(stageVal) ? 'block' : 'none';
     // Smart stage dropdown — hide irrelevant track optgroups based on jobType
     window.filterStageDropdownByJobType && window.filterStageDropdownByJobType(jt);
@@ -500,7 +513,13 @@
     mark_adj_done:  'adjuster_inspection_done',
     create_job:     'job_created',
     start_install:  'install_in_progress',
-    close_job:      'closed'
+    close_job:      'closed',
+    // 2026-09-15 (Warranty Claim lane): both route through moveCard() same as
+    // every other kind:'stage' action above — the actual UI (gathering a
+    // reason/description, or requiring resolution notes) is a GUARD inside
+    // moveCard() itself (crm-pipeline.js), not here. See warranty-claim.js.
+    file_warranty_claim:    'warranty_claim',
+    resolve_warranty_claim: 'closed',
   };
 
   // Map our Next-Action chip IDs → NBDDocGen document types. The doc
