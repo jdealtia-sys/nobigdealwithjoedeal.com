@@ -277,7 +277,14 @@
     if (fin) fin.style.display = jt === 'finance' ? 'block' : 'none';
     // Show job fields if stage is post-contract
     const stageVal = document.getElementById('lStage')?.value || '';
-    const jobStages = ['job_created','permit_pulled','materials_ordered','materials_delivered','crew_scheduled','install_in_progress','install_complete','final_photos','deductible_collected','final_payment','closed'];
+    // 2026-09-15 (Paperwork Filing): added 'contract_signed' — the rep must be
+    // able to check contractFiledAt HERE, one stage before the JOB_CREATED
+    // gate that requires it, or the checkbox is invisible exactly when it's
+    // needed. Also added 'collections' — missing since the Collections lane
+    // (2026-09-15 earlier the same day), which left #jobFieldsBlock (and its
+    // scheduledDate/jobValue fields) invisible for a lead already sitting
+    // there; same VIEW_JOBS membership as every other stage in this array.
+    const jobStages = ['contract_signed','job_created','permit_pulled','materials_ordered','materials_delivered','crew_scheduled','install_in_progress','install_complete','final_photos','deductible_collected','final_payment','collections','closed'];
     if (job) job.style.display = jobStages.includes(stageVal) ? 'block' : 'none';
     // Smart stage dropdown — hide irrelevant track optgroups based on jobType
     window.filterStageDropdownByJobType && window.filterStageDropdownByJobType(jt);
@@ -496,6 +503,11 @@
     final_invoice:   'invoice',
     warranty_cert:   'warranty_certificate',
     warranty_report: 'before_after_report',
+    // 2026-09-15 (Paperwork Filing): pull_permit was kind:'action' with no
+    // handler (a named-dead "workflow marker") until crm-stages.js flipped
+    // it to kind:'doc' the same session — this is what makes the chip
+    // actually generate a document instead of logging a note.
+    pull_permit:     'permit',
     // The finance track's "Send Pre-Qual Link" chip ships as kind:'doc' but was
     // unmapped, so it fell through to the log-only tail even though the
     // financing_options template is fully defined (doc-preflight.js:762).
@@ -650,6 +662,29 @@
     return true;
   }
 
+  // mark_permit_filed is kind:'action' because it doesn't generate anything —
+  // it stamps permitFiledAt so REQUIRED_FIELDS_BY_TYPE's MATERIALS_ORDERED
+  // gate (crm-stages.js) is satisfiable. Same shape as _actionRequestSupplement
+  // above: no snapshot listener on leads, so refresh the in-memory lead and
+  // the open form field by hand. Routes through the shared
+  // commitPaperworkFiled() (paperwork-write.js) rather than a bare updateDoc
+  // so the customer-checklist.js Permit row's toggle uses the identical path.
+  function _actionMarkPermitFiled(leadId) {
+    if (!(leadId && window.PaperworkWrite && typeof window.PaperworkWrite.commitPaperworkFiled === 'function')) return false;
+    window.PaperworkWrite.commitPaperworkFiled(leadId, 'permitFiledAt', true, { actorLabel: window._currentUser?.email }).then(() => {
+      const lead = _findLead(leadId);
+      const stamp = new Date().toISOString();
+      if (lead) lead.permitFiledAt = stamp;
+      const chk = document.getElementById('lPermitFiled');
+      if (chk && (document.getElementById('lEditId')?.value || '') === leadId) chk.checked = true;
+      if (typeof showToast === 'function') showToast('✓ Permit marked as filed', 'success');
+    }).catch(err => {
+      console.warn('mark_permit_filed write failed:', err && err.message);
+      if (typeof showToast === 'function') showToast('Could not mark the permit as filed — try again', 'warning');
+    });
+    return true;
+  }
+
   // Chip ID → handler. Only IDs whose target subsystem genuinely exists are
   // listed. The ones deliberately absent (log_contact, follow_up,
   // log_adjuster, follow_supp, follow_lender, confirm_delivery, log_diagnosis,
@@ -664,7 +699,8 @@
     final_photos:    _actionOpenCamera,
     sched_inspect:   _actionOpenSchedule,
     sched_crew:      _actionOpenSchedule,
-    request_supp:    _actionRequestSupplement
+    request_supp:    _actionRequestSupplement,
+    mark_permit_filed: _actionMarkPermitFiled
   };
 
   // ─────────────────────────────────────────────────────────────────

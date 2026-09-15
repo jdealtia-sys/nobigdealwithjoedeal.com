@@ -1316,7 +1316,13 @@ function buildCard(l){
           jobValue:             'Job Value',
           financeCompany:       'Lender',
           loanAmount:           'Loan $',
-          scheduledDate:        'Schedule Date'
+          scheduledDate:        'Schedule Date',
+          // 2026-09-15 (Paperwork Filing)
+          contractFiledAt:      'Contract Filed',
+          permitFiledAt:        'Permit Filed',
+          aobFiledAt:           'AOB Filed',
+          warrantyCertFiledAt:  'Warranty Cert Filed',
+          cocFiledAt:           'COC Filed'
         };
         const niceList = missing.map(f => FIELD_LABELS[f] || f);
         const head = niceList[0];
@@ -1636,6 +1642,12 @@ const _GATE_FIELD_META = {
   financeCompany:       { label: 'Finance Company',   inputId: 'lFinanceCompany' },
   loanAmount:           { label: 'Loan Amount',       inputId: 'lLoanAmount' },
   scheduledDate:        { label: 'Scheduled Date',    inputId: 'lScheduledDate' },
+  // 2026-09-15 (Paperwork Filing)
+  contractFiledAt:      { label: 'Contract Filed',           inputId: 'lContractFiled' },
+  permitFiledAt:        { label: 'Permit Filed',             inputId: 'lPermitFiled' },
+  aobFiledAt:           { label: 'AOB Filed',                inputId: 'lAobFiled' },
+  warrantyCertFiledAt:  { label: 'Warranty Cert Filed',      inputId: 'lWarrantyCertFiled' },
+  cocFiledAt:           { label: 'Certificate of Completion Filed', inputId: 'lCocFiled' },
 };
 
 function _openLeadModalWithMissingFieldsBanner(lead, targetStage, missingFields) {

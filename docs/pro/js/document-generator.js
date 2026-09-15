@@ -288,6 +288,9 @@ window.NBDDocGen = {
                                { role: 'homeowner', label: 'Homeowner',                       required: true },
                                { role: 'rep',       label: 'Authorized NBD Representative',   required: true },
                              ] },
+    // 2026-09-15 (Paperwork Filing) — a permit is filed with a jurisdiction,
+    // not signed by the homeowner in-app, so deliberately no defaultSigners.
+    permit:                { name: 'Permit Application',              template: 'renderPermitApplication' },
     supplement_request:    { name: 'Supplement Request',              template: 'renderSupplementRequest' },
     scope_of_work:         { name: 'Scope of Work',                   template: 'renderScopeOfWork',
                              defaultSigners: [
@@ -325,6 +328,21 @@ window.NBDDocGen = {
     door_hanger:           { name: 'Door Hanger',                     template: 'renderDoorHanger' },
     neighborhood_mailer:   { name: 'Neighborhood Mailer',             template: 'renderNeighborhoodMailer' },
     testimonial_sheet:     { name: 'Testimonial Sheet',               template: 'renderTestimonialSheet' }
+  },
+
+  // 2026-09-15 (Paperwork Filing) — auto-derives a lead's *FiledAt gate field
+  // (crm-stages.js's REQUIRED_FIELDS_BY_TYPE) the moment its document is
+  // signed, so a rep who already e-signed a contract/AOB/COC never has to
+  // separately tick a "filed" checkbox for the same fact. Read by
+  // onPersistFinalized below. Permit has no entry here — no in-app signer to
+  // hook, filed via the manual "Mark Permit Filed" action instead
+  // (paperwork-write.js). warrantyCertFiledAt isn't here either —
+  // warranty-cert.js's own _persistWarrantyToLead stamps it directly,
+  // alongside the `warranty:{...}` object it already writes.
+  FILED_FIELD_BY_DOC_TYPE: {
+    contract:                  'contractFiledAt',
+    assignment_of_benefits:    'aobFiledAt',
+    certificate_of_completion: 'cocFiledAt',
   },
 
   // ============================================================================
@@ -624,6 +642,22 @@ window.NBDDocGen = {
             }
           } catch (e) {
             console.warn('Signed metadata update failed:', e && e.message);
+          }
+          // 2026-09-15 (Paperwork Filing) — auto-derive the lead-level *FiledAt
+          // gate field (crm-stages.js's REQUIRED_FIELDS_BY_TYPE) from this real
+          // signing event, so a rep who just e-signed a contract/AOB/COC never
+          // has to separately tick a manual "filed" checkbox for the same fact.
+          // Best-effort, its own try/catch — a failure here must not make the
+          // signature persistence above look like it failed.
+          try {
+            const filedField = this.FILED_FIELD_BY_DOC_TYPE[type];
+            if (filedField && _leadIdEarly && window.db && window.doc && window.updateDoc) {
+              await window.updateDoc(window.doc(window.db, 'leads', _leadIdEarly), {
+                [filedField]: new Date().toISOString(),
+              });
+            }
+          } catch (e) {
+            console.warn('Lead filed-stamp failed:', e && e.message);
           }
           // Repaint so the row picks up its '✓ Signed' state immediately.
           if (window.NBDCustomerDocs) {
