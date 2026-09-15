@@ -25,12 +25,13 @@
     stageOptionsForType, inferJobType, JOB_TYPES, JOB_TYPE_META, jobTypeLabel,
     SUB_TYPES, subTypeOptionsFor, subTypeLabel,
     TRADES, tradeLabel, tradesLabel,
-    STAGE_ACTIONS, actionsForStage,
+    STAGE_ACTIONS, actionsForStage, preferredActionFor,
     REQUIRED_FIELDS_BY_TYPE, requiredFieldsFor, missingRequiredFields,
     tagClass as _tagClass
   } from './crm-stages.js';
   // Expose the new helpers to non-module scripts (crm.js)
   window.actionsForStage = actionsForStage;
+  window.preferredActionFor = preferredActionFor;
   window.requiredFieldsFor = requiredFieldsFor;
   window.missingRequiredFields = missingRequiredFields;
   window.subTypeOptionsFor = subTypeOptionsFor;
@@ -887,8 +888,14 @@
     _run();
   }
 
-  const runLeadAction = function(actionId, kind) {
-    const leadId = document.getElementById('lEditId')?.value || null;
+  // explicitLeadId (2026-09-15): the kanban card's next-action chip calls
+  // this directly (crm-pipeline.js wireKanbanCardListeners) with the
+  // card's own lead id, since there's no open edit modal to infer it from
+  // out there. Every existing 2-arg caller (the Next Actions panel inside
+  // the edit modal) is unaffected — explicitLeadId is undefined for them,
+  // so the fallback below still reads lEditId exactly as before.
+  const runLeadAction = function(actionId, kind, explicitLeadId) {
+    const leadId = explicitLeadId || document.getElementById('lEditId')?.value || null;
     const lead = _findLead(leadId);
     // Emit for observers regardless of how the action is handled.
     document.dispatchEvent(new CustomEvent('nbd:lead-action', {

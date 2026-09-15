@@ -15,9 +15,16 @@ import { connectEmulatorsIfLocal } from "./nbd-emulator-connect.js"; // Audit #3
 import {
   stageRole as _stageRole, missingRequiredFields as _missingRequiredFields,
   stageOptionsForType as _stageOptionsForType, resolvePipelineConfig as _resolvePipelineConfig,
-  stageLabel as _stageLabel,
+  stageLabel as _stageLabel, actionsForStage as _actionsForStage,
+  preferredActionFor as _preferredActionFor,
 } from "./crm-stages.js";
 import { commitStageChange as _commitStageChange } from "./stage-write.js";
+// dashboard-bootstrap.module.js exposes these identically; mirrored here so
+// stage-checklist.js's auto-task generator (window.StageChecklist, a plain
+// script loaded on both pages) has the same functions to call regardless
+// of which page fired the stage change.
+window.actionsForStage = _actionsForStage;
+window.preferredActionFor = _preferredActionFor;
 
 
 // Canonical "what stage comes next for this lead" (2026-09-15 foundation
@@ -136,6 +143,7 @@ window.serverTimestamp = serverTimestamp;
 // stage's activity-log note reads correctly from here too, not just the
 // default built-in label.
 window.runTransaction = runTransaction;
+window.setDoc = setDoc;
 window.stageRole = _stageRole;
 window.stageLabel = (k) => {
   const resolved = _resolvePipelineConfig(window._companyProfile && window._companyProfile.pipelines);
@@ -2127,6 +2135,7 @@ window.progressStage = async function() {
   try {
     await _commitStageChange(window._customerId, nextStage, oldStage, {
       actorLabel: window.auth?.currentUser?.email,
+      jobType: lead.jobType || null,
     });
 
     // In-place update — no reload. Mirror the local state moveCard() keeps

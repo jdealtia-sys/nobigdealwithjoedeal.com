@@ -1269,23 +1269,33 @@ function buildCard(l){
   // already a 'needs X' warning chip — the rep should fix the missing
   // field before doing the next action.
   let nextActionChip = '';
-  if (!isTerminal && typeof window.actionsForStage === 'function') {
+  if (!isTerminal && typeof window.preferredActionFor === 'function') {
     try {
       const jt = l.jobType || (typeof window.inferJobType === 'function' ? window.inferJobType(l) : null);
-      const actions = window.actionsForStage(l._stageKey || l.stage, jt) || [];
       // Skip purely-cosmetic actions like "Log Contact" / "Follow Up"
       // when the stage has a real document or stage-advance action
       // available; reps want to know the *progression* step, not the
-      // catch-all log. Heuristic: prefer kind:'doc' or kind:'stage'
-      // first, fall back to the first action otherwise.
-      const preferred = actions.find(a => a.kind === 'doc' || a.kind === 'stage') || actions[0];
+      // catch-all log. preferredActionFor (crm-stages.js) prefers
+      // kind:'doc' or kind:'stage' first, falls back to the first action
+      // otherwise — single source, shared with stage-checklist.js's
+      // auto-task generator so the chip and the auto-created task always
+      // agree on what "next" means for a given stage.
+      const preferred = window.preferredActionFor(l._stageKey || l.stage, jt);
       if (preferred) {
         const icon = preferred.icon || '→';
         const label = preferred.label || preferred.id || '';
         const kindTag = preferred.kind === 'doc' ? 'kct-action-doc'
                       : preferred.kind === 'stage' ? 'kct-action-stage'
                       : 'kct-action';
-        nextActionChip = `<span class="kc-tag ${kindTag}" title="Next: ${escHtml(label)}">${icon} ${escHtml(label)}</span>`;
+        // 2026-09-15: was display-only ("clicking the chip is a no-op for
+        // now" per the sibling comment on the viewed-badge above it) — the
+        // real action list lived only inside the edit modal's Next Actions
+        // panel, one of the concrete "driven UX" gaps from the CRM
+        // streamlining pass. Now runs the SAME runLeadAction() that panel's
+        // buttons call (dashboard-bootstrap.module.js), via a dedicated
+        // data-action handled in wireKanbanCardListeners — one dispatcher,
+        // two entry points, not a second implementation.
+        nextActionChip = `<span class="kc-tag ${kindTag}" data-action="run-next-action" data-id="${safeId}" data-action-id="${escHtml(preferred.id || '')}" data-action-kind="${escHtml(preferred.kind || '')}" role="button" tabindex="0" title="Click to: ${escHtml(label)}">${icon} ${escHtml(label)}</span>`;
       }
     } catch (_) { /* degrade silently */ }
   }
@@ -1896,6 +1906,7 @@ async function moveCard(id, newStage, opts){
     const { commitStageChange } = await _stageWriteMod();
     const { historyEvent } = await commitStageChange(id, newStage, oldStage, {
       isDrag, isLostMove, lostReason, actorLabel: window._currentUser?.email,
+      jobType: lead.jobType || null,
     });
 
     // Update local state with history
@@ -2193,6 +2204,19 @@ function wireKanbanCardListeners(container) {
       const r = el.getBoundingClientRect();
       window.KanbanContextMenu.open(el.dataset.id, r.right, r.bottom);
     },
+    // 2026-09-15: the next-best-action chip — was display-only, now runs
+    // the SAME runLeadAction() the edit modal's Next Actions panel calls
+    // (dashboard-bootstrap.module.js), registered via __NBD_CALL_REGISTRY
+    // (the CSP-safe delegated-dispatch allowlist every other cross-module
+    // action call in this app already goes through) with the card's own
+    // lead id as an explicit 3rd arg — the panel's version infers the lead
+    // from the currently-open edit modal, which isn't open here.
+    'run-next-action': (el) => {
+      const registry = window.__NBD_CALL_REGISTRY;
+      if (registry && typeof registry.runLeadAction === 'function') {
+        registry.runLeadAction(el.dataset.actionId, el.dataset.actionKind, el.dataset.id);
+      }
+    },
   };
 
   container.addEventListener('click', (ev) => {
@@ -2209,6 +2233,17 @@ function wireKanbanCardListeners(container) {
 
     const fn = handlers[action];
     if (fn) fn(actionEl, ev);
+  });
+
+  // Keyboard activation for the handful of data-action elements that carry
+  // role="button" (currently just the next-action chip — a real focusable
+  // control on the card face, not just click-only).
+  container.addEventListener('keydown', (ev) => {
+    if (ev.key !== 'Enter' && ev.key !== ' ') return;
+    const actionEl = ev.target.closest('[data-action][role="button"]');
+    if (!actionEl || !container.contains(actionEl)) return;
+    ev.preventDefault();
+    actionEl.click();
   });
 
   // Photo thumbs use a separate class because they don't have a data-action.
