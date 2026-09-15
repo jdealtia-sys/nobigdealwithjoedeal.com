@@ -32,6 +32,7 @@ const { FieldValue } = require('firebase-admin/firestore');
 const RESEND_API_KEY = defineSecret('RESEND_API_KEY');
 const EMAIL_FROM = defineSecret('EMAIL_FROM');
 const { secretValue } = require('./_shared');
+const { resendRejected, resendErrorMessage } = require('../resend-guard');
 
 const MAX_ATTEMPTS = 5;
 
@@ -130,7 +131,7 @@ exports.emailQueueWorker = onSchedule(
       }
 
       try {
-        await resend.emails.send({
+        const response = await resend.emails.send({
           from: fromAddr,
           to,
           subject: String(data.subject || '(no subject)').slice(0, 200),
@@ -138,6 +139,13 @@ exports.emailQueueWorker = onSchedule(
           html: data.bodyHtml ? String(data.bodyHtml).slice(0, 100_000) : undefined,
           reply_to: data.replyTo || undefined
         });
+        // Resend resolves { data: null, error } on an API-level rejection
+        // instead of throwing — without this check a rejected send is
+        // marked 'sent' and never re-queued, defeating the retry state
+        // machine this worker exists to provide (see file header).
+        if (resendRejected(response)) {
+          throw new Error(resendErrorMessage(response));
+        }
         await doc.ref.update({
           status: 'sent',
           sentAt: FieldValue.serverTimestamp()

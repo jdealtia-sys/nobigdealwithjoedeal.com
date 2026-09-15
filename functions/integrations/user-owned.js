@@ -210,8 +210,8 @@ const STORAGE_PREFIXES = [
   // pdf-renders/{uid}/{ts}-{slug}.pdf — server-rendered invoices, contracts,
   // warranties and reports (render-pdf.js). In neither the export nor the
   // erasure sweep since the renderer shipped. Objects written before
-  // 2026-09-08 carry permanent download tokens, which makes deleting them
-  // the only revocation available.
+  // 2026-09-08 carry permanent download tokens (19 of 21 in prod), which
+  // makes deleting them the only revocation available.
   'pdf-renders',
 ];
 

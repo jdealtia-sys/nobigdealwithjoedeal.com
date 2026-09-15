@@ -406,7 +406,20 @@ exports.stripeWebhook = onRequest(
 
     const stripe = getStripe();
     const sig = req.headers['stripe-signature'];
-    const webhookSecret = STRIPE_WEBHOOK_SECRET.value();
+    // '__unset__' stub → null, never a candidate. Bare .value() has no such
+    // guard — if this secret is ever unbound in prod, '__unset__' would be
+    // handed to constructEvent as the HMAC key, and anyone who signs a
+    // payload with that PUBLIC, documented literal would pass verification.
+    // Fail closed instead, same posture as every sibling webhook verifier
+    // (invoiceWebhook below, calcomWebhook, thumbtackWebhook, swathWebhook,
+    // measurementWebhook, esign's webhook).
+    const { secretValue } = require('./integrations/_shared');
+    const webhookSecret = secretValue(STRIPE_WEBHOOK_SECRET);
+    if (!webhookSecret) {
+      logger.error('stripeWebhook: STRIPE_WEBHOOK_SECRET not set — rejecting unsigned request');
+      res.status(503).json({ error: 'Webhook not configured' });
+      return;
+    }
 
     // H-6: Stripe requires the RAW request body for signature
     // verification. If rawBody is missing (middleware re-parsed as

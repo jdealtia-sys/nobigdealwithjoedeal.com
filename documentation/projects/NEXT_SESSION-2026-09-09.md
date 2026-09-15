@@ -16,6 +16,28 @@ inaccurately after two days. Claims below that rest on **production** state
 those agents and are marked ⚠︎; I verified the repo-side mechanism of §1 myself
 and marked it accordingly. Treat ⚠︎ lines as leads to re-run, not as facts.
 
+**UPDATE 2026-09-08 (late evening, after this brief was written):** the
+appearance-lab build plan ([SESSION-2026-09-08-appearance-lab-exploration](SESSION-2026-09-08-appearance-lab-exploration.md))
+shipped same-day — Phase 0 overlay-engine fixes (#1522), Shape & Depth (#1524),
+Material/Shop Copy+Golden Hour (#1525), and Live Atmospheres/Galaxy Drift
+(#1527), none of which this brief's §0–§N lanes below account for. A same-
+evening QA pass live-tested all four against the real emulator (not just
+read) and found and fixed four real defects — see
+[APPEARANCE-LAB-QA-2026-09-08](../audit/APPEARANCE-LAB-QA-2026-09-08.md):
+Shape/Material preferences were write-only to `userSettings/{uid}` (never
+read back, so the "follows you across devices" claim was false), the Shape &
+Depth presets' motion tokens (`--shape-ease`/`--shape-dur`) were dead CSS,
+`.btn-orange` (the app's primary/CTA button class) never picked up the
+Pressed preset's emboss shadow, and Shop Copy's critical-aging pipeline card
+kept the default bright-red urgency pulse clashing with its own carbon
+palette (Golden Hour had fixed the identical seam for itself in the same
+PR). All four fixed and re-verified live; full gate suite green
+(3810/3810 smoke assertions, syntax, site-integrity). One initial "the
+Galaxy Drift animation freezes after ~8 frames" observation turned out to be
+a Browser-pane rendering artifact, not a real bug — confirmed via a real
+Playwright Chromium run before writing it up; see the audit note before
+trusting any future report of this same symptom.
+
 ---
 
 ## §0 — Jo's queue
@@ -354,6 +376,28 @@ Neither appears in any brief. That is how work silently drops out.
 - **Prove a gate can fail against the defect's real shape**, not a strawman —
   and prefer structural matching (strip comments, anchor to `{\s*await`) over
   positional `{0,N}` windows, which pass or fail on comment length.
+- **…but "strip comments" over a WHOLE FILE runs away on this repo, in both
+  orderings.** Read that as a qualifier on the bullet above, not a contradiction
+  of it. Stripping block comments first: a `//` comment containing `'image/*'`
+  at `customer-bootstrap.module.js:2336` opens a `/*`…`*/` match that runs
+  **46,262 chars** to the next `/* ignore */` and eats the literal under
+  assertion (178,051 → 89,828 bytes). Stripping `*`-prefixed lines first instead:
+  every JSDoc loses its closing `*/` and its `/**` runs away. An *absence*
+  assertion over a corpus missing the region it guards passes **vacuously**.
+  **Slice the region out of raw source first, strip the slice** — small enough
+  to eyeball, and it narrows the assertion for free. Done that way in
+  `photos-timestamp-contract.test.js` (#1497);
+  `photo-report-builder.test.js` still carries the whole-file form — it survives
+  today but is one stray `'image/*'` from being quietly wrong.
+  See [PHOTOS-CREATEDAT-WRITER-GAP-2026-09-08](../audit/PHOTOS-CREATEDAT-WRITER-GAP-2026-09-08.md).
+- **A missing write-field is invisibility, not mis-ordering.** Firestore
+  `orderBy` silently EXCLUDES documents lacking the ordered field. `/photos` had
+  **six** create paths and the contract test asserting "EVERY write path stamps
+  `createdAt`" enumerated four — the two it never named were the two that were
+  broken, including the server-side `functions/portal.js` one. When you touch a
+  field an `orderBy` names, grep every `addDoc`/`setDoc`/`.add(` into that
+  collection, **client and `functions/` both**, and make a test that says
+  "every" carry a count rather than a hand-written list.
 - **Run every runnable bucket.** `run-test-manifest.js` accepts only `node` and
   `smoke` (`RUNNABLE`, `:51`); `smoke.test.js` is itself one of the 14
   `wired-individually` entries, so it needs its own line:
@@ -402,6 +446,15 @@ Neither appears in any brief. That is how work silently drops out.
   post-merge line.
 - `BOOT-WEIGHT-2026-09-06.md`'s last section is dated 09-06 for work that
   merged 09-07 and never spells "#1449", so it is unfindable by PR number.
+- **THIS brief now has two `## §7` headings** — "Added 2026-09-08 evening: the
+  claims audit lane" at the top (inserted between §0 and §1) and "Traps worth
+  carrying" lower down. §0's `See §7.` therefore resolves to whichever a reader
+  reaches first. Next free number is §12. Left unrenumbered deliberately: the
+  claims-audit lane is another session's live section and renumbering it blind
+  is how the last two slips happened — which §7's own "when two sessions append
+  to the same brief" trap already warns about. This is the third instance in
+  three days, so the trap is not landing; a heading-uniqueness assertion in
+  `check-vault-index.js` would catch it for free.
 
 ---
 
@@ -461,15 +514,29 @@ Paged Media margin box; nothing in the pipeline can honour it.
 
 1. **No share link.** `createReportShareToken` only accepts a `reportId` in the
    top-level `reports` collection; a filed photo report is a `documents` row.
+   — PR #1499 open against this.
 2. **`pdf-renders/` has no Storage rule**, and in download-token mode the URL
-   never expires.
+   never expires. — PR #1504 open against this.
 3. **Annotations are destructive** — `photo-editor.js` builds arrows, callouts,
-   stamps and measurements and persists none of it.
-4. **Three incompatible `damageType` vocabularies** collide in one count.
-5. **Customer-page uploads write no `createdAt`**, so report order is arbitrary
-   for them.
+   stamps and measurements and persists none of it. **Still open, no PR.**
+4. ~~**Three incompatible `damageType` vocabularies** collide in one count.~~
+   **CLOSED — #1503, merged and deployed 2026-09-08.** It was **four**, not
+   three: the `customer.html` bulk bar wrote a fourth, kebab-case set, and the
+   two Title Case lists disagree with each other. Case was never the break —
+   `normKey` already lowercased — so the damage was separator/wording drift,
+   which silently downgraded a tier-2 pair into a **mislabeled "Project
+   overview"** tier-3 pair. Full write-up:
+   [PHOTO-DAMAGETYPE-VOCABULARY-2026-09-08](../audit/PHOTO-DAMAGETYPE-VOCABULARY-2026-09-08.md).
+   **One thing carried forward:** `scripts/backfill-photos-damageType.js` is
+   written, gated and tested but **has not been run against prod**. It is
+   optional — the fix normalises on read as well as on write, so the app is
+   already correct — but stored data still holds all four spellings, so a raw
+   export or a `where('damageType','==',…)` filter will not agree with the UI.
+   Dry-run prints a fold map with counts before writing anything.
+5. ~~**Customer-page uploads write no `createdAt`**, so report order is arbitrary
+   for them.~~ **CLOSED — #1497, merged.**
 6. **The report number is `Date.now().toString().slice(-6)`** — unsequenced,
-   and it changes on every regeneration.
+   and it changes on every regeneration. — PR #1499 open against this.
 
 ### Trust level on that list
 
@@ -753,8 +820,333 @@ completeness tripwire **locally** for everyone —
 place rather than deleted, because deleting an untracked file is unrecoverable
 and it is not this lane's to remove.
 
+## §12 — The server-PDF lane (added 2026-09-08, PR #1505)
 
-## §12 — GDPR Storage prefix registry (added 2026-09-08, PR #1508)
+Every server-rendered document — warranty, estimate, invoice, contract, change
+order, receipt, inspection, photo report — had been failing **100% of the time**
+at `stage: launch` since **2026-06-24**. About eleven weeks. Full write-up:
+[RENDERPDF-CHROMIUM-INTEROP-2026-09-08](../audit/RENDERPDF-CHROMIUM-INTEROP-2026-09-08.md).
+
+### What was broken
+
+`@sparticuz/chromium` **149 dropped its CommonJS build**. Its package.json is
+`"type":"module"` with a single `"default"` export condition, so `require()` on
+the nodejs22 runtime takes the `require(esm)` path and returns the ES module
+**namespace** — `{ __esModule, default, inflate, setupLambdaEnvironment }` — not
+the module. The API is a class on `.default`, so `chromium.executablePath` read
+`undefined` and `await undefined()` threw.
+
+**148 had no `.default` at all** (dual CJS/ESM, with a `"require"` condition), so
+the version bump alone broke it with **no code change**. Verified by installing
+both versions and comparing their `exports`, not by reasoning about interop.
+
+`chromium.args` was `undefined` too — the error surfaced on `executablePath`
+only because that one is *called*. A fix touching just the thrower would have
+launched Chromium with **none of its 22 flags**, `--no-sandbox` and
+`--single-process` included, and failed one line later.
+
+### Why it survived eleven weeks
+
+**The client fallback hid it.** `docs/pro/` catches the `HttpsError` and falls
+back to `html2canvas`, so customers kept receiving *a* document and nothing ever
+looked broken from outside. This is the finding that reaches past this lane: when
+auditing a server path, **ask what the client does when it fails** — a graceful
+fallback is exactly where a total outage hides.
+
+### The bigger finding: no alert policy is deployed
+
+`monitoring/alert-functions-error-rate.json` *does* name `renderpdf`, so on paper
+this was covered. Two independent reasons it was never going to fire:
+
+```bash
+gcloud alpha monitoring policies list --project=nobigdeal-pro --format=json
+# []
+```
+
+**Ten policy definitions in `monitoring/`; zero exist in the project.** Positive-
+controlled — `channels list` returns the two channels those same files reference,
+so the empty array is real, not a format quirk or a credentials problem.
+Everything the repo believes it watches is unwatched: backup-cron-stale,
+claude-budget-exceeded, email-queue-worker-stale, function-latency,
+functions-error-rate, migrations-tick-stale, rate-limit-spike,
+tenant-microsite-errors, validateAccessCode-bruteforce, voice-processing-failures.
+
+And **even deployed it could not have caught this**: the condition is `>50` errors
+over a `300s` `ALIGN_RATE` window — a *spike* detector — against **22 failures in
+three weeks**. The threshold alone is double the outage's entire failure volume.
+
+### What shipped
+
+- `resolveChromium()` probes for the API rather than unwrapping `.default`
+  unconditionally, so it survives the package flipping back to CJS. An
+  unrecognised shape throws a message naming the package and the keys it saw.
+- `metrics/renderPdf` records both outcomes; the health digest reports it **in
+  the subject line**, keyed on `failRecent && !okRecent` — a **missing success**,
+  not a failure count. At 22 calls in three weeks, any volume threshold sleeps
+  through a total outage. Reuse that shape for other low-volume paths.
+- Two zero-dep suites that vm-sandbox the real functions, because a source regex
+  for `.default` matches the broken code just as happily.
+
+### Open, in the order I would take them
+
+1. **Confirm a `[renderPdf] ok` line in production.** Chromium ships a Linux x64
+   binary and cannot be launched off Linux, so *nothing in this repo proves the
+   browser actually boots in the deployed function*. This path has never once
+   succeeded on 149, so a second failure further down the launch sequence is
+   possible. Render any document and check. **This is the one item that decides
+   whether the lane actually worked.**
+2. **Deploy the ten alert policies**, then re-run the `list` above to confirm they
+   exist. Deliberately not done in #1505 — a prod change, and Jo's call. Worth
+   doing, but it would not by itself have caught this outage.
+3. **Consider whether other paths have the same shape**: a server failure behind
+   a client fallback, on low enough volume that a spike threshold cannot see it.
+
+### Traps worth carrying
+
+- **A dependency bump can break a call site with no code change.** Check interop
+  empirically — install both versions and diff their `exports` — never reason
+  about it. On a Node without `require(esm)` this would have been a loud
+  `ERR_REQUIRE_ESM`; because the runtime *supports* it, the failure degraded into
+  a property read returning `undefined`, which is why it read as a code bug.
+- **After an interop fix, check every sibling read off the same object.**
+  `args` was broken identically and silently.
+- **The `FLOORS` line in `run-test-manifest.js` collided twice in this one lane**
+  (the sixth and seventh times on 2026-09-08). Both resolved by **measuring the
+  merged tree**, never arithmetic — and one of those merges silently produced a
+  **duplicate INDEX row**, caught only by scanning for duplicated links rather
+  than trusting a clean auto-merge. If this line keeps costing sessions, how the
+  ratchet is stored may be worth revisiting.
+- **The brief that opened this lane cited
+  `documentation/audit/PDF-RENDER-RETENTION-2026-09-08.md`** as recording the
+  finding in full. That file **does not exist** — not in any worktree, not on
+  `main`, not anywhere in history. A precise-sounding task prompt can name a
+  document that was never written.
+## §13 — The pdf-renders lane (added 2026-09-08, PR #1504)
+
+**Numbering note:** this was written as §12 and renumbered on rebase — #1516
+took §12 (the server-PDF lane) by merging first, exactly as predicted when this
+section was drafted. #1508 also edits this file and is still open, so a further
+renumber is possible. Nothing else here depends on the number.
+
+Closes open item 2 of [SESSION-2026-09-08-photo-report-builder](SESSION-2026-09-08-photo-report-builder.md)
+and §9's open item 2. Full write-up:
+[PDF-RENDER-RETENTION-2026-09-08](../audit/PDF-RENDER-RETENTION-2026-09-08.md).
+
+`pdf-renders/{uid}/` held every server-rendered customer document — invoice,
+contract, change order, warranty, inspection, photo report — with **no
+`storage.rules` block and no reaper**, so it only ever grew and its posture was
+stated nowhere. It was also not private: `render-pdf.js` stamped a
+`firebaseStorageDownloadTokens` value at **upload**, unconditionally, on the
+happy path as much as the signing-failure path it was added for. **19 of 21 prod
+objects carried one**, and an unauthenticated HEAD on a customer roofing
+contract returned `200 OK, application/pdf` — the same URL with the token
+stripped returned `403`, which is the control that proves the token is what
+granted access.
+
+**The brief's premise was half wrong, and it mattered.** The IAM signBlob gap it
+blamed is **closed** — `717435841570-compute@` holds
+`roles/iam.serviceAccountTokenCreator`, so signing is the live path and the
+fallback should never fire. `urlMode` recorded which URL was *returned*; it
+never described which objects were *reachable*. The token is now minted lazily
+inside the signing-failure handler, so only genuinely unsignable renders carry
+one and `urlMode` becomes a true record.
+
+Shipped: the explicit rules block (owner/admin read, `write: if false` — which
+also denies delete, so a rep cannot overwrite a rendered invoice), a 30-day
+reaper (`functions/pdf-render-retention.js`), the lazy token, `cacheControl`
+`public` → `private`, and `pdf-renders` added to `STORAGE_PREFIXES`.
+
+### Before you merge
+
+- **#1508 adds `pdf-renders` to `STORAGE_PREFIXES` as well** — its own note says
+  so. **Second one in drops the duplicate line.** #1508 also replaces the
+  hand-maintained smoke assertion this branch edited with a derived gate
+  (`scripts/check-storage-prefix-registry.js`); if #1508 lands first, this
+  branch's edit to that assertion in `tests/smoke/auth.test.js` is superseded
+  and should go.
+- **One-way door.** The reaper's first run after deploy deletes **all 21
+  current objects** — the newest is ~11 weeks old. That IS the remediation,
+  since deleting is a download token's only revocation. But if any of those
+  links are live in a customer's inbox, they break.
+
+### Why a reaper and not a bucket lifecycle rule
+
+A `matchesPrefix` lifecycle rule does the same deletion for free and was the
+first choice. Rejected because lifecycle config is **bucket state, not repo
+state** — nothing in the tree would record it and a console edit could silently
+disable it, which is exactly how `firestore-backup.js`'s "one-time operator
+setup" never got run and all three backup functions failed nightly from the day
+they shipped. And a lifecycle rule cannot log the zero run that distinguishes
+"nothing old" from "job is dead".
+
+### Carry this: a survey that can only return "clean" is not evidence
+
+The first token survey reported **0 of 21 tokened** — twice, confidently, and
+wrongly. Two independent causes, either alone sufficient:
+
+- `gcloud storage objects describe --format="value(metadata)"` returns **empty**
+  for custom metadata. So does `--format="value(custom_fields)"`, even though
+  `custom_fields:` is the key the unformatted output prints. Grep the raw
+  description; never trust a `--format` key you have not watched produce a
+  non-empty value.
+- A path list built with `gcloud storage ls > file` on Windows carries `\r`.
+  Fed to `while read -r`, every `describe` fails, `2>/dev/null` hides it, and
+  all N objects report "no token" **uniformly**. `tr -d '\r'` took it 0 → 19.
+
+What caught both was a **positive control** — dumping one object's full
+description showed a token the survey had just called absent. Uniform negatives
+across every object are the tell.
+
+### Still open
+
+- **`homeowner-uploads/` has no rules block** and `esign/` has no reaper — both
+  from #1508's sweep, neither this lane's to close.
+- Nothing diffs the live bucket's actual prefixes against `storage.rules`, so a
+  prefix that exists only as an admin-SDK write is still discoverable only by
+  reading code.
+
+---
+
+## §14 — Storm History Report doc type + mobile audit (added 2026-09-09)
+
+Jo's ask: turn the free 5-year NOAA data the public `/storm-report` page
+already pulls into a one-click CRM document — "save me from having to buy a
+GAF weather report." Shipped, then a same-session follow-up on his own
+report that Files "doesn't seem quite the same" on his phone turned into a
+scoped mobile audit. **Uncommitted at session end** — branch
+`fix/gbb-tier-consolidation`, no PR opened, Jo has not asked for one yet.
+Full write-up:
+[SESSION-2026-09-09-storm-history-report-and-mobile-audit](SESSION-2026-09-09-storm-history-report-and-mobile-audit.md).
+
+**Shipped:** a new `storm_history_report` document type
+(`document-generator-templates.js`/`.js`), reusing `functions/storm-report.js`'s
+existing free, cached, unauthenticated endpoint same-origin — no new
+function, no new secret. Wired into both `customer.html` and `dashboard.html`
+Template Library. 377 docgen-render assertions (was 366), all green.
+
+**Two real bugs the live emulator test caught, both fixed:** a cold-cache
+IEM lookup took 38s server-side (5 sequential yearly fetches) against a 20s
+client timeout — bumped to 60s, repeat lookups are 2ms (cached); and the CTA
+banner claimed "Verified storm activity" even on a **zero-event** report —
+now honest, locked in with a regression test.
+
+**Mobile audit, same root cause found three times:** tab/chip/stat rows
+styled `overflow-x:auto` with the scrollbar effectively invisible on iOS, so
+they silently truncate. Fixed with a CSS `mask-image` right-edge fade (no
+JS) on `customer.html`'s `.jump-nav` (Files/Messages/Contact were going
+undiscovered — almost certainly Jo's actual complaint), `dashboard.html`'s
+pipeline stage-filter row, and Close Board's stats row. Three more matches
+of the same CSS pattern (`.map-fab-bar`, `.step-bar`, `.crm-rev-strip`) were
+checked and are dead code / a superseded legacy view — correctly left
+untouched rather than "fixed" for nothing.
+
+### Open, in the order I would take them
+
+1. **The estimate builder (V2) was never reached at mobile width** — highest
+   density of tables/pricing UI in the CRM, never swept this session.
+   Highest-value next mobile check.
+2. **Mobile audit is scoped, not exhaustive** — Prospects, Drawing Tool,
+   Sales Training, Products, Job Templates, Expenses, Money, Settings,
+   Leaderboard, Rep OS all unchecked.
+3. **Cross-tenant same-origin assumption for the storm-report fetch is
+   unverified** against an actual second tenant custom domain.
+4. **Unrelated finding, not fixed:** re-opening an already-generated
+   document's "View" button hits production `cloudfunctions.net` against
+   the local emulator and CORS-fails — a lazy `getFunctions()` call site in
+   `customer-documents.js` (and the same shape in
+   `document-generator.js:_tryServerRender`) never routes through
+   `nbd-emulator-connect.js`. Local-dev-only, does not affect production.
+   Worth a session of its own only if local doc-gen testing keeps coming up.
+
+---
+
+## §15 — The Google-reviews lane (added 2026-09-08, PR #1518)
+
+> **UPDATE 2026-09-13:** rebased a second time (onto `main` at `d7506665`,
+> tenth-plus collision on the `FLOORS` line — see
+> [scripts/run-test-manifest.js](../../scripts/run-test-manifest.js)'s own
+> history for the count). **Item 1 below is now done, same session:** both
+> secrets are set to real values (`NBD_PLACE_ID` found with zero key exposure
+> via the site's own published `g.page/r/CXzIjLwvtRPdEBM` review-link
+> redirect, not the Place ID Finder widget — that page's live demo never
+> initialized when driven headlessly), the "NBD Places API" key's restriction
+> was widened from legacy `places-backend.googleapis.com` to also cover
+> `places.googleapis.com` (Places API (New) — it was scoped to the legacy
+> service only), and `getGoogleReviews` has been redeployed. `curl
+> /api/google-reviews` now returns real data live: 5.0★, 29 reviews. Item 2
+> is confirmed real, not hypothetical — see the note added there. Items 3–4
+> are still open.
+
+**[PR #1518](https://github.com/jdealtia-sys/nobigdealwithjoedeal.com/pull/1518)**
+was 21/21 green and `mergeStateStatus: CLEAN` when opened, then went
+`CONFLICTING` as later lanes landed on `main`; this rebase should restore it
+to mergeable pending CI. Nothing is wrong with the fix itself.
+
+Full write-up:
+[GOOGLE-REVIEWS-UNCONFIGURED-2026-09-08](../audit/GOOGLE-REVIEWS-UNCONFIGURED-2026-09-08.md).
+
+### What it found
+
+`getGoogleReviews` logged **4,017 ERROR lines in the 30-day retention window
+for a feature that has never once worked.** Both secrets have exactly one
+version each, created **2026-04-21T19:10** — the day the function first landed
+— and both hold the deploy's `__unset__` stub. The README runbook was never
+run. Live Google reviews have never rendered, on any of the 17 pages that
+carry the widget.
+
+Not a regression. Not the #1505 deploy. It was never wired up.
+
+The PR fixes only the *reporting* half: not-configured is now its own branch
+ahead of the try/catch, throttled to one WARN per warm instance per hour,
+carrying `event: 'google_reviews_not_configured'` and naming which secret is
+missing. Genuine Places failures stay at ERROR, so an error line from that
+service now means something is actually broken.
+
+### Open — needs Jo, in the order they unblock each other
+
+1. ~~**Set the two secrets.**~~ **Done 2026-09-13** — see the update note
+   above. One correction to the README's own step 3: it says create the key
+   with **Application restrictions: None**; the actual key ("NBD Places
+   API") already existed with no application restriction, just an *API*
+   restriction limited to the legacy Places API — that's the part that
+   needed widening, not an application-restriction change.
+2. ~~**Expect the visual baselines to break the moment that lands.**~~
+   **Confirmed, not hypothetical, 2026-09-13** — live reviews are now
+   rendering. Re-bless `tests/e2e/visual-regression.spec.js-snapshots/`'s
+   `landing--*` baselines in whichever PR next touches that section (PR2 of
+   the homepage cut already plans a re-bless for unrelated structural
+   reasons — bundle it there rather than opening a bless-only PR).
+3. **Stop CI calling the production function** (§3 of the audit note). Its own
+   PR, because the obvious fix moves the same baselines as item 2 — consider
+   doing 2 and 3 together.
+4. **Add `getgooglereviews` to `alert-functions-error-rate.json`'s service
+   regex.** It is absent, so even fully deployed that alert would never have
+   fired here. Worth doing now that #1518 is deployed and the function has
+   real traffic to alert on — the "wait until this merges" reasoning that
+   applied on 09-08 no longer does. Still worth nothing until the ten
+   policies are actually deployed (§5a of the renderPdf note; re-verified
+   first-hand this session with a positive control — `policies list` is
+   `[]`, `channels list` returns the two channels those files reference).
+
+### The trap worth carrying out of this lane
+
+**CI's E2E runs hit the deployed production functions.** `emulators:exec --only
+hosting` runs without the functions emulator, so every `"function"` rewrite in
+`firebase.json` resolves to prod. Measured on this endpoint:
+
+```
+    976 http://127.0.0.1:5000              <- CI, Azure runner IPs
+     22 https://nobigdealwithjoedeal.com   <- actual customers
+```
+
+**97.7% of that function's production traffic was CI.** So: before reading a
+prod error or traffic volume as customer impact, break it down by
+`httpRequest.referer`. A "burst" of 4 errors in 20 seconds here was parallel
+Playwright shards, not a retry loop — there is no retry anywhere in that path.
+Two live consequences: CI silently depends on those prod functions being up,
+and it can 429 itself against the per-IP limiter (60/min on this route).
+
+## §16 — GDPR Storage prefix registry (added 2026-09-08, PR #1508)
 
 `STORAGE_PREFIXES` in `functions/integrations/user-owned.js` drives **both**
 halves of `compliance.js` — the Art. 15 export and the Art. 17 erasure sweep.
@@ -828,6 +1220,10 @@ GET branch and asserts it holds no write calls.
 4. **Nothing diffs the live bucket against the registry.** Every gate here is
    static analysis; a prefix written from outside the scanned tree would evade
    it.
+
+**Correction, 2026-09-15 (rebase onto main):** items 1, 2 and 4 above are
+still open. Item 3 is now moot — `homeowner-uploads/` got a `storage.rules`
+block via #1553 (2026-09-14), independently of this lane.
 
 Full write-up:
 [GDPR-STORAGE-PREFIX-REGISTRY-2026-09-08](../audit/GDPR-STORAGE-PREFIX-REGISTRY-2026-09-08.md).

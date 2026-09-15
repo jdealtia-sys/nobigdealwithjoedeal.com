@@ -9,6 +9,13 @@
  *   3. Create an `appointments/{id}` doc scoped to that rep.
  *   4. Link it to an EXISTING CRM lead when the attendee's email or
  *      last-10 phone matches one in that rep's pipeline (M-1).
+ *   PHONE + ADDRESS (2026-09-13): both are resolved by calcom-logic.js from
+ *      whichever field Cal.com used. The documented payload carries NO
+ *      phone on attendees[] — the Phone question arrives at
+ *      responses.attendeePhoneNumber and a phone-call event's number in
+ *      responses.location — and until this change nothing here read
+ *      `responses`, so every booking landed phone-less. See that module and
+ *      tests/calcom-webhook-payload.test.js.
  *   5. Otherwise CREATE the lead (M-2, added 2026-08-28 / PR #1288):
  *      `leads/{calcom__<bookingId>}`, same doc shape as the public-lead
  *      bridge, source 'Website — Cal.com booking', deterministic id +
@@ -43,8 +50,8 @@ const { getAuth } = require('firebase-admin/auth');
 const { FieldValue } = require('firebase-admin/firestore');
 const crypto = require('crypto');
 const { getSecret, hasSecret, SECRETS } = require('./_shared');
-const { phoneDigits10 } = require('../phone-utils');
 const L = require('../lead-bridge-logic');
+const CL = require('./calcom-logic');
 
 exports.calcomWebhook = onRequest(
   {
@@ -146,19 +153,15 @@ exports.calcomWebhook = onRequest(
         // rep's card / smart-calendar can resolve it authoritatively instead of
         // fuzzy attendee-NAME matching (which breaks on nicknames/typos). Best-
         // effort: match attendee email or last-10 phone within the rep's leads.
+        // Resolved once, before M-1, from whichever field Cal.com used.
+        const resolved = CL.resolveAttendeePhone(payload);
+        const resolvedAddress = CL.resolveBookingAddress(payload);
         let leadId = null;
         try {
-          const email = (attendee && attendee.email || '').toLowerCase().trim();
-          const phone = (attendee && attendee.phoneNumber || '').replace(/\D/g, '');
-          if (email || phone.length >= 10) {
+          const email = String((attendee && attendee.email) || CL.responseValue((payload.responses || {}).email) || '').toLowerCase().trim();
+          if (email || resolved.phoneDigits) {
             const mine = await db.collection('leads').where('userId', '==', repUid).get();
-            const hit = mine.docs.find(d => {
-              const leadData = d.data() || {};
-              if (email && (leadData.email || '').toLowerCase().trim() === email) return true;
-              if (phone.length >= 10 && (leadData.phone || '').replace(/\D/g, '').endsWith(phone.slice(-10))) return true;
-              return false;
-            });
-            if (hit) leadId = hit.id;
+            leadId = CL.matchExistingLead(mine.docs.map(d => ({ id: d.id, data: d.data() })), { email, phoneDigits: resolved.phoneDigits });
           }
         } catch (e) { logger.warn('calcomWebhook: lead-link lookup failed', { err: e && e.message }); }
 
@@ -172,31 +175,19 @@ exports.calcomWebhook = onRequest(
         // (lead-bridge.js).
         if (!leadId) {
           try {
-            const { firstName, lastName } = L.splitName({ name: attendee && attendee.name });
-            const phone = (attendee && attendee.phoneNumber) || '';
             const newLeadId = L.bridgeDocId('calcom', bookingId);
+            const fields = CL.buildCalcomLeadFields({ payload, bookingId });
             await db.collection('leads').doc(newLeadId).create({
+              ...fields,
               userId: repUid,
               companyId: repCompanyId || repUid,
-              firstName,
-              lastName,
-              address: String(payload.location || ''),
-              phone: String(phone),
-              phoneDigits: phoneDigits10(phone),
-              email: String((attendee && attendee.email) || ''),
-              stage: 'New',
-              status: 'new',
-              source: 'Website — Cal.com booking',
-              notes: String(payload.additionalNotes || payload.description || ''),
-              webLead: true,
-              publicLeadKind: 'calcom_booking',
-              calcomBookingId: bookingId,
-              calcomEventTitle: payload.title || null,
               createdAt: FieldValue.serverTimestamp(),
               stageStartedAt: FieldValue.serverTimestamp(),
             });
             leadId = newLeadId;
-            logger.info('calcomWebhook: created CRM lead for unmatched booking', { bookingId, leadId, repUid });
+            // Booleans + field names only, never the number: the first real
+            // booking per event type settles which field Cal.com populates.
+            logger.info('calcomWebhook: created CRM lead for unmatched booking', { bookingId, leadId, repUid, phonePresent: !fields.needsPhone, phoneSource: fields.phoneSource, addressSource: fields.addressSource, eventSlug: fields.calcomEventSlug });
           } catch (e) {
             if (e && (e.code === 6 || /already exists/i.test(e.message || ''))) {
               // Retried delivery — the lead already exists from a prior
@@ -217,9 +208,10 @@ exports.calcomWebhook = onRequest(
           calcomUsername: organizerUsername,
           attendeeName:   attendee && attendee.name,
           attendeeEmail:  attendee && attendee.email,
-          attendeePhone:  attendee && attendee.phoneNumber,
+          attendeePhone:  resolved.phone || null,
           title:          payload.title,
-          location:       payload.location,
+          location:       resolvedAddress.address || payload.location || null,
+          calcomLocationRaw: payload.location || null,
           description:    payload.additionalNotes || payload.description,
           startTime:      startTime ? Timestamp.fromDate(startTime) : null,
           endTime:        endTime   ? Timestamp.fromDate(endTime)   : null,

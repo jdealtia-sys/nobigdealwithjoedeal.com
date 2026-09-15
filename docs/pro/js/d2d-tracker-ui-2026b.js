@@ -285,7 +285,7 @@
           <label class="d2d-field-label">Address * <span id="d2d-addr-badge" class="d2d-addr-badge"></span></label>
           <div class="d2d-addr-row">
             <input type="text" id="d2d-qk-address" class="d2d-input" value="${esc(address)}" placeholder="123 Main St, Cincinnati, OH">
-            <button type="button" class="d2d-verify-btn" data-d2d-action="verifyKnockAddress" title="Re-check the door number against Google + county records">✓ Verify</button>
+            <button type="button" class="d2d-verify-btn" data-d2d-action="verifyKnockAddress" title="Re-check the door number against Google (county parcel data when connected)">✓ Verify</button>
           </div>
           <div id="d2d-addr-note" class="d2d-addr-note"></div>
           <div id="d2d-addr-confirm" class="d2d-addr-confirm" style="display:none;">

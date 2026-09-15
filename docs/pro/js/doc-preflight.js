@@ -306,10 +306,14 @@
     { key: 'companyEmail',   label: 'Company Email', type: 'email', source: 'literal:info@nobigdealwithjoedeal.com', persist: PERSIST.DOCUMENT }
   ];
 
+  // GBB audit, 2026-09-09: was 5yr/10yr/20yr — the generator this feeds
+  // (document-generator.js renderWarrantyBadge) now prints Lifetime
+  // workmanship for every tier (estimate-config.js TIER_DISPLAY); only
+  // transferability/inspection and manufacturer coverage vary by tier.
   var WARRANTY_TIER_OPTIONS = [
-    { value: 'good',   label: 'Good — 5yr Workmanship + Standard Mfr' },
-    { value: 'better', label: 'Better — 10yr Workmanship + Enhanced Mfr' },
-    { value: 'best',   label: 'Best — 20yr Workmanship + Premium Mfr' }
+    { value: 'good',   label: 'Good — Lifetime Workmanship + Standard Mfr' },
+    { value: 'better', label: 'Better — Lifetime Workmanship + Enhanced Mfr (transferable)' },
+    { value: 'best',   label: 'Best — Lifetime Workmanship + Premium Mfr (fully transferable + inspection)' }
   ];
 
   var DOC_SCHEMAS = {
@@ -771,8 +775,16 @@
         {
           id: 'balance', title: 'Balance (optional)', collapsed: true,
           fields: [
+            // GBB audit follow-up, 2026-09-09: was 'literal:' (always blank),
+            // so a receipt's own balance math started from a number the rep
+            // had to remember and retype rather than the same contract/
+            // estimate total already on file — the one figure most likely to
+            // silently drift from what the customer actually signed for.
+            // Pre-fill from the same computed.jobValue every other doc type
+            // reads (proposal/contract/invoice above); still editable/
+            // clearable — clearing it back out still omits the section.
             { key: 'contractTotal', label: 'Contract Total', type: 'currency',
-              source: 'literal:', persist: PERSIST.DOCUMENT,
+              source: 'computed.jobValue', persist: PERSIST.DOCUMENT,
               placeholder: 'leave blank to omit the balance section entirely' },
             { key: 'priorPayments', label: 'Previous Payments', type: 'currency',
               source: 'literal:', persist: PERSIST.DOCUMENT }
@@ -1513,10 +1525,11 @@
 
   // ── WARRANTY TIER RENDERER ──────────────────────────────────
   function renderWarrantyTier(field, value) {
+    // GBB audit, 2026-09-09: was 5/10/20-year — see WARRANTY_TIER_OPTIONS above.
     var tiers = [
-      { id: 'good',   name: 'Good',   tag: '5-Year Workmanship',     desc: 'Covers defects in workmanship for 5 years.' },
-      { id: 'better', name: 'Better', tag: '10-Year + Enhanced Mfr', desc: 'Comprehensive 10-year coverage, enhanced manufacturer.' },
-      { id: 'best',   name: 'Best',   tag: '20-Year Workmanship',  desc: '20-year workmanship, premium manufacturer.' }
+      { id: 'good',   name: 'Good',   tag: 'Lifetime Workmanship',        desc: 'Lifetime workmanship warranty, non-transferable. Standard manufacturer coverage.' },
+      { id: 'better', name: 'Better', tag: 'Lifetime + Enhanced Mfr',     desc: 'Lifetime workmanship, transferable to 1 subsequent owner. Enhanced manufacturer coverage.' },
+      { id: 'best',   name: 'Best',   tag: 'Lifetime + Premium Mfr',      desc: 'Lifetime workmanship, fully transferable + annual inspection. Premium manufacturer coverage.' }
     ];
     var cur = (value || 'better').toLowerCase();
     var cards = tiers.map(function (t) {
@@ -2342,8 +2355,43 @@
     if (data.changesDescription == null && data.changeDescription) data.changesDescription = data.changeDescription;    // change_order
     if (data.insuranceCompany == null && data.insCarrier) data.insuranceCompany = data.insCarrier;                     // supplement_request
     if (data.issueDate == null && data.installDate) data.issueDate = data.installDate;                                 // warranty_certificate
+    if (data.warranty == null && data.warrantyTier) {                                                                  // contract (renderer's "5 · Warranty"
+      var _wCfg = window.NBD_ESTIMATE_CONFIG;                                                                          // section is dropped entirely when
+      var _wTxt = (_wCfg && typeof _wCfg.tierWarrantyText === 'function')                                              // warranty is null/empty). Mirrors
+        ? _wCfg.tierWarrantyText(data.warrantyTier) : 'Lifetime workmanship warranty.';                                // renderWarrantyBadge's composition
+      var _wMfg = window.NBDDocGen && window.NBDDocGen.MANUFACTURER_COVERAGE && window.NBDDocGen.MANUFACTURER_COVERAGE[data.warrantyTier]; // (2026-09-09 GBB
+      data.warranty = _wMfg ? (_wTxt + ' ' + _wMfg.level + ' manufacturer coverage — ' + _wMfg.note) : _wTxt;          // tier consolidation, #1529)
+    }
     if (data.scopeSummary == null && data.scopeCompleted) data.scopeSummary = data.scopeCompleted;                     // certificate_of_completion
     if (!data.neighborhoodName && data.affectedArea) data.neighborhoodName = data.affectedArea;                       // neighborhood_mailer (required Affected Area → neighborhood label)
+
+    // Contract warranty-bridge gap (GBB audit §9, 2026-09-09). The `contract`
+    // schema above collects warrantyTier ('good'/'better'/'best') but never a
+    // free-text `warranty` field — and functions/print/templates/contract.hbs
+    // ({{#if warranty}}) silently drops its entire "5 · Warranty" section
+    // when that field is null. The client-side fallback renderer
+    // (document-generator.js renderContract) reads warrantyTier directly via
+    // renderWarrantyBadge() and was never affected — this bridge is purely so
+    // the SERVER-rendered contract PDF states a warranty too, once it
+    // actually reaches this template (today it's masked by an unrelated
+    // paymentSchedule.map crash in _buildServerPayload that falls back to the
+    // client renderer first — see the audit's "fix both together" note).
+    // Same lifetime+transferability model every other generator reads;
+    // window.NBD_ESTIMATE_CONFIG isn't loaded on customer.html (only
+    // dashboard.html), so this needs the same local fallback pattern used
+    // elsewhere (_v2TierLabel() etc.) rather than assuming the config global.
+    if (data.warranty == null && data.warrantyTier) {
+      var _cfg = (typeof window !== 'undefined') ? window.NBD_ESTIMATE_CONFIG : null;
+      if (_cfg && typeof _cfg.tierWarrantyText === 'function') {
+        data.warranty = _cfg.tierWarrantyText(data.warrantyTier);
+      } else {
+        data.warranty = ({
+          good:   'Lifetime workmanship warranty; does not transfer on sale of property.',
+          better: 'Lifetime workmanship warranty; transferable to one subsequent owner within 30 days of sale.',
+          best:   'Lifetime workmanship warranty; fully transferable — follows the property through all subsequent owners; annual courtesy inspection included.'
+        })[data.warrantyTier] || 'Lifetime workmanship warranty.';
+      }
+    }
 
     // Currency display version of totalPrice when supplied as number
     if (data.totalPrice !== undefined && data.totalPrice !== null && data.totalPrice !== '') {

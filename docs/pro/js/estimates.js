@@ -32,6 +32,18 @@ const TIER_RATES        = (_NBD_CFG && _NBD_CFG.TIER_RATES)         || { good: 5
 const JOB_MINIMUM_CENTS = (_NBD_CFG && _NBD_CFG.JOB_MINIMUM_CENTS)  || 250000; // $2,500
 const ROUND_TO_CENTS    = (_NBD_CFG && _NBD_CFG.ROUND_TO_CENTS)     || 2500;   // Nearest $25
 
+// Customer-facing tier name (GBB audit, 2026-09-09: this file independently
+// invented a THIRD tier vocabulary — "Standard Reroof/Reroof Plus/Full
+// Redeck" — shown on the same printed estimate as the literal words "Good—"/
+// "Better—"/"Best—" two paragraphs apart). Internal good/better/best keys
+// (TIER_RATES above) never change; every customer-facing render below reads
+// this instead of inventing its own label.
+const TIER_DISPLAY = (_NBD_CFG && _NBD_CFG.TIER_DISPLAY)
+  || { good: { label: 'Standard' }, better: { label: 'Preferred' }, best: { label: 'Elite' } };
+function tierLabel(tier) {
+  return (TIER_DISPLAY[tier] && TIER_DISPLAY[tier].label) || tier;
+}
+
 // Ohio + Northern Kentucky county sales tax rates. Insurance mode hides
 // the line; Cash mode shows it and adds to total. Canonical table lives
 // in estimate-config.js keyed by county slug (PR 3b); classic keys by
@@ -409,12 +421,11 @@ function getLineItems() {
   const tier = selectedTier || 'better';
   const addOns = d.addOns || collectAddOns();
   const rate = TIER_RATES[tier];
-  const tierLabel = { good: 'Good — Standard Reroof', better: 'Better — Reroof Plus', best: 'Best — Full Redeck' }[tier] || tier;
 
   const rows = [];
   rows.push({
     code: 'RFG SYS',
-    desc: tierLabel + ' · turnkey per-square price',
+    desc: tierLabel(tier) + ' · turnkey per-square price',
     qty:  sq.toFixed(2) + ' SQ',
     rate: '$' + rate + '/SQ',
     total: sq * rate
@@ -469,7 +480,6 @@ function buildReview() {
   const parcel = val('estParcel');
   const yr = val('estYear');
   const roofType = val('estRoofType');
-  const tierNames = { 'good': 'Standard Reroof', 'better': 'Reroof Plus', 'best': 'Full Redeck' };
   // Classic-builder rows only — always recomputed from retail TIER_RATES
   // (getLineItems), never a saved doc's rows[]. Safe to print rate/total
   // verbatim; the V2 cost-basis retail derivation (customer-estimate-rows.js)
@@ -483,7 +493,7 @@ function buildReview() {
   const grandTotal = _fromCents(tierCents);
   estData.grandTotal = grandTotal;
   estData.addr = addr; estData.owner = owner; estData.parcel = parcel; estData.yr = yr; estData.roofType = roofType;
-  estData.tierName = tierNames[selectedTier]; estData.rows = rows;
+  estData.tierName = tierLabel(selectedTier); estData.rows = rows;
 
   // Internal margin for the optional Internal View toggle. Not rendered
   // unless the user clicks through to it — customer-facing review stays
@@ -540,7 +550,7 @@ function buildReview() {
       <div style="text-align:right;">
         <div style="font-size:10px;font-weight:700;letter-spacing:.15em;text-transform:uppercase;color:var(--m);">Estimate Total</div>
         <div style="font-family:'Montserrat','Segoe UI',Helvetica,Arial,sans-serif;font-size:32px;font-weight:700;color:var(--orange);">${fmt(grandTotal)}</div>
-        <div style="font-size:11px;color:var(--m);">${esc(tierNames[selectedTier])}</div>
+        <div style="font-size:11px;color:var(--m);">${esc(tierLabel(selectedTier))}</div>
       </div>
     </div>
     <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px;font-size:11px;">
@@ -838,7 +848,6 @@ async function exportEstimate() {
   // getLineItems, retail tier rates) — saved V2 docs never flow into estData,
   // so rate/total here are customer prices and print verbatim safely.
   const rows=d.rows||getLineItems();
-  const tierNames={'good':'Standard Reroof','better':'Reroof Plus','best':'Full Redeck'};
   const dateStr=new Date().toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'});
   // Escape every user-typed interpolation. This HTML is written to
   // a brand-new window via document.write — if any field contains
@@ -881,7 +890,7 @@ async function exportEstimate() {
   </style></head><body>
   <div class="hdr">
     <div><div class="brand">No Big <span>Deal</span></div><div class="sub">Home Solutions</div><div class="badge">Insurance Restoration</div></div>
-    <div class="est-hdr"><div class="est-type">${esc(tierNames[selectedTier]||'Estimate')}</div><div class="est-date">${esc(dateStr)}</div>
+    <div class="est-hdr"><div class="est-type">${esc(tierLabel(selectedTier)||'Estimate')}</div><div class="est-date">${esc(dateStr)}</div>
       <div class="est-total-lbl">Estimate Total</div><div class="est-total-val">${fmt(d.grandTotal)}</div></div>
   </div>
   <h2>Property Information</h2>
@@ -912,7 +921,7 @@ async function exportEstimate() {
   // bar instead of being dumped into a blank popup with no way back.
   if (window.NBDDocViewer && typeof window.NBDDocViewer.open === 'function') {
     const addrSlug = (d.addr || 'Estimate').replace(/[^A-Za-z0-9]+/g, '-').substring(0, 40);
-    const tierLabel = tierNames[selectedTier] || 'Estimate';
+    const tierDisplayName = tierLabel(selectedTier) || 'Estimate';
     // Tenant-resolved prefix — '' when the brand is not hydrated, never 'NBD'.
     const _estExportBase = addrSlug + '-' + new Date().toISOString().split('T')[0] + '.pdf';
     const _estExportName = window._tenantFileName
@@ -920,7 +929,7 @@ async function exportEstimate() {
       : _estExportBase;
     window.NBDDocViewer.open({
       html: html,
-      title: tierLabel + (d.addr ? ' — ' + d.addr : ''),
+      title: tierDisplayName + (d.addr ? ' — ' + d.addr : ''),
       filename: _estExportName,
       onSave: async () => {
         // Route the doc viewer's "Save to Customer" button to the

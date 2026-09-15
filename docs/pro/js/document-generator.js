@@ -239,30 +239,16 @@ window.NBDDocGen = {
   },
 
   /**
-   * Warranty tier definitions with descriptions
+   * Manufacturer coverage tier — a DIFFERENT axis from workmanship duration
+   * (which used to live here as 5/10/20-Year and is now the lifetime model
+   * in estimate-config.js's TIER_DISPLAY, per the 2026-09-09 GBB audit).
+   * Manufacturer warranty language was deliberately left untouched by the
+   * 2026-09-08 claims-audit session and stays that way here.
    */
-  WARRANTY_TIERS: {
-    good: {
-      name: 'Good',
-      workmanship: '5-Year',
-      manufacturer: 'Standard',
-      description: '5-Year Workmanship Warranty + Standard Manufacturer Warranty',
-      details: 'Covers defects in workmanship for 5 years. Manufacturer warranties vary by material.'
-    },
-    better: {
-      name: 'Better',
-      workmanship: '10-Year',
-      manufacturer: 'Enhanced',
-      description: '10-Year Workmanship Warranty + Enhanced Manufacturer Warranty',
-      details: 'Comprehensive coverage for 10 years including labor and materials. Enhanced manufacturer coverage on select products.'
-    },
-    best: {
-      name: 'Best',
-      workmanship: '20-Year',
-      manufacturer: 'Premium',
-      description: '20-Year Workmanship Warranty + Premium Manufacturer Warranty',
-      details: 'Premium protection covering all workmanship for the life of the structure. Maximum manufacturer coverage on premium materials.'
-    }
+  MANUFACTURER_COVERAGE: {
+    good: { level: 'Standard', note: 'Manufacturer warranties vary by material.' },
+    better: { level: 'Enhanced', note: 'Enhanced manufacturer coverage on select products.' },
+    best: { level: 'Premium', note: 'Maximum manufacturer coverage on premium materials.' }
   },
 
   /**
@@ -302,6 +288,9 @@ window.NBDDocGen = {
                                { role: 'homeowner', label: 'Homeowner',                       required: true },
                                { role: 'rep',       label: 'Authorized NBD Representative',   required: true },
                              ] },
+    // 2026-09-15 (Paperwork Filing) — a permit is filed with a jurisdiction,
+    // not signed by the homeowner in-app, so deliberately no defaultSigners.
+    permit:                { name: 'Permit Application',              template: 'renderPermitApplication' },
     supplement_request:    { name: 'Supplement Request',              template: 'renderSupplementRequest' },
     scope_of_work:         { name: 'Scope of Work',                   template: 'renderScopeOfWork',
                              defaultSigners: [
@@ -339,6 +328,21 @@ window.NBDDocGen = {
     door_hanger:           { name: 'Door Hanger',                     template: 'renderDoorHanger' },
     neighborhood_mailer:   { name: 'Neighborhood Mailer',             template: 'renderNeighborhoodMailer' },
     testimonial_sheet:     { name: 'Testimonial Sheet',               template: 'renderTestimonialSheet' }
+  },
+
+  // 2026-09-15 (Paperwork Filing) — auto-derives a lead's *FiledAt gate field
+  // (crm-stages.js's REQUIRED_FIELDS_BY_TYPE) the moment its document is
+  // signed, so a rep who already e-signed a contract/AOB/COC never has to
+  // separately tick a "filed" checkbox for the same fact. Read by
+  // onPersistFinalized below. Permit has no entry here — no in-app signer to
+  // hook, filed via the manual "Mark Permit Filed" action instead
+  // (paperwork-write.js). warrantyCertFiledAt isn't here either —
+  // warranty-cert.js's own _persistWarrantyToLead stamps it directly,
+  // alongside the `warranty:{...}` object it already writes.
+  FILED_FIELD_BY_DOC_TYPE: {
+    contract:                  'contractFiledAt',
+    assignment_of_benefits:    'aobFiledAt',
+    certificate_of_completion: 'cocFiledAt',
   },
 
   // ============================================================================
@@ -414,6 +418,19 @@ window.NBDDocGen = {
         data.lineItems = [{ description: _desc, qty: 1, unit: 'JOB',
           rate: _amt, unitPrice: _amt, lineTotal: _amt, total: _amt }];
       }
+    }
+
+    // ─── Storm History Report: fetch live NOAA data before rendering ───
+    // The one document type whose content isn't derivable from the lead
+    // record alone — it needs the free 5-year NWS Local Storm Reports feed
+    // the public /storm-report tool already uses (same relative /api/
+    // storm-report endpoint, same origin as this page, no auth, no
+    // secrets). Best-effort: a bad address or a down IEM proxy renders the
+    // graceful "unavailable" branch in renderStormHistoryReport rather than
+    // blocking the rep.
+    if (type === 'storm_history_report') {
+      try { await this._attachStormHistory(data); }
+      catch (e) { console.warn('[NBDDocGen] storm history fetch failed:', e && e.message); }
     }
 
     // ─── D-5: try server-side Puppeteer render first ───
@@ -626,6 +643,22 @@ window.NBDDocGen = {
           } catch (e) {
             console.warn('Signed metadata update failed:', e && e.message);
           }
+          // 2026-09-15 (Paperwork Filing) — auto-derive the lead-level *FiledAt
+          // gate field (crm-stages.js's REQUIRED_FIELDS_BY_TYPE) from this real
+          // signing event, so a rep who just e-signed a contract/AOB/COC never
+          // has to separately tick a manual "filed" checkbox for the same fact.
+          // Best-effort, its own try/catch — a failure here must not make the
+          // signature persistence above look like it failed.
+          try {
+            const filedField = this.FILED_FIELD_BY_DOC_TYPE[type];
+            if (filedField && _leadIdEarly && window.db && window.doc && window.updateDoc) {
+              await window.updateDoc(window.doc(window.db, 'leads', _leadIdEarly), {
+                [filedField]: new Date().toISOString(),
+              });
+            }
+          } catch (e) {
+            console.warn('Lead filed-stamp failed:', e && e.message);
+          }
           // Repaint so the row picks up its '✓ Signed' state immediately.
           if (window.NBDCustomerDocs) {
             try { await window.NBDCustomerDocs.refresh(); }
@@ -745,6 +778,58 @@ window.NBDDocGen = {
   },
 
   /**
+   * Resolve lat/lng for the lead — already on the record (`data.lat`/
+   * `data.lng`, stamped when the lead was geocoded on save or on the map)
+   * or, failing that, a free Nominatim geocode of the address — then fetch
+   * the free NOAA/NWS 5-year storm history from the SAME relative endpoint
+   * the public /storm-report page uses (functions/storm-report.js). Same
+   * origin as this page, so no CORS/CSP wiring is needed regardless of
+   * which tenant domain is serving /pro.
+   *
+   * Never throws: attaches `data.stormReport` on success or
+   * `data._stormReportError` (a short reason, shown to the rep) on
+   * failure, so a bad address never blocks doc generation — it just
+   * renders the "unavailable" branch of the template.
+   */
+  async _attachStormHistory(data) {
+    let lat = Number(data.lat);
+    let lng = Number(data.lng != null ? data.lng : data.lon);
+    if (!isFinite(lat) || !isFinite(lng)) {
+      const addr = String(data.address || data.homeownerAddress || '').trim();
+      if (!addr) { data._stormReportError = 'no address on file'; return; }
+      try {
+        const gRes = await fetch(
+          'https://nominatim.openstreetmap.org/search?q=' + encodeURIComponent(addr) + '&format=json&limit=1',
+          { signal: AbortSignal.timeout(5000) }
+        );
+        const rows = await gRes.json();
+        if (!Array.isArray(rows) || !rows.length) { data._stormReportError = 'address could not be located'; return; }
+        lat = parseFloat(rows[0].lat);
+        lng = parseFloat(rows[0].lon);
+      } catch (e) {
+        data._stormReportError = 'geocoding failed';
+        return;
+      }
+    }
+    if (!isFinite(lat) || !isFinite(lng)) { data._stormReportError = 'invalid coordinates'; return; }
+    try {
+      // 60s, not the usual 15-20s CRM fetch budget: a cache miss on
+      // functions/storm-report.js chains FIVE sequential yearly IEM
+      // requests server-side (each with its own 20s ceiling) before the
+      // result is cached — verified live against the emulator, cold-cache
+      // response took 38s. A cached lookup (the common case after the
+      // first report for an address/area) returns in well under a second.
+      const res = await fetch('/api/storm-report?lat=' + lat + '&lon=' + lng, { signal: AbortSignal.timeout(60000) });
+      if (!res.ok) { data._stormReportError = 'storm data service unavailable'; return; }
+      const j = await res.json();
+      if (j && j.empty) { data._stormReportError = 'storm data service unavailable'; return; }
+      data.stormReport = j;
+    } catch (e) {
+      data._stormReportError = 'storm data request failed';
+    }
+  },
+
+  /**
    * Deterministic document number helper. Was Date.now()-based, which
    * made every re-render of the same doc produce a fresh number — bad
    * for paperwork that's expected to keep the same INV/CT/CO/RCT
@@ -842,6 +927,17 @@ window.NBDDocGen = {
     }
 
     if (template === 'contract') {
+      // doc-preflight's CONTRACT schema collects `paymentSchedule` as a free-text
+      // textarea ("Payment Schedule / Terms" -- see doc-preflight.js DOC_SCHEMAS
+      // .contract), not the {stage,due,amount} row shape this branch used to
+      // assume, so it arrives here as a STRING and `.map()` threw. A prose
+      // schedule has no discrete stage/amount to put in the table (an invented
+      // $0.00 row would misstate the contract), so route the string into the
+      // paymentTerms paragraph below (contract.hbs section "3 · Payment Terms")
+      // instead -- only a real array populates the table.
+      const scheduleIsArray = Array.isArray(data.paymentSchedule);
+      const scheduleText = (!scheduleIsArray && typeof data.paymentSchedule === 'string')
+        ? data.paymentSchedule.trim() : '';
       return {
         coverTagline: 'The work,<br>committed in writing.',
         coverSub:     'A complete agreement covering scope, price, schedule, payment terms, and warranty. Both parties sign at the foot.',
@@ -854,12 +950,12 @@ window.NBDDocGen = {
         contract: { number: data.contractNumber, date: data.contractDate || todayStr, startDate: data.startDate, completionDate: data.completionDate },
         scope: data.scope || null,
         contractPrice: Number(data.contractPrice || data.total || 0),
-        paymentSchedule: (data.paymentSchedule || []).map(p => ({
+        paymentSchedule: scheduleIsArray ? data.paymentSchedule.map(p => ({
           stage: p.stage || p.label,
           dueDescription: p.due || p.dueDescription || '',
           amount: Number(p.amount || 0),
-        })),
-        paymentTerms: data.paymentTerms || 'Fifty percent (50%) due upon contract execution; remaining balance due upon substantial completion of work.',
+        })) : [],
+        paymentTerms: data.paymentTerms || scheduleText || 'Fifty percent (50%) due upon contract execution; remaining balance due upon substantial completion of work.',
         materials: data.materials || null,
         warranty: data.warranty || null,
         rightToCancel: data.rightToCancel || 'You, the buyer, may cancel this transaction at any time prior to midnight of the third business day after the date of this transaction. See the attached Notice of Cancellation form for an explanation of this right.',
@@ -979,7 +1075,28 @@ window.NBDDocGen = {
    * instead of filled data. User can print and fill by hand.
    * @param {string} type - Document type
    */
-  generateBlank(type) {
+  async generateBlank(type) {
+    // ── HYDRATION GATE (2026-09-14) ────────────────────────────────────────
+    // Same pattern as generate() above (#1447/#1449): this._resolveCompany()
+    // is a SYNCHRONOUS read of the company-profile brand doc, which
+    // company-profile.js:276 seeds with the NBD DEFAULTS at parse time. This
+    // function reads it FIVE times, below, BEFORE ever calling generate() —
+    // and generate()'s own hydration gate is too late, because mergeFields()
+    // spreads ...data LAST, so these pre-baked companyName/Phone/Email/
+    // Website/Tagline values win over whatever generate() would have
+    // produced after hydrating. A freshly-loaded tenant printing a blank
+    // template can therefore get NBD's own identity on it.
+    //
+    // Gate here too, as the first statement, so _resolveCompany() below reads
+    // a real tenant brand instead of the NBD defaults. Never blocks the rep:
+    // a hydration failure falls through and renders with whatever brand is
+    // available, exactly as before.
+    try {
+      if (window._companyProfileLoaded !== true && typeof window._loadCompanyProfile === 'function') {
+        await window._loadCompanyProfile();
+      }
+    } catch (_) { /* render with what we have rather than blocking the rep */ }
+
     // Build blank data with underline placeholders for hand-fill
     const blankData = {
       homeownerName: '________________________________',
@@ -1001,7 +1118,7 @@ window.NBDDocGen = {
       companyWebsite: this._resolveCompany().website,
       companyTagline: this._resolveCompany().tagline
     };
-    this.generate(type, blankData);
+    await this.generate(type, blankData);
   },
 
   /**
@@ -1585,6 +1702,23 @@ window.NBDDocGen = {
           border-top: 1px solid ${this._resolveCompany().colors.borderGray};
           margin: 0.15in 0;
         }
+
+        /* Credential / manufacturer badge row — same markup and asset
+           lookup as affiliateRow() in document-generator-templates.js
+           (window.NBD_BADGE_ASSETS, generated by scripts/build-badge-assets.js),
+           just re-skinned to this engine's box-model (${this._resolveCompany().colors.rule}
+           hairlines vs. that file's short CSS-var aliases). Kept in step by
+           hand since the two template engines don't share a stylesheet. */
+        .affiliates { display:flex; justify-content:center; align-items:center; gap:14px;
+          flex-wrap:wrap; margin:0.3in 0 0.1in 0; }
+        .affiliate { border:1px solid ${this._resolveCompany().colors.rule}; border-radius:6px;
+          background:#fff; padding:8px 14px; text-align:left; }
+        .affiliate-name { font:700 11px/1.3 'Helvetica Neue', Arial, sans-serif;
+          color:${this._resolveCompany().colors.primary}; letter-spacing:0.04em; }
+        .affiliate-num { font-size:10px; color:${this._resolveCompany().colors.grey}; margin-top:2px; }
+        .affiliate-badge { display:flex; flex-direction:column; align-items:center; justify-content:center; padding:6px 12px 8px; }
+        .affiliate-badge-img { display:block; height:52px; width:auto; }
+        .affiliate-badge-num { font-size:10px; color:${this._resolveCompany().colors.grey}; margin-top:5px; letter-spacing:0.02em; }
       </style>
     `;
   },
@@ -1897,15 +2031,22 @@ window.NBDDocGen = {
    * @returns {string} HTML
    */
   renderWarrantyBadge(tier = 'better') {
-    const warranty = this.WARRANTY_TIERS[tier] || this.WARRANTY_TIERS.better;
+    const cfg = (typeof window !== 'undefined') ? window.NBD_ESTIMATE_CONFIG : null;
+    const label = (cfg && typeof cfg.tierLabel === 'function')
+      ? cfg.tierLabel(tier)
+      : ({ good: 'Standard', better: 'Preferred', best: 'Elite' })[tier] || tier;
+    const warrantyText = (cfg && typeof cfg.tierWarrantyText === 'function')
+      ? cfg.tierWarrantyText(tier)
+      : 'Lifetime workmanship warranty.';
+    const mfg = this.MANUFACTURER_COVERAGE[tier] || this.MANUFACTURER_COVERAGE.better;
 
     return `
       <div class="warranty-badge">
-        ${warranty.name}: ${warranty.workmanship} ${warranty.manufacturer}
+        ${label}: Lifetime Workmanship + ${mfg.level} Manufacturer
       </div>
       <div class="warranty-details">
-        <div><strong>${warranty.description}</strong></div>
-        <div style="margin-top: 0.08in;">${warranty.details}</div>
+        <div><strong>Lifetime Workmanship Warranty + ${mfg.level} Manufacturer Warranty</strong></div>
+        <div style="margin-top: 0.08in;">${warrantyText} ${mfg.note}</div>
       </div>
     `;
   },
@@ -2084,6 +2225,7 @@ window.NBDDocGen = {
             </div>
           </div>
 
+          ${this.affiliateRow ? this.affiliateRow() : ''}
           ${this.renderFooter({ pageNumber: '1' })}
         </div>
       </body>
@@ -2276,6 +2418,7 @@ window.NBDDocGen = {
             </div>
           </div>
 
+          ${this.affiliateRow ? this.affiliateRow() : ''}
           ${this.renderFooter({ pageNumber: '1' })}
         </div>
       </body>
@@ -2431,6 +2574,7 @@ window.NBDDocGen = {
             </div>
           </div>
 
+          ${this.affiliateRow ? this.affiliateRow() : ''}
           ${this.renderFooter({ pageNumber: '1' })}
         </div>
       </body>
@@ -2737,6 +2881,12 @@ ${price ? '<div style="text-align:right;margin:24px 0;"><span style="font-size:1
 
     const today = new Date().toLocaleDateString('en-US', { year:'numeric', month:'long', day:'numeric' });
 
+    // 2026-09-15 (Kanban filter unification): was a hand-copied label map
+    // (already stopping at 'closed', missing 'collections' added the same
+    // day) — window.stageLabel is the canonical labeler (crm-stages.js,
+    // exposed by both bootstrap modules); this file is a plain script with
+    // no static import of crm-stages.js, so the local map stays ONLY as a
+    // fallback for a load order this file can't otherwise guarantee.
     const STAGE_LABELS = {
       new: 'New', contacted: 'Contacted', inspected: 'Inspected',
       claim_filed: 'Claim Filed', adjuster_meeting_scheduled: 'Adjuster Meeting',
@@ -2751,13 +2901,14 @@ ${price ? '<div style="text-align:right;margin:24px 0;"><span style="font-size:1
       closed: 'Closed'
     };
     const JOB_TYPE_LABELS = { insurance: 'Insurance', cash: 'Cash', finance: 'Finance', warranty: 'Warranty', service: 'Service' };
+    const _stageLabelFor = (k) => (typeof window.stageLabel === 'function' && window.stageLabel(k)) || STAGE_LABELS[k] || k;
 
     const customerRowsHtml = [
       ['Customer',    fullName],
       ['Address',     customer.address],
       ['Phone',       customer.phone],
       ['Email',       customer.email],
-      ['Stage',       customer.stage ? (STAGE_LABELS[customer.stage] || customer.stage) : null],
+      ['Stage',       customer.stage ? _stageLabelFor(customer.stage) : null],
       ['Lead since',  customer.createdAt ? fmtDate(customer.createdAt) : null]
     ].filter(([k, v]) => v && v !== '—').map(([k, v]) =>
       `<tr><td class="kv-k">${esc(k)}</td><td class="kv-v">${esc(v)}</td></tr>`
@@ -2875,6 +3026,16 @@ ${price ? '<div style="text-align:right;margin:24px 0;"><span style="font-size:1
   .doc-ftr{margin-top:24px;padding:14px 36px 18px 36px;background:linear-gradient(180deg,${C.colors.secondary} 0%,${C.colors.primary} 100%);color:rgba(255,255,255,.92);border-top:4px solid ${C.colors.accent};text-align:center;font:600 10px/1.5 Barlow,sans-serif;letter-spacing:.04em;}
   .doc-ftr .ftr-brand{display:block;font:800 11px/1.2 Barlow,sans-serif;color:#fff;letter-spacing:.1em;text-transform:uppercase;margin-bottom:3px;}
   .doc-ftr .ftr-disc{display:block;font-size:9px;color:rgba(255,255,255,.7);margin-top:6px;line-height:1.4;font-style:italic;}
+  /* Credential badge row — same markup/asset lookup as affiliateRow() in
+     document-generator-templates.js (window.NBD_BADGE_ASSETS), re-skinned
+     to this template's palette since it doesn't share a stylesheet. */
+  .affiliates{display:flex;justify-content:center;align-items:center;gap:14px;flex-wrap:wrap;margin:18px 36px 0 36px;}
+  .affiliate{border:1px solid #eee;border-radius:6px;background:#fff;padding:8px 14px;text-align:left;}
+  .affiliate-name{font:700 11px/1.3 'Barlow Condensed',sans-serif;color:${C.colors.primary};letter-spacing:.04em;}
+  .affiliate-num{font:500 10px Barlow,sans-serif;color:#666;margin-top:2px;}
+  .affiliate-badge{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:6px 12px 8px;}
+  .affiliate-badge-img{display:block;height:48px;width:auto;}
+  .affiliate-badge-num{font:500 10px Barlow,sans-serif;color:#666;margin-top:5px;letter-spacing:.02em;}
 
   @media print{
     html,body{background:#fff;}
@@ -2934,6 +3095,8 @@ ${price ? '<div style="text-align:right;margin:24px 0;"><span style="font-size:1
     <h2>Notes</h2>
     ${notesBlocksHtml}
   </div>` : ''}
+
+  ${this.affiliateRow ? this.affiliateRow() : ''}
 
   <div class="doc-ftr">
     <span class="ftr-brand">${esc(L.name)}</span>
@@ -3220,6 +3383,13 @@ ${price ? '<div style="text-align:right;margin:24px 0;"><span style="font-size:1
         { name: 'finalAmount', label: 'Final Payment Amount', required: false },
         { name: 'finalDue', label: 'Final Payment Due', required: false },
         { name: 'projectDescription', label: 'Project Description', required: false, type: 'textarea' }
+      ],
+      // Only the address is manual — _attachStormHistory() geocodes it and
+      // fetches the NOAA storm history itself once this fill form submits.
+      // (The "Auto-fill from Lead" dropdown above already maps `address`
+      // from the selected lead, so picking a lead is normally enough.)
+      storm_history_report: [
+        { name: 'address', label: 'Property Address', required: true }
       ]
     };
 

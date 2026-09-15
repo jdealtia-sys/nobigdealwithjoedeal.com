@@ -139,6 +139,37 @@ console.log('\nSOURCE CONTRACT — no bare truthiness fallback on a secret outsi
   const di = codeOnly(fs.readFileSync(path.join(FUNCTIONS, 'dictate.js'), 'utf8'));
   ok('dictate (fixed in #1385) still gates on the registry hasSecret()', /hasSecret\(\s*'GROQ_API_KEY'\s*\)/.test(di) && !/DEEPGRAM_API_KEY\.value\(\)/.test(di));
 
+  // ── Bare .value() on a webhook/signing secret (2026-09-14) ──
+  // The two checks above catch a `.value() ||` / `.value() ??` fallback and a
+  // `try { x = X.value() } catch` spelling. Neither catches the plain
+  // `const webhookSecret = STRIPE_WEBHOOK_SECRET.value();` spelling — no
+  // fallback operator, no try/catch, nothing for either regex to match —
+  // which is exactly how stripeWebhook handed '__unset__' straight to
+  // stripe.webhooks.constructEvent() as the HMAC key: anyone who signs a
+  // payload with that public, documented stub literal would have verified.
+  // Any secret named *_WEBHOOK_SECRET / *_SIGNING_SECRET exists to verify a
+  // signature, so a bare read on one is ALWAYS wrong regardless of spelling —
+  // the caller must route it through secretValue()/secretOr() (or an
+  // already-validated `?? '' ` + prefix check, the one stripe-connect.js
+  // case the rule above already allows).
+  const WEBHOOK_SECRET_NAME = /^[A-Z][A-Z0-9_]*_(WEBHOOK|SIGNING)_SECRET$/;
+  const bareWebhookSecretReads = [];
+  for (const f of walk(FUNCTIONS)) {
+    const rel = path.relative(FUNCTIONS, f).replace(/\\/g, '/');
+    const src = codeOnly(fs.readFileSync(f, 'utf8'));
+    const re = /\b([A-Z][A-Z0-9_]*)\.value\(\)/g;
+    let m;
+    while ((m = re.exec(src))) {
+      const name = m[1];
+      if (!WEBHOOK_SECRET_NAME.test(name)) continue;
+      const after = src.slice(re.lastIndex, re.lastIndex + 6);
+      if (/^\s*(\|\||\?\?)/.test(after)) continue; // already-validated fallback, covered above
+      bareWebhookSecretReads.push(rel + ': ' + name + '.value()');
+    }
+  }
+  ok('zero bare .value() reads on a *_WEBHOOK_SECRET / *_SIGNING_SECRET param (no fallback, no secretValue())',
+    bareWebhookSecretReads.length === 0, bareWebhookSecretReads.join('; '));
+
   // Every EMAIL_FROM sender goes through secretOr.
   let emailFromBare = 0, emailFromSafe = 0;
   for (const f of walk(FUNCTIONS)) {

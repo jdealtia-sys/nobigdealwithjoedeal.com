@@ -75,12 +75,25 @@
     const k = _stageKey(lead);
     return k === 'estimate_sent' || k === 'estimate_submitted' || k === 'estimate_sent_cash';
   }
-  const _TERMINAL_STAGE_KEYS = new Set(['closed', 'lost', 'won', 'complete', 'Complete', 'Lost']);
+  // 'won' has no LEGACY_MAP entry (unlike 'Complete'/'Lost'/etc, which
+  // normalizeStage's case-insensitive alias search already resolves) — kept
+  // as an explicit fast-path so a bare legacy 'won' string doesn't fall
+  // through to window.isTerminalStage's normalization and read as ACTIVE.
+  const _TERMINAL_STAGE_KEYS = new Set(['won']);
+  // 2026-09-15 (Kanban filter unification): the built-in-key fast path +
+  // role-aware fallback used to be duplicated inline here; now calls the
+  // one canonical isTerminalStage() (crm-stages.js) — same pattern as
+  // functions/portal.js's progressKeyFor. Without the fallback, a tenant's
+  // own custom stage tagged role won/lost via Settings > Pipelines is
+  // invisible here — Ask Joe would keep treating an already-decided
+  // custom-pipeline lead as still active, nudging the rep about a lead
+  // that's actually finished.
   function _isTerminal(lead) {
     if (!lead) return false;
     if (_TERMINAL_STAGE_KEYS.has(lead.stage)) return true;
     const k = _stageKey(lead);
-    return _TERMINAL_STAGE_KEYS.has(k);
+    if (_TERMINAL_STAGE_KEYS.has(k)) return true;
+    return typeof window.isTerminalStage === 'function' && window.isTerminalStage(k);
   }
 
   // ═════════════════════════════════════════════════════════
@@ -326,13 +339,29 @@
     });
     briefing.stats.openClaims = openClaims.length;
 
-    // Active jobs — same normalization treatment.
+    // Active jobs — deliberately NARROWER than window.isJobStage()
+    // (crm-stages.js): "still in production," not "is this a job at all" —
+    // final_payment/collections/closed are real jobs but represent
+    // money-collection, not physical work, so they stay excluded here on
+    // purpose (same boundary this list already drew before 2026-09-15).
     const _ACTIVE_JOB_KEYS = new Set([
       'crew_scheduled', 'install_in_progress', 'install_complete',
       'final_photos', 'job_created', 'permit_pulled',
       'materials_ordered', 'materials_delivered', 'deductible_collected'
     ]);
-    const activeJobs = leads.filter(lead => _ACTIVE_JOB_KEYS.has(_stageKey(lead)));
+    const activeJobs = leads.filter(lead => {
+      const k = _stageKey(lead);
+      if (_ACTIVE_JOB_KEYS.has(k)) return true;
+      // 2026-09-15 (Kanban filter unification) — role-aware safety net, same
+      // pattern as _isTerminal's fallback above: this literal had ZERO
+      // fallback until now (the one list in the audit's drift table with no
+      // safety net at all), so the next new in-production stage added to
+      // crm-stages.js's _ROLE_JOB would silently undercount here again.
+      // Deliberately role==='job' only (not 'won') — that's what keeps
+      // final_payment/collections/closed correctly excluded rather than
+      // quietly redefining what "active" means.
+      return typeof window.stageRole === 'function' && window.stageRole(k) === 'job';
+    });
     briefing.stats.activeJobs = activeJobs.length;
 
     // Pipeline value

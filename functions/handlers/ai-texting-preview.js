@@ -51,6 +51,11 @@ exports.previewAiPersona = onCall(
     const uid = request.auth && request.auth.uid;
     if (!uid) throw new HttpsError('unauthenticated', 'Sign in required');
 
+    // Global AI kill-switch (Audit #4) — emergency halt without a deploy.
+    if (await require('../integrations/killswitch').isAiDisabled()) {
+      throw new HttpsError('unavailable', 'AI temporarily disabled');
+    }
+
     // Each preview is a live Claude call (~$0.0003) — cap to a sane
     // interactive rate so a stuck slider can't hammer the API.
     await callableRateLimit(request, 'previewAiPersona', 60, 3_600_000);

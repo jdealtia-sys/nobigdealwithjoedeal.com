@@ -45,6 +45,7 @@ const TWILIO_VERIFY_SID = defineSecret('TWILIO_VERIFY_SID');
 const RESEND_API_KEY = defineSecret('RESEND_API_KEY');
 const EMAIL_FROM = defineSecret('EMAIL_FROM');
 const { secretOr } = require('./integrations/_shared');
+const { resendRejected, resendErrorMessage } = require('./resend-guard');
 
 // Joe's contact info for notifications. Stored as secrets rather than
 // hardcoded so they can be rotated without a code change if Joe is being
@@ -408,12 +409,18 @@ exports.notifyNewLead = onCall(
 </html>`;
 
       const joeEmail = secretOr(JOE_EMAIL_SECRET, JOE_EMAIL_FALLBACK);
-      await resend.emails.send({
+      const response = await resend.emails.send({
         from: fromEmail,
         to: joeEmail,
         subject: `${urgencyFlag}New Lead: ${name} — ${serviceName}`,
         html: emailHtml
       });
+      // Resend resolves { data: null, error } on an API-level rejection
+      // instead of throwing — without this check a rejected send still
+      // returns { success: true } for Joe's own new-lead alert.
+      if (resendRejected(response)) {
+        throw new Error(resendErrorMessage(response));
+      }
 
       logger.info('lead_notification_email_sent');
 

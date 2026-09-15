@@ -26,13 +26,34 @@ test.describe('Login page', () => {
 
   test('no console errors at load', async ({ page }) => {
     const errors = [];
+    // 2026-09-14: offline-manager.js's nosw kill-switch (docs/pro/README-
+    // killswitch.md) HEAD-checks /pro/nosw.txt on every load of a page that
+    // registers the service worker, login.html included. That file exists
+    // ONLY when someone has deliberately pulled the emergency kill-switch —
+    // absent in every normal run, here and in production. A fetch() that
+    // resolves 404 doesn't throw (the code already catches and degrades
+    // gracefully), but Chromium still logs "Failed to load resource...404"
+    // to the console for ANY non-2xx resource load, application code aside
+    // — there's no way to suppress that browser-native entry without
+    // dropping the existence check the kill-switch depends on. Track the
+    // response directly so exactly this many "Failed to load resource"
+    // console entries are tolerated; a genuinely unrelated 404 (broken
+    // script/image/etc) still fails the test below.
+    let expectedResourceFailures = 0;
+    page.on('response', (res) => {
+      if (res.status() === 404 && res.url().endsWith('/pro/nosw.txt')) expectedResourceFailures++;
+    });
     page.on('console', msg => { if (msg.type() === 'error') errors.push(msg.text()); });
     await page.goto('/pro/login.html');
     await page.waitForLoadState('networkidle');
     // Allow CSP violations in Report-Only to pass through; only hard
     // runtime errors should fail the build.
     const hard = errors.filter(e => !/Report Only|favicon|Service Worker registration/i.test(e));
-    expect(hard).toEqual([]);
+    const resourceLoadFailures = hard.filter(e => /Failed to load resource.*404/i.test(e));
+    const other = hard.filter(e => !/Failed to load resource.*404/i.test(e));
+    expect(other).toEqual([]);
+    expect(resourceLoadFailures.length, 'unexplained 404 console entries beyond the known nosw.txt check')
+      .toBeLessThanOrEqual(expectedResourceFailures);
   });
 });
 

@@ -39,11 +39,15 @@ const { callableRateLimit } = require('./shared');
 const RESEND_API_KEY = defineSecret('RESEND_API_KEY');
 const EMAIL_FROM = defineSecret('EMAIL_FROM');
 const { secretOr } = require('./integrations/_shared');
+const { resendRejected, resendErrorMessage } = require('./resend-guard');
 
 const CORS_ORIGINS = [
   'https://nobigdealwithjoedeal.com',
   'https://www.nobigdealwithjoedeal.com',
-  'https://nbd-pro.web.app',
+  // Was 'nbd-pro.web.app' (a typo — that host has never existed; the
+  // Firebase project is nobigdeal-pro). #700 (2026-06-23) fixed this
+  // typo in a dozen sibling files but missed this one. Fixed 2026-09-14.
+  'https://nobigdeal-pro.web.app',
 ];
 const REPORT_URL_BASE = 'https://nobigdealwithjoedeal.com/report/';
 const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
@@ -157,7 +161,7 @@ exports.createReportShareToken = onCall(
         const resend = new Resend(RESEND_API_KEY.value());
         const fromEmail = secretOr(EMAIL_FROM, 'noreply@nobigdealwithjoedeal.com');
         const reportName = escHtml(report.type || 'inspection report');
-        await resend.emails.send({
+        const response = await resend.emails.send({
           from: fromEmail,
           to: toEmail,
           subject: `Your inspection report from ${tenantName || 'No Big Deal Home Solutions'}`,
@@ -170,6 +174,13 @@ exports.createReportShareToken = onCall(
             <p style="font-size:12px;color:#666;">This secure link expires in 30 days. If you didn't expect this, you can ignore the email.</p>
           </div>`,
         });
+        // Resend resolves { data: null, error } on an API-level rejection
+        // instead of throwing — without this check `emailed` (returned to
+        // the caller below and shown to the rep) would be true for a
+        // homeowner who never received the report link.
+        if (resendRejected(response)) {
+          throw new Error(resendErrorMessage(response));
+        }
         emailed = true;
       } catch (e) {
         logger.warn('[createReportShareToken] email send failed', { reportId, err: e.message });

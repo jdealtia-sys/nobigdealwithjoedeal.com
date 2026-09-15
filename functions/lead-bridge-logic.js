@@ -203,6 +203,14 @@ function mapPublicLeadToLead(args) {
     publicLeadKind: meta.kind || collection,
     publicLeadCollection: collection,
     publicLeadId: String(args.sourceId || ''),
+    // Attribution (2026-09-13). Every public form posts a page-level `source`
+    // ('/inspect', '/storm-check', 'page-form:/areas/mason-oh', 'tenant-site:…')
+    // that `source` above collapses into one kind label. Kept verbatim so a
+    // lead-source count is one query, not a join back to the public
+    // collection. `source` is unchanged (lead-alert and the scorecard key on
+    // it). Cal.com leads carry sourcePage 'calcom:<event-slug>'
+    // (integrations/calcom-logic.js).
+    sourcePage: String(data.source || ''),
   };
 
   // Coordinates (2026-09-06). The /estimate wizard geocodes the address at

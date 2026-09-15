@@ -80,10 +80,21 @@ Plus: portal audit-trail (that prefix is delete-only), four D2D dispositions
 that do not exist, GAF comparison that `readAsText()`s a PDF, and "1 theme" as
 a Free limit when themes have no gate.
 
-**One audit finding was overruled.** It filed `team` missing from `PLAN_LEVELS`
-as P1 customer harm. `_normalizePlan('team')` does return `'free'`, but
-`planLevel` has **zero consumers** and `billing-gate.js` has its own normalizer
-that handles `team` correctly. A landmine, not a live fire.
+**One audit finding was overruled — correction 2026-09-14: the overrule was
+wrong.** It filed `team` missing from `PLAN_LEVELS` as P1 customer harm.
+`_normalizePlan('team')` does return `'free'`, and this note reasoned that
+was harmless because `planLevel` has zero consumers. `planLevel` (the
+getter) does — but `init()`'s own `requiredPlan` gate reads
+`PLAN_LEVELS[_userPlan]` directly (`nbd-auth.js:644-647`, not through the
+getter), and that gate protects seven real pages (`pro-analytics-gate.js`,
+`project-codex-auth.module.js`, `vault`, `ask-joe`, `ai-tree`,
+`understand`, `ai-tool-finder`) plus the free-tier upgrade banner. A
+paying Team tenant hitting any of those was walled off and shown "upgrade
+to unlock" on a page they already paid for — live fire, not a landmine.
+Fixed in `fix/team-plan-billing-coherence` (Grok CRM audit evaluation,
+2026-09-13): `PLAN_LEVELS`/`PLAN_NAMES` now include `team` between
+`starter` and `growth`, with a coherence assertion in
+`tests/gauntlet-regressions.test.js`.
 
 ## 5. Warranty is now 5 / 10 / 20 in sixteen places
 

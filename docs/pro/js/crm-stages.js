@@ -51,7 +51,24 @@ export const S = {
   FINAL_PHOTOS:       'final_photos',
   DEDUCTIBLE_COLLECTED:'deductible_collected',
   FINAL_PAYMENT:      'final_payment',
+  // 2026-09-15 (Collections foundation): a job that's done but the final
+  // payment didn't land on FINAL_PAYMENT's timeline — was previously
+  // nowhere to go except staying parked on final_payment or being dragged
+  // straight to closed with money still owed, either way invisible as a
+  // distinct "needs collecting" state. Role WON (Jo's call): the job is
+  // sold and done, this doesn't change won-revenue accounting — it's an
+  // ops queue layered on top, not a new revenue bucket.
+  COLLECTIONS:        'collections',
   CLOSED:             'closed',
+  // 2026-09-15 (Warranty Claim lane): a claim opened against a job of ANY
+  // job type AFTER it's already closed (a leak found months later, a
+  // workmanship callback, a manufacturer-defect shingle). Distinct from the
+  // pre-existing "warranty" JOB TYPE/track below (WARRANTY_SCHEDULED/
+  // WARRANTY_REPAIRED) — that track is the front door for a homeowner whose
+  // ORIGINAL need was a warranty service call; this stage is a re-opening of
+  // an already-finished job of any type. See warranty-claim.js for the
+  // claim-document sub-workflow this stage triggers.
+  WARRANTY_CLAIM:     'warranty_claim',
 
   // ── Warranty track ──
   WARRANTY_SCHEDULED: 'warranty_scheduled',
@@ -103,7 +120,9 @@ export const STAGE_META = {
   [S.FINAL_PHOTOS]:       { label: 'Final Photos',       color: '#10b981', headerClass: 'kh-photos',    track: 'shared',    type: 'job',  icon: '📸' },
   [S.DEDUCTIBLE_COLLECTED]:{ label: 'Deductible',        color: '#14b8a6', headerClass: 'kh-deduct',    track: 'shared',    type: 'job',  icon: '💵' },
   [S.FINAL_PAYMENT]:      { label: 'Final Payment',      color: '#0d9488', headerClass: 'kh-finpay',    track: 'shared',    type: 'job',  icon: '🏦' },
+  [S.COLLECTIONS]:        { label: 'Collections',        color: '#dc2626', headerClass: 'kh-collect',   track: 'shared',    type: 'job',  icon: '⏰' },
   [S.CLOSED]:             { label: 'Closed',             color: '#22C55E', headerClass: 'kh-closed',    track: 'shared',    type: 'job',  icon: '🏆' },
+  [S.WARRANTY_CLAIM]:     { label: 'Warranty Claim',     color: '#c2410c', headerClass: 'kh-warrclaim', track: 'shared',    type: 'job',  icon: '🛟' },
 
   // ── Warranty stages ────────────────────────
   [S.WARRANTY_SCHEDULED]: { label: 'Warranty Visit',     color: '#0891b2', headerClass: 'kh-warrsch',   track: 'warranty',  type: 'lead', icon: '🛠️' },
@@ -203,7 +222,7 @@ export const ROLE = { NEW: 'new', ACTIVE: 'active', JOB: 'job', WON: 'won', LOST
 
 // WON = closed + the job-completion/paid stages (the legacy WON_STAGES set).
 // JOB = post-contract, in-production stages that are NOT yet won.
-const _ROLE_WON  = [S.CLOSED, S.INSTALL_COMPLETE, S.FINAL_PHOTOS, S.FINAL_PAYMENT, S.DEDUCTIBLE_COLLECTED];
+const _ROLE_WON  = [S.CLOSED, S.INSTALL_COMPLETE, S.FINAL_PHOTOS, S.FINAL_PAYMENT, S.DEDUCTIBLE_COLLECTED, S.COLLECTIONS, S.WARRANTY_CLAIM];
 const _ROLE_JOB  = [S.JOB_CREATED, S.PERMIT_PULLED, S.MATERIALS_ORDERED, S.MATERIALS_DELIVERED, S.CREW_SCHEDULED, S.INSTALL_IN_PROGRESS];
 const _ROLE_LOST = [S.LOST];
 const _ROLE_NEW  = [S.NEW];
@@ -223,6 +242,47 @@ export function stageRole(stageKey) {
 
 export function isWonStage(stageKey)  { return stageRole(stageKey) === ROLE.WON; }
 export function isLostStage(stageKey) { return stageRole(stageKey) === ROLE.LOST; }
+
+// 2026-09-15 (Kanban filter unification) — the ONE canonical membership test
+// for "is this a job stage," replacing ~9 independent hand-copied stage-key
+// lists across the app (crm-pipeline.js x2, ask-joe-proactive.js,
+// bottleneck-widget.js, money-dashboard.js, analytics-kpi.js, weekly-digest.js,
+// two cosmetic label duplicates) that had already drifted out of sync with
+// each other and with VIEW_JOBS within HOURS of the Collections stage being
+// added — proof this class of duplication is a real, not hypothetical, risk.
+//
+// Jo's call (2026-09-15, after a live audit of the "click Jobs, almost
+// nothing appears" report): CONTRACT_SIGNED counts as a job even though the
+// rep hasn't clicked "Create Job" yet — a signed, materials-on-order deal
+// IS a job to him, and the CRM's OWN revenue math already agreed (the
+// pipeline-value/closed-revenue split in crm-pipeline.js has always treated
+// contract_signed as converted/closed money, not in-play pipeline). Every
+// stage from job_created through closed (VIEW_JOBS — role job or won) plus
+// contract_signed itself is a job stage. A closed/paid job stays visible —
+// no roll-off.
+//
+// Scope note: like stageRole() above, this classifies by BUILT-IN key only.
+// A tenant's CUSTOM stage with a job/won role is not recognized here — the
+// Jobs-tab filter has never been freeform-pipeline-aware, and making it so
+// is a separate, larger change nobody has asked for yet. Callers that need
+// custom-stage safety should check the lead's own persisted stageRole FIRST
+// (the established hardcoded-fast-path + role-fallback pattern used
+// elsewhere in this codebase) and fall back to isJobStage() only for the
+// built-in case — see crm-pipeline.js's migrated closedKeys check for the
+// worked example.
+export function isJobStage(stageKey) {
+  const k = normalizeStage(stageKey);
+  return k === S.CONTRACT_SIGNED || VIEW_JOBS.includes(k);
+}
+
+// The terminal-stage counterpart (won OR lost — "decided, nothing left to
+// do"), mirroring functions/stage-roles.js's server-side isDecided(). Same
+// consolidation goal: ask-joe-proactive.js's _TERMINAL_STAGE_KEYS and
+// bottleneck-widget.js's SKIP_STAGES were each their own hand-copied list.
+export function isTerminalStage(stageKey) {
+  const r = stageRole(stageKey);
+  return r === ROLE.WON || r === ROLE.LOST;
+}
 
 // Stamp the role onto STAGE_META so the Phase-1 config resolver + builder UI
 // can read/edit it as a first-class field (single derivation point).
@@ -335,8 +395,36 @@ export const VIEW_JOBS = [
   S.FINAL_PHOTOS,
   S.DEDUCTIBLE_COLLECTED,
   S.FINAL_PAYMENT,
+  S.COLLECTIONS,
   S.CLOSED,
+  // 2026-09-15 (Warranty Claim lane): appended, not inserted before CLOSED —
+  // order here is the Jobs-tab column order (via VIEW_JOBS_BOARD below) and
+  // a claim is chronologically AFTER the job closed. isJobStage()/isTerminalStage()
+  // and resolveColumn()'s job-stage collapse all key off membership, not
+  // position, so appending is safe for those two consumers; stageOptionsForType's
+  // splice (below) just gains one more trailing dropdown option.
+  S.WARRANTY_CLAIM,
 ];
+
+// 2026-09-15 (Kanban filter unification) — the JOBS TAB's actual column
+// list, distinct from VIEW_JOBS itself. VIEW_JOBS stays exactly as it was
+// (post-Create-Job stages only) because two other consumers depend on that
+// exact scope and must NOT see contract_signed added to it:
+//   - stageOptionsForType() splices VIEW_JOBS in AFTER whatever
+//     contract_signed entry the per-track view (VIEW_INSURANCE/CASH/
+//     FINANCE) already contributed — adding contract_signed to VIEW_JOBS
+//     too would duplicate that dropdown option.
+//   - resolveColumn()'s job-stage collapse branch checks
+//     `VIEW_JOBS.includes(normalized)` to decide whether a STRICTLY
+//     post-contract stage needs collapsing into Closed/Installing under a
+//     narrower view — contract_signed never needs that collapse, because
+//     it already has its own real column in every per-track view.
+// VIEW_JOBS_BOARD is a separate, wider list built ONLY for what a rep sees
+// under the "Jobs" tab (Jo's call: a signed deal is a job to him, even
+// before "Create Job" is clicked) — contract_signed gets its own leading
+// column here instead of falling into resolveColumn's viewStages[0]
+// fallback (an accident of "nothing else matched," not a real column).
+export const VIEW_JOBS_BOARD = [S.CONTRACT_SIGNED, ...VIEW_JOBS];
 
 /**
  * ALL VIEWS — for the view switcher dropdown
@@ -348,7 +436,7 @@ export const KANBAN_VIEWS = {
   finance:   { label: 'Finance Pipeline',    stages: VIEW_FINANCE },
   warranty:  { label: 'Warranty Pipeline',   stages: VIEW_WARRANTY },
   service:   { label: 'Service Pipeline',    stages: VIEW_SERVICE },
-  jobs:      { label: 'Job Board',           stages: VIEW_JOBS },
+  jobs:      { label: 'Job Board',           stages: VIEW_JOBS_BOARD },
 };
 
 /**
@@ -599,6 +687,51 @@ export function subTypeLabel(jobType, value) {
 }
 
 // ─────────────────────────────────────────────
+// WARRANTY CLAIM — a claim document's OWN status sub-workflow.
+// Separate from the lead's `stage` (S.WARRANTY_CLAIM handles the LEAD side
+// above — one board column, one hard gate on re-entering S.CLOSED). This is
+// the finer-grained state machine for the claim doc itself
+// (leads/{leadId}/warrantyClaims/{claimId}), never written through
+// commitStageChange() — see warranty-claim.js's advanceClaimStatus().
+// reason reuses SUB_TYPES.warranty (workmanship/material/manufacturer/
+// goodwill) rather than inventing a parallel list.
+// ─────────────────────────────────────────────
+
+export const CLAIM_STATUSES = ['open', 'scheduled', 'repaired', 'resolved', 'denied'];
+
+export const CLAIM_STATUS_ACTIONS = {
+  open:      [{ id: 'schedule_claim_visit', label: 'Schedule Visit',  icon: '📅', kind: 'action' }],
+  scheduled: [{ id: 'log_claim_visit',      label: 'Log Diagnosis',  icon: '🔍', kind: 'action' }],
+  repaired:  [{ id: 'resolve_claim',        label: 'Mark Resolved',  icon: '✅', kind: 'stage' }],
+  resolved:  [],
+  denied:    [],
+};
+
+export function preferredActionForClaim(status) {
+  const actions = CLAIM_STATUS_ACTIONS[status] || [];
+  if (!actions.length) return null;
+  return actions.find(a => a.kind === 'stage') || actions[0];
+}
+
+// Required claim-doc fields per DESTINATION status. Mirrors
+// missingRequiredFields()'s shape below but is intentionally a SEPARATE
+// function over a separate object — this gates the claim doc, never the
+// lead, and must never be merged into REQUIRED_FIELDS_BY_TYPE/
+// missingRequiredFields (those two stay lead-only).
+export const REQUIRED_FIELDS_BY_CLAIM_STATUS = {
+  scheduled: ['scheduledDate'],
+  resolved:  ['resolutionNotes'],
+};
+
+export function missingClaimFields(claim, newStatus) {
+  const required = REQUIRED_FIELDS_BY_CLAIM_STATUS[newStatus] || [];
+  return required.filter(f => {
+    const v = claim && claim[f];
+    return v === undefined || v === null || v === '';
+  });
+}
+
+// ─────────────────────────────────────────────
 // TRADES — multi-select, orthogonal to job type
 // Drives estimate template, crew assignment, material list.
 // Stored on a lead as `lead.trades` (array of values).
@@ -693,11 +826,19 @@ export const STAGE_ACTIONS = {
     { id: 'collect_deposit', label: 'Collect Deposit',         icon: '💵',  kind: 'action' },
   ],
   [S.JOB_CREATED]: [
-    { id: 'pull_permit',     label: 'Pull Permit',             icon: '📜',  kind: 'action' },
+    // 2026-09-15 (Paperwork Filing): was kind:'action' — one of the dashboard
+    // bootstrap's own named-dead "workflow markers with nothing to open".
+    // 'doc' generates a real permit-application document instead.
+    { id: 'pull_permit',     label: 'Pull Permit',             icon: '📜',  kind: 'doc' },
     { id: 'order_materials', label: 'Order Materials',         icon: '📦',  kind: 'action' },
   ],
   [S.PERMIT_PULLED]: [
-    { id: 'order_materials', label: 'Order Materials',         icon: '📦',  kind: 'action' },
+    // 2026-09-15 (Paperwork Filing): first in the array so preferredActionFor()'s
+    // actions[0] fallback (both entries are kind:'action') picks this — the
+    // job-created→materials-ordered gate needs permitFiledAt set before it lets
+    // the lead through.
+    { id: 'mark_permit_filed', label: 'Mark Permit Filed',     icon: '✅',  kind: 'action' },
+    { id: 'order_materials',   label: 'Order Materials',       icon: '📦',  kind: 'action' },
   ],
   [S.MATERIALS_ORDERED]: [
     { id: 'confirm_delivery', label: 'Confirm Delivery',       icon: '🚚',  kind: 'action' },
@@ -728,8 +869,33 @@ export const STAGE_ACTIONS = {
     { id: 'warranty_cert',   label: 'Warranty Certificate',    icon: '🏆',  kind: 'doc' },
     { id: 'close_job',       label: 'Close Job',               icon: '🎉',  kind: 'stage' },
   ],
+  [S.COLLECTIONS]: [
+    // send_payment_reminder is log-only (kind:'action') — there's no
+    // dedicated reminder-email template yet, same shape as Follow Up /
+    // Log Contact elsewhere. close_job reuses the SAME action id
+    // FINAL_PAYMENT's own "Close Job" button already uses (STAGE_TARGETS
+    // in dashboard-bootstrap.module.js maps it to 'closed') — one target,
+    // not a second stage-target entry, so once payment actually lands the
+    // rep closes the job exactly the way they always have.
+    { id: 'send_payment_reminder', label: 'Send Payment Reminder', icon: '📧', kind: 'action' },
+    { id: 'close_job',             label: 'Close Job',             icon: '🎉', kind: 'stage' },
+  ],
   [S.CLOSED]: [
     { id: 'request_review',  label: 'Request Review',          icon: '⭐',  kind: 'action' },
+    // 2026-09-15 (Warranty Claim lane): no jobTypes filter — a post-close
+    // issue can be reported against a job of ANY type, incl. warranty/service
+    // (which skip the formal certificate at CLOSED but can still have a
+    // workmanship callback). kind:'stage' routes through STAGE_TARGETS →
+    // moveCard(), whose guard (crm-pipeline.js) intercepts the move to run
+    // WarrantyClaim.promptIntake() BEFORE the stage actually changes.
+    { id: 'file_warranty_claim', label: 'File Warranty Claim', icon: '🛟',  kind: 'stage' },
+  ],
+  [S.WARRANTY_CLAIM]: [
+    { id: 'log_claim_visit',     label: 'Log Claim Visit',       icon: '📝', kind: 'action' },
+    // kind:'stage' → STAGE_TARGETS maps this to 'closed'; moveCard()'s guard
+    // intercepts (oldStageKey === 'warranty_claim') and runs
+    // WarrantyClaim.promptResolution() before allowing the move back to Closed.
+    { id: 'resolve_warranty_claim', label: 'Resolve Claim',      icon: '✅', kind: 'stage' },
   ],
   [S.WARRANTY_SCHEDULED]: [
     { id: 'log_diagnosis',   label: 'Log Diagnosis',           icon: '🔍',  kind: 'action', jobTypes: ['warranty'] },
@@ -757,11 +923,27 @@ export function actionsForStage(stage, jobType) {
   return list.filter(a => !a.jobTypes || a.jobTypes.includes(jobType));
 }
 
+// 2026-09-15 (driven-UX foundation): "which ONE action matters most for
+// this stage" used to be inlined separately everywhere it was needed —
+// the kanban card's next-action chip picked doc/stage-kind actions over
+// plain ones with its own `.find(...)`, and a second copy would have been
+// needed for the stage-entry auto-task generator (stage-checklist.js).
+// Single source now, so both surfaces (and any future one) always agree
+// on "the" next action for a stage — no drift between what the chip shows
+// and what task gets auto-created.
+export function preferredActionFor(stage, jobType) {
+  const actions = actionsForStage(stage, jobType);
+  if (!actions.length) return null;
+  return actions.find(a => a.kind === 'doc' || a.kind === 'stage') || actions[0];
+}
+
 // ─────────────────────────────────────────────
 // REQUIRED FIELDS — stage transition gates
 // Map: jobType → stageKey → required lead-field names.
-// Used by validation to block stage advancement when data is missing.
-// Phase 2 will wire this into the form; for now it's data only.
+// Wired into a HARD block (no override) at both stage-mutating call sites —
+// crm-pipeline.js's moveCard() and customer-bootstrap.module.js's
+// progressStage() (2026-09-15 driven-UX foundation) — via missingRequiredFields()
+// below. Data AND enforcement live here; there is no separate "Phase 2" step.
 // ─────────────────────────────────────────────
 
 // CREW_SCHEDULED requires scheduledDate on EVERY track.
@@ -778,32 +960,56 @@ export function actionsForStage(stage, jobType) {
 // Satisfiable by construction — scheduledDate already has a FIELD_LABELS
 // entry, a _GATE_FIELD_META mapping and the #lScheduledDate input, because
 // the warranty track has always gated on it. This adds no new machinery.
+// Paperwork-filing gate fields (2026-09-15 Paperwork Filing lane) — flat
+// ISO-string-or-'' scalars on the LEAD (never boolean: missingRequiredFields
+// below treats `undefined/null/''` as missing and nothing else, so a plain
+// `false` would silently satisfy the gate). contractFiledAt/permitFiledAt
+// gate SHARED job stages reachable by ANY jobType (JOB_CREATED/
+// MATERIALS_ORDERED are track:'shared', same as CREW_SCHEDULED above) — every
+// track lists them, not just the "obvious" ones, for the exact reason the
+// crew_scheduled comment above exists: skipping a track here IS that bug's
+// shape. warrantyCertFiledAt is deliberately ABSENT from warranty/service at
+// CLOSED — JOB_TYPE_META.warranty/service describe a callback or small
+// repair, neither issues a NEW warranty on close (not an oversight).
 export const REQUIRED_FIELDS_BY_TYPE = {
   insurance: {
-    [S.CLAIM_FILED]:        ['insCarrier', 'claimNumber'],
+    [S.CLAIM_FILED]:        ['insCarrier', 'claimNumber', 'aobFiledAt'],
     [S.ADJUSTER_SCHEDULED]: ['insCarrier'],
     [S.ESTIMATE_SUBMITTED]: ['estimateAmount', 'deductibleOrOwedByHO'],
     [S.CONTRACT_SIGNED]:    ['estimateAmount'],
+    [S.JOB_CREATED]:        ['contractFiledAt'],
+    [S.MATERIALS_ORDERED]:  ['permitFiledAt'],
     [S.CREW_SCHEDULED]:     ['scheduledDate'],
+    [S.CLOSED]:             ['warrantyCertFiledAt', 'cocFiledAt'],
   },
   cash: {
     [S.ESTIMATE_SENT_CASH]: ['jobValue'],
     [S.CONTRACT_SIGNED]:    ['jobValue'],
+    [S.JOB_CREATED]:        ['contractFiledAt'],
+    [S.MATERIALS_ORDERED]:  ['permitFiledAt'],
     [S.CREW_SCHEDULED]:     ['scheduledDate'],
+    [S.CLOSED]:             ['warrantyCertFiledAt'],
   },
   finance: {
     [S.PREQUAL_SENT]:       ['financeCompany'],
     [S.LOAN_APPROVED]:      ['loanAmount', 'financeCompany'],
     [S.CONTRACT_SIGNED]:    ['loanAmount', 'financeCompany'],
+    [S.JOB_CREATED]:        ['contractFiledAt'],
+    [S.MATERIALS_ORDERED]:  ['permitFiledAt'],
     [S.CREW_SCHEDULED]:     ['scheduledDate'],
+    [S.CLOSED]:             ['warrantyCertFiledAt'],
   },
   warranty: {
     [S.WARRANTY_SCHEDULED]: ['scheduledDate'],
+    [S.JOB_CREATED]:        ['contractFiledAt'],
+    [S.MATERIALS_ORDERED]:  ['permitFiledAt'],
     [S.CREW_SCHEDULED]:     ['scheduledDate'],
   },
   service: {
     [S.SERVICE_QUOTED]:     ['jobValue'],
     [S.SERVICE_APPROVED]:   ['jobValue'],
+    [S.JOB_CREATED]:        ['contractFiledAt'],
+    [S.MATERIALS_ORDERED]:  ['permitFiledAt'],
     [S.CREW_SCHEDULED]:     ['scheduledDate'],
   },
 };

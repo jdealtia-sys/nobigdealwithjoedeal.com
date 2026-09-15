@@ -39,6 +39,15 @@
       .replace(/'/g, '&#39;');
   }
 
+  // Customer-facing tier name (GBB audit, 2026-09-09). Internal good/better/
+  // best keys never change — this is display-only for the retail-quote tier
+  // cards a customer actually reads. Single source: estimate-config.js.
+  function _tierLabel(key) {
+    const cfg = (typeof window !== 'undefined') ? window.NBD_ESTIMATE_CONFIG : null;
+    if (cfg && typeof cfg.tierLabel === 'function') return cfg.tierLabel(key).toUpperCase();
+    return ({ good: 'STANDARD', better: 'PREFERRED', best: 'ELITE' })[key] || String(key).toUpperCase();
+  }
+
   function fmtMoney(n, showZero) {
     const v = Number(n) || 0;
     if (v === 0 && !showZero) return '—';
@@ -766,10 +775,15 @@ ${footer}
     // Tier card HTML (if tiers passed)
     let tierCards = '';
     if (tiers) {
+      // GBB audit, 2026-09-09: "Impact + 20yr Warranty" was one of eight
+      // independent warranty-duration schemes found live at once; the other
+      // two subs didn't even state a duration. Every tier is lifetime
+      // workmanship now (estimate-config.js TIER_DISPLAY) — the material
+      // differentiator half matches TIER_RATES' own comments there.
       const tierDefs = [
-        { key: 'good',   label: 'GOOD',   sub: 'Standard System', color: '#6b7280' },
-        { key: 'better', label: 'BETTER', sub: 'System Warranty', color: '#3b82f6' },
-        { key: 'best',   label: 'BEST',   sub: 'Impact + 20yr Warranty', color: _acc }
+        { key: 'good',   label: _tierLabel('good'),   sub: 'Standard Materials · Lifetime Warranty', color: '#6b7280' },
+        { key: 'better', label: _tierLabel('better'), sub: 'Upgraded Materials · Lifetime Warranty', color: '#3b82f6' },
+        { key: 'best',   label: _tierLabel('best'),   sub: 'Impact-Rated · Lifetime Warranty', color: _acc }
       ];
       tierCards = `
         <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin:24px 0;">
@@ -841,7 +855,7 @@ ${footer}
       <h2>Warranty</h2>
       <p style="font-size:12px;color:#444;">
         <strong>Materials:</strong> Manufacturer warranty per product (see scope details).<br>
-        <strong>Workmanship:</strong> 10-year ${escapeHtml(_b.isNbd ? 'NBD' : _b.seal)} labor warranty on all installation.<br>
+        <strong>Workmanship:</strong> Lifetime ${escapeHtml(_b.isNbd ? 'NBD' : _b.seal)} labor warranty on all installation — transferability varies by tier, see above.<br>
         <strong>System Warranty:</strong> Available with ${escapeHtml(((estimate.lines || []).find(l => /warranty/i.test(l.name)) || {}).name || 'Better/Best tier upgrades')}.
       </p>
     `;

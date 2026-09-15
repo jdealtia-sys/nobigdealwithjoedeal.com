@@ -123,7 +123,104 @@ const RUNNABLE = ['node', 'smoke'];
 //               on top of the session-revocation raise above. Both sides had
 //               moved the literal again. MEASURED on the merged tree via
 //               --check; neither side's number was adjusted by hand.
-const FLOORS = { node: 106, smoke: 67, disk: 191 };
+//   2026-09-08  107/67/192 after portal-scheduled-date landed. MEASURED from
+//               --check on this branch's merged base, not 106+1.
+//   2026-09-08  NINTH collision, pdf-renders retention lane
+//               (tests/pdf-render-retention.test.js). This branch rebased
+//               FOUR times in one evening and hit this line every time; the
+//               entries it wrote called themselves SEVENTH and then EIGHTH
+//               before other lanes took those slots while it sat unmerged, so
+//               the ordinal here is the only part that was ever guesswork.
+//               MEASURED on the merged tree each time. Twice the danger was
+//               not the node count but SMOKE: this lane adds no smoke suite,
+//               and a +1 on its own figure would have carried a stale 65 back
+//               over main's 67. If you take one thing from nine entries: this
+//               line is a serialisation point for every lane that adds a test
+//               file, so re-measure after the rebase and merge promptly.
+//   2026-09-13  109/67/194, Cal.com phone lane
+//               (tests/calcom-webhook-payload.test.js). MEASURED via --check
+//               on a branch cut from origin/main at 9496f859. PR #1534
+//               (favicons) raises this line to the SAME literal from the same
+//               base — a matching number is not agreement: whichever merges
+//               second must re-measure (expect 110/67/195 with both).
+//   2026-09-13  109/67/194, favicon lane (tests/favicon-contract.test.js).
+//               MEASURED via --check on a branch cut from origin/main at
+//               9496f859. Open PRs #1518 and #1499 also add node suites; if
+//               either merges first, re-measure the merged tree.
+//   2026-09-13  MERGED TREE (favicon branch + #1535): both sides carried the
+//               SAME literal 109/67/194, so git merged the number without a
+//               conflict and only these comments collided — the exact case the
+//               entries above warn about. Set from --check on the merged tree.
+//   2026-09-13  110/67/195, Cal.com lead-alert lane
+//               (tests/lead-alert-calcom.test.js). MEASURED via --check on a
+//               branch cut from origin/main at 954e7331 — main already held
+//               109/67/194. The same literal as #1534's expected pair-total is
+//               a coincidence of +1s, not a merge of the two: #1534 and #1539
+//               both move this line too, so whichever lands after this one
+//               re-measures.
+//   2026-09-13  MERGED TREE again (favicon branch + #1537 + #1540): both sides
+//               carried 110/67/195 — the same literal a second time in one day.
+//               Set from --check on this merged tree, not from either side.
+//   2026-09-13  110/67/195, lead-form phone lane
+//               (tests/lead-form-phone-contract.test.js). MEASURED via --check
+//               on a branch cut from origin/main at 954e7331 (#1535). PR #1534
+//               also lands at 110/67/195 from a different base — the same
+//               literal again, so whichever merges second re-measures (111/67/196).
+//   2026-09-13  MERGED TREE (lead-form branch + #1534): main held 111/67/196,
+//               this branch 110/67/195; the literal below is what --check
+//               printed on the merged tree.
+//   2026-09-13  push Call-phone lane (tests/push-lead-call-phone.test.js).
+//               Rebased THREE times: onto 5ec2021b (#1540), e9555d35 (#1534),
+//               then f02d6111 (#1539). Every time main had independently raised
+//               this line to the exact literal the branch carried — 110/67/195,
+//               111/67/196, 112/67/197 — so only the comments conflicted.
+//               RE-MEASURED via --check on the final rebased tree each time;
+//               the last one printed 113/67/198.
+//   2026-09-13  113/67/199, appointments-cleanup lane
+//               (tests/lead-artifact-cleanup.integration.test.js). node/smoke
+//               unchanged — this is a 'wired-individually' emulator suite, so
+//               only disk moves. MEASURED via --check on a branch cut from
+//               origin/main at d7506665 (#1543).
+//   2026-09-13  google-reviews lane (tests/google-reviews-not-configured.test.js),
+//               rebased onto main at d7506665 after sitting unmerged since
+//               09-08 — every intervening lane above had already raised this
+//               line without this branch. RE-MEASURED via --check on the
+//               final rebased tree rather than adding this lane's +1 to
+//               113/67/198; smoke stays 67, this lane adds no smoke suite.
+//   2026-09-13  MERGED TREE (appointments-cleanup lane + google-reviews lane):
+//               both cut from d7506665 and both raised this line independently
+//               — appointments-cleanup added a disk-only 'wired-individually'
+//               suite, google-reviews added a 'node' suite. Neither side's
+//               number was carried forward by arithmetic; re-measured via
+//               --check on the rebased tree.
+//   2026-09-15  main gained one 'node' suite since the last bump (found by
+//               `--check` failing red on an unrelated PR — this fix carries
+//               no product change, just re-measures the tripwire on main's
+//               current tree, same class of drift as the entry above).
+//   2026-09-15  128/67/214 → 129/67/215, tests/render-pdf-brand-mark-square.test.js
+//               (the render-pdf logo-crop hotfix — a live bug where every
+//               server-rendered PDF's brand mark was illegible since #1570).
+//   2026-09-15  EIGHTH collision, same story as the ones above: the
+//               paperwork-filing lane independently raised 128/67/214 to the
+//               SAME 129/67/215 literal as the render-pdf hotfix above (both
+//               added exactly one node suite from the same base) — a
+//               matching number that is, per the 2026-09-08 entry's own
+//               warning, not evidence it's still correct once REBASED onto
+//               the other side's commit. Re-measured on the merged tree via
+//               --check: 130/67/216.
+//   2026-09-15  NINTH collision: the Kanban filter unification lane
+//               (tests/kanban-filter-unification.test.js) independently
+//               raised the SAME 129/67/215 base to 130/67/216 as the
+//               EIGHTH entry above — again a matching literal that is not
+//               evidence, since this rebase stacks BOTH lanes' new suites
+//               onto the same merged tree. Re-measured via --check:
+//               131/67/217.
+//   2026-09-15  131/67/217 → 132/67/218, tests/warranty-claim.test.js (the
+//               Warranty Claim lane — the third and final piece of the
+//               original three-lane CRM streamlining ask, after Collections
+//               and Paperwork Filing).
+
+const FLOORS = { node: 132, smoke: 67, disk: 218 };
 
 // ── Argument parsing ───────────────────────────────────────────────
 const argv = process.argv.slice(2);

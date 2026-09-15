@@ -48,7 +48,34 @@
     // loss to the user instead of silently resolving.
     try { await detectQueueLoss(); } catch (e) { console.warn('queue-loss check failed', e); }
 
+    // E4 kill-switch (2026-09-14): this is the second of three registration
+    // sites for /pro/sw.js — dashboard-sw-bootstrap.js already honored
+    // ?nosw=1 and /pro/nosw.txt; this file (loaded by customer.html and
+    // login.html) and pages/sw-register.js did not, so the site-wide remote
+    // kill and the per-user URL kill (docs/pro/README-killswitch.md)
+    // silently only worked on the dashboard. Same two signals, checked once,
+    // gating registration only — the rest of init() (online/offline
+    // handlers, the status indicator, flushQueue) still needs to run even
+    // when the SW itself is killed.
+    let swKilled = false;
     if ('serviceWorker' in navigator) {
+      try {
+        const urlKill = new URLSearchParams(location.search).has('nosw');
+        let remoteKill = false;
+        try {
+          const r = await fetch('/pro/nosw.txt', { method: 'HEAD', cache: 'no-store' });
+          remoteKill = r.ok;
+        } catch (_) { /* network flake — fail safe (SW allowed) */ }
+        swKilled = urlKill || remoteKill;
+        if (swKilled) {
+          console.warn('[OfflineManager] SW kill-switch active (' + (urlKill ? 'url' : 'remote') + ') — skipping registration');
+          const regs = await navigator.serviceWorker.getRegistrations();
+          for (const r of regs) { try { await r.unregister(); } catch (_) {} }
+        }
+      } catch (_) { /* kill-switch check itself failed — fail safe (SW allowed) */ }
+    }
+
+    if ('serviceWorker' in navigator && !swKilled) {
       try {
         // updateViaCache: 'none' forces the browser to bypass its own HTTP
         // cache when fetching sw.js itself, so a deployed SW update is seen

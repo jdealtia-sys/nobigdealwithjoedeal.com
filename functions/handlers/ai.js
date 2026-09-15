@@ -344,6 +344,14 @@ exports.publicVisualizerAI = onRequest(
       return;
     }
 
+    // Global AI kill-switch (Audit #4) — emergency halt without a deploy.
+    // Unauthenticated + public, so this is the ONLY operator lever short of
+    // pulling the shared Anthropic key.
+    if (await require('../integrations/killswitch').isAiDisabled()) {
+      res.status(503).json({ error: 'AI temporarily disabled' });
+      return;
+    }
+
     // Per-IP cap — 5 visualizer calls / hour from a single IP. Each call is
     // a ~$0.01 Haiku request; 5/hour caps cost per IP at ~$0.05/hour worst case.
     if (!(await httpRateLimit(req, res, 'publicVisualizerAI:ip', 5, 3_600_000))) return;
@@ -452,6 +460,14 @@ exports.publicFunnelAI = onRequest(
       return;
     }
 
+    // Global AI kill-switch (Audit #4) — emergency halt without a deploy.
+    // Unauthenticated + public (the /estimate funnel), so this is the ONLY
+    // operator lever short of pulling the shared Anthropic key.
+    if (await require('../integrations/killswitch').isAiDisabled()) {
+      res.status(503).json({ error: 'AI temporarily disabled' });
+      return;
+    }
+
     // Per-IP cap — 10 calls / hour. A full funnel completion is <=2 calls
     // (estimate JSON + note); the headroom covers a couple of retries.
     if (!(await httpRateLimit(req, res, 'publicFunnelAI:ip', 10, 3_600_000))) return;
@@ -538,6 +554,12 @@ exports.adminAI = onRequest(
   guardHttp('adminAI', async (req, res) => {
     if (req.method !== 'POST') {
       res.status(405).json({ error: 'Method not allowed' });
+      return;
+    }
+
+    // Global AI kill-switch (Audit #4) — emergency halt without a deploy.
+    if (await require('../integrations/killswitch').isAiDisabled()) {
+      res.status(503).json({ error: 'AI temporarily disabled' });
       return;
     }
 

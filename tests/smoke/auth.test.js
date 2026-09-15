@@ -599,6 +599,29 @@ section('H-06: integrationStatus admin-only gate');
       /\['admin',\s*'company_admin'\]\.includes\(callerRole\)/.test(m[0])
       && /permission-denied/.test(m[0]));
   }
+  // Companion assertion (integration-availability-non-admin fix): a new
+  // integrationAvailability callable was added alongside integrationStatus
+  // so non-admin reps can get an availability readout without going through
+  // the admin gate above. Prove that addition did NOT touch — let alone
+  // weaken — integrationStatus itself: its matched block must still be the
+  // admin-gated one above, and must not have absorbed the new callable.
+  if (m) {
+    assert('H-06 companion: integrationStatus block is unchanged — still admin-gated, and did not merge with the new integrationAvailability callable',
+      /\['admin',\s*'company_admin'\]\.includes\(callerRole\)/.test(m[0])
+      && /permission-denied/.test(m[0])
+      && !/integrationAvailability/.test(m[0]));
+  }
+  // And the new sibling callable is a genuinely distinct, deliberately
+  // non-admin endpoint — not integrationStatus renamed or aliased, and not
+  // itself carrying a role check that would defeat its own purpose.
+  const m2 = src.match(/exports\.integrationAvailability\s*=\s*onCall\s*\([\s\S]+?\}\s*\);/);
+  assert('H-06 companion: integrationAvailability handler block located', !!m2);
+  if (m2) {
+    assert('H-06 companion: integrationAvailability has no admin/company_admin role check (any authenticated caller may use it)',
+      !/callerRole/.test(m2[0]) && !/permission-denied/.test(m2[0]));
+    assert('H-06 companion: integrationAvailability still requires authentication',
+      /!request\.auth \|\| !request\.auth\.uid/.test(m2[0]) && /unauthenticated/.test(m2[0]));
+  }
 }
 
 section('M-04: submitPublicLead optional-field allowlist');
