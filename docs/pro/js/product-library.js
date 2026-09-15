@@ -441,7 +441,7 @@
     });
 
     return `
-      <style>.pl-card:hover{box-shadow:0 4px 12px rgba(0,0,0,.1)!important;}.pl-product-grid{grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:14px;}@media (max-width:360px){.pl-product-grid{grid-template-columns:1fr;}}</style>
+      <style>.pl-card:hover{box-shadow:0 4px 12px rgba(0,0,0,.1)!important;}.pl-product-grid{grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:14px;}@media (max-width:360px){.pl-product-grid{grid-template-columns:minmax(0,1fr);}}</style>
       <div style="padding:20px;background:transparent;min-height:100vh;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
 
         <!-- Header -->

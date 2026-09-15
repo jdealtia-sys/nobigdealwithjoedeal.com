@@ -4684,9 +4684,22 @@ section('Mobile overflow sweep 2026-09-14 — 5 invisible-horizontal-scroll bugs
   assert('product-library.js grid uses the .pl-product-grid class',
     /class="pl-product-grid" style="display:\$\{isCollapsed \? 'none' : 'grid'\};margin-top:/.test(productLib),
     'expected the product card grid to carry a class so a media query can collapse its columns');
-  assert('.pl-product-grid collapses to a single column under 360px',
-    /@media \(max-width:360px\)\{\.pl-product-grid\{grid-template-columns:1fr;\}\}/.test(productLib),
-    'expected a max-width:360px collapse rule, same shape as .jt-grid (job-templates-ui.js) and .training-grid (theme-bridge.css)');
+  // A bare `1fr` track is NOT the same as `minmax(0,1fr)`: per the CSS Grid
+  // spec, a flex track with no minmax() wrapper gets an IMPLICIT automatic
+  // minimum of `auto` — i.e. the widest min-content contribution among the
+  // grid's children — not 0. This card's own content (a `white-space:nowrap`
+  // cost/meta badge) has a ~307px min-content width, so a bare `1fr` still
+  // silently clipped a badge/button with no scrollbar at a 320px viewport
+  // even though the rule LOOKED like a correct single-column collapse
+  // (verified live: forcing `grid-template-columns:1fr !important` via
+  // devtools did not change the computed track size at all — the fix has to
+  // be `minmax(0,1fr)`, explicitly overriding the implicit `auto` floor).
+  assert('.pl-product-grid collapses to a TRUE zero-floor single column under 360px',
+    /@media \(max-width:360px\)\{\.pl-product-grid\{grid-template-columns:minmax\(0,1fr\);\}\}/.test(productLib),
+    'expected minmax(0,1fr), not bare 1fr — a bare flex track has an implicit auto (min-content) minimum, so it can still overflow its container');
+  assert('.pl-product-grid does NOT regress to the bare-1fr shape that still clips at 320px',
+    !/@media \(max-width:360px\)\{\.pl-product-grid\{grid-template-columns:1fr;\}\}/.test(productLib),
+    'a bare 1fr here silently clips a card badge/button with no scrollbar — confirmed live at a real 320px viewport in both a Chromium/Playwright load and the Browser-pane MCP tool');
 
   // 4. Drawing Tool — .draw-mode-row (dashboard.html/dashboard-app.css),
   //    4 flex:1 buttons with no flex-wrap, inconsistent with its sibling
