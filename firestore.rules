@@ -1402,6 +1402,17 @@ service cloud.firestore {
     // team invoices, and a viewer-role user could mutate/delete them. Mirrors
     // the /expenses tenancy pattern — company-scoped read, companyId required on
     // create, viewer blocked from writes, provenance frozen.
+    //
+    // 2026-09-15 (Collections foundation): UPDATE was still createdBy-only
+    // even though READ already granted the whole team company-scoped access —
+    // a manager could SEE a teammate's outstanding invoice in a shared
+    // Collections queue but got PERMISSION_DENIED trying to Mark Paid or Send
+    // it, exactly the "whoever's free works the queue" use case Collections
+    // needs. Mirrors the /leads precedent (isCompanyStaff update): staff who
+    // aren't the creator can now act on any tenant invoice; DELETE stays
+    // owner + company_admin only (not manager), same split /leads already
+    // makes — a manager manages the queue, only the creator or the tenant
+    // owner destroys a billing record.
     match /invoices/{invoiceId} {
       allow read: if isOwner(resource.data.createdBy)
         || isAdmin()
@@ -1418,13 +1429,21 @@ service cloud.firestore {
       // .get('role','') — reading an absent claim with != THROWS (solo owners
       // have no role claim). Freeze owner/tenant/provenance; money fields stay
       // mutable (markPaid rewrites balanceDue/amountPaid/status).
-      allow update: if (isOwner(resource.data.createdBy)
-            && request.auth.token.get('role', '') != 'viewer'
-            && didNotChange(['createdBy', 'companyId', 'estimateId', 'createdAt']))
-        || isAdmin();
-      allow delete: if (isOwner(resource.data.createdBy)
-            && request.auth.token.get('role', '') != 'viewer')
-        || isAdmin();
+      allow update: if isAdmin()
+        || (
+          (
+            (isOwner(resource.data.createdBy) && request.auth.token.get('role', '') != 'viewer')
+            || (isCompanyStaff()
+                && resource.data.companyId != null
+                && resource.data.companyId == myCompanyId())
+          )
+          && didNotChange(['createdBy', 'companyId', 'estimateId', 'createdAt'])
+        );
+      allow delete: if isAdmin()
+        || (isOwner(resource.data.createdBy) && request.auth.token.get('role', '') != 'viewer')
+        || (isCompanyAdmin()
+            && resource.data.companyId != null
+            && resource.data.companyId == myCompanyId());
     }
 
     // ── EMAIL DRIP ───────────────────────────────────

@@ -1122,6 +1122,36 @@ async function run() {
   await assertFails(deleteDoc(doc(bob,      'invoices/inv-a')));
   await assertSucceeds(deleteDoc(doc(alice, 'invoices/inv-new')));
 
+  // 32. invoices: same-company STAFF update (2026-09-15, Collections
+  //     foundation). UPDATE used to be createdBy-only even though READ
+  //     already granted the whole team company-scoped access — a manager
+  //     could SEE a teammate's outstanding invoice in a shared Collections
+  //     queue but got PERMISSION_DENIED trying to Mark Paid it. Mirrors the
+  //     /leads isCompanyStaff-update precedent. DELETE stays narrower —
+  //     owner or company_admin only, NOT manager — same split /leads makes.
+  // ✅ a manager (not the creator) can now update a teammate's invoice —
+  //    the exact "whoever's free works the queue" capability this exists for
+  await assertSucceeds(updateDoc(doc(mgrA, 'invoices/inv-a'), { status: 'paid', balanceDue: 0 }));
+  // ✅ so can the tenant owner (company_admin), also not the creator
+  await assertSucceeds(updateDoc(doc(coAdmin, 'invoices/inv-a'), { status: 'sent' }));
+  // ✅ staff update still can't re-tenant / re-own / re-point the invoice —
+  //    the SAME provenance freeze the owner path is already held to
+  await assertFails(updateDoc(doc(mgrA, 'invoices/inv-a'), { companyId: 'co-b' }));
+  await assertFails(updateDoc(doc(mgrA, 'invoices/inv-a'), { createdBy: 'mia' }));
+  // ❌ a manager from a DIFFERENT tenant (mgrB, co-b) still can't touch a
+  //    co-a invoice — the company-scope check, not just the role check, is
+  //    what's actually gating this
+  await assertFails(updateDoc(doc(mgrB, 'invoices/inv-a'), { status: 'void' }));
+  // ✅ a company_admin (not the creator) can delete a teammate's invoice —
+  //    the tenant owner destroying a billing record, same as /leads
+  await assertSucceeds(deleteDoc(doc(coAdmin, 'invoices/inv-a')));
+  // ❌ but a manager — staff, just not the owner — still cannot delete;
+  //    only UPDATE was widened to staff, DELETE deliberately was not
+  await env.withSecurityRulesDisabled(async (ctx) => {
+    await setDoc(doc(ctx.firestore(), 'invoices/inv-mgr-del'), { createdBy: 'alice', companyId: 'co-a', estimateId: 'est-ok', createdAt: 3, balanceDue: 200, status: 'sent' });
+  });
+  await assertFails(deleteDoc(doc(mgrA, 'invoices/inv-mgr-del')));
+
   console.log('✓ All firestore rules tests passed');
   await env.cleanup();
 }
