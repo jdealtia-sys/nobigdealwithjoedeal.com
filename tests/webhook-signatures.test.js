@@ -51,6 +51,38 @@ function throws(name, fn) { try { fn(); ok(name + ' (expected throw)', false); }
     const ev2 = stripe.webhooks.constructEvent(payload, oldHeader, secret, 100000);
     ok('same stale event accepted within a wide tolerance (sig itself valid)', ev2.id === 'evt_1');
   }
+
+  // ── Exploit primitive proof — the '__unset__' deploy stub is a valid HMAC
+  // key as far as constructEvent is concerned ──────────────────────────────
+  // functions/integrations/_shared.js stubs every unbound secret with the
+  // literal '__unset__' so the Firebase CLI has a non-empty value to bind.
+  // That literal is PUBLIC and documented in this repo (SECRET_STUB_VALUE,
+  // this comment, CLAUDE.md history). constructEvent has no opinion about
+  // what makes a "good" secret — it verifies against whatever string it's
+  // handed. This proves the forgery primitive is real independent of any
+  // particular handler's guard: if STRIPE_WEBHOOK_SECRET is EVER left
+  // unbound in prod and a handler reads it with a bare `.value()` (no
+  // secretValue() stub check — the bug this suite's stripeWebhook fix
+  // closed), anyone who knows this literal can sign a forged billing event
+  // with it and pass signature verification.
+  {
+    const { SECRET_STUB_VALUE } = require(path.join(__dirname, '..', 'functions', 'integrations', '_shared.js'));
+    ok("SECRET_STUB_VALUE is the documented '__unset__' literal", SECRET_STUB_VALUE === '__unset__');
+
+    const forgedPayload = JSON.stringify({
+      id: 'evt_forged_by_attacker',
+      type: 'checkout.session.completed',
+      data: { object: { id: 'cs_forged', metadata: { uid: 'attacker-controlled-uid' } } }
+    });
+    const forgedHeader = stripe.webhooks.generateTestHeaderString({
+      payload: forgedPayload, secret: SECRET_STUB_VALUE,
+    });
+    const forgedEvent = stripe.webhooks.constructEvent(forgedPayload, forgedHeader, SECRET_STUB_VALUE);
+    ok("EXPLOIT PRIMITIVE: a payload signed with the stub literal '__unset__' verifies successfully " +
+       "against that same string (this is exactly what a bare STRIPE_WEBHOOK_SECRET.value() read, with " +
+       "no stub guard, would hand to constructEvent if the secret were ever unbound in prod)",
+      !!forgedEvent && forgedEvent.id === 'evt_forged_by_attacker');
+  }
 }
 
 // ── Twilio (validateRequest) ─────────────────────────────────
