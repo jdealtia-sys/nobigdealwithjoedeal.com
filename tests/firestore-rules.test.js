@@ -389,6 +389,39 @@ async function run() {
   await assertFails(updateDoc(doc(dave, 'leads/leadRef'), { userId: 'someoneElse' }));
   await assertFails(updateDoc(doc(dave, 'leads/leadRef'), { companyId: 'co-x' }));
 
+  // 25. stageWriteOk() (2026-09-15) — stageRole is the field every server
+  //     classifier (weekly-digest, dormant-leads, money-dashboard,
+  //     analytics-kpi, leaderboard, portal.js) trusts via
+  //     functions/stage-roles.js's roleFor(). Nothing previously stopped an
+  //     authorized writer from forging it to an arbitrary string. leadD is
+  //     dave-owned in co-d with no prior stage/stageRole (plain fixture).
+  // ✅ a real stage-write.js-shaped write (stage + a valid role) succeeds
+  await assertSucceeds(updateDoc(doc(dave, 'leads/leadD'), { stage: 'contract_signed', stageRole: 'job' }));
+  // ✅ each of the 5 real roles is individually accepted
+  for (const role of ['new', 'active', 'job', 'won', 'lost']) {
+    await assertSucceeds(updateDoc(doc(dave, 'leads/leadD'), { stageRole: role }));
+  }
+  // ✅ a stage-only edit with no stageRole in the payload still succeeds —
+  //    the guard is absence-safe (the Edit-modal path omits `stage` entirely
+  //    when the dropdown has no matching option, per the comment above it;
+  //    stageWriteOk must not turn that omission into a denial).
+  await assertSucceeds(updateDoc(doc(dave, 'leads/leadD'), { firstName: 'Dave Renamed' }));
+  // ❌ a forged/garbage stageRole — not one of the 5 real roles — is denied.
+  //    This is the exact gap: a bug or a malicious client writing this
+  //    today would silently misclassify the lead in every server-side
+  //    won/lost/digest/nudge surface with no error anywhere.
+  await assertFails(updateDoc(doc(dave, 'leads/leadD'), { stageRole: 'super-won' }));
+  await assertFails(updateDoc(doc(dave, 'leads/leadD'), { stageRole: '' }));
+  await assertFails(updateDoc(doc(dave, 'leads/leadD'), { stageRole: 'Won' })); // case-sensitive — the real enum is lowercase
+  // ❌ a non-string / absurd stage value is denied
+  await assertFails(updateDoc(doc(dave, 'leads/leadD'), { stage: 123 }));
+  await assertFails(updateDoc(doc(dave, 'leads/leadD'), { stage: 'x'.repeat(200) }));
+  // ✅ a normal, real custom-stage key (the exact shape Settings > Pipelines
+  //    produces, per pipeline-builder.js's slug generator) with role 'won'
+  //    is accepted — this is the actual freeform-pipeline scenario the rule
+  //    must not regress: tenants can and do invent their own stage strings.
+  await assertSucceeds(updateDoc(doc(dave, 'leads/leadD'), { stage: 'custom_collections_closed', stageRole: 'won' }));
+
   // 22. /system/migrations is admin-SDK only — no client read/write.
   //     The runner in functions/migrations/runner.js owns this doc.
   await assertFails(getDoc(doc(alice, 'system/migrations')));
