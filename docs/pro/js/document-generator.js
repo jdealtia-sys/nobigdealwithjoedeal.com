@@ -288,6 +288,9 @@ window.NBDDocGen = {
                                { role: 'homeowner', label: 'Homeowner',                       required: true },
                                { role: 'rep',       label: 'Authorized NBD Representative',   required: true },
                              ] },
+    // 2026-09-15 (Paperwork Filing) — a permit is filed with a jurisdiction,
+    // not signed by the homeowner in-app, so deliberately no defaultSigners.
+    permit:                { name: 'Permit Application',              template: 'renderPermitApplication' },
     supplement_request:    { name: 'Supplement Request',              template: 'renderSupplementRequest' },
     scope_of_work:         { name: 'Scope of Work',                   template: 'renderScopeOfWork',
                              defaultSigners: [
@@ -325,6 +328,21 @@ window.NBDDocGen = {
     door_hanger:           { name: 'Door Hanger',                     template: 'renderDoorHanger' },
     neighborhood_mailer:   { name: 'Neighborhood Mailer',             template: 'renderNeighborhoodMailer' },
     testimonial_sheet:     { name: 'Testimonial Sheet',               template: 'renderTestimonialSheet' }
+  },
+
+  // 2026-09-15 (Paperwork Filing) — auto-derives a lead's *FiledAt gate field
+  // (crm-stages.js's REQUIRED_FIELDS_BY_TYPE) the moment its document is
+  // signed, so a rep who already e-signed a contract/AOB/COC never has to
+  // separately tick a "filed" checkbox for the same fact. Read by
+  // onPersistFinalized below. Permit has no entry here — no in-app signer to
+  // hook, filed via the manual "Mark Permit Filed" action instead
+  // (paperwork-write.js). warrantyCertFiledAt isn't here either —
+  // warranty-cert.js's own _persistWarrantyToLead stamps it directly,
+  // alongside the `warranty:{...}` object it already writes.
+  FILED_FIELD_BY_DOC_TYPE: {
+    contract:                  'contractFiledAt',
+    assignment_of_benefits:    'aobFiledAt',
+    certificate_of_completion: 'cocFiledAt',
   },
 
   // ============================================================================
@@ -624,6 +642,22 @@ window.NBDDocGen = {
             }
           } catch (e) {
             console.warn('Signed metadata update failed:', e && e.message);
+          }
+          // 2026-09-15 (Paperwork Filing) — auto-derive the lead-level *FiledAt
+          // gate field (crm-stages.js's REQUIRED_FIELDS_BY_TYPE) from this real
+          // signing event, so a rep who just e-signed a contract/AOB/COC never
+          // has to separately tick a manual "filed" checkbox for the same fact.
+          // Best-effort, its own try/catch — a failure here must not make the
+          // signature persistence above look like it failed.
+          try {
+            const filedField = this.FILED_FIELD_BY_DOC_TYPE[type];
+            if (filedField && _leadIdEarly && window.db && window.doc && window.updateDoc) {
+              await window.updateDoc(window.doc(window.db, 'leads', _leadIdEarly), {
+                [filedField]: new Date().toISOString(),
+              });
+            }
+          } catch (e) {
+            console.warn('Lead filed-stamp failed:', e && e.message);
           }
           // Repaint so the row picks up its '✓ Signed' state immediately.
           if (window.NBDCustomerDocs) {
@@ -1041,7 +1075,28 @@ window.NBDDocGen = {
    * instead of filled data. User can print and fill by hand.
    * @param {string} type - Document type
    */
-  generateBlank(type) {
+  async generateBlank(type) {
+    // ── HYDRATION GATE (2026-09-14) ────────────────────────────────────────
+    // Same pattern as generate() above (#1447/#1449): this._resolveCompany()
+    // is a SYNCHRONOUS read of the company-profile brand doc, which
+    // company-profile.js:276 seeds with the NBD DEFAULTS at parse time. This
+    // function reads it FIVE times, below, BEFORE ever calling generate() —
+    // and generate()'s own hydration gate is too late, because mergeFields()
+    // spreads ...data LAST, so these pre-baked companyName/Phone/Email/
+    // Website/Tagline values win over whatever generate() would have
+    // produced after hydrating. A freshly-loaded tenant printing a blank
+    // template can therefore get NBD's own identity on it.
+    //
+    // Gate here too, as the first statement, so _resolveCompany() below reads
+    // a real tenant brand instead of the NBD defaults. Never blocks the rep:
+    // a hydration failure falls through and renders with whatever brand is
+    // available, exactly as before.
+    try {
+      if (window._companyProfileLoaded !== true && typeof window._loadCompanyProfile === 'function') {
+        await window._loadCompanyProfile();
+      }
+    } catch (_) { /* render with what we have rather than blocking the rep */ }
+
     // Build blank data with underline placeholders for hand-fill
     const blankData = {
       homeownerName: '________________________________',
@@ -1063,7 +1118,7 @@ window.NBDDocGen = {
       companyWebsite: this._resolveCompany().website,
       companyTagline: this._resolveCompany().tagline
     };
-    this.generate(type, blankData);
+    await this.generate(type, blankData);
   },
 
   /**
@@ -1647,6 +1702,23 @@ window.NBDDocGen = {
           border-top: 1px solid ${this._resolveCompany().colors.borderGray};
           margin: 0.15in 0;
         }
+
+        /* Credential / manufacturer badge row — same markup and asset
+           lookup as affiliateRow() in document-generator-templates.js
+           (window.NBD_BADGE_ASSETS, generated by scripts/build-badge-assets.js),
+           just re-skinned to this engine's box-model (${this._resolveCompany().colors.rule}
+           hairlines vs. that file's short CSS-var aliases). Kept in step by
+           hand since the two template engines don't share a stylesheet. */
+        .affiliates { display:flex; justify-content:center; align-items:center; gap:14px;
+          flex-wrap:wrap; margin:0.3in 0 0.1in 0; }
+        .affiliate { border:1px solid ${this._resolveCompany().colors.rule}; border-radius:6px;
+          background:#fff; padding:8px 14px; text-align:left; }
+        .affiliate-name { font:700 11px/1.3 'Helvetica Neue', Arial, sans-serif;
+          color:${this._resolveCompany().colors.primary}; letter-spacing:0.04em; }
+        .affiliate-num { font-size:10px; color:${this._resolveCompany().colors.grey}; margin-top:2px; }
+        .affiliate-badge { display:flex; flex-direction:column; align-items:center; justify-content:center; padding:6px 12px 8px; }
+        .affiliate-badge-img { display:block; height:52px; width:auto; }
+        .affiliate-badge-num { font-size:10px; color:${this._resolveCompany().colors.grey}; margin-top:5px; letter-spacing:0.02em; }
       </style>
     `;
   },
@@ -2153,6 +2225,7 @@ window.NBDDocGen = {
             </div>
           </div>
 
+          ${this.affiliateRow ? this.affiliateRow() : ''}
           ${this.renderFooter({ pageNumber: '1' })}
         </div>
       </body>
@@ -2345,6 +2418,7 @@ window.NBDDocGen = {
             </div>
           </div>
 
+          ${this.affiliateRow ? this.affiliateRow() : ''}
           ${this.renderFooter({ pageNumber: '1' })}
         </div>
       </body>
@@ -2500,6 +2574,7 @@ window.NBDDocGen = {
             </div>
           </div>
 
+          ${this.affiliateRow ? this.affiliateRow() : ''}
           ${this.renderFooter({ pageNumber: '1' })}
         </div>
       </body>
@@ -2806,6 +2881,12 @@ ${price ? '<div style="text-align:right;margin:24px 0;"><span style="font-size:1
 
     const today = new Date().toLocaleDateString('en-US', { year:'numeric', month:'long', day:'numeric' });
 
+    // 2026-09-15 (Kanban filter unification): was a hand-copied label map
+    // (already stopping at 'closed', missing 'collections' added the same
+    // day) — window.stageLabel is the canonical labeler (crm-stages.js,
+    // exposed by both bootstrap modules); this file is a plain script with
+    // no static import of crm-stages.js, so the local map stays ONLY as a
+    // fallback for a load order this file can't otherwise guarantee.
     const STAGE_LABELS = {
       new: 'New', contacted: 'Contacted', inspected: 'Inspected',
       claim_filed: 'Claim Filed', adjuster_meeting_scheduled: 'Adjuster Meeting',
@@ -2820,13 +2901,14 @@ ${price ? '<div style="text-align:right;margin:24px 0;"><span style="font-size:1
       closed: 'Closed'
     };
     const JOB_TYPE_LABELS = { insurance: 'Insurance', cash: 'Cash', finance: 'Finance', warranty: 'Warranty', service: 'Service' };
+    const _stageLabelFor = (k) => (typeof window.stageLabel === 'function' && window.stageLabel(k)) || STAGE_LABELS[k] || k;
 
     const customerRowsHtml = [
       ['Customer',    fullName],
       ['Address',     customer.address],
       ['Phone',       customer.phone],
       ['Email',       customer.email],
-      ['Stage',       customer.stage ? (STAGE_LABELS[customer.stage] || customer.stage) : null],
+      ['Stage',       customer.stage ? _stageLabelFor(customer.stage) : null],
       ['Lead since',  customer.createdAt ? fmtDate(customer.createdAt) : null]
     ].filter(([k, v]) => v && v !== '—').map(([k, v]) =>
       `<tr><td class="kv-k">${esc(k)}</td><td class="kv-v">${esc(v)}</td></tr>`
@@ -2944,6 +3026,16 @@ ${price ? '<div style="text-align:right;margin:24px 0;"><span style="font-size:1
   .doc-ftr{margin-top:24px;padding:14px 36px 18px 36px;background:linear-gradient(180deg,${C.colors.secondary} 0%,${C.colors.primary} 100%);color:rgba(255,255,255,.92);border-top:4px solid ${C.colors.accent};text-align:center;font:600 10px/1.5 Barlow,sans-serif;letter-spacing:.04em;}
   .doc-ftr .ftr-brand{display:block;font:800 11px/1.2 Barlow,sans-serif;color:#fff;letter-spacing:.1em;text-transform:uppercase;margin-bottom:3px;}
   .doc-ftr .ftr-disc{display:block;font-size:9px;color:rgba(255,255,255,.7);margin-top:6px;line-height:1.4;font-style:italic;}
+  /* Credential badge row — same markup/asset lookup as affiliateRow() in
+     document-generator-templates.js (window.NBD_BADGE_ASSETS), re-skinned
+     to this template's palette since it doesn't share a stylesheet. */
+  .affiliates{display:flex;justify-content:center;align-items:center;gap:14px;flex-wrap:wrap;margin:18px 36px 0 36px;}
+  .affiliate{border:1px solid #eee;border-radius:6px;background:#fff;padding:8px 14px;text-align:left;}
+  .affiliate-name{font:700 11px/1.3 'Barlow Condensed',sans-serif;color:${C.colors.primary};letter-spacing:.04em;}
+  .affiliate-num{font:500 10px Barlow,sans-serif;color:#666;margin-top:2px;}
+  .affiliate-badge{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:6px 12px 8px;}
+  .affiliate-badge-img{display:block;height:48px;width:auto;}
+  .affiliate-badge-num{font:500 10px Barlow,sans-serif;color:#666;margin-top:5px;letter-spacing:.02em;}
 
   @media print{
     html,body{background:#fff;}
@@ -3003,6 +3095,8 @@ ${price ? '<div style="text-align:right;margin:24px 0;"><span style="font-size:1
     <h2>Notes</h2>
     ${notesBlocksHtml}
   </div>` : ''}
+
+  ${this.affiliateRow ? this.affiliateRow() : ''}
 
   <div class="doc-ftr">
     <span class="ftr-brand">${esc(L.name)}</span>

@@ -86,6 +86,10 @@ const PER_USER_MONTHLY_USD_CAP_BY_PLAN = {
   foundation:    25.00,
   starter:       25.00,
   blueprint:     40.00,
+  // Team had no row, so it fell through to PER_USER_MONTHLY_USD_CAP
+  // (50.00) -- a coincidence, not a decision. Pinned explicitly, still
+  // interpolated between Starter and Growth pending a real number.
+  team:          50.00,
   growth:        75.00,
   professional: 150.00,
 };

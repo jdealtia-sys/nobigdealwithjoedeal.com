@@ -688,6 +688,21 @@ section('Visual regression baseline (Playwright pixel-diff)');
   assert('mask hooks for live-timestamp + data-mask-visual',
     /mask:\s*\[[\s\S]{0,200}\.live-timestamp/.test(spec)
     && /\[data-mask-visual\]/.test(spec));
+  // CI's hosting emulator forwards /api/* rewrites to PRODUCTION functions.
+  // Live Google reviews turned every commit's landing diff red on 2026-09-13
+  // (1337px taller at mobile-375). The spec pins those payloads and fails any
+  // unpinned /api/* call by name. Matched on code with comments stripped: the
+  // spec's WHY block names the same endpoint.
+  {
+    const code = spec.split('\n').map((l) => l.replace(/^\s*\/\/.*$/, '')).join('\n');
+    const routeAt = code.indexOf('pw.route(');
+    assert('visual spec pins /api/google-reviews to the empty (fallback-card) payload',
+      /'\/api\/google-reviews':\s*\{\s*reviews:\s*\[\],\s*total:\s*0\s*\}/.test(code));
+    assert('visual spec routes /api/* BEFORE navigating, and fails on unpinned calls',
+      routeAt > -1 && routeAt < code.indexOf('pw.goto(')
+      && /route\.fulfill\(/.test(code) && /unpinned\.push\(/.test(code)
+      && /expect\(unpinned[^)]*\)\.toEqual\(\[\]\)/.test(code));
+  }
   // npm scripts wired so CI + local can run + update baselines.
   assert('test:e2e:visual + test:e2e:visual:update npm scripts',
     !!(pkg.scripts && pkg.scripts['test:e2e:visual'])
@@ -4630,6 +4645,75 @@ section('First-run tour: anchors resolve + direction-aware skip (first-run audit
   // on forceRestart existing.
   assert('tour: public API start/stop/forceRestart intact',
     /window\.OnboardingTour = \{\s*start,\s*stop: complete,\s*forceRestart/.test(tour));
+}
+
+section('Mobile overflow sweep 2026-09-14 — 5 invisible-horizontal-scroll bugs');
+{
+  // Same defect class as PR #1531's Wave 5c-adjacent fix (.jump-nav,
+  // .crm-hdr-views, .cb-stats-row): a tab/chip/stat row using
+  // overflow-x:auto with the scrollbar hidden or effectively invisible on
+  // iOS, so it silently truncates instead of signaling more content. Fixed
+  // with the same CSS mask-image right-edge fade (no JS) where the row is
+  // "always tight", and with a grid-collapse / flex-wrap where the overflow
+  // is a layout floor rather than a scroller.
+  const dash = readDashboardStyles(); // dashboard.html + extracted css
+  const repOs = read(path.join(PRO_JS, 'rep-os.js'));
+  const productLib = read(path.join(PRO_JS, 'product-library.js'));
+  const rda = read(path.join(PRO_JS, 'real-deal-academy.js'));
+
+  // 1. Settings — #stab-bar (13 .stab-btn tabs), dashboard.html + dashboard-app.css.
+  assert('#stab-bar gets a mobile mask-image fade (Settings tab bar)',
+    /#stab-bar\{\s*-webkit-mask-image:linear-gradient\(to right,#000 calc\(100% - 24px\),transparent 100%\);\s*mask-image:linear-gradient\(to right,#000 calc\(100% - 24px\),transparent 100%\);\s*\}/.test(dash),
+    'expected #stab-bar to get the same mask-image right-edge fade as .crm-hdr-views/.cb-stats-row');
+  const stabBarTag = /<div id="stab-bar" style="([^"]*)"/.exec(dash);
+  assert('#stab-bar inline style enables -webkit-overflow-scrolling:touch',
+    !!stabBarTag && /-webkit-overflow-scrolling:touch/.test(stabBarTag[1]),
+    'expected #stab-bar to opt into momentum scrolling on iOS like the other scroll-affordance fixes');
+
+  // 2. Rep OS — Performance Snapshot row (rep-os.js), 4 cards with a
+  //    304px floor width that overflows a ~296px 320px-phone content width.
+  assert('rep-os.js Performance Snapshot row uses the .ros-perf-row class',
+    /class="ros-perf-row" style="display:flex;gap:8px;margin-bottom:10px;overflow-x:auto;"/.test(repOs),
+    'expected the Performance Snapshot row to carry a class so dashboard-app.css can target it');
+  assert('.ros-perf-row has a mask-image fade (Rep OS Performance Snapshot)',
+    /\.ros-perf-row\{\s*-webkit-mask-image:linear-gradient\(to right,#000 calc\(100% - 24px\),transparent 100%\);\s*mask-image:linear-gradient\(to right,#000 calc\(100% - 24px\),transparent 100%\);\s*\}/.test(dash),
+    'expected .ros-perf-row to get the same mask-image right-edge fade as .cb-stats-row');
+
+  // 3. Products — product card grid (product-library.js), minmax(320px,1fr)
+  //    floor is wider than the ~296px content width at a 320px viewport.
+  assert('product-library.js grid uses the .pl-product-grid class',
+    /class="pl-product-grid" style="display:\$\{isCollapsed \? 'none' : 'grid'\};margin-top:/.test(productLib),
+    'expected the product card grid to carry a class so a media query can collapse its columns');
+  // A bare `1fr` track is NOT the same as `minmax(0,1fr)`: per the CSS Grid
+  // spec, a flex track with no minmax() wrapper gets an IMPLICIT automatic
+  // minimum of `auto` — i.e. the widest min-content contribution among the
+  // grid's children — not 0. This card's own content (a `white-space:nowrap`
+  // cost/meta badge) has a ~307px min-content width, so a bare `1fr` still
+  // silently clipped a badge/button with no scrollbar at a 320px viewport
+  // even though the rule LOOKED like a correct single-column collapse
+  // (verified live: forcing `grid-template-columns:1fr !important` via
+  // devtools did not change the computed track size at all — the fix has to
+  // be `minmax(0,1fr)`, explicitly overriding the implicit `auto` floor).
+  assert('.pl-product-grid collapses to a TRUE zero-floor single column under 360px',
+    /@media \(max-width:360px\)\{\.pl-product-grid\{grid-template-columns:minmax\(0,1fr\);\}\}/.test(productLib),
+    'expected minmax(0,1fr), not bare 1fr — a bare flex track has an implicit auto (min-content) minimum, so it can still overflow its container');
+  assert('.pl-product-grid does NOT regress to the bare-1fr shape that still clips at 320px',
+    !/@media \(max-width:360px\)\{\.pl-product-grid\{grid-template-columns:1fr;\}\}/.test(productLib),
+    'a bare 1fr here silently clips a card badge/button with no scrollbar — confirmed live at a real 320px viewport in both a Chromium/Playwright load and the Browser-pane MCP tool');
+
+  // 4. Drawing Tool — .draw-mode-row (dashboard.html/dashboard-app.css),
+  //    4 flex:1 buttons with no flex-wrap, inconsistent with its sibling
+  //    .draw-btns groups two elements over which already wrap.
+  assert('.draw-mode-row wraps its buttons instead of forcing an overflow',
+    /\.draw-mode-row\{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:8px;\}/.test(dash),
+    'expected .draw-mode-row to add flex-wrap:wrap, matching the sibling .draw-btns groups');
+
+  // 5. Bonus — Real Deal Academy tabs (real-deal-academy.js): the existing
+  //    @media(max-width:768px) block shrinks gap/padding/font-size but never
+  //    added an affordance for the long Overview/Insurance/Retail/... labels.
+  assert('.rda-tabs mobile override adds a mask-image scroll affordance',
+    /\.rda-tabs\s*\{\s*gap:\s*2px;\s*-webkit-mask-image:\s*linear-gradient\(to right,\s*#000 calc\(100% - 24px\),\s*transparent 100%\);\s*mask-image:\s*linear-gradient\(to right,\s*#000 calc\(100% - 24px\),\s*transparent 100%\);\s*\}/.test(rda),
+    'expected the existing @media(max-width:768px) .rda-tabs override to add a mask-image fade like the other mobile tab/chip rows');
 }
 
 };

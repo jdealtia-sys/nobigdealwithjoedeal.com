@@ -142,6 +142,7 @@
     // files twice under two cache keys. One key per file, repo-wide.
     docgen: [
       'js/nbd-logo-asset.js?v=2',
+      'js/nbd-badge-assets.js?v=1',
       'js/document-generator.js?v=10',
       'js/document-generator-templates.js?v=8',
       'js/doc-preflight.js?v=1'
@@ -218,6 +219,17 @@
     // loads still works.
     photos: [
       'js/photo-engine.js?v=6',
+      // photo-queue-store.js + photo-queue-recovery.js were static-tagged
+      // only on dashboard.html until 2026-09-14 — customer.html's own
+      // uploadSinglePhoto never enqueued a photo into the durable IndexedDB
+      // queue before attempting the network upload, so a no-signal shot from
+      // this page was lost outright (not merely delayed) on a failed upload
+      // or a reload mid-upload. Bundled here, NOT static-tagged, per the
+      // existing dedupe trap this file documents elsewhere: ScriptLoader
+      // dedupes on resolved path, so an eager tag for either file would make
+      // loadBundle('photos') a no-op for it and nothing would load lazily.
+      'js/photo-queue-store.js?v=1',
+      'js/photo-queue-recovery.js?v=1',
       'js/inspection-report-engine.js?v=5',
       'js/photo-report.js?v=3'
     ],
@@ -266,8 +278,18 @@
     // 'draw') sits behind waitForLeaflet(), storm-center's initMap self-polls,
     // d2d retries with a friendly failure state, and the two home widgets
     // (weather-radar, territory-mini) load-then-run via widgets.js
-    // _withLeaflet. The maps *app* chain (maps-core→…→maps.js) stays eager —
-    // maps.js doubles as the theme/font appearance engine.
+    // _withLeaflet. maps-core.js → maps-overlays.js → maps.js stay eager —
+    // maps.js doubles as the theme/font appearance engine and neither of the
+    // other two references anything drawing-tool-specific. maps-routing.js
+    // (the fourth sibling in that split — see its own header) moved to the
+    // `drawtool` bundle below (2026-09-14, boot-weight containment): it's
+    // 172 KiB, the #2 static file on the page, and nothing but the draw view
+    // touches it. Safe because dashboard-actions.js's goTo('draw') already
+    // polls window.initDrawMap via the same waitForMapFn() used for Leaflet
+    // itself, and `drawMap` (its one bare sibling-scope global, per that
+    // file's header) has exactly one unguarded external read — fixed
+    // alongside this move at dashboard-ui.js's drawSearch autocomplete
+    // callback.
     // The four Leaflet stylesheets (21.8 KiB) were render-blocking <link>s in
     // dashboard.html's <head> even though the JS below them has been lazy
     // since 2026-08-07 — CSS for a map most sessions never open, on the
@@ -282,6 +304,19 @@
       '/assets/vendor/leaflet-draw/leaflet.draw.js',
       '/assets/vendor/leaflet-heat/leaflet-heat.js',
       '/assets/vendor/leaflet-markercluster/leaflet.markercluster.js'
+    ],
+    // Drawing-tool surface (172 KiB) — see the mapvendor comment above.
+    // Requires mapvendor (Leaflet) to already be present; VIEW_BUNDLES lists
+    // both for the 'draw' route so ScriptLoader resolves them in order.
+    drawtool: [
+      'js/maps-routing.js?v=4'
+    ],
+    // Talk Tank inbox (2026-09-14, boot-weight containment) — a single-view
+    // module with zero callers outside goTo('talk-tank'); was two static
+    // <script> tags away from the same treatment already given to
+    // storm/closeboard/expenses/money/repos below.
+    talktank: [
+      'js/talk-tank.js?v=1'
     ]
   };
 
@@ -301,11 +336,12 @@
     expenses:    ['expenses'],
     money:       ['money'],
     repos:       ['repos'],
+    'talk-tank': ['talktank'],
     aitree:      ['decision'],
     understand:  ['decision'],
     reports:     ['reports'],
     map:         ['mapvendor'],
-    draw:        ['mapvendor'],
+    draw:        ['mapvendor', 'drawtool'],
     settings:    ['theme']
   };
 

@@ -481,7 +481,7 @@
     // Performance Snapshot
     if (m) {
       html += `
-        <div style="display:flex;gap:8px;margin-bottom:10px;overflow-x:auto;">
+        <div class="ros-perf-row" style="display:flex;gap:8px;margin-bottom:10px;overflow-x:auto;">
           <div style="flex:1;min-width:70px;background:var(--s2);border:1px solid var(--br);border-radius:10px;padding:10px;text-align:center;">
             <div style="font-size:20px;font-weight:700;color:var(--t);">${m.yesterdayKnocks}</div>
             <div style="font-size:9px;color:var(--m);text-transform:uppercase;">Yesterday</div>

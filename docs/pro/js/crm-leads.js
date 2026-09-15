@@ -150,6 +150,12 @@ function _leadModalReset(){
   // Clear insurance/finance/job fields
   ['lClaimNumber','lEstimateAmount','lDeductible','lScopeOfWork','lFinanceCompany','lLoanAmount','lPreQualLink','lScheduledDate','lCrew'].forEach(id=>{ const e=document.getElementById(id); if(e) e.value=''; });
   ['lClaimFiledBy','lSupplementStatus','lLoanStatus'].forEach(id=>{ const e=document.getElementById(id); if(e) e.value=''; });
+  // 2026-09-15 (Paperwork Filing) — checkboxes, not text fields: .value='' is
+  // a no-op on an <input type="checkbox"> (it never uncheckes one). Without
+  // this, a filed checkbox ticked while editing lead A would still read
+  // checked when the modal reopened blank for "Add Lead", silently stamping
+  // a fresh contractFiledAt/etc. on a brand-new lead that was never filed.
+  ['lContractFiled','lPermitFiled','lAobFiled','lWarrantyCertFiled','lCocFiled'].forEach(id=>{ const e=document.getElementById(id); if(e) e.checked=false; });
   // Hide conditional field blocks
   ['insuranceFieldsBlock','financeFieldsBlock','jobFieldsBlock'].forEach(id=>{ const e=document.getElementById(id); if(e) e.style.display='none'; });
   window._modalIntel = null;
@@ -359,6 +365,16 @@ async function saveLead(){
       // Job fields
       scheduledDate: document.getElementById('lScheduledDate')?.value||'',
       crew: document.getElementById('lCrew')?.value?.trim()||'',
+      // 2026-09-15 (Paperwork Filing) — gate fields for REQUIRED_FIELDS_BY_TYPE
+      // (crm-stages.js). '' when unchecked, never false/0 — missingRequiredFields
+      // only treats undefined/null/'' as missing. editLead() (crm-portal-bridge.js)
+      // populates these checkboxes from the lead's own filed state on open, so a
+      // re-save of an already-filed field just refreshes its stamp, never blanks it.
+      contractFiledAt: document.getElementById('lContractFiled')?.checked ? new Date().toISOString() : '',
+      permitFiledAt: document.getElementById('lPermitFiled')?.checked ? new Date().toISOString() : '',
+      aobFiledAt: document.getElementById('lAobFiled')?.checked ? new Date().toISOString() : '',
+      warrantyCertFiledAt: document.getElementById('lWarrantyCertFiled')?.checked ? new Date().toISOString() : '',
+      cocFiledAt: document.getElementById('lCocFiled')?.checked ? new Date().toISOString() : '',
       notes: document.getElementById('lNotes')?.value?.trim() || '',
       yearBuilt:     intelData.yearBuilt   || null,
       marketValue:   intelData.marketValue || null,

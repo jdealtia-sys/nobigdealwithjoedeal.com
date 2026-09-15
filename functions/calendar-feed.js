@@ -44,7 +44,10 @@ const { buildCalendar } = require('./calendar-feed-logic');
 const CORS_ORIGINS = [
   'https://nobigdealwithjoedeal.com',
   'https://www.nobigdealwithjoedeal.com',
-  'https://nbd-pro.web.app',
+  // Was 'nbd-pro.web.app' (a typo — that host has never existed; the
+  // Firebase project is nobigdeal-pro). #700 (2026-06-23) fixed this
+  // typo in a dozen sibling files but missed this one. Fixed 2026-09-14.
+  'https://nobigdeal-pro.web.app',
 ];
 
 const FEED_BASE = 'https://nobigdealwithjoedeal.com/calendar/';

@@ -193,8 +193,34 @@ const RUNNABLE = ['node', 'smoke'];
 //               suite, google-reviews added a 'node' suite. Neither side's
 //               number was carried forward by arithmetic; re-measured via
 //               --check on the rebased tree.
+//   2026-09-15  main gained one 'node' suite since the last bump (found by
+//               `--check` failing red on an unrelated PR — this fix carries
+//               no product change, just re-measures the tripwire on main's
+//               current tree, same class of drift as the entry above).
+//   2026-09-15  128/67/214 → 129/67/215, tests/render-pdf-brand-mark-square.test.js
+//               (the render-pdf logo-crop hotfix — a live bug where every
+//               server-rendered PDF's brand mark was illegible since #1570).
+//   2026-09-15  EIGHTH collision, same story as the ones above: the
+//               paperwork-filing lane independently raised 128/67/214 to the
+//               SAME 129/67/215 literal as the render-pdf hotfix above (both
+//               added exactly one node suite from the same base) — a
+//               matching number that is, per the 2026-09-08 entry's own
+//               warning, not evidence it's still correct once REBASED onto
+//               the other side's commit. Re-measured on the merged tree via
+//               --check: 130/67/216.
+//   2026-09-15  NINTH collision: the Kanban filter unification lane
+//               (tests/kanban-filter-unification.test.js) independently
+//               raised the SAME 129/67/215 base to 130/67/216 as the
+//               EIGHTH entry above — again a matching literal that is not
+//               evidence, since this rebase stacks BOTH lanes' new suites
+//               onto the same merged tree. Re-measured via --check:
+//               131/67/217.
+//   2026-09-15  131/67/217 → 132/67/218, tests/warranty-claim.test.js (the
+//               Warranty Claim lane — the third and final piece of the
+//               original three-lane CRM streamlining ask, after Collections
+//               and Paperwork Filing).
 
-const FLOORS = { node: 114, smoke: 67, disk: 200 };
+const FLOORS = { node: 132, smoke: 67, disk: 218 };
 
 // ── Argument parsing ───────────────────────────────────────────────
 const argv = process.argv.slice(2);

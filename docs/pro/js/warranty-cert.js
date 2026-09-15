@@ -74,6 +74,22 @@ function updateCertPreview() {
 }
 
 async function generateWarrantyCertPDF() {
+  // ── HYDRATION GATE (2026-09-14) ────────────────────────────────────────
+  // Same pattern as #1447/#1449: _b/isNbd below is a SYNCHRONOUS read of
+  // window._brand(), which company-profile.js:276 seeds with the NBD
+  // DEFAULTS at parse time. Rendering before _loadCompanyProfile() resolves
+  // stamps the platform's identity — name/phone/email/seal/signature — onto
+  // another tenant's warranty certificate. (The cert-number prefix below
+  // already awaits hydration via window._tenantIdPrefix() for exactly this
+  // reason; _b/isNbd did not.) Gate here, as the first statement, before any
+  // company-data read. Never blocks the rep: a hydration failure falls
+  // through and renders with whatever brand is available, exactly as before.
+  try {
+    if (window._companyProfileLoaded !== true && typeof window._loadCompanyProfile === 'function') {
+      await window._loadCompanyProfile();
+    }
+  } catch (_) { /* render with what we have rather than blocking the rep */ }
+
   const owner = document.getElementById('wcOwner').value.trim() || '___________________';
   const addr  = document.getElementById('wcAddr').value.trim()  || '___________________';
   const date  = document.getElementById('wcDate').value         || '';
@@ -450,6 +466,10 @@ async function _persistWarrantyToLead({ leadId, tier, tierLabel, tierDesc, work,
         // the warranty record was created/updated".
         createdAtMs: Date.now(),
       },
+      // 2026-09-15 (Paperwork Filing) — gates REQUIRED_FIELDS_BY_TYPE's CLOSED
+      // checkpoint (crm-stages.js) for insurance/cash/finance job types.
+      // Alongside the warranty:{...} write above, not a second updateDoc.
+      warrantyCertFiledAt: new Date().toISOString(),
       updatedAt: window.serverTimestamp(),
     });
   } catch (e) {

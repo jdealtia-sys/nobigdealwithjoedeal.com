@@ -3146,6 +3146,13 @@
       // Totals — grandTotal is the canonical customer total: the selected
       // per-SQ tier price for per-SQ estimates, the scope total for line-item.
       grandTotal:       estimate.total,
+      // Persisted so a reopen (_reconstructEstimateFromSaved) knows whether
+      // the job-minimum floor produced this total — without it, reopening a
+      // floored small-repair estimate hardcoded minJobApplied:false and
+      // estimate-finalization.js's "Minimum Job Charge Adjustment" summary
+      // row (gated on this flag) silently disappeared, so the regenerated
+      // scope's subtotal + tax no longer summed to the printed total.
+      minJobApplied:    !!estimate.minJobApplied,
       prices:           estimate.prices || null,            // {good,better,best} per-SQ tier prices (classic shape, close-board.js reads this)
       selectedTier:     estimate.tier || state.tier,
       priceMode:        estimate.priceMode || state.mode,   // 'per-sq' | 'line-item' — tells consumers which model set grandTotal
@@ -3224,7 +3231,13 @@
       overhead: n(doc.overhead), overheadPct: n(doc.overheadPct),
       profit: n(doc.profit), profitPct: n(doc.profitPct),
       subtotal: n(doc.subtotal), tax: n(doc.tax), taxRate: n(doc.taxRate),
-      total: n(doc.grandTotal), minJobApplied: false,
+      // Read the persisted flag rather than hardcoding false — a saved
+      // estimate floored to the job minimum must reopen still knowing it,
+      // or the "Minimum Job Charge Adjustment" row silently vanishes and
+      // the regenerated scope stops summing to the stated total. Docs
+      // saved before this field existed read undefined -> !! -> false,
+      // which is the same behavior they always had (no regression).
+      total: n(doc.grandTotal), minJobApplied: !!doc.minJobApplied,
       prices: doc.prices || null, selectedTier: doc.selectedTier || doc.tier,
       priceMode: doc.priceMode || 'line-item',
       deposit: n(doc.deposit),

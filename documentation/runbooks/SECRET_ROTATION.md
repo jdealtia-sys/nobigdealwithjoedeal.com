@@ -79,6 +79,8 @@ If Joe wants a dedicated alerts phone/email (recommended), set those instead.
 
 **Delete the `nbd-ai-proxy` worker entirely** in the Cloudflare dashboard. (Corrected 2026-08-10: the `workers/` directory was removed from the repo entirely — L-02, smoke-pinned; the Worker itself was retired in favor of `publicFunnelAI`. Nothing to push), but the correct end state is *no worker at all*.
 
+**Updated 2026-09-14 — three more workers in the same account, delete all four in one pass:** `nbd-ai-visualizer` (still answers `Access-Control-Allow-Origin: *`), `nbd-mailerlite`, `nbd-stripe-webhook` (the latter two exist with their `workers.dev` route disabled — not deleted, correcting an earlier audit note that called them gone). Rotate the Anthropic key `nbd-ai-proxy` binds once it's deleted; that key was never rotated and `nbd-ai-proxy`'s CORS check passes any request with no Origin header at all, not just an allow-listed one.
+
 ## 7. Firebase service account (Admin SDK)
 
 If any Admin SDK service account credentials ever lived outside Google (local dev, CI, laptop, gist, etc.), rotate them now:

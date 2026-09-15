@@ -2179,7 +2179,7 @@ body[data-nbd-size="comfortable"] .crm-icon-btn { width: calc(32px * var(--nbd-s
 .lt-btn{display:flex;align-items:center;gap:7px;background:var(--s2);border:2px solid var(--br);border-radius:6px;padding:7px 9px;cursor:pointer;font-size:11px;font-weight:600;color:var(--t);transition:all .2s;}
 .lt-btn:hover,.lt-btn.active{background:var(--s3);}
 /* ── DRAWING TOOL UPGRADES ── */
-.draw-mode-row{display:flex;gap:5px;margin-bottom:8px;}
+.draw-mode-row{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:8px;}
 .draw-mode-btn{flex:1;background:var(--s2);border:1px solid var(--br);border-radius:6px;padding:6px 4px;font-size:10px;font-weight:700;font-family:'Barlow Condensed',sans-serif;letter-spacing:.06em;text-transform:uppercase;color:var(--m);cursor:pointer;text-align:center;transition:all .15s;}
 .draw-mode-btn:hover{border-color:var(--orange);color:var(--t);}
 .draw-mode-btn.active{background:var(--og);border-color:var(--orange);color:var(--orange);}
@@ -2408,6 +2408,15 @@ body[data-nbd-size="comfortable"] .crm-icon-btn { width: calc(32px * var(--nbd-s
 .stab-btn{background:transparent;border:none;border-bottom:2px solid transparent;padding:10px 18px;font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--m);cursor:pointer;transition:color var(--t-mid),border-color var(--t-mid),background var(--t-mid);white-space:nowrap;margin-bottom:-2px;}
 .stab-btn:hover{color:var(--t);}
 .stab-btn.stab-active{color:var(--orange);border-bottom-color:var(--orange);}
+/* Scroll affordance (mobile overflow sweep, 2026-09-14): #stab-bar's 13
+   tabs overflow-x:auto with no scrollbar cue at all — same invisible-
+   horizontal-scroll bug as .crm-hdr-views/.cb-stats-row above, same fix. */
+@media (max-width:768px){
+  #stab-bar{
+    -webkit-mask-image:linear-gradient(to right,#000 calc(100% - 24px),transparent 100%);
+    mask-image:linear-gradient(to right,#000 calc(100% - 24px),transparent 100%);
+  }
+}
 .stab-panel{animation:fadeIn .15s ease;}
 @keyframes fadeIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
 /* ═══ TEMPLATE LIBRARY ═══ */
@@ -4283,6 +4292,15 @@ body {
      overflow-x:auto and no scrollbar override at all — same invisible-
      scroll bug, third confirmed live instance. */
   .cb-stats-row{
+    -webkit-mask-image:linear-gradient(to right,#000 calc(100% - 24px),transparent 100%);
+    mask-image:linear-gradient(to right,#000 calc(100% - 24px),transparent 100%);
+  }
+  /* Rep OS's Performance Snapshot row (rep-os.js): 4 cards at
+     flex:1;min-width:70px + gap:8px floor to 4*70+3*8=304px, wider than
+     the ~296px content width at a 320px phone, with plain overflow-x:auto
+     and no scrollbar override — same invisible-scroll bug, fourth
+     confirmed instance. */
+  .ros-perf-row{
     -webkit-mask-image:linear-gradient(to right,#000 calc(100% - 24px),transparent 100%);
     mask-image:linear-gradient(to right,#000 calc(100% - 24px),transparent 100%);
   }

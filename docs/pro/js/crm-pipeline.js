@@ -78,11 +78,12 @@ function renderLeads(leads, filtered){
   (() => {
     const swEl = document.getElementById('kview-count-insurance');
     if (!swEl) return;
-    const _jobStageSet = new Set([
-      'job_created','permit_pulled','materials_ordered','materials_delivered',
-      'crew_scheduled','install_in_progress','install_complete','final_photos',
-      'deductible_collected','final_payment','closed'
-    ]);
+    // 2026-09-15 (Kanban filter unification): was a hand-copied Set that had
+    // already drifted from crm-stages.js's VIEW_JOBS within hours of the
+    // Collections stage being added — window.isJobStage is the one
+    // canonical membership test now (crm-stages.js), so this count can
+    // never drift from the filter below or from the Jobs board's own
+    // column list again.
     const _norm = window.normalizeStage;
     const counts = { insurance: 0, cash: 0, finance: 0, warranty: 0, service: 0, jobs: 0, simple: all.length };
     for (const l of all) {
@@ -95,7 +96,7 @@ function renderLeads(leads, filtered){
       if (jt === 'warranty')         counts.warranty++;
       if (jt === 'service')          counts.service++;
       const sk = l._stageKey || (_norm ? _norm(l.stage) : l.stage || 'new');
-      if (_jobStageSet.has(sk))      counts.jobs++;
+      if (window.isJobStage && window.isJobStage(sk)) counts.jobs++;
     }
     ['insurance','cash','finance','warranty','service','jobs','simple'].forEach(k => {
       const el = document.getElementById('kview-count-' + k);
@@ -151,14 +152,15 @@ function renderLeads(leads, filtered){
   // Insurance view: show insurance + unset jobType leads (NBD defaults to insurance)
   // Cash view: show only cash leads
   // Finance view: show only finance leads
-  // Jobs view: show only leads in post-contract (job) stages
+  // Jobs view: show leads Jo considers a job — post-contract stages PLUS
+  // contract_signed itself (2026-09-15 Kanban filter unification, Jo's
+  // call: a signed, materials-on-order deal IS a job to him — the CRM's
+  // own revenue math already agreed, see _closedKeys below). Uses
+  // window.isJobStage (crm-stages.js) instead of a hand-copied stage-key
+  // Set — that Set had already drifted from VIEW_JOBS within hours of the
+  // Collections stage being added; this is the one place that fact lives now.
   const _view = window._currentViewKey || 'simple';
   const _norm = window.normalizeStage;
-  const _jobStageSet = new Set([
-    'job_created','permit_pulled','materials_ordered','materials_delivered',
-    'crew_scheduled','install_in_progress','install_complete','final_photos',
-    'deductible_collected','final_payment','closed'
-  ]);
   if (_view === 'insurance') {
     // Insurance view still catches unset jobType (NBD's historical default)
     list = list.filter(l => !l.jobType || l.jobType === 'insurance');
@@ -173,7 +175,7 @@ function renderLeads(leads, filtered){
   } else if (_view === 'jobs') {
     list = list.filter(l => {
       const sk = l._stageKey || (_norm ? _norm(l.stage) : l.stage || 'new');
-      return _jobStageSet.has(sk);
+      return window.isJobStage && window.isJobStage(sk);
     });
   }
   // simple view: no filter (list stays as-is)
@@ -184,7 +186,6 @@ function renderLeads(leads, filtered){
   // Revenue calcs — use stage keys when available
   let pipeVal=0, closedRev=0, approvedCount=0;
   const _lostKeys = ['lost', 'Lost'];
-  const _closedKeys = ['contract_signed','job_created','permit_pulled','materials_ordered','materials_delivered','crew_scheduled','install_in_progress','install_complete','final_photos','deductible_collected','final_payment','closed','Approved','In Progress','Complete'];
   const _approvedKeys = ['contract_signed','Approved'];
   all.forEach(l=>{
     const v=parseFloat(l.jobValue||0);
@@ -196,7 +197,13 @@ function renderLeads(leads, filtered){
     // and a custom Won stage was excluded from closed revenue.
     const role = l._stageRole || (typeof window.stageRole === 'function' ? window.stageRole(sk) : 'active');
     const isLost = _lostKeys.includes(sk) || role === 'lost';
-    const isClosed = _closedKeys.includes(sk) || role === 'won' || role === 'job';
+    // 2026-09-15 (Kanban filter unification): was its own hand-copied
+    // _closedKeys list (contract_signed through closed, plus 3 legacy
+    // display names) — window.isJobStage already normalizes legacy aliases
+    // via the same normalizeStage() path (Approved -> contract_signed,
+    // In Progress -> install_in_progress, Complete -> closed), so this is
+    // strictly the same classification with one fewer place to drift.
+    const isClosed = (window.isJobStage && window.isJobStage(sk)) || role === 'won' || role === 'job';
     // Metrics audit F2: pipeline = deals still IN PLAY only. The old
     // "everything not lost" definition counted won/in-production money as
     // pipeline while the Closed Revenue tile showed a subset of the same
@@ -1269,23 +1276,33 @@ function buildCard(l){
   // already a 'needs X' warning chip — the rep should fix the missing
   // field before doing the next action.
   let nextActionChip = '';
-  if (!isTerminal && typeof window.actionsForStage === 'function') {
+  if (!isTerminal && typeof window.preferredActionFor === 'function') {
     try {
       const jt = l.jobType || (typeof window.inferJobType === 'function' ? window.inferJobType(l) : null);
-      const actions = window.actionsForStage(l._stageKey || l.stage, jt) || [];
       // Skip purely-cosmetic actions like "Log Contact" / "Follow Up"
       // when the stage has a real document or stage-advance action
       // available; reps want to know the *progression* step, not the
-      // catch-all log. Heuristic: prefer kind:'doc' or kind:'stage'
-      // first, fall back to the first action otherwise.
-      const preferred = actions.find(a => a.kind === 'doc' || a.kind === 'stage') || actions[0];
+      // catch-all log. preferredActionFor (crm-stages.js) prefers
+      // kind:'doc' or kind:'stage' first, falls back to the first action
+      // otherwise — single source, shared with stage-checklist.js's
+      // auto-task generator so the chip and the auto-created task always
+      // agree on what "next" means for a given stage.
+      const preferred = window.preferredActionFor(l._stageKey || l.stage, jt);
       if (preferred) {
         const icon = preferred.icon || '→';
         const label = preferred.label || preferred.id || '';
         const kindTag = preferred.kind === 'doc' ? 'kct-action-doc'
                       : preferred.kind === 'stage' ? 'kct-action-stage'
                       : 'kct-action';
-        nextActionChip = `<span class="kc-tag ${kindTag}" title="Next: ${escHtml(label)}">${icon} ${escHtml(label)}</span>`;
+        // 2026-09-15: was display-only ("clicking the chip is a no-op for
+        // now" per the sibling comment on the viewed-badge above it) — the
+        // real action list lived only inside the edit modal's Next Actions
+        // panel, one of the concrete "driven UX" gaps from the CRM
+        // streamlining pass. Now runs the SAME runLeadAction() that panel's
+        // buttons call (dashboard-bootstrap.module.js), via a dedicated
+        // data-action handled in wireKanbanCardListeners — one dispatcher,
+        // two entry points, not a second implementation.
+        nextActionChip = `<span class="kc-tag ${kindTag}" data-action="run-next-action" data-id="${safeId}" data-action-id="${escHtml(preferred.id || '')}" data-action-kind="${escHtml(preferred.kind || '')}" role="button" tabindex="0" title="Click to: ${escHtml(label)}">${icon} ${escHtml(label)}</span>`;
       }
     } catch (_) { /* degrade silently */ }
   }
@@ -1306,7 +1323,13 @@ function buildCard(l){
           jobValue:             'Job Value',
           financeCompany:       'Lender',
           loanAmount:           'Loan $',
-          scheduledDate:        'Schedule Date'
+          scheduledDate:        'Schedule Date',
+          // 2026-09-15 (Paperwork Filing)
+          contractFiledAt:      'Contract Filed',
+          permitFiledAt:        'Permit Filed',
+          aobFiledAt:           'AOB Filed',
+          warrantyCertFiledAt:  'Warranty Cert Filed',
+          cocFiledAt:           'COC Filed'
         };
         const niceList = missing.map(f => FIELD_LABELS[f] || f);
         const head = niceList[0];
@@ -1317,6 +1340,18 @@ function buildCard(l){
       }
     } catch (e) { /* missingRequiredFields can throw on malformed lead — degrade silently */ }
   }
+
+  // 2026-09-15 (Warranty Claim lane): flags a lead carrying an OPEN claim
+  // while sitting somewhere other than the Warranty Claim column itself —
+  // that column's own header already says "Warranty Claim" for a card
+  // there, so a second badge would be redundant. Anywhere else,
+  // openWarrantyClaimId with no matching stage is a data-integrity drift
+  // (e.g. a bulk-edit or resync bypassing moveCard()'s guard) worth a
+  // visible flag rather than a silent dangling pointer.
+  const claimBadge = (l.openWarrantyClaimId && l._stageKey !== 'warranty_claim')
+    ? `<span class="kc-tag" style="background:rgba(194,65,20,.14);color:#c2410c;border-color:#c2410c;" title="This lead has an open warranty claim">🛟 Open Claim</span>`
+    : '';
+
   let html = `<div class="k-card nbd-kc-main ${stageAgingClass}" draggable="true" data-id="${safeId}" data-action="card-click">
     <div class="k-card-checkbox nbd-kc-stop" data-action="toggle-select" data-id="${safeId}">
       <span class="k-card-checkbox-icon"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:11px;height:11px;vertical-align:middle;"><path d="M4 10.5l4 4 8-9"/></svg></span>
@@ -1364,6 +1399,7 @@ function buildCard(l){
       ${needsBadge ? '' : nextActionChip}
       ${overdue      ? `<span class="kc-tag kct-due"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:11px;height:11px;vertical-align:middle;"><path d="M10 3L2 17h16L10 3z"/><path d="M10 8v4M10 14.5v.5"/></svg> Due</span>` : ''}
       ${needsBadge}
+      ${claimBadge}
       ${roofBadge}
       ${l.hailHit && l.hailHit.sizeInches ? `<span class="kc-tag kct-dmg" style="background:rgba(255,59,59,.18);color:var(--red,#ef4444);border-color:var(--red,#ef4444);" title="Recent hail near this property">⛈ ${Number(l.hailHit.sizeInches).toFixed(1)}&quot; hail</span>` : ''}
       ${l.measurementReady ? `<span class="kc-tag" style="background:rgba(46,204,138,.14);color:var(--green,#2ecc8a);border-color:var(--green,#2ecc8a);" title="Aerial measurement — Joe still confirms on site">📐 ${/^[0-9.]{1,8} sq(?: · [0-9]{1,2}\/[0-9]{1,2})?$/.test(String(l.measurementSummary || '')) ? l.measurementSummary : 'Measurement'}</span>` : ''}
@@ -1626,6 +1662,12 @@ const _GATE_FIELD_META = {
   financeCompany:       { label: 'Finance Company',   inputId: 'lFinanceCompany' },
   loanAmount:           { label: 'Loan Amount',       inputId: 'lLoanAmount' },
   scheduledDate:        { label: 'Scheduled Date',    inputId: 'lScheduledDate' },
+  // 2026-09-15 (Paperwork Filing)
+  contractFiledAt:      { label: 'Contract Filed',           inputId: 'lContractFiled' },
+  permitFiledAt:        { label: 'Permit Filed',             inputId: 'lPermitFiled' },
+  aobFiledAt:           { label: 'AOB Filed',                inputId: 'lAobFiled' },
+  warrantyCertFiledAt:  { label: 'Warranty Cert Filed',      inputId: 'lWarrantyCertFiled' },
+  cocFiledAt:           { label: 'Certificate of Completion Filed', inputId: 'lCocFiled' },
 };
 
 function _openLeadModalWithMissingFieldsBanner(lead, targetStage, missingFields) {
@@ -1721,6 +1763,18 @@ function _openLeadModalWithMissingFieldsBanner(lead, targetStage, missingFields)
     const firstId = items.find(i => i.inputId)?.inputId;
     if (firstId) _jumpTo(document.getElementById(firstId));
   }, 30);
+}
+
+// Lazily-loaded, cached handle on stage-write.js's shared commitStageChange
+// — the single transactional write path also used by progressStage() on
+// customer.html (2026-09-15 foundation work). A plain <script> file can't
+// use a static `import`, so this is a dynamic import cached after the first
+// call; dashboard.html modulepreloads the file so that first call doesn't
+// cost a cold fetch on the hottest path in the app (every kanban move).
+let _stageWriteModPromise = null;
+function _stageWriteMod() {
+  if (!_stageWriteModPromise) _stageWriteModPromise = import('./stage-write.js');
+  return _stageWriteModPromise;
 }
 
 async function moveCard(id, newStage, opts){
@@ -1834,6 +1888,55 @@ async function moveCard(id, newStage, opts){
     // lostReason is either a string or null (skip)
   }
 
+  // ─── Warranty-claim guard ───
+  // 2026-09-15 (Warranty Claim lane). Two directions, both must run BEFORE
+  // the lead.stage write below (same contract as the lost-reason prompt):
+  //  1. Moving INTO warranty_claim (the "File Warranty Claim" chip, or a
+  //     manual stage-picker/list-view/context-menu move) must gather a
+  //     reason + issue description and open the claim doc FIRST — a bare
+  //     stage flip with no claim record would leave the board showing "in
+  //     claim" with nothing behind it.
+  //  2. Moving AWAY from warranty_claim while a claim is still open must be
+  //     resolved or denied first — otherwise a rep could drag the card back
+  //     to Closed (or anywhere else) and silently orphan an open claim
+  //     forever, with lead.openWarrantyClaimId left dangling.
+  // Canceling either prompt cancels the whole move, exactly like a canceled
+  // lost-reason prompt above.
+  const newStageKey = window.normalizeStage ? window.normalizeStage(newStage) : newStage;
+  if (!isLostMove && newStageKey === 'warranty_claim' && oldStageKey !== 'warranty_claim') {
+    if (!(window.WarrantyClaim && typeof window.WarrantyClaim.promptIntake === 'function')) {
+      if (typeof showToast === 'function') showToast('Warranty claim tool not loaded — reload and try again', 'warning');
+      return;
+    }
+    let opened;
+    try {
+      opened = await window.WarrantyClaim.promptIntake(lead);
+    } catch (e) {
+      if (typeof showToast === 'function') showToast('Could not open the claim: ' + e.message, 'error');
+      return;
+    }
+    if (!opened) {
+      if (typeof showToast === 'function') showToast('Move canceled', 'info');
+      return;
+    }
+  } else if (oldStageKey === 'warranty_claim' && newStageKey !== 'warranty_claim' && lead.openWarrantyClaimId) {
+    if (!(window.WarrantyClaim && typeof window.WarrantyClaim.promptResolution === 'function')) {
+      if (typeof showToast === 'function') showToast('Warranty claim tool not loaded — reload and try again', 'warning');
+      return;
+    }
+    let resolved;
+    try {
+      resolved = await window.WarrantyClaim.promptResolution(lead);
+    } catch (e) {
+      if (typeof showToast === 'function') showToast('Could not resolve the claim: ' + e.message, 'error');
+      return;
+    }
+    if (!resolved) {
+      if (typeof showToast === 'function') showToast('Move canceled — claim still open', 'info');
+      return;
+    }
+  }
+
   // ─── Required-field gate ───
   // Block stage advancement when the destination stage has required fields
   // missing on the lead (e.g., can't move to claim_filed without claimNumber).
@@ -1874,120 +1977,22 @@ async function moveCard(id, newStage, opts){
     try { window.refreshCardDetailChips(id); } catch (_) {}
   }
 
-  // Record stage change in history
-  const historyEvent = {
-    from: oldStage,
-    to: newStage,
-    timestamp: new Date().toISOString(),
-    user: window._currentUser?.email || 'unknown'
-  };
-  if (isLostMove && lostReason) historyEvent.lostReason = lostReason;
-
   try {
-    // Save to Firebase in background.
-    // Cross-tab guard: previous code did a bare updateDoc which let
-    // two tabs viewing the same lead each fire `arrayUnion` on
-    // stageHistory and a fresh stageStartedAt — duplicate "Stage moved"
-    // notes appeared on the timeline and the days-in-stage badge
-    // reset to whichever serverTimestamp landed last. Use a Firestore
-    // transaction that aborts if the server's `stage` no longer
-    // matches the `oldStage` we expect — that means another tab beat
-    // us, and we should NOT re-apply our move.
-    const leadRef = window.doc(window.db, 'leads', id);
-    if (typeof window.runTransaction === 'function') {
-      await window.runTransaction(window.db, async (tx) => {
-        const snap = await tx.get(leadRef);
-        if (!snap.exists()) throw new Error('Lead not found');
-        const cur = snap.data() || {};
-        // NOOP guards — throw so the catch restores our optimistic state:
-        //  (a) the stage already IS newStage (another tab won), OR
-        //  (b) DRAG ONLY: the card's CURRENT stage already resolves to the
-        //      SAME visible column as the drop target. In collapsed views
-        //      (Simple/insurance) several real stages share one column — e.g.
-        //      crew_scheduled shows in the 'Installing' column. Dropping the
-        //      card back onto its own column fires moveCard(id, columnKey, {isDrag:true});
-        //      without this guard it would rewrite the real stage to the
-        //      column's canonical key, silently DOWNGRADING role (WON→JOB),
-        //      resetting stageStartedAt and logging a misleading move.
-        //      Gated on isDrag — an EXPLICIT distinct-stage action (Close Job,
-        //      stage picker, list view, bulk move) must compare by exact
-        //      stage, not by column: those pass a real target stage that may
-        //      legitimately share a column with the current one (#985's
-        //      install_complete→closed collapse in Simple view is exactly
-        //      that case) and must NOT be coerced into a no-op.
-        // resolveColumn(stageKey, viewStages) takes the STAGES ARRAY as arg2
-        // (window._stageKeys), NOT the view-key string — passing a string makes
-        // .includes() a substring test that returns garbage (blocks legit moves
-        // AND misses the target downgrade). Only apply the column-collapse NOOP
-        // when we actually have the current view's stage array.
-        const _mcKeys = window._stageKeys;
-        const _mcCurCol = (isDrag && typeof window.resolveColumn === 'function' && Array.isArray(_mcKeys) && _mcKeys.length)
-          ? window.resolveColumn(cur.stage, _mcKeys) : cur.stage;
-        if (cur.stage === newStage || _mcCurCol === newStage) {
-          throw new Error('STAGE_RACE_NOOP');
-        }
-        // Only enforce the from-stage check when we actually have one
-        // recorded; brand-new optimistic-inserted leads can have
-        // undefined `lead.stage` locally even though Firestore has
-        // already settled on 'New'. Treat undefined as "trust me".
-        if (oldStage && cur.stage && cur.stage !== oldStage) {
-          throw new Error('STAGE_RACE_LOST');
-        }
-        const payload = {
-          stage: newStage,
-          // Persist the semantic role alongside the stage so server automations
-          // + KPIs can classify without a hardcoded stage-key list (freeform
-          // foundation; forward-fills as leads move). Fail-soft if unexposed.
-          ...(window.stageRole ? { stageRole: window.stageRole(newStage) } : {}),
-          updatedAt: window.serverTimestamp(),
-          stageStartedAt: window.serverTimestamp(),
-          stageHistory: window.arrayUnion(historyEvent)
-        };
-        if (isLostMove) {
-          payload.closedAt = window.serverTimestamp();
-          if (lostReason) payload.lostReason = lostReason;
-        }
-        tx.update(leadRef, payload);
-      });
-    } else {
-      // Fallback for any page where runTransaction isn't exposed yet.
-      const updatePayload = {
-        stage: newStage,
-        ...(window.stageRole ? { stageRole: window.stageRole(newStage) } : {}),
-        updatedAt: window.serverTimestamp(),
-        stageStartedAt: window.serverTimestamp(),
-        stageHistory: window.arrayUnion(historyEvent)
-      };
-      if (isLostMove) {
-        updatePayload.closedAt = window.serverTimestamp();
-        if (lostReason) updatePayload.lostReason = lostReason;
-      }
-      await window.updateDoc(leadRef, updatePayload);
-    }
-    
+    // Save to Firebase via the shared commitStageChange() (stage-write.js) —
+    // a Firestore transaction that aborts as STAGE_RACE_NOOP/STAGE_RACE_LOST
+    // if another tab/session already moved this lead since our `oldStage`
+    // snapshot. Also used by customer.html's progressStage() (2026-09-15
+    // foundation work) so both write paths share one set of race guards
+    // instead of the kanban being the only safe one.
+    const { commitStageChange } = await _stageWriteMod();
+    const { historyEvent } = await commitStageChange(id, newStage, oldStage, {
+      isDrag, isLostMove, lostReason, actorLabel: window._currentUser?.email,
+      jobType: lead.jobType || null,
+    });
+
     // Update local state with history
     if(!lead.stageHistory) lead.stageHistory = [];
     lead.stageHistory.push(historyEvent);
-
-    // Auto-log activity note for timeline
-    try {
-      const stageLabel = window.STAGE_META?.[newStage]?.label || newStage;
-      await window.addDoc(window.collection(window.db, 'notes'), {
-        leadId: id,
-        userId: window._user?.uid,
-        text: `Stage moved to "${stageLabel}"`,
-        type: 'stage_change',
-        createdAt: window.serverTimestamp(),
-        createdBy: window._user?.email || 'system'
-      });
-    } catch(e) { console.warn('Activity log write failed:', e.message); }
-
-    // Trigger email drip automation on stage change
-    try {
-      if (window.EmailDrip?.onStageChange) {
-        window.EmailDrip.onStageChange(id, oldStageKey, lead._stageKey || newStage);
-      }
-    } catch(e) { console.warn('Drip trigger failed:', e.message); }
 
     // Mark as synced
     lead._syncing = false;
@@ -2280,6 +2285,19 @@ function wireKanbanCardListeners(container) {
       const r = el.getBoundingClientRect();
       window.KanbanContextMenu.open(el.dataset.id, r.right, r.bottom);
     },
+    // 2026-09-15: the next-best-action chip — was display-only, now runs
+    // the SAME runLeadAction() the edit modal's Next Actions panel calls
+    // (dashboard-bootstrap.module.js), registered via __NBD_CALL_REGISTRY
+    // (the CSP-safe delegated-dispatch allowlist every other cross-module
+    // action call in this app already goes through) with the card's own
+    // lead id as an explicit 3rd arg — the panel's version infers the lead
+    // from the currently-open edit modal, which isn't open here.
+    'run-next-action': (el) => {
+      const registry = window.__NBD_CALL_REGISTRY;
+      if (registry && typeof registry.runLeadAction === 'function') {
+        registry.runLeadAction(el.dataset.actionId, el.dataset.actionKind, el.dataset.id);
+      }
+    },
   };
 
   container.addEventListener('click', (ev) => {
@@ -2296,6 +2314,17 @@ function wireKanbanCardListeners(container) {
 
     const fn = handlers[action];
     if (fn) fn(actionEl, ev);
+  });
+
+  // Keyboard activation for the handful of data-action elements that carry
+  // role="button" (currently just the next-action chip — a real focusable
+  // control on the card face, not just click-only).
+  container.addEventListener('keydown', (ev) => {
+    if (ev.key !== 'Enter' && ev.key !== ' ') return;
+    const actionEl = ev.target.closest('[data-action][role="button"]');
+    if (!actionEl || !container.contains(actionEl)) return;
+    ev.preventDefault();
+    actionEl.click();
   });
 
   // Photo thumbs use a separate class because they don't have a data-action.

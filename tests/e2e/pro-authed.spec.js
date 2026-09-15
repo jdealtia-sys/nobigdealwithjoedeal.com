@@ -1588,6 +1588,69 @@ test.describe.serial('CSP-fix regressions @shard2', () => {
     expect(calls.seen).toEqual([['e2e-synthetic-drag', calls.stage]]);
   });
 
+  // Driven-UX foundation (2026-09-15): the kanban card's next-best-action
+  // chip used to be display-only (the real action list lived only inside
+  // the edit modal's Next Actions panel). Same style as the drag test
+  // above — spy the registered dispatcher, synthesize a click on a chip
+  // with the real markup shape, confirm the delegated click handler in
+  // wireKanbanCardListeners() routes it through with the card's own
+  // lead id as the explicit 3rd arg (the thing that makes this work
+  // outside the edit modal at all).
+  test('kanban next-action chip: a click reaches runLeadAction via __NBD_CALL_REGISTRY', async ({ page }) => {
+    await loginAs(page, creds);
+    await openCrmView(page);
+    await page.waitForFunction(() => {
+      const b = document.getElementById('kanbanBoard');
+      return !!b && b.dataset.nbdDndBound === '1';
+    }, null, { timeout: 15_000 });
+
+    const result = await page.evaluate(() => {
+      const registry = window.__NBD_CALL_REGISTRY;
+      if (!registry || typeof registry.runLeadAction !== 'function') {
+        return { error: 'registry.runLeadAction not found' };
+      }
+      if (typeof window.wireKanbanCardListeners !== 'function') {
+        return { error: 'wireKanbanCardListeners not found on window' };
+      }
+      // wireKanbanCardListeners only ever runs on a column body that
+      // renderLeads actually painted at least one card into (an empty
+      // column short-circuits to a "Drop leads here" placeholder before
+      // wiring anything) — the seeded tenant here carries no leads at
+      // all, so this wires a container of its own rather than depending
+      // on real board data. Same delegated-click function real columns
+      // use; this tests the wiring, not any particular tenant's leads.
+      const body = document.createElement('div');
+      body.className = 'kcol-body';
+      document.body.appendChild(body);
+      window.wireKanbanCardListeners(body);
+
+      // Real chip markup shape (crm-pipeline.js buildCard).
+      const chip = document.createElement('span');
+      chip.className = 'kc-tag kct-action-stage';
+      chip.setAttribute('data-action', 'run-next-action');
+      chip.setAttribute('data-id', 'e2e-synthetic-lead');
+      chip.setAttribute('data-action-id', 'mark_adj_done');
+      chip.setAttribute('data-action-kind', 'stage');
+      chip.setAttribute('role', 'button');
+      chip.setAttribute('tabindex', '0');
+      body.appendChild(chip);
+
+      const orig = registry.runLeadAction;
+      const seen = [];
+      registry.runLeadAction = (...args) => { seen.push(args); };
+      try {
+        chip.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+      } finally {
+        registry.runLeadAction = orig;
+        body.remove();
+      }
+      return { seen };
+    });
+
+    expect(result.error).toBeUndefined();
+    expect(result.seen).toEqual([['mark_adj_done', 'stage', 'e2e-synthetic-lead']]);
+  });
+
   // Add Lead revival (2026-07-06): the pipeline's FAB was silently dead
   // for months — setupAddLeadFab ran before goTo existed and bailed on a
   // guard, and the 2026-05-14 header cleanup had already removed the

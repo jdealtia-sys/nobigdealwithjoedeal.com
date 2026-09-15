@@ -309,9 +309,23 @@ section('Customers map layer — dashboard.html wiring');
 {
   const dash = read(path.join(ROOT, 'docs/pro/dashboard.html'));
   const maps = readMaps(); // for the window.nbdRepList export check below
-  assert('dashboard.html loads maps-customers.js between overlays and routing',
-    /maps-overlays\.js[\s\S]{0,80}maps-customers\.js[\s\S]{0,80}maps-routing\.js/.test(dash),
-    'expected the customers module in the locked core→overlays→customers→routing order');
+  // maps-routing.js moved off the static eager chain (2026-09-14,
+  // boot-weight containment — see documentation/audit/BOOT-WEIGHT-2026-09-06.md).
+  // The remaining three siblings stay in their locked static order; routing
+  // is checked separately below, in script-loader.js's `drawtool` bundle.
+  assert('dashboard.html loads maps-customers.js between overlays and maps.js (locked static order)',
+    /maps-overlays\.js[\s\S]{0,300}maps-customers\.js[\s\S]{0,200}maps\.js/.test(dash),
+    'expected the customers module in the locked core→overlays→customers→maps order');
+  assert('maps-routing.js is NOT a static tag on dashboard.html (lazy since 2026-09-14)',
+    !/<script\s+defer\s+src="js\/maps-routing\.js/.test(dash),
+    'expected maps-routing.js to load only via ScriptLoader\'s drawtool bundle');
+  const scriptLoader = read(path.join(PRO_JS, 'script-loader.js'));
+  assert('script-loader.js defines a drawtool bundle carrying maps-routing.js',
+    /drawtool:\s*\[\s*'js\/maps-routing\.js/.test(scriptLoader),
+    'expected BUNDLES.drawtool to list maps-routing.js');
+  assert("the 'draw' view resolves both mapvendor and drawtool",
+    /draw:\s*\['mapvendor',\s*'drawtool'\]/.test(scriptLoader),
+    "expected VIEW_BUNDLES.draw = ['mapvendor', 'drawtool']");
   assert('Customers overlay toggle rendered',
     /data-action="mapOverlay"\s+data-target="customers"/.test(dash),
     'expected a Customers overlay-row toggle');

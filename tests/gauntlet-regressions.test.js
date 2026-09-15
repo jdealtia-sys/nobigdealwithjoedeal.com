@@ -93,6 +93,62 @@ console.log('\nTeam plan ($149, 2 seats) — wired server + client + stripe + pr
     !/Team seats need a paid plan/.test(read('functions/handlers/admin.js')));
 }
 
+// 2026-09-14: the checks above cover billing-gate.js, stripe.js, invites.js
+// and the pricing/register/login funnel, but NOT nbd-auth.js's PLAN_LEVELS —
+// the auth gate init() actually reads. _normalizePlan('team') fell through
+// to 'free' there (team was absent from both PLAN_LEVELS and its alias map),
+// walling a paying Team tenant off every requiredPlan:'starter'/'growth'
+// page (pro-analytics-gate.js, project-codex-auth.module.js, vault, ask-joe,
+// ai-tree, understand, ai-tool-finder) and showing them the free-tier
+// upgrade banner. Grok CRM audit evaluation, 2026-09-13.
+console.log('\nTeam plan — nbd-auth.js PLAN_LEVELS (the auth GATE, not just billing-gate.js)');
+{
+  const na = read('docs/pro/js/nbd-auth.js');
+  assert('PLAN_LEVELS includes team, ordered between starter and growth',
+    /PLAN_LEVELS = \{[^}]*starter:\s*2,\s*team:\s*3,\s*growth:\s*4,\s*enterprise:\s*5/.test(na),
+    "a plan:'team' subscription doc must not normalize to level 0 (free) in the requiredPlan gate");
+  assert('PLAN_NAMES includes Team',
+    /PLAN_NAMES = \{[\s\S]{0,200}team:\s*'Team'/.test(na));
+}
+
+console.log('\nTeam plan — server AI/voice/vision budget maps (all four had no team row)');
+{
+  const shared = read('functions/handlers/_shared.js');
+  assert('CLAUDE_COMPANY_BUDGET.team is set and above starter, below growth',
+    /team:\s*100_000/.test(shared),
+    'a Team company must not fall through to CLAUDE_COMPANY_BUDGET_DEFAULT (the free-tier allowance)');
+  const voice = read('functions/integrations/voice-intelligence.js');
+  assert('VOICE_COMPANY_BUDGET_SEC.team is set and above starter, below growth',
+    /team:\s*126000/.test(voice));
+  const pv = read('functions/photo-vision.js');
+  assert('photo-vision PER_USER_MONTHLY_USD_CAP_BY_PLAN.team is set and above starter, below growth',
+    /team:\s*50\.00/.test(pv));
+  const rv = read('functions/receipt-vision.js');
+  assert('receipt-vision PER_USER_MONTHLY_USD_CAP_BY_PLAN.team is set',
+    /team:\s*50\.00/.test(rv));
+}
+
+console.log('\nCap-blocked D2D convert — _saveLead\'s return must not be discarded');
+{
+  const d2d = read('docs/pro/js/d2d-tracker-core-2026b.js');
+  const fnStart = d2d.indexOf('async function convertToLead(knockId)');
+  const fnBody = fnStart >= 0 ? d2d.slice(fnStart, fnStart + 9000) : '';
+  assert('convertToLead captures _saveLead\'s return value',
+    /const leadId = await window\._saveLead\(leadData\)/.test(fnBody));
+  assert('convertToLead bails before marking the knock converted when _saveLead short-circuits',
+    /if \(!leadId\) return;/.test(fnBody) && fnBody.indexOf('if (!leadId) return;') < fnBody.indexOf('updateKnock(knockId'),
+    'a capped tenant must not see "Converted to CRM Lead" with no lead actually created');
+}
+
+console.log('\nAccess-code grant — must not silently overwrite a live, card-billed subscription');
+{
+  const portal = read('functions/handlers/portal.js');
+  assert('validateAccessCode checks the existing sub for a live Stripe subscription before writing',
+    /existingData\.stripeSubscriptionId && LIVE_SUB_STATUS\[String\(existingData\.status\)\]/.test(portal));
+  assert('…and refuses the grant (throws) rather than merging over it',
+    /access_code_blocked_live_sub/.test(portal) && /throw new HttpsError\('failed-precondition'/.test(portal.slice(portal.indexOf('access_code_blocked_live_sub'), portal.indexOf('access_code_blocked_live_sub') + 400)));
+}
+
 // ── Part B: source-contract guards ────────────────────────────────────
 console.log('\nInvite lifecycle — past_due entitlement + invitee email link');
 {
@@ -930,10 +986,17 @@ console.log('\nCRM custom-pipeline + kanban correctness (lead-lifecycle sweep)')
     /l\._stageRole = \(window\.stageRole \|\| stageRole\)\(l\._stageKey\)/.test(boot),
     'the module-local built-in returns active for custom stages, clobbering won/lost roles on every refresh');
   const cp = read('docs/pro/js/crm-pipeline.js');
-  assert('moveCard NOOPs a same-COLUMN re-drop using the stages ARRAY (window._stageKeys, not the view-key string)',
-    /window\.resolveColumn\(cur\.stage, _mcKeys\)/.test(cp)
-    && /Array\.isArray\(_mcKeys\) && _mcKeys\.length/.test(cp)
-    && /cur\.stage === newStage \|\| _mcCurCol === newStage/.test(cp),
+  // 2026-09-15: the transactional write + column-collapse NOOP guard moved
+  // out of moveCard's own body and into stage-write.js's commitStageChange()
+  // — the same guard, shared with customer.html's progressStage() so BOTH
+  // stage-change paths get the race protection, not just the kanban. moveCard
+  // itself still computes + passes isDrag (asserted below); the guard logic
+  // that CONSUMES it now lives in the shared module.
+  const sw = read('docs/pro/js/stage-write.js');
+  assert('commitStageChange NOOPs a same-COLUMN re-drop using the stages ARRAY (window._stageKeys, not the view-key string)',
+    /window\.resolveColumn\(cur\.stage, _keys\)/.test(sw)
+    && /Array\.isArray\(_keys\) && _keys\.length/.test(sw)
+    && /cur\.stage === newStage \|\| _curCol === newStage/.test(sw),
     'resolveColumn arg2 is the stages array; a view-key string makes .includes() a substring test → blocks legit moves');
   assert('per-column drop handler stopPropagation (no double moveCard via the board handler)',
     /const dropHandler = e => \{[\s\S]{0,400}e\.stopPropagation\(\)/.test(cp));
@@ -945,10 +1008,14 @@ console.log('\nCRM custom-pipeline + kanban correctness (lead-lifecycle sweep)')
   // shares a column with the current one was being silently discarded as a
   // false NOOP. Fixed via an opts.isDrag flag, true ONLY at the 3 genuine
   // drag-drop call sites.
-  assert('moveCard only applies the column-collapse comparison when isDrag is true',
+  assert('moveCard computes isDrag and passes it through to the shared commit',
     /const isDrag = !!\(opts && opts\.isDrag\)/.test(cp)
-    && /const _mcCurCol = \(isDrag && typeof window\.resolveColumn/.test(cp),
-    'without the isDrag gate, an explicit Close-Job/stage-picker/list-view/bulk-move to a stage sharing a column with the current stage silently no-ops instead of actually changing stage');
+    && /commitStageChange\(id, newStage, oldStage, \{[\s\S]{0,80}isDrag,/.test(cp),
+    'without isDrag reaching commitStageChange, an explicit Close-Job/stage-picker/list-view/bulk-move to a stage sharing a column with the current stage would silently no-op instead of actually changing stage');
+  assert('commitStageChange only applies the column-collapse comparison when isDrag is true',
+    /const isDrag = !!opts\.isDrag/.test(sw)
+    && /const _curCol = \(isDrag && typeof window\.resolveColumn/.test(sw),
+    'the column-collapse comparison must be gated on isDrag or an explicit distinct-stage move sharing a column with the current stage would silently no-op');
   assert('both kanban drop handlers (new-system + legacy) pass isDrag:true',
     (cp.match(/moveCard\(draggedId,\s*\w+,\s*\{\s*isDrag:\s*true\s*\}\)/g) || []).length === 2,
     'a drag call site missing isDrag:true would wrongly apply exact-match comparison and rewrite the real stage on a same-column re-drop');
@@ -970,8 +1037,8 @@ console.log('\nCRM custom-pipeline + kanban correctness (lead-lifecycle sweep)')
     /window\.moveCard\(lead\.id, opt\.value\)/.test(kcm));
   assert('CRM revenue buckets are ROLE-aware (custom won/lost stages count correctly)',
     /isLost = _lostKeys\.includes\(sk\) \|\| role === 'lost'/.test(cp)
-    && /isClosed = _closedKeys\.includes\(sk\) \|\| role === 'won' \|\| role === 'job'/.test(cp),
-    'hardcoded key lists excluded custom won from closed revenue and let custom lost inflate pipeline');
+    && /isClosed = \(window\.isJobStage && window\.isJobStage\(sk\)\) \|\| role === 'won' \|\| role === 'job'/.test(cp),
+    'hardcoded key lists excluded custom won from closed revenue and let custom lost inflate pipeline (2026-09-15: _closedKeys folded into the canonical window.isJobStage classifier)');
   assert('dashboard stage counts add custom WON/LOST by role only (no else-catch-all rebucketing built-ins)',
     /if \(!matched\) \{[\s\S]{0,260}role === 'won'\) _stageCounts\.closed\+\+;\s*else if \(role === 'lost'\) _stageCounts\.lost\+\+;\s*\}/.test(cp),
     'a catch-all else would newly pile built-in mid-stages (inspected/scope_received/…) into Negotiating — a built-in behavior change');

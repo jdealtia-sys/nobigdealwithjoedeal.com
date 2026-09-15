@@ -71,6 +71,8 @@ App Check tokens are already minted (PR #54 wired the reCAPTCHA v3 site key). Ri
 
 ### 4. Wire auto-bumping Sentry release tag from git SHA
 
+**Done 2026-09-14** — the patch below was applied by [PR #1556](https://github.com/jdealtia-sys/nobigdealwithjoedeal.com/pull/1556) (that session's push token had `workflow` scope). See `tests/sentry-release-stamp-step.test.js` for the regression guard. The rest of this section is kept for history.
+
 Every deploy will then tag a new "release" in Sentry, so a regression introduced today doesn't get grouped with a 6-month-old bug.
 
 I tried to ship this as a workflow change but the auth I'm running under doesn't have `workflow` scope, so I couldn't push a `.github/workflows/*.yml` change. Apply this patch yourself when you have a sec:

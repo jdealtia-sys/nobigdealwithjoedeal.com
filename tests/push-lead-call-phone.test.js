@@ -26,6 +26,18 @@
  * resolveNotificationAction('call', …) — the same two functions production
  * chains together.
  *
+ * The same was true of the rest of that file's "SERVER PAYLOAD" regexes, so
+ * the payload SHAPE is pinned here too, by executing it (2026-09-13):
+ *   - a lead with no name (undefined) or a null address still delivers, and
+ *     neither data block carries the text "undefined" or "null";
+ *   - a number or boolean handed to sendCustomNotification arrives as a string
+ *     in both data blocks;
+ *   - the action buttons ride on webpush.notification, where a browser-drawn
+ *     notification reads them.
+ * "Delivers" is decided by firebase-admin's OWN validateMessage — the check
+ * sendEachForMulticast runs on every message before it touches the network —
+ * not by a hand-written imitation of FCM's rules.
+ *
  * Pure Node. Run: node tests/push-lead-call-phone.test.js
  */
 'use strict';
@@ -74,11 +86,42 @@ const fakeDb = {
     };
   },
 };
+// The payload validator firebase-admin runs inside sendEachForMulticast. It is
+// not a public export, so it is loaded by file path; if a firebase-admin bump
+// moves it, this require throws and the suite crashes — loudly, not green.
+const { validateMessage } = require(path.join(
+  path.dirname(require.resolve('firebase-admin', { paths: [FUNCTIONS] })),
+  'messaging', 'messaging-internal.js'));
+const fcmResults = [];
 const fakeMessaging = {
+  // Mirrors the SDK (lib/messaging/messaging.js): one message per token, each
+  // validated, and an invalid one comes back as a per-token FAILURE in the
+  // response — the call itself resolves. structuredClone, not JSON: a JSON
+  // round-trip would drop exactly the `undefined` values under test.
   sendEachForMulticast: async (msg) => {
     sent.push(msg);
-    return { successCount: 1, failureCount: 0, responses: [{ success: true }] };
+    const { tokens, ...base } = structuredClone(msg);
+    const responses = tokens.map((token) => {
+      try { validateMessage({ ...base, token }); return { success: true, messageId: 'm-' + token }; }
+      catch (error) { return { success: false, error }; }
+    });
+    const result = {
+      successCount: responses.filter((r) => r.success).length,
+      failureCount: responses.filter((r) => !r.success).length,
+      responses,
+    };
+    fcmResults.push(result);
+    return result;
   },
+};
+// The last send was delivered: every token accepted, none refused.
+const fcmAccepted = () => {
+  const r = fcmResults[fcmResults.length - 1];
+  return !!r && r.failureCount === 0 && r.successCount === 1;
+};
+const fcmDetail = () => {
+  const r = fcmResults[fcmResults.length - 1];
+  return r ? r.responses.map((x) => (x.success ? 'accepted' : x.error.message)).join('; ') : 'no send';
 };
 
 function stub(request, exportsObj) {
@@ -131,6 +174,7 @@ const resolveAction = sandbox.resolveNotificationAction;
 // FCM message it produced (or null).
 async function fireNewLead(lead) {
   sent.length = 0;
+  fcmResults.length = 0;
   await push.onNewLead.run({
     params: { leadId: 'L1' },
     data: { data: () => Object.assign({ assignedTo: 'rep-1', name: 'Pat', address: '1 Main St' }, lead) },
@@ -142,6 +186,14 @@ async function fireNewLead(lead) {
   console.log('\nHARNESS');
   ok('onNewLead exposes its raw handler', push.onNewLead && typeof push.onNewLead.run === 'function');
   ok('the worker\'s click resolver loaded', typeof resolveAction === 'function');
+  // Positive control: the "FCM accepts it" checks below mean nothing unless
+  // the fake can refuse. A number in `data` is exactly what the SDK rejects.
+  {
+    await fakeMessaging.sendEachForMulticast({ tokens: ['t'], data: { n: 1 } });
+    ok('the fake FCM refuses a non-string data value, as the SDK does', !fcmAccepted(), fcmDetail());
+    sent.length = 0;
+    fcmResults.length = 0;
+  }
 
   const CASES = [
     // [label, lead fields, digits the Call button must receive]
@@ -156,6 +208,7 @@ async function fireNewLead(lead) {
     const msg = await fireNewLead(lead);
     ok('exactly one FCM send happened', msg !== null, 'sends=' + sent.length);
     if (!msg) continue;
+    ok('FCM accepts it', fcmAccepted(), fcmDetail());
 
     // Both copies: `data` feeds onBackgroundMessage, `webpush.data` becomes the
     // browser-drawn notification's data. Either can be the one clicked.
@@ -179,6 +232,62 @@ async function fireNewLead(lead) {
     ok('Call falls back to opening the lead rather than dialing nothing',
        plan && plan.kind === 'navigate' && plan.url === '/pro/dashboard.html?tab=leads&leadId=L1',
        JSON.stringify(plan));
+  }
+
+  console.log('\nSEND PAYLOAD — a lead with no name and a null address');
+  {
+    // Firestore omits an unset field, so onNewLead hands sendPushNotification
+    // `name: undefined`; a form that wrote null gives `address: null`. The SDK
+    // refuses a whole message over one non-string data value, so without the
+    // coercion this lead produces no push at all — and with a coercion that
+    // stringifies instead of dropping, the payload carries "undefined".
+    const msg = await fireNewLead({ name: undefined, address: null, phone: '(513) 555-0100' });
+    ok('the push is sent and FCM accepts it', msg !== null && fcmAccepted(), fcmDetail());
+    for (const block of ['data', 'webpush.data']) {
+      const obj = msg ? (block === 'data' ? msg.data : msg.webpush.data) : null;
+      const vals = obj ? Object.values(obj) : [];
+      ok(block + ' holds only strings',
+         !!obj && vals.every((v) => typeof v === 'string'), JSON.stringify(obj));
+      ok(block + ' drops the missing fields rather than sending "undefined" or "null"',
+         !!obj && !('name' in obj) && !('address' in obj)
+           && !vals.some((v) => v === 'undefined' || v === 'null'),
+         JSON.stringify(obj));
+    }
+  }
+
+  console.log('\nSEND PAYLOAD — a caller passing a number and a boolean');
+  {
+    // sendCustomNotification passes its caller's data straight through (and
+    // sendTeamNotification spreads it in). Numbers and booleans are ordinary JS
+    // there and illegal to FCM.
+    sent.length = 0;
+    fcmResults.length = 0;
+    await push.sendCustomNotification('rep-1', 'Heads up', 'Three jobs need you',
+      { type: 'custom', count: 3, urgent: false, clickUrl: '/pro/dashboard.html' });
+    const msg = sent.length === 1 ? sent[0] : null;
+    ok('the push is sent and FCM accepts it', msg !== null && fcmAccepted(), fcmDetail());
+    ok('a number arrives as its string form in both data blocks',
+       !!msg && msg.data.count === '3' && msg.webpush.data.count === '3',
+       msg && JSON.stringify({ data: msg.data.count, webpush: msg.webpush.data.count }));
+    ok('...and a boolean false arrives as "false", not dropped as if missing',
+       !!msg && msg.data.urgent === 'false' && msg.webpush.data.urgent === 'false',
+       msg && JSON.stringify({ data: msg.data.urgent, webpush: msg.webpush.data.urgent }));
+  }
+
+  console.log('\nSEND PAYLOAD — the buttons ride on the browser-drawn notification');
+  {
+    // A push with a `notification` block can be drawn by the browser without
+    // waking the worker; that notification shows only the buttons declared on
+    // webpush.notification. Compared against the worker's own list, which
+    // push-notification-actions.test.js holds equal to the server's.
+    const msg = await fireNewLead({ phone: '(513) 555-0100' });
+    const actions = msg && msg.webpush && msg.webpush.notification
+      ? msg.webpush.notification.actions : undefined;
+    ok('webpush.notification.actions is the worker\'s newLead list',
+       JSON.stringify(actions) === JSON.stringify(sandbox.getNotificationActions('newLead')),
+       JSON.stringify(actions));
+    ok('...so the Call button the phone is for is actually on the notification',
+       Array.isArray(actions) && actions.some((a) => a.action === 'call'));
   }
 
   console.log('\nOUTPUT HYGIENE');

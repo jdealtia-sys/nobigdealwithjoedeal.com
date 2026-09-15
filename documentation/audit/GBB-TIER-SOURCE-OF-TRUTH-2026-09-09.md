@@ -646,6 +646,57 @@ undefined/NaN/`[object Object]` artifacts and correct escaping.
 
 ---
 
+## §10 — UPDATE 2026-09-09 (later same day): §9's tracked follow-ups closed
+
+Jo: *"lets also make sure when we give warranties, receipts, they need to
+match their estimates / docs / etc — like matching tiers, warranties, and
+more... make sure it all ties properly."* Full detail in the
+[session note](../projects/SESSION-2026-09-09-credential-badges-and-gbb-followups.md);
+summary here per this vault's "correct stale docs in place" rule so §9 above
+doesn't keep reading as still-open.
+
+**Closed, code fix, tests green:** `functions/customer-estimate-rows.js` (+
+its `docs/pro/js/` mirror) no longer prints "Better tier" on invoices/
+receipts — reads the customer-facing label now. The contract
+warranty-bridge gap is closed (`doc-preflight.js` now bridges `warrantyTier`
+→ `warranty` text for the server `.hbs` path) — the masking
+`paymentSchedule.map` crash itself was deliberately left untouched, so this
+is currently inert in practice, not a behavior change, until someone fixes
+that crash in isolation; when they do, contracts will state a warranty
+instead of silently dropping the section. `academy-insurance-tree-data.js`'s
+three "5-year workmanship warranty" rep-script lines now say lifetime.
+`seed-demo.js`'s six prod-live demo estimates no longer show "Reroof
+Plus"/"Full Redeck." Also fixed while in the area, not from §9's list but
+the same "ties properly" ask: a receipt's Balance section used to default
+to blank even when the job's real total was already known
+(`doc-preflight.js`'s `contractTotal` field now pre-fills from the same
+`computed.jobValue` every other doc type reads).
+
+**Closed, Jo's call — asked directly, both resolved:** the
+architectural-shingles-vs-3-tab blog post (§9's "needs a real editorial
+pass, not a text swap") was rewritten in Joe's own voice to recommend the
+Standard architectural tier instead of 3-tab in the same three situations,
+and now explicitly states the no-3-tab policy and why, rather than
+contradicting it. **Not yet checked**: §9 separately named a second,
+softer version of the same 3-tab framing in
+`docs/blog/how-much-does-roof-cost-cincinnati-2026.html` — that post was
+NOT touched this pass. The-pledge's "warranty clock has run out" Layer-2
+premise (§9's "needs a content decision") was reframed rather than
+retired — the new text turned out to already match, almost word for word,
+the page's own pre-existing "THE PROMISE" section, which had apparently
+been quietly correct the whole time while the Layer-2 card hadn't caught
+up to it.
+
+**Still open, unchanged:** `doc-preflight.js`'s rep-facing
+`renderWarrantyTier()` picker (permitted to keep saying Good/Better/Best —
+internal tool UI); `sandbox.html`'s Good/Better/Best chips (judged a
+different case this pass — a generic B2B SaaS-product demo for prospective
+*other* contractors, not NBD's own advertised pricing); PR 4 (marketing
++15%/+30% price copy) and PR 5 (tier→material enforcement), both unchanged
+from §8.
+
+---
+
 **Shared-checkout note for whoever reads this next:** while finishing this
 PR, `docs/pro/dashboard.html`, `customer.html`, `customer-tasks-ui.js`,
 `dashboard-bootstrap.module.js`, `document-generator.js` and

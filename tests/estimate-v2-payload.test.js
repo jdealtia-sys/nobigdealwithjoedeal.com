@@ -313,6 +313,38 @@ ok('round-trip: Line Item Total = $2,350.00 (= retailBeforeOHP)', /2,350\.00/.te
 ok('round-trip: Subtotal $2,820.00 = Line Item Total + O&P (235+235)', /2,820\.00/.test(html));
 ok('round-trip: O&P rows present ($235.00 ×2)', (html.match(/235\.00/g) || []).length >= 2);
 
+// ════════════════════════════════════════════════════════════════════
+// minJobApplied round-trip (2026-09-14) — reopening a floored small-repair
+// estimate must not silently drop the "Minimum Job Charge Adjustment" row.
+// Before this fix, _reconstructEstimateFromSaved hardcoded minJobApplied:
+// false regardless of what the estimate actually was, because
+// _buildSavePayload never persisted the flag in the first place — a saved
+// doc had nowhere to read it FROM.
+// ════════════════════════════════════════════════════════════════════
+console.log('\nV2 PAYLOAD — minJobApplied persists through save + reopen');
+{
+  ok('control: the baseline fixture is NOT min-job-floored',
+    est.minJobApplied === false && saved.minJobApplied === false && reEst.minJobApplied === false);
+
+  const flooredEst = Object.assign({}, est, { minJobApplied: true });
+  const flooredSaved = T.buildSavePayload(flooredEst, stateFixture());
+  ok('_buildSavePayload persists minJobApplied:true on the saved doc',
+    flooredSaved.minJobApplied === true);
+
+  const flooredReconstructed = T.reconstructEstimateFromSaved(flooredSaved);
+  ok('_reconstructEstimateFromSaved reads minJobApplied:true back from the doc (not hardcoded false)',
+    flooredReconstructed.minJobApplied === true);
+
+  // A doc saved before this field existed carries no minJobApplied key at
+  // all — must degrade to false (its old, only-ever behavior), not throw
+  // and not accidentally read as true.
+  const legacyDoc = Object.assign({}, saved);
+  delete legacyDoc.minJobApplied;
+  const legacyReconstructed = T.reconstructEstimateFromSaved(legacyDoc);
+  ok('a pre-existing saved doc with no minJobApplied key reconstructs to false (no regression)',
+    legacyReconstructed.minJobApplied === false);
+}
+
 console.log('\n──────────────────────────────────────────────────');
 console.log(passed + ' passed, ' + failed + ' failed');
 if (failed) { console.log('FAILED: ' + fails.join(', ')); process.exit(1); }

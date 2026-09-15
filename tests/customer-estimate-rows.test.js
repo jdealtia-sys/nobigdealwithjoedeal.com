@@ -510,7 +510,9 @@ test('per-SQ estimates get ONE summary line, not an empty scope', () => {
   eq(items.length, 1, 'one summary line');
   near(items[0].total, 18500, 0.005, 'summary total is the locked tier price');
   if (/9000/.test(JSON.stringify(items))) throw new Error('per-SQ internal cost basis reached the document');
-  if (!/Better/.test(items[0].description)) throw new Error('tier not named: ' + items[0].description);
+  // GBB audit 2026-09-09 §9: 'better' now prints its customer-facing label
+  // "Preferred," not the raw internal key.
+  if (!/Preferred/.test(items[0].description)) throw new Error('tier not named: ' + items[0].description);
 });
 
 test('classic lineItems still map straight across', () => {

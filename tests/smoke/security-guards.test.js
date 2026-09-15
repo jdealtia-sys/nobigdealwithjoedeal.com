@@ -36,6 +36,8 @@ function run(ctx) {
     /rawBody/.test(stripe) && /Invalid request body/.test(stripe));
   assert('stripe webhooks reject a bad signature',
     /signature verification failed/i.test(stripe) || /Invalid signature/.test(stripe));
+  assert('stripeWebhook fails closed when its secret is missing/stub',
+    /secretValue\(STRIPE_WEBHOOK_SECRET\)/.test(stripe) && /rejecting unsigned request/i.test(stripe));
   assert('esignWebhook HMAC-verifies (x-boldsign-signature + timingSafeEqual)',
     /x-boldsign-signature/.test(esign) && /timingSafeEqual/.test(esign));
   assert('esignWebhook fails closed when its secret is unset',

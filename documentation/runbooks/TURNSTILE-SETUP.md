@@ -19,6 +19,9 @@ Contract pinned by `tests/turnstile-contract.test.js`.*
 > (§"What the challenge costs a lead"). **The enforcement order below is
 > unchanged:** measure real `turnstileTokenPresent:true` in Cloud Logging
 > first. `TURNSTILE_SECRET` was not touched.
+>
+> **Follow-up the same day:** the safety timeout was cut from 8 s to **6 s**
+> (4 s was measured and rejected). See §"The safety timeout is 6 s".
 
 ## What was actually wrong
 
@@ -65,6 +68,24 @@ gcloud logging read \
 If that comes back empty while leads are still arriving, the client is not
 producing tokens — **do not set the secret**. Look at
 `window.__NBD_TURNSTILE_SITEKEY` on the live page first.
+
+**A standing alert watches for it (live since 2026-09-13).** Cloud Monitoring
+policy `projects/nobigdeal-pro/alertPolicies/15802792625691337472`, defined in
+`monitoring/alert-turnstile-token-present.json`, emails and texts Joe (at
+most once a day) when that log line appears with
+`turnstileTokenPresent=true`. So nobody has to remember to run the query
+above. What an alert does and does not prove:
+
+- **It proves a token was sent, not that it is valid.** Nothing verifies
+  tokens while the secret is unset.
+- **It doesn't say which page.** The log carries `kind` and doc `id`; the
+  lead doc's `source` names the page.
+- **One alert is not a token rate.** The enforcement decision still needs
+  the rate from the query above, with trues from `/inspect` *and* from at
+  least one `/areas/*` or `/services/*` quick form (`source` starting
+  `page-form:`).
+
+Details and the Windows `gcloud` traps are in `monitoring/README.md` §11.
 
 ## The widget
 
@@ -203,20 +224,68 @@ How to read it:
   challenge work. Expect roughly 1.5–2.5 s on a fast desktop connection, and
   more on mobile.
 - **Refused is cheap and stalled is the worst case.** An ad blocker or DNS
-  sinkhole fails the script at once. A network that drops packets now costs
-  exactly the safety timeout, 8 s, and the lead is still sent (tokenless).
+  sinkhole fails the script at once. A network that drops packets costs
+  exactly the safety timeout, and the lead is still sent (tokenless). The
+  stalled rows above were measured at the original 8 s. **The timeout is now
+  6 s**; see the next section.
 - **Before enforcement, the timeout only costs waiting, never a lead.** Once
   `TURNSTILE_SECRET` is set, a submit that hits the timeout is tokenless and gets
   403'd. So the timeout must stay above real visitors' challenge time, and only
   `turnstileTokenPresent` on live traffic can show what that is.
 
-**Open decision (Jo): the 8 s safety timeout.** Eight seconds of "Sending…" on
-a lead form will cost some leads from visitors on stalled networks. Cutting it
-to about 4 s halves that wait and still sits roughly 2× above the measured
-success path. The cost is that, after enforcement, a visitor whose challenge
-takes 4–8 s would lose a lead they would have kept. Deliberately left at 8 s in
-the 2026-09-13 change. Decide it with the live `turnstileTokenPresent` data in
-hand, not before.
+## The safety timeout is 6 s (decided 2026-09-13)
+
+`TURNSTILE_TIMEOUT_MS = 6000` in `docs/assets/js/public-lead-submit.js`, pinned
+by `tests/turnstile-contract.test.js`. It is the longest a submit waits for a
+token, covering both the script load and the challenge, before it POSTs without
+one.
+
+**Why it moved.** At 8 s, a visitor on a stalled network watched "Sending…" for
+8 s. That was proposed as a lead cost, and Jo chose to cut it.
+
+**Why 6 s and not 4 s.** 4 s was built and measured first, and it cut into the
+success path:
+
+| 4 s client, 5 runs | 1st submit | 2nd submit |
+|---|---|---|
+| stalled, `/inspect` | 4,010 ms (4,006–4,017) | 4,005 ms (4,001–4,010) |
+| stalled, `/areas/mason-oh` | 4,018 ms (4,010–4,028) | 4,012 ms (4,004–4,015) |
+| always-pass test key, `/inspect` | 2,058 ms median, **but run 1 hit the timeout at 4,007 ms with no token** (4/5 tokens) | 1,626 ms (1,595–1,690), 5/5 |
+| always-pass test key, `/areas/mason-oh` | 2,007 ms (1,809–2,455), 5/5 | 1,648 ms (1,582–1,776), 5/5 |
+
+A challenge that always passes, over a fast connection, missed 4 s once. After
+enforcement that visitor is 403'd. Before enforcement, that submit still logs
+`turnstileTokenPresent:false`, which drags down the very token rate the
+enforcement decision depends on.
+
+A larger uncut sample (8 s client, always-pass test key, 20 runs per page) put
+the normal success path well clear of 6 s:
+
+| 40 samples | tokens | median | p90 | max | over 4 s | over 6 s |
+|---|---|---|---|---|---|---|
+| 1st submit | 40/40 | 1,904 ms | 2,237 ms | 2,613 ms | 0 | 0 |
+| 2nd submit | 40/40 | 1,650 ms | 1,704 ms | 1,807 ms | 0 | 0 |
+
+Across all 70 test-key first submits measured on the fixed client that day (10
+at 8 s, 10 at 4 s, 10 at 6 s, 40 above), 1 went over 4 s and none came near
+6 s. The first submit is the slower one because it also
+downloads `api.js`. Mobile networks will be slower than these numbers, and that
+is the margin 6 s buys.
+
+The shipped 6 s client, measured the same way (5 runs per row):
+
+| 6 s client | 1st submit | 2nd submit | Token |
+|---|---|---|---|
+| stalled, `/inspect` | 6,006 ms (6,003–6,008) | 6,010 ms (6,009–6,011) | none (lead still sent) |
+| stalled, `/areas/mason-oh` | 6,019 ms (6,014–6,025) | 6,002 ms (6,001–6,011) | none (lead still sent) |
+| always-pass test key, `/inspect` | 2,116 ms (1,792–2,219) | 1,617 ms (1,584–1,749) | 5/5 both submits |
+| always-pass test key, `/areas/mason-oh` | 2,129 ms (1,852–2,283) | 1,626 ms (1,580–1,654) | 5/5 both submits |
+
+**Revisit with live data.** Once `turnstileTokenPresent` has real traffic
+behind it, a token rate noticeably below the share of visitors who do not block
+Cloudflare suggests real challenges are hitting the timeout. Re-measure before
+moving the number in either direction, and update the pin in the contract test
+with it.
 
 ## Emergency
 

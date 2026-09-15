@@ -793,6 +793,12 @@ exports.getHomeownerPortalView = onRequest(
         work:        lead.warranty.work || '',
         installDate: lead.warranty.installDate || null,
         certNumber:  lead.warranty.certNumber || null,
+        // 2026-09-15 (Warranty Claim lane): lets the portal swap the "Start a
+        // warranty claim" button for a "Claim in progress" state instead of
+        // letting the homeowner file a second report on top of an open one.
+        // Deliberately just the id, not claim details — the portal has no
+        // authenticated read of the warrantyClaims subcollection.
+        openWarrantyClaimId: lead.openWarrantyClaimId || null,
       } : null,
       rep: {
         displayName:    rep.displayName || lead.repName || 'Your Rep',
@@ -1047,13 +1053,18 @@ exports.uploadHomeownerPhoto = onRequest(
       // '03-09-2491' (~466 years) made every uploaded photo
       // effectively permanent — even after the photo doc was deleted
       // from Firestore, the Storage URL stayed accessible. Now 7 days,
-      // which is the per-request max; the rep's dashboard re-signs on
-      // demand via the existing `signImageUrl` function (M2 hardened
-      // path). For now we still bake a signed URL into the photo doc
-      // so the existing rep gallery query keeps working without code
-      // changes — but with a 7-day TTL the photos auto-expire from
-      // public access, and a future wave will move all rep gallery
-      // reads through `signImageUrl` on demand.
+      // which is the per-request max. This comment used to claim "the
+      // rep's dashboard re-signs on demand via the existing
+      // signImageUrl function" — that was aspirational, not true:
+      // signImageUrl's path allowlist (functions/handlers/photo.js)
+      // never included homeowner-uploads/ until 2026-09-14, so every
+      // such re-sign 400'd and the rep gallery lost the photo outright
+      // once the 7-day URL expired. Fixed the same date: the allowlist
+      // (and a matching storage.rules read block, which also did not
+      // exist before then) now cover this prefix, so the re-sign this
+      // comment always claimed actually works. We still bake a signed
+      // URL into the photo doc so the existing rep gallery query keeps
+      // working without further code changes.
       const expiresAt = Date.now() + 7 * 24 * 60 * 60 * 1000; // 7 days
       const [url] = await file.getSignedUrl({
         action: 'read',
@@ -1379,6 +1390,143 @@ exports.requestCallback = onRequest(
     } catch (err) {
       logger.error('[requestCallback] failed', { msg: err.message });
       res.status(500).json({ error: 'Could not save request. Try again.' });
+    }
+  }
+);
+
+// ═══════════════════════════════════════════════════════════════
+// 2026-09-15 (Warranty Claim lane): reportWarrantyClaim — upgrades the
+// portal's old dead-end `sms:` deep link (docs/pro/js/portal.js's Digital
+// Warranty Card) into a real, tracked report. Modeled on requestCallback
+// above: same token-auth + rate-limit shape, same task/activity/notification
+// triple so it surfaces in the rep's existing bell + customer-page timeline
+// with no new UI surface needed there.
+//
+// Deliberately narrower than the rep-side flow (crm-pipeline.js's moveCard()
+// guard -> warranty-claim.js's promptIntake()): this NEVER touches
+// lead.stage or lead.openWarrantyClaimId. Those two are hard-gate inputs
+// (missingRequiredFields, moveCard's own guard) that this codebase's
+// convention keeps synchronous and rep-confirmed — an unauthenticated,
+// unreviewed homeowner report shouldn't silently reopen the board column or
+// arm the re-entry gate. The claim doc created here is a triage record
+// (reportedBy:'homeowner', status:'open'); if the rep decides it's real
+// after reading the task, THEIR OWN "File Warranty Claim" click is what
+// formalizes it onto the board (a second doc, by design — the two are not
+// meant to merge automatically).
+// ═══════════════════════════════════════════════════════════════
+exports.reportWarrantyClaim = onRequest(
+  {
+    region: 'us-central1',
+    cors: CORS_ORIGINS,
+    maxInstances: 50,
+    concurrency: 60,
+    timeoutSeconds: 15,
+    memory: '256MiB',
+  },
+  async (req, res) => {
+    if (req.method !== 'POST') { res.status(405).end(); return; }
+
+    if (!(await httpRateLimit(req, res, 'portal-warranty-claim:ip', 10, 60_000))) return;
+
+    const { token, issueDescription } = req.body || {};
+    if (typeof token !== 'string' || !/^[A-Za-z0-9]{10,64}$/.test(token)) {
+      res.status(400).json({ error: 'Invalid token' });
+      return;
+    }
+    const safeDesc = (typeof issueDescription === 'string') ? issueDescription.trim().slice(0, 2000) : '';
+    if (!safeDesc) {
+      res.status(400).json({ error: 'Please describe the issue' });
+      return;
+    }
+
+    const db = getFirestore();
+    const tokRef = db.doc(`portal_tokens/${token}`);
+    let tok;
+    try {
+      const snap = await tokRef.get();
+      if (!snap.exists) { res.status(404).json({ error: 'Invalid link' }); return; }
+      const data = snap.data();
+      if (data.expiresAt && data.expiresAt.toMillis && data.expiresAt.toMillis() < Date.now()) {
+        res.status(410).json({ error: 'This link has expired.' });
+        return;
+      }
+      tok = { ownerUid: data.ownerUid, leadId: data.leadId };
+    } catch (err) {
+      logger.error('[reportWarrantyClaim] token lookup failed', { msg: err.message });
+      res.status(500).json({ error: 'Could not save your report. Try again.' });
+      return;
+    }
+
+    const taskText = '🛟 WARRANTY CLAIM REPORTED — "' + safeDesc.slice(0, 200) + '"';
+
+    try {
+      // Triage claim doc — see the lane comment above for why this never
+      // touches lead.stage/openWarrantyClaimId.
+      const claimRef = await db.collection(`leads/${tok.leadId}/warrantyClaims`).add({
+        status: 'open',
+        reason: null,
+        issueDescription: safeDesc,
+        reportedBy: 'homeowner',
+        reportedAt: FieldValue.serverTimestamp(),
+        scheduledDate: null,
+        diagnosisNotes: '',
+        resolutionNotes: '',
+        billable: false,
+        resolvedAt: null,
+        linkedPhotoIds: [],
+        linkedDocumentIds: [],
+        createdAt: FieldValue.serverTimestamp(),
+        updatedAt: FieldValue.serverTimestamp(),
+      });
+
+      const taskRef = await db.collection(`leads/${tok.leadId}/tasks`).add({
+        text: taskText,
+        done: false,
+        dueDate: new Date().toISOString().slice(0, 10),
+        source: 'homeowner_warranty_claim',
+        claimId: claimRef.id,
+        createdAt: FieldValue.serverTimestamp(),
+      });
+
+      try {
+        await db.collection(`leads/${tok.leadId}/activity`).add({
+          userId: tok.ownerUid,
+          type: 'warranty_claim_reported',
+          label: 'Homeowner reported a warranty issue',
+          note: safeDesc,
+          claimId: claimRef.id,
+          createdAt: FieldValue.serverTimestamp(),
+        });
+      } catch (actErr) {
+        logger.warn('[reportWarrantyClaim] activity create failed', { msg: actErr.message });
+      }
+
+      try {
+        await db.doc(`leads/${tok.leadId}`).set({
+          updatedAt: FieldValue.serverTimestamp(),
+        }, { merge: true });
+      } catch (_) { /* non-critical */ }
+
+      try {
+        await db.collection('notifications').add({
+          userId: tok.ownerUid,
+          type: 'homeowner_warranty_claim',
+          leadId: tok.leadId,
+          taskId: taskRef.id,
+          title: 'Homeowner reported a warranty issue',
+          message: safeDesc.slice(0, 60),
+          priority: 'high',
+          read: false,
+          createdAt: FieldValue.serverTimestamp(),
+        });
+      } catch (notifErr) {
+        logger.warn('[reportWarrantyClaim] notification create failed', { msg: notifErr.message });
+      }
+
+      res.status(200).json({ ok: true });
+    } catch (err) {
+      logger.error('[reportWarrantyClaim] failed', { msg: err.message });
+      res.status(500).json({ error: 'Could not save your report. Try again.' });
     }
   }
 );
