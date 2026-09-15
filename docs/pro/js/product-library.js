@@ -372,7 +372,7 @@
             <h3 style="margin:0;font-size:16px;font-weight:700;color:${catColor(catId)};flex:1;">${catLabel(catId)}</h3>
             <span style="font-size:12px;color:var(--m);font-weight:500;">${catProds.length} product${catProds.length !== 1 ? 's' : ''}</span>
           </div>
-          <div style="display:${isCollapsed ? 'none' : 'grid'};grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:14px;margin-top:${isCollapsed ? '0' : '12px'};">
+          <div class="pl-product-grid" style="display:${isCollapsed ? 'none' : 'grid'};margin-top:${isCollapsed ? '0' : '12px'};">
       `;
       catProds.forEach(p => {
         const tierForMargin = currentFilter.tier || 'better';
@@ -441,7 +441,7 @@
     });
 
     return `
-      <style>.pl-card:hover{box-shadow:0 4px 12px rgba(0,0,0,.1)!important;}</style>
+      <style>.pl-card:hover{box-shadow:0 4px 12px rgba(0,0,0,.1)!important;}.pl-product-grid{grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:14px;}@media (max-width:360px){.pl-product-grid{grid-template-columns:1fr;}}</style>
       <div style="padding:20px;background:transparent;min-height:100vh;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
 
         <!-- Header -->
