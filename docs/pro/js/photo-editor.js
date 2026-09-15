@@ -1708,6 +1708,16 @@
     S.currentPhotoIndex = idx;
     const photo = S.allPhotos[idx];
     const url = typeof photo === 'string' ? photo : (photo.url || '');
+    // Re-key persistence to the newly-selected photo. saveTagsOnly() and
+    // uploadBlob() both write to /photos/{S.photoId} — leaving this
+    // pointed at whichever photo the editor was FIRST opened with would
+    // silently save this photo's tags/annotations onto a different
+    // photo's Firestore doc. A bare-URL string entry carries no id to
+    // key off of; null it out so the existing "No photo ID" guard in
+    // saveTagsOnly()/uploadBlob() blocks the save instead of
+    // mis-targeting one.
+    S.photoId = (photo && typeof photo === 'object' && photo.id) ? photo.id : null;
+    S.photoUrl = url;
     // Load this photo's own persisted adjustments (0 if none / a bare URL),
     // so each photo shows its own — not the previously-viewed photo's.
     S.brightness = Number(photo && photo.brightness) || 0;
