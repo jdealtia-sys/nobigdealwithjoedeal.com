@@ -701,6 +701,24 @@ section('Unified client + status endpoint');
   }
   const idx = readFunctionsIndex();
   assert('integrationStatus callable exported', /exports\.integrationStatus\s*=/.test(idx));
+
+  // integration-availability-non-admin fix: status() used to short-circuit
+  // for any non-admin caller (via a client-side _isAdminCaller() check) and
+  // fake a permanently-empty { configured: {} } without ever calling the
+  // server — which made requireConfigured() unconditionally false for every
+  // ordinary rep's Auto-measure / e-sign / parcel-lookup buttons. status()
+  // must now call the non-admin-safe integrationAvailability callable for
+  // everyone, and the short-circuit helper must be gone entirely.
+  // (Regression check: this assertion fails against the pre-fix source,
+  // which called callable('integrationStatus') from inside status() and
+  // still defined _isAdminCaller.)
+  const statusFnBody = (src.match(/async function status\(force\) \{[\s\S]+?\n  \}/) || [''])[0];
+  assert('status() found in integrations-client.js', statusFnBody.length > 0);
+  assert("status() calls the integrationAvailability callable, not integrationStatus",
+    /callable\('integrationAvailability'\)/.test(statusFnBody)
+    && !/callable\('integrationStatus'\)/.test(statusFnBody));
+  assert('_isAdminCaller no longer exists anywhere in integrations-client.js',
+    !/_isAdminCaller/.test(src));
 }
 
 section('Push-3: booking-link SMS uses calcomUsername');
@@ -2745,6 +2763,43 @@ section('Phase D.3 — integrationStatus secret-readout completeness');
   assert('integrationStatus exposes rotationRunbook URL',
     /rotationRunbook:\s*'https:\/\/github\.com\/jdealtia-sys\/nobigdealwithjoedeal\.com\/blob\/main\/documentation\/runbooks\/SECRET_ROTATION\.md'/.test(idx),
     'expected rotationRunbook URL in the response so admin UI can deep-link');
+}
+
+section('Phase D.3 — integrationAvailability (non-admin-safe availability readout)');
+{
+  // integrationStatus is deliberately admin-gated (H-06). requestMeasurement /
+  // sendForSignature / lookupParcel need a status readout for EVERY signed-in
+  // rep, so integrationAvailability exists alongside it in the same file
+  // with no role check — see tests/smoke/auth.test.js's H-06 section for the
+  // proof that integrationStatus itself stays unchanged.
+  const idx = readFunctionsIndex();
+  assert('integrationAvailability callable is exported from functions/index.js',
+    /exports\.integrationAvailability\s*=\s*integrationsHandlers\.integrationAvailability/.test(idx));
+  assert('integrationAvailability handler is defined with onCall in handlers/integrations.js',
+    /exports\.integrationAvailability\s*=\s*onCall\s*\(/.test(idx));
+
+  const m = idx.match(/exports\.integrationAvailability\s*=\s*onCall\s*\([\s\S]+?\}\s*\);/);
+  assert('integrationAvailability handler block located', !!m);
+  if (m) {
+    assert('integrationAvailability requires authentication (unauthenticated on missing uid)',
+      /!request\.auth \|\| !request\.auth\.uid/.test(m[0]) && /unauthenticated/.test(m[0]));
+    assert('integrationAvailability does NOT contain a role/permission-denied check in its body',
+      !/callerRole/.test(m[0]) && !/permission-denied/.test(m[0]) && !/admin/.test(m[0].replace(/\/\/.*$/gm, '')));
+    // Only the booleans that actually gate requestMeasurement / sendForSignature /
+    // lookupParcel — never the H-06-restricted fields (Turnstile, Upstash,
+    // Sentry, Slack, webhook secrets, rateLimitProvider, rotationRunbook).
+    for (const key of ['hover', 'eagleview', 'nearmap', 'instantroofer', 'boldsign', 'regrid']) {
+      assert('integrationAvailability.configured exposes ' + key,
+        new RegExp('\\b' + key + ':\\s+_hasInt').test(m[0]));
+    }
+    for (const restricted of ['sentry', 'slack', 'turnstile', 'upstash', 'hoverWebhook',
+      'eagleviewWebhook', 'instantrooferWebhook', 'boldsignWebhook', 'hailtrace', 'swath',
+      'calcom', 'thumbtackWebhook', 'deepgram', 'groq', 'kie', 'healthchecks',
+      'rateLimitProvider', 'rotationRunbook']) {
+      assert('integrationAvailability does NOT expose H-06-restricted field ' + restricted,
+        !new RegExp('\\b' + restricted + '[:\\s]').test(m[0]));
+    }
+  }
 }
 
 section('Visualizer image-gen provider seam (kie.ai, ships dark)');

@@ -127,6 +127,65 @@ exports.integrationStatus = onCall(
   }
 );
 
+// ═══════════════════════════════════════════════════════════════
+// integrationAvailability — the non-admin-safe subset of integrationStatus.
+//
+// requestMeasurement / sendForSignature / lookupParcel (the only three
+// callers of requireConfigured() in docs/pro/js/integrations-client.js) need
+// to know whether their own gating provider is configured, but they run for
+// EVERY rep, not just admin/company_admin. integrationStatus is deliberately
+// admin-gated (H-06, above) to stop a free-tier caller from enumerating the
+// full security posture (Turnstile/Upstash/Sentry/Slack/webhook secrets).
+// This callable is the fix for the client-side short-circuit that used to
+// fake an empty status for non-admins instead of ever calling the server:
+// it exposes ONLY the handful of booleans those three callers actually gate
+// on, to any signed-in caller, and nothing H-06 restricts.
+// ═══════════════════════════════════════════════════════════════
+exports.integrationAvailability = onCall(
+  {
+    region: 'us-central1',
+    cors: CORS_ORIGINS,
+    enforceAppCheck: true,
+    timeoutSeconds: 10,
+    memory: '256MiB',
+    secrets: [
+      _intSecrets.HOVER_API_KEY,
+      _intSecrets.EAGLEVIEW_API_KEY,
+      _intSecrets.NEARMAP_API_KEY,
+      _intSecrets.INSTANTROOFER_API_KEY,
+      _intSecrets.BOLDSIGN_API_KEY,
+      _intSecrets.REGRID_API_TOKEN
+    ]
+  },
+  async (request) => {
+    if (!request.auth || !request.auth.uid) {
+      throw new HttpsError('unauthenticated', 'Sign in required');
+    }
+    // No role check by design — this is the point of the callable: every
+    // authenticated rep, not just admin/company_admin, needs this to light
+    // up their own Auto-measure / e-sign / parcel-lookup buttons.
+    return {
+      // Which named provider is active per category — an env-var selection
+      // (functions/integrations/_shared.js PROVIDERS), not a secret.
+      // requestMeasurement() reads providers.measurement to know which of
+      // the four `configured` keys below gates its own call.
+      providers: {
+        measurement: _intProviders.measurement,
+        esign: _intProviders.esign,
+        parcel: _intProviders.parcel
+      },
+      configured: {
+        hover:         _hasInt('HOVER_API_KEY'),
+        eagleview:     _hasInt('EAGLEVIEW_API_KEY'),
+        nearmap:       _hasInt('NEARMAP_API_KEY'),
+        instantroofer: _hasInt('INSTANTROOFER_API_KEY'),
+        boldsign:      _hasInt('BOLDSIGN_API_KEY'),
+        regrid:        _hasInt('REGRID_API_TOKEN')
+      }
+    };
+  }
+);
+
 // ═════════════════════════════════════════════════════════════
 // submitPublicLead — C-3 gated write path for the four public forms
 // (guide, contact, estimate, storm_alert). Replaces the previous
