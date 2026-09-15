@@ -1041,7 +1041,28 @@ window.NBDDocGen = {
    * instead of filled data. User can print and fill by hand.
    * @param {string} type - Document type
    */
-  generateBlank(type) {
+  async generateBlank(type) {
+    // ── HYDRATION GATE (2026-09-14) ────────────────────────────────────────
+    // Same pattern as generate() above (#1447/#1449): this._resolveCompany()
+    // is a SYNCHRONOUS read of the company-profile brand doc, which
+    // company-profile.js:276 seeds with the NBD DEFAULTS at parse time. This
+    // function reads it FIVE times, below, BEFORE ever calling generate() —
+    // and generate()'s own hydration gate is too late, because mergeFields()
+    // spreads ...data LAST, so these pre-baked companyName/Phone/Email/
+    // Website/Tagline values win over whatever generate() would have
+    // produced after hydrating. A freshly-loaded tenant printing a blank
+    // template can therefore get NBD's own identity on it.
+    //
+    // Gate here too, as the first statement, so _resolveCompany() below reads
+    // a real tenant brand instead of the NBD defaults. Never blocks the rep:
+    // a hydration failure falls through and renders with whatever brand is
+    // available, exactly as before.
+    try {
+      if (window._companyProfileLoaded !== true && typeof window._loadCompanyProfile === 'function') {
+        await window._loadCompanyProfile();
+      }
+    } catch (_) { /* render with what we have rather than blocking the rep */ }
+
     // Build blank data with underline placeholders for hand-fill
     const blankData = {
       homeownerName: '________________________________',
@@ -1063,7 +1084,7 @@ window.NBDDocGen = {
       companyWebsite: this._resolveCompany().website,
       companyTagline: this._resolveCompany().tagline
     };
-    this.generate(type, blankData);
+    await this.generate(type, blankData);
   },
 
   /**

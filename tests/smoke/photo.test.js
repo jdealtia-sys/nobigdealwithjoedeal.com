@@ -1300,6 +1300,68 @@ section('Photo-report PDF filename never leaks NBD onto a tenant download (2026-
       'rendering before hydration stamps the platform brand onto another tenant document — the template layer is synchronous, so the gate has to be here');
   }
 
+  // generateBlank() is a SIXTH site of the same shape (found 2026-09-14,
+  // fourth and fifth were #1447/#1449). It calls this._resolveCompany() FIVE
+  // times to build blankData BEFORE ever calling generate() — and because
+  // mergeFields() spreads ...data LAST, those pre-baked company* values win
+  // over whatever generate()'s own hydration gate (immediately above) would
+  // have produced. Extract the function body as a text slice, from a
+  // COMMENT-STRIPPED copy (the fix's own explanatory comment above the gate
+  // mentions "_resolveCompany()" by name, which would otherwise satisfy a
+  // naive indexOf before the real code does — the same class of brittleness
+  // #1449 called out for a fixed-width regex window), and compare STRING
+  // INDICES rather than a positional {0,N} window.
+  {
+    const dgStripped = read(path.join(PRO_JS, 'document-generator.js'))
+      .split(/\r?\n/).filter(function (l) { return !/^\s*(\/\/|\*|\/\*)/.test(l); }).join('\n');
+    const gbStart = dgStripped.indexOf('generateBlank(type)');
+    const gbEnd = dgStripped.indexOf('_escHtml(s)', gbStart);
+    assert('generateBlank() is found and bounded correctly in document-generator.js',
+      gbStart > -1 && gbEnd > gbStart,
+      'anchor text moved — update the slice bounds');
+    const gbDeclPrefix = dgStripped.slice(Math.max(0, gbStart - 10), gbStart);
+    const gbBody = dgStripped.slice(gbStart, gbEnd);
+    const gbHydrationIdx = gbBody.indexOf('await window._loadCompanyProfile(');
+    const gbResolveIdx = gbBody.indexOf('_resolveCompany()');
+    assert('generateBlank() is declared async',
+      /async\s*$/.test(gbDeclPrefix),
+      'making it async is required so the hydration await below has somewhere to live');
+    assert('generateBlank() awaits company-profile hydration before its first _resolveCompany() read',
+      gbHydrationIdx > -1 && gbResolveIdx > -1 && gbHydrationIdx < gbResolveIdx,
+      'the pre-baked companyName/Phone/Email/Website/Tagline values win over generate()\'s own hydration gate because mergeFields() spreads ...data last — a freshly-loaded tenant printing a blank template can get NBD\'s identity on it');
+  }
+
+  // generateWarrantyCertPDF() in warranty-cert.js is a SEVENTH site of the
+  // same shape. Its `const _b = (window._brand && window._brand()) || null`
+  // read is synchronous and drives every name/phone/email/seal/signature
+  // literal through ~line 240 — the certificate-number prefix a few lines
+  // below it already awaits hydration via window._tenantIdPrefix() for
+  // exactly this reason, but _b/isNbd did not. (updateCertPreview() a few
+  // lines above has the same synchronous read, but it only drives a modal
+  // PREVIEW, is not async, and is out of scope — this assertion targets only
+  // the function that produces the actual generated document.) Same
+  // comment-stripping as above — this fix's own comment names
+  // "window._brand()" too.
+  {
+    const wcStripped = read(path.join(PRO_JS, 'warranty-cert.js'))
+      .split(/\r?\n/).filter(function (l) { return !/^\s*(\/\/|\*|\/\*)/.test(l); }).join('\n');
+    const wcStart = wcStripped.indexOf('generateWarrantyCertPDF()');
+    const wcEnd = wcStripped.indexOf('async function _tryServerRender', wcStart);
+    assert('generateWarrantyCertPDF() is found and bounded correctly in warranty-cert.js',
+      wcStart > -1 && wcEnd > wcStart,
+      'anchor text moved — update the slice bounds');
+    const wcDeclPrefix = wcStripped.slice(Math.max(0, wcStart - 20), wcStart);
+    const wcBody = wcStripped.slice(wcStart, wcEnd);
+    const wcHydrationIdx = wcBody.indexOf('await window._loadCompanyProfile(');
+    const wcBrandIdx = wcBody.indexOf('window._brand()');
+    assert('generateWarrantyCertPDF() is declared async',
+      /async\s+function\s*$/.test(wcDeclPrefix),
+      'the hydration await needs an async function to live in');
+    assert('generateWarrantyCertPDF() awaits company-profile hydration before its first window._brand() read',
+      wcHydrationIdx > -1 && wcBrandIdx > -1 && wcHydrationIdx < wcBrandIdx,
+      'a freshly-loaded tenant generating a warranty certificate in the narrow hydration window can get NBD\'s own name/phone/seal/signature printed onto their homeowner\'s document');
+  }
+
   // The resolver must veto NBD from a non-platform identity. Hydration alone
   // is not enough: _isNbdBrand() treats any tenant that never set legalName as
   // NBD, so a hydrated-but-unprovisioned contractor still resolved to the
