@@ -327,7 +327,19 @@ const NBD_DOC_COMPANY = {
   // canonical NBD literals byte-identical behind {{#if company.isNbd}} while a
   // stranger tenant renders its own resolved chrome. NBD → true.
   isNbd: true,
-  logoUrl: 'https://nobigdealwithjoedeal.com/assets/images/nbd-logo.png',
+  // brandBandTop.hbs renders this into a 42x42pt `.brand-mark` box with
+  // object-fit:cover (design-system.css) — a 1:1 crop meant for an ICON, not
+  // a wordmark. Before 2026-09-15 this pointed at nbd-logo.png: harmless
+  // while that asset was 135x75 (the old roofline icon happened to sit
+  // center-left and survive the crop), but the 2026-09-14 brand refresh
+  // (#1570) replaced it with a 600x308 pure-wordmark PNG, so every PDF this
+  // CRM generates (contract/estimate/invoice/warranty/receipt/changeOrder/
+  // inspection/photoReport — all of TEMPLATES) had cropped the wordmark down
+  // to an illegible "DE" fragment since #1570 merged. apple-touch-icon.png
+  // is the canonical square (180x180) home-solutions mark and needs no CSS
+  // change. See tests/render-pdf-brand-mark-square.test.js — it would have
+  // caught this the moment #1570 landed.
+  logoUrl: 'https://nobigdealwithjoedeal.com/assets/images/apple-touch-icon.png',
   nameHtml: 'No Big <span class="accent">Deal</span> Home Solutions',
   footerName: 'No Big Deal Home Solutions',
   brandTag: 'Insurance Restoration Specialists · Greater Cincinnati',

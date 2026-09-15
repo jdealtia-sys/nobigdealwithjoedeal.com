@@ -197,8 +197,11 @@ const RUNNABLE = ['node', 'smoke'];
 //               `--check` failing red on an unrelated PR — this fix carries
 //               no product change, just re-measures the tripwire on main's
 //               current tree, same class of drift as the entry above).
+//   2026-09-15  128/67/214 → 129/67/215, tests/render-pdf-brand-mark-square.test.js
+//               (the render-pdf logo-crop hotfix — a live bug where every
+//               server-rendered PDF's brand mark was illegible since #1570).
 
-const FLOORS = { node: 128, smoke: 67, disk: 214 };
+const FLOORS = { node: 129, smoke: 67, disk: 215 };
 
 // ── Argument parsing ───────────────────────────────────────────────
 const argv = process.argv.slice(2);

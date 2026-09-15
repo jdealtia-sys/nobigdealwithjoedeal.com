@@ -220,3 +220,36 @@ lone-CR byte scan that no EOL corruption followed).
   archived but not handed to anyone — Jo still needs to send the print/social
   files to whatever vendor or platform actually uses them; nothing in the
   repo does.
+
+## Dated corrections (2026-09-15)
+
+`brand/logo-pack-2026-09/derived/README.md` cites "this note's dated
+correction" for the header/nav/footer illegibility fix — that fix landed as
+`#1572` the same day this note was written, but nothing was ever appended
+here to match. Two corrections, closing that dangling reference:
+
+- **`#1572` (same day, `67526692`)**: the header/nav/footer wordmark
+  (`docs/assets/images/nbd-logo.png`) shipped by this session used the
+  pack's `color` variant (navy main text) against the site's dark navy
+  header/nav/footer background — illegible. Recolored to
+  `brand/logo-pack-2026-09/derived/logo-white-accent.svg` (white main text,
+  orange accent) at the same 600×308, so no `width`/`height` attributes
+  needed re-touching a second time.
+- **A scope gap in THIS session's own "Verified" list, found and fixed by a
+  2026-09-15 follow-up session**: this session verified the client-side
+  browser pipeline (`docs/**`, `docs/pro/js/nbd-logo-asset.js`,
+  `scripts/assets/nbd-wordmark.png`) but never checked `functions/` — the
+  Cloud Functions server-side PDF pipeline. `functions/render-pdf.js`'s
+  `NBD_DOC_COMPANY.logoUrl` still pointed at `nbd-logo.png` (the wordmark),
+  and `functions/print/partials/brandBandTop.hbs` renders that into a 42×42pt
+  `.brand-mark` box with `object-fit:cover` (design-system.css:215-220) — a
+  1:1 crop built for an icon. The OLD 135×75 asset happened to have a
+  centered roofline icon that survived that crop; the NEW 600×308
+  icon-less wordmark does not, so **every PDF this CRM generates** (contract,
+  estimate, invoice, warranty, receipt, changeOrder, inspection, photoReport
+  — all 8 entries of `render-pdf.js`'s `TEMPLATES` map) rendered with an
+  illegible "DE" fragment instead of a brand mark, live on `main`, from the
+  moment `#1570` merged until the follow-up fix. Corrected by pointing
+  `logoUrl` at `apple-touch-icon.png` (already square, already on-brand, no
+  CSS change needed) — see `tests/render-pdf-brand-mark-square.test.js`,
+  added the same session so this class of bug can't silently recur.
