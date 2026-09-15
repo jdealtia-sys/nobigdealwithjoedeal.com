@@ -1,5 +1,5 @@
 {
-  "displayName": "NBD Pro — Rate-limit denial spike",
+  "displayName": "NBD Pro — Rate-limit denial (any; notifies at most every 10 min)",
   "documentation": {
     "content": "Rate-limit denials are spiking. Something (an attacker, a bad deploy, a bot, a broken client) is hitting our endpoints far above normal. Check which namespace is being denied (validateAccessCode:ip, publicVisualizerAI:ip, claudeProxy:uid, etc) and correlate to the source IP in Cloud Logging. The namespace is in jsonPayload.namespace.",
     "mimeType": "text/markdown"

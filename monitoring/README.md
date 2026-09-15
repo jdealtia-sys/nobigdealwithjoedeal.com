@@ -4,6 +4,32 @@ These policies detect abuse and spend anomalies across the `nobigdeal-pro`
 Firebase project. Apply each one in Google Cloud Monitoring either through
 the console or the `gcloud` CLI.
 
+## Live status (2026-09-13)
+
+**Nine policies are live; two are held.** Until 2026-09-13 none were live.
+Every condition was replayed against the previous 7 days of production data
+before creation, which found and fixed three defects. Record, replay table and
+rollback: [ALERT-POLICIES-LIVE-2026-09-13](../documentation/audit/ALERT-POLICIES-LIVE-2026-09-13.md).
+
+| file | live policy id | state |
+|---|---|---|
+| `alert-turnstile-token-present.json` | 15802792625691337472 | live |
+| `alert-backup-cron-stale.json` | 4583991940756031706 | live |
+| `alert-email-queue-worker-stale.json` | 13778878090024007435 | live (fixed first) |
+| `alert-function-latency.json` | 10772729232835340080 | live |
+| `alert-functions-error-rate.json` | 9423454652957568708 | live (fixed first) |
+| `alert-rate-limit-spike.json` | 13778878090024008942 | live |
+| `alert-tenant-microsite-errors.json` | 14764694890411614899 | live |
+| `alert-validateAccessCode-bruteforce.json` | 5276308824995125595 | live |
+| `alert-voice-processing-failures.json` | 4594628795274947618 | live |
+| `alert-claude-budget-exceeded.json` | — | **held**: cannot fire as intended until a code change logs the budget event |
+| `alert-migrations-tick-stale.json` | — | **held**: disabled by design (a daily absence is not expressible) |
+
+**Do not run the create commands below for a live policy** — it makes a
+duplicate. List first:
+`gcloud alpha monitoring policies list --project=nobigdeal-pro --format="value(name,displayName)"`
+(on Windows the em dashes print as `?`; the stored names are correct).
+
 ## Importing via gcloud
 
 Authenticated as a project owner / monitoring admin:
@@ -77,22 +103,30 @@ gcloud alpha monitoring channels list --project=nobigdeal-pro
 ## Individual alerts
 
 ### 1. `alert-validateAccessCode-bruteforce.json`
-Fires when `validateAccessCode` logs `access_code_invalid` more than **20
-times in 5 minutes**. Indicates someone is brute-forcing codes.
+Fires on **any** `access_code_invalid` warning (a matched-log condition cannot
+count; the old "more than 20 in 5 minutes" was never true), notifying at most
+every 5 minutes. A single homeowner typo will trigger it; a burst of repeated
+notifications is the brute-force signal.
 
 ### 2. `alert-functions-error-rate.json`
-Fires when Cloud Functions log `severity >= ERROR` more than **50 events
-in 5 minutes**. Catches any function-wide regression.
+Fires when any of eight user-facing services (claudeproxy,
+createcheckoutsession, validateaccesscode, imageproxy, publicvisualizerai,
+renderpdf, submitpubliclead, stripewebhook) logs **more than 50 ERROR entries
+in a 5-minute window**. Until 2026-09-13 its `ALIGN_RATE` aligner made that a
+per-second threshold that could never be reached; it is `ALIGN_DELTA` now.
 
-### 3. `alert-claude-budget-exceeded.json`
-Fires on the first instance of the `Daily AI budget exceeded` response in
-claudeProxy logs. Tells you a user is either legitimately heavy or being
-abused.
+### 3. `alert-claude-budget-exceeded.json` — held, not deployable yet
+Meant to fire on a `Daily AI budget exceeded` response, but that text is only
+ever an HTTP response body (`functions/handlers/ai.js:201`), never a log line,
+and the filter's `claudeProxy` service name matches nothing. Disabled until
+the code logs a distinct budget event; the file's documentation says how.
 
 ### 4. `alert-rate-limit-spike.json`
-Fires when any rate-limit namespace emits more than **200 denials in
-10 minutes** (publicVisualizerAI, claudeProxy, validateAccessCode, etc).
-Catches sustained abuse.
+Fires on **any** `rate_limit_denied` warning from any namespace
+(publicVisualizerAI, claudeProxy, validateAccessCode, etc), notifying at most
+every 10 minutes. The old "more than 200 denials in 10 minutes" was never what
+a matched-log condition does. CI E2E calls production functions, so a CI
+burst can trip it.
 
 ### 5. Billing budget (set in Cloud Billing console, not here)
 In Cloud Billing → Budgets, set a **$50/day** budget on the project with a
@@ -102,24 +136,31 @@ In Cloud Billing → Budgets, set a **$50/day** budget on the project with a
 > not a kill-switch. See the cost section of the Audit #4 report.
 
 ### 6. `alert-backup-cron-stale.json`
-Fires when the daily Firestore backup hasn't logged success in **> 26h**
-(two missed runs). Restore capability may be compromised — see
-`documentation/runbooks/RESTORE_FROM_BACKUP.md`.
+Fires when `backupFreshnessCron` logs the `backup_freshness.stale` error
+(`functions/backup-freshness.js:120`), i.e. it found the latest Firestore
+export too old, or could not read the backup bucket at all. Notifies at most
+hourly. Restore capability may be
+compromised — see `documentation/runbooks/RESTORE_FROM_BACKUP.md`.
 
 ### 7. `alert-voice-processing-failures.json`
-Fires when `onAudioUploaded` (voice-intelligence) writes `failed`/
-`quarantined_consent` at **> 5% over 1h**. Usually a missing/rotated
+Fires on **any** `voice: pipeline failed` error from `onaudiouploaded`,
+notifying at most hourly (a matched-log condition cannot compute the "> 5%
+over 1h" rate this section used to claim). Usually a missing/rotated
 `GROQ_API_KEY`/`ANTHROPIC_API_KEY` or a client audio regression.
 
 ### 8. `alert-email-queue-worker-stale.json`
-Fires when `emailQueueWorker` misses its heartbeat for **> 30m**. The worker
-runs every minute; a gap means GDPR-erasure confirmations and Stripe dunning
-emails have silently stopped sending.
+Fires when `emailqueueworker` writes **no log entries at all for 30 minutes**.
+The worker runs every minute; a gap means GDPR-erasure confirmations and
+Stripe dunning emails have silently stopped sending. It sums all of the
+service's series first (`REDUCE_SUM`); without that, every deploy retired a
+revision's series and would have paged.
 
-### 9. `alert-migrations-tick-stale.json`
-Fires when `migrationsTick` misses its heartbeat for **> 26h**. Pending
-schema migrations would no longer apply (and a half-applied migration would
-never get its retry).
+### 9. `alert-migrations-tick-stale.json` — held, disabled by design
+Would fire when `migrationsTick` misses its heartbeat for **> 26h**, but an
+absence condition cannot exceed 23h30m, so it would false-fire daily. The fix
+is code that checks heartbeat age and logs an error; see
+`documentation/runbooks/HEALTHCHECKS-SETUP.md` for the cron heartbeat
+alternative.
 
 ### 10. `alert-function-latency.json`
 Fires when **p95 request latency > 30s** on a user-facing callable

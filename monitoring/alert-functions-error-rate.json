@@ -1,7 +1,7 @@
 {
   "displayName": "NBD Pro — Cloud Functions error rate spike",
   "documentation": {
-    "content": "Cloud Functions are logging errors at an elevated rate. Check Cloud Logging for the specific function and error. Common causes: a deploy regression, an upstream dependency (Stripe/Twilio/Anthropic) outage, or an attack triggering unhandled paths.\n\n---\nFIXED 2026-09-04. Two defects, either one fatal: the filter used `=~\"^(...)\"`, which is not Cloud Monitoring filter syntax (the sibling alert-function-latency.json gets this right with monitoring.regex.full_match), and it carried no metric.type. The service names were also camelCase; Cloud Run service names are lowercase, so they would have matched nothing regardless. Third defect found during validation: the filter still carried a bare severity=\"ERROR\", which is a LOG field — on the log_entry_count system metric it is the metric LABEL metric.labels.severity.",
+    "content": "Cloud Functions are logging errors at an elevated rate. Check Cloud Logging for the specific function and error. Common causes: a deploy regression, an upstream dependency (Stripe/Twilio/Anthropic) outage, or an attack triggering unhandled paths.\n\n---\nFIXED 2026-09-04. Two defects, either one fatal: the filter used `=~\"^(...)\"`, which is not Cloud Monitoring filter syntax (the sibling alert-function-latency.json gets this right with monitoring.regex.full_match), and it carried no metric.type. The service names were also camelCase; Cloud Run service names are lowercase, so they would have matched nothing regardless. Third defect found during validation: the filter still carried a bare severity=\"ERROR\", which is a LOG field — on the log_entry_count system metric it is the metric LABEL metric.labels.severity.\n\n---\nFIXED 2026-09-13 (before going live). The aligner was ALIGN_RATE, which turns the 5-minute count into errors PER SECOND, so the threshold of 50 meant >15,000 errors in 5 min and the policy could never fire. Replayed over the previous 7 days: max 0.02/s as written; with ALIGN_DELTA the worst 5-minute window was 6 errors (renderpdf). ALIGN_DELTA makes the threshold what the name says: >50 ERROR log entries in a 5-minute window, per service.",
     "mimeType": "text/markdown"
   },
   "combiner": "OR",
@@ -17,7 +17,7 @@
         "aggregations": [
           {
             "alignmentPeriod": "300s",
-            "perSeriesAligner": "ALIGN_RATE"
+            "perSeriesAligner": "ALIGN_DELTA"
           }
         ]
       }
