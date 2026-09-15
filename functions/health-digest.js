@@ -170,6 +170,59 @@ async function gatherImagePipeline(db, cutoffMs) {
   };
 }
 
+// metrics/renderPdf holds LIFETIME ok/fail counters plus the last success and
+// failure timestamps, written by functions/render-pdf.js on both outcomes.
+//
+// The verdict deliberately hangs on a MISSING SUCCESS rather than a rising
+// failure count. @sparticuz/chromium 149 dropped its CommonJS build in June;
+// require() started returning the ESM namespace, `chromium.executablePath`
+// read undefined, and every server-rendered document — warranty, estimate,
+// invoice, contract, change order, receipt, inspection, photo report — failed
+// at stage:launch and fell back to client-side html2canvas. That ran for
+// eleven weeks and nobody noticed, because a silent fallback looks like
+// working software from the outside. A failure-count threshold would have been
+// slow to trip on this path's low volume (22 calls in three weeks); "renders
+// were attempted and not one succeeded" trips on the first digest.
+//
+// The doc does not exist until the first render is ever attempted; absence is
+// healthy silence, not an error.
+async function gatherRenderPdf(db, cutoffMs) {
+  const idle = {
+    attempted: false, okCount: 0, failCount: 0,
+    failRecent: false, okRecent: false, neverOk: false,
+    lastFailStage: '', lastFailErr: '', lastFailAtIso: '', lastOkAtIso: '',
+  };
+  const snap = await db.doc('metrics/renderPdf').get();
+  if (!snap.exists) return idle;
+  const m = snap.data() || {};
+  const toDate = (v) => (v && typeof v.toDate === 'function' ? v.toDate() : null);
+  const lastFail = toDate(m.lastFailAt);
+  const lastOk = toDate(m.lastOkAt);
+  const okCount = m.okCount || 0;
+  const failCount = m.failCount || 0;
+  return {
+    attempted: !!(okCount || failCount),
+    okCount,
+    failCount,
+    failRecent: !!(lastFail && lastFail.getTime() >= cutoffMs),
+    okRecent: !!(lastOk && lastOk.getTime() >= cutoffMs),
+    // The strongest form of the signal: renders have been attempted and not
+    // one has ever succeeded. That was true for the whole eleven weeks.
+    neverOk: failCount > 0 && okCount === 0,
+    lastFailStage: m.lastFailStage || '',
+    lastFailErr: m.lastFailErr || '',
+    lastFailAtIso: lastFail ? lastFail.toISOString() : '',
+    lastOkAtIso: lastOk ? lastOk.toISOString() : '',
+  };
+}
+
+// True when the PDF renderer needs looking at: something tried to render and
+// nothing succeeded in the window. Shared by the subject line and the body so
+// they can never disagree about whether today is a bad day.
+function renderPdfBroken(r) {
+  return !!(r && r.failRecent && !r.okRecent);
+}
+
 // Minimal HTML escaper for values that reach the email body. Storage
 // object names are client-influenced (the filename segment), so they
 // must not be interpolated raw into HTML.
@@ -179,7 +232,37 @@ function escHtml(s) {
     .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
 
-function buildEmailBody({ vision, stripe, api, activity, imagePipe, periodLabel }) {
+// The renderPdf block. Loud when renders are failing, because the failure is
+// invisible to everyone else: the client silently falls back to html2canvas,
+// so customers still get *a* document and nothing looks broken.
+function renderPdfSection(r) {
+  const rp = r || {};
+  if (!rp.attempted) {
+    return '<div style="font-size:13px;margin-bottom:8px;color:#888;">No PDF renders attempted yet — nothing to report.</div>';
+  }
+  const lifetime = 'Lifetime: <strong>' + fmtNum(rp.okCount) + '</strong> ok · <strong>' + fmtNum(rp.failCount) + '</strong> failed.';
+  if (renderPdfBroken(rp)) {
+    return '<div style="font-size:13px;margin-bottom:8px;color:#c0392b;">'
+      + '<strong>⚠ Every PDF render failed in the last 24h</strong> — no success recorded in the window'
+      + (rp.neverOk ? ', and <strong>none on record at all</strong>' : '')
+      + '. Failing at stage <code style="font-size:11px;">' + escHtml(rp.lastFailStage) + '</code>'
+      + (rp.lastFailErr ? ': <code style="font-size:11px;">' + escHtml(rp.lastFailErr) + '</code>' : '')
+      + ' (last ' + escHtml(rp.lastFailAtIso) + '). '
+      + 'Documents are silently falling back to the client-side html2canvas path, so this does <em>not</em> surface as a customer-visible error. '
+      + lifetime + '</div>';
+  }
+  if (rp.failRecent) {
+    return '<div style="font-size:13px;margin-bottom:8px;color:#b8860b;">'
+      + '<strong>Some PDF renders failed in the last 24h</strong>, but renders are still succeeding. '
+      + 'Last failure at stage <code style="font-size:11px;">' + escHtml(rp.lastFailStage) + '</code> (' + escHtml(rp.lastFailAtIso) + '). '
+      + lifetime + '</div>';
+  }
+  return '<div style="font-size:13px;margin-bottom:8px;">No PDF render failures in the last 24h.'
+    + (rp.lastOkAtIso ? ' Last success ' + escHtml(rp.lastOkAtIso) + '.' : '')
+    + ' ' + lifetime + '</div>';
+}
+
+function buildEmailBody({ vision, stripe, api, activity, imagePipe, renderPdf, periodLabel }) {
   const topLeadsRows = vision.topLeads.length
     ? vision.topLeads.map(l =>
         '<tr><td style="padding:6px 12px;border-bottom:1px solid #eee;font-family:monospace;font-size:11px;">' + l.leadId.slice(0, 14) + '…</td>' +
@@ -230,6 +313,9 @@ function buildEmailBody({ vision, stripe, api, activity, imagePipe, periodLabel 
       ? '<div style="font-size:13px;margin-bottom:8px;color:#c0392b;"><strong>⚠ Orphaned variants in the last 24h</strong> — a photo got WebP variants but no /photos doc matched its storagePath (last: <code style="font-size:11px;">' + escHtml(imagePipe.lastGenuinePath) + '</code> at ' + escHtml(imagePipe.lastGenuineAtIso) + '). Lifetime genuine orphans: <strong>' + fmtNum(imagePipe.noDocMatched) + '</strong>. Sweep with <code>scripts/backfill-photos-variants.js</code>.</div>'
       : '<div style="font-size:13px;margin-bottom:8px;">No orphaned variants in the last 24h. Lifetime: <strong>' + fmtNum(imagePipe.noDocMatched) + '</strong> genuine · <strong>' + fmtNum(imagePipe.noDocMatchedD2d) + '</strong> d2d docless-by-design.</div>',
 
+    '<h3 style="font-size:14px;color:#1a1612;margin:18px 0 8px;border-bottom:2px solid #bd5728;padding-bottom:4px;">Server PDF Renderer</h3>',
+    renderPdfSection(renderPdf),
+
     '<div style="margin-top:24px;padding-top:14px;border-top:1px solid #ddd;font-size:11px;color:#888;">Auto-generated daily. Source: <code>functions/health-digest.js</code>. To pause: unset HEALTH_DIGEST_ENABLED in the function env.</div>',
     '</div>'
   ].join('\n');
@@ -256,18 +342,24 @@ exports.healthDigestCron = onSchedule(
     const cutoffMs = now - WINDOW_MS;
     const cutoff = new Date(cutoffMs);
 
-    const [vision, stripe, api, activity, imagePipe] = await Promise.all([
+    const [vision, stripe, api, activity, imagePipe, renderPdf] = await Promise.all([
       gatherVisionSpend(db, cutoffMs).catch(e => { logger.warn('health_digest.vision_failed', e.message); return { userTotal: 0, userCount: 0, topLeads: [] }; }),
       gatherStripe(db, cutoffMs).catch(e => { logger.warn('health_digest.stripe_failed', e.message); return { total: 0, recentTypes: {} }; }),
       gatherApiUsage(db).catch(e => { logger.warn('health_digest.api_failed', e.message); return { total: 0, topUsers: [] }; }),
       gatherActivity(db, cutoffMs).catch(e => { logger.warn('health_digest.activity_failed', e.message); return { photos: 0, portalEvents: 0 }; }),
       gatherImagePipeline(db, cutoffMs).catch(e => { logger.warn('health_digest.image_pipeline_failed', e.message); return { noDocMatched: 0, noDocMatchedD2d: 0, genuineRecent: false, lastGenuinePath: '', lastGenuineAtIso: '' }; }),
+      // Failing closed to "attempted:false" here means a read error reads as
+      // silence, not as a false alarm — same convention as the gathers above.
+      gatherRenderPdf(db, cutoffMs).catch(e => { logger.warn('health_digest.render_pdf_failed', e.message); return { attempted: false, okCount: 0, failCount: 0, failRecent: false, okRecent: false, neverOk: false, lastFailStage: '', lastFailErr: '', lastFailAtIso: '', lastOkAtIso: '' }; }),
     ]);
 
     const periodLabel = cutoff.toUTCString() + ' → ' + new Date(now).toUTCString();
-    const bodyHtml = buildEmailBody({ vision, stripe, api, activity, imagePipe, periodLabel });
+    const bodyHtml = buildEmailBody({ vision, stripe, api, activity, imagePipe, renderPdf, periodLabel });
     const subject = 'NBD Pro · Health Digest · ' + fmtUsd(vision.userTotal) + ' Vision · ' + fmtNum(activity.photos) + ' photos'
-      + (imagePipe.genuineRecent ? ' · ⚠ pipeline orphan' : '');
+      + (imagePipe.genuineRecent ? ' · ⚠ pipeline orphan' : '')
+      // In the subject because the body went unread for eleven weeks while this
+      // path was 100% down; a warning only inside the email is not a warning.
+      + (renderPdfBroken(renderPdf) ? ' · ⚠ PDF renders failing' : '');
 
     await db.collection('email_queue').add({
       to: RECIPIENT,
@@ -285,8 +377,11 @@ exports.healthDigestCron = onSchedule(
       visionUsd: vision.userTotal,
       stripeEvents: stripe.total,
       photoUploads: activity.photos,
+      renderPdfBroken: renderPdfBroken(renderPdf),
+      renderPdfOk: renderPdf.okCount,
+      renderPdfFail: renderPdf.failCount,
     });
   }
 );
 
-exports._test = { buildEmailBody, fmtUsd, fmtNum, escHtml, gatherImagePipeline };
+exports._test = { buildEmailBody, fmtUsd, fmtNum, escHtml, gatherImagePipeline, gatherRenderPdf, renderPdfBroken, renderPdfSection };

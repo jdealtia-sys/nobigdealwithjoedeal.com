@@ -4,6 +4,16 @@ Live Google reviews on `/review` are served by the `getGoogleReviews`
 Cloud Function. This doc is the first-time setup. After this is done,
 reviews refresh on their own every 6 hours, no manual work.
 
+> **2026-09-13 correction:** step 2 below pointed at the legacy Places API
+> and step 3 said to restrict the key to it. `functions/google-reviews.js:17-19`
+> already had it right — the legacy "Places API" cannot be enabled on newer
+> GCP projects; enable and restrict to **"Places API (New)"** instead. Also
+> corrected: "How it behaves" claimed a cold cache + Google failure returns
+> HTTP 503 and the widget hides itself. It doesn't — the function returns
+> **200 with `empty: true`** (see `functions/google-reviews.js` around the
+> cold-cache-fallback comment), and `docs/assets/js/google-reviews-widget.js`
+> renders a "Read our reviews on Google" fallback card, it never hides.
+
 ## 1. Find your Place ID
 
 You need Google's internal ID for your business. Two ways:
@@ -19,14 +29,17 @@ You need Google's internal ID for your business. Two ways:
 
 Save this string. Example: `ChIJ1a2b3c4d5e6f7g8h9i0j`.
 
-## 2. Enable the Places API
+## 2. Enable the Places API (New)
 
 In Google Cloud Console, make sure you are on the `nobigdeal-pro`
 project (same project Firebase Functions run under).
 
 1. Open
-   <https://console.cloud.google.com/apis/library/places-backend.googleapis.com>
+   <https://console.cloud.google.com/apis/library/places.googleapis.com>
 2. Click **Enable**. If you see "Already enabled" you're done.
+   (Do not use the legacy `places-backend.googleapis.com` listing —
+   newer GCP projects can't enable it at all; see
+   `functions/google-reviews.js:17-19`.)
 3. (If prompted) accept billing terms. Google gives a $200/month
    maps & places credit; with our 6-hour cache we use < $0.10/mo, so
    you will never pay for this.
@@ -37,8 +50,8 @@ project (same project Firebase Functions run under).
 2. **Create credentials → API key**.
 3. Click the new key → **Edit API key**.
 4. Under **API restrictions**, choose "Restrict key" and select
-   **Places API** only. This limits blast radius if the key ever
-   leaks.
+   **Places API (New)** only. This limits blast radius if the key
+   ever leaks.
 5. Under **Application restrictions**, leave as "None" — the key is
    only ever used server-side inside the Cloud Function, never
    exposed to the browser.
@@ -94,8 +107,10 @@ Google section renders above the hand-curated review grid.
 - **Google down / quota burnt** — function returns the last-known
   snapshot with `stale: true`. The widget shows a small
   "(showing last-known reviews)" note instead of blanking.
-- **No cache yet and Google fails** — endpoint returns 503, the
-  widget hides itself. Hand-curated review grid still renders.
+- **No cache yet and Google fails** — endpoint still returns **HTTP 200**,
+  with `empty: true` and a `reason` field saying why (never a 503). The
+  widget renders a "Read our reviews on Google →" fallback card instead
+  of hiding itself. Hand-curated review grid still renders either way.
 
 ## When you want to invalidate the cache manually
 

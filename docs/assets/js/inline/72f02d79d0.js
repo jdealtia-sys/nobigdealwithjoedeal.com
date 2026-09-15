@@ -139,11 +139,16 @@ async function submitForm(){
   const hp = hpEl ? hpEl.value : undefined;
   if(hp) { console.warn('Bot detected'); return; }
 
-  if(!first || !phone){
+  // Shared public-form phone rule (tests/lead-form-phone-contract.test.js):
+  // digits only, leading country-code 1 dropped, exactly 10. This used to be a
+  // truthiness check, so "555" or a typo'd 9-digit number reached Joe as a lead
+  // he could not call back.
+  const phoneOk = !!phone && phone.replace(/\D/g, '').replace(/^1/, '').length === 10;
+  if(!first || !phoneOk){
     const invalid = [];
     if(!first) invalid.push(firstEl);
-    if(!phone) invalid.push(phoneEl);
-    _formShowError('Please enter at least your first name and phone number so Joe can reach you.', invalid);
+    if(!phoneOk) invalid.push(phoneEl);
+    _formShowError('Please enter your first name and a 10-digit phone number so Joe can reach you.', invalid);
     return;
   }
   _formClearError();

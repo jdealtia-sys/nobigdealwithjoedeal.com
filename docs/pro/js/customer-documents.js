@@ -81,6 +81,15 @@
       signed: !!(d.signedRemotely || d.signedAt || /signed/i.test(String(d.source || ''))),
       signedAt: signedAt,
       source: d.source || null,
+      // A filed photo report can be handed over as a no-login link, not just a
+      // download. createReportShareToken re-signs from `storagePath` rather than
+      // trusting the recorded `url`, so a row without one has nothing to share
+      // and the button is not offered. Legacy top-level rows are excluded
+      // because the callable addresses the lead subcollection.
+      shareable: !legacy && d.source === 'photo_report'
+        && typeof d.storagePath === 'string' && !!d.storagePath,
+      shareUrl: (typeof d.shareUrl === 'string' && /^https?:/i.test(d.shareUrl)) ? d.shareUrl : '',
+      reportNumber: (typeof d.reportNumber === 'string' && d.reportNumber) ? d.reportNumber : '',
       deleted: d.deleted === true
     };
   }
@@ -203,6 +212,14 @@
               ? '<button type="button" class="doc-btn" data-doc-view="' + esc(doc.id) + '"'
                 + ' style="background:none;border:0;cursor:pointer;font:inherit;">View</button>'
               : ''))
+      + (doc.shareable
+          ? '<button type="button" class="doc-btn" data-doc-share="' + esc(doc.id) + '"'
+            + ' title="' + (doc.shareUrl
+                ? 'Copy the view link for this report'
+                : 'Create a no-login link the homeowner or adjuster can open on a phone') + '"'
+            + ' style="background:none;border:0;cursor:pointer;font:inherit;">'
+            + (doc.shareUrl ? 'Copy link' : 'Share link') + '</button>'
+          : '')
       + '<button type="button" class="btn" data-action="deleteCustomerDoc"'
       + ' data-arg="' + esc(doc.id) + '" data-arg2="' + label + '"'
       + ' title="Remove this document from the customer record"'
@@ -368,6 +385,69 @@
     if (!btn) return;
     e.preventDefault();
     viewGeneratedDoc(btn.getAttribute('data-doc-view'), btn);
+  });
+
+  /**
+   * Mint (or reuse) the no-login view link for a filed photo report.
+   *
+   * Until now a photo report could only be downloaded and attached to an email.
+   * createReportShareToken accepts a lead-scoped document as of 2026-09-08, so
+   * the report can be delivered the way contractors increasingly deliver them:
+   * a link that opens on a phone, forwards to the adjuster, expires, and
+   * records that it was viewed.
+   *
+   * The server reuses a live token for the same file, so tapping this twice
+   * yields ONE url — revoking the link the rep actually sent then revokes the
+   * right thing.
+   */
+  async function shareLeadDocument(docId, btn) {
+    if (!docId || !window._customerId) return;
+    var label = btn ? btn.textContent : '';
+    if (btn) { btn.disabled = true; btn.textContent = 'Linking…'; }
+    try {
+      if (!window._functions || !window._httpsCallable) {
+        var mod = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-functions.js');
+        window._functions = window._functions || mod.getFunctions();
+        window._httpsCallable = window._httpsCallable || mod.httpsCallable;
+      }
+      var fn = window._httpsCallable(window._functions, 'createReportShareToken');
+      var res = await fn({ leadId: window._customerId, documentId: docId });
+      var data = (res && res.data) || {};
+      if (!data.shareUrl) throw new Error('No link was returned');
+
+      var copied = false;
+      try {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          await navigator.clipboard.writeText(data.shareUrl);
+          copied = true;
+        }
+      } catch (_) { /* clipboard is best-effort; the link is shown either way */ }
+
+      if (typeof showToast === 'function') {
+        showToast(copied ? '✓ View link copied — expires in 30 days'
+          : '✓ View link ready: ' + data.shareUrl, 'success');
+      }
+      // Repaint so the button becomes "Copy link" — the row now carries a
+      // shareUrl written back by the callable. Twice, for the reason
+      // _fileReportOnLead does it: the server write and this read race, and
+      // both are idempotent.
+      await refresh();
+      setTimeout(refresh, 2500);
+    } catch (e) {
+      console.warn('shareLeadDocument failed:', e && e.message);
+      if (typeof showToast === 'function') {
+        showToast('Could not create a link: ' + ((e && e.message) || 'unknown'), 'error');
+      }
+    } finally {
+      if (btn) { btn.disabled = false; btn.textContent = label || 'Share link'; }
+    }
+  }
+
+  document.addEventListener('click', function (e) {
+    var btn = e.target && e.target.closest && e.target.closest('[data-doc-share]');
+    if (!btn) return;
+    e.preventDefault();
+    shareLeadDocument(btn.getAttribute('data-doc-share'), btn);
   });
 
   window.NBDCustomerDocs = {

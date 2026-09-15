@@ -9,16 +9,17 @@
 <!-- SEO: this page is crawlable (robots.txt disallows most /pro/* app pages
      but not /pro/pricing.html), so it gets the standard marketing meta the
      homeowner audit required. /pro/register.html stays noindex. -->
-<meta name="description" content="NBD Pro pricing: free tier forever, Starter $99/mo, Team $149/mo, Growth $299/mo with a 14-day free trial. Roofing CRM with every price published up front.">
+<meta name="description" content="NBD Pro pricing: free tier forever, Starter $99/mo, Team $149/mo and Growth $299/mo each with a 14-day free trial. Roofing CRM with every price published up front.">
 <link rel="canonical" href="https://nobigdealwithjoedeal.com/pro/pricing">
 <meta property="og:type" content="website">
 <meta property="og:title" content="NBD Pro Pricing — Contractor-Built, Contractor-Priced">
-<meta property="og:description" content="Free tier forever, Starter $99/mo, Team $149/mo, Growth $299/mo with a 14-day free trial. Every price published up front — no sales call to find out.">
+<meta property="og:description" content="Free tier forever, Starter $99/mo, Team $149/mo and Growth $299/mo each with a 14-day free trial. Every price published up front — no sales call to find out.">
 <meta property="og:url" content="https://nobigdealwithjoedeal.com/pro/pricing">
 <meta property="og:image" content="https://nobigdealwithjoedeal.com/assets/images/joe-hero.jpg">
 <meta name="twitter:card" content="summary_large_image">
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800&family=Barlow:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="icon" href="/pro/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/pro/img/nbd-icon-192.png">
 <!-- Audit #30: pricing page now joins the shared theme system. Hex values are
      still hardcoded throughout this file — switching themes won't repaint until
      those are migrated to var(--bg)/var(--orange)/etc. (tracked as follow-up). -->
@@ -131,7 +132,7 @@ body{font-family:'Barlow',sans-serif;background:var(--bg, #0A0C0F);color:var(--t
       <li>Basic CRM pipeline</li>
       <li>D2D door knock tracker</li>
       <li>Drawing tool</li>
-      <li>1 theme</li>
+      <li>186 themes + Professional Mode</li>
       <li class="disabled">Reports</li>
       <li class="disabled">AI tools</li>
       <li class="disabled">Team features</li>
@@ -144,7 +145,7 @@ body{font-family:'Barlow',sans-serif;background:var(--bg, #0A0C0F);color:var(--t
     <div class="tier-icon" aria-hidden="true">🚀</div>
     <h2 class="tier-name">Starter</h2>
     <div class="tier-price">$99 <span class="mo">/mo</span></div>
-    <div class="tier-desc">Solo operator. The exact setup I run my business on every day.</div>
+    <div class="tier-desc">Solo operator. The same tools I run NBD on every day.</div>
     <ul class="features">
       <li>50 leads per month</li>
       <li>Full CRM + pipeline views</li>
@@ -227,7 +228,7 @@ body{font-family:'Barlow',sans-serif;background:var(--bg, #0A0C0F);color:var(--t
   </div>
   <div class="faq-item">
     <button type="button" class="faq-q" data-pr-action="faq-toggle" aria-expanded="false">What happens when I hit my lead limit?</button>
-    <div class="faq-a">We warn you at 80% and show a friendly upgrade prompt at 100%. We never lock you out mid-cycle — you can finish the month and upgrade when ready.</div>
+    <div class="faq-a">We warn you at 80%. At 100% you keep everything already in the account — every lead, document and report stays readable and editable — but adding new leads is blocked until you upgrade or the cycle resets.</div>
   </div>
   <div class="faq-item">
     <button type="button" class="faq-q" data-pr-action="faq-toggle" aria-expanded="false">Is there a contract or commitment?</button>
@@ -239,7 +240,7 @@ body{font-family:'Barlow',sans-serif;background:var(--bg, #0A0C0F);color:var(--t
          gets 14 days of Growth with "no credit card required". In the code the
          trial only exists on the Growth Stripe Checkout (functions/stripe.js
          trial_period_days:14), which collects a card by default. -->
-    <div class="faq-a">Start the Growth plan and your first 14 days are free — cancel before the trial ends and you won't be billed. Not ready for a trial? The Free tier has no timer and no credit card at all.</div>
+    <div class="faq-a">Team and Growth both start with 14 free days through Stripe Checkout, which asks for a payment method up front — cancel before day 14 and you are not charged. Starter has no trial. Not ready for either? The Free tier has no timer and no credit card at all.</div>
   </div>
   <div class="faq-item">
     <button type="button" class="faq-q" data-pr-action="faq-toggle" aria-expanded="false">Why are you cheaper than the big platforms?</button>

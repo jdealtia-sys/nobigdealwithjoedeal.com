@@ -454,6 +454,56 @@
       + '&estimateId=' + encodeURIComponent(estimateId);
   }
 
+  // ─── The install date ───────────────────────────────────────────
+  // "When is the crew coming?" is the one question a homeowner opens this
+  // page to answer, and the portal could not answer it — lead.scheduledDate
+  // never reached the view.
+  //
+  // The whole difficulty is the date arithmetic, so it lives in one pure
+  // function that the suite drives directly.
+  //
+  // 1. NEVER `new Date('2026-09-16')`. That parses as UTC midnight, so in
+  //    America/New_York it renders "Tuesday, September 15" — the wrong day
+  //    AND the wrong weekday, which is the half that matters because the
+  //    weekday is what a homeowner writes on the calendar. Measured, not
+  //    assumed. The same bug is live on the warranty certificate
+  //    (customer-bootstrap.module.js) and is deliberately not fixed here —
+  //    that is a separate document with its own suite.
+  //    Build from the parts instead, which is local by definition.
+  //
+  // 2. Past dates must not claim anything. A date that has gone by means the
+  //    job slipped or the rep has not updated the card; "Crew arrives
+  //    Tuesday" would then be false. Each branch is phrased to stay true:
+  //    future/today promise an arrival, past states the record only.
+  function _scheduleLine(ymd, todayYmd) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(String(ymd || ''))) return null;
+    const [y, m, d] = String(ymd).split('-').map(Number);
+    const dt = new Date(y, m - 1, d);          // local midnight, not UTC
+    // Reject a date the calendar does not have (2026-02-30 rolls forward).
+    if (dt.getFullYear() !== y || dt.getMonth() !== m - 1 || dt.getDate() !== d) return null;
+    let pretty;
+    try {
+      pretty = dt.toLocaleDateString(undefined, {
+        weekday: 'long', month: 'long', day: 'numeric',
+      });
+    } catch (_) {
+      pretty = ymd;
+    }
+    // String compare is safe and timezone-free on zero-padded ISO dates.
+    const when = ymd === todayYmd ? 'today' : (ymd > todayYmd ? 'future' : 'past');
+    if (when === 'today') return { when, text: 'Crew arrives today' };
+    if (when === 'future') return { when, text: 'Crew arrives ' + pretty };
+    return { when, text: 'Scheduled for ' + pretty };
+  }
+
+  // Local today as YYYY-MM-DD. toISOString() would be UTC and would flip the
+  // answer for every evening visitor east or west of it.
+  function _localToday(now) {
+    const n = now || new Date();
+    const p = (v) => String(v).padStart(2, '0');
+    return n.getFullYear() + '-' + p(n.getMonth() + 1) + '-' + p(n.getDate());
+  }
+
   function renderView(view) {
     const firstName = (view.homeowner && view.homeowner.firstName) || '';
     const lastName  = (view.homeowner && view.homeowner.lastName)  || '';
@@ -554,6 +604,15 @@
             '<div class="progress-next-label" style="color:var(--green);">Project complete</div>' +
             '<div>Thanks for choosing us. Your rep will reach out for a final walkthrough.</div>' +
           '</div>';
+      // Sits above "Next up" because it is the more specific fact: a date
+      // beats a milestone name. Rendered from the raw YYYY-MM-DD the server
+      // sent, compared against the READER's local today.
+      const sched = _scheduleLine(p.scheduledDate, _localToday());
+      const schedHtml = sched
+        ? '<div class="progress-schedule" data-when="' + esc(sched.when) + '">'
+            + '<span aria-hidden="true">📅</span> ' + esc(sched.text)
+          + '</div>'
+        : '';
       parts.push(
         '<div class="card progress-card">' +
           '<div class="card-label">Where We Are</div>' +
@@ -562,6 +621,7 @@
             '<div class="progress-track-fill" style="width:calc(' + fillPct + '% - 12px);"></div>' +
             steps +
           '</div>' +
+          schedHtml +
           nextHtml +
         '</div>'
       );
@@ -921,9 +981,22 @@
       const installLabel = w.installDate
         ? new Date(w.installDate + 'T12:00:00').toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' })
         : '—';
-      const claimBody = encodeURIComponent(
-        "Hi — I have a warranty question about my roof. Cert " + (w.certNumber || '') + ". Can you call me back?"
-      );
+      // 2026-09-15 (Warranty Claim lane): the sms: deep link below used to be
+      // the entire flow — tapping it just opened the phone's own Messages
+      // app with a pre-filled body, which meant the "claim" existed nowhere
+      // until (if) the homeowner actually sent that text and the rep
+      // happened to read it. Now posts to reportWarrantyClaim, which drops a
+      // task + activity entry on the lead like every other portal card here.
+      const claimCta = w.openWarrantyClaimId
+        ? '<div style="text-align:center;padding:12px;background:var(--nbd-bg-tint);border:1px solid var(--br,#2a3344);border-radius:8px;font-size:13px;color:var(--muted);">🛟 Claim in progress — ' + esc(repName) + ' is on it.</div>'
+        : (
+          '<div id="wc-form">' +
+            '<textarea id="wc-issue" rows="2" maxlength="2000" placeholder="What\'s going on? (e.g. leak near the chimney, missing shingle)" ' +
+              'style="width:100%;background:var(--bg,#0a1424);border:1px solid var(--br,#2a3344);border-radius:8px;padding:10px 12px;color:inherit;font:inherit;font-size:13px;resize:vertical;margin-bottom:10px;box-sizing:border-box;"></textarea>' +
+            '<button type="button" id="wc-send" style="display:block;width:100%;text-align:center;padding:12px;background:var(--accent,#A14A22);color:#fff;border:none;border-radius:8px;font-weight:700;font-size:13px;letter-spacing:.04em;text-transform:uppercase;cursor:pointer;">🛟 Start a warranty claim</button>' +
+            '<div id="wc-status" style="display:none;margin-top:10px;padding:10px 12px;border-radius:8px;font-size:12px;"></div>' +
+          '</div>'
+        );
       parts.push(
         '<div class="card" id="wc-card" style="background:linear-gradient(135deg, rgba(189,87,40,.04), rgba(189,87,40,.01)); border:1px solid rgba(189,87,40,.35);">' +
           '<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:14px;">' +
@@ -952,7 +1025,7 @@
             '<div style="font-size:13px;color:var(--text);">' + esc(w.work) + '</div>' +
           '</div>' : '') +
 
-          '<a href="sms:' + ((view.rep && view.rep.phone) ? view.rep.phone.replace(/\D/g, '') : '') + '?&body=' + claimBody + '" style="display:block;text-align:center;padding:12px;background:var(--accent,#A14A22);color:#fff;border-radius:8px;text-decoration:none;font-weight:700;font-size:13px;letter-spacing:.04em;text-transform:uppercase;">🛟 Start a warranty claim</a>' +
+          claimCta +
 
           '<p style="font-size:11px;color:var(--muted);margin:12px 0 0;line-height:1.5;text-align:center;">Save this page or screenshot it — your permanent warranty reference.</p>' +
         '</div>'
@@ -1040,6 +1113,10 @@
     wireUploadCard();
     // Wave 119: wire up the callback request card.
     wireCallbackCard();
+    // 2026-09-15 (Warranty Claim lane): wire up the warranty claim form
+    // (no-op if not rendered — hidden entirely without a warranty cert, and
+    // replaced with a status line instead of a form once a claim is open).
+    wireWarrantyClaimCard();
     // Wave 121: wire up the rating card (no-op if not rendered).
     wireRatingCard(view);
     // Wave 123: wire up the messaging thread + compose.
@@ -1725,6 +1802,65 @@
         setStatus('Network error: ' + (err.message || 'try again'), 'error');
         sendBtn.disabled = false;
         sendBtn.textContent = 'Send callback request';
+      }
+    });
+  }
+
+  // ─── 2026-09-15: Warranty claim report ───────────────────────────
+  // Issue description → POST to reportWarrantyClaim Cloud Function with
+  // the portal token. Server drops a task + activity entry on the lead —
+  // see functions/portal.js's reportWarrantyClaim for why this never
+  // touches lead.stage/openWarrantyClaimId directly (that's the rep's own
+  // "File Warranty Claim" click, via crm-pipeline.js's moveCard() guard).
+  function wireWarrantyClaimCard() {
+    const issueEl = document.getElementById('wc-issue');
+    const sendBtn = document.getElementById('wc-send');
+    const statusEl = document.getElementById('wc-status');
+    if (!issueEl || !sendBtn) return; // not rendered (no cert, or claim already open)
+
+    function setStatus(msg, kind) {
+      if (!statusEl) return;
+      statusEl.style.display = 'block';
+      statusEl.textContent = msg;
+      if (kind === 'error') {
+        statusEl.style.background = 'rgba(239,68,68,0.12)';
+        statusEl.style.color = 'var(--nbd-danger)';
+        statusEl.style.border = '1px solid rgba(239,68,68,0.45)';
+      } else {
+        statusEl.style.background = 'rgba(46,204,138,0.12)';
+        statusEl.style.color = 'var(--nbd-success)';
+        statusEl.style.border = '1px solid rgba(46,204,138,0.45)';
+      }
+    }
+
+    sendBtn.addEventListener('click', async () => {
+      const issueDescription = issueEl.value.trim();
+      if (!issueDescription) {
+        setStatus('Tell us what\'s going on first.', 'error');
+        return;
+      }
+      sendBtn.disabled = true;
+      sendBtn.textContent = 'Sending…';
+      try {
+        const res = await fetch(FUNCTIONS_BASE + '/reportWarrantyClaim', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ token: TOKEN, issueDescription }),
+        });
+        const json = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          setStatus(json.error || 'Could not send your report. Try again.', 'error');
+          sendBtn.disabled = false;
+          sendBtn.textContent = '🛟 Start a warranty claim';
+          return;
+        }
+        setStatus('✓ Got it! ' + esc(repName) + ' will follow up.', 'success');
+        issueEl.disabled = true;
+        sendBtn.style.display = 'none';
+      } catch (err) {
+        setStatus('Network error: ' + (err.message || 'try again'), 'error');
+        sendBtn.disabled = false;
+        sendBtn.textContent = '🛟 Start a warranty claim';
       }
     });
   }

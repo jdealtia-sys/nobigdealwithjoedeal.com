@@ -332,9 +332,20 @@ let nbdAlert; // module-local (globals Tranche 1 — was window.*)
     const href = a.getAttribute('href');
     if (!href) return;
 
-    // Skip anchors, javascript:, tel:, mailto:, sms:
+    // Skip anchors, javascript:, tel:, mailto:, sms:, blob:, data:, and any
+    // anchor carrying a download attribute. blob:/data: URLs are always a
+    // file the app just generated (CSV/backup exports — data-export.js
+    // creates a Blob, sets a[download], appends it, and calls .click()) —
+    // new URL('blob:https://<origin>/<uuid>', location.origin).origin
+    // equals location.origin, so before this fix these matched NO prefix
+    // above, fell through to the same-origin branch, and got
+    // preventDefault() + location.href'd instead of downloaded: the export
+    // silently vanished into a navigation to the blob URL. Standalone-PWA
+    // only (this whole listener is gated on isStandalone above), so this
+    // never affected the site in a normal browser tab.
     if (href.startsWith('#') || href.startsWith('javascript:') ||
-        href.startsWith('tel:') || href.startsWith('mailto:') || href.startsWith('sms:')) {
+        href.startsWith('tel:') || href.startsWith('mailto:') || href.startsWith('sms:') ||
+        href.startsWith('blob:') || href.startsWith('data:') || a.hasAttribute('download')) {
       return;
     }
 

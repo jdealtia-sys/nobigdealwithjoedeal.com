@@ -26,6 +26,7 @@ const { logger } = require('firebase-functions/v2');
 const { FieldPath, getFirestore, Timestamp } = require('firebase-admin/firestore');
 const { FieldValue } = require('firebase-admin/firestore');
 const { Resend } = require('resend');
+const stageRoles = require('./stage-roles');
 
 const RESEND_API_KEY = defineSecret('RESEND_API_KEY');
 const EMAIL_FROM     = defineSecret('EMAIL_FROM');
@@ -42,6 +43,34 @@ const WON_STAGES = new Set([
 const TERMINAL_STAGES = new Set([
   'closed', 'lost', 'final_payment', 'deductible_collected'
 ]);
+
+// 2026-09-15: hardcoded fast-path + role-aware fallback — same pattern as
+// functions/portal.js's progressKeyFor (fixed 2026-09-08 after a real
+// customer-facing bug from this exact class of gap: a homeowner on a
+// tenant's custom "won" stage got a false 409 because a second hardcoded
+// list disagreed with the role-aware view). The sets above preserve this
+// digest's existing, deliberately broader "won" definition (contract_signed
+// counts as committed revenue pre-install) for every stage they already
+// name; the role fallback only fires for a stage NEITHER set recognizes —
+// a tenant custom stage added via Settings > Pipelines, previously invisible
+// here and silently undercounted in every Monday digest.
+function _isWonLead(l) {
+  const key = String(l && l.stage || '').toLowerCase();
+  if (WON_STAGES.has(key)) return true;
+  if (TERMINAL_STAGES.has(key)) return false; // explicitly lost/closed-not-won
+  return stageRoles.roleFor(l) === stageRoles.ROLE.WON;
+}
+function _isLostLead(l) {
+  const key = String(l && l.stage || '').toLowerCase();
+  if (key === 'lost') return true;
+  return stageRoles.roleFor(l) === stageRoles.ROLE.LOST;
+}
+function _isTerminalLead(l) {
+  const key = String(l && l.stage || '').toLowerCase();
+  if (TERMINAL_STAGES.has(key)) return true;
+  const role = stageRoles.roleFor(l);
+  return role === stageRoles.ROLE.WON || role === stageRoles.ROLE.LOST;
+}
 
 const ONE_WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 
@@ -213,10 +242,10 @@ async function aggregateUserMetrics(db, uid) {
     .map(d => ({ id: d.id, ...d.data() }))
     .filter(l => !l.deleted);
 
-  const wonThisWeek = touchedThisWeek.filter(l => WON_STAGES.has((l.stage || '').toLowerCase()));
+  const wonThisWeek = touchedThisWeek.filter(_isWonLead);
   const wonRevenue = wonThisWeek.reduce((s, l) => s + (Number(l.jobValue) || 0), 0);
 
-  const lostThisWeek = touchedThisWeek.filter(l => (l.stage || '').toLowerCase() === 'lost');
+  const lostThisWeek = touchedThisWeek.filter(_isLostLead);
 
   // Active pipeline = every non-terminal lead regardless of recency.
   // Paginated field-mask read: ~3 fields/doc instead of full documents,
@@ -227,14 +256,17 @@ async function aggregateUserMetrics(db, uid) {
     let q = db.collection('leads')
       .where('userId', '==', uid)
       .orderBy(FieldPath.documentId())
-      .select('stage', 'jobValue', 'deleted')
+      // stageRole added 2026-09-15 — without it in the field mask, _isTerminalLead's
+      // role fallback would always see it as undefined and silently degrade to the
+      // hardcoded-only check this fix exists to get past.
+      .select('stage', 'stageRole', 'jobValue', 'deleted')
       .limit(1000);
     if (cursor) q = q.startAfter(cursor);
     const pageSnap = await q.get();
     for (const d of pageSnap.docs) {
       const l = d.data();
       if (l.deleted) continue;
-      if (TERMINAL_STAGES.has((l.stage || '').toLowerCase())) continue;
+      if (_isTerminalLead(l)) continue;
       activePipelineValue += Number(l.jobValue) || 0;
     }
     if (pageSnap.size < 1000) break;

@@ -230,12 +230,23 @@ with "Expected request to fail, but it succeeded".
 
 ## Still open
 
+> **Update 2026-09-08 (later the same day): items 1 and 7 are CLOSED**, on a
+> branch stacked on this one —
+> [SESSION-2026-09-08-photo-report-number-and-share](SESSION-2026-09-08-photo-report-number-and-share.md).
+> The number is now `<TENANT>-<PHO|ADJ>-<YYYY>-<MMDD>-<NNNN>`, assigned once and
+> reused from the filed row; `createReportShareToken` now accepts a lead-scoped
+> document and streams the PDF. **Item 2 (`pdf-renders/` Storage rule) is
+> deliberately still open** — that work chose streaming through the admin SDK
+> partly so it would not pre-empt the queued gating task. Items 3–6 are
+> untouched.
+
 From the 108-gap list — **and that list is only partly adjudicated.** The
 verification pass lost 87 of its refuter agents to a session limit, so treat
 anything below that this session did not touch directly as a lead, not a
 finding.
 
-1. **No share link.** `createReportShareToken` only accepts a `reportId` in the
+1. ~~**No share link.**~~ **CLOSED** — see the update above.
+   `createReportShareToken` only accepted a `reportId` in the
    top-level `reports` collection; a filed photo report is a `documents` row.
 2. **`pdf-renders/` has no Storage rule**, and in download-token mode the URL
    never expires. Relates to
@@ -253,11 +264,22 @@ finding.
    silently downgraded a tier-2 pair into a **mislabeled "Project overview"**
    tier-3 pair. One canon now:
    [PHOTO-DAMAGETYPE-VOCABULARY-2026-09-08](../audit/PHOTO-DAMAGETYPE-VOCABULARY-2026-09-08.md).
-5. **Customer-page uploads write no `createdAt`**, so report order for them
-   falls back to arbitrary.
+5. ~~**Customer-page uploads write no `createdAt`**, so report order for them
+   falls back to arbitrary.~~ **CLOSED 2026-09-08** —
+   [PHOTOS-CREATEDAT-WRITER-GAP-2026-09-08](../audit/PHOTOS-CREATEDAT-WRITER-GAP-2026-09-08.md).
+   Bigger than the ordering: `createdAt` is the `orderBy` field of the per-lead
+   gallery and the Recent feed, and Firestore drops docs missing the ordered
+   field, so those photos were **absent from both views**, not merely
+   mis-sorted. Enumerating the writers found a **sixth** path with the same gap
+   — `functions/portal.js` `uploadHomeownerPhoto` — which notifies the rep
+   about a photo its own gallery could not show. Both stamp it now; the
+   comparator and `_dateLabel` share one timestamp chain. Merged as #1497.
+   The backfill was then checked against prod and **owes nothing** — 111/111
+   already stamped, the newest doc predating the 08-18 pass by two days, so the
+   gap never produced orphaned data.
 6. **No measurements section**, though the CRM already pays for the data.
-7. **The report number is `Date.now().toString().slice(-6)`** — unsequenced, and
-   it changes on every regeneration.
+7. ~~**The report number is `Date.now().toString().slice(-6)`**~~ — **CLOSED**,
+   see the update above. It was unsequenced, and changed on every regeneration.
 
 Related: [SESSION-2026-09-07-client-pdfs-and-drive-tidy](SESSION-2026-09-07-client-pdfs-and-drive-tidy.md)
 is the house-style bar this work was measured against — `scripts/render-estimate-pdf.py`,

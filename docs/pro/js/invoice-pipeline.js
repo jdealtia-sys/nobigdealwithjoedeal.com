@@ -8,7 +8,20 @@ let _NBD_IP_DELEGATE_BOUND; // module-local (globals Tranche 1 — was window.*)
 (function() {
   'use strict';
 
-  const CLOUD_FUNCTION_BASE = 'https://us-central1-nobigdeal-pro.cloudfunctions.net';
+  // Emulator switch (same Audit #3 rule as nbd-comms.js / esign-sign.js /
+  // portal.js / sign-page.js / estimate-view.js): without this, every direct
+  // Cloud Function call from here (createStripePaymentLink, etc.) targeted
+  // prod even from localhost, so createStripePaymentLink CORS-failed against
+  // prod's CORS_ORIGINS allowlist before ever reaching the local Stripe
+  // secret (documentation/audit/STRIPE-INVOICING-STATUS-2026-09-08.md).
+  // Guarded like nbd-comms.js's FUNCTIONS_BASE — this file loads via a bare
+  // vm.runInNewContext() in tests/estimate-profit.test.js and
+  // tests/invoice-pipeline.test.js, which has no `location` global at all.
+  const CLOUD_FUNCTION_BASE = /^(localhost|127\.0\.0\.1|\[::1\])$/.test(
+    (typeof location !== 'undefined' && location.hostname) || ''
+  )
+    ? 'http://127.0.0.1:5001/nobigdeal-pro/us-central1'
+    : 'https://us-central1-nobigdeal-pro.cloudfunctions.net';
   let _collectOnlineCache = null; // capability resolved once per page load (D7)
 
   // ═══════════════════════════════════════════════════════════════════════
@@ -1136,7 +1149,7 @@ let _NBD_IP_DELEGATE_BOUND; // module-local (globals Tranche 1 — was window.*)
               </div>
               <div style="display:flex;justify-content:space-between;padding:8px;font-size:13px;font-weight:700;color:var(--orange);">
                 <span>Balance Due:</span>
-                <span>${formatCurrency(inv.balanceDue != null ? inv.balanceDue : (Number(inv.total) - Number(inv.depositAmount)))}</span>
+                <span>${formatCurrency(inv.depositPaid ? inv.balanceDue : (Number(inv.total) - Number(inv.depositAmount)))}</span>
               </div>
               ` : ''}
             </div>
@@ -1323,6 +1336,17 @@ let _NBD_IP_DELEGATE_BOUND; // module-local (globals Tranche 1 — was window.*)
                   <td colspan="3" style="text-align: right; padding: 10px; font-weight: 700;">Total:</td>
                   <td style="text-align: right; padding: 10px; font-weight: 700; font-size: 16px;">${formatCurrency(invoice.total)}</td>
                 </tr>
+                <!-- Display-only fix, 2026-09-14: invoice.balanceDue is stored
+                     as the full total until a REAL payment lands
+                     (createInvoiceFromEstimate books it that way on purpose,
+                     for correct AR -- see that function's comment). Before any
+                     payment, balanceDue is never null, so this row used to
+                     always print the raw stored balanceDue (equal to total)
+                     directly under "Deposit due", reading as deposit + full
+                     total owed. Once the deposit is actually paid, the stored
+                     balanceDue correctly reflects total minus amountPaid and
+                     is safe to show as-is. Stored AR semantics are unchanged;
+                     only what's displayed here. -->
                 ${(Number(invoice.depositAmount) > 0 && Number(invoice.depositAmount) < Number(invoice.total)) ? `
                 <tr>
                   <td colspan="3" style="text-align: right; padding: 10px;">Deposit ${invoice.depositPaid ? '(paid)' : 'due'}:</td>
@@ -1330,7 +1354,7 @@ let _NBD_IP_DELEGATE_BOUND; // module-local (globals Tranche 1 — was window.*)
                 </tr>
                 <tr>
                   <td colspan="3" style="text-align: right; padding: 10px; font-weight: 700; color:var(--orange,#BD5728);">Balance Due:</td>
-                  <td style="text-align: right; padding: 10px; font-weight: 700; color:var(--orange,#BD5728);">${formatCurrency(invoice.balanceDue != null ? invoice.balanceDue : (Number(invoice.total) - Number(invoice.depositAmount)))}</td>
+                  <td style="text-align: right; padding: 10px; font-weight: 700; color:var(--orange,#BD5728);">${formatCurrency(invoice.depositPaid ? invoice.balanceDue : (Number(invoice.total) - Number(invoice.depositAmount)))}</td>
                 </tr>
                 ` : ''}
               </tbody>
@@ -1643,7 +1667,11 @@ let _NBD_IP_DELEGATE_BOUND; // module-local (globals Tranche 1 — was window.*)
     supplementBillableAmount,
     selectBillableSupplements,
     applySupplementsToTotals,
-    buildRowItems
+    buildRowItems,
+    // buildInvoiceHtml takes a plain invoice object and formatCurrency is a
+    // local pure function — no DOM/Firestore dependency either, exported the
+    // same way for the deposit/balance display regression test.
+    buildInvoiceHtml
   };
 
   if (typeof window !== 'undefined') {

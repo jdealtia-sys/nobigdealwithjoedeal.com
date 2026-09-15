@@ -58,7 +58,8 @@ const PER_USER_MONTHLY_USD_CAP_BY_PLAN = {
   // set changes.
   free: 25.00,
   lite: 25.00, foundation: 25.00, starter: 25.00,
-  blueprint: 40.00, growth: 75.00, professional: 150.00,
+  // Team had no row (see photo-vision.js's sibling map for the same gap).
+  blueprint: 40.00, team: 50.00, growth: 75.00, professional: 150.00,
 };
 
 const MAX_RECEIPT_BYTES = 25 * 1024 * 1024;

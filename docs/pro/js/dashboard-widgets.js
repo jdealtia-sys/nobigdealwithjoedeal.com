@@ -806,7 +806,7 @@ async function fetchPropertyIntelModal(geo, addr) {
 
   if(!intel) {
     // Temporarily show result container
-    resultEl.innerHTML = '<div style="color:var(--m);font-size:11px;">Fetching county records...</div>';
+    resultEl.innerHTML = '<div style="color:var(--m);font-size:11px;">Estimating property profile...</div>';
     resultEl.classList.add('visible');
     // Fire the intel engine with a temp container
     const tempId = 'pi-temp-' + Date.now();

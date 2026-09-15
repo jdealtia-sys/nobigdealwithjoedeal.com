@@ -389,6 +389,64 @@ async function run() {
   await assertFails(updateDoc(doc(dave, 'leads/leadRef'), { userId: 'someoneElse' }));
   await assertFails(updateDoc(doc(dave, 'leads/leadRef'), { companyId: 'co-x' }));
 
+  // 25. stageWriteOk() (2026-09-15) — stageRole is the field every server
+  //     classifier (weekly-digest, dormant-leads, money-dashboard,
+  //     analytics-kpi, leaderboard, portal.js) trusts via
+  //     functions/stage-roles.js's roleFor(). Nothing previously stopped an
+  //     authorized writer from forging it to an arbitrary string. leadD is
+  //     dave-owned in co-d with no prior stage/stageRole (plain fixture).
+  // ✅ a real stage-write.js-shaped write (stage + a valid role) succeeds
+  await assertSucceeds(updateDoc(doc(dave, 'leads/leadD'), { stage: 'contract_signed', stageRole: 'job' }));
+  // ✅ each of the 5 real roles is individually accepted
+  for (const role of ['new', 'active', 'job', 'won', 'lost']) {
+    await assertSucceeds(updateDoc(doc(dave, 'leads/leadD'), { stageRole: role }));
+  }
+  // ✅ a stage-only edit with no stageRole in the payload still succeeds —
+  //    the guard is absence-safe (the Edit-modal path omits `stage` entirely
+  //    when the dropdown has no matching option, per the comment above it;
+  //    stageWriteOk must not turn that omission into a denial).
+  await assertSucceeds(updateDoc(doc(dave, 'leads/leadD'), { firstName: 'Dave Renamed' }));
+  // ❌ a forged/garbage stageRole — not one of the 5 real roles — is denied.
+  //    This is the exact gap: a bug or a malicious client writing this
+  //    today would silently misclassify the lead in every server-side
+  //    won/lost/digest/nudge surface with no error anywhere.
+  await assertFails(updateDoc(doc(dave, 'leads/leadD'), { stageRole: 'super-won' }));
+  await assertFails(updateDoc(doc(dave, 'leads/leadD'), { stageRole: '' }));
+  await assertFails(updateDoc(doc(dave, 'leads/leadD'), { stageRole: 'Won' })); // case-sensitive — the real enum is lowercase
+  // ❌ a non-string / absurd stage value is denied
+  await assertFails(updateDoc(doc(dave, 'leads/leadD'), { stage: 123 }));
+  await assertFails(updateDoc(doc(dave, 'leads/leadD'), { stage: 'x'.repeat(200) }));
+  // ✅ a normal, real custom-stage key (the exact shape Settings > Pipelines
+  //    produces, per pipeline-builder.js's slug generator) with role 'won'
+  //    is accepted — this is the actual freeform-pipeline scenario the rule
+  //    must not regress: tenants can and do invent their own stage strings.
+  await assertSucceeds(updateDoc(doc(dave, 'leads/leadD'), { stage: 'custom_collections_closed', stageRole: 'won' }));
+
+  // 25b. paperworkFieldsOk() (2026-09-15 Paperwork Filing) — five flat
+  //      *FiledAt scalars gate REQUIRED_FIELDS_BY_TYPE's stage-advance hard
+  //      block client-side; this closes the same class of forgery gap
+  //      stageWriteOk() closes for stage/stageRole, at the same trust bar
+  //      (an owner/same-company-staff writer, not a stranger).
+  // ✅ a real ISO timestamp on each of the 5 fields succeeds.
+  for (const f of ['contractFiledAt', 'permitFiledAt', 'aobFiledAt', 'warrantyCertFiledAt', 'cocFiledAt']) {
+    await assertSucceeds(updateDoc(doc(dave, 'leads/leadD'), { [f]: new Date().toISOString() }));
+  }
+  // ✅ unsetting (the checkbox toggled off) writes '' and still succeeds.
+  await assertSucceeds(updateDoc(doc(dave, 'leads/leadD'), { permitFiledAt: '' }));
+  // ✅ an edit that never touches any of these fields still succeeds — the
+  //    guard is absence-safe (mirrors stageWriteOk's own absence-safety test).
+  await assertSucceeds(updateDoc(doc(dave, 'leads/leadD'), { lastName: 'Renamed Again' }));
+  // ❌ a non-string value on any of the 5 fields is denied.
+  await assertFails(updateDoc(doc(dave, 'leads/leadD'), { contractFiledAt: true }));
+  await assertFails(updateDoc(doc(dave, 'leads/leadD'), { permitFiledAt: 123 }));
+  await assertFails(updateDoc(doc(dave, 'leads/leadD'), { aobFiledAt: { forged: true } }));
+  // ❌ an oversized string (garbage payload, not a real ISO timestamp — a
+  //    real one is ~24 chars, well under the 40-char cap) is denied.
+  await assertFails(updateDoc(doc(dave, 'leads/leadD'), { warrantyCertFiledAt: 'x'.repeat(200) }));
+  await assertFails(updateDoc(doc(dave, 'leads/leadD'), { cocFiledAt: 'x'.repeat(41) }));
+  // ✅ exactly at the 40-char boundary still succeeds (off-by-one guard).
+  await assertSucceeds(updateDoc(doc(dave, 'leads/leadD'), { cocFiledAt: 'x'.repeat(40) }));
+
   // 22. /system/migrations is admin-SDK only — no client read/write.
   //     The runner in functions/migrations/runner.js owns this doc.
   await assertFails(getDoc(doc(alice, 'system/migrations')));
@@ -906,6 +964,39 @@ async function run() {
   await assertFails(setDoc(doc(mgrA, 'leads/leadA2/activity/mgr-webhook-forge'),
     { userId: 'mia', type: 'note', source: 'rep', note: 'x', stripeInvoiceId: 'in_123' }));
 
+  // 28b. WARRANTY CLAIMS (2026-09-15 Warranty Claim lane) — same
+  // owner-or-same-company-staff shape as documents/drawings just above,
+  // plus warrantyClaimWriteOk()'s enum gate on status/reason.
+  await assertSucceeds(setDoc(doc(alice, 'leads/leadA2/warrantyClaims/claim-owner'),
+    { status: 'open', reason: 'workmanship', issueDescription: 'leak at chimney' }));
+  await assertSucceeds(setDoc(doc(mgrA, 'leads/leadA2/warrantyClaims/claim-mgr'),
+    { status: 'scheduled', reason: 'material', scheduledDate: '2026-10-01' }));
+  await assertSucceeds(getDoc(doc(viewerA, 'leads/leadA2/warrantyClaims/claim-owner')));
+  // ❌ viewer read-only, cross-tenant staff dead, forged status/reason denied.
+  await assertFails(setDoc(doc(viewerA, 'leads/leadA2/warrantyClaims/viewer-claim'),
+    { status: 'open', reason: 'workmanship' }));
+  await assertFails(setDoc(doc(mgrB, 'leads/leadA2/warrantyClaims/xt-claim'),
+    { status: 'open', reason: 'workmanship' }));
+  await assertFails(getDoc(doc(mgrB, 'leads/leadA2/warrantyClaims/claim-owner')));
+  await assertFails(setDoc(doc(alice, 'leads/leadA2/warrantyClaims/bad-status'),
+    { status: 'made_up_status', reason: 'workmanship' }));
+  await assertFails(setDoc(doc(alice, 'leads/leadA2/warrantyClaims/bad-reason'),
+    { status: 'open', reason: 'made_up_reason' }));
+  // ✅ absence-safe — a claim update that never touches status/reason
+  // (e.g. just diagnosisNotes) still succeeds.
+  await assertSucceeds(updateDoc(doc(alice, 'leads/leadA2/warrantyClaims/claim-owner'),
+    { diagnosisNotes: 'found a gap in the flashing' }));
+
+  // 28c. openClaimIdOk() — the LEAD's own denormalized pointer field.
+  // leadD (used by the stageWriteOk/paperworkFieldsOk blocks above) is
+  // hard-deleted by section 23, so this reuses leadA2/alice like the
+  // documents/drawings block just above instead.
+  await assertSucceeds(updateDoc(doc(alice, 'leads/leadA2'), { openWarrantyClaimId: 'claim-owner' }));
+  await assertSucceeds(updateDoc(doc(alice, 'leads/leadA2'), { openWarrantyClaimId: null }));
+  await assertFails(updateDoc(doc(alice, 'leads/leadA2'), { openWarrantyClaimId: 123 }));
+  await assertFails(updateDoc(doc(alice, 'leads/leadA2'), { openWarrantyClaimId: 'x'.repeat(61) }));
+  await assertSucceeds(updateDoc(doc(alice, 'leads/leadA2'), { openWarrantyClaimId: 'x'.repeat(60) }));
+
   // 29. USER TEMPLATE-SYNC SUBCOLLECTIONS (feat/template-sync).
   //     job-templates.js mirrors + hydrates custom job templates at
   //     users/{uid}/jobTemplates/{tplId} — including the single '_usage'
@@ -1088,6 +1179,36 @@ async function run() {
   await assertFails(deleteDoc(doc(viewer,   'invoices/inv-v')));
   await assertFails(deleteDoc(doc(bob,      'invoices/inv-a')));
   await assertSucceeds(deleteDoc(doc(alice, 'invoices/inv-new')));
+
+  // 32. invoices: same-company STAFF update (2026-09-15, Collections
+  //     foundation). UPDATE used to be createdBy-only even though READ
+  //     already granted the whole team company-scoped access — a manager
+  //     could SEE a teammate's outstanding invoice in a shared Collections
+  //     queue but got PERMISSION_DENIED trying to Mark Paid it. Mirrors the
+  //     /leads isCompanyStaff-update precedent. DELETE stays narrower —
+  //     owner or company_admin only, NOT manager — same split /leads makes.
+  // ✅ a manager (not the creator) can now update a teammate's invoice —
+  //    the exact "whoever's free works the queue" capability this exists for
+  await assertSucceeds(updateDoc(doc(mgrA, 'invoices/inv-a'), { status: 'paid', balanceDue: 0 }));
+  // ✅ so can the tenant owner (company_admin), also not the creator
+  await assertSucceeds(updateDoc(doc(coAdmin, 'invoices/inv-a'), { status: 'sent' }));
+  // ✅ staff update still can't re-tenant / re-own / re-point the invoice —
+  //    the SAME provenance freeze the owner path is already held to
+  await assertFails(updateDoc(doc(mgrA, 'invoices/inv-a'), { companyId: 'co-b' }));
+  await assertFails(updateDoc(doc(mgrA, 'invoices/inv-a'), { createdBy: 'mia' }));
+  // ❌ a manager from a DIFFERENT tenant (mgrB, co-b) still can't touch a
+  //    co-a invoice — the company-scope check, not just the role check, is
+  //    what's actually gating this
+  await assertFails(updateDoc(doc(mgrB, 'invoices/inv-a'), { status: 'void' }));
+  // ✅ a company_admin (not the creator) can delete a teammate's invoice —
+  //    the tenant owner destroying a billing record, same as /leads
+  await assertSucceeds(deleteDoc(doc(coAdmin, 'invoices/inv-a')));
+  // ❌ but a manager — staff, just not the owner — still cannot delete;
+  //    only UPDATE was widened to staff, DELETE deliberately was not
+  await env.withSecurityRulesDisabled(async (ctx) => {
+    await setDoc(doc(ctx.firestore(), 'invoices/inv-mgr-del'), { createdBy: 'alice', companyId: 'co-a', estimateId: 'est-ok', createdAt: 3, balanceDue: 200, status: 'sent' });
+  });
+  await assertFails(deleteDoc(doc(mgrA, 'invoices/inv-mgr-del')));
 
   console.log('✓ All firestore rules tests passed');
   await env.cleanup();

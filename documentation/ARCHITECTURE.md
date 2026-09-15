@@ -5,7 +5,7 @@ NBD PRO CRM - MULTI-TENANT ARCHITECTURE
 Last updated: 2026-07-05 (post-merge refresh: PRs #839/#840/#841 + the
 functions dependency majors).
 Added in this pass (2026-07-05) — new sections at the end of this doc:
-  - BILLING, PLANS & TRIALS: canonical plan keys (free/starter/growth/
+  - BILLING, PLANS & TRIALS: canonical plan keys (free/starter/team/growth/
     enterprise) with permanent read-boundary aliases for the legacy
     vocabulary; access-code lifecycle (atomic redemption, read-time trial
     expiry, single-writer trialEndsAt); the dashboard's requiredPlan:'free'
@@ -213,6 +213,10 @@ COMPONENT ARCHITECTURE
   exports 148 deployed Cloud Function endpoints (onCall / onRequest /
   Firestore + Storage triggers / scheduled crons), plus a handful of
   test-only helper exports (underscore-prefixed and push/Slack helpers).
+  **Corrected 2026-09-14 — stale by 60 keys: re-enumerated 208 total
+  exports = 184 deployed + 24 helper (see functions/FUNCTIONS_INDEX.md's
+  own re-enumeration, cross-checked against `scripts/check-function-
+  orphans.js`'s live fleet count of 184/184, zero orphans).**
   The per-function catalog — with the admin/rep/public/background
   classification and the auth gate each category requires — is maintained
   in functions/FUNCTIONS_INDEX.md. That file is canonical; keep it updated
@@ -443,8 +447,9 @@ BILLING, PLANS & TRIALS (added 2026-07-05)
 
 Plan keys — canonical internally, aliased at read boundaries:
 
-  The internal plan vocabulary is CANONICAL everywhere as of PR #841:
-  free / starter / growth / enterprise. The legacy vocabulary
+  The internal plan vocabulary is CANONICAL everywhere as of PR #841
+  (Team added by #964, 2026-07-17):
+  free / starter / team / growth / enterprise. The legacy vocabulary
   (lite / foundation / blueprint / professional) survives ONLY as
   read-boundary aliases:
     - docs/pro/js/nbd-auth.js — PLAN_ALIASES + _normalizePlan(); PLAN_LEVELS
@@ -459,7 +464,7 @@ Plan keys — canonical internally, aliased at read boundaries:
   Resolution happens ONCE, at these read boundaries. New writes emit
   canonical keys only — including access-code grants in
   functions/handlers/portal.js (code docs may carry either vocabulary on
-  input; the grant writes starter/growth). The alias maps are PERMANENT by
+  input; the grant writes starter/team/growth). The alias maps are PERMANENT by
   design: production subscriptions/* docs and Stripe metadata carry the
   legacy values forever, so never "clean up" the alias resolution.
   'lite' is kept as a distinct internal state ("free because a code trial
@@ -531,6 +536,12 @@ TESTING & CI (added 2026-07-05)
     createCompany writes), and drives http://127.0.0.1:5000. No prod
     credentials; nbd-emulator-connect.js points the client SDK at the
     emulators automatically. continue-on-error until proven stable.
+    **Corrected 2026-09-14 — false, has been since 2026-07-28: all six
+    matrix shards (@shard1, @shard2, @audit, @stranger, @gauntlet,
+    @engines — the last promoted 2026-08-26 on a 10/10 green streak) are
+    REQUIRED, blocking checks (`.github/workflows/ci.yml`'s
+    `e2e-authed-emulator` job). No `continue-on-error:`, no `if:`, no
+    `|| true` on any of them.**
   - Rules tests (firestore + cross-tenant + storage) run against
     emulators in the same workflow and remain authoritative for the
     security boundaries described above.
@@ -552,6 +563,11 @@ DASHBOARD SHELL — ROCK 4 DECOMPOSITION (status 2026-07-05)
   the Rock 1 DNS cutover being authoritative for CSP) and the per-view
   module pattern for window.* globals. The maintained status + manifest is
   docs/dev/dashboard-decomposition-plan.md — that file is canonical.
+  **Corrected 2026-09-14 — Phase 6 is DONE: `firebase.json`'s script-src
+  directive carries no 'unsafe-inline' today (style-src still does, a
+  separate directive this phase never targeted). Re-verify against
+  docs/dev/dashboard-decomposition-plan.md before citing a completion
+  date; not chased down for this correction.**
 
 
 DATA MIGRATIONS
@@ -587,9 +603,19 @@ OPS & DEPENDENCY BASELINE (added 2026-07-05)
     firebase-functions ^7 + twilio ^6. firebase-admin 14 is peer-blocked
     by every published firebase-functions release — do not bump admin
     alone (supersedes the single-package dependabot PRs).
+    **Corrected 2026-09-14 — functions/package.json now pins
+    firebase-admin ^14.3.0 (not ^13), alongside firebase-functions
+    ^7.3.2 and twilio ^6.1.0 unchanged. The peer-block is resolved, not
+    worked around: the installed firebase-functions@7.3.2's own
+    peerDependencies now lists `firebase-admin: "^11.10.0 || ^12.0.0 ||
+    ^13.0.0 || ^14.0.0"` — a later 7.x release added ^14 support. The
+    "move together" rule still holds; only the specific admin ceiling
+    was stale.**
   - /tests fixtures use the MODULAR firebase-admin API (admin ^14 in
     tests/package.json) — the tests tree and functions tree intentionally
-    differ on admin majors.
+    differ on admin majors. **(No longer differ as of the correction
+    above — both trees are on admin ^14. Left as-is rather than deleted;
+    a future admin bump could reintroduce the split.)**
 
 
 ================================================================================

@@ -42,6 +42,21 @@ export function isLocalEmulatorEnv() {
 }
 
 /**
+ * HTTP base URL for direct (non-SDK-callable) Cloud Function fetches — the
+ * createStripePaymentLink/createCheckoutSession-style endpoints that module
+ * scripts hit with a plain fetch() rather than an SDK httpsCallable. Mirrors
+ * connectEmulatorsIfLocal's local/prod split so a raw fetch() lands on the
+ * Functions emulator instead of CORS-failing against prod's CORS_ORIGINS
+ * allowlist when tested from localhost (Audit #3).
+ * @returns {string} base URL with no trailing slash
+ */
+export function getFunctionsBase() {
+  return isLocalEmulatorEnv()
+    ? 'http://127.0.0.1:5001/nobigdeal-pro/us-central1'
+    : 'https://us-central1-nobigdeal-pro.cloudfunctions.net';
+}
+
+/**
  * Emulator-mode App Check. No-op (returns false) off-localhost.
  *
  * Callables shipped with `enforceAppCheck: true` (createCompany, claimInvite,

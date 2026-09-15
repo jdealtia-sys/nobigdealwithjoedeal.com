@@ -7,6 +7,17 @@
 > Session PRs: [#1377](https://github.com/jdealtia-sys/nobigdealwithjoedeal.com/pull/1377) (TCPA consent) ·
 > [#1378](https://github.com/jdealtia-sys/nobigdealwithjoedeal.com/pull/1378) (216-page SEO gate).
 > Related: [FREE-API-INTEGRATIONS-RESEARCH-2026-09-02](FREE-API-INTEGRATIONS-RESEARCH-2026-09-02.md).
+>
+> **Update 2026-09-13 — "zero live alert policies" is no longer true, and "all
+> ten now create successfully" was not the same as "all ten work".** Nine
+> policies went live on 2026-09-13 after every condition was replayed against 7
+> days of production data. That replay found three defects this note's
+> create-then-delete validation could not see: `functions-error-rate` used
+> `ALIGN_RATE` (a per-second threshold that could never fire);
+> `email-queue-worker-stale` had no cross-series reducer (192 per-revision
+> series, so every deploy would have paged); and `claude-budget-exceeded` keys
+> on text that is never logged, so it is held. See
+> [ALERT-POLICIES-LIVE-2026-09-13](ALERT-POLICIES-LIVE-2026-09-13.md).
 
 ## Read this before using the lists below
 

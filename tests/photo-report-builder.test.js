@@ -71,6 +71,12 @@ const sandbox = {};
   const from = PHOTO_REPORT.indexOf('const REPORT_DEFAULTS');
   const to = endOfFn(PHOTO_REPORT, '_numberSections');
   vm.createContext(sandbox);
+  // _dateLabel sits inside that slice but its timestamp resolution does not —
+  // it shares _photoTimestampMs with _comparePhotoReportOrder, ~1000 lines up,
+  // so that the caption and the sort key can never read different fields.
+  // Lift it first or every _dateLabel assertion below dies on a ReferenceError.
+  const tsFrom = PHOTO_REPORT.indexOf('function _photoTimestampMs(');
+  vm.runInContext(PHOTO_REPORT.slice(tsFrom, endOfFn(PHOTO_REPORT, '_photoTimestampMs')), sandbox);
   vm.runInContext(PHOTO_REPORT.slice(from, to), sandbox);
 }
 const optionsFor = sandbox._reportOptions;

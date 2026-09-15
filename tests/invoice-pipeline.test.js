@@ -376,6 +376,48 @@ test('empty / missing rows → []', () => {
   eq(IP.buildRowItems(null).length, 0, 'null estimate');
 });
 
+// ── buildInvoiceHtml — the deposit/balance display bug (2026-09-14) ──
+//
+// invoice.balanceDue is booked as the FULL total until a real payment
+// lands (createInvoiceFromEstimate does this on purpose, for correct AR).
+// Before this fix, the emailed invoice's "Balance Due" row printed
+// `invoice.balanceDue != null ? invoice.balanceDue : (total - depositAmount)`
+// — and balanceDue is never null pre-payment, so that ternary always took
+// the first branch and printed the full total directly under a separate
+// "Deposit due" line, reading as deposit + total owed rather than one bill.
+// Anchors on the rendered `>label` markup, not a bare label substring — the
+// file's own explanatory HTML comment above this block also contains the
+// words "Deposit due" and "Balance Due" in prose, which a bare indexOf
+// would match first.
+function extractRow(html, label) {
+  const idx = html.indexOf('>' + label);
+  if (idx < 0) return null;
+  const m = html.slice(idx, idx + 300).match(/\$[\d,]+\.\d{2}/);
+  return m ? m[0] : null;
+}
+const depositInvoiceUnpaid = {
+  total: 14200, depositAmount: 7100, depositPaid: false, balanceDue: 14200,
+  items: [], invoiceNumber: 'INV-DEP-1', customerName: 'Jane Homeowner', customerAddress: '1 Main St',
+};
+test('unpaid deposit invoice: Balance Due shows total minus deposit, not the full total', () => {
+  const html = IP.buildInvoiceHtml(depositInvoiceUnpaid);
+  eq(extractRow(html, 'Deposit'), '$7,100.00', 'deposit row unchanged');
+  eq(extractRow(html, 'Balance Due'), '$7,100.00', 'balance due = total - deposit while unpaid, not $14,200.00 (the bug)');
+});
+test('deposit-paid invoice: Balance Due shows the real stored balanceDue (post-payment truth)', () => {
+  // Once the deposit is recorded as paid, markPaid has already updated the
+  // stored balanceDue to total - amountPaid — safe to show as-is.
+  const html = IP.buildInvoiceHtml(Object.assign({}, depositInvoiceUnpaid, {
+    depositPaid: true, amountPaid: 7100, balanceDue: 7100,
+  }));
+  eq(extractRow(html, 'Balance Due'), '$7,100.00', 'shows the real post-deposit balance');
+});
+test('no-deposit invoice: deposit/balance block does not render at all', () => {
+  const html = IP.buildInvoiceHtml({ total: 5000, depositAmount: 0, depositPaid: false, balanceDue: 5000, items: [], invoiceNumber: 'INV-2', customerName: 'X', customerAddress: 'Y' });
+  eq(extractRow(html, 'Deposit'), null, 'no deposit row when there is no deposit');
+  eq(extractRow(html, 'Balance Due'), null, 'no balance-due row either — nothing to reconcile');
+});
+
 console.log('──────────────────────────────────────────────────');
 console.log(passed + ' passed, ' + failed + ' failed');
 process.exit(failed > 0 ? 1 : 0);

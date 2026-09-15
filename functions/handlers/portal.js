@@ -146,7 +146,19 @@ exports.validateAccessCode = onCall(
         subData.trialEndsAt = Timestamp.fromDate(trialEnd);
       }
       const subRef = db.doc(`subscriptions/${userRecord.uid}`);
-      if (!(await subRef.get()).exists) {
+      const existingSub = await subRef.get();
+      // Refuse to let an access-code grant overwrite a live, card-billed
+      // subscription -- same guard functions/stripe.js's Checkout applies
+      // before minting a second Stripe sub, mirrored here so a code can't
+      // silently downgrade (and then re-downgrade at trialEndsAt) a
+      // tenant who is already paying by card for a higher/different plan.
+      const LIVE_SUB_STATUS = { active: 1, trialing: 1, past_due: 1, unpaid: 1, incomplete: 1 };
+      const existingData = existingSub.exists ? (existingSub.data() || {}) : {};
+      if (existingData.stripeSubscriptionId && LIVE_SUB_STATUS[String(existingData.status)]) {
+        logger.warn('access_code_blocked_live_sub', { uid: userRecord.uid, status: existingData.status });
+        throw new HttpsError('failed-precondition', 'This account already has an active paid subscription. Manage or change your plan from Dashboard → Settings → Billing instead of redeeming a code.');
+      }
+      if (!existingSub.exists) {
         subData.createdAt = FieldValue.serverTimestamp();
       }
       await subRef.set(subData, { merge: true });

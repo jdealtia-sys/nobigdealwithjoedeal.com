@@ -58,6 +58,7 @@ const { httpRateLimit, clientIp } = require('./integrations/upstash-ratelimit');
 const { callableRateLimit } = require('./shared');
 const { stampPdf, readPdfGeometry, validateFields, FIELD_TYPES } = require('./esign-stamp');
 const { secretOr } = require('./integrations/_shared');
+const { resendRejected, resendErrorMessage } = require('./resend-guard');
 
 const RESEND_API_KEY = defineSecret('RESEND_API_KEY');
 const EMAIL_FROM = defineSecret('EMAIL_FROM');
@@ -387,7 +388,7 @@ exports.sendEsignEnvelope = onCall(
         const resend = new Resend(RESEND_API_KEY.value());
         const from = secretOr(EMAIL_FROM, 'noreply@nobigdealwithjoedeal.com');
         const brand = escHtml(env.companyName || 'No Big Deal Home Solutions');
-        await resend.emails.send({
+        const response = await resend.emails.send({
           from, to: email,
           subject: `Please sign: ${env.title || 'your document'}`,
           html: `<div style="font-family:Arial,sans-serif;max-width:520px;margin:0 auto;color:#12223d;">
@@ -401,6 +402,12 @@ exports.sendEsignEnvelope = onCall(
                If you weren't expecting this, you can ignore this email.</p>
           </div>`,
         });
+        // Resend resolves { data: null, error } on an API-level rejection
+        // instead of throwing — treat that the same as a thrown error so
+        // `emailed` (persisted below and returned to the rep) isn't a lie.
+        if (resendRejected(response)) {
+          throw new Error(resendErrorMessage(response));
+        }
         emailed = true;
       } catch (e) {
         // Do NOT swallow this into a cheerful response. The old path told the

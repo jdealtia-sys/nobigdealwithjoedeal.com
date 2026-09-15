@@ -150,11 +150,167 @@
   --t-slow:.32s;
   --ease-out:cubic-bezier(.18,.89,.32,1.28);
 
+  /* ── Shape & Depth (Settings > Appearance) ──────────────────────
+     Role-based tokens, one per component category, each defaulting
+     to that category's OWN real current value (verified per-selector
+     against dashboard-app.css before conversion) rather than forced
+     onto the shared --r-* scale above, which multiple real components
+     don't cleanly divide into (.btn is 7px, not 6 or 8). This is what
+     makes the default ("sharp", no attribute) a true no-op: every
+     selector converted to var(--r-btn) etc. keeps its exact current
+     appearance until [data-shape="..."] is set. Only a curated,
+     verified subset of selectors consume these so far — see the
+     PR/session note for which, and why not all ~239 border-radius
+     declarations in this file were touched in one pass. */
+  --r-btn:7px;
+  --r-card:8px;
+  --r-input:6px;
+  --r-modal:12px;
+  --elevation-card:none;
+  --elevation-card-hover:none;
+  --elevation-modal:none;
+  /* 0 0 #0000 (not `none`) so a variant button class that layers this in
+     front of its own box-shadow (e.g. .btn-orange below) stays valid CSS
+     at the default preset — `box-shadow: none, <other-shadow>` is an
+     invalid value and drops the WHOLE declaration, silently killing that
+     button's shadow entirely. A zero-offset/zero-blur transparent shadow
+     composes safely in a comma list and paints nothing, so it's the same
+     true no-op as `none` was for the lone consumers that don't compose it. */
+  --btn-shadow:0 0 #0000;
+  --btn-shadow-active:0 0 #0000;
+  /* NOT var(--ease-out) — that token is a bouncy overshoot curve
+     (cubic-bezier(.18,.89,.32,1.28)) for OTHER UI, and was never actually
+     consumed by anything until now. .btn's own transition below has always
+     hardcoded cubic-bezier(.4,0,.2,1); matching it here is what makes
+     "sharp" (this default) a true no-op once --shape-ease is wired in,
+     instead of silently swapping every button's easing the moment this
+     token started being read. */
+  --shape-ease:cubic-bezier(.4,0,.2,1);
+  --shape-dur:var(--t-mid);
+
   /* ── Wave 5 accent contract moved to docs/pro/css/theme-system.css ──
      in Wave 6 (A.1) so customer.html / login.html / vault.html inherit
      the same --accent-fg / --accent-ring contract automatically. See
      the "Shared accent contrast contract" block near the bottom of
      theme-system.css for the per-theme overrides. */
+}
+/* ── Material: Shop Copy / Golden Hour (Settings > Appearance) ──────
+   [data-material] on <html>, orthogonal to [data-shape]/[data-theme]/
+   [data-density] — set from Settings and persisted the same way. No
+   attribute means no material is applied (today's exact look).
+   Reuses the pipeline's EXISTING stage-aging classification
+   (k-card-aging-warming/stale/critical, computed in crm-pipeline.js
+   from stageStartedAt) as the status signal, rather than inventing a
+   parallel one or injecting new DOM into the card template. Scoped to
+   the job pipeline board in this pass — an invoice-side treatment (an
+   ink stamp on Mark Paid, a sunrise animation when an overdue invoice
+   clears) needs a class-based status hook in invoice-pipeline.js,
+   which today drives its status color via an inline style computed in
+   JS rather than a CSS class; that's real, separate follow-up work,
+   not rushed into this pass. */
+:root[data-material="shop-copy"] .k-card { border-left-width: 5px; border-left-color: #cbbfa0 !important; }
+:root[data-material="shop-copy"] .k-card-aging-warming,
+:root[data-material="shop-copy"] .k-card-aging-stale { border-left-color: #ff8a00 !important; }
+:root[data-material="shop-copy"] .k-card-aging-critical { border-left-color: #2a2a2c !important; }
+:root[data-material="shop-copy"] .kcol-header {
+  font-family: 'Big Shoulders Stencil', 'Barlow Condensed', sans-serif;
+  letter-spacing: .04em;
+}
+/* Shop Copy's cream/hi-vis-orange/carbon triad has no red in it anywhere
+   else, but critical cards kept the default alarm-red urgency-pulse
+   (.k-card-aging-critical::before, base rule below) undisturbed — a
+   bright red strip flashing next to a carbon border on the one card
+   type this material styles most heavily. Golden Hour hit the same seam
+   and fixed it for its own palette (see below); Shop Copy didn't.
+   Re-themed to the same hi-vis orange as warming/stale rather than
+   dimmed to steady like Golden Hour, so critical still reads as MORE
+   urgent than the two stages under it. */
+:root[data-material="shop-copy"] .k-card-aging-critical::before {
+  background: #ff8a00;
+}
+
+:root[data-material="golden-hour"] .k-card {
+  border-left-color: #8fb4ff !important;
+  transition: box-shadow .4s ease, border-left-color .4s ease, filter .4s ease;
+}
+:root[data-material="golden-hour"] .k-card-aging-warming {
+  border-left-color: #ffb066 !important;
+  box-shadow: 0 4px 14px -6px rgba(255,176,102,.35);
+}
+:root[data-material="golden-hour"] .k-card-aging-stale {
+  border-left-color: #ff8a3d !important;
+  box-shadow: 0 4px 16px -6px rgba(255,138,61,.4);
+}
+:root[data-material="golden-hour"] .k-card-aging-critical {
+  border-left-color: #7d5a4a !important;
+  filter: saturate(.65);
+}
+/* Dusk is calm, not alarming — swap the existing red urgency-pulse for
+   a dim, steady "porch light" accent rather than disabling the signal
+   outright. */
+:root[data-material="golden-hour"] .k-card-aging-critical::before {
+  background: #7d5a4a;
+  animation: none;
+  opacity: .55;
+}
+
+/* ── Shape presets ───────────────────────────────────────────────
+   [data-shape] on <html>, set from Settings > Appearance and
+   persisted the same way theme choice already is — orthogonal to
+   [data-theme] (color) and [data-density] (spacing), so it composes
+   with both rather than replacing either. No attribute (or
+   data-shape="sharp") means every token above stays at its default,
+   i.e. today's exact look. */
+:root[data-shape="linear"]{
+  --r-btn:6px; --r-card:8px; --r-input:6px; --r-modal:14px;
+  --elevation-card:none;
+  --elevation-card-hover:0 3px 12px rgba(0,0,0,.28);
+  --elevation-modal:0 1px 2px rgba(0,0,0,.3), 0 22px 42px -8px rgba(0,0,0,.55);
+  --shape-ease:cubic-bezier(.2,0,0,1);
+  --shape-dur:.12s;
+}
+:root[data-shape="pressed"]{
+  --r-btn:10px;
+  --btn-shadow:3px 3px 7px rgba(0,0,0,.35), -2px -2px 5px rgba(255,255,255,.5);
+  --btn-shadow-active:inset 2px 2px 4px rgba(0,0,0,.35), inset -2px -2px 4px rgba(255,255,255,.4);
+}
+:root[data-shape="soft"]{
+  --r-btn:10px; --r-card:12px; --r-input:8px; --r-modal:20px;
+  --elevation-card:none;
+  --elevation-card-hover:none;
+  --elevation-modal:0 1px 2px rgba(0,0,0,.15), 0 20px 46px rgba(0,0,0,.4);
+  --shape-ease:cubic-bezier(.2,.8,.2,1);
+  --shape-dur:.16s;
+}
+:root[data-shape="elevated"]{
+  --r-btn:8px; --r-card:10px; --r-input:6px; --r-modal:12px;
+  --elevation-card:0 1px 2px rgba(0,0,0,.06), 0 1px 8px rgba(0,0,0,.04);
+  --elevation-card-hover:0 4px 12px rgba(0,0,0,.10);
+  --elevation-modal:0 20px 40px rgba(0,0,0,.15);
+  --shape-dur:.14s;
+}
+:root[data-shape="fluent"]{
+  --r-btn:6px; --r-card:8px; --r-input:6px; --r-modal:12px;
+  --elevation-card:0 1px 2px rgba(0,0,0,.06), 0 4px 10px rgba(0,0,0,.06);
+  --elevation-card-hover:0 4px 16px rgba(0,0,0,.12), 0 10px 24px rgba(0,0,0,.10);
+  --elevation-modal:0 20px 60px rgba(0,0,0,.5);
+  --shape-ease:cubic-bezier(.16,1,.3,1);
+  --shape-dur:.15s;
+}
+:root[data-shape="glass"]{
+  --r-btn:8px; --r-card:14px; --r-input:6px; --r-modal:18px;
+  --elevation-card:0 1px 2px rgba(0,0,0,.06), 0 10px 24px rgba(0,0,0,.10);
+  --elevation-card-hover:0 14px 32px rgba(0,0,0,.14);
+  --elevation-modal:0 20px 46px rgba(0,0,0,.4);
+  --shape-dur:.18s;
+}
+:root[data-shape="tonal"]{
+  --r-btn:14px; --r-card:14px; --r-input:8px; --r-modal:20px;
+  --elevation-card:0 1px 3px rgba(0,0,0,.12);
+  --elevation-card-hover:0 6px 18px rgba(0,0,0,.16);
+  --elevation-modal:0 10px 30px rgba(0,0,0,.3);
+  --shape-ease:cubic-bezier(.2,0,0,1);
+  --shape-dur:.2s;
 }
 *{margin:0;padding:0;box-sizing:border-box;}
 /* Global iOS auto-zoom kill: any focused input under 16px triggers Mobile
@@ -1782,7 +1938,8 @@ body[data-nbd-size="comfortable"] .crm-icon-btn { width: calc(32px * var(--nbd-s
 .page-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;}
 .page-title{font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;}
 .page-sub{font-size:12px;color:var(--m);margin-top:2px;}
-.btn{display:inline-flex;align-items:center;gap:6px;padding:9px 16px;border-radius:7px;font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;cursor:pointer;border:1px solid transparent;transition:background var(--t-mid),color var(--t-mid),border-color var(--t-mid),transform var(--t-fast),box-shadow var(--t-mid);}
+.btn{display:inline-flex;align-items:center;gap:6px;padding:9px 16px;border-radius:var(--r-btn, 7px);font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;cursor:pointer;border:1px solid transparent;box-shadow:var(--btn-shadow, none);transition:background var(--t-mid),color var(--t-mid),border-color var(--t-mid),transform var(--t-fast),box-shadow var(--t-mid);}
+.btn:active{box-shadow:var(--btn-shadow-active, none);}
 .btn-orange{background:var(--orange);color:var(--accent-fg);border-color:var(--orange);box-shadow:0 3px 12px var(--og);}
 .btn-orange:hover{background:var(--ob);}
 .btn-ghost{background:var(--s2);color:var(--t);border-color:var(--br);}
@@ -1888,7 +2045,7 @@ body[data-nbd-size="comfortable"] .crm-icon-btn { width: calc(32px * var(--nbd-s
 .pin-btn{display:flex;align-items:center;gap:7px;background:var(--s2);border:1px solid var(--br);border-radius:6px;padding:7px 9px;cursor:pointer;font-size:11px;font-weight:500;color:var(--t);transition:all .2s;}
 .pin-btn:hover,.pin-btn.active{border-color:var(--orange);background:color-mix(in srgb, var(--orange) 8%, transparent);}
 /* ── MAP OVERLAY SYSTEM ── */
-.overlay-panel{background:var(--s2);border:1px solid var(--br);border-radius:8px;padding:10px;margin-bottom:10px;}
+.overlay-panel{background:var(--s2);border:1px solid var(--br);border-radius:var(--r-card, 8px);box-shadow:var(--elevation-card, none);padding:10px;margin-bottom:10px;}
 .overlay-row{display:flex;align-items:center;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--rule);}
 .overlay-row:last-child{border-bottom:none;}
 .overlay-label{display:flex;align-items:center;gap:7px;font-size:11px;font-weight:600;color:var(--t);letter-spacing:.04em;}
@@ -1905,13 +2062,13 @@ body[data-nbd-size="comfortable"] .crm-icon-btn { width: calc(32px * var(--nbd-s
 .pin-confirm-sub{font-size:11px;color:var(--m);margin-bottom:14px;}
 .pin-confirm-status{display:inline-flex;align-items:center;gap:6px;background:var(--s2);border:1px solid var(--br);border-radius:5px;padding:5px 10px;font-size:11px;font-weight:600;color:var(--t);margin-bottom:4px;}
 .pin-confirm-coords{font-size:10px;color:var(--m);margin-bottom:14px;}
-.pin-confirm-notes{width:100%;background:var(--s2);border:1px solid var(--br);border-radius:6px;color:var(--t);font-size:11px;padding:8px;resize:none;box-sizing:border-box;margin-bottom:12px;font-family:'Barlow',sans-serif;}
+.pin-confirm-notes{width:100%;background:var(--s2);border:1px solid var(--br);border-radius:var(--r-input, 6px);color:var(--t);font-size:11px;padding:8px;resize:none;box-sizing:border-box;margin-bottom:12px;font-family:'Barlow',sans-serif;}
 .pin-confirm-notes:focus{outline:none;border-color:var(--orange);}
 .pin-confirm-btns{display:flex;gap:8px;}
 .pin-confirm-btns .btn{flex:1;justify-content:center;font-size:12px;}
 /* Address pin input */
 .addr-pin-row{display:flex;gap:6px;margin-bottom:8px;}
-.addr-pin-row input{flex:1;background:var(--s2);border:1px solid var(--br);border-radius:6px;color:var(--t);font-size:11px;padding:7px 9px;}
+.addr-pin-row input{flex:1;background:var(--s2);border:1px solid var(--br);border-radius:var(--r-input, 6px);color:var(--t);font-size:11px;padding:7px 9px;}
 .addr-pin-row input:focus{outline:none;border-color:var(--orange);}
 .addr-pin-row input::placeholder{color:var(--m);}
 /* ── ADDRESS AUTOCOMPLETE ── */
@@ -1959,7 +2116,7 @@ body[data-nbd-size="comfortable"] .crm-icon-btn { width: calc(32px * var(--nbd-s
 .deleted-drawer-title{font-family:'Barlow Condensed',sans-serif;font-size:16px;font-weight:700;text-transform:uppercase;color:var(--t);}
 .deleted-drawer-close{background:none;border:none;color:var(--m);font-size:18px;cursor:pointer;padding:4px;}
 .deleted-drawer-body{flex:1;overflow-y:auto;padding:14px;}
-.deleted-card{background:var(--s2);border:1px solid var(--br);border-radius:8px;padding:12px;margin-bottom:10px;opacity:.85;}
+.deleted-card{background:var(--s2);border:1px solid var(--br);border-radius:var(--r-card, 8px);box-shadow:var(--elevation-card, none);padding:12px;margin-bottom:10px;opacity:.85;}
 .deleted-card-name{font-size:13px;font-weight:700;color:var(--t);margin-bottom:2px;}
 .deleted-card-addr{font-size:11px;color:var(--m);margin-bottom:8px;}
 .deleted-card-meta{font-size:10px;color:var(--m);margin-bottom:10px;}
@@ -1975,7 +2132,7 @@ body[data-nbd-size="comfortable"] .crm-icon-btn { width: calc(32px * var(--nbd-s
 .prop-card-addr{font-size:12px;font-weight:600;color:var(--blue);margin-bottom:4px;}
 .prop-card-coords{font-size:10px;color:var(--m);}
 /* ── PROPERTY INTEL CARD ── */
-.pi-card{background:var(--s2);border:1px solid var(--br);border-radius:8px;overflow:hidden;margin-bottom:6px;}
+.pi-card{background:var(--s2);border:1px solid var(--br);border-radius:var(--r-card, 8px);box-shadow:var(--elevation-card, none);overflow:hidden;margin-bottom:6px;}
 .pi-header{background:var(--s3);padding:9px 12px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--rule);}
 .pi-title{font-family:'Barlow Condensed',sans-serif;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--orange);}
 .pi-county{font-size:10px;color:var(--m);}
@@ -2022,7 +2179,7 @@ body[data-nbd-size="comfortable"] .crm-icon-btn { width: calc(32px * var(--nbd-s
 .lt-btn{display:flex;align-items:center;gap:7px;background:var(--s2);border:2px solid var(--br);border-radius:6px;padding:7px 9px;cursor:pointer;font-size:11px;font-weight:600;color:var(--t);transition:all .2s;}
 .lt-btn:hover,.lt-btn.active{background:var(--s3);}
 /* ── DRAWING TOOL UPGRADES ── */
-.draw-mode-row{display:flex;gap:5px;margin-bottom:8px;}
+.draw-mode-row{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:8px;}
 .draw-mode-btn{flex:1;background:var(--s2);border:1px solid var(--br);border-radius:6px;padding:6px 4px;font-size:10px;font-weight:700;font-family:'Barlow Condensed',sans-serif;letter-spacing:.06em;text-transform:uppercase;color:var(--m);cursor:pointer;text-align:center;transition:all .15s;}
 .draw-mode-btn:hover{border-color:var(--orange);color:var(--t);}
 .draw-mode-btn.active{background:var(--og);border-color:var(--orange);color:var(--orange);}
@@ -2035,7 +2192,7 @@ body[data-nbd-size="comfortable"] .crm-icon-btn { width: calc(32px * var(--nbd-s
 .er-bar.visible{display:block;}
 .er-close-btn{background:rgba(99,102,241,.2);border:1px solid rgba(99,102,241,.3);border-radius:4px;padding:3px 8px;font-size:9px;font-weight:700;color:#6366F1;cursor:pointer;margin-top:5px;width:100%;font-family:"Barlow Condensed",sans-serif;letter-spacing:.05em;}
 /* Rake/Eave chooser during perimeter draw */
-.re-chooser{background:var(--s);border:1px solid var(--br);border-radius:8px;padding:12px;margin-bottom:8px;display:none;box-shadow:0 4px 20px rgba(0,0,0,.4);}
+.re-chooser{background:var(--s);border:1px solid var(--br);border-radius:var(--r-card, 8px);padding:12px;margin-bottom:8px;display:none;box-shadow:0 4px 20px rgba(0,0,0,.4);}
 .re-chooser.visible{display:block;}
 .re-chooser-title{font-size:10px;color:var(--m);margin-bottom:8px;text-transform:uppercase;letter-spacing:.07em;font-weight:700;}
 .re-row{display:flex;gap:6px;}
@@ -2078,7 +2235,7 @@ body[data-nbd-size="comfortable"] .crm-icon-btn { width: calc(32px * var(--nbd-s
 /* Per-line type ordinal (#N) */
 .line-num{color:var(--m);font-weight:500;margin-left:2px;}
 .calc-selects{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-bottom:8px;}
-.calc-select{background:var(--s2);border:1px solid var(--br);border-radius:6px;padding:8px 9px;font-family:'Barlow',sans-serif;font-size:11px;color:var(--t);outline:none;width:100%;}
+.calc-select{background:var(--s2);border:1px solid var(--br);border-radius:var(--r-input, 6px);padding:8px 9px;font-family:'Barlow',sans-serif;font-size:11px;color:var(--t);outline:none;width:100%;}
 .calc-select:focus{border-color:var(--orange);}
 .calc-result{background:var(--s3);border:1px solid var(--br);border-radius:7px;padding:10px;margin-bottom:10px;}
 .cr-row{display:flex;justify-content:space-between;padding:3px 0;font-size:11px;border-bottom:1px solid rgba(255,255,255,.04);}
@@ -2123,7 +2280,8 @@ body[data-nbd-size="comfortable"] .crm-icon-btn { width: calc(32px * var(--nbd-s
 .li-table .grand td{color:var(--orange);font-family:'Barlow Condensed',sans-serif;font-size:15px;}
 
 /* ESTIMATE CARD */
-.est-card{background:var(--s2);border:1px solid var(--br);border-radius:8px;padding:13px 15px;display:flex;align-items:center;gap:12px;margin-bottom:8px;cursor:pointer;transition:all .2s;}
+.est-card{background:var(--s2);border:1px solid var(--br);border-radius:var(--r-card, 8px);box-shadow:var(--elevation-card, none);padding:13px 15px;display:flex;align-items:center;gap:12px;margin-bottom:8px;cursor:pointer;transition:all .2s;}
+.est-card:hover{box-shadow:var(--elevation-card-hover, none);}
 .est-card:hover{border-color:var(--orange);background:color-mix(in srgb, var(--orange) 4%, transparent);}
 .est-addr{font-size:13px;font-weight:600;color:var(--blue);margin-bottom:2px;}
 .est-meta{font-size:11px;color:var(--m);}
@@ -2250,6 +2408,15 @@ body[data-nbd-size="comfortable"] .crm-icon-btn { width: calc(32px * var(--nbd-s
 .stab-btn{background:transparent;border:none;border-bottom:2px solid transparent;padding:10px 18px;font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--m);cursor:pointer;transition:color var(--t-mid),border-color var(--t-mid),background var(--t-mid);white-space:nowrap;margin-bottom:-2px;}
 .stab-btn:hover{color:var(--t);}
 .stab-btn.stab-active{color:var(--orange);border-bottom-color:var(--orange);}
+/* Scroll affordance (mobile overflow sweep, 2026-09-14): #stab-bar's 13
+   tabs overflow-x:auto with no scrollbar cue at all — same invisible-
+   horizontal-scroll bug as .crm-hdr-views/.cb-stats-row above, same fix. */
+@media (max-width:768px){
+  #stab-bar{
+    -webkit-mask-image:linear-gradient(to right,#000 calc(100% - 24px),transparent 100%);
+    mask-image:linear-gradient(to right,#000 calc(100% - 24px),transparent 100%);
+  }
+}
 .stab-panel{animation:fadeIn .15s ease;}
 @keyframes fadeIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
 /* ═══ TEMPLATE LIBRARY ═══ */
@@ -2304,7 +2471,7 @@ body[data-nbd-size="comfortable"] .crm-icon-btn { width: calc(32px * var(--nbd-s
   .tl-doc-row{min-height:44px;}
 }
 
-.settings-section.collapsible { border: 1px solid var(--br); border-radius: 8px; padding: 0; background: var(--s); }
+.settings-section.collapsible { border: 1px solid var(--br); border-radius: var(--r-card, 8px); padding: 0; background: var(--s); }
 .settings-section.collapsible .settings-title { 
   cursor: pointer; 
   user-select: none; 
@@ -2345,7 +2512,7 @@ body[data-nbd-size="comfortable"] .crm-icon-btn { width: calc(32px * var(--nbd-s
    (#taskModal, pin/del confirms, shortcuts panel) use --z-overlay-top. */
 .modal-bg{display:none;position:fixed;top:0;right:0;bottom:0;left:0;background:rgba(0,0,0,.7);-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px);z-index:var(--z-overlay);align-items:center;justify-content:center;}
 .modal-bg.open{display:flex;}
-.modal{background:var(--s);border:1px solid var(--br);border-radius:12px;padding:28px;width:100%;max-width:500px;position:relative;max-height:90vh;overflow-y:auto;}
+.modal{background:var(--s);border:1px solid var(--br);border-radius:var(--r-modal, 12px);box-shadow:var(--elevation-modal, none);padding:28px;width:100%;max-width:500px;position:relative;max-height:90vh;overflow-y:auto;}
 .modal::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,var(--orange),transparent);}
 .modal-close{position:absolute;top:12px;right:14px;background:none;border:none;color:var(--m);font-size:17px;cursor:pointer;}
 .modal-close:hover{color:var(--t);}
@@ -2588,7 +2755,7 @@ body[data-nbd-size="comfortable"] .crm-icon-btn { width: calc(32px * var(--nbd-s
 .mok{background:rgba(46,204,138,.1);border:1px solid rgba(46,204,138,.3);border-radius:6px;padding:7px 11px;font-size:11px;color:var(--green);margin-bottom:10px;display:none;}
 
 /* TIPS MODAL */
-.tip-card{background:var(--s2);border:1px solid var(--br);border-radius:8px;padding:12px 14px;margin-bottom:8px;}
+.tip-card{background:var(--s2);border:1px solid var(--br);border-radius:var(--r-card, 8px);box-shadow:var(--elevation-card, none);padding:12px 14px;margin-bottom:8px;}
 .tip-num{font-family:'Barlow Condensed',sans-serif;font-size:11px;color:var(--orange);font-weight:700;margin-bottom:3px;}
 .tip-text{font-size:12px;color:var(--t);line-height:1.5;}
 
@@ -2597,7 +2764,7 @@ body[data-nbd-size="comfortable"] .crm-icon-btn { width: calc(32px * var(--nbd-s
    stacking on top of it. bottom: is untouched — a toast is transient, and
    anything transient that changed the FAB stack's vertical offset would make
    the whole stack jump every time a save fired. */
-#toast.toast{position:fixed;bottom:20px;right:calc(var(--nbd-fab-rail, 94px) + env(safe-area-inset-right, 0px));background:var(--s);border:1px solid var(--br);border-radius:8px;padding:10px 16px;font-size:13px;z-index:var(--z-toast);transform:translateY(60px);opacity:0;transition:transform var(--t-slow),opacity var(--t-slow);pointer-events:none;display:flex;flex-direction:column;gap:8px;min-width:200px;}
+#toast.toast{position:fixed;bottom:20px;right:calc(var(--nbd-fab-rail, 94px) + env(safe-area-inset-right, 0px));background:var(--s);border:1px solid var(--br);border-radius:var(--r-card, 8px);padding:10px 16px;font-size:13px;z-index:var(--z-toast);transform:translateY(60px);opacity:0;transition:transform var(--t-slow),opacity var(--t-slow);pointer-events:none;display:flex;flex-direction:column;gap:8px;min-width:200px;}
 #toast.toast.show{transform:translateY(0);opacity:1;}
 .toast.success,.toast.ok{border-color:var(--green);color:var(--green);}
 #toast.toast.error{border-color:var(--red);color:var(--red);}
@@ -2847,8 +3014,16 @@ input:focus, select:focus, textarea:focus {
 /* ── ENHANCED BUTTON STATES ── */
 /* transition:all retired (audit 2026-07-19): explicit properties on the
    token durations — the catchall animated every incidental change (see
-   the .k-card hover-jiggle post-mortem below). */
-.btn { transition: background var(--t-mid) cubic-bezier(.4,0,.2,1), color var(--t-mid) cubic-bezier(.4,0,.2,1), border-color var(--t-mid) cubic-bezier(.4,0,.2,1), box-shadow var(--t-mid) cubic-bezier(.4,0,.2,1), transform var(--t-mid) cubic-bezier(.4,0,.2,1); }
+   the .k-card hover-jiggle post-mortem below).
+   --shape-dur/--shape-ease (Shape & Depth, above) drive this instead of
+   the hardcoded var(--t-mid)/cubic-bezier(.4,0,.2,1) that used to sit
+   here — those two tokens were being SET per shape preset (Linework's
+   own comment calls it "near-zero motion") but never READ anywhere in
+   this file, so every preset's motion character was dead CSS; only
+   radius and shadow ever actually changed. The var(...) fallbacks equal
+   today's literal values, so "sharp" (no token override) stays the
+   exact same transition it always was. */
+.btn { transition: background var(--shape-dur, var(--t-mid)) var(--shape-ease, cubic-bezier(.4,0,.2,1)), color var(--shape-dur, var(--t-mid)) var(--shape-ease, cubic-bezier(.4,0,.2,1)), border-color var(--shape-dur, var(--t-mid)) var(--shape-ease, cubic-bezier(.4,0,.2,1)), box-shadow var(--shape-dur, var(--t-mid)) var(--shape-ease, cubic-bezier(.4,0,.2,1)), transform var(--shape-dur, var(--t-mid)) var(--shape-ease, cubic-bezier(.4,0,.2,1)); }
 .btn:active { transform: scale(.97); transition-duration: .08s; }
 /* Wave 5b: flat solid fill replaces the 135deg gradient. Live mirror
    showed that on themes where --orange and --ob have similar
@@ -2857,10 +3032,18 @@ input:focus, select:focus, textarea:focus {
    glow gives a uniformly readable button on all 66 themes. Hover
    nudges to --ob and adds depth via stronger glow — keeps the
    "press it" affordance without re-introducing the gradient. */
+/* var(--btn-shadow) below leads the .btn-orange box-shadow list (Shape &
+   Depth, above) — without it, .btn-orange's own fixed shadow always won
+   over .btn's plain box-shadow:var(--btn-shadow), since this rule is
+   later in source at equal specificity, so "Pressed" (its whole point is
+   an embossed button shadow) never showed on a single primary/orange
+   button in the app — only on secondary .btn-ghost ones. Defaults to
+   0 0 #0000 (paints nothing), so Sharp stays pixel-identical. */
 .btn-orange {
   background: var(--orange);
   color: var(--accent-fg);
   box-shadow:
+    var(--btn-shadow),
     inset 0 0 0 1px var(--accent-ring),
     0 4px 14px var(--og),
     0 1px 3px rgba(0,0,0,.15);
@@ -4094,6 +4277,32 @@ body {
     white-space:nowrap;
     -webkit-overflow-scrolling:touch;
     scrollbar-width:thin;
+    /* Scroll affordance (2026-09-09, same fix as customer.html's
+       .jump-nav): `scrollbar-width:thin` is the only cue this row
+       scrolls, and iOS/most mobile browsers hide even a thin scrollbar
+       until mid-scroll — so at rest (the state every rep sees on load)
+       "Ins Cash Fin War Svc" reads as the complete list, and Jobs/All
+       go undiscovered. A right-edge mask fade is a persistent, JS-free
+       "there's more" cue that composites correctly under any theme. */
+    -webkit-mask-image:linear-gradient(to right,#000 calc(100% - 24px),transparent 100%);
+    mask-image:linear-gradient(to right,#000 calc(100% - 24px),transparent 100%);
+  }
+  /* Close Board's stats row (close-board.js): 4 cards at min-width:100px +
+     gap:10px = 430px, always wider than a 375px phone, with plain
+     overflow-x:auto and no scrollbar override at all — same invisible-
+     scroll bug, third confirmed live instance. */
+  .cb-stats-row{
+    -webkit-mask-image:linear-gradient(to right,#000 calc(100% - 24px),transparent 100%);
+    mask-image:linear-gradient(to right,#000 calc(100% - 24px),transparent 100%);
+  }
+  /* Rep OS's Performance Snapshot row (rep-os.js): 4 cards at
+     flex:1;min-width:70px + gap:8px floor to 4*70+3*8=304px, wider than
+     the ~296px content width at a 320px phone, with plain overflow-x:auto
+     and no scrollbar override — same invisible-scroll bug, fourth
+     confirmed instance. */
+  .ros-perf-row{
+    -webkit-mask-image:linear-gradient(to right,#000 calc(100% - 24px),transparent 100%);
+    mask-image:linear-gradient(to right,#000 calc(100% - 24px),transparent 100%);
   }
   .crm-hdr-views .kview-btn{
     flex-shrink:0!important;

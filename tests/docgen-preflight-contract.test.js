@@ -32,6 +32,14 @@ const DG_DIR = path.join(__dirname, '..', 'docs/pro/js');
 const SRC_PREFLIGHT = fs.readFileSync(path.join(DG_DIR, 'doc-preflight.js'), 'utf8');
 const SRC_DOCGEN    = fs.readFileSync(path.join(DG_DIR, 'document-generator.js'), 'utf8');
 const SRC_TEMPLATES = fs.readFileSync(path.join(DG_DIR, 'document-generator-templates.js'), 'utf8');
+// estimate-config.js: dashboard.html loads this before document-generator.js /
+// doc-preflight.js (its own comment there: "MUST load before estimates.js +
+// estimate-builder-v2.js"), and it's the source of truth the GBB tier
+// consolidation (#1529) moved tier labels + warranty text onto
+// (window.NBD_ESTIMATE_CONFIG.tierLabel/tierWarrantyText). Load it here too so
+// this sandbox matches the real page instead of silently exercising only the
+// no-config fallback text every renderer carries for when it fails to load.
+const SRC_ESTCFG    = fs.readFileSync(path.join(DG_DIR, 'estimate-config.js'), 'utf8');
 
 // One sandbox holding the real hydrateDerivedFields + the real renderers, wired
 // as the browser wires them. Brand stub mirrors docgen-render.test.js.
@@ -46,6 +54,7 @@ function loadEnv() {
     console: { log() {}, warn() {}, error() {} },
     setTimeout, clearTimeout, Date, Math, JSON,
   };
+  vm.runInNewContext(SRC_ESTCFG, sandbox, { filename: 'estimate-config.js' });
   vm.runInNewContext(SRC_DOCGEN, sandbox, { filename: 'document-generator.js' });
   vm.runInNewContext(SRC_TEMPLATES, sandbox, { filename: 'document-generator-templates.js' });
   vm.runInNewContext(SRC_PREFLIGHT, sandbox, { filename: 'doc-preflight.js' });
@@ -299,23 +308,38 @@ function renderViaPreflight(method, preflightData) {
 }
 
 // ── warranty_certificate: installDate→issueDate; coverageDetails + transferable
-//    wired; roof-specific workPerformed default no longer fabricated ──
+//    wired; roof-specific workPerformed default no longer fabricated.
+//    GBB audit 2026-09-09 (documentation/audit/GBB-TIER-SOURCE-OF-TRUTH-2026-09-09.md
+//    §3/§8 PR3): transferability is now TIER-driven by default (Preferred/Elite
+//    are inherently transferable per estimate-config.js TIER_DISPLAY) — the rep
+//    checkbox can only ADD transferability on top of a non-transferable tier
+//    (Standard/'good'), it can never remove what a tier already promises. Uses
+//    'good' (Standard, non-transferable by default) so the checkbox's own
+//    effect is what's actually under test. ──
 {
   const html = renderViaPreflight('renderWarrantyCertificate', {
-    installDate: '2026-09-15', warrantyTier: 'best',
+    installDate: '2026-09-15', warrantyTier: 'good',
     coverageDetails: 'SENTINELcoverage', transferable: true,
   });
   console.log('PREFLIGHT CONTRACT — warranty_certificate');
   ok('warranty: renders (no error)', html.indexOf('RENDER_ERROR') !== 0);
   ok('warranty: rep install date reaches doc (installDate→issueDate)', /2026-09-15/.test(html));
   ok('warranty: rep coverage details reach doc (coverageDetails wired)', html.indexOf('SENTINELcoverage') !== -1);
-  ok('warranty: transferable clause shows only when checked', /transferable to a new owner/.test(html));
+  ok('warranty: rep-checked transferable clause shows on a Standard-tier cert (checkbox ADDS transferability)', /fully transferable/.test(html));
   ok('warranty: roof-specific "Complete roof replacement" workPerformed default is GONE', !/Complete roof replacement including tear-off/.test(html));
 }
-// transferable must NOT appear when the rep leaves it unchecked
+// Standard tier ('good') + unchecked → no transferability claim at all: the
+// tier default is non-transferable and the rep did not override it.
 {
-  const html2 = renderViaPreflight('renderWarrantyCertificate', { installDate: '2026-09-15', warrantyTier: 'best', transferable: false });
-  ok('warranty: transferable clause absent when unchecked', !/transferable to a new owner/.test(html2));
+  const html2 = renderViaPreflight('renderWarrantyCertificate', { installDate: '2026-09-15', warrantyTier: 'good', transferable: false });
+  ok('warranty: transferable clause absent on Standard tier when unchecked', !/transferable/.test(html2));
+}
+// Elite tier ('best') + unchecked → transferability claim is STILL present:
+// Elite is inherently fully transferable, and the checkbox cannot take that
+// away — only add to a lesser tier's default.
+{
+  const html3 = renderViaPreflight('renderWarrantyCertificate', { installDate: '2026-09-15', warrantyTier: 'best', transferable: false });
+  ok('warranty: Elite tier stays transferable even with the checkbox unchecked (tier default wins)', /fully transferable/.test(html3));
 }
 
 // ── certificate_of_completion: modal scopeCompleted bridges to renderer scopeSummary ──
@@ -442,6 +466,59 @@ for (const w of WIRING) {
   ok('contract: rep line-item description reaches doc', html.indexOf('CONTRACTITEM tear-off and replace') !== -1);
   ok('contract: rep line-item total (30 x $50 = $1,500.00) reaches doc', /1,500\.00/.test(html));
   ok('contract: rep contract price reaches doc', /18,500/.test(html));
+}
+
+// ── contract SERVER PAYLOAD: _buildServerPayload feeds the Puppeteer/PDF render
+//    path (functions/print/templates/contract.hbs), a SEPARATE code path from
+//    renderContract's client HTML tested above. doc-preflight's CONTRACT schema
+//    submits `paymentSchedule` as a plain STRING (a "Payment Schedule / Terms"
+//    textarea, not a {stage,due,amount} array) -- _buildServerPayload's contract
+//    branch used to call .map() on it unconditionally and throw a TypeError,
+//    which generate()'s outer try/catch silently swallowed, so every no-signers
+//    contract fell back to the client path with no visible symptom. This
+//    exercises _buildServerPayload directly so a regression here is caught even
+//    though the fallback hides it from the render-output tests above. ──
+function buildServerPayloadViaPreflight(preflightData) {
+  const data = Object.assign({ homeownerName: 'Jane Smith', address: '123 Main St', leadId: 'L1' }, preflightData);
+  try {
+    env.hydrate(data);
+    return env.dg._buildServerPayload('contract', data);
+  } catch (e) {
+    return { ERROR: e && e.message };
+  }
+}
+{
+  const payload = buildServerPayloadViaPreflight({
+    paymentSchedule: '50% due upon contract execution; remaining balance due upon substantial completion.',
+    warrantyTier: 'best',
+    contractPrice: 18500,
+  });
+  console.log('PREFLIGHT CONTRACT — contract (_buildServerPayload, server/PDF path)');
+  ok('server payload: does not throw on string paymentSchedule (was TypeError: .map is not a function)', !payload.ERROR);
+  ok('server payload: paymentSchedule table is empty (no invented $0.00 row from prose text)',
+    Array.isArray(payload.paymentSchedule) && payload.paymentSchedule.length === 0);
+  ok('server payload: prose schedule routes into paymentTerms instead',
+    payload.paymentTerms === '50% due upon contract execution; remaining balance due upon substantial completion.');
+  ok('server payload: warrantyTier bridges to warranty text (contract.hbs "5 · Warranty" section is dropped entirely when warranty is null)',
+    typeof payload.warranty === 'string' && payload.warranty.length > 0);
+  ok('server payload: warranty text reflects the selected "best"/Elite tier, not a fabricated/wrong one (lifetime + full transfer + inspection + Premium mfr, per estimate-config.js TIER_DISPLAY.best)',
+    /Lifetime/.test(payload.warranty) && /fully transferable/.test(payload.warranty)
+      && /annual courtesy inspection/.test(payload.warranty) && /Premium/.test(payload.warranty));
+}
+{
+  // A real {stage,due,amount} array (built programmatically rather than typed
+  // into the preflight textarea) must still populate the table as before.
+  const payload = buildServerPayloadViaPreflight({
+    paymentSchedule: [{ stage: 'Deposit', due: 'Upon execution', amount: 9250 }],
+  });
+  ok('server payload: a real array paymentSchedule still populates the table row',
+    payload.paymentSchedule.length === 1 && payload.paymentSchedule[0].stage === 'Deposit' && payload.paymentSchedule[0].amount === 9250);
+}
+{
+  // No warrantyTier at all (legacy/partial submission) must not throw and must
+  // leave warranty null -- the bridge is additive only, never fabricates.
+  const payload = buildServerPayloadViaPreflight({ paymentSchedule: 'Net 30.' });
+  ok('server payload: no warrantyTier supplied → warranty stays null (bridge does not fabricate)', payload.warranty === null);
 }
 
 // ── cert + before/after: real selected photos render as <img> (were empty

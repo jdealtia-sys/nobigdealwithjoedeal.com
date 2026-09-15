@@ -54,7 +54,7 @@ const HARD_EXCLUDE = new Map([
   // docs/our-work.html was excluded while the Featured Projects branch was in
   // flight; both merged 2026-08-06 and the page converted EXACT (0-diff) on
   // 2026-08-07.
-  ['docs/sites/free-guide/index.html', 'separate microsite chrome (no mainNav, badge logo)'],
+  ['docs/sites/free-guide/index.html', 'separate microsite chrome with contractor links (no mainNav, badge logo) — must never adopt a homeowner nav partial'],
 ]);
 
 function walkHtml(dir, out = []) {

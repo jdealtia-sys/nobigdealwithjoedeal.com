@@ -20,6 +20,14 @@
  *      with a Cache-Control header (renders are immutable)
  *   6. Return a signed read URL good for 7 days
  *
+ * Retention + read posture (2026-09-08): pdf-renders/ is owner/admin-read and
+ * client-write-denied in storage.rules, and functions/pdf-render-retention.js
+ * deletes objects past 30 days. Renders are derived artifacts — the Firestore
+ * row they were built from is the system of record, not the PDF. Do NOT stamp
+ * a `firebaseStorageDownloadTokens` value at upload time: a token bypasses
+ * storage.rules permanently and unrevocably, and doing it unconditionally is
+ * what made 19 of 21 prod objects publicly fetchable. See the upload block.
+ *
  * Why a Cloud Function (not a Cloud Run service):
  *   - Already in our infra, single deploy target
  *   - 2GB memory holds Chromium; ~1.5s renders on a warm instance
@@ -38,7 +46,7 @@
 
 const { onCall, HttpsError } = require('firebase-functions/v2/https');
 const { logger } = require('firebase-functions/v2');
-const { getFirestore } = require('firebase-admin/firestore');
+const { getFirestore, FieldValue } = require('firebase-admin/firestore');
 const { getStorage } = require('firebase-admin/storage');
 const { callableRateLimit } = require('./shared');
 const { withSentry } = require('./integrations/sentry');
@@ -226,11 +234,44 @@ function loadLayout() {
 // pattern for serverless Puppeteer — boot time is ~1.5s cold,
 // ~50ms with the browser still attached.
 let _browser = null;
+
+// Unwrap @sparticuz/chromium regardless of how the package is built.
+//
+// v149.0.0 dropped its CommonJS build. Its package.json is "type":"module"
+// with a single export condition ({".":{"types":..,"default":"./build/index.js"}}),
+// so require() on the nodejs22 runtime takes the require(esm) path and hands
+// back the ES module NAMESPACE — { __esModule, default, inflate,
+// setupLambdaEnvironment } — not the module object. The real API is a class on
+// `.default`, so BOTH `chromium.executablePath` and `chromium.args` read
+// undefined off the namespace. `await undefined()` is what produced
+// "chromium.executablePath is not a function" at stage:launch on 100% of
+// renders from the 148->149 bump (#712, 2026-06-24) onward.
+//
+// v148 shipped dual CJS/ESM — its "require" condition resolved to a .cjs with
+// executablePath/args as direct properties and no `.default` at all — which is
+// why the bump alone broke it with no code change.
+//
+// Probe for the API rather than reaching for `.default` unconditionally, so
+// this survives the package flipping back to CJS (where `.default` is absent).
+// Throw a legible error if neither shape carries it: the next packaging change
+// should name itself instead of resurfacing as "not a function".
+function resolveChromium(mod) {
+  for (const candidate of [mod, mod && mod.default]) {
+    if (candidate && typeof candidate.executablePath === 'function') return candidate;
+  }
+  throw new Error(
+    '@sparticuz/chromium exports no executablePath(); got ' +
+    (mod && typeof mod === 'object'
+      ? 'keys [' + Object.keys(mod).join(', ') + ']'
+      : typeof mod)
+  );
+}
+
 async function getBrowser() {
   if (_browser && _browser.isConnected && _browser.isConnected()) {
     return _browser;
   }
-  const chromium = require('@sparticuz/chromium');
+  const chromium = resolveChromium(require('@sparticuz/chromium'));
   const puppeteer = require('puppeteer-core');
   _browser = await puppeteer.launch({
     args: chromium.args,
@@ -239,6 +280,42 @@ async function getBrowser() {
     headless: 'shell',
   });
   return _browser;
+}
+
+// ─── renderPdf outcome counters (health-digest signal) ─────────
+// metrics/renderPdf carries LIFETIME ok/fail counters plus the last success
+// and failure timestamps, mirroring metrics/imagePipeline. The digest judges
+// health on whether a SUCCESS landed inside its window rather than on the
+// totals, because the failure mode worth catching is the one that just
+// happened: the 148->149 interop break failed 100% of renders for eleven
+// weeks with no `[renderPdf] ok` line anywhere in log retention, and nothing
+// alerted, because nothing was watching this path at all. A rising fail count
+// is a weaker signal than a missing success.
+//
+// Best-effort by construction. A metrics write must never turn a good render
+// into a failed one, and on the failure path it must not mask the real error —
+// so it swallows its own exception and logs instead.
+async function recordRenderOutcome(ok, info) {
+  const patch = ok
+    ? {
+      okCount: FieldValue.increment(1),
+      lastOkAt: FieldValue.serverTimestamp(),
+      lastOkTemplate: (info && info.template) || '',
+    }
+    : {
+      failCount: FieldValue.increment(1),
+      lastFailAt: FieldValue.serverTimestamp(),
+      lastFailStage: (info && info.stage) || '',
+      lastFailTemplate: (info && info.template) || '',
+      // Bounded: the message can carry a stack-ish tail, and this lands in an
+      // email body.
+      lastFailErr: String((info && info.err) || '').slice(0, 300),
+    };
+  try {
+    await getFirestore().doc('metrics/renderPdf').set(patch, { merge: true });
+  } catch (e) {
+    logger.warn('[renderPdf] metrics write failed', { err: e && e.message });
+  }
 }
 
 // ─── Tenant brand for document chrome (Phase B-4) ──────────────
@@ -250,7 +327,19 @@ const NBD_DOC_COMPANY = {
   // canonical NBD literals byte-identical behind {{#if company.isNbd}} while a
   // stranger tenant renders its own resolved chrome. NBD → true.
   isNbd: true,
-  logoUrl: 'https://nobigdealwithjoedeal.com/assets/images/nbd-logo.png',
+  // brandBandTop.hbs renders this into a 42x42pt `.brand-mark` box with
+  // object-fit:cover (design-system.css) — a 1:1 crop meant for an ICON, not
+  // a wordmark. Before 2026-09-15 this pointed at nbd-logo.png: harmless
+  // while that asset was 135x75 (the old roofline icon happened to sit
+  // center-left and survive the crop), but the 2026-09-14 brand refresh
+  // (#1570) replaced it with a 600x308 pure-wordmark PNG, so every PDF this
+  // CRM generates (contract/estimate/invoice/warranty/receipt/changeOrder/
+  // inspection/photoReport — all of TEMPLATES) had cropped the wordmark down
+  // to an illegible "DE" fragment since #1570 merged. apple-touch-icon.png
+  // is the canonical square (180x180) home-solutions mark and needs no CSS
+  // change. See tests/render-pdf-brand-mark-square.test.js — it would have
+  // caught this the moment #1570 landed.
+  logoUrl: 'https://nobigdealwithjoedeal.com/assets/images/apple-touch-icon.png',
   nameHtml: 'No Big <span class="accent">Deal</span> Home Solutions',
   footerName: 'No Big Deal Home Solutions',
   brandTag: 'Insurance Restoration Specialists · Greater Cincinnati',
@@ -263,6 +352,21 @@ const NBD_DOC_COMPANY = {
   contactName: 'Joe',
   seal: 'NBD',
   colors: null,
+  // Credential badges — affiliateRow.hbs (see NBD Document Standard section
+  // 5). Real https:// URLs, not data URIs: Puppeteer fetches them like any
+  // other page resource, unlike the browser doc viewer's srcdoc iframe
+  // (see docs/pro/js/nbd-badge-assets.js for why THAT context needs a
+  // data URI). Same three badges, same 'no member number' note as
+  // company-profile.js's client-side affiliates default.
+  affiliates: [
+    { name: 'GAF Certified',            number: '#1162011',
+      imageUrl: 'https://nobigdealwithjoedeal.com/assets/gaf/gaf-certified-badge-120.png' },
+    { name: 'TAMKO Pro Gold',           number: '#181382',
+      imageUrl: 'https://nobigdealwithjoedeal.com/assets/tamko/tamko-pro-gold-badge-120.png' },
+    { name: 'Locally Owned & Operated', number: '',
+      imageUrl: 'https://nobigdealwithjoedeal.com/assets/american-operator/american-operator-badge-120.png',
+      alt: 'Locally Owned & Operated — Certified by American Operator' },
+  ],
 };
 // Tenant-zero (platform) owner uid — solo convention: companyId == owner uid.
 // Same source of truth as estimate-email.js / lead-bridge.js / stripe.js.
@@ -300,6 +404,7 @@ const NEUTRAL_DOC_COMPANY = {
   contactName: '',
   seal: '',
   colors: null,
+  affiliates: [],
 };
 
 function hbsEsc(s) {
@@ -420,6 +525,11 @@ async function resolveDocCompany(companyId) {
           contactName: '', // tenants have no per-person first name; never 'Joe'
           seal: b.seal || '',
           colors: b.colors || null,
+          // Same rule as logo/seal above: a tenant's own affiliates only —
+          // never NBD's GAF/TAMKO/American Operator badges. A tenant that
+          // set name/number without imageUrl gets affiliateRow.hbs's plain
+          // text-card fallback, same as the client-side renderer.
+          affiliates: Array.isArray(b.affiliates) ? b.affiliates : [],
         };
       }
     }
@@ -580,21 +690,34 @@ exports.renderPdf = onCall(
       renderMs = Date.now() - t0 - buildMs;
 
       // ── upload to Storage with a deterministic-ish key ──
-      // Stamp a random Firebase download token so we can hand back a URL even
-      // when getSignedUrl() isn't available (see below).
+      // NO download token is stamped here. It used to be minted
+      // unconditionally so the fallback below would always have one to hand
+      // back — but that stamped a permanent, rules-bypassing public URL onto
+      // EVERY render, including the overwhelming majority where getSignedUrl()
+      // succeeded and the token was never used or even returned to anyone.
+      //
+      // Measured 2026-09-08: 19 of 21 objects under pdf-renders/ in prod
+      // carried one, and an unauthenticated HEAD on a customer roofing
+      // contract returned 200 OK, application/pdf. The identical URL with the
+      // token stripped returned 403 — the token was exactly what made it
+      // public. The token is now minted lazily, only if signing actually
+      // fails (see the fallback below).
+      //
+      // cacheControl is `private`, not `public`: these are customer invoices
+      // and contracts. `public` is a caching directive, not an ACL, but it
+      // licenses shared caches and proxies to retain the bytes; `private`
+      // keeps the browser cache (all the callable needs) without that.
       stage = 'upload';
       bucket = getStorage().bucket();
       const ts = Date.now();
       objectPath = `pdf-renders/${uid}/${ts}-${filename}`;
       file = bucket.file(objectPath);
-      downloadToken = crypto.randomUUID();
       await file.save(pdfBuffer, {
         metadata: {
           contentType: 'application/pdf',
-          cacheControl: 'public, max-age=31536000, immutable',
+          cacheControl: 'private, max-age=31536000, immutable',
           metadata: {
             template: templateKey, renderedBy: uid, renderedAtMs: String(ts),
-            firebaseStorageDownloadTokens: downloadToken,
           },
         },
         resumable: false,
@@ -608,6 +731,7 @@ exports.renderPdf = onCall(
       logger.error('[renderPdf] render failed', {
         stage, template: templateKey, uid, err: e && e.message, stack: e && e.stack,
       });
+      await recordRenderOutcome(false, { stage, template: templateKey, err: e && e.message });
       throw new HttpsError('internal', 'PDF render failed at stage: ' + stage, { stage });
     }
 
@@ -616,11 +740,24 @@ exports.renderPdf = onCall(
     // roles/iam.serviceAccountTokenCreator — the SAME gap that breaks
     // createCustomToken (access-code-login-iam-gap). When signing fails the
     // whole render threw and the client only saw a bare INTERNAL, so the entire
-    // server-render path silently fell back to html2canvas. We now try the
-    // signed URL (7-day expiry — preferred where the IAM role IS granted) and
-    // fall back to a Firebase download-token URL (no signing needed — the same
-    // pattern image-pipeline.js uses) so the render succeeds either way and
-    // self-heals once the role is granted.
+    // server-render path silently fell back to html2canvas. We try the signed
+    // URL (7-day expiry) and fall back to a Firebase download-token URL so the
+    // render succeeds either way.
+    //
+    // 2026-09-08: that IAM grant IS in place now —
+    // `717435841570-compute@developer.gserviceaccount.com` holds
+    // roles/iam.serviceAccountTokenCreator on nobigdeal-pro (verified against
+    // the live project IAM policy), so signing is the live path and the
+    // fallback should never fire. The fallback is KEPT rather than deleted
+    // because removing it re-arms the original failure mode: an IAM policy is
+    // editable from a console by someone who has no idea this callable depends
+    // on it, and the observed symptom last time was the whole server-render
+    // path silently degrading to html2canvas.
+    //
+    // What changed is the cost of that insurance. The token is now minted HERE,
+    // lazily, instead of being stamped on every object at upload — so it exists
+    // only on renders that actually could not be signed, and `urlMode` in the
+    // success log is a true record of which objects carry one.
     let url;
     let urlMode;
     try {
@@ -633,16 +770,43 @@ exports.renderPdf = onCall(
       url = signedUrl;
       urlMode = 'signed';
     } catch (signErr) {
+      // Signing failed — mint a token now and attach it, so this object (and
+      // only this object) gets a fetchable URL. pdfRenderRetention deletes it
+      // within RETENTION_DAYS, which is the only true revocation for a token.
+      downloadToken = crypto.randomUUID();
+      try {
+        await file.setMetadata({
+          metadata: {
+            template: templateKey, renderedBy: uid, renderedAtMs: String(Date.now()),
+            firebaseStorageDownloadTokens: downloadToken,
+          },
+        });
+      } catch (metaErr) {
+        // Neither URL strategy worked. Fail loudly instead of returning a URL
+        // that 403s — a silent bad link is what the B-7 fix set out to kill.
+        logger.error('[renderPdf] no usable URL: signing and token-stamp both failed', {
+          uid, path: objectPath,
+          signErr: signErr && signErr.message,
+          metaErr: metaErr && metaErr.message,
+        });
+        throw new HttpsError('internal', 'PDF rendered but no readable URL could be issued', {
+          stage: 'url',
+        });
+      }
       const encodedPath = encodeURIComponent(objectPath);
       url = `https://firebasestorage.googleapis.com/v0/b/${bucket.name}/o/${encodedPath}?alt=media&token=${downloadToken}`;
       urlMode = 'download-token';
-      logger.warn('[renderPdf] getSignedUrl unavailable, using download-token URL', {
-        uid, err: signErr && signErr.message,
+      // WARN, not info: this path leaves a permanent public URL behind, and
+      // the IAM grant that makes it unnecessary is already in place — so this
+      // firing means something regressed in the project's IAM policy.
+      logger.warn('[renderPdf] getSignedUrl unavailable, minted download-token URL', {
+        uid, path: objectPath, err: signErr && signErr.message,
       });
     }
 
     const totalMs = Date.now() - t0;
     logger.info('[renderPdf] ok', { template: templateKey, uid, urlMode, buildMs, renderMs, totalMs, bytes: pdfBuffer.length });
+    await recordRenderOutcome(true, { template: templateKey });
 
     return {
       ok: true,
@@ -667,3 +831,9 @@ exports._registerHelpersOnce = registerHelpersOnce;
 exports._registerPartialsOnce = registerPartialsOnce;
 exports._loadTemplateCss = loadTemplateCss;
 exports._normalizeDensity = normalizeDensity;
+// For tests: the @sparticuz/chromium CJS/ESM unwrap. Pure and dependency-free,
+// so a harness can feed it both real packaging shapes (v148's direct-property
+// CJS object and v149's ESM namespace) and assert on behaviour instead of
+// grepping the source for `.default` — a regex would have matched the broken
+// code just as happily.
+exports._resolveChromium = resolveChromium;

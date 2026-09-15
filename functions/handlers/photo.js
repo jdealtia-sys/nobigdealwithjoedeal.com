@@ -128,7 +128,13 @@ exports.signImageUrl = onRequest(
     // execute in the storage.googleapis.com origin. Customer-facing
     // portal HTML is served by Firebase Hosting (see storage.rules:78
     // comment). Nobody should be signing portal URLs here.
-    const match = filePath.match(/^(photos|galleries|reports|docs)\/([^/]+)\/(.+)$/);
+    // homeowner-uploads/ added 2026-09-14: portal.js's own comment claimed
+    // "the rep's dashboard re-signs on demand via the existing signImageUrl
+    // function" for these photos once their baked-in 7-day URL expires, but
+    // this allowlist never actually included the prefix — every such call
+    // 400'd "Invalid path shape" and the photo was unreachable from the rep
+    // gallery after 7 days. storage.rules now has a matching read rule too.
+    const match = filePath.match(/^(photos|galleries|reports|docs|homeowner-uploads)\/([^/]+)\/(.+)$/);
     if (!match) { res.status(400).json({ error: 'Invalid path shape' }); return; }
     const [, , ownerUid] = match;
 
@@ -323,6 +329,12 @@ exports.analyzeRoofPhoto = onRequest(
     } catch (e) {
       logger.warn('analyzeRoofPhoto auth failed', { err: e.message });
       res.status(401).json({ error: 'Unauthorized' });
+      return;
+    }
+
+    // Global AI kill-switch (Audit #4) — emergency halt without a deploy.
+    if (await require('../integrations/killswitch').isAiDisabled()) {
+      res.status(503).json({ error: 'AI temporarily disabled' });
       return;
     }
 
