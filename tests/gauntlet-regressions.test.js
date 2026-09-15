@@ -986,10 +986,17 @@ console.log('\nCRM custom-pipeline + kanban correctness (lead-lifecycle sweep)')
     /l\._stageRole = \(window\.stageRole \|\| stageRole\)\(l\._stageKey\)/.test(boot),
     'the module-local built-in returns active for custom stages, clobbering won/lost roles on every refresh');
   const cp = read('docs/pro/js/crm-pipeline.js');
-  assert('moveCard NOOPs a same-COLUMN re-drop using the stages ARRAY (window._stageKeys, not the view-key string)',
-    /window\.resolveColumn\(cur\.stage, _mcKeys\)/.test(cp)
-    && /Array\.isArray\(_mcKeys\) && _mcKeys\.length/.test(cp)
-    && /cur\.stage === newStage \|\| _mcCurCol === newStage/.test(cp),
+  // 2026-09-15: the transactional write + column-collapse NOOP guard moved
+  // out of moveCard's own body and into stage-write.js's commitStageChange()
+  // — the same guard, shared with customer.html's progressStage() so BOTH
+  // stage-change paths get the race protection, not just the kanban. moveCard
+  // itself still computes + passes isDrag (asserted below); the guard logic
+  // that CONSUMES it now lives in the shared module.
+  const sw = read('docs/pro/js/stage-write.js');
+  assert('commitStageChange NOOPs a same-COLUMN re-drop using the stages ARRAY (window._stageKeys, not the view-key string)',
+    /window\.resolveColumn\(cur\.stage, _keys\)/.test(sw)
+    && /Array\.isArray\(_keys\) && _keys\.length/.test(sw)
+    && /cur\.stage === newStage \|\| _curCol === newStage/.test(sw),
     'resolveColumn arg2 is the stages array; a view-key string makes .includes() a substring test → blocks legit moves');
   assert('per-column drop handler stopPropagation (no double moveCard via the board handler)',
     /const dropHandler = e => \{[\s\S]{0,400}e\.stopPropagation\(\)/.test(cp));
@@ -1001,10 +1008,14 @@ console.log('\nCRM custom-pipeline + kanban correctness (lead-lifecycle sweep)')
   // shares a column with the current one was being silently discarded as a
   // false NOOP. Fixed via an opts.isDrag flag, true ONLY at the 3 genuine
   // drag-drop call sites.
-  assert('moveCard only applies the column-collapse comparison when isDrag is true',
+  assert('moveCard computes isDrag and passes it through to the shared commit',
     /const isDrag = !!\(opts && opts\.isDrag\)/.test(cp)
-    && /const _mcCurCol = \(isDrag && typeof window\.resolveColumn/.test(cp),
-    'without the isDrag gate, an explicit Close-Job/stage-picker/list-view/bulk-move to a stage sharing a column with the current stage silently no-ops instead of actually changing stage');
+    && /commitStageChange\(id, newStage, oldStage, \{[\s\S]{0,80}isDrag,/.test(cp),
+    'without isDrag reaching commitStageChange, an explicit Close-Job/stage-picker/list-view/bulk-move to a stage sharing a column with the current stage would silently no-op instead of actually changing stage');
+  assert('commitStageChange only applies the column-collapse comparison when isDrag is true',
+    /const isDrag = !!opts\.isDrag/.test(sw)
+    && /const _curCol = \(isDrag && typeof window\.resolveColumn/.test(sw),
+    'the column-collapse comparison must be gated on isDrag or an explicit distinct-stage move sharing a column with the current stage would silently no-op');
   assert('both kanban drop handlers (new-system + legacy) pass isDrag:true',
     (cp.match(/moveCard\(draggedId,\s*\w+,\s*\{\s*isDrag:\s*true\s*\}\)/g) || []).length === 2,
     'a drag call site missing isDrag:true would wrongly apply exact-match comparison and rewrite the real stage on a same-column re-drop');

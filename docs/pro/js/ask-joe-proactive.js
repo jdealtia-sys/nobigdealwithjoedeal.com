@@ -76,11 +76,22 @@
     return k === 'estimate_sent' || k === 'estimate_submitted' || k === 'estimate_sent_cash';
   }
   const _TERMINAL_STAGE_KEYS = new Set(['closed', 'lost', 'won', 'complete', 'Complete', 'Lost']);
+  // 2026-09-15: hardcoded fast-path + role-aware fallback (same pattern as
+  // functions/portal.js's progressKeyFor). Without the fallback, a tenant's
+  // own custom stage tagged role won/lost via Settings > Pipelines is
+  // invisible here — Ask Joe would keep treating an already-decided
+  // custom-pipeline lead as still active, nudging the rep about a lead
+  // that's actually finished.
   function _isTerminal(lead) {
     if (!lead) return false;
     if (_TERMINAL_STAGE_KEYS.has(lead.stage)) return true;
     const k = _stageKey(lead);
-    return _TERMINAL_STAGE_KEYS.has(k);
+    if (_TERMINAL_STAGE_KEYS.has(k)) return true;
+    if (typeof window.stageRole === 'function') {
+      const role = window.stageRole(k);
+      return role === 'won' || role === 'lost';
+    }
+    return false;
   }
 
   // ═════════════════════════════════════════════════════════

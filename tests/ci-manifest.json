@@ -134,7 +134,8 @@
     "sentry-release-stamp-step.test.js",
     "voice-portal-draft-killswitch.test.js",
     "ai-disabled-coverage.test.js",
-    "photo-editor-switch-photoid-2026-09-14.test.js"
+    "photo-editor-switch-photoid-2026-09-14.test.js",
+    "stage-role-fallback-coverage.test.js"
   ],
   "smoke": {
     "team-roles.test.js": [

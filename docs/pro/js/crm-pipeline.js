@@ -1723,6 +1723,18 @@ function _openLeadModalWithMissingFieldsBanner(lead, targetStage, missingFields)
   }, 30);
 }
 
+// Lazily-loaded, cached handle on stage-write.js's shared commitStageChange
+// — the single transactional write path also used by progressStage() on
+// customer.html (2026-09-15 foundation work). A plain <script> file can't
+// use a static `import`, so this is a dynamic import cached after the first
+// call; dashboard.html modulepreloads the file so that first call doesn't
+// cost a cold fetch on the hottest path in the app (every kanban move).
+let _stageWriteModPromise = null;
+function _stageWriteMod() {
+  if (!_stageWriteModPromise) _stageWriteModPromise = import('./stage-write.js');
+  return _stageWriteModPromise;
+}
+
 async function moveCard(id, newStage, opts){
   // isDrag: true ONLY for the 3 genuine drag-and-drop call sites, where
   // `newStage` is a COLUMN key the card was physically dropped on — several
@@ -1874,120 +1886,21 @@ async function moveCard(id, newStage, opts){
     try { window.refreshCardDetailChips(id); } catch (_) {}
   }
 
-  // Record stage change in history
-  const historyEvent = {
-    from: oldStage,
-    to: newStage,
-    timestamp: new Date().toISOString(),
-    user: window._currentUser?.email || 'unknown'
-  };
-  if (isLostMove && lostReason) historyEvent.lostReason = lostReason;
-
   try {
-    // Save to Firebase in background.
-    // Cross-tab guard: previous code did a bare updateDoc which let
-    // two tabs viewing the same lead each fire `arrayUnion` on
-    // stageHistory and a fresh stageStartedAt — duplicate "Stage moved"
-    // notes appeared on the timeline and the days-in-stage badge
-    // reset to whichever serverTimestamp landed last. Use a Firestore
-    // transaction that aborts if the server's `stage` no longer
-    // matches the `oldStage` we expect — that means another tab beat
-    // us, and we should NOT re-apply our move.
-    const leadRef = window.doc(window.db, 'leads', id);
-    if (typeof window.runTransaction === 'function') {
-      await window.runTransaction(window.db, async (tx) => {
-        const snap = await tx.get(leadRef);
-        if (!snap.exists()) throw new Error('Lead not found');
-        const cur = snap.data() || {};
-        // NOOP guards — throw so the catch restores our optimistic state:
-        //  (a) the stage already IS newStage (another tab won), OR
-        //  (b) DRAG ONLY: the card's CURRENT stage already resolves to the
-        //      SAME visible column as the drop target. In collapsed views
-        //      (Simple/insurance) several real stages share one column — e.g.
-        //      crew_scheduled shows in the 'Installing' column. Dropping the
-        //      card back onto its own column fires moveCard(id, columnKey, {isDrag:true});
-        //      without this guard it would rewrite the real stage to the
-        //      column's canonical key, silently DOWNGRADING role (WON→JOB),
-        //      resetting stageStartedAt and logging a misleading move.
-        //      Gated on isDrag — an EXPLICIT distinct-stage action (Close Job,
-        //      stage picker, list view, bulk move) must compare by exact
-        //      stage, not by column: those pass a real target stage that may
-        //      legitimately share a column with the current one (#985's
-        //      install_complete→closed collapse in Simple view is exactly
-        //      that case) and must NOT be coerced into a no-op.
-        // resolveColumn(stageKey, viewStages) takes the STAGES ARRAY as arg2
-        // (window._stageKeys), NOT the view-key string — passing a string makes
-        // .includes() a substring test that returns garbage (blocks legit moves
-        // AND misses the target downgrade). Only apply the column-collapse NOOP
-        // when we actually have the current view's stage array.
-        const _mcKeys = window._stageKeys;
-        const _mcCurCol = (isDrag && typeof window.resolveColumn === 'function' && Array.isArray(_mcKeys) && _mcKeys.length)
-          ? window.resolveColumn(cur.stage, _mcKeys) : cur.stage;
-        if (cur.stage === newStage || _mcCurCol === newStage) {
-          throw new Error('STAGE_RACE_NOOP');
-        }
-        // Only enforce the from-stage check when we actually have one
-        // recorded; brand-new optimistic-inserted leads can have
-        // undefined `lead.stage` locally even though Firestore has
-        // already settled on 'New'. Treat undefined as "trust me".
-        if (oldStage && cur.stage && cur.stage !== oldStage) {
-          throw new Error('STAGE_RACE_LOST');
-        }
-        const payload = {
-          stage: newStage,
-          // Persist the semantic role alongside the stage so server automations
-          // + KPIs can classify without a hardcoded stage-key list (freeform
-          // foundation; forward-fills as leads move). Fail-soft if unexposed.
-          ...(window.stageRole ? { stageRole: window.stageRole(newStage) } : {}),
-          updatedAt: window.serverTimestamp(),
-          stageStartedAt: window.serverTimestamp(),
-          stageHistory: window.arrayUnion(historyEvent)
-        };
-        if (isLostMove) {
-          payload.closedAt = window.serverTimestamp();
-          if (lostReason) payload.lostReason = lostReason;
-        }
-        tx.update(leadRef, payload);
-      });
-    } else {
-      // Fallback for any page where runTransaction isn't exposed yet.
-      const updatePayload = {
-        stage: newStage,
-        ...(window.stageRole ? { stageRole: window.stageRole(newStage) } : {}),
-        updatedAt: window.serverTimestamp(),
-        stageStartedAt: window.serverTimestamp(),
-        stageHistory: window.arrayUnion(historyEvent)
-      };
-      if (isLostMove) {
-        updatePayload.closedAt = window.serverTimestamp();
-        if (lostReason) updatePayload.lostReason = lostReason;
-      }
-      await window.updateDoc(leadRef, updatePayload);
-    }
-    
+    // Save to Firebase via the shared commitStageChange() (stage-write.js) —
+    // a Firestore transaction that aborts as STAGE_RACE_NOOP/STAGE_RACE_LOST
+    // if another tab/session already moved this lead since our `oldStage`
+    // snapshot. Also used by customer.html's progressStage() (2026-09-15
+    // foundation work) so both write paths share one set of race guards
+    // instead of the kanban being the only safe one.
+    const { commitStageChange } = await _stageWriteMod();
+    const { historyEvent } = await commitStageChange(id, newStage, oldStage, {
+      isDrag, isLostMove, lostReason, actorLabel: window._currentUser?.email,
+    });
+
     // Update local state with history
     if(!lead.stageHistory) lead.stageHistory = [];
     lead.stageHistory.push(historyEvent);
-
-    // Auto-log activity note for timeline
-    try {
-      const stageLabel = window.STAGE_META?.[newStage]?.label || newStage;
-      await window.addDoc(window.collection(window.db, 'notes'), {
-        leadId: id,
-        userId: window._user?.uid,
-        text: `Stage moved to "${stageLabel}"`,
-        type: 'stage_change',
-        createdAt: window.serverTimestamp(),
-        createdBy: window._user?.email || 'system'
-      });
-    } catch(e) { console.warn('Activity log write failed:', e.message); }
-
-    // Trigger email drip automation on stage change
-    try {
-      if (window.EmailDrip?.onStageChange) {
-        window.EmailDrip.onStageChange(id, oldStageKey, lead._stageKey || newStage);
-      }
-    } catch(e) { console.warn('Drip trigger failed:', e.message); }
 
     // Mark as synced
     lead._syncing = false;
