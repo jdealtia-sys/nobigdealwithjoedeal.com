@@ -23,21 +23,42 @@ rather than re-proposed as new work.
 | 5 | [#1567](https://github.com/jdealtia-sys/nobigdealwithjoedeal.com/pull/1567) | **Data loss.** `photo-editor.js`'s drawn annotations (arrows/callouts/stamps/measurements) lived only in an in-memory array reset on every open/switch/close — no save path ever wrote them to Firestore, so a rep's markup vanished on reload unless they flattened it into a brand-new raster image (destroying the vector data permanently either way). Added `annotations` + `originalUrl`/`originalStoragePath` fields to the existing `/photos/{photoId}` doc — additive, no rules or report-pipeline change needed | New `tests/photo-editor-annotation-persistence.test.js`, a real fake-DOM/`vm` harness driving actual pointer events: 23/35 (pre-fix) → 35/35 (post-fix). Also found and separately flagged (not fixed here, spun off as its own task) that `switchPhoto()` never updates `S.photoId`, so a save after switching photos can target the wrong doc |
 | 6 | [#1566](https://github.com/jdealtia-sys/nobigdealwithjoedeal.com/pull/1566) | **Mobile.** A fresh sweep of the CRM views the last mobile audit (`NEXT_SESSION-2026-09-09.md` §14) hadn't reached found the same "hidden-scrollbar, no affordance" bug already fixed 3x (PR #1531) in three more places — **Settings** (`#stab-bar`, 13 tabs, the widest bar in the app), **Rep OS** (Performance Snapshot row, same shape as the already-fixed Close Board stats row), plus a narrower grid-overflow variant in **Products**, a missing `flex-wrap` in **Drawing Tool** (its own sibling button groups already had it), and one bonus outside the original list in **Real Deal Academy**'s tabs | Confirmed **clean, no bug** on the other 6 views checked (Estimate Builder V2 — despite being flagged highest-risk, the most mobile-hardened view in the app; Prospects, Sales Training, Job Templates, Expenses, Money, Leaderboard) — recorded here so nobody re-audits them. Static-analysis-verified only; **live visual verification on a real mobile viewport was not performed this session** (see below) |
 
-## Live mobile visual verification — explicitly not done, and why
+## Live mobile visual verification — done, and it caught a real bug
 
-PR #1566's own body already flags this. This session did not spin up an
-authenticated CRM session (Firebase emulator + seeded auth/Firestore data,
-or a real login) to visually confirm the five mobile fixes render correctly
-on an actual phone-width viewport in both themes — the CSS-selector-level
-structural tests prove the *rule* landed correctly, not that it *renders*
-correctly. Doing that check properly needs either the emulator+Playwright
-harness this repo already has (`authed-e2e` per prior session notes) or a
-manual login walk-through; both are more machinery than this session
-invested in given the fixes are small, mechanically identical to three
-already-shipped and since-verified-safe instances of the same pattern.
-**Recommend: before merging #1566, load Settings/Rep OS/Products/Drawing
-Tool/Real Deal Academy at 320px and 375px width, both themes, and confirm
-the fade/wrap reads correctly** — a 10-minute check, not a re-investigation.
+Done as a same-day follow-up: booted the Firebase emulator suite (Auth +
+Firestore + Storage + Hosting, on isolated non-default ports so as not to
+collide with the several *other* live sessions already running their own
+emulators on the standard ports at the time — confirmed via `netstat`
+before starting), seeded a real test tenant via the existing
+`tests/e2e/fixtures/seed-emulator.js`, and logged in through the actual
+`/pro/login.html` flow via the Browser-pane MCP tool. Checked all 5 fixed
+views at both 320px and 375px.
+
+**4 of 5 confirmed correct as shipped:** Settings `#stab-bar`, Rep OS
+`.ros-perf-row`, Drawing Tool `.draw-mode-row`, Real Deal Academy
+`.rda-tabs` — mask-image fades and flex-wrap all render and behave exactly
+as intended.
+
+**1 of 5 (Products) had a real bug the fix hadn't actually closed.** The
+`@media (max-width:360px){.pl-product-grid{grid-template-columns:1fr;}}`
+rule collapsed to a single column correctly, but a card's cost/unit badge
+still rendered clipped with no scrollbar at 320px — confirmed visually,
+then cross-checked with native Playwright/Chromium at true 320px device
+metrics (not just the Browser-pane tool) to rule out a testing-tool
+artifact before trusting the result; both gave byte-identical numbers.
+**Root cause:** a bare `1fr` grid track has an *implicit* automatic minimum
+of `auto` per the CSS Grid spec — the widest min-content contribution among
+the grid's children, not 0. This card's own `white-space:nowrap` badges
+have a ~307px min-content width, so the single-column track stayed 307px
+wide inside a 232px container regardless of the media query. Proven
+empirically that this had nothing to do with cascade/specificity — forcing
+`grid-template-columns:1fr !important` directly via devtools did not change
+the computed track size at all. The fix is `minmax(0,1fr)`, which explicitly
+overrides the implicit floor; confirmed via computed style and a full
+screenshot showing the badge fully visible again. Pushed as a follow-up
+commit (`8e26b1d6`) to PR #1566 with a permanent regression-guard assertion
+(proven to fail against the original bare-`1fr` code, pass against the fix)
+and posted as a PR comment with full reasoning.
 
 ## Flagged, not acted on — surfaced for Jo, no code changes
 
