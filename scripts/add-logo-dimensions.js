@@ -3,13 +3,18 @@
  * SEO-hardening 2026-07 (F3): add intrinsic width/height attributes to every
  * <img> that loads /assets/images/nbd-logo.png and has no width attribute.
  *
- * The logo's intrinsic size is 240x160 (verified with PIL). Rendering does not
- * change: the nav variant is sized by its inline style (height:42px;width:auto)
- * which overrides the attributes, and the unstyled footer/blog variants already
+ * The logo's intrinsic size is 600x308 (2026-09-14 brand-pack refresh, #1570;
+ * was 240x160 when this script was written). Rendering does not change: the
+ * nav variant is sized by its inline style (height:42px;width:auto) which
+ * overrides the attributes, and the unstyled footer/blog variants already
  * render at intrinsic size. The attributes give the browser an aspect ratio
  * before the image loads, eliminating that source of layout shift.
  *
- * Idempotent: tags that already carry a width attribute are left alone.
+ * Idempotent: tags that already carry a width attribute are left alone — which
+ * is also why this script landmines a stale value rather than ever fixing one:
+ * once #1570's restamp gave every matched page a real width= attribute, this
+ * script has had nothing left to touch, so its own 600x308 update here is
+ * cosmetic (accuracy for the next brand refresh, not a live bug fix).
  */
 const fs = require('fs');
 const path = require('path');
@@ -41,7 +46,7 @@ for (const file of walk(ROOT)) {
     count++;
     return tag.replace(
       /src="\/assets\/images\/nbd-logo\.png"/,
-      'src="/assets/images/nbd-logo.png" width="240" height="160"'
+      'src="/assets/images/nbd-logo.png" width="600" height="308"'
     );
   });
   if (count > 0) {

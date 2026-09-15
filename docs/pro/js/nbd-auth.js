@@ -82,7 +82,7 @@ const DEFAULT_SENTRY_DSN = "";
 // look up as PLAN_LEVELS['professional'] = undefined → 0 → gated at
 // free tier — the exact upgrade-wall bug Joe kept seeing on his own
 // admin account (historically with 'growth', same failure mode).
-const PLAN_LEVELS = { free: 0, lite: 1, starter: 2, growth: 3, enterprise: 4 };
+const PLAN_LEVELS = { free: 0, lite: 1, starter: 2, team: 3, growth: 4, enterprise: 5 };
 const PLAN_ALIASES = {
   foundation:   'starter',
   blueprint:    'starter',
@@ -172,6 +172,7 @@ const PLAN_NAMES = {
   free:         'Free',
   lite:         'Free',
   starter:      'Starter',
+  team:         'Team',
   growth:       'Growth',
   enterprise:   'Enterprise',
   // Legacy aliases (read-boundary defense — see PLAN_ALIASES):

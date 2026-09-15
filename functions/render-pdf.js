@@ -327,7 +327,19 @@ const NBD_DOC_COMPANY = {
   // canonical NBD literals byte-identical behind {{#if company.isNbd}} while a
   // stranger tenant renders its own resolved chrome. NBD → true.
   isNbd: true,
-  logoUrl: 'https://nobigdealwithjoedeal.com/assets/images/nbd-logo.png',
+  // brandBandTop.hbs renders this into a 42x42pt `.brand-mark` box with
+  // object-fit:cover (design-system.css) — a 1:1 crop meant for an ICON, not
+  // a wordmark. Before 2026-09-15 this pointed at nbd-logo.png: harmless
+  // while that asset was 135x75 (the old roofline icon happened to sit
+  // center-left and survive the crop), but the 2026-09-14 brand refresh
+  // (#1570) replaced it with a 600x308 pure-wordmark PNG, so every PDF this
+  // CRM generates (contract/estimate/invoice/warranty/receipt/changeOrder/
+  // inspection/photoReport — all of TEMPLATES) had cropped the wordmark down
+  // to an illegible "DE" fragment since #1570 merged. apple-touch-icon.png
+  // is the canonical square (180x180) home-solutions mark and needs no CSS
+  // change. See tests/render-pdf-brand-mark-square.test.js — it would have
+  // caught this the moment #1570 landed.
+  logoUrl: 'https://nobigdealwithjoedeal.com/assets/images/apple-touch-icon.png',
   nameHtml: 'No Big <span class="accent">Deal</span> Home Solutions',
   footerName: 'No Big Deal Home Solutions',
   brandTag: 'Insurance Restoration Specialists · Greater Cincinnati',
@@ -340,6 +352,21 @@ const NBD_DOC_COMPANY = {
   contactName: 'Joe',
   seal: 'NBD',
   colors: null,
+  // Credential badges — affiliateRow.hbs (see NBD Document Standard section
+  // 5). Real https:// URLs, not data URIs: Puppeteer fetches them like any
+  // other page resource, unlike the browser doc viewer's srcdoc iframe
+  // (see docs/pro/js/nbd-badge-assets.js for why THAT context needs a
+  // data URI). Same three badges, same 'no member number' note as
+  // company-profile.js's client-side affiliates default.
+  affiliates: [
+    { name: 'GAF Certified',            number: '#1162011',
+      imageUrl: 'https://nobigdealwithjoedeal.com/assets/gaf/gaf-certified-badge-120.png' },
+    { name: 'TAMKO Pro Gold',           number: '#181382',
+      imageUrl: 'https://nobigdealwithjoedeal.com/assets/tamko/tamko-pro-gold-badge-120.png' },
+    { name: 'Locally Owned & Operated', number: '',
+      imageUrl: 'https://nobigdealwithjoedeal.com/assets/american-operator/american-operator-badge-120.png',
+      alt: 'Locally Owned & Operated — Certified by American Operator' },
+  ],
 };
 // Tenant-zero (platform) owner uid — solo convention: companyId == owner uid.
 // Same source of truth as estimate-email.js / lead-bridge.js / stripe.js.
@@ -377,6 +404,7 @@ const NEUTRAL_DOC_COMPANY = {
   contactName: '',
   seal: '',
   colors: null,
+  affiliates: [],
 };
 
 function hbsEsc(s) {
@@ -497,6 +525,11 @@ async function resolveDocCompany(companyId) {
           contactName: '', // tenants have no per-person first name; never 'Joe'
           seal: b.seal || '',
           colors: b.colors || null,
+          // Same rule as logo/seal above: a tenant's own affiliates only —
+          // never NBD's GAF/TAMKO/American Operator badges. A tenant that
+          // set name/number without imageUrl gets affiliateRow.hbs's plain
+          // text-card fallback, same as the client-side renderer.
+          affiliates: Array.isArray(b.affiliates) ? b.affiliates : [],
         };
       }
     }

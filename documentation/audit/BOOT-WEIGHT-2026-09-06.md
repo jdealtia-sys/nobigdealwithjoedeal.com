@@ -712,6 +712,71 @@ correctness fix on an already-lazy path.
 
 **All five deferred brand-hydration sites are now closed.**
 
+## `maps-routing.js` + `talk-tank.js` made lazy (2026-09-14, PR-5)
+
+Acting on the freeze-list containment item from the Grok Pro/CRM audit
+evaluation (2026-09-13; write-up lands separately as PR-6 — link it here once
+it merges), Part 2 ("Freeze-list measurement (no build)"), which measured
+`dashboard.html`
+at **135 static tags / 3,068.8 KiB** on 2026-09-13 (+22.9 KiB since this doc's
+09-06 baseline) and flagged `maps-routing.js` — 172 KiB, the **#2 largest
+static file on the page** — as the obvious next lazy move, since it is the
+fourth of the four `maps.js`-split siblings (see that file's own header) and
+nothing but the draw view touches it. `talk-tank.js` (14.8 KiB) had the same
+shape: a single-view module with zero callers outside `goTo('talk-tank')`,
+two static `<script>` tags away from the treatment already given to
+storm/closeboard/expenses/money/repos.
+
+Re-measured against `origin/main@665dd408` immediately before this change
+(13 commits ahead of the 09-13 audit's tree, hence the drift from that
+report's own numbers): **135 tags / 3,134.3 KiB**, same counting rule as
+§Baseline above (tags inside `<template>` and HTML comments excluded).
+
+| | tags | bytes |
+|---|---|---|
+| before | 135 | 3,134.3 KiB |
+| after | **133** (−2) | **2,947.8 KiB** (**−186.5**) |
+
+- **`maps-routing.js` (171.6 KiB) → `script-loader.js`'s new `drawtool`
+  bundle**, loaded alongside `mapvendor` on `goTo('draw')`. Confirmed safe to
+  decouple from the eager `maps-core → overlays → customers → routing → maps`
+  chain three ways: (1) `dashboard-actions.js`'s `goTo('draw')` handler
+  already polls `window.initDrawMap` via the same `waitForMapFn()` poller used
+  for Leaflet itself — no dispatcher change needed; (2) neither
+  `maps-core.js` nor `maps-overlays.js` references anything drawing-tool
+  specific (grepped clean); (3) vm-sandboxed the file with no `L` (Leaflet)
+  global defined — it executes cleanly, proving no top-level code path
+  depends on Leaflet or fires before the user ever opens the draw view. The
+  one real gap: a bare `if(drawMap)` read in `dashboard-ui.js`'s
+  `drawSearch` autocomplete callback (registered unconditionally at boot,
+  like the `mapSearch` callback beside it) would have thrown
+  `ReferenceError: drawMap is not defined` on any session that fires
+  `drawSearch` before ever opening `#/draw` — `drawMap` is a bare
+  sibling-scope `let`, never a `window` property (see
+  `maps-routing.js`'s header). Fixed alongside the move:
+  `typeof drawMap !== 'undefined' && drawMap`.
+- **`talk-tank.js` (14.8 KiB) → the new `talktank` bundle**, chained on
+  `dashboard-actions.js`'s `_lazyPreload` in `goTo()`'s dispatcher —
+  previously called `window.TalkTank.init()` unconditionally, the one
+  dispatch branch among storm/closeboard/expenses/money/repos/talk-tank that
+  hadn't been converted.
+- Now the #2 largest static file is `dashboard-ui.js` (131.7 KiB), behind
+  only `dashboard-bootstrap.module.js` (290.5 KiB, a module script — out of
+  scope here, boots the auth/session chain).
+
+**Verification.** New `tests/e2e/boot-weight.spec.js` cases (real emulator +
+seeded test user, `npm run test:e2e:authed:emu` scoped to `boot-weight.spec.js`,
+not simulated): both assert absence at boot, presence on
+`goTo('draw')` / `goTo('talk-tank')`, and — for the draw case — a real
+Leaflet map actually constructs (`.leaflet-pane` inside `#drawMap`) plus the
+`drawSearch` callback surviving a pre-load invocation. Proven able to fail:
+stashed all four fixed files and reran against the pre-fix tree — both cases
+reddened on exactly their target assertion (`maps-routing.js must not be
+fetched at boot`, `talk-tank.js must not be fetched at boot`), then the fix
+was restored and both went green again. `check-js-syntax` 504 files ·
+`check-site-integrity` 0 failures · `check-inline-html-scripts` 0 scripts ·
+`apply-partials --check --diff` clean.
+
 ## Follow-ups found, not done here
 
 - ~~**`window.generatePhotoReport` is assigned twice on `customer.html`**~~ —
@@ -748,3 +813,7 @@ correctness fix on an already-lazy path.
 `docs/pro/js/customer-tasks-ui.js` · `docs/pro/js/estimate-v2-ui.js` ·
 `docs/pro/js/estimate-finalization.js` · `tests/e2e/boot-weight.spec.js` (new) ·
 `tests/smoke/dashboard.test.js` · `tests/smoke/photo.test.js` · `tests/package.json`
+
+2026-09-14 addition: `docs/pro/js/dashboard-actions.js` ·
+`docs/pro/js/dashboard-ui.js` · `tests/e2e/boot-weight.spec.js` (extended, not
+new this time).

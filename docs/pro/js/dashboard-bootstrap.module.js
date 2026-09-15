@@ -19,18 +19,21 @@
   // NOTE: Module scope is isolated - must expose to window for global access
   import {
     S, STAGE_META, LEGACY_MAP, KANBAN_VIEWS,
-    VIEW_SIMPLE, VIEW_INSURANCE, VIEW_CASH, VIEW_FINANCE, VIEW_WARRANTY, VIEW_SERVICE, VIEW_JOBS,
+    VIEW_SIMPLE, VIEW_INSURANCE, VIEW_CASH, VIEW_FINANCE, VIEW_WARRANTY, VIEW_SERVICE, VIEW_JOBS, VIEW_JOBS_BOARD,
     normalizeStage, stageLabel, stageColor, resolveColumn, partitionLeadsByColumn,
-    stageRole, isWonStage, isLostStage, ROLE, resolvePipelineConfig,
+    stageRole, isWonStage, isLostStage, isJobStage, isTerminalStage, ROLE, resolvePipelineConfig,
     stageOptionsForType, inferJobType, JOB_TYPES, JOB_TYPE_META, jobTypeLabel,
     SUB_TYPES, subTypeOptionsFor, subTypeLabel,
     TRADES, tradeLabel, tradesLabel,
-    STAGE_ACTIONS, actionsForStage,
+    STAGE_ACTIONS, actionsForStage, preferredActionFor,
     REQUIRED_FIELDS_BY_TYPE, requiredFieldsFor, missingRequiredFields,
+    CLAIM_STATUSES, CLAIM_STATUS_ACTIONS, preferredActionForClaim,
+    REQUIRED_FIELDS_BY_CLAIM_STATUS, missingClaimFields,
     tagClass as _tagClass
   } from './crm-stages.js';
   // Expose the new helpers to non-module scripts (crm.js)
   window.actionsForStage = actionsForStage;
+  window.preferredActionFor = preferredActionFor;
   window.requiredFieldsFor = requiredFieldsFor;
   window.missingRequiredFields = missingRequiredFields;
   window.subTypeOptionsFor = subTypeOptionsFor;
@@ -41,6 +44,15 @@
   window.TRADES = TRADES;
   window.SUB_TYPES = SUB_TYPES;
   window.JOB_TYPE_META = JOB_TYPE_META;
+  // 2026-09-15 (Warranty Claim lane): the claim-DOCUMENT's own status
+  // sub-workflow — separate from the lead's stage. Exposed so warranty-claim.js
+  // (a plain deferred script, same window-global convention as paperwork-write.js)
+  // can read them without its own copy.
+  window.CLAIM_STATUSES = CLAIM_STATUSES;
+  window.CLAIM_STATUS_ACTIONS = CLAIM_STATUS_ACTIONS;
+  window.preferredActionForClaim = preferredActionForClaim;
+  window.REQUIRED_FIELDS_BY_CLAIM_STATUS = REQUIRED_FIELDS_BY_CLAIM_STATUS;
+  window.missingClaimFields = missingClaimFields;
 
   // ─── Estimate money: one reader, one stamping rule ──────────────────
   //
@@ -115,6 +127,13 @@
   window.stageRole = stageRole;
   window.isWonStage = isWonStage;
   window.isLostStage = isLostStage;
+  // 2026-09-15 (Kanban filter unification) — canonical job-stage /
+  // terminal-stage membership tests, replacing ~9 hand-copied stage-key
+  // lists that had already drifted out of sync with each other within
+  // hours of the Collections stage being added.
+  window.isJobStage = isJobStage;
+  window.isTerminalStage = isTerminalStage;
+  window.VIEW_JOBS_BOARD = VIEW_JOBS_BOARD;
   window.STAGE_ROLE = ROLE;
   window.resolvePipelineConfig = resolvePipelineConfig; // used by the Phase-2 pipelines builder
 
@@ -139,6 +158,12 @@
     window.stageRole = resolved.roleOf;
     window.isWonStage = (k) => resolved.roleOf(k) === ROLE.WON;
     window.isLostStage = (k) => resolved.roleOf(k) === ROLE.LOST;
+    // isJobStage's CONTRACT_SIGNED carve-out is a built-in-key fact (a
+    // custom tenant stage is never literally 'contract_signed'), so it
+    // stays a plain comparison; the job/won-role half re-points at the
+    // tenant's resolved role the same way isWonStage/isLostStage do above.
+    window.isJobStage = (k) => k === S.CONTRACT_SIGNED || resolved.roleOf(k) === ROLE.JOB || resolved.roleOf(k) === ROLE.WON;
+    window.isTerminalStage = (k) => resolved.roleOf(k) === ROLE.WON || resolved.roleOf(k) === ROLE.LOST;
     window.stageLabel = (k) => (resolved.stageMeta[k] || resolved.stageMeta[normalizeStage(k)] || {}).label || k;
     window.stageColor = (k) => (resolved.stageMeta[k] || resolved.stageMeta[normalizeStage(k)] || {}).color || '#374151';
     // stageOptionsForType is the STAGE PICKER's list — the kanban card ⋮
@@ -276,7 +301,16 @@
     if (fin) fin.style.display = jt === 'finance' ? 'block' : 'none';
     // Show job fields if stage is post-contract
     const stageVal = document.getElementById('lStage')?.value || '';
-    const jobStages = ['job_created','permit_pulled','materials_ordered','materials_delivered','crew_scheduled','install_in_progress','install_complete','final_photos','deductible_collected','final_payment','closed'];
+    // 2026-09-15 (Paperwork Filing): added 'contract_signed' — the rep must be
+    // able to check contractFiledAt HERE, one stage before the JOB_CREATED
+    // gate that requires it, or the checkbox is invisible exactly when it's
+    // needed. Also added 'collections' — missing since the Collections lane
+    // (2026-09-15 earlier the same day), which left #jobFieldsBlock (and its
+    // scheduledDate/jobValue fields) invisible for a lead already sitting
+    // there; same VIEW_JOBS membership as every other stage in this array.
+    // 'warranty_claim' added 2026-09-15 (Warranty Claim lane, same VIEW_JOBS-
+    // membership reasoning as 'collections' above).
+    const jobStages = ['contract_signed','job_created','permit_pulled','materials_ordered','materials_delivered','crew_scheduled','install_in_progress','install_complete','final_photos','deductible_collected','final_payment','collections','closed','warranty_claim'];
     if (job) job.style.display = jobStages.includes(stageVal) ? 'block' : 'none';
     // Smart stage dropdown — hide irrelevant track optgroups based on jobType
     window.filterStageDropdownByJobType && window.filterStageDropdownByJobType(jt);
@@ -479,7 +513,13 @@
     mark_adj_done:  'adjuster_inspection_done',
     create_job:     'job_created',
     start_install:  'install_in_progress',
-    close_job:      'closed'
+    close_job:      'closed',
+    // 2026-09-15 (Warranty Claim lane): both route through moveCard() same as
+    // every other kind:'stage' action above — the actual UI (gathering a
+    // reason/description, or requiring resolution notes) is a GUARD inside
+    // moveCard() itself (crm-pipeline.js), not here. See warranty-claim.js.
+    file_warranty_claim:    'warranty_claim',
+    resolve_warranty_claim: 'closed',
   };
 
   // Map our Next-Action chip IDs → NBDDocGen document types. The doc
@@ -495,6 +535,11 @@
     final_invoice:   'invoice',
     warranty_cert:   'warranty_certificate',
     warranty_report: 'before_after_report',
+    // 2026-09-15 (Paperwork Filing): pull_permit was kind:'action' with no
+    // handler (a named-dead "workflow marker") until crm-stages.js flipped
+    // it to kind:'doc' the same session — this is what makes the chip
+    // actually generate a document instead of logging a note.
+    pull_permit:     'permit',
     // The finance track's "Send Pre-Qual Link" chip ships as kind:'doc' but was
     // unmapped, so it fell through to the log-only tail even though the
     // financing_options template is fully defined (doc-preflight.js:762).
@@ -649,6 +694,29 @@
     return true;
   }
 
+  // mark_permit_filed is kind:'action' because it doesn't generate anything —
+  // it stamps permitFiledAt so REQUIRED_FIELDS_BY_TYPE's MATERIALS_ORDERED
+  // gate (crm-stages.js) is satisfiable. Same shape as _actionRequestSupplement
+  // above: no snapshot listener on leads, so refresh the in-memory lead and
+  // the open form field by hand. Routes through the shared
+  // commitPaperworkFiled() (paperwork-write.js) rather than a bare updateDoc
+  // so the customer-checklist.js Permit row's toggle uses the identical path.
+  function _actionMarkPermitFiled(leadId) {
+    if (!(leadId && window.PaperworkWrite && typeof window.PaperworkWrite.commitPaperworkFiled === 'function')) return false;
+    window.PaperworkWrite.commitPaperworkFiled(leadId, 'permitFiledAt', true, { actorLabel: window._currentUser?.email }).then(() => {
+      const lead = _findLead(leadId);
+      const stamp = new Date().toISOString();
+      if (lead) lead.permitFiledAt = stamp;
+      const chk = document.getElementById('lPermitFiled');
+      if (chk && (document.getElementById('lEditId')?.value || '') === leadId) chk.checked = true;
+      if (typeof showToast === 'function') showToast('✓ Permit marked as filed', 'success');
+    }).catch(err => {
+      console.warn('mark_permit_filed write failed:', err && err.message);
+      if (typeof showToast === 'function') showToast('Could not mark the permit as filed — try again', 'warning');
+    });
+    return true;
+  }
+
   // Chip ID → handler. Only IDs whose target subsystem genuinely exists are
   // listed. The ones deliberately absent (log_contact, follow_up,
   // log_adjuster, follow_supp, follow_lender, confirm_delivery, log_diagnosis,
@@ -663,7 +731,8 @@
     final_photos:    _actionOpenCamera,
     sched_inspect:   _actionOpenSchedule,
     sched_crew:      _actionOpenSchedule,
-    request_supp:    _actionRequestSupplement
+    request_supp:    _actionRequestSupplement,
+    mark_permit_filed: _actionMarkPermitFiled
   };
 
   // ─────────────────────────────────────────────────────────────────
@@ -887,8 +956,14 @@
     _run();
   }
 
-  const runLeadAction = function(actionId, kind) {
-    const leadId = document.getElementById('lEditId')?.value || null;
+  // explicitLeadId (2026-09-15): the kanban card's next-action chip calls
+  // this directly (crm-pipeline.js wireKanbanCardListeners) with the
+  // card's own lead id, since there's no open edit modal to infer it from
+  // out there. Every existing 2-arg caller (the Next Actions panel inside
+  // the edit modal) is unaffected — explicitLeadId is undefined for them,
+  // so the fallback below still reads lEditId exactly as before.
+  const runLeadAction = function(actionId, kind, explicitLeadId) {
+    const leadId = explicitLeadId || document.getElementById('lEditId')?.value || null;
     const lead = _findLead(leadId);
     // Emit for observers regardless of how the action is handled.
     document.dispatchEvent(new CustomEvent('nbd:lead-action', {

@@ -252,6 +252,13 @@ exports.dictate = onCall(
     const uid = request.auth && request.auth.uid;
     if (!uid) throw new HttpsError('unauthenticated', 'Sign in required');
 
+    // Global AI kill-switch (Audit #4) — emergency halt without a deploy.
+    // dictate spends both Groq (transcription) and Anthropic (cleanup) per
+    // call, same as the other rep-initiated AI callables this flag covers.
+    if (await require('./integrations/killswitch').isAiDisabled()) {
+      throw new HttpsError('unavailable', 'AI temporarily disabled');
+    }
+
     // Per-uid rate limit. 30/hr is generous for an active dictator
     // — the W128 click-to-toggle UI naturally tops out around
     // ~5/min during a session, far below this ceiling — but kills

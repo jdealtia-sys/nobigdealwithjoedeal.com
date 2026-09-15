@@ -41,6 +41,11 @@ is broken in prod.
   PILLAR1-PROVISIONING-PLAN.md:18). **Break #2.**
 - **Trial confusion:** "Free forever" tier vs "14-day trial" (Stripe-side,
   growth only, stripe.js:156) — not reconciled in the register flow.
+  **Corrected 2026-09-14 — "growth only" is stale: `stripe.js:351-356`
+  now sets `trial_period_days:14` (card collected) for BOTH Team and
+  Growth checkout, not Growth alone. The core finding — the trial isn't
+  reconciled in the register flow — still stands; only the tier scope
+  was wrong.**
 - **Pay:** createCheckoutSession/stripeWebhook are production-shaped (hosted
   checkout, signature verify, idempotency via stripe_events). BUT it 403s
   unverified emails (stripe.js:106) — **fresh signups can't pay until they

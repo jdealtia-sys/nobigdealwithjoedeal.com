@@ -39,7 +39,7 @@ const ROOT = path.join(__dirname, '..');
 const SVG = path.join(ROOT, 'docs', 'favicon.svg');
 const OUT = path.join(ROOT, 'docs', 'assets', 'images', 'apple-touch-icon.png');
 const SIZE = 180;
-const TILE = '#1a3057'; // the tile colour in docs/favicon.svg
+const TILE = '#ffffff'; // the tile colour in docs/favicon.svg (2026-09-14 brand refresh: was '#1a3057')
 
 function crc32(buf) {
   let c, crc = 0xffffffff;

@@ -46,6 +46,7 @@
 <title>NBD Pro — Dashboard</title>
 <link rel="preload" href="js/crm-leads.js?v=1" as="script">
 <link rel="preload" href="js/crm-pipeline.js?v=2" as="script">
+<link rel="modulepreload" href="js/stage-write.js?v=1">
 <link rel="preload" href="js/crm-snooze.js?v=1" as="script">
 <link rel="preload" href="js/crm-portal-bridge.js?v=3" as="script">
 <link rel="preload" href="js/crm.js?v=33" as="script">
@@ -1341,7 +1342,7 @@
         <button class="btn btn-ghost" style="width:100%;justify-content:center;margin-bottom:6px;" data-action="call" data-fn="exportDrawReport">📤 Measurement Report</button>
         <button class="btn btn-ghost" style="width:100%;justify-content:center;margin-bottom:6px;" data-action="call" data-fn="generateScopeFromDrawing">📋 Scope of Work</button>
         <button class="btn btn-ghost" style="width:100%;justify-content:center;margin-bottom:6px;border-color:var(--green);color:var(--green);" data-action="call" data-fn="showMaterialTakeoff">🧱 Material Takeoff</button>
-        <button class="btn btn-ghost" style="width:100%;justify-content:center;margin-bottom:6px;border-color:var(--gold);color:var(--gold);" data-action="call" data-fn="exportXactimateESX">📎 Xactimate Export (ESX)</button>
+        <div style="font-size:10px;color:var(--m,#888);margin:2px 0 6px;line-height:1.4;">Carrier estimates stay in Xactimate — this tool measures and scopes, it doesn't replace it.</div>
         <button class="btn btn-ghost" style="width:100%;justify-content:center;margin-bottom:6px;border-color:var(--gold,#EAB308);color:var(--gold,#EAB308);" data-action="call" data-fn="runSolarAnalysis">☀️ Solar Analysis</button>
 
         <!-- ACCESSORIES -->
@@ -2907,7 +2908,7 @@
       </div>
 
       <!-- ── TAB BAR ── -->
-      <div id="stab-bar" style="display:flex;gap:0;border-bottom:2px solid var(--br);margin-bottom:24px;overflow-x:auto;">
+      <div id="stab-bar" style="display:flex;gap:0;border-bottom:2px solid var(--br);margin-bottom:24px;overflow-x:auto;-webkit-overflow-scrolling:touch;">
         <button class="stab-btn stab-active" data-action="settingsTab" data-target="profile" id="stab-profile">👤 Profile</button>
         <button class="stab-btn" data-action="settingsTab" data-target="appearance" id="stab-appearance">🎨 Appearance</button>
         <button class="stab-btn" data-action="settingsTab" data-target="estimates" id="stab-estimates">📋 Estimates</button>
@@ -5235,6 +5236,14 @@
         </div>
         <div class="mfield"><label>Scope of Work</label><input type="text" id="lScopeOfWork" placeholder="Full roof replacement, gutters..."></div>
       </div>
+      <!-- 2026-09-15 (Paperwork Filing): gates REQUIRED_FIELDS_BY_TYPE's
+           CLAIM_FILED checkpoint. Auto-checked by document-generator.js's
+           onPersistFinalized the moment the AOB is e-signed — a plain
+           checkbox still lets a rep mark a wet-signed/uploaded AOB filed by
+           hand. -->
+      <div class="mrow">
+        <div class="mfield" style="display:flex;align-items:center;gap:6px;"><label style="margin:0;">AOB Filed/Signed</label><input type="checkbox" id="lAobFiled" class="ac-orange"></div>
+      </div>
     </div>
 
     <!-- FINANCE DETAIL FIELDS -->
@@ -5264,6 +5273,25 @@
       <div class="mrow">
         <div class="mfield"><label>Scheduled Date</label><input type="date" id="lScheduledDate"></div>
         <div class="mfield"><label>Crew</label><input type="text" id="lCrew" placeholder="Crew name or lead installer"></div>
+      </div>
+      <!-- 2026-09-15 (Paperwork Filing): gate REQUIRED_FIELDS_BY_TYPE's
+           JOB_CREATED / MATERIALS_ORDERED / CLOSED checkpoints. Contract and
+           Warranty Cert are auto-checked by document-generator.js /
+           warranty-cert.js the moment the real document is signed/generated —
+           these plain checkboxes are still the manual fallback for a
+           wet-signed/uploaded copy. Permit has no in-app signer, so it's
+           manual-only (also settable from the Kanban's "Mark Permit Filed"
+           next-action chip, which writes through the same paperwork-write.js
+           chokepoint). Certificate of Completion applies to every job type
+           today (harmless where a track doesn't require it — the gate is
+           per-jobType in crm-stages.js, this checkbox isn't). -->
+      <div class="mrow">
+        <div class="mfield" style="display:flex;align-items:center;gap:6px;"><label style="margin:0;">Contract Filed</label><input type="checkbox" id="lContractFiled" class="ac-orange"></div>
+        <div class="mfield" style="display:flex;align-items:center;gap:6px;"><label style="margin:0;">Permit Filed</label><input type="checkbox" id="lPermitFiled" class="ac-orange"></div>
+      </div>
+      <div class="mrow">
+        <div class="mfield" style="display:flex;align-items:center;gap:6px;"><label style="margin:0;">Warranty Cert Filed</label><input type="checkbox" id="lWarrantyCertFiled" class="ac-orange"></div>
+        <div class="mfield" style="display:flex;align-items:center;gap:6px;"><label style="margin:0;">Certificate of Completion Filed</label><input type="checkbox" id="lCocFiled" class="ac-orange"></div>
       </div>
     </div>
 
@@ -6310,8 +6338,10 @@
 <!-- Talk Tank: unified voice-capture inbox under #/talk-tank. Reads
      users/<uid>/captures (written by quick-capture.js). REC button on
      the page invokes window.NBDQuickCapture.open() — no duplicate
-     recording UI. -->
-<script defer src="js/talk-tank.js?v=1"></script>
+     recording UI.
+     LAZY (2026-09-14, boot-weight containment): loaded via ScriptLoader's
+     `talktank` bundle on first goTo('talk-tank') — zero callers outside
+     that view. -->
 <!-- Legendary Rep Report Generator — bold-editorial visual
      reports for rep coaching + owner meetings. -->
 <script defer src="js/billing-gate.js?v=1"></script>
@@ -6392,19 +6422,29 @@
 <script defer src="js/demo.js?v=3"></script>
 <script defer src="js/icons.js?v=3"></script>
 <script defer src="js/nbd-comms.js?v=1"></script>
+<script defer src="js/stage-checklist.js?v=1"></script>
+<script defer src="js/paperwork-write.js?v=1"></script>
+<script defer src="js/warranty-claim.js?v=1"></script>
 <script defer src="js/nbd-input-guards.js?v=1"></script>
 <!-- LAZY: photo-engine loads via ScriptLoader's `photos` bundle (PR 2d). -->
 <script defer src="js/photo-ai.js?v=2"></script>
 <script defer src="js/invoice-pipeline.js?v=4"></script>
 <!-- LAZY: inspection-report-engine loads via the `photos` bundle (PR 2d). -->
 <!-- Step 4d (2026-05-16): maps.js split into three sibling modules
-     loaded in order before the thin maps.js shim. See maps.js
+     loaded in order before the thin maps.js shim (maps-customers.js
+     joined the eager chain later; see its own header). See maps.js
      header for the full split rationale. Each module is a classic
-     <script> (non-ESM) and shares sibling-scope globals. -->
+     <script> (non-ESM) and shares sibling-scope globals.
+     LAZY (2026-09-14, boot-weight containment): maps-routing.js — the
+     fourth sibling, 172 KiB, #2 static file on the page — moved to
+     ScriptLoader's `drawtool` bundle, loaded on first goTo('draw').
+     Proven safe to decouple from this eager chain: vm-sandboxed with
+     no Leaflet global defined, it executes cleanly (no top-level code
+     calls into L.*), and neither maps-core.js nor maps-overlays.js
+     references anything drawing-tool-specific. -->
 <script defer src="js/maps-core.js?v=7"></script>
 <script defer src="js/maps-overlays.js?v=7"></script>
 <script defer src="js/maps-customers.js?v=11"></script>
-<script defer src="js/maps-routing.js?v=4"></script>
 <script defer src="js/maps.js?v=10"></script>
 <!-- Smart Calendar — Today's Schedule with travel-time + priority. Reads
      /appointments (Cal.com webhook output) for the current rep, cross-

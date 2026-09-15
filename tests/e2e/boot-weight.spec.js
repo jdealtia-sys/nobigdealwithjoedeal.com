@@ -259,3 +259,109 @@ test.describe('boot weight — Leaflet CSS rides the lazy bundle', () => {
     expect(errors).toEqual([]);
   });
 });
+
+test.describe('boot weight — maps-routing.js (drawtool) is lazy on the dashboard', () => {
+  // 2026-09-14: maps-routing.js (172 KiB, the #2 static file on the page)
+  // was the last of the four maps-split siblings still eager — see its own
+  // header and script-loader.js's `drawtool` bundle comment for the full
+  // rationale. goTo('draw') already polled window.initDrawMap via the same
+  // waitForMapFn() used for Leaflet itself, so the dispatcher needed no
+  // change; the one gap was a bare `if(drawMap)` read in the drawSearch
+  // autocomplete callback (dashboard-ui.js), fixed alongside this move.
+  test('absent at boot, and goTo(\'draw\') fetches it and builds a real map', async ({ page }) => {
+    const creds = requireTestUser(test);
+    const errors = [];
+    page.on('pageerror', (e) => errors.push(String((e && e.message) || e)));
+    await loginAs(page, creds);
+    const urls = trackRequests(page);
+    await page.goto('/pro/dashboard.html');
+    await page.waitForLoadState('load');
+    await page.waitForFunction(() => typeof window.goTo === 'function', null, { timeout: 20_000 });
+
+    // 1. not on the boot path
+    expect(hits(urls, 'maps-routing.js'), 'maps-routing.js must not be fetched at boot').toBe(0);
+    expect(await safeEvaluate(page, () => typeof window.initDrawMap)).toBe('undefined');
+    // drawMap is a bare sibling-scope `let`, never a window property (see
+    // maps-routing.js's header) — confirm the ReferenceError class of bug
+    // this PR fixed doesn't exist at boot, i.e. the drawSearch callback
+    // survives being invoked before the module has ever loaded.
+    const preNav = await safeEvaluate(page, () => {
+      try {
+        const cb = window._acCallbacks && window._acCallbacks['drawSearch'];
+        if (typeof cb !== 'function') return { ran: false, reason: 'no drawSearch callback registered' };
+        cb({ lat: '39.1', lon: '-84.5' });
+        return { ran: true };
+      } catch (e) {
+        return { ran: false, threw: String((e && e.message) || e) };
+      }
+    });
+    expect(preNav.threw, 'drawSearch must not throw before maps-routing.js loads (regression: bare `if(drawMap)`)').toBeUndefined();
+
+    // 2. goTo('draw') fetches the bundle and constructs a real Leaflet map
+    await safeEvaluate(page, () => { window.goTo('draw'); });
+    await page.waitForFunction(
+      () => typeof window.initDrawMap === 'function',
+      null, { timeout: 20_000 }
+    );
+    await page.waitForFunction(
+      () => { const el = document.getElementById('drawMap'); return !!(el && el.querySelector('.leaflet-pane')); },
+      null, { timeout: 20_000 }
+    );
+
+    expect(hits(urls, 'maps-routing.js'), 'fetched once the draw view opens').toBeGreaterThan(0);
+    const panes = await safeEvaluate(page, () =>
+      document.getElementById('drawMap').querySelectorAll('.leaflet-pane').length);
+    expect(panes, 'the draw map actually constructed Leaflet panes').toBeGreaterThan(0);
+
+    // 3. the drawSearch callback works for real once the module has loaded
+    const postNav = await safeEvaluate(page, () => {
+      try {
+        window._acCallbacks['drawSearch']({ lat: '39.2', lon: '-84.6' });
+        return { threw: undefined };
+      } catch (e) {
+        return { threw: String((e && e.message) || e) };
+      }
+    });
+    expect(postNav.threw).toBeUndefined();
+
+    expect(errors, 'no uncaught page errors').toEqual([]);
+  });
+});
+
+test.describe('boot weight — talk-tank.js is lazy on the dashboard', () => {
+  // 2026-09-14: two static <script> tags (talk-tank.js was one) with zero
+  // callers outside their own view — the same treatment already given to
+  // storm/closeboard/expenses/money/repos via the `_lazyPreload.then(...)`
+  // chain in dashboard-actions.js's goTo() dispatcher.
+  test('absent at boot, and goTo(\'talk-tank\') fetches it and initializes', async ({ page }) => {
+    const creds = requireTestUser(test);
+    const errors = [];
+    page.on('pageerror', (e) => errors.push(String((e && e.message) || e)));
+    await loginAs(page, creds);
+    const urls = trackRequests(page);
+    await page.goto('/pro/dashboard.html');
+    await page.waitForLoadState('load');
+    await page.waitForFunction(() => typeof window.goTo === 'function', null, { timeout: 20_000 });
+
+    expect(hits(urls, 'talk-tank.js'), 'talk-tank.js must not be fetched at boot').toBe(0);
+    expect(await safeEvaluate(page, () => typeof window.TalkTank)).toBe('undefined');
+
+    await safeEvaluate(page, () => { window.goTo('talk-tank'); });
+    await page.waitForFunction(
+      () => !!(window.TalkTank && typeof window.TalkTank.init === 'function'),
+      null, { timeout: 20_000 }
+    );
+
+    expect(hits(urls, 'talk-tank.js'), 'fetched once the talk-tank view opens').toBeGreaterThan(0);
+    const after = await safeEvaluate(page, () => ({
+      init: typeof window.TalkTank.init,
+      refresh: typeof window.TalkTank.refresh,
+      render: typeof window.TalkTank.render,
+    }));
+    expect(after.init).toBe('function');
+    expect(after.refresh).toBe('function');
+    expect(after.render).toBe('function');
+
+    expect(errors, 'no uncaught page errors').toEqual([]);
+  });
+});

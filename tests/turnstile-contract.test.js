@@ -191,6 +191,19 @@ ok('client auto-creates the invisible widget container when a key exists',
 ok('client only attaches turnstileToken when a token was obtained',
    /if \(turnstileToken\) payload\.turnstileToken = turnstileToken;/.test(client));
 
+// Safety timeout: Jo's decision 2026-09-13, cut from 8s to 6s. It is the
+// worst-case wait a visitor on a stalled network sits through before the lead
+// is sent tokenless. 4s was tried first and rejected: it cut off 1 of 10
+// always-pass test-key first submits (4,007ms, no token) on a fast connection.
+// After enforcement a submit that hits the timeout is 403'd, so do not change
+// this number without re-measuring (runbook:
+// documentation/runbooks/TURNSTILE-SETUP.md) and updating this pin.
+const DECIDED_TIMEOUT_MS = 6000;
+const timeoutMatch = client.match(/const TURNSTILE_TIMEOUT_MS = (\d+);/);
+ok('client declares TURNSTILE_TIMEOUT_MS = ' + DECIDED_TIMEOUT_MS + ' (got ' +
+   (timeoutMatch ? timeoutMatch[1] : 'none') + ')',
+   !!timeoutMatch && Number(timeoutMatch[1]) === DECIDED_TIMEOUT_MS);
+
 // ── 4. Behaviour in a sandbox ──
 // A fake Turnstile modelled on what real api.js did in Chromium on 2026-09-13
 // (console warnings quoted): render() into a container that already holds a
@@ -347,8 +360,8 @@ async function behaviour() {
     const p = h.window.submitPublicLead('contact', { firstName: 'A' });
     await h.flush();
     const pendingMs = [...h.timers.values()].map((t) => t.ms);
-    ok('behaviour: a challenge that never answers arms the 8s safety timeout (' + pendingMs.join(',') + ')',
-       pendingMs.includes(8000));
+    ok('behaviour: a challenge that never answers arms the ' + DECIDED_TIMEOUT_MS + 'ms safety timeout (' + pendingMs.join(',') + ')',
+       pendingMs.includes(DECIDED_TIMEOUT_MS));
     h.fireTimers();
     const out = await within(p);
     ok('behaviour: when the safety timeout fires the submit proceeds without a token',
@@ -362,8 +375,8 @@ async function behaviour() {
     const p = h.window.submitPublicLead('contact', { firstName: 'A' });
     await h.flush();
     const pendingMs = [...h.timers.values()].map((t) => t.ms);
-    ok('behaviour: a stalled Turnstile script load is inside the 8s safety timeout (' + pendingMs.join(',') + ')',
-       h.log.some((e) => e[0] === 'load-script') && pendingMs.includes(8000));
+    ok('behaviour: a stalled Turnstile script load is inside the ' + DECIDED_TIMEOUT_MS + 'ms safety timeout (' + pendingMs.join(',') + ')',
+       h.log.some((e) => e[0] === 'load-script') && pendingMs.includes(DECIDED_TIMEOUT_MS));
     h.fireTimers();
     const out = await within(p);
     ok('behaviour: a stalled script load still POSTs the lead, tokenless, when the timeout fires',

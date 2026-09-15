@@ -455,6 +455,11 @@
      'stage' (advances pipeline, blue/green), 'action' (everything
      else, neutral). Tinted just enough to read as "do this next"
      without competing visually with the louder Due / Needs chips. */
+  /* 2026-09-15: the chip is now a real button — clicking it runs the
+     action (crm-pipeline.js wireKanbanCardListeners 'run-next-action'),
+     routed through the same runLeadAction() the buried Next Actions panel
+     in the edit modal already uses. cursor:pointer + a hover lift replace
+     the old cursor:default now that there's something to click. */
   .kct-action,
   .kct-action-doc,
   .kct-action-stage{
@@ -462,7 +467,20 @@
     letter-spacing: .02em;
     border-style: solid;
     border-width: 1px;
-    cursor: default;
+    cursor: pointer;
+    transition: filter .12s ease, transform .12s ease;
+  }
+  .kct-action:hover,
+  .kct-action-doc:hover,
+  .kct-action-stage:hover{
+    filter: brightness(1.25);
+    transform: translateY(-1px);
+  }
+  .kct-action:active,
+  .kct-action-doc:active,
+  .kct-action-stage:active{
+    transform: translateY(0);
+    filter: brightness(1.1);
   }
   .kct-action{
     background: color-mix(in srgb, var(--ink-soft, #888) 16%, transparent);

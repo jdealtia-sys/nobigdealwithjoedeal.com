@@ -169,6 +169,10 @@ exports.backfillAnalytics   = migrationsHandlers.backfillAnalytics;
 // Integration-facing endpoints (status readout + public lead ingest)
 const integrationsHandlers = require('./handlers/integrations');
 exports.integrationStatus = integrationsHandlers.integrationStatus;
+// Non-admin-safe availability readout — see the H-06 comment on
+// integrationStatus in handlers/integrations.js for why that one stays
+// admin-gated and this one deliberately does not.
+exports.integrationAvailability = integrationsHandlers.integrationAvailability;
 exports.submitPublicLead  = integrationsHandlers.submitPublicLead;
 
 // Inline access-code callable. Distinct from functions/portal.js

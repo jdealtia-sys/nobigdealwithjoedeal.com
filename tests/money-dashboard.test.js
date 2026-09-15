@@ -16,17 +16,22 @@ function loadIIFE(file) {
   const src = fs.readFileSync(path.join(__dirname, '..', 'docs/pro/js', file), 'utf8');
   const win = { addEventListener() {}, location: { pathname: '/pro/dashboard' } };
   win.window = win;
+  // doc returned separately (not just win) so a test can swap in a fake
+  // #view-money .view-scroll element AFTER load and exercise render() for
+  // real — the module closes over this same `document` binding, so
+  // mutating doc.querySelector post-load still reaches it.
+  const doc = { addEventListener() {}, getElementById() { return null; }, querySelector() { return null; }, querySelectorAll() { return []; } };
   const sandbox = {
     window: win,
-    document: { addEventListener() {}, getElementById() { return null; }, querySelector() { return null; }, querySelectorAll() { return []; } },
+    document: doc,
     console: { log() {}, warn() {}, error() {} },
     setTimeout, clearTimeout, Date, Math, JSON,
   };
   vm.runInNewContext(src, sandbox, { filename: file });
-  return win;
+  return { win, doc };
 }
 
-const win = loadIIFE('money-dashboard.js');
+const { win, doc } = loadIIFE('money-dashboard.js');
 const MD = win.MoneyDashboard;
 
 console.log('MONEY DASHBOARD — computePnL');
@@ -314,6 +319,103 @@ const garbled = MD.computePnL({
 });
 eq('unparseable ledger date: synthetic $4,000 via lastPaymentAt fallback (undated $6,000 unbucketed)',
   garbled.collectedCents, 400000);
+
+// ── Collections queue (2026-09-15 Collections foundation) ───────────────
+// Pure logic (aging buckets, sort, inCollections flag) proved by real
+// computePnL() execution with a PINNED clock (data.now) — day-count math
+// via daysAgo(n) in raw ms so bucket boundaries are exact regardless of
+// calendar month lengths or DST, matching the repo's stated preference for
+// real execution over regex-shape assertions wherever it's practical.
+console.log('  collections queue (aging buckets + per-invoice drill-down):');
+const NOW = new Date(2026, 8, 15, 12, 0, 0); // pinned "now" — noon avoids any DST-edge ambiguity
+function daysAgo(n) { return new Date(NOW.getTime() - n * 86400000); }
+const cq = MD.computePnL({
+  year: 2026, now: NOW, expenses: [], suppliers: [],
+  leads: [
+    { id: 'LC', _stageKey: 'collections', name: 'Already In Collections' },
+    { id: 'LN', _stageKey: 'contract_signed', name: 'Not Yet' },
+  ],
+  invoices: [
+    { id: 'invA', status: 'sent', total: 1000, balanceDue: 1000, dueDate: daysAgo(10), leadId: 'LN', customerName: 'Ten Days Late' },
+    { id: 'invB', status: 'sent', total: 500, balanceDue: 500, dueDate: daysAgo(45), customerName: 'No Lead Linked' },
+    { id: 'invC', status: 'sent', total: 200, balanceDue: 200, dueDate: daysAgo(90), leadId: 'LC', customerName: 'Already Chasing' },
+    { id: 'invD', status: 'sent', total: 300, balanceDue: 300, dueDate: daysAgo(-5), leadId: 'LN', customerName: 'Not Due Yet' },
+    { id: 'invPaid', status: 'paid', total: 999, balanceDue: 0, dueDate: daysAgo(200), leadId: 'LN' },
+  ],
+});
+eq('aging: 1-30 bucket = $1,000 (invA, 10 days late)', cq.agingCents.d1_30, 100000);
+eq('aging: 31-60 bucket = $500 (invB, 45 days late)', cq.agingCents.d31_60, 50000);
+eq('aging: 60+ bucket = $200 (invC, 90 days late)', cq.agingCents.d61_plus, 20000);
+eq('aging: current bucket = $300 (invD, not yet due)', cq.agingCents.current, 30000);
+eq('paid invoice excluded from the queue entirely', cq.collectionsQueue.length, 4);
+ok('queue sorted most-overdue-first (invC, invB, invA, ...)',
+  cq.collectionsQueue[0].id === 'invC' && cq.collectionsQueue[1].id === 'invB' && cq.collectionsQueue[2].id === 'invA');
+const invA = cq.collectionsQueue.find(q => q.id === 'invA');
+const invB = cq.collectionsQueue.find(q => q.id === 'invB');
+const invC = cq.collectionsQueue.find(q => q.id === 'invC');
+eq('invA days past due = 10', invA.daysPastDue, 10);
+eq('invC days past due = 90', invC.daysPastDue, 90);
+ok('invoice linked to a lead ALREADY on collections is flagged inCollections', invC.inCollections === true);
+ok('invoice linked to a lead NOT on collections is not flagged', invA.inCollections === false);
+ok('invoice with no leadId falls back to its own customerName, leadId stays null',
+  invB.customerName === 'No Lead Linked' && invB.leadId === null && invB.inCollections === false);
+
+console.log('  aging bucket boundaries (0/1/30/31/60/61 days past due):');
+const bd = MD.computePnL({
+  year: 2026, now: NOW, expenses: [], suppliers: [], leads: [],
+  invoices: [0, 1, 30, 31, 60, 61].map(n => ({ id: 'b' + n, status: 'sent', total: 10, balanceDue: 10, dueDate: daysAgo(n) })),
+});
+function bucketOf(id) { return bd.collectionsQueue.find(q => q.id === id).bucket; }
+eq('0 days past due -> current', bucketOf('b0'), 'current');
+eq('1 day past due -> d1_30', bucketOf('b1'), 'd1_30');
+eq('30 days past due -> d1_30 (inclusive upper bound)', bucketOf('b30'), 'd1_30');
+eq('31 days past due -> d31_60', bucketOf('b31'), 'd31_60');
+eq('60 days past due -> d31_60 (inclusive upper bound)', bucketOf('b60'), 'd31_60');
+eq('61 days past due -> d61_plus', bucketOf('b61'), 'd61_plus');
+
+// empty-data safety (extends the existing empty-object assertions above)
+eq('empty data: aging current is 0', empty.agingCents.current, 0);
+eq('empty data: collections queue is []', empty.collectionsQueue.length, 0);
+
+// ── render(): Collections queue markup, exercised for real ──────────────
+// Swap in a fake #view-money .view-scroll AFTER load (loadIIFE returns the
+// same `document` object the module already closed over) and call the
+// real render() — catches an actual button/badge/link regression, not
+// just a string that happens to appear somewhere in the source.
+console.log('  render(): collections queue markup (real execution, not regex-on-source):');
+const scrollEl = { innerHTML: '' };
+doc.querySelector = (sel) => (sel === '#view-money .view-scroll' ? scrollEl : null);
+MD.render(cq);
+const rendered = scrollEl.innerHTML;
+ok('overdue + actionable invoice (invA) gets a Move to Collections button keyed by its own id',
+  rendered.includes('data-action="module"') && rendered.includes('data-target="MoneyDashboard.moveToCollections"') && rendered.includes('data-arg="invA"'));
+ok('invoice already on the collections stage (invC) shows the badge, not a button',
+  rendered.includes('In Collections') && !rendered.includes('data-arg="invC"'));
+ok('invoice with no linked lead (invB) gets no action button (nothing to move)', !rendered.includes('data-arg="invB"'));
+ok('overdue customer name links to the customer page by leadId', rendered.includes('/pro/customer.html?id=LN'));
+ok('not-yet-due invoice (invD) is excluded from the overdue rows, only counted in the Current tile',
+  !rendered.includes('data-arg="invD"') && rendered.includes('$300'));
+
+// ── moveToCollections() + fetchData wiring (source-text) ────────────────
+// moveToCollections's own body does a dynamic import('./stage-write.js'),
+// which Node's vm.runInNewContext can't execute without extra module-loader
+// plumbing this sandbox doesn't have — same constraint crm-pipeline.js's
+// moveCard()/customer-bootstrap's progressStage() hit. Prove the WIRING
+// (correct target, correct args, correct query) via source text instead,
+// same fallback the Phase 2 driven-UX tests used for this exact class of
+// dynamic-import call site.
+console.log('  moveToCollections()/fetchData wiring (source-text — dynamic import(), can\'t vm-execute):');
+const mdSrc = fs.readFileSync(path.join(__dirname, '..', 'docs/pro/js/money-dashboard.js'), 'utf8');
+ok('moveToCollections is exported on window.MoneyDashboard (the data-action="module" target)',
+  /moveToCollections:\s*moveToCollections/.test(mdSrc));
+ok('moveToCollections commits through the shared commitStageChange, not a bare updateDoc',
+  /commitStageChange\(entry\.leadId,\s*'collections',\s*oldStage/.test(mdSrc));
+ok('moveToCollections snapshots the lead\'s OWN current stage first (race-safe oldStage, not assumed)',
+  /oldStage = lead \? \(lead\._stageKey \|\| lead\.stage\) : null/.test(mdSrc));
+ok('fetchData scopes invoices to companyId for staff (team-wide A/R — was createdBy-only, under-reported the queue)',
+  /staff \? q\(col\(db, 'invoices'\), where\('companyId', '==', companyId\(\)\)\)/.test(mdSrc));
+ok('fetchData keeps each invoice\'s own doc id (needed so an action can target ONE invoice)',
+  /Object\.assign\(\{ id: d\.id \}, d\.data\(\)\)/.test(mdSrc));
 
 console.log('\n' + (failed === 0 ? '✓' : '✗') + ' money dashboard: ' + passed + ' passed, ' + failed + ' failed');
 if (failed > 0) { console.error('FAILED: ' + fails.join(', ')); process.exit(1); }
