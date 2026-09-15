@@ -1574,12 +1574,18 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
-    // ── MEASUREMENTS (rep owner-scoped) ────────────────
+    // ── MEASUREMENTS (owner + same-company read) ───────
     // Created by requestMeasurement, filled by measurementWebhook.
-    // Owner can read to pre-fill the V2 Builder; writes are admin-
-    // SDK only (webhook).
+    // Owner or same-company teammate can read (90-day same-roof reuse in
+    // requestMeasurement/findReusableMeasurement depends on this — see
+    // functions/integrations/measurement.js); writes are admin-SDK only
+    // (webhook). companyId is fully server-stamped from the caller's Auth
+    // custom claim, never client-writable, so this is a read-only
+    // relaxation. sameCompanyAsResource() requires BOTH companyIds
+    // non-null, so a legacy doc with no companyId field falls back to
+    // owner-only — no cross-tenant leak (mirrors /pins, /zones).
     match /measurements/{jobId} {
-      allow read: if isOwner(resource.data.ownerId) || isAdmin();
+      allow read: if isOwner(resource.data.ownerId) || sameCompanyAsResource() || isAdmin();
       allow write: if false;
     }
 
