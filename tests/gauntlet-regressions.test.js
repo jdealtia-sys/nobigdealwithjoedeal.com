@@ -1037,8 +1037,8 @@ console.log('\nCRM custom-pipeline + kanban correctness (lead-lifecycle sweep)')
     /window\.moveCard\(lead\.id, opt\.value\)/.test(kcm));
   assert('CRM revenue buckets are ROLE-aware (custom won/lost stages count correctly)',
     /isLost = _lostKeys\.includes\(sk\) \|\| role === 'lost'/.test(cp)
-    && /isClosed = _closedKeys\.includes\(sk\) \|\| role === 'won' \|\| role === 'job'/.test(cp),
-    'hardcoded key lists excluded custom won from closed revenue and let custom lost inflate pipeline');
+    && /isClosed = \(window\.isJobStage && window\.isJobStage\(sk\)\) \|\| role === 'won' \|\| role === 'job'/.test(cp),
+    'hardcoded key lists excluded custom won from closed revenue and let custom lost inflate pipeline (2026-09-15: _closedKeys folded into the canonical window.isJobStage classifier)');
   assert('dashboard stage counts add custom WON/LOST by role only (no else-catch-all rebucketing built-ins)',
     /if \(!matched\) \{[\s\S]{0,260}role === 'won'\) _stageCounts\.closed\+\+;\s*else if \(role === 'lost'\) _stageCounts\.lost\+\+;\s*\}/.test(cp),
     'a catch-all else would newly pile built-in mid-stages (inspected/scope_received/…) into Negotiating — a built-in behavior change');

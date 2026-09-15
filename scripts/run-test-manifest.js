@@ -208,8 +208,15 @@ const RUNNABLE = ['node', 'smoke'];
 //               warning, not evidence it's still correct once REBASED onto
 //               the other side's commit. Re-measured on the merged tree via
 //               --check: 130/67/216.
+//   2026-09-15  NINTH collision: the Kanban filter unification lane
+//               (tests/kanban-filter-unification.test.js) independently
+//               raised the SAME 129/67/215 base to 130/67/216 as the
+//               EIGHTH entry above — again a matching literal that is not
+//               evidence, since this rebase stacks BOTH lanes' new suites
+//               onto the same merged tree. Re-measured via --check:
+//               131/67/217.
 
-const FLOORS = { node: 130, smoke: 67, disk: 216 };
+const FLOORS = { node: 131, smoke: 67, disk: 217 };
 
 // ── Argument parsing ───────────────────────────────────────────────
 const argv = process.argv.slice(2);

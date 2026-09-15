@@ -233,6 +233,47 @@ export function stageRole(stageKey) {
 export function isWonStage(stageKey)  { return stageRole(stageKey) === ROLE.WON; }
 export function isLostStage(stageKey) { return stageRole(stageKey) === ROLE.LOST; }
 
+// 2026-09-15 (Kanban filter unification) — the ONE canonical membership test
+// for "is this a job stage," replacing ~9 independent hand-copied stage-key
+// lists across the app (crm-pipeline.js x2, ask-joe-proactive.js,
+// bottleneck-widget.js, money-dashboard.js, analytics-kpi.js, weekly-digest.js,
+// two cosmetic label duplicates) that had already drifted out of sync with
+// each other and with VIEW_JOBS within HOURS of the Collections stage being
+// added — proof this class of duplication is a real, not hypothetical, risk.
+//
+// Jo's call (2026-09-15, after a live audit of the "click Jobs, almost
+// nothing appears" report): CONTRACT_SIGNED counts as a job even though the
+// rep hasn't clicked "Create Job" yet — a signed, materials-on-order deal
+// IS a job to him, and the CRM's OWN revenue math already agreed (the
+// pipeline-value/closed-revenue split in crm-pipeline.js has always treated
+// contract_signed as converted/closed money, not in-play pipeline). Every
+// stage from job_created through closed (VIEW_JOBS — role job or won) plus
+// contract_signed itself is a job stage. A closed/paid job stays visible —
+// no roll-off.
+//
+// Scope note: like stageRole() above, this classifies by BUILT-IN key only.
+// A tenant's CUSTOM stage with a job/won role is not recognized here — the
+// Jobs-tab filter has never been freeform-pipeline-aware, and making it so
+// is a separate, larger change nobody has asked for yet. Callers that need
+// custom-stage safety should check the lead's own persisted stageRole FIRST
+// (the established hardcoded-fast-path + role-fallback pattern used
+// elsewhere in this codebase) and fall back to isJobStage() only for the
+// built-in case — see crm-pipeline.js's migrated closedKeys check for the
+// worked example.
+export function isJobStage(stageKey) {
+  const k = normalizeStage(stageKey);
+  return k === S.CONTRACT_SIGNED || VIEW_JOBS.includes(k);
+}
+
+// The terminal-stage counterpart (won OR lost — "decided, nothing left to
+// do"), mirroring functions/stage-roles.js's server-side isDecided(). Same
+// consolidation goal: ask-joe-proactive.js's _TERMINAL_STAGE_KEYS and
+// bottleneck-widget.js's SKIP_STAGES were each their own hand-copied list.
+export function isTerminalStage(stageKey) {
+  const r = stageRole(stageKey);
+  return r === ROLE.WON || r === ROLE.LOST;
+}
+
 // Stamp the role onto STAGE_META so the Phase-1 config resolver + builder UI
 // can read/edit it as a first-class field (single derivation point).
 Object.keys(STAGE_META).forEach(k => { STAGE_META[k].role = stageRole(k); });
@@ -348,6 +389,26 @@ export const VIEW_JOBS = [
   S.CLOSED,
 ];
 
+// 2026-09-15 (Kanban filter unification) — the JOBS TAB's actual column
+// list, distinct from VIEW_JOBS itself. VIEW_JOBS stays exactly as it was
+// (post-Create-Job stages only) because two other consumers depend on that
+// exact scope and must NOT see contract_signed added to it:
+//   - stageOptionsForType() splices VIEW_JOBS in AFTER whatever
+//     contract_signed entry the per-track view (VIEW_INSURANCE/CASH/
+//     FINANCE) already contributed — adding contract_signed to VIEW_JOBS
+//     too would duplicate that dropdown option.
+//   - resolveColumn()'s job-stage collapse branch checks
+//     `VIEW_JOBS.includes(normalized)` to decide whether a STRICTLY
+//     post-contract stage needs collapsing into Closed/Installing under a
+//     narrower view — contract_signed never needs that collapse, because
+//     it already has its own real column in every per-track view.
+// VIEW_JOBS_BOARD is a separate, wider list built ONLY for what a rep sees
+// under the "Jobs" tab (Jo's call: a signed deal is a job to him, even
+// before "Create Job" is clicked) — contract_signed gets its own leading
+// column here instead of falling into resolveColumn's viewStages[0]
+// fallback (an accident of "nothing else matched," not a real column).
+export const VIEW_JOBS_BOARD = [S.CONTRACT_SIGNED, ...VIEW_JOBS];
+
 /**
  * ALL VIEWS — for the view switcher dropdown
  */
@@ -358,7 +419,7 @@ export const KANBAN_VIEWS = {
   finance:   { label: 'Finance Pipeline',    stages: VIEW_FINANCE },
   warranty:  { label: 'Warranty Pipeline',   stages: VIEW_WARRANTY },
   service:   { label: 'Service Pipeline',    stages: VIEW_SERVICE },
-  jobs:      { label: 'Job Board',           stages: VIEW_JOBS },
+  jobs:      { label: 'Job Board',           stages: VIEW_JOBS_BOARD },
 };
 
 /**

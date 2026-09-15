@@ -17,6 +17,7 @@ import {
   stageOptionsForType as _stageOptionsForType, resolvePipelineConfig as _resolvePipelineConfig,
   stageLabel as _stageLabel, actionsForStage as _actionsForStage,
   preferredActionFor as _preferredActionFor,
+  isJobStage as _isJobStage, isTerminalStage as _isTerminalStage,
 } from "./crm-stages.js";
 import { commitStageChange as _commitStageChange } from "./stage-write.js";
 // dashboard-bootstrap.module.js exposes these identically; mirrored here so
@@ -25,6 +26,14 @@ import { commitStageChange as _commitStageChange } from "./stage-write.js";
 // of which page fired the stage change.
 window.actionsForStage = _actionsForStage;
 window.preferredActionFor = _preferredActionFor;
+// 2026-09-15 (Kanban filter unification) — no consumer on THIS page needs
+// these yet (crm-pipeline.js/ask-joe-proactive.js/bottleneck-widget.js are
+// all dashboard.html-only today), but every other crm-stages.js classifier
+// is mirrored on both pages, and a future customer.html script reaching for
+// "is this a job stage" shouldn't hit an asymmetry that only exists because
+// nobody needed it yet.
+window.isJobStage = _isJobStage;
+window.isTerminalStage = _isTerminalStage;
 
 
 // Canonical "what stage comes next for this lead" (2026-09-15 foundation
@@ -388,9 +397,9 @@ function _revalidateLeadInBackground(id, hydratedLead) {
         }
         const stageEl = document.getElementById('customerStage');
         if (stageEl && fresh.stage) {
-          // Best-effort label refresh; falls back to raw key if we
-          // don't have the STAGE_LABELS map in scope here.
-          stageEl.textContent = (window.__STAGE_LABELS && window.__STAGE_LABELS[fresh.stage]) || fresh.stage;
+          // _stageLabel is module-scope (imported at the top of this file),
+          // reachable from this closure directly — no window bridge needed.
+          stageEl.textContent = _stageLabel(fresh.stage) || fresh.stage;
         }
       } catch (e) { /* non-fatal */ }
     } catch (e) {
@@ -589,25 +598,15 @@ async function loadCustomerData(id) {
     
     const stageBadge = document.getElementById('customerStage');
     const stage = lead.stage || 'new';
-    // Display-friendly label for new stage keys
-    const STAGE_LABELS = {
-      'new': 'New Lead', 'contacted': 'Contacted', 'inspected': 'Inspected',
-      'claim_filed': 'Claim Filed', 'adjuster_meeting_scheduled': 'Adjuster Meeting',
-      'adjuster_inspection_done': 'Adjuster Done', 'scope_received': 'Scope Received',
-      'estimate_submitted': 'Estimate Sent', 'supplement_requested': 'Supplement',
-      'supplement_approved': 'Supp. Approved', 'contract_signed': 'Contract Signed',
-      'estimate_sent_cash': 'Est. Sent (Cash)', 'negotiating': 'Negotiating',
-      'prequal_sent': 'Pre-Qual Sent', 'loan_approved': 'Loan Approved',
-      'job_created': 'Job Created', 'permit_pulled': 'Permit', 'materials_ordered': 'Materials Ordered',
-      'materials_delivered': 'Materials Here', 'crew_scheduled': 'Crew Scheduled',
-      'install_in_progress': 'Installing', 'install_complete': 'Install Done',
-      'final_photos': 'Final Photos', 'deductible_collected': 'Deductible',
-      'final_payment': 'Final Payment', 'closed': 'Closed', 'lost': 'Lost'
-    };
-    // Wave 14: expose globally so the background-revalidate label
-    // refresher can resolve stage keys without redefining the map.
-    window.__STAGE_LABELS = STAGE_LABELS;
-    stageBadge.textContent = STAGE_LABELS[stage] || stage;
+    // 2026-09-15 (Kanban filter unification): was a hand-copied label map,
+    // missing 'collections' (added the same day) — _stageLabel is already
+    // imported from crm-stages.js at the top of this file (module scope),
+    // so both this and the background-revalidate refresher below can call
+    // it directly; the window.__STAGE_LABELS bridge object this used to
+    // need (Wave 14, for that OTHER function's lack of module-scope access
+    // to a locally-const'd map) is no longer necessary now that both call
+    // sites reach the same imported function instead of a local copy.
+    stageBadge.textContent = _stageLabel(stage) || stage;
     stageBadge.className = 'stage-badge stage-' + stage.toLowerCase().replace(/[_\s]+/g, '-');
 
     // ── Days-in-stage badge ──

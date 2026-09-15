@@ -2861,6 +2861,12 @@ ${price ? '<div style="text-align:right;margin:24px 0;"><span style="font-size:1
 
     const today = new Date().toLocaleDateString('en-US', { year:'numeric', month:'long', day:'numeric' });
 
+    // 2026-09-15 (Kanban filter unification): was a hand-copied label map
+    // (already stopping at 'closed', missing 'collections' added the same
+    // day) — window.stageLabel is the canonical labeler (crm-stages.js,
+    // exposed by both bootstrap modules); this file is a plain script with
+    // no static import of crm-stages.js, so the local map stays ONLY as a
+    // fallback for a load order this file can't otherwise guarantee.
     const STAGE_LABELS = {
       new: 'New', contacted: 'Contacted', inspected: 'Inspected',
       claim_filed: 'Claim Filed', adjuster_meeting_scheduled: 'Adjuster Meeting',
@@ -2875,13 +2881,14 @@ ${price ? '<div style="text-align:right;margin:24px 0;"><span style="font-size:1
       closed: 'Closed'
     };
     const JOB_TYPE_LABELS = { insurance: 'Insurance', cash: 'Cash', finance: 'Finance', warranty: 'Warranty', service: 'Service' };
+    const _stageLabelFor = (k) => (typeof window.stageLabel === 'function' && window.stageLabel(k)) || STAGE_LABELS[k] || k;
 
     const customerRowsHtml = [
       ['Customer',    fullName],
       ['Address',     customer.address],
       ['Phone',       customer.phone],
       ['Email',       customer.email],
-      ['Stage',       customer.stage ? (STAGE_LABELS[customer.stage] || customer.stage) : null],
+      ['Stage',       customer.stage ? _stageLabelFor(customer.stage) : null],
       ['Lead since',  customer.createdAt ? fmtDate(customer.createdAt) : null]
     ].filter(([k, v]) => v && v !== '—').map(([k, v]) =>
       `<tr><td class="kv-k">${esc(k)}</td><td class="kv-v">${esc(v)}</td></tr>`

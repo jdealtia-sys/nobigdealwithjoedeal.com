@@ -27,11 +27,16 @@
   if (__NBD_LOADED['bottleneck-widget']) return;
   __NBD_LOADED['bottleneck-widget'] = true;
 
-  // Stages that we DON'T flag as bottlenecks — terminal or trivial.
+  // Stages that we DON'T flag as bottlenecks because they're trivial (not
+  // because they're terminal — that check is window.isTerminalStage below).
+  // 2026-09-15 (Kanban filter unification): this used to ALSO hand-copy
+  // ['closed','lost','Lost','Complete','final_payment','deductible_collected']
+  // — every one of those already resolves correctly through the role
+  // fallback right below, so the literal was pure redundant surface area
+  // (and had already drifted: no 'collections' entry, silently only safe
+  // because of that same fallback).
   const SKIP_STAGES = new Set([
     'new',                  // brand-new leads belong to the funnel top, not a "bottleneck"
-    'closed', 'lost', 'Lost', 'Complete',
-    'final_payment', 'deductible_collected',
   ]);
 
   const BOTTLENECK_AVG_DAYS = 10;   // avg ≥ 10d → eligible for flag
@@ -114,10 +119,7 @@
       // won/lost via Settings > Pipelines isn't recognized as terminal here,
       // so "Where am I stuck?" would wrongly flag it as a bottleneck.
       if (SKIP_STAGES.has(sk)) return;
-      if (typeof window.stageRole === 'function') {
-        const role = window.stageRole(sk);
-        if (role === 'won' || role === 'lost') return;
-      }
+      if (typeof window.isTerminalStage === 'function' && window.isTerminalStage(sk)) return;
       const days = daysInStageFor(l);
       if (days == null) return;
       if (!buckets.has(sk)) buckets.set(sk, []);
@@ -128,7 +130,15 @@
     for (const [stage, days] of buckets) {
       rows.push({
         stage,
-        label: STAGE_LABELS[stage] || stage.replace(/_/g, ' '),
+        // 2026-09-15 (Kanban filter unification): window.stageLabel is the
+        // canonical labeler (crm-stages.js) — the local STAGE_LABELS map
+        // below was a hand-copied duplicate that stopped at 'final_photos',
+        // so deductible_collected/final_payment/collections/closed all fell
+        // through to a raw "stage_key_with_underscores" string. Kept as a
+        // fallback only, for a page where this file loads before
+        // dashboard-bootstrap.module.js has exposed the real one.
+        label: (typeof window.stageLabel === 'function' && window.stageLabel(stage))
+          || STAGE_LABELS[stage] || stage.replace(/_/g, ' '),
         count: days.length,
         avg: average(days),
         median: median(days),

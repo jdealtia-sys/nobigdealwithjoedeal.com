@@ -78,11 +78,12 @@ function renderLeads(leads, filtered){
   (() => {
     const swEl = document.getElementById('kview-count-insurance');
     if (!swEl) return;
-    const _jobStageSet = new Set([
-      'job_created','permit_pulled','materials_ordered','materials_delivered',
-      'crew_scheduled','install_in_progress','install_complete','final_photos',
-      'deductible_collected','final_payment','closed'
-    ]);
+    // 2026-09-15 (Kanban filter unification): was a hand-copied Set that had
+    // already drifted from crm-stages.js's VIEW_JOBS within hours of the
+    // Collections stage being added — window.isJobStage is the one
+    // canonical membership test now (crm-stages.js), so this count can
+    // never drift from the filter below or from the Jobs board's own
+    // column list again.
     const _norm = window.normalizeStage;
     const counts = { insurance: 0, cash: 0, finance: 0, warranty: 0, service: 0, jobs: 0, simple: all.length };
     for (const l of all) {
@@ -95,7 +96,7 @@ function renderLeads(leads, filtered){
       if (jt === 'warranty')         counts.warranty++;
       if (jt === 'service')          counts.service++;
       const sk = l._stageKey || (_norm ? _norm(l.stage) : l.stage || 'new');
-      if (_jobStageSet.has(sk))      counts.jobs++;
+      if (window.isJobStage && window.isJobStage(sk)) counts.jobs++;
     }
     ['insurance','cash','finance','warranty','service','jobs','simple'].forEach(k => {
       const el = document.getElementById('kview-count-' + k);
@@ -151,14 +152,15 @@ function renderLeads(leads, filtered){
   // Insurance view: show insurance + unset jobType leads (NBD defaults to insurance)
   // Cash view: show only cash leads
   // Finance view: show only finance leads
-  // Jobs view: show only leads in post-contract (job) stages
+  // Jobs view: show leads Jo considers a job — post-contract stages PLUS
+  // contract_signed itself (2026-09-15 Kanban filter unification, Jo's
+  // call: a signed, materials-on-order deal IS a job to him — the CRM's
+  // own revenue math already agreed, see _closedKeys below). Uses
+  // window.isJobStage (crm-stages.js) instead of a hand-copied stage-key
+  // Set — that Set had already drifted from VIEW_JOBS within hours of the
+  // Collections stage being added; this is the one place that fact lives now.
   const _view = window._currentViewKey || 'simple';
   const _norm = window.normalizeStage;
-  const _jobStageSet = new Set([
-    'job_created','permit_pulled','materials_ordered','materials_delivered',
-    'crew_scheduled','install_in_progress','install_complete','final_photos',
-    'deductible_collected','final_payment','closed'
-  ]);
   if (_view === 'insurance') {
     // Insurance view still catches unset jobType (NBD's historical default)
     list = list.filter(l => !l.jobType || l.jobType === 'insurance');
@@ -173,7 +175,7 @@ function renderLeads(leads, filtered){
   } else if (_view === 'jobs') {
     list = list.filter(l => {
       const sk = l._stageKey || (_norm ? _norm(l.stage) : l.stage || 'new');
-      return _jobStageSet.has(sk);
+      return window.isJobStage && window.isJobStage(sk);
     });
   }
   // simple view: no filter (list stays as-is)
@@ -184,7 +186,6 @@ function renderLeads(leads, filtered){
   // Revenue calcs — use stage keys when available
   let pipeVal=0, closedRev=0, approvedCount=0;
   const _lostKeys = ['lost', 'Lost'];
-  const _closedKeys = ['contract_signed','job_created','permit_pulled','materials_ordered','materials_delivered','crew_scheduled','install_in_progress','install_complete','final_photos','deductible_collected','final_payment','closed','Approved','In Progress','Complete'];
   const _approvedKeys = ['contract_signed','Approved'];
   all.forEach(l=>{
     const v=parseFloat(l.jobValue||0);
@@ -196,7 +197,13 @@ function renderLeads(leads, filtered){
     // and a custom Won stage was excluded from closed revenue.
     const role = l._stageRole || (typeof window.stageRole === 'function' ? window.stageRole(sk) : 'active');
     const isLost = _lostKeys.includes(sk) || role === 'lost';
-    const isClosed = _closedKeys.includes(sk) || role === 'won' || role === 'job';
+    // 2026-09-15 (Kanban filter unification): was its own hand-copied
+    // _closedKeys list (contract_signed through closed, plus 3 legacy
+    // display names) — window.isJobStage already normalizes legacy aliases
+    // via the same normalizeStage() path (Approved -> contract_signed,
+    // In Progress -> install_in_progress, Complete -> closed), so this is
+    // strictly the same classification with one fewer place to drift.
+    const isClosed = (window.isJobStage && window.isJobStage(sk)) || role === 'won' || role === 'job';
     // Metrics audit F2: pipeline = deals still IN PLAY only. The old
     // "everything not lost" definition counted won/in-production money as
     // pipeline while the Closed Revenue tile showed a subset of the same
