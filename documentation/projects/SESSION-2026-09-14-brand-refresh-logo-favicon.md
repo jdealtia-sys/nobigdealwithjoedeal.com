@@ -185,6 +185,26 @@ unrelated CSS-drawn "NBD" badge (not an image, untouched by this swap) still
 renders fine. No new console errors — the only 404s on `/pro/login.html`
 (`/pro/nosw.txt`) are a pre-existing, unrelated service-worker probe.
 
+## CI caught what the restamp missed: 12 hand-authored pages
+
+`apply-partials.js` only restamps pages between `<!-- nbd:partial ... -->`
+markers. Twelve pages carry their nav/footer logo `<img>` **outside** that
+system — `docs/index.html` (its own hand-authored nav/footer, distinct CSS
+classes from the shared partials), `visualizer.html`, five service detail
+pages (`the-nbd-guarantee`, `the-nbd-build`, `roofivent`, `lumanail`,
+`gaf-pivot-boot`), `privacy.html`, `review.html`, `inspect.html`,
+`areas/index.html`, and `the-pledge/index.html` (two occurrences) — and the
+six-partial `width`/`height` update never reached them. `check-site-integrity`
+and `apply-partials --check` don't look for this (neither owns hardcoded
+per-page dimension attributes); what actually caught it was
+`tests/nav-logo-size-2026-09-14.test.js`, a suite from this morning's #1554
+that happens to assert the exact attribute string site-wide. Once its own
+hardcoded 135×75 expectations were updated to reflect this session's real
+600×308 artwork (the actual, legitimate reason it needed touching), it went
+from 17/19 to 19/19 and named the 12 stragglers by exact file. Fixed with a
+plain string find-replace (12 files, 13 occurrences — confirmed via a
+lone-CR byte scan that no EOL corruption followed).
+
 ## Not done / left for a follow-up
 
 - `scripts/render-apple-touch-icon.js`'s corner-fill `TILE` constant is a
