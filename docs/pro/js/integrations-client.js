@@ -40,32 +40,20 @@
   const state = { status: null, statusFetchedAt: 0 };
   const STATUS_TTL_MS = 5 * 60 * 1000;
 
-  // The integrationStatus callable is gated server-side to admin /
-  // company_admin (functions/index.js:704). Non-admins were calling
-  // it on every dashboard load and getting 403 spam in the console
-  // and a wasted Cloud Function invocation per session. Now we
-  // short-circuit on the client so non-admins never hit the network.
-  function _isAdminCaller() {
-    const role = (typeof window !== 'undefined' && window._role) || '';
-    return role === 'admin' || role === 'company_admin';
-  }
-
+  // integrationAvailability is the non-admin-safe subset of the
+  // admin-only integrationStatus callable (functions/handlers/integrations.js —
+  // see its H-06 comment for why integrationStatus itself stays admin-gated).
+  // Every signed-in rep can call it, so status() no longer needs a client-side
+  // short-circuit for non-admins — that short-circuit used to fake a
+  // permanently-empty `configured: {}` without ever hitting the network,
+  // which made requireConfigured() unconditionally false for every ordinary
+  // rep regardless of whether the integration was actually configured.
   async function status(force) {
     if (!force && state.status && (Date.now() - state.statusFetchedAt) < STATUS_TTL_MS) {
       return state.status;
     }
-    // Non-admin: don't even attempt the call. Populate an empty
-    // status so requireConfigured() correctly reports "not set up"
-    // for any provider, and downstream UIs disable their buttons
-    // gracefully.
-    if (!_isAdminCaller()) {
-      state.status = { configured: {}, providers: {}, _skippedReason: 'not-admin' };
-      state.statusFetchedAt = Date.now();
-      window._integrationStatus = state.status;
-      return state.status;
-    }
     try {
-      const fn = await callable('integrationStatus');
+      const fn = await callable('integrationAvailability');
       const res = await fn({});
       state.status = res.data || { configured: {} };
       state.statusFetchedAt = Date.now();
