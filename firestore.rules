@@ -112,6 +112,37 @@ service cloud.firestore {
       return b == a || (b in ['owed', 'paid'] && a in ['owed', 'paid']);
     }
 
+    // 2026-09-15 (CRM stage-progression foundation work): `stageRole` is the
+    // field every server-side classifier now trusts before falling back to a
+    // hardcoded stage-key list — functions/stage-roles.js's roleFor(), which
+    // money-dashboard.js, analytics-kpi.js, leaderboard.js, weekly-digest.js,
+    // dormant-leads.js and functions/portal.js's progressKeyFor all read.
+    // It's client-stamped on every stage change by stage-write.js's
+    // commitStageChange(), but until now nothing at the trust boundary
+    // stopped an authorized writer from setting it to an arbitrary string —
+    // a forged or simply buggy value would silently misclassify that lead in
+    // every revenue/KPI/digest/proactive-nudge surface that reads it.
+    //
+    // Deliberately narrow, mirroring referralStatusTransitionOk() above: the
+    // pipeline itself stays freeform BY DESIGN (no stage-ORDER enforcement
+    // exists anywhere, client or server — a tenant can add custom stages via
+    // Settings > Pipelines and a rep can move a lead directly from New to
+    // Closed). This does not attempt to validate that `stage` is a "legal"
+    // value for that transition — only that stageRole, when present, is one
+    // of the 5 real semantic roles, and stage is a reasonable string. A rules
+    // read against the tenant's companyProfile.pipelines to validate the
+    // stage itself is possible but is real added complexity + read cost for
+    // a case client-side validation already covers (missingRequiredFields);
+    // this closes the actual forgery gap without it.
+    function stageWriteOk() {
+      let newRole = request.resource.data.get('stageRole', null);
+      let roleOk = newRole == null || newRole in ['new', 'active', 'job', 'won', 'lost'];
+      let newStage = request.resource.data.get('stage', null);
+      let stageOk = newStage == null
+        || (newStage is string && newStage.size() > 0 && newStage.size() <= 60);
+      return roleOk && stageOk;
+    }
+
     // A tenant's customer-ID prefix (brand.docPrefix) + its display twin
     // (brand.seal) are set ONLY by the reserveCompanyPrefix callable (admin SDK)
     // after it atomically claims docPrefixes/{PREFIX}. They must be immutable to
@@ -222,6 +253,7 @@ service cloud.firestore {
           && writeOnce('customerId')
           && referralServerFieldsFrozen()
           && referralStatusTransitionOk()
+          && stageWriteOk()
         );
       allow delete: if (isOwner(resource.data.userId)
             && request.auth.token.get('role', '') != 'viewer')
