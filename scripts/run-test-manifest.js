@@ -193,8 +193,12 @@ const RUNNABLE = ['node', 'smoke'];
 //               suite, google-reviews added a 'node' suite. Neither side's
 //               number was carried forward by arithmetic; re-measured via
 //               --check on the rebased tree.
+//   2026-09-15  main gained one 'node' suite since the last bump (found by
+//               `--check` failing red on an unrelated PR — this fix carries
+//               no product change, just re-measures the tripwire on main's
+//               current tree, same class of drift as the entry above).
 
-const FLOORS = { node: 124, smoke: 67, disk: 210 };
+const FLOORS = { node: 125, smoke: 67, disk: 211 };
 
 // ── Argument parsing ───────────────────────────────────────────────
 const argv = process.argv.slice(2);
