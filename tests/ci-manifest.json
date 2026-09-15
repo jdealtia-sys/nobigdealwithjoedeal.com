@@ -120,6 +120,7 @@
     "nav-contract.test.js",
     "photo-report-output-contract.test.js",
     "photo-report-builder.test.js",
+    "photo-report-sharing.test.js",
     "session-revocation.test.js",
     "calcom-webhook-payload.test.js",
     "lead-alert-calcom.test.js",
