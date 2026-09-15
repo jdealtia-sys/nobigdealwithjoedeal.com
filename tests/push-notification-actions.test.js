@@ -231,19 +231,25 @@ console.log('\nBUTTON LISTS — worker and server must not drift');
 
 console.log('\nSERVER PAYLOAD — the parts a wrong value makes silently fail');
 {
-  const src = codeOnly(fs.readFileSync(path.join(ROOT, 'functions', 'push-functions.js'), 'utf8'));
-  ok('actions ride on the webpush notification, not only in the worker',
-     /actions: notificationActionsFor\(data\.type\)/.test(src));
-  // FCM rejects the ENTIRE send if any data value is not a string, so a lead
-  // with no name would otherwise mean no push at all.
-  ok('every data value is coerced to a string before sending',
-     /stringData\[k\] = String\(v\)/.test(src));
-  ok('null and undefined are dropped rather than stringified to "undefined"',
-     /if \(v === undefined \|\| v === null\) continue;/.test(src));
-  ok('the coerced object is what actually gets sent (both data blocks)',
-     (src.match(/\.\.\.stringData/g) || []).length === 2);
-  ok('a new lead carries the phone number the Call button needs',
-     /phone: String\(leadData\.phone/.test(src));
+  // The server half of this block was five regexes over
+  // functions/push-functions.js, and each could pass with its behaviour
+  // broken. One did: /phone: String\(leadData\.phone/ matched the line whose
+  // `[^d+]` deleted every digit from the Call button's number (#1541). The rest
+  // match text the same way — `data: { ...stringData, ...data }` still counts
+  // two spreads while sending the raw undefineds, and
+  // `actions: notificationActionsFor(data.type)` matches whichever object of
+  // the message it is written in.
+  //
+  // tests/push-lead-call-phone.test.js is the gate now. It runs onNewLead and
+  // sendCustomNotification with Firestore and FCM stubbed, validates what they
+  // send with firebase-admin's own validateMessage, and checks the message:
+  // the Call number, string coercion in both data blocks, null/undefined
+  // dropped, and the buttons on webpush.notification. This assertion only
+  // keeps that pointer from rotting into a comment about a file CI never runs.
+  const payloadGate = 'push-lead-call-phone.test.js';
+  const manifest = JSON.parse(fs.readFileSync(path.join(ROOT, 'tests', 'ci-manifest.json'), 'utf8'));
+  ok('the server payload is gated by executing it (' + payloadGate + ', in the node bucket)',
+     fs.existsSync(path.join(__dirname, payloadGate)) && (manifest.node || []).includes(payloadGate));
 
   const reg = fs.readFileSync(path.join(ROOT, 'docs', 'pro', 'js', 'push-registration.js'), 'utf8');
   ok('the worker is still registered off the app scope (the reason navigate() fails)',
