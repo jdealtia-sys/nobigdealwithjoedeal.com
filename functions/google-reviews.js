@@ -51,6 +51,77 @@ const CORS_ORIGINS = [
   'https://nobigdeal-pro.web.app',
 ];
 
+// Throttle for the not-configured notice. Missing secrets are a DEPLOY
+// STATE, not a per-request fault: the condition is identical on request 1
+// and request 10,000, so logging it once per request buys no information
+// and costs a flooded error stream. Module scope = once per warm instance
+// per hour (maxInstances 3, so ≤3/hour project-wide).
+const NOT_CONFIGURED_LOG_INTERVAL_MS = 60 * 60 * 1000;
+let lastNotConfiguredLogAt = 0;
+
+/**
+ * Serve the best payload we still have when a refresh cannot produce one:
+ * last-known-good Places cache → stale GBP full set → empty-but-valid body.
+ *
+ * Shared by the not-configured branch and the refresh-failed catch so the
+ * two can differ in LOGGING (warn-once vs. error-every-time) without ever
+ * drifting in what the widget actually receives. `reason` is echoed into
+ * the body so `curl /api/google-reviews` says WHY it is empty — before
+ * this, a cold unconfigured deploy and a Google outage were byte-identical
+ * from outside and only Cloud Logging could tell them apart.
+ */
+function serveFallback(res, { cached, gbp, now, reason }) {
+  if (cached && cached.data) {
+    res.set('Cache-Control', 'public, max-age=120');
+    return res.status(200).json({
+      ...cached.data,
+      cached: true,
+      stale: true,
+      reason,
+      fetchedAt: cached.fetchedAt || 0,
+    });
+  }
+  // A stale GBP full-set doc still beats an empty payload — old
+  // reviews are real reviews.
+  if (gbp && gbp.data && Array.isArray(gbp.data.reviews) && gbp.data.reviews.length) {
+    res.set('Cache-Control', 'public, max-age=120');
+    return res.status(200).json({
+      ...gbp.data,
+      cached: true,
+      stale: true,
+      source: 'gbp',
+      reason,
+      fetchedAt: gbp.fetchedAt || 0,
+    });
+  }
+  // Cold-cache fallback: return an empty-but-valid payload instead
+  // of a 503 — the widget renders its "Read our reviews on Google"
+  // card and the static featured section still carries the page.
+  //
+  // An unconfigured deploy lands here on EVERY request forever, so it gets
+  // a longer edge TTL than a transient Google failure: 5 minutes of CDN
+  // caching turns one origin hit per page view into one per 5 minutes, and
+  // costs at most a 5-minute delay before real reviews appear once the
+  // secrets are set. A refresh failure keeps the short 60s TTL because it
+  // is expected to clear on its own.
+  res.set(
+    'Cache-Control',
+    reason === 'not_configured' ? 'public, max-age=300' : 'public, max-age=60'
+  );
+  return res.status(200).json({
+    name: 'No Big Deal Home Solutions',
+    rating: 0,
+    total: 0,
+    profileUrl: '',
+    reviews: [],
+    cached: false,
+    stale: false,
+    empty: true,
+    reason,
+    fetchedAt: now,
+  });
+}
+
 /**
  * Fetch Place Details from Places API (New).
  *
@@ -166,16 +237,46 @@ exports.getGoogleReviews = onRequest(
     }
 
     // Refresh path
-    try {
-      // secretValue(): the deploy's '__unset__' stub reads as unset. Before
-      // 2026-09-04 both stubs passed a truthiness check and this asked Google
-      // for places/__unset__ on every refresh.
-      const placeId = secretValue(NBD_PLACE_ID);
-      const apiKey = secretValue(GOOGLE_PLACES_API_KEY);
-      if (!placeId || !apiKey) {
-        throw new Error('Google Places not configured: GOOGLE_PLACES_API_KEY and/or NBD_PLACE_ID unset (or the __unset__ deploy stub)');
-      }
+    // secretValue(): the deploy's '__unset__' stub reads as unset. Before
+    // 2026-09-04 both stubs passed a truthiness check and this asked Google
+    // for places/__unset__ on every refresh.
+    const placeId = secretValue(NBD_PLACE_ID);
+    const apiKey = secretValue(GOOGLE_PLACES_API_KEY);
 
+    // Not configured is not a failure — it is a deploy state, and it must be
+    // reported as one. Until 2026-09-08 this threw into the catch below, so
+    // every single request logged `logger.error('refresh failed')`: 1,000+
+    // ERROR lines in 48 hours on a project whose real fault rate was zero.
+    // That is worse than noise. It buried genuine Places outages in an
+    // identical error, and it made the function look like an active incident
+    // when the true state was "a runbook step was never run". Both secrets
+    // have held the '__unset__' stub since the function first deployed —
+    // there has never been a successful Places fetch.
+    //
+    // Deliberately NOT silenced. The condition still logs, still names both
+    // secrets and the runbook, and now carries a stable `event` field an
+    // alert policy can match exactly — it is throttled, not hidden. The
+    // response body gained `reason: 'not_configured'` for the same purpose:
+    // this must stay findable from outside without reading Cloud Logging.
+    // Setup: functions/google-reviews.README.md steps 1-5.
+    if (!placeId || !apiKey) {
+      if (now - lastNotConfiguredLogAt >= NOT_CONFIGURED_LOG_INTERVAL_MS) {
+        lastNotConfiguredLogAt = now;
+        logger.warn(
+          'getGoogleReviews: Google Places not configured — serving fallback, no Google call attempted',
+          {
+            event: 'google_reviews_not_configured',
+            GOOGLE_PLACES_API_KEY: apiKey ? 'set' : 'unset-or-stub',
+            NBD_PLACE_ID: placeId ? 'set' : 'unset-or-stub',
+            runbook: 'functions/google-reviews.README.md',
+            throttledSeconds: NOT_CONFIGURED_LOG_INTERVAL_MS / 1000,
+          }
+        );
+      }
+      return serveFallback(res, { cached, gbp, now, reason: 'not_configured' });
+    }
+
+    try {
       const fresh = await fetchFromGoogle(placeId, apiKey);
       await ref.set({ data: fresh, fetchedAt: now }, { merge: true });
 
@@ -187,47 +288,14 @@ exports.getGoogleReviews = onRequest(
         fetchedAt: now,
       });
     } catch (err) {
+      // Reached only when the secrets were REAL and Google (or the network)
+      // let us down — a genuine, actionable outage. Kept at ERROR severity
+      // precisely because the not-configured case no longer competes with
+      // it: an error line here now means something is actually broken.
       logger.error('getGoogleReviews: refresh failed', err);
 
       // Stale fallback — better to show old reviews than nothing
-      if (cached && cached.data) {
-        res.set('Cache-Control', 'public, max-age=120');
-        return res.status(200).json({
-          ...cached.data,
-          cached: true,
-          stale: true,
-          fetchedAt: cached.fetchedAt || 0,
-        });
-      }
-      // A stale GBP full-set doc still beats an empty payload — old
-      // reviews are real reviews.
-      if (gbp && gbp.data && Array.isArray(gbp.data.reviews) && gbp.data.reviews.length) {
-        res.set('Cache-Control', 'public, max-age=120');
-        return res.status(200).json({
-          ...gbp.data,
-          cached: true,
-          stale: true,
-          source: 'gbp',
-          fetchedAt: gbp.fetchedAt || 0,
-        });
-      }
-      // Cold-cache fallback: return an empty-but-valid payload instead
-      // of a 503 — the widget renders its "Read our reviews on Google"
-      // card and the static featured section still carries the page.
-      // The error is still logged above so the missing-secret / API /
-      // quota condition is visible in Cloud Logs.
-      res.set('Cache-Control', 'public, max-age=60');
-      return res.status(200).json({
-        name: 'No Big Deal Home Solutions',
-        rating: 0,
-        total: 0,
-        profileUrl: '',
-        reviews: [],
-        cached: false,
-        stale: false,
-        empty: true,
-        fetchedAt: now,
-      });
+      return serveFallback(res, { cached, gbp, now, reason: 'refresh_failed' });
     }
   })
 );

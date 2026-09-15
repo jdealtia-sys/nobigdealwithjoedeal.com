@@ -100,6 +100,14 @@ const ROUTES = {
   // (resetSubscriptionByEmail entry deleted 2026-08-10: no such export
   //  exists anywhere in functions/ — it was a phantom route.)
   validateAccessCode: { uidLimit:  10, uidWindow: HOUR,    ipLimit:   5, ipWindow: 5*MINUTE },
+  // revokeMySessions WIRED (2026-09-08): guardCallable('revokeMySessions')
+  // in handlers/auth.js — the self-service "Sign Out Everywhere" path.
+  // Burst need is genuinely one click: a user rotating credentials after a
+  // suspected compromise presses it once, and each call is an Admin SDK
+  // write, so the uid ceiling is tight. The ip ceiling is 4x the uid one on
+  // purpose — a whole office rotating after a breach is the exact moment
+  // this button matters most, and one NAT must not wedge the fifth person.
+  revokeMySessions:   { uidLimit:   5, uidWindow: HOUR,    ipLimit:  20, ipWindow: HOUR     },
 
   // ── Public lead intake — stripped of auth, gate hard on IP.
   // submitPublicLead is NOT wrapper-wired on purpose: its hand-rolled gate in

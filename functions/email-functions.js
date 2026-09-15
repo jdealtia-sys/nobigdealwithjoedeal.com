@@ -17,6 +17,7 @@ const { getAuth } = require('firebase-admin/auth');
 const { FieldValue } = require('firebase-admin/firestore');
 const { Resend } = require('resend');
 const { enforceRateLimit, httpRateLimit } = require('./rate-limit');
+const { resendRejected, resendErrorMessage } = require('./resend-guard');
 
 // Secrets
 const RESEND_API_KEY = defineSecret('RESEND_API_KEY');
@@ -398,9 +399,26 @@ exports.sendEmail = onRequest(
         attachments: attachments || []
       });
 
-      // Log to Firestore
+      // The Resend SDK does NOT throw on an API-level rejection (bad/expired
+      // key, suspended account, invalid sender domain, etc.) — it resolves
+      // to { data: null, error: {...} }, so this branch never ran and every
+      // one of those failures was logged and returned as a genuine success.
+      // Found live-testing invoicing 2026-09-08 (see documentation/audit/
+      // STRIPE-INVOICING-STATUS-2026-09-08.md); the identical shape at
+      // ~18 more call sites across functions/ was fixed as a follow-up
+      // (documentation/audit/RESEND-ERROR-SURFACING-SWEEP-2026-09-08.md),
+      // sharing this check via resend-guard.js.
       const db = getFirestore();
       const companyId = decoded.companyId || null;
+      if (resendRejected(response)) {
+        const msg = resendErrorMessage(response);
+        logger.error('sendEmail resend_rejected', { err: msg });
+        await logEmailToFirestore(db, to, subject, decoded.uid, 'failed', leadId || null, companyId);
+        res.status(502).json({ error: 'Failed to send email', detail: msg });
+        return;
+      }
+
+      // Log to Firestore
       await logEmailToFirestore(db, to, subject, decoded.uid, 'sent', leadId || null, companyId);
 
       res.json({

@@ -304,8 +304,12 @@ section('Customer photo multi-select + batched commit');
     /id="nbdPhotoBulkBar"[\s\S]{0,1500}id="nbdPhotoBulkCount"[\s\S]{0,2000}id="nbdBulkPhase"[\s\S]{0,2000}id="nbdBulkSeverity"/.test(customer));
   // Bulk handlers exist and use writeBatch (one round-trip for the
   // whole batch — the whole point of this PR).
+  // 2026-09-08: the damageType normalize-on-write guard landed between the
+  // signature and the batch, widening the gap past 500 — bound bumped to 900,
+  // the same adjustment the delete assertion below already took. The claim
+  // under test is unchanged: this handler still batches into one round-trip.
   assert('applyBulkPhotoUpdate uses writeBatch',
-    /window\.applyBulkPhotoUpdate\s*=\s*async function[\s\S]{0,500}window\.writeBatch\(window\.db\)/.test(customer));
+    /window\.applyBulkPhotoUpdate\s*=\s*async function[\s\S]{0,900}window\.writeBatch\(window\.db\)/.test(customer));
   // NEW-C1 added a nbdConfirm gate before the batch (PWA confirm patch),
   // widening the gap from `async function` to writeBatch — bound bumped 500→900.
   assert('applyBulkPhotoDelete uses writeBatch',

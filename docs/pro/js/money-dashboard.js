@@ -107,7 +107,12 @@
     return Number(d.toLocaleDateString('en-CA', { timeZone: 'America/New_York' }).slice(0, 4));
   }
 
-  var WON_STAGES = ['closed', 'install_complete', 'final_photos', 'final_payment', 'deductible_collected', 'Complete'];
+  // 2026-09-15: added 'collections' (Collections lane), then 'warranty_claim'
+  // (Warranty Claim lane, same day) — WON_STAGES is only the fallback for a
+  // lead with no _stageRole stamped yet, per the comment below, so this list
+  // still needs to stay current even though the role-check is the real
+  // safety net for everything else.
+  var WON_STAGES = ['closed', 'install_complete', 'final_photos', 'final_payment', 'deductible_collected', 'collections', 'warranty_claim', 'Complete'];
   // Role-aware (freeform-pipeline foundation): prefer the denormalized
   // _stageRole (custom-stage-safe), fall back to WON_STAGES for un-stamped leads.
   function isWon(l) {
@@ -145,6 +150,40 @@
       if (inv.status === 'paid') return;
       outstandingCents += Math.round((parseFloat(inv.balanceDue) || parseFloat(inv.total) || 0) * 100);
     });
+
+    // ── Collections queue (2026-09-15 Collections foundation) ───────────
+    // Same outstanding population as outstandingCents above, but bucketed
+    // by days-past-due (off dueDate) so a rep sees WHICH invoice to chase,
+    // not just one lump total, plus a per-invoice drill-down for the
+    // "Move to Collections" driven-UX action. `data.now` lets tests pin
+    // the clock; defaults to the real time in the browser.
+    var now = data.now ? toJSDate(data.now) : new Date();
+    var agingCents = { current: 0, d1_30: 0, d31_60: 0, d61_plus: 0 };
+    var collectionsQueue = [];
+    invoices.forEach(function (inv) {
+      if (inv.status === 'paid') return;
+      var balC = Math.round((parseFloat(inv.balanceDue) || parseFloat(inv.total) || 0) * 100);
+      if (balC <= 0) return;
+      var due = toJSDate(inv.dueDate);
+      var daysPastDue = due ? Math.floor((now.getTime() - due.getTime()) / 86400000) : 0;
+      var bucket = daysPastDue <= 0 ? 'current' : daysPastDue <= 30 ? 'd1_30' : daysPastDue <= 60 ? 'd31_60' : 'd61_plus';
+      agingCents[bucket] += balC;
+      // Freeform-pipeline-safe: reads the LINKED lead's own current stage
+      // (not a hardcoded string) so a tenant that renamed/relocated the
+      // built-in 'collections' stage still shows the right badge.
+      var lead = (inv.leadId && Array.isArray(leads)) ? leads.find(function (l) { return l && l.id === inv.leadId; }) : null;
+      collectionsQueue.push({
+        id: inv.id || null,
+        leadId: inv.leadId || null,
+        customerName: inv.customerName || (lead && lead.name) || 'Customer',
+        balanceCents: balC,
+        dueDate: inv.dueDate || null,
+        daysPastDue: daysPastDue,
+        bucket: bucket,
+        inCollections: !!lead && (lead._stageKey || lead.stage) === 'collections',
+      });
+    });
+    collectionsQueue.sort(function (a, b) { return b.daysPastDue - a.daysPastDue; });
 
     var spentCents = 0, cogsCents = 0, overheadCents = 0;
     var directByLead = {}, supplierCents = {};
@@ -206,6 +245,7 @@
       year: year,
       collectedCents: collectedCents, spentCents: spentCents, netCashCents: netCashCents,
       cogsCents: cogsCents, overheadCents: overheadCents, outstandingCents: outstandingCents,
+      agingCents: agingCents, collectionsQueue: collectionsQueue,
       wonContractCents: wonContractCents, wonDirectCents: wonDirectCents, grossMargin: grossMargin,
       costedJobs: costedJobs, wonJobs: wonLeads.length,
       topSuppliers: topSuppliers, supplierCount: Object.keys(supplierCents).length,
@@ -226,9 +266,13 @@
         .then(function (s) { out.expenses = s.docs.map(function (d) { return d.data(); }); }).catch(function () {}),
       getDocs(staff ? q(col(db, 'suppliers'), where('companyId', '==', companyId())) : q(col(db, 'suppliers'), where('userId', '==', u)))
         .then(function (s) { out.suppliers = s.docs.map(function (d) { return d.data(); }); }).catch(function () {}),
-      // invoices: createdBy (their own historical ownership field)
-      getDocs(q(col(db, 'invoices'), where('createdBy', '==', u)))
-        .then(function (s) { out.invoices = s.docs.map(function (d) { return d.data(); }); }).catch(function () {}),
+      // invoices: staff -> companyId (team-wide A/R, matches the invoice
+      // rules' isCompanyStaff() read branch — Collections foundation,
+      // 2026-09-15), else createdBy (their own historical ownership field).
+      // `id` is kept on every doc (previously dropped) so the Collections
+      // queue below can act on a specific invoice, not just sum them.
+      getDocs(staff ? q(col(db, 'invoices'), where('companyId', '==', companyId())) : q(col(db, 'invoices'), where('createdBy', '==', u)))
+        .then(function (s) { out.invoices = s.docs.map(function (d) { return Object.assign({ id: d.id }, d.data()); }); }).catch(function () {}),
     ];
     await Promise.all(jobs);
     return out;
@@ -250,9 +294,16 @@
     return '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:20px;">' + cards.join('') + '</div>';
   }
 
+  // Last-rendered collections queue, keyed for moveToCollections() below —
+  // the delegated data-action="module" click only carries the invoice id,
+  // so this is how the handler recovers the leadId/inCollections it needs
+  // without a second Firestore read.
+  var _lastQueue = [];
+
   function render(m) {
     var scroll = document.querySelector('#view-money .view-scroll');
     if (!scroll) return;
+    _lastQueue = m.collectionsQueue || [];
     var netColor = m.netCashCents >= 0 ? 'var(--green,#16a34a)' : 'var(--red,#dc2626)';
     var marginColor = m.grossMargin == null ? 'var(--t,#fff)' : m.grossMargin >= 40 ? 'var(--green,#16a34a)' : m.grossMargin >= 25 ? 'var(--gold,#eab308)' : 'var(--red,#dc2626)';
     var html = '';
@@ -267,6 +318,48 @@
       card('Net Cash', fmt(m.netCashCents), m.netCashCents >= 0 ? 'in the black' : 'in the red', netColor),
       card('Outstanding A/R', fmt(m.outstandingCents), 'unpaid invoices', 'var(--blue,#3b82f6)'),
     ]);
+
+    // Collections queue — same outstanding population as the Outstanding
+    // A/R tile above, broken into aging buckets + a per-invoice
+    // drill-down so a rep knows WHICH invoice to chase and can act on it
+    // in one click (driven-UX: 2026-09-15 Collections foundation).
+    var overdue = (m.collectionsQueue || []).filter(function (q) { return q.daysPastDue > 0; });
+    html += '<div style="font-size:12px;font-weight:700;color:var(--m,#9ca3af);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px;">Collections Queue</div>';
+    html += grid([
+      card('Current', fmt(m.agingCents.current), 'not yet due', 'var(--blue,#3b82f6)'),
+      card('1–30 Days', fmt(m.agingCents.d1_30), 'past due', 'var(--gold,#eab308)'),
+      card('31–60 Days', fmt(m.agingCents.d31_60), 'past due', 'var(--orange,#BD5728)'),
+      card('60+ Days', fmt(m.agingCents.d61_plus), 'past due', 'var(--red,#dc2626)'),
+    ]);
+    html += '<div style="background:var(--s,#12223D);border:1px solid var(--br,rgba(255,255,255,.08));border-radius:12px;padding:16px;margin-bottom:20px;">';
+    if (!overdue.length) {
+      html += '<div class="nbd-empty" style="padding:14px"><div class="ne-icon">✅</div><div class="ne-msg">Nothing overdue</div><div class="ne-sub">Every outstanding invoice is still inside its terms.</div></div>';
+    } else {
+      var shownQ = overdue.slice(0, 20);
+      html += '<div style="display:flex;flex-direction:column;gap:8px;">';
+      shownQ.forEach(function (q) {
+        var badgeColor = q.bucket === 'd61_plus' ? 'var(--red,#dc2626)' : q.bucket === 'd31_60' ? 'var(--orange,#BD5728)' : 'var(--gold,#eab308)';
+        var nameHtml = q.leadId
+          ? '<a href="/pro/customer.html?id=' + encodeURIComponent(q.leadId) + '" style="color:var(--t,#fff);text-decoration:none;font-weight:700;">' + esc(q.customerName) + '</a>'
+          : '<span style="color:var(--t,#fff);font-weight:700;">' + esc(q.customerName) + '</span>';
+        var actionHtml = q.inCollections
+          ? '<span style="font-size:10px;color:var(--m,#9ca3af);text-transform:uppercase;letter-spacing:.05em;">⏰ In Collections</span>'
+          : (q.leadId && q.id)
+            ? '<button type="button" class="btn btn-orange btn-sm" data-action="module" data-target="MoneyDashboard.moveToCollections" data-arg="' + esc(q.id) + '" style="font-size:11px;padding:4px 10px;">Move to Collections</button>'
+            : '';
+        var dueJS = q.dueDate ? toJSDate(q.dueDate) : null;
+        var dueLabel = dueJS ? 'due ' + dueJS.toLocaleDateString() : 'no due date';
+        html += '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 0;border-bottom:1px solid var(--br,rgba(255,255,255,.06));flex-wrap:wrap;">' +
+          '<div style="min-width:140px;">' + nameHtml + '<div style="font-size:11px;color:var(--m,#9ca3af);">' + dueLabel + '</div></div>' +
+          '<div style="font-size:12px;font-weight:700;color:' + badgeColor + ';white-space:nowrap;">' + q.daysPastDue + 'd overdue</div>' +
+          '<div style="font-size:13px;font-weight:800;color:var(--t,#fff);white-space:nowrap;">' + fmt(q.balanceCents) + '</div>' +
+          '<div style="white-space:nowrap;">' + actionHtml + '</div>' +
+          '</div>';
+      });
+      html += '</div>';
+      if (overdue.length > shownQ.length) html += '<div style="font-size:11px;color:var(--m,#9ca3af);margin-top:10px;">+' + (overdue.length - shownQ.length) + ' more overdue invoice' + (overdue.length - shownQ.length === 1 ? '' : 's') + '</div>';
+    }
+    html += '</div>';
 
     // Job profitability
     html += '<div style="font-size:12px;font-weight:700;color:var(--m,#9ca3af);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px;">Job profitability (won jobs)</div>';
@@ -302,6 +395,60 @@
     scroll.innerHTML = html;
   }
 
+  // Lazily-loaded, cached handle on stage-write.js's shared
+  // commitStageChange — same pattern as crm-pipeline.js's _stageWriteMod()
+  // and customer-bootstrap.module.js's progressStage(). money-dashboard.js
+  // is a plain <script> (not a module), so this is a dynamic import; both
+  // dashboard.html and customer.html already modulepreload the file.
+  var _stageWriteModPromise = null;
+  function _stageWriteMod() {
+    if (!_stageWriteModPromise) _stageWriteModPromise = import('./stage-write.js');
+    return _stageWriteModPromise;
+  }
+
+  // "Move to Collections" — the Collections queue's driven-UX action.
+  // Looks the invoice up in the last-rendered queue (for its leadId +
+  // current inCollections flag), then writes the stage through the same
+  // transactional commitStageChange() every other stage move uses, so this
+  // gets the same race guards, activity note, drip trigger, and stage-entry
+  // task as a kanban drag or the customer page's "Move to Next Stage".
+  async function moveToCollections(invoiceId) {
+    var entry = _lastQueue.find(function (q) { return q.id === invoiceId; });
+    if (!entry || !entry.leadId) {
+      if (typeof showToast === 'function') showToast('No linked customer on this invoice — open it from the lead instead.', 'error');
+      return;
+    }
+    if (entry.inCollections) return; // already there — the button shouldn't even render, but stay a safe no-op
+    var lead = (window._leads || []).find(function (l) { return l && l.id === entry.leadId; });
+    var oldStage = lead ? (lead._stageKey || lead.stage) : null;
+    try {
+      var mod = await _stageWriteMod();
+      await mod.commitStageChange(entry.leadId, 'collections', oldStage, {
+        actorLabel: (window._currentUser && window._currentUser.email) || undefined,
+        jobType: (lead && lead.jobType) || null,
+      });
+      if (lead) {
+        lead.stage = 'collections';
+        if (typeof window.stageRole === 'function') lead.stageRole = window.stageRole('collections');
+      }
+      if (typeof showToast === 'function') showToast('Moved to Collections — a follow-up task was added.', 'success');
+      refreshAndRender();
+    } catch (e) {
+      var msg = e && e.message;
+      if (msg === 'STAGE_RACE_NOOP') {
+        if (typeof showToast === 'function') showToast('Already on that stage.', 'info');
+        refreshAndRender();
+        return;
+      }
+      if (msg === 'STAGE_RACE_LOST') {
+        if (typeof showToast === 'function') showToast('This lead moved elsewhere — refresh to see its current stage.', 'error');
+        return;
+      }
+      console.warn('[money] moveToCollections failed', e);
+      if (typeof showToast === 'function') showToast('Could not move to Collections — try again.', 'error');
+    }
+  }
+
   var _loaded = false;
   async function refreshAndRender() {
     var scroll = document.querySelector('#view-money .view-scroll');
@@ -318,5 +465,6 @@
     render: render,
     refresh: refreshAndRender,
     computePnL: computePnL, // pure — exported for unit tests
+    moveToCollections: moveToCollections, // Collections queue's data-action="module" target
   };
 })();

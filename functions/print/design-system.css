@@ -437,6 +437,63 @@ p:last-child { margin-bottom: 0; }
   color: var(--nbd-ink-muted);
 }
 
+/* ── Credential / manufacturer badge row (affiliateRow.hbs partial) ──
+   GAF / TAMKO / American Operator "Locally Owned & Operated". Renders
+   the real badge artwork when company.affiliates[].imageUrl resolves
+   (server-side Puppeteer fetches real https:// URLs fine — no CSP/
+   srcdoc constraint here, unlike the browser doc viewer), falling back
+   to a plain name/number card when it doesn't. Mirrors affiliateRow()
+   in docs/pro/js/document-generator-templates.js. */
+.affiliates {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 10pt;
+  flex-wrap: wrap;
+  margin-top: var(--s-5);
+  padding-top: var(--s-4);
+  border-top: 0.5pt solid var(--nbd-rule);
+}
+.affiliate {
+  border: 0.5pt solid var(--nbd-rule);
+  border-radius: 3pt;
+  background: var(--nbd-surface);
+  padding: 6pt 10pt;
+  text-align: left;
+}
+.affiliate-name {
+  font-family: 'Barlow', sans-serif;
+  font-weight: 700;
+  font-size: 8pt;
+  color: var(--nbd-charcoal);
+  letter-spacing: 0.04em;
+}
+.affiliate-num {
+  font-family: 'Barlow', sans-serif;
+  font-size: 7pt;
+  color: var(--nbd-ink-muted);
+  margin-top: 1pt;
+}
+.affiliate-badge {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 4pt 8pt 6pt;
+}
+.affiliate-badge-img {
+  display: block;
+  height: 36pt;
+  width: auto;
+}
+.affiliate-badge-num {
+  font-family: 'Barlow', sans-serif;
+  font-size: 7pt;
+  color: var(--nbd-ink-muted);
+  margin-top: 3pt;
+  letter-spacing: 0.02em;
+}
+
 /* ── Closing colophon — the seal, contact block and social rail ──
    NOT a running footer, and never was one in practice. This carried
    `position: running(footer)` paired with an `@page { @bottom-center {

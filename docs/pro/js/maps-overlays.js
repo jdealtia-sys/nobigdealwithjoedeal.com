@@ -555,7 +555,7 @@ async function searchMap() {
   if (propInner) propInner.innerHTML=`
     <div class="pi-card">
       <div class="pi-header"><span class="pi-title">🏠 Property Intel</span><span class="pi-county"></span></div>
-      <div class="pi-loading"><div class="pi-spinner"></div>Looking up county records...</div>
+      <div class="pi-loading"><div class="pi-spinner"></div>Estimating property profile...</div>
     </div>
     <button class="make-lead-btn" data-mo-action="makeLeadFromSearch">＋ Make This a Lead</button>`;
   // Fire intel lookup

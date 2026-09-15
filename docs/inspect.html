@@ -145,7 +145,7 @@ nav .nav-logo{margin-right:clamp(12px,1.5vw,28px)}
 
 <header class="topbar">
   <a href="/" class="logo">
-    <img src="/assets/images/nbd-logo.png" width="240" height="160" alt="No Big Deal Home Solutions">
+    <img src="/assets/images/nbd-logo.png" width="600" height="308" alt="No Big Deal Home Solutions">
     <div>
       <div class="brand">NO BIG DEAL</div>
       <div class="sub">Home Solutions</div>
@@ -198,8 +198,8 @@ nav .nav-logo{margin-right:clamp(12px,1.5vw,28px)}
           <input type="text" id="f-address" name="address" autocomplete="street-address" required>
         </div>
         <div class="form-row">
-          <label for="f-phone">Phone</label>
-          <input type="tel" id="f-phone" name="phone" autocomplete="tel" inputmode="tel" required>
+          <label for="f-phone">Mobile phone</label>
+          <input type="tel" id="f-phone" name="phone" autocomplete="tel" inputmode="tel" placeholder="(859) 555-1234" required>
         </div>
         <div class="form-row">
           <label for="f-email">Email <span class="opt">(optional)</span></label>
@@ -218,6 +218,7 @@ nav .nav-logo{margin-right:clamp(12px,1.5vw,28px)}
           <input type="file" id="f-photos" name="photos" accept="image/*" multiple>
         </div>
 
+        <div style="position:absolute;left:-9999px;" aria-hidden="true"><label for="f-nbd-hp">Leave blank</label><input type="text" id="f-nbd-hp" name="nbd_hp" tabindex="-1" autocomplete="off"></div>
         <button type="submit" class="submit-btn" id="inspectSubmit">Request Free Inspection</button>
         <p class="fine-print">I respect your time. I respond within 24 hours.</p>
       </form>

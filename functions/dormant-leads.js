@@ -28,6 +28,7 @@ const { logger } = require('firebase-functions/v2');
 const { FieldPath, getFirestore, Timestamp } = require('firebase-admin/firestore');
 const { FieldValue } = require('firebase-admin/firestore');
 const { Resend } = require('resend');
+const stageRoles = require('./stage-roles');
 
 const RESEND_API_KEY = defineSecret('RESEND_API_KEY');
 const EMAIL_FROM     = defineSecret('EMAIL_FROM');
@@ -40,6 +41,19 @@ const TERMINAL_STAGES = new Set([
   'closed', 'lost', 'Lost', 'Complete',
   'final_payment', 'deductible_collected',
 ]);
+
+// 2026-09-15: hardcoded fast-path + role-aware fallback (same pattern as
+// functions/portal.js's progressKeyFor). Without it, a lead sitting on a
+// tenant's custom stage tagged role won/lost via Settings > Pipelines is
+// NOT recognized as terminal here, so this scan keeps flagging an
+// already-closed custom-pipeline lead as "gone dormant, needs follow-up" —
+// a false proactive nudge on every Wednesday run.
+function _isTerminalLead(lead) {
+  const key = String(lead && lead.stage || '').toLowerCase();
+  if (TERMINAL_STAGES.has(key)) return true;
+  const role = stageRoles.roleFor(lead);
+  return role === stageRoles.ROLE.WON || role === stageRoles.ROLE.LOST;
+}
 
 // ─── Branded HTML template ───────────────────────────────────────
 const TEMPLATE_STYLES = `
@@ -204,8 +218,7 @@ async function findDormantLeads(db, uid) {
     const lead = { id: doc.id, ...doc.data() };
     if (lead.deleted) continue;
     if (lead.isProspect) continue;
-    const stage = (lead.stage || '').toLowerCase();
-    if (TERMINAL_STAGES.has(stage)) continue;
+    if (_isTerminalLead(lead)) continue;
 
     const stageStart = timestampMillis(lead.stageStartedAt)
                     || timestampMillis(lead.updatedAt)

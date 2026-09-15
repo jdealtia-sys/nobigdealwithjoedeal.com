@@ -112,6 +112,83 @@ service cloud.firestore {
       return b == a || (b in ['owed', 'paid'] && a in ['owed', 'paid']);
     }
 
+    // 2026-09-15 (CRM stage-progression foundation work): `stageRole` is the
+    // field every server-side classifier now trusts before falling back to a
+    // hardcoded stage-key list — functions/stage-roles.js's roleFor(), which
+    // money-dashboard.js, analytics-kpi.js, leaderboard.js, weekly-digest.js,
+    // dormant-leads.js and functions/portal.js's progressKeyFor all read.
+    // It's client-stamped on every stage change by stage-write.js's
+    // commitStageChange(), but until now nothing at the trust boundary
+    // stopped an authorized writer from setting it to an arbitrary string —
+    // a forged or simply buggy value would silently misclassify that lead in
+    // every revenue/KPI/digest/proactive-nudge surface that reads it.
+    //
+    // Deliberately narrow, mirroring referralStatusTransitionOk() above: the
+    // pipeline itself stays freeform BY DESIGN (no stage-ORDER enforcement
+    // exists anywhere, client or server — a tenant can add custom stages via
+    // Settings > Pipelines and a rep can move a lead directly from New to
+    // Closed). This does not attempt to validate that `stage` is a "legal"
+    // value for that transition — only that stageRole, when present, is one
+    // of the 5 real semantic roles, and stage is a reasonable string. A rules
+    // read against the tenant's companyProfile.pipelines to validate the
+    // stage itself is possible but is real added complexity + read cost for
+    // a case client-side validation already covers (missingRequiredFields);
+    // this closes the actual forgery gap without it.
+    function stageWriteOk() {
+      let newRole = request.resource.data.get('stageRole', null);
+      let roleOk = newRole == null || newRole in ['new', 'active', 'job', 'won', 'lost'];
+      let newStage = request.resource.data.get('stage', null);
+      let stageOk = newStage == null
+        || (newStage is string && newStage.size() > 0 && newStage.size() <= 60);
+      return roleOk && stageOk;
+    }
+
+    // 2026-09-15 (Paperwork Filing) — five flat *FiledAt scalars on the lead
+    // gate REQUIRED_FIELDS_BY_TYPE's stage-advance hard block (crm-stages.js,
+    // client-side). No rule change is strictly required for the gate to
+    // function (the fields aren't in didNotChange()/writeOnce() above, so an
+    // owner or same-company staff writer can already set them today, same
+    // trust bar as claimNumber/scheduledDate) — but a same-company writer
+    // could otherwise stamp an oversized/non-string garbage value into one of
+    // these, same class of forgery gap stageWriteOk() above closes for
+    // stage/stageRole. Mirrors that function's shape (a per-field helper, not
+    // a `.all()` macro — a `let` binding is not valid inside `.all()`'s
+    // single-expression predicate argument, so each field gets its own tiny
+    // function instead of one clever one-liner).
+    function _paperworkFieldOk(f) {
+      let v = request.resource.data.get(f, null);
+      return v == null || (v is string && v.size() <= 40);
+    }
+    function paperworkFieldsOk() {
+      return _paperworkFieldOk('contractFiledAt')
+          && _paperworkFieldOk('permitFiledAt')
+          && _paperworkFieldOk('aobFiledAt')
+          && _paperworkFieldOk('warrantyCertFiledAt')
+          && _paperworkFieldOk('cocFiledAt');
+    }
+
+    // 2026-09-15 (Warranty Claim lane) — the denormalized pointer to the
+    // lead's currently-open warrantyClaims subdoc (or null once resolved).
+    // Same shape-only trust bar as paperworkFieldsOk() above: a same-company
+    // writer can already set this field (not in didNotChange()/writeOnce()),
+    // this only stops an oversized/non-string forgery.
+    function openClaimIdOk() {
+      let v = request.resource.data.get('openWarrantyClaimId', null);
+      return v == null || (v is string && v.size() <= 60);
+    }
+
+    // 2026-09-15 (Warranty Claim lane) — shape validator for the claim
+    // subdoc itself (leads/{leadId}/warrantyClaims/{claimId}), modeled on
+    // stageWriteOk()'s enum-check style. status/reason are the only fields
+    // worth enum-gating; free-text notes fields are size-capped only, same
+    // trust bar as everything else on this doc (same-company staff writer).
+    function warrantyClaimWriteOk() {
+      let status = request.resource.data.get('status', null);
+      let reason = request.resource.data.get('reason', null);
+      return (status == null || status in ['open', 'scheduled', 'repaired', 'resolved', 'denied'])
+          && (reason == null || reason in ['workmanship', 'material', 'manufacturer', 'goodwill']);
+    }
+
     // A tenant's customer-ID prefix (brand.docPrefix) + its display twin
     // (brand.seal) are set ONLY by the reserveCompanyPrefix callable (admin SDK)
     // after it atomically claims docPrefixes/{PREFIX}. They must be immutable to
@@ -222,6 +299,9 @@ service cloud.firestore {
           && writeOnce('customerId')
           && referralServerFieldsFrozen()
           && referralStatusTransitionOk()
+          && stageWriteOk()
+          && paperworkFieldsOk()
+          && openClaimIdOk()
         );
       allow delete: if (isOwner(resource.data.userId)
             && request.auth.token.get('role', '') != 'viewer')
@@ -389,6 +469,24 @@ service cloud.firestore {
         allow write: if isAuth()
           && (isOwner(get(/databases/$(database)/documents/leads/$(leadId)).data.userId)
               || (isCompanyStaff() && parentLeadInMyCompany(leadId)));
+      }
+
+      // ── WARRANTY CLAIMS (2026-09-15) ───────────────────
+      // A claim opened against an already-CLOSED job (see crm-stages.js's
+      // S.WARRANTY_CLAIM comment). Same owner-or-same-company-staff shape as
+      // /documents directly above — a manager needs to open/resolve a
+      // teammate's claim, not just view it. warrantyClaimWriteOk() closes
+      // the same class of forgery gap stageWriteOk()/paperworkFieldsOk() do
+      // for the parent lead: a same-company writer could already write here,
+      // this only stops a garbage status/reason value.
+      match /warrantyClaims/{claimId} {
+        allow read:  if isAuth() && (isAdmin()
+          || isOwner(get(/databases/$(database)/documents/leads/$(leadId)).data.userId)
+          || parentLeadInMyCompany(leadId));
+        allow write: if isAuth()
+          && (isOwner(get(/databases/$(database)/documents/leads/$(leadId)).data.userId)
+              || (isCompanyStaff() && parentLeadInMyCompany(leadId)))
+          && warrantyClaimWriteOk();
       }
 
       // ── DRAWINGS (roof measurements, sketches) ────────
@@ -1370,6 +1468,17 @@ service cloud.firestore {
     // team invoices, and a viewer-role user could mutate/delete them. Mirrors
     // the /expenses tenancy pattern — company-scoped read, companyId required on
     // create, viewer blocked from writes, provenance frozen.
+    //
+    // 2026-09-15 (Collections foundation): UPDATE was still createdBy-only
+    // even though READ already granted the whole team company-scoped access —
+    // a manager could SEE a teammate's outstanding invoice in a shared
+    // Collections queue but got PERMISSION_DENIED trying to Mark Paid or Send
+    // it, exactly the "whoever's free works the queue" use case Collections
+    // needs. Mirrors the /leads precedent (isCompanyStaff update): staff who
+    // aren't the creator can now act on any tenant invoice; DELETE stays
+    // owner + company_admin only (not manager), same split /leads already
+    // makes — a manager manages the queue, only the creator or the tenant
+    // owner destroys a billing record.
     match /invoices/{invoiceId} {
       allow read: if isOwner(resource.data.createdBy)
         || isAdmin()
@@ -1386,13 +1495,21 @@ service cloud.firestore {
       // .get('role','') — reading an absent claim with != THROWS (solo owners
       // have no role claim). Freeze owner/tenant/provenance; money fields stay
       // mutable (markPaid rewrites balanceDue/amountPaid/status).
-      allow update: if (isOwner(resource.data.createdBy)
-            && request.auth.token.get('role', '') != 'viewer'
-            && didNotChange(['createdBy', 'companyId', 'estimateId', 'createdAt']))
-        || isAdmin();
-      allow delete: if (isOwner(resource.data.createdBy)
-            && request.auth.token.get('role', '') != 'viewer')
-        || isAdmin();
+      allow update: if isAdmin()
+        || (
+          (
+            (isOwner(resource.data.createdBy) && request.auth.token.get('role', '') != 'viewer')
+            || (isCompanyStaff()
+                && resource.data.companyId != null
+                && resource.data.companyId == myCompanyId())
+          )
+          && didNotChange(['createdBy', 'companyId', 'estimateId', 'createdAt'])
+        );
+      allow delete: if isAdmin()
+        || (isOwner(resource.data.createdBy) && request.auth.token.get('role', '') != 'viewer')
+        || (isCompanyAdmin()
+            && resource.data.companyId != null
+            && resource.data.companyId == myCompanyId());
     }
 
     // ── EMAIL DRIP ───────────────────────────────────
@@ -1574,12 +1691,18 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
-    // ── MEASUREMENTS (rep owner-scoped) ────────────────
+    // ── MEASUREMENTS (owner + same-company read) ───────
     // Created by requestMeasurement, filled by measurementWebhook.
-    // Owner can read to pre-fill the V2 Builder; writes are admin-
-    // SDK only (webhook).
+    // Owner or same-company teammate can read (90-day same-roof reuse in
+    // requestMeasurement/findReusableMeasurement depends on this — see
+    // functions/integrations/measurement.js); writes are admin-SDK only
+    // (webhook). companyId is fully server-stamped from the caller's Auth
+    // custom claim, never client-writable, so this is a read-only
+    // relaxation. sameCompanyAsResource() requires BOTH companyIds
+    // non-null, so a legacy doc with no companyId field falls back to
+    // owner-only — no cross-tenant leak (mirrors /pins, /zones).
     match /measurements/{jobId} {
-      allow read: if isOwner(resource.data.ownerId) || isAdmin();
+      allow read: if isOwner(resource.data.ownerId) || sameCompanyAsResource() || isAdmin();
       allow write: if false;
     }
 

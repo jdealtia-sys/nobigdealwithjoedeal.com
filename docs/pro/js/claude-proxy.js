@@ -13,7 +13,14 @@
  *   // result = { content: [...], usage: {...} }
  */
 
-const CLOUD_FUNCTION_URL = 'https://us-central1-nobigdeal-pro.cloudfunctions.net/claudeProxy';
+// Emulator switch (same Audit #3 rule as nbd-comms.js): hardcoded prod here
+// meant a local/emulator test of any Claude proxy call CORS-failed against
+// prod's CORS_ORIGINS allowlist before reaching the local function.
+const CLOUD_FUNCTION_URL = (/^(localhost|127\.0\.0\.1|\[::1\])$/.test(
+  (typeof location !== 'undefined' && location.hostname) || ''
+)
+  ? 'http://127.0.0.1:5001/nobigdeal-pro/us-central1'
+  : 'https://us-central1-nobigdeal-pro.cloudfunctions.net') + '/claudeProxy';
 const LOCAL_KEY_STORE = 'nbd_joe_key';
 
 // Track whether Cloud Function is available (avoids repeated timeout on every call)

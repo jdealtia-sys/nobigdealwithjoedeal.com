@@ -1,0 +1,32 @@
+{{!--
+  Credential / manufacturer badge row — GAF / TAMKO / American Operator
+  "Locally Owned & Operated". Server-side counterpart of affiliateRow() in
+  docs/pro/js/document-generator-templates.js: same shape (company.affiliates[]
+  = { name, number, imageUrl, alt }), same defence-in-depth bias — an entry
+  with no name renders nothing, and one with no imageUrl falls back to a
+  plain text card rather than an empty gap.
+
+  company.affiliates is resolved server-side in render-pdf.js's
+  resolveDocCompany() the same way every other identity field is: NBD gets
+  its own three badges, a stranger tenant gets ONLY what it set on its own
+  companyProfile.brand.affiliates (blank by default) — never NBD's GAF/TAMKO/
+  American Operator credentials on someone else's contract.
+
+  Included only from document classes that carry it per the NBD Document
+  Standard section 5 (contract/invoice/changeOrder/receipt/warranty/estimate);
+  adjuster-facing templates (inspection, photoReport's adjuster sign-off)
+  deliberately do not include this partial.
+--}}
+{{#if company.affiliates.length}}
+<div class="affiliates">
+  {{#each company.affiliates}}
+    {{#if this.name}}
+      {{#if this.imageUrl}}
+      <div class="affiliate affiliate-badge"><img class="affiliate-badge-img" src="{{this.imageUrl}}" alt="{{#if this.alt}}{{this.alt}}{{else}}{{this.name}}{{/if}}">{{#if this.number}}<div class="affiliate-badge-num">{{this.number}}</div>{{/if}}</div>
+      {{else}}
+      <div class="affiliate"><div class="affiliate-name">{{this.name}}</div>{{#if this.number}}<div class="affiliate-num">{{this.number}}</div>{{/if}}</div>
+      {{/if}}
+    {{/if}}
+  {{/each}}
+</div>
+{{/if}}

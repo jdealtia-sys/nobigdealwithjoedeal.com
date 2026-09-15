@@ -67,10 +67,20 @@
    * arranged. Photos WITH an order sort ahead of those without, as the gallery
    * does.
    *
-   * It deliberately DIVERGES on the fallback: the gallery falls back to
-   * uploadedAt DESCENDING; this keeps the report's historical createdAt
-   * ASCENDING. Matching the gallery there would silently re-order every
-   * existing report for leads nobody has dragged — far bigger than this bug.
+   * It deliberately DIVERGES on the fallback DIRECTION: the gallery falls back
+   * to uploadedAt DESCENDING; this keeps the report ASCENDING. Matching the
+   * gallery there would silently re-order every existing report for leads
+   * nobody has dragged — far bigger than the bug that motivated it.
+   *
+   * The fallback FIELD, though, is whatever the writer left, via
+   * _photoTimestampMs — the same resolution _dateLabel prints. It used to read
+   * `createdAt.seconds` and nothing else, which scored 0 for every photo the
+   * customer page uploaded (it stamps date + uploadedAt), for every photo
+   * photo-engine wrote before the createdAt cutover (capturedAt), and for any
+   * createdAt arriving as a live Timestamp with toMillis() but no enumerable
+   * `seconds`. All of them tied at 0 and came out in Firestore's return order.
+   * Sorting on the field the caption already prints is also what stops a frame
+   * dated "Aug 12" from landing after one dated "Aug 14" in the same PDF.
    *
    * Pure: no DOM, no Firebase. Exported as window._comparePhotoReportOrder.
    */
@@ -80,9 +90,42 @@
     if (ao !== null && bo !== null) return ao - bo;
     if (ao !== null) return -1;
     if (bo !== null) return 1;
-    const aT = (a && a.createdAt && a.createdAt.seconds) || 0;
-    const bT = (b && b.createdAt && b.createdAt.seconds) || 0;
-    return aT - bT;
+    return _photoTimestampMs(a) - _photoTimestampMs(b);
+  }
+
+  /**
+   * Epoch milliseconds for a photo, from whichever timestamp the writer
+   * happened to leave, or 0 when there is nothing usable.
+   *
+   * /photos is schema-less and its writers do not agree, so the field has to be
+   * resolved rather than assumed — see _dateLabel for the roll-call. EXIF
+   * takenAt leads because it is the truest "when was this taken"; `date` and
+   * `uploadedAt` trail because they are write time, not capture time.
+   *
+   * The SHAPE varies independently of the field: a Firestore Timestamp read
+   * back live has toMillis(), the same doc through JSON has a plain
+   * {seconds,nanoseconds}, capturedAt is a raw epoch number, and EXIF dates
+   * arrive as strings. Handling one shape and not the others is the same bug
+   * as handling one field and not the others.
+   *
+   * Pure. Exported as window._photoReportTimestampMs for tests.
+   */
+  function _photoTimestampMs(p) {
+    const raw = p && ((p.exif && p.exif.takenAt) || p.takenAt || p.capturedAt
+      || p.date || p.createdAt || p.uploadedAt);
+    if (!raw) return 0;
+    let d;
+    if (typeof raw.toMillis === 'function') d = new Date(raw.toMillis());
+    else if (typeof raw.seconds === 'number') d = new Date(raw.seconds * 1000);
+    // Duck-typed rather than `instanceof Date`: a Date that crossed a realm
+    // boundary — an iframe, a worker, a vm sandbox in a test — fails the
+    // instanceof and would silently score 0 and sort as undated.
+    else if (typeof raw.getTime === 'function') d = raw;
+    else if (typeof raw === 'number') d = new Date(raw);
+    else if (typeof raw === 'string') d = new Date(raw);
+    else return 0;
+    const ms = d ? d.getTime() : NaN;
+    return isNaN(ms) ? 0 : ms;
   }
 
   /**
@@ -311,15 +354,29 @@
       || (p.inferredLocation && p.inferredLocation.label)
       || '';
   }
-  // Damage label — humanize the snake_case enum the AI returns.
+  // ─── damageType canon ────────────────────────────────────────────
+  // /photos.damageType was written by four surfaces in four spellings
+  // (Title Case editor, Title Case quick-edit, kebab bulk bar, snake AI).
+  // docs/pro/js/photo-damage-types.js owns the fold; see its header for
+  // the full inventory. Normalizing on READ here means legacy docs pair
+  // and label correctly with no backfill dependency.
+  //
+  // The global is resolved per call, not captured at load: this file is a
+  // classic deferred script, and tests/smoke/photo-report-pairs.test.js
+  // loads photo-damage-types.js into the SAME vm context before this one.
+  // If it is ever genuinely absent the fallback preserves today's
+  // behaviour (bare lowercase) instead of throwing mid-report.
+  function _dmgNorm(v) {
+    const D = window.NBD_PHOTO_DAMAGE;
+    return D ? D.normalize(v) : String(v == null ? '' : v).trim().toLowerCase();
+  }
+  function _dmgLabel(v) {
+    const D = window.NBD_PHOTO_DAMAGE;
+    return D ? D.label(v) : String(v == null ? '' : v);
+  }
+  // Damage label — humanize the canonical snake_case enum.
   function _damageLabel(p) {
-    const v = p.damageType || (p.aiSuggestion && p.aiSuggestion.damageType) || '';
-    if (!v) return '';
-    return ({
-      hail: 'Hail', wind: 'Wind', wear: 'Wear',
-      granular_loss: 'Granular loss', leak: 'Leak',
-      none: 'No damage', other: 'Other'
-    })[v] || v;
+    return _dmgLabel(p.damageType || (p.aiSuggestion && p.aiSuggestion.damageType) || '');
   }
   function _severityLabel(p) {
     const v = p.severity || (p.aiSuggestion && p.aiSuggestion.severity) || '';
@@ -381,7 +438,12 @@
     const urlOf = (p) => (p && p.urls && (p.urls.full || p.urls.med)) || (p && p.url) || '';
     const idOf  = (p) => (p && (p.id || (p.urls && (p.urls.full || p.urls.med)) || p.url)) || '';
     const locOf = (p) => (p && (p.location || (p.inferredLocation && p.inferredLocation.label))) || '';
-    const dmgOf = (p) => (p && (p.damageType || (p.aiSuggestion && p.aiSuggestion.damageType))) || '';
+    // Folded to the canonical id so tier 2 groups by PERIL, not by which
+    // surface happened to tag the photo. Before this, a 'granule-loss'
+    // before-shot (bulk bar) and a 'granular_loss' after-shot (AI) missed
+    // each other, tiers 1+2 came back empty, and tier 3 shipped the two
+    // as a chronological pair labeled "Project overview".
+    const dmgOf = (p) => _dmgNorm(p && (p.damageType || (p.aiSuggestion && p.aiSuggestion.damageType)));
 
     const beforePhotos = list.filter(p => String(p && p.phase || '').toLowerCase() === 'before');
     const afterPhotos  = list.filter(p => String(p && p.phase || '').toLowerCase() === 'after');
@@ -1090,28 +1152,22 @@
 
   /**
    * "Aug 14, 2026" for a photo, from whichever timestamp the writer happened to
-   * leave. Five independent writers stamp /photos and they do not agree:
-   * photo-engine writes capturedAt, the customer page writes date + uploadedAt
-   * and no createdAt at all, the dashboard writes something else again. EXIF
-   * takenAt is the truest when present, so it leads.
+   * leave. /photos is schema-less and its writers do not agree: photo-engine
+   * stamps capturedAt alongside createdAt, the customer page stamps date +
+   * uploadedAt, the portal's homeowner upload stamps uploadedAt, the dashboard
+   * quick-upload and the annotated-copy path stamp createdAt. Every create path
+   * stamps createdAt as of 2026-09-08 (tests/photos-timestamp-contract.test.js
+   * is the guard), but docs written before that — and every legacy doc the
+   * backfill has not reached — still carry only the older fields.
    * Pure. Exported as window._photoReportDateLabel for tests.
    */
   function _dateLabel(p) {
-    const raw = p && ((p.exif && p.exif.takenAt) || p.takenAt || p.capturedAt
-      || p.date || p.createdAt || p.uploadedAt);
-    if (!raw) return '';
-    let d;
-    if (raw && typeof raw.toMillis === 'function') d = new Date(raw.toMillis());
-    else if (raw && typeof raw.seconds === 'number') d = new Date(raw.seconds * 1000);
-    // Duck-typed rather than `instanceof Date`: a Date that crossed a realm
-    // boundary — an iframe, a worker, a vm sandbox in a test — fails the
-    // instanceof and would silently fall through to '' with no date printed.
-    else if (raw && typeof raw.getTime === 'function') d = raw;
-    else if (typeof raw === 'number') d = new Date(raw);
-    else if (typeof raw === 'string') d = new Date(raw);
-    else return '';
-    if (!d || isNaN(d.getTime())) return '';
-    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    // Field resolution and shape coercion both live in _photoTimestampMs, which
+    // _comparePhotoReportOrder also calls. Two copies of this chain is how the
+    // caption and the position drift apart.
+    const ms = _photoTimestampMs(p);
+    if (!ms) return '';
+    return new Date(ms).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
   }
 
   /**
@@ -1574,6 +1630,7 @@
   window._photoReportOptions = _reportOptions;
   window._numberReportSections = _numberSections;
   window._photoReportDateLabel = _dateLabel;
+  window._photoReportTimestampMs = _photoTimestampMs;
   window._photoReportCaption = _captionFor;
 
 })();

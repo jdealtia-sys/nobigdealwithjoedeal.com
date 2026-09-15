@@ -53,6 +53,11 @@ gcloud alpha monitoring policies create \
 gcloud alpha monitoring policies create \
   --policy-from-file=monitoring/alert-function-latency.json \
   --project=nobigdeal-pro
+
+# First real Turnstile token on a public lead (ALREADY LIVE — see §11; do not re-create)
+gcloud alpha monitoring policies create \
+  --policy-from-file=monitoring/alert-turnstile-token-present.json \
+  --project=nobigdeal-pro
 ```
 
 > **Scheduled-job staleness (Audit #4):** the `*-stale` policies use
@@ -121,6 +126,34 @@ Fires when **p95 request latency > 30s** on a user-facing callable
 (claudeProxy, renderPdf, analyzeRoofPhoto, analyzePhotoVision, etc).
 Complements the error-rate policy, which only catches *thrown* errors —
 this catches *slow / timing-out* requests before they 504.
+
+### 11. `alert-turnstile-token-present.json` — **LIVE since 2026-09-13**
+Fires when `submitPublicLead` logs `turnstileTokenPresent=true`, i.e. a real
+public lead arrived carrying a Cloudflare Turnstile token. Good news, not an
+incident: it is the signal the enforcement decision in
+`documentation/runbooks/TURNSTILE-SETUP.md` waits on. At most one email + SMS
+per day (`notificationRateLimit` 86400s), to the same two "Joe - Primary"
+channels as the other policies here.
+
+Created as `projects/nobigdeal-pro/alertPolicies/15802792625691337472` and
+read back field-for-field over the REST API. It was **the only alert policy
+in the project** at the time: the others in this directory were never
+applied (see `documentation/audit/STABILITY-AUDIT-2026-09-04.md`).
+
+It checks token **presence**, not validity: nothing verifies a token while
+`TURNSTILE_SECRET` is unset. The log carries `kind` + doc `id` but not the
+page, so read the lead doc's `source` to see which surface produced it.
+Disable the policy once enough trues have been seen.
+
+Two Windows traps hit while creating it:
+- `gcloud` prints non-ASCII as `?` on a Windows console, so the em dash in
+  the display name *looked* corrupted even though it was stored correctly.
+  Read back over REST (`curl` + `gcloud auth print-access-token`) before
+  concluding a policy was mangled. The same substitution can defeat
+  `scripts/ops-setup.sh`'s skip-if-display-name-exists `grep`, which would
+  then create a **duplicate**. List policies before running it from Windows.
+- An empty `policies list` is a real `[]` only if the same command lists the
+  two notification channels. Run that positive control.
 
 ### Stripe webhook delivery (Stripe dashboard, not here)
 Stripe webhook **non-delivery** (bad signature, endpoint down) produces no

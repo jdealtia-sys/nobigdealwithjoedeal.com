@@ -14,6 +14,16 @@
   const estimateId = (params.get('estimateId') || params.get('id') || '').trim();
   const root = document.getElementById('evRoot');
 
+  // Customer-facing tier name (GBB audit, 2026-09-09). This page is a
+  // minimal standalone homeowner viewer and does not load estimate-config.js
+  // (no rep bundle), so it can't call window.NBD_ESTIMATE_CONFIG.tierLabel()
+  // directly — falls back to the same canonical labels by hand.
+  function tierLabel(key) {
+    const cfg = window.NBD_ESTIMATE_CONFIG;
+    if (cfg && typeof cfg.tierLabel === 'function') return cfg.tierLabel(key);
+    return ({ good: 'Standard', better: 'Preferred', best: 'Elite' })[key] || key;
+  }
+
   function escHtml(s) {
     return String(s == null ? '' : s)
       .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
@@ -127,7 +137,7 @@
         const t = tiers[k];
         if (!t) return;
         const featured = (k === est.tier);
-        const tName = k === 'best' ? 'Best' : k === 'better' ? 'Better' : 'Good';
+        const tName = tierLabel(k);
         html += '<div class="ev-tier-card' + (featured ? ' featured' : '') + '">';
         html +=   '<div class="ev-tier-name">' + tName + '</div>';
         html +=   '<div class="ev-tier-total">' + money(t.grandTotal || t.total || 0) + '</div>';

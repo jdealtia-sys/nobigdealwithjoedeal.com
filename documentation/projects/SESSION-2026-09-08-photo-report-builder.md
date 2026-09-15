@@ -232,11 +232,29 @@ finding.
 3. **Annotations are destructive.** `photo-editor.js` builds a rich annotation
    array — arrows, auto-numbered callouts, roofing stamps, measurements — and
    persists none of it; markup is baked into a flattened copy, one way.
-4. **Three incompatible `damageType` vocabularies** collide in one count: Title
+4. ~~**Three incompatible `damageType` vocabularies** collide in one count: Title
    Case from the edit popup and photo-editor, lowercase from Review & Sort and
-   the AI.
-5. **Customer-page uploads write no `createdAt`**, so report order for them
-   falls back to arbitrary.
+   the AI.~~ **CLOSED 2026-09-08** — and it was **four**, not three: the
+   `customer.html` bulk bar wrote a fourth, kebab-case set (`granule-loss`,
+   `missing-shingles`), and the two Title Case lists disagree with each other
+   (`Flashing` vs `Flashing Damage`). Case was never the break — `normKey`
+   already lowercased — so the damage was separator/wording drift, which
+   silently downgraded a tier-2 pair into a **mislabeled "Project overview"**
+   tier-3 pair. One canon now:
+   [PHOTO-DAMAGETYPE-VOCABULARY-2026-09-08](../audit/PHOTO-DAMAGETYPE-VOCABULARY-2026-09-08.md).
+5. ~~**Customer-page uploads write no `createdAt`**, so report order for them
+   falls back to arbitrary.~~ **CLOSED 2026-09-08** —
+   [PHOTOS-CREATEDAT-WRITER-GAP-2026-09-08](../audit/PHOTOS-CREATEDAT-WRITER-GAP-2026-09-08.md).
+   Bigger than the ordering: `createdAt` is the `orderBy` field of the per-lead
+   gallery and the Recent feed, and Firestore drops docs missing the ordered
+   field, so those photos were **absent from both views**, not merely
+   mis-sorted. Enumerating the writers found a **sixth** path with the same gap
+   — `functions/portal.js` `uploadHomeownerPhoto` — which notifies the rep
+   about a photo its own gallery could not show. Both stamp it now; the
+   comparator and `_dateLabel` share one timestamp chain. Merged as #1497.
+   The backfill was then checked against prod and **owes nothing** — 111/111
+   already stamped, the newest doc predating the 08-18 pass by two days, so the
+   gap never produced orphaned data.
 6. **No measurements section**, though the CRM already pays for the data.
 7. ~~**The report number is `Date.now().toString().slice(-6)`**~~ — **CLOSED**,
    see the update above. It was unsequenced, and changed on every regeneration.

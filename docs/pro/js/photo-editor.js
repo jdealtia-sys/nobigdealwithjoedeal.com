@@ -48,11 +48,20 @@
     { id: 'vent', icon: '◎', label: 'Vent Damage', color: '#64748b' },
   ];
 
-  const DAMAGE_TYPES = [
-    'Hail', 'Wind', 'Leak', 'Missing Shingle', 'Cracked Tile',
-    'Flashing Damage', 'Gutter Damage', 'Soffit/Fascia', 'Tree Damage',
-    'Algae/Moss', 'Ice Dam', 'Ponding Water', 'Other'
-  ];
+  // damageType canon lives in docs/pro/js/photo-damage-types.js — this
+  // list used to be a private Title Case vocabulary ('Hail', 'Flashing
+  // Damage', 'Soffit/Fascia', …) that no other surface wrote, so a photo
+  // tagged here never grouped with one tagged in Review & Sort or the
+  // bulk bar. Falls back to the old literals only if the shared script
+  // failed to load, so the panel never renders an empty dropdown.
+  // Resolved per call rather than captured at load: this file is one of
+  // ~60 deferred scripts on customer.html and a load-order change should
+  // degrade the labels, never blank the dropdown.
+  const _DMG = () => window.NBD_PHOTO_DAMAGE || null;
+  const _dmgNorm = (v) => { const D = _DMG(); return D ? D.normalize(v) : String(v == null ? '' : v).trim(); };
+  const DAMAGE_TYPES = () => (_DMG() ? _DMG().options() : [
+    ['hail', 'Hail'], ['wind', 'Wind'], ['leak', 'Leak'], ['other', 'Other']
+  ]);
   const SEVERITY_LEVELS = { minor: { label: 'Minor', color: '#eab308' }, moderate: { label: 'Moderate', color: '#f97316' }, severe: { label: 'Severe', color: '#ef4444' } };
   const ROOF_LOCATIONS = ['Ridge', 'Hip', 'Valley', 'Field/Slope', 'Edge/Drip', 'Flashing', 'Vent/Pipe Boot', 'Chimney', 'Skylight', 'Gutter', 'Downspout', 'Soffit', 'Fascia', 'Dormer', 'Flat Section'];
   const PHASES = ['Before', 'During', 'After'];
@@ -80,6 +89,11 @@
 
     // Image / doc
     photoUrl: null, photoId: null, leadId: null, userId: null, photoData: null,
+    // Pristine pre-annotation backup bookkeeping (see uploadBlob()'s
+    // save-over branch): the live url/storagePath as read at open time,
+    // and whether the doc already carries an originalUrl/originalStoragePath
+    // backup, so a save-over only writes the backup once, ever.
+    origUrl: null, origStoragePath: null, hasOriginalBackup: false,
 
     // Tags
     damageType: '', severity: '', location: '', phase: 'Before', notes: '', tags: [],
@@ -905,7 +919,10 @@
     try {
       // brightness/contrast are persisted non-destructively here (the
       // original image is untouched; openEditor re-applies them on load).
-      const meta = { damageType: S.damageType, severity: S.severity, location: S.location, phase: S.phase, notes: S.notes, tags: S.tags, brightness: S.brightness, contrast: S.contrast };
+      // annotations: persist the vector shape data on a plain tags-only
+      // save too — previously only a flatten (uploadBlob) ever wrote
+      // anything, so "Save Tags" silently discarded every drawn shape.
+      const meta = { damageType: _dmgNorm(S.damageType), severity: S.severity, location: S.location, phase: S.phase, notes: S.notes, tags: S.tags, brightness: S.brightness, contrast: S.contrast, annotations: JSON.parse(JSON.stringify(annotations)) };
       await window.updateDoc(window.doc(window.db, 'photos', S.photoId), meta);
       toast('Tags saved!', 'success');
       S.hasUnsaved = false;
@@ -977,14 +994,31 @@
       // Flatten bakes the current brightness/contrast into the pixels, so
       // the saved copy's stored adjustments reset to 0 — otherwise reopening
       // would double-apply them on top of the already-adjusted image.
-      const meta = { damageType: S.damageType, severity: S.severity, location: S.location, phase: S.phase, notes: S.notes, tags: S.tags, isAnnotated: true, annotatedAt: window.serverTimestamp(), brightness: 0, contrast: 0 };
+      // annotations: also persist the vector shapes here (not just the
+      // baked-in pixels) so a flattened photo can still be reopened with
+      // its shapes editable, instead of only the flattened image.
+      const meta = { damageType: _dmgNorm(S.damageType), severity: S.severity, location: S.location, phase: S.phase, notes: S.notes, tags: S.tags, isAnnotated: true, annotatedAt: window.serverTimestamp(), brightness: 0, contrast: 0, annotations: JSON.parse(JSON.stringify(annotations)) };
       if (overwrite && S.photoId) {
         // storagePath moves with the save-over: url and storagePath must
         // point at the SAME object (deletion + pipeline stamping both key
         // off storagePath). The doc's old `urls` variants go stale for the
         // seconds until the pipeline re-stamps them from the new object —
         // acceptable; renderers fall back sanely either way.
-        await window.updateDoc(window.doc(window.db, 'photos', S.photoId), { url, storagePath, ...meta });
+        const patch = { url, storagePath, ...meta };
+        // Back up the pristine pre-annotation camera photo exactly ONCE:
+        // the first save-over on this doc stashes the live url/storagePath
+        // (captured at open time, before this overwrite) into
+        // originalUrl/originalStoragePath so it isn't silently orphaned in
+        // Storage once `url`/`storagePath` get overwritten with the
+        // flattened copy. S.hasOriginalBackup (read from the doc at open
+        // time) guards against a later save-over clobbering the real
+        // original with an already-annotated intermediate copy.
+        if (!S.hasOriginalBackup && S.origUrl && S.origStoragePath) {
+          patch.originalUrl = S.origUrl;
+          patch.originalStoragePath = S.origStoragePath;
+        }
+        await window.updateDoc(window.doc(window.db, 'photos', S.photoId), patch);
+        if (patch.originalUrl) S.hasOriginalBackup = true;
       } else {
         // Use the resolved authUid (guaranteed non-empty above), not the raw
         // S.userId — S.userId is '' when the editor was opened while
@@ -1138,7 +1172,7 @@
         <div class="nbd-panel-label">Damage Type</div>
         <select class="nbd-select" data-field="damageType">
           <option value="">Select type...</option>
-          ${DAMAGE_TYPES.map(d => `<option value="${d}" ${S.damageType === d ? 'selected' : ''}>${d}</option>`).join('')}
+          ${DAMAGE_TYPES().map(([id, label]) => `<option value="${id}" ${_dmgNorm(S.damageType) === id ? 'selected' : ''}>${label}</option>`).join('')}
         </select>
       </div>
       <div class="nbd-panel-section">
@@ -1674,6 +1708,16 @@
     S.currentPhotoIndex = idx;
     const photo = S.allPhotos[idx];
     const url = typeof photo === 'string' ? photo : (photo.url || '');
+    // Re-key persistence to the newly-selected photo. saveTagsOnly() and
+    // uploadBlob() both write to /photos/{S.photoId} — leaving this
+    // pointed at whichever photo the editor was FIRST opened with would
+    // silently save this photo's tags/annotations onto a different
+    // photo's Firestore doc. A bare-URL string entry carries no id to
+    // key off of; null it out so the existing "No photo ID" guard in
+    // saveTagsOnly()/uploadBlob() blocks the save instead of
+    // mis-targeting one.
+    S.photoId = (photo && typeof photo === 'object' && photo.id) ? photo.id : null;
+    S.photoUrl = url;
     // Load this photo's own persisted adjustments (0 if none / a bare URL),
     // so each photo shows its own — not the previously-viewed photo's.
     S.brightness = Number(photo && photo.brightness) || 0;
@@ -1688,7 +1732,10 @@
       S.imgH = Math.round(S.imgH);
       initCanvases();
       renderImage();
-      annotations = [];
+      // Restore this photo's own saved shapes (falls back to blank for a
+      // photo that was never annotated, or whose allPhotos entry doesn't
+      // carry the field) instead of always discarding them on switch.
+      annotations = (photo && Array.isArray(photo.annotations)) ? JSON.parse(JSON.stringify(photo.annotations)) : [];
       undoStack = [];
       redoStack = [];
       render();
@@ -1814,9 +1861,10 @@
     annotations = [];
     undoStack = [];
     redoStack = [];
+    S.origUrl = null; S.origStoragePath = null; S.hasOriginalBackup = false;
 
     if (photoData) {
-      S.damageType = photoData.damageType || '';
+      S.damageType = _dmgNorm(photoData.damageType);
       S.severity = photoData.severity || '';
       S.location = photoData.location || '';
       S.phase = photoData.phase || 'Before';
@@ -1826,6 +1874,15 @@
       // buildEditor()/renderImage() so the sliders + first paint reflect them.
       S.brightness = Number(photoData.brightness) || 0;
       S.contrast = Number(photoData.contrast) || 0;
+      // Restore previously-saved vector shapes (annotations now survive
+      // Save Tags / Save, not just live in-memory) instead of always
+      // starting blank — see saveTagsOnly()/uploadBlob().
+      annotations = Array.isArray(photoData.annotations) ? JSON.parse(JSON.stringify(photoData.annotations)) : [];
+      // Track the live url/storagePath + whether a pristine backup already
+      // exists, so a save-over backs it up exactly once (see uploadBlob()).
+      S.origUrl = photoData.url || photoUrl || null;
+      S.origStoragePath = photoData.storagePath || null;
+      S.hasOriginalBackup = !!(photoData.originalUrl || photoData.originalStoragePath);
     } else {
       S.damageType = ''; S.severity = ''; S.location = ''; S.phase = 'Before'; S.notes = ''; S.tags = [];
     }
@@ -1865,15 +1922,23 @@
           const docSnap = await window.getDoc(window.doc(window.db, 'photos', photoId));
           if (docSnap.exists()) {
             const d = docSnap.data();
-            S.damageType = d.damageType || ''; S.severity = d.severity || '';
+            S.damageType = _dmgNorm(d.damageType); S.severity = d.severity || '';
             S.location = d.location || ''; S.phase = d.phase || 'Before';
             S.notes = d.notes || ''; S.tags = d.tags || [];
             S.brightness = Number(d.brightness) || 0;
             S.contrast = Number(d.contrast) || 0;
+            // Restore previously-saved vector shapes instead of leaving the
+            // blank array openEditor() started with — the read-side half of
+            // saveTagsOnly()/uploadBlob() persisting them.
+            annotations = Array.isArray(d.annotations) ? JSON.parse(JSON.stringify(d.annotations)) : [];
+            S.origUrl = d.url || photoUrl || null;
+            S.origStoragePath = d.storagePath || null;
+            S.hasOriginalBackup = !!(d.originalUrl || d.originalStoragePath);
             // Refresh panel fields + sliders, then repaint with the
             // loaded adjustments (this branch runs after the first render).
             refreshPanelFields();
             renderImage(); render();
+            refreshAnnList();
           }
         } catch (e) { console.warn('Could not load photo metadata:', e); }
       }
@@ -1888,7 +1953,7 @@
   function refreshPanelFields() {
     if (!root) return;
     const dmgSel = root.querySelector('[data-field="damageType"]');
-    if (dmgSel) dmgSel.value = S.damageType;
+    if (dmgSel) dmgSel.value = _dmgNorm(S.damageType);
     const locSel = root.querySelector('[data-field="location"]');
     if (locSel) locSel.value = S.location;
     root.querySelectorAll('.nbd-severity-pill').forEach(p => p.classList.toggle('active', p.dataset.sev === S.severity));

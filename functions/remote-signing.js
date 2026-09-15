@@ -40,6 +40,7 @@ const { callableRateLimit } = require('./shared');
 const RESEND_API_KEY = defineSecret('RESEND_API_KEY');
 const EMAIL_FROM = defineSecret('EMAIL_FROM');
 const { secretOr } = require('./integrations/_shared');
+const { resendRejected, resendErrorMessage } = require('./resend-guard');
 
 const CORS_ORIGINS = [
   'https://nobigdealwithjoedeal.com',
@@ -275,7 +276,7 @@ exports.createSignRequest = onCall(
       const link = SIGN_URL_BASE + token;
       const docName = escHtml(docMeta.typeName || docMeta.type || 'document');
       const repName = escHtml(tenantName || lead.repName || 'No Big Deal Home Solutions');
-      await resend.emails.send({
+      const response = await resend.emails.send({
         from: fromEmail,
         to: signerEmail,
         subject: `Please sign your ${docName}`,
@@ -288,6 +289,14 @@ exports.createSignRequest = onCall(
           <p style="font-size:12px;color:#666;">This secure link expires in 7 days and can only be used once. If you didn't expect this, you can ignore the email.</p>
         </div>`,
       });
+      // Resend resolves { data: null, error } on an API-level rejection
+      // instead of throwing — without this check `emailed` (returned to
+      // the caller below) would be true for a homeowner who never got the
+      // signing link, exactly the "transient mail failure surfaces to the
+      // rep" promise the comment above makes.
+      if (resendRejected(response)) {
+        throw new Error(resendErrorMessage(response));
+      }
       emailed = true;
     } catch (e) {
       logger.warn('[createSignRequest] email send failed', { leadId, docId, err: e.message });

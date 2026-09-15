@@ -153,6 +153,18 @@ and probed on 2026-09-05 (reachability + CORS preflight only — no exploit
 payloads, no forged Stripe event, no DALL-E call). Most of it has been overtaken
 by events:
 
+**Corrected 2026-09-14 — "deleted" below is wrong for two rows.** Verified
+live via the Cloudflare API (`workers_list` + `workers_get_worker`) and a
+direct probe: `nbd-stripe-webhook` and `nbd-mailerlite` both **still exist**
+in the account. What changed is their `workers.dev` route was disabled
+(both return the identical 404/17-byte body as a control name that never
+existed), which reads as "gone" from the outside but is not deletion —
+the worker script and its bindings remain, reachable again the moment the
+route is re-enabled. See `documentation/runbooks/SECRET_ROTATION.md`
+and `SECURITY.md`'s "Retired surfaces" section for the corrected,
+current four-worker status. Table left as originally written below for
+history; do not cite the "deleted" cells as current fact.
+
 | worker | audit finding (2026-04-11) | state 2026-09-05 |
 |---|---|---|
 | `nbd-stripe-webhook` | **highest severity** — no Stripe signature check, forged `checkout.session.completed` grants free Pro; embedded Firebase service-account JSON | **deleted** |

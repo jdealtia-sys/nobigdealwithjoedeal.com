@@ -231,6 +231,17 @@ jobs:
       # mobile hamburger/collapse never worked.
       - name: Check nav-CSS blocks (assert mode)
         run: node scripts/ensure-nav-css.js
+      # Favicon contract (2026-09-13): two icons across every page, by
+      # audience — the roof mark (/favicon.svg + /assets/images/apple-touch-icon.png)
+      # for homeowner pages, NBD PRO (/pro/favicon.svg + /pro/img/nbd-icon-192.png)
+      # for /pro, /admin and /tools, with a short override map for pages whose
+      # audience is not their directory's. A denylist WALK, not a page list, so
+      # a new page is covered the day it lands; Oaks and the tenant template are
+      # excluded and must carry no NBD icon. Before this, 31 of 36 CRM pages flew
+      # the homeowner favicon and 13 pages had none.
+      # documentation/audit/FAVICON-NORMALIZATION-2026-09-13.md
+      - name: Check favicon pairs (two icons, by audience)
+        run: node scripts/normalize-favicons.js --check
       # Manifest completeness tripwire (2026-08-07): every tests/*.test.js
       # must be classified in tests/ci-manifest.json — a new suite that isn't
       # bucketed fails here instead of silently never running (35 suites,
@@ -447,6 +458,19 @@ jobs:
         run: |
           cd tests
           npx firebase-tools emulators:exec --only functions,firestore --project demo-nbd-pl 'node lead-bridge.integration.test.js'
+
+      - name: Run lead-artifact-cleanup integration test under functions+firestore emulator
+        # onLeadDeleted end to end through the real trigger (2026-09-13): a
+        # hard-deleted lead's linked Cal.com appointments/{id} docs must be
+        # swept too, or a booking outlives the lead it points at forever (no
+        # client UI deletes an appointments/{id} doc directly, and Firestore
+        # never cascades into a sibling top-level collection). Proved red
+        # against the pre-fix trigger before this was wired. Reuses this
+        # job's JDK + functions deps + dummy-secret env; a fresh
+        # emulators:exec session boots for this suite, same as the two above.
+        run: |
+          cd tests
+          npx firebase-tools emulators:exec --only functions,firestore --project demo-nbd-pl 'node lead-artifact-cleanup.integration.test.js'
 
       # Public-intake gateway suite (submitPublicLead: honeypot both-keys,
       # field allowlist, contact-kind allowlist, silent-200 semantics). Ran in

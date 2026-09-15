@@ -244,6 +244,29 @@ jobs:
           # instead keeps docs/ the single source of truth for what is live.
           node scripts/apply-partials.js --check
 
+      # Stamp the Sentry release tag with the deploy SHA so every deploy
+      # groups its errors under a fresh release in Sentry instead of a
+      # 6-month-old bug's bucket. Replaces the placeholder line in
+      # docs/pro/js/sentry-config.js. Runner-local — NOT committed back to
+      # the repo: the source tree keeps the generic placeholder so feature
+      # branches don't pick up noisy release-stamp diffs on every push.
+      # tests/smoke/dashboard.test.js's `window.__NBD_RELEASE` pin only
+      # requires the value start with 'web@', so this rewrite doesn't
+      # need a matching test-pin update.
+      - name: Stamp Sentry release with git SHA
+        if: ${{ github.event_name == 'push' || github.event.inputs.scope == 'all' || github.event.inputs.scope == 'hosting' }}
+        run: |
+          set -e
+          SHORT_SHA="${GITHUB_SHA::8}"
+          DATE=$(date -u +%Y-%m-%d)
+          NEW_TAG="web@${DATE}-${SHORT_SHA}"
+          if [ -f docs/pro/js/sentry-config.js ]; then
+            sed -i "s|window\.__NBD_RELEASE = 'web@[^']*';|window.__NBD_RELEASE = '${NEW_TAG}';|" docs/pro/js/sentry-config.js
+            echo "::notice::Sentry release stamped → ${NEW_TAG}"
+          else
+            echo "::warning::sentry-config.js not found — skipping release stamp"
+          fi
+
       # Hosting deploys FIRST — before rules / indexes / storage / functions —
       # so a transient auth-race flake on the rules deploy (the recurring
       # "Failed to authenticate" abort that took out deploys #732 + #736) can

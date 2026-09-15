@@ -18,7 +18,7 @@
  *                             rotateAccessCodes
  *   handlers/auth.js        — onRepSignup, activateInvitedRep,
  *                             provisionE2ETestUser, cleanupE2ETestData,
- *                             mintOwnerClaims
+ *                             mintOwnerClaims, revokeMySessions
  *   handlers/migrations.js  — backfillAnalytics
  *   handlers/integrations.js— integrationStatus, submitPublicLead
  *   handlers/portal.js      — validateAccessCode (the inline access-code
@@ -156,6 +156,10 @@ exports.cleanupE2ETestData   = authHandlers.cleanupE2ETestData;
 // Deployed via the strict pass (NOT skip-listed); this re-export is
 // load-bearing for deploy-by-name, same as every handler above.
 exports.mintOwnerClaims      = authHandlers.mintOwnerClaims;
+// Self-service session revocation — the "Sign Out Everywhere" button's
+// backing callable (2026-09-08). Caller-scoped: revokes the CALLER's own
+// refresh tokens and takes no target parameter.
+exports.revokeMySessions     = authHandlers.revokeMySessions;
 
 // Owner-callable migrations (NOT the versioned admin runner — that
 // stays in functions/migrations/runner.js, re-exported below).
@@ -165,6 +169,10 @@ exports.backfillAnalytics   = migrationsHandlers.backfillAnalytics;
 // Integration-facing endpoints (status readout + public lead ingest)
 const integrationsHandlers = require('./handlers/integrations');
 exports.integrationStatus = integrationsHandlers.integrationStatus;
+// Non-admin-safe availability readout — see the H-06 comment on
+// integrationStatus in handlers/integrations.js for why that one stays
+// admin-gated and this one deliberately does not.
+exports.integrationAvailability = integrationsHandlers.integrationAvailability;
 exports.submitPublicLead  = integrationsHandlers.submitPublicLead;
 
 // Inline access-code callable. Distinct from functions/portal.js
@@ -374,6 +382,16 @@ Object.assign(exports, documentViewFunctions);
 // functions/lead-artifact-cleanup.js.
 const leadArtifactCleanup = require('./lead-artifact-cleanup');
 Object.assign(exports, leadArtifactCleanup);
+
+// Same leak class, different prefix: `pdf-renders/{uid}/` accumulated every
+// server-rendered invoice, contract and warranty forever, with no rule block
+// and no reaper. 19 of 21 prod objects carried a permanent download token on
+// 2026-09-08 and answered an unauthenticated GET. Deleting the object is the
+// only real revocation, so retention IS the fix. See
+// functions/pdf-render-retention.js for why this is a scheduled job rather
+// than a bucket lifecycle rule.
+const pdfRenderRetention = require('./pdf-render-retention');
+exports.pdfRenderRetention = pdfRenderRetention.pdfRenderRetention;
 
 // L-03 cont.: Stripe handlers (createCheckoutSession, stripeWebhook,
 // createCustomerPortalSession, getSubscriptionStatus,

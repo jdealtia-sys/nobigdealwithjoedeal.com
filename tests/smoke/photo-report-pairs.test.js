@@ -31,15 +31,28 @@ const { ROOT } = require('./_shared');
 // in the sandbox, the assignment lands there and we can grab it.
 let buildPairs;
 let compareOrder;
+let damageCanon;
 let loadError;
 try {
+  const sandbox = { window: {}, console: console };
+  vm.createContext(sandbox);
+  // photo-damage-types.js FIRST. photo-report.js reads
+  // window.NBD_PHOTO_DAMAGE to fold /photos.damageType to one vocabulary,
+  // and both files are classic scripts precisely so this sandbox can run
+  // them in the same context the way the browser does (customer.html loads
+  // the canon at :62, ahead of the lazy ScriptLoader 'photos' bundle that
+  // brings in photo-report.js).
+  const canonSrc = fs.readFileSync(
+    path.join(ROOT, 'docs/pro/js/photo-damage-types.js'),
+    'utf8'
+  );
+  vm.runInContext(canonSrc, sandbox, { filename: 'photo-damage-types.js' });
   const src = fs.readFileSync(
     path.join(ROOT, 'docs/pro/js/photo-report.js'),
     'utf8'
   );
-  const sandbox = { window: {}, console: console };
-  vm.createContext(sandbox);
   vm.runInContext(src, sandbox, { filename: 'photo-report.js' });
+  damageCanon = sandbox.window.NBD_PHOTO_DAMAGE;
   buildPairs = sandbox.window._buildPhotoReportPairs;
     compareOrder = sandbox.window._comparePhotoReportOrder;
 } catch (e) {
@@ -156,6 +169,95 @@ module.exports.run = function run(ctx) {
       assert('Tier 2: pair label is "Damage: <type>"',
         /^Damage:\s*hail/.test(out[0].location),
         'expected "Damage: hail", got ' + out[0].location);
+    }
+
+    // ── Tier 2 across the four historical damageType vocabularies ──
+    // Until 2026-09-08 four surfaces wrote /photos.damageType in four
+    // spellings: photo-editor.js Title Case, the customer-page quick-edit
+    // popup Title Case (a shorter, differently-worded list), the
+    // customer.html bulk bar kebab-case, and Review & Sort + the AI
+    // classifier snake_case.
+    //
+    // These call the REAL exported _buildPhotoReportPairs with photo
+    // objects, not a regex over the source — the point is that a rep who
+    // tags a before-shot on one surface and the after-shot on another
+    // still gets a pair.
+    {
+      assert('the damageType canon loaded into the same sandbox',
+        !!damageCanon && typeof damageCanon.normalize === 'function');
+
+      // Each row: [what, before spelling, after spelling]. Every row names
+      // ONE peril in two different surfaces' spellings.
+      const crossVocab = [
+        // The first and last rows are case-only: normKey already lowercased,
+        // so these two stay green with the fold reverted. They are kept as
+        // guards that case folding does not REGRESS, not as proof of it.
+        ['Title Case editor vs snake AI',        'Hail',            'hail'],
+        ['kebab bulk bar vs snake AI',           'granule-loss',    'granular_loss'],
+        ['Title Case editor vs kebab bulk bar',  'Missing Shingle', 'missing-shingles'],
+        ['editor Flashing Damage vs quick-edit Flashing', 'Flashing Damage', 'Flashing'],
+        ['editor Gutter Damage vs quick-edit Gutter',     'Gutter Damage',   'Gutter'],
+        ['kebab lifted-shingles vs Title Case',  'lifted-shingles', 'Lifted Shingle'],
+        ['Soffit/Fascia punctuation folds',      'Soffit/Fascia',   'soffit_fascia'],
+        ['surrounding whitespace + all caps',    '  HAIL  ',        'hail'],
+      ];
+      for (const [what, beforeSpelling, afterSpelling] of crossVocab) {
+        _id = 0;
+        const b = photo({ phase: 'Before', damageType: beforeSpelling, ms: 1 });
+        const a = photo({ phase: 'After',  damageType: afterSpelling,  ms: 2 });
+        const out = buildPairs([b, a]);
+        // The failure mode was NOT simply 'one fewer pair': with tiers 1+2
+        // empty, tier 3 fires and ships the two photos as a chronological
+        // pair labeled 'Project overview'. So assert the LABEL too — a
+        // length-only assertion passes with the bug present.
+        assert('mixed vocabulary pairs in tier 2 — ' + what,
+          out.length === 1 && out[0].location.indexOf('Damage:') === 0,
+          'expected 1 tier-2 pair, got ' + JSON.stringify(out));
+      }
+    }
+
+    // ── Distinct perils must still NOT pair ──
+    // Guards the other direction: without this, a normalizer that folded
+    // everything to 'other' would satisfy every assertion above.
+    {
+      _id = 0;
+      const b = photo({ phase: 'Before', damageType: 'Hail', ms: 1 });
+      const a = photo({ phase: 'After',  damageType: 'wind', ms: 2 });
+      const out = buildPairs([b, a]);
+      assert('hail before + wind after do NOT pair on damage type',
+        out.length === 1 && out[0].location === 'Project overview',
+        'expected the tier-3 fallback, got ' + JSON.stringify(out));
+    }
+
+    // ── Mixed spellings collapse to ONE group, not several ──
+    // The double-counting half of the bug: photos of one peril spelled
+    // differently per surface used to build separate tier-2 keys.
+    //
+    // Deliberately NOT case variants of one word: normKey has always
+    // lowercased, so 'Hail'/'hail'/'HAIL' grouped correctly even before the
+    // canon existed and such a fixture stays green with the fix reverted.
+    // These are the editor / bulk-bar / AI spellings of ONE peril.
+    {
+      _id = 0;
+      const b1 = photo({ phase: 'Before', damageType: 'Missing Shingle',  ms: 1 });
+      const b2 = photo({ phase: 'Before', damageType: 'missing-shingles', ms: 5 });
+      const a1 = photo({ phase: 'After',  damageType: 'missing_shingle',  ms: 7 });
+      // NOT 'Missing Shingle' again: sharing a spelling with b1 lets tier 2
+      // fire pre-fix on that one key, and the fixture goes green with the
+      // fold reverted. Every one of the four is a DIFFERENT surface spelling.
+      const a2 = photo({ phase: 'After',  damageType: 'MISSING SHINGLES', ms: 9 });
+      const out = buildPairs([b1, b2, a1, a2]);
+      assert('four photos, one peril, three surface spellings -> exactly 1 pair',
+        out.length === 1, 'expected 1 pair, got ' + JSON.stringify(out));
+      assert('the single pair is a tier-2 damage pair, not a tier-3 overview',
+        out.length === 1 && out[0].location.indexOf('Damage:') === 0,
+        'got ' + (out[0] && out[0].location));
+      assert('grouped pair still picks earliest BEFORE across spellings',
+        out[0].before.url === b1.url,
+        'expected b1 (ms=1), got ' + out[0].before.url);
+      assert('grouped pair still picks latest AFTER across spellings',
+        out[0].after.url === a2.url,
+        'expected a2 (ms=9), got ' + out[0].after.url);
     }
 
     // ── Tier 3: chronological "Project overview" fallback ──

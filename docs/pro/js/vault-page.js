@@ -1793,7 +1793,13 @@ window.vaultBulkImportSessions = async function(sessionsArray) {
 
 // Migrated off the nbd-ai-proxy worker to the gated, admin-authed adminAI
 // Cloud Function (Claude). Name kept generic; this is no longer Gemini.
-const NBD_ADMIN_AI_URL = 'https://us-central1-nobigdeal-pro.cloudfunctions.net/adminAI';
+// Emulator switch (same Audit #3 rule as nbd-comms.js): otherwise a local
+// test of the vault's AI parser/chat always CORS-fails against prod.
+const NBD_ADMIN_AI_URL = (/^(localhost|127\.0\.0\.1|\[::1\])$/.test(
+  (typeof location !== 'undefined' && location.hostname) || ''
+)
+  ? 'http://127.0.0.1:5001/nobigdeal-pro/us-central1'
+  : 'https://us-central1-nobigdeal-pro.cloudfunctions.net') + '/adminAI';
 
 async function parseSessionWithGemini(session) {
   const prompt = `Analyze this NBD Pro build session and extract structured data.

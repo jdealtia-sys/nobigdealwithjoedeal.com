@@ -57,6 +57,26 @@ const JSON_OUT = flag('--json');
 const LIMIT = Number(flag('--limit', '0')) || 0;
 const MOBILE_W = 390;
 
+// Every page renders at 1280 + 390. Two more widths render for the service
+// surface only, because 390px is the one width that misses the defect class
+// fixed on 2026-09-08 (see documentation/audit/SERVICE-PAGE-OVERFLOW-2026-09-08.md):
+//
+//   320px — the narrow-phone floor. /services/roof-replacement carried 59px of
+//     real document overflow here and 0px at 390px, so this sweep called it
+//     clean for three weeks. iPhone SE/5 and Android at 200% text zoom land here.
+//   820px — between the trust bar's mobile scroller (which stopped at 768px)
+//     and the 920px its five items need. 100px of overflow at 820px, invisible
+//     to both existing widths.
+//
+// Service-surface-only is a deliberate scope, not a preference: at 320px the
+// blog surface (12 pages, 37px — .author-box flex items) and two /pro pages
+// (46px, a long <code> URL) carry the same class of pre-existing defect. They
+// are real and filed, but each needs its own layout decision, and reddening
+// this gate on them would have meant landing them unreviewed. Widen NARROW_SURFACE
+// as each surface is fixed — the intent is that it eventually matches everything.
+const NARROW_VIEWPORTS = [['narrow', 320], ['band', 820]];
+const NARROW_SURFACE = (urlPath) => urlPath.startsWith('/services/');
+
 // Directories that are not part of the homeowner marketing surface.
 // 'pro'/'admin' are app surfaces behind auth; sweeping them wholesale would
 // mostly report login-wall noise.
@@ -247,7 +267,10 @@ function probe() {
       });
     }
 
-    for (const [label, width] of [['desktop', 1280], ['mobile', MOBILE_W]]) {
+    const viewports = [['desktop', 1280], ['mobile', MOBILE_W]];
+    if (NARROW_SURFACE(urlPath)) viewports.push(...NARROW_VIEWPORTS);
+
+    for (const [label, width] of viewports) {
       const page = await browser.newPage({ viewport: { width, height: 900 } });
       try {
         const resp = await page.goto(BASE + fetchPath, { waitUntil: 'load', timeout: 20000 });
@@ -292,7 +315,8 @@ function probe() {
     console.log('qc-render-sweep: wrote ' + JSON_OUT);
   }
 
-  console.log('\nqc-render-sweep: ' + scanned + ' page(s) rendered at 1280px + ' + MOBILE_W + 'px');
+  console.log('\nqc-render-sweep: ' + scanned + ' page(s) rendered at 1280px + ' + MOBILE_W
+    + 'px, plus ' + NARROW_VIEWPORTS.map(v => v[1] + 'px').join(' + ') + ' on /services/');
   if (!total) {
     console.log('  clean — no findings.');
     process.exit(0);

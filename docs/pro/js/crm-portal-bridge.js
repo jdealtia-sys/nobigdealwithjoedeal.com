@@ -522,6 +522,21 @@ function editLead(id){
   // Job fields
   setV('lScheduledDate', l.scheduledDate||'');
   setV('lCrew', l.crew||'');
+  // 2026-09-15 (Paperwork Filing) — checkboxes use .checked, not .value
+  // (setV above would leave every one permanently checked: an unattributed
+  // <input type="checkbox"> with no value= attribute reads "on" regardless
+  // of checked state). Without this, saveLead()'s
+  // `checked ? new Date().toISOString() : ''` would read every checkbox as
+  // UNCHECKED on open (default DOM state) and silently WIPE an
+  // already-filed timestamp on the next unrelated save (a phone-number fix,
+  // say) — populate from the lead's real state so a re-save only refreshes
+  // an already-true stamp, never blanks one.
+  const setChecked = (eid, val) => { const e = document.getElementById(eid); if (e) e.checked = !!val; };
+  setChecked('lContractFiled', l.contractFiledAt);
+  setChecked('lPermitFiled', l.permitFiledAt);
+  setChecked('lAobFiled', l.aobFiledAt);
+  setChecked('lWarrantyCertFiled', l.warrantyCertFiledAt);
+  setChecked('lCocFiled', l.cocFiledAt);
   setV('lNotes',l.notes||'');
   const editId=document.getElementById('lEditId'); if(editId) editId.value=id;
   const title=document.getElementById('leadModalTitle'); if(title) title.textContent='Edit Lead';

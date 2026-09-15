@@ -947,6 +947,8 @@
 
           .rda-tabs {
             gap: 2px;
+            -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 24px), transparent 100%);
+            mask-image: linear-gradient(to right, #000 calc(100% - 24px), transparent 100%);
           }
 
           .rda-tab {

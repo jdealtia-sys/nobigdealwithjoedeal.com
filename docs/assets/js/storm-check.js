@@ -256,7 +256,7 @@
   function submitLead() {
     var fn = $('sc-firstName').value.trim(), ph = $('sc-phone').value.trim(),
         em = $('sc-email').value.trim(), consent = $('sc-consent').checked;
-    if (!fn || ph.replace(/\D/g, '').length < 10) { $('sc-contact-err').textContent = 'Please add your name and a 10-digit phone.'; return; }
+    if (!fn || ph.replace(/\D/g, '').replace(/^1/, '').length !== 10) { $('sc-contact-err').textContent = 'Please add your name and a 10-digit phone.'; return; }
     if (!consent) { $('sc-contact-err').textContent = 'Please check the consent box so Joe can reach you.'; return; }
     $('sc-contact-err').textContent = '';
     S.firstName = fn; S.phone = ph; S.email = em;

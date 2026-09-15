@@ -31,9 +31,10 @@
      every caller below — inline click handlers, deferred externals —
      finds the helper ready. See firestore.rules for the IDOR guard. -->
 <script defer src="js/nbd-url.js?v=1"></script>
-<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="icon" href="/pro/favicon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="/pro/img/nbd-icon-192.png">
 <link rel="manifest" href="/pro/manifest.json">
+<link rel="modulepreload" href="js/stage-write.js?v=1">
 <!-- W151: mobile polish sweep -->
 <link rel="stylesheet" href="/pro/css/mobile-polish.css?v=1">
 <title>Customer Details — NBD Pro</title>
@@ -53,6 +54,13 @@
      on a Firestore round-trip. See docs/pro/js/idb-cache.js. -->
 <script defer src="js/idb-cache.js?v=1"></script>
 <script defer src="js/standalone-compat.js"></script>
+<!-- The ONE vocabulary for /photos.damageType (window.NBD_PHOTO_DAMAGE).
+     Four surfaces wrote this field in four spellings until 2026-09-08, so
+     photos of the same peril tagged in different places never grouped in
+     the photo report's before/after pairing. Dependency-free, no DOM at
+     load, and must precede every photo consumer (including the lazy
+     ScriptLoader 'photos' bundle). See docs/pro/js/photo-damage-types.js. -->
+<script defer src="js/photo-damage-types.js?v=1"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800&family=Barlow:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -774,6 +782,23 @@ body.nbd-photo-reorder .nbd-photo-item.drop-after {
    bar's band, and notching 94px out of a wide bar would just read as a bug. */
 @media (max-width: 768px) {
   .jump-nav { margin-right: var(--nbd-fab-rail, 94px); }
+  /* Scroll affordance (2026-09-09): this bar has scrolled horizontally
+     since the nowrap fix above, but nothing ever signaled that — at 375px
+     it visually reads as "Overview / Timeline / Photos" and stops, so
+     Files/Messages/Voice Intel/Contact go undiscovered unless a rep
+     happens to swipe. A right-edge mask fade is a persistent, JS-free
+     "there's more" cue (unlike a background-color gradient, mask-image
+     composites correctly under the existing backdrop-filter blur and
+     needs no per-theme color to match). Scoped to this breakpoint only —
+     wider bars have room for every link and fading a fully-visible last
+     item would be a false "keep scrolling" signal. The trade-off: the
+     fade never fully clears even scrolled to the end, so "Contact" keeps
+     a soft edge — a small cosmetic cost for going from zero affordance
+     to an always-visible one. */
+  .jump-nav {
+    -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent 100%);
+    mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent 100%);
+  }
 }
 .jump-nav a {
   /* Required by the nowrap switch above: as flex items in a scroller these
@@ -1516,6 +1541,12 @@ body.nbd-photo-selecting .nbd-photo-checkbox,
       <!-- JOB COSTS & PROFIT -->
       <div id="profitPanel" style="margin-bottom:16px;"></div>
 
+      <!-- WARRANTY CLAIM (2026-09-15) — rendered by WarrantyClaim.renderPanel
+           (js/warranty-claim.js). Empty/invisible unless the lead has an
+           open claim (lead.openWarrantyClaimId); no display:none toggle
+           needed since the render function itself decides. -->
+      <div id="warrantyClaimPanel" style="margin-bottom:16px;"></div>
+
       <!-- ESTIMATES -->
       <div class="panel">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
@@ -1662,10 +1693,10 @@ body.nbd-photo-selecting .nbd-photo-checkbox,
             <option value="">Set damage…</option>
             <option value="hail">Hail</option>
             <option value="wind">Wind</option>
-            <option value="missing-shingles">Missing shingles</option>
+            <option value="missing_shingle">Missing shingle</option>
             <option value="leak">Leak</option>
-            <option value="granule-loss">Granule loss</option>
-            <option value="lifted-shingles">Lifted shingles</option>
+            <option value="granular_loss">Granular loss</option>
+            <option value="lifted_shingle">Lifted shingle</option>
             <option value="other">Other</option>
             <option value="__clear__">— Clear —</option>
           </select>
@@ -1756,6 +1787,12 @@ body.nbd-photo-selecting .nbd-photo-checkbox,
             <div style="font-size:20px;margin-bottom:6px;">&#127970;</div>
             <div style="font-size:13px;font-weight:700;color:var(--t);">Insurance Report</div>
             <div style="font-size:11px;color:var(--m);margin-top:2px;">Adjuster-ready inspection report</div>
+          </div>
+          <div class="doc-template-card" role="button" tabindex="0" data-action="generateCustomerDoc" data-doc-type="storm_history_report" style="padding:14px;background:var(--s2);border-radius:10px;border:1px solid var(--br);cursor:pointer;transition:border-color var(--t-mid),transform var(--t-fast);">
+            <button type="button" class="dt-preview-btn" data-action="_previewBlankDoc" data-doc-type="storm_history_report" aria-label="Preview blank template" title="Preview blank template">&#9432;</button>
+            <div style="font-size:20px;margin-bottom:6px;">&#9928;&#65039;</div>
+            <div style="font-size:13px;font-weight:700;color:var(--t);">Storm History Report</div>
+            <div style="font-size:11px;color:var(--m);margin-top:2px;">Free 5-yr NOAA hail/wind history — skip the paid GAF report</div>
           </div>
           <div class="doc-template-card" role="button" tabindex="0" data-action="generateCustomerDoc" data-doc-type="supplement_request" style="padding:14px;background:var(--s2);border-radius:10px;border:1px solid var(--br);cursor:pointer;transition:border-color var(--t-mid),transform var(--t-fast);">
             <button type="button" class="dt-preview-btn" data-action="_previewBlankDoc" data-doc-type="supplement_request" aria-label="Preview blank template" title="Preview blank template">&#9432;</button>
@@ -2209,6 +2246,9 @@ body.nbd-photo-selecting .nbd-photo-checkbox,
 
 <script defer src="js/customer-tasks-ui.js?v=1"></script>
 <script defer src="js/nbd-comms.js?v=1"></script>
+<script defer src="js/stage-checklist.js?v=1"></script>
+<script defer src="js/paperwork-write.js?v=1"></script>
+<script defer src="js/warranty-claim.js?v=1"></script>
 <script defer src="js/nbd-input-guards.js?v=1"></script>
 <script defer src="js/email_system.js"></script>
 <script defer src="js/customer-gallery-share.js?v=1"></script>

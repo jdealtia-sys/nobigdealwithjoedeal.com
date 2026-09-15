@@ -179,6 +179,18 @@
  * @property {TimestampLike=} variantsGeneratedAt
  *   Server timestamp written by image-pipeline when variants land.
  *
+ * @property {string=} originalUrl
+ *   The pristine pre-annotation camera photo's download URL. Backed up
+ *   ONCE, idempotently, the first time the photo editor's flatten-and-
+ *   save-over (`uploadBlob()` in photo-editor.js) overwrites `url` with an
+ *   annotated/flattened copy — so the original is never silently orphaned
+ *   in Storage. Undefined until the first save-over; a later save-over
+ *   never overwrites it again.
+ *
+ * @property {string=} originalStoragePath
+ *   Storage object name paired with `originalUrl` — same one-time,
+ *   idempotent backup, set alongside it.
+ *
  * @property {string=} filename
  *   Original filename for display + report captions.
  *
@@ -202,6 +214,16 @@
  *   Free text caption.
  *
  * @property {Array<string>=} tags
+ *
+ * @property {Array<object>=} annotations
+ *   Vector shape data from the photo editor's drawing tools (pen, line,
+ *   arrow, rect, circle, text, callout, stamp, measure, eraser) — a
+ *   JSON-serialized copy of the editor's in-memory annotation list.
+ *   Written by both `saveTagsOnly()` (tags-only save, no flatten) and
+ *   `uploadBlob()` (flatten + save) in photo-editor.js, so a marked-up
+ *   photo can be reopened with its shapes still editable rather than only
+ *   the flattened pixels. Distinct from `isAnnotated`, which just flags
+ *   that a flattened copy exists.
  *
  * @property {boolean=} isAnnotated
  *   True when the photo editor has saved a marked-up overlay.

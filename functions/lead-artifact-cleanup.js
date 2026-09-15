@@ -59,6 +59,19 @@
  * list while scripts/sweep-orphan-lead-artifacts.js already swept it — the
  * exact drift that script's comment warns about, in the opposite direction.
  *
+ * UPDATE 2026-09-13 — linked Cal.com/appointments records were never reaped.
+ * ───────────────────────────────────────────────────────────────────────
+ * `appointments/{bookingId}` docs (functions/integrations/calcom.js) carry a
+ * `leadId` field pointing at whichever CRM lead the booking is linked to —
+ * either a pre-existing lead it matched, or the `calcom__<bookingId>` lead it
+ * created for an unmatched booker. Hard-deleting that lead never touched
+ * `appointments`: no client UI anywhere deletes an appointments/{id} doc
+ * directly (the kanban Delete is a soft delete; the Trash drawer's Remove is
+ * a bare `deleteDoc` on the lead), and Firestore does not cascade a delete
+ * into a sibling top-level collection. The appointment survived forever with
+ * a `leadId` pointing at nothing — same orphan class as the token
+ * collections below, just undiscovered until now. Reaped in step 5.
+ *
  * NOT covered here, deliberately:
  *   - D2D knock photos (`photos/{uid}/d2d/{knockId}/...`). They belong to the
  *     knock, not the lead, and carry no /photos doc at all (image-pipeline.js
@@ -377,6 +390,31 @@ exports.onLeadDeleted = onDocumentDeleted(
       }
     }
 
+    // ── 5. Linked Cal.com / appointments records ────────────────────
+    // appointments/{bookingId}.leadId (functions/integrations/calcom.js)
+    // points at whichever lead the booking is linked to — a pre-existing
+    // match or the calcom__<bookingId> lead created for it. It is a
+    // top-level collection Firestore never cascades into, and no client UI
+    // deletes an appointments/{id} doc directly, so without this the doc
+    // outlives the lead forever, `leadId` pointing at nothing. A lead is
+    // rarely linked to more than a handful of bookings (one per reschedule
+    // chain); 200 is far past any real case and exists only so a corrupt
+    // leadId cannot spin this loop forever.
+    let appointmentsDeleted = 0;
+    try {
+      const snap = await db.collection('appointments').where('leadId', '==', leadId).limit(200).get();
+      for (const a of snap.docs) {
+        try {
+          await a.ref.delete();
+          appointmentsDeleted++;
+        } catch (e) {
+          failures.push(`appointment ${a.id}: ${e.message}`);
+        }
+      }
+    } catch (e) {
+      failures.push(`appointments query: ${e.message}`);
+    }
+
     const summary = {
       leadId,
       ownerUids: [...ownerUids],
@@ -384,6 +422,7 @@ exports.onLeadDeleted = onDocumentDeleted(
       docsDeleted,
       photoDocsDeleted,
       tokensRevoked,
+      appointmentsDeleted,
       failures: failures.length,
     };
     if (failures.length) {

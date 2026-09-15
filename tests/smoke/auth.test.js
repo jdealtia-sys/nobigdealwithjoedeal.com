@@ -581,6 +581,29 @@ section('H-06: integrationStatus admin-only gate');
       /\['admin',\s*'company_admin'\]\.includes\(callerRole\)/.test(m[0])
       && /permission-denied/.test(m[0]));
   }
+  // Companion assertion (integration-availability-non-admin fix): a new
+  // integrationAvailability callable was added alongside integrationStatus
+  // so non-admin reps can get an availability readout without going through
+  // the admin gate above. Prove that addition did NOT touch — let alone
+  // weaken — integrationStatus itself: its matched block must still be the
+  // admin-gated one above, and must not have absorbed the new callable.
+  if (m) {
+    assert('H-06 companion: integrationStatus block is unchanged — still admin-gated, and did not merge with the new integrationAvailability callable',
+      /\['admin',\s*'company_admin'\]\.includes\(callerRole\)/.test(m[0])
+      && /permission-denied/.test(m[0])
+      && !/integrationAvailability/.test(m[0]));
+  }
+  // And the new sibling callable is a genuinely distinct, deliberately
+  // non-admin endpoint — not integrationStatus renamed or aliased, and not
+  // itself carrying a role check that would defeat its own purpose.
+  const m2 = src.match(/exports\.integrationAvailability\s*=\s*onCall\s*\([\s\S]+?\}\s*\);/);
+  assert('H-06 companion: integrationAvailability handler block located', !!m2);
+  if (m2) {
+    assert('H-06 companion: integrationAvailability has no admin/company_admin role check (any authenticated caller may use it)',
+      !/callerRole/.test(m2[0]) && !/permission-denied/.test(m2[0]));
+    assert('H-06 companion: integrationAvailability still requires authentication',
+      /!request\.auth \|\| !request\.auth\.uid/.test(m2[0]) && /unauthenticated/.test(m2[0]));
+  }
 }
 
 section('M-04: submitPublicLead optional-field allowlist');
@@ -709,9 +732,22 @@ section('M-01 + M-02: GDPR completeness — canonical user-owned registry');
       Array.isArray(reg.COLLECTION_GROUPS_WITH_USERID)
       && reg.COLLECTION_GROUPS_WITH_USERID.includes('recordings')
       && reg.COLLECTION_GROUPS_WITH_USERID.includes('activity'));
-    assert('M-01/M-02: STORAGE_PREFIXES covers all 8 storage.rules prefixes',
+    // NOTE (2026-09-08): this list is hand-maintained and was labelled "all 8
+    // storage.rules prefixes" while storage.rules defined ELEVEN owner-keyed
+    // prefixes. Because it only asserts `listed ⊆ STORAGE_PREFIXES`, a prefix
+    // that exists in storage.rules but in neither this list nor the registry
+    // is invisible to it — which is exactly how `pdf-renders` came to hold
+    // customer invoices and contracts that account erasure never deleted.
+    // `receipts` had drifted the same way: registered, but ungated here.
+    //
+    // `documents` and `esign` are STILL absent from STORAGE_PREFIXES and are
+    // deliberately not added here — widening what account erasure destroys is
+    // a decision with legal weight (esign holds counter-signed contracts), not
+    // a test fixup. Tracked separately; see
+    // documentation/audit/PDF-RENDER-RETENTION-2026-09-08.md.
+    assert('M-01/M-02: STORAGE_PREFIXES covers the registered storage.rules prefixes',
       Array.isArray(reg.STORAGE_PREFIXES)
-      && ['audio','photos','docs','portals','galleries','reports','shared_docs','deal_rooms']
+      && ['audio','photos','docs','portals','galleries','reports','shared_docs','deal_rooms','receipts','pdf-renders']
           .every(p => reg.STORAGE_PREFIXES.includes(p)));
     assert('M-01/M-02: OWNER_KEYED_DOCS covers the user/sub/settings doc set',
       Array.isArray(reg.OWNER_KEYED_DOCS)

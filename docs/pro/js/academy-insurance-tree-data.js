@@ -1995,7 +1995,7 @@
 
         <p><strong>Warranty Documentation:**</strong> Prepare manufacturer warranty documentation for the new shingles. Most shingles come with 20-30 year warranties. Provide homeowner with: warranty certificate, details of what's covered, how to file a warranty claim, contact information for manufacturer. "Your new shingles come with a 30-year warranty against manufacturing defects. Here's the paperwork."</p>
 
-        <p><strong>Workmanship Warranty:**</strong> Provide your own workmanship warranty. This is typically 2-10 years depending on your company policy. "We warranty our installation workmanship for 5 years. If any issues arise from our installation, we'll fix them at no cost."</p>
+        <p><strong>Workmanship Warranty:**</strong> Provide your own workmanship warranty. NBD backs every tier with a lifetime workmanship warranty — Standard is non-transferable, Preferred transfers to one subsequent owner, Elite is fully transferable with an annual courtesy inspection. "We warranty our installation workmanship for the life of the roof. If any issues arise from our installation, we'll fix them at no cost."</p>
 
         <p><strong>Final Signoff:**</strong> Have homeowner sign a completion form. "Work completed on [date]. Quality inspected and approved. Homeowner accepts the work as completed per the work agreement." This is your final documentation.</p>
       </div>`,
@@ -2116,7 +2116,7 @@
 
         <p><strong>Final Invoice Breakdown:</strong> Show line-item costs that match the insurance estimate and supplements. Example: "Roof tear-off (1,800 sq ft): $3,600. New roof installation (1,800 sq ft): $7,200. Drip edge (350 LF): $525. Ice & water shield (800 sq ft): $200. Labor (8 days × $400): $3,200. Total: $14,725." This matches insurance approval + supplements. If homeowner paid for upgrades, show those separately: "Ice & water shield perimeter (homeowner upgrade): $300."</p>
 
-        <p><strong>Warranty Documents:**</strong> Include original manufacturer warranty for the shingles (you got this in the bundle or from supplier). Also include your workmanship warranty. "Installation warranty: 5 years. Covers repair or replacement of any materials if installation defect is discovered."</p>
+        <p><strong>Warranty Documents:**</strong> Include original manufacturer warranty for the shingles (you got this in the bundle or from supplier). Also include your workmanship warranty. "Installation warranty: lifetime. Covers repair or replacement of any materials if installation defect is discovered."</p>
 
         <p><strong>Permits & Code Inspection:**</strong> Include copies of permit approval and final code inspection (if applicable). This documents compliance.</p>
 
@@ -2237,7 +2237,7 @@
 
         <p><strong>Final Invoice & Receipt:**</strong> Provide a final invoice showing all amounts paid. "Total work value: $12,000. Insurance payment: $10,000. Homeowner payment: $1,500. Your responsibility paid: $500. Total paid: $12,000. PAID IN FULL." This is your final record.</p>
 
-        <p><strong>Professional Closure:**</strong> A final conversation: "Your roof project is complete. Insurance has paid, you've paid your responsibility, and everything is documented. You have a 5-year workmanship warranty from us and a 30-year manufacturer warranty. If anything comes up, give me a call. And please don't hesitate to refer us to neighbors or friends—we appreciate your business."</p>
+        <p><strong>Professional Closure:**</strong> A final conversation: "Your roof project is complete. Insurance has paid, you've paid your responsibility, and everything is documented. You have a lifetime workmanship warranty from us and a 30-year manufacturer warranty. If anything comes up, give me a call. And please don't hesitate to refer us to neighbors or friends—we appreciate your business."</p>
       </div>`,
       checklist: [
         `Calculate homeowner's remaining balance`,

@@ -8,9 +8,76 @@ import { getStorage, ref, uploadBytesResumable, uploadBytes, getDownloadURL } fr
 import { connectEmulatorsIfLocal } from "./nbd-emulator-connect.js"; // Audit #3: localhost-only, no-op in prod
 // The canonical stage config. This page used to advance stages with a private
 // hardcoded copy of the pipeline ladder and none of the kanban's bookkeeping;
-// see progressStage below for what that cost.
-import { stageRole as _stageRole, missingRequiredFields as _missingRequiredFields } from "./crm-stages.js";
+// see progressStage below for what that cost. stageOptionsForType/
+// resolvePipelineConfig/stageLabel added 2026-09-15 so progressStage reads
+// the SAME ordered pipeline + tenant-custom-stage config the kanban does,
+// instead of a hand-maintained duplicate that silently drifted from it.
+import {
+  stageRole as _stageRole, missingRequiredFields as _missingRequiredFields,
+  stageOptionsForType as _stageOptionsForType, resolvePipelineConfig as _resolvePipelineConfig,
+  stageLabel as _stageLabel, actionsForStage as _actionsForStage,
+  preferredActionFor as _preferredActionFor,
+  isJobStage as _isJobStage, isTerminalStage as _isTerminalStage,
+} from "./crm-stages.js";
+import { commitStageChange as _commitStageChange } from "./stage-write.js";
+// dashboard-bootstrap.module.js exposes these identically; mirrored here so
+// stage-checklist.js's auto-task generator (window.StageChecklist, a plain
+// script loaded on both pages) has the same functions to call regardless
+// of which page fired the stage change.
+window.actionsForStage = _actionsForStage;
+window.preferredActionFor = _preferredActionFor;
+// 2026-09-15 (Kanban filter unification) — no consumer on THIS page needs
+// these yet (crm-pipeline.js/ask-joe-proactive.js/bottleneck-widget.js are
+// all dashboard.html-only today), but every other crm-stages.js classifier
+// is mirrored on both pages, and a future customer.html script reaching for
+// "is this a job stage" shouldn't hit an asymmetry that only exists because
+// nobody needed it yet.
+window.isJobStage = _isJobStage;
+window.isTerminalStage = _isTerminalStage;
 
+
+// Canonical "what stage comes next for this lead" (2026-09-15 foundation
+// work). Replaces THREE independent hand-copied pipeline ladders that used
+// to live on this page — the initial stage-button label computation
+// further down this file, and progressStage()'s own PIPELINES +
+// STAGE_LABELS objects — each liable to silently drift from crm-stages.js
+// and from each other (a real, confirmed gap: a custom stage a tenant
+// inserted via Settings > Pipelines was invisible to all three). Now reads
+// the SAME tenant-resolved view order the kanban board's own "Move to
+// stage…" picker uses (dashboard-bootstrap.module.js's window.
+// stageOptionsForType override) via resolvePipelineConfig, with the same
+// splice-VIEW_JOBS-after-contract_signed convergence rule.
+function _nextStageFor(lead) {
+  const jobType = (lead && lead.jobType) || 'insurance';
+  const resolved = _resolvePipelineConfig(window._companyProfile && window._companyProfile.pipelines);
+  const view = resolved.views[jobType] || resolved.views.insurance || { stages: [] };
+  let pipeline = (view.stages || []).slice();
+  if (jobType !== 'warranty' && jobType !== 'service') {
+    const at = pipeline.indexOf('contract_signed');
+    if (at !== -1) {
+      const jobs = ((resolved.views.jobs && resolved.views.jobs.stages) || []).filter(k => !pipeline.includes(k));
+      pipeline.splice(at + 1, 0, ...jobs);
+    }
+  }
+  pipeline = pipeline.filter((k) => !(resolved.stageMeta[k] && resolved.stageMeta[k].hidden));
+
+  // Legacy 7-stage display-name compat — pre-freeform-pipeline lead docs.
+  const legacyMap = {
+    'New': 'contacted', 'Inspection': 'inspected', 'Inspected': 'claim_filed',
+    'Estimate': 'contract_signed', 'Estimate Sent': 'contract_signed',
+    'Approved': 'job_created', 'In Progress': 'install_complete', 'Complete': 'closed',
+  };
+
+  const current = (lead && lead.stage) || 'new';
+  let nextStage = null;
+  const idx = pipeline.indexOf(current);
+  if (idx >= 0 && idx < pipeline.length - 1) nextStage = pipeline[idx + 1];
+  else if (legacyMap[current]) nextStage = legacyMap[current];
+  if (!nextStage) return null;
+
+  const label = (resolved.stageMeta[nextStage] && resolved.stageMeta[nextStage].label) || _stageLabel(nextStage) || nextStage;
+  return { nextStage, label, resolved };
+}
 
 // Native alert() blocks the renderer until dismissed. standalone-compat.js
 // only patches window.alert in PWA standalone mode (`if (!isStandalone)
@@ -75,6 +142,22 @@ window.addDoc = addDoc;
     window.deleteDoc = deleteDoc;
 window.collection = collection;
 window.serverTimestamp = serverTimestamp;
+// runTransaction + stageRole/stageLabel: exposed so stage-write.js's shared
+// commitStageChange() (2026-09-15 foundation work) gets the same
+// Firestore-transaction race safety here as on the kanban board — before
+// this, only crm-pipeline.js's window.* assignments existed, so the same
+// shared function silently fell back to a plain, unguarded updateDoc on
+// this page. window.stageLabel resolves the tenant's pipeline config live
+// (same as dashboard-bootstrap.module.js's override) so a renamed/custom
+// stage's activity-log note reads correctly from here too, not just the
+// default built-in label.
+window.runTransaction = runTransaction;
+window.setDoc = setDoc;
+window.stageRole = _stageRole;
+window.stageLabel = (k) => {
+  const resolved = _resolvePipelineConfig(window._companyProfile && window._companyProfile.pipelines);
+  return (resolved.stageMeta[k] && resolved.stageMeta[k].label) || _stageLabel(k) || k;
+};
 window.ref = ref;
 window.uploadBytesResumable = uploadBytesResumable;
 window.uploadBytes = uploadBytes;
@@ -314,9 +397,9 @@ function _revalidateLeadInBackground(id, hydratedLead) {
         }
         const stageEl = document.getElementById('customerStage');
         if (stageEl && fresh.stage) {
-          // Best-effort label refresh; falls back to raw key if we
-          // don't have the STAGE_LABELS map in scope here.
-          stageEl.textContent = (window.__STAGE_LABELS && window.__STAGE_LABELS[fresh.stage]) || fresh.stage;
+          // _stageLabel is module-scope (imported at the top of this file),
+          // reachable from this closure directly — no window bridge needed.
+          stageEl.textContent = _stageLabel(fresh.stage) || fresh.stage;
         }
       } catch (e) { /* non-fatal */ }
     } catch (e) {
@@ -515,25 +598,15 @@ async function loadCustomerData(id) {
     
     const stageBadge = document.getElementById('customerStage');
     const stage = lead.stage || 'new';
-    // Display-friendly label for new stage keys
-    const STAGE_LABELS = {
-      'new': 'New Lead', 'contacted': 'Contacted', 'inspected': 'Inspected',
-      'claim_filed': 'Claim Filed', 'adjuster_meeting_scheduled': 'Adjuster Meeting',
-      'adjuster_inspection_done': 'Adjuster Done', 'scope_received': 'Scope Received',
-      'estimate_submitted': 'Estimate Sent', 'supplement_requested': 'Supplement',
-      'supplement_approved': 'Supp. Approved', 'contract_signed': 'Contract Signed',
-      'estimate_sent_cash': 'Est. Sent (Cash)', 'negotiating': 'Negotiating',
-      'prequal_sent': 'Pre-Qual Sent', 'loan_approved': 'Loan Approved',
-      'job_created': 'Job Created', 'permit_pulled': 'Permit', 'materials_ordered': 'Materials Ordered',
-      'materials_delivered': 'Materials Here', 'crew_scheduled': 'Crew Scheduled',
-      'install_in_progress': 'Installing', 'install_complete': 'Install Done',
-      'final_photos': 'Final Photos', 'deductible_collected': 'Deductible',
-      'final_payment': 'Final Payment', 'closed': 'Closed', 'lost': 'Lost'
-    };
-    // Wave 14: expose globally so the background-revalidate label
-    // refresher can resolve stage keys without redefining the map.
-    window.__STAGE_LABELS = STAGE_LABELS;
-    stageBadge.textContent = STAGE_LABELS[stage] || stage;
+    // 2026-09-15 (Kanban filter unification): was a hand-copied label map,
+    // missing 'collections' (added the same day) — _stageLabel is already
+    // imported from crm-stages.js at the top of this file (module scope),
+    // so both this and the background-revalidate refresher below can call
+    // it directly; the window.__STAGE_LABELS bridge object this used to
+    // need (Wave 14, for that OTHER function's lack of module-scope access
+    // to a locally-const'd map) is no longer necessary now that both call
+    // sites reach the same imported function instead of a local copy.
+    stageBadge.textContent = _stageLabel(stage) || stage;
     stageBadge.className = 'stage-badge stage-' + stage.toLowerCase().replace(/[_\s]+/g, '-');
 
     // ── Days-in-stage badge ──
@@ -799,6 +872,10 @@ async function loadCustomerData(id) {
       // else: claim-core.js self-renders on parse (defer races the module).
     }
 
+    // Warranty claim panel (2026-09-15) — renders nothing when the lead has
+    // no open claim (the common case), so no visibility flag needed here.
+    try { if (window.WarrantyClaim?.renderPanel) window.WarrantyClaim.renderPanel('warrantyClaimPanel', lead); } catch (e) { console.warn('Warranty claim panel render failed:', e.message); }
+
     // Finance panel
     const isFinance = jobType === 'finance' || lead.loanAmount || lead.softPullStatus;
     if (isFinance) {
@@ -816,62 +893,16 @@ async function loadCustomerData(id) {
 
     // Notes now loaded from separate collection via loadNotes()
 
-    // Stage progression button — uses full insurance pipeline
-    const insurancePipeline = [
-      'new', 'contacted', 'inspected', 'claim_filed',
-      'adjuster_meeting_scheduled', 'adjuster_inspection_done',
-      'scope_received', 'estimate_submitted',
-      'supplement_requested', 'supplement_approved',
-      'contract_signed',
-      'job_created', 'permit_pulled', 'materials_ordered', 'materials_delivered',
-      'crew_scheduled', 'install_in_progress', 'install_complete',
-      'final_photos', 'deductible_collected', 'final_payment', 'closed'
-    ];
-    const NEXT_LABELS = {
-      // Shared lead stages
-      'new': 'Contacted', 'contacted': 'Inspected', 'inspected': 'Claim Filed',
-      // Insurance track
-      'claim_filed': 'Adjuster Meeting', 'adjuster_meeting_scheduled': 'Adjuster Done',
-      'adjuster_inspection_done': 'Scope Received', 'scope_received': 'Estimate Sent',
-      'estimate_submitted': 'Supplement', 'supplement_requested': 'Supp. Approved',
-      'supplement_approved': 'Contract Signed',
-      // Cash track
-      'estimate_sent_cash': 'Negotiating', 'negotiating': 'Contract Signed',
-      // Finance track
-      'prequal_sent': 'Loan Approved', 'loan_approved': 'Contract Signed',
-      // Warranty track
-      'warranty_scheduled': 'Repair Done', 'warranty_repaired': 'Closed',
-      // Service track
-      'service_quoted': 'Service Approved', 'service_approved': 'Installing',
-      // Job stages (shared)
-      'contract_signed': 'Job Created',
-      'job_created': 'Permit', 'permit_pulled': 'Materials Ordered',
-      'materials_ordered': 'Materials Here', 'materials_delivered': 'Crew Scheduled',
-      'crew_scheduled': 'Installing', 'install_in_progress': 'Install Done',
-      'install_complete': 'Final Photos', 'final_photos': 'Deductible',
-      'deductible_collected': 'Final Payment', 'final_payment': 'Closed',
-      // Legacy display-name compat
-      'New': 'Contacted', 'Inspected': 'Claim Filed', 'Estimate Sent': 'Contract Signed',
-      'Approved': 'Job Created', 'In Progress': 'Install Done'
-    };
-
+    // Stage progression button — see _nextStageFor() above (module-level
+    // helper, shared with progressStage() itself) for why this used to be
+    // a second hand-copied pipeline ladder and isn't anymore.
     window._currentStage = lead.stage || 'new';
 
-    // Pick the right next label based on the lead's jobType. The default
-    // (insurance) tracks 'inspected' → 'claim_filed'. Each other track
-    // diverges at 'inspected' into its own next-step.
-    let nextLabel = NEXT_LABELS[lead.stage];
-    if (lead.stage === 'inspected') {
-      if (lead.jobType === 'cash')          nextLabel = 'Est. Sent (Cash)';
-      else if (lead.jobType === 'finance')  nextLabel = 'Pre-Qual Sent';
-      else if (lead.jobType === 'warranty') nextLabel = 'Warranty Visit';
-      else if (lead.jobType === 'service')  nextLabel = 'Service Quoted';
-      // insurance default stays 'Claim Filed'
-    }
-    if (nextLabel) {
+    const _next = _nextStageFor(lead);
+    if (_next) {
       const btn = document.getElementById('stageProgressBtn');
       btn.style.display = 'inline-flex';
-      btn.innerHTML = `→ Move to ${nextLabel}`;
+      btn.innerHTML = `→ Move to ${_next.label}`;
     }
 
     // Load related data with individual error handling
@@ -2027,87 +2058,36 @@ document.addEventListener('keydown', (e) => {
   }
 });
 
-// Stage progression — picks the right pipeline based on lead jobType
+// Stage progression — picks the right pipeline based on lead jobType.
+//
+// 2026-09-15 foundation rework. Three things changed from the original
+// implementation (kept here as history because the reasons matter):
+//  1. The hand-copied PIPELINES/STAGE_LABELS ladders are gone — see
+//     _nextStageFor() above, now the one place this page computes "what's
+//     next," shared with the button-label render on page load.
+//  2. The write itself now goes through stage-write.js's commitStageChange()
+//     — the SAME Firestore-transaction race guard moveCard() has always had
+//     (STAGE_RACE_NOOP/STAGE_RACE_LOST), where this path previously used a
+//     bare updateDoc with no protection against a kanban move landing on the
+//     same lead at the same time.
+//  3. The required-field gate is now a HARD BLOCK, matching the kanban
+//     (Jo's call, 2026-09-15) — previously a non-blocking warning, because
+//     this page's edit modal is still missing several of the gated fields
+//     (insCarrier, claimNumber, estimateAmount, deductibleOrOwedByHO,
+//     financeCompany, loanAmount, scheduledDate). Blocking without a way to
+//     fill those in would strand the rep, so the block's toast links
+//     straight to the dashboard's card-detail editor (which has every field
+//     + the click-to-jump banner) instead of silently letting bad data
+//     through.
+//  4. No more window.location.reload() — the stage change updates local
+//     state + the visible button/label in place, the way every other save
+//     on this page already works.
 window.progressStage = async function() {
-  // Per-track pipelines — mirror VIEW_INSURANCE / VIEW_CASH / VIEW_FINANCE /
-  // VIEW_WARRANTY / VIEW_SERVICE in js/crm-stages.js. If those change,
-  // update here too. Warranty + service don't converge through
-  // contract_signed — they skip into their own short close-out paths.
-  const PIPELINES = {
-    insurance: [
-      'new', 'contacted', 'inspected', 'claim_filed',
-      'adjuster_meeting_scheduled', 'adjuster_inspection_done',
-      'scope_received', 'estimate_submitted',
-      'supplement_requested', 'supplement_approved',
-      'contract_signed',
-      'job_created', 'permit_pulled', 'materials_ordered', 'materials_delivered',
-      'crew_scheduled', 'install_in_progress', 'install_complete',
-      'final_photos', 'deductible_collected', 'final_payment', 'closed'
-    ],
-    cash: [
-      'new', 'contacted', 'inspected',
-      'estimate_sent_cash', 'negotiating', 'contract_signed',
-      'job_created', 'permit_pulled', 'materials_ordered', 'materials_delivered',
-      'crew_scheduled', 'install_in_progress', 'install_complete',
-      'final_photos', 'final_payment', 'closed'
-    ],
-    finance: [
-      'new', 'contacted', 'inspected',
-      'prequal_sent', 'loan_approved', 'contract_signed',
-      'job_created', 'permit_pulled', 'materials_ordered', 'materials_delivered',
-      'crew_scheduled', 'install_in_progress', 'install_complete',
-      'final_photos', 'final_payment', 'closed'
-    ],
-    warranty: [
-      'new', 'contacted', 'inspected',
-      'warranty_scheduled', 'warranty_repaired', 'closed'
-    ],
-    service: [
-      'new', 'contacted', 'inspected',
-      'service_quoted', 'service_approved',
-      'install_in_progress', 'install_complete', 'closed'
-    ]
-  };
-
-  // Legacy stage mapping for backward compat
-  const legacyMap = {
-    'New': 'contacted', 'Inspection': 'inspected', 'Inspected': 'claim_filed',
-    'Estimate': 'contract_signed', 'Estimate Sent': 'contract_signed',
-    'Approved': 'job_created', 'In Progress': 'install_complete', 'Complete': 'closed'
-  };
-
-  const current = window._currentStage || 'new';
-  // Pick pipeline based on lead jobType (defaults to insurance)
-  const lead = window._leadDoc || {};
-  const jobType = lead.jobType || 'insurance';
-  const pipeline = PIPELINES[jobType] || PIPELINES.insurance;
-  let nextStage;
-
-  // Try track-specific pipeline first
-  const idx = pipeline.indexOf(current);
-  if (idx >= 0 && idx < pipeline.length - 1) {
-    nextStage = pipeline[idx + 1];
-  } else if (legacyMap[current]) {
-    nextStage = legacyMap[current];
-  }
-
-  if (!nextStage) return;
-
-  // Get display label for confirmation
-  const STAGE_LABELS = {
-    'new': 'New Lead', 'contacted': 'Contacted', 'inspected': 'Inspected',
-    'claim_filed': 'Claim Filed', 'adjuster_meeting_scheduled': 'Adjuster Meeting',
-    'adjuster_inspection_done': 'Adjuster Done', 'scope_received': 'Scope Received',
-    'estimate_submitted': 'Estimate Sent', 'supplement_requested': 'Supplement',
-    'supplement_approved': 'Supp. Approved', 'contract_signed': 'Contract Signed',
-    'job_created': 'Job Created', 'permit_pulled': 'Permit', 'materials_ordered': 'Materials Ordered',
-    'materials_delivered': 'Materials Here', 'crew_scheduled': 'Crew Scheduled',
-    'install_in_progress': 'Installing', 'install_complete': 'Install Done',
-    'final_photos': 'Final Photos', 'deductible_collected': 'Deductible',
-    'final_payment': 'Final Payment', 'closed': 'Closed'
-  };
-
-  const label = STAGE_LABELS[nextStage] || nextStage;
+  const lead = window._currentLead || window._leadDoc || {};
+  const current = window._currentStage || lead.stage || 'new';
+  const next = _nextStageFor({ ...lead, stage: current });
+  if (!next) return;
+  const { nextStage, label } = next;
 
   // Use nbdConfirm when available — native confirm() is patched by
   // standalone-compat.js to silently return true in PWA mode, which
@@ -2117,6 +2097,33 @@ window.progressStage = async function() {
   const ok = await ask(`Move customer to "${label}" stage?`);
   if (!ok) return;
 
+  // ─── Warranty-claim guard ───
+  // 2026-09-15 (Warranty Claim lane). Same two-directional guard as
+  // crm-pipeline.js's moveCard() — this page's OWN write path
+  // (progressStage) shares the same commitStageChange() call below, so it
+  // needs the identical gate or a customer-page move could open/leave a
+  // claim un-tracked. See moveCard()'s own comment for the full rationale;
+  // canceling either prompt cancels the whole move.
+  if (nextStage === 'warranty_claim' && current !== 'warranty_claim') {
+    if (!(window.WarrantyClaim && typeof window.WarrantyClaim.promptIntake === 'function')) {
+      if (window.showToast) window.showToast('Warranty claim tool not loaded — reload and try again', 'warning');
+      return;
+    }
+    let opened;
+    try { opened = await window.WarrantyClaim.promptIntake(lead); }
+    catch (e) { if (window.showToast) window.showToast('Could not open the claim: ' + e.message, 'error'); return; }
+    if (!opened) return;
+  } else if (current === 'warranty_claim' && nextStage !== 'warranty_claim' && lead.openWarrantyClaimId) {
+    if (!(window.WarrantyClaim && typeof window.WarrantyClaim.promptResolution === 'function')) {
+      if (window.showToast) window.showToast('Warranty claim tool not loaded — reload and try again', 'warning');
+      return;
+    }
+    let resolved;
+    try { resolved = await window.WarrantyClaim.promptResolution(lead); }
+    catch (e) { if (window.showToast) window.showToast('Could not resolve the claim: ' + e.message, 'error'); return; }
+    if (!resolved) return;
+  }
+
   // Pre-flight: surface common failure causes immediately rather than
   // letting the writer fail silently. The original implementation
   // swallowed errors via patched alert() (also a 4s toast in PWA),
@@ -2125,87 +2132,83 @@ window.progressStage = async function() {
     if (window.showToast) window.showToast('Could not find this customer record (try reloading).', 'error');
     return;
   }
-  if (!window.db || !window.updateDoc || !window.doc) {
+  if (!window.db || !window.doc) {
     if (window.showToast) window.showToast('Firebase not ready yet — wait a moment and retry.', 'error');
     return;
+  }
+
+  // Required-field gate — HARD BLOCK, same rule the kanban enforces
+  // (missingRequiredFields from crm-stages.js), with an escape hatch this
+  // page can actually offer: jump to the full editor rather than stranding
+  // the rep with a field the modal here doesn't have.
+  if (typeof _missingRequiredFields === 'function') {
+    const missing = _missingRequiredFields({ ...(window._currentLead || {}), stage: nextStage }) || [];
+    if (missing.length) {
+      if (window.showToast) {
+        window.showToast({
+          message: `Can't move to "${label}" yet — missing: ${missing.join(', ')}.`,
+          type: 'error',
+          duration: 8000,
+          undoAction: () => { window.location.href = '/pro/dashboard?lead=' + window._customerId; },
+          undoText: 'Open full editor',
+        });
+      }
+      return;
+    }
   }
 
   const btnEl = document.getElementById('stageProgressBtn');
   const btnText = btnEl ? btnEl.innerHTML : '';
   if (btnEl) { btnEl.disabled = true; btnEl.innerHTML = '… Saving'; }
 
+  const oldStage = current;
   try {
-    const oldStage = current;
-    const historyEvent = {
-      from: oldStage,
-      to: nextStage,
-      timestamp: new Date().toISOString(),
-      user: window.auth?.currentUser?.email || 'unknown'
-    };
-
-    await window.updateDoc(window.doc(window.db, 'leads', window._customerId), {
-      stage: nextStage,
-      updatedAt: window.serverTimestamp(),
-      // Keep parity with crm.js moveCard so the days-in-stage badge on
-      // the hero (PR #31) resets correctly when moves happen here too.
-      stageStartedAt: window.serverTimestamp(),
-      stageHistory: window.arrayUnion(historyEvent),
-      // The kanban stamps stageRole on every move (crm-pipeline.js:1941).
-      // This path did not, so a lead advanced from the customer page carried a
-      // stale or absent role while its `stage` said otherwise — and stageRole
-      // is what analytics-kpi, money-dashboard, the leaderboard and the
-      // forecast all bucket on. The numbers quietly disagreed with the board.
-      ...(typeof _stageRole === 'function' ? { stageRole: _stageRole(nextStage) } : {}),
+    await _commitStageChange(window._customerId, nextStage, oldStage, {
+      actorLabel: window.auth?.currentUser?.email,
+      jobType: lead.jobType || null,
     });
 
-    // Activity note — the kanban writes one on every move
-    // (crm-pipeline.js:1975). Without it the customer's own activity feed
-    // showed no record of a stage change made from this very page.
-    try {
-      await window.addDoc(window.collection(window.db, 'notes'), {
-        leadId: window._customerId,
-        userId: window.auth?.currentUser?.uid || window._user?.uid || null,
-        text: 'Stage moved to "' + (STAGE_LABELS[nextStage] || nextStage) + '"',
-        type: 'stage_change',
-        createdAt: window.serverTimestamp(),
-        createdBy: window.auth?.currentUser?.email || 'system',
-      });
-    } catch (e) { console.warn('[progressStage] activity note failed:', e && e.message); }
+    // In-place update — no reload. Mirror the local state moveCard() keeps
+    // on the kanban side so a second click (or any other code on this page
+    // that reads these) sees the new stage immediately.
+    window._currentStage = nextStage;
+    lead.stage = nextStage;
+    if (window._currentLead) window._currentLead.stage = nextStage;
+    if (window._leadDoc) window._leadDoc.stage = nextStage;
 
-    // Email drip. nbd-comms.js is loaded here, so the automation simply was
-    // never called from this page: a lead moved to contract_signed from the
-    // customer view got none of the follow-up the same move triggers on the
-    // board.
-    try {
-      if (window.EmailDrip && typeof window.EmailDrip.onStageChange === 'function') {
-        window.EmailDrip.onStageChange(window._customerId, oldStage, nextStage);
+    if (window.showToast) window.showToast('✓ Stage moved to ' + label, 'success');
+
+    // Re-render whatever on this page reflects the stage: the button's own
+    // "next stage" label (recomputed from the NEW current stage), and the
+    // two panels that key off it directly, each already guarded elsewhere
+    // on this page for a defer-order race.
+    const after = _nextStageFor(lead);
+    if (btnEl) {
+      if (after) {
+        btnEl.innerHTML = `→ Move to ${after.label}`;
+        btnEl.disabled = false;
+      } else {
+        // No further stage in this track (e.g. just hit 'closed') — hide
+        // rather than show a disabled button with nothing left to do.
+        btnEl.style.display = 'none';
       }
-    } catch (e) { console.warn('[progressStage] drip trigger failed:', e && e.message); }
-
-    if (window.showToast) window.showToast('✓ Stage moved to ' + (STAGE_LABELS[nextStage] || nextStage), 'success');
-
-    // Required-field WARNING, deliberately non-blocking.
-    //
-    // The kanban BLOCKS the move and opens the lead modal with click-to-jump
-    // anchors, because every gated field has an input there. This page's edit
-    // modal carries only jobValue of them — insCarrier, claimNumber,
-    // estimateAmount, deductibleOrOwedByHO, financeCompany, loanAmount and
-    // scheduledDate have no input on this page at all. Blocking here would
-    // strand the rep with no way to satisfy the gate, which is worse than the
-    // silent advance it replaced. So: tell them what is missing and let the
-    // board enforce it. Making this a real gate means giving the edit modal
-    // those fields first.
-    try {
-      if (typeof _missingRequiredFields === 'function') {
-        const missing = _missingRequiredFields({ ...(window._currentLead || {}), stage: nextStage }) || [];
-        if (missing.length && window.showToast) {
-          window.showToast('Heads up — this stage still needs: ' + missing.join(', '), 'warning');
-        }
-      }
-    } catch (e) { console.warn('[progressStage] required-field check failed:', e && e.message); }
-    // Brief delay so the toast is seen before reload.
-    setTimeout(() => window.location.reload(), 600);
+    }
+    try { if (window.JobChecklist?.render) window.JobChecklist.render(lead); } catch (_) {}
+    try { if (window.ClaimPanel?.render) window.ClaimPanel.render('insurancePanel', lead); } catch (_) {}
+    try { if (window.WarrantyClaim?.renderPanel) window.WarrantyClaim.renderPanel('warrantyClaimPanel', lead); } catch (_) {}
   } catch (e) {
+    // STAGE_RACE_NOOP / STAGE_RACE_LOST: another tab (kanban or this same
+    // page open elsewhere) already moved this lead since our `oldStage`
+    // snapshot. Unlike every other failure here, this isn't a write error —
+    // our local view is just stale. The kanban resyncs via loadLeads();
+    // this page has no equivalent single-lead refetch, so reload once,
+    // deliberately, to pick up the real stored stage rather than show a
+    // false "failed to move" toast.
+    if (e && (e.message === 'STAGE_RACE_NOOP' || e.message === 'STAGE_RACE_LOST')) {
+      if (window.showToast) window.showToast('Another tab moved this lead — refreshing.', 'info');
+      setTimeout(() => window.location.reload(), 800);
+      return;
+    }
     console.error('Error updating stage:', e);
     if (btnEl) { btnEl.disabled = false; btnEl.innerHTML = btnText; }
     const msg = (e && e.message) ? e.message : 'unknown error';
@@ -2609,6 +2612,34 @@ async function uploadSinglePhoto(item, index) {
   const filename = `${window._customerId}_${timestamp}_${safeName}`;
   const storageRef = window.ref(window.storage, `photos/${uid}/${filename}`);
 
+  // Durable enqueue BEFORE the network attempt (2026-09-14). Until now this
+  // function went straight to uploadBytesResumable with no durable record —
+  // PhotoEngine's own camera-capture flow (photo-engine.js openCamera's save
+  // handler) has written every shot to IndexedDB first since the queue was
+  // built, specifically because Storage retries a failed upload for up to
+  // ten minutes by default and a reload/bfcache-restore in that window loses
+  // whatever only lives in a local variable. This page never got that
+  // protection: a no-signal photo taken here was lost outright, not merely
+  // delayed. Best-effort — if the photos bundle or the durable store is
+  // unavailable, upload proceeds exactly as before; this only ADDS
+  // durability, it is not a new hard dependency for uploading at all.
+  let _queueEntry = null;
+  try {
+    if (window.ScriptLoader && typeof window.ScriptLoader.loadBundle === 'function') {
+      await window.ScriptLoader.loadBundle('photos');
+    }
+    if (window.PhotoEngine && typeof window.PhotoEngine.enqueueForRetry === 'function') {
+      const outcome = await window.PhotoEngine.enqueueForRetry({
+        blob: file, uid, leadId: window._customerId,
+        tags: [], description: '', location: '',
+        timestamp, uploadId: filename, preset: null,
+      });
+      if (outcome && outcome.entry) _queueEntry = outcome.entry;
+    }
+  } catch (e) {
+    console.warn('[uploadSinglePhoto] durable enqueue skipped:', e && e.message);
+  }
+
   // Photo system Phase 2: kick off EXIF + slope inference IN PARALLEL
   // with the upload. The result lands while bytes are still flying;
   // we merge it into the photo doc when the upload completes. Failing
@@ -2681,6 +2712,15 @@ async function uploadSinglePhoto(item, index) {
             filename: file.name,
             size: file.size,
             type: file.type,
+            // The canonical ordering field, and NOT optional. Firestore's
+            // orderBy silently EXCLUDES documents missing the ordered field,
+            // and both photo-engine getPhotosForLead and the dashboard's
+            // Recent feed orderBy('createdAt') — so while this path stamped
+            // only date + uploadedAt, every photo a rep uploaded from the
+            // customer page was absent from those two views outright, and
+            // scored 0 in the photo report's sort. `date` and `uploadedAt`
+            // stay for the readers that still name them.
+            createdAt: window.serverTimestamp(),
             date: window.serverTimestamp(),
             uploadedAt: window.serverTimestamp(),
             // null, not 'During'. pages/photo-review.js treats any truthy
@@ -2735,6 +2775,19 @@ async function uploadSinglePhoto(item, index) {
           // upload progress UI snappy.
           if (window.PhotoAIClassifier && newPhotoRef && newPhotoRef.id) {
             window.PhotoAIClassifier.classify(newPhotoRef.id).catch(() => {});
+          }
+
+          // Upload + Firestore write both succeeded — clear the durable
+          // queue entry so a later background drain (an 'online' event, or
+          // this bundle loading again on a future visit) does not re-attempt
+          // an upload that already landed. A memory-only fallback entry (no
+          // .id — the durable store was unavailable when this photo was
+          // taken) has nothing in IndexedDB to remove; it is left to expire
+          // with the page the same way it always has.
+          if (_queueEntry && _queueEntry.id != null && window.NBDPhotoQueueStore
+              && typeof window.NBDPhotoQueueStore.remove === 'function') {
+            try { await window.NBDPhotoQueueStore.remove(_queueEntry.id); }
+            catch (e) { console.warn('[uploadSinglePhoto] queue cleanup failed (harmless — worst case is one redundant future retry):', e && e.message); }
           }
 
           resolve();
@@ -3143,9 +3196,17 @@ window.generateCertFromEstimate = async function(estimateId) {
     .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   const custName = esc(((lead.firstName || '') + ' ' + (lead.lastName || '')).trim() || 'Customer');
   const installDate = lead.scheduledDate || new Date().toISOString().split('T')[0];
-  const warrantyYears = 5;
-  const expiryDate = new Date(installDate);
-  expiryDate.setFullYear(expiryDate.getFullYear() + warrantyYears);
+  // GBB audit, 2026-09-09: was a hardcoded `warrantyYears = 5` regardless of
+  // which tier the estimate underneath was actually sold at — a homeowner
+  // who bought Elite could receive a certificate claiming only 5 years. All
+  // tiers are now lifetime workmanship (estimate-config.js TIER_DISPLAY);
+  // only the transferability/inspection differentiator varies by tier.
+  const _tierKey = String(est.tier || est.tierName || '').toLowerCase();
+  const _cfg = window.NBD_ESTIMATE_CONFIG;
+  const tierLabelStr = (_cfg && typeof _cfg.tierLabel === 'function')
+    ? _cfg.tierLabel(_tierKey) : ({ good: 'Standard', better: 'Preferred', best: 'Elite' })[_tierKey] || '';
+  const warrantyBlurb = (_cfg && typeof _cfg.tierWarrantyBlurb === 'function')
+    ? _cfg.tierWarrantyBlurb(_tierKey) : '';
 
   // Accent is a literal here, not var(--orange): this popup links only
   // nbd-mobile.css, which never DECLARES --orange (it only reads it with a
@@ -3203,11 +3264,12 @@ window.generateCertFromEstimate = async function(estimateId) {
     <div class="row"><span class="label">Property</span><span class="value">${esc(lead.address || '—')}</span></div>
     <div class="row"><span class="label">Work Performed</span><span class="value">${esc(est.title || 'Roofing Installation')}</span></div>
     <div class="row"><span class="label">Completion Date</span><span class="value">${new Date(installDate).toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'})}</span></div>
-    <div class="row"><span class="label">Warranty Period</span><span class="value">${warrantyYears} Years</span></div>
-    <div class="row"><span class="label">Warranty Expires</span><span class="value">${expiryDate.toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'})}</span></div>
+    ${tierLabelStr ? `<div class="row"><span class="label">Guarantee Tier</span><span class="value">${esc(tierLabelStr)}</span></div>` : ''}
+    <div class="row"><span class="label">Warranty Period</span><span class="value">Lifetime Workmanship</span></div>
+    ${warrantyBlurb ? `<div class="row"><span class="label">Transferability</span><span class="value">${esc(warrantyBlurb)}</span></div>` : ''}
     <div class="row"><span class="label">Certificate #</span><span class="value">NBD-${estimateId.slice(0,8).toUpperCase()}</span></div>
   </div>
-  <p style="font-size:12px;color:#666;line-height:1.7;margin:20px 0;">This certificate warrants that all work performed by No Big Deal Home Solutions at the above property was completed using industry-standard materials and craftsmanship. This warranty covers defects in workmanship for the period specified above.</p>
+  <p style="font-size:12px;color:#666;line-height:1.7;margin:20px 0;">This certificate warrants that all work performed by No Big Deal Home Solutions at the above property was completed using industry-standard materials and craftsmanship. This warranty covers defects in workmanship for the lifetime of the installation.</p>
   <div class="footer">
     <div class="sig"><div class="sig-line">Contractor Signature</div></div>
     <div class="sig"><div class="sig-line">Date Issued: ${new Date().toLocaleDateString()}</div></div>

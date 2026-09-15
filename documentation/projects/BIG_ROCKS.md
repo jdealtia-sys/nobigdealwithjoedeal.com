@@ -13,6 +13,12 @@ delegates to `scripts/run-test-manifest.js` (node + smoke buckets, the same
 123-suite registry CI runs; the old hand-chained aggregate silently skipped 22
 suites including every cost-privacy guard). Smoke + pricing + address +
 inline-html-scripts should all pass green before opening any PR.
+**Corrected 2026-09-14 — the "123-suite" count is stale; the registry has
+grown steadily since 2026-09-02. Current floors, printed by the manifest
+runner itself (`scripts/run-test-manifest.js`'s `FLOORS` constant, which
+errors with the exact fix if it ever drifts): node + smoke together, not
+a single "123." Read the constant rather than trusting any number pasted
+here — that is the whole point of the tripwire.**
 
 ---
 
@@ -145,6 +151,19 @@ locks in EBv2's behavior. Use it as the canonical reference.
 > `_warnDeprecatedOnce` now ships a real Sentry warning event. The 30-day
 > zero-warn clock starts at the fix's deploy. Details:
 > [estimate-engines-audit.md §2026-08-31](../../docs/dev/estimate-engines-audit.md).
+>
+> **Correction 2026-09-14 — "Remaining: PRs 3-5" above is stale. PRs 2-5
+> are ALL done** (see [estimate-engines-audit.md](../../docs/dev/estimate-engines-audit.md)
+> "PR 6, part 1" — the classic wizard's call sites are gone, EBv2 is the
+> only live path). **Only PR 6, part 2 remains: delete the classic
+> 4-step wizard as one unit** (`estimates.js` remainder + its markup),
+> **plus a read-only viewer for pre-V2 estimates** (Jo's 2026-08-31
+> decision — old estimates must stay viewable after the wizard that
+> rendered them is gone). Gated on the 30-day zero-Sentry-warn clock
+> from the 08-31 fix above: earliest 2026-09-30, and Jo naming it — do
+> not delete before both. The `window.NBD_ENGINE_V2` flag mentioned in
+> §Risk below never existed in code; it was aspirational when this doc
+> was written and nothing built it. Don't grep for it.
 
 This is a multi-PR migration. **Do not collapse it into one giant PR.**
 
