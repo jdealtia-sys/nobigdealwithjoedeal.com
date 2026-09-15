@@ -60,10 +60,12 @@ unmodified against the new bytes.
   script validates these, unlike the two apple-touch PNGs). Replaced
   directly from the pack; still hand-placed, still ungenerated — that gap is
   not closed by this session.
-- **`docs/assets/images/apple-touch-icon.png`** — regenerated from the *new*
+- **`docs/assets/images/apple-touch-icon.png`** — regenerated via the real
+  `scripts/render-apple-touch-icon.js` (Playwright/Chromium) from the new
   `docs/favicon.svg`, 180×180, structurally validated by the existing
   favicon-contract test (chunk bounds, CRC, IDAT inflate size — the same
-  checks that caught the #1467 corrupt-PNG bug on 09-13).
+  checks that caught the #1467 corrupt-PNG bug on 09-13). Also fixed a real
+  bug in that script surfaced by running it for real — see below.
 - **`docs/assets/images/nbd-logo.png`** (header/nav/footer wordmark) —
   swapped for `web/logo-color-600-transparent.png` (600×308, real PNG, ~54KB).
   This is a **different aspect ratio** than the 135×75 (1.8:1) art PR #1554
@@ -80,11 +82,12 @@ unmodified against the new bytes.
   transparent — the crop-to-bbox step still runs on top of it, same as
   before).
 - **`print-assets/nbd-logo-print.png`** and **`docs/pro/js/nbd-logo-asset.js`**
-  — regenerated (crop-to-bbox + 4% pad + 64-color quantize, then wrapped as a
-  base64 data-URI module). Capped the source at 1200px wide before
-  quantizing — the master is a 4K upscale but nothing displays this above
-  ~300 CSS px, so quantizing the full trimmed resolution just produced a
-  158KB module for no visual gain; 1200px lands the module at 104KB.
+  — regenerated via the real `scripts/crop-logo-master.py` +
+  `scripts/build-logo-asset.js` (crop-to-bbox + 4% pad + 64-color quantize,
+  then wrapped as a base64 data-URI module): 2124×1158, 87KB module. No
+  resolution cap — that script doesn't have one, and an earlier sharp-based
+  attempt that added a 1200px cap to control module size turned out both
+  unfaithful to the real pipeline and unnecessary (see below).
 - **`scripts/assets/nbd-wordmark.png`** — the standalone Python
   estimate-PDF tool's independent 4th copy of the logo. Replaced with the
   same `web/logo-color-600-transparent.png` used for the header, rather than
@@ -99,28 +102,49 @@ unmodified against the new bytes.
   wasn't worth the blast radius (this token cascades into
   `docs/pro/manifest.json`'s `theme_color` and CSS across the print system).
 
-## Two tooling substitutions, flagged rather than silent
+## Two tooling substitutions — first sharp, then cross-checked against the real thing
 
-This environment had **no Python** (so `scripts/crop-logo-master.py`,
-Pillow-based, couldn't run) and **no Playwright** (`tests/node_modules` was
-present but `playwright-core` wasn't, so `scripts/render-apple-touch-icon.js`
-couldn't run either). Both were reimplemented one-off with `sharp`
-(vendored under `functions/node_modules`, confirmed already present) instead
-of skipping the step or hand-copying the pack's own pre-rendered files
-verbatim:
+This environment initially looked like it had **no Python** (`python`/
+`python3` on PATH are Windows Store-install stubs that report "not found")
+and **no Playwright** (`tests/node_modules/playwright-core` wasn't found by
+an early, wrongly-chained check). The crop/quantize and SVG→PNG steps were
+first reimplemented one-off with `sharp` (vendored under
+`functions/node_modules`) as `sharp().trim()`+`.extend()`+
+`.png({palette:true, colors:64})` and `sharp(svgBuffer).resize(180,180).png()`
+respectively.
 
-- The crop script's bbox-trim + 4% pad + 64-color quantize became
-  `sharp().trim()` + `.extend()` + `.png({palette:true, colors:64})`.
-- The apple-touch rasterization became `sharp(svgBuffer).resize(180,180).png()`
-  — librsvg-backed, and this SVG has no gradients/filters/fonts, so the
-  render should be pixel-equivalent to the Chromium path, but this has not
-  been cross-checked against Playwright output. **Worth a follow-up**: run
-  the real `scripts/crop-logo-master.py` and
-  `scripts/render-apple-touch-icon.js` on a machine that has Pillow and
-  Playwright, diff their output against what's committed here, and replace
-  if they disagree. Both outputs pass every existing structural/contract
-  test in the meantime, including the byte-level PNG chunk walk that caught
-  the #1467 corruption bug.
+**Both turned out to be avoidable substitutions, caught by going back and
+checking properly:**
+
+- A **real Python 3.14.3 with Pillow 12.1.1** exists at
+  `C:\Users\jonat\AppData\Local\Python\pythoncore-3.14-64\python.exe` — just
+  not the name `python3`/`python` resolves to in this shell (a PATH-shadowing
+  issue, not an absent tool). Running the actual `scripts/crop-logo-master.py`
+  through it
+  produced `nbd-logo-print.png` at **2124×1158** — no downscale step exists
+  in that script, so at this master's 3840px resolution (a real "upscale,"
+  vs. the old master's 1536px) the bbox crop is naturally ~2.5× larger than
+  my sharp version, which had added an unrequested 1200px width cap to keep
+  the CRM module small. The real, uncapped output is what's committed now
+  (`docs/pro/js/nbd-logo-asset.js` regenerated from it, 87KB module vs. my
+  capped 104KB attempt — Pillow's quantizer is more efficient anyway, so the
+  "faithful" version isn't even the bigger one).
+- `tests/node_modules` **did** have `playwright`/`playwright-core`/
+  `@playwright` all along — the first check chained too many `&&`/`||`
+  clauses in one line and mis-evaluated. Running the real
+  `scripts/render-apple-touch-icon.js` surfaced a genuine bug my sharp
+  substitute had silently gotten away with: the script hardcodes
+  `const TILE = '#1a3057'` (the *old* favicon's navy tile) as the color it
+  flattens onto before drawing the SVG, so iOS's own corner-rounding mask
+  has an opaque, on-brand fill underneath instead of showing raw transparency
+  (the whole reason this script exists — see its header comment on #1467).
+  The new `docs/favicon.svg` has a **white** tile now, so `TILE` was stale
+  and every apple-touch-icon this session had produced before this check had
+  navy-filled corners around a white rounded-square glyph — visually wrong,
+  and invisible to every existing test (none of them assert a corner color,
+  only structural PNG validity). Fixed the constant to `#ffffff` and
+  re-rendered; confirmed by screenshot and a second `favicon-contract.test.js`
+  pass (still 77/77 — the gap in coverage is real and unaddressed here).
 
 ## C2PA metadata
 
@@ -163,8 +187,12 @@ renders fine. No new console errors — the only 404s on `/pro/login.html`
 
 ## Not done / left for a follow-up
 
-- Re-run the real Python/Playwright pipeline scripts on a machine that has
-  the deps and diff against what's committed (see above).
+- `scripts/render-apple-touch-icon.js`'s corner-fill `TILE` constant is a
+  hand-maintained hex string, not derived from the SVG it renders — it will
+  go stale again the next time `docs/favicon.svg`'s background color
+  changes, exactly as it did this session. Nothing enforces the two stay in
+  sync; a test asserting `TILE` matches the SVG's actual background fill
+  would catch this class of bug before a session has to notice it visually.
 - `docs/pro/img/nbd-icon-*.png` still has no generator or contract-test
   coverage (pre-existing gap, not introduced or closed here).
 - The auto-traced SVG path bloat (not cleaned up — no `svgo` available).
