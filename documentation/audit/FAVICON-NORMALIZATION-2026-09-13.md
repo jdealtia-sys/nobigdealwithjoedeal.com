@@ -188,3 +188,27 @@ will fail on any malformed replacement.
 rows 64 (two favicons across `/pro`, assigned backwards), 74 (a blog
 apple-touch icon pointing at an SVG) and 76 (`/pro/terms.html` with no
 favicon) — see the dated update at the bottom of that note.
+
+## Update 2026-09-14 — both "not done" items closed, one of them twice over
+
+[SESSION-2026-09-14-brand-refresh-logo-favicon](../projects/SESSION-2026-09-14-brand-refresh-logo-favicon.md)
+shipped a full logo/favicon artwork refresh from a new design pack. Both
+items in "Not done, deliberately" above are now stale:
+
+- **The Arial-Black `<text>` glyph is gone.** Both `docs/favicon.svg` and
+  `docs/pro/favicon.svg` now draw the roofline mark as vector `<path>` data
+  (from the new pack) — no font dependency, so the font-fallback risk this
+  section warned about no longer applies. (The new marks *are* wordless at
+  favicon size, same as the paths they replace — the "NBD" wordmark only
+  appears on the 192px-and-up app icons, e.g. `docs/pro/img/nbd-icon-192.png`.)
+- **`docs/assets/images/nbd-logo.png`'s PNG-signature problem was already
+  fixed once, independently, the same day** — PR #1554 (`fix(brand): crop the
+  wasted whitespace out of the header logo, size it up`, `516c2f5d`,
+  2026-09-14 11:37) re-encoded it as a real PNG (135×75) before this session
+  ever touched it. The 2026-09-14 brand-pack swap then replaced its content
+  again with new 600×308 artwork — still a genuine PNG (`89 50 4E 47…`), and
+  now sized closer to its actual display width. `docs/pro/js/nbd-logo-asset.js`
+  and `print-assets/nbd-logo-print.png` were regenerated from the new master
+  too. Full mapping and the two tooling substitutions (sharp in place of the
+  repo's Python/Playwright pipelines, unavailable in that session's
+  environment) are in the session note linked above.

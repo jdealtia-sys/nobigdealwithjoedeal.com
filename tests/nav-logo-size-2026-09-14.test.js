@@ -21,6 +21,15 @@
  * separate brand chrome per Jo's brand-separation rule) catches drift that
  * bypassed the partial system.
  *
+ * UPDATE 2026-09-14 (later same day): the new logo/favicon brand-pack swap
+ * replaced the source artwork again — 600x308 now, not the 135x75 this file
+ * originally pinned. The `height:60px` rendered size and the CSS/markup this
+ * test guards against regressing to are unchanged; only the intrinsic
+ * width/height (an aspect-ratio hint for CLS, not the display size — see
+ * `style="height:60px;width:auto"`) moved with the new artwork's real
+ * dimensions. Session note:
+ * documentation/projects/SESSION-2026-09-14-brand-refresh-logo-favicon.md.
+ *
  * Pure-Node, zero-dep (PNG dimensions read from the raw IHDR chunk — no
  * image library needed). Run: node tests/nav-logo-size-2026-09-14.test.js
  */
@@ -53,13 +62,13 @@ console.log('\nsite-src/partials/ — the source of truth');
   const navFiles = ['nav-standard.html', 'nav-blog.html', 'nav-microsite.html', 'nav-tool.html'];
   for (const f of navFiles) {
     const src = fs.readFileSync(path.join(ROOT, 'site-src', 'partials', f), 'utf8');
-    ok(f + ': logo renders at height:60px', /nbd-logo\.png" width="135" height="75"[^>]*style="height:60px/.test(src));
+    ok(f + ': logo renders at height:60px', /nbd-logo\.png" width="600" height="308"[^>]*style="height:60px/.test(src));
     ok(f + ': no redundant nav-logo-text label next to the image', !src.includes('nav-logo-text'));
   }
   const footerFiles = ['footer-extended.html', 'footer-blog.html'];
   for (const f of footerFiles) {
     const src = fs.readFileSync(path.join(ROOT, 'site-src', 'partials', f), 'utf8');
-    ok(f + ': footer logo also raised to height:60px', /nbd-logo\.png" width="135" height="75"[^>]*style="height:60px/.test(src));
+    ok(f + ': footer logo also raised to height:60px', /nbd-logo\.png" width="600" height="308"[^>]*style="height:60px/.test(src));
   }
 }
 
@@ -80,11 +89,11 @@ console.log('\nPublished docs/ tree (excluding docs/pro/** — separate brand ch
 console.log('\nA representative sample actually renders the new size (not just present somewhere in the file)');
 {
   const home = fs.readFileSync(path.join(DOCS, 'index.html'), 'utf8');
-  ok('index.html nav: 60px logo present', /nbd-logo\.png" width="135" height="75"[^>]*style="height:60px/.test(home));
+  ok('index.html nav: 60px logo present', /nbd-logo\.png" width="600" height="308"[^>]*style="height:60px/.test(home));
   ok('index.html nav: no nav-logo-text label', !/<div class="nav-logo-text">[\s\S]{0,20}<div class="brand">NO BIG DEAL/.test(home));
-  ok('index.html footer: 60px logo present too (its own hand-authored footer, not the shared partial)', (home.match(/nbd-logo\.png" width="135" height="75"[^>]*style="height:60px/g) || []).length >= 2);
+  ok('index.html footer: 60px logo present too (its own hand-authored footer, not the shared partial)', (home.match(/nbd-logo\.png" width="600" height="308"[^>]*style="height:60px/g) || []).length >= 2);
   const about = fs.readFileSync(path.join(DOCS, 'about.html'), 'utf8');
-  ok('about.html (partial-managed): 60px logo present', /nbd-logo\.png" width="135" height="75"[^>]*style="height:60px/.test(about));
+  ok('about.html (partial-managed): 60px logo present', /nbd-logo\.png" width="600" height="308"[^>]*style="height:60px/.test(about));
 }
 
 console.log('\nThe source image itself is the real, cropped asset (not just the markup claiming new numbers)');
@@ -97,7 +106,7 @@ console.log('\nThe source image itself is the real, cropped asset (not just the 
   if (isPng) {
     const width = buf.readUInt32BE(16);
     const height = buf.readUInt32BE(20);
-    ok('cropped to 135x75 (was 240x160, mostly white padding)', width === 135 && height === 75, width + 'x' + height);
+    ok('sized at 600x308 (2026-09-14 brand-pack artwork; was 135x75 post-crop, 240x160 before that)', width === 600 && height === 308, width + 'x' + height);
   }
 }
 
