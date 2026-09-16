@@ -220,6 +220,9 @@ const RUNNABLE = ['node', 'smoke'];
 //               Warranty Claim lane — the third and final piece of the
 //               original three-lane CRM streamlining ask, after Collections
 //               and Paperwork Filing).
+//   2026-09-15  132/67/218 → 133/67/219, tests/customer-audit-integrity.test.js
+//               (the forgeable customerAuditEvents resourceId fix + the
+//               document_view coverage gap in the customer audit trail).
 
 //   2026-09-15  TENTH collision: the photo-report-sharing lane (#1499,
 //               unmerged since 2026-09-08) rebased onto this tree adds one
@@ -233,7 +236,11 @@ const RUNNABLE = ['node', 'smoke'];
 //               (133/67/219 missed the new smoke suite; 132/68/219 missed
 //               the new node suite) — re-measured via --check on the
 //               rebased tree per this ledger's own rule.
-const FLOORS = { node: 133, smoke: 68, disk: 220 };
+//   2026-09-15  TWELFTH collision: the customer-audit-integrity lane
+//               (forgeable resourceId fix + document_view coverage) adds
+//               one node suite on top of 133/68/220. Re-measured via
+//               --check on the merged tree.
+const FLOORS = { node: 134, smoke: 68, disk: 221 };
 
 // ── Argument parsing ───────────────────────────────────────────────
 const argv = process.argv.slice(2);

@@ -100,13 +100,66 @@ exports.recordCustomerEvent = onRequest({
   const fwd = String(req.headers['x-forwarded-for'] || '').split(',')[0].trim();
   const ip = fwd || (req.connection && req.connection.remoteAddress) || '';
 
+  // Dispute-grade proof requires the claimed resourceId to actually be
+  // something the token's homeowner could see — otherwise the rep who
+  // minted the token (or anyone holding it) could fabricate a
+  // photo_view/estimate_view/document_view for any id and it would land
+  // in customerAuditEvents indistinguishable from a real view (audit
+  // finding: customerAuditEvents dispute evidence is forgeable).
+  //
+  // A verified resourceId is stamped as-is with resourceVerified:true.
+  // A claimed-but-unconfirmed resourceId is NULLED (never trusted
+  // verbatim) and the entry is stamped resourceVerified:false so a
+  // dispute export / rep UI never presents it with server-verified
+  // weight. Types that carry no resource (portal_open, photo_upload)
+  // get resourceVerified:null — verification doesn't apply.
+  let verifiedResourceId = null;
+  let resourceVerified = null;
+  if (resourceId) {
+    if (type === 'photo_view') {
+      resourceVerified = false;
+      try {
+        const pSnap = await db.doc(`photos/${resourceId}`).get();
+        if (pSnap.exists) {
+          const p = pSnap.data() || {};
+          if (p.leadId === tok.leadId && p.sharedWithHomeowner === true) {
+            verifiedResourceId = resourceId;
+            resourceVerified = true;
+          }
+        }
+      } catch (e) {
+        logger.warn('customerAudit.resource_verify_failed', { err: e.message, type });
+      }
+    } else if (type === 'estimate_view' || type === 'document_view') {
+      resourceVerified = false;
+      try {
+        const eSnap = await db.doc(`estimates/${resourceId}`).get();
+        if (eSnap.exists) {
+          const e = eSnap.data() || {};
+          // document_view claims a SIGNED document was viewed — require the
+          // estimate to actually have one, not just belong to the lead.
+          const docOk = type !== 'document_view' || !!e.signedDocumentUrl;
+          if (e.leadId === tok.leadId && docOk) {
+            verifiedResourceId = resourceId;
+            resourceVerified = true;
+          }
+        }
+      } catch (e) {
+        logger.warn('customerAudit.resource_verify_failed', { err: e.message, type });
+      }
+    }
+    // Other types (portal_open, photo_upload) never carry a meaningful
+    // resourceId — drop whatever was sent rather than storing it unchecked.
+  }
+
   try {
     await db.collection('customerAuditEvents').add({
       leadId:     tok.leadId,
       ownerUid:   tok.ownerUid,
       tokenId:    token,
       type:       type,
-      resourceId: resourceId,
+      resourceId: verifiedResourceId,
+      resourceVerified: resourceVerified,
       ip:         ip.slice(0, 64),
       userAgent:  ua,
       createdAt:  FieldValue.serverTimestamp(),
