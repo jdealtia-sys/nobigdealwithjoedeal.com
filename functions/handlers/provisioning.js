@@ -82,6 +82,21 @@ exports.createCompany = onCall(
         'This account already belongs to a company.');
     }
 
+    // Platform admins never lose their role claim through self-serve
+    // provisioning. Mirrors claimInvite's guard (handlers/invites.js:95,
+    // "Never let an invite doc rewrite a platform admin's claims.") —
+    // createCompany had no equivalent, so a platform admin testing
+    // self-serve signup or hitting the onboarding wizard's self-heal
+    // retry got mergeCustomClaims(uid, { role: 'company_admin' }) applied
+    // unconditionally, demoting them from 'admin' until mintOwnerClaims
+    // was manually re-run. companyId alone is safe to add: isGlobalAdmin
+    // checks bypass company scoping everywhere else (_shared.js), so it
+    // never narrows an admin's access — only `role` needs protecting.
+    const isPlatformAdmin = request.auth.token.role === 'admin';
+    const tenantClaimPatch = isPlatformAdmin
+      ? { companyId: uid }
+      : { companyId: uid, role: 'company_admin' };
+
     const db = getFirestore();
     const companyRef = db.doc(`companies/${uid}`);
 
@@ -93,7 +108,7 @@ exports.createCompany = onCall(
         // the uid convention — refuse loudly rather than adopt it.
         throw new HttpsError('failed-precondition', 'Company id conflict.');
       }
-      if (!claimCompany) await mergeCustomClaims(uid, { companyId: uid, role: 'company_admin' });
+      if (!claimCompany) await mergeCustomClaims(uid, tenantClaimPatch);
       return { created: false, companyId: uid };
     }
 
@@ -160,7 +175,7 @@ exports.createCompany = onCall(
       }
     }
 
-    await mergeCustomClaims(uid, { companyId: uid, role: 'company_admin' });
+    await mergeCustomClaims(uid, tenantClaimPatch);
 
     logger.info('createCompany_provisioned', { uid, name: v.name });
     // Client must force-refresh the ID token to pick up the new claims.

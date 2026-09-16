@@ -240,7 +240,14 @@ const RUNNABLE = ['node', 'smoke'];
 //               (forgeable resourceId fix + document_view coverage) adds
 //               one node suite on top of 133/68/220. Re-measured via
 //               --check on the merged tree.
-const FLOORS = { node: 134, smoke: 68, disk: 221 };
+//   2026-09-15  THIRTEENTH collision: the createCompany admin-claim-guard
+//               lane independently adds one node suite from the SAME
+//               133/68/220 base as the customer-audit lane above — both
+//               landed on the literal 134/68/221 by coincidence, which is
+//               not evidence either alone was right for a tree carrying
+//               both. Re-measured via --check on the merged tree: both
+//               suites present pushes this to 135/68/222.
+const FLOORS = { node: 135, smoke: 68, disk: 222 };
 
 // ── Argument parsing ───────────────────────────────────────────────
 const argv = process.argv.slice(2);

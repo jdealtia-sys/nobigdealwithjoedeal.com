@@ -27,6 +27,7 @@
     "billing-gate.test.js",
     "calendar-feed.test.js",
     "company-stale-fields-cleanup.test.js",
+    "createcompany-admin-claim-guard.test.js",
     "crm-audit.test.js",
     "cron-heartbeat.test.js",
     "cust-id-prefix.test.js",
